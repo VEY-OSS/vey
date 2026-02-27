@@ -95,7 +95,7 @@ You can find Dockerfile(s) under the *docker* folder of each application. The bu
 # run this in the source root dir
 docker build -f <app>/docker/debian.Dockerfile . -t <app>:<tag>
 # build without the source code
-docker build -f <app>/docker/debian.Dockerfile github.com/bytedance/g3 -t <app>:<tag>
+docker build -f <app>/docker/debian.Dockerfile github.com/G3-OSS/g3 -t <app>:<tag>
 # if you have a source tarball, you can also use the URL of that tarball
 ```
 

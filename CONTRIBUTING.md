@@ -1,61 +1,58 @@
-# Contributing
+# Contributing Guidelines
 
-Thank you for investing your time in contributing to G3 project!
+Thank you for your interest in contributing to our project. Whether it's a bug report, new feature, correction, or
+additional documentation, we greatly value feedback and contributions from our community.
 
-Read our [Code of Conduct](CODE_OF_CONDUCT.md) to keep our community approachable and respectable.
+Please read through this document before submitting any issues or pull requests to ensure we have all the necessary
+information to effectively respond to your bug report or contribution.
 
-This guide details how to use issues and pull requests to improve G3 project.
+## Reporting Bugs/Feature Requests
 
-## General Guidelines
+We welcome you to use the GitHub issue tracker to report bugs or suggest features.
 
-### Pull Requests
+When filing an issue, please check existing open, or recently closed, issues to make sure somebody else hasn't already
+reported the issue. Please try to include as much information as you can. Details like these are incredibly useful:
 
-Make sure to keep Pull Requests small and functional to make them easier to review, understand, and look up in commit history. This repository uses "Squash and Commit" to keep our history clean and make it easier to revert changes based on PR.
-
-Adding the appropriate documentation, unit tests and e2e tests as part of a feature is the responsibility of the feature owner, whether it is done in the same Pull Request or not.
-
-Pull Requests should follow the "subject: message" format, where the subject describes what part of the code is being modified.
-
-Refer to the template for more information on what goes into a PR description.
-
-### Design Docs
-
-A contributor proposes a design with a PR on the repository to allow for revisions and discussions. If a design needs to be discussed before formulating a document for it, make use of Google doc and GitHub issue to involve the community on the discussion.
-
-### GitHub Issues
-
-GitHub Issues are used to file bugs, work items, and feature requests with actionable items/issues (Please refer to the "Reporting Bugs/Feature Requests" section below for more information).
-
-### Reporting Bugs/Feature Requests
-
-We welcome you to use the GitHub issue tracker to report bugs or suggest features that have actionable items/issues (as opposed to introducing a feature request on GitHub Discussions).
-
-When filing an issue, please check existing open, or recently closed, issues to make sure somebody else hasn't already reported the issue. Please try to include as much information as you can. Details like these are incredibly useful:
-
-- A reproducible test case or series of steps
-- The version of the code being used
-- Any modifications you've made relevant to the bug
-- Anything unusual about your environment or deployment
+* A reproducible test case or series of steps
+* The version of our code being used
+* Any modifications you've made relevant to the bug
+* Anything unusual about your environment or deployment
 
 ## Contributing via Pull Requests
 
-### Find interesting issue
+Contributions via pull requests are much appreciated. Before sending us a pull request, please ensure that:
 
-If you spot a problem with the problem, [search if an issue already exists](https://github.com/bytedance/g3/issues). If a related issue doesn't exist, you can open a new issue using [issue template](https://github.com/bytedance/g3/issues/new/choose).
+1. You are working against the latest source on the `main` branch.
+2. You check existing open, and recently merged, pull requests to make sure someone else hasn't addressed the problem
+   already.
+3. You open an issue to discuss any significant work.
 
-### Solve an issue
+To send us a pull request, please:
 
-Please check `DEVELOPMENT.md` in sub folder to get familiar with running and testing codes.
+1. Fork the repository.
+2. Modify the source; please focus on the specific change you are contributing. If you also reformat all the code, it
+   will be hard for us to focus on your change.
+3. Ensure local tests for your changes pass.
+4. Commit to your fork using clear commit messages. Our default workflow is to rebase clean commit history from a PR to
+   `main`.
+5. Add necessary CI tests and fix the CI failures that's related to your changes.
+6. Send us a pull request, and stay involved in the conversation.
 
-### Open a Pull request.
-
-When you're done making the changes, open a pull request and fill PR template, so we can better review your PR. The template helps reviewers understand your changes and the purpose of your pull request.
-
-Don't forget to link PR to issue if you are solving one.
-
-If you run into any merge issues, checkout this [git tutorial](https://lab.github.com/githubtraining/managing-merge-conflicts) to help you resolve merge conflicts and other issues.
-
+GitHub provides additional document on [forking a repository](https://help.github.com/articles/fork-a-repo/) and
+[creating a pull request](https://help.github.com/articles/creating-a-pull-request/).
 
 ## Finding contributions to work on
 
-Looking at the existing issues is a great way to find something to contribute on. As our projects, by default, use the default GitHub issue labels (enhancement/bug/duplicate/help wanted/invalid/question/wont fix), looking at any 'help wanted' and 'good first issue' issues are a great place to start.
+Looking at the existing issues is a great way to find something to contribute on. As our projects, by default, use the
+default GitHub issue labels (enhancement/bug/duplicate/help wanted/invalid/question/wontfix), looking at any 'help
+wanted' or 'good first issue' issues is a great place to start.
+
+## Security issue notifications
+
+Please report security bugs
+by [opening a draft security advisory](https://github.com/G3-OSS/g3/security/advisories/new) in GitHub, and not as a
+regular repository issue.
+
+## Licensing
+
+Contributions are made under [LICENSE](LICENSE).

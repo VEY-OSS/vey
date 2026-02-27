@@ -3,11 +3,13 @@
 [![codecov](https://codecov.io/gh/bytedance/g3/graph/badge.svg?token=TSQCA4ALQM)](https://codecov.io/gh/bytedance/g3)
 [![docs](https://readthedocs.org/projects/g3-project/badge)](https://g3-project.readthedocs.io/)
 
-# G3 Project
+# G3-OSS Project
 
 [English README](README.md) | [日本語 README](README.ja_JP.md)
 
 ## 关于
+
+本项目由原作者fork自原[G3项目](https://github.com/bytedance/g3)。
 
 本项目用于构建面向企业的通用代理解决方案，包括但不限于代理、反向代理（开发中）、负载均衡（待定）、NAT穿透（开发中）等。
 
@@ -131,32 +133,14 @@ Cloudflare Keyless Server的简单实现。
 
 参考 [Contributing](CONTRIBUTING.md)。
 
-## 交流合作
+## 贡献者公约
 
-请使用[飞书](https://www.feishu.cn/download)加群，
-[G3代理用户交流群加入链接](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=9fah8def-d024-4db5-91cd-522ae09c2b72)，
-或使用如下二维码:
+参考[Code of Conduct](CODE_OF_CONDUCT.md)。
 
-<img alt="" src="G3-FEISHU-USER-GROUP.png" width="50%" height="50%">
+## 安全
 
-## Code of Conduct
+请[创建security advisory](https://github.com/G3-OSS/g3/security/advisories/new)，不要直接提issue。
 
-Please check [Code of Conduct](CODE_OF_CONDUCT.md) for more details.
+## 许可证
 
-## Security
-
-If you discover a potential security issue in this project, or think you may
-have discovered a security issue, we ask that you notify Bytedance Security via our
-[security center](https://security.bytedance.com/src) or [vulnerability reporting email](mailto:sec@bytedance.com).
-
-Please do **not** create a public GitHub issue.
-
-## License
-
-This project is licensed under the [Apache-2.0 License](LICENSE).
-
-## 404星链计划
-
-<img src="https://github.com/knownsec/404StarLink/raw/master/Images/logo.png" width="30%">
-
-[g3proxy](g3proxy) 现已加入 [404星链计划](https://github.com/knownsec/404StarLink)
+本项目使用许可证为 [Apache-2.0 License](LICENSE)。

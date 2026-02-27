@@ -3,11 +3,13 @@
 [![codecov](https://codecov.io/gh/bytedance/g3/graph/badge.svg?token=TSQCA4ALQM)](https://codecov.io/gh/bytedance/g3)
 [![docs](https://readthedocs.org/projects/g3-project/badge)](https://g3-project.readthedocs.io/)
 
-# G3プロジェクト
+# G3-OSSプロジェクト
 
 [中文版 README](README.zh_CN.md) | [English README](README.md)
 
 ## 概要
+
+このプロジェクトは、[G3 プロジェクト](https://github.com/bytedance/g3) の作成者によるフォークです。
 
 これは、エンタープライズ向けの汎用プロキシソリューションを構築するために使用されるプロジェクトです。
 プロキシ / リバースプロキシ（作業中） / ロードバランサー（未定） / NATトラバーサル（作業中）などを含むがこれらに限定されません。
@@ -136,16 +138,15 @@ Cloudflare keylessサーバーの簡単な実装。
 
 ## 行動規範
 
-詳細については [Code of Conduct](CODE_OF_CONDUCT.md) を参照してください。
+詳細は[行動規範](CODE_OF_CONDUCT.md)をご確認ください。
 
 ## セキュリティ
 
-このプロジェクトで潜在的なセキュリティ問題を発見した場合、またはセキュリティ問題を発見したと思われる場合は、
-[セキュリティセンター](https://security.bytedance.com/src) または [脆弱性報告メール](mailto:sec@bytedance.com)
-を通じてBytedance Securityに通知してください。
+セキュリティバグは、GitHubで[セキュリティアドバイザリのドラフトを公開](https://github.com/G3-OSS/g3/security/advisories/new)
+してご報告ください。
 
-公開のGitHub issueを作成しないでください。
+GitHubで公開されているIssueを作成しないでください。
 
 ## ライセンス
 
-このプロジェクトは [Apache-2.0 License](LICENSE) の下でライセンスされています。
+このプロジェクトは[Apache 2.0 License](LICENSE)に基づいてライセンスされています。
