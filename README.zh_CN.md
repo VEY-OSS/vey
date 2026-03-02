@@ -3,15 +3,15 @@
 [![codecov](https://codecov.io/gh/bytedance/g3/graph/badge.svg?token=TSQCA4ALQM)](https://codecov.io/gh/bytedance/g3)
 [![docs](https://readthedocs.org/projects/g3-project/badge)](https://g3-project.readthedocs.io/)
 
-# G3-OSS Project
+# VEY Project
 
 [English README](README.md) | [日本語 README](README.ja_JP.md)
 
 ## 关于
 
-本项目由原作者fork自原[G3项目](https://github.com/bytedance/g3)。
+VEY（Versatile Edge Way的缩写）项目可用于构建面向企业的通用代理解决方案， 包括但不限于代理、反向代理（开发中）、负载均衡（待定）、NAT穿透（开发中）等。
 
-本项目用于构建面向企业的通用代理解决方案，包括但不限于代理、反向代理（开发中）、负载均衡（待定）、NAT穿透（开发中）等。
+本项目由原作者fork自原[G3项目](https://github.com/bytedance/g3)。
 
 ## 应用程序
 
@@ -139,7 +139,7 @@ Cloudflare Keyless Server的简单实现。
 
 ## 安全
 
-请[创建security advisory](https://github.com/G3-OSS/g3/security/advisories/new)，不要直接提issue。
+请[创建security advisory](https://github.com/VEY-OSS/vey/security/advisories/new)，不要直接提issue。
 
 ## 许可证
 

@@ -9,10 +9,10 @@
 
 ## 概要
 
-このプロジェクトは、[G3 プロジェクト](https://github.com/bytedance/g3) の作成者によるフォークです。
+VEY は Versatile Edge Way の略で、プロキシ / リバース プロキシ (WIP) / ロード バランサ (TBD) / NAT トラバーサル (WIP)
+など、エンタープライズ向けの汎用プロキシ ソリューションを構築するために使用できるプロジェクトです。
 
-これは、エンタープライズ向けの汎用プロキシソリューションを構築するために使用されるプロジェクトです。
-プロキシ / リバースプロキシ（作業中） / ロードバランサー（未定） / NATトラバーサル（作業中）などを含むがこれらに限定されません。
+このプロジェクトは、[G3 プロジェクト](https://github.com/bytedance/g3) の作成者によるフォークです。
 
 ## アプリ
 
@@ -142,7 +142,7 @@ Cloudflare keylessサーバーの簡単な実装。
 
 ## セキュリティ
 
-セキュリティバグは、GitHubで[セキュリティアドバイザリのドラフトを公開](https://github.com/G3-OSS/g3/security/advisories/new)
+セキュリティバグは、GitHubで[セキュリティアドバイザリのドラフトを公開](https://github.com/VEY-OSS/vey/security/advisories/new)
 してご報告ください。
 
 GitHubで公開されているIssueを作成しないでください。

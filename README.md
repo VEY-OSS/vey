@@ -3,20 +3,20 @@
 [![codecov](https://codecov.io/gh/bytedance/g3/graph/badge.svg?token=TSQCA4ALQM)](https://codecov.io/gh/bytedance/g3)
 [![docs](https://readthedocs.org/projects/g3-project/badge)](https://g3-project.readthedocs.io/)
 
-# G3-OSS Project
+# VEY Project
 
 [中文版 README](README.zh_CN.md) | [日本語 README](README.ja_JP.md)
 
 ## About
 
-This project is a fork of [the G3 project](https://github.com/bytedance/g3) by its creator.
+VEY, which is short for Versatile Edge Way, is a project can be used to build enterprise-oriented generic proxy
+solutions, including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) / NAT traversal (WIP).
 
-This project can be used to build enterprise-oriented generic proxy solutions,
-including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) / NAT traversal (WIP).
+This project is a fork of [the G3 project](https://github.com/bytedance/g3) by its creator.
 
 ## Applications
 
-The G3-OSS project consists of many applications, each of which has a separate subdirectory containing its own code,
+The VEY project consists of many applications, each of which has a separate subdirectory containing its own code,
 documentation, etc.
 
 In addition to the application directories, there are some public directories:
@@ -144,7 +144,7 @@ Please check [Code of Conduct](CODE_OF_CONDUCT.md) for more details.
 ## Security
 
 Please report security bugs
-by [opening a draft security advisory](https://github.com/G3-OSS/g3/security/advisories/new) in GitHub.
+by [opening a draft security advisory](https://github.com/VEY-OSS/vey/security/advisories/new) in GitHub.
 
 Please do **not** create a public GitHub issue.
 

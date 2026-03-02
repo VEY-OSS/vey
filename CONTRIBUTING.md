@@ -50,7 +50,7 @@ wanted' or 'good first issue' issues is a great place to start.
 ## Security issue notifications
 
 Please report security bugs
-by [opening a draft security advisory](https://github.com/G3-OSS/g3/security/advisories/new) in GitHub, and not as a
+by [opening a draft security advisory](https://github.com/VEY-OSS/vey/security/advisories/new) in GitHub, and not as a
 regular repository issue.
 
 ## Licensing
