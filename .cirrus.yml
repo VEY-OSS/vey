@@ -6,9 +6,10 @@ freebsd_task:
     disk: 100 # Gb
   #freebsd_instance:
   #  image_family: freebsd-15-0-amd64-zfs
-  switch_to_latest_pkg_script:
-    - mkdir -p /usr/local/etc/pkg/repos/
-    - "echo 'FreeBSD: {url: \"pkg+http://pkg.FreeBSD.org/${ABI}/latest\"}' > /usr/local/etc/pkg/repos/FreeBSD.conf"
+  #switch_to_latest_pkg_script:
+  #  - mkdir -p /usr/local/etc/pkg/repos/
+  #  - "echo 'FreeBSD: {url: \"pkg+http://pkg.FreeBSD.org/${ABI}/latest\"}' > /usr/local/etc/pkg/repos/FreeBSD.conf"
+  update_pkg:
     - pkg update -f
     - pkg upgrade -y
   install_script:

@@ -31,19 +31,19 @@ jobs:
       - run:
           name: Checkout git repo
           command: |
-            git clone -b << pipeline.git.branch >> << pipeline.project.git_url >> g3
+            git clone -b << pipeline.git.branch >> << pipeline.project.git_url >> vey
       - run:
           name: Build source tarball
           environment:
             NO_CARGO_CACHE_CLEAN: yes
-          working_directory: g3
+          working_directory: vey
           command: |
             ./scripts/release/build_tarball.sh << pipeline.parameters.package >>-v<< pipeline.parameters.version >>
       - save_cache:
           name: Cache source tarball
           key: << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
           paths:
-            - "g3/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz"
+            - "vey/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz"
   build-deb:
     parameters:
       image:
@@ -77,20 +77,20 @@ jobs:
             - << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
       - run:
           name: Extract source code
-          working_directory: g3
+          working_directory: vey
           command: tar xf << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
       - run:
           name: Build package
-          working_directory: g3/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>
+          working_directory: vey/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>
           command: ./scripts/build_deb_from_tar.sh
       - run:
           name: Create output dir
-          working_directory: g3
+          working_directory: vey
           command: |
             mkdir DEBS
             mv << pipeline.parameters.package >>_<< pipeline.parameters.version >>-* DEBS
       - store_artifacts:
-          path: g3/DEBS
+          path: vey/DEBS
   build-rpm:
     parameters:
       image:
@@ -143,7 +143,7 @@ jobs:
           name: Build package
           environment:
             G3_CAPNP_USE_PRECOMPILED: yes
-          working_directory: g3
+          working_directory: vey
           command: rpmbuild -ta << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
       - store_artifacts:
           path: ~/rpmbuild/RPMS
