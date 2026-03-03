@@ -22,3 +22,6 @@ multiproject_projects = {
         "path": "g3keymess",
     },
 }
+
+# Common options
+html_theme = 'sphinx_rtd_theme'

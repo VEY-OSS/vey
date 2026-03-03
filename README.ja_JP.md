@@ -1,7 +1,7 @@
 [![minimum rustc: 1.90](https://img.shields.io/badge/minimum%20rustc-1.90-green?logo=rust)](https://www.whatrustisit.com)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![codecov](https://codecov.io/gh/VEY-OSS/vey/graph/badge.svg?token=c8gK1HrRsX)](https://codecov.io/gh/VEY-OSS/vey)
-[![docs](https://readthedocs.org/projects/g3-project/badge)](https://g3-project.readthedocs.io/)
+[![docs](https://readthedocs.org/projects/vey/badge)](https://vey.readthedocs.io/)
 
 # G3-OSSプロジェクト
 

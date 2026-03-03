@@ -6,8 +6,8 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'G3'
-copyright = '2025, Zhang Jingqiang'
+project = 'VEY'
+copyright = '2025 - 2026, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
 
 # -- General configuration ---------------------------------------------------
@@ -17,8 +17,6 @@ extensions = []
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-
-
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
