@@ -2,15 +2,6 @@ name: CrossCompiling
 permissions: { }
 
 on:
-  push:
-    paths-ignore:
-      - 'ansible/**'
-      - 'doc/**'
-      - 'sphinx/**'
-      - 'scripts/**'
-    branches:
-      - 'master'
-      - 'lts/**'
   pull_request:
     paths-ignore:
       - 'ansible/**'
@@ -18,7 +9,7 @@ on:
       - 'sphinx/**'
       - 'scripts/**'
     branches:
-      - 'master'
+      - 'main'
       - 'lts/**'
 
 concurrency:

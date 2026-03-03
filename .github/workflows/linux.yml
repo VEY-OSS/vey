@@ -9,7 +9,7 @@ on:
       - 'sphinx/**'
       - 'scripts/**'
     branches:
-      - 'master'
+      - 'main'
       - 'lts/**'
   pull_request:
     paths-ignore:
@@ -18,7 +18,7 @@ on:
       - 'sphinx/**'
       - 'scripts/**'
     branches:
-      - 'master'
+      - 'main'
       - 'lts/**'
 
 concurrency:
