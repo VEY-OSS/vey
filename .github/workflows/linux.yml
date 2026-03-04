@@ -91,7 +91,7 @@ jobs:
           - vendored-aws-lc-fips,rustls-aws-lc-fips
         component:
           - g3proxy
-          - g3bench
+          - vey-bench
           - g3tiles
         include:
           - feature: vendored-c-ares,rustls-ring

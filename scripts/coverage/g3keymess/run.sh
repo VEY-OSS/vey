@@ -12,9 +12,9 @@ g3keymess_ctl()
 	"${PROJECT_DIR}"/target/debug/g3keymess-ctl -G ${TEST_NAME} -p $KEYSERVER_PID "$@"
 }
 
-g3bench()
+vey_bench()
 {
-	"${PROJECT_DIR}"/target/debug/g3bench --no-progress-bar --log-error 1 "$@"
+	"${PROJECT_DIR}"/target/debug/vey-bench --no-progress-bar --log-error 1 "$@"
 }
 
 test_rsa()
@@ -25,12 +25,12 @@ test_rsa()
 	for hash in sha256 sha384 sha512
 	do
 		payload=$("${hash}sum" "${TEST_RSA_KEY_FILE}" | awk '{print $1}')
-		g3bench keyless cloudflare --no-tls --target 127.0.0.1:1300 --key "${TEST_RSA_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
-		g3bench keyless cloudflare --no-tls --target 127.0.0.1:1300 --key "${TEST_RSA_KEY_FILE}" --sign --digest-type $hash --rsa-padding PSS --verify "${payload}"
+		vey_bench keyless cloudflare --no-tls --target 127.0.0.1:1300 --key "${TEST_RSA_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
+		vey_bench keyless cloudflare --no-tls --target 127.0.0.1:1300 --key "${TEST_RSA_KEY_FILE}" --sign --digest-type $hash --rsa-padding PSS --verify "${payload}"
 	done
 
-	TO_DECRYPT_DATA=$(g3bench keyless openssl --key "${TEST_RSA_KEY_FILE}" --encrypt "abcdef" --no-summary --dump-result)
-	g3bench keyless cloudflare --no-tls --target 127.0.0.1:1300 --key "${TEST_RSA_KEY_FILE}" --decrypt --verify --verify-data "abcdef" "${TO_DECRYPT_DATA}"
+	TO_DECRYPT_DATA=$(vey_bench keyless openssl --key "${TEST_RSA_KEY_FILE}" --encrypt "abcdef" --no-summary --dump-result)
+	vey_bench keyless cloudflare --no-tls --target 127.0.0.1:1300 --key "${TEST_RSA_KEY_FILE}" --decrypt --verify --verify-data "abcdef" "${TO_DECRYPT_DATA}"
 }
 
 test_ec()
@@ -41,7 +41,7 @@ test_ec()
 	for hash in sha256 sha384 sha512
 	do
 		payload=$("${hash}sum" "${TEST_RSA_KEY_FILE}" | awk '{print $1}')
-		g3bench keyless cloudflare --no-tls --target 127.0.0.1:1300 --key "${TEST_EC_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
+		vey_bench keyless cloudflare --no-tls --target 127.0.0.1:1300 --key "${TEST_EC_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
 	done
 }
 

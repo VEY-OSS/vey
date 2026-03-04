@@ -1,0 +1,13 @@
+Source: vey-bench
+Section: net
+Priority: optional
+Maintainer: VEY-OSS Developers <developers@vey.oss>
+Build-Depends: debhelper, libssl-dev
+Standards-Version: 3.9.8
+Homepage: https://github.com/VEY-OSS/vey
+
+Package: vey-bench
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: ca-certificates
+Description: Multi-Target Benchmark Tool from the VEY project

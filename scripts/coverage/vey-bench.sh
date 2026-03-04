@@ -10,16 +10,16 @@ TEST_NAME="bench-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build -p g3bench -p g3mkcert -p g3proxy -p g3proxy-ctl -p g3statsd
+cargo build -p vey-bench -p g3mkcert -p g3proxy -p g3proxy-ctl -p g3statsd
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
-# run g3bench tests
+# run vey-bench tests
 
-cargo test -p g3bench
+cargo test -p vey-bench
 
-RUN_DIR="${SCRIPTS_DIR}/g3bench"
+RUN_DIR="${SCRIPTS_DIR}/vey-bench"
 . "${RUN_DIR}/run.sh"
 
 # get all profraw files generated in each test

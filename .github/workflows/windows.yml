@@ -68,7 +68,7 @@ jobs:
           - vendored-aws-lc,rustls-aws-lc
         component:
           - g3proxy
-          - g3bench
+          - vey-bench
           - g3tiles
     steps:
       - name: Install common tools

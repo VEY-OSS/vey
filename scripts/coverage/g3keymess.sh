@@ -10,7 +10,7 @@ TEST_NAME="g3keymess-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build --features openssl-async-job -p g3keymess -p g3keymess-ctl -p g3mkcert -p g3statsd -p g3bench
+cargo build --features openssl-async-job -p g3keymess -p g3keymess-ctl -p g3mkcert -p g3statsd -p vey-bench
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')

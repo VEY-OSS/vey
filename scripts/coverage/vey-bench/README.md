@@ -1,5 +1,5 @@
-Setup for g3bench coverage tests
-================================
+Setup for vey-bench coverage tests
+==================================
 
 # Install Required Tools
 

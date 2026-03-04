@@ -13,7 +13,7 @@ cd -
 
 sleep 1
 
-g3bench websocket h1 ws://127.0.0.1:7080/echo --payload 1234512312 --check-message-length 10
-g3bench websocket h1 ws://127.0.0.1:7080/echo --payload 1234512312 --binary --check-message-length 5
+vey_bench websocket h1 ws://127.0.0.1:7080/echo --payload 1234512312 --check-message-length 10
+vey_bench websocket h1 ws://127.0.0.1:7080/echo --payload 1234512312 --binary --check-message-length 5
 
 kill -INT $WEBSOCKET_PID
