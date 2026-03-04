@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-PACKAGE_NAME := g3bench
+PACKAGE_NAME := vey-bench
 BUILD_PROFILE := release-lto
 
 DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
@@ -18,10 +18,10 @@ override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
 	    --no-default-features --features rustls-ring,quic \
-	    --package g3bench
+	    --package vey-bench
 
 override_dh_auto_install:
-	install -m 755 -D target/$(BUILD_PROFILE)/g3bench debian/tmp/usr/bin/g3bench
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-bench debian/tmp/usr/bin/vey-bench
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG

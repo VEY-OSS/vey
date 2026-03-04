@@ -2,7 +2,8 @@
 
 ## Overview
 
-Profile-Guided Optimization (PGO) is a compiler optimization technique that uses runtime performance data to guide the compiler in generating more efficient code. This guide explains how to use Rust PGO in the g3 project.
+Profile-Guided Optimization (PGO) is a compiler optimization technique that uses runtime performance data to guide the
+compiler in generating more efficient code. This guide explains how to use Rust PGO in the g3 project.
 
 ## Prerequisites
 
@@ -70,7 +71,8 @@ Run performance benchmarks after optimization to verify effectiveness:
 
 ### 1. Instrumentation Build
 
-The script builds binaries with the `-Cprofile-generate` flag (the script internally uses a variable `PGO_DATA_DIR` whose default is `/tmp/pgo-data`):
+The script builds binaries with the `-Cprofile-generate` flag (the script internally uses a variable `PGO_DATA_DIR`
+whose default is `/tmp/pgo-data`):
 
 ```bash
 RUSTFLAGS="-Cprofile-generate=/tmp/pgo-data" cargo build --release -p <component>
@@ -144,7 +146,8 @@ Use the `--benchmark` option to automatically compare performance before and aft
 ./scripts/pgo/example_run.sh --components g3mkcert --benchmark
 ```
 
-**Note**: The script will automatically use `hyperfine` if available for more precise measurements, otherwise it falls back to the basic `time` command. For best results, install `hyperfine`:
+**Note**: The script will automatically use `hyperfine` if available for more precise measurements, otherwise it falls
+back to the basic `time` command. For best results, install `hyperfine`:
 
 ```bash
 cargo install hyperfine
@@ -206,7 +209,10 @@ This provides a statistically robust comparison of the performance before and af
 
 ### Current Workload Coverage
 
-At present, only `g3mkcert` has a meaningful workload wired into the PGO example script. Other components are invoked only with trivial `--help/--version` commands, which do NOT produce representative execution profiles and therefore will not yield noticeable performance improvements yet. Future work can extend realistic workloads (or reuse coverage scripts after dependency isolation) for additional components.
+At present, only `g3mkcert` has a meaningful workload wired into the PGO example script. Other components are invoked
+only with trivial `--help/--version` commands, which do NOT produce representative execution profiles and therefore will
+not yield noticeable performance improvements yet. Future work can extend realistic workloads (or reuse coverage scripts
+after dependency isolation) for additional components.
 
 ### Memory Usage
 
@@ -236,7 +242,7 @@ cargo install cargo-binutils
 
 ```bash
 # Select only lightweight components
-./scripts/pgo/example_run.sh --components g3mkcert,g3fcgen,g3bench
+./scripts/pgo/example_run.sh --components g3mkcert,g3fcgen,vey-bench
 ```
 
 **Issue**: Profile data not generated
@@ -257,7 +263,7 @@ rm -rf /tmp/pgo-data
 
 ```bash
 # Use fewer components or avoid memory-intensive ones
-./scripts/pgo/example_run.sh --components g3mkcert,g3fcgen,g3bench
+./scripts/pgo/example_run.sh --components g3mkcert,g3fcgen,vey-bench
 
 # Or increase system memory/swap space
 ```
@@ -267,7 +273,7 @@ rm -rf /tmp/pgo-data
 ### Component Selection Strategy
 
 1. **Development Testing**: Use default components (`g3mkcert`)
-2. **Lightweight Optimization**: Select a few key components (`g3mkcert,g3fcgen,g3bench`)
+2. **Lightweight Optimization**: Select a few key components (`g3mkcert,g3fcgen,vey-bench`)
 3. **Full Optimization**: Use `--all` on high-spec machines (note: may require substantial memory for `g3proxy`)
 
 ### Performance Testing Recommendations

@@ -64,7 +64,7 @@ A work in progress reverse proxy solution.
 
 [Reference Doc](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
 
-### g3bench
+### vey-bench
 
 A benchmark tool that supports:
 
@@ -75,7 +75,7 @@ A benchmark tool that supports:
 - Thrift RPC
 - Cloudflare Keyless
 
-[README](g3bench/README.md)
+[README](vey-bench/README.md)
 
 ### g3mkcert
 

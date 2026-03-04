@@ -15,7 +15,7 @@ const COMMAND_VERSION: &str = "version";
 const COMMAND_COMPLETION: &str = "completion";
 
 fn build_cli_args() -> Command {
-    g3bench::add_global_args(Command::new(g3bench::build::PKG_NAME))
+    vey_bench::add_global_args(Command::new(vey_bench::build::PKG_NAME))
         .subcommand_required(true)
         .subcommand_value_name("TARGET")
         .subcommand(Command::new(COMMAND_VERSION).override_help("Show version"))
@@ -28,15 +28,15 @@ fn build_cli_args() -> Command {
                     .value_parser(value_parser!(Shell)),
             ),
         )
-        .subcommand(g3bench::target::h1::command())
-        .subcommand(g3bench::target::h2::command())
-        .subcommand(g3bench::target::h3::command())
-        .subcommand(g3bench::target::openssl::command())
-        .subcommand(g3bench::target::rustls::command())
-        .subcommand(g3bench::target::dns::command())
-        .subcommand(g3bench::target::keyless::command())
-        .subcommand(g3bench::target::thrift::command())
-        .subcommand(g3bench::target::websocket::command())
+        .subcommand(vey_bench::target::h1::command())
+        .subcommand(vey_bench::target::h2::command())
+        .subcommand(vey_bench::target::h3::command())
+        .subcommand(vey_bench::target::openssl::command())
+        .subcommand(vey_bench::target::rustls::command())
+        .subcommand(vey_bench::target::dns::command())
+        .subcommand(vey_bench::target::keyless::command())
+        .subcommand(vey_bench::target::thrift::command())
+        .subcommand(vey_bench::target::websocket::command())
 }
 
 fn main() -> anyhow::Result<ExitCode> {
@@ -62,7 +62,7 @@ fn main() -> anyhow::Result<ExitCode> {
     compile_error!("either rustls-aws-lc or rustls-ring should be enabled");
 
     let args = build_cli_args().get_matches();
-    let proc_args = g3bench::parse_global_args(&args)?;
+    let proc_args = vey_bench::parse_global_args(&args)?;
     let proc_args = Arc::new(proc_args);
 
     let (subcommand, sub_args) = args
@@ -71,7 +71,7 @@ fn main() -> anyhow::Result<ExitCode> {
 
     match subcommand {
         COMMAND_VERSION => {
-            g3bench::build::print_version();
+            vey_bench::build::print_version();
             return Ok(ExitCode::SUCCESS);
         }
         COMMAND_COMPLETION => {
@@ -85,7 +85,7 @@ fn main() -> anyhow::Result<ExitCode> {
 
     let _worker_guard = if let Some(worker_config) = proc_args.worker_runtime() {
         let guard =
-            g3bench::worker::spawn_workers(worker_config).context("failed to start workers")?;
+            vey_bench::worker::spawn_workers(worker_config).context("failed to start workers")?;
         Some(guard)
     } else {
         None
@@ -97,24 +97,32 @@ fn main() -> anyhow::Result<ExitCode> {
         .context("failed to start main runtime")?;
     rt.block_on(async move {
         match subcommand {
-            g3bench::target::h1::COMMAND => g3bench::target::h1::run(&proc_args, sub_args).await,
-            g3bench::target::h2::COMMAND => g3bench::target::h2::run(&proc_args, sub_args).await,
-            g3bench::target::h3::COMMAND => g3bench::target::h3::run(&proc_args, sub_args).await,
-            g3bench::target::openssl::COMMAND => {
-                g3bench::target::openssl::run(&proc_args, sub_args).await
+            vey_bench::target::h1::COMMAND => {
+                vey_bench::target::h1::run(&proc_args, sub_args).await
             }
-            g3bench::target::rustls::COMMAND => {
-                g3bench::target::rustls::run(&proc_args, sub_args).await
+            vey_bench::target::h2::COMMAND => {
+                vey_bench::target::h2::run(&proc_args, sub_args).await
             }
-            g3bench::target::dns::COMMAND => g3bench::target::dns::run(&proc_args, sub_args).await,
-            g3bench::target::keyless::COMMAND => {
-                g3bench::target::keyless::run(&proc_args, sub_args).await
+            vey_bench::target::h3::COMMAND => {
+                vey_bench::target::h3::run(&proc_args, sub_args).await
             }
-            g3bench::target::thrift::COMMAND => {
-                g3bench::target::thrift::run(&proc_args, sub_args).await
+            vey_bench::target::openssl::COMMAND => {
+                vey_bench::target::openssl::run(&proc_args, sub_args).await
             }
-            g3bench::target::websocket::COMMAND => {
-                g3bench::target::websocket::run(&proc_args, sub_args).await
+            vey_bench::target::rustls::COMMAND => {
+                vey_bench::target::rustls::run(&proc_args, sub_args).await
+            }
+            vey_bench::target::dns::COMMAND => {
+                vey_bench::target::dns::run(&proc_args, sub_args).await
+            }
+            vey_bench::target::keyless::COMMAND => {
+                vey_bench::target::keyless::run(&proc_args, sub_args).await
+            }
+            vey_bench::target::thrift::COMMAND => {
+                vey_bench::target::thrift::run(&proc_args, sub_args).await
+            }
+            vey_bench::target::websocket::COMMAND => {
+                vey_bench::target::websocket::run(&proc_args, sub_args).await
             }
             cmd => Err(anyhow!("invalid subcommand {}", cmd)),
         }

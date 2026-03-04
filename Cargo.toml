@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "g3bench",
+    "vey-bench",
     "g3fcgen",
     "g3iploc",
     "g3keymess",
@@ -65,7 +65,7 @@ members = [
     "scripts/capnp-generate",
 ]
 default-members = [
-    "g3bench",
+    "vey-bench",
     "g3fcgen",
     "g3iploc",
     "g3mkcert",

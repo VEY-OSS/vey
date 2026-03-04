@@ -63,7 +63,7 @@ StatsD互換の統計アグリゲータ。
 
 [リファレンスドキュメント](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
 
-### g3bench
+### vey-bench
 
 ストレステストツール、サポート
 
@@ -74,7 +74,7 @@ StatsD互換の統計アグリゲータ。
 - Thrift RPC
 - Cloudflare Keyless
 
-[詳細な紹介](g3bench/README.md)
+[詳細な紹介](vey-bench/README.md)
 
 ### g3mkcert
 

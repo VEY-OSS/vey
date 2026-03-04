@@ -39,7 +39,7 @@ cargo profdata -- merge -o "${PROF_DATA_FILE}" ${profraw_files}
 IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=rustc \
     --ignore-filename-regex=target/debug/build \
-    --ignore-filename-regex=g3bench \
+    --ignore-filename-regex=vey-bench \
     --ignore-filename-regex=g3fcgen \
     --ignore-filename-regex=g3proxy \
     --ignore-filename-regex=g3tiles \

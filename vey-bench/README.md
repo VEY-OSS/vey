@@ -1,4 +1,4 @@
-# g3bench
+# VEY Bench
 
 Benchmark tool for HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / DNS / Cloudflare Keyless.
 
@@ -7,13 +7,13 @@ Benchmark tool for HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / DNS / Cloudflare
 To build debug binaries:
 
 ```shell
-cargo build -p g3bench
+cargo build -p vey-bench
 ```
 
 To build release binaries:
 
 ```shell
-cargo build --profile release-lto -p g3bench
+cargo build --profile release-lto -p vey-bench
 ```
 
 See [Build and Package](../doc/build_and_package.md) if you want to build binary packages or docker images.
@@ -93,44 +93,44 @@ See [Build and Package](../doc/build_and_package.md) if you want to build binary
 
 ```shell
 # http, 100 concurrency, for 20 seconds
-g3bench h1 http://example.net/echo1k -t 20s -c 100
+vey-bench h1 http://example.net/echo1k -t 20s -c 100
 # https, 100 concurrency, for 20 seconds
-g3bench h1 https://example.net/echo1k -t 20s -c 100
+vey-bench h1 https://example.net/echo1k -t 20s -c 100
 # https, no keep-alive, 100 concurrency, for 20 seconds
-g3bench h1 https://example.net/echo1k -t 20s -c 100 --no-keepalive
+vey-bench h1 https://example.net/echo1k -t 20s -c 100 --no-keepalive
 # using TLS 1.2 cipher ECDHE-RSA-AES256-GCM-SHA384
-g3bench h1 https://example.net/echo1k -t 20s -c 100 --tls-protocol tls1.2 --tls-ciphers ECDHE-RSA-AES256-GCM-SHA384
+vey-bench h1 https://example.net/echo1k -t 20s -c 100 --tls-protocol tls1.2 --tls-ciphers ECDHE-RSA-AES256-GCM-SHA384
 # h2
-g3bench h2 https://www.example.net
+vey-bench h2 https://www.example.net
 # h3
-g3bench h3 https://www.example.net
+vey-bench h3 https://www.example.net
 ```
 
 ## Test an Http Proxy
 
 ```shell
 # using HTTP Forward, 100 concurrency, for 20 seconds
-g3bench h1 -x http://192.168.1.1:3128 http://example.net/echo1k -t 20s -c 100
+vey-bench h1 -x http://192.168.1.1:3128 http://example.net/echo1k -t 20s -c 100
 # using HTTPS Forward, 100 concurrency, for 20 seconds
-g3bench h1 -x http://192.168.1.1:3128 https://example.net/echo1k -t 20s -c 100
+vey-bench h1 -x http://192.168.1.1:3128 https://example.net/echo1k -t 20s -c 100
 # using HTTP CONNECT, 100 concurrency, for 20 seconds
-g3bench h1 -x http://192.168.1.1:3128 -p https://example.net/echo1k -t 20s -c 100
+vey-bench h1 -x http://192.168.1.1:3128 -p https://example.net/echo1k -t 20s -c 100
 # disable HTTP Keep-Alive
-g3bench h1 -x http://192.168.1.1:3128 http://example.net/echo1k --no-keepalive -t 20s -c 100
+vey-bench h1 -x http://192.168.1.1:3128 http://example.net/echo1k --no-keepalive -t 20s -c 100
 # using FTP over HTTP
-g3bench h1 -x http://192.168.1.1:3128 ftp://example.net/
+vey-bench h1 -x http://192.168.1.1:3128 ftp://example.net/
 # using HTTP CONNECT for h2
-g3bench h2 -x http://192.168.1.1:3128 https://example.net
+vey-bench h2 -x http://192.168.1.1:3128 https://example.net
 ```
 
 ## Test DNS
 
 ```shell
 # DNS over TLS, via Cloudflare Public DNS
-g3bench dns "1.1.1.1" -e dot www.example.com,A --dump-result
+vey-bench dns "1.1.1.1" -e dot www.example.com,A --dump-result
 # DNS over HTTPS, via Cloudflare Public DNS
-g3bench dns "1.1.1.1" -e doh www.example.com,A --dump-result
+vey-bench dns "1.1.1.1" -e doh www.example.com,A --dump-result
 # DNS over Quic, via AdGuard Public DNS
-g3bench dns "94.140.14.140" -e doq www.example.com,A --dump-result
-g3bench dns "2a10:50c0::1:ff" -e doq --tls-name unfiltered.adguard-dns.com www.example.com,A --dump-result
+vey-bench dns "94.140.14.140" -e doq www.example.com,A --dump-result
+vey-bench dns "2a10:50c0::1:ff" -e doq --tls-name unfiltered.adguard-dns.com www.example.com,A --dump-result
 ```

@@ -7,7 +7,7 @@ PROXY_PID=$!
 
 # start nginx
 [ -d /tmp/nginx ] || mkdir /tmp/nginx
-/usr/sbin/nginx -c "${PROJECT_DIR}"/scripts/coverage/g3bench/nginx.conf
+/usr/sbin/nginx -c "${PROJECT_DIR}"/scripts/coverage/vey-bench/nginx.conf
 
 # start g3statsd
 [ -n "${INFLUX_TOKEN}" ] || INFLUX_TOKEN=$(curl -X POST http://127.0.0.1:8181/api/v3/configure/token/admin | jq ".token" -r)
@@ -15,16 +15,16 @@ export INFLUX_TOKEN
 "${PROJECT_DIR}"/target/debug/g3statsd -c "${RUN_DIR}"/g3statsd.yaml -G ${TEST_NAME} &
 STATSD_PID=$!
 
-# run g3bench integration tests
+# run vey-bench integration tests
 
 export TEST_CA_CERT_FILE="${RUN_DIR}/rootCA.pem"
 export TEST_RSA_KEY_FILE="${RUN_DIR}/rootCA-RSA-key.pem"
 export TEST_RSA_CERT_FILE="${RUN_DIR}/rootCA-RSA.pem"
 export TEST_EC_KEY_FILE="${RUN_DIR}/rootCA-EC-key.pem"
 
-g3bench()
+vey_bench()
 {
-	"${PROJECT_DIR}"/target/debug/g3bench --no-progress-bar --log-error 1 "$@"
+	"${PROJECT_DIR}"/target/debug/vey-bench --no-progress-bar --log-error 1 "$@"
 }
 
 set -x

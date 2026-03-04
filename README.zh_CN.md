@@ -61,7 +61,7 @@ StatsD兼容的监控打点指标聚合服务。
 
 [参考文档](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
 
-### g3bench
+### vey-bench
 
 压测工具，支持
 
@@ -72,7 +72,7 @@ StatsD兼容的监控打点指标聚合服务。
 - Thrift RPC
 - Cloudflare Keyless
 
-[详细介绍](g3bench/README.md)
+[详细介绍](vey-bench/README.md)
 
 ### g3mkcert
 

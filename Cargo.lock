@@ -1664,58 +1664,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3bench"
-version = "0.9.7"
-dependencies = [
- "ahash",
- "anyhow",
- "atomic-waker",
- "base64",
- "bytes",
- "clap",
- "clap_complete",
- "concurrent-queue",
- "fastrand",
- "futures-util",
- "g3-build-env",
- "g3-clap",
- "g3-codec",
- "g3-hickory-client",
- "g3-histogram",
- "g3-http",
- "g3-io-ext",
- "g3-openssl",
- "g3-runtime",
- "g3-socket",
- "g3-socks",
- "g3-statsd-client",
- "g3-std-ext",
- "g3-tls-cert",
- "g3-types",
- "h2",
- "h3",
- "h3-quinn",
- "hdrhistogram",
- "hex",
- "hickory-client",
- "hickory-proto",
- "http",
- "indicatif",
- "itoa",
- "openssl-probe",
- "quinn",
- "rustc-hash",
- "rustls",
- "rustls-pki-types",
- "thiserror",
- "tokio",
- "tokio-rustls",
- "url",
- "variant-ssl",
- "variant-ssl-sys",
-]
-
-[[package]]
 name = "g3fcgen"
 version = "0.9.0"
 dependencies = [
@@ -3747,6 +3695,58 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "vey-bench"
+version = "0.9.7"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "atomic-waker",
+ "base64",
+ "bytes",
+ "clap",
+ "clap_complete",
+ "concurrent-queue",
+ "fastrand",
+ "futures-util",
+ "g3-build-env",
+ "g3-clap",
+ "g3-codec",
+ "g3-hickory-client",
+ "g3-histogram",
+ "g3-http",
+ "g3-io-ext",
+ "g3-openssl",
+ "g3-runtime",
+ "g3-socket",
+ "g3-socks",
+ "g3-statsd-client",
+ "g3-std-ext",
+ "g3-tls-cert",
+ "g3-types",
+ "h2",
+ "h3",
+ "h3-quinn",
+ "hdrhistogram",
+ "hex",
+ "hickory-client",
+ "hickory-proto",
+ "http",
+ "indicatif",
+ "itoa",
+ "openssl-probe",
+ "quinn",
+ "rustc-hash",
+ "rustls",
+ "rustls-pki-types",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "url",
+ "variant-ssl",
+ "variant-ssl-sys",
+]
 
 [[package]]
 name = "wasi"

@@ -228,8 +228,8 @@ jobs:
           name: g3proxy-all-test
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
-  g3bench-test:
-    name: g3bench test
+  vey-bench-test:
+    name: vey-bench test
     runs-on: ubuntu-latest
     services:
       httpbin:
@@ -284,13 +284,13 @@ jobs:
           echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf
       - name: Run dnsmasq
         run: |
-          sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/g3bench/dnsmasq.conf
+          sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/vey-bench/dnsmasq.conf
       - name: Install thrift compiler
         run: |
           sudo apt-get install thrift-compiler
       - name: run unit test
         run: |
-          ./scripts/coverage/g3bench.sh
+          ./scripts/coverage/vey-bench.sh
       - name: Restore /etc/resolv.conf
         run: |
           sudo mv /etc/resolv.conf.backup /etc/resolv.conf
@@ -300,8 +300,8 @@ jobs:
           fail_ci_if_error: true
           disable_search: true
           files: output.lcov
-          flags: g3bench
-          name: g3bench-all-test
+          flags: vey-bench
+          name: vey-bench-all-test
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
   g3statsd-test:
