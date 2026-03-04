@@ -74,11 +74,11 @@ StatsD兼容的监控打点指标聚合服务。
 
 [详细介绍](vey-bench/README.md)
 
-### g3mkcert
+### vey-mkcert
 
 用来生成 根CA / 中间CA / TLS服务端 / TLS客户端 / 国密服务端 / 国密客户端 证书的工具。
 
-[详细介绍](g3mkcert/README.md)
+[详细介绍](vey-mkcert/README.md)
 
 ### g3fcgen
 

@@ -14,9 +14,9 @@ BUILD_DIR="${PROJECT_DIR}/target"
 PGO_DATA_DIR="/tmp/pgo-data"
 
 # Default components for PGO (memory-efficient choices)
-DEFAULT_COMPONENTS=("g3mkcert")
+DEFAULT_COMPONENTS=("vey-mkcert")
 # All available components
-ALL_COMPONENTS=("g3mkcert" "g3proxy" "vey-bench" "g3fcgen" "g3iploc" "g3keymess" "g3statsd" "g3tiles")
+ALL_COMPONENTS=("vey-mkcert" "g3proxy" "vey-bench" "g3fcgen" "g3iploc" "g3keymess" "g3statsd" "g3tiles")
 
 # Components to build with PGO (set by command line args)
 declare -a PGO_COMPONENTS
@@ -92,51 +92,51 @@ get_binary_path() {
     echo "./target/release/${binary_name}"
 }
 
-# Run comprehensive g3mkcert workload based on coverage scripts
-run_g3mkcert_comprehensive_workload() {
-    local g3mkcert_bin="$1"
-    local temp_dir="/tmp/pgo-g3mkcert-$$"
+# Run comprehensive vey-mkcert workload based on coverage scripts
+run_vey_mkcert_comprehensive_workload() {
+    local vey_mkcert_bin="$1"
+    local temp_dir="/tmp/pgo-vey-mkcert-$$"
     local original_dir="$(pwd)"
     TEMP_DIRS+=("$temp_dir")
-    echo "Running comprehensive g3mkcert workload based on coverage scripts..."
+    echo "Running comprehensive vey-mkcert workload based on coverage scripts..."
     mkdir -p "$temp_dir"
     cd "$temp_dir"
     
     # Convert relative path to absolute path
-    if [[ "$g3mkcert_bin" != /* ]]; then
-        g3mkcert_bin="${original_dir}/${g3mkcert_bin}"
+    if [[ "$vey_mkcert_bin" != /* ]]; then
+        vey_mkcert_bin="${original_dir}/${vey_mkcert_bin}"
     fi
     
     # Basic operations first
-    "$g3mkcert_bin" --version || echo "g3mkcert --version failed"
-    "$g3mkcert_bin" --help || echo "g3mkcert --help failed"
+    "$vey_mkcert_bin" --version || echo "vey-mkcert --version failed"
+    "$vey_mkcert_bin" --help || echo "vey-mkcert --help failed"
     
     # Root CA certificates with different algorithms and key sizes
     echo "Generating Root CA certificates..."
-    "$g3mkcert_bin" --root --common-name "G3 Test CA" --rsa 2048 --output-cert rootCA-rsa.crt --output-key rootCA-rsa.key || echo "Root CA RSA generation failed"
-    "$g3mkcert_bin" --root --common-name "G3 Test CA" --ec256 --output-cert rootCA-ec256.crt --output-key rootCA-ec256.key || echo "Root CA EC256 generation failed"
-    "$g3mkcert_bin" --root --common-name "G3 Test CA" --ed25519 --output-cert rootCA-ed25519.crt --output-key rootCA-ed25519.key || echo "Root CA Ed25519 generation failed"
+    "$vey_mkcert_bin" --root --common-name "VEY Test CA" --rsa 2048 --output-cert rootCA-rsa.crt --output-key rootCA-rsa.key || echo "Root CA RSA generation failed"
+    "$vey_mkcert_bin" --root --common-name "VEY Test CA" --ec256 --output-cert rootCA-ec256.crt --output-key rootCA-ec256.key || echo "Root CA EC256 generation failed"
+    "$vey_mkcert_bin" --root --common-name "VEY Test CA" --ed25519 --output-cert rootCA-ed25519.crt --output-key rootCA-ed25519.key || echo "Root CA Ed25519 generation failed"
     
     # Intermediate CA certificates
     echo "Generating Intermediate CA certificates..."
-    "$g3mkcert_bin" --intermediate --common-name "G3 Intermediate CA" --rsa 2048 --output-cert intermediateCA-rsa.crt --output-key intermediateCA-rsa.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key || echo "Intermediate CA RSA generation failed"
-    "$g3mkcert_bin" --intermediate --common-name "G3 Intermediate CA" --ec384 --output-cert intermediateCA-ec384.crt --output-key intermediateCA-ec384.key --ca-cert rootCA-ec256.crt --ca-key rootCA-ec256.key || echo "Intermediate CA EC384 generation failed"
-    "$g3mkcert_bin" --intermediate --common-name "G3 Intermediate CA" --ed25519 --output-cert intermediateCA-ed25519.crt --output-key intermediateCA-ed25519.key --ca-cert rootCA-ed25519.crt --ca-key rootCA-ed25519.key || echo "Intermediate CA Ed25519 generation failed"
+    "$vey_mkcert_bin" --intermediate --common-name "VEY Intermediate CA" --rsa 2048 --output-cert intermediateCA-rsa.crt --output-key intermediateCA-rsa.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key || echo "Intermediate CA RSA generation failed"
+    "$vey_mkcert_bin" --intermediate --common-name "VEY Intermediate CA" --ec384 --output-cert intermediateCA-ec384.crt --output-key intermediateCA-ec384.key --ca-cert rootCA-ec256.crt --ca-key rootCA-ec256.key || echo "Intermediate CA EC384 generation failed"
+    "$vey_mkcert_bin" --intermediate --common-name "VEY Intermediate CA" --ed25519 --output-cert intermediateCA-ed25519.crt --output-key intermediateCA-ed25519.key --ca-cert rootCA-ed25519.crt --ca-key rootCA-ed25519.key || echo "Intermediate CA Ed25519 generation failed"
     
     # TLS Server certificates with different algorithms and hosts
     echo "Generating TLS Server certificates..."
-    "$g3mkcert_bin" --tls-server --host "www.example.com" --host "*.example.net" --rsa 2048 --output-cert tls-server-rsa.crt --output-key tls-server-rsa.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key || echo "TLS Server RSA generation failed"
-    "$g3mkcert_bin" --tls-server --host "www.example.com" --host "*.example.net" --ec256 --output-cert tls-server-ec256.crt --output-key tls-server-ec256.key --ca-cert intermediateCA-rsa.crt --ca-key intermediateCA-rsa.key || echo "TLS Server EC256 generation failed"
-    "$g3mkcert_bin" --tls-server --host "www.example.com" --host "*.example.net" --ed25519 --output-cert tls-server-ed25519.crt --output-key tls-server-ed25519.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key || echo "TLS Server Ed25519 generation failed"
+    "$vey_mkcert_bin" --tls-server --host "www.example.com" --host "*.example.net" --rsa 2048 --output-cert tls-server-rsa.crt --output-key tls-server-rsa.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key || echo "TLS Server RSA generation failed"
+    "$vey_mkcert_bin" --tls-server --host "www.example.com" --host "*.example.net" --ec256 --output-cert tls-server-ec256.crt --output-key tls-server-ec256.key --ca-cert intermediateCA-rsa.crt --ca-key intermediateCA-rsa.key || echo "TLS Server EC256 generation failed"
+    "$vey_mkcert_bin" --tls-server --host "www.example.com" --host "*.example.net" --ed25519 --output-cert tls-server-ed25519.crt --output-key tls-server-ed25519.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key || echo "TLS Server Ed25519 generation failed"
     
     # TLS Client certificates
     echo "Generating TLS Client certificates..."
-    "$g3mkcert_bin" --tls-client --host "www.example.com" --rsa 4096 --output-cert tls-client-rsa.crt --output-key tls-client-rsa.key --ca-cert intermediateCA-ec384.crt --ca-key intermediateCA-ec384.key || echo "TLS Client RSA generation failed"
-    "$g3mkcert_bin" --tls-client --host "www.example.com" --ec256 --output-cert tls-client-ec256.crt --output-key tls-client-ec256.key --ca-cert rootCA-ec256.crt --ca-key rootCA-ec256.key || echo "TLS Client EC256 generation failed"
-    "$g3mkcert_bin" --tls-client --host "www.example.com" --ed25519 --output-cert tls-client-ed25519.crt --output-key tls-client-ed25519.key --ca-cert intermediateCA-ed25519.crt --ca-key intermediateCA-ed25519.key || echo "TLS Client Ed25519 generation failed"
+    "$vey_mkcert_bin" --tls-client --host "www.example.com" --rsa 4096 --output-cert tls-client-rsa.crt --output-key tls-client-rsa.key --ca-cert intermediateCA-ec384.crt --ca-key intermediateCA-ec384.key || echo "TLS Client RSA generation failed"
+    "$vey_mkcert_bin" --tls-client --host "www.example.com" --ec256 --output-cert tls-client-ec256.crt --output-key tls-client-ec256.key --ca-cert rootCA-ec256.crt --ca-key rootCA-ec256.key || echo "TLS Client EC256 generation failed"
+    "$vey_mkcert_bin" --tls-client --host "www.example.com" --ed25519 --output-cert tls-client-ed25519.crt --output-key tls-client-ed25519.key --ca-cert intermediateCA-ed25519.crt --ca-key intermediateCA-ed25519.key || echo "TLS Client Ed25519 generation failed"
     
     cd "$original_dir"
-    echo "Comprehensive g3mkcert workload completed"
+    echo "Comprehensive vey-mkcert workload completed"
 }
 
 # Run profile generation workloads
@@ -157,9 +157,9 @@ generate_profiles() {
     # Run workloads based on available components
     for component in "${PGO_COMPONENTS[@]}"; do
         case $component in
-            g3mkcert)
-                local g3mkcert_bin=$(get_binary_path "g3mkcert")
-                run_g3mkcert_comprehensive_workload "$g3mkcert_bin"
+            vey-mkcert)
+                local vey_mkcert_bin=$(get_binary_path "vey-mkcert")
+                run_vey_mkcert_comprehensive_workload "$vey_mkcert_bin"
                 ;;
             g3proxy)
                 echo "Running g3proxy workload..."
@@ -226,9 +226,9 @@ generate_profiles() {
         echo "Warning: No profile files generated"
         ls -la "${profile_data_dir}" || echo "Profile directory doesn't exist"
         echo "Checking if instrumented binaries have profile capabilities..."
-        local g3mkcert_bin=$(get_binary_path "g3mkcert")
-        if [ -f "$g3mkcert_bin" ]; then
-            ldd "$g3mkcert_bin" | grep -i profile || echo "No profile libraries found"
+        local vey_mkcert_bin=$(get_binary_path "vey-mkcert")
+        if [ -f "$vey_mkcert_bin" ]; then
+            ldd "$vey_mkcert_bin" | grep -i profile || echo "No profile libraries found"
         fi
         return 1
     fi
@@ -299,17 +299,17 @@ run_performance_benchmark() {
     log_info "=== Baseline Performance (without PGO) ==="
     for component in "${PGO_COMPONENTS[@]}"; do
         case "$component" in
-            "g3mkcert")
-                echo "Testing g3mkcert operations..."
-                local g3mkcert_bin=$(get_binary_path "g3mkcert")
+            "vey-mkcert")
+                echo "Testing vey-mkcert operations..."
+                local vey_mkcert_bin=$(get_binary_path "vey-mkcert")
                 local cert_out="/tmp/rootCA-bench-baseline.crt"
                 local key_out="/tmp/rootCA-bench-baseline.key"
                 if [ "$benchmark_tool" = "hyperfine" ]; then
                     # Save baseline for hyperfine comparison
-                    cp "$g3mkcert_bin" "/tmp/g3mkcert-baseline"
+                    cp "$vey_mkcert_bin" "/tmp/vey-mkcert-baseline"
                     echo "Baseline saved for comparison"
                 else
-                    time "$g3mkcert_bin" --root --common-name "G3 Test CA" --rsa 2048 --output-cert "$cert_out" --output-key "$key_out" >/dev/null 2>&1 || echo "Baseline test completed"
+                    time "$vey_mkcert_bin" --root --common-name "VEY Test CA" --rsa 2048 --output-cert "$cert_out" --output-key "$key_out" >/dev/null 2>&1 || echo "Baseline test completed"
                 fi
                 ;;
             "g3proxy"|"vey-bench"|"g3fcgen"|"g3iploc"|"g3keymess"|"g3statsd"|"g3tiles")
@@ -337,15 +337,15 @@ run_performance_benchmark() {
     log_info "=== PGO-Optimized Performance ==="
     for component in "${PGO_COMPONENTS[@]}"; do
         case "$component" in
-            "g3mkcert")
-                echo "Testing PGO-optimized g3mkcert operations..."
+            "vey-mkcert")
+                echo "Testing PGO-optimized vey-mkcert operations..."
                 local cert_out="/tmp/rootCA-bench-pgo.crt"
                 local key_out="/tmp/rootCA-bench-pgo.key"
                 if [ "$benchmark_tool" = "hyperfine" ]; then
-                    echo "Comparing baseline vs PGO-optimized g3mkcert (root CA generation)..."
-                    hyperfine --shell=none --warmup 3 --runs 15 "/tmp/g3mkcert-baseline --root --common-name 'G3 Test CA' --rsa 2048 --output-cert /tmp/rootCA-bench-baseline.crt --output-key /tmp/rootCA-bench-baseline.key" "/tmp/g3mkcert-pgo --root --common-name 'G3 Test CA' --rsa 2048 --output-cert /tmp/rootCA-bench-pgo.crt --output-key /tmp/rootCA-bench-pgo.key"
+                    echo "Comparing baseline vs PGO-optimized vey-mkcert (root CA generation)..."
+                    hyperfine --shell=none --warmup 3 --runs 15 "/tmp/vey-mkcert-baseline --root --common-name 'G3 Test CA' --rsa 2048 --output-cert /tmp/rootCA-bench-baseline.crt --output-key /tmp/rootCA-bench-baseline.key" "/tmp/vey-mkcert-pgo --root --common-name 'G3 Test CA' --rsa 2048 --output-cert /tmp/rootCA-bench-pgo.crt --output-key /tmp/rootCA-bench-pgo.key"
                 else
-                    time "/tmp/g3mkcert-pgo" --root --common-name "G3 Test CA" --rsa 2048 --output-cert "$cert_out" --output-key "$key_out" >/dev/null 2>&1 || echo "PGO test completed"
+                    time "/tmp/vey-mkcert-pgo" --root --common-name "VEY Test CA" --rsa 2048 --output-cert "$cert_out" --output-key "$key_out" >/dev/null 2>&1 || echo "PGO test completed"
                 fi
                 rm -f /tmp/rootCA-bench-baseline.crt /tmp/rootCA-bench-baseline.key /tmp/rootCA-bench-pgo.crt /tmp/rootCA-bench-pgo.key
                 ;;
@@ -485,7 +485,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Examples:"
             echo "  $0                                   # Use default components"
-            echo "  $0 --components g3mkcert,g3proxy     # Optimize specific components"
+            echo "  $0 --components vey-mkcert,g3proxy   # Optimize specific components"
             echo "  $0 --all --benchmark                 # Optimize all and run benchmark"
             echo ""
             echo "This script performs Profile-Guided Optimization (PGO) for g3 Rust components:"

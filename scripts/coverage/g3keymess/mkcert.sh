@@ -6,7 +6,7 @@ SCRIPT_DIR=$(dirname $0)
 
 cd "${SCRIPT_DIR}"
 
-MKCERT="../../../target/debug/g3mkcert"
+MKCERT="../../../target/debug/vey-mkcert"
 
 $MKCERT --root --common-name "g3 root" --output-cert rootCA.pem --output-key rootCA-key.pem
 

@@ -46,10 +46,10 @@ Select specific components for optimization:
 
 ```bash
 # Optimize a single component
-./scripts/pgo/example_run.sh --components g3mkcert
+./scripts/pgo/example_run.sh --components vey-mkcert
 
 # Optimize multiple components
-./scripts/pgo/example_run.sh --components g3mkcert,g3keymess,g3fcgen
+./scripts/pgo/example_run.sh --components vey-mkcert,g3keymess,g3fcgen
 
 # Optimize all available components
 ./scripts/pgo/example_run.sh --all
@@ -61,7 +61,7 @@ Run performance benchmarks after optimization to verify effectiveness:
 
 ```bash
 # Optimize and automatically run benchmarks
-./scripts/pgo/example_run.sh --components g3mkcert --benchmark
+./scripts/pgo/example_run.sh --components vey-mkcert --benchmark
 
 # Or run benchmarks separately
 ./scripts/pgo/example_run.sh --benchmark
@@ -83,12 +83,12 @@ RUSTFLAGS="-Cprofile-generate=/tmp/pgo-data" cargo build --release -p <component
 Run instrumented binaries with comprehensive workloads to collect runtime data:
 
 ```bash
-# For g3mkcert
-target/release/g3mkcert --version
-target/release/g3mkcert --help
-target/release/g3mkcert --root --common-name "G3 Test CA" --rsa 2048 --output-cert rootCA-rsa.crt --output-key rootCA-rsa.key
-target/release/g3mkcert --intermediate --common-name "G3 Intermediate CA" --rsa 2048 --output-cert intermediateCA-rsa.crt --output-key intermediateCA-rsa.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key
-target/release/g3mkcert --tls-server --host "www.example.com" --host "*.example.net" --rsa 2048 --output-cert tls-server-rsa.crt --output-key tls-server-rsa.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key
+# For vey-mkcert
+target/release/vey-mkcert --version
+target/release/vey-mkcert --help
+target/release/vey-mkcert --root --common-name "VEY Test CA" --rsa 2048 --output-cert rootCA-rsa.crt --output-key rootCA-rsa.key
+target/release/vey-mkcert --intermediate --common-name "VEY Intermediate CA" --rsa 2048 --output-cert intermediateCA-rsa.crt --output-key intermediateCA-rsa.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key
+target/release/vey-mkcert --tls-server --host "www.example.com" --host "*.example.net" --rsa 2048 --output-cert tls-server-rsa.crt --output-key tls-server-rsa.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key
 
 # For other components - basic functionality testing
 target/release/g3proxy --version
@@ -117,9 +117,9 @@ RUSTFLAGS="-Cprofile-use=/tmp/pgo-data/merged.profdata" cargo build --release -p
 
 ```text
 [INFO] Starting Rust PGO optimization process...
-[INFO] Project directory: /home/user/g3
+[INFO] Project directory: /home/user/vey
 [INFO] PGO scripts directory: ./scripts/pgo
-[INFO] Using specified components: g3mkcert
+[INFO] Using specified components: vey-mkcert
 [INFO] Checking Rust PGO prerequisites...
 [INFO] Prerequisites check passed
 [INFO] Cleaning previous builds and profile data...
@@ -143,7 +143,7 @@ RUSTFLAGS="-Cprofile-use=/tmp/pgo-data/merged.profdata" cargo build --release -p
 Use the `--benchmark` option to automatically compare performance before and after optimization:
 
 ```bash
-./scripts/pgo/example_run.sh --components g3mkcert --benchmark
+./scripts/pgo/example_run.sh --components vey-mkcert --benchmark
 ```
 
 **Note**: The script will automatically use `hyperfine` if available for more precise measurements, otherwise it falls
@@ -157,11 +157,11 @@ Example output with `time`:
 
 ```text
 === Baseline Performance (without PGO) ===
-Testing g3mkcert operations...
+Testing vey-mkcert operations...
 real    0m0.152s
 
 === PGO-Optimized Performance ===  
-Testing PGO-optimized g3mkcert operations...
+Testing PGO-optimized vey-mkcert operations...
 real    0m0.135s
 ```
 
@@ -169,17 +169,17 @@ Example output with `hyperfine`:
 
 ```text
 === PGO-Optimized Performance ===
-Comparing baseline vs PGO-optimized g3mkcert...
-Benchmark 1: /tmp/g3mkcert-baseline --version
+Comparing baseline vs PGO-optimized vey-mkcert...
+Benchmark 1: /tmp/vey-mkcert-baseline --version
   Time (mean ± σ):       4.0 ms ±   1.2 ms    [User: 2.1 ms, System: 1.9 ms]
   Range (min … max):     2.8 ms …   8.1 ms    15 runs
 
-Benchmark 2: target/release/g3mkcert --version  
+Benchmark 2: target/release/vey-mkcert --version  
   Time (mean ± σ):       3.6 ms ±   1.1 ms    [User: 1.8 ms, System: 1.8 ms]
   Range (min … max):     2.5 ms …   6.9 ms    15 runs
 
 Summary
-  target/release/g3mkcert --version ran 1.11 ± 0.38 times faster than /tmp/g3mkcert-baseline --version
+  target/release/vey-mkcert --version ran 1.11 ± 0.38 times faster than /tmp/vey-mkcert-baseline --version
 ```
 
 ### Manual Verification
@@ -191,16 +191,16 @@ For more precise measurements, `hyperfine` is recommended. You can install it vi
 cargo install hyperfine
 
 # Create a baseline build first
-cargo build --release --bin g3mkcert
+cargo build --release --bin vey-mkcert
 
 # Save the baseline binary
-mv target/release/g3mkcert /tmp/g3mkcert-baseline
+mv target/release/vey-mkcert /tmp/vey-mkcert-baseline
 
 # Run PGO optimization
-./scripts/pgo/example_run.sh --components g3mkcert
+./scripts/pgo/example_run.sh --components vey-mkcert
 
 # Compare baseline vs PGO-optimized version
-hyperfine --shell=none --warmup 3 --runs 10 '/tmp/g3mkcert-baseline --version' 'target/release/g3mkcert --version'
+hyperfine --shell=none --warmup 3 --runs 10 '/tmp/vey-mkcert-baseline --version' 'target/release/vey-mkcert --version'
 ```
 
 This provides a statistically robust comparison of the performance before and after PGO.
@@ -209,7 +209,7 @@ This provides a statistically robust comparison of the performance before and af
 
 ### Current Workload Coverage
 
-At present, only `g3mkcert` has a meaningful workload wired into the PGO example script. Other components are invoked
+At present, only `vey-mkcert` has a meaningful workload wired into the PGO example script. Other components are invoked
 only with trivial `--help/--version` commands, which do NOT produce representative execution profiles and therefore will
 not yield noticeable performance improvements yet. Future work can extend realistic workloads (or reuse coverage scripts
 after dependency isolation) for additional components.
@@ -242,7 +242,7 @@ cargo install cargo-binutils
 
 ```bash
 # Select only lightweight components
-./scripts/pgo/example_run.sh --components g3mkcert,g3fcgen,vey-bench
+./scripts/pgo/example_run.sh --components vey-mkcert,g3fcgen,vey-bench
 ```
 
 **Issue**: Profile data not generated
@@ -263,7 +263,7 @@ rm -rf /tmp/pgo-data
 
 ```bash
 # Use fewer components or avoid memory-intensive ones
-./scripts/pgo/example_run.sh --components g3mkcert,g3fcgen,vey-bench
+./scripts/pgo/example_run.sh --components vey-mkcert,g3fcgen,vey-bench
 
 # Or increase system memory/swap space
 ```
@@ -272,8 +272,8 @@ rm -rf /tmp/pgo-data
 
 ### Component Selection Strategy
 
-1. **Development Testing**: Use default components (`g3mkcert`)
-2. **Lightweight Optimization**: Select a few key components (`g3mkcert,g3fcgen,vey-bench`)
+1. **Development Testing**: Use default components (`vey-mkcert`)
+2. **Lightweight Optimization**: Select a few key components (`vey-mkcert,g3fcgen,vey-bench`)
 3. **Full Optimization**: Use `--all` on high-spec machines (note: may require substantial memory for `g3proxy`)
 
 ### Performance Testing Recommendations
@@ -289,7 +289,7 @@ PGO can be integrated into CI/CD pipelines:
 
 ```bash
 # Use PGO in release builds
-./scripts/pgo/example_run.sh --components g3mkcert,g3fcgen
+./scripts/pgo/example_run.sh --components vey-mkcert,g3fcgen
 cp target/release/* ./release-artifacts/
 ```
 

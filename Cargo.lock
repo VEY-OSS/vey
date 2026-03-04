@@ -1775,21 +1775,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3mkcert"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "clap_complete",
- "g3-build-env",
- "g3-tls-cert",
- "g3-types",
- "openssl-probe",
- "variant-ssl",
- "variant-ssl-sys",
-]
-
-[[package]]
 name = "g3proxy"
 version = "1.13.0"
 dependencies = [
@@ -3744,6 +3729,21 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "url",
+ "variant-ssl",
+ "variant-ssl-sys",
+]
+
+[[package]]
+name = "vey-mkcert"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clap_complete",
+ "g3-build-env",
+ "g3-tls-cert",
+ "g3-types",
+ "openssl-probe",
  "variant-ssl",
  "variant-ssl-sys",
 ]

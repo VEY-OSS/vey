@@ -77,11 +77,11 @@ A benchmark tool that supports:
 
 [README](vey-bench/README.md)
 
-### g3mkcert
+### vey-mkcert
 
 A tool to make root CA / intermediate CA / TLS server / TLS client / TLCP server / TLCP client certificates.
 
-[README](g3mkcert/README.md)
+[README](vey-mkcert/README.md)
 
 ### g3fcgen
 

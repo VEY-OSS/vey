@@ -76,11 +76,11 @@ StatsD互換の統計アグリゲータ。
 
 [詳細な紹介](vey-bench/README.md)
 
-### g3mkcert
+### vey-mkcert
 
 ルートCA / 中間CA / TLSサーバー / TLSクライアント / TLCPサーバー / TLCPクライアント 証明書を作成するツール。
 
-[詳細な紹介](g3mkcert/README.md)
+[詳細な紹介](vey-mkcert/README.md)
 
 ### g3fcgen
 

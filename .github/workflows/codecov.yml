@@ -62,8 +62,8 @@ jobs:
           name: lib-unit-test
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
-  g3mkcert-test:
-    name: g3mkcert test
+  vey-mkcert-test:
+    name: vey-mkcert test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -84,15 +84,15 @@ jobs:
           cargo install cargo-binutils@0.3.6
       - name: run unit test
         run: |
-          ./scripts/coverage/g3mkcert.sh
+          ./scripts/coverage/vey-mkcert.sh
       - name: Upload coverage data
         uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
           disable_search: true
           files: output.lcov
-          flags: g3mkcert
-          name: g3mkcert-all-test
+          flags: vey-mkcert
+          name: vey-mkcert-all-test
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
   g3keymess-test:

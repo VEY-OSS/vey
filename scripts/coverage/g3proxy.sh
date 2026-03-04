@@ -10,7 +10,7 @@ TEST_NAME="g3proxy-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build -p g3proxy -p g3proxy-ctl -p g3proxy-ftp -p g3mkcert -p g3fcgen -p g3iploc -p g3statsd
+cargo build -p g3proxy -p g3proxy-ctl -p g3proxy-ftp -p vey-mkcert -p g3fcgen -p g3iploc -p g3statsd
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
@@ -34,7 +34,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=rustc \
     --ignore-filename-regex=target/debug/build \
     --ignore-filename-regex=vey-bench \
-    --ignore-filename-regex=g3mkcert \
+    --ignore-filename-regex=vey-mkcert \
     --ignore-filename-regex=g3tiles \
     --ignore-filename-regex=g3keymess"
 
