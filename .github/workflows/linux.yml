@@ -128,7 +128,7 @@ jobs:
           - vendored-aws-lc-fips
         component:
           - g3fcgen
-          - g3mkcert
+          - vey-mkcert
           - g3keymess
     steps:
       - name: Checkout sources

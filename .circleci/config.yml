@@ -6,7 +6,7 @@ orbs:
 parameters:
   package:
     type: string
-    default: g3mkcert
+    default: vey-mkcert
   version:
     type: string
     default: 0.0.1

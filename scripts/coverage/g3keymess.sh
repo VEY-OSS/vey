@@ -10,7 +10,7 @@ TEST_NAME="g3keymess-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build --features openssl-async-job -p g3keymess -p g3keymess-ctl -p g3mkcert -p g3statsd -p vey-bench
+cargo build --features openssl-async-job -p g3keymess -p g3keymess-ctl -p vey-mkcert -p g3statsd -p vey-bench
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
@@ -35,7 +35,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=target/debug/build \
     --ignore-filename-regex=g3fcgen \
     --ignore-filename-regex=g3iploc \
-    --ignore-filename-regex=g3mkcert \
+    --ignore-filename-regex=vey-mkcert \
     --ignore-filename-regex=g3proxy \
     --ignore-filename-regex=g3tiles"
 

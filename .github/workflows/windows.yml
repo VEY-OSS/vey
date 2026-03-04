@@ -102,7 +102,7 @@ jobs:
           - vendored-aws-lc
         component:
           - g3fcgen
-          - g3mkcert
+          - vey-mkcert
           - g3keymess
     steps:
       - name: Install common tools

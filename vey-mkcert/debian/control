@@ -1,0 +1,12 @@
+Source: vey-mkcert
+Section: net
+Priority: optional
+Maintainer: VEY-OSS Developers <developers@vey.oss>
+Build-Depends: debhelper, libssl-dev
+Standards-Version: 3.9.8
+Homepage: https://github.com/VEY-OSS/vey
+
+Package: vey-mkcert
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Tool to make certificates from the VEY project

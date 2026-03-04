@@ -15,16 +15,16 @@ TEST_NAME="mkcert-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build -p g3mkcert
+cargo build -p vey-mkcert
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
-# run g3mkcert tests
+# run vey-mkcert tests
 
-cargo test -p g3mkcert
+cargo test -p vey-mkcert
 
-cd "${SCRIPTS_DIR}/g3mkcert"
+cd "${SCRIPTS_DIR}/vey-mkcert"
 . ./run.sh
 cd -
 
