@@ -22,7 +22,7 @@ Long-Term branch for
 
 - [g3proxy](../g3proxy) 1.12.x
 - [vey-dcgen](../vey-dcgen) 0.8.x
-- [g3iploc](../g3iploc) 0.3.x
+- [vey-iploc](../vey-iploc) 0.3.x
 
 Minimum requirements:
 

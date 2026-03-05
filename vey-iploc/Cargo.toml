@@ -1,10 +1,10 @@
 [package]
-name = "g3iploc"
+name = "vey-iploc"
 version = "0.4.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "G3 IP locate service"
+description = "IP Locate Service"
 
 [dependencies]
 anyhow.workspace = true

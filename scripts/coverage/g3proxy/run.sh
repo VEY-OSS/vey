@@ -18,8 +18,8 @@ cd -
 "${PROJECT_DIR}"/target/debug/vey-dcgen -c "${RUN_DIR}"/vey-dcgen.yaml -G port2999 &
 DCGEN_PID=$!
 
-# start g3iploc
-"${PROJECT_DIR}"/target/debug/g3iploc -c "${RUN_DIR}"/g3iploc.yaml -G port2888 &
+# start vey-iploc
+"${PROJECT_DIR}"/target/debug/vey-iploc -c "${RUN_DIR}"/vey-iploc.yaml -G port2888 &
 IPLOC_PID=$!
 
 # start g3statsd

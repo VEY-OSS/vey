@@ -1664,26 +1664,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3iploc"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "clap",
- "g3-build-env",
- "g3-daemon",
- "g3-geoip-db",
- "g3-geoip-types",
- "g3-ip-locate",
- "g3-socket",
- "g3-statsd-client",
- "g3-types",
- "g3-yaml",
- "log",
- "tokio",
- "yaml-rust2",
-]
-
-[[package]]
 name = "g3keymess"
 version = "0.5.0"
 dependencies = [
@@ -3730,6 +3710,26 @@ dependencies = [
  "tokio",
  "variant-ssl",
  "variant-ssl-sys",
+ "yaml-rust2",
+]
+
+[[package]]
+name = "vey-iploc"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "g3-build-env",
+ "g3-daemon",
+ "g3-geoip-db",
+ "g3-geoip-types",
+ "g3-ip-locate",
+ "g3-socket",
+ "g3-statsd-client",
+ "g3-types",
+ "g3-yaml",
+ "log",
+ "tokio",
  "yaml-rust2",
 ]
 

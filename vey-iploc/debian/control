@@ -1,0 +1,12 @@
+Source: vey-iploc
+Section: net
+Priority: optional
+Maintainer: VEY-OSS Developers <developers@vey.oss>
+Build-Depends: debhelper
+Standards-Version: 3.9.8
+Homepage: https://github.com/VEY-OSS/vey
+
+Package: vey-iploc
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: IP Locate Service

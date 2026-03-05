@@ -86,11 +86,11 @@ StatsD兼容的监控打点指标聚合服务。
 
 [详细介绍](vey-dcgen/README.md)
 
-### g3iploc
+### vey-iploc
 
 适用于g3proxy GeoIP功能的IP Location查找服务应用。
 
-[详细介绍](g3iploc/README.md)
+[详细介绍](vey-iploc/README.md)
 
 ### g3keymess
 

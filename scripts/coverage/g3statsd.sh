@@ -35,7 +35,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=target/debug/build \
     --ignore-filename-regex=vey-bench \
     --ignore-filename-regex=vey-dcgen \
-    --ignore-filename-regex=g3iploc \
+    --ignore-filename-regex=vey-iploc \
     --ignore-filename-regex=vey-mkcert \
     --ignore-filename-regex=g3proxy \
     --ignore-filename-regex=g3tiles \

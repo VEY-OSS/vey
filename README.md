@@ -89,11 +89,11 @@ Fake certificate generator for g3proxy.
 
 [README](vey-dcgen/README.md)
 
-### g3iploc
+### vey-iploc
 
 IP location lookup service for g3proxy GeoIP support.
 
-[README](g3iploc/README.md)
+[README](vey-iploc/README.md)
 
 ### g3keymess
 
