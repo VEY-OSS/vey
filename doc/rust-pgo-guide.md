@@ -49,7 +49,7 @@ Select specific components for optimization:
 ./scripts/pgo/example_run.sh --components vey-mkcert
 
 # Optimize multiple components
-./scripts/pgo/example_run.sh --components vey-mkcert,g3keymess,vey-dcgen
+./scripts/pgo/example_run.sh --components vey-mkcert,vey-keyless,vey-dcgen
 
 # Optimize all available components
 ./scripts/pgo/example_run.sh --all

@@ -95,12 +95,12 @@ IP location lookup service for g3proxy GeoIP support.
 
 [README](vey-iploc/README.md)
 
-### g3keymess
+### vey-keyless
 
 A simple implementation of Cloudflare keyless server.
 
-[README](g3keymess/README.md) |
-[Reference Doc](https://g3-project.readthedocs.io/projects/g3keymess/en/latest/)
+[README](vey-keyless/README.md) |
+[Reference Doc](https://vey.readthedocs.io/projects/keyless/en/latest/)
 
 ## Target Platform
 

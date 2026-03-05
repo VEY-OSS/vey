@@ -1,0 +1,28 @@
+#!/usr/bin/make -f
+
+PACKAGE_NAME := vey-keyless
+BUILD_PROFILE := release-lto
+
+DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
+
+%:
+	dh $@
+
+override_dh_clean:
+	dh_clean -Xvendor
+
+override_dh_auto_clean:
+	cargo clean --frozen --offline
+
+override_dh_auto_build:
+	G3_PACKAGE_VERSION=$(DEB_VERSION) \
+	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
+	    --no-default-features --features openssl-async-job \
+	    --package vey-keyless --package vey-keyless-ctl
+
+override_dh_auto_install:
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-keyless debian/tmp/usr/bin/vey-keyless
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-keyless-ctl debian/tmp/usr/bin/vey-keyless-ctl
+
+override_dh_installchangelogs:
+	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG

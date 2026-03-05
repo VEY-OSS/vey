@@ -1,0 +1,61 @@
+[package]
+name = "vey-keyless"
+version = "0.5.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Keyless Server"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+clap.workspace = true
+log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
+slog = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
+ascii.workspace = true
+capnp.workspace = true
+capnp-rpc.workspace = true
+openssl.workspace = true
+openssl-sys.workspace = true # for openssl variant detection
+openssl-probe = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["time", "sync", "fs"] }
+yaml-rust.workspace = true
+chrono = { workspace = true, features = ["clock"] }
+uuid.workspace = true
+url.workspace = true
+foldhash.workspace = true
+futures-util.workspace = true
+arc-swap.workspace = true
+serde_json.workspace = true
+g3-codec.workspace = true
+g3-daemon = { workspace = true, features = ["register", "event-log"] }
+g3-macros.workspace = true
+g3-yaml = { workspace = true, features = ["histogram"] }
+g3-std-ext.workspace = true
+g3-types = { workspace = true, features = ["openssl"] }
+g3-socket.workspace = true
+g3-io-ext.workspace = true
+g3-tls-cert.workspace = true
+g3-slog-types.workspace = true
+g3-statsd-client.workspace = true
+g3-histogram.workspace = true
+g3-compat.workspace = true
+g3-openssl.workspace = true
+vey-keyless-proto = { path = "proto" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+inotify = "0.11"
+
+[build-dependencies]
+g3-build-env.workspace = true
+
+[features]
+default = []
+vendored-openssl = ["openssl/vendored", "openssl-probe"]
+vendored-tongsuo = ["openssl/tongsuo", "openssl-probe"]
+vendored-boringssl = ["openssl/boringssl", "openssl-probe"]
+vendored-aws-lc = ["openssl/aws-lc", "openssl-probe"]
+vendored-aws-lc-fips = ["openssl/aws-lc-fips", "openssl-probe"]
+openssl-async-job = ["g3-openssl/async-job", "g3-daemon/openssl-async-job"]

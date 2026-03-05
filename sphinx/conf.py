@@ -18,8 +18,8 @@ multiproject_projects = {
     "g3statsd": {
         "path": "g3statsd",
     },
-    "g3keymess": {
-        "path": "g3keymess",
+    "keyless": {
+        "path": "keyless",
     },
 }
 

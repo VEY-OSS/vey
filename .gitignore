@@ -15,5 +15,3 @@ LICENSE-BUNDLED
 # tmp file
 g3proxy/service/g3proxy@.service
 g3tiles/service/g3tiles@.service
-g3keymess/service/g3keymess@.service
-

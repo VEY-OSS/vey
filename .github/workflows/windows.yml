@@ -103,7 +103,7 @@ jobs:
         component:
           - vey-dcgen
           - vey-mkcert
-          - g3keymess
+          - vey-keyless
     steps:
       - name: Install common tools
         run: choco install capnproto

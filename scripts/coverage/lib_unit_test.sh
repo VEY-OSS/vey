@@ -37,7 +37,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=vey-dcgen \
     --ignore-filename-regex=g3tiles \
     --ignore-filename-regex=g3statsd \
-    --ignore-filename-regex=g3keymess \
+    --ignore-filename-regex=vey-keyless \
     --ignore-filename-regex=vey-iploc"
 
 cargo cov -- report --use-color --instr-profile="${PROF_DATA_FILE}" ${IGNORE_FLAGS} ${all_binaries} ${all_objects}

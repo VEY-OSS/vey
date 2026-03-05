@@ -129,7 +129,7 @@ jobs:
         component:
           - vey-dcgen
           - vey-mkcert
-          - g3keymess
+          - vey-keyless
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -155,7 +155,7 @@ jobs:
     strategy:
       matrix:
         component:
-          - g3keymess
+          - vey-keyless
           - g3tiles
     steps:
       - name: Checkout sources
