@@ -2,7 +2,7 @@
 members = [
     "vey-bench",
     "vey-dcgen",
-    "g3iploc",
+    "vey-iploc",
     "g3keymess",
     "g3keymess/proto",
     "g3keymess/utils/ctl",
@@ -67,7 +67,7 @@ members = [
 default-members = [
     "vey-bench",
     "vey-dcgen",
-    "g3iploc",
+    "vey-iploc",
     "vey-mkcert",
     "g3proxy",
     "g3proxy/utils/ctl",

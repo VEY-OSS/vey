@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-PACKAGE_NAME := g3iploc
+PACKAGE_NAME := vey-iploc
 BUILD_PROFILE := release-lto
 
 DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
@@ -17,10 +17,10 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
-	    --package g3iploc
+	    --package vey-iploc
 
 override_dh_auto_install:
-	install -m 755 -D target/$(BUILD_PROFILE)/g3iploc debian/tmp/usr/bin/g3iploc
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-iploc debian/tmp/usr/bin/vey-iploc
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG

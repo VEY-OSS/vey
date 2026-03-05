@@ -38,7 +38,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=g3proxy \
     --ignore-filename-regex=g3tiles \
     --ignore-filename-regex=g3keymess \
-    --ignore-filename-regex=g3iploc"
+    --ignore-filename-regex=vey-iploc"
 
 echo "==== Coverage for all ===="
 cargo cov -- report --use-color --instr-profile="${PROF_DATA_FILE}" ${IGNORE_FLAGS} ${all_binaries} ${all_objects}

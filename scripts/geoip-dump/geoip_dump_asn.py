@@ -75,7 +75,7 @@ def dump_ipfire_db(file: pathlib.Path, output):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Dump GeoIP database files to the format used by g3iploc")
+    parser = argparse.ArgumentParser(description="Dump GeoIP database files to the format used by vey-iploc")
     parser.add_argument('-i', '--input', type=pathlib.Path, required=True, metavar='<input file>')
     parser.add_argument('-o', '--output', type=pathlib.Path, required=True, metavar='<output file>',
                         default='g3_geoip_asn.gz')

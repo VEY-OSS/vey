@@ -88,11 +88,11 @@ g3proxyのための偽の証明書ジェネレーター。
 
 [詳細な紹介](vey-dcgen/README.md)
 
-### g3iploc
+### vey-iploc
 
 g3proxyのGeoIPサポートのためのIPロケーションルックアップサービス。
 
-[詳細な紹介](g3iploc/README.md)
+[詳細な紹介](vey-iploc/README.md)
 
 ### g3keymess
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=IP Locate Service at %i
+
+[Service]
+Type=exec
+EnvironmentFile=-/etc/vey-iploc/%i/env
+ExecStart=/usr/bin/vey-iploc -c /etc/vey-iploc/%i/ -s -G %i
+ExecStop=/bin/kill -INT $MAINPID
+
+[Install]
+WantedBy=multi-user.target
