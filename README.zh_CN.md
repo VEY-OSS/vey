@@ -80,11 +80,11 @@ StatsD兼容的监控打点指标聚合服务。
 
 [详细介绍](vey-mkcert/README.md)
 
-### g3fcgen
+### vey-dcgen
 
 适用于g3proxy TLS劫持功能的伪造证书生成服务应用。
 
-[详细介绍](g3fcgen/README.md)
+[详细介绍](vey-dcgen/README.md)
 
 ### g3iploc
 

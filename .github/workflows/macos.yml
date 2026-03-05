@@ -96,7 +96,7 @@ jobs:
           - vendored-boringssl
           - vendored-aws-lc
         component:
-          - g3fcgen
+          - vey-dcgen
           - vey-mkcert
           - g3keymess
     steps:

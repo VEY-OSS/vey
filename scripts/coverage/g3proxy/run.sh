@@ -14,9 +14,9 @@ go build
 GLAUTH_PID=$!
 cd -
 
-# start g3fcgen
-"${PROJECT_DIR}"/target/debug/g3fcgen -c "${RUN_DIR}"/g3fcgen.yaml -G port2999 &
-FCGEN_PID=$!
+# start vey-dcgen
+"${PROJECT_DIR}"/target/debug/vey-dcgen -c "${RUN_DIR}"/vey-dcgen.yaml -G port2999 &
+DCGEN_PID=$!
 
 # start g3iploc
 "${PROJECT_DIR}"/target/debug/g3iploc -c "${RUN_DIR}"/g3iploc.yaml -G port2888 &
@@ -76,7 +76,7 @@ set +x
 
 kill -INT $STATSD_PID
 kill -INT $IPLOC_PID
-kill -INT $FCGEN_PID
+kill -INT $DCGEN_PID
 kill -INT $GLAUTH_PID
 NGINX_PID=$(cat /tmp/nginx.pid)
 kill -INT $NGINX_PID

@@ -83,11 +83,11 @@ A tool to make root CA / intermediate CA / TLS server / TLS client / TLCP server
 
 [README](vey-mkcert/README.md)
 
-### g3fcgen
+### vey-dcgen
 
 Fake certificate generator for g3proxy.
 
-[README](g3fcgen/README.md)
+[README](vey-dcgen/README.md)
 
 ### g3iploc
 

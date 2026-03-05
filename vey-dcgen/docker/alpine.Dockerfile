@@ -1,12 +1,12 @@
 FROM rust:alpine AS builder
-WORKDIR /usr/src/g3
+WORKDIR /usr/src/vey
 COPY . .
 RUN apk add --no-cache musl-dev openssl-dev
 ENV RUSTFLAGS="-Ctarget-feature=-crt-static"
-RUN cargo build --profile release-lto -p g3fcgen
+RUN cargo build --profile release-lto -p vey-dcgen
 
 FROM alpine:latest
 RUN apk add --no-cache libgcc
-COPY --from=builder /usr/src/g3/target/release-lto/g3fcgen /usr/bin/g3fcgen
-ENTRYPOINT ["/usr/bin/g3fcgen"]
+COPY --from=builder /usr/src/vey/target/release-lto/vey-dcgen /usr/bin/vey-dcgen
+ENTRYPOINT ["/usr/bin/vey-dcgen"]
 CMD ["-Vvv"]

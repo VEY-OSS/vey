@@ -127,7 +127,7 @@ jobs:
           - vendored-aws-lc
           - vendored-aws-lc-fips
         component:
-          - g3fcgen
+          - vey-dcgen
           - vey-mkcert
           - g3keymess
     steps:

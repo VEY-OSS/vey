@@ -82,11 +82,11 @@ StatsD互換の統計アグリゲータ。
 
 [詳細な紹介](vey-mkcert/README.md)
 
-### g3fcgen
+### vey-dcgen
 
 g3proxyのための偽の証明書ジェネレーター。
 
-[詳細な紹介](g3fcgen/README.md)
+[詳細な紹介](vey-dcgen/README.md)
 
 ### g3iploc
 

@@ -1664,30 +1664,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3fcgen"
-version = "0.9.0"
-dependencies = [
- "anyhow",
- "clap",
- "g3-build-env",
- "g3-cert-agent",
- "g3-daemon",
- "g3-histogram",
- "g3-socket",
- "g3-statsd-client",
- "g3-std-ext",
- "g3-tls-cert",
- "g3-types",
- "g3-yaml",
- "kanal",
- "log",
- "tokio",
- "variant-ssl",
- "variant-ssl-sys",
- "yaml-rust2",
-]
-
-[[package]]
 name = "g3iploc"
 version = "0.4.0"
 dependencies = [
@@ -3731,6 +3707,30 @@ dependencies = [
  "url",
  "variant-ssl",
  "variant-ssl-sys",
+]
+
+[[package]]
+name = "vey-dcgen"
+version = "0.9.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "g3-build-env",
+ "g3-cert-agent",
+ "g3-daemon",
+ "g3-histogram",
+ "g3-socket",
+ "g3-statsd-client",
+ "g3-std-ext",
+ "g3-tls-cert",
+ "g3-types",
+ "g3-yaml",
+ "kanal",
+ "log",
+ "tokio",
+ "variant-ssl",
+ "variant-ssl-sys",
+ "yaml-rust2",
 ]
 
 [[package]]

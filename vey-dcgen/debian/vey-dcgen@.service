@@ -1,0 +1,11 @@
+[Unit]
+Description=Dynamic Certificate Generator at %i
+
+[Service]
+Type=exec
+EnvironmentFile=-/etc/vey-dcgen/%i/env
+ExecStart=/usr/bin/vey-dcgen -c /etc/vey-dcgen/%i/ -s -G %i
+ExecStop=/bin/kill -INT $MAINPID
+
+[Install]
+WantedBy=multi-user.target

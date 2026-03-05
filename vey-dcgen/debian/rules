@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-PACKAGE_NAME := g3fcgen
+PACKAGE_NAME := vey-dcgen
 BUILD_PROFILE := release-lto
 
 DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
@@ -18,10 +18,10 @@ override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
 	    --no-default-features \
-	    --package g3fcgen
+	    --package vey-dcgen
 
 override_dh_auto_install:
-	install -m 755 -D target/$(BUILD_PROFILE)/g3fcgen debian/tmp/usr/bin/g3fcgen
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-dcgen debian/tmp/usr/bin/vey-dcgen
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG

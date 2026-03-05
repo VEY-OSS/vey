@@ -6,13 +6,13 @@
 use anyhow::Context;
 use log::{debug, error, info};
 
-use g3fcgen::opts::ProcArgs;
+use vey_dcgen::opts::ProcArgs;
 
 fn main() -> anyhow::Result<()> {
     openssl::init();
 
     let Some(proc_args) =
-        g3fcgen::opts::parse_clap().context("failed to parse command line options")?
+        vey_dcgen::opts::parse_clap().context("failed to parse command line options")?
     else {
         return Ok(());
     };
@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
     g3_daemon::log::process::setup(&proc_args.daemon_config);
 
     g3_daemon::runtime::config::set_default_thread_number(0); // default to use current thread
-    let config_file = g3fcgen::config::load()
+    let config_file = vey_dcgen::config::load()
         .context(format!("failed to load config, opts: {:?}", &proc_args))?;
     debug!("loaded config from {}", config_file.display());
 
@@ -54,6 +54,6 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
     rt.block_on(async {
         g3_daemon::runtime::set_main_handle();
 
-        g3fcgen::run(args).await
+        vey_dcgen::run(args).await
     })
 }

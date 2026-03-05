@@ -1,13 +1,12 @@
-Source: vey-bench
+Source: vey-dcgen
 Section: net
 Priority: optional
 Maintainer: VEY-OSS Developers <developers@vey.oss>
-Build-Depends: debhelper, libssl-dev
+Build-Depends: debhelper, pkg-config, libssl-dev
 Standards-Version: 3.9.8
 Homepage: https://github.com/VEY-OSS/vey
 
-Package: vey-bench
+Package: vey-dcgen
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Recommends: ca-certificates
-Description: Multi-Target Benchmark Tool
+Description: Dynamic Certificate Generator
