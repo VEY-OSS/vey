@@ -1,11 +1,10 @@
-# g3fcgen
+# VEY DCGen
 
-g3fcgen is a server certificate generator/issuer to be used with g3proxy to enable TLS interception.
+vey-dcgen is a dynamic server certificate generator/issuer to be used with g3proxy to enable TLS interception.
 The protocol is
-defined [here](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/protocol/helper/cert_generator.html).
+defined [here](https://vey.readthedocs.io/projects/g3proxy/en/latest/protocol/helper/cert_generator.html).
 
-g3fcgen is designed to run with g3proxy on the same host.
-It is recommended to write you own implementation if you need to:
+It is designed to run with g3proxy on the same host. You can also write you own implementation if you need to:
 
 - serve a cluster of g3proxy instances
 - cache the generated server certificate for a much longer time
@@ -16,13 +15,13 @@ It is recommended to write you own implementation if you need to:
 To build debug binaries:
 
 ```shell
-cargo build -p g3fcgen
+cargo build -p vey-dcgen
 ```
 
 To build release binaries:
 
 ```shell
-cargo build --profile release-lto -p g3fcgen
+cargo build --profile release-lto -p vey-dcgen
 ```
 
 To support SM2 certificates, you need to use *Tongsuo* by adding `--features vendored-tongsuo`.
@@ -35,7 +34,7 @@ See [Build and Package](../doc/build_and_package.md) if you want to build binary
 
 See this [simple example](examples/simple).
 
-You can run `cargo run --bin g3fcgen -- -c g3fcgen/examples/simple/ -G port2999 -vv` to start it.
+You can run `cargo run --bin vey-dcgen -- -c vey-dcgen/examples/simple/ -G port2999 -vv` to start it.
 
 ### Set UDP listen address
 
@@ -48,25 +47,25 @@ There are two ways to change the UDP listen port:
   You can set **-G port<port>** or **--group-name port<port>** to change the UDP listen port,
   the final listen address will be **[::]:<port>**.
 
-  You can set the systemd instance name to *port<port>*, so when you run `systemctl start g3fcgen@port<port>`,
+  You can set the systemd instance name to *port<port>*, so when you run `systemctl start vey-dcgen@port<port>`,
   it will listen to the correct port automatically.
 
 - Via environment variables
 
   You can use the environment variable **UDP_LISTEN_ADDR** to change the UDP listen address.
-  You can add this environment variable to `/etc/g3fcgen/<instance name>/env` file to use this with
-  systemd managed g3fcgen service.
+  You can add this environment variable to `/etc/vey-dcgen/<instance name>/env` file to use this with
+  systemd managed vey-dcgen service.
 
 ### Hot Restart
 
 It is not possible to do hot restart gracefully without using two ports.
 
-If g3fcgen is running at port 3000, and g3proxy is also using port 3000, the steps are:
+If vey-dcgen is running at port 3000, and g3proxy is also using port 3000, the steps are:
 
-1. start a new g3fcgen service at port 3001 with the new config
-2. reload g3proxy to use g3fcgen port 3001
-3. stop g3fcgen running at port 3000
+1. start a new vey-dcgen service at port 3001 with the new config
+2. reload g3proxy to use vey-dcgen port 3001
+3. stop vey-dcgen running at port 3000
 
 ## Command line options
 
-Just run `g3fcgen -h` to see all supported command line options.
+Just run `vey-dcgen -h` to see all supported command line options.

@@ -340,7 +340,8 @@ For HTTP and SOCKS5 proxy servers, you can derive the chained next-hop address f
 ordered key-value pairs after the base name: `base+key1=val1+key2=val2+...`.
 
 - Enable per server with `username_params_to_escaper_addr`.
-- The host is built by joining configured keys’ values using a separator; if no recognized keys are present, no override is applied and the escaper’s default `proxy_addr` is used.
+- The host is built by joining configured keys’ values using a separator; if no recognized keys are present, no override
+  is applied and the escaper’s default `proxy_addr` is used.
 - The port is selected based on inbound protocol (HTTP/SOCKS5), both configurable.
 - Unknown keys and hierarchy violations (e.g., child without parent) can be rejected.
 
@@ -352,7 +353,7 @@ server:
     type: http_proxy
     escaper: chain
     username_params_to_escaper_addr:
-      keys_for_host: [label1, label2, label3]
+      keys_for_host: [ label1, label2, label3 ]
       require_hierarchy: true
       reject_unknown_keys: true
       reject_duplicate_keys: true
@@ -365,13 +366,16 @@ server:
 ```
 
 Behavior:
+
 - Username `user+label1=foo+label2=bar` → host `foo-bar`, port `10000` for HTTP inbound.
 - If no recognized keys are present, no override is applied (the escaper’s `proxy_addr` acts as fallback).
 - Invalid params cause HTTP 400 Bad Request; SOCKS5 replies with a standard error code and denies the request.
 
 Escaper fallback note:
+
 - Proxy chaining escapers (proxy_http/proxy_socks5/…) must define at least one `proxy_addr` to initialize.
-- When username params are present (and auth succeeds), the computed host:port overrides `proxy_addr` for that connection.
+- When username params are present (and auth succeeds), the computed host:port overrides `proxy_addr` for that
+  connection.
 - When no recognized keys are present in the username, no override is applied; the configured `proxy_addr` is used.
 
 ### Connection Throttling
@@ -855,8 +859,8 @@ auditor:
     application_audit_ratio: 1.0     # Application traffic audit ratio, matched according to client proxy request, if audit then perform protocol recognition and TLS hijacking
 ```
 
-Note that you will need to run the `tls cert generator` first, such as [g3fcgen](/g3fcgen) which is a reference
-implementation, see [g3fcgen simple conf](/g3fcgen/examples/simple) for an example conf.
+Note that you will need to run the `tls cert generator` first, such as [vey-dcgen](/vey-dcgen) which is a reference
+implementation, see [vey-dcgen simple conf](/vey-dcgen/examples/simple) for an example conf.
 
 ### Exporting Decrypted TLS Traffic
 

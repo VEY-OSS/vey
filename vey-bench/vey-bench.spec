@@ -5,7 +5,7 @@
 Name:           vey-bench
 Version:        0.9.7
 Release:        1%{?dist}
-Summary:        Multi-Target Benchmark tool developed by the VEY project
+Summary:        Multi-Target Benchmark tool
 
 License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
@@ -17,7 +17,7 @@ BuildRequires:  openssl-devel
 Requires:       ca-certificates
 
 %description
-Multi-Target Benchmark tool developed by the VEY project
+Multi-Target Benchmark tool
 
 
 %prep

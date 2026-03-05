@@ -49,7 +49,7 @@ Select specific components for optimization:
 ./scripts/pgo/example_run.sh --components vey-mkcert
 
 # Optimize multiple components
-./scripts/pgo/example_run.sh --components vey-mkcert,g3keymess,g3fcgen
+./scripts/pgo/example_run.sh --components vey-mkcert,g3keymess,vey-dcgen
 
 # Optimize all available components
 ./scripts/pgo/example_run.sh --all
@@ -242,7 +242,7 @@ cargo install cargo-binutils
 
 ```bash
 # Select only lightweight components
-./scripts/pgo/example_run.sh --components vey-mkcert,g3fcgen,vey-bench
+./scripts/pgo/example_run.sh --components vey-mkcert,vey-dcgen,vey-bench
 ```
 
 **Issue**: Profile data not generated
@@ -263,7 +263,7 @@ rm -rf /tmp/pgo-data
 
 ```bash
 # Use fewer components or avoid memory-intensive ones
-./scripts/pgo/example_run.sh --components vey-mkcert,g3fcgen,vey-bench
+./scripts/pgo/example_run.sh --components vey-mkcert,vey-dcgen,vey-bench
 
 # Or increase system memory/swap space
 ```
@@ -273,7 +273,7 @@ rm -rf /tmp/pgo-data
 ### Component Selection Strategy
 
 1. **Development Testing**: Use default components (`vey-mkcert`)
-2. **Lightweight Optimization**: Select a few key components (`vey-mkcert,g3fcgen,vey-bench`)
+2. **Lightweight Optimization**: Select a few key components (`vey-mkcert,vey-dcgen,vey-bench`)
 3. **Full Optimization**: Use `--all` on high-spec machines (note: may require substantial memory for `g3proxy`)
 
 ### Performance Testing Recommendations
@@ -289,7 +289,7 @@ PGO can be integrated into CI/CD pipelines:
 
 ```bash
 # Use PGO in release builds
-./scripts/pgo/example_run.sh --components vey-mkcert,g3fcgen
+./scripts/pgo/example_run.sh --components vey-mkcert,vey-dcgen
 cp target/release/* ./release-artifacts/
 ```
 

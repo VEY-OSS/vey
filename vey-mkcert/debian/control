@@ -9,4 +9,4 @@ Homepage: https://github.com/VEY-OSS/vey
 Package: vey-mkcert
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Tool to make certificates from the VEY project
+Description: Tool to make certificates

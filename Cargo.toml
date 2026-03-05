@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "vey-bench",
-    "g3fcgen",
+    "vey-dcgen",
     "g3iploc",
     "g3keymess",
     "g3keymess/proto",
@@ -66,7 +66,7 @@ members = [
 ]
 default-members = [
     "vey-bench",
-    "g3fcgen",
+    "vey-dcgen",
     "g3iploc",
     "vey-mkcert",
     "g3proxy",

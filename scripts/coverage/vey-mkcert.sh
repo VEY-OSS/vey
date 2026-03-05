@@ -40,7 +40,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=rustc \
     --ignore-filename-regex=target/debug/build \
     --ignore-filename-regex=vey-bench \
-    --ignore-filename-regex=g3fcgen \
+    --ignore-filename-regex=vey-dcgen \
     --ignore-filename-regex=g3proxy \
     --ignore-filename-regex=g3tiles \
     --ignore-filename-regex=g3keymess \

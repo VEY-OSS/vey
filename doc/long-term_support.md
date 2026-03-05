@@ -21,7 +21,7 @@ You can ask for commercial support if you need a longer support time.
 Long-Term branch for
 
 - [g3proxy](../g3proxy) 1.12.x
-- [g3fcgen](../g3fcgen) 0.8.x
+- [vey-dcgen](../vey-dcgen) 0.8.x
 - [g3iploc](../g3iploc) 0.3.x
 
 Minimum requirements:
