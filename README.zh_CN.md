@@ -92,12 +92,12 @@ StatsD兼容的监控打点指标聚合服务。
 
 [详细介绍](vey-iploc/README.md)
 
-### g3keymess
+### vey-keyless
 
 Cloudflare Keyless Server的简单实现。
 
-[详细介绍](g3keymess/README.md) |
-[参考文档](https://g3-project.readthedocs.io/projects/g3keymess/en/latest/)
+[详细介绍](vey-keyless/README.md) |
+[参考文档](https://vey.readthedocs.io/projects/keyless/en/latest/)
 
 ## 支持平台
 

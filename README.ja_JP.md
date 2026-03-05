@@ -94,12 +94,12 @@ g3proxyのGeoIPサポートのためのIPロケーションルックアップサ
 
 [詳細な紹介](vey-iploc/README.md)
 
-### g3keymess
+### vey-keyless
 
 Cloudflare keylessサーバーの簡単な実装。
 
-[詳細な紹介](g3keymess/README.md) |
-[リファレンスドキュメント](https://g3-project.readthedocs.io/projects/g3keymess/en/latest/)
+[詳細な紹介](vey-keyless/README.md) |
+[リファレンスドキュメント](https://vey.readthedocs.io/projects/keyless/en/latest/)
 
 ## 対応プラットフォーム
 

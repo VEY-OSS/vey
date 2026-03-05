@@ -1664,73 +1664,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3keymess"
-version = "0.5.0"
-dependencies = [
- "anyhow",
- "arc-swap",
- "ascii",
- "capnp",
- "capnp-rpc",
- "chrono",
- "clap",
- "foldhash 0.2.0",
- "futures-util",
- "g3-build-env",
- "g3-codec",
- "g3-compat",
- "g3-daemon",
- "g3-histogram",
- "g3-io-ext",
- "g3-macros",
- "g3-openssl",
- "g3-slog-types",
- "g3-socket",
- "g3-statsd-client",
- "g3-std-ext",
- "g3-tls-cert",
- "g3-types",
- "g3-yaml",
- "g3keymess-proto",
- "inotify",
- "log",
- "openssl-probe",
- "serde_json",
- "slog",
- "thiserror",
- "tokio",
- "url",
- "uuid",
- "variant-ssl",
- "variant-ssl-sys",
- "yaml-rust2",
-]
-
-[[package]]
-name = "g3keymess-ctl"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "capnp",
- "clap",
- "futures-util",
- "g3-ctl",
- "g3-tls-cert",
- "g3keymess-proto",
- "hex",
- "tokio",
- "variant-ssl",
-]
-
-[[package]]
-name = "g3keymess-proto"
-version = "0.1.0"
-dependencies = [
- "capnp",
- "capnpc",
-]
-
-[[package]]
 name = "g3proxy"
 version = "1.13.0"
 dependencies = [
@@ -3731,6 +3664,73 @@ dependencies = [
  "log",
  "tokio",
  "yaml-rust2",
+]
+
+[[package]]
+name = "vey-keyless"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "ascii",
+ "capnp",
+ "capnp-rpc",
+ "chrono",
+ "clap",
+ "foldhash 0.2.0",
+ "futures-util",
+ "g3-build-env",
+ "g3-codec",
+ "g3-compat",
+ "g3-daemon",
+ "g3-histogram",
+ "g3-io-ext",
+ "g3-macros",
+ "g3-openssl",
+ "g3-slog-types",
+ "g3-socket",
+ "g3-statsd-client",
+ "g3-std-ext",
+ "g3-tls-cert",
+ "g3-types",
+ "g3-yaml",
+ "inotify",
+ "log",
+ "openssl-probe",
+ "serde_json",
+ "slog",
+ "thiserror",
+ "tokio",
+ "url",
+ "uuid",
+ "variant-ssl",
+ "variant-ssl-sys",
+ "vey-keyless-proto",
+ "yaml-rust2",
+]
+
+[[package]]
+name = "vey-keyless-ctl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "capnp",
+ "clap",
+ "futures-util",
+ "g3-ctl",
+ "g3-tls-cert",
+ "hex",
+ "tokio",
+ "variant-ssl",
+ "vey-keyless-proto",
+]
+
+[[package]]
+name = "vey-keyless-proto"
+version = "0.1.0"
+dependencies = [
+ "capnp",
+ "capnpc",
 ]
 
 [[package]]

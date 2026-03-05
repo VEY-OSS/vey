@@ -1,0 +1,21 @@
+[Unit]
+Description=Keyless Server %i
+After=syslog.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+RuntimeDirectory=vey-keyless
+RuntimeDirectoryPreserve=yes
+EnvironmentFile=-/etc/vey-keyless/%i/env
+ExecStart=/usr/bin/vey-keyless -c /etc/vey-keyless/%i/ --control-dir $RUNTIME_DIRECTORY -s -G %i
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=-/usr/bin/vey-keyless-ctl --control-dir $RUNTIME_DIRECTORY -G %i -p $MAINPID offline
+KillMode=none
+Restart=on-success
+SuccessExitStatus=SIGQUIT
+TimeoutStartSec=10
+LimitNOFILE=10485760
+
+[Install]
+WantedBy=multi-user.target

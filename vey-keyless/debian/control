@@ -1,0 +1,13 @@
+Source: vey-keyless
+Section: net
+Priority: optional
+Maintainer: VEY-OSS Developers <developers@vey.oss>
+Build-Depends: debhelper, pkg-config, libssl-dev
+Standards-Version: 3.9.8
+Homepage: https://github.com/VEY-OSS/vey
+
+Package: vey-keyless
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: systemd
+Description: Keyless Server

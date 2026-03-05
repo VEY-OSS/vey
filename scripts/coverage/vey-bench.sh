@@ -37,7 +37,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=vey-dcgen \
     --ignore-filename-regex=g3proxy \
     --ignore-filename-regex=g3tiles \
-    --ignore-filename-regex=g3keymess \
+    --ignore-filename-regex=vey-keyless \
     --ignore-filename-regex=vey-iploc"
 
 echo "==== Coverage for all ===="

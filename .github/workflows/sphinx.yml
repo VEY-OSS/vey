@@ -21,7 +21,7 @@ jobs:
         component:
           - g3proxy
           - g3tiles
-          - g3keymess
+          - keyless
           - g3statsd
     steps:
       - uses: actions/checkout@v6
