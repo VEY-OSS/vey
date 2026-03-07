@@ -10,7 +10,7 @@ TEST_NAME="bench-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build -p vey-bench -p vey-mkcert -p g3proxy -p g3proxy-ctl -p g3statsd
+cargo build -p vey-bench -p vey-mkcert -p g3proxy -p g3proxy-ctl -p vey-statsd
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')

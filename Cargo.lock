@@ -1809,64 +1809,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3statsd"
-version = "0.2.0"
-dependencies = [
- "ahash",
- "anyhow",
- "arc-swap",
- "async-recursion",
- "capnp",
- "capnp-rpc",
- "chrono",
- "clap",
- "clap_complete",
- "fastrand",
- "foldhash 0.2.0",
- "g3-build-env",
- "g3-daemon",
- "g3-http",
- "g3-io-ext",
- "g3-macros",
- "g3-socket",
- "g3-types",
- "g3-yaml",
- "g3statsd-proto",
- "http",
- "itoa",
- "log",
- "memchr",
- "serde_json",
- "thiserror",
- "tokio",
- "yaml-rust2",
- "zmij",
-]
-
-[[package]]
-name = "g3statsd-ctl"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "capnp",
- "clap",
- "futures-util",
- "g3-ctl",
- "g3statsd-proto",
- "hex",
- "tokio",
- "variant-ssl",
-]
-
-[[package]]
-name = "g3statsd-proto"
-version = "0.1.0"
-dependencies = [
- "capnp",
- "capnpc",
-]
-
-[[package]]
 name = "g3tiles"
 version = "0.4.0"
 dependencies = [
@@ -3746,6 +3688,60 @@ dependencies = [
  "openssl-probe",
  "variant-ssl",
  "variant-ssl-sys",
+]
+
+[[package]]
+name = "vey-statsd"
+version = "0.2.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "arc-swap",
+ "async-recursion",
+ "capnp",
+ "capnp-rpc",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "fastrand",
+ "foldhash 0.2.0",
+ "g3-build-env",
+ "g3-daemon",
+ "g3-http",
+ "g3-io-ext",
+ "g3-macros",
+ "g3-socket",
+ "g3-types",
+ "g3-yaml",
+ "http",
+ "itoa",
+ "log",
+ "memchr",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "vey-statsd-proto",
+ "yaml-rust2",
+ "zmij",
+]
+
+[[package]]
+name = "vey-statsd-ctl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "g3-ctl",
+ "tokio",
+ "vey-statsd-proto",
+]
+
+[[package]]
+name = "vey-statsd-proto"
+version = "0.1.0"
+dependencies = [
+ "capnp",
+ "capnpc",
 ]
 
 [[package]]

@@ -4,7 +4,7 @@ log: stdout
 
 stat:
   target:
-    unix: /tmp/g3statsd.sock
+    unix: /tmp/vey-statsd.sock
 
 resolver:
   - name: default

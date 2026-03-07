@@ -36,7 +36,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=g3proxy \
     --ignore-filename-regex=vey-dcgen \
     --ignore-filename-regex=g3tiles \
-    --ignore-filename-regex=g3statsd \
+    --ignore-filename-regex=vey-statsd \
     --ignore-filename-regex=vey-keyless \
     --ignore-filename-regex=vey-iploc"
 

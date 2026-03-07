@@ -1,0 +1,19 @@
+[Unit]
+Description=StatsD Server %i
+After=syslog.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+RuntimeDirectory=vey-statsd
+RuntimeDirectoryPreserve=yes
+EnvironmentFile=-/etc/vey-statsd/%i/env
+ExecStart=/usr/bin/vey-statsd -c /etc/vey-statsd/%i/ --control-dir $RUNTIME_DIRECTORY -s -G %i
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=-/usr/bin/vey-statsd-ctl --control-dir $RUNTIME_DIRECTORY -G %i -p $MAINPID offline
+Restart=on-success
+SuccessExitStatus=SIGQUIT
+TimeoutStartSec=10
+
+[Install]
+WantedBy=multi-user.target

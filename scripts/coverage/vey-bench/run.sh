@@ -9,10 +9,10 @@ PROXY_PID=$!
 [ -d /tmp/nginx ] || mkdir /tmp/nginx
 /usr/sbin/nginx -c "${PROJECT_DIR}"/scripts/coverage/vey-bench/nginx.conf
 
-# start g3statsd
+# start vey-statsd
 [ -n "${INFLUX_TOKEN}" ] || INFLUX_TOKEN=$(curl -X POST http://127.0.0.1:8181/api/v3/configure/token/admin | jq ".token" -r)
 export INFLUX_TOKEN
-"${PROJECT_DIR}"/target/debug/g3statsd -c "${RUN_DIR}"/g3statsd.yaml -G ${TEST_NAME} &
+"${PROJECT_DIR}"/target/debug/vey-statsd -c "${RUN_DIR}"/vey-statsd.yaml -G ${TEST_NAME} &
 STATSD_PID=$!
 
 # run vey-bench integration tests

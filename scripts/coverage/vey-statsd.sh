@@ -6,20 +6,20 @@ SCRIPTS_DIR=$(dirname "$0")
 PROJECT_DIR=$(realpath "${SCRIPTS_DIR}/../..")
 
 
-TEST_NAME="g3proxy-ci"
+TEST_NAME="vey-statsd-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build -p g3proxy -p g3proxy-ctl -p g3proxy-ftp -p vey-mkcert -p vey-dcgen -p vey-iploc -p vey-statsd
+cargo build -p vey-statsd -p vey-statsd-ctl
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
-# run g3proxy tests
+# run vey-statsd tests
 
-cargo test -p g3proxy -p g3proxy-ctl -p g3proxy-ftp
+cargo test -p vey-statsd -p vey-statsd-ctl
 
-RUN_DIR="${SCRIPTS_DIR}/g3proxy"
+RUN_DIR="${SCRIPTS_DIR}/vey-statsd"
 . "${RUN_DIR}/run.sh"
 
 # get all profraw files generated in each test
@@ -34,7 +34,10 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=rustc \
     --ignore-filename-regex=target/debug/build \
     --ignore-filename-regex=vey-bench \
+    --ignore-filename-regex=vey-dcgen \
+    --ignore-filename-regex=vey-iploc \
     --ignore-filename-regex=vey-mkcert \
+    --ignore-filename-regex=g3proxy \
     --ignore-filename-regex=g3tiles \
     --ignore-filename-regex=vey-keyless"
 

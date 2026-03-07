@@ -52,11 +52,11 @@ as we have basic support built in.
 [README](g3proxy/README.md) | [User Guide](g3proxy/UserGuide.en_US.md) |
 [Reference Doc](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
 
-### g3statsd
+### vey-statsd
 
 A StatsD compatible stats aggregator.
 
-[README](g3statsd/README.md) | [Reference Doc](https://g3-project.readthedocs.io/projects/g3statsd/en/latest/)
+[README](vey-statsd/README.md) | [Reference Doc](https://vey.readthedocs.io/projects/statsd/en/latest/)
 
 ### g3tiles
 

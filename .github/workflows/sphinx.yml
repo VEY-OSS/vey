@@ -22,7 +22,7 @@ jobs:
           - g3proxy
           - g3tiles
           - keyless
-          - g3statsd
+          - statsd
     steps:
       - uses: actions/checkout@v6
       - run: |

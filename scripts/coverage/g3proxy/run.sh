@@ -22,10 +22,10 @@ DCGEN_PID=$!
 "${PROJECT_DIR}"/target/debug/vey-iploc -c "${RUN_DIR}"/vey-iploc.yaml -G port2888 &
 IPLOC_PID=$!
 
-# start g3statsd
+# start vey-statsd
 [ -n "${INFLUXDB3_AUTH_TOKEN}" ] || INFLUXDB3_AUTH_TOKEN=$(curl -X POST http://127.0.0.1:8181/api/v3/configure/token/admin | jq ".token" -r)
 export INFLUXDB3_AUTH_TOKEN
-"${PROJECT_DIR}"/target/debug/g3statsd -c "${RUN_DIR}"/g3statsd.yaml -G ${TEST_NAME} &
+"${PROJECT_DIR}"/target/debug/vey-statsd -c "${RUN_DIR}"/vey-statsd.yaml -G ${TEST_NAME} &
 STATSD_PID=$!
 
 # run g3proxy integration tests

@@ -10,7 +10,7 @@ TEST_NAME="vey-keyless-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build --features openssl-async-job -p vey-keyless -p vey-keyless-ctl -p vey-mkcert -p g3statsd -p vey-bench
+cargo build --features openssl-async-job -p vey-keyless -p vey-keyless-ctl -p vey-mkcert -p vey-statsd -p vey-bench
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')

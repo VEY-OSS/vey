@@ -1,8 +1,8 @@
 # generate resource files
 "${RUN_DIR}"/mkcert.sh
 
-# start g3statsd
-"${PROJECT_DIR}"/target/debug/g3statsd -c "${RUN_DIR}"/g3statsd.yaml -G ${TEST_NAME} &
+# start vey-statsd
+"${PROJECT_DIR}"/target/debug/vey-statsd -c "${RUN_DIR}"/vey-statsd.yaml -G ${TEST_NAME} &
 STATSD_PID=$!
 
 # run vey-keyless integration tests
