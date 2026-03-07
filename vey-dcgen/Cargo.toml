@@ -28,7 +28,7 @@ g3-cert-agent.workspace = true
 g3-socket.workspace = true
 
 [build-dependencies]
-g3-build-env.workspace = true
+vey-build-env.workspace = true
 
 [features]
 default = []

@@ -18,7 +18,7 @@ members = [
     "vey-gateway",
     "vey-gateway/proto",
     "vey-gateway/utils/ctl",
-    "lib/g3-build-env",
+    "lib/vey-build-env",
     "lib/g3-cert-agent",
     "lib/g3-clap",
     "lib/g3-codec",
@@ -198,7 +198,7 @@ pyo3 = { version = "0.28", default-features = false, features = ["auto-initializ
 #
 cfg-if = "1.0"
 #
-g3-build-env = { version = "0.2", path = "lib/g3-build-env" }
+vey-build-env = { version = "0.2", path = "lib/vey-build-env" }
 g3-cert-agent = { version = "0.3", path = "lib/g3-cert-agent" }
 g3-clap = { version = "0.2", path = "lib/g3-clap" }
 g3-codec = { version = "0.1", path = "lib/g3-codec" }

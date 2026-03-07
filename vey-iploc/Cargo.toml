@@ -22,4 +22,4 @@ g3-socket.workspace = true
 g3-types.workspace = true
 
 [build-dependencies]
-g3-build-env.workspace = true
+vey-build-env.workspace = true

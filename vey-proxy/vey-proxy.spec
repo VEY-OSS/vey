@@ -24,8 +24,8 @@ Generic Proxy Server
 
 
 %build
-G3_PACKAGE_VERSION="%{version}-%{release}"
-export G3_PACKAGE_VERSION
+VEY_PACKAGE_VERSION="%{version}-%{release}"
+export VEY_PACKAGE_VERSION
 LUA_FEATURE=$(lua -v | sed 's/Lua \([0-9]\+\)[.]\([0-9]\+\)[.].*/lua\1\2/')
 CARES_FEATURE=$(sh scripts/package/detect_c-ares_feature.sh)
 export CMAKE="%{cmake_real}"

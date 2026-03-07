@@ -6,9 +6,9 @@
 use std::env;
 
 fn main() {
-    g3_build_env::check_basic();
-    g3_build_env::check_openssl();
-    g3_build_env::check_rustls_provider();
+    vey_build_env::check_basic();
+    vey_build_env::check_openssl();
+    vey_build_env::check_rustls_provider();
 
     if env::var("CARGO_FEATURE_LUA").is_ok() {
         if env::var("CARGO_FEATURE_LUA53").is_ok() {

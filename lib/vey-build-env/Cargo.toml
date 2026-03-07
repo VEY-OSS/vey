@@ -1,5 +1,5 @@
 [package]
-name = "g3-build-env"
+name = "vey-build-env"
 version = "0.2.0"
 license.workspace = true
 edition.workspace = true

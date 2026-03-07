@@ -57,7 +57,7 @@ g3-tls-ticket = { workspace = true, features = ["yaml"] }
 vey-gateway-proto = { path = "proto" }
 
 [build-dependencies]
-g3-build-env.workspace = true
+vey-build-env.workspace = true
 
 [features]
 default = ["quic", "rustls-ring"]

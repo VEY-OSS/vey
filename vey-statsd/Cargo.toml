@@ -37,4 +37,4 @@ g3-yaml = { workspace = true, features = ["acl-rule", "http"] }
 vey-statsd-proto = { path = "proto" }
 
 [build-dependencies]
-g3-build-env.workspace = true
+vey-build-env.workspace = true

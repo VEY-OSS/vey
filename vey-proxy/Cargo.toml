@@ -103,7 +103,7 @@ tokio = { workspace = true, features = ["macros", "io-util"] }
 tokio-test.workspace = true
 
 [build-dependencies]
-g3-build-env.workspace = true
+vey-build-env.workspace = true
 
 [features]
 default = ["lua54", "python", "c-ares", "quic", "rustls-ring"]

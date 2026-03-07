@@ -25,8 +25,8 @@ Multi-Target Benchmark tool
 
 
 %build
-G3_PACKAGE_VERSION="%{version}-%{release}"
-export G3_PACKAGE_VERSION
+VEY_PACKAGE_VERSION="%{version}-%{release}"
+export VEY_PACKAGE_VERSION
 cargo build --frozen --offline --profile %{build_profile} --no-default-features --features rustls-ring,quic --package vey-bench
 
 

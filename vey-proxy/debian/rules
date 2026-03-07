@@ -17,7 +17,7 @@ override_dh_auto_clean:
 	cargo clean --frozen --offline
 
 override_dh_auto_build:
-	G3_PACKAGE_VERSION=$(DEB_VERSION) \
+	VEY_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --profile $(BUILD_PROFILE) \
 	    --no-default-features --features $(LUA_FEATURE),rustls-ring,quic,$(CARES_FEATURE) \
 	    --package vey-proxy --package vey-proxy-ctl --package vey-proxy-lua

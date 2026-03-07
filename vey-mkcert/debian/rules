@@ -15,7 +15,7 @@ override_dh_auto_clean:
 	cargo clean --frozen --offline --release
 
 override_dh_auto_build:
-	G3_PACKAGE_VERSION=$(DEB_VERSION) \
+	VEY_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
 	    --no-default-features \
 	    --package vey-mkcert

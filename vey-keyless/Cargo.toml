@@ -49,7 +49,7 @@ vey-keyless-proto = { path = "proto" }
 inotify = "0.11"
 
 [build-dependencies]
-g3-build-env.workspace = true
+vey-build-env.workspace = true
 
 [features]
 default = []

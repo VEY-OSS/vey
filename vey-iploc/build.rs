@@ -4,5 +4,5 @@
  */
 
 fn main() {
-    g3_build_env::check_basic();
+    vey_build_env::check_basic();
 }
