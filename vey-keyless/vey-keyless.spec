@@ -42,6 +42,7 @@ install -m 644 -D %{name}/debian/vey-keyless@.service %{buildroot}/lib/systemd/s
 %license LICENSE
 %license LICENSE-BUNDLED
 %license LICENSE-FOREIGN
+%doc sphinx/%{name}/_build/html
 
 
 %changelog

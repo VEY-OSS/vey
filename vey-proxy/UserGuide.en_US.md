@@ -149,7 +149,7 @@ stat:
   emit_duration: 200ms  # Interval between metrics
 ```
 
-The specific metrics are defined in the [metrics](../sphinx/proxy/metrics) folder. It is recommended to generate the
+The specific metrics are defined in the [metrics](../sphinx/vey-proxy/metrics) folder. It is recommended to generate the
 Sphinx HTML documentation and view it.
 
 ## Basic Usage

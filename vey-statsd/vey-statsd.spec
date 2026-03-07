@@ -43,6 +43,7 @@ install -m 644 -D %{name}/debian/vey-statsd@.service %{buildroot}/lib/systemd/sy
 %license LICENSE
 %license LICENSE-BUNDLED
 %license LICENSE-FOREIGN
+%doc sphinx/%{name}/_build/html
 
 
 %changelog

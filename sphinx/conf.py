@@ -10,16 +10,16 @@ multiproject_projects = {
         "path": "project",
     },
     "proxy": {
-        "path": "proxy",
+        "path": "vey-proxy",
     },
     "g3tiles": {
         "path": "g3tiles",
     },
     "statsd": {
-        "path": "statsd",
+        "path": "vey-statsd",
     },
     "keyless": {
-        "path": "keyless",
+        "path": "vey-keyless",
     },
 }
 

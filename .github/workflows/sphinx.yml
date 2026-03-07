@@ -2,9 +2,6 @@ name: Sphinx-Doc
 permissions: { }
 
 on:
-  push:
-    paths:
-      - 'sphinx/**'
   pull_request:
     paths:
       - 'sphinx/**'
@@ -19,10 +16,10 @@ jobs:
     strategy:
       matrix:
         component:
-          - proxy
+          - vey-proxy
           - g3tiles
-          - keyless
-          - statsd
+          - vey-keyless
+          - vey-statsd
     steps:
       - uses: actions/checkout@v6
       - run: |
