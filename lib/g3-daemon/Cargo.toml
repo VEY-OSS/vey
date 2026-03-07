@@ -29,7 +29,7 @@ tokio-util = { workspace = true, features = ["compat"] }
 http = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = ["runtime-tokio", "ring"] }
-g3-compat.workspace = true
+vey-compat.workspace = true
 g3-types = { workspace = true, features = ["async-log"] }
 g3-stdlog.workspace = true
 g3-syslog = { workspace = true, features = ["yaml"] }

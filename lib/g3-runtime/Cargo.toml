@@ -12,7 +12,7 @@ anyhow.workspace = true
 log.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "rt", "sync", "net"] }
 yaml-rust = { workspace = true, optional = true }
-g3-compat.workspace = true
+vey-compat.workspace = true
 g3-openssl = { workspace = true, optional = true }
 g3-yaml = { workspace = true, optional = true, features = ["sched"] }
 

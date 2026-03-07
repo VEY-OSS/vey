@@ -13,7 +13,7 @@ use log::{error, trace, warn};
 use tokio::runtime::{Handle, Runtime};
 use tokio::sync::watch;
 
-use g3_compat::CpuAffinity;
+use vey_compat::CpuAffinity;
 
 #[cfg(feature = "yaml")]
 mod yaml;

@@ -1,5 +1,5 @@
 [package]
-name = "g3-compat"
+name = "vey-compat"
 version = "0.2.0"
 license.workspace = true
 edition.workspace = true

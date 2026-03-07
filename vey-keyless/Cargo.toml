@@ -41,7 +41,7 @@ g3-tls-cert.workspace = true
 g3-slog-types.workspace = true
 g3-statsd-client.workspace = true
 g3-histogram.workspace = true
-g3-compat.workspace = true
+vey-compat.workspace = true
 g3-openssl.workspace = true
 vey-keyless-proto = { path = "proto" }
 

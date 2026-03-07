@@ -18,7 +18,7 @@ serde_json.workspace = true
 log.workspace = true
 anyhow = { workspace = true, optional = true }
 yaml-rust = { workspace = true, optional = true }
-g3-compat.workspace = true
+vey-compat.workspace = true
 g3-datetime.workspace = true
 g3-io-sys.workspace = true
 g3-types = { workspace = true, features = ["async-log"] }

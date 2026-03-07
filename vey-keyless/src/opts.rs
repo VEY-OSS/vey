@@ -27,8 +27,8 @@ use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
 ))]
 use log::info;
 
-use g3_compat::CpuAffinity;
 use g3_daemon::opts::{DaemonArgs, DaemonArgsExt};
+use vey_compat::CpuAffinity;
 
 const ARGS_VERSION: &str = "version";
 const ARGS_GROUP_NAME: &str = "group-name";

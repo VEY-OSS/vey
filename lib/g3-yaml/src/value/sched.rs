@@ -6,7 +6,7 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_compat::CpuAffinity;
+use vey_compat::CpuAffinity;
 
 fn cpu_affinity_add_value(set: &mut CpuAffinity, v: &Yaml) -> anyhow::Result<()> {
     match v {

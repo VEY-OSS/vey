@@ -971,15 +971,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3-compat"
-version = "0.2.0"
-dependencies = [
- "libc",
- "rustix",
- "windows-sys 0.61.2",
-]
-
-[[package]]
 name = "g3-ctl"
 version = "0.2.0"
 dependencies = [
@@ -1007,7 +998,6 @@ dependencies = [
  "clap",
  "fastrand",
  "foldhash 0.2.0",
- "g3-compat",
  "g3-fluentd",
  "g3-http",
  "g3-io-ext",
@@ -1034,6 +1024,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "uuid",
+ "vey-compat",
  "yaml-rust2",
 ]
 
@@ -1062,7 +1053,6 @@ dependencies = [
  "anyhow",
  "chrono",
  "constant_time_eq",
- "g3-compat",
  "g3-openssl",
  "g3-socket",
  "g3-types",
@@ -1076,6 +1066,7 @@ dependencies = [
  "slog",
  "tokio",
  "variant-ssl",
+ "vey-compat",
  "yaml-rust2",
 ]
 
@@ -1405,11 +1396,11 @@ name = "g3-runtime"
 version = "0.5.0"
 dependencies = [
  "anyhow",
- "g3-compat",
  "g3-openssl",
  "g3-yaml",
  "log",
  "tokio",
+ "vey-compat",
  "yaml-rust2",
 ]
 
@@ -1448,11 +1439,11 @@ name = "g3-socket"
 version = "0.6.0"
 dependencies = [
  "fastrand",
- "g3-compat",
  "g3-types",
  "libc",
  "socket2",
  "tokio",
+ "vey-compat",
  "windows-sys 0.61.2",
 ]
 
@@ -1509,7 +1500,6 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "chrono",
- "g3-compat",
  "g3-datetime",
  "g3-io-sys",
  "g3-types",
@@ -1520,6 +1510,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slog",
+ "vey-compat",
  "yaml-rust2",
  "zmij",
 ]
@@ -1639,7 +1630,6 @@ dependencies = [
  "anyhow",
  "ascii",
  "chrono",
- "g3-compat",
  "g3-dpi",
  "g3-geoip-types",
  "g3-histogram",
@@ -1653,6 +1643,7 @@ dependencies = [
  "rustls-pki-types",
  "url",
  "variant-ssl",
+ "vey-compat",
  "yaml-rust2",
 ]
 
@@ -3346,6 +3337,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vey-compat"
+version = "0.2.0"
+dependencies = [
+ "libc",
+ "rustix",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "vey-dcgen"
 version = "0.9.0"
 dependencies = [
@@ -3477,7 +3477,6 @@ dependencies = [
  "foldhash 0.2.0",
  "futures-util",
  "g3-codec",
- "g3-compat",
  "g3-daemon",
  "g3-histogram",
  "g3-io-ext",
@@ -3502,6 +3501,7 @@ dependencies = [
  "variant-ssl",
  "variant-ssl-sys",
  "vey-build-env",
+ "vey-compat",
  "vey-keyless-proto",
  "yaml-rust2",
 ]

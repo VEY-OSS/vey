@@ -12,11 +12,11 @@ use tokio::net::TcpStream;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
-use g3_compat::CpuAffinity;
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::RawSocket;
 use g3_std_ext::net::SocketAddrExt;
 use g3_types::net::TcpListenConfig;
+use vey_compat::CpuAffinity;
 
 use crate::listen::{ListenAliveGuard, ListenStats};
 use crate::server::{BaseServer, ClientConnectionInfo, ReloadServer, ServerReloadCommand};
