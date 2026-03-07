@@ -69,7 +69,7 @@ jobs:
         component:
           - vey-proxy
           - vey-bench
-          - g3tiles
+          - vey-gateway
     steps:
       - name: Install common tools
         run: choco install capnproto

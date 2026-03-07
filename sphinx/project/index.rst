@@ -9,12 +9,12 @@ Follow the links below to see documentations for each application:
 
 - `vey-proxy`_
 - `vey-statsd`_
-- `g3tiles`_
+- `vey-gateway`_
 - `vey-keyless`_
 
 .. _code repo: https://github.com/VEY-OSS/vey
 
 .. _vey-proxy: /projects/proxy/en/latest/
 .. _vey-statsd: /projects/statsd/en/latest/
-.. _g3tiles: /projects/g3tiles/en/latest/
+.. _vey-gateway: /projects/gateway/en/latest/
 .. _vey-keyless: /projects/keyless/en/latest/

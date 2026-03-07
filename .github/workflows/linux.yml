@@ -92,7 +92,7 @@ jobs:
         component:
           - vey-proxy
           - vey-bench
-          - g3tiles
+          - vey-gateway
         include:
           - feature: vendored-c-ares,rustls-ring
             component: vey-proxy
@@ -156,7 +156,7 @@ jobs:
       matrix:
         component:
           - vey-keyless
-          - g3tiles
+          - vey-gateway
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6

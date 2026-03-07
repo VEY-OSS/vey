@@ -3,7 +3,7 @@
 [![codecov](https://codecov.io/gh/VEY-OSS/vey/graph/badge.svg?token=c8gK1HrRsX)](https://codecov.io/gh/VEY-OSS/vey)
 [![docs](https://readthedocs.org/projects/vey/badge)](https://vey.readthedocs.io/)
 
-# G3-OSSプロジェクト
+# VEYプロジェクト
 
 [中文版 README](README.zh_CN.md) | [English README](README.md)
 
@@ -57,11 +57,11 @@ StatsD互換の統計アグリゲータ。
 
 [詳細な紹介](vey-statsd/README.md) | [リファレンスドキュメント](https://vey.readthedocs.io/projects/statsd/en/latest/)
 
-### g3tiles
+### vey-gateway
 
 作業中のリバースプロキシソリューション。
 
-[リファレンスドキュメント](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
+[リファレンスドキュメント](https://vey.readthedocs.io/projects/gateway/en/latest/)
 
 ### vey-bench
 

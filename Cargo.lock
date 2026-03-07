@@ -1664,80 +1664,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3tiles"
-version = "0.4.0"
-dependencies = [
- "ahash",
- "anyhow",
- "arc-swap",
- "ascii",
- "async-trait",
- "bitflags",
- "bytes",
- "capnp",
- "capnp-rpc",
- "chrono",
- "clap",
- "clap_complete",
- "foldhash 0.2.0",
- "futures-util",
- "g3-build-env",
- "g3-codec",
- "g3-daemon",
- "g3-dpi",
- "g3-histogram",
- "g3-io-ext",
- "g3-macros",
- "g3-openssl",
- "g3-slog-types",
- "g3-socket",
- "g3-statsd-client",
- "g3-std-ext",
- "g3-tls-ticket",
- "g3-types",
- "g3-yaml",
- "g3tiles-proto",
- "itoa",
- "kanal",
- "log",
- "openssl-probe",
- "quinn",
- "rustc-hash",
- "rustls",
- "rustls-pki-types",
- "serde_json",
- "slog",
- "thiserror",
- "tokio",
- "tokio-rustls",
- "uuid",
- "variant-ssl",
- "variant-ssl-sys",
- "yaml-rust2",
-]
-
-[[package]]
-name = "g3tiles-ctl"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "capnp",
- "clap",
- "futures-util",
- "g3-ctl",
- "g3tiles-proto",
- "tokio",
-]
-
-[[package]]
-name = "g3tiles-proto"
-version = "0.1.0"
-dependencies = [
- "capnp",
- "capnpc",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3441,6 +3367,80 @@ dependencies = [
  "variant-ssl",
  "variant-ssl-sys",
  "yaml-rust2",
+]
+
+[[package]]
+name = "vey-gateway"
+version = "0.4.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "arc-swap",
+ "ascii",
+ "async-trait",
+ "bitflags",
+ "bytes",
+ "capnp",
+ "capnp-rpc",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "foldhash 0.2.0",
+ "futures-util",
+ "g3-build-env",
+ "g3-codec",
+ "g3-daemon",
+ "g3-dpi",
+ "g3-histogram",
+ "g3-io-ext",
+ "g3-macros",
+ "g3-openssl",
+ "g3-slog-types",
+ "g3-socket",
+ "g3-statsd-client",
+ "g3-std-ext",
+ "g3-tls-ticket",
+ "g3-types",
+ "g3-yaml",
+ "itoa",
+ "kanal",
+ "log",
+ "openssl-probe",
+ "quinn",
+ "rustc-hash",
+ "rustls",
+ "rustls-pki-types",
+ "serde_json",
+ "slog",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "uuid",
+ "variant-ssl",
+ "variant-ssl-sys",
+ "vey-gateway-proto",
+ "yaml-rust2",
+]
+
+[[package]]
+name = "vey-gateway-ctl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "capnp",
+ "clap",
+ "futures-util",
+ "g3-ctl",
+ "tokio",
+ "vey-gateway-proto",
+]
+
+[[package]]
+name = "vey-gateway-proto"
+version = "0.1.0"
+dependencies = [
+ "capnp",
+ "capnpc",
 ]
 
 [[package]]

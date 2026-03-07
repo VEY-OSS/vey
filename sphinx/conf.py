@@ -12,8 +12,8 @@ multiproject_projects = {
     "proxy": {
         "path": "vey-proxy",
     },
-    "g3tiles": {
-        "path": "g3tiles",
+    "gateway": {
+        "path": "vey-gateway",
     },
     "statsd": {
         "path": "vey-statsd",

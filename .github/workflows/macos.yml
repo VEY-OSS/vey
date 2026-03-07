@@ -64,7 +64,7 @@ jobs:
         component:
           - vey-proxy
           - vey-bench
-          - g3tiles
+          - vey-gateway
         include:
           - feature: vendored-c-ares,rustls-ring
             component: vey-proxy

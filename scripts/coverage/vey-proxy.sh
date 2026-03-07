@@ -35,7 +35,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=target/debug/build \
     --ignore-filename-regex=vey-bench \
     --ignore-filename-regex=vey-mkcert \
-    --ignore-filename-regex=g3tiles \
+    --ignore-filename-regex=vey-gateway \
     --ignore-filename-regex=vey-keyless"
 
 echo "==== Coverage for all ===="

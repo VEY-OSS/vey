@@ -58,11 +58,11 @@ A StatsD compatible stats aggregator.
 
 [README](vey-statsd/README.md) | [Reference Doc](https://vey.readthedocs.io/projects/statsd/en/latest/)
 
-### g3tiles
+### vey-gateway
 
 A work in progress reverse proxy solution.
 
-[Reference Doc](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
+[Reference Doc](https://vey.readthedocs.io/projects/gateway/en/latest/)
 
 ### vey-bench
 

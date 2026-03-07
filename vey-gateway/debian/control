@@ -1,0 +1,13 @@
+Source: vey-gateway
+Section: net
+Priority: optional
+Maintainer: VEY-OSS Developers <developers@vey.oss>
+Build-Depends: debhelper, pkg-config, capnproto, libssl-dev
+Standards-Version: 3.9.8
+Homepage: https://github.com/VEY-OSS/vey
+
+Package: vey-gateway
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: ca-certificates, systemd
+Description: Generic Gateway

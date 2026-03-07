@@ -16,7 +16,7 @@ PGO_DATA_DIR="/tmp/pgo-data"
 # Default components for PGO (memory-efficient choices)
 DEFAULT_COMPONENTS=("vey-mkcert")
 # All available components
-ALL_COMPONENTS=("vey-mkcert" "vey-proxy" "vey-bench" "vey-dcgen" "vey-iploc" "vey-keyless" "vey-statsd" "g3tiles")
+ALL_COMPONENTS=("vey-mkcert" "vey-proxy" "vey-bench" "vey-dcgen" "vey-iploc" "vey-keyless" "vey-statsd" "vey-gateway")
 
 # Components to build with PGO (set by command line args)
 declare -a PGO_COMPONENTS
@@ -197,11 +197,11 @@ generate_profiles() {
                 "$vey_statsd_bin" --help || echo "vey-statsd help failed"
                 "$vey_statsd_bin" --version || echo "vey-statsd version failed"
                 ;;
-            g3tiles)
-                echo "Running g3tiles workload..."
-                local g3tiles_bin=$(get_binary_path "g3tiles")
-                "$g3tiles_bin" --help || echo "g3tiles help failed"
-                "$g3tiles_bin" --version || echo "g3tiles version failed"
+            vey-gateway)
+                echo "Running vey-gateway workload..."
+                local vey_gateway_bin=$(get_binary_path "vey-gateway")
+                "$vey_gateway_bin" --help || echo "vey-gateway help failed"
+                "$vey_gateway_bin" --version || echo "vey-gateway version failed"
                 ;;
             *)
                 echo "Running workload for ${component}..."
@@ -312,7 +312,7 @@ run_performance_benchmark() {
                     time "$vey_mkcert_bin" --root --common-name "VEY Test CA" --rsa 2048 --output-cert "$cert_out" --output-key "$key_out" >/dev/null 2>&1 || echo "Baseline test completed"
                 fi
                 ;;
-            "vey-proxy"|"vey-bench"|"vey-dcgen"|"vey-iploc"|"vey-keyless"|"vey-statsd"|"g3tiles")
+            "vey-proxy"|"vey-bench"|"vey-dcgen"|"vey-iploc"|"vey-keyless"|"vey-statsd"|"vey-gateway")
                 echo "Testing ${component} basic operations..."
                 local component_bin=$(get_binary_path "${component}")
                 if [ "$benchmark_tool" = "hyperfine" ]; then
@@ -349,7 +349,7 @@ run_performance_benchmark() {
                 fi
                 rm -f /tmp/rootCA-bench-baseline.crt /tmp/rootCA-bench-baseline.key /tmp/rootCA-bench-pgo.crt /tmp/rootCA-bench-pgo.key
                 ;;
-            "vey-proxy"|"vey-bench"|"vey-dcgen"|"vey-iploc"|"vey-keyless"|"vey-statsd"|"g3tiles")
+            "vey-proxy"|"vey-bench"|"vey-dcgen"|"vey-iploc"|"vey-keyless"|"vey-statsd"|"vey-gateway")
                 echo "Testing PGO-optimized ${component} basic operations..."
                 if [ "$benchmark_tool" = "hyperfine" ]; then
                     echo "Comparing baseline vs PGO-optimized ${component} (help output)..."

@@ -1,0 +1,22 @@
+[Unit]
+Description=Gateway %i
+After=syslog.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+RuntimeDirectory=vey-gateway
+RuntimeDirectoryPreserve=yes
+EnvironmentFile=-/etc/vey-gateway/%i/env
+ExecStart=/usr/bin/vey-gateway -c /etc/vey-gateway/%i/ --control-dir $RUNTIME_DIRECTORY -s -G %i
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/usr/bin/vey-gateway-ctl --control-dir $RUNTIME_DIRECTORY -G %i -p $MAINPID offline
+KillMode=none
+Restart=on-failure
+SuccessExitStatus=SIGQUIT
+RestartPreventExitStatus=255
+TimeoutStartSec=10
+LimitNOFILE=10485760
+
+[Install]
+WantedBy=multi-user.target

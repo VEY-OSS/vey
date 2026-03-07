@@ -11,6 +11,3 @@ LICENSE-BUNDLED
 
 # deb package
 /debian/
-
-# tmp file
-g3tiles/service/g3tiles@.service
