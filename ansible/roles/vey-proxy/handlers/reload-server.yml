@@ -1,0 +1,8 @@
+---
+
+- name: Reload server {{ server_name }}
+  ansible.builtin.command:
+    cmd: "/usr/bin/vey-proxy-ctl -G {{ daemon_group }} --control-dir /run/vey-proxy reload-server {{ server_name }}"
+  register: reload
+  changed_when: reload.rc == 0
+  when: do_reload is defined and do_reload|bool

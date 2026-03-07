@@ -37,11 +37,11 @@ You have 2 choices to run dnsmasq:
 
 # Setup local DNS
 
-Save the following conf file to **dnsmasq.d/g3proxy-ci.conf**:
+Save the following conf file to **dnsmasq.d/vey-proxy-ci.conf**:
 
 ```text
 address=/httpbin.local/127.0.0.1
-address=/g3proxy.local/127.0.0.1
+address=/vey-proxy.local/127.0.0.1
 ```
 
 Then restart **NetworkManager** or **dnsmasq** which should respawn the real dnsmasq process.

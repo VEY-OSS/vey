@@ -1,0 +1,5 @@
+---
+
+- hosts: "{{ group | default('vey-proxy') }}"
+  roles:
+    - vey-proxy

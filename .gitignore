@@ -13,5 +13,4 @@ LICENSE-BUNDLED
 /debian/
 
 # tmp file
-g3proxy/service/g3proxy@.service
 g3tiles/service/g3tiles@.service

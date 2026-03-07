@@ -1,0 +1,14 @@
+Source: vey-proxy
+Section: net
+Priority: optional
+Maintainer: VEY-OSS <developers@vey.oss>
+Build-Depends: debhelper, pkg-config, capnproto,
+ libssl-dev, libc-ares-dev, liblua5.4-dev | liblua5.3-dev
+Standards-Version: 3.9.8
+Homepage: https://github.com/VEY-OSS/vey
+
+Package: vey-proxy
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: ca-certificates, systemd
+Description: Generic Proxy Server

@@ -41,7 +41,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=target/debug/build \
     --ignore-filename-regex=vey-bench \
     --ignore-filename-regex=vey-dcgen \
-    --ignore-filename-regex=g3proxy \
+    --ignore-filename-regex=vey-proxy \
     --ignore-filename-regex=g3tiles \
     --ignore-filename-regex=vey-keyless \
     --ignore-filename-regex=vey-statsd \

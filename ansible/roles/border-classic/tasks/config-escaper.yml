@@ -2,7 +2,7 @@
 
 - name: Config escapers
   ansible.builtin.include_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: config-escaper
     handlers_from: reload-escaper
   vars:
@@ -15,7 +15,7 @@
 
 - name: Config auto select escaper
   ansible.builtin.include_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: config-escaper
     handlers_from: reload-escaper
   vars:

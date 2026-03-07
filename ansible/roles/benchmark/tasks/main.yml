@@ -21,20 +21,20 @@
     do_reload: false
 
 - ansible.builtin.import_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: query-running-version
   tags:
     - query-version
 
 - ansible.builtin.import_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: upgrade
   tags:
     - never
     - upgrade
 
 - ansible.builtin.import_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: restart
   tags:
     - never

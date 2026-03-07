@@ -1,5 +1,0 @@
----
-
-- hosts: "{{ group | default('g3proxy') }}"
-  roles:
-    - g3proxy

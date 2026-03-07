@@ -2,7 +2,7 @@
 
 - name: Config http server
   ansible.builtin.include_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: config-server
     handlers_from: reload-server
   vars:
@@ -14,7 +14,7 @@
 
 - name: Config socks servers
   ansible.builtin.include_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: config-server
     handlers_from: reload-server
   vars:

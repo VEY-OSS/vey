@@ -10,7 +10,7 @@ TEST_NAME="bench-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build -p vey-bench -p vey-mkcert -p g3proxy -p g3proxy-ctl -p vey-statsd
+cargo build -p vey-bench -p vey-mkcert -p vey-proxy -p vey-proxy-ctl -p vey-statsd
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
@@ -35,7 +35,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=target/debug/build \
     --ignore-filename-regex=vey-mkcert \
     --ignore-filename-regex=vey-dcgen \
-    --ignore-filename-regex=g3proxy \
+    --ignore-filename-regex=vey-proxy \
     --ignore-filename-regex=g3tiles \
     --ignore-filename-regex=vey-keyless \
     --ignore-filename-regex=vey-iploc"

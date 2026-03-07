@@ -113,7 +113,7 @@ fn format_content_as_sd(
     logger_values: &OwnedKVList,
     report_ts: Option<i64>,
 ) -> Result<(), slog::Error> {
-    w.extend_from_slice(b"[g3proxy@");
+    w.extend_from_slice(b"[vey-proxy@");
     let mut buffer = itoa::Buffer::new();
     let eid_s = buffer.format(enterprise_id);
     w.extend_from_slice(eid_s.as_bytes());

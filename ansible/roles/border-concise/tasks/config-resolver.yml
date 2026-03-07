@@ -2,7 +2,7 @@
 
 - name: Config resolver
   ansible.builtin.include_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: config-resolver
     handlers_from: reload-resolver
     allow_duplicates: true
@@ -14,7 +14,7 @@
 
 - name: Config failover resolver
   ansible.builtin.include_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: config-resolver
     handlers_from: reload-resolver
   vars:
@@ -24,7 +24,7 @@
 
 - name: Config primary resolver
   ansible.builtin.include_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: config-resolver
     handlers_from: reload-resolver
   vars:
@@ -35,7 +35,7 @@
 
 - name: Config standby resolver
   ansible.builtin.include_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: config-resolver
     handlers_from: reload-resolver
   vars:

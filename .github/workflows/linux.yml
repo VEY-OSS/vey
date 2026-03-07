@@ -90,12 +90,12 @@ jobs:
           - vendored-aws-lc,rustls-aws-lc
           - vendored-aws-lc-fips,rustls-aws-lc-fips
         component:
-          - g3proxy
+          - vey-proxy
           - vey-bench
           - g3tiles
         include:
           - feature: vendored-c-ares,rustls-ring
-            component: g3proxy
+            component: vey-proxy
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6

@@ -3,5 +3,5 @@
 - ansible.builtin.import_tasks: config-all.yml
 
 - ansible.builtin.import_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: start-after-deploy

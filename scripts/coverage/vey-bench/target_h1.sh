@@ -8,13 +8,13 @@ test_http_get()
   vey_bench h1 "${URL}" --ok-status 200
 	vey_bench h1 "${URL}" -H "Accept: application/json" --ok-status 200
 
-	vey_bench h1 "${URL}" -x http://t1:toor@g3proxy.local:8080 --ok-status 200
-	vey_bench h1 "${URL}" -x http://t1:toor@g3proxy.local:8080 -p --ok-status 200
+	vey_bench h1 "${URL}" -x http://t1:toor@vey-proxy.local:8080 --ok-status 200
+	vey_bench h1 "${URL}" -x http://t1:toor@vey-proxy.local:8080 -p --ok-status 200
 
-	vey_bench h1 "${URL}" -x https://t1:toor@g3proxy.local:8443 --proxy-tls-ca-cert "${TEST_CA_CERT_FILE}" --ok-status 200
-	vey_bench h1 "${URL}" -x https://t1:toor@g3proxy.local:8443 --proxy-tls-ca-cert "${TEST_CA_CERT_FILE}" -p --ok-status 200
+	vey_bench h1 "${URL}" -x https://t1:toor@vey-proxy.local:8443 --proxy-tls-ca-cert "${TEST_CA_CERT_FILE}" --ok-status 200
+	vey_bench h1 "${URL}" -x https://t1:toor@vey-proxy.local:8443 --proxy-tls-ca-cert "${TEST_CA_CERT_FILE}" -p --ok-status 200
 
-	vey_bench h1 "${URL}" -x socks5h://t1:toor@g3proxy.local:1080 --ok-status 200
+	vey_bench h1 "${URL}" -x socks5h://t1:toor@vey-proxy.local:1080 --ok-status 200
 }
 
 test_http_post()
@@ -41,13 +41,13 @@ test_https_get()
 	vey_bench h1 "${URL}" --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
 	vey_bench h1 "${URL}" -H "Accept: application/json" --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
 
-	vey_bench h1 "${URL}" -x http://t1:toor@g3proxy.local:8080 --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
-	vey_bench h1 "${URL}" -x http://t1:toor@g3proxy.local:8080 -p --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
+	vey_bench h1 "${URL}" -x http://t1:toor@vey-proxy.local:8080 --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
+	vey_bench h1 "${URL}" -x http://t1:toor@vey-proxy.local:8080 -p --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
 
-	vey_bench h1 "${URL}" -x https://t1:toor@g3proxy.local:8443 --proxy-tls-ca-cert "${TEST_CA_CERT_FILE}" --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
-	vey_bench h1 "${URL}" -x https://t1:toor@g3proxy.local:8443 --proxy-tls-ca-cert "${TEST_CA_CERT_FILE}" -p --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
+	vey_bench h1 "${URL}" -x https://t1:toor@vey-proxy.local:8443 --proxy-tls-ca-cert "${TEST_CA_CERT_FILE}" --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
+	vey_bench h1 "${URL}" -x https://t1:toor@vey-proxy.local:8443 --proxy-tls-ca-cert "${TEST_CA_CERT_FILE}" -p --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
 
-	vey_bench h1 "${URL}" -x socks5h://t1:toor@g3proxy.local:1080 --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
+	vey_bench h1 "${URL}" -x socks5h://t1:toor@vey-proxy.local:1080 --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
 }
 
 test_https_post()

@@ -2,13 +2,13 @@
 
 - name: Create main conf directory
   ansible.builtin.file:
-    path: "/etc/g3proxy/{{ daemon_group }}/"
+    path: "/etc/vey-proxy/{{ daemon_group }}/"
     state: directory
     recurse: true
 
 - name: Create conf sub directories
   ansible.builtin.file:
-    path: "/etc/g3proxy/{{ daemon_group }}/{{ item }}.d"
+    path: "/etc/vey-proxy/{{ daemon_group }}/{{ item }}.d"
     state: directory
     recurse: true
   with_items:
@@ -20,7 +20,7 @@
 - name: Install main conf
   ansible.builtin.template:
     src: main.yaml
-    dest: "/etc/g3proxy/{{ daemon_group }}/main.yaml"
+    dest: "/etc/vey-proxy/{{ daemon_group }}/main.yaml"
     owner: root
     group: root
     mode: "0644"
@@ -34,7 +34,7 @@
 
 - name: Config escapers
   ansible.builtin.include_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: config-escaper
     handlers_from: reload-escaper
   vars:

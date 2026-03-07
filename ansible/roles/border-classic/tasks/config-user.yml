@@ -2,7 +2,7 @@
 
 - name: Config users for each direct port
   ansible.builtin.include_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: config-user-group
     handlers_from: reload-user-group
   vars:
@@ -13,7 +13,7 @@
 
 - name: Config user for auto select port
   ansible.builtin.include_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: config-user-group
     handlers_from: reload-user-group
   vars:

@@ -40,7 +40,7 @@ set_dev_version()
 	echo "Finalize ${SPEC_FILE}"
 	# see https://docs.fedoraproject.org/en-US/packaging-guidelines/Versioning/
 	NEW_VERSION="${VERSION}${VERSION_SYMBOL}${GIT_VER}"
-	rpmdev-bumpspec -n "${NEW_VERSION}" -c "new git snapshot build" -u "G3proxy Maintainers <g3proxy-maintainers@devel.machine>" "${SPEC_FILE}"
+	rpmdev-bumpspec -n "${NEW_VERSION}" -c "new git snapshot build" -u "VEY-OSS Developers <developers@vey.oss>" "${SPEC_FILE}"
 }
 
 echo "Looking for previous release tag"

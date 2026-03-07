@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         component:
-          - g3proxy
+          - proxy
           - g3tiles
           - keyless
           - statsd

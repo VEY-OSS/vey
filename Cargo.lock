@@ -1664,151 +1664,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3proxy"
-version = "1.13.0"
-dependencies = [
- "ahash",
- "anyhow",
- "arc-swap",
- "arcstr",
- "ascii",
- "async-recursion",
- "async-trait",
- "base64",
- "bitflags",
- "bytes",
- "capnp",
- "capnp-rpc",
- "chrono",
- "clap",
- "clap_complete",
- "fastrand",
- "fixedbitset",
- "fnv",
- "foldhash 0.2.0",
- "futures-util",
- "g3-build-env",
- "g3-cert-agent",
- "g3-codec",
- "g3-daemon",
- "g3-datetime",
- "g3-dpi",
- "g3-ftp-client",
- "g3-geoip-types",
- "g3-h2",
- "g3-histogram",
- "g3-http",
- "g3-icap-client",
- "g3-imap-proto",
- "g3-io-ext",
- "g3-io-sys",
- "g3-ip-locate",
- "g3-json",
- "g3-macros",
- "g3-msgpack",
- "g3-openssl",
- "g3-redis-client",
- "g3-resolver",
- "g3-slog-types",
- "g3-smtp-proto",
- "g3-socket",
- "g3-socks",
- "g3-statsd-client",
- "g3-std-ext",
- "g3-tls-ticket",
- "g3-types",
- "g3-udpdump",
- "g3-xcrypt",
- "g3-yaml",
- "g3proxy-proto",
- "h2",
- "http",
- "indexmap",
- "ip_network",
- "ip_network_table",
- "itertools 0.14.0",
- "itoa",
- "kanal",
- "log",
- "lru",
- "memchr",
- "mime",
- "mlua",
- "openssl-probe",
- "percent-encoding",
- "pin-project-lite",
- "pyo3",
- "quinn",
- "radix_trie 0.3.0",
- "rand 0.10.0",
- "redis",
- "regex",
- "rmpv",
- "rustc-hash",
- "rustls",
- "serde_json",
- "slog",
- "thiserror",
- "tokio",
- "tokio-rustls",
- "tokio-test",
- "url",
- "uuid",
- "variant-ssl",
- "variant-ssl-sys",
- "yaml-rust2",
-]
-
-[[package]]
-name = "g3proxy-ctl"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "capnp",
- "clap",
- "futures-util",
- "g3-ctl",
- "g3-types",
- "g3proxy-proto",
- "serde_json",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "g3proxy-ftp"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap",
- "clap_complete",
- "g3-ftp-client",
- "g3-socket",
- "g3-types",
- "log",
- "tokio",
-]
-
-[[package]]
-name = "g3proxy-lua"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "clap_complete",
- "mlua",
-]
-
-[[package]]
-name = "g3proxy-proto"
-version = "0.1.0"
-dependencies = [
- "capnp",
- "capnpc",
-]
-
-[[package]]
 name = "g3tiles"
 version = "0.4.0"
 dependencies = [
@@ -3688,6 +3543,151 @@ dependencies = [
  "openssl-probe",
  "variant-ssl",
  "variant-ssl-sys",
+]
+
+[[package]]
+name = "vey-proxy"
+version = "1.13.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "arc-swap",
+ "arcstr",
+ "ascii",
+ "async-recursion",
+ "async-trait",
+ "base64",
+ "bitflags",
+ "bytes",
+ "capnp",
+ "capnp-rpc",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "fastrand",
+ "fixedbitset",
+ "fnv",
+ "foldhash 0.2.0",
+ "futures-util",
+ "g3-build-env",
+ "g3-cert-agent",
+ "g3-codec",
+ "g3-daemon",
+ "g3-datetime",
+ "g3-dpi",
+ "g3-ftp-client",
+ "g3-geoip-types",
+ "g3-h2",
+ "g3-histogram",
+ "g3-http",
+ "g3-icap-client",
+ "g3-imap-proto",
+ "g3-io-ext",
+ "g3-io-sys",
+ "g3-ip-locate",
+ "g3-json",
+ "g3-macros",
+ "g3-msgpack",
+ "g3-openssl",
+ "g3-redis-client",
+ "g3-resolver",
+ "g3-slog-types",
+ "g3-smtp-proto",
+ "g3-socket",
+ "g3-socks",
+ "g3-statsd-client",
+ "g3-std-ext",
+ "g3-tls-ticket",
+ "g3-types",
+ "g3-udpdump",
+ "g3-xcrypt",
+ "g3-yaml",
+ "h2",
+ "http",
+ "indexmap",
+ "ip_network",
+ "ip_network_table",
+ "itertools 0.14.0",
+ "itoa",
+ "kanal",
+ "log",
+ "lru",
+ "memchr",
+ "mime",
+ "mlua",
+ "openssl-probe",
+ "percent-encoding",
+ "pin-project-lite",
+ "pyo3",
+ "quinn",
+ "radix_trie 0.3.0",
+ "rand 0.10.0",
+ "redis",
+ "regex",
+ "rmpv",
+ "rustc-hash",
+ "rustls",
+ "serde_json",
+ "slog",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "tokio-test",
+ "url",
+ "uuid",
+ "variant-ssl",
+ "variant-ssl-sys",
+ "vey-proxy-proto",
+ "yaml-rust2",
+]
+
+[[package]]
+name = "vey-proxy-ctl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "capnp",
+ "clap",
+ "futures-util",
+ "g3-ctl",
+ "g3-types",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "vey-proxy-proto",
+]
+
+[[package]]
+name = "vey-proxy-ftp"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap",
+ "clap_complete",
+ "g3-ftp-client",
+ "g3-socket",
+ "g3-types",
+ "log",
+ "tokio",
+]
+
+[[package]]
+name = "vey-proxy-lua"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clap_complete",
+ "mlua",
+]
+
+[[package]]
+name = "vey-proxy-proto"
+version = "0.1.0"
+dependencies = [
+ "capnp",
+ "capnpc",
 ]
 
 [[package]]

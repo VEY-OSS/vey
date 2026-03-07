@@ -91,8 +91,8 @@ target/release/vey-mkcert --intermediate --common-name "VEY Intermediate CA" --r
 target/release/vey-mkcert --tls-server --host "www.example.com" --host "*.example.net" --rsa 2048 --output-cert tls-server-rsa.crt --output-key tls-server-rsa.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key
 
 # For other components - basic functionality testing
-target/release/g3proxy --version
-target/release/g3proxy --help
+target/release/vey-proxy --version
+target/release/vey-proxy --help
 ```
 
 ### 3. Profile Data Merging
@@ -216,8 +216,8 @@ after dependency isolation) for additional components.
 
 ### Memory Usage
 
-- `g3proxy` component requires substantial memory during PGO build
-- If memory is insufficient, avoid selecting `g3proxy` or use default components
+- `vey-proxy` component requires substantial memory during PGO build
+- If memory is insufficient, avoid selecting `vey-proxy` or use default components
 
 ### Disk Space
 
@@ -274,7 +274,7 @@ rm -rf /tmp/pgo-data
 
 1. **Development Testing**: Use default components (`vey-mkcert`)
 2. **Lightweight Optimization**: Select a few key components (`vey-mkcert,vey-dcgen,vey-bench`)
-3. **Full Optimization**: Use `--all` on high-spec machines (note: may require substantial memory for `g3proxy`)
+3. **Full Optimization**: Use `--all` on high-spec machines (note: may require substantial memory for `vey-proxy`)
 
 ### Performance Testing Recommendations
 

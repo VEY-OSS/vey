@@ -1,0 +1,88 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
+ */
+
+use anyhow::anyhow;
+use clap::Command;
+
+use g3_ctl::{CommandError, DaemonCtlArgs, DaemonCtlArgsExt};
+
+use vey_proxy_proto::proc_capnp::proc_control;
+
+mod common;
+mod proc;
+
+mod escaper;
+mod resolver;
+mod server;
+mod user_group;
+
+fn build_cli_args() -> Command {
+    Command::new(env!("CARGO_PKG_NAME"))
+        .append_daemon_ctl_args()
+        .subcommand(proc::commands::version())
+        .subcommand(proc::commands::offline())
+        .subcommand(proc::commands::cancel_shutdown())
+        .subcommand(proc::commands::force_quit())
+        .subcommand(proc::commands::force_quit_all())
+        .subcommand(proc::commands::list())
+        .subcommand(proc::commands::reload_user_group())
+        .subcommand(proc::commands::reload_resolver())
+        .subcommand(proc::commands::reload_auditor())
+        .subcommand(proc::commands::reload_escaper())
+        .subcommand(proc::commands::reload_server())
+        .subcommand(user_group::command())
+        .subcommand(resolver::command())
+        .subcommand(escaper::command())
+        .subcommand(server::command())
+}
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> anyhow::Result<()> {
+    let args = build_cli_args().get_matches();
+
+    let mut ctl_opts = DaemonCtlArgs::parse_clap(&args);
+    if ctl_opts.generate_shell_completion(build_cli_args) {
+        return Ok(());
+    }
+
+    let (rpc_system, proc_control) = ctl_opts
+        .connect_rpc::<proc_control::Client>("vey-proxy")
+        .await?;
+
+    tokio::task::LocalSet::new()
+        .run_until(async move {
+            tokio::task::spawn_local(async move {
+                rpc_system
+                    .await
+                    .map_err(|e| eprintln!("rpc system error: {e:?}"))
+            });
+
+            let (subcommand, args) = args.subcommand().unwrap();
+            match subcommand {
+                proc::COMMAND_VERSION => proc::version(&proc_control).await,
+                proc::COMMAND_OFFLINE => proc::offline(&proc_control).await,
+                proc::COMMAND_CANCEL_SHUTDOWN => proc::cancel_shutdown(&proc_control).await,
+                proc::COMMAND_FORCE_QUIT => proc::force_quit(&proc_control, args).await,
+                proc::COMMAND_FORCE_QUIT_ALL => proc::force_quit_all(&proc_control).await,
+                proc::COMMAND_LIST => proc::list(&proc_control, args).await,
+                proc::COMMAND_RELOAD_USER_GROUP => {
+                    proc::reload_user_group(&proc_control, args).await
+                }
+                proc::COMMAND_RELOAD_RESOLVER => proc::reload_resolver(&proc_control, args).await,
+                proc::COMMAND_RELOAD_AUDITOR => proc::reload_auditor(&proc_control, args).await,
+                proc::COMMAND_RELOAD_ESCAPER => proc::reload_escaper(&proc_control, args).await,
+                proc::COMMAND_RELOAD_SERVER => proc::reload_server(&proc_control, args).await,
+                user_group::COMMAND => user_group::run(&proc_control, args).await,
+                resolver::COMMAND => resolver::run(&proc_control, args).await,
+                escaper::COMMAND => escaper::run(&proc_control, args).await,
+                server::COMMAND => server::run(&proc_control, args).await,
+                _ => Err(CommandError::Cli(anyhow!(
+                    "unsupported command {subcommand}"
+                ))),
+            }
+        })
+        .await
+        .map_err(anyhow::Error::new)
+}

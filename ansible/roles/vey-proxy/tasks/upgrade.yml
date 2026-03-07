@@ -1,0 +1,16 @@
+---
+
+- name: "Query running version for proxy instance {{ daemon_group }}"
+  ansible.builtin.command:
+    cmd: "/usr/bin/vey-proxy-ctl -G {{ daemon_group }} --control-dir /run/vey-proxy version"
+  register: proxy_running_version
+  changed_when:
+    - proxy_running_version.rc == 0
+
+- name: "Set fact proxy_running_version"
+  ansible.builtin.set_fact:
+    proxy_running_version: "{{ proxy_running_version.stdout }}"
+
+- name: "Upgrade from version {{ proxy_running_version }} to {{ proxy_expected_version }}"
+  ansible.builtin.include_tasks: restart.yml
+  when: proxy_expected_version != proxy_running_version

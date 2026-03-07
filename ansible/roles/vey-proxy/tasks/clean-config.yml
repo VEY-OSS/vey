@@ -1,0 +1,6 @@
+---
+
+- name: Remove conf dir for "vey-proxy@{{ daemon_group }}"
+  ansible.builtin.file:
+    path: "/etc/vey-proxy/{{ daemon_group }}"
+    state: absent

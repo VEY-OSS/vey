@@ -2,7 +2,7 @@
 
 - name: Config users
   ansible.builtin.include_role:
-    name: g3proxy
+    name: vey-proxy
     tasks_from: config-user-group
     handlers_from: reload-user-group
   vars:

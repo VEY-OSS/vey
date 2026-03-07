@@ -1,0 +1,4 @@
+usr/bin/vey-proxy
+usr/bin/vey-proxy-ctl
+usr/bin/vey-proxy-ftp
+usr/bin/vey-proxy-lua

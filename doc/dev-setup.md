@@ -287,7 +287,7 @@ pkg install pkg-config
 
 ## Development Libraries
 
-For *g3proxy*:
+For *vey-proxy*:
 
 ```text
 openssl >= 1.1.1

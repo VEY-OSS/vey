@@ -55,7 +55,7 @@ def generate_password():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='generate hashed passphrase for g3proxy')
+    parser = argparse.ArgumentParser(description='generate hashed passphrase for vey-proxy')
     parser.add_argument('password', nargs='?', help='password')
     parser.add_argument('--salt', nargs='?', help='salt text')
     parser.add_argument('--json', action='store_true', default=False, help='use json format')

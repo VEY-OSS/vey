@@ -1,12 +1,12 @@
 # VEY DCGen
 
-vey-dcgen is a dynamic server certificate generator/issuer to be used with g3proxy to enable TLS interception.
+vey-dcgen is a dynamic server certificate generator/issuer to be used with vey-proxy to enable TLS interception.
 The protocol is
-defined [here](https://vey.readthedocs.io/projects/g3proxy/en/latest/protocol/helper/cert_generator.html).
+defined [here](https://vey.readthedocs.io/projects/proxy/en/latest/protocol/helper/cert_generator.html).
 
-It is designed to run with g3proxy on the same host. You can also write you own implementation if you need to:
+It is designed to run with vey-proxy on the same host. You can also write you own implementation if you need to:
 
-- serve a cluster of g3proxy instances
+- serve a cluster of vey-proxy instances
 - cache the generated server certificate for a much longer time
 - add custom certificate issue methods
 
@@ -38,7 +38,7 @@ You can run `cargo run --bin vey-dcgen -- -c vey-dcgen/examples/simple/ -G port2
 
 ### Set UDP listen address
 
-The default UDP listen address is *127.0.0.1:2999*, which is also the same default connect address in g3proxy.
+The default UDP listen address is *127.0.0.1:2999*, which is also the same default connect address in vey-proxy.
 
 There are two ways to change the UDP listen port:
 
@@ -60,10 +60,10 @@ There are two ways to change the UDP listen port:
 
 It is not possible to do hot restart gracefully without using two ports.
 
-If vey-dcgen is running at port 3000, and g3proxy is also using port 3000, the steps are:
+If vey-dcgen is running at port 3000, and vey-proxy is also using port 3000, the steps are:
 
 1. start a new vey-dcgen service at port 3001 with the new config
-2. reload g3proxy to use vey-dcgen port 3001
+2. reload vey-proxy to use vey-dcgen port 3001
 3. stop vey-dcgen running at port 3000
 
 ## Command line options

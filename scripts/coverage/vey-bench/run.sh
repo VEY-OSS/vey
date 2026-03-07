@@ -1,8 +1,8 @@
 # generate resource files
 "${RUN_DIR}"/mkcert.sh
 
-# start g3proxy
-"${PROJECT_DIR}"/target/debug/g3proxy -c "${RUN_DIR}"/g3proxy.yaml -G "${TEST_NAME}" &
+# start vey-proxy
+"${PROJECT_DIR}"/target/debug/vey-proxy -c "${RUN_DIR}"/vey-proxy.yaml -G "${TEST_NAME}" &
 PROXY_PID=$!
 
 # start nginx
@@ -40,7 +40,7 @@ set -x
 
 set +x
 
-"${PROJECT_DIR}"/target/debug/g3proxy-ctl -G "${TEST_NAME}" -p $PROXY_PID offline
+"${PROJECT_DIR}"/target/debug/vey-proxy-ctl -G "${TEST_NAME}" -p $PROXY_PID offline
 
 kill -INT $STATSD_PID
 NGINX_PID=$(cat /tmp/nginx.pid)

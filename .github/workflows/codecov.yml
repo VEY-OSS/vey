@@ -128,8 +128,8 @@ jobs:
           name: vey-keyless-all-test
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
-  g3proxy-test:
-    name: g3proxy test
+  vey-proxy-test:
+    name: vey-proxy test
     runs-on: ubuntu-latest
     services:
       ftp-server:
@@ -198,7 +198,7 @@ jobs:
       - name: Install and run fluent-bit
         run: |
           sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
-          sudo cp ${{ github.workspace }}/scripts/coverage/g3proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
+          sudo cp ${{ github.workspace }}/scripts/coverage/vey-proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
           sudo systemctl start fluent-bit
       - name: Install dnsmasq
         run: |
@@ -211,10 +211,10 @@ jobs:
           echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf
       - name: Run dnsmasq
         run: |
-          sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/g3proxy/dnsmasq.conf
+          sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/vey-proxy/dnsmasq.conf
       - name: run unit test
         run: |
-          ./scripts/coverage/g3proxy.sh
+          ./scripts/coverage/vey-proxy.sh
       - name: Restore /etc/resolv.conf
         run: |
           sudo mv /etc/resolv.conf.backup /etc/resolv.conf
@@ -224,8 +224,8 @@ jobs:
           fail_ci_if_error: true
           disable_search: true
           files: output.lcov
-          flags: g3proxy
-          name: g3proxy-all-test
+          flags: vey-proxy
+          name: vey-proxy-all-test
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
   vey-bench-test:
@@ -342,7 +342,7 @@ jobs:
       - name: Install and run fluent-bit
         run: |
           sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
-          sudo cp ${{ github.workspace }}/scripts/coverage/g3proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
+          sudo cp ${{ github.workspace }}/scripts/coverage/vey-proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
           sudo systemctl start fluent-bit
       - name: run unit test
         run: |

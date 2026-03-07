@@ -15,7 +15,7 @@ cargo build --features openssl-async-job -p vey-keyless -p vey-keyless-ctl -p ve
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
-# run g3proxy tests
+# run vey-keyless tests
 
 cargo test -p vey-keyless -p vey-keyless-ctl
 
@@ -36,7 +36,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=vey-dcgen \
     --ignore-filename-regex=vey-iploc \
     --ignore-filename-regex=vey-mkcert \
-    --ignore-filename-regex=g3proxy \
+    --ignore-filename-regex=vey-proxy \
     --ignore-filename-regex=g3tiles"
 
 echo "==== Coverage for all ===="

@@ -1,0 +1,10 @@
+---
+
+- name: "Install resolver conf for {{ resolver_name }}"
+  ansible.builtin.template:
+    src: "resolver.d/{{ template_name | default(resolver_name) }}.yaml"
+    dest: "/etc/vey-proxy/{{ daemon_group }}/resolver.d/{{ resolver_name }}.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload resolver {{ resolver_name }}

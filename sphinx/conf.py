@@ -9,8 +9,8 @@ multiproject_projects = {
     "project": {
         "path": "project",
     },
-    "g3proxy": {
-        "path": "g3proxy",
+    "proxy": {
+        "path": "proxy",
     },
     "g3tiles": {
         "path": "g3tiles",

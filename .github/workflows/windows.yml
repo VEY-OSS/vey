@@ -67,7 +67,7 @@ jobs:
           - vendored-boringssl,rustls-ring
           - vendored-aws-lc,rustls-aws-lc
         component:
-          - g3proxy
+          - vey-proxy
           - vey-bench
           - g3tiles
     steps:

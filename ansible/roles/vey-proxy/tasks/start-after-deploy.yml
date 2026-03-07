@@ -1,0 +1,13 @@
+---
+
+- name: "Test config file for vey-proxy instance {{ daemon_group }}"
+  ansible.builtin.command:
+    cmd: "vey-proxy -t -c /etc/vey-proxy/{{ daemon_group }}/main.yaml"
+  register: check
+  changed_when: check.rc == 0
+
+- name: "Start vey-proxy instance {{ daemon_group }}"
+  ansible.builtin.systemd:
+    name: "vey-proxy@{{ daemon_group }}.service"
+    state: started
+    enabled: true

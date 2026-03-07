@@ -1,0 +1,1062 @@
+# vey-proxy用户指南
+
+**目录**
+
+- [如何安装](#如何安装)
+- [基础概念](#基础概念)
+    + [服务管理](#服务管理)
+    + [热升级](#热升级)
+    + [配置结构](#配置结构)
+    + [监控](#监控)
+- [基础用法](#基础用法)
+    + [HTTP代理](#http代理)
+    + [SOCKS代理](#socks代理)
+    + [TCP映射](#tcp映射)
+    + [TLS卸载](#tls卸载)
+    + [TLS封装](#tls封装)
+    + [SNI代理](#sni代理)
+    + [透明代理](#透明代理)
+    + [线路绑定](#线路绑定)
+    + [代理串联](#代理串联)
+    + [连接限速](#连接限速)
+    + [进程全局限速](#进程全局限速)
+    + [域名解析](#域名解析)
+    + [安全解析](#安全解析)
+    + [容灾解析](#容灾解析)
+    + [用户认证授权](#用户认证授权)
+    + [用户限流限速](#用户限流限速)
+    + [用户封禁](#用户封禁)
+- [进阶用法](#进阶用法)
+    + [mTLS客户端](#mtls客户端)
+    + [国密TLCP协议卸载](#国密tlcp协议卸载)
+    + [多协议入口复用](#多协议入口复用)
+    + [监听多个端口](#监听多个端口)
+    + [监听端口启用PROXY Protocol](#监听端口启用proxy-protocol)
+    + [国密TLCP协议封装](#国密tlcp协议封装)
+    + [Socks5 UDP IP映射](#socks5-udp-ip映射)
+    + [安全反向代理](#安全反向代理)
+    + [域名解析劫持](#域名解析劫持)
+    + [动态线路绑定](#动态线路绑定)
+    + [动态代理串联](#动态代理串联)
+    + [用户特定站点监控](#用户特定站点监控)
+    + [用户站点tls劫持自定义配置](#用户站点tls劫持自定义配置)
+    + [流量审计](#流量审计)
+    + [TLS解密流量导出](#TLS解密流量导出)
+    + [任务空闲检测](#任务空闲检测)
+    + [性能优化](#性能优化)
+- [场景设计](#场景设计)
+    + [多区域加速](#多区域加速)
+    + [双出口容灾](#双出口容灾)
+
+## 如何安装
+
+目前只支持Linux系统，并对Debian、RHEL等发行版提供了打包安装支持，
+参考[发行&打包步骤](/doc/build_and_package.md)完成打包后直接在目标系统上安装即可。
+
+## 基础概念
+
+### 服务管理
+
+单机可以部署多个vey-proxy服务，通过systemd实例服务进行管理，每个实例对应为为一个vey-proxy进程组（daemon_group），
+每个进程组都有一个unix socket文件进行本地RPC管理。
+
+每个服务有一个入口配置文件，yaml格式，后缀可更改，但需要保持所有引用的配置文件均具有相同的后缀。下文将使用*main.yml*
+指代入口配置文件。
+
+使用发行版原生安装包安装的，已经安装了systemd参数化服务配置文件，参数就是进程组名称，
+对应的入口配置文件存放路径为`/etc/vey-proxy/<daemon_group>/main.yml`。
+
+未使用安装包安装的，可以参考[vey-proxy@.service](debian/vey-proxy@.service)自行设计服务化使用方式。
+
+### 热升级
+
+默认的systemd服务配置支持热升级，执行步骤如下：
+
+1. 安装新版本包
+2. 执行`systemctl daemon-reload`加载新版本服务配置
+3. 执行`systemctl restart vey-proxy@<daemon_group>`，启动新进程，并通知老进程离线
+
+老进程离线后会等待原有任务退出，或等待一段时间（默认10小时）后强制下线。
+
+热升级机制类似nginx reload，受操作系统限制socket释放时会有一定几率导致新连接请求被丢弃，Linux 5.14及以后的版本引入
+[tcp_migrate_req](https://docs.kernel.org/networking/ip-sysctl.html)选项，打开后可确保连接不丢失。
+
+### 配置结构
+
+vey-proxy采用模块化方式进行功能设计，主要包含以下功能模块：
+
+1. 入口 | Server
+
+   负责接受客户端请求并进行处理，会调用 出口&用户&审计 模块的功能。
+   *Port*类型的入口可以放在非端口类型入口前面进行串联。
+
+2. 出口 | Escaper
+
+   负责对目标地址进行连接及控制，会调用 解析 模块的功能。
+   *Route*类型的出口可放在其他出口前进行串联。
+
+3. 解析 | Resolver
+
+   提供域名解析功能。
+   *Failover*解析可以放在其他解析前面进行串联。
+
+4. 用户组 | UserGroup
+
+   提供用户认证&授权功能
+
+5. 审计 | Auditor
+
+   提供流量审计功能
+
+这些模块的配置可以跟*main.yml*写在一起，也可以使用独立的配置文件进行管理，后者可以进行独立的重载（reload）操作。
+
+除了以上模块的配置，包括线程/日志/监控等，均需要写在*main.yml*中。
+
+单一文件配置可参考[examples/inspect_http_proxy](examples/inspect_http_proxy)，
+拆分文件配置可参考[examples/hybrid_https_proxy](examples/hybrid_https_proxy)。
+
+下文示例将不展示完整配置文件，仅对相关涉及的部分进行展示，完整示例参考[examples](examples)。
+
+### 监控
+
+为方便接入各种监控解决方案，VEY项目统一使用[StatsD](https://www.datadoghq.com/blog/statsd/)作为监控打点输出协议，
+用户可以根据自己的实际情况选择合适的StatsD实现（例如[gostatsd](https://github.com/atlassian/gostatsd)），配置好然后接入自己的监控系统。
+
+vey-proxy的监控配置在主配置文件*main.yml*中进行配置，示例如下：
+
+```yaml
+stat:
+  target:
+    udp: 127.0.0.1:8125 # StatsD的UDP套接字地址
+    # unix: /run/statsd.sock
+  prefix: vey-proxy       # 打点名称前缀，比如 server.task.total 会转变为 vey-proxy.server.task.total
+  emit_duration: 200ms  # 打点间隔
+```
+
+具体metrics定义在 [metrics](../sphinx/proxy/metrics) 文件夹下，建议生成sphinx html文档后查看。
+
+## 基础用法
+
+### HTTP代理
+
+入口启用HTTP代理，需要添加HttpProxy类型入口，示例如下：
+
+```yaml
+server:
+  - name: http       # 名称需要唯一，不跟其他入口冲突，日志&监控需要使用该字段
+    escaper: default # 必填，可以是任意类型出口
+    type: http_proxy
+    listen:
+      address: "[::]:8080"
+    tls_client: { }   # 打开7层https forward转发支持
+```
+
+### SOCKS代理
+
+入口启用Socks代理，需要添加SocksProxy类型入口，示例如下：
+
+```yaml
+server:
+  - name: socks        # 名称需要唯一，不跟其他入口冲突，日志&监控需要使用该字段
+    escaper: default   # 必填，可以是任意类型出口
+    type: socks_proxy
+    listen:
+      address: "[::]:10086"
+    enable_udp_associate: true # 使用标准UDP Associate功能，否则使用简化UDP Connect功能（Peer限制唯一）
+    udp_socket_buffer: 512K    # 配置客户端侧双向UDP Socket Buffer Size
+```
+
+### TCP映射
+
+本地TCP端口映射到目标机器的特定端口，需要添加TcpStream类型入口，示例如下：
+
+```yaml
+server:
+  - name: tcp           # 名称需要唯一，不跟其他入口冲突，日志&监控需要使用该字段
+    escaper: default    # 必填，可以是任意类型出口
+    type: tcp_stream
+    listen:
+      address: "[::1]:10086"
+    proxy_pass: # 目标地址，可以单条/多条
+      - "127.0.0.1:5201"
+      - "127.0.0.1:5202"
+    upstream_pick_policy: rr # 负载均衡算法，默认random
+```
+
+### TLS卸载
+
+本地TCP端口映射到目标机器的TLS端口。需要添加TcpStream类型入口，示例如下：
+
+```yaml
+server:
+  - name: tcp           # 名称需要唯一，不跟其他入口冲突，日志&监控需要使用该字段
+    escaper: default    # 必填，可以是任意类型出口
+    type: tcp_stream
+    listen: "[::1]:80"
+    proxy_pass: "127.0.0.1:443"
+    tls_client: { }      # 使用TLS连接目标端口，配置TLS参数，如CA证书、客户端证书(mTLS)等
+```
+
+### TLS封装
+
+本地TLS端口映射到目标机器的特定端口。
+
+可添加TlsStream类型入口，示例如下：
+
+```yaml
+server:
+  - name: tls           # 名称需要唯一，不跟其他入口冲突，日志&监控需要使用该字段
+    escaper: default    # 必填，可以是任意类型出口
+    type: tls_stream
+    listen:
+      address: "[::1]:10443"
+    tls_server: # 配置TLS参数
+      cert_pairs:
+        certificate: /path/to/cert
+        private_key: /path/to/key
+      enable_client_auth: true    # 可选启用mTLS
+    proxy_pass: # 目标地址，可以单条/多条
+      - "127.0.0.1:5201"
+      - "127.0.0.1:5202"
+    upstream_pick_policy: rr # 负载均衡算法，默认random
+```
+
+或使用PlainTlsPort串联TcpStream，示例如下：
+
+```yaml
+server:
+  - name: tcp
+    escaper: default
+    type: tcp_stream
+    proxy_pass: # 目标地址，可以单条/多条
+      - "127.0.0.1:5201"
+      - "127.0.0.1:5202"
+    upstream_pick_policy: rr # 负载均衡算法，默认random
+  - name: tls
+    type: plain_tls_port
+    listen:
+      address: "[::1]:10443"
+    tls_server: # 配置TLS参数
+      cert_pairs:
+        certificate: /path/to/cert
+        private_key: /path/to/key
+      enable_client_auth: true    # 可选启用mTLS
+    server: tcp    # 指向tcp stream服务
+```
+
+### SNI代理
+
+自动识别TLS SNI / HTTP Host头中的目标地址，并转发，需要添加SniProxy类型入口，示例如下：
+
+```yaml
+server:
+  - name: sni          # 名称需要唯一，不跟其他入口冲突，日志&监控需要使用该字段
+    escaper: default   # 必填，可以是任意类型出口
+    type: sni_proxy
+    listen:
+      address: "[::]:443" # 监听443端口，但可以同时支持发往该端口的TLS & HTTP协议流量
+```
+
+### 透明代理
+
+在网关设备上，可以配置将需要代理的TCP连接，转发给TcpTProxy入口，由代理进行透明中转，示例如下：
+
+```yaml
+server:
+  - name: transparent
+    escaper: default
+    auditor: default  # 如果需要进行协议识别及TLS劫持等
+    type: tcp_tproxy
+    listen: "127.0.0.1:1234"
+```
+
+需要使用的系统配置取决于系统类型：
+
+- Linux [TPROXY](https://docs.kernel.org/networking/tproxy.html)。
+- FreeBSD [ipfw fwd](https://man.freebsd.org/cgi/man.cgi?query=ipfw)。
+- OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to)。
+
+### 线路绑定
+
+机器上具有多条网络线路，需要绑定其中一条访问目标网站时，需要在出口指定Bind的IP,以DirectFixed出口为例：
+
+```yaml
+escaper:
+  - name: default        # 名称需要唯一，不跟其他入口冲突，日志&监控需要使用该字段
+    type: direct_fixed
+    resolver: default
+    resolve_strategy: IPv4First # 出口支持HappyEyeballs算法，解析目标地址时v4优先
+    bind_ip: 192.168.10.1   # 可以使用list设置多个地址
+resolver:
+  - name: default
+    type: c-ares
+    server: 223.5.5.5
+    bind_ipv4: 192.168.10.1 # 解析也需要绑定同一条线路，确保就近解析
+```
+
+### 代理串联
+
+需要使用其他代理进行串联时，需要使用*Proxy*类型的出口，以ProxyHttps为例：
+
+```yaml
+escaper:
+  - name: next_proxy    # 名称需要唯一，不跟其他入口冲突，日志&监控需要使用该字段
+    type: proxy_https
+    resolver: default   # 代理地址包含域名时必须设置
+    proxy_addr: next-proxy.example.net:8443 # 也可以列表填写多个代理地址
+    http_forward_capability:
+      forward_ftp: true   # 直接转发FTP over HTTP请求给下一级代理处理，若否则在本地进行FTP请求
+      forward_https: true # 直接转发https forward请求给下一级代理处理，若否则在本地进行TLS握手
+    tls_client:
+      ca_certificate: rootCA.pem # 用于验证下一级代理的CA证书，不设置时默认用系统默认安装的CA证书
+    tls_name: example.com # 代理地址不包含域名时，如果需要用DNS Name验证证书，则需要设置
+```
+
+#### 用户名参数 → 串联下一跳地址
+
+对于 HTTP 和 SOCKS5 代理入口，可以通过在用户名后追加有序的键值对，动态计算串联下一跳的地址：`base+key1=val1+key2=val2+...`。
+
+- 在对应入口下启用 `username_params_to_escaper_addr` 即可生效。
+- 计算主机名：按配置的键顺序取值并用分隔符拼接；若用户名中未包含任意已配置的键，则不进行覆盖，继续使用 escaper 的默认
+  `proxy_addr`。
+- 端口：根据入站协议选择（HTTP / SOCKS5），均可配置。
+- 可配置是否拒绝未知键、是否强制层级（例如子键必须有父键）。
+
+示例配置：
+
+```yaml
+server:
+  - name: http-in
+    type: http_proxy
+    escaper: chain
+    username_params_to_escaper_addr:
+      keys_for_host: [ label1, label2, label3 ]
+      require_hierarchy: true
+      reject_unknown_keys: true
+      reject_duplicate_keys: true
+      separator: "-"
+      # 可选后缀（例如本地测试）：
+      # domain_suffix: ".localhost"
+      http_port: 10000
+      socks5_port: 10001
+      strip_suffix_for_auth: true
+```
+
+行为说明：
+
+- 用户名 `user+label1=foo+label2=bar` → 主机 `foo-bar`，HTTP 入站端口 `10000`。
+- 若用户名中未包含任意已配置的键，则不进行覆盖，继续使用 escaper 的 `proxy_addr`。
+- 非法参数（未知键或层级违例）会导致 HTTP 返回 400 Bad Request；SOCKS5 返回标准错误码并拒绝请求。
+
+出口回退说明：
+
+- 代理串联出口（proxy_http / proxy_socks5 / …）在初始化时必须配置至少一个 `proxy_addr`。
+- 当用户名参数存在且认证成功时，计算得到的 host:port 会覆盖该连接的 `proxy_addr`。
+- 当用户名中没有任何已配置的键时，不进行覆盖，直接使用 `proxy_addr` 作为回退。
+
+### 连接限速
+
+server、escaper、user维度均支持设置单连接限速，配置key相同，在对应的server & escaper & user里设置：
+
+```yaml
+tcp_sock_speed_limit: 10M/s
+udp_sock_speed_limit: 10M/s
+```
+
+server及user配置针对的是Client-Proxy的连接，escaper配置针对的是Proxy-Target的连接。
+
+### 进程全局限速
+
+用户配置支持设置进程全局限速：
+
+```yaml
+tcp_all_download_speed_limit: 100M/s
+tcp_all_upload_speed_limit: 100M/s
+udp_all_download_speed_limit: 100M/s
+udp_all_upload_speed_limit: 100M/s
+```
+
+### 域名解析
+
+使用系统默认/etc/resolv.conf配置：
+
+```yaml
+resolver:
+  - name: default
+    type: c-ares
+```
+
+使用自定义DNS服务器地址：
+
+```yaml
+resolver:
+  - name: c-ares
+    type: c-ares
+    server:
+      - 1.1.1.1
+      - 1.0.0.1
+  - name: hickory
+    type: hickory
+    server:
+      - 8.8.8.8
+      - 8.8.4.4
+```
+
+### 安全解析
+
+需要使用非明文的方式访问DNS递归解析服务器时，需要使用hickory解析，示例如下：
+
+```yaml
+resolver:
+  - name: default
+    type: hickory
+    server: 1.1.1.1
+    encryption: dns-over-https # 此外也支持 dns-over-tls、dns-over-quic, dns-over-h3
+```
+
+### 容灾解析
+
+单一DNS递归解析服务器不稳定时，可以使用Failover类型解析，示例如下：
+
+```yaml
+resolver:
+  - name: virtual
+    type: fail_over
+    primary: alidns
+    standby: dnspod
+  - name: alidns
+    type: c-ares
+    server: 223.5.5.5 223.6.6.6
+  - name: dnspod
+    type: c-ares
+    server: 119.29.29.29
+```
+
+### 用户认证授权
+
+Http代理&Socks5代理都支持进行用户验证，需要搭配UserGroup进行配置，整体配置参考[examples/simple_user_auth](examples/simple_user_auth)
+，用户组示例如下：
+
+```yaml
+user_group:
+  - name: default
+    static_users:
+      - name: root
+        # password: toor
+        token: # 认证token
+          salt: 113323bdab6fd2cc
+          md5: 5c81f2becadde7fa5fde9026652ccc84
+          sha1: ff9d5c1a14328dd85ee95d4e574bd0558a1dfa96
+        dst_port_filter: # 放行端口
+          - 80
+          - 443
+        dst_host_filter_set: # 放行地址
+          exact:
+            - ipinfo.io           # 允许访问ipinfo.io
+            - 1.1.1.1
+          child:
+            - "ipip.net"          # 允许访问 myip.ipip.net
+          regex:
+            - "lum[a-z]*[.]com$"  # 允许访问 lumtest.com
+    source: # 动态用户，静态用户优先匹配，无静态用户时匹配动态用户
+      type: file                  # 从文件定期加载，此外支持通过lua/python脚本加载并缓存
+      path: dynamic_users.json
+```
+
+用户验证token生成需要使用[scripts/passphrase_hash.py](/scripts/passphrase_hash.py)脚本。
+
+### 用户限流限速
+
+用户维度支持单连接限速、RPS限制、并发任务总数限制：
+
+```yaml
+tcp_sock_speed_limit: 10M/s # TCP单连接双向分别限速10M/s
+udp_sock_speed_limit: 10M/s # UDP单连接双向分别限速10M/s
+tcp_conn_rate_limit: 1000/s # Client-Proxy新建连接速率限制
+request_rate_limit: 2000/s  # 新增代理请求数速率限制
+request_max_alive: 2000     # 存活任务总数限制 
+```
+
+### 用户封禁
+
+用户删除之后，默认不会清理该用户已存在的任务，如果需要终止这些任务，需要将用户设置为封禁状态，在最多2个[任务空闲检测](#任务空闲检测)
+间隔内，存活任务将会被清理终止。
+
+需要封禁的用户配置如下：
+
+```yaml
+- name: foo
+  block_and_delay: 1s # 封禁该用户，并对新请求按照指定的值进行延迟响应返回
+  # 其他配置可保留不动
+```
+
+## 进阶用法
+
+### mTLS客户端
+
+本文若干处涉及到TLS Client的配置，如果需要作为TLS客户端启用mTLS双向认证，示例配置如下：
+
+```yaml
+tls_client:
+  certificate: /path/to/cert.crt  # 客户端证书
+  private_key: /path/to/pkey.key  # 客户端私钥
+  ca_certificate: /path/to/ca/cert.crt # CA证书，用于验证服务端证书（默认用系统CA证书）
+```
+
+### 国密TLCP协议卸载
+
+此功能需要编译时启用feature vendored-tongsuo。
+
+有些场景可能要求使用国密协议访问，很多客户端不支持国密协议，可使用vey-proxy进行协议转换：
+
+* TLCP转4层TCP
+
+```yaml
+server:
+  - name: l4tcp
+    type: tcp_stream
+    listen: "[::1]:10086"
+    upstream: "127.0.0.1:443" # 对方国密服务器地址，支持域名
+    tls_client:
+      protocol: tlcp
+      ca_certificate: /path/to/ca.cert # CA证书路径
+      # 可继续配置mTLS等参数
+    upstream_tls_name: target.host.domain # 对方域名，用于验证对方身份（如果upstream url带域名，可省略）
+```
+
+* TLCP转4层TLS
+
+```yaml
+server:
+  - name: l4tls
+    type: tls_stream
+    tls_server:
+      cert_pairs:
+        - certificate: /path/to/cert
+          private_key: /path/to/key
+    # 其他配置同上面 tcp_stream
+```
+
+* TLCP转7层HTTP
+
+```yaml
+server:
+  - name: l7http
+    type: http_rproxy
+    listen: "[::1]:80"
+    hosts:
+      - set_default: true
+        upstream: "127.0.0.1:443"
+        tls_client:
+          protocol: tlcp
+          ca_certificate: /path/to/ca.cert # CA证书路径
+          # 可继续配置mTLS等参数
+        tls_name: target.host.domain # 对方域名，用于验证对方身份（如果upstream url带域名，可省略）
+```
+
+* TLCP转7层HTTPS
+
+```yaml
+server:
+  - name: l7http
+    type: http_rproxy
+    listen: "[::1]:443"
+    hosts:
+      - set_default: true
+        upstream: "127.0.0.1:443"
+        tls_client:
+          protocol: tlcp
+          ca_certificate: /path/to/ca.cert # CA证书路径
+          # 可继续配置mTLS等参数
+        tls_name: target.host.domain # 对方域名，用于验证对方身份（如果upstream url带域名，可省略）
+        tls_server: # 配置该host对应的tls服务配置
+          cert_pairs:
+            - certificate: /path/to/cert
+              private_key: /path/to/key
+    enable_tls_server: true
+    # 可使用global_tls_server参数设置默认tls服务配置，对未设置tls_server参数的host生效
+```
+
+### 多协议入口复用
+
+如果需要单个端口同时用于HttpProxy & SocksProxy，可以使用IntelliProxy Port入口：
+
+```yaml
+server:
+  - name: intelli
+    type: intelli_proxy
+    listen: "[::]:8080"
+    http_server: http        # 对HTTP请求直接发送给http server处理
+    socks_server: socks      # 对socks请求直接发送给socks server处理
+  - name: http
+    type: HttpProxy
+    listen: "127.0.0.1:2001" # 监听本地地址防止滥用，本身不会被使用
+  - name: socks
+    type: SocksProxy
+    listen: "127.0.0.1:2002" # 监听本地地址防止滥用，本身不会被使用
+```
+
+### 监听多个端口
+
+相同的服务配置需要监听多个端口时，可以在Server前串联Port类型的入口。
+
+SNI Proxy监听多个端口示例如下：
+
+```yaml
+server:
+  - name: sni          # 名称需要唯一，不跟其他入口冲突，日志&监控需要使用该字段
+    escaper: default   # 必填，可以是任意类型出口
+    type: sni_proxy
+    listen:
+      address: "[::]:443" # 监听443端口，但可以同时支持发往该端口的TLS & HTTP协议流量
+  - name: port80
+    type: plain_tcp_port
+    listen: "[::]:80"  # 监听80端口
+    server: sni_proxy  # 所有连接给到sni_proxy server处理
+```
+
+HTTP Proxy同时开放明文端口及TLS端口示例如下：
+
+```yaml
+server:
+  - name: http       # 名称需要唯一，不跟其他入口冲突，日志&监控需要使用该字段
+    escaper: default # 必填，可以是任意类型出口
+    type: http_proxy
+    listen: "[::]:8080"
+    tls_client: { }   # 打开7层https forward转发支持
+  - name: tls
+    type: plain_tls_port
+    listen: "[::]:8443"
+    server: http
+    tls_server:
+      cert_pairs:
+        certificate: /path/to/certificate
+        private_key: /path/to/private_key
+      enable_client_auth: true            # 可选开启mTLS
+```
+
+Port类型入口仅有独立的Listen监控，流量监控、日志都是在下一跳Server处理的，在规划时需要考虑清楚是串联Port还是拆分Server更合适。
+
+### 监听端口启用PROXY Protocol
+
+串联场景，如果需要透传Client地址信息，可以使用PROXY Protocol。可以使用PlainTcpPort或PlainTlsPort来配置单独的支持PROXY
+Protocol的端口。
+
+示例如下：
+
+```yaml
+server:
+  - name: real_http
+    listen: "[127.0.0.1]:1234" # 可省略
+    type: http_proxy
+    ingress_network_filter: { } # 配置针对PROXY Protocol提取来源地址的过滤规则
+    # ... 其他配置
+  - name: pp_for_http
+    type: plain_tcp_port
+    listen: "[::]:8080"
+    server: real_http
+    proxy_protocol: v2
+    ingress_network_filter: { } # 配置针对套接字原始来源地址的过滤规则
+```
+
+### 国密TLCP协议封装
+
+此功能需要编译时启用feature vendored-tongsuo。
+
+可使用NativeTlsPort实现国密TLCP协议封装：
+
+```yaml
+server:
+  - name: real_http
+    listen: "[127.0.0.1]:1234" # 可省略
+    type: http_proxy
+    # ... 其他配置
+  - name: tlcp
+    type: native_tls_port
+    listen: "[::]:443"
+    tls_server:
+      tlcp_cert_pairs: # 启用国密TLCP协议
+        sign_certificate: /path/to/sign.crt
+        sign_private_key: /path/to/sign.key
+        enc_certificate: /path/to/enc.crt
+        enc_private_key: /path/to/enc.key
+      enable_client_auth: true # 可选启用mTLS
+    server: real_http
+    proxy_protocol: v2         # 可选启用PROXY Protocol
+```
+
+### Socks5 UDP IP映射
+
+Socks5 UDP处理时需要给客户端发送UDP数据连接的地址，一般是发送本地的IP:Port，有些情况下Client无法直接访问代理本地的IP地址，
+这时候需要在socks server中配置映射表：
+
+```yaml
+transmute_udp_echo_ip:
+  "192.168.10.2": "192.168.30.2"
+```
+
+### 安全反向代理
+
+很多软件会暴露HTTP API或者metrics接口出去，他们本身的安全防护策略都比较简单，可以使用如下配置进行加固：
+
+```yaml
+server:
+  - name: plain
+    escaper: default
+    user-group: default                     # 启用用户认证
+    type: http_rproxy
+    listen:
+      address: "[::]:80"
+    no_early_error_reply: true              # 请求确认合法前禁止错误返回，端口防扫描
+    hosts:
+      - exact_match: service1.example.net   # 匹配该域名
+        upstream: 127.0.0.1:8081            # 路径/全部转发
+      - exact_match: service2.example.net   # 匹配该域名
+        set_default: true                   # 若域名没有匹配的，作为默认站点
+        upstream: 127.0.0.1:8082            # 路径/全部转发
+    # 可通过tls_server启用TLS,或通过前置plain_tls_port添加独立的TLS端口
+```
+
+### 域名解析劫持
+
+有很多情况会希望绕过正常的DNS解析流程使用特殊域名解析规则，在用户配置中可做如下配置：
+
+```yaml
+resolve_redirection:
+  - exact: t1.example.net # 固定到具体IP
+    to: 192.168.10.1
+  - exact: t2.example.net # CNAME
+    to: t1.example.net
+  - child: example.com    # *.example.com 替换为 *.example.net
+    to: example.net
+```
+
+### 动态线路绑定
+
+有些机器的IP是动态获取的，比如通过DHCP或PPP拨号，这些IP可以动态绑定到DirectFloat出口中：
+
+代理配置：
+
+```yaml
+escaper:
+  - name: float
+    type: direct_float
+    resolver: default
+```
+
+使用如下指令进行更新：
+
+```shell
+vey-proxy-ctl -G <daemon_group> -p <pid> escaper float publish "{\"ipv4\": \"192.168.10.1\"}"
+```
+
+### 动态代理串联
+
+在爬虫场景，很多获取的代理地址都是动态带有效期的，可以封装一层中转代理，通过辅助程序自动处理过期代理替换，这样客户端只需要设置固定的代理地址：
+
+代理配置：
+
+```yaml
+escaper:
+  - name: float
+    type: proxy_float
+    source:
+      type: passive   # 接受推送，也可以配置为定期从redis获取
+```
+
+使用如下指令进行更新：
+
+```shell
+vey-proxy-ctl -G <daemon_group> -p <pid> escaper float publish '{"type":"socks5","addr":"127.0.0.1:11080", "expire": "<rfc3339 datetime>"}'
+```
+
+其中type还可以支持http、https。
+
+### 用户特定站点监控
+
+在用户配置中，可以继续对站点进行维度划分，添加单独的监控或单独的配置：
+
+```yaml
+explicit_sites:
+  - id: example-net
+    child_match: example.net
+    emit_stats: true           # 建立独立的监控，id字段会作为监控条目名称的一部分
+    resolve_strategy: # 可配置单独的解析策略
+      query: ipv4only          # 仅解析ipv4地址
+```
+
+### 用户站点TLS劫持自定义配置
+
+在用户-站点配置中，可对TLS劫持时的TLS Client行为进行设置：
+
+```yaml
+explicit_sites:
+  - id: example-net
+    child_match: example.net
+    tls_client:
+      ca_certificate: xxx      # PEM格式CA证书
+      cert_pairs:
+        certificate: xxx       # PEM格式客户端证书
+        private_key: xxx       # PEM格式客户端私钥
+      # 其他TLS客户端配置
+```
+
+### 流量审计
+
+开启流量审计功能完整配置参考[examples/inspect_http_proxy](examples/inspect_http_proxy)，审计模块配置示例如下：
+
+```yaml
+auditor:
+  - name: default
+    protocol_inspection: { } # 开启协议识别，使用默认参数
+    tls_cert_generator: { }  # 开启TLS劫持，使用默认参数，Peer地址为127.0.0.1:2999
+    tls_interception_client: { } # 可配置代理对目标地址TLS连接参数
+    h1_interception: { }         # HTTP/1.0 解析参数
+    h2_interception: { }         # HTTP/2 解析参数
+    icap_reqmod_service: icap://xxx  # ICAP REQMOD服务配置
+    icap_respmod_service: icap://xxx # ICAP RESPMOD服务配置
+    application_audit_ratio: 1.0     # 应用流量审计比例，按客户端代理请求匹配，若审计则进行协议识别及TLS劫持
+```
+
+注意该功能需搭配tls cert generator使用，参考实现为[vey-dcgen](/vey-dcgen)
+，示例配置参考[vey-dcgen simple conf](/vey-dcgen/examples/simple)。
+
+### TLS解密流量导出
+
+开启流量审计功能，并启用TLS劫持后，可配置导出TLS解密流量至[udpdump](https://www.wireshark.org/docs/man-pages/udpdump.html)。
+
+具体配置参考[examples/inspect_http_proxy](examples/inspect_http_proxy)。
+
+### 任务空闲检测
+
+所有成功的任务，在执行过程中均有空闲检测退出的能力。 空闲检测的设置主要包括2个，一是空闲检测间隔，二是允许的空闲计数。
+二者均可在server中配置，配置示例如下：
+
+```yaml
+- name: foo
+  type: xxx                    # 对任意server类型生效
+  task_idle_check_interval: 1m # 默认为1分钟
+  task_idle_max_count: 5       # 默认为最大5次计数，到达该值后，对应的任务终止
+```
+
+另外，允许的空闲计数可在user配置中单独配置，会覆盖server配置，示例如下：
+
+```yaml
+- name: foo
+  task_idle_max_count: 5
+```
+
+### 性能优化
+
+默认配置，代理会使用所有CPU核，并进行跨核任务调度，有些场景下绑CPU核会提升性能，可以如下配置：
+
+在*main.yml*中配置worker：
+
+```yaml
+worker:
+  thread_number: 8      # 不设置时，默认按所有CPU核数
+  sched_affinity: true  # 开启绑核，默认按线程次序一一绑定，也可展开设置 Worker ID - CPU ID映射关系
+```
+
+server配置监听时，可以配置按worker数目监听，并分散到各worker中：
+
+```yaml
+listen: "[::]:8080"
+listen_in_worker: true
+```
+
+## 场景设计
+
+### 多区域加速
+
+可以使用vey-proxy现有模块实现区域间加速功能。
+
+以3个区域为例，整体拓扑如下：
+
+```mermaid
+flowchart LR
+%% Paste to https://mermaid.live/ to see the graph
+    subgraph Area1
+        a1_client[Client]
+        a1_site[Site]
+        subgraph Proxy1
+            a1_proxy[GW]
+            a1_relay[relay]
+            a1_route[route]
+            a1_proxy -.-> a1_route
+        end
+        a1_client --> a1_proxy
+        a1_route -- local --> a1_site
+        a1_relay -- local --> a1_site
+    end
+    subgraph Area2
+        a2_client[Client]
+        a2_site[Site]
+        subgraph Proxy2
+            a2_proxy[GW]
+            a2_relay[relay]
+            a2_route[route]
+            a2_proxy -.-> a2_route
+        end
+        a2_client --> a2_proxy
+        a2_route -- local --> a2_site
+        a2_relay -- local --> a2_site
+    end
+    subgraph Area3
+        a3_client[Client]
+        a3_site[Site]
+        subgraph Proxy3
+            a3_proxy[GW]
+            a3_relay[relay]
+            a3_route[route]
+            a3_proxy -.-> a3_route
+        end
+        a3_client --> a3_proxy
+        a3_route -- local --> a3_site
+        a3_relay -- local --> a3_site
+    end
+    a1_route -- mTLS to a2 ----> a2_relay
+    a1_route -- mTLS to a3 ----> a3_relay
+    a2_route -- mTLS to a1 ----> a1_relay
+    a2_route -- mTLS to a3 ----> a3_relay
+    a3_route -- mTLS to a1 ----> a1_relay
+    a3_route -- mTLS to a2 ----> a2_relay
+```
+
+每个节点的Proxy分别配置以下功能：
+
+- GW
+
+  处理当地的用户请求，可使用[SNI Proxy](#sni代理)进行4层加速，或使用[HTTP反向代理](#安全反向代理)进行7层加速。
+
+  简化配置如下：
+
+  ```yaml
+  server:
+    - name: port443
+      type: sni_proxy
+      escaper: route
+    - name: port80
+      type: http_rproxy
+      escaper: route
+  ```
+
+- relay
+
+  处理其他区域节点的请求，使用内部协议，例如使用mTLS通道。
+
+  简要配置如下：
+
+  ```yaml
+  server:
+    - name: relay
+      type: http_proxy
+      escaper: local
+      tls_server: {} # 配置TLS参数
+  ```
+
+- route
+
+  对当地的用户请求进行选路分流，需要配置 >=1 个route类型出口，一个本地出口，另外对每个区域配置一个Proxy出口。
+
+  简化配置如下：
+
+  ```yaml
+  escaper:
+    - name: route
+      type: route_query  # 该模块可向外部agent查询选路规则，也可以用其他route出口模块
+      query_allowed_next:
+        - a1_proxy
+        - a2_proxy
+        - local
+      fallback_node: local
+      # ... agent配置
+    - name: local
+      type: direct_fixed
+      # ... 出口配置
+    - name: a1_proxy
+      type: proxy_https
+      tls_client: {} # 配置TLS参数
+      # ... 配置代理参数 指向a1区域的 relay代理地址
+    - name: a2_proxy
+      type: proxy_https
+      tls_client: {} # 配置TLS参数
+      # ... 配置代理参数 指向a2区域的 relay代理地址
+  ```
+
+### 双出口容灾
+
+单IDC有多个POP点公网出口时，或其他类似对目标站点的访问具有至少2条**非本机**线路可供选择的情况下，
+如果希望在2条线路进行主备切换自动容灾，可做如下设计：
+
+拓扑图如下：
+
+```mermaid
+flowchart LR
+%% Paste to https://mermaid.live/ to see the graph
+    subgraph IDC
+        i1_client[Client]
+        subgraph Proxy
+            i1_proxy[GW]
+            i1_route[route]
+            i1_proxy -.-> i1_route
+        end
+        i1_client --> i1_proxy
+    end
+    subgraph POP1
+        p1_proxy[relay]
+    end
+    subgraph POP2
+        p2_proxy[relay]
+    end
+    internet[Internet]
+    i1_route -- proxy to pop1 --> p1_proxy
+    i1_route -- proxy to pop2 --> p2_proxy
+    p1_proxy -- local ---> internet
+    p2_proxy -- local ---> internet
+```
+
+每个节点的Proxy分别配置以下功能：
+
+- GW
+
+  处理客户端请求，可配置成任意一种Server类型，如正向代理、反向代理、TCP映射等。
+
+- relay
+
+  处理其他区域节点的请求，使用内部协议，例如使用mTLS通道。
+
+  简要配置如下：
+
+  ```yaml
+  server:
+    - name: relay
+      type: http_proxy
+      escaper: local
+      tls_server: {} # 配置TLS参数
+  ```
+
+  注意，如果IDC内GW需要支持Socks5 UDP协议，则relay应该配置成UDP代理，需要使用[SOCKS 代理](#socks代理)。
+
+- route
+
+  对当地的用户请求进行选路分流，需要配置 >=1 个route类型出口，对每个区域配置一个Proxy出口。
+
+  简化配置如下：
+
+  ```yaml
+  escaper:
+    - name: route
+      type: route_failover
+      primary_next: p1_proxy
+      standby_next: p2_proxy
+      fallback_delay: 100ms  # fallback尝试等待时间（超时后同步对standby出口发起请求）
+    - name: p1_proxy
+      type: proxy_https # 注意，需适配POP1的relay server类型
+      tls_client: {} # 配置TLS参数
+      # ... 配置代理参数 指向POP1区域的 relay代理地址
+    - name: p2_proxy
+      type: proxy_https # 注意，需适配POP2的relay server类型
+      tls_client: {} # 配置TLS参数
+      # ... 配置代理参数 指向POP2区域的 relay代理地址
+  ```

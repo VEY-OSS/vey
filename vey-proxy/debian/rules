@@ -1,0 +1,33 @@
+#!/usr/bin/make -f
+
+PACKAGE_NAME := vey-proxy
+BUILD_PROFILE := release-lto
+
+DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
+LUA_FEATURE ?= $(shell scripts/package/detect_lua_feature.sh)
+CARES_FEATURE ?= $(shell scripts/package/detect_c-ares_feature.sh)
+
+%:
+	dh $@
+
+override_dh_clean:
+	dh_clean -Xvendor
+
+override_dh_auto_clean:
+	cargo clean --frozen --offline
+
+override_dh_auto_build:
+	G3_PACKAGE_VERSION=$(DEB_VERSION) \
+	  cargo build --frozen --profile $(BUILD_PROFILE) \
+	    --no-default-features --features $(LUA_FEATURE),rustls-ring,quic,$(CARES_FEATURE) \
+	    --package vey-proxy --package vey-proxy-ctl --package vey-proxy-lua
+	cargo build --frozen --profile $(BUILD_PROFILE) --package vey-proxy-ftp
+
+override_dh_auto_install:
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-proxy debian/tmp/usr/bin/vey-proxy
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-proxy-ctl debian/tmp/usr/bin/vey-proxy-ctl
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-proxy-ftp debian/tmp/usr/bin/vey-proxy-ftp
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-proxy-lua debian/tmp/usr/bin/vey-proxy-lua
+
+override_dh_installchangelogs:
+	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG

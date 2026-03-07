@@ -24,7 +24,7 @@ log:
 {% else %}
       format_rfc5424:
         enterprise_id: {{ enterprise_id }}
-        message_id: g3proxy
+        message_id: vey-proxy
 {% endif %}
 {% else %}
 log: discard
@@ -34,7 +34,7 @@ log: discard
 stat:
   target:
     udp: 127.0.0.1:8125
-  prefix: g3proxy
+  prefix: vey-proxy
   emit_duration: 200ms
 {% endif %}
 

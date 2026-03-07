@@ -25,7 +25,7 @@ In addition to the application directories, there are some public directories:
 - [sphinx](sphinx) is used to generate HTML reference documents for each application.
 - [scripts](scripts) Contains various auxiliary scripts, including coverage testing, packaging scripts, etc.
 
-### g3proxy
+### vey-proxy
 
 A generic forward proxy solution, but you can also use it as tcp streaming / transparent proxy / reverse proxy
 as we have basic support built in.
@@ -49,8 +49,8 @@ as we have basic support built in.
 - Rich monitoring metrics, at ingress / egress / user / user-site level
 - Support for a variety of observability tools
 
-[README](g3proxy/README.md) | [User Guide](g3proxy/UserGuide.en_US.md) |
-[Reference Doc](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
+[README](vey-proxy/README.md) | [User Guide](vey-proxy/UserGuide.en_US.md) |
+[Reference Doc](https://vey.readthedocs.io/projects/proxy/en/latest/)
 
 ### vey-statsd
 
@@ -85,13 +85,13 @@ A tool to make root CA / intermediate CA / TLS server / TLS client / TLCP server
 
 ### vey-dcgen
 
-Fake certificate generator for g3proxy.
+Dynamic certificate generator for vey-proxy.
 
 [README](vey-dcgen/README.md)
 
 ### vey-iploc
 
-IP location lookup service for g3proxy GeoIP support.
+IP location lookup service for vey-proxy GeoIP support.
 
 [README](vey-iploc/README.md)
 
