@@ -3,8 +3,8 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_dpi::Protocol;
-use g3_slog_types::LtUuid;
+use vey_dpi::Protocol;
+use vey_slog_types::LtUuid;
 
 use super::InspectSource;
 use crate::config::server::ServerConfig;

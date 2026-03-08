@@ -13,9 +13,9 @@ use slog::Logger;
 use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
-use g3_yaml::{HybridParser, YamlDocPosition};
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
+use vey_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod dummy_close;
 #[cfg(feature = "quic")]
@@ -102,7 +102,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 }
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyServerConfig> {
-    let doc = g3_yaml::load_doc(position)?;
+    let doc = vey_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
         let server = load_server(&map, Some(position.clone()))?;
         let old_server = registry::add(server.clone());
@@ -127,8 +127,8 @@ fn load_server(
     map: &yaml::Hash,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyServerConfig> {
-    let server_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_SERVER_TYPE)?;
-    match g3_yaml::key::normalize(server_type).as_str() {
+    let server_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_SERVER_TYPE)?;
+    match vey_yaml::key::normalize(server_type).as_str() {
         "dummy_close" | "dummyclose" => {
             let server = dummy_close::DummyCloseServerConfig::parse(map, position)
                 .context("failed to load this DummyClose server")?;

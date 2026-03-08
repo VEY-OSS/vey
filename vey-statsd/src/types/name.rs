@@ -48,7 +48,7 @@ impl MetricName {
     pub(crate) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
         match value {
             Yaml::Array(_) => {
-                let nodes = g3_yaml::value::as_list(value, g3_yaml::value::as_metric_node_name)?;
+                let nodes = vey_yaml::value::as_list(value, vey_yaml::value::as_metric_node_name)?;
                 Ok(MetricName::from(nodes))
             }
             Yaml::String(s) => {

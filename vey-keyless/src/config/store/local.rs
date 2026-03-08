@@ -11,8 +11,8 @@ use openssl::pkey::{PKey, Private};
 use tokio::sync::oneshot;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::KeyStoreConfig;
 
@@ -40,7 +40,7 @@ impl LocalKeyStoreConfig {
     ) -> anyhow::Result<Self> {
         let mut server = LocalKeyStoreConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
 
         server.check()?;
         Ok(server)
@@ -57,19 +57,19 @@ impl LocalKeyStoreConfig {
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_STORE_TYPE => Ok(()),
             "name" => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "dir" | "directory" | "dir_path" | "directory_path" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
-                self.dir_path = g3_yaml::value::as_dir_path(v, lookup_dir, false)?;
+                self.dir_path = vey_yaml::value::as_dir_path(v, lookup_dir, false)?;
                 Ok(())
             }
             "watch" => {
-                self.watch = g3_yaml::value::as_bool(v)?;
+                self.watch = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

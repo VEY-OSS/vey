@@ -22,8 +22,8 @@ vey-compat.workspace = true
 vey-datetime.workspace = true
 vey-io-sys.workspace = true
 vey-types = { workspace = true, features = ["async-log"] }
-g3-yaml = { workspace = true, optional = true }
+vey-yaml = { workspace = true, optional = true }
 
 [features]
 default = []
-yaml = ["dep:g3-yaml", "dep:yaml-rust", "dep:anyhow"]
+yaml = ["dep:vey-yaml", "dep:yaml-rust", "dep:anyhow"]

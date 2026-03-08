@@ -25,8 +25,8 @@ vey-compat.workspace = true
 vey-socket.workspace = true
 vey-openssl.workspace = true
 vey-types = { workspace = true, features = ["async-log", "openssl"] }
-g3-yaml = { workspace = true, optional = true, features = ["openssl"] }
+vey-yaml = { workspace = true, optional = true, features = ["openssl"] }
 
 [features]
 default = []
-yaml = ["dep:g3-yaml", "dep:yaml-rust"]
+yaml = ["dep:vey-yaml", "dep:yaml-rust"]

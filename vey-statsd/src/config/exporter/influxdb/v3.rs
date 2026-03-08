@@ -11,8 +11,8 @@ use http::HeaderValue;
 use http::uri::PathAndQuery;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_yaml::YamlDocPosition;
 
 use super::{
     AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction, InfluxdbExporterConfig,
@@ -63,25 +63,25 @@ impl InfluxdbV3ExporterConfig {
     ) -> anyhow::Result<Self> {
         let mut collector = InfluxdbV3ExporterConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
 
         collector.check()?;
         Ok(collector)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_EXPORTER_TYPE => Ok(()),
             super::CONFIG_KEY_EXPORTER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "database" => {
-                self.database = g3_yaml::value::as_string(v)?;
+                self.database = vey_yaml::value::as_string(v)?;
                 Ok(())
             }
             "token" => {
-                self.token = g3_yaml::value::as_http_header_value_string(v)
+                self.token = vey_yaml::value::as_http_header_value_string(v)
                     .context(format!("invalid http header value string for key {k}"))?;
                 Ok(())
             }
@@ -91,16 +91,16 @@ impl InfluxdbV3ExporterConfig {
                 Ok(())
             }
             "no_sync" => {
-                self.no_sync = g3_yaml::value::as_bool(v)?;
+                self.no_sync = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "emit_interval" => {
-                self.emit_interval = g3_yaml::humanize::as_duration(v)
+                self.emit_interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "max_body_lines" => {
-                self.max_body_lines = g3_yaml::value::as_usize(v)?;
+                self.max_body_lines = vey_yaml::value::as_usize(v)?;
                 Ok(())
             }
             "prefix" => {
@@ -110,7 +110,7 @@ impl InfluxdbV3ExporterConfig {
                 Ok(())
             }
             "global_tags" => {
-                self.global_tags = g3_yaml::value::as_static_metrics_tags(v)
+                self.global_tags = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 Ok(())
             }

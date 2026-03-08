@@ -18,8 +18,8 @@ redis = { workspace = true, features = ["aio", "tokio-comp"] }
 vey-types = { workspace = true, features = ["openssl"] }
 vey-json.workspace = true
 g3-redis-client.workspace = true
-g3-yaml = { workspace = true, optional = true }
+vey-yaml = { workspace = true, optional = true }
 
 [features]
 default = []
-yaml = ["g3-redis-client/yaml", "dep:g3-yaml", "dep:yaml-rust"]
+yaml = ["g3-redis-client/yaml", "dep:vey-yaml", "dep:yaml-rust"]

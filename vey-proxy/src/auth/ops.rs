@@ -9,8 +9,8 @@ use anyhow::{Context, anyhow};
 use log::debug;
 use tokio::sync::Mutex;
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::registry;
 use crate::auth::UserGroup;

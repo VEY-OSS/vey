@@ -5,9 +5,9 @@
 
 use anyhow::anyhow;
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
 use vey_types::net::UpstreamAddr;
+use vey_yaml::YamlDocPosition;
 
 use super::{
     AnyDiscoverConfig, CONFIG_KEY_DISCOVER_NAME, CONFIG_KEY_DISCOVER_TYPE, DiscoverConfig,

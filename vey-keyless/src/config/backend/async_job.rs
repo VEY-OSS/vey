@@ -25,9 +25,9 @@ impl AsyncJobBackendConfig {
     pub(super) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
         if let Yaml::Hash(map) = value {
             let mut config = AsyncJobBackendConfig::default();
-            g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+            vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "async_op_timeout" => {
-                    config.async_op_timeout = g3_yaml::humanize::as_duration(v)?;
+                    config.async_op_timeout = vey_yaml::humanize::as_duration(v)?;
                     Ok(())
                 }
                 _ => Err(anyhow!("invalid key {k}")),

@@ -11,11 +11,11 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_yaml::YamlDocPosition;
 use vey_types::net::{
     ConnectionPoolConfig, QuinnTransportConfigBuilder, RustlsClientConfigBuilder,
     SocketBufferConfig, UpstreamAddr,
 };
+use vey_yaml::YamlDocPosition;
 
 const DEFAULT_DETOUR_PORT: u16 = 2888;
 
@@ -56,52 +56,53 @@ impl AuditStreamDetourConfig {
 
         match value {
             Yaml::Hash(map) => {
-                g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "peer" | "peer_addr" => {
-                        config.peer_addr = g3_yaml::value::as_upstream_addr(v, DEFAULT_DETOUR_PORT)
-                            .context(format!("invalid upstream address value for key {k}"))?;
+                        config.peer_addr =
+                            vey_yaml::value::as_upstream_addr(v, DEFAULT_DETOUR_PORT)
+                                .context(format!("invalid upstream address value for key {k}"))?;
                         Ok(())
                     }
                     "tls_client" => {
                         let lookup_dir = g3_daemon::config::get_lookup_dir(position)?;
                         config.tls_client =
-                            g3_yaml::value::as_rustls_client_config_builder(v, Some(lookup_dir))
+                            vey_yaml::value::as_rustls_client_config_builder(v, Some(lookup_dir))
                                 .context(format!(
-                                    "invalid rustls tls client config value for key {k}"
-                                ))?;
+                                "invalid rustls tls client config value for key {k}"
+                            ))?;
                         Ok(())
                     }
                     "tls_name" => {
-                        let name = g3_yaml::value::as_string(v)?;
+                        let name = vey_yaml::value::as_string(v)?;
                         config.tls_name = Some(name);
                         Ok(())
                     }
                     "connection_pool" | "pool" => {
-                        config.connection_pool = g3_yaml::value::as_connection_pool_config(v)
+                        config.connection_pool = vey_yaml::value::as_connection_pool_config(v)
                             .context(format!("invalid connection pool config value for key {k}"))?;
                         Ok(())
                     }
                     "connection_reuse_limit" => {
-                        config.connection_reuse_limit = g3_yaml::value::as_nonzero_usize(v)?;
+                        config.connection_reuse_limit = vey_yaml::value::as_nonzero_usize(v)?;
                         Ok(())
                     }
                     "quic_transport" => {
-                        config.quic_transport = g3_yaml::value::as_quinn_transport_config(v)
+                        config.quic_transport = vey_yaml::value::as_quinn_transport_config(v)
                             .context(format!("invalid quinn transport config value for key {k}"))?;
                         Ok(())
                     }
                     "stream_open_timeout" => {
-                        config.stream_open_timeout = g3_yaml::humanize::as_duration(v)
+                        config.stream_open_timeout = vey_yaml::humanize::as_duration(v)
                             .context(format!("invalid humanize duration value for key {k}"))?;
                         Ok(())
                     }
                     "request_timeout" => {
-                        config.request_timeout = g3_yaml::humanize::as_duration(v)
+                        config.request_timeout = vey_yaml::humanize::as_duration(v)
                             .context(format!("invalid humanize duration value for key {k}"))?;
                         Ok(())
                     }
                     "socket_buffer" => {
-                        config.socket_buffer = g3_yaml::value::as_socket_buffer_config(v)?;
+                        config.socket_buffer = vey_yaml::value::as_socket_buffer_config(v)?;
                         Ok(())
                     }
                     _ => Err(anyhow!("invalid key {k}")),

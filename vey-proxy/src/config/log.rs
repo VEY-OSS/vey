@@ -28,7 +28,7 @@ pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
             default_log_config = Some(config);
         }
         Yaml::Hash(map) => {
-            g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+            vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "default" => {
                     let config = LogConfig::parse_yaml(v, conf_dir, crate::build::PKG_NAME)
                         .context(format!("invalid value for key {k}"))?;

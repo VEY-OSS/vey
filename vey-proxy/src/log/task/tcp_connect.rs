@@ -5,7 +5,7 @@
 
 use slog::Logger;
 
-use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUserName, LtUuid};
+use vey_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUserName, LtUuid};
 use vey_types::net::UpstreamAddr;
 
 use super::TaskEvent;

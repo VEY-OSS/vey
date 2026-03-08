@@ -9,7 +9,6 @@ use std::time::Duration;
 use anyhow::anyhow;
 use thiserror::Error;
 
-use g3_dpi::Protocol;
 use g3_ftp_client::FtpConnectError;
 use g3_http::client::HttpResponseParseError;
 use g3_http::server::HttpRequestParseError;
@@ -23,6 +22,7 @@ use g3_io_ext::{
 };
 use g3_resolver::ResolveError;
 use g3_socks::SocksRequestParseError;
+use vey_dpi::Protocol;
 use vey_types::net::ConnectError;
 
 use crate::inspect::InterceptionError;

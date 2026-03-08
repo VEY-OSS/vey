@@ -15,15 +15,15 @@ impl SyslogFormatterKind {
 
         match value {
             Yaml::Hash(map) => {
-                g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "enterprise_id" => {
-                        enterprise_id = g3_yaml::value::as_i32(v)
+                        enterprise_id = vey_yaml::value::as_i32(v)
                             .context(format!("invalid value for key {k}"))?;
                         Ok(())
                     }
                     "message_id" => {
                         message_id = Some(
-                            g3_yaml::value::as_string(v)
+                            vey_yaml::value::as_string(v)
                                 .context(format!("invalid value for key {k}"))?,
                         );
                         Ok(())

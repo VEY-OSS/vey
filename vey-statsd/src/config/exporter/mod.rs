@@ -8,9 +8,9 @@ use std::path::Path;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::{HybridParser, YamlDocPosition};
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
+use vey_yaml::{HybridParser, YamlDocPosition};
 
 mod registry;
 pub(crate) use registry::{clear, get_all};
@@ -71,7 +71,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 }
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyExporterConfig> {
-    let doc = g3_yaml::load_doc(position)?;
+    let doc = vey_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
         let exporter = load_exporter(&map, Some(position.clone()))?;
         registry::add(exporter.clone());
@@ -85,8 +85,8 @@ fn load_exporter(
     map: &yaml::Hash,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyExporterConfig> {
-    let exporter_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_EXPORTER_TYPE)?;
-    match g3_yaml::key::normalize(exporter_type).as_str() {
+    let exporter_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_EXPORTER_TYPE)?;
+    match vey_yaml::key::normalize(exporter_type).as_str() {
         "discard" => {
             let exporter = discard::DiscardExporterConfig::parse(map, position)
                 .context("failed to load this Discard exporter")?;

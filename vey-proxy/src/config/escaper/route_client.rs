@@ -11,7 +11,7 @@ use ip_network::IpNetwork;
 use vey_types::metrics::NodeName;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, EscaperConfigVerifier};
 
@@ -61,17 +61,17 @@ impl RouteClientEscaperConfig {
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
 
         config.check()?;
         Ok(config)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "exact_match" | "exact_rules" => {
@@ -81,7 +81,7 @@ impl RouteClientEscaperConfig {
                 RouteClientEscaperConfig::foreach_rule(k, v, |map| self.add_subnet_match(map))
             }
             "default_next" => {
-                self.default_next = g3_yaml::value::as_metric_node_name(v)?;
+                self.default_next = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -109,15 +109,15 @@ impl RouteClientEscaperConfig {
     fn add_exact_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
         let mut escaper = NodeName::default();
         let mut all_ipaddr = BTreeSet::<IpAddr>::new();
-        g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+        vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                escaper = g3_yaml::value::as_metric_node_name(v)?;
+                escaper = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "ips" | "ip" => {
                 if let Yaml::Array(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
-                        let ip = g3_yaml::value::as_ipaddr(v)
+                        let ip = vey_yaml::value::as_ipaddr(v)
                             .context(format!("invalid host value for {k}:{i}"))?;
                         all_ipaddr.insert(ip);
                     }
@@ -142,15 +142,15 @@ impl RouteClientEscaperConfig {
     fn add_subnet_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
         let mut escaper = NodeName::default();
         let mut all_subnets = BTreeSet::<IpNetwork>::new();
-        g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+        vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                escaper = g3_yaml::value::as_metric_node_name(v)?;
+                escaper = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "subnets" | "subnet" => {
                 if let Yaml::Array(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
-                        let subnet = g3_yaml::value::as_ip_network(v)
+                        let subnet = vey_yaml::value::as_ip_network(v)
                             .context(format!("invalid subnet value for {k}:{i}"))?;
                         all_subnets.insert(subnet);
                     }

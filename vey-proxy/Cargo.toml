@@ -68,7 +68,7 @@ g3-cert-agent = { workspace = true, features = ["yaml"] }
 vey-codec = { workspace = true, features = ["ldap", "tls"] }
 g3-daemon = { workspace = true, features = ["event-log"] }
 vey-datetime.workspace = true
-g3-dpi.workspace = true
+vey-dpi.workspace = true
 g3-ftp-client = { workspace = true, features = ["yaml"] }
 vey-geoip-types.workspace = true
 g3-h2.workspace = true
@@ -85,7 +85,7 @@ vey-msgpack.workspace = true
 vey-openssl.workspace = true
 g3-redis-client = { workspace = true, features = ["yaml"] }
 g3-resolver = { workspace = true, features = ["yaml", "hickory"] }
-g3-slog-types = { workspace = true, features = ["auth", "http", "openssl", "socket"] }
+vey-slog-types = { workspace = true, features = ["auth", "http", "openssl", "socket"] }
 g3-smtp-proto.workspace = true
 vey-socket.workspace = true
 g3-socks.workspace = true
@@ -95,7 +95,7 @@ vey-types = { workspace = true, features = ["auth-crypt", "auth-facts", "openssl
 g3-tls-ticket = { workspace = true, features = ["yaml"] }
 g3-udpdump = { workspace = true, features = ["yaml"] }
 vey-xcrypt.workspace = true
-g3-yaml = { workspace = true, features = ["auth-facts", "resolve", "rustls", "openssl", "acl-rule", "http", "route", "dpi", "histogram", "geoip"] }
+vey-yaml = { workspace = true, features = ["auth-facts", "resolve", "rustls", "openssl", "acl-rule", "http", "route", "dpi", "histogram", "geoip"] }
 vey-proxy-proto = { path = "proto" }
 
 [dev-dependencies]
@@ -114,7 +114,7 @@ lua54 = ["lua", "mlua/lua54"]
 lua55 = ["lua", "mlua/lua55"]
 python = ["pyo3"]
 c-ares = ["g3-resolver/c-ares"]
-quic = ["g3-daemon/quic", "g3-resolver/quic", "g3-yaml/quinn", "vey-types/quinn", "g3-dpi/quic", "dep:quinn"]
+quic = ["g3-daemon/quic", "g3-resolver/quic", "vey-yaml/quinn", "vey-types/quinn", "vey-dpi/quic", "dep:quinn"]
 rustls-ring = ["vey-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
 rustls-aws-lc = ["vey-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
 rustls-aws-lc-fips = ["vey-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]

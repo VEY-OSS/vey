@@ -9,8 +9,8 @@ use std::time::Duration;
 use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
 
@@ -42,29 +42,29 @@ impl RouteFailoverEscaperConfig {
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
 
         config.check()?;
         Ok(config)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "primary" | "primary_next" => {
-                self.primary_node = g3_yaml::value::as_metric_node_name(v)?;
+                self.primary_node = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "standby" | "standby_next" => {
-                self.standby_node = g3_yaml::value::as_metric_node_name(v)?;
+                self.standby_node = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "fallback_delay" | "delay" | "fallback_timeout" | "timeout" => {
-                self.fallback_delay = g3_yaml::humanize::as_duration(v)?;
+                self.fallback_delay = vey_yaml::humanize::as_duration(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

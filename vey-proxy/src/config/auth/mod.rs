@@ -8,7 +8,7 @@ use std::path::Path;
 use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::{HybridParser, YamlDocPosition};
+use vey_yaml::{HybridParser, YamlDocPosition};
 
 const CONFIG_KEY_USER_GROUP_TYPE: &str = "type";
 const CONFIG_KEY_USER_GROUP_NAME: &str = "name";
@@ -38,7 +38,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 }
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyUserGroupConfig> {
-    let doc = g3_yaml::load_doc(position)?;
+    let doc = vey_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
         let group = load_user_group(&map, Some(position.clone()))?;
         registry::add(group.clone(), true)?;
@@ -53,8 +53,8 @@ fn load_user_group(
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyUserGroupConfig> {
     let group_type =
-        g3_yaml::hash_get_optional_str(map, CONFIG_KEY_USER_GROUP_TYPE)?.unwrap_or("basic");
-    match g3_yaml::key::normalize(group_type).as_str() {
+        vey_yaml::hash_get_optional_str(map, CONFIG_KEY_USER_GROUP_TYPE)?.unwrap_or("basic");
+    match vey_yaml::key::normalize(group_type).as_str() {
         "basic" => {
             let group = BasicUserGroupConfig::parse(map, position)?;
             Ok(AnyUserGroupConfig::Basic(group))

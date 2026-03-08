@@ -11,8 +11,8 @@ use anyhow::{Context, anyhow};
 use arcstr::ArcStr;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::net::{ConnectionPoolConfig, Host, OpensslClientConfigBuilder, UpstreamAddr};
+use vey_yaml::YamlDocPosition;
 
 use super::{BasicUserGroupConfig, UserGroupConfig};
 use crate::config::auth::UserConfig;
@@ -66,7 +66,7 @@ impl LdapUserGroupConfig {
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
         config.check()?;
         Ok(config)
     }
@@ -87,9 +87,9 @@ impl LdapUserGroupConfig {
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             "ldap_url" => {
-                let url = g3_yaml::value::as_url(v)
+                let url = vey_yaml::value::as_url(v)
                     .context(format!("invalid ldap url value for key {k}"))?;
                 let default_port;
                 match url.scheme() {
@@ -114,12 +114,12 @@ impl LdapUserGroupConfig {
                 Ok(())
             }
             "username_attribute" => {
-                self.username_attribute = g3_yaml::value::as_string(v)?;
+                self.username_attribute = vey_yaml::value::as_string(v)?;
                 Ok(())
             }
             "tls_client" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.basic.position.as_ref())?;
-                let config = g3_yaml::value::as_to_one_openssl_tls_client_config_builder(
+                let config = vey_yaml::value::as_to_one_openssl_tls_client_config_builder(
                     v,
                     Some(lookup_dir),
                 )
@@ -130,7 +130,7 @@ impl LdapUserGroupConfig {
                 Ok(())
             }
             "tls_name" => {
-                let name = g3_yaml::value::as_host(v)
+                let name = vey_yaml::value::as_host(v)
                     .context(format!("invalid tls server name value for key {k}"))?;
                 self.tls_name = Some(name);
                 Ok(())
@@ -146,40 +146,40 @@ impl LdapUserGroupConfig {
                 }
             }
             "max_message_size" => {
-                self.max_message_size = g3_yaml::value::as_usize(v)?;
+                self.max_message_size = vey_yaml::value::as_usize(v)?;
                 Ok(())
             }
             "connect_timeout" => {
-                self.connect_timeout = g3_yaml::humanize::as_duration(v)
+                self.connect_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "response_timeout" => {
-                self.response_timeout = g3_yaml::humanize::as_duration(v)
+                self.response_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "connection_pool" | "pool" => {
-                self.connection_pool = g3_yaml::value::as_connection_pool_config(v)
+                self.connection_pool = vey_yaml::value::as_connection_pool_config(v)
                     .context(format!("invalid connection pool config for key {k}"))?;
                 Ok(())
             }
             "queue_channel_size" => {
-                let channel_size = g3_yaml::value::as_nonzero_usize(v)?;
+                let channel_size = vey_yaml::value::as_nonzero_usize(v)?;
                 self.queue_channel_size = channel_size.get();
                 Ok(())
             }
             "queue_wait_timeout" => {
-                self.queue_wait_timeout = g3_yaml::humanize::as_duration(v)
+                self.queue_wait_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "cache_user_count" => {
-                self.cache_user_count = g3_yaml::value::as_nonzero_usize(v)?;
+                self.cache_user_count = vey_yaml::value::as_nonzero_usize(v)?;
                 Ok(())
             }
             "cache_expire_time" => {
-                self.cache_expire_time = g3_yaml::humanize::as_duration(v)
+                self.cache_expire_time = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

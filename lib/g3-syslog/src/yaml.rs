@@ -16,7 +16,7 @@ impl SyslogBuilder {
                 let mut use_cee_log_syntax = false;
                 let mut cee_event_flag: Option<String> = None;
                 builder.set_facility(Facility::Daemon);
-                g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     #[cfg(unix)]
                     "target_unix" | "backend_unix" => {
                         let backend = SyslogBackendBuilder::parse_unix_yaml(v)
@@ -32,8 +32,8 @@ impl SyslogBuilder {
                     }
                     "target" | "backend" => {
                         if let Yaml::Hash(map) = v {
-                            g3_yaml::foreach_kv(map, |k, v| {
-                                match g3_yaml::key::normalize(k).as_str() {
+                            vey_yaml::foreach_kv(map, |k, v| {
+                                match vey_yaml::key::normalize(k).as_str() {
                                     "udp" => {
                                         let backend = SyslogBackendBuilder::parse_udp_yaml(v)
                                             .context(format!("invalid value for key {k}"))?;
@@ -62,24 +62,24 @@ impl SyslogBuilder {
                         Ok(())
                     }
                     "use_cee_log_syntax" | "use_cls" => {
-                        use_cee_log_syntax = g3_yaml::value::as_bool(v)
+                        use_cee_log_syntax = vey_yaml::value::as_bool(v)
                             .context(format!("invalid boolean value for key {k}"))?;
                         Ok(())
                     }
                     "cee_event_flag" | "cee_cookie" => {
-                        let s = g3_yaml::value::as_ascii(v)
+                        let s = vey_yaml::value::as_ascii(v)
                             .context(format!("invalid ascii string value for key {k}"))?;
                         cee_event_flag = Some(s.to_string());
                         Ok(())
                     }
                     "emit_hostname" => {
-                        let enable = g3_yaml::value::as_bool(v)
+                        let enable = vey_yaml::value::as_bool(v)
                             .context(format!("invalid boolean value for key {k}"))?;
                         builder.set_emit_hostname(enable);
                         Ok(())
                     }
                     "append_report_ts" => {
-                        let enable = g3_yaml::value::as_bool(v)
+                        let enable = vey_yaml::value::as_bool(v)
                             .context(format!("invalid boolean value for key {k}"))?;
                         builder.append_report_ts(enable);
                         Ok(())
@@ -106,7 +106,7 @@ impl SyslogBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_yaml::yaml_doc;
+    use vey_yaml::yaml_doc;
     use yaml_rust::YamlLoader;
 
     #[test]

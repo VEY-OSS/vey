@@ -8,10 +8,10 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_histogram::HistogramMetricsConfig;
 use vey_types::collection::SelectivePickPolicy;
 use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyBackendConfig, BackendConfig, BackendConfigDiffAction};
 use crate::config::discover::DiscoverRegisterData;
@@ -47,7 +47,7 @@ impl StreamTcpBackendConfig {
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut connector = StreamTcpBackendConfig::new(position);
-        g3_yaml::foreach_kv(map, |k, v| connector.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| connector.set(k, v))?;
         connector.check()?;
         Ok(connector)
     }
@@ -69,11 +69,11 @@ impl StreamTcpBackendConfig {
         match k {
             super::CONFIG_KEY_BACKEND_TYPE => Ok(()),
             super::CONFIG_KEY_BACKEND_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "discover" => {
-                self.discover = g3_yaml::value::as_metric_node_name(v)?;
+                self.discover = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "discover_data" => {
@@ -81,17 +81,17 @@ impl StreamTcpBackendConfig {
                 Ok(())
             }
             "peer_pick_policy" => {
-                self.peer_pick_policy = g3_yaml::value::as_selective_pick_policy(v)?;
+                self.peer_pick_policy = vey_yaml::value::as_selective_pick_policy(v)?;
                 Ok(())
             }
             "extra_metrics_tags" => {
-                let tags = g3_yaml::value::as_static_metrics_tags(v)
+                let tags = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
             }
             "duration_stats" | "duration_metrics" => {
-                self.duration_stats = g3_yaml::value::as_histogram_metrics_config(v).context(
+                self.duration_stats = vey_yaml::value::as_histogram_metrics_config(v).context(
                     format!("invalid histogram metrics config value for key {k}"),
                 )?;
                 Ok(())

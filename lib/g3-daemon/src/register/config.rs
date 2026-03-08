@@ -51,7 +51,7 @@ impl RegisterConfig {
         match v {
             Yaml::Hash(map) => self.parse_map(map),
             Yaml::String(_) => {
-                self.upstream = g3_yaml::value::as_upstream_addr(v, 0)
+                self.upstream = vey_yaml::value::as_upstream_addr(v, 0)
                     .context("invalid upstream address string value")?;
                 Ok(())
             }
@@ -60,38 +60,38 @@ impl RegisterConfig {
     }
 
     fn parse_map(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+        vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
             "upstream" => {
-                self.upstream = g3_yaml::value::as_upstream_addr(v, 0)
+                self.upstream = vey_yaml::value::as_upstream_addr(v, 0)
                     .context(format!("invalid upstream address value for key {k}"))?;
                 Ok(())
             }
             "startup_retry" => {
-                self.startup_retry = g3_yaml::value::as_usize(v)?;
+                self.startup_retry = vey_yaml::value::as_usize(v)?;
                 Ok(())
             }
             "retry_interval" => {
-                self.retry_interval = g3_yaml::humanize::as_duration(v)
+                self.retry_interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "register_path" => {
-                self.register_path = g3_yaml::value::as_http_path_and_query(v)
+                self.register_path = vey_yaml::value::as_http_path_and_query(v)
                     .context(format!("invalid http path_query value for key {k}"))?;
                 Ok(())
             }
             "ping_path" => {
-                self.ping_path = g3_yaml::value::as_http_path_and_query(v)
+                self.ping_path = vey_yaml::value::as_http_path_and_query(v)
                     .context(format!("invalid http path_query value for key {k}"))?;
                 Ok(())
             }
             "ping_interval" => {
-                self.ping_interval = g3_yaml::humanize::as_duration(v)
+                self.ping_interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "extra_data" => {
-                self.extra_data = g3_yaml::value::as_static_metrics_tags(v)
+                self.extra_data = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 Ok(())
             }
@@ -103,7 +103,7 @@ impl RegisterConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_yaml::{yaml_doc, yaml_str};
+    use vey_yaml::{yaml_doc, yaml_str};
     use yaml_rust::YamlLoader;
 
     #[test]

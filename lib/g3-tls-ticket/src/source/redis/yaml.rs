@@ -17,14 +17,14 @@ impl RedisSourceConfig {
     ) -> anyhow::Result<Self> {
         let mut config = RedisSourceConfig::default();
 
-        g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+        vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
             CONFIG_KEY_SOURCE_TYPE => Ok(()),
             "enc_key" => {
-                config.enc_key_name = g3_yaml::value::as_string(v)?;
+                config.enc_key_name = vey_yaml::value::as_string(v)?;
                 Ok(())
             }
             "dec_set" => {
-                config.dec_set_name = g3_yaml::value::as_string(v)?;
+                config.dec_set_name = vey_yaml::value::as_string(v)?;
                 Ok(())
             }
             _ => config.redis.set_by_yaml_kv(k, v, lookup_dir),
@@ -38,7 +38,7 @@ impl RedisSourceConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_yaml::yaml_doc;
+    use vey_yaml::yaml_doc;
     use yaml_rust::YamlLoader;
 
     #[test]

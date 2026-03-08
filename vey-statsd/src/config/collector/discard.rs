@@ -6,8 +6,8 @@
 use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyCollectorConfig, CollectorConfig, CollectorConfigDiffAction};
 
@@ -40,17 +40,17 @@ impl DiscardCollectorConfig {
     ) -> anyhow::Result<Self> {
         let mut collector = DiscardCollectorConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
 
         collector.check()?;
         Ok(collector)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_COLLECTOR_TYPE => Ok(()),
             super::CONFIG_KEY_COLLECTOR_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

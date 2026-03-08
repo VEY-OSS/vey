@@ -40,7 +40,7 @@ impl ExactMatchBuilder {
 
     pub(super) fn set_by_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
         match value {
-            Yaml::Hash(map) => g3_yaml::foreach_kv(map, |k, v| {
+            Yaml::Hash(map) => vey_yaml::foreach_kv(map, |k, v| {
                 let escaper = NodeName::from_str(k)
                     .map_err(|e| anyhow!("the map key is not valid escaper name: {e}"))?;
                 let mut match_values = ExactMatchValues::default();
@@ -59,9 +59,9 @@ impl ExactMatchBuilder {
 
                     let mut escaper = NodeName::default();
                     let mut match_values = ExactMatchValues::default();
-                    g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                    vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                         "next" | "escaper" => {
-                            escaper = g3_yaml::value::as_metric_node_name(v)?;
+                            escaper = vey_yaml::value::as_metric_node_name(v)?;
                             Ok(())
                         }
                         "hosts" | "host" => match_values
@@ -138,7 +138,7 @@ impl ExactMatchValues {
     }
 
     fn add_yaml_value(&mut self, value: &Yaml) -> anyhow::Result<()> {
-        let host = g3_yaml::value::as_host(value)?;
+        let host = vey_yaml::value::as_host(value)?;
         match host {
             Host::Domain(domain) => {
                 self.domain.insert(domain);

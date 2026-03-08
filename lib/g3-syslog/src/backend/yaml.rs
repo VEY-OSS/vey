@@ -20,16 +20,16 @@ impl SyslogBackendBuilder {
                 let mut addr: Option<SocketAddr> = None;
                 let mut bind: Option<IpAddr> = None;
 
-                g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "address" | "addr" => {
-                        addr = Some(g3_yaml::value::as_env_sockaddr(v).context(format!(
+                        addr = Some(vey_yaml::value::as_env_sockaddr(v).context(format!(
                             "invalid syslog udp peer socket address value for key {k}"
                         ))?);
                         Ok(())
                     }
                     "bind_ip" | "bind" => {
                         bind = Some(
-                            g3_yaml::value::as_ipaddr(v)
+                            vey_yaml::value::as_ipaddr(v)
                                 .context(format!("invalid value for key {k}"))?,
                         );
                         Ok(())
@@ -58,10 +58,10 @@ impl SyslogBackendBuilder {
             Yaml::Hash(map) => {
                 let mut path: Option<PathBuf> = None;
 
-                g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "path" => {
                         path = Some(
-                            g3_yaml::value::as_absolute_path(v)
+                            vey_yaml::value::as_absolute_path(v)
                                 .context(format!("invalid value for key {k}"))?,
                         );
                         Ok(())
@@ -75,7 +75,7 @@ impl SyslogBackendBuilder {
                 }
             }
             Yaml::String(_) => {
-                let path = g3_yaml::value::as_absolute_path(value)?;
+                let path = vey_yaml::value::as_absolute_path(value)?;
                 Ok(SyslogBackendBuilder::Unix(Some(path)))
             }
             _ => Err(anyhow!("invalid yaml value for unix syslog backend")),

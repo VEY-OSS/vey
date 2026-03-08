@@ -292,7 +292,7 @@ impl HickoryClientConfig {
     async fn new_dns_over_udp_client(&self) -> anyhow::Result<Client> {
         // random port is used here
         let client_connect =
-            g3_hickory_client::io::udp::connect(self.udp_connect_info(), self.request_timeout);
+            vey_hickory_client::io::udp::connect(self.udp_connect_info(), self.request_timeout);
 
         let (client, bg) = Client::connect(Box::pin(client_connect))
             .await
@@ -304,7 +304,7 @@ impl HickoryClientConfig {
     async fn new_dns_over_tcp_client(&self) -> anyhow::Result<Client> {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
-        let tcp_connect = g3_hickory_client::io::tcp::connect(
+        let tcp_connect = vey_hickory_client::io::tcp::connect(
             self.tcp_connect_info(),
             outbound_messages,
             self.connect_timeout,
@@ -329,7 +329,7 @@ impl HickoryClientConfig {
     ) -> anyhow::Result<Client> {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
-        let tls_connect = g3_hickory_client::io::tls::connect(
+        let tls_connect = vey_hickory_client::io::tls::connect(
             self.tcp_connect_info(),
             tls_client,
             tls_name,
@@ -354,7 +354,7 @@ impl HickoryClientConfig {
         tls_client: ClientConfig,
         tls_name: ServerName<'static>,
     ) -> anyhow::Result<Client> {
-        let client_connect = g3_hickory_client::io::h2::connect(
+        let client_connect = vey_hickory_client::io::h2::connect(
             self.tcp_connect_info(),
             tls_client,
             tls_name,
@@ -381,7 +381,7 @@ impl HickoryClientConfig {
             _ => return Err(anyhow!("unsupported tls server name type")),
         };
 
-        let client_connect = g3_hickory_client::io::quic::connect(
+        let client_connect = vey_hickory_client::io::quic::connect(
             self.udp_connect_info(),
             tls_client,
             tls_name,
@@ -408,7 +408,7 @@ impl HickoryClientConfig {
             _ => return Err(anyhow!("unsupported tls server name type")),
         };
 
-        let client_connect = g3_hickory_client::io::h3::connect(
+        let client_connect = vey_hickory_client::io::h3::connect(
             self.udp_connect_info(),
             tls_client,
             tls_name,

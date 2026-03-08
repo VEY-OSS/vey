@@ -8,9 +8,9 @@ use std::path::Path;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::{HybridParser, YamlDocPosition};
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
+use vey_yaml::{HybridParser, YamlDocPosition};
 
 mod registry;
 pub(crate) use registry::{clear, get_all};
@@ -65,7 +65,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 }
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyDiscoverConfig> {
-    let doc = g3_yaml::load_doc(position)?;
+    let doc = vey_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
         let site = load_discover(&map, Some(position.clone()))?;
         registry::add(site.clone(), true)?;
@@ -79,8 +79,8 @@ fn load_discover(
     map: &yaml::Hash,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyDiscoverConfig> {
-    let discover_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_DISCOVER_TYPE)?;
-    match g3_yaml::key::normalize(discover_type).as_str() {
+    let discover_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_DISCOVER_TYPE)?;
+    match vey_yaml::key::normalize(discover_type).as_str() {
         "static_addr" | "staticaddr" => {
             let discover = static_addr::StaticAddrDiscoverConfig::parse_yaml_conf(map, position)
                 .context("failed to load this StaticAddr discover")?;

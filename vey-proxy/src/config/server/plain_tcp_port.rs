@@ -9,10 +9,10 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::NodeName;
 use vey_types::net::{ProxyProtocolVersion, TcpListenConfig};
+use vey_yaml::YamlDocPosition;
 
 use super::ServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
@@ -51,47 +51,47 @@ impl PlainTcpPortConfig {
     ) -> anyhow::Result<Self> {
         let mut server = PlainTcpPortConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
 
         server.check()?;
         Ok(server)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "listen" => {
-                self.listen = g3_yaml::value::as_tcp_listen_config(v)
+                self.listen = vey_yaml::value::as_tcp_listen_config(v)
                     .context(format!("invalid tcp listen config value for key {k}"))?;
                 Ok(())
             }
             "listen_in_worker" => {
-                self.listen_in_worker = g3_yaml::value::as_bool(v)?;
+                self.listen_in_worker = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "ingress_network_filter" | "ingress_net_filter" => {
-                let filter = g3_yaml::value::acl::as_ingress_network_rule_builder(v).context(
+                let filter = vey_yaml::value::acl::as_ingress_network_rule_builder(v).context(
                     format!("invalid ingress network acl rule value for key {k}"),
                 )?;
                 self.ingress_net_filter = Some(filter);
                 Ok(())
             }
             "server" => {
-                self.server = g3_yaml::value::as_metric_node_name(v)?;
+                self.server = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "proxy_protocol" => {
-                let p = g3_yaml::value::as_proxy_protocol_version(v)
+                let p = vey_yaml::value::as_proxy_protocol_version(v)
                     .context(format!("invalid proxy protocol version value for key {k}"))?;
                 self.proxy_protocol = Some(p);
                 Ok(())
             }
             "proxy_protocol_read_timeout" => {
-                let t = g3_yaml::humanize::as_duration(v)
+                let t = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 self.proxy_protocol_read_timeout = t;
                 Ok(())

@@ -11,9 +11,9 @@ use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
-use g3_yaml::{HybridParser, YamlDocPosition};
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
+use vey_yaml::{HybridParser, YamlDocPosition};
 
 #[cfg(feature = "c-ares")]
 pub(crate) mod c_ares;
@@ -74,7 +74,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 }
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyResolverConfig> {
-    let doc = g3_yaml::load_doc(position)?;
+    let doc = vey_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
         let resolver = load_resolver(&map, Some(position.clone()))?;
         let old_resolver = registry::add(resolver.clone());
@@ -98,8 +98,8 @@ fn load_resolver(
     map: &yaml::Hash,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyResolverConfig> {
-    let resolver_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_RESOLVER_TYPE)?;
-    match g3_yaml::key::normalize(resolver_type).as_str() {
+    let resolver_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_RESOLVER_TYPE)?;
+    match vey_yaml::key::normalize(resolver_type).as_str() {
         #[cfg(feature = "c-ares")]
         "c_ares" | "cares" => {
             let resolver = c_ares::CAresResolverConfig::parse(map, position)

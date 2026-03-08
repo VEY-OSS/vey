@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyImporterConfig, ImporterConfig, ImporterConfigDiffAction};
 
@@ -39,25 +39,25 @@ impl StatsdUnixImporterConfig {
     ) -> anyhow::Result<Self> {
         let mut importer = StatsdUnixImporterConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| importer.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| importer.set(k, v))?;
 
         importer.check()?;
         Ok(importer)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_IMPORTER_TYPE => Ok(()),
             super::CONFIG_KEY_IMPORTER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "collector" => {
-                self.collector = g3_yaml::value::as_metric_node_name(v)?;
+                self.collector = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "listen" => {
-                self.listen = g3_yaml::value::as_absolute_path(v)
+                self.listen = vey_yaml::value::as_absolute_path(v)
                     .context(format!("invalid unix listen path value for key {k}"))?;
                 Ok(())
             }

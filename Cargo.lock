@@ -935,7 +935,6 @@ dependencies = [
  "anyhow",
  "arcstr",
  "g3-io-ext",
- "g3-yaml",
  "log",
  "rmpv",
  "tokio",
@@ -943,6 +942,7 @@ dependencies = [
  "vey-msgpack",
  "vey-socket",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -965,7 +965,6 @@ dependencies = [
  "g3-runtime",
  "g3-statsd-client",
  "g3-syslog",
- "g3-yaml",
  "http",
  "itoa",
  "libc",
@@ -986,18 +985,8 @@ dependencies = [
  "vey-std-ext",
  "vey-stdlog",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
-]
-
-[[package]]
-name = "g3-dpi"
-version = "0.3.0"
-dependencies = [
- "fixedbitset",
- "fnv",
- "memchr",
- "vey-codec",
- "vey-types",
 ]
 
 [[package]]
@@ -1007,7 +996,6 @@ dependencies = [
  "anyhow",
  "chrono",
  "constant_time_eq",
- "g3-yaml",
  "hex",
  "kanal",
  "log",
@@ -1021,6 +1009,7 @@ dependencies = [
  "vey-openssl",
  "vey-socket",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -1032,7 +1021,6 @@ dependencies = [
  "async-trait",
  "chrono",
  "g3-io-ext",
- "g3-yaml",
  "log",
  "memchr",
  "mime",
@@ -1040,6 +1028,7 @@ dependencies = [
  "tokio",
  "vey-datetime",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -1054,26 +1043,6 @@ dependencies = [
  "http",
  "thiserror",
  "tokio",
-]
-
-[[package]]
-name = "g3-hickory-client"
-version = "0.3.0"
-dependencies = [
- "bytes",
- "fastrand",
- "futures-util",
- "h2",
- "h3",
- "h3-quinn",
- "hickory-proto",
- "http",
- "quinn",
- "rustls",
- "rustls-pki-types",
- "tokio",
- "tokio-rustls",
- "vey-socket",
 ]
 
 [[package]]
@@ -1108,7 +1077,6 @@ dependencies = [
  "g3-http",
  "g3-io-ext",
  "g3-smtp-proto",
- "g3-yaml",
  "h2",
  "http",
  "itoa",
@@ -1121,6 +1089,7 @@ dependencies = [
  "url",
  "vey-socket",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -1170,7 +1139,6 @@ name = "g3-ip-locate"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "g3-yaml",
  "ip_network_table",
  "log",
  "rmpv",
@@ -1181,6 +1149,7 @@ dependencies = [
  "vey-msgpack",
  "vey-socket",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -1189,13 +1158,13 @@ name = "g3-redis-client"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "g3-yaml",
  "redis",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
  "vey-socket",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -1210,8 +1179,6 @@ dependencies = [
  "c-ares",
  "c-ares-resolver",
  "c-ares-sys",
- "g3-hickory-client",
- "g3-yaml",
  "hickory-client",
  "hickory-proto",
  "indexmap",
@@ -1222,8 +1189,10 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
+ "vey-hickory-client",
  "vey-socket",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -1232,28 +1201,12 @@ name = "g3-runtime"
 version = "0.5.0"
 dependencies = [
  "anyhow",
- "g3-yaml",
  "log",
  "tokio",
  "vey-compat",
  "vey-openssl",
+ "vey-yaml",
  "yaml-rust2",
-]
-
-[[package]]
-name = "g3-slog-types"
-version = "0.3.0"
-dependencies = [
- "arcstr",
- "chrono",
- "h2",
- "http",
- "memchr",
- "slog",
- "uuid",
- "variant-ssl",
- "vey-socket",
- "vey-types",
 ]
 
 [[package]]
@@ -1289,12 +1242,12 @@ name = "g3-statsd-client"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "g3-yaml",
  "itoa",
  "log",
  "smallvec",
  "vey-io-sys",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
  "zmij",
 ]
@@ -1305,7 +1258,6 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "chrono",
- "g3-yaml",
  "itoa",
  "kanal",
  "log",
@@ -1316,6 +1268,7 @@ dependencies = [
  "vey-datetime",
  "vey-io-sys",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
  "zmij",
 ]
@@ -1327,7 +1280,6 @@ dependencies = [
  "anyhow",
  "chrono",
  "g3-redis-client",
- "g3-yaml",
  "log",
  "redis",
  "rustc-hash",
@@ -1336,6 +1288,7 @@ dependencies = [
  "tokio-util",
  "vey-json",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -1344,38 +1297,14 @@ name = "g3-udpdump"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "g3-dpi",
  "g3-io-ext",
- "g3-yaml",
  "log",
  "tokio",
+ "vey-dpi",
  "vey-io-sys",
  "vey-socket",
  "vey-types",
- "yaml-rust2",
-]
-
-[[package]]
-name = "g3-yaml"
-version = "0.7.0"
-dependencies = [
- "anyhow",
- "ascii",
- "chrono",
- "g3-dpi",
- "http",
- "humanize-rs",
- "idna",
- "ip_network",
- "rand 0.10.0",
- "regex",
- "rustls-pki-types",
- "url",
- "variant-ssl",
- "vey-compat",
- "vey-geoip-types",
- "vey-histogram",
- "vey-types",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -3023,7 +2952,6 @@ dependencies = [
  "concurrent-queue",
  "fastrand",
  "futures-util",
- "g3-hickory-client",
  "g3-http",
  "g3-io-ext",
  "g3-runtime",
@@ -3053,6 +2981,7 @@ dependencies = [
  "vey-build-env",
  "vey-clap",
  "vey-codec",
+ "vey-hickory-client",
  "vey-histogram",
  "vey-openssl",
  "vey-socket",
@@ -3132,7 +3061,6 @@ dependencies = [
  "g3-cert-agent",
  "g3-daemon",
  "g3-statsd-client",
- "g3-yaml",
  "kanal",
  "log",
  "tokio",
@@ -3144,7 +3072,19 @@ dependencies = [
  "vey-std-ext",
  "vey-tls-cert",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
+]
+
+[[package]]
+name = "vey-dpi"
+version = "0.3.0"
+dependencies = [
+ "fixedbitset",
+ "fnv",
+ "memchr",
+ "vey-codec",
+ "vey-types",
 ]
 
 [[package]]
@@ -3166,12 +3106,9 @@ dependencies = [
  "foldhash 0.2.0",
  "futures-util",
  "g3-daemon",
- "g3-dpi",
  "g3-io-ext",
- "g3-slog-types",
  "g3-statsd-client",
  "g3-tls-ticket",
- "g3-yaml",
  "itoa",
  "kanal",
  "log",
@@ -3190,13 +3127,16 @@ dependencies = [
  "variant-ssl-sys",
  "vey-build-env",
  "vey-codec",
+ "vey-dpi",
  "vey-gateway-proto",
  "vey-histogram",
  "vey-macros",
  "vey-openssl",
+ "vey-slog-types",
  "vey-socket",
  "vey-std-ext",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -3244,6 +3184,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "vey-hickory-client"
+version = "0.3.0"
+dependencies = [
+ "bytes",
+ "fastrand",
+ "futures-util",
+ "h2",
+ "h3",
+ "h3-quinn",
+ "hickory-proto",
+ "http",
+ "quinn",
+ "rustls",
+ "rustls-pki-types",
+ "tokio",
+ "tokio-rustls",
+ "vey-socket",
+]
+
+[[package]]
 name = "vey-histogram"
 version = "0.2.0"
 dependencies = [
@@ -3272,7 +3232,6 @@ dependencies = [
  "g3-daemon",
  "g3-ip-locate",
  "g3-statsd-client",
- "g3-yaml",
  "log",
  "tokio",
  "vey-build-env",
@@ -3280,6 +3239,7 @@ dependencies = [
  "vey-geoip-types",
  "vey-socket",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -3335,9 +3295,7 @@ dependencies = [
  "futures-util",
  "g3-daemon",
  "g3-io-ext",
- "g3-slog-types",
  "g3-statsd-client",
- "g3-yaml",
  "inotify",
  "log",
  "openssl-probe",
@@ -3356,10 +3314,12 @@ dependencies = [
  "vey-keyless-proto",
  "vey-macros",
  "vey-openssl",
+ "vey-slog-types",
  "vey-socket",
  "vey-std-ext",
  "vey-tls-cert",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -3467,7 +3427,6 @@ dependencies = [
  "futures-util",
  "g3-cert-agent",
  "g3-daemon",
- "g3-dpi",
  "g3-ftp-client",
  "g3-h2",
  "g3-http",
@@ -3477,13 +3436,11 @@ dependencies = [
  "g3-ip-locate",
  "g3-redis-client",
  "g3-resolver",
- "g3-slog-types",
  "g3-smtp-proto",
  "g3-socks",
  "g3-statsd-client",
  "g3-tls-ticket",
  "g3-udpdump",
- "g3-yaml",
  "h2",
  "http",
  "indexmap",
@@ -3522,6 +3479,7 @@ dependencies = [
  "vey-build-env",
  "vey-codec",
  "vey-datetime",
+ "vey-dpi",
  "vey-geoip-types",
  "vey-histogram",
  "vey-io-sys",
@@ -3530,10 +3488,12 @@ dependencies = [
  "vey-msgpack",
  "vey-openssl",
  "vey-proxy-proto",
+ "vey-slog-types",
  "vey-socket",
  "vey-std-ext",
  "vey-types",
  "vey-xcrypt",
+ "vey-yaml",
  "yaml-rust2",
 ]
 
@@ -3587,6 +3547,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "vey-slog-types"
+version = "0.3.0"
+dependencies = [
+ "arcstr",
+ "chrono",
+ "h2",
+ "http",
+ "memchr",
+ "slog",
+ "uuid",
+ "variant-ssl",
+ "vey-socket",
+ "vey-types",
+]
+
+[[package]]
 name = "vey-socket"
 version = "0.6.0"
 dependencies = [
@@ -3617,7 +3593,6 @@ dependencies = [
  "g3-daemon",
  "g3-http",
  "g3-io-ext",
- "g3-yaml",
  "http",
  "itoa",
  "log",
@@ -3630,6 +3605,7 @@ dependencies = [
  "vey-socket",
  "vey-statsd-proto",
  "vey-types",
+ "vey-yaml",
  "yaml-rust2",
  "zmij",
 ]
@@ -3742,6 +3718,30 @@ dependencies = [
  "memchr",
  "thiserror",
  "variant-ssl",
+]
+
+[[package]]
+name = "vey-yaml"
+version = "0.7.0"
+dependencies = [
+ "anyhow",
+ "ascii",
+ "chrono",
+ "http",
+ "humanize-rs",
+ "idna",
+ "ip_network",
+ "rand 0.10.0",
+ "regex",
+ "rustls-pki-types",
+ "url",
+ "variant-ssl",
+ "vey-compat",
+ "vey-dpi",
+ "vey-geoip-types",
+ "vey-histogram",
+ "vey-types",
+ "yaml-rust2",
 ]
 
 [[package]]

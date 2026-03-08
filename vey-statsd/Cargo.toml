@@ -33,7 +33,7 @@ g3-io-ext.workspace = true
 vey-macros.workspace = true
 vey-socket.workspace = true
 vey-types = { workspace = true, features = ["acl-rule"] }
-g3-yaml = { workspace = true, features = ["acl-rule", "http"] }
+vey-yaml = { workspace = true, features = ["acl-rule", "http"] }
 vey-statsd-proto = { path = "proto" }
 
 [build-dependencies]

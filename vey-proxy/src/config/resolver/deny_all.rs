@@ -8,8 +8,8 @@ use std::collections::BTreeSet;
 use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyResolverConfig, ResolverConfig, ResolverConfigDiffAction};
 
@@ -31,7 +31,7 @@ impl DenyAllResolverConfig {
             name: NodeName::default(),
         };
 
-        g3_yaml::foreach_kv(map, |k, v| resolver.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| resolver.set(k, v))?;
 
         resolver.check()?;
         Ok(resolver)
@@ -46,10 +46,10 @@ impl DenyAllResolverConfig {
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_RESOLVER_TYPE => Ok(()),
             super::CONFIG_KEY_RESOLVER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

@@ -13,8 +13,8 @@ use anyhow::{Context, anyhow};
 use arcstr::ArcStr;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::UserGroupConfig;
 use crate::config::auth::{CONFIG_KEY_USER_GROUP_NAME, CONFIG_KEY_USER_GROUP_TYPE};
@@ -73,7 +73,7 @@ impl BasicUserGroupConfig {
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
         config.check()?;
         Ok(config)
     }
@@ -87,10 +87,10 @@ impl BasicUserGroupConfig {
     }
 
     pub(super) fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             CONFIG_KEY_USER_GROUP_TYPE => Ok(()),
             CONFIG_KEY_USER_GROUP_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "static_users" => {
@@ -125,12 +125,12 @@ impl BasicUserGroupConfig {
             }
             "cache" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
-                self.dynamic_cache = g3_yaml::value::as_file_path(v, lookup_dir, true)
+                self.dynamic_cache = vey_yaml::value::as_file_path(v, lookup_dir, true)
                     .context(format!("invalid file path value for key {k}"))?;
                 Ok(())
             }
             "refresh_interval" => {
-                self.refresh_interval = g3_yaml::humanize::as_duration(v)
+                self.refresh_interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid duration value for key {k}"))?;
                 Ok(())
             }

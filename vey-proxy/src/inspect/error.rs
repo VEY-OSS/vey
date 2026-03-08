@@ -5,7 +5,7 @@
 
 use thiserror::Error;
 
-use g3_dpi::Protocol;
+use vey_dpi::Protocol;
 
 use crate::serve::ServerTaskError;
 

@@ -53,22 +53,22 @@ impl StreamExportConfig {
     }
 
     pub(crate) fn set_by_yaml_kv(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             "host" | "server" => {
-                self.server = g3_yaml::value::as_host(v)?;
+                self.server = vey_yaml::value::as_host(v)?;
                 Ok(())
             }
             "port" => {
-                self.port = g3_yaml::value::as_u16(v)?;
+                self.port = vey_yaml::value::as_u16(v)?;
                 Ok(())
             }
             "resolve_retry_wait" => {
-                self.resolve_retry_wait = g3_yaml::humanize::as_duration(v)
+                self.resolve_retry_wait = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "connect_retry_wait" => {
-                self.connect_retry_wait = g3_yaml::humanize::as_duration(v)
+                self.connect_retry_wait = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

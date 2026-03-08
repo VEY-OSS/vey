@@ -10,7 +10,7 @@ use indexmap::IndexSet;
 use vey_types::metrics::NodeName;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
 
@@ -39,23 +39,23 @@ impl RouteMappingEscaperConfig {
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
 
         config.check()?;
         Ok(config)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "next" => {
                 if let Yaml::Array(seq) = v {
                     for (i, escaper) in seq.iter().enumerate() {
-                        let name = g3_yaml::value::as_metric_node_name(escaper)
+                        let name = vey_yaml::value::as_metric_node_name(escaper)
                             .context(format!("invalid metrics name value for {k}#{i}"))?;
                         // duplicate values should report an error
                         if !self.next_nodes.insert(name.clone()) {

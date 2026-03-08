@@ -9,9 +9,9 @@ use async_recursion::async_recursion;
 use http::{Method, Version};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
-use g3_dpi::Protocol;
 use g3_io_ext::{FlexBufReader, LimitedBufReadExt};
-use g3_slog_types::LtUuid;
+use vey_dpi::Protocol;
+use vey_slog_types::LtUuid;
 
 use crate::config::server::ServerConfig;
 use crate::inspect::{

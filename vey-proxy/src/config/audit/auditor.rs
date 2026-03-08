@@ -10,19 +10,19 @@ use rand::distr::Bernoulli;
 use yaml_rust::{Yaml, yaml};
 
 use g3_cert_agent::CertAgentConfig;
-use g3_dpi::{
+use g3_icap_client::IcapServiceConfig;
+use g3_tls_ticket::TlsTicketConfig;
+use g3_udpdump::StreamDumpConfig;
+use vey_dpi::{
     H1InterceptionConfig, H2InterceptionConfig, ImapInterceptionConfig,
     ProtocolInspectPolicyBuilder, ProtocolInspectionConfig, ProtocolPortMap,
     SmtpInterceptionConfig,
 };
-use g3_icap_client::IcapServiceConfig;
-use g3_tls_ticket::TlsTicketConfig;
-use g3_udpdump::StreamDumpConfig;
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
 use vey_types::net::{
     OpensslInterceptionClientConfigBuilder, OpensslInterceptionServerConfigBuilder,
 };
+use vey_yaml::YamlDocPosition;
 
 #[cfg(feature = "quic")]
 use super::AuditStreamDetourConfig;
@@ -102,7 +102,7 @@ impl AuditorConfig {
     }
 
     pub(crate) fn parse(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        g3_yaml::foreach_kv(map, |k, v| self.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| self.set(k, v))?;
         self.check()?;
         Ok(())
     }
@@ -116,13 +116,13 @@ impl AuditorConfig {
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             "name" => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "protocol_inspection" => {
-                let protocol_inspection = g3_yaml::value::as_protocol_inspection_config(v)
+                let protocol_inspection = vey_yaml::value::as_protocol_inspection_config(v)
                     .context(format!(
                         "invalid protocol inspection config value for key {k}"
                     ))?;
@@ -130,11 +130,11 @@ impl AuditorConfig {
                 Ok(())
             }
             "server_tcp_portmap" => {
-                g3_yaml::value::update_protocol_portmap(&mut self.server_tcp_portmap, v)
+                vey_yaml::value::update_protocol_portmap(&mut self.server_tcp_portmap, v)
                     .context(format!("invalid protocol portmap value for key {k}"))
             }
             "client_tcp_portmap" => {
-                g3_yaml::value::update_protocol_portmap(&mut self.client_tcp_portmap, v)
+                vey_yaml::value::update_protocol_portmap(&mut self.client_tcp_portmap, v)
                     .context(format!("invalid protocol portmap value for key {k}"))
             }
             "tls_cert_agent" | "tls_cert_generator" => {
@@ -154,7 +154,7 @@ impl AuditorConfig {
             "tls_interception_client" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let builder =
-                    g3_yaml::value::as_tls_interception_client_config_builder(v, Some(lookup_dir))
+                    vey_yaml::value::as_tls_interception_client_config_builder(v, Some(lookup_dir))
                         .context(format!(
                             "invalid tls interception client config value for key {k}"
                         ))?;
@@ -162,7 +162,7 @@ impl AuditorConfig {
                 Ok(())
             }
             "tls_interception_server" => {
-                let builder = g3_yaml::value::as_tls_interception_server_config_builder(v)
+                let builder = vey_yaml::value::as_tls_interception_server_config_builder(v)
                     .context(format!(
                         "invalid tls interception server config value for key {k}"
                     ))?;
@@ -176,48 +176,50 @@ impl AuditorConfig {
                 Ok(())
             }
             "log_uri_max_chars" | "uri_log_max_chars" => {
-                self.log_uri_max_chars = g3_yaml::value::as_usize(v)
+                self.log_uri_max_chars = vey_yaml::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
                 Ok(())
             }
             "h1_interception" => {
-                self.h1_interception = g3_yaml::value::as_h1_interception_config(v)
+                self.h1_interception = vey_yaml::value::as_h1_interception_config(v)
                     .context(format!("invalid h1 interception value for key {k}"))?;
                 Ok(())
             }
             "h2_inspect_policy" => {
-                self.h2_inspect_policy = g3_yaml::value::as_protocol_inspect_policy_builder(v)
+                self.h2_inspect_policy = vey_yaml::value::as_protocol_inspect_policy_builder(v)
                     .context(format!("invalid protocol inspect policy value for key {k}"))?;
                 Ok(())
             }
             "h2_interception" => {
-                self.h2_interception = g3_yaml::value::as_h2_interception_config(v)
+                self.h2_interception = vey_yaml::value::as_h2_interception_config(v)
                     .context(format!("invalid h1 interception value for key {k}"))?;
                 Ok(())
             }
             "websocket_inspect_policy" => {
                 self.websocket_inspect_policy =
-                    g3_yaml::value::as_protocol_inspect_policy_builder(v)
+                    vey_yaml::value::as_protocol_inspect_policy_builder(v)
                         .context(format!("invalid protocol inspect policy value for key {k}"))?;
                 Ok(())
             }
             "smtp_inspect_policy" => {
-                self.smtp_inspect_policy = g3_yaml::value::as_protocol_inspect_policy_builder(v)
-                    .context(format!("invalid protocol inspect policy value for key {k}"))?;
+                self.smtp_inspect_policy =
+                    vey_yaml::value::as_protocol_inspect_policy_builder(v)
+                        .context(format!("invalid protocol inspect policy value for key {k}"))?;
                 Ok(())
             }
             "smtp_interception" => {
-                self.smtp_interception = g3_yaml::value::as_smtp_interception_config(v)
+                self.smtp_interception = vey_yaml::value::as_smtp_interception_config(v)
                     .context(format!("invalid smtp interception value for key {k}"))?;
                 Ok(())
             }
             "imap_inspect_policy" => {
-                self.imap_inspect_policy = g3_yaml::value::as_protocol_inspect_policy_builder(v)
-                    .context(format!("invalid protocol inspect policy value for key {k}"))?;
+                self.imap_inspect_policy =
+                    vey_yaml::value::as_protocol_inspect_policy_builder(v)
+                        .context(format!("invalid protocol inspect policy value for key {k}"))?;
                 Ok(())
             }
             "imap_interception" => {
-                self.imap_interception = g3_yaml::value::as_imap_interception_config(v)
+                self.imap_interception = vey_yaml::value::as_imap_interception_config(v)
                     .context(format!("invalid imap interception value for key {k}"))?;
                 Ok(())
             }
@@ -248,7 +250,7 @@ impl AuditorConfig {
                 Ok(())
             }
             "task_audit_ratio" | "application_audit_ratio" => {
-                self.task_audit_ratio = g3_yaml::value::as_random_ratio(v)
+                self.task_audit_ratio = vey_yaml::value::as_random_ratio(v)
                     .context(format!("invalid random ratio value for key {k}"))?;
                 Ok(())
             }

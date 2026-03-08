@@ -53,14 +53,14 @@ g3-statsd-client.workspace = true
 vey-histogram.workspace = true
 vey-tls-cert.workspace = true
 vey-openssl.workspace = true
-g3-hickory-client.workspace = true
+vey-hickory-client.workspace = true
 
 [build-dependencies]
 vey-build-env.workspace = true
 
 [features]
 default = ["quic", "rustls-ring"]
-quic = ["vey-types/quic", "g3-socks/quic", "g3-io-ext/quic", "g3-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
+quic = ["vey-types/quic", "g3-socks/quic", "g3-io-ext/quic", "vey-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
 rustls-ring = ["vey-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
 rustls-aws-lc = ["vey-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
 rustls-aws-lc-fips = ["vey-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]

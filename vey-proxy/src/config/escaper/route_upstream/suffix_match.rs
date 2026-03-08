@@ -32,10 +32,10 @@ impl SuffixMatchBuilder {
 
     pub(super) fn set_by_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
         match value {
-            Yaml::Hash(map) => g3_yaml::foreach_kv(map, |k, v| {
+            Yaml::Hash(map) => vey_yaml::foreach_kv(map, |k, v| {
                 let escaper = NodeName::from_str(k)
                     .map_err(|e| anyhow!("the map key is not valid escaper name: {e}"))?;
-                let suffixes = g3_yaml::value::as_list(v, g3_yaml::value::as_domain)?;
+                let suffixes = vey_yaml::value::as_list(v, vey_yaml::value::as_domain)?;
                 self.add_rule(escaper, suffixes);
                 Ok(())
             }),
@@ -47,13 +47,13 @@ impl SuffixMatchBuilder {
 
                     let mut escaper = NodeName::default();
                     let mut suffixes = Vec::new();
-                    g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                    vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                         "next" | "escaper" => {
-                            escaper = g3_yaml::value::as_metric_node_name(v)?;
+                            escaper = vey_yaml::value::as_metric_node_name(v)?;
                             Ok(())
                         }
                         "suffixes" | "suffix" => {
-                            suffixes = g3_yaml::value::as_list(v, g3_yaml::value::as_domain)?;
+                            suffixes = vey_yaml::value::as_list(v, vey_yaml::value::as_domain)?;
                             Ok(())
                         }
                         _ => Err(anyhow!("invalid key {k}")),

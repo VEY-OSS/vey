@@ -12,10 +12,10 @@ use ascii::AsciiString;
 use slog::Logger;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::{HybridParser, YamlDocPosition};
 use vey_histogram::HistogramMetricsConfig;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{OpensslServerConfigBuilder, TcpListenConfig};
+use vey_yaml::{HybridParser, YamlDocPosition};
 
 mod registry;
 pub(crate) use registry::{clear, get_all};
@@ -63,7 +63,7 @@ impl KeyServerConfig {
     fn parse(map: &yaml::Hash, position: Option<YamlDocPosition>) -> anyhow::Result<Self> {
         let mut server = KeyServerConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
 
         server.check()?;
         Ok(server)
@@ -78,56 +78,56 @@ impl KeyServerConfig {
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             "name" => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
-                let name = g3_yaml::value::as_ascii(v)?;
+                let name = vey_yaml::value::as_ascii(v)?;
                 self.shared_logger = Some(name);
                 Ok(())
             }
             "extra_metrics_tags" => {
-                let tags = g3_yaml::value::as_static_metrics_tags(v)
+                let tags = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
             }
             "listen" => {
-                self.listen = g3_yaml::value::as_tcp_listen_config(v)
+                self.listen = vey_yaml::value::as_tcp_listen_config(v)
                     .context(format!("invalid tcp listen config value for key {k}"))?;
                 Ok(())
             }
             "tls" | "tls_server" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let tls_server =
-                    g3_yaml::value::as_openssl_tls_server_config_builder(v, Some(lookup_dir))
+                    vey_yaml::value::as_openssl_tls_server_config_builder(v, Some(lookup_dir))
                         .context(format!("invalid server tls config value for key {k}"))?;
                 self.tls_server = Some(tls_server);
                 Ok(())
             }
             "multiplex_queue_depth" => {
-                self.multiplex_queue_depth = g3_yaml::value::as_usize(v)?;
+                self.multiplex_queue_depth = vey_yaml::value::as_usize(v)?;
                 Ok(())
             }
             "request_read_timeout" => {
-                self.request_read_timeout = g3_yaml::humanize::as_duration(v)?;
+                self.request_read_timeout = vey_yaml::humanize::as_duration(v)?;
                 Ok(())
             }
             "duration_stats" | "duration_metrics" => {
-                self.duration_stats = g3_yaml::value::as_histogram_metrics_config(v).context(
+                self.duration_stats = vey_yaml::value::as_histogram_metrics_config(v).context(
                     format!("invalid histogram metrics config value for key {k}"),
                 )?;
                 Ok(())
             }
             #[cfg(feature = "openssl-async-job")]
             "async_op_timeout" => {
-                self.async_op_timeout = g3_yaml::humanize::as_duration(v)?;
+                self.async_op_timeout = vey_yaml::humanize::as_duration(v)?;
                 Ok(())
             }
             "concurrency_limit" => {
-                self.concurrency_limit = g3_yaml::value::as_usize(v)?;
+                self.concurrency_limit = vey_yaml::value::as_usize(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

@@ -16,7 +16,6 @@ use openssl::x509::X509;
 use openssl::x509::store::X509StoreBuilder;
 use yaml_rust::Yaml;
 
-use g3_yaml::{YamlDocPosition, YamlMapCallback};
 use vey_types::collection::NamedValue;
 use vey_types::limit::RateLimitQuota;
 use vey_types::metrics::NodeName;
@@ -25,6 +24,7 @@ use vey_types::net::{
     RollingTicketer, TcpSockSpeedLimitConfig,
 };
 use vey_types::route::AlpnMatch;
+use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
 #[cfg(feature = "vendored-tongsuo")]
 use vey_types::net::OpensslTlcpCertificatePair;
@@ -292,15 +292,15 @@ impl YamlMapCallback for OpensslHostConfig {
         value: &Yaml,
         doc: Option<&YamlDocPosition>,
     ) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(key).as_str() {
+        match vey_yaml::key::normalize(key).as_str() {
             "name" => {
-                self.name = g3_yaml::value::as_string(value)?;
+                self.name = vey_yaml::value::as_string(value)?;
                 Ok(())
             }
             "cert_pairs" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
-                self.cert_pairs = g3_yaml::value::as_list(value, |v| {
-                    g3_yaml::value::as_openssl_certificate_pair(v, Some(lookup_dir))
+                self.cert_pairs = vey_yaml::value::as_list(value, |v| {
+                    vey_yaml::value::as_openssl_certificate_pair(v, Some(lookup_dir))
                 })
                 .context(format!(
                     "invalid openssl cert pair list value for key {key}"
@@ -310,8 +310,8 @@ impl YamlMapCallback for OpensslHostConfig {
             #[cfg(feature = "vendored-tongsuo")]
             "tlcp_cert_pairs" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
-                self.tlcp_cert_pairs = g3_yaml::value::as_list(value, |v| {
-                    g3_yaml::value::as_openssl_tlcp_certificate_pair(v, Some(lookup_dir))
+                self.tlcp_cert_pairs = vey_yaml::value::as_list(value, |v| {
+                    vey_yaml::value::as_openssl_tlcp_certificate_pair(v, Some(lookup_dir))
                 })
                 .context(format!(
                     "invalid openssl tlcp cert pair list value for key {key}"
@@ -319,55 +319,55 @@ impl YamlMapCallback for OpensslHostConfig {
                 Ok(())
             }
             "enable_client_auth" => {
-                self.client_auth = g3_yaml::value::as_bool(value)
+                self.client_auth = vey_yaml::value::as_bool(value)
                     .context(format!("invalid value for key {key}"))?;
                 Ok(())
             }
             "session_id_context" => {
-                self.session_id_context = g3_yaml::value::as_string(value)?;
+                self.session_id_context = vey_yaml::value::as_string(value)?;
                 Ok(())
             }
             "no_session_ticket" | "disable_session_ticket" => {
-                self.no_session_ticket = g3_yaml::value::as_bool(value)?;
+                self.no_session_ticket = vey_yaml::value::as_bool(value)?;
                 Ok(())
             }
             "no_session_cache" | "disable_session_cache" => {
-                self.no_session_cache = g3_yaml::value::as_bool(value)?;
+                self.no_session_cache = vey_yaml::value::as_bool(value)?;
                 Ok(())
             }
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
-                let certs = g3_yaml::value::as_openssl_certificates(value, Some(lookup_dir))
+                let certs = vey_yaml::value::as_openssl_certificates(value, Some(lookup_dir))
                     .context(format!("invalid certificate(s) value for key {key}"))?;
                 self.set_client_auth_certificates(certs)
             }
             "request_rate_limit" | "request_limit_quota" => {
-                let quota = g3_yaml::value::as_rate_limit_quota(value)
+                let quota = vey_yaml::value::as_rate_limit_quota(value)
                     .context(format!("invalid request quota value for key {key}"))?;
                 self.request_rate_limit = Some(quota);
                 Ok(())
             }
             "request_max_alive" | "request_alive_max" => {
-                let alive_max = g3_yaml::value::as_usize(value)
+                let alive_max = vey_yaml::value::as_usize(value)
                     .context(format!("invalid usize value for key {key}"))?;
                 self.request_alive_max = Some(alive_max);
                 Ok(())
             }
             "tcp_sock_speed_limit" | "tcp_conn_speed_limit" => {
-                let limit = g3_yaml::value::as_tcp_sock_speed_limit(value).context(format!(
+                let limit = vey_yaml::value::as_tcp_sock_speed_limit(value).context(format!(
                     "invalid tcp socket speed limit value for key {key}"
                 ))?;
                 self.tcp_sock_speed_limit = Some(limit);
                 Ok(())
             }
             "task_idle_max_count" => {
-                let max_count = g3_yaml::value::as_usize(value)
+                let max_count = vey_yaml::value::as_usize(value)
                     .context(format!("invalid usize value for key {key}"))?;
                 self.task_idle_max_count = Some(max_count);
                 Ok(())
             }
             "backends" => {
-                self.backends = g3_yaml::value::as_alpn_matched_backends(value)?;
+                self.backends = vey_yaml::value::as_alpn_matched_backends(value)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {key}")),

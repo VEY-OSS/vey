@@ -8,7 +8,7 @@ use std::path::Path;
 use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::{HybridParser, YamlDocPosition};
+use vey_yaml::{HybridParser, YamlDocPosition};
 
 mod registry;
 pub(crate) use registry::{clear, get_all};
@@ -31,7 +31,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 }
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AuditorConfig> {
-    let doc = g3_yaml::load_doc(position)?;
+    let doc = vey_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
         let auditor = load_auditor(&map, Some(position.clone()))?;
         registry::add(auditor.clone(), true)?;

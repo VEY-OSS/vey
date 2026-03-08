@@ -34,10 +34,10 @@ impl RegexMatchBuilder {
 
     pub(super) fn set_by_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
         match value {
-            Yaml::Hash(map) => g3_yaml::foreach_kv(map, |k, v| {
+            Yaml::Hash(map) => vey_yaml::foreach_kv(map, |k, v| {
                 let escaper = NodeName::from_str(k)
                     .map_err(|e| anyhow!("the map key is not valid escaper name: {e}"))?;
-                let regexes = g3_yaml::value::as_list(v, RegexMatchValue::parse_yaml)
+                let regexes = vey_yaml::value::as_list(v, RegexMatchValue::parse_yaml)
                     .context(format!("invalid regex match rule values for key {k}"))?;
                 self.add_rule(escaper, regexes);
                 Ok(())
@@ -50,13 +50,13 @@ impl RegexMatchBuilder {
 
                     let mut escaper = NodeName::default();
                     let mut regexes = Vec::new();
-                    g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                    vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                         "next" | "escaper" => {
-                            escaper = g3_yaml::value::as_metric_node_name(v)?;
+                            escaper = vey_yaml::value::as_metric_node_name(v)?;
                             Ok(())
                         }
                         "rules" | "rule" => {
-                            regexes = g3_yaml::value::as_list(v, RegexMatchValue::parse_yaml)?;
+                            regexes = vey_yaml::value::as_list(v, RegexMatchValue::parse_yaml)?;
                             Ok(())
                         }
                         _ => Err(anyhow!("invalid key {k}")),
@@ -154,13 +154,13 @@ impl RegexMatchValue {
         let mut match_value = RegexMatchValue::default();
         match value {
             Yaml::Hash(map) => {
-                g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "parent" => {
-                        match_value.parent_domain = g3_yaml::value::as_domain(v)?;
+                        match_value.parent_domain = vey_yaml::value::as_domain(v)?;
                         Ok(())
                     }
                     "regex" => {
-                        let regex = g3_yaml::value::as_regex(v)?;
+                        let regex = vey_yaml::value::as_regex(v)?;
                         match_value.sub_domain_regex = regex.to_string();
                         Ok(())
                     }
@@ -168,7 +168,7 @@ impl RegexMatchValue {
                 })?
             }
             Yaml::String(_) => {
-                let regex = g3_yaml::value::as_regex(value)?;
+                let regex = vey_yaml::value::as_regex(value)?;
                 match_value.sub_domain_regex = regex.to_string();
             }
             _ => {

@@ -6,8 +6,8 @@
 use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::{EscaperConfig, EscaperConfigDiffAction};
 use crate::config::escaper::AnyEscaperConfig;
@@ -37,7 +37,7 @@ impl ComplyAuditEscaperConfig {
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut escaper = Self::new(position);
-        g3_yaml::foreach_kv(map, |k, v| escaper.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| escaper.set(k, v))?;
         escaper.check()?;
         Ok(escaper)
     }
@@ -59,15 +59,15 @@ impl ComplyAuditEscaperConfig {
         match k {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "next" => {
-                self.next = g3_yaml::value::as_metric_node_name(v)?;
+                self.next = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "auditor" => {
-                self.auditor = g3_yaml::value::as_metric_node_name(v)?;
+                self.auditor = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

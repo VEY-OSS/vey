@@ -16,8 +16,8 @@ anyhow = { workspace = true, optional = true }
 yaml-rust = { workspace = true, optional = true }
 vey-io-sys.workspace = true
 vey-types.workspace = true
-g3-yaml = { workspace = true, optional = true }
+vey-yaml = { workspace = true, optional = true }
 
 [features]
 default = []
-yaml = ["dep:g3-yaml", "dep:yaml-rust", "dep:anyhow"]
+yaml = ["dep:vey-yaml", "dep:yaml-rust", "dep:anyhow"]

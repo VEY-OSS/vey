@@ -14,10 +14,10 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::oneshot;
 
 use g3_daemon::server::ServerQuitPolicy;
-use g3_dpi::{Protocol, ProtocolInspectAction};
 use g3_h2::H2BodyTransfer;
 use g3_io_ext::{IdleInterval, OnceBufReader, StreamCopyConfig};
-use g3_slog_types::{LtUpstreamAddr, LtUuid};
+use vey_dpi::{Protocol, ProtocolInspectAction};
+use vey_slog_types::{LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;
 
 #[cfg(feature = "quic")]

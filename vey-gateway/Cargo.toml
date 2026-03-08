@@ -43,8 +43,8 @@ rustc-hash.workspace = true
 vey-macros.workspace = true
 vey-codec = { workspace = true, features = ["tls"] }
 g3-daemon = { workspace = true, features = ["event-log"] }
-g3-dpi.workspace = true
-g3-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls", "histogram"] }
+vey-dpi.workspace = true
+vey-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls", "histogram"] }
 vey-std-ext.workspace = true
 vey-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
 vey-socket.workspace = true
@@ -52,7 +52,7 @@ g3-io-ext = { workspace = true, features = ["openssl", "rustls"] }
 vey-openssl.workspace = true
 g3-statsd-client.workspace = true
 vey-histogram.workspace = true
-g3-slog-types.workspace = true
+vey-slog-types.workspace = true
 g3-tls-ticket = { workspace = true, features = ["yaml"] }
 vey-gateway-proto = { path = "proto" }
 
@@ -61,7 +61,7 @@ vey-build-env.workspace = true
 
 [features]
 default = ["quic", "rustls-ring"]
-quic = ["g3-daemon/quic", "g3-yaml/quinn", "vey-types/quinn", "dep:quinn"]
+quic = ["g3-daemon/quic", "vey-yaml/quinn", "vey-types/quinn", "dep:quinn"]
 rustls-ring = ["vey-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
 rustls-aws-lc = ["vey-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
 rustls-aws-lc-fips = ["vey-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]

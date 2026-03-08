@@ -9,13 +9,13 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_histogram::HistogramMetricsConfig;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
     ConnectionPoolConfig, QuinnTransportConfigBuilder, RustlsClientConfigBuilder,
     SocketBufferConfig,
 };
+use vey_yaml::YamlDocPosition;
 
 const BACKEND_CONFIG_TYPE: &str = "KeylessQuic";
 
@@ -71,7 +71,7 @@ impl KeylessQuicBackendConfig {
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut site = KeylessQuicBackendConfig::new(position);
-        g3_yaml::foreach_kv(map, |k, v| site.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| site.set(k, v))?;
         site.check()?;
         Ok(site)
     }
@@ -96,11 +96,11 @@ impl KeylessQuicBackendConfig {
         match k {
             super::CONFIG_KEY_BACKEND_TYPE => Ok(()),
             super::CONFIG_KEY_BACKEND_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "discover" => {
-                self.discover = g3_yaml::value::as_metric_node_name(v)?;
+                self.discover = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "discover_data" => {
@@ -108,7 +108,7 @@ impl KeylessQuicBackendConfig {
                 Ok(())
             }
             "extra_metrics_tags" => {
-                let tags = g3_yaml::value::as_static_metrics_tags(v)
+                let tags = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
@@ -116,63 +116,63 @@ impl KeylessQuicBackendConfig {
             "tls_client" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.tls_client =
-                    g3_yaml::value::as_rustls_client_config_builder(v, Some(lookup_dir))?;
+                    vey_yaml::value::as_rustls_client_config_builder(v, Some(lookup_dir))?;
                 Ok(())
             }
             "tls_name" => {
-                let name = g3_yaml::value::as_string(v)?;
+                let name = vey_yaml::value::as_string(v)?;
                 self.tls_name = Some(name);
                 Ok(())
             }
             "duration_stats" | "duration_metrics" => {
-                self.duration_stats = g3_yaml::value::as_histogram_metrics_config(v).context(
+                self.duration_stats = vey_yaml::value::as_histogram_metrics_config(v).context(
                     format!("invalid histogram metrics config value for key {k}"),
                 )?;
                 Ok(())
             }
             "request_buffer_size" => {
-                self.request_buffer_size = g3_yaml::value::as_usize(v)?;
+                self.request_buffer_size = vey_yaml::value::as_usize(v)?;
                 Ok(())
             }
             "response_recv_timeout" | "response_timeout" => {
-                self.connection_config.response_timeout = g3_yaml::humanize::as_duration(v)
+                self.connection_config.response_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "connection_max_request_count" => {
-                self.connection_config.max_request_count = g3_yaml::value::as_usize(v)?;
+                self.connection_config.max_request_count = vey_yaml::value::as_usize(v)?;
                 Ok(())
             }
             "connection_alive_time" => {
-                self.connection_config.max_alive_time = g3_yaml::humanize::as_duration(v)
+                self.connection_config.max_alive_time = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "graceful_close_wait" => {
-                self.graceful_close_wait = g3_yaml::humanize::as_duration(v)
+                self.graceful_close_wait = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "connection_pool" | "pool" => {
-                self.connection_pool = g3_yaml::value::as_connection_pool_config(v)
+                self.connection_pool = vey_yaml::value::as_connection_pool_config(v)
                     .context(format!("invalid connection pool config value for key {k}"))?;
                 Ok(())
             }
             "quic_transport" => {
-                self.quic_transport = g3_yaml::value::as_quinn_transport_config(v)
+                self.quic_transport = vey_yaml::value::as_quinn_transport_config(v)
                     .context(format!("invalid quinn transport config value for key {k}"))?;
                 Ok(())
             }
             "concurrent_streams" => {
-                self.concurrent_streams = g3_yaml::value::as_usize(v)?;
+                self.concurrent_streams = vey_yaml::value::as_usize(v)?;
                 Ok(())
             }
             "wait_new_channel" => {
-                self.wait_new_channel = g3_yaml::value::as_bool(v)?;
+                self.wait_new_channel = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "socket_buffer" => {
-                self.socket_buffer = g3_yaml::value::as_socket_buffer_config(v)?;
+                self.socket_buffer = vey_yaml::value::as_socket_buffer_config(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

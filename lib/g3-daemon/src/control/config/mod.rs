@@ -32,16 +32,16 @@ impl GeneralControllerConfig {
     }
 
     pub(crate) fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             "recv_timeout" => {
                 let value =
-                    g3_yaml::value::as_u64(v).context(format!("invalid u64 value for {k}"))?;
+                    vey_yaml::value::as_u64(v).context(format!("invalid u64 value for {k}"))?;
                 self.recv_timeout = value;
                 Ok(())
             }
             "send_timeout" => {
                 let value =
-                    g3_yaml::value::as_u64(v).context(format!("invalid u64 value for {k}"))?;
+                    vey_yaml::value::as_u64(v).context(format!("invalid u64 value for {k}"))?;
                 self.send_timeout = value;
                 Ok(())
             }
@@ -55,7 +55,7 @@ pub(crate) use local::LocalControllerConfig;
 pub fn load(v: &Yaml) -> anyhow::Result<()> {
     match v {
         Yaml::Hash(map) => {
-            g3_yaml::foreach_kv(map, |k, v| match k {
+            vey_yaml::foreach_kv(map, |k, v| match k {
                 "local" => LocalControllerConfig::set_default(v),
                 _ => Err(anyhow!("invalid key '{k}'")),
             })?;

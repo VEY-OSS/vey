@@ -10,10 +10,10 @@ use bitflags::bitflags;
 use yaml_rust::{Yaml, yaml};
 
 use g3_tls_ticket::TlsTicketConfig;
-use g3_yaml::YamlDocPosition;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::NodeName;
 use vey_types::net::{RustlsServerConfigBuilder, UdpListenConfig};
+use vey_yaml::YamlDocPosition;
 
 use super::ServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
@@ -62,37 +62,37 @@ impl PlainQuicPortConfig {
     ) -> anyhow::Result<Self> {
         let mut server = PlainQuicPortConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
 
         server.check()?;
         Ok(server)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "listen" => {
-                self.listen = g3_yaml::value::as_udp_listen_config(v)
+                self.listen = vey_yaml::value::as_udp_listen_config(v)
                     .context(format!("invalid udp listen config value for key {k}"))?;
                 Ok(())
             }
             "listen_in_worker" => {
-                self.listen_in_worker = g3_yaml::value::as_bool(v)?;
+                self.listen_in_worker = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "offline_rebind_port" => {
-                let port = g3_yaml::value::as_u16(v)?;
+                let port = vey_yaml::value::as_u16(v)?;
                 self.offline_rebind_port = Some(port);
                 Ok(())
             }
             "quic_server" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.tls_server =
-                    g3_yaml::value::as_rustls_server_config_builder(v, Some(lookup_dir))?;
+                    vey_yaml::value::as_rustls_server_config_builder(v, Some(lookup_dir))?;
                 Ok(())
             }
             "tls_ticketer" => {
@@ -103,14 +103,14 @@ impl PlainQuicPortConfig {
                 Ok(())
             }
             "ingress_network_filter" | "ingress_net_filter" => {
-                let filter = g3_yaml::value::acl::as_ingress_network_rule_builder(v).context(
+                let filter = vey_yaml::value::acl::as_ingress_network_rule_builder(v).context(
                     format!("invalid ingress network acl rule value for key {k}"),
                 )?;
                 self.ingress_net_filter = Some(filter);
                 Ok(())
             }
             "server" => {
-                self.server = g3_yaml::value::as_metric_node_name(v)?;
+                self.server = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

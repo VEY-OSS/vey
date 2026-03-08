@@ -14,7 +14,6 @@ use rustc_hash::FxHashMap;
 use yaml_rust::{Yaml, yaml};
 
 use g3_io_ext::{LimitedUdpRelayConfig, StreamCopyConfig};
-use g3_yaml::YamlDocPosition;
 use vey_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use vey_types::acl_set::AclDstHostRuleSetBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -22,6 +21,7 @@ use vey_types::net::{
     PortRange, SocketBufferConfig, TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
     UdpMiscSockOpts, UdpSockSpeedLimitConfig,
 };
+use vey_yaml::YamlDocPosition;
 
 use super::{
     AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
@@ -129,38 +129,38 @@ impl SocksProxyServerConfig {
     ) -> anyhow::Result<Self> {
         let mut server = Self::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
 
         server.check()?;
         Ok(server)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "escaper" => {
-                self.escaper = g3_yaml::value::as_metric_node_name(v)?;
+                self.escaper = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "auditor" => {
-                self.auditor = g3_yaml::value::as_metric_node_name(v)?;
+                self.auditor = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "user_group" => {
-                self.user_group = g3_yaml::value::as_metric_node_name(v)?;
+                self.user_group = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
-                let name = g3_yaml::value::as_ascii(v)?;
+                let name = vey_yaml::value::as_ascii(v)?;
                 self.shared_logger = Some(name);
                 Ok(())
             }
             "extra_metrics_tags" => {
-                let tags = g3_yaml::value::as_static_metrics_tags(v)
+                let tags = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
@@ -173,65 +173,65 @@ impl SocksProxyServerConfig {
                 Ok(())
             }
             "listen" => {
-                let config = g3_yaml::value::as_tcp_listen_config(v)
+                let config = vey_yaml::value::as_tcp_listen_config(v)
                     .context(format!("invalid tcp listen config value for key {k}"))?;
                 self.listen = Some(config);
                 Ok(())
             }
             "listen_in_worker" => {
-                self.listen_in_worker = g3_yaml::value::as_bool(v)?;
+                self.listen_in_worker = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "use_udp_associate" | "enable_udp_associate" | "udp_associate_enabled" => {
-                self.use_udp_associate = g3_yaml::value::as_bool(v)?;
+                self.use_udp_associate = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "udp_bind_ipv4" => {
-                self.udp_bind4 = g3_yaml::value::as_list(v, |v| {
-                    let ip4 = g3_yaml::value::as_ipv4addr(v)?;
+                self.udp_bind4 = vey_yaml::value::as_list(v, |v| {
+                    let ip4 = vey_yaml::value::as_ipv4addr(v)?;
                     Ok(IpAddr::V4(ip4))
                 })?;
                 Ok(())
             }
             "udp_bind_ipv6" => {
-                self.udp_bind6 = g3_yaml::value::as_list(v, |v| {
-                    let ip6 = g3_yaml::value::as_ipv6addr(v)?;
+                self.udp_bind6 = vey_yaml::value::as_list(v, |v| {
+                    let ip6 = vey_yaml::value::as_ipv6addr(v)?;
                     Ok(IpAddr::V6(ip6))
                 })?;
                 Ok(())
             }
             "udp_bind_port_range" => {
-                let range = g3_yaml::value::as_port_range(v)
+                let range = vey_yaml::value::as_port_range(v)
                     .context(format!("invalid port range value for key {k}"))?;
                 self.udp_bind_port_range = Some(range);
                 Ok(())
             }
             "udp_socket_buffer" => {
-                self.udp_socket_buffer = g3_yaml::value::as_socket_buffer_config(v)
+                self.udp_socket_buffer = vey_yaml::value::as_socket_buffer_config(v)
                     .context(format!("invalid socket buffer config value for key {k}"))?;
                 Ok(())
             }
             "ingress_network_filter" | "ingress_net_filter" => {
-                let filter = g3_yaml::value::acl::as_ingress_network_rule_builder(v).context(
+                let filter = vey_yaml::value::acl::as_ingress_network_rule_builder(v).context(
                     format!("invalid ingress network acl rule value for key {k}"),
                 )?;
                 self.ingress_net_filter = Some(filter);
                 Ok(())
             }
             "dst_host_filter_set" => {
-                let filter_set = g3_yaml::value::acl_set::as_dst_host_rule_set_builder(v)
+                let filter_set = vey_yaml::value::acl_set::as_dst_host_rule_set_builder(v)
                     .context(format!("invalid dst host acl rule set value for key {k}"))?;
                 self.dst_host_filter = Some(filter_set);
                 Ok(())
             }
             "dst_port_filter" => {
-                let filter = g3_yaml::value::acl::as_exact_port_rule(v)
+                let filter = vey_yaml::value::acl::as_exact_port_rule(v)
                     .context(format!("invalid dst port acl rule for key {k}"))?;
                 self.dst_port_filter = Some(filter);
                 Ok(())
             }
             "tcp_sock_speed_limit" => {
-                self.tcp_sock_speed_limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
+                self.tcp_sock_speed_limit = vey_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
             }
@@ -240,7 +240,7 @@ impl SocksProxyServerConfig {
                 self.set("tcp_sock_speed_limit", v)
             }
             "udp_sock_speed_limit" => {
-                self.udp_sock_speed_limit = g3_yaml::value::as_udp_sock_speed_limit(v)
+                self.udp_sock_speed_limit = vey_yaml::value::as_udp_sock_speed_limit(v)
                     .context(format!("invalid udp socket speed limit value for key {k}"))?;
                 Ok(())
             }
@@ -249,51 +249,51 @@ impl SocksProxyServerConfig {
                 self.set("udp_sock_speed_limit", v)
             }
             "tcp_copy_buffer_size" => {
-                let buffer_size = g3_yaml::humanize::as_usize(v)
+                let buffer_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 self.tcp_copy.set_buffer_size(buffer_size);
                 Ok(())
             }
             "tcp_copy_yield_size" => {
-                let yield_size = g3_yaml::humanize::as_usize(v)
+                let yield_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 self.tcp_copy.set_yield_size(yield_size);
                 Ok(())
             }
             "udp_relay_packet_size" => {
-                let packet_size = g3_yaml::humanize::as_usize(v)
+                let packet_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 self.udp_relay.set_packet_size(packet_size);
                 Ok(())
             }
             "udp_relay_yield_size" => {
-                let yield_size = g3_yaml::humanize::as_usize(v)
+                let yield_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 self.udp_relay.set_yield_size(yield_size);
                 Ok(())
             }
             "udp_relay_batch_size" => {
-                let batch_size = g3_yaml::value::as_usize(v)?;
+                let batch_size = vey_yaml::value::as_usize(v)?;
                 self.udp_relay.set_batch_size(batch_size);
                 Ok(())
             }
             "tcp_misc_opts" => {
-                self.tcp_misc_opts = g3_yaml::value::as_tcp_misc_sock_opts(v)
+                self.tcp_misc_opts = vey_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
                 Ok(())
             }
             "udp_misc_opts" => {
-                self.udp_misc_opts = g3_yaml::value::as_udp_misc_sock_opts(v)
+                self.udp_misc_opts = vey_yaml::value::as_udp_misc_sock_opts(v)
                     .context(format!("invalid udp misc sock opts value for key {k}"))?;
                 Ok(())
             }
             "negotiation_timeout" => {
-                self.timeout.negotiation = g3_yaml::humanize::as_duration(v)
+                self.timeout.negotiation = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "udp_client_initial_timeout" => {
-                self.timeout.udp_client_initial = g3_yaml::humanize::as_duration(v)
+                self.timeout.udp_client_initial = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
@@ -302,39 +302,39 @@ impl SocksProxyServerConfig {
                 self.set("task_idle_check_interval", v)
             }
             "task_idle_check_interval" => {
-                self.task_idle_check_interval = g3_yaml::humanize::as_duration(v)
+                self.task_idle_check_interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "task_idle_max_count" => {
-                self.task_idle_max_count = g3_yaml::value::as_usize(v)
+                self.task_idle_max_count = vey_yaml::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
                 Ok(())
             }
             "flush_task_log_on_created" => {
-                self.flush_task_log_on_created = g3_yaml::value::as_bool(v)?;
+                self.flush_task_log_on_created = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "flush_task_log_on_connected" => {
-                self.flush_task_log_on_connected = g3_yaml::value::as_bool(v)?;
+                self.flush_task_log_on_connected = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "task_log_flush_interval" => {
-                let interval = g3_yaml::humanize::as_duration(v)
+                let interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 self.task_log_flush_interval = Some(interval);
                 Ok(())
             }
             "transmute_udp_echo_ip" => {
                 if let Yaml::Hash(_) = v {
-                    let map = g3_yaml::value::as_hashmap(
+                    let map = vey_yaml::value::as_hashmap(
                         v,
-                        g3_yaml::value::as_ipaddr,
-                        g3_yaml::value::as_ipaddr,
+                        vey_yaml::value::as_ipaddr,
+                        vey_yaml::value::as_ipaddr,
                     )?;
                     self.transmute_udp_echo_ip = Some(map.into_iter().collect::<FxHashMap<_, _>>());
                 } else {
-                    let enable = g3_yaml::value::as_bool(v)?;
+                    let enable = vey_yaml::value::as_bool(v)?;
                     if enable {
                         self.transmute_udp_echo_ip = Some(FxHashMap::default());
                     }

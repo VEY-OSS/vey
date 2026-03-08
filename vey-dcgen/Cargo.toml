@@ -19,7 +19,7 @@ kanal = { workspace = true, features = ["async"] }
 yaml-rust.workspace = true
 vey-std-ext.workspace = true
 vey-types.workspace = true
-g3-yaml = { workspace = true, features = ["histogram", "openssl"] }
+vey-yaml = { workspace = true, features = ["histogram", "openssl"] }
 g3-daemon.workspace = true
 g3-statsd-client.workspace = true
 vey-histogram.workspace = true

@@ -10,10 +10,10 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::collection::SelectivePickPolicy;
 use vey_types::metrics::NodeName;
 use vey_types::net::SocketBufferConfig;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
 
@@ -63,27 +63,27 @@ impl RouteQueryEscaperConfig {
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
 
         config.check()?;
         Ok(config)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "query_pass_client_ip" => {
-                self.query_pass_client_ip = g3_yaml::value::as_bool(v)?;
+                self.query_pass_client_ip = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "query_allowed_next" => {
                 if let Yaml::Array(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
-                        let name = g3_yaml::value::as_metric_node_name(v)
+                        let name = vey_yaml::value::as_metric_node_name(v)
                             .context(format!("invalid metrics name value for {k}#{i}"))?;
                         // duplicate values should report an error
                         if let Some(old) = self.query_allowed_nodes.replace(name) {
@@ -96,52 +96,52 @@ impl RouteQueryEscaperConfig {
                 }
             }
             "fallback_node" => {
-                self.fallback_node = g3_yaml::value::as_metric_node_name(v)?;
+                self.fallback_node = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "cache_request_batch_count" => {
-                self.cache_request_batch_count = g3_yaml::value::as_usize(v)
+                self.cache_request_batch_count = vey_yaml::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
                 Ok(())
             }
             "cache_request_timeout" => {
-                self.cache_request_timeout = g3_yaml::humanize::as_duration(v)
+                self.cache_request_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "cache_pick_policy" => {
-                self.cache_pick_policy = g3_yaml::value::as_selective_pick_policy(v)
+                self.cache_pick_policy = vey_yaml::value::as_selective_pick_policy(v)
                     .context(format!("invalid selective pick policy value for key {k}"))?;
                 Ok(())
             }
             "query_peer_addr" | "query_peer_address" => {
-                self.query_peer_addr = g3_yaml::value::as_env_sockaddr(v).context(format!(
+                self.query_peer_addr = vey_yaml::value::as_env_sockaddr(v).context(format!(
                     "invalid query peer socket address value for key {k}"
                 ))?;
                 Ok(())
             }
             "query_socket_buffer" => {
-                self.query_socket_buffer = g3_yaml::value::as_socket_buffer_config(v)
+                self.query_socket_buffer = vey_yaml::value::as_socket_buffer_config(v)
                     .context(format!("invalid socket buffer config value for key {k}"))?;
                 Ok(())
             }
             "query_wait_timeout" => {
-                self.query_wait_timeout = g3_yaml::humanize::as_duration(v)
+                self.query_wait_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "protective_cache_ttl" => {
                 self.protective_cache_ttl =
-                    g3_yaml::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
+                    vey_yaml::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
                 Ok(())
             }
             "maximum_cache_ttl" => {
                 self.maximum_cache_ttl =
-                    g3_yaml::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
+                    vey_yaml::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
                 Ok(())
             }
             "cache_vanish_wait" | "vanish_after_expired" => {
-                self.cache_vanish_wait = g3_yaml::humanize::as_duration(v)
+                self.cache_vanish_wait = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

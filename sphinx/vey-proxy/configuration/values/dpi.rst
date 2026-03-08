@@ -298,7 +298,7 @@ server tcp portmap
 
 Set the protocol indication for each server side tcp port.
 
-See the code `lib/g3-dpi/src/protocol/portmap.rs` for default set ports.
+See the code `lib/vey-dpi/src/protocol/portmap.rs` for default set ports.
 
 .. _conf_value_dpi_client_tcp_portmap:
 
@@ -309,7 +309,7 @@ client tcp portmap
 
 Set the protocol indication for each client side tcp port.
 
-See the code `lib/g3-dpi/src/protocol/portmap.rs` for default set ports.
+See the code `lib/vey-dpi/src/protocol/portmap.rs` for default set ports.
 
 .. _conf_value_dpi_stream_dump:
 

@@ -26,13 +26,13 @@ members = [
     "lib/vey-ctl",
     "lib/g3-daemon",
     "lib/vey-datetime",
-    "lib/g3-dpi",
+    "lib/vey-dpi",
     "lib/g3-fluentd",
     "lib/g3-ftp-client",
     "lib/vey-geoip-db",
     "lib/vey-geoip-types",
     "lib/g3-h2",
-    "lib/g3-hickory-client",
+    "lib/vey-hickory-client",
     "lib/vey-histogram",
     "lib/g3-http",
     "lib/g3-icap-client",
@@ -48,7 +48,7 @@ members = [
     "lib/g3-redis-client",
     "lib/g3-resolver",
     "lib/g3-runtime",
-    "lib/g3-slog-types",
+    "lib/vey-slog-types",
     "lib/g3-smtp-proto",
     "lib/vey-socket",
     "lib/g3-socks",
@@ -61,7 +61,7 @@ members = [
     "lib/vey-types",
     "lib/g3-udpdump",
     "lib/vey-xcrypt",
-    "lib/g3-yaml",
+    "lib/vey-yaml",
     "scripts/capnp-generate",
 ]
 default-members = [
@@ -206,13 +206,13 @@ vey-compat = { version = "0.2", path = "lib/vey-compat" }
 vey-ctl = { version = "0.2", path = "lib/vey-ctl" }
 g3-daemon = { version = "0.4", path = "lib/g3-daemon" }
 vey-datetime = { version = "0.2", path = "lib/vey-datetime" }
-g3-dpi = { version = "0.3", path = "lib/g3-dpi" }
+vey-dpi = { version = "0.3", path = "lib/vey-dpi" }
 g3-fluentd = { version = "0.3", path = "lib/g3-fluentd" }
 g3-ftp-client = { version = "0.5", path = "lib/g3-ftp-client" }
 vey-geoip-db = { version = "0.3", path = "lib/vey-geoip-db" }
 vey-geoip-types = { version = "0.2", path = "lib/vey-geoip-types" }
 g3-h2 = { version = "0.3", path = "lib/g3-h2" }
-g3-hickory-client = { version = "0.3", path = "lib/g3-hickory-client" }
+vey-hickory-client = { version = "0.3", path = "lib/vey-hickory-client" }
 vey-histogram = { version = "0.2", path = "lib/vey-histogram" }
 g3-http = { version = "0.5", path = "lib/g3-http" }
 g3-icap-client = { version = "0.4", path = "lib/g3-icap-client" }
@@ -228,7 +228,7 @@ vey-openssl = { version = "0.4", path = "lib/vey-openssl" }
 g3-redis-client = { version = "0.3", path = "lib/g3-redis-client" }
 g3-resolver = { version = "0.9", path = "lib/g3-resolver" }
 g3-runtime = { version = "0.5", path = "lib/g3-runtime" }
-g3-slog-types = { version = "0.3", path = "lib/g3-slog-types" }
+vey-slog-types = { version = "0.3", path = "lib/vey-slog-types" }
 g3-smtp-proto = { version = "0.3", path = "lib/g3-smtp-proto" }
 vey-socket = { version = "0.6", path = "lib/vey-socket" }
 g3-socks = { version = "0.4", path = "lib/g3-socks" }
@@ -241,7 +241,7 @@ g3-tls-ticket = { version = "0.3", path = "lib/g3-tls-ticket" }
 vey-types = { version = "0.7", path = "lib/vey-types" }
 g3-udpdump = { version = "0.3", path = "lib/g3-udpdump" }
 vey-xcrypt = { version = "0.3", path = "lib/vey-xcrypt" }
-g3-yaml = { version = "0.7", path = "lib/g3-yaml" }
+vey-yaml = { version = "0.7", path = "lib/vey-yaml" }
 
 [profile.release-lto]
 inherits = "release"

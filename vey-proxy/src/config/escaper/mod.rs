@@ -12,10 +12,10 @@ use slog::Logger;
 use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
-use g3_yaml::{HybridParser, YamlDocPosition};
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
 use vey_types::net::{TcpConnectConfig, TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
+use vey_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod comply_audit;
 pub(crate) mod direct_fixed;
@@ -128,7 +128,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 }
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyEscaperConfig> {
-    let doc = g3_yaml::load_doc(position)?;
+    let doc = vey_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
         let escaper = load_escaper(&map, Some(position.clone()))?;
         let old_escaper = registry::add(escaper.clone());
@@ -153,8 +153,8 @@ fn load_escaper(
     map: &yaml::Hash,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyEscaperConfig> {
-    let escaper_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_ESCAPER_TYPE)?;
-    match g3_yaml::key::normalize(escaper_type).as_str() {
+    let escaper_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_ESCAPER_TYPE)?;
+    match vey_yaml::key::normalize(escaper_type).as_str() {
         "comply_audit" | "complyaudit" => {
             let config = comply_audit::ComplyAuditEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::ComplyAudit(config))

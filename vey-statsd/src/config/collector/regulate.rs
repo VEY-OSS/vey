@@ -8,8 +8,8 @@ use std::collections::BTreeSet;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::{MetricTagName, NodeName};
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyCollectorConfig, CollectorConfig, CollectorConfigDiffAction};
 use crate::types::MetricName;
@@ -44,17 +44,17 @@ impl RegulateCollectorConfig {
     ) -> anyhow::Result<Self> {
         let mut collector = RegulateCollectorConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
 
         collector.check()?;
         Ok(collector)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_COLLECTOR_TYPE => Ok(()),
             super::CONFIG_KEY_COLLECTOR_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "prefix" => {
@@ -64,17 +64,18 @@ impl RegulateCollectorConfig {
                 Ok(())
             }
             "drop_tags" => {
-                self.drop_tags = g3_yaml::value::as_list(v, g3_yaml::value::as_metric_tag_name)
-                    .context(format!("invalid list of metric tag names for key {k}"))?;
+                self.drop_tags =
+                    vey_yaml::value::as_list(v, vey_yaml::value::as_metric_tag_name)
+                        .context(format!("invalid list of metric tag names for key {k}"))?;
                 Ok(())
             }
             "next" => {
-                let next = g3_yaml::value::as_metric_node_name(v)?;
+                let next = vey_yaml::value::as_metric_node_name(v)?;
                 self.next = Some(next);
                 Ok(())
             }
             "exporter" => {
-                self.exporters = g3_yaml::value::as_list(v, g3_yaml::value::as_metric_node_name)
+                self.exporters = vey_yaml::value::as_list(v, vey_yaml::value::as_metric_node_name)
                     .context(format!("invalid list of exporter names for key {k}"))?;
                 Ok(())
             }

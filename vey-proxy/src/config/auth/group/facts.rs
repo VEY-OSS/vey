@@ -5,7 +5,7 @@
 
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
+use vey_yaml::YamlDocPosition;
 
 use super::{BasicUserGroupConfig, UserGroupConfig};
 
@@ -28,7 +28,7 @@ impl FactsUserGroupConfig {
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
         config.check()?;
         Ok(config)
     }

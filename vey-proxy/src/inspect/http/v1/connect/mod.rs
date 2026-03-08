@@ -20,7 +20,7 @@ use g3_icap_client::reqmod::h1::{
     ReqmodAdaptationMidState, ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
 use g3_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
-use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
+use vey_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;
 
 use super::{HttpRequest, HttpRequestIo, HttpResponseIo};

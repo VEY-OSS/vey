@@ -11,10 +11,10 @@ use ip_network::IpNetwork;
 use yaml_rust::{Yaml, yaml};
 
 use g3_ip_locate::IpLocateServiceConfig;
-use g3_yaml::YamlDocPosition;
 use vey_geoip_types::{ContinentCode, IsoCountryCode};
 use vey_types::metrics::NodeName;
 use vey_types::resolve::ResolveStrategy;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, EscaperConfigVerifier};
 
@@ -58,29 +58,29 @@ impl RouteGeoIpEscaperConfig {
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
 
         config.check()?;
         Ok(config)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "resolver" => {
-                self.resolver = g3_yaml::value::as_metric_node_name(v)?;
+                self.resolver = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "resolve_strategy" => {
-                self.resolve_strategy = g3_yaml::value::as_resolve_strategy(v)?;
+                self.resolve_strategy = vey_yaml::value::as_resolve_strategy(v)?;
                 Ok(())
             }
             "resolution_delay" => {
-                self.resolution_delay = g3_yaml::humanize::as_duration(v)
+                self.resolution_delay = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
@@ -105,7 +105,7 @@ impl RouteGeoIpEscaperConfig {
                 }
             }
             "default_next" => {
-                self.default_next = g3_yaml::value::as_metric_node_name(v)?;
+                self.default_next = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -147,13 +147,13 @@ impl RouteGeoIpEscaperConfig {
         let mut asn_set = BTreeSet::<u32>::new();
         let mut countries = BTreeSet::<IsoCountryCode>::new();
         let mut continents = BTreeSet::<ContinentCode>::new();
-        g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+        vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                escaper = g3_yaml::value::as_metric_node_name(v)?;
+                escaper = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "net" | "network" | "networks" => {
-                let nets = g3_yaml::value::as_list(v, g3_yaml::value::as_ip_network)
+                let nets = vey_yaml::value::as_list(v, vey_yaml::value::as_ip_network)
                     .context(format!("invalid ip network list value for key {k}"))?;
                 for net in nets {
                     networks.insert(net);
@@ -161,7 +161,7 @@ impl RouteGeoIpEscaperConfig {
                 Ok(())
             }
             "asn" | "as_number" | "as_numbers" => {
-                let all_as = g3_yaml::value::as_list(v, g3_yaml::value::as_u32)
+                let all_as = vey_yaml::value::as_list(v, vey_yaml::value::as_u32)
                     .context(format!("invalid as number list value for key {k}"))?;
                 for asn in all_as {
                     asn_set.insert(asn);
@@ -169,16 +169,18 @@ impl RouteGeoIpEscaperConfig {
                 Ok(())
             }
             "country" | "countries" => {
-                let all_countries = g3_yaml::value::as_list(v, g3_yaml::value::as_iso_country_code)
-                    .context(format!("invalid iso country code list value for key {k}"))?;
+                let all_countries =
+                    vey_yaml::value::as_list(v, vey_yaml::value::as_iso_country_code)
+                        .context(format!("invalid iso country code list value for key {k}"))?;
                 for country in all_countries {
                     countries.insert(country);
                 }
                 Ok(())
             }
             "continent" | "continents" => {
-                let all_continents = g3_yaml::value::as_list(v, g3_yaml::value::as_continent_code)
-                    .context(format!("invalid continent code list value for key {k}"))?;
+                let all_continents =
+                    vey_yaml::value::as_list(v, vey_yaml::value::as_continent_code)
+                        .context(format!("invalid continent code list value for key {k}"))?;
                 for continent in all_continents {
                     continents.insert(continent);
                 }

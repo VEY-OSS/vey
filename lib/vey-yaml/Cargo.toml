@@ -1,0 +1,47 @@
+[package]
+name = "vey-yaml"
+version = "0.7.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow.workspace = true
+yaml-rust.workspace = true
+humanize-rs.workspace = true
+idna.workspace = true
+ascii.workspace = true
+chrono.workspace = true
+url.workspace = true
+rand.workspace = true
+ip_network = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }
+rustls-pki-types = { workspace = true, optional = true, features = ["std"] }
+openssl = { workspace = true, optional = true }
+http = { workspace = true, optional = true }
+vey-types.workspace = true
+vey-histogram = { workspace = true, optional = true }
+vey-compat = { workspace = true, optional = true }
+vey-dpi = { workspace = true, optional = true }
+vey-geoip-types = { workspace = true, optional = true }
+
+[dev-dependencies]
+chrono = { workspace = true, features = ["serde", "clock"] }
+
+[features]
+default = []
+auth-facts = ["vey-types/auth-facts"]
+histogram = ["dep:vey-histogram"]
+regex = ["dep:regex"]
+resolve = ["vey-types/resolve"]
+rustls = ["vey-types/rustls", "dep:rustls-pki-types"]
+openssl = ["vey-types/openssl", "dep:openssl"]
+quinn = ["vey-types/quinn"]
+http = ["vey-types/http", "dep:http"]
+acl-rule = ["regex", "vey-types/acl-rule", "dep:ip_network"]
+route = ["vey-types/route"]
+sched = ["dep:vey-compat"]
+dpi = ["dep:vey-dpi", "acl-rule"]
+geoip = ["dep:vey-geoip-types"]

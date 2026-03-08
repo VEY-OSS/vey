@@ -12,7 +12,6 @@ use ascii::AsciiString;
 use log::warn;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::auth::{Password, Username};
 use vey_types::collection::SelectivePickPolicy;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -29,6 +28,7 @@ use vey_types::net::{
     ProxyProtocolVersion, TcpKeepAliveConfig, TcpMiscSockOpts, WeightedUpstreamAddr,
 };
 use vey_types::resolve::{QueryStrategy, ResolveStrategy};
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig};
 
@@ -118,33 +118,33 @@ impl ProxyHttpsEscaperConfig {
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
 
         config.check()?;
         Ok(config)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
-                let name = g3_yaml::value::as_ascii(v)?;
+                let name = vey_yaml::value::as_ascii(v)?;
                 self.shared_logger = Some(name);
                 Ok(())
             }
             "extra_metrics_tags" => {
-                let tags = g3_yaml::value::as_static_metrics_tags(v)
+                let tags = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
             }
             "proxy_addr" => {
-                self.proxy_nodes = g3_yaml::value::as_list(v, |v| {
-                    g3_yaml::value::as_weighted_upstream_addr(v, 3128)
+                self.proxy_nodes = vey_yaml::value::as_list(v, |v| {
+                    vey_yaml::value::as_weighted_upstream_addr(v, 3128)
                 })
                 .context(format!(
                     "invalid weighted upstream address list value for key {k}"
@@ -152,16 +152,16 @@ impl ProxyHttpsEscaperConfig {
                 Ok(())
             }
             "proxy_addr_pick_policy" => {
-                self.proxy_pick_policy = g3_yaml::value::as_selective_pick_policy(v)?;
+                self.proxy_pick_policy = vey_yaml::value::as_selective_pick_policy(v)?;
                 Ok(())
             }
             "proxy_username" | "proxy_user" => {
-                self.proxy_username = g3_yaml::value::as_username(v)
+                self.proxy_username = vey_yaml::value::as_username(v)
                     .context(format!("invalid username value for key {k}"))?;
                 Ok(())
             }
             "proxy_password" | "proxy_passwd" => {
-                self.proxy_password = g3_yaml::value::as_password(v)
+                self.proxy_password = vey_yaml::value::as_password(v)
                     .context(format!("invalid password value for key {k}"))?;
                 Ok(())
             }
@@ -173,31 +173,31 @@ impl ProxyHttpsEscaperConfig {
                 target_os = "solaris"
             ))]
             "bind_interface" => {
-                let interface = g3_yaml::value::as_interface(v)
+                let interface = vey_yaml::value::as_interface(v)
                     .context(format!("invalid interface name value for key {k}"))?;
                 self.bind_interface = Some(interface);
                 Ok(())
             }
             "bind_ipv4" => {
-                let ip4 = g3_yaml::value::as_ipv4addr(v)?;
+                let ip4 = vey_yaml::value::as_ipv4addr(v)?;
                 self.bind_v4 = Some(ip4);
                 Ok(())
             }
             "bind_ipv6" => {
-                let ip6 = g3_yaml::value::as_ipv6addr(v)?;
+                let ip6 = vey_yaml::value::as_ipv6addr(v)?;
                 self.bind_v6 = Some(ip6);
                 Ok(())
             }
             "resolver" => {
-                self.resolver = g3_yaml::value::as_metric_node_name(v)?;
+                self.resolver = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "resolve_strategy" => {
-                self.resolve_strategy = g3_yaml::value::as_resolve_strategy(v)?;
+                self.resolve_strategy = vey_yaml::value::as_resolve_strategy(v)?;
                 Ok(())
             }
             "tcp_sock_speed_limit" => {
-                self.general.tcp_sock_speed_limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
+                self.general.tcp_sock_speed_limit = vey_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
             }
@@ -206,31 +206,31 @@ impl ProxyHttpsEscaperConfig {
                 self.set("tcp_sock_speed_limit", v)
             }
             "http_forward_capability" => {
-                self.http_forward_capability = g3_yaml::value::as_http_forward_capability(v)
+                self.http_forward_capability = vey_yaml::value::as_http_forward_capability(v)
                     .context(format!("invalid http forward capability value for key {k}"))?;
                 Ok(())
             }
             "tcp_keepalive" => {
-                self.tcp_keepalive = g3_yaml::value::as_tcp_keepalive_config(v)
+                self.tcp_keepalive = vey_yaml::value::as_tcp_keepalive_config(v)
                     .context(format!("invalid tcp keepalive config value for key {k}"))?;
                 Ok(())
             }
             "tcp_misc_opts" => {
-                self.tcp_misc_opts = g3_yaml::value::as_tcp_misc_sock_opts(v)
+                self.tcp_misc_opts = vey_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
                 Ok(())
             }
             "no_ipv4" => {
-                self.no_ipv4 = g3_yaml::value::as_bool(v)?;
+                self.no_ipv4 = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "no_ipv6" => {
-                self.no_ipv6 = g3_yaml::value::as_bool(v)?;
+                self.no_ipv6 = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "tls" | "tls_client" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
-                self.tls_config = g3_yaml::value::as_to_many_openssl_tls_client_config_builder(
+                self.tls_config = vey_yaml::value::as_to_many_openssl_tls_client_config_builder(
                     v,
                     Some(lookup_dir),
                 )
@@ -240,39 +240,39 @@ impl ProxyHttpsEscaperConfig {
                 Ok(())
             }
             "tls_name" => {
-                let name = g3_yaml::value::as_host(v)
+                let name = vey_yaml::value::as_host(v)
                     .context(format!("invalid tls server name value for key {k}"))?;
                 self.tls_name = Some(name);
                 Ok(())
             }
             "tcp_connect" => {
-                self.general.tcp_connect = g3_yaml::value::as_tcp_connect_config(v)
+                self.general.tcp_connect = vey_yaml::value::as_tcp_connect_config(v)
                     .context(format!("invalid tcp connect value for key {k}"))?;
                 Ok(())
             }
             "happy_eyeballs" => {
-                self.happy_eyeballs = g3_yaml::value::as_happy_eyeballs_config(v)
+                self.happy_eyeballs = vey_yaml::value::as_happy_eyeballs_config(v)
                     .context(format!("invalid happy eyeballs config value for key {k}"))?;
                 Ok(())
             }
             "http_connect_rsp_header_max_size" => {
-                self.http_connect_rsp_hdr_max_size = g3_yaml::humanize::as_usize(v)
+                self.http_connect_rsp_hdr_max_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 Ok(())
             }
             "pass_proxy_userid" => {
-                self.pass_proxy_userid = g3_yaml::value::as_bool(v)
+                self.pass_proxy_userid = vey_yaml::value::as_bool(v)
                     .context(format!("invalid bool value for key {k}"))?;
                 Ok(())
             }
             "use_proxy_protocol" => {
-                let version = g3_yaml::value::as_proxy_protocol_version(v)
+                let version = vey_yaml::value::as_proxy_protocol_version(v)
                     .context(format!("invalid ProxyProtocolVersion value for key {k}"))?;
                 self.use_proxy_protocol = Some(version);
                 Ok(())
             }
             "peer_negotiation_timeout" => {
-                self.peer_negotiation_timeout = g3_yaml::humanize::as_duration(v)
+                self.peer_negotiation_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

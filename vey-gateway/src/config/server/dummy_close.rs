@@ -6,8 +6,8 @@
 use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::ServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
@@ -36,7 +36,7 @@ impl DummyCloseServerConfig {
             name: NodeName::default(),
             position,
         };
-        g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
         server.check()?;
         Ok(server)
     }
@@ -52,7 +52,7 @@ impl DummyCloseServerConfig {
         match k {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

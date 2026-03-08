@@ -35,13 +35,13 @@ impl UserDynamicFileSource {
     }
 
     pub(super) fn parse_map(map: &yaml::Hash, lookup_dir: &Path) -> anyhow::Result<Self> {
-        let v = g3_yaml::hash_get_required(map, CONFIG_KEY_SOURCE_PATH)?;
-        let path = g3_yaml::value::as_file_path(v, lookup_dir, false).context(format!(
+        let v = vey_yaml::hash_get_required(map, CONFIG_KEY_SOURCE_PATH)?;
+        let path = vey_yaml::value::as_file_path(v, lookup_dir, false).context(format!(
             "invalid path value for key {CONFIG_KEY_SOURCE_PATH}"
         ))?;
         let mut config = UserDynamicFileSource::new(path);
 
-        g3_yaml::foreach_kv(map, |k, v| {
+        vey_yaml::foreach_kv(map, |k, v| {
             config.set(k, v).context(format!("failed to parse key {k}"))
         })?;
 
@@ -64,11 +64,11 @@ impl UserDynamicFileSource {
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SOURCE_TYPE => Ok(()),
             CONFIG_KEY_SOURCE_PATH => Ok(()),
             "format" => {
-                self.format = g3_yaml::value::as_config_file_format(v)
+                self.format = vey_yaml::value::as_config_file_format(v)
                     .context(format!("invalid config file format value for key {k}"))?;
                 Ok(())
             }

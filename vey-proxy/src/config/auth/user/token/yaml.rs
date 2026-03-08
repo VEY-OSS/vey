@@ -14,10 +14,10 @@ use super::{CONFIG_KEY_TYPE, PasswordToken};
 const CONFIG_KEY_SALT: &str = "salt";
 
 fn as_fast_hash(map: &yaml::Hash) -> anyhow::Result<FastHashedPassPhrase> {
-    let salt = g3_yaml::hash_get_required_str(map, CONFIG_KEY_SALT)?;
+    let salt = vey_yaml::hash_get_required_str(map, CONFIG_KEY_SALT)?;
     let mut pass = FastHashedPassPhrase::new(salt)?;
 
-    g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+    vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
         CONFIG_KEY_TYPE => Ok(()),
         CONFIG_KEY_SALT => Ok(()),
         "md5" => {
@@ -61,7 +61,7 @@ fn as_xcrypt_hash(v: &Yaml) -> anyhow::Result<XCryptHash> {
     match v {
         Yaml::String(s) => XCryptHash::parse(s).map_err(|e| anyhow!("invalid xcrypt string: {e}")),
         Yaml::Hash(map) => {
-            let s = g3_yaml::hash_get_required_str(map, "value")?;
+            let s = vey_yaml::hash_get_required_str(map, "value")?;
             XCryptHash::parse(s).map_err(|e| anyhow!("invalid xcrypt string: {e}"))
         }
         _ => Err(anyhow!("invalid value type")),
@@ -73,8 +73,8 @@ impl PasswordToken {
         match v {
             Yaml::String(_) => Ok(PasswordToken::XCrypt(as_xcrypt_hash(v)?)),
             Yaml::Hash(map) => {
-                if let Ok(map_type) = g3_yaml::hash_get_required_str(map, CONFIG_KEY_TYPE) {
-                    match g3_yaml::key::normalize(map_type).as_str() {
+                if let Ok(map_type) = vey_yaml::hash_get_required_str(map, CONFIG_KEY_TYPE) {
+                    match vey_yaml::key::normalize(map_type).as_str() {
                         "fast_hash" => Ok(PasswordToken::FastHash(as_fast_hash(map)?)),
                         "xcrypt_hash" => Ok(PasswordToken::XCrypt(as_xcrypt_hash(v)?)),
                         _ => Err(anyhow!("unsupported user authentication type")),

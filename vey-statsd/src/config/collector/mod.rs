@@ -11,9 +11,9 @@ use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
-use g3_yaml::{HybridParser, YamlDocPosition};
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
+use vey_yaml::{HybridParser, YamlDocPosition};
 
 mod registry;
 pub(crate) use registry::clear;
@@ -76,7 +76,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 }
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyCollectorConfig> {
-    let doc = g3_yaml::load_doc(position)?;
+    let doc = vey_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
         let collector = load_collector(&map, Some(position.clone()))?;
         let old_collector = registry::add(collector.clone());
@@ -101,8 +101,8 @@ fn load_collector(
     map: &yaml::Hash,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyCollectorConfig> {
-    let collector_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_COLLECTOR_TYPE)?;
-    match g3_yaml::key::normalize(collector_type).as_str() {
+    let collector_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_COLLECTOR_TYPE)?;
+    match vey_yaml::key::normalize(collector_type).as_str() {
         "discard" => {
             let collector = discard::DiscardCollectorConfig::parse(map, position)
                 .context("failed to load this Discard collector")?;

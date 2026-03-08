@@ -6,8 +6,8 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_yaml::{YamlDocPosition, YamlMapCallback};
 use vey_types::net::{Host, OpensslClientConfigBuilder, RustlsServerConfigBuilder, UpstreamAddr};
+use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct HttpHostConfig {
@@ -47,14 +47,14 @@ impl YamlMapCallback for HttpHostConfig {
     ) -> anyhow::Result<()> {
         match key {
             "upstream" => {
-                self.upstream = g3_yaml::value::as_upstream_addr(value, 80)
+                self.upstream = vey_yaml::value::as_upstream_addr(value, 80)
                     .context(format!("invalid upstream addr value for key {key}"))?;
                 Ok(())
             }
             "tls_server" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
                 let builder =
-                    g3_yaml::value::as_rustls_server_config_builder(value, Some(lookup_dir))
+                    vey_yaml::value::as_rustls_server_config_builder(value, Some(lookup_dir))
                         .context(format!(
                             "invalid tls server config builder value for key {key}"
                         ))?;
@@ -63,7 +63,7 @@ impl YamlMapCallback for HttpHostConfig {
             }
             "tls_client" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
-                let builder = g3_yaml::value::as_to_one_openssl_tls_client_config_builder(
+                let builder = vey_yaml::value::as_to_one_openssl_tls_client_config_builder(
                     value,
                     Some(lookup_dir),
                 )
@@ -74,7 +74,7 @@ impl YamlMapCallback for HttpHostConfig {
                 Ok(())
             }
             "tls_name" => {
-                self.tls_name = g3_yaml::value::as_host(value)
+                self.tls_name = vey_yaml::value::as_host(value)
                     .context(format!("invalid tls name value for key {key}"))?;
                 Ok(())
             }

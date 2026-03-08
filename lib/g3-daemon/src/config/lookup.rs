@@ -7,7 +7,7 @@ use std::path::Path;
 
 use anyhow::anyhow;
 
-use g3_yaml::YamlDocPosition;
+use vey_yaml::YamlDocPosition;
 
 pub fn get_lookup_dir(position: Option<&YamlDocPosition>) -> anyhow::Result<&Path> {
     if let Some(position) = position

@@ -68,7 +68,7 @@ pub fn get_task_quit_timeout() -> Duration {
 
 pub fn load(v: &Yaml) -> anyhow::Result<()> {
     match v {
-        Yaml::Hash(map) => g3_yaml::foreach_kv(map, set_global_config),
+        Yaml::Hash(map) => vey_yaml::foreach_kv(map, set_global_config),
         Yaml::Null => Ok(()),
         _ => Err(anyhow!("root value type should be hash")),
     }
@@ -85,27 +85,27 @@ pub fn set_default_thread_number(num: usize) {
 }
 
 fn set_global_config(k: &str, v: &Yaml) -> anyhow::Result<()> {
-    match g3_yaml::key::normalize(k).as_str() {
+    match vey_yaml::key::normalize(k).as_str() {
         "server_offline_delay" => {
-            let value = g3_yaml::humanize::as_duration(v)
+            let value = vey_yaml::humanize::as_duration(v)
                 .context(format!("invalid humanize duration value for key {k}"))?;
             GRACEFUL_WAIT_CONFIG.with_mut(|config| config.server_offline_delay = value);
             Ok(())
         }
         "task_wait_delay" => {
-            let value = g3_yaml::humanize::as_duration(v)
+            let value = vey_yaml::humanize::as_duration(v)
                 .context(format!("invalid humanize duration value for key {k}"))?;
             GRACEFUL_WAIT_CONFIG.with_mut(|config| config.task_wait_delay = value);
             Ok(())
         }
         "task_wait_timeout" => {
-            let value = g3_yaml::humanize::as_duration(v)
+            let value = vey_yaml::humanize::as_duration(v)
                 .context(format!("invalid humanize duration value for key {k}"))?;
             GRACEFUL_WAIT_CONFIG.with_mut(|config| config.task_wait_timeout = value);
             Ok(())
         }
         "task_quit_timeout" => {
-            let value = g3_yaml::humanize::as_duration(v)
+            let value = vey_yaml::humanize::as_duration(v)
                 .context(format!("invalid humanize duration value for key {k}"))?;
             GRACEFUL_WAIT_CONFIG.with_mut(|config| config.task_quit_timeout = value);
             Ok(())

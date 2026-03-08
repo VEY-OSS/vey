@@ -39,9 +39,9 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
         let mut duration_stats = HistogramMetricsConfig::default();
         let lookup_dir = g3_daemon::config::get_lookup_dir(None)?;
 
-        g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+        vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
             "ca_certificate" => {
-                let certs = g3_yaml::value::as_openssl_certificates(v, Some(lookup_dir))
+                let certs = vey_yaml::value::as_openssl_certificates(v, Some(lookup_dir))
                     .context(format!("invalid openssl certificate value for key {k}"))?;
                 for (i, cert) in certs.iter().enumerate() {
                     let pem = cert.to_pem().map_err(|e| {
@@ -58,26 +58,26 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
                 Ok(())
             }
             "ca_private_key" => {
-                let key = g3_yaml::value::as_openssl_private_key(v, Some(lookup_dir))
+                let key = vey_yaml::value::as_openssl_private_key(v, Some(lookup_dir))
                     .context(format!("invalid openssl private key value for key {k}"))?;
                 ca_key = Some(key);
                 Ok(())
             }
             "no_append_ca_cert" => {
-                no_append_ca_cert = g3_yaml::value::as_bool(v)?;
+                no_append_ca_cert = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "keep_serial" => {
-                keep_serial = g3_yaml::value::as_bool(v)?;
+                keep_serial = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "max_ttl" => {
-                let v = g3_yaml::value::as_i32(v)?;
+                let v = vey_yaml::value::as_i32(v)?;
                 max_ttl = v.max(300); // at least for 5 minutes
                 Ok(())
             }
             "duration_stats" | "duration_metrics" => {
-                duration_stats = g3_yaml::value::as_histogram_metrics_config(v).context(
+                duration_stats = vey_yaml::value::as_histogram_metrics_config(v).context(
                     format!("invalid histogram metrics config value for key {k}"),
                 )?;
                 Ok(())

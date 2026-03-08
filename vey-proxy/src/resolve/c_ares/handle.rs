@@ -12,7 +12,7 @@ use slog::Logger;
 use tokio::time::Instant;
 
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
-use g3_slog_types::{LtDuration, LtIpAddr};
+use vey_slog_types::{LtDuration, LtIpAddr};
 use vey_types::metrics::NodeName;
 
 use crate::config::resolver::ResolverConfig;

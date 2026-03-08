@@ -20,9 +20,9 @@ yaml-rust = { workspace = true, optional = true }
 vey-types.workspace = true
 g3-io-ext.workspace = true
 vey-datetime.workspace = true
-g3-yaml = { workspace = true, optional = true }
+vey-yaml = { workspace = true, optional = true }
 
 [features]
 default = []
-yaml = ["dep:g3-yaml", "dep:yaml-rust", "dep:anyhow"]
+yaml = ["dep:vey-yaml", "dep:yaml-rust", "dep:anyhow"]
 log-raw-io = []

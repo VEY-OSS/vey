@@ -13,11 +13,11 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_io_ext::StreamCopyConfig;
 use g3_tls_ticket::TlsTicketConfig;
-use g3_yaml::YamlDocPosition;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use vey_types::route::HostMatch;
+use vey_yaml::YamlDocPosition;
 
 use super::{
     IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT, IDLE_CHECK_MAXIMUM_DURATION,
@@ -84,7 +84,7 @@ impl RustlsProxyServerConfig {
     ) -> anyhow::Result<Self> {
         let mut server = RustlsProxyServerConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
 
         server.check()?;
         Ok(server)
@@ -104,51 +104,51 @@ impl RustlsProxyServerConfig {
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
-                let name = g3_yaml::value::as_ascii(v)?;
+                let name = vey_yaml::value::as_ascii(v)?;
                 self.shared_logger = Some(name);
                 Ok(())
             }
             "extra_metrics_tags" => {
-                let tags = g3_yaml::value::as_static_metrics_tags(v)
+                let tags = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
             }
             "listen" => {
-                self.listen = g3_yaml::value::as_tcp_listen_config(v)
+                self.listen = vey_yaml::value::as_tcp_listen_config(v)
                     .context(format!("invalid tcp listen config value for key {k}"))?;
                 Ok(())
             }
             "listen_in_worker" => {
-                self.listen_in_worker = g3_yaml::value::as_bool(v)?;
+                self.listen_in_worker = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "ingress_network_filter" | "ingress_net_filter" => {
-                let filter = g3_yaml::value::acl::as_ingress_network_rule_builder(v).context(
+                let filter = vey_yaml::value::acl::as_ingress_network_rule_builder(v).context(
                     format!("invalid ingress network acl rule value for key {k}"),
                 )?;
                 self.ingress_net_filter = Some(filter);
                 Ok(())
             }
             "client_hello_recv_timeout" => {
-                let timeout = g3_yaml::humanize::as_duration(v)
+                let timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 self.client_hello_recv_timeout = timeout;
                 Ok(())
             }
             "virtual_hosts" | "hosts" => {
-                self.hosts = g3_yaml::value::as_host_matched_obj(v, self.position.as_ref())?;
+                self.hosts = vey_yaml::value::as_host_matched_obj(v, self.position.as_ref())?;
                 Ok(())
             }
             "tcp_sock_speed_limit" | "tcp_conn_speed_limit" => {
-                self.tcp_sock_speed_limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
+                self.tcp_sock_speed_limit = vey_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
             }
@@ -157,43 +157,43 @@ impl RustlsProxyServerConfig {
                 self.set("task_idle_check_interval", v)
             }
             "task_idle_check_interval" => {
-                self.task_idle_check_interval = g3_yaml::humanize::as_duration(v)
+                self.task_idle_check_interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "task_idle_max_count" => {
-                self.task_idle_max_count = g3_yaml::value::as_usize(v)
+                self.task_idle_max_count = vey_yaml::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
                 Ok(())
             }
             "flush_task_log_on_created" => {
-                self.flush_task_log_on_created = g3_yaml::value::as_bool(v)?;
+                self.flush_task_log_on_created = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "flush_task_log_on_connected" => {
-                self.flush_task_log_on_connected = g3_yaml::value::as_bool(v)?;
+                self.flush_task_log_on_connected = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "task_log_flush_interval" => {
-                let interval = g3_yaml::humanize::as_duration(v)
+                let interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 self.task_log_flush_interval = Some(interval);
                 Ok(())
             }
             "tcp_copy_buffer_size" => {
-                let buffer_size = g3_yaml::humanize::as_usize(v)
+                let buffer_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 self.tcp_copy.set_buffer_size(buffer_size);
                 Ok(())
             }
             "tcp_copy_yield_size" => {
-                let yield_size = g3_yaml::humanize::as_usize(v)
+                let yield_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 self.tcp_copy.set_yield_size(yield_size);
                 Ok(())
             }
             "tcp_misc_opts" => {
-                self.tcp_misc_opts = g3_yaml::value::as_tcp_misc_sock_opts(v)
+                self.tcp_misc_opts = vey_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
                 Ok(())
             }
@@ -205,7 +205,7 @@ impl RustlsProxyServerConfig {
                 Ok(())
             }
             "spawn_task_unconstrained" | "task_unconstrained" => {
-                self.spawn_task_unconstrained = g3_yaml::value::as_bool(v)?;
+                self.spawn_task_unconstrained = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

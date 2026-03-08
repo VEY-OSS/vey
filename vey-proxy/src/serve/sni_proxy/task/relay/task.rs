@@ -12,10 +12,10 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
-use g3_dpi::Protocol;
 use g3_io_ext::{
     FlexBufReader, IdleInterval, LimitedReader, LimitedWriter, StreamCopy, StreamCopyConfig,
 };
+use vey_dpi::Protocol;
 use vey_types::acl::AclAction;
 use vey_types::net::UpstreamAddr;
 

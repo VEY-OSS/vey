@@ -34,27 +34,27 @@ impl UserDynamicPythonSource {
     pub(super) fn parse_map(map: &yaml::Hash, lookup_dir: &Path) -> anyhow::Result<Self> {
         let mut config = UserDynamicPythonSource::default();
 
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v, lookup_dir))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v, lookup_dir))?;
 
         config.check()?;
         Ok(config)
     }
 
     fn set(&mut self, k: &str, v: &Yaml, lookup_dir: &Path) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SOURCE_TYPE => Ok(()),
             "script" => {
-                self.script_file = g3_yaml::value::as_file_path(v, lookup_dir, false)
+                self.script_file = vey_yaml::value::as_file_path(v, lookup_dir, false)
                     .context(format!("invalid file path value for key {k}"))?;
                 Ok(())
             }
             "fetch_timeout" => {
-                self.fetch_timeout = g3_yaml::humanize::as_duration(v)
+                self.fetch_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "report_timeout" => {
-                self.report_timeout = g3_yaml::humanize::as_duration(v)
+                self.report_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

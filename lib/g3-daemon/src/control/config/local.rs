@@ -27,7 +27,7 @@ impl LocalControllerConfig {
     pub(crate) fn set_default(v: &Yaml) -> anyhow::Result<()> {
         match v {
             Yaml::Hash(map) => {
-                g3_yaml::foreach_kv(map, |k, v| {
+                vey_yaml::foreach_kv(map, |k, v| {
                     LOCAL_CONTROLLER_CONFIG.with_mut(|config| config.set(k, v))
                 })?;
                 Ok(())
@@ -38,7 +38,7 @@ impl LocalControllerConfig {
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             "recv_timeout" | "send_timeout" => self.general.set(k, v),
             _ => Err(anyhow!("invalid key {k}")),
         }

@@ -6,10 +6,10 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::NodeName;
 use vey_types::net::UdpListenConfig;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyImporterConfig, ImporterConfig, ImporterConfigDiffAction};
 
@@ -43,34 +43,34 @@ impl StatsdUdpImporterConfig {
     ) -> anyhow::Result<Self> {
         let mut importer = StatsdUdpImporterConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| importer.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| importer.set(k, v))?;
 
         importer.check()?;
         Ok(importer)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_IMPORTER_TYPE => Ok(()),
             super::CONFIG_KEY_IMPORTER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "collector" => {
-                self.collector = g3_yaml::value::as_metric_node_name(v)?;
+                self.collector = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "listen" => {
-                self.listen = g3_yaml::value::as_udp_listen_config(v)
+                self.listen = vey_yaml::value::as_udp_listen_config(v)
                     .context(format!("invalid udp listen config value for key {k}"))?;
                 Ok(())
             }
             "listen_in_worker" => {
-                self.listen_in_worker = g3_yaml::value::as_bool(v)?;
+                self.listen_in_worker = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "ingress_network_filter" | "ingress_net_filter" => {
-                let filter = g3_yaml::value::acl::as_ingress_network_rule_builder(v).context(
+                let filter = vey_yaml::value::acl::as_ingress_network_rule_builder(v).context(
                     format!("invalid ingress network acl rule value for key {k}"),
                 )?;
                 self.ingress_net_filter = Some(filter);

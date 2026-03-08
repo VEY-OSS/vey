@@ -13,9 +13,9 @@ use super::{CONFIG_KEY_SOURCE_TYPE, TicketSourceConfig};
 impl TicketSourceConfig {
     pub(crate) fn parse_yaml(value: &Yaml, lookup_dir: Option<&Path>) -> anyhow::Result<Self> {
         if let Yaml::Hash(map) = value {
-            let source_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_SOURCE_TYPE)?;
+            let source_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_SOURCE_TYPE)?;
 
-            match g3_yaml::key::normalize(source_type).as_str() {
+            match vey_yaml::key::normalize(source_type).as_str() {
                 "redis" => {
                     let source = super::RedisSourceConfig::parse_yaml_map(map, lookup_dir)?;
                     Ok(TicketSourceConfig::Redis(source))
@@ -33,7 +33,7 @@ impl TicketSourceConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_yaml::yaml_doc;
+    use vey_yaml::yaml_doc;
     use yaml_rust::YamlLoader;
 
     #[test]

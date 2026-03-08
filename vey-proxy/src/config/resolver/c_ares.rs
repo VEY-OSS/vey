@@ -11,8 +11,8 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_resolver::driver::c_ares::CAresDriverConfig;
 use g3_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyResolverConfig, ResolverConfigDiffAction};
 
@@ -64,25 +64,25 @@ impl CAresResolverConfig {
     ) -> anyhow::Result<Self> {
         let mut resolver = Self::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| resolver.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| resolver.set(k, v))?;
 
         resolver.check()?;
         Ok(resolver)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_RESOLVER_TYPE => Ok(()),
             super::CONFIG_KEY_RESOLVER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "graceful_stop_wait" => {
-                self.runtime.graceful_stop_wait = g3_yaml::humanize::as_duration(v)?;
+                self.runtime.graceful_stop_wait = vey_yaml::humanize::as_duration(v)?;
                 Ok(())
             }
             "protective_query_timeout" => {
-                self.runtime.protective_query_timeout = g3_yaml::humanize::as_duration(v)?;
+                self.runtime.protective_query_timeout = vey_yaml::humanize::as_duration(v)?;
                 Ok(())
             }
             _ => self.driver.set_by_yaml_kv(k, v),

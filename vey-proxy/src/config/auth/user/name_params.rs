@@ -63,7 +63,7 @@ impl UsernameParamsConfig {
     pub(crate) fn parse(value: &Yaml) -> anyhow::Result<Self> {
         if let Yaml::Hash(map) = value {
             let mut c = Self::new();
-            g3_yaml::foreach_kv(map, |k, v| c.set(k, v))?;
+            vey_yaml::foreach_kv(map, |k, v| c.set(k, v))?;
             c.check()?;
             Ok(c)
         } else {
@@ -74,39 +74,39 @@ impl UsernameParamsConfig {
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             "keys_for_host" | "keys" => {
-                self.keys_for_host = g3_yaml::value::as_list(v, g3_yaml::value::as_string)
+                self.keys_for_host = vey_yaml::value::as_list(v, vey_yaml::value::as_string)
                     .context(format!("invalid string list value for key {k}"))?;
                 Ok(())
             }
             "resolve_sticky_key" => {
-                self.resolve_sticky_key = g3_yaml::value::as_string(v)?;
+                self.resolve_sticky_key = vey_yaml::value::as_string(v)?;
                 Ok(())
             }
             "require_hierarchy" => {
-                self.require_hierarchy = g3_yaml::value::as_bool(v)?;
+                self.require_hierarchy = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "reject_unknown_keys" => {
-                self.reject_unknown_keys = g3_yaml::value::as_bool(v)?;
+                self.reject_unknown_keys = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "floating_keys" | "floating" => {
-                self.floating_keys = g3_yaml::value::as_list(v, g3_yaml::value::as_string)
+                self.floating_keys = vey_yaml::value::as_list(v, vey_yaml::value::as_string)
                     .context(format!("invalid string list value for key {k}"))?;
                 Ok(())
             }
             "reject_duplicate_keys" => {
-                self.reject_duplicate_keys = g3_yaml::value::as_bool(v)?;
+                self.reject_duplicate_keys = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "separator" => {
-                self.separator = g3_yaml::value::as_string(v)?;
+                self.separator = vey_yaml::value::as_string(v)?;
                 Ok(())
             }
             "domain_suffix" | "suffix" => {
-                let mut s = g3_yaml::value::as_string(v)?;
+                let mut s = vey_yaml::value::as_string(v)?;
                 if !s.starts_with('.') {
                     s.insert(0, '.');
                 }
@@ -114,17 +114,17 @@ impl UsernameParamsConfig {
                 Ok(())
             }
             "http_port" => {
-                self.http_port = g3_yaml::value::as_u16(v)
+                self.http_port = vey_yaml::value::as_u16(v)
                     .context(format!("invalid u16 port value for key {k}"))?;
                 Ok(())
             }
             "socks5_port" | "socks_port" => {
-                self.socks5_port = g3_yaml::value::as_u16(v)
+                self.socks5_port = vey_yaml::value::as_u16(v)
                     .context(format!("invalid u16 port value for key {k}"))?;
                 Ok(())
             }
             "strip_suffix_for_auth" | "auth_strip_suffix" => {
-                self.strip_suffix_for_auth = g3_yaml::value::as_bool(v)?;
+                self.strip_suffix_for_auth = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -292,7 +292,7 @@ impl UsernameParamsConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_yaml::yaml_doc;
+    use vey_yaml::yaml_doc;
     use yaml_rust::YamlLoader;
 
     #[test]

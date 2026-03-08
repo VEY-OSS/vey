@@ -11,7 +11,7 @@ use http::{Request, Response, StatusCode, Version};
 
 use g3_h2::{H2StreamReader, H2StreamWriter};
 use g3_http::server::UriExt;
-use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtUpstreamAddr, LtUuid};
+use vey_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;
 
 use super::{ExchangeHead, HttpConnectTaskNotes};

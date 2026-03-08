@@ -11,9 +11,9 @@ use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
 use vey_types::resolve::ResolveStrategy;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, EscaperConfigVerifier};
 
@@ -49,29 +49,29 @@ impl RouteResolvedEscaperConfig {
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
 
         config.check()?;
         Ok(config)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "resolver" => {
-                self.resolver = g3_yaml::value::as_metric_node_name(v)?;
+                self.resolver = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "resolve_strategy" => {
-                self.resolve_strategy = g3_yaml::value::as_resolve_strategy(v)?;
+                self.resolve_strategy = vey_yaml::value::as_resolve_strategy(v)?;
                 Ok(())
             }
             "resolution_delay" => {
-                self.resolution_delay = g3_yaml::humanize::as_duration(v)
+                self.resolution_delay = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
@@ -90,7 +90,7 @@ impl RouteResolvedEscaperConfig {
                 }
             }
             "default_next" => {
-                self.default_next = g3_yaml::value::as_metric_node_name(v)?;
+                self.default_next = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -117,9 +117,9 @@ impl RouteResolvedEscaperConfig {
     fn add_lpm_rule(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
         let mut escaper = NodeName::default();
         let mut networks = BTreeSet::<IpNetwork>::new();
-        g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+        vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                escaper = g3_yaml::value::as_metric_node_name(v)?;
+                escaper = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "nets" | "net" | "networks" | "network" => {

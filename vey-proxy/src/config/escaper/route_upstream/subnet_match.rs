@@ -34,10 +34,10 @@ impl SubnetMatchBuilder {
 
     pub(super) fn set_by_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
         match value {
-            Yaml::Hash(map) => g3_yaml::foreach_kv(map, |k, v| {
+            Yaml::Hash(map) => vey_yaml::foreach_kv(map, |k, v| {
                 let escaper = NodeName::from_str(k)
                     .map_err(|e| anyhow!("the map key is not valid escaper name: {e}"))?;
-                let subnets = g3_yaml::value::as_list(v, g3_yaml::value::as_ip_network)?;
+                let subnets = vey_yaml::value::as_list(v, vey_yaml::value::as_ip_network)?;
                 self.add_rule(escaper, subnets);
                 Ok(())
             }),
@@ -49,13 +49,13 @@ impl SubnetMatchBuilder {
 
                     let mut escaper = NodeName::default();
                     let mut subnets = Vec::new();
-                    g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                    vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                         "next" | "escaper" => {
-                            escaper = g3_yaml::value::as_metric_node_name(v)?;
+                            escaper = vey_yaml::value::as_metric_node_name(v)?;
                             Ok(())
                         }
                         "subnets" | "subnet" => {
-                            subnets = g3_yaml::value::as_list(v, g3_yaml::value::as_ip_network)?;
+                            subnets = vey_yaml::value::as_list(v, vey_yaml::value::as_ip_network)?;
                             Ok(())
                         }
                         _ => Err(anyhow!("invalid key {k}")),

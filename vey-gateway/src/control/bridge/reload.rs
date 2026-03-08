@@ -5,8 +5,8 @@
 
 use anyhow::anyhow;
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 macro_rules! impl_reload {
     ($f:ident, $m:tt) => {

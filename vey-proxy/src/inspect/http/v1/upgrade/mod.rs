@@ -12,7 +12,6 @@ use http::{StatusCode, Version};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_dpi::Protocol;
 use g3_http::client::HttpTransparentResponse;
 use g3_http::server::{HttpTransparentRequest, UriExt};
 use g3_http::{HttpBodyReader, HttpBodyType};
@@ -22,7 +21,8 @@ use g3_icap_client::reqmod::h1::{
     ReqmodAdaptationMidState, ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
 use g3_io_ext::{LimitedWriteExt, OnceBufReader, StreamCopy, StreamCopyError};
-use g3_slog_types::{LtDateTime, LtDuration, LtHttpUri, LtUpstreamAddr, LtUuid};
+use vey_dpi::Protocol;
+use vey_slog_types::{LtDateTime, LtDuration, LtHttpUri, LtUpstreamAddr, LtUuid};
 use vey_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};
 
 use super::{H1InterceptionError, HttpRequest, HttpRequestIo, HttpResponseIo};

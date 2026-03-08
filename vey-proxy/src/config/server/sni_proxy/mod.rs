@@ -11,14 +11,14 @@ use ascii::AsciiString;
 use log::warn;
 use yaml_rust::{Yaml, yaml};
 
-use g3_dpi::{ProtocolInspectionConfig, ProtocolPortMap};
 use g3_io_ext::StreamCopyConfig;
-use g3_yaml::YamlDocPosition;
+use vey_dpi::{ProtocolInspectionConfig, ProtocolPortMap};
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::auth::FactsMatchType;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use vey_types::route::HostMatch;
+use vey_yaml::YamlDocPosition;
 
 use super::{
     AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
@@ -106,69 +106,69 @@ impl SniProxyServerConfig {
     ) -> anyhow::Result<Self> {
         let mut server = SniProxyServerConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
 
         server.check()?;
         Ok(server)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "escaper" => {
-                self.escaper = g3_yaml::value::as_metric_node_name(v)?;
+                self.escaper = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "auditor" => {
-                self.auditor = g3_yaml::value::as_metric_node_name(v)?;
+                self.auditor = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "user_group" => {
-                self.user_group = g3_yaml::value::as_metric_node_name(v)?;
+                self.user_group = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "auth_by_client_ip" => {
-                self.auth_by_client_ip = g3_yaml::value::as_bool(v)?;
+                self.auth_by_client_ip = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "auth_by_server_name" => {
-                self.auth_by_server_name = g3_yaml::value::as_bool(v)?;
+                self.auth_by_server_name = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "shared_logger" => {
-                let name = g3_yaml::value::as_ascii(v)?;
+                let name = vey_yaml::value::as_ascii(v)?;
                 self.shared_logger = Some(name);
                 Ok(())
             }
             "extra_metrics_tags" => {
-                let tags = g3_yaml::value::as_static_metrics_tags(v)
+                let tags = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
             }
             "listen" => {
-                let config = g3_yaml::value::as_tcp_listen_config(v)
+                let config = vey_yaml::value::as_tcp_listen_config(v)
                     .context(format!("invalid tcp listen config value for key {k}"))?;
                 self.listen = Some(config);
                 Ok(())
             }
             "listen_in_worker" => {
-                self.listen_in_worker = g3_yaml::value::as_bool(v)?;
+                self.listen_in_worker = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "ingress_network_filter" | "ingress_net_filter" => {
-                let filter = g3_yaml::value::acl::as_ingress_network_rule_builder(v).context(
+                let filter = vey_yaml::value::acl::as_ingress_network_rule_builder(v).context(
                     format!("invalid ingress network acl rule value for key {k}"),
                 )?;
                 self.ingress_net_filter = Some(filter);
                 Ok(())
             }
             "tcp_sock_speed_limit" => {
-                self.tcp_sock_speed_limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
+                self.tcp_sock_speed_limit = vey_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
             }
@@ -177,24 +177,24 @@ impl SniProxyServerConfig {
                 self.set("tcp_sock_speed_limit", v)
             }
             "tcp_copy_buffer_size" => {
-                let buffer_size = g3_yaml::humanize::as_usize(v)
+                let buffer_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 self.tcp_copy.set_buffer_size(buffer_size);
                 Ok(())
             }
             "tcp_copy_yield_size" => {
-                let yield_size = g3_yaml::humanize::as_usize(v)
+                let yield_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 self.tcp_copy.set_yield_size(yield_size);
                 Ok(())
             }
             "tcp_misc_opts" => {
-                self.tcp_misc_opts = g3_yaml::value::as_tcp_misc_sock_opts(v)
+                self.tcp_misc_opts = vey_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
                 Ok(())
             }
             "tls_max_client_hello_size" => {
-                self.tls_max_client_hello_size = g3_yaml::value::as_u32(v)?;
+                self.tls_max_client_hello_size = vey_yaml::value::as_u32(v)?;
                 Ok(())
             }
             "task_idle_check_duration" => {
@@ -202,41 +202,41 @@ impl SniProxyServerConfig {
                 self.set("task_idle_check_interval", v)
             }
             "task_idle_check_interval" => {
-                self.task_idle_check_interval = g3_yaml::humanize::as_duration(v)
+                self.task_idle_check_interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "task_idle_max_count" => {
-                self.task_idle_max_count = g3_yaml::value::as_usize(v)
+                self.task_idle_max_count = vey_yaml::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
                 Ok(())
             }
             "flush_task_log_on_created" => {
-                self.flush_task_log_on_created = g3_yaml::value::as_bool(v)?;
+                self.flush_task_log_on_created = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "flush_task_log_on_connected" => {
-                self.flush_task_log_on_connected = g3_yaml::value::as_bool(v)?;
+                self.flush_task_log_on_connected = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "task_log_flush_interval" => {
-                let interval = g3_yaml::humanize::as_duration(v)
+                let interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 self.task_log_flush_interval = Some(interval);
                 Ok(())
             }
             "request_wait_timeout" => {
-                self.request_wait_timeout = g3_yaml::humanize::as_duration(v)
+                self.request_wait_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "request_recv_timeout" => {
-                self.request_recv_timeout = g3_yaml::humanize::as_duration(v)
+                self.request_recv_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "protocol_inspection" => {
-                let protocol_inspection = g3_yaml::value::as_protocol_inspection_config(v)
+                let protocol_inspection = vey_yaml::value::as_protocol_inspection_config(v)
                     .context(format!(
                         "invalid protocol inspection config value for key {k}"
                     ))?;
@@ -244,15 +244,15 @@ impl SniProxyServerConfig {
                 Ok(())
             }
             "server_tcp_portmap" => {
-                g3_yaml::value::update_protocol_portmap(&mut self.server_tcp_portmap, v)
+                vey_yaml::value::update_protocol_portmap(&mut self.server_tcp_portmap, v)
                     .context(format!("invalid protocol portmap value for key {k}"))
             }
             "client_tcp_portmap" => {
-                g3_yaml::value::update_protocol_portmap(&mut self.client_tcp_portmap, v)
+                vey_yaml::value::update_protocol_portmap(&mut self.client_tcp_portmap, v)
                     .context(format!("invalid protocol portmap value for key {k}"))
             }
             "allowed_hosts" | "allowed_sites" => {
-                let allowed_sites = g3_yaml::value::as_host_matched_obj(v, self.position.as_ref())
+                let allowed_sites = vey_yaml::value::as_host_matched_obj(v, self.position.as_ref())
                     .context(format!(
                         "invalid host matched SniHostConfig value for key {k}"
                     ))?;
@@ -261,7 +261,7 @@ impl SniProxyServerConfig {
             }
             #[cfg(target_os = "linux")]
             "listen_transparent" => {
-                self.listen_transparent = g3_yaml::value::as_bool(v)?;
+                self.listen_transparent = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

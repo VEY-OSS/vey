@@ -19,44 +19,44 @@ impl HickoryDriverConfig {
         v: &Yaml,
         lookup_dir: Option<&Path>,
     ) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             "server" => match v {
                 Yaml::String(addrs) => self.parse_server_str(addrs),
                 Yaml::Array(seq) => self.parse_server_array(seq),
                 _ => Err(anyhow!("invalid yaml value type, expect string / array")),
             },
             "server_port" => {
-                let port = g3_yaml::value::as_u16(v)?;
+                let port = vey_yaml::value::as_u16(v)?;
                 self.server_port = Some(port);
                 Ok(())
             }
             "encryption" | "encrypt" => {
-                let config = g3_yaml::value::as_dns_encryption_protocol_builder(v, lookup_dir)
+                let config = vey_yaml::value::as_dns_encryption_protocol_builder(v, lookup_dir)
                     .context(format!("invalid dns encryption config value for key {k}"))?;
                 self.encryption = Some(config);
                 Ok(())
             }
             "connect_timeout" => {
-                self.connect_timeout = g3_yaml::humanize::as_duration(v)
+                self.connect_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "request_timeout" => {
-                self.request_timeout = g3_yaml::humanize::as_duration(v)
+                self.request_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "each_timeout" => {
-                self.each_timeout = g3_yaml::humanize::as_duration(v)
+                self.each_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "each_tries" | "retry_attempts" => {
-                self.each_tries = g3_yaml::value::as_i32(v)?;
+                self.each_tries = vey_yaml::value::as_i32(v)?;
                 Ok(())
             }
             "bind_ip" => {
-                let ip = g3_yaml::value::as_ipaddr(v)?;
+                let ip = vey_yaml::value::as_ipaddr(v)?;
                 self.bind_addr = BindAddr::Ip(ip);
                 Ok(())
             }
@@ -68,31 +68,31 @@ impl HickoryDriverConfig {
                 target_os = "solaris"
             ))]
             "bind_interface" => {
-                let interface = g3_yaml::value::as_interface(v)
+                let interface = vey_yaml::value::as_interface(v)
                     .context(format!("invalid interface name value for key {k}"))?;
                 self.bind_addr = BindAddr::Interface(interface);
                 Ok(())
             }
             "tcp_misc_opts" => {
-                self.tcp_misc_opts = g3_yaml::value::as_tcp_misc_sock_opts(v)
+                self.tcp_misc_opts = vey_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
                 Ok(())
             }
             "udp_misc_opts" => {
-                self.udp_misc_opts = g3_yaml::value::as_udp_misc_sock_opts(v)
+                self.udp_misc_opts = vey_yaml::value::as_udp_misc_sock_opts(v)
                     .context(format!("invalid udp misc sock opts value for key {k}"))?;
                 Ok(())
             }
             "positive_min_ttl" => {
-                self.positive_min_ttl = g3_yaml::value::as_u32(v)?;
+                self.positive_min_ttl = vey_yaml::value::as_u32(v)?;
                 Ok(())
             }
             "positive_max_ttl" => {
-                self.positive_max_ttl = g3_yaml::value::as_u32(v)?;
+                self.positive_max_ttl = vey_yaml::value::as_u32(v)?;
                 Ok(())
             }
             "negative_min_ttl" | "negative_ttl" => {
-                self.negative_ttl = g3_yaml::value::as_u32(v)?;
+                self.negative_ttl = vey_yaml::value::as_u32(v)?;
                 Ok(())
             }
             "negative_max_ttl" => Ok(()),
@@ -104,11 +104,11 @@ impl HickoryDriverConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_yaml::yaml_doc;
     use std::net::IpAddr;
     use std::str::FromStr;
     use std::time::Duration;
     use vey_types::net::DnsEncryptionProtocol;
+    use vey_yaml::yaml_doc;
     use yaml_rust::YamlLoader;
 
     #[test]
@@ -239,7 +239,7 @@ mod tests {
     ))]
     #[test]
     fn set_by_yaml_kv_bind_interface() {
-        use g3_yaml::yaml_str;
+        use vey_yaml::yaml_str;
 
         let mut config = HickoryDriverConfig::default();
 
@@ -253,7 +253,7 @@ mod tests {
         config
             .set_by_yaml_kv("bind_interface", &yaml, None)
             .unwrap();
-        let interface = g3_yaml::value::as_interface(&yaml).unwrap();
+        let interface = vey_yaml::value::as_interface(&yaml).unwrap();
         assert_eq!(config.bind_addr, BindAddr::Interface(interface));
 
         // invalid

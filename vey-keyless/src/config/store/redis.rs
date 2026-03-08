@@ -7,8 +7,8 @@ use anyhow::anyhow;
 use url::Url;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::KeyStoreConfig;
 
@@ -34,7 +34,7 @@ impl RedisKeyStoreConfig {
     ) -> anyhow::Result<Self> {
         let mut server = RedisKeyStoreConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
 
         server.check()?;
         Ok(server)
@@ -51,14 +51,14 @@ impl RedisKeyStoreConfig {
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_STORE_TYPE => Ok(()),
             "name" => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "url" => {
-                let url = g3_yaml::value::as_url(v)?;
+                let url = vey_yaml::value::as_url(v)?;
                 self.url = Some(url);
                 Ok(())
             }

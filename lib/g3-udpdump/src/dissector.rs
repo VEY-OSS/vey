@@ -3,7 +3,7 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use g3_dpi::Protocol;
+use vey_dpi::Protocol;
 
 const EXP_PDU_TAG_DISSECTOR_NAME: u8 = 12;
 const EXP_PDU_TAG_DISSECTOR_TABLE_NAME: u8 = 14;

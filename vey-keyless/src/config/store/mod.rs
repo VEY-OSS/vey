@@ -9,9 +9,9 @@ use anyhow::anyhow;
 use tokio::sync::oneshot;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::{HybridParser, YamlDocPosition};
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
+use vey_yaml::{HybridParser, YamlDocPosition};
 
 mod local;
 mod redis;
@@ -58,8 +58,8 @@ fn load_store(
     map: &yaml::Hash,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyKeyStoreConfig> {
-    let store_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_STORE_TYPE)?;
-    match g3_yaml::key::normalize(store_type).as_str() {
+    let store_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_STORE_TYPE)?;
+    match vey_yaml::key::normalize(store_type).as_str() {
         "local" => {
             let config = local::LocalKeyStoreConfig::parse(map, position)?;
             Ok(AnyKeyStoreConfig::Local(config))

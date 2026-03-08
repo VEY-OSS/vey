@@ -12,7 +12,6 @@ use rustls::{RootCertStore, ServerConfig};
 use rustls_pki_types::CertificateDer;
 use yaml_rust::Yaml;
 
-use g3_yaml::{YamlDocPosition, YamlMapCallback};
 use vey_types::collection::NamedValue;
 use vey_types::limit::RateLimitQuota;
 use vey_types::metrics::NodeName;
@@ -21,6 +20,7 @@ use vey_types::net::{
     RustlsServerConfigExt, TcpSockSpeedLimitConfig,
 };
 use vey_types::route::AlpnMatch;
+use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct RustlsHostConfig {
@@ -134,39 +134,39 @@ impl YamlMapCallback for RustlsHostConfig {
         value: &Yaml,
         doc: Option<&YamlDocPosition>,
     ) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(key).as_str() {
+        match vey_yaml::key::normalize(key).as_str() {
             "name" => {
-                self.name = g3_yaml::value::as_string(value)?;
+                self.name = vey_yaml::value::as_string(value)?;
                 Ok(())
             }
             "cert_pairs" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
-                self.cert_pairs = g3_yaml::value::as_list(value, |v| {
-                    g3_yaml::value::as_rustls_certificate_pair(v, Some(lookup_dir))
+                self.cert_pairs = vey_yaml::value::as_list(value, |v| {
+                    vey_yaml::value::as_rustls_certificate_pair(v, Some(lookup_dir))
                 })
                 .context(format!("invalid rustls cert pair list value for key {key}"))?;
                 Ok(())
             }
             "enable_client_auth" => {
-                self.client_auth = g3_yaml::value::as_bool(value)?;
+                self.client_auth = vey_yaml::value::as_bool(value)?;
                 Ok(())
             }
             "use_session_ticket" => {
-                self.use_session_ticket = g3_yaml::value::as_bool(value)?;
+                self.use_session_ticket = vey_yaml::value::as_bool(value)?;
                 Ok(())
             }
             "no_session_ticket" | "disable_session_ticket" => {
-                let disable = g3_yaml::value::as_bool(value)?;
+                let disable = vey_yaml::value::as_bool(value)?;
                 self.use_session_ticket = !disable;
                 Ok(())
             }
             "no_session_cache" | "disable_session_cache" => {
-                self.no_session_cache = g3_yaml::value::as_bool(value)?;
+                self.no_session_cache = vey_yaml::value::as_bool(value)?;
                 Ok(())
             }
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
-                let certs = g3_yaml::value::as_rustls_certificates(value, Some(lookup_dir))
+                let certs = vey_yaml::value::as_rustls_certificates(value, Some(lookup_dir))
                     .context(format!("invalid certificate(s) value for key {key}"))?;
                 for cert in certs {
                     self.client_auth_certs.push(cert);
@@ -174,37 +174,37 @@ impl YamlMapCallback for RustlsHostConfig {
                 Ok(())
             }
             "accept_timeout" | "handshake_timeout" | "negotiation_timeout" => {
-                self.accept_timeout = g3_yaml::humanize::as_duration(value)
+                self.accept_timeout = vey_yaml::humanize::as_duration(value)
                     .context(format!("invalid humanize duration value for key {key}"))?;
                 Ok(())
             }
             "request_rate_limit" | "request_limit_quota" => {
-                let quota = g3_yaml::value::as_rate_limit_quota(value)
+                let quota = vey_yaml::value::as_rate_limit_quota(value)
                     .context(format!("invalid request quota value for key {key}"))?;
                 self.request_rate_limit = Some(quota);
                 Ok(())
             }
             "request_max_alive" | "request_alive_max" => {
-                let alive_max = g3_yaml::value::as_usize(value)
+                let alive_max = vey_yaml::value::as_usize(value)
                     .context(format!("invalid usize value for key {key}"))?;
                 self.request_alive_max = Some(alive_max);
                 Ok(())
             }
             "tcp_sock_speed_limit" | "tcp_conn_speed_limit" => {
-                let limit = g3_yaml::value::as_tcp_sock_speed_limit(value).context(format!(
+                let limit = vey_yaml::value::as_tcp_sock_speed_limit(value).context(format!(
                     "invalid tcp socket speed limit value for key {key}"
                 ))?;
                 self.tcp_sock_speed_limit = Some(limit);
                 Ok(())
             }
             "task_idle_max_count" => {
-                let max_count = g3_yaml::value::as_usize(value)
+                let max_count = vey_yaml::value::as_usize(value)
                     .context(format!("invalid usize value for key {key}"))?;
                 self.task_idle_max_count = Some(max_count);
                 Ok(())
             }
             "backends" => {
-                self.backends = g3_yaml::value::as_alpn_matched_backends(value)?;
+                self.backends = vey_yaml::value::as_alpn_matched_backends(value)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {key}")),

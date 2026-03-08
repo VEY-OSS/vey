@@ -23,16 +23,16 @@ impl StatsdBackend {
                 let mut addr: Option<SocketAddr> = None;
                 let mut bind: Option<IpAddr> = None;
 
-                g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "address" | "addr" => {
-                        addr = Some(g3_yaml::value::as_env_sockaddr(v).context(format!(
+                        addr = Some(vey_yaml::value::as_env_sockaddr(v).context(format!(
                             "invalid statsd udp peer socket address value for key {k}"
                         ))?);
                         Ok(())
                     }
                     "bind_ip" | "bind" => {
                         bind = Some(
-                            g3_yaml::value::as_ipaddr(v)
+                            vey_yaml::value::as_ipaddr(v)
                                 .context(format!("invalid value for key {k}"))?,
                         );
                         Ok(())
@@ -61,10 +61,10 @@ impl StatsdBackend {
             Yaml::Hash(map) => {
                 let mut path: Option<PathBuf> = None;
 
-                g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "path" => {
                         path = Some(
-                            g3_yaml::value::as_absolute_path(v)
+                            vey_yaml::value::as_absolute_path(v)
                                 .context(format!("invalid value for key {k}"))?,
                         );
                         Ok(())
@@ -78,7 +78,7 @@ impl StatsdBackend {
                 }
             }
             Yaml::String(_) => {
-                let path = g3_yaml::value::as_absolute_path(v)?;
+                let path = vey_yaml::value::as_absolute_path(v)?;
                 Ok(StatsdBackend::Unix(path))
             }
             _ => Err(anyhow!("invalid yaml value for unix statsd backend")),
@@ -90,7 +90,7 @@ impl StatsdClientConfig {
     pub fn parse_yaml(v: &Yaml, prefix: NodeName) -> anyhow::Result<Self> {
         if let Yaml::Hash(map) = v {
             let mut config = StatsdClientConfig::with_prefix(prefix);
-            g3_yaml::foreach_kv(map, |k, v| config.set_by_yaml_kv(k, v))?;
+            vey_yaml::foreach_kv(map, |k, v| config.set_by_yaml_kv(k, v))?;
             Ok(config)
         } else {
             Err(anyhow!(
@@ -100,7 +100,7 @@ impl StatsdClientConfig {
     }
 
     fn set_by_yaml_kv(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             "target_udp" | "backend_udp" => {
                 let target = StatsdBackend::parse_udp_yaml(v)
                     .context(format!("invalid value for key {k}"))?;
@@ -114,7 +114,7 @@ impl StatsdClientConfig {
             }
             "target" | "backend" => {
                 return if let Yaml::Hash(map) = v {
-                    g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                    vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                         "udp" => {
                             let target = StatsdBackend::parse_udp_yaml(v)
                                 .context(format!("invalid value for key {k}"))?;
@@ -136,16 +136,16 @@ impl StatsdClientConfig {
                 };
             }
             "prefix" => {
-                let prefix = g3_yaml::value::as_metric_node_name(v)
+                let prefix = vey_yaml::value::as_metric_node_name(v)
                     .context(format!("invalid metrics name value for key {k}"))?;
                 self.set_prefix(prefix);
             }
             "cache_size" => {
-                self.cache_size = g3_yaml::humanize::as_usize(v)
+                self.cache_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
             }
             "max_segment_size" => {
-                let size = g3_yaml::humanize::as_usize(v)
+                let size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 self.max_segment_size = Some(size);
             }
@@ -154,7 +154,7 @@ impl StatsdClientConfig {
                 return self.set_by_yaml_kv("emit_interval", v);
             }
             "emit_interval" => {
-                self.emit_interval = g3_yaml::humanize::as_duration(v)
+                self.emit_interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
             }
             _ => return Err(anyhow!("invalid key {k}")),
@@ -166,9 +166,9 @@ impl StatsdClientConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_yaml::yaml_doc;
     use std::net::Ipv4Addr;
     use std::time::Duration;
+    use vey_yaml::yaml_doc;
     use yaml_rust::YamlLoader;
 
     fn default_node_name() -> NodeName {

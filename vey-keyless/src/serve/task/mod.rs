@@ -15,8 +15,8 @@ use tokio::time::Instant;
 use uuid::Uuid;
 
 use g3_daemon::server::ClientConnectionInfo;
-use g3_slog_types::{LtDateTime, LtUuid};
 use vey_histogram::HistogramRecorder;
+use vey_slog_types::{LtDateTime, LtUuid};
 use vey_std_ext::time::DurationExt;
 
 use crate::config::server::KeyServerConfig;

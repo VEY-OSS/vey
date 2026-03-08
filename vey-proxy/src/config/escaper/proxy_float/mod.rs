@@ -14,7 +14,6 @@ use ascii::AsciiString;
 use log::warn;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::{MetricTagMap, NodeName};
 #[cfg(any(
     target_os = "linux",
@@ -27,6 +26,7 @@ use vey_types::net::Interface;
 use vey_types::net::{
     OpensslClientConfigBuilder, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts,
 };
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
 
@@ -99,26 +99,26 @@ impl ProxyFloatEscaperConfig {
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
 
         config.check()?;
         Ok(config)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
-                let name = g3_yaml::value::as_ascii(v)?;
+                let name = vey_yaml::value::as_ascii(v)?;
                 self.shared_logger = Some(name);
                 Ok(())
             }
             "extra_metrics_tags" => {
-                let tags = g3_yaml::value::as_static_metrics_tags(v)
+                let tags = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
@@ -131,24 +131,24 @@ impl ProxyFloatEscaperConfig {
                 target_os = "solaris"
             ))]
             "bind_interface" => {
-                let interface = g3_yaml::value::as_interface(v)
+                let interface = vey_yaml::value::as_interface(v)
                     .context(format!("invalid interface name value for key {k}"))?;
                 self.bind_interface = Some(interface);
                 Ok(())
             }
             "bind_ipv4" => {
-                let ip4 = g3_yaml::value::as_ipv4addr(v)?;
+                let ip4 = vey_yaml::value::as_ipv4addr(v)?;
                 self.bind_v4 = Some(IpAddr::V4(ip4));
                 Ok(())
             }
             "bind_ipv6" => {
-                let ip6 = g3_yaml::value::as_ipv6addr(v)?;
+                let ip6 = vey_yaml::value::as_ipv6addr(v)?;
                 self.bind_v6 = Some(IpAddr::V6(ip6));
                 Ok(())
             }
             "tls" | "tls_client" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
-                let builder = g3_yaml::value::as_to_many_openssl_tls_client_config_builder(
+                let builder = vey_yaml::value::as_to_many_openssl_tls_client_config_builder(
                     v,
                     Some(lookup_dir),
                 )
@@ -165,45 +165,45 @@ impl ProxyFloatEscaperConfig {
             }
             "cache" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
-                let cache = g3_yaml::value::as_file_path(v, lookup_dir, true)
+                let cache = vey_yaml::value::as_file_path(v, lookup_dir, true)
                     .context(format!("invalid value for key {k}"))?;
                 self.cache_file = Some(cache);
                 Ok(())
             }
             "refresh_interval" => {
-                self.refresh_interval = g3_yaml::humanize::as_duration(v)
+                self.refresh_interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid duration value for key {k}"))?;
                 Ok(())
             }
             "tcp_connect_timeout" => {
-                self.tcp_connect_timeout = g3_yaml::humanize::as_duration(v)
+                self.tcp_connect_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "tcp_keepalive" => {
-                self.tcp_keepalive = g3_yaml::value::as_tcp_keepalive_config(v)
+                self.tcp_keepalive = vey_yaml::value::as_tcp_keepalive_config(v)
                     .context(format!("invalid tcp keepalive config for key {k}"))?;
                 Ok(())
             }
             "tcp_misc_opts" => {
-                self.tcp_misc_opts = g3_yaml::value::as_tcp_misc_sock_opts(v)
+                self.tcp_misc_opts = vey_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
                 Ok(())
             }
             "udp_misc_opts" => {
-                self.udp_misc_opts = g3_yaml::value::as_udp_misc_sock_opts(v)
+                self.udp_misc_opts = vey_yaml::value::as_udp_misc_sock_opts(v)
                     .context(format!("invalid udp misc sock opts value for key {k}"))?;
                 Ok(())
             }
             "expire_guard_duration" => {
-                let dur = g3_yaml::humanize::as_duration(v)
+                let dur = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 self.expire_guard_duration = chrono::Duration::from_std(dur)
                     .map_err(|e| anyhow!("invalid duration: {e}"))?;
                 Ok(())
             }
             "peer_negotiation_timeout" => {
-                self.peer_negotiation_timeout = g3_yaml::humanize::as_duration(v)
+                self.peer_negotiation_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

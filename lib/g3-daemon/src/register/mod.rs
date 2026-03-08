@@ -32,7 +32,7 @@ pub fn get_pre_config() -> Option<Arc<RegisterConfig>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_yaml::yaml_str;
+    use vey_yaml::yaml_str;
 
     #[test]
     fn load_pre_config_ok() {

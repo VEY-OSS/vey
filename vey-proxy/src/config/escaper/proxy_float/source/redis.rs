@@ -10,8 +10,8 @@ use url::Url;
 use yaml_rust::{Yaml, yaml};
 
 use g3_redis_client::RedisClientConfigBuilder;
-use g3_yaml::YamlDocPosition;
 use vey_types::net::UpstreamAddr;
+use vey_yaml::YamlDocPosition;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct ProxyFloatRedisSource {
@@ -33,7 +33,7 @@ impl ProxyFloatRedisSource {
     ) -> anyhow::Result<Self> {
         let mut config = ProxyFloatRedisSource::default();
 
-        g3_yaml::foreach_kv(map, |k, v| {
+        vey_yaml::foreach_kv(map, |k, v| {
             config
                 .set(k, v, position)
                 .context(format!("failed to parse key {k}"))
@@ -86,10 +86,10 @@ impl ProxyFloatRedisSource {
     }
 
     fn set(&mut self, k: &str, v: &Yaml, position: Option<&YamlDocPosition>) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SOURCE_TYPE => Ok(()),
             "sets_key" => {
-                self.sets_key = g3_yaml::value::as_string(v)?;
+                self.sets_key = vey_yaml::value::as_string(v)?;
                 Ok(())
             }
             _ => {

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use h2::{Ping, PingPong};
 use tokio::sync::oneshot;
 
-use g3_slog_types::{LtDuration, LtUpstreamAddr, LtUuid};
+use vey_slog_types::{LtDuration, LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;
 
 use super::H2ConcurrencyStats;

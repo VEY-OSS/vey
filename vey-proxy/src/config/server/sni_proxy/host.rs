@@ -6,8 +6,8 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_yaml::{YamlDocPosition, YamlMapCallback};
 use vey_types::net::{Host, UpstreamAddr};
+use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
 #[derive(Default, Debug, Eq, PartialEq)]
 pub(crate) struct SniHostConfig {
@@ -46,15 +46,15 @@ impl YamlMapCallback for SniHostConfig {
         value: &Yaml,
         _doc: Option<&YamlDocPosition>,
     ) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(key).as_str() {
+        match vey_yaml::key::normalize(key).as_str() {
             "redirect_host" => {
-                let host = g3_yaml::value::as_host(value)
+                let host = vey_yaml::value::as_host(value)
                     .context(format!("invalid host value for key {key}"))?;
                 self.redirect_host = Some(host);
                 Ok(())
             }
             "redirect_port" => {
-                let port = g3_yaml::value::as_u16(value)
+                let port = vey_yaml::value::as_u16(value)
                     .context(format!("invalid u16 value for key {key}"))?;
                 self.redirect_port = Some(port);
                 Ok(())

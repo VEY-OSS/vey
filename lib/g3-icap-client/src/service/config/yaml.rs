@@ -19,15 +19,15 @@ impl IcapServiceConfig {
         lookup_dir: Option<&Path>,
     ) -> anyhow::Result<Self> {
         const KEY_URL: &str = "url";
-        let url = g3_yaml::hash_get_required(map, KEY_URL)?;
-        let url = g3_yaml::value::as_url(url)
+        let url = vey_yaml::hash_get_required(map, KEY_URL)?;
+        let url = vey_yaml::value::as_url(url)
             .context(format!("invalid url string value for key {KEY_URL}"))?;
         let mut config = IcapServiceConfig::new(method, url)?;
 
-        g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+        vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
             KEY_URL => Ok(()),
             "tls_client" => {
-                let tls_client = g3_yaml::value::as_rustls_client_config_builder(v, lookup_dir)
+                let tls_client = vey_yaml::value::as_rustls_client_config_builder(v, lookup_dir)
                     .context(format!(
                         "invalid rustls tls client config value for key {k}"
                     ))?;
@@ -35,41 +35,41 @@ impl IcapServiceConfig {
                 Ok(())
             }
             "tls_name" => {
-                let tls_name = g3_yaml::value::as_rustls_server_name(v)
+                let tls_name = vey_yaml::value::as_rustls_server_name(v)
                     .context(format!("invalid rustls server name value for key {k}"))?;
                 config.set_tls_name(tls_name);
                 Ok(())
             }
             "tcp_keepalive" => {
-                let keepalive = g3_yaml::value::as_tcp_keepalive_config(v)
+                let keepalive = vey_yaml::value::as_tcp_keepalive_config(v)
                     .context(format!("invalid tcp keepalive config value for key {k}"))?;
                 config.set_tcp_keepalive(keepalive);
                 Ok(())
             }
             #[cfg(unix)]
             "use_unix_socket" => {
-                let path = g3_yaml::value::as_absolute_path(v)
+                let path = vey_yaml::value::as_absolute_path(v)
                     .context(format!("invalid absolute path value for key {k}"))?;
                 config.use_unix_socket = Some(path);
                 Ok(())
             }
             "icap_connection_pool" | "connection_pool" | "pool" => {
-                config.connection_pool = g3_yaml::value::as_connection_pool_config(v)
+                config.connection_pool = vey_yaml::value::as_connection_pool_config(v)
                     .context(format!("invalid connection pool config value for key {k}"))?;
                 Ok(())
             }
             "icap_max_header_size" => {
-                let size = g3_yaml::humanize::as_usize(v)
+                let size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 config.set_icap_max_header_size(size);
                 Ok(())
             }
             "disable_preview" | "no_preview" => {
-                config.disable_preview = g3_yaml::value::as_bool(v)?;
+                config.disable_preview = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "preview_data_read_timeout" => {
-                let time = g3_yaml::humanize::as_duration(v)
+                let time = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 config.set_preview_data_read_timeout(time);
                 Ok(())
@@ -77,19 +77,19 @@ impl IcapServiceConfig {
             "respond_shared_names" => {
                 if let Yaml::Array(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
-                        let name = g3_yaml::value::as_http_header_name(v)
+                        let name = vey_yaml::value::as_http_header_name(v)
                             .context(format!("invalid http header name value for key {k}#{i}"))?;
                         config.add_respond_shared_name(name);
                     }
                 } else {
-                    let name = g3_yaml::value::as_http_header_name(v)
+                    let name = vey_yaml::value::as_http_header_name(v)
                         .context(format!("invalid http header name value for key {k}"))?;
                     config.add_respond_shared_name(name);
                 }
                 Ok(())
             }
             "bypass" => {
-                let bypass = g3_yaml::value::as_bool(v)?;
+                let bypass = vey_yaml::value::as_bool(v)?;
                 config.set_bypass(bypass);
                 Ok(())
             }
@@ -135,7 +135,7 @@ impl IcapServiceConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_yaml::{yaml_doc, yaml_str};
+    use vey_yaml::{yaml_doc, yaml_str};
     use yaml_rust::YamlLoader;
 
     #[test]

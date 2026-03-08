@@ -6,7 +6,7 @@
 use slog::{KV, Logger, Record, Serializer, Value};
 use uuid::Uuid;
 
-use g3_slog_types::{LtDateTime, LtDuration, LtUuid};
+use vey_slog_types::{LtDateTime, LtDuration, LtUuid};
 use vey_types::metrics::NodeName;
 
 use super::shared::SharedLoggerType;

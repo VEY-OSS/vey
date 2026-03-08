@@ -5,7 +5,7 @@
 
 use slog::Logger;
 
-use g3_slog_types::{LtDateTime, LtDuration, LtUuid};
+use vey_slog_types::{LtDateTime, LtDuration, LtUuid};
 
 use crate::module::keyless::KeylessRelaySnapshot;
 use crate::serve::{ServerTaskError, ServerTaskNotes};

@@ -9,11 +9,11 @@ use anyhow::anyhow;
 use tokio::io::AsyncWriteExt;
 
 use g3_daemon::server::ServerQuitPolicy;
-use g3_dpi::ProtocolInspectAction;
 use g3_imap_proto::CommandPipeline;
 use g3_imap_proto::response::ByeResponse;
 use g3_io_ext::{IdleInterval, LineRecvVec, OnceBufReader, StreamCopyConfig};
-use g3_slog_types::{LtUpstreamAddr, LtUuid};
+use vey_dpi::ProtocolInspectAction;
+use vey_slog_types::{LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;
 
 use super::StartTlsProtocol;
@@ -218,7 +218,7 @@ where
             &self.ctx.idle_wheel,
             &self.ctx.task_notes,
             &self.upstream,
-            g3_dpi::Protocol::Imap,
+            vey_dpi::Protocol::Imap,
         );
 
         match detour_ctx.check_detour_action(&mut detour_stream).await {

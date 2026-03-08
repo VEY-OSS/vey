@@ -8,8 +8,8 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_yaml::YamlDocPosition;
 
 use super::{EscaperConfig, EscaperConfigDiffAction};
 use crate::config::escaper::AnyEscaperConfig;
@@ -43,7 +43,7 @@ impl DummyDenyEscaperConfig {
         custom_type: Option<&str>,
     ) -> anyhow::Result<Self> {
         let mut escaper = Self::new(position, custom_type);
-        g3_yaml::foreach_kv(map, |k, v| escaper.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| escaper.set(k, v))?;
         escaper.check()?;
         Ok(escaper)
     }
@@ -59,11 +59,11 @@ impl DummyDenyEscaperConfig {
         match k {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "extra_metrics_tags" => {
-                let tags = g3_yaml::value::as_static_metrics_tags(v)
+                let tags = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())

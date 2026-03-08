@@ -10,8 +10,8 @@ use anyhow::{Context, anyhow};
 use http::uri::PathAndQuery;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
 use crate::runtime::export::HttpExportConfig;
@@ -64,32 +64,32 @@ impl OpentsdbExporterConfig {
     ) -> anyhow::Result<Self> {
         let mut collector = OpentsdbExporterConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
 
         collector.check()?;
         Ok(collector)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_EXPORTER_TYPE => Ok(()),
             super::CONFIG_KEY_EXPORTER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "sync_timeout" => {
-                let timeout = g3_yaml::humanize::as_duration(v)
+                let timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 self.sync_timeout = Some(timeout);
                 Ok(())
             }
             "emit_interval" => {
-                self.emit_interval = g3_yaml::humanize::as_duration(v)
+                self.emit_interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "max_data_points" => {
-                self.max_data_points = g3_yaml::value::as_usize(v)?;
+                self.max_data_points = vey_yaml::value::as_usize(v)?;
                 Ok(())
             }
             "prefix" => {
@@ -99,7 +99,7 @@ impl OpentsdbExporterConfig {
                 Ok(())
             }
             "global_tags" => {
-                self.global_tags = g3_yaml::value::as_static_metrics_tags(v)
+                self.global_tags = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 Ok(())
             }

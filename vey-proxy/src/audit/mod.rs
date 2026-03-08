@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 
-use g3_dpi::ProtocolPortMap;
 use g3_icap_client::IcapServiceClient;
+use vey_dpi::ProtocolPortMap;
 use vey_types::metrics::NodeName;
 use vey_types::net::{OpensslTicketKey, RollingTicketer};
 

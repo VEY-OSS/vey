@@ -48,13 +48,13 @@ pub(super) fn load(value: &Yaml) -> anyhow::Result<()> {
     let mut config = BackendConfig::default();
     match value {
         Yaml::Hash(map) => {
-            g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+            vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "dispatch_channel_size" => {
-                    config.dispatch_channel_size = g3_yaml::value::as_usize(v)?;
+                    config.dispatch_channel_size = vey_yaml::value::as_usize(v)?;
                     Ok(())
                 }
                 "dispatch_counter_shift" => {
-                    config.dispatch_counter_shift = g3_yaml::value::as_u8(v)?;
+                    config.dispatch_counter_shift = vey_yaml::value::as_u8(v)?;
                     Ok(())
                 }
                 #[cfg(feature = "openssl-async-job")]
@@ -66,7 +66,7 @@ pub(super) fn load(value: &Yaml) -> anyhow::Result<()> {
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
         }
-        Yaml::String(s) => match g3_yaml::key::normalize(s).as_str() {
+        Yaml::String(s) => match vey_yaml::key::normalize(s).as_str() {
             "simple" => {}
             #[cfg(feature = "openssl-async-job")]
             "async_job" | "openssl_async_job" => {

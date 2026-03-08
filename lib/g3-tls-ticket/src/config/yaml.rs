@@ -15,14 +15,14 @@ impl TlsTicketConfig {
     pub fn parse_yaml(value: &Yaml, lookup_dir: Option<&Path>) -> anyhow::Result<Self> {
         if let Yaml::Hash(map) = value {
             let mut config = TlsTicketConfig::default();
-            g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+            vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "check_interval" => {
-                    config.check_interval = g3_yaml::humanize::as_duration(v)
+                    config.check_interval = vey_yaml::humanize::as_duration(v)
                         .context(format!("invalid humanize duration value for key {k}"))?;
                     Ok(())
                 }
                 "local_lifetime" => {
-                    config.local_lifetime = g3_yaml::value::as_u32(v)?;
+                    config.local_lifetime = vey_yaml::value::as_u32(v)?;
                     Ok(())
                 }
                 "source" => {
@@ -46,7 +46,7 @@ impl TlsTicketConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_yaml::yaml_doc;
+    use vey_yaml::yaml_doc;
     use yaml_rust::YamlLoader;
 
     #[test]

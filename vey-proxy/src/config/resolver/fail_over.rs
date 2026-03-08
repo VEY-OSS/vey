@@ -10,8 +10,8 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_resolver::ResolverRuntimeConfig;
 use g3_resolver::driver::fail_over::FailOverDriverStaticConfig;
-use g3_yaml::YamlDocPosition;
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyResolverConfig, ResolverConfig, ResolverConfigDiffAction};
 
@@ -45,48 +45,48 @@ impl FailOverResolverConfig {
     ) -> anyhow::Result<Self> {
         let mut resolver = Self::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| resolver.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| resolver.set(k, v))?;
 
         resolver.check()?;
         Ok(resolver)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_RESOLVER_TYPE => Ok(()),
             super::CONFIG_KEY_RESOLVER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "primary" => {
-                self.primary = g3_yaml::value::as_metric_node_name(v)?;
+                self.primary = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "standby" => {
-                self.standby = g3_yaml::value::as_metric_node_name(v)?;
+                self.standby = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "fallback_delay" | "delay" | "fallback_timeout" | "timeout" => {
-                let delay = g3_yaml::humanize::as_duration(v)?;
+                let delay = vey_yaml::humanize::as_duration(v)?;
                 self.static_conf.fallback_delay(delay);
                 Ok(())
             }
             "negative_ttl" | "protective_cache_ttl" => {
-                let ttl = g3_yaml::value::as_u32(v)?;
+                let ttl = vey_yaml::value::as_u32(v)?;
                 self.static_conf.set_negative_ttl(ttl);
                 Ok(())
             }
             "retry_empty_record" => {
-                let retry_empty_record = g3_yaml::value::as_bool(v)?;
+                let retry_empty_record = vey_yaml::value::as_bool(v)?;
                 self.static_conf.set_retry_empty_record(retry_empty_record);
                 Ok(())
             }
             "graceful_stop_wait" => {
-                self.runtime.graceful_stop_wait = g3_yaml::humanize::as_duration(v)?;
+                self.runtime.graceful_stop_wait = vey_yaml::humanize::as_duration(v)?;
                 Ok(())
             }
             "protective_query_timeout" => {
-                self.runtime.protective_query_timeout = g3_yaml::humanize::as_duration(v)?;
+                self.runtime.protective_query_timeout = vey_yaml::humanize::as_duration(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

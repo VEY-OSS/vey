@@ -12,7 +12,7 @@ clap.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 tokio = { workspace = true, features = ["net", "io-util", "time", "signal", "macros"] }
 yaml-rust.workspace = true
-g3-yaml.workspace = true
+vey-yaml.workspace = true
 g3-daemon.workspace = true
 g3-statsd-client.workspace = true
 vey-geoip-types.workspace = true

@@ -150,7 +150,7 @@ impl BenchDnsArgs {
     async fn new_dns_over_udp_client(&self) -> anyhow::Result<Client> {
         // FIXME should we use random port?
         let connect_info = self.socket.hickory_udp_connect_info(self.target);
-        let client_connect = g3_hickory_client::io::udp::connect(connect_info, self.timeout);
+        let client_connect = vey_hickory_client::io::udp::connect(connect_info, self.timeout);
 
         let (client, bg) = Client::connect(Box::pin(client_connect))
             .await
@@ -163,7 +163,7 @@ impl BenchDnsArgs {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
         let connect_info = self.socket.hickory_tcp_connect_info(self.target);
-        let tcp_connect = g3_hickory_client::io::tcp::connect(
+        let tcp_connect = vey_hickory_client::io::tcp::connect(
             connect_info,
             outbound_messages,
             self.connect_timeout,
@@ -186,7 +186,7 @@ impl BenchDnsArgs {
             .clone()
             .unwrap_or_else(|| ServerName::IpAddress(self.target.ip().into()));
         let connect_info = self.socket.hickory_tcp_connect_info(self.target);
-        let tls_connect = g3_hickory_client::io::tls::connect(
+        let tls_connect = vey_hickory_client::io::tls::connect(
             connect_info,
             tls_client,
             tls_name,
@@ -210,7 +210,7 @@ impl BenchDnsArgs {
             .unwrap_or_else(|| ServerName::IpAddress(self.target.ip().into()));
 
         let connect_info = self.socket.hickory_tcp_connect_info(self.target);
-        let client_connect = g3_hickory_client::io::h2::connect(
+        let client_connect = vey_hickory_client::io::h2::connect(
             connect_info,
             tls_client,
             tls_name,
@@ -235,7 +235,7 @@ impl BenchDnsArgs {
         };
 
         let connect_info = self.socket.hickory_udp_connect_info(self.target);
-        let client_connect = g3_hickory_client::io::h3::connect(
+        let client_connect = vey_hickory_client::io::h3::connect(
             connect_info,
             tls_client,
             tls_name,
@@ -260,7 +260,7 @@ impl BenchDnsArgs {
         };
 
         let connect_info = self.socket.hickory_udp_connect_info(self.target);
-        let client_connect = g3_hickory_client::io::quic::connect(
+        let client_connect = vey_hickory_client::io::quic::connect(
             connect_info,
             tls_client,
             tls_name,

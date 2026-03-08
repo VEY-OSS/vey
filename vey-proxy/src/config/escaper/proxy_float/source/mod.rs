@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use url::Url;
 use yaml_rust::Yaml;
 
-use g3_yaml::YamlDocPosition;
+use vey_yaml::YamlDocPosition;
 
 pub(crate) mod redis;
 
@@ -30,9 +30,9 @@ impl ProxyFloatSource {
     pub(super) fn parse(v: &Yaml, position: Option<&YamlDocPosition>) -> anyhow::Result<Self> {
         match v {
             Yaml::Hash(map) => {
-                let source_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_SOURCE_TYPE)?;
+                let source_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_SOURCE_TYPE)?;
 
-                match g3_yaml::key::normalize(source_type).as_str() {
+                match vey_yaml::key::normalize(source_type).as_str() {
                     "passive" => Ok(ProxyFloatSource::Passive),
                     "redis" => {
                         let source = redis::ProxyFloatRedisSource::parse_map(map, position)?;
@@ -45,7 +45,7 @@ impl ProxyFloatSource {
                 let url = Url::parse(url)
                     .map_err(|e| anyhow!("the string value is not a valid url: {e}"))?;
                 let scheme = url.scheme();
-                match g3_yaml::key::normalize(scheme).as_str() {
+                match vey_yaml::key::normalize(scheme).as_str() {
                     "redis" => {
                         let source = redis::ProxyFloatRedisSource::parse_url(&url, position)?;
                         Ok(ProxyFloatSource::Redis(Box::new(source)))

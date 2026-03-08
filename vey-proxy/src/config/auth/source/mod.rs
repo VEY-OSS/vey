@@ -38,9 +38,9 @@ impl UserDynamicSource {
     pub(super) fn parse_config(v: &Yaml, lookup_dir: &Path) -> anyhow::Result<Self> {
         match v {
             Yaml::Hash(map) => {
-                let source_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_SOURCE_TYPE)?;
+                let source_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_SOURCE_TYPE)?;
 
-                match g3_yaml::key::normalize(source_type).as_str() {
+                match vey_yaml::key::normalize(source_type).as_str() {
                     "file" => {
                         let source = UserDynamicFileSource::parse_map(map, lookup_dir)?;
                         Ok(UserDynamicSource::File(Arc::new(source)))
@@ -62,7 +62,7 @@ impl UserDynamicSource {
                 let url = Url::parse(url)
                     .map_err(|e| anyhow!("the string value is not a valid url: {e}"))?;
                 let scheme = url.scheme();
-                match g3_yaml::key::normalize(scheme).as_str() {
+                match vey_yaml::key::normalize(scheme).as_str() {
                     "file" => {
                         let source = UserDynamicFileSource::parse_url(&url)?;
                         Ok(UserDynamicSource::File(Arc::new(source)))

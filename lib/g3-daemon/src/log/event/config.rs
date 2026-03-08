@@ -111,7 +111,7 @@ impl LogConfig {
             },
             Yaml::Hash(map) => {
                 let mut config = LogConfig::new_discard(program_name);
-                g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     #[cfg(target_os = "linux")]
                     "journal" => {
                         config.driver =
@@ -131,19 +131,19 @@ impl LogConfig {
                         Ok(())
                     }
                     "async_channel_size" | "channel_size" => {
-                        let channel_size = g3_yaml::value::as_usize(v)
+                        let channel_size = vey_yaml::value::as_usize(v)
                             .context(format!("invalid usize value for key {k}"))?;
                         config.async_channel_size = channel_size;
                         Ok(())
                     }
                     "async_thread_number" | "thread_number" => {
-                        let thread_number = g3_yaml::value::as_usize(v)
+                        let thread_number = vey_yaml::value::as_usize(v)
                             .context(format!("invalid usize value for key {k}"))?;
                         config.async_thread_number = thread_number;
                         Ok(())
                     }
                     "io_error_sampling_offset" => {
-                        let offset = g3_yaml::value::as_usize(v)
+                        let offset = vey_yaml::value::as_usize(v)
                             .context(format!("invalid value for key {k}"))?;
                         if offset > IO_ERROR_SAMPLING_OFFSET_MAX {
                             Err(anyhow!(

@@ -10,10 +10,10 @@ use bytes::Bytes;
 use h2::{RecvStream, SendStream};
 
 use g3_daemon::server::ServerQuitPolicy;
-use g3_dpi::ProtocolInspectAction;
 use g3_h2::{H2StreamReader, H2StreamWriter};
 use g3_io_ext::{IdleInterval, StreamCopyConfig};
-use g3_slog_types::{LtHttpHeaderValue, LtUpstreamAddr, LtUuid};
+use vey_dpi::ProtocolInspectAction;
+use vey_slog_types::{LtHttpHeaderValue, LtUpstreamAddr, LtUuid};
 use vey_types::net::{UpstreamAddr, WebSocketNotes};
 
 use super::{ClientCloseFrame, ServerCloseFrame};
@@ -167,7 +167,7 @@ impl<SC: ServerConfig> H2WebsocketInterceptObject<SC> {
             &self.ctx.idle_wheel,
             &self.ctx.task_notes,
             &self.upstream,
-            g3_dpi::Protocol::Websocket,
+            vey_dpi::Protocol::Websocket,
         );
         detour_ctx.set_payload(self.ws_notes.serialize());
 

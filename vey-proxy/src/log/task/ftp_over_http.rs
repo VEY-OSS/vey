@@ -5,7 +5,7 @@
 
 use slog::Logger;
 
-use g3_slog_types::{
+use vey_slog_types::{
     LtDateTime, LtDuration, LtHttpMethod, LtHttpUri, LtIpAddr, LtUpstreamAddr, LtUserName, LtUuid,
 };
 

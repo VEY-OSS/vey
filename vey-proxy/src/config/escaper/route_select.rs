@@ -8,9 +8,9 @@ use std::collections::BTreeSet;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
 use vey_types::collection::{SelectivePickPolicy, WeightedValue};
 use vey_types::metrics::NodeName;
+use vey_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
 
@@ -40,29 +40,29 @@ impl RouteSelectEscaperConfig {
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
 
         config.check()?;
         Ok(config)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
+        match vey_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "next_nodes" => {
                 self.next_nodes =
-                    g3_yaml::value::as_list(v, g3_yaml::value::as_weighted_metric_node_name)
+                    vey_yaml::value::as_list(v, vey_yaml::value::as_weighted_metric_node_name)
                         .context(format!(
                             "invalid weighted metrics name list value for key {k}"
                         ))?;
                 Ok(())
             }
             "next_pick_policy" => {
-                self.next_pick_policy = g3_yaml::value::as_selective_pick_policy(v)
+                self.next_pick_policy = vey_yaml::value::as_selective_pick_policy(v)
                     .context(format!("invalid selective pick policy value for key {k}"))?;
                 Ok(())
             }

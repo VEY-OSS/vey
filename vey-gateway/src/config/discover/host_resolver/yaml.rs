@@ -6,7 +6,7 @@
 use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
-use g3_yaml::YamlDocPosition;
+use vey_yaml::YamlDocPosition;
 
 use super::{HostResolverDiscoverConfig, HostResolverDiscoverInput};
 
@@ -16,7 +16,7 @@ impl HostResolverDiscoverConfig {
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut site = HostResolverDiscoverConfig::new(position);
-        g3_yaml::foreach_kv(map, |k, v| site.set_yaml(k, v))?;
+        vey_yaml::foreach_kv(map, |k, v| site.set_yaml(k, v))?;
         site.check()?;
         Ok(site)
     }
@@ -25,7 +25,7 @@ impl HostResolverDiscoverConfig {
         match k {
             super::CONFIG_KEY_DISCOVER_TYPE => Ok(()),
             super::CONFIG_KEY_DISCOVER_NAME => {
-                self.name = g3_yaml::value::as_metric_node_name(v)?;
+                self.name = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -36,7 +36,7 @@ impl HostResolverDiscoverConfig {
         &self,
         input: &Yaml,
     ) -> anyhow::Result<HostResolverDiscoverInput> {
-        let addr = g3_yaml::value::as_upstream_addr(input, 0)?;
+        let addr = vey_yaml::value::as_upstream_addr(input, 0)?;
         Ok(HostResolverDiscoverInput { addr })
     }
 }

@@ -18,8 +18,8 @@ vey-types.workspace = true
 vey-geoip-types.workspace = true
 vey-msgpack = { workspace = true, features = ["geoip"] }
 vey-socket.workspace = true
-g3-yaml = { workspace = true, optional = true }
+vey-yaml = { workspace = true, optional = true }
 
 [features]
 default = []
-yaml = ["dep:g3-yaml", "dep:yaml-rust"]
+yaml = ["dep:vey-yaml", "dep:yaml-rust"]
