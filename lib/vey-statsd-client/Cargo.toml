@@ -1,6 +1,6 @@
 [package]
-name = "g3-syslog"
-version = "0.8.0"
+name = "vey-statsd-client"
+version = "0.3.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,20 +8,14 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-slog.workspace = true
-chrono = { workspace = true, features = ["clock"] }
 itoa.workspace = true
 zmij.workspace = true
-kanal = { workspace = true, features = ["std-mutex"] }
-serde.workspace = true
-serde_json.workspace = true
+smallvec.workspace = true
 log.workspace = true
 anyhow = { workspace = true, optional = true }
 yaml-rust = { workspace = true, optional = true }
-vey-compat.workspace = true
-vey-datetime.workspace = true
 vey-io-sys.workspace = true
-vey-types = { workspace = true, features = ["async-log"] }
+vey-types.workspace = true
 vey-yaml = { workspace = true, optional = true }
 
 [features]

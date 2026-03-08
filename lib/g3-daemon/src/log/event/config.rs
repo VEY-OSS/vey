@@ -10,10 +10,10 @@ use anyhow::{Context, anyhow};
 use slog::{Logger, OwnedKV, SendSyncRefUnwindSafeKV};
 use yaml_rust::Yaml;
 
-use g3_fluentd::FluentdClientConfig;
-use g3_syslog::SyslogBuilder;
+use vey_fluentd::FluentdClientConfig;
 #[cfg(target_os = "linux")]
 use vey_journal::JournalConfig;
+use vey_syslog::SyslogBuilder;
 use vey_types::log::AsyncLogConfig;
 
 use super::{LoggerStats, ReportLogIoError};
@@ -230,7 +230,7 @@ impl LogConfig {
                 Some(Logger::root(drain, common_values))
             }
             LogConfigDriver::Fluentd(fluentd_conf) => {
-                let drain = g3_fluentd::new_async_logger(
+                let drain = vey_fluentd::new_async_logger(
                     &async_conf,
                     &fluentd_conf,
                     format!("{}.{log_type}", self.program_name),

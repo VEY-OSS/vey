@@ -10,8 +10,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use tokio::runtime::Handle;
 
-use g3_runtime::unaided::WorkersGuard;
 use vey_compat::CpuAffinity;
+use vey_runtime::unaided::WorkersGuard;
 use vey_types::sync::GlobalInit;
 
 #[derive(Clone)]

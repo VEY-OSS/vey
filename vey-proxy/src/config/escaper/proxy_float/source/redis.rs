@@ -9,7 +9,7 @@ use anyhow::{Context, anyhow};
 use url::Url;
 use yaml_rust::{Yaml, yaml};
 
-use g3_redis_client::RedisClientConfigBuilder;
+use vey_redis_client::RedisClientConfigBuilder;
 use vey_types::net::UpstreamAddr;
 use vey_yaml::YamlDocPosition;
 
@@ -45,7 +45,7 @@ impl ProxyFloatRedisSource {
 
     pub(super) fn parse_url(url: &Url, position: Option<&YamlDocPosition>) -> anyhow::Result<Self> {
         if let Some(host) = url.host_str() {
-            let port = url.port().unwrap_or(g3_redis_client::REDIS_DEFAULT_PORT);
+            let port = url.port().unwrap_or(vey_redis_client::REDIS_DEFAULT_PORT);
             let upstream = UpstreamAddr::from_host_str_and_port(host, port)?;
             let mut config = ProxyFloatRedisSource::new(upstream);
 

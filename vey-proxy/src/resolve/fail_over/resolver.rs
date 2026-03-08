@@ -10,7 +10,7 @@ use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use slog::Logger;
 
-use g3_resolver::driver::fail_over::FailOverDriverConfig;
+use vey_resolver::driver::fail_over::FailOverDriverConfig;
 use vey_types::metrics::NodeName;
 
 use crate::config::resolver::fail_over::FailOverResolverConfig;
@@ -22,7 +22,7 @@ use crate::resolve::{
 pub(crate) struct FailOverResolver {
     config: Arc<FailOverResolverConfig>,
     driver_config: FailOverDriverConfig,
-    inner: g3_resolver::Resolver,
+    inner: vey_resolver::Resolver,
     stats: Arc<ResolverStats>,
     logger: Option<Logger>,
 }
@@ -39,12 +39,12 @@ impl FailOverResolver {
         driver_config.set_standby_handle(standby_handle.clone_inner());
         driver_config.set_static_config(config.static_conf);
 
-        let inner_config = g3_resolver::ResolverConfig {
+        let inner_config = vey_resolver::ResolverConfig {
             name: config.name().to_string(),
             runtime: config.runtime.clone(),
-            driver: g3_resolver::AnyResolveDriverConfig::FailOver(driver_config.clone()),
+            driver: vey_resolver::AnyResolveDriverConfig::FailOver(driver_config.clone()),
         };
-        let mut builder = g3_resolver::ResolverBuilder::new(inner_config);
+        let mut builder = vey_resolver::ResolverBuilder::new(inner_config);
         builder.thread_name(format!("res-{}", config.name()));
         let resolver = builder.build()?;
 
@@ -85,10 +85,10 @@ impl ResolverInternal for FailOverResolver {
             driver_config.set_standby_handle(standby_handle.clone_inner());
             driver_config.set_static_config(config.static_conf);
 
-            let inner_config = g3_resolver::ResolverConfig {
+            let inner_config = vey_resolver::ResolverConfig {
                 name: config.name().to_string(),
                 runtime: config.runtime.clone(),
-                driver: g3_resolver::AnyResolveDriverConfig::FailOver(driver_config.clone()),
+                driver: vey_resolver::AnyResolveDriverConfig::FailOver(driver_config.clone()),
             };
 
             self.inner
@@ -120,10 +120,10 @@ impl ResolverInternal for FailOverResolver {
             ));
         }
 
-        let inner_config = g3_resolver::ResolverConfig {
+        let inner_config = vey_resolver::ResolverConfig {
             name: self.config.name().to_string(),
             runtime: self.config.runtime.clone(),
-            driver: g3_resolver::AnyResolveDriverConfig::FailOver(driver_config.clone()),
+            driver: vey_resolver::AnyResolveDriverConfig::FailOver(driver_config.clone()),
         };
 
         self.inner

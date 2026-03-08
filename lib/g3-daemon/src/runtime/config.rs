@@ -8,8 +8,8 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_runtime::blended::BlendedRuntimeConfig;
-use g3_runtime::unaided::UnaidedRuntimeConfig;
+use vey_runtime::blended::BlendedRuntimeConfig;
+use vey_runtime::unaided::UnaidedRuntimeConfig;
 use vey_types::sync::GlobalInit;
 
 static RUNTIME_CONFIG: GlobalInit<BlendedRuntimeConfig> =

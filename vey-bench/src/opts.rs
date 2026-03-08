@@ -15,9 +15,9 @@ use ahash::AHashMap;
 use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 
-use g3_runtime::blended::BlendedRuntimeConfig;
-use g3_runtime::unaided::UnaidedRuntimeConfig;
-use g3_statsd_client::{StatsdBackend, StatsdClient, StatsdClientConfig};
+use vey_runtime::blended::BlendedRuntimeConfig;
+use vey_runtime::unaided::UnaidedRuntimeConfig;
+use vey_statsd_client::{StatsdBackend, StatsdClient, StatsdClientConfig};
 use vey_types::collection::{
     SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder, WeightedValue,
 };

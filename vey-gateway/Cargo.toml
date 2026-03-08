@@ -50,10 +50,10 @@ vey-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rus
 vey-socket.workspace = true
 g3-io-ext = { workspace = true, features = ["openssl", "rustls"] }
 vey-openssl.workspace = true
-g3-statsd-client.workspace = true
+vey-statsd-client.workspace = true
 vey-histogram.workspace = true
 vey-slog-types.workspace = true
-g3-tls-ticket = { workspace = true, features = ["yaml"] }
+vey-tls-ticket = { workspace = true, features = ["yaml"] }
 vey-gateway-proto = { path = "proto" }
 
 [build-dependencies]

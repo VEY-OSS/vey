@@ -787,7 +787,7 @@ v0.7.9:
  - Feature: http_proxy: close the connection if previous request is also auth failed
 
 v0.7.8:
- - Feature: use native async implementation from g3-syslog
+ - Feature: use native async implementation from vey-syslog
  - Feature: add metrics for loggers
      - add logger.message.total
      - add logger.message.pass

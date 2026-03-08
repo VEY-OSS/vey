@@ -1,5 +1,5 @@
 [package]
-name = "g3-tls-ticket"
+name = "vey-tls-ticket"
 version = "0.3.0"
 license.workspace = true
 edition.workspace = true
@@ -17,9 +17,9 @@ yaml-rust = { workspace = true, optional = true }
 redis = { workspace = true, features = ["aio", "tokio-comp"] }
 vey-types = { workspace = true, features = ["openssl"] }
 vey-json.workspace = true
-g3-redis-client.workspace = true
+vey-redis-client.workspace = true
 vey-yaml = { workspace = true, optional = true }
 
 [features]
 default = []
-yaml = ["g3-redis-client/yaml", "dep:vey-yaml", "dep:yaml-rust"]
+yaml = ["vey-redis-client/yaml", "dep:vey-yaml", "dep:yaml-rust"]

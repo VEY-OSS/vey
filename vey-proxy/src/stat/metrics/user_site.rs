@@ -6,7 +6,7 @@
 use std::sync::{Arc, Mutex};
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
-use g3_statsd_client::{StatsdClient, StatsdTagGroup};
+use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::metrics::NodeName;
 use vey_types::stats::GlobalStatsMap;
 

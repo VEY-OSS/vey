@@ -7,7 +7,7 @@ use std::io;
 
 use thiserror::Error;
 
-use g3_resolver::ResolveError;
+use vey_resolver::ResolveError;
 
 use crate::serve::{ServerTaskError, ServerTaskForbiddenError};
 

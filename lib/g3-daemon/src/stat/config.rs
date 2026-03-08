@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use log::warn;
 use yaml_rust::Yaml;
 
-use g3_statsd_client::StatsdClientConfig;
+use vey_statsd_client::StatsdClientConfig;
 use vey_types::metrics::NodeName;
 
 static GLOBAL_STAT_CONFIG: OnceLock<StatsdClientConfig> = OnceLock::new();

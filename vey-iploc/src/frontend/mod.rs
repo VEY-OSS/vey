@@ -9,8 +9,8 @@ use std::sync::Arc;
 use log::warn;
 use tokio::sync::broadcast;
 
-use g3_ip_locate::{Request, Response};
 use vey_geoip_types::{IpLocation, IpLocationBuilder};
+use vey_ip_locate::{Request, Response};
 use vey_types::net::UdpListenConfig;
 
 mod stats;

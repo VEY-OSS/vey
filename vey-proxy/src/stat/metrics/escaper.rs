@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use g3_daemon::metrics::{
     TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
-use g3_statsd_client::{StatsdClient, StatsdTagGroup};
+use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::metrics::NodeName;
 use vey_types::stats::{GlobalStatsMap, StatId, TcpIoSnapshot, UdpIoSnapshot};
 

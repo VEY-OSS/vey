@@ -9,7 +9,7 @@ use g3_daemon::metrics::{
     MetricTransportType, TAG_KEY_CONNECTION, TAG_KEY_REQUEST, TAG_KEY_SERVER, TAG_KEY_STAT_ID,
     TAG_KEY_TRANSPORT,
 };
-use g3_statsd_client::{StatsdClient, StatsdTagGroup};
+use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::metrics::NodeName;
 use vey_types::stats::{GlobalStatsMap, StatId, TcpIoSnapshot, UdpIoSnapshot};
 

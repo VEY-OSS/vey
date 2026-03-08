@@ -26,7 +26,7 @@ vey-io-sys.workspace = true
 vey-socket.workspace = true
 vey-std-ext.workspace = true
 vey-types.workspace = true
-g3-resolver = { workspace = true, optional = true }
+vey-resolver = { workspace = true, optional = true }
 vey-openssl = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -36,7 +36,7 @@ tokio-test.workspace = true
 [features]
 default = []
 log = ["dep:slog"]
-resolver = ["dep:g3-resolver"]
+resolver = ["dep:vey-resolver"]
 openssl = ["dep:vey-openssl"]
 rustls = ["dep:tokio-rustls"]
 quic = ["dep:quinn"]

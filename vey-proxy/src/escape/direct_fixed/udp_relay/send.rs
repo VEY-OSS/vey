@@ -23,7 +23,7 @@ use slog::Logger;
 ))]
 use g3_io_ext::UdpRelayPacket;
 use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
-use g3_resolver::{ResolveError, ResolveLocalError};
+use vey_resolver::{ResolveError, ResolveLocalError};
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::net::{Host, UpstreamAddr};
 use vey_types::resolve::ResolveStrategy;

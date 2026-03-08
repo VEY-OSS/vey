@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use arcstr::ArcStr;
 use async_trait::async_trait;
 
-use g3_resolver::{ResolveError, ResolveLocalError};
+use vey_resolver::{ResolveError, ResolveLocalError};
 use vey_types::metrics::NodeName;
 
 use super::{
@@ -28,7 +28,7 @@ pub(super) struct DenyAllResolver {
 
 impl DenyAllResolver {
     pub(super) fn new_obj(config: DenyAllResolverConfig) -> anyhow::Result<BoxResolverInternal> {
-        let stats = g3_resolver::ResolverStats::default();
+        let stats = vey_resolver::ResolverStats::default();
         let stats = ResolverStats::new(config.name(), Arc::new(stats));
         Ok(Box::new(DenyAllResolver {
             config: Arc::new(config),
@@ -116,7 +116,7 @@ impl IntegratedResolverHandle for DenyAllResolverHandle {
         )))
     }
 
-    fn clone_inner(&self) -> Option<g3_resolver::ResolverHandle> {
+    fn clone_inner(&self) -> Option<vey_resolver::ResolverHandle> {
         None
     }
 }

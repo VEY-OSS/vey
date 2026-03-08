@@ -16,7 +16,7 @@ use slog::Logger;
 use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_resolver::ResolveError;
+use vey_resolver::ResolveError;
 use vey_socket::util::AddressFamily;
 use vey_types::acl::AclNetworkRule;
 use vey_types::metrics::NodeName;

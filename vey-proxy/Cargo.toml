@@ -78,21 +78,21 @@ g3-icap-client = { workspace = true, features = ["yaml"] }
 g3-imap-proto.workspace = true
 g3-io-ext = { workspace = true, features = ["resolver", "openssl", "rustls", "log"] }
 vey-io-sys.workspace = true
-g3-ip-locate = { workspace = true, features = ["yaml"] }
+vey-ip-locate = { workspace = true, features = ["yaml"] }
 vey-json = { workspace = true, features = ["auth-facts", "acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
 vey-macros.workspace = true
 vey-msgpack.workspace = true
 vey-openssl.workspace = true
-g3-redis-client = { workspace = true, features = ["yaml"] }
-g3-resolver = { workspace = true, features = ["yaml", "hickory"] }
+vey-redis-client = { workspace = true, features = ["yaml"] }
+vey-resolver = { workspace = true, features = ["yaml", "hickory"] }
 vey-slog-types = { workspace = true, features = ["auth", "http", "openssl", "socket"] }
 g3-smtp-proto.workspace = true
 vey-socket.workspace = true
 g3-socks.workspace = true
-g3-statsd-client.workspace = true
+vey-statsd-client.workspace = true
 vey-std-ext.workspace = true
 vey-types = { workspace = true, features = ["auth-crypt", "auth-facts", "openssl", "rustls", "acl-rule", "http", "route", "async-log"] }
-g3-tls-ticket = { workspace = true, features = ["yaml"] }
+vey-tls-ticket = { workspace = true, features = ["yaml"] }
 g3-udpdump = { workspace = true, features = ["yaml"] }
 vey-xcrypt.workspace = true
 vey-yaml = { workspace = true, features = ["auth-facts", "resolve", "rustls", "openssl", "acl-rule", "http", "route", "dpi", "histogram", "geoip"] }
@@ -113,8 +113,8 @@ lua53 = ["lua", "mlua/lua53"]
 lua54 = ["lua", "mlua/lua54"]
 lua55 = ["lua", "mlua/lua55"]
 python = ["pyo3"]
-c-ares = ["g3-resolver/c-ares"]
-quic = ["g3-daemon/quic", "g3-resolver/quic", "vey-yaml/quinn", "vey-types/quinn", "vey-dpi/quic", "dep:quinn"]
+c-ares = ["vey-resolver/c-ares"]
+quic = ["g3-daemon/quic", "vey-resolver/quic", "vey-yaml/quinn", "vey-types/quinn", "vey-dpi/quic", "dep:quinn"]
 rustls-ring = ["vey-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
 rustls-aws-lc = ["vey-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
 rustls-aws-lc-fips = ["vey-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]
@@ -123,4 +123,4 @@ vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-cert-agent/tongsuo"]
 vendored-boringssl = ["openssl/boringssl", "openssl-probe"]
 vendored-aws-lc = ["openssl/aws-lc", "openssl-probe"]
 vendored-aws-lc-fips = ["openssl/aws-lc-fips", "openssl-probe"]
-vendored-c-ares = ["c-ares", "g3-resolver/vendored-c-ares"]
+vendored-c-ares = ["c-ares", "vey-resolver/vendored-c-ares"]

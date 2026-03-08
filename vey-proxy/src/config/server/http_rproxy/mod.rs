@@ -13,7 +13,7 @@ use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use g3_io_ext::StreamCopyConfig;
-use g3_tls_ticket::TlsTicketConfig;
+use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{

@@ -13,7 +13,7 @@ use hdrhistogram::Histogram;
 use tokio::sync::{Barrier, Semaphore, mpsc};
 use tokio::time::{Instant, MissedTickBehavior};
 
-use g3_statsd_client::StatsdClient;
+use vey_statsd_client::StatsdClient;
 use vey_types::limit::RateLimiter;
 
 use super::ProcArgs;

@@ -1,5 +1,5 @@
 [package]
-name = "g3-redis-client"
+name = "vey-redis-client"
 version = "0.3.0"
 license.workspace = true
 edition.workspace = true

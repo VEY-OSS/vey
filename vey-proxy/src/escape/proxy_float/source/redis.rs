@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use redis::AsyncCommands;
 use serde_json::Value;
 
-use g3_redis_client::RedisClientConfig;
+use vey_redis_client::RedisClientConfig;
 
 use super::FetchJob;
 use crate::config::escaper::proxy_float::source::redis::ProxyFloatRedisSource;

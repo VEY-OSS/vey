@@ -5,8 +5,8 @@
 
 use std::time::Duration;
 
-use g3_statsd_client::StatsdClient;
 use vey_histogram::{HistogramRecorder, KeepingHistogram};
+use vey_statsd_client::StatsdClient;
 use vey_std_ext::time::DurationExt;
 
 use crate::target::BenchHistogram;

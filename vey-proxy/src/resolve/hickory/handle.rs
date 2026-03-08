@@ -11,7 +11,7 @@ use arcstr::ArcStr;
 use slog::Logger;
 use tokio::time::Instant;
 
-use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
+use vey_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
 use vey_slog_types::{LtBindAddr, LtDuration};
 use vey_types::metrics::NodeName;
 
@@ -21,14 +21,14 @@ use crate::resolve::{BoxLoggedResolveJob, IntegratedResolverHandle, LoggedResolv
 
 pub(crate) struct HickoryResolverHandle {
     config: Arc<HickoryResolverConfig>,
-    inner: g3_resolver::ResolverHandle,
+    inner: vey_resolver::ResolverHandle,
     logger: Option<Logger>,
 }
 
 impl HickoryResolverHandle {
     pub(crate) fn new(
         config: &Arc<HickoryResolverConfig>,
-        inner: g3_resolver::ResolverHandle,
+        inner: vey_resolver::ResolverHandle,
         logger: Option<Logger>,
     ) -> Self {
         HickoryResolverHandle {
@@ -72,7 +72,7 @@ impl IntegratedResolverHandle for HickoryResolverHandle {
         }))
     }
 
-    fn clone_inner(&self) -> Option<g3_resolver::ResolverHandle> {
+    fn clone_inner(&self) -> Option<vey_resolver::ResolverHandle> {
         Some(self.inner.clone())
     }
 }
@@ -81,7 +81,7 @@ struct HickoryResolverJob {
     config: Arc<HickoryResolverConfig>,
     domain: ArcStr,
     query_type: ResolveQueryType,
-    inner: g3_resolver::ResolveJob,
+    inner: vey_resolver::ResolveJob,
     logger: Option<Logger>,
     create_ins: Instant,
 }

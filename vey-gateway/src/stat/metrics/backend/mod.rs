@@ -4,7 +4,7 @@
  */
 
 use g3_daemon::metrics::TAG_KEY_STAT_ID;
-use g3_statsd_client::{StatsdClient, StatsdTagGroup};
+use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::metrics::NodeName;
 use vey_types::stats::StatId;
 

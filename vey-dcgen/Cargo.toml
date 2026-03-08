@@ -21,7 +21,7 @@ vey-std-ext.workspace = true
 vey-types.workspace = true
 vey-yaml = { workspace = true, features = ["histogram", "openssl"] }
 g3-daemon.workspace = true
-g3-statsd-client.workspace = true
+vey-statsd-client.workspace = true
 vey-histogram.workspace = true
 vey-tls-cert.workspace = true
 g3-cert-agent.workspace = true

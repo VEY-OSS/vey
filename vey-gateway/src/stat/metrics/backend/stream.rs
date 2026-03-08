@@ -6,8 +6,8 @@
 use std::sync::{Arc, Mutex};
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
-use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_histogram::HistogramStats;
+use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::stats::GlobalStatsMap;
 
 use super::BackendMetricExt;

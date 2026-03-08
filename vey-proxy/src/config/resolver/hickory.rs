@@ -9,8 +9,8 @@ use std::net::IpAddr;
 use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
-use g3_resolver::driver::hickory::HickoryDriverConfig;
-use g3_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
+use vey_resolver::driver::hickory::HickoryDriverConfig;
+use vey_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
 use vey_socket::BindAddr;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
@@ -27,9 +27,9 @@ pub(crate) struct HickoryResolverConfig {
     driver: HickoryDriverConfig,
 }
 
-impl From<&HickoryResolverConfig> for g3_resolver::ResolverConfig {
+impl From<&HickoryResolverConfig> for vey_resolver::ResolverConfig {
     fn from(c: &HickoryResolverConfig) -> Self {
-        g3_resolver::ResolverConfig {
+        vey_resolver::ResolverConfig {
             name: c.name.to_string(),
             runtime: c.runtime.clone(),
             driver: AnyResolveDriverConfig::Hickory(Box::new(c.driver.clone())),

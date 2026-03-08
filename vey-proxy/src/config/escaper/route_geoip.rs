@@ -10,8 +10,8 @@ use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
 use yaml_rust::{Yaml, yaml};
 
-use g3_ip_locate::IpLocateServiceConfig;
 use vey_geoip_types::{ContinentCode, IsoCountryCode};
+use vey_ip_locate::IpLocateServiceConfig;
 use vey_types::metrics::NodeName;
 use vey_types::resolve::ResolveStrategy;
 use vey_yaml::YamlDocPosition;

@@ -20,14 +20,14 @@ use crate::resolve::{
 
 pub(crate) struct CAresResolver {
     config: Arc<CAresResolverConfig>,
-    inner: g3_resolver::Resolver,
+    inner: vey_resolver::Resolver,
     stats: Arc<ResolverStats>,
     logger: Option<Logger>,
 }
 
 impl CAresResolver {
     pub(crate) fn new_obj(config: CAresResolverConfig) -> anyhow::Result<BoxResolverInternal> {
-        let mut builder = g3_resolver::ResolverBuilder::new((&config).into());
+        let mut builder = vey_resolver::ResolverBuilder::new((&config).into());
         builder.thread_name(format!("res-{}", config.name()));
         let resolver = builder.build()?;
 

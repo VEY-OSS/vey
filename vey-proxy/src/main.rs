@@ -136,7 +136,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         if let Some(stats) = g3_cert_agent::spawn_cert_generate_runtime().await {
             g3_daemon::runtime::metrics::add_tokio_stats(stats, "cert-generate".to_string());
         }
-        if let Some(stats) = g3_ip_locate::spawn_ip_locate_runtime().await {
+        if let Some(stats) = vey_ip_locate::spawn_ip_locate_runtime().await {
             g3_daemon::runtime::metrics::add_tokio_stats(stats, "ip-locate".to_string());
         }
 
@@ -152,7 +152,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         g3_io_ext::close_limit_schedule_runtime();
         g3_cert_agent::close_cert_generate_runtime();
-        g3_ip_locate::close_ip_locate_runtime();
+        vey_ip_locate::close_ip_locate_runtime();
         vey_proxy::control::capnp::stop_working_thread();
         let _ = ctl_thread_handler.join();
 

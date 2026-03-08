@@ -9,8 +9,8 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
-use g3_resolver::driver::c_ares::CAresDriverConfig;
-use g3_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
+use vey_resolver::driver::c_ares::CAresDriverConfig;
+use vey_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
 
@@ -26,9 +26,9 @@ pub(crate) struct CAresResolverConfig {
     driver: CAresDriverConfig,
 }
 
-impl From<&CAresResolverConfig> for g3_resolver::ResolverConfig {
+impl From<&CAresResolverConfig> for vey_resolver::ResolverConfig {
     fn from(c: &CAresResolverConfig) -> Self {
-        g3_resolver::ResolverConfig {
+        vey_resolver::ResolverConfig {
             name: c.name.to_string(),
             runtime: c.runtime.clone(),
             driver: AnyResolveDriverConfig::CAres(c.driver.clone()),

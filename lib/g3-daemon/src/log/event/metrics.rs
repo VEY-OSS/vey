@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use foldhash::fast::FixedState;
 
-use g3_statsd_client::{StatsdClient, StatsdTagGroup};
+use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::log::LogSnapshot;
 use vey_types::stats::StatId;
 

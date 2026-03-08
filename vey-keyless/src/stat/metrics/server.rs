@@ -7,8 +7,8 @@ use std::sync::{Arc, Mutex};
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metrics::{ServerMetricExt, TAG_KEY_QUANTILE, TAG_KEY_REQUEST};
-use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_histogram::HistogramStats;
+use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::stats::GlobalStatsMap;
 
 use crate::serve::{

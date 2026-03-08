@@ -11,11 +11,11 @@ use vey_types::stats::StatId;
 pub(crate) struct ResolverStats {
     id: StatId,
     name: NodeName,
-    inner: Arc<g3_resolver::ResolverStats>,
+    inner: Arc<vey_resolver::ResolverStats>,
 }
 
 impl ResolverStats {
-    pub(crate) fn new(name: &NodeName, inner: Arc<g3_resolver::ResolverStats>) -> Self {
+    pub(crate) fn new(name: &NodeName, inner: Arc<vey_resolver::ResolverStats>) -> Self {
         ResolverStats {
             id: StatId::new_unique(),
             name: name.clone(),
@@ -34,7 +34,7 @@ impl ResolverStats {
     }
 
     #[inline]
-    pub(crate) fn inner(&self) -> &Arc<g3_resolver::ResolverStats> {
+    pub(crate) fn inner(&self) -> &Arc<vey_resolver::ResolverStats> {
         &self.inner
     }
 }

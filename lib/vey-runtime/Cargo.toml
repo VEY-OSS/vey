@@ -1,5 +1,5 @@
 [package]
-name = "g3-runtime"
+name = "vey-runtime"
 version = "0.5.0"
 license.workspace = true
 edition.workspace = true

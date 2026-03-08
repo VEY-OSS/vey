@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use arcstr::ArcStr;
 
-use g3_resolver::{ResolveError, ResolvedRecordSource};
+use vey_resolver::{ResolveError, ResolvedRecordSource};
 use vey_types::metrics::NodeName;
 use vey_types::resolve::{QueryStrategy, ResolveRedirectionValue, ResolveStrategy};
 
@@ -45,7 +45,7 @@ pub(crate) trait IntegratedResolverHandle {
     fn query_v4(&self, domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError>;
     fn query_v6(&self, domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError>;
 
-    fn clone_inner(&self) -> Option<g3_resolver::ResolverHandle>;
+    fn clone_inner(&self) -> Option<vey_resolver::ResolverHandle>;
 }
 
 pub(crate) type ArcIntegratedResolverHandle = Arc<dyn IntegratedResolverHandle + Send + Sync>;

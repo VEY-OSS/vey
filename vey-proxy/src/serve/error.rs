@@ -20,9 +20,9 @@ use g3_io_ext::{
     IdleForceQuitReason, UdpCopyClientError, UdpCopyError, UdpCopyRemoteError, UdpRelayClientError,
     UdpRelayError, UdpRelayRemoteError,
 };
-use g3_resolver::ResolveError;
 use g3_socks::SocksRequestParseError;
 use vey_dpi::Protocol;
+use vey_resolver::ResolveError;
 use vey_types::net::ConnectError;
 
 use crate::inspect::InterceptionError;

@@ -14,10 +14,10 @@ tokio = { workspace = true, features = ["net", "io-util", "time", "signal", "mac
 yaml-rust.workspace = true
 vey-yaml.workspace = true
 g3-daemon.workspace = true
-g3-statsd-client.workspace = true
+vey-statsd-client.workspace = true
 vey-geoip-types.workspace = true
 vey-geoip-db.workspace = true
-g3-ip-locate.workspace = true
+vey-ip-locate.workspace = true
 vey-socket.workspace = true
 vey-types.workspace = true
 

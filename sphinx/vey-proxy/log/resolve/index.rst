@@ -72,7 +72,7 @@ error_type
 
 The main error type.
 
-See the definition of **ResolverError** in *lib/g3-resolver/src/error.rs*.
+See the definition of **ResolverError** in *lib/vey-resolver/src/error.rs*.
 
 error_subtype
 -------------
@@ -83,7 +83,7 @@ The minor error type.
 
 It's value is depends on the value of **error_type**.
 
-See the definition of **ResolverError** in *lib/g3-resolver/src/error.rs*.
+See the definition of **ResolverError** in *lib/vey-resolver/src/error.rs*.
 
 domain
 ------

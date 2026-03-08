@@ -7,7 +7,7 @@ use std::sync::Mutex;
 
 use tokio::runtime::RuntimeMetrics;
 
-use g3_statsd_client::{StatsdClient, StatsdTagGroup};
+use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::stats::StatId;
 
 use crate::metrics::TAG_KEY_STAT_ID;

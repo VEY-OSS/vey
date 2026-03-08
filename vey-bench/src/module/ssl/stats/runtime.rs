@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::time::Duration;
 
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
-use g3_statsd_client::StatsdClient;
+use vey_statsd_client::StatsdClient;
 
 use super::SslSessionStats;
 use crate::target::BenchRuntimeStats;

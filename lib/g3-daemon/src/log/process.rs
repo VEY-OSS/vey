@@ -30,7 +30,7 @@ pub fn setup(args: &DaemonArgs) {
         }
     } else if args.daemon_mode {
         let drain =
-            g3_syslog::SyslogBuilder::with_ident(args.process_name).start_async(&async_conf);
+            vey_syslog::SyslogBuilder::with_ident(args.process_name).start_async(&async_conf);
         Logger::root(drain.fuse(), slog::o!())
     } else {
         let drain = vey_stdlog::new_async_logger(&async_conf, true, false);

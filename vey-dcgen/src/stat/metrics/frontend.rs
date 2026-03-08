@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_statsd_client::StatsdClient;
+use vey_statsd_client::StatsdClient;
 
 use crate::FrontendStats;
 

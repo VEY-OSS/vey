@@ -13,7 +13,7 @@ use tokio::io::AsyncWrite;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_io_ext::LimitedWriteExt;
-use g3_resolver::{ResolveError, ResolveLocalError};
+use vey_resolver::{ResolveError, ResolveLocalError};
 use vey_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use vey_types::metrics::NodeName;
 use vey_types::net::{

@@ -9,7 +9,7 @@ use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metrics::{
     ServerMetricExt, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
-use g3_statsd_client::{StatsdClient, StatsdTagGroup};
+use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::stats::{GlobalStatsMap, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::serve::{ArcServerStats, ServerForbiddenSnapshot};

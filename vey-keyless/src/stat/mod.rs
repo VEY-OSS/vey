@@ -9,7 +9,7 @@ use std::time::Instant;
 
 use anyhow::{Context, anyhow};
 
-use g3_statsd_client::{StatsdClient, StatsdClientConfig};
+use vey_statsd_client::{StatsdClient, StatsdClientConfig};
 
 mod metrics;
 

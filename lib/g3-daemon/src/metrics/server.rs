@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_statsd_client::StatsdTagGroup;
+use vey_statsd_client::StatsdTagGroup;
 use vey_types::metrics::NodeName;
 use vey_types::stats::StatId;
 

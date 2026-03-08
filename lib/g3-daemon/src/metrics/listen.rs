@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_statsd_client::{StatsdClient, StatsdTagGroup};
+use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 
 use super::ServerMetricExt;
 use crate::listen::{ListenSnapshot, ListenStats};

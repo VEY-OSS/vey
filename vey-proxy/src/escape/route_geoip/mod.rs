@@ -15,9 +15,9 @@ use ip_network_table::IpNetworkTable;
 use rustc_hash::FxHashMap;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_ip_locate::IpLocationServiceHandle;
-use g3_resolver::ResolveError;
 use vey_geoip_types::{ContinentCode, IpLocation, IsoCountryCode};
+use vey_ip_locate::IpLocationServiceHandle;
+use vey_resolver::ResolveError;
 use vey_types::metrics::NodeName;
 use vey_types::net::{Host, UpstreamAddr};
 

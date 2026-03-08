@@ -8,8 +8,8 @@ use std::collections::BTreeSet;
 use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
-use g3_resolver::ResolverRuntimeConfig;
-use g3_resolver::driver::fail_over::FailOverDriverStaticConfig;
+use vey_resolver::ResolverRuntimeConfig;
+use vey_resolver::driver::fail_over::FailOverDriverStaticConfig;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
 

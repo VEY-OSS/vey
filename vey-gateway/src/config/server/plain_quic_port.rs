@@ -9,7 +9,7 @@ use anyhow::{Context, anyhow};
 use bitflags::bitflags;
 use yaml_rust::{Yaml, yaml};
 
-use g3_tls_ticket::TlsTicketConfig;
+use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::NodeName;
 use vey_types::net::{RustlsServerConfigBuilder, UdpListenConfig};

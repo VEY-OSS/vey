@@ -11,7 +11,7 @@ const METRIC_NAME_MESSAGE_PASS: &str = "logger.message.pass";
 const METRIC_NAME_TRAFFIC_PASS: &str = "logger.traffic.pass";
 const METRIC_NAME_MESSAGE_DROP: &str = "logger.message.drop";
 
-use g3_statsd_client::{StatsdClient, StatsdTagGroup};
+use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::log::{LogDropSnapshot, LogDropType, LogIoSnapshot};
 use vey_types::stats::StatId;
 

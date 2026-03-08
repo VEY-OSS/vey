@@ -6,7 +6,7 @@
 use anyhow::{Context, anyhow};
 use redis::AsyncCommands;
 
-use g3_redis_client::{RedisClientConfig, RedisClientConfigBuilder};
+use vey_redis_client::{RedisClientConfig, RedisClientConfigBuilder};
 
 use super::{RemoteDecryptKey, RemoteEncryptKey, RemoteKeys};
 

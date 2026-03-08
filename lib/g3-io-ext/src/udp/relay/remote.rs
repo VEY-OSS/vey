@@ -12,7 +12,7 @@ use slog::Logger;
 use thiserror::Error;
 
 #[cfg(feature = "resolver")]
-use g3_resolver::ResolveError;
+use vey_resolver::ResolveError;
 use vey_types::net::UpstreamAddr;
 
 use super::UdpRelayPacket;
