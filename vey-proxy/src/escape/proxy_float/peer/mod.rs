@@ -14,7 +14,7 @@ use rand::seq::IteratorRandom;
 use serde_json::Value;
 use tokio::time::Instant;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_types::net::{EgressInfo, TcpSockSpeedLimitConfig};
 
 use super::{ProxyFloatEscaper, ProxyFloatEscaperConfig, ProxyFloatEscaperStats};

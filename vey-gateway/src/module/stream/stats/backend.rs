@@ -107,7 +107,7 @@ impl StreamBackendDurationRecorder {
         config: &HistogramMetricsConfig,
     ) -> (StreamBackendDurationRecorder, StreamBackendDurationStats) {
         let (connect_r, connect_s) =
-            config.build_spawned(g3_daemon::runtime::main_handle().cloned());
+            config.build_spawned(vey_daemon::runtime::main_handle().cloned());
         let r = StreamBackendDurationRecorder { connect: connect_r };
         let s = StreamBackendDurationStats {
             name: name.clone(),

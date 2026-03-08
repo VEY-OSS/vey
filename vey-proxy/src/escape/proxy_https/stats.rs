@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_daemon::stat::remote::TcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::TcpConnectionTaskRemoteStats;
 use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::stats::{StatId, TcpIoSnapshot};

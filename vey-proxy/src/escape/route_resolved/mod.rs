@@ -11,7 +11,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use ip_network_table::IpNetworkTable;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_resolver::ResolveError;
 use vey_types::metrics::NodeName;
 use vey_types::net::{Host, UpstreamAddr};

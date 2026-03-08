@@ -15,7 +15,7 @@ macro_rules! impl_reload {
             position: Option<YamlDocPosition>,
         ) -> anyhow::Result<()> {
             let name = unsafe { NodeName::new_unchecked(name) };
-            g3_daemon::runtime::main_handle()
+            vey_daemon::runtime::main_handle()
                 .ok_or(anyhow!("unable to get main runtime handle"))?
                 .spawn(async move { crate::$m::reload(&name, position).await })
                 .await

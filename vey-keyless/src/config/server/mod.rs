@@ -100,7 +100,7 @@ impl KeyServerConfig {
                 Ok(())
             }
             "tls" | "tls_server" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let tls_server =
                     vey_yaml::value::as_openssl_tls_server_config_builder(v, Some(lookup_dir))
                         .context(format!("invalid server tls config value for key {k}"))?;
@@ -152,7 +152,7 @@ impl KeyServerConfig {
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
-    let parser = HybridParser::new(conf_dir, g3_daemon::opts::config_file_extension());
+    let parser = HybridParser::new(conf_dir, vey_daemon::opts::config_file_extension());
     parser.foreach_map(v, |map, position| {
         let server = KeyServerConfig::parse(map, position)?;
         registry::add(server, false)?;

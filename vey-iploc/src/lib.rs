@@ -24,13 +24,13 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
     let frontend_stats = Arc::new(FrontendStats::default());
     let (quit_sender, _) = broadcast::channel(1);
     let (wait_sender, mut wait_receiver) =
-        mpsc::channel(g3_daemon::runtime::worker::worker_count().max(1));
+        mpsc::channel(vey_daemon::runtime::worker::worker_count().max(1));
 
-    if let Some(stats_config) = g3_daemon::stat::config::get_global_stat_config() {
+    if let Some(stats_config) = vey_daemon::stat::config::get_global_stat_config() {
         stat::spawn_working_thread(stats_config, frontend_stats.clone())?;
     }
 
-    let workers = g3_daemon::runtime::worker::foreach(|h| {
+    let workers = vey_daemon::runtime::worker::foreach(|h| {
         let frontend = Frontend::new(proc_args.listen_config(), frontend_stats.clone())?;
         let quit_receiver = quit_sender.subscribe();
         let wait_sender = wait_sender.clone();

@@ -8,7 +8,7 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_daemon::server::ServerQuitPolicy;
+use vey_daemon::server::ServerQuitPolicy;
 use vey_io_ext::{IdleInterval, OptionalInterval, StreamCopy, StreamCopyConfig, StreamCopyError};
 
 use crate::serve::{ServerTaskError, ServerTaskResult};

@@ -8,7 +8,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use tokio::io::AsyncWriteExt;
 
-use g3_daemon::server::ServerQuitPolicy;
+use vey_daemon::server::ServerQuitPolicy;
 use vey_dpi::ProtocolInspectAction;
 use vey_io_ext::{IdleInterval, LimitedWriteExt, StreamCopyConfig};
 use vey_slog_types::{LtHttpHeaderValue, LtUpstreamAddr, LtUuid};

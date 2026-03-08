@@ -5,7 +5,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use g3_daemon::metrics::TAG_KEY_QUANTILE;
+use vey_daemon::metrics::TAG_KEY_QUANTILE;
 use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::stats::GlobalStatsMap;
 
@@ -64,7 +64,7 @@ pub(crate) fn push_keyless_duration_stats(stats: Arc<KeylessUpstreamDurationStat
 }
 
 pub(super) fn sync_stats() {
-    use g3_daemon::metrics::helper::move_ht;
+    use vey_daemon::metrics::helper::move_ht;
 
     move_ht(&STORE_KEYLESS_STATS_MAP, &KEYLESS_STATS_MAP);
     move_ht(

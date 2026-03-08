@@ -7,12 +7,12 @@ use std::sync::Arc;
 
 use slog::Logger;
 
-use g3_icap_client::reqmod::IcapReqmodClient;
-use g3_icap_client::respmod::IcapRespmodClient;
 use vey_dpi::{
     H1InterceptionConfig, H2InterceptionConfig, ImapInterceptionConfig, ProtocolInspectPolicy,
     ProtocolInspectionConfig, ProtocolPortMap, SmtpInterceptionConfig,
 };
+use vey_icap_client::reqmod::IcapReqmodClient;
+use vey_icap_client::respmod::IcapRespmodClient;
 
 use super::Auditor;
 #[cfg(feature = "quic")]

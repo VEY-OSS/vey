@@ -14,7 +14,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore, broadcast};
 use tokio::time::Instant;
 use uuid::Uuid;
 
-use g3_daemon::server::ClientConnectionInfo;
+use vey_daemon::server::ClientConnectionInfo;
 use vey_histogram::HistogramRecorder;
 use vey_slog_types::{LtDateTime, LtUuid};
 use vey_std_ext::time::DurationExt;
@@ -178,7 +178,7 @@ impl KeylessTask {
         let alive_guard = ctx.server_stats.add_task();
         let started = Utc::now();
         KeylessTask {
-            id: g3_daemon::server::task::generate_uuid(&started),
+            id: vey_daemon::server::task::generate_uuid(&started),
             ctx,
             started,
             buf: Vec::with_capacity(crate::protocol::MESSAGE_PADDED_LENGTH + 2),

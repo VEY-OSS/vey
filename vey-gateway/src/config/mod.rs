@@ -16,7 +16,7 @@ pub(crate) mod server;
 
 pub fn load() -> anyhow::Result<&'static Path> {
     let config_file =
-        g3_daemon::opts::config_file().ok_or_else(|| anyhow!("no config file set"))?;
+        vey_daemon::opts::config_file().ok_or_else(|| anyhow!("no config file set"))?;
 
     // allow multiple docs, and treat them as the same
     vey_yaml::foreach_doc(config_file, |_, doc| match doc {
@@ -41,7 +41,7 @@ pub(crate) async fn reload() -> anyhow::Result<()> {
 
 fn reload_blocking() -> anyhow::Result<()> {
     clear_all();
-    if let Some(conf_file) = g3_daemon::opts::config_file() {
+    if let Some(conf_file) = vey_daemon::opts::config_file() {
         // allow multiple docs, and treat them as the same
         vey_yaml::foreach_doc(conf_file, |_, doc| match doc {
             Yaml::Hash(map) => reload_doc(map),
@@ -52,8 +52,8 @@ fn reload_blocking() -> anyhow::Result<()> {
 }
 
 fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
-    let conf_dir =
-        g3_daemon::opts::config_dir().ok_or_else(|| anyhow!("no valid config dir has been set"))?;
+    let conf_dir = vey_daemon::opts::config_dir()
+        .ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
         "runtime" | "worker" | "log" | "stat" | "controller" => Ok(()),
         "server" => server::load_all(v, conf_dir),
@@ -65,14 +65,14 @@ fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
 }
 
 fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
-    let conf_dir =
-        g3_daemon::opts::config_dir().ok_or_else(|| anyhow!("no valid config dir has been set"))?;
+    let conf_dir = vey_daemon::opts::config_dir()
+        .ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
-        "runtime" => g3_daemon::runtime::config::load(v),
-        "worker" => g3_daemon::runtime::config::load_worker(v),
+        "runtime" => vey_daemon::runtime::config::load(v),
+        "worker" => vey_daemon::runtime::config::load_worker(v),
         "log" => log::load(v, conf_dir),
-        "stat" => g3_daemon::stat::config::load(v, crate::build::PKG_NAME),
-        "controller" => g3_daemon::control::config::load(v),
+        "stat" => vey_daemon::stat::config::load(v, crate::build::PKG_NAME),
+        "controller" => vey_daemon::control::config::load(v),
         "server" => server::load_all(v, conf_dir),
         "discover" => discover::load_all(v, conf_dir),
         "backend" => backend::load_all(v, conf_dir),

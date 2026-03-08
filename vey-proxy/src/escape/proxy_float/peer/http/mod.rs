@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 use tokio::time::Instant;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_types::auth::{Password, Username};
 use vey_types::net::{EgressInfo, TcpSockSpeedLimitConfig};
 

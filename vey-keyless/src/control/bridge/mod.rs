@@ -30,7 +30,7 @@ where
     T: Send + 'static,
     F: Future<Output = anyhow::Result<T>> + Send + 'static,
 {
-    g3_daemon::runtime::main_handle()
+    vey_daemon::runtime::main_handle()
         .ok_or(anyhow!("unable to get main runtime handle"))?
         .spawn(future)
         .await

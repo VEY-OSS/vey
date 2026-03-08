@@ -13,17 +13,17 @@ use http::header;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_icap_client::reqmod::IcapReqmodClient;
-use g3_icap_client::reqmod::h1::{
-    HttpAdapterErrorResponse, HttpRequestAdapter, ReqmodAdaptationEndState,
-    ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
-};
-use g3_icap_client::respmod::h1::{
-    HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
-};
 use vey_http::client::HttpTransparentResponse;
 use vey_http::server::HttpTransparentRequest;
 use vey_http::{HttpBodyReader, HttpBodyType};
+use vey_icap_client::reqmod::IcapReqmodClient;
+use vey_icap_client::reqmod::h1::{
+    HttpAdapterErrorResponse, HttpRequestAdapter, ReqmodAdaptationEndState,
+    ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
+};
+use vey_icap_client::respmod::h1::{
+    HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
+};
 use vey_io_ext::{LimitedBufReadExt, LimitedWriteExt, StreamCopy, StreamCopyError};
 use vey_slog_types::{LtDateTime, LtDuration, LtHttpHeaderValue, LtHttpMethod, LtHttpUri, LtUuid};
 use vey_types::net::HttpHeaderMap;

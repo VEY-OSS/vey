@@ -68,7 +68,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
 
     let (duration_recorder, duration_stats) = backend_config.duration_stats.build_spawned(None);
 
-    let workers = g3_daemon::runtime::worker::foreach(|h| {
+    let workers = vey_daemon::runtime::worker::foreach(|h| {
         let backend = OpensslBackend::new(&backend_config, &backend_stats)
             .context(format!("failed to build backend for worker {}", h.id))?;
         backend.spawn(&h.handle, h.id, req_receiver.clone(), rsp_sender.clone());
@@ -84,7 +84,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
 
     let frontend = Frontend::new(proc_args.listen_config(), duration_recorder, rsp_receiver)?;
 
-    if let Some(stats_config) = g3_daemon::stat::config::get_global_stat_config() {
+    if let Some(stats_config) = vey_daemon::stat::config::get_global_stat_config() {
         stat::spawn_working_thread(
             stats_config,
             backend_stats,

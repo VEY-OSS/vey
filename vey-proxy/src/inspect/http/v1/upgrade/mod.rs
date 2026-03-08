@@ -12,15 +12,15 @@ use http::{StatusCode, Version};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_icap_client::reqmod::IcapReqmodClient;
-use g3_icap_client::reqmod::h1::{
-    H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
-    ReqmodAdaptationMidState, ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
-};
 use vey_dpi::Protocol;
 use vey_http::client::HttpTransparentResponse;
 use vey_http::server::{HttpTransparentRequest, UriExt};
 use vey_http::{HttpBodyReader, HttpBodyType};
+use vey_icap_client::reqmod::IcapReqmodClient;
+use vey_icap_client::reqmod::h1::{
+    H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
+    ReqmodAdaptationMidState, ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
+};
 use vey_io_ext::{LimitedWriteExt, OnceBufReader, StreamCopy, StreamCopyError};
 use vey_slog_types::{LtDateTime, LtDuration, LtHttpUri, LtUpstreamAddr, LtUuid};
 use vey_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};

@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamHalfConnectionStats};
+use vey_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamHalfConnectionStats};
 
 use crate::module::ftp_over_http::{FtpTaskRemoteControlStats, FtpTaskRemoteTransferStats};
 

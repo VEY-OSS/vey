@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
 use crate::auth::UserUpstreamTrafficStats;

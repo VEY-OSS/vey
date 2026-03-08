@@ -14,7 +14,7 @@ use fnv::FnvHashMap;
 use ip_network_table::IpNetworkTable;
 use rustc_hash::FxHashMap;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_geoip_types::{ContinentCode, IpLocation, IsoCountryCode};
 use vey_ip_locate::IpLocationServiceHandle;
 use vey_resolver::ResolveError;

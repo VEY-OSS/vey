@@ -212,21 +212,21 @@ impl HttpProxyServerConfig {
                 Ok(())
             }
             "tls" | "tls_server" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let builder = vey_yaml::value::as_rustls_server_config_builder(v, Some(lookup_dir))
                     .context(format!("invalid server tls config value for key {k}"))?;
                 self.server_tls_config = Some(builder);
                 Ok(())
             }
             "tls_ticketer" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
                     .context(format!("invalid tls ticket config value for key {k}"))?;
                 self.tls_ticketer = Some(ticketer);
                 Ok(())
             }
             "tls_client" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.client_tls_config =
                     vey_yaml::value::as_to_many_openssl_tls_client_config_builder(
                         v,

@@ -6,7 +6,7 @@
 use anyhow::Context;
 use log::{debug, error, info};
 
-use g3_daemon::control::{QuitAction, UpgradeAction};
+use vey_daemon::control::{QuitAction, UpgradeAction};
 
 use vey_proxy::opts::ProcArgs;
 
@@ -39,7 +39,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     // set up process logger early, only proc args is used inside
-    g3_daemon::log::process::setup(&proc_args.daemon_config);
+    vey_daemon::log::process::setup(&proc_args.daemon_config);
     if proc_args.daemon_config.need_daemon_controller() {
         vey_proxy::control::UpgradeActor::connect_to_old_daemon();
     }
@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
     let config_file = match vey_proxy::config::load() {
         Ok(c) => c,
         Err(e) => {
-            g3_daemon::control::upgrade::cancel_old_shutdown();
+            vey_daemon::control::upgrade::cancel_old_shutdown();
             return Err(e.context(format!("failed to load config, opts: {:?}", &proc_args)));
         }
     };
@@ -75,9 +75,9 @@ fn main() -> anyhow::Result<()> {
 
     // enter daemon mode after config loaded
     #[cfg(unix)]
-    g3_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
+    vey_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
-    let stat_join = if let Some(stat_config) = g3_daemon::stat::config::get_global_stat_config() {
+    let stat_join = if let Some(stat_config) = vey_daemon::stat::config::get_global_stat_config() {
         Some(
             vey_proxy::stat::spawn_working_threads(stat_config)
                 .context("failed to start stat thread")?,
@@ -87,7 +87,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     let _workers_guard =
-        g3_daemon::runtime::worker::spawn_workers().context("failed to spawn workers")?;
+        vey_daemon::runtime::worker::spawn_workers().context("failed to spawn workers")?;
     let ret = tokio_run(&proc_args);
 
     if let Some(handlers) = stat_join {
@@ -107,18 +107,18 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
-    let rt = g3_daemon::runtime::config::get_runtime_config()
+    let rt = vey_daemon::runtime::config::get_runtime_config()
         .start()
         .context("failed to start runtime")?;
     rt.block_on(async {
-        g3_daemon::runtime::set_main_handle();
+        vey_daemon::runtime::set_main_handle();
 
         let ctl_thread_handler = vey_proxy::control::capnp::spawn_working_thread().await?;
 
         let unique_ctl = vey_proxy::control::UniqueController::start()
             .context("failed to start unique controller")?;
         if args.daemon_config.need_daemon_controller() {
-            g3_daemon::control::upgrade::release_old_controller().await;
+            vey_daemon::control::upgrade::release_old_controller().await;
             let daemon_ctl = vey_proxy::control::DaemonController::start()
                 .context("failed to start daemon controller")?;
             tokio::spawn(async move {
@@ -128,22 +128,22 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         vey_proxy::control::QuitActor::tokio_spawn_run();
 
         vey_proxy::signal::register().context("failed to setup signal handler")?;
-        g3_daemon::control::panic::set_hook(&args.daemon_config);
+        vey_daemon::control::panic::set_hook(&args.daemon_config);
 
         if let Some(stats) = vey_io_ext::spawn_limit_schedule_runtime().await {
-            g3_daemon::runtime::metrics::add_tokio_stats(stats, "limit-schedule".to_string());
+            vey_daemon::runtime::metrics::add_tokio_stats(stats, "limit-schedule".to_string());
         }
         if let Some(stats) = vey_cert_agent::spawn_cert_generate_runtime().await {
-            g3_daemon::runtime::metrics::add_tokio_stats(stats, "cert-generate".to_string());
+            vey_daemon::runtime::metrics::add_tokio_stats(stats, "cert-generate".to_string());
         }
         if let Some(stats) = vey_ip_locate::spawn_ip_locate_runtime().await {
-            g3_daemon::runtime::metrics::add_tokio_stats(stats, "ip-locate".to_string());
+            vey_daemon::runtime::metrics::add_tokio_stats(stats, "ip-locate".to_string());
         }
 
         match load_and_spawn().await {
-            Ok(_) => g3_daemon::control::upgrade::finish(),
+            Ok(_) => vey_daemon::control::upgrade::finish(),
             Err(e) => {
-                g3_daemon::control::upgrade::cancel_old_shutdown();
+                vey_daemon::control::upgrade::cancel_old_shutdown();
                 return Err(e);
             }
         }

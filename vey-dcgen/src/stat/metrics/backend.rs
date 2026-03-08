@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_daemon::metrics::TAG_KEY_QUANTILE;
+use vey_daemon::metrics::TAG_KEY_QUANTILE;
 use vey_histogram::HistogramStats;
 use vey_statsd_client::StatsdClient;
 

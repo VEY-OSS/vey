@@ -10,7 +10,7 @@ use h2::client::SendRequest;
 use http::Request;
 use tokio::io::AsyncWriteExt;
 
-use g3_h2::RequestExt;
+use vey_h2::RequestExt;
 use vey_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{

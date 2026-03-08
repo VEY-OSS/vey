@@ -5,7 +5,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use g3_daemon::metrics::{
+use vey_daemon::metrics::{
     TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
 use vey_statsd_client::{StatsdClient, StatsdTagGroup};

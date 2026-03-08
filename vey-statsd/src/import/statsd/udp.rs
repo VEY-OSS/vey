@@ -15,9 +15,9 @@ use tokio::net::unix::SocketAddr as UnixSocketAddr;
 use tokio::sync::broadcast;
 
 #[cfg(unix)]
-use g3_daemon::listen::ReceiveUnixDatagramServer;
-use g3_daemon::listen::{ReceiveUdpRuntime, ReceiveUdpServer};
-use g3_daemon::server::{BaseServer, ServerReloadCommand};
+use vey_daemon::listen::ReceiveUnixDatagramServer;
+use vey_daemon::listen::{ReceiveUdpRuntime, ReceiveUdpServer};
+use vey_daemon::server::{BaseServer, ServerReloadCommand};
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;
 

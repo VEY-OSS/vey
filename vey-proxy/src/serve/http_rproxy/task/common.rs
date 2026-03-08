@@ -10,7 +10,7 @@ use std::time::Duration;
 use slog::Logger;
 use tokio::time::Instant;
 
-use g3_daemon::server::ClientConnectionInfo;
+use vey_daemon::server::ClientConnectionInfo;
 use vey_io_ext::{IdleWheel, OptionalInterval};
 
 use super::{HttpRProxyServerConfig, HttpRProxyServerStats};

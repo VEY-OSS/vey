@@ -11,7 +11,7 @@ use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpStream, UdpSocket};
 
-use g3_daemon::stat::remote::{
+use vey_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
 use vey_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};

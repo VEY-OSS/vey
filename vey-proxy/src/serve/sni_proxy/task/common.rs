@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use slog::Logger;
 
-use g3_daemon::server::ClientConnectionInfo;
+use vey_daemon::server::ClientConnectionInfo;
 use vey_dpi::ProtocolPortMap;
 use vey_io_ext::IdleWheel;
 

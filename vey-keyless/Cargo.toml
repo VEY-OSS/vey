@@ -30,7 +30,7 @@ futures-util.workspace = true
 arc-swap.workspace = true
 serde_json.workspace = true
 vey-codec.workspace = true
-g3-daemon = { workspace = true, features = ["register", "event-log"] }
+vey-daemon = { workspace = true, features = ["register", "event-log"] }
 vey-macros.workspace = true
 vey-yaml = { workspace = true, features = ["histogram"] }
 vey-std-ext.workspace = true
@@ -58,4 +58,4 @@ vendored-tongsuo = ["openssl/tongsuo", "openssl-probe"]
 vendored-boringssl = ["openssl/boringssl", "openssl-probe"]
 vendored-aws-lc = ["openssl/aws-lc", "openssl-probe"]
 vendored-aws-lc-fips = ["openssl/aws-lc-fips", "openssl-probe"]
-openssl-async-job = ["vey-openssl/async-job", "g3-daemon/openssl-async-job"]
+openssl-async-job = ["vey-openssl/async-job", "vey-daemon/openssl-async-job"]

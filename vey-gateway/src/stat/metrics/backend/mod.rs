@@ -3,7 +3,7 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use g3_daemon::metrics::TAG_KEY_STAT_ID;
+use vey_daemon::metrics::TAG_KEY_STAT_ID;
 use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::metrics::NodeName;
 use vey_types::stats::StatId;

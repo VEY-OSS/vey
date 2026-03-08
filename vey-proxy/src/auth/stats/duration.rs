@@ -30,7 +30,7 @@ impl UserSiteDurationRecorder {
         config: &HistogramMetricsConfig,
     ) -> (Self, Arc<UserSiteDurationStats>) {
         let (task_ready_r, task_ready_s) =
-            config.build_spawned(g3_daemon::runtime::main_handle().cloned());
+            config.build_spawned(vey_daemon::runtime::main_handle().cloned());
 
         let stats = UserSiteDurationStats {
             id: StatId::new_unique(),

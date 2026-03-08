@@ -33,7 +33,7 @@ pub(super) fn retain_offline() {
             if !quit_policy.force_quit_scheduled() {
                 quit_policy.set_force_quit_scheduled();
                 tokio::spawn(async move {
-                    let wait_time = g3_daemon::runtime::config::get_task_wait_timeout();
+                    let wait_time = vey_daemon::runtime::config::get_task_wait_timeout();
                     tokio::time::sleep(wait_time).await;
                     quit_policy.set_force_quit();
                 });

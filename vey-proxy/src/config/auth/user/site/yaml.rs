@@ -76,7 +76,7 @@ impl UserSiteConfig {
                 Ok(())
             }
             "tls_client" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(position)?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(position)?;
                 let builder = vey_yaml::value::as_to_many_openssl_tls_client_config_builder(
                     v,
                     Some(lookup_dir),

@@ -8,8 +8,8 @@ use std::sync::{Arc, Mutex};
 
 use foldhash::fast::FixedState;
 
-use g3_daemon::listen::{ListenSnapshot, ListenStats};
-use g3_daemon::metrics::{
+use vey_daemon::listen::{ListenSnapshot, ListenStats};
+use vey_daemon::metrics::{
     ServerMetricExt, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
 use vey_statsd_client::{StatsdClient, StatsdTagGroup};
@@ -75,7 +75,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
 
     let mut listen_stats_map = LISTEN_STATS_MAP.lock().unwrap();
     listen_stats_map.retain(|_, (stats, snap)| {
-        g3_daemon::metrics::emit_listen_stats(client, stats, snap);
+        vey_daemon::metrics::emit_listen_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
     });

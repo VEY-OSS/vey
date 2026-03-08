@@ -9,7 +9,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use tokio::sync::oneshot;
 
-use g3_daemon::server::ServerQuitPolicy;
+use vey_daemon::server::ServerQuitPolicy;
 use vey_dpi::Protocol;
 use vey_io_ext::IdleWheel;
 use vey_types::net::UpstreamAddr;

@@ -10,7 +10,9 @@ use h2::RecvStream;
 use h2::client::SendRequest;
 use http::Request;
 
-use g3_h2::{H2PreviewData, H2StreamToChunkedTransfer, H2StreamToChunkedTransferError, RequestExt};
+use vey_h2::{
+    H2PreviewData, H2StreamToChunkedTransfer, H2StreamToChunkedTransferError, RequestExt,
+};
 use vey_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{

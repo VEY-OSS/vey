@@ -15,8 +15,8 @@ use slog::Logger;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
-use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use vey_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
+use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use vey_io_ext::IdleWheel;
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;

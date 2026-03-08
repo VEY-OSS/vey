@@ -10,9 +10,9 @@ use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_icap_client::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
-use g3_icap_client::reqmod::smtp::SmtpMessageAdapter;
 use vey_dpi::SmtpInterceptionConfig;
+use vey_icap_client::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
+use vey_icap_client::reqmod::smtp::SmtpMessageAdapter;
 use vey_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
 use vey_slog_types::LtUuid;
 use vey_smtp_proto::command::{Command, MailParam, RecipientParam};

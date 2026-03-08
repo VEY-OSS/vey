@@ -13,9 +13,9 @@ use h2::{Reason, server::Connection};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::oneshot;
 
-use g3_daemon::server::ServerQuitPolicy;
-use g3_h2::H2BodyTransfer;
+use vey_daemon::server::ServerQuitPolicy;
 use vey_dpi::{Protocol, ProtocolInspectAction};
+use vey_h2::H2BodyTransfer;
 use vey_io_ext::{IdleInterval, OnceBufReader, StreamCopyConfig};
 use vey_slog_types::{LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;

@@ -27,7 +27,7 @@ impl proc_control::Server for ProcControlImpl {
         _params: proc_control::OfflineParams,
         mut results: proc_control::OfflineResults,
     ) -> capnp::Result<()> {
-        g3_daemon::control::quit::start_graceful_shutdown().await;
+        vey_daemon::control::quit::start_graceful_shutdown().await;
         set_operation_result(results.get().init_result(), Ok(()));
         Ok(())
     }
@@ -37,7 +37,7 @@ impl proc_control::Server for ProcControlImpl {
         _params: proc_control::CancelShutdownParams,
         mut results: proc_control::CancelShutdownResults,
     ) -> capnp::Result<()> {
-        let r = g3_daemon::control::quit::cancel_graceful_shutdown().await;
+        let r = vey_daemon::control::quit::cancel_graceful_shutdown().await;
         set_operation_result(results.get().init_result(), r);
         Ok(())
     }
@@ -47,7 +47,7 @@ impl proc_control::Server for ProcControlImpl {
         _params: proc_control::ReleaseControllerParams,
         mut results: proc_control::ReleaseControllerResults,
     ) -> capnp::Result<()> {
-        let r = g3_daemon::control::quit::release_controller().await;
+        let r = vey_daemon::control::quit::release_controller().await;
         set_operation_result(results.get().init_result(), r);
         Ok(())
     }

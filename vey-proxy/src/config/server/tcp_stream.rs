@@ -150,7 +150,7 @@ impl TcpStreamServerConfig {
                             Some(OpensslClientConfigBuilder::with_cache_for_one_site());
                     }
                 } else {
-                    let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                    let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                     let builder = vey_yaml::value::as_to_one_openssl_tls_client_config_builder(
                         v,
                         Some(lookup_dir),

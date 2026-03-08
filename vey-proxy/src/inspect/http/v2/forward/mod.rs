@@ -14,12 +14,12 @@ use h2::{Reason, RecvStream, StreamId};
 use http::{Method, Request, Response, StatusCode, Uri, Version};
 use tokio::time::Instant;
 
-use g3_h2::{H2StreamBodyTransferError, H2StreamFromChunkedTransferError, RequestExt};
-use g3_icap_client::reqmod::h2::{
+use vey_h2::{H2StreamBodyTransferError, H2StreamFromChunkedTransferError, RequestExt};
+use vey_icap_client::reqmod::h2::{
     H2RequestAdapter, HttpAdapterErrorResponse, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
 };
-use g3_icap_client::respmod::h2::{
+use vey_icap_client::respmod::h2::{
     H2ResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
 use vey_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtHttpMethod, LtHttpUri, LtUuid};

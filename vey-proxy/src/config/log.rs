@@ -8,7 +8,7 @@ use std::path::Path;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_daemon::log::{LogConfig, LogConfigContainer};
+use vey_daemon::log::{LogConfig, LogConfigContainer};
 use vey_types::sync::GlobalInit;
 
 static RESOLVE_DEFAULT_LOG_CONFIG_CONTAINER: GlobalInit<LogConfigContainer> =

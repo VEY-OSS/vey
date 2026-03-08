@@ -12,7 +12,7 @@ use clap::builder::ArgPredicate;
 use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
 use clap_complete::Shell;
 
-use g3_daemon::opts::{DaemonArgs, DaemonArgsExt};
+use vey_daemon::opts::{DaemonArgs, DaemonArgsExt};
 
 const ARGS_COMPLETION: &str = "completion";
 const ARGS_VERSION: &str = "version";
@@ -98,7 +98,7 @@ fn build_cli_args() -> Command {
                 .value_name("CONTROL DIR")
                 .value_hint(ValueHint::DirPath)
                 .value_parser(value_parser!(PathBuf))
-                .default_value(g3_daemon::opts::DEFAULT_CONTROL_DIR)
+                .default_value(vey_daemon::opts::DEFAULT_CONTROL_DIR)
                 .default_value_if(ARGS_COMPLETION, ArgPredicate::IsPresent, None)
                 .short('C')
                 .long("control-dir"),
@@ -148,7 +148,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         }
     }
     if let Some(config_file) = args.get_one::<PathBuf>(ARGS_CONFIG_FILE) {
-        g3_daemon::opts::validate_and_set_config_file(config_file, crate::build::PKG_NAME)
+        vey_daemon::opts::validate_and_set_config_file(config_file, crate::build::PKG_NAME)
             .context(format!(
                 "failed to load config file {}",
                 config_file.display()
@@ -158,7 +158,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     }
     #[cfg(unix)]
     if let Some(control_dir) = args.get_one::<PathBuf>(ARGS_CONTROL_DIR) {
-        g3_daemon::opts::validate_and_set_control_dir(control_dir)
+        vey_daemon::opts::validate_and_set_control_dir(control_dir)
             .context(format!("invalid control dir: {}", control_dir.display()))?;
     }
     if let Some(group_name) = args.get_one::<String>(ARGS_GROUP_NAME) {

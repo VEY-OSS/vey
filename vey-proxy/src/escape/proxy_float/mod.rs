@@ -12,7 +12,7 @@ use log::warn;
 use slog::Logger;
 use tokio::sync::mpsc;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_types::metrics::NodeName;
 use vey_types::net::{OpensslClientConfig, UpstreamAddr};
 

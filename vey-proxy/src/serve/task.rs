@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use tokio::time::Instant;
 use uuid::Uuid;
 
-use g3_daemon::server::ClientConnectionInfo;
+use vey_daemon::server::ClientConnectionInfo;
 use vey_types::limit::GaugeSemaphorePermit;
 use vey_types::metrics::NodeName;
 
@@ -78,7 +78,7 @@ impl ServerTaskNotes {
         egress_path_selection: Option<EgressPathSelection>,
     ) -> Self {
         let started = Utc::now();
-        let uuid = g3_daemon::server::task::generate_uuid(&started);
+        let uuid = vey_daemon::server::task::generate_uuid(&started);
         ServerTaskNotes {
             cc_info,
             stage: ServerTaskStage::Created,

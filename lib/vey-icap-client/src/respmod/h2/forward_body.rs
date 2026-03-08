@@ -9,7 +9,7 @@ use bytes::BufMut;
 use h2::RecvStream;
 use http::{Request, Response};
 
-use g3_h2::{
+use vey_h2::{
     H2PreviewData, H2StreamToChunkedTransfer, H2StreamToChunkedTransferError, RequestExt,
     ResponseExt,
 };

@@ -20,7 +20,7 @@ yaml-rust.workspace = true
 vey-std-ext.workspace = true
 vey-types.workspace = true
 vey-yaml = { workspace = true, features = ["histogram", "openssl"] }
-g3-daemon.workspace = true
+vey-daemon.workspace = true
 vey-statsd-client.workspace = true
 vey-histogram.workspace = true
 vey-tls-cert.workspace = true

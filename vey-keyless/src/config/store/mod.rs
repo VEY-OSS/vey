@@ -39,7 +39,7 @@ pub enum AnyKeyStoreConfig {
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
-    let parser = HybridParser::new(conf_dir, g3_daemon::opts::config_file_extension());
+    let parser = HybridParser::new(conf_dir, vey_daemon::opts::config_file_extension());
     parser.foreach_map(v, |map, position| {
         let store = load_store(map, position)?;
         if let Some(old_store) = registry::add(store) {

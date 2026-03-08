@@ -9,7 +9,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use slog::Logger;
 
-use g3_daemon::server::ClientConnectionInfo;
+use vey_daemon::server::ClientConnectionInfo;
 use vey_io_ext::IdleWheel;
 
 use crate::backend::ArcBackend;

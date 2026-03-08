@@ -93,7 +93,7 @@ impl ProxyFloatRedisSource {
                 Ok(())
             }
             _ => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(position)?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(position)?;
                 self.client_builder.set_by_yaml_kv(k, v, Some(lookup_dir))
             }
         }

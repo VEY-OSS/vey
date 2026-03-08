@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use foldhash::{HashMap, HashMapExt};
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use vey_types::metrics::NodeName;
 use vey_types::net::UpstreamAddr;

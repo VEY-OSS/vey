@@ -9,7 +9,7 @@ use std::time::Duration;
 use log::{info, warn};
 use serde_json::{Map, Value};
 
-use g3_daemon::register::{RegisterConfig, RegisterTask};
+use vey_daemon::register::{RegisterConfig, RegisterTask};
 
 pub async fn startup(config: Arc<RegisterConfig>, ctl_socket_path: String) -> anyhow::Result<()> {
     let mut data = serde_json::Map::new();

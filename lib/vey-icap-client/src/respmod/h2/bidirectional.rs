@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use http::Response;
 
-use g3_h2::{
+use vey_h2::{
     H2StreamFromChunkedTransfer, H2StreamFromChunkedTransferError, H2StreamToChunkedTransfer,
     H2StreamToChunkedTransferError, ResponseExt,
 };

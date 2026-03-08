@@ -5,7 +5,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use g3_daemon::metrics::TAG_KEY_QUANTILE;
+use vey_daemon::metrics::TAG_KEY_QUANTILE;
 use vey_histogram::HistogramStats;
 use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::stats::GlobalStatsMap;
@@ -48,7 +48,7 @@ pub(crate) fn push_stream_duration_stats(stats: Arc<StreamBackendDurationStats>)
 }
 
 pub(super) fn sync_stats() {
-    use g3_daemon::metrics::helper::move_ht;
+    use vey_daemon::metrics::helper::move_ht;
 
     move_ht(&STORE_STREAM_STATS_MAP, &STREAM_STATS_MAP);
     move_ht(&STORE_STREAM_DURATION_STATS_MAP, &STREAM_DURATION_STATS_MAP);

@@ -13,10 +13,10 @@ use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, watch};
 
-use g3_daemon::listen::{
+use vey_daemon::listen::{
     AcceptQuicServer, AcceptTcpServer, ListenQuicConf, ListenQuicRuntime, ListenStats,
 };
-use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use vey_types::acl::AclNetworkRule;
 use vey_types::metrics::NodeName;
 use vey_types::net::{OpensslTicketKey, RollingTicketer, UdpListenConfig};

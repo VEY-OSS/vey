@@ -7,7 +7,7 @@ use std::pin::pin;
 
 use anyhow::anyhow;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 
 use super::RouteFailoverEscaper;
 use crate::audit::AuditContext;

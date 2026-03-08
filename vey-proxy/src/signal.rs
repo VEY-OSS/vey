@@ -6,7 +6,7 @@
 use log::{error, info, warn};
 use tokio::sync::Mutex;
 
-use g3_daemon::signal::AsyncSignalAction;
+use vey_daemon::signal::AsyncSignalAction;
 
 static RELOAD_MUTEX: Mutex<()> = Mutex::const_new(());
 
@@ -43,7 +43,7 @@ struct QuitAction {}
 
 impl AsyncSignalAction for QuitAction {
     async fn run(&self) {
-        g3_daemon::control::quit::trigger_force_shutdown();
+        vey_daemon::control::quit::trigger_force_shutdown();
     }
 }
 
@@ -53,7 +53,7 @@ struct OfflineAction {}
 
 impl AsyncSignalAction for OfflineAction {
     async fn run(&self) {
-        g3_daemon::control::quit::start_graceful_shutdown().await
+        vey_daemon::control::quit::start_graceful_shutdown().await
     }
 }
 
@@ -69,8 +69,8 @@ impl AsyncSignalAction for ReloadAction {
 
 pub fn register() -> anyhow::Result<()> {
     #[cfg(unix)]
-    g3_daemon::signal::register_reload(ReloadAction {})?;
+    vey_daemon::signal::register_reload(ReloadAction {})?;
     #[cfg(unix)]
-    g3_daemon::signal::register_offline(OfflineAction {})?;
-    g3_daemon::signal::register_quit(QuitAction {})
+    vey_daemon::signal::register_offline(OfflineAction {})?;
+    vey_daemon::signal::register_quit(QuitAction {})
 }

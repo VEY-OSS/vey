@@ -3,7 +3,7 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use g3_daemon::control::quit::QuitAction;
+use vey_daemon::control::quit::QuitAction;
 
 use super::local::{DaemonController, UniqueController};
 

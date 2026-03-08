@@ -10,8 +10,8 @@ use std::time::Duration;
 use bytes::BytesMut;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_daemon::server::ServerQuitPolicy;
-use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
+use vey_daemon::server::ServerQuitPolicy;
+use vey_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
 use vey_dpi::Protocol;
 use vey_io_ext::{
     FlexBufReader, IdleInterval, LimitedReader, LimitedWriter, StreamCopy, StreamCopyConfig,

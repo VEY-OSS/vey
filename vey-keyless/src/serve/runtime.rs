@@ -10,8 +10,8 @@ use log::{info, warn};
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::{ListenAliveGuard, ListenStats};
-use g3_daemon::server::ClientConnectionInfo;
+use vey_daemon::listen::{ListenAliveGuard, ListenStats};
+use vey_daemon::server::ClientConnectionInfo;
 use vey_io_ext::LimitedTcpListener;
 use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;

@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_daemon::stat::task::TcpStreamTaskStats;
+use vey_daemon::stat::task::TcpStreamTaskStats;
 use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
 use super::TcpStreamServerStats;

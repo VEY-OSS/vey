@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use tokio::time::Instant;
 use uuid::Uuid;
 
-use g3_daemon::server::ClientConnectionInfo;
+use vey_daemon::server::ClientConnectionInfo;
 
 #[derive(Clone)]
 pub(crate) enum ServerTaskStage {
@@ -55,7 +55,7 @@ pub(crate) struct ServerTaskNotes {
 impl ServerTaskNotes {
     pub(crate) fn new(cc_info: ClientConnectionInfo, wait_time: Duration) -> Self {
         let started = Utc::now();
-        let uuid = g3_daemon::server::task::generate_uuid(&started);
+        let uuid = vey_daemon::server::task::generate_uuid(&started);
         ServerTaskNotes {
             cc_info,
             stage: ServerTaskStage::Created,

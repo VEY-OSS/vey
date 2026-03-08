@@ -10,8 +10,8 @@ use std::time::Duration;
 use slog::Logger;
 use tokio::time::Instant;
 
-use g3_daemon::server::ClientConnectionInfo;
-use g3_icap_client::reqmod::h1::HttpAdapterErrorResponse;
+use vey_daemon::server::ClientConnectionInfo;
+use vey_icap_client::reqmod::h1::HttpAdapterErrorResponse;
 use vey_io_ext::{IdleWheel, OptionalInterval};
 use vey_types::acl::AclAction;
 use vey_types::acl_set::AclDstHostRuleSet;

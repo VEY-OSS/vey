@@ -5,7 +5,7 @@
 
 use log::debug;
 
-use g3_daemon::control::LocalController;
+use vey_daemon::control::LocalController;
 
 pub struct UniqueController {}
 pub struct DaemonController {}
@@ -24,11 +24,11 @@ impl UniqueController {
         debug!("stopped all servers");
 
         if !force {
-            let delay = g3_daemon::runtime::config::get_task_wait_delay();
+            let delay = vey_daemon::runtime::config::get_task_wait_delay();
             debug!("will delay {delay:?} before waiting tasks");
             tokio::time::sleep(delay).await;
-            let wait = g3_daemon::runtime::config::get_task_wait_timeout();
-            let quit = g3_daemon::runtime::config::get_task_quit_timeout();
+            let wait = vey_daemon::runtime::config::get_task_wait_timeout();
+            let quit = vey_daemon::runtime::config::get_task_quit_timeout();
             crate::serve::wait_all_tasks(wait, quit, |name, left| {
                 debug!("{left} tasks left on server {name}");
             })

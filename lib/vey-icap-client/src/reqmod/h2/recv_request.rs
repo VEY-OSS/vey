@@ -10,7 +10,7 @@ use h2::RecvStream;
 use h2::client::{ResponseFuture, SendRequest};
 use http::{Request, Response};
 
-use g3_h2::{
+use vey_h2::{
     H2BodyTransfer, H2PreviewData, H2StreamBodyTransferError, H2StreamFromChunkedTransfer,
     H2StreamFromChunkedTransferError, RequestExt,
 };

@@ -5,8 +5,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use g3_daemon::listen::{ListenSnapshot, ListenStats};
-use g3_daemon::metrics::{ServerMetricExt, TAG_KEY_QUANTILE, TAG_KEY_REQUEST};
+use vey_daemon::listen::{ListenSnapshot, ListenStats};
+use vey_daemon::metrics::{ServerMetricExt, TAG_KEY_QUANTILE, TAG_KEY_REQUEST};
 use vey_histogram::HistogramStats;
 use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::stats::GlobalStatsMap;
@@ -85,7 +85,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
 
     let mut listen_stats_map = LISTEN_STATS_MAP.lock().unwrap();
     listen_stats_map.retain(|(stats, snap)| {
-        g3_daemon::metrics::emit_listen_stats(client, stats, snap);
+        vey_daemon::metrics::emit_listen_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
     });

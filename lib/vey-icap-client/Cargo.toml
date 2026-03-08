@@ -1,5 +1,5 @@
 [package]
-name = "g3-icap-client"
+name = "vey-icap-client"
 version = "0.4.0"
 license.workspace = true
 edition.workspace = true
@@ -28,7 +28,7 @@ vey-types = { workspace = true, features = ["rustls"] }
 vey-io-ext = { workspace = true, features = ["rustls"] }
 vey-socket.workspace = true
 vey-http.workspace = true
-g3-h2.workspace = true
+vey-h2.workspace = true
 vey-smtp-proto.workspace = true
 vey-yaml = { workspace = true, optional = true, features = ["rustls", "http"] }
 

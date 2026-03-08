@@ -17,8 +17,8 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
-use g3_daemon::server::{BaseServer, ClientConnectionInfo};
+use vey_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
+use vey_daemon::server::{BaseServer, ClientConnectionInfo};
 use vey_io_ext::IdleWheel;
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;

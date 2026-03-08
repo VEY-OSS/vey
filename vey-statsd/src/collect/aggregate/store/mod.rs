@@ -45,7 +45,7 @@ impl AggregateHandle {
         tokio::spawn(global_store.into_running());
 
         let mut worker_senders = Vec::new();
-        let _: Result<usize, ()> = g3_daemon::runtime::worker::foreach(|handle| {
+        let _: Result<usize, ()> = vey_daemon::runtime::worker::foreach(|handle| {
             let (worker_sender, worker_receiver) = mpsc::unbounded_channel();
 
             let worker_store = WorkerStore::new(worker_receiver, global_cmd_sender.clone());

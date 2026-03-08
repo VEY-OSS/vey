@@ -14,9 +14,9 @@ use h2::{Reason, RecvStream, SendStream, StreamId};
 use http::{Request, Response, Version};
 use tokio::time::Instant;
 
-use g3_h2::{H2BodyTransfer, H2StreamBodyTransferError, H2StreamFromChunkedTransferError};
-use g3_icap_client::reqmod::h1::HttpAdapterErrorResponse;
-use g3_icap_client::reqmod::h2::{
+use vey_h2::{H2BodyTransfer, H2StreamBodyTransferError, H2StreamFromChunkedTransferError};
+use vey_icap_client::reqmod::h1::HttpAdapterErrorResponse;
+use vey_icap_client::reqmod::h2::{
     H2RequestAdapter, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
 };

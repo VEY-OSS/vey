@@ -35,11 +35,11 @@ pub(crate) fn spawn_working_thread(
                 metrics::backend::emit_stats(&mut client, &backend_stats);
                 metrics::backend::emit_duration_stats(&mut client, &backend_duration_stats);
                 metrics::frontend::emit_stats(&mut client, &frontend_stats);
-                g3_daemon::runtime::metrics::emit_stats(&mut client);
+                vey_daemon::runtime::metrics::emit_stats(&mut client);
 
                 client.flush_sink();
 
-                g3_daemon::stat::emit::wait_duration(config.emit_interval, instant_start);
+                vey_daemon::stat::emit::wait_duration(config.emit_interval, instant_start);
             }
         })
         .map_err(|e| anyhow!("failed to spawn thread: {e:?}"))?;

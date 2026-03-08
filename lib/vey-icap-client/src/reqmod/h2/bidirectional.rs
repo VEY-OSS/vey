@@ -10,7 +10,7 @@ use bytes::Bytes;
 use h2::client::SendRequest;
 use http::Request;
 
-use g3_h2::{
+use vey_h2::{
     H2StreamFromChunkedTransfer, H2StreamFromChunkedTransferError, H2StreamToChunkedTransfer,
     H2StreamToChunkedTransferError, RequestExt,
 };

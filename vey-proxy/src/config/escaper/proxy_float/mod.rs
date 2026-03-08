@@ -147,7 +147,7 @@ impl ProxyFloatEscaperConfig {
                 Ok(())
             }
             "tls" | "tls_client" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let builder = vey_yaml::value::as_to_many_openssl_tls_client_config_builder(
                     v,
                     Some(lookup_dir),
@@ -164,7 +164,7 @@ impl ProxyFloatEscaperConfig {
                 Ok(())
             }
             "cache" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let cache = vey_yaml::value::as_file_path(v, lookup_dir, true)
                     .context(format!("invalid value for key {k}"))?;
                 self.cache_file = Some(cache);

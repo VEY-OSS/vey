@@ -17,8 +17,8 @@ use tokio::net::TcpStream;
 use tokio::runtime::{Handle, RuntimeFlavor};
 use tokio::sync::{Semaphore, broadcast};
 
-use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy};
+use vey_daemon::listen::ListenStats;
+use vey_daemon::server::{ClientConnectionInfo, ServerQuitPolicy};
 use vey_openssl::SslAcceptor;
 use vey_types::metrics::{MetricTagMap, MetricTagName, MetricTagValue, NodeName};
 use vey_types::net::OpensslServerConfig;
@@ -240,7 +240,7 @@ impl KeyServer {
 
         let mut task = KeylessTask::new(ctx);
 
-        if g3_daemon::runtime::worker::worker_count() > 0 {
+        if vey_daemon::runtime::worker::worker_count() > 0 {
             task.set_allow_dispatch();
         }
 

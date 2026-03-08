@@ -12,7 +12,7 @@ mod geoip;
 
 pub fn load() -> anyhow::Result<&'static Path> {
     let config_file =
-        g3_daemon::opts::config_file().ok_or_else(|| anyhow!("no config file set"))?;
+        vey_daemon::opts::config_file().ok_or_else(|| anyhow!("no config file set"))?;
 
     // allow multiple docs, and treat them as the same
     vey_yaml::foreach_doc(config_file, |_, doc| match doc {
@@ -24,12 +24,12 @@ pub fn load() -> anyhow::Result<&'static Path> {
 }
 
 fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
-    let conf_dir =
-        g3_daemon::opts::config_dir().ok_or_else(|| anyhow!("no valid config dir has been set"))?;
+    let conf_dir = vey_daemon::opts::config_dir()
+        .ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
-        "runtime" => g3_daemon::runtime::config::load(v),
-        "worker" => g3_daemon::runtime::config::load_worker(v),
-        "stat" => g3_daemon::stat::config::load(v, crate::build::PKG_NAME),
+        "runtime" => vey_daemon::runtime::config::load(v),
+        "worker" => vey_daemon::runtime::config::load_worker(v),
+        "stat" => vey_daemon::stat::config::load(v, crate::build::PKG_NAME),
         "geoip_db" => geoip::load(v, conf_dir),
         _ => Err(anyhow!("invalid key {k} in main conf")),
     })?;

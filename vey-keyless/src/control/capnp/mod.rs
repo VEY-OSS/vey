@@ -12,7 +12,7 @@ mod proc;
 mod server;
 
 pub fn stop_working_thread() {
-    g3_daemon::control::capnp::stop_working_thread();
+    vey_daemon::control::capnp::stop_working_thread();
 }
 
 fn build_capnp_client() -> capnp::capability::Client {
@@ -21,5 +21,5 @@ fn build_capnp_client() -> capnp::capability::Client {
 }
 
 pub async fn spawn_working_thread() -> anyhow::Result<std::thread::JoinHandle<()>> {
-    g3_daemon::control::capnp::spawn_working_thread(&build_capnp_client).await
+    vey_daemon::control::capnp::spawn_working_thread(&build_capnp_client).await
 }

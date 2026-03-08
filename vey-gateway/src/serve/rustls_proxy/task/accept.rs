@@ -14,7 +14,7 @@ use tokio::time::Instant;
 use tokio_rustls::LazyConfigAcceptor;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::stat::task::TcpStreamConnectionStats;
+use vey_daemon::stat::task::TcpStreamConnectionStats;
 use vey_io_ext::LimitedStream;
 use vey_types::limit::GaugeSemaphorePermit;
 use vey_types::net::{Host, RustlsServerConnectionExt};

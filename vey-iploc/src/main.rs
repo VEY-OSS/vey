@@ -16,9 +16,9 @@ fn main() -> anyhow::Result<()> {
     };
 
     // set up process logger early, only proc args is used inside
-    g3_daemon::log::process::setup(&proc_args.daemon_config);
+    vey_daemon::log::process::setup(&proc_args.daemon_config);
 
-    g3_daemon::runtime::config::set_default_thread_number(0); // default to use current thread
+    vey_daemon::runtime::config::set_default_thread_number(0); // default to use current thread
     let config_file = vey_iploc::config::load()
         .context(format!("failed to load config, opts: {:?}", &proc_args))?;
     debug!("loaded config from {}", config_file.display());
@@ -30,7 +30,7 @@ fn main() -> anyhow::Result<()> {
 
     // enter daemon mode after config loaded
     #[cfg(unix)]
-    g3_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
+    vey_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
     let ret = tokio_run(&proc_args);
 
@@ -44,7 +44,7 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
-    let rt = g3_daemon::runtime::config::get_runtime_config()
+    let rt = vey_daemon::runtime::config::get_runtime_config()
         .start()
         .context("failed to start runtime")?;
     rt.block_on(async {

@@ -66,15 +66,15 @@ mlua = { workspace = true, features = ["send"], optional = true }
 pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
 vey-cert-agent = { workspace = true, features = ["yaml"] }
 vey-codec = { workspace = true, features = ["ldap", "tls"] }
-g3-daemon = { workspace = true, features = ["event-log"] }
+vey-daemon = { workspace = true, features = ["event-log"] }
 vey-datetime.workspace = true
 vey-dpi.workspace = true
 vey-ftp-client = { workspace = true, features = ["yaml"] }
 vey-geoip-types.workspace = true
-g3-h2.workspace = true
+vey-h2.workspace = true
 vey-histogram.workspace = true
 vey-http.workspace = true
-g3-icap-client = { workspace = true, features = ["yaml"] }
+vey-icap-client = { workspace = true, features = ["yaml"] }
 vey-imap-proto.workspace = true
 vey-io-ext = { workspace = true, features = ["resolver", "openssl", "rustls", "log"] }
 vey-io-sys.workspace = true
@@ -114,7 +114,7 @@ lua54 = ["lua", "mlua/lua54"]
 lua55 = ["lua", "mlua/lua55"]
 python = ["pyo3"]
 c-ares = ["vey-resolver/c-ares"]
-quic = ["g3-daemon/quic", "vey-resolver/quic", "vey-yaml/quinn", "vey-types/quinn", "vey-dpi/quic", "dep:quinn"]
+quic = ["vey-daemon/quic", "vey-resolver/quic", "vey-yaml/quinn", "vey-types/quinn", "vey-dpi/quic", "dep:quinn"]
 rustls-ring = ["vey-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
 rustls-aws-lc = ["vey-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
 rustls-aws-lc-fips = ["vey-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]

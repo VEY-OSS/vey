@@ -11,8 +11,8 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::server::ServerQuitPolicy;
-use g3_daemon::stat::task::TcpStreamTaskStats;
+use vey_daemon::server::ServerQuitPolicy;
+use vey_daemon::stat::task::TcpStreamTaskStats;
 use vey_io_ext::{AsyncStream, IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
 use vey_types::acl::AclAction;
 use vey_types::net::UpstreamAddr;

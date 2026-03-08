@@ -929,91 +929,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3-daemon"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "capnp",
- "capnp-rpc",
- "cfg-if",
- "chrono",
- "clap",
- "fastrand",
- "foldhash 0.2.0",
- "http",
- "itoa",
- "libc",
- "log",
- "quinn",
- "rand 0.10.0",
- "rustc-hash",
- "rustix",
- "serde_json",
- "slog",
- "tokio",
- "tokio-util",
- "uuid",
- "vey-compat",
- "vey-fluentd",
- "vey-http",
- "vey-io-ext",
- "vey-io-sys",
- "vey-journal",
- "vey-runtime",
- "vey-socket",
- "vey-statsd-client",
- "vey-std-ext",
- "vey-stdlog",
- "vey-syslog",
- "vey-types",
- "vey-yaml",
- "yaml-rust2",
-]
-
-[[package]]
-name = "g3-h2"
-version = "0.3.0"
-dependencies = [
- "bytes",
- "h2",
- "http",
- "thiserror",
- "tokio",
- "vey-http",
- "vey-io-ext",
-]
-
-[[package]]
-name = "g3-icap-client"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "arcstr",
- "atoi",
- "base64",
- "bytes",
- "g3-h2",
- "h2",
- "http",
- "itoa",
- "kanal",
- "memchr",
- "rustls-pki-types",
- "thiserror",
- "tokio",
- "tokio-rustls",
- "url",
- "vey-http",
- "vey-io-ext",
- "vey-smtp-proto",
- "vey-socket",
- "vey-types",
- "vey-yaml",
- "yaml-rust2",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2769,6 +2684,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "vey-daemon"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "capnp",
+ "capnp-rpc",
+ "cfg-if",
+ "chrono",
+ "clap",
+ "fastrand",
+ "foldhash 0.2.0",
+ "http",
+ "itoa",
+ "libc",
+ "log",
+ "quinn",
+ "rand 0.10.0",
+ "rustc-hash",
+ "rustix",
+ "serde_json",
+ "slog",
+ "tokio",
+ "tokio-util",
+ "uuid",
+ "vey-compat",
+ "vey-fluentd",
+ "vey-http",
+ "vey-io-ext",
+ "vey-io-sys",
+ "vey-journal",
+ "vey-runtime",
+ "vey-socket",
+ "vey-statsd-client",
+ "vey-std-ext",
+ "vey-stdlog",
+ "vey-syslog",
+ "vey-types",
+ "vey-yaml",
+ "yaml-rust2",
+]
+
+[[package]]
 name = "vey-datetime"
 version = "0.2.0"
 dependencies = [
@@ -2781,7 +2739,6 @@ version = "0.9.0"
 dependencies = [
  "anyhow",
  "clap",
- "g3-daemon",
  "kanal",
  "log",
  "tokio",
@@ -2789,6 +2746,7 @@ dependencies = [
  "variant-ssl-sys",
  "vey-build-env",
  "vey-cert-agent",
+ "vey-daemon",
  "vey-histogram",
  "vey-socket",
  "vey-statsd-client",
@@ -2871,7 +2829,6 @@ dependencies = [
  "clap_complete",
  "foldhash 0.2.0",
  "futures-util",
- "g3-daemon",
  "itoa",
  "kanal",
  "log",
@@ -2890,6 +2847,7 @@ dependencies = [
  "variant-ssl-sys",
  "vey-build-env",
  "vey-codec",
+ "vey-daemon",
  "vey-dpi",
  "vey-gateway-proto",
  "vey-histogram",
@@ -2950,6 +2908,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "vey-h2"
+version = "0.3.0"
+dependencies = [
+ "bytes",
+ "h2",
+ "http",
+ "thiserror",
+ "tokio",
+ "vey-http",
+ "vey-io-ext",
+]
+
+[[package]]
 name = "vey-hickory-client"
 version = "0.3.0"
 dependencies = [
@@ -2997,6 +2968,35 @@ dependencies = [
  "tokio-test",
  "vey-io-ext",
  "vey-types",
+]
+
+[[package]]
+name = "vey-icap-client"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "arcstr",
+ "atoi",
+ "base64",
+ "bytes",
+ "h2",
+ "http",
+ "itoa",
+ "kanal",
+ "memchr",
+ "rustls-pki-types",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "url",
+ "vey-h2",
+ "vey-http",
+ "vey-io-ext",
+ "vey-smtp-proto",
+ "vey-socket",
+ "vey-types",
+ "vey-yaml",
+ "yaml-rust2",
 ]
 
 [[package]]
@@ -3074,10 +3074,10 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap",
- "g3-daemon",
  "log",
  "tokio",
  "vey-build-env",
+ "vey-daemon",
  "vey-geoip-db",
  "vey-geoip-types",
  "vey-ip-locate",
@@ -3138,7 +3138,6 @@ dependencies = [
  "clap",
  "foldhash 0.2.0",
  "futures-util",
- "g3-daemon",
  "inotify",
  "log",
  "openssl-probe",
@@ -3153,6 +3152,7 @@ dependencies = [
  "vey-build-env",
  "vey-codec",
  "vey-compat",
+ "vey-daemon",
  "vey-histogram",
  "vey-io-ext",
  "vey-keyless-proto",
@@ -3270,9 +3270,6 @@ dependencies = [
  "fnv",
  "foldhash 0.2.0",
  "futures-util",
- "g3-daemon",
- "g3-h2",
- "g3-icap-client",
  "h2",
  "http",
  "indexmap",
@@ -3311,12 +3308,15 @@ dependencies = [
  "vey-build-env",
  "vey-cert-agent",
  "vey-codec",
+ "vey-daemon",
  "vey-datetime",
  "vey-dpi",
  "vey-ftp-client",
  "vey-geoip-types",
+ "vey-h2",
  "vey-histogram",
  "vey-http",
+ "vey-icap-client",
  "vey-imap-proto",
  "vey-io-ext",
  "vey-io-sys",
@@ -3519,7 +3519,6 @@ dependencies = [
  "clap_complete",
  "fastrand",
  "foldhash 0.2.0",
- "g3-daemon",
  "http",
  "itoa",
  "log",
@@ -3528,6 +3527,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "vey-build-env",
+ "vey-daemon",
  "vey-http",
  "vey-io-ext",
  "vey-macros",

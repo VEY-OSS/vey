@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use slog::Logger;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_resolver::ResolveError;
 use vey_socket::BindAddr;
 use vey_socket::util::AddressFamily;

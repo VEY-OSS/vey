@@ -140,7 +140,7 @@ impl YamlMapCallback for RustlsHostConfig {
                 Ok(())
             }
             "cert_pairs" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(doc)?;
                 self.cert_pairs = vey_yaml::value::as_list(value, |v| {
                     vey_yaml::value::as_rustls_certificate_pair(v, Some(lookup_dir))
                 })
@@ -165,7 +165,7 @@ impl YamlMapCallback for RustlsHostConfig {
                 Ok(())
             }
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(doc)?;
                 let certs = vey_yaml::value::as_rustls_certificates(value, Some(lookup_dir))
                     .context(format!("invalid certificate(s) value for key {key}"))?;
                 for cert in certs {

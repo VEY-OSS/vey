@@ -10,10 +10,10 @@ use std::sync::Arc;
 use tokio::net::unix::SocketAddr as UnixSocketAddr;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::ReceiveUdpServer;
+use vey_daemon::listen::ReceiveUdpServer;
 #[cfg(unix)]
-use g3_daemon::listen::ReceiveUnixDatagramServer;
-use g3_daemon::server::{BaseServer, ReloadServer, ServerReloadCommand};
+use vey_daemon::listen::ReceiveUnixDatagramServer;
+use vey_daemon::server::{BaseServer, ReloadServer, ServerReloadCommand};
 use vey_types::metrics::NodeName;
 
 use crate::config::importer::AnyImporterConfig;

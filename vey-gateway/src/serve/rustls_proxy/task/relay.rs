@@ -9,8 +9,8 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::server::ServerQuitPolicy;
-use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
+use vey_daemon::server::ServerQuitPolicy;
+use vey_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
 use vey_io_ext::{AsyncStream, IdleInterval, LimitedStream, StreamCopyConfig};
 use vey_types::limit::GaugeSemaphorePermit;
 

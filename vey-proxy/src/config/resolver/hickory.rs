@@ -94,7 +94,7 @@ impl HickoryResolverConfig {
                 Ok(())
             }
             _ => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.driver.set_by_yaml_kv(k, v, Some(lookup_dir))
             }
         }

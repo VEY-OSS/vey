@@ -10,8 +10,8 @@ use std::time::Duration;
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_daemon::server::ServerQuitPolicy;
-use g3_daemon::stat::task::TcpStreamTaskStats;
+use vey_daemon::server::ServerQuitPolicy;
+use vey_daemon::stat::task::TcpStreamTaskStats;
 use vey_io_ext::{IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
 use vey_socks::{SocksVersion, v4a, v5};
 use vey_types::acl::AclAction;

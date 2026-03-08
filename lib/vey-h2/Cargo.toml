@@ -1,5 +1,5 @@
 [package]
-name = "g3-h2"
+name = "vey-h2"
 version = "0.3.0"
 license.workspace = true
 edition.workspace = true

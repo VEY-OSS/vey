@@ -37,7 +37,7 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
         let mut keep_serial = false;
         let mut max_ttl = 24 * 3600; // 1 day
         let mut duration_stats = HistogramMetricsConfig::default();
-        let lookup_dir = g3_daemon::config::get_lookup_dir(None)?;
+        let lookup_dir = vey_daemon::config::get_lookup_dir(None)?;
 
         vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
             "ca_certificate" => {

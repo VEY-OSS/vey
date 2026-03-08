@@ -333,7 +333,7 @@ impl HttpRProxyServerConfig {
                 Ok(())
             }
             "global_tls_server" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let builder = vey_yaml::value::as_rustls_server_config_builder(v, Some(lookup_dir))
                     .context(format!(
                         "invalid tls server config builder value for key {k}"
@@ -342,7 +342,7 @@ impl HttpRProxyServerConfig {
                 Ok(())
             }
             "tls_ticketer" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
                     .context(format!("invalid tls ticket config value for key {k}"))?;
                 self.tls_ticketer = Some(ticketer);

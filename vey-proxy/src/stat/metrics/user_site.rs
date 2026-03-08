@@ -5,7 +5,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use g3_daemon::metrics::TAG_KEY_QUANTILE;
+use vey_daemon::metrics::TAG_KEY_QUANTILE;
 use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::metrics::NodeName;
 use vey_types::stats::GlobalStatsMap;
@@ -191,7 +191,7 @@ pub(crate) fn push_upstream_traffic_stats(
 }
 
 pub(in crate::stat) fn sync_stats() {
-    use g3_daemon::metrics::helper::move_ht;
+    use vey_daemon::metrics::helper::move_ht;
 
     move_ht(&STORE_REQUEST_STATS_MAP, &USER_SITE_REQUEST_STATS_MAP);
     move_ht(&STORE_TRAFFIC_STATS_MAP, &USER_SITE_TRAFFIC_STATS_MAP);

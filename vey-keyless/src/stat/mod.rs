@@ -21,7 +21,7 @@ fn build_statsd_client(config: &StatsdClientConfig) -> anyhow::Result<StatsdClie
         .map_err(|e| anyhow!("failed to build statsd client: {e}"))?;
 
     Ok(client.with_tag(
-        g3_daemon::metrics::TAG_KEY_DAEMON_GROUP,
+        vey_daemon::metrics::TAG_KEY_DAEMON_GROUP,
         crate::opts::daemon_group(),
     ))
 }
@@ -37,11 +37,11 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
                 let instant_start = Instant::now();
 
                 metrics::server::sync_stats();
-                g3_daemon::log::metrics::sync_stats();
+                vey_daemon::log::metrics::sync_stats();
 
                 metrics::server::emit_stats(&mut client);
-                g3_daemon::runtime::metrics::emit_stats(&mut client);
-                g3_daemon::log::metrics::emit_stats(&mut client);
+                vey_daemon::runtime::metrics::emit_stats(&mut client);
+                vey_daemon::log::metrics::emit_stats(&mut client);
 
                 client.flush_sink();
 
@@ -49,7 +49,7 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
                     break;
                 }
 
-                g3_daemon::stat::emit::wait_duration(emit_duration, instant_start);
+                vey_daemon::stat::emit::wait_duration(emit_duration, instant_start);
             }
         })
         .map_err(|e| anyhow!("failed to spawn thread: {e:?}"))?;

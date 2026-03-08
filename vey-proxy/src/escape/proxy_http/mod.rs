@@ -11,7 +11,7 @@ use arcstr::ArcStr;
 use async_trait::async_trait;
 use slog::Logger;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_resolver::{ResolveError, ResolveLocalError};
 use vey_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use vey_types::metrics::NodeName;

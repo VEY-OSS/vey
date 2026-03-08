@@ -97,7 +97,7 @@ impl TlsInterceptionContext {
     ) -> anyhow::Result<Self> {
         let mut stream_dumper = Vec::new();
         if let Some(dump) = dump_config {
-            g3_daemon::runtime::worker::foreach(|h| {
+            vey_daemon::runtime::worker::foreach(|h| {
                 let dumper = StreamDumper::new(dump, &h.handle).map_err(|e| {
                     anyhow!("failed to create tls stream dumper in worker {}: {e}", h.id)
                 })?;
@@ -107,7 +107,7 @@ impl TlsInterceptionContext {
 
             if stream_dumper.is_empty() {
                 let dump_count =
-                    g3_daemon::runtime::config::get_runtime_config().intended_thread_number();
+                    vey_daemon::runtime::config::get_runtime_config().intended_thread_number();
                 let handle = Handle::current();
                 for i in 0..dump_count {
                     let dumper = StreamDumper::new(dump, &handle).map_err(|e| {

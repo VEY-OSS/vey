@@ -202,7 +202,7 @@ impl KeylessUpstreamDurationRecorder {
         KeylessUpstreamDurationRecorder,
         KeylessUpstreamDurationStats,
     ) {
-        let rt_handle = g3_daemon::runtime::main_handle();
+        let rt_handle = vey_daemon::runtime::main_handle();
         let (connect_r, connect_s) = config.build_spawned(rt_handle.cloned());
         let (wait_r, wait_s) = config.build_spawned(rt_handle.cloned());
         let (response_r, response_s) = config.build_spawned(rt_handle.cloned());

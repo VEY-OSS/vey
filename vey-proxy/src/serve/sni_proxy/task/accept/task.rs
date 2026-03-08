@@ -11,7 +11,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::time::Instant;
 
-use g3_daemon::stat::task::TcpStreamConnectionStats;
+use vey_daemon::stat::task::TcpStreamConnectionStats;
 use vey_dpi::{Protocol, ProtocolInspectError, ProtocolInspector};
 use vey_io_ext::{LimitedReader, LimitedWriter};
 use vey_types::auth::FactsMatchType;

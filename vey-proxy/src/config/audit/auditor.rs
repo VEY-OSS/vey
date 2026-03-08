@@ -9,13 +9,13 @@ use anyhow::{Context, anyhow};
 use rand::distr::Bernoulli;
 use yaml_rust::{Yaml, yaml};
 
-use g3_icap_client::IcapServiceConfig;
 use vey_cert_agent::CertAgentConfig;
 use vey_dpi::{
     H1InterceptionConfig, H2InterceptionConfig, ImapInterceptionConfig,
     ProtocolInspectPolicyBuilder, ProtocolInspectionConfig, ProtocolPortMap,
     SmtpInterceptionConfig,
 };
+use vey_icap_client::IcapServiceConfig;
 use vey_tls_ticket::TlsTicketConfig;
 use vey_types::metrics::NodeName;
 use vey_types::net::{
@@ -145,14 +145,14 @@ impl AuditorConfig {
                 Ok(())
             }
             "tls_ticketer" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
                     .context(format!("invalid tls ticket config value for key {k}"))?;
                 self.tls_ticketer = Some(ticketer);
                 Ok(())
             }
             "tls_interception_client" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let builder =
                     vey_yaml::value::as_tls_interception_client_config_builder(v, Some(lookup_dir))
                         .context(format!(
@@ -224,7 +224,7 @@ impl AuditorConfig {
                 Ok(())
             }
             "icap_reqmod_service" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let service = IcapServiceConfig::parse_reqmod_service_yaml(v, Some(lookup_dir))
                     .context(format!(
                         "invalid icap reqmod service config value for key {k}"
@@ -233,7 +233,7 @@ impl AuditorConfig {
                 Ok(())
             }
             "icap_respmod_service" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let service = IcapServiceConfig::parse_respmod_service_yaml(v, Some(lookup_dir))
                     .context(format!(
                         "invalid icap respmod service config value for key {k}"

@@ -9,8 +9,8 @@ use std::task::{Context, Poll};
 
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-use g3_icap_client::reqmod::h1::HttpRequestUpstreamWriter;
 use vey_http::server::HttpTransparentRequest;
+use vey_icap_client::reqmod::h1::HttpRequestUpstreamWriter;
 
 pub(crate) struct HttpRequestWriterForAdaptation<'a, W> {
     pub(crate) inner: &'a mut W,

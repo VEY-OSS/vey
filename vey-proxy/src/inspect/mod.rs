@@ -12,7 +12,7 @@ use slog::Logger;
 use tokio::io::{AsyncRead, AsyncWrite};
 use uuid::Uuid;
 
-use g3_daemon::server::ServerQuitPolicy;
+use vey_daemon::server::ServerQuitPolicy;
 use vey_dpi::{
     H1InterceptionConfig, H2InterceptionConfig, ImapInterceptionConfig, MaybeProtocol,
     ProtocolInspectAction, ProtocolInspector, SmtpInterceptionConfig,

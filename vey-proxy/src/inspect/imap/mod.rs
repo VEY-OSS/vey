@@ -8,7 +8,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use tokio::io::AsyncWriteExt;
 
-use g3_daemon::server::ServerQuitPolicy;
+use vey_daemon::server::ServerQuitPolicy;
 use vey_dpi::ProtocolInspectAction;
 use vey_imap_proto::CommandPipeline;
 use vey_imap_proto::response::ByeResponse;

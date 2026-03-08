@@ -8,7 +8,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwapOption;
 use arcstr::ArcStr;
 
-use g3_daemon::stat::remote::*;
+use vey_daemon::stat::remote::*;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::stats::StatId;
 

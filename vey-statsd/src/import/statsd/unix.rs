@@ -12,8 +12,8 @@ use log::debug;
 use tokio::net::unix::SocketAddr;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::{ReceiveUdpServer, ReceiveUnixDatagramRuntime, ReceiveUnixDatagramServer};
-use g3_daemon::server::{BaseServer, ServerReloadCommand};
+use vey_daemon::listen::{ReceiveUdpServer, ReceiveUnixDatagramRuntime, ReceiveUnixDatagramServer};
+use vey_daemon::server::{BaseServer, ServerReloadCommand};
 use vey_types::metrics::NodeName;
 
 use super::StatsdRecordVisitor;

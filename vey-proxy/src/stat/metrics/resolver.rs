@@ -5,7 +5,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use g3_daemon::metrics::TAG_KEY_STAT_ID;
+use vey_daemon::metrics::TAG_KEY_STAT_ID;
 use vey_resolver::{
     ResolveQueryType, ResolverMemorySnapshot, ResolverQuerySnapshot, ResolverSnapshot,
 };

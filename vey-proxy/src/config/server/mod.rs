@@ -12,7 +12,7 @@ use anyhow::{Context, anyhow};
 use slog::Logger;
 use yaml_rust::{Yaml, yaml};
 
-use g3_daemon::config::TopoMap;
+use vey_daemon::config::TopoMap;
 use vey_io_ext::StreamCopyConfig;
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
@@ -153,7 +153,7 @@ pub(crate) enum AnyServerConfig {
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
-    let parser = HybridParser::new(conf_dir, g3_daemon::opts::config_file_extension());
+    let parser = HybridParser::new(conf_dir, vey_daemon::opts::config_file_extension());
     parser.foreach_map(v, |map, position| {
         let server = load_server(map, position)?;
         if let Some(old_server) = registry::add(server) {

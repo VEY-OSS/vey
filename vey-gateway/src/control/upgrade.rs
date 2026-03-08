@@ -3,7 +3,7 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use g3_daemon::control::upgrade::UpgradeAction;
+use vey_daemon::control::upgrade::UpgradeAction;
 
 use anyhow::anyhow;
 use capnp_rpc::RpcSystem;
@@ -12,7 +12,7 @@ use capnp_rpc::rpc_twoparty_capnp::Side;
 use vey_gateway_proto::proc_capnp::proc_control;
 use vey_gateway_proto::types_capnp::operation_result;
 
-use g3_daemon::control::LocalController;
+use vey_daemon::control::LocalController;
 
 pub struct UpgradeActor {
     proc_control: proc_control::Client,

@@ -13,7 +13,7 @@ log = { workspace = true, features = ["max_level_trace", "release_max_level_debu
 tokio = { workspace = true, features = ["net", "io-util", "time", "signal", "macros"] }
 yaml-rust.workspace = true
 vey-yaml.workspace = true
-g3-daemon.workspace = true
+vey-daemon.workspace = true
 vey-statsd-client.workspace = true
 vey-geoip-types.workspace = true
 vey-geoip-db.workspace = true

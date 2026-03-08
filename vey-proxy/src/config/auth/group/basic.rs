@@ -116,7 +116,7 @@ impl BasicUserGroupConfig {
                 }
             }
             "source" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.dynamic_source = Some(
                     UserDynamicSource::parse_config(v, lookup_dir)
                         .context(format!("invalid value for key {k}"))?,
@@ -124,7 +124,7 @@ impl BasicUserGroupConfig {
                 Ok(())
             }
             "cache" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.dynamic_cache = vey_yaml::value::as_file_path(v, lookup_dir, true)
                     .context(format!("invalid file path value for key {k}"))?;
                 Ok(())

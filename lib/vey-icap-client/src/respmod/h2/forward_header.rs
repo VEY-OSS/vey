@@ -9,7 +9,7 @@ use bytes::BufMut;
 use http::{Request, Response};
 use tokio::io::AsyncWriteExt;
 
-use g3_h2::{RequestExt, ResponseExt};
+use vey_h2::{RequestExt, ResponseExt};
 use vey_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{

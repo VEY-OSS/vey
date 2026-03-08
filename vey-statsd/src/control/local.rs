@@ -5,7 +5,7 @@
 
 use log::debug;
 
-use g3_daemon::control::LocalController;
+use vey_daemon::control::LocalController;
 
 pub struct UniqueController {}
 pub struct DaemonController {}

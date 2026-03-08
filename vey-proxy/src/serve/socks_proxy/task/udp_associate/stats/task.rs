@@ -5,7 +5,7 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use g3_daemon::stat::task::UdpConnectHalfConnectionStats;
+use vey_daemon::stat::task::UdpConnectHalfConnectionStats;
 
 use crate::module::udp_relay::UdpRelayTaskRemoteStats;
 

@@ -18,8 +18,8 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::{TlsAcceptor, server::TlsStream};
 
-use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
-use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerExt, ServerReloadCommand};
+use vey_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
+use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerExt, ServerReloadCommand};
 use vey_io_ext::IdleWheel;
 use vey_openssl::SslStream;
 use vey_types::acl::{AclAction, AclNetworkRule};

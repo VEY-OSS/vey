@@ -64,7 +64,7 @@ impl AuditStreamDetourConfig {
                         Ok(())
                     }
                     "tls_client" => {
-                        let lookup_dir = g3_daemon::config::get_lookup_dir(position)?;
+                        let lookup_dir = vey_daemon::config::get_lookup_dir(position)?;
                         config.tls_client =
                             vey_yaml::value::as_rustls_client_config_builder(v, Some(lookup_dir))
                                 .context(format!(

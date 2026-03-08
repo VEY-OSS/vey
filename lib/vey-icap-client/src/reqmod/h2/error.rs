@@ -7,7 +7,7 @@ use std::io;
 
 use thiserror::Error;
 
-use g3_h2::H2PreviewError;
+use vey_h2::H2PreviewError;
 use vey_http::client::HttpResponseParseError;
 use vey_http::server::HttpRequestParseError;
 use vey_io_ext::IdleForceQuitReason;

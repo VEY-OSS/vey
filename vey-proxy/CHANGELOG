@@ -408,7 +408,7 @@ v1.7.8:
 v1.7.7:
  - Feature: make libcurl as optional feature
  - Feature: add more config options to openssl tls client
- - Internal: move most of daemon control code to g3-daemon lib crate
+ - Internal: move most of daemon control code to vey-daemon lib crate
 
 v1.7.6:
  - Feature: allow to config the max io events per tick value for tokio runtime

@@ -52,7 +52,7 @@ impl YamlMapCallback for HttpHostConfig {
                 Ok(())
             }
             "tls_server" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(doc)?;
                 let builder =
                     vey_yaml::value::as_rustls_server_config_builder(value, Some(lookup_dir))
                         .context(format!(
@@ -62,7 +62,7 @@ impl YamlMapCallback for HttpHostConfig {
                 Ok(())
             }
             "tls_client" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(doc)?;
                 let builder = vey_yaml::value::as_to_one_openssl_tls_client_config_builder(
                     value,
                     Some(lookup_dir),

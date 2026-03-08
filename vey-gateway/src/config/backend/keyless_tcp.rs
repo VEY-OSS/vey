@@ -105,7 +105,7 @@ impl KeylessTcpBackendConfig {
                 Ok(())
             }
             "tls_client" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let tls_client =
                     vey_yaml::value::as_rustls_client_config_builder(v, Some(lookup_dir))?;
                 self.tls_client = Some(tls_client);

@@ -64,7 +64,7 @@ impl LocalKeyStoreConfig {
                 Ok(())
             }
             "dir" | "directory" | "dir_path" | "directory_path" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.dir_path = vey_yaml::value::as_dir_path(v, lookup_dir, false)?;
                 Ok(())
             }

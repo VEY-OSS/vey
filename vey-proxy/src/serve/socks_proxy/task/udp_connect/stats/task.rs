@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_daemon::stat::task::UdpConnectConnectionStats;
+use vey_daemon::stat::task::UdpConnectConnectionStats;
 
 use crate::module::udp_connect::UdpConnectTaskRemoteStats;
 

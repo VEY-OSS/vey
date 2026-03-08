@@ -55,7 +55,7 @@ pub(crate) enum AnyDiscoverConfig {
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
-    let parser = HybridParser::new(conf_dir, g3_daemon::opts::config_file_extension());
+    let parser = HybridParser::new(conf_dir, vey_daemon::opts::config_file_extension());
     parser.foreach_map(v, |map, position| {
         let site = load_discover(map, position)?;
         registry::add(site, false)?;

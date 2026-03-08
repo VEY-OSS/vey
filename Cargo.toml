@@ -24,18 +24,18 @@ members = [
     "lib/vey-codec",
     "lib/vey-compat",
     "lib/vey-ctl",
-    "lib/g3-daemon",
+    "lib/vey-daemon",
     "lib/vey-datetime",
     "lib/vey-dpi",
     "lib/vey-fluentd",
     "lib/vey-ftp-client",
     "lib/vey-geoip-db",
     "lib/vey-geoip-types",
-    "lib/g3-h2",
+    "lib/vey-h2",
     "lib/vey-hickory-client",
     "lib/vey-histogram",
     "lib/vey-http",
-    "lib/g3-icap-client",
+    "lib/vey-icap-client",
     "lib/vey-imap-proto",
     "lib/vey-io-ext",
     "lib/vey-io-sys",
@@ -204,18 +204,18 @@ vey-clap = { version = "0.2", path = "lib/vey-clap" }
 vey-codec = { version = "0.1", path = "lib/vey-codec" }
 vey-compat = { version = "0.2", path = "lib/vey-compat" }
 vey-ctl = { version = "0.2", path = "lib/vey-ctl" }
-g3-daemon = { version = "0.4", path = "lib/g3-daemon" }
+vey-daemon = { version = "0.4", path = "lib/vey-daemon" }
 vey-datetime = { version = "0.2", path = "lib/vey-datetime" }
 vey-dpi = { version = "0.3", path = "lib/vey-dpi" }
 vey-fluentd = { version = "0.3", path = "lib/vey-fluentd" }
 vey-ftp-client = { version = "0.5", path = "lib/vey-ftp-client" }
 vey-geoip-db = { version = "0.3", path = "lib/vey-geoip-db" }
 vey-geoip-types = { version = "0.2", path = "lib/vey-geoip-types" }
-g3-h2 = { version = "0.3", path = "lib/g3-h2" }
+vey-h2 = { version = "0.3", path = "lib/vey-h2" }
 vey-hickory-client = { version = "0.3", path = "lib/vey-hickory-client" }
 vey-histogram = { version = "0.2", path = "lib/vey-histogram" }
 vey-http = { version = "0.5", path = "lib/vey-http" }
-g3-icap-client = { version = "0.4", path = "lib/g3-icap-client" }
+vey-icap-client = { version = "0.4", path = "lib/vey-icap-client" }
 vey-imap-proto = { version = "0.3", path = "lib/vey-imap-proto" }
 vey-io-ext = { version = "0.9", path = "lib/vey-io-ext" }
 vey-io-sys = { version = "0.1", path = "lib/vey-io-sys" }

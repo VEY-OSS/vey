@@ -6,7 +6,7 @@
 use h2::RecvStream;
 use http::Response;
 
-use g3_h2::{
+use vey_h2::{
     H2BodyTransfer, H2PreviewData, H2StreamBodyTransferError, H2StreamFromChunkedTransfer,
     H2StreamFromChunkedTransferError, ResponseExt,
 };

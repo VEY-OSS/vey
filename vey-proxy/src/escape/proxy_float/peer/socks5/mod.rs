@@ -14,7 +14,7 @@ use rustc_hash::FxHashMap;
 use serde_json::Value;
 use tokio::time::Instant;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_types::auth::{Password, Username};
 use vey_types::net::{EgressInfo, SocksAuth, TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
 

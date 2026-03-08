@@ -12,7 +12,7 @@ use std::sync::OnceLock;
 use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
 
-use g3_daemon::opts::{DaemonArgs, DaemonArgsExt};
+use vey_daemon::opts::{DaemonArgs, DaemonArgsExt};
 use vey_types::net::UdpListenConfig;
 
 const GLOBAL_ARG_VERSION: &str = "version";
@@ -88,7 +88,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     }
 
     if let Some(config_file) = args.get_one::<PathBuf>(GLOBAL_ARG_CONFIG_FILE) {
-        g3_daemon::opts::validate_and_set_config_file(config_file, crate::build::PKG_NAME)
+        vey_daemon::opts::validate_and_set_config_file(config_file, crate::build::PKG_NAME)
             .context(format!(
                 "failed to load config file {}",
                 config_file.display()

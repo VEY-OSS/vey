@@ -144,14 +144,14 @@ impl DirectFloatEscaperConfig {
                 Ok(())
             }
             "cache_ipv4" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let cache = vey_yaml::value::as_file_path(v, lookup_dir, true)
                     .context(format!("invalid value for key {k}"))?;
                 self.cache_ipv4 = Some(cache);
                 Ok(())
             }
             "cache_ipv6" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let cache = vey_yaml::value::as_file_path(v, lookup_dir, true)
                     .context(format!("invalid value for key {k}"))?;
                 self.cache_ipv6 = Some(cache);

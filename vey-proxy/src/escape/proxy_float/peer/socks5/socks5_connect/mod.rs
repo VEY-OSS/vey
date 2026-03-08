@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpStream, UdpSocket};
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_io_ext::{AsyncStream, LimitedStream};
 use vey_openssl::SslStream;
 use vey_socket::BindAddr;

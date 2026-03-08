@@ -298,7 +298,7 @@ impl YamlMapCallback for OpensslHostConfig {
                 Ok(())
             }
             "cert_pairs" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(doc)?;
                 self.cert_pairs = vey_yaml::value::as_list(value, |v| {
                     vey_yaml::value::as_openssl_certificate_pair(v, Some(lookup_dir))
                 })
@@ -309,7 +309,7 @@ impl YamlMapCallback for OpensslHostConfig {
             }
             #[cfg(feature = "vendored-tongsuo")]
             "tlcp_cert_pairs" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(doc)?;
                 self.tlcp_cert_pairs = vey_yaml::value::as_list(value, |v| {
                     vey_yaml::value::as_openssl_tlcp_certificate_pair(v, Some(lookup_dir))
                 })
@@ -336,7 +336,7 @@ impl YamlMapCallback for OpensslHostConfig {
                 Ok(())
             }
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
+                let lookup_dir = vey_daemon::config::get_lookup_dir(doc)?;
                 let certs = vey_yaml::value::as_openssl_certificates(value, Some(lookup_dir))
                     .context(format!("invalid certificate(s) value for key {key}"))?;
                 self.set_client_auth_certificates(certs)
