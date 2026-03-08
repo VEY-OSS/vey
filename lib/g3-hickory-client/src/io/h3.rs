@@ -16,7 +16,7 @@ use hickory_proto::{ProtoError, ProtoErrorKind};
 use http::Version;
 use rustls::ClientConfig;
 
-use g3_socket::UdpConnectInfo;
+use vey_socket::UdpConnectInfo;
 
 use super::http::request::HttpDnsRequestBuilder;
 use super::http::response::HttpDnsResponse;

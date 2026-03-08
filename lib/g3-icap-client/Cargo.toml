@@ -26,7 +26,7 @@ h2.workspace = true
 yaml-rust = { workspace = true, optional = true }
 vey-types = { workspace = true, features = ["rustls"] }
 g3-io-ext = { workspace = true, features = ["rustls"] }
-g3-socket.workspace = true
+vey-socket.workspace = true
 g3-http.workspace = true
 g3-h2.workspace = true
 g3-smtp-proto.workspace = true

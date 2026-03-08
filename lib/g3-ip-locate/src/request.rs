@@ -22,7 +22,7 @@ impl Request {
                 let key = s
                     .as_str()
                     .ok_or_else(|| anyhow!("invalid string key {k}"))?;
-                match g3_msgpack::key::normalize(key).as_str() {
+                match vey_msgpack::key::normalize(key).as_str() {
                     request_key::IP => self
                         .set_ip_value(v)
                         .context(format!("invalid ip address value for key {key}")),
@@ -43,7 +43,7 @@ impl Request {
     }
 
     fn set_ip_value(&mut self, v: ValueRef) -> anyhow::Result<()> {
-        let ip = g3_msgpack::value::as_ipaddr(&v)?;
+        let ip = vey_msgpack::value::as_ipaddr(&v)?;
         self.ip = Some(ip);
         Ok(())
     }

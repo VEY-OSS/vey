@@ -14,8 +14,8 @@ use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReader, LimitedWriter};
-use g3_socket::BindAddr;
-use g3_socket::util::AddressFamily;
+use vey_socket::BindAddr;
+use vey_socket::util::AddressFamily;
 use vey_types::acl::AclAction;
 use vey_types::net::{
     ConnectError, Host, TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UpstreamAddr,
@@ -105,7 +105,7 @@ impl DirectFixedEscaper {
             bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
         }
 
-        let sock = g3_socket::tcp::new_socket_to(
+        let sock = vey_socket::tcp::new_socket_to(
             peer_ip,
             &bind,
             &connect_config.keepalive,

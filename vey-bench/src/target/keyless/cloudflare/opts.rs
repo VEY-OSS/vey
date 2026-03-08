@@ -239,10 +239,10 @@ pub(super) fn parse_cloudflare_args(args: &ArgMatches) -> anyhow::Result<Keyless
         cf_args.pool_size = Some(*c);
     }
 
-    if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_CONNECT_TIMEOUT)? {
+    if let Some(timeout) = vey_clap::humanize::get_duration(args, ARG_CONNECT_TIMEOUT)? {
         cf_args.connect_timeout = timeout;
     }
-    if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_TIMEOUT)? {
+    if let Some(timeout) = vey_clap::humanize::get_duration(args, ARG_TIMEOUT)? {
         cf_args.timeout = timeout;
     }
 

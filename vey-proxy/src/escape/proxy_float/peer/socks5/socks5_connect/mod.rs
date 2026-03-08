@@ -12,9 +12,9 @@ use tokio::net::{TcpStream, UdpSocket};
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_io_ext::{AsyncStream, LimitedStream};
-use g3_socket::BindAddr;
 use g3_socks::v5;
 use vey_openssl::SslStream;
+use vey_socket::BindAddr;
 use vey_types::net::{SocketBufferConfig, UpstreamAddr};
 
 use super::{ProxyFloatEscaper, ProxyFloatSocks5Peer};
@@ -103,7 +103,7 @@ impl ProxyFloatSocks5Peer {
         .await
         .map_err(io::Error::other)?;
         let peer_udp_addr = self.transmute_udp_peer_addr(peer_udp_addr, peer_tcp_addr.ip());
-        let socket = g3_socket::udp::new_std_socket_to(
+        let socket = vey_socket::udp::new_std_socket_to(
             peer_udp_addr,
             &BindAddr::Ip(local_tcp_addr.ip()),
             buf_conf,

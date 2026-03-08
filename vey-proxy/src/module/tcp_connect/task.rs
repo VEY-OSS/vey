@@ -9,7 +9,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use openssl::ssl::Ssl;
 
-use g3_socket::BindAddr;
+use vey_socket::BindAddr;
 use vey_types::metrics::NodeName;
 use vey_types::net::{EgressInfo, Host, OpensslClientConfig, UpstreamAddr};
 

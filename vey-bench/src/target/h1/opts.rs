@@ -137,7 +137,7 @@ pub(super) fn parse_http_args(args: &ArgMatches) -> anyhow::Result<BenchHttpArgs
         h1_args.no_keepalive = true;
     }
 
-    if let Some(header_size) = g3_clap::humanize::get_usize(args, HTTP_ARG_HEADER_SIZE)? {
+    if let Some(header_size) = vey_clap::humanize::get_usize(args, HTTP_ARG_HEADER_SIZE)? {
         h1_args.max_header_size = header_size;
     }
 

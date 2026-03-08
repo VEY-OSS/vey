@@ -109,7 +109,7 @@ impl IcapConnector {
         }
 
         let peer = self.select_peer_addr().await?;
-        let socket = g3_socket::tcp::new_socket_to(
+        let socket = vey_socket::tcp::new_socket_to(
             peer.ip(),
             &Default::default(),
             &self.config.tcp_keepalive,

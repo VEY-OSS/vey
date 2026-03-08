@@ -23,4 +23,4 @@ freebsd_task:
   clippy_script:
     - cargo clippy --tests -- --deny warnings
   test_script:
-    - cargo test --workspace --exclude g3-journal
+    - cargo test --workspace --exclude vey-journal

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::net::UdpSocket;
 
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
-use g3_socket::util::AddressFamily;
+use vey_socket::util::AddressFamily;
 use vey_types::acl::AclAction;
 
 use super::DirectFixedEscaper;
@@ -84,7 +84,7 @@ impl DirectFixedEscaper {
             self.config.udp_misc_opts
         };
 
-        let socket = g3_socket::udp::new_std_socket_to(
+        let socket = vey_socket::udp::new_std_socket_to(
             peer_addr,
             &udp_notes.bind,
             task_conf.sock_buf,

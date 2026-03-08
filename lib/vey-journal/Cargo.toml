@@ -1,6 +1,6 @@
 [package]
-name = "g3-stdlog"
-version = "0.3.0"
+name = "vey-journal"
+version = "0.4.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,11 +8,14 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow.workspace = true
 slog.workspace = true
-chrono = { workspace = true, features = ["clock"] }
-kanal.workspace = true
-anstyle = "1.0"
+serde.workspace = true
+serde_json.workspace = true
+rustix = { workspace = true, features = ["std", "fs", "net"] }
+once_cell.workspace = true
+memchr.workspace = true
 itoa.workspace = true
 zmij.workspace = true
+kanal.workspace = true
 vey-types = { workspace = true, features = ["async-log"] }
-vey-datetime.workspace = true

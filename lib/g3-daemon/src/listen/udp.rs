@@ -213,7 +213,7 @@ where
             let mut runtime = self.clone();
             runtime.instance_id = i;
 
-            let socket = g3_socket::udp::new_std_bind_listen(&self.listen_config)?;
+            let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
             let listen_addr = socket.local_addr()?;
             runtime.into_running(
                 socket,

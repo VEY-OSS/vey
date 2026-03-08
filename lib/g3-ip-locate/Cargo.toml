@@ -16,8 +16,8 @@ rmpv.workspace = true
 yaml-rust = { workspace = true, optional = true }
 vey-types.workspace = true
 vey-geoip-types.workspace = true
-g3-msgpack = { workspace = true, features = ["geoip"] }
-g3-socket.workspace = true
+vey-msgpack = { workspace = true, features = ["geoip"] }
+vey-socket.workspace = true
 g3-yaml = { workspace = true, optional = true }
 
 [features]

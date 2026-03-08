@@ -1,5 +1,5 @@
 [package]
-name = "g3-json"
+name = "vey-json"
 version = "0.5.0"
 license.workspace = true
 edition.workspace = true

@@ -8,7 +8,7 @@ use std::io;
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use g3_codec::tlv::{T1L2BVParse, TlvParse};
+use vey_codec::tlv::{T1L2BVParse, TlvParse};
 
 #[derive(Clone, Copy, Debug, Error)]
 pub(crate) enum KeylessServerError {

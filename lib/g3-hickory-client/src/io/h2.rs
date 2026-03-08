@@ -18,7 +18,7 @@ use http::{Response, Version};
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 
-use g3_socket::TcpConnectInfo;
+use vey_socket::TcpConnectInfo;
 
 use super::http::request::HttpDnsRequestBuilder;
 use super::http::response::HttpDnsResponse;

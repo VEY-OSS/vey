@@ -402,10 +402,10 @@ pub(super) fn parse_tcp_args(args: &ArgMatches) -> anyhow::Result<ThriftTcpArgs>
 
     t_args.no_keepalive = args.get_flag(ARG_NO_KEEPALIVE);
 
-    if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_CONNECT_TIMEOUT)? {
+    if let Some(timeout) = vey_clap::humanize::get_duration(args, ARG_CONNECT_TIMEOUT)? {
         t_args.connect_timeout = timeout;
     }
-    if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_TIMEOUT)? {
+    if let Some(timeout) = vey_clap::humanize::get_duration(args, ARG_TIMEOUT)? {
         t_args.timeout = timeout;
     }
 

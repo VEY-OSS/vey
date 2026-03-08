@@ -935,39 +935,15 @@ dependencies = [
  "anyhow",
  "arcstr",
  "g3-io-ext",
- "g3-msgpack",
- "g3-socket",
  "g3-yaml",
  "log",
  "rmpv",
  "tokio",
  "variant-ssl",
+ "vey-msgpack",
+ "vey-socket",
  "vey-types",
  "yaml-rust2",
-]
-
-[[package]]
-name = "g3-clap"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "clap",
- "hex",
- "http",
- "humanize-rs",
- "vey-types",
-]
-
-[[package]]
-name = "g3-codec"
-version = "0.1.0"
-dependencies = [
- "hex-literal",
- "smallvec",
- "thiserror",
- "variant-ssl",
- "vey-std-ext",
- "vey-types",
 ]
 
 [[package]]
@@ -986,11 +962,8 @@ dependencies = [
  "g3-fluentd",
  "g3-http",
  "g3-io-ext",
- "g3-journal",
  "g3-runtime",
- "g3-socket",
  "g3-statsd-client",
- "g3-stdlog",
  "g3-syslog",
  "g3-yaml",
  "http",
@@ -1008,7 +981,10 @@ dependencies = [
  "uuid",
  "vey-compat",
  "vey-io-sys",
+ "vey-journal",
+ "vey-socket",
  "vey-std-ext",
+ "vey-stdlog",
  "vey-types",
  "yaml-rust2",
 ]
@@ -1019,8 +995,8 @@ version = "0.3.0"
 dependencies = [
  "fixedbitset",
  "fnv",
- "g3-codec",
  "memchr",
+ "vey-codec",
  "vey-types",
 ]
 
@@ -1031,7 +1007,6 @@ dependencies = [
  "anyhow",
  "chrono",
  "constant_time_eq",
- "g3-socket",
  "g3-yaml",
  "hex",
  "kanal",
@@ -1044,6 +1019,7 @@ dependencies = [
  "variant-ssl",
  "vey-compat",
  "vey-openssl",
+ "vey-socket",
  "vey-types",
  "yaml-rust2",
 ]
@@ -1087,7 +1063,6 @@ dependencies = [
  "bytes",
  "fastrand",
  "futures-util",
- "g3-socket",
  "h2",
  "h3",
  "h3-quinn",
@@ -1098,6 +1073,7 @@ dependencies = [
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
+ "vey-socket",
 ]
 
 [[package]]
@@ -1132,7 +1108,6 @@ dependencies = [
  "g3-http",
  "g3-io-ext",
  "g3-smtp-proto",
- "g3-socket",
  "g3-yaml",
  "h2",
  "http",
@@ -1144,6 +1119,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "url",
+ "vey-socket",
  "vey-types",
  "yaml-rust2",
 ]
@@ -1172,7 +1148,6 @@ dependencies = [
  "fastrand",
  "futures-util",
  "g3-resolver",
- "g3-socket",
  "memchr",
  "pin-project-lite",
  "quinn",
@@ -1185,6 +1160,7 @@ dependencies = [
  "tokio-util",
  "vey-io-sys",
  "vey-openssl",
+ "vey-socket",
  "vey-std-ext",
  "vey-types",
 ]
@@ -1194,8 +1170,6 @@ name = "g3-ip-locate"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "g3-msgpack",
- "g3-socket",
  "g3-yaml",
  "ip_network_table",
  "log",
@@ -1204,61 +1178,10 @@ dependencies = [
  "tokio",
  "tokio-util",
  "vey-geoip-types",
+ "vey-msgpack",
+ "vey-socket",
  "vey-types",
  "yaml-rust2",
-]
-
-[[package]]
-name = "g3-journal"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "itoa",
- "kanal",
- "memchr",
- "once_cell",
- "rustix",
- "serde",
- "serde_json",
- "slog",
- "vey-types",
- "zmij",
-]
-
-[[package]]
-name = "g3-json"
-version = "0.5.0"
-dependencies = [
- "anyhow",
- "ascii",
- "chrono",
- "hex",
- "humanize-rs",
- "idna",
- "ip_network",
- "rand 0.10.0",
- "regex",
- "rustls-pki-types",
- "serde_json",
- "variant-ssl",
- "vey-histogram",
- "vey-types",
-]
-
-[[package]]
-name = "g3-msgpack"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "atoi",
- "chrono",
- "ip_network",
- "rmpv",
- "rustls-pki-types",
- "uuid",
- "variant-ssl",
- "vey-geoip-types",
- "vey-types",
 ]
 
 [[package]]
@@ -1266,12 +1189,12 @@ name = "g3-redis-client"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "g3-socket",
  "g3-yaml",
  "redis",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
+ "vey-socket",
  "vey-types",
  "yaml-rust2",
 ]
@@ -1288,7 +1211,6 @@ dependencies = [
  "c-ares-resolver",
  "c-ares-sys",
  "g3-hickory-client",
- "g3-socket",
  "g3-yaml",
  "hickory-client",
  "hickory-proto",
@@ -1300,6 +1222,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
+ "vey-socket",
  "vey-types",
  "yaml-rust2",
 ]
@@ -1323,13 +1246,13 @@ version = "0.3.0"
 dependencies = [
  "arcstr",
  "chrono",
- "g3-socket",
  "h2",
  "http",
  "memchr",
  "slog",
  "uuid",
  "variant-ssl",
+ "vey-socket",
  "vey-types",
 ]
 
@@ -1345,19 +1268,6 @@ dependencies = [
  "tokio",
  "tokio-test",
  "vey-types",
-]
-
-[[package]]
-name = "g3-socket"
-version = "0.6.0"
-dependencies = [
- "fastrand",
- "libc",
- "socket2",
- "tokio",
- "vey-compat",
- "vey-types",
- "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1390,20 +1300,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3-stdlog"
-version = "0.3.0"
-dependencies = [
- "anstyle",
- "chrono",
- "itoa",
- "kanal",
- "slog",
- "vey-datetime",
- "vey-types",
- "zmij",
-]
-
-[[package]]
 name = "g3-syslog"
 version = "0.8.0"
 dependencies = [
@@ -1425,26 +1321,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3-tls-cert"
-version = "0.7.0"
-dependencies = [
- "anyhow",
- "chrono",
- "itertools 0.14.0",
- "libc",
- "variant-ssl",
- "variant-ssl-sys",
- "vey-datetime",
- "vey-types",
-]
-
-[[package]]
 name = "g3-tls-ticket"
 version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
- "g3-json",
  "g3-redis-client",
  "g3-yaml",
  "log",
@@ -1453,6 +1334,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-util",
+ "vey-json",
  "vey-types",
  "yaml-rust2",
 ]
@@ -1464,11 +1346,11 @@ dependencies = [
  "anyhow",
  "g3-dpi",
  "g3-io-ext",
- "g3-socket",
  "g3-yaml",
  "log",
  "tokio",
  "vey-io-sys",
+ "vey-socket",
  "vey-types",
  "yaml-rust2",
 ]
@@ -3141,16 +3023,12 @@ dependencies = [
  "concurrent-queue",
  "fastrand",
  "futures-util",
- "g3-clap",
- "g3-codec",
  "g3-hickory-client",
  "g3-http",
  "g3-io-ext",
  "g3-runtime",
- "g3-socket",
  "g3-socks",
  "g3-statsd-client",
- "g3-tls-cert",
  "h2",
  "h3",
  "h3-quinn",
@@ -3173,9 +3051,13 @@ dependencies = [
  "variant-ssl",
  "variant-ssl-sys",
  "vey-build-env",
+ "vey-clap",
+ "vey-codec",
  "vey-histogram",
  "vey-openssl",
+ "vey-socket",
  "vey-std-ext",
+ "vey-tls-cert",
  "vey-types",
 ]
 
@@ -3184,6 +3066,30 @@ name = "vey-build-env"
 version = "0.2.0"
 dependencies = [
  "rustc_version",
+]
+
+[[package]]
+name = "vey-clap"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "hex",
+ "http",
+ "humanize-rs",
+ "vey-types",
+]
+
+[[package]]
+name = "vey-codec"
+version = "0.1.0"
+dependencies = [
+ "hex-literal",
+ "smallvec",
+ "thiserror",
+ "variant-ssl",
+ "vey-std-ext",
+ "vey-types",
 ]
 
 [[package]]
@@ -3225,9 +3131,7 @@ dependencies = [
  "clap",
  "g3-cert-agent",
  "g3-daemon",
- "g3-socket",
  "g3-statsd-client",
- "g3-tls-cert",
  "g3-yaml",
  "kanal",
  "log",
@@ -3236,7 +3140,9 @@ dependencies = [
  "variant-ssl-sys",
  "vey-build-env",
  "vey-histogram",
+ "vey-socket",
  "vey-std-ext",
+ "vey-tls-cert",
  "vey-types",
  "yaml-rust2",
 ]
@@ -3259,12 +3165,10 @@ dependencies = [
  "clap_complete",
  "foldhash 0.2.0",
  "futures-util",
- "g3-codec",
  "g3-daemon",
  "g3-dpi",
  "g3-io-ext",
  "g3-slog-types",
- "g3-socket",
  "g3-statsd-client",
  "g3-tls-ticket",
  "g3-yaml",
@@ -3285,10 +3189,12 @@ dependencies = [
  "variant-ssl",
  "variant-ssl-sys",
  "vey-build-env",
+ "vey-codec",
  "vey-gateway-proto",
  "vey-histogram",
  "vey-macros",
  "vey-openssl",
+ "vey-socket",
  "vey-std-ext",
  "vey-types",
  "yaml-rust2",
@@ -3365,7 +3271,6 @@ dependencies = [
  "clap",
  "g3-daemon",
  "g3-ip-locate",
- "g3-socket",
  "g3-statsd-client",
  "g3-yaml",
  "log",
@@ -3373,8 +3278,46 @@ dependencies = [
  "vey-build-env",
  "vey-geoip-db",
  "vey-geoip-types",
+ "vey-socket",
  "vey-types",
  "yaml-rust2",
+]
+
+[[package]]
+name = "vey-journal"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "itoa",
+ "kanal",
+ "memchr",
+ "once_cell",
+ "rustix",
+ "serde",
+ "serde_json",
+ "slog",
+ "vey-types",
+ "zmij",
+]
+
+[[package]]
+name = "vey-json"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "ascii",
+ "chrono",
+ "hex",
+ "humanize-rs",
+ "idna",
+ "ip_network",
+ "rand 0.10.0",
+ "regex",
+ "rustls-pki-types",
+ "serde_json",
+ "variant-ssl",
+ "vey-histogram",
+ "vey-types",
 ]
 
 [[package]]
@@ -3390,13 +3333,10 @@ dependencies = [
  "clap",
  "foldhash 0.2.0",
  "futures-util",
- "g3-codec",
  "g3-daemon",
  "g3-io-ext",
  "g3-slog-types",
- "g3-socket",
  "g3-statsd-client",
- "g3-tls-cert",
  "g3-yaml",
  "inotify",
  "log",
@@ -3410,12 +3350,15 @@ dependencies = [
  "variant-ssl",
  "variant-ssl-sys",
  "vey-build-env",
+ "vey-codec",
  "vey-compat",
  "vey-histogram",
  "vey-keyless-proto",
  "vey-macros",
  "vey-openssl",
+ "vey-socket",
  "vey-std-ext",
+ "vey-tls-cert",
  "vey-types",
  "yaml-rust2",
 ]
@@ -3428,12 +3371,12 @@ dependencies = [
  "capnp",
  "clap",
  "futures-util",
- "g3-tls-cert",
  "hex",
  "tokio",
  "variant-ssl",
  "vey-ctl",
  "vey-keyless-proto",
+ "vey-tls-cert",
 ]
 
 [[package]]
@@ -3460,11 +3403,27 @@ dependencies = [
  "anyhow",
  "clap",
  "clap_complete",
- "g3-tls-cert",
  "openssl-probe",
  "variant-ssl",
  "variant-ssl-sys",
  "vey-build-env",
+ "vey-tls-cert",
+ "vey-types",
+]
+
+[[package]]
+name = "vey-msgpack"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "atoi",
+ "chrono",
+ "ip_network",
+ "rmpv",
+ "rustls-pki-types",
+ "uuid",
+ "variant-ssl",
+ "vey-geoip-types",
  "vey-types",
 ]
 
@@ -3507,7 +3466,6 @@ dependencies = [
  "foldhash 0.2.0",
  "futures-util",
  "g3-cert-agent",
- "g3-codec",
  "g3-daemon",
  "g3-dpi",
  "g3-ftp-client",
@@ -3517,13 +3475,10 @@ dependencies = [
  "g3-imap-proto",
  "g3-io-ext",
  "g3-ip-locate",
- "g3-json",
- "g3-msgpack",
  "g3-redis-client",
  "g3-resolver",
  "g3-slog-types",
  "g3-smtp-proto",
- "g3-socket",
  "g3-socks",
  "g3-statsd-client",
  "g3-tls-ticket",
@@ -3565,13 +3520,17 @@ dependencies = [
  "variant-ssl",
  "variant-ssl-sys",
  "vey-build-env",
+ "vey-codec",
  "vey-datetime",
  "vey-geoip-types",
  "vey-histogram",
  "vey-io-sys",
+ "vey-json",
  "vey-macros",
+ "vey-msgpack",
  "vey-openssl",
  "vey-proxy-proto",
+ "vey-socket",
  "vey-std-ext",
  "vey-types",
  "vey-xcrypt",
@@ -3603,9 +3562,9 @@ dependencies = [
  "clap",
  "clap_complete",
  "g3-ftp-client",
- "g3-socket",
  "log",
  "tokio",
+ "vey-socket",
  "vey-types",
 ]
 
@@ -3628,6 +3587,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "vey-socket"
+version = "0.6.0"
+dependencies = [
+ "fastrand",
+ "libc",
+ "socket2",
+ "tokio",
+ "vey-compat",
+ "vey-types",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "vey-statsd"
 version = "0.2.0"
 dependencies = [
@@ -3645,7 +3617,6 @@ dependencies = [
  "g3-daemon",
  "g3-http",
  "g3-io-ext",
- "g3-socket",
  "g3-yaml",
  "http",
  "itoa",
@@ -3656,6 +3627,7 @@ dependencies = [
  "tokio",
  "vey-build-env",
  "vey-macros",
+ "vey-socket",
  "vey-statsd-proto",
  "vey-types",
  "yaml-rust2",
@@ -3684,6 +3656,34 @@ dependencies = [
 [[package]]
 name = "vey-std-ext"
 version = "0.1.0"
+
+[[package]]
+name = "vey-stdlog"
+version = "0.3.0"
+dependencies = [
+ "anstyle",
+ "chrono",
+ "itoa",
+ "kanal",
+ "slog",
+ "vey-datetime",
+ "vey-types",
+ "zmij",
+]
+
+[[package]]
+name = "vey-tls-cert"
+version = "0.7.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "itertools 0.14.0",
+ "libc",
+ "variant-ssl",
+ "variant-ssl-sys",
+ "vey-datetime",
+ "vey-types",
+]
 
 [[package]]
 name = "vey-types"

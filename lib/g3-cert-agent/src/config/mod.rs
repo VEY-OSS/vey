@@ -77,7 +77,7 @@ impl CertAgentConfig {
     }
 
     pub fn spawn_cert_agent(&self) -> anyhow::Result<CertAgentHandle> {
-        let socket = g3_socket::udp::new_std_socket_to(
+        let socket = vey_socket::udp::new_std_socket_to(
             self.query_peer_addr,
             &Default::default(),
             self.query_socket_buffer,

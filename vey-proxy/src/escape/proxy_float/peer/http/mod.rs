@@ -102,24 +102,24 @@ impl NextProxyPeerInternal for ProxyFloatHttpPeer {
     fn set_kv(&mut self, k: &str, v: &Value) -> anyhow::Result<()> {
         match k {
             "username" => {
-                self.username = g3_json::value::as_username(v)
+                self.username = vey_json::value::as_username(v)
                     .context(format!("invalid username value for key {k}"))?;
                 Ok(())
             }
             "password" => {
-                self.password = g3_json::value::as_password(v)
+                self.password = vey_json::value::as_password(v)
                     .context(format!("invalid password value for key {k}"))?;
                 Ok(())
             }
             "http_connect_rsp_header_max_size" => {
-                self.http_connect_rsp_hdr_max_size = g3_json::humanize::as_usize(v)?;
+                self.http_connect_rsp_hdr_max_size = vey_json::humanize::as_usize(v)?;
                 Ok(())
             }
             "extra_append_headers" => {
                 if let Value::Object(map) = v {
                     let shared_config = Arc::make_mut(&mut self.shared_config);
                     for (name, value) in map {
-                        let value = g3_json::value::as_ascii(value).context(format!(
+                        let value = vey_json::value::as_ascii(value).context(format!(
                             "invalid ascii string value for extra header {name}"
                         ))?;
                         shared_config.set_header(name, value.as_str());

@@ -16,15 +16,15 @@ impl RemoteEncryptKey {
         if let Value::Object(map) = value {
             let mut builder = OpensslTicketKeyBuilder::default();
             for (k, v) in map {
-                match g3_json::key::normalize(k).as_str() {
-                    "name" => g3_json::value::as_bytes(v, &mut builder.name)
+                match vey_json::key::normalize(k).as_str() {
+                    "name" => vey_json::value::as_bytes(v, &mut builder.name)
                         .context(format!("invalid bytes value for key {k}"))?,
-                    "aes" | "aes_key" => g3_json::value::as_bytes(v, &mut builder.aes_key)
+                    "aes" | "aes_key" => vey_json::value::as_bytes(v, &mut builder.aes_key)
                         .context(format!("invalid bytes value for key {k}"))?,
-                    "hmac" | "hmac_key" => g3_json::value::as_bytes(v, &mut builder.hmac_key)
+                    "hmac" | "hmac_key" => vey_json::value::as_bytes(v, &mut builder.hmac_key)
                         .context(format!("invalid bytes value for key {k}"))?,
                     "lifetime" => {
-                        let lifetime = g3_json::value::as_u32(v)
+                        let lifetime = vey_json::value::as_u32(v)
                             .context(format!("invalid u32 value for key {k}"))?;
                         builder.set_lifetime(lifetime);
                     }
@@ -48,16 +48,16 @@ impl RemoteDecryptKey {
             let mut expire: Option<DateTime<Utc>> = None;
             let mut builder = OpensslTicketKeyBuilder::default();
             for (k, v) in map {
-                match g3_json::key::normalize(k).as_str() {
-                    "name" => g3_json::value::as_bytes(v, &mut builder.name)
+                match vey_json::key::normalize(k).as_str() {
+                    "name" => vey_json::value::as_bytes(v, &mut builder.name)
                         .context(format!("invalid bytes value for key {k}"))?,
-                    "aes" | "aes_key" => g3_json::value::as_bytes(v, &mut builder.aes_key)
+                    "aes" | "aes_key" => vey_json::value::as_bytes(v, &mut builder.aes_key)
                         .context(format!("invalid bytes value for key {k}"))?,
-                    "hmac" | "hmac_key" => g3_json::value::as_bytes(v, &mut builder.hmac_key)
+                    "hmac" | "hmac_key" => vey_json::value::as_bytes(v, &mut builder.hmac_key)
                         .context(format!("invalid bytes value for key {k}"))?,
                     "lifetime" => {}
                     "expire" => {
-                        let time = g3_json::value::as_rfc3339_datetime(v)
+                        let time = vey_json::value::as_rfc3339_datetime(v)
                             .context(format!("invalid rfc3339 datetime value for key {k}"))?;
                         expire = Some(time);
                     }
@@ -86,7 +86,7 @@ impl RemoteKeys {
             let mut enc_key: Option<RemoteEncryptKey> = None;
             let mut dec_keys = Vec::new();
             for (k, v) in map {
-                match g3_json::key::normalize(k).as_str() {
+                match vey_json::key::normalize(k).as_str() {
                     "enc" | "encrypt" | "enc_key" | "encrypt_key" => {
                         let key = RemoteEncryptKey::parse_json(v)
                             .context(format!("invalid remote encrypt key value for key {k}"))?;

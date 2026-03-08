@@ -12,8 +12,8 @@ use openssl::md::Md;
 use openssl::md_ctx::MdCtx;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use g3_socket::BindAddr;
 use vey_openssl::SslConnector;
+use vey_socket::BindAddr;
 use vey_types::net::{Host, OpensslClientConfig, OpensslClientConfigBuilder, TcpKeepAliveConfig};
 
 use super::FluentdConnection;
@@ -133,7 +133,7 @@ impl FluentdClientConfig {
     }
 
     pub(super) async fn new_connection(&self) -> anyhow::Result<FluentdConnection> {
-        let socket = g3_socket::tcp::new_socket_to(
+        let socket = vey_socket::tcp::new_socket_to(
             self.server_addr.ip(),
             &self.bind,
             &self.tcp_keepalive,

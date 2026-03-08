@@ -14,7 +14,7 @@ use quinn::{Connection, Endpoint, Incoming};
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
-use g3_socket::RawSocket;
+use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::net::UdpListenConfig;
@@ -95,7 +95,7 @@ where
             let mut runtime = self.create_instance();
             runtime.instance_id = i;
 
-            let socket = g3_socket::udp::new_std_bind_listen(&self.listen_config)?;
+            let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
             let listen_addr = socket.local_addr()?;
             runtime.into_running(
                 socket,
@@ -351,7 +351,7 @@ where
     }
 
     fn rebind_socket(&self, listener: &Endpoint) -> io::Result<(RawSocket, SocketAddr)> {
-        match g3_socket::udp::new_std_bind_listen(&self.listen_config) {
+        match vey_socket::udp::new_std_bind_listen(&self.listen_config) {
             Ok(socket) => {
                 let raw_socket = RawSocket::from(&socket);
                 match listener.rebind(socket) {
@@ -384,7 +384,7 @@ where
     fn goto_offline(&self, listener: Endpoint, listen_addr: SocketAddr, rebind_port: Option<u16>) {
         if let Some(port) = rebind_port {
             let rebind_addr = SocketAddr::new(listen_addr.ip(), port);
-            match g3_socket::udp::new_std_rebind_listen(
+            match vey_socket::udp::new_std_rebind_listen(
                 &self.listen_config,
                 SocketAddr::new(listen_addr.ip(), port),
             ) {

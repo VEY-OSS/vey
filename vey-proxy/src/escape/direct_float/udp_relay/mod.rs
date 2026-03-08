@@ -10,8 +10,8 @@ use anyhow::anyhow;
 use tokio::net::UdpSocket;
 
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend, UdpRecvHalf, UdpSendHalf};
-use g3_socket::BindAddr;
-use g3_socket::util::AddressFamily;
+use vey_socket::BindAddr;
+use vey_socket::util::AddressFamily;
 
 use super::DirectFloatEscaper;
 use crate::escape::direct_fixed::udp_relay::{DirectUdpRelayRemoteRecv, DirectUdpRelayRemoteSend};
@@ -95,7 +95,7 @@ impl DirectFloatEscaper {
             self.config.udp_misc_opts
         };
 
-        let (socket, bind_addr) = g3_socket::udp::new_std_bind_relay(
+        let (socket, bind_addr) = vey_socket::udp::new_std_bind_relay(
             &BindAddr::Ip(bind.ip),
             family,
             task_conf.sock_buf,

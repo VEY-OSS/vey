@@ -11,8 +11,8 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_resolver::driver::hickory::HickoryDriverConfig;
 use g3_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
-use g3_socket::BindAddr;
 use g3_yaml::YamlDocPosition;
+use vey_socket::BindAddr;
 use vey_types::metrics::NodeName;
 
 use super::{AnyResolverConfig, ResolverConfigDiffAction};

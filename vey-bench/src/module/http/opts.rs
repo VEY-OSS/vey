@@ -141,7 +141,7 @@ impl HttpClientArgs {
             http_args.method = method;
         }
 
-        if let Ok(payload) = g3_clap::data::get(args, HTTP_ARG_PAYLOAD, http_args.binary_payload) {
+        if let Ok(payload) = vey_clap::data::get(args, HTTP_ARG_PAYLOAD, http_args.binary_payload) {
             match http_args.method {
                 Method::POST | Method::PUT => {
                     if !payload.is_empty() {
@@ -163,14 +163,14 @@ impl HttpClientArgs {
             }
         }
 
-        http_args.headers = g3_clap::http::get_headers(args, HTTP_ARG_HEADER)?;
+        http_args.headers = vey_clap::http::get_headers(args, HTTP_ARG_HEADER)?;
         if let Some(code) = args.get_one::<StatusCode>(HTTP_ARG_OK_STATUS) {
             http_args.ok_status = Some(*code);
         }
-        if let Some(timeout) = g3_clap::humanize::get_duration(args, HTTP_ARG_TIMEOUT)? {
+        if let Some(timeout) = vey_clap::humanize::get_duration(args, HTTP_ARG_TIMEOUT)? {
             http_args.timeout = timeout;
         }
-        if let Some(timeout) = g3_clap::humanize::get_duration(args, HTTP_ARG_CONNECT_TIMEOUT)? {
+        if let Some(timeout) = vey_clap::humanize::get_duration(args, HTTP_ARG_CONNECT_TIMEOUT)? {
             http_args.connect_timeout = timeout;
         }
 

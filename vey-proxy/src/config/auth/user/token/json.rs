@@ -14,11 +14,11 @@ use super::{CONFIG_KEY_TYPE, PasswordToken};
 const CONFIG_KEY_SALT: &str = "salt";
 
 fn as_fast_hash(map: &Map<String, Value>) -> anyhow::Result<FastHashedPassPhrase> {
-    let salt = g3_json::get_required_str(map, CONFIG_KEY_SALT)?;
+    let salt = vey_json::get_required_str(map, CONFIG_KEY_SALT)?;
     let mut pass = FastHashedPassPhrase::new(salt)?;
 
     for (k, v) in map {
-        match g3_json::key::normalize(k).as_str() {
+        match vey_json::key::normalize(k).as_str() {
             CONFIG_KEY_TYPE => {}
             CONFIG_KEY_SALT => {}
             "md5" => {
@@ -63,7 +63,7 @@ fn as_xcrypt_hash(v: &Value) -> anyhow::Result<XCryptHash> {
     match v {
         Value::String(s) => XCryptHash::parse(s).map_err(|e| anyhow!("invalid xcrypt string: {e}")),
         Value::Object(map) => {
-            let s = g3_json::get_required_str(map, "value")?;
+            let s = vey_json::get_required_str(map, "value")?;
             XCryptHash::parse(s).map_err(|e| anyhow!("invalid xcrypt string: {e}"))
         }
         _ => Err(anyhow!("invalid value type")),
@@ -75,8 +75,8 @@ impl PasswordToken {
         match v {
             Value::String(_) => Ok(PasswordToken::XCrypt(as_xcrypt_hash(v)?)),
             Value::Object(map) => {
-                if let Ok(map_type) = g3_json::get_required_str(map, CONFIG_KEY_TYPE) {
-                    match g3_json::key::normalize(map_type).as_str() {
+                if let Ok(map_type) = vey_json::get_required_str(map, CONFIG_KEY_TYPE) {
+                    match vey_json::key::normalize(map_type).as_str() {
                         "fast_hash" => Ok(PasswordToken::FastHash(as_fast_hash(map)?)),
                         "xcrypt_hash" => Ok(PasswordToken::XCrypt(as_xcrypt_hash(v)?)),
                         _ => Err(anyhow!("unsupported user authentication type")),

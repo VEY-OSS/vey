@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend, UdpRecvHalf, UdpSendHalf};
-use g3_socket::util::AddressFamily;
+use vey_socket::util::AddressFamily;
 
 use tokio::net::UdpSocket;
 
@@ -89,7 +89,7 @@ impl DirectFixedEscaper {
         };
 
         let (socket, bind_addr) =
-            g3_socket::udp::new_std_bind_relay(&bind, family, task_conf.sock_buf, misc_opts)
+            vey_socket::udp::new_std_bind_relay(&bind, family, task_conf.sock_buf, misc_opts)
                 .map_err(UdpRelaySetupError::SetupSocketFailed)?;
         let socket = UdpSocket::from_std(socket).map_err(UdpRelaySetupError::SetupSocketFailed)?;
 

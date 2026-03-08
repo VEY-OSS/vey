@@ -5,7 +5,7 @@
 
 use slog::{Record, Serializer, Value};
 
-use g3_socket::BindAddr;
+use vey_socket::BindAddr;
 
 use crate::LtIpAddr;
 #[cfg(target_os = "linux")]

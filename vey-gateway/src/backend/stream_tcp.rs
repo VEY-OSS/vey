@@ -161,7 +161,7 @@ impl Backend for StreamTcpBackend {
         };
 
         self.stats.add_conn_attempt();
-        let socket = g3_socket::tcp::new_socket_to(
+        let socket = vey_socket::tcp::new_socket_to(
             next_addr.ip(),
             &Default::default(),
             &Default::default(),

@@ -6,7 +6,7 @@
 use bytes::BytesMut;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use g3_codec::tls::{ClientHello, ExtensionType, HandshakeCoalescer, Record, RecordParseError};
+use vey_codec::tls::{ClientHello, ExtensionType, HandshakeCoalescer, Record, RecordParseError};
 use vey_types::net::{Host, TlsServerName, UpstreamAddr};
 
 use crate::serve::{ServerTaskError, ServerTaskResult};

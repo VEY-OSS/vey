@@ -240,16 +240,18 @@ impl WebsocketArgs {
             return Err(anyhow!("no target url set"));
         };
         let mut websocket_args = WebsocketArgs::new(url)?;
-        websocket_args.headers = g3_clap::http::get_headers(args, WEBSOCKET_ARG_HEADER)?;
+        websocket_args.headers = vey_clap::http::get_headers(args, WEBSOCKET_ARG_HEADER)?;
 
-        if let Some(timeout) = g3_clap::humanize::get_duration(args, WEBSOCKET_ARG_TIMEOUT)? {
+        if let Some(timeout) = vey_clap::humanize::get_duration(args, WEBSOCKET_ARG_TIMEOUT)? {
             websocket_args.timeout = timeout;
         }
-        if let Some(timeout) = g3_clap::humanize::get_duration(args, WEBSOCKET_ARG_UPGRADE_TIMEOUT)?
+        if let Some(timeout) =
+            vey_clap::humanize::get_duration(args, WEBSOCKET_ARG_UPGRADE_TIMEOUT)?
         {
             websocket_args.upgrade_timeout = timeout;
         }
-        if let Some(timeout) = g3_clap::humanize::get_duration(args, WEBSOCKET_ARG_CONNECT_TIMEOUT)?
+        if let Some(timeout) =
+            vey_clap::humanize::get_duration(args, WEBSOCKET_ARG_CONNECT_TIMEOUT)?
         {
             websocket_args.connect_timeout = timeout;
         }
@@ -261,10 +263,10 @@ impl WebsocketArgs {
 
         websocket_args.binary = args.get_flag(WEBSOCKET_ARG_BINARY);
         websocket_args.payload =
-            g3_clap::data::get(args, WEBSOCKET_ARG_PAYLOAD, websocket_args.binary)?;
+            vey_clap::data::get(args, WEBSOCKET_ARG_PAYLOAD, websocket_args.binary)?;
 
         if let Some(max_frame_size) =
-            g3_clap::humanize::get_usize(args, WEBSOCKET_ARG_MAX_FRAME_SIZE)?
+            vey_clap::humanize::get_usize(args, WEBSOCKET_ARG_MAX_FRAME_SIZE)?
         {
             websocket_args.max_frame_size = max_frame_size;
         }

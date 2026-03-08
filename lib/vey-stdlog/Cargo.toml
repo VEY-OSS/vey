@@ -1,6 +1,6 @@
 [package]
-name = "g3-tls-cert"
-version = "0.7.0"
+name = "vey-stdlog"
+version = "0.3.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,14 +8,11 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow.workspace = true
-itertools.workspace = true
-openssl.workspace = true
-openssl-sys.workspace = true
-libc.workspace = true
+slog.workspace = true
 chrono = { workspace = true, features = ["clock"] }
-vey-types.workspace = true
+kanal.workspace = true
+anstyle = "1.0"
+itoa.workspace = true
+zmij.workspace = true
+vey-types = { workspace = true, features = ["async-log"] }
 vey-datetime.workspace = true
-
-[features]
-default = []

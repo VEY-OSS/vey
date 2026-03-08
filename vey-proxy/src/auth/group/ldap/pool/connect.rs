@@ -9,11 +9,11 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use tokio::net::TcpStream;
 
-use g3_codec::ldap::{LdapResult, LdapSequence};
 use g3_io_ext::LimitedWriteExt;
 use g3_io_ext::openssl::MaybeSslStream;
-use g3_socket::BindAddr;
+use vey_codec::ldap::{LdapResult, LdapSequence};
 use vey_openssl::{SslConnector, SslStream};
+use vey_socket::BindAddr;
 use vey_types::net::{Host, OpensslClientConfig};
 
 use crate::auth::group::ldap::LdapMessageReceiver;
@@ -81,7 +81,7 @@ impl LdapTcpConnector {
                     .ok_or_else(|| anyhow!("no address resolved for domain {domain}"))?
             }
         };
-        let socket = g3_socket::tcp::new_socket_to(
+        let socket = vey_socket::tcp::new_socket_to(
             peer.ip(),
             &BindAddr::None,
             &Default::default(),

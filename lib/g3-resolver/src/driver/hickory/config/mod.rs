@@ -10,7 +10,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_socket::BindAddr;
+use vey_socket::BindAddr;
 use vey_types::net::{DnsEncryptionConfigBuilder, TcpMiscSockOpts, UdpMiscSockOpts};
 
 use super::{HickoryClient, HickoryClientConfig, HickoryResolver};

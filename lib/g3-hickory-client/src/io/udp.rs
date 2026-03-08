@@ -11,7 +11,7 @@ use futures_util::Stream;
 use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 use hickory_proto::{ProtoError, ProtoErrorKind};
 
-use g3_socket::UdpConnectInfo;
+use vey_socket::UdpConnectInfo;
 
 /// Max size for the UDP receive buffer as recommended by
 /// [RFC6891](https://datatracker.ietf.org/doc/html/rfc6891#section-6.2.5).

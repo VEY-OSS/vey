@@ -129,7 +129,7 @@ impl CommonTaskContext {
 
         let (clt_socket, listen_addr) =
             if let Some(port_range) = self.server_config.udp_bind_port_range {
-                g3_socket::udp::new_std_in_range_bind_lazy_connect(
+                vey_socket::udp::new_std_in_range_bind_lazy_connect(
                     udp_bind_ip,
                     port_range,
                     self.server_config.udp_socket_buffer,
@@ -141,7 +141,7 @@ impl CommonTaskContext {
                     )
                 })?
             } else {
-                g3_socket::udp::new_std_bind_lazy_connect(
+                vey_socket::udp::new_std_bind_lazy_connect(
                     Some(udp_bind_ip),
                     self.server_config.udp_socket_buffer,
                     misc_opts,

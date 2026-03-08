@@ -12,7 +12,7 @@ use hickory_proto::xfer::StreamReceiver;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 
-use g3_socket::TcpConnectInfo;
+use vey_socket::TcpConnectInfo;
 
 pub async fn connect(
     connect_info: TcpConnectInfo,

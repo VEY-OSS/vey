@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_codec::tls::{ContentType, HandshakeType};
+use vey_codec::tls::{ContentType, HandshakeType};
 
 use super::{MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspectState};
 

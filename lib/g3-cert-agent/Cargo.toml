@@ -14,8 +14,8 @@ openssl.workspace = true
 rmpv.workspace = true
 yaml-rust = { workspace = true, optional = true }
 vey-types = { workspace = true, features = ["openssl"] }
-g3-msgpack = { workspace = true, features = ["openssl"] }
-g3-socket.workspace = true
+vey-msgpack = { workspace = true, features = ["openssl"] }
+vey-socket.workspace = true
 g3-io-ext.workspace = true
 g3-yaml = { workspace = true, optional = true }
 

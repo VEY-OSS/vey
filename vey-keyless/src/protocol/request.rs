@@ -15,7 +15,7 @@ use openssl::sign::RsaPssSaltlen;
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use g3_codec::tlv::{T1L2BVParse, TlvParse};
+use vey_codec::tlv::{T1L2BVParse, TlvParse};
 
 use super::{KeylessDataResponse, KeylessErrorResponse, KeylessPongResponse};
 

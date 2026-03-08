@@ -21,8 +21,8 @@ pub fn setup(args: &DaemonArgs) {
     let logger = if args.with_systemd {
         cfg_if::cfg_if! {
             if #[cfg(target_os = "linux")] {
-                let journal_conf = g3_journal::JournalConfig::with_ident(args.process_name).append_code_position();
-                let drain = g3_journal::new_async_logger(&async_conf, journal_conf);
+                let journal_conf = vey_journal::JournalConfig::with_ident(args.process_name).append_code_position();
+                let drain = vey_journal::new_async_logger(&async_conf, journal_conf);
                 Logger::root(drain.fuse(), slog::o!())
             } else {
                 unreachable!()
@@ -33,7 +33,7 @@ pub fn setup(args: &DaemonArgs) {
             g3_syslog::SyslogBuilder::with_ident(args.process_name).start_async(&async_conf);
         Logger::root(drain.fuse(), slog::o!())
     } else {
-        let drain = g3_stdlog::new_async_logger(&async_conf, true, false);
+        let drain = vey_stdlog::new_async_logger(&async_conf, true, false);
         Logger::root(drain.fuse(), slog::o!())
     };
 

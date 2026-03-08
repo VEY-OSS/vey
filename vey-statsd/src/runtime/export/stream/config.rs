@@ -12,7 +12,7 @@ use log::warn;
 use tokio::net::TcpStream;
 use yaml_rust::Yaml;
 
-use g3_socket::BindAddr;
+use vey_socket::BindAddr;
 use vey_types::metrics::NodeName;
 use vey_types::net::{Host, UpstreamAddr};
 
@@ -94,7 +94,7 @@ impl StreamExportConfig {
     }
 
     async fn connect_peer(&self, peer: SocketAddr) -> io::Result<TcpStream> {
-        let socket = g3_socket::tcp::new_socket_to(
+        let socket = vey_socket::tcp::new_socket_to(
             peer.ip(),
             &BindAddr::None,
             &Default::default(),

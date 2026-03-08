@@ -91,7 +91,7 @@ impl CacheHandle {
 }
 
 pub(super) fn spawn(config: &Arc<RouteQueryEscaperConfig>) -> anyhow::Result<CacheHandle> {
-    let socket = g3_socket::udp::new_std_socket_to(
+    let socket = vey_socket::udp::new_std_socket_to(
         config.query_peer_addr,
         &Default::default(),
         config.query_socket_buffer,

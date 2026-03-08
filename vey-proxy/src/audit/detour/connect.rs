@@ -48,7 +48,7 @@ impl StreamDetourConnector {
             return Err(anyhow!("no host resolved for {}", self.config.peer_addr));
         };
 
-        let socket = g3_socket::udp::new_std_socket_to(
+        let socket = vey_socket::udp::new_std_socket_to(
             peer,
             &Default::default(),
             self.config.socket_buffer,

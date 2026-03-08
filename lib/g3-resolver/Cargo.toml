@@ -27,7 +27,7 @@ kanal = { workspace = true, optional = true, features = ["async"] }
 async-recursion = { workspace = true, optional = true }
 yaml-rust = { workspace = true, optional = true }
 vey-types = { workspace = true, optional = true }
-g3-socket = { workspace = true, optional = true }
+vey-socket = { workspace = true, optional = true }
 g3-hickory-client = { workspace = true, optional = true }
 g3-yaml = { workspace = true, optional = true }
 
@@ -36,5 +36,5 @@ default = []
 yaml = ["dep:yaml-rust", "dep:g3-yaml"]
 c-ares = ["dep:c-ares", "dep:c-ares-resolver", "dep:c-ares-sys"]
 vendored-c-ares = ["c-ares", "c-ares-resolver/vendored", "c-ares/vendored"]
-hickory = ["dep:hickory-client", "dep:hickory-proto", "dep:kanal", "dep:rustls", "dep:rustls-pki-types", "dep:async-recursion", "dep:g3-hickory-client", "vey-types/rustls", "dep:g3-socket", "g3-yaml?/rustls"]
+hickory = ["dep:hickory-client", "dep:hickory-proto", "dep:kanal", "dep:rustls", "dep:rustls-pki-types", "dep:async-recursion", "dep:g3-hickory-client", "vey-types/rustls", "dep:vey-socket", "g3-yaml?/rustls"]
 quic = ["vey-types?/quic", "g3-hickory-client?/quic"]

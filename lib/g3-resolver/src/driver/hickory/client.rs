@@ -18,7 +18,7 @@ use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 use tokio::sync::mpsc;
 
-use g3_socket::{BindAddr, TcpConnectInfo, UdpConnectInfo};
+use vey_socket::{BindAddr, TcpConnectInfo, UdpConnectInfo};
 use vey_types::net::{
     DnsEncryptionConfig, DnsEncryptionProtocol, TcpMiscSockOpts, UdpMiscSockOpts,
 };

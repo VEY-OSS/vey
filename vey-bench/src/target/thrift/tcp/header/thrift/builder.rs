@@ -8,7 +8,7 @@ use std::convert::TryFrom;
 
 use anyhow::{Context, anyhow};
 
-use g3_codec::thrift::VarIntEncoder;
+use vey_codec::thrift::VarIntEncoder;
 
 use super::HeaderBufOffsets;
 use crate::target::thrift::protocol::ThriftProtocol;

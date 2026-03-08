@@ -64,22 +64,22 @@ impl Request {
                 let key = s
                     .as_str()
                     .ok_or_else(|| anyhow!("invalid string key {k}"))?;
-                match g3_msgpack::key::normalize(key).as_str() {
+                match vey_msgpack::key::normalize(key).as_str() {
                     request_key::HOST => self
                         .set_host_value(v)
                         .context(format!("invalid string value for key {key}")),
                     request_key::SERVICE => {
-                        self.service = g3_msgpack::value::as_tls_service_type(&v)
+                        self.service = vey_msgpack::value::as_tls_service_type(&v)
                             .context(format!("invalid tls service type value for key {key}"))?;
                         Ok(())
                     }
                     request_key::USAGE => {
-                        self.usage = g3_msgpack::value::as_tls_cert_usage(&v)
+                        self.usage = vey_msgpack::value::as_tls_cert_usage(&v)
                             .context(format!("invalid tls cert usage value for key {key}"))?;
                         Ok(())
                     }
                     request_key::CERT => {
-                        let cert = g3_msgpack::value::as_openssl_certificate(&v)
+                        let cert = vey_msgpack::value::as_openssl_certificate(&v)
                             .context(format!("invalid mimic cert value for key {key}"))?;
                         self.cert = Some(cert);
                         Ok(())
@@ -94,18 +94,18 @@ impl Request {
                         .set_host_value(v)
                         .context(format!("invalid host string value for key id {key_id}")),
                     request_key_id::SERVICE => {
-                        self.service = g3_msgpack::value::as_tls_service_type(&v).context(
+                        self.service = vey_msgpack::value::as_tls_service_type(&v).context(
                             format!("invalid tls service type value for key id {key_id}"),
                         )?;
                         Ok(())
                     }
                     request_key_id::USAGE => {
-                        self.usage = g3_msgpack::value::as_tls_cert_usage(&v)
+                        self.usage = vey_msgpack::value::as_tls_cert_usage(&v)
                             .context(format!("invalid tls cert usage value for key id {key_id}"))?;
                         Ok(())
                     }
                     request_key_id::CERT => {
-                        let cert = g3_msgpack::value::as_openssl_certificate(&v)
+                        let cert = vey_msgpack::value::as_openssl_certificate(&v)
                             .context(format!("invalid mimic cert value for key id {key_id}"))?;
                         self.cert = Some(cert);
                         Ok(())
@@ -118,7 +118,7 @@ impl Request {
     }
 
     fn set_host_value(&mut self, v: ValueRef) -> anyhow::Result<()> {
-        let host = g3_msgpack::value::as_string(&v)?;
+        let host = vey_msgpack::value::as_string(&v)?;
         self.host = host.into();
         Ok(())
     }

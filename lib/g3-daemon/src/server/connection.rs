@@ -7,8 +7,8 @@ use std::io;
 use std::net::{IpAddr, SocketAddr};
 
 use g3_io_ext::haproxy::ProxyAddr;
-use g3_socket::RawSocket;
-use g3_socket::util::AddressFamily;
+use vey_socket::RawSocket;
+use vey_socket::util::AddressFamily;
 use vey_types::net::TcpMiscSockOpts;
 
 #[derive(Clone, Debug)]

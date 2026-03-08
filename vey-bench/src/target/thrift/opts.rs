@@ -32,7 +32,7 @@ pub(super) struct ThriftGlobalArgs {
 impl ThriftGlobalArgs {
     pub(super) fn parse_args(args: &ArgMatches) -> anyhow::Result<Self> {
         let name = args.get_one::<String>(ARG_METHOD).unwrap();
-        let payload = g3_clap::data::get(args, ARG_PAYLOAD, true)?;
+        let payload = vey_clap::data::get(args, ARG_PAYLOAD, true)?;
 
         let request_builder = if args.get_flag(ARG_BINARY) {
             let request = BinaryMessageBuilder::new_call(name)

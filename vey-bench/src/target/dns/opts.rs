@@ -361,11 +361,11 @@ pub(super) fn parse_dns_args(args: &ArgMatches) -> anyhow::Result<BenchDnsArgs> 
         return Err(anyhow!("invalid dns server address {target}"));
     };
 
-    if let Some(timeout) = g3_clap::humanize::get_duration(args, DNS_ARG_TIMEOUT)? {
+    if let Some(timeout) = vey_clap::humanize::get_duration(args, DNS_ARG_TIMEOUT)? {
         dns_args.timeout = timeout;
     }
 
-    if let Some(timeout) = g3_clap::humanize::get_duration(args, DNS_ARG_CONNECT_TIMEOUT)? {
+    if let Some(timeout) = vey_clap::humanize::get_duration(args, DNS_ARG_CONNECT_TIMEOUT)? {
         dns_args.connect_timeout = timeout;
     }
 

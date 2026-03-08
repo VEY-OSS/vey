@@ -6,8 +6,8 @@
 use anyhow::anyhow;
 use tokio::io::AsyncRead;
 
-use g3_codec::ldap::{LdapMessage, LdapMessageParseError};
 use g3_io_ext::LimitedReadExt;
+use vey_codec::ldap::{LdapMessage, LdapMessageParseError};
 
 pub(crate) struct LdapMessageReceiver {
     max_message_size: usize,

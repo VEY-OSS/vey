@@ -9,8 +9,8 @@ use anyhow::anyhow;
 use clap::ArgMatches;
 use openssl::pkey::PKey;
 
-use g3_tls_cert::ext::PublicKeyExt;
 use vey_ctl::{CommandError, CommandResult};
+use vey_tls_cert::ext::PublicKeyExt;
 
 use vey_keyless_proto::proc_capnp::proc_control;
 use vey_keyless_proto::server_capnp::server_control;

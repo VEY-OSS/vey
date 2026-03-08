@@ -15,7 +15,7 @@ use openssl::pkey::{Id, PKey, Private, Public};
 use openssl::pkey_ctx::PkeyCtx;
 use openssl::rsa::Padding;
 
-use g3_tls_cert::ext::PublicKeyExt;
+use vey_tls_cert::ext::PublicKeyExt;
 
 use crate::ProcArgs;
 

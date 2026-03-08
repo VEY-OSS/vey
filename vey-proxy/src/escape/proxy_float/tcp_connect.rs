@@ -9,7 +9,7 @@ use tokio::net::TcpStream;
 use tokio::time::Instant;
 
 use g3_io_ext::LimitedStream;
-use g3_socket::BindAddr;
+use vey_socket::BindAddr;
 use vey_types::net::ConnectError;
 
 use super::{NextProxyPeer, ProxyFloatEscaper};
@@ -24,7 +24,7 @@ impl ProxyFloatEscaper {
         bind: &BindAddr,
     ) -> Result<TcpStream, TcpConnectError> {
         // use new socket every time, as we set bind_no_port
-        let sock = g3_socket::tcp::new_socket_to(
+        let sock = vey_socket::tcp::new_socket_to(
             peer.ip(),
             bind,
             &self.config.tcp_keepalive,

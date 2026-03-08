@@ -8,7 +8,7 @@ use std::path::Path;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_socket::BindAddr;
+use vey_socket::BindAddr;
 
 use super::HickoryDriverConfig;
 

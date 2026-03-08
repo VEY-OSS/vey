@@ -20,8 +20,8 @@ members = [
     "vey-gateway/utils/ctl",
     "lib/vey-build-env",
     "lib/g3-cert-agent",
-    "lib/g3-clap",
-    "lib/g3-codec",
+    "lib/vey-clap",
+    "lib/vey-codec",
     "lib/vey-compat",
     "lib/vey-ctl",
     "lib/g3-daemon",
@@ -40,23 +40,23 @@ members = [
     "lib/g3-io-ext",
     "lib/vey-io-sys",
     "lib/g3-ip-locate",
-    "lib/g3-journal",
-    "lib/g3-json",
+    "lib/vey-journal",
+    "lib/vey-json",
     "lib/vey-macros",
-    "lib/g3-msgpack",
+    "lib/vey-msgpack",
     "lib/vey-openssl",
     "lib/g3-redis-client",
     "lib/g3-resolver",
     "lib/g3-runtime",
     "lib/g3-slog-types",
     "lib/g3-smtp-proto",
-    "lib/g3-socket",
+    "lib/vey-socket",
     "lib/g3-socks",
     "lib/g3-statsd-client",
     "lib/vey-std-ext",
-    "lib/g3-stdlog",
+    "lib/vey-stdlog",
     "lib/g3-syslog",
-    "lib/g3-tls-cert",
+    "lib/vey-tls-cert",
     "lib/g3-tls-ticket",
     "lib/vey-types",
     "lib/g3-udpdump",
@@ -200,8 +200,8 @@ cfg-if = "1.0"
 #
 vey-build-env = { version = "0.2", path = "lib/vey-build-env" }
 g3-cert-agent = { version = "0.3", path = "lib/g3-cert-agent" }
-g3-clap = { version = "0.2", path = "lib/g3-clap" }
-g3-codec = { version = "0.1", path = "lib/g3-codec" }
+vey-clap = { version = "0.2", path = "lib/vey-clap" }
+vey-codec = { version = "0.1", path = "lib/vey-codec" }
 vey-compat = { version = "0.2", path = "lib/vey-compat" }
 vey-ctl = { version = "0.2", path = "lib/vey-ctl" }
 g3-daemon = { version = "0.4", path = "lib/g3-daemon" }
@@ -220,23 +220,23 @@ g3-imap-proto = { version = "0.3", path = "lib/g3-imap-proto" }
 g3-io-ext = { version = "0.9", path = "lib/g3-io-ext" }
 vey-io-sys = { version = "0.1", path = "lib/vey-io-sys" }
 g3-ip-locate = { version = "0.3", path = "lib/g3-ip-locate" }
-g3-journal = { version = "0.4", path = "lib/g3-journal" }
-g3-json = { version = "0.5", path = "lib/g3-json" }
+vey-journal = { version = "0.4", path = "lib/vey-journal" }
+vey-json = { version = "0.5", path = "lib/vey-json" }
 vey-macros = { version = "0.1", path = "lib/vey-macros" }
-g3-msgpack = { version = "0.4", path = "lib/g3-msgpack" }
+vey-msgpack = { version = "0.4", path = "lib/vey-msgpack" }
 vey-openssl = { version = "0.4", path = "lib/vey-openssl" }
 g3-redis-client = { version = "0.3", path = "lib/g3-redis-client" }
 g3-resolver = { version = "0.9", path = "lib/g3-resolver" }
 g3-runtime = { version = "0.5", path = "lib/g3-runtime" }
 g3-slog-types = { version = "0.3", path = "lib/g3-slog-types" }
 g3-smtp-proto = { version = "0.3", path = "lib/g3-smtp-proto" }
-g3-socket = { version = "0.6", path = "lib/g3-socket" }
+vey-socket = { version = "0.6", path = "lib/vey-socket" }
 g3-socks = { version = "0.4", path = "lib/g3-socks" }
 g3-statsd-client = { version = "0.3", path = "lib/g3-statsd-client" }
 vey-std-ext = { version = "0.1", path = "lib/vey-std-ext" }
-g3-stdlog = { version = "0.3", path = "lib/g3-stdlog" }
+vey-stdlog = { version = "0.3", path = "lib/vey-stdlog" }
 g3-syslog = { version = "0.8", path = "lib/g3-syslog" }
-g3-tls-cert = { version = "0.7", path = "lib/g3-tls-cert" }
+vey-tls-cert = { version = "0.7", path = "lib/vey-tls-cert" }
 g3-tls-ticket = { version = "0.3", path = "lib/g3-tls-ticket" }
 vey-types = { version = "0.7", path = "lib/vey-types" }
 g3-udpdump = { version = "0.3", path = "lib/g3-udpdump" }

@@ -5,7 +5,7 @@
 
 use anyhow::anyhow;
 
-use g3_codec::thrift::VarIntEncoder;
+use vey_codec::thrift::VarIntEncoder;
 
 pub(crate) struct CompactMessageBuilder {
     name: String,

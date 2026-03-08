@@ -111,21 +111,21 @@ impl QueryRuntime {
         let mut ttl: u32 = 0;
 
         for (k, v) in map {
-            let key = g3_msgpack::value::as_string(&k)?;
-            match g3_msgpack::key::normalize(key.as_str()).as_str() {
+            let key = vey_msgpack::value::as_string(&k)?;
+            match vey_msgpack::key::normalize(key.as_str()).as_str() {
                 KEY_ID => {
-                    let v = g3_msgpack::value::as_uuid(&v)?;
+                    let v = vey_msgpack::value::as_uuid(&v)?;
                     id = Some(v);
                 }
                 "nodes" => match v {
                     ValueRef::String(_) => {
-                        let item = g3_msgpack::value::as_weighted_metrics_name(&v)
+                        let item = vey_msgpack::value::as_weighted_metrics_name(&v)
                             .context(format!("invalid weighted name string value for key {key}"))?;
                         nodes.push(item);
                     }
                     ValueRef::Array(seq) => {
                         for (i, v) in seq.iter().enumerate() {
-                            let item = g3_msgpack::value::as_weighted_metrics_name(v).context(
+                            let item = vey_msgpack::value::as_weighted_metrics_name(v).context(
                                 format!("invalid weighted name string value for {key}#{i}"),
                             )?;
                             nodes.push(item);
@@ -134,7 +134,7 @@ impl QueryRuntime {
                     _ => return Err(anyhow!("invalid value type for key {key}")),
                 },
                 "ttl" => {
-                    ttl = g3_msgpack::value::as_u32(&v)
+                    ttl = vey_msgpack::value::as_u32(&v)
                         .context(format!("invalid u32 value for key {key}"))?;
                 }
                 _ => return Err(anyhow!("invalid key {key}")),

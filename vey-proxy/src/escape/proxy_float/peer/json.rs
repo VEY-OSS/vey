@@ -26,8 +26,8 @@ pub(super) fn do_parse_peer(
     datetime_now: DateTime<Utc>,
 ) -> anyhow::Result<Option<(String, ArcNextProxyPeer)>> {
     if let Value::Object(map) = value {
-        let peer_type = g3_json::get_required_str(map, CONFIG_KEY_PEER_TYPE)?;
-        let addr_str = g3_json::get_required_str(map, CONFIG_KEY_PEER_ADDR)?;
+        let peer_type = vey_json::get_required_str(map, CONFIG_KEY_PEER_TYPE)?;
+        let addr_str = vey_json::get_required_str(map, CONFIG_KEY_PEER_ADDR)?;
         let addr = SocketAddr::from_str(addr_str)
             .map_err(|e| anyhow!("invalid peer addr {addr_str}: {e}"))?;
         let mut peer = match peer_type {
@@ -40,31 +40,31 @@ pub(super) fn do_parse_peer(
         let mut peer_id = String::new();
         let peer_mut = Arc::get_mut(&mut peer).unwrap();
         for (k, v) in map {
-            match g3_json::key::normalize(k).as_str() {
+            match vey_json::key::normalize(k).as_str() {
                 CONFIG_KEY_PEER_TYPE | CONFIG_KEY_PEER_ADDR => {}
                 CONFIG_KEY_PEER_ID => {
-                    peer_id = g3_json::value::as_string(v)?;
+                    peer_id = vey_json::value::as_string(v)?;
                 }
                 CONFIG_KEY_PEER_ISP => {
-                    if let Ok(isp) = g3_json::value::as_string(v) {
+                    if let Ok(isp) = vey_json::value::as_string(v) {
                         peer_mut.egress_info_mut().set_isp(isp);
                     }
                     // not a required field, skip if value format is invalid
                 }
                 CONFIG_KEY_PEER_EIP => {
-                    if let Ok(ip) = g3_json::value::as_ipaddr(v) {
+                    if let Ok(ip) = vey_json::value::as_ipaddr(v) {
                         peer_mut.egress_info_mut().set_ip(ip);
                     }
                     // not a required field, skip if value format is invalid
                 }
                 CONFIG_KEY_PEER_AREA => {
-                    if let Ok(area) = g3_json::value::as_egress_area(v) {
+                    if let Ok(area) = vey_json::value::as_egress_area(v) {
                         peer_mut.egress_info_mut().set_area(area);
                     }
                     // not a required field, skip if value format is invalid
                 }
                 CONFIG_KEY_PEER_EXPIRE => {
-                    let datetime_expire_orig = g3_json::value::as_rfc3339_datetime(v)?;
+                    let datetime_expire_orig = vey_json::value::as_rfc3339_datetime(v)?;
                     let Some(datetime_expire) = datetime_expire_orig
                         .checked_sub_signed(escaper_config.expire_guard_duration)
                     else {
@@ -83,7 +83,7 @@ pub(super) fn do_parse_peer(
                     peer_mut.set_expire(datetime_expire_orig, instant_expire);
                 }
                 CONFIG_KEY_PEER_TCP_SOCK_SPEED_LIMIT => {
-                    let limit = g3_json::value::as_tcp_sock_speed_limit(v)?;
+                    let limit = vey_json::value::as_tcp_sock_speed_limit(v)?;
                     peer_mut.set_tcp_sock_speed_limit(limit);
                 }
                 _ => peer_mut

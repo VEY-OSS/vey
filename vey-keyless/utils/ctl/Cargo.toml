@@ -15,5 +15,5 @@ capnp.workspace = true
 hex.workspace = true
 openssl.workspace = true
 vey-ctl.workspace = true
-g3-tls-cert.workspace = true
+vey-tls-cert.workspace = true
 vey-keyless-proto = { path = "../../proto" }

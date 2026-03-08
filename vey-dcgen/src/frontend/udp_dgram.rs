@@ -16,7 +16,7 @@ pub(crate) struct UdpDgramIo {
 
 impl UdpDgramIo {
     pub(crate) fn new(config: &UdpListenConfig) -> io::Result<Self> {
-        let socket = g3_socket::udp::new_std_bind_listen(config)?;
+        let socket = vey_socket::udp::new_std_bind_listen(config)?;
         Ok(UdpDgramIo {
             socket: UdpSocket::from_std(socket)?,
         })

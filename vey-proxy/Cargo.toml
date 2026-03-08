@@ -65,7 +65,7 @@ regex.workspace = true
 mlua = { workspace = true, features = ["send"], optional = true }
 pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
 g3-cert-agent = { workspace = true, features = ["yaml"] }
-g3-codec = { workspace = true, features = ["ldap", "tls"] }
+vey-codec = { workspace = true, features = ["ldap", "tls"] }
 g3-daemon = { workspace = true, features = ["event-log"] }
 vey-datetime.workspace = true
 g3-dpi.workspace = true
@@ -79,15 +79,15 @@ g3-imap-proto.workspace = true
 g3-io-ext = { workspace = true, features = ["resolver", "openssl", "rustls", "log"] }
 vey-io-sys.workspace = true
 g3-ip-locate = { workspace = true, features = ["yaml"] }
-g3-json = { workspace = true, features = ["auth-facts", "acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
+vey-json = { workspace = true, features = ["auth-facts", "acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
 vey-macros.workspace = true
-g3-msgpack.workspace = true
+vey-msgpack.workspace = true
 vey-openssl.workspace = true
 g3-redis-client = { workspace = true, features = ["yaml"] }
 g3-resolver = { workspace = true, features = ["yaml", "hickory"] }
 g3-slog-types = { workspace = true, features = ["auth", "http", "openssl", "socket"] }
 g3-smtp-proto.workspace = true
-g3-socket.workspace = true
+vey-socket.workspace = true
 g3-socks.workspace = true
 g3-statsd-client.workspace = true
 vey-std-ext.workspace = true

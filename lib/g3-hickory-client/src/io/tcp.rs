@@ -10,7 +10,7 @@ use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::tcp::{DnsTcpStream, TcpClientStream, TcpStream};
 use hickory_proto::xfer::StreamReceiver;
 
-use g3_socket::TcpConnectInfo;
+use vey_socket::TcpConnectInfo;
 
 pub async fn connect(
     connect_info: TcpConnectInfo,

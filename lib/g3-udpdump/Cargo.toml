@@ -13,7 +13,7 @@ tokio = { workspace = true, features = ["rt", "net", "sync"] }
 anyhow = { workspace = true, optional = true }
 yaml-rust = { workspace = true, optional = true }
 vey-types.workspace = true
-g3-socket.workspace = true
+vey-socket.workspace = true
 g3-io-ext.workspace = true
 vey-io-sys.workspace = true
 g3-dpi.workspace = true

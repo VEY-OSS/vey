@@ -342,7 +342,7 @@ mod tests {
     #[tokio::test]
     async fn recv_ancillary_v4() {
         let listen_config = UdpListenConfig::new(SocketAddr::from_str("0.0.0.0:0").unwrap());
-        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = vey_socket::udp::new_std_bind_listen(&listen_config).unwrap();
         let s_sock = UdpSocket::from_std(s_sock).unwrap();
         let s_addr = s_sock.local_addr().unwrap();
         assert!(s_addr.ip().is_unspecified());
@@ -376,7 +376,7 @@ mod tests {
         let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
         #[cfg(not(target_os = "openbsd"))]
         listen_config.set_ipv6_only(true);
-        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = vey_socket::udp::new_std_bind_listen(&listen_config).unwrap();
         let s_sock = UdpSocket::from_std(s_sock).unwrap();
         let s_addr = s_sock.local_addr().unwrap();
         assert!(s_addr.ip().is_unspecified());
@@ -410,7 +410,7 @@ mod tests {
     async fn recv_ancillary_mapped_v4() {
         let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
         listen_config.set_ipv6_only(false);
-        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = vey_socket::udp::new_std_bind_listen(&listen_config).unwrap();
         let s_sock = UdpSocket::from_std(s_sock).unwrap();
         let s_addr = s_sock.local_addr().unwrap();
         assert!(s_addr.ip().is_unspecified());
@@ -562,7 +562,7 @@ mod tests {
     #[tokio::test]
     async fn batch_recv_ancillary_v4() {
         let listen_config = UdpListenConfig::new(SocketAddr::from_str("0.0.0.0:0").unwrap());
-        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = vey_socket::udp::new_std_bind_listen(&listen_config).unwrap();
         let s_sock = UdpSocket::from_std(s_sock).unwrap();
         let s_addr = s_sock.local_addr().unwrap();
         assert!(s_addr.ip().is_unspecified());
@@ -632,7 +632,7 @@ mod tests {
         let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
         #[cfg(not(target_os = "openbsd"))]
         listen_config.set_ipv6_only(true);
-        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = vey_socket::udp::new_std_bind_listen(&listen_config).unwrap();
         let s_sock = UdpSocket::from_std(s_sock).unwrap();
         let s_addr = s_sock.local_addr().unwrap();
         assert!(s_addr.ip().is_unspecified());
@@ -700,7 +700,7 @@ mod tests {
     async fn batch_recv_ancillary_mapped_v4() {
         let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
         listen_config.set_ipv6_only(false);
-        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = vey_socket::udp::new_std_bind_listen(&listen_config).unwrap();
         let s_sock = UdpSocket::from_std(s_sock).unwrap();
         let s_addr = s_sock.local_addr().unwrap();
         assert!(s_addr.ip().is_unspecified());

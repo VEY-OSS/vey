@@ -11,7 +11,7 @@ use anyhow::anyhow;
 use clap::{Arg, ArgMatches, Command, value_parser};
 use tokio::net::TcpStream;
 
-use g3_socket::{BindAddr, TcpConnectInfo, UdpConnectInfo};
+use vey_socket::{BindAddr, TcpConnectInfo, UdpConnectInfo};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -45,7 +45,7 @@ pub(crate) struct SocketArgs {
 
 impl SocketArgs {
     pub(crate) async fn tcp_connect_to(&self, peer: SocketAddr) -> anyhow::Result<TcpStream> {
-        let socket = g3_socket::tcp::new_socket_to(
+        let socket = vey_socket::tcp::new_socket_to(
             peer.ip(),
             &self.bind,
             &Default::default(),
@@ -61,7 +61,7 @@ impl SocketArgs {
 
     #[cfg(feature = "quic")]
     pub(crate) fn udp_std_socket_to(&self, peer: SocketAddr) -> anyhow::Result<UdpSocket> {
-        g3_socket::udp::new_std_socket_to(peer, &self.bind, Default::default(), Default::default())
+        vey_socket::udp::new_std_socket_to(peer, &self.bind, Default::default(), Default::default())
             .map_err(|e| anyhow!("failed to setup local udp socket: {e}"))
     }
 

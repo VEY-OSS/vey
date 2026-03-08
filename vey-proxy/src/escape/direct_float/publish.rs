@@ -11,7 +11,7 @@ use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use serde_json::Value;
 
-use g3_socket::util::AddressFamily;
+use vey_socket::util::AddressFamily;
 
 use super::BindSet;
 use crate::config::escaper::direct_float::DirectFloatEscaperConfig;
@@ -100,7 +100,7 @@ pub(super) async fn publish_records(
 
     if let Value::Object(map) = obj {
         for (k, v) in map.into_iter() {
-            match g3_json::key::normalize(&k).as_str() {
+            match vey_json::key::normalize(&k).as_str() {
                 "ipv4" | "v4" => {
                     let bind_set = parse_value(v, AddressFamily::Ipv4, &config.cache_ipv4).await?;
                     v4_container.store(Arc::new(bind_set));

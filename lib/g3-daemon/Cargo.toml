@@ -31,7 +31,7 @@ serde_json = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = ["runtime-tokio", "ring"] }
 vey-compat.workspace = true
 vey-types = { workspace = true, features = ["async-log"] }
-g3-stdlog.workspace = true
+vey-stdlog.workspace = true
 g3-syslog = { workspace = true, features = ["yaml"] }
 g3-fluentd = { workspace = true, optional = true, features = ["yaml"] }
 g3-runtime = { workspace = true, features = ["yaml"] }
@@ -39,7 +39,7 @@ g3-yaml = { workspace = true, features = ["sched"] }
 g3-statsd-client = { workspace = true, features = ["yaml"] }
 g3-io-ext.workspace = true
 vey-io-sys.workspace = true
-g3-socket.workspace = true
+vey-socket.workspace = true
 vey-std-ext.workspace = true
 g3-http = { workspace = true, optional = true }
 
@@ -48,7 +48,7 @@ rustix = { workspace = true, features = ["process"] }
 libc.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
-g3-journal.workspace = true
+vey-journal.workspace = true
 
 [features]
 default = []

@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use rand::seq::IteratorRandom;
 use tokio::time::Instant;
 
-use g3_socket::util::AddressFamily;
+use vey_socket::util::AddressFamily;
 use vey_types::net::EgressInfo;
 
 mod json;

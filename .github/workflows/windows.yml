@@ -54,7 +54,7 @@ jobs:
       - name: Cargo clippy
         run: cargo clippy --no-default-features --features $env:WIN_FEATURES --tests -- --deny warnings
       - name: Cargo test
-        run: cargo test --no-default-features --features $env:WIN_FEATURES --workspace --exclude g3-journal
+        run: cargo test --no-default-features --features $env:WIN_FEATURES --workspace --exclude vey-journal
 
   build-vendored-g1:
     name: Build vendored

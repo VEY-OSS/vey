@@ -14,5 +14,5 @@ clap_complete.workspace = true
 async-trait.workspace = true
 log = { workspace = true, features = ["std", "max_level_trace", "release_max_level_debug"] }
 vey-types.workspace = true
-g3-socket.workspace = true
+vey-socket.workspace = true
 g3-ftp-client = { workspace = true, features = ["log-raw-io"] }

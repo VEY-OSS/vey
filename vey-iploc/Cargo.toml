@@ -18,7 +18,7 @@ g3-statsd-client.workspace = true
 vey-geoip-types.workspace = true
 vey-geoip-db.workspace = true
 g3-ip-locate.workspace = true
-g3-socket.workspace = true
+vey-socket.workspace = true
 vey-types.workspace = true
 
 [build-dependencies]

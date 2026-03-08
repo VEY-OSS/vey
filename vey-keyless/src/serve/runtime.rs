@@ -13,7 +13,7 @@ use tokio::sync::broadcast;
 use g3_daemon::listen::{ListenAliveGuard, ListenStats};
 use g3_daemon::server::ClientConnectionInfo;
 use g3_io_ext::LimitedTcpListener;
-use g3_socket::RawSocket;
+use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
 use vey_types::net::TcpListenConfig;
 
@@ -124,7 +124,7 @@ impl KeyServerRuntime {
         listen_config: &TcpListenConfig,
         server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
     ) -> anyhow::Result<()> {
-        let listener = g3_socket::tcp::new_listen_to(listen_config)?;
+        let listener = vey_socket::tcp::new_listen_to(listen_config)?;
         let server_reload_receiver = server_reload_sender.subscribe();
         tokio::spawn(async move {
             self.pre_start();

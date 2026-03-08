@@ -16,7 +16,7 @@ serde_json.workspace = true
 yaml-rust = { workspace = true, optional = true }
 redis = { workspace = true, features = ["aio", "tokio-comp"] }
 vey-types = { workspace = true, features = ["openssl"] }
-g3-json.workspace = true
+vey-json.workspace = true
 g3-redis-client.workspace = true
 g3-yaml = { workspace = true, optional = true }
 

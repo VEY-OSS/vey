@@ -11,9 +11,9 @@ use slog::{Logger, OwnedKV, SendSyncRefUnwindSafeKV};
 use yaml_rust::Yaml;
 
 use g3_fluentd::FluentdClientConfig;
-#[cfg(target_os = "linux")]
-use g3_journal::JournalConfig;
 use g3_syslog::SyslogBuilder;
+#[cfg(target_os = "linux")]
+use vey_journal::JournalConfig;
 use vey_types::log::AsyncLogConfig;
 
 use super::{LoggerStats, ReportLogIoError};
@@ -216,7 +216,7 @@ impl LogConfig {
             LogConfigDriver::Discard => None,
             #[cfg(target_os = "linux")]
             LogConfigDriver::Journal(journal_conf) => {
-                let drain = g3_journal::new_async_logger(&async_conf, journal_conf);
+                let drain = vey_journal::new_async_logger(&async_conf, journal_conf);
                 let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
                 super::registry::add(logger_name.clone(), Arc::new(logger_stats));
                 let drain = ReportLogIoError::new(drain, &logger_name, self.io_err_sampling_mask);
@@ -241,7 +241,7 @@ impl LogConfig {
                 Some(Logger::root(drain, common_values))
             }
             LogConfigDriver::Stdout => {
-                let drain = g3_stdlog::new_async_logger(&async_conf, false, true);
+                let drain = vey_stdlog::new_async_logger(&async_conf, false, true);
                 let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
                 super::registry::add(logger_name.clone(), Arc::new(logger_stats));
                 let drain = slog::IgnoreResult::new(drain);

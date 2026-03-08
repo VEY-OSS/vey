@@ -39,30 +39,30 @@ impl Response {
                 let key = s
                     .as_str()
                     .ok_or_else(|| anyhow!("invalid string key {k}"))?;
-                match g3_msgpack::key::normalize(key).as_str() {
+                match vey_msgpack::key::normalize(key).as_str() {
                     response_key::HOST => {
-                        self.host = g3_msgpack::value::as_string(&v)
+                        self.host = vey_msgpack::value::as_string(&v)
                             .context(format!("invalid string value for key {key}"))?;
                     }
                     response_key::SERVICE => {
-                        self.service = g3_msgpack::value::as_tls_service_type(&v)
+                        self.service = vey_msgpack::value::as_tls_service_type(&v)
                             .context(format!("invalid tls service type value for key {key}"))?;
                     }
                     response_key::USAGE => {
-                        self.usage = g3_msgpack::value::as_tls_cert_usage(&v)
+                        self.usage = vey_msgpack::value::as_tls_cert_usage(&v)
                             .context(format!("invalid tls cert usage value for key {key}"))?;
                     }
                     response_key::CERT_CHAIN => {
-                        self.certs = g3_msgpack::value::as_openssl_certificates(&v)
+                        self.certs = vey_msgpack::value::as_openssl_certificates(&v)
                             .context(format!("invalid tls certificate value for key {key}"))?;
                     }
                     response_key::PRIVATE_KEY => {
-                        let key = g3_msgpack::value::as_openssl_private_key(&v)
+                        let key = vey_msgpack::value::as_openssl_private_key(&v)
                             .context(format!("invalid tls private key value for key {key}"))?;
                         self.key = Some(key);
                     }
                     response_key::TTL => {
-                        self.ttl = g3_msgpack::value::as_u32(&v)
+                        self.ttl = vey_msgpack::value::as_u32(&v)
                             .context(format!("invalid u32 value for key {key}"))?;
                     }
                     _ => {} // ignore unknown keys
@@ -72,31 +72,31 @@ impl Response {
                 let key_id = i.as_u64().ok_or_else(|| anyhow!("invalid u64 key {k}"))?;
                 match key_id {
                     response_key_id::HOST => {
-                        self.host = g3_msgpack::value::as_string(&v)
+                        self.host = vey_msgpack::value::as_string(&v)
                             .context(format!("invalid string value for key id {key_id}"))?;
                     }
                     response_key_id::SERVICE => {
-                        self.service = g3_msgpack::value::as_tls_service_type(&v).context(
+                        self.service = vey_msgpack::value::as_tls_service_type(&v).context(
                             format!("invalid tls service type value for key id {key_id}"),
                         )?;
                     }
                     response_key_id::USAGE => {
-                        self.usage = g3_msgpack::value::as_tls_cert_usage(&v)
+                        self.usage = vey_msgpack::value::as_tls_cert_usage(&v)
                             .context(format!("invalid tls cert usage value for key id {key_id}"))?;
                     }
                     response_key_id::CERT_CHAIN => {
-                        self.certs = g3_msgpack::value::as_openssl_certificates(&v).context(
+                        self.certs = vey_msgpack::value::as_openssl_certificates(&v).context(
                             format!("invalid tls certificate value for key id {key_id}"),
                         )?;
                     }
                     response_key_id::PRIVATE_KEY => {
-                        let key = g3_msgpack::value::as_openssl_private_key(&v).context(
+                        let key = vey_msgpack::value::as_openssl_private_key(&v).context(
                             format!("invalid tls private key value for key id {key_id}"),
                         )?;
                         self.key = Some(key);
                     }
                     response_key_id::TTL => {
-                        self.ttl = g3_msgpack::value::as_u32(&v)
+                        self.ttl = vey_msgpack::value::as_u32(&v)
                             .context(format!("invalid u32 value for key id {key_id}"))?;
                     }
                     _ => {} // ignore unknown keys

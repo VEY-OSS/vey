@@ -99,34 +99,34 @@ impl NextProxyPeerInternal for ProxyFloatSocks5sPeer {
     fn set_kv(&mut self, k: &str, v: &Value) -> anyhow::Result<()> {
         match k {
             "username" => {
-                self.username = g3_json::value::as_username(v)
+                self.username = vey_json::value::as_username(v)
                     .context(format!("invalid username value for key {k}"))?;
                 Ok(())
             }
             "password" => {
-                self.password = g3_json::value::as_password(v)
+                self.password = vey_json::value::as_password(v)
                     .context(format!("invalid password value for key {k}"))?;
                 Ok(())
             }
             "tls_name" => {
-                self.tls_name = g3_json::value::as_host(v)
+                self.tls_name = vey_json::value::as_host(v)
                     .context(format!("invalid tls server name value for key {k}"))?;
                 Ok(())
             }
             "transmute_udp_peer_ip" => {
                 if let Value::Object(_) = v {
-                    let map = g3_json::value::as_hashmap(
+                    let map = vey_json::value::as_hashmap(
                         v,
                         |k| {
                             IpAddr::from_str(k)
                                 .map_err(|e| anyhow!("the key {k} is not a valid ip address: {e}"))
                         },
-                        g3_json::value::as_ipaddr,
+                        vey_json::value::as_ipaddr,
                     )
                     .context(format!("invalid IP:IP hashmap value for key {k}"))?;
                     self.transmute_udp_peer_ip = Some(map.into_iter().collect::<FxHashMap<_, _>>());
                 } else {
-                    let enable = g3_json::value::as_bool(v)?;
+                    let enable = vey_json::value::as_bool(v)?;
                     if enable {
                         self.transmute_udp_peer_ip = Some(FxHashMap::default());
                     }
@@ -134,11 +134,11 @@ impl NextProxyPeerInternal for ProxyFloatSocks5sPeer {
                 Ok(())
             }
             "udp_sock_speed_limit" => {
-                self.udp_sock_speed_limit = g3_json::value::as_udp_sock_speed_limit(v)?;
+                self.udp_sock_speed_limit = vey_json::value::as_udp_sock_speed_limit(v)?;
                 Ok(())
             }
             "end_on_control_closed" => {
-                self.end_on_control_closed = g3_json::value::as_bool(v)?;
+                self.end_on_control_closed = vey_json::value::as_bool(v)?;
                 Ok(())
             }
             _ => Ok(()),

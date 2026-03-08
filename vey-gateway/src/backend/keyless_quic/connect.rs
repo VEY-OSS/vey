@@ -63,7 +63,7 @@ impl KeylessQuicUpstreamConnector {
 
         self.stats.add_conn_attempt();
 
-        let socket = g3_socket::udp::new_std_socket_to(
+        let socket = vey_socket::udp::new_std_socket_to(
             peer,
             &Default::default(),
             self.config.socket_buffer,

@@ -10,7 +10,7 @@ use tokio::task::JoinSet;
 use tokio::time::Instant;
 
 use g3_io_ext::LimitedStream;
-use g3_socket::BindAddr;
+use vey_socket::BindAddr;
 use vey_types::net::{ConnectError, Host};
 
 use super::ProxySocks5Escaper;
@@ -60,7 +60,7 @@ impl ProxySocks5Escaper {
             target_os = "solaris"
         )))]
         let bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
-        let sock = g3_socket::tcp::new_socket_to(
+        let sock = vey_socket::tcp::new_socket_to(
             peer_ip,
             &bind,
             &self.config.tcp_keepalive,

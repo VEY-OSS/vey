@@ -48,7 +48,7 @@ pub struct StreamDumper {
 
 impl StreamDumper {
     pub fn new(config: StreamDumpConfig, runtime: &Handle) -> io::Result<Self> {
-        let socket = g3_socket::udp::new_std_socket_to(
+        let socket = vey_socket::udp::new_std_socket_to(
             config.peer,
             &Default::default(),
             config.buffer,

@@ -14,8 +14,8 @@ use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReader, LimitedWriter};
-use g3_socket::BindAddr;
-use g3_socket::util::AddressFamily;
+use vey_socket::BindAddr;
+use vey_socket::util::AddressFamily;
 use vey_types::acl::AclAction;
 use vey_types::net::{ConnectError, Host, TcpKeepAliveConfig, UpstreamAddr};
 
@@ -89,7 +89,7 @@ impl DirectFloatEscaper {
                 .map_err(TcpConnectError::EscaperNotUsable)?
         };
 
-        let sock = g3_socket::tcp::new_socket_to(
+        let sock = vey_socket::tcp::new_socket_to(
             peer_ip,
             &BindAddr::Ip(bind.ip),
             &config.keepalive,

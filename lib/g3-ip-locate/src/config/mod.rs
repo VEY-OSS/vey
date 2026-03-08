@@ -73,7 +73,7 @@ impl IpLocateServiceConfig {
     pub fn spawn_ip_locate_agent(&self) -> anyhow::Result<IpLocationServiceHandle> {
         use anyhow::Context;
 
-        let socket = g3_socket::udp::new_std_socket_to(
+        let socket = vey_socket::udp::new_std_socket_to(
             self.query_peer_addr,
             &Default::default(),
             self.query_socket_buffer,

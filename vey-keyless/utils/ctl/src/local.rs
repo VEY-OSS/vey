@@ -12,8 +12,8 @@ use clap::ArgMatches;
 use openssl::hash::DigestBytes;
 use openssl::pkey::PKey;
 
-use g3_tls_cert::ext::PublicKeyExt;
 use vey_ctl::CommandResult;
+use vey_tls_cert::ext::PublicKeyExt;
 
 pub const COMMAND_CHECK_DUP: &str = "check-dup";
 

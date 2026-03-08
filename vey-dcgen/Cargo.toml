@@ -23,9 +23,9 @@ g3-yaml = { workspace = true, features = ["histogram", "openssl"] }
 g3-daemon.workspace = true
 g3-statsd-client.workspace = true
 vey-histogram.workspace = true
-g3-tls-cert.workspace = true
+vey-tls-cert.workspace = true
 g3-cert-agent.workspace = true
-g3-socket.workspace = true
+vey-socket.workspace = true
 
 [build-dependencies]
 vey-build-env.workspace = true

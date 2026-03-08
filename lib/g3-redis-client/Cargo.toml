@@ -13,7 +13,7 @@ tokio-rustls.workspace = true
 rustls-pki-types.workspace = true
 yaml-rust = { workspace = true, optional = true }
 vey-types = { workspace = true, features = ["rustls"] }
-g3-socket.workspace = true
+vey-socket.workspace = true
 g3-yaml = { workspace = true, optional = true, features = ["rustls"] }
 
 [features]

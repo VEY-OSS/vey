@@ -3,7 +3,7 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use g3_codec::thrift::VarInt32;
+use vey_codec::thrift::VarInt32;
 
 use crate::target::thrift::protocol::{ThriftResponseMessage, ThriftResponseMessageParseError};
 

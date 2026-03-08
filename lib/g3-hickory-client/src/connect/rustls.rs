@@ -12,7 +12,7 @@ use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 
-use g3_socket::TcpConnectInfo;
+use vey_socket::TcpConnectInfo;
 
 pub(crate) async fn tls_connect(
     connect_info: &TcpConnectInfo,

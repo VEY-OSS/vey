@@ -10,7 +10,7 @@ use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{Connection, Endpoint, EndpointConfig, TokioRuntime};
 use rustls::ClientConfig;
 
-use g3_socket::UdpConnectInfo;
+use vey_socket::UdpConnectInfo;
 
 pub(crate) async fn quic_connect(
     connect_info: UdpConnectInfo,

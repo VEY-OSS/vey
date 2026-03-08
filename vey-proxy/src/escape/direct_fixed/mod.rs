@@ -14,8 +14,8 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
-use g3_socket::BindAddr;
-use g3_socket::util::AddressFamily;
+use vey_socket::BindAddr;
+use vey_socket::util::AddressFamily;
 use vey_types::acl::AclNetworkRule;
 use vey_types::metrics::NodeName;
 use vey_types::net::{Host, ProxyProtocolEncoder, ProxyProtocolVersion, UpstreamAddr};

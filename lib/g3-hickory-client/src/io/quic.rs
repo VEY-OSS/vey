@@ -14,7 +14,7 @@ use hickory_proto::{ProtoError, ProtoErrorKind};
 use quinn::{Connection, RecvStream, VarInt};
 use rustls::ClientConfig;
 
-use g3_socket::UdpConnectInfo;
+use vey_socket::UdpConnectInfo;
 
 pub async fn connect(
     connect_info: UdpConnectInfo,

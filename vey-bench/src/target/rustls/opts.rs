@@ -135,11 +135,11 @@ pub(super) fn parse_ssl_args(args: &ArgMatches) -> anyhow::Result<BenchRustlsArg
 
     let mut ssl_args = BenchRustlsArgs::new(target);
 
-    if let Some(timeout) = g3_clap::humanize::get_duration(args, SSL_ARG_TIMEOUT)? {
+    if let Some(timeout) = vey_clap::humanize::get_duration(args, SSL_ARG_TIMEOUT)? {
         ssl_args.timeout = timeout;
     }
 
-    if let Some(timeout) = g3_clap::humanize::get_duration(args, SSL_ARG_CONNECT_TIMEOUT)? {
+    if let Some(timeout) = vey_clap::humanize::get_duration(args, SSL_ARG_CONNECT_TIMEOUT)? {
         ssl_args.connect_timeout = timeout;
     }
 

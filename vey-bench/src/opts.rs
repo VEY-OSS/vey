@@ -454,8 +454,8 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         }
     }
 
-    proc_args.time_limit = g3_clap::humanize::get_duration(args, GLOBAL_ARG_TIME_LIMIT)?;
-    proc_args.rate_limit = g3_clap::limit::get_rate_limit(args, GLOBAL_ARG_RATE_LIMIT)?;
+    proc_args.time_limit = vey_clap::humanize::get_duration(args, GLOBAL_ARG_TIME_LIMIT)?;
+    proc_args.rate_limit = vey_clap::limit::get_rate_limit(args, GLOBAL_ARG_RATE_LIMIT)?;
 
     if args.get_flag(GLOBAL_ARG_UNAIDED) {
         proc_args.use_unaided_worker = true;
@@ -467,7 +467,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         proc_args.main_runtime.set_thread_number((*n).get());
         proc_args.worker_runtime.set_thread_number_total(*n);
     }
-    if let Some(stack_size) = g3_clap::humanize::get_usize(args, GLOBAL_ARG_THREAD_STACK_SIZE)?
+    if let Some(stack_size) = vey_clap::humanize::get_usize(args, GLOBAL_ARG_THREAD_STACK_SIZE)?
         && stack_size > 0
     {
         proc_args.main_runtime.set_thread_stack_size(stack_size);

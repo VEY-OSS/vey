@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use foldhash::fast::FixedState;
 use openssl::pkey::{PKey, Private};
 
-use g3_tls_cert::ext::PublicKeyExt;
+use vey_tls_cert::ext::PublicKeyExt;
 
 mod ops;
 pub use ops::{load_all, reload_all};

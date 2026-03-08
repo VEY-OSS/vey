@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use tokio::net::TcpStream;
 
 use g3_ftp_client::FtpConnectionProvider;
-use g3_socket::BindAddr;
+use vey_socket::BindAddr;
 use vey_types::net::UpstreamAddr;
 
 #[derive(Default)]
@@ -34,7 +34,7 @@ impl FtpConnectionProvider<TcpStream, io::Error, ()> for LocalConnectionProvider
     ) -> io::Result<TcpStream> {
         let mut err = io::Error::new(io::ErrorKind::AddrNotAvailable, "no addr resolved");
         for addr in tokio::net::lookup_host(upstream.to_string()).await? {
-            let socket = g3_socket::tcp::new_socket_to(
+            let socket = vey_socket::tcp::new_socket_to(
                 addr.ip(),
                 &self.bind,
                 &Default::default(),
@@ -61,7 +61,7 @@ impl FtpConnectionProvider<TcpStream, io::Error, ()> for LocalConnectionProvider
         match self.remote_addr {
             Some(addr) => {
                 let data_addr = SocketAddr::new(addr.ip(), server.port());
-                let socket = g3_socket::tcp::new_socket_to(
+                let socket = vey_socket::tcp::new_socket_to(
                     data_addr.ip(),
                     &self.bind,
                     &Default::default(),

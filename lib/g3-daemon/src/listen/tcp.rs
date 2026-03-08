@@ -13,8 +13,8 @@ use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
 use g3_io_ext::LimitedTcpListener;
-use g3_socket::RawSocket;
 use vey_compat::CpuAffinity;
+use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
 use vey_types::net::TcpListenConfig;
 
@@ -77,7 +77,7 @@ where
             let mut runtime = self.create_instance();
             runtime.instance_id = i;
 
-            let listener = g3_socket::tcp::new_std_listener(listen_config)?;
+            let listener = vey_socket::tcp::new_std_listener(listen_config)?;
             runtime.into_running(
                 listener,
                 listen_in_worker,
@@ -272,7 +272,7 @@ where
 
                 if let Some(cpu_affinity) = cpu_affinity
                     && let Err(e) =
-                        g3_socket::tcp::try_listen_on_local_cpu(&listener, &cpu_affinity)
+                        vey_socket::tcp::try_listen_on_local_cpu(&listener, &cpu_affinity)
                 {
                     warn!(
                         "SRT[{}_v{}#{}] failed to set cpu affinity for listen socket: {e}",
