@@ -9,8 +9,8 @@ use anyhow::anyhow;
 use clap::{Arg, ArgMatches, Command, value_parser};
 use futures_util::future::TryFutureExt;
 
-use g3_types::resolve::QueryStrategy as ResolverQueryStrategy;
 use vey_ctl::{CommandError, CommandResult};
+use vey_types::resolve::QueryStrategy as ResolverQueryStrategy;
 
 use vey_proxy_proto::proc_capnp::proc_control;
 use vey_proxy_proto::resolver_capnp::{

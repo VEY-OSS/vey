@@ -16,8 +16,8 @@ use log::{info, warn};
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
-use g3_types::auth::{Password, UserAuthError};
-use g3_types::metrics::{MetricTagMap, NodeName};
+use vey_types::auth::{Password, UserAuthError};
+use vey_types::metrics::{MetricTagMap, NodeName};
 
 use super::{User, UserContext, UserType, source};
 use crate::config::auth::{AnyUserGroupConfig, UserConfig, UserGroupConfig};

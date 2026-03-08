@@ -9,9 +9,9 @@ use anyhow::anyhow;
 use tokio::sync::oneshot;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 use vey_macros::AnyConfig;
+use vey_types::metrics::NodeName;
 
 mod local;
 mod redis;

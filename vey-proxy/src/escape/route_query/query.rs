@@ -16,8 +16,8 @@ use tokio::net::UdpSocket;
 use uuid::Uuid;
 
 use g3_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
-use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
-use g3_types::metrics::NodeName;
+use vey_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
+use vey_types::metrics::NodeName;
 
 use super::RouteQueryEscaperConfig;
 use super::cache::CacheQueryKey;

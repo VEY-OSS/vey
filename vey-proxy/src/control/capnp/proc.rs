@@ -5,7 +5,7 @@
 
 use std::rc::Rc;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use vey_proxy_proto::escaper_capnp::escaper_control;
 use vey_proxy_proto::proc_capnp::proc_control;

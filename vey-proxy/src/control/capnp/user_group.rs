@@ -5,7 +5,7 @@
 
 use std::rc::Rc;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use vey_proxy_proto::user_group_capnp::user_group_control;
 

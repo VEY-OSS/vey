@@ -16,7 +16,7 @@ use serde_json::{Map, Number, Value};
 use tokio::sync::mpsc;
 
 use g3_http::client::HttpForwardRemoteResponse;
-use g3_types::metrics::MetricTagMap;
+use vey_types::metrics::MetricTagMap;
 
 use crate::config::exporter::opentsdb::OpentsdbExporterConfig;
 use crate::runtime::export::{AggregateExport, CounterStoreValue, GaugeStoreValue, HttpExport};

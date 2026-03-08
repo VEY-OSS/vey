@@ -8,8 +8,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{MetricTagMap, NodeName};
-use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats, UdpIoSnapshot, UdpIoStats};
+use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::stats::{StatId, TcpIoSnapshot, TcpIoStats, UdpIoSnapshot, UdpIoStats};
 
 pub(crate) trait EscaperInternalStats {
     fn add_http_forward_request_attempted(&self);

@@ -10,7 +10,7 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use serde_json::Value;
 
-use g3_types::net::{
+use vey_types::net::{
     OpensslCertificatePair, OpensslClientConfigBuilder, OpensslProtocol, OpensslTlcpCertificatePair,
 };
 
@@ -325,9 +325,9 @@ pub fn as_to_many_openssl_tls_client_config_builder(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_types::net::TlsVersion;
     use serde_json::json;
     use std::time::Duration;
+    use vey_types::net::TlsVersion;
 
     const TEST_CERT_PEM1: &str = include_str!("test_data/test_cert1.pem");
     const TEST_CERT_PEM2: &str = include_str!("test_data/test_cert2.pem");

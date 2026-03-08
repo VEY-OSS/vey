@@ -11,11 +11,11 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::net::{
+use g3_yaml::YamlDocPosition;
+use vey_types::net::{
     ConnectionPoolConfig, QuinnTransportConfigBuilder, RustlsClientConfigBuilder,
     SocketBufferConfig, UpstreamAddr,
 };
-use g3_yaml::YamlDocPosition;
 
 const DEFAULT_DETOUR_PORT: u16 = 2888;
 

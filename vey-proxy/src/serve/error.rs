@@ -23,7 +23,7 @@ use g3_io_ext::{
 };
 use g3_resolver::ResolveError;
 use g3_socks::SocksRequestParseError;
-use g3_types::net::ConnectError;
+use vey_types::net::ConnectError;
 
 use crate::inspect::InterceptionError;
 use crate::module::tcp_connect::TcpConnectError;

@@ -8,8 +8,8 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::metrics::NodeName;
-use g3_types::route::AlpnMatch;
+use vey_types::metrics::NodeName;
+use vey_types::route::AlpnMatch;
 
 use crate::{YamlDocPosition, YamlMapCallback};
 

@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use log::warn;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use crate::{StatsdMetricsSink, StatsdTagGroup};
 

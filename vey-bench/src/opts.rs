@@ -18,10 +18,12 @@ use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;
 use g3_statsd_client::{StatsdBackend, StatsdClient, StatsdClientConfig};
-use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder, WeightedValue};
-use g3_types::limit::RateLimitQuota;
-use g3_types::metrics::NodeName;
-use g3_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig, UpstreamAddr};
+use vey_types::collection::{
+    SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder, WeightedValue,
+};
+use vey_types::limit::RateLimitQuota;
+use vey_types::metrics::NodeName;
+use vey_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig, UpstreamAddr};
 
 use super::progress::BenchProgress;
 

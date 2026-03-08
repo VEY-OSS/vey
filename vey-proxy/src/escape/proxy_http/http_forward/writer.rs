@@ -15,7 +15,7 @@ use tokio::io::AsyncWrite;
 
 use g3_http::server::HttpProxyClientRequest;
 use g3_io_ext::LimitedWriter;
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::{ProxyHttpEscaperConfig, ProxyHttpEscaperStats};
 use crate::auth::UserUpstreamTrafficStats;

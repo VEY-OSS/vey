@@ -8,7 +8,7 @@ use arcstr::ArcStr;
 use openssl::x509::X509;
 use rmpv::ValueRef;
 
-use g3_types::net::{TlsCertUsage, TlsServiceType};
+use vey_types::net::{TlsCertUsage, TlsServiceType};
 
 use super::{request_key, request_key_id, response_key_id};
 

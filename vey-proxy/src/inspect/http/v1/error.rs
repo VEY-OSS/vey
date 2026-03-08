@@ -8,7 +8,7 @@ use std::io;
 use thiserror::Error;
 
 use g3_http::server::HttpRequestParseError;
-use g3_types::net::HttpUpgradeToken;
+use vey_types::net::HttpUpgradeToken;
 
 #[derive(Debug, Error)]
 pub(crate) enum H1InterceptionError {

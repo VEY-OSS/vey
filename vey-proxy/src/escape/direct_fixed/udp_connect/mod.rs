@@ -9,7 +9,7 @@ use tokio::net::UdpSocket;
 
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 use g3_socket::util::AddressFamily;
-use g3_types::acl::AclAction;
+use vey_types::acl::AclAction;
 
 use super::DirectFixedEscaper;
 use crate::module::udp_connect::{

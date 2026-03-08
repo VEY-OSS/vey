@@ -73,12 +73,12 @@ impl RedisClientConfigBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_types::net::{Host, RustlsClientConfigBuilder, UpstreamAddr};
     use g3_yaml::yaml_doc;
     use rustls_pki_types::ServerName;
     use std::net::IpAddr;
     use std::str::FromStr;
     use std::time::Duration;
+    use vey_types::net::{Host, RustlsClientConfigBuilder, UpstreamAddr};
     use yaml_rust::YamlLoader;
 
     #[test]

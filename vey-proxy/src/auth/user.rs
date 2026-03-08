@@ -16,13 +16,13 @@ use foldhash::HashMap;
 use tokio::time::Instant;
 
 use g3_io_ext::{GlobalDatagramLimiter, GlobalLimitGroup, GlobalStreamLimiter};
-use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::acl_set::AclDstHostRuleSet;
-use g3_types::auth::{FactsMatchValue, UserAuthError};
-use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
-use g3_types::metrics::{MetricTagMap, NodeName};
-use g3_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
-use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
+use vey_types::acl::{AclAction, AclNetworkRule};
+use vey_types::acl_set::AclDstHostRuleSet;
+use vey_types::auth::{FactsMatchValue, UserAuthError};
+use vey_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
+use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
+use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
     UserForbiddenStats, UserRequestStats, UserSite, UserSiteDurationRecorder, UserSiteStats,

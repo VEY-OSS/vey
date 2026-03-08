@@ -26,8 +26,8 @@ use g3_io_ext::{
     GlobalLimitGroup, LimitedBufReadExt, LimitedReadExt, LimitedWriteExt, StreamCopy,
     StreamCopyError,
 };
-use g3_types::acl::AclAction;
-use g3_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
+use vey_types::acl::AclAction;
+use vey_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{

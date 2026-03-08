@@ -13,8 +13,8 @@ use anyhow::{Context, anyhow};
 use arcstr::ArcStr;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
+use vey_types::metrics::NodeName;
 
 use super::UserGroupConfig;
 use crate::config::auth::{CONFIG_KEY_USER_GROUP_NAME, CONFIG_KEY_USER_GROUP_TYPE};

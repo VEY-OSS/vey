@@ -7,7 +7,7 @@ use std::str::FromStr;
 
 use http::Uri;
 
-use g3_types::net::{HttpProxySubProtocol, UpstreamAddr};
+use vey_types::net::{HttpProxySubProtocol, UpstreamAddr};
 
 use super::HttpRequestParseError;
 

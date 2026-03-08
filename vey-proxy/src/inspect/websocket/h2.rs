@@ -14,7 +14,7 @@ use g3_dpi::ProtocolInspectAction;
 use g3_h2::{H2StreamReader, H2StreamWriter};
 use g3_io_ext::{IdleInterval, StreamCopyConfig};
 use g3_slog_types::{LtHttpHeaderValue, LtUpstreamAddr, LtUuid};
-use g3_types::net::{UpstreamAddr, WebSocketNotes};
+use vey_types::net::{UpstreamAddr, WebSocketNotes};
 
 use super::{ClientCloseFrame, ServerCloseFrame};
 #[cfg(feature = "quic")]

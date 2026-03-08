@@ -10,8 +10,8 @@ use log::warn;
 use tokio::sync::broadcast;
 
 use g3_ip_locate::{Request, Response};
-use g3_types::net::UdpListenConfig;
 use vey_geoip_types::{IpLocation, IpLocationBuilder};
+use vey_types::net::UdpListenConfig;
 
 mod stats;
 pub(crate) use stats::FrontendStats;
@@ -90,7 +90,7 @@ impl Frontend {
     fn fetch(&self, ip: IpAddr) -> Option<IpLocation> {
         let mut builder = IpLocationBuilder::default();
 
-        if let Some(db) = g3_geoip_db::store::load_country()
+        if let Some(db) = vey_geoip_db::store::load_country()
             && let Some((net, v)) = db.longest_match(ip)
         {
             builder.set_network(net);
@@ -98,7 +98,7 @@ impl Frontend {
             builder.set_continent(v.continent);
         }
 
-        if let Some(asn_db) = g3_geoip_db::store::load_asn()
+        if let Some(asn_db) = vey_geoip_db::store::load_asn()
             && let Some((net, v)) = asn_db.longest_match(ip)
         {
             builder.set_network(net);

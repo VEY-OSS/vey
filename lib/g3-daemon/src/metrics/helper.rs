@@ -5,7 +5,7 @@
 
 use std::sync::Mutex;
 
-use g3_types::stats::GlobalStatsMap;
+use vey_types::stats::GlobalStatsMap;
 
 pub fn move_ht<T>(in_ht_lock: &Mutex<GlobalStatsMap<T>>, out_ht_lock: &Mutex<GlobalStatsMap<T>>) {
     let mut tmp_req_map = GlobalStatsMap::new();

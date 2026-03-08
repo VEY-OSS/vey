@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::net::{PortRange, Ports};
+use vey_types::net::{PortRange, Ports};
 
 fn as_single_ports(value: &Yaml) -> anyhow::Result<Ports> {
     match value {

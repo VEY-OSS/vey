@@ -13,7 +13,7 @@ use rustls_pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::TlsConnector;
 
-use g3_types::net::{Host, RustlsClientConfig, RustlsClientConfigBuilder, UpstreamAddr};
+use vey_types::net::{Host, RustlsClientConfig, RustlsClientConfigBuilder, UpstreamAddr};
 
 #[cfg(feature = "yaml")]
 mod yaml;

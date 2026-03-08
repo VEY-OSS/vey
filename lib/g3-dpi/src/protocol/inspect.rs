@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use fixedbitset::FixedBitSet;
 
-use g3_types::net::AlpnProtocol;
+use vey_types::net::AlpnProtocol;
 
 use super::{MaybeProtocol, Protocol, ProtocolPortMap};
 use crate::{ProtocolInspectionConfig, ProtocolInspectionSizeLimit};

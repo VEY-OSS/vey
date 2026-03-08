@@ -15,7 +15,7 @@ use tokio::io::{AsyncBufRead, AsyncWrite};
 use g3_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
 use g3_http::server::HttpProxyClientRequest;
 use g3_icap_client::reqmod::h1::HttpRequestUpstreamWriter;
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::{ArcHttpForwardTaskRemoteStats, HttpForwardTaskNotes};
 use crate::auth::UserUpstreamTrafficStats;

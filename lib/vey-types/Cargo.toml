@@ -1,5 +1,5 @@
 [package]
-name = "g3-types"
+name = "vey-types"
 version = "0.7.0"
 license.workspace = true
 edition.workspace = true

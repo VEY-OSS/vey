@@ -10,7 +10,7 @@ use itoa::Integer;
 use slog::{Error, KV, Level, OwnedKVList, Record, Serializer};
 use zmij::Float;
 
-use g3_types::log::AsyncLogFormatter;
+use vey_types::log::AsyncLogFormatter;
 
 use super::JournalConfig;
 

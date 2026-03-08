@@ -12,7 +12,7 @@ log.workspace = true
 tokio = { workspace = true, features = ["rt", "net", "sync"] }
 anyhow = { workspace = true, optional = true }
 yaml-rust = { workspace = true, optional = true }
-g3-types.workspace = true
+vey-types.workspace = true
 g3-socket.workspace = true
 g3-io-ext.workspace = true
 vey-io-sys.workspace = true

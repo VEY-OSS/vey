@@ -13,7 +13,7 @@ use tokio::time::Instant;
 
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
 use g3_slog_types::LtDuration;
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use crate::config::resolver::ResolverConfig;
 use crate::config::resolver::fail_over::FailOverResolverConfig;

@@ -6,7 +6,7 @@
 use anyhow::anyhow;
 use serde_json::Value;
 
-use g3_types::auth::{Password, Username};
+use vey_types::auth::{Password, Username};
 
 pub fn as_username(value: &Value) -> anyhow::Result<Username> {
     if let Value::String(s) = value {

@@ -6,8 +6,8 @@
 use http::{Method, Uri};
 
 use g3_http::server::HttpProxyClientRequest;
-use g3_types::auth::{Password, Username};
-use g3_types::net::{HttpAuth, HttpBasicAuth, UpstreamAddr};
+use vey_types::auth::{Password, Username};
+use vey_types::net::{HttpAuth, HttpBasicAuth, UpstreamAddr};
 
 use super::FtpRequestPath;
 use crate::module::tcp_connect::TcpConnectTaskNotes;

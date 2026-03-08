@@ -14,7 +14,7 @@ tokio-util = { workspace = true, features = ["time"] }
 rustc-hash.workspace = true
 rmpv.workspace = true
 yaml-rust = { workspace = true, optional = true }
-g3-types.workspace = true
+vey-types.workspace = true
 vey-geoip-types.workspace = true
 g3-msgpack = { workspace = true, features = ["geoip"] }
 g3-socket.workspace = true

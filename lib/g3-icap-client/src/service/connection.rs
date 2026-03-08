@@ -14,7 +14,7 @@ use tokio::sync::oneshot;
 use tokio_rustls::TlsConnector;
 
 use g3_io_ext::{AsyncStream, LimitedBufReadExt};
-use g3_types::net::{Host, RustlsClientConfig};
+use vey_types::net::{Host, RustlsClientConfig};
 
 use super::IcapServiceConfig;
 use crate::IcapServiceOptions;

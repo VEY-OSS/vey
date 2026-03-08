@@ -18,7 +18,7 @@ use hickory_proto::BufDnsStreamHandle;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 
-use g3_types::net::{DnsEncryptionProtocol, RustlsClientConfigBuilder};
+use vey_types::net::{DnsEncryptionProtocol, RustlsClientConfigBuilder};
 
 use super::{DnsRequest, DnsRequestPickState};
 use crate::module::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};

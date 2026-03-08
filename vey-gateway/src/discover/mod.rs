@@ -10,8 +10,8 @@ use anyhow::anyhow;
 use tokio::sync::watch;
 use yaml_rust::Yaml;
 
-use g3_types::collection::WeightedValue;
-use g3_types::metrics::NodeName;
+use vey_types::collection::WeightedValue;
+use vey_types::metrics::NodeName;
 
 use crate::config::discover::{AnyDiscoverConfig, DiscoverRegisterData};
 

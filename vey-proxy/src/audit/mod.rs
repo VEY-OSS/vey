@@ -9,8 +9,8 @@ use anyhow::Context;
 
 use g3_dpi::ProtocolPortMap;
 use g3_icap_client::IcapServiceClient;
-use g3_types::metrics::NodeName;
-use g3_types::net::{OpensslTicketKey, RollingTicketer};
+use vey_types::metrics::NodeName;
+use vey_types::net::{OpensslTicketKey, RollingTicketer};
 
 use crate::config::audit::AuditorConfig;
 use crate::inspect::tls::TlsInterceptionContext;

@@ -6,8 +6,8 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::net::{Host, OpensslClientConfigBuilder, RustlsServerConfigBuilder, UpstreamAddr};
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
+use vey_types::net::{Host, OpensslClientConfigBuilder, RustlsServerConfigBuilder, UpstreamAddr};
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct HttpHostConfig {

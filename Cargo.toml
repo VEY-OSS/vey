@@ -29,7 +29,7 @@ members = [
     "lib/g3-dpi",
     "lib/g3-fluentd",
     "lib/g3-ftp-client",
-    "lib/g3-geoip-db",
+    "lib/vey-geoip-db",
     "lib/vey-geoip-types",
     "lib/g3-h2",
     "lib/g3-hickory-client",
@@ -58,7 +58,7 @@ members = [
     "lib/g3-syslog",
     "lib/g3-tls-cert",
     "lib/g3-tls-ticket",
-    "lib/g3-types",
+    "lib/vey-types",
     "lib/g3-udpdump",
     "lib/vey-xcrypt",
     "lib/g3-yaml",
@@ -209,7 +209,7 @@ vey-datetime = { version = "0.2", path = "lib/vey-datetime" }
 g3-dpi = { version = "0.3", path = "lib/g3-dpi" }
 g3-fluentd = { version = "0.3", path = "lib/g3-fluentd" }
 g3-ftp-client = { version = "0.5", path = "lib/g3-ftp-client" }
-g3-geoip-db = { version = "0.3", path = "lib/g3-geoip-db" }
+vey-geoip-db = { version = "0.3", path = "lib/vey-geoip-db" }
 vey-geoip-types = { version = "0.2", path = "lib/vey-geoip-types" }
 g3-h2 = { version = "0.3", path = "lib/g3-h2" }
 g3-hickory-client = { version = "0.3", path = "lib/g3-hickory-client" }
@@ -238,7 +238,7 @@ g3-stdlog = { version = "0.3", path = "lib/g3-stdlog" }
 g3-syslog = { version = "0.8", path = "lib/g3-syslog" }
 g3-tls-cert = { version = "0.7", path = "lib/g3-tls-cert" }
 g3-tls-ticket = { version = "0.3", path = "lib/g3-tls-ticket" }
-g3-types = { version = "0.7", path = "lib/g3-types" }
+vey-types = { version = "0.7", path = "lib/vey-types" }
 g3-udpdump = { version = "0.3", path = "lib/g3-udpdump" }
 vey-xcrypt = { version = "0.3", path = "lib/vey-xcrypt" }
 g3-yaml = { version = "0.7", path = "lib/g3-yaml" }

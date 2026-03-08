@@ -8,11 +8,11 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use openssl::ssl::SslContext;
 
-use g3_types::collection::NamedValue;
-use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
-use g3_types::metrics::NodeName;
-use g3_types::net::{OpensslTicketKey, RollingTicketer};
-use g3_types::route::AlpnMatch;
+use vey_types::collection::NamedValue;
+use vey_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
+use vey_types::metrics::NodeName;
+use vey_types::net::{OpensslTicketKey, RollingTicketer};
+use vey_types::route::AlpnMatch;
 
 use crate::backend::ArcBackend;
 use crate::config::server::openssl_proxy::OpensslHostConfig;

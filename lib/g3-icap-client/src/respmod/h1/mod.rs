@@ -16,7 +16,7 @@ use tokio::time::Instant;
 use g3_http::HttpBodyType;
 use g3_http::client::HttpAdaptedResponse;
 use g3_io_ext::{IdleCheck, StreamCopyConfig};
-use g3_types::net::HttpHeaderMap;
+use vey_types::net::HttpHeaderMap;
 
 use super::IcapRespmodClient;
 use crate::reqmod::h1::HttpRequestForAdaptation;

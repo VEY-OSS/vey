@@ -13,7 +13,7 @@ use rustc_hash::FxHashSet;
 use tokio::time::Instant;
 use tokio_util::time::DelayQueue;
 
-use g3_types::net::{OpensslTicketKey, RollingTicketKey, RollingTicketer, TicketKeyName};
+use vey_types::net::{OpensslTicketKey, RollingTicketKey, RollingTicketer, TicketKeyName};
 
 use super::TlsTicketConfig;
 use crate::source::TicketSource;

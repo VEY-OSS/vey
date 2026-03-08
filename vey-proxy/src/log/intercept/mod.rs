@@ -5,7 +5,7 @@
 
 use slog::Logger;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 pub(crate) fn get_logger(auditor_name: &NodeName) -> Option<Logger> {
     super::audit::get_logger(super::LOG_TYPE_INTERCEPT, auditor_name)

@@ -33,8 +33,8 @@ use crate::module::udp_relay::{
 };
 use crate::serve::ServerTaskNotes;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::metrics::NodeName;
-use g3_types::net::UpstreamAddr;
+use vey_types::metrics::NodeName;
+use vey_types::net::UpstreamAddr;
 
 mod stats;
 use stats::DummyDenyEscaperStats;

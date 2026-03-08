@@ -5,7 +5,7 @@
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use g3_types::net::{SocketBufferConfig, UdpMiscSockOpts};
+use vey_types::net::{SocketBufferConfig, UdpMiscSockOpts};
 
 #[cfg(feature = "yaml")]
 mod yaml;

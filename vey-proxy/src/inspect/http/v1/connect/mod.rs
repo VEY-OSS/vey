@@ -21,7 +21,7 @@ use g3_icap_client::reqmod::h1::{
 };
 use g3_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
 use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::{HttpRequest, HttpRequestIo, HttpResponseIo};
 use crate::config::server::ServerConfig;

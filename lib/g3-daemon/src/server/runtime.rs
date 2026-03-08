@@ -5,8 +5,8 @@
 
 use std::net::IpAddr;
 
-use g3_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
-use g3_types::metrics::NodeName;
+use vey_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
+use vey_types::metrics::NodeName;
 
 use super::ClientConnectionInfo;
 

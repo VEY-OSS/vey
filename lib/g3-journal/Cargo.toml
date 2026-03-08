@@ -18,4 +18,4 @@ memchr.workspace = true
 itoa.workspace = true
 zmij.workspace = true
 kanal.workspace = true
-g3-types = { workspace = true, features = ["async-log"] }
+vey-types = { workspace = true, features = ["async-log"] }

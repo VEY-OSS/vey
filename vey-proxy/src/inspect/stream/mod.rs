@@ -12,7 +12,7 @@ use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::{MaybeProtocol, ProtocolInspectionConfig, ProtocolInspector};
 use g3_io_ext::{IdleInterval, OptionalInterval, StreamCopy, StreamCopyConfig, StreamCopyError};
 use g3_slog_types::LtUuid;
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::{StreamInspectContext, StreamInspection};
 use crate::auth::User;

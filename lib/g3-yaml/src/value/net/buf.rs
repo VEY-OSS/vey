@@ -6,7 +6,7 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::net::SocketBufferConfig;
+use vey_types::net::SocketBufferConfig;
 
 pub fn as_socket_buffer_config(value: &Yaml) -> anyhow::Result<SocketBufferConfig> {
     let mut config = SocketBufferConfig::default();

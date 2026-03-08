@@ -7,7 +7,7 @@ use std::io;
 
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 /// the extra header lines should end with \r\n
 pub struct HttpConnectRequest<'a> {

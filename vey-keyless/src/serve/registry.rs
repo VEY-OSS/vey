@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::{Context, anyhow};
 use foldhash::fast::FixedState;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::KeyServer;
 use crate::config::server::KeyServerConfig;

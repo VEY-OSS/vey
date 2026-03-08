@@ -6,7 +6,7 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::acl_set::AclDstHostRuleSetBuilder;
+use vey_types::acl_set::AclDstHostRuleSetBuilder;
 
 pub fn as_dst_host_rule_set_builder(value: &Yaml) -> anyhow::Result<AclDstHostRuleSetBuilder> {
     if let Yaml::Hash(map) = value {

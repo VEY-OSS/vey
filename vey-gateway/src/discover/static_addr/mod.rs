@@ -9,7 +9,7 @@ use anyhow::Context;
 use tokio::sync::watch;
 use yaml_rust::Yaml;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::{ArcDiscoverInternal, Discover, DiscoverInternal, DiscoverResult};
 use crate::config::discover::static_addr::StaticAddrDiscoverConfig;

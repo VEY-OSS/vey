@@ -6,7 +6,7 @@
 use anyhow::Context;
 use serde_json::Value;
 
-use g3_types::acl::{AclAction, AclUserAgentRule};
+use vey_types::acl::{AclAction, AclUserAgentRule};
 
 use super::AclRuleJsonParser;
 

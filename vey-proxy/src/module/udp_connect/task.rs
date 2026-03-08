@@ -8,8 +8,8 @@ use std::net::SocketAddr;
 use chrono::{DateTime, Utc};
 
 use g3_socket::BindAddr;
-use g3_types::metrics::NodeName;
-use g3_types::net::{SocketBufferConfig, UpstreamAddr};
+use vey_types::metrics::NodeName;
+use vey_types::net::{SocketBufferConfig, UpstreamAddr};
 
 pub(crate) struct UdpConnectTaskConf<'a> {
     pub(crate) upstream: &'a UpstreamAddr,

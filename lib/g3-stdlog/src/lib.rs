@@ -9,7 +9,7 @@ use std::sync::Arc;
 use chrono::Local;
 use slog::Level;
 
-use g3_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
+use vey_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
 
 #[macro_use]
 mod macros;

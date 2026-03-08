@@ -15,7 +15,7 @@ use serde_json::Value;
 use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::net::{EgressInfo, TcpSockSpeedLimitConfig};
+use vey_types::net::{EgressInfo, TcpSockSpeedLimitConfig};
 
 use super::{ProxyFloatEscaper, ProxyFloatEscaperConfig, ProxyFloatEscaperStats};
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};

@@ -5,7 +5,7 @@
 
 use slog::Logger;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 pub(crate) fn get_logger(resolver_type: &str, resolver_name: &NodeName) -> Option<Logger> {
     let config = crate::config::log::get_resolve_default_config();

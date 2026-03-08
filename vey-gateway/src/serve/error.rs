@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use thiserror::Error;
 
-use g3_types::net::ConnectError;
+use vey_types::net::ConnectError;
 
 use crate::module::stream::StreamConnectError;
 

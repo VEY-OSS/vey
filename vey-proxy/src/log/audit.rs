@@ -5,7 +5,7 @@
 
 use slog::Logger;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 pub(super) fn get_logger(log_type: &'static str, auditor_name: &NodeName) -> Option<Logger> {
     let config = crate::config::log::get_audit_default_config();

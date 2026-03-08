@@ -8,7 +8,7 @@ use std::fmt;
 
 use anyhow::anyhow;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 pub(super) struct EscaperConfigVerifier {}
 

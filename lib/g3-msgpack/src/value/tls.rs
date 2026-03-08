@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use rmpv::ValueRef;
 
-use g3_types::net::{TlsCertUsage, TlsServiceType};
+use vey_types::net::{TlsCertUsage, TlsServiceType};
 
 pub fn as_tls_service_type(v: &ValueRef) -> anyhow::Result<TlsServiceType> {
     match v {

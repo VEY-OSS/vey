@@ -8,8 +8,8 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use g3_types::net::Host;
-use g3_types::resolve::{PickStrategy, QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
+use vey_types::net::Host;
+use vey_types::resolve::{PickStrategy, QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 
 const RESOLVE_REDIRECTION_NODE_KEY_EXACT: &str = "exact";
 const RESOLVE_REDIRECTION_NODE_KEY_PARENT: &str = "parent";
@@ -151,10 +151,10 @@ pub fn as_resolve_redirection_builder(v: &Value) -> anyhow::Result<ResolveRedire
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_types::resolve::ResolveRedirectionValue;
     use serde_json::json;
     use std::net::IpAddr;
     use std::str::FromStr;
+    use vey_types::resolve::ResolveRedirectionValue;
 
     #[test]
     fn as_query_strategy_ok() {

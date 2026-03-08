@@ -26,7 +26,7 @@ use g3_icap_client::respmod::h1::{
 };
 use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt, StreamCopy, StreamCopyError};
 use g3_slog_types::{LtDateTime, LtDuration, LtHttpHeaderValue, LtHttpMethod, LtHttpUri, LtUuid};
-use g3_types::net::HttpHeaderMap;
+use vey_types::net::HttpHeaderMap;
 
 use super::{HttpRequest, HttpRequestIo, HttpResponseIo};
 use crate::config::server::ServerConfig;

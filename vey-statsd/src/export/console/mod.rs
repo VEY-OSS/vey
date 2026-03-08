@@ -8,7 +8,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::{ArcExporterInternal, Exporter, ExporterInternal};
 use crate::config::exporter::console::ConsoleExporterConfig;

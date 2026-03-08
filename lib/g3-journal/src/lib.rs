@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
+use vey_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
 
 #[macro_use]
 mod macros;

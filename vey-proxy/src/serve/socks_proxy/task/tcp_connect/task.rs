@@ -14,8 +14,8 @@ use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
 use g3_socks::{SocksVersion, v4a, v5};
-use g3_types::acl::AclAction;
-use g3_types::net::{ProxyRequestType, UpstreamAddr};
+use vey_types::acl::AclAction;
+use vey_types::net::{ProxyRequestType, UpstreamAddr};
 
 use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
 use crate::audit::AuditContext;

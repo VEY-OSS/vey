@@ -19,8 +19,8 @@ use g3_socket::{BindAddr, TcpConnectInfo, UdpConnectInfo};
     target_os = "illumos",
     target_os = "solaris"
 ))]
-use g3_types::net::Interface;
-use g3_types::net::TcpMiscSockOpts;
+use vey_types::net::Interface;
+use vey_types::net::TcpMiscSockOpts;
 
 const SOCKET_ARG_LOCAL_ADDRESS: &str = "local-address";
 #[cfg(any(

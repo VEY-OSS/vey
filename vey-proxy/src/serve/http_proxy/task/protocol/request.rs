@@ -10,7 +10,7 @@ use tokio::time::Instant;
 
 use g3_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
 use g3_http::uri::{HttpMasque, WellKnownUri};
-use g3_types::net::{HttpProxySubProtocol, UpstreamAddr};
+use vey_types::net::{HttpProxySubProtocol, UpstreamAddr};
 
 use super::HttpClientReader;
 use crate::config::server::http_proxy::HttpProxyServerConfig;

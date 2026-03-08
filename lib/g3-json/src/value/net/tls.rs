@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use serde_json::Value;
 
-use g3_types::net::TlsVersion;
+use vey_types::net::TlsVersion;
 
 pub fn as_tls_version(value: &Value) -> anyhow::Result<TlsVersion> {
     match value {

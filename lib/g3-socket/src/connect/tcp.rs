@@ -8,7 +8,7 @@ use std::net::SocketAddr;
 
 use tokio::net::TcpStream;
 
-use g3_types::net::{TcpKeepAliveConfig, TcpMiscSockOpts};
+use vey_types::net::{TcpKeepAliveConfig, TcpMiscSockOpts};
 
 use crate::BindAddr;
 

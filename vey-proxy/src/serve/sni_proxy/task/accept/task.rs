@@ -14,8 +14,8 @@ use tokio::time::Instant;
 use g3_daemon::stat::task::TcpStreamConnectionStats;
 use g3_dpi::{Protocol, ProtocolInspectError, ProtocolInspector};
 use g3_io_ext::{LimitedReader, LimitedWriter};
-use g3_types::auth::FactsMatchType;
-use g3_types::net::{Host, UpstreamAddr};
+use vey_types::auth::FactsMatchType;
+use vey_types::net::{Host, UpstreamAddr};
 
 use super::{CommonTaskContext, SniProxyCltWrapperStats, TcpStreamTask};
 use crate::audit::AuditContext;

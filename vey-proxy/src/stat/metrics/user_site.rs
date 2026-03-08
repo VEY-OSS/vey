@@ -7,8 +7,8 @@ use std::sync::{Arc, Mutex};
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::metrics::NodeName;
-use g3_types::stats::GlobalStatsMap;
+use vey_types::metrics::NodeName;
+use vey_types::stats::GlobalStatsMap;
 
 use super::{RequestStatsNamesRef, TrafficStatsNamesRef, UserMetricExt};
 use crate::auth::{

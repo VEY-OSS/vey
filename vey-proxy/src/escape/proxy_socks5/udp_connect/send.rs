@@ -19,8 +19,8 @@ use slog::Logger;
 use g3_io_ext::UdpCopyPacket;
 use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 use g3_socks::v5::UdpOutput;
-use g3_types::net::UpstreamAddr;
 use vey_io_sys::udp::SendMsgHdr;
+use vey_types::net::UpstreamAddr;
 
 pub(crate) struct ProxySocks5UdpConnectRemoteSend<T> {
     inner: T,

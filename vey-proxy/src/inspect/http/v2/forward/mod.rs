@@ -23,7 +23,7 @@ use g3_icap_client::respmod::h2::{
     H2ResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
 use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtHttpMethod, LtHttpUri, LtUuid};
-use g3_types::net::HttpHeaderMap;
+use vey_types::net::HttpHeaderMap;
 
 use super::{H2BodyTransfer, H2StreamTransferError};
 use crate::config::server::ServerConfig;

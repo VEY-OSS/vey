@@ -8,7 +8,7 @@ use std::time::Duration;
 use http::HeaderValue;
 use http::uri::PathAndQuery;
 
-use g3_types::metrics::MetricTagMap;
+use vey_types::metrics::MetricTagMap;
 
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
 use super::{CONFIG_KEY_EXPORTER_NAME, CONFIG_KEY_EXPORTER_TYPE};

@@ -23,7 +23,7 @@ use g3_icap_client::reqmod::h1::{
 };
 use g3_io_ext::{LimitedWriteExt, OnceBufReader, StreamCopy, StreamCopyError};
 use g3_slog_types::{LtDateTime, LtDuration, LtHttpUri, LtUpstreamAddr, LtUuid};
-use g3_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};
+use vey_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};
 
 use super::{H1InterceptionError, HttpRequest, HttpRequestIo, HttpResponseIo};
 use crate::config::server::ServerConfig;

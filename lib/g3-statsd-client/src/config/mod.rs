@@ -11,7 +11,7 @@ use std::os::unix::net::UnixDatagram;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use crate::{StatsdClient, StatsdMetricsSink};
 

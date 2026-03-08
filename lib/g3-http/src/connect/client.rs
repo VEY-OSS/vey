@@ -5,7 +5,7 @@
 
 use tokio::io::{AsyncBufRead, AsyncWrite};
 
-use g3_types::net::{HttpAuth, UpstreamAddr};
+use vey_types::net::{HttpAuth, UpstreamAddr};
 
 use super::{HttpConnectError, HttpConnectRequest, HttpConnectResponse};
 
@@ -39,12 +39,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_types::auth::{Password, Username};
-    use g3_types::net::HttpBasicAuth;
     use std::io;
     use std::str::FromStr;
     use tokio::io::BufReader;
     use tokio_test::io::Builder;
+    use vey_types::auth::{Password, Username};
+    use vey_types::net::HttpBasicAuth;
 
     #[tokio::test]
     async fn http_connect_to_success_no_auth() {

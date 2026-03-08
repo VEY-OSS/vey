@@ -9,7 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::fs::ConfigFileFormat;
+use vey_types::fs::ConfigFileFormat;
 
 use super::UserDynamicFileSource;
 

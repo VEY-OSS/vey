@@ -12,7 +12,7 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use yaml_rust::Yaml;
 
-use g3_types::net::{
+use vey_types::net::{
     OpensslCertificatePair, OpensslClientConfigBuilder, OpensslInterceptionClientConfigBuilder,
     OpensslInterceptionServerConfigBuilder, OpensslProtocol, OpensslServerConfigBuilder,
     OpensslTlcpCertificatePair,
@@ -612,11 +612,11 @@ pub fn as_tls_interception_server_config_builder(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_types::net::TlsVersion;
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration;
+    use vey_types::net::TlsVersion;
     use yaml_rust::YamlLoader;
 
     const TEST_CERT_PEM1: &str = include_str!("./test_data/test_cert1.pem");

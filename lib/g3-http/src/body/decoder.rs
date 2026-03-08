@@ -9,7 +9,7 @@ use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
 
-use g3_types::net::HttpHeaderMap;
+use vey_types::net::HttpHeaderMap;
 
 use crate::{ChunkedDataDecodeReader, HttpBodyType, TrailerReadError, TrailerReader};
 

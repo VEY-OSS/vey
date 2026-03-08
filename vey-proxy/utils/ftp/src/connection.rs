@@ -11,7 +11,7 @@ use tokio::net::TcpStream;
 
 use g3_ftp_client::FtpConnectionProvider;
 use g3_socket::BindAddr;
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 #[derive(Default)]
 pub(crate) struct LocalConnectionProvider {

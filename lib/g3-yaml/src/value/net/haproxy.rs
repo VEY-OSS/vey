@@ -6,7 +6,7 @@
 use yaml_rust::Yaml;
 
 use anyhow::{Context, anyhow};
-use g3_types::net::ProxyProtocolVersion;
+use vey_types::net::ProxyProtocolVersion;
 
 pub fn as_proxy_protocol_version(value: &Yaml) -> anyhow::Result<ProxyProtocolVersion> {
     let v =

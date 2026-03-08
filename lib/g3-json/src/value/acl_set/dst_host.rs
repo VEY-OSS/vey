@@ -6,7 +6,7 @@
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use g3_types::acl_set::AclDstHostRuleSetBuilder;
+use vey_types::acl_set::AclDstHostRuleSetBuilder;
 
 pub fn as_dst_host_rule_set_builder(value: &Value) -> anyhow::Result<AclDstHostRuleSetBuilder> {
     if let Value::Object(map) = value {
@@ -46,10 +46,10 @@ pub fn as_dst_host_rule_set_builder(value: &Value) -> anyhow::Result<AclDstHostR
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_types::acl::AclAction;
-    use g3_types::net::Host;
     use serde_json::json;
     use std::str::FromStr;
+    use vey_types::acl::AclAction;
+    use vey_types::net::Host;
 
     #[test]
     fn as_dst_host_rule_set_builder_ok() {

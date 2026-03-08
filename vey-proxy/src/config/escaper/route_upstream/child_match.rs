@@ -10,7 +10,7 @@ use anyhow::{Context, anyhow};
 use radix_trie::{Trie, TrieCommon};
 use yaml_rust::Yaml;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use crate::config::escaper::verify::EscaperConfigVerifier;
 
@@ -86,7 +86,7 @@ impl ChildMatchBuilder {
                 let Some(value) = value_table.get(escaper) else {
                     continue;
                 };
-                let reversed = g3_types::resolve::reverse_idna_domain(domain);
+                let reversed = vey_types::resolve::reverse_idna_domain(domain);
                 trie.insert(reversed, value.clone());
             }
         }
@@ -104,7 +104,7 @@ pub(crate) struct ChildMatch<T> {
 
 impl<T> ChildMatch<T> {
     pub(crate) fn check_domain(&self, domain: &str) -> Option<&T> {
-        let key = g3_types::resolve::reverse_idna_domain(domain);
+        let key = vey_types::resolve::reverse_idna_domain(domain);
         self.inner.get_ancestor_value(&key)
     }
 }

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use g3_types::route::AlpnMatch;
+use vey_types::route::AlpnMatch;
 
 use crate::JsonMapCallback;
 

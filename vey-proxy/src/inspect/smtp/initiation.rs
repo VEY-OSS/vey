@@ -12,7 +12,7 @@ use g3_dpi::SmtpInterceptionConfig;
 use g3_io_ext::{LimitedWriteExt, LineRecvBuf};
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
-use g3_types::net::Host;
+use vey_types::net::Host;
 
 use super::{CommandLineRecvExt, ResponseLineRecvExt, ResponseParseExt};
 use crate::serve::{ServerTaskError, ServerTaskResult};

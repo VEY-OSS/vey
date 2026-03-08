@@ -14,7 +14,7 @@ use tokio::sync::{Barrier, Semaphore, mpsc};
 use tokio::time::{Instant, MissedTickBehavior};
 
 use g3_statsd_client::StatsdClient;
-use g3_types::limit::RateLimiter;
+use vey_types::limit::RateLimiter;
 
 use super::ProcArgs;
 

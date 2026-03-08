@@ -282,12 +282,12 @@ impl UdpSocketExt for UdpSocket {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_types::net::UdpListenConfig;
     use std::future::poll_fn;
     use std::io::{IoSlice, IoSliceMut};
     use std::net::{IpAddr, SocketAddr};
     use std::str::FromStr;
     use vey_std_ext::net::SocketAddrExt;
+    use vey_types::net::UdpListenConfig;
 
     #[tokio::test]
     async fn msg_connect() {

@@ -9,8 +9,8 @@ use anyhow::{Context, anyhow};
 use log::{debug, warn};
 use tokio::sync::Mutex;
 
-use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
+use vey_types::metrics::NodeName;
 
 use super::{ArcBackend, registry};
 use crate::config::backend::{AnyBackendConfig, BackendConfigDiffAction};

@@ -14,9 +14,9 @@ use tokio::sync::broadcast;
 
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::RawSocket;
-use g3_types::net::TcpListenConfig;
 use vey_compat::CpuAffinity;
 use vey_std_ext::net::SocketAddrExt;
+use vey_types::net::TcpListenConfig;
 
 use crate::listen::{ListenAliveGuard, ListenStats};
 use crate::server::{BaseServer, ClientConnectionInfo, ReloadServer, ServerReloadCommand};

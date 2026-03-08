@@ -10,7 +10,7 @@ use test::Bencher;
 
 use std::str::FromStr;
 
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 #[bench]
 fn ipv4_ip(b: &mut Bencher) {

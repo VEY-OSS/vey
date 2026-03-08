@@ -20,7 +20,7 @@ use g3_icap_client::reqmod::h2::{
     H2RequestAdapter, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
 };
-use g3_types::net::WebSocketNotes;
+use vey_types::net::WebSocketNotes;
 
 use super::H2StreamTransferError;
 use crate::config::server::ServerConfig;

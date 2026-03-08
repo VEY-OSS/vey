@@ -10,8 +10,8 @@ use ahash::AHashMap;
 use arc_swap::ArcSwapOption;
 use arcstr::ArcStr;
 
-use g3_types::auth::{Password, UserAuthError};
-use g3_types::metrics::{MetricTagMap, NodeName};
+use vey_types::auth::{Password, UserAuthError};
+use vey_types::metrics::{MetricTagMap, NodeName};
 
 use super::BaseUserGroup;
 use crate::auth::{User, UserContext, UserType};

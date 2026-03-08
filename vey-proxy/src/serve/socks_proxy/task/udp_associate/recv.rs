@@ -20,8 +20,8 @@ use g3_io_ext::{AsyncUdpRecv, UdpRelayClientError, UdpRelayClientRecv};
 ))]
 use g3_io_ext::{UdpRelayPacket, UdpRelayPacketMeta};
 use g3_socks::v5::UdpInput;
-use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::net::UpstreamAddr;
+use vey_types::acl::{AclAction, AclNetworkRule};
+use vey_types::net::UpstreamAddr;
 
 use super::CommonTaskContext;
 use crate::auth::UserContext;

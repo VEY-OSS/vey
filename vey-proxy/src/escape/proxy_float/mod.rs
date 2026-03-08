@@ -13,8 +13,8 @@ use slog::Logger;
 use tokio::sync::mpsc;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::metrics::NodeName;
-use g3_types::net::{OpensslClientConfig, UpstreamAddr};
+use vey_types::metrics::NodeName;
+use vey_types::net::{OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperRegistry, EscaperStats};
 use crate::audit::AuditContext;

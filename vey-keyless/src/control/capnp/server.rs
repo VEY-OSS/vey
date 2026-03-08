@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 
-use g3_types::metrics::{MetricTagName, MetricTagValue, NodeName};
+use vey_types::metrics::{MetricTagName, MetricTagValue, NodeName};
 
 use vey_keyless_proto::server_capnp::server_control;
 

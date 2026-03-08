@@ -8,8 +8,8 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_yaml::YamlDocPosition;
+use vey_types::metrics::{MetricTagMap, NodeName};
 
 use super::{EscaperConfig, EscaperConfigDiffAction};
 use crate::config::escaper::AnyEscaperConfig;

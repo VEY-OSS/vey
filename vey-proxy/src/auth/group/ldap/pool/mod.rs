@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use log::warn;
 use tokio::sync::{mpsc, oneshot};
 
-use g3_types::auth::UserAuthError;
+use vey_types::auth::UserAuthError;
 
 use crate::config::auth::{LdapUserGroupConfig, UserGroupConfig};
 

@@ -10,7 +10,7 @@ use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use slog::Logger;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use crate::config::resolver::c_ares::CAresResolverConfig;
 use crate::config::resolver::{AnyResolverConfig, ResolverConfig};

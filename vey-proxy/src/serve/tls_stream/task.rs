@@ -14,8 +14,8 @@ use tokio_rustls::server::TlsStream;
 use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{AsyncStream, IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
-use g3_types::acl::AclAction;
-use g3_types::net::UpstreamAddr;
+use vey_types::acl::AclAction;
+use vey_types::net::UpstreamAddr;
 
 use super::common::CommonTaskContext;
 use crate::audit::AuditContext;

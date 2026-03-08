@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 
-use g3_types::metrics::{MetricTagName, MetricTagValue};
+use vey_types::metrics::{MetricTagName, MetricTagValue};
 
 use vey_keyless_proto::proc_capnp::proc_control;
 use vey_keyless_proto::server_capnp::server_control;

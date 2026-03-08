@@ -6,15 +6,15 @@
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use g3_types::limit::{GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig};
-use g3_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
+use vey_types::limit::{GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig};
+use vey_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
 
 pub fn as_tcp_sock_speed_limit(v: &Value) -> anyhow::Result<TcpSockSpeedLimitConfig> {
     let mut config = TcpSockSpeedLimitConfig::default();
     match v {
         Value::String(_) | Value::Number(_) => {
             let limit = crate::humanize::as_usize(v).context("invalid humanize usize value")?;
-            config.shift_millis = g3_types::net::RATE_LIMIT_SHIFT_MILLIS_DEFAULT;
+            config.shift_millis = vey_types::net::RATE_LIMIT_SHIFT_MILLIS_DEFAULT;
             config.max_north = limit;
             config.max_south = limit;
         }
@@ -48,7 +48,7 @@ pub fn as_udp_sock_speed_limit(v: &Value) -> anyhow::Result<UdpSockSpeedLimitCon
     match v {
         Value::String(_) | Value::Number(_) => {
             let limit = crate::humanize::as_usize(v).context("invalid humanize usize value")?;
-            config.shift_millis = g3_types::net::RATE_LIMIT_SHIFT_MILLIS_DEFAULT;
+            config.shift_millis = vey_types::net::RATE_LIMIT_SHIFT_MILLIS_DEFAULT;
             config.max_north_bytes = limit;
             config.max_south_bytes = limit;
         }
@@ -179,7 +179,7 @@ mod tests {
         assert_eq!(config.max_south, 10_000_000);
         assert_eq!(
             config.shift_millis,
-            g3_types::net::RATE_LIMIT_SHIFT_MILLIS_DEFAULT
+            vey_types::net::RATE_LIMIT_SHIFT_MILLIS_DEFAULT
         );
 
         // Number input

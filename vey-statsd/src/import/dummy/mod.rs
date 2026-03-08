@@ -15,7 +15,7 @@ use g3_daemon::listen::ReceiveUdpServer;
 #[cfg(unix)]
 use g3_daemon::listen::ReceiveUnixDatagramServer;
 use g3_daemon::server::{BaseServer, ServerReloadCommand};
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::{ArcImporter, ArcImporterInternal, Importer, ImporterInternal, ImporterRegistry};
 use crate::config::importer::dummy::DummyImporterConfig;

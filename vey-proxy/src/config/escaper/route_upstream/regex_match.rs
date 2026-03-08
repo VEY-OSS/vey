@@ -14,7 +14,7 @@ use yaml_rust::Yaml;
 
 use crate::config::escaper::verify::EscaperConfigVerifier;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub(crate) struct RegexMatchBuilder {
@@ -93,7 +93,7 @@ impl RegexMatchBuilder {
                     full_regex_set.insert(&rule.sub_domain_regex);
                 } else {
                     let parent_reversed =
-                        g3_types::resolve::reverse_idna_domain(&rule.parent_domain);
+                        vey_types::resolve::reverse_idna_domain(&rule.parent_domain);
                     parent_regex_map
                         .entry(parent_reversed)
                         .or_default()
@@ -189,7 +189,7 @@ pub(crate) struct RegexMatch<T> {
 
 impl<T> RegexMatch<T> {
     pub(crate) fn check_domain(&self, domain: &str) -> Option<&T> {
-        let key: String = g3_types::resolve::reverse_idna_domain(domain);
+        let key: String = vey_types::resolve::reverse_idna_domain(domain);
         if let Some(sub_trie) = self.parent_match.get_ancestor(&key)
             && let Some(rules) = sub_trie.value()
         {

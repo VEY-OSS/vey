@@ -6,7 +6,7 @@
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use g3_types::acl::{AclAction, AclRegexDomainRuleBuilder};
+use vey_types::acl::{AclAction, AclRegexDomainRuleBuilder};
 
 use super::AclRuleJsonParser;
 

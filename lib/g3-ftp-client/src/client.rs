@@ -9,8 +9,8 @@ use std::time::Duration;
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_types::auth::{Password, Username};
-use g3_types::net::UpstreamAddr;
+use vey_types::auth::{Password, Username};
+use vey_types::net::UpstreamAddr;
 
 use crate::control::FtpCommand;
 use crate::error::{

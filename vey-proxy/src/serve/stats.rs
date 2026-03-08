@@ -8,8 +8,8 @@ use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{MetricTagMap, NodeName};
-use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
+use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::stat::types::UntrustedTaskStatsSnapshot;
 

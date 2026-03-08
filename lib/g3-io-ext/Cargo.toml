@@ -25,7 +25,7 @@ slog = { workspace = true, optional = true }
 vey-io-sys.workspace = true
 g3-socket.workspace = true
 vey-std-ext.workspace = true
-g3-types.workspace = true
+vey-types.workspace = true
 g3-resolver = { workspace = true, optional = true }
 vey-openssl = { workspace = true, optional = true }
 

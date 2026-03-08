@@ -9,7 +9,7 @@ use bytes::Bytes;
 use http::Uri;
 use http::uri::{Authority, PathAndQuery, Scheme};
 
-use g3_types::net::{Host, HttpProxySubProtocol, UpstreamAddr};
+use vey_types::net::{Host, HttpProxySubProtocol, UpstreamAddr};
 
 use super::{UriParseError, WellKnownUri, WellKnownUriParser};
 

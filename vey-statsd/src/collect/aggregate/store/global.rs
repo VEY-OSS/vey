@@ -9,7 +9,7 @@ use ahash::AHashMap;
 use chrono::Utc;
 use tokio::sync::{broadcast, mpsc};
 
-use g3_types::metrics::MetricTagMap;
+use vey_types::metrics::MetricTagMap;
 
 use super::Command;
 use crate::collect::ArcCollector;

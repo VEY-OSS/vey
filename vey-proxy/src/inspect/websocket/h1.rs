@@ -12,7 +12,7 @@ use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::ProtocolInspectAction;
 use g3_io_ext::{IdleInterval, LimitedWriteExt, StreamCopyConfig};
 use g3_slog_types::{LtHttpHeaderValue, LtUpstreamAddr, LtUuid};
-use g3_types::net::{UpstreamAddr, WebSocketNotes};
+use vey_types::net::{UpstreamAddr, WebSocketNotes};
 
 use super::{ClientCloseFrame, ServerCloseFrame};
 #[cfg(feature = "quic")]

@@ -6,7 +6,7 @@
 use http::Uri;
 use smol_str::SmolStr;
 
-use g3_types::net::{HttpProxySubProtocol, UpstreamAddr};
+use vey_types::net::{HttpProxySubProtocol, UpstreamAddr};
 
 use super::{HttpMasque, UriParseError};
 

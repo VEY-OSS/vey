@@ -13,12 +13,12 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_dpi::{ProtocolInspectionConfig, ProtocolPortMap};
 use g3_io_ext::StreamCopyConfig;
-use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::auth::FactsMatchType;
-use g3_types::metrics::{MetricTagMap, NodeName};
-use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
-use g3_types::route::HostMatch;
 use g3_yaml::YamlDocPosition;
+use vey_types::acl::AclNetworkRuleBuilder;
+use vey_types::auth::FactsMatchType;
+use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
+use vey_types::route::HostMatch;
 
 use super::{
     AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
@@ -295,7 +295,9 @@ impl SniProxyServerConfig {
         }
 
         #[cfg(target_os = "linux")]
-        if self.listen_transparent && let Some(listen) = &mut self.listen {
+        if self.listen_transparent
+            && let Some(listen) = &mut self.listen
+        {
             listen.set_transparent();
         }
 

@@ -6,7 +6,7 @@
 use tokio::runtime::Handle;
 
 use g3_runtime::unaided::{UnaidedRuntimeConfig, WorkersGuard};
-use g3_types::sync::GlobalInit;
+use vey_types::sync::GlobalInit;
 
 static WORKER_HANDLERS: GlobalInit<Vec<Handle>> = GlobalInit::new(Vec::new());
 

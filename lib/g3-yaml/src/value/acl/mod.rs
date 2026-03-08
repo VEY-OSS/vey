@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::acl::AclAction;
+use vey_types::acl::AclAction;
 
 mod child_domain;
 mod exact_host;

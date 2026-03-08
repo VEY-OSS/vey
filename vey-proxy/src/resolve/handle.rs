@@ -12,8 +12,8 @@ use std::time::Duration;
 use arcstr::ArcStr;
 
 use g3_resolver::{ResolveError, ResolvedRecordSource};
-use g3_types::metrics::NodeName;
-use g3_types::resolve::{QueryStrategy, ResolveRedirectionValue, ResolveStrategy};
+use vey_types::metrics::NodeName;
+use vey_types::resolve::{QueryStrategy, ResolveRedirectionValue, ResolveStrategy};
 
 pub(crate) trait LoggedResolveJob {
     fn log_error(&self, _e: &ResolveError, _source: ResolvedRecordSource) {}

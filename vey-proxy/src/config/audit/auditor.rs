@@ -17,12 +17,12 @@ use g3_dpi::{
 };
 use g3_icap_client::IcapServiceConfig;
 use g3_tls_ticket::TlsTicketConfig;
-use g3_types::metrics::NodeName;
-use g3_types::net::{
-    OpensslInterceptionClientConfigBuilder, OpensslInterceptionServerConfigBuilder,
-};
 use g3_udpdump::StreamDumpConfig;
 use g3_yaml::YamlDocPosition;
+use vey_types::metrics::NodeName;
+use vey_types::net::{
+    OpensslInterceptionClientConfigBuilder, OpensslInterceptionServerConfigBuilder,
+};
 
 #[cfg(feature = "quic")]
 use super::AuditStreamDetourConfig;

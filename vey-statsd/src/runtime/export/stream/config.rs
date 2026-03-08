@@ -13,8 +13,8 @@ use tokio::net::TcpStream;
 use yaml_rust::Yaml;
 
 use g3_socket::BindAddr;
-use g3_types::metrics::NodeName;
-use g3_types::net::{Host, UpstreamAddr};
+use vey_types::metrics::NodeName;
+use vey_types::net::{Host, UpstreamAddr};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct StreamExportConfig {

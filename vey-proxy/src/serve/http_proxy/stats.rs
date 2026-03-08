@@ -9,8 +9,8 @@ use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{MetricTagMap, NodeName};
-use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats};
+use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::stats::{StatId, TcpIoSnapshot, TcpIoStats};
 
 use crate::serve::{
     ServerForbiddenSnapshot, ServerForbiddenStats, ServerPerTaskStats, ServerStats,

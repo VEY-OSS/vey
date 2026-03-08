@@ -6,9 +6,9 @@
 use std::num::NonZeroUsize;
 use std::time::Duration;
 
-use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 use vey_macros::AnyConfig;
+use vey_types::metrics::NodeName;
 
 mod basic;
 pub(crate) use basic::BasicUserGroupConfig;

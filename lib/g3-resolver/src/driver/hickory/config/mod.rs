@@ -11,7 +11,7 @@ use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use g3_socket::BindAddr;
-use g3_types::net::{DnsEncryptionConfigBuilder, TcpMiscSockOpts, UdpMiscSockOpts};
+use vey_types::net::{DnsEncryptionConfigBuilder, TcpMiscSockOpts, UdpMiscSockOpts};
 
 use super::{HickoryClient, HickoryClientConfig, HickoryResolver};
 use crate::driver::BoxResolverDriver;

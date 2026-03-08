@@ -10,8 +10,8 @@ use bytes::{BufMut, BytesMut};
 use tokio::io::{AsyncBufRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use g3_io_ext::LimitedWriteExt;
-use g3_types::auth::{Password, Username};
-use g3_types::net::SocksAuth;
+use vey_types::auth::{Password, Username};
+use vey_types::net::SocksAuth;
 
 use super::{SocksAuthMethod, SocksConnectError, SocksNegotiationError, SocksRequestParseError};
 

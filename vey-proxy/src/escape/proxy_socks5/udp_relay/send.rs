@@ -21,8 +21,8 @@ use slog::Logger;
 use g3_io_ext::UdpRelayPacket;
 use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
 use g3_socks::v5::SocksUdpHeader;
-use g3_types::net::UpstreamAddr;
 use vey_io_sys::udp::SendMsgHdr;
+use vey_types::net::UpstreamAddr;
 
 pub(crate) struct ProxySocks5UdpRelayRemoteSend<T> {
     local_addr: SocketAddr,

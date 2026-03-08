@@ -8,7 +8,7 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 
 use g3_dpi::{Protocol, ProtocolInspectError, ProtocolInspector};
 use g3_io_ext::{FlexBufReader, OnceBufReader};
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};

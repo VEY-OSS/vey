@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::net::{UdpListenConfig, UdpMiscSockOpts};
+use vey_types::net::{UdpListenConfig, UdpMiscSockOpts};
 
 pub fn as_udp_misc_sock_opts(v: &Yaml) -> anyhow::Result<UdpMiscSockOpts> {
     let mut config = UdpMiscSockOpts::default();
@@ -344,7 +344,7 @@ mod tests {
             target_os = "solaris"
         ))]
         {
-            use g3_types::net::Interface;
+            use vey_types::net::Interface;
 
             #[cfg(any(target_os = "linux", target_os = "android"))]
             const LOOPBACK_INTERFACE: &str = "lo";

@@ -9,7 +9,7 @@ use anyhow::{Context, anyhow};
 use itertools::Itertools;
 use yaml_rust::Yaml;
 
-use g3_types::net::{Host, UpstreamAddr};
+use vey_types::net::{Host, UpstreamAddr};
 
 use crate::escape::EgressUpstream;
 

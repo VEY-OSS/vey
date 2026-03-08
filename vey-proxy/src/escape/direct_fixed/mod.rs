@@ -16,10 +16,10 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
 use g3_socket::BindAddr;
 use g3_socket::util::AddressFamily;
-use g3_types::acl::AclNetworkRule;
-use g3_types::metrics::NodeName;
-use g3_types::net::{Host, ProxyProtocolEncoder, ProxyProtocolVersion, UpstreamAddr};
-use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
+use vey_types::acl::AclNetworkRule;
+use vey_types::metrics::NodeName;
+use vey_types::net::{Host, ProxyProtocolEncoder, ProxyProtocolVersion, UpstreamAddr};
+use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperRegistry, EscaperStats};
 use crate::audit::AuditContext;

@@ -11,7 +11,7 @@ use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use http::{HeaderName, HeaderValue, Method, Request, StatusCode, Version};
 use url::Url;
 
-use g3_types::net::{HttpAuth, UpstreamAddr};
+use vey_types::net::{HttpAuth, UpstreamAddr};
 
 const HTTP_ARG_URL: &str = "url";
 const HTTP_ARG_METHOD: &str = "method";

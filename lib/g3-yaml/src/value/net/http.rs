@@ -10,7 +10,7 @@ use http::uri::PathAndQuery;
 use http::{HeaderName, HeaderValue};
 use yaml_rust::Yaml;
 
-use g3_types::net::{
+use vey_types::net::{
     HttpForwardCapability, HttpForwardedHeaderType, HttpKeepAliveConfig, HttpServerId,
 };
 

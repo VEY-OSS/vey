@@ -13,7 +13,7 @@ use tokio::time::Instant;
 use g3_daemon::stat::remote::{ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStats};
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_socket::BindAddr;
-use g3_types::net::{ConnectError, Host};
+use vey_types::net::{ConnectError, Host};
 
 use super::DivertTcpEscaper;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;

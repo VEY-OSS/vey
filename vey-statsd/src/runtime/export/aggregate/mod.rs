@@ -10,7 +10,7 @@ use ahash::AHashMap;
 use chrono::{DateTime, Utc};
 use tokio::sync::mpsc;
 
-use g3_types::metrics::MetricTagMap;
+use vey_types::metrics::MetricTagMap;
 
 use crate::types::{MetricName, MetricRecord, MetricType, MetricValue};
 

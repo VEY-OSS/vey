@@ -6,7 +6,7 @@
 use std::cell::RefCell;
 use std::fmt::{Arguments, Write};
 
-use g3_types::log::AsyncLogFormatter;
+use vey_types::log::AsyncLogFormatter;
 
 use itoa::Integer;
 use slog::{Error, KV, OwnedKVList, Record, Serializer};

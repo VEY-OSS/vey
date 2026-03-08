@@ -13,8 +13,8 @@ use arcstr::ArcStr;
 use rustc_hash::FxHashMap;
 use yaml_rust::Yaml;
 
-use g3_types::metrics::NodeName;
-use g3_types::net::Host;
+use vey_types::metrics::NodeName;
+use vey_types::net::Host;
 
 use crate::config::escaper::verify::EscaperConfigVerifier;
 

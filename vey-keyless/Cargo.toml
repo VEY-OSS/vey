@@ -34,7 +34,7 @@ g3-daemon = { workspace = true, features = ["register", "event-log"] }
 vey-macros.workspace = true
 g3-yaml = { workspace = true, features = ["histogram"] }
 vey-std-ext.workspace = true
-g3-types = { workspace = true, features = ["openssl"] }
+vey-types = { workspace = true, features = ["openssl"] }
 g3-socket.workspace = true
 g3-io-ext.workspace = true
 g3-tls-cert.workspace = true

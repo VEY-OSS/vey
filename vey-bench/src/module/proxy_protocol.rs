@@ -9,7 +9,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use clap::{Arg, ArgMatches, Command};
 
-use g3_types::net::{ProxyProtocolEncoder, ProxyProtocolVersion};
+use vey_types::net::{ProxyProtocolEncoder, ProxyProtocolVersion};
 
 const PP_ARG_VERSION: &str = "proxy-protocol-version";
 const PP_ARG_ADDRESS: &str = "proxy-protocol";

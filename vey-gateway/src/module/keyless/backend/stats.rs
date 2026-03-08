@@ -8,9 +8,9 @@ use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{MetricTagMap, NodeName};
-use g3_types::stats::StatId;
 use vey_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats};
+use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::stats::StatId;
 
 pub(crate) struct KeylessBackendStats {
     name: NodeName,

@@ -13,7 +13,7 @@ use openssl::x509::extension::{
 };
 use openssl::x509::{X509, X509Builder, X509Extension, X509Name, X509Ref};
 
-use g3_types::net::Host;
+use vey_types::net::Host;
 
 use super::{KeyUsageBuilder, SubjectNameBuilder, asn1_time_from_chrono};
 use crate::ext::X509BuilderExt;

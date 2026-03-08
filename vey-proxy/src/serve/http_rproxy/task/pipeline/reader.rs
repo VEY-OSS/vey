@@ -10,7 +10,7 @@ use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 
 use g3_io_ext::{GlobalLimitGroup, LimitedBufReadExt, LimitedBufReader, NilLimitedReaderStats};
-use g3_types::net::{HttpForwardedHeaderType, HttpForwardedHeaderValue};
+use vey_types::net::{HttpForwardedHeaderType, HttpForwardedHeaderValue};
 
 use super::protocol::{HttpClientReader, HttpRProxyRequest};
 use super::{CommonTaskContext, HttpRProxyCltWrapperStats, HttpRProxyPipelineStats};

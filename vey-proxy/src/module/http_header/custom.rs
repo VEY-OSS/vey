@@ -11,7 +11,7 @@ use base64::prelude::*;
 use chrono::{DateTime, Utc};
 use http::HeaderName;
 
-use g3_types::net::{EgressInfo, HttpHeaderMap, HttpHeaderValue, HttpServerId};
+use vey_types::net::{EgressInfo, HttpHeaderMap, HttpHeaderValue, HttpServerId};
 
 // chained final info header
 const UPSTREAM_ID: &str = "x-bd-upstream-id";

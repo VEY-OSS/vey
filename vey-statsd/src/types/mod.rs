@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_types::metrics::MetricTagMap;
+use vey_types::metrics::MetricTagMap;
 
 mod name;
 pub(crate) use name::MetricName;

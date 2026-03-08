@@ -7,11 +7,11 @@ use std::fmt;
 use std::str::FromStr;
 use std::time::Duration;
 
-use g3_types::acl::{
+use vey_types::acl::{
     AclChildDomainRule, AclChildDomainRuleBuilder, AclExactHostRule, AclNetworkRule,
     AclNetworkRuleBuilder, ActionContract,
 };
-use g3_types::net::Host;
+use vey_types::net::Host;
 
 mod size_limit;
 

@@ -12,7 +12,7 @@ use http::{HeaderName, Method, Uri, Version, header};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, UpstreamAddr};
+use vey_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, UpstreamAddr};
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
 use crate::header::Connection;

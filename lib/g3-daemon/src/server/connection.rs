@@ -9,7 +9,7 @@ use std::net::{IpAddr, SocketAddr};
 use g3_io_ext::haproxy::ProxyAddr;
 use g3_socket::RawSocket;
 use g3_socket::util::AddressFamily;
-use g3_types::net::TcpMiscSockOpts;
+use vey_types::net::TcpMiscSockOpts;
 
 #[derive(Clone, Debug)]
 pub struct ClientConnectionInfo {

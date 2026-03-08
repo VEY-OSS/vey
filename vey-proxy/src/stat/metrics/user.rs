@@ -10,8 +10,8 @@ use g3_daemon::metrics::{
     TAG_KEY_TRANSPORT,
 };
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::metrics::NodeName;
-use g3_types::stats::{GlobalStatsMap, StatId, TcpIoSnapshot, UdpIoSnapshot};
+use vey_types::metrics::NodeName;
+use vey_types::stats::{GlobalStatsMap, StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use super::TAG_KEY_ESCAPER;
 use super::{MetricUserConnectionType, MetricUserRequestType};

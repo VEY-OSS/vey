@@ -16,11 +16,11 @@ chrono = { workspace = true, features = ["std"] }
 rustls-pki-types = { workspace = true, optional = true, features = ["std"] }
 openssl = { workspace = true, optional = true }
 ip_network = { workspace = true, optional = true }
-g3-types.workspace = true
+vey-types.workspace = true
 vey-geoip-types = { workspace = true, optional = true }
 
 [features]
 default = []
-rustls = ["g3-types/rustls", "dep:rustls-pki-types"]
-openssl = ["g3-types/openssl", "dep:openssl"]
+rustls = ["vey-types/rustls", "dep:rustls-pki-types"]
+openssl = ["vey-types/openssl", "dep:openssl"]
 geoip = ["dep:vey-geoip-types", "dep:ip_network"]

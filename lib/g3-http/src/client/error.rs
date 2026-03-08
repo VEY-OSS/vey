@@ -8,7 +8,7 @@ use std::io;
 use http::Version;
 use thiserror::Error;
 
-use g3_types::net::HttpUpgradeTokenParseError;
+use vey_types::net::HttpUpgradeTokenParseError;
 
 use crate::HttpLineParseError;
 

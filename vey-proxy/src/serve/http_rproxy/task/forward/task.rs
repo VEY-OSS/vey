@@ -18,7 +18,7 @@ use g3_io_ext::{
     GlobalLimitGroup, LimitedBufReadExt, LimitedReadExt, LimitedWriteExt, StreamCopy,
     StreamCopyError,
 };
-use g3_types::acl::AclAction;
+use vey_types::acl::AclAction;
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpRProxyRequest};
 use super::{

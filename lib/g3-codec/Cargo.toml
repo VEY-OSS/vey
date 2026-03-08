@@ -10,7 +10,7 @@ thiserror.workspace = true
 smallvec = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
 vey-std-ext.workspace = true
-g3-types = { workspace = true }
+vey-types = { workspace = true }
 
 [features]
 default = []

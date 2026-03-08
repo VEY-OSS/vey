@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 
 use std::time::Duration;
 
-use g3_types::net::OpensslTicketKey;
+use vey_types::net::OpensslTicketKey;
 
 mod json;
 #[cfg(feature = "yaml")]
@@ -76,7 +76,7 @@ impl TicketSource {
 mod tests {
     use super::*;
     use chrono::TimeZone;
-    use g3_types::net::OpensslTicketKeyBuilder;
+    use vey_types::net::OpensslTicketKeyBuilder;
 
     // Helper function to create a test RemoteDecryptKey
     fn create_test_decrypt_key(expire: DateTime<Utc>) -> RemoteDecryptKey {

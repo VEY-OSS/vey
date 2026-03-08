@@ -14,7 +14,7 @@ use tokio::time::Instant;
 
 use g3_http::client::HttpTransparentResponse;
 use g3_io_ext::{LimitedBufReadExt, LimitedReader, LimitedWriteExt, LimitedWriter};
-use g3_types::net::HttpUpgradeToken;
+use vey_types::net::HttpUpgradeToken;
 
 use super::{H1WebsocketArgs, WebsocketHistogramRecorder};
 use crate::ProcArgs;

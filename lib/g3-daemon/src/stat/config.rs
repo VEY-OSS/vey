@@ -11,7 +11,7 @@ use log::warn;
 use yaml_rust::Yaml;
 
 use g3_statsd_client::StatsdClientConfig;
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 static GLOBAL_STAT_CONFIG: OnceLock<StatsdClientConfig> = OnceLock::new();
 

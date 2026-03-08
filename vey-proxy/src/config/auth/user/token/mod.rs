@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_types::auth::FastHashedPassPhrase;
+use vey_types::auth::FastHashedPassPhrase;
 use vey_xcrypt::XCryptHash;
 
 mod json;

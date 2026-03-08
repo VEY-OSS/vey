@@ -6,7 +6,7 @@
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use g3_types::net::UdpMiscSockOpts;
+use vey_types::net::UdpMiscSockOpts;
 
 pub fn as_udp_misc_sock_opts(v: &Value) -> anyhow::Result<UdpMiscSockOpts> {
     let mut config = UdpMiscSockOpts::default();

@@ -16,9 +16,9 @@ use tokio_rustls::server::TlsStream;
 
 use g3_daemon::stat::task::TcpStreamConnectionStats;
 use g3_io_ext::LimitedStream;
-use g3_types::limit::GaugeSemaphorePermit;
-use g3_types::net::{Host, RustlsServerConnectionExt};
-use g3_types::route::HostMatch;
+use vey_types::limit::GaugeSemaphorePermit;
+use vey_types::net::{Host, RustlsServerConnectionExt};
+use vey_types::route::HostMatch;
 
 use super::{CommonTaskContext, RustlsRelayTask};
 use crate::module::stream::StreamAcceptTaskCltWrapperStats;

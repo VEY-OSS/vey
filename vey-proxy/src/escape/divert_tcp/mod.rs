@@ -14,9 +14,9 @@ use tokio::io::AsyncWrite;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_io_ext::LimitedWriteExt;
 use g3_resolver::{ResolveError, ResolveLocalError};
-use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
-use g3_types::metrics::NodeName;
-use g3_types::net::{
+use vey_types::collection::{SelectiveVec, SelectiveVecBuilder};
+use vey_types::metrics::NodeName;
+use vey_types::net::{
     Host, ProxyProtocolEncodeError, ProxyProtocolV2Encoder, UpstreamAddr, WeightedUpstreamAddr,
 };
 

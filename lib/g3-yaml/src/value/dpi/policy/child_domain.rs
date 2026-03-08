@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use yaml_rust::Yaml;
 
 use g3_dpi::ProtocolInspectAction;
-use g3_types::acl::AclChildDomainRuleBuilder;
+use vey_types::acl::AclChildDomainRuleBuilder;
 
 use super::InspectRuleYamlParser;
 

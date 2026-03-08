@@ -16,8 +16,8 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_socket::BindAddr;
 use g3_socket::util::AddressFamily;
-use g3_types::acl::AclAction;
-use g3_types::net::{ConnectError, Host, TcpKeepAliveConfig, UpstreamAddr};
+use vey_types::acl::AclAction;
+use vey_types::net::{ConnectError, Host, TcpKeepAliveConfig, UpstreamAddr};
 
 use super::{DirectFloatBindIp, DirectFloatEscaper};
 use crate::escape::direct_fixed::tcp_connect::DirectTcpConnectConfig;

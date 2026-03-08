@@ -17,9 +17,9 @@ use rustc_hash::FxHashMap;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_ip_locate::IpLocationServiceHandle;
 use g3_resolver::ResolveError;
-use g3_types::metrics::NodeName;
-use g3_types::net::{Host, UpstreamAddr};
 use vey_geoip_types::{ContinentCode, IpLocation, IsoCountryCode};
+use vey_types::metrics::NodeName;
+use vey_types::net::{Host, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats};
 use crate::audit::AuditContext;

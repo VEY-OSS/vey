@@ -12,8 +12,8 @@ use async_trait::async_trait;
 use futures_util::future::{AbortHandle, Abortable};
 use tokio::sync::oneshot;
 
-use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
-use g3_types::metrics::NodeName;
+use vey_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
+use vey_types::metrics::NodeName;
 
 use super::{ArcBackendInternal, Backend, BackendInternal, BackendRegistry};
 use crate::config::backend::keyless_quic::KeylessQuicBackendConfig;

@@ -10,7 +10,7 @@ use anyhow::{Context, anyhow};
 use url::Url;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::fs::ConfigFileFormat;
+use vey_types::fs::ConfigFileFormat;
 
 use crate::config::auth::UserConfig;
 

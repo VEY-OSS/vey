@@ -8,7 +8,7 @@ use std::net::SocketAddr;
 
 use socket2::Socket;
 
-use g3_types::net::{SocketBufferConfig, TcpMiscSockOpts, UdpMiscSockOpts};
+use vey_types::net::{SocketBufferConfig, TcpMiscSockOpts, UdpMiscSockOpts};
 
 use crate::util::AddressFamily;
 

@@ -12,7 +12,7 @@ fnv.workspace = true
 memchr.workspace = true
 fixedbitset.workspace = true
 g3-codec = { workspace = true, features = ["ldap", "tls", "quic"] }
-g3-types = { workspace = true, features = ["http", "acl-rule"] }
+vey-types = { workspace = true, features = ["http", "acl-rule"] }
 
 [features]
 default = []

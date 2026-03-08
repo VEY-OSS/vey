@@ -11,7 +11,7 @@ use rand::seq::IteratorRandom;
 use tokio::time::Instant;
 
 use g3_socket::util::AddressFamily;
-use g3_types::net::EgressInfo;
+use vey_types::net::EgressInfo;
 
 mod json;
 

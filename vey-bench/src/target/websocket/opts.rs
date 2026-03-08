@@ -15,7 +15,7 @@ use openssl::md::Md;
 use openssl::md_ctx::MdCtx;
 use url::Url;
 
-use g3_types::net::{HttpAuth, UpstreamAddr};
+use vey_types::net::{HttpAuth, UpstreamAddr};
 
 use super::{ClientFrameBuilder, FrameType};
 

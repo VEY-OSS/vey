@@ -9,7 +9,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::limit::RateLimitQuota;
+use vey_types::limit::RateLimitQuota;
 
 pub fn as_rate_limit_quota(v: &Yaml) -> anyhow::Result<RateLimitQuota> {
     match v {

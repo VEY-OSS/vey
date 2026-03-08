@@ -14,8 +14,8 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::net::TcpStream;
 
 use g3_io_ext::LimitedReadExt;
-use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::net::UpstreamAddr;
+use vey_types::collection::{SelectiveVec, WeightedValue};
+use vey_types::net::UpstreamAddr;
 
 use super::header::{HeaderBuilder, KitexTTHeaderBuilder, ThriftTHeaderBuilder};
 use super::{MultiplexTransfer, SimplexTransfer, ThriftTcpResponse, ThriftTcpResponseError};

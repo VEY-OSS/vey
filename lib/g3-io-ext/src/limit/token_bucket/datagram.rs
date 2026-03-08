@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use arc_swap::ArcSwap;
 use tokio::time::Instant;
 
-use g3_types::limit::GlobalDatagramSpeedLimitConfig;
+use vey_types::limit::GlobalDatagramSpeedLimitConfig;
 
 use crate::limit::{DatagramLimitAction, GlobalDatagramLimit};
 

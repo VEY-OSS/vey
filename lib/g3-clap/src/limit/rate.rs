@@ -10,7 +10,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use clap::ArgMatches;
 
-use g3_types::limit::RateLimitQuota;
+use vey_types::limit::RateLimitQuota;
 
 pub fn get_rate_limit(args: &ArgMatches, id: &str) -> anyhow::Result<Option<RateLimitQuota>> {
     let Some(v) = args.get_one::<String>(id) else {

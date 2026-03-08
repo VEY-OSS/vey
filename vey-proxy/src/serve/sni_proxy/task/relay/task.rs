@@ -16,8 +16,8 @@ use g3_dpi::Protocol;
 use g3_io_ext::{
     FlexBufReader, IdleInterval, LimitedReader, LimitedWriter, StreamCopy, StreamCopyConfig,
 };
-use g3_types::acl::AclAction;
-use g3_types::net::UpstreamAddr;
+use vey_types::acl::AclAction;
+use vey_types::net::UpstreamAddr;
 
 use super::CommonTaskContext;
 use crate::audit::AuditContext;

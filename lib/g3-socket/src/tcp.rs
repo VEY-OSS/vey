@@ -9,8 +9,8 @@ use std::net::IpAddr;
 use socket2::{Domain, SockAddr, Socket, TcpKeepalive, Type};
 use tokio::net::{TcpListener, TcpSocket};
 
-use g3_types::net::{TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts};
 use vey_compat::CpuAffinity;
+use vey_types::net::{TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts};
 
 use super::util::AddressFamily;
 use super::{BindAddr, RawSocket};

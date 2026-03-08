@@ -12,8 +12,8 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
-use g3_types::acl::AclAction;
-use g3_types::net::UpstreamAddr;
+use vey_types::acl::AclAction;
+use vey_types::net::UpstreamAddr;
 
 use super::common::CommonTaskContext;
 use super::stats::{TcpStreamServerAliveTaskGuard, TcpStreamTaskCltWrapperStats};

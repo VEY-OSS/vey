@@ -7,8 +7,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 
 use g3_io_ext::haproxy::ProxyProtocolReadError;
-use g3_types::metrics::NodeName;
-use g3_types::stats::StatId;
+use vey_types::metrics::NodeName;
+use vey_types::stats::StatId;
 
 #[derive(Default)]
 pub struct ListenSnapshot {

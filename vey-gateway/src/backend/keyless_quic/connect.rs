@@ -15,9 +15,9 @@ use quinn::{ClientConfig, Connection, Endpoint, TokioRuntime, TransportConfig};
 use tokio::sync::broadcast;
 use tokio::time::Instant;
 
-use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::net::RustlsQuicClientConfig;
 use vey_std_ext::time::DurationExt;
+use vey_types::collection::{SelectiveVec, WeightedValue};
+use vey_types::net::RustlsQuicClientConfig;
 
 use crate::config::backend::keyless_quic::KeylessQuicBackendConfig;
 use crate::module::keyless::{

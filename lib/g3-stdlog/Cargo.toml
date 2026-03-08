@@ -14,5 +14,5 @@ kanal.workspace = true
 anstyle = "1.0"
 itoa.workspace = true
 zmij.workspace = true
-g3-types = { workspace = true, features = ["async-log"] }
+vey-types = { workspace = true, features = ["async-log"] }
 vey-datetime.workspace = true

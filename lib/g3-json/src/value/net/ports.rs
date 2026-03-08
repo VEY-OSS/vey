@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use g3_types::net::Ports;
+use vey_types::net::Ports;
 
 fn as_single_ports(value: &Value) -> anyhow::Result<Ports> {
     match value {

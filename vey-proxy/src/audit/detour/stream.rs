@@ -9,7 +9,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc;
 
 use g3_io_ext::{StreamCopy, StreamCopyError};
-use g3_types::net::{ProxyProtocolEncodeError, ProxyProtocolV2Encoder};
+use vey_types::net::{ProxyProtocolEncodeError, ProxyProtocolV2Encoder};
 
 use super::{DetourAction, StreamDetourContext};
 use crate::config::server::ServerConfig;

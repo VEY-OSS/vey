@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use itoa::Buffer;
 use tokio::sync::mpsc;
 
-use g3_types::metrics::MetricTagMap;
+use vey_types::metrics::MetricTagMap;
 
 use crate::config::exporter::graphite::GraphiteExporterConfig;
 use crate::runtime::export::{AggregateExport, CounterStoreValue, GaugeStoreValue, StreamExport};

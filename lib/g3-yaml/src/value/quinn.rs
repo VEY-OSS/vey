@@ -6,7 +6,7 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::net::QuinnTransportConfigBuilder;
+use vey_types::net::QuinnTransportConfigBuilder;
 
 pub fn as_quinn_transport_config(value: &Yaml) -> anyhow::Result<QuinnTransportConfigBuilder> {
     let Yaml::Hash(map) = value else {

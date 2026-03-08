@@ -5,7 +5,7 @@
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::{SocksConnectError, SocksV4Reply, SocksV4aRequest};
 use crate::SocksCommand;

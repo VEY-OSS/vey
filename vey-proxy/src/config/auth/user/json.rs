@@ -9,7 +9,7 @@ use anyhow::{Context, anyhow};
 use log::warn;
 use serde_json::{Map, Value};
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::{PasswordToken, UserConfig, UserSiteConfig};
 

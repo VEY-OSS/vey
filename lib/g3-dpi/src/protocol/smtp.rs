@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_types::net::Host;
+use vey_types::net::Host;
 
 use super::{MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspectState};
 

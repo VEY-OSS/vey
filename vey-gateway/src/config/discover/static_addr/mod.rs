@@ -7,9 +7,9 @@ use std::net::SocketAddr;
 
 use anyhow::anyhow;
 
-use g3_types::collection::WeightedValue;
-use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
+use vey_types::collection::WeightedValue;
+use vey_types::metrics::NodeName;
 
 use super::{
     AnyDiscoverConfig, CONFIG_KEY_DISCOVER_NAME, CONFIG_KEY_DISCOVER_TYPE, DiscoverConfig,

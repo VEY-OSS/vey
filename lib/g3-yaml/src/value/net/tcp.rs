@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::net::{
+use vey_types::net::{
     HappyEyeballsConfig, TcpConnectConfig, TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts,
 };
 
@@ -330,7 +330,7 @@ mod tests {
     use std::time::Duration;
     use yaml_rust::{Yaml, YamlLoader};
 
-    use g3_types::net::{
+    use vey_types::net::{
         HappyEyeballsConfig, TcpConnectConfig, TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts,
     };
 

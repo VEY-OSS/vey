@@ -16,7 +16,7 @@ use tokio::runtime::Handle;
 use g3_cert_agent::Request;
 use g3_tls_cert::builder::{MimicCertBuilder, ServerCertBuilder, TlsServerCertBuilder};
 use g3_tls_cert::ext::X509Ext;
-use g3_types::net::{Host, TlsCertUsage};
+use vey_types::net::{Host, TlsCertUsage};
 
 mod stats;
 pub(crate) use stats::BackendStats;

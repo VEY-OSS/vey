@@ -7,7 +7,7 @@ use anyhow::{Context, anyhow};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
-use g3_types::net::OpensslTicketKeyBuilder;
+use vey_types::net::OpensslTicketKeyBuilder;
 
 use super::{RemoteDecryptKey, RemoteEncryptKey, RemoteKeys};
 

@@ -12,7 +12,7 @@ use foldhash::fast::FixedState;
 use lru::LruCache;
 use tokio::time::Instant;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 thread_local! {
     static CACHE: RefCell<HashMap<NodeName, GroupLocalCache, FixedState>> = const {

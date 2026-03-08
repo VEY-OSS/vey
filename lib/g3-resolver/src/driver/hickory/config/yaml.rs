@@ -104,11 +104,11 @@ impl HickoryDriverConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_types::net::DnsEncryptionProtocol;
     use g3_yaml::yaml_doc;
     use std::net::IpAddr;
     use std::str::FromStr;
     use std::time::Duration;
+    use vey_types::net::DnsEncryptionProtocol;
     use yaml_rust::YamlLoader;
 
     #[test]

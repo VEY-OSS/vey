@@ -12,20 +12,20 @@ use anyhow::anyhow;
 use arcstr::ArcStr;
 use chrono::{DateTime, Utc};
 
-use g3_types::acl::{
+use vey_types::acl::{
     AclExactPortRule, AclNetworkRuleBuilder, AclProxyRequestRule, AclUserAgentRule,
 };
-use g3_types::acl_set::AclDstHostRuleSetBuilder;
-use g3_types::auth::FactsMatchValue;
-use g3_types::limit::{
+use vey_types::acl_set::AclDstHostRuleSetBuilder;
+use vey_types::auth::FactsMatchValue;
+use vey_types::limit::{
     GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig, RateLimitQuota,
 };
-use g3_types::metrics::NodeName;
-use g3_types::net::{
+use vey_types::metrics::NodeName;
+use vey_types::net::{
     HttpKeepAliveConfig, TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts,
     TcpSockSpeedLimitConfig, UdpMiscSockOpts, UdpSockSpeedLimitConfig,
 };
-use g3_types::resolve::{ResolveRedirectionBuilder, ResolveStrategy};
+use vey_types::resolve::{ResolveRedirectionBuilder, ResolveStrategy};
 
 use crate::escape::EgressPathSelection;
 

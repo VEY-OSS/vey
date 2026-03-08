@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection,

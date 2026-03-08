@@ -13,7 +13,7 @@ use thiserror::Error;
 
 #[cfg(feature = "resolver")]
 use g3_resolver::ResolveError;
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::UdpRelayPacket;
 

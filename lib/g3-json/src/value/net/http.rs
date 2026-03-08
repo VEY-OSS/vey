@@ -6,7 +6,7 @@
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use g3_types::net::HttpKeepAliveConfig;
+use vey_types::net::HttpKeepAliveConfig;
 
 pub fn as_http_keepalive_config(v: &Value) -> anyhow::Result<HttpKeepAliveConfig> {
     let mut config = HttpKeepAliveConfig::default();

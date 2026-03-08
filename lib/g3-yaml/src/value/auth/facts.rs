@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use g3_types::auth::{FactsMatchType, FactsMatchValue};
+use vey_types::auth::{FactsMatchType, FactsMatchValue};
 
 pub fn as_facts_match_type(value: &Yaml) -> anyhow::Result<FactsMatchType> {
     if let Yaml::String(s) = value {

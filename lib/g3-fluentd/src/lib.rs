@@ -12,8 +12,8 @@ use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-use g3_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
 use vey_openssl::SslStream;
+use vey_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
 
 mod config;
 pub use config::FluentdClientConfig;

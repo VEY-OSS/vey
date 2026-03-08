@@ -8,8 +8,8 @@ use std::collections::BTreeSet;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::{MetricTagName, NodeName};
 use g3_yaml::YamlDocPosition;
+use vey_types::metrics::{MetricTagName, NodeName};
 
 use super::{AnyCollectorConfig, CollectorConfig, CollectorConfigDiffAction};
 use crate::types::MetricName;

@@ -9,7 +9,7 @@ use anyhow::{Context, anyhow};
 use atoi::FromRadix10;
 use rmpv::ValueRef;
 
-use g3_types::collection::WeightedValue;
+use vey_types::collection::WeightedValue;
 
 pub fn as_string(v: &ValueRef) -> anyhow::Result<String> {
     match v {

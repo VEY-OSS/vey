@@ -11,11 +11,11 @@ use ascii::AsciiString;
 use log::warn;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::acl::{AclAction, AclNetworkRuleBuilder};
-use g3_types::metrics::{MetricTagMap, NodeName};
-use g3_types::net::{HappyEyeballsConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts};
-use g3_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 use g3_yaml::YamlDocPosition;
+use vey_types::acl::{AclAction, AclNetworkRuleBuilder};
+use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::net::{HappyEyeballsConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts};
+use vey_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig};
 

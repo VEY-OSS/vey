@@ -10,8 +10,8 @@ use log::{debug, warn};
 use tokio::time::Instant;
 
 use g3_cert_agent::Request;
-use g3_types::net::UdpListenConfig;
 use vey_histogram::HistogramRecorder;
+use vey_types::net::UdpListenConfig;
 
 use crate::{BackendRequest, BackendResponse};
 

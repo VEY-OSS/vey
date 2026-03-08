@@ -8,7 +8,7 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use rmpv::ValueRef;
 
-use g3_types::net::{TlsCertUsage, TlsServiceType};
+use vey_types::net::{TlsCertUsage, TlsServiceType};
 
 use super::{CacheQueryKey, FakeCertPair, response_key, response_key_id};
 

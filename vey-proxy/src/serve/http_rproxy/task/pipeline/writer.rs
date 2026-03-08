@@ -12,9 +12,9 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
-use g3_types::auth::UserAuthError;
-use g3_types::net::HttpAuth;
-use g3_types::route::HostMatch;
+use vey_types::auth::UserAuthError;
+use vey_types::net::HttpAuth;
+use vey_types::route::HostMatch;
 
 use super::protocol::{HttpClientWriter, HttpRProxyRequest};
 use super::{

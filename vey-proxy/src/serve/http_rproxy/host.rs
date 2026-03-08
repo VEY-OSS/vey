@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 
-use g3_types::net::{OpensslClientConfig, OpensslTicketKey, RollingTicketer, RustlsServerConfig};
+use vey_types::net::{OpensslClientConfig, OpensslTicketKey, RollingTicketer, RustlsServerConfig};
 
 use crate::config::server::http_rproxy::HttpHostConfig;
 

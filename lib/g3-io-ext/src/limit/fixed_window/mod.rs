@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_types::net::RATE_LIMIT_SHIFT_MILLIS_MAX;
+use vey_types::net::RATE_LIMIT_SHIFT_MILLIS_MAX;
 
 mod count;
 pub use count::ThreadedCountLimiter;

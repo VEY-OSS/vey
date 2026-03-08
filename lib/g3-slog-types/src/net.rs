@@ -7,7 +7,7 @@ use std::net::{IpAddr, SocketAddr};
 
 use slog::{Record, Serializer, Value};
 
-use g3_types::net::{Host, UpstreamAddr};
+use vey_types::net::{Host, UpstreamAddr};
 
 pub struct LtIpAddr(pub IpAddr);
 

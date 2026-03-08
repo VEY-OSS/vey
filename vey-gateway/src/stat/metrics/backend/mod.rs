@@ -5,8 +5,8 @@
 
 use g3_daemon::metrics::TAG_KEY_STAT_ID;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::metrics::NodeName;
-use g3_types::stats::StatId;
+use vey_types::metrics::NodeName;
+use vey_types::stats::StatId;
 
 pub(crate) mod keyless;
 pub(crate) mod stream;

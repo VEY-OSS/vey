@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use g3_types::net::TlsVersion;
+use vey_types::net::TlsVersion;
 
 pub fn as_tls_version(value: &Yaml) -> anyhow::Result<TlsVersion> {
     match value {

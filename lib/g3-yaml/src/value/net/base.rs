@@ -13,8 +13,8 @@ use yaml_rust::Yaml;
 #[cfg(feature = "acl-rule")]
 use ip_network::IpNetwork;
 
-use g3_types::collection::WeightedValue;
-use g3_types::net::{Host, UpstreamAddr, WeightedUpstreamAddr};
+use vey_types::collection::WeightedValue;
+use vey_types::net::{Host, UpstreamAddr, WeightedUpstreamAddr};
 
 pub fn as_env_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
     if let Yaml::String(s) = value {

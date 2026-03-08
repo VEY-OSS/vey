@@ -8,8 +8,8 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::net::Host;
-use g3_types::resolve::{PickStrategy, QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
+use vey_types::net::Host;
+use vey_types::resolve::{PickStrategy, QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 
 const RESOLVE_REDIRECTION_NODE_KEY_EXACT: &str = "exact";
 const RESOLVE_REDIRECTION_NODE_KEY_PARENT: &str = "parent";
@@ -151,8 +151,8 @@ pub fn as_resolve_redirection_builder(v: &Yaml) -> anyhow::Result<ResolveRedirec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_types::resolve::ResolveRedirectionValue;
     use std::net::IpAddr;
+    use vey_types::resolve::ResolveRedirectionValue;
     use yaml_rust::YamlLoader;
 
     #[test]

@@ -14,7 +14,7 @@ clap_complete.workspace = true
 openssl.workspace = true
 openssl-sys.workspace = true # for openssl variant detection
 openssl-probe = { workspace = true, optional = true }
-g3-types.workspace = true
+vey-types.workspace = true
 g3-tls-cert.workspace = true
 
 [build-dependencies]

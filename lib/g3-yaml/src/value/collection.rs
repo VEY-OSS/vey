@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use g3_types::collection::SelectivePickPolicy;
+use vey_types::collection::SelectivePickPolicy;
 
 pub fn as_selective_pick_policy(value: &Yaml) -> anyhow::Result<SelectivePickPolicy> {
     if let Yaml::String(s) = value {

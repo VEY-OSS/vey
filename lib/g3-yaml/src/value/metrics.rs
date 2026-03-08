@@ -8,8 +8,8 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::collection::WeightedValue;
-use g3_types::metrics::{MetricTagMap, MetricTagName, MetricTagValue, NodeName};
+use vey_types::collection::WeightedValue;
+use vey_types::metrics::{MetricTagMap, MetricTagName, MetricTagValue, NodeName};
 
 pub fn as_metric_node_name(v: &Yaml) -> anyhow::Result<NodeName> {
     if let Yaml::String(s) = v {

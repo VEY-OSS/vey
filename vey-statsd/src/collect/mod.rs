@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use crate::config::collector::AnyCollectorConfig;
 use crate::types::MetricRecord;

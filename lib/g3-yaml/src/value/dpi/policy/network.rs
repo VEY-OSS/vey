@@ -6,7 +6,7 @@
 use yaml_rust::Yaml;
 
 use g3_dpi::ProtocolInspectAction;
-use g3_types::acl::AclNetworkRuleBuilder;
+use vey_types::acl::AclNetworkRuleBuilder;
 
 use super::InspectRuleYamlParser;
 

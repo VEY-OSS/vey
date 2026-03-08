@@ -12,7 +12,7 @@ use tokio::sync::oneshot;
 use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::Protocol;
 use g3_io_ext::IdleWheel;
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use crate::config::audit::AuditStreamDetourConfig;
 use crate::config::server::ServerConfig;

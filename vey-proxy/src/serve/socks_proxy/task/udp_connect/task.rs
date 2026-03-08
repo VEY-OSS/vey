@@ -16,8 +16,8 @@ use g3_io_ext::{
     UdpSendHalf,
 };
 use g3_socks::v5::Socks5Reply;
-use g3_types::acl::AclAction;
-use g3_types::net::{ProxyRequestType, UpstreamAddr};
+use vey_types::acl::AclAction;
+use vey_types::net::{ProxyRequestType, UpstreamAddr};
 
 use super::{
     CommonTaskContext, Socks5UdpConnectClientRecv, Socks5UdpConnectClientSend,

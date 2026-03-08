@@ -9,7 +9,7 @@ use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use g3_daemon::log::{LogConfig, LogConfigContainer};
-use g3_types::sync::GlobalInit;
+use vey_types::sync::GlobalInit;
 
 static TASK_DEFAULT_LOG_CONFIG_CONTAINER: GlobalInit<LogConfigContainer> =
     GlobalInit::new(LogConfigContainer::new());

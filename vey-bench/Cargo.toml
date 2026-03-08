@@ -42,7 +42,7 @@ hickory-client.workspace = true
 hickory-proto.workspace = true
 g3-runtime.workspace = true
 vey-std-ext.workspace = true
-g3-types = { workspace = true, features = ["openssl", "rustls"] }
+vey-types = { workspace = true, features = ["openssl", "rustls"] }
 g3-clap = { workspace = true, features = ["http", "limit"] }
 g3-codec = { workspace = true, features = ["thrift"] }
 g3-socket.workspace = true
@@ -60,10 +60,10 @@ vey-build-env.workspace = true
 
 [features]
 default = ["quic", "rustls-ring"]
-quic = ["g3-types/quic", "g3-socks/quic", "g3-io-ext/quic", "g3-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
-rustls-ring = ["g3-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
-rustls-aws-lc = ["g3-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
-rustls-aws-lc-fips = ["g3-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]
+quic = ["vey-types/quic", "g3-socks/quic", "g3-io-ext/quic", "g3-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
+rustls-ring = ["vey-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
+rustls-aws-lc = ["vey-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
+rustls-aws-lc-fips = ["vey-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe"]
 vendored-boringssl = ["openssl/boringssl", "openssl-probe"]

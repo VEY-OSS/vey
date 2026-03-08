@@ -11,7 +11,7 @@ use openssl::pkey::{PKey, Private};
 use openssl::ssl::SslRef;
 use openssl::x509::X509;
 
-use g3_types::net::{TlsCertUsage, TlsServiceType};
+use vey_types::net::{TlsCertUsage, TlsServiceType};
 
 mod protocol;
 pub use protocol::*;

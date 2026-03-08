@@ -9,9 +9,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
-use g3_types::metrics::NodeName;
-use g3_types::net::{Host, HttpForwardCapability, UpstreamAddr};
+use vey_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
+use vey_types::metrics::NodeName;
+use vey_types::net::{Host, HttpForwardCapability, UpstreamAddr};
 
 use crate::audit::AuditContext;
 use crate::config::escaper::AnyEscaperConfig;

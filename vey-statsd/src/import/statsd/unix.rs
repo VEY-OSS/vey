@@ -14,7 +14,7 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::{ReceiveUdpServer, ReceiveUnixDatagramRuntime, ReceiveUnixDatagramServer};
 use g3_daemon::server::{BaseServer, ServerReloadCommand};
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::StatsdRecordVisitor;
 use crate::collect::ArcCollector;

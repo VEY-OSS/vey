@@ -7,7 +7,7 @@ use std::io;
 
 use thiserror::Error;
 
-use g3_types::net::ConnectError;
+use vey_types::net::ConnectError;
 
 #[derive(Debug, Error)]
 pub(crate) enum StreamConnectError {

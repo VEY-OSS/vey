@@ -9,7 +9,7 @@ use arc_swap::ArcSwapOption;
 use arcstr::ArcStr;
 use foldhash::HashMap;
 
-use g3_types::metrics::{MetricTagMap, NodeName};
+use vey_types::metrics::{MetricTagMap, NodeName};
 
 use super::{UserRequestStats, UserTrafficStats, UserUpstreamTrafficStats};
 use crate::auth::UserType;

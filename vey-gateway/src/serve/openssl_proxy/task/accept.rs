@@ -19,10 +19,10 @@ use g3_codec::tls::{
 };
 use g3_daemon::stat::task::TcpStreamConnectionStats;
 use g3_io_ext::{LimitedStream, OnceBufReader};
-use g3_types::limit::GaugeSemaphorePermit;
-use g3_types::net::{Host, TlsServerName};
-use g3_types::route::HostMatch;
 use vey_openssl::{SslAcceptor, SslStream};
+use vey_types::limit::GaugeSemaphorePermit;
+use vey_types::net::{Host, TlsServerName};
+use vey_types::route::HostMatch;
 
 use super::{CommonTaskContext, OpensslRelayTask};
 use crate::module::stream::StreamAcceptTaskCltWrapperStats;

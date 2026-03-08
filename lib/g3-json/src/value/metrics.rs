@@ -8,8 +8,8 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use serde_json::Value;
 
-use g3_types::collection::WeightedValue;
-use g3_types::metrics::NodeName;
+use vey_types::collection::WeightedValue;
+use vey_types::metrics::NodeName;
 
 pub fn as_metric_node_name(v: &Value) -> anyhow::Result<NodeName> {
     if let Value::String(s) = v {

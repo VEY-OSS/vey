@@ -8,7 +8,7 @@ use std::task::{Context, Poll};
 
 use thiserror::Error;
 
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 #[cfg(any(
     target_os = "linux",

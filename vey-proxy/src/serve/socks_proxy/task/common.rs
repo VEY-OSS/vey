@@ -13,9 +13,9 @@ use tokio::time::Instant;
 
 use g3_daemon::server::ClientConnectionInfo;
 use g3_io_ext::{IdleWheel, OptionalInterval};
-use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::acl_set::AclDstHostRuleSet;
-use g3_types::net::UpstreamAddr;
+use vey_types::acl::{AclAction, AclNetworkRule};
+use vey_types::acl_set::AclDstHostRuleSet;
+use vey_types::net::UpstreamAddr;
 
 use super::{SocksProxyServerConfig, SocksProxyServerStats};
 use crate::escape::ArcEscaper;

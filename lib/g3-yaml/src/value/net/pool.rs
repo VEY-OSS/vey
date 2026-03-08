@@ -6,7 +6,7 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::net::ConnectionPoolConfig;
+use vey_types::net::ConnectionPoolConfig;
 
 pub fn as_connection_pool_config(value: &Yaml) -> anyhow::Result<ConnectionPoolConfig> {
     if let Yaml::Hash(map) = value {

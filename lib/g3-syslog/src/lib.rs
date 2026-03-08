@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_types::log::AsyncLogConfig;
+use vey_types::log::AsyncLogConfig;
 
 mod async_streamer;
 

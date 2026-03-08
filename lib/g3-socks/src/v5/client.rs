@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 
 use tokio::io::{AsyncRead, AsyncWrite, BufReader};
 
-use g3_types::net::{SocksAuth, UpstreamAddr};
+use vey_types::net::{SocksAuth, UpstreamAddr};
 
 use super::{Socks5Reply, Socks5Request, SocksAuthMethod, SocksCommand, SocksConnectError, auth};
 

@@ -10,8 +10,8 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use g3_dpi::Protocol;
 use g3_io_ext::{AsyncStream, OnceBufReader};
 use g3_slog_types::{LtUpstreamAddr, LtUuid, LtX509VerifyResult};
-use g3_types::net::{TlsServiceType, UpstreamAddr};
 use g3_udpdump::{ExportedPduDissectorHint, StreamDumpProxyAddresses};
+use vey_types::net::{TlsServiceType, UpstreamAddr};
 
 #[cfg(not(feature = "vendored-tongsuo"))]
 use super::tls::ParsedClientHello;

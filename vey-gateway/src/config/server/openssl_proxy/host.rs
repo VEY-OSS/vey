@@ -16,18 +16,18 @@ use openssl::x509::X509;
 use openssl::x509::store::X509StoreBuilder;
 use yaml_rust::Yaml;
 
-use g3_types::collection::NamedValue;
-use g3_types::limit::RateLimitQuota;
-use g3_types::metrics::NodeName;
-use g3_types::net::{
+use g3_yaml::{YamlDocPosition, YamlMapCallback};
+use vey_types::collection::NamedValue;
+use vey_types::limit::RateLimitQuota;
+use vey_types::metrics::NodeName;
+use vey_types::net::{
     OpensslCertificatePair, OpensslServerSessionCache, OpensslSessionIdContext, OpensslTicketKey,
     RollingTicketer, TcpSockSpeedLimitConfig,
 };
-use g3_types::route::AlpnMatch;
-use g3_yaml::{YamlDocPosition, YamlMapCallback};
+use vey_types::route::AlpnMatch;
 
 #[cfg(feature = "vendored-tongsuo")]
-use g3_types::net::OpensslTlcpCertificatePair;
+use vey_types::net::OpensslTlcpCertificatePair;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct OpensslHostConfig {

@@ -9,7 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use tokio::net::UdpSocket;
 
-use g3_types::net::SocketBufferConfig;
+use vey_types::net::SocketBufferConfig;
 
 use super::{CertAgentHandle, QueryRuntime};
 

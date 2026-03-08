@@ -21,15 +21,15 @@ use tokio_rustls::{TlsAcceptor, server::TlsStream};
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerExt, ServerReloadCommand};
 use g3_io_ext::IdleWheel;
-use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::auth::FactsMatchType;
-use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
-use g3_types::metrics::NodeName;
-use g3_types::net::{
+use vey_openssl::SslStream;
+use vey_types::acl::{AclAction, AclNetworkRule};
+use vey_types::auth::FactsMatchType;
+use vey_types::collection::{SelectiveVec, SelectiveVecBuilder};
+use vey_types::metrics::NodeName;
+use vey_types::net::{
     OpensslClientConfig, OpensslTicketKey, RollingTicketer, RustlsServerConnectionExt,
     WeightedUpstreamAddr,
 };
-use vey_openssl::SslStream;
 
 use super::common::CommonTaskContext;
 use super::task::TlsStreamTask;

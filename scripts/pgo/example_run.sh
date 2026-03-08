@@ -216,7 +216,7 @@ generate_profiles() {
     
     echo "Running unit tests to generate profiles..."
     # Run tests to generate more profile data
-    cargo test --release --package g3-types || echo "g3-types tests failed, continuing..."
+    cargo test --release --package vey-types || echo "vey-types tests failed, continuing..."
     
     # Check if any profile files were generated
     local profile_count=$(find "${profile_data_dir}" -name "*.profraw" 2>/dev/null | wc -l)

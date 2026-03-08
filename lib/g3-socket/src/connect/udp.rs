@@ -6,7 +6,7 @@
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
 
-use g3_types::net::{SocketBufferConfig, UdpMiscSockOpts};
+use vey_types::net::{SocketBufferConfig, UdpMiscSockOpts};
 
 use crate::BindAddr;
 

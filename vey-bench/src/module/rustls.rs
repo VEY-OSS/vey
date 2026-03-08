@@ -14,7 +14,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 
-use g3_types::net::{
+use vey_types::net::{
     AlpnProtocol, RustlsCertificatePair, RustlsCertificatePairBuilder, RustlsClientConfig,
     RustlsClientConfigBuilder, UpstreamAddr,
 };

@@ -9,7 +9,7 @@ use http::HeaderName;
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::{HttpHeaderMap, HttpHeaderValue};
+use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use super::{HttpConnectError, HttpConnectResponseError};
 use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};

@@ -11,8 +11,8 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_resolver::driver::c_ares::CAresDriverConfig;
 use g3_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
-use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
+use vey_types::metrics::NodeName;
 
 use super::{AnyResolverConfig, ResolverConfigDiffAction};
 

@@ -10,7 +10,7 @@ use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use yaml_rust::Yaml;
 
-use g3_types::net::{
+use vey_types::net::{
     RustlsCertificatePair, RustlsCertificatePairBuilder, RustlsClientConfigBuilder,
     RustlsServerConfigBuilder,
 };

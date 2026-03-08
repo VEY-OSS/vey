@@ -8,8 +8,8 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use rmpv::ValueRef;
 
-use g3_types::collection::WeightedValue;
-use g3_types::metrics::NodeName;
+use vey_types::collection::WeightedValue;
+use vey_types::metrics::NodeName;
 
 pub fn as_metrics_name(v: &ValueRef) -> anyhow::Result<NodeName> {
     if let ValueRef::String(s) = v {

@@ -10,7 +10,7 @@ use bytes::{BufMut, BytesMut};
 use tokio::io::{AsyncBufRead, AsyncReadExt, AsyncWrite};
 
 use g3_io_ext::LimitedWriteExt;
-use g3_types::net::{Host, UpstreamAddr};
+use vey_types::net::{Host, UpstreamAddr};
 
 use super::{SocksCommand, SocksNegotiationError, SocksRequestParseError};
 

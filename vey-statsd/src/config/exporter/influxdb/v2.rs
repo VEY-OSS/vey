@@ -11,8 +11,8 @@ use http::HeaderValue;
 use http::uri::PathAndQuery;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_yaml::YamlDocPosition;
+use vey_types::metrics::{MetricTagMap, NodeName};
 
 use super::{
     AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction, InfluxdbExporterConfig,

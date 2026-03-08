@@ -18,7 +18,7 @@ use g3_dpi::{Protocol, ProtocolInspectAction};
 use g3_h2::H2BodyTransfer;
 use g3_io_ext::{IdleInterval, OnceBufReader, StreamCopyConfig};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 #[cfg(feature = "quic")]
 use crate::audit::DetourAction;

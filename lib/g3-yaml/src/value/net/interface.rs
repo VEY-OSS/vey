@@ -5,7 +5,7 @@
 
 use std::str::FromStr;
 
-use g3_types::net::Interface;
+use vey_types::net::Interface;
 
 use anyhow::anyhow;
 use yaml_rust::Yaml;

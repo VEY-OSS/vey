@@ -10,8 +10,8 @@ use url::Url;
 use yaml_rust::{Yaml, yaml};
 
 use g3_redis_client::RedisClientConfigBuilder;
-use g3_types::net::UpstreamAddr;
 use g3_yaml::YamlDocPosition;
+use vey_types::net::UpstreamAddr;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct ProxyFloatRedisSource {

@@ -6,7 +6,7 @@
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use g3_types::acl::{AclAction, AclRegexSetRuleBuilder};
+use vey_types::acl::{AclAction, AclRegexSetRuleBuilder};
 
 use super::AclRuleYamlParser;
 

@@ -15,7 +15,7 @@ use g3_dpi::Protocol;
 use g3_h2::{H2StreamReader, H2StreamWriter};
 use g3_http::server::UriExt;
 use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtUpstreamAddr, LtUuid};
-use g3_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};
+use vey_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};
 
 use super::{ExchangeHead, H2StreamTransferError, HttpConnectTaskNotes};
 use crate::config::server::ServerConfig;

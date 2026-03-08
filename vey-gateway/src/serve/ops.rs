@@ -11,8 +11,8 @@ use anyhow::{Context, anyhow};
 use log::debug;
 use tokio::sync::Mutex;
 
-use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
+use vey_types::metrics::NodeName;
 
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 

@@ -6,7 +6,7 @@
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use g3_types::net::{TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts};
+use vey_types::net::{TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts};
 
 pub fn as_tcp_connect_config(v: &Value) -> anyhow::Result<TcpConnectConfig> {
     if let Value::Object(map) = v {

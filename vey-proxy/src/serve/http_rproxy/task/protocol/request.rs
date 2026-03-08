@@ -11,7 +11,7 @@ use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use g3_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
-use g3_types::net::{HttpHeaderValue, HttpServerId, UpstreamAddr};
+use vey_types::net::{HttpHeaderValue, HttpServerId, UpstreamAddr};
 
 use super::HttpClientReader;
 

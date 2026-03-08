@@ -9,7 +9,7 @@ use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use http::{HeaderValue, Request, Version, header};
 
-use g3_types::net::HttpAuth;
+use vey_types::net::HttpAuth;
 
 use crate::module::http::{AppendH1ConnectArgs, AppendHttpArgs, H1ConnectArgs, HttpClientArgs};
 

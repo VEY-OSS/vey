@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use slog::Logger;
 
 use g3_resolver::driver::fail_over::FailOverDriverConfig;
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use crate::config::resolver::fail_over::FailOverResolverConfig;
 use crate::config::resolver::{AnyResolverConfig, ResolverConfig};

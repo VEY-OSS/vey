@@ -274,7 +274,7 @@ mod tests {
             config.url.to_string(),
             "icaps://secure.example.com:1344/service"
         );
-        let mut tls_client = g3_types::net::RustlsClientConfigBuilder::default();
+        let mut tls_client = vey_types::net::RustlsClientConfigBuilder::default();
         tls_client.set_no_session_cache();
         assert_eq!(config.tls_client.unwrap(), tls_client);
         assert_eq!(

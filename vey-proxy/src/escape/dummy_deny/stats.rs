@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{MetricTagMap, NodeName};
-use g3_types::stats::StatId;
+use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::stats::StatId;
 
 use crate::escape::{EscaperInterfaceStats, EscaperInternalStats, EscaperStats};
 

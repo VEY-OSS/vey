@@ -9,7 +9,7 @@ use openssl::nid::Nid;
 use openssl::pkey::Id;
 use tokio::sync::mpsc;
 
-use g3_types::sync::GlobalInit;
+use vey_types::sync::GlobalInit;
 
 use super::DispatchedKeylessRequest;
 

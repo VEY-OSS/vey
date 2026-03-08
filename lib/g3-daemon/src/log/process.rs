@@ -8,7 +8,7 @@ use std::sync::OnceLock;
 use log::{LevelFilter, Metadata, Record};
 use slog::{Drain, Logger};
 
-use g3_types::log::AsyncLogConfig;
+use vey_types::log::AsyncLogConfig;
 
 use crate::opts::DaemonArgs;
 

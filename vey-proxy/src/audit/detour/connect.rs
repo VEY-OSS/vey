@@ -15,7 +15,7 @@ use quinn::{
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 
-use g3_types::net::RustlsQuicClientConfig;
+use vey_types::net::RustlsQuicClientConfig;
 
 use super::StreamDetourStream;
 use crate::config::audit::AuditStreamDetourConfig;

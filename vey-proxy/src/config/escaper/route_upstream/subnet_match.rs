@@ -12,7 +12,7 @@ use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
 use yaml_rust::Yaml;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use crate::config::escaper::verify::EscaperConfigVerifier;
 

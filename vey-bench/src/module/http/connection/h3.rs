@@ -18,8 +18,8 @@ use url::Url;
 
 use g3_io_ext::LimitedTokioRuntime;
 use g3_socks::v5::Socks5UdpTokioRuntime;
-use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::net::{AlpnProtocol, Proxy, RustlsClientConfigBuilder, Socks5Proxy, UpstreamAddr};
+use vey_types::collection::{SelectiveVec, WeightedValue};
+use vey_types::net::{AlpnProtocol, Proxy, RustlsClientConfigBuilder, Socks5Proxy, UpstreamAddr};
 
 use crate::ProcArgs;
 use crate::module::http::HttpRuntimeStats;

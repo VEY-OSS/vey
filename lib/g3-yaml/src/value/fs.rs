@@ -10,7 +10,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use g3_types::fs::ConfigFileFormat;
+use vey_types::fs::ConfigFileFormat;
 
 pub fn as_file_path(v: &Yaml, lookup_dir: &Path, auto_create: bool) -> anyhow::Result<PathBuf> {
     if let Yaml::String(path) = v {

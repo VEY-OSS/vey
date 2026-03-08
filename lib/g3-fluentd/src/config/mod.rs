@@ -13,8 +13,8 @@ use openssl::md_ctx::MdCtx;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use g3_socket::BindAddr;
-use g3_types::net::{Host, OpensslClientConfig, OpensslClientConfigBuilder, TcpKeepAliveConfig};
 use vey_openssl::SslConnector;
+use vey_types::net::{Host, OpensslClientConfig, OpensslClientConfigBuilder, TcpKeepAliveConfig};
 
 use super::FluentdConnection;
 

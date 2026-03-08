@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 
-use g3_types::net::{OpensslTicketKey, RollingTicketKey, RollingTicketer};
+use vey_types::net::{OpensslTicketKey, RollingTicketKey, RollingTicketer};
 
 use super::{TicketKeyUpdate, TicketSourceConfig};
 

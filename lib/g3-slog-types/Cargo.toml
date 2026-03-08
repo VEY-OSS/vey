@@ -16,7 +16,7 @@ memchr = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 h2 = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
-g3-types.workspace = true
+vey-types.workspace = true
 g3-socket = { workspace = true, optional = true }
 
 [features]

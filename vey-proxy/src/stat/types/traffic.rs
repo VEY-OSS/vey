@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_types::stats::{TcpIoSnapshot, TcpIoStats, UdpIoSnapshot, UdpIoStats};
+use vey_types::stats::{TcpIoSnapshot, TcpIoStats, UdpIoSnapshot, UdpIoStats};
 
 #[derive(Default)]
 pub(crate) struct TrafficStats {

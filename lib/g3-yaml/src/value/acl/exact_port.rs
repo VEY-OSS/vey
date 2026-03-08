@@ -5,7 +5,7 @@
 
 use yaml_rust::Yaml;
 
-use g3_types::acl::{AclAction, AclExactPortRule};
+use vey_types::acl::{AclAction, AclExactPortRule};
 
 use super::AclRuleYamlParser;
 

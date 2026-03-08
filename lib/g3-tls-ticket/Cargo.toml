@@ -15,7 +15,7 @@ tokio-util = { workspace = true, features = ["time"] }
 serde_json.workspace = true
 yaml-rust = { workspace = true, optional = true }
 redis = { workspace = true, features = ["aio", "tokio-comp"] }
-g3-types = { workspace = true, features = ["openssl"] }
+vey-types = { workspace = true, features = ["openssl"] }
 g3-json.workspace = true
 g3-redis-client.workspace = true
 g3-yaml = { workspace = true, optional = true }

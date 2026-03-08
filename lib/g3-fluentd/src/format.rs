@@ -11,7 +11,7 @@ use chrono::Utc;
 use serde::ser::Serialize;
 use slog::{KV, OwnedKVList, Record, Serializer};
 
-use g3_types::log::AsyncLogFormatter;
+use vey_types::log::AsyncLogFormatter;
 
 thread_local! {
     static TL_BUF: RefCell<String> = RefCell::new(String::with_capacity(128))

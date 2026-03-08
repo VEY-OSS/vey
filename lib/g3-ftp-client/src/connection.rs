@@ -8,7 +8,7 @@ use std::error::Error;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 #[async_trait]
 pub trait FtpConnectionProvider<T: AsyncRead + AsyncWrite, E: Error, UD> {

@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::BaseUserGroup;
 use crate::config::auth::BasicUserGroupConfig;

@@ -20,17 +20,17 @@ ip_network = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 rustls-pki-types = { workspace = true, optional = true, features = ["std"] }
 openssl = { workspace = true, optional = true }
-g3-types.workspace = true
+vey-types.workspace = true
 vey-histogram = { workspace = true, optional = true }
 
 [features]
 default = []
-auth-facts = ["g3-types/auth-facts"]
+auth-facts = ["vey-types/auth-facts"]
 regex = ["dep:regex"]
-resolve = ["g3-types/resolve"]
-acl-rule = ["regex", "g3-types/acl-rule", "dep:ip_network"]
-http = ["g3-types/http"]
-rustls = ["g3-types/rustls", "dep:rustls-pki-types"]
-openssl = ["g3-types/openssl", "dep:openssl"]
-route = ["g3-types/route"]
+resolve = ["vey-types/resolve"]
+acl-rule = ["regex", "vey-types/acl-rule", "dep:ip_network"]
+http = ["vey-types/http"]
+rustls = ["vey-types/rustls", "dep:rustls-pki-types"]
+openssl = ["vey-types/openssl", "dep:openssl"]
+route = ["vey-types/route"]
 histogram = ["dep:vey-histogram"]

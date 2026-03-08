@@ -11,8 +11,8 @@ use async_trait::async_trait;
 use log::debug;
 use tokio::sync::{broadcast, mpsc};
 
-use g3_types::net::ConnectionPoolConfig;
-use g3_types::stats::ConnectionPoolStats;
+use vey_types::net::ConnectionPoolConfig;
+use vey_types::stats::ConnectionPoolStats;
 
 use super::KeylessForwardRequest;
 

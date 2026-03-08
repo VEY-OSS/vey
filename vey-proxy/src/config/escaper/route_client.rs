@@ -7,8 +7,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
 
 use anyhow::{Context, anyhow};
-use g3_types::metrics::NodeName;
 use ip_network::IpNetwork;
+use vey_types::metrics::NodeName;
 use yaml_rust::{Yaml, yaml};
 
 use g3_yaml::YamlDocPosition;

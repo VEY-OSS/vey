@@ -8,8 +8,8 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_yaml::YamlDocPosition;
+use vey_types::metrics::{MetricTagMap, NodeName};
 
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
 use crate::runtime::export::StreamExportConfig;

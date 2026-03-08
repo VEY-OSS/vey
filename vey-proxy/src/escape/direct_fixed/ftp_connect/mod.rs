@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use g3_io_ext::LimitedStream;
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::DirectFixedEscaper;
 use crate::module::ftp_over_http::{

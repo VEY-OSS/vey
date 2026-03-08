@@ -6,7 +6,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use g3_types::net::{AlpnProtocol, WebSocketSubProtocol};
+use vey_types::net::{AlpnProtocol, WebSocketSubProtocol};
 
 mod inspect;
 use inspect::ProtocolInspectState;

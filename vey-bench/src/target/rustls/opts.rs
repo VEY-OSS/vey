@@ -12,8 +12,8 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 
-use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::net::{RustlsClientConfig, RustlsClientConfigBuilder, UpstreamAddr};
+use vey_types::collection::{SelectiveVec, WeightedValue};
+use vey_types::net::{RustlsClientConfig, RustlsClientConfigBuilder, UpstreamAddr};
 
 use super::ProcArgs;
 use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};

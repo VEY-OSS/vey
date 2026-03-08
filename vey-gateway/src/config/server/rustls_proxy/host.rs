@@ -12,15 +12,15 @@ use rustls::{RootCertStore, ServerConfig};
 use rustls_pki_types::CertificateDer;
 use yaml_rust::Yaml;
 
-use g3_types::collection::NamedValue;
-use g3_types::limit::RateLimitQuota;
-use g3_types::metrics::NodeName;
-use g3_types::net::{
+use g3_yaml::{YamlDocPosition, YamlMapCallback};
+use vey_types::collection::NamedValue;
+use vey_types::limit::RateLimitQuota;
+use vey_types::metrics::NodeName;
+use vey_types::net::{
     MultipleCertResolver, OpensslTicketKey, RollingTicketer, RustlsCertificatePair,
     RustlsServerConfigExt, TcpSockSpeedLimitConfig,
 };
-use g3_types::route::AlpnMatch;
-use g3_yaml::{YamlDocPosition, YamlMapCallback};
+use vey_types::route::AlpnMatch;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct RustlsHostConfig {
@@ -79,7 +79,7 @@ impl RustlsHostConfig {
         let config_builder = if self.client_auth {
             let mut root_store = RootCertStore::empty();
             if self.client_auth_certs.is_empty() {
-                let certs = g3_types::net::load_native_certs_for_rustls()?;
+                let certs = vey_types::net::load_native_certs_for_rustls()?;
                 for (i, cert) in certs.into_iter().enumerate() {
                     root_store.add(cert).map_err(|e| {
                         anyhow!(

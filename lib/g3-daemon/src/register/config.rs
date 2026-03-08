@@ -9,8 +9,8 @@ use anyhow::{Context, anyhow};
 use http::uri::PathAndQuery;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::MetricTagMap;
-use g3_types::net::UpstreamAddr;
+use vey_types::metrics::MetricTagMap;
+use vey_types::net::UpstreamAddr;
 
 pub struct RegisterConfig {
     pub(crate) upstream: UpstreamAddr,

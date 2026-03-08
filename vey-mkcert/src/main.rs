@@ -20,7 +20,7 @@ use g3_tls_cert::builder::{
     TlcpServerEncCertBuilder, TlcpServerSignCertBuilder, TlsClientCertBuilder,
     TlsServerCertBuilder,
 };
-use g3_types::net::Host;
+use vey_types::net::Host;
 
 mod build;
 

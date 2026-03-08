@@ -15,8 +15,8 @@ use serde_json::Value;
 use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::auth::{Password, Username};
-use g3_types::net::{EgressInfo, SocksAuth, TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
+use vey_types::auth::{Password, Username};
+use vey_types::net::{EgressInfo, SocksAuth, TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
 
 use super::{
     ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEscaper,

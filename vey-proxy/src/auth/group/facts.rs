@@ -11,7 +11,7 @@ use foldhash::HashMap;
 use ip_network_table::IpNetworkTable;
 use radix_trie::Trie;
 
-use g3_types::auth::FactsMatchValue;
+use vey_types::auth::FactsMatchValue;
 
 use super::BaseUserGroup;
 use crate::auth::{User, UserType};

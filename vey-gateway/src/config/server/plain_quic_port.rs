@@ -10,10 +10,10 @@ use bitflags::bitflags;
 use yaml_rust::{Yaml, yaml};
 
 use g3_tls_ticket::TlsTicketConfig;
-use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::NodeName;
-use g3_types::net::{RustlsServerConfigBuilder, UdpListenConfig};
 use g3_yaml::YamlDocPosition;
+use vey_types::acl::AclNetworkRuleBuilder;
+use vey_types::metrics::NodeName;
+use vey_types::net::{RustlsServerConfigBuilder, UdpListenConfig};
 
 use super::ServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};

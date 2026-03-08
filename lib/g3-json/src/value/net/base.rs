@@ -12,7 +12,7 @@ use serde_json::Value;
 #[cfg(feature = "acl-rule")]
 use ip_network::IpNetwork;
 
-use g3_types::net::{EgressArea, Host, UpstreamAddr};
+use vey_types::net::{EgressArea, Host, UpstreamAddr};
 
 pub fn as_ipaddr(v: &Value) -> anyhow::Result<IpAddr> {
     match v {

@@ -12,7 +12,7 @@ use tokio_rustls::server::TlsStream;
 use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
 use g3_io_ext::{AsyncStream, IdleInterval, LimitedStream, StreamCopyConfig};
-use g3_types::limit::GaugeSemaphorePermit;
+use vey_types::limit::GaugeSemaphorePermit;
 
 use super::CommonTaskContext;
 use crate::backend::ArcBackend;

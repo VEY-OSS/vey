@@ -10,7 +10,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use g3_types::metrics::{NodeName, ParseError};
+use vey_types::metrics::{NodeName, ParseError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct MetricName {

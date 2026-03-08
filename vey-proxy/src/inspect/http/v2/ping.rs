@@ -9,7 +9,7 @@ use h2::{Ping, PingPong};
 use tokio::sync::oneshot;
 
 use g3_slog_types::{LtDuration, LtUpstreamAddr, LtUuid};
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::H2ConcurrencyStats;
 use crate::config::server::ServerConfig;

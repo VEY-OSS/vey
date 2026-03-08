@@ -5,7 +5,7 @@
 
 use yaml_rust::Yaml;
 
-use g3_types::acl::{AclAction, AclProxyRequestRule};
+use vey_types::acl::{AclAction, AclProxyRequestRule};
 
 use super::AclRuleYamlParser;
 

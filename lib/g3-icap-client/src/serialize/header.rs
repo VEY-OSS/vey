@@ -9,7 +9,7 @@ use std::net::SocketAddr;
 use base64::prelude::*;
 use bytes::BufMut;
 
-use g3_types::net::HttpHeaderMap;
+use vey_types::net::HttpHeaderMap;
 
 pub(crate) fn add_client_addr(buf: &mut Vec<u8>, addr: SocketAddr) {
     let _ = write!(buf, "X-Client-IP: {}\r\n", addr.ip());

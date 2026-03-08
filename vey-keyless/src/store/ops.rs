@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use anyhow::Context;
 use tokio::sync::Mutex;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::registry;
 

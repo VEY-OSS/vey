@@ -8,7 +8,7 @@ use std::net::SocketAddr;
 
 use tokio::net::UdpSocket;
 
-use g3_types::net::UdpListenConfig;
+use vey_types::net::UdpListenConfig;
 
 pub(crate) struct UdpDgramFrontend {
     socket: UdpSocket,

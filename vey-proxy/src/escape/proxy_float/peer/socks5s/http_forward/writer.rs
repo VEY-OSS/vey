@@ -15,7 +15,7 @@ use tokio::time::Instant;
 
 use g3_http::server::HttpProxyClientRequest;
 use g3_io_ext::LimitedWriter;
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::ProxyFloatSocks5PeerSharedConfig;
 use crate::auth::UserUpstreamTrafficStats;

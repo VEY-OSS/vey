@@ -11,8 +11,8 @@ use anyhow::{Context, anyhow};
 use arcstr::ArcStr;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::net::{ConnectionPoolConfig, Host, OpensslClientConfigBuilder, UpstreamAddr};
 use g3_yaml::YamlDocPosition;
+use vey_types::net::{ConnectionPoolConfig, Host, OpensslClientConfigBuilder, UpstreamAddr};
 
 use super::{BasicUserGroupConfig, UserGroupConfig};
 use crate::config::auth::UserConfig;

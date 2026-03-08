@@ -11,10 +11,10 @@ use anyhow::anyhow;
 use arcstr::ArcStr;
 use ip_network::IpNetwork;
 
-use g3_types::metrics::NodeName;
-use g3_types::net::{Host, OpensslClientConfigBuilder};
-use g3_types::resolve::ResolveStrategy;
 use vey_histogram::HistogramMetricsConfig;
+use vey_types::metrics::NodeName;
+use vey_types::net::{Host, OpensslClientConfigBuilder};
+use vey_types::resolve::ResolveStrategy;
 
 mod json;
 mod yaml;

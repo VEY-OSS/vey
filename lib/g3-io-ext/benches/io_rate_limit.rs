@@ -12,7 +12,7 @@ use std::num::NonZeroU32;
 use std::time::Instant;
 
 use g3_io_ext::LocalStreamLimiter;
-use g3_types::limit::{GlobalRateLimitState, RateLimitQuota, RateLimiter};
+use vey_types::limit::{GlobalRateLimitState, RateLimitQuota, RateLimiter};
 
 fn test_fixed_window(limiter: &mut LocalStreamLimiter, start: &Instant) {
     let ts = start.elapsed().as_millis() as u64;

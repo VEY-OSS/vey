@@ -6,7 +6,7 @@
 use anyhow::Context;
 use yaml_rust::Yaml;
 
-use g3_types::acl::{AclAction, AclUserAgentRule};
+use vey_types::acl::{AclAction, AclUserAgentRule};
 
 use super::AclRuleYamlParser;
 

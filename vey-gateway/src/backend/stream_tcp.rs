@@ -12,9 +12,9 @@ use async_trait::async_trait;
 use futures_util::future::{AbortHandle, Abortable};
 use tokio::time::Instant;
 
-use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
-use g3_types::metrics::NodeName;
-use g3_types::net::ConnectError;
+use vey_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
+use vey_types::metrics::NodeName;
+use vey_types::net::ConnectError;
 
 use super::{ArcBackendInternal, Backend, BackendExt, BackendInternal, BackendRegistry};
 use crate::config::backend::stream_tcp::StreamTcpBackendConfig;

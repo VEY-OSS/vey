@@ -6,8 +6,8 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::net::{Host, UpstreamAddr};
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
+use vey_types::net::{Host, UpstreamAddr};
 
 #[derive(Default, Debug, Eq, PartialEq)]
 pub(crate) struct SniHostConfig {

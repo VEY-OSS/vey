@@ -10,8 +10,8 @@ use chrono::{DateTime, Utc};
 use openssl::ssl::Ssl;
 
 use g3_socket::BindAddr;
-use g3_types::metrics::NodeName;
-use g3_types::net::{EgressInfo, Host, OpensslClientConfig, UpstreamAddr};
+use vey_types::metrics::NodeName;
+use vey_types::net::{EgressInfo, Host, OpensslClientConfig, UpstreamAddr};
 
 use super::TcpConnectError;
 

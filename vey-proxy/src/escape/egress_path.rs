@@ -5,8 +5,8 @@
 
 use foldhash::HashMap;
 
-use g3_types::metrics::NodeName;
-use g3_types::net::UpstreamAddr;
+use vey_types::metrics::NodeName;
+use vey_types::net::UpstreamAddr;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct EgressUpstream {

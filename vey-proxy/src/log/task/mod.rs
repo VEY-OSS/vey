@@ -5,7 +5,7 @@
 
 use slog::Logger;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 pub(crate) mod ftp_over_http;
 pub(crate) mod http_forward;

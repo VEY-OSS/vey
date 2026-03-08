@@ -161,9 +161,9 @@ impl ProxyProtocolV1Reader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_types::net::{ProxyProtocolEncoder, ProxyProtocolVersion};
     use tokio::io::AsyncWriteExt;
     use tokio::net::{TcpListener, TcpStream};
+    use vey_types::net::{ProxyProtocolEncoder, ProxyProtocolVersion};
 
     async fn run_t(client: SocketAddr, server: SocketAddr) {
         let mut encoder = ProxyProtocolEncoder::new(ProxyProtocolVersion::V1);

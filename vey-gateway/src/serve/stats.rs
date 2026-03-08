@@ -5,8 +5,8 @@
 
 use std::sync::Arc;
 
-use g3_types::metrics::{MetricTagMap, NodeName};
-use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
+use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 pub(crate) trait ServerStats {
     fn name(&self) -> &NodeName;

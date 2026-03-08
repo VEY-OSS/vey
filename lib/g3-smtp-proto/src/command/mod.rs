@@ -7,7 +7,7 @@ use std::str::{self, FromStr, Utf8Error};
 
 use thiserror::Error;
 
-use g3_types::net::Host;
+use vey_types::net::Host;
 
 use crate::response::ResponseEncoder;
 

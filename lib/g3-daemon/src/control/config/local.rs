@@ -6,7 +6,7 @@
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use g3_types::sync::GlobalInit;
+use vey_types::sync::GlobalInit;
 
 use super::GeneralControllerConfig;
 

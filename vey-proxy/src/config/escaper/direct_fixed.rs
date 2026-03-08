@@ -11,8 +11,9 @@ use ascii::AsciiString;
 use log::warn;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::acl::{AclAction, AclNetworkRuleBuilder};
-use g3_types::metrics::{MetricTagMap, NodeName};
+use g3_yaml::YamlDocPosition;
+use vey_types::acl::{AclAction, AclNetworkRuleBuilder};
+use vey_types::metrics::{MetricTagMap, NodeName};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -20,12 +21,11 @@ use g3_types::metrics::{MetricTagMap, NodeName};
     target_os = "illumos",
     target_os = "solaris"
 ))]
-use g3_types::net::Interface;
-use g3_types::net::{
+use vey_types::net::Interface;
+use vey_types::net::{
     HappyEyeballsConfig, ProxyProtocolVersion, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts,
 };
-use g3_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
-use g3_yaml::YamlDocPosition;
+use vey_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig};
 

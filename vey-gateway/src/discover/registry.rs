@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use anyhow::anyhow;
 use foldhash::fast::FixedState;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::ArcDiscoverInternal;
 use crate::config::discover::AnyDiscoverConfig;

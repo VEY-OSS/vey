@@ -8,7 +8,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use g3_ftp_client::FtpConnectionProvider;
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::FtpOverHttpTaskStats;
 use crate::module::ftp_over_http::{BoxFtpConnectContext, BoxFtpRemoteConnection};

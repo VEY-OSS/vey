@@ -20,8 +20,8 @@ use tokio::sync::broadcast;
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo};
 use g3_io_ext::IdleWheel;
-use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::NodeName;
+use vey_types::acl::{AclAction, AclNetworkRule};
+use vey_types::metrics::NodeName;
 
 use super::{CommonTaskContext, KeylessForwardTask, KeylessProxyServerStats};
 use crate::backend::ArcBackend;

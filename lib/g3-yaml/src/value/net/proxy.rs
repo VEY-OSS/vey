@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use g3_types::net::ProxyRequestType;
+use vey_types::net::ProxyRequestType;
 
 pub fn as_proxy_request_type(v: &Yaml) -> anyhow::Result<ProxyRequestType> {
     if let Yaml::String(s) = v {

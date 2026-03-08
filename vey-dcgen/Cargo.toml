@@ -18,7 +18,7 @@ tokio = { workspace = true, features = ["macros", "net", "io-util", "time", "sig
 kanal = { workspace = true, features = ["async"] }
 yaml-rust.workspace = true
 vey-std-ext.workspace = true
-g3-types.workspace = true
+vey-types.workspace = true
 g3-yaml = { workspace = true, features = ["histogram", "openssl"] }
 g3-daemon.workspace = true
 g3-statsd-client.workspace = true

@@ -12,11 +12,11 @@ use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use g3_io_ext::StreamCopyConfig;
-use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::auth::FactsMatchType;
-use g3_types::metrics::{MetricTagMap, NodeName};
-use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_yaml::YamlDocPosition;
+use vey_types::acl::AclNetworkRuleBuilder;
+use vey_types::auth::FactsMatchType;
+use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 
 use super::{
     AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,

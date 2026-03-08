@@ -8,7 +8,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::{ArcBackendInternal, Backend, BackendInternal, BackendRegistry};
 use crate::config::backend::dummy_close::DummyCloseBackendConfig;

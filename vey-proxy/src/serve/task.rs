@@ -12,8 +12,8 @@ use tokio::time::Instant;
 use uuid::Uuid;
 
 use g3_daemon::server::ClientConnectionInfo;
-use g3_types::limit::GaugeSemaphorePermit;
-use g3_types::metrics::NodeName;
+use vey_types::limit::GaugeSemaphorePermit;
+use vey_types::metrics::NodeName;
 
 use crate::auth::UserContext;
 use crate::escape::{EgressPathSelection, EgressUpstream};

@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use log::warn;
 use slog::{Drain, OwnedKVList, Record};
 
-use g3_types::log::{AsyncLogConfig, LogStats};
+use vey_types::log::{AsyncLogConfig, LogStats};
 
 use super::{BoxSyslogFormatter, SyslogBackendBuilder, SyslogHeader};
 use crate::backend::MAX_BATCH_SIZE;

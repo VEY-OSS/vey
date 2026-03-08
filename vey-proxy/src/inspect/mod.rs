@@ -18,7 +18,7 @@ use g3_dpi::{
     ProtocolInspectAction, ProtocolInspector, SmtpInterceptionConfig,
 };
 use g3_io_ext::IdleWheel;
-use g3_types::net::{Host, OpensslClientConfig};
+use vey_types::net::{Host, OpensslClientConfig};
 
 use crate::audit::AuditHandle;
 use crate::auth::{User, UserForbiddenStats, UserSite};

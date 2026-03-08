@@ -9,7 +9,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::net::{DnsEncryptionConfigBuilder, DnsEncryptionProtocol};
+use vey_types::net::{DnsEncryptionConfigBuilder, DnsEncryptionProtocol};
 
 fn as_dns_encryption_protocol(value: &Yaml) -> anyhow::Result<DnsEncryptionProtocol> {
     if let Yaml::String(s) = value {

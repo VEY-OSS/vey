@@ -10,7 +10,7 @@ use arcstr::ArcStr;
 use openssl::x509::X509;
 
 use g3_io_ext::EffectiveCacheHandle;
-use g3_types::net::{TlsCertUsage, TlsServiceType};
+use vey_types::net::{TlsCertUsage, TlsServiceType};
 
 use super::{CacheQueryKey, FakeCertPair};
 

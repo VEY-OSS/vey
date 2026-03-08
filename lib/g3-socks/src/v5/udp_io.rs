@@ -5,7 +5,7 @@
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use g3_types::net::{Host, UpstreamAddr};
+use vey_types::net::{Host, UpstreamAddr};
 
 use bytes::{Buf, BufMut};
 

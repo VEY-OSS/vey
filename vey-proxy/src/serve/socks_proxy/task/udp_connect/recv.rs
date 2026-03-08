@@ -20,8 +20,8 @@ use g3_io_ext::{AsyncUdpRecv, UdpCopyClientError, UdpCopyClientRecv};
 ))]
 use g3_io_ext::{UdpCopyPacket, UdpCopyPacketMeta};
 use g3_socks::v5::UdpInput;
-use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::net::UpstreamAddr;
+use vey_types::acl::{AclAction, AclNetworkRule};
+use vey_types::net::UpstreamAddr;
 
 pub(super) struct Socks5UdpConnectClientRecv<T> {
     inner: T,

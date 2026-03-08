@@ -9,8 +9,8 @@ use std::sync::{Arc, Mutex};
 use foldhash::fast::FixedState;
 
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::log::LogSnapshot;
-use g3_types::stats::StatId;
+use vey_types::log::LogSnapshot;
+use vey_types::stats::StatId;
 
 use super::LoggerStats;
 use crate::metrics::LoggerMetricExt;

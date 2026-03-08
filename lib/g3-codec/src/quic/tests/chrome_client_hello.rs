@@ -3,7 +3,7 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use g3_types::net::TlsServerName;
+use vey_types::net::TlsServerName;
 
 use crate::quic::{HandshakeCoalescer, InitialPacket};
 use crate::tls::ExtensionType;

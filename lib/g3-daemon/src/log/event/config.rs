@@ -14,7 +14,7 @@ use g3_fluentd::FluentdClientConfig;
 #[cfg(target_os = "linux")]
 use g3_journal::JournalConfig;
 use g3_syslog::SyslogBuilder;
-use g3_types::log::AsyncLogConfig;
+use vey_types::log::AsyncLogConfig;
 
 use super::{LoggerStats, ReportLogIoError};
 

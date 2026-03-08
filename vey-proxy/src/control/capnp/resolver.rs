@@ -6,8 +6,8 @@
 use std::rc::Rc;
 use std::time::Duration;
 
-use g3_types::metrics::NodeName;
-use g3_types::resolve::{QueryStrategy as ResolveQueryStrategy, ResolveStrategy};
+use vey_types::metrics::NodeName;
+use vey_types::resolve::{QueryStrategy as ResolveQueryStrategy, ResolveStrategy};
 
 use vey_proxy_proto::resolver_capnp::{QueryStrategy, resolver_control};
 

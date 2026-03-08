@@ -9,7 +9,7 @@ use std::task::{Context, Poll, ready};
 
 use thiserror::Error;
 
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::LimitedUdpRelayConfig;
 

@@ -12,9 +12,9 @@ use arcstr::ArcStr;
 use tokio::net::UdpSocket;
 
 use g3_io_ext::EffectiveCacheHandle;
-use g3_types::collection::{SelectivePickPolicy, SelectiveVec, WeightedValue};
-use g3_types::metrics::NodeName;
-use g3_types::net::UpstreamAddr;
+use vey_types::collection::{SelectivePickPolicy, SelectiveVec, WeightedValue};
+use vey_types::metrics::NodeName;
+use vey_types::net::UpstreamAddr;
 
 use super::RouteQueryEscaperConfig;
 use super::query::QueryRuntime;

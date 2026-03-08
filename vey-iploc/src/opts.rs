@@ -13,7 +13,7 @@ use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
 
 use g3_daemon::opts::{DaemonArgs, DaemonArgsExt};
-use g3_types::net::UdpListenConfig;
+use vey_types::net::UdpListenConfig;
 
 const GLOBAL_ARG_VERSION: &str = "version";
 const GLOBAL_ARG_GROUP_NAME: &str = "group-name";

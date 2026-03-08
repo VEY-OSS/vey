@@ -10,7 +10,7 @@ use yaml_rust::Yaml;
 
 use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;
-use g3_types::sync::GlobalInit;
+use vey_types::sync::GlobalInit;
 
 static RUNTIME_CONFIG: GlobalInit<BlendedRuntimeConfig> =
     GlobalInit::new(BlendedRuntimeConfig::new());

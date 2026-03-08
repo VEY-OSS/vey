@@ -13,9 +13,10 @@ use log::warn;
 use rustc_hash::FxHashMap;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::auth::{Password, Username};
-use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::{MetricTagMap, NodeName};
+use g3_yaml::YamlDocPosition;
+use vey_types::auth::{Password, Username};
+use vey_types::collection::SelectivePickPolicy;
+use vey_types::metrics::{MetricTagMap, NodeName};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -23,13 +24,12 @@ use g3_types::metrics::{MetricTagMap, NodeName};
     target_os = "illumos",
     target_os = "solaris"
 ))]
-use g3_types::net::Interface;
-use g3_types::net::{
+use vey_types::net::Interface;
+use vey_types::net::{
     HappyEyeballsConfig, Host, OpensslClientConfigBuilder, SocksAuth, TcpKeepAliveConfig,
     TcpMiscSockOpts, UdpMiscSockOpts, WeightedUpstreamAddr,
 };
-use g3_types::resolve::{QueryStrategy, ResolveStrategy};
-use g3_yaml::YamlDocPosition;
+use vey_types::resolve::{QueryStrategy, ResolveStrategy};
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig};
 

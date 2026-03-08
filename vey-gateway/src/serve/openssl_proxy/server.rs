@@ -18,10 +18,10 @@ use tokio::sync::broadcast;
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_io_ext::IdleWheel;
-use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::NodeName;
-use g3_types::net::{OpensslTicketKey, RollingTicketer};
-use g3_types::route::HostMatch;
+use vey_types::acl::{AclAction, AclNetworkRule};
+use vey_types::metrics::NodeName;
+use vey_types::net::{OpensslTicketKey, RollingTicketer};
+use vey_types::route::HostMatch;
 
 use super::{CommonTaskContext, OpensslAcceptTask, OpensslHost};
 use crate::config::server::openssl_proxy::OpensslProxyServerConfig;

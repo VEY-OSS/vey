@@ -5,8 +5,8 @@
 
 use chrono::{DateTime, Utc};
 
-use g3_types::metrics::NodeName;
-use g3_types::net::{SocketBufferConfig, UpstreamAddr};
+use vey_types::metrics::NodeName;
+use vey_types::net::{SocketBufferConfig, UpstreamAddr};
 
 pub(crate) struct UdpRelayTaskConf<'a> {
     pub(crate) initial_peer: &'a UpstreamAddr,

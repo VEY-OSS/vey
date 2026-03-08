@@ -5,7 +5,7 @@
 
 use yaml_rust::Yaml;
 
-use g3_types::acl::{AclAction, AclNetworkRuleBuilder};
+use vey_types::acl::{AclAction, AclNetworkRuleBuilder};
 
 use super::AclRuleYamlParser;
 

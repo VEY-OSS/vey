@@ -18,14 +18,14 @@ use yaml_rust::{Yaml, yaml};
 use g3_ftp_client::FtpClientConfig;
 use g3_io_ext::StreamCopyConfig;
 use g3_tls_ticket::TlsTicketConfig;
-use g3_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
-use g3_types::acl_set::AclDstHostRuleSetBuilder;
-use g3_types::metrics::{MetricTagMap, NodeName};
-use g3_types::net::{
+use g3_yaml::YamlDocPosition;
+use vey_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
+use vey_types::acl_set::AclDstHostRuleSetBuilder;
+use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::net::{
     Host, HttpKeepAliveConfig, HttpServerId, OpensslClientConfigBuilder, RustlsServerConfigBuilder,
     TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
 };
-use g3_yaml::YamlDocPosition;
 
 use super::{
     AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,

@@ -12,7 +12,7 @@ use tokio::net::TcpStream;
 use tokio::time::Instant;
 
 use g3_io_ext::LimitedStream;
-use g3_types::net::RustlsClientConnectionExt;
+use vey_types::net::RustlsClientConnectionExt;
 
 use super::{BenchRustlsArgs, BenchTaskContext, ProcArgs, SslHistogramRecorder, SslRuntimeStats};
 use crate::target::BenchError;

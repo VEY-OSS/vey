@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use tokio::io::{AsyncRead, AsyncWrite, BufStream};
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::auth::{Password, Username};
+use vey_types::auth::{Password, Username};
 
 use crate::error::{
     FtpAuthStatus, FtpCommandError, FtpFilePreTransferStatus, FtpFileRetrieveStartError,

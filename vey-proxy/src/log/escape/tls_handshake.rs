@@ -7,7 +7,7 @@ use slog::Logger;
 use uuid::Uuid;
 
 use g3_slog_types::{LtDateTime, LtHost, LtIpAddr, LtUpstreamAddr, LtUuid};
-use g3_types::net::{Host, UpstreamAddr};
+use vey_types::net::{Host, UpstreamAddr};
 
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 

@@ -14,7 +14,7 @@ use g3_io_ext::{IdleInterval, LineRecvBuf, OnceBufReader, StreamCopyConfig};
 use g3_slog_types::{LtHost, LtUpstreamAddr, LtUuid};
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
-use g3_types::net::{Host, UpstreamAddr};
+use vey_types::net::{Host, UpstreamAddr};
 
 use super::{StartTlsProtocol, StreamTransitTask};
 #[cfg(feature = "quic")]

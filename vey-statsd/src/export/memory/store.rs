@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use ahash::AHashMap;
 use chrono::{DateTime, Utc};
 
-use g3_types::metrics::MetricTagMap;
+use vey_types::metrics::MetricTagMap;
 
 use crate::runtime::export::{CounterStoreValue, GaugeStoreValue};
 use crate::types::{MetricName, MetricRecord, MetricType, MetricValue};

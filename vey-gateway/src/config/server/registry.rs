@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use foldhash::fast::FixedState;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::AnyServerConfig;
 

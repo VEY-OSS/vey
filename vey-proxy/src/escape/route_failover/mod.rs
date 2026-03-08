@@ -9,8 +9,8 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::metrics::NodeName;
-use g3_types::net::UpstreamAddr;
+use vey_types::metrics::NodeName;
+use vey_types::net::UpstreamAddr;
 
 use super::{ArcEscaper, Escaper, EscaperExt, EscaperInternal, EscaperRegistry, RouteEscaperStats};
 use crate::audit::AuditContext;

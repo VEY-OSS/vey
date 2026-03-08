@@ -13,10 +13,10 @@ use slog::Logger;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::{ResolveError, ResolveLocalError};
-use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
-use g3_types::metrics::NodeName;
-use g3_types::net::{Host, UpstreamAddr, WeightedUpstreamAddr};
-use g3_types::resolve::ResolveStrategy;
+use vey_types::collection::{SelectiveVec, SelectiveVecBuilder};
+use vey_types::metrics::NodeName;
+use vey_types::net::{Host, UpstreamAddr, WeightedUpstreamAddr};
+use vey_types::resolve::ResolveStrategy;
 
 use super::{
     ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal,

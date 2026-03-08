@@ -12,7 +12,7 @@ use anyhow::{Context, anyhow};
 use log::warn;
 use yaml_rust::Yaml;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::{StatsdBackend, StatsdClientConfig};
 

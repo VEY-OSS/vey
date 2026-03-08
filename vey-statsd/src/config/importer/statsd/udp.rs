@@ -6,10 +6,10 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::NodeName;
-use g3_types::net::UdpListenConfig;
 use g3_yaml::YamlDocPosition;
+use vey_types::acl::AclNetworkRuleBuilder;
+use vey_types::metrics::NodeName;
+use vey_types::net::UdpListenConfig;
 
 use super::{AnyImporterConfig, ImporterConfig, ImporterConfigDiffAction};
 

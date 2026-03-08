@@ -13,9 +13,9 @@ use tokio::time::Instant;
 use g3_daemon::server::ClientConnectionInfo;
 use g3_icap_client::reqmod::h1::HttpAdapterErrorResponse;
 use g3_io_ext::{IdleWheel, OptionalInterval};
-use g3_types::acl::AclAction;
-use g3_types::acl_set::AclDstHostRuleSet;
-use g3_types::net::{OpensslClientConfig, UpstreamAddr};
+use vey_types::acl::AclAction;
+use vey_types::acl_set::AclDstHostRuleSet;
+use vey_types::net::{OpensslClientConfig, UpstreamAddr};
 
 use super::{HttpProxyServerConfig, HttpProxyServerStats};
 use crate::escape::ArcEscaper;

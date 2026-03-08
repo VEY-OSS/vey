@@ -8,7 +8,7 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::route::UriPathMatch;
+use vey_types::route::UriPathMatch;
 
 use crate::{YamlDocPosition, YamlMapCallback};
 

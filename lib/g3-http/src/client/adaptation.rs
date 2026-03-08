@@ -9,7 +9,7 @@ use http::{HeaderName, StatusCode, Version};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::{HttpHeaderMap, HttpHeaderValue};
+use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use super::HttpResponseParseError;
 use crate::{HttpHeaderLine, HttpLineParseError, HttpStatusLine};

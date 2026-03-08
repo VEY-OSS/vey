@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use g3_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
-use g3_types::metrics::NodeName;
+use vey_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
+use vey_types::metrics::NodeName;
 
 use crate::config::backend::AnyBackendConfig;
 use crate::module::keyless::{KeylessRequest, KeylessResponse};

@@ -14,7 +14,7 @@ use g3_imap_proto::CommandPipeline;
 use g3_imap_proto::response::ByeResponse;
 use g3_io_ext::{IdleInterval, LineRecvVec, OnceBufReader, StreamCopyConfig};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::StartTlsProtocol;
 #[cfg(feature = "quic")]

@@ -5,7 +5,7 @@
 
 use base64::prelude::*;
 
-use g3_types::auth::{Password, Username};
+use vey_types::auth::{Password, Username};
 
 pub fn proxy_authorization_basic(username: &Username, password: &Password) -> String {
     format!(

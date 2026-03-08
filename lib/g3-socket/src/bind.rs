@@ -15,7 +15,7 @@ use socket2::{SockAddr, Socket};
     target_os = "illumos",
     target_os = "solaris"
 ))]
-use g3_types::net::Interface;
+use vey_types::net::Interface;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use super::sockopt::set_bind_address_no_port;

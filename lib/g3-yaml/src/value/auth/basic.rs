@@ -6,7 +6,7 @@
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use g3_types::auth::{Password, Username};
+use vey_types::auth::{Password, Username};
 
 pub fn as_username(value: &Yaml) -> anyhow::Result<Username> {
     if let Yaml::String(s) = value {

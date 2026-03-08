@@ -5,7 +5,7 @@
 
 use std::rc::Rc;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use vey_gateway_proto::backend_capnp::backend_control;
 use vey_gateway_proto::proc_capnp::proc_control;

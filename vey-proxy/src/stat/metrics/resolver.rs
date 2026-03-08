@@ -10,8 +10,8 @@ use g3_resolver::{
     ResolveQueryType, ResolverMemorySnapshot, ResolverQuerySnapshot, ResolverSnapshot,
 };
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::metrics::NodeName;
-use g3_types::stats::{GlobalStatsMap, StatId};
+use vey_types::metrics::NodeName;
+use vey_types::stats::{GlobalStatsMap, StatId};
 
 use crate::resolve::ResolverStats;
 

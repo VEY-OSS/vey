@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use serde_json::Value;
 
-use g3_types::auth::{FactsMatchType, FactsMatchValue};
+use vey_types::auth::{FactsMatchType, FactsMatchValue};
 
 pub fn as_facts_match_type(value: &Value) -> anyhow::Result<FactsMatchType> {
     if let Value::String(s) = value {

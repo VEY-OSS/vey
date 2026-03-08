@@ -6,7 +6,7 @@
 use anyhow::{Context, anyhow};
 use serde_json::{Map, Value};
 
-use g3_types::auth::FastHashedPassPhrase;
+use vey_types::auth::FastHashedPassPhrase;
 use vey_xcrypt::XCryptHash;
 
 use super::{CONFIG_KEY_TYPE, PasswordToken};

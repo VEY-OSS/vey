@@ -12,9 +12,9 @@ clap.workspace = true
 humanize-rs.workspace = true
 http = { workspace = true, optional = true }
 hex.workspace = true
-g3-types = { workspace = true, optional = true }
+vey-types = { workspace = true, optional = true }
 
 [features]
 default = []
 http = ["dep:http"]
-limit = ["dep:g3-types"]
+limit = ["dep:vey-types"]

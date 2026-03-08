@@ -12,7 +12,7 @@ use h2::ext::Protocol;
 use h2::server::SendResponse;
 use http::{Method, Request};
 
-use g3_types::net::HttpUpgradeToken;
+use vey_types::net::HttpUpgradeToken;
 
 use super::{H2ConnectTask, H2ExtendedConnectTask, H2ForwardTask};
 use crate::config::server::ServerConfig;

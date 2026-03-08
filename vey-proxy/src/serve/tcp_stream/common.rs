@@ -10,7 +10,7 @@ use slog::Logger;
 
 use g3_daemon::server::ClientConnectionInfo;
 use g3_io_ext::IdleWheel;
-use g3_types::net::OpensslClientConfig;
+use vey_types::net::OpensslClientConfig;
 
 use super::stats::TcpStreamServerStats;
 use crate::config::server::tcp_stream::TcpStreamServerConfig;

@@ -13,7 +13,7 @@ use tokio::io::AsyncBufRead;
 use g3_http::client::HttpResponseParseError;
 use g3_http::{HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::{HttpHeaderMap, HttpHeaderValue};
+use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 pub struct HttpAdapterErrorResponse {
     pub version: Version,

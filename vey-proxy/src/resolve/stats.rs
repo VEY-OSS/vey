@@ -5,8 +5,8 @@
 
 use std::sync::Arc;
 
-use g3_types::metrics::NodeName;
-use g3_types::stats::StatId;
+use vey_types::metrics::NodeName;
+use vey_types::stats::StatId;
 
 pub(crate) struct ResolverStats {
     id: StatId,

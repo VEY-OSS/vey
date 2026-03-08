@@ -5,7 +5,7 @@
 
 use serde_json::Value;
 
-use g3_types::acl::{AclAction, AclExactPortRule};
+use vey_types::acl::{AclAction, AclExactPortRule};
 
 use super::AclRuleJsonParser;
 

@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use g3_io_ext::{UdpCopyRemoteError, UdpRelayRemoteError};
 use g3_slog_types::{LtDateTime, LtUpstreamAddr, LtUuid};
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use crate::module::udp_connect::UdpConnectTaskNotes;
 use crate::module::udp_relay::UdpRelayTaskNotes;

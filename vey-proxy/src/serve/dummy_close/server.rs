@@ -15,8 +15,8 @@ use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
-use g3_types::metrics::NodeName;
 use vey_openssl::SslStream;
+use vey_types::metrics::NodeName;
 
 use crate::config::server::dummy_close::DummyCloseServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};

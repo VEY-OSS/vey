@@ -8,7 +8,7 @@ use std::net::SocketAddr;
 use slog::Logger;
 
 use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUserName, LtUuid};
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::TaskEvent;
 use crate::module::udp_relay::UdpRelayTaskNotes;

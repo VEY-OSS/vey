@@ -7,8 +7,8 @@ use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_io_ext::LimitedStream;
-use g3_types::net::{Host, UpstreamAddr};
 use vey_openssl::{SslConnector, SslStream};
+use vey_types::net::{Host, UpstreamAddr};
 
 use super::ProxyFloatEscaper;
 use crate::escape::proxy_float::peer::NextProxyPeer;

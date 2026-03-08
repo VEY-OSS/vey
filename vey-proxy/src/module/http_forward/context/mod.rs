@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use g3_types::net::{HttpForwardCapability, UpstreamAddr};
+use vey_types::net::{HttpForwardCapability, UpstreamAddr};
 
 use super::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller};
 use crate::audit::AuditContext;

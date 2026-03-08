@@ -9,7 +9,7 @@ use bytes::BufMut;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use g3_io_ext::LimitedWriteExt;
-use g3_types::net::UpstreamAddr;
+use vey_types::net::UpstreamAddr;
 
 use super::HttpProxyClientRequest;
 use crate::module::http_header;

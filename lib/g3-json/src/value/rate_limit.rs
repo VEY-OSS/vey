@@ -9,7 +9,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use g3_types::limit::RateLimitQuota;
+use vey_types::limit::RateLimitQuota;
 
 pub fn as_rate_limit_quota(v: &Value) -> anyhow::Result<RateLimitQuota> {
     match v {

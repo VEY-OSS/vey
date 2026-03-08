@@ -8,7 +8,7 @@ use std::str::FromStr;
 use http::Uri;
 use percent_encoding::percent_decode_str;
 
-use g3_types::net::{Host, UpstreamAddr};
+use vey_types::net::{Host, UpstreamAddr};
 
 use super::UriParseError;
 

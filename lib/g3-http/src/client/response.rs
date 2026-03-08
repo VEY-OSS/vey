@@ -11,7 +11,7 @@ use http::{HeaderName, Method, Version, header};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::{HttpHeaderMap, HttpHeaderValue};
+use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
 use crate::header::Connection;

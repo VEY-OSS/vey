@@ -12,7 +12,7 @@ use http::HeaderName;
 use thiserror::Error;
 use tokio::io::AsyncBufRead;
 
-use g3_types::net::{HttpHeaderMap, HttpHeaderValue};
+use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use crate::{HttpHeaderLine, HttpLineParseError};
 

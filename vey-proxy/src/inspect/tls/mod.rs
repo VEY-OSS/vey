@@ -18,12 +18,12 @@ use g3_codec::tls::{
 use g3_dpi::{Protocol, ProtocolInspector};
 use g3_io_ext::{AsyncStream, FlexBufReader, OnceBufReader};
 use g3_slog_types::{LtUpstreamAddr, LtUuid, LtX509VerifyResult};
-use g3_types::net::{
-    AlpnProtocol, OpensslInterceptionClientConfig, OpensslInterceptionServerConfig, TlsAlpn,
-    TlsServerName, UpstreamAddr,
-};
 use g3_udpdump::{
     ExportedPduDissectorHint, StreamDumpConfig, StreamDumpProxyAddresses, StreamDumper,
+};
+use vey_types::net::{
+    AlpnProtocol, OpensslInterceptionClientConfig, OpensslInterceptionServerConfig, TlsAlpn,
+    TlsServerName, UpstreamAddr,
 };
 
 use super::{

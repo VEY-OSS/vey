@@ -8,7 +8,7 @@ use std::rc::{Rc, Weak};
 
 use anyhow::{Context, anyhow};
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 pub struct TopoNode {
     name: NodeName,

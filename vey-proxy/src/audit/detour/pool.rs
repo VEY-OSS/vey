@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use tokio::sync::mpsc;
 
-use g3_types::net::ConnectionPoolConfig;
-use g3_types::stats::ConnectionPoolStats;
+use vey_types::net::ConnectionPoolConfig;
+use vey_types::stats::ConnectionPoolStats;
 
 use super::{StreamDetourConnector, StreamDetourRequest};
 

@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 
-use g3_types::metrics::MetricTagMap;
+use vey_types::metrics::MetricTagMap;
 
 use super::StatsdParseError;
 use crate::types::{MetricName, MetricRecord, MetricType, MetricValue};
@@ -172,7 +172,7 @@ fn parse_type(part: &[u8]) -> Result<MetricType, StatsdParseError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_types::metrics::MetricTagName;
+    use vey_types::metrics::MetricTagName;
 
     #[test]
     fn etsy_statsd() {

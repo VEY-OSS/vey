@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use serde_json::Value;
 
-use g3_types::net::ProxyRequestType;
+use vey_types::net::ProxyRequestType;
 
 pub fn as_proxy_request_type(v: &Value) -> anyhow::Result<ProxyRequestType> {
     if let Value::String(s) = v {

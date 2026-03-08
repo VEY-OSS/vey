@@ -12,9 +12,9 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 use g3_io_ext::AsyncStream;
-use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAddr};
 use vey_openssl::SslStream;
+use vey_types::collection::{SelectiveVec, WeightedValue};
+use vey_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAddr};
 
 use super::{KeylessRuntimeStats, MultiplexTransfer, SimplexTransfer};
 use crate::module::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};

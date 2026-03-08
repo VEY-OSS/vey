@@ -12,7 +12,7 @@ use tokio::time::Instant;
 
 use g3_io_ext::LimitedStream;
 use g3_socket::BindAddr;
-use g3_types::net::{ConnectError, Host, ProxyProtocolEncoder, UpstreamAddr};
+use vey_types::net::{ConnectError, Host, ProxyProtocolEncoder, UpstreamAddr};
 
 use super::ProxyHttpsEscaper;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;

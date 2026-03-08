@@ -14,7 +14,7 @@ use http::HeaderName;
 use rustls_pki_types::ServerName;
 use url::Url;
 
-use g3_types::net::{
+use vey_types::net::{
     ConnectionPoolConfig, HttpAuth, RustlsClientConfigBuilder, TcpKeepAliveConfig, UpstreamAddr,
 };
 

@@ -17,8 +17,8 @@ use g3_daemon::stat::remote::{
 use g3_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
 use g3_socket::BindAddr;
 use g3_socks::v5;
-use g3_types::net::{SocketBufferConfig, UpstreamAddr};
 use vey_openssl::{SslConnector, SslStream};
+use vey_types::net::{SocketBufferConfig, UpstreamAddr};
 
 use super::ProxySocks5Escaper;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};

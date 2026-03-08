@@ -11,7 +11,7 @@ use anyhow::anyhow;
 use log::debug;
 use tokio::sync::Mutex;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::{KeyServer, registry};
 use crate::config::server::KeyServerConfig;

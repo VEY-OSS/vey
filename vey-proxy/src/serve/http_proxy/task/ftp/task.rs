@@ -18,8 +18,8 @@ use g3_ftp_client::{
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
 use g3_io_ext::{GlobalLimitGroup, SizedReader, StreamCopy, StreamCopyError};
-use g3_types::acl::AclAction;
-use g3_types::net::ProxyRequestType;
+use vey_types::acl::AclAction;
+use vey_types::net::ProxyRequestType;
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{

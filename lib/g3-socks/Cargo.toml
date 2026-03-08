@@ -13,7 +13,7 @@ bytes.workspace = true
 smallvec.workspace = true
 tokio = { workspace = true, features = ["sync", "io-util", "macros"] }
 quinn = { workspace = true, optional = true, features = ["runtime-tokio"] }
-g3-types.workspace = true
+vey-types.workspace = true
 g3-io-ext.workspace = true
 vey-io-sys.workspace = true
 

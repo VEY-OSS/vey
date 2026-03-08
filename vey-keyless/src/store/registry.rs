@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use foldhash::fast::FixedState;
 use tokio::sync::oneshot;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 static KEY_STORE_SUBSCRIBER_REGISTRY: Mutex<HashMap<NodeName, oneshot::Sender<()>, FixedState>> =
     Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));

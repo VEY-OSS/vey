@@ -8,7 +8,7 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
 
 use socket2::{Domain, SockAddr, Socket, Type};
 
-use g3_types::net::{PortRange, SocketBufferConfig, UdpListenConfig, UdpMiscSockOpts};
+use vey_types::net::{PortRange, SocketBufferConfig, UdpListenConfig, UdpMiscSockOpts};
 
 use super::util::AddressFamily;
 use super::{BindAddr, RawSocket};
@@ -302,7 +302,7 @@ mod tests {
     ))]
     #[test]
     fn listen_interface() {
-        use g3_types::net::Interface;
+        use vey_types::net::Interface;
 
         #[cfg(any(target_os = "linux", target_os = "android"))]
         const LOOPBACK_INTERFACE: &str = "lo";

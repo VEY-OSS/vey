@@ -11,8 +11,8 @@ use rustc_hash::{FxBuildHasher, FxHashMap};
 use tokio::runtime::Handle;
 
 use g3_runtime::unaided::WorkersGuard;
-use g3_types::sync::GlobalInit;
 use vey_compat::CpuAffinity;
+use vey_types::sync::GlobalInit;
 
 #[derive(Clone)]
 pub struct WorkerHandle {

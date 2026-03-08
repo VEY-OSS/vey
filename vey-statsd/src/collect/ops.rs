@@ -10,8 +10,8 @@ use async_recursion::async_recursion;
 use log::{debug, warn};
 use tokio::sync::Mutex;
 
-use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
+use vey_types::metrics::NodeName;
 
 use super::registry;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfigDiffAction};

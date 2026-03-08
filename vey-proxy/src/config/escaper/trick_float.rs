@@ -8,8 +8,8 @@ use std::collections::BTreeSet;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
+use vey_types::metrics::NodeName;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
 

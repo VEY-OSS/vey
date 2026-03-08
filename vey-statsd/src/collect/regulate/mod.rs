@@ -8,7 +8,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::{ArcCollector, ArcCollectorInternal, Collector, CollectorInternal, CollectorRegistry};
 use crate::config::collector::regulate::RegulateCollectorConfig;

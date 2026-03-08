@@ -14,8 +14,8 @@ use g3_daemon::listen::{ListenAliveGuard, ListenStats};
 use g3_daemon::server::ClientConnectionInfo;
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::RawSocket;
-use g3_types::net::TcpListenConfig;
 use vey_std_ext::net::SocketAddrExt;
+use vey_types::net::TcpListenConfig;
 
 use super::{KeyServer, ServerReloadCommand};
 

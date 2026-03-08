@@ -10,7 +10,7 @@ use arc_swap::ArcSwap;
 use chrono::{DateTime, Utc};
 use tokio::sync::broadcast;
 
-use g3_types::metrics::NodeName;
+use vey_types::metrics::NodeName;
 
 use super::AggregateHandle;
 use crate::collect::{ArcCollectorInternal, Collector, CollectorInternal, CollectorRegistry};
