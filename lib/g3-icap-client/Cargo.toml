@@ -27,9 +27,9 @@ yaml-rust = { workspace = true, optional = true }
 vey-types = { workspace = true, features = ["rustls"] }
 vey-io-ext = { workspace = true, features = ["rustls"] }
 vey-socket.workspace = true
-g3-http.workspace = true
+vey-http.workspace = true
 g3-h2.workspace = true
-g3-smtp-proto.workspace = true
+vey-smtp-proto.workspace = true
 vey-yaml = { workspace = true, optional = true, features = ["rustls", "http"] }
 
 [features]

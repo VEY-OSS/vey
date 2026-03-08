@@ -929,24 +929,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3-cert-agent"
-version = "0.3.0"
-dependencies = [
- "anyhow",
- "arcstr",
- "log",
- "rmpv",
- "tokio",
- "variant-ssl",
- "vey-io-ext",
- "vey-msgpack",
- "vey-socket",
- "vey-types",
- "vey-yaml",
- "yaml-rust2",
-]
-
-[[package]]
 name = "g3-daemon"
 version = "0.4.0"
 dependencies = [
@@ -959,7 +941,6 @@ dependencies = [
  "clap",
  "fastrand",
  "foldhash 0.2.0",
- "g3-http",
  "http",
  "itoa",
  "libc",
@@ -975,6 +956,7 @@ dependencies = [
  "uuid",
  "vey-compat",
  "vey-fluentd",
+ "vey-http",
  "vey-io-ext",
  "vey-io-sys",
  "vey-journal",
@@ -990,54 +972,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3-ftp-client"
-version = "0.5.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "log",
- "memchr",
- "mime",
- "thiserror",
- "tokio",
- "vey-datetime",
- "vey-io-ext",
- "vey-types",
- "vey-yaml",
- "yaml-rust2",
-]
-
-[[package]]
 name = "g3-h2"
 version = "0.3.0"
 dependencies = [
  "bytes",
- "g3-http",
  "h2",
  "http",
  "thiserror",
  "tokio",
+ "vey-http",
  "vey-io-ext",
-]
-
-[[package]]
-name = "g3-http"
-version = "0.5.0"
-dependencies = [
- "atoi",
- "base64",
- "bytes",
- "http",
- "memchr",
- "mime",
- "percent-encoding",
- "smol_str",
- "thiserror",
- "tokio",
- "tokio-test",
- "vey-io-ext",
- "vey-types",
 ]
 
 [[package]]
@@ -1050,8 +994,6 @@ dependencies = [
  "base64",
  "bytes",
  "g3-h2",
- "g3-http",
- "g3-smtp-proto",
  "h2",
  "http",
  "itoa",
@@ -1062,65 +1004,9 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "url",
+ "vey-http",
  "vey-io-ext",
- "vey-socket",
- "vey-types",
- "vey-yaml",
- "yaml-rust2",
-]
-
-[[package]]
-name = "g3-imap-proto"
-version = "0.3.0"
-dependencies = [
- "ahash",
- "atoi",
- "log",
- "memchr",
- "smol_str",
- "thiserror",
- "tokio",
- "vey-io-ext",
-]
-
-[[package]]
-name = "g3-smtp-proto"
-version = "0.3.0"
-dependencies = [
- "log",
- "memchr",
- "pin-project-lite",
- "thiserror",
- "tokio",
- "tokio-test",
- "vey-io-ext",
- "vey-types",
-]
-
-[[package]]
-name = "g3-socks"
-version = "0.4.0"
-dependencies = [
- "bytes",
- "quinn",
- "smallvec",
- "thiserror",
- "tokio",
- "vey-io-ext",
- "vey-io-sys",
- "vey-types",
-]
-
-[[package]]
-name = "g3-udpdump"
-version = "0.3.0"
-dependencies = [
- "anyhow",
- "log",
- "tokio",
- "vey-dpi",
- "vey-io-ext",
- "vey-io-sys",
+ "vey-smtp-proto",
  "vey-socket",
  "vey-types",
  "vey-yaml",
@@ -2771,8 +2657,6 @@ dependencies = [
  "concurrent-queue",
  "fastrand",
  "futures-util",
- "g3-http",
- "g3-socks",
  "h2",
  "h3",
  "h3-quinn",
@@ -2799,10 +2683,12 @@ dependencies = [
  "vey-codec",
  "vey-hickory-client",
  "vey-histogram",
+ "vey-http",
  "vey-io-ext",
  "vey-openssl",
  "vey-runtime",
  "vey-socket",
+ "vey-socks",
  "vey-statsd-client",
  "vey-std-ext",
  "vey-tls-cert",
@@ -2814,6 +2700,24 @@ name = "vey-build-env"
 version = "0.2.0"
 dependencies = [
  "rustc_version",
+]
+
+[[package]]
+name = "vey-cert-agent"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "arcstr",
+ "log",
+ "rmpv",
+ "tokio",
+ "variant-ssl",
+ "vey-io-ext",
+ "vey-msgpack",
+ "vey-socket",
+ "vey-types",
+ "vey-yaml",
+ "yaml-rust2",
 ]
 
 [[package]]
@@ -2877,7 +2781,6 @@ version = "0.9.0"
 dependencies = [
  "anyhow",
  "clap",
- "g3-cert-agent",
  "g3-daemon",
  "kanal",
  "log",
@@ -2885,6 +2788,7 @@ dependencies = [
  "variant-ssl",
  "variant-ssl-sys",
  "vey-build-env",
+ "vey-cert-agent",
  "vey-histogram",
  "vey-socket",
  "vey-statsd-client",
@@ -2925,6 +2829,25 @@ dependencies = [
  "vey-compat",
  "vey-openssl",
  "vey-socket",
+ "vey-types",
+ "vey-yaml",
+ "yaml-rust2",
+]
+
+[[package]]
+name = "vey-ftp-client"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "log",
+ "memchr",
+ "mime",
+ "thiserror",
+ "tokio",
+ "vey-datetime",
+ "vey-io-ext",
  "vey-types",
  "vey-yaml",
  "yaml-rust2",
@@ -3055,6 +2978,39 @@ dependencies = [
  "thiserror",
  "tokio",
  "zmij",
+]
+
+[[package]]
+name = "vey-http"
+version = "0.5.0"
+dependencies = [
+ "atoi",
+ "base64",
+ "bytes",
+ "http",
+ "memchr",
+ "mime",
+ "percent-encoding",
+ "smol_str",
+ "thiserror",
+ "tokio",
+ "tokio-test",
+ "vey-io-ext",
+ "vey-types",
+]
+
+[[package]]
+name = "vey-imap-proto"
+version = "0.3.0"
+dependencies = [
+ "ahash",
+ "atoi",
+ "log",
+ "memchr",
+ "smol_str",
+ "thiserror",
+ "tokio",
+ "vey-io-ext",
 ]
 
 [[package]]
@@ -3314,16 +3270,9 @@ dependencies = [
  "fnv",
  "foldhash 0.2.0",
  "futures-util",
- "g3-cert-agent",
  "g3-daemon",
- "g3-ftp-client",
  "g3-h2",
- "g3-http",
  "g3-icap-client",
- "g3-imap-proto",
- "g3-smtp-proto",
- "g3-socks",
- "g3-udpdump",
  "h2",
  "http",
  "indexmap",
@@ -3360,11 +3309,15 @@ dependencies = [
  "variant-ssl",
  "variant-ssl-sys",
  "vey-build-env",
+ "vey-cert-agent",
  "vey-codec",
  "vey-datetime",
  "vey-dpi",
+ "vey-ftp-client",
  "vey-geoip-types",
  "vey-histogram",
+ "vey-http",
+ "vey-imap-proto",
  "vey-io-ext",
  "vey-io-sys",
  "vey-ip-locate",
@@ -3376,11 +3329,14 @@ dependencies = [
  "vey-redis-client",
  "vey-resolver",
  "vey-slog-types",
+ "vey-smtp-proto",
  "vey-socket",
+ "vey-socks",
  "vey-statsd-client",
  "vey-std-ext",
  "vey-tls-ticket",
  "vey-types",
+ "vey-udpdump",
  "vey-xcrypt",
  "vey-yaml",
  "yaml-rust2",
@@ -3410,9 +3366,9 @@ dependencies = [
  "async-trait",
  "clap",
  "clap_complete",
- "g3-ftp-client",
  "log",
  "tokio",
+ "vey-ftp-client",
  "vey-socket",
  "vey-types",
 ]
@@ -3508,6 +3464,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "vey-smtp-proto"
+version = "0.3.0"
+dependencies = [
+ "log",
+ "memchr",
+ "pin-project-lite",
+ "thiserror",
+ "tokio",
+ "tokio-test",
+ "vey-io-ext",
+ "vey-types",
+]
+
+[[package]]
 name = "vey-socket"
 version = "0.6.0"
 dependencies = [
@@ -3518,6 +3488,20 @@ dependencies = [
  "vey-compat",
  "vey-types",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "vey-socks"
+version = "0.4.0"
+dependencies = [
+ "bytes",
+ "quinn",
+ "smallvec",
+ "thiserror",
+ "tokio",
+ "vey-io-ext",
+ "vey-io-sys",
+ "vey-types",
 ]
 
 [[package]]
@@ -3536,7 +3520,6 @@ dependencies = [
  "fastrand",
  "foldhash 0.2.0",
  "g3-daemon",
- "g3-http",
  "http",
  "itoa",
  "log",
@@ -3545,6 +3528,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "vey-build-env",
+ "vey-http",
  "vey-io-ext",
  "vey-macros",
  "vey-socket",
@@ -3708,6 +3692,22 @@ dependencies = [
  "variant-ssl-sys",
  "vey-std-ext",
  "webpki-roots",
+]
+
+[[package]]
+name = "vey-udpdump"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "tokio",
+ "vey-dpi",
+ "vey-io-ext",
+ "vey-io-sys",
+ "vey-socket",
+ "vey-types",
+ "vey-yaml",
+ "yaml-rust2",
 ]
 
 [[package]]

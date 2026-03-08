@@ -14,10 +14,10 @@ use tokio::net::UdpSocket;
 use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
-use g3_socks::v5;
 use vey_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use vey_openssl::{SslConnector, SslStream};
 use vey_socket::BindAddr;
+use vey_socks::v5;
 use vey_types::net::{SocketBufferConfig, UpstreamAddr};
 
 use super::ProxySocks5sEscaper;

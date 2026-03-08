@@ -10,7 +10,7 @@ use anyhow::{Context, anyhow};
 use tokio::runtime::Handle;
 use tokio::time::Instant;
 
-use g3_cert_agent::Request;
+use vey_cert_agent::Request;
 use vey_std_ext::time::DurationExt;
 
 pub mod config;

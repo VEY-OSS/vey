@@ -46,8 +46,8 @@ vey-types = { workspace = true, features = ["openssl", "rustls"] }
 vey-clap = { workspace = true, features = ["http", "limit"] }
 vey-codec = { workspace = true, features = ["thrift"] }
 vey-socket.workspace = true
-g3-http.workspace = true
-g3-socks.workspace = true
+vey-http.workspace = true
+vey-socks.workspace = true
 vey-io-ext = { workspace = true, features = ["openssl", "rustls"] }
 vey-statsd-client.workspace = true
 vey-histogram.workspace = true
@@ -60,7 +60,7 @@ vey-build-env.workspace = true
 
 [features]
 default = ["quic", "rustls-ring"]
-quic = ["vey-types/quic", "g3-socks/quic", "vey-io-ext/quic", "vey-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
+quic = ["vey-types/quic", "vey-socks/quic", "vey-io-ext/quic", "vey-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
 rustls-ring = ["vey-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
 rustls-aws-lc = ["vey-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
 rustls-aws-lc-fips = ["vey-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]

@@ -8,8 +8,8 @@ use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
-use g3_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
-use g3_http::uri::{HttpMasque, WellKnownUri};
+use vey_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
+use vey_http::uri::{HttpMasque, WellKnownUri};
 use vey_types::net::{HttpProxySubProtocol, UpstreamAddr};
 
 use super::HttpClientReader;

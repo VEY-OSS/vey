@@ -5,8 +5,8 @@
 
 use tokio::io::{AsyncWrite, BufWriter};
 
-use g3_http::HttpBodyDecodeReader;
-use g3_http::server::HttpAdaptedRequest;
+use vey_http::HttpBodyDecodeReader;
+use vey_http::server::HttpAdaptedRequest;
 use vey_io_ext::{IdleCheck, StreamCopy, StreamCopyError};
 
 use super::{ImapAdaptationError, ImapMessageAdapter};

@@ -10,7 +10,7 @@ use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
-use g3_http::server::{HttpRequestParseError, HttpTransparentRequest};
+use vey_http::server::{HttpRequestParseError, HttpTransparentRequest};
 use vey_io_ext::LimitedBufReadExt;
 
 use super::{H1InterceptionError, HttpRequestIo, PipelineStats};

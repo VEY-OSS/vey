@@ -9,8 +9,8 @@ use tokio::time::Instant;
 
 use g3_icap_client::reqmod::imap::ImapMessageAdapter;
 use g3_icap_client::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
-use g3_imap_proto::command::{Command, ParsedCommand};
-use g3_imap_proto::response::{
+use vey_imap_proto::command::{Command, ParsedCommand};
+use vey_imap_proto::response::{
     BadResponse, ByeResponse, CommandData, CommandResult, Response, ServerStatus, UntaggedResponse,
 };
 use vey_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};

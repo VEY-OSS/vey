@@ -8,7 +8,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite};
 
-use g3_http::{H1BodyToChunkedTransfer, HttpBodyDecodeReader, HttpBodyReader};
+use vey_http::{H1BodyToChunkedTransfer, HttpBodyDecodeReader, HttpBodyReader};
 use vey_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopy, StreamCopyConfig, StreamCopyError};
 
 use super::{

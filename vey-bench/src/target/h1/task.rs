@@ -12,8 +12,8 @@ use futures_util::FutureExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::time::Instant;
 
-use g3_http::HttpBodyReader;
-use g3_http::client::HttpForwardRemoteResponse;
+use vey_http::HttpBodyReader;
+use vey_http::client::HttpForwardRemoteResponse;
 use vey_io_ext::{LimitedReader, LimitedWriteExt, LimitedWriter};
 
 use super::{BenchHttpArgs, BenchTaskContext, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs};

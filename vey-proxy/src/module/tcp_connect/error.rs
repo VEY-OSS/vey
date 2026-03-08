@@ -7,10 +7,10 @@ use std::io;
 
 use thiserror::Error;
 
-use g3_http::connect::HttpConnectError;
-use g3_socks::SocksConnectError;
-use g3_socks::v5::Socks5Reply;
+use vey_http::connect::HttpConnectError;
 use vey_resolver::ResolveError;
+use vey_socks::SocksConnectError;
+use vey_socks::v5::Socks5Reply;
 use vey_types::net::{ConnectError, ProxyProtocolEncodeError};
 
 use crate::serve::{ServerTaskError, ServerTaskForbiddenError};

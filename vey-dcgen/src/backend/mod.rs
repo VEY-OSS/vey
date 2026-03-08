@@ -13,7 +13,7 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use tokio::runtime::Handle;
 
-use g3_cert_agent::Request;
+use vey_cert_agent::Request;
 use vey_tls_cert::builder::{MimicCertBuilder, ServerCertBuilder, TlsServerCertBuilder};
 use vey_tls_cert::ext::X509Ext;
 use vey_types::net::{Host, TlsCertUsage};

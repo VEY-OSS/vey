@@ -11,7 +11,6 @@ use std::task::{Context, Poll, ready};
 use slog::Logger;
 use tokio::io::{AsyncRead, ReadBuf};
 
-use g3_socks::v5::UdpInput;
 use vey_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
 #[cfg(any(
     target_os = "linux",
@@ -23,6 +22,7 @@ use vey_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
     target_os = "solaris",
 ))]
 use vey_io_ext::{UdpRelayPacket, UdpRelayPacketMeta};
+use vey_socks::v5::UdpInput;
 use vey_types::net::UpstreamAddr;
 
 pub(crate) struct ProxySocks5UdpRelayRemoteRecv<T, C> {

@@ -220,7 +220,7 @@ impl H2ConnectArgs {
 
                         let mut buf_stream = BufReader::new(tls_stream);
 
-                        g3_http::connect::client::http_connect_to(
+                        vey_http::connect::client::http_connect_to(
                             &mut buf_stream,
                             &http_proxy.auth,
                             target,
@@ -235,7 +235,7 @@ impl H2ConnectArgs {
                     } else {
                         let mut buf_stream = BufReader::new(stream);
 
-                        g3_http::connect::client::http_connect_to(
+                        vey_http::connect::client::http_connect_to(
                             &mut buf_stream,
                             &http_proxy.auth,
                             target,
@@ -255,7 +255,7 @@ impl H2ConnectArgs {
                         socks4_proxy.peer()
                     ))?;
 
-                    g3_socks::v4a::client::socks4a_connect_to(&mut stream, target)
+                    vey_socks::v4a::client::socks4a_connect_to(&mut stream, target)
                         .await
                         .map_err(|e| {
                             anyhow!("socks4a connect to {} failed: {e}", socks4_proxy.peer())
@@ -270,7 +270,7 @@ impl H2ConnectArgs {
                         socks5_proxy.peer()
                     ))?;
 
-                    g3_socks::v5::client::socks5_connect_to(
+                    vey_socks::v5::client::socks5_connect_to(
                         &mut stream,
                         &socks5_proxy.auth,
                         target,

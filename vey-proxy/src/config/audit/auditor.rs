@@ -9,9 +9,8 @@ use anyhow::{Context, anyhow};
 use rand::distr::Bernoulli;
 use yaml_rust::{Yaml, yaml};
 
-use g3_cert_agent::CertAgentConfig;
 use g3_icap_client::IcapServiceConfig;
-use g3_udpdump::StreamDumpConfig;
+use vey_cert_agent::CertAgentConfig;
 use vey_dpi::{
     H1InterceptionConfig, H2InterceptionConfig, ImapInterceptionConfig,
     ProtocolInspectPolicyBuilder, ProtocolInspectionConfig, ProtocolPortMap,
@@ -22,6 +21,7 @@ use vey_types::metrics::NodeName;
 use vey_types::net::{
     OpensslInterceptionClientConfigBuilder, OpensslInterceptionServerConfigBuilder,
 };
+use vey_udpdump::StreamDumpConfig;
 use vey_yaml::YamlDocPosition;
 
 #[cfg(feature = "quic")]

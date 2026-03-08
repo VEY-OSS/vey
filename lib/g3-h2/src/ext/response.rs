@@ -8,7 +8,7 @@ use std::io::Write;
 use bytes::BufMut;
 use http::{HeaderMap, Response};
 
-use g3_http::client::HttpAdaptedResponse;
+use vey_http::client::HttpAdaptedResponse;
 
 pub trait ResponseExt {
     fn serialize_for_adapter(&self) -> Vec<u8>;

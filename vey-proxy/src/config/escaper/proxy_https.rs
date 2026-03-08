@@ -346,7 +346,7 @@ impl ProxyHttpsEscaperConfig {
             }
 
             self.append_http_headers
-                .push(g3_http::header::proxy_authorization_basic(
+                .push(vey_http::header::proxy_authorization_basic(
                     &self.proxy_username,
                     &self.proxy_password,
                 ));

@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_http::HttpBodyReader;
-use g3_http::server::HttpProxyClientRequest;
+use vey_http::HttpBodyReader;
+use vey_http::server::HttpProxyClientRequest;
 use vey_io_ext::{StreamCopy, StreamCopyError};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpRProxyRequest};

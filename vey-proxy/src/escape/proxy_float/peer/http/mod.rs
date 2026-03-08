@@ -50,7 +50,7 @@ pub(crate) struct ProxyFloatHttpPeerSharedConfig {
 impl ProxyFloatHttpPeerSharedConfig {
     pub(crate) fn set_user(&mut self, username: &Username, password: &Password) {
         self.append_http_headers
-            .push(g3_http::header::proxy_authorization_basic(
+            .push(vey_http::header::proxy_authorization_basic(
                 username, password,
             ));
     }

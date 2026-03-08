@@ -8,7 +8,6 @@ use std::task::{Context, Poll, ready};
 
 use slog::Logger;
 
-use g3_socks::v5::UdpOutput;
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -20,6 +19,7 @@ use g3_socks::v5::UdpOutput;
 use vey_io_ext::UdpCopyPacket;
 use vey_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 use vey_io_sys::udp::SendMsgHdr;
+use vey_socks::v5::UdpOutput;
 use vey_types::net::UpstreamAddr;
 
 pub(crate) struct ProxySocks5UdpConnectRemoteSend<T> {

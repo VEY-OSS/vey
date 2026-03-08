@@ -15,7 +15,7 @@ use http::{HeaderMap, HeaderValue, header};
 use serde_json::{Map, Number, Value};
 use tokio::sync::mpsc;
 
-use g3_http::client::HttpForwardRemoteResponse;
+use vey_http::client::HttpForwardRemoteResponse;
 use vey_types::metrics::MetricTagMap;
 
 use crate::config::exporter::opentsdb::OpentsdbExporterConfig;

@@ -9,7 +9,7 @@ use std::net::{IpAddr, SocketAddr};
 use async_trait::async_trait;
 use tokio::net::TcpStream;
 
-use g3_ftp_client::FtpConnectionProvider;
+use vey_ftp_client::FtpConnectionProvider;
 use vey_socket::BindAddr;
 use vey_types::net::UpstreamAddr;
 

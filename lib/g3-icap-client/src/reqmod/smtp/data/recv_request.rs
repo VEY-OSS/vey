@@ -5,10 +5,10 @@
 
 use tokio::io::{AsyncWrite, BufWriter};
 
-use g3_http::HttpBodyDecodeReader;
-use g3_http::server::HttpAdaptedRequest;
-use g3_smtp_proto::io::TextDataEncodeTransfer;
+use vey_http::HttpBodyDecodeReader;
+use vey_http::server::HttpAdaptedRequest;
 use vey_io_ext::{IdleCheck, StreamCopyError};
+use vey_smtp_proto::io::TextDataEncodeTransfer;
 
 use super::{SmtpAdaptationError, SmtpMessageAdapter};
 use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};

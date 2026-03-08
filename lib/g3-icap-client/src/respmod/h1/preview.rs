@@ -12,7 +12,7 @@ use std::time::Duration;
 use bytes::BufMut;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 
-use g3_http::{ChunkedDataDecodeReader, H1BodyToChunkedTransfer, HttpBodyReader, HttpBodyType};
+use vey_http::{ChunkedDataDecodeReader, H1BodyToChunkedTransfer, HttpBodyReader, HttpBodyType};
 use vey_io_ext::{IdleCheck, LimitedWriteExt, StreamCopy, StreamCopyError};
 
 use super::{

@@ -6,7 +6,7 @@
 use bytes::BytesMut;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use g3_http::server::HttpTransparentRequestAcceptor;
+use vey_http::server::HttpTransparentRequestAcceptor;
 use vey_types::net::UpstreamAddr;
 
 use crate::serve::{ServerTaskError, ServerTaskResult};

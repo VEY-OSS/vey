@@ -13,7 +13,7 @@ use http::Method;
 use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
 
-use g3_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
+use vey_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
 use vey_io_ext::LimitedBufReader;
 
 use crate::auth::UserUpstreamTrafficStats;

@@ -12,8 +12,8 @@ use serde_json::{Map, Value};
 use tokio::io::{AsyncWriteExt, BufStream};
 use tokio::net::TcpStream;
 
-use g3_http::HttpBodyReader;
-use g3_http::client::HttpForwardRemoteResponse;
+use vey_http::HttpBodyReader;
+use vey_http::client::HttpForwardRemoteResponse;
 use vey_io_ext::{LimitedBufReadExt, LimitedWriteExt};
 
 use super::RegisterConfig;

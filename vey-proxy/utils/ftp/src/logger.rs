@@ -5,7 +5,7 @@
 
 use log::{Level, LevelFilter, Log, Metadata, Record};
 
-use g3_ftp_client::FTP_DEBUG_LOG_TARGET;
+use vey_ftp_client::FTP_DEBUG_LOG_TARGET;
 
 pub(crate) struct SyncLogger {
     verbose_level: u8,

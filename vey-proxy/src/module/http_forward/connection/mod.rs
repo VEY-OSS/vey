@@ -12,9 +12,9 @@ use async_trait::async_trait;
 use http::Method;
 use tokio::io::{AsyncBufRead, AsyncWrite};
 
-use g3_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
-use g3_http::server::HttpProxyClientRequest;
 use g3_icap_client::reqmod::h1::HttpRequestUpstreamWriter;
+use vey_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
+use vey_http::server::HttpProxyClientRequest;
 use vey_types::net::UpstreamAddr;
 
 use super::{ArcHttpForwardTaskRemoteStats, HttpForwardTaskNotes};

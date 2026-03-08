@@ -11,12 +11,12 @@ use anyhow::anyhow;
 use http::Method;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_ftp_client::{
+use vey_ftp_client::{
     FtpClient, FtpFileFacts, FtpFileListError, FtpFileRetrieveStartError, FtpFileStatError,
     FtpFileStoreStartError, FtpSessionOpenError,
 };
-use g3_http::server::HttpProxyClientRequest;
-use g3_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
+use vey_http::server::HttpProxyClientRequest;
+use vey_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
 use vey_io_ext::{GlobalLimitGroup, SizedReader, StreamCopy, StreamCopyError};
 use vey_types::acl::AclAction;
 use vey_types::net::ProxyRequestType;

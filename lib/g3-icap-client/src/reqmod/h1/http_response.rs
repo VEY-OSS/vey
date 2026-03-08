@@ -10,8 +10,8 @@ use bytes::BufMut;
 use http::{HeaderName, StatusCode, Version};
 use tokio::io::AsyncBufRead;
 
-use g3_http::client::HttpResponseParseError;
-use g3_http::{HttpHeaderLine, HttpLineParseError, HttpStatusLine};
+use vey_http::client::HttpResponseParseError;
+use vey_http::{HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
 
@@ -157,7 +157,7 @@ impl HttpAdapterErrorResponse {
 
         self.headers
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
-        let connection_value = g3_http::header::connection_as_bytes(close_connection);
+        let connection_value = vey_http::header::connection_as_bytes(close_connection);
         buf.put_slice(connection_value);
         buf.put_slice(b"\r\n");
         buf

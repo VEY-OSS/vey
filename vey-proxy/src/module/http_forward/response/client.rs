@@ -11,8 +11,8 @@ use http::{StatusCode, Version};
 use mime::Mime;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-use g3_ftp_client::FtpConnectError;
-use g3_http::server::HttpRequestParseError;
+use vey_ftp_client::FtpConnectError;
+use vey_http::server::HttpRequestParseError;
 use vey_io_ext::LimitedWriteExt;
 use vey_types::net::ConnectError;
 
@@ -127,7 +127,7 @@ impl HttpProxyClientResponse {
     pub(crate) fn need_login(version: Version, close: bool, realm: &str) -> Self {
         let mut response =
             HttpProxyClientResponse::from_standard(StatusCode::UNAUTHORIZED, version, close);
-        let auth_header = g3_http::header::www_authenticate_basic(realm);
+        let auth_header = vey_http::header::www_authenticate_basic(realm);
         response.add_extra_header(auth_header);
         response
     }
@@ -145,10 +145,10 @@ impl HttpProxyClientResponse {
             response.close = true;
             chunked = false;
         } else {
-            response.add_extra_header(g3_http::header::transfer_encoding_chunked().to_string());
+            response.add_extra_header(vey_http::header::transfer_encoding_chunked().to_string());
             chunked = true;
         }
-        response.add_extra_header(g3_http::header::content_type(content_type));
+        response.add_extra_header(vey_http::header::content_type(content_type));
         (response, chunked)
     }
 
@@ -159,20 +159,20 @@ impl HttpProxyClientResponse {
         content_type: &Mime,
     ) -> Self {
         let mut response = HttpProxyClientResponse::from_standard(StatusCode::OK, version, close);
-        response.add_extra_header(g3_http::header::content_length(body_len));
-        response.add_extra_header(g3_http::header::content_type(content_type));
+        response.add_extra_header(vey_http::header::content_length(body_len));
+        response.add_extra_header(vey_http::header::content_type(content_type));
         response
     }
 
     pub(crate) fn ending_ok(version: Version, close: bool, content_type: &Mime) -> Self {
         let mut response = HttpProxyClientResponse::from_standard(StatusCode::OK, version, close);
-        response.add_extra_header(g3_http::header::content_type(content_type));
+        response.add_extra_header(vey_http::header::content_type(content_type));
         response
     }
 
     pub(crate) fn ok(version: Version, close: bool) -> Self {
         let mut response = HttpProxyClientResponse::from_standard(StatusCode::OK, version, close);
-        response.add_extra_header(g3_http::header::content_length(0));
+        response.add_extra_header(vey_http::header::content_length(0));
         response
     }
 
@@ -186,11 +186,11 @@ impl HttpProxyClientResponse {
     ) -> Self {
         let mut response =
             HttpProxyClientResponse::from_standard(StatusCode::PARTIAL_CONTENT, version, close);
-        response.add_extra_header(g3_http::header::content_range_sized(
+        response.add_extra_header(vey_http::header::content_range_sized(
             start_size, end_size, total_size,
         ));
-        response.add_extra_header(g3_http::header::content_length(end_size - start_size + 1));
-        response.add_extra_header(g3_http::header::content_type(content_type));
+        response.add_extra_header(vey_http::header::content_length(end_size - start_size + 1));
+        response.add_extra_header(vey_http::header::content_type(content_type));
         response
     }
 
@@ -205,7 +205,7 @@ impl HttpProxyClientResponse {
             close,
         );
         if let Some(start) = start_size {
-            response.add_extra_header(g3_http::header::content_range_overflowed(start));
+            response.add_extra_header(vey_http::header::content_range_overflowed(start));
         }
         response
     }
@@ -493,7 +493,7 @@ impl HttpProxyClientResponse {
         for line in &self.extra_headers {
             header.extend_from_slice(line.as_bytes());
         }
-        header.extend_from_slice(g3_http::header::connection_as_bytes(self.close));
+        header.extend_from_slice(vey_http::header::connection_as_bytes(self.close));
         header.extend_from_slice(b"\r\n");
         writer.write_all(header.as_ref()).await?;
         // writer.flush().await?;
@@ -545,9 +545,9 @@ impl HttpProxyClientResponse {
         for line in &self.extra_headers {
             header.extend_from_slice(line.as_bytes());
         }
-        header.extend_from_slice(g3_http::header::content_type(&mime::TEXT_HTML).as_bytes());
-        header.extend_from_slice(g3_http::header::content_length(body.len() as u64).as_bytes());
-        header.extend_from_slice(g3_http::header::connection_as_bytes(self.close));
+        header.extend_from_slice(vey_http::header::content_type(&mime::TEXT_HTML).as_bytes());
+        header.extend_from_slice(vey_http::header::content_length(body.len() as u64).as_bytes());
+        header.extend_from_slice(vey_http::header::connection_as_bytes(self.close));
         header.extend_from_slice(b"\r\n");
         // append body
         header.extend_from_slice(body.as_bytes());
@@ -577,7 +577,7 @@ impl HttpProxyClientResponse {
             version,
             close,
         );
-        let auth_header = g3_http::header::proxy_authenticate_basic(realm.as_str());
+        let auth_header = vey_http::header::proxy_authenticate_basic(realm.as_str());
         response.add_extra_header(auth_header);
         response.reply_err(writer).await
     }

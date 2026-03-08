@@ -9,8 +9,8 @@ use log::debug;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, BufReader};
 use tokio::time::Instant;
 
-use g3_socks::{SocksAuthMethod, SocksCommand, SocksVersion, v4a, v5};
 use vey_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
+use vey_socks::{SocksAuthMethod, SocksCommand, SocksVersion, v4a, v5};
 
 use super::tcp_connect::SocksProxyTcpConnectTask;
 use super::udp_associate::SocksProxyUdpAssociateTask;

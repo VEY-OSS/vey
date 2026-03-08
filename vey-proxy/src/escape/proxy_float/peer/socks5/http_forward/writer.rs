@@ -13,7 +13,7 @@ use pin_project_lite::pin_project;
 use tokio::io::AsyncWrite;
 use tokio::time::Instant;
 
-use g3_http::server::HttpProxyClientRequest;
+use vey_http::server::HttpProxyClientRequest;
 use vey_io_ext::LimitedWriter;
 use vey_types::net::UpstreamAddr;
 

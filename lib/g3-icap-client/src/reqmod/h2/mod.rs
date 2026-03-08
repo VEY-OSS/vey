@@ -16,7 +16,7 @@ use http::{Extensions, Request, Response};
 use tokio::time::Instant;
 
 use g3_h2::H2StreamFromChunkedTransfer;
-use g3_http::server::HttpAdaptedRequest;
+use vey_http::server::HttpAdaptedRequest;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
 use vey_types::net::HttpHeaderMap;
 

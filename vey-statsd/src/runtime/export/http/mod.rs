@@ -14,8 +14,8 @@ use log::{debug, warn};
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
 
-use g3_http::HttpBodyDecodeReader;
-use g3_http::client::HttpForwardRemoteResponse;
+use vey_http::HttpBodyDecodeReader;
+use vey_http::client::HttpForwardRemoteResponse;
 use vey_io_ext::{AsyncStream, LimitedWriteExt};
 
 mod config;

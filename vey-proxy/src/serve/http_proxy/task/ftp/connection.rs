@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use g3_ftp_client::FtpConnectionProvider;
+use vey_ftp_client::FtpConnectionProvider;
 use vey_types::net::UpstreamAddr;
 
 use super::FtpOverHttpTaskStats;

@@ -9,7 +9,7 @@ use std::time::Duration;
 use tokio::io::AsyncBufRead;
 use tokio::time::Instant;
 
-use g3_http::HttpBodyDecodeReader;
+use vey_http::HttpBodyDecodeReader;
 
 use crate::IcapServiceClient;
 use crate::reqmod::h1::HttpAdapterErrorResponse;

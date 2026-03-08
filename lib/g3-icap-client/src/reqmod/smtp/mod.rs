@@ -11,8 +11,8 @@ use arcstr::ArcStr;
 use bytes::BufMut;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_smtp_proto::command::{MailParam, RecipientParam};
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
+use vey_smtp_proto::command::{MailParam, RecipientParam};
 
 use super::IcapReqmodClient;
 use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};

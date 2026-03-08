@@ -10,12 +10,12 @@ use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::UdpSocket;
 
-use g3_socks::v5::Socks5Reply;
 use vey_io_ext::{
     LimitedUdpRecv, LimitedUdpSend, UdpRecvHalf, UdpRelayClientRecv, UdpRelayClientSend,
     UdpRelayClientToRemote, UdpRelayError, UdpRelayRemoteRecv, UdpRelayRemoteSend,
     UdpRelayRemoteToClient, UdpSendHalf,
 };
+use vey_socks::v5::Socks5Reply;
 use vey_types::acl::AclAction;
 use vey_types::net::{ProxyRequestType, UpstreamAddr};
 

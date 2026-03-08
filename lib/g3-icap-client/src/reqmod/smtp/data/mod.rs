@@ -8,10 +8,10 @@ use std::io::{IoSlice, Write};
 use bytes::BufMut;
 use tokio::io::{AsyncRead, AsyncWrite, BufWriter};
 
-use g3_http::StreamToChunkedTransfer;
-use g3_smtp_proto::command::{MailParam, RecipientParam};
-use g3_smtp_proto::io::TextDataDecodeReader;
+use vey_http::StreamToChunkedTransfer;
 use vey_io_ext::{IdleCheck, LimitedWriteExt};
+use vey_smtp_proto::command::{MailParam, RecipientParam};
+use vey_smtp_proto::io::TextDataDecodeReader;
 
 use super::{HttpAdapterErrorResponse, SmtpAdaptationError, SmtpMessageAdapter};
 use crate::reqmod::IcapReqmodResponsePayload;

@@ -14,7 +14,7 @@ use g3_h2::{
     H2BodyTransfer, H2PreviewData, H2StreamBodyTransferError, H2StreamFromChunkedTransfer,
     H2StreamFromChunkedTransferError, RequestExt,
 };
-use g3_http::server::HttpAdaptedRequest;
+use vey_http::server::HttpAdaptedRequest;
 use vey_io_ext::IdleCheck;
 
 use super::{

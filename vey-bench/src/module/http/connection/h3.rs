@@ -16,8 +16,8 @@ use quinn::{ClientConfig, Endpoint, TokioRuntime, TransportConfig};
 use rustls_pki_types::ServerName;
 use url::Url;
 
-use g3_socks::v5::Socks5UdpTokioRuntime;
 use vey_io_ext::LimitedTokioRuntime;
+use vey_socks::v5::Socks5UdpTokioRuntime;
 use vey_types::collection::{SelectiveVec, WeightedValue};
 use vey_types::net::{AlpnProtocol, Proxy, RustlsClientConfigBuilder, Socks5Proxy, UpstreamAddr};
 
@@ -102,7 +102,7 @@ impl H3ConnectArgs {
             let local_udp_addr = socket
                 .local_addr()
                 .map_err(|e| anyhow!("failed to get local addr of udp socket: {e}"))?;
-            let peer_udp_addr = g3_socks::v5::client::socks5_udp_associate(
+            let peer_udp_addr = vey_socks::v5::client::socks5_udp_associate(
                 &mut stream,
                 &socks5_proxy.auth,
                 local_udp_addr,

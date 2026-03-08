@@ -10,7 +10,7 @@ use clap::{Arg, ArgMatches, Command, ValueHint, value_parser};
 use tokio::fs::File;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_ftp_client::{FtpClient, FtpConnectionProvider};
+use vey_ftp_client::{FtpClient, FtpConnectionProvider};
 
 pub(super) const COMMAND: &str = "put";
 

@@ -6,7 +6,7 @@
 use clap::{Arg, ArgMatches, Command};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, Stdout};
 
-use g3_ftp_client::{FtpClient, FtpConnectionProvider, FtpLineDataReceiver};
+use vey_ftp_client::{FtpClient, FtpConnectionProvider, FtpLineDataReceiver};
 
 pub(super) const COMMAND: &str = "list";
 

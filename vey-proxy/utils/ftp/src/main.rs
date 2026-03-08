@@ -12,7 +12,7 @@ use anyhow::anyhow;
 use clap::{Arg, ArgAction, Command, value_parser};
 use clap_complete::Shell;
 
-use g3_ftp_client::{FtpClient, FtpClientConfig};
+use vey_ftp_client::{FtpClient, FtpClientConfig};
 use vey_types::auth::{Password, Username};
 use vey_types::net::UpstreamAddr;
 

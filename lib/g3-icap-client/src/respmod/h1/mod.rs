@@ -13,8 +13,8 @@ use http::Method;
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
-use g3_http::HttpBodyType;
-use g3_http::client::HttpAdaptedResponse;
+use vey_http::HttpBodyType;
+use vey_http::client::HttpAdaptedResponse;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
 use vey_types::net::HttpHeaderMap;
 

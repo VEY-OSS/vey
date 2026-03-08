@@ -24,7 +24,7 @@ g3-daemon.workspace = true
 vey-statsd-client.workspace = true
 vey-histogram.workspace = true
 vey-tls-cert.workspace = true
-g3-cert-agent.workspace = true
+vey-cert-agent.workspace = true
 vey-socket.workspace = true
 
 [build-dependencies]
@@ -33,7 +33,7 @@ vey-build-env.workspace = true
 [features]
 default = []
 vendored-openssl = ["openssl/vendored"]
-vendored-tongsuo = ["openssl/tongsuo", "g3-cert-agent/tongsuo"]
+vendored-tongsuo = ["openssl/tongsuo", "vey-cert-agent/tongsuo"]
 vendored-boringssl = ["openssl/boringssl"]
 vendored-aws-lc = ["openssl/aws-lc"]
 vendored-aws-lc-fips = ["openssl/aws-lc-fips"]

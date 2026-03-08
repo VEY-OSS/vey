@@ -10,7 +10,7 @@ use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
-use g3_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
+use vey_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
 use vey_types::net::{HttpHeaderValue, HttpServerId, UpstreamAddr};
 
 use super::HttpClientReader;

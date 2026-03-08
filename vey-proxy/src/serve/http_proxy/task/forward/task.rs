@@ -12,9 +12,6 @@ use futures_util::FutureExt;
 use http::header;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 
-use g3_http::client::HttpForwardRemoteResponse;
-use g3_http::server::HttpProxyClientRequest;
-use g3_http::{HttpBodyReader, HttpBodyType};
 use g3_icap_client::reqmod::h1::{
     H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
     ReqmodAdaptationEndState, ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
@@ -22,6 +19,9 @@ use g3_icap_client::reqmod::h1::{
 use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
+use vey_http::client::HttpForwardRemoteResponse;
+use vey_http::server::HttpProxyClientRequest;
+use vey_http::{HttpBodyReader, HttpBodyType};
 use vey_io_ext::{
     GlobalLimitGroup, LimitedBufReadExt, LimitedReadExt, LimitedWriteExt, StreamCopy,
     StreamCopyError,

@@ -8,7 +8,7 @@ use std::io::{IoSlice, Write};
 use bytes::BufMut;
 use tokio::io::{AsyncBufRead, AsyncWriteExt};
 
-use g3_http::{H1BodyToChunkedTransfer, HttpBodyReader, HttpBodyType};
+use vey_http::{H1BodyToChunkedTransfer, HttpBodyReader, HttpBodyType};
 use vey_io_ext::{IdleCheck, LimitedWriteExt, StreamCopy, StreamCopyError};
 
 use super::{

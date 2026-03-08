@@ -64,18 +64,18 @@ lru.workspace = true
 regex.workspace = true
 mlua = { workspace = true, features = ["send"], optional = true }
 pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
-g3-cert-agent = { workspace = true, features = ["yaml"] }
+vey-cert-agent = { workspace = true, features = ["yaml"] }
 vey-codec = { workspace = true, features = ["ldap", "tls"] }
 g3-daemon = { workspace = true, features = ["event-log"] }
 vey-datetime.workspace = true
 vey-dpi.workspace = true
-g3-ftp-client = { workspace = true, features = ["yaml"] }
+vey-ftp-client = { workspace = true, features = ["yaml"] }
 vey-geoip-types.workspace = true
 g3-h2.workspace = true
 vey-histogram.workspace = true
-g3-http.workspace = true
+vey-http.workspace = true
 g3-icap-client = { workspace = true, features = ["yaml"] }
-g3-imap-proto.workspace = true
+vey-imap-proto.workspace = true
 vey-io-ext = { workspace = true, features = ["resolver", "openssl", "rustls", "log"] }
 vey-io-sys.workspace = true
 vey-ip-locate = { workspace = true, features = ["yaml"] }
@@ -86,14 +86,14 @@ vey-openssl.workspace = true
 vey-redis-client = { workspace = true, features = ["yaml"] }
 vey-resolver = { workspace = true, features = ["yaml", "hickory"] }
 vey-slog-types = { workspace = true, features = ["auth", "http", "openssl", "socket"] }
-g3-smtp-proto.workspace = true
+vey-smtp-proto.workspace = true
 vey-socket.workspace = true
-g3-socks.workspace = true
+vey-socks.workspace = true
 vey-statsd-client.workspace = true
 vey-std-ext.workspace = true
 vey-types = { workspace = true, features = ["auth-crypt", "auth-facts", "openssl", "rustls", "acl-rule", "http", "route", "async-log"] }
 vey-tls-ticket = { workspace = true, features = ["yaml"] }
-g3-udpdump = { workspace = true, features = ["yaml"] }
+vey-udpdump = { workspace = true, features = ["yaml"] }
 vey-xcrypt.workspace = true
 vey-yaml = { workspace = true, features = ["auth-facts", "resolve", "rustls", "openssl", "acl-rule", "http", "route", "dpi", "histogram", "geoip"] }
 vey-proxy-proto = { path = "proto" }
@@ -119,7 +119,7 @@ rustls-ring = ["vey-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
 rustls-aws-lc = ["vey-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
 rustls-aws-lc-fips = ["vey-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
-vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-cert-agent/tongsuo"]
+vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "vey-cert-agent/tongsuo"]
 vendored-boringssl = ["openssl/boringssl", "openssl-probe"]
 vendored-aws-lc = ["openssl/aws-lc", "openssl-probe"]
 vendored-aws-lc-fips = ["openssl/aws-lc-fips", "openssl-probe"]

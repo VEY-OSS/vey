@@ -5,7 +5,7 @@
 
 use http::{Method, Uri};
 
-use g3_http::server::HttpProxyClientRequest;
+use vey_http::server::HttpProxyClientRequest;
 use vey_types::auth::{Password, Username};
 use vey_types::net::{HttpAuth, HttpBasicAuth, UpstreamAddr};
 

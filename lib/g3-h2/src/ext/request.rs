@@ -9,7 +9,7 @@ use bytes::BufMut;
 use http::uri::Authority;
 use http::{HeaderMap, Method, Request, Uri};
 
-use g3_http::server::HttpAdaptedRequest;
+use vey_http::server::HttpAdaptedRequest;
 
 pub trait RequestExt {
     fn serialize_for_adapter(&self) -> Vec<u8>;

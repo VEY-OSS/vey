@@ -19,7 +19,7 @@ members = [
     "vey-gateway/proto",
     "vey-gateway/utils/ctl",
     "lib/vey-build-env",
-    "lib/g3-cert-agent",
+    "lib/vey-cert-agent",
     "lib/vey-clap",
     "lib/vey-codec",
     "lib/vey-compat",
@@ -28,15 +28,15 @@ members = [
     "lib/vey-datetime",
     "lib/vey-dpi",
     "lib/vey-fluentd",
-    "lib/g3-ftp-client",
+    "lib/vey-ftp-client",
     "lib/vey-geoip-db",
     "lib/vey-geoip-types",
     "lib/g3-h2",
     "lib/vey-hickory-client",
     "lib/vey-histogram",
-    "lib/g3-http",
+    "lib/vey-http",
     "lib/g3-icap-client",
-    "lib/g3-imap-proto",
+    "lib/vey-imap-proto",
     "lib/vey-io-ext",
     "lib/vey-io-sys",
     "lib/vey-ip-locate",
@@ -49,9 +49,9 @@ members = [
     "lib/vey-resolver",
     "lib/vey-runtime",
     "lib/vey-slog-types",
-    "lib/g3-smtp-proto",
+    "lib/vey-smtp-proto",
     "lib/vey-socket",
-    "lib/g3-socks",
+    "lib/vey-socks",
     "lib/vey-statsd-client",
     "lib/vey-std-ext",
     "lib/vey-stdlog",
@@ -59,7 +59,7 @@ members = [
     "lib/vey-tls-cert",
     "lib/vey-tls-ticket",
     "lib/vey-types",
-    "lib/g3-udpdump",
+    "lib/vey-udpdump",
     "lib/vey-xcrypt",
     "lib/vey-yaml",
     "scripts/capnp-generate",
@@ -199,7 +199,7 @@ pyo3 = { version = "0.28", default-features = false, features = ["auto-initializ
 cfg-if = "1.0"
 #
 vey-build-env = { version = "0.2", path = "lib/vey-build-env" }
-g3-cert-agent = { version = "0.3", path = "lib/g3-cert-agent" }
+vey-cert-agent = { version = "0.3", path = "lib/vey-cert-agent" }
 vey-clap = { version = "0.2", path = "lib/vey-clap" }
 vey-codec = { version = "0.1", path = "lib/vey-codec" }
 vey-compat = { version = "0.2", path = "lib/vey-compat" }
@@ -208,15 +208,15 @@ g3-daemon = { version = "0.4", path = "lib/g3-daemon" }
 vey-datetime = { version = "0.2", path = "lib/vey-datetime" }
 vey-dpi = { version = "0.3", path = "lib/vey-dpi" }
 vey-fluentd = { version = "0.3", path = "lib/vey-fluentd" }
-g3-ftp-client = { version = "0.5", path = "lib/g3-ftp-client" }
+vey-ftp-client = { version = "0.5", path = "lib/vey-ftp-client" }
 vey-geoip-db = { version = "0.3", path = "lib/vey-geoip-db" }
 vey-geoip-types = { version = "0.2", path = "lib/vey-geoip-types" }
 g3-h2 = { version = "0.3", path = "lib/g3-h2" }
 vey-hickory-client = { version = "0.3", path = "lib/vey-hickory-client" }
 vey-histogram = { version = "0.2", path = "lib/vey-histogram" }
-g3-http = { version = "0.5", path = "lib/g3-http" }
+vey-http = { version = "0.5", path = "lib/vey-http" }
 g3-icap-client = { version = "0.4", path = "lib/g3-icap-client" }
-g3-imap-proto = { version = "0.3", path = "lib/g3-imap-proto" }
+vey-imap-proto = { version = "0.3", path = "lib/vey-imap-proto" }
 vey-io-ext = { version = "0.9", path = "lib/vey-io-ext" }
 vey-io-sys = { version = "0.1", path = "lib/vey-io-sys" }
 vey-ip-locate = { version = "0.3", path = "lib/vey-ip-locate" }
@@ -229,9 +229,9 @@ vey-redis-client = { version = "0.3", path = "lib/vey-redis-client" }
 vey-resolver = { version = "0.9", path = "lib/vey-resolver" }
 vey-runtime = { version = "0.5", path = "lib/vey-runtime" }
 vey-slog-types = { version = "0.3", path = "lib/vey-slog-types" }
-g3-smtp-proto = { version = "0.3", path = "lib/g3-smtp-proto" }
+vey-smtp-proto = { version = "0.3", path = "lib/vey-smtp-proto" }
 vey-socket = { version = "0.6", path = "lib/vey-socket" }
-g3-socks = { version = "0.4", path = "lib/g3-socks" }
+vey-socks = { version = "0.4", path = "lib/vey-socks" }
 vey-statsd-client = { version = "0.3", path = "lib/vey-statsd-client" }
 vey-std-ext = { version = "0.1", path = "lib/vey-std-ext" }
 vey-stdlog = { version = "0.3", path = "lib/vey-stdlog" }
@@ -239,7 +239,7 @@ vey-syslog = { version = "0.8", path = "lib/vey-syslog" }
 vey-tls-cert = { version = "0.7", path = "lib/vey-tls-cert" }
 vey-tls-ticket = { version = "0.3", path = "lib/vey-tls-ticket" }
 vey-types = { version = "0.7", path = "lib/vey-types" }
-g3-udpdump = { version = "0.3", path = "lib/g3-udpdump" }
+vey-udpdump = { version = "0.3", path = "lib/vey-udpdump" }
 vey-xcrypt = { version = "0.3", path = "lib/vey-xcrypt" }
 vey-yaml = { version = "0.7", path = "lib/vey-yaml" }
 

@@ -7,10 +7,10 @@ use std::sync::Arc;
 
 use tokio::io::{AsyncBufRead, AsyncWrite, BufWriter};
 
-use g3_http::server::HttpAdaptedRequest;
-use g3_http::{HttpBodyDecodeReader, StreamToChunkedTransfer};
-use g3_smtp_proto::io::TextDataEncodeTransfer;
+use vey_http::server::HttpAdaptedRequest;
+use vey_http::{HttpBodyDecodeReader, StreamToChunkedTransfer};
 use vey_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopyConfig, StreamCopyError};
+use vey_smtp_proto::io::TextDataEncodeTransfer;
 
 use super::SmtpAdaptationError;
 use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};

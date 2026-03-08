@@ -7,7 +7,7 @@ use std::io;
 
 use thiserror::Error;
 
-use g3_http::server::HttpRequestParseError;
+use vey_http::server::HttpRequestParseError;
 use vey_types::net::HttpUpgradeToken;
 
 #[derive(Debug, Error)]

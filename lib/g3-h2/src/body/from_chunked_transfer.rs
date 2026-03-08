@@ -12,7 +12,7 @@ use h2::SendStream;
 use thiserror::Error;
 use tokio::io::AsyncBufRead;
 
-use g3_http::{ChunkedDataDecodeReader, TrailerReadError, TrailerReader};
+use vey_http::{ChunkedDataDecodeReader, TrailerReadError, TrailerReader};
 use vey_io_ext::StreamCopyConfig;
 
 use super::{H2StreamBodyEncodeTransferError, ROwnedH2BodyEncodeTransfer};

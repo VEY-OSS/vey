@@ -9,20 +9,20 @@ use std::time::Duration;
 use anyhow::anyhow;
 use thiserror::Error;
 
-use g3_ftp_client::FtpConnectError;
-use g3_http::client::HttpResponseParseError;
-use g3_http::server::HttpRequestParseError;
 use g3_icap_client::reqmod::h1::H1ReqmodAdaptationError;
 use g3_icap_client::reqmod::imap::ImapAdaptationError;
 use g3_icap_client::reqmod::smtp::SmtpAdaptationError;
 use g3_icap_client::respmod::h1::H1RespmodAdaptationError;
-use g3_socks::SocksRequestParseError;
 use vey_dpi::Protocol;
+use vey_ftp_client::FtpConnectError;
+use vey_http::client::HttpResponseParseError;
+use vey_http::server::HttpRequestParseError;
 use vey_io_ext::{
     IdleForceQuitReason, UdpCopyClientError, UdpCopyError, UdpCopyRemoteError, UdpRelayClientError,
     UdpRelayError, UdpRelayRemoteError,
 };
 use vey_resolver::ResolveError;
+use vey_socks::SocksRequestParseError;
 use vey_types::net::ConnectError;
 
 use crate::inspect::InterceptionError;

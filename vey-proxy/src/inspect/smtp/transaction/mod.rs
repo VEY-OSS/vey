@@ -12,12 +12,12 @@ use tokio::time::Instant;
 
 use g3_icap_client::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use g3_icap_client::reqmod::smtp::SmtpMessageAdapter;
-use g3_smtp_proto::command::{Command, MailParam, RecipientParam};
-use g3_smtp_proto::io::TextDataReader;
-use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 use vey_dpi::SmtpInterceptionConfig;
 use vey_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
 use vey_slog_types::LtUuid;
+use vey_smtp_proto::command::{Command, MailParam, RecipientParam};
+use vey_smtp_proto::io::TextDataReader;
+use vey_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 
 use super::{CommandLineRecvExt, ResponseLineRecvExt, ResponseParseExt, SmtpRelayBuf};
 use crate::config::server::ServerConfig;

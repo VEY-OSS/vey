@@ -12,7 +12,7 @@ use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt, AsyncWrite, BufRead
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 
-use g3_http::client::HttpTransparentResponse;
+use vey_http::client::HttpTransparentResponse;
 use vey_io_ext::{LimitedBufReadExt, LimitedReader, LimitedWriteExt, LimitedWriter};
 use vey_types::net::HttpUpgradeToken;
 

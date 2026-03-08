@@ -6,8 +6,8 @@
 use bytes::BufMut;
 use http::{Method, header};
 
-use g3_http::HttpBodyType;
-use g3_http::server::{HttpProxyClientRequest, HttpTransparentRequest};
+use vey_http::HttpBodyType;
+use vey_http::server::{HttpProxyClientRequest, HttpTransparentRequest};
 
 use super::{HttpAdaptedRequest, HttpRequestForAdaptation};
 

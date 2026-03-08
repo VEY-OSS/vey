@@ -41,7 +41,7 @@ vey-io-ext.workspace = true
 vey-io-sys.workspace = true
 vey-socket.workspace = true
 vey-std-ext.workspace = true
-g3-http = { workspace = true, optional = true }
+vey-http = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true, features = ["process"] }
@@ -53,6 +53,6 @@ vey-journal.workspace = true
 [features]
 default = []
 event-log = ["dep:vey-fluentd"]
-register = ["vey-yaml/http", "dep:http", "dep:serde_json", "dep:g3-http"]
+register = ["vey-yaml/http", "dep:http", "dep:serde_json", "dep:vey-http"]
 quic = ["dep:quinn", "vey-types/acl-rule"]
 openssl-async-job = ["vey-runtime/openssl-async-job"]

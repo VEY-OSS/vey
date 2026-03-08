@@ -12,7 +12,7 @@ use h2::{RecvStream, SendStream};
 use http::{Request, Response};
 use tokio::time::Instant;
 
-use g3_http::client::HttpAdaptedResponse;
+use vey_http::client::HttpAdaptedResponse;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
 use vey_types::net::HttpHeaderMap;
 

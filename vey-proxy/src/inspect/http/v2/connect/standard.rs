@@ -10,7 +10,7 @@ use h2::{RecvStream, SendStream, StreamId};
 use http::{Request, Response, StatusCode, Version};
 
 use g3_h2::{H2StreamReader, H2StreamWriter};
-use g3_http::server::UriExt;
+use vey_http::server::UriExt;
 use vey_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;
 

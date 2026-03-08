@@ -10,7 +10,7 @@ use g3_h2::{
     H2BodyTransfer, H2PreviewData, H2StreamBodyTransferError, H2StreamFromChunkedTransfer,
     H2StreamFromChunkedTransferError, ResponseExt,
 };
-use g3_http::client::HttpAdaptedResponse;
+use vey_http::client::HttpAdaptedResponse;
 use vey_io_ext::IdleCheck;
 
 use super::{
