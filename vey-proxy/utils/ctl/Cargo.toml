@@ -15,5 +15,5 @@ futures-util.workspace = true
 capnp.workspace = true
 serde_json.workspace = true
 g3-types = { workspace = true, features = ["resolve"] }
-g3-ctl.workspace = true
+vey-ctl.workspace = true
 vey-proxy-proto = { path = "../../proto" }

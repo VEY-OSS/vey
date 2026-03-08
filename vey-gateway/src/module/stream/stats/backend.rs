@@ -9,10 +9,10 @@ use std::time::Duration;
 
 use arc_swap::ArcSwapOption;
 
-use g3_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats};
-use g3_std_ext::time::DurationExt;
 use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::StatId;
+use vey_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats};
+use vey_std_ext::time::DurationExt;
 
 pub(crate) struct StreamBackendStats {
     name: NodeName,

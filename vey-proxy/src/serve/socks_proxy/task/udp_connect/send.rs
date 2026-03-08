@@ -17,9 +17,9 @@ use std::task::{Context, Poll, ready};
 ))]
 use g3_io_ext::UdpCopyPacket;
 use g3_io_ext::{AsyncUdpSend, UdpCopyClientError, UdpCopyClientSend};
-use g3_io_sys::udp::SendMsgHdr;
 use g3_socks::v5::UdpOutput;
 use g3_types::net::UpstreamAddr;
+use vey_io_sys::udp::SendMsgHdr;
 
 pub(super) struct Socks5UdpConnectClientSend<T> {
     inner: T,

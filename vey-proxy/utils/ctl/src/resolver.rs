@@ -9,8 +9,8 @@ use anyhow::anyhow;
 use clap::{Arg, ArgMatches, Command, value_parser};
 use futures_util::future::TryFutureExt;
 
-use g3_ctl::{CommandError, CommandResult};
 use g3_types::resolve::QueryStrategy as ResolverQueryStrategy;
+use vey_ctl::{CommandError, CommandResult};
 
 use vey_proxy_proto::proc_capnp::proc_control;
 use vey_proxy_proto::resolver_capnp::{
@@ -76,9 +76,9 @@ async fn query_domain(client: &resolver_control::Client, args: &ArgMatches) -> C
     match result.which().unwrap() {
         query_result::Which::Ip(ips) => {
             let ips = ips?;
-            g3_ctl::print_text_list("ip", ips)
+            vey_ctl::print_text_list("ip", ips)
         }
-        query_result::Which::Err(reason) => g3_ctl::print_text("err", reason?),
+        query_result::Which::Err(reason) => vey_ctl::print_text("err", reason?),
     }
 }
 

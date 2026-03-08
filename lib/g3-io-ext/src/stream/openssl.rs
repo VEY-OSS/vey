@@ -5,7 +5,7 @@
 
 use tokio::io::{AsyncRead, AsyncWrite, ReadHalf, WriteHalf};
 
-use g3_openssl::SslStream;
+use vey_openssl::SslStream;
 
 use super::AsyncStream;
 

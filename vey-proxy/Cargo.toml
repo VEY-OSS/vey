@@ -67,22 +67,22 @@ pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
 g3-cert-agent = { workspace = true, features = ["yaml"] }
 g3-codec = { workspace = true, features = ["ldap", "tls"] }
 g3-daemon = { workspace = true, features = ["event-log"] }
-g3-datetime.workspace = true
+vey-datetime.workspace = true
 g3-dpi.workspace = true
 g3-ftp-client = { workspace = true, features = ["yaml"] }
-g3-geoip-types.workspace = true
+vey-geoip-types.workspace = true
 g3-h2.workspace = true
-g3-histogram.workspace = true
+vey-histogram.workspace = true
 g3-http.workspace = true
 g3-icap-client = { workspace = true, features = ["yaml"] }
 g3-imap-proto.workspace = true
 g3-io-ext = { workspace = true, features = ["resolver", "openssl", "rustls", "log"] }
-g3-io-sys.workspace = true
+vey-io-sys.workspace = true
 g3-ip-locate = { workspace = true, features = ["yaml"] }
 g3-json = { workspace = true, features = ["auth-facts", "acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
-g3-macros.workspace = true
+vey-macros.workspace = true
 g3-msgpack.workspace = true
-g3-openssl.workspace = true
+vey-openssl.workspace = true
 g3-redis-client = { workspace = true, features = ["yaml"] }
 g3-resolver = { workspace = true, features = ["yaml", "hickory"] }
 g3-slog-types = { workspace = true, features = ["auth", "http", "openssl", "socket"] }
@@ -90,11 +90,11 @@ g3-smtp-proto.workspace = true
 g3-socket.workspace = true
 g3-socks.workspace = true
 g3-statsd-client.workspace = true
-g3-std-ext.workspace = true
+vey-std-ext.workspace = true
 g3-types = { workspace = true, features = ["auth-crypt", "auth-facts", "openssl", "rustls", "acl-rule", "http", "route", "async-log"] }
 g3-tls-ticket = { workspace = true, features = ["yaml"] }
 g3-udpdump = { workspace = true, features = ["yaml"] }
-g3-xcrypt.workspace = true
+vey-xcrypt.workspace = true
 g3-yaml = { workspace = true, features = ["auth-facts", "resolve", "rustls", "openssl", "acl-rule", "http", "route", "dpi", "histogram", "geoip"] }
 vey-proxy-proto = { path = "proto" }
 

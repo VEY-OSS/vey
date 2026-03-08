@@ -3,7 +3,7 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use g3_macros::AnyConfig;
+use vey_macros::AnyConfig;
 
 trait TestConfig {
     fn name(&self) -> &str;

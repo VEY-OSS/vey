@@ -11,7 +11,7 @@
 ))]
 use arcstr::ArcStr;
 
-use g3_std_ext::core::OptionExt;
+use vey_std_ext::core::OptionExt;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct TcpMiscSockOpts {

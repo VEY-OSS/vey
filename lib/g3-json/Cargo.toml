@@ -21,7 +21,7 @@ regex = { workspace = true, optional = true }
 rustls-pki-types = { workspace = true, optional = true, features = ["std"] }
 openssl = { workspace = true, optional = true }
 g3-types.workspace = true
-g3-histogram = { workspace = true, optional = true }
+vey-histogram = { workspace = true, optional = true }
 
 [features]
 default = []
@@ -33,4 +33,4 @@ http = ["g3-types/http"]
 rustls = ["g3-types/rustls", "dep:rustls-pki-types"]
 openssl = ["g3-types/openssl", "dep:openssl"]
 route = ["g3-types/route"]
-histogram = ["dep:g3-histogram"]
+histogram = ["dep:vey-histogram"]

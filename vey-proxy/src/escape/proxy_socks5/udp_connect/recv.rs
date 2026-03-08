@@ -120,7 +120,7 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        use g3_io_sys::udp::RecvMsgHdr;
+        use vey_io_sys::udp::RecvMsgHdr;
 
         if !self.ignore_ctl_stream {
             self.check_ctl_stream(cx)?;

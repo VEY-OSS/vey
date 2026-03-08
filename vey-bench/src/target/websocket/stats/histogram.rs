@@ -5,9 +5,9 @@
 
 use std::time::Duration;
 
-use g3_histogram::{HistogramRecorder, KeepingHistogram};
 use g3_statsd_client::StatsdClient;
-use g3_std_ext::time::DurationExt;
+use vey_histogram::{HistogramRecorder, KeepingHistogram};
+use vey_std_ext::time::DurationExt;
 
 use crate::target::BenchHistogram;
 

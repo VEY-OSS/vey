@@ -6,7 +6,7 @@
 use clap::{Arg, ArgMatches, Command};
 use futures_util::future::TryFutureExt;
 
-use g3_ctl::CommandResult;
+use vey_ctl::CommandResult;
 
 use vey_gateway_proto::backend_capnp::backend_control;
 use vey_gateway_proto::proc_capnp::proc_control;

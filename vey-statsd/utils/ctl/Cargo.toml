@@ -8,5 +8,5 @@ edition.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "io-util", "fs"] }
-g3-ctl.workspace = true
+vey-ctl.workspace = true
 vey-statsd-proto = { path = "../../proto" }

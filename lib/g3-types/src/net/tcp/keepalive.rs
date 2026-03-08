@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use g3_std_ext::core::OptionExt;
+use vey_std_ext::core::OptionExt;
 
 const DEFAULT_TCP_KEEPALIVE_IDLE: Duration = Duration::from_secs(60);
 

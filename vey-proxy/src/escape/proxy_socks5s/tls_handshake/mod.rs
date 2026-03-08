@@ -6,8 +6,8 @@
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_openssl::{SslConnector, SslInfoCallbackWhere, SslStream};
 use g3_types::net::{TlsAlert, TlsAlertType};
+use vey_openssl::{SslConnector, SslInfoCallbackWhere, SslStream};
 
 use super::ProxySocks5sEscaper;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};

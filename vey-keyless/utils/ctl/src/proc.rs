@@ -9,8 +9,8 @@ use anyhow::anyhow;
 use clap::ArgMatches;
 use openssl::pkey::PKey;
 
-use g3_ctl::{CommandError, CommandResult};
 use g3_tls_cert::ext::PublicKeyExt;
+use vey_ctl::{CommandError, CommandResult};
 
 use vey_keyless_proto::proc_capnp::proc_control;
 use vey_keyless_proto::server_capnp::server_control;
@@ -83,7 +83,7 @@ pub mod commands {
 pub async fn version(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.version_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_version(rsp.get()?.get_version()?)
+    vey_ctl::print_version(rsp.get()?.get_version()?)
 }
 
 pub async fn offline(client: &proc_control::Client) -> CommandResult<()> {
@@ -113,13 +113,13 @@ pub async fn list(client: &proc_control::Client, args: &ArgMatches) -> CommandRe
 async fn list_server(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_server_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_result_list(rsp.get()?.get_result()?)
+    vey_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
 async fn list_key(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_keys_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_data_list(rsp.get()?.get_result()?)
+    vey_ctl::print_data_list(rsp.get()?.get_result()?)
 }
 
 pub(crate) async fn get_server(

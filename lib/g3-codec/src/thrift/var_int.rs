@@ -3,7 +3,7 @@
  * Copyright 2026 G3-OSS developers.
  */
 
-use g3_std_ext::core::{FromZigZag, ToZigZag};
+use vey_std_ext::core::{FromZigZag, ToZigZag};
 
 use crate::leb128::{Leb128, Leb128DecodeError, Leb128Encoder};
 

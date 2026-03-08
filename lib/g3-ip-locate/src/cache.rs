@@ -15,7 +15,7 @@ use rustc_hash::FxHashMap;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
-use g3_geoip_types::IpLocation;
+use vey_geoip_types::IpLocation;
 
 use super::{CacheQueryRequest, IpLocateServiceConfig, IpLocationCacheResponse};
 

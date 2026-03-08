@@ -12,7 +12,7 @@ use g3_daemon::stat::remote::{
 };
 use g3_http::connect::{HttpConnectRequest, HttpConnectResponse};
 use g3_io_ext::{AsyncStream, FlexBufReader, LimitedReader, LimitedWriter, OnceBufReader};
-use g3_openssl::SslStream;
+use vey_openssl::SslStream;
 
 use super::{ProxyFloatEscaper, ProxyFloatHttpsPeer};
 use crate::log::escape::tls_handshake::TlsApplication;

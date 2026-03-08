@@ -19,7 +19,7 @@ anyhow = { workspace = true, optional = true }
 yaml-rust = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-io-ext.workspace = true
-g3-datetime.workspace = true
+vey-datetime.workspace = true
 g3-yaml = { workspace = true, optional = true }
 
 [features]

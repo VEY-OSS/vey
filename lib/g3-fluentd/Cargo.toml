@@ -23,7 +23,7 @@ log.workspace = true
 yaml-rust = { workspace = true, optional = true }
 vey-compat.workspace = true
 g3-socket.workspace = true
-g3-openssl.workspace = true
+vey-openssl.workspace = true
 g3-types = { workspace = true, features = ["async-log", "openssl"] }
 g3-yaml = { workspace = true, optional = true, features = ["openssl"] }
 

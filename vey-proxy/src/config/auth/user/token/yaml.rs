@@ -7,7 +7,7 @@ use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
 use g3_types::auth::FastHashedPassPhrase;
-use g3_xcrypt::XCryptHash;
+use vey_xcrypt::XCryptHash;
 
 use super::{CONFIG_KEY_TYPE, PasswordToken};
 

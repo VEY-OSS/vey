@@ -6,7 +6,7 @@
 use openssl::pkey::{PKey, Private};
 use tokio::sync::mpsc;
 
-use g3_openssl::async_job::{SyncOperation, TokioAsyncOperation};
+use vey_openssl::async_job::{SyncOperation, TokioAsyncOperation};
 
 use super::{Backend, DispatchedKeylessRequest};
 use crate::config::backend::AsyncJobBackendConfig;

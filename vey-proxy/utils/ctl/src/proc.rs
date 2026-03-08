@@ -5,7 +5,7 @@
 
 use clap::ArgMatches;
 
-use g3_ctl::CommandResult;
+use vey_ctl::CommandResult;
 
 use vey_proxy_proto::escaper_capnp::escaper_control;
 use vey_proxy_proto::proc_capnp::proc_control;
@@ -111,7 +111,7 @@ pub mod commands {
 pub async fn version(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.version_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_version(rsp.get()?.get_version()?)
+    vey_ctl::print_version(rsp.get()?.get_version()?)
 }
 
 pub async fn offline(client: &proc_control::Client) -> CommandResult<()> {
@@ -158,31 +158,31 @@ pub async fn list(client: &proc_control::Client, args: &ArgMatches) -> CommandRe
 async fn list_user_group(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_user_group_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_result_list(rsp.get()?.get_result()?)
+    vey_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
 async fn list_resolver(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_resolver_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_result_list(rsp.get()?.get_result()?)
+    vey_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
 async fn list_auditor(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_auditor_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_result_list(rsp.get()?.get_result()?)
+    vey_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
 async fn list_escaper(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_escaper_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_result_list(rsp.get()?.get_result()?)
+    vey_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
 async fn list_server(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_server_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_result_list(rsp.get()?.get_result()?)
+    vey_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
 pub async fn reload_user_group(

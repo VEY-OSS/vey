@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use clap::{Arg, ArgMatches, Command, ValueHint, value_parser};
 use futures_util::future::TryFutureExt;
 
-use g3_ctl::{CommandError, CommandResult};
+use vey_ctl::{CommandError, CommandResult};
 
 use vey_proxy_proto::escaper_capnp::escaper_control;
 use vey_proxy_proto::proc_capnp::proc_control;

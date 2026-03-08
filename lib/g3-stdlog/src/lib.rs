@@ -69,7 +69,7 @@ struct AsyncIoThread {
 impl AsyncIoThread {
     fn write_time<IO: Write>(&self, io: &mut IO) -> io::Result<()> {
         let datetime = Local::now();
-        let fmt = datetime.format_with_items(g3_datetime::format::log::STDIO.iter());
+        let fmt = datetime.format_with_items(vey_datetime::format::log::STDIO.iter());
         write!(io, "{fmt}")?;
         Ok(())
     }

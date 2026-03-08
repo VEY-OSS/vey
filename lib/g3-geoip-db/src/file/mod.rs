@@ -14,7 +14,7 @@ use flate2::bufread::GzDecoder;
 use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
 
-use g3_geoip_types::IsoCountryCode;
+use vey_geoip_types::IsoCountryCode;
 
 use crate::{GeoIpAsnRecord, GeoIpCountryRecord};
 
@@ -143,9 +143,9 @@ mod tests {
     use super::*;
     use flate2::Compression;
     use flate2::write::GzEncoder;
-    use g3_geoip_types::ContinentCode;
     use std::io::Write;
     use tempfile::NamedTempFile;
+    use vey_geoip_types::ContinentCode;
 
     fn create_temp_file(content: &str, extension: &str) -> NamedTempFile {
         let mut file = NamedTempFile::with_suffix(extension).unwrap();

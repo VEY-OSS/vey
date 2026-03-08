@@ -10,7 +10,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 
-use g3_geoip_types::IpLocation;
+use vey_geoip_types::IpLocation;
 
 mod config;
 pub use config::IpLocateServiceConfig;

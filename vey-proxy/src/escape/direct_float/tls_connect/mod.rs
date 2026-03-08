@@ -12,7 +12,7 @@ use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
 use g3_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
-use g3_openssl::{SslConnector, SslStream};
+use vey_openssl::{SslConnector, SslStream};
 
 use super::{DirectFloatBindIp, DirectFloatEscaper};
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};

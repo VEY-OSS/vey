@@ -15,11 +15,11 @@ use openssl::ssl::SslVerifyMode;
 use openssl::x509::X509;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_openssl::{SslConnector, SslStream};
 use g3_types::net::{
     AlpnProtocol, Host, OpensslCertificatePair, OpensslClientConfig, OpensslClientConfigBuilder,
     OpensslProtocol, TlsVersion, UpstreamAddr,
 };
+use vey_openssl::{SslConnector, SslStream};
 
 const TLS_ARG_CA_CERT: &str = "tls-ca-cert";
 const TLS_ARG_CERT: &str = "tls-cert";

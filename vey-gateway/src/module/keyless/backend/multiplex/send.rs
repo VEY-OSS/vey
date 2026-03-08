@@ -12,7 +12,7 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::sync::{broadcast, oneshot};
 use tokio::time::Instant;
 
-use g3_std_ext::time::DurationExt;
+use vey_std_ext::time::DurationExt;
 
 use super::StreamSharedState;
 use crate::module::keyless::{

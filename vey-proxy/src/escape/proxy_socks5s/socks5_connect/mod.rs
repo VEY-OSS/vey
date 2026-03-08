@@ -15,10 +15,10 @@ use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
 use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
-use g3_openssl::{SslConnector, SslStream};
 use g3_socket::BindAddr;
 use g3_socks::v5;
 use g3_types::net::{SocketBufferConfig, UpstreamAddr};
+use vey_openssl::{SslConnector, SslStream};
 
 use super::ProxySocks5sEscaper;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};

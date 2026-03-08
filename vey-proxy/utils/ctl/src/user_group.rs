@@ -9,7 +9,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use clap::{Arg, ArgMatches, Command, ValueHint, value_parser};
 
-use g3_ctl::{CommandError, CommandResult};
+use vey_ctl::{CommandError, CommandResult};
 
 use vey_proxy_proto::proc_capnp::proc_control;
 use vey_proxy_proto::user_group_capnp::user_group_control;
@@ -62,13 +62,13 @@ pub async fn run(client: &proc_control::Client, args: &ArgMatches) -> CommandRes
 async fn list_static_user(client: &user_group_control::Client) -> CommandResult<()> {
     let req = client.list_static_user_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_result_list(rsp.get()?.get_result()?)
+    vey_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
 async fn list_dynamic_user(client: &user_group_control::Client) -> CommandResult<()> {
     let req = client.list_dynamic_user_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_result_list(rsp.get()?.get_result()?)
+    vey_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
 async fn publish_dynamic_user(

@@ -10,11 +10,11 @@ use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
 use yaml_rust::{Yaml, yaml};
 
-use g3_geoip_types::{ContinentCode, IsoCountryCode};
 use g3_ip_locate::IpLocateServiceConfig;
 use g3_types::metrics::NodeName;
 use g3_types::resolve::ResolveStrategy;
 use g3_yaml::YamlDocPosition;
+use vey_geoip_types::{ContinentCode, IsoCountryCode};
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, EscaperConfigVerifier};
 

@@ -1,5 +1,5 @@
 [package]
-name = "g3-xcrypt"
+name = "vey-xcrypt"
 version = "0.3.0"
 license.workspace = true
 edition.workspace = true

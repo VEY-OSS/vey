@@ -224,7 +224,8 @@ impl KeylessTask {
         let crypto_fail = crate::protocol::KeylessErrorResponse::new(req.inner.id).crypto_fail();
         let rsp = req.build_response(KeylessResponse::Error(crypto_fail));
         let sync_op = crate::backend::OpensslOperation::new(req, key);
-        let Ok(task) = g3_openssl::async_job::TokioAsyncOperation::build_async_task(sync_op) else {
+        let Ok(task) = vey_openssl::async_job::TokioAsyncOperation::build_async_task(sync_op)
+        else {
             req_stats.add_crypto_fail();
             let _ = msg_sender.send(rsp).await;
             return;

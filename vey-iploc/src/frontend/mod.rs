@@ -9,9 +9,9 @@ use std::sync::Arc;
 use log::warn;
 use tokio::sync::broadcast;
 
-use g3_geoip_types::{IpLocation, IpLocationBuilder};
 use g3_ip_locate::{Request, Response};
 use g3_types::net::UdpListenConfig;
+use vey_geoip_types::{IpLocation, IpLocationBuilder};
 
 mod stats;
 pub(crate) use stats::FrontendStats;

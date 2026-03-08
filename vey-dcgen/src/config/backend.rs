@@ -11,7 +11,7 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use yaml_rust::Yaml;
 
-use g3_histogram::HistogramMetricsConfig;
+use vey_histogram::HistogramMetricsConfig;
 
 static BACKEND_CONFIG_LOCK: OnceLock<Arc<OpensslBackendConfig>> = OnceLock::new();
 

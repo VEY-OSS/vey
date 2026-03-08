@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_geoip_types::{ContinentCode, IsoCountryCode};
+use vey_geoip_types::{ContinentCode, IsoCountryCode};
 
 pub struct GeoIpCountryRecord {
     pub country: IsoCountryCode,

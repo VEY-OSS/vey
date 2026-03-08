@@ -5,7 +5,7 @@
 
 use clap::ArgMatches;
 
-use g3_ctl::CommandResult;
+use vey_ctl::CommandResult;
 
 use vey_statsd_proto::proc_capnp::proc_control;
 
@@ -78,7 +78,7 @@ pub mod commands {
 pub async fn version(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.version_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_version(rsp.get()?.get_version()?)
+    vey_ctl::print_version(rsp.get()?.get_version()?)
 }
 
 pub async fn offline(client: &proc_control::Client) -> CommandResult<()> {
@@ -109,19 +109,19 @@ pub async fn list(client: &proc_control::Client, args: &ArgMatches) -> CommandRe
 async fn list_importer(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_importer_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_result_list(rsp.get()?.get_result()?)
+    vey_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
 async fn list_collector(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_collector_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_result_list(rsp.get()?.get_result()?)
+    vey_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
 async fn list_exporter(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_exporter_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_result_list(rsp.get()?.get_result()?)
+    vey_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
 pub async fn reload_importer(

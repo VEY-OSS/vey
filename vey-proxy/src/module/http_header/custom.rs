@@ -48,7 +48,7 @@ fn set_value_for_remote_connection_info(
         let _ = write!(
             v,
             "; expire={}",
-            expire.format_with_items(g3_datetime::format::std::RFC3339_FIXED_MICROSECOND.iter())
+            expire.format_with_items(vey_datetime::format::std::RFC3339_FIXED_MICROSECOND.iter())
         );
     }
 }

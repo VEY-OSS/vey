@@ -17,12 +17,12 @@ openssl-sys.workspace = true # for openssl variant detection
 tokio = { workspace = true, features = ["macros", "net", "io-util", "time", "signal"] }
 kanal = { workspace = true, features = ["async"] }
 yaml-rust.workspace = true
-g3-std-ext.workspace = true
+vey-std-ext.workspace = true
 g3-types.workspace = true
 g3-yaml = { workspace = true, features = ["histogram", "openssl"] }
 g3-daemon.workspace = true
 g3-statsd-client.workspace = true
-g3-histogram.workspace = true
+vey-histogram.workspace = true
 g3-tls-cert.workspace = true
 g3-cert-agent.workspace = true
 g3-socket.workspace = true

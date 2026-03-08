@@ -473,14 +473,14 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
     }
     #[cfg(feature = "openssl-async-job")]
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_OPENSSL_ASYNC_JOB_INIT_SIZE) {
-        if *n > 0 && !g3_openssl::async_job::async_is_capable() {
+        if *n > 0 && !vey_openssl::async_job::async_is_capable() {
             return Err(anyhow!("openssl async job is not supported"));
         }
         proc_args.worker_runtime.set_openssl_async_job_init_size(*n);
     }
     #[cfg(feature = "openssl-async-job")]
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_OPENSSL_ASYNC_JOB_MAX_SIZE) {
-        if *n > 0 && !g3_openssl::async_job::async_is_capable() {
+        if *n > 0 && !vey_openssl::async_job::async_is_capable() {
             return Err(anyhow!("openssl async job is not supported"));
         }
         proc_args.worker_runtime.set_openssl_async_job_max_size(*n);

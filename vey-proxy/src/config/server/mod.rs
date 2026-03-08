@@ -14,9 +14,9 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
 use g3_io_ext::StreamCopyConfig;
-use g3_macros::AnyConfig;
 use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
+use vey_macros::AnyConfig;
 
 use crate::audit::AuditHandle;
 use crate::auth::UserGroup;

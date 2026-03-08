@@ -40,18 +40,18 @@ uuid.workspace = true
 bitflags.workspace = true
 kanal = { workspace = true, features = ["async"] }
 rustc-hash.workspace = true
-g3-macros.workspace = true
+vey-macros.workspace = true
 g3-codec = { workspace = true, features = ["tls"] }
 g3-daemon = { workspace = true, features = ["event-log"] }
 g3-dpi.workspace = true
 g3-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls", "histogram"] }
-g3-std-ext.workspace = true
+vey-std-ext.workspace = true
 g3-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
 g3-socket.workspace = true
 g3-io-ext = { workspace = true, features = ["openssl", "rustls"] }
-g3-openssl.workspace = true
+vey-openssl.workspace = true
 g3-statsd-client.workspace = true
-g3-histogram.workspace = true
+vey-histogram.workspace = true
 g3-slog-types.workspace = true
 g3-tls-ticket = { workspace = true, features = ["yaml"] }
 vey-gateway-proto = { path = "proto" }
@@ -70,4 +70,4 @@ vendored-tongsuo = ["openssl/tongsuo", "openssl-probe"]
 vendored-boringssl = ["openssl/boringssl", "openssl-probe"]
 vendored-aws-lc = ["openssl/aws-lc", "openssl-probe"]
 vendored-aws-lc-fips = ["openssl/aws-lc-fips", "openssl-probe"]
-openssl-async-job = ["g3-openssl/async-job", "g3-daemon/openssl-async-job"]
+openssl-async-job = ["vey-openssl/async-job", "g3-daemon/openssl-async-job"]

@@ -4,8 +4,8 @@
  */
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
-use g3_histogram::HistogramStats;
 use g3_statsd_client::StatsdClient;
+use vey_histogram::HistogramStats;
 
 use crate::BackendStats;
 

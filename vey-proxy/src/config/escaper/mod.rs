@@ -12,10 +12,10 @@ use slog::Logger;
 use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
-use g3_macros::AnyConfig;
 use g3_types::metrics::NodeName;
 use g3_types::net::{TcpConnectConfig, TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
 use g3_yaml::{HybridParser, YamlDocPosition};
+use vey_macros::AnyConfig;
 
 pub(crate) mod comply_audit;
 pub(crate) mod direct_fixed;

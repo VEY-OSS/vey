@@ -88,12 +88,13 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
     #[cfg(feature = "openssl-async-job")]
     if let Some(async_job_size) = args.openssl_async_job {
         rt_builder.on_thread_start(move || {
-            if let Err(e) = g3_openssl::async_job::async_thread_init(async_job_size, async_job_size)
+            if let Err(e) =
+                vey_openssl::async_job::async_thread_init(async_job_size, async_job_size)
             {
                 warn!("failed to init {async_job_size} openssl async jobs: {e}");
             }
         });
-        rt_builder.on_thread_stop(g3_openssl::async_job::async_thread_cleanup);
+        rt_builder.on_thread_stop(vey_openssl::async_job::async_thread_cleanup);
     }
     let rt = rt_builder
         .build()

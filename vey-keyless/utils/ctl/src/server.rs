@@ -6,7 +6,7 @@
 use clap::{Arg, ArgMatches, Command};
 use futures_util::future::TryFutureExt;
 
-use g3_ctl::CommandResult;
+use vey_ctl::CommandResult;
 
 use vey_keyless_proto::proc_capnp::proc_control;
 use vey_keyless_proto::server_capnp::server_control;
@@ -73,7 +73,7 @@ async fn add_metrics_tag(client: &server_control::Client, args: &ArgMatches) -> 
 async fn get_listen_addr(client: &server_control::Client) -> CommandResult<()> {
     let req = client.get_listen_addr_request();
     let rsp = req.send().promise.await?;
-    g3_ctl::print_text("addr", rsp.get()?.get_addr()?)
+    vey_ctl::print_text("addr", rsp.get()?.get_addr()?)
 }
 
 pub async fn run(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {

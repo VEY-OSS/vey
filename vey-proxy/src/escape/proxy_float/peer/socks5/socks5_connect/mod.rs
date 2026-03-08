@@ -12,10 +12,10 @@ use tokio::net::{TcpStream, UdpSocket};
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_io_ext::{AsyncStream, LimitedStream};
-use g3_openssl::SslStream;
 use g3_socket::BindAddr;
 use g3_socks::v5;
 use g3_types::net::{SocketBufferConfig, UpstreamAddr};
+use vey_openssl::SslStream;
 
 use super::{ProxyFloatEscaper, ProxyFloatSocks5Peer};
 use crate::log::escape::tls_handshake::TlsApplication;

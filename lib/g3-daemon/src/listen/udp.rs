@@ -13,8 +13,8 @@ use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
 use g3_io_ext::UdpSocketExt;
-use g3_io_sys::udp::RecvMsgHdr;
 use g3_types::net::UdpListenConfig;
+use vey_io_sys::udp::RecvMsgHdr;
 
 use crate::server::{BaseServer, ReloadServer, ServerReloadCommand};
 

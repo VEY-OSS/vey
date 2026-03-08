@@ -12,9 +12,9 @@ use tokio::net::TcpStream;
 use g3_codec::ldap::{LdapResult, LdapSequence};
 use g3_io_ext::LimitedWriteExt;
 use g3_io_ext::openssl::MaybeSslStream;
-use g3_openssl::{SslConnector, SslStream};
 use g3_socket::BindAddr;
 use g3_types::net::{Host, OpensslClientConfig};
+use vey_openssl::{SslConnector, SslStream};
 
 use crate::auth::group::ldap::LdapMessageReceiver;
 use crate::config::auth::LdapUserGroupConfig;

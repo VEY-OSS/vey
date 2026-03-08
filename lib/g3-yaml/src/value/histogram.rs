@@ -9,7 +9,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_histogram::{HistogramMetricsConfig, Quantile};
+use vey_histogram::{HistogramMetricsConfig, Quantile};
 
 pub fn as_quantile(value: &Yaml) -> anyhow::Result<Quantile> {
     match value {

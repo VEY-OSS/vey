@@ -6,7 +6,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use g3_std_ext::time::DurationExt;
+use vey_std_ext::time::DurationExt;
 
 mod quota;
 pub use quota::RateLimitQuota;

@@ -21,9 +21,9 @@ use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTc
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_dpi::ProtocolPortMap;
 use g3_io_ext::IdleWheel;
-use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::NodeName;
+use vey_openssl::SslStream;
 
 use super::{ClientHelloAcceptTask, CommonTaskContext, TcpStreamServerStats};
 use crate::audit::{AuditContext, AuditHandle};

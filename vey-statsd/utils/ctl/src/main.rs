@@ -6,7 +6,7 @@
 use anyhow::anyhow;
 use clap::Command;
 
-use g3_ctl::{CommandError, DaemonCtlArgs, DaemonCtlArgsExt};
+use vey_ctl::{CommandError, DaemonCtlArgs, DaemonCtlArgsExt};
 
 use vey_statsd_proto::proc_capnp::proc_control;
 

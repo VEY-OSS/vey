@@ -132,7 +132,7 @@ impl UnaidedRuntimeConfig {
 
     #[cfg(feature = "openssl-async-job")]
     pub fn set_openssl_async_job_init_size(&mut self, size: usize) {
-        if g3_openssl::async_job::async_is_capable() {
+        if vey_openssl::async_job::async_is_capable() {
             self.openssl_async_job_init_size = size;
         } else if size > 0 {
             warn!("openssl async job is not supported");
@@ -141,7 +141,7 @@ impl UnaidedRuntimeConfig {
 
     #[cfg(feature = "openssl-async-job")]
     pub fn set_openssl_async_job_max_size(&mut self, size: usize) {
-        if g3_openssl::async_job::async_is_capable() {
+        if vey_openssl::async_job::async_is_capable() {
             self.openssl_async_job_max_size = size;
         } else if size > 0 {
             warn!("openssl async job is not supported");
@@ -252,7 +252,7 @@ impl UnaidedRuntimeConfig {
 
                     #[cfg(feature = "openssl-async-job")]
                     builder.on_thread_start(move || {
-                        if let Err(e) = g3_openssl::async_job::async_thread_init(
+                        if let Err(e) = vey_openssl::async_job::async_thread_init(
                             openssl_async_job_max_size,
                             openssl_async_job_init_size,
                         ) {
@@ -262,7 +262,7 @@ impl UnaidedRuntimeConfig {
                         }
                     });
                     #[cfg(feature = "openssl-async-job")]
-                    builder.on_thread_stop(g3_openssl::async_job::async_thread_cleanup);
+                    builder.on_thread_stop(vey_openssl::async_job::async_thread_cleanup);
 
                     match builder.build() {
                         Ok(rt) => {

@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_geoip_types::{ContinentCode, IpLocation, IpLocationBuilder, IsoCountryCode};
+use vey_geoip_types::{ContinentCode, IpLocation, IpLocationBuilder, IsoCountryCode};
 
 pub fn as_iso_country_code(value: &Yaml) -> anyhow::Result<IsoCountryCode> {
     if let Yaml::String(s) = value {

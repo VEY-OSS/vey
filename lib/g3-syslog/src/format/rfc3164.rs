@@ -66,7 +66,7 @@ pub(super) fn format_rfc3164_header(
     use std::io::Write;
 
     let priority = encode_priority(level_to_severity(level), header.facility);
-    let datetime_fmt = datetime_now.format_with_items(g3_datetime::format::log::RFC3164.iter());
+    let datetime_fmt = datetime_now.format_with_items(vey_datetime::format::log::RFC3164.iter());
 
     let mut buffer = itoa::Buffer::new();
 

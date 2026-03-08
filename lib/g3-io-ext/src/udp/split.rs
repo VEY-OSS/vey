@@ -12,7 +12,7 @@ use std::{fmt, io};
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
-use g3_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
+use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 
 use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
 

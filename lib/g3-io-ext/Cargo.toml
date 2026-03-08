@@ -22,12 +22,12 @@ smallvec.workspace = true
 arc-swap.workspace = true
 quinn = { workspace = true, optional = true }
 slog = { workspace = true, optional = true }
-g3-io-sys.workspace = true
+vey-io-sys.workspace = true
 g3-socket.workspace = true
-g3-std-ext.workspace = true
+vey-std-ext.workspace = true
 g3-types.workspace = true
 g3-resolver = { workspace = true, optional = true }
-g3-openssl = { workspace = true, optional = true }
+vey-openssl = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros"] }
@@ -37,6 +37,6 @@ tokio-test.workspace = true
 default = []
 log = ["dep:slog"]
 resolver = ["dep:g3-resolver"]
-openssl = ["dep:g3-openssl"]
+openssl = ["dep:vey-openssl"]
 rustls = ["dep:tokio-rustls"]
 quic = ["dep:quinn"]

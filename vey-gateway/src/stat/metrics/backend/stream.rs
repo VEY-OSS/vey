@@ -6,9 +6,9 @@
 use std::sync::{Arc, Mutex};
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
-use g3_histogram::HistogramStats;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::stats::GlobalStatsMap;
+use vey_histogram::HistogramStats;
 
 use super::BackendMetricExt;
 use crate::module::stream::{StreamBackendDurationStats, StreamBackendStats};

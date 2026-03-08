@@ -10,7 +10,7 @@ use std::task::{Context, Poll, ready};
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
 
-use g3_io_sys::udp::{RecvAncillaryBuffer, RecvMsgHdr, SendMsgHdr, recvmsg, sendmsg};
+use vey_io_sys::udp::{RecvAncillaryBuffer, RecvMsgHdr, SendMsgHdr, recvmsg, sendmsg};
 
 thread_local! {
     static RECV_ANCILLARY_BUFFER: RefCell<RecvAncillaryBuffer> = const { RefCell::new(RecvAncillaryBuffer::new()) };
@@ -137,11 +137,11 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
-        g3_io_sys::udp::with_sendmmsg_buf(msgs, |msgs, msgvec| {
+        vey_io_sys::udp::with_sendmmsg_buf(msgs, |msgs, msgvec| {
             loop {
                 ready!(self.poll_send_ready(cx))?;
                 match self.try_io(Interest::WRITABLE, || {
-                    g3_io_sys::udp::sendmmsg(self, msgvec)
+                    vey_io_sys::udp::sendmmsg(self, msgvec)
                 }) {
                     Ok(count) => {
                         for (m, h) in msgs.iter_mut().take(count).zip(msgvec) {
@@ -167,11 +167,11 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
-        g3_io_sys::udp::with_sendmsg_x_buf(msgs, |msgs, msgvec| {
+        vey_io_sys::udp::with_sendmsg_x_buf(msgs, |msgs, msgvec| {
             loop {
                 ready!(self.poll_send_ready(cx))?;
                 match self.try_io(Interest::WRITABLE, || {
-                    g3_io_sys::udp::sendmsg_x(self, msgvec)
+                    vey_io_sys::udp::sendmsg_x(self, msgvec)
                 }) {
                     Ok(count) => {
                         for m in msgs.iter_mut().take(count) {
@@ -204,11 +204,11 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
-        g3_io_sys::udp::with_recvmmsg_buf(hdr_v, |hdr_v, msgvec| {
+        vey_io_sys::udp::with_recvmmsg_buf(hdr_v, |hdr_v, msgvec| {
             loop {
                 ready!(self.poll_recv_ready(cx))?;
                 match self.try_io(Interest::READABLE, || {
-                    g3_io_sys::udp::recvmmsg(self, msgvec)
+                    vey_io_sys::udp::recvmmsg(self, msgvec)
                 }) {
                     Ok(count) => {
                         for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
@@ -244,11 +244,11 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
-        g3_io_sys::udp::with_recvmsg_x_buf(hdr_v, |hdr_v, msgvec| {
+        vey_io_sys::udp::with_recvmsg_x_buf(hdr_v, |hdr_v, msgvec| {
             loop {
                 ready!(self.poll_recv_ready(cx))?;
                 match self.try_io(Interest::READABLE, || {
-                    g3_io_sys::udp::recvmsg_x(self, msgvec)
+                    vey_io_sys::udp::recvmsg_x(self, msgvec)
                 }) {
                     Ok(count) => {
                         for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
@@ -282,12 +282,12 @@ impl UdpSocketExt for UdpSocket {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_std_ext::net::SocketAddrExt;
     use g3_types::net::UdpListenConfig;
     use std::future::poll_fn;
     use std::io::{IoSlice, IoSliceMut};
     use std::net::{IpAddr, SocketAddr};
     use std::str::FromStr;
+    use vey_std_ext::net::SocketAddrExt;
 
     #[tokio::test]
     async fn msg_connect() {

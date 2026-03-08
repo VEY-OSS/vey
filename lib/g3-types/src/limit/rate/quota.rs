@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 
-use g3_std_ext::time::DurationExt;
+use vey_std_ext::time::DurationExt;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RateLimitQuota {

@@ -12,11 +12,11 @@ use tokio::net::TcpStream;
 use url::Url;
 
 use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
-use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{
     HttpProxy, OpensslClientConfig, OpensslClientConfigBuilder, Proxy, UpstreamAddr,
 };
+use vey_openssl::SslStream;
 
 use crate::ProcArgs;
 use crate::module::http::HttpRuntimeStats;

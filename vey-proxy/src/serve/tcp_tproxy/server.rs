@@ -21,10 +21,10 @@ use tokio_rustls::server::TlsStream;
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_io_ext::IdleWheel;
-use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::auth::FactsMatchType;
 use g3_types::metrics::NodeName;
+use vey_openssl::SslStream;
 
 use super::common::CommonTaskContext;
 use super::task::TProxyStreamTask;

@@ -14,7 +14,7 @@ use std::net::{SocketAddr, UdpSocket};
     target_os = "openbsd",
     target_os = "solaris",
 ))]
-use g3_io_sys::udp::{SendMsgHdr, UdpSocketExt};
+use vey_io_sys::udp::{SendMsgHdr, UdpSocketExt};
 
 use super::SinkBuf;
 

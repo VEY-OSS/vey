@@ -9,8 +9,8 @@ use openssl::ssl::Ssl;
 
 use g3_dpi::{Protocol, ProtocolInspector};
 use g3_io_ext::OnceBufReader;
-use g3_openssl::{SslAcceptor, SslConnector};
 use g3_types::net::{AlpnProtocol, Host, TlsCertUsage, TlsServiceType};
+use vey_openssl::{SslAcceptor, SslConnector};
 
 use super::{ParsedClientHello, TlsInterceptIo, TlsInterceptObject, TlsInterceptionError};
 use crate::config::server::ServerConfig;

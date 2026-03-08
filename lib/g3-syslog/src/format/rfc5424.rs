@@ -73,9 +73,9 @@ pub(super) fn format_rfc5424_header(
     let priority = encode_priority(level_to_severity(level), header.facility);
     let datetime_fmt = if datetime_now.nanosecond() >= 1_000_000_000 {
         let dt = datetime_now.with_nanosecond(999_999_999).unwrap();
-        dt.format_with_items(g3_datetime::format::log::RFC5424.iter())
+        dt.format_with_items(vey_datetime::format::log::RFC5424.iter())
     } else {
-        datetime_now.format_with_items(g3_datetime::format::log::RFC5424.iter())
+        datetime_now.format_with_items(vey_datetime::format::log::RFC5424.iter())
     };
 
     let mut buffer = itoa::Buffer::new();

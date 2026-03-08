@@ -46,9 +46,9 @@ impl Sinker {
     ))]
     async fn send_udp(&self, packets: &[Vec<u8>]) -> io::Result<()> {
         use g3_io_ext::UdpSocketExt;
-        use g3_io_sys::udp::SendMsgHdr;
         use std::future::poll_fn;
         use std::io::IoSlice;
+        use vey_io_sys::udp::SendMsgHdr;
 
         let mut msgs: Vec<_> = packets
             .iter()
@@ -64,9 +64,9 @@ impl Sinker {
     #[cfg(target_os = "macos")]
     async fn send_udp(&self, packets: &[Vec<u8>]) -> io::Result<()> {
         use g3_io_ext::UdpSocketExt;
-        use g3_io_sys::udp::SendMsgHdr;
         use std::future::poll_fn;
         use std::io::IoSlice;
+        use vey_io_sys::udp::SendMsgHdr;
 
         let mut msgs: Vec<_> = packets
             .iter()

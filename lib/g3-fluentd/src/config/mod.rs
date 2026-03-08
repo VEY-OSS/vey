@@ -12,9 +12,9 @@ use openssl::md::Md;
 use openssl::md_ctx::MdCtx;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use g3_openssl::SslConnector;
 use g3_socket::BindAddr;
 use g3_types::net::{Host, OpensslClientConfig, OpensslClientConfigBuilder, TcpKeepAliveConfig};
+use vey_openssl::SslConnector;
 
 use super::FluentdConnection;
 

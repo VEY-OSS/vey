@@ -9,8 +9,8 @@ use std::time::Instant;
 
 use anyhow::anyhow;
 
-use g3_histogram::HistogramStats;
 use g3_statsd_client::StatsdClientConfig;
+use vey_histogram::HistogramStats;
 
 mod metrics;
 

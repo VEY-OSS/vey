@@ -19,9 +19,9 @@ use tokio::sync::{Semaphore, broadcast};
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy};
-use g3_openssl::SslAcceptor;
 use g3_types::metrics::{MetricTagMap, MetricTagName, MetricTagValue, NodeName};
 use g3_types::net::OpensslServerConfig;
+use vey_openssl::SslAcceptor;
 
 use super::{
     KeyServerDurationRecorder, KeyServerDurationStats, KeyServerRuntime, KeyServerStats,

@@ -13,7 +13,7 @@ use rustc_hash::FxHashMap;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::time::{DelayQueue, delay_queue};
 
-use g3_geoip_types::IpLocation;
+use vey_geoip_types::IpLocation;
 
 use super::{CacheQueryRequest, IpLocationCacheResponse};
 

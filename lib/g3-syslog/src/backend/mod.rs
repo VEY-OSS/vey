@@ -19,7 +19,7 @@ use std::path::PathBuf;
     target_os = "solaris",
     target_os = "macos",
 ))]
-use g3_io_sys::udp::UdpSocketExt;
+use vey_io_sys::udp::UdpSocketExt;
 
 #[cfg(feature = "yaml")]
 mod yaml;
@@ -60,7 +60,7 @@ impl SyslogBackend {
                     target_os = "solaris",
                 ))]
                 SyslogBackend::Udp(s) => {
-                    use g3_io_sys::udp::SendMsgHdr;
+                    use vey_io_sys::udp::SendMsgHdr;
 
                     let mut hdrs: [SendMsgHdr<'_, 1>; MAX_BATCH_SIZE] =
                         unsafe { std::mem::zeroed() };
@@ -71,7 +71,7 @@ impl SyslogBackend {
                 }
                 #[cfg(target_os = "macos")]
                 SyslogBackend::Udp(s) => {
-                    use g3_io_sys::udp::SendMsgHdr;
+                    use vey_io_sys::udp::SendMsgHdr;
 
                     let mut hdrs: [SendMsgHdr<'_, 1>; MAX_BATCH_SIZE] =
                         unsafe { std::mem::zeroed() };

@@ -12,10 +12,10 @@ use ascii::AsciiString;
 use slog::Logger;
 use yaml_rust::{Yaml, yaml};
 
-use g3_histogram::HistogramMetricsConfig;
 use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{OpensslServerConfigBuilder, TcpListenConfig};
 use g3_yaml::{HybridParser, YamlDocPosition};
+use vey_histogram::HistogramMetricsConfig;
 
 mod registry;
 pub(crate) use registry::{clear, get_all};

@@ -140,7 +140,7 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
-        use g3_io_sys::udp::RecvMsgHdr;
+        use vey_io_sys::udp::RecvMsgHdr;
 
         if self.ignore_ctl_stream {
             self.check_tcp_close(cx)?;

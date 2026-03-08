@@ -13,7 +13,7 @@ use std::time::Duration;
 use futures_util::FutureExt;
 use tokio::time::{Instant, Sleep};
 
-use g3_io_sys::udp::RecvMsgHdr;
+use vey_io_sys::udp::RecvMsgHdr;
 
 use crate::limit::{DatagramLimitAction, DatagramLimiter};
 use crate::{ArcLimitedRecvStats, GlobalDatagramLimit};

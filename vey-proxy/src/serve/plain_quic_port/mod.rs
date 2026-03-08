@@ -18,10 +18,10 @@ use g3_daemon::listen::{
     AcceptQuicServer, AcceptTcpServer, ListenQuicConf, ListenQuicRuntime, ListenStats,
 };
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
-use g3_openssl::SslStream;
 use g3_types::acl::AclNetworkRule;
 use g3_types::metrics::NodeName;
 use g3_types::net::{OpensslTicketKey, RollingTicketer, UdpListenConfig};
+use vey_openssl::SslStream;
 
 use crate::config::server::plain_quic_port::{PlainQuicPortConfig, PlainQuicPortUpdateFlags};
 use crate::config::server::{AnyServerConfig, ServerConfig};

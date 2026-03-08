@@ -289,8 +289,8 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
-        use g3_io_sys::udp::SendMsgHdr;
         use std::io::IoSlice;
+        use vey_io_sys::udp::SendMsgHdr;
 
         let mut msgs: Vec<SendMsgHdr<1>> = packets
             .iter()

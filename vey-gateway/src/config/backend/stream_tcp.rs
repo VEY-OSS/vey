@@ -8,10 +8,10 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_histogram::HistogramMetricsConfig;
 use g3_types::collection::SelectivePickPolicy;
 use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_yaml::YamlDocPosition;
+use vey_histogram::HistogramMetricsConfig;
 
 use super::{AnyBackendConfig, BackendConfig, BackendConfigDiffAction};
 use crate::config::discover::DiscoverRegisterData;

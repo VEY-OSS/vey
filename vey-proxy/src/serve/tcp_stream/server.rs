@@ -22,12 +22,12 @@ use tokio_rustls::server::TlsStream;
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerExt, ServerReloadCommand};
 use g3_io_ext::{AsyncStream, IdleWheel};
-use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::auth::FactsMatchType;
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::NodeName;
 use g3_types::net::{OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr};
+use vey_openssl::SslStream;
 
 use super::common::CommonTaskContext;
 use super::stats::TcpStreamServerStats;

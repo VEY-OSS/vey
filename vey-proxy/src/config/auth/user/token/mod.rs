@@ -4,7 +4,7 @@
  */
 
 use g3_types::auth::FastHashedPassPhrase;
-use g3_xcrypt::XCryptHash;
+use vey_xcrypt::XCryptHash;
 
 mod json;
 mod yaml;

@@ -12,5 +12,5 @@ clap.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }
 futures-util.workspace = true
 capnp.workspace = true
-g3-ctl.workspace = true
+vey-ctl.workspace = true
 vey-gateway-proto = { path = "../../proto" }

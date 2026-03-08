@@ -9,7 +9,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use g3_histogram::{HistogramMetricsConfig, Quantile};
+use vey_histogram::{HistogramMetricsConfig, Quantile};
 
 pub fn as_quantile(value: &Value) -> anyhow::Result<Quantile> {
     match value {

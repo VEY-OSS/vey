@@ -9,7 +9,7 @@ use chrono::{DateTime, ParseResult, Utc};
 #[inline]
 pub(crate) fn parse_from_str(s: &str) -> ParseResult<DateTime<Utc>> {
     let mut parsed = Parsed::new();
-    parse(&mut parsed, s, g3_datetime::format::ftp::RFC3659.iter())?;
+    parse(&mut parsed, s, vey_datetime::format::ftp::RFC3659.iter())?;
     parsed.to_datetime_with_timezone(&Utc)
 }
 

@@ -8,7 +8,7 @@ use std::net::IpAddr;
 use anyhow::{Context, anyhow};
 use rmpv::ValueRef;
 
-use g3_geoip_types::{IpLocation, IpLocationBuilder};
+use vey_geoip_types::{IpLocation, IpLocationBuilder};
 
 use super::{response_key, response_key_id};
 
