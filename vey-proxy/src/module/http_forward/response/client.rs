@@ -13,7 +13,7 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use g3_ftp_client::FtpConnectError;
 use g3_http::server::HttpRequestParseError;
-use g3_io_ext::LimitedWriteExt;
+use vey_io_ext::LimitedWriteExt;
 use vey_types::net::ConnectError;
 
 use crate::module::http_header;

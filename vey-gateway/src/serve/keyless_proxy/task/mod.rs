@@ -10,7 +10,7 @@ use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
 
-use g3_io_ext::LimitedBufReadExt;
+use vey_io_ext::LimitedBufReadExt;
 
 use super::KeylessProxyServerAliveTaskGuard;
 use crate::config::server::ServerConfig;

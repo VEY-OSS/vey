@@ -10,7 +10,7 @@ use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Duration;
 use yaml_rust::Yaml;
 
-use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt};
+use vey_io_ext::{LimitedBufReadExt, LimitedWriteExt};
 
 use super::{CtlProtoType, GeneralControllerConfig};
 

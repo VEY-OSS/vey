@@ -19,7 +19,7 @@ base64.workspace = true
 percent-encoding.workspace = true
 smol_str.workspace = true
 vey-types = { workspace = true, features = ["http"] }
-g3-io-ext.workspace = true
+vey-io-ext.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "io-util", "rt"] }

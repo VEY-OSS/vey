@@ -8,7 +8,7 @@ use quinn::{RecvStream, SendStream};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc;
 
-use g3_io_ext::{StreamCopy, StreamCopyError};
+use vey_io_ext::{StreamCopy, StreamCopyError};
 use vey_types::net::{ProxyProtocolEncodeError, ProxyProtocolV2Encoder};
 
 use super::{DetourAction, StreamDetourContext};

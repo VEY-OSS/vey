@@ -92,7 +92,7 @@ impl CertAgentConfig {
         })?;
 
         let (cache_runtime, cache_handle, query_handle) =
-            g3_io_ext::create_effective_cache(self.cache_request_batch_count);
+            vey_io_ext::create_effective_cache(self.cache_request_batch_count);
 
         if let Some(rt) = crate::get_cert_generate_rt_handle() {
             let config = self.clone();

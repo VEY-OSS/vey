@@ -13,11 +13,11 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use uuid::Uuid;
 
 use g3_daemon::server::ServerQuitPolicy;
-use g3_io_ext::IdleWheel;
 use vey_dpi::{
     H1InterceptionConfig, H2InterceptionConfig, ImapInterceptionConfig, MaybeProtocol,
     ProtocolInspectAction, ProtocolInspector, SmtpInterceptionConfig,
 };
+use vey_io_ext::IdleWheel;
 use vey_types::net::{Host, OpensslClientConfig};
 
 use crate::audit::AuditHandle;

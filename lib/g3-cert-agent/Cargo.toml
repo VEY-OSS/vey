@@ -16,7 +16,7 @@ yaml-rust = { workspace = true, optional = true }
 vey-types = { workspace = true, features = ["openssl"] }
 vey-msgpack = { workspace = true, features = ["openssl"] }
 vey-socket.workspace = true
-g3-io-ext.workspace = true
+vey-io-ext.workspace = true
 vey-yaml = { workspace = true, optional = true }
 
 [features]

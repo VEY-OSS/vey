@@ -8,7 +8,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_imap_proto::command::{Command, ParsedCommand};
 use g3_imap_proto::response::{BadResponse, ByeResponse};
-use g3_io_ext::{IdleInterval, LimitedWriteExt};
+use vey_io_ext::{IdleInterval, LimitedWriteExt};
 
 use super::{
     Capability, CommandLineReceiveExt, ImapInterceptObject, ImapRelayBuf, ResponseAction,

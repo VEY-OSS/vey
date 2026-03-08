@@ -9,10 +9,10 @@ use anyhow::anyhow;
 use tokio::io::AsyncWriteExt;
 
 use g3_daemon::server::ServerQuitPolicy;
-use g3_io_ext::{IdleInterval, LineRecvBuf, OnceBufReader, StreamCopyConfig};
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 use vey_dpi::ProtocolInspectAction;
+use vey_io_ext::{IdleInterval, LineRecvBuf, OnceBufReader, StreamCopyConfig};
 use vey_slog_types::{LtHost, LtUpstreamAddr, LtUuid};
 use vey_types::net::{Host, UpstreamAddr};
 

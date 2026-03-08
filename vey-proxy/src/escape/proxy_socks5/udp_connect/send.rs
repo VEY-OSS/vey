@@ -8,6 +8,7 @@ use std::task::{Context, Poll, ready};
 
 use slog::Logger;
 
+use g3_socks::v5::UdpOutput;
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -16,9 +17,8 @@ use slog::Logger;
     target_os = "openbsd",
     target_os = "macos",
 ))]
-use g3_io_ext::UdpCopyPacket;
-use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
-use g3_socks::v5::UdpOutput;
+use vey_io_ext::UdpCopyPacket;
+use vey_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 use vey_io_sys::udp::SendMsgHdr;
 use vey_types::net::UpstreamAddr;
 

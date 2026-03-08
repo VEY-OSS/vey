@@ -6,7 +6,7 @@
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::LimitedStream;
+use vey_io_ext::LimitedStream;
 use vey_openssl::{SslConnector, SslStream};
 use vey_types::net::{Host, UpstreamAddr};
 

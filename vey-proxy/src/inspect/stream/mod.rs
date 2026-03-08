@@ -9,8 +9,8 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
 use g3_daemon::server::ServerQuitPolicy;
-use g3_io_ext::{IdleInterval, OptionalInterval, StreamCopy, StreamCopyConfig, StreamCopyError};
 use vey_dpi::{MaybeProtocol, ProtocolInspectionConfig, ProtocolInspector};
+use vey_io_ext::{IdleInterval, OptionalInterval, StreamCopy, StreamCopyConfig, StreamCopyError};
 use vey_slog_types::LtUuid;
 use vey_types::net::UpstreamAddr;
 

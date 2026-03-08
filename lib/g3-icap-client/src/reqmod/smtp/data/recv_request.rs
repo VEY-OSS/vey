@@ -7,8 +7,8 @@ use tokio::io::{AsyncWrite, BufWriter};
 
 use g3_http::HttpBodyDecodeReader;
 use g3_http::server::HttpAdaptedRequest;
-use g3_io_ext::{IdleCheck, StreamCopyError};
 use g3_smtp_proto::io::TextDataEncodeTransfer;
+use vey_io_ext::{IdleCheck, StreamCopyError};
 
 use super::{SmtpAdaptationError, SmtpMessageAdapter};
 use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};

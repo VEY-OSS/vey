@@ -16,7 +16,7 @@ use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use g3_ftp_client::FtpClientConfig;
-use g3_io_ext::StreamCopyConfig;
+use vey_io_ext::StreamCopyConfig;
 use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use vey_types::acl_set::AclDstHostRuleSetBuilder;

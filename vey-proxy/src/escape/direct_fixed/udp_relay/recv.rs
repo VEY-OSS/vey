@@ -8,7 +8,7 @@ use std::task::{Context, Poll, ready};
 
 use slog::Logger;
 
-use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
+use vey_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -18,7 +18,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
     target_os = "macos",
     target_os = "solaris",
 ))]
-use g3_io_ext::{UdpRelayPacket, UdpRelayPacketMeta};
+use vey_io_ext::{UdpRelayPacket, UdpRelayPacketMeta};
 use vey_types::net::UpstreamAddr;
 
 pub(crate) struct DirectUdpRelayRemoteRecv<T> {

@@ -11,7 +11,7 @@ use arcstr::ArcStr;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 
-use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
+use vey_io_ext::{ArcLimitedWriterStats, LimitedWriter};
 use vey_types::auth::UserAuthError;
 use vey_types::net::HttpAuth;
 use vey_types::route::HostMatch;

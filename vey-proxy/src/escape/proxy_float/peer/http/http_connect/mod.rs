@@ -10,7 +10,7 @@ use tokio::net::TcpStream;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_http::connect::{HttpConnectRequest, HttpConnectResponse};
-use g3_io_ext::{AsyncStream, FlexBufReader, LimitedStream, OnceBufReader};
+use vey_io_ext::{AsyncStream, FlexBufReader, LimitedStream, OnceBufReader};
 use vey_openssl::SslStream;
 
 use super::{ProxyFloatEscaper, ProxyFloatHttpPeer};

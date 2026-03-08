@@ -9,7 +9,7 @@ use tokio::io::{AsyncRead, AsyncWrite, BufWriter};
 
 use g3_http::HttpBodyDecodeReader;
 use g3_http::server::HttpAdaptedRequest;
-use g3_io_ext::{
+use vey_io_ext::{
     IdleCheck, LimitedBufReadExt, LimitedWriteExt, StreamCopy, StreamCopyConfig, StreamCopyError,
 };
 

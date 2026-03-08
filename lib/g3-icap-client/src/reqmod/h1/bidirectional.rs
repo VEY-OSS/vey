@@ -9,7 +9,7 @@ use anyhow::anyhow;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite};
 
 use g3_http::{H1BodyToChunkedTransfer, HttpBodyDecodeReader, HttpBodyReader};
-use g3_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopy, StreamCopyConfig, StreamCopyError};
+use vey_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopy, StreamCopyConfig, StreamCopyError};
 
 use super::{
     H1ReqmodAdaptationError, HttpAdaptedRequest, HttpRequestForAdaptation,

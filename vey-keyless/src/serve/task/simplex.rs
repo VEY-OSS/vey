@@ -6,7 +6,7 @@
 use tokio::io::{AsyncRead, AsyncWrite, BufReader};
 use tokio::sync::broadcast;
 
-use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt};
+use vey_io_ext::{LimitedBufReadExt, LimitedWriteExt};
 
 use super::KeylessTask;
 use crate::log::request::RequestErrorLogContext;

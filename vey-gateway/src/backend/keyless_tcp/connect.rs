@@ -18,7 +18,7 @@ use tokio::time::Instant;
 use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 
-use g3_io_ext::AsyncStream;
+use vey_io_ext::AsyncStream;
 use vey_std_ext::time::DurationExt;
 use vey_types::collection::{SelectiveVec, WeightedValue};
 use vey_types::net::RustlsClientConfig;

@@ -11,7 +11,7 @@ use tokio_rustls::server::TlsStream;
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
-use g3_io_ext::{AsyncStream, IdleInterval, LimitedStream, StreamCopyConfig};
+use vey_io_ext::{AsyncStream, IdleInterval, LimitedStream, StreamCopyConfig};
 use vey_types::limit::GaugeSemaphorePermit;
 
 use super::CommonTaskContext;

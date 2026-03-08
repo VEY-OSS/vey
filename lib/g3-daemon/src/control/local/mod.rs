@@ -11,7 +11,7 @@ use log::{debug, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, BufReader};
 use tokio::sync::oneshot;
 
-use g3_io_ext::LimitedWriteExt;
+use vey_io_ext::LimitedWriteExt;
 
 use super::{CtlProtoCtx, CtlProtoType, LocalControllerConfig};
 

@@ -9,7 +9,7 @@ use log::trace;
 use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 
-use g3_io_ext::{GlobalLimitGroup, LimitedBufReadExt, LimitedBufReader, NilLimitedReaderStats};
+use vey_io_ext::{GlobalLimitGroup, LimitedBufReadExt, LimitedBufReader, NilLimitedReaderStats};
 use vey_types::net::{HttpForwardedHeaderType, HttpForwardedHeaderValue};
 
 use super::protocol::{HttpClientReader, HttpRProxyRequest};

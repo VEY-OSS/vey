@@ -15,7 +15,7 @@ use g3_h2::{
     H2StreamFromChunkedTransferError, RequestExt,
 };
 use g3_http::server::HttpAdaptedRequest;
-use g3_io_ext::IdleCheck;
+use vey_io_ext::IdleCheck;
 
 use super::{
     H2ReqmodAdaptationError, H2RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationMidState,

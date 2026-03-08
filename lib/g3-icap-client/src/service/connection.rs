@@ -13,7 +13,7 @@ use tokio::io::{AsyncRead, AsyncWrite, BufReader};
 use tokio::sync::oneshot;
 use tokio_rustls::TlsConnector;
 
-use g3_io_ext::{AsyncStream, LimitedBufReadExt};
+use vey_io_ext::{AsyncStream, LimitedBufReadExt};
 use vey_types::net::{Host, RustlsClientConfig};
 
 use super::IcapServiceConfig;

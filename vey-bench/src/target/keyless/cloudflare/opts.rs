@@ -11,7 +11,7 @@ use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-use g3_io_ext::AsyncStream;
+use vey_io_ext::AsyncStream;
 use vey_openssl::SslStream;
 use vey_types::collection::{SelectiveVec, WeightedValue};
 use vey_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAddr};

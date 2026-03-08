@@ -9,7 +9,7 @@ use bytes::BufMut;
 use tokio::io::{AsyncBufRead, AsyncWriteExt};
 
 use g3_http::{H1BodyToChunkedTransfer, HttpBodyReader, HttpBodyType};
-use g3_io_ext::{IdleCheck, LimitedWriteExt, StreamCopy, StreamCopyError};
+use vey_io_ext::{IdleCheck, LimitedWriteExt, StreamCopy, StreamCopyError};
 
 use super::{
     BidirectionalRecvHttpResponse, BidirectionalRecvIcapResponse, H1RespmodAdaptationError,

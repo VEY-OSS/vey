@@ -8,7 +8,7 @@ use std::io::{self, Write};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 use g3_ftp_client::FtpLineDataReceiver;
-use g3_io_ext::LimitedWriteExt;
+use vey_io_ext::LimitedWriteExt;
 
 const CHUNKED_BUF_HEAD_RESERVED: usize = (usize::BITS as usize >> 2) + 2;
 const CHUNKED_BUF_TAIL_RESERVED: usize = 2;

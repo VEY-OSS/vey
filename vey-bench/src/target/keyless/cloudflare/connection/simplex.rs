@@ -8,7 +8,7 @@ use std::net::SocketAddr;
 use futures_util::FutureExt;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 
-use g3_io_ext::LimitedWriteExt;
+use vey_io_ext::LimitedWriteExt;
 
 use super::{KeylessLocalError, KeylessRequest, KeylessResponse, KeylessResponseError};
 

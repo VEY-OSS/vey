@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
+use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
 use super::{FtpOverHttpTaskStats, HttpProxyServerStats};
 use crate::auth::UserTrafficStats;

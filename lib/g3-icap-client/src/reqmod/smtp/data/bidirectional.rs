@@ -9,8 +9,8 @@ use tokio::io::{AsyncBufRead, AsyncWrite, BufWriter};
 
 use g3_http::server::HttpAdaptedRequest;
 use g3_http::{HttpBodyDecodeReader, StreamToChunkedTransfer};
-use g3_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopyConfig, StreamCopyError};
 use g3_smtp_proto::io::TextDataEncodeTransfer;
+use vey_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopyConfig, StreamCopyError};
 
 use super::SmtpAdaptationError;
 use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};

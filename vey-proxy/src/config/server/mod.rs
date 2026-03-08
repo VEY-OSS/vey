@@ -13,7 +13,7 @@ use slog::Logger;
 use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
-use g3_io_ext::StreamCopyConfig;
+use vey_io_ext::StreamCopyConfig;
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
 use vey_yaml::{HybridParser, YamlDocPosition};

@@ -16,7 +16,7 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
-use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
+use vey_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;
 use vey_types::net::ProxyProtocolVersion;

@@ -11,7 +11,7 @@ use http::Request;
 use tokio::io::AsyncWriteExt;
 
 use g3_h2::RequestExt;
-use g3_io_ext::{IdleCheck, LimitedWriteExt};
+use vey_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
     H2ReqmodAdaptationError, H2RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationMidState,

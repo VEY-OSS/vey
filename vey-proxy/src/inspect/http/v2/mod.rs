@@ -15,8 +15,8 @@ use tokio::sync::oneshot;
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_h2::H2BodyTransfer;
-use g3_io_ext::{IdleInterval, OnceBufReader, StreamCopyConfig};
 use vey_dpi::{Protocol, ProtocolInspectAction};
+use vey_io_ext::{IdleInterval, OnceBufReader, StreamCopyConfig};
 use vey_slog_types::{LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;
 

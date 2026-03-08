@@ -8,7 +8,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_imap_proto::command::ParsedCommand;
 use g3_imap_proto::response::{Response, ServerStatus};
-use g3_io_ext::{LimitedWriteExt, LineRecvVec};
+use vey_io_ext::{LimitedWriteExt, LineRecvVec};
 
 use super::{ImapInterceptObject, ResponseLineReceiveExt};
 use crate::config::server::ServerConfig;

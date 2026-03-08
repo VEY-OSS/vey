@@ -37,7 +37,7 @@ vey-fluentd = { workspace = true, optional = true, features = ["yaml"] }
 vey-runtime = { workspace = true, features = ["yaml"] }
 vey-yaml = { workspace = true, features = ["sched"] }
 vey-statsd-client = { workspace = true, features = ["yaml"] }
-g3-io-ext.workspace = true
+vey-io-ext.workspace = true
 vey-io-sys.workspace = true
 vey-socket.workspace = true
 vey-std-ext.workspace = true

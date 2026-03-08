@@ -5,7 +5,7 @@
 
 use tokio::io::AsyncRead;
 
-use g3_io_ext::{LineRecvVec, RecvLineError};
+use vey_io_ext::{LineRecvVec, RecvLineError};
 
 use crate::serve::{ServerTaskError, ServerTaskResult};
 

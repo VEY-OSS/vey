@@ -8,7 +8,7 @@ use std::io::{IoSlice, Write};
 use bytes::BufMut;
 use tokio::io::AsyncWriteExt;
 
-use g3_io_ext::{IdleCheck, LimitedWriteExt};
+use vey_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
     H1RespmodAdaptationError, HttpResponseAdapter, HttpResponseClientWriter,

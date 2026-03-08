@@ -12,11 +12,11 @@ use tokio::time::Instant;
 
 use g3_icap_client::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use g3_icap_client::reqmod::smtp::SmtpMessageAdapter;
-use g3_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
 use g3_smtp_proto::command::{Command, MailParam, RecipientParam};
 use g3_smtp_proto::io::TextDataReader;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 use vey_dpi::SmtpInterceptionConfig;
+use vey_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
 use vey_slog_types::LtUuid;
 
 use super::{CommandLineRecvExt, ResponseLineRecvExt, ResponseParseExt, SmtpRelayBuf};

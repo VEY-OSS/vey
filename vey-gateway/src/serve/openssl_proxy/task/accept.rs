@@ -15,10 +15,10 @@ use tokio::net::TcpStream;
 use tokio::time::Instant;
 
 use g3_daemon::stat::task::TcpStreamConnectionStats;
-use g3_io_ext::{LimitedStream, OnceBufReader};
 use vey_codec::tls::{
     ClientHello, ExtensionType, HandshakeCoalescer, RawVersion, Record, RecordParseError,
 };
+use vey_io_ext::{LimitedStream, OnceBufReader};
 use vey_openssl::{SslAcceptor, SslStream};
 use vey_types::limit::GaugeSemaphorePermit;
 use vey_types::net::{Host, TlsServerName};

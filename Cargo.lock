@@ -934,11 +934,11 @@ version = "0.3.0"
 dependencies = [
  "anyhow",
  "arcstr",
- "g3-io-ext",
  "log",
  "rmpv",
  "tokio",
  "variant-ssl",
+ "vey-io-ext",
  "vey-msgpack",
  "vey-socket",
  "vey-types",
@@ -960,7 +960,6 @@ dependencies = [
  "fastrand",
  "foldhash 0.2.0",
  "g3-http",
- "g3-io-ext",
  "http",
  "itoa",
  "libc",
@@ -976,6 +975,7 @@ dependencies = [
  "uuid",
  "vey-compat",
  "vey-fluentd",
+ "vey-io-ext",
  "vey-io-sys",
  "vey-journal",
  "vey-runtime",
@@ -996,13 +996,13 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
- "g3-io-ext",
  "log",
  "memchr",
  "mime",
  "thiserror",
  "tokio",
  "vey-datetime",
+ "vey-io-ext",
  "vey-types",
  "vey-yaml",
  "yaml-rust2",
@@ -1014,11 +1014,11 @@ version = "0.3.0"
 dependencies = [
  "bytes",
  "g3-http",
- "g3-io-ext",
  "h2",
  "http",
  "thiserror",
  "tokio",
+ "vey-io-ext",
 ]
 
 [[package]]
@@ -1028,7 +1028,6 @@ dependencies = [
  "atoi",
  "base64",
  "bytes",
- "g3-io-ext",
  "http",
  "memchr",
  "mime",
@@ -1037,6 +1036,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-test",
+ "vey-io-ext",
  "vey-types",
 ]
 
@@ -1051,7 +1051,6 @@ dependencies = [
  "bytes",
  "g3-h2",
  "g3-http",
- "g3-io-ext",
  "g3-smtp-proto",
  "h2",
  "http",
@@ -1063,6 +1062,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "url",
+ "vey-io-ext",
  "vey-socket",
  "vey-types",
  "vey-yaml",
@@ -1075,52 +1075,25 @@ version = "0.3.0"
 dependencies = [
  "ahash",
  "atoi",
- "g3-io-ext",
  "log",
  "memchr",
  "smol_str",
  "thiserror",
  "tokio",
-]
-
-[[package]]
-name = "g3-io-ext"
-version = "0.9.0"
-dependencies = [
- "ahash",
- "arc-swap",
- "bytes",
- "fastrand",
- "futures-util",
- "memchr",
- "pin-project-lite",
- "quinn",
- "slog",
- "smallvec",
- "thiserror",
- "tokio",
- "tokio-rustls",
- "tokio-test",
- "tokio-util",
- "vey-io-sys",
- "vey-openssl",
- "vey-resolver",
- "vey-socket",
- "vey-std-ext",
- "vey-types",
+ "vey-io-ext",
 ]
 
 [[package]]
 name = "g3-smtp-proto"
 version = "0.3.0"
 dependencies = [
- "g3-io-ext",
  "log",
  "memchr",
  "pin-project-lite",
  "thiserror",
  "tokio",
  "tokio-test",
+ "vey-io-ext",
  "vey-types",
 ]
 
@@ -1129,11 +1102,11 @@ name = "g3-socks"
 version = "0.4.0"
 dependencies = [
  "bytes",
- "g3-io-ext",
  "quinn",
  "smallvec",
  "thiserror",
  "tokio",
+ "vey-io-ext",
  "vey-io-sys",
  "vey-types",
 ]
@@ -1143,10 +1116,10 @@ name = "g3-udpdump"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "g3-io-ext",
  "log",
  "tokio",
  "vey-dpi",
+ "vey-io-ext",
  "vey-io-sys",
  "vey-socket",
  "vey-types",
@@ -2799,7 +2772,6 @@ dependencies = [
  "fastrand",
  "futures-util",
  "g3-http",
- "g3-io-ext",
  "g3-socks",
  "h2",
  "h3",
@@ -2827,6 +2799,7 @@ dependencies = [
  "vey-codec",
  "vey-hickory-client",
  "vey-histogram",
+ "vey-io-ext",
  "vey-openssl",
  "vey-runtime",
  "vey-socket",
@@ -2976,7 +2949,6 @@ dependencies = [
  "foldhash 0.2.0",
  "futures-util",
  "g3-daemon",
- "g3-io-ext",
  "itoa",
  "kanal",
  "log",
@@ -2998,6 +2970,7 @@ dependencies = [
  "vey-dpi",
  "vey-gateway-proto",
  "vey-histogram",
+ "vey-io-ext",
  "vey-macros",
  "vey-openssl",
  "vey-slog-types",
@@ -3082,6 +3055,33 @@ dependencies = [
  "thiserror",
  "tokio",
  "zmij",
+]
+
+[[package]]
+name = "vey-io-ext"
+version = "0.9.0"
+dependencies = [
+ "ahash",
+ "arc-swap",
+ "bytes",
+ "fastrand",
+ "futures-util",
+ "memchr",
+ "pin-project-lite",
+ "quinn",
+ "slog",
+ "smallvec",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "tokio-test",
+ "tokio-util",
+ "vey-io-sys",
+ "vey-openssl",
+ "vey-resolver",
+ "vey-socket",
+ "vey-std-ext",
+ "vey-types",
 ]
 
 [[package]]
@@ -3183,7 +3183,6 @@ dependencies = [
  "foldhash 0.2.0",
  "futures-util",
  "g3-daemon",
- "g3-io-ext",
  "inotify",
  "log",
  "openssl-probe",
@@ -3199,6 +3198,7 @@ dependencies = [
  "vey-codec",
  "vey-compat",
  "vey-histogram",
+ "vey-io-ext",
  "vey-keyless-proto",
  "vey-macros",
  "vey-openssl",
@@ -3321,7 +3321,6 @@ dependencies = [
  "g3-http",
  "g3-icap-client",
  "g3-imap-proto",
- "g3-io-ext",
  "g3-smtp-proto",
  "g3-socks",
  "g3-udpdump",
@@ -3366,6 +3365,7 @@ dependencies = [
  "vey-dpi",
  "vey-geoip-types",
  "vey-histogram",
+ "vey-io-ext",
  "vey-io-sys",
  "vey-ip-locate",
  "vey-json",
@@ -3537,7 +3537,6 @@ dependencies = [
  "foldhash 0.2.0",
  "g3-daemon",
  "g3-http",
- "g3-io-ext",
  "http",
  "itoa",
  "log",
@@ -3546,6 +3545,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "vey-build-env",
+ "vey-io-ext",
  "vey-macros",
  "vey-socket",
  "vey-statsd-proto",

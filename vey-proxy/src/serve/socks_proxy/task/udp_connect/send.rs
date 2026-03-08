@@ -6,6 +6,7 @@
 use std::io::{self, IoSlice};
 use std::task::{Context, Poll, ready};
 
+use g3_socks::v5::UdpOutput;
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -15,9 +16,8 @@ use std::task::{Context, Poll, ready};
     target_os = "macos",
     target_os = "solaris",
 ))]
-use g3_io_ext::UdpCopyPacket;
-use g3_io_ext::{AsyncUdpSend, UdpCopyClientError, UdpCopyClientSend};
-use g3_socks::v5::UdpOutput;
+use vey_io_ext::UdpCopyPacket;
+use vey_io_ext::{AsyncUdpSend, UdpCopyClientError, UdpCopyClientSend};
 use vey_io_sys::udp::SendMsgHdr;
 use vey_types::net::UpstreamAddr;
 

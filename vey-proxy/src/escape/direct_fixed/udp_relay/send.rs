@@ -21,8 +21,8 @@ use slog::Logger;
     target_os = "openbsd",
     target_os = "solaris",
 ))]
-use g3_io_ext::UdpRelayPacket;
-use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
+use vey_io_ext::UdpRelayPacket;
+use vey_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
 use vey_resolver::{ResolveError, ResolveLocalError};
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::net::{Host, UpstreamAddr};

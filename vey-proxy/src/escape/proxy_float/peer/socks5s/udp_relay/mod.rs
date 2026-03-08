@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
+use vey_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 
 use super::{ProxyFloatEscaper, ProxyFloatSocks5sPeer};
 use crate::escape::proxy_socks5::udp_relay::{
@@ -36,7 +36,7 @@ impl ProxyFloatSocks5sPeer {
         wrapper_stats.push_user_io_stats(escaper.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
-        let (recv, send) = g3_io_ext::split_udp(udp_socket);
+        let (recv, send) = vey_io_ext::split_udp(udp_socket);
         let recv = LimitedUdpRecv::local_limited(
             recv,
             self.udp_sock_speed_limit.shift_millis,

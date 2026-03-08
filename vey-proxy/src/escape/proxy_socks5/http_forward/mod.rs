@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
+use vey_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 
 use super::{ProxySocks5Escaper, ProxySocks5EscaperStats};
 use crate::escape::direct_fixed::http_forward::{DirectHttpForwardReader, DirectHttpForwardWriter};

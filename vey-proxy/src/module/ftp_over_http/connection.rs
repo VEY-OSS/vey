@@ -6,7 +6,7 @@
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 
-use g3_io_ext::LimitedStream;
+use vey_io_ext::LimitedStream;
 
 pub(crate) trait FtpRemoteConnection: AsyncRead + AsyncWrite {}
 

@@ -13,7 +13,7 @@ use log::warn;
 use rustc_hash::FxHashMap;
 use yaml_rust::{Yaml, yaml};
 
-use g3_io_ext::{LimitedUdpRelayConfig, StreamCopyConfig};
+use vey_io_ext::{LimitedUdpRelayConfig, StreamCopyConfig};
 use vey_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use vey_types::acl_set::AclDstHostRuleSetBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};

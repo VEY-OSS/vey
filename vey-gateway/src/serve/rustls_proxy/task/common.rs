@@ -9,7 +9,7 @@ use std::time::Duration;
 use slog::Logger;
 
 use g3_daemon::server::ClientConnectionInfo;
-use g3_io_ext::IdleWheel;
+use vey_io_ext::IdleWheel;
 
 use crate::config::server::rustls_proxy::RustlsProxyServerConfig;
 use crate::module::stream::StreamServerStats;

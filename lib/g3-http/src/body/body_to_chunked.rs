@@ -8,7 +8,7 @@ use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncBufRead, AsyncWrite};
 
-use g3_io_ext::{ROwnedStreamCopy, StreamCopyConfig, StreamCopyError};
+use vey_io_ext::{ROwnedStreamCopy, StreamCopyConfig, StreamCopyError};
 
 use super::{HttpBodyReader, HttpBodyType, StreamToChunkedTransfer};
 

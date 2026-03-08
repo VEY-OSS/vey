@@ -10,7 +10,7 @@ use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
 
-use g3_io_ext::{StreamCopyConfig, StreamCopyError};
+use vey_io_ext::{StreamCopyConfig, StreamCopyError};
 
 #[derive(Debug)]
 struct EncodeCopyBuffer {

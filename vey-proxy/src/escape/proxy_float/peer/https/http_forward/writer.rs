@@ -14,7 +14,7 @@ use tokio::io::AsyncWrite;
 use tokio::time::Instant;
 
 use g3_http::server::HttpProxyClientRequest;
-use g3_io_ext::LimitedWriter;
+use vey_io_ext::LimitedWriter;
 use vey_types::net::UpstreamAddr;
 
 use crate::auth::UserUpstreamTrafficStats;

@@ -7,7 +7,7 @@ use openssl::pkey::{PKey, Private};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::{broadcast, mpsc};
 
-use g3_io_ext::LimitedBufReadExt;
+use vey_io_ext::LimitedBufReadExt;
 
 use super::{KeylessTask, WrappedKeylessRequest, WrappedKeylessResponse};
 use crate::backend::DispatchedKeylessRequest;

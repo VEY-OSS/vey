@@ -11,7 +11,7 @@ use bytes::BufMut;
 use http::{HeaderName, Method, Uri, Version, header};
 use tokio::io::AsyncBufRead;
 
-use g3_io_ext::LimitedBufReadExt;
+use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{Host, HttpAuth, HttpHeaderMap, HttpHeaderValue, UpstreamAddr};
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};

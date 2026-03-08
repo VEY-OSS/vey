@@ -7,10 +7,10 @@ use std::net::IpAddr;
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::{LimitedWriteExt, LineRecvBuf};
 use g3_smtp_proto::command::{Command, MailParam};
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 use vey_dpi::SmtpInterceptionConfig;
+use vey_io_ext::{LimitedWriteExt, LineRecvBuf};
 
 use super::{
     CommandLineRecvExt, InitializedExtensions, Initiation, ResponseLineRecvExt, ResponseParseExt,

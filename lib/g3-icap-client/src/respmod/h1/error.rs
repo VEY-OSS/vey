@@ -8,7 +8,7 @@ use std::io;
 use thiserror::Error;
 
 use g3_http::client::HttpResponseParseError;
-use g3_io_ext::IdleForceQuitReason;
+use vey_io_ext::IdleForceQuitReason;
 
 use crate::reason::IcapErrorReason;
 use crate::respmod::IcapRespmodParseError;

@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::LimitedStream;
+use vey_io_ext::LimitedStream;
 use vey_types::net::UpstreamAddr;
 
 use super::DirectFixedEscaper;

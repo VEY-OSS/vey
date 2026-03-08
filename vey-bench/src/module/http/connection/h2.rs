@@ -14,7 +14,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use url::Url;
 
-use g3_io_ext::LimitedStream;
+use vey_io_ext::LimitedStream;
 use vey_openssl::SslStream;
 use vey_types::collection::{SelectiveVec, WeightedValue};
 use vey_types::net::{

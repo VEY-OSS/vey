@@ -5,7 +5,7 @@
 
 use tokio::io::{AsyncRead, AsyncWrite, BufStream};
 
-use g3_io_ext::LimitedBufReadExt;
+use vey_io_ext::LimitedBufReadExt;
 
 use crate::config::FtpTransferConfig;
 use crate::error::FtpLineDataReadError;

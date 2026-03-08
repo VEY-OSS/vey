@@ -11,7 +11,7 @@ use anyhow::{Context, anyhow};
 use arcstr::ArcStr;
 use tokio::net::UdpSocket;
 
-use g3_io_ext::EffectiveCacheHandle;
+use vey_io_ext::EffectiveCacheHandle;
 use vey_types::collection::{SelectivePickPolicy, SelectiveVec, WeightedValue};
 use vey_types::metrics::NodeName;
 use vey_types::net::UpstreamAddr;
@@ -107,7 +107,7 @@ pub(super) fn spawn(config: &Arc<RouteQueryEscaperConfig>) -> anyhow::Result<Cac
     let socket = UdpSocket::from_std(socket).context("failed to setup udp socket")?;
 
     let (cache_runtime, cache_handle, query_handle) =
-        g3_io_ext::create_effective_cache(config.cache_request_batch_count);
+        vey_io_ext::create_effective_cache(config.cache_request_batch_count);
     let query_runtime = QueryRuntime::new(config, socket, query_handle);
 
     tokio::spawn(query_runtime);

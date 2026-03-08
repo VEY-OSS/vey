@@ -14,7 +14,7 @@ anyhow = { workspace = true, optional = true }
 yaml-rust = { workspace = true, optional = true }
 vey-types.workspace = true
 vey-socket.workspace = true
-g3-io-ext.workspace = true
+vey-io-ext.workspace = true
 vey-io-sys.workspace = true
 vey-dpi.workspace = true
 vey-yaml = { workspace = true, optional = true }

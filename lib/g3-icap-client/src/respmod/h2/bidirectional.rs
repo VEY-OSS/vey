@@ -11,7 +11,7 @@ use g3_h2::{
     H2StreamFromChunkedTransfer, H2StreamFromChunkedTransferError, H2StreamToChunkedTransfer,
     H2StreamToChunkedTransferError, ResponseExt,
 };
-use g3_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopyConfig};
+use vey_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopyConfig};
 
 use super::{
     H2RespmodAdaptationError, H2SendResponseToClient, HttpAdaptedResponse,

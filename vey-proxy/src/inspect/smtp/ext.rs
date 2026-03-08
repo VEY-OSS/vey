@@ -9,9 +9,9 @@ use std::time::Duration;
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::{LineRecvBuf, RecvLineError};
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ResponseEncoder, ResponseParser};
+use vey_io_ext::{LineRecvBuf, RecvLineError};
 
 use crate::serve::{ServerTaskError, ServerTaskResult};
 

@@ -7,7 +7,7 @@ use std::task::{Context, Poll, ready};
 
 use slog::Logger;
 
-use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
+use vey_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -16,7 +16,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
     target_os = "openbsd",
     target_os = "macos",
 ))]
-use g3_io_ext::{UdpCopyPacket, UdpCopyPacketMeta};
+use vey_io_ext::{UdpCopyPacket, UdpCopyPacketMeta};
 
 pub(crate) struct DirectUdpConnectRemoteRecv<T> {
     inner: T,

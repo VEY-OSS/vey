@@ -14,4 +14,4 @@ h2.workspace = true
 http.workspace = true
 tokio = { workspace = true, features = ["macros", "time"] }
 g3-http.workspace = true
-g3-io-ext.workspace = true
+vey-io-ext.workspace = true

@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use tokio::net::UdpSocket;
 
-use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
+use vey_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 use vey_socket::BindAddr;
 use vey_socket::util::AddressFamily;
 use vey_types::acl::AclAction;
@@ -104,7 +104,7 @@ impl DirectFloatEscaper {
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
-        let (recv, send) = g3_io_ext::split_udp(socket);
+        let (recv, send) = vey_io_ext::split_udp(socket);
         let recv = LimitedUdpRecv::local_limited(
             recv,
             self.config.general.udp_sock_speed_limit.shift_millis,

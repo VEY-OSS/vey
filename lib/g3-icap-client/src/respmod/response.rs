@@ -5,7 +5,7 @@
 
 use tokio::io::AsyncBufRead;
 
-use g3_io_ext::LimitedBufReadExt;
+use vey_io_ext::LimitedBufReadExt;
 
 use super::{IcapRespmodParseError, IcapRespmodResponsePayload};
 use crate::parse::{HeaderLine, StatusLine};

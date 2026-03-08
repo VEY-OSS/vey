@@ -12,7 +12,7 @@ use h2::SendStream;
 use thiserror::Error;
 use tokio::io::{AsyncRead, ReadBuf};
 
-use g3_io_ext::StreamCopyConfig;
+use vey_io_ext::StreamCopyConfig;
 
 #[derive(Debug, Error)]
 pub enum H2StreamBodyEncodeTransferError {

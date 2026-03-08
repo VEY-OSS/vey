@@ -6,7 +6,7 @@
 use tokio::io::AsyncWriteExt;
 use tokio::sync::oneshot;
 
-use g3_io_ext::LimitedBufReadExt;
+use vey_io_ext::LimitedBufReadExt;
 
 use super::BoxHttpForwardConnection;
 

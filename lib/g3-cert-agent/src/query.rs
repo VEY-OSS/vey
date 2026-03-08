@@ -15,7 +15,7 @@ use log::{debug, warn};
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
-use g3_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
+use vey_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
 
 use super::{CacheQueryKey, CertAgentConfig, FakeCertPair, Response};
 

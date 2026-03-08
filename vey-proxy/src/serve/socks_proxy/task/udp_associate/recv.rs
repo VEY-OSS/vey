@@ -8,7 +8,8 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 
-use g3_io_ext::{AsyncUdpRecv, UdpRelayClientError, UdpRelayClientRecv};
+use g3_socks::v5::UdpInput;
+use vey_io_ext::{AsyncUdpRecv, UdpRelayClientError, UdpRelayClientRecv};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -18,8 +19,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpRelayClientError, UdpRelayClientRecv};
     target_os = "macos",
     target_os = "solaris",
 ))]
-use g3_io_ext::{UdpRelayPacket, UdpRelayPacketMeta};
-use g3_socks::v5::UdpInput;
+use vey_io_ext::{UdpRelayPacket, UdpRelayPacketMeta};
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::net::UpstreamAddr;
 

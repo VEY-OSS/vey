@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{IdleCheck, IdleForceQuitReason, IdleInterval, IdleWheel};
+use vey_io_ext::{IdleCheck, IdleForceQuitReason, IdleInterval, IdleWheel};
 
 use super::ServerQuitPolicy;
 use crate::auth::User;

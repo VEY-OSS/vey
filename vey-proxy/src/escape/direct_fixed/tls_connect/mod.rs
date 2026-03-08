@@ -11,7 +11,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
-use g3_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
+use vey_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
 use vey_openssl::{SslConnector, SslStream};
 
 use super::DirectFixedEscaper;

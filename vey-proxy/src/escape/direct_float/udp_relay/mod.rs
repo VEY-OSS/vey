@@ -9,7 +9,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use tokio::net::UdpSocket;
 
-use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend, UdpRecvHalf, UdpSendHalf};
+use vey_io_ext::{LimitedUdpRecv, LimitedUdpSend, UdpRecvHalf, UdpSendHalf};
 use vey_socket::BindAddr;
 use vey_socket::util::AddressFamily;
 
@@ -104,7 +104,7 @@ impl DirectFloatEscaper {
         .map_err(UdpRelaySetupError::SetupSocketFailed)?;
         let socket = UdpSocket::from_std(socket).map_err(UdpRelaySetupError::SetupSocketFailed)?;
 
-        let (recv, send) = g3_io_ext::split_udp(socket);
+        let (recv, send) = vey_io_ext::split_udp(socket);
         let recv = LimitedUdpRecv::local_limited(
             recv,
             self.config.general.udp_sock_speed_limit.shift_millis,

@@ -13,7 +13,7 @@ use thiserror::Error;
 use g3_h2::H2StreamBodyTransferError;
 use g3_icap_client::reqmod::h2::H2ReqmodAdaptationError;
 use g3_icap_client::respmod::h2::H2RespmodAdaptationError;
-use g3_io_ext::IdleForceQuitReason;
+use vey_io_ext::IdleForceQuitReason;
 
 #[derive(Debug, Error)]
 pub(crate) enum H2InterceptionError {

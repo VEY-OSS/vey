@@ -8,7 +8,7 @@ use std::io;
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::LimitedWriteExt;
+use vey_io_ext::LimitedWriteExt;
 
 use super::FtpControlChannel;
 

@@ -9,7 +9,7 @@ use std::io;
 use bytes::{BufMut, BytesMut};
 use tokio::io::{AsyncBufRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use g3_io_ext::LimitedWriteExt;
+use vey_io_ext::LimitedWriteExt;
 use vey_types::auth::{Password, Username};
 use vey_types::net::SocksAuth;
 

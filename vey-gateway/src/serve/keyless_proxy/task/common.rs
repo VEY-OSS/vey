@@ -10,7 +10,7 @@ use arc_swap::ArcSwap;
 use slog::Logger;
 
 use g3_daemon::server::ClientConnectionInfo;
-use g3_io_ext::IdleWheel;
+use vey_io_ext::IdleWheel;
 
 use crate::backend::ArcBackend;
 use crate::config::server::keyless_proxy::KeylessProxyServerConfig;

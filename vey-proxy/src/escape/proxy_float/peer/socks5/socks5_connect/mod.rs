@@ -11,8 +11,8 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpStream, UdpSocket};
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_io_ext::{AsyncStream, LimitedStream};
 use g3_socks::v5;
+use vey_io_ext::{AsyncStream, LimitedStream};
 use vey_openssl::SslStream;
 use vey_socket::BindAddr;
 use vey_types::net::{SocketBufferConfig, UpstreamAddr};

@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
+use vey_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 
 use super::{ProxyHttpEscaper, ProxyHttpEscaperConfig, ProxyHttpEscaperStats};
 use crate::log::escape::tls_handshake::TlsApplication;

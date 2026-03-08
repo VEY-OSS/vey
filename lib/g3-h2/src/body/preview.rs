@@ -14,7 +14,7 @@ use h2::{RecvStream, SendStream};
 use thiserror::Error;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-use g3_io_ext::{IdleCheck, IdleForceQuitReason, LimitedWriteExt};
+use vey_io_ext::{IdleCheck, IdleForceQuitReason, LimitedWriteExt};
 
 #[derive(Debug, Error)]
 pub enum H2PreviewError {

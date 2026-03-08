@@ -24,7 +24,7 @@ use g3_icap_client::reqmod::h1::{
 use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
-use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt, StreamCopy, StreamCopyError};
+use vey_io_ext::{LimitedBufReadExt, LimitedWriteExt, StreamCopy, StreamCopyError};
 use vey_slog_types::{LtDateTime, LtDuration, LtHttpHeaderValue, LtHttpMethod, LtHttpUri, LtUuid};
 use vey_types::net::HttpHeaderMap;
 

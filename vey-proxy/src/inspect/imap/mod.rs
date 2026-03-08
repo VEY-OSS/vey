@@ -11,8 +11,8 @@ use tokio::io::AsyncWriteExt;
 use g3_daemon::server::ServerQuitPolicy;
 use g3_imap_proto::CommandPipeline;
 use g3_imap_proto::response::ByeResponse;
-use g3_io_ext::{IdleInterval, LineRecvVec, OnceBufReader, StreamCopyConfig};
 use vey_dpi::ProtocolInspectAction;
+use vey_io_ext::{IdleInterval, LineRecvVec, OnceBufReader, StreamCopyConfig};
 use vey_slog_types::{LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;
 

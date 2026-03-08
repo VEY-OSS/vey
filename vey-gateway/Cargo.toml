@@ -48,7 +48,7 @@ vey-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rust
 vey-std-ext.workspace = true
 vey-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
 vey-socket.workspace = true
-g3-io-ext = { workspace = true, features = ["openssl", "rustls"] }
+vey-io-ext = { workspace = true, features = ["openssl", "rustls"] }
 vey-openssl.workspace = true
 vey-statsd-client.workspace = true
 vey-histogram.workspace = true

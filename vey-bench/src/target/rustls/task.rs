@@ -11,7 +11,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::time::Instant;
 
-use g3_io_ext::LimitedStream;
+use vey_io_ext::LimitedStream;
 use vey_types::net::RustlsClientConnectionExt;
 
 use super::{BenchRustlsArgs, BenchTaskContext, ProcArgs, SslHistogramRecorder, SslRuntimeStats};

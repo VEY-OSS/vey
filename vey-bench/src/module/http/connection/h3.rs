@@ -16,8 +16,8 @@ use quinn::{ClientConfig, Endpoint, TokioRuntime, TransportConfig};
 use rustls_pki_types::ServerName;
 use url::Url;
 
-use g3_io_ext::LimitedTokioRuntime;
 use g3_socks::v5::Socks5UdpTokioRuntime;
+use vey_io_ext::LimitedTokioRuntime;
 use vey_types::collection::{SelectiveVec, WeightedValue};
 use vey_types::net::{AlpnProtocol, Proxy, RustlsClientConfigBuilder, Socks5Proxy, UpstreamAddr};
 

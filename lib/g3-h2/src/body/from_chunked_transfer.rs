@@ -13,7 +13,7 @@ use thiserror::Error;
 use tokio::io::AsyncBufRead;
 
 use g3_http::{ChunkedDataDecodeReader, TrailerReadError, TrailerReader};
-use g3_io_ext::StreamCopyConfig;
+use vey_io_ext::StreamCopyConfig;
 
 use super::{H2StreamBodyEncodeTransferError, ROwnedH2BodyEncodeTransfer};
 

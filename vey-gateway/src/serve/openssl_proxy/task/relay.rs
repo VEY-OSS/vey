@@ -10,7 +10,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
-use g3_io_ext::{AsyncStream, IdleInterval, LimitedStream, OnceBufReader, StreamCopyConfig};
+use vey_io_ext::{AsyncStream, IdleInterval, LimitedStream, OnceBufReader, StreamCopyConfig};
 use vey_openssl::SslStream;
 use vey_types::limit::GaugeSemaphorePermit;
 

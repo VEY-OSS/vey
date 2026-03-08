@@ -10,7 +10,8 @@ use std::task::{Context, Poll, ready};
 use slog::Logger;
 use tokio::io::{AsyncRead, ReadBuf};
 
-use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
+use g3_socks::v5::UdpInput;
+use vey_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -19,8 +20,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
     target_os = "openbsd",
     target_os = "macos",
 ))]
-use g3_io_ext::{UdpCopyPacket, UdpCopyPacketMeta};
-use g3_socks::v5::UdpInput;
+use vey_io_ext::{UdpCopyPacket, UdpCopyPacketMeta};
 
 pub(crate) struct ProxySocks5UdpConnectRemoteRecv<T, C> {
     inner: T,

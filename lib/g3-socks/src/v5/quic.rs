@@ -17,7 +17,7 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::{broadcast, oneshot};
 use tokio::time::sleep_until;
 
-use g3_io_ext::{QuinnUdpPollHelper, UdpSocketExt};
+use vey_io_ext::{QuinnUdpPollHelper, UdpSocketExt};
 use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 use vey_types::net::Host;
 

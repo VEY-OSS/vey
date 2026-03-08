@@ -8,7 +8,7 @@ use arcstr::ArcStr;
 use bytes::BytesMut;
 use openssl::ssl::Ssl;
 
-use g3_io_ext::OnceBufReader;
+use vey_io_ext::OnceBufReader;
 use vey_openssl::{SslAcceptor, SslConnector};
 use vey_types::net::{Host, TlsCertUsage, TlsServiceType};
 

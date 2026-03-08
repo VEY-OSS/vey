@@ -11,7 +11,7 @@ use g3_h2::{
     H2StreamFromChunkedTransferError, ResponseExt,
 };
 use g3_http::client::HttpAdaptedResponse;
-use g3_io_ext::IdleCheck;
+use vey_io_ext::IdleCheck;
 
 use super::{
     H2RespmodAdaptationError, H2ResponseAdapter, H2SendResponseToClient, RespmodAdaptationEndState,

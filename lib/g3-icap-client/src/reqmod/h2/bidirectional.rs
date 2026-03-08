@@ -15,7 +15,7 @@ use g3_h2::{
     H2StreamToChunkedTransferError, RequestExt,
 };
 use g3_http::server::HttpAdaptedRequest;
-use g3_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopyConfig};
+use vey_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopyConfig};
 
 use super::recv_request::recv_ups_response_head_after_transfer;
 use super::{H2ReqmodAdaptationError, ReqmodAdaptationEndState, ReqmodAdaptationRunState};

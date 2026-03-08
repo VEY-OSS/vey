@@ -11,8 +11,8 @@ use h2::{RecvStream, SendStream};
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_h2::{H2StreamReader, H2StreamWriter};
-use g3_io_ext::{IdleInterval, StreamCopyConfig};
 use vey_dpi::ProtocolInspectAction;
+use vey_io_ext::{IdleInterval, StreamCopyConfig};
 use vey_slog_types::{LtHttpHeaderValue, LtUpstreamAddr, LtUuid};
 use vey_types::net::{UpstreamAddr, WebSocketNotes};
 

@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use g3_io_ext::{UdpRelayRemoteRecv, UdpRelayRemoteSend};
+use vey_io_ext::{UdpRelayRemoteRecv, UdpRelayRemoteSend};
 
 mod error;
 mod stats;

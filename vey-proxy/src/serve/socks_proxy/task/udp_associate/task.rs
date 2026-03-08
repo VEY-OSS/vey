@@ -10,12 +10,12 @@ use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::UdpSocket;
 
-use g3_io_ext::{
+use g3_socks::v5::Socks5Reply;
+use vey_io_ext::{
     LimitedUdpRecv, LimitedUdpSend, UdpRecvHalf, UdpRelayClientRecv, UdpRelayClientSend,
     UdpRelayClientToRemote, UdpRelayError, UdpRelayRemoteRecv, UdpRelayRemoteSend,
     UdpRelayRemoteToClient, UdpSendHalf,
 };
-use g3_socks::v5::Socks5Reply;
 use vey_types::acl::AclAction;
 use vey_types::net::{ProxyRequestType, UpstreamAddr};
 
@@ -379,7 +379,7 @@ impl SocksProxyUdpAssociateTask {
     where
         R: AsyncRead + Unpin,
     {
-        let (clt_r, clt_w) = g3_io_ext::split_udp(clt_socket);
+        let (clt_r, clt_w) = vey_io_ext::split_udp(clt_socket);
 
         let limit_config = if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx

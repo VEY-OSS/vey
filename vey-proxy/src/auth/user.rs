@@ -15,7 +15,7 @@ use chrono::{DateTime, Utc};
 use foldhash::HashMap;
 use tokio::time::Instant;
 
-use g3_io_ext::{GlobalDatagramLimiter, GlobalLimitGroup, GlobalStreamLimiter};
+use vey_io_ext::{GlobalDatagramLimiter, GlobalLimitGroup, GlobalStreamLimiter};
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::acl_set::AclDstHostRuleSet;
 use vey_types::auth::{FactsMatchValue, UserAuthError};

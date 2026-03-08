@@ -6,7 +6,7 @@
 use slog::Logger;
 use uuid::Uuid;
 
-use g3_io_ext::{UdpCopyRemoteError, UdpRelayRemoteError};
+use vey_io_ext::{UdpCopyRemoteError, UdpRelayRemoteError};
 use vey_slog_types::{LtDateTime, LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;
 

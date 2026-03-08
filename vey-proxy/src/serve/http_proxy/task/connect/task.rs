@@ -12,7 +12,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::TcpStreamTaskStats;
-use g3_io_ext::{IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
+use vey_io_ext::{IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
 use vey_types::acl::AclAction;
 use vey_types::net::{ProxyRequestType, UpstreamAddr};
 

@@ -8,7 +8,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 
-use g3_io_ext::LimitedWriteExt;
+use vey_io_ext::LimitedWriteExt;
 
 use super::{SocksNegotiationError, SocksReplyParseError};
 

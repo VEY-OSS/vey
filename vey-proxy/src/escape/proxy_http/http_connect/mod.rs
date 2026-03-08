@@ -13,7 +13,7 @@ use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
 use g3_http::connect::{HttpConnectRequest, HttpConnectResponse};
-use g3_io_ext::{
+use vey_io_ext::{
     AsyncStream, FlexBufReader, LimitedReader, LimitedStream, LimitedWriter, OnceBufReader,
 };
 use vey_openssl::{SslConnector, SslStream};

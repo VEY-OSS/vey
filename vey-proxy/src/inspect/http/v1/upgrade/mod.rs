@@ -20,8 +20,8 @@ use g3_icap_client::reqmod::h1::{
     H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
     ReqmodAdaptationMidState, ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
-use g3_io_ext::{LimitedWriteExt, OnceBufReader, StreamCopy, StreamCopyError};
 use vey_dpi::Protocol;
+use vey_io_ext::{LimitedWriteExt, OnceBufReader, StreamCopy, StreamCopyError};
 use vey_slog_types::{LtDateTime, LtDuration, LtHttpUri, LtUpstreamAddr, LtUuid};
 use vey_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};
 

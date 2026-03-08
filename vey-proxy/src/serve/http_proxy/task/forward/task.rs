@@ -22,7 +22,7 @@ use g3_icap_client::reqmod::h1::{
 use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
-use g3_io_ext::{
+use vey_io_ext::{
     GlobalLimitGroup, LimitedBufReadExt, LimitedReadExt, LimitedWriteExt, StreamCopy,
     StreamCopyError,
 };

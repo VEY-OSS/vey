@@ -130,7 +130,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         vey_proxy::signal::register().context("failed to setup signal handler")?;
         g3_daemon::control::panic::set_hook(&args.daemon_config);
 
-        if let Some(stats) = g3_io_ext::spawn_limit_schedule_runtime().await {
+        if let Some(stats) = vey_io_ext::spawn_limit_schedule_runtime().await {
             g3_daemon::runtime::metrics::add_tokio_stats(stats, "limit-schedule".to_string());
         }
         if let Some(stats) = g3_cert_agent::spawn_cert_generate_runtime().await {
@@ -150,7 +150,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         unique_ctl.await;
 
-        g3_io_ext::close_limit_schedule_runtime();
+        vey_io_ext::close_limit_schedule_runtime();
         g3_cert_agent::close_cert_generate_runtime();
         vey_ip_locate::close_ip_locate_runtime();
         vey_proxy::control::capnp::stop_working_thread();

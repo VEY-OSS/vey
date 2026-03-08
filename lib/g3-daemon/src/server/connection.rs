@@ -6,7 +6,7 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 
-use g3_io_ext::haproxy::ProxyAddr;
+use vey_io_ext::haproxy::ProxyAddr;
 use vey_socket::RawSocket;
 use vey_socket::util::AddressFamily;
 use vey_types::net::TcpMiscSockOpts;

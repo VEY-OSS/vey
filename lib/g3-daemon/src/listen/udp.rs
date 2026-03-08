@@ -12,7 +12,7 @@ use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
-use g3_io_ext::UdpSocketExt;
+use vey_io_ext::UdpSocketExt;
 use vey_io_sys::udp::RecvMsgHdr;
 use vey_types::net::UdpListenConfig;
 

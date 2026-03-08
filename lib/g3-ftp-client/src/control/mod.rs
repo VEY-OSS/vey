@@ -9,7 +9,7 @@ use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use tokio::io::{AsyncRead, AsyncWrite, BufStream};
 
-use g3_io_ext::LimitedBufReadExt;
+use vey_io_ext::LimitedBufReadExt;
 use vey_types::auth::{Password, Username};
 
 use crate::error::{

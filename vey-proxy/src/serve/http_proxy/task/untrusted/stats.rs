@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{ArcLimitedReaderStats, LimitedReaderStats};
+use vey_io_ext::{ArcLimitedReaderStats, LimitedReaderStats};
 
 use super::HttpProxyServerStats;
 

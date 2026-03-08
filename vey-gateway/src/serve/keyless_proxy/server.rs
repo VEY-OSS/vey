@@ -19,7 +19,7 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo};
-use g3_io_ext::IdleWheel;
+use vey_io_ext::IdleWheel;
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;
 

@@ -10,7 +10,7 @@ use tokio::net::{TcpSocket, TcpStream};
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
-use g3_io_ext::LimitedStream;
+use vey_io_ext::LimitedStream;
 use vey_socket::BindAddr;
 use vey_types::net::{ConnectError, Host, ProxyProtocolEncoder, UpstreamAddr};
 

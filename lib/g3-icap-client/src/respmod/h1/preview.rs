@@ -13,7 +13,7 @@ use bytes::BufMut;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 
 use g3_http::{ChunkedDataDecodeReader, H1BodyToChunkedTransfer, HttpBodyReader, HttpBodyType};
-use g3_io_ext::{IdleCheck, LimitedWriteExt, StreamCopy, StreamCopyError};
+use vey_io_ext::{IdleCheck, LimitedWriteExt, StreamCopy, StreamCopyError};
 
 use super::{
     BidirectionalRecvHttpResponse, BidirectionalRecvIcapResponse, H1RespmodAdaptationError,

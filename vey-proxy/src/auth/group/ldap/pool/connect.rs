@@ -9,9 +9,9 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use tokio::net::TcpStream;
 
-use g3_io_ext::LimitedWriteExt;
-use g3_io_ext::openssl::MaybeSslStream;
 use vey_codec::ldap::{LdapResult, LdapSequence};
+use vey_io_ext::LimitedWriteExt;
+use vey_io_ext::openssl::MaybeSslStream;
 use vey_openssl::{SslConnector, SslStream};
 use vey_socket::BindAddr;
 use vey_types::net::{Host, OpensslClientConfig};

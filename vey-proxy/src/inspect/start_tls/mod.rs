@@ -7,9 +7,9 @@ use bytes::BytesMut;
 use openssl::x509::X509VerifyResult;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::{AsyncStream, OnceBufReader};
 use g3_udpdump::{ExportedPduDissectorHint, StreamDumpProxyAddresses};
 use vey_dpi::Protocol;
+use vey_io_ext::{AsyncStream, OnceBufReader};
 use vey_slog_types::{LtUpstreamAddr, LtUuid, LtX509VerifyResult};
 use vey_types::net::{TlsServiceType, UpstreamAddr};
 

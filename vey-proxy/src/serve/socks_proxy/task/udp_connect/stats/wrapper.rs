@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{LimitedRecvStats, LimitedSendStats};
+use vey_io_ext::{LimitedRecvStats, LimitedSendStats};
 
 use super::{SocksProxyServerStats, UdpConnectTaskStats};
 use crate::auth::UserTrafficStats;

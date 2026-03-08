@@ -9,7 +9,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_http::HttpBodyReader;
 use g3_http::server::HttpProxyClientRequest;
-use g3_io_ext::{StreamCopy, StreamCopyError};
+use vey_io_ext::{StreamCopy, StreamCopyError};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpRProxyRequest};
 use super::{CommonTaskContext, UntrustedCltReadWrapperStats};

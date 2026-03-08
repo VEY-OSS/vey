@@ -13,7 +13,7 @@ use tokio::task::JoinSet;
 use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use vey_io_ext::{LimitedReader, LimitedWriter};
 use vey_socket::BindAddr;
 use vey_socket::util::AddressFamily;
 use vey_types::acl::AclAction;

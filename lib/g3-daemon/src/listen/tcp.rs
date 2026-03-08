@@ -12,8 +12,8 @@ use tokio::net::TcpStream;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
-use g3_io_ext::LimitedTcpListener;
 use vey_compat::CpuAffinity;
+use vey_io_ext::LimitedTcpListener;
 use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
 use vey_types::net::TcpListenConfig;

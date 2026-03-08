@@ -12,7 +12,7 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::{ListenAliveGuard, ListenStats};
 use g3_daemon::server::ClientConnectionInfo;
-use g3_io_ext::LimitedTcpListener;
+use vey_io_ext::LimitedTcpListener;
 use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
 use vey_types::net::TcpListenConfig;

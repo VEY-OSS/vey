@@ -10,7 +10,7 @@ use g3_imap_proto::command::{Command, ParsedCommand};
 use g3_imap_proto::response::{
     BadResponse, ByeResponse, CommandData, CommandResult, Response, ServerStatus,
 };
-use g3_io_ext::LimitedWriteExt;
+use vey_io_ext::LimitedWriteExt;
 
 use super::{
     Capability, CommandLineReceiveExt, ImapInterceptObject, ImapRelayBuf, ResponseAction,

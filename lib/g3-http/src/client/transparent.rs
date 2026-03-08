@@ -10,7 +10,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 use http::{HeaderName, Method, Version, header};
 use tokio::io::AsyncBufRead;
 
-use g3_io_ext::LimitedBufReadExt;
+use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};

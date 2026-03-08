@@ -16,7 +16,7 @@ use tokio::sync::mpsc;
 
 use g3_http::HttpBodyDecodeReader;
 use g3_http::client::HttpForwardRemoteResponse;
-use g3_io_ext::{AsyncStream, LimitedWriteExt};
+use vey_io_ext::{AsyncStream, LimitedWriteExt};
 
 mod config;
 pub(crate) use config::HttpExportConfig;

@@ -13,4 +13,4 @@ atoi.workspace = true
 ahash.workspace = true
 log.workspace = true
 tokio = { workspace = true, features = ["io-util"] }
-g3-io-ext.workspace = true
+vey-io-ext.workspace = true

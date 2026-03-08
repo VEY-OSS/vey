@@ -10,7 +10,7 @@ use tokio::io::{AsyncRead, BufReader};
 use tokio::sync::{broadcast, oneshot};
 use tokio::time::Interval;
 
-use g3_io_ext::LimitedBufReadExt;
+use vey_io_ext::LimitedBufReadExt;
 use vey_std_ext::time::DurationExt;
 
 use super::StreamSharedState;

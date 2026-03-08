@@ -9,7 +9,7 @@ use std::time::Duration;
 use arcstr::ArcStr;
 use openssl::x509::X509;
 
-use g3_io_ext::EffectiveCacheHandle;
+use vey_io_ext::EffectiveCacheHandle;
 use vey_types::net::{TlsCertUsage, TlsServiceType};
 
 use super::{CacheQueryKey, FakeCertPair};

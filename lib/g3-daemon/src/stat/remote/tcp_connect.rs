@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
+use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
 /// task related stats used at escaper side
 pub trait TcpConnectionTaskRemoteStats {

@@ -14,8 +14,8 @@ use tokio::net::{TcpStream, UdpSocket};
 use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
-use g3_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
 use g3_socks::v5;
+use vey_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
 use vey_openssl::{SslConnector, SslStream};
 use vey_socket::BindAddr;
 use vey_types::net::{SocketBufferConfig, UpstreamAddr};

@@ -9,6 +9,7 @@ use std::task::{Context, Poll, ready};
 
 use slog::Logger;
 
+use g3_socks::v5::SocksUdpHeader;
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -18,9 +19,8 @@ use slog::Logger;
     target_os = "macos",
     target_os = "solaris",
 ))]
-use g3_io_ext::UdpRelayPacket;
-use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
-use g3_socks::v5::SocksUdpHeader;
+use vey_io_ext::UdpRelayPacket;
+use vey_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
 use vey_io_sys::udp::SendMsgHdr;
 use vey_types::net::UpstreamAddr;
 

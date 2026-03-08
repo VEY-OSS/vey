@@ -17,7 +17,7 @@ use tokio::time::Instant;
 
 use g3_h2::H2StreamFromChunkedTransfer;
 use g3_http::server::HttpAdaptedRequest;
-use g3_io_ext::{IdleCheck, StreamCopyConfig};
+use vey_io_ext::{IdleCheck, StreamCopyConfig};
 use vey_types::net::HttpHeaderMap;
 
 use super::IcapReqmodClient;

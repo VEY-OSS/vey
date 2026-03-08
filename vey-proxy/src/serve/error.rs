@@ -16,12 +16,12 @@ use g3_icap_client::reqmod::h1::H1ReqmodAdaptationError;
 use g3_icap_client::reqmod::imap::ImapAdaptationError;
 use g3_icap_client::reqmod::smtp::SmtpAdaptationError;
 use g3_icap_client::respmod::h1::H1RespmodAdaptationError;
-use g3_io_ext::{
+use g3_socks::SocksRequestParseError;
+use vey_dpi::Protocol;
+use vey_io_ext::{
     IdleForceQuitReason, UdpCopyClientError, UdpCopyError, UdpCopyRemoteError, UdpRelayClientError,
     UdpRelayError, UdpRelayRemoteError,
 };
-use g3_socks::SocksRequestParseError;
-use vey_dpi::Protocol;
 use vey_resolver::ResolveError;
 use vey_types::net::ConnectError;
 

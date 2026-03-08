@@ -10,7 +10,7 @@ use std::time::Duration;
 use tokio::io::AsyncBufRead;
 use tokio::time::Instant;
 
-use g3_io_ext::LimitedBufReadExt;
+use vey_io_ext::LimitedBufReadExt;
 
 use super::IcapOptionsParseError;
 use crate::IcapMethod;

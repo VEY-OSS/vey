@@ -7,7 +7,7 @@ use std::io;
 
 use tokio::io::AsyncWrite;
 
-use g3_io_ext::LimitedWriteExt;
+use vey_io_ext::LimitedWriteExt;
 
 const BYE_BLOCKED: &str = "* BYE Blocked; connection not allowed\r\n";
 const BYE_AUTO_LOGOUT: &str = "* BYE Autologout; idle for too long\r\n";

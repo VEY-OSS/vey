@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::LimitedBufReadExt;
+use vey_io_ext::LimitedBufReadExt;
 
 use super::FtpControlChannel;
 use crate::error::FtpRawResponseError;

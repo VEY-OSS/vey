@@ -37,7 +37,7 @@ members = [
     "lib/g3-http",
     "lib/g3-icap-client",
     "lib/g3-imap-proto",
-    "lib/g3-io-ext",
+    "lib/vey-io-ext",
     "lib/vey-io-sys",
     "lib/vey-ip-locate",
     "lib/vey-journal",
@@ -217,7 +217,7 @@ vey-histogram = { version = "0.2", path = "lib/vey-histogram" }
 g3-http = { version = "0.5", path = "lib/g3-http" }
 g3-icap-client = { version = "0.4", path = "lib/g3-icap-client" }
 g3-imap-proto = { version = "0.3", path = "lib/g3-imap-proto" }
-g3-io-ext = { version = "0.9", path = "lib/g3-io-ext" }
+vey-io-ext = { version = "0.9", path = "lib/vey-io-ext" }
 vey-io-sys = { version = "0.1", path = "lib/vey-io-sys" }
 vey-ip-locate = { version = "0.3", path = "lib/vey-ip-locate" }
 vey-journal = { version = "0.4", path = "lib/vey-journal" }

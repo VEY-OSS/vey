@@ -6,8 +6,8 @@
 use bytes::{Buf, BytesMut};
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use g3_io_ext::{FlexBufReader, OnceBufReader};
 use vey_dpi::{Protocol, ProtocolInspectError, ProtocolInspector};
+use vey_io_ext::{FlexBufReader, OnceBufReader};
 use vey_types::net::UpstreamAddr;
 
 use crate::config::server::ServerConfig;

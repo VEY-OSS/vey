@@ -11,7 +11,7 @@ use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use g3_http::server::{HttpRequestParseError, HttpTransparentRequest};
-use g3_io_ext::LimitedBufReadExt;
+use vey_io_ext::LimitedBufReadExt;
 
 use super::{H1InterceptionError, HttpRequestIo, PipelineStats};
 use crate::config::server::ServerConfig;

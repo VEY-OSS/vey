@@ -8,7 +8,7 @@ use std::io::{IoSlice, Write};
 use bytes::BufMut;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use g3_io_ext::{IdleCheck, LimitedWriteExt, StreamCopy};
+use vey_io_ext::{IdleCheck, LimitedWriteExt, StreamCopy};
 
 use super::{HttpAdapterErrorResponse, ImapAdaptationError, ImapMessageAdapter};
 use crate::reqmod::IcapReqmodResponsePayload;

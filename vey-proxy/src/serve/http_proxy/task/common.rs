@@ -12,7 +12,7 @@ use tokio::time::Instant;
 
 use g3_daemon::server::ClientConnectionInfo;
 use g3_icap_client::reqmod::h1::HttpAdapterErrorResponse;
-use g3_io_ext::{IdleWheel, OptionalInterval};
+use vey_io_ext::{IdleWheel, OptionalInterval};
 use vey_types::acl::AclAction;
 use vey_types::acl_set::AclDstHostRuleSet;
 use vey_types::net::{OpensslClientConfig, UpstreamAddr};

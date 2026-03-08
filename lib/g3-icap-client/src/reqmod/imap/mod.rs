@@ -10,7 +10,7 @@ use arcstr::ArcStr;
 use bytes::BufMut;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::{IdleCheck, StreamCopyConfig};
+use vey_io_ext::{IdleCheck, StreamCopyConfig};
 
 use super::IcapReqmodClient;
 use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};

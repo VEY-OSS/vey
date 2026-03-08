@@ -16,8 +16,8 @@ use slog::Logger;
     target_os = "openbsd",
     target_os = "macos",
 ))]
-use g3_io_ext::UdpCopyPacket;
-use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
+use vey_io_ext::UdpCopyPacket;
+use vey_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 
 pub(crate) struct DirectUdpConnectRemoteSend<T> {
     inner: T,

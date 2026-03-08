@@ -14,7 +14,7 @@ tokio = { workspace = true, features = ["io-util"] }
 pin-project-lite.workspace = true
 log.workspace = true
 vey-types.workspace = true
-g3-io-ext.workspace = true
+vey-io-ext.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "io-util", "rt"] }

@@ -7,8 +7,8 @@ use anyhow::anyhow;
 use arcstr::ArcStr;
 use openssl::ssl::Ssl;
 
-use g3_io_ext::OnceBufReader;
 use vey_dpi::{Protocol, ProtocolInspector};
+use vey_io_ext::OnceBufReader;
 use vey_openssl::{SslAcceptor, SslConnector};
 use vey_types::net::{AlpnProtocol, Host, TlsCertUsage, TlsServiceType};
 

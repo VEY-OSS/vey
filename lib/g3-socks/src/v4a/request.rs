@@ -9,7 +9,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use bytes::{BufMut, BytesMut};
 use tokio::io::{AsyncBufRead, AsyncReadExt, AsyncWrite};
 
-use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt};
+use vey_io_ext::{LimitedBufReadExt, LimitedWriteExt};
 use vey_types::net::{Host, UpstreamAddr};
 
 use super::{SocksCommand, SocksNegotiationError, SocksRequestParseError};

@@ -18,7 +18,7 @@ log.workspace = true
 anyhow = { workspace = true, optional = true }
 yaml-rust = { workspace = true, optional = true }
 vey-types.workspace = true
-g3-io-ext.workspace = true
+vey-io-ext.workspace = true
 vey-datetime.workspace = true
 vey-yaml = { workspace = true, optional = true }
 

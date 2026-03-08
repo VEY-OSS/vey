@@ -15,7 +15,7 @@ use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 use uuid::Uuid;
 
-use g3_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
+use vey_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
 use vey_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use vey_types::metrics::NodeName;
 

@@ -13,7 +13,7 @@ use g3_h2::{
     H2PreviewData, H2StreamToChunkedTransfer, H2StreamToChunkedTransferError, RequestExt,
     ResponseExt,
 };
-use g3_io_ext::{IdleCheck, LimitedWriteExt};
+use vey_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
     BidirectionalRecvHttpResponse, BidirectionalRecvIcapResponse, H2RespmodAdaptationError,

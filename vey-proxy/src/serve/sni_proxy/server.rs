@@ -19,8 +19,8 @@ use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
-use g3_io_ext::IdleWheel;
 use vey_dpi::ProtocolPortMap;
+use vey_io_ext::IdleWheel;
 use vey_openssl::SslStream;
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;

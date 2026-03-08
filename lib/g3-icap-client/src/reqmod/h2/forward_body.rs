@@ -11,7 +11,7 @@ use h2::client::SendRequest;
 use http::Request;
 
 use g3_h2::{H2PreviewData, H2StreamToChunkedTransfer, H2StreamToChunkedTransferError, RequestExt};
-use g3_io_ext::{IdleCheck, LimitedWriteExt};
+use vey_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
     BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse, H2ReqmodAdaptationError,

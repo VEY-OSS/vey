@@ -13,7 +13,7 @@ use g3_imap_proto::command::{Command, ParsedCommand};
 use g3_imap_proto::response::{
     BadResponse, ByeResponse, CommandData, CommandResult, Response, ServerStatus, UntaggedResponse,
 };
-use g3_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
+use vey_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
 
 use super::{ImapInterceptObject, ImapRelayBuf};
 use crate::config::server::ServerConfig;

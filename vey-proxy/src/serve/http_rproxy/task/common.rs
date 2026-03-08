@@ -11,7 +11,7 @@ use slog::Logger;
 use tokio::time::Instant;
 
 use g3_daemon::server::ClientConnectionInfo;
-use g3_io_ext::{IdleWheel, OptionalInterval};
+use vey_io_ext::{IdleWheel, OptionalInterval};
 
 use super::{HttpRProxyServerConfig, HttpRProxyServerStats};
 use crate::escape::ArcEscaper;

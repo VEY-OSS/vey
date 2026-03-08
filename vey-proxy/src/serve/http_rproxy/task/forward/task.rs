@@ -14,7 +14,7 @@ use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
-use g3_io_ext::{
+use vey_io_ext::{
     GlobalLimitGroup, LimitedBufReadExt, LimitedReadExt, LimitedWriteExt, StreamCopy,
     StreamCopyError,
 };

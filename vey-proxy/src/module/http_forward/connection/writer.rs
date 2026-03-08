@@ -8,7 +8,7 @@ use std::io::{self, IoSlice};
 use bytes::BufMut;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-use g3_io_ext::LimitedWriteExt;
+use vey_io_ext::LimitedWriteExt;
 use vey_types::net::UpstreamAddr;
 
 use super::HttpProxyClientRequest;

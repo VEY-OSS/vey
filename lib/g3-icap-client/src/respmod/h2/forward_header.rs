@@ -10,7 +10,7 @@ use http::{Request, Response};
 use tokio::io::AsyncWriteExt;
 
 use g3_h2::{RequestExt, ResponseExt};
-use g3_io_ext::{IdleCheck, LimitedWriteExt};
+use vey_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
     H2RespmodAdaptationError, H2ResponseAdapter, H2SendResponseToClient, RespmodAdaptationEndState,

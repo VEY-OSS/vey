@@ -3,7 +3,7 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use g3_io_ext::IdleCheck;
+use vey_io_ext::IdleCheck;
 
 use super::{HttpAdapterErrorResponse, ImapAdaptationError, ImapMessageAdapter};
 use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodRecvHttpResponseBody};

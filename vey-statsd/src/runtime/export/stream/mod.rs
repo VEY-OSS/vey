@@ -10,7 +10,7 @@ use log::{debug, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::sync::mpsc;
 
-use g3_io_ext::LimitedWriteExt;
+use vey_io_ext::LimitedWriteExt;
 
 mod config;
 pub(crate) use config::StreamExportConfig;

@@ -7,7 +7,7 @@ use std::io::{self, IoSlice};
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use g3_io_ext::LimitedWriteExt;
+use vey_io_ext::LimitedWriteExt;
 
 use super::KeylessHeader;
 use crate::serve::ServerTaskError;

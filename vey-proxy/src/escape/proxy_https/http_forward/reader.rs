@@ -14,7 +14,7 @@ use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
 
 use g3_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
-use g3_io_ext::LimitedBufReader;
+use vey_io_ext::LimitedBufReader;
 
 use crate::auth::UserUpstreamTrafficStats;
 use crate::module::http_forward::{

@@ -14,7 +14,7 @@ use tokio::time::Instant;
 
 use g3_http::HttpBodyReader;
 use g3_http::client::HttpForwardRemoteResponse;
-use g3_io_ext::{LimitedReader, LimitedWriteExt, LimitedWriter};
+use vey_io_ext::{LimitedReader, LimitedWriteExt, LimitedWriter};
 
 use super::{BenchHttpArgs, BenchTaskContext, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs};
 use crate::module::http::SavedHttpForwardConnection;

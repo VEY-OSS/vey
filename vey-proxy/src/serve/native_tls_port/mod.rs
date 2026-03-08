@@ -19,7 +19,7 @@ use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
-use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
+use vey_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use vey_openssl::{SslAcceptor, SslStream};
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;

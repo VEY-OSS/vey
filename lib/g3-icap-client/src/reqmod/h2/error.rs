@@ -10,7 +10,7 @@ use thiserror::Error;
 use g3_h2::H2PreviewError;
 use g3_http::client::HttpResponseParseError;
 use g3_http::server::HttpRequestParseError;
-use g3_io_ext::IdleForceQuitReason;
+use vey_io_ext::IdleForceQuitReason;
 
 use crate::reason::IcapErrorReason;
 use crate::reqmod::IcapReqmodParseError;

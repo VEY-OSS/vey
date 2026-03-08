@@ -76,7 +76,7 @@ vey-histogram.workspace = true
 g3-http.workspace = true
 g3-icap-client = { workspace = true, features = ["yaml"] }
 g3-imap-proto.workspace = true
-g3-io-ext = { workspace = true, features = ["resolver", "openssl", "rustls", "log"] }
+vey-io-ext = { workspace = true, features = ["resolver", "openssl", "rustls", "log"] }
 vey-io-sys.workspace = true
 vey-ip-locate = { workspace = true, features = ["yaml"] }
 vey-json = { workspace = true, features = ["auth-facts", "acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
