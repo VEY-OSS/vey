@@ -124,7 +124,7 @@ Follow [Standards](doc/standards.md).
 
 ## Build, Package and Deploy
 
-Pre-Built packages can be found at [cloudsmith](https://cloudsmith.io/~g3-oqh/repos/).
+Pre-Built packages can be found at [cloudsmith](https://cloudsmith.io/~vey-oss/repos/).
 
 But it is still recommended to build packages yourself, see [Build and Package](doc/build_and_package.md) for more
 details.

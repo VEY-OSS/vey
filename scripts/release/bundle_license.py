@@ -151,7 +151,7 @@ print("# The format is similar to debian/copyright file:")
 print("#   https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/")
 print("#")
 print("# This file is auto generated. Please report to the upstream if possible:")
-print("#   https://github.com/bytedance/g3")
+print("#   https://github.com/VEY-OSS/vey")
 
 for pkg in packages:
     p_name = pkg['name']

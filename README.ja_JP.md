@@ -123,7 +123,7 @@ Cloudflare keylessサーバーの簡単な実装。
 
 ## ビルド、パッケージ化、デプロイ
 
-コンパイル済みのパッケージは[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/)にあります。
+コンパイル済みのパッケージは[cloudsmith](https://cloudsmith.io/~vey-oss/repos/)にあります。
 
 ただし、パッケージはご自身でコンパイルしてパッケージ化することをお勧めします。詳細な手順については、[ビルドとパッケージ化](doc/build_and_package.md)
 を参照してください。

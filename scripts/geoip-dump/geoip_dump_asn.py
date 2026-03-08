@@ -78,7 +78,7 @@ def main():
     parser = argparse.ArgumentParser(description="Dump GeoIP database files to the format used by vey-iploc")
     parser.add_argument('-i', '--input', type=pathlib.Path, required=True, metavar='<input file>')
     parser.add_argument('-o', '--output', type=pathlib.Path, required=True, metavar='<output file>',
-                        default='g3_geoip_asn.gz')
+                        default='vey_geoip_asn.gz')
     vendor_group = parser.add_mutually_exclusive_group(required=True)
     vendor_group.add_argument('--maxmind', action='store_true')
     vendor_group.add_argument('--ipinfo', action='store_true')

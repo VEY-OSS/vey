@@ -121,7 +121,7 @@ Cloudflare Keyless Server的简单实现。
 
 ## 构建、打包及部署
 
-预编译包可以在 [cloudsmith](https://cloudsmith.io/~g3-oqh/repos/) 找到。
+预编译包可以在 [cloudsmith](https://cloudsmith.io/~vey-oss/repos/) 找到。
 
 但是仍然建议自行编译打包，具体方法参考 [Build and Package](doc/build_and_package.md)。
 

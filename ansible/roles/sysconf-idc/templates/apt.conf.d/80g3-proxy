@@ -1,5 +1,0 @@
-
-Acquire::https {
-    Proxy::dl.cloudsmith.io "{{ g3_repo_proxy }}";
-};
-

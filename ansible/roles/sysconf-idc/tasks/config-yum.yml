@@ -1,10 +1,10 @@
 ---
 
-- name: Add G3 repo
+- name: Add VEY repo
   ansible.builtin.yum_repository:
-    name: g3
-    description: G3 repo
-    baseurl: https://dl.cloudsmith.io/public/g3-oqh/g3-rolling/rpm/el/$releasever/$basearch
-    gpgkey: https://dl.cloudsmith.io/public/g3-oqh/g3-rolling/gpg.5AC77C44E1B53433.key
+    name: vey
+    description: VEY repo
+    baseurl: https://dl.cloudsmith.io/public/vey-oss/rolling/rpm/el/$releasever/$basearch
+    gpgkey: https://dl.cloudsmith.io/public/vey-oss/rolling/gpg.819A41862B04BBE1.key
     enabled: true
-    proxy: "{{ g3_repo_proxy | default('_none_') }}"
+    proxy: "{{ vey_repo_proxy | default('_none_') }}"

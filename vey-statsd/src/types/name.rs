@@ -102,8 +102,11 @@ mod tests {
     #[test]
     fn add_prefix() {
         let mut name = MetricName::parse("foo.counter").unwrap();
-        let prefix = MetricName::parse_with_delimiter("g3-bar", '-').unwrap();
+        let prefix = MetricName::parse_with_delimiter("vey-bar", '-').unwrap();
         name.add_prefix(&prefix);
-        assert_eq!(name.display('.').to_string().as_str(), "g3.bar.foo.counter");
+        assert_eq!(
+            name.display('.').to_string().as_str(),
+            "vey.bar.foo.counter"
+        );
     }
 }

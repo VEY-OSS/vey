@@ -85,7 +85,7 @@ Build from a snapshot source tarball:
 It is recommended to build packages yourself if you want to install them in a production environment.
 
 For testing purpose, we have built and uploaded some packages to
-[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/), you can find installation instructions there.
+[cloudsmith](https://cloudsmith.io/~vey-oss/repos/), you can find installation instructions there.
 
 # Docker Image
 

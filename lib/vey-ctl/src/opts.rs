@@ -13,7 +13,7 @@ use clap_complete::Shell;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 #[cfg(unix)]
-const DEFAULT_TMP_CONTROL_DIR: &str = "/tmp/g3";
+const DEFAULT_TMP_CONTROL_DIR: &str = "/tmp/vey";
 
 const GLOBAL_ARG_COMPLETION: &str = "completion";
 const GLOBAL_ARG_CONTROL_DIR: &str = "control-dir";

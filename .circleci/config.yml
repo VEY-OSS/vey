@@ -142,7 +142,7 @@ jobs:
       - run:
           name: Build package
           environment:
-            G3_CAPNP_USE_PRECOMPILED: yes
+            VEY_CAPNP_USE_PRECOMPILED: yes
           working_directory: vey
           command: rpmbuild -ta << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
       - store_artifacts:

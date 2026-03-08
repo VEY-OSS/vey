@@ -1,0 +1,5 @@
+
+Acquire::https {
+    Proxy::dl.cloudsmith.io "{{ vey_repo_proxy }}";
+};
+

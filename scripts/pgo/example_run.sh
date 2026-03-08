@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # PGO Build Script for Rust Code
-# This script implements Profile-Guided Optimization for g3 Rust components
+# This script implements Profile-Guided Optimization for VEY Rust components
 
 set -e
 
@@ -343,7 +343,7 @@ run_performance_benchmark() {
                 local key_out="/tmp/rootCA-bench-pgo.key"
                 if [ "$benchmark_tool" = "hyperfine" ]; then
                     echo "Comparing baseline vs PGO-optimized vey-mkcert (root CA generation)..."
-                    hyperfine --shell=none --warmup 3 --runs 15 "/tmp/vey-mkcert-baseline --root --common-name 'G3 Test CA' --rsa 2048 --output-cert /tmp/rootCA-bench-baseline.crt --output-key /tmp/rootCA-bench-baseline.key" "/tmp/vey-mkcert-pgo --root --common-name 'G3 Test CA' --rsa 2048 --output-cert /tmp/rootCA-bench-pgo.crt --output-key /tmp/rootCA-bench-pgo.key"
+                    hyperfine --shell=none --warmup 3 --runs 15 "/tmp/vey-mkcert-baseline --root --common-name 'VEY Test CA' --rsa 2048 --output-cert /tmp/rootCA-bench-baseline.crt --output-key /tmp/rootCA-bench-baseline.key" "/tmp/vey-mkcert-pgo --root --common-name 'VEY Test CA' --rsa 2048 --output-cert /tmp/rootCA-bench-pgo.crt --output-key /tmp/rootCA-bench-pgo.key"
                 else
                     time "/tmp/vey-mkcert-pgo" --root --common-name "VEY Test CA" --rsa 2048 --output-cert "$cert_out" --output-key "$key_out" >/dev/null 2>&1 || echo "PGO test completed"
                 fi
@@ -488,7 +488,7 @@ while [[ $# -gt 0 ]]; do
             echo "  $0 --components vey-mkcert,vey-proxy   # Optimize specific components"
             echo "  $0 --all --benchmark                 # Optimize all and run benchmark"
             echo ""
-            echo "This script performs Profile-Guided Optimization (PGO) for g3 Rust components:"
+            echo "This script performs Profile-Guided Optimization (PGO) for VEY Rust components:"
             echo "  1. Builds instrumented binaries"
             echo "  2. Runs representative workloads to collect profile data"
             echo "  3. Builds optimized binaries using the profile data"

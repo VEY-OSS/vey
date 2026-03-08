@@ -22,7 +22,7 @@ create_orig_tar () {
 
 	echo "Repack ${SOURCE_NAME}_${SOURCE_VERSION}.orig.tar.xz"
 	PERMISSION_OPTS="--mode=u=rwX,g=rwX,o=rX"
-	REPRODUCIBLE_OPTS="--owner=g3:1000 --group=g3:1000 --sort=name ${PERMISSION_OPTS}"
+	REPRODUCIBLE_OPTS="--owner=vey:1000 --group=vey:1000 --sort=name ${PERMISSION_OPTS}"
 	PROGRESS_OPTS="--checkpoint=100 --checkpoint-action=dot"
 	cd ..
 	tar -Jcf "${SOURCE_NAME}_${SOURCE_VERSION}.orig.tar.xz" ${REPRODUCIBLE_OPTS} ${PROGRESS_OPTS} ${SOURCE_NAME}-${SOURCE_VERSION}

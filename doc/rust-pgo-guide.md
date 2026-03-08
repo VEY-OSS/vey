@@ -1,9 +1,9 @@
-# g3 Project Rust PGO User Guide
+# VEY Project Rust PGO User Guide
 
 ## Overview
 
 Profile-Guided Optimization (PGO) is a compiler optimization technique that uses runtime performance data to guide the
-compiler in generating more efficient code. This guide explains how to use Rust PGO in the g3 project.
+compiler in generating more efficient code. This guide explains how to use Rust PGO in the VEY project.
 
 ## Prerequisites
 
@@ -36,7 +36,7 @@ cargo install cargo-binutils
 The simplest way to use PGO is to run with default configuration:
 
 ```bash
-cd g3
+cd vey
 ./scripts/pgo/example_run.sh
 ```
 

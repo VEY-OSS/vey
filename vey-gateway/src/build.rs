@@ -17,7 +17,7 @@ const BUILD_DEBUG: &str = env!("VEY_BUILD_DEBUG");
 
 const PACKAGE_VERSION: Option<&str> = option_env!("VEY_PACKAGE_VERSION");
 
-const QUIC_FEATURE: Option<&str> = option_env!("G3_QUIC_FEATURE");
+const QUIC_FEATURE: Option<&str> = option_env!("VEY_QUIC_FEATURE");
 
 const OPENSSL_VARIANT: Option<&str> = option_env!("VEY_OPENSSL_VARIANT");
 const RUSTLS_PROVIDER: Option<&str> = option_env!("VEY_RUSTLS_PROVIDER");

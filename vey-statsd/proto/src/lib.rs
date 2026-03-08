@@ -8,9 +8,9 @@
 
 pub mod types_capnp {
     #![allow(clippy::extra_unused_type_parameters)]
-    include!(concat!(env!("G3_CAPNP_GENERATE_DIR"), "/types_capnp.rs"));
+    include!(concat!(env!("VEY_CAPNP_GENERATE_DIR"), "/types_capnp.rs"));
 }
 
 pub mod proc_capnp {
-    include!(concat!(env!("G3_CAPNP_GENERATE_DIR"), "/proc_capnp.rs"));
+    include!(concat!(env!("VEY_CAPNP_GENERATE_DIR"), "/proc_capnp.rs"));
 }

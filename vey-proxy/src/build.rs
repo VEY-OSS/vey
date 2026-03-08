@@ -20,11 +20,11 @@ const PACKAGE_VERSION: Option<&str> = option_env!("VEY_PACKAGE_VERSION");
 const OPENSSL_VARIANT: Option<&str> = option_env!("VEY_OPENSSL_VARIANT");
 const RUSTLS_PROVIDER: Option<&str> = option_env!("VEY_RUSTLS_PROVIDER");
 
-const LUA_FEATURE: Option<&str> = option_env!("G3_LUA_FEATURE");
-const PYTHON_FEATURE: Option<&str> = option_env!("G3_PYTHON_FEATURE");
-const C_ARES_FEATURE: Option<&str> = option_env!("G3_C_ARES_FEATURE");
-const HICKORY_FEATURE: Option<&str> = option_env!("G3_HICKORY_FEATURE");
-const QUIC_FEATURE: Option<&str> = option_env!("G3_QUIC_FEATURE");
+const LUA_FEATURE: Option<&str> = option_env!("VEY_LUA_FEATURE");
+const PYTHON_FEATURE: Option<&str> = option_env!("VEY_PYTHON_FEATURE");
+const C_ARES_FEATURE: Option<&str> = option_env!("VEY_C_ARES_FEATURE");
+const HICKORY_FEATURE: Option<&str> = option_env!("VEY_HICKORY_FEATURE");
+const QUIC_FEATURE: Option<&str> = option_env!("VEY_QUIC_FEATURE");
 
 pub(crate) fn print_version(verbose_level: u8) {
     println!("{PKG_NAME} {VERSION}");

@@ -125,7 +125,7 @@ fi
 echo "==> building final tarball"
 cd - >/dev/null
 PERMISSION_OPTS="--mode=u=rwX,g=rwX,o=rX"
-REPRODUCIBLE_OPTS="--mtime=@${SOURCE_TIMESTAMP} --owner=g3:1000 --group=g3:1000 --sort=name ${PERMISSION_OPTS}"
+REPRODUCIBLE_OPTS="--mtime=@${SOURCE_TIMESTAMP} --owner=vey:1000 --group=vey:1000 --sort=name ${PERMISSION_OPTS}"
 PROGRESS_OPTS="--checkpoint=100 --checkpoint-action=dot"
 tar -Jcf "${SOURCE_NAME}-${PKG_VERSION}.tar.xz" ${REPRODUCIBLE_OPTS} ${PROGRESS_OPTS} -C "${BUILD_DIR}" .
 echo

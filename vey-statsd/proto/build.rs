@@ -7,15 +7,15 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    if env::var("G3_CAPNP_USE_PRECOMPILED").is_ok() {
+    if env::var("VEY_CAPNP_USE_PRECOMPILED").is_ok() {
         let gen_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("gen");
         println!(
-            "cargo:rustc-env=G3_CAPNP_GENERATE_DIR={}",
+            "cargo:rustc-env=VEY_CAPNP_GENERATE_DIR={}",
             gen_dir.display()
         );
     } else {
         println!(
-            "cargo:rustc-env=G3_CAPNP_GENERATE_DIR={}",
+            "cargo:rustc-env=VEY_CAPNP_GENERATE_DIR={}",
             env::var("OUT_DIR").unwrap()
         );
         capnpc::CompilerCommand::new()

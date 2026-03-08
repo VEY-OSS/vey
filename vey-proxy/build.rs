@@ -12,25 +12,25 @@ fn main() {
 
     if env::var("CARGO_FEATURE_LUA").is_ok() {
         if env::var("CARGO_FEATURE_LUA53").is_ok() {
-            println!("cargo:rustc-env=G3_LUA_FEATURE=lua53");
+            println!("cargo:rustc-env=VEY_LUA_FEATURE=lua53");
         } else if env::var("CARGO_FEATURE_LUA54").is_ok() {
-            println!("cargo:rustc-env=G3_LUA_FEATURE=lua54");
+            println!("cargo:rustc-env=VEY_LUA_FEATURE=lua54");
         } else if env::var("CARGO_FEATURE_LUA55").is_ok() {
-            println!("cargo:rustc-env=G3_LUA_FEATURE=lua55");
+            println!("cargo:rustc-env=VEY_LUA_FEATURE=lua55");
         } else if env::var("CARGO_FEATURE_LUAJIT").is_ok() {
-            println!("cargo:rustc-env=G3_LUA_FEATURE=luajit");
+            println!("cargo:rustc-env=VEY_LUA_FEATURE=luajit");
         }
     }
 
     if env::var("CARGO_FEATURE_PYTHON").is_ok() {
-        println!("cargo:rustc-env=G3_PYTHON_FEATURE=python");
+        println!("cargo:rustc-env=VEY_PYTHON_FEATURE=python");
     }
 
     if env::var("CARGO_FEATURE_C_ARES").is_ok() {
-        println!("cargo:rustc-env=G3_C_ARES_FEATURE=c-ares");
+        println!("cargo:rustc-env=VEY_C_ARES_FEATURE=c-ares");
     }
 
     if env::var("CARGO_FEATURE_QUIC").is_ok() {
-        println!("cargo:rustc-env=G3_QUIC_FEATURE=quinn");
+        println!("cargo:rustc-env=VEY_QUIC_FEATURE=quinn");
     }
 }

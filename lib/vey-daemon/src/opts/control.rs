@@ -8,7 +8,7 @@ use std::sync::OnceLock;
 
 use anyhow::anyhow;
 
-pub const DEFAULT_CONTROL_DIR: &str = "/tmp/g3";
+pub const DEFAULT_CONTROL_DIR: &str = "/tmp/vey";
 
 static CONTROL_DIR: OnceLock<PathBuf> = OnceLock::new();
 
