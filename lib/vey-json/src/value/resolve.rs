@@ -104,7 +104,7 @@ fn add_parent_redirection_record(
         return Err(anyhow!("domain should be in string format"));
     };
     let parent_domain =
-        idna::domain_to_ascii(&s).map_err(|e| anyhow!("invalid parent domain {s}: {e}"))?;
+        idna::domain_to_ascii(s).map_err(|e| anyhow!("invalid parent domain {s}: {e}"))?;
 
     let to_domain = crate::value::as_domain(v)
         .context("the value should be a domain for parent domain replace")?;

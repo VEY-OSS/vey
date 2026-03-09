@@ -20,10 +20,10 @@ macro_rules! log_msg {
 #[macro_export]
 macro_rules! log_cmd {
     ($cmd:expr) => {
-        if crate::debug::io_log_enabled() {
+        if $crate::debug::io_log_enabled() {
             log::log!(
-                target: crate::FTP_DEBUG_LOG_TARGET,
-                crate::FTP_DEBUG_LOG_LEVEL,
+                target: $crate::FTP_DEBUG_LOG_TARGET,
+                $crate::FTP_DEBUG_LOG_LEVEL,
                 "> {}", $cmd,
             );
         }
@@ -33,10 +33,10 @@ macro_rules! log_cmd {
 #[macro_export]
 macro_rules! log_rsp {
     ($rsp:expr) => {
-        if crate::debug::io_log_enabled() {
+        if $crate::debug::io_log_enabled() {
             log::log!(
-                target: crate::FTP_DEBUG_LOG_TARGET,
-                crate::FTP_DEBUG_LOG_LEVEL,
+                target: $crate::FTP_DEBUG_LOG_TARGET,
+                $crate::FTP_DEBUG_LOG_LEVEL,
                 "< {}", $rsp,
             );
         }
