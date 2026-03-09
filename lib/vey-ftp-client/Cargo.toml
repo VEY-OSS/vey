@@ -25,4 +25,3 @@ vey-yaml = { workspace = true, optional = true }
 [features]
 default = []
 yaml = ["dep:vey-yaml", "dep:yaml-rust", "dep:anyhow"]
-log-raw-io = []

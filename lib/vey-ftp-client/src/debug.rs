@@ -8,6 +8,8 @@ use log::Level;
 pub const FTP_DEBUG_LOG_LEVEL: Level = Level::Debug;
 pub const FTP_DEBUG_LOG_TARGET: &str = "";
 
+pub static mut IO_LOG_ENABLED: bool = false;
+
 #[macro_export]
 macro_rules! log_msg {
     ($s:literal, $($arg:tt)+) => (
@@ -15,22 +17,38 @@ macro_rules! log_msg {
     )
 }
 
-#[cfg(feature = "log-raw-io")]
-#[inline]
-pub(crate) fn log_cmd(cmd: &str) {
-    log::log!(
-        target: FTP_DEBUG_LOG_TARGET,
-        FTP_DEBUG_LOG_LEVEL,
-        "> {cmd}",
-    );
+#[macro_export]
+macro_rules! log_cmd {
+    ($cmd:expr) => {
+        if crate::debug::io_log_enabled() {
+            log::log!(
+                target: crate::FTP_DEBUG_LOG_TARGET,
+                crate::FTP_DEBUG_LOG_LEVEL,
+                "> {}", $cmd,
+            );
+        }
+    };
 }
 
-#[cfg(feature = "log-raw-io")]
-#[inline]
-pub(crate) fn log_rsp(rsp: &str) {
-    log::log!(
-        target: FTP_DEBUG_LOG_TARGET,
-        FTP_DEBUG_LOG_LEVEL,
-        "< {rsp}",
-    );
+#[macro_export]
+macro_rules! log_rsp {
+    ($rsp:expr) => {
+        if crate::debug::io_log_enabled() {
+            log::log!(
+                target: crate::FTP_DEBUG_LOG_TARGET,
+                crate::FTP_DEBUG_LOG_LEVEL,
+                "< {}", $rsp,
+            );
+        }
+    };
+}
+
+pub fn enable_io_log() {
+    unsafe {
+        IO_LOG_ENABLED = true;
+    }
+}
+
+pub(crate) const fn io_log_enabled() -> bool {
+    unsafe { IO_LOG_ENABLED }
 }

@@ -28,7 +28,6 @@ Generic Gateway
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
 cargo build --frozen --offline --profile %{build_profile} --no-default-features --features rustls-ring,quic --package vey-gateway --package vey-gateway-ctl
-sh %{name}/service/generate_systemd.sh
 
 
 %install

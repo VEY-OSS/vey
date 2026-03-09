@@ -197,14 +197,12 @@ where
             1..=4 => {
                 // at least <code>\n
 
-                #[cfg(feature = "log-raw-io")]
-                crate::debug::log_rsp(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
+                crate::log_rsp!(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
 
                 Err(FtpRawResponseError::InvalidLineFormat)
             }
             _ => {
-                #[cfg(feature = "log-raw-io")]
-                crate::debug::log_rsp(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
+                crate::log_rsp!(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
 
                 if !found {
                     Err(FtpRawResponseError::LineTooLong)
@@ -228,14 +226,12 @@ where
             1 => {
                 // at least "\n"
 
-                #[cfg(feature = "log-raw-io")]
-                crate::debug::log_rsp(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
+                crate::log_rsp!(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
 
                 Err(FtpRawResponseError::InvalidLineFormat)
             }
             _ => {
-                #[cfg(feature = "log-raw-io")]
-                crate::debug::log_rsp(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
+                crate::log_rsp!(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
 
                 if !found {
                     Err(FtpRawResponseError::LineTooLong)

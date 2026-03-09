@@ -13,6 +13,9 @@ pub(crate) struct SyncLogger {
 
 impl SyncLogger {
     pub(crate) fn new(verbose_level: u8) -> Self {
+        if verbose_level > 0 {
+            vey_ftp_client::enable_io_log();
+        }
         SyncLogger { verbose_level }
     }
 
@@ -35,21 +38,11 @@ impl Log for SyncLogger {
         }
     }
 
-    #[allow(clippy::single_match)]
     fn log(&self, record: &Record) {
-        match record.target() {
-            FTP_DEBUG_LOG_TARGET => match record.level() {
-                Level::Trace => {}
-                Level::Debug => {
-                    if self.verbose_level > 0 {
-                        eprintln!("{}", record.args());
-                    }
-                }
-                _ => {
-                    eprintln!("{}", record.args())
-                }
-            },
-            _ => {}
+        if record.target().is_empty() {
+            eprintln!("{}", record.args());
+        } else {
+            eprintln!("{}: {}", record.target(), record.args());
         }
     }
 

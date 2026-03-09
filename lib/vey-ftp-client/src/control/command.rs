@@ -69,8 +69,7 @@ where
     T: AsyncRead + AsyncWrite + Unpin,
 {
     async fn send_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        #[cfg(feature = "log-raw-io")]
-        crate::debug::log_cmd(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
+        crate::log_cmd!(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
 
         self.stream.write_all_flush(buf).await?;
         Ok(())

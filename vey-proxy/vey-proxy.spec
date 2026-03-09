@@ -29,9 +29,7 @@ export VEY_PACKAGE_VERSION
 LUA_FEATURE=$(lua -v | sed 's/Lua \([0-9]\+\)[.]\([0-9]\+\)[.].*/lua\1\2/')
 CARES_FEATURE=$(sh scripts/package/detect_c-ares_feature.sh)
 export CMAKE="%{cmake_real}"
-cargo build --frozen --profile %{build_profile} --no-default-features --features $LUA_FEATURE,rustls-ring,quic,$CARES_FEATURE --package vey-proxy --package vey-proxy-ctl --package vey-proxy-lua
-cargo build --frozen --profile %{build_profile} --package vey-proxy-ftp
-sh %{name}/service/generate_systemd.sh
+cargo build --frozen --profile %{build_profile} --no-default-features --features $LUA_FEATURE,rustls-ring,quic,$CARES_FEATURE --package vey-proxy --package vey-proxy-ctl --package vey-proxy-lua --package vey-proxy-ftp
 
 
 %install

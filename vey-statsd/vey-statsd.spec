@@ -26,7 +26,6 @@ StatsD Server
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
 cargo build --frozen --offline --profile %{build_profile} --package vey-statsd --package vey-statsd-ctl
-sh %{name}/service/generate_systemd.sh
 
 
 %install

@@ -20,8 +20,7 @@ override_dh_auto_build:
 	VEY_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --profile $(BUILD_PROFILE) \
 	    --no-default-features --features $(LUA_FEATURE),rustls-ring,quic,$(CARES_FEATURE) \
-	    --package vey-proxy --package vey-proxy-ctl --package vey-proxy-lua
-	cargo build --frozen --profile $(BUILD_PROFILE) --package vey-proxy-ftp
+	    --package vey-proxy --package vey-proxy-ctl --package vey-proxy-lua --package vey-proxy-ftp
 
 override_dh_auto_install:
 	install -m 755 -D target/$(BUILD_PROFILE)/vey-proxy debian/tmp/usr/bin/vey-proxy
