@@ -13,7 +13,7 @@ clap_complete.workspace = true
 mlua = { workspace = true, features = ["send"], optional = true }
 
 [features]
-default = ["lua54"]
+default = ["lua55"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
 lua53 = ["lua", "mlua/lua53"]
