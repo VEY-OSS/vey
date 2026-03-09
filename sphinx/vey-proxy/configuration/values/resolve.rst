@@ -66,19 +66,23 @@ Each rule should be a map with the following keys:
 
 * exact
 
-  **required**: false, **type**: :ref:`domain <conf_value_domain>`
+  **optional**, **type**: :ref:`domain <conf_value_domain>` | list
 
   Set the exact domain to replace.
 
+  .. versionchanged:: 1.13.0 allow list values
+
 * parent
 
-  **required**: false, **type**: :ref:`domain <conf_value_domain>`
+  **optional**, **type**: :ref:`domain <conf_value_domain>` | list
 
   Set the parent domain to replace.
 
+  .. versionchanged:: 1.13.0 allow list values
+
 * to
 
-  **required**: true, **type**: mix
+  **required**, **type**: mix
 
   Set the replacement value for the match.
 

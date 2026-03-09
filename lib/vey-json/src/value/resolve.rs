@@ -61,9 +61,14 @@ pub fn as_resolve_strategy(v: &Value) -> anyhow::Result<ResolveStrategy> {
 
 fn add_exact_redirection_record(
     config: &mut ResolveRedirectionBuilder,
-    domain: String,
+    k: &Value,
     v: &Value,
 ) -> anyhow::Result<()> {
+    let Value::String(s) = k else {
+        return Err(anyhow!("domain should be in string format"));
+    };
+    let domain = idna::domain_to_ascii(s).map_err(|e| anyhow!("invalid domain {s}: {e}"))?;
+
     match v {
         Value::String(_) => {
             match crate::value::as_host(v).context(format!(
@@ -92,9 +97,15 @@ fn add_exact_redirection_record(
 
 fn add_parent_redirection_record(
     config: &mut ResolveRedirectionBuilder,
-    parent_domain: String,
+    k: &Value,
     v: &Value,
 ) -> anyhow::Result<()> {
+    let Value::String(s) = k else {
+        return Err(anyhow!("domain should be in string format"));
+    };
+    let parent_domain =
+        idna::domain_to_ascii(&s).map_err(|e| anyhow!("invalid parent domain {s}: {e}"))?;
+
     let to_domain = crate::value::as_domain(v)
         .context("the value should be a domain for parent domain replace")?;
     config.insert_parent(parent_domain, to_domain);
@@ -107,9 +118,7 @@ pub fn as_resolve_redirection_builder(v: &Value) -> anyhow::Result<ResolveRedire
     match v {
         Value::Object(map) => {
             for (k, v) in map.iter() {
-                let domain = idna::domain_to_ascii(k)
-                    .map_err(|e| anyhow!("invalid domain to redirect({k}): {e}"))?;
-                add_exact_redirection_record(&mut config, domain, v)?;
+                add_exact_redirection_record(&mut config, &Value::String(k.to_string()), v)?;
             }
             Ok(config)
         }
@@ -117,26 +126,40 @@ pub fn as_resolve_redirection_builder(v: &Value) -> anyhow::Result<ResolveRedire
             for (i, v) in seq.iter().enumerate() {
                 if let Value::Object(map) = v {
                     let to_v = crate::map_get_required(map, RESOLVE_REDIRECTION_NODE_KEY_TO)?;
-                    if let Ok(exact) =
-                        crate::get_required_str(map, RESOLVE_REDIRECTION_NODE_KEY_EXACT)
-                    {
-                        let domain = idna::domain_to_ascii(exact)
-                            .map_err(|e| anyhow!("invalid exact domain in element #{i}: {e}"))?;
 
-                        add_exact_redirection_record(&mut config, domain, to_v).context(
-                            format!("invalid exact domain replacement value for element #{i}"),
-                        )?;
-                    } else if let Ok(parent) =
-                        crate::get_required_str(map, RESOLVE_REDIRECTION_NODE_KEY_PARENT)
-                    {
-                        let parent_domain = idna::domain_to_ascii(parent)
-                            .map_err(|e| anyhow!("invalid parent domain in element #{i}: {e}"))?;
-
-                        add_parent_redirection_record(&mut config, parent_domain, to_v).context(
-                            format!("invalid parent domain replacement value for element #{i}"),
-                        )?;
-                    } else {
-                        return Err(anyhow!("no exact or parent domain set in element #{i}"));
+                    for (k, v) in map {
+                        match crate::key::normalize(k).as_str() {
+                            RESOLVE_REDIRECTION_NODE_KEY_TO => {}
+                            RESOLVE_REDIRECTION_NODE_KEY_EXACT => {
+                                if let Value::Array(values) = v {
+                                    for (j, v) in values.iter().enumerate() {
+                                        add_exact_redirection_record(&mut config, v, to_v)
+                                            .context(format!(
+                                                "invalid exact domain rule in #{i}/{k}#{j}"
+                                            ))?;
+                                    }
+                                } else {
+                                    add_exact_redirection_record(&mut config, v, to_v).context(
+                                        format!("invalid exact domain rule in #{i}/{k}"),
+                                    )?;
+                                }
+                            }
+                            RESOLVE_REDIRECTION_NODE_KEY_PARENT => {
+                                if let Value::Array(values) = v {
+                                    for (j, v) in values.iter().enumerate() {
+                                        add_parent_redirection_record(&mut config, v, to_v)
+                                            .context(format!(
+                                                "invalid parent domain rule in #{i}/{k}#{j}"
+                                            ))?;
+                                    }
+                                } else {
+                                    add_parent_redirection_record(&mut config, v, to_v).context(
+                                        format!("invalid parent domain rule in #{i}/{k}"),
+                                    )?;
+                                }
+                            }
+                            _ => return Err(anyhow!("invalid key {k}")),
+                        }
                     }
                 } else {
                     return Err(anyhow!("invalid map value for element #{i}"));
@@ -305,7 +328,9 @@ mod tests {
                 "to": "192.168.1.1"
             },
             {
-                "exact": "exact2.example.com",
+                "exact": [
+                    "exact2.example.com"
+                ],
                 "to": ["10.0.0.1", "10.0.0.2"]
             },
             {
@@ -315,6 +340,12 @@ mod tests {
             {
                 "parent": "example.com",
                 "to": "redirected.com"
+            },
+            {
+                "parent": [
+                    "example.net"
+                ],
+                "to": "redirected.net"
             }
         ]);
         let builder = as_resolve_redirection_builder(&value).unwrap();
@@ -347,6 +378,11 @@ mod tests {
             .query_first("sub.example.com", QueryStrategy::Ipv4First)
             .unwrap();
         assert_eq!(ret, Host::Domain("sub.redirected.com".into()));
+
+        let ret = redirection
+            .query_first("sub.example.net", QueryStrategy::Ipv4First)
+            .unwrap();
+        assert_eq!(ret, Host::Domain("sub.redirected.net".into()));
     }
 
     #[test]
@@ -357,9 +393,6 @@ mod tests {
 
         // array with non-object element
         assert!(as_resolve_redirection_builder(&json!("- invalid")).is_err());
-
-        // missing required keys
-        assert!(as_resolve_redirection_builder(&json!([{"to": "192.168.1.1"}])).is_err());
 
         // invalid domain in exact
         assert!(
@@ -382,13 +415,6 @@ mod tests {
         let value = json!([
             {"exact": "valid.example.com", "to": "192.168.1.1"},
             "invalid string element"
-        ]);
-        assert!(as_resolve_redirection_builder(&value).is_err());
-
-        // array element without exact/parent keys
-        let value = json!([
-            {"exact": "valid.example.com", "to": "192.168.1.1"},
-            {"to": "192.168.1.1"}
         ]);
         assert!(as_resolve_redirection_builder(&value).is_err());
     }
