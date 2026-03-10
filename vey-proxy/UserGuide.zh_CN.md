@@ -24,6 +24,7 @@
     + [安全解析](#安全解析)
     + [容灾解析](#容灾解析)
     + [用户认证授权](#用户认证授权)
+    + [LDAP用户认证](#ldap用户认证)
     + [用户限流限速](#用户限流限速)
     + [用户封禁](#用户封禁)
 - [进阶用法](#进阶用法)
@@ -464,6 +465,27 @@ user_group:
 ```
 
 用户验证token生成需要使用[scripts/passphrase_hash.py](/scripts/passphrase_hash.py)脚本。
+
+### LDAP用户认证
+
+用户密码验证可选择使用远程LDAP服务，配置示例如下：
+
+```yaml
+user_group:
+  - name: default
+    type: ldap
+    ldap_url: ldap://ldap.forumsys.com/dc=example,dc=com
+    pool:
+      min_idle_count: 1
+    static_users:
+      - name: gauss
+        # 无需设置token，可进行具体用户配置
+    source: # 动态用户配置
+      type: file
+      path: dynamic_users.json
+    unmanaged_user: # 无配置且LDAP验证通过的的自动生成用户，此为配置模板
+      name: unmanaged
+```
 
 ### 用户限流限速
 

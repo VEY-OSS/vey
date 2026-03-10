@@ -43,6 +43,17 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 
 .. versionadded:: 1.7.20 change listen config to be optional
 
+listen_transparent
+------------------
+
+**optional**, **type**: bool
+
+Set to true if you want to set the listen socket to transparent mode.
+
+**default**: false
+
+.. versionadded:: 1.13.0
+
 auth_by_client_ip
 -----------------
 

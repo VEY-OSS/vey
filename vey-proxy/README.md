@@ -65,7 +65,7 @@ The common features are:
 
 - Socks Proxy
     * Socks4 Tcp Connect | Socks5 Tcp Connect | Socks5 UDP Associate
-    * User Authentication
+    * Basic User Authentication
     * Client side UDP IP Binding / IP Map / Ranged Port
 
 #### Transparent Proxy Servers
@@ -73,11 +73,14 @@ The common features are:
 - SNI Proxy
     * Multiple Protocol: TLS SNI extension | HTTP Host Header
     * Host Redirection / Host ACL
+    * Facts Based User Authentication
 
 - TCP TPROXY
-    * Linux [Netfilter TPROXY](https://docs.kernel.org/networking/tproxy.html)
-    * FreeBSD [ipfw forward](https://man.freebsd.org/cgi/man.cgi?query=ipfw)
-    * OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to)
+    * Platforms
+        + Linux [Netfilter TPROXY](https://docs.kernel.org/networking/tproxy.html)
+        + FreeBSD [ipfw forward](https://man.freebsd.org/cgi/man.cgi?query=ipfw)
+        + OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to)
+    * Facts Based User Authentication
 
 #### Reverse Proxy Servers
 
@@ -92,11 +95,13 @@ The common features are:
 - TCP Stream
     * Upstream TLS / mTLS
     * Load Balance: RR / Random / Rendezvous / Jump Hash
+    * Facts Based User Authentication
 
 - TLS Stream
     * mTLS
     * Upstream TLS / mTLS
     * Load Balance: RR / Random / Rendezvous / Jump Hash
+    * Facts Based User Authentication
 
 #### Alias Port Servers
 
@@ -140,7 +145,7 @@ The common features are:
     * Egress network filter
     * Resolve redirection
     * Dynamic IP Bind
-    * Json based Egress Path Selection
+    * JSON based Egress Path Selection
 
 #### Proxy Chaining Escapers
 
@@ -164,7 +169,7 @@ The common features are:
 
 - ProxyFloat
     * Dynamic Proxy: Http Proxy | Https Proxy | Socks5(s) Proxy
-    * Json based Egress Path Selection
+    * JSON based Egress Path Selection
 
 #### Router Escapers
 
@@ -210,9 +215,20 @@ Router escaper can be used to select the real escapers, based on different route
 
 #### Auth Method
 
-- HTTP Basic Auth
-- Socks5 User Auth
+- Facts Based
+- Basic (Username-Password)
+    * LDAP Simple Bind
+    * HTTP Basic Auth
+    * Socks5 User Auth
 - Anonymous user
+
+#### User Source
+
+- Dynamic Fetch
+    * Local File
+    * Lua Script
+    * Python Script
+- LDAP Auto Discover
 
 #### User Features
 
@@ -220,7 +236,7 @@ Router escaper can be used to select the real escapers, based on different route
 - Socket Speed Limit | Process Level Global Speed Limit
 - Request Rate Limit | Concurrency Limit | IDLE Check
 - Auto Expire | Block
-- Json based Egress Path Selection
+- JSON based Egress Path Selection
 
 #### User Site Features
 

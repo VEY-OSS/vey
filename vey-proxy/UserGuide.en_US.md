@@ -492,6 +492,27 @@ user_group:
 To generate a user authentication token, you need to use the [scripts/passphrase_hash.py](/scripts/passphrase_hash.py)
 script.
 
+### LDAP User Authentication
+
+User password authentication can optionally use a remote LDAP service. A configuration example is shown below:
+
+```yaml
+user_group:
+  - name: default
+    type: ldap
+    ldap_url: ldap://ldap.forumsys.com/dc=example,dc=com
+    pool:
+      min_idle_count: 1
+    static_users:
+      - name: gauss
+        # No token needs to be set; specific user configuration is possible.
+    source: # Dynamic user configuration
+      type: file
+      path: dynamic_users.json
+    unmanaged_user: # This is a configuration template for automatically generated users who have passed LDAP authentication but have no configuration settings.
+      name: unmanaged
+```
+
 ### User Rate Limiting and Throttling
 
 User-level rate limiting and throttling support single connection rate limiting, RPS limiting, and total concurrent task
