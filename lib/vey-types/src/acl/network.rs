@@ -66,17 +66,16 @@ impl AclNetworkRuleBuilder<AclAction> {
                 // forbid ipv6 unspecified ::/128 by default
                 IpNetwork::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 128).unwrap(),
                 // forbid ipv6 loopback ::1/128 by default
-                IpNetwork::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), 128).unwrap(),
+                IpNetwork::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 128).unwrap(),
                 // forbid ipv6 link-local fe80::/10 by default
                 IpNetwork::new(IpAddr::V6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 0)), 10).unwrap(),
                 // forbid ipv6 discard-only 100::/64 by default
                 IpNetwork::new(IpAddr::V6(Ipv6Addr::new(0x0100, 0, 0, 0, 0, 0, 0, 0)), 64).unwrap(),
             ]
         });
-        let v = DEFAULT_EGRESS_RULE.clone();
-        let mut inner = HashMap::with_capacity(v.len());
-        for ip_network in v {
-            inner.insert(ip_network, AclAction::Forbid);
+        let mut inner = HashMap::with_capacity(DEFAULT_EGRESS_RULE.len());
+        for ip_network in DEFAULT_EGRESS_RULE.iter() {
+            inner.insert(*ip_network, AclAction::Forbid);
         }
         Self {
             inner,
@@ -88,15 +87,14 @@ impl AclNetworkRuleBuilder<AclAction> {
         static DEFAULT_INGRESS_RULE: LazyLock<Vec<IpNetwork>> = LazyLock::new(|| {
             vec![
                 // permit ipv4 loopback 127.0.0.1/32 by default
-                IpNetwork::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 32).unwrap(),
+                IpNetwork::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 32).unwrap(),
                 // permit ipv6 loopback ::1/128 by default
-                IpNetwork::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), 128).unwrap(),
+                IpNetwork::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 128).unwrap(),
             ]
         });
-        let v = DEFAULT_INGRESS_RULE.clone();
-        let mut inner = HashMap::with_capacity(v.len());
-        for ip_network in v {
-            inner.insert(ip_network, AclAction::Forbid);
+        let mut inner = HashMap::with_capacity(DEFAULT_INGRESS_RULE.len());
+        for ip_network in DEFAULT_INGRESS_RULE.iter() {
+            inner.insert(*ip_network, AclAction::Permit);
         }
         Self {
             inner,
@@ -126,7 +124,7 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    fn check() {
+    fn check_egress() {
         let mut builder = AclNetworkRuleBuilder::new_egress(AclAction::Permit);
         builder.add_network(
             IpNetwork::from_str("192.168.1.0/24").unwrap(),
@@ -162,6 +160,46 @@ mod tests {
         assert_eq!(
             rule.check(IpAddr::from_str("1.1.1.1").unwrap()),
             (false, AclAction::Permit)
+        )
+    }
+
+    #[test]
+    fn check_ingress() {
+        let mut builder = AclNetworkRuleBuilder::new_ingress(AclAction::Forbid);
+        builder.add_network(
+            IpNetwork::from_str("192.168.1.0/24").unwrap(),
+            AclAction::Permit,
+        );
+        builder.add_network(
+            IpNetwork::from_str("2001:1:2:3::/64").unwrap(),
+            AclAction::PermitAndLog,
+        );
+        builder.add_network(
+            IpNetwork::from_str("192.168.30.1/32").unwrap(),
+            AclAction::PermitAndLog,
+        );
+
+        let rule = builder.build();
+
+        assert_eq!(
+            rule.check(IpAddr::from_str("192.168.1.1").unwrap()),
+            (true, AclAction::Permit)
+        );
+        assert_eq!(
+            rule.check(IpAddr::from_str("127.0.0.1").unwrap()),
+            (true, AclAction::Permit)
+        );
+        assert_eq!(
+            rule.check(IpAddr::from_str("2001:1:2:3::100").unwrap()),
+            (true, AclAction::PermitAndLog)
+        );
+        assert_eq!(
+            rule.check(IpAddr::from_str("192.168.30.1").unwrap()),
+            (true, AclAction::PermitAndLog)
+        );
+        assert_eq!(
+            rule.check(IpAddr::from_str("1.1.1.1").unwrap()),
+            (false, AclAction::Forbid)
         )
     }
 }
