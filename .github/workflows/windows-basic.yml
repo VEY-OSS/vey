@@ -1,0 +1,57 @@
+name: Windows-Basic
+permissions: { }
+
+on:
+  push:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'sphinx/**'
+      - 'scripts/**'
+    branches:
+      - 'main'
+      - 'lts/**'
+  pull_request:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'sphinx/**'
+      - 'scripts/**'
+    branches:
+      - 'main'
+      - 'lts/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  VCPKG_ROOT: C:\vcpkg
+  WIN_FEATURES: rustls-ring,quic,c-ares
+  AWS_LC_SYS_PREBUILT_NASM: 1
+
+jobs:
+  build:
+    name: Build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Install stable toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Install tools (choco)
+        run: choco install capnproto
+      - name: Install lib dependencies (vcpkg)
+        run: vcpkg install --triplet=x64-windows-static-md openssl c-ares
+      - name: Cargo build
+        run: cargo build --no-default-features --features $env:WIN_FEATURES
+      - name: Cargo clippy
+        run: cargo clippy --no-default-features --features $env:WIN_FEATURES --tests -- --deny warnings
+      - name: Cargo test
+        run: cargo test --no-default-features --features $env:WIN_FEATURES --workspace --exclude vey-journal

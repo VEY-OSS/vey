@@ -1,0 +1,53 @@
+name: MacOS-Basic
+permissions: { }
+
+on:
+  push:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'sphinx/**'
+      - 'scripts/**'
+    branches:
+      - 'main'
+      - 'lts/**'
+  pull_request:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'sphinx/**'
+      - 'scripts/**'
+    branches:
+      - 'main'
+      - 'lts/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Install stable toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Install dependencies
+        run: |
+          brew install capnp openssl c-ares lua
+      - name: Cargo build
+        run: cargo build
+      - name: Cargo clippy
+        run: cargo clippy --tests -- --deny warnings
+      - name: Cargo test
+        run: cargo test --workspace --exclude vey-journal
