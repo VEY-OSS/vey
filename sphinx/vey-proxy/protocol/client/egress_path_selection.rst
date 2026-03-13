@@ -4,13 +4,26 @@
 Egress Path Selection
 #####################
 
-Usually there are many outgoing ip addresses on proxy machine, and we may provide one to one server port mapping to
-each of them.
+Egress path selection can be used to control the behaviour of escapers dynamically.
 
-In most cases, we may have one server port mapped to many outgoing ip addresses, and by default using a random selection
-policy. But sometimes, users may want to specify which outgoing IP address to use.
-Instead of setting up a lot of servers and escapers that are mapped together, we can use only a single pair of server
-and escaper with the help of `egress path selection`.
+The use cases including:
+
+1. Select a specific outgoing IP address
+
+  We may have one server port mapped to many outgoing ip addresses, and by default we will use a random selection policy.
+  But sometimes, users may want to specify which outgoing IP address to use.
+  Instead of setting up a lot of servers and escapers that are mapped together, we can let the user pass a custom HTTP
+  header or a username param to specify the index of the IP to use.
+
+2. Use dynamic chained proxy for different user
+
+  We can set one server and one `proxy_float` escaper, and give each user a different egress path config, so they can use
+  different next proxies without reloading escapers.
+
+3. Use dynamic chained proxy from client params
+
+  The client can set the expected proxy address in username params, and then use `comply_context` escaper to select
+  egress upstream config for them dynamically.
 
 For path selection to work, the escapers used must support and enable it.
 Not all escapers support it, see the config documentation for each escaper for confirmation.
@@ -39,7 +52,7 @@ username extension
 
 All servers which support user auth with a username can support this.
 
-The supported method is :ref:`egress upstream <proto_egress_path_selection_egress_upstream>`.
+It will set egress context KVs, and the you can use `comply_context` escaper to parse the context and set egress path for chained escapers.
 
 See :ref:`username_params <config_auth_username_params>` for more info.
 

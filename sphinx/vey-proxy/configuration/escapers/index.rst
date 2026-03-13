@@ -18,6 +18,7 @@ Escapers
    :maxdepth: 1
 
    comply_audit
+   comply_context
    dummy_deny
    direct_fixed
    direct_float

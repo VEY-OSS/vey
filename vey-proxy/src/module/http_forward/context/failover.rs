@@ -141,12 +141,14 @@ impl HttpForwardContext for FailoverHttpForwardContext {
 
             let mut primary_next_escaper = Arc::clone(&self.primary_escaper);
             primary_next_escaper._update_audit_context(&mut self.audit_ctx);
+            primary_next_escaper._update_egress_path(task_notes);
             while let Some(escaper) = primary_next_escaper
                 ._check_out_next_escaper(task_notes, upstream)
                 .await
             {
                 primary_next_escaper = escaper;
                 primary_next_escaper._update_audit_context(&mut self.audit_ctx);
+                primary_next_escaper._update_egress_path(task_notes);
             }
 
             let mut standby_next_escaper = Arc::clone(&self.standby_escaper);
@@ -155,6 +157,8 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                 .await
             {
                 standby_next_escaper = escaper;
+                standby_next_escaper._update_audit_context(&mut self.audit_ctx);
+                standby_next_escaper._update_egress_path(task_notes);
             }
 
             if self.use_primary {

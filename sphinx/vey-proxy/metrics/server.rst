@@ -112,6 +112,14 @@ The metric names are:
 
   Show how many of requests from blocked user.
 
+* server.forbidden.invalid_param
+
+  **type**: count
+
+  Show the count of requests with invalid username params.
+
+  .. versionadded:: 1.13.0
+
 Traffic
 =======
 

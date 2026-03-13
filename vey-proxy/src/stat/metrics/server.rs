@@ -21,6 +21,7 @@ const METRIC_NAME_SERVER_TASK_ALIVE: &str = "server.task.alive";
 const METRIC_NAME_SERVER_FORBIDDEN_AUTH_FAILED: &str = "server.forbidden.auth_failed";
 const METRIC_NAME_SERVER_FORBIDDEN_DEST_DENIED: &str = "server.forbidden.dest_denied";
 const METRIC_NAME_SERVER_FORBIDDEN_USER_BLOCKED: &str = "server.forbidden.user_blocked";
+const METRIC_NAME_SERVER_FORBIDDEN_INVALID_PARAM: &str = "server.forbidden.invalid_param";
 const METRIC_NAME_SERVER_IO_IN_BYTES: &str = "server.traffic.in.bytes";
 const METRIC_NAME_SERVER_IO_IN_PACKETS: &str = "server.traffic.in.packets";
 const METRIC_NAME_SERVER_IO_OUT_BYTES: &str = "server.traffic.out.bytes";
@@ -153,6 +154,7 @@ fn emit_forbidden_stats(
     emit_forbid_stats_u64!(auth_failed, METRIC_NAME_SERVER_FORBIDDEN_AUTH_FAILED);
     emit_forbid_stats_u64!(dest_denied, METRIC_NAME_SERVER_FORBIDDEN_DEST_DENIED);
     emit_forbid_stats_u64!(user_blocked, METRIC_NAME_SERVER_FORBIDDEN_USER_BLOCKED);
+    emit_forbid_stats_u64!(invalid_param, METRIC_NAME_SERVER_FORBIDDEN_INVALID_PARAM);
 }
 
 fn emit_tcp_io_to_statsd(

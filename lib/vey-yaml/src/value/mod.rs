@@ -24,7 +24,7 @@ pub use metrics::{
 };
 pub use net::*;
 pub use primary::{
-    as_ascii, as_bool, as_f64, as_hashmap, as_i32, as_i64, as_list, as_nonzero_i32,
+    as_ascii, as_bool, as_char, as_f64, as_hashmap, as_i32, as_i64, as_list, as_nonzero_i32,
     as_nonzero_isize, as_nonzero_u32, as_nonzero_usize, as_string, as_u8, as_u16, as_u32, as_u64,
     as_usize,
 };

@@ -18,6 +18,7 @@ use vey_types::net::{TcpConnectConfig, TcpSockSpeedLimitConfig, UdpSockSpeedLimi
 use vey_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod comply_audit;
+pub(crate) mod comply_context;
 pub(crate) mod direct_fixed;
 pub(crate) mod direct_float;
 pub(crate) mod divert_tcp;
@@ -36,6 +37,8 @@ pub(crate) mod route_resolved;
 pub(crate) mod route_select;
 pub(crate) mod route_upstream;
 pub(crate) mod trick_float;
+
+pub(crate) use comply_context::EgressUpstream;
 
 mod registry;
 pub(crate) use registry::clear;
@@ -90,6 +93,7 @@ pub(crate) struct GeneralEscaperConfig {
 #[def_fn(diff_action, &Self, EscaperConfigDiffAction)]
 pub(crate) enum AnyEscaperConfig {
     ComplyAudit(comply_audit::ComplyAuditEscaperConfig),
+    ComplyContext(comply_context::ComplyContextEscaperConfig),
     DirectFixed(direct_fixed::DirectFixedEscaperConfig),
     DirectFloat(direct_float::DirectFloatEscaperConfig),
     DivertTcp(divert_tcp::DivertTcpEscaperConfig),
@@ -158,6 +162,10 @@ fn load_escaper(
         "comply_audit" | "complyaudit" => {
             let config = comply_audit::ComplyAuditEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::ComplyAudit(config))
+        }
+        "comply_context" | "complycontext" => {
+            let config = comply_context::ComplyContextEscaperConfig::parse(map, position)?;
+            Ok(AnyEscaperConfig::ComplyContext(config))
         }
         "direct_fixed" | "directfixed" => {
             let config = direct_fixed::DirectFixedEscaperConfig::parse(map, position)?;

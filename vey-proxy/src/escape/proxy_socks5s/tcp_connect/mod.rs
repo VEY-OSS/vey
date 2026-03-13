@@ -303,26 +303,35 @@ impl ProxySocks5sEscaper {
     ) -> Result<(UpstreamAddr, TcpStream), TcpConnectError> {
         let peer_proxy = match task_notes.egress_path_upstream(&self.config.name) {
             Some(ups) => {
-                tcp_notes.override_peer = Some(ups.addr.clone());
+                let addr = if let Some(addr) = &ups.addr {
+                    tcp_notes.override_peer = Some(addr.clone());
+                    addr.clone()
+                } else {
+                    self.get_next_proxy(task_notes, task_conf.upstream.host())
+                        .clone()
+                };
+
                 if !ups.resolve_sticky_key.is_empty()
-                    && let Host::Domain(domain) = &ups.addr.host()
+                    && let Host::Domain(domain) = addr.host()
                 {
                     let ip = self
                         .resolve_consistent(domain.clone(), &ups.resolve_sticky_key)
                         .await?;
                     let stream = self
                         .fixed_try_connect(
-                            SocketAddr::new(ip, ups.addr.port()),
+                            SocketAddr::new(ip, addr.port()),
                             task_conf,
                             tcp_notes,
                             task_notes,
                         )
                         .await?;
-                    return Ok((ups.addr.clone(), stream));
+                    return Ok((addr, stream));
                 }
-                &ups.addr
+                addr
             }
-            None => self.get_next_proxy(task_notes, task_conf.upstream.host()),
+            None => self
+                .get_next_proxy(task_notes, task_conf.upstream.host())
+                .clone(),
         };
 
         let stream = match peer_proxy.host() {
@@ -348,7 +357,7 @@ impl ProxySocks5sEscaper {
             }
         };
 
-        Ok((peer_proxy.clone(), stream))
+        Ok((peer_proxy, stream))
     }
 
     pub(super) async fn tcp_new_connection(

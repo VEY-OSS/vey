@@ -13,13 +13,13 @@ macro_rules! yaml_str {
 #[macro_export]
 macro_rules! yaml_doc {
     ($s:literal) => {
-        YamlLoader::load_from_str($s).unwrap().remove(0)
+        yaml_rust::YamlLoader::load_from_str($s).unwrap().remove(0)
     };
 }
 
 #[cfg(test)]
 mod tests {
-    use yaml_rust::{Yaml, YamlLoader};
+    use yaml_rust::Yaml;
 
     #[test]
     fn yaml_str() {

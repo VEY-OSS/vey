@@ -19,12 +19,28 @@ escaper:
       default: allow
       allow: 127.0.0.1
   # Chaining via HTTP proxy; per-connection next-hop overridden by username params
+  - name: comply_chained_http
+    type: comply_context
+    next: chained_http
+    use_egress_upstream:
+      default_port: 8080
+      host_key: host
+      domain_suffix: local
+      resolve_sticky_key: session-id
   - name: chained_http
     type: proxy_http
     resolver: cares1
     # placeholder; overridden when username params are present
     proxy_addr: 127.0.0.1:3128
   # Chaining via SOCKS5 proxy; per-connection next-hop overridden by username params
+  - name: comply_chained_socks
+    type: comply_context
+    next: chained_socks
+    use_egress_upstream:
+      default_port: 1080
+      host_key: host
+      domain_suffix: local
+      resolve_sticky_key: session-id
   - name: chained_socks
     type: proxy_socks5
     resolver: cares1
@@ -52,27 +68,21 @@ server:
   - name: http
     type: http_proxy
     listen: 127.0.0.1:7080
-    escaper: chained_http
+    escaper: comply_chained_http
     user-group: default
     # exercise username params mapping in HTTP pipeline
     username_params:
-      keys_for_host: [ label1, label2, opt ]
-      floating_keys: [ opt ]
-      resolve_sticky_key: session_id
-      domain_suffix: ".local"
-      http_port: 8080
-      socks5_port: 1080
+      required_keys: host
+      optional_keys: session-id
+      param_separator: '_'
   - name: socks
     type: socks_proxy
     listen: 127.0.0.1:1081
-    escaper: chained_socks
+    escaper: comply_chained_socks
     user-group: default
     enable_udp_associate: true
     # exercise username params mapping in SOCKS negotiation
     username_params:
-      keys_for_host: [ label1, label2, opt ]
-      floating_keys: [ opt ]
-      resolve_sticky_key: session_id
-      domain_suffix: ".local"
-      http_port: 8080
-      socks5_port: 1080
+      required_keys: host
+      optional_keys: session-id
+      param_separator: '_'

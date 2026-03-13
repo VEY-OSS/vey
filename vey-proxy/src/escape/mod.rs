@@ -46,9 +46,10 @@ pub(crate) use stats::{
 };
 
 mod egress_path;
-pub(crate) use egress_path::{EgressPathSelection, EgressUpstream};
+pub(crate) use egress_path::EgressPathSelection;
 
 mod comply_audit;
+mod comply_context;
 mod direct_fixed;
 mod direct_float;
 mod divert_tcp;
@@ -108,6 +109,7 @@ pub(crate) trait EscaperInternal {
         None
     }
     fn _update_audit_context(&self, _audit_ctx: &mut AuditContext) {}
+    fn _update_egress_path(&self, _task_notes: &ServerTaskNotes) {}
 
     async fn _new_http_forward_connection(
         &self,

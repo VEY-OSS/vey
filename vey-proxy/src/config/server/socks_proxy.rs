@@ -165,10 +165,9 @@ impl SocksProxyServerConfig {
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
             }
-            "username_params" | "username_params_to_escaper_addr" => {
-                let c = UsernameParamsConfig::parse(v).context(format!(
-                    "invalid username_params_to_escaper_addr value for key {k}"
-                ))?;
+            "username_params" => {
+                let c = UsernameParamsConfig::parse(v)
+                    .context(format!("invalid username params config value for key {k}"))?;
                 self.username_params = Some(c);
                 Ok(())
             }

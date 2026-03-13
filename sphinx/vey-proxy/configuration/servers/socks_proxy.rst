@@ -68,7 +68,7 @@ username_params
 
 **optional**, **type**: :ref:`username_params <config_auth_username_params>`
 
-Allow to extract egress path info from username params.
+Allow to set egress context from username params.
 
 **default**: not set
 

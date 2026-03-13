@@ -160,6 +160,19 @@ pub fn as_nonzero_usize(v: &Yaml) -> anyhow::Result<NonZeroUsize> {
     }
 }
 
+pub fn as_char(v: &Yaml) -> anyhow::Result<char> {
+    match v {
+        Yaml::String(s) => char::from_str(s).map_err(anyhow::Error::from),
+        Yaml::Integer(i) => {
+            let n = u32::try_from(*i).map_err(|_| anyhow!("out of range integer value {i}"))?;
+            char::from_u32(n).ok_or(anyhow!("out of range integer value {n}"))
+        }
+        _ => Err(anyhow!(
+            "yaml value type for 'char' should be 'string' or 'integer'"
+        )),
+    }
+}
+
 pub fn as_ascii(v: &Yaml) -> anyhow::Result<AsciiString> {
     let s = as_string(v).context("the base type for AsciiString should be String")?;
     AsciiString::from_str(&s).map_err(|e| anyhow!("invalid ascii string: {e}"))

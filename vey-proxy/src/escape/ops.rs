@@ -18,6 +18,7 @@ use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
 use crate::escape::ArcEscaper;
 
 use super::comply_audit::ComplyAuditEscaper;
+use super::comply_context::ComplyContextEscaper;
 use super::direct_fixed::DirectFixedEscaper;
 use super::direct_float::DirectFloatEscaper;
 use super::divert_tcp::DivertTcpEscaper;
@@ -242,6 +243,7 @@ async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
     let escaper = match config {
         AnyEscaperConfig::ComplyAudit(c) => ComplyAuditEscaper::prepare_initial(c)?,
+        AnyEscaperConfig::ComplyContext(c) => ComplyContextEscaper::prepare_initial(c)?,
         AnyEscaperConfig::DirectFixed(c) => DirectFixedEscaper::prepare_initial(c)?,
         AnyEscaperConfig::DirectFloat(c) => DirectFloatEscaper::prepare_initial(c).await?,
         AnyEscaperConfig::DivertTcp(c) => DivertTcpEscaper::prepare_initial(c)?,

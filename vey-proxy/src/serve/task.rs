@@ -4,6 +4,7 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 use std::time::Duration;
 
 use arcstr::ArcStr;
@@ -16,7 +17,8 @@ use vey_types::limit::GaugeSemaphorePermit;
 use vey_types::metrics::NodeName;
 
 use crate::auth::UserContext;
-use crate::escape::{EgressPathSelection, EgressUpstream};
+use crate::config::escaper::EgressUpstream;
+use crate::escape::EgressPathSelection;
 
 #[derive(Clone, Copy)]
 pub(crate) enum ServerTaskStage {
@@ -157,7 +159,7 @@ impl ServerTaskNotes {
         }
     }
 
-    pub(crate) fn egress_path_upstream(&self, escaper: &NodeName) -> Option<&EgressUpstream> {
+    pub(crate) fn egress_path_upstream(&self, escaper: &NodeName) -> Option<Arc<EgressUpstream>> {
         if let Some(ctx) = &self.user_ctx
             && let Some(p) = ctx.user_config().egress_path_selection.as_ref()
             && let Some(addr) = p.select_upstream(escaper)

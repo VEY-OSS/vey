@@ -304,25 +304,33 @@ impl ProxyHttpEscaper {
     ) -> Result<TcpStream, TcpConnectError> {
         let peer_proxy = match task_notes.egress_path_upstream(&self.config.name) {
             Some(ups) => {
-                tcp_notes.override_peer = Some(ups.addr.clone());
+                let addr = if let Some(addr) = &ups.addr {
+                    tcp_notes.override_peer = Some(addr.clone());
+                    addr
+                } else {
+                    self.get_next_proxy(task_notes, task_conf.upstream.host())
+                };
+
                 if !ups.resolve_sticky_key.is_empty()
-                    && let Host::Domain(domain) = &ups.addr.host()
+                    && let Host::Domain(domain) = addr.host()
                 {
                     let ip = self
                         .resolve_consistent(domain.clone(), &ups.resolve_sticky_key)
                         .await?;
                     return self
                         .fixed_try_connect(
-                            SocketAddr::new(ip, ups.addr.port()),
+                            SocketAddr::new(ip, addr.port()),
                             task_conf,
                             tcp_notes,
                             task_notes,
                         )
                         .await;
                 }
-                &ups.addr
+                addr.clone()
             }
-            None => self.get_next_proxy(task_notes, task_conf.upstream.host()),
+            None => self
+                .get_next_proxy(task_notes, task_conf.upstream.host())
+                .clone(),
         };
 
         match peer_proxy.host() {

@@ -49,7 +49,7 @@ impl Host {
         }
     }
 
-    pub(crate) fn from_domain_str(domain: &str) -> anyhow::Result<Self> {
+    pub fn from_domain_str(domain: &str) -> anyhow::Result<Self> {
         let domain = idna::domain_to_ascii(domain).map_err(|e| anyhow!("invalid domain: {e}"))?;
         Ok(Host::Domain(domain.into()))
     }

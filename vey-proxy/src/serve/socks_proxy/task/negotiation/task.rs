@@ -235,28 +235,27 @@ impl SocksProxyNegotiationTask {
                 if let Some(user_group) = &self.user_group {
                     let (username, password) = v5::auth::recv_user_from_client(&mut clt_r).await?;
 
-                    let base_username;
-                    if let Some(cfg) = &self.ctx.server_config.username_params {
-                        match self.get_egress_path_selection(username.as_original()) {
-                            Ok(Some(path)) => path_selection = Some(path),
-                            Ok(None) => {}
-                            Err(_) => {
-                                self.ctx.server_stats.forbidden.add_dest_denied();
+                    let real_name = if let Some(config) = &self.ctx.server_config.username_params {
+                        match config.parse_name_and_params(username.as_original()) {
+                            Ok((name, context)) => {
+                                path_selection =
+                                    Some(EgressPathSelection::with_context_kv(context));
+                                name
+                            }
+                            Err(e) => {
+                                debug!("failed to parse username {}: {e}", username.as_original());
+                                self.ctx.server_stats.forbidden.add_invalid_param();
                                 let _ = v5::Socks5Reply::ForbiddenByRule.send(&mut clt_w).await;
-                                return Err(ServerTaskError::ForbiddenByRule(
-                                    ServerTaskForbiddenError::DestDenied,
-                                ));
+                                return Err(ServerTaskError::ClientAuthFailed);
                             }
                         }
-
-                        base_username = cfg.real_username(username.as_original());
                     } else {
-                        base_username = username.as_original();
-                    }
+                        username.as_original()
+                    };
 
                     match user_group
                         .check_user_with_password(
-                            base_username,
+                            real_name,
                             &password,
                             self.ctx.server_config.name(),
                             self.ctx.server_stats.share_extra_tags(),
@@ -348,34 +347,6 @@ impl SocksProxyNegotiationTask {
                 let _ = v5::Socks5Reply::CommandNotSupported.send(&mut clt_w).await;
                 Err(ServerTaskError::UnimplementedProtocol)
             }
-        }
-    }
-
-    fn get_egress_path_selection(&self, raw_name: &str) -> Result<Option<EgressPathSelection>, ()> {
-        let mut egress_path = EgressPathSelection::default();
-
-        if let Some(name_params) = &self.ctx.server_config.username_params {
-            match name_params.parse_egress_upstream_socks5(raw_name) {
-                Ok(Some(ups)) => {
-                    debug!(
-                        "[{}] socks username params -> next proxy {}",
-                        self.ctx.server_config.name(),
-                        ups.addr
-                    );
-                    egress_path.set_upstream(self.ctx.escaper.name().clone(), ups);
-                }
-                Ok(None) => {}
-                Err(e) => {
-                    debug!("failed to get upstream addr from username: {e}");
-                    return Err(());
-                }
-            }
-        }
-
-        if egress_path.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(egress_path))
         }
     }
 }

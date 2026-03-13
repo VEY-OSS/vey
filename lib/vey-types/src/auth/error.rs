@@ -26,6 +26,8 @@ pub enum UserAuthError {
     RemoteTimeout,
     #[error("remote error")]
     RemoteError,
+    #[error("invalid username param")]
+    InvalidParam,
 }
 
 impl UserAuthError {

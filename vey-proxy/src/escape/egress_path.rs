@@ -3,42 +3,53 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
+
 use foldhash::HashMap;
 
 use vey_types::metrics::NodeName;
-use vey_types::net::UpstreamAddr;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct EgressUpstream {
-    pub(crate) addr: UpstreamAddr,
-    pub(crate) resolve_sticky_key: String,
-}
+use crate::config::escaper::EgressUpstream;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct EgressPathSelection {
-    number: HashMap<NodeName, usize>,
-    string: HashMap<NodeName, String>,
-    upstream: HashMap<NodeName, EgressUpstream>,
+    context_kv: BTreeMap<String, String>,
+    integer_index: HashMap<NodeName, usize>,
+    string_index: HashMap<NodeName, String>,
+    upstream: Arc<Mutex<HashMap<NodeName, Arc<EgressUpstream>>>>,
     json: HashMap<NodeName, serde_json::Value>,
 }
 
 impl EgressPathSelection {
+    pub(crate) fn with_context_kv(context_kv: BTreeMap<String, String>) -> Self {
+        EgressPathSelection {
+            context_kv,
+            ..Default::default()
+        }
+    }
+
+    pub(crate) fn context_kv(&self) -> &BTreeMap<String, String> {
+        &self.context_kv
+    }
+
     pub(crate) fn is_empty(&self) -> bool {
-        self.number.is_empty()
-            && self.string.is_empty()
-            && self.upstream.is_empty()
+        self.context_kv.is_empty()
+            && self.integer_index.is_empty()
+            && self.string_index.is_empty()
+            && self.upstream.lock().unwrap().is_empty()
             && self.json.is_empty()
     }
 
     pub(crate) fn set_number_id(&mut self, escaper: NodeName, id: usize) {
-        self.number.insert(escaper, id);
+        self.integer_index.insert(escaper, id);
     }
 
     /// get the selection id
     /// `len` should not be zero
     /// the returned id will be in range 0..len
     pub(crate) fn select_number_id(&self, escaper: &NodeName, len: usize) -> Option<usize> {
-        let id = self.number.get(escaper)?;
+        let id = self.integer_index.get(escaper)?;
         let id = *id;
         let i = if id == 0 {
             len - 1
@@ -51,19 +62,21 @@ impl EgressPathSelection {
     }
 
     pub(crate) fn set_string_id(&mut self, escaper: NodeName, id: String) {
-        self.string.insert(escaper, id);
+        self.string_index.insert(escaper, id);
     }
 
     pub(crate) fn select_string_id(&self, escaper: &NodeName) -> Option<&str> {
-        self.string.get(escaper).map(|s| s.as_str())
+        self.string_index.get(escaper).map(|s| s.as_str())
     }
 
-    pub(crate) fn set_upstream(&mut self, escaper: NodeName, ups: EgressUpstream) {
-        self.upstream.insert(escaper, ups);
+    pub(crate) fn set_upstream(&self, escaper: NodeName, ups: EgressUpstream) {
+        let mut upstream_map = self.upstream.lock().unwrap();
+        upstream_map.insert(escaper, Arc::new(ups));
     }
 
-    pub(crate) fn select_upstream(&self, escaper: &NodeName) -> Option<&EgressUpstream> {
-        self.upstream.get(escaper)
+    pub(crate) fn select_upstream(&self, escaper: &NodeName) -> Option<Arc<EgressUpstream>> {
+        let upstream_map = self.upstream.lock().unwrap();
+        upstream_map.get(escaper).cloned()
     }
 
     pub(crate) fn set_json_value(&mut self, escaper: NodeName, v: serde_json::Value) {

@@ -59,12 +59,14 @@ impl HttpForwardContext for RouteHttpForwardContext {
             self.audit_ctx = audit_ctx.clone();
             let mut next_escaper = Arc::clone(&self.escaper);
             next_escaper._update_audit_context(&mut self.audit_ctx);
+            next_escaper._update_egress_path(task_notes);
             while let Some(escaper) = next_escaper
                 ._check_out_next_escaper(task_notes, upstream)
                 .await
             {
                 next_escaper = escaper;
                 next_escaper._update_audit_context(&mut self.audit_ctx);
+                next_escaper._update_egress_path(task_notes);
             }
             if !Arc::ptr_eq(&self.final_escaper, &next_escaper) {
                 self.final_escaper = next_escaper;

@@ -49,6 +49,7 @@ pub(crate) struct ServerForbiddenSnapshot {
     pub(crate) auth_failed: u64,
     pub(crate) dest_denied: u64,
     pub(crate) user_blocked: u64,
+    pub(crate) invalid_param: u64,
 }
 
 #[derive(Default)]
@@ -56,6 +57,7 @@ pub(crate) struct ServerForbiddenStats {
     auth_failed: AtomicU64,
     dest_denied: AtomicU64,
     user_blocked: AtomicU64,
+    invalid_param: AtomicU64,
 }
 
 impl ServerForbiddenStats {
@@ -71,11 +73,16 @@ impl ServerForbiddenStats {
         self.user_blocked.fetch_add(1, Ordering::Relaxed);
     }
 
+    pub(crate) fn add_invalid_param(&self) {
+        self.user_blocked.fetch_add(1, Ordering::Relaxed);
+    }
+
     pub(crate) fn snapshot(&self) -> ServerForbiddenSnapshot {
         ServerForbiddenSnapshot {
             auth_failed: self.auth_failed.load(Ordering::Relaxed),
             dest_denied: self.dest_denied.load(Ordering::Relaxed),
             user_blocked: self.user_blocked.load(Ordering::Relaxed),
+            invalid_param: self.invalid_param.load(Ordering::Relaxed),
         }
     }
 }

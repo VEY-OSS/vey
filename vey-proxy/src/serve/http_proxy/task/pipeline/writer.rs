@@ -74,6 +74,8 @@ pub(crate) struct HttpProxyPipelineWriterTask<CDR, CDW> {
     wrapper_stats: ArcLimitedWriterStats,
     pipeline_stats: Arc<HttpProxyPipelineStats>,
     req_count: RequestCount,
+
+    egress_path: Option<EgressPathSelection>,
 }
 
 enum LoopAction {
@@ -115,6 +117,7 @@ where
             wrapper_stats: clt_w_stats,
             pipeline_stats: Arc::clone(pipeline_stats),
             req_count: RequestCount::default(),
+            egress_path: None,
         }
     }
 
@@ -137,17 +140,28 @@ where
                     })
                     .ok_or(UserAuthError::NoUserSupplied)?,
                 HttpAuth::Basic(v) => {
-                    let username = v.username.as_original();
-                    let username = self
-                        .ctx
-                        .server_config
-                        .username_params
-                        .as_ref()
-                        .map(|c| c.real_username(username))
-                        .unwrap_or(username);
+                    let real_name = if let Some(config) = &self.ctx.server_config.username_params {
+                        match config.parse_name_and_params(v.username.as_original()) {
+                            Ok((name, context)) => {
+                                self.egress_path =
+                                    Some(EgressPathSelection::with_context_kv(context));
+                                name
+                            }
+                            Err(e) => {
+                                debug!(
+                                    "failed to parse username {}: {e}",
+                                    v.username.as_original()
+                                );
+                                self.ctx.server_stats.forbidden.add_invalid_param();
+                                return Err(UserAuthError::InvalidParam);
+                            }
+                        }
+                    } else {
+                        v.username.as_original()
+                    };
                     user_group
                         .check_user_with_password(
-                            username,
+                            real_name,
                             &v.password,
                             self.ctx.server_config.name(),
                             self.ctx.server_stats.share_extra_tags(),
@@ -235,41 +249,22 @@ where
     }
 
     fn get_egress_path_selection(
-        &self,
+        &mut self,
         req: &mut HttpProxyRequest<CDR>,
     ) -> Result<Option<EgressPathSelection>, ()> {
-        let mut egress_path = EgressPathSelection::default();
+        let mut egress_path = self.egress_path.take().unwrap_or_default();
 
         if let Some(header) = &self.ctx.server_config.egress_path_selection_header {
             // check and remove the custom header
             if let Some(value) = req.inner.end_to_end_headers.remove(header) {
                 match usize::from_str(value.to_str()) {
-                    Ok(id) => egress_path.set_number_id(self.ctx.server_config.name().clone(), id),
+                    Ok(id) => {
+                        egress_path.set_number_id(self.ctx.server_config.escaper().clone(), id)
+                    }
                     Err(e) => {
                         debug!("invalid egress path number id value in header {header}: {e}");
                         return Err(());
                     }
-                }
-            }
-        }
-
-        // Optional: compute username-param-derived escaper address and store override
-        if let Some(name_params) = &self.ctx.server_config.username_params
-            && let HttpAuth::Basic(v) = &req.inner.auth_info
-        {
-            match name_params.parse_egress_upstream_http(v.username.as_original()) {
-                Ok(Some(ups)) => {
-                    debug!(
-                        "[{}] http username params -> next proxy {}",
-                        self.ctx.server_config.name(),
-                        ups.addr
-                    );
-                    egress_path.set_upstream(self.ctx.escaper.name().clone(), ups);
-                }
-                Ok(None) => {}
-                Err(e) => {
-                    debug!("failed to get upstream addr from username: {e}");
-                    return Err(());
                 }
             }
         }

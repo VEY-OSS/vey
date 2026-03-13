@@ -52,6 +52,7 @@ impl HttpForwardContext for ProxyHttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> HttpForwardCapability {
         self.escaper._update_audit_context(audit_ctx);
+        self.escaper._update_egress_path(_task_notes);
         self.escaper._local_http_forward_capability()
     }
 
