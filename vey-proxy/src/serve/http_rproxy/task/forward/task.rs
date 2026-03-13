@@ -25,6 +25,7 @@ use super::{
     CommonTaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats,
     HttpsForwardTaskCltWrapperStats,
 };
+use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::log::task::http_forward::TaskLogForHttpForward;
 use crate::module::http_forward::{
@@ -632,6 +633,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         &self,
         fwd_ctx: &mut BoxHttpForwardContext,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
+        let mut audit_ctx = AuditContext::default();
         if let Some(tls_client) = &self.host.tls_client {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
@@ -641,14 +643,24 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 tls_name: &self.host.config.tls_name,
             };
             fwd_ctx
-                .make_new_https_connection(&task_conf, &self.task_notes, self.task_stats.clone())
+                .make_new_https_connection(
+                    &task_conf,
+                    &self.task_notes,
+                    self.task_stats.clone(),
+                    &mut audit_ctx,
+                )
                 .await
         } else {
             let task_conf = TcpConnectTaskConf {
                 upstream: self.host.config.upstream(),
             };
             fwd_ctx
-                .make_new_http_connection(&task_conf, &self.task_notes, self.task_stats.clone())
+                .make_new_http_connection(
+                    &task_conf,
+                    &self.task_notes,
+                    self.task_stats.clone(),
+                    &mut audit_ctx,
+                )
                 .await
         }
     }

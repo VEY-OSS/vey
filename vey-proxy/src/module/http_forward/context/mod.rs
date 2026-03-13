@@ -51,12 +51,14 @@ pub(crate) trait HttpForwardContext {
         task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
+        audit_ctx: &mut AuditContext,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
     async fn make_new_https_connection(
         &mut self,
         task_conf: &TlsConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
+        audit_ctx: &mut AuditContext,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
     fn save_alive_connection(&mut self, c: BoxHttpForwardConnection);
     fn fetch_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes);

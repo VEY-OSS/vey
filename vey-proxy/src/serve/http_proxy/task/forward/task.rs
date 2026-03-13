@@ -758,7 +758,7 @@ impl<'a> HttpProxyForwardTask<'a> {
     }
 
     async fn make_new_connection(
-        &self,
+        &mut self,
         fwd_ctx: &mut BoxHttpForwardContext,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         if self.is_https {
@@ -779,14 +779,24 @@ impl<'a> HttpProxyForwardTask<'a> {
                 tls_name,
             };
             fwd_ctx
-                .make_new_https_connection(&task_conf, &self.task_notes, self.task_stats.clone())
+                .make_new_https_connection(
+                    &task_conf,
+                    &self.task_notes,
+                    self.task_stats.clone(),
+                    &mut self.audit_ctx,
+                )
                 .await
         } else {
             let task_conf = TcpConnectTaskConf {
                 upstream: &self.upstream,
             };
             fwd_ctx
-                .make_new_http_connection(&task_conf, &self.task_notes, self.task_stats.clone())
+                .make_new_http_connection(
+                    &task_conf,
+                    &self.task_notes,
+                    self.task_stats.clone(),
+                    &mut self.audit_ctx,
+                )
                 .await
         }
     }

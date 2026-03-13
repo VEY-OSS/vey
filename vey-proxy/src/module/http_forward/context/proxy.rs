@@ -119,8 +119,10 @@ impl HttpForwardContext for ProxyHttpForwardContext {
         task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
+        _audit_ctx: &mut AuditContext,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = false;
+        // no route change, no need to update audit_ctx
         self.escaper
             ._new_http_forward_connection(task_conf, &mut self.tcp_notes, task_notes, task_stats)
             .await
@@ -131,8 +133,10 @@ impl HttpForwardContext for ProxyHttpForwardContext {
         task_conf: &TlsConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
+        _audit_ctx: &mut AuditContext,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = true;
+        // no route change, no need to update audit_ctx
         self.escaper
             ._new_https_forward_connection(task_conf, &mut self.tcp_notes, task_notes, task_stats)
             .await

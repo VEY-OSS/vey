@@ -93,6 +93,8 @@ pub(crate) struct FailoverHttpForwardContext {
     standby_escaper: ArcEscaper,
     primary_final_escaper: ArcEscaper,
     standby_final_escaper: ArcEscaper,
+    primary_audit_ctx: AuditContext,
+    standby_audit_ctx: AuditContext,
     use_primary: bool,
     used_escaper: ArcEscaper,
     tcp_notes: TcpConnectTaskNotes,
@@ -116,6 +118,8 @@ impl FailoverHttpForwardContext {
             standby_escaper: Arc::clone(standby_escaper),
             primary_final_escaper: Arc::clone(primary_escaper),
             standby_final_escaper: Arc::clone(standby_escaper),
+            primary_audit_ctx: AuditContext::default(),
+            standby_audit_ctx: AuditContext::default(),
             use_primary: true,
             used_escaper: Arc::clone(primary_escaper),
             tcp_notes: TcpConnectTaskNotes::default(),
@@ -136,10 +140,8 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> HttpForwardCapability {
         if self.last_upstream.ne(upstream) {
-            self.audit_ctx = audit_ctx.clone();
-            // only use audit ctx of the primary escaper
-
             let mut primary_next_escaper = Arc::clone(&self.primary_escaper);
+            self.primary_audit_ctx = audit_ctx.clone();
             primary_next_escaper._update_audit_context(&mut self.audit_ctx);
             primary_next_escaper._update_egress_path(task_notes);
             while let Some(escaper) = primary_next_escaper
@@ -147,17 +149,18 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                 .await
             {
                 primary_next_escaper = escaper;
-                primary_next_escaper._update_audit_context(&mut self.audit_ctx);
+                primary_next_escaper._update_audit_context(&mut self.primary_audit_ctx);
                 primary_next_escaper._update_egress_path(task_notes);
             }
 
             let mut standby_next_escaper = Arc::clone(&self.standby_escaper);
+            self.standby_audit_ctx = audit_ctx.clone();
             while let Some(escaper) = standby_next_escaper
                 ._check_out_next_escaper(task_notes, upstream)
                 .await
             {
                 standby_next_escaper = escaper;
-                standby_next_escaper._update_audit_context(&mut self.audit_ctx);
+                standby_next_escaper._update_audit_context(&mut self.standby_audit_ctx);
                 standby_next_escaper._update_egress_path(task_notes);
             }
 
@@ -174,7 +177,6 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             }
         }
 
-        *audit_ctx = self.audit_ctx.clone();
         self.primary_final_escaper._local_http_forward_capability()
             & self.standby_final_escaper._local_http_forward_capability()
     }
@@ -233,6 +235,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
+        audit_ctx: &mut AuditContext,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = false;
 
@@ -249,6 +252,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     self.used_escaper = ctx.escaper;
                 }
                 self.use_primary = true;
+                *audit_ctx = self.primary_audit_ctx.clone();
                 self.tcp_notes.clone_from(&ctx.tcp_notes);
                 self.route_stats.add_request_passed();
                 return ctx.connect_result;
@@ -261,6 +265,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     self.used_escaper = self.standby_final_escaper.clone();
                 }
                 self.use_primary = false;
+                *audit_ctx = self.standby_audit_ctx.clone();
                 return match self
                     .used_escaper
                     ._new_http_forward_connection(
@@ -304,6 +309,11 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             self.used_escaper = ctx.escaper;
         }
         self.use_primary = Arc::ptr_eq(&self.used_escaper, &self.primary_final_escaper);
+        if self.use_primary {
+            *audit_ctx = self.primary_audit_ctx.clone();
+        } else {
+            *audit_ctx = self.standby_audit_ctx.clone();
+        }
         self.tcp_notes.clone_from(&ctx.tcp_notes);
         ctx.connect_result
     }
@@ -313,6 +323,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         task_conf: &TlsConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
+        audit_ctx: &mut AuditContext,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = true;
 
@@ -329,6 +340,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     self.used_escaper = ctx.escaper;
                 }
                 self.use_primary = true;
+                *audit_ctx = self.primary_audit_ctx.clone();
                 self.tcp_notes.clone_from(&ctx.tcp_notes);
                 self.route_stats.add_request_passed();
                 return ctx.connect_result;
@@ -341,6 +353,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     self.used_escaper = self.standby_final_escaper.clone();
                 }
                 self.use_primary = false;
+                *audit_ctx = self.standby_audit_ctx.clone();
                 return match self
                     .used_escaper
                     ._new_https_forward_connection(
@@ -384,6 +397,11 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             self.used_escaper = ctx.escaper;
         }
         self.use_primary = Arc::ptr_eq(&self.used_escaper, &self.primary_final_escaper);
+        if self.use_primary {
+            *audit_ctx = self.primary_audit_ctx.clone();
+        } else {
+            *audit_ctx = self.standby_audit_ctx.clone();
+        }
         self.tcp_notes.clone_from(&ctx.tcp_notes);
         ctx.connect_result
     }
