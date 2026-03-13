@@ -83,7 +83,6 @@ impl IpLocateServiceConfig {
 mod tests {
     use super::*;
     use vey_yaml::{yaml_doc, yaml_str};
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn parse_map_ok() {

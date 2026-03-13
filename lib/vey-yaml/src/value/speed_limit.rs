@@ -176,7 +176,6 @@ pub fn as_global_datagram_speed_limit(v: &Yaml) -> anyhow::Result<GlobalDatagram
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_tcp_sock_speed_limit_ok() {

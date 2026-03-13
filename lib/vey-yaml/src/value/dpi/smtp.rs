@@ -71,7 +71,6 @@ pub fn as_smtp_interception_config(value: &Yaml) -> anyhow::Result<SmtpIntercept
 mod test {
     use super::*;
     use std::time::Duration;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_smtp_interception_config_ok() {

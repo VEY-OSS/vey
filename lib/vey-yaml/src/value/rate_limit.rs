@@ -65,7 +65,6 @@ pub fn as_rate_limit_quota(v: &Yaml) -> anyhow::Result<RateLimitQuota> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_rate_limit_quota_ok() {

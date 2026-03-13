@@ -39,7 +39,6 @@ impl RedisSourceConfig {
 mod tests {
     use super::*;
     use vey_yaml::yaml_doc;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn parse_yaml_map_ok() {

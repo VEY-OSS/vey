@@ -94,7 +94,6 @@ pub fn as_weighted_metric_node_name(value: &Yaml) -> anyhow::Result<WeightedValu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_metric_node_name_ok() {

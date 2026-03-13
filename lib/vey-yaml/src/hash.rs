@@ -54,7 +54,6 @@ pub fn get_optional_str<'a>(map: &'a yaml::Hash, k: &str) -> anyhow::Result<Opti
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn foreach_kv_ok() {

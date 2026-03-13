@@ -168,7 +168,6 @@ mod tests {
     use super::*;
     use std::net::IpAddr;
     use vey_types::resolve::ResolveRedirectionValue;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_query_strategy_ok() {

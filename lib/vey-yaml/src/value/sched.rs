@@ -41,7 +41,6 @@ pub fn as_cpu_set(v: &Yaml) -> anyhow::Result<CpuAffinity> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_cpu_set_ok() {

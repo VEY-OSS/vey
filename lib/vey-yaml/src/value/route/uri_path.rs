@@ -97,7 +97,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     // Test structure implementing YamlMapCallback
     #[derive(Default, PartialEq, Debug)]

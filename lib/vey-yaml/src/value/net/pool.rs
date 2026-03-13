@@ -47,7 +47,6 @@ pub fn as_connection_pool_config(value: &Yaml) -> anyhow::Result<ConnectionPoolC
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_connection_pool_config_ok() {

@@ -80,7 +80,6 @@ pub fn as_histogram_metrics_config(value: &Yaml) -> anyhow::Result<HistogramMetr
 mod tests {
     use super::*;
     use std::time::Duration;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_quantile_ok() {

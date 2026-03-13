@@ -35,7 +35,6 @@ pub(super) fn as_dst_subnet_rule_builder(
 mod tests {
     use super::*;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn add_rule_for_action_ok() {

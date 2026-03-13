@@ -79,7 +79,6 @@ mod tests {
     use std::net::{Ipv4Addr, Ipv6Addr};
     use std::str::FromStr;
     use vey_yaml::yaml_doc;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn set_by_yaml_kv_ok() {

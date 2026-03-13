@@ -60,7 +60,6 @@ pub fn as_imap_interception_config(value: &Yaml) -> anyhow::Result<ImapIntercept
 mod test {
     use super::*;
     use std::time::Duration;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_imap_interception_config_ok() {

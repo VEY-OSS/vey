@@ -81,7 +81,6 @@ pub fn update_protocol_portmap(portmap: &mut ProtocolPortMap, value: &Yaml) -> a
 #[cfg(feature = "dpi")]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn update_protocol_portmap_ok() {

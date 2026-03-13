@@ -100,7 +100,6 @@ pub fn as_protocol_inspection_config(value: &Yaml) -> anyhow::Result<ProtocolIns
 mod test {
     use super::*;
     use std::time::Duration;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn parse_inspect_size_limit_ok() {

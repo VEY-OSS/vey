@@ -149,7 +149,6 @@ mod tests {
     use super::*;
     use http::Method;
     use std::time::Duration;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_http_keepalive_config_ok() {

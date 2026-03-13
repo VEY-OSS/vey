@@ -35,7 +35,6 @@ pub(super) fn as_exact_host_rule(
 mod test {
     use super::*;
     use std::net::{IpAddr, Ipv4Addr};
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn add_rule_for_action_ok() {

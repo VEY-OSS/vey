@@ -169,7 +169,6 @@ mod tests {
     use std::net::Ipv4Addr;
     use std::time::Duration;
     use vey_yaml::yaml_doc;
-    use yaml_rust::YamlLoader;
 
     fn default_node_name() -> NodeName {
         NodeName::from_str("test").unwrap()

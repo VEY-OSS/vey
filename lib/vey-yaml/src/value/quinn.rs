@@ -57,7 +57,6 @@ pub fn as_quinn_transport_config(value: &Yaml) -> anyhow::Result<QuinnTransportC
 mod tests {
     use super::*;
     use std::time::Duration;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_quinn_transport_config_ok() {

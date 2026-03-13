@@ -178,7 +178,6 @@ pub fn as_udp_listen_config(value: &Yaml) -> anyhow::Result<UdpListenConfig> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_udp_misc_sock_opts_ok() {
@@ -345,6 +344,7 @@ mod tests {
         ))]
         {
             use vey_types::net::Interface;
+            use yaml_rust::YamlLoader;
 
             #[cfg(any(target_os = "linux", target_os = "android"))]
             const LOOPBACK_INTERFACE: &str = "lo";

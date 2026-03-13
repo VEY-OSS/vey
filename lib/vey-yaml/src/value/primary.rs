@@ -235,7 +235,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_u8_ok() {

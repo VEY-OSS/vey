@@ -147,7 +147,6 @@ mod tests {
     use super::*;
     use std::net::IpAddr;
     use std::str::FromStr;
-    use yaml_rust::YamlLoader;
 
     // Define a test struct implementing YamlMapCallback
     #[derive(Default)]

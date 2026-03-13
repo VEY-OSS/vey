@@ -136,7 +136,6 @@ impl IcapServiceConfig {
 mod tests {
     use super::*;
     use vey_yaml::{yaml_doc, yaml_str};
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn parse_reqmod_service_from_string() {

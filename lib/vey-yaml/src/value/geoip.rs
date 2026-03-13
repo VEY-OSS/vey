@@ -86,7 +86,6 @@ pub fn as_ip_location(value: &Yaml) -> anyhow::Result<IpLocation> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn as_iso_country_code_ok() {

@@ -328,7 +328,7 @@ mod tests {
     use super::*;
     use std::net::{IpAddr, Ipv6Addr, SocketAddr};
     use std::time::Duration;
-    use yaml_rust::{Yaml, YamlLoader};
+    use yaml_rust::Yaml;
 
     use vey_types::net::{
         HappyEyeballsConfig, TcpConnectConfig, TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts,

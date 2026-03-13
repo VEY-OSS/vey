@@ -170,7 +170,6 @@ pub fn as_alpn_matched_backends(value: &Yaml) -> anyhow::Result<AlpnMatch<NodeNa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     // Mock configuration for testing as_alpn_matched_obj
     #[derive(Default, Debug, PartialEq)]

@@ -109,7 +109,6 @@ mod tests {
     use std::time::Duration;
     use vey_types::net::DnsEncryptionProtocol;
     use vey_yaml::yaml_doc;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn set_by_yaml_kv_ok() {

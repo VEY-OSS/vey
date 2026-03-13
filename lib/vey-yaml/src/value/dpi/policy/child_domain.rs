@@ -40,7 +40,6 @@ pub(super) fn as_child_domain_rule_builder(
 #[cfg(feature = "dpi")]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn add_rule_for_action_ok() {
