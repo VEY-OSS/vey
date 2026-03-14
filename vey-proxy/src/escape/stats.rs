@@ -50,7 +50,6 @@ pub(crate) trait EscaperStats: EscaperInternalStats {
     }
 }
 
-pub(crate) type ArcEscaperInternalStats = Arc<dyn EscaperInternalStats + Send + Sync>;
 pub(crate) type ArcEscaperStats = Arc<dyn EscaperStats + Send + Sync>;
 
 #[derive(Default)]

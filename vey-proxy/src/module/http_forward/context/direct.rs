@@ -15,7 +15,7 @@ use super::{
     HttpForwardContext,
 };
 use crate::audit::AuditContext;
-use crate::escape::{ArcEscaper, ArcEscaperInternalStats};
+use crate::escape::ArcEscaper;
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
 };
@@ -23,7 +23,6 @@ use crate::serve::ServerTaskNotes;
 
 pub(crate) struct DirectHttpForwardContext {
     escaper: ArcEscaper,
-    stats: ArcEscaperInternalStats,
     tcp_notes: TcpConnectTaskNotes,
     last_upstream: UpstreamAddr,
     last_is_tls: bool,
@@ -31,10 +30,9 @@ pub(crate) struct DirectHttpForwardContext {
 }
 
 impl DirectHttpForwardContext {
-    pub(crate) fn new(stats: ArcEscaperInternalStats, escaper: ArcEscaper) -> Self {
+    pub(crate) fn new(escaper: ArcEscaper) -> Self {
         DirectHttpForwardContext {
             escaper,
-            stats,
             tcp_notes: TcpConnectTaskNotes::default(),
             last_upstream: UpstreamAddr::empty(),
             last_is_tls: false,
@@ -47,57 +45,34 @@ impl DirectHttpForwardContext {
 impl HttpForwardContext for DirectHttpForwardContext {
     async fn check_in_final_escaper(
         &mut self,
-        _task_notes: &ServerTaskNotes,
-        _upstream: &UpstreamAddr,
-        audit_ctx: &mut AuditContext,
+        task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
+        is_tls: bool,
     ) -> HttpForwardCapability {
-        self.escaper._update_audit_context(audit_ctx);
-        self.escaper._update_egress_path(_task_notes);
-        self.escaper._local_http_forward_capability()
-    }
-
-    fn prepare_connection(&mut self, ups: &UpstreamAddr, is_tls: bool) {
-        if is_tls {
-            self.stats.add_https_forward_request_attempted();
-        } else {
-            self.stats.add_http_forward_request_attempted();
-        }
-
-        if self.last_upstream.ne(ups) || self.last_is_tls != is_tls {
+        if self.last_upstream.ne(upstream) || self.last_is_tls != is_tls {
             // new upstream
-            self.last_upstream = ups.clone();
+            self.last_upstream.clone_from(upstream);
             self.tcp_notes.reset();
             // always use different connection for different upstream
             let _old_connection = self.last_connection.take();
         } else {
             // old upstream
         }
+
+        self.escaper._update_egress_path(task_notes);
+        self.escaper._local_http_forward_capability()
     }
 
     async fn get_alive_connection(
         &mut self,
-        task_notes: &ServerTaskNotes,
-        task_stats: ArcHttpForwardTaskRemoteStats,
         idle_expire: Duration,
-    ) -> Option<BoxHttpForwardConnection> {
-        let all_user_stats = task_notes
-            .user_ctx()
-            .map(|ctx| {
-                self.escaper
-                    .get_escape_stats()
-                    .map(|s| ctx.fetch_upstream_traffic_stats(s.name(), s.share_extra_tags()))
-                    .unwrap_or_default()
-            })
-            .unwrap_or_default();
-
+    ) -> Option<(BoxHttpForwardConnection, ArcEscaper)> {
         let (instant, eof_poller) = self.last_connection.take()?;
         if instant.elapsed() < idle_expire {
-            let mut connection = eof_poller.recv_conn().await?;
-            connection
-                .0
-                .update_stats(&task_stats, all_user_stats.clone());
-            connection.1.update_stats(&task_stats, all_user_stats);
-            Some(connection)
+            eof_poller
+                .recv_conn()
+                .await
+                .map(|c| (c, self.escaper.clone()))
         } else {
             None
         }
@@ -108,13 +83,15 @@ impl HttpForwardContext for DirectHttpForwardContext {
         task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        _audit_ctx: &mut AuditContext,
-    ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
+        audit_ctx: &mut AuditContext,
+    ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError> {
         self.last_is_tls = false;
-        // no route change, no need to update audit_ctx
-        self.escaper
+        self.escaper._update_audit_context(audit_ctx);
+        let conn = self
+            .escaper
             ._new_http_forward_connection(task_conf, &mut self.tcp_notes, task_notes, task_stats)
-            .await
+            .await?;
+        Ok((conn, self.escaper.clone()))
     }
 
     async fn make_new_https_connection(
@@ -122,13 +99,15 @@ impl HttpForwardContext for DirectHttpForwardContext {
         task_conf: &TlsConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        _audit_ctx: &mut AuditContext,
-    ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
+        audit_ctx: &mut AuditContext,
+    ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError> {
         self.last_is_tls = true;
-        // no route change, no need to update audit_ctx
-        self.escaper
+        self.escaper._update_audit_context(audit_ctx);
+        let conn = self
+            .escaper
             ._new_https_forward_connection(task_conf, &mut self.tcp_notes, task_notes, task_stats)
-            .await
+            .await?;
+        Ok((conn, self.escaper.clone()))
     }
 
     fn save_alive_connection(&mut self, c: BoxHttpForwardConnection) {

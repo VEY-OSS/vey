@@ -67,4 +67,8 @@ impl HttpConnectionEofPoller {
         self.notify_channel.send(true).ok()?;
         self.recv_channel.await.ok()
     }
+
+    pub(crate) fn is_closed(&self) -> bool {
+        self.recv_channel.is_terminated()
+    }
 }

@@ -229,7 +229,7 @@ impl Escaper for ProxyHttpsEscaper {
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        let ctx = ProxyHttpForwardContext::new(self.stats.clone(), escaper);
+        let ctx = ProxyHttpForwardContext::new(escaper);
         Box::new(ctx)
     }
 

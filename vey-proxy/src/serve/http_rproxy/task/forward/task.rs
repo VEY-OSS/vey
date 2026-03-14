@@ -496,13 +496,12 @@ impl<'a> HttpRProxyForwardTask<'a> {
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
-        fwd_ctx.prepare_connection(self.host.config.upstream(), self.is_https);
-
         if let Some(mut connection) = fwd_ctx
-            .get_alive_connection(
+            .get_prepared_alive_connection(
                 &self.task_notes,
                 self.task_stats.clone(),
                 upstream_keepalive.idle_expire(),
+                self.is_https,
             )
             .await
         {
@@ -643,7 +642,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 tls_name: &self.host.config.tls_name,
             };
             fwd_ctx
-                .make_new_https_connection(
+                .new_prepared_https_connection(
                     &task_conf,
                     &self.task_notes,
                     self.task_stats.clone(),
@@ -655,7 +654,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 upstream: self.host.config.upstream(),
             };
             fwd_ctx
-                .make_new_http_connection(
+                .new_prepared_http_connection(
                     &task_conf,
                     &self.task_notes,
                     self.task_stats.clone(),

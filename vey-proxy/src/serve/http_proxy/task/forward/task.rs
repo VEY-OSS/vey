@@ -628,13 +628,12 @@ impl<'a> HttpProxyForwardTask<'a> {
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
-        fwd_ctx.prepare_connection(&self.upstream, self.is_https);
-
         if let Some(mut connection) = fwd_ctx
-            .get_alive_connection(
+            .get_prepared_alive_connection(
                 &self.task_notes,
                 self.task_stats.clone(),
                 upstream_keepalive.idle_expire(),
+                self.is_https,
             )
             .await
         {
@@ -779,7 +778,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                 tls_name,
             };
             fwd_ctx
-                .make_new_https_connection(
+                .new_prepared_https_connection(
                     &task_conf,
                     &self.task_notes,
                     self.task_stats.clone(),
@@ -791,7 +790,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                 upstream: &self.upstream,
             };
             fwd_ctx
-                .make_new_http_connection(
+                .new_prepared_http_connection(
                     &task_conf,
                     &self.task_notes,
                     self.task_stats.clone(),

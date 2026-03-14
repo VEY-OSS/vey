@@ -23,10 +23,7 @@ use vey_types::metrics::NodeName;
 use vey_types::net::{Host, UpstreamAddr};
 use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
-use super::{
-    ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperInternal,
-    EscaperRegistry, EscaperStats,
-};
+use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperRegistry, EscaperStats};
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::direct_float::{BindSet, DirectFloatBindIp, DirectFloatEscaperConfig};
@@ -397,10 +394,7 @@ impl Escaper for DirectFloatEscaper {
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        let ctx = DirectHttpForwardContext::new(
-            Arc::clone(&self.stats) as ArcEscaperInternalStats,
-            escaper,
-        );
+        let ctx = DirectHttpForwardContext::new(escaper);
         Box::new(ctx)
     }
 

@@ -141,7 +141,7 @@ impl Escaper for DummyDenyEscaper {
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        let ctx = DirectHttpForwardContext::new(self.stats.clone(), escaper);
+        let ctx = DirectHttpForwardContext::new(escaper);
         Box::new(ctx)
     }
 

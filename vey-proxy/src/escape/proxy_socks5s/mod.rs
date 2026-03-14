@@ -19,8 +19,8 @@ use vey_types::net::{Host, OpensslClientConfig, UpstreamAddr, WeightedUpstreamAd
 use vey_types::resolve::ResolveStrategy;
 
 use super::{
-    ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal,
-    EscaperRegistry, EscaperStats,
+    ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperRegistry,
+    EscaperStats,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
@@ -230,10 +230,7 @@ impl Escaper for ProxySocks5sEscaper {
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        let ctx = DirectHttpForwardContext::new(
-            Arc::clone(&self.stats) as ArcEscaperInternalStats,
-            escaper,
-        );
+        let ctx = DirectHttpForwardContext::new(escaper);
         Box::new(ctx)
     }
 
