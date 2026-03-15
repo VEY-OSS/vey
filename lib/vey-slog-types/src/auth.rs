@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * Copyright 2025 G3-OSS developers.
+ * Copyright 2025 VEY-OSS developers.
  */
 
 use arcstr::ArcStr;

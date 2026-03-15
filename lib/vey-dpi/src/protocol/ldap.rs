@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * Copyright 2026 G3-OSS developers.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use vey_codec::ldap::{LdapLength, LdapLengthParseError, LdapMessageId};
