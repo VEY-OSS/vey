@@ -9,8 +9,7 @@ This escaper allows to failover between the primary and standby next escaper.
 
 There are some limitation with this escaper:
 
- - The http forward capability will be set if both the primary and the standby final escaper support it.
- - The audit settings on the primary next path will always be used. The standby path will be ignored.
+ - The http forward capability will only be set if both the primary and the standby final escaper support it.
 
 There is no path selection support for this escaper.
 

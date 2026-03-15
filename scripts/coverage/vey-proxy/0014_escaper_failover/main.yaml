@@ -39,6 +39,11 @@ escaper:
     primary: direct1
     standby: direct2
     delay: 10ms
+  - name: failover2
+    type: route_failover
+    primary: failover
+    standby: direct2
+    delay: 10ms
 
 server:
   - name: rss
@@ -60,7 +65,7 @@ server:
   - name: http
     type: http_proxy
     listen: 127.0.0.1:8080
-    escaper: failover
+    escaper: failover2
     tls_client:
       ca_certificate: ../rootCA.pem
   - name: socks1
