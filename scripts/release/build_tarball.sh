@@ -112,8 +112,8 @@ fi
 echo "==> moving package files"
 if [ -d ${SOURCE_NAME}/debian ]
 then
-	[ ! -d debian ] || rm -rf debian
-	mv ${SOURCE_NAME}/debian .
+	[ ! -e debian ] || rm -rf debian
+	ln -s ${SOURCE_NAME}/debian debian
 fi
 
 if [ -f ${SOURCE_NAME}/${SOURCE_NAME}.spec ]
