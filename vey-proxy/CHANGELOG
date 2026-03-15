@@ -5,7 +5,18 @@ v1.13.0:
      - sni_proxy
      - tcp_stream
      - tls_stream
+ - Feature: add ldap user group type to support authenticate with remote LDAP server
+ - Feature: add username params to set egress context in the following servers:
+     - http_proxy
+     - socks_proxy
+ - Feature: add comply_context escaper to set egress path based on egress context
+ - Feature: allow to overwrite upstream proxy addr based on egress path in the following escapers:
+     - http_proxy
+     - https_proxy
+     - socks5_proxy
+     - socks5s_proxy
  - Feature: support set TCP max segment size in listen config
+ - Feature: allow bind to the same client IP address in direct_fixed escaper
  - Compatibility: bump MSRV to 1.90.0
  - Deprecated: the following config options are deprecated:
      - tcp_conn_rate_limit/tcp_conn_limit_quota in user config, use connection_rate_limit instead

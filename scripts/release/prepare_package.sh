@@ -20,7 +20,7 @@ ${PACKAGE} (${PKG_VERSION}-1) UNRELEASED; urgency=medium
 
   * New upstream release.
 
- -- ${PACKAGE^} Maintainers <${PACKAGE}-maintainers@devel.machine>  ${DCH_TIME}
+ -- VEY-OSS Developers <developers@vey.oss>  ${DCH_TIME}
 EOF
 
 SPEC_FILE=${PACKAGE}/${PACKAGE}.spec
@@ -32,7 +32,7 @@ TMP_FILE=${SPEC_FILE}.tmp
 awk -f scripts/release/prepare_rpm_spec.awk -v VERSION="${PKG_VERSION}" ${SPEC_FILE} > ${TMP_FILE}
 cat << EOF >> ${TMP_FILE}
 %changelog
-* ${SPEC_TIME} ${PACKAGE^} Maintainers <${PACKAGE}-maintainers@devel.machine> - ${PKG_VERSION}-1
+* ${SPEC_TIME} VEY-OSS Developers <developers@vey.oss> - ${PKG_VERSION}-1
 - New upstream release
 EOF
 mv ${TMP_FILE} ${SPEC_FILE}
