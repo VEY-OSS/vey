@@ -114,11 +114,13 @@ if [ -d ${SOURCE_NAME}/debian ]
 then
 	[ ! -e debian ] || rm -rf debian
 	ln -s ${SOURCE_NAME}/debian debian
+	echo "  - linked debian package build files"
 fi
 
 if [ -f ${SOURCE_NAME}/${SOURCE_NAME}.spec ]
 then
 	mv ${SOURCE_NAME}/${SOURCE_NAME}.spec ${SOURCE_NAME}.spec
+	echo "  - moved rpm build spec file"
 fi
 
 

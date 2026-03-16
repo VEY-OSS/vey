@@ -291,7 +291,7 @@ For *vey-proxy*:
 
 ```text
 openssl >= 1.1.1
-c-ares >= 1.13.0
+c-ares >= 1.18.0
 lua
 python3 >= 3.7
 ```

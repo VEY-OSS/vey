@@ -41,7 +41,7 @@ jobs:
             ./scripts/release/build_tarball.sh << pipeline.parameters.package >>-v<< pipeline.parameters.version >>
       - save_cache:
           name: Cache source tarball
-          key: << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
+          key: << pipeline.parameters.package >>-<< pipeline.parameters.version >>-{{ .Revision }}.tar.xz
           paths:
             - "vey/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz"
   build-deb:
@@ -74,7 +74,7 @@ jobs:
       - restore_cache:
           name: Restore source tarball
           keys:
-            - << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
+            - << pipeline.parameters.package >>-<< pipeline.parameters.version >>-{{ .Revision }}.tar.xz
       - run:
           name: Extract source code
           working_directory: vey
@@ -138,7 +138,7 @@ jobs:
       - restore_cache:
           name: Restore source tarball
           keys:
-            - << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
+            - << pipeline.parameters.package >>-<< pipeline.parameters.version >>-{{ .Revision }}.tar.xz
       - run:
           name: Build package
           environment:
