@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use hickory_proto::ProtoError;
+use hickory_net::NetError;
 use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{Connection, Endpoint, EndpointConfig, TokioRuntime};
 use rustls::ClientConfig;
@@ -13,11 +13,11 @@ use rustls::ClientConfig;
 use vey_socket::UdpConnectInfo;
 
 pub(crate) async fn quic_connect(
-    connect_info: UdpConnectInfo,
+    connect_info: &UdpConnectInfo,
     mut tls_config: ClientConfig,
     tls_name: &str,
     alpn_protocol: &'static [u8],
-) -> Result<Connection, ProtoError> {
+) -> Result<Connection, NetError> {
     let sock = connect_info.udp_connect()?;
 
     let endpoint_config = EndpointConfig::default(); // TODO set max payload size

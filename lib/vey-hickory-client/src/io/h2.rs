@@ -9,11 +9,13 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
+use anyhow::anyhow;
 use bytes::{Buf, Bytes};
 use futures_util::Stream;
 use h2::client::SendRequest;
-use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
-use hickory_proto::{ProtoError, ProtoErrorKind};
+use hickory_net::NetError;
+use hickory_net::xfer::{DnsRequestSender, DnsResponseStream};
+use hickory_proto::op::{DnsRequest, DnsResponse};
 use http::{Response, Version};
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
@@ -29,15 +31,11 @@ pub async fn connect(
     tls_name: ServerName<'static>,
     connect_timeout: Duration,
     request_timeout: Duration,
-) -> Result<HttpsClientStream, ProtoError> {
+) -> anyhow::Result<HttpsClientStream> {
     let server_name = match &tls_name {
         ServerName::DnsName(domain) => domain.as_ref().to_string(),
         ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
-        _ => {
-            return Err(ProtoError::from(format!(
-                "unsupported tls name: {tls_name:?}",
-            )));
-        }
+        _ => return Err(anyhow!("unsupported tls name: {tls_name:?}")),
     };
 
     let tls_stream = tokio::time::timeout(
@@ -45,7 +43,7 @@ pub async fn connect(
         crate::connect::rustls::tls_connect(&connect_info, tls_config, tls_name, b"h2"),
     )
     .await
-    .map_err(|_| ProtoError::from("tls connect timed out"))??;
+    .map_err(|_| anyhow!("tls connect to {} timed out", connect_info.server))??;
 
     let mut client_builder = h2::client::Builder::new();
     client_builder.enable_push(false);
@@ -53,7 +51,7 @@ pub async fn connect(
     let (send_request, connection) = client_builder
         .handshake(tls_stream)
         .await
-        .map_err(|e| format!("h2 handshake error: {e}"))?;
+        .map_err(|e| anyhow!("h2 handshake failed: {e}"))?;
 
     tokio::spawn(async move {
         let _ = connection.await;
@@ -77,7 +75,7 @@ impl HttpsClientStream {
         name_server_name: &str,
         h2: SendRequest<Bytes>,
         request_timeout: Duration,
-    ) -> Result<Self, ProtoError> {
+    ) -> anyhow::Result<Self> {
         let request_builder = HttpDnsRequestBuilder::new(Version::HTTP_2, name_server_name)?;
         Ok(HttpsClientStream {
             request_builder: Arc::new(request_builder),
@@ -103,7 +101,7 @@ impl DnsRequestSender for HttpsClientStream {
 
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
-            Err(err) => return err.into(),
+            Err(e) => return NetError::Proto(e).into(),
         };
 
         Box::pin(timed_h2_send_recv(
@@ -125,7 +123,7 @@ impl DnsRequestSender for HttpsClientStream {
 }
 
 impl Stream for HttpsClientStream {
-    type Item = Result<(), ProtoError>;
+    type Item = Result<(), NetError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if self.is_shutdown {
@@ -136,9 +134,10 @@ impl Stream for HttpsClientStream {
         match self.h2.poll_ready(cx) {
             Poll::Ready(Ok(())) => Poll::Ready(Some(Ok(()))),
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(e)) => Poll::Ready(Some(Err(ProtoError::from(format!(
-                "h2 stream errored: {e}",
-            ))))),
+            Poll::Ready(Err(e)) => {
+                // TODO use NetError::H2 ??
+                Poll::Ready(Some(Err(NetError::Msg(format!("h2 stream errored: {e}",)))))
+            }
         }
     }
 }
@@ -148,17 +147,17 @@ async fn timed_h2_send_recv(
     message: Bytes,
     request_builder: Arc<HttpDnsRequestBuilder>,
     request_timeout: Duration,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse, NetError> {
     tokio::time::timeout(request_timeout, h2_send_recv(h2, message, request_builder))
         .await
-        .map_err(|_| ProtoErrorKind::Timeout)?
+        .map_err(|_| NetError::Timeout)?
 }
 
 async fn h2_send_recv(
     h2: SendRequest<Bytes>,
     message: Bytes,
     request_builder: Arc<HttpDnsRequestBuilder>,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse, NetError> {
     let mut h2 = h2
         .ready()
         .await
