@@ -1,11 +1,12 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2024-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::str::FromStr;
 
-use hickory_proto::ProtoError;
+use anyhow::anyhow;
 use http::uri::{Authority, Parts, PathAndQuery, Scheme};
 use http::{HeaderValue, Method, Request, Uri, Version, header};
 
@@ -14,17 +15,14 @@ pub struct HttpDnsRequestBuilder {
 }
 
 impl HttpDnsRequestBuilder {
-    pub fn new(version: Version, host: &str) -> Result<Self, ProtoError> {
+    pub fn new(version: Version, host: &str) -> anyhow::Result<Self> {
         let mut parts = Parts::default();
         parts.scheme = Some(Scheme::HTTPS);
-        parts.authority = Some(
-            Authority::from_str(host)
-                .map_err(|e| ProtoError::from(format!("invalid authority: {e}")))?,
-        );
+        parts.authority =
+            Some(Authority::from_str(host).map_err(|e| anyhow!("invalid authority: {e}"))?);
         parts.path_and_query = Some(PathAndQuery::from_static(super::DNS_QUERY_PATH));
 
-        let url = Uri::from_parts(parts)
-            .map_err(|e| ProtoError::from(format!("uri parse error: {e}")))?;
+        let url = Uri::from_parts(parts).map_err(|e| anyhow!("invalid url: {e}"))?;
 
         let request = Request::builder()
             .method(Method::POST)
@@ -33,7 +31,7 @@ impl HttpDnsRequestBuilder {
             .header(header::CONTENT_TYPE, super::MIME_APPLICATION_DNS)
             .header(header::ACCEPT, super::MIME_APPLICATION_DNS)
             .body(())
-            .map_err(|e| ProtoError::from(format!("http stream errored: {e}")))?;
+            .map_err(|e| anyhow!("failed to build http request header: {e}"))?;
 
         Ok(HttpDnsRequestBuilder {
             pre_built_req: request,

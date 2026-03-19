@@ -149,8 +149,11 @@ impl HickoryDriverConfig {
             let (req_sender, req_receiver) = kanal::unbounded_async();
             driver.push_client(req_sender);
             tokio::spawn(async move {
-                let client = HickoryClient::new(client_config).await.unwrap(); // TODO
-                client.run(req_receiver).await;
+                // TODO add retry?
+                match HickoryClient::new(client_config).await {
+                    Ok(client) => client.run(req_receiver).await,
+                    Err(e) => log::error!("failed to run hickory client: {:?}", e),
+                }
             });
         }
 

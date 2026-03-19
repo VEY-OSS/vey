@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2024-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
-use hickory_client::{ClientError, ClientErrorKind};
+use hickory_proto::ProtoError;
 use hickory_proto::op::ResponseCode;
-use hickory_proto::{ProtoError, ProtoErrorKind};
 
 use crate::error::{ResolveDriverError, ResolveError, ResolveServerError};
 
@@ -24,23 +24,15 @@ impl ResolveError {
     }
 }
 
-impl From<&ProtoError> for ResolveDriverError {
-    fn from(value: &ProtoError) -> Self {
-        match value.kind() {
-            ProtoErrorKind::Timeout => ResolveDriverError::Timeout,
-            ProtoErrorKind::DomainNameTooLong(_) => ResolveDriverError::BadName,
-            _ => ResolveDriverError::Internal(value.to_string()),
-        }
-    }
-}
-
-impl From<ClientError> for ResolveError {
-    fn from(value: ClientError) -> Self {
-        let driver_error = match value.kind() {
-            ClientErrorKind::Timeout => ResolveDriverError::Timeout,
-            ClientErrorKind::Proto(e) => ResolveDriverError::from(e),
-            _ => ResolveDriverError::Internal(value.to_string()),
+impl From<ProtoError> for ResolveError {
+    fn from(value: ProtoError) -> Self {
+        let e = match value {
+            ProtoError::NotAResponse => ResolveDriverError::BadResp,
+            ProtoError::FormError { .. } => ResolveDriverError::BadResp,
+            ProtoError::CharacterDataTooLong { .. } => ResolveDriverError::BadResp,
+            ProtoError::Decode(_) => ResolveDriverError::BadResp,
+            v => ResolveDriverError::Internal(v.to_string()),
         };
-        ResolveError::FromDriver(driver_error)
+        ResolveError::FromDriver(e)
     }
 }

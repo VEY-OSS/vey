@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2024-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS Developers.
  */
 
 use std::net::{IpAddr, SocketAddr};
@@ -8,11 +9,14 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
+#[cfg(feature = "quic")]
 use anyhow::anyhow;
 use arcstr::ArcStr;
 use async_recursion::async_recursion;
-use hickory_client::client::{Client, ClientHandle};
-use hickory_proto::BufDnsStreamHandle;
+use hickory_net::client::{Client, ClientHandle};
+use hickory_net::runtime::TokioRuntimeProvider;
+use hickory_net::{BufDnsStreamHandle, DnsError, NetError};
+use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
@@ -23,7 +27,7 @@ use vey_types::net::{
     DnsEncryptionConfig, DnsEncryptionProtocol, TcpMiscSockOpts, UdpMiscSockOpts,
 };
 
-use crate::{ResolveDriverError, ResolveError, ResolvedRecord};
+use crate::{ResolveDriverError, ResolveError, ResolveServerError, ResolvedRecord};
 
 #[derive(Clone)]
 pub(super) struct DnsRequest {
@@ -66,7 +70,7 @@ impl HickoryClientState {
 pub(super) struct HickoryClient {
     config: Arc<HickoryClientConfig>,
     state: Arc<HickoryClientState>,
-    client: Client,
+    client: Client<TokioRuntimeProvider>,
 }
 
 impl HickoryClient {
@@ -136,7 +140,11 @@ pub(super) struct HickoryClientJob {
 
 impl HickoryClientJob {
     #[async_recursion]
-    async fn run(mut self, mut async_client: Client, req: DnsRequest) -> ResolvedRecord {
+    async fn run(
+        mut self,
+        mut async_client: Client<TokioRuntimeProvider>,
+        req: DnsRequest,
+    ) -> ResolvedRecord {
         let Ok(mut name) = Name::from_ascii(&req.domain) else {
             return ResolvedRecord::failed(
                 req.domain,
@@ -147,71 +155,115 @@ impl HickoryClientJob {
         // always use FQDN format such like "www.example.com."
         name.set_fqdn(true);
 
-        loop {
-            match async_client
-                .query(name.clone(), DNSClass::IN, req.rtype)
-                .await
-            {
-                Ok(rsp) => {
-                    let (mut msg, _) = rsp.into_parts();
-
-                    let response_code = msg.response_code();
-                    if let Some(e) = ResolveError::from_response_code(response_code) {
-                        return ResolvedRecord::failed(req.domain, self.config.negative_ttl, e);
-                    }
-
-                    if msg.truncated() && self.try_truncated {
-                        self.try_truncated = false;
-                        if let Ok(client) = self.config.new_dns_over_tcp_client().await {
-                            return self.run(client, req).await;
-                        }
-                    }
-
-                    let mut has_cname = false;
-                    let mut ips = Vec::with_capacity(4);
-                    let mut ttl = 0;
-                    for r in msg.take_answers() {
-                        ttl = r.ttl();
-                        match r.data() {
-                            RData::A(v) if req.rtype == RecordType::A => {
-                                ips.push(IpAddr::V4(v.0));
-                            }
-                            RData::AAAA(v) if req.rtype == RecordType::AAAA => {
-                                ips.push(IpAddr::V6(v.0))
-                            }
-                            RData::CNAME(v) if name.eq(r.name()) => {
-                                has_cname = true;
-                                name = v.0.clone();
-                            }
-                            _ => {}
-                        }
-                    }
-                    return if ips.is_empty() {
-                        if has_cname {
-                            self.try_truncated = true;
-                            continue;
-                        }
-                        ResolvedRecord::empty(req.domain, self.config.negative_ttl)
-                    } else {
-                        ResolvedRecord::resolved(
-                            req.domain,
-                            ttl,
-                            self.config.positive_min_ttl,
-                            self.config.positive_max_ttl,
-                            ips,
-                        )
-                    };
+        match async_client
+            .query(name.clone(), DNSClass::IN, req.rtype)
+            .await
+        {
+            Ok(rsp) => {
+                let (msg, _) = rsp.into_parts();
+                let response_code = msg.response_code;
+                if let Some(e) = ResolveError::from_response_code(response_code) {
+                    return ResolvedRecord::failed(req.domain, self.config.negative_ttl, e);
                 }
-                Err(e) => {
-                    self.state.add_failed();
-                    self.try_failed -= 1;
-                    if self.try_failed > 0
-                        && let Ok(client) = self.config.build_async_client().await
-                    {
+
+                if msg.truncation && self.try_truncated {
+                    self.try_truncated = false;
+                    if let Ok(client) = self.config.new_dns_over_tcp_client().await {
                         return self.run(client, req).await;
                     }
-                    return ResolvedRecord::failed(req.domain, self.config.negative_ttl, e.into());
                 }
+
+                let mut has_cname = false;
+                let mut ips = Vec::with_capacity(4);
+                let mut ttl = 0;
+                for r in msg.answers {
+                    ttl = r.ttl;
+                    match r.data {
+                        RData::A(v) if req.rtype == RecordType::A => {
+                            ips.push(IpAddr::V4(v.0));
+                        }
+                        RData::AAAA(v) if req.rtype == RecordType::AAAA => {
+                            ips.push(IpAddr::V6(v.0));
+                        }
+                        RData::CNAME(v) if name.eq(&r.name) => {
+                            has_cname = true;
+                            name = v.0.clone();
+                        }
+                        _ => {}
+                    }
+                }
+                if ips.is_empty() {
+                    if has_cname {
+                        self.try_truncated = true;
+                        self.run(async_client, req).await
+                    } else {
+                        ResolvedRecord::empty(req.domain, self.config.negative_ttl)
+                    }
+                } else {
+                    ResolvedRecord::resolved(
+                        req.domain,
+                        ttl,
+                        self.config.positive_min_ttl,
+                        self.config.positive_max_ttl,
+                        ips,
+                    )
+                }
+            }
+            Err(NetError::Dns(e)) => match e {
+                DnsError::ResponseCode(code) => {
+                    let e = ResolveError::from_response_code(code).unwrap_or(
+                        ResolveError::UnexpectedError(
+                            "hickory driver returned no-error response code as dns error",
+                        ),
+                    );
+                    ResolvedRecord::failed(req.domain, self.config.negative_ttl, e)
+                }
+                DnsError::NoRecordsFound(v) => {
+                    let ttl = v.negative_ttl.unwrap_or(self.config.negative_ttl);
+                    if v.response_code == ResponseCode::NoError {
+                        ResolvedRecord::empty(req.domain, self.config.negative_ttl)
+                    } else {
+                        ResolvedRecord::failed(
+                            req.domain,
+                            ttl,
+                            ResolveError::FromServer(ResolveServerError::NotFound),
+                        )
+                    }
+                }
+                _ => {
+                    todo!()
+                }
+            },
+            Err(NetError::Proto(e)) => {
+                ResolvedRecord::failed(req.domain, self.config.negative_ttl, e.into())
+            }
+            Err(NetError::Timeout) => {
+                self.state.add_failed();
+                self.try_failed -= 1;
+                if self.try_failed > 0
+                    && let Ok(client) = self.config.build_async_client().await
+                {
+                    return self.run(client, req).await;
+                }
+                ResolvedRecord::failed(
+                    req.domain,
+                    self.config.negative_ttl,
+                    ResolveError::FromDriver(ResolveDriverError::Timeout),
+                )
+            }
+            Err(e) => {
+                self.state.add_failed();
+                self.try_failed -= 1;
+                if self.try_failed > 0
+                    && let Ok(client) = self.config.build_async_client().await
+                {
+                    return self.run(client, req).await;
+                }
+                ResolvedRecord::failed(
+                    req.domain,
+                    self.config.negative_ttl,
+                    ResolveError::FromDriver(ResolveDriverError::Internal(e.to_string())),
+                )
             }
         }
     }
@@ -237,7 +289,7 @@ impl HickoryClientConfig {
         self.encryption.is_none()
     }
 
-    async fn build_async_client(&self) -> anyhow::Result<Client> {
+    async fn build_async_client(&self) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         if let Some(ec) = &self.encryption {
             let tls_client = ec.tls_client().driver.as_ref().clone();
 
@@ -283,35 +335,28 @@ impl HickoryClientConfig {
         }
     }
 
-    async fn new_dns_over_udp_client(&self) -> anyhow::Result<Client> {
+    async fn new_dns_over_udp_client(&self) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         // random port is used here
         let client_connect =
-            vey_hickory_client::io::udp::connect(self.udp_connect_info(), self.request_timeout);
+            vey_hickory_client::io::udp::connect(self.udp_connect_info(), self.request_timeout)
+                .await?;
 
-        let (client, bg) = Client::connect(Box::pin(client_connect))
-            .await
-            .map_err(|e| anyhow!("failed to create udp async client: {e}"))?;
+        let (client, bg) = Client::from_sender(client_connect);
         tokio::spawn(bg);
         Ok(client)
     }
 
-    async fn new_dns_over_tcp_client(&self) -> anyhow::Result<Client> {
+    async fn new_dns_over_tcp_client(&self) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
         let tcp_connect = vey_hickory_client::io::tcp::connect(
             self.tcp_connect_info(),
             outbound_messages,
             self.connect_timeout,
-        );
-
-        let (client, bg) = Client::with_timeout(
-            Box::pin(tcp_connect),
-            message_sender,
-            self.request_timeout,
-            None,
         )
-        .await
-        .map_err(|e| anyhow!("failed to create tcp async client: {e}"))?;
+        .await?;
+
+        let (client, bg) = Client::with_timeout(tcp_connect, message_sender, self.request_timeout);
         tokio::spawn(bg);
         Ok(client)
     }
@@ -320,7 +365,7 @@ impl HickoryClientConfig {
         &self,
         tls_client: ClientConfig,
         tls_name: ServerName<'static>,
-    ) -> anyhow::Result<Client> {
+    ) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
         let tls_connect = vey_hickory_client::io::tls::connect(
@@ -329,16 +374,10 @@ impl HickoryClientConfig {
             tls_name,
             outbound_messages,
             self.connect_timeout,
-        );
-
-        let (client, bg) = Client::with_timeout(
-            Box::pin(tls_connect),
-            message_sender,
-            self.request_timeout,
-            None,
         )
-        .await
-        .map_err(|e| anyhow!("failed to create tls async client: {e}"))?;
+        .await?;
+
+        let (client, bg) = Client::with_timeout(tls_connect, message_sender, self.request_timeout);
         tokio::spawn(bg);
         Ok(client)
     }
@@ -347,18 +386,17 @@ impl HickoryClientConfig {
         &self,
         tls_client: ClientConfig,
         tls_name: ServerName<'static>,
-    ) -> anyhow::Result<Client> {
+    ) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         let client_connect = vey_hickory_client::io::h2::connect(
             self.tcp_connect_info(),
             tls_client,
             tls_name,
             self.connect_timeout,
             self.request_timeout,
-        );
+        )
+        .await?;
 
-        let (client, bg) = Client::connect(Box::pin(client_connect))
-            .await
-            .map_err(|e| anyhow!("failed to create h2 async client: {e}"))?;
+        let (client, bg) = Client::from_sender(client_connect);
         tokio::spawn(bg);
         Ok(client)
     }
@@ -368,11 +406,11 @@ impl HickoryClientConfig {
         &self,
         tls_client: ClientConfig,
         tls_name: &ServerName<'static>,
-    ) -> anyhow::Result<Client> {
+    ) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         let tls_name = match tls_name {
             ServerName::DnsName(domain) => domain.as_ref().to_string(),
             ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
-            _ => return Err(anyhow!("unsupported tls server name type")),
+            _ => return Err(anyhow!("unsupported tls server name: {tls_name:?}")),
         };
 
         let client_connect = vey_hickory_client::io::quic::connect(
@@ -381,11 +419,10 @@ impl HickoryClientConfig {
             tls_name,
             self.connect_timeout,
             self.request_timeout,
-        );
+        )
+        .await?;
 
-        let (client, bg) = Client::connect(Box::pin(client_connect))
-            .await
-            .map_err(|e| anyhow!("failed to create udp async client: {e}"))?;
+        let (client, bg) = Client::from_sender(client_connect);
         tokio::spawn(bg);
         Ok(client)
     }
@@ -395,7 +432,7 @@ impl HickoryClientConfig {
         &self,
         tls_client: ClientConfig,
         tls_name: &ServerName<'static>,
-    ) -> anyhow::Result<Client> {
+    ) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         let tls_name = match tls_name {
             ServerName::DnsName(domain) => domain.as_ref().to_string(),
             ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
@@ -408,11 +445,10 @@ impl HickoryClientConfig {
             tls_name,
             self.connect_timeout,
             self.request_timeout,
-        );
+        )
+        .await?;
 
-        let (client, bg) = Client::connect(Box::pin(client_connect))
-            .await
-            .map_err(|e| anyhow!("failed to create h3 async client: {e}"))?;
+        let (client, bg) = Client::from_sender(client_connect);
         tokio::spawn(bg);
         Ok(client)
     }

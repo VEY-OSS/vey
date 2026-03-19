@@ -1,14 +1,16 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::time::Duration;
 
-use hickory_proto::ProtoError;
-use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
-use hickory_proto::tcp::{DnsTcpStream, TcpClientStream, TcpStream};
-use hickory_proto::xfer::StreamReceiver;
+use anyhow::anyhow;
+use hickory_net::runtime::DnsTcpStream;
+use hickory_net::runtime::iocompat::AsyncIoTokioAsStd;
+use hickory_net::tcp::{TcpClientStream, TcpStream};
+use hickory_net::xfer::StreamReceiver;
 
 use vey_socket::TcpConnectInfo;
 
@@ -16,10 +18,10 @@ pub async fn connect(
     connect_info: TcpConnectInfo,
     outbound_messages: StreamReceiver,
     connect_timeout: Duration,
-) -> Result<TcpClientStream<impl DnsTcpStream>, ProtoError> {
+) -> anyhow::Result<TcpClientStream<impl DnsTcpStream>> {
     let tls_stream = tokio::time::timeout(connect_timeout, connect_info.tcp_connect())
         .await
-        .map_err(|_| ProtoError::from("tcp connect timed out"))??;
+        .map_err(|_| anyhow!("tcp connect to {} timed out", connect_info.server))??;
 
     let stream = TcpStream::from_stream_with_receiver(
         AsyncIoTokioAsStd(tls_stream),

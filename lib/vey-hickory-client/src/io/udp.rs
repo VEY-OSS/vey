@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::pin::Pin;
@@ -8,8 +9,9 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use futures_util::Stream;
-use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
-use hickory_proto::{ProtoError, ProtoErrorKind};
+use hickory_net::NetError;
+use hickory_net::xfer::{DnsRequestSender, DnsResponseStream};
+use hickory_proto::op::{DnsRequest, DnsResponse, UpdateMessage};
 
 use vey_socket::UdpConnectInfo;
 
@@ -20,7 +22,7 @@ const MAX_RECEIVE_BUFFER_SIZE: usize = 4_096;
 pub async fn connect(
     connect_info: UdpConnectInfo,
     request_timeout: Duration,
-) -> Result<UdpClientStream, ProtoError> {
+) -> anyhow::Result<UdpClientStream> {
     Ok(UdpClientStream {
         connect_info,
         request_timeout,
@@ -60,7 +62,7 @@ impl DnsRequestSender for UdpClientStream {
 }
 
 impl Stream for UdpClientStream {
-    type Item = Result<(), ProtoError>;
+    type Item = Result<(), NetError>;
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if self.is_shutdown {
@@ -75,19 +77,19 @@ async fn timed_udp_send_recv(
     connect_info: UdpConnectInfo,
     request: DnsRequest,
     request_timeout: Duration,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse, NetError> {
     tokio::time::timeout(request_timeout, udp_send_recv(connect_info, request))
         .await
-        .map_err(|_| ProtoErrorKind::Timeout)?
+        .map_err(|_| NetError::Timeout)?
 }
 
 async fn udp_send_recv(
     connect_info: UdpConnectInfo,
     mut request: DnsRequest,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse, NetError> {
     // set a random ID
     let id = fastrand::u16(..);
-    request.set_id(id);
+    request.metadata.id = id;
 
     let socket = connect_info.udp_connect()?;
     let socket = tokio::net::UdpSocket::from_std(socket)?;
@@ -95,7 +97,7 @@ async fn udp_send_recv(
     let bytes = request.to_vec()?;
     let nw = socket.send(&bytes).await?;
     if nw != bytes.len() {
-        return Err(ProtoError::from(format!(
+        return Err(NetError::Msg(format!(
             "Not all bytes of message sent, {nw} of {}",
             bytes.len()
         )));
@@ -112,9 +114,9 @@ async fn udp_send_recv(
         }
 
         if !response
-            .queries()
+            .queries
             .iter()
-            .all(|rq| request.queries().contains(rq))
+            .all(|rq| request.queries.contains(rq))
         {
             continue;
         }
