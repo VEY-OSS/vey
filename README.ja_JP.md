@@ -3,69 +3,70 @@
 [![codecov](https://codecov.io/gh/VEY-OSS/vey/graph/badge.svg?token=c8gK1HrRsX)](https://codecov.io/gh/VEY-OSS/vey)
 [![docs](https://readthedocs.org/projects/vey/badge)](https://vey.readthedocs.io/)
 
-# VEYプロジェクト
+# VEY - Versatile Edge WAY
 
 [中文版 README](README.zh_CN.md) | [English README](README.md)
 
 ## 概要
 
-VEY は Versatile Edge Way の略で、プロキシ / リバース プロキシ (WIP) / ロード バランサ (TBD) / NAT トラバーサル (WIP)
-など、エンタープライズ向けの汎用プロキシ ソリューションを構築するために使用できるプロジェクトです。
+VEY は、エンタープライズ向けの汎用プロキシソリューションを構築するためのプロジェクトです。フォワードプロキシ /
+リバースプロキシ (WIP) / ロードバランサー (TBD) / NAT トラバーサル (WIP) など、幅広い用途に利用できます。
 
-このプロジェクトは、[G3 プロジェクト](https://github.com/bytedance/g3) の作成者によるフォークです。
+このプロジェクトは、[G3 プロジェクト](https://github.com/bytedance/g3) の作者によるフォークです。
 
-## アプリ
+## アプリケーション
 
-VEY プロジェクトは多数のアプリケーションで構成されており、各アプリケーションには独自のコード、ドキュメントなどを含む個別のサブディレクトリがあります。
+VEY プロジェクトは複数のアプリケーションで構成されており、それぞれにコード、ドキュメント、関連ファイルを含む
+専用のサブディレクトリがあります。
 
-アプリ ディレクトリに加えて、いくつかのパブリック ディレクトリもあります。
+各アプリケーションのディレクトリに加えて、リポジトリには共通で利用するディレクトリもあります。
 
-- [doc](doc) プロジェクトレベルのドキュメントが含まれます。
-- [sphinx](sphinx) は、各アプリの HTML リファレンス ドキュメントを生成するために使用されます。
-- [scripts](scripts) には、カバレッジ テスト、パッケージ化スクリプト
+- [doc](doc): プロジェクト全体のドキュメント。
+- [sphinx](sphinx): 各アプリケーションの HTML リファレンスドキュメントを生成するためのソース一式。
+- [scripts](scripts): カバレッジテスト、パッケージングスクリプトなどの各種補助スクリプト。
 
 ### vey-proxy
 
-汎用のフォワードプロキシソリューションですが、TCPストリーミング / トランスペアレントプロキシ / リバースプロキシとしても使用できます。
-基本的なサポートが組み込まれています。
+汎用フォワードプロキシソリューションです。基本機能として TCP ストリーミング / トランスペアレントプロキシ /
+リバースプロキシにも対応しています。
 
-#### 特徴のハイライト
+#### 主な機能
 
-- 非同期Rust: 高速で信頼性が高い
-- Http1 / Socks5フォワードプロキシプロトコル、SNIプロキシおよびTCP TPROXY
-- サポート easy-proxy & masque/http Well-Known URI
-- プロキシチェイニング、上流プロキシの動的選択をサポート
-- 多くの出口ルート選択方法、カスタム出口選択エージェントをサポート
-- TCP/TLSストリームプロキシ、基本的なHTTPリバースプロキシ
-- OpenSSL、BoringSSL、AWS-LC、AWS-LC-FIPS、Tongsuo、さらにはrustlsを使用したTLS
-- TLS MITMインターセプション、復号化されたトラフィックダンプ、HTTP1/HTTP2/IMAP/SMTPインターセプション
-- HTTP1/HTTP2/IMAP/SMTPのICAP適応、サードパーティのセキュリティ製品とシームレスに統合可能
-- 優雅なリロード
+- 非同期 Rust による高い性能と信頼性
+- HTTP/1 および SOCKS5 のフォワードプロキシ、SNI Proxy、TCP TPROXY
+- easy-proxy と masque/http Well-Known URI をサポート
+- プロキシチェーンに対応し、上流プロキシの動的選択も可能
+- 多彩な出口ルート選択方式に対応し、カスタム出口選択エージェントも利用可能
+- TCP/TLS ストリームプロキシと基本的な HTTP リバースプロキシ機能
+- OpenSSL / BoringSSL / AWS-LC / AWS-LC-FIPS / Tongsuo / rustls による TLS
+- TLS MITM インターセプト、復号済みトラフィックのダンプ、HTTP/1・HTTP/2・IMAP・SMTP のインターセプト
+- HTTP/1・HTTP/2・IMAP・SMTP 向けの ICAP 連携に対応し、サードパーティ製セキュリティ製品とも容易に統合可能
+- グレースフルリロード
 - カスタマイズ可能なロードバランシングおよびフェイルオーバー戦略
-- ユーザー認証、豊富な設定オプション
-- 各ユーザーに対して差別化されたサイト設定を行うことが可能
-- 豊富なACL/制限ルール、入口/出口/ユーザーレベルで
-- 豊富な監視メトリクス、入口/出口/ユーザー/ユーザーサイトレベルで
-- さまざまな観測ツールをサポート
+- ユーザー認証と豊富な設定オプション
+- ユーザーごとに異なるサイト設定を適用可能
+- 入口 / 出口 / ユーザーレベルで豊富な ACL / 制限ルールを提供
+- 入口 / 出口 / ユーザー / ユーザーサイト単位で豊富な監視メトリクスを提供
+- さまざまなオブザーバビリティツールをサポート
 
-[詳細な紹介](vey-proxy/README.md) | [ユーザーガイド](vey-proxy/UserGuide.en_US.md) |
+[README](vey-proxy/README.md) | [ユーザーガイド](vey-proxy/UserGuide.en_US.md) |
 [リファレンスドキュメント](https://vey.readthedocs.io/projects/proxy/en/latest/)
 
 ### vey-statsd
 
-StatsD互換の統計アグリゲータ。
+StatsD 互換のメトリクス集約ツールです。
 
-[詳細な紹介](vey-statsd/README.md) | [リファレンスドキュメント](https://vey.readthedocs.io/projects/statsd/en/latest/)
+[README](vey-statsd/README.md) | [リファレンスドキュメント](https://vey.readthedocs.io/projects/statsd/en/latest/)
 
 ### vey-gateway
 
-作業中のリバースプロキシソリューション。
+現在開発中のリバースプロキシソリューションです。
 
 [リファレンスドキュメント](https://vey.readthedocs.io/projects/gateway/en/latest/)
 
 ### vey-bench
 
-ストレステストツール、サポート
+以下をサポートするベンチマークツールです。
 
 - HTTP: HTTP/1.1, HTTP/2, HTTP/3
 - WebSocket
@@ -74,38 +75,38 @@ StatsD互換の統計アグリゲータ。
 - Thrift RPC
 - Cloudflare Keyless
 
-[詳細な紹介](vey-bench/README.md)
+[README](vey-bench/README.md)
 
 ### vey-mkcert
 
-ルートCA / 中間CA / TLSサーバー / TLSクライアント / TLCPサーバー / TLCPクライアント 証明書を作成するツール。
+Root CA / Intermediate CA / TLS サーバー / TLS クライアント / TLCP サーバー / TLCP クライアント証明書を生成するためのツールです。
 
-[詳細な紹介](vey-mkcert/README.md)
+[README](vey-mkcert/README.md)
 
 ### vey-dcgen
 
-vey-proxyのための偽の証明書ジェネレーター。
+vey-proxy 向けの動的証明書ジェネレーターです。
 
-[詳細な紹介](vey-dcgen/README.md)
+[README](vey-dcgen/README.md)
 
 ### vey-iploc
 
-vey-proxyのGeoIPサポートのためのIPロケーションルックアップサービス。
+vey-proxy の GeoIP サポート向け IP ジオロケーション検索サービスです。
 
-[詳細な紹介](vey-iploc/README.md)
+[README](vey-iploc/README.md)
 
 ### vey-keyless
 
-Cloudflare keylessサーバーの簡単な実装。
+Cloudflare keyless server のシンプルな実装です。
 
-[詳細な紹介](vey-keyless/README.md) |
+[README](vey-keyless/README.md) |
 [リファレンスドキュメント](https://vey.readthedocs.io/projects/keyless/en/latest/)
 
 ## 対応プラットフォーム
 
-現在、Linux システムに対する完全なサポートが提供されています。
+Linux を完全にサポートしています。
 
-以下のシステムもコンパイルできます
+以下のプラットフォームでもコンパイルできます。
 
 - macOS
 - Windows >= 10
@@ -113,40 +114,40 @@ Cloudflare keylessサーバーの簡単な実装。
 - NetBSD >= 10.1
 - OpenBSD >= 7.8
 
-## 開発環境のセットアップガイド
+## 開発環境セットアップ
 
-[Dev-Setup](doc/dev-setup.md) に従ってください。
+[Dev-Setup](doc/dev-setup.md) を参照してください。
 
 ## 標準
 
-[Standards](doc/standards.md) に従ってください。
+[Standards](doc/standards.md) を参照してください。
 
-## ビルド、パッケージ化、デプロイ
+## ビルド、パッケージング、デプロイ
 
-コンパイル済みのパッケージは[cloudsmith](https://cloudsmith.io/~vey-oss/repos/)にあります。
+ビルド済みパッケージは [cloudsmith](https://cloudsmith.io/~vey-oss/repos/) から入手できます。
 
-ただし、パッケージはご自身でコンパイルしてパッケージ化することをお勧めします。詳細な手順については、[ビルドとパッケージ化](doc/build_and_package.md)
-を参照してください。
+ただし、可能であればパッケージは自前でビルドすることを推奨します。詳細は
+[Build and Package](doc/build_and_package.md) を参照してください。
 
-### LTSバージョン
+### LTS バージョン
 
 [Long-Term Support](doc/long-term_support.md) を参照してください。
 
-## 貢献
+## コントリビューション
 
-詳細については [Contributing](CONTRIBUTING.md) を参照してください。
+詳細は [Contributing](CONTRIBUTING.md) を参照してください。
 
 ## 行動規範
 
-詳細は[行動規範](CODE_OF_CONDUCT.md)をご確認ください。
+詳細は [Code of Conduct](CODE_OF_CONDUCT.md) を参照してください。
 
 ## セキュリティ
 
-セキュリティバグは、GitHubで[セキュリティアドバイザリのドラフトを公開](https://github.com/VEY-OSS/vey/security/advisories/new)
-してご報告ください。
+セキュリティ上の問題は、GitHub の
+[draft security advisory](https://github.com/VEY-OSS/vey/security/advisories/new) を作成して報告してください。
 
-GitHubで公開されているIssueを作成しないでください。
+公開の GitHub Issue は作成しないでください。
 
 ## ライセンス
 
-このプロジェクトは[Apache 2.0 License](LICENSE)に基づいてライセンスされています。
+このプロジェクトは [Apache-2.0 License](LICENSE) のもとで提供されています。

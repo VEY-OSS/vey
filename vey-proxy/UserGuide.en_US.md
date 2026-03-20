@@ -18,341 +18,332 @@
     + [Transparent Proxy](#transparent-proxy)
     + [Route Binding](#route-binding)
     + [Proxy Chaining](#proxy-chaining)
-    + [Connection Throttling](#connection-throttling)
-    + [Global Process Speed Limit](#global-process-speed-limit)
-    + [Domain Resolution](#domain-resolution)
-    + [Secure Resolution](#secure-resolution)
-    + [Fault-Tolerant Resolution](#fault-tolerant-resolution)
+    + [Connection Rate Limits](#connection-rate-limits)
+    + [Process-Wide Rate Limits](#process-wide-rate-limits)
+    + [DNS Resolution](#dns-resolution)
+    + [Secure DNS Resolution](#secure-dns-resolution)
+    + [Failover DNS Resolution](#failover-dns-resolution)
     + [User Authentication and Authorization](#user-authentication-and-authorization)
-    + [User Rate Limiting and Throttling](#user-rate-limiting-and-throttling)
-    + [User Ban](#user-ban)
+    + [LDAP User Authentication](#ldap-user-authentication)
+    + [User Rate Limits and Bandwidth Limits](#user-rate-limits-and-bandwidth-limits)
+    + [User Blocking](#user-blocking)
 - [Advanced Usage](#advanced-usage)
     + [mTLS Client](#mtls-client)
-    + [Unloading the Guomi TLCP Protocol](#unloading-the-guomi-tlcp-protocol)
-    + [Multi-Protocol Listen on One Port](#multi-protocol-listen-on-one-port)
+    + [Guomi TLCP Offloading](#guomi-tlcp-offloading)
+    + [Multiplexing Multiple Protocols on One Port](#multiplexing-multiple-protocols-on-one-port)
     + [Listening on Multiple Ports](#listening-on-multiple-ports)
-    + [Enabling PROXY Protocol on Listening Ports](#enabling-proxy-protocol-on-listening-ports)
-    + [Guomi TLCP Protocol Encapsulation](#guomi-tlcp-protocol-encapsulation)
-    + [Socks5 UDP IP Mapping](#socks5-udp-ip-mapping)
+    + [Enabling PROXY Protocol on a Listening Port](#enabling-proxy-protocol-on-a-listening-port)
+    + [Guomi TLCP Encapsulation](#guomi-tlcp-encapsulation)
+    + [SOCKS5 UDP IP Mapping](#socks5-udp-ip-mapping)
     + [Secure Reverse Proxy](#secure-reverse-proxy)
-    + [Domain Name Resolution Hijacking](#domain-name-resolution-hijacking)
+    + [DNS Resolution Overrides](#dns-resolution-overrides)
     + [Dynamic Route Binding](#dynamic-route-binding)
     + [Dynamic Proxy Chaining](#dynamic-proxy-chaining)
-    + [Monitoring Specific Sites for Users](#monitoring-specific-sites-for-users)
-    + [Custom User-Site MITM TLS Client Config](#custom-user-site-mitm-tls-client-config)
-    + [Traffic Audit](#traffic-audit)
+    + [Per-User Site Monitoring](#per-user-site-monitoring)
+    + [Per-User Site TLS MITM Configuration](#per-user-site-tls-mitm-configuration)
+    + [Traffic Auditing](#traffic-auditing)
     + [Exporting Decrypted TLS Traffic](#exporting-decrypted-tls-traffic)
     + [Task Idle Detection](#task-idle-detection)
     + [Performance Optimization](#performance-optimization)
 - [Scenario Design](#scenario-design)
     + [Multi-Region Acceleration](#multi-region-acceleration)
-    + [Dual Exit Disaster Recovery](#dual-exit-disaster-recovery)
+    + [Dual-Exit Failover](#dual-exit-failover)
 
 ## Installation
 
-Currently, vey-proxy only supports Linux systems and provides packaging and installation support for Debian, RHEL, and
-other distributions. Refer to the [Release and Packaging Steps](/doc/build_and_package.md) to package and install
-directly on the target system.
+vey-proxy currently supports Linux only. Packaging is supported for distributions such as Debian and RHEL. After
+building a package by following the [Release and Packaging Steps](/doc/build_and_package.md), install it directly on
+the target system.
 
 ## Basic Concepts
 
 ### Service Management
 
-Multiple vey-proxy services can be deployed on a single machine and managed through systemd unit services. Each unit
-corresponds to a vey-proxy process group (daemon_group), and each process group has a Unix socket file for local RPC
-management.
+You can deploy multiple vey-proxy services on a single host and manage them through systemd template units. Each
+instance corresponds to one vey-proxy process group (`daemon_group`), and each process group exposes a Unix socket for
+local RPC management.
 
-Each service has an entry configuration file in YAML format, with a customizable suffix, but all referenced
-configuration files must have the same suffix. In the following text, *main.yml* will be used to refer to the entry
-configuration file.
+Each service has one entry configuration file in YAML format. The file suffix can be changed, but all referenced
+configuration files must use the same suffix. In this guide, *main.yml* refers to the entry configuration file.
 
-For installations using native distribution packages, systemd parameterized service configuration files are already
-installed. The parameter is the process group name, and the corresponding entry configuration file is located at
+If you install from the native distribution package, the systemd templated service file is installed automatically. The
+template parameter is the process group name, and the entry configuration file is located at
 `/etc/vey-proxy/<daemon_group>/main.yml`.
 
-For installations without using packages, you can refer to [vey-proxy@.service](debian/vey-proxy@.service) to
-design your own service usage.
+If you install without using a package, see [vey-proxy@.service](debian/vey-proxy@.service) and design your own
+service management workflow.
 
 ### Hot Upgrades
 
-The default systemd service configuration supports hot upgrades, following these steps:
+The default systemd service configuration supports hot upgrades:
 
-1. Install the new version package.
-2. Execute `systemctl daemon-reload` to load the new version service configuration.
-3. Execute `systemctl restart vey-proxy@<daemon_group>` to start the new process and notify the old process to go
-   offline.
+1. Install the new package.
+2. Run `systemctl daemon-reload` to reload the updated unit files.
+3. Run `systemctl restart vey-proxy@<daemon_group>` to start the new process and tell the old process to drain.
 
-After the old process goes offline, it will wait for the existing tasks to exit or forcibly go offline after a certain
-period of time (default 10 hours).
+After the old process starts draining, it waits for existing tasks to finish, or it is forced offline after a timeout
+(10 hours by default).
 
-The hot upgrade mechanism is similar to nginx reload. Due to operating system limitations, there is a chance that new
-connection requests will be dropped when sockets are released. Starting from Linux 5.14,
-the [tcp_migrate_req](https://docs.kernel.org/networking/ip-sysctl.html) option is introduced to ensure that connections
-are not lost.
+This works similarly to `nginx reload`. Because of operating system behavior, there is still a chance that new
+connections may be dropped when sockets are released. Linux 5.14 and later introduced the
+[tcp_migrate_req](https://docs.kernel.org/networking/ip-sysctl.html) option, which can prevent those drops.
 
 ### Configuration Structure
 
-vey-proxy adopts a modular approach for functionality design, mainly consisting of the following functional modules:
+vey-proxy uses a modular design. The main functional modules are:
 
 1. Server
 
-   Responsible for accepting client requests and processing them, invoking the functionalities of the Egress, User, and
-   Audit modules.
-   Entry of type *Port* can be placed before non-port type entries for chaining.
+   Accepts and processes client requests. It can call into the Escaper, UserGroup, and Auditor modules.
+   A *Port* server can be chained in front of a non-port server.
 
 2. Escaper
 
-   Responsible for connecting to and controlling the target address, invoking the functionalities of the Resolver
-   module.
-   Egress of type *Route* can be placed before other egresses for chaining.
+   Connects to and controls the target address. It can call into the Resolver module.
+   A *Route* escaper can be chained in front of other escapers.
 
 3. Resolver
 
-   Provides domain name resolution functionality.
-   Failover resolution can be placed before other resolvers for chaining.
+   Provides DNS resolution.
+   A *Failover* resolver can be chained in front of other resolvers.
 
 4. UserGroup
 
-   Provides user authentication and authorization functionality.
+   Provides authentication and authorization.
 
 5. Auditor
 
-   Provides traffic auditing functionality.
+   Provides traffic auditing.
 
-The configuration for these modules can be written together with *main.yml* or managed using separate configuration
-files, which allows for independent reloading.
+These modules can be defined together in *main.yml*, or split into separate configuration files. Split files can be
+reloaded independently.
 
-In addition to the configuration for the above modules, including threads/logs/monitoring, all need to be written in
-*main.yml*.
+Settings outside those modules, such as threads, logging, and monitoring, must still be defined in *main.yml*.
 
-For a single file configuration, refer to [examples/inspect_http_proxy](examples/inspect_http_proxy),
-For a split file configuration, refer to [examples/hybrid_https_proxy](examples/hybrid_https_proxy).
+For a single-file example, see [examples/inspect_http_proxy](examples/inspect_http_proxy). For a split-file example,
+see [examples/hybrid_https_proxy](examples/hybrid_https_proxy).
 
-The following examples will not display the complete configuration file, but only show the relevant parts. For complete
-examples, refer to [examples](examples).
+The examples below show only the relevant fragments, not full configurations. For complete examples, see
+[examples](examples).
 
 ### Monitoring
 
-To facilitate integration with various monitoring solutions, the VEY project
-uses [StatsD](https://www.datadoghq.com/blog/statsd/) as the monitoring output protocol. Users can choose a suitable
-StatsD implementation (such as [gostatsd](https://github.com/atlassian/gostatsd)) based on their actual situation,
-configure it, and then integrate it into their own monitoring system.
+To integrate with different observability stacks, the VEY project uses [StatsD](https://www.datadoghq.com/blog/statsd/)
+as its metrics output protocol. You can choose any StatsD implementation that fits your environment, such as
+[gostatsd](https://github.com/atlassian/gostatsd), then connect that to your own monitoring system.
 
-The monitoring configuration for vey-proxy is configured in the main configuration file *main.yml*, as shown below:
+Configure monitoring for vey-proxy in *main.yml*:
 
 ```yaml
 stat:
   target:
-    udp: 127.0.0.1:8125 # StatsD UDP socket address
+    udp: 127.0.0.1:8125 # StatsD UDP socket
     # unix: /run/statsd.sock
-  prefix: vey-proxy       # Metric name prefix, for example, server.task.total will be transformed to vey-proxy.server.task.total
-  emit_duration: 200ms  # Interval between metrics
+  prefix: vey-proxy     # Metric prefix, for example server.task.total becomes vey-proxy.server.task.total
+  emit_duration: 200ms  # Emission interval
 ```
 
-The specific metrics are defined in the [metrics](../sphinx/vey-proxy/metrics) folder. It is recommended to generate the
-Sphinx HTML documentation and view it.
+Metric definitions are under [metrics](../sphinx/vey-proxy/metrics). Generating the Sphinx HTML documentation makes
+them easier to browse.
 
 ## Basic Usage
 
 ### HTTP Proxy
 
-To enable the HTTP proxy entry, add the HttpProxy type entry, as shown below:
+To enable an HTTP proxy entry point, add an `HttpProxy` server:
 
 ```yaml
 server:
-  - name: http       # The name needs to be unique, not conflicting with other entries, and should be used for logging & monitoring
-    escaper: default # Required, can be any type of exit
+  - name: http       # Must be unique; used by logs and metrics
+    escaper: default # Required; can point to any escaper type
     type: http_proxy
     listen:
       address: "[::]:8080"
-    tls_client: { }   # Open layer-7 https forward forwarding support
+    tls_client: { }  # Enables layer-7 HTTPS forward support
 ```
 
 ### SOCKS Proxy
 
-To enable the SOCKS proxy entry, add the SocksProxy type entry, as shown below:
+To enable a SOCKS proxy entry point, add a `SocksProxy` server:
 
 ```yaml
 server:
-  - name: socks        # The name needs to be unique, not conflicting with other entries, and should be used for logging & monitoring
-    escaper: default   # Required, can be any type of exit
+  - name: socks        # Must be unique; used by logs and metrics
+    escaper: default   # Required; can point to any escaper type
     type: socks_proxy
     listen:
       address: "[::]:10086"
-    enable_udp_associate: true # Use standard UDP Associate feature, otherwise use simplified UDP Connect feature (Peer limits unique)
-    udp_socket_buffer: 512K    # Configure client-side bidirectional UDP Socket Buffer Size
+    enable_udp_associate: true # Use standard UDP Associate; otherwise use simplified UDP Connect (single peer only)
+    udp_socket_buffer: 512K    # Client-side bidirectional UDP socket buffer size
 ```
 
 ### TCP Mapping
 
-Map a local TCP port to a specific port on the target machine by adding the TcpStream type entry, as shown below:
+To map a local TCP port to a specific port on the target host, add a `TcpStream` server:
 
 ```yaml
 server:
-  - name: tcp           # The name needs to be unique, not conflicting with other entries, and should be used for logging & monitoring
-    escaper: default    # Required, can be any type of exit
+  - name: tcp           # Must be unique; used by logs and metrics
+    escaper: default    # Required; can point to any escaper type
     type: tcp_stream
     listen:
       address: "[::1]:10086"
-    proxy_pass: # Target address, can be single/multiple
+    proxy_pass: # One or more target addresses
       - "127.0.0.1:5201"
       - "127.0.0.1:5202"
-    upstream_pick_policy: rr # Load balancing algorithm, default is random
+    upstream_pick_policy: rr # Load-balancing policy; default is random
 ```
 
 ### TLS Offloading
 
-Map a local TCP port to a TLS port on the target machine. Add the TcpStream type entry, as shown below:
+To map a local TCP port to a TLS port on the target host, use a `TcpStream` server:
 
 ```yaml
 server:
-  - name: tcp           # The name needs to be unique, not conflicting with other entries, and should be used for logging & monitoring
-    escaper: default    # Required, can be any type of exit
+  - name: tcp           # Must be unique; used by logs and metrics
+    escaper: default    # Required; can point to any escaper type
     type: tcp_stream
     listen: "[::1]:80"
     proxy_pass: "127.0.0.1:443"
-    tls_client: { }      # Use TLS to connect to the target port, configure TLS parameters, such as CA certificate, client certificate (mTLS), etc.
+    tls_client: { }     # Use TLS to connect upstream; configure CA, client certs (mTLS), and so on
 ```
 
 ### TLS Encapsulation
 
-Map a local TLS port to a specific port on the target machine.
-
-Add the TlsStream type entry, as shown below:
+To map a local TLS port to a specific port on the target host, add a `TlsStream` server:
 
 ```yaml
 server:
-  - name: tls           # The name needs to be unique, not conflicting with other entries, and should be used for logging & monitoring
-    escaper: default    # Required, can be any type of exit
+  - name: tls           # Must be unique; used by logs and metrics
+    escaper: default    # Required; can point to any escaper type
     type: tls_stream
     listen:
       address: "[::1]:10443"
-    tls_server: # Configure TLS parameters
+    tls_server: # TLS settings
       cert_pairs:
         certificate: /path/to/cert
         private_key: /path/to/key
-      enable_client_auth: true    # Optional, enable mTLS
-    proxy_pass: # Target address, can be single/multiple
+      enable_client_auth: true # Optional: enable mTLS
+    proxy_pass: # One or more target addresses
       - "127.0.0.1:5201"
       - "127.0.0.1:5202"
-    upstream_pick_policy: rr # Load balancing algorithm, default is random
+    upstream_pick_policy: rr # Load-balancing policy; default is random
 ```
 
-Or use PlainTlsPort to connect TcpStream, as shown below:
+You can also chain a `PlainTlsPort` in front of a `TcpStream` server:
 
 ```yaml
 server:
   - name: tcp
     escaper: default
     type: tcp_stream
-    proxy_pass: # Target address, can be single/multiple
+    proxy_pass:
       - "127.0.0.1:5201"
       - "127.0.0.1:5202"
-    upstream_pick_policy: rr # Load balancing algorithm, default is random
+    upstream_pick_policy: rr
   - name: tls
     type: plain_tls_port
     listen:
       address: "[::1]:10443"
-    tls_server: # Configure TLS parameters
+    tls_server:
       cert_pairs:
         certificate: /path/to/cert
         private_key: /path/to/key
-      enable_client_auth: true    # Optional, enable mTLS
-    server: tcp    # Point to tcp stream service
+      enable_client_auth: true # Optional: enable mTLS
+    server: tcp # Forward to the tcp_stream server
 ```
 
 ### SNI Proxy
 
-Automatically recognize the target address in TLS SNI / HTTP Host headers and forward it. Add the SniProxy type entry,
-as shown below:
+To detect the target automatically from the TLS SNI or HTTP `Host` header and forward the connection, add an
+`SniProxy` server:
 
 ```yaml
 server:
-  - name: sni          # The name needs to be unique, not conflicting with other entries, and should be used for logging & monitoring
-    escaper: default   # Required, can be any type of escaper
+  - name: sni          # Must be unique; used by logs and metrics
+    escaper: default   # Required; can point to any escaper type
     type: sni_proxy
     listen:
-      address: "[::]:443" # Listen on port 443, but can also support both TLS & HTTP protocol traffic to this port
+      address: "[::]:443" # Can handle both TLS and HTTP traffic on port 443
 ```
 
 ### Transparent Proxy
 
-On gateway devices, tcp connections can be configured to be forwarded to TcpTProxy server,
-then the proxy will forward those connections transparently. You can use the following config：
+On a gateway device, you can redirect the TCP connections that need proxying to a `TcpTProxy` server so the proxy can
+forward them transparently:
 
 ```yaml
 server:
   - name: transparent
     escaper: default
-    auditor: default  # If you want to do protocol inspection and TLS interception
+    auditor: default  # Needed for protocol inspection, TLS interception, and similar features
     type: tcp_tproxy
     listen: "127.0.0.1:1234"
 ```
 
-The system level config should be taken is different depending on the OS type:
+The required system configuration depends on the operating system:
 
-- Linux [TPROXY](https://docs.kernel.org/networking/tproxy.html).
-- FreeBSD [ipfw fwd](https://man.freebsd.org/cgi/man.cgi?query=ipfw).
-- OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to).
+- Linux [TPROXY](https://docs.kernel.org/networking/tproxy.html)
+- FreeBSD [ipfw fwd](https://man.freebsd.org/cgi/man.cgi?query=ipfw)
+- OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to)
 
 ### Route Binding
 
-When there are multiple network routes on a machine and you need to bind to one of them when accessing a target website,
-specify the Bind IP in the outbound configuration, using DirectFixed as an example:
+If a machine has multiple network paths and you need to force outbound traffic onto one of them, set a bind IP on the
+escaper. Using `DirectFixed` as an example:
 
 ```yaml
 escaper:
-  - name: default        # The name needs to be unique, not conflicting with other entries, and should be used for logging & monitoring
+  - name: default
     type: direct_fixed
     resolver: default
-    resolve_strategy: IPv4First # Outbound supports HappyEyeballs algorithm, v4 preferred when resolving target address
-    bind_ip: 192.168.10.1   # Can use list to set multiple addresses
+    resolve_strategy: IPv4First # Happy Eyeballs is supported; prefer IPv4 when resolving
+    bind_ip: 192.168.10.1       # You can use a list to set multiple addresses
 resolver:
   - name: default
     type: c-ares
     server: 223.5.5.5
-    bind_ipv4: 192.168.10.1 # Resolution also needs to bind to the same route, ensure nearby resolution
+    bind_ipv4: 192.168.10.1     # Bind DNS queries to the same path to keep resolution local
 ```
 
 ### Proxy Chaining
 
-When you need to chain with other proxies, use the *Proxy* type of outbound configuration, using ProxyHttps as an
-example:
+If you need to forward traffic through another proxy, use a *Proxy* escaper. `ProxyHttps` is shown below:
 
 ```yaml
 escaper:
-  - name: next_proxy    # The name needs to be unique, not conflicting with other entries, and should be used for logging & monitoring
+  - name: next_proxy
     type: proxy_https
-    resolver: default   # Must be set when the proxy address contains a domain name
-    proxy_addr: next-proxy.example.net:8443 # Can also list multiple proxy addresses
+    resolver: default   # Required when proxy_addr contains a domain name
+    proxy_addr: next-proxy.example.net:8443 # You can also provide multiple proxy addresses
     http_forward_capability:
-      forward_ftp: true   # Directly forward FTP over HTTP requests to the next level proxy for processing, if not, do FTP requests locally
-      forward_https: true # Directly forward https forward requests to the next level proxy for processing, if not, do TLS handshake locally
+      forward_ftp: true   # Forward FTP-over-HTTP requests to the next proxy instead of handling FTP locally
+      forward_https: true # Forward HTTPS CONNECT traffic to the next proxy instead of doing the TLS handshake locally
     tls_client:
-      ca_certificate: rootCA.pem # Used to verify the CA certificate of the next level proxy, not set by default using the system default installed CA certificate
-    tls_name: example.com # If the proxy address does not contain a domain name, and you need to verify the certificate with DNS Name, you need to set it
+      ca_certificate: rootCA.pem # CA used to verify the next proxy; defaults to the system CA store
+    tls_name: example.com # Required for DNS-name validation if proxy_addr does not contain a domain name
 ```
 
-#### Username Params → Next-Hop Escaper
+#### Username Parameters to Derive the Next-Hop Address
 
-For HTTP and SOCKS5 proxy servers, you can derive the chained next-hop address from the client username by appending
-ordered key-value pairs after the base name: `base-key1-val1-key2-val2-...`.
+For HTTP and SOCKS5 proxy servers, you can append ordered key-value pairs to the username and use them to derive the
+next-hop proxy address dynamically: `base-key1-val1-key2-val2-...`.
 
-Example：
+Example:
 
 ```yaml
 server:
   - name: http-in
     type: http_proxy
     escaper: chain
-    username_params: # All keys will be added to the egress context
+    username_params: # All keys are added to the egress context
       required_keys: host
       optional_keys: session-id
       param_separator: '_'
 
 escaper:
   - name: comply_http
-    type: comply_context # Extract values from the egress context and set dynamic address for next escaper
+    type: comply_context # Extract values from the egress context and set the dynamic next-hop address
     next: proxy_http
     use_egress_upstream:
       default_port: 8080
@@ -360,33 +351,32 @@ escaper:
       domain_suffix: example.net
       resolve_sticky_key: session-id
   - name: proxy_http
-    type: proxy_http # It will use the dynamic egress upstream set by comply_http escaper
-    proxy_addr: 127.0.0.1:3128 # Default proxy address
+    type: proxy_http # Uses the dynamic address set by comply_http
+    proxy_addr: 127.0.0.1:3128 # Default address
 ```
 
-The client can then use the following proxy URL:
+The client can then connect with:
 
 `http://my_name-host-proxy1-session_id-1234:password@xxx`
 
-Then the connected proxy address will be`proxy1.example.net`, and it will use sticky resolve with the value `1234` as
-the sticky hash id。
+The actual next-hop proxy becomes `proxy1.example.net`, and sticky resolution uses `1234` as its sticky key.
 
-### Connection Throttling
+### Connection Rate Limits
 
-All servers, escapers, users support per-connection throttling. Set the same key in the corresponding server &
-escaper & user config:
+Per-connection bandwidth limits are supported on the `server`, `escaper`, and `user` levels. The configuration keys are
+the same in all three places:
 
 ```yaml
 tcp_sock_speed_limit: 10M/s
 udp_sock_speed_limit: 10M/s
 ```
 
-The server and user configuration is for Client-Proxy connections, and the escaper configuration is for Proxy-Target
-connections.
+For `server` and `user`, the limits apply to client-to-proxy connections. For `escaper`, they apply to
+proxy-to-target connections.
 
-### Global Process Speed Limit
+### Process-Wide Rate Limits
 
-Process global speed limit for all client connections can be set in user configuration for each user:
+User configuration also supports process-wide bandwidth limits:
 
 ```yaml
 tcp_all_download_speed_limit: 100M/s
@@ -395,9 +385,9 @@ udp_all_download_speed_limit: 100M/s
 udp_all_upload_speed_limit: 100M/s
 ```
 
-### Domain Resolution
+### DNS Resolution
 
-Use DNS server configured in /etc/resolv.conf：
+To use the system default `/etc/resolv.conf`:
 
 ```yaml
 resolver:
@@ -405,7 +395,7 @@ resolver:
     type: c-ares
 ```
 
-Use custom DNS server addresses：
+To use specific DNS servers:
 
 ```yaml
 resolver:
@@ -421,21 +411,21 @@ resolver:
       - 8.8.4.4
 ```
 
-### Secure Resolution
+### Secure DNS Resolution
 
-When accessing DNS recursive resolution servers in a non-plaintext manner, use hickory resolution, as shown below:
+If you need encrypted access to upstream recursive DNS servers, use the `hickory` resolver:
 
 ```yaml
 resolver:
   - name: default
     type: hickory
     server: 1.1.1.1
-    encryption: dns-over-https # Also supports dns-over-tls, dns-over-quic, dns-over-h3
+    encryption: dns-over-https # Also supports dns-over-tls, dns-over-quic, and dns-over-h3
 ```
 
-### Fault-Tolerant Resolution
+### Failover DNS Resolution
 
-When a single DNS recursive resolution server is unstable, you can use the Failover type resolution, as shown below:
+If a single upstream recursive DNS server is unreliable, use a `Failover` resolver:
 
 ```yaml
 resolver:
@@ -453,9 +443,8 @@ resolver:
 
 ### User Authentication and Authorization
 
-Both Http proxy and Socks5 proxy support user authentication. It needs to be configured in conjunction with UserGroup.
-For the overall configuration, refer to [examples/simple_user_auth](examples/simple_user_auth). An example of a user
-group is shown below:
+Both HTTP proxy and SOCKS5 proxy support user authentication. This requires a `UserGroup` configuration. For a complete
+example, see [examples/simple_user_auth](examples/simple_user_auth). A sample user group is shown below:
 
 ```yaml
 user_group:
@@ -467,28 +456,27 @@ user_group:
           salt: 113323bdab6fd2cc
           md5: 5c81f2becadde7fa5fde9026652ccc84
           sha1: ff9d5c1a14328dd85ee95d4e574bd0558a1dfa96
-        dst_port_filter: # Pass-through port
+        dst_port_filter: # Allowed ports
           - 80
           - 443
-        dst_host_filter_set: # Pass-through address
+        dst_host_filter_set: # Allowed destinations
           exact:
-            - ipinfo.io           # Allow access to ipinfo.io
+            - ipinfo.io          # Allow access to ipinfo.io
             - 1.1.1.1
           child:
-            - "ipip.net"          # Allow access to myip.ipip.net
+            - "ipip.net"         # Allow access to myip.ipip.net
           regex:
-            - "lum[a-z]*[.]com$"  # Allow access to lumtest.com
-    source: # Dynamic users, static users have priority, match dynamic users when no static users are available
-      type: file                  # Load from file regularly, also supports loading and caching through lua/python scripts
+            - "lum[a-z]*[.]com$" # Allow access to lumtest.com
+    source: # Dynamic users; static users take precedence
+      type: file                # Can also be loaded and cached through Lua or Python scripts
       path: dynamic_users.json
 ```
 
-To generate a user authentication token, you need to use the [scripts/passphrase_hash.py](/scripts/passphrase_hash.py)
-script.
+Use [scripts/passphrase_hash.py](/scripts/passphrase_hash.py) to generate the authentication token fields.
 
 ### LDAP User Authentication
 
-User password authentication can optionally use a remote LDAP service. A configuration example is shown below:
+User password verification can also be delegated to a remote LDAP service:
 
 ```yaml
 user_group:
@@ -499,59 +487,58 @@ user_group:
       min_idle_count: 1
     static_users:
       - name: gauss
-        # No token needs to be set; specific user configuration is possible.
+        # No token is required; this user can still have explicit configuration
     source: # Dynamic user configuration
       type: file
       path: dynamic_users.json
-    unmanaged_user: # This is a configuration template for automatically generated users who have passed LDAP authentication but have no configuration settings.
+    unmanaged_user: # Template for users that pass LDAP auth but have no local config
       name: unmanaged
 ```
 
-### User Rate Limiting and Throttling
+### User Rate Limits and Bandwidth Limits
 
-User-level rate limiting and throttling support single connection rate limiting, RPS limiting, and total concurrent task
-limiting:
+At the user level, you can enforce per-connection bandwidth limits, request-rate limits, and concurrency limits:
 
 ```yaml
-tcp_sock_speed_limit: 10M/s # TCP single connection bidirectional speed limit 10M/s
-udp_sock_speed_limit: 10M/s # UDP single connection bidirectional speed limit 10M/s
-tcp_conn_rate_limit: 1000/s # Client-Proxy new connection rate limit
-request_rate_limit: 2000/s  # New proxy request number rate limit
-request_max_alive: 2000     # Total concurrent task number limit
+tcp_sock_speed_limit: 10M/s # 10M/s in each direction for a single TCP connection
+udp_sock_speed_limit: 10M/s # 10M/s in each direction for a single UDP connection
+tcp_conn_rate_limit: 1000/s # Rate limit for new client-to-proxy TCP connections
+request_rate_limit: 2000/s  # Rate limit for new proxy requests
+request_max_alive: 2000     # Maximum number of active tasks
 ```
 
-### User Ban
+### User Blocking
 
-After a user is deleted, existing tasks for that user will not be cleared by default. To terminate these tasks, you must
-ban the user. Within a maximum of two [Task Idle Detection](#Task Idle Detection) intervals, any remaining tasks will be
-cleared and terminated.
+Deleting a user does not terminate that user's existing tasks by default. To terminate them, mark the user as blocked.
+Existing tasks will be cleaned up within at most two [Task Idle Detection](#task-idle-detection) intervals.
+
+Configure a blocked user like this:
 
 ```yaml
 - name: foo
-  block_and_delay: 1s # Ban the user and delay the forbidden response to new requests according to the specified value.
-  # Other configurations can remain unchanged
+  block_and_delay: 1s # Block the user and delay new responses by the configured duration
+  # Other settings can remain unchanged
 ```
 
 ## Advanced Usage
 
 ### mTLS Client
 
-In several sections of this document, TLS client configuration is mentioned. If you need to enable mTLS mutual
-authentication as a TLS client, use the following example configuration:
+Several examples in this guide refer to `tls_client`. To enable mutual TLS as a client, use:
 
 ```yaml
 tls_client:
-  certificate: /path/to/cert.crt  # Client certificate
-  private_key: /path/to/pkey.key  # Client private key
-  ca_certificate: /path/to/ca/cert.crt # CA certificate, used to verify the server certificate (default to system CA certificate)
+  certificate: /path/to/cert.crt     # Client certificate
+  private_key: /path/to/pkey.key     # Client private key
+  ca_certificate: /path/to/ca/cert.crt # CA used to verify the server certificate; defaults to the system CA store
 ```
 
-### Unloading the Guomi TLCP Protocol
+### Guomi TLCP Offloading
 
-This feature requires enabling the vendored-tongsuo feature at compile time.
+This feature requires the `vendored-tongsuo` feature to be enabled at build time.
 
-In some scenarios, it may be necessary to use the Guomi protocol for access. Many clients do not support the Guomi
-protocol, so you can use vey-proxy for protocol conversion:
+Some environments require the Guomi protocol, but many clients do not support it. vey-proxy can translate between
+protocols:
 
 * TLCP to layer-4 TCP
 
@@ -560,12 +547,12 @@ server:
   - name: l4tcp
     type: tcp_stream
     listen: "[::1]:10086"
-    upstream: "127.0.0.1:443" # Target Guomi server address, supports domain name
+    upstream: "127.0.0.1:443" # Remote Guomi server address; domains are supported
     tls_client:
       protocol: tlcp
-      ca_certificate: /path/to/ca.cert # CA certificate path
-      # Additional configuration for mTLS, etc.
-    upstream_tls_name: target.host.domain # Target domain name, used to verify the target identity (if the upstream url contains the domain name, it can be omitted)
+      ca_certificate: /path/to/ca.cert # CA certificate
+      # You can also add mTLS settings here
+    upstream_tls_name: target.host.domain # Used for peer verification; optional if upstream already uses a domain
 ```
 
 * TLCP to layer-4 TLS
@@ -578,7 +565,7 @@ server:
       cert_pairs:
         - certificate: /path/to/cert
           private_key: /path/to/key
-    # Other configurations same as above tcp_stream
+    # Other settings are the same as the tcp_stream example above
 ```
 
 * TLCP to layer-7 HTTP
@@ -593,9 +580,9 @@ server:
         upstream: "127.0.0.1:443"
         tls_client:
           protocol: tlcp
-          ca_certificate: /path/to/ca.cert # CA certificate path
-          # Additional configuration for mTLS, etc.
-        tls_name: target.host.domain # Target domain name, used to verify the target identity (if the upstream url contains the domain name, it can be omitted)
+          ca_certificate: /path/to/ca.cert
+          # You can also add mTLS settings here
+        tls_name: target.host.domain # Used for peer verification; optional if upstream already uses a domain
 ```
 
 * TLCP to layer-7 HTTPS
@@ -610,65 +597,64 @@ server:
         upstream: "127.0.0.1:443"
         tls_client:
           protocol: tlcp
-          ca_certificate: /path/to/ca.cert # CA certificate path
-          # Additional configuration for mTLS, etc.
-        tls_name: target.host.domain # Target domain name, used to verify the target identity (if the upstream url contains the domain name, it can be omitted)
-        tls_server: # Configure the tls service configuration for this host
+          ca_certificate: /path/to/ca.cert
+          # You can also add mTLS settings here
+        tls_name: target.host.domain # Used for peer verification; optional if upstream already uses a domain
+        tls_server: # TLS configuration for this host
           cert_pairs:
             - certificate: /path/to/cert
               private_key: /path/to/key
     enable_tls_server: true
-    # Use the global_tls_server parameter to set the default tls service configuration, which takes effect for hosts that do not have the tls_server parameter set
+    # global_tls_server can define the default TLS configuration for hosts that do not set tls_server
 ```
 
-### Multi-Protocol Listen on One Port
+### Multiplexing Multiple Protocols on One Port
 
-If you need to use a single port for both HttpProxy and SocksProxy, you can use the IntelliProxy Port entry:
+If you want a single port to accept both `HttpProxy` and `SocksProxy`, use an `IntelliProxy` port:
 
 ```yaml
 server:
   - name: intelli
     type: intelli_proxy
     listen: "[::]:8080"
-    http_server: http        # Directly send HTTP requests to the http server for processing
-    socks_server: socks      # Directly send socks requests to the socks server for processing
+    http_server: http        # HTTP requests go to the http server
+    socks_server: socks      # SOCKS requests go to the socks server
   - name: http
     type: HttpProxy
-    listen: "127.0.0.1:2001" # Listen on the local address to prevent abuse, it will not be used itself
+    listen: "127.0.0.1:2001" # Bind locally to prevent direct external use
   - name: socks
     type: SocksProxy
-    listen: "127.0.0.1:2002" # Listen on the local address to prevent abuse, it will not be used itself
+    listen: "127.0.0.1:2002" # Bind locally to prevent direct external use
 ```
 
 ### Listening on Multiple Ports
 
-When the same service configuration needs to listen on multiple ports, you can chain Port-type entries in front of the
-Server.
+If the same service needs to listen on multiple ports, chain a *Port* server in front of it.
 
-An example of SNI Proxy listening on multiple ports:
+Example: make `SniProxy` listen on both 443 and 80:
 
 ```yaml
 server:
-  - name: sni          # The name needs to be unique, not conflicting with other entries, and should be used for logging & monitoring
-    escaper: default   # Required, can be any type of exit
+  - name: sni
+    escaper: default
     type: sni_proxy
     listen:
-      address: "[::]:443" # Listen on port 443, but can also support both TLS & HTTP traffic to this port
+      address: "[::]:443"
   - name: port80
     type: plain_tcp_port
-    listen: "[::]:80"  # Listen on port 80
-    server: sni_proxy  # All connections are handled by the sni_proxy server
+    listen: "[::]:80"
+    server: sni_proxy
 ```
 
-An example of HTTP Proxy opening both plaintext and TLS ports:
+Example: expose both plaintext and TLS ports for an HTTP proxy:
 
 ```yaml
 server:
-  - name: http       # The name needs to be unique, not conflicting with other entries, and should be used for logging & monitoring
-    escaper: default # Required, can be any type of exit
+  - name: http
+    escaper: default
     type: http_proxy
     listen: "[::]:8080"
-    tls_client: { }   # Open layer-7 https forward forwarding support
+    tls_client: { }
   - name: tls
     type: plain_tls_port
     listen: "[::]:8443"
@@ -677,65 +663,63 @@ server:
       cert_pairs:
         certificate: /path/to/certificate
         private_key: /path/to/private_key
-      enable_client_auth: true            # Optional, enable mTLS
+      enable_client_auth: true # Optional: enable mTLS
 ```
 
-Port-type entries only have independent Listen monitoring, while traffic monitoring and logging are handled by the next
-hop Server. When planning, consider whether chaining Ports or splitting Servers is more appropriate.
+Port-type servers have their own listener metrics only. Traffic metrics and logs are emitted by the next-hop server, so
+choose between port chaining and separate servers based on how you want to observe the service.
 
-### Enabling PROXY Protocol on Listening Ports
+### Enabling PROXY Protocol on a Listening Port
 
-In a chaining scenario, if you need to pass through client address information, you can use the PROXY Protocol. You can
-use PlainTcpPort or PlainTlsPort to configure a separate port that supports the PROXY Protocol.
-
-Example:
+In a chained deployment, if you need to preserve the original client address, use the PROXY Protocol. `PlainTcpPort`
+and `PlainTlsPort` can expose dedicated ports that accept PROXY Protocol:
 
 ```yaml
 server:
   - name: real_http
     listen: "[127.0.0.1]:1234" # Optional
     type: http_proxy
-    ingress_network_filter: { } # Configure the filter rule for extracting the source address for PROXY Protocol
-    # ... Other configurations
+    ingress_network_filter: { } # Filter for the source address carried in the PROXY header
+    # ... other settings
   - name: pp_for_http
     type: plain_tcp_port
     listen: "[::]:8080"
     server: real_http
     proxy_protocol: v2
-    ingress_network_filter: { } # Configure the filter rule for the original socket source address
+    ingress_network_filter: { } # Filter for the original peer socket address
 ```
 
-### Guomi TLCP Protocol Encapsulation
+### Guomi TLCP Encapsulation
 
-This feature requires enabling the vendored-tongsuo feature at compile time.
+This feature requires the `vendored-tongsuo` feature to be enabled at build time.
 
-You can use NativeTlsPort to implement Guomi TLCP protocol encapsulation:
+You can use `NativeTlsPort` to encapsulate Guomi TLCP:
 
 ```yaml
 server:
   - name: real_http
     listen: "[127.0.0.1]:1234" # Optional
     type: http_proxy
-    # ... Other configurations
+    # ... other settings
   - name: tlcp
     type: native_tls_port
     listen: "[::]:443"
     tls_server:
-      tlcp_cert_pairs: # Enable Guomi TLCP protocol
+      tlcp_cert_pairs: # Enables Guomi TLCP
         sign_certificate: /path/to/sign.crt
         sign_private_key: /path/to/sign.key
         enc_certificate: /path/to/enc.crt
         enc_private_key: /path/to/enc.key
-      enable_client_auth: true # Optional, enable mTLS
+      enable_client_auth: true # Optional: enable mTLS
     server: real_http
-    proxy_protocol: v2         # Optional, enable PROXY Protocol
+    proxy_protocol: v2         # Optional: enable PROXY Protocol
 ```
 
-### Socks5 UDP IP Mapping
+### SOCKS5 UDP IP Mapping
 
-When processing Socks5 UDP, the client needs to be sent the address of the UDP data connection, which is usually the
-local IP:Port. In some cases, the client cannot directly access the IP address of the proxy. In this case, you need to
-configure a mapping table in the socks server:
+When handling SOCKS5 UDP, the server must tell the client which address to use for the UDP data channel. Normally this
+is the proxy's local `IP:Port`, but sometimes the client cannot reach that local IP directly. In that case, configure a
+mapping table on the SOCKS server:
 
 ```yaml
 transmute_udp_echo_ip:
@@ -744,8 +728,8 @@ transmute_udp_echo_ip:
 
 ### Secure Reverse Proxy
 
-Many software exposes HTTP APIs or metrics interfaces. Their own security protection strategies are relatively simple.
-You can use the following configuration to strengthen security:
+Many applications expose HTTP APIs or metrics endpoints with only minimal built-in protection. The following pattern can
+be used to harden them:
 
 ```yaml
 server:
@@ -755,35 +739,35 @@ server:
     type: http_rproxy
     listen:
       address: "[::]:80"
-    no_early_error_reply: true              # Prevent error return before confirming the request is legal, port scan prevention
+    no_early_error_reply: true              # Do not return errors until the request is validated; helps resist port scans
     hosts:
-      - exact_match: service1.example.net   # Match this domain
-        upstream: 127.0.0.1:8081            # Path/all forwarding
-      - exact_match: service2.example.net   # Match this domain
-        set_default: true                   # If the domain does not match, it is used as the default site
-        upstream: 127.0.0.1:8082            # Path/all forwarding
-    # Enable TLS through tls_server, or add an independent TLS port through the front plain_tls_port
+      - exact_match: service1.example.net   # Match this hostname
+        upstream: 127.0.0.1:8081            # Forward all paths
+      - exact_match: service2.example.net   # Match this hostname
+        set_default: true                   # Use as the default site if no hostname matches
+        upstream: 127.0.0.1:8082            # Forward all paths
+    # You can enable TLS with tls_server, or add a separate TLS port through a fronting plain_tls_port
 ```
 
-### Domain Name Resolution Hijacking
+### DNS Resolution Overrides
 
-In many cases, you may want to bypass the normal DNS resolution process and use special domain name resolution rules.
-You can configure this in the user configuration:
+Sometimes you need to bypass normal DNS resolution and apply custom name resolution rules. You can do that in the user
+configuration:
 
 ```yaml
 resolve_redirection:
-  - exact: t1.example.net # Fixed to specific IP
+  - exact: t1.example.net # Force to a specific IP
     to: 192.168.10.1
-  - exact: t2.example.net # CNAME
+  - exact: t2.example.net # CNAME-style rewrite
     to: t1.example.net
-  - child: example.com    # *.example.com replaced with *.example.net
+  - child: example.com    # Rewrite *.example.com to *.example.net
     to: example.net
 ```
 
 ### Dynamic Route Binding
 
-Some machines have dynamically assigned IP addresses, such as through DHCP or PPP dial-up. These IP addresses can be
-dynamically bound to the DirectFloat egress:
+Some machines get their IPs dynamically, for example through DHCP or PPP. Those addresses can be published into a
+`DirectFloat` escaper at runtime.
 
 Proxy configuration:
 
@@ -794,7 +778,7 @@ escaper:
     resolver: default
 ```
 
-Use the following command to update:
+Publish an updated address with:
 
 ```shell
 vey-proxy-ctl -G <daemon_group> -p <pid> escaper float publish "{\"ipv4\": \"192.168.10.1\"}"
@@ -802,9 +786,9 @@ vey-proxy-ctl -G <daemon_group> -p <pid> escaper float publish "{\"ipv4\": \"192
 
 ### Dynamic Proxy Chaining
 
-In web scraping scenarios, many obtained proxy addresses have a limited validity period. You can encapsulate an
-intermediate proxy and automatically handle expired proxy replacement through auxiliary programs. This way, clients only
-need to set a fixed proxy address:
+In crawling scenarios, upstream proxy addresses are often short-lived. You can put a stable intermediary proxy in front
+and let a helper process keep updating the real upstream proxy when it expires. Clients then only need one fixed proxy
+address.
 
 Proxy configuration:
 
@@ -813,92 +797,87 @@ escaper:
   - name: float
     type: proxy_float
     source:
-      type: passive   # Accept push, can also be configured to periodically get from redis
+      type: passive   # Accept pushed updates; can also be configured to read periodically from Redis
 ```
 
-To update, use the following command:
+Publish an updated upstream proxy with:
 
 ```shell
 vey-proxy-ctl -G <daemon_group> -p <pid> escaper float publish '{"type":"socks5","addr":"127.0.0.1:11080", "expire": "<rfc3339 datetime>"}'
 ```
 
-The `type` can also support http and https.
+The `type` field can also be `http` or `https`.
 
-### Monitoring Specific Sites for Users
+### Per-User Site Monitoring
 
-In the user configuration, you can further divide the sites and add separate monitoring or configurations:
+Within a user configuration, you can define site-specific rules and attach independent metrics or settings:
 
 ```yaml
 explicit_sites:
   - id: example-net
     child_match: example.net
-    emit_stats: true           # Establish independent monitoring, the id field will be part of the monitoring entry name
-    resolve_strategy: # Can configure separate resolution strategies
-      query: ipv4only          # Only resolve ipv4 addresses
+    emit_stats: true # Emit separate metrics; id becomes part of the metric name
+    resolve_strategy:
+      query: ipv4only # Resolve IPv4 only
 ```
 
-### Custom User-Site MITM TLS Client Config
+### Per-User Site TLS MITM Configuration
 
-In the user-site configuration, you can set tls_client params to control the TLS behaviour in TLS MITM hijacking.
-在用户-站点配置中，可对TLS劫持时的TLS Client行为进行设置：
+Within a user-site rule, you can customize how the TLS client behaves when TLS interception is enabled:
 
 ```yaml
 explicit_sites:
   - id: example-net
     child_match: example.net
     tls_client:
-      ca_certificate: xxx      # CA Certificate in PEM format
+      ca_certificate: xxx      # PEM CA certificate
       cert_pairs:
-        certificate: xxx       # Client Certificate in PEM format
-        private_key: xxx       # Client Private Key in PEM format
-      # other tls client config
+        certificate: xxx       # PEM client certificate
+        private_key: xxx       # PEM client private key
+      # Other tls_client settings
 ```
 
-### Traffic Audit
+### Traffic Auditing
 
-To enable traffic audit, refer to the complete configuration
-in [examples/inspect_http_proxy](examples/inspect_http_proxy). An example configuration for the audit module is as
-follows:
+For a complete example of traffic auditing, see [examples/inspect_http_proxy](examples/inspect_http_proxy). A typical
+auditor configuration looks like this:
 
 ```yaml
 auditor:
   - name: default
-    protocol_inspection: { } # Enable protocol recognition, use default parameters
-    tls_cert_generator: { }  # Enable TLS hijacking, use default parameters, peer address will be 127.0.0.1:2999
-    tls_interception_client: { } # Can configure proxy to target address TLS connection parameters
-    h1_interception: { }         # HTTP/1.0 parsing parameters
-    h2_interception: { }         # HTTP/2 parsing parameters
-    icap_reqmod_service: icap://xxx  # ICAP REQMOD service configuration
-    icap_respmod_service: icap://xxx # ICAP RESPMOD service configuration
-    application_audit_ratio: 1.0     # Application traffic audit ratio, matched according to client proxy request, if audit then perform protocol recognition and TLS hijacking
+    protocol_inspection: { }      # Enable protocol detection with default settings
+    tls_cert_generator: { }       # Enable TLS interception with default settings; peer defaults to 127.0.0.1:2999
+    tls_interception_client: { }  # Optional TLS client settings for upstream connections made during interception
+    h1_interception: { }          # HTTP/1.0 parsing settings
+    h2_interception: { }          # HTTP/2 parsing settings
+    icap_reqmod_service: icap://xxx  # ICAP REQMOD service
+    icap_respmod_service: icap://xxx # ICAP RESPMOD service
+    application_audit_ratio: 1.0     # Fraction of application traffic to audit
 ```
 
-Note that you will need to run the `tls cert generator` first, such as [vey-dcgen](/vey-dcgen) which is a reference
-implementation, see [vey-dcgen simple conf](/vey-dcgen/examples/simple) for an example conf.
+This feature requires a TLS certificate generator. A reference implementation is [vey-dcgen](/vey-dcgen); see
+[vey-dcgen simple conf](/vey-dcgen/examples/simple) for an example configuration.
 
 ### Exporting Decrypted TLS Traffic
 
-When enabling traffic audit and TLS interception, you can configure the export of decrypted TLS traffic
-to [udpdump](https://www.wireshark.org/docs/man-pages/udpdump.html).
+If traffic auditing and TLS interception are both enabled, you can export decrypted TLS traffic to
+[udpdump](https://www.wireshark.org/docs/man-pages/udpdump.html).
 
-For specific configurations, refer to [examples/inspect_http_proxy](examples/inspect_http_proxy).
+For the detailed configuration, see [examples/inspect_http_proxy](examples/inspect_http_proxy).
 
 ### Task Idle Detection
 
-All successful tasks have the ability to exit through idle detection during execution. The idle detection settings
-mainly include two aspects: the idle detection interval and the allowed idle count.
-
-Both can be configured in the server. The configuration examples are as follows:
+Every successful task can exit automatically after being idle for too long. Two settings control this behavior: the
+idle check interval and the allowed idle count. Both can be configured on the server:
 
 ```yaml
 - name: foo
-  type: xxx                    # Valid for any server type
-  task_idle_check_interval: 1m # The default is 1 minute
-  task_idle_max_count: 5       # The default maximum count is 5 times. When this value is reached, the corresponding task will be terminated.
+  type: xxx                    # Applies to any server type
+  task_idle_check_interval: 1m # Default is 1 minute
+  task_idle_max_count: 5       # Default maximum is 5; the task is terminated when the count is reached
 ```
 
-In addition, the allowed idle count can be configured separately in the user configuration, which will override the
-server configuration. The example is as follows:
+The allowed idle count can also be set per user, overriding the server setting:
 
 ```yaml
 - name: foo
@@ -907,19 +886,18 @@ server configuration. The example is as follows:
 
 ### Performance Optimization
 
-By default, the proxy will use all CPU cores and perform cross-core task scheduling. In some scenarios, binding CPU
-cores can improve performance. You can configure it as follows:
+By default, the proxy uses all CPU cores and may schedule work across cores. In some environments, pinning workers to
+specific CPUs improves performance.
 
-In the *main.yml* file, configure the worker:
+Configure workers in *main.yml*:
 
 ```yaml
 worker:
-  thread_number: 8      # When not set, it defaults to the number of all CPU cores
-  sched_affinity: true  # Enable core binding, which binds threads in order by default. You can also expand it to set the mapping relationship between Worker ID and CPU ID.
+  thread_number: 8      # Defaults to the full CPU core count if omitted
+  sched_affinity: true  # Pin workers to CPUs in order by default; you can also provide an explicit worker-to-CPU map
 ```
 
-When configuring the server to listen, you can configure it to listen according to the number of workers and distribute
-it to each worker:
+When configuring a listener, you can also make it listen separately in each worker:
 
 ```yaml
 listen: "[::]:8080"
@@ -930,9 +908,9 @@ listen_in_worker: true
 
 ### Multi-Region Acceleration
 
-You can use the existing modules of vey-proxy to achieve inter-regional acceleration.
+You can combine existing vey-proxy modules to build cross-region acceleration.
 
-Taking three regions as an example, the overall topology is as follows:
+For a three-region deployment, the topology looks like this:
 
 ```mermaid
 flowchart LR
@@ -984,14 +962,14 @@ flowchart LR
     a3_route -- mTLS to a2 ----> a2_relay
 ```
 
-Each node's Proxy is configured with the following functions:
+Each node's proxy typically has the following roles:
 
 - GW
 
-  Handles local user requests and can use [SNI Proxy](#sni-proxy) for Layer-4 acceleration
-  or [HTTP Reverse Proxy](#secure-reverse-proxy) for Layer-7 acceleration.
+  Handles local user requests. For layer-4 acceleration you can use [SNI Proxy](#sni-proxy); for layer-7 acceleration
+  you can use [Secure Reverse Proxy](#secure-reverse-proxy).
 
-  Simplified configuration:
+  Minimal example:
 
   ```yaml
   server:
@@ -1005,28 +983,29 @@ Each node's Proxy is configured with the following functions:
 
 - relay
 
-  Handles requests from other regional nodes using an internal protocol, such as an mTLS channel.
+  Handles requests from other regions over an internal protocol, such as mTLS.
 
-  Brief configuration:
+  Minimal example:
 
   ```yaml
   server:
     - name: relay
       type: http_proxy
       escaper: local
-      tls_server: {} # Configure TLS parameters
+      tls_server: {} # Configure TLS settings
   ```
 
 - route
 
-  Routes and distributes local user requests, requiring configuration of >=1 route-type exits, one local exit, and one
-  Proxy exit for each region.
+  Chooses the path for local user requests. You need at least one route-type escaper, one local escaper, and one proxy
+  escaper for each remote region.
 
-  Simplified configuration:
+  Minimal example:
+
   ```yaml
   escaper:
     - name: route
-      type: route_query  # This module can query the routing rules to external agents, or use other route exit modules
+      type: route_query  # Can query an external agent for routing, or you can use another route escaper
       query_allowed_next:
         - a1_proxy
         - a2_proxy
@@ -1035,24 +1014,21 @@ Each node's Proxy is configured with the following functions:
       # ... agent configuration
     - name: local
       type: direct_fixed
-      # ... exit configuration
+      # ... local escaper configuration
     - name: a1_proxy
       type: proxy_https
-      tls_client: {} # Configure TLS parameters
-      # ... Configure proxy parameters to the relay proxy address in the a1 region
+      tls_client: {} # Configure TLS settings
+      # ... point this at the relay endpoint in area a1
     - name: a2_proxy
       type: proxy_https
-      tls_client: {} # Configure TLS parameters
-      # ... Configure proxy parameters to the relay proxy address in the a2 region
+      tls_client: {} # Configure TLS settings
+      # ... point this at the relay endpoint in area a2
   ```
 
-### Dual Exit Disaster Recovery
+### Dual-Exit Failover
 
-When a single IDC has multiple POP points with public network exits or in similar cases where there are at least 2 *
-*non-local** routes available for accessing the target site, if you want to automatically switch between the two routes
-for automatic disaster recovery, you can design it as follows:
-
-The topology diagram is as follows:
+If a single IDC has multiple public egress POPs, or any comparable setup with at least two **non-local** network paths
+to the target site, you can build automatic primary/standby failover like this:
 
 ```mermaid
 flowchart LR
@@ -1079,36 +1055,35 @@ flowchart LR
     p2_proxy -- local ---> internet
 ```
 
-Each node's Proxy is configured with the following functions:
+Each node's proxy typically has the following roles:
 
 - GW
 
-  Handles client requests and can be configured as any type of server, such as forward proxy, reverse proxy, TCP
-  mapping, etc.
+  Handles client requests. It can be any server type, such as a forward proxy, reverse proxy, or TCP mapping service.
 
 - relay
 
-  Handles requests from other regional nodes using an internal protocol, such as an mTLS channel.
+  Handles requests from other nodes over an internal protocol, such as mTLS.
 
-  Brief configuration:
+  Minimal example:
 
   ```yaml
   server:
     - name: relay
       type: http_proxy
       escaper: local
-      tls_server: {} # Configure TLS parameters
+      tls_server: {} # Configure TLS settings
   ```
 
-  Note: If the GW in the IDC needs to support the Socks5 UDP protocol, the relay should be configured as a UDP proxy,
-  using [SOCKS Proxy](#socks-proxy).
+  If the GW inside the IDC must support SOCKS5 UDP, then the relay should also be a UDP-capable proxy. In that case,
+  use [SOCKS Proxy](#socks-proxy).
 
 - route
 
-  Routes and distributes local user requests, requiring configuration of >=1 route-type exits and one Proxy exit for
-  each region.
+  Chooses the path for local user requests. You need at least one route-type escaper plus one proxy escaper for each
+  POP.
 
-  Simplified configuration:
+  Minimal example:
 
   ```yaml
   escaper:
@@ -1116,13 +1091,13 @@ Each node's Proxy is configured with the following functions:
       type: route_failover
       primary_next: p1_proxy
       standby_next: p2_proxy
-      fallback_delay: 100ms  # Time to wait for fallback attempts (initiate requests to standby exit after timeout)
+      fallback_delay: 100ms  # Start the standby attempt after this delay if the primary has not succeeded
     - name: p1_proxy
-      type: proxy_https # Note, need to adapt to the relay server type of POP1
-      tls_client: {} # Configure TLS parameters
-      # ... Configure proxy parameters to the relay proxy address in the POP1 region
+      type: proxy_https # Must match the relay server type used by POP1
+      tls_client: {} # Configure TLS settings
+      # ... point this at the relay endpoint in POP1
     - name: p2_proxy
-      type: proxy_https # Note, need to adapt to the relay server type of POP2
-      tls_client: {} # Configure TLS parameters
-      # ... Configure proxy parameters to the relay proxy address in the POP2 region
+      type: proxy_https # Must match the relay server type used by POP2
+      tls_client: {} # Configure TLS settings
+      # ... point this at the relay endpoint in POP2
   ```

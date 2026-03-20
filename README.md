@@ -3,64 +3,64 @@
 [![codecov](https://codecov.io/gh/VEY-OSS/vey/graph/badge.svg?token=c8gK1HrRsX)](https://codecov.io/gh/VEY-OSS/vey)
 [![docs](https://readthedocs.org/projects/vey/badge)](https://vey.readthedocs.io/)
 
-# VEY Project
+# VEY - Versatile Edge WAY
 
 [中文版 README](README.zh_CN.md) | [日本語 README](README.ja_JP.md)
 
 ## About
 
-VEY, which is short for Versatile Edge Way, is a project can be used to build enterprise-oriented generic proxy
-solutions, including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) / NAT traversal (WIP).
+The VEY project is designed for building enterprise-grade general-purpose proxy solutions, including but not limited to
+forward proxies, reverse proxies (WIP), load balancers (TBD), and NAT traversal services (WIP).
 
 This project is a fork of [the G3 project](https://github.com/bytedance/g3) by its creator.
 
 ## Applications
 
-The VEY project consists of many applications, each of which has a separate subdirectory containing its own code,
-documentation, etc.
+The VEY project consists of multiple applications, each with its own subdirectory for code, documentation, and related
+assets.
 
-In addition to the application directories, there are some public directories:
+In addition to the application directories, the repository also includes several shared directories:
 
-- [doc](doc) Contains project-level documentation.
-- [sphinx](sphinx) is used to generate HTML reference documents for each application.
-- [scripts](scripts) Contains various auxiliary scripts, including coverage testing, packaging scripts, etc.
+- [doc](doc) contains project-level documentation.
+- [sphinx](sphinx) contains the sources used to generate HTML reference documentation for each application.
+- [scripts](scripts) contains helper scripts, including coverage and packaging utilities.
 
 ### vey-proxy
 
-A generic forward proxy solution, but you can also use it as tcp streaming / transparent proxy / reverse proxy
-as we have basic support built in.
+A general-purpose forward proxy solution that also includes basic support for TCP streaming, transparent proxying, and
+reverse proxying.
 
 #### Feature highlights
 
-- Async Rust: fast and reliable
-- Http1 / Socks5 forward proxy protocol, SNI Proxy and TCP TPROXY
-- Support easy-proxy and masque/http Well-Known URI
-- Proxy Chaining, with support for dynamic selection of upstream proxies
-- Plenty of egress route selection methods, with support for custom egress selection agent
-- TCP/TLS Stream Proxy, Basic HTTP Reverse Proxy
-- TLS over OpenSSL / BoringSSL / AWS-LC / AWS-LC-FIPS / Tongsuo, and even rustls
-- TLS MITM interception, decrypted traffic dump, HTTP1/HTTP2/IMAP/SMTP interception
-- ICAP adaptation for HTTP1/HTTP2/IMAP/SMTP, can integrate seamlessly with 3rd-party security products
+- Async Rust for speed and reliability
+- HTTP/1 and SOCKS5 forward proxy protocols, plus SNI proxy and TCP TPROXY
+- Support for easy-proxy and the `masque/http` Well-Known URI
+- Proxy chaining, including dynamic upstream proxy selection
+- Multiple egress route selection methods, with support for custom egress selection agents
+- TCP/TLS stream proxying and basic HTTP reverse proxy support
+- TLS via OpenSSL / BoringSSL / AWS-LC / AWS-LC-FIPS / Tongsuo / rustls
+- TLS MITM interception, decrypted traffic export, and HTTP/1 / HTTP/2 / IMAP / SMTP interception
+- ICAP integration for HTTP/1 / HTTP/2 / IMAP / SMTP, with straightforward integration into third-party security products
 - Graceful reload
 - Customizable load balancing and failover strategies
-- User Auth, with a rich set of config options
-- Can set differential site config for each user
-- Rich ACL/Limit rules, at ingress / egress / user level
-- Rich monitoring metrics, at ingress / egress / user / user-site level
-- Support for a variety of observability tools
+- User authentication with extensive configuration options
+- Per-user site-specific configuration
+- Rich ACL and limit rules at the ingress, egress, and user levels
+- Rich monitoring metrics at the ingress, egress, user, and user-site levels
+- Support for a wide range of observability tools
 
 [README](vey-proxy/README.md) | [User Guide](vey-proxy/UserGuide.en_US.md) |
 [Reference Doc](https://vey.readthedocs.io/projects/proxy/en/latest/)
 
 ### vey-statsd
 
-A StatsD compatible stats aggregator.
+A StatsD-compatible metrics aggregator.
 
 [README](vey-statsd/README.md) | [Reference Doc](https://vey.readthedocs.io/projects/statsd/en/latest/)
 
 ### vey-gateway
 
-A work in progress reverse proxy solution.
+A reverse proxy solution currently under active development.
 
 [Reference Doc](https://vey.readthedocs.io/projects/gateway/en/latest/)
 
@@ -79,30 +79,30 @@ A benchmark tool that supports:
 
 ### vey-mkcert
 
-A tool to make root CA / intermediate CA / TLS server / TLS client / TLCP server / TLCP client certificates.
+A tool for generating root CA, intermediate CA, TLS server, TLS client, TLCP server, and TLCP client certificates.
 
 [README](vey-mkcert/README.md)
 
 ### vey-dcgen
 
-Dynamic certificate generator for vey-proxy.
+A dynamic certificate generator for vey-proxy.
 
 [README](vey-dcgen/README.md)
 
 ### vey-iploc
 
-IP location lookup service for vey-proxy GeoIP support.
+An IP geolocation lookup service for vey-proxy GeoIP support.
 
 [README](vey-iploc/README.md)
 
 ### vey-keyless
 
-A simple implementation of Cloudflare keyless server.
+A simple implementation of a Cloudflare keyless server.
 
 [README](vey-keyless/README.md) |
 [Reference Doc](https://vey.readthedocs.io/projects/keyless/en/latest/)
 
-## Target Platform
+## Target Platforms
 
 Linux is fully supported.
 
@@ -114,19 +114,19 @@ The code also compiles on the following platforms:
 - NetBSD >= 10.1
 - OpenBSD >= 7.8
 
-## Dev-env Setup Guide
+## Development Environment Setup
 
-Follow [Dev-Setup](doc/dev-setup.md).
+See [Dev-Setup](doc/dev-setup.md).
 
 ## Standards
 
-Follow [Standards](doc/standards.md).
+See [Standards](doc/standards.md).
 
 ## Build, Package and Deploy
 
-Pre-Built packages can be found at [cloudsmith](https://cloudsmith.io/~vey-oss/repos/).
+Prebuilt packages are available on [cloudsmith](https://cloudsmith.io/~vey-oss/repos/).
 
-But it is still recommended to build packages yourself, see [Build and Package](doc/build_and_package.md) for more
+That said, building packages yourself is still recommended. See [Build and Package](doc/build_and_package.md) for
 details.
 
 ### LTS Version
@@ -135,16 +135,16 @@ See [Long-Term Support](doc/long-term_support.md).
 
 ## Contribution
 
-Please check [Contributing](CONTRIBUTING.md) for more details.
+See [Contributing](CONTRIBUTING.md) for details.
 
 ## Code of Conduct
 
-Please check [Code of Conduct](CODE_OF_CONDUCT.md) for more details.
+See [Code of Conduct](CODE_OF_CONDUCT.md) for details.
 
 ## Security
 
-Please report security bugs
-by [opening a draft security advisory](https://github.com/VEY-OSS/vey/security/advisories/new) in GitHub.
+Please report security issues by
+[opening a draft security advisory](https://github.com/VEY-OSS/vey/security/advisories/new) on GitHub.
 
 Please do **not** create a public GitHub issue.
 
