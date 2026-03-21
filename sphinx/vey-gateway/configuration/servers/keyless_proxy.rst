@@ -3,7 +3,7 @@
 keyless_proxy
 =============
 
-A keyless reverse proxy server.
+A reverse-proxy server for the keyless protocol.
 
 The following common keys are supported:
 
@@ -18,13 +18,13 @@ backend
 
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the backend name.
+Set the backend used to handle accepted keyless tasks.
 
 spawn_task_unconstrained
 ------------------------
 
 **optional**, **type**: bool
 
-Set if we should spawn tasks in tokio unconstrained way.
+Set whether task futures should be spawned with Tokio's unconstrained mode.
 
 **default**: false

@@ -4,9 +4,9 @@
 dummy_close
 ***********
 
-This is the dummy backend designed to close all requests.
+This is a dummy backend that immediately closes every request.
 
 Config Keys
 ===========
 
-There are no extra config keys for this kind of backend.
+This backend type has no backend-specific configuration keys.

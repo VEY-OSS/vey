@@ -4,12 +4,13 @@
 Task Log
 ********
 
-Each valid request will be a task. Each task will generate one log when finished.
+Each accepted request becomes a task. Every task emits a final log record, and
+some task types can also emit lifecycle logs while running.
 
 Shared Keys
 ===========
 
-The following shared keys are set in all type of task logs:
+The following shared keys are present in all task logs:
 
 server_type
 -----------
@@ -30,34 +31,34 @@ task_type
 
 **required**, **type**: enum string
 
-The subtype of this task log. The meaning of non-shared keys are depend on this value.
+The task-log subtype. The meaning of non-shared keys depends on this value.
 
 task_id
 -------
 
 **required**, **type**: uuid in simple string format
 
-UUID of the task.
+The task UUID, in simple-string format.
 
-The *task_id* will appear in other logs such as escape log if they have any association with this task.
+If other logs are associated with this task, they use the same ``task_id``.
 
 task_event
 ----------
 
 **optional**, **type**: string
 
-Show the event that trigger this log.
+The event that triggered this log record.
 
 The event can be
 
-  - Created: task created
-  - Connected: connected to upstream
-  - Periodic: periodic log
-  - ClientShutdown: client shutdown the connection gracefully first
-  - UpstreamShutdown: upstream shutdown the connection gracefully first
-  - Finished: task finished
+  - Created: the task was created
+  - Connected: the upstream connection was established
+  - Periodic: the task emitted a periodic state log
+  - ClientShutdown: the client closed the connection first
+  - UpstreamShutdown: the upstream peer closed the connection first
+  - Finished: the task finished
 
-This field can be omitted if the value is *finished*.
+This field may be omitted when the event is ``Finished``.
 
 .. versionadded:: 0.3.8
 
@@ -66,9 +67,9 @@ stage
 
 **required**, **type**: enum string
 
-The stage of the task.
+The current task stage.
 
-The values available for each task depend on the server protocol. Here is all values:
+The available values depend on the server protocol. The full set is:
 
 * Created
 
@@ -76,59 +77,61 @@ The values available for each task depend on the server protocol. Here is all va
 
 * Preparing
 
-  We are preparing internal resources.
+  Internal resources are being prepared.
 
 * Connecting
 
-  We are trying to connect to remote peer.
+  The daemon is connecting to the remote peer.
 
 * Connected
 
-  We have just connected to remote peer.
+  The remote peer has just been connected.
 
 * Replying
 
-  We are trying to reply to clients that we have connected to remote peer.
+  The daemon is replying to the client that the upstream connection is ready.
 
 * LoggedIn
 
-  The upstream needs login and we have logged in.
+  The upstream requires login and authentication has completed.
 
 * Relaying
 
-  Both client and remote channel established, we are relaying data now.
+  Both client and upstream channels are established and data is being relayed.
 
 * Finished
 
-  The task has finished with no error. Only available for layer 7 protocols.
+  The task has finished without error. This stage is used only by layer-7
+  protocols.
 
 start_at
 --------
 
 **required**, **type**: rfc3339 timestamp string with microseconds
 
-The time that the task is created (after validation).
+The time when the task is created, after request validation succeeds.
 
-.. note:: Not every request will be a task, only the valid ones.
+.. note:: Only valid requests are promoted to tasks.
 
 reason
 ------
 
 **required**, **type**: enum string
 
-The brief reason why the task ends.
+The short reason why the task ended.
 
-See the definition of **ServerTaskError** in code file *src/serve/error.rs*.
+See the ``ServerTaskError`` definition in ``src/serve/error.rs`` for the full
+reason set.
 
 wait_time
 ---------
 
 **optional**, **type**: time duration string
 
-Show how many time spent from the acceptation of the request to the creation of the task.
+How long it took from request acceptance to task creation.
 
-For requests that reuse old connection, the start time will be the time we start to polling the next request,
-so you may see very large wait_time in logs. This behaviour may change in future.
+For requests on reused connections, the start time is the moment the daemon
+begins polling for the next request. That can produce a large ``wait_time``.
 
 .. _log_task_ready_time:
 
@@ -137,15 +140,16 @@ ready_time
 
 **optional**, **type**: time duration string
 
-Show how many time spent from the creation of the task to the relaying stage, which means both the client channel
-and the remote channel have been established. The value may be empty if the task failed early.
+How long it took from task creation to the relaying stage, when both the
+client channel and remote channel are established. The value may be empty if
+the task fails early.
 
 total_time
 ----------
 
 **required**, **type**: time duration string
 
-Show the time from the creation of the task to the end of the task.
+How long the task ran from creation to completion.
 
 Sub Types
 =========

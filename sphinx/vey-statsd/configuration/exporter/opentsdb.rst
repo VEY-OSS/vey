@@ -3,7 +3,7 @@
 opentsdb
 ========
 
-Emit all metrics from collector to opentsdb by using the json `PUT API`_.
+Exporter that sends metrics to OpenTSDB using the JSON `PUT API`_.
 
 .. _PUT API: https://opentsdb.net/docs/build/html/api_http/put.html
 
@@ -22,7 +22,7 @@ emit_interval
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time interval to emit internal metrics.
+Emit interval for outgoing batches.
 
 **default**: 10s
 
@@ -31,7 +31,7 @@ sync_timeout
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set sync and sync_timeout query parameter.
+Controls the ``sync`` and ``sync_timeout`` query parameters.
 
 **default**: not set
 
@@ -40,6 +40,6 @@ max_data_points
 
 **optional**, **type**: usize
 
-Set the max data points that should be sent in a single HTTP request.
+Maximum number of data points sent in a single HTTP request.
 
 **default**: 50

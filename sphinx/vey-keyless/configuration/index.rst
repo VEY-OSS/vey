@@ -4,35 +4,36 @@
 Configuration
 #############
 
-YAML is used as the configuration file format. The main conf file,
-which should be specified with the command line option *-c*,
-is make up of the following entries:
+``vey-keyless`` uses YAML for configuration.
 
-+-------------+----------+-------+------------------------------------------------+
-|Key          |Type      |Reload |Description                                     |
-+=============+==========+=======+================================================+
-|runtime      |Map       |no     |Runtime config, see :doc:`runtime`              |
-+-------------+----------+-------+------------------------------------------------+
-|worker       |Map [#w]_ |no     |An unaided runtime will be started if present.  |
-+-------------+----------+-------+------------------------------------------------+
-|log          |Map       |no     |Log config, see :doc:`log/index`                |
-+-------------+----------+-------+------------------------------------------------+
-|stat         |Map       |no     |Stat config, see :doc:`stat`                    |
-+-------------+----------+-------+------------------------------------------------+
-|controller   |Seq       |no     |Controller config                               |
-+-------------+----------+-------+------------------------------------------------+
-|pre_register |Map       |no     |Register config                                 |
-+-------------+----------+-------+------------------------------------------------+
-|server       |Mix [#m]_ |yes    |Discover config                                 |
-+-------------+----------+-------+------------------------------------------------+
-|store        |Mix [#m]_ |yes    |Private Key Store config                        |
-+-------------+----------+-------+------------------------------------------------+
-|backend      |Mix [#m]_ |yes    |Backend config                                  |
-+-------------+----------+-------+------------------------------------------------+
+The main configuration file is specified with the ``-c`` command-line option.
+Its top-level keys are listed below:
+
++-------------+----------+-------+------------------------------------------------------------+
+|Key          |Type      |Reload |Description                                                 |
++=============+==========+=======+============================================================+
+|runtime      |Map       |no     |Runtime configuration, see :doc:`runtime`                   |
++-------------+----------+-------+------------------------------------------------------------+
+|worker       |Map [#w]_ |no     |Starts unaided worker runtimes if present                   |
++-------------+----------+-------+------------------------------------------------------------+
+|log          |Map       |no     |Logging configuration, see :doc:`log/index`                 |
++-------------+----------+-------+------------------------------------------------------------+
+|stat         |Map       |no     |Metrics configuration, see :doc:`stat`                      |
++-------------+----------+-------+------------------------------------------------------------+
+|controller   |Seq       |no     |Controller configuration                                    |
++-------------+----------+-------+------------------------------------------------------------+
+|pre_register |Map       |no     |Pre-registration configuration                              |
++-------------+----------+-------+------------------------------------------------------------+
+|server       |Mix [#m]_ |yes    |Server configuration, see :doc:`server`                     |
++-------------+----------+-------+------------------------------------------------------------+
+|store        |Mix [#m]_ |yes    |Private-key store configuration, see :doc:`stores/index`    |
++-------------+----------+-------+------------------------------------------------------------+
+|backend      |Mix [#m]_ |yes    |Backend configuration, see :doc:`backend`                   |
++-------------+----------+-------+------------------------------------------------------------+
 
 .. rubric:: Footnotes
 
-.. [#m] See :external+values:ref:`hybrid map <conf_value_hybrid_map>` for the real format.
+.. [#m] See :external+values:ref:`hybrid map <conf_value_hybrid_map>` for the actual format.
 .. [#w] See :external+values:ref:`unaided runtime config <conf_value_unaided_runtime_config>`.
 
 .. toctree::

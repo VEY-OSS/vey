@@ -3,13 +3,13 @@
 memory
 ======
 
-This is the memory exporter designed to store all received metrics from collector to local memory.
+This memory exporter stores received metrics in local process memory.
 
 store_count
 -----------
 
 **optional**, **type**: usize
 
-Set how many values should be stored for each metric.
+Number of values retained for each metric.
 
 **default**: 3600

@@ -7,7 +7,7 @@ Stream Backend Metrics
 Connection Metrics
 ==================
 
-No extra tags.
+No additional tags.
 
 The metric names are:
 
@@ -15,18 +15,18 @@ The metric names are:
 
   **type**: count
 
-  Show the connect attempt count.
+  The number of connection attempts.
 
 * backend.stream.connection.established
 
   **type**: count
 
-  Show the count successful connection.
+  The number of successfully established connections.
 
 Duration Metrics
 ================
 
-The following tag is also set:
+The following additional tag is present:
 
 * :ref:`quantile <metrics_tag_quantile>`
 
@@ -36,4 +36,4 @@ The metric names are:
 
   **type**: gauge
 
-  Show the tcp connect ready time duration.
+  TCP connect duration statistics.

@@ -4,7 +4,7 @@
 Keyless
 *******
 
-The following keys are available for Keyless task log:
+The following fields are present in ``Keyless`` task logs:
 
 server_addr
 -----------
@@ -25,39 +25,39 @@ req_total
 
 **required**, **type**: usize
 
-Total requests.
+The total number of keyless requests received on the connection.
 
 req_pass
 --------
 
 **required**, **type**: usize
 
-Passed requests.
+The number of requests forwarded successfully.
 
 req_fail
 --------
 
 **required**, **type**: usize
 
-Failed requests.
+The number of requests that failed.
 
 rsp_drop
 --------
 
 **required**, **type**: usize
 
-Dropped responses.
+The number of responses dropped before delivery.
 
 rsp_pass
 --------
 
 **required**, **type**: usize
 
-Passed responses.
+The number of responses delivered successfully.
 
 rsp_fail
 --------
 
 **required**, **type**: usize
 
-Failed responses.
+The number of responses marked as failed.

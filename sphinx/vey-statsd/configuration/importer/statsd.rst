@@ -3,7 +3,7 @@
 statsd
 ======
 
-StatsD importer.
+Importer for StatsD-compatible datagrams.
 
 The following common keys are supported:
 
@@ -16,8 +16,8 @@ listen
 
 **optional**, **type**: :external+values:ref:`udp listen <conf_value_udp_listen>`
 
-Set the listen config for this importer.
+Listen configuration for this importer.
 
-The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
+The listen instance count is ignored when ``listen_in_worker`` is enabled.
 
 **default**: not set

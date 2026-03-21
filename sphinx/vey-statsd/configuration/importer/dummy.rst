@@ -3,6 +3,6 @@
 dummy
 =====
 
-This is the dummy importer designed to do nothing.
+This dummy importer does nothing.
 
 There are no extra config keys for this kind of importer.

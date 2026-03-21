@@ -4,21 +4,23 @@
 Log
 ###
 
-We support many logging drivers, see :ref:`log <configuration_log>` for more details.
+Multiple logging drivers are supported. See :ref:`log <configuration_log>` for
+driver configuration details.
 
-All generated logs is structured, we will describe the structures of all type of logs we generated in this doc.
+All emitted logs are structured. This section documents the fields used by each
+log type.
 
 Shared Keys
 ===========
 
-The following shared keys are set in all type of logs:
+The following shared keys are present in all log types:
 
 daemon_name
 -----------
 
 **optional**, **type**: string
 
-The daemon group name of the process, which can be set by using of command line options.
+Daemon group name of the process, as configured by the config file or command-line options.
 
 pid
 ---
@@ -34,7 +36,7 @@ log_type
 
 **required**, **type**: enum string
 
-Show the log type. The meaning of non-shared keys are depend on this value.
+Log type. The meaning of non-shared keys depends on this value.
 
 Values are:
 
@@ -48,10 +50,9 @@ report_ts
 
 **optional**, **type**: unix timestamp
 
-Show the timestamp when we generate this log.
+Timestamp when the log entry was generated.
 
-It will be present if the log driver has been configured to append it, see :ref:`log driver <configuration_log_driver>`
-for more info.
+This field is present when the selected log driver is configured to append it.
 
 Log Types
 =========

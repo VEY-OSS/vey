@@ -6,10 +6,12 @@ Collector
 
 The type for each collector config is *map*, with two always required keys:
 
-* :ref:`name <conf_collector_common_name>`, which specify the name of the collector.
-* :ref:`type <conf_collector_common_type>`, which specify the real type of the collector, decides how to parse other keys.
+* :ref:`name <conf_collector_common_name>`, which defines the collector name
+* :ref:`type <conf_collector_common_type>`, which selects the concrete
+  collector type and therefore determines how the remaining keys are
+  interpreted
 
-There are many types of collector, each with a section below.
+The available collector types are documented below.
 
 Collectors
 ==========
@@ -25,7 +27,7 @@ Collectors
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many collectors.
+This section describes common keys shared by many collector types.
 
 .. _conf_collector_common_name:
 
@@ -34,7 +36,7 @@ name
 
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the name of the collector.
+Collector name.
 
 .. _conf_collector_common_type:
 
@@ -43,7 +45,7 @@ type
 
 **required**, **type**: str
 
-Set the type of the collector.
+Collector type.
 
 .. _conf_collector_common_next:
 
@@ -52,9 +54,9 @@ next
 
 **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the next collector to use.
+Next collector in the processing chain.
 
-If the specified collector doesn't exist in configure, a default Discard collector will be used.
+If the referenced collector does not exist, a default discard collector is used.
 
 .. _conf_collector_common_exporter:
 
@@ -63,6 +65,6 @@ exporter
 
 **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>` | seq
 
-Set the exporter(s) to use.
+Exporter or exporters used by this collector.
 
-If the specified exporter doesn't exist in configure, a default Discard exporter will be used.
+If a referenced exporter does not exist, a default discard exporter is used.

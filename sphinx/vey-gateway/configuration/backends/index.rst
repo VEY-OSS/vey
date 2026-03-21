@@ -4,12 +4,13 @@
 Backend
 *******
 
-The type for each backend config is *map*, with two always required keys:
+Each backend definition is a map with two always-required keys:
 
-* :ref:`name <conf_backend_common_name>`, which specify the name of the backend.
-* :ref:`type <conf_backend_common_type>`, which specify the real type of the backend, decides how to parse other keys.
+* :ref:`name <conf_backend_common_name>`, which sets the backend name
+* :ref:`type <conf_backend_common_type>`, which selects the concrete backend
+  type and therefore the remaining valid keys
 
-There are many types of backend, each with a section below.
+The supported backend types are documented below.
 
 Backends
 ========
@@ -25,7 +26,7 @@ Backends
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many backends.
+This section describes keys shared by multiple backend types.
 
 .. _conf_backend_common_name:
 
@@ -34,7 +35,7 @@ name
 
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the name of the backend.
+Set the backend name.
 
 .. _conf_backend_common_type:
 
@@ -43,7 +44,7 @@ type
 
 **required**, **type**: str
 
-Set the type of the backend.
+Set the backend type.
 
 .. _conf_backend_common_discover:
 
@@ -52,7 +53,7 @@ discover
 
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the discover that this backend should use.
+Set the discover instance used by this backend.
 
 .. _conf_backend_common_discover_data:
 
@@ -61,7 +62,8 @@ discover_data
 
 **required**, **type**: :ref:`discover register data <conf_discover_register_data>`
 
-Set the data that will be registered to :ref:`discover <conf_backend_common_discover>`.
+Set the registration data passed to
+:ref:`discover <conf_backend_common_discover>`.
 
 .. _conf_backend_common_extra_metrics_tags:
 
@@ -70,6 +72,6 @@ extra_metrics_tags
 
 **optional**, **type**: :external+values:ref:`static metrics tags <conf_value_static_metrics_tags>`
 
-Set extra metrics tags that should be added to backend stats.
+Set additional metrics tags to attach to backend statistics.
 
 **default**: not set

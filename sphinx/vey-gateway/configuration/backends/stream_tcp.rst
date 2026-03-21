@@ -4,9 +4,9 @@
 stream_tcp
 **********
 
-A layer-4 tcp connect backend.
+A layer-4 backend that connects to upstream peers over TCP.
 
-This will only work with stream tasks.
+This backend type is valid only for stream tasks.
 
 Config Keys
 ===========
@@ -22,9 +22,9 @@ peer_pick_policy
 
 **optional**, **type**: :external+values:ref:`selective pick policy <conf_value_selective_pick_policy>`
 
-Set the policy to select next peer address.
+Set the policy used to select the next peer address.
 
-The key for ketama/rendezvous/jump hash is *<client-ip>*.
+For Ketama, rendezvous hash, and jump hash, the hash key is ``<client-ip>``.
 
 **default**: random
 
@@ -33,6 +33,6 @@ duration_stats
 
 **optional**, **type**: :external+values:ref:`histogram metrics <conf_value_histogram_metrics>`
 
-Histogram metrics config for the tcp connect duration stats.
+Configure histogram metrics for TCP connect duration.
 
 **default**: set with default value

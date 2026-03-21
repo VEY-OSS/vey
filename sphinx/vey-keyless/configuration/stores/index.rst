@@ -5,13 +5,15 @@ Store
 *****
 
 Set the key store.
+This section defines private-key stores.
 
-The type for each store config is *map*, with two always required keys:
+Each store configuration item is a map with two required keys:
 
-* :ref:`name <conf_store_common_name>`, which specify the name of the store.
-* :ref:`type <conf_store_common_type>`, which specify the real type of the store, decides how to parse other keys.
+* :ref:`name <conf_store_common_name>`, which defines the store name
+* :ref:`type <conf_store_common_type>`, which selects the concrete store type
+  and therefore determines how the remaining keys are interpreted
 
-There are many types of store, each with a section below.
+The available store types are documented below.
 
 Stores
 ======
@@ -24,16 +26,16 @@ Stores
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many stores.
+This section describes common keys shared by many store types.
 
 .. _conf_store_common_name:
 
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the name of the discover.
+Store name.
 
 .. _conf_store_common_type:
 
 **required**, **type**: str
 
-Set the type of the discover.
+Store type.

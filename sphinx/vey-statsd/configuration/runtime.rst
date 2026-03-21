@@ -1,4 +1,4 @@
-.. _configure_runtime_value_types:
+.. _configuration_runtime:
 
 *******
 Runtime
@@ -9,7 +9,7 @@ Runtime
 cpu id list str
 ===============
 
-A string the represent a list of CPU IDs.
+A string that represents a list of CPU IDs.
 
 It could be:
 
@@ -24,11 +24,11 @@ cpu set
 
 **yaml value** seq | str | usize
 
-A `CPU_SET(3)`_ for use with `sched_setaffinity(2)`_.
+A ``CPU_SET(3)`` value for use with ``sched_setaffinity(2)``.
 
-The value should be one or a sequence of CPU IDs.
+The value can be a single CPU ID or a sequence of CPU IDs.
 
-The CPU ID valid can be:
+Each CPU ID may be expressed as:
 
  - usize: a single CPU ID
  - string: :external+values:ref:`cpu id list str <conf_value_cpu_id_list_str>`
@@ -43,25 +43,25 @@ unaided runtime config
 
 **yaml value**: map
 
-This is the config for unaided runtime.
+Configuration for an unaided runtime.
 
-The keys are:
+The supported keys are:
 
 thread_number
 -------------
 
 **optional**, **type**: non-zero usize
 
-Set the total thread number.
+Total thread count.
 
-**default**: the number of logic CPU cores **alias**: threads_total, thread_number_total
+**default**: the number of logical CPU cores, **alias**: threads_total, thread_number_total
 
 thread_number_per_runtime
 -------------------------
 
 **optional**, **type**: non-zero usize
 
-Set the thread number that each tokio runtime should use.
+Number of threads used by each Tokio runtime.
 
 **default**: 1, **alias**: threads_per_runtime
 
@@ -70,7 +70,7 @@ thread_stack_size
 
 **optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the stack size for worker threads. For *<int>* value, the unit is bytes.
+Stack size for worker threads. Plain integer values are interpreted as bytes.
 
 **default**: system default
 
@@ -79,9 +79,10 @@ sched_affinity
 
 **optional**, **type**: map | bool
 
-Set the sched affinity for each threads.
+CPU affinity configuration for worker threads.
 
-For map value, the key should be the thread id starting from 0, and the value should be :external+values:ref:`cpu set <conf_value_cpu_set>`.
+For map values, each key is a thread ID starting from ``0`` and each value is a
+:external+values:ref:`cpu set <conf_value_cpu_set>`.
 
 For bool value:
 
@@ -95,7 +96,7 @@ For bool value:
 
     a default CPU SET will be set for each thread, the CPU ID in the set will match the thread ID.
 
-* if false, no sched affinity will be set, just as if this config option is not present.
+* if false, no CPU affinity is set, the same as omitting this option.
 
 **default**: no sched affinity set
 
@@ -104,6 +105,6 @@ max_io_events_per_tick
 
 **optional**, **type**: usize
 
-Configures the max number of events to be processed per tick.
+Maximum number of I/O events processed per runtime tick.
 
 **default**: 1024, tokio default value

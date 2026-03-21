@@ -3,7 +3,7 @@
 openssl_proxy
 =============
 
-A layer-4 TLS reverse proxy server based on Rustls.
+A layer-4 TLS reverse proxy server based on OpenSSL.
 
 The following common keys are supported:
 
@@ -27,7 +27,7 @@ listen
 
 **optional**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
-Set the listen config for this server.
+Set the listening socket configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
@@ -38,7 +38,7 @@ client_hello_recv_timeout
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the timeout value for the wait of initial client hello data.
+Set the timeout for receiving the initial ClientHello bytes.
 
 **default**: 10s
 
@@ -47,7 +47,7 @@ client_hello_max_size
 
 **optional**, **type**: :external+values:ref:`humanize u32 <conf_value_humanize_u32>`
 
-Set the max allowed Client Hello Handshake message size.
+Set the maximum allowed TLS ClientHello handshake message size.
 
 **default**: 16K
 
@@ -58,7 +58,7 @@ accept_timeout
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the timeout value for the accept of the full TLS handshake.
+Set the timeout for completing the full TLS handshake.
 
 **default**: 60s
 
@@ -67,7 +67,7 @@ spawn_task_unconstrained
 
 **optional**, **type**: bool
 
-Set if we should spawn tasks in tokio unconstrained way.
+Set whether task futures should be spawned with Tokio's unconstrained mode.
 
 **default**: false
 
@@ -76,7 +76,7 @@ alert_unrecognized_name
 
 **optional**, **type**: bool
 
-Set if we should send TLS alert when no host config can be recognized.
+Set whether to send a TLS alert when no virtual host matches.
 
 **default**: false
 
@@ -85,7 +85,8 @@ tls_no_async_mode
 
 **optional**, **type**: bool
 
-Set to true to disable the use of OpenSSL async engine if `openssl-async-job` feature is enabled.
+Set to ``true`` to disable the OpenSSL async engine when the
+``openssl-async-job`` feature is enabled.
 
 **default**: false
 
@@ -96,7 +97,7 @@ virtual_hosts
 
 **required**, **type**: :external+values:ref:`host matched object <conf_value_host_matched_object>` <:ref:`host <configuration_server_openssl_proxy_host>`>
 
-Set the list of hosts we should handle based on host match rules.
+Set the virtual-host list, matched by SNI host rules.
 
 If not set, all requests will be handled.
 
@@ -120,14 +121,14 @@ Example:
 Host
 ^^^^
 
-This set the config for a OpenSSl virtual host.
+This section describes the configuration for an OpenSSL virtual host.
 
 name
 """"
 
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the name of this virtual host.
+Set the virtual-host name.
 
 **default**: not set
 
@@ -136,7 +137,7 @@ cert_pairs
 
 **optional**, **type**: :external+values:ref:`tls cert pair <conf_value_tls_cert_pair>` or seq
 
-Set certificate and private key pairs for this TLS server.
+Set certificate and private-key pairs for the TLS endpoint.
 
 If not set, TLS protocol will be disabled.
 
@@ -147,7 +148,7 @@ tlcp_cert_pairs
 
 **optional**, **type**: :external+values:ref:`tlcp cert pair <conf_value_tlcp_cert_pair>` or seq
 
-Set certificate and private key pairs for this TLCP server.
+Set certificate and private-key pairs for the TLCP endpoint.
 
 If not set, TLCP protocol will be disabled.
 
@@ -156,7 +157,7 @@ enable_client_auth
 
 **optional**, **type**: bool
 
-Set if you want to enable client auth.
+Set whether to require client authentication.
 
 **default**: disabled
 
@@ -165,7 +166,8 @@ session_id_context
 
 **optional**, **type**: str
 
-A string that will be added to the prefix when calculate the session id context sha1 hash.
+Set an additional string included when computing the session ID context SHA-1
+hash.
 
 **default**: not set
 
@@ -174,7 +176,7 @@ no_session_ticket
 
 **optional**, **type**: bool
 
-Set if we should disable TLS session ticket (stateless session resumption by Session Ticket).
+Disable TLS session tickets for stateless session resumption.
 
 **default**: false
 
@@ -185,7 +187,7 @@ no_session_cache
 
 **optional**, **type**: bool
 
-Set if we should disable TLS session cache (stateful session resumption by Session ID).
+Disable the TLS session cache for stateful session resumption.
 
 **default**: false
 
@@ -196,7 +198,8 @@ ca_certificate
 
 **optional**, **type**: :external+values:ref:`tls certificates <conf_value_tls_certificates>`
 
-A list of certificates for client auth. If not set, the system default ca certificates will be used.
+Set the CA certificates used for client authentication. If not set, the
+system default CA bundle is used.
 
 **default**: not set
 
@@ -205,7 +208,7 @@ request_rate_limit
 
 **optional**, **type**: :external+values:ref:`rate limit quota <conf_value_rate_limit_quota>`
 
-Set rate limit on request.
+Set the request rate limit.
 
 **default**: no limit
 
@@ -214,9 +217,9 @@ request_max_alive
 
 **optional**, **type**: usize, **alias**: request_alive_max
 
-Set max alive requests at virtual host level.
+Set the maximum number of concurrent live requests at the virtual-host level.
 
-Even if not set, the max alive requests should not be more than usize::MAX.
+If not set, the effective limit is unbounded up to ``usize::MAX``.
 
 **default**: no limit
 
@@ -225,18 +228,19 @@ tcp_sock_speed_limit
 
 **optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
-Set speed limit for each tcp socket.
+Set the speed limit for each TCP socket.
 
 This will overwrite the server level :ref:`tcp_sock_speed_limit <conf_server_common_tcp_sock_speed_limit>`.
 
-**default**: no set
+**default**: not set
 
 task_idle_max_count
 """""""""""""""""""
 
 **optional**, **type**: usize
 
-The task will be closed if the idle check return IDLE the times as this value.
+Close the task after this many consecutive idle-check results return
+``IDLE``.
 
 This will overwrite the server level :ref:`task_idle_max_count <conf_server_common_task_idle_max_count>`.
 
@@ -249,7 +253,7 @@ backends
 
 **required**, **type**: :external+values:ref:`alpn matched object <conf_value_alpn_matched_object>` <:ref:`backend <configuration_server_openssl_proxy_backend>`>
 
-Set the list of backends we should handle based on ALPN match rules.
+Set the backend list, matched by ALPN rules.
 
 Example:
 
@@ -285,15 +289,16 @@ Example:
 Backend
 ^^^^^^^
 
-This is the backend config to be used in :ref:`host backends <conf_server_openssl_proxy_host_backend>`.
+This is the backend entry used in
+:ref:`host backends <conf_server_openssl_proxy_host_backend>`.
 
-It can be a map value, the keys are:
+It may be a map with the following key:
 
 backend
 """""""
 
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the name of the backend to use.
+Set the backend name to use.
 
 It can also be written as a :external+values:ref:`metric node name <conf_value_metric_node_name>` value when needed.

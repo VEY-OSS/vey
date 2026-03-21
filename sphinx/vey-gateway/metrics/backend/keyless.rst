@@ -7,7 +7,7 @@ Keyless Backend Metrics
 Connection Metrics
 ==================
 
-No extra tags.
+No additional tags.
 
 The metric names are:
 
@@ -15,19 +15,20 @@ The metric names are:
 
   **type**: count
 
-  Show the connect attempt count.
+  The number of connection attempts.
 
 * backend.keyless.connection.established
 
   **type**: count
 
-  Show the count of successful connection.
+  The number of successfully established connections.
 
 * backend.keyless.channel.alive
 
   **type**: gauge
 
-  Show the alive channel numbers. The channel may be a TCP connection or a QUIC stream.
+  The number of live channels. A channel may be a TCP connection or a QUIC
+  stream.
 
 Request Metrics
 ===============
@@ -36,48 +37,48 @@ Request Metrics
 
   **type**: count
 
-  Show the count of requests received.
+  The number of requests received.
 
 * backend.keyless.request.send
 
   **type**: count
 
-  Show the count of requests sent to the target peer.
+  The number of requests sent to the upstream peer.
 
 * backend.keyless.request.drop
 
   **type**: count
 
-  Show the count of requests that get dropped internally.
+  The number of requests dropped internally.
 
 * backend.keyless.request.timeout
 
   **type**: count
 
-  Show the count of requests that timed out to get response.
+  The number of requests that timed out while waiting for a response.
 
 * backend.keyless.response.recv
 
   **type**: count
 
-  Show the count of responses received from the target peer.
+  The number of responses received from the upstream peer.
 
 * backend.keyless.response.send
 
   **type**: count
 
-  Show the count of responses sent to the client.
+  The number of responses sent to the client.
 
 * backend.keyless.response.drop
 
   **type**: count
 
-  Show the count of responses that get dropped internally.
+  The number of responses dropped internally.
 
 Duration Metrics
 ================
 
-The following tag is also set:
+The following additional tag is present:
 
 * :ref:`quantile <metrics_tag_quantile>`
 
@@ -87,16 +88,16 @@ The metric names are:
 
   **type**: gauge
 
-  Show the connect duration stats.
+  Connection duration statistics.
 
 * backend.keyless.wait.duration
 
   **type**: gauge
 
-  Show the internal queue wait duration stats.
+  Internal queue wait-duration statistics.
 
 * backend.keyless.response.duration
 
   **type**: gauge
 
-  Show the upstream response duration stats.
+  Upstream response-duration statistics.

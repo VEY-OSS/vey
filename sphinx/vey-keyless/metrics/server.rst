@@ -4,20 +4,20 @@
 Server Metrics
 ##############
 
-The metrics in server side shows the stats with client, and can be grouped to *request* and *traffic* types.
+Server metrics describe listener, task, and request activity on the keyless server.
 
-The following are the tags for all server metrics:
+The following tags are present on all server metrics:
 
 * :ref:`daemon_group <metrics_tag_daemon_group>`
 * :ref:`stat_id <metrics_tag_stat_id>`
 
 * server
 
-  Show the server name.
+  Server name.
 
 * online
 
-  Show if the server is online. The value is either 'y' or 'n'.
+  Whether the server is online. The value is either ``y`` or ``n``.
 
 Listen
 ======
@@ -30,38 +30,38 @@ The metric names are:
 
   **type**: gauge
 
-  Show how many listening sockets.
+  Number of listening sockets.
 
 * listen.accepted
 
   **type**: count
 
-  Show how many client connections has been accepted.
+  Number of accepted client connections.
 
 * listen.dropped
 
   **type**: count
 
-  Show how many client connections has been dropped by acl rules at early stage.
+  Number of client connections dropped early by ACL rules.
 
 * listen.timeout
 
   **type**: count
 
-  Show how many client connections has been timed out in early protocol negotiation (such as TLS).
+  Number of client connections that timed out during early protocol negotiation, such as TLS setup.
 
 * listen.failed
 
   **type**: count
 
-  Show how many times of accept error.
+  Number of accept errors.
 
 Task
 ====
 
-A task is a keyless connection.
+A task is a keyless client connection.
 
-No other fixed tags. Extra tags set at server side will be added.
+No additional fixed tags are present. Extra tags configured on the server are added.
 
 The metrics names are:
 
@@ -69,25 +69,26 @@ The metrics names are:
 
   **type**: count
 
-  Show how many valid tasks has been spawned. Each client connection will be promoted to a task.
+  Number of valid tasks spawned. Each accepted client connection is promoted to a task.
 
 * server.task.alive
 
   **type**: gauge
 
-  Show how many alive tasks that spawned by this server are running. In normal case the daemon stopped by systemd,
-  servers with running tasks will goto offline mode, and wait all tasks to be stopped.
+  Number of live tasks currently running for this server. During normal systemd
+  shutdown, servers with running tasks enter offline mode and wait for those
+  tasks to finish.
 
 Request
 =======
 
-Extra tags set at server side will be added.
+Extra tags configured on the server are added.
 
-The following are the extra tags for all request metrics:
+The following extra tags are used by request metrics:
 
 * request
 
-  Keyless request type. Available for all request metrics.
+  Keyless request type. Present on all request metrics.
 
   The values are:
 
@@ -101,7 +102,7 @@ The following are the extra tags for all request metrics:
 
 * reason
 
-  Keyless request failure reason.
+  Failure reason for unsuccessful keyless requests.
 
   The values are:
 
@@ -119,29 +120,29 @@ The metric names are:
 
   **type**: count
 
-  Show the total count of new requests.
+  Total number of new requests.
 
 * server.request.alive
 
   **type**: gauge
 
-  Show the keyless requests that is in processing.
+  Number of keyless requests currently being processed.
 
 * server.request.passed
 
   **type**: count
 
-  Show the count of passed keyless requests.
+  Number of successful keyless requests.
 
 * server.request.failed
 
   **type**: count
 
-  Show the count of failed keyless requests. The tag **reason** will be added.
+  Number of failed keyless requests. The ``reason`` tag is added.
 
 * server.request.duration
 
   **type**: gauge
 
-  Show the histogram stats for keyless request process duration, which is corresponding to the
-  :ref:`process_time <log_request_process_time>` field in logs.
+  Histogram statistics for keyless request processing duration, corresponding
+  to :ref:`process_time <log_request_process_time>` in request logs.

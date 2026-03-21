@@ -2,12 +2,13 @@
 Exporter
 ********
 
-The type for each exporter config is *map*, with two always required keys:
+Each exporter configuration item is a map with two required keys:
 
-* :ref:`name <conf_exporter_common_name>`, which specify the name of the exporter.
-* :ref:`type <conf_exporter_common_type>`, which specify the real type of the exporter, decides how to parse other keys.
+* :ref:`name <conf_exporter_common_name>`, which defines the exporter name
+* :ref:`type <conf_exporter_common_type>`, which selects the concrete exporter
+  type and therefore determines how the remaining keys are interpreted
 
-There are many types of exporter, each with a section below.
+The available exporter types are documented below.
 
 Exporters
 =========
@@ -26,7 +27,7 @@ Exporters
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many exporters.
+This section describes common keys shared by many exporter types.
 
 .. _conf_exporter_common_name:
 
@@ -35,7 +36,7 @@ name
 
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the name of the exporter.
+Exporter name.
 
 .. _conf_exporter_common_type:
 
@@ -44,7 +45,7 @@ type
 
 **required**, **type**: str
 
-Set the type of the exporter.
+Exporter type.
 
 .. _conf_exporter_common_prefix:
 
@@ -53,7 +54,7 @@ prefix
 
 **optional**, **type**: :external+values:ref:`metric name prefix <conf_value_metric_name_prefix>`
 
-Set the prefix to add to all metric names.
+Prefix added to all metric names.
 
 .. _conf_exporter_common_global_tags:
 
@@ -62,12 +63,13 @@ global_tags
 
 **optional**, **type**: :external+values:ref:`static metrics tags <conf_value_static_metrics_tags>`
 
-Set the tags to add to all metrics.
+Static tags added to all metrics.
 
 Export Runtimes
 ===============
 
-Export runtime is the loop runtime to emit metrics at the given `emit_interval`.
+An export runtime is the loop that emits metrics at the configured
+``emit_interval``.
 
 .. _configuration_exporter_runtime_stream:
 
@@ -79,14 +81,14 @@ host
 
 **required**, **type**: :external+values:ref:`host <conf_value_host>`
 
-Set the peer host name.
+Peer host name.
 
 port
 ^^^^
 
 **required**, **type**: u16
 
-Set the port of the peer server.
+Peer server port.
 
 **default**: each exporter will set a default port value
 
@@ -95,7 +97,7 @@ resolve_retry_wait
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set how many time to wait before next connect after resolve error.
+Wait time before retrying after a resolution failure.
 
 **default**: 30s
 
@@ -104,7 +106,7 @@ connect_retry_wait
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set how many time to wait before next connect after connect error.
+Wait time before retrying after a connection failure.
 
 **default**: 10s
 
@@ -118,14 +120,14 @@ host
 
 **required**, **type**: :external+values:ref:`host <conf_value_host>`
 
-Set the peer host name.
+Peer host name.
 
 port
 ^^^^
 
 **required**, **type**: u16
 
-Set the port of the peer server.
+Peer server port.
 
 **default**: each exporter will set a default port value
 
@@ -134,7 +136,7 @@ resolve_retry_wait
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set how many time to wait before next connect after resolve error.
+Wait time before retrying after a resolution failure.
 
 **default**: 30s
 
@@ -143,7 +145,7 @@ connect_retry_wait
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set how many time to wait before next connect after connect error.
+Wait time before retrying after a connection failure.
 
 **default**: 10s
 
@@ -152,7 +154,7 @@ rsp_header_max_size
 
 **optional**, **type**: usize
 
-Set the max response header size.
+Maximum response-header size.
 
 **default**: 8192
 
@@ -161,6 +163,6 @@ body_line_max_length
 
 **optional**, **type**: usize
 
-Set the max line size in the response body.
+Maximum line length accepted in the response body.
 
 **default**: 512

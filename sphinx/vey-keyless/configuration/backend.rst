@@ -4,9 +4,11 @@
 backend
 *******
 
-You can set keyless backend config in this section.
+This section configures the keyless backend used to perform private-key
+operations.
 
-The backend config can be a root value map as described below, or just the driver name.
+The backend configuration can be a root-value map as described below, or just a
+driver name.
 
 Root Value Map
 ==============
@@ -16,9 +18,9 @@ dispatch_channel_size
 
 **optional**, **type**: usize
 
-Set the channel size for the dispatch of requests to worker backend.
+Channel size used when dispatching requests to worker backends.
 
-This will only have effect when worker is enabled in main conf.
+This only applies when worker runtimes are enabled in the main config.
 
 **default**: 1024
 
@@ -27,11 +29,11 @@ dispatch_counter_shift
 
 **optional**, **type**: u8
 
-Set the count of the requests that will be dispatched to the same worker backend before rotate to the next one.
+Number of requests dispatched to the same worker backend before rotating to the next one.
 
-The count value will be 2^N.
+The effective count is ``2^N``.
 
-This will only have effect when worker is enabled in main conf.
+This only applies when worker runtimes are enabled in the main config.
 
 **default**: 3
 
@@ -40,7 +42,7 @@ openssl_async_job
 
 **optional**, **type**: :ref:`openssl_async_job <conf_backend_driver_openssl_async_job>`
 
-Use OpenSSL Async Job driver.
+Enable the OpenSSL async-job driver.
 
 **default**: not enabled
 
@@ -50,16 +52,17 @@ Drivers
 simple
 ------
 
-Use OpenSSL default mode for Private Key operations.
+Use the default OpenSSL execution path for private-key operations.
 
-There is no extra config for this driver.
+This driver has no additional configuration keys.
 
 .. _conf_backend_driver_openssl_async_job:
 
 openssl_async_job
 -----------------
 
-Use OpenSSL async job for Private Key operations. You can set the hardware crypto engine to use in openssl.cnf.
+Use OpenSSL async jobs for private-key operations. The hardware crypto engine
+or provider can be configured through ``openssl.cnf``.
 
 The following keys are supported for this driver:
 
@@ -67,8 +70,9 @@ The following keys are supported for this driver:
 
   **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-  Set the timeout for a single async job.
+  Timeout for a single async job.
 
-  It is recommended to set a large value to avoid use-after-free crash in OpenSSL Async Job code.
+  A larger value is recommended to avoid edge cases in OpenSSL async-job
+  handling.
 
   **default**: 1s

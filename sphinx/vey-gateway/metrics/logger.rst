@@ -4,18 +4,19 @@
 Logger Metrics
 ##############
 
-The metrics for loggers that support metrics.
+These metrics are emitted by loggers that support metrics.
 
-The *discard* and *journal* log driver do not support metrics, see config for :ref:`log <configuration_log>`.
+The ``discard`` and ``journal`` drivers do not emit metrics. See
+:ref:`log <configuration_log>` for the logging configuration model.
 
-The following are the tags for all logger metrics:
+The following tags are present on all logger metrics:
 
 * :ref:`daemon_group <metrics_tag_daemon_group>`
 * :ref:`stat_id <metrics_tag_stat_id>`
 
 * logger
 
-  Show the name of the logger.
+  The logger name.
 
 The metrics are:
 
@@ -23,30 +24,27 @@ The metrics are:
 
   **type**: count
 
-  Show the total number of logs.
+  The total number of log messages received by the logger.
 
 * logger.message.pass
 
   **type**: count
 
-  Show the number of logs passed to next peer.
+  The number of log messages successfully sent to the downstream target.
 
 * logger.traffic.pass
 
   **type**: count
 
-  Show the bytes of log that has been sent to next peer.
+  The number of log payload bytes successfully sent to the downstream target.
 
 * logger.message.drop
 
-  Show the number of logs that has been dropped.
+  The number of log messages dropped.
 
-  An extra tag **drop_type** is used to add more details for the drop reason, values are:
+  An extra ``drop_type`` tag gives the drop reason. Values are:
 
-  - FormatFailed: the message can not be formatted to match the real log protocol
-
-  - ChannelClosed: the internal async channel has been closed.
-
-  - ChannelOverflow: the internal async channel is full.
-
-  - PeerUnreachable: the next peer is closed or currently unreachable.
+  - ``FormatFailed``: the message could not be encoded for the selected log protocol
+  - ``ChannelClosed``: the internal async channel was closed
+  - ``ChannelOverflow``: the internal async channel was full
+  - ``PeerUnreachable``: the downstream peer was closed or unreachable

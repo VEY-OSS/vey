@@ -4,37 +4,38 @@
 Runtime
 *******
 
-This is the *runtime* config, which is optional. If set, it must reside in the main conf file.
+This is the ``runtime`` configuration. It is optional and must reside in the
+main configuration file if used.
 
-All the options in this config are optional with a reasonable default value.
-Set them only if you really known their meaning.
+All options in this section are optional and have reasonable defaults.
+Set them only when you need to tune runtime behavior explicitly.
 
 The options can be grouped into the following sections:
 
 tokio main runtime
 ==================
 
-This section describes the options for the main tokio runtime, which is used for all servers.
+This section describes the main Tokio runtime used by all servers.
 
 thread_number
 -------------
 
 **optional**, **type**: int | str
 
-Set the scheduler and core number of worker threads.
+Scheduler mode and worker-thread count.
 
-if *0*, a basic scheduler is used.
-if not *0*, a threaded scheduler with the specified number of worker thread is used.
+If set to ``0``, a basic scheduler is used.
+Otherwise, a threaded scheduler is used with the specified worker-thread count.
 
-**default**: threaded scheduler with worker threads on each all available CPU core.
+**default**: threaded scheduler with worker threads on all available CPU cores
 
 thread_name
 -----------
 
 **optional**, **type**: str
 
-Set name of worker threads spawned. Only ASCII characters is allowed.
-Note that the length of thread name will be restricted at the OS level.
+Name used for spawned worker threads. Only ASCII characters are allowed.
+The operating system may impose its own length limit.
 
 **default**: "tokio"
 
@@ -43,7 +44,7 @@ thread_stack_size
 
 **optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the stack size for worker threads. For *<int>* value, the unit is bytes.
+Stack size for worker threads. Plain integer values are interpreted as bytes.
 
 **default**: `tokio thread_stack_size`_
 
@@ -61,16 +62,17 @@ Configures the max number of events to be processed per tick.
 daemon quit control
 ===================
 
-This section describes the options used during graceful quit of the daemon.
+This section describes graceful-shutdown behavior for the daemon.
 
 server_offline_delay
 --------------------
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time duration before offline all servers after received daemon quit signals.
-All listen server sockets will be closed after this duration, so it should be more than the time used to
-start the new daemon process if you depends on it for graceful restart.
+Delay before all servers are taken offline after the daemon receives a quit
+signal. All listening sockets are closed after this interval, so it should be
+longer than the time needed to start a replacement daemon if you depend on
+graceful restart.
 
 **default**: 4s
 
@@ -79,9 +81,9 @@ task_wait_delay
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time duration before checking alive tasks after all servers going into offline mode.
-Tasks are marked as alive only if auth success, so we should leave some time for those tasks in negotiation
-state to run into their next state, which may be alive or really dead.
+Delay before checking live tasks after all servers enter offline mode.
+Tasks are marked alive only after successful negotiation, so this gives tasks
+still in setup time to reach a stable state.
 
 **default**: 2s
 
@@ -90,7 +92,7 @@ task_wait_timeout
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time duration before force quit alive tasks after we decide to wait for them to end gracefully.
+Maximum time to wait for live tasks to finish gracefully before forcing them to quit.
 
 **default**: 10h
 
@@ -99,5 +101,5 @@ task_quit_timeout
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time duration before we shutdown the process after entering force quit status for all tasks.
-The tasks dropped after this timeout won't have any logs.
+Delay before the process shuts down after entering forced-quit mode for all
+tasks. Tasks dropped after this timeout do not emit logs.

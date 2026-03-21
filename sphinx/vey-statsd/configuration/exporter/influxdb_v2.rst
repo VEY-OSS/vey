@@ -3,7 +3,7 @@
 influxdb_v2
 ===========
 
-Emit all metrics from collector to influxdb by using the `v2 write API`_.
+Exporter that sends metrics to InfluxDB v2 using the `v2 write API`_.
 
 .. _v2 write API: https://docs.influxdata.com/influxdb/v2/write-data/developer-tools/api/
 
@@ -22,7 +22,7 @@ emit_interval
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time interval to emit internal metrics.
+Emit interval for outgoing batches.
 
 **default**: 10s
 
@@ -31,14 +31,14 @@ bucket
 
 **required**, **type**: :external+values:ref:`http header value <conf_value_http_header_value>`
 
-Set the bucket name.
+Bucket name.
 
 token
 -----
 
 **optional**, **type**: :external+values:ref:`http header value <conf_value_http_header_value>`
 
-Set the auth token.
+Authentication token.
 
 If not set, the value in environment variable `INFLUX_TOKEN` will be used.
 
@@ -49,7 +49,7 @@ precision
 
 **optional**, **type**: string
 
-Set the precision query parameter.
+Precision query parameter.
 
 Allowed values are:
 
@@ -65,6 +65,6 @@ max_body_lines
 
 **optional**, **type**: usize
 
-Set the max body lines in a single request.
+Maximum number of line-protocol records sent in a single request.
 
 **default**: 10000

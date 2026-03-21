@@ -3,7 +3,7 @@
 graphite
 ========
 
-Emit all metrics from collector to graphite by using the plaintext protocol.
+Exporter that sends metrics to Graphite using the plaintext protocol.
 
 The following common keys are supported:
 
@@ -20,6 +20,6 @@ emit_interval
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time interval to emit internal metrics.
+Emit interval for outgoing batches.
 
 **default**: 10s

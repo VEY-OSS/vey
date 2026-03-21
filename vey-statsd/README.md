@@ -2,71 +2,115 @@
 
 # VEY StatsD
 
-vey-statsd is [statsd](https://github.com/statsd/statsd)-compatible stats aggregator.
+`vey-statsd` is a [StatsD](https://github.com/statsd/statsd)-compatible
+metrics ingestion and forwarding service.
 
-It is developed to meet the needs in VEY project as all applications use StatsD as metrics sending protocol.
+It was built for the VEY project, where multiple applications emit metrics over
+StatsD and need a lightweight service that can normalize, aggregate, and export
+them to different downstream backends.
 
-The features make it different from other statsd server implementations are:
+At a high level, `vey-statsd` lets you:
 
-- written in async rust, which make it efficient and safe
-- compatible with [DogStatsD](https://docs.datadoghq.com/developers/dogstatsd/datagram_shell/) protocol, tags supported
-- each exporter has its own emit interval
-- can aggregate gauge metric values when dropping tags
+- accept StatsD-compatible metrics over UDP
+- process them through importers, collectors, and exporters
+- aggregate or rewrite metrics before export
+- forward metrics to multiple storage or observability systems
 
-There are still many features missing as the current focus is our internal usage, feel free to submit feature request
-issues. PRs are also welcomed.
+Key characteristics:
+
+- async Rust implementation
+- compatible with [DogStatsD](https://docs.datadoghq.com/developers/dogstatsd/datagram_shell/) tags
+- separate emit intervals for exporters
+- support for aggregation and tag dropping
+- simple modular pipeline design
+
+The current implementation is focused on VEY’s operational needs, but it is
+usable as a standalone metrics relay as well.
+
+## Architecture
+
+`vey-statsd` is organized around three pipeline stages:
+
+- `importer`
+  Receives metrics from upstream senders.
+
+- `collector`
+  Aggregates or rewrites incoming metrics.
+
+- `exporter`
+  Sends processed metrics to downstream systems.
+
+This structure makes it easy to build either a minimal relay or a multi-stage
+metrics pipeline.
 
 ## Building
 
-You need to follow the [dev-setup](../doc/dev-setup.md) guide to set up your build environment first.
+Set up the build environment first by following [dev-setup](../doc/dev-setup.md).
 
-To build debug binaries:
+Build debug binaries:
 
 ```shell
 cargo build -p vey-statsd -p vey-statsd-ctl
 ```
 
-To build release binaries:
+Build release binaries:
 
 ```shell
 cargo build --profile release-lto -p vey-statsd -p vey-statsd-ctl
 ```
 
-See [Build and Package](../doc/build_and_package.md) if you want to build binary packages or docker images.
+If you want to build binary packages or container images, see
+[Build and Package](../doc/build_and_package.md).
+
+The main binaries are:
+
+- `vey-statsd`: the metrics service
+- `vey-statsd-ctl`: the local control and management CLI
+
+## Documentation
+
+The Sphinx-generated reference documentation is available on
+[Read the Docs](https://vey.readthedocs.io/projects/statsd/en/latest/).
+
+The configuration reference covers:
+
+- importers
+- collectors
+- exporters
+- runtime settings
+- shared value types from the `vey-values` reference
 
 ## Supported Metric Types
 
-- c - COUNT
-- g - GAUGE
-- h - HISTOGRAM (unsupported yet)
-- ms - TIMER (unsupported yet)
+- `c` - counter
+- `g` - gauge
+- `h` - histogram, not yet supported
+- `ms` - timer, not yet supported
 
-## Supported Importers
+## Pipeline Components
+
+### Importers
 
 - statsd
 
-  Accept StatsD metrics, and send them to collectors.
+  Receives StatsD metrics and forwards them to collectors.
+  Only UDP is currently supported.
 
-  Only UDP is supported at this time.
-
-## Supported Collectors
+### Collectors
 
 - aggregate
 
-  Aggregate received metrics and send them to exporters.
-
-  You can set `join_tags` in this collector to join metrics when drop tags.
+  Aggregates received metrics and emits the result to exporters.
+  `join_tags` can be used to merge series after dropping selected tags.
 
 - regulate
 
-  Make some changes to the received metrics and send directly to exporters.
+  Rewrites received metrics and forwards them directly to exporters.
+  Supported actions include:
+  `prefix` to add a common metric-name prefix
+  `drop_tags` to remove tags from all metrics
 
-  The supported actions are:
-
-    * prefix - add a common name prefix to all metrics
-    * drop_tags - drop tags for all metrics
-
-## Supported Exporters
+### Exporters
 
 | Exporter    | Introduction                                          | Aggregate | Global prefix and tags | 
 |-------------|-------------------------------------------------------|-----------|------------------------|
@@ -78,11 +122,14 @@ See [Build and Package](../doc/build_and_package.md) if you want to build binary
 | influxdb_v2 | Emit to InfluxDB v2 by using the /api/v2/write API    | yes       | yes                    |
 | influxdb_v3 | Emit to InfluxDB v3 by using the /api/v3/write_lp API | yes       | yes                    |
 
-## Documents
+## Typical Use Cases
 
-You can view the reference documentation generated by sphinx online at
-[Read the Docs](https://vey.readthedocs.io/projects/statsd/en/latest/).
+- Collect application metrics over StatsD and forward them to OpenTSDB,
+  InfluxDB, or Graphite.
+- Normalize names and tags before sending data downstream.
+- Aggregate gauges or counters into a lower-cardinality stream.
+- Run a lightweight metrics bridge for VEY services that already emit StatsD.
 
 ## Examples
 
-You can find example config in the [examples](examples) directory.
+Example configurations are available in [examples](examples).

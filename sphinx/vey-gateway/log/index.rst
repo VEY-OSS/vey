@@ -4,37 +4,41 @@
 Log
 ###
 
-We support many logging drivers, see :ref:`log <configuration_log>` for more details.
+``vey-gateway`` supports multiple logging drivers. See
+:ref:`log <configuration_log>` for configuration details.
 
-All generated logs is structured, we will describe the structures of all type of logs we generated in this doc.
+All emitted logs are structured. This section documents the fields used by
+each log type.
 
 Shared Keys
 ===========
 
-The following shared keys are set in all type of logs:
+The following shared keys are present in all log records:
 
 daemon_name
 -----------
 
 **optional**, **type**: string
 
-The daemon group name of the process, which can be set by using of command line options.
+The daemon-group name for the process, configured in the config file or with
+command-line options.
 
 pid
 ---
 
 **required**, **type**: int
 
-The pid of the process.
+The process ID of the emitting daemon.
 
-There may be many processes running, one online and the others in offline mode.
+More than one process may exist during graceful restart, with only one serving
+traffic and others draining.
 
 log_type
 --------
 
 **required**, **type**: enum string
 
-Show the log type. The meaning of non-shared keys are depend on this value.
+The top-level log type. The meaning of non-shared keys depends on this value.
 
 Values are:
 
@@ -47,10 +51,10 @@ report_ts
 
 **optional**, **type**: unix timestamp
 
-Show the timestamp when we generate this log.
+The timestamp when the log record was generated.
 
-It will be present if the log driver has been configured to append it, see :ref:`log driver <configuration_log_driver>`
-for more info.
+This field is present only when the selected log driver is configured to
+append it. See :ref:`log driver <configuration_log_driver>` for details.
 
 Log Types
 =========

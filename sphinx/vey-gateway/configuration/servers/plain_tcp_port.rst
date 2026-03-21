@@ -3,7 +3,8 @@
 plain_tcp_port
 ==============
 
-This server provides plain tcp port, which can be placed in front of other servers.
+This server exposes a plain TCP port that can be chained in front of other
+servers.
 
 The following common keys are supported:
 
@@ -15,7 +16,7 @@ listen
 
 **required**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
-Set the listen config for this server.
+Set the listening socket configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
@@ -24,7 +25,7 @@ server
 
 **required**, **type**: str
 
-Set name of the next server to send the accepted connections to.
+Set the name of the next server that will receive accepted connections.
 
 The next server should be able to accept tcp connections.
 
@@ -33,19 +34,21 @@ proxy_protocol
 
 **optional**, **type**: :external+values:ref:`proxy protocol version <conf_value_proxy_protocol_version>`
 
-Set the version of PROXY protocol we use for incoming tcp connections.
+Set the PROXY Protocol version expected on incoming TCP connections.
 
-If set, connections with no matched PROXY Protocol message will be dropped.
+If this is set, connections without a valid PROXY Protocol header are dropped.
 
-.. note:: The *ingress_network_filter* config option of this server will always applies to the real socket client address.
+.. note:: The ``ingress_network_filter`` option on this server always matches
+   the real socket peer address, not the address carried in the PROXY Protocol
+   header.
 
-**default**: not set, which means PROXY protocol won't be used
+**default**: not set, which means PROXY Protocol is disabled
 
 proxy_protocol_read_timeout
 ---------------------------
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the timeout value before we read a complete PROXY Protocol message.
+Set the timeout for receiving a complete PROXY Protocol header.
 
 **default**: 5s

@@ -4,7 +4,7 @@
 Tcp Connect
 ***********
 
-The following keys are available for TcpConnect task log:
+The following fields are present in ``TcpConnect`` task logs:
 
 server_addr
 -----------
@@ -25,25 +25,25 @@ c_rd_bytes
 
 **optional**, **type**: int
 
-How many bytes we have received from client.
+The number of bytes received from the client.
 
 c_wr_bytes
 ----------
 
 **optional**, **type**: int
 
-How many bytes we have sent to client.
+The number of bytes sent to the client.
 
 r_rd_bytes
 ----------
 
 **optional**, **type**: int
 
-How many bytes we have received from the remote peer.
+The number of bytes received from the remote peer.
 
 r_wr_bytes
 ----------
 
 **optional**, **type**: int
 
-How many bytes we have sent to the remote peer.
+The number of bytes sent to the remote peer.

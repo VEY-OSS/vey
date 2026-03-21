@@ -4,45 +4,47 @@
 Task Log
 ********
 
-Each client connection will be handled as a task, and will emit a task log when the connection finished.
+Each client connection is handled as a task. A task log is emitted when the
+connection finishes.
 
-The following keys will be set in task log.
+The following keys are present in a task log.
 
 server_name
 -----------
 
 **required**, **type**: string
 
-The name of the server that accepted the request.
+Name of the server that accepted the connection.
 
 task_id
 -------
 
 **required**, **type**: uuid in simple string format
 
-UUID of the task.
+Task UUID.
 
-The *task_id* will appear in other logs such as request log if they have any association with this task.
+The ``task_id`` also appears in related logs, such as request logs associated
+with this task.
 
 server_addr
 -----------
 
 **required**, **type**: socket address string
 
-The listening address of the server.
+Listening address of the server.
 
 client_addr
 -----------
 
 **required**, **type**: socket address string
 
-The client address.
+Client address.
 
 start_at
 --------
 
 **required**, **type**: rfc3339 timestamp string with microseconds
 
-The time that the task is created (after validation).
+Time when the task was created, after validation.
 
 .. note:: Not every request will be a task, only the valid ones.

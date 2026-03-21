@@ -3,6 +3,6 @@
 discard
 =======
 
-This is the discard collector designed to discard all received metrics from importer.
+This discard collector drops all metrics received from the importer.
 
-There are no extra config keys for this kind of collector.
+This collector type has no additional configuration keys.

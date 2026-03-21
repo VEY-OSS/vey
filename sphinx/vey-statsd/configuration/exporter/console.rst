@@ -3,6 +3,6 @@
 console
 =======
 
-This is the console exporter designed to log all received metrics from collector to stdout.
+This console exporter writes all received metrics to standard output.
 
-There are no extra config keys for this kind of exporter.
+This exporter type has no additional configuration keys.

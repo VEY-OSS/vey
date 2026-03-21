@@ -3,17 +3,18 @@
 static_addr
 ===========
 
-This is the static addr discover designed to parse static addresses.
+This discover resolves peers from static address definitions.
 
 Config Keys
 -----------
 
-There are no extra config keys for this kind of discover.
+This discover type has no discover-specific configuration keys.
 
 .. _conf_discover_static_addr_register_data:
 
 Register Data
 -------------
 
-The data should be a :external+values:ref:`weighted sockaddr <conf_value_weighted_sockaddr>` or
-a sequence of :external+values:ref:`weighted sockaddr <conf_value_weighted_sockaddr>` value.
+The register data must be a
+:external+values:ref:`weighted sockaddr <conf_value_weighted_sockaddr>` or a
+sequence of such values.

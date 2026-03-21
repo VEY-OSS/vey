@@ -4,33 +4,35 @@
 Metrics
 #######
 
-Currently we only support send metrics to statsd, see :ref:`stat <configuration_stat>` for more details.
+Metrics are currently exported through StatsD. See :ref:`stat <configuration_stat>`
+for configuration details.
 
 Common Tags
 ===========
 
-The following is the common tags for all metrics:
+The following are the common tags used by all metrics:
 
 .. _metrics_tag_daemon_group:
 
 * daemon_group
 
-  This tag is the same as the daemon group specified in config file or command args.
+  Same daemon-group value configured in the config file or command-line arguments.
 
 .. _metrics_tag_stat_id:
 
 * stat_id
 
-  A machine local unique stat_id for dedup purpose. It should be **dropped** by statsd, and the metrics with the same
-  remaining tags should be aggregated.
+  A machine-local unique ``stat_id`` used for deduplication. It should be
+  **dropped** by the StatsD aggregation pipeline so that metrics with the same
+  remaining tags can be aggregated.
 
 .. _metrics_tag_quantile:
 
 * quantile
 
-  Show the quantile value for histogram stats.
+  Quantile value for histogram statistics.
 
-  The following values are always persent:
+  The following values are always present:
 
   - min
   - max
@@ -45,7 +47,7 @@ The following is the common tags for all metrics:
   - 0.95
   - 0.99
 
-Metrics Types
+Metric Types
 =============
 
 .. toctree::

@@ -3,7 +3,7 @@
 internal
 ========
 
-A collector to collect internal metrics.
+Collector that emits internal runtime metrics.
 
 The following common keys are supported:
 
@@ -15,6 +15,6 @@ emit_interval
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time interval to emit internal metrics.
+Emit interval for internal metrics.
 
 **default**: 1s

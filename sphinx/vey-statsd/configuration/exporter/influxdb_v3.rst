@@ -3,7 +3,7 @@
 influxdb_v3
 ===========
 
-Emit all metrics from collector to influxdb by using the `v3 write_lp API`_.
+Exporter that sends metrics to InfluxDB v3 using the `v3 write_lp API`_.
 
 .. _v3 write_lp API: https://docs.influxdata.com/influxdb3/enterprise/write-data/api-client-libraries/
 
@@ -22,7 +22,7 @@ emit_interval
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time interval to emit internal metrics.
+Emit interval for outgoing batches.
 
 **default**: 10s
 
@@ -31,14 +31,14 @@ database
 
 **required**, **type**: :external+values:ref:`http header value <conf_value_http_header_value>`
 
-Set the database name.
+Database name.
 
 token
 -----
 
 **optional**, **type**: :external+values:ref:`http header value <conf_value_http_header_value>`
 
-Set the auth token.
+Authentication token.
 
 If not set, the value in environment variable `INFLUXDB3_AUTH_TOKEN` will be used.
 
@@ -49,7 +49,7 @@ precision
 
 **optional**, **type**: string
 
-Set the precision query parameter.
+Precision query parameter.
 
 Allowed values are:
 
@@ -65,7 +65,7 @@ no_sync
 
 **optional**, **type**: bool
 
-Set no_sync in the query parameter.
+Controls the ``no_sync`` query parameter.
 
 **default**: false
 
@@ -74,6 +74,6 @@ max_body_lines
 
 **optional**, **type**: usize
 
-Set the max body lines in a single request.
+Maximum number of line-protocol records sent in a single request.
 
 **default**: 10000

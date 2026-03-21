@@ -27,41 +27,44 @@ In addition to the application directories, the repository also includes several
 
 ### vey-proxy
 
-A general-purpose forward proxy solution that also includes basic support for TCP streaming, transparent proxying, and
-reverse proxying.
+A feature-rich general-purpose proxy daemon. It centers on forward-proxy
+workloads, while also supporting transparent proxying, TCP and TLS stream
+proxying, selective reverse-proxy features, traffic inspection, and
+policy-driven request handling.
 
 #### Feature highlights
 
-- Async Rust for speed and reliability
-- HTTP/1 and SOCKS5 forward proxy protocols, plus SNI proxy and TCP TPROXY
-- Support for easy-proxy and the `masque/http` Well-Known URI
-- Proxy chaining, including dynamic upstream proxy selection
-- Multiple egress route selection methods, with support for custom egress selection agents
-- TCP/TLS stream proxying and basic HTTP reverse proxy support
-- TLS via OpenSSL / BoringSSL / AWS-LC / AWS-LC-FIPS / Tongsuo / rustls
-- TLS MITM interception, decrypted traffic export, and HTTP/1 / HTTP/2 / IMAP / SMTP interception
-- ICAP integration for HTTP/1 / HTTP/2 / IMAP / SMTP, with straightforward integration into third-party security products
-- Graceful reload
-- Customizable load balancing and failover strategies
-- User authentication with extensive configuration options
-- Per-user site-specific configuration
-- Rich ACL and limit rules at the ingress, egress, and user levels
-- Rich monitoring metrics at the ingress, egress, user, and user-site levels
-- Support for a wide range of observability tools
+- High-performance async Rust implementation
+- HTTP/1 and SOCKS5 forward proxy support, plus SNI proxy and TCP TPROXY
+- Proxy chaining and multiple egress-route selection methods, including custom selection agents
+- TCP/TLS stream proxying and basic HTTP reverse-proxy support
+- TLS based on OpenSSL, BoringSSL, AWS-LC, AWS-LC-FIPS, Tongsuo, or rustls
+- TLS interception, decrypted-traffic export, and HTTP/1, HTTP/2, IMAP, and SMTP inspection
+- ICAP integration for common application-layer inspection workflows
+- Rich authentication, ACL, rate-limit, and per-user policy controls
+- Detailed metrics and logging for ingress, egress, user, and user-site dimensions
+- Graceful reload plus flexible load-balancing and failover behavior
 
 [README](vey-proxy/README.md) | [User Guide](vey-proxy/UserGuide.en_US.md) |
 [Reference Doc](https://vey.readthedocs.io/projects/proxy/en/latest/)
 
 ### vey-statsd
 
-A StatsD-compatible metrics aggregator.
+A StatsD-compatible metrics ingestion, aggregation, and forwarding service. It
+can receive metrics from application daemons, normalize or aggregate them
+through a modular pipeline, and export the results to downstream systems such
+as Graphite, OpenTSDB, or InfluxDB.
 
 [README](vey-statsd/README.md) | [Reference Doc](https://vey.readthedocs.io/projects/statsd/en/latest/)
 
 ### vey-gateway
 
-A reverse proxy solution currently under active development.
+A work-in-progress general-purpose reverse proxy and gateway daemon. It is
+designed as a programmable gateway framework for multiple frontend and
+upstream protocols. The current implementation supports TLS- and
+keyless-related traffic handling.
 
+[README](vey-gateway/README.md) | 
 [Reference Doc](https://vey.readthedocs.io/projects/gateway/en/latest/)
 
 ### vey-bench
@@ -97,7 +100,10 @@ An IP geolocation lookup service for vey-proxy GeoIP support.
 
 ### vey-keyless
 
-A simple implementation of a Cloudflare keyless server.
+A server implementation of the Cloudflare Keyless SSL protocol. It allows TLS
+edge services to delegate private-key operations to a dedicated backend
+service, making it easier to centralize key handling and integrate with
+OpenSSL-based hardware acceleration.
 
 [README](vey-keyless/README.md) |
 [Reference Doc](https://vey.readthedocs.io/projects/keyless/en/latest/)

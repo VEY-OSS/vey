@@ -4,8 +4,8 @@
 Stat
 ****
 
-This file described the stat config, which is optional and can not be reloaded.
-If set, it must reside in the main conf file.
+This section describes metrics-export configuration. It is optional and cannot
+be reloaded. If set, it must reside in the main configuration file.
 
-The value should be of type :external+values:ref:`statsd client config <conf_value_statsd_client_config>`,
-with the default *prefix* set to "vey-keyless".
+The value type is :external+values:ref:`statsd client config <conf_value_statsd_client_config>`,
+with the default ``prefix`` set to ``vey-keyless``.

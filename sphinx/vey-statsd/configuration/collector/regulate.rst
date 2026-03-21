@@ -3,7 +3,7 @@
 regulate
 ========
 
-A collector to regulate metrics.
+Collector that rewrites or normalizes metrics without aggregating them.
 
 The following common keys are supported:
 
@@ -15,11 +15,11 @@ prefix
 
 **optional**, **type**: :external+values:ref:`metric name prefix <conf_value_metric_name_prefix>`
 
-Set the prefix to add to all metric names.
+Prefix added to all metric names.
 
 drop_tags
 ---------
 
 **optional**, **type**: :external+values:ref:`metric tag name <conf_value_metric_tag_name>` | seq
 
-Set the tag(s) to drop.
+Tags to remove from all metrics.

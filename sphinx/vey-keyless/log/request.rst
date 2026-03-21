@@ -4,37 +4,37 @@
 Request Log
 ***********
 
-When a request failed, a request log will be generated.
+A request log is generated when an individual keyless request fails.
 
-The following keys will be set in request log.
+The following keys are present in a request log.
 
 server_name
 -----------
 
 **required**, **type**: string
 
-The name of the server that accepted the request.
+Name of the server that accepted the request.
 
 task_id
 -------
 
 **required**, **type**: uuid in simple string format
 
-UUID of the task.
+Task UUID.
 
 msg_id
 ------
 
 **required**, **type**: usize string
 
-The msg id field in the request.
+Message ID field from the request.
 
 create_at
 ---------
 
 **required**, **type**: rfc3339 timestamp string with microseconds
 
-The create datetime of this request.
+Creation timestamp of the request.
 
 .. versionadded:: 0.4.2
 
@@ -45,6 +45,6 @@ process_time
 
 **required**, **type**: time duration string
 
-The time spend to process this request.
+Time spent processing this request.
 
 .. versionadded:: 0.4.2

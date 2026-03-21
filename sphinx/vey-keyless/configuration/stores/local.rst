@@ -3,7 +3,7 @@
 local
 =====
 
-This is the local store that just load private keys in local directory.
+This local store loads private keys from a local directory.
 
 The following keys are supported:
 
@@ -12,16 +12,16 @@ directory
 
 **required**, **type**: :external+values:ref:`directory path <conf_value_directory_path>`
 
-Set the path of the local directory that contained the private keys.
+Path to the local directory that contains the private keys.
 
 watch
 -----
 
 **optional**, **type**: bool
 
-Enable write watch of the .key files under the store directory.
+Enable write watching for ``.key`` files under the store directory.
 
-The new written keys will be loaded automatically after we receive a write-done event.
+Newly written keys are loaded automatically after a completed write event is observed.
 
 This is only supported on Linux.
 

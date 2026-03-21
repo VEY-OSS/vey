@@ -2,12 +2,13 @@
 Importer
 ********
 
-The type for each importer config is *map*, with two always required keys:
+Each importer configuration item is a map with two required keys:
 
-* :ref:`name <conf_importer_common_name>`, which specify the name of the importer.
-* :ref:`type <conf_importer_common_type>`, which specify the real type of the importer, decides how to parse other keys.
+* :ref:`name <conf_importer_common_name>`, which defines the importer name
+* :ref:`type <conf_importer_common_type>`, which selects the concrete importer
+  type and therefore determines how the remaining keys are interpreted
 
-There are many types of importer, each with a section below.
+The available importer types are documented below.
 
 Importers
 =========
@@ -21,7 +22,7 @@ Importers
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many importers.
+This section describes common keys shared by many importer types.
 
 .. _conf_importer_common_name:
 
@@ -30,7 +31,7 @@ name
 
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the name of the importer.
+Importer name.
 
 .. _conf_importer_common_type:
 
@@ -39,7 +40,7 @@ type
 
 **required**, **type**: str
 
-Set the type of the importer.
+Importer type.
 
 .. _conf_importer_common_collector:
 
@@ -48,9 +49,9 @@ collector
 
 **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the collector to use for this importer.
+Collector used by this importer.
 
-If the specified collector doesn't exist in configure, a default Discard collector will be used.
+If the referenced collector does not exist, a default discard collector is used.
 
 .. _conf_importer_common_listen_in_worker:
 
@@ -59,9 +60,9 @@ listen_in_worker
 
 **optional**, **type**: bool
 
-Set if we should listen in each worker runtime if you have worker enabled.
+Controls whether the importer listens in each worker runtime when workers are enabled.
 
-The listen instance count will be the same with the worker number count.
+The listen instance count then matches the worker count.
 
 **default**: false
 
@@ -72,10 +73,10 @@ ingress_network_filter
 
 **optional**, **type**: :external+values:ref:`ingress network acl rule <conf_value_ingress_network_acl_rule>`
 
-Set the network filter for clients.
+Ingress network filter for clients.
 
-The used client address will always be the interpreted client address, which means it will be the raw socket peer addr
-for servers that listen directly, and it will be the address set in the PROXY Protocol message for serverw chained after
-the server that support PROXY Protocol.
+The client address used here is always the interpreted client address. That
+means it is the raw socket peer address for direct listeners, or the address
+provided by PROXY Protocol when applicable.
 
 **default**: not set

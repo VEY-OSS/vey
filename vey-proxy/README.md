@@ -2,9 +2,10 @@
 
 # VEY Proxy
 
-`vey-proxy` is a programmable proxy server for controlled outbound access, protocol-aware traffic handling,
-transparent proxy deployments, and proxy chaining. It combines multiple ingress server types, flexible egress
-routing, pluggable authentication, DNS control, auditing, structured logging, and metrics export in one service.
+`vey-proxy` is a programmable general-purpose proxy server. It supports controlled outbound access,
+protocol-aware traffic handling, transparent proxy deployments, stream proxying, selective reverse proxying,
+and proxy chaining. It combines multiple ingress server types, flexible egress routing, pluggable
+authentication, DNS control, auditing, structured logging, and metrics export in one service.
 
 It can be used as:
 

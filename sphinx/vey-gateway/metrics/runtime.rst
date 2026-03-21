@@ -4,34 +4,35 @@
 Runtime Metrics
 ###############
 
-The metrics for runtimes that support metrics.
+These metrics are emitted by runtimes that expose internal scheduler state.
 
-The following are the tags for all logger metrics:
+The following tags are present on all runtime metrics:
 
 * :ref:`daemon_group <metrics_tag_daemon_group>`
 * :ref:`stat_id <metrics_tag_stat_id>`
 
 * runtime_id
 
-  Show the runtime ID / label.
+  The runtime ID or label.
 
-  There maybe many instances for the same runtime type, this field is used to distinguish between them.
+  There may be multiple instances of the same runtime type. This tag
+  distinguishes them.
 
 .. _metrics_runtime_tokio:
 
 Tokio Runtime Metrics
 =====================
 
-The metrics from tokio runtime.
+These metrics come from the Tokio runtime.
 
 * runtime.tokio.alive_tasks
 
   **type**: gauge
 
-  Show the current number of alive tasks in the runtime.
+  The current number of live tasks in the runtime.
 
 * runtime.tokio.global_queue_depth
 
   **type**: gauge
 
-  Show the number of tasks currently scheduled in the runtime's global queue.
+  The number of tasks currently scheduled in the runtime's global queue.

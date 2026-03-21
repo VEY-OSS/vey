@@ -3,7 +3,8 @@
 plain_quic_port
 ===============
 
-This server provides plain quic port, which can be placed in front of other servers.
+This server exposes a plain QUIC port that can be chained in front of other
+servers.
 
 The following common keys are supported:
 
@@ -16,7 +17,7 @@ listen
 
 **required**, **type**: :external+values:ref:`udp listen <conf_value_udp_listen>`
 
-Set the udp listen config for this server.
+Set the UDP listening socket configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
@@ -25,16 +26,17 @@ quic_server
 
 **required**, **type**: :external+values:ref:`rustls server config <conf_value_rustls_server_config>`
 
-Set the crypto config for this quic server.
+Set the cryptographic configuration for this QUIC server.
 
 offline_rebind_port
 -------------------
 
 **optional**, **type**: u16
 
-Set a rebind port if you want graceful shutdown.
+Set a rebind port used during graceful shutdown.
 
-The new port should be reachable from the client or it won't work as expected.
+The new port must be reachable by clients or the handoff will not work as
+expected.
 
 **default**: not set
 
@@ -43,6 +45,6 @@ server
 
 **required**, **type**: str
 
-Set name of the next server to send the accepted connections to.
+Set the name of the next server that will receive accepted connections.
 
 The next server should be able to accept tcp connections.

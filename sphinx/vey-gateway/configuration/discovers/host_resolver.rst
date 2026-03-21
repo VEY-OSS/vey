@@ -3,16 +3,18 @@
 host_resolver
 =============
 
-This is the host resolver discover designed to resolve IP addresses via the host resolver.
+This discover resolves peer addresses with the system host resolver.
 
 Config Keys
 -----------
 
-There are no extra config keys for this kind of discover.
+This discover type has no discover-specific configuration keys.
 
 .. _conf_discover_host_resolver_register_data:
 
 Register Data
 -------------
 
-The data should be a :external+values:ref:`upstream str <conf_value_upstream_str>` value, and the *port* field is required.
+The register data must be an
+:external+values:ref:`upstream str <conf_value_upstream_str>` value with the
+``port`` field set.

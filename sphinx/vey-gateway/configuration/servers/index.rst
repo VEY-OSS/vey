@@ -4,12 +4,13 @@
 Server
 ******
 
-The type for each server config is *map*, with two always required keys:
+Each server definition is a map with two always-required keys:
 
-* :ref:`name <conf_server_common_name>`, which specify the name of the server.
-* :ref:`type <conf_server_common_type>`, which specify the real type of the server, decides how to parse other keys.
+* :ref:`name <conf_server_common_name>`, which sets the server name
+* :ref:`type <conf_server_common_type>`, which selects the concrete server
+  type and therefore the remaining valid keys
 
-There are many types of server, each with a section below.
+The supported server types are documented below.
 
 Servers
 =======
@@ -27,7 +28,7 @@ Servers
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many servers.
+This section describes keys shared by multiple server types.
 
 .. _conf_server_common_name:
 
@@ -36,7 +37,7 @@ name
 
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the name of the server.
+Set the server name.
 
 .. _conf_server_common_type:
 
@@ -45,7 +46,7 @@ type
 
 **required**, **type**: str
 
-Set the type of the server.
+Set the server type.
 
 .. _conf_server_common_shared_logger:
 
@@ -54,7 +55,7 @@ shared_logger
 
 **optional**, **type**: ascii
 
-Set the server to use a logger running on a shared thread.
+Send this server's task logs to a logger running on a shared thread.
 
 **default**: not set
 
@@ -65,9 +66,10 @@ listen_in_worker
 
 **optional**, **type**: bool
 
-Set if we should listen in each worker runtime if you have worker enabled.
+Set whether each worker runtime should create its own listening socket when
+worker runtimes are enabled.
 
-The listen instance count will be the same with the worker number count.
+When enabled, the number of listening instances matches the worker count.
 
 **default**: false
 
@@ -78,11 +80,12 @@ ingress_network_filter
 
 **optional**, **type**: :external+values:ref:`ingress network acl rule <conf_value_ingress_network_acl_rule>`
 
-Set the network filter for clients.
+Set the client-side network ACL.
 
-The used client address will always be the interpreted client address, which means it will be the raw socket peer addr
-for servers that listen directly, and it will be the address set in the PROXY Protocol message for serverw chained after
-the server that support PROXY Protocol.
+The address used for matching is always the interpreted client address. For
+servers that listen directly, this is the socket peer address. For servers
+behind a PROXY Protocol listener, it is the address carried in the PROXY
+Protocol message.
 
 **default**: not set
 
@@ -93,7 +96,7 @@ tcp_sock_speed_limit
 
 **optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
-Set speed limit for each tcp socket.
+Set the speed limit for each TCP socket.
 
 **default**: no limit
 
@@ -104,7 +107,7 @@ udp_sock_speed_limit
 
 **optional**, **type**: :external+values:ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
 
-Set speed limit for each udp socket.
+Set the speed limit for each UDP socket.
 
 **default**: no limit
 
@@ -115,7 +118,7 @@ tcp_copy_buffer_size
 
 **optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the buffer size for internal tcp copy.
+Set the buffer size used for internal TCP copying.
 
 **default**: 16K, **minimal**: 4K
 
@@ -126,7 +129,7 @@ tcp_copy_yield_size
 
 **optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the yield out size for the internal copy task.
+Set the yield threshold for the internal copy task.
 
 **default**: 1M, **minimal**: 256K
 
@@ -137,7 +140,7 @@ tcp_misc_opts
 
 **optional**, **type**: :external+values:ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
 
-Set misc tcp socket options on accepted tcp sockets.
+Set additional TCP socket options on accepted sockets.
 
 **default**: not set, nodelay is default enabled
 
@@ -148,7 +151,7 @@ udp_misc_opts
 
 **optional**, **type**: :external+values:ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
 
-Set misc udp socket options on created udp sockets.
+Set additional UDP socket options on created sockets.
 
 **default**: not set
 
@@ -159,7 +162,7 @@ tls_ticketer
 
 **optional**, **type**: :external+values:ref:`tls ticketer <conf_value_tls_ticketer>`
 
-Set a (remote) rolling TLS ticketer.
+Set a local or remote rolling TLS ticket key provider.
 
 **default**: not set
 
@@ -180,7 +183,8 @@ task_idle_check_interval
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the idle check duration for task. The value will be up bound to seconds.
+Set the idle-check interval for tasks. The effective value is rounded up to a
+whole number of seconds.
 
 **default**: 60s, **max**: 30min, **min**: 2s
 
@@ -193,7 +197,8 @@ task_idle_max_count
 
 **optional**, **type**: usize
 
-The task will be closed if the idle check return IDLE the times as this value.
+Close the task after this many consecutive idle-check results return
+``IDLE``.
 
 **default**: 5
 
@@ -206,7 +211,7 @@ flush_task_log_on_created
 
 **optional**, **type**: bool
 
-Log when task get created.
+Emit a task log when the task is created.
 
 **default**: false
 
@@ -219,7 +224,7 @@ flush_task_log_on_connected
 
 **optional**, **type**: bool
 
-Log when upstream connected.
+Emit a task log when the upstream connection is established.
 
 **default**: false
 
@@ -232,12 +237,12 @@ task_log_flush_interval
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Enable periodic task log and set the flush interval.
+Enable periodic task logs and set the flush interval.
 
 .. note::
 
-  There will be no periodic task log if protocol inspection is enabled, as intercept and inspect logs will be available
-  in this case.
+  Periodic task logs are disabled when protocol inspection is enabled, because
+  intercept and inspection logs already provide detailed state updates.
 
 **default**: not set
 
@@ -250,6 +255,6 @@ extra_metrics_tags
 
 **optional**, **type**: :external+values:ref:`static metrics tags <conf_value_static_metrics_tags>`
 
-Set extra metrics tags that should be added to server stats and user stats already with server tags added.
+Set additional metrics tags to attach to server statistics.
 
 **default**: not set

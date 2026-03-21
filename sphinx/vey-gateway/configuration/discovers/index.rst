@@ -4,12 +4,13 @@
 Discover
 ********
 
-The type for each discover config is *map*, with two always required keys:
+Each discover definition is a map with two always-required keys:
 
-* :ref:`name <conf_discover_common_name>`, which specify the name of the discover.
-* :ref:`type <conf_discover_common_type>`, which specify the real type of the discover, decides how to parse other keys.
+* :ref:`name <conf_discover_common_name>`, which sets the discover name
+* :ref:`type <conf_discover_common_type>`, which selects the concrete discover
+  type and therefore the remaining valid keys
 
-There are many types of discover, each with a section below.
+The supported discover types are documented below.
 
 Discovers
 =========
@@ -23,7 +24,7 @@ Discovers
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many discovers.
+This section describes keys shared by multiple discover types.
 
 .. _conf_discover_common_name:
 
@@ -32,7 +33,7 @@ name
 
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Set the name of the discover.
+Set the discover name.
 
 .. _conf_discover_common_type:
 
@@ -41,14 +42,15 @@ type
 
 **required**, **type**: str
 
-Set the type of the discover.
+Set the discover type.
 
 .. _conf_discover_register_data:
 
 Register Data
 =============
 
-Each discover will have it's own format for the register data. Follow the link bellow to see more details.
+Each discover type defines its own registration-data format. Follow the links
+below for details.
 
 +--------------+----------------------------------------------------------------------+
 |Type          |Link                                                                  |

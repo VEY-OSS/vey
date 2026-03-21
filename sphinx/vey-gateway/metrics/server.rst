@@ -4,20 +4,21 @@
 Server Metrics
 ##############
 
-The metrics in server side shows the stats with client, and can be grouped to *request* and *traffic* types.
+Server-side metrics describe listener activity, task creation, and traffic
+handled for clients.
 
-The following are the tags for all server metrics:
+The following tags are present on all server metrics:
 
 * :ref:`daemon_group <metrics_tag_daemon_group>`
 * :ref:`stat_id <metrics_tag_stat_id>`
 
 * server
 
-  Show the server name.
+  The server name.
 
 * online
 
-  Show if the server is online. The value is either 'y' or 'n'.
+  Whether the server is online. The value is either ``y`` or ``n``.
 
 Listen
 ======
@@ -30,36 +31,38 @@ The metric names are:
 
   **type**: gauge
 
-  Show how many listening sockets.
+  The number of listening sockets.
 
 * listen.accepted
 
   **type**: count
 
-  Show how many client connections has been accepted.
+  The number of client connections accepted.
 
 * listen.dropped
 
   **type**: count
 
-  Show how many client connections has been dropped by acl rules at early stage.
+  The number of client connections dropped early by ACL rules.
 
 * listen.timeout
 
   **type**: count
 
-  Show how many client connections has been timed out in early protocol negotiation (such as TLS).
+  The number of client connections that timed out during early protocol
+  negotiation, such as TLS handshake setup.
 
 * listen.failed
 
   **type**: count
 
-  Show how many times of accept error.
+  The number of accept errors.
 
 Request
 =======
 
-No other fixed tags. Extra tags set at server side will be added.
+No additional fixed tags are defined. Extra server-level tags are appended if
+configured.
 
 The metric names are:
 
@@ -67,32 +70,34 @@ The metric names are:
 
   **type**: count
 
-  Show how many client connections has been accepted.
+  The number of accepted client connections.
 
 * server.task.total
 
   **type**: count
 
-  Show how many valid tasks has been spawned. Each client connection will be promoted to task only if the negotiation
-  success. User authentication is also taken into count in negotiation stage.
+  The number of valid tasks spawned. A client connection becomes a task only
+  after negotiation succeeds. Authentication is also part of this stage.
 
 * server.task.alive
 
   **type**: gauge
 
-  Show how many alive tasks that spawned by this server are running. In normal case the daemon stopped by systemd,
-  servers with running tasks will goto offline mode, and wait all tasks to be stopped.
+  The number of live tasks currently running for this server. During a normal
+  shutdown, servers with active tasks go offline first and then wait for them
+  to finish.
 
 Traffic
 =======
 
-The following tags are also set:
+The following additional tag is present:
 
 * :ref:`transport <metrics_tag_transport>`
 
-Extra tags set at server side will be added.
+Extra server-level tags are appended if configured.
 
-The io stats here only include application layer stats, the other layer such TLS stats are not included.
+These I/O counters cover only application-layer traffic. Lower-layer traffic,
+such as TLS framing overhead, is not included.
 
 The metric names are:
 
@@ -100,24 +105,24 @@ The metric names are:
 
   **type**: count
 
-  Show the total bytes of incoming bytes from client.
+  The total number of bytes received from clients.
 
 * server.traffic.in.packets
 
   **type**: count
 
-  Show the total datagram packets received from client.
-  Note that this is not available for stream type transport protocols.
+  The total number of datagram packets received from clients.
+  This metric is not available for stream-oriented transports.
 
 * server.traffic.out.bytes
 
   **type**: count
 
-  Show the total bytes that the server has sent to the client.
+  The total number of bytes sent to clients.
 
 * server.traffic.out.packets
 
   **type**: count
 
-  Show the total datagram packets that the server has sent to the client.
-  Note that this is not available for stream type transport protocols.
+  The total number of datagram packets sent to clients.
+  This metric is not available for stream-oriented transports.

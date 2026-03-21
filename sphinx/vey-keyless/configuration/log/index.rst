@@ -4,39 +4,40 @@
 Log
 ***
 
-This is the config for event logs, which is optional and can not be reloaded.
-If set, the *Root Value* below must reside in the main conf file.
+This section configures event logging. It is optional and cannot be reloaded.
+If set, the root value must reside in the main configuration file.
 
 Root Value
 ==========
 
-The value could be a simple string, which is the driver name, such as
+The root value may be a simple string containing the driver name, for example:
 
 - discard
 
-  drop the logs. This is the **default**.
+  Drops logs. This is the **default**.
 
 - journal
 
-  send logs to journald directly.
+  Sends logs directly to journald.
 
 - syslog
 
-  send logs to syslogd directly.
+  Sends logs directly to syslog.
 
 - stdout
 
-  send logs to stdout.
+  Sends logs to standard output.
 
-In such case, a default driver is used as default log config for all loggers.
+In that form, the chosen driver becomes the default log configuration for all
+loggers.
 
-The value could be a map, with the following keys:
+The root value may also be a map with the following keys:
 
 - default
 
   **optional**, **type**: :ref:`log config <configuration_log_config>`
 
-  Set default log config for loggers with no explicit config.
+  Default log configuration for loggers with no explicit config.
 
   **default**: discard
 
@@ -44,7 +45,7 @@ The value could be a map, with the following keys:
 
   **optional**, **type**: :ref:`syslog <configuration_log_driver_syslog>`
 
-  Set default log config for loggers with no explicit config.
+  Shared syslog driver configuration.
 
   **default**: not set
 
@@ -52,7 +53,7 @@ The value could be a map, with the following keys:
 
   **optional**, **type**: :ref:`fluentd <configuration_log_driver_fluentd>`
 
-  Set default log config for loggers with no explicit config.
+  Shared fluentd driver configuration.
 
   **default**: not set
 
@@ -60,7 +61,7 @@ The value could be a map, with the following keys:
 
   **optional**, **type**: :ref:`log config <configuration_log_config>`
 
-  Set log config for *task* loggers.
+  Log configuration for task loggers.
 
   **default**: not set
 
@@ -69,31 +70,33 @@ The value could be a map, with the following keys:
 Log Config Value
 ================
 
-The detailed log config may be a simple driver name, or a map, with the following keys:
+Each detailed log configuration may be a simple driver name or a map with the
+following keys:
 
 - journal
 
   **optional**, **type**: map
 
-  Use *journal* log driver. An empty map should be used, as no keys are defined by now.
+  Use the ``journal`` log driver. The map should be empty because no extra keys
+  are currently defined.
 
 - syslog
 
   **optional**, **type**: :ref:`syslog <configuration_log_driver_syslog>`
 
-  Use *syslog* log driver.
+  Use the ``syslog`` log driver.
 
 - fluentd
 
   **optional**, **type**: :ref:`fluentd <configuration_log_driver_fluentd>`
 
-  Use *fluentd* log driver.
+  Use the ``fluentd`` log driver.
 
 - async_channel_size
 
   **optional**, **type**: usize
 
-  Set the internal async channel size.
+  Internal async channel size.
 
   **default**: 4096
 
@@ -101,7 +104,7 @@ The detailed log config may be a simple driver name, or a map, with the followin
 
   **optional**, **type**: usize
 
-  Set the number of async threads.
+  Number of async threads.
 
   This has no effect on *discard* and *journal* log driver.
 
@@ -111,14 +114,15 @@ The detailed log config may be a simple driver name, or a map, with the followin
 
   **optional**, **type**: usize, **max**: 16
 
-  The logger may encounter io error, we should report it anyhow. We will log this error every *2^n* times,
-  where *n* can be set here.
+  The logger may encounter I/O errors. This controls how often they are
+  reported: once every ``2^n`` occurrences.
 
   This has no effect on *discard* and *journal* log driver.
 
   **default**: 10
 
-.. note:: The *discard* driver has no config options, so it doesn't has a corresponding map field.
+.. note:: The ``discard`` driver has no configuration options, so there is no
+   corresponding map field for it.
 
 .. _configuration_log_driver:
 

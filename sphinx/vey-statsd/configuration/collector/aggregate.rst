@@ -3,7 +3,7 @@
 aggregate
 =========
 
-A collector to aggregate metrics.
+Collector that aggregates incoming metrics.
 
 The following common keys are supported:
 
@@ -15,7 +15,7 @@ emit_interval
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time interval to emit internal metrics.
+Emit interval for aggregated metrics.
 
 **default**: 1s
 
@@ -24,4 +24,4 @@ join_tags
 
 **optional**, **type**: :external+values:ref:`metric tag name <conf_value_metric_tag_name>` | seq
 
-Set the tag(s) used to join metrics after aggregated together.
+Tags used when joining metrics during aggregation.
