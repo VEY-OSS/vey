@@ -55,27 +55,27 @@ ttl
 The TTL for the response.
 
 If it is not set, the
-:ref:`default expire ttl <conf_value_ip_locate_service_default_expire_ttl>`
+:external+values:ref:`default expire ttl <conf_value_ip_locate_service_default_expire_ttl>`
 configuration is used.
 
 network
 -------
 
-**required**, **id**: 3, **type**: :ref:`ip network str <conf_value_ip_network_str>`
+**required**, **id**: 3, **type**: :external+values:ref:`ip network str <conf_value_ip_network_str>`
 
 The registered network address.
 
 country
 -------
 
-**optional**, **id**: 4, **type**: :ref:`iso country code <conf_value_iso_country_code>`
+**optional**, **id**: 4, **type**: :external+values:ref:`iso country code <conf_value_iso_country_code>`
 
 The country code.
 
 continent
 ---------
 
-**optional**, **id**: 5, **type**: :ref:`continent code <conf_value_continent_code>`
+**optional**, **id**: 5, **type**: :external+values:ref:`continent code <conf_value_continent_code>`
 
 The continent code.
 

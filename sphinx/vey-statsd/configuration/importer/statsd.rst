@@ -14,7 +14,7 @@ The following common keys are supported:
 listen
 ------
 
-**optional**, **type**: :ref:`udp listen <conf_value_udp_listen>`
+**optional**, **type**: :external+values:ref:`udp listen <conf_value_udp_listen>`
 
 Set the listen config for this importer.
 

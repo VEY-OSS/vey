@@ -39,7 +39,7 @@ configured user group.
 listen
 ------
 
-**optional**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
+**optional**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
 Listening configuration for this server.
 
@@ -54,7 +54,7 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 server_id
 ---------
 
-**optional**, **type**: :ref:`http server id <conf_value_http_server_id>`
+**optional**, **type**: :external+values:ref:`http server id <conf_value_http_server_id>`
 
 Server ID. If set, the ``X-BD-Remote-Connection-Info`` header is added to
 responses, and the value is also used in the ``Via`` header added to requests.
@@ -64,7 +64,7 @@ responses, and the value is also used in the ``Via`` header added to requests.
 auth_realm
 ----------
 
-**optional**, **type**: :ref:`ascii str <conf_value_ascii_str>`
+**optional**, **type**: :external+values:ref:`ascii str <conf_value_ascii_str>`
 
 Authentication realm.
 
@@ -73,7 +73,7 @@ Authentication realm.
 req_header_recv_timeout
 -----------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Maximum time to wait for the full request header after the client connection
 becomes readable.
@@ -83,7 +83,7 @@ becomes readable.
 rsp_header_recv_timeout
 -----------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Maximum time to wait after the full request is sent and before the full
 response header is received.
@@ -93,7 +93,7 @@ response header is received.
 req_header_max_size
 -------------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Maximum request-header size.
 
@@ -102,7 +102,7 @@ Maximum request-header size.
 rsp_header_max_size
 -------------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Maximum response-header size.
 
@@ -124,7 +124,7 @@ The user level config value will take effect if set, see this :ref:`user config 
 pipeline_size
 -------------
 
-**optional**, **type**: :ref:`nonzero usize <conf_value_nonzero_usize>`
+**optional**, **type**: :external+values:ref:`nonzero usize <conf_value_nonzero_usize>`
 
 Pipeline depth for HTTP/1.0 and HTTP/1.1.
 
@@ -137,7 +137,7 @@ Pipeline depth for HTTP/1.0 and HTTP/1.1.
 pipeline_read_idle_timeout
 --------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Idle timeout for client-side idle HTTP connections.
 
@@ -166,7 +166,7 @@ chunk-size lines.
 http_forward_upstream_keepalive
 -------------------------------
 
-**optional**, **type**: :ref:`http keepalive <conf_value_http_keepalive>`
+**optional**, **type**: :external+values:ref:`http keepalive <conf_value_http_keepalive>`
 
 HTTP keepalive configuration at the server level.
 
@@ -175,7 +175,7 @@ HTTP keepalive configuration at the server level.
 untrusted_read_speed_limit
 --------------------------
 
-**optional**, **type**: :ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
+**optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
 Enables untrusted reading of request bodies that do not yet have authentication
 information, and sets the corresponding read-rate limit.
@@ -195,7 +195,7 @@ untrusted_read_limit
 append_forwarded_for
 --------------------
 
-**optional**, **type**: :ref:`http forwarded header type <conf_value_http_forwarded_header_type>`
+**optional**, **type**: :external+values:ref:`http forwarded header type <conf_value_http_forwarded_header_type>`
 
 Controls whether the corresponding forwarding headers are appended to requests
 sent to the next proxy.
@@ -224,7 +224,7 @@ Requests to local sites without valid TLS server configuration are dropped.
 global_tls_server
 -----------------
 
-**optional**, **type**: :ref:`rustls server config <conf_value_rustls_server_config>`
+**optional**, **type**: :external+values:ref:`rustls server config <conf_value_rustls_server_config>`
 
 Global TLS server configuration used when the matched local site does not set
 its own TLS server configuration.
@@ -234,7 +234,7 @@ its own TLS server configuration.
 client_hello_recv_timeout
 -------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout for receiving the complete TLS ClientHello message.
 
@@ -243,7 +243,7 @@ Timeout for receiving the complete TLS ClientHello message.
 hosts
 -----
 
-**required**, **type**: :ref:`host matched object <conf_value_host_matched_object>` <:ref:`host <configuration_server_http_rproxy_host>`>
+**required**, **type**: :external+values:ref:`host matched object <conf_value_host_matched_object>` <:ref:`host <configuration_server_http_rproxy_host>`>
 
 Host-matching rules that define which hosts this reverse proxy should handle.
 
@@ -282,7 +282,7 @@ Configuration for each local host handled by this server.
 tls_server
 """"""""""
 
-**optional**, **type**: :ref:`rustls server config <conf_value_rustls_server_config>`
+**optional**, **type**: :external+values:ref:`rustls server config <conf_value_rustls_server_config>`
 
 TLS server configuration for this local site.
 
@@ -293,14 +293,14 @@ If not set, the :ref:`global tls server <configuration_server_http_rproxy_global
 upstream
 """"""""
 
-**required**, **type**: :ref:`upstream str <conf_value_upstream_str>`
+**required**, **type**: :external+values:ref:`upstream str <conf_value_upstream_str>`
 
 Target upstream address. The default port is ``80`` and may be omitted.
 
 tls_client
 """"""""""
 
-**optional**, **type**: :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
+**optional**, **type**: :external+values:ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
 TLS parameters for the local client side when HTTPS to the upstream is needed.
 If set to an empty map, the default configuration is used.
@@ -310,7 +310,7 @@ If set to an empty map, the default configuration is used.
 tls_name
 """"""""
 
-**optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+**optional**, **type**: :external+values:ref:`tls name <conf_value_tls_name>`
 
 TLS server name used to verify the upstream site's certificate.
 

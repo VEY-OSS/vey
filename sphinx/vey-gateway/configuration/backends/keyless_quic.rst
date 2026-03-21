@@ -20,7 +20,7 @@ The following common keys are supported:
 tls_client
 ----------
 
-**required**, **type**: :ref:`rustls client config <conf_value_rustls_client_config>`
+**required**, **type**: :external+values:ref:`rustls client config <conf_value_rustls_client_config>`
 
 Set TLS parameters for this local QUIC client.
 
@@ -29,7 +29,7 @@ Set TLS parameters for this local QUIC client.
 tls_name
 --------
 
-**optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+**optional**, **type**: :external+values:ref:`tls name <conf_value_tls_name>`
 
 Set the tls server name to verify tls certificate for all peers.
 
@@ -40,7 +40,7 @@ If not set, the peer IP will be used.
 duration_stats
 --------------
 
-**optional**, **type**: :ref:`histogram metrics <conf_value_histogram_metrics>`
+**optional**, **type**: :external+values:ref:`histogram metrics <conf_value_histogram_metrics>`
 
 Histogram metrics config for the tcp connect duration stats.
 
@@ -58,7 +58,7 @@ Set the request buffer size of the local queue. New connections will be opened w
 response_recv_timeout
 ---------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the timeout value for the waiting of the response.
 
@@ -80,7 +80,7 @@ Set the max number of requests that can ben handled by a single upstream stream.
 connection_alive_time
 ---------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the max alive time for a single upstream stream.
 
@@ -91,7 +91,7 @@ Set the max alive time for a single upstream stream.
 graceful_close_wait
 -------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the graceful wait time duration before we close an alive connection.
 
@@ -100,7 +100,7 @@ Set the graceful wait time duration before we close an alive connection.
 connection_pool
 ---------------
 
-**optional**, **type**: :ref:`connection pool <conf_value_connection_pool_config>`
+**optional**, **type**: :external+values:ref:`connection pool <conf_value_connection_pool_config>`
 
 Set the connection pool config.
 
@@ -111,7 +111,7 @@ Set the connection pool config.
 quic_transport
 --------------
 
-**optional**, **type**: :ref:`quinn transport <conf_value_quinn_transport>`
+**optional**, **type**: :external+values:ref:`quinn transport <conf_value_quinn_transport>`
 
 Set the transport config for quinn.
 
@@ -142,7 +142,7 @@ Set if we should wait for new working streams when no alive streams available.
 socket_buffer
 -------------
 
-**optional**, **type**: :ref:`socket buffer config <conf_value_socket_buffer_config>`
+**optional**, **type**: :external+values:ref:`socket buffer config <conf_value_socket_buffer_config>`
 
 Set the buffer config for the udp socket.
 

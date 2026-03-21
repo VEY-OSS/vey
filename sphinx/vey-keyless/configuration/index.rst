@@ -32,8 +32,8 @@ is make up of the following entries:
 
 .. rubric:: Footnotes
 
-.. [#m] See :ref:`hybrid map <conf_value_hybrid_map>` for the real format.
-.. [#w] See :ref:`unaided runtime config <conf_value_unaided_runtime_config>`.
+.. [#m] See :external+values:ref:`hybrid map <conf_value_hybrid_map>` for the real format.
+.. [#w] See :external+values:ref:`unaided runtime config <conf_value_unaided_runtime_config>`.
 
 .. toctree::
    :hidden:
@@ -44,4 +44,4 @@ is make up of the following entries:
    server
    stores/index
    backend
-   values/index
+   values

@@ -26,7 +26,7 @@ Each rule is in *map* format, with two keys:
 
 * next
 
-  **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+  **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
   Set the next escaper.
 
@@ -41,10 +41,10 @@ Each rule is in *map* format, with two keys:
 resolution_delay
 ----------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 How long to wait for the preferred address family after another family has already returned a result.
 
-This has the same meaning as the ``resolution_delay`` field in :ref:`happy eyeballs <conf_value_happy_eyeballs>`.
+This has the same meaning as the ``resolution_delay`` field in :external+values:ref:`happy eyeballs <conf_value_happy_eyeballs>`.
 
 **default**: 50ms

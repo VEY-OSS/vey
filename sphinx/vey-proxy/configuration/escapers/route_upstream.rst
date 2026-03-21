@@ -24,7 +24,7 @@ For seq format:
 
   * next
 
-    **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+    **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
     Set the next escaper.
 
@@ -32,7 +32,7 @@ For seq format:
 
     **optional**, **type**: seq, **alias**: host
 
-    Each element should be :ref:`host <conf_value_host>`.
+    Each element should be :external+values:ref:`host <conf_value_host>`.
 
     A host must not appear in rules for different next escapers.
 
@@ -75,7 +75,7 @@ For seq format:
 
   * next
 
-    **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+    **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
     Set the next escaper.
 
@@ -83,7 +83,7 @@ For seq format:
 
     **optional**, **type**: seq, **alias**: subnet
 
-    Each element should be :ref:`ip network str <conf_value_ip_network_str>`.
+    Each element should be :external+values:ref:`ip network str <conf_value_ip_network_str>`.
 
     A subnet must not appear in rules for different next escapers.
 
@@ -126,7 +126,7 @@ For seq format:
 
   * next
 
-    **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+    **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
     Set the next escaper.
 
@@ -134,7 +134,7 @@ For seq format:
 
     **optional**, **type**: seq, **alias**: domain
 
-    Each element should be :ref:`domain <conf_value_domain>`.
+    Each element should be :external+values:ref:`domain <conf_value_domain>`.
 
     A domain must not appear in rules for different next escapers.
 
@@ -177,7 +177,7 @@ For seq format:
 
   * next
 
-    **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+    **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
     Set the next escaper.
 
@@ -185,7 +185,7 @@ For seq format:
 
     **optional**, **type**: seq, **alias**: suffix
 
-    Each element should be :ref:`domain <conf_value_domain>`.
+    Each element should be :external+values:ref:`domain <conf_value_domain>`.
 
     A suffix must not appear in rules for different next escapers.
 
@@ -228,7 +228,7 @@ For seq format:
 
   * next
 
-    **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+    **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
     Set the next escaper.
 
@@ -236,20 +236,20 @@ For seq format:
 
     **optional**, **type**: seq, **alias**: rule
 
-    Each element should be a map or :ref:`regex str <conf_value_regex_str>`.
+    Each element should be a map or :external+values:ref:`regex str <conf_value_regex_str>`.
 
     The following keys are used in the map format:
 
       - parent
 
-        **optional**, **type**: :ref:`domain <conf_value_domain>`
+        **optional**, **type**: :external+values:ref:`domain <conf_value_domain>`
 
         Parent domain to strip off, including the trailing ``.``, before applying the regex.
         If omitted, the full domain is matched.
 
       - regex
 
-        **required**, **type**: :ref:`regex str <conf_value_regex_str>`
+        **required**, **type**: :external+values:ref:`regex str <conf_value_regex_str>`
 
         Regular expression to apply.
 

@@ -71,7 +71,7 @@ The following common keys are supported:
 cache_ipv4
 ----------
 
-**recommend**, **type**: :ref:`file path <conf_value_file_path>`
+**recommend**, **type**: :external+values:ref:`file path <conf_value_file_path>`
 
 Set the cache file for published IPv4 addresses.
 
@@ -84,7 +84,7 @@ The file is created if it does not exist.
 cache_ipv6
 ----------
 
-**recommend**, **type**: :ref:`file path <conf_value_file_path>`
+**recommend**, **type**: :external+values:ref:`file path <conf_value_file_path>`
 
 Set the cache file for published IPv6 addresses.
 
@@ -97,7 +97,7 @@ The file is created if it does not exist.
 egress_network_filter
 ---------------------
 
-**optional**, **type**: :ref:`egress network acl rule <conf_value_egress_network_acl_rule>`
+**optional**, **type**: :external+values:ref:`egress network acl rule <conf_value_egress_network_acl_rule>`
 
 Set the network filter for the resolved remote IP address.
 
@@ -106,7 +106,7 @@ Set the network filter for the resolved remote IP address.
 tcp_keepalive
 -------------
 
-**optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
+**optional**, **type**: :external+values:ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
 Configure TCP keepalive.
 
@@ -117,7 +117,7 @@ User-level TCP keepalive settings are also applied.
 resolve_redirection
 -------------------
 
-**optional**, **type**: :ref:`resolve redirection <conf_value_resolve_redirection>`
+**optional**, **type**: :external+values:ref:`resolve redirection <conf_value_resolve_redirection>`
 
 Set DNS redirection rules at the escaper level.
 
@@ -132,7 +132,7 @@ Dynamic bind IPs are represented as JSON strings whose root element is a map.
 
 * ip
 
-  **required**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
+  **required**, **type**: :external+values:ref:`ip addr str <conf_value_ip_addr_str>`
 
   Set the IP address. The address family must match the publish key described above.
 
@@ -154,19 +154,19 @@ Dynamic bind IPs are represented as JSON strings whose root element is a map.
 
 * eip
 
-  **optional**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
+  **optional**, **type**: :external+values:ref:`ip addr str <conf_value_ip_addr_str>`
 
   Egress IP address as seen externally.
 
 * area
 
-  **optional**, **type**: :ref:`egress area <conf_value_egress_area>`
+  **optional**, **type**: :external+values:ref:`egress area <conf_value_egress_area>`
 
   Area associated with the egress IP address.
 
 * expire
 
-  **optional**, **type**: :ref:`rfc3339 datetime str <conf_value_rfc3339_datetime_str>`
+  **optional**, **type**: :external+values:ref:`rfc3339 datetime str <conf_value_rfc3339_datetime_str>`
 
   Expiration time of this dynamic IP.
 

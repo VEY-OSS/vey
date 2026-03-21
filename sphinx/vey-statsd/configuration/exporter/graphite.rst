@@ -18,7 +18,7 @@ The :ref:`Stream Export Runtime <configuration_exporter_runtime_stream>` is used
 emit_interval
 -------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the time interval to emit internal metrics.
 

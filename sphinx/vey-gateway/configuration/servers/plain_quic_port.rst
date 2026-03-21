@@ -14,7 +14,7 @@ The following common keys are supported:
 listen
 ------
 
-**required**, **type**: :ref:`udp listen <conf_value_udp_listen>`
+**required**, **type**: :external+values:ref:`udp listen <conf_value_udp_listen>`
 
 Set the udp listen config for this server.
 
@@ -23,7 +23,7 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 quic_server
 -----------
 
-**required**, **type**: :ref:`rustls server config <conf_value_rustls_server_config>`
+**required**, **type**: :external+values:ref:`rustls server config <conf_value_rustls_server_config>`
 
 Set the crypto config for this quic server.
 

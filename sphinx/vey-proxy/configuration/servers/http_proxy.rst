@@ -43,7 +43,7 @@ configured user group.
 listen
 ------
 
-**optional**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
+**optional**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
 Listening configuration for this server.
 
@@ -56,7 +56,7 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 local_server_name
 -----------------
 
-**optional**, **type**: :ref:`host <conf_value_host>` | seq
+**optional**, **type**: :external+values:ref:`host <conf_value_host>` | seq
 
 List of local server names.
 
@@ -80,7 +80,7 @@ Set this if you want to enable support for Well-Known URIs.
 server_id
 ---------
 
-**optional**, **type**: :ref:`http server id <conf_value_http_server_id>`
+**optional**, **type**: :external+values:ref:`http server id <conf_value_http_server_id>`
 
 Server ID. If set, the ``X-BD-Remote-Connection-Info`` header is added to the
 response.
@@ -90,7 +90,7 @@ response.
 auth_realm
 ----------
 
-**optional**, **type**: :ref:`ascii str <conf_value_ascii_str>`
+**optional**, **type**: :external+values:ref:`ascii str <conf_value_ascii_str>`
 
 Authentication realm.
 
@@ -112,7 +112,7 @@ Allows the egress context to be populated from username parameters.
 tls_client
 ----------
 
-**optional**, **type**: :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
+**optional**, **type**: :external+values:ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
 TLS client parameters used for HTTPS-forward requests.
 
@@ -121,7 +121,7 @@ TLS client parameters used for HTTPS-forward requests.
 ftp_client
 ----------
 
-**optional**, **type**: :ref:`ftp client config <conf_value_ftp_client_config>`
+**optional**, **type**: :external+values:ref:`ftp client config <conf_value_ftp_client_config>`
 
 FTP client configuration used for FTP-over-HTTP requests.
 
@@ -130,7 +130,7 @@ FTP client configuration used for FTP-over-HTTP requests.
 req_header_recv_timeout
 -----------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Maximum time to wait for the full request header after the client connection
 becomes readable.
@@ -142,7 +142,7 @@ becomes readable.
 rsp_header_recv_timeout
 -----------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Maximum time to wait after the full request is sent and before the full
 response header is received.
@@ -152,7 +152,7 @@ response header is received.
 req_header_max_size
 -------------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Maximum request-header size.
 
@@ -161,7 +161,7 @@ Maximum request-header size.
 rsp_header_max_size
 -------------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Maximum response-header size.
 
@@ -184,7 +184,7 @@ takes precedence. See :ref:`user config option <config_user_log_uri_max_chars>`.
 pipeline_size
 -------------
 
-**optional**, **type**: :ref:`nonzero usize <conf_value_nonzero_usize>`
+**optional**, **type**: :external+values:ref:`nonzero usize <conf_value_nonzero_usize>`
 
 Pipeline depth for HTTP/1.0 and HTTP/1.1.
 
@@ -197,7 +197,7 @@ Pipeline depth for HTTP/1.0 and HTTP/1.1.
 pipeline_read_idle_timeout
 --------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Idle timeout for client-side idle HTTP connections.
 
@@ -256,7 +256,7 @@ chunk-size lines.
 http_forward_upstream_keepalive
 -------------------------------
 
-**optional**, **type**: :ref:`http keepalive <conf_value_http_keepalive>`
+**optional**, **type**: :external+values:ref:`http keepalive <conf_value_http_keepalive>`
 
 HTTP keepalive configuration at the server level.
 
@@ -295,7 +295,7 @@ The custom headers are:
 untrusted_read_speed_limit
 --------------------------
 
-**optional**, **type**: :ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
+**optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
 Enables untrusted reading of request bodies that do not yet have authentication
 information, and sets the corresponding read-rate limit.

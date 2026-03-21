@@ -13,7 +13,7 @@ The following common keys are supported:
 emit_interval
 -------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the time interval to emit internal metrics.
 

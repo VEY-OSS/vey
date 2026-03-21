@@ -12,13 +12,13 @@ When configured as a map, the following keys are supported:
 
 * path
 
-  **required**, **type**: :ref:`file path <conf_value_file_path>`
+  **required**, **type**: :external+values:ref:`file path <conf_value_file_path>`
 
   Path to the file. The file must exist before the daemon starts.
 
 * format
 
-  **optional**, **type**: :ref:`config file format <conf_value_config_file_format>`
+  **optional**, **type**: :external+values:ref:`config file format <conf_value_config_file_format>`
 
   Format of the file specified in ``path``.
 

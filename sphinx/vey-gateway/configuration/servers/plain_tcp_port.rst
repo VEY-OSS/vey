@@ -13,7 +13,7 @@ The following common keys are supported:
 listen
 ------
 
-**required**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
+**required**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
 Set the listen config for this server.
 
@@ -31,7 +31,7 @@ The next server should be able to accept tcp connections.
 proxy_protocol
 --------------
 
-**optional**, **type**: :ref:`proxy protocol version <conf_value_proxy_protocol_version>`
+**optional**, **type**: :external+values:ref:`proxy protocol version <conf_value_proxy_protocol_version>`
 
 Set the version of PROXY protocol we use for incoming tcp connections.
 
@@ -44,7 +44,7 @@ If set, connections with no matched PROXY Protocol message will be dropped.
 proxy_protocol_read_timeout
 ---------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the timeout value before we read a complete PROXY Protocol message.
 

@@ -34,7 +34,7 @@ This section describes the common keys, they may be used by many servers.
 name
 ----
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the name of the server.
 
@@ -76,7 +76,7 @@ The listen instance count will be the same with the worker number count.
 ingress_network_filter
 ----------------------
 
-**optional**, **type**: :ref:`ingress network acl rule <conf_value_ingress_network_acl_rule>`
+**optional**, **type**: :external+values:ref:`ingress network acl rule <conf_value_ingress_network_acl_rule>`
 
 Set the network filter for clients.
 
@@ -91,7 +91,7 @@ the server that support PROXY Protocol.
 tcp_sock_speed_limit
 --------------------
 
-**optional**, **type**: :ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
+**optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
 Set speed limit for each tcp socket.
 
@@ -102,7 +102,7 @@ Set speed limit for each tcp socket.
 udp_sock_speed_limit
 --------------------
 
-**optional**, **type**: :ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
+**optional**, **type**: :external+values:ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
 
 Set speed limit for each udp socket.
 
@@ -113,7 +113,7 @@ Set speed limit for each udp socket.
 tcp_copy_buffer_size
 --------------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Set the buffer size for internal tcp copy.
 
@@ -124,7 +124,7 @@ Set the buffer size for internal tcp copy.
 tcp_copy_yield_size
 -------------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Set the yield out size for the internal copy task.
 
@@ -135,7 +135,7 @@ Set the yield out size for the internal copy task.
 tcp_misc_opts
 -------------
 
-**optional**, **type**: :ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
+**optional**, **type**: :external+values:ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
 
 Set misc tcp socket options on accepted tcp sockets.
 
@@ -146,7 +146,7 @@ Set misc tcp socket options on accepted tcp sockets.
 udp_misc_opts
 -------------
 
-**optional**, **type**: :ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
+**optional**, **type**: :external+values:ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
 
 Set misc udp socket options on created udp sockets.
 
@@ -157,7 +157,7 @@ Set misc udp socket options on created udp sockets.
 tls_ticketer
 ------------
 
-**optional**, **type**: :ref:`tls ticketer <conf_value_tls_ticketer>`
+**optional**, **type**: :external+values:ref:`tls ticketer <conf_value_tls_ticketer>`
 
 Set a (remote) rolling TLS ticketer.
 
@@ -178,7 +178,7 @@ task_idle_check_duration
 task_idle_check_interval
 ------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the idle check duration for task. The value will be up bound to seconds.
 
@@ -230,7 +230,7 @@ Log when upstream connected.
 task_log_flush_interval
 -----------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Enable periodic task log and set the flush interval.
 
@@ -248,7 +248,7 @@ Enable periodic task log and set the flush interval.
 extra_metrics_tags
 ------------------
 
-**optional**, **type**: :ref:`static metrics tags <conf_value_static_metrics_tags>`
+**optional**, **type**: :external+values:ref:`static metrics tags <conf_value_static_metrics_tags>`
 
 Set extra metrics tags that should be added to server stats and user stats already with server tags added.
 

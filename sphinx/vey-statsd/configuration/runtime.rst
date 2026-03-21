@@ -31,7 +31,7 @@ The value should be one or a sequence of CPU IDs.
 The CPU ID valid can be:
 
  - usize: a single CPU ID
- - string: :ref:`cpu id list str <conf_value_cpu_id_list_str>`
+ - string: :external+values:ref:`cpu id list str <conf_value_cpu_id_list_str>`
 
 .. _CPU_SET(3): https://man7.org/linux/man-pages/man3/CPU_SET.3.html
 .. _sched_setaffinity(2): https://man7.org/linux/man-pages/man2/sched_setaffinity.2.html
@@ -68,7 +68,7 @@ Set the thread number that each tokio runtime should use.
 thread_stack_size
 -----------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Set the stack size for worker threads. For *<int>* value, the unit is bytes.
 
@@ -81,7 +81,7 @@ sched_affinity
 
 Set the sched affinity for each threads.
 
-For map value, the key should be the thread id starting from 0, and the value should be :ref:`cpu set <conf_value_cpu_set>`.
+For map value, the key should be the thread id starting from 0, and the value should be :external+values:ref:`cpu set <conf_value_cpu_set>`.
 
 For bool value:
 
@@ -89,7 +89,7 @@ For bool value:
 
   - if found any `WORKER_<N>_CPU_LIST` environment variables
 
-    it will set the CPU affinity for that corresponding runtime `<N>`, the value should be :ref:`cpu id list str <conf_value_cpu_id_list_str>`.
+    it will set the CPU affinity for that corresponding runtime `<N>`, the value should be :external+values:ref:`cpu id list str <conf_value_cpu_id_list_str>`.
 
   - otherwise if thread_number_per_runtime is set to 1
 

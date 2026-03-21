@@ -28,7 +28,7 @@ The value can be a map, with the following keys:
 
 * path
 
-  **required**, **type**: :ref:`absolute path <conf_value_absolute_path>`
+  **required**, **type**: :external+values:ref:`absolute path <conf_value_absolute_path>`
 
   The syslogd daemon listen socket path.
 
@@ -47,13 +47,13 @@ The value can be a map, with the following keys:
 
 * address
 
-  **required**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
+  **required**, **type**: :external+values:ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
   Set the remote socket address.
 
 * bind_ip
 
-  **optional**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
+  **optional**, **type**: :external+values:ref:`ip addr str <conf_value_ip_addr_str>`
 
   Set the ip address to bind to for the local socket.
 

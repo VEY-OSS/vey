@@ -15,5 +15,5 @@ There are no extra config keys for this kind of discover.
 Register Data
 -------------
 
-The data should be a :ref:`weighted sockaddr <conf_value_weighted_sockaddr>` or
-a sequence of :ref:`weighted sockaddr <conf_value_weighted_sockaddr>` value.
+The data should be a :external+values:ref:`weighted sockaddr <conf_value_weighted_sockaddr>` or
+a sequence of :external+values:ref:`weighted sockaddr <conf_value_weighted_sockaddr>` value.

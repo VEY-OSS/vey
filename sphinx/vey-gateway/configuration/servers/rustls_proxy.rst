@@ -25,7 +25,7 @@ The following common keys are supported:
 listen
 ------
 
-**optional**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
+**optional**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
 Set the listen config for this server.
 
@@ -36,7 +36,7 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 client_hello_recv_timeout
 -------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the timeout value for the wait of initial client hello data.
 
@@ -54,7 +54,7 @@ Set if we should spawn tasks in tokio unconstrained way.
 virtual_hosts
 -------------
 
-**required**, **type**: :ref:`host matched object <conf_value_host_matched_object>` <:ref:`host <configuration_server_rustls_proxy_host>`>
+**required**, **type**: :external+values:ref:`host matched object <conf_value_host_matched_object>` <:ref:`host <configuration_server_rustls_proxy_host>`>
 
 Set the list of hosts we should handle based on host match rules.
 
@@ -85,7 +85,7 @@ This set the config for a OpenSSl virtual host.
 name
 """"
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the name of this virtual host.
 
@@ -94,7 +94,7 @@ Set the name of this virtual host.
 cert_pairs
 """"""""""
 
-**optional**, **type**: :ref:`tls cert pair <conf_value_tls_cert_pair>` or seq
+**optional**, **type**: :external+values:ref:`tls cert pair <conf_value_tls_cert_pair>` or seq
 
 Set certificate and private key pairs for this TLS server.
 
@@ -136,7 +136,7 @@ Set if we should disable TLS session cache (stateful session resumption by Sessi
 ca_certificate
 """"""""""""""
 
-**optional**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`
+**optional**, **type**: :external+values:ref:`tls certificates <conf_value_tls_certificates>`
 
 A list of certificates for client auth. If not set, the system default ca certificates will be used.
 
@@ -145,7 +145,7 @@ A list of certificates for client auth. If not set, the system default ca certif
 accept_timeout
 """"""""""""""
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the timeout value for the accept of the full TLS handshake.
 
@@ -154,7 +154,7 @@ Set the timeout value for the accept of the full TLS handshake.
 request_rate_limit
 """"""""""""""""""
 
-**optional**, **type**: :ref:`rate limit quota <conf_value_rate_limit_quota>`
+**optional**, **type**: :external+values:ref:`rate limit quota <conf_value_rate_limit_quota>`
 
 Set rate limit on request.
 
@@ -174,7 +174,7 @@ Even if not set, the max alive requests should not be more than usize::MAX.
 tcp_sock_speed_limit
 """"""""""""""""""""
 
-**optional**, **type**: :ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
+**optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
 Set speed limit for each tcp socket.
 
@@ -198,7 +198,7 @@ This will overwrite the server level :ref:`task_idle_max_count <conf_server_comm
 backends
 """"""""
 
-**required**, **type**: :ref:`alpn matched object <conf_value_alpn_matched_object>` <:ref:`backend <configuration_server_rustls_proxy_backend>`>
+**required**, **type**: :external+values:ref:`alpn matched object <conf_value_alpn_matched_object>` <:ref:`backend <configuration_server_rustls_proxy_backend>`>
 
 Set the list of backends we should handle based on ALPN match rules.
 
@@ -243,8 +243,8 @@ It can be a map value, the keys are:
 backend
 """""""
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the name of the backend to use.
 
-It can also be written as a :ref:`metric node name <conf_value_metric_node_name>` value when needed.
+It can also be written as a :external+values:ref:`metric node name <conf_value_metric_node_name>` value when needed.

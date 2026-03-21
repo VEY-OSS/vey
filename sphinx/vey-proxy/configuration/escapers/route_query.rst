@@ -14,14 +14,14 @@ No common keys are supported.
 fallback_node
 -------------
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the fallback escaper name.
 
 query_allowed_next
 ------------------
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the next escapers that are allowed to appear in query results. Each element is a next escaper name.
 If the selected escaper is not in this list, the fallback escaper is used.
@@ -49,7 +49,7 @@ Set how many consecutive query requests the cache runtime should handle before y
 cache_request_timeout
 ---------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set how long to wait for a response from the cache runtime after sending a query request.
 
@@ -60,7 +60,7 @@ The fallback node is used if this times out.
 cache_pick_policy
 -----------------
 
-**optional**, **type**: :ref:`selective pick policy <conf_value_selective_pick_policy>`
+**optional**, **type**: :external+values:ref:`selective pick policy <conf_value_selective_pick_policy>`
 
 Set the policy used to select a next proxy address from the query result.
 
@@ -71,7 +71,7 @@ The key for ketama/rendezvous/jump hash is *<client-ip>*.
 query_peer_addr
 ---------------
 
-**optional**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
+**optional**, **type**: :external+values:ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
 Set the socket address of the service that receives queries.
 
@@ -80,7 +80,7 @@ Set the socket address of the service that receives queries.
 query_socket_buffer
 -------------------
 
-**optional**, **type**: :ref:`socket buffer config <conf_value_socket_buffer_config>`
+**optional**, **type**: :external+values:ref:`socket buffer config <conf_value_socket_buffer_config>`
 
 Set the socket buffer configuration for the UDP socket used for queries.
 
@@ -89,7 +89,7 @@ Set the socket buffer configuration for the UDP socket used for queries.
 query_wait_timeout
 ------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set how long to wait for a response from the peer service.
 
@@ -122,7 +122,7 @@ Set the maximum cache TTL for query results.
 cache_vanish_wait
 -----------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Remove a record from the cache after it has remained expired for this long.
 

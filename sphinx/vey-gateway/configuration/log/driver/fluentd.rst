@@ -16,7 +16,7 @@ The keys are described below.
 address
 -------
 
-**optional**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
+**optional**, **type**: :external+values:ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
 Set the tcp address of the fluentd server.
 
@@ -25,7 +25,7 @@ Set the tcp address of the fluentd server.
 bind_ip
 -------
 
-**optional**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
+**optional**, **type**: :external+values:ref:`ip addr str <conf_value_ip_addr_str>`
 
 Set the ip address to bind to for the local socket.
 
@@ -76,7 +76,7 @@ Set a custom hostname.
 tcp_keepalive
 -------------
 
-**optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
+**optional**, **type**: :external+values:ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
 Set the tcp keepalive config for the connection to fluentd server.
 
@@ -85,7 +85,7 @@ Set the tcp keepalive config for the connection to fluentd server.
 tls_client
 ----------
 
-**optional**, **type**: :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
+**optional**, **type**: :external+values:ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
 Enable tls and set the config.
 
@@ -94,7 +94,7 @@ Enable tls and set the config.
 tls_name
 --------
 
-**optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+**optional**, **type**: :external+values:ref:`tls name <conf_value_tls_name>`
 
 Set the tls server name to verify peer certificate.
 
@@ -103,7 +103,7 @@ Set the tls server name to verify peer certificate.
 connect_timeout
 ---------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the timeout value for the connection to fluentd server, including tcp connect, tls handshake, fluentd handshake.
 
@@ -112,7 +112,7 @@ Set the timeout value for the connection to fluentd server, including tcp connec
 connect_delay
 -------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the delay time if the connect to fluentd server failed. All messages received will be dropped during this stage.
 
@@ -121,7 +121,7 @@ Set the delay time if the connect to fluentd server failed. All messages receive
 write_timeout
 -------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the write timeout for each message. The message will be dropped if timeout.
 
@@ -130,7 +130,7 @@ default: 1s
 flush_interval
 --------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the flush interval for the connection to fluentd server.
 

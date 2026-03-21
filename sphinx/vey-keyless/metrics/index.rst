@@ -36,7 +36,7 @@ The following is the common tags for all metrics:
   - max
   - mean
 
-  Values can be added by :ref:`histogram metrics <conf_value_histogram_metrics>` config.
+  Values can be added by :external+values:ref:`histogram metrics <conf_value_histogram_metrics>` config.
   If not set, the following values are added by default:
 
   - 0.50

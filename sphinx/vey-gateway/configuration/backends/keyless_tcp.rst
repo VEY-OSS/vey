@@ -20,7 +20,7 @@ The following common keys are supported:
 tls_client
 ----------
 
-**optional**, **type**: :ref:`rustls client config <conf_value_rustls_client_config>`
+**optional**, **type**: :external+values:ref:`rustls client config <conf_value_rustls_client_config>`
 
 Enable TLS and set TLS parameters for this local TLS client.
 
@@ -29,7 +29,7 @@ Enable TLS and set TLS parameters for this local TLS client.
 tls_name
 --------
 
-**optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+**optional**, **type**: :external+values:ref:`tls name <conf_value_tls_name>`
 
 Set the tls server name to verify tls certificate for all peers.
 
@@ -40,7 +40,7 @@ If not set, the peer IP will be used.
 duration_stats
 --------------
 
-**optional**, **type**: :ref:`histogram metrics <conf_value_histogram_metrics>`
+**optional**, **type**: :external+values:ref:`histogram metrics <conf_value_histogram_metrics>`
 
 Histogram metrics config for the tcp connect duration stats.
 
@@ -58,7 +58,7 @@ Set the request buffer size of the local queue. New connections will be opened w
 response_recv_timeout
 ---------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the timeout value for the waiting of the response.
 
@@ -80,7 +80,7 @@ Set the max number of requests that can ben handled by a single upstream connect
 connection_alive_time
 ---------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the max alive time for a single upstream connection.
 
@@ -91,7 +91,7 @@ Set the max alive time for a single upstream connection.
 graceful_close_wait
 -------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the graceful wait time duration before we close an alive connection.
 
@@ -100,7 +100,7 @@ Set the graceful wait time duration before we close an alive connection.
 connection_pool
 ---------------
 
-**optional**, **type**: :ref:`connection pool <conf_value_connection_pool_config>`
+**optional**, **type**: :external+values:ref:`connection pool <conf_value_connection_pool_config>`
 
 Set the connection pool config.
 
@@ -111,7 +111,7 @@ Set the connection pool config.
 tcp_keepalive
 -------------
 
-**optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
+**optional**, **type**: :external+values:ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
 Set tcp keepalive.
 

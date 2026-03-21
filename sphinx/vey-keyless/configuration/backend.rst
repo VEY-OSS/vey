@@ -65,7 +65,7 @@ The following keys are supported for this driver:
 
 - async_op_timeout
 
-  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+  **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
   Set the timeout for a single async job.
 

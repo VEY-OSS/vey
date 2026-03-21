@@ -38,7 +38,7 @@ The following common keys are supported:
 listen
 ------
 
-**optional**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
+**optional**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
 Listening configuration for this server.
 
@@ -51,18 +51,18 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 upstream
 --------
 
-**required**, **type**: :ref:`upstream str <conf_value_upstream_str>` | seq
+**required**, **type**: :external+values:ref:`upstream str <conf_value_upstream_str>` | seq
 
 Remote address or addresses and port. The port is always required.
 
-For *seq* value, each of its element must be :ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`.
+For *seq* value, each of its element must be :external+values:ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`.
 
 **alias**: proxy_pass
 
 upstream_pick_policy
 ----------------------
 
-**optional**, **type**: :ref:`selective pick policy <conf_value_selective_pick_policy>`
+**optional**, **type**: :external+values:ref:`selective pick policy <conf_value_selective_pick_policy>`
 
 Policy used to select the upstream address.
 
@@ -73,7 +73,7 @@ The key for ketama/rendezvous/jump hash is *<client-ip><server-ip>*.
 tls_client
 ----------
 
-**optional**, **type**: bool | :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
+**optional**, **type**: bool | :external+values:ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
 Controls whether a TLS handshake is performed with the upstream.
 
@@ -82,7 +82,7 @@ Controls whether a TLS handshake is performed with the upstream.
 upstream_tls_name
 -----------------
 
-**optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+**optional**, **type**: :external+values:ref:`tls name <conf_value_tls_name>`
 
 Explicit TLS server name used for upstream certificate verification.
 

@@ -34,7 +34,7 @@ The following common keys are supported:
 listen
 ------
 
-**optional**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
+**optional**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
 Listening configuration for this server.
 
@@ -93,7 +93,7 @@ Maximum size of the TLS ClientHello message.
 request_wait_timeout
 --------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout while waiting for the initial client data.
 
@@ -102,7 +102,7 @@ Timeout while waiting for the initial client data.
 request_recv_timeout
 --------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout for receiving the complete initial request after the first bytes arrive.
 The initial request may be either a TLS ClientHello message or an HTTP request.
@@ -112,7 +112,7 @@ The initial request may be either a TLS ClientHello message or an HTTP request.
 protocol_inspection
 -------------------
 
-**optional**, **type**: :ref:`protocol inspection <conf_value_dpi_protocol_inspection>`
+**optional**, **type**: :external+values:ref:`protocol inspection <conf_value_dpi_protocol_inspection>`
 
 Basic protocol-inspection configuration.
 
@@ -121,7 +121,7 @@ Basic protocol-inspection configuration.
 server_tcp_portmap
 ------------------
 
-**optional**, **type**: :ref:`server tcp portmap <conf_value_dpi_server_tcp_portmap>`
+**optional**, **type**: :external+values:ref:`server tcp portmap <conf_value_dpi_server_tcp_portmap>`
 
 Port mapping used for protocol inspection based on the server-side TCP port.
 
@@ -130,7 +130,7 @@ Port mapping used for protocol inspection based on the server-side TCP port.
 client_tcp_portmap
 ------------------
 
-**optional**, **type**: :ref:`client tcp portmap <conf_value_dpi_client_tcp_portmap>`
+**optional**, **type**: :external+values:ref:`client tcp portmap <conf_value_dpi_client_tcp_portmap>`
 
 Port mapping used for protocol inspection based on the client-side TCP port.
 
@@ -139,7 +139,7 @@ Port mapping used for protocol inspection based on the client-side TCP port.
 allowed_hosts
 -------------
 
-**optional**, **type**: :ref:`host matched object <conf_value_host_matched_object>` <:ref:`host <configuration_server_sni_proxy_host>`>
+**optional**, **type**: :external+values:ref:`host matched object <conf_value_host_matched_object>` <:ref:`host <configuration_server_sni_proxy_host>`>
 
 Host-matching rules that define which hosts this server should handle.
 
@@ -168,7 +168,7 @@ Configuration for a matched SNI host.
 redirect_host
 """""""""""""
 
-**optional**, **type**: :ref:`host <conf_value_host>`
+**optional**, **type**: :external+values:ref:`host <conf_value_host>`
 
 Overrides the host part of the upstream address.
 

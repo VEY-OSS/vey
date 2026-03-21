@@ -71,7 +71,7 @@ nodes
 The candidate next-hop escaper or escapers that may be selected.
 
 If the value is a sequence, each element must be a
-:ref:`weighted metric node name <conf_value_weighted_metric_node_name>`.
+:external+values:ref:`weighted metric node name <conf_value_weighted_metric_node_name>`.
 
 If the value is empty, the
 :ref:`fallback node <configuration_escaper_route_query_fallback_node>`

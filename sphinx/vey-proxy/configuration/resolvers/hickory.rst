@@ -22,10 +22,10 @@ Configured name servers. All configured servers may be tried before a positive
 response is returned.
 
 If the value is a string, it may contain one or more
-:ref:`ip addr str <conf_value_ip_addr_str>` values separated by whitespace.
+:external+values:ref:`ip addr str <conf_value_ip_addr_str>` values separated by whitespace.
 
 If the value is a sequence, each element must be an
-:ref:`ip addr str <conf_value_ip_addr_str>`.
+:external+values:ref:`ip addr str <conf_value_ip_addr_str>`.
 
 server_port
 -----------
@@ -39,7 +39,7 @@ Port to use when the default port is not suitable.
 encryption
 ----------
 
-**optional**, **type**: :ref:`dns encryption config <conf_value_dns_encryption_config>`
+**optional**, **type**: :external+values:ref:`dns encryption config <conf_value_dns_encryption_config>`
 
 DNS encryption configuration.
 
@@ -48,7 +48,7 @@ DNS encryption configuration.
 connect_timeout
 ---------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout used when establishing a TCP/TLS/QUIC connection to the target server.
 
@@ -59,7 +59,7 @@ Timeout used when establishing a TCP/TLS/QUIC connection to the target server.
 request_timeout
 ---------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout used while waiting for a response after a request has been sent to the
 target server.
@@ -85,7 +85,7 @@ is received on the previous attempt.
 each_timeout
 ------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Specify the timeout for waiting all responses from one specific target server.
 
@@ -94,7 +94,7 @@ Specify the timeout for waiting all responses from one specific target server.
 retry_interval
 --------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Retry interval between different target servers.
 
@@ -108,14 +108,14 @@ positive one is used.
 bind_ip
 -------
 
-**optional**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
+**optional**, **type**: :external+values:ref:`ip addr str <conf_value_ip_addr_str>`
 
 Bind IP used when creating sockets for the resolver.
 
 bind_interface
 --------------
 
-**optional**, **type**: :ref:`interface name <conf_value_interface_name>`
+**optional**, **type**: :external+values:ref:`interface name <conf_value_interface_name>`
 
 Binds the outgoing socket to a particular interface such as ``eth0``.
 
@@ -128,7 +128,7 @@ Binds the outgoing socket to a particular interface such as ``eth0``.
 tcp_misc_opts
 -------------
 
-**optional**, **type**: :ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
+**optional**, **type**: :external+values:ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
 
 Miscellaneous TCP socket options.
 
@@ -139,7 +139,7 @@ Miscellaneous TCP socket options.
 udp_misc_opts
 -------------
 
-**optional**, **type**: :ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
+**optional**, **type**: :external+values:ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
 
 Miscellaneous UDP socket options.
 

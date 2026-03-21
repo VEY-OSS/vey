@@ -127,7 +127,7 @@ The value should be a map with the following keys:
 
 * addr
 
-  **value**: :ref:`upstream str <conf_value_upstream_str>`
+  **value**: :external+values:ref:`upstream str <conf_value_upstream_str>`
 
   Overrides the upstream address used by the corresponding escaper.
 

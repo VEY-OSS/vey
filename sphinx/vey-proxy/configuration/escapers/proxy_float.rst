@@ -51,7 +51,7 @@ The following common keys are supported:
 source
 ------
 
-**optional**, **type**: :ref:`url str <conf_value_url_str>` | map | null
+**optional**, **type**: :external+values:ref:`url str <conf_value_url_str>` | map | null
 
 Set the source used to fetch peers.
 
@@ -63,7 +63,7 @@ See :ref:`sources <config_escaper_dynamic_source>` for the supported formats.
 cache
 -----
 
-**recommend**, **type**: :ref:`file path <conf_value_file_path>`
+**recommend**, **type**: :external+values:ref:`file path <conf_value_file_path>`
 
 Set the cache file.
 
@@ -76,7 +76,7 @@ The file is created if it does not exist.
 refresh_interval
 ----------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set how often peers are refreshed from the configured source.
 
@@ -85,7 +85,7 @@ Set how often peers are refreshed from the configured source.
 bind_ipv4
 ---------
 
-**optional**, **type**: :ref:`ipv4 addr str <conf_value_ipv4_addr_str>`
+**optional**, **type**: :external+values:ref:`ipv4 addr str <conf_value_ipv4_addr_str>`
 
 Set the bind IP address for IPv4 sockets.
 
@@ -94,7 +94,7 @@ Set the bind IP address for IPv4 sockets.
 bind_ipv6
 ---------
 
-**optional**, **type**: :ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
+**optional**, **type**: :external+values:ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
 
 Set the bind IP address for IPv6 sockets.
 
@@ -103,7 +103,7 @@ Set the bind IP address for IPv6 sockets.
 tls_client
 ----------
 
-**optional**, **type**: bool | :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
+**optional**, **type**: bool | :external+values:ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
 Enable HTTPS peers and set TLS parameters for the local TLS client.
 If set to ``true`` or an empty map, the default TLS client configuration is used.
@@ -113,7 +113,7 @@ If set to ``true`` or an empty map, the default TLS client configuration is used
 tcp_connect_timeout
 -------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the application-level TCP connect timeout.
 
@@ -122,7 +122,7 @@ Set the application-level TCP connect timeout.
 tcp_keepalive
 -------------
 
-**optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
+**optional**, **type**: :external+values:ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
 Configure TCP keepalive.
 
@@ -133,7 +133,7 @@ User-level TCP keepalive settings are not applied.
 expire_guard_duration
 ---------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 If a peer has an expiration time, it is skipped when adding this guard duration would carry the connection past expiry.
 
@@ -167,7 +167,7 @@ The keys used in the *map* format are:
   Set the key of the set that stores peers. Each string entry in the set represents one peer.
   See :ref:`peers <config_escaper_dynamic_peer>` for the supported formats.
 
-* :ref:`nested redis config map <conf_value_db_redis>`
+* :external+values:ref:`nested redis config map <conf_value_db_redis>`
 
 For *url* str values, the format is:
 
@@ -201,7 +201,7 @@ Common keys
 
 * addr
 
-  **required**, **type**: :ref:`sockaddr str <conf_value_sockaddr_str>`
+  **required**, **type**: :external+values:ref:`sockaddr str <conf_value_sockaddr_str>`
 
   Set the socket address used to connect to the peer.
   Domain names are not allowed here.
@@ -214,25 +214,25 @@ Common keys
 
 * eip
 
-  **optional**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
+  **optional**, **type**: :external+values:ref:`ip addr str <conf_value_ip_addr_str>`
 
   Egress IP address as seen externally.
 
 * area
 
-  **optional**, **type**: :ref:`egress area <conf_value_egress_area>`
+  **optional**, **type**: :external+values:ref:`egress area <conf_value_egress_area>`
 
   Area associated with the egress IP address.
 
 * expire
 
-  **optional**, **type**: :ref:`rfc3339 datetime str <conf_value_rfc3339_datetime_str>`
+  **optional**, **type**: :external+values:ref:`rfc3339 datetime str <conf_value_rfc3339_datetime_str>`
 
   Expiration time for this peer.
 
 * tcp_sock_speed_limit
 
-  **optional**, **type**: :ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
+  **optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
   Set the speed limit for each TCP connection to this peer.
 
@@ -243,19 +243,19 @@ http
 
 * username
 
-  **optional**, **type**: :ref:`username <conf_value_username>`
+  **optional**, **type**: :external+values:ref:`username <conf_value_username>`
 
   Username for HTTP Basic authentication.
 
 * password
 
-  **optional**, **type**: :ref:`password <conf_value_password>`
+  **optional**, **type**: :external+values:ref:`password <conf_value_password>`
 
   Password for HTTP Basic authentication.
 
 * http_connect_rsp_header_max_size
 
-  **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+  **optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
   Set the maximum header size accepted for CONNECT responses.
 
@@ -278,7 +278,7 @@ HTTPS peers support all HTTP peer keys plus the following:
 
 * tls_name
 
-  **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+  **optional**, **type**: :external+values:ref:`tls name <conf_value_tls_name>`
 
   Set the TLS server name used for certificate verification.
 
@@ -289,19 +289,19 @@ socks5
 
 * username
 
-  **optional**, **type**: :ref:`username <conf_value_username>`
+  **optional**, **type**: :external+values:ref:`username <conf_value_username>`
 
   Username for SOCKS5 username/password authentication.
 
 * password
 
-  **optional**, **type**: :ref:`password <conf_value_password>`
+  **optional**, **type**: :external+values:ref:`password <conf_value_password>`
 
   Password for SOCKS5 username/password authentication.
 
 * udp_sock_speed_limit
 
-  **optional**, **type**: :ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
+  **optional**, **type**: :external+values:ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
 
   Set the speed limit for each UDP socket.
 
@@ -346,7 +346,7 @@ SOCKS5-over-TLS peers support all SOCKS5 peer keys plus the following:
 
 * tls_name
 
-  **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+  **optional**, **type**: :external+values:ref:`tls name <conf_value_tls_name>`
 
   Set the TLS server name used for certificate verification.
 

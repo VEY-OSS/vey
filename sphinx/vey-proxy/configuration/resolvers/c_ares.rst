@@ -21,10 +21,10 @@ server
 Name servers to use instead of those configured in ``/etc/resolv.conf``.
 
 If the value is a string, it may contain one or more
-:ref:`sockaddr str <conf_value_sockaddr_str>` values separated by whitespace.
+:external+values:ref:`sockaddr str <conf_value_sockaddr_str>` values separated by whitespace.
 
 If the value is a sequence, each element must be a
-:ref:`sockaddr str <conf_value_sockaddr_str>`.
+:external+values:ref:`sockaddr str <conf_value_sockaddr_str>`.
 
 The default port ``53`` is used when no port is specified.
 
@@ -112,13 +112,13 @@ Socket receive-buffer size.
 bind_ipv4
 ---------
 
-**optional**, **type**: :ref:`ipv4 addr str <conf_value_ipv4_addr_str>`
+**optional**, **type**: :external+values:ref:`ipv4 addr str <conf_value_ipv4_addr_str>`
 
 IPv4 bind IP used when creating sockets for the resolver.
 
 bind_ipv6
 ---------
 
-**optional**, **type**: :ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
+**optional**, **type**: :external+values:ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
 
 IPv6 bind IP used when creating sockets for the resolver.

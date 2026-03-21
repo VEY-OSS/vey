@@ -119,12 +119,12 @@ ttl
 The TTL for this response.
 
 If the value is ``0``, the
-:ref:`protective cache ttl <conf_value_dpi_tls_cert_agent_protective_cache_ttl>`
+:external+values:ref:`protective cache ttl <conf_value_dpi_tls_cert_agent_protective_cache_ttl>`
 configuration is used.
 
 .. note:: Expired records remain cached for a short additional period before
    being removed. See
-   :ref:`cache_vanish_wait <conf_value_dpi_tls_cert_agent_cache_vanish_wait>`
+   :external+values:ref:`cache_vanish_wait <conf_value_dpi_tls_cert_agent_cache_vanish_wait>`
    for details.
 
 **default**: 0

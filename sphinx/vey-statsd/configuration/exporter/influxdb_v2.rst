@@ -20,7 +20,7 @@ The :ref:`HTTP Export Runtime <configuration_exporter_runtime_http>` is used:
 emit_interval
 -------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the time interval to emit internal metrics.
 
@@ -29,14 +29,14 @@ Set the time interval to emit internal metrics.
 bucket
 ------
 
-**required**, **type**: :ref:`http header value <conf_value_http_header_value>`
+**required**, **type**: :external+values:ref:`http header value <conf_value_http_header_value>`
 
 Set the bucket name.
 
 token
 -----
 
-**optional**, **type**: :ref:`http header value <conf_value_http_header_value>`
+**optional**, **type**: :external+values:ref:`http header value <conf_value_http_header_value>`
 
 Set the auth token.
 

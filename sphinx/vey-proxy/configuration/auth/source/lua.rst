@@ -28,7 +28,7 @@ When configured as a map, the following keys are supported:
 
 * fetch_script
 
-  **required**, **type**: :ref:`file path <conf_value_file_path>`
+  **required**, **type**: :external+values:ref:`file path <conf_value_file_path>`
 
   Path to the Lua script used to fetch dynamic users.
 
@@ -45,7 +45,7 @@ When configured as a map, the following keys are supported:
 
 * fetch_timeout
 
-  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+  **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
   Timeout for running the fetch script.
 
@@ -57,7 +57,7 @@ When configured as a map, the following keys are supported:
 
 * report_script
 
-  **optional**, **type**: :ref:`file path <conf_value_file_path>`
+  **optional**, **type**: :external+values:ref:`file path <conf_value_file_path>`
 
   Path to the Lua script used to report the parsing result for fetched dynamic
   users.
@@ -76,7 +76,7 @@ When configured as a map, the following keys are supported:
 
 * report_timeout
 
-  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+  **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
   Timeout for running the report script.
 

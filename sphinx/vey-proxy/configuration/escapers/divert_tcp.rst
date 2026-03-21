@@ -50,16 +50,16 @@ The following common keys are supported:
 proxy_addr
 ----------
 
-**required**, **type**: :ref:`upstream str <conf_value_upstream_str>` | seq
+**required**, **type**: :external+values:ref:`upstream str <conf_value_upstream_str>` | seq
 
 Set the target proxy address. The default port is ``3128`` and may be omitted.
 
-If a *seq* is used, each element must be a :ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`.
+If a *seq* is used, each element must be a :external+values:ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`.
 
 proxy_addr_pick_policy
 ----------------------
 
-**optional**, **type**: :ref:`selective pick policy <conf_value_selective_pick_policy>`
+**optional**, **type**: :external+values:ref:`selective pick policy <conf_value_selective_pick_policy>`
 
 Set the policy used to select the next proxy address.
 
@@ -70,7 +70,7 @@ The key for ketama/rendezvous/jump hash is *<client-ip>[-<username>]-<upstream-h
 bind_ipv4
 ---------
 
-**optional**, **type**: :ref:`ipv4 addr str <conf_value_ipv4_addr_str>`
+**optional**, **type**: :external+values:ref:`ipv4 addr str <conf_value_ipv4_addr_str>`
 
 Set the bind IP address for IPv4 sockets.
 
@@ -79,7 +79,7 @@ Set the bind IP address for IPv4 sockets.
 bind_ipv6
 ---------
 
-**optional**, **type**: :ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
+**optional**, **type**: :external+values:ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
 
 Set the bind IP address for IPv6 sockets.
 
@@ -88,7 +88,7 @@ Set the bind IP address for IPv6 sockets.
 tcp_keepalive
 -------------
 
-**optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
+**optional**, **type**: :external+values:ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
 Configure TCP keepalive.
 

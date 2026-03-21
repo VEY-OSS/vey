@@ -1,5 +1,5 @@
 Welcome to vey-gateway's documentation!
-===================================
+=======================================
 
 .. toctree::
    :maxdepth: 1

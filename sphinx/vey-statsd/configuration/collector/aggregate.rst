@@ -13,7 +13,7 @@ The following common keys are supported:
 emit_interval
 -------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the time interval to emit internal metrics.
 
@@ -22,6 +22,6 @@ Set the time interval to emit internal metrics.
 join_tags
 ---------
 
-**optional**, **type**: :ref:`metric tag name <conf_value_metric_tag_name>` | seq
+**optional**, **type**: :external+values:ref:`metric tag name <conf_value_metric_tag_name>` | seq
 
 Set the tag(s) used to join metrics after aggregated together.

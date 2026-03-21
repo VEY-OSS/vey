@@ -28,7 +28,7 @@ This section describes the common keys, they may be used by many importers.
 name
 ----
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the name of the importer.
 
@@ -46,7 +46,7 @@ Set the type of the importer.
 collector
 ---------
 
-**type**: :ref:`metric node name <conf_value_metric_node_name>`
+**type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the collector to use for this importer.
 
@@ -70,7 +70,7 @@ The listen instance count will be the same with the worker number count.
 ingress_network_filter
 ----------------------
 
-**optional**, **type**: :ref:`ingress network acl rule <conf_value_ingress_network_acl_rule>`
+**optional**, **type**: :external+values:ref:`ingress network acl rule <conf_value_ingress_network_acl_rule>`
 
 Set the network filter for clients.
 

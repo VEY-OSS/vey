@@ -10,7 +10,7 @@ No common keys are supported.
 next
 ----
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>` | seq
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>` | seq
 
 Set the candidate next escapers. Each element must be the name of a target float escaper.
 

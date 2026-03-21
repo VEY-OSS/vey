@@ -18,7 +18,7 @@ The following common keys are supported:
 ip_locate_service
 -----------------
 
-**optional**, **type**: :ref:`ip locate service <conf_value_ip_locate_service>`
+**optional**, **type**: :external+values:ref:`ip locate service <conf_value_ip_locate_service>`
 
 Set the configuration of the remote IP location service.
 
@@ -37,13 +37,13 @@ Each rule is in *map* format, with the following keys:
 
 * next
 
-  **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+  **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
   Set the next escaper.
 
 * networks
 
-  **optional**, **type**: :ref:`ip network <conf_value_ip_network_str>` | seq
+  **optional**, **type**: :external+values:ref:`ip network <conf_value_ip_network_str>` | seq
 
   Each element should be valid network string. Both IPv4 and IPv6 are supported.
 
@@ -59,7 +59,7 @@ Each rule is in *map* format, with the following keys:
 
 * countries
 
-  **optional**, **type**: :ref:`iso country code <conf_value_iso_country_code>` | seq
+  **optional**, **type**: :external+values:ref:`iso country code <conf_value_iso_country_code>` | seq
 
   Each element should be valid ISO country code.
 
@@ -67,7 +67,7 @@ Each rule is in *map* format, with the following keys:
 
 * continents
 
-  **optional**, **type**: :ref:`continent code <conf_value_continent_code>` | seq
+  **optional**, **type**: :external+values:ref:`continent code <conf_value_continent_code>` | seq
 
   Each element should be valid continent code.
 
@@ -76,10 +76,10 @@ Each rule is in *map* format, with the following keys:
 resolution_delay
 ----------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 How long to wait for the preferred address family after another family has already returned a result.
 
-This has the same meaning as the ``resolution_delay`` field in :ref:`happy eyeballs <conf_value_happy_eyeballs>`.
+This has the same meaning as the ``resolution_delay`` field in :external+values:ref:`happy eyeballs <conf_value_happy_eyeballs>`.
 
 **default**: 50ms

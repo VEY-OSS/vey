@@ -14,7 +14,7 @@ The following common keys are supported:
 listen
 ------
 
-**required**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
+**required**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
 Listening configuration for this server.
 
@@ -39,7 +39,7 @@ forwarded.
 protocol_detection_timeout
 --------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout for protocol detection on each connection.
 
@@ -50,7 +50,7 @@ If timeout, the connection will be closed silently.
 proxy_protocol
 --------------
 
-**optional**, **type**: :ref:`proxy protocol version <conf_value_proxy_protocol_version>`
+**optional**, **type**: :external+values:ref:`proxy protocol version <conf_value_proxy_protocol_version>`
 
 PROXY Protocol version expected on incoming TCP connections.
 
@@ -66,7 +66,7 @@ If set, connections with no matched PROXY Protocol message will be dropped.
 proxy_protocol_read_timeout
 ---------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout for reading a complete PROXY Protocol message.
 

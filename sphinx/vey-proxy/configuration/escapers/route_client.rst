@@ -22,7 +22,7 @@ Each rule is in *map* format, with two keys:
 
 * next
 
-  **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+  **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the next escaper.
 
@@ -30,7 +30,7 @@ Set the next escaper.
 
   **optional**, **type**: seq
 
-  Each element should be :ref:`ip addr str <conf_value_ip_addr_str>`.
+  Each element should be :external+values:ref:`ip addr str <conf_value_ip_addr_str>`.
 
   An IP must not appear in rules for different next escapers.
 
@@ -45,7 +45,7 @@ Each rule is in *map* format, with two keys:
 
 * next
 
-  **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+  **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
   Set the next escaper.
 
@@ -53,6 +53,6 @@ Each rule is in *map* format, with two keys:
 
   **optional**, **type**: seq
 
-  Each element should be :ref:`ip network str <conf_value_ip_network_str>`.
+  Each element should be :external+values:ref:`ip network str <conf_value_ip_network_str>`.
 
   A subnet must not appear in rules for different next escapers.

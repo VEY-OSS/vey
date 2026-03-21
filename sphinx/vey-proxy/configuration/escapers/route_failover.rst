@@ -18,21 +18,21 @@ No common keys are supported.
 primary_next
 ------------
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the primary next escaper.
 
 standby_next
 ------------
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the standby next escaper.
 
 fallback_delay
 --------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set how long to wait before switching to the standby escaper while the primary escaper is still pending.
 

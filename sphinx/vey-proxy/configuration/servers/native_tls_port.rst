@@ -17,7 +17,7 @@ The following common keys are supported:
 listen
 ------
 
-**required**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
+**required**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
 Listening configuration for this server.
 
@@ -26,7 +26,7 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 tls_server
 ----------
 
-**required**, **type**: :ref:`openssl server config <conf_value_openssl_server_config>`
+**required**, **type**: :external+values:ref:`openssl server config <conf_value_openssl_server_config>`
 
 Enables TLS on the listening socket using OpenSSL and configures the TLS
 parameters.
@@ -43,7 +43,7 @@ The next server must be able to accept TLS connections.
 proxy_protocol
 --------------
 
-**optional**, **type**: :ref:`proxy protocol version <conf_value_proxy_protocol_version>`
+**optional**, **type**: :external+values:ref:`proxy protocol version <conf_value_proxy_protocol_version>`
 
 PROXY Protocol version expected on incoming TCP connections.
 
@@ -59,7 +59,7 @@ The TLS handshake with the client will happen after we receive the PROXY Protoco
 proxy_protocol_read_timeout
 ---------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout for reading a complete PROXY Protocol message.
 

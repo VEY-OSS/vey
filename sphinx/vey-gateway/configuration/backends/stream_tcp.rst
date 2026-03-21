@@ -20,7 +20,7 @@ The following common keys are supported:
 peer_pick_policy
 ----------------
 
-**optional**, **type**: :ref:`selective pick policy <conf_value_selective_pick_policy>`
+**optional**, **type**: :external+values:ref:`selective pick policy <conf_value_selective_pick_policy>`
 
 Set the policy to select next peer address.
 
@@ -31,7 +31,7 @@ The key for ketama/rendezvous/jump hash is *<client-ip>*.
 duration_stats
 --------------
 
-**optional**, **type**: :ref:`histogram metrics <conf_value_histogram_metrics>`
+**optional**, **type**: :external+values:ref:`histogram metrics <conf_value_histogram_metrics>`
 
 Histogram metrics config for the tcp connect duration stats.
 

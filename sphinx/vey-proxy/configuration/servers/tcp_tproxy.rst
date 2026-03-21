@@ -40,7 +40,7 @@ The following common keys are supported:
 listen
 ------
 
-**required**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
+**required**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
 Listening configuration for this server.
 

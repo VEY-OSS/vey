@@ -32,7 +32,7 @@ This section describes the common keys, they may be used by many backends.
 name
 ----
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the name of the backend.
 
@@ -50,7 +50,7 @@ Set the type of the backend.
 discover
 --------
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the discover that this backend should use.
 
@@ -68,7 +68,7 @@ Set the data that will be registered to :ref:`discover <conf_backend_common_disc
 extra_metrics_tags
 ------------------
 
-**optional**, **type**: :ref:`static metrics tags <conf_value_static_metrics_tags>`
+**optional**, **type**: :external+values:ref:`static metrics tags <conf_value_static_metrics_tags>`
 
 Set extra metrics tags that should be added to backend stats.
 

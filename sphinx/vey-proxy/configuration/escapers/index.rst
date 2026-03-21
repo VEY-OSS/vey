@@ -49,7 +49,7 @@ This section describes common keys shared by many escaper types.
 name
 ----
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 The escaper name.
 
@@ -78,7 +78,7 @@ Makes this escaper use a logger that runs on a shared thread.
 resolver
 --------
 
-**type**: :ref:`metric node name <conf_value_metric_node_name>`
+**type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 The resolver used by this escaper.
 
@@ -90,7 +90,7 @@ If the referenced resolver does not exist in the configuration, a default
 resolve_strategy
 -----------------
 
-**optional**, **type**: :ref:`resolve strategy <conf_value_resolve_strategy>`
+**optional**, **type**: :external+values:ref:`resolve strategy <conf_value_resolve_strategy>`
 
 DNS resolution strategy.
 
@@ -99,7 +99,7 @@ DNS resolution strategy.
 tcp_sock_speed_limit
 --------------------
 
-**optional**, **type**: :ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
+**optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
 Per-TCP-socket speed limit.
 
@@ -131,7 +131,7 @@ conn_limit
 udp_sock_speed_limit
 --------------------
 
-**optional**, **type**: :ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
+**optional**, **type**: :external+values:ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
 
 Per-UDP-socket speed limit.
 
@@ -163,7 +163,7 @@ relay_limit
 bind_interface
 --------------
 
-**optional**: **type**: :ref:`interface name <conf_value_interface_name>`
+**optional**: **type**: :external+values:ref:`interface name <conf_value_interface_name>`
 
 Binds the outgoing socket to a particular interface such as ``eth0``.
 
@@ -200,7 +200,7 @@ Disables IPv6. This setting should remain compatible with
 tcp_connect
 -----------
 
-**optional**, **type**: :ref:`tcp connect <conf_value_tcp_connect>`
+**optional**, **type**: :external+values:ref:`tcp connect <conf_value_tcp_connect>`
 
 TCP connect parameters.
 
@@ -212,7 +212,7 @@ TCP connect parameters.
 happy_eyeballs
 --------------
 
-**optional**, **type**: :ref:`happy eyeballs <conf_value_happy_eyeballs>`
+**optional**, **type**: :external+values:ref:`happy eyeballs <conf_value_happy_eyeballs>`
 
 Happy Eyeballs configuration.
 
@@ -223,7 +223,7 @@ Happy Eyeballs configuration.
 tcp_misc_opts
 -------------
 
-**optional**, **type**: :ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
+**optional**, **type**: :external+values:ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
 
 Miscellaneous TCP socket options.
 
@@ -234,7 +234,7 @@ Miscellaneous TCP socket options.
 udp_misc_opts
 -------------
 
-**optional**, **type**: :ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
+**optional**, **type**: :external+values:ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
 
 Miscellaneous UDP socket options.
 
@@ -271,7 +271,7 @@ set to the package name (``vey-proxy`` unless forked).
 peer_negotiation_timeout
 ------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the negotiation timeout for next proxy peers.
 
@@ -282,7 +282,7 @@ Set the negotiation timeout for next proxy peers.
 extra_metrics_tags
 ------------------
 
-**optional**, **type**: :ref:`static metrics tags <conf_value_static_metrics_tags>`
+**optional**, **type**: :external+values:ref:`static metrics tags <conf_value_static_metrics_tags>`
 
 Set extra metrics tags that should be added to escaper stats and user stats already with escaper tags added.
 

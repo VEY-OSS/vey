@@ -46,7 +46,7 @@ configured user group.
 listen
 ------
 
-**optional**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
+**optional**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
 Listening configuration for this server.
 
@@ -79,7 +79,7 @@ Allows the egress context to be populated from username parameters.
 negotiation_timeout
 -------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Maximum time allowed for SOCKS negotiation before processing the actual SOCKS
 command.
@@ -89,7 +89,7 @@ command.
 udp_client_initial_timeout
 --------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Maximum time to wait for the first UDP packet after the UDP port information is
 returned to the client.
@@ -99,7 +99,7 @@ returned to the client.
 udp_bind_ipv4
 -------------
 
-**optional**, **type**: :ref:`list <conf_value_list>` of :ref:`ipv4 addr str <conf_value_ipv4_addr_str>`
+**optional**, **type**: :external+values:ref:`list <conf_value_list>` of :external+values:ref:`ipv4 addr str <conf_value_ipv4_addr_str>`
 
 IPv4 addresses used when binding the local UDP socket exposed to the SOCKS
 client.
@@ -113,7 +113,7 @@ If set, the tcp connect can be in ipv6 address family.
 udp_bind_ipv6
 -------------
 
-**optional**, **type**: :ref:`list <conf_value_list>` of :ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
+**optional**, **type**: :external+values:ref:`list <conf_value_list>` of :external+values:ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
 
 IPv6 addresses used when binding the local UDP socket exposed to the SOCKS
 client.
@@ -127,7 +127,7 @@ If set, the tcp connect can be in ipv4 address family.
 udp_bind_port_range
 -------------------
 
-**optional**, **type**: :ref:`port range <conf_value_port_range>`
+**optional**, **type**: :external+values:ref:`port range <conf_value_port_range>`
 
 UDP port range used when binding the local UDP socket exposed to the SOCKS
 client.
@@ -136,7 +136,7 @@ If not set, the port is chosen by the operating system.
 udp_socket_buffer
 -----------------
 
-**optional**, **type**: :ref:`socket buffer config <conf_value_socket_buffer_config>`
+**optional**, **type**: :external+values:ref:`socket buffer config <conf_value_socket_buffer_config>`
 
 Socket-buffer configuration for the UDP socket.
 

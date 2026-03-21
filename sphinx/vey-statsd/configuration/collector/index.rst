@@ -32,7 +32,7 @@ This section describes the common keys, they may be used by many collectors.
 name
 ----
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the name of the collector.
 
@@ -50,7 +50,7 @@ Set the type of the collector.
 next
 ----
 
-**type**: :ref:`metric node name <conf_value_metric_node_name>`
+**type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the next collector to use.
 
@@ -61,7 +61,7 @@ If the specified collector doesn't exist in configure, a default Discard collect
 exporter
 --------
 
-**type**: :ref:`metric node name <conf_value_metric_node_name>` | seq
+**type**: :external+values:ref:`metric node name <conf_value_metric_node_name>` | seq
 
 Set the exporter(s) to use.
 

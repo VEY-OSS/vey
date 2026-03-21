@@ -33,7 +33,7 @@ This section describes the common keys, they may be used by many exporters.
 name
 ----
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the name of the exporter.
 
@@ -51,7 +51,7 @@ Set the type of the exporter.
 prefix
 ------
 
-**optional**, **type**: :ref:`metric name prefix <conf_value_metric_name_prefix>`
+**optional**, **type**: :external+values:ref:`metric name prefix <conf_value_metric_name_prefix>`
 
 Set the prefix to add to all metric names.
 
@@ -60,7 +60,7 @@ Set the prefix to add to all metric names.
 global_tags
 -----------
 
-**optional**, **type**: :ref:`static metrics tags <conf_value_static_metrics_tags>`
+**optional**, **type**: :external+values:ref:`static metrics tags <conf_value_static_metrics_tags>`
 
 Set the tags to add to all metrics.
 
@@ -77,7 +77,7 @@ Stream Export Runtime
 host
 ^^^^
 
-**required**, **type**: :ref:`host <conf_value_host>`
+**required**, **type**: :external+values:ref:`host <conf_value_host>`
 
 Set the peer host name.
 
@@ -93,7 +93,7 @@ Set the port of the peer server.
 resolve_retry_wait
 ^^^^^^^^^^^^^^^^^^
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set how many time to wait before next connect after resolve error.
 
@@ -102,7 +102,7 @@ Set how many time to wait before next connect after resolve error.
 connect_retry_wait
 ^^^^^^^^^^^^^^^^^^
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set how many time to wait before next connect after connect error.
 
@@ -116,7 +116,7 @@ HTTP Export Runtime
 host
 ^^^^
 
-**required**, **type**: :ref:`host <conf_value_host>`
+**required**, **type**: :external+values:ref:`host <conf_value_host>`
 
 Set the peer host name.
 
@@ -132,7 +132,7 @@ Set the port of the peer server.
 resolve_retry_wait
 ^^^^^^^^^^^^^^^^^^
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set how many time to wait before next connect after resolve error.
 
@@ -141,7 +141,7 @@ Set how many time to wait before next connect after resolve error.
 connect_retry_wait
 ^^^^^^^^^^^^^^^^^^
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set how many time to wait before next connect after connect error.
 

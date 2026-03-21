@@ -21,6 +21,9 @@ multiproject_projects = {
     "keyless": {
         "path": "vey-keyless",
     },
+    "values": {
+        "path": "vey-values",
+    },
 }
 
 # Common options

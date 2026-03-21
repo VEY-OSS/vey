@@ -10,7 +10,7 @@ The following keys are supported:
 directory
 ---------
 
-**required**, **type**: :ref:`directory path <conf_value_directory_path>`
+**required**, **type**: :external+values:ref:`directory path <conf_value_directory_path>`
 
 Set the path of the local directory that contained the private keys.
 

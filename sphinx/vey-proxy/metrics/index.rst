@@ -71,7 +71,7 @@ The following tags are common to all metrics:
   - mean
 
   Additional values can be configured through
-  :ref:`histogram metrics <conf_value_histogram_metrics>`.
+  :external+values:ref:`histogram metrics <conf_value_histogram_metrics>`.
   If none are configured, the following values are exported by default:
 
   - 0.50

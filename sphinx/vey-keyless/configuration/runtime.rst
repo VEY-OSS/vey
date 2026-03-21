@@ -41,7 +41,7 @@ Note that the length of thread name will be restricted at the OS level.
 thread_stack_size
 -----------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Set the stack size for worker threads. For *<int>* value, the unit is bytes.
 
@@ -66,7 +66,7 @@ This section describes the options used during graceful quit of the daemon.
 server_offline_delay
 --------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the time duration before offline all servers after received daemon quit signals.
 All listen server sockets will be closed after this duration, so it should be more than the time used to
@@ -77,7 +77,7 @@ start the new daemon process if you depends on it for graceful restart.
 task_wait_delay
 ---------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the time duration before checking alive tasks after all servers going into offline mode.
 Tasks are marked as alive only if auth success, so we should leave some time for those tasks in negotiation
@@ -88,7 +88,7 @@ state to run into their next state, which may be alive or really dead.
 task_wait_timeout
 -----------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the time duration before force quit alive tasks after we decide to wait for them to end gracefully.
 
@@ -97,7 +97,7 @@ Set the time duration before force quit alive tasks after we decide to wait for 
 task_quit_timeout
 -----------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the time duration before we shutdown the process after entering force quit status for all tasks.
 The tasks dropped after this timeout won't have any logs.

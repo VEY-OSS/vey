@@ -37,7 +37,7 @@ prohibit_timeout_protocol
 **optional**, **type**: bool
 
 We need to read the initial data to check the protocol type, and we can set the timeout value via the
-:ref:`data0_read_timeout <conf_value_dpi_protocol_inspection_data0_read_timeout>` config option in
+:external+values:ref:`data0_read_timeout <conf_value_dpi_protocol_inspection_data0_read_timeout>` config option in
 auditor :ref:`protocol inspection <conf_auditor_protocol_inspection>` config.
 
 Controls whether the protocol should be blocked when inspection times out.
@@ -49,7 +49,7 @@ Controls whether the protocol should be blocked when inspection times out.
 task_audit_ratio
 ----------------
 
-**optional**, **type**: :ref:`random ratio <conf_value_random_ratio>`
+**optional**, **type**: :external+values:ref:`random ratio <conf_value_random_ratio>`
 
 Sampling ratio for task-level auditing, such as ICAP ``REQMOD`` and
 ``RESPMOD``, on incoming user requests.

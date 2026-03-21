@@ -28,7 +28,7 @@ for ``ldap`` and ``636`` for ``ldaps``.
 tls_client
 ----------
 
-**optional**, **type**: :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
+**optional**, **type**: :external+values:ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
 TLS parameters for the local TLS client.
 If set to an empty map, the default configuration is used.
@@ -43,7 +43,7 @@ If the schema is "ldaps", a default value will be used if not set.
 tls_name
 --------
 
-**optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+**optional**, **type**: :external+values:ref:`tls name <conf_value_tls_name>`
 
 TLS server name used to verify peer certificates.
 
@@ -79,7 +79,7 @@ If not set, only static or dynamic users will be allowed.
 max_message_size
 ----------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Maximum message size accepted when parsing responses from the LDAP server.
 
@@ -88,7 +88,7 @@ Maximum message size accepted when parsing responses from the LDAP server.
 connect_timeout
 ---------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout for establishing the TCP connection to the LDAP server.
 
@@ -97,7 +97,7 @@ Timeout for establishing the TCP connection to the LDAP server.
 response_timeout
 ----------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout while reading responses from the LDAP server.
 
@@ -106,7 +106,7 @@ Timeout while reading responses from the LDAP server.
 connection_pool
 ---------------
 
-**optional**, **type**: :ref:`connection pool <conf_value_connection_pool_config>`
+**optional**, **type**: :external+values:ref:`connection pool <conf_value_connection_pool_config>`
 
 Connection-pool configuration.
 
@@ -125,7 +125,7 @@ server.
 queue_wait_timeout
 ------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout while authenticating a client request against the LDAP server.
 
@@ -143,7 +143,7 @@ Maximum number of users stored in the thread-local LRU cache.
 cache_expire_time
 -----------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Expiration time for valid passwords in the thread-local LRU cache.
 

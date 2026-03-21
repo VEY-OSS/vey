@@ -10,7 +10,7 @@ below.
 name
 ----
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 The auditor name. It can be referenced from
 :ref:`server config <conf_server_common_auditor>`.
@@ -20,7 +20,7 @@ The auditor name. It can be referenced from
 protocol_inspection
 -------------------
 
-**optional**, **type**: :ref:`protocol inspection <conf_value_dpi_protocol_inspection>`
+**optional**, **type**: :external+values:ref:`protocol inspection <conf_value_dpi_protocol_inspection>`
 
 Basic protocol-inspection configuration.
 
@@ -29,7 +29,7 @@ Basic protocol-inspection configuration.
 server_tcp_portmap
 ------------------
 
-**optional**, **type**: :ref:`server tcp portmap <conf_value_dpi_server_tcp_portmap>`
+**optional**, **type**: :external+values:ref:`server tcp portmap <conf_value_dpi_server_tcp_portmap>`
 
 Port mapping used for protocol inspection based on the server-side TCP port.
 
@@ -38,7 +38,7 @@ Port mapping used for protocol inspection based on the server-side TCP port.
 client_tcp_portmap
 ------------------
 
-**optional**, **type**: :ref:`client tcp portmap <conf_value_dpi_client_tcp_portmap>`
+**optional**, **type**: :external+values:ref:`client tcp portmap <conf_value_dpi_client_tcp_portmap>`
 
 Port mapping used for protocol inspection based on the client-side TCP port.
 
@@ -49,7 +49,7 @@ Port mapping used for protocol inspection based on the client-side TCP port.
 tls_cert_agent
 --------------
 
-**optional**, **type**: :ref:`tls cert agent <conf_value_dpi_tls_cert_agent>`
+**optional**, **type**: :external+values:ref:`tls cert agent <conf_value_dpi_tls_cert_agent>`
 
 Certificate generator used for TLS interception.
 
@@ -60,7 +60,7 @@ If this field is not set, TLS interception is disabled.
 tls_ticketer
 ------------
 
-**optional**, **type**: :ref:`tls ticketer <conf_value_tls_ticketer>`
+**optional**, **type**: :external+values:ref:`tls ticketer <conf_value_tls_ticketer>`
 
 Configures a remote rolling TLS ticketer.
 
@@ -73,7 +73,7 @@ Configures a remote rolling TLS ticketer.
 tls_interception_client
 -----------------------
 
-**optional**, **type**: :ref:`tls interception client <conf_value_dpi_tls_interception_client>`
+**optional**, **type**: :external+values:ref:`tls interception client <conf_value_dpi_tls_interception_client>`
 
 TLS client configuration used for the upstream-side handshake during TLS
 interception.
@@ -83,7 +83,7 @@ interception.
 tls_interception_server
 -----------------------
 
-**optional**, **type**: :ref:`tls interception server <conf_value_dpi_tls_interception_server>`
+**optional**, **type**: :external+values:ref:`tls interception server <conf_value_dpi_tls_interception_server>`
 
 TLS server configuration used for the client-side handshake during TLS
 interception.
@@ -93,7 +93,7 @@ interception.
 tls_stream_dump
 ---------------
 
-**optional**, **type**: :ref:`stream dump <conf_value_dpi_stream_dump>`
+**optional**, **type**: :external+values:ref:`stream dump <conf_value_dpi_stream_dump>`
 
 Configures export of intercepted inner TLS streams to a remote service.
 
@@ -115,7 +115,7 @@ Maximum number of URI characters retained in logs.
 h1_interception
 ---------------
 
-**optional**, **type**: :ref:`h1 interception <conf_value_dpi_h1_interception>`
+**optional**, **type**: :external+values:ref:`h1 interception <conf_value_dpi_h1_interception>`
 
 HTTP/1.x interception configuration.
 
@@ -124,7 +124,7 @@ HTTP/1.x interception configuration.
 h2_inspect_policy
 -----------------
 
-**optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
+**optional**, **type**: :external+values:ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
 
 Controls how HTTP/2 traffic is handled.
 
@@ -137,7 +137,7 @@ Controls how HTTP/2 traffic is handled.
 h2_interception
 ---------------
 
-**optional**, **type**: :ref:`h2 interception <conf_value_dpi_h2_interception>`
+**optional**, **type**: :external+values:ref:`h2 interception <conf_value_dpi_h2_interception>`
 
 HTTP/2 interception configuration.
 
@@ -146,7 +146,7 @@ HTTP/2 interception configuration.
 websocket_inspect_policy
 ------------------------
 
-**optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
+**optional**, **type**: :external+values:ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
 
 Controls how WebSocket traffic is handled.
 
@@ -157,7 +157,7 @@ Controls how WebSocket traffic is handled.
 smtp_inspect_policy
 -------------------
 
-**optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
+**optional**, **type**: :external+values:ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
 
 Controls how SMTP traffic is handled.
 
@@ -170,7 +170,7 @@ Controls how SMTP traffic is handled.
 smtp_interception
 -----------------
 
-**optional**, **type**: :ref:`smtp interception <conf_value_dpi_smtp_interception>`
+**optional**, **type**: :external+values:ref:`smtp interception <conf_value_dpi_smtp_interception>`
 
 SMTP interception configuration.
 
@@ -181,7 +181,7 @@ SMTP interception configuration.
 imap_inspect_policy
 -------------------
 
-**optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
+**optional**, **type**: :external+values:ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
 
 Controls how IMAP traffic is handled.
 
@@ -194,7 +194,7 @@ Controls how IMAP traffic is handled.
 imap_interception
 -----------------
 
-**optional**, **type**: :ref:`smtp interception <conf_value_dpi_imap_interception>`
+**optional**, **type**: :external+values:ref:`smtp interception <conf_value_dpi_imap_interception>`
 
 IMAP interception configuration.
 
@@ -205,7 +205,7 @@ IMAP interception configuration.
 icap_reqmod_service
 -------------------
 
-**optional**, **type**: :ref:`icap service config <conf_value_audit_icap_service_config>`
+**optional**, **type**: :external+values:ref:`icap service config <conf_value_audit_icap_service_config>`
 
 ICAP ``REQMOD`` service configuration.
 
@@ -216,7 +216,7 @@ ICAP ``REQMOD`` service configuration.
 icap_respmod_service
 --------------------
 
-**optional**, **type**: :ref:`icap service config <conf_value_audit_icap_service_config>`
+**optional**, **type**: :external+values:ref:`icap service config <conf_value_audit_icap_service_config>`
 
 ICAP ``RESPMOD`` service configuration.
 
@@ -229,7 +229,7 @@ ICAP ``RESPMOD`` service configuration.
 stream_detour_service
 ---------------------
 
-**optional**, **type**: :ref:`stream detour service config <conf_value_audit_stream_detour_service_config>`
+**optional**, **type**: :external+values:ref:`stream detour service config <conf_value_audit_stream_detour_service_config>`
 
 Configuration for the :ref:`Stream Detour <protocol_helper_stream_detour>`
 service.
@@ -249,7 +249,7 @@ bypassed instead.
 task_audit_ratio
 ----------------
 
-**optional**, **type**: :ref:`random ratio <conf_value_random_ratio>`
+**optional**, **type**: :external+values:ref:`random ratio <conf_value_random_ratio>`
 
 Sampling ratio for task-level auditing, such as ICAP ``REQMOD`` and
 ``RESPMOD``, on incoming requests.

@@ -16,7 +16,7 @@ The following common keys are supported:
 backend
 -------
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the backend name.
 

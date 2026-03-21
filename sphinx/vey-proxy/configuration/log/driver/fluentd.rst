@@ -17,7 +17,7 @@ The keys are described below.
 address
 -------
 
-**optional**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
+**optional**, **type**: :external+values:ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
 TCP address of the Fluentd server.
 
@@ -26,7 +26,7 @@ TCP address of the Fluentd server.
 bind_ip
 -------
 
-**optional**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
+**optional**, **type**: :external+values:ref:`ip addr str <conf_value_ip_addr_str>`
 
 Local IP address to bind before connecting.
 
@@ -77,7 +77,7 @@ Custom hostname to report to the Fluentd server.
 tcp_keepalive
 -------------
 
-**optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
+**optional**, **type**: :external+values:ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
 TCP keepalive configuration for the connection to the Fluentd server.
 
@@ -86,7 +86,7 @@ TCP keepalive configuration for the connection to the Fluentd server.
 tls_client
 ----------
 
-**optional**, **type**: :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
+**optional**, **type**: :external+values:ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
 Enables TLS and configures it.
 
@@ -98,7 +98,7 @@ Enables TLS and configures it.
 tls_name
 --------
 
-**optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+**optional**, **type**: :external+values:ref:`tls name <conf_value_tls_name>`
 
 TLS server name used to verify the peer certificate.
 
@@ -109,7 +109,7 @@ TLS server name used to verify the peer certificate.
 connect_timeout
 ---------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout for establishing the Fluentd connection, including TCP connect, TLS
 handshake, and Fluentd handshake.
@@ -119,7 +119,7 @@ handshake, and Fluentd handshake.
 connect_delay
 -------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Delay before retrying after a connection failure. Messages received during this
 delay are dropped.
@@ -129,7 +129,7 @@ delay are dropped.
 write_timeout
 -------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Write timeout for each message. Timed-out messages are dropped.
 
@@ -138,7 +138,7 @@ default: 1s
 flush_interval
 --------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Flush interval for the Fluentd connection.
 

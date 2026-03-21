@@ -12,7 +12,7 @@ site-level metrics are emitted, and any other site-specific overrides.
 id
 --
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Each site must have an ID. If site metrics are enabled, this ID is used in the
 metric name.
@@ -20,7 +20,7 @@ metric name.
 exact_match
 -----------
 
-**optional**, **type**: :ref:`host <conf_value_host>`
+**optional**, **type**: :external+values:ref:`host <conf_value_host>`
 
 Exact domain or target IP address to match in the user request.
 
@@ -29,7 +29,7 @@ Exact domain or target IP address to match in the user request.
 child_match
 -----------
 
-**optional**, **type**: :ref:`domain <conf_value_domain>`
+**optional**, **type**: :external+values:ref:`domain <conf_value_domain>`
 
 Parent domain to match. Any child domain under it also matches.
 
@@ -38,7 +38,7 @@ Parent domain to match. Any child domain under it also matches.
 subnet_match
 ------------
 
-**optional**, **type**: :ref:`ip network str <conf_value_ip_network_str>`
+**optional**, **type**: :external+values:ref:`ip network str <conf_value_ip_network_str>`
 
 Network to match when the user request target is an IP address.
 
@@ -58,7 +58,7 @@ See :ref:`user site metrics <metrics_user_site>` for the definition of metrics.
 duration_stats
 --------------
 
-**optional**, **type**: :ref:`histogram metrics <conf_value_histogram_metrics>`
+**optional**, **type**: :external+values:ref:`histogram metrics <conf_value_histogram_metrics>`
 
 Histogram-metric configuration for site-level duration statistics.
 
@@ -69,7 +69,7 @@ Histogram-metric configuration for site-level duration statistics.
 resolve_strategy
 ----------------
 
-**optional**, **type**: :ref:`resolve strategy <conf_value_resolve_strategy>`
+**optional**, **type**: :external+values:ref:`resolve strategy <conf_value_resolve_strategy>`
 
 Custom resolve strategy at the user-site level. It overrides the user-level
 strategy, but must still remain within the limits allowed by the escaper.
@@ -82,7 +82,7 @@ Not all escapers support this, see the documentation for each escaper for more i
 tls_client
 ----------
 
-**optional**, **type**: :ref:`tls client <conf_value_openssl_tls_client_config>`
+**optional**, **type**: :external+values:ref:`tls client <conf_value_openssl_tls_client_config>`
 
 TLS client configuration used for the upstream-side handshake during TLS
 interception.
@@ -101,7 +101,7 @@ This will overwrite:
 http_rsp_header_recv_timeout
 ----------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Custom HTTP response-header receive timeout for this site.
 

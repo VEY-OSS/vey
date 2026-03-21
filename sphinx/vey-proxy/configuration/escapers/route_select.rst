@@ -23,7 +23,7 @@ No common keys are supported.
 next_nodes
 ----------
 
-**required**, **type**: :ref:`weighted metric node name <conf_value_weighted_metric_node_name>` | seq
+**required**, **type**: :external+values:ref:`weighted metric node name <conf_value_weighted_metric_node_name>` | seq
 
 Set the next escaper or escapers that may be selected.
 
@@ -32,7 +32,7 @@ Set the next escaper or escapers that may be selected.
 next_pick_policy
 ----------------
 
-**optional**, **type**: :ref:`selective pick policy <conf_value_selective_pick_policy>`
+**optional**, **type**: :external+values:ref:`selective pick policy <conf_value_selective_pick_policy>`
 
 Set the policy used to select the next escaper.
 

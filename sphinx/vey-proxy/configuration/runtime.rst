@@ -43,7 +43,7 @@ Thread-name length may still be limited by the operating system.
 thread_stack_size
 -----------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Sets the stack size for worker threads. For plain integer values, the unit is
 bytes.
@@ -69,7 +69,7 @@ This section describes the timing controls used during graceful daemon shutdown.
 server_offline_delay
 --------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 How long to wait after receiving a daemon-quit signal before taking all servers
 offline.
@@ -83,7 +83,7 @@ value should be longer than the time required to start the replacement process.
 task_wait_delay
 ---------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 How long to wait before checking for live tasks after all servers have entered
 offline mode.
@@ -95,7 +95,7 @@ needed to let requests in the negotiation phase either advance or fail.
 task_wait_timeout
 -----------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 How long to wait before forcefully terminating live tasks after graceful wait
 has begun.
@@ -105,7 +105,7 @@ has begun.
 task_quit_timeout
 -----------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 How long to wait before shutting down the process after entering force-quit mode
 for all tasks.

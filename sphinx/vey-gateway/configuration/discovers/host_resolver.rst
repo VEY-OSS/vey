@@ -15,4 +15,4 @@ There are no extra config keys for this kind of discover.
 Register Data
 -------------
 
-The data should be a :ref:`upstream str <conf_value_upstream_str>` value, and the *port* field is required.
+The data should be a :external+values:ref:`upstream str <conf_value_upstream_str>` value, and the *port* field is required.

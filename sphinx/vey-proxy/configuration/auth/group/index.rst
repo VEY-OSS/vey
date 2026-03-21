@@ -39,7 +39,7 @@ Common Keys
 name
 ----
 
-**required**,  **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**,  **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 The name of the user group.
 
@@ -73,7 +73,7 @@ See :ref:`user <configuration_auth_user>` for detailed structure of user.
 source
 ------
 
-**optional**, **type**: :ref:`url str <conf_value_url_str>` | map
+**optional**, **type**: :external+values:ref:`url str <conf_value_url_str>` | map
 
 Source used to fetch dynamic users.
 
@@ -92,7 +92,7 @@ loaded users are kept.
 cache
 -----
 
-**optional**, **type**: :ref:`file path <conf_value_file_path>`
+**optional**, **type**: :external+values:ref:`file path <conf_value_file_path>`
 
 Local file used to cache remote results. It is read during initial user-group
 loading.
@@ -110,7 +110,7 @@ The file will be created if not existed.
 refresh_interval
 ----------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Interval used for user-expiration checks and for refreshing dynamic users.
 

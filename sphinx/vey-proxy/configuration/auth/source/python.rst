@@ -17,7 +17,7 @@ When configured as a map, the following keys are supported:
 
 * script
 
-  **required**, **type**: :ref:`file path <conf_value_file_path>`
+  **required**, **type**: :external+values:ref:`file path <conf_value_file_path>`
 
   Path to the Python script.
 
@@ -39,7 +39,7 @@ When configured as a map, the following keys are supported:
 
 * fetch_timeout
 
-  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+  **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
   Timeout for running the fetch function.
 
@@ -51,7 +51,7 @@ When configured as a map, the following keys are supported:
 
 * report_timeout
 
-  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+  **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
   Timeout for running the report functions.
 

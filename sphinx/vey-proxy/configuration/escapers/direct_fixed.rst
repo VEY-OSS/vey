@@ -44,11 +44,11 @@ The following common keys are supported:
 bind_ip
 -------
 
-**optional**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>` | seq
+**optional**, **type**: :external+values:ref:`ip addr str <conf_value_ip_addr_str>` | seq
 
 Set the bind ip address(es) for sockets.
 
-For *seq* value, each of its element must be :ref:`ip addr str <conf_value_ip_addr_str>`.
+For *seq* value, each of its element must be :external+values:ref:`ip addr str <conf_value_ip_addr_str>`.
 Only random selection is supported. Use a *route* escaper if you need more control.
 
 **default**: not set
@@ -80,7 +80,7 @@ Set to true if you also want to bind to the same foreign port when `bind_foreign
 egress_network_filter
 ---------------------
 
-**optional**, **type**: :ref:`egress network acl rule <conf_value_egress_network_acl_rule>`
+**optional**, **type**: :external+values:ref:`egress network acl rule <conf_value_egress_network_acl_rule>`
 
 Set the network filter for the resolved remote IP address.
 
@@ -89,7 +89,7 @@ Set the network filter for the resolved remote IP address.
 tcp_keepalive
 -------------
 
-**optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
+**optional**, **type**: :external+values:ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
 Configure TCP keepalive.
 
@@ -100,7 +100,7 @@ User-level TCP keepalive settings are also applied.
 resolve_redirection
 -------------------
 
-**optional**, **type**: :ref:`resolve redirection <conf_value_resolve_redirection>`
+**optional**, **type**: :external+values:ref:`resolve redirection <conf_value_resolve_redirection>`
 
 Set DNS redirection rules at the escaper level.
 
@@ -120,7 +120,7 @@ Enable path selection.
 use_proxy_protocol
 ------------------
 
-**optional**, **type**: :ref:`proxy protocol version <conf_value_proxy_protocol_version>`
+**optional**, **type**: :external+values:ref:`proxy protocol version <conf_value_proxy_protocol_version>`
 
 Set the PROXY protocol version to use for outgoing TCP connections, except FTP data connections.
 

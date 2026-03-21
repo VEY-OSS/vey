@@ -10,7 +10,7 @@ limits apply, and any user-specific behavior overrides.
 name
 ----
 
-**required**, **type**: :ref:`username <conf_value_username>`
+**required**, **type**: :external+values:ref:`username <conf_value_username>`
 
 Username.
 
@@ -61,7 +61,7 @@ The currently supported crypt(5) methods are: md5, sha256, sha512.
 match_by_facts
 --------------
 
-**optional**, **type**: :ref:`facts_match_value <conf_value_facts_match_value>` | seq
+**optional**, **type**: :external+values:ref:`facts_match_value <conf_value_facts_match_value>` | seq
 
 Authentication facts that match this user.
 
@@ -76,7 +76,7 @@ This config option will only be used by the following user groups:
 expire
 ------
 
-**optional**, **type**: :ref:`rfc3339 datetime str <conf_value_rfc3339_datetime_str>`
+**optional**, **type**: :external+values:ref:`rfc3339 datetime str <conf_value_rfc3339_datetime_str>`
 
 Time at which the user is considered expired. The check interval is controlled
 by
@@ -87,7 +87,7 @@ by
 block_and_delay
 ---------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Blocks the user and delays the error response by the configured duration.
 
@@ -98,7 +98,7 @@ The response code for blocked user will be forbidden instead of auth failed.
 ingress_network_filter
 ----------------------
 
-**optional**, **type**: :ref:`ingress network acl rule <conf_value_ingress_network_acl_rule>`
+**optional**, **type**: :external+values:ref:`ingress network acl rule <conf_value_ingress_network_acl_rule>`
 
 Ingress network filter for clients.
 
@@ -116,7 +116,7 @@ incremented.
 proxy_request_filter
 --------------------
 
-**optional**, **type**: :ref:`proxy request acl rule <conf_value_proxy_request_acl_rule>`
+**optional**, **type**: :external+values:ref:`proxy request acl rule <conf_value_proxy_request_acl_rule>`
 
 Proxy request types this user is allowed to use.
 
@@ -125,7 +125,7 @@ Proxy request types this user is allowed to use.
 dst_host_filter_set
 -------------------
 
-**optional**, **type**: :ref:`dst host acl rule set <conf_value_dst_host_acl_rule_set>`
+**optional**, **type**: :external+values:ref:`dst host acl rule set <conf_value_dst_host_acl_rule_set>`
 
 Destination-host filter for each request. It does not apply to UDP ASSOCIATE
 tasks.
@@ -135,7 +135,7 @@ tasks.
 dst_port_filter
 ---------------
 
-**optional**, **type**: :ref:`exact port acl rule <conf_value_exact_port_acl_rule>`
+**optional**, **type**: :external+values:ref:`exact port acl rule <conf_value_exact_port_acl_rule>`
 
 Destination-port filter for each request. It does not apply to UDP ASSOCIATE
 tasks.
@@ -145,7 +145,7 @@ tasks.
 http_user_agent_filter
 ----------------------
 
-**optional**, **type**: :ref:`user agent acl rule <conf_value_user_agent_acl_rule>`
+**optional**, **type**: :external+values:ref:`user agent acl rule <conf_value_user_agent_acl_rule>`
 
 Filter for the HTTP ``User-Agent`` header.
 
@@ -156,7 +156,7 @@ Filter for the HTTP ``User-Agent`` header.
 tcp_connect
 -----------
 
-**optional**, **type**: :ref:`tcp connect <conf_value_tcp_connect>`
+**optional**, **type**: :external+values:ref:`tcp connect <conf_value_tcp_connect>`
 
 User-level TCP connect parameters. These apply to *direct* escapers and are
 further constrained by escaper-level settings.
@@ -166,7 +166,7 @@ further constrained by escaper-level settings.
 tcp_sock_speed_limit
 --------------------
 
-**optional**, **type**: :ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
+**optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
 Per-TCP-socket speed limit.
 
@@ -189,7 +189,7 @@ tcp_conn_limit
 udp_sock_speed_limit
 ---------------------
 
-**optional**, **type**: :ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
+**optional**, **type**: :external+values:ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
 
 Per-UDP-socket speed limit.
 
@@ -212,7 +212,7 @@ udp_relay_limit
 tcp_all_upload_speed_limit
 --------------------------
 
-**optional**, **type**: :ref:`global stream speed limit <conf_value_global_stream_speed_limit>`
+**optional**, **type**: :external+values:ref:`global stream speed limit <conf_value_global_stream_speed_limit>`
 
 Process-level upload speed limit for all client-side TCP connections.
 
@@ -225,7 +225,7 @@ This will only count in the data that will be forwarded.
 tcp_all_download_speed_limit
 ----------------------------
 
-**optional**, **type**: :ref:`global stream speed limit <conf_value_global_stream_speed_limit>`
+**optional**, **type**: :external+values:ref:`global stream speed limit <conf_value_global_stream_speed_limit>`
 
 Process-level download speed limit for all client-side TCP connections.
 
@@ -238,7 +238,7 @@ This will only count in the data received from upstream.
 udp_all_upload_speed_limit
 --------------------------
 
-**optional**, **type**: :ref:`global datagram speed limit <conf_value_global_datagram_speed_limit>`
+**optional**, **type**: :external+values:ref:`global datagram speed limit <conf_value_global_datagram_speed_limit>`
 
 Process-level upload speed limit for all client-side UDP connections.
 
@@ -251,7 +251,7 @@ This will only count in the data that will be forwarded.
 udp_all_download_speed_limit
 ----------------------------
 
-**optional**, **type**: :ref:`global datagram speed limit <conf_value_global_datagram_speed_limit>`
+**optional**, **type**: :external+values:ref:`global datagram speed limit <conf_value_global_datagram_speed_limit>`
 
 Process-level download speed limit for all client-side UDP connections.
 
@@ -264,7 +264,7 @@ This will only count in the data received from upstream.
 tcp_remote_keepalive
 --------------------
 
-**optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
+**optional**, **type**: :external+values:ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
 TCP keepalive configuration for the remote TCP socket.
 
@@ -275,7 +275,7 @@ The tcp keepalive set in user config will only be taken into account in Direct t
 tcp_remote_misc_opts
 --------------------
 
-**optional**, **type**: :ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
+**optional**, **type**: :external+values:ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
 
 Miscellaneous TCP socket options for the remote TCP socket.
 
@@ -287,7 +287,7 @@ Other fields will be limited to the smaller ones.
 udp_remote_misc_opts
 --------------------
 
-**optional**, **type**: :ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
+**optional**, **type**: :external+values:ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
 
 Miscellaneous UDP socket options for the remote UDP socket.
 
@@ -299,7 +299,7 @@ Other fields will be limited to the smaller ones.
 tcp_client_misc_opts
 --------------------
 
-**optional**, **type**: :ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
+**optional**, **type**: :external+values:ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
 
 Miscellaneous TCP socket options for the client TCP socket before the task
 enters the connection stage.
@@ -312,7 +312,7 @@ Other fields will be limited to the smaller ones.
 udp_client_misc_opts
 --------------------
 
-**optional**, **type**: :ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
+**optional**, **type**: :external+values:ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
 
 Miscellaneous UDP socket options for the client UDP socket.
 
@@ -324,7 +324,7 @@ Other fields will be limited to the smaller ones.
 http_upstream_keepalive
 -----------------------
 
-**optional**, **type**: :ref:`http keepalive <conf_value_http_keepalive>`
+**optional**, **type**: :external+values:ref:`http keepalive <conf_value_http_keepalive>`
 
 HTTP keepalive configuration at the user level.
 
@@ -335,7 +335,7 @@ HTTP keepalive configuration at the user level.
 http_rsp_header_recv_timeout
 ----------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Custom HTTP response-header receive timeout for this user.
 
@@ -363,7 +363,7 @@ tcp_conn_rate_limit
 connection_rate_limit
 ---------------------
 
-**optional**, **type**: :ref:`rate limit quota <conf_value_rate_limit_quota>`
+**optional**, **type**: :external+values:ref:`rate limit quota <conf_value_rate_limit_quota>`
 
 Rate limit for new client-side connections.
 
@@ -376,7 +376,7 @@ The same connection used for different users will be counted for each of them.
 request_rate_limit
 ------------------
 
-**optional**, **type**: :ref:`rate limit quota <conf_value_rate_limit_quota>`
+**optional**, **type**: :external+values:ref:`rate limit quota <conf_value_rate_limit_quota>`
 
 Rate limit for requests.
 
@@ -396,7 +396,7 @@ Even if not set, the max alive requests should not be more than usize::MAX.
 resolve_strategy
 ----------------
 
-**optional**, **type**: :ref:`resolve strategy <conf_value_resolve_strategy>`
+**optional**, **type**: :external+values:ref:`resolve strategy <conf_value_resolve_strategy>`
 
 Custom resolve strategy for this user, constrained by the strategy allowed by
 the escaper.
@@ -407,7 +407,7 @@ Not all escapers support this, see the documentation for each escaper for more i
 resolve_redirection
 -------------------
 
-**optional**, **type**: :ref:`resolve redirection <conf_value_resolve_redirection>`
+**optional**, **type**: :external+values:ref:`resolve redirection <conf_value_resolve_redirection>`
 
 DNS redirection rules for this user.
 
@@ -416,7 +416,7 @@ DNS redirection rules for this user.
 log_rate_limit
 --------------
 
-**optional**, **type**: :ref:`rate limit quota <conf_value_rate_limit_quota>`
+**optional**, **type**: :external+values:ref:`rate limit quota <conf_value_rate_limit_quota>`
 
 Rate limit for log requests.
 

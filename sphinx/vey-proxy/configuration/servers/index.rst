@@ -42,7 +42,7 @@ This section describes common keys shared by many server types.
 name
 ----
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 The server name.
 
@@ -60,7 +60,7 @@ The server type.
 escaper
 -------
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 The escaper used by this server.
 
@@ -72,7 +72,7 @@ If the referenced escaper does not exist in the configuration, a default
 auditor
 -------
 
-**optional**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**optional**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 The auditor used by this server.
 
@@ -84,7 +84,7 @@ auditor is used.
 user_group
 ----------
 
-**optional**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**optional**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 The user group used for authentication and authorization.
 
@@ -123,7 +123,7 @@ The number of listener instances then matches the worker count.
 tls_server
 ----------
 
-**optional**, **type**: :ref:`rustls server config <conf_value_rustls_server_config>`
+**optional**, **type**: :external+values:ref:`rustls server config <conf_value_rustls_server_config>`
 
 Enables TLS on the listening socket and configures the TLS parameters.
 
@@ -134,7 +134,7 @@ Enables TLS on the listening socket and configures the TLS parameters.
 tls_ticketer
 ------------
 
-**optional**, **type**: :ref:`tls ticketer <conf_value_tls_ticketer>`
+**optional**, **type**: :external+values:ref:`tls ticketer <conf_value_tls_ticketer>`
 
 Configures a remote rolling TLS ticketer.
 
@@ -147,7 +147,7 @@ Configures a remote rolling TLS ticketer.
 ingress_network_filter
 ----------------------
 
-**optional**, **type**: :ref:`ingress network acl rule <conf_value_ingress_network_acl_rule>`
+**optional**, **type**: :external+values:ref:`ingress network acl rule <conf_value_ingress_network_acl_rule>`
 
 Ingress network filter for client addresses.
 
@@ -163,7 +163,7 @@ Protocol message.
 dst_host_filter_set
 -------------------
 
-**optional**, **type**: :ref:`dst host acl rule set <conf_value_dst_host_acl_rule_set>`
+**optional**, **type**: :external+values:ref:`dst host acl rule set <conf_value_dst_host_acl_rule_set>`
 
 Destination-host filter for each request.
 
@@ -176,7 +176,7 @@ Destination-host filter for each request.
 dst_port_filter
 ---------------
 
-**optional**, **type**: :ref:`exact port acl rule <conf_value_exact_port_acl_rule>`
+**optional**, **type**: :external+values:ref:`exact port acl rule <conf_value_exact_port_acl_rule>`
 
 Destination-port filter for each request.
 
@@ -187,7 +187,7 @@ Destination-port filter for each request.
 tcp_sock_speed_limit
 --------------------
 
-**optional**, **type**: :ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
+**optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
 Per-TCP-socket speed limit.
 
@@ -219,7 +219,7 @@ conn_limit
 udp_sock_speed_limit
 --------------------
 
-**optional**, **type**: :ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
+**optional**, **type**: :external+values:ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
 
 Per-UDP-socket speed limit.
 
@@ -251,7 +251,7 @@ relay_limit
 tcp_copy_buffer_size
 --------------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Buffer size used for internal TCP copy operations.
 
@@ -262,7 +262,7 @@ Buffer size used for internal TCP copy operations.
 tcp_copy_yield_size
 -------------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Set the yield out size for the internal copy task.
 
@@ -273,7 +273,7 @@ Set the yield out size for the internal copy task.
 udp_relay_packet_size
 ---------------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Set the udp packet size for udp relay.
 
@@ -284,7 +284,7 @@ Set the udp packet size for udp relay.
 udp_relay_yield_size
 --------------------
 
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
 
 Set the yield out size for the internal relay task.
 
@@ -308,7 +308,7 @@ Set the batch recvmsg / sendmsg size.
 tcp_misc_opts
 -------------
 
-**optional**, **type**: :ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
+**optional**, **type**: :external+values:ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
 
 Set misc tcp socket options on accepted tcp sockets.
 
@@ -319,7 +319,7 @@ Set misc tcp socket options on accepted tcp sockets.
 udp_misc_opts
 -------------
 
-**optional**, **type**: :ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
+**optional**, **type**: :external+values:ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
 
 Set misc udp socket options on created udp sockets.
 
@@ -338,7 +338,7 @@ task_idle_check_duration
 task_idle_check_interval
 ------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Set the idle check duration for task. The value will be up bound to seconds.
 
@@ -392,7 +392,7 @@ Log when upstream connected.
 task_log_flush_interval
 -----------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Enable periodic task log and set the flush interval.
 
@@ -410,7 +410,7 @@ Enable periodic task log and set the flush interval.
 extra_metrics_tags
 ------------------
 
-**optional**, **type**: :ref:`static metrics tags <conf_value_static_metrics_tags>`
+**optional**, **type**: :external+values:ref:`static metrics tags <conf_value_static_metrics_tags>`
 
 Set extra metrics tags that should be added to server stats and user stats already with server tags added.
 

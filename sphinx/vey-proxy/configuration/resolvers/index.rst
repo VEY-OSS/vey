@@ -35,7 +35,7 @@ Most of these settings apply to the standalone resolver runtime.
 name
 ----
 
-**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 The resolver name.
 
@@ -53,7 +53,7 @@ The resolver type.
 graceful_stop_wait
 ------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 How long to wait before actually shutting down the resolver thread. This applies
 to the cache runtime.
@@ -68,7 +68,7 @@ all of them to finish, ``vey-proxy`` waits for this fixed interval.
 protective_query_timeout
 ------------------------
 
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
 Timeout for queries sent to the resolver driver. This applies to the cache
 runtime.
