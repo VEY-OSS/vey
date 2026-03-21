@@ -4,7 +4,7 @@
 dummy_deny
 **********
 
-This is the dummy escaper designed to deny all requests.
+This dummy escaper denies all requests.
 
 There is no path selection support for this escaper.
 

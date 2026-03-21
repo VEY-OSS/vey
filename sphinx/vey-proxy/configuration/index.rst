@@ -4,37 +4,38 @@
 Configuration
 #############
 
-YAML is used as the configuration file format. The main conf file,
-which should be specified with the command line option *-c*,
-is make up of the following entries:
+``vey-proxy`` uses YAML for configuration.
+
+The main configuration file is specified with the ``-c`` command-line option.
+Its top-level keys are listed below:
 
 +-----------+----------+-------+------------------------------------------------+
 |Key        |Type      |Reload |Description                                     |
 +===========+==========+=======+================================================+
-|runtime    |Map       |no     |Runtime config, see :doc:`runtime`              |
+|runtime    |Map       |no     |Runtime configuration, see :doc:`runtime`       |
 +-----------+----------+-------+------------------------------------------------+
-|worker     |Map [#w]_ |no     |An unaided runtime will be started if present.  |
+|worker     |Map [#w]_ |no     |Starts unaided worker runtimes if present       |
 +-----------+----------+-------+------------------------------------------------+
-|log        |Map       |no     |Log config, see :doc:`log/index`                |
+|log        |Map       |no     |Logging configuration, see :doc:`log/index`     |
 +-----------+----------+-------+------------------------------------------------+
-|stat       |Map       |no     |Stat config, see :doc:`stat`                    |
+|stat       |Map       |no     |Metrics configuration, see :doc:`stat`          |
 +-----------+----------+-------+------------------------------------------------+
-|controller |Seq       |no     |Controller config                               |
+|controller |Seq       |no     |Controller configuration                        |
 +-----------+----------+-------+------------------------------------------------+
-|resolver   |Mix [#m]_ |yes    |Resolver config, see :doc:`resolvers/index`     |
+|resolver   |Mix [#m]_ |yes    |Resolver configuration, see :doc:`resolvers/index` |
 +-----------+----------+-------+------------------------------------------------+
-|escaper    |Mix [#m]_ |yes    |Escaper config, see :doc:`escapers/index`       |
+|escaper    |Mix [#m]_ |yes    |Escaper configuration, see :doc:`escapers/index` |
 +-----------+----------+-------+------------------------------------------------+
-|user_group |Mix [#m]_ |yes    |User group config, see :doc:`auth/index`        |
+|user_group |Mix [#m]_ |yes    |User-group configuration, see :doc:`auth/index` |
 +-----------+----------+-------+------------------------------------------------+
-|auditor    |Mix [#m]_ |yes    |Auditor config, see :doc:`auditors/index`       |
+|auditor    |Mix [#m]_ |yes    |Auditor configuration, see :doc:`auditors/index` |
 +-----------+----------+-------+------------------------------------------------+
-|server     |Mix [#m]_ |yes    |Server config, see :doc:`servers/index`         |
+|server     |Mix [#m]_ |yes    |Server configuration, see :doc:`servers/index`  |
 +-----------+----------+-------+------------------------------------------------+
 
 .. rubric:: Footnotes
 
-.. [#m] See :ref:`hybrid map <conf_value_hybrid_map>` for the real format.
+.. [#m] See :ref:`hybrid map <conf_value_hybrid_map>` for the actual format.
 .. [#w] See :ref:`unaided runtime config <conf_value_unaided_runtime_config>`.
 
 .. toctree::

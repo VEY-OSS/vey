@@ -3,28 +3,28 @@
 divert_tcp
 ==========
 
-This escaper will redirect all streams to a next proxy server by sending a PROXY Protocol V2 message first.
+This escaper redirects all streams to the next proxy server and sends a PROXY Protocol v2 message first.
 
 The PPv2 Type-Values are:
 
 * 0xE0 | Upstream Address
 
-  The target upstream address, encoded in UTF-8 without trailing '\0'.
-  This will always be set. And the next proxy server should connect to this upstream address.
+  Target upstream address, encoded in UTF-8 without a trailing ``\\0``.
+  This field is always present. The next proxy server should connect to this upstream address.
 
 * 0xE1 | TLS Verify Name
 
-  The TLS verify name, encoded in UTF-8 without trailing '\0'.
-  This will be set only if the TLS handshake is started on our side.
+  TLS verification name, encoded in UTF-8 without a trailing ``\\0``.
+  This is set only if the TLS handshake starts on our side.
 
 * 0xE2 | Username
 
-  The username of the client, encoded in UTF-8 without trailing '\0'.
-  This will be set only if client auth is enabled on our side.
+  Client username, encoded in UTF-8 without a trailing ``\\0``.
+  This is set only if client authentication is enabled on our side.
 
 * 0xE3 | Task ID
 
-  The task id in UUID binary format. This will always be set.
+  Task ID in UUID binary format. This field is always present.
 
 The following interfaces are supported:
 
@@ -52,16 +52,16 @@ proxy_addr
 
 **required**, **type**: :ref:`upstream str <conf_value_upstream_str>` | seq
 
-Set the target proxy address. The default port is 3128 which can be omitted.
+Set the target proxy address. The default port is ``3128`` and may be omitted.
 
-For *seq* value, each of its element must be :ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`.
+If a *seq* is used, each element must be a :ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`.
 
 proxy_addr_pick_policy
 ----------------------
 
 **optional**, **type**: :ref:`selective pick policy <conf_value_selective_pick_policy>`
 
-Set the policy to select next proxy address.
+Set the policy used to select the next proxy address.
 
 The key for ketama/rendezvous/jump hash is *<client-ip>[-<username>]-<upstream-host>*.
 
@@ -72,7 +72,7 @@ bind_ipv4
 
 **optional**, **type**: :ref:`ipv4 addr str <conf_value_ipv4_addr_str>`
 
-Set the bind ip address for inet sockets.
+Set the bind IP address for IPv4 sockets.
 
 **default**: not set
 
@@ -81,7 +81,7 @@ bind_ipv6
 
 **optional**, **type**: :ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
 
-Set the bind ip address for inet6 sockets.
+Set the bind IP address for IPv6 sockets.
 
 **default**: not set
 
@@ -90,8 +90,8 @@ tcp_keepalive
 
 **optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
-Set tcp keepalive.
+Configure TCP keepalive.
 
-The tcp keepalive set in user config won't be taken into account.
+User-level TCP keepalive settings are not applied.
 
 **default**: no keepalive set

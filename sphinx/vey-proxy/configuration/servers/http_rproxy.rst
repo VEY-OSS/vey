@@ -3,7 +3,7 @@
 http_rproxy
 ===========
 
-This server provides http reverse proxy.
+This server implements an HTTP reverse proxy.
 
 The following common keys are supported:
 
@@ -25,7 +25,8 @@ The following common keys are supported:
 * :ref:`task_log_flush_interval <conf_server_common_task_log_flush_interval>`
 * :ref:`extra_metrics_tags <conf_server_common_extra_metrics_tags>`
 
-The auth scheme supported by the server is determined by the type of the specified user group.
+The authentication schemes supported by this server depend on the type of the
+configured user group.
 
 +-------------+---------------------------+-------------------+
 |auth scheme  |user group type            |is supported       |
@@ -40,7 +41,7 @@ listen
 
 **optional**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
 
-Set the listen config for this server.
+Listening configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
@@ -55,8 +56,8 @@ server_id
 
 **optional**, **type**: :ref:`http server id <conf_value_http_server_id>`
 
-Set the server id. If set, the header *X-BD-Remote-Connection-Info* will be added to response,
-and it will also be used in the *Via* header added to request.
+Server ID. If set, the ``X-BD-Remote-Connection-Info`` header is added to
+responses, and the value is also used in the ``Via`` header added to requests.
 
 **default**: not set
 
@@ -65,7 +66,7 @@ auth_realm
 
 **optional**, **type**: :ref:`ascii str <conf_value_ascii_str>`
 
-Set the auth realm.
+Authentication realm.
 
 **default**: proxy
 
@@ -74,7 +75,8 @@ req_header_recv_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the max time to wait a full request header after the client connection become readable.
+Maximum time to wait for the full request header after the client connection
+becomes readable.
 
 **default**: 30s
 
@@ -83,7 +85,8 @@ rsp_header_recv_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the max time duration after the full request sent and before receive of the whole response header.
+Maximum time to wait after the full request is sent and before the full
+response header is received.
 
 **default**: 60s
 
@@ -92,7 +95,7 @@ req_header_max_size
 
 **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the max request header size.
+Maximum request-header size.
 
 **default**: 64KiB
 
@@ -101,7 +104,7 @@ rsp_header_max_size
 
 **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the max response header size.
+Maximum response-header size.
 
 **default**: 64KiB
 
@@ -112,7 +115,7 @@ log_uri_max_chars
 
 **optional**, **type**: usize
 
-Set the max number of characters of uri should be logged in logs.
+Maximum number of URI characters recorded in logs.
 
 The user level config value will take effect if set, see this :ref:`user config option <config_user_log_uri_max_chars>`.
 
@@ -123,7 +126,7 @@ pipeline_size
 
 **optional**, **type**: :ref:`nonzero usize <conf_value_nonzero_usize>`
 
-Set the pipeline size for HTTP 1.0/1.1.
+Pipeline depth for HTTP/1.0 and HTTP/1.1.
 
 **default**: 10
 
@@ -136,7 +139,7 @@ pipeline_read_idle_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the idle timeout of the client side IDLE http connections.
+Idle timeout for client-side idle HTTP connections.
 
 **default**: 5min
 
@@ -145,8 +148,8 @@ no_early_error_reply
 
 **optional**, **type**: bool
 
-Set to true if no error reply should be sent out before user auth succeeded, the connection will be just closed
-in such case.
+If set to ``true``, no error response is sent before user authentication
+succeeds. In that case the connection is simply closed.
 
 **default**: false
 
@@ -155,7 +158,8 @@ body_line_max_length
 
 **optional**, **type**: int
 
-Set the max line length for lines (trailer and chunk size) in http body.
+Maximum line length for lines in the HTTP body, such as trailer fields and
+chunk-size lines.
 
 **default**: 8192
 
@@ -164,7 +168,7 @@ http_forward_upstream_keepalive
 
 **optional**, **type**: :ref:`http keepalive <conf_value_http_keepalive>`
 
-Set http keepalive config at server level.
+HTTP keepalive configuration at the server level.
 
 **default**: set with default value
 
@@ -173,9 +177,11 @@ untrusted_read_speed_limit
 
 **optional**, **type**: :ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
-Enable untrusted read of the body of requests with no auth info, and set the read rate limit.
+Enables untrusted reading of request bodies that do not yet have authentication
+information, and sets the corresponding read-rate limit.
 
-Set this if you need to be compatible with buggy java http clients which won't handle the 407 error response in time.
+Use this if you need compatibility with buggy Java HTTP clients that do not
+handle ``407`` responses promptly.
 
 **default**: not set, which means untrusted read is disabled
 
@@ -191,10 +197,12 @@ append_forwarded_for
 
 **optional**, **type**: :ref:`http forwarded header type <conf_value_http_forwarded_header_type>`
 
-Set if we should append a corresponding forwarded header to the request send out to the next proxy.
+Controls whether the corresponding forwarding headers are appended to requests
+sent to the next proxy.
 
-See :ref:`steal_forwarded_for <config_server_http_proxy_steal_forwarded_for>` config option in http_proxy for more info
-if you want to delete existing forwarded headers.
+If you want to remove existing forwarded headers first, see
+:ref:`steal_forwarded_for <config_server_http_proxy_steal_forwarded_for>` in
+``http_proxy``.
 
 See the doc of supported escapers for detailed protocol info.
 
@@ -205,9 +213,9 @@ enable_tls_server
 
 **optional**, **type**: bool
 
-Set whether tls is enabled for all local sites.
+Controls whether TLS is enabled for all local sites.
 
-Requests to local sites without valid tls server config will be dropped.
+Requests to local sites without valid TLS server configuration are dropped.
 
 **default**: false
 
@@ -218,7 +226,8 @@ global_tls_server
 
 **optional**, **type**: :ref:`rustls server config <conf_value_rustls_server_config>`
 
-Set global TLS server config on the server. This will be used if no tls server config set on the matched local site.
+Global TLS server configuration used when the matched local site does not set
+its own TLS server configuration.
 
 **default**: not set
 
@@ -227,7 +236,7 @@ client_hello_recv_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the timeout value for the receive of the complete TLS ClientHello message.
+Timeout for receiving the complete TLS ClientHello message.
 
 **default**: 1s
 
@@ -236,7 +245,7 @@ hosts
 
 **required**, **type**: :ref:`host matched object <conf_value_host_matched_object>` <:ref:`host <configuration_server_http_rproxy_host>`>
 
-Set the hosts we should handle based on host match rules.
+Host-matching rules that define which hosts this reverse proxy should handle.
 
 Example 1:
 
@@ -268,14 +277,14 @@ Example 2:
 Host
 ^^^^
 
-This is the config for each local host on this server.
+Configuration for each local host handled by this server.
 
 tls_server
 """"""""""
 
 **optional**, **type**: :ref:`rustls server config <conf_value_rustls_server_config>`
 
-Set TLS server config for this local site.
+TLS server configuration for this local site.
 
 If not set, the :ref:`global tls server <configuration_server_http_rproxy_global_tls_server>` config will be used.
 
@@ -286,15 +295,15 @@ upstream
 
 **required**, **type**: :ref:`upstream str <conf_value_upstream_str>`
 
-Set the target upstream address. The default port is 80 which can be omitted.
+Target upstream address. The default port is ``80`` and may be omitted.
 
 tls_client
 """"""""""
 
 **optional**, **type**: :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
-Set TLS parameters for this local TLS client if https is needed.
-If set to empty map, a default config is used.
+TLS parameters for the local client side when HTTPS to the upstream is needed.
+If set to an empty map, the default configuration is used.
 
 **default**: not set
 
@@ -303,7 +312,7 @@ tls_name
 
 **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
 
-Set the tls server name to verify tls certificate of the upstream site.
+TLS server name used to verify the upstream site's certificate.
 
 If not set, the host part of the upstream address will be used.
 

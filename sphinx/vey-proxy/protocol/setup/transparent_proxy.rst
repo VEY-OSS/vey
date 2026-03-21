@@ -4,23 +4,28 @@
 Transparent Proxy
 =================
 
+This section lists the operating-system features that can be used to deploy
+``vey-proxy`` as a transparent proxy.
+
 Linux
 =====
 
-See netfilter `TPROXY`_.
+On Linux, transparent proxying is typically implemented with netfilter
+`TPROXY`_. Use it to redirect traffic to ``vey-proxy`` while preserving the
+original destination address.
 
 .. _TPROXY: https://docs.kernel.org/networking/tproxy.html
 
 FreeBSD
 =======
 
-See `ipfw`_ forward rule.
+On FreeBSD, the equivalent mechanism is the `ipfw`_ ``forward`` rule.
 
 .. _ipfw: https://man.freebsd.org/cgi/man.cgi?query=ipfw
 
 OpenBSD
 =======
 
-See pf `divert-to`_ role.
+On OpenBSD, use the pf `divert-to`_ rule.
 
 .. _divert-to: https://man.openbsd.org/pf.conf.5#divert-to

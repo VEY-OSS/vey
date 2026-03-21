@@ -3,9 +3,11 @@
 Basic
 =====
 
-This type of user group is consist of users that have hashed passwords in :ref:`token <conf_auth_user_token>` config field.
+This user-group type stores users whose hashed passwords are configured in the
+:ref:`token <conf_auth_user_token>` field.
 
-User will be selected by it's username, and the clear text password must be transported to server, then hashed and compared.
+Users are selected by username. The clear-text password is sent to the server,
+then hashed and compared with the configured token.
 
 The following keys are supported:
 

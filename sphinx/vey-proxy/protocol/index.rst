@@ -4,19 +4,23 @@
 Protocol
 ########
 
-The protocols we used can be described as two categories:
+This section describes the protocol surfaces exposed or used by
+``vey-proxy``. They fall into three broad categories:
 
-* client protocol
+* Client protocols
 
-  The protocols we used to communicate to clients. See :doc:`client/index`.
+  Protocols used between ``vey-proxy`` and its clients. See
+  :doc:`client/index`.
 
-* helper protocol
+* Helper protocols
 
-  The protocols we used to communicate to helper programs. See :doc:`helper/index`.
+  Protocols used between ``vey-proxy`` and external helper services. See
+  :doc:`helper/index`.
 
-* setup guide
+* Setup guides
 
-  Guides to setup the third-party tools to work with us. See :doc:`setup/index`.
+  Guides for integrating third-party tools with ``vey-proxy``. See
+  :doc:`setup/index`.
 
 .. toctree::
    :hidden:

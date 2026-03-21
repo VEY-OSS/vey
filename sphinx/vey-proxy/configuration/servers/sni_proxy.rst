@@ -3,7 +3,7 @@
 sni_proxy
 =========
 
-A tcp forward proxy server based on TLS SNI / HTTP Host.
+TCP forward-proxy server based on TLS SNI and HTTP Host inspection.
 
 The following common keys are supported:
 
@@ -11,8 +11,9 @@ The following common keys are supported:
 * :ref:`auditor <conf_server_common_auditor>`
 * :ref:`user_group <conf_server_common_user_group>`
 
-  The user group should be `facts` authenticate type.
-  It will be used only if either `auth_by_client_ip` or `auth_by_server_name` is set.
+  The user group must use fact-based authentication.
+  It is used only when either ``auth_by_client_ip`` or
+  ``auth_by_server_name`` is enabled.
 
   .. versionadded:: 1.13.0
 
@@ -35,7 +36,7 @@ listen
 
 **optional**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
 
-Set the listen config for this server.
+Listening configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
@@ -48,7 +49,7 @@ listen_transparent
 
 **optional**, **type**: bool
 
-Set to true if you want to set the listen socket to transparent mode.
+Set to ``true`` to enable transparent mode on the listening socket.
 
 **default**: false
 
@@ -59,7 +60,8 @@ auth_by_client_ip
 
 **optional**, **type**: bool, **conflict**: auth_by_server_ip
 
-Enable facts user authenticate and use client IP as the authenticate fact.
+Enables fact-based user authentication using the client IP address as the
+authentication fact.
 
 **default**: false
 
@@ -70,7 +72,8 @@ auth_by_server_name
 
 **optional**, **type**: bool, **conflict**: auth_by_client_ip
 
-Enable facts user authenticate and use server name as the authenticate fact.
+Enables fact-based user authentication using the server name as the
+authentication fact.
 
 **default**: false
 
@@ -81,7 +84,7 @@ tls_max_client_hello_size
 
 **optional**, **type**: u32
 
-Set the max size limit for TLS client hello message.
+Maximum size of the TLS ClientHello message.
 
 **default**: 1 << 16
 
@@ -92,7 +95,7 @@ request_wait_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the timeout value for the wait of initial client data.
+Timeout while waiting for the initial client data.
 
 **default**: 60s
 
@@ -101,8 +104,8 @@ request_recv_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the timeout value for the receive of the complete initial request after the arriving of initial data,
-which may be a TLS ClientHello message or a HTTP Request.
+Timeout for receiving the complete initial request after the first bytes arrive.
+The initial request may be either a TLS ClientHello message or an HTTP request.
 
 **default**: 4s
 
@@ -111,7 +114,7 @@ protocol_inspection
 
 **optional**, **type**: :ref:`protocol inspection <conf_value_dpi_protocol_inspection>`
 
-Set basic config for protocol inspection.
+Basic protocol-inspection configuration.
 
 **default**: set with default value
 
@@ -120,7 +123,7 @@ server_tcp_portmap
 
 **optional**, **type**: :ref:`server tcp portmap <conf_value_dpi_server_tcp_portmap>`
 
-Set the portmap for protocol inspection based on server side tcp port.
+Port mapping used for protocol inspection based on the server-side TCP port.
 
 **default**: set with default value
 
@@ -129,7 +132,7 @@ client_tcp_portmap
 
 **optional**, **type**: :ref:`client tcp portmap <conf_value_dpi_client_tcp_portmap>`
 
-Set the portmap for protocol inspection based on client side tcp port.
+Port mapping used for protocol inspection based on the client-side TCP port.
 
 **default**: set with default value
 
@@ -138,7 +141,7 @@ allowed_hosts
 
 **optional**, **type**: :ref:`host matched object <conf_value_host_matched_object>` <:ref:`host <configuration_server_sni_proxy_host>`>
 
-Set the list of hosts we should handle based on host match rules.
+Host-matching rules that define which hosts this server should handle.
 
 If not set, all requests will be handled.
 
@@ -160,14 +163,14 @@ Example:
 Host
 ^^^^
 
-This set the config for a SNI host.
+Configuration for a matched SNI host.
 
 redirect_host
 """""""""""""
 
 **optional**, **type**: :ref:`host <conf_value_host>`
 
-Change the host field of the upstream address.
+Overrides the host part of the upstream address.
 
 **default**: not set
 
@@ -176,6 +179,6 @@ redirect_port
 
 **optional**, **type**: u16
 
-Change the port field of the upstream address.
+Overrides the port part of the upstream address.
 
 **default**: not set

@@ -4,11 +4,12 @@
 Source
 ******
 
-Source defines where we can get the config of dynamic users.
+This section defines where dynamic-user configuration can be loaded from.
 
-The source config is in *map* format, with one required key:
+Each source configuration is a map with one required key:
 
-* :ref:`type <conf_auth_user_source_type>`, which specify the type of the source, decides how to parse other keys.
+* :ref:`type <conf_auth_user_source_type>`, which selects the source type and
+  therefore determines how the remaining keys are interpreted
 
 Sources
 =======
@@ -23,7 +24,7 @@ Sources
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many sources.
+This section describes common keys shared by multiple source types.
 
 .. _conf_auth_user_source_type:
 
@@ -32,4 +33,4 @@ type
 
 **required**, **type**: str
 
-Set the type of the source.
+Source type.

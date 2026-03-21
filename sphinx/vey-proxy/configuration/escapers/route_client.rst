@@ -3,7 +3,7 @@
 route_client
 ============
 
-This escaper allows to select a next escaper based on rules on client address.
+This escaper selects the next escaper based on the client address.
 
 There is no path selection support for this escaper.
 
@@ -16,7 +16,7 @@ exact_match
 
 **optional**, **type**: seq
 
-If the client ip exactly match the one in the rules, that escaper will be selected.
+If the client IP exactly matches an entry in the rules, the corresponding escaper is selected.
 
 Each rule is in *map* format, with two keys:
 
@@ -24,7 +24,7 @@ Each rule is in *map* format, with two keys:
 
   **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-  Set the next escaper.
+Set the next escaper.
 
 * ips
 
@@ -32,14 +32,14 @@ Each rule is in *map* format, with two keys:
 
   Each element should be :ref:`ip addr str <conf_value_ip_addr_str>`.
 
-  An ip should not be set duplicated in rules for different next escapers.
+  An IP must not appear in rules for different next escapers.
 
 subnet_match
 ------------
 
 **optional**, **type**: seq
 
-If the client ip match the longest subnet in the rule, that escaper will be selected.
+If the client IP matches multiple subnets, the longest-prefix match is used.
 
 Each rule is in *map* format, with two keys:
 
@@ -55,4 +55,4 @@ Each rule is in *map* format, with two keys:
 
   Each element should be :ref:`ip network str <conf_value_ip_network_str>`.
 
-  A subnet should not be set duplicated in rules for different next escapers.
+  A subnet must not appear in rules for different next escapers.

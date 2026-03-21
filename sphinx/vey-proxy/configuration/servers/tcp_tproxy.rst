@@ -5,9 +5,11 @@ tcp_tproxy
 
 .. versionadded:: 1.7.34
 
-A simple tcp tproxy server, which will just forward traffic to the targeted remote address.
+Simple TCP TPROXY server that forwards traffic to the original target remote
+address.
 
-See :ref:`transparent proxy <protocol_setup_transparent_proxy>` for how to setup the host firewall / route table.
+See :ref:`transparent proxy <protocol_setup_transparent_proxy>` for the
+required host firewall and routing setup.
 
 The following common keys are supported:
 
@@ -15,8 +17,9 @@ The following common keys are supported:
 * :ref:`auditor <conf_server_common_auditor>`
 * :ref:`user_group <conf_server_common_user_group>`
 
-  The user group should be `facts` authenticate type.
-  It will be used only if either `auth_by_client_ip` or `auth_by_server_ip` is set.
+  The user group must use fact-based authentication.
+  It is used only when either ``auth_by_client_ip`` or ``auth_by_server_ip`` is
+  enabled.
 
   .. versionadded:: 1.13.0
 
@@ -39,7 +42,7 @@ listen
 
 **required**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
 
-Set the listen config for this server.
+Listening configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
@@ -48,7 +51,8 @@ auth_by_client_ip
 
 **optional**, **type**: bool, **conflict**: auth_by_server_ip
 
-Enable facts user authenticate and use client IP as the authenticate fact.
+Enables fact-based user authentication using the client IP address as the
+authentication fact.
 
 **default**: false
 
@@ -59,7 +63,8 @@ auth_by_server_ip
 
 **optional**, **type**: bool, **conflict**: auth_by_client_ip
 
-Enable facts user authenticate and use server IP as the authenticate fact.
+Enables fact-based user authentication using the server IP address as the
+authentication fact.
 
 **default**: false
 

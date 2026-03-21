@@ -3,33 +3,34 @@
 Lua
 ===
 
-Fetch users through local lua script.
+Fetches users through a local Lua script.
 
-The following vars will be defined when running the script:
+The following variables are defined when the script is executed:
 
 * __file__
 
-  This will be the absolute path of the script file
+  Absolute path of the script file
 
   .. versionadded:: 1.11.0
 
-The return value of the script should be the json encoded string of all dynamic users.
+The return value must be the JSON-encoded representation of all dynamic users.
 
 .. note::
 
-  Environment variable `LUA_PATH`_ and `LUA_CPATH`_ can be set to include more lua module files.
-  Any ";;" in the value of the *LUA_PATH* environment variable will be replaced by the default path.
+  The environment variables `LUA_PATH`_ and `LUA_CPATH`_ can be used to include
+  additional Lua modules.
+  Any ``;;`` sequence in ``LUA_PATH`` is replaced by the default search path.
 
   .. _LUA_PATH: https://www.lua.org/manual/5.1/manual.html#pdf-package.path
   .. _LUA_CPATH: https://www.lua.org/manual/5.1/manual.html#pdf-package.cpath
 
-The keys used in *map* format are:
+When configured as a map, the following keys are supported:
 
 * fetch_script
 
   **required**, **type**: :ref:`file path <conf_value_file_path>`
 
-  The path of the lua script to fetch dynamic users.
+  Path to the Lua script used to fetch dynamic users.
 
   The content of this script file should be like:
 
@@ -37,7 +38,7 @@ The keys used in *map* format are:
 
     -- TODO fetch users
     local result = "[]"
-    -- return the json encoded string
+    -- return the JSON-encoded string
     return result
 
   **alias**: script
@@ -46,9 +47,10 @@ The keys used in *map* format are:
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Set the timeout value for the execution of the fetch script.
+  Timeout for running the fetch script.
 
-  It's not recommended to set the timeout value greater the :ref:`refresh_interval <conf_auth_user_group_refresh_interval>`
+  It is not recommended to set this value greater than
+  :ref:`refresh_interval <conf_auth_user_group_refresh_interval>`
   in group config.
 
   **default**: 30s, **alias**: timeout
@@ -57,7 +59,8 @@ The keys used in *map* format are:
 
   **optional**, **type**: :ref:`file path <conf_value_file_path>`
 
-  The path of the lua script to report the parse result of the fetched dynamic users.
+  Path to the Lua script used to report the parsing result for fetched dynamic
+  users.
 
   Two global functions should be defined in this script, like this:
 
@@ -68,16 +71,17 @@ The keys used in *map* format are:
     end
 
     function reportErr (errMsg)
-      -- takes one argument, which the error message string
+      -- takes one argument: the error-message string
     end
 
 * report_timeout
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Set the timeout value for the execution of the report script.
+  Timeout for running the report script.
 
-  It's not recommended to set the timeout value greater the :ref:`refresh_interval <conf_auth_user_group_refresh_interval>`
+  It is not recommended to set this value greater than
+  :ref:`refresh_interval <conf_auth_user_group_refresh_interval>`
   in group config.
 
   **default**: 15s, **alias**: timeout

@@ -3,6 +3,6 @@
 deny_all
 ========
 
-This is the dummy resolver designed to drop all requests.
+Dummy resolver that rejects all requests.
 
-There are no extra config keys for this kind of resolver.
+This resolver type has no additional configuration keys.

@@ -3,13 +3,13 @@
 fail_over
 =========
 
-This is a virtual resolver designed to fail over between (real) resolvers.
+Virtual resolver that provides failover across real resolvers.
 
 Rules for result selection:
 
 1. The **success** result of the primary resolver will always be used before the timeout.
 2. The first **success** result either from the primary or the standby resolver will be used after the timeout.
-3. If no success result, the last error one will be used.
+3. If no resolver returns a successful result, the last error is used.
 
 The following common keys are supported:
 
@@ -21,21 +21,21 @@ primary
 
 **required**, **type**: string
 
-Set the primary resolver to use.
+Primary resolver.
 
 standby
 -------
 
 **required**, **type**: string
 
-Set the standby resolver to use.
+Standby resolver.
 
 fallback_delay
 --------------
 
 **optional**, **type**:
 
-Set the timeout for primary lookup.
+Timeout before the standby resolver is allowed to participate.
 
 **default**: 100ms
 
@@ -53,7 +53,8 @@ retry_empty_record
 
 **optional**, **type**: bool
 
-Set if we should do a fallback query if the first answer contains no IP address.
+Controls whether a fallback query should be attempted when the first answer
+contains no IP addresses.
 
 **default**: false
 

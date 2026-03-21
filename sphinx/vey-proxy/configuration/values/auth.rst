@@ -4,7 +4,7 @@
 Auth
 ****
 
-All auth value types are described here.
+This page documents value types related to authentication and authorization.
 
 .. _conf_value_username:
 
@@ -13,8 +13,8 @@ username
 
 **yaml value**: str
 
-The UTF-8 username to be used in different contexts.
-Should be less than or equal to 255 bytes.
+UTF-8 username used in the relevant configuration context.
+It must be at most 255 bytes.
 
 .. _conf_value_password:
 
@@ -23,8 +23,8 @@ password
 
 **yaml value**: str
 
-The UTF-8 password to be used in different contexts.
-Should be less than or equal to 255 bytes.
+UTF-8 password used in the relevant configuration context.
+It must be at most 255 bytes.
 
 .. _conf_value_facts_match_value:
 
@@ -33,8 +33,10 @@ facts_match_value
 
 **yaml value**: str | map
 
-The type and the value that facts auth will match.
-It should be either `<fact-type>:<fact-value>` string or a map with a single `<fact-type>: <fact-value>` field.
+Fact type and fact value used by fact-based authentication.
+The value can be either a string in the form
+``<fact-type>:<fact-value>`` or a map with a single
+``<fact-type>: <fact-value>`` entry.
 
 The fact-type should be one of:
 

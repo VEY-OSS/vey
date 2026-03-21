@@ -4,31 +4,33 @@
 Metrics
 #######
 
-Currently we only support send metrics to statsd, see :ref:`stat <configuration_stat>` for more details.
+``vey-proxy`` currently exports metrics through StatsD only. See
+:ref:`stat <configuration_stat>` for configuration details.
 
 Common Tags
 ===========
 
-The following is the common tags for all metrics:
+The following tags are common to all metrics:
 
 .. _metrics_tag_daemon_group:
 
 * daemon_group
 
-  This tag is the same as the daemon group specified in config file or command args.
+  The daemon group specified in the configuration file or on the command line.
 
 .. _metrics_tag_stat_id:
 
 * stat_id
 
-  A machine local unique stat_id for dedup purpose. It should be **dropped** by statsd, and the metrics with the same
-  remaining tags should be aggregated.
+  A machine-local unique ID used for deduplication. It should be **dropped** by
+  StatsD, after which metrics with the same remaining tags should be
+  aggregated.
 
 .. _metrics_tag_transport:
 
 * transport
 
-  Show the transport layer protocol. Values are:
+  The transport protocol. Supported values are:
 
   - tcp
   - udp
@@ -37,7 +39,7 @@ The following is the common tags for all metrics:
 
 * connection
 
-  Show the client connection type. Values are:
+  The client connection type. Supported values are:
 
   - http
   - socks
@@ -46,7 +48,7 @@ The following is the common tags for all metrics:
 
 * request
 
-  Show the request type. Values ars:
+  The request type. Supported values are:
 
   - tcp_connect
   - http_forward
@@ -60,16 +62,17 @@ The following is the common tags for all metrics:
 
 * quantile
 
-  Show the quantile value for histogram stats.
+  The quantile value for histogram metrics.
 
-  The following values are always persent:
+  The following values are always present:
 
   - min
   - max
   - mean
 
-  Values can be added by :ref:`histogram metrics <conf_value_histogram_metrics>` config.
-  If not set, the following values are added by default:
+  Additional values can be configured through
+  :ref:`histogram metrics <conf_value_histogram_metrics>`.
+  If none are configured, the following values are exported by default:
 
   - 0.50
   - 0.80

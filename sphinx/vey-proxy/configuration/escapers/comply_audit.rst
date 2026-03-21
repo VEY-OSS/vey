@@ -6,7 +6,7 @@ comply_audit
 
 .. versionadded:: 1.9.9
 
-This is the escaper designed to be used to overwrite server side auditor settings.
+This escaper overrides the auditor selected by the server side.
 
 There is no path selection support for this escaper.
 
@@ -18,11 +18,11 @@ next
 
 **required**, **type**: str
 
-Set the next escaper to be used.
+Set the next escaper in the chain.
 
 auditor
 -------
 
 **required**, **type**: str
 
-Set the next auditor to be used.
+Set the auditor to apply.

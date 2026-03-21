@@ -4,49 +4,51 @@
 Logger Metrics
 ##############
 
-The metrics for loggers that support metrics.
+Logger metrics are available for log drivers that expose metric reporting.
 
-The *discard* and *journal* log driver do not support metrics, see config for :ref:`log <configuration_log>`.
+The ``discard`` and ``journal`` log drivers do not support metrics. See
+:ref:`log <configuration_log>` for configuration details.
 
-The following are the tags for all logger metrics:
+The following tags are present on all logger metrics:
 
 * :ref:`daemon_group <metrics_tag_daemon_group>`
 * :ref:`stat_id <metrics_tag_stat_id>`
 
 * logger
 
-  Show the name of the logger.
+  The logger name.
 
-The metrics are:
+The metric names are:
 
 * logger.message.total
 
   **type**: count
 
-  Show the total number of logs.
+  Total number of log records processed.
 
 * logger.message.pass
 
   **type**: count
 
-  Show the number of logs passed to next peer.
+  Number of log records successfully passed to the next peer.
 
 * logger.traffic.pass
 
   **type**: count
 
-  Show the bytes of log that has been sent to next peer.
+  Total bytes of log data successfully sent to the next peer.
 
 * logger.message.drop
 
-  Show the number of logs that has been dropped.
+  Number of log records dropped.
 
-  An extra tag **drop_type** is used to add more details for the drop reason, values are:
+  An extra ``drop_type`` tag provides the drop reason. Supported values are:
 
-  - FormatFailed: the message can not be formatted to match the real log protocol
+  - ``FormatFailed``: the message could not be formatted for the target log
+    protocol
 
-  - ChannelClosed: the internal async channel has been closed.
+  - ``ChannelClosed``: the internal async channel was closed
 
-  - ChannelOverflow: the internal async channel is full.
+  - ``ChannelOverflow``: the internal async channel was full
 
-  - PeerUnreachable: the next peer is closed or currently unreachable.
+  - ``PeerUnreachable``: the next peer was closed or temporarily unreachable

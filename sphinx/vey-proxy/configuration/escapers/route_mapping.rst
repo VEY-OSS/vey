@@ -3,15 +3,15 @@
 route_mapping
 =============
 
-This escaper allows to select a next escaper based on the user specified path selection index.
+This escaper selects the next escaper from a user-supplied path selection index.
 
-The following egress path selection values is supported:
+The following egress path selection value is supported:
 
 * :ref:`number id <proto_egress_path_selection_number_id>`
 
-  The index will be used as the index of the next escaper
+  The index is used as the index of the next escaper.
 
-  If no index can be get from the path selection method, the default random one will be used.
+  If no index is available from path selection, a random next escaper is chosen.
 
 No common keys are supported.
 
@@ -20,6 +20,6 @@ next
 
 **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-This set all the next escapers. Each element should be the name of the target float escaper.
+Set the candidate next escapers. Each element must be the name of a target float escaper.
 
-.. note:: No duplication of next escapers is allowed.
+.. note:: Duplicate next escapers are not allowed.

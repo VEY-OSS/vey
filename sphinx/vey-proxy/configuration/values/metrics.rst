@@ -26,7 +26,7 @@ metric tag name
 
 **yaml value**: :ref:`metric value <conf_value_metric_value>`
 
-Set a metric tag name, which should not be empty.
+Metric tag name. It must not be empty.
 
 .. _conf_value_metric_tag_value:
 
@@ -35,7 +35,7 @@ metric tag value
 
 **yaml value**: :ref:`metric value <conf_value_metric_value>`
 
-Set a metric tag value, which may be empty according to the context.
+Metric tag value. It may be empty depending on the context.
 
 .. _conf_value_static_metrics_tags:
 
@@ -44,17 +44,17 @@ static metrics tags
 
 **yaml value**: map
 
-The key should be :ref:`metric tag name <conf_value_metric_tag_name>`.
-The value should be :ref:`metric tag value <conf_value_metric_tag_value>`.
+Keys must be :ref:`metric tag names <conf_value_metric_tag_name>`.
+Values must be :ref:`metric tag values <conf_value_metric_tag_value>`.
 
 .. _conf_value_metric_node_name:
 
 metric node name
 ================
 
-**yaml value**: :ref:`metrics value <conf_value_metric_value>`
+**yaml value**: :ref:`metric value <conf_value_metric_value>`
 
-The metrics name
+Metric node name.
 
 .. _conf_value_weighted_metric_node_name:
 
@@ -63,7 +63,7 @@ weighted metric node name
 
 **yaml value**: map | :ref:`metric node name <conf_value_metric_node_name>`
 
-A metrics name with weight set, which make can be grouped into selective vector.
+A weighted metric node name suitable for use inside a selective vector.
 
 The map consists 2 fields:
 
@@ -71,18 +71,20 @@ The map consists 2 fields:
 
   **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-  The name. The meaning of the name is depending on the config context.
+  Node name. Its meaning depends on the configuration context.
 
 * weight
 
   **optional**, **type**: f64
 
-  The weight of the name.
-  It may be converted to the smallest u32 greater than or equal to the f64 value when used.
+  Weight assigned to the node name.
+  When used internally, it may be converted to the smallest ``u32`` greater
+  than or equal to the ``f64`` value.
 
   **default**: 1.0
 
-If the value type is string, then it's value will be the *name* field, with *weight* set to default value.
+If the value is a string, it is treated as the ``name`` field and ``weight``
+uses the default value.
 
 .. _conf_value_metrics_quantile:
 
@@ -91,10 +93,11 @@ metrics quantile
 
 **yaml value**: str | float
 
-A quantile value, should be in range 0.0 - 1.0.
+A quantile value in the range ``0.0`` to ``1.0``.
 
-It's string value will be used as the value of quantile tag. You should prefer to use str form if you want the tag value
-to be the same as you typed in the config file.
+When configured as a string, that exact string is used as the ``quantile`` tag
+value. Use the string form when you want the exported tag value to match the
+configuration exactly.
 
 .. _conf_value_histogram_metrics:
 
@@ -103,7 +106,7 @@ histogram metrics
 
 **yaml value**: map | :ref:`rotate <conf_value_histogram_metrics_rotate>`
 
-Config histogram metrics, such as the quantiles and rotate interval.
+Histogram-metric configuration, including quantiles and rotation interval.
 
 The keys are:
 
@@ -112,9 +115,11 @@ quantile
 
 **optional**, **type**: seq
 
-Set quantile list.
+List of quantiles to export.
 
-Should be a sequence of :ref:`metrics quantile <conf_value_metrics_quantile>` or a string of them delimited by ','.
+This can be either a sequence of
+:ref:`metrics quantile <conf_value_metrics_quantile>` values or a comma-separated
+string.
 
 **default**: 0.50, 0.80, 0.90, 0.95, 0.99
 
@@ -125,7 +130,7 @@ rotate
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the rotate interval.
+Rotation interval.
 
 **default**: 4s
 
@@ -134,14 +139,14 @@ Set the rotate interval.
 Statsd Client Config
 ====================
 
-The full format of the root value should be a map, with the following keys:
+The full root value is a map with the following keys:
 
 target_unix
 -----------
 
 **optional**, **type**: mix
 
-You can set this if you want to send statsd metrics to a custom unix socket path.
+Use this to send StatsD metrics to a custom UNIX-domain socket path.
 
 The value can be a map, with the following keys:
 
@@ -149,7 +154,7 @@ The value can be a map, with the following keys:
 
   **required**, **type**: :ref:`absolute path <conf_value_absolute_path>`
 
-  The syslogd daemon listen socket path.
+  UNIX-domain socket path.
 
 If the value type is str, the value should be the same as the value as *path* above.
 
@@ -160,7 +165,7 @@ target_udp
 
 **optional**, **type**: mix
 
-You can set this if you want to send statsd metrics to a remote statsd which listening on a udp socket.
+Use this to send StatsD metrics to a remote StatsD server listening on UDP.
 
 The value can be a map, with the following keys:
 
@@ -168,7 +173,7 @@ The value can be a map, with the following keys:
 
   **optional**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
-  Set the remote socket address.
+  Remote socket address.
 
   **default**: 127.0.0.1:8125
 
@@ -176,7 +181,7 @@ The value can be a map, with the following keys:
 
   **optional**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
 
-  Set the ip address to bind to for the local socket.
+  Local IP address to bind before sending metrics.
 
   **default**: not set
 
@@ -187,7 +192,7 @@ target
 
 **optional**, **type**: map
 
-This is just another form to set statsd target address.
+Alternative form for specifying the StatsD target.
 
 The key *udp* is just handled as *target_udp* as above.
 
@@ -198,7 +203,7 @@ prefix
 
 **optional**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Set the global prefix for all metrics.
+Global prefix applied to all metrics.
 
 **default**: "vey-proxy"
 
@@ -207,7 +212,7 @@ cache_size
 
 **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the batch cache size before sending it to backend.
+Batch cache size used before sending metrics to the backend.
 
 **default**: 256KiB
 
@@ -218,7 +223,7 @@ max_segment_size
 
 **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the max segment size when sending data to the backend.
+Maximum segment size used when sending data to the backend.
 
 **default**: 1400 for UDP Socket, 4096 for UNIX Datagram Socket
 
@@ -229,7 +234,7 @@ emit_interval
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the emit interval for local stats. All stats will be send out in sequence.
+Emit interval for local metrics. All metrics are sent in sequence.
 
 **default**: 200ms
 

@@ -3,11 +3,11 @@
 route_geoip
 ===========
 
-This escaper allows to select a next escaper based on GeoIP rules of the resolved upstream ip address.
+This escaper selects the next escaper by applying GeoIP rules to the resolved upstream IP address.
 
 There is no path selection support for this escaper.
 
-The resolve method in Happy Eyeballs algorithm is used.
+Resolution follows the Happy Eyeballs algorithm.
 
 The following common keys are supported:
 
@@ -20,7 +20,7 @@ ip_locate_service
 
 **optional**, **type**: :ref:`ip locate service <conf_value_ip_locate_service>`
 
-Set the config for the remote IP locate service.
+Set the configuration of the remote IP location service.
 
 **default**: set with default config
 
@@ -31,7 +31,7 @@ geo_rules
 
 **optional**, **type**: seq
 
-Set the GeoIP rules to select next escaper.
+Set the GeoIP rules used to select the next escaper.
 
 Each rule is in *map* format, with the following keys:
 
@@ -47,7 +47,7 @@ Each rule is in *map* format, with the following keys:
 
   Each element should be valid network string. Both IPv4 and IPv6 are supported.
 
-  Each network should not be set for different next escapers.
+  A network must not appear in rules for different next escapers.
 
 * as_numbers
 
@@ -55,7 +55,7 @@ Each rule is in *map* format, with the following keys:
 
   Each element should be valid AS number.
 
-  Each as number should not be set for different next escapers.
+  An AS number must not appear in rules for different next escapers.
 
 * countries
 
@@ -63,7 +63,7 @@ Each rule is in *map* format, with the following keys:
 
   Each element should be valid ISO country code.
 
-  Each country should not be set for different next escapers.
+  A country must not appear in rules for different next escapers.
 
 * continents
 
@@ -71,15 +71,15 @@ Each rule is in *map* format, with the following keys:
 
   Each element should be valid continent code.
 
-  Each continent should not be set for different next escapers.
+  A continent must not appear in rules for different next escapers.
 
 resolution_delay
 ----------------
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-The resolution delay time for the wait of the preferred address family after another one is returned.
+How long to wait for the preferred address family after another family has already returned a result.
 
-The meaning is the same as *resolution_delay* field in :ref:`happy eyeballs <conf_value_happy_eyeballs>`.
+This has the same meaning as the ``resolution_delay`` field in :ref:`happy eyeballs <conf_value_happy_eyeballs>`.
 
 **default**: 50ms

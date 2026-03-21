@@ -3,7 +3,7 @@
 route_query
 ===========
 
-This escaper allows to select a next escaper based on query to another service through a UDP socket.
+This escaper selects the next escaper by querying another service over UDP.
 
 There is no path selection support for this escaper.
 
@@ -23,8 +23,8 @@ query_allowed_next
 
 **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Set all the next escapers those are allowed to use in the query result. Each element should be the next escaper name.
-If the selected escaper name is not found in this list, the fallback escaper will be used.
+Set the next escapers that are allowed to appear in query results. Each element is a next escaper name.
+If the selected escaper is not in this list, the fallback escaper is used.
 
 .. _configuration_escaper_route_query_pass_client_ip:
 
@@ -33,7 +33,7 @@ query_pass_client_ip
 
 **optional**, **type**: bool
 
-Set whether we should also send client_ip in the query message.
+Set whether ``client_ip`` should also be sent in the query message.
 
 **default**: false
 
@@ -42,7 +42,7 @@ cache_request_batch_count
 
 **optional**, **type**: usize
 
-Set how many consequent query requests we should handle in the cache runtime before yield out to the next loop.
+Set how many consecutive query requests the cache runtime should handle before yielding to the next loop.
 
 **default**: 10
 
@@ -51,9 +51,9 @@ cache_request_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set how many time we should spend on waiting responses from cache runtime after sending query request.
+Set how long to wait for a response from the cache runtime after sending a query request.
 
-The fallback node will be used if timeout occur.
+The fallback node is used if this times out.
 
 **default**: 100ms
 
@@ -62,7 +62,7 @@ cache_pick_policy
 
 **optional**, **type**: :ref:`selective pick policy <conf_value_selective_pick_policy>`
 
-Set the policy to select next proxy address from the query result.
+Set the policy used to select a next proxy address from the query result.
 
 The key for ketama/rendezvous/jump hash is *<client-ip>*.
 
@@ -73,7 +73,7 @@ query_peer_addr
 
 **optional**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
-Set the socket address of the service that we should send queries to.
+Set the socket address of the service that receives queries.
 
 **default**: 127.0.0.1:1053
 
@@ -82,7 +82,7 @@ query_socket_buffer
 
 **optional**, **type**: :ref:`socket buffer config <conf_value_socket_buffer_config>`
 
-Set the socket buffer config for the UDP socket we will use.
+Set the socket buffer configuration for the UDP socket used for queries.
 
 **default**: not set
 
@@ -91,9 +91,9 @@ query_wait_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set how many time we should wait for response from the peer service.
+Set how long to wait for a response from the peer service.
 
-Empty reply will be send back to cache runtime if timeout occur.
+If this times out, an empty reply is sent back to the cache runtime.
 
 **default**: 10s
 
@@ -104,7 +104,7 @@ protective_cache_ttl
 
 **optional**, **type**: usize
 
-Set the cache ttl for failed or zero-ttl query results.
+Set the cache TTL for failed query results or results with a zero TTL.
 
 **default**: 10
 
@@ -113,7 +113,7 @@ maximum_cache_ttl
 
 **optional**, **type**: usize
 
-Set the maximum cache ttl for query results.
+Set the maximum cache TTL for query results.
 
 **default**: 1800
 
@@ -124,9 +124,8 @@ cache_vanish_wait
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Clean the record from the cache if it has been expired such many time.
+Remove a record from the cache after it has remained expired for this long.
 
-We still cache expired records some time before clean them as a new query will spend more time and the new query result
-will have a big chance to be the same with the expired one.
+Expired records are kept for a short additional period because a fresh query costs more and often returns the same result.
 
 **default**: 30s, **alias**: vanish_after_expire

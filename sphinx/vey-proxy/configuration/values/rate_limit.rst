@@ -12,28 +12,30 @@ tcp socket speed limit
 
 **yaml value**: mix
 
-Basically it consists of 3 fields:
+It consists of three fields:
 
 * shift_millis | shift
 
   **type**: int
 
-  The time slice we use to count is *2 ^ N* milliseconds, where N is set by this key and should be in range [0 - 12].
-  If N is 10, and the time slice is 1024ms. If omitted, this means the limit is not set.
+  Time-slice size in ``2^N`` milliseconds, where ``N`` is in the range
+  ``[0, 12]``.
+  For example, if ``N`` is ``10``, the time slice is ``1024ms``.
+  If omitted, no limit is applied.
 
 * upload | north | upload_bytes | north_bytes
 
   **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-  This sets the upload bytes in the time slice. *0* means delay forever.
+  Maximum upload bytes allowed in each time slice. ``0`` means delay forever.
 
 * download | south | download_bytes | south_bytes
 
   **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-  This set the max download bytes in the time slice. *0* means delay forever.
+  Maximum download bytes allowed in each time slice. ``0`` means delay forever.
 
-The yaml value type can be in varies formats:
+The YAML value can be written in several forms:
 
 * :ref:`humanize usize <conf_value_humanize_usize>`
 
@@ -50,7 +52,7 @@ udp socket speed limit
 
 **yaml value**: mix
 
-Basically it consists of 4 fields:
+It consists of five fields:
 
 * shift_millis | shift
 
@@ -83,7 +85,7 @@ Basically it consists of 4 fields:
 
   This set the max download packets in the time slice. *0* means no limit.
 
-The yaml value type can be in varies formats:
+The YAML value can be written in several forms:
 
 * :ref:`humanize usize <conf_value_humanize_usize>`
 
@@ -100,7 +102,7 @@ global stream speed limit
 
 **yaml value**: mix
 
-Basically it consists of 3 fields:
+It consists of three fields:
 
 * replenish_interval
 
@@ -143,7 +145,7 @@ global datagram speed limit
 
 **yaml value**: mix
 
-Basically it consists of 5 fields:
+It consists of five fields:
 
 * replenish_interval
 
@@ -185,7 +187,7 @@ Basically it consists of 5 fields:
 
   **default**: the same as `replenish_packets`
 
-The yaml value type can be in varies formats:
+The YAML value can be written in several forms:
 
 * :ref:`humanize usize <conf_value_humanize_usize>`
 
@@ -205,7 +207,7 @@ request limit
 
 **yaml value**: mix
 
-It consists of 2 fields:
+It consists of two fields:
 
 * shift_millis | shift
 
@@ -227,7 +229,7 @@ rate limit quota
 
 **yaml value**: mix
 
-It consists of 3 fields:
+It consists of three fields:
 
 * rate
 

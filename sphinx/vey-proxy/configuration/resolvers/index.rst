@@ -4,12 +4,13 @@
 Resolver
 ********
 
-The type for each resolver config is *map*, with two always required keys:
+Each resolver configuration item is a map with two required keys:
 
-* :ref:`name <conf_resolver_common_name>`, which specify the name of the resolver.
-* :ref:`type <conf_resolver_common_type>`, which specify the real type of the resolver, decides how to parse other keys.
+* :ref:`name <conf_resolver_common_name>`, which defines the resolver name
+* :ref:`type <conf_resolver_common_type>`, which selects the concrete resolver
+  type and therefore determines how the remaining keys are interpreted
 
-There are many types of resolver, each with a section below.
+The available resolver types are documented below.
 
 Resolvers
 =========
@@ -25,9 +26,9 @@ Resolvers
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many resolvers.
+This section describes common keys shared by many resolver types.
 
-Most of them are the runtime (of the standalone resolver thread) config.
+Most of these settings apply to the standalone resolver runtime.
 
 .. _conf_resolver_common_name:
 
@@ -36,7 +37,7 @@ name
 
 **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Set the name of the resolver.
+The resolver name.
 
 .. _conf_resolver_common_type:
 
@@ -45,7 +46,7 @@ type
 
 **required**, **type**: str
 
-Set the type of the resolver.
+The resolver type.
 
 .. _conf_resolver_common_graceful_stop_wait:
 
@@ -54,10 +55,11 @@ graceful_stop_wait
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the wait duration before really shutdown the resolver thread. This applies to the cache runtime.
+How long to wait before actually shutting down the resolver thread. This applies
+to the cache runtime.
 
-There may be queries running inside the resolver,
-we don't wait all of them to finish but instead wait for a fixed time interval.
+There may still be queries running inside the resolver. Instead of waiting for
+all of them to finish, ``vey-proxy`` waits for this fixed interval.
 
 **default**: 30s
 
@@ -68,9 +70,10 @@ protective_query_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the query timeout value for queries sent to driver. This applies to the cache runtime.
+Timeout for queries sent to the resolver driver. This applies to the cache
+runtime.
 
-The value should be larger than the value set in the driver specific timeout config.
+This value should be greater than any driver-specific timeout.
 
 **default**: 60s
 
@@ -81,7 +84,7 @@ positive_min_ttl
 
 **optional**, **type**: u32
 
-Minimum TTL for positive responses. This applies to the resolve driver.
+Minimum TTL for positive responses. This applies to the resolver driver.
 
 **default**: 30
 
@@ -92,7 +95,8 @@ positive_max_ttl
 
 **optional**, **type**: u32
 
-Maximum TTL for positive responses. It should be longer than *positive_min_ttl*. This applies to the resolve driver.
+Maximum TTL for positive responses. It should be greater than
+``positive_min_ttl``. This applies to the resolver driver.
 
 **default**: 3600
 
@@ -103,26 +107,28 @@ negative_min_ttl
 
 **optional**, **type**: u32
 
-Minimum TTL for negative responses. This applies to the resolve driver.
+Minimum TTL for negative responses. This applies to the resolver driver.
 
 **default**: 30, **alias**: negative_ttl
 
 TTL Calculation
 ===============
 
-A position record will be cached after fetched from driver, two TTL values will be used in the cache runtime:
+A positive record is cached after it is fetched from the driver. Two TTL values
+are then used in the cache runtime:
 
 * expire_ttl
 
-  The record in the cache will be used if it can be found in the cache.
+  If the record is still present in cache, it can be returned directly.
 
-  But if it reaches the expire ttl, a new query will be made immediately when a new request received.
+  Once this TTL is reached, the next request triggers a fresh query
+  immediately.
 
 * vanish_ttl
 
-  The record will be removed from the cache.
+  The record is removed from the cache.
 
-Here is the logic to calculate the values:
+The cache TTLs are calculated as follows:
 
 .. code-block:: shell
 

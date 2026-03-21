@@ -3,6 +3,6 @@
 dummy_close
 ===========
 
-This is the dummy server designed to close all connections.
+Dummy server that immediately closes all connections.
 
-There are no extra config keys for this kind of server.
+This server type has no additional configuration keys.

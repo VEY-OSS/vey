@@ -4,34 +4,38 @@
 ICAP for IMAP
 =============
 
-vey-proxy support to enable ICAP reqmod services for outgoing IMAP APPEND message.
+``vey-proxy`` can use an ICAP ``REQMOD`` service for outgoing IMAP ``APPEND``
+messages.
 
-The mail message will be converted to an HTTP/1.1 PUT request, and then send to ICAP server.
-And the response from the ICAP server will be sent to the upstream.
+The mail message is converted into an HTTP/1.1 ``PUT`` request and sent to the
+ICAP server. The ICAP server's response is then forwarded upstream.
 
-The size of the returned mail message should not be changed.
+The returned mail message must not change in size.
 
-The following headers will be added in the ICAP request header:
+The following header is added to the ICAP request headers:
 
 - X-Transformed-From
 
-  The value will be **IMAP**.
+  The value is **IMAP**.
 
-The following headers will be set in the HTTP PUT request:
+The following headers are set on the HTTP ``PUT`` request:
 
 - Content-Type
 
-  The value will be "message/rfc822" for SMTP DATA message.
+  The value is ``message/rfc822`` for the IMAP message payload.
 
 - Content-Length
 
-  The value will be the exact size of the mail message in the IMAP APPEND command.
-  The ICAP server can modify the mail message but should not change the mail message size.
-  It is recommended for the ICAP server to set Content-Length as part of the HTTP request header in it's ICAP response.
+  The value is the exact size of the mail message in the IMAP ``APPEND``
+  command.
+  The ICAP server may modify the message body, but it must not change the total
+  message size.
+  The ICAP server should also return an updated ``Content-Length`` header in
+  the HTTP request embedded in its ICAP response.
 
-The body of the HTTP PUT request will be the corresponding mail message data.
+The body of the HTTP ``PUT`` request contains the mail message data.
 
 Limitations
 -----------
 
-The mail message size should not be changed by the ICAP server.
+The ICAP server must not change the size of the mail message.

@@ -4,7 +4,8 @@
 Socks5 Custom Reply
 ###################
 
-In addition to the standard reply field defined in `rfc1928`_, the following reply field are also used:
+In addition to the standard reply values defined in `rfc1928`_, ``vey-proxy``
+also uses the following custom reply value:
 
 * X'09' Connection timeout
 

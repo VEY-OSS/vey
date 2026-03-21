@@ -4,7 +4,7 @@
 DPI
 ***
 
-All dpi value types are described here.
+This page documents DPI- and protocol-inspection-related value types.
 
 Protocol Inspection
 ===================
@@ -16,9 +16,10 @@ inspection size limit
 
 **type**: map
 
-This will set size limit for each protocol with no explicit size limit in their specification.
+Sets size limits for protocols that do not already have an explicit size limit
+in their own specification.
 
-The keys ars:
+The supported keys are:
 
 * ftp_greeting_msg
 
@@ -69,7 +70,7 @@ protocol inspect action
 
 **type**: string
 
-Set what we should do to a specific application protocol.
+Action to take for a specific application protocol.
 
 The possible values for this are:
 
@@ -100,15 +101,16 @@ inspect rule
 
 All the rules share the same config format described in this section.
 
-An inspect rule is consisted of many records, each of them has an associated
+An inspect rule consists of multiple records, each associated with a
 :ref:`protocol inspect action <conf_value_dpi_protocol_inspect_action>`.
 
-The value in map format is consisted of the following fields:
+When expressed as a map, the value supports the following fields:
 
 * any of the protocol inspect actions as the key str
 
-  The value should be a valid record or a list of them, with the key string as the acl action.
-  See detail types for the format of each record type.
+  The value should be either a valid record or a list of valid records, and the
+  key name determines the inspect action.
+  See the detailed types below for the record format.
 
 .. versionadded:: 1.9.9
 
@@ -141,7 +143,8 @@ child domain inspect rule
 
 **yaml value**: :ref:`inspect rule <conf_value_inspect_rule>`
 
-Specify the parent domain to match, all children domain in this domain will be matched.
+Specifies the parent domain to match. Any child domain under that parent also
+matches.
 
 The record type should be :ref:`domain <conf_value_domain>`.
 
@@ -154,9 +157,10 @@ protocol inspect policy
 
 **yaml value**: string | map
 
-This rule set is used to match dst host for each protocol inspection call.
+This rule set is used to match the destination host for each protocol
+inspection decision.
 
-Consisted of the following rules:
+It consists of the following rules:
 
 * default
 
@@ -182,7 +186,8 @@ Consisted of the following rules:
 
 The match order is the same as the list order above.
 
-One can use the *string* type to define a default action for any upstream traffic, regardless of the host,
+A plain string can also be used to define the default action for all upstream
+traffic, regardless of host.
 
 .. versionadded:: 1.9.9
 

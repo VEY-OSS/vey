@@ -3,7 +3,8 @@
 http_proxy
 ==========
 
-This server provides http proxy, including http forward and http connect.
+This server implements an HTTP proxy, including both HTTP forward and HTTP
+CONNECT support.
 
 The following common keys are supported:
 
@@ -28,7 +29,8 @@ The following common keys are supported:
 * :ref:`task_log_flush_interval <conf_server_common_task_log_flush_interval>`
 * :ref:`extra_metrics_tags <conf_server_common_extra_metrics_tags>`
 
-The auth scheme supported by the server is determined by the type of the specified user group.
+The authentication schemes supported by this server depend on the type of the
+configured user group.
 
 +-------------+---------------------------+-------------------+
 |auth scheme  |user group type            |is supported       |
@@ -43,7 +45,7 @@ listen
 
 **optional**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
 
-Set the listen config for this server.
+Listening configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
@@ -56,19 +58,20 @@ local_server_name
 
 **optional**, **type**: :ref:`host <conf_value_host>` | seq
 
-Set a list of local server names.
+List of local server names.
 
-A request will be treated as a local request if:
+A request is treated as a local request when:
 
 - no local server name set
 
-  The URL in HTTP header is relative
+  The URL in the HTTP request header is relative
 
 - local server name has been set
 
-  The method is not CONNECT and the server name in `Host` request header matches the local server name
+  The method is not ``CONNECT`` and the server name in the ``Host`` header
+  matches one of the configured local server names
 
-It is recommended to set local server name if you want to enable well-known URI support.
+Set this if you want to enable support for Well-Known URIs.
 
 .. versionadded:: 1.11.5
 
@@ -79,7 +82,8 @@ server_id
 
 **optional**, **type**: :ref:`http server id <conf_value_http_server_id>`
 
-Set the server id. If set, the header *X-BD-Remote-Connection-Info* will be added to response.
+Server ID. If set, the ``X-BD-Remote-Connection-Info`` header is added to the
+response.
 
 **default**: not set
 
@@ -88,7 +92,7 @@ auth_realm
 
 **optional**, **type**: :ref:`ascii str <conf_value_ascii_str>`
 
-Set the auth realm.
+Authentication realm.
 
 **default**: proxy
 
@@ -97,7 +101,7 @@ username_params
 
 **optional**, **type**: :ref:`username_params <config_auth_username_params>`
 
-Allow to set egress context from username params.
+Allows the egress context to be populated from username parameters.
 
 **default**: not set
 
@@ -110,7 +114,7 @@ tls_client
 
 **optional**, **type**: :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
-Set TLS client parameters for https forward requests.
+TLS client parameters used for HTTPS-forward requests.
 
 **default**: set with default value
 
@@ -119,7 +123,7 @@ ftp_client
 
 **optional**, **type**: :ref:`ftp client config <conf_value_ftp_client_config>`
 
-Set the ftp client config for FTP over Http requests.
+FTP client configuration used for FTP-over-HTTP requests.
 
 **default**: set with default value
 
@@ -128,7 +132,8 @@ req_header_recv_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the max time to wait a full request header after the client connection become readable.
+Maximum time to wait for the full request header after the client connection
+becomes readable.
 
 **default**: 30s
 
@@ -139,7 +144,8 @@ rsp_header_recv_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the max time duration after the full request sent and before receive of the whole response header.
+Maximum time to wait after the full request is sent and before the full
+response header is received.
 
 **default**: 60s
 
@@ -148,7 +154,7 @@ req_header_max_size
 
 **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the max request header size.
+Maximum request-header size.
 
 **default**: 64KiB
 
@@ -157,7 +163,7 @@ rsp_header_max_size
 
 **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the max response header size.
+Maximum response-header size.
 
 **default**: 64KiB
 
@@ -168,9 +174,10 @@ log_uri_max_chars
 
 **optional**, **type**: usize
 
-Set the max number of characters of uri should be logged in logs.
+Maximum number of URI characters recorded in logs.
 
-The user level config value will take effect if set, see this :ref:`user config option <config_user_log_uri_max_chars>`.
+If the user-level configuration also sets this value, the user-level setting
+takes precedence. See :ref:`user config option <config_user_log_uri_max_chars>`.
 
 **default**: 1024
 
@@ -179,7 +186,7 @@ pipeline_size
 
 **optional**, **type**: :ref:`nonzero usize <conf_value_nonzero_usize>`
 
-Set the pipeline size for HTTP 1.0/1.1.
+Pipeline depth for HTTP/1.0 and HTTP/1.1.
 
 **default**: 10
 
@@ -192,7 +199,7 @@ pipeline_read_idle_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the idle timeout of the client side IDLE http connections.
+Idle timeout for client-side idle HTTP connections.
 
 **default**: 5min
 
@@ -201,8 +208,8 @@ no_early_error_reply
 
 **optional**, **type**: bool
 
-Set to true if no error reply should be sent out before user auth succeeded, the connection will be just closed
-in such case.
+If set to ``true``, no error response is sent before user authentication
+succeeds. In that case the connection is simply closed.
 
 **default**: false
 
@@ -211,19 +218,21 @@ allow_custom_host
 
 **optional**, **type**: bool
 
-Set if custom *Host* header is allowed. If set to false, the *Host* header in http headers should have the same domain
-or ip address with the one in the request method line.
+Controls whether a custom ``Host`` header is allowed. If set to ``false``, the
+``Host`` header must contain the same domain or IP address as the request line.
 
 **default**: true
 
-.. note:: we don't require the *Host* header to be present in http headers no matter what have been set for this
+.. note:: ``vey-proxy`` does not require a ``Host`` header to be present, no
+   matter how this option is set.
 
 drop_default_port_in_host
 -------------------------
 
 **optional**, **type**: bool
 
-Set if the default port in Host header should be dropped before sent to upstream.
+Controls whether the default port should be removed from the ``Host`` header
+before the request is sent upstream.
 
 The default ports are:
 
@@ -239,7 +248,8 @@ body_line_max_length
 
 **optional**, **type**: int
 
-Set the max line length for lines (trailer and chunk size) in http body.
+Maximum line length for lines in the HTTP body, such as trailer fields and
+chunk-size lines.
 
 **default**: 8192
 
@@ -248,7 +258,7 @@ http_forward_upstream_keepalive
 
 **optional**, **type**: :ref:`http keepalive <conf_value_http_keepalive>`
 
-Set http keepalive config at server level.
+HTTP keepalive configuration at the server level.
 
 **default**: set with default value
 
@@ -259,9 +269,9 @@ http_forward_mark_upstream
 
 **optional**, **type**: bool
 
-If set, the header *X-BD-Upstream-Id* header will be added to the response from upstream, with the value to be
-:ref:`server_id <config_server_http_proxy_server_id>`.
-Local generated response will not contains this header.
+If enabled, the ``X-BD-Upstream-Id`` header is added to responses received from
+upstream, using the value of :ref:`server_id <config_server_http_proxy_server_id>`.
+Responses generated locally do not contain this header.
 
 **default**: false
 
@@ -272,8 +282,8 @@ echo_chained_info
 
 **optional**, **type**: bool
 
-Set whether to add custom header in response that provides chained information
-about the direct connection to upstream.
+Controls whether custom response headers are added to expose chaining
+information about the direct upstream connection.
 
 The custom headers are:
 
@@ -287,9 +297,11 @@ untrusted_read_speed_limit
 
 **optional**, **type**: :ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
-Enable untrusted read of the body of requests with no auth info, and set the read rate limit.
+Enables untrusted reading of request bodies that do not yet have authentication
+information, and sets the corresponding read-rate limit.
 
-Set this if you need to be compatible with buggy java http clients which won't handle the 407 error response in time.
+Use this if you need compatibility with buggy Java HTTP clients that do not
+handle ``407`` responses promptly.
 
 **default**: not set, which means untrusted read is disabled
 
@@ -307,7 +319,7 @@ egress_path_selection_header
 
 **optional**, **type**: str, **alias**: path_selection_header
 
-Set the http custom header name to be used for path selection.
+HTTP header name used for egress path selection.
 
 **default**: not set
 
@@ -318,11 +330,13 @@ steal_forwarded_for
 
 **optional**, **type**: bool
 
-Set if we should delete the *Forwarded* and *X-Forwarded-For* headers from the client's request.
+Controls whether the ``Forwarded`` and ``X-Forwarded-For`` headers are removed
+from the client request.
 
 .. note::
 
-  If you want to remove those headers from https traffic, you need to enable TLS interception and also set this in
-  auditor's :ref:`h1 interception <conf_auditor_h1_interception>` config.
+  To remove these headers from HTTPS traffic, TLS interception must be enabled
+  and the corresponding option must also be set in the auditor's
+  :ref:`h1 interception <conf_auditor_h1_interception>` configuration.
 
 **default**: false

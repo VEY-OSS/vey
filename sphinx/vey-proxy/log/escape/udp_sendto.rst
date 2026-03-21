@@ -4,20 +4,21 @@
 UdpSendto
 *********
 
-The following keys are available for UdpSendto escape log:
+The following keys are available in ``UdpSendto`` escape logs:
 
 next_expire
 -----------
 
 **optional**, **type**: rfc3339 timestamp string with microseconds
 
-The expected expire time of the next peer.
+The expected expiration time of the next peer.
 
-Present only if the next escaper is dynamic and we have selected the remote peer.
+Present only when the next escaper is dynamic and a remote peer has already
+been selected.
 
 reason
 ------
 
 **required**, **type**: enum string
 
-The brief error reason.
+The short error reason.

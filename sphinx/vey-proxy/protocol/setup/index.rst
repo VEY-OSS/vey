@@ -8,4 +8,4 @@ Setup Guide
    :maxdepth: 1
 
    Transparent Proxy <transparent_proxy>
-   Wireshark Udpdump <wireshark_udpdump>
+   Wireshark udpdump <wireshark_udpdump>

@@ -4,7 +4,7 @@
 Resolve Log
 ***********
 
-The resolve log contains only errors in resolvers.
+Resolve logs record resolver-side errors only.
 
 Shared Keys
 ===========
@@ -14,14 +14,14 @@ resolver_type
 
 **required**, **type**: enum string
 
-The type of the resolver.
+  The resolver type.
 
 resolver_name
 -------------
 
 **required**, **type**: string
 
-The name of the resolver.
+  The resolver name.
 
 Values:
 
@@ -46,7 +46,7 @@ duration
 
 **required**, **type**: time duration string
 
-The time spent for this query action.
+The time spent on this query action.
 
 rr_source
 ---------
@@ -63,14 +63,14 @@ Values:
 
 * query
 
-  The result is returned by drivers with real query to remote server.
+  The result came from a real query sent to a remote DNS server.
 
 error_type
 ----------
 
 **required**, **type**: enum string
 
-The main error type.
+The primary error type.
 
 See the definition of **ResolverError** in *lib/vey-resolver/src/error.rs*.
 
@@ -79,9 +79,9 @@ error_subtype
 
 **required**, **type**: enum string
 
-The minor error type.
+The secondary error type.
 
-It's value is depends on the value of **error_type**.
+Its meaning depends on the value of **error_type**.
 
 See the definition of **ResolverError** in *lib/vey-resolver/src/error.rs*.
 
@@ -90,7 +90,7 @@ domain
 
 **required**, **type**: domain string
 
-The domain to query.
+The queried domain.
 
 Sub Types
 =========

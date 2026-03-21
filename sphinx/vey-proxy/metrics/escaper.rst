@@ -4,24 +4,25 @@
 Escaper Metrics
 ###############
 
-The metrics in escaper side shows the stats with remote.
+Escaper-side metrics describe activity on the remote or upstream side of a task.
 
-For **non-route escapers**, the *request* and *traffic* metrics are available.
-For **route escapers**, the *route* metrics is available.
+For **non-route escapers**, *request* and *traffic* metrics are available.
+For **route escapers**, *route* metrics are available.
 
-The following are the tags for all escaper metrics:
+The following tags are present on all escaper metrics:
 
 * :ref:`daemon_group <metrics_tag_daemon_group>`
 * :ref:`stat_id <metrics_tag_stat_id>`
 
 * escaper
 
-  Set the escaper name.
+  The escaper name.
 
 Request
 =======
 
-No extra tags. Extra tags set at escaper side will be added.
+No additional fixed tags. Any extra tags configured on the escaper are also
+included.
 
 The metric names are:
 
@@ -29,25 +30,25 @@ The metric names are:
 
   **type**: count
 
-  Show the total tasks that use this escaper.
+  Total number of tasks that use this escaper.
 
 * escaper.connection.attempt
 
   **type**: count
 
-  Show the count of connection attempt to remote.
+  Number of connection attempts made to the remote side.
 
 * escaper.connection.establish
 
   **type**: count
 
-  Show the count of established connections to remote.
+  Number of connections established to the remote side.
 
 * escaper.tcp.connect.attempt
 
   **type**: count
 
-  Show the count of attempt to TCP connect to the next peer.
+  Number of TCP connection attempts to the next peer.
 
   .. versionadded:: 1.11.1
 
@@ -55,7 +56,8 @@ The metric names are:
 
   **type**: count
 
-  Show the count of established TCP connections to the next peer that will be used by tasks.
+  Number of TCP connections successfully established to the next peer and used
+  by tasks.
 
   .. versionadded:: 1.11.1
 
@@ -63,12 +65,13 @@ The metric names are:
 
   **type**: count
 
-  Show the count of success TCP connect to the next peer.
+  Number of successful TCP connection attempts to the next peer.
 
   .. note::
 
-    This is different than *escaper.tcp.connect.establish*, as we may try connect may times in HappyEyeballs,
-    but only one successful connection will be used by the task.
+    This differs from *escaper.tcp.connect.establish*. During Happy Eyeballs,
+    multiple connection attempts may succeed, but only one is ultimately used
+    by the task.
 
   .. versionadded:: 1.11.1
 
@@ -76,7 +79,7 @@ The metric names are:
 
   **type**: count
 
-  Show the count of failed (error encountered) TCP connect to the next peer.
+  Number of failed TCP connection attempts to the next peer due to an error.
 
   .. versionadded:: 1.11.1
 
@@ -84,7 +87,8 @@ The metric names are:
 
   **type**: count
 
-  Show the count of failed TCP connect to the next peer due to timeout.
+  Number of TCP connection attempts to the next peer that failed due to
+  timeout.
 
   .. versionadded:: 1.11.1
 
@@ -92,7 +96,7 @@ The metric names are:
 
   **type**: count
 
-  Show the count of success TLS handshake to the next peer proxy.
+  Number of successful TLS handshakes with the next proxy peer.
 
   .. versionadded:: 1.11.1
 
@@ -100,7 +104,8 @@ The metric names are:
 
   **type**: count
 
-  Show the count of failed (error encountered) TLS handshake to the next peer proxy.
+  Number of TLS handshakes with the next proxy peer that failed due to an
+  error.
 
   .. versionadded:: 1.11.1
 
@@ -108,7 +113,7 @@ The metric names are:
 
   **type**: count
 
-  Show the count of failed TLS handshake to the next peer proxy due to timeout.
+  Number of TLS handshakes with the next proxy peer that failed due to timeout.
 
   .. versionadded:: 1.11.1
 
@@ -116,7 +121,8 @@ The metric names are:
 
   **type**: count
 
-  Show the count of received TLS warning alerts from peer, which includes close_notify and user_canceled.
+  Number of TLS warning alerts received from the peer, including
+  ``close_notify`` and ``user_canceled``.
 
   .. note:: You may see user_canceled followed by a close_notify on one connection.
 
@@ -126,7 +132,8 @@ The metric names are:
 
   **type**: count
 
-  Show the count of received TLS error alerts (abortive closure of connection) from peer.
+  Number of TLS error alerts received from the peer, indicating an abortive
+  connection closure.
 
   .. versionadded:: 1.11.4
 
@@ -134,20 +141,21 @@ The metric names are:
 
   **type**: count
 
-  Show the count of ip blocked connection attempts.
+  Number of connection attempts blocked because the resolved IP was forbidden.
 
-  This stats is also added to user forbidden stats when possible.
+  This metric is also added to user forbidden metrics when possible.
 
 Traffic
 =======
 
-The following tags are also set:
+The following tag is also set:
 
 * :ref:`transport <metrics_tag_transport>`
 
-Extra tags set at escaper side will be added.
+Any extra tags configured on the escaper are also included.
 
-The io stats here include stats of the upper layer of transport layer, which means TLS data are also counted in.
+These I/O metrics include traffic above the transport layer. TLS payload and
+TLS framing are therefore counted together.
 
 The metric names are:
 
@@ -155,32 +163,32 @@ The metric names are:
 
   **type**: count
 
-  Show the total bytes that are received from remote side on this escaper.
+  Total bytes received from the remote side through this escaper.
 
 * escaper.traffic.in.packets
 
   **type**: count
 
-  Show the total datagram packets that are received from remote side on this escaper.
-  Note that this is not available for stream type transport protocols.
+  Total datagram packets received from the remote side through this escaper.
+  This metric is not available for stream-oriented transports.
 
 * escaper.traffic.out.bytes
 
   **type**: count
 
-  Show the total bytes that are sent to remote from this escaper.
+  Total bytes sent to the remote side through this escaper.
 
 * escaper.traffic.out.packets
 
   **type**: count
 
-  Show the total datagram packets that are sent to remote from this escaper.
-  Note that this is not available for stream type transport protocols.
+  Total datagram packets sent to the remote side through this escaper.
+  This metric is not available for stream-oriented transports.
 
 Route
 =====
 
-No extra tags.
+No additional tags.
 
 The metric names are:
 
@@ -188,10 +196,10 @@ The metric names are:
 
   **type**: count
 
-  Show how many requests have been successfully routed.
+  Number of requests successfully routed.
 
 * route.request.failed
 
   **type**: count
 
-  Show how many requests have been failed at route selection.
+  Number of requests that failed during route selection.

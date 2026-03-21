@@ -3,7 +3,8 @@
 socks_proxy
 ===========
 
-This server provides socks proxy, which support tcp connect and udp associate.
+This server implements a SOCKS proxy with support for TCP connect and UDP
+associate.
 
 The following common keys are supported:
 
@@ -31,7 +32,8 @@ The following common keys are supported:
 * :ref:`task_log_flush_interval <conf_server_common_task_log_flush_interval>`
 * :ref:`extra_metrics_tags <conf_server_common_extra_metrics_tags>`
 
-The auth type supported by the server is determined by the type of the specified user group.
+The authentication methods supported by this server depend on the type of the
+configured user group.
 
 +-------------+---------------------------+-------------------+
 |auth scheme  |user group type            |is supported       |
@@ -46,7 +48,7 @@ listen
 
 **optional**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
 
-Set the listen config for this server.
+Listening configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
@@ -59,7 +61,7 @@ use_udp_associate
 
 **optional**, **type**: bool, **alias**: enable_udp_associate
 
-Set whether we should use udp associate instead of udp connect.
+Controls whether UDP ASSOCIATE is used instead of UDP CONNECT.
 
 **default**: false
 
@@ -68,7 +70,7 @@ username_params
 
 **optional**, **type**: :ref:`username_params <config_auth_username_params>`
 
-Allow to set egress context from username params.
+Allows the egress context to be populated from username parameters.
 
 **default**: not set
 
@@ -79,7 +81,8 @@ negotiation_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the max time duration for negotiation, before we start to handle the real socks commands.
+Maximum time allowed for SOCKS negotiation before processing the actual SOCKS
+command.
 
 **default**: 4s
 
@@ -88,7 +91,8 @@ udp_client_initial_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the max time duration to wait before the first udp packet after we send back the udp port info.
+Maximum time to wait for the first UDP packet after the UDP port information is
+returned to the client.
 
 **default**: 30s
 
@@ -97,8 +101,10 @@ udp_bind_ipv4
 
 **optional**, **type**: :ref:`list <conf_value_list>` of :ref:`ipv4 addr str <conf_value_ipv4_addr_str>`
 
-Set the ipv4 addresses for udp associate local binding to socks client.
-If not set, the server ip for the tcp connection will be used when setup the udp listen socket.
+IPv4 addresses used when binding the local UDP socket exposed to the SOCKS
+client.
+If not set, the server IP used for the TCP connection is used when creating the
+UDP listener.
 
 If set, the tcp connect can be in ipv6 address family.
 
@@ -109,8 +115,10 @@ udp_bind_ipv6
 
 **optional**, **type**: :ref:`list <conf_value_list>` of :ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
 
-Set the ipv6 addresses for udp associate local binding to socks client.
-If not set, the server ip for the tcp connection will be used when setup the udp listen socket.
+IPv6 addresses used when binding the local UDP socket exposed to the SOCKS
+client.
+If not set, the server IP used for the TCP connection is used when creating the
+UDP listener.
 
 If set, the tcp connect can be in ipv4 address family.
 
@@ -121,15 +129,16 @@ udp_bind_port_range
 
 **optional**, **type**: :ref:`port range <conf_value_port_range>`
 
-Set the UDP port-range for udp associate local binding to socks client.
-If not set, the port will be selected by the OS.
+UDP port range used when binding the local UDP socket exposed to the SOCKS
+client.
+If not set, the port is chosen by the operating system.
 
 udp_socket_buffer
 -----------------
 
 **optional**, **type**: :ref:`socket buffer config <conf_value_socket_buffer_config>`
 
-Set the buffer config for the udp socket.
+Socket-buffer configuration for the UDP socket.
 
 .. note:: The buffer size of the socket at escaper side will also be set.
 
@@ -140,12 +149,16 @@ transmute_udp_echo_ip
 
 **optional**, **type**: map | bool
 
-Set this if you want to reply another ip other then the real bind ip for the udp listen socket to the client.
+Use this when the server should return an IP address other than the real local
+bind IP of the UDP listener.
 
-The key of the map should be the local ip, and the value should be the ip you want the client to use.
-If no matched key found in the map, the unspecified ip address of the same family will be used.
+In map form, the key is the local IP and the value is the IP address the client
+should use instead.
+If no matching key is found, the unspecified address of the same family is
+used.
 
-For bool value, an empty map will be used if set to true, or disabled if set to false.
+If set to ``true``, an empty map is used.
+If set to ``false``, the feature is disabled.
 
 **default**: not set
 

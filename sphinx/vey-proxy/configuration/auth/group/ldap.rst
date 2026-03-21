@@ -3,7 +3,8 @@
 LDAP
 ====
 
-The user group that auth user with remote a LDAP server (simple bind).
+User-group type that authenticates users against a remote LDAP server through
+simple bind.
 
 The following common keys are supported:
 
@@ -20,18 +21,20 @@ ldap_url
 
 **required**, **type**: LDAP URL
 
-Set the LDAP url in format `<schema>://<server_name>:[<port>]/<base_dn>`.
-The schema should be one of `ldap` or `ldaps`, the default for `ldap` is 389 while 636 will be used for `ldaps`.
+LDAP URL in the form ``<schema>://<server_name>:[<port>]/<base_dn>``.
+The schema must be either ``ldap`` or ``ldaps``. The default port is ``389``
+for ``ldap`` and ``636`` for ``ldaps``.
 
 tls_client
 ----------
 
 **optional**, **type**: :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
-Set TLS parameters for this local TLS client.
-If set to empty map, a default config is used.
+TLS parameters for the local TLS client.
+If set to an empty map, the default configuration is used.
 
-If the schema of LDAP url is "ldap" and this has been set, then "STARTTLS" will be used.
+If the LDAP URL uses the ``ldap`` scheme and this field is set, ``STARTTLS`` is
+used.
 
 If the schema is "ldaps", a default value will be used if not set.
 
@@ -42,7 +45,7 @@ tls_name
 
 **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
 
-Set the tls server name to verify tls certificate for all peers.
+TLS server name used to verify peer certificates.
 
 If not set, the host part of each peer will be used.
 
@@ -53,7 +56,7 @@ username_attribute
 
 **optional**, **type**: string
 
-Set the LDAP attribute name for username.
+LDAP attribute name used for usernames.
 
 The most common value is `uid` while some LDAP servers may use `cn`.
 
@@ -64,10 +67,10 @@ unmanaged_user
 
 **optional**, **type**: :ref:`user <configuration_auth_user>`
 
-Set and enable unmanaged users.
+Configures and enables unmanaged users.
 
-This is a template user config for all users that auth OK with the LDAP server but not has been set
-in both static and dynamic users config.
+This is a template user configuration for users who authenticate successfully
+with LDAP but are not defined in either the static or dynamic user lists.
 
 If not set, only static or dynamic users will be allowed.
 
@@ -78,7 +81,7 @@ max_message_size
 
 **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the max header size when parsing response from the LDAP server.
+Maximum message size accepted when parsing responses from the LDAP server.
 
 **default**: 256
 
@@ -87,7 +90,7 @@ connect_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the timeout value when TCP connect to the LDAP server.
+Timeout for establishing the TCP connection to the LDAP server.
 
 **default**: 4s
 
@@ -96,7 +99,7 @@ response_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the timeout value for the read of response from LDAP server.
+Timeout while reading responses from the LDAP server.
 
 **default**: 2s
 
@@ -105,7 +108,7 @@ connection_pool
 
 **optional**, **type**: :ref:`connection pool <conf_value_connection_pool_config>`
 
-Set the connection pool config.
+Connection-pool configuration.
 
 **default**: set with default value
 
@@ -114,7 +117,8 @@ queue_channel_size
 
 **optional**, **type**: usize
 
-Set the queue channel size value when auth with the LDAP server for a client request.
+Queue channel size used when authenticating a client request against the LDAP
+server.
 
 **default**: 64
 
@@ -123,7 +127,7 @@ queue_wait_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the timeout value when auth with the LDAP server for a client request.
+Timeout while authenticating a client request against the LDAP server.
 
 **default**: 4s
 
@@ -132,7 +136,7 @@ cache_user_count
 
 **optional**, **type**: usize
 
-Set how many users will be LRU cached in thread local storage.
+Maximum number of users stored in the thread-local LRU cache.
 
 **default**: 128
 
@@ -141,6 +145,6 @@ cache_expire_time
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the expire time for valid passwords in the thread local LRU cache.
+Expiration time for valid passwords in the thread-local LRU cache.
 
 **default**: 5min

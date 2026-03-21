@@ -11,7 +11,8 @@ sockaddr str
 
 **yaml value**: str
 
-The string should be in *<ip>[:<port>]* format, in which the port may be omitted if a default value is available.
+String in ``<ip>[:<port>]`` format. The port may be omitted when a default port
+is available in the surrounding context.
 
 .. _conf_value_static_sockaddr_str:
 
@@ -20,12 +21,12 @@ static sockaddr str
 
 **yaml value**: str
 
-The string should be in *@<domain>:<port>* or *@<ip>:<port>* format.
+String in ``@<domain>:<port>`` or ``@<ip>:<port>`` format.
 
-It is different from :ref:`upstream str <conf_value_upstream_str>` as:
+This differs from :ref:`upstream str <conf_value_upstream_str>` in two ways:
 
 - It will be resolved when we load the config files
-- The domain is only allowed to be resolved to just 1 IP address
+- The domain must resolve to exactly one IP address
 
 .. _conf_value_env_sockaddr_str:
 
@@ -34,7 +35,8 @@ env sockaddr str
 
 **yaml value**: :ref:`sockaddr str <conf_value_sockaddr_str>` or :ref:`static sockaddr str <conf_value_static_sockaddr_str>` or :ref:`env var <conf_value_env_var>`
 
-The string should be in *<ip>[:<port>]* format, in which the port may be omitted if a default value is available.
+The final value must resolve to ``<ip>[:<port>]`` format, with the port
+optional only when a default port is available.
 
 .. versionadded:: 1.7.31
 
@@ -45,7 +47,7 @@ ip addr str
 
 **yaml value**: str
 
-The string should be in *<ip>* format.
+String containing a single IP address.
 
 .. _conf_value_ipv4_addr_str:
 
@@ -54,7 +56,7 @@ ipv4 addr str
 
 **yaml value**: str
 
-The string should be in *<ipv4 address>* format.
+String containing a single IPv4 address.
 
 .. _conf_value_ipv6_addr_str:
 
@@ -63,9 +65,9 @@ ipv6 addr str
 
 **yaml value**: str
 
-The string should be in *<ipv6 address>* format.
+String containing a single IPv6 address.
 
-Ipv4 mapped address should not be set when this type is required.
+IPv4-mapped IPv6 addresses should not be used where this type is required.
 
 .. _conf_value_ip_network_str:
 
@@ -74,7 +76,7 @@ ip network str
 
 **yaml value**: str
 
-The string should be a network address in CIDR format, or just an ip address.
+String containing either a CIDR network or a single IP address.
 
 .. _conf_value_interface_name:
 
@@ -83,7 +85,7 @@ interface name
 
 **yaml value**: str | u32
 
-The string should be a network interface name or index.
+Network interface name or interface index.
 
 .. versionchanged:: 1.11.4 support interface index
 
@@ -94,7 +96,8 @@ egress area
 
 **yaml value**: str
 
-Area of the egress ip address. The format is strings joined with '/', like "中国/山东/济南".
+Geographic area for the egress IP address. The format is a ``/``-separated
+string such as ``中国/山东/济南``.
 
 .. _conf_value_host:
 
@@ -103,7 +106,7 @@ host
 
 **yaml value**: str
 
-A host value. Which should be either a valid domain, or a valid IP address.
+Host value, which may be either a valid domain name or a valid IP address.
 
 .. _conf_value_domain:
 
@@ -112,7 +115,7 @@ domain
 
 **yaml value**: str
 
-A domain value. The string value should be able to convert to a IDNA domain.
+A domain value. The string must be convertible to an IDNA domain.
 
 Leading '.' is not allowed.
 
@@ -123,7 +126,7 @@ ports
 
 **yaml value**: mix
 
-A collection of ip ports. The base type may be:
+Collection of IP ports. The base type may be:
 
 * u16 port
 
@@ -135,7 +138,8 @@ A collection of ip ports. The base type may be:
 
 * comma separated discrete port(s)
 
-  A list of port. Each could be a port or a range of ports.
+  A comma-separated list in which each entry is either a single port or a port
+  range.
 
 The yaml value could be:
 
@@ -158,7 +162,7 @@ port range
 
 **yaml value**: mix
 
-A consequent range of ip ports. It consists of 2 fields:
+Contiguous IP-port range. It consists of two fields:
 
 * start
 
@@ -176,7 +180,7 @@ The yaml value for *port range* can be in the following formats:
 
 * str
 
-  In format <start>-<end>. Extra whitespaces is allowed.
+  In ``<start>-<end>`` format. Extra whitespace is allowed.
 
 * map
 
@@ -189,13 +193,13 @@ socket buffer config
 
 **yaml value**: mix
 
-It consists of 2 fields:
+It consists of two fields:
 
 * recv
 
   **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-  Set the recv buf size.
+  Receive-buffer size.
 
   **default**: not set
 
@@ -203,7 +207,7 @@ It consists of 2 fields:
 
   **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-  Set the send buf size.
+  Send-buffer size.
 
   **default**: not set
 
@@ -211,7 +215,7 @@ The yaml value for *socket buffer config* can be in the following formats:
 
 * int | string
 
-  The value will be set for both **recv** and **send** fields above.
+  Sets both ``recv`` and ``send`` to the same value.
 
 * map
 
@@ -224,14 +228,15 @@ connection pool config
 
 **type**: map
 
-The keys are:
+The supported keys are:
 
 * check_interval
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Set the min idle check interval.
-  New connections will be established if the idle connections are less than *min_idle_count*.
+  Minimum interval between idle-connection checks.
+  New connections are established when the idle connection count drops below
+  ``min_idle_count``.
 
   **default**: 10s
 
@@ -239,7 +244,7 @@ The keys are:
 
   **optional*, **type**: usize
 
-  Set the maximum idle connections count.
+  Maximum number of idle connections.
 
   **default**: 1024
 
@@ -247,7 +252,7 @@ The keys are:
 
   **optional**, **type**: usize
 
-  Set the minimum idle connections count.
+  Minimum number of idle connections.
 
   **default**: 32
 
@@ -255,7 +260,7 @@ The keys are:
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Set the keep timeout for IDLE connection.
+  Idle timeout for a pooled connection.
 
   **default**: 5m
 

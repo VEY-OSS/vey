@@ -4,17 +4,19 @@
 ICAP for H2
 ===========
 
-vey-proxy support to enable ICAP reqmod and respmod services for H2 request and response.
+``vey-proxy`` can use ICAP ``REQMOD`` and ``RESPMOD`` services for HTTP/2
+requests and responses.
 
-The H2 request and response is convert to HTTP/1.1 first, and then send to ICAP server.
-And the response from the ICAP server will be convert back to H2.
+HTTP/2 requests and responses are first transformed into HTTP/1.1 messages
+before being sent to the ICAP server. The ICAP server's response is then
+converted back into HTTP/2.
 
-The following headers will be added in the ICAP request header:
+The following headers are added to the ICAP request headers:
 
 - X-Transformed-From
 
-  The value will be **HTTP/2.0**.
+  The value is **HTTP/2.0**.
 
 - X-HTTP-Upgrade
 
-  The value will be the Protocol value set in Extended CONNECT request.
+  The value is the protocol value from the Extended CONNECT request.

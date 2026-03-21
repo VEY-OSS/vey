@@ -3,7 +3,7 @@
 route_upstream
 ==============
 
-This escaper allows to select a next escaper based on rules on upstream address.
+This escaper selects the next escaper based on rules applied to the upstream address.
 
 There is no path selection support for this escaper.
 
@@ -16,7 +16,7 @@ exact_match
 
 **optional**, **type**: seq | map
 
-If the host part of upstream address exactly match the one in the rules, that escaper will be selected.
+If the host part of the upstream address exactly matches a configured rule, the corresponding escaper is selected.
 
 For seq format:
 
@@ -34,7 +34,7 @@ For seq format:
 
     Each element should be :ref:`host <conf_value_host>`.
 
-    A host should not be set duplicated in rules for different next escapers.
+    A host must not appear in rules for different next escapers.
 
   Example:
 
@@ -49,7 +49,7 @@ For seq format:
 
 For map format:
 
-  The key should be the next escaper name, and the value should be the same as `hosts` in the seq format.
+  Each key is the next escaper name, and each value has the same format as ``hosts`` in the sequence form.
 
   Example:
 
@@ -67,7 +67,7 @@ subnet_match
 
 **optional**, **type**: seq | map
 
-If the host is an IP address and match the longest subnet in the rule, that escaper will be selected.
+If the host is an IP address and matches multiple subnets, the longest-prefix match is used.
 
 For seq format:
 
@@ -85,7 +85,7 @@ For seq format:
 
     Each element should be :ref:`ip network str <conf_value_ip_network_str>`.
 
-    A subnet should not be set duplicated in rules for different next escapers.
+    A subnet must not appear in rules for different next escapers.
 
   Example:
 
@@ -100,7 +100,7 @@ For seq format:
 
 For map format:
 
-  The key should be the next escaper name, and the value should be the same as `subnets` in the seq format.
+  Each key is the next escaper name, and each value has the same format as ``subnets`` in the sequence form.
 
   Example:
 
@@ -118,7 +118,7 @@ child_match
 
 **optional**, **type**: seq | map
 
-If the domain of the upstream address is children of domains in the rules, that escaper will be selected.
+If the upstream domain is a child of a configured domain, the corresponding escaper is selected.
 
 For seq format:
 
@@ -136,7 +136,7 @@ For seq format:
 
     Each element should be :ref:`domain <conf_value_domain>`.
 
-    Each domain should not be set for different next escapers.
+    A domain must not appear in rules for different next escapers.
 
   Example:
 
@@ -151,7 +151,7 @@ For seq format:
 
 For map format:
 
-  The key should be the next escaper name, and the value should be the same as `domains` in the seq format.
+  Each key is the next escaper name, and each value has the same format as ``domains`` in the sequence form.
 
   Example:
 
@@ -169,8 +169,7 @@ suffix_match
 
 **optional**, **type**: seq | map, **alias**: radix_match
 
-If the domain of the upstream address exactly match the one of the domain suffixes in the rules,
-that escaper will be selected.
+If the upstream domain matches one of the configured suffixes, the corresponding escaper is selected.
 
 For seq format:
 
@@ -188,7 +187,7 @@ For seq format:
 
     Each element should be :ref:`domain <conf_value_domain>`.
 
-    Each domain suffix should not be set for different next escapers.
+    A suffix must not appear in rules for different next escapers.
 
   Example:
 
@@ -204,7 +203,7 @@ For seq format:
 
 For map format:
 
-  The key should be the next escaper name, and the value should be the same as `suffixes` in the seq format.
+  Each key is the next escaper name, and each value has the same format as ``suffixes`` in the sequence form.
 
   .. code-block:: yaml
 
@@ -221,8 +220,7 @@ regex_match
 
 **optional**, **type**: seq | map
 
-If the domain of the upstream address matches the one of the domain regex expressions in the rules,
-that escaper will be selected.
+If the upstream domain matches one of the configured regular expressions, the corresponding escaper is selected.
 
 For seq format:
 
@@ -246,16 +244,16 @@ For seq format:
 
         **optional**, **type**: :ref:`domain <conf_value_domain>`
 
-        The parent domain to strip out (including '.') before do the regex match check.
-        If omitted the full domain will be used.
+        Parent domain to strip off, including the trailing ``.``, before applying the regex.
+        If omitted, the full domain is matched.
 
       - regex
 
         **required**, **type**: :ref:`regex str <conf_value_regex_str>`
 
-        The regex expression.
+        Regular expression to apply.
 
-    Each rule should not be set for different next escapers.
+    A rule must not appear in rules for different next escapers.
 
   Example:
 
@@ -274,7 +272,7 @@ For seq format:
 
 For map format:
 
-  The key should be the next escaper name, and the value should be the same as `rules` in the seq format.
+  Each key is the next escaper name, and each value has the same format as ``rules`` in the sequence form.
 
   Example:
 

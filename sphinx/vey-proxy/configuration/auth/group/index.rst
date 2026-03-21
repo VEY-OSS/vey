@@ -4,18 +4,22 @@
 User Group
 **********
 
-The users are split into two groups: static and dynamic.
-The static users is configured with :ref:`static users <conf_auth_user_group_static_users>` in config file, each in yaml format.
-The dynamic users are fetched from :ref:`source <conf_auth_user_group_source>` periodically, each in json format.
-Both can be optional and share the same data structure.
+Users are divided into two categories: static and dynamic.
+Static users are configured through
+:ref:`static users <conf_auth_user_group_static_users>` in the YAML
+configuration.
+Dynamic users are fetched periodically from
+:ref:`source <conf_auth_user_group_source>`, usually in JSON format.
+Both are optional and share the same underlying data structure.
 
-The Cap'n Proto RPC publish_dynamic_users command is supported, the published data should be an array of
+The Cap'n Proto RPC ``publish_dynamic_users`` command is supported. The
+published data should be an array of
 :ref:`user <configuration_auth_user>`.
 
-The type for each user group config is *map*, with two always required keys:
+Each user-group configuration item is a map with two required keys:
 
-* :ref:`name <conf_auth_user_group_name>` user group name
-* :ref:`type <conf_auth_user_group_type>` authenticate type
+* :ref:`name <conf_auth_user_group_name>`: user-group name
+* :ref:`type <conf_auth_user_group_type>`: authentication type
 
 Groups
 ======
@@ -46,7 +50,8 @@ type
 
 **required**, **type**: str
 
-The authenticate type of the user group, also decides how to parse other keys.
+Authentication type of the user group. It also determines how the remaining
+keys are interpreted.
 
 .. _conf_auth_user_group_static_users:
 
@@ -59,7 +64,7 @@ static_users
 
 **optional**, **type**: seq
 
-Static user can be added in this array.
+Static users can be added in this array.
 
 See :ref:`user <configuration_auth_user>` for detailed structure of user.
 
@@ -70,12 +75,15 @@ source
 
 **optional**, **type**: :ref:`url str <conf_value_url_str>` | map
 
-Set the fetch source for dynamic users.
+Source used to fetch dynamic users.
 
-We support many type of sources. The type is detected by reading the *scheme* field of url,
-or the *type* key of the map. See :ref:`source <configuration_auth_user_source>` for all supported type of sources.
+Multiple source types are supported. The type is detected either from the
+scheme of the URL or from the ``type`` key in the map.
+See :ref:`source <configuration_auth_user_source>` for the supported source
+types.
 
-Dynamic users will be updated if they exist already. If the fetch fail, we will continue keep the old users.
+Existing dynamic users are updated in place. If fetching fails, the previously
+loaded users are kept.
 
 **default**: not set
 
@@ -86,7 +94,8 @@ cache
 
 **optional**, **type**: :ref:`file path <conf_value_file_path>`
 
-The local file to cache remote results, it will be used during initial load of the user group.
+Local file used to cache remote results. It is read during initial user-group
+loading.
 
 The file will be created if not existed.
 
@@ -103,7 +112,7 @@ refresh_interval
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the check interval for user expiration and the fetch interval for dynamic users.
+Interval used for user-expiration checks and for refreshing dynamic users.
 
 **default**: 60s
 
@@ -114,10 +123,11 @@ anonymous_user
 
 **optional**, **type**: :ref:`user <configuration_auth_user>`
 
-Set and enable the anonymous user.
+Configures and enables the anonymous user.
 
-This will be used if no correct username could be found in both static and dynamic users,
-or no auth info is carried in the client request.
+This user is used when no matching username is found in either the static or
+dynamic users, or when the client request carries no authentication
+information.
 
 **default**: not set
 

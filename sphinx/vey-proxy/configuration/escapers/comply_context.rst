@@ -6,7 +6,7 @@ comply_context
 
 .. versionadded:: 1.13.0
 
-This is the escaper designed to be used to parse egress context and set egress path for chained escapers.
+This escaper parses egress context and sets the egress path for chained escapers.
 
 Config Keys
 ===========
@@ -16,14 +16,14 @@ next
 
 **required**, **type**: str
 
-Set the next escaper to be used.
+Set the next escaper in the chain.
 
 use_egress_upstream
 -------------------
 
 **optional**, **type**: map
 
-Set the dynamic upstream address to be used.
+Configure a dynamic upstream address derived from the egress context.
 
 The supported keys:
 
@@ -31,25 +31,25 @@ The supported keys:
 
   **required**, **type**: u16
 
-  Set the default port to use.
+  Set the default port.
 
 - host_key
 
   **optional**, **type**: string
 
-  The context key to get domain host.
+  Context key that provides the domain host.
 
 - port_key
 
   **optional**, **type**: string
 
-  The context key to get upstream port.
+  Context key that provides the upstream port.
 
 - domain_suffix
 
   **optional**, **type**: domain
 
-  The common domain suffix.
+  Common domain suffix to append.
 
   **default**: not set
 
@@ -57,6 +57,6 @@ The supported keys:
 
   **optional**, **type**: string
 
-  The context key whose value will be used as the hash key when resolving the upstream domain.
+  Context key whose value is used as the hash key when resolving the upstream domain.
 
-  Jump consistent hash will be used if this is set and the corresponding value can be found.
+  If set and the corresponding value exists, jump consistent hash is used.

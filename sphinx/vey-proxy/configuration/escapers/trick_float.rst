@@ -3,7 +3,7 @@
 trick_float
 ===========
 
-This escaper allows to select a next float escaper weighted randomly.
+This escaper selects the next float escaper by weighted random choice.
 
 No common keys are supported.
 
@@ -12,6 +12,6 @@ next
 
 **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>` | seq
 
-This set all the next escapers. Each element should be the name of the target float escaper.
+Set the candidate next escapers. Each element must be the name of a target float escaper.
 
-.. note:: Duplication of next escapers will be ignored.
+.. note:: Duplicate next escapers are ignored.

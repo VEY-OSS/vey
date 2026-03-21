@@ -3,7 +3,7 @@
 hickory
 =======
 
-This is the resolver based on hickory dns library.
+Resolver implementation based on the ``hickory`` DNS library.
 
 The following common keys are supported:
 
@@ -18,18 +18,21 @@ server
 
 **required**, **type**: str | seq
 
-Set the nameservers. All server will be tried before get a positive server response.
+Configured name servers. All configured servers may be tried before a positive
+response is returned.
 
-For *str* value, it may be one or more :ref:`ip addr str <conf_value_ip_addr_str>` joined with whitespace characters.
+If the value is a string, it may contain one or more
+:ref:`ip addr str <conf_value_ip_addr_str>` values separated by whitespace.
 
-For *seq* value, each of its value should be :ref:`ip addr str <conf_value_ip_addr_str>`.
+If the value is a sequence, each element must be an
+:ref:`ip addr str <conf_value_ip_addr_str>`.
 
 server_port
 -----------
 
 **optional**, **type**: u16
 
-Set the port if the default port is not usable.
+Port to use when the default port is not suitable.
 
 **default**: 53 for udp and tcp, 853 for dns-over-tls, 443 for dns-over-https
 
@@ -38,7 +41,7 @@ encryption
 
 **optional**, **type**: :ref:`dns encryption config <conf_value_dns_encryption_config>`
 
-Set the encryption config.
+DNS encryption configuration.
 
 **default**: not set
 
@@ -47,7 +50,7 @@ connect_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Specify the TCP/TLS/QUIC connect timeout value when connecting to the target server.
+Timeout used when establishing a TCP/TLS/QUIC connection to the target server.
 
 **default**: 10s
 
@@ -58,7 +61,8 @@ request_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Specify response wait timeout value after a specific request has been to the target server.
+Timeout used while waiting for a response after a request has been sent to the
+target server.
 
 **default**: 10s
 
@@ -69,7 +73,8 @@ each_tries
 
 **optional**, **type**: i32
 
-The number of tries for one specific target server if no valid responses received from previous connection.
+Number of attempts made against one specific target server if no valid response
+is received on the previous attempt.
 
 .. note:: negative response is also considered valid
 
@@ -91,9 +96,10 @@ retry_interval
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set retry interval between different target servers.
+Retry interval between different target servers.
 
-We will always receive responses from previous tried servers, and the first positive one will be used.
+Responses may still arrive from previously tried servers, and the first
+positive one is used.
 
 **default**: 1s
 
@@ -104,14 +110,14 @@ bind_ip
 
 **optional**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
 
-Set the bind ip for the resolver while setting up sockets.
+Bind IP used when creating sockets for the resolver.
 
 bind_interface
 --------------
 
 **optional**, **type**: :ref:`interface name <conf_value_interface_name>`
 
-Bind the outgoing socket to a particular device like “eth0”.
+Binds the outgoing socket to a particular interface such as ``eth0``.
 
 .. note:: This is only supported on Linux based OS.
 
@@ -124,7 +130,7 @@ tcp_misc_opts
 
 **optional**, **type**: :ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
 
-Set misc tcp socket options.
+Miscellaneous TCP socket options.
 
 **default**: not set, nodelay is default enabled
 
@@ -135,7 +141,7 @@ udp_misc_opts
 
 **optional**, **type**: :ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
 
-Set misc udp socket options.
+Miscellaneous UDP socket options.
 
 **default**: not set
 

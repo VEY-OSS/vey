@@ -4,8 +4,8 @@
 User Site
 *********
 
-The user site config is in map format. We can set how to match this site, enable site level metrics, or do any other
-site level config.
+User-site configuration is a map. It defines how a site is matched, whether
+site-level metrics are emitted, and any other site-specific overrides.
 
 .. _conf_auth_user_site_id:
 
@@ -14,14 +14,15 @@ id
 
 **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Each site should have an ID, and it will be used in metrics name if enabled.
+Each site must have an ID. If site metrics are enabled, this ID is used in the
+metric name.
 
 exact_match
 -----------
 
 **optional**, **type**: :ref:`host <conf_value_host>`
 
-Set the exact domain or the exact target IP in user request which we should match.
+Exact domain or target IP address to match in the user request.
 
 .. note:: the value should be different within all sites config of the current user.
 
@@ -30,7 +31,7 @@ child_match
 
 **optional**, **type**: :ref:`domain <conf_value_domain>`
 
-Set the parent domain and all it's child domains will be matched.
+Parent domain to match. Any child domain under it also matches.
 
 .. note:: the value should be different within all sites config of the current user.
 
@@ -39,7 +40,7 @@ subnet_match
 
 **optional**, **type**: :ref:`ip network str <conf_value_ip_network_str>`
 
-Set the network to match if the target is IP address in user request.
+Network to match when the user request target is an IP address.
 
 .. note:: the value should be different within all sites config of the current user.
 
@@ -48,7 +49,7 @@ emit_stats
 
 **optional**, **type**: bool
 
-Set whether we should emit site level stats for this site.
+Controls whether site-level metrics are emitted for this site.
 
 See :ref:`user site metrics <metrics_user_site>` for the definition of metrics.
 
@@ -59,7 +60,7 @@ duration_stats
 
 **optional**, **type**: :ref:`histogram metrics <conf_value_histogram_metrics>`
 
-Histogram metrics config for the site level duration stats.
+Histogram-metric configuration for site-level duration statistics.
 
 **default**: set with default value
 
@@ -70,11 +71,11 @@ resolve_strategy
 
 **optional**, **type**: :ref:`resolve strategy <conf_value_resolve_strategy>`
 
-Set a custom resolve strategy at user-site level, which will override the one at user level,
-but still within the range of the one set on the escaper.
+Custom resolve strategy at the user-site level. It overrides the user-level
+strategy, but must still remain within the limits allowed by the escaper.
 Not all escapers support this, see the documentation for each escaper for more info.
 
-**default**: not custom resolve strategy is set
+**default**: no custom resolve strategy is set
 
 .. versionadded:: 1.7.10
 
@@ -83,7 +84,8 @@ tls_client
 
 **optional**, **type**: :ref:`tls client <conf_value_openssl_tls_client_config>`
 
-Set the tls client config for server handshake in TLS interception.
+TLS client configuration used for the upstream-side handshake during TLS
+interception.
 
 This will overwrite:
 
@@ -101,7 +103,7 @@ http_rsp_header_recv_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set a custom http response receive timeout value for this site.
+Custom HTTP response-header receive timeout for this site.
 
 This will set and overwrite:
 

@@ -4,43 +4,43 @@
 Resolver Metrics
 ################
 
-The resolver metrics just contain the query stats on the resolver.
+Resolver metrics describe DNS query activity and resolver cache state.
 
-The following are the tags for all resolver metrics:
+The following tags are present on all resolver metrics:
 
 * :ref:`daemon_group <metrics_tag_daemon_group>`
 * :ref:`stat_id <metrics_tag_stat_id>`
 
 * resolver
 
-  Set the resolver name.
+  The resolver name.
 
 * rr_type
 
-  Show the rr_type of the query, such as 'A' or 'AAAA'.
+  The queried RR type, such as ``A`` or ``AAAA``.
 
 Query
 =====
 
-The metrics names are:
+The metric names are:
 
 * resolver.query.total
 
   **type**: count
 
-  Show the total queries to this resolver.
+  Total queries handled by this resolver.
 
 * resolver.query.cached
 
   **type**: count
 
-  Show the total queries that has local cached result.
+  Total queries answered from the local cache.
 
 * resolver.query.trashed
 
   **type**: count
 
-  Show the total queries that has local trashed result.
+  Total queries answered from the local trash cache.
 
   .. versionadded:: 1.11.6
 
@@ -48,49 +48,50 @@ The metrics names are:
 
   **type**: count
 
-  Show the total queries that trigger a direct query to dns server, a.k. the queries to the dns server.
+  Total queries that triggered an actual upstream DNS lookup.
 
 * resolver.query.driver.timeout
 
   **type**: count
 
-  Show the total queries sent to the dns server and timed out.
+  Total upstream DNS queries that timed out.
 
 * resolver.query.driver.refused
 
   **type**: count
 
-  Show the total queries sent to the the dns server and refused.
+  Total upstream DNS queries refused before a usable answer was returned.
 
 * resolver.query.driver.malformed
 
   **type**: count
 
-  Show the total queries reported malformed by driver.
+  Total queries reported as malformed by the resolver driver.
 
 * resolver.query.server.refused
 
   **type**: count
 
-  Show the total queries reported refused by dns server.
+  Total queries for which the DNS server returned ``REFUSED``.
 
 * resolver.query.server.malformed
 
   **type**: count
 
-  Show the total queries reported malformed by dns server.
+  Total queries for which the DNS server returned a malformed response.
 
 * resolver.query.server.not_found
 
   **type**: count
 
-  Show the total queries reported not found by dns server.
+  Total queries for which the DNS server returned ``NXDOMAIN`` or an equivalent
+  not-found response.
 
 * resolver.query.server.serv_fail
 
   **type**: count
 
-  Show the total queries reported server fail by dns server.
+  Total queries for which the DNS server returned ``SERVFAIL``.
 
 Memory
 ======
@@ -101,31 +102,31 @@ The metric names are:
 
   **type**: gauge
 
-  Show the capacity of the result cache hash table.
+  Capacity of the result cache hash table.
 
 * resolver.memory.cache.length
 
   **type**: gauge
 
-  Show how many records in the result cache hash table.
+  Number of records currently stored in the result cache hash table.
 
 * resolver.memory.doing.capacity
 
   **type**: gauge
 
-  Show the capacity of the doing hash table (query has been sent without any results).
+  Capacity of the in-flight query hash table.
 
 * resolver.memory.doing.length
 
   **type**: gauge
 
-  Show how many records in the doing hash table (query has been sent without any results).
+  Number of records currently stored in the in-flight query hash table.
 
 * resolver.memory.trash.capacity
 
   **type**: gauge
 
-  Show the capacity of the result trash hash table.
+  Capacity of the result trash hash table.
 
   .. versionadded:: 1.11.6
 
@@ -133,6 +134,6 @@ The metric names are:
 
   **type**: gauge
 
-  Show how many records in the result trash hash table.
+  Number of records currently stored in the result trash hash table.
 
   .. versionadded:: 1.11.6

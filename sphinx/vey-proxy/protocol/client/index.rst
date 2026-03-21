@@ -4,30 +4,30 @@
 Client Protocol
 ###############
 
-We support the following protocols for clients:
+``vey-proxy`` accepts the following client-side protocols:
 
-* http proxy
+* HTTP proxy
 
-  - Both HttpForward and HttpConnect are supported.
-  - HttpsForward is also supported, but not enabled by default.
-  - Only http version 1.0 and 1.1. Currently no support for http version 2 and 3.
-  - Only Basic auth is supported.
-  - TLS 1.2 and above can be enabled.
-  - see :doc:`http_custom_headers` for custom headers.
-  - see :doc:`http_custom_codes` for custom reply codes.
-  - see :doc:`egress_path_selection` to see how to select egress path.
+  - Supports both HTTP forward and HTTP CONNECT.
+  - HTTPS forward is also supported, but is disabled by default.
+  - HTTP/1.0 and HTTP/1.1 are supported. HTTP/2 and HTTP/3 are not currently supported on the client side.
+  - Only Basic authentication is supported.
+  - TLS 1.2 and later can be enabled.
+  - See :doc:`http_custom_headers` for custom headers.
+  - See :doc:`http_custom_codes` for custom response codes.
+  - See :doc:`egress_path_selection` for client-driven egress path selection.
 
-* socks proxy
+* SOCKS proxy
 
-  - socks4 and socks4a are supported (no ident verification) with most escapers.
-  - socks5 TcpConnect is supported with most escapers.
-  - socks5 UdpAssociate is supported with some escapers but disabled by default at server side. The default enabled one
-    is UdpConnect which is much simplified, but require the target address for each packet to be the same.
-    The address family for the tcp and udp connection at client side should be the same if no explicit bind ip set.
-  - socks5 User auth is the only one that we support yet.
-  - no TLS and DTLS support yet.
-  - no socks6 support yet.
-  - see :doc:`socks5_custom_reply` for socks5 custom reply field.
+  - SOCKS4 and SOCKS4a are supported by most escapers. Ident verification is not supported.
+  - SOCKS5 TCP CONNECT is supported by most escapers.
+  - SOCKS5 UDP ASSOCIATE is supported by some escapers, but is disabled by default on the server side. The default UDP
+    mode is UDP CONNECT, which is simpler but requires the target address to remain the same for all packets.
+    If no explicit bind IP is configured, the client-side TCP and UDP connections should use the same address family.
+  - SOCKS5 username/password authentication is the only SOCKS authentication method currently supported.
+  - TLS and DTLS are not yet supported.
+  - SOCKS6 is not yet supported.
+  - See :doc:`socks5_custom_reply` for custom SOCKS5 reply values.
 
 .. toctree::
    :hidden:

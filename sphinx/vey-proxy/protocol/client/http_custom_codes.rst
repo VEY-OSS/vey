@@ -4,29 +4,34 @@
 Http Custom Codes
 #################
 
-The following custom HTTP reply codes are used:
+``vey-proxy`` uses the following non-standard HTTP response codes in addition to
+the standard ones:
 
 * 521 WEB_SERVER_IS_DOWN
 
-  The upstream or the next peer has refused or reset our connection request.
+  The upstream server or the next proxy peer refused the connection or reset it
+  after the connection attempt.
 
 * 522 CONNECTION_TIMED_OUT
 
-  Timeout to connect to upstream or next peer.
+  The connection attempt to the upstream server or next proxy peer timed out.
 
 * 523 ORIGIN_IS_UNREACHABLE
 
-  For network error, such network unreachable and host unreachable, occurred while connecting to upstream or next peer.
+  A network error such as ``network unreachable`` or ``host unreachable``
+  occurred while connecting to the upstream server or next proxy peer.
 
 * 525 SSL_HANDSHAKE_FAILED
 
-  Tls handshake with upstream failed.
+  The TLS handshake with the upstream server failed.
 
   .. note::
 
-    Tls handshake with next proxy peer (it's not upstream) will generate internal server error instead,
-    as we usually use different tls client config for proxy peers.
+    If the TLS handshake fails when connecting to the next proxy peer rather
+    than the final upstream server, ``vey-proxy`` returns an internal server
+    error instead. This distinction exists because proxy peers often use a
+    separate TLS client configuration.
 
 * 530 ORIGIN_DNS_ERROR
 
-  Failed to resolve the ip address of upstream or next peer.
+  DNS resolution failed for the upstream server or next proxy peer.

@@ -4,52 +4,55 @@
 TcpConnect
 **********
 
-The following keys are available for TcpConnect escape log:
+The following keys are available in ``TcpConnect`` escape logs:
 
 next_bind_ip
 ------------
 
 **optional**, **type**: ip address string
 
-The selected bind IP before we really connect to the remote peer.
+The selected bind IP before the connection to the remote peer is attempted.
 
-Present only if bind ip config is enabled on the corresponding escaper.
+Present only when bind-IP configuration is enabled on the corresponding
+escaper.
 
 next_expire
 -----------
 
 **optional**, **type**: rfc3339 timestamp string with microseconds
 
-The expected expire time of the next peer.
+The expected expiration time of the next peer.
 
-Present only if the next escaper is dynamic and we have selected the remote peer.
+Present only when the next escaper is dynamic and a remote peer has already
+been selected.
 
 tcp_connect_tries
 -----------------
 
 **optional**, **type**: int
 
-How many times we have tried to connect to the remote peer.
+Number of connection attempts made to the remote peer.
 
 tcp_connect_spend
 -----------------
 
 **optional**, **type**: time duration string
 
-How many time we have spent during connection of the remote peer (all tries count in).
+Total time spent attempting to connect to the remote peer, including all
+retries.
 
 reason
 ------
 
 **required**, **type**: enum string
 
-The brief error reason.
+The short error reason.
 
 override_peer
 -------------
 
 **optional**, **type**: domain:port | socket address string
 
-Show the overrided peer upstream address from egress path selection.
+The overridden peer or upstream address selected by egress path selection.
 
 .. versionadded:: 1.13.0

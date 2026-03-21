@@ -11,8 +11,8 @@ tls name
 
 **yaml type**: :ref:`host <conf_value_host>`
 
-Set the dns name / ip address for server certificate verification.
-If not set, the corresponding upstream address will be used.
+DNS name or IP address used for server-certificate verification.
+If not set, the corresponding upstream address is used.
 
 .. versionchanged:: IP address is supported since version 1.7.15
 
@@ -23,7 +23,7 @@ tls version
 
 **yaml type**: string / f64
 
-Set TLS version to use.
+TLS version to use.
 
 The valid string values are: tls1.0, tls1.1, tls1.2, tls1.3.
 The valid f64 values are: 1.0, 1.1, 1.2, 1.3.
@@ -35,11 +35,11 @@ tls ticketer
 
 **yaml type**: map
 
-A rolling TLS ticketer which support:
+Rolling TLS ticketer supporting:
 
-- new encrypt key generation
-- old decrypt key update / expire check
-- sync keys from remote source
+- generation of new encryption keys
+- update and expiration checks for old decryption keys
+- synchronization of keys from a remote source
 
 The supported fields are:
 
@@ -66,7 +66,7 @@ The supported fields are:
 
   **optional**, **type**: :ref:`tls ticket remote source <conf_value_tls_ticket_remote_source>`
 
-  Set the remote source to use.
+  Remote source used to fetch TLS ticket keys.
 
   **default**: not set
 
@@ -77,9 +77,10 @@ tls ticket remote source
 
 **yaml type**: map
 
-Set the remote source to fetch TLS ticket keys.
+Configuration for the remote source used to fetch TLS ticket keys.
 
-There may be many types of sources available, the **type** config key should be used to set the remote source type.
+Multiple source types may be available. The ``type`` configuration key selects
+the source type.
 
 Key Format
 ----------
@@ -185,7 +186,7 @@ tls certificates
 
 **yaml type**: :ref:`file <conf_value_file>` | seq
 
-Set the certificate file(s), which should be in PEM format(`openssl-req(1)`_).
+Certificate file or files in PEM format (see ``openssl-req(1)``).
 
 If relative, it will be searched in the directory that contains current config file.
 
@@ -198,7 +199,8 @@ tls private_key
 
 **yaml type**: :ref:`file <conf_value_file>`
 
-Set the private key file, which should be in PKCS#8(`openssl-genpkey(1)`_) or traditional PEM format.
+Private-key file in PKCS#8 (see ``openssl-genpkey(1)``) or traditional PEM
+format.
 
 If relative, it will be searched in the directory that contains current config file.
 The last one in the file will be used if many keys are found.
@@ -212,7 +214,7 @@ tls cert pair
 
 **yaml value**: map
 
-A pair value contains tls certificate and private key.
+Pair of TLS certificate material and private key.
 
 The keys are:
 
@@ -241,7 +243,7 @@ tlcp cert pair
 
 **yaml value**: map
 
-A pair value contains tlcp certificate and private key.
+Pair of TLCP certificate material and private key.
 
 The keys are:
 

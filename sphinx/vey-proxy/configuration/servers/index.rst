@@ -4,12 +4,13 @@
 Server
 ******
 
-The type for each server config is *map*, with two always required keys:
+Each server configuration item is a map with two required keys:
 
-* :ref:`name <conf_server_common_name>`, which specify the name of the server.
-* :ref:`type <conf_server_common_type>`, which specify the real type of the server, decides how to parse other keys.
+* :ref:`name <conf_server_common_name>`, which defines the server name
+* :ref:`type <conf_server_common_type>`, which selects the concrete server type
+  and therefore determines how the remaining keys are interpreted
 
-There are many types of server, each with a section below.
+The available server types are documented below.
 
 Servers
 =======
@@ -34,7 +35,7 @@ Servers
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many servers.
+This section describes common keys shared by many server types.
 
 .. _conf_server_common_name:
 
@@ -43,7 +44,7 @@ name
 
 **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Set the name of the server.
+The server name.
 
 .. _conf_server_common_type:
 
@@ -52,7 +53,7 @@ type
 
 **required**, **type**: str
 
-Set the type of the server.
+The server type.
 
 .. _conf_server_common_escaper:
 
@@ -61,9 +62,10 @@ escaper
 
 **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Set the escaper to use with this server.
+The escaper used by this server.
 
-If the specified escaper doesn't exist in configure, a default DummyDeny escaper will be used.
+If the referenced escaper does not exist in the configuration, a default
+``DummyDeny`` escaper is used.
 
 .. _conf_server_common_auditor:
 
@@ -72,9 +74,10 @@ auditor
 
 **optional**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Set the auditor to use with this server.
+The auditor used by this server.
 
-If the specified auditor doesn't exist in configure, a default auditor will be used.
+If the referenced auditor does not exist in the configuration, a default
+auditor is used.
 
 .. _conf_server_common_user_group:
 
@@ -83,9 +86,10 @@ user_group
 
 **optional**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Set the user group for auth.
+The user group used for authentication and authorization.
 
-If the specified user group doesn't exist in configure, a default user group with no users will be used.
+If the referenced user group does not exist in the configuration, a default
+empty user group is used.
 
 **default**: no auth enabled
 
@@ -96,7 +100,7 @@ shared_logger
 
 **optional**, **type**: ascii
 
-Set the server to use a logger running on a shared thread.
+Makes this server use a logger that runs on a shared thread.
 
 **default**: not set
 
@@ -107,9 +111,10 @@ listen_in_worker
 
 **optional**, **type**: bool
 
-Set if we should listen in each worker runtime if you have worker enabled.
+Controls whether this server listens in every worker runtime when workers are
+enabled.
 
-The listen instance count will be the same with the worker number count.
+The number of listener instances then matches the worker count.
 
 **default**: false
 
@@ -120,7 +125,7 @@ tls_server
 
 **optional**, **type**: :ref:`rustls server config <conf_value_rustls_server_config>`
 
-Enable TLS on the listening socket and set TLS parameters.
+Enables TLS on the listening socket and configures the TLS parameters.
 
 **default**: disabled
 
@@ -131,7 +136,7 @@ tls_ticketer
 
 **optional**, **type**: :ref:`tls ticketer <conf_value_tls_ticketer>`
 
-Set a (remote) rolling TLS ticketer.
+Configures a remote rolling TLS ticketer.
 
 **default**: not set
 
@@ -144,11 +149,12 @@ ingress_network_filter
 
 **optional**, **type**: :ref:`ingress network acl rule <conf_value_ingress_network_acl_rule>`
 
-Set the network filter for clients.
+Ingress network filter for client addresses.
 
-The used client address will always be the interpreted client address, which means it will be the raw socket peer addr
-for servers that listen directly, and it will be the address set in the PROXY Protocol message for serverw chained after
-the server that support PROXY Protocol.
+The address used here is always the interpreted client address. For directly
+listening servers, that is the raw socket peer address. For servers behind a
+PROXY Protocol-aware front end, that is the address carried in the PROXY
+Protocol message.
 
 **default**: not set
 
@@ -159,7 +165,7 @@ dst_host_filter_set
 
 **optional**, **type**: :ref:`dst host acl rule set <conf_value_dst_host_acl_rule_set>`
 
-Set the filter for dst host of each request.
+Destination-host filter for each request.
 
 .. note:: This won't limit the Host header in http protocol.
 
@@ -172,7 +178,7 @@ dst_port_filter
 
 **optional**, **type**: :ref:`exact port acl rule <conf_value_exact_port_acl_rule>`
 
-Set the filter for dst port of each request.
+Destination-port filter for each request.
 
 **default**: not set
 
@@ -183,7 +189,7 @@ tcp_sock_speed_limit
 
 **optional**, **type**: :ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
-Set speed limit for each tcp socket.
+Per-TCP-socket speed limit.
 
 **default**: no limit
 
@@ -215,7 +221,7 @@ udp_sock_speed_limit
 
 **optional**, **type**: :ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
 
-Set speed limit for each udp socket.
+Per-UDP-socket speed limit.
 
 **default**: no limit
 
@@ -247,7 +253,7 @@ tcp_copy_buffer_size
 
 **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the buffer size for internal tcp copy.
+Buffer size used for internal TCP copy operations.
 
 **default**: 16K, **minimal**: 4K
 

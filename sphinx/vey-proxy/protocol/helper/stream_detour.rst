@@ -5,91 +5,103 @@ Stream Detour
 =============
 
 An external interception server can implement this to intercept protocols that are configured
-with `detour` inspect policy in :ref:`auditor <configuration_auditor>` config, each protocol will have
-a separate config option.
+with the ``detour`` inspection policy in the :ref:`auditor <configuration_auditor>`
+configuration. Each supported protocol has its own configuration option.
 
-The external server should listen to a QUIC port, and configure it by setting
-:ref:`stream detour service <conf_auditor_stream_detour_service>` in auditor config.
+The external server should listen on a QUIC port. Configure that endpoint in
+the auditor by setting
+:ref:`stream detour service <conf_auditor_stream_detour_service>`.
 
-vey-proxy will connect to this port to setup a lot if IDLE connections at the beginning,
-And will open two bidirectional QUIC streams for a single client-remote stream when needed,
-one is called north stream, another one called south stream.
+``vey-proxy`` establishes a pool of idle QUIC connections to that port in
+advance. When interception is needed for a client-to-remote stream, it opens
+two bidirectional QUIC streams: a north stream and a south stream.
 
 North Stream
 ------------
 
-The north stream will be used to forward data sending by client to remote.
+The north stream carries data flowing from the client to the remote peer.
 
-Initially vey-proxy will send a **ProxyProtocolV2 Header**, and an optional **Payload** to the server,
+At the beginning of the stream, ``vey-proxy`` sends a **PROXY Protocol v2
+header** and an optional **payload** to the external server.
 
 The PPv2 Type-Values are:
 
 * 0xE0 | Upstream Address
 
-  The target upstream address, encoded in UTF-8 without trailing '\0'.
+  The target upstream address, encoded in UTF-8 without a trailing ``\0``.
   This will always be set.
 
 * 0xE2 | Username
 
-  The username of the client, encoded in UTF-8 without trailing '\0'.
+  The client's username, encoded in UTF-8 without a trailing ``\0``.
   This will be set only if client auth is enabled.
 
 * 0xE3 | Task ID
 
-  The task id in UUID binary format. This will always be set.
+  The task ID in binary UUID format. This is always set.
 
 * 0xE4 | Protocol
 
-  The detected protocol string, encoded in UTF-8 without trailing '\0'.
+  The detected protocol string, encoded in UTF-8 without a trailing ``\0``.
   This will always be set.
 
-  You will find the detail value in :ref:`Protocol and Payload <stream_detour_protocol_payload>` section.
+  The supported values are listed in
+  :ref:`Protocol and Payload <stream_detour_protocol_payload>`.
 
 * 0xE5 | Match ID
 
-  The ID used to combine the north stream and the south stream.
-  The value will be a 2-bytes uint16 value, in big-endian.
+  The ID used to pair the north stream with the south stream.
+  The value is a 2-byte ``uint16`` in big-endian order.
 
 * 0xE6 | Payload Length
 
-  Extra payload data length. The payload data format will be vary depending on the *protocol*.
-  The value will be a 4-bytes uint32 value, in big-endian.
-  The payload data will be sent right following the PPv2 Header if the length is greater than 0.
+  The length of the extra payload data. The payload format depends on the
+  selected *protocol*.
+  The value is a 4-byte ``uint32`` in big-endian order.
+  If the length is greater than ``0``, the payload data immediately follows the
+  PPv2 header.
 
-  You will find the payload format in :ref:`Protocol and Payload <stream_detour_protocol_payload>` section.
+  The payload format is described in
+  :ref:`Protocol and Payload <stream_detour_protocol_payload>`.
 
-After sending the PPv2 header, vey-proxy will waiting a 4-bytes response from the server.
+After sending the PPv2 header, ``vey-proxy`` waits for a 4-byte response from
+the external server.
 
-- The first 2 bytes should be a uint16 value in big-endian.
-- The last 2 bytes should be a uint16 action code in big-endian. The supported actions:
+- The first 2 bytes should be a ``uint16`` in big-endian order.
+- The last 2 bytes should be a ``uint16`` action code in big-endian order. The
+  supported actions are:
 
   * 0 - continue
 
-    Continue to send data, the data flow will be `client_read -> detour_server -> remote_write`.
+    Continue forwarding data. The flow becomes
+    ``client_read -> detour_server -> remote_write``.
 
   * 1 - bypass
 
-    Skip the detour server, transfer client - remote data directly.
+    Skip the detour server and transfer data directly between client and
+    remote.
 
   * 2 - block
 
-    Block the client-remote transfer, close the connection immediately.
+    Block the client-to-remote transfer and close the connection immediately.
 
 South Stream
 ------------
 
-The south stream will be used to forward data sending by remote to client.
+The south stream carries data flowing from the remote peer back to the client.
 
-Initially vey-proxy will send a ProxyProtocolV2 header to the server,
+At the beginning of the stream, ``vey-proxy`` sends a PROXY Protocol v2 header
+to the external server.
 
 The PPv2 Type-Values are:
 
 * 0xE5 | Match ID
 
-  The ID used to combine the north stream and the south stream.
-  The value will be a 2-bytes uint16 value, in big-endian.
+  The ID used to pair the north stream with the south stream.
+  The value is a 2-byte ``uint16`` in big-endian order.
 
-After sending that PPv2 header, the data flow will be `remote_read -> detour_server -> client_write`.
+After that header is sent, the data flow becomes
+``remote_read -> detour_server -> client_write``.
 
 .. _stream_detour_protocol_payload:
 
@@ -110,11 +122,12 @@ WebSocket
 
 **payload format**:
 
-The payload will be multiline of text, each line will be ended with "\r\n".
+The payload is multi-line text. Each line ends with ``\r\n``.
 
-The first line will be the */resource name/*.
+The first line is the */resource name/*.
 
-The following lines will be the same as the HTTP header lines used in HTTP Upgrade stage, the possible headers:
+The remaining lines are copied from the HTTP headers used during the Upgrade
+handshake. Possible headers include:
 
 - Host in request
 - Origin in request

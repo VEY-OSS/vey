@@ -4,14 +4,16 @@
 Auditor
 *******
 
-The type for each auditor config is *map*, the keys are as follows:
+Each auditor configuration item is a map. The supported keys are described
+below.
 
 name
 ----
 
 **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Set the auditor name, which will can be referenced in :ref:`server config <conf_server_common_auditor>`.
+The auditor name. It can be referenced from
+:ref:`server config <conf_server_common_auditor>`.
 
 .. _conf_auditor_protocol_inspection:
 
@@ -20,7 +22,7 @@ protocol_inspection
 
 **optional**, **type**: :ref:`protocol inspection <conf_value_dpi_protocol_inspection>`
 
-Set basic config for protocol inspection.
+Basic protocol-inspection configuration.
 
 **default**: set with default value
 
@@ -29,7 +31,7 @@ server_tcp_portmap
 
 **optional**, **type**: :ref:`server tcp portmap <conf_value_dpi_server_tcp_portmap>`
 
-Set the portmap for protocol inspection based on server side tcp port.
+Port mapping used for protocol inspection based on the server-side TCP port.
 
 **default**: set with default value
 
@@ -38,7 +40,7 @@ client_tcp_portmap
 
 **optional**, **type**: :ref:`client tcp portmap <conf_value_dpi_client_tcp_portmap>`
 
-Set the portmap for protocol inspection based on client side tcp port.
+Port mapping used for protocol inspection based on the client-side TCP port.
 
 **default**: set with default value
 
@@ -49,9 +51,9 @@ tls_cert_agent
 
 **optional**, **type**: :ref:`tls cert agent <conf_value_dpi_tls_cert_agent>`
 
-Set certificate generator for TLS interception.
+Certificate generator used for TLS interception.
 
-If not set, TLS interception will be disabled.
+If this field is not set, TLS interception is disabled.
 
 **default**: not set, **alias**: tls_cert_generator
 
@@ -60,7 +62,7 @@ tls_ticketer
 
 **optional**, **type**: :ref:`tls ticketer <conf_value_tls_ticketer>`
 
-Set a (remote) rolling TLS ticketer.
+Configures a remote rolling TLS ticketer.
 
 **default**: not set
 
@@ -73,7 +75,8 @@ tls_interception_client
 
 **optional**, **type**: :ref:`tls interception client <conf_value_dpi_tls_interception_client>`
 
-Set the tls client config for server handshake in TLS interception.
+TLS client configuration used for the upstream-side handshake during TLS
+interception.
 
 **default**: set with default value
 
@@ -82,7 +85,8 @@ tls_interception_server
 
 **optional**, **type**: :ref:`tls interception server <conf_value_dpi_tls_interception_server>`
 
-Set the tls server config for client handshake in TLS interception.
+TLS server configuration used for the client-side handshake during TLS
+interception.
 
 **default**: set with default value
 
@@ -91,7 +95,7 @@ tls_stream_dump
 
 **optional**, **type**: :ref:`stream dump <conf_value_dpi_stream_dump>`
 
-Set this to dump the intercepted inner tls streams to a remote service.
+Configures export of intercepted inner TLS streams to a remote service.
 
 **default**: not set
 
@@ -102,7 +106,7 @@ log_uri_max_chars
 
 **optional**, **type**: usize
 
-Set the max chars for the log of URI.
+Maximum number of URI characters retained in logs.
 
 **default**: 1024
 
@@ -113,7 +117,7 @@ h1_interception
 
 **optional**, **type**: :ref:`h1 interception <conf_value_dpi_h1_interception>`
 
-Set http 1.x interception config.
+HTTP/1.x interception configuration.
 
 **default**: set with default value
 
@@ -122,7 +126,7 @@ h2_inspect_policy
 
 **optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
 
-Set what we should do with HTTP/2.0 traffic.
+Controls how HTTP/2 traffic is handled.
 
 **default**: intercept
 
@@ -135,7 +139,7 @@ h2_interception
 
 **optional**, **type**: :ref:`h2 interception <conf_value_dpi_h2_interception>`
 
-Set http 2.0 interception config.
+HTTP/2 interception configuration.
 
 **default**: set with default value
 
@@ -144,7 +148,7 @@ websocket_inspect_policy
 
 **optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
 
-Set what we should do with WebSocket traffic.
+Controls how WebSocket traffic is handled.
 
 **default**: intercept
 
@@ -155,7 +159,7 @@ smtp_inspect_policy
 
 **optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
 
-Set what we should do with SMTP traffic.
+Controls how SMTP traffic is handled.
 
 **default**: intercept
 
@@ -168,7 +172,7 @@ smtp_interception
 
 **optional**, **type**: :ref:`smtp interception <conf_value_dpi_smtp_interception>`
 
-Set the SMTP Interception config options.
+SMTP interception configuration.
 
 **default**: set with default value
 
@@ -179,7 +183,7 @@ imap_inspect_policy
 
 **optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
 
-Set what we should do with IMAP traffic.
+Controls how IMAP traffic is handled.
 
 **default**: intercept
 
@@ -192,7 +196,7 @@ imap_interception
 
 **optional**, **type**: :ref:`smtp interception <conf_value_dpi_imap_interception>`
 
-Set the IMAP Interception config options.
+IMAP interception configuration.
 
 **default**: set with default value
 
@@ -203,7 +207,7 @@ icap_reqmod_service
 
 **optional**, **type**: :ref:`icap service config <conf_value_audit_icap_service_config>`
 
-Set the ICAP REQMOD service config.
+ICAP ``REQMOD`` service configuration.
 
 **default**: not set
 
@@ -214,7 +218,7 @@ icap_respmod_service
 
 **optional**, **type**: :ref:`icap service config <conf_value_audit_icap_service_config>`
 
-Set the ICAP RESPMOD service config.
+ICAP ``RESPMOD`` service configuration.
 
 **default**: not set
 
@@ -227,11 +231,14 @@ stream_detour_service
 
 **optional**, **type**: :ref:`stream detour service config <conf_value_audit_stream_detour_service_config>`
 
-Set the :ref:`Stream Detour <protocol_helper_stream_detour>` service config.
+Configuration for the :ref:`Stream Detour <protocol_helper_stream_detour>`
+service.
 
-You also need to change the inspect policy for each protocol to `detour` in order to really enable it.
+To actually enable detouring, the inspect policy for the relevant protocol must
+also be set to ``detour``.
 
-If no stream detour service config set here, the protocols that is configured to use a `detour` policy will by bypassed.
+If no stream detour service is configured here, protocols set to ``detour`` are
+bypassed instead.
 
 **default**: not set
 
@@ -244,11 +251,13 @@ task_audit_ratio
 
 **optional**, **type**: :ref:`random ratio <conf_value_random_ratio>`
 
-Set the task audit (like ICAP REQMOD/RESPMOD) ratio for incoming requests.
+Sampling ratio for task-level auditing, such as ICAP ``REQMOD`` and
+``RESPMOD``, on incoming requests.
 
-This also controls whether protocol inspection is really enabled for a specific request.
+This setting also controls whether protocol inspection is actually enabled for a
+given request.
 
-User side settings may override this.
+User-side settings may override this value.
 
 **default**: 1.0, **alias**: application_audit_ratio
 

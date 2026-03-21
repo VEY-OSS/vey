@@ -3,30 +3,30 @@
 Python
 ======
 
-Fetch users through local python script.
+Fetches users through a local Python script.
 
-The following vars will be defined when running the script:
+The following variables are defined when the script is executed:
 
 * __file__
 
-  This will be the absolute path of the script file
+  Absolute path of the script file
 
   .. versionadded:: 1.11.0
 
-The keys used in *map* format are:
+When configured as a map, the following keys are supported:
 
 * script
 
   **required**, **type**: :ref:`file path <conf_value_file_path>`
 
-  The path of the python script.
+  Path to the Python script.
 
   Three global functions should be defined in this script, like this:
 
   ..  code-block:: python
 
     def fetch_users():
-        # required, takes no argument, returns the json string
+        # required, takes no argument, returns the JSON string
         return "[]"
 
     def report_ok():
@@ -41,9 +41,10 @@ The keys used in *map* format are:
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Set the timeout value for the execution of the fetch function.
+  Timeout for running the fetch function.
 
-  It's not recommended to set the timeout value greater the :ref:`refresh_interval <conf_auth_user_group_refresh_interval>`
+  It is not recommended to set this value greater than
+  :ref:`refresh_interval <conf_auth_user_group_refresh_interval>`
   in group config.
 
   **default**: 30s, **alias**: timeout
@@ -52,9 +53,10 @@ The keys used in *map* format are:
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Set the timeout value for the execution of the report functions.
+  Timeout for running the report functions.
 
-  It's not recommended to set the timeout value greater the :ref:`refresh_interval <conf_auth_user_group_refresh_interval>`
+  It is not recommended to set this value greater than
+  :ref:`refresh_interval <conf_auth_user_group_refresh_interval>`
   in group config.
 
   **default**: 15s, **alias**: timeout

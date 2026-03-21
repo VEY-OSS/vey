@@ -3,7 +3,7 @@
 direct_fixed
 ============
 
-This escaper will access the target upstream from local machine directly.
+This escaper connects to the target upstream directly from the local machine.
 
 The following interfaces are supported:
 
@@ -13,11 +13,11 @@ The following interfaces are supported:
 * http(s) forward
 * ftp over http
 
-The following egress path selection values is supported:
+The following egress path selection value is supported:
 
 * :ref:`number id <proto_egress_path_selection_number_id>`
 
-  The index will be used as the index of the binding IP address
+  The index is used as the index of the bind IP address.
 
 The following common keys are supported:
 
@@ -49,7 +49,7 @@ bind_ip
 Set the bind ip address(es) for sockets.
 
 For *seq* value, each of its element must be :ref:`ip addr str <conf_value_ip_addr_str>`.
-Only random select is supported. Use *route* type escapers if is doesn't meet your needs.
+Only random selection is supported. Use a *route* escaper if you need more control.
 
 **default**: not set
 
@@ -58,7 +58,7 @@ bind_foreign
 
 **optional**, **type**: bool
 
-Set to true to bind to the same foreign IP address as client. It can be used in Linux TPROXY case.
+Set to true to bind to the same foreign IP address as the client. This is useful with Linux TPROXY.
 
 **default**: false
 
@@ -71,7 +71,7 @@ bind_foreign_port
 
 Set to true if you also want to bind to the same foreign port when `bind_foreign` is also enabled.
 
-.. note:: This may cause bind error EADDRINUSE the two connections has the same client address.
+.. note:: This may cause ``EADDRINUSE`` if two connections use the same client address.
 
 .. versionadded:: 1.13.0
 
@@ -82,7 +82,7 @@ egress_network_filter
 
 **optional**, **type**: :ref:`egress network acl rule <conf_value_egress_network_acl_rule>`
 
-Set the network filter for the (resolved) remote ip address.
+Set the network filter for the resolved remote IP address.
 
 **default**: all permitted except for loop-back and link-local addresses
 
@@ -91,9 +91,9 @@ tcp_keepalive
 
 **optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
-Set tcp keepalive.
+Configure TCP keepalive.
 
-The tcp keepalive set in user config will be taken into account.
+User-level TCP keepalive settings are also applied.
 
 **default**: no keepalive set
 
@@ -102,7 +102,7 @@ resolve_redirection
 
 **optional**, **type**: :ref:`resolve redirection <conf_value_resolve_redirection>`
 
-Set the dns redirection rules at escaper level.
+Set DNS redirection rules at the escaper level.
 
 **default**: not set
 
@@ -111,9 +111,9 @@ enable_path_selection
 
 **optional**, **type**: bool
 
-Weather we should enable path selection.
+Enable path selection.
 
-.. note:: Path selection on server side should be open, or this option will have no effects.
+.. note:: Path selection must also be enabled on the server side, or this option has no effect.
 
 **default**: false
 
@@ -122,7 +122,7 @@ use_proxy_protocol
 
 **optional**, **type**: :ref:`proxy protocol version <conf_value_proxy_protocol_version>`
 
-Set the version of PROXY protocol we use for outgoing tcp connections except for FTP data connections.
+Set the PROXY protocol version to use for outgoing TCP connections, except FTP data connections.
 
 **default**: not set, which means PROXY protocol won't be used
 

@@ -4,25 +4,26 @@
 Server Metrics
 ##############
 
-The metrics in server side shows the stats with client, and can be grouped to *request* and *traffic* types.
+Server-side metrics describe listener, request, and traffic activity observed on
+the client-facing side of ``vey-proxy``.
 
-The following are the tags for all server metrics:
+The following tags are present on all server metrics:
 
 * :ref:`daemon_group <metrics_tag_daemon_group>`
 * :ref:`stat_id <metrics_tag_stat_id>`
 
 * server
 
-  Show the server name.
+  The server name.
 
 * online
 
-  Show if the server is online. The value is either 'y' or 'n'.
+  Whether the server is online. The value is either ``y`` or ``n``.
 
 Listen
 ======
 
-No extra tags.
+No additional fixed tags.
 
 The metric names are:
 
@@ -30,36 +31,37 @@ The metric names are:
 
   **type**: gauge
 
-  Show how many listening sockets.
+  Number of listening sockets.
 
 * listen.accepted
 
   **type**: count
 
-  Show how many client connections has been accepted.
+  Number of accepted client connections.
 
 * listen.dropped
 
   **type**: count
 
-  Show how many client connections has been dropped by acl rules at early stage.
+  Number of client connections dropped by ACL rules at an early stage.
 
 * listen.timeout
 
   **type**: count
 
-  Show how many client connections has been timed out in early protocol negotiation (such as TLS).
+  Number of client connections that timed out during early protocol negotiation,
+  such as TLS setup.
 
 * listen.failed
 
   **type**: count
 
-  Show how many times of accept error.
+  Number of accept errors.
 
 Request
 =======
 
-No other fixed tags. Extra tags set at server side will be added.
+No other fixed tags. Any extra tags configured on the server are also included.
 
 The metric names are:
 
@@ -67,26 +69,27 @@ The metric names are:
 
   **type**: count
 
-  Show how many client connections has been accepted.
+  Number of accepted client connections.
 
 * server.task.total
 
   **type**: count
 
-  Show how many valid tasks has been spawned. Each client connection will be promoted to task only if the negotiation
-  success. User authentication is also taken into count in negotiation stage.
+  Number of valid tasks spawned. A client connection becomes a task only after
+  negotiation succeeds. User authentication is part of the negotiation stage.
 
 * server.task.alive
 
   **type**: gauge
 
-  Show how many alive tasks that spawned by this server are running. In normal case the daemon stopped by systemd,
-  servers with running tasks will goto offline mode, and wait all tasks to be stopped.
+  Number of currently running tasks spawned by this server. During a normal
+  systemd-managed shutdown, servers with active tasks enter offline mode and
+  wait for those tasks to complete.
 
 Forbidden
 =========
 
-No other fixed tags. Extra tags set at server side will be added.
+No other fixed tags. Any extra tags configured on the server are also included.
 
 The metric names are:
 
@@ -94,42 +97,44 @@ The metric names are:
 
   **type**: count
 
-  Show how many of requests has been forbidden because of auth failed (no user supplied or user token mismatch).
+  Number of requests rejected because authentication failed, for example because
+  no user was supplied or the user token did not match.
 
 * server.forbidden.dest_denied
 
   **type**: count
 
-  Show how many of requests has been forbidden because of dest denied (the target upstream address is denied).
+  Number of requests rejected because the destination was denied.
 
-  This stats is also added to user forbidden stats when possible.
+  This metric is also added to user forbidden metrics when possible.
 
-  .. note:: Only the rules at server level will be counted in.
+  .. note:: Only denials caused by server-level rules are counted here.
 
 * server.forbidden.user_blocked
 
   **type**: count
 
-  Show how many of requests from blocked user.
+  Number of requests received from blocked users.
 
 * server.forbidden.invalid_param
 
   **type**: count
 
-  Show the count of requests with invalid username params.
+  Number of requests that contained invalid username parameters.
 
   .. versionadded:: 1.13.0
 
 Traffic
 =======
 
-The following tags are also set:
+The following tag is also set:
 
 * :ref:`transport <metrics_tag_transport>`
 
-Extra tags set at server side will be added.
+Any extra tags configured on the server are also included.
 
-The io stats here only include application layer stats, the other layer such TLS stats are not included.
+These I/O metrics count application-layer traffic only. Lower-layer overhead,
+such as TLS framing, is not included.
 
 The metric names are:
 
@@ -137,34 +142,34 @@ The metric names are:
 
   **type**: count
 
-  Show the total bytes of incoming bytes from client.
+  Total bytes received from the client.
 
 * server.traffic.in.packets
 
   **type**: count
 
-  Show the total datagram packets received from client.
-  Note that this is not available for stream type transport protocols.
+  Total datagram packets received from the client.
+  This metric is not available for stream-oriented transports.
 
 * server.traffic.out.bytes
 
   **type**: count
 
-  Show the total bytes that the server has sent to the client.
+  Total bytes sent to the client.
 
 * server.traffic.out.packets
 
   **type**: count
 
-  Show the total datagram packets that the server has sent to the client.
-  Note that this is not available for stream type transport protocols.
+  Total datagram packets sent to the client.
+  This metric is not available for stream-oriented transports.
 
 Untrusted
 =========
 
-What is untrusted task? Invalid but we still need to drain it.
+An untrusted task is a task that is invalid but must still be drained safely.
 
-No other fixed tags. Extra tags set at server side will be added.
+No other fixed tags. Any extra tags configured on the server are also included.
 
 The metric names are:
 
@@ -172,16 +177,16 @@ The metric names are:
 
   **type**: count
 
-  Show how many untrusted tasks has been spawned.
+  Number of untrusted tasks spawned.
 
 * server.task.untrusted_alive
 
   **type**: gauge
 
-  Show how many alive untrusted tasks that spawned by this server are running.
+  Number of currently running untrusted tasks spawned by this server.
 
 * server.traffic.untrusted_in.bytes
 
   **type**: count
 
-  Show the total bytes of incoming bytes from client in untrusted requests.
+  Total bytes received from the client in untrusted requests.

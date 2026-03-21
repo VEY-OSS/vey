@@ -3,29 +3,32 @@
 File
 ====
 
-Fetch dynamic users from a local file.
+Fetches dynamic users from a local file.
 
-The content of the file should be the json encoded string of all dynamic users.
+The file content should be the JSON-encoded representation of all dynamic
+users.
 
-The keys used in *map* format are:
+When configured as a map, the following keys are supported:
 
 * path
 
   **required**, **type**: :ref:`file path <conf_value_file_path>`
 
-  Set path for the file. The file should be existed before start the daemon.
+  Path to the file. The file must exist before the daemon starts.
 
 * format
 
   **optional**, **type**: :ref:`config file format <conf_value_config_file_format>`
 
-  Set the file format for the file specified in *path*.
+  Format of the file specified in ``path``.
 
-  **default**: If the file has extension, the extension will be used to detect the format.
-  If not format can be detected through extension, *yaml* will be used.
+  **default**: If the file has an extension, the extension is used to detect
+  the format. If the format cannot be inferred from the extension, ``yaml`` is
+  used.
 
-For *url* str values, the *path* should be an absolute path with the following format:
+For URL-style string values, the path must be absolute and use the following
+format:
 
     file://<path>[?[format=<format>]]
 
-.. note:: The published users won't be cached if you use static file source.
+.. note:: Published users are not cached when a static file source is used.

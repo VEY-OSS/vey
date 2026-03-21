@@ -3,26 +3,26 @@
 syslog
 ======
 
-The syslog driver config is is map format.
+The ``syslog`` driver configuration is a map.
 
-We can set it to send logs to syslogd, which can be listening on
+It can send logs to syslogd over either:
 
- * unix socket, which is default
- * udp socket
+ * a UNIX socket, which is the default
+ * a UDP socket
 
-The message format can be
+The message format can be either:
 
- * rfc3164, which is default
- * rfc5424
+ * ``rfc3164``, which is the default
+ * ``rfc5424``
 
-The keys are described below.
+The supported keys are described below.
 
 target_unix
 -----------
 
 **optional**, **type**: mix
 
-You can set this if you want to send syslog to a custom unix socket path.
+Use this to send syslog messages to a custom UNIX-domain socket path.
 
 The value can be a map, with the following keys:
 
@@ -30,7 +30,7 @@ The value can be a map, with the following keys:
 
   **required**, **type**: :ref:`absolute path <conf_value_absolute_path>`
 
-  The syslogd daemon listen socket path.
+  Syslog daemon socket path.
 
 If the value type is str, the value should be the same as the value as *path* above.
 
@@ -41,7 +41,7 @@ target_udp
 
 **optional**, **type**: mix
 
-You can set this if you want to send syslog to a remote syslogd which listening on a udp socket.
+Use this to send syslog messages to a remote syslog daemon listening on UDP.
 
 The value can be a map, with the following keys:
 
@@ -49,13 +49,13 @@ The value can be a map, with the following keys:
 
   **required**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
-  Set the remote socket address.
+  Remote socket address.
 
 * bind_ip
 
   **optional**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
 
-  Set the ip address to bind to for the local socket.
+  Local IP address to bind before sending.
 
   **default**: not set
 
@@ -68,7 +68,7 @@ target
 
 **optional**, **type**: map
 
-This is just another form to set syslog target address.
+Alternative form for specifying the syslog target.
 
 The key *udp* is just handled as *target_udp* as above.
 
@@ -79,7 +79,7 @@ format_rfc5424
 
 **optional**, **type**: mix
 
-Set this to use rfc5424 message format.
+Enables RFC 5424 message format.
 
 The value can be a map, with the following keys:
 
@@ -87,7 +87,7 @@ The value can be a map, with the following keys:
 
   **optional**, **type**: int
 
-  Set the enterprise id value as described in `rfc5424`_.
+  Enterprise ID as defined in `rfc5424`_.
 
   See `PRIVATE ENTERPRISE NUMBERS`_ for IANA allocated numbers.
 
@@ -100,7 +100,7 @@ The value can be a map, with the following keys:
 
   **optional**, **type**: str
 
-  Set the message id.
+  Message ID.
 
   **default**: not set
 
@@ -114,7 +114,7 @@ use_cee_log_syntax
 
 **optional**, **type**: bool
 
-Set if we should use `CEE Log Syntax`_.
+Controls whether `CEE Log Syntax`_ is used.
 
 Enable this option if you need to use rsyslog `mmjsonparse`_ module.
 
@@ -128,7 +128,8 @@ cee_event_flag
 
 **optional**, **type**: ascii string
 
-Set a custom CEE event flag value. Only meaningful if *use_cee_log_syntax* is set.
+Custom CEE event-flag value. This is meaningful only when
+``use_cee_log_syntax`` is enabled.
 
 The one defined by `CLT`_ is *@cee:*, you can override it by using this option.
 
@@ -141,7 +142,7 @@ emit_hostname
 
 **optional**, **type**: bool
 
-Set if we should set hostname in the syslog message header.
+Controls whether the hostname is included in the syslog message header.
 
 **default**: false
 
@@ -150,6 +151,7 @@ append_report_ts
 
 **optional**, **type**: bool
 
-Set if we should add :ref:`report_ts <log_shared_keys_report_ts>` to logs.
+Controls whether :ref:`report_ts <log_shared_keys_report_ts>` is appended to
+logs.
 
 **default**: false

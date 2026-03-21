@@ -4,37 +4,39 @@
 Runtime
 *******
 
-This is the *runtime* config, which is optional. If set, it must reside in the main conf file.
+The ``runtime`` section is optional. If present, it must be defined in the main
+configuration file.
 
-All the options in this config are optional with a reasonable default value.
-Set them only if you really known their meaning.
+All options in this section are optional and have usable defaults. Change them
+only when you understand their impact.
 
-The options can be grouped into the following sections:
+The options are grouped into the following sections:
 
-tokio main runtime
+Tokio Main Runtime
 ==================
 
-This section describes the options for the main tokio runtime, which is used for all servers.
+This section describes the main Tokio runtime used by all servers.
 
 thread_number
 -------------
 
 **optional**, **type**: int | str
 
-Set the scheduler and core number of worker threads.
+Configures the scheduler type and the number of worker threads.
 
-if *0*, a basic scheduler is used.
-if not *0*, a threaded scheduler with the specified number of worker thread is used.
+If the value is ``0``, a basic scheduler is used.
+If the value is non-zero, a threaded scheduler is used with the specified
+number of worker threads.
 
-**default**: threaded scheduler with worker threads on each all available CPU core.
+**default**: threaded scheduler with one worker thread per available CPU core
 
 thread_name
 -----------
 
 **optional**, **type**: str
 
-Set name of worker threads spawned. Only ASCII characters is allowed.
-Note that the length of thread name will be restricted at the OS level.
+Sets the name of worker threads. Only ASCII characters are allowed.
+Thread-name length may still be limited by the operating system.
 
 **default**: "tokio"
 
@@ -43,7 +45,8 @@ thread_stack_size
 
 **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-Set the stack size for worker threads. For *<int>* value, the unit is bytes.
+Sets the stack size for worker threads. For plain integer values, the unit is
+bytes.
 
 **default**: `tokio thread_stack_size`_
 
@@ -54,23 +57,24 @@ max_io_events_per_tick
 
 **optional**, **type**: usize
 
-Configures the max number of events to be processed per tick.
+Maximum number of I/O events processed per runtime tick.
 
 **default**: 1024, tokio default value
 
-daemon quit control
+Daemon Quit Control
 ===================
 
-This section describes the options used during graceful quit of the daemon.
+This section describes the timing controls used during graceful daemon shutdown.
 
 server_offline_delay
 --------------------
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time duration before offline all servers after received daemon quit signals.
-All listen server sockets will be closed after this duration, so it should be more than the time used to
-start the new daemon process if you depends on it for graceful restart.
+How long to wait after receiving a daemon-quit signal before taking all servers
+offline.
+All listening sockets are closed after this delay, so for graceful restart this
+value should be longer than the time required to start the replacement process.
 
 **default**: 4s
 
@@ -81,9 +85,10 @@ task_wait_delay
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time duration before checking alive tasks after all servers going into offline mode.
-Tasks are marked as alive only if auth success, so we should leave some time for those tasks in negotiation
-state to run into their next state, which may be alive or really dead.
+How long to wait before checking for live tasks after all servers have entered
+offline mode.
+Tasks are marked as live only after authentication succeeds, so some delay is
+needed to let requests in the negotiation phase either advance or fail.
 
 **default**: 2s
 
@@ -92,7 +97,8 @@ task_wait_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time duration before force quit alive tasks after we decide to wait for them to end gracefully.
+How long to wait before forcefully terminating live tasks after graceful wait
+has begun.
 
 **default**: 10h
 
@@ -101,5 +107,6 @@ task_quit_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the time duration before we shutdown the process after entering force quit status for all tasks.
-The tasks dropped after this timeout won't have any logs.
+How long to wait before shutting down the process after entering force-quit mode
+for all tasks.
+Tasks dropped after this timeout will not emit logs.

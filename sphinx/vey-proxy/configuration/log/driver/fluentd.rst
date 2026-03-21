@@ -3,13 +3,14 @@
 fluentd
 =======
 
-The fluentd driver config is is map format.
+The ``fluentd`` driver configuration is a map.
 
-We can set it to send logs to fluentd / fluent-bit by using it's `Forward Protocol`_.
+It sends logs to Fluentd or Fluent Bit by using the `Forward Protocol`_.
 
 .. _Forward Protocol: https://github.com/fluent/fluentd/wiki/Forward-Protocol-Specification-v1
 
-The tags in the fluentd event message will be vey-proxy.Task / vey-proxy.Escape / vey-proxy.Resolve for the corresponding logs.
+The Fluentd event tag is ``vey-proxy.Task``, ``vey-proxy.Escape``, or
+``vey-proxy.Resolve`` depending on the log type.
 
 The keys are described below.
 
@@ -18,7 +19,7 @@ address
 
 **optional**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
-Set the tcp address of the fluentd server.
+TCP address of the Fluentd server.
 
 **default**: 127.0.0.1:24224
 
@@ -27,7 +28,7 @@ bind_ip
 
 **optional**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
 
-Set the ip address to bind to for the local socket.
+Local IP address to bind before connecting.
 
 **default**: not set
 
@@ -36,9 +37,9 @@ shared_key
 
 **optional**, **type**: str
 
-Set the shared key if authentication is required.
+Shared key used when authentication is required.
 
-The handshake stage will be skipped if shared key is not set.
+If this is not set, the shared-key handshake stage is skipped.
 
 **default**: not set
 
@@ -47,7 +48,7 @@ username
 
 **optional**, **type**: str
 
-Set the username if authorization is required.
+Username used when authorization is required.
 
 This will only be used if authorization is required by the server.
 
@@ -58,7 +59,7 @@ password
 
 **optional**, **type**: str
 
-Set the password if authorization is required.
+Password used when authorization is required.
 
 This will only be used if authorization is required by the server.
 
@@ -69,7 +70,7 @@ hostname
 
 **optional**, **type**: str
 
-Set a custom hostname.
+Custom hostname to report to the Fluentd server.
 
 **default**: local hostname
 
@@ -78,7 +79,7 @@ tcp_keepalive
 
 **optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
-Set the tcp keepalive config for the connection to fluentd server.
+TCP keepalive configuration for the connection to the Fluentd server.
 
 **default**: enabled with system default values
 
@@ -87,7 +88,7 @@ tls_client
 
 **optional**, **type**: :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
-Enable tls and set the config.
+Enables TLS and configures it.
 
 **default**: not set
 
@@ -99,7 +100,7 @@ tls_name
 
 **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
 
-Set the tls server name to verify peer certificate.
+TLS server name used to verify the peer certificate.
 
 **default**: not set
 
@@ -110,7 +111,8 @@ connect_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the timeout value for the connection to fluentd server, including tcp connect, tls handshake, fluentd handshake.
+Timeout for establishing the Fluentd connection, including TCP connect, TLS
+handshake, and Fluentd handshake.
 
 **default**: 10s
 
@@ -119,7 +121,8 @@ connect_delay
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the delay time if the connect to fluentd server failed. All messages received will be dropped during this stage.
+Delay before retrying after a connection failure. Messages received during this
+delay are dropped.
 
 **default**: 10s
 
@@ -128,7 +131,7 @@ write_timeout
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the write timeout for each message. The message will be dropped if timeout.
+Write timeout for each message. Timed-out messages are dropped.
 
 default: 1s
 
@@ -137,7 +140,7 @@ flush_interval
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the flush interval for the connection to fluentd server.
+Flush interval for the Fluentd connection.
 
 **default**: 100ms
 
@@ -146,7 +149,7 @@ retry_queue_len
 
 **optional**, **type**: usize
 
-Set how many events will be queued up to retry when connect or write failed.
-Note the write timeout events will be dropped directly.
+Maximum number of events queued for retry after connection or write failures.
+Messages that fail due to write timeout are dropped immediately.
 
 **default**: 10

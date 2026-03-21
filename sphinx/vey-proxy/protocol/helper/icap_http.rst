@@ -4,10 +4,12 @@
 ICAP for HTTP
 =============
 
-vey-proxy support to enable ICAP reqmod and respmod services for HTTP 1.x request and response.
+``vey-proxy`` can use ICAP ``REQMOD`` and ``RESPMOD`` services for HTTP/1.x
+requests and responses.
 
-The following headers will be added in the ICAP request header:
+The following header is added to the ICAP request headers:
 
 - X-HTTP-Upgrade
 
-  The Upgrade header in request will be converted to X-HTTP-Upgrade header in ICAP request with the same value.
+  If the original HTTP request contains an ``Upgrade`` header, its value is
+  copied into ``X-HTTP-Upgrade`` in the ICAP request.

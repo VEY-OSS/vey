@@ -4,33 +4,37 @@
 ICAP for SMTP
 =============
 
-vey-proxy support to enable ICAP reqmod services for outgoing SMTP DATA message.
+``vey-proxy`` can use an ICAP ``REQMOD`` service for outgoing SMTP ``DATA``
+messages.
 
-The SMTP message will be converted to an HTTP/1.1 PUT request, and then send to ICAP server.
-And the response from the ICAP server will be convert back to a SMTP message in the same format.
+The SMTP message is converted into an HTTP/1.1 ``PUT`` request and sent to the
+ICAP server. The ICAP server's response is then converted back into an SMTP
+message in the same format.
 
-The following headers will be added in the ICAP request header:
+The following header is added to the ICAP request headers:
 
 - X-Transformed-From
 
-  The value will be **SMTP**.
+  The value is **SMTP**.
 
-The following headers will be set in the HTTP PUT request:
+The following headers are set on the HTTP ``PUT`` request:
 
 - Content-Type
 
-  The value will be "message/rfc822" for SMTP DATA message.
+  The value is ``message/rfc822`` for the SMTP ``DATA`` payload.
 
 - X-SMTP-From
 
-  The value will be the *reverse-path* part of the SMTP MAIL command, which will contain the sender's Mailbox address.
+  The value is the *reverse-path* from the SMTP ``MAIL`` command, containing
+  the sender's mailbox address.
 
 - X-SMTP-To
 
-  The value will be the *forward-path* part of the SMTP RCPT command, which will contain the recipients' Mailbox address.
-  There will be multiple of this header if there are more than one recipients.
+  The value is the *forward-path* from the SMTP ``RCPT`` command, containing
+  the recipient mailbox address.
+  This header appears multiple times when there is more than one recipient.
 
-The body of the HTTP PUT request will be the corresponding SMTP message data.
+The body of the HTTP ``PUT`` request contains the SMTP message data.
 
 Not Implemented
 ---------------
@@ -38,5 +42,5 @@ Not Implemented
 - BDAT message.
 - BURL message.
 
-The not implemented extensions will be disabled by default in auditor's
-`smtp interception <conf_auditor_smtp_interception>` config.
+These unsupported extensions are disabled by default in the auditor's
+:ref:`smtp interception <conf_auditor_smtp_interception>` configuration.

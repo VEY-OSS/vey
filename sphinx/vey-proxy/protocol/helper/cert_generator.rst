@@ -5,19 +5,21 @@ Certificate Generator
 =====================
 
 We need a peer service in auditor :ref:`tls cert agent <conf_auditor_tls_cert_agent>` config. This page describes the
-protocol we used to communicate with the peer service.
+protocol used to communicate with that peer service.
 
-The peer service should listen on a UDP port, which may be IPv4 or IPv6 based, we will sending requests to this port.
+The peer service should listen on a UDP port over either IPv4 or IPv6.
+``vey-proxy`` sends requests to that port.
 
-Each UDP packet from our side to the peer service will contains exactly one request. And each UDP packet from the peer
-service should contains exactly one response.
+Each UDP packet sent by ``vey-proxy`` contains exactly one request, and each UDP
+packet returned by the peer service should contain exactly one response.
 
-Both the request and the response are structured data and should be encoded in `msgpack`_ format.
+Both requests and responses are structured data encoded in `msgpack`_ format.
 
 .. _msgpack: https://msgpack.org/
 
-The root of the request and the response should be a map, the key may be a `key str` or a `key id`,
-we will describe the keys of them in the following.
+The top-level object in both the request and the response must be a map. Keys
+may be either string keys or numeric key IDs. The supported fields are
+described below.
 
 request
 =======
@@ -27,14 +29,15 @@ host
 
 **required**, **id**: 1, **type**: string
 
-Set the hostname of the target tls server. May be a domain or an IP address.
+The hostname of the target TLS server. It may be either a domain name or an IP
+address.
 
 service
 -------
 
 **optional**, **id**: 2, **type**: string | u8
 
-Set the tls service type. It should be returned in response.
+The TLS service type. The same value should be echoed back in the response.
 
 **default**: http
 
@@ -56,7 +59,8 @@ cert
 
 **optional**, **id**: 3, **type**: pem string or der binary
 
-The real upstream leaf cert in PEM string format or DER binary format.
+The real upstream leaf certificate, in either PEM string format or DER binary
+format.
 
 .. versionadded:: 1.9.0
 
@@ -68,14 +72,14 @@ host
 
 **required**, **id**: 1, **type**: string
 
-The hostname as specified in the request.
+The hostname provided in the request.
 
 service
 -------
 
 **optional**, **id**: 2, **type**: string | u8
 
-Set the tls service type. It should be the same value as in the request.
+The TLS service type. It should be the same value that was sent in the request.
 
 **default**: http
 
@@ -86,7 +90,8 @@ usage
 
 **optional**, **id**: 6, **type**: string | u8
 
-Set the tls certificate usage type. It should be the same value as in the request.
+The TLS certificate usage type. It should be the same value that was sent in
+the request.
 
 **default**: tls_server
 
@@ -97,26 +102,29 @@ cert
 
 **required**, **id**: 3, **type**: pem string
 
-The generated fake certificate (chain) in PEM format.
+The generated interception certificate chain in PEM format.
 
 key
 ---
 
 **required**, **id**: 4, **type**: pem string or der binary
 
-The generated fake private key in PEM string format or in DER binary format.
+The generated private key, in either PEM string format or DER binary format.
 
 ttl
 ---
 
 **optional**, **id**: 5, **type**: u32
 
-Set the expire ttl of this response.
+The TTL for this response.
 
-If 0, the :ref:`protective cache ttl <conf_value_dpi_tls_cert_agent_protective_cache_ttl>` config will
-take effect
+If the value is ``0``, the
+:ref:`protective cache ttl <conf_value_dpi_tls_cert_agent_protective_cache_ttl>`
+configuration is used.
 
-.. note:: expired records will be cached some more time before cleared, see
- :ref:`cache_vanish_wait <conf_value_dpi_tls_cert_agent_cache_vanish_wait>` for more info.
+.. note:: Expired records remain cached for a short additional period before
+   being removed. See
+   :ref:`cache_vanish_wait <conf_value_dpi_tls_cert_agent_cache_vanish_wait>`
+   for details.
 
 **default**: 0

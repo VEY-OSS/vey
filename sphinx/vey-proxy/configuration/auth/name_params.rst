@@ -3,45 +3,51 @@
 Username Params
 ===============
 
-The username params can be used to set egress context KVs used in egress path selection.
+Username parameters can be used to populate egress-context key-value pairs for
+egress path selection.
 
-The username for auth will be all of the chars before the first known param key.
+The authentication username is the portion before the first recognized
+parameter key.
 
-Example Config:
+Example configuration:
 
 ```yaml
 required_keys: country
 optional_keys: city
 ```
 
-When we received `test-me-country-cn-city-none` from the client we will used `test-me` as the auth username.
+If the client sends ``test-me-country-cn-city-none``, the authentication
+username becomes ``test-me``.
 
-The config value should be a map, the keys are:
+The configuration value is a map with the following keys:
 
 required_keys
 -------------
 
 **optional**, **type**: list of string
 
-Set the required param keys.
+Required parameter keys.
 
-The request will fail if any of the required keys is missing in the username sent from the client.
+The request fails if any required key is missing from the username supplied by
+the client.
 
 optional_keys
 -------------
 
 **optional**, **type**: list of string
 
-Set the optional param keys.
+Optional parameter keys.
 
 reject_unknown_keys
 -------------------
 
 **optional**, **type**: bool
 
-Set to true if you want to reject unknown keys (neither in required_keys nor in optional_keys).
+Set to ``true`` to reject unknown keys, meaning keys that are neither in
+``required_keys`` nor in ``optional_keys``.
 
-The request will fail if any of the param key in the username sent from the client is unknown.
+The request fails if the client-supplied username contains an unknown
+parameter key.
 
 **default**: false
 
@@ -50,6 +56,6 @@ param_separator
 
 **optional**, **type**: char
 
-Set the separator char for each params key and value.
+Separator character used between parameter keys and values.
 
 **default**: '-'

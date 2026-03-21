@@ -4,12 +4,13 @@
 Escaper
 *******
 
-The type for each escaper config is *map*, with two always required keys:
+Each escaper configuration item is a map with two required keys:
 
-* :ref:`name <conf_escaper_common_name>`, which specify the name of the escaper.
-* :ref:`type <conf_escaper_common_type>`, which specify the real type of the escaper, decides how to parse other keys.
+* :ref:`name <conf_escaper_common_name>`, which defines the escaper name
+* :ref:`type <conf_escaper_common_type>`, which selects the concrete escaper
+  type and therefore determines how the remaining keys are interpreted
 
-There are many types of escaper, each with a section below.
+The available escaper types are documented below.
 
 Escapers
 ========
@@ -41,7 +42,7 @@ Escapers
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many escapers.
+This section describes common keys shared by many escaper types.
 
 .. _conf_escaper_common_name:
 
@@ -50,7 +51,7 @@ name
 
 **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Set the name of the escaper.
+The escaper name.
 
 .. _conf_escaper_common_type:
 
@@ -59,7 +60,7 @@ type
 
 **required**, **type**: str
 
-Set the type of the escaper.
+The escaper type.
 
 .. _conf_escaper_common_shared_logger:
 
@@ -68,7 +69,7 @@ shared_logger
 
 **optional**, **type**: ascii
 
-Set the escaper to use a logger running on a shared thread.
+Makes this escaper use a logger that runs on a shared thread.
 
 **default**: not set
 
@@ -79,9 +80,10 @@ resolver
 
 **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Set the resolver to use for this escaper.
+The resolver used by this escaper.
 
-If the specified resolver doesn't exist in configure, a default DenyAll resolver will be used.
+If the referenced resolver does not exist in the configuration, a default
+``DenyAll`` resolver is used.
 
 .. _conf_escaper_common_resolve_strategy:
 
@@ -90,7 +92,7 @@ resolve_strategy
 
 **optional**, **type**: :ref:`resolve strategy <conf_value_resolve_strategy>`
 
-Set the resolve strategy.
+DNS resolution strategy.
 
 .. _conf_escaper_common_tcp_sock_speed_limit:
 
@@ -99,7 +101,7 @@ tcp_sock_speed_limit
 
 **optional**, **type**: :ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
-Set speed limit for each tcp socket.
+Per-TCP-socket speed limit.
 
 **default**: no limit
 
@@ -131,7 +133,7 @@ udp_sock_speed_limit
 
 **optional**, **type**: :ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
 
-Set speed limit for each udp socket.
+Per-UDP-socket speed limit.
 
 **default**: no limit
 
@@ -163,7 +165,7 @@ bind_interface
 
 **optional**: **type**: :ref:`interface name <conf_value_interface_name>`
 
-Bind the outgoing socket to a particular device like “eth0”.
+Binds the outgoing socket to a particular interface such as ``eth0``.
 
 **default**: not set
 
@@ -176,7 +178,8 @@ no_ipv4
 
 **optional**, **type**: bool
 
-Disable IPv4. This setting should be compatible with :ref:`resolve_strategy <conf_escaper_common_resolve_strategy>`.
+Disables IPv4. This setting should remain compatible with
+:ref:`resolve_strategy <conf_escaper_common_resolve_strategy>`.
 
 **default**: false
 
@@ -187,7 +190,8 @@ no_ipv6
 
 **optional**, **type**: bool
 
-Disable IPv6. This setting should be compatible with :ref:`resolve_strategy <conf_escaper_common_resolve_strategy>`.
+Disables IPv6. This setting should remain compatible with
+:ref:`resolve_strategy <conf_escaper_common_resolve_strategy>`.
 
 **default**: false
 
@@ -198,9 +202,10 @@ tcp_connect
 
 **optional**, **type**: :ref:`tcp connect <conf_value_tcp_connect>`
 
-Set tcp connect params.
+TCP connect parameters.
 
-.. note:: For *direct* type escapers, the user level tcp connect params will be taken to limit the final value.
+.. note:: For *direct* escapers, user-level TCP connect parameters further limit
+   the final effective values.
 
 .. _conf_escaper_common_happy_eyeballs:
 
@@ -209,7 +214,7 @@ happy_eyeballs
 
 **optional**, **type**: :ref:`happy eyeballs <conf_value_happy_eyeballs>`
 
-Set the HappyEyeballs config.
+Happy Eyeballs configuration.
 
 **default**: default HappyEyeballs config
 
@@ -220,7 +225,7 @@ tcp_misc_opts
 
 **optional**, **type**: :ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
 
-Set misc tcp socket options.
+Miscellaneous TCP socket options.
 
 **default**: not set, nodelay is default enabled
 
@@ -231,7 +236,7 @@ udp_misc_opts
 
 **optional**, **type**: :ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
 
-Set misc udp socket options.
+Miscellaneous UDP socket options.
 
 **default**: not set
 
@@ -242,7 +247,7 @@ default_next
 
 **required**, **type**: str
 
-Set the default next escaper for *route* type escapers.
+Default next-hop escaper for *route* escapers.
 
 .. _conf_escaper_common_pass_proxy_userid:
 
@@ -251,10 +256,11 @@ pass_proxy_userid
 
 **optional**, **type**: bool
 
-Set if we should pass userid (username) to next proxy.
+Controls whether the user ID (username) is forwarded to the next proxy.
 
-If set, the native basic auth method will be used when negotiation with next proxy, and the username field will be set
-to the real username, the password field set to our package name (vey-proxy if not forked).
+If enabled, native Basic authentication is used when negotiating with the next
+proxy. The username field contains the real username, and the password field is
+set to the package name (``vey-proxy`` unless forked).
 
 **default**: false
 

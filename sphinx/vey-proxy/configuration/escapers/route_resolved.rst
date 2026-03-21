@@ -3,11 +3,11 @@
 route_resolved
 ==============
 
-This escaper allows to select a next escaper based on rules on the resolved upstream ip address.
+This escaper selects the next escaper based on rules applied to the resolved upstream IP address.
 
 There is no path selection support for this escaper.
 
-The resolve method in Happy Eyeballs algorithm is used.
+Resolution follows the Happy Eyeballs algorithm.
 
 The following common keys are supported:
 
@@ -20,7 +20,7 @@ lpm_match
 
 **optional**, **type**: seq
 
-If the resolved upstream ip address lpm match the network in the rules, that escaper will be selected.
+If the resolved upstream IP address matches multiple networks, the longest-prefix match is used.
 
 Each rule is in *map* format, with two keys:
 
@@ -36,15 +36,15 @@ Each rule is in *map* format, with two keys:
 
   Each element should be valid network string. Both IPv4 and IPv6 are supported.
 
-  Each network should not be set for different next escapers.
+  A network must not appear in rules for different next escapers.
 
 resolution_delay
 ----------------
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-The resolution delay time for the wait of the preferred address family after another one is returned.
+How long to wait for the preferred address family after another family has already returned a result.
 
-The meaning is the same as *resolution_delay* field in :ref:`happy eyeballs <conf_value_happy_eyeballs>`.
+This has the same meaning as the ``resolution_delay`` field in :ref:`happy eyeballs <conf_value_happy_eyeballs>`.
 
 **default**: 50ms

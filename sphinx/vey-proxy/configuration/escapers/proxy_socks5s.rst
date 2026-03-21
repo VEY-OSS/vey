@@ -5,20 +5,20 @@ proxy_socks5s
 
 .. versionadded:: 1.9.9
 
-This escaper will access the target upstream through another Socks5 over TLS proxy.
+This escaper connects to the target upstream through another SOCKS5-over-TLS proxy.
 
 The following interfaces are supported:
 
 * tcp connect
-* udp_relay
-* udp_connect
+* udp relay
+* udp connect
 * http(s) forward
 
-The following egress path selection values is supported:
+The following egress path selection value is supported:
 
 * :ref:`upstream addr <proto_egress_path_selection_egress_upstream>`
 
-  If matched, the corresponding :ref:`upstream str <conf_value_upstream_str>` value will be used to override the `proxy_addr` config.
+  If matched, the corresponding :ref:`upstream str <conf_value_upstream_str>` overrides ``proxy_addr``.
 
   .. versionadded:: 1.13.0
 
@@ -44,16 +44,16 @@ proxy_addr
 
 **required**, **type**: :ref:`upstream str <conf_value_upstream_str>` | seq
 
-Set the target proxy address. The default port is 1080 which can be omitted.
+Set the target proxy address. The default port is ``1080`` and may be omitted.
 
-For *seq* value, each of its element must be :ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`.
+If a *seq* is used, each element must be a :ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`.
 
 proxy_addr_pick_policy
 ----------------------
 
 **optional**, **type**: :ref:`selective pick policy <conf_value_selective_pick_policy>`
 
-Set the policy to select next proxy address.
+Set the policy used to select the next proxy address.
 
 The key for ketama/rendezvous/jump hash is *<client-ip>[-<username>]-<upstream-host>*.
 
@@ -64,17 +64,17 @@ tls_client
 
 **required**, **type**: :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
-Set TLS parameters for this local TLS client.
-If set to empty map, a default config is used.
+Set TLS parameters for the local TLS client.
+If set to an empty map, the default TLS client configuration is used.
 
 tls_name
 --------
 
 **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
 
-Set the tls server name to verify tls certificate for all peers.
+Set the TLS server name used to verify peer certificates.
 
-If not set, the host part of each peer will be used.
+If not set, the host part of each peer address is used.
 
 **default**: not set
 
@@ -83,7 +83,7 @@ proxy_username
 
 **optional**, **type**: :ref:`username <conf_value_username>`
 
-Set the proxy username. The User auth scheme is used by default.
+Set the proxy username. The SOCKS5 username/password method is used by default.
 
 proxy_password
 --------------
@@ -97,7 +97,7 @@ bind_ipv4
 
 **optional**, **type**: :ref:`ipv4 addr str <conf_value_ipv4_addr_str>`
 
-Set the bind ip address for inet sockets.
+Set the bind IP address for IPv4 sockets.
 
 **default**: not set
 
@@ -106,7 +106,7 @@ bind_ipv6
 
 **optional**, **type**: :ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
 
-Set the bind ip address for inet6 sockets.
+Set the bind IP address for IPv6 sockets.
 
 **default**: not set
 
@@ -115,9 +115,9 @@ tcp_keepalive
 
 **optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
-Set tcp keepalive.
+Configure TCP keepalive.
 
-The tcp keepalive set in user config won't be taken into account.
+User-level TCP keepalive settings are not applied.
 
 **default**: 60s
 
@@ -126,12 +126,12 @@ transmute_udp_peer_ip
 
 **optional**, **type**: map | bool
 
-Set this option if the UDP peer IP returned from the remote proxy should be transmuted.
+Rewrite the UDP peer IP returned by the remote proxy when needed.
 
-For map value, the key should be the returned IP, and the value should be the real IP to use.
-If the map is empty, the peer IP used by the tcp connection will be used.
+For a map value, each key is the returned IP and each value is the real IP to use.
+If the map is empty, the peer IP from the TCP connection is used.
 
-For bool value, an empty map will be used if set to true, or disabled if set to false.
+For a boolean value, ``true`` behaves like an empty map and ``false`` disables this feature.
 
 **default**: false
 
@@ -142,12 +142,12 @@ end_on_control_closed
 
 **optional**, **type**: bool
 
-Set to true if you want to end the UDP Associate Session whenever the peer closed the control TCP connection.
+End the UDP ASSOCIATE session whenever the peer closes the control TCP connection.
 
 By default the session will be ended if:
 
-- Error occur on the TCP control connection at any time
-- Clean close of the TCP control connection if at least one UDP packet has been received
+- Any error occurs on the TCP control connection
+- The TCP control connection closes cleanly after at least one UDP packet has been received
 
 **default**: false
 

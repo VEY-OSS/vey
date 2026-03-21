@@ -11,7 +11,7 @@ redis
 
 **yaml type**: map
 
-Set the redis database address and connection params.
+Redis server address and connection parameters.
 
 The following fields are supported:
 
@@ -19,13 +19,14 @@ The following fields are supported:
 
   **required**, **type**: :ref:`upstream str <conf_value_upstream_str>`
 
-  Set the address of the redis instance. The default port is 6379 which can be omitted.
+  Address of the Redis instance. The default port is ``6379`` and may be
+  omitted.
 
 * tls_client
 
   **optional**, **type**: :ref:`rustls client config <conf_value_rustls_client_config>`
 
-  Enable tls and set the config.
+  Enables TLS and configures it.
 
   **default**: not set
 
@@ -35,7 +36,7 @@ The following fields are supported:
 
   **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
 
-  Set the tls server name to verify peer certificate.
+  TLS server name used to verify the peer certificate.
 
   **default**: not set
 
@@ -45,7 +46,7 @@ The following fields are supported:
 
   **optional**, **type**: int
 
-  Set the database.
+  Database index.
 
   **default**: 0
 
@@ -53,7 +54,7 @@ The following fields are supported:
 
   **optional**, **type**: str
 
-  Set the username for redis 6 database if needed. It is required if connect to an ACL enabled redis 6 database.
+  Username for Redis 6 or later when ACLs are enabled.
 
   **default**: not set
 
@@ -61,7 +62,7 @@ The following fields are supported:
 
   **optional**, **type**: str
 
-  Set the password.
+  Password.
 
   **default**: not set
 
@@ -69,7 +70,7 @@ The following fields are supported:
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Set the connect timeout.
+  Connect timeout.
 
   **default**: 5s
 
@@ -77,6 +78,6 @@ The following fields are supported:
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Set the read timeout for redis command response.
+  Read timeout for Redis command responses.
 
   **default**: 2s, **alias**: read_timeout

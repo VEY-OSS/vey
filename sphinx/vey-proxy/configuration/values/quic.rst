@@ -12,16 +12,17 @@ Quinn Transport
 
 **yaml value**: map
 
-The transport config to be used with quinn.
+Transport configuration used with Quinn.
 
-The map is consists of the following fields:
+The map supports the following fields:
 
 * max_idle_timeout
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Maximum duration of inactivity to accept before timing out the connection.
-  The true idle timeout is the minimum of this and the peer's own max idle timeout.
+  Maximum allowed period of inactivity before the connection times out.
+  The effective idle timeout is the minimum of this value and the peer's own
+  maximum idle timeout.
 
   **default**: 60s
 
@@ -29,8 +30,8 @@ The map is consists of the following fields:
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Period of inactivity before sending a keep-alive packet.
-  Must be set lower than the idle_timeout of both peers to be effective.
+  Period of inactivity before sending a keepalive packet.
+  To be effective, it must be lower than the idle timeout of both peers.
 
   **default**: 10s
 
@@ -38,8 +39,10 @@ The map is consists of the following fields:
 
   **optional**, **type**: :ref:`humanize u32 <conf_value_humanize_u32>`
 
-  Maximum number of bytes the peer may transmit without acknowledgement on any one stream before becoming blocked.
-  This should be set to at least the expected connection latency multiplied by the maximum desired throughput.
+  Maximum number of bytes the peer may transmit on a single stream without
+  acknowledgment before becoming blocked.
+  This should be at least the expected connection latency multiplied by the
+  maximum desired throughput.
 
   **default**: quinn default value
 
@@ -47,8 +50,10 @@ The map is consists of the following fields:
 
   **optional**, **type**: :ref:`humanize u32 <conf_value_humanize_u32>`
 
-  Maximum number of bytes the peer may transmit across all streams of a connection before becoming blocked.
-  This should be set to at least the expected connection latency multiplied by the maximum desired throughput.
+  Maximum number of bytes the peer may transmit across all streams in a
+  connection without acknowledgment before becoming blocked.
+  This should be at least the expected connection latency multiplied by the
+  maximum desired throughput.
 
   **default**: quinn default value
 
@@ -56,7 +61,8 @@ The map is consists of the following fields:
 
   **optional**, **type**: :ref:`humanize u32 <conf_value_humanize_u32>`
 
-  Maximum number of bytes to transmit to a peer without acknowledgment.
+  Maximum number of bytes that may be transmitted to a peer without
+  acknowledgment.
 
   **default**: quinn default value
 

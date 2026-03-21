@@ -4,41 +4,43 @@
 Log
 ***
 
-This is the config for event logs, which is optional and can not be reloaded.
-If set, the *Root Value* below must reside in the main conf file.
+This section describes event-log configuration. It is optional and cannot be
+reloaded. If present, the root value must be defined in the main configuration
+file.
 
 Root Value
 ==========
 
-The value could be a simple string, which is the driver name, such as
+The root value can be a simple string naming the log driver, for example:
 
 - discard
 
-  drop the logs. This is the **default**.
+  Drop all logs. This is the **default**.
 
 - journal
 
-  send logs to journald directly.
+  Send logs directly to journald.
 
 - syslog
 
-  send logs to syslogd directly.
+  Send logs directly to syslogd.
 
 - stdout
 
-  send logs to stdout.
+  Send logs to standard output.
 
   .. versionadded:: 1.9.8
 
-In such case, a default driver is used as default log config for all loggers.
+In this form, the selected driver becomes the default configuration for all
+loggers.
 
-The value could be a map, with the following keys:
+The root value can also be a map with the following keys:
 
 - default
 
   **optional**, **type**: :ref:`log config <configuration_log_config>`
 
-  Set default log config for loggers with no explicit config.
+  Default log configuration for loggers without an explicit override.
 
   **default**: discard
 
@@ -46,7 +48,7 @@ The value could be a map, with the following keys:
 
   **optional**, **type**: :ref:`syslog <configuration_log_driver_syslog>`
 
-  Set default log config for loggers with no explicit config.
+  Shared ``syslog`` driver configuration.
 
   **default**: not set
 
@@ -56,7 +58,7 @@ The value could be a map, with the following keys:
 
   **optional**, **type**: :ref:`fluentd <configuration_log_driver_fluentd>`
 
-  Set default log config for loggers with no explicit config.
+  Shared ``fluentd`` driver configuration.
 
   **default**: not set
 
@@ -66,7 +68,7 @@ The value could be a map, with the following keys:
 
   **optional**, **type**: :ref:`log config <configuration_log_config>`
 
-  Set log config for *task* loggers.
+  Log configuration for *task* loggers.
 
   **default**: not set
 
@@ -74,7 +76,7 @@ The value could be a map, with the following keys:
 
   **optional**, **type**: :ref:`log config <configuration_log_config>`
 
-  Set log config for *escape* loggers.
+  Log configuration for *escape* loggers.
 
   **default**: not set
 
@@ -82,7 +84,7 @@ The value could be a map, with the following keys:
 
   **optional**, **type**: :ref:`log config <configuration_log_config>`
 
-  Set log config for *resolve* loggers.
+  Log configuration for *resolve* loggers.
 
   **default**: not set
 
@@ -91,31 +93,33 @@ The value could be a map, with the following keys:
 Log Config Value
 ================
 
-The detailed log config may be a simple driver name, or a map, with the following keys:
+Each detailed log configuration can be either a simple driver name or a map
+with the following keys:
 
 - journal
 
   **optional**, **type**: map
 
-  Use *journal* log driver. An empty map should be used, as no keys are defined by now.
+  Use the ``journal`` log driver. The map is currently empty because there are
+  no driver-specific keys.
 
 - syslog
 
   **optional**, **type**: :ref:`syslog <configuration_log_driver_syslog>`
 
-  Use *syslog* log driver.
+  Use the ``syslog`` log driver.
 
 - fluentd
 
   **optional**, **type**: :ref:`fluentd <configuration_log_driver_fluentd>`
 
-  Use *fluentd* log driver.
+  Use the ``fluentd`` log driver.
 
 - async_channel_size
 
   **optional**, **type**: usize
 
-  Set the internal async channel size.
+  Size of the internal async channel.
 
   **default**: 4096
 
@@ -123,9 +127,9 @@ The detailed log config may be a simple driver name, or a map, with the followin
 
   **optional**, **type**: usize
 
-  Set the number of async threads.
+  Number of async worker threads.
 
-  This has no effect on *discard* and *journal* log driver.
+  This setting has no effect for the ``discard`` and ``journal`` drivers.
 
   **default**: 1
 
@@ -133,14 +137,16 @@ The detailed log config may be a simple driver name, or a map, with the followin
 
   **optional**, **type**: usize, **max**: 16
 
-  The logger may encounter io error, we should report it anyhow. We will log this error every *2^n* times,
-  where *n* can be set here.
+  Loggers may encounter repeated I/O errors. This setting controls exponential
+  sampling of those errors: an error is logged every ``2^n`` occurrences, where
+  ``n`` is the configured value.
 
-  This has no effect on *discard* and *journal* log driver.
+  This setting has no effect for the ``discard`` and ``journal`` drivers.
 
   **default**: 10
 
-.. note:: The *discard* driver has no config options, so it doesn't has a corresponding map field.
+.. note:: The ``discard`` driver has no configuration options, so it has no
+   corresponding map field.
 
 .. _configuration_log_driver:
 

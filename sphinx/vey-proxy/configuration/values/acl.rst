@@ -5,7 +5,8 @@
 ACL
 ***
 
-All acl value types are described here.
+This page documents the ACL-related value types used throughout the
+configuration reference.
 
 Basic Type
 ==========
@@ -17,7 +18,7 @@ acl action
 
 **yaml value**: str
 
-There are 4 types of acl actions:
+There are four ACL actions:
 
 * forbid_log
 
@@ -44,28 +45,32 @@ acl rule
 
 **yaml value**: mix
 
-All the rules share the same config format described in this section.
+All ACL rule types share the same configuration structure described in this
+section.
 
-An acl rule is consisted of many records, each of them has an associated :ref:`acl action <conf_value_acl_action>`.
-A default missed action can be set in the rule, it set the default action if no record matches.
+An ACL rule consists of multiple records, each associated with an
+:ref:`acl action <conf_value_acl_action>`.
+A default action can also be set for the case where no record matches.
 
-The value in map format is consisted of the following fields:
+When expressed as a map, the value supports the following fields:
 
 * default
 
-  Set the default acl action if no rule match.
+  Default ACL action used when no rule matches.
 
   Default action if rule is set but with *default* omitted: forbid if not specified in the rule's doc.
 
 * any of the acl actions as the key str
 
-  The value should be a valid record or a list of them, with the key string as the acl action.
-  See detail types for the format of each record type.
+  The value should be either a valid record or a list of valid records, and the
+  key name determines the ACL action.
+  See the detailed types below for the record format.
 
-The value could also be a single record or a list of them, which means only them are permitted with no log.
+The value can also be written as a single record or a list of records. In that
+form, matching records are permitted without logging.
 
-The default missed action is **forbid** and the default found action is **permit**,
-if they are not specified in the detail types.
+Unless a detailed type says otherwise, the default unmatched action is
+**forbid** and the default matched action is **permit**.
 
 .. _conf_value_acl_rule_set:
 
@@ -74,10 +79,13 @@ acl rule set
 
 **yaml value**: seq
 
-Acl rule set is a group of at least 2 acl rules. The rules are matched in order, see detail types for the real order.
+An ACL rule set is an ordered group of at least two ACL rules. The precise
+evaluation order depends on the concrete rule-set type described below.
 
-If any record in any rules is matched, that acl action will be used. If missed in all rules, all default missed actions
-will be compared and the most strict one will be used, so there is no default missed action at rule set level.
+If any record in any rule matches, the corresponding ACL action is used. If no
+rule matches, the unmatched actions of all component rules are compared and the
+strictest one is used. There is therefore no separate default unmatched action
+at the rule-set level.
 
 Detail Type
 ===========

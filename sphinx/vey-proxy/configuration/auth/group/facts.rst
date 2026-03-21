@@ -3,7 +3,7 @@
 Facts
 =====
 
-The user group that auth the user based on connection facts.
+User-group type that authenticates users based on connection facts.
 
 The following common keys are supported:
 

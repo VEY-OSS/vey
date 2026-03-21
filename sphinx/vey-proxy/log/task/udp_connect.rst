@@ -1,132 +1,135 @@
 .. _log_task_udp_connect:
 
-*************
-Udp Associate
-*************
+***********
+Udp Connect
+***********
 
-The following keys are available for UdpAssociate task log:
+The following keys are available in ``UdpConnect`` task logs:
 
 tcp_server_addr
 ---------------
 
 **required**, **type**: socket address string
 
-The server address for the tcp control connection.
+The server address for the TCP control connection.
 
 tcp_client_addr
 ---------------
 
 **required**, **type**: socket address string
 
-The client address for the tcp control connection.
+The client address for the TCP control connection.
 
 udp_server_addr
 ---------------
 
 **optional**, **type**: socket address string
 
-The server address for the udp data connection.
+The server address for the UDP data connection.
 
 udp_client_addr
 ---------------
 
 **optional**, **type**: socket address string
 
-The client address for the udp data connection.
+The client address for the UDP data connection.
 
 upstream
 --------
 
 **required**, **type**: domain:port | socket address string
 
-The target upstream that the client want to access.
+The target upstream requested by the client.
 
 next_bind_ip
 ------------
 
 **optional**, **type**: ip address string
 
-The selected bind IP before we really setup the remote side udp socket.
+The selected bind IP before the remote-side UDP socket is created.
 
-Present only if bind ip config is enabled on the corresponding escaper.
+Present only when bind-IP configuration is enabled on the corresponding
+escaper.
 
 next_bound_addr
 ---------------
 
 **optional**, **type**: socket address string
 
-The local address for the remote udp socket.
+The local address used for the remote UDP socket.
 
 next_peer_addr
 --------------
 
 **optional**, **type**: socket address string
 
-The peer address for the remote udp socket.
+The peer address used for the remote UDP socket.
 
-The peer may be the upstream, or will be a next proxy address, which depends on the type of escaper.
+Depending on the escaper type, this may be either the final upstream or the
+next proxy peer.
 
 next_expire
 -----------
 
 **optional**, **type**: rfc3339 timestamp string with microseconds
 
-The expected expire time of the next peer.
+The expected expiration time of the next peer.
 
-Present only if the next escaper is dynamic and we have selected the remote peer.
+Present only when the next escaper is dynamic and a remote peer has already
+been selected.
 
 c_rd_bytes
 ----------
 
 **optional**, **type**: int
 
-How many bytes we have received from client.
+Total bytes received from the client.
 
 c_rd_packets
 ------------
 
 **optional**, **type**: int
 
-How many packets we have received from client.
+Total packets received from the client.
 
 c_wr_bytes
 ----------
 
 **optional**, **type**: int
 
-How many bytes we have sent to client.
+Total bytes sent to the client.
 
 c_wr_packets
 ------------
 
 **optional**, **type**: int
 
-How many packets we have sent to client.
+Total packets sent to the client.
 
 r_rd_bytes
 ----------
 
 **optional**, **type**: int
 
-How many bytes we have received from the remote peer.
+Total bytes received from the remote peer.
 
 r_rd_packets
 ------------
 
 **optional**, **type**: int
 
-How many packets we have received from the remote peer.
+Total packets received from the remote peer.
 
 r_wr_bytes
 ----------
 
 **optional**, **type**: int
 
-How many bytes we have sent to the remote peer.
+Total bytes sent to the remote peer.
 
 r_wr_packets
 ------------
 
 **optional**, **type**: int
 
-How many packets we have sent to the remote peer.
+Total packets sent to the remote peer.

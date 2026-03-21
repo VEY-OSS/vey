@@ -4,4 +4,5 @@
 deny-all
 ********
 
-The deny-all resolver won't generate any logs, as all the queries will be denied.
+The ``deny-all`` resolver does not generate logs. All queries are denied
+locally, so there is no resolver-side error path to report.

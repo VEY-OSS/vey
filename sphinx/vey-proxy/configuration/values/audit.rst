@@ -4,7 +4,8 @@
 Audit
 *****
 
-All audit value types are described here.
+This page documents value types related to auditing, ICAP integration, and
+stream detouring.
 
 .. _conf_value_audit_icap_service_config:
 
@@ -13,26 +14,28 @@ icap service config
 
 **type**: map | str
 
-Config ICAP service.
+Configuration for an ICAP service.
 
-For *str* value, the value will be treated as *url* as described following.
+If the value is a string, it is interpreted as the ``url`` field described
+below.
 
-For *map* value, the keys are:
+If the value is a map, the following keys are supported:
 
 * url
 
   **required**, **type**: :ref:`url str <conf_value_url_str>`
 
-  Set the ICAP service url. The scheme should be either 'icap' or 'icaps'.
-  A default tls client config will be used if the scheme is 'icaps'.
+  ICAP service URL. The scheme must be either ``icap`` or ``icaps``.
+  When the scheme is ``icaps``, a default TLS client configuration is used.
 
 * use_unix_socket
 
   **optional**, **type**: :ref:`absolute path <conf_value_absolute_path>`
 
-  Set a UNIX domain socket address to use before try via TCP.
+  UNIX domain socket path to try before falling back to TCP.
 
-  If the path can't be connected the TCP address in the url will be used as a fallback.
+  If the path cannot be connected, the TCP address from the URL is used as a
+  fallback.
 
   **default**: not set
 
@@ -42,7 +45,8 @@ For *map* value, the keys are:
 
   **optional**, **type**: :ref:`rustls client config <conf_value_rustls_client_config>`
 
-  Enable tls and set the config. TLS will be enabled even if the url scheme is 'icap'.
+  Enables TLS and configures it. TLS is enabled even when the URL scheme is
+  ``icap``.
 
   **default**: not set for 'icap://' url, default one for 'icaps://' url
 
@@ -52,7 +56,7 @@ For *map* value, the keys are:
 
   **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
 
-  Set the tls server name to verify peer certificate.
+  TLS server name used to verify the peer certificate.
 
   **default**: same as the host port in url
 
@@ -62,7 +66,7 @@ For *map* value, the keys are:
 
   **optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
-  Set the keep-alive config for the tcp connection to ICAP server.
+  TCP keepalive configuration for the connection to the ICAP server.
 
   **default**: enabled with default value
 
@@ -70,7 +74,7 @@ For *map* value, the keys are:
 
   **optional**, **type**: :ref:`connection pool <conf_value_connection_pool_config>`
 
-  Set the connection pool config.
+  Connection-pool configuration.
 
   **default**: set with default value
 
@@ -78,7 +82,7 @@ For *map* value, the keys are:
 
   **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-  Set the max header size when parsing response from the ICAP server.
+  Maximum header size accepted when parsing responses from the ICAP server.
 
   **default**: 8KiB
 
@@ -86,7 +90,7 @@ For *map* value, the keys are:
 
   **optional**, **type**: bool
 
-  Set to true to disable ICAP preview.
+  Set to ``true`` to disable ICAP preview.
 
   **default**: false
 
@@ -96,8 +100,9 @@ For *map* value, the keys are:
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Set the timeout value for the read of preview data.
-  If timeout, preview will not be used in the request send to the ICAP server.
+  Timeout used when reading preview data.
+  If the read times out, preview is not used for the request sent to the ICAP
+  server.
 
   **default**: 4s
 
@@ -105,9 +110,10 @@ For *map* value, the keys are:
 
   **optional**, **type**: :ref:`http header name <conf_value_http_header_name>` or seq of this
 
-  Set the headers returned by ICAP server in REQMOD response that we should send in the following RESPMOD request.
+  Headers returned by the ICAP server in a ``REQMOD`` response that should be
+  forwarded into the following ``RESPMOD`` request.
 
-  This config option now only apply to REQMOD service.
+  This option currently applies only to the ``REQMOD`` service.
 
   **default**: not set
 
@@ -115,7 +121,8 @@ For *map* value, the keys are:
 
   **optional**, **type**: bool
 
-  Set if we should bypass if we can't connect to the ICAP server.
+  Controls whether processing should fall back to bypass mode if the ICAP
+  server cannot be reached.
 
   **default**: false
 
@@ -126,11 +133,13 @@ stream detour service config
 
 **type**: map | str | int
 
-Config the :ref:`Stream Detour <protocol_helper_stream_detour>` service.
+Configuration for the :ref:`Stream Detour <protocol_helper_stream_detour>`
+service.
 
-For *str* value, the value will be treated as *peer* as described following.
+If the value is a string, it is interpreted as the ``peer`` field described
+below.
 
-For *map* value, the keys are:
+If the value is a map, the following keys are supported:
 
 * peer
 

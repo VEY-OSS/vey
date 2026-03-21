@@ -4,58 +4,59 @@
 Escape Log
 **********
 
-The escape log contains only errors when we need to connect to or send data to remote peer.
+Escape logs record errors that occur while connecting to, negotiating with, or
+sending data to a remote peer.
 
 Shared Keys
 ===========
 
-The following shared keys are set in all type of escape logs:
+The following shared keys are present in all escape logs:
 
 escaper_type
 ------------
 
 **required**, **type**: enum string
 
-The type of the escaper.
+  The escaper type.
 
 escaper_name
 ------------
 
 **required**, **type**: string
 
-The name of the escaper.
+  The escaper name.
 
 escape_type
 -----------
 
 **required**, **type**: enum string
 
-The subtype of this escape log. The meaning of non-shared keys are depend on this value.
+  The escape log subtype. The meaning of non-shared keys depends on this value.
 
 task_id
 -------
 
 **required**, **type**: uuid in simple string format
 
-UUID of the task.
+The UUID of the task.
 
-The task_id is also contained in task logs.
+The same ``task_id`` also appears in the corresponding task log.
 
 upstream
 --------
 
 **required**, **type**: domain:port | socket address string
 
-The target upstream that the client want to access.
+The target upstream the client requested.
 
 next_bound_addr
 ---------------
 
 **optional**, **type**: socket address string
 
-The local address for the remote connection.
+The local address used for the remote connection.
 
-Present only if we have connected to the remote peer.
+Present only after a connection to the remote peer has been established.
 
 next_peer_addr
 --------------
@@ -64,9 +65,10 @@ next_peer_addr
 
 The peer address for the remote connection.
 
-The peer may be the upstream, or will be a next proxy address, which depends on the type of escaper.
+Depending on the escaper type, this may be either the final upstream or the
+next proxy peer.
 
-Present only if we have selected the ip address of the next peer.
+Present only after the next peer address has been selected.
 
 Sub Types
 =========

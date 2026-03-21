@@ -4,6 +4,10 @@
 Auth
 ****
 
+This section documents user-group configuration, user definitions, user-source
+configuration, request auditing, per-site overrides, and username-parameter
+handling.
+
 .. toctree::
    :maxdepth: 2
 

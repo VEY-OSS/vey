@@ -4,8 +4,8 @@
 direct_float
 ************
 
-This escaper will access the target upstream from local machine directly. The local bind ip, which is required,
-can be set via the `publish` rpc method.
+This escaper connects to the target upstream directly from the local machine. The required local bind IP can be
+set through the ``publish`` RPC method.
 
 The following interfaces are supported:
 
@@ -15,29 +15,29 @@ The following interfaces are supported:
 * http(s) forward
 * ftp over http
 
-The Cap'n Proto RPC publish command is supported on this escaper, the published data should be a map, with the keys:
+This escaper supports the Cap'n Proto RPC ``publish`` command. The published data must be a map with these keys:
 
 * ipv4
 
-  Set the IPv4 bind ip address(es).
-  The value could be an array of or just one :ref:`bind ip <config_escaper_dynamic_bind_ip>`.
+  Set the IPv4 bind IP address or addresses.
+  The value may be a single :ref:`bind ip <config_escaper_dynamic_bind_ip>` or an array of them.
 
 * ipv6
 
-  Set the IPv6 bind ip address(es).
-  The value could be an array of or just one :ref:`bind ip <config_escaper_dynamic_bind_ip>`.
+  Set the IPv6 bind IP address or addresses.
+  The value may be a single :ref:`bind ip <config_escaper_dynamic_bind_ip>` or an array of them.
 
-The following egress path selection values is supported:
+The following egress path selection values are supported:
 
 * :ref:`string id <proto_egress_path_selection_string_id>`
 
-  If matched, a `bind_ip <config_escaper_dynamic_bind_ip>` with the same `ID` will be used.
+  If matched, the :ref:`bind ip <config_escaper_dynamic_bind_ip>` with the same ``id`` is used.
 
   .. versionadded:: 1.9.2
 
 * :ref:`json value <proto_egress_path_selection_json_value>`
 
-  If matched, the JSON MAP value will be parsed as a `bind_ip <config_escaper_dynamic_bind_ip>` and it will be used.
+  If matched, the JSON map value is parsed as a :ref:`bind ip <config_escaper_dynamic_bind_ip>` and used directly.
 
   .. versionadded:: 1.9.2
 
@@ -73,11 +73,11 @@ cache_ipv4
 
 **recommend**, **type**: :ref:`file path <conf_value_file_path>`
 
-Set the cache file for published IPv4 IP Address(es).
+Set the cache file for published IPv4 addresses.
 
-It is recommended to set this as the fetch of peers at startup may be finished after the first batch of requests.
+This is recommended because peer discovery at startup may complete only after the first requests arrive.
 
-The file will be created if not existed.
+The file is created if it does not exist.
 
 **default**: not set
 
@@ -86,11 +86,11 @@ cache_ipv6
 
 **recommend**, **type**: :ref:`file path <conf_value_file_path>`
 
-Set the cache file for published IPv6 IP Address(es).
+Set the cache file for published IPv6 addresses.
 
-It is recommended to set this as the fetch of peers at startup may be finished after the first batch of requests.
+This is recommended because peer discovery at startup may complete only after the first requests arrive.
 
-The file will be created if not existed.
+The file is created if it does not exist.
 
 **default**: not set
 
@@ -99,7 +99,7 @@ egress_network_filter
 
 **optional**, **type**: :ref:`egress network acl rule <conf_value_egress_network_acl_rule>`
 
-Set the network filter for the (resolved) remote ip address.
+Set the network filter for the resolved remote IP address.
 
 **default**: all permitted except for loopback and link-local addresses
 
@@ -108,9 +108,9 @@ tcp_keepalive
 
 **optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
 
-Set tcp keepalive.
+Configure TCP keepalive.
 
-The tcp keepalive set in user config will be taken into account.
+User-level TCP keepalive settings are also applied.
 
 **default**: 60s
 
@@ -119,7 +119,7 @@ resolve_redirection
 
 **optional**, **type**: :ref:`resolve redirection <conf_value_resolve_redirection>`
 
-Set the dns redirection rules at escaper level.
+Set DNS redirection rules at the escaper level.
 
 **default**: not set
 
@@ -128,13 +128,13 @@ Set the dns redirection rules at escaper level.
 Bind IP
 =======
 
-We use json string to represent a dynamic bind ip, with a map type as root element.
+Dynamic bind IPs are represented as JSON strings whose root element is a map.
 
 * ip
 
   **required**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
 
-  Set the IP address. The address family should match the type of the publish key described above.
+  Set the IP address. The address family must match the publish key described above.
 
 .. _config_escaper_dynamic_bind_ip_id:
 
@@ -142,7 +142,7 @@ We use json string to represent a dynamic bind ip, with a map type as root eleme
 
   **optional**, **type**: str
 
-  The ID of this bind IP.
+  Identifier for this bind IP.
 
   .. versionadded:: 1.7.23
 
@@ -150,26 +150,26 @@ We use json string to represent a dynamic bind ip, with a map type as root eleme
 
   **optional**, **type**: str
 
-  ISP for the egress ip address.
+  ISP for the egress IP address.
 
 * eip
 
   **optional**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
 
-  The egress ip address from external view.
+  Egress IP address as seen externally.
 
 * area
 
   **optional**, **type**: :ref:`egress area <conf_value_egress_area>`
 
-  Area of the egress ip address.
+  Area associated with the egress IP address.
 
 * expire
 
   **optional**, **type**: :ref:`rfc3339 datetime str <conf_value_rfc3339_datetime_str>`
 
-  Set the expire time of this dynamic ip.
+  Expiration time of this dynamic IP.
 
   **default**: not set
 
-If all optional fields can be set with the default value, the root element can be just a *ip*.
+If every optional field uses its default, the root value can be just the IP itself.

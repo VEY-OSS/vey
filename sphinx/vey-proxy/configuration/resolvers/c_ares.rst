@@ -3,7 +3,7 @@
 c_ares
 ======
 
-This is the resolver based on c-ares dns library.
+Resolver implementation based on the ``c-ares`` DNS library.
 
 The following common keys are supported:
 
@@ -18,15 +18,17 @@ server
 
 **optional**, **type**: str | seq
 
-Set the nameservers if you do not want to use those in `/etc/resolv.conf`.
+Name servers to use instead of those configured in ``/etc/resolv.conf``.
 
-For *str* value, it may be one or more :ref:`sockaddr str <conf_value_sockaddr_str>` joined with whitespace characters.
+If the value is a string, it may contain one or more
+:ref:`sockaddr str <conf_value_sockaddr_str>` values separated by whitespace.
 
-For *seq* value, each of its value should be :ref:`sockaddr str <conf_value_sockaddr_str>`.
+If the value is a sequence, each element must be a
+:ref:`sockaddr str <conf_value_sockaddr_str>`.
 
-The default port *53* will be used, if not port is specified in the value string.
+The default port ``53`` is used when no port is specified.
 
-Servers in different address families can be set in together.
+Servers from different address families may be configured together.
 
 each_timeout
 ------------
@@ -45,7 +47,7 @@ each_tries
 
 **optional**, **type**: int
 
-The number of tries the resolver will try contacting each name server before giving up.
+Number of attempts made to contact each name server before giving up.
 
 **default**: 3
 
@@ -56,8 +58,8 @@ max_timeout
 
 **optional**, **type**: int, **unit**: ms
 
-The upper bound for timeout between sequential retry attempts. When retrying queries, the timeout is increased
-from the requested timeout parameter, this caps the value.
+Upper bound on the timeout between sequential retry attempts. Retry timeouts
+increase from the base timeout value, and this setting caps the result.
 
 **notes**: This will only have effect if link or build with c-ares 1.22.
 
@@ -70,8 +72,8 @@ udp_max_quires
 
 **optional**, **type**: int
 
-The maximum number of udp queries that can be sent on a single ephemeral port to a given DNS server before a new
-ephemeral port is assigned.
+Maximum number of UDP queries sent from a single ephemeral port to one DNS
+server before a new ephemeral port is allocated.
 
 **notes**: This will only have effect if link or build with c-ares 1.20.
 
@@ -84,7 +86,8 @@ round_robin
 
 **optional**, **type**: bool
 
-If true, perform round-robin selection of the nameservers configured for the channel for each resolution.
+If set to ``true``, nameservers are selected in round-robin order for each
+resolution.
 
 **default**: false
 
@@ -93,7 +96,7 @@ socket_send_buffer_size
 
 **optional**, **type**: u32
 
-Set the send buffer size for the socket.
+Socket send-buffer size.
 
 **default**: not set, which should be the value of /proc/sys/net/core/wmem_default
 
@@ -102,7 +105,7 @@ socket_recv_buffer_size
 
 **optional**, **type**: u32
 
-Set the recv buffer size for the socket.
+Socket receive-buffer size.
 
 **default**: not set, which should be the value of /proc/sys/net/core/rmem_default
 
@@ -111,11 +114,11 @@ bind_ipv4
 
 **optional**, **type**: :ref:`ipv4 addr str <conf_value_ipv4_addr_str>`
 
-Set the IPv4 bind ip for the resolver while setting up sockets.
+IPv4 bind IP used when creating sockets for the resolver.
 
 bind_ipv6
 ---------
 
 **optional**, **type**: :ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
 
-Set the IPv6 bind ip for the resolver while setting up sockets.
+IPv6 bind IP used when creating sockets for the resolver.

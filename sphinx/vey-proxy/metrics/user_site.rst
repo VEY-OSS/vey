@@ -4,44 +4,45 @@
 User Site Metrics
 #################
 
-The metrics in user site side shows the application layer stats for each explicit user sites.
+User-site metrics describe application-layer activity for each explicit site
+defined under a user.
 
-The metrics path will have prefix user.site.<site_id>,
-where *site_id* is specified in config option :ref:`id <conf_auth_user_site_id>`.
+Metric names use the prefix ``user.<site_id>`` where *site_id* is the value of
+the :ref:`id <conf_auth_user_site_id>` configuration option.
 
-The following are the tags for all user metrics:
+The following tags are present on all user-site metrics:
 
 * :ref:`daemon_group <metrics_tag_daemon_group>`
 * :ref:`stat_id <metrics_tag_stat_id>`
 
 * user_group
 
-  Show the name of the user group.
+  The user group name.
 
 * user
 
-  Show the name of the user.
+  The user name.
 
 * user_type
 
-  Show the type of the user. See :ref:`user type <metrics_user_user_type>` for more details.
+  The user type. See :ref:`user type <metrics_user_user_type>` for details.
 
 Request
 =======
 
-The following tags are set for metrics in this section:
+The following tags are set on metrics in this section:
 
 * server
 
-  Set the server name that received the request.
+  The server name that received the request.
 
-Extra tags set at server side will also be added.
+Any extra tags configured on the server are also included.
 
-The following tag is also set for *user.connection.\** metrics:
+The following tag is also set on ``user.<site_id>.connection.*`` metrics:
 
 * :ref:`connection <metrics_tag_connection>`
 
-The following tag is also set for *user.request.\** metrics:
+The following tag is also set on ``user.<site_id>.request.*`` metrics:
 
 * :ref:`request <metrics_tag_request>`
 
@@ -51,63 +52,66 @@ The metric names are:
 
   **type**: count
 
-  Show how many client connections from the user. Connections that failed at authentication stage is not counted in.
+  Number of client connections from the user for this site. Connections that
+  fail during authentication are not counted.
 
 * user.<site_id>.request.total
 
   **type**: count
 
-  Show the total requests that has been received from the user. The value should be larger than or equal to the value
-  of user.connection.total, as the connection may be reused for some protocols.
+  Total requests received from the user for this site. This value may be
+  greater than ``user.<site_id>.connection.total`` because some protocols can
+  reuse a connection for multiple requests.
 
 * user.<site_id>.request.alive
 
   **type**: gauge
 
-  Show the alive requests for the user.
+  Number of currently active requests for this site.
 
 * user.<site_id>.request.ready
 
   **type**: count
 
-  Show the total tasks that have reached the *ready* stage for the user. The remote connection may be a new connection,
-  or an old keepalive connection.
+  Total tasks for this site that reached the *ready* stage. The remote
+  connection may be new or a reused keepalive connection.
 
 * user.<site_id>.request.reuse
 
   **type**: count
 
-  Show the total number of reuse of the old remote keepalive connections.
-  Note the reuse may be failed.
+  Total attempts to reuse an existing remote keepalive connection.
+  Reuse attempts may still fail.
 
 * user.<site_id>.request.renew
 
   **type**: count
 
-  Show the total number of failed reuse of the old remote keepalive connections. After the old connection failed at some
-  recoverable stage, a new connection is made to retry the request.
+  Total failed attempts to reuse an existing remote keepalive connection. After
+  a recoverable reuse failure, a new connection is created and the request is
+  retried.
 
 * user.<site_id>.l7.connection.alive
 
   **type**: gauge
 
-  Show the alive layer 7 proxy connections.
+  Number of currently active layer-7 proxy connections for this site.
 
 Traffic
 =======
 
-The following tags are set for metrics in this section:
+The following tags are set on metrics in this section:
 
 * :ref:`request <metrics_tag_request>`
 
 * server
 
-  Set the server name that received the request.
+  The server name that received the request.
 
-Extra tags set at server side will also be added.
+Any extra tags configured on the server are also included.
 
-The io stats for user only include application layer stats, i.e. the negotiation data in socks protocol is not counted
-in, and the tls layer for https forward is not counted in also.
+These I/O metrics include application-layer traffic only. SOCKS negotiation
+data and HTTPS-forward TLS overhead are not included.
 
 The metric names are:
 
@@ -115,38 +119,38 @@ The metric names are:
 
   **type**: count
 
-  Show the total bytes received from client.
+  Total bytes received from the client.
 
 * user.<site_id>.traffic.in.packets
 
   **type**: count
 
-  Show the total datagram packets received from client.
-  Note that this is not available for stream type transport protocols.
+  Total datagram packets received from the client.
+  This metric is not available for stream-oriented transports.
 
 * user.<site_id>.traffic.out.bytes
 
   **type**: count
 
-  Show the total bytes sent to client.
+  Total bytes sent to the client.
 
 * user.<site_id>.traffic.out.packets
 
   **type**: count
 
-  Show the total datagram packets sent to client.
-  Note that this is not available for stream type transport protocols.
+  Total datagram packets sent to the client.
+  This metric is not available for stream-oriented transports.
 
 Duration
 ========
 
-The following tags are set for metrics in this section:
+The following tags are set on metrics in this section:
 
 * server
 
-  Set the server name that received the request.
+  The server name that received the request.
 
-Extra tags set at server side will also be added.
+Any extra tags configured on the server are also included.
 
 The following tag is also set:
 
@@ -158,23 +162,24 @@ The metric names are:
 
   **type**: gauge
 
-  Show the histogram stats for task ready duration, which is corresponding to the
-  :ref:`ready_time <log_task_ready_time>` field in logs.
+  Histogram summary for task ready duration, corresponding to the
+  :ref:`ready_time <log_task_ready_time>` field in the logs.
 
 Upstream Traffic
 ================
 
-The following tags are set for metrics in this section:
+The following tags are set on metrics in this section:
 
 * :ref:`transport <metrics_tag_transport>`
 
 * escaper
 
-  Set the server name that received the request.
+  The escaper name that handled the upstream side of the request.
 
-Extra tags set at escaper side will also be added.
+Any extra tags configured on the escaper are also included.
 
-The io stats for user only include application layer stats, and the tls layer for https forward is not counted in also.
+These I/O metrics include application-layer traffic only. HTTPS-forward TLS
+overhead is not included.
 
 The metric names are:
 
@@ -182,25 +187,24 @@ The metric names are:
 
   **type**: count
 
-  Show the total bytes received from upstream.
+  Total bytes received from the upstream side.
 
 * user.<site_id>.upstream.traffic.in.packets
 
   **type**: count
 
-  Show the total datagram packets received from upstream.
-  Note that this is not available for stream type transport protocols.
+  Total datagram packets received from the upstream side.
+  This metric is not available for stream-oriented transports.
 
 * user.<site_id>.upstream.traffic.out.bytes
 
   **type**: count
 
-  Show the total bytes sent to upstream.
+  Total bytes sent to the upstream side.
 
 * user.<site_id>.upstream.traffic.out.packets
 
   **type**: count
 
-  Show the total datagram packets sent to upstream.
-  Note that this is not available for stream type transport protocols.
-
+  Total datagram packets sent to the upstream side.
+  This metric is not available for stream-oriented transports.

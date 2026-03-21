@@ -11,7 +11,7 @@ iso country code
 
 **yaml value**: str
 
-The string should be ISO 3166 Alpha2 or Alpha3 code string.
+The string must be an ISO 3166 Alpha-2 or Alpha-3 country code.
 
 .. _conf_value_continent_code:
 
@@ -20,7 +20,7 @@ continent code
 
 **yaml value**: str
 
-The string should be:
+Supported values are:
 
   - AF, for Africa
   - AN, for Antarctica
@@ -37,21 +37,21 @@ ip location
 
 **type**: map
 
-Set the IP location info.
+IP location information.
 
-The keys are:
+The supported keys are:
 
 * network
 
   **required**, **type**: :ref:`ip network str <conf_value_ip_network_str>`
 
-  Set the registered network address.
+  Registered network address.
 
 * country
 
   **optional**, **type**: :ref:`iso country code <conf_value_iso_country_code>`
 
-  Set the country.
+  Country code.
 
   **default**: not set
 
@@ -59,7 +59,7 @@ The keys are:
 
   **optional**, **type**: :ref:`continent code <conf_value_continent_code>`
 
-  Set the continent.
+  Continent code.
 
   **default**: not set
 
@@ -67,7 +67,7 @@ The keys are:
 
   **optional**, **type**: u32
 
-  Set the AS Number.
+  AS number.
 
   **default**: not set
 
@@ -75,7 +75,7 @@ The keys are:
 
   **optional**, **type**: str
 
-  Set the name of it's ISP.
+  ISP name.
 
   **default**: not set
 
@@ -83,7 +83,7 @@ The keys are:
 
   **optional**, **type**: str
 
-  Set the domain of it's ISP.
+  ISP domain.
 
   **default**: not set
 
@@ -96,15 +96,15 @@ ip locate service
 
 **type**: map | str
 
-Set the config for the ip locate service.
+Configuration for the IP-location service.
 
-The keys are:
+The supported keys are:
 
 * query_peer_addr
 
   **optional**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
-  Set the peer udp socket address.
+  Peer UDP socket address.
 
   **default**: 127.0.0.1:2888
 
@@ -112,7 +112,7 @@ The keys are:
 
   **optional**, **type**: :ref:`socket buffer config <conf_value_socket_buffer_config>`
 
-  Set the socket buffer config for the socket to peer.
+  Socket-buffer configuration for the peer socket.
 
   **default**: not set
 
@@ -120,7 +120,8 @@ The keys are:
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Set the timeout for the cache runtime to wait response from the query runtime.
+  Timeout for the cache runtime while waiting for a response from the query
+  runtime.
 
   **default**: 1s
 
@@ -130,7 +131,7 @@ The keys are:
 
   **optional**, **type**: u32
 
-  Set the default expire ttl for the response.
+  Default expiration TTL for a response.
 
   **default**: 10
 
@@ -138,7 +139,7 @@ The keys are:
 
   **optional**, **type**: u32
 
-  Set the maximum expire ttl for the response.
+  Maximum expiration TTL for a response.
 
   **default**: 300
 
@@ -146,7 +147,7 @@ The keys are:
 
   **optional**, **type**: usize
 
-  Set the batch request count in cache runtime.
+  Batch request count used by the cache runtime.
 
   **default**: 10
 
@@ -154,10 +155,11 @@ The keys are:
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-  Set the request timeout for the caller.
+  Request timeout seen by the caller.
 
   **default**: 2s
 
-For *str* value, it will parsed as *query_peer_addr* and use default value for other fields.
+If the value is a string, it is parsed as ``query_peer_addr`` and all other
+fields use their default values.
 
 .. versionadded:: 1.9.1

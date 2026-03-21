@@ -12,16 +12,17 @@ Resolve Strategy
 
 **yaml value**: mix
 
-The *Resolve Strategy* config is not for resolvers, but for the users of resolvers.
+``Resolve Strategy`` is not a resolver configuration by itself. It is used by
+components that call resolvers.
 
-The type for this is *map*, which consists of keys as follows:
+The value is a map with the following keys:
 
 query
 -----
 
 **optional**, **type**: enum str
 
-The query strategy, which will be used by the resolver while resolving.
+Query strategy used by the resolver when resolving a name.
 
 The value should be:
 
@@ -35,7 +36,7 @@ pick
 
 **optional**, **type**: enum str
 
-The pick strategy, which will be used when selecting the best ip address from all the results.
+Selection strategy used when choosing the final IP address from all results.
 
 The value should be:
 
@@ -49,13 +50,14 @@ Resolve Redirection
 
 **yaml value**: mix
 
-The *Resolve Redirection* config is not for resolvers, but for the users of resolvers.
+``Resolve Redirection`` is also used by resolver consumers rather than by the
+resolver itself.
 
-The type for this could be *seq*, which consists of many rules of type
+The value can be a sequence containing multiple rules of type
 :ref:`resolve redirection rule <conf_value_resolve_redirection_rule>`.
 
-The type for this could also be *map*, in such case, each kv pair will be one rule,
-with the key as it's *exact* value, and the value as it's *to* value.
+It can also be a map. In that form, each key-value pair becomes one rule, where
+the key is the ``exact`` value and the value is the ``to`` value.
 
 .. _conf_value_resolve_redirection_rule:
 
@@ -68,7 +70,7 @@ Each rule should be a map with the following keys:
 
   **optional**, **type**: :ref:`domain <conf_value_domain>` | list
 
-  Set the exact domain to replace.
+  Exact domain to replace.
 
   .. versionchanged:: 1.13.0 allow list values
 
@@ -76,7 +78,7 @@ Each rule should be a map with the following keys:
 
   **optional**, **type**: :ref:`domain <conf_value_domain>` | list
 
-  Set the parent domain to replace.
+  Parent domain to replace.
 
   .. versionchanged:: 1.13.0 allow list values
 
@@ -84,10 +86,10 @@ Each rule should be a map with the following keys:
 
   **required**, **type**: mix
 
-  Set the replacement value for the match.
+  Replacement value for the matched entry.
 
   For *exact* match, the value should be :ref:`host <conf_value_host>` or an array of ip addresses.
 
   For *parent* match, the value should be :ref:`domain <conf_value_domain>`.
 
-Either *exact* or *parent* should be set for the rule.
+Each rule must set either ``exact`` or ``parent``.

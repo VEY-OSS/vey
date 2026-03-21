@@ -11,36 +11,39 @@ Host Matched Object
 
 **yaml value**: map | seq of map
 
-This set a host based match object for generic type T, which will be specified in the real config options.
+Host-based match object for a generic type ``T``, as referenced by specific
+configuration options.
 
-The yaml value for T will be a map, but with the following keys as reserved as they are used by the match rules:
+The YAML value for ``T`` is still a map, but the following keys are reserved for
+matching logic:
 
 * exact_match
 
   **optional**, **type**: :ref:`host <conf_value_host>`
 
-  Match if this is the exact host.
+  Matches when the target host is exactly this host.
 
 * child_match
 
   **optional**, **type**: :ref:`domain <conf_value_domain>`
 
-  Match if the target host is a child domain of this parent domain.
+  Matches when the target host is a child domain of this parent domain.
 
 * set_default
 
   **optional**, **type**: bool
 
-  If true, also set this T as default value
+  If ``true``, also use this ``T`` as the default value.
 
   **default**: false
 
-If none of the above keys found, the parsed T value will also be used as the default value.
+If none of the reserved keys are present, the parsed ``T`` value is also used
+as the default value.
 
-A match object can contains one or more T(s), which means the yaml type for this object could be a single T,
-or a sequence of T.
+A match object can contain one or more ``T`` values, so the YAML value may be a
+single ``T`` or a sequence of ``T`` values.
 
-Only a single T is allowed for each match rules, including the default one.
+Only one ``T`` is allowed for each match rule, including the default rule.
 
 .. _conf_value_uri_path_matched_object:
 
@@ -49,27 +52,30 @@ Uri Path Matched Object
 
 **yaml value**: map | seq of map
 
-This set a url path based match object for generic type T, which will be specified in the real config options.
+URI-path-based match object for a generic type ``T``, as referenced by specific
+configuration options.
 
-The yaml value for T will be a map, but with the following keys as reserved as they are used by the match rules:
+The YAML value for ``T`` is still a map, but the following keys are reserved for
+matching logic:
 
 * prefix_match
 
   **optional**, **type**: str
 
-  Match if the target url path has this prefix.
+  Matches when the target URI path has this prefix.
 
 * set_default
 
   **optional**, **type**: bool
 
-  If true, also set this T as default value
+  If ``true``, also use this ``T`` as the default value.
 
   **default**: false
 
-If none of the above keys found, the parsed T value will also be used as the default value.
+If none of the reserved keys are present, the parsed ``T`` value is also used
+as the default value.
 
-A match object can contains one or more T(s), which means the yaml type for this object could be a single T,
-or a sequence of T.
+A match object can contain one or more ``T`` values, so the YAML value may be a
+single ``T`` or a sequence of ``T`` values.
 
-Only a single T is allowed for each match rules, including the default one.
+Only one ``T`` is allowed for each match rule, including the default rule.

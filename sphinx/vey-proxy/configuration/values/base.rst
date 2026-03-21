@@ -12,9 +12,11 @@ env var
 
 **yaml value**: str
 
-Set a environment variable, in the form '$' + variable name, E.g. $TCP_LISTEN_ADDR.
+Environment-variable reference in the form ``$`` followed by the variable name,
+for example ``$TCP_LISTEN_ADDR``.
 
-The value of the environment variable will be parsed just as you write this value as *yaml string* directly there.
+The referenced environment-variable value is parsed exactly as if it had been
+written directly in the YAML file as a string.
 
 .. _conf_value_nonzero_u32:
 
@@ -23,7 +25,7 @@ nonzero u32
 
 **yaml value**: int
 
-A non-zero u32 in value type.
+A non-zero ``u32`` value.
 
 .. _conf_value_nonzero_usize:
 
@@ -32,7 +34,7 @@ nonzero usize
 
 **yaml value**: int
 
-A non-zero usize in value type.
+A non-zero ``usize`` value.
 
 .. _conf_value_humanize_usize:
 
@@ -41,9 +43,10 @@ humanize usize
 
 **yaml value**: int | str
 
-For *str* value, it support units of 2^10 like "KiB", "MiB", or units of 1000 like "KB", "MB".
+String values support binary units such as ``KiB`` and ``MiB`` as well as
+decimal units such as ``KB`` and ``MB``.
 
-For *int* value or *str* value without unit, the unit will be bytes.
+Integer values, or strings without a unit suffix, are interpreted as bytes.
 
 .. seealso::
 
@@ -67,10 +70,11 @@ humanize duration
 
 **yaml value**: int | str
 
-For *str* value, at least one unit is required. Multiple units string like "1h 30m 71s" is also supported.
-See `duration units`_ for all supported units.
+String values must include at least one unit. Composite values such as
+``1h 30m 71s`` are also supported.
+See `duration units`_ for the full list of supported units.
 
-For *int* and *real* value, the unit will be seconds.
+Integer and floating-point values are interpreted as seconds.
 
 .. seealso::
 
@@ -85,9 +89,9 @@ upstream str
 
 **yaml value**: str
 
-The string should be in *<ip>[:<port>]* or *<domain>[:<port>]* format.
+String in ``<ip>[:<port>]`` or ``<domain>[:<port>]`` format.
 
-If omitted, the *port* will be set to *0*.
+If the port is omitted, it defaults to ``0``.
 
 .. _conf_value_url_str:
 
@@ -96,7 +100,7 @@ url str
 
 **yaml value**: str
 
-The string should be a valid url.
+The string must be a valid URL.
 
 .. _conf_value_ascii_str:
 
@@ -105,7 +109,7 @@ ascii str
 
 **yaml value**: str
 
-The string should only consists of ascii characters.
+The string must contain ASCII characters only.
 
 .. _conf_value_regex_str:
 
@@ -114,7 +118,7 @@ regex str
 
 **yaml value**: str
 
-A regex string.
+Regular-expression string.
 
 .. _conf_value_rfc3339_datetime_str:
 
@@ -123,7 +127,7 @@ rfc3339 datetime str
 
 **yaml value**: str
 
-The string should be a value rfc3339 datetime string.
+The string must be a valid RFC 3339 datetime.
 
 .. _conf_value_selective_pick_policy:
 
@@ -132,7 +136,7 @@ selective pick policy
 
 **yaml value**: str
 
-The policy to select item from selective vectors.
+Selection policy used for selective vectors.
 
 The following values are supported:
 
@@ -167,7 +171,8 @@ weighted upstream addr
 
 **yaml value**: map | string
 
-A upstream str with weight set, which make can be grouped into selective vector.
+A weighted :ref:`upstream str <conf_value_upstream_str>` value suitable for use
+inside a selective vector.
 
 The map consists 2 fields:
 
@@ -175,18 +180,20 @@ The map consists 2 fields:
 
   **required**, **type**: :ref:`upstream str <conf_value_upstream_str>`
 
-  The real value.
+  Upstream address.
 
 * weight
 
   **optional**, **type**: f64
 
-  The weight of the real value.
-  It may be converted to the smallest u32 greater than or equal to the f64 value when used.
+  Weight assigned to the upstream value.
+  When used internally, it may be converted to the smallest ``u32`` greater
+  than or equal to the ``f64`` value.
 
   **default**: 1.0
 
-If the value type is string, then it's value will be the *addr* field, with *weight* set to default value.
+If the value is a string, it is treated as the ``addr`` field and ``weight``
+uses the default value.
 
 .. _conf_value_list:
 
@@ -195,6 +202,6 @@ list
 
 **yaml value**: mix
 
-A list container type for type T.
+A list container for values of type ``T``.
 
-The value could be a single value of type T, or a sequence of values of type T.
+The value can be either a single ``T`` or a sequence of ``T`` values.

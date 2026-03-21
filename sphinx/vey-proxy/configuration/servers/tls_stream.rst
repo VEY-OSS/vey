@@ -3,7 +3,7 @@
 tls_stream
 ==========
 
-A simple tls stream server. Add tls layer to remote tcp port.
+Simple TLS stream server that adds a TLS layer in front of a remote TCP port.
 
 The following common keys are supported:
 
@@ -11,8 +11,8 @@ The following common keys are supported:
 * :ref:`auditor <conf_server_common_auditor>`
 * :ref:`user_group <conf_server_common_user_group>`
 
-  The user group should be `facts` authenticate type.
-  It will be used only if `auth_by_client_ip` is set.
+  The user group must use fact-based authentication.
+  It is used only when ``auth_by_client_ip`` is enabled.
 
   .. versionadded:: 1.13.0
 
@@ -40,7 +40,7 @@ listen
 
 **optional**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
 
-Set the listen config for this server.
+Listening configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
@@ -53,7 +53,7 @@ upstream
 
 **required**, **type**: :ref:`upstream str <conf_value_upstream_str>` | seq
 
-Set the remote address(es) and port. The *port* field is always required.
+Remote address or addresses and port. The port is always required.
 
 For *seq* value, each of its element must be :ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`.
 
@@ -64,7 +64,7 @@ upstream_pick_policy
 
 **optional**, **type**: :ref:`selective pick policy <conf_value_selective_pick_policy>`
 
-Set the policy to select upstream address.
+Policy used to select the upstream address.
 
 The key for ketama/rendezvous/jump hash is *<client-ip><server-ip>*.
 
@@ -75,7 +75,7 @@ tls_client
 
 **optional**, **type**: bool | :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
 
-Set if we should do tls handshake with upstream.
+Controls whether a TLS handshake is performed with the upstream.
 
 **default**: disabled
 
@@ -84,7 +84,7 @@ upstream_tls_name
 
 **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
 
-Set an explicit tls server name to do upstream tls certificate verification.
+Explicit TLS server name used for upstream certificate verification.
 
 If not set, the host of upstream address will be used.
 
@@ -95,7 +95,8 @@ auth_by_client_ip
 
 **optional**, **type**: bool, **conflict**: auth_by_server_ip
 
-Enable facts user authenticate and use client IP as the authenticate fact.
+Enables fact-based user authentication using the client IP address as the
+authentication fact.
 
 **default**: false
 

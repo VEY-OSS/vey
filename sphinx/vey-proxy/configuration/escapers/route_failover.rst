@@ -5,11 +5,11 @@ route_failover
 
 .. versionadded:: 1.7.17
 
-This escaper allows to failover between the primary and standby next escaper.
+This escaper fails over between a primary next escaper and a standby next escaper.
 
-There are some limitation with this escaper:
+This escaper has the following limitation:
 
- - The http forward capability will only be set if both the primary and the standby final escaper support it.
+ - HTTP forwarding is advertised only if both the primary and standby final escapers support it.
 
 There is no path selection support for this escaper.
 
@@ -20,21 +20,20 @@ primary_next
 
 **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Set the primary next escaper to be used.
+Set the primary next escaper.
 
 standby_next
 ------------
 
 **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
-Set the standby next escaper to be used.
+Set the standby next escaper.
 
 fallback_delay
 --------------
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the delay time that we should wait before using the standby escaper while stilling waiting for response
-from the primary escaper.
+Set how long to wait before switching to the standby escaper while the primary escaper is still pending.
 
 **default**: 100ms
