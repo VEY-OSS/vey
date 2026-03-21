@@ -9,7 +9,7 @@ Runtime
    - ``vey-proxy``: available
    - ``vey-gateway``: available
    - ``vey-keyless``: available
-   - ``vey-statsd``: not currently used
+   - ``vey-statsd``: available
 
 .. _conf_value_cpu_id_list_str:
 
@@ -28,6 +28,7 @@ Supported forms include:
 
 
    - ``vey-proxy``: available since ``1.11.3``
+   - ``vey-statsd``: available
 
 .. _conf_value_cpu_set:
 
@@ -52,6 +53,117 @@ Each CPU ID may be expressed as:
 
 
    - ``vey-proxy``: changed in ``1.11.3``: allow a list of CPU ID string values
+   - ``vey-statsd``: available
+
+.. _conf_value_daemon_runtime_config:
+
+daemon runtime config
+=====================
+
+**yaml value**: map
+
+Configuration for the main daemon runtime.
+
+The supported keys are grouped into the following sections.
+
+Tokio Main Runtime
+------------------
+
+thread_number
+^^^^^^^^^^^^^
+
+**optional**, **type**: int | str
+
+Configures the scheduler mode and worker-thread count.
+
+If set to ``0``, a current-thread runtime is used.
+If set to a non-zero value, a multi-threaded runtime is used with the
+specified worker-thread count.
+
+**default**: a multi-threaded runtime with one worker thread per available CPU
+core
+
+thread_name
+^^^^^^^^^^^
+
+**optional**, **type**: str
+
+Sets the name prefix used for spawned worker threads. Only ASCII characters are
+allowed. The effective length may still be limited by the operating system.
+
+**default**: ``tokio``
+
+thread_stack_size
+^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+
+Sets the stack size for worker threads. Plain integer values are interpreted as
+bytes.
+
+**default**: `tokio thread_stack_size`_
+
+.. _tokio thread_stack_size: https://docs.rs/tokio/0.2.21/tokio/runtime/struct.Builder.html#method.thread_stack_size
+
+max_io_events_per_tick
+^^^^^^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: usize
+
+Maximum number of I/O events processed per runtime tick.
+
+**default**: ``1024``, Tokio default value
+
+Daemon Quit Control
+-------------------
+
+server_offline_delay
+^^^^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+How long to wait after receiving a daemon-quit signal before taking all servers
+offline.
+
+All listening sockets are closed after this delay, so for graceful restart this
+value should be longer than the time needed to start the replacement process.
+
+**default**: ``4s``
+
+.. availability::
+
+
+   - ``vey-proxy``: changed in ``1.7.25``: default changed from ``4s`` to ``8s``
+
+task_wait_delay
+^^^^^^^^^^^^^^^
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+How long to wait before checking live tasks after all servers have entered
+offline mode.
+
+Some tasks may still be in negotiation when shutdown begins, so this delay lets
+them reach a stable state before the daemon decides whether to wait for them.
+
+**default**: ``2s``
+
+task_wait_timeout
+^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+How long to wait for live tasks to exit gracefully before forcing them to quit.
+
+**default**: ``10h``
+
+task_quit_timeout
+^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+How long the process stays alive after it enters forced-quit mode for all
+tasks. Tasks dropped after this timeout will not emit final logs.
 
 .. _conf_value_unaided_runtime_config:
 
@@ -86,6 +198,7 @@ Number of threads used by each Tokio runtime.
 
 
    - ``vey-proxy``: available since ``1.11.3``
+   - ``vey-statsd``: available
 
 thread_stack_size
 -----------------
@@ -117,6 +230,7 @@ For bool value:
 
 
        - ``vey-proxy``: available since ``1.11.3``
+       - ``vey-statsd``: available
 
   - otherwise if thread_number_per_runtime is set to 1
 

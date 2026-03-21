@@ -16,6 +16,7 @@ jobs:
     strategy:
       matrix:
         component:
+          - vey-values
           - vey-proxy
           - vey-gateway
           - vey-keyless

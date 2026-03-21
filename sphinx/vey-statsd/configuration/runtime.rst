@@ -4,107 +4,14 @@
 Runtime
 *******
 
-.. _conf_value_cpu_id_list_str:
+The ``runtime`` section in ``vey-statsd`` uses the shared
+:external+values:ref:`daemon runtime config <conf_value_daemon_runtime_config>`
+value type.
 
-cpu id list str
-===============
+If the optional ``worker`` section is present, it uses the shared
+:external+values:ref:`unaided runtime config <conf_value_unaided_runtime_config>`
+value type.
 
-A string that represents a list of CPU IDs.
-
-It could be:
-
- - A single CPU ID
- - CPU ID range in the form `<start>-<end>`, where `start` should be less than `end`.
- - A list of CPU ID / CPU ID range delimited by ','
-
-.. _conf_value_cpu_set:
-
-cpu set
-=======
-
-**yaml value** seq | str | usize
-
-A ``CPU_SET(3)`` value for use with ``sched_setaffinity(2)``.
-
-The value can be a single CPU ID or a sequence of CPU IDs.
-
-Each CPU ID may be expressed as:
-
- - usize: a single CPU ID
- - string: :external+values:ref:`cpu id list str <conf_value_cpu_id_list_str>`
-
-.. _CPU_SET(3): https://man7.org/linux/man-pages/man3/CPU_SET.3.html
-.. _sched_setaffinity(2): https://man7.org/linux/man-pages/man2/sched_setaffinity.2.html
-
-.. _conf_value_unaided_runtime_config:
-
-unaided runtime config
-======================
-
-**yaml value**: map
-
-Configuration for an unaided runtime.
-
-The supported keys are:
-
-thread_number
--------------
-
-**optional**, **type**: non-zero usize
-
-Total thread count.
-
-**default**: the number of logical CPU cores, **alias**: threads_total, thread_number_total
-
-thread_number_per_runtime
--------------------------
-
-**optional**, **type**: non-zero usize
-
-Number of threads used by each Tokio runtime.
-
-**default**: 1, **alias**: threads_per_runtime
-
-thread_stack_size
------------------
-
-**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
-
-Stack size for worker threads. Plain integer values are interpreted as bytes.
-
-**default**: system default
-
-sched_affinity
---------------
-
-**optional**, **type**: map | bool
-
-CPU affinity configuration for worker threads.
-
-For map values, each key is a thread ID starting from ``0`` and each value is a
-:external+values:ref:`cpu set <conf_value_cpu_set>`.
-
-For bool value:
-
-* if true
-
-  - if found any `WORKER_<N>_CPU_LIST` environment variables
-
-    it will set the CPU affinity for that corresponding runtime `<N>`, the value should be :external+values:ref:`cpu id list str <conf_value_cpu_id_list_str>`.
-
-  - otherwise if thread_number_per_runtime is set to 1
-
-    a default CPU SET will be set for each thread, the CPU ID in the set will match the thread ID.
-
-* if false, no CPU affinity is set, the same as omitting this option.
-
-**default**: no sched affinity set
-
-max_io_events_per_tick
-----------------------
-
-**optional**, **type**: usize
-
-Maximum number of I/O events processed per runtime tick.
-
-**default**: 1024, tokio default value
+See :external+values:doc:`configuration/values/runtime` for the full runtime
+reference, including worker-thread settings, CPU-affinity-related value types,
+and graceful-shutdown timers.
