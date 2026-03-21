@@ -19,12 +19,6 @@ cd "${PROJECT_DIR}"
 echo "Generate license files for bundled crates"
 cargo metadata --format-version 1 | scripts/release/bundle_license.py > LICENSE-BUNDLED
 
-if [ -f ${PACKAGE}/doc/conf.py ]
-then
-	echo "Building sphinx docs"
-	sphinx-build -q -b html ${PACKAGE}/doc ${PACKAGE}/doc/_build/html
-fi
-
 [ ! -d debian ] || rm -rf debian
 cp -r "${PACKAGE}/debian" .
 

@@ -44,8 +44,6 @@ install -m 644 -D %{name}/debian/vey-gateway@.service %{buildroot}/lib/systemd/s
 %license LICENSE
 %license LICENSE-BUNDLED
 %license LICENSE-FOREIGN
-%doc sphinx/%{name}/_build/html
-
 
 %changelog
 * Mon Jul 14 2025 VEY-OSS Developers <developers@vey.oss> - 0.3.9-1

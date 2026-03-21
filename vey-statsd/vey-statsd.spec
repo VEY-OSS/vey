@@ -42,8 +42,6 @@ install -m 644 -D %{name}/debian/vey-statsd@.service %{buildroot}/lib/systemd/sy
 %license LICENSE
 %license LICENSE-BUNDLED
 %license LICENSE-FOREIGN
-%doc sphinx/%{name}/_build/html
-
 
 %changelog
 * Tue May 13 2025 VEY-OSS Developers <developers@vey.oss> - 0.1.0-1

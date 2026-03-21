@@ -102,13 +102,6 @@ echo "==> generate license files for bundled crates"
 cargo metadata --format-version 1 | "${SCRIPT_DIR}"/bundle_license.py > LICENSE-BUNDLED
 
 
-if [ -f sphinx/${SOURCE_NAME}/conf.py ]
-then
-	echo "==> building sphinx docs"
-	sphinx-build -b html sphinx/${SOURCE_NAME} sphinx/${SOURCE_NAME}/_build/html
-fi
-
-
 echo "==> moving package files"
 if [ -d ${SOURCE_NAME}/debian ]
 then

@@ -17,6 +17,9 @@ Build, Package and Deploy
 `deb` and `rpm` package files are provided by default for each application, you can use them to build binary packages to
 install on other machines.
 
+The generated Sphinx HTML reference documentation is not included in these
+packages.
+
 ## Build a Release Package
 
 We set tags for each release of each application in the form *\<name\>-v\<version\>*.

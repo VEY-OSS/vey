@@ -49,8 +49,6 @@ install -m 644 -D %{name}/debian/vey-proxy@.service %{buildroot}/lib/systemd/sys
 %license LICENSE
 %license LICENSE-BUNDLED
 %license LICENSE-FOREIGN
-%doc sphinx/%{name}/_build/html
-
 
 %changelog
 * Sun Mar 15 2026 VEY-OSS Developers <developers@vey.oss> - 1.13.0-1
