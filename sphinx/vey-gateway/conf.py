@@ -4,7 +4,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 project = 'vey-gateway'
-copyright = '2022-%Y, Zhang Jingqiang'
+copyright = '2022 - %Y, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
 release = '0.4.0'
 

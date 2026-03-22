@@ -7,13 +7,15 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'VEY'
-copyright = '2025 - 2026, Zhang Jingqiang'
+copyright = '2025 - %Y, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = []
+extensions = [
+    "sphinx.ext.intersphinx",
+]
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
@@ -23,3 +25,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+
+intersphinx_mapping = {
+    "values": ("https://vey.readthedocs.io/projects/values/en/latest/",
+               ('../vey-values/_build/html/objects.inv', None)),
+}

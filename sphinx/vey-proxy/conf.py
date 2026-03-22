@@ -4,7 +4,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 project = 'vey-proxy'
-copyright = '2020-%Y, Zhang Jingqiang'
+copyright = '2020 - %Y, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
 release = '1.13.0'
 

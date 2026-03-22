@@ -4,7 +4,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 project = 'vey-keyless'
-copyright = '2025, Zhang Jingqiang'
+copyright = '2025 - %Y, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
 release = '0.5.0'
 
