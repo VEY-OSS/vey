@@ -106,11 +106,14 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         return Ok(None);
     }
     if let Some(config_file) = args.get_one::<PathBuf>(ARGS_CONFIG_FILE) {
-        vey_daemon::opts::validate_and_set_config_file(config_file, crate::build::PKG_NAME)
-            .context(format!(
-                "failed to load config file {}",
-                config_file.display()
-            ))?;
+        vey_daemon::opts::validate_and_set_config_file(
+            config_file,
+            &[crate::build::PKG_NAME, "g3tiles"],
+        )
+        .context(format!(
+            "failed to load config file {}",
+            config_file.display()
+        ))?;
     } else {
         return Err(anyhow!("no config file given"));
     }

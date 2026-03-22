@@ -15,7 +15,7 @@ static CONFIG_DIR_PATH: OnceLock<PathBuf> = OnceLock::new();
 
 static CONFIG_FILE_EXTENSION: OnceLock<OsString> = OnceLock::new();
 
-fn guess_config_file(dir: &Path, program_name: &'static str) -> anyhow::Result<PathBuf> {
+fn guess_config_file(dir: &Path, program_names: &[&str]) -> anyhow::Result<PathBuf> {
     const GUESS_EXT: &[&str] = &["yaml", "yml", "conf"];
 
     let rdir = dir
@@ -30,8 +30,10 @@ fn guess_config_file(dir: &Path, program_name: &'static str) -> anyhow::Result<P
             if path.ends_with(format!("main.{ext}")) {
                 return Ok(path);
             }
-            if path.ends_with(format!("{program_name}.{ext}")) {
-                return Ok(path);
+            for program_name in program_names {
+                if path.ends_with(format!("{program_name}.{ext}")) {
+                    return Ok(path);
+                }
             }
         }
     }
@@ -41,15 +43,12 @@ fn guess_config_file(dir: &Path, program_name: &'static str) -> anyhow::Result<P
     ))
 }
 
-fn validate_and_get_config_file(
-    path: &Path,
-    program_name: &'static str,
-) -> anyhow::Result<PathBuf> {
+fn validate_and_get_config_file(path: &Path, program_names: &[&str]) -> anyhow::Result<PathBuf> {
     let metadata = fs::metadata(path)
         .map_err(|e| anyhow!("failed to get metadata of path {}: {e}", path.display()))?;
 
     let mut path = if metadata.is_dir() {
-        guess_config_file(path, program_name)?
+        guess_config_file(path, program_names)?
     } else {
         path.to_path_buf()
     };
@@ -63,8 +62,8 @@ fn validate_and_get_config_file(
         .map_err(|e| anyhow!("failed to canonicalize path: {e}"))
 }
 
-pub fn validate_and_set_config_file(path: &Path, program_name: &'static str) -> anyhow::Result<()> {
-    let config_file = validate_and_get_config_file(path, program_name)?;
+pub fn validate_and_set_config_file(path: &Path, program_names: &[&str]) -> anyhow::Result<()> {
+    let config_file = validate_and_get_config_file(path, program_names)?;
 
     CONFIG_FILE_PATH
         .set(config_file.clone())
