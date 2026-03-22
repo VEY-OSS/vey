@@ -2,6 +2,7 @@
 
 extensions = [
     "multiproject",
+    "sphinx.ext.intersphinx",
 ]
 
 # Define the projects that will share this configuration file.
@@ -24,6 +25,10 @@ multiproject_projects = {
     "values": {
         "path": "vey-values",
     },
+}
+
+intersphinx_mapping = {
+    "values": ("https://vey.readthedocs.io/projects/values/en/latest/", None),
 }
 
 # Common options
