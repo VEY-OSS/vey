@@ -3,9 +3,6 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-from pathlib import Path
-import os
-
 project = 'vey-keyless'
 copyright = '2025, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
@@ -34,14 +31,7 @@ html_static_path = ['_static']
 # so we need to explicitly set it in order to be compatible with old versions.
 master_doc = 'index'
 
-_values_html_dir = (Path(__file__).resolve().parent.parent / "vey-values" / "_build" / "html").resolve()
-_values_base_uri = os.environ.get("VEY_VALUES_DOC_BASE")
-if not _values_base_uri:
-    if os.environ.get("READTHEDOCS") == "True":
-        _values_base_uri = "https://vey.readthedocs.io/projects/values/en/latest/"
-    else:
-        _values_base_uri = _values_html_dir.as_uri() + "/"
-
 intersphinx_mapping = {
-    "values": (_values_base_uri, str(_values_html_dir / "objects.inv")),
+    "values": ("https://vey.readthedocs.io/projects/values/en/latest/",
+               ('../vey-values/_build/html/objects.inv', None)),
 }
