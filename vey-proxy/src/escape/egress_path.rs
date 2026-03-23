@@ -33,6 +33,10 @@ impl EgressPathSelection {
         &self.context_kv
     }
 
+    pub(crate) fn set_context(&mut self, key: String, value: String) {
+        self.context_kv.insert(key, value);
+    }
+
     pub(crate) fn is_empty(&self) -> bool {
         self.context_kv.is_empty()
             && self.integer_index.is_empty()

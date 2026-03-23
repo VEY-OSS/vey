@@ -317,11 +317,24 @@ untrusted_read_limit
 egress_path_selection_header
 ----------------------------
 
-**optional**, **type**: str, **alias**: path_selection_header
+**optional**, **type**: :external+values:ref:`http header name <conf_value_http_header_name>`, **alias**: path_selection_header
 
 HTTP header name used for egress path selection.
 
 **default**: not set
+
+.. _config_server_http_proxy_egress_context_headers:
+
+egress_context_headers
+----------------------
+
+**optional**, **type**: :external+values:ref:`http header name <conf_value_http_header_name>` | seq
+
+HTTP header names used for egress context.
+
+**default**: not set
+
+.. versionadded: 1.13.1
 
 .. _config_server_http_proxy_steal_forwarded_for:
 

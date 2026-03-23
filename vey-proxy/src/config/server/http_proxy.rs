@@ -5,7 +5,6 @@
 
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -96,6 +95,7 @@ pub(crate) struct HttpProxyServerConfig {
     pub(crate) echo_chained_info: bool,
     pub(crate) untrusted_read_limit: Option<TcpSockSpeedLimitConfig>,
     pub(crate) egress_path_selection_header: Option<HeaderName>,
+    pub(crate) egress_context_headers: HashSet<HeaderName>,
     pub(crate) steal_forwarded_for: bool,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     // Optional: derive next-hop escaper addr from username params
@@ -146,6 +146,7 @@ impl HttpProxyServerConfig {
             echo_chained_info: false,
             untrusted_read_limit: None,
             egress_path_selection_header: None,
+            egress_context_headers: HashSet::new(),
             steal_forwarded_for: false,
             extra_metrics_tags: None,
             username_params: None,
@@ -411,14 +412,18 @@ impl HttpProxyServerConfig {
                 self.set("untrusted_read_speed_limit", v)
             }
             "egress_path_selection_header" | "path_selection_header" => {
-                if let Yaml::String(s) = v {
-                    let header = HeaderName::from_str(s)
-                        .map_err(|e| anyhow!("invalid http header name: {e}"))?;
-                    self.egress_path_selection_header = Some(header);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid value type"))
+                let header = vey_yaml::value::as_http_header_name(v)
+                    .context(format!("invalid http header name value for key {k}"))?;
+                self.egress_path_selection_header = Some(header);
+                Ok(())
+            }
+            "egress_context_headers" => {
+                let headers = vey_yaml::value::as_list(v, vey_yaml::value::as_http_header_name)
+                    .context(format!("invalid http header name list value for key {k}"))?;
+                for header in headers {
+                    self.egress_context_headers.insert(header);
                 }
+                Ok(())
             }
             "steal_forwarded_for" => {
                 self.steal_forwarded_for = vey_yaml::value::as_bool(v)

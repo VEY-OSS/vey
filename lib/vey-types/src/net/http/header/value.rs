@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::fmt;
 use std::str::FromStr;
 
 use bytes::{BufMut, Bytes};
@@ -113,6 +114,12 @@ impl From<HttpHeaderValue> for HeaderValue {
 impl AsRef<HeaderValue> for HttpHeaderValue {
     fn as_ref(&self) -> &HeaderValue {
         self.inner()
+    }
+}
+
+impl fmt::Display for HttpHeaderValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.to_str())
     }
 }
 

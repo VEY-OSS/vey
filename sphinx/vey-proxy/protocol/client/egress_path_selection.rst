@@ -41,9 +41,11 @@ Custom HTTP Header
 
 Only the HTTP proxy server supports this mechanism.
 
-The supported selection format is :ref:`number id <proto_egress_path_selection_number_id>`.
+Egress context key-value pairs can be set by setting
+:ref:`egress_context_headers <config_server_http_proxy_egress_context_headers>`.
 
-See :ref:`path_selection_header <config_server_http_proxy_egress_path_selection_header>` for more info.
+:ref:`path_selection_header <config_server_http_proxy_egress_path_selection_header>` can also be used to set
+:ref:`number id <proto_egress_path_selection_number_id>` directly.
 
 SOCKS Extension
 ---------------
@@ -74,9 +76,10 @@ User-level egress path selection can be enabled through:
 Selection Values
 ================
 
-The egress path selection data structure contains multiple maps.
+The egress path selection data structure contains multiple match maps.
+The egress context must also be converted to these match map rules to take effect (it can be archived by using the comply_context escaper).
 
-In all of these maps, the key is the escaper name, and each escaper reads the
+In all of these match maps, the key is the escaper name, and each escaper reads the
 selection value associated with its own name.
 
 The supported value types are described below.

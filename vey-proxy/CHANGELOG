@@ -1,4 +1,7 @@
 
+v1.13.1:
+ - Feature: support to set egress context based on headers in http_server proxy
+
 v1.13.0:
  - Feature: add facts user group type and enable it in the following servers:
      - tcp_tproxy
