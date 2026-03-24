@@ -4,6 +4,7 @@
  */
 
 use std::hash::Hash;
+use std::net::IpAddr;
 use std::str::FromStr;
 
 use anyhow::anyhow;
@@ -26,6 +27,38 @@ impl QueryStrategy {
         } else {
             other
         }
+    }
+
+    pub fn pick_first(&self, ip4: &[IpAddr], ip6: &[IpAddr]) -> Option<IpAddr> {
+        match self {
+            QueryStrategy::Ipv4Only => {
+                if !ip4.is_empty() {
+                    return Some(ip4[0]);
+                }
+            }
+            QueryStrategy::Ipv6Only => {
+                if !ip6.is_empty() {
+                    return Some(ip6[0]);
+                }
+            }
+            QueryStrategy::Ipv4First => {
+                if !ip4.is_empty() {
+                    return Some(ip4[0]);
+                }
+                if !ip6.is_empty() {
+                    return Some(ip6[0]);
+                }
+            }
+            QueryStrategy::Ipv6First => {
+                if !ip6.is_empty() {
+                    return Some(ip6[0]);
+                }
+                if !ip4.is_empty() {
+                    return Some(ip4[0]);
+                }
+            }
+        }
+        None
     }
 }
 

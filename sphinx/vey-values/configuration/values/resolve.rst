@@ -97,12 +97,13 @@ Each rule should be a map with the following keys:
 
 * to
 
-  **required**, **type**: mix
+  **required**, **type**: :ref:`host <conf_value_host>` | list
 
   Replacement value for the matched entry.
 
-  For *exact* match, the value should be :ref:`host <conf_value_host>` or an array of ip addresses.
+  .. availability::
 
-  For *parent* match, the value should be :ref:`domain <conf_value_domain>`.
+
+      - ``vey-proxy``: changed in ``1.13.1``: allow ip address value for parent domain match
 
 Each rule must set either ``exact`` or ``parent``.

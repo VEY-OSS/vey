@@ -2,6 +2,7 @@
 v1.13.1:
  - Feature: support to set egress context based on headers in http_server proxy
  - Feature: support to set egress index in comply_context escaper
+ - Feature: allow to set IP addresses directly for parent domain resolve redirection
 
 v1.13.0:
  - Feature: add facts user group type and enable it in the following servers:

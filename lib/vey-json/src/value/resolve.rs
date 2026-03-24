@@ -74,7 +74,7 @@ fn add_exact_redirection_record(
             match crate::value::as_host(v).context(format!(
                 "invalid resolve redirect host value for domain {domain}",
             ))? {
-                Host::Ip(ip) => config.insert_exact(domain, vec![ip]),
+                Host::Ip(ip) => config.insert_exact_addr(domain, vec![ip]),
                 Host::Domain(alias) => config.insert_exact_alias(domain, alias),
             }
             Ok(())
@@ -86,7 +86,7 @@ fn add_exact_redirection_record(
                     .context(format!("invalid ip address value for domain {domain}#{i}"))?;
                 ips.push(ip);
             }
-            config.insert_exact(domain, ips);
+            config.insert_exact_addr(domain, ips);
             Ok(())
         }
         _ => Err(anyhow!(
@@ -106,10 +106,31 @@ fn add_parent_redirection_record(
     let parent_domain =
         idna::domain_to_ascii(s).map_err(|e| anyhow!("invalid parent domain {s}: {e}"))?;
 
-    let to_domain = crate::value::as_domain(v)
-        .context("the value should be a domain for parent domain replace")?;
-    config.insert_parent(parent_domain, to_domain);
-    Ok(())
+    match v {
+        Value::String(_) => {
+            match crate::value::as_host(v).context(format!(
+                "invalid resolve redirect host value for parent domain {parent_domain}",
+            ))? {
+                Host::Ip(ip) => config.insert_parent_addr(parent_domain, vec![ip]),
+                Host::Domain(to_domain) => config.insert_parent_alias(parent_domain, to_domain),
+            }
+            Ok(())
+        }
+        Value::Array(seq) => {
+            let mut ips = Vec::with_capacity(seq.len());
+            for (i, v) in seq.iter().enumerate() {
+                let ip = crate::value::as_ipaddr(v).context(format!(
+                    "invalid ip address value for parent domain {parent_domain}#{i}"
+                ))?;
+                ips.push(ip);
+            }
+            config.insert_parent_addr(parent_domain, ips);
+            Ok(())
+        }
+        _ => Err(anyhow!(
+            "invalid value type for resolve redirection value of parent domain {parent_domain}",
+        )),
+    }
 }
 
 pub fn as_resolve_redirection_builder(v: &Value) -> anyhow::Result<ResolveRedirectionBuilder> {
@@ -346,6 +367,10 @@ mod tests {
                     "example.net"
                 ],
                 "to": "redirected.net"
+            },
+            {
+                "parent": "example1.net",
+                "to": "192.168.1.1"
             }
         ]);
         let builder = as_resolve_redirection_builder(&value).unwrap();
@@ -383,6 +408,10 @@ mod tests {
             .query_first("sub.example.net", QueryStrategy::Ipv4First)
             .unwrap();
         assert_eq!(ret, Host::Domain("sub.redirected.net".into()));
+        let ret = redirection
+            .query_first("sub.example1.net", QueryStrategy::Ipv4First)
+            .unwrap();
+        assert_eq!(ret, Host::Ip(IpAddr::from_str("192.168.1.1").unwrap()));
     }
 
     #[test]
