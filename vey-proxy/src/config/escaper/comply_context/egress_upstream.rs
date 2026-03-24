@@ -136,10 +136,11 @@ mod tests {
     fn t() {
         let conf = yaml_doc!(
             r#"
-            "default_port": "8080"
-            "host_key": "host"
-            "domain_suffix": "example.net"
-            "resolve_sticky_key": "session-id"
+            escaper: default
+            default_port: 8080
+            host_key: host
+            domain_suffix: example.net
+            resolve_sticky_key: session-id
             "#
         );
         let c = EgressUpstreamConfig::parse(&conf).unwrap();

@@ -23,6 +23,7 @@ escaper:
     type: comply_context
     next: chained_http
     use_egress_upstream:
+      escaper: chained_http
       default_port: 8080
       host_key: host
       domain_suffix: local
@@ -37,10 +38,11 @@ escaper:
     type: comply_context
     next: chained_socks
     use_egress_upstream:
-      default_port: 1080
-      host_key: host
-      domain_suffix: local
-      resolve_sticky_key: session-id
+      - escaper: chained_socks
+        default_port: 1080
+        host_key: host
+        domain_suffix: local
+        resolve_sticky_key: session-id
   - name: chained_socks
     type: proxy_socks5
     resolver: cares1
