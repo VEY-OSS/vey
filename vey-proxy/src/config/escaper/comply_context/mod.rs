@@ -12,7 +12,10 @@ use vey_yaml::YamlDocPosition;
 use super::{EscaperConfig, EscaperConfigDiffAction};
 use crate::config::escaper::AnyEscaperConfig;
 
+mod egress_index;
 mod egress_upstream;
+
+use egress_index::EgressIndexConfig;
 pub(crate) use egress_upstream::{EgressUpstream, EgressUpstreamConfig};
 
 const ESCAPER_CONFIG_TYPE: &str = "ComplyContext";
@@ -22,7 +25,8 @@ pub(crate) struct ComplyContextEscaperConfig {
     pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) next: NodeName,
-    pub(crate) set_egress_upstream: Option<EgressUpstreamConfig>,
+    pub(crate) set_egress_upstream: Vec<EgressUpstreamConfig>,
+    pub(crate) set_egress_index: Vec<EgressIndexConfig>,
 }
 
 impl ComplyContextEscaperConfig {
@@ -31,7 +35,8 @@ impl ComplyContextEscaperConfig {
             name: NodeName::default(),
             position,
             next: NodeName::default(),
-            set_egress_upstream: None,
+            set_egress_upstream: Vec::new(),
+            set_egress_index: Vec::new(),
         }
     }
 
@@ -68,9 +73,17 @@ impl ComplyContextEscaperConfig {
                 Ok(())
             }
             "use_egress_upstream" => {
-                let egress_upstream = EgressUpstreamConfig::parse(v)
-                    .context(format!("invalid egress upstream config for key {k}"))?;
-                self.set_egress_upstream = Some(egress_upstream);
+                self.set_egress_upstream = vey_yaml::value::as_list(v, EgressUpstreamConfig::parse)
+                    .context(format!(
+                        "invalid egress upstream config value list for key {k}"
+                    ))?;
+                Ok(())
+            }
+            "use_egress_index" => {
+                self.set_egress_index = vey_yaml::value::as_list(v, EgressIndexConfig::parse)
+                    .context(format!(
+                        "invalid egress index config value list for key {k}"
+                    ))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

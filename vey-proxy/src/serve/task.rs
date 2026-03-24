@@ -144,7 +144,7 @@ impl ServerTaskNotes {
         }
     }
 
-    pub(crate) fn egress_path_string_id(&self, escaper: &NodeName) -> Option<&str> {
+    pub(crate) fn egress_path_string_id(&self, escaper: &NodeName) -> Option<ArcStr> {
         if let Some(ctx) = &self.user_ctx
             && let Some(p) = ctx.user_config().egress_path_selection.as_ref()
             && let Some(id) = p.select_string_id(escaper)

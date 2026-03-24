@@ -118,7 +118,7 @@ impl RouteSelectEscaper {
         if let Some(id) = task_notes.egress_path_string_id(self.name()) {
             return self
                 .all_nodes
-                .get(id)
+                .get(id.as_str())
                 .cloned()
                 .ok_or_else(|| anyhow!("no next escaper {id} found in local cache"));
         }

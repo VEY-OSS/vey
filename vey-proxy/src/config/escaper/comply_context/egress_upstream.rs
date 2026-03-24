@@ -9,6 +9,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
+use vey_types::metrics::NodeName;
 use vey_types::net::{Host, UpstreamAddr};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -25,6 +26,7 @@ impl EgressUpstream {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct EgressUpstreamConfig {
+    pub(crate) escaper: NodeName,
     host_key: String,
     port_key: String,
     domain_suffix: String,
@@ -40,6 +42,10 @@ impl EgressUpstreamConfig {
 
         let mut conf = EgressUpstreamConfig::default();
         vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
+            "escaper" => {
+                conf.escaper = vey_yaml::value::as_metric_node_name(v)?;
+                Ok(())
+            }
             "host_key" => {
                 conf.host_key = vey_yaml::value::as_string(v)?;
                 Ok(())
@@ -69,6 +75,9 @@ impl EgressUpstreamConfig {
     }
 
     fn check(&self) -> anyhow::Result<()> {
+        if self.escaper.is_empty() {
+            return Err(anyhow!("no escaper name set"));
+        }
         if self.default_port == 0 {
             return Err(anyhow!("no default port set"));
         }

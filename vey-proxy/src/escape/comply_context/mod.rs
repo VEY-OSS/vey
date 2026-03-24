@@ -3,6 +3,7 @@
  * Copyright 2026 VEY-OSS developers.
  */
 
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -214,14 +215,31 @@ impl EscaperInternal for ComplyContextEscaper {
     }
 
     fn _update_egress_path(&self, task_notes: &ServerTaskNotes) {
-        if let Some(config) = &self.config.set_egress_upstream
-            && let Some(egress_path) = &task_notes.egress_path_selection
-            && let Some(egress_upstream) = config.build_with_context(egress_path.context_kv())
-        {
-            egress_path.set_upstream(self.config.next.clone(), egress_upstream);
+        let Some(egress_path) = &task_notes.egress_path_selection else {
+            return;
+        };
+        let egress_context = egress_path.context_kv();
+
+        for config in &self.config.set_egress_upstream {
+            if let Some(egress_upstream) = config.build_with_context(egress_context) {
+                egress_path.set_upstream(config.escaper.clone(), egress_upstream);
+            }
         }
 
-        // TODO support more types
+        for config in &self.config.set_egress_index {
+            if !config.number_index_key.is_empty()
+                && let Some(v) = egress_context.get(&config.number_index_key)
+                && let Ok(id) = usize::from_str(v)
+            {
+                egress_path.set_number_id(config.escaper.clone(), id);
+            }
+
+            if !config.string_index_key.is_empty()
+                && let Some(v) = egress_context.get(&config.string_index_key)
+            {
+                egress_path.set_string_id(config.escaper.clone(), v.to_string());
+            }
+        }
     }
 
     async fn _new_http_forward_connection(

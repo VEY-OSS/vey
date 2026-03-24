@@ -177,7 +177,7 @@ impl DirectFloatEscaper {
                 IpAddr::V6(_) => self.bind_v6.load(),
             };
             return bind_set
-                .select_named_bind(id)
+                .select_named_bind(&id)
                 .ok_or_else(|| anyhow!("no bind IP with ID {id} found at escaper level"));
         }
 
@@ -209,7 +209,7 @@ impl DirectFloatEscaper {
                 AddressFamily::Ipv6 => self.bind_v6.load(),
             };
             return bind_set
-                .select_named_bind(id)
+                .select_named_bind(&id)
                 .ok_or_else(|| anyhow!("no bind IP with ID {id} found at escaper level"));
         }
 

@@ -147,7 +147,7 @@ impl ProxyFloatEscaper {
         if let Some(id) = task_notes.egress_path_string_id(self.name()) {
             let peer_set = self.peers.load();
             let peer = peer_set
-                .select_named_peer(id)
+                .select_named_peer(&id)
                 .ok_or_else(|| anyhow!("no peer with id {id} found in local cache"))?;
             return if peer.is_expired() {
                 Err(anyhow!("peer {id} is expired"))
