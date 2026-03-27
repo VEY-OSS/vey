@@ -11,7 +11,6 @@ description = "Generic Proxy Server"
 [dependencies]
 anyhow.workspace = true
 thiserror.workspace = true
-itertools.workspace = true
 async-trait.workspace = true
 async-recursion.workspace = true
 clap.workspace = true
