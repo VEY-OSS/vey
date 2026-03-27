@@ -319,7 +319,11 @@ egress_path_selection_header
 
 **optional**, **type**: :external+values:ref:`http header name <conf_value_http_header_name>`, **alias**: path_selection_header
 
-HTTP header name used for egress path selection.
+HTTP header name whose value is used as the direct
+:ref:`number id <proto_egress_path_selection_number_id>` path selection input.
+
+See :ref:`Egress Path Selection <protocol_egress_path_selection>` for how this
+value is consumed by escapers.
 
 **default**: not set
 
@@ -330,7 +334,10 @@ egress_context_headers
 
 **optional**, **type**: :external+values:ref:`http header name <conf_value_http_header_name>` | seq
 
-HTTP header names used for egress context.
+HTTP header names copied into the egress context.
+
+These headers do not select an egress path directly. They are intended for
+helpers such as :ref:`comply_context <configuration_escaper_comply_context>`.
 
 **default**: not set
 

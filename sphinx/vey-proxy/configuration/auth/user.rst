@@ -489,7 +489,8 @@ egress_path_id_map
 
 **optional**, **type**: :ref:`string id <proto_egress_path_selection_string_id>` egress path value map
 
-ID-based egress path selection for this user.
+Per-escaper :ref:`string id <proto_egress_path_selection_string_id>` values for
+this user. Each map key is the target escaper name.
 
 .. versionadded:: 1.9.2
 
@@ -500,6 +501,7 @@ egress_path_value_map
 
 **optional**, **type**: :ref:`json value <proto_egress_path_selection_json_value>` egress path value map
 
-JSON-value-based egress path selection for this user.
+Per-escaper :ref:`json value <proto_egress_path_selection_json_value>` values
+for this user. Each map key is the target escaper name.
 
 .. versionadded:: 1.9.2

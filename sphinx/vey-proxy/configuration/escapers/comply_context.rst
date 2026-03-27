@@ -72,7 +72,8 @@ use_egress_index
 
 **optional**, **type**: map | list
 
-Configure a (list of) egress path index derived from the egress context.
+Configure one or more egress path selection entries derived from the egress
+context.
 
 The supported keys:
 

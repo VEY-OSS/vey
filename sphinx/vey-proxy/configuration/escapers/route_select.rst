@@ -9,7 +9,9 @@ The following egress path selection value is supported:
 
 * :ref:`string id <proto_egress_path_selection_string_id>`
 
-  If matched, the escaper in :ref:`next_nodes <conf_escaper_route_select_next_nodes>` whose name matches ``ID`` is used.
+  If matched, the escaper in
+  :ref:`next_nodes <conf_escaper_route_select_next_nodes>` whose name matches
+  the ID string is used.
 
   The escaper named ``ID`` must be present in :ref:`next_nodes <conf_escaper_route_select_next_nodes>`.
   You can set its weight to ``0`` to prevent it from being selected by default.

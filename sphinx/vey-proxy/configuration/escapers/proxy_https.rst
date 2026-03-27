@@ -12,9 +12,9 @@ The following interfaces are supported:
 
 The following egress path selection value is supported:
 
-* :ref:`upstream addr <proto_egress_path_selection_egress_upstream>`
+* :ref:`egress upstream <proto_egress_path_selection_egress_upstream>`
 
-  If matched, the corresponding :external+values:ref:`upstream str <conf_value_upstream_str>` overrides ``proxy_addr``.
+  If matched, the ``addr`` field overrides ``proxy_addr`` for this request.
 
   .. versionadded:: 1.13.0
 

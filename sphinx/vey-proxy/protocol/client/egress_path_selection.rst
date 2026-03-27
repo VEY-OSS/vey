@@ -4,34 +4,51 @@
 Egress Path Selection
 #####################
 
-Egress path selection can be used to control escaper behavior dynamically.
+Egress path selection lets the client or user configuration influence how an
+escaper sends traffic to the next hop. The exact behavior depends on the
+escaper. Typical uses include:
 
-Typical use cases include:
+1. Selecting one bind IP from a pool exposed by a direct escaper
 
-1. Select a specific outgoing IP address
+   One server port may map to multiple outbound IP addresses. Instead of
+   creating many server and escaper combinations, a request can carry a
+   selection value that chooses the desired egress node.
 
-  A single server port may map to multiple outbound IP addresses, and the
-  default policy may be random selection. In some cases, users need to choose a
-  specific outgoing IP address.
-  Instead of creating many separate server and escaper combinations, you can let
-  the user provide a custom HTTP header or username parameter that selects the
-  desired IP by index.
+2. Selecting a per-user chained proxy
 
-2. Use dynamic chained proxy for different user
+   A single server can use one dynamic escaper such as ``proxy_float`` while
+   each user selects a different published peer.
 
-  You can deploy a single server with one ``proxy_float`` escaper and give each
-  user a different egress path configuration, allowing different next-hop
-  proxies without reloading escapers.
+3. Supplying the next-hop proxy from request metadata
 
-3. Use dynamic chained proxy from client params
+   Request metadata can be copied into the egress context and then transformed
+   into an :ref:`egress upstream <proto_egress_path_selection_egress_upstream>`
+   value for chained proxy escapers.
 
-  The client can provide the expected proxy address through username
-  parameters, then use the ``comply_context`` escaper to derive the egress
-  upstream configuration dynamically.
+The selected escaper must support the value type being used, and some escapers
+also require path selection to be enabled in their own configuration.
 
-For path selection to work, the selected escaper must both support and enable
-the feature. Not all escapers do. Check each escaper's configuration reference
-for details.
+Data Flow
+=========
+
+Path selection data is always evaluated per escaper. The resulting structure is
+a map whose keys are escaper names. Each escaper reads only the value stored
+under its own name.
+
+The data can reach that structure in two ways:
+
+1. Server-side request metadata
+
+   The server extracts values from protocol-specific input and stores them in
+   the egress context. A helper escaper such as
+   :ref:`comply_context <configuration_escaper_comply_context>` can then
+   translate those context keys into egress path selection values.
+
+2. User configuration
+
+   A user can define per-escaper selections directly with
+   :ref:`egress_path_id_map <config_user_egress_path_id_map>` or
+   :ref:`egress_path_value_map <config_user_egress_path_value_map>`.
 
 Server Support
 ==============
@@ -39,104 +56,108 @@ Server Support
 Custom HTTP Header
 ------------------
 
-Only the HTTP proxy server supports this mechanism.
+This mechanism is currently implemented only by the HTTP proxy server.
 
-Egress context key-value pairs can be set by setting
-:ref:`egress_context_headers <config_server_http_proxy_egress_context_headers>`.
+The HTTP proxy server can:
 
-:ref:`path_selection_header <config_server_http_proxy_egress_path_selection_header>` can also be used to set
-:ref:`number id <proto_egress_path_selection_number_id>` directly.
+* copy selected request headers into the egress context with
+  :ref:`egress_context_headers <config_server_http_proxy_egress_context_headers>`
+* map one request header directly to a
+  :ref:`number id <proto_egress_path_selection_number_id>` with
+  :ref:`egress_path_selection_header <config_server_http_proxy_egress_path_selection_header>`
+
+This is useful when the client can set HTTP headers but cannot change the
+authenticated username.
 
 SOCKS Extension
 ---------------
 
-Only the SOCKS proxy server could support this mechanism.
+The SOCKS proxy server could support a protocol extension for path selection,
+but there is currently no implementation.
 
-There is currently no implementation.
+Username Parameters
+-------------------
 
-Username Extension
-------------------
+Any server that supports username-based authentication can populate the egress
+context from username parameters.
 
-Any server that supports username-based authentication can use this mechanism.
+This does not select an egress path by itself. It only adds key-value pairs to
+the egress context. A ``comply_context`` escaper can then convert those values
+to path selection entries.
 
-It sets key-value pairs in the egress context. A ``comply_context`` escaper can
-then parse that context and select the egress path for chained escapers.
-
-See :ref:`username_params <config_auth_username_params>` for more info.
+See :ref:`username_params <config_auth_username_params>` for the parsing rules.
 
 User Support
 ============
 
-User-level egress path selection can be enabled through:
+User-level path selection is configured per user and per escaper:
 
-- :ref:`egress_path_id_map <config_user_egress_path_id_map>` for :ref:`string id <proto_egress_path_selection_string_id>` egress path selection
+* :ref:`egress_path_id_map <config_user_egress_path_id_map>` stores
+  :ref:`string id <proto_egress_path_selection_string_id>` values
 
-- :ref:`egress_path_value_map <config_user_egress_path_value_map>` for :ref:`json value <proto_egress_path_selection_json_value>` egress path selection
+* :ref:`egress_path_value_map <config_user_egress_path_value_map>` stores
+  :ref:`json value <proto_egress_path_selection_json_value>` values
 
 Selection Values
 ================
 
-The egress path selection data structure contains multiple match maps.
-The egress context must also be converted to these match map rules to take effect (it can be archived by using the comply_context escaper).
-
-In all of these match maps, the key is the escaper name, and each escaper reads the
-selection value associated with its own name.
-
-The supported value types are described below.
+The supported value types are described below. In every case, the outer map key
+is the escaper name.
 
 .. _proto_egress_path_selection_number_id:
 
 number id
 ---------
 
-**value**: map
+**value**: map of ``<escaper-name>`` to integer
 
-The value should be a ``usize`` index.
+The value is a ``usize`` node selector.
 
 For escapers with multiple nodes, such as multiple next-hop escapers or
 multiple outbound IP addresses, the node at the selected index is used.
 The index is wrapped into the range ``1 ..= len(nodes)``.
 
-**Note:** indexing starts at ``1``. A value of ``0`` is treated as the last
-node.
+Indexing starts at ``1``. A value of ``0`` selects the last node.
 
 .. _proto_egress_path_selection_string_id:
 
 string id
 ---------
 
-**value**: map
+**value**: map of ``<escaper-name>`` to string
 
-The value should be an ID string. Its meaning depends on the escaper type.
+The string is an escaper-defined identifier. Its meaning depends on the escaper
+type.
 
 .. _proto_egress_path_selection_json_value:
 
 json value
 ----------
 
-**value**: map
+**value**: map of ``<escaper-name>`` to JSON object
 
-The value should be a JSON map object, or a JSON map string in YAML
-configuration. Its meaning depends on the escaper type.
+The value must be a JSON map object. In YAML configuration, it can also be
+written as a JSON map string. Its meaning depends on the escaper type.
 
 .. _proto_egress_path_selection_egress_upstream:
 
 egress upstream
 ---------------
 
-**value**: map
+**value**: map of ``<escaper-name>`` to upstream override
 
-The value should be a map with the following keys:
+This is a specialized JSON value used by chained proxy escapers to override the
+next-hop proxy target. The inner value is a map with the following keys:
 
 * addr
 
   **value**: :external+values:ref:`upstream str <conf_value_upstream_str>`
 
-  Overrides the upstream address used by the corresponding escaper.
+  Override the upstream address used by the corresponding escaper.
 
 * resolve_sticky_key
 
-  **value**: string
+  **optional**, **value**: string
 
-  Resolves the upstream domain with jump consistent hash and uses this value as
+  Resolve the upstream domain with jump consistent hash and use this value as
   the hash key.

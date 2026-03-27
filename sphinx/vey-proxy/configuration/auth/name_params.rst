@@ -6,6 +6,12 @@ Username Params
 Username parameters can be used to populate egress-context key-value pairs for
 egress path selection.
 
+They do not select an egress path directly. The extracted key-value pairs are
+added to the egress context and can then be consumed by a helper such as
+:ref:`comply_context <configuration_escaper_comply_context>`. See
+:ref:`Egress Path Selection <protocol_egress_path_selection>` for the full
+data flow.
+
 The authentication username is the portion before the first recognized
 parameter key.
 

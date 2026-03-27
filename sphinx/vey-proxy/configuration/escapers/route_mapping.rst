@@ -3,15 +3,15 @@
 route_mapping
 =============
 
-This escaper selects the next escaper from a user-supplied path selection index.
+This escaper selects the next escaper from a user-supplied number ID.
 
 The following egress path selection value is supported:
 
 * :ref:`number id <proto_egress_path_selection_number_id>`
 
-  The index is used as the index of the next escaper.
+  The selected node ID is used to choose the next escaper from ``next``.
 
-  If no index is available from path selection, a random next escaper is chosen.
+  If no number ID is available, a random next escaper is chosen.
 
 No common keys are supported.
 

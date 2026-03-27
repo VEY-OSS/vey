@@ -26,13 +26,15 @@ The following egress path selection values are supported:
 
 * :ref:`string id <proto_egress_path_selection_string_id>`
 
-  If matched, the :ref:`peer <config_escaper_dynamic_peer>` with the same ``id`` is used.
+  If matched, the :ref:`peer <config_escaper_dynamic_peer>` with the same
+  ``id`` is used.
 
   .. versionadded:: 1.9.2
 
 * :ref:`json value <proto_egress_path_selection_json_value>`
 
-  If matched, the JSON map value is parsed as a :ref:`peer <config_escaper_dynamic_peer>` and used directly.
+  If matched, the JSON map value is parsed as a
+  :ref:`peer <config_escaper_dynamic_peer>` and used directly.
 
   .. versionadded:: 1.9.2
 

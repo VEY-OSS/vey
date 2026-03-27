@@ -17,7 +17,7 @@ The following egress path selection value is supported:
 
 * :ref:`number id <proto_egress_path_selection_number_id>`
 
-  The index is used as the index of the bind IP address.
+  The selected node ID is used to choose the bind IP address from ``bind_ip``.
 
 The following common keys are supported:
 

@@ -15,7 +15,7 @@ Client Protocol
   - TLS 1.2 and later can be enabled.
   - See :doc:`http_custom_headers` for custom headers.
   - See :doc:`http_custom_codes` for custom response codes.
-  - See :doc:`egress_path_selection` for client-driven egress path selection.
+  - See :doc:`egress_path_selection` for request-driven and user-driven egress path selection.
 
 * SOCKS proxy
 
