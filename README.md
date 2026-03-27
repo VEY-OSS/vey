@@ -3,13 +3,13 @@
 [![codecov](https://codecov.io/gh/VEY-OSS/vey/graph/badge.svg?token=c8gK1HrRsX)](https://codecov.io/gh/VEY-OSS/vey)
 [![docs](https://readthedocs.org/projects/vey/badge)](https://vey.readthedocs.io/)
 
-# VEY - Versatile Edge WAY
+# VEY: A versatile proxy and gateway platform
 
 [中文版 README](README.zh_CN.md) | [日本語 README](README.ja_JP.md)
 
 ## About
 
-The VEY project is designed for building enterprise-grade general-purpose proxy solutions, including but not limited to
+The VEY project is designed for building enterprise-oriented general-purpose proxy solutions, including but not limited to
 forward proxies, reverse proxies (WIP), load balancers (TBD), and NAT traversal services (WIP).
 
 This project is a fork of [the G3 project](https://github.com/bytedance/g3) by its creator.

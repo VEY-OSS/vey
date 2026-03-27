@@ -3,7 +3,7 @@
 [![codecov](https://codecov.io/gh/VEY-OSS/vey/graph/badge.svg?token=c8gK1HrRsX)](https://codecov.io/gh/VEY-OSS/vey)
 [![docs](https://readthedocs.org/projects/vey/badge)](https://vey.readthedocs.io/)
 
-# VEY - Versatile Edge WAY
+# VEY：一个通用的代理与网关平台
 
 [English README](README.md) | [日本語 README](README.ja_JP.md)
 
