@@ -83,6 +83,7 @@ jobs:
           name: Build package
           working_directory: vey/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>
           command: ./scripts/build_deb_from_tar.sh
+          no_output_timeout: 15m
       - run:
           name: Create output dir
           working_directory: vey
@@ -124,6 +125,7 @@ jobs:
             VEY_CAPNP_USE_PRECOMPILED: yes
           working_directory: vey
           command: rpmbuild -ta << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
+          no_output_timeout: 15m
       - store_artifacts:
           path: ~/rpmbuild/RPMS
   build-rpm-zypper:
@@ -157,6 +159,7 @@ jobs:
             VEY_CAPNP_USE_PRECOMPILED: yes
           working_directory: vey
           command: rpmbuild -ta << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
+          no_output_timeout: 15m
       - store_artifacts:
           path: /usr/src/packages/RPMS
 
