@@ -105,7 +105,7 @@ tokio-test.workspace = true
 vey-build-env.workspace = true
 
 [features]
-default = ["lua54", "python", "c-ares", "quic", "rustls-ring"]
+default = ["python", "c-ares", "quic", "rustls-ring"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
 lua53 = ["lua", "mlua/lua53"]

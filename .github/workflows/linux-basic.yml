@@ -53,9 +53,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
       - name: Cargo build
-        run: cargo build
+        run: cargo build --features lua54
       - name: Cargo test
-        run: cargo test --workspace
+        run: cargo test --workspace --features lua54
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
@@ -74,4 +74,4 @@ jobs:
           sudo apt-get update
           sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
       - name: Cargo clippy
-        run: cargo clippy --tests --all -- --deny warnings
+        run: cargo clippy --tests --workspace --features lua54 -- --deny warnings

@@ -10,7 +10,7 @@ TEST_NAME="vey-proxy-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build -p vey-proxy -p vey-proxy-ctl -p vey-proxy-ftp -p vey-mkcert -p vey-dcgen -p vey-iploc -p vey-statsd
+cargo build --features lua54 -p vey-proxy -p vey-proxy-ctl -p vey-proxy-ftp -p vey-mkcert -p vey-dcgen -p vey-iploc -p vey-statsd
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')

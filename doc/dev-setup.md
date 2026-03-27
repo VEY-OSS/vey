@@ -1,135 +1,145 @@
-Dev-Setup
------
+# Development Setup
 
-# Toolchain
+This document describes the baseline development environment for the VEY workspace.
 
-The minimum required rust version now is 1.90.
+## Rust Toolchain
 
-It is recommended to always using the lastest stable rust version.
+The workspace requires Rust `1.90.0` or newer. Use the latest stable toolchain unless you have a specific reason not to.
 
-## Install rustup
+### Install `rustup`
 
-See [rustup.rs](https://rustup.rs/) to install **rustup**.
-It is recommended to use a non-root user.
+Install `rustup` from [rustup.rs](https://rustup.rs/). A non-root installation is recommended.
 
-*cargo*, *rustc*, *rustup* and other commands will be installed to Cargo's bin directory.
-The default path is $HOME/.cargo/bin, and the following examples will use this.
-You need to add this directory to your PATH environment variable.
+`cargo`, `rustc`, `rustup`, and related binaries are typically installed into `$HOME/.cargo/bin`. Make sure that directory is in your `PATH`.
 
-- Bash
+#### Bash
 
-  The setup script should have already added the following line to your $HOME/.profile:
-  ```shell script
-  source "$HOME/.cargo/env"
-  ```
+The installer usually adds this line to `$HOME/.profile`:
 
-- Fish
+```sh
+source "$HOME/.cargo/env"
+```
 
-  Run the following command:
-  ```shell script
-  set -U fish_user_paths $HOME/.cargo/bin $fish_user_paths
-  ```
+#### Fish
 
-## Update rustup
+Run:
 
-```shell script
+```sh
+set -U fish_user_paths $HOME/.cargo/bin $fish_user_paths
+```
+
+### Update `rustup`
+
+```sh
 rustup self update
 ```
 
-## Install stable toolchains
+### Install the stable toolchain and components
 
-List all available components:
+List available components:
 
-```shell
+```sh
 rustup component list
 ```
 
-The following components is required and should have already been installed:
+The project expects these components to be installed:
 
-- rustc
-- rust-std
-- cargo
-- rustfmt
-- clippy
+- `rustc`
+- `rust-std`
+- `cargo`
+- `rustfmt`
+- `clippy`
 
-It is recommended to install **llvm-tools**:
+`llvm-tools` is recommended:
 
-```shell script
+```sh
 rustup component add llvm-tools
 ```
 
-## Install nightly toolchains
+### Install a nightly toolchain
 
-Install nightly toolchains:
+Nightly is optional for normal builds, but useful for some IDE workflows and tools such as `cargo-expand`.
 
-```shell script
+```sh
 rustup toolchain install nightly
-```
-
-List components in nightly channel:
-
-```shell script
 rustup component list --toolchain nightly
 ```
 
-## Update toolchains
+### Update installed toolchains
 
-Run the following command to update the toolchains for all channel:
-
-```shell script
+```sh
 rustup update
 ```
 
-# Plugins for cargo
+## Recommended Cargo Tools
 
-To install:
+Install a cargo subcommand with:
 
-```shell script
-cargo install <crate name>
+```sh
+cargo install --locked <crate-name>
 ```
 
-To update:
+Update an installed subcommand with:
 
-```shell script
-cargo install -f <crate name>
+```sh
+cargo install --locked --force <crate-name>
 ```
 
-The following plugins is recommended:
+Recommended tools:
 
-- cargo-expand
+- `cargo-expand`: useful for macro expansion in IDEs and debugging; typically used with nightly
+- `cargo-audit`: audits `Cargo.lock` for known vulnerabilities
+- `cargo-binutils`: exposes LLVM utilities installed through `llvm-tools`
+- `cargo-cache`: manages Cargo caches
+- `cargo-deny`: checks dependency licenses and supply-chain policy
 
-  Needed by IDE to expand macros.
-  The nightly toolchain is also required to run this.
+## System Dependencies
 
-- cargo-audit
+### Core build dependencies
 
-  Audit Cargo.lock for crates with security vulnerabilities.
+Most builds need:
 
-- cargo-binutils
+- a C toolchain such as `gcc` or `clang`
+- `make`
+- `pkg-config` or `pkgconf`
+- `capnproto`
+- OpenSSL development headers
 
-  To run llvm-tools installed via rustup.
+Some targets or features also need:
 
-- cargo-cache
+- `c-ares`
+- Lua development headers if you enable a Lua feature such as `lua54`, `lua55`, or `luajit`
+- Python development headers if you enable the default `python` feature
+- `cmake` when building vendored `c-ares`
 
-  To clean cargo caches.
+### Project feature notes
 
-- cargo-deny
+`vey-proxy` enables these features by default:
 
-  To check licenses of dependencies.
+- `python`
+- `c-ares`
+- `quic`
+- `rustls-ring`
 
-# Dependent Tools and Libraries
+If your platform does not provide all native dependencies, disable the unsupported defaults or use vendored features where appropriate.
 
-## Fast Install Guides
+Example minimal build without Lua and Python:
 
-### Debian based Linux distribution
+```sh
+cargo build --no-default-features --features rustls-ring,quic,c-ares
+```
 
-It is recommended to use Debian based distro as your development platform.
+## Platform Guides
 
-```shell
+### Debian-based Linux
+
+Debian or Ubuntu is the recommended development platform.
+
+```sh
 apt-get install gcc pkgconf make capnproto
-apt-get install curl jq xz-utils tar
+apt-get install curl git jq tar xz-utils
 apt-get install libssl-dev libc-ares-dev
-# install lua5.4 or any other versions available on your system
+# install a Lua dev package that exists on your distro, for example lua5.4 or lua5.5
 apt-get install lua5.4-dev
 apt-get install libpython3-dev
 apt-get install python3-toml python3-requests python3-pycurl python3-semver python3-socks python3-dnspython
@@ -138,22 +148,18 @@ apt-get install python3-sphinx python3-sphinx-rtd-theme
 apt-get install lsb-release dpkg-dev debhelper
 ```
 
-### RHEL based Linux distribution
+### RHEL-based Linux
 
-The devel packages is contained in repos that is not enabled by default,
-you need to check the files under /etc/yum.repo.d/ and enable the corresponding repos.
-See [EPEL Quickstart](https://docs.fedoraproject.org/en-US/epel/#_quickstart) for more info.
+Some development packages may live in optional repositories. Check the files under `/etc/yum.repos.d/` and enable the required repositories first. See [EPEL Quickstart](https://docs.fedoraproject.org/en-US/epel/#_quickstart).
 
-Some scripting or testing tools may be unavailable.
+```sh
+# enable EPEL first
 
-```shell
-# enable epel repo first
 dnf install epel-release
 dnf update
 
-#
 dnf install gcc pkgconf make capnproto
-dnf install curl jq xz tar
+dnf install curl git jq tar xz
 dnf install openssl-devel c-ares-devel lua-devel
 dnf install python3-devel
 dnf install python3-toml python3-requests python3-pycurl python3-semver
@@ -162,174 +168,158 @@ dnf install python3-sphinx python3-sphinx_rtd_theme
 dnf install rpmdevtools rpm-build
 ```
 
-### MacOS
+Some scripting or test dependencies may not be available in every repository set.
 
-```shell
+### macOS
+
+```sh
 brew install pkgconf capnp
 brew install openssl c-ares
 brew install lua
-# install python, or you can use the one provided by XCode
 brew install python
 ```
 
+The system toolchain from Xcode is also required.
+
 ### Windows
 
-```shell
-# install rust toolchain
+Native Windows builds are possible, but they usually require disabling some default features or using vendored dependencies.
+
+```powershell
+# Rust MSVC toolchain
 winget install Rustlang.Rust.MSVC
-# install tools
+
+# Core tools
 winget install capnproto.capnproto
-# option 1: vendored build
-#  install tools for vendored build
+
+# Option 1: vendored native libraries
 winget install Kitware.CMake NASM.NASM Ninja-build.Ninja
-# option 2: vcpkg
-#  install static libraries via vcpkg
-#  check [Triplets](https://learn.microsoft.com/en-us/vcpkg/users/platforms/windows) to select the correct *-static-md tripet
+
+# Option 2: vcpkg-managed libraries
 vcpkg install --triplet=x64-windows-static-md openssl c-ares
-#  export the VCPKG_ROOT environment variable
-$Env:VCPKG_ROOT = "some path to vcpkg"
-#  build, lua and python feature need to be disabled
+$Env:VCPKG_ROOT = "C:\path\to\vcpkg"
+
+# Example build without Python or Lua
 cargo build --no-default-features --features rustls-ring,quic,c-ares
 ```
 
-**Tips**
+Tips:
 
-- Install WinGET without `Windows App Store`:
+- If `winget` is unavailable, install it from the [winget-cli releases](https://github.com/microsoft/winget-cli/releases).
+- If you need a standalone `vcpkg` checkout:
 
-  ```shell
-  # Download the new release from https://github.com/microsoft/winget-cli/releases
-  Add-AppxPackage -Path <xxx.msixbundle>
-  ```
+```powershell
+git clone https://github.com/microsoft/vcpkg.git
+cd vcpkg
+.\bootstrap-vcpkg.bat
+```
 
-- Install a standalone version of `vcpkg`:
-
-  ```shell
-  git clone https://github.com/microsoft/vcpkg.git
-  cd vcpkg
-  .\bootstrap-vcpkg.bat
-  # Then add the install path to `Path` and `VCPKG_ROOT` environment variable
-  ```
+Then add the install directory to `Path` and set `VCPKG_ROOT`.
 
 ### FreeBSD
 
-```shell
+```sh
 pkg install rust
 pkg install pkgconf capnproto
 pkg install c-ares
-# install lua5.4 or any other versions available on your system
+# install a Lua package available on your release, for example lua54
 pkg install lua54
 pkg install python3
 ```
 
-**Tips**
+Tip: use the latest ports packages instead of quarterly packages if you need newer dependencies.
 
-- Use the latest ports packages
-
-  The default config in */etc/pkg/FreeBSD.conf* is configured to use quarterly pkg builds,
-  you can run the following commands to switch to use the latest pkg builds:
-
-  ```shell
-  mkdir -p /usr/local/etc/pkg/repos/
-  echo 'FreeBSD: {url: "pkg+http://pkg.FreeBSD.org/${ABI}/latest"}' > /usr/local/etc/pkg/repos/FreeBSD.conf
-  pkg update -f
-  pkg upgrade -y
-  ```
+```sh
+mkdir -p /usr/local/etc/pkg/repos/
+echo 'FreeBSD: { url: "pkg+http://pkg.FreeBSD.org/${ABI}/latest" }' > /usr/local/etc/pkg/repos/FreeBSD.conf
+pkg update -f
+pkg upgrade -y
+```
 
 ### NetBSD
 
-```shell
+```sh
 pkgin install rust
 pkgin install pkgconf capnproto
 pkgin install libcares
-# install lua5.4 or any other versions available on your system
-pkgin install lua54
-# install python 3.12 or any other versions available on your system, and create links
-pkgin install python312
-ln -s /usr/pkg/bin/python3.12 /usr/pkg/bin/python3
+# install a Lua package available on your system, for example lua54 or lua55
+pkgin install lua55
+# install Python and add a python3 symlink if needed
+pkgin install python313
+ln -s /usr/pkg/bin/python3.13 /usr/pkg/bin/python3
 ```
 
-**Tips**
-
-- Use the latest pkgsrc packages
-
-  The pkgsrc packages is available at https://cdn.netbsd.org/pub/pkgsrc/packages/NetBSD/, modify
-  */usr/pkg/etc/pkgin/repositories.conf* to use a latest version.
+Tip: pkgsrc binary packages are available at <https://cdn.netbsd.org/pub/pkgsrc/packages/NetBSD/>. Update `/usr/pkg/etc/pkgin/repositories.conf` if you need a newer package set.
 
 ### OpenBSD
 
-```shell
-# install rust toolchain
+```sh
 pkg_add rust
-# install capnproto
 pkg_add capnproto
-# install libs
 pkg_add libcares
-# install lua5.4 or any other versions available on your system
 pkg_add lua
 pkg_add python
 ```
 
-**Tips**
-
-- Increase process memory limit size
-
-  The `datasize-cur` limit in `/etc/login.conf` for login class `staff` need to be increased if the compilation failed
-  with error *out of memory*.
+Tip: if builds fail with an out-of-memory error, increase the `datasize-cur` limit for the `staff` login class in `/etc/login.conf`.
 
 ### OmniOS
 
-```shell
-# install rust toolchain
+```sh
 pkg install rust
 pkg install pkg-config
-# install capnproto / c-ares from source
+# install capnproto and c-ares from source if packages are unavailable
 ```
 
-## Development Libraries
+## Dependency Reference
 
-For *vey-proxy*:
+### Development libraries
+
+`vey-proxy` can use:
 
 ```text
 openssl >= 1.1.1
 c-ares >= 1.18.0
-lua
+lua >= 5.3 or LuaJIT
 python3 >= 3.7
 ```
 
-## Development Tools
+Lua support is disabled unless you explicitly enable a Lua feature such as `lua54`, `lua55`, or `luajit`.
 
-The tools for C development should be installed, including but not limited to:
+### Development tools
+
+Required for C or mixed-language builds:
 
 ```text
-gcc
-pkg-config
+gcc or clang
+pkg-config / pkgconf
 ```
 
-If the c-ares version in the OS repo is too old, the following tools is also required:
+Also required when the system `c-ares` is too old and you need a vendored build:
 
 ```text
 cmake
 ```
 
-## Rpc Code Generator
+### RPC code generation
 
-We use capnproto rpc to communicate with the running daemon process:
+The workspace uses Cap'n Proto RPC to communicate with running daemon processes:
 
 ```text
 capnproto
 ```
 
-## Testing Tools
+### Test tools
 
-The following tools are needed to run testing scripts:
+Some test scripts require:
 
 ```text
 curl
 ```
 
-## Scripting Tools
+### Script tools
 
-The following tools are used in scripts under directory *scripts/*:
+Scripts under `scripts/` commonly use:
 
 ```text
 git
@@ -338,9 +328,9 @@ tar
 xz
 ```
 
-## Scripting Libraries
+### Python libraries for scripts
 
-We use python3 for more complicated scripts, the following packages are needed:
+Some helper scripts require these Python packages:
 
 ```text
 toml
@@ -351,16 +341,13 @@ dnspython
 maxminddb
 ```
 
-## Document Tools
+### Documentation tools
 
-We use [sphinx](https://www.sphinx-doc.org/en/master/) to generate docs, with
-theme [sphinx-rtd-theme](https://pypi.org/project/sphinx-rtd-theme/).
+The documentation toolchain uses [Sphinx](https://www.sphinx-doc.org/en/master/) and [sphinx-rtd-theme](https://pypi.org/project/sphinx-rtd-theme/).
 
-## Packaging Tools
+### Packaging tools
 
-### deb
-
-For all *Debian* based distributions:
+For Debian-based packaging:
 
 ```text
 lsb-release
@@ -368,9 +355,7 @@ dpkg-dev
 debhelper
 ```
 
-### rpm
-
-For all *RHEL* based distributions:
+For RHEL-based packaging:
 
 ```text
 rpmdevtools
