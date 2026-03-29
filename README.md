@@ -14,6 +14,9 @@ forward proxies, reverse proxies (WIP), load balancers (TBD), and NAT traversal 
 
 This project is a fork of [the G3 project](https://github.com/bytedance/g3) by its creator.
 
+If you are migrating an existing G3 deployment, see
+[Migration from G3 to VEY](doc/migrate_from_g3_to_vey.md).
+
 ## Applications
 
 The VEY project consists of multiple applications, each with its own subdirectory for code, documentation, and related
