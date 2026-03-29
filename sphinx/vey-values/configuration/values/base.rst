@@ -25,12 +25,17 @@ for example ``$TCP_LISTEN_ADDR``.
 The referenced environment-variable value is parsed exactly as if it had been
 written directly in the YAML file as a string.
 
+Only value types that explicitly support :ref:`env var <conf_value_env_var>`
+perform this expansion.
+
 .. _conf_value_nonzero_u32:
 
 nonzero u32
 ===========
 
 **yaml value**: int
+
+String values containing decimal digits are also accepted by the loader.
 
 A non-zero ``u32`` value.
 
@@ -40,6 +45,8 @@ nonzero usize
 =============
 
 **yaml value**: int
+
+String values containing decimal digits are also accepted by the loader.
 
 A non-zero ``usize`` value.
 
@@ -55,6 +62,8 @@ decimal units such as ``KB`` and ``MB``.
 
 Integer values, or strings without a unit suffix, are interpreted as bytes.
 
+Negative values and floating-point YAML values are rejected.
+
 .. seealso::
 
    `humanize_rs bytes <https://docs.rs/humanize-rs/0.1.5/humanize_rs/bytes/index.html>`_
@@ -66,22 +75,28 @@ humanize u32
 
 **yaml value**: int | str
 
-For *str* value, it support units of 2^10 like "KiB", "MiB", or units of 1000 like "KB", "MB".
+String values support binary units such as ``KiB`` and ``MiB`` as well as
+decimal units such as ``KB`` and ``MB``.
 
-For *int* value or *str* value without unit, the unit will be bytes.
+Integer values, or strings without a unit suffix, are interpreted as bytes.
+
+Negative values and floating-point YAML values are rejected.
 
 .. _conf_value_humanize_duration:
 
 humanize duration
 =================
 
-**yaml value**: int | str
+**yaml value**: int | float | str
 
 String values must include at least one unit. Composite values such as
 ``1h 30m 71s`` are also supported.
 See `duration units`_ for the full list of supported units.
 
 Integer and floating-point values are interpreted as seconds.
+
+A numeric string without units is interpreted as whole seconds. Negative values
+are rejected.
 
 .. seealso::
 
@@ -109,6 +124,8 @@ url str
 
 The string must be a valid URL.
 
+Only string YAML values are accepted.
+
 .. _conf_value_ascii_str:
 
 ascii str
@@ -117,6 +134,9 @@ ascii str
 **yaml value**: str
 
 The string must contain ASCII characters only.
+
+Integer and floating-point YAML values are first converted to strings and then
+checked for ASCII compatibility.
 
 .. _conf_value_regex_str:
 
@@ -127,6 +147,8 @@ regex str
 
 Regular-expression string.
 
+Only string YAML values are accepted.
+
 .. _conf_value_rfc3339_datetime_str:
 
 rfc3339 datetime str
@@ -135,6 +157,8 @@ rfc3339 datetime str
 **yaml value**: str
 
 The string must be a valid RFC 3339 datetime.
+
+Only string YAML values are accepted.
 
 .. _conf_value_selective_pick_policy:
 
@@ -145,7 +169,8 @@ selective pick policy
 
 Selection policy used for selective vectors.
 
-The following values are supported:
+The following values are supported. Matching is case-insensitive and the loader
+normalizes separators such as ``-`` and ``_``:
 
 * random
 
@@ -171,6 +196,12 @@ The following values are supported:
 
   Jump Consistent Hash. The key format is defined in the context of each selective vector.
 
+Example:
+
+.. code-block:: yaml
+
+   proxy_addr_pick_policy: round_robin
+
 .. _conf_value_weighted_upstream_addr:
 
 weighted upstream addr
@@ -181,7 +212,7 @@ weighted upstream addr
 A weighted :ref:`upstream str <conf_value_upstream_str>` value suitable for use
 inside a selective vector.
 
-The map consists 2 fields:
+The map consists of two fields:
 
 * addr
 
@@ -202,6 +233,16 @@ The map consists 2 fields:
 If the value is a string, it is treated as the ``addr`` field and ``weight``
 uses the default value.
 
+The loader also accepts ``address`` as an alias for ``addr``.
+
+Example:
+
+.. code-block:: yaml
+
+   - addr: cache-a.example.net:11211
+     weight: 2.5
+   - cache-b.example.net:11211
+
 .. _conf_value_list:
 
 list
@@ -212,3 +253,6 @@ list
 A list container for values of type ``T``.
 
 The value can be either a single ``T`` or a sequence of ``T`` values.
+
+This is a parsing rule used throughout the config loaders. It is not a distinct
+runtime type.

@@ -34,6 +34,9 @@ The path may be a file or directory:
 * If the path is a file, it should contain one or more YAML documents, each of
   which becomes one final map.
 
+This type is intended for config fragments that can be split across files. The
+loader expands files and directories before the final config is validated.
+
 .. _conf_value_file_path:
 
 file path
@@ -48,6 +51,9 @@ The path may be absolute or relative to a predefined base path.
 Depending on the specific configuration option, the path must either already
 exist or be creatable automatically.
 
+Relative paths are resolved against the lookup directory of the surrounding
+config file. The final path is canonicalized.
+
 .. _conf_value_file:
 
 file
@@ -58,6 +64,8 @@ file
 Path to a file to be read. It may be absolute or relative to a predefined base
 path.
 
+The path must already exist and resolve to a regular file.
+
 .. _conf_value_absolute_path:
 
 absolute path
@@ -67,6 +75,8 @@ absolute path
 
 Absolute file-system path.
 
+Relative paths are rejected.
+
 .. _conf_value_directory_path:
 
 directory path
@@ -75,6 +85,9 @@ directory path
 **yaml value**: str
 
 Absolute or context-appropriate path to a directory.
+
+Depending on the caller, relative paths may be resolved against the config
+lookup directory and the directory may be created automatically.
 
 .. availability::
 
@@ -96,5 +109,7 @@ The following values are supported:
 
 * yaml
 * json
+
+Matching is case-insensitive.
 
 The default varies by context.

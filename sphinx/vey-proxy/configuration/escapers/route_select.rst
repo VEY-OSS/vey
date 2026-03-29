@@ -3,7 +3,7 @@
 route_select
 ============
 
-This escaper selects the next escaper by applying the configured pick policy.
+This escaper chooses the next escaper by applying a weighted pick policy.
 
 The following egress path selection value is supported:
 
@@ -29,6 +29,8 @@ next_nodes
 
 Set the next escaper or escapers that may be selected.
 
+Both a single weighted node and a sequence of weighted nodes are accepted.
+
 .. _conf_escaper_route_select_next_pick_policy:
 
 next_pick_policy
@@ -41,3 +43,18 @@ Set the policy used to select the next escaper.
 The key for ketama/rendezvous/jump hash is *<client-ip>[-<username>]-<upstream-host>*.
 
 **default**: ketama
+
+Example:
+
+.. code-block:: yaml
+
+   - name: select-egress
+     type: route_select
+     next_nodes:
+       - name: primary
+         weight: 10
+       - name: canary
+         weight: 1
+       - name: pinned
+         weight: 0
+     next_pick_policy: ketama

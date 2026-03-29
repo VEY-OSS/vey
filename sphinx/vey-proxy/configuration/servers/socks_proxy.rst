@@ -3,8 +3,8 @@
 socks_proxy
 ===========
 
-This server implements a SOCKS proxy with support for TCP connect and UDP
-associate.
+This server provides a SOCKS proxy with support for TCP ``CONNECT`` and UDP
+``ASSOCIATE``.
 
 The following common keys are supported:
 
@@ -59,7 +59,7 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 use_udp_associate
 -----------------
 
-**optional**, **type**: bool, **alias**: enable_udp_associate
+**optional**, **type**: bool, **alias**: enable_udp_associate, ``udp_associate_enabled``
 
 Controls whether UDP ASSOCIATE is used instead of UDP CONNECT.
 
@@ -71,6 +71,9 @@ username_params
 **optional**, **type**: :ref:`username_params <config_auth_username_params>`
 
 Allows the egress context to be populated from username parameters.
+
+This is mainly useful when the selected escaper chain includes
+:ref:`comply_context <configuration_escaper_comply_context>`.
 
 **default**: not set
 
@@ -108,6 +111,9 @@ UDP listener.
 
 If set, the tcp connect can be in ipv6 address family.
 
+Multiple addresses are allowed. One address is picked when the UDP listener is
+created.
+
 **default**: not set
 
 udp_bind_ipv6
@@ -121,6 +127,9 @@ If not set, the server IP used for the TCP connection is used when creating the
 UDP listener.
 
 If set, the tcp connect can be in ipv4 address family.
+
+Multiple addresses are allowed. One address is picked when the UDP listener is
+created.
 
 **default**: not set
 
@@ -170,3 +179,17 @@ auto_reply_local_ip_map
 **deprecated**
 
 .. versionchanged:: 1.11.8 deprecated, use transmute_udp_echo_ip instead
+
+Example
+-------
+
+.. code-block:: yaml
+
+   use_udp_associate: true
+   udp_bind_ipv4:
+     - 192.0.2.10
+     - 192.0.2.11
+   udp_bind_port_range: 40000-45000
+   transmute_udp_echo_ip:
+     192.0.2.10: 198.51.100.10
+     192.0.2.11: 198.51.100.11

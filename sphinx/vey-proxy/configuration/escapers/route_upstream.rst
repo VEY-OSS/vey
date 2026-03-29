@@ -3,13 +3,23 @@
 route_upstream
 ==============
 
-This escaper selects the next escaper based on rules applied to the upstream address.
+This escaper chooses the next escaper from rules that match the upstream host
+or address.
 
 There is no path selection support for this escaper.
 
 The following common keys are supported:
 
 * :ref:`default_next <conf_escaper_common_default_next>`
+
+Selection order is fixed by the runtime:
+
+* For IP upstreams: ``exact_match`` then ``subnet_match`` then ``default_next``
+* For domain upstreams: ``exact_match`` then ``child_match`` then
+  ``suffix_match`` then ``regex_match`` then ``default_next``
+
+Rules duplicated across different next escapers are rejected during config
+loading.
 
 exact_match
 -----------
@@ -61,6 +71,26 @@ For map format:
       - 192.168.1.1
 
 .. versionchanged:: 1.11.5 support map format
+
+Example
+-------
+
+.. code-block:: yaml
+
+   default_next: direct
+   exact_match:
+     deny:
+       - blocked.example.net
+   child_match:
+     internal:
+       - corp.example.net
+   suffix_match:
+     canary:
+       - s1.example.net
+   regex_match:
+     debug:
+       - parent: corp.example.net
+         regex: '^test[0-9]+$'
 
 subnet_match
 ------------

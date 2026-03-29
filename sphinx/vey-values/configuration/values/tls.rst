@@ -21,6 +21,9 @@ tls name
 DNS name or IP address used for server-certificate verification.
 If not set, the corresponding upstream address is used.
 
+This value uses the same parser as :ref:`host <conf_value_host>`, so both IDNA
+domain names and literal IP addresses are accepted.
+
 .. availability::
 
    - ``vey-proxy``: changed in ``1.7.15``: IP address values are supported
@@ -30,12 +33,13 @@ If not set, the corresponding upstream address is used.
 tls version
 ===========
 
-**yaml type**: string / f64
+**yaml type**: str | float
 
 TLS version to use.
 
-The valid string values are: tls1.0, tls1.1, tls1.2, tls1.3.
-The valid f64 values are: 1.0, 1.1, 1.2, 1.3.
+String matching is case-insensitive. Common aliases such as ``tls10``,
+``tls1_0``, and ``1.0`` are accepted. Floating-point values ``1.0`` through
+``1.3`` are also accepted.
 
 .. _conf_value_tls_ticketer:
 
@@ -199,6 +203,9 @@ Certificate file or files in PEM format (see ``openssl-req(1)``).
 
 If relative, it will be searched in the directory that contains current config file.
 
+The loader also accepts inline PEM text as a YAML string whose first
+non-whitespace characters start with ``--``.
+
 .. _openssl-req(1): https://www.openssl.org/docs/manmaster/man1/openssl-req.html
 
 .. _conf_value_tls_private_key:
@@ -213,6 +220,9 @@ format.
 
 If relative, it will be searched in the directory that contains current config file.
 The last one in the file will be used if many keys are found.
+
+Inline PEM text is also accepted when the YAML string starts with ``--`` after
+leading whitespace.
 
 .. _openssl-genpkey(1): https://www.openssl.org/docs/manmaster/man1/openssl-genpkey.html
 
@@ -243,7 +253,10 @@ The keys are:
   Set the private key for client if client auth is needed by remote server.
   Client certificates are also needed if client auth is needed.
 
-  **default**: not set
+Aliases:
+
+* ``cert`` for ``certificate``
+* ``key`` for ``private_key``
 
 .. _conf_value_tlcp_cert_pair:
 
@@ -290,7 +303,20 @@ The keys are:
   Set the enc private key for client if client auth is needed by remote server.
   Client certificates are also needed if client auth is needed.
 
-  **default**: not set
+Aliases:
+
+* ``sign_cert`` for ``sign_certificate``
+* ``sign_key`` for ``sign_private_key``
+* ``enc_cert`` for ``enc_certificate``
+* ``enc_key`` for ``enc_private_key``
+
+Example:
+
+.. code-block:: yaml
+
+   cert_pair:
+     cert: client.crt
+     key: client.key
 
 .. availability::
 

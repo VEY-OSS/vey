@@ -5,8 +5,8 @@ tcp_tproxy
 
 .. versionadded:: 1.7.34
 
-Simple TCP TPROXY server that forwards traffic to the original target remote
-address.
+This server is a transparent TCP listener that forwards traffic to the original
+destination address.
 
 See :ref:`transparent proxy <protocol_setup_transparent_proxy>` for the
 required host firewall and routing setup.
@@ -46,6 +46,9 @@ Listening configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
+On Linux, the listener is always switched into transparent mode. There is no
+separate ``listen_transparent`` key for this server type.
+
 auth_by_client_ip
 -----------------
 
@@ -53,6 +56,8 @@ auth_by_client_ip
 
 Enables fact-based user authentication using the client IP address as the
 authentication fact.
+
+If enabled, ``user_group`` must also be set.
 
 **default**: false
 
@@ -65,6 +70,8 @@ auth_by_server_ip
 
 Enables fact-based user authentication using the server IP address as the
 authentication fact.
+
+If enabled, ``user_group`` must also be set.
 
 **default**: false
 

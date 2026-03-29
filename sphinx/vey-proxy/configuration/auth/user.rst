@@ -4,8 +4,11 @@
 User
 ****
 
-User configuration is a map. It defines how the user is authenticated, what
-limits apply, and any user-specific behavior overrides.
+User configuration is where authentication data and per-user policy come
+together.
+
+Each user record can carry credentials, matching rules, ACLs, rate limits, and
+protocol-specific overrides.
 
 name
 ----
@@ -492,6 +495,14 @@ egress_path_id_map
 Per-escaper :ref:`string id <proto_egress_path_selection_string_id>` values for
 this user. Each map key is the target escaper name.
 
+Example:
+
+.. code-block:: yaml
+
+   egress_path_id_map:
+     direct-egress: hk-v4
+     proxy-pool: corp-exit-2
+
 .. versionadded:: 1.9.2
 
 .. _config_user_egress_path_value_map:
@@ -503,5 +514,17 @@ egress_path_value_map
 
 Per-escaper :ref:`json value <proto_egress_path_selection_json_value>` values
 for this user. Each map key is the target escaper name.
+
+Example:
+
+.. code-block:: yaml
+
+   egress_path_value_map:
+     direct-float:
+       ip: 203.0.113.11
+       id: temp-egress
+     proxy-chain:
+       addr: proxy-1.example.net:3128
+       resolve_sticky_key: session-a
 
 .. versionadded:: 1.9.2

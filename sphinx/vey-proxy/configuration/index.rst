@@ -9,6 +9,9 @@ Configuration
 The main configuration file is specified with the ``-c`` command-line option.
 Its top-level keys are listed below.
 
+Multiple YAML documents in the same file are accepted and are merged as if they
+were one configuration file.
+
 At a high level, ``vey-proxy`` is organized around a small set of reusable
 object families:
 
@@ -77,6 +80,8 @@ need the detailed keys and behavior for each component type.
 
 .. [#m] See :external+values:ref:`hybrid map <conf_value_hybrid_map>` for the actual format.
 .. [#w] See :external+values:ref:`unaided runtime config <conf_value_unaided_runtime_config>`.
+
+The top-level key ``user`` is accepted as an alias of ``user_group``.
 
 .. toctree::
    :hidden:

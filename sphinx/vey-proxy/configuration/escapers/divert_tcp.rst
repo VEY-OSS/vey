@@ -3,7 +3,11 @@
 divert_tcp
 ==========
 
-This escaper redirects all streams to the next proxy server and sends a PROXY Protocol v2 message first.
+This escaper forwards every TCP stream to another proxy and prepends a PROXY
+Protocol v2 header first.
+
+It behaves like a chained TCP proxy escaper, but it always prepends PROXY
+Protocol v2 metadata that tells the peer which upstream target should be used.
 
 The PPv2 Type-Values are:
 
@@ -95,3 +99,16 @@ Configure TCP keepalive.
 User-level TCP keepalive settings are not applied.
 
 **default**: no keepalive set
+
+Example
+-------
+
+.. code-block:: yaml
+
+   proxy_addr:
+     - addr: divert-a.example.net:3128
+       weight: 2.0
+     - divert-b.example.net:3128
+   proxy_addr_pick_policy: rendezvous
+   resolver: default
+   tcp_keepalive: 60s

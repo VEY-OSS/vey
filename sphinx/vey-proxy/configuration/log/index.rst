@@ -8,6 +8,9 @@ This section describes event-log configuration. It is optional and cannot be
 reloaded. If present, the root value must be defined in the main configuration
 file.
 
+The section may also be set to YAML ``null`` to leave the built-in defaults in
+place.
+
 Root Value
 ==========
 
@@ -48,7 +51,8 @@ The root value can also be a map with the following keys:
 
   **optional**, **type**: :ref:`syslog <configuration_log_driver_syslog>`
 
-  Shared ``syslog`` driver configuration.
+  Shorthand for making ``syslog`` the default logger configuration for all log
+  categories.
 
   **default**: not set
 
@@ -58,7 +62,8 @@ The root value can also be a map with the following keys:
 
   **optional**, **type**: :ref:`fluentd <configuration_log_driver_fluentd>`
 
-  Shared ``fluentd`` driver configuration.
+  Shorthand for making ``fluentd`` the default logger configuration for all log
+  categories.
 
   **default**: not set
 
@@ -85,6 +90,14 @@ The root value can also be a map with the following keys:
   **optional**, **type**: :ref:`log config <configuration_log_config>`
 
   Log configuration for *resolve* loggers.
+
+  **default**: not set
+
+- audit
+
+  **optional**, **type**: :ref:`log config <configuration_log_config>`
+
+  Log configuration for *audit* loggers.
 
   **default**: not set
 
@@ -147,6 +160,22 @@ with the following keys:
 
 .. note:: The ``discard`` driver has no configuration options, so it has no
    corresponding map field.
+
+Example:
+
+.. code-block:: yaml
+
+   log:
+     default:
+       syslog:
+         target_udp: 192.0.2.20:514
+         format_rfc5424:
+           enterprise_id: 32473
+       async_channel_size: 8192
+     task: stdout
+     audit:
+       fluentd:
+         address: 127.0.0.1:24224
 
 .. _configuration_log_driver:
 

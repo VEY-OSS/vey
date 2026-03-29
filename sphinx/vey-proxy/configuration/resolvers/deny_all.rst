@@ -3,6 +3,9 @@
 deny_all
 ========
 
-Dummy resolver that rejects all requests.
+Resolver that always fails.
 
-This resolver type has no additional configuration keys.
+Use it when you want resolution to be disabled explicitly, or as a safe default
+for escapers that should never perform DNS lookups.
+
+Only the common ``name`` and ``type`` fields are accepted by the loader.

@@ -4,13 +4,16 @@
 Escaper
 *******
 
+Escapers are the outbound side of ``vey-proxy``. A server hands a request to an
+escaper, and the escaper decides how that request leaves the daemon.
+
 Each escaper configuration item is a map with two required keys:
 
 * :ref:`name <conf_escaper_common_name>`, which defines the escaper name
 * :ref:`type <conf_escaper_common_type>`, which selects the concrete escaper
   type and therefore determines how the remaining keys are interpreted
 
-The available escaper types are documented below.
+The pages below are split between direct/proxy escapers and routing wrappers.
 
 Escapers
 ========
@@ -42,7 +45,8 @@ Escapers
 Common Keys
 ===========
 
-This section describes common keys shared by many escaper types.
+These keys show up on many escaper types and control the shared outbound
+transport behavior.
 
 .. _conf_escaper_common_name:
 

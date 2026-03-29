@@ -3,7 +3,10 @@
 Python
 ======
 
-Fetches users through a local Python script.
+Loads dynamic users by calling a local Python script.
+
+When Python is used as the source, the on-disk group cache is written in JSON
+format.
 
 The following variables are defined when the script is executed:
 
@@ -47,7 +50,7 @@ When configured as a map, the following keys are supported:
   :ref:`refresh_interval <conf_auth_user_group_refresh_interval>`
   in group config.
 
-  **default**: 30s, **alias**: timeout
+  **default**: 30s
 
 * report_timeout
 
@@ -59,4 +62,15 @@ When configured as a map, the following keys are supported:
   :ref:`refresh_interval <conf_auth_user_group_refresh_interval>`
   in group config.
 
-  **default**: 15s, **alias**: timeout
+  **default**: 15s
+
+Example
+-------
+
+.. code-block:: yaml
+
+   source:
+     type: python
+     script: fetch_users.py
+     fetch_timeout: 10s
+     report_timeout: 5s

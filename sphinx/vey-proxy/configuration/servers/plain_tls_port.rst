@@ -3,7 +3,9 @@
 plain_tls_port
 ==============
 
-This server provides a plain TLS port that can be placed in front of another
+This server exposes a TLS listening port in front of another local server.
+
+It terminates TLS locally and then forwards the decrypted TCP stream to another
 server.
 
 The following common keys are supported:
@@ -33,6 +35,9 @@ Name of the next server to which accepted connections are forwarded.
 
 The next server must be able to accept TLS connections.
 
+Despite the older wording, the config only requires a downstream server name.
+This server itself is responsible for the client-side TLS handshake.
+
 proxy_protocol
 --------------
 
@@ -61,3 +66,15 @@ Timeout for reading a complete PROXY Protocol message.
 **default**: 5s
 
 .. versionadded:: 1.7.19
+
+Example
+-------
+
+.. code-block:: yaml
+
+   listen: 0.0.0.0:443
+   tls_server:
+     cert_pairs:
+       - certificate: server.crt
+         private_key: server.key
+   server: tcp-stream-in

@@ -3,7 +3,10 @@
 c_ares
 ======
 
-Resolver implementation based on the ``c-ares`` DNS library.
+Resolver backed by the ``c-ares`` DNS library.
+
+The wrapper still owns cache behavior and protective timeouts. The remaining
+keys on this page configure the underlying ``c-ares`` client.
 
 The following common keys are supported:
 
@@ -29,6 +32,8 @@ If the value is a sequence, each element must be a
 The default port ``53`` is used when no port is specified.
 
 Servers from different address families may be configured together.
+
+If omitted, the resolver uses the system configuration from ``/etc/resolv.conf``.
 
 each_timeout
 ------------
@@ -122,3 +127,15 @@ bind_ipv6
 **optional**, **type**: :external+values:ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
 
 IPv6 bind IP used when creating sockets for the resolver.
+
+Example
+-------
+
+.. code-block:: yaml
+
+   server:
+     - 8.8.8.8
+     - 1.1.1.1:53
+   each_timeout: 2000
+   each_tries: 3
+   round_robin: true

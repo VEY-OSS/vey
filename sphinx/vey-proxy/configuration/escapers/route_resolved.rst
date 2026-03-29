@@ -3,7 +3,8 @@
 route_resolved
 ==============
 
-This escaper selects the next escaper based on rules applied to the resolved upstream IP address.
+This escaper chooses the next escaper from rules that match the resolved
+upstream IP address.
 
 There is no path selection support for this escaper.
 
@@ -15,10 +16,16 @@ The following common keys are supported:
 * :ref:`resolve_strategy <conf_escaper_common_resolve_strategy>`
 * :ref:`default_next <conf_escaper_common_default_next>`
 
+Config-loading rules derived from the implementation:
+
+* ``lpm_match`` also accepts the alias ``lpm_rules``
+* duplicate networks across different next escapers are rejected
+* each next escaper can appear at most once in ``lpm_match``
+
 lpm_match
 ---------
 
-**optional**, **type**: seq
+**optional**, **type**: seq, **alias**: lpm_rules
 
 If the resolved upstream IP address matches multiple networks, the longest-prefix match is used.
 
@@ -32,7 +39,7 @@ Each rule is in *map* format, with two keys:
 
 * networks
 
-  **optional**, **type**: seq
+  **optional**, **type**: seq, **alias**: network, net, nets
 
   Each element should be valid network string. Both IPv4 and IPv6 are supported.
 
@@ -48,3 +55,18 @@ How long to wait for the preferred address family after another family has alrea
 This has the same meaning as the ``resolution_delay`` field in :external+values:ref:`happy eyeballs <conf_value_happy_eyeballs>`.
 
 **default**: 50ms
+
+Example
+-------
+
+.. code-block:: yaml
+
+   resolver: default
+   default_next: direct
+   lpm_match:
+     - next: office-egress
+       networks:
+         - 203.0.113.0/24
+     - next: internal-v6
+       net:
+         - 2001:db8::/32

@@ -5,7 +5,9 @@ plain_quic_port
 
 .. versionadded:: 1.7.30
 
-This server provides a plain QUIC port that can be placed in front of another
+This server exposes a QUIC listening port in front of another local server.
+
+It terminates QUIC locally and forwards accepted streams to the configured next
 server.
 
 The following common keys are supported:
@@ -49,3 +51,15 @@ server
 Name of the next server to which accepted connections are forwarded.
 
 The next server must be able to accept TCP connections.
+
+Example
+-------
+
+.. code-block:: yaml
+
+   listen: 0.0.0.0:443
+   quic_server:
+     cert_pairs:
+       - certificate: server.crt
+         private_key: server.key
+   server: tcp-stream-in

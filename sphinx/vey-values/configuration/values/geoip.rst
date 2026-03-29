@@ -20,6 +20,8 @@ iso country code
 
 The string must be an ISO 3166 Alpha-2 or Alpha-3 country code.
 
+Matching is case-insensitive.
+
 .. _conf_value_continent_code:
 
 continent code
@@ -36,6 +38,8 @@ Supported values are:
   - NA, for North America
   - OC, for Oceania
   - SA, for South America
+
+Matching is case-insensitive.
 
 .. _conf_value_ip_location:
 
@@ -93,6 +97,20 @@ The supported keys are:
   ISP domain.
 
   **default**: not set
+
+The loader also accepts ``net`` as an alias for ``network`` and ``asn`` as an
+alias for ``as_number``.
+
+Example:
+
+.. code-block:: yaml
+
+   network: 203.0.113.0/24
+   country: US
+   continent: NA
+   asn: 64512
+   isp_name: Example ISP
+   isp_domain: example.net
 
 .. availability::
 
@@ -171,6 +189,16 @@ The supported keys are:
 
 If the value is a string, it is parsed as ``query_peer_addr`` and all other
 fields use their default values.
+
+Example:
+
+.. code-block:: yaml
+
+   ip_locate_service:
+     query_peer_addr: 127.0.0.1:2888
+     query_wait_timeout: 500ms
+     default_expire_ttl: 30
+     maximum_expire_ttl: 300
 
 .. availability::
 

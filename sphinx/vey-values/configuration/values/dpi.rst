@@ -97,6 +97,8 @@ The possible values for this are:
 
   Send the traffic to a stream detour service, which will be configured at somewhere in the context.
 
+Matching is case-insensitive.
+
 .. availability::
 
 
@@ -121,6 +123,14 @@ When expressed as a map, the value supports the following fields:
   The value should be either a valid record or a list of valid records, and the
   key name determines the inspect action.
   See the detailed types below for the record format.
+
+Example:
+
+.. code-block:: yaml
+
+   exact_match:
+     intercept: [api.example.net]
+     bypass: [cdn.example.net]
 
 .. availability::
 
@@ -211,6 +221,19 @@ The match order is the same as the list order above.
 A plain string can also be used to define the default action for all upstream
 traffic, regardless of host.
 
+Example:
+
+.. code-block:: yaml
+
+   protocol_inspect_policy:
+     default: intercept
+     exact_match:
+       bypass: [cdn.example.net]
+     child_match:
+       detour: [corp.example.net]
+     subnet_match:
+       block: [127.0.0.0/8]
+
 .. availability::
 
 
@@ -271,6 +294,16 @@ The keys are:
 
   **default**: set with default value
 
+Example:
+
+.. code-block:: yaml
+
+   protocol_inspection:
+     inspect_max_depth: 6
+     data0_buffer_size: 8KiB
+     data0_wait_timeout: 30s
+     data0_read_timeout: 2s
+
 .. _conf_value_dpi_maybe_protocol:
 
 maybe protocol
@@ -318,6 +351,15 @@ For *seq* value, each element should be a map, with two keys:
   Set the protocol(s).
 
 For *map* value, the key should be the port, and the value should be the same as the *protocol* above.
+
+Example:
+
+.. code-block:: yaml
+
+   portmap:
+     80: http
+     443: [https, http]
+     25: smtp
 
 .. _conf_value_dpi_server_tcp_portmap:
 

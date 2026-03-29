@@ -5,7 +5,8 @@ route_failover
 
 .. versionadded:: 1.7.17
 
-This escaper fails over between a primary next escaper and a standby next escaper.
+This escaper tries a primary next escaper first and falls back to a standby
+next escaper when needed.
 
 This escaper has the following limitation:
 
@@ -32,8 +33,17 @@ Set the standby next escaper.
 fallback_delay
 --------------
 
-**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`, **alias**: delay, fallback_timeout, timeout
 
 Set how long to wait before switching to the standby escaper while the primary escaper is still pending.
 
 **default**: 100ms
+
+Example
+-------
+
+.. code-block:: yaml
+
+   primary: direct-primary
+   standby: direct-standby
+   fallback_delay: 250ms

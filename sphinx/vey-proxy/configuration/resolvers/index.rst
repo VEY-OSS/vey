@@ -4,13 +4,17 @@
 Resolver
 ********
 
-Each resolver configuration item is a map with two required keys:
+Each resolver entry defines one DNS backend or resolver wrapper that escapers
+can reference by name.
+
+Every resolver configuration item is a map with two required keys:
 
 * :ref:`name <conf_resolver_common_name>`, which defines the resolver name
 * :ref:`type <conf_resolver_common_type>`, which selects the concrete resolver
   type and therefore determines how the remaining keys are interpreted
 
-The available resolver types are documented below.
+Pick the resolver type that matches how you want lookups to behave, then use
+the rest of the page as the shared reference for cache and wrapper settings.
 
 Resolvers
 =========
@@ -26,9 +30,10 @@ Resolvers
 Common Keys
 ===========
 
-This section describes common keys shared by many resolver types.
+These keys are shared by most resolver types.
 
-Most of these settings apply to the standalone resolver runtime.
+Most of them belong to the resolver wrapper and cache runtime rather than to a
+specific DNS library.
 
 .. _conf_resolver_common_name:
 

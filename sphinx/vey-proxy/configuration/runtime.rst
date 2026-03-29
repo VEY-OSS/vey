@@ -16,6 +16,9 @@ See :external+values:doc:`configuration/values/runtime` for the full runtime
 reference, including worker-thread settings, CPU-affinity-related value types,
 and graceful-shutdown timers.
 
+Both sections are process-level settings loaded only from the main
+configuration file. They are skipped during hot reload.
+
 .. note::
 
    In ``vey-proxy``, ``server_offline_delay`` defaults to ``8s`` starting from

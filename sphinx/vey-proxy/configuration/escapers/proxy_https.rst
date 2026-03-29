@@ -3,7 +3,7 @@
 proxy_https
 ===========
 
-This escaper connects to the target upstream through another HTTPS proxy.
+This escaper reaches the target through an upstream HTTPS proxy.
 
 The following interfaces are supported:
 
@@ -43,6 +43,9 @@ Set the target proxy address. The default port is ``3128`` and may be omitted.
 
 If a *seq* is used, each element must be a :external+values:ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`.
 
+If any configured proxy address uses a domain name, ``resolver`` becomes
+required.
+
 proxy_addr_pick_policy
 ----------------------
 
@@ -62,6 +65,8 @@ tls_client
 Set TLS parameters for the local TLS client.
 If set to an empty map, the default TLS client configuration is used.
 
+**alias**: ``tls``
+
 tls_name
 --------
 
@@ -80,6 +85,8 @@ proxy_username
 
 Set the proxy username. Basic authentication is used by default.
 
+**alias**: ``proxy_user``
+
 .. note::
 
   This conflicts with :ref:`pass_proxy_userid <conf_escaper_common_pass_proxy_userid>`.
@@ -90,6 +97,8 @@ proxy_password
 **optional**, **type**: :external+values:ref:`password <conf_value_password>`
 
 Set the proxy password. Required if username is present.
+
+**alias**: ``proxy_passwd``
 
 bind_ipv4
 ---------
@@ -146,3 +155,16 @@ use_proxy_protocol
 Set the PROXY protocol version to use after the TCP connection to the peer is established.
 
 **default**: not set, which means PROXY protocol won't be used
+
+Example:
+
+.. code-block:: yaml
+
+   - name: corp-https-proxy
+     type: proxy_https
+     proxy_addr: proxy.example.net:3128
+     resolver: local-dns
+     tls: {}
+     tls_name: proxy.example.net
+     proxy_user: service-user
+     proxy_passwd: secret

@@ -3,7 +3,10 @@
 http_rproxy
 ===========
 
-This server implements an HTTP reverse proxy.
+This server provides an HTTP reverse proxy.
+
+This server terminates the client-side HTTP session locally and then forwards
+requests to configured upstream sites selected by the ``hosts`` match table.
 
 The following common keys are supported:
 
@@ -68,7 +71,7 @@ auth_realm
 
 Authentication realm.
 
-**default**: proxy
+**default**: vey-proxy
 
 req_header_recv_timeout
 -----------------------
@@ -243,7 +246,7 @@ Timeout for receiving the complete TLS ClientHello message.
 hosts
 -----
 
-**required**, **type**: :external+values:ref:`host matched object <conf_value_host_matched_object>` <:ref:`host <configuration_server_http_rproxy_host>`>
+**required**, **type**: :external+values:ref:`host matched object <conf_value_host_matched_object>` <:ref:`host <configuration_server_http_rproxy_host>`>, **alias**: sites
 
 Host-matching rules that define which hosts this reverse proxy should handle.
 
@@ -317,3 +320,20 @@ TLS server name used to verify the upstream site's certificate.
 If not set, the host part of the upstream address will be used.
 
 **default**: not set
+
+Example
+"""""""
+
+.. code-block:: yaml
+
+   hosts:
+     - exact_match:
+         - www.example.net
+         - example.net
+       services:
+         upstream: app.example.net:8080
+     - child_match: example.org
+       set_default: true
+       services:
+         upstream: app.example.org:8080
+         tls_client: {}

@@ -4,8 +4,11 @@
 User Site
 *********
 
-User-site configuration is a map. It defines how a site is matched, whether
-site-level metrics are emitted, and any other site-specific overrides.
+User-site configuration lets you attach overrides to a subset of destinations
+for one user.
+
+Each site block says what should match, whether site-level metrics should be
+emitted, and which per-site overrides should apply once it matches.
 
 .. _conf_auth_user_site_id:
 
@@ -17,30 +20,38 @@ id
 Each site must have an ID. If site metrics are enabled, this ID is used in the
 metric name.
 
+**alias**: ``name``
+
 exact_match
 -----------
 
-**optional**, **type**: :external+values:ref:`host <conf_value_host>`
+**optional**, **type**: :external+values:ref:`host <conf_value_host>` | seq
 
 Exact domain or target IP address to match in the user request.
+
+Both a single host value and a sequence of hosts are accepted.
 
 .. note:: the value should be different within all sites config of the current user.
 
 child_match
 -----------
 
-**optional**, **type**: :external+values:ref:`domain <conf_value_domain>`
+**optional**, **type**: :external+values:ref:`domain <conf_value_domain>` | seq
 
 Parent domain to match. Any child domain under it also matches.
+
+Both a single domain value and a sequence of domains are accepted.
 
 .. note:: the value should be different within all sites config of the current user.
 
 subnet_match
 ------------
 
-**optional**, **type**: :external+values:ref:`ip network str <conf_value_ip_network_str>`
+**optional**, **type**: :external+values:ref:`ip network str <conf_value_ip_network_str>` | seq
 
 Network to match when the user request target is an IP address.
+
+Both a single network value and a sequence of networks are accepted.
 
 .. note:: the value should be different within all sites config of the current user.
 
@@ -53,7 +64,7 @@ Controls whether site-level metrics are emitted for this site.
 
 See :ref:`user site metrics <metrics_user_site>` for the definition of metrics.
 
-**default**: false
+**default**: false, **alias**: ``emit_metrics``
 
 duration_stats
 --------------
@@ -62,7 +73,7 @@ duration_stats
 
 Histogram-metric configuration for site-level duration statistics.
 
-**default**: set with default value
+**default**: set with default value, **alias**: ``duration_metrics``
 
 .. versionadded:: 1.7.32
 
@@ -95,6 +106,22 @@ This will overwrite:
 **default**: not set
 
 .. versionadded:: 1.9.0
+
+Example:
+
+.. code-block:: yaml
+
+   - id: office-sites
+     exact_match:
+       - www.example.com
+       - 203.0.113.10
+     child_match: example.net
+     subnet_match:
+       - 192.0.2.0/24
+       - 2001:db8::/32
+     emit_metrics: true
+     resolve_strategy: ipv4_only
+     http_rsp_header_recv_timeout: 8s
 
 .. _conf_user_site_http_rsp_header_recv_timeout:
 

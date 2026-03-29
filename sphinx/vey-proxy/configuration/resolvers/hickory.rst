@@ -3,7 +3,10 @@
 hickory
 =======
 
-Resolver implementation based on the ``hickory`` DNS library.
+Resolver backed by the ``hickory`` DNS library.
+
+Cache behavior and protective timeouts still come from the resolver wrapper.
+The keys below configure the ``hickory`` client itself.
 
 The following common keys are supported:
 
@@ -26,6 +29,8 @@ If the value is a string, it may contain one or more
 
 If the value is a sequence, each element must be an
 :external+values:ref:`ip addr str <conf_value_ip_addr_str>`.
+
+At least one server is required.
 
 server_port
 -----------
@@ -122,6 +127,19 @@ Binds the outgoing socket to a particular interface such as ``eth0``.
 .. note:: This is only supported on Linux based OS.
 
 **default**: not set
+
+Example
+-------
+
+.. code-block:: yaml
+
+   server:
+     - 1.1.1.1
+     - 8.8.8.8
+   each_timeout: 5s
+   each_tries: 2
+   retry_interval: 1s
+   bind_ip: 192.0.2.10
 
 .. versionadded:: 1.11.3
 

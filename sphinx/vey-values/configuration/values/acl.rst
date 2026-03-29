@@ -45,6 +45,9 @@ There are four ACL actions:
 
 The match order is the same as the list order above.
 
+Action names are parsed case-insensitively and support the aliases shown in the
+descriptions.
+
 .. _conf_value_acl_rule:
 
 acl rule
@@ -78,6 +81,19 @@ form, matching records are permitted without logging.
 
 Unless a detailed type says otherwise, the default unmatched action is
 **forbid** and the default matched action is **permit**.
+
+This shorthand form is useful when only allow-list style matching is needed.
+
+Example:
+
+.. code-block:: yaml
+
+   ingress_network_filter:
+     default: forbid
+     permit:
+       - 192.0.2.0/24
+       - 2001:db8::/32
+     permit_log: 127.0.0.1
 
 .. _conf_value_acl_rule_set:
 
@@ -187,6 +203,16 @@ The following keys are required for the map format:
 
 For str format, the regex will match against the full domain.
 
+Example:
+
+.. code-block:: yaml
+
+   regex_match:
+     permit:
+       - parent: example.net
+         regex: '^api[0-9]+$'
+       - '.*[.]example[.]org'
+
 .. availability::
 
 
@@ -235,6 +261,18 @@ Consisted of the following rules:
   Match only if the host is an IP Address.
 
 The match order is the same as the list order above.
+
+Example:
+
+.. code-block:: yaml
+
+   dst_host_filter_set:
+     exact_match:
+       permit: [api.example.net]
+     child_match:
+       permit_log: [corp.example.net]
+     subnet_match:
+       forbid: [127.0.0.0/8]
 
 .. _conf_value_user_agent_acl_rule:
 

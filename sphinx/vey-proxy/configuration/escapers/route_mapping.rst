@@ -3,7 +3,8 @@
 route_mapping
 =============
 
-This escaper selects the next escaper from a user-supplied number ID.
+This escaper maps a user-supplied numeric selector to one of several next
+escapers.
 
 The following egress path selection value is supported:
 
@@ -18,8 +19,19 @@ No common keys are supported.
 next
 ----
 
-**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: seq
 
 Set the candidate next escapers. Each element must be the name of a target float escaper.
 
 .. note:: Duplicate next escapers are not allowed.
+
+Example:
+
+.. code-block:: yaml
+
+   - name: map-egress
+     type: route_mapping
+     next:
+       - float-a
+       - float-b
+       - float-c

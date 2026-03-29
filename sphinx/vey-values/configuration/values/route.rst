@@ -52,6 +52,17 @@ single ``T`` or a sequence of ``T`` values.
 
 Only one ``T`` is allowed for each match rule, including the default rule.
 
+Example:
+
+.. code-block:: yaml
+
+   - exact_match: api.example.net
+     set_default: false
+     backend: api_pool
+   - child_match: corp.example.net
+     backend: corp_pool
+   - backend: default_pool
+
 .. _conf_value_alpn_matched_object:
 
 ALPN Matched Object
@@ -86,6 +97,16 @@ A match object can contain one or more ``T`` values, so the YAML value may be a
 single ``T`` or a sequence of ``T`` values.
 
 Only one ``T`` is allowed for each match rule, including the default rule.
+
+Example:
+
+.. code-block:: yaml
+
+   - protocol: h2
+     backend: h2_pool
+   - protocol: http/1.1
+     backend: h1_pool
+   - backend: default_pool
 
 .. availability::
 
@@ -128,3 +149,13 @@ A match object can contain one or more ``T`` values, so the YAML value may be a
 single ``T`` or a sequence of ``T`` values.
 
 Only one ``T`` is allowed for each match rule, including the default rule.
+
+Example:
+
+.. code-block:: yaml
+
+   - prefix_match: /api/
+     backend: api_pool
+   - prefix_match: /static/
+     backend: static_pool
+   - backend: default_pool

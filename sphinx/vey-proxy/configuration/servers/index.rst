@@ -4,13 +4,17 @@
 Server
 ******
 
+Servers are the inbound side of ``vey-proxy``. They accept client traffic,
+perform protocol-specific frontend work, and hand the request to an escaper.
+
 Each server configuration item is a map with two required keys:
 
 * :ref:`name <conf_server_common_name>`, which defines the server name
 * :ref:`type <conf_server_common_type>`, which selects the concrete server type
   and therefore determines how the remaining keys are interpreted
 
-The available server types are documented below.
+The pages below cover frontend listeners, protocol proxies, and local chaining
+ports.
 
 Servers
 =======
@@ -35,7 +39,8 @@ Servers
 Common Keys
 ===========
 
-This section describes common keys shared by many server types.
+These keys are shared by many server types and cover the common frontend
+behavior.
 
 .. _conf_server_common_name:
 

@@ -3,8 +3,8 @@
 http_proxy
 ==========
 
-This server implements an HTTP proxy, including both HTTP forward and HTTP
-CONNECT support.
+This server provides a forward HTTP proxy, including plain HTTP forwarding and
+``CONNECT`` tunneling.
 
 The following common keys are supported:
 
@@ -102,6 +102,9 @@ username_params
 **optional**, **type**: :ref:`username_params <config_auth_username_params>`
 
 Allows the egress context to be populated from username parameters.
+
+This is mainly useful together with escapers that consume egress-path
+selection or egress-context values derived from the authenticated username.
 
 **default**: not set
 
@@ -273,6 +276,8 @@ If enabled, the ``X-BD-Upstream-Id`` header is added to responses received from
 upstream, using the value of :ref:`server_id <config_server_http_proxy_server_id>`.
 Responses generated locally do not contain this header.
 
+The loader rejects this option unless ``server_id`` is also set.
+
 **default**: false
 
 .. _config_server_http_proxy_echo_chained_info:
@@ -341,7 +346,26 @@ helpers such as :ref:`comply_context <configuration_escaper_comply_context>`.
 
 **default**: not set
 
-.. versionadded: 1.13.1
+.. versionadded:: 1.13.1
+
+Example:
+
+.. code-block:: yaml
+
+   - name: edge-http
+     type: http_proxy
+     listen: 0.0.0.0:8080
+     escaper: direct-egress
+     user_group: corp-users
+     username_params:
+       exact_count: 2
+     egress_path_selection_header: X-Egress-Path
+     egress_context_headers:
+       - X-Egress-Upstream
+       - X-Egress-Geo
+     untrusted_read_speed_limit:
+       shift_millis: 100
+       max_north: 64KiB
 
 .. _config_server_http_proxy_steal_forwarded_for:
 

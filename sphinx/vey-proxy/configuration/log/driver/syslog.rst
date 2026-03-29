@@ -17,6 +17,20 @@ The message format can be either:
 
 The supported keys are described below.
 
+Example:
+
+.. code-block:: yaml
+
+   syslog:
+     target:
+       udp:
+         address: 192.0.2.10:514
+         bind_ip: 192.0.2.5
+     format_rfc5424:
+       enterprise_id: 32473
+       message_id: vey-proxy
+     emit_hostname: true
+
 target_unix
 -----------
 

@@ -3,7 +3,13 @@
 Facts
 =====
 
-User-group type that authenticates users based on connection facts.
+This group authenticates users by matching connection facts instead of checking
+username and password pairs.
+
+This group reuses the same static-user, dynamic-source, cache, and anonymous
+user handling as :ref:`Basic <configuration_auth_user_group_basic>`, but user
+matching is driven by each user's ``match_by_facts`` rules instead of username
+and password.
 
 The following common keys are supported:
 

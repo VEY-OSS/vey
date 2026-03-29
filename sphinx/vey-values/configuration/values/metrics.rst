@@ -54,6 +54,9 @@ static metrics tags
 Keys must be :ref:`metric tag names <conf_value_metric_tag_name>`.
 Values must be :ref:`metric tag values <conf_value_metric_tag_value>`.
 
+Tag values may be strings, integers, or floating-point YAML values, as long as
+their string form is a valid metric tag value.
+
 .. _conf_value_metric_node_name:
 
 metric node name
@@ -91,7 +94,7 @@ weighted metric node name
 
 A weighted metric node name suitable for use inside a selective vector.
 
-The map consists 2 fields:
+The map consists of two fields:
 
 * name
 
@@ -112,6 +115,15 @@ The map consists 2 fields:
 If the value is a string, it is treated as the ``name`` field and ``weight``
 uses the default value.
 
+Example:
+
+.. code-block:: yaml
+
+   next_nodes:
+     - name: direct-a
+       weight: 2.0
+     - direct-b
+
 .. _conf_value_metrics_quantile:
 
 metrics quantile
@@ -124,6 +136,9 @@ A quantile value in the range ``0.0`` to ``1.0``.
 When configured as a string, that exact string is used as the ``quantile`` tag
 value. Use the string form when you want the exported tag value to match the
 configuration exactly.
+
+Example: ``"0.950"`` preserves the trailing zero in the exported metric tag,
+while ``0.95`` does not.
 
 .. _conf_value_histogram_metrics:
 
@@ -159,6 +174,14 @@ rotate
 Rotation interval.
 
 **default**: 4s
+
+Example:
+
+.. code-block:: yaml
+
+   histogram_metrics:
+     quantile: "0.50,0.90,0.99"
+     rotate: 10s
 
 .. _conf_value_statsd_client_config:
 

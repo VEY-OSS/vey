@@ -21,6 +21,9 @@ Quinn Transport
 
 Transport configuration used with Quinn.
 
+The loader requires a map. An empty map is valid and still inherits Quinn's
+builder defaults.
+
 The map supports the following fields:
 
 * max_idle_timeout
@@ -72,6 +75,17 @@ The map supports the following fields:
   acknowledgment.
 
   **default**: quinn default value
+
+Example:
+
+.. code-block:: yaml
+
+   transport:
+     max_idle_timeout: 30s
+     keep_alive_interval: 8s
+     stream_receive_window: 1MiB
+     receive_window: 8MiB
+     send_window: 8MiB
 
 .. availability::
 

@@ -3,8 +3,11 @@
 plain_tcp_port
 ==============
 
-This server provides a plain TCP port that can be placed in front of another
+This server exposes a plain TCP listening port in front of another local
 server.
+
+It only forwards accepted TCP connections to another local server and does not
+perform application-layer parsing itself.
 
 The following common keys are supported:
 
@@ -55,3 +58,12 @@ Timeout for reading a complete PROXY Protocol message.
 **default**: 5s
 
 .. versionadded:: 1.7.19
+
+Example
+-------
+
+.. code-block:: yaml
+
+   listen: 0.0.0.0:443
+   server: tls-entry
+   proxy_protocol: v2

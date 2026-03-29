@@ -5,7 +5,7 @@ native_tls_port
 
 .. versionadded:: 1.7.29
 
-This server provides a native TLS port that can be placed in front of another
+This server exposes a native-TLS listening port in front of another local
 server.
 
 The following common keys are supported:
@@ -39,6 +39,19 @@ server
 Name of the next server to which accepted connections are forwarded.
 
 The next server must be able to accept TLS connections.
+
+Example:
+
+.. code-block:: yaml
+
+   - name: native-front
+     type: native_tls_port
+     listen: 0.0.0.0:8443
+     tls:
+       cert_pairs:
+         certificate: server.crt
+         private_key: server.key
+     server: plain_tls_backend
 
 proxy_protocol
 --------------

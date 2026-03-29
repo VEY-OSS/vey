@@ -3,7 +3,8 @@
 sni_proxy
 =========
 
-TCP forward-proxy server based on TLS SNI and HTTP Host inspection.
+This server is a lightweight TCP forward proxy that routes requests by looking
+at TLS SNI or the HTTP ``Host`` header.
 
 The following common keys are supported:
 
@@ -51,6 +52,9 @@ listen_transparent
 
 Set to ``true`` to enable transparent mode on the listening socket.
 
+This flag is only available on Linux. When enabled, the listener socket is
+placed into transparent mode before accept.
+
 **default**: false
 
 .. versionadded:: 1.13.0
@@ -58,10 +62,12 @@ Set to ``true`` to enable transparent mode on the listening socket.
 auth_by_client_ip
 -----------------
 
-**optional**, **type**: bool, **conflict**: auth_by_server_ip
+**optional**, **type**: bool, **conflict**: auth_by_server_name
 
 Enables fact-based user authentication using the client IP address as the
 authentication fact.
+
+If enabled, ``user_group`` must also be set.
 
 **default**: false
 
@@ -74,6 +80,8 @@ auth_by_server_name
 
 Enables fact-based user authentication using the server name as the
 authentication fact.
+
+If enabled, ``user_group`` must also be set.
 
 **default**: false
 
@@ -145,6 +153,8 @@ Host-matching rules that define which hosts this server should handle.
 
 If not set, all requests will be handled.
 
+**alias**: ``allowed_sites``
+
 Example:
 
 .. code-block:: yaml
@@ -155,6 +165,8 @@ Example:
         - example.net
       redirect_host: www.example.net:443 # all redirect to www.example.net:*
     - child_match: example.org # pass all *.example.org:*
+    - exact_match: legacy.example.com
+      redirect_port: 8443 # keep the original host, override only the port
 
 **default**: not set
 
@@ -172,6 +184,8 @@ redirect_host
 
 Overrides the host part of the upstream address.
 
+If ``redirect_port`` is not set, the original destination port is kept.
+
 **default**: not set
 
 redirect_port
@@ -180,5 +194,7 @@ redirect_port
 **optional**, **type**: u16
 
 Overrides the port part of the upstream address.
+
+If ``redirect_host`` is not set, the original destination host is kept.
 
 **default**: not set

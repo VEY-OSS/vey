@@ -3,18 +3,20 @@
 route_query
 ===========
 
-This escaper selects the next escaper by querying another service over UDP.
+This escaper asks an external UDP service which next escaper should be used.
 
 There is no path selection support for this escaper.
 
 No common keys are supported.
+
+The config loader rejects duplicate values in ``query_allowed_next``.
 
 .. _configuration_escaper_route_query_fallback_node:
 
 fallback_node
 -------------
 
-**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
+**required**, **type**: seq of :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Set the fallback escaper name.
 
@@ -71,7 +73,7 @@ The key for ketama/rendezvous/jump hash is *<client-ip>*.
 query_peer_addr
 ---------------
 
-**optional**, **type**: :external+values:ref:`env sockaddr str <conf_value_env_sockaddr_str>`
+**optional**, **type**: :external+values:ref:`env sockaddr str <conf_value_env_sockaddr_str>`, **alias**: query_peer_address
 
 Set the socket address of the service that receives queries.
 
@@ -102,7 +104,7 @@ If this times out, an empty reply is sent back to the cache runtime.
 protective_cache_ttl
 --------------------
 
-**optional**, **type**: usize
+**optional**, **type**: u32
 
 Set the cache TTL for failed query results or results with a zero TTL.
 
@@ -111,7 +113,7 @@ Set the cache TTL for failed query results or results with a zero TTL.
 maximum_cache_ttl
 -----------------
 
-**optional**, **type**: usize
+**optional**, **type**: u32
 
 Set the maximum cache TTL for query results.
 
@@ -128,4 +130,18 @@ Remove a record from the cache after it has remained expired for this long.
 
 Expired records are kept for a short additional period because a fresh query costs more and often returns the same result.
 
-**default**: 30s, **alias**: vanish_after_expire
+**default**: 30s, **alias**: vanish_after_expired
+
+Example
+-------
+
+.. code-block:: yaml
+
+   fallback_node: direct
+   query_allowed_next:
+     - direct
+     - proxy-a
+     - proxy-b
+   query_pass_client_ip: true
+   query_peer_addr: 127.0.0.1:1053
+   cache_pick_policy: ketama

@@ -3,7 +3,8 @@
 route_geoip
 ===========
 
-This escaper selects the next escaper by applying GeoIP rules to the resolved upstream IP address.
+This escaper chooses the next escaper by applying GeoIP rules to the resolved
+upstream IP address.
 
 There is no path selection support for this escaper.
 
@@ -14,6 +15,13 @@ The following common keys are supported:
 * :ref:`resolver <conf_escaper_common_resolver>`, **required**
 * :ref:`resolve_strategy <conf_escaper_common_resolve_strategy>`
 * :ref:`default_next <conf_escaper_common_default_next>`
+
+Config-loading rules derived from the implementation:
+
+* ``geo_rules`` also accepts the alias ``geo_match``
+* duplicate networks, ASNs, countries, or continents across different next
+  escapers are rejected
+* each next escaper can appear at most once for each rule category
 
 ip_locate_service
 -----------------
@@ -29,7 +37,7 @@ Set the configuration of the remote IP location service.
 geo_rules
 ---------
 
-**optional**, **type**: seq
+**optional**, **type**: seq, **alias**: geo_match
 
 Set the GeoIP rules used to select the next escaper.
 
@@ -72,6 +80,19 @@ Each rule is in *map* format, with the following keys:
   Each element should be valid continent code.
 
   A continent must not appear in rules for different next escapers.
+
+Example:
+
+.. code-block:: yaml
+
+   geo_rules:
+     - next: cn-exit
+       countries: [CN]
+     - next: eu-exit
+       continents: [EU]
+     - next: corp-net
+       networks:
+         - 10.0.0.0/8
 
 resolution_delay
 ----------------

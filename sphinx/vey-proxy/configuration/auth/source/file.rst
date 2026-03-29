@@ -3,10 +3,13 @@
 File
 ====
 
-Fetches dynamic users from a local file.
+Loads dynamic users from a local file.
 
-The file content should be the JSON-encoded representation of all dynamic
-users.
+The file should contain the full dynamic-user dataset rather than incremental
+updates.
+
+At load time the parser accepts either YAML or JSON, depending on the
+configured or inferred format.
 
 When configured as a map, the following keys are supported:
 
@@ -32,3 +35,13 @@ format:
     file://<path>[?[format=<format>]]
 
 .. note:: Published users are not cached when a static file source is used.
+
+Example
+-------
+
+.. code-block:: yaml
+
+   source:
+     type: file
+     path: users.yaml
+     format: yaml

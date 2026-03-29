@@ -3,7 +3,8 @@
 tls_stream
 ==========
 
-Simple TLS stream server that adds a TLS layer in front of a remote TCP port.
+This server terminates TLS on the frontend side and then forwards the inner TCP
+stream to a remote upstream.
 
 The following common keys are supported:
 
@@ -59,6 +60,16 @@ For *seq* value, each of its element must be :external+values:ref:`weighted upst
 
 **alias**: proxy_pass
 
+Example:
+
+.. code-block:: yaml
+
+   upstream:
+     - addr: app-a.internal.example:443
+       weight: 2
+     - addr: app-b.internal.example:443
+       weight: 1
+
 upstream_pick_policy
 ----------------------
 
@@ -77,6 +88,10 @@ tls_client
 
 Controls whether a TLS handshake is performed with the upstream.
 
+When set to ``true``, ``vey-proxy`` creates a default OpenSSL client
+configuration with per-site session caching. When set to a map, the supplied
+TLS client configuration is used.
+
 **default**: disabled
 
 upstream_tls_name
@@ -88,6 +103,9 @@ Explicit TLS server name used for upstream certificate verification.
 
 If not set, the host of upstream address will be used.
 
+When ``tls_client`` is enabled and this key is not set, the host from the first
+configured upstream entry is used automatically.
+
 **default**: not set
 
 auth_by_client_ip
@@ -97,6 +115,8 @@ auth_by_client_ip
 
 Enables fact-based user authentication using the client IP address as the
 authentication fact.
+
+If enabled, ``user_group`` must also be set.
 
 **default**: false
 

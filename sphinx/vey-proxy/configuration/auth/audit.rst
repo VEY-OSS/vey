@@ -6,8 +6,8 @@ User Audit
 
 .. versionadded:: 1.7.0
 
-User-audit configuration is a map used to define audit behavior at the user
-level.
+User-audit configuration lets you tighten or relax audit behavior for one user
+without changing the server-wide auditor.
 
 enable_protocol_inspection
 --------------------------

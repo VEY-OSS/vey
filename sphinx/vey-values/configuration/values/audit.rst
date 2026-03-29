@@ -110,6 +110,16 @@ If the value is a map, the following keys are supported:
 
   **default**: false
 
+Example:
+
+.. code-block:: yaml
+
+   icap_reqmod_service:
+     url: icaps://icap.example.net/reqmod
+     tls_name: icap.example.net
+     preview_data_read_timeout: 2s
+     bypass: true
+
   .. availability::
 
 
@@ -166,6 +176,9 @@ If the value is a map, the following keys are supported:
   Set the peer address.
 
   **default**: 127.0.0.1:2888
+
+If the root value is an integer, it is interpreted as the port number on
+``127.0.0.1``.
 
 * tls_client
 
@@ -236,6 +249,17 @@ If the value is a map, the following keys are supported:
   Set the socket buffer config for the socket to peer.
 
   **default**: not set
+
+Example:
+
+.. code-block:: yaml
+
+   stream_detour_service:
+     peer: 127.0.0.1:2888
+     connection_reuse_limit: 32
+     quic_transport:
+       max_idle_timeout: 30s
+       keep_alive_interval: 10s
 
 .. availability::
 

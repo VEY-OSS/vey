@@ -35,7 +35,7 @@ Supported forms include:
 cpu set
 =======
 
-**yaml value** seq | str | usize
+**yaml value**: seq | str | usize
 
 ``CPU_SET(3)`` value for use with ``sched_setaffinity(2)``.
 
@@ -45,6 +45,16 @@ Each CPU ID may be expressed as:
 
  - usize: a single CPU ID
  - string: :ref:`cpu id list str <conf_value_cpu_id_list_str>`
+
+Examples:
+
+.. code-block:: yaml
+
+   sched_affinity:
+     0: "0-3"
+     1:
+       - 4
+       - "5-7"
 
 .. _CPU_SET(3): https://man7.org/linux/man-pages/man3/CPU_SET.3.html
 .. _sched_setaffinity(2): https://man7.org/linux/man-pages/man2/sched_setaffinity.2.html
@@ -133,7 +143,7 @@ value should be longer than the time needed to start the replacement process.
 .. availability::
 
 
-   - ``vey-proxy``: changed in ``1.7.25``: default changed from ``4s`` to ``8s``
+   - ``vey-proxy``: available
 
 task_wait_delay
 ^^^^^^^^^^^^^^^
@@ -165,6 +175,8 @@ task_quit_timeout
 How long the process stays alive after it enters forced-quit mode for all
 tasks. Tasks dropped after this timeout will not emit final logs.
 
+**default**: ``30min``
+
 .. _conf_value_unaided_runtime_config:
 
 unaided runtime config
@@ -183,7 +195,7 @@ thread_number
 
 Total thread count.
 
-**default**: the number of logic CPU cores, **alias**: threads_total, thread_number_total
+**default**: the number of logical CPU cores, **alias**: threads_total, thread_number_total
 
 thread_number_per_runtime
 -------------------------
@@ -239,6 +251,11 @@ For bool value:
 * if false, no CPU affinity is set, the same as omitting this option.
 
 **default**: no sched affinity set
+
+The loader also supports automatic affinity assignment when
+``sched_affinity: true``. In that mode it first checks ``WORKER_<N>_CPU_LIST``
+environment variables and otherwise falls back to automatic one-thread-per-CPU
+mapping when ``thread_number_per_runtime`` is ``1``.
 
 max_io_events_per_tick
 ----------------------

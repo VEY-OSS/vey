@@ -4,9 +4,12 @@
 dummy_deny
 **********
 
-This dummy escaper denies all requests.
+This escaper rejects every request immediately.
 
 There is no path selection support for this escaper.
+
+The config loader only requires the escaper name. All requests routed here are
+rejected immediately.
 
 Config Keys
 ===========

@@ -20,6 +20,9 @@ redis
 
 Redis server address and connection parameters.
 
+The same map is also accepted by loaders that use a nested Redis config value,
+such as dynamic peer sources and TLS-ticket key sources.
+
 The following fields are supported:
 
 * addr
@@ -31,7 +34,7 @@ The following fields are supported:
 
 * tls_client
 
-  **optional**, **type**: :ref:`rustls client config <conf_value_rustls_client_config>`
+  **optional**, **type**: :ref:`rustls client config <conf_value_rustls_client_config>`, **alias**: tls
 
   Enables TLS and configures it.
 
@@ -94,3 +97,17 @@ The following fields are supported:
   Read timeout for Redis command responses.
 
   **default**: 2s, **alias**: read_timeout
+
+Example:
+
+.. code-block:: yaml
+
+   redis:
+     addr: redis.example.net:6379
+     tls: {}
+     tls_name: redis.example.net
+     db: 3
+     username: app
+     password: secret
+     connect_timeout: 3s
+     read_timeout: 1s

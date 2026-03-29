@@ -21,6 +21,8 @@ sockaddr str
 String in ``<ip>[:<port>]`` format. The port may be omitted when a default port
 is available in the surrounding context.
 
+Only literal IP addresses are allowed. Domain names are rejected here.
+
 .. _conf_value_static_sockaddr_str:
 
 static sockaddr str
@@ -35,6 +37,8 @@ This differs from :ref:`upstream str <conf_value_upstream_str>` in two ways:
 - It will be resolved when we load the config files
 - The domain must resolve to exactly one IP address
 
+If resolution returns zero or multiple addresses, config loading fails.
+
 .. _conf_value_env_sockaddr_str:
 
 env sockaddr str
@@ -44,6 +48,12 @@ env sockaddr str
 
 The final value must resolve to ``<ip>[:<port>]`` format, with the port
 optional only when a default port is available.
+
+The loader supports three string forms:
+
+* ``127.0.0.1:53`` for a literal socket address
+* ``@resolver.example.net:53`` for eager resolution at config load time
+* ``$DNS_ADDR`` for environment-variable expansion
 
 .. availability::
 
@@ -88,6 +98,9 @@ ip network str
 
 String containing either a CIDR network or a single IP address.
 
+A single IP address is normalized to a host-prefix network such as ``/32`` or
+``/128``.
+
 .. _conf_value_interface_name:
 
 interface name
@@ -96,6 +109,8 @@ interface name
 **yaml value**: str | u32
 
 Network interface name or interface index.
+
+Only string and integer YAML values are accepted.
 
 .. availability::
 
@@ -132,6 +147,8 @@ A domain value. The string must be convertible to an IDNA domain.
 
 Leading '.' is not allowed.
 
+The normalized ASCII domain form is stored.
+
 .. _conf_value_weighted_sockaddr:
 
 weighted sockaddr
@@ -161,6 +178,8 @@ The map consists of two fields:
 
 If the value is a string, it is treated as the ``addr`` field and ``weight``
 uses the default value.
+
+The loader also accepts ``address`` as an alias for ``addr``.
 
 .. availability::
 
@@ -221,6 +240,15 @@ The yaml value could be:
 
   array of base types.
 
+Example:
+
+.. code-block:: yaml
+
+   ports:
+     - 80
+     - 443
+     - 10000-10100
+
 .. _conf_value_port_range:
 
 port range
@@ -251,6 +279,14 @@ The yaml value for *port range* can be in the following formats:
 * map
 
   The keys of this map are the fields as described above.
+
+Example:
+
+.. code-block:: yaml
+
+   udp_bind_port_range:
+     start: 40000
+     end: 45000
 
 .. _conf_value_socket_buffer_config:
 
@@ -286,6 +322,14 @@ The yaml value for *socket buffer config* can be in the following formats:
 * map
 
   The keys of this map are the fields as described above.
+
+Example:
+
+.. code-block:: yaml
+
+   udp_socket_buffer:
+     recv: 4MiB
+     send: 4MiB
 
 .. _conf_value_connection_pool_config:
 

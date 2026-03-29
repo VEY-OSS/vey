@@ -52,6 +52,15 @@ The YAML value can be written in several forms:
 
   The keys of this map are the fields as described above.
 
+Example:
+
+.. code-block:: yaml
+
+   tcp_sock_speed_limit:
+     shift_millis: 10
+     upload: 8MiB
+     download: 32MiB
+
 .. _conf_value_udp_sock_speed_limit:
 
 udp socket speed limit
@@ -65,32 +74,34 @@ It consists of five fields:
 
   **type**: int
 
-  The time slice we use to count is *2 ^ N* milliseconds, where N is set by this key and should be in range [0 - 12].
-  If N is 10, and the time slice is 1024ms. If omitted, this means the limit is not set.
+  Time-slice size in ``2^N`` milliseconds, where ``N`` is in the range
+  ``[0, 12]``.
+  For example, if ``N`` is ``10``, the time slice is ``1024ms``.
+  If omitted, no limit is applied.
 
 * upload_bytes | north_bytes
 
   **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-  This sets the upload bytes in the time slice. *0* means no limit.
+  Maximum upload bytes allowed in each time slice. ``0`` means no byte limit.
 
 * download_bytes | south_bytes
 
   **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-  This set the max download bytes in the time slice. *0* means no limit.
+  Maximum download bytes allowed in each time slice. ``0`` means no byte limit.
 
 * upload_packets | north_packets
 
   **type**: int [usize]
 
-  This set the max upload packets in the time slice. *0* means no limit.
+  Maximum upload packets allowed in each time slice. ``0`` means no packet limit.
 
 * download_packets | south_packets
 
   **type**: int [usize]
 
-  This set the max download packets in the time slice. *0* means no limit.
+  Maximum download packets allowed in each time slice. ``0`` means no packet limit.
 
 The YAML value can be written in several forms:
 
@@ -101,6 +112,17 @@ The YAML value can be written in several forms:
 * map
 
   The keys of this map are the fields as described above.
+
+Example:
+
+.. code-block:: yaml
+
+   udp_sock_speed_limit:
+     shift: 10
+     north_bytes: 8MiB
+     south_bytes: 8MiB
+     north_packets: 2000
+     south_packets: 2000
 
 .. _conf_value_global_stream_speed_limit:
 
@@ -123,7 +145,7 @@ It consists of three fields:
 
   **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-  Set the replenish byte size to add when `replenish_interval` reached.
+  Set the replenish byte size to add whenever ``replenish_interval`` elapses.
 
 * max_burst_bytes
 
@@ -131,17 +153,18 @@ It consists of three fields:
 
   Set the max byte size.
 
-  **default**: the same as `replenish_bytes`
+  **default**: the same as ``replenish_bytes``
 
 The yaml value type can be in varies formats:
 
 * :ref:`humanize usize <conf_value_humanize_usize>`
 
-  This is the same as set `replenish_bytes` to be the same value.
+  This is the same as setting ``replenish_bytes`` to that value.
 
 * map
 
-  The keys of this map are the fields as described above, and the `replenish_bytes` field is always required.
+  The keys of this map are the fields as described above, and
+  ``replenish_bytes`` is always required.
 
 .. availability::
 
@@ -169,7 +192,7 @@ It consists of five fields:
 
   **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-  Set the replenish byte size to add when `replenish_interval` reached.
+  Set the replenish byte size to add whenever ``replenish_interval`` elapses.
 
   If not set, no bytes limitation will be applied.
 
@@ -177,7 +200,7 @@ It consists of five fields:
 
   **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
 
-  Set the replenish packet count to add when `replenish_interval` reached.
+  Set the replenish packet count to add whenever ``replenish_interval`` elapses.
 
   If not set, no packets limitation will be applied.
 
@@ -187,7 +210,7 @@ It consists of five fields:
 
   Set the max byte size.
 
-  **default**: the same as `replenish_bytes`
+  **default**: the same as ``replenish_bytes``
 
 * max_burst_packets
 
@@ -195,18 +218,18 @@ It consists of five fields:
 
   Set the max packet count.
 
-  **default**: the same as `replenish_packets`
+  **default**: the same as ``replenish_packets``
 
 The YAML value can be written in several forms:
 
 * :ref:`humanize usize <conf_value_humanize_usize>`
 
-  This is the same as set `replenish_bytes` to be the same value.
+  This is the same as setting ``replenish_bytes`` to that value.
 
 * map
 
   The keys of this map are the fields as described above,
-  and at least one of `replenish_bytes` or `replenish_packets` field should be set.
+  and at least one of ``replenish_bytes`` or ``replenish_packets`` must be set.
 
 .. availability::
 
@@ -226,8 +249,10 @@ It consists of two fields:
 
   **type**: int
 
-  The time slice we use to count is *2 ^ N* milliseconds, where N is set by this key and should be in range [0 - 12].
-  If N is 10, and the time slice is 1024ms. If omitted, this means the limit is not set.
+  Time-slice size in ``2^N`` milliseconds, where ``N`` is in the range
+  ``[0, 12]``.
+  For example, if ``N`` is ``10``, the time slice is ``1024ms``.
+  If omitted, no limit is applied.
 
 * requests
 
@@ -248,13 +273,14 @@ It consists of three fields:
 
   **type**: :ref:`nonzero u32 <conf_value_nonzero_u32>`
 
-  If int or str without any unit, the default unit will be per second.
+  If an integer or a string without a unit is used, the default unit is
+  requests per second.
 
-  Supported units for str:
+  Supported units for string values:
 
-    - /s, per second
-    - /m, per minute
-    - /h, per hour
+    - ``/s``, per second
+    - ``/m``, per minute
+    - ``/h``, per hour
 
 * replenish_interval
 

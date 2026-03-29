@@ -4,7 +4,7 @@
 Source
 ******
 
-This section defines where dynamic-user configuration can be loaded from.
+This section describes the supported backends for loading dynamic users.
 
 Each source configuration is a map with one required key:
 
@@ -24,7 +24,11 @@ Sources
 Common Keys
 ===========
 
-This section describes common keys shared by multiple source types.
+These notes describe the common shape shared by the source types below.
+
+For the :ref:`source <conf_auth_user_group_source>` field on a user group, a
+plain URL string is also accepted. In that form, the source type is inferred
+from the URL scheme.
 
 .. _conf_auth_user_source_type:
 

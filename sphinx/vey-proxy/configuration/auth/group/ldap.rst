@@ -3,8 +3,12 @@
 LDAP
 ====
 
-User-group type that authenticates users against a remote LDAP server through
-simple bind.
+This group authenticates users against a remote LDAP server by using simple
+bind.
+
+Static and dynamic users are still supported. LDAP verifies the presented
+password, then ``vey-proxy`` loads the rest of the user policy from the static
+list, the dynamic source, or ``unmanaged_user``.
 
 The following common keys are supported:
 
@@ -36,7 +40,8 @@ If set to an empty map, the default configuration is used.
 If the LDAP URL uses the ``ldap`` scheme and this field is set, ``STARTTLS`` is
 used.
 
-If the schema is "ldaps", a default value will be used if not set.
+If the schema is ``ldaps``, a default TLS client config is created
+automatically even when this field is omitted.
 
 **default**: not set
 
@@ -110,12 +115,12 @@ connection_pool
 
 Connection-pool configuration.
 
-**default**: set with default value
+**default**: set with default value, **alias**: pool
 
 queue_channel_size
 ------------------
 
-**optional**, **type**: usize
+**optional**, **type**: non-zero usize
 
 Queue channel size used when authenticating a client request against the LDAP
 server.
@@ -134,7 +139,7 @@ Timeout while authenticating a client request against the LDAP server.
 cache_user_count
 ----------------
 
-**optional**, **type**: usize
+**optional**, **type**: non-zero usize
 
 Maximum number of users stored in the thread-local LRU cache.
 
@@ -148,3 +153,18 @@ cache_expire_time
 Expiration time for valid passwords in the thread-local LRU cache.
 
 **default**: 5min
+
+Example
+-------
+
+.. code-block:: yaml
+
+   name: corp-ldap
+   type: ldap
+   ldap_url: ldaps://ldap.example.net/dc=example,dc=net
+   username_attribute: uid
+   cache_user_count: 256
+   cache_expire_time: 10min
+   unmanaged_user:
+     name: ldap-template
+     explicit_sites: []

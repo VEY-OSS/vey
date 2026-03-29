@@ -3,8 +3,11 @@
 intelli_proxy
 =============
 
-Intelligent proxy port. It detects the incoming protocol and forwards the
-connection to another server accordingly.
+This server is a protocol-detecting entry port. It inspects the first bytes of
+each connection and forwards the connection to another server accordingly.
+
+The loader requires both ``http_server`` and ``socks_server``. Connections that
+cannot be classified before ``protocol_detection_timeout`` expires are closed.
 
 The following common keys are supported:
 
@@ -47,6 +50,10 @@ If timeout, the connection will be closed silently.
 
 **default**: 4s
 
+The legacy keys ``protocol_detection_channel_size`` and
+``protocol_detection_max_jobs`` are accepted by the loader but ignored by the
+current config implementation.
+
 proxy_protocol
 --------------
 
@@ -73,3 +80,13 @@ Timeout for reading a complete PROXY Protocol message.
 **default**: 5s
 
 .. versionadded:: 1.7.28
+
+Example
+-------
+
+.. code-block:: yaml
+
+   listen: 0.0.0.0:1080
+   http_server: http-in
+   socks_server: socks-in
+   protocol_detection_timeout: 2s

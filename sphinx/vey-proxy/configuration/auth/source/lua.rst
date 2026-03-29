@@ -3,7 +3,7 @@
 Lua
 ===
 
-Fetches users through a local Lua script.
+Loads dynamic users by running a local Lua script.
 
 The following variables are defined when the script is executed:
 
@@ -13,7 +13,9 @@ The following variables are defined when the script is executed:
 
   .. versionadded:: 1.11.0
 
-The return value must be the JSON-encoded representation of all dynamic users.
+The script returns the complete dynamic-user dataset as a JSON string.
+
+When Lua is used as the source, the group cache is written in JSON format.
 
 .. note::
 
@@ -84,4 +86,16 @@ When configured as a map, the following keys are supported:
   :ref:`refresh_interval <conf_auth_user_group_refresh_interval>`
   in group config.
 
-  **default**: 15s, **alias**: timeout
+  **default**: 15s
+
+Example
+-------
+
+.. code-block:: yaml
+
+   source:
+     type: lua
+     script: fetch_users.lua
+     fetch_timeout: 10s
+     report_script: report_users.lua
+     report_timeout: 5s

@@ -7,6 +7,10 @@ Auditor
 Each auditor configuration item is a map. The supported keys are described
 below.
 
+Auditor objects are referenced from :ref:`server config <conf_server_common_auditor>`.
+If a server names a missing auditor, ``vey-proxy`` falls back to the built-in
+default auditor instance.
+
 name
 ----
 

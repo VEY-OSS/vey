@@ -4,7 +4,10 @@
 User Group
 **********
 
-Users are divided into two categories: static and dynamic.
+User groups combine an authentication method with a set of user records.
+
+Users come from two places:
+
 Static users are configured through
 :ref:`static users <conf_auth_user_group_static_users>` in the YAML
 configuration.
@@ -16,10 +19,12 @@ The Cap'n Proto RPC ``publish_dynamic_users`` command is supported. The
 published data should be an array of
 :ref:`user <configuration_auth_user>`.
 
-Each user-group configuration item is a map with two required keys:
+Each user-group item is a map with a required ``name`` key and an
+optional ``type`` key:
 
 * :ref:`name <conf_auth_user_group_name>`: user-group name
-* :ref:`type <conf_auth_user_group_type>`: authentication type
+* :ref:`type <conf_auth_user_group_type>`: authentication type, defaulting to
+  ``basic`` when omitted
 
 Groups
 ======
@@ -48,7 +53,7 @@ The name of the user group.
 type
 ----
 
-**required**, **type**: str
+**optional**, **type**: str
 
 Authentication type of the user group. It also determines how the remaining
 keys are interpreted.

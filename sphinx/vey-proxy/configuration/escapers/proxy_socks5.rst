@@ -3,7 +3,7 @@
 proxy_socks5
 ============
 
-This escaper connects to the target upstream through another SOCKS5 proxy.
+This escaper reaches the target through an upstream SOCKS5 proxy.
 
 The following interfaces are supported:
 
@@ -46,6 +46,9 @@ Set the target proxy address. The default port is ``1080`` and may be omitted.
 
 If a *seq* is used, each element must be a :external+values:ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`.
 
+If any configured proxy address uses a domain name, ``resolver`` becomes
+required.
+
 proxy_addr_pick_policy
 ----------------------
 
@@ -64,12 +67,16 @@ proxy_username
 
 Set the proxy username. The SOCKS5 username/password method is used by default.
 
+**alias**: ``proxy_user``
+
 proxy_password
 --------------
 
 **optional**, **type**: :external+values:ref:`password <conf_value_password>`
 
 Set the proxy password. Required if username is present.
+
+**alias**: ``proxy_passwd``
 
 bind_ipv4
 ---------
@@ -112,9 +119,24 @@ If the map is empty, the peer IP from the TCP connection is used.
 
 For a boolean value, ``true`` behaves like an empty map and ``false`` disables this feature.
 
+When the feature is disabled, an unspecified UDP peer IP returned by the proxy
+is still rewritten to the TCP peer IP.
+
 **default**: false
 
 .. versionadded:: 1.7.19
+
+Example:
+
+.. code-block:: yaml
+
+   - name: corp-socks
+     type: proxy_socks5
+     proxy_addr: socks.example.net:1080
+     resolver: local-dns
+     proxy_user: service-user
+     proxy_passwd: secret
+     transmute_udp_peer_ip: true
 
 end_on_control_closed
 ---------------------

@@ -14,6 +14,16 @@ The Fluentd event tag is ``vey-proxy.Task``, ``vey-proxy.Escape``, or
 
 The keys are described below.
 
+Example:
+
+.. code-block:: yaml
+
+   fluentd:
+     address: 127.0.0.1:24224
+     shared_key: edge-cluster
+     tls_client: true
+     connect_timeout: 5s
+
 address
 -------
 
@@ -133,7 +143,7 @@ write_timeout
 
 Write timeout for each message. Timed-out messages are dropped.
 
-default: 1s
+**default**: 1s
 
 flush_interval
 --------------

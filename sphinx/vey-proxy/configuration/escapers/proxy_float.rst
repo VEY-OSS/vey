@@ -4,7 +4,8 @@
 proxy_float
 ***********
 
-This escaper connects to the target upstream through dynamically published remote proxies.
+This escaper reaches the target through remote proxies that are published at
+runtime.
 
 The following remote proxy protocols are supported:
 
@@ -21,6 +22,8 @@ The following interfaces are supported:
 
 This escaper supports the Cap'n Proto RPC ``publish`` command. The published data must be either a single
 :ref:`peer <config_escaper_dynamic_peer>` or an array of peers.
+
+Published peers whose ``expire`` time is already in the past are ignored.
 
 The following egress path selection values are supported:
 
@@ -60,6 +63,10 @@ Set the source used to fetch peers.
 Multiple source types are supported. The type is detected from the URL scheme or from the ``type`` key in the map.
 See :ref:`sources <config_escaper_dynamic_source>` for the supported formats.
 
+If the selected source maintains local state, a cache file is strongly
+recommended so the escaper can continue serving requests before the next
+refresh completes.
+
 **default**: passive
 
 cache
@@ -72,6 +79,8 @@ Set the cache file.
 This is recommended because peer discovery at startup may complete only after the first requests arrive.
 
 The file is created if it does not exist.
+
+The cache path is resolved relative to the config file location.
 
 **default**: not set
 
@@ -155,6 +164,12 @@ Do not fetch peers. Only RPC publish is used.
 
 The root value of ``source`` may be ``null`` to use the passive source.
 
+Example:
+
+.. code-block:: yaml
+
+   source: null
+
 redis
 -----
 
@@ -175,12 +190,29 @@ For *url* str values, the format is:
 
     redis://[username][:<password>@]<addr>/<db>?sets_key=<sets_key>
 
+Examples:
+
+.. code-block:: yaml
+
+   source:
+     type: redis
+     addr: 127.0.0.1:6379
+     db: 3
+     sets_key: proxy_float:peers
+
+.. code-block:: yaml
+
+   source: redis://127.0.0.1:6379/3?sets_key=proxy_float:peers
+
 .. _config_escaper_dynamic_peer:
 
 Peers
 =====
 
 Peers are represented as JSON strings whose root element is a map.
+
+At runtime, a request fails if path selection references a peer ID that does
+not exist in the current peer set, or if the selected peer has already expired.
 
 Common keys
 -----------
@@ -237,6 +269,44 @@ Common keys
   **optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
   Set the speed limit for each TCP connection to this peer.
+
+Example peer
+------------
+
+.. code-block:: json
+
+   {
+     "type": "https",
+     "id": "corp-edge-1",
+     "addr": "203.0.113.30:3128",
+     "tls_name": "proxy.example.net",
+     "username": "u1",
+     "password": "p1",
+     "expire": "2026-03-28T08:00:00Z"
+   }
+
+Example publish payload
+-----------------------
+
+.. code-block:: json
+
+   [
+     {
+       "type": "http",
+       "id": "edge-a",
+       "addr": "203.0.113.20:3128"
+     },
+     {
+       "type": "socks5",
+       "id": "edge-b",
+       "addr": "203.0.113.21:1080",
+       "udp_sock_speed_limit": {
+         "shift_millis": 1000,
+         "max_north": "8MiB",
+         "max_south": "8MiB"
+       }
+     }
+   ]
 
 The following types are supported:
 

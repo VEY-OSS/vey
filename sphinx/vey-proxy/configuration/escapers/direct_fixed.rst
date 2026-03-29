@@ -3,7 +3,7 @@
 direct_fixed
 ============
 
-This escaper connects to the target upstream directly from the local machine.
+This escaper sends traffic to the target upstream directly from the local host.
 
 The following interfaces are supported:
 
@@ -50,6 +50,9 @@ Set the bind ip address(es) for sockets.
 
 For *seq* value, each of its element must be :external+values:ref:`ip addr str <conf_value_ip_addr_str>`.
 Only random selection is supported. Use a *route* escaper if you need more control.
+
+IPv4 and IPv6 addresses are kept in separate internal lists. If you disable one
+address family, entries from that family become unusable.
 
 **default**: not set
 
@@ -115,7 +118,24 @@ Enable path selection.
 
 .. note:: Path selection must also be enabled on the server side, or this option has no effect.
 
+When enabled, the :ref:`number id <proto_egress_path_selection_number_id>`
+value is interpreted as the 1-based index of the chosen bind address within the
+family-specific bind list.
+
 **default**: false
+
+Example:
+
+.. code-block:: yaml
+
+   - name: direct-egress
+     type: direct_fixed
+     resolver: local-dns
+     bind_ip:
+       - 192.0.2.10
+       - 192.0.2.11
+       - 2001:db8::10
+     enable_path_selection: true
 
 use_proxy_protocol
 ------------------
