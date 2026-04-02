@@ -5,8 +5,6 @@
 
 ![VEY banner](assets/banner.svg)
 
-# VEY: A versatile proxy and gateway platform
-
 [中文版 README](README.zh_CN.md) | [日本語 README](README.ja_JP.md)
 
 ## About

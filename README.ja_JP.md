@@ -5,8 +5,6 @@
 
 ![VEY banner](assets/banner.svg)
 
-# VEY: 汎用的なプロキシおよびゲートウェイ基盤
-
 [中文版 README](README.zh_CN.md) | [English README](README.md)
 
 ## 概要

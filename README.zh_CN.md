@@ -5,8 +5,6 @@
 
 ![VEY banner](assets/banner.svg)
 
-# VEY：一个通用的代理与网关平台
-
 [English README](README.md) | [日本語 README](README.ja_JP.md)
 
 ## 关于
