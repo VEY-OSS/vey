@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320">
+  <defs>
+    <linearGradient id="left-wing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00C6FF" />
+      <stop offset="100%" stop-color="#0072FF" />
+    </linearGradient>
+    <linearGradient id="right-wing" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38EF7D" />
+      <stop offset="100%" stop-color="#11998E" />
+    </linearGradient>
+    <linearGradient id="core" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFD200" />
+      <stop offset="100%" stop-color="#F7971E" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+    <style>
+      .text-title { fill: #0F172A; }
+      .text-subtitle { fill: #334155; }
+      .bg-rect { fill: #F8FAFC; fill-opacity: 0.6; }
+      @media (prefers-color-scheme: dark) {
+        .text-title { fill: #FFFFFF; }
+        .text-subtitle { fill: #94A3B8; }
+        .bg-rect { fill: #0B1121; fill-opacity: 0.4; }
+      }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect class="bg-rect" width="1280" height="320" rx="24" />
+
+  <!-- Logo Graphic -->
+  <g transform="translate(220, 120) scale(0.75)" filter="url(#shadow)">
+    <!-- Left Wing (Incoming Traffic) -->
+    <path d="M -145 -100 L -65 -100 L -5 20 L -45 100 Z" fill="url(#left-wing)" />
+    <!-- Right Wing (Outgoing Traffic) -->
+    <path d="M 145 -100 L 65 -100 L 5 20 L 45 100 Z" fill="url(#right-wing)" />
+    <!-- Center Diamond (Gateway/Proxy Core) -->
+    <polygon points="0,35 40,115 0,195 -40,115" fill="url(#core)" />
+  </g>
+
+  <!-- Text -->
+  <text class="text-title" x="400" y="170" font-family="system-ui, -apple-system, sans-serif" font-size="120" font-weight="900" text-anchor="start" letter-spacing="16">VEY</text>
+  <text class="text-subtitle" x="405" y="230" font-family="system-ui, -apple-system, sans-serif" font-size="32" font-weight="600" text-anchor="start" letter-spacing="4">A Versatile Proxy and Gateway Platform</text>
+</svg>

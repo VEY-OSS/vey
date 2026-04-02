@@ -3,6 +3,8 @@
 [![codecov](https://codecov.io/gh/VEY-OSS/vey/graph/badge.svg?token=c8gK1HrRsX)](https://codecov.io/gh/VEY-OSS/vey)
 [![docs](https://readthedocs.org/projects/vey/badge)](https://vey.readthedocs.io/)
 
+![VEY banner](assets/banner.svg)
+
 # VEY: A versatile proxy and gateway platform
 
 [中文版 README](README.zh_CN.md) | [日本語 README](README.ja_JP.md)
