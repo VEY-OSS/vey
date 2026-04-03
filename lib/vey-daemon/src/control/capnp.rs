@@ -9,6 +9,7 @@ use anyhow::anyhow;
 use capnp_rpc::{RpcSystem, rpc_twoparty_capnp, twoparty};
 use log::{trace, warn};
 use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::runtime::LocalOptions;
 use tokio::sync::{mpsc, oneshot};
 
 static CAPNP_MESSAGE_SENDER: Mutex<Option<mpsc::UnboundedSender<CapnpMessage>>> = Mutex::new(None);
@@ -61,10 +62,10 @@ where
         .spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
-                .build()
+                .build_local(LocalOptions::default())
                 .unwrap();
             crate::runtime::metrics::add_tokio_stats(rt.metrics(), "capnp_ctl".to_string());
-            tokio::task::LocalSet::new().block_on(&rt, async move {
+            rt.block_on(async move {
                 let mut receiver = receiver;
                 set_capnp_message_sender(sender);
                 ready_notifier.send(true).unwrap();
