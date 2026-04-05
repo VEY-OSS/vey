@@ -306,6 +306,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             )
             .boxed();
 
+        let mut allow_continue = self.req.body_type().is_some();
         let mut rsp_head: Option<(HttpTransparentResponse, Bytes)> = None;
         loop {
             tokio::select! {
@@ -317,8 +318,17 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                             // we got some data from upstream
                             let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
                             match rsp.code {
-                                100 | 103 => {
-                                    // CONTINUE | Early Hints
+                                100 => {
+                                    // CONTINUE
+                                    if allow_continue {
+                                        self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
+                                        allow_continue = false;
+                                    } else {
+                                        return Err(ServerTaskError::UpstreamAppError(anyhow!("too many 100-Continue response")));
+                                    }
+                                }
+                                103 => {
+                                    // Early Hints
                                     self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
                                 }
                                 _ => {
@@ -361,7 +371,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             None => {
                 match tokio::time::timeout(
                     self.ctx.h1_rsp_hdr_recv_timeout(),
-                    self.recv_final_response_header(rsp_io),
+                    self.recv_final_response_header(rsp_io, allow_continue),
                 )
                 .await
                 {
@@ -458,12 +468,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
         match tokio::time::timeout(
             self.ctx.h1_rsp_hdr_recv_timeout(),
-            HttpTransparentResponse::parse(
-                &mut rsp_io.ups_r,
-                &self.req.method,
-                self.req.keep_alive(),
-                self.ctx.h1_interception().rsp_head_max_size,
-            ),
+            self.recv_final_response_header(rsp_io, false),
         )
         .await
         {
@@ -505,6 +510,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut idle_count = 0;
 
+        let mut allow_continue = true;
         loop {
             tokio::select! {
                 biased;
@@ -515,8 +521,17 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                             // we got some data from upstream
                             let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
                             match rsp.code {
-                                100 | 103 => {
-                                    // CONTINUE | Early Hints
+                                100 => {
+                                    // CONTINUE
+                                    if allow_continue {
+                                        self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
+                                        allow_continue = false;
+                                    } else {
+                                        return Err(ServerTaskError::UpstreamAppError(anyhow!("too many 100-Continue response")));
+                                    }
+                                }
+                                103 => {
+                                    // Early Hints
                                     self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
                                 }
                                 _ => {
@@ -579,7 +594,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             None => {
                 match tokio::time::timeout(
                     self.ctx.h1_rsp_hdr_recv_timeout(),
-                    self.recv_final_response_header(rsp_io),
+                    self.recv_final_response_header(rsp_io, allow_continue),
                 )
                 .await
                 {
@@ -620,6 +635,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
     async fn recv_final_response_header<CW, UR, UW>(
         &mut self,
         rsp_io: &mut HttpResponseIo<CW, UR, UW>,
+        mut allow_continue: bool,
     ) -> ServerTaskResult<(HttpTransparentResponse, Bytes)>
     where
         UR: AsyncRead + Unpin,
@@ -631,9 +647,14 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             match rsp.code {
                 100 => {
                     // HTTP CONTINUE
-                    self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-                    // recv the final response header
-                    return self.recv_response_header(&mut rsp_io.ups_r).await;
+                    if allow_continue {
+                        self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
+                        allow_continue = false;
+                    } else {
+                        return Err(ServerTaskError::UpstreamAppError(anyhow!(
+                            "too many 100-Continue response"
+                        )));
+                    }
                 }
                 103 => {
                     // HTTP Early Hints

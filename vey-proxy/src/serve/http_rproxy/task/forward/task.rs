@@ -788,7 +788,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
 
         let mut rsp_header = match tokio::time::timeout(
             self.ctx.server_config.timeout.recv_rsp_header,
-            self.recv_response_header(ups_r),
+            self.recv_final_response_header(ups_r, clt_w, false),
         )
         .await
         {
@@ -823,12 +823,16 @@ impl<'a> HttpRProxyForwardTask<'a> {
         Ok(Some(ups_c))
     }
 
-    async fn send_full_req_and_recv_rsp(
+    async fn send_full_req_and_recv_rsp<CDW>(
         &mut self,
         body: &[u8],
         ups_r: &mut BoxHttpForwardReader,
         ups_w: &mut BoxHttpForwardWriter,
-    ) -> ServerTaskResult<HttpForwardRemoteResponse> {
+        clt_w: &mut HttpClientWriter<CDW>,
+    ) -> ServerTaskResult<HttpForwardRemoteResponse>
+    where
+        CDW: AsyncWrite + Unpin,
+    {
         self.http_notes.retry_new_connection = true;
 
         ups_w
@@ -844,7 +848,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
 
         match tokio::time::timeout(
             self.ctx.server_config.timeout.recv_rsp_header,
-            self.recv_response_header(ups_r),
+            self.recv_final_response_header(ups_r, clt_w, true),
         )
         .await
         {
@@ -887,7 +891,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             let ups_r = &mut ups_c.1;
 
             let mut rsp_header = match self
-                .send_full_req_and_recv_rsp(body.as_slice(), ups_r, ups_w)
+                .send_full_req_and_recv_rsp(body.as_slice(), ups_r, ups_w, clt_w)
                 .await
             {
                 Ok(rsp_header) => rsp_header,
@@ -954,6 +958,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
 
         let mut rsp_header: Option<HttpForwardRemoteResponse> = None;
 
+        let mut allow_continue = true;
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
@@ -967,8 +972,16 @@ impl<'a> HttpRProxyForwardTask<'a> {
                             // we got some data from upstream
                             let hdr = self.recv_response_header(ups_r).await?;
                             match hdr.code {
-                                100 | 103 => {
-                                    // CONTINUE | Early Hints
+                                100 => {
+                                    if allow_continue {
+                                        self.send_response_header(clt_w, &hdr).await?;
+                                        allow_continue = false;
+                                    } else {
+                                        return Err(ServerTaskError::UpstreamAppError(anyhow!("too many 100-Continue response")));
+                                    }
+                                }
+                                103 => {
+                                    // Early Hints
                                     self.send_response_header(clt_w, &hdr).await?;
                                 }
                                 _ => {
@@ -1060,7 +1073,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             None => {
                 match tokio::time::timeout(
                     self.ctx.server_config.timeout.recv_rsp_header,
-                    self.recv_final_response_header(ups_r, clt_w),
+                    self.recv_final_response_header(ups_r, clt_w, allow_continue),
                 )
                 .await
                 {
@@ -1092,6 +1105,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         &mut self,
         ups_r: &mut BoxHttpForwardReader,
         clt_w: &mut W,
+        mut allow_continue: bool,
     ) -> ServerTaskResult<HttpForwardRemoteResponse>
     where
         W: AsyncWrite + Unpin,
@@ -1101,9 +1115,14 @@ impl<'a> HttpRProxyForwardTask<'a> {
             match hdr.code {
                 100 => {
                     // HTTP CONTINUE
-                    self.send_response_header(clt_w, &hdr).await?;
-                    // recv the final response header
-                    return self.recv_response_header(ups_r).await;
+                    if allow_continue {
+                        self.send_response_header(clt_w, &hdr).await?;
+                        allow_continue = false;
+                    } else {
+                        return Err(ServerTaskError::UpstreamAppError(anyhow!(
+                            "too many 100-Continue response"
+                        )));
+                    }
                 }
                 103 => {
                     // HTTP Early Hints
