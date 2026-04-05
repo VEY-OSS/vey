@@ -973,6 +973,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                             let hdr = self.recv_response_header(ups_r).await?;
                             match hdr.code {
                                 100 => {
+                                    // CONTINUE
                                     if allow_continue {
                                         self.send_response_header(clt_w, &hdr).await?;
                                         allow_continue = false;

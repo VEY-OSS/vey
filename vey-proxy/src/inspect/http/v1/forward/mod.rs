@@ -473,7 +473,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         .await
         {
             Ok(Ok((rsp, head_bytes))) => self.send_response(rsp, head_bytes, rsp_io, None).await,
-            Ok(Err(e)) => Err(e.into()),
+            Ok(Err(e)) => Err(e),
             Err(_) => Err(ServerTaskError::UpstreamAppTimeout(
                 "timeout to receive response header",
             )),
