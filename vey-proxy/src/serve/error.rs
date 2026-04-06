@@ -167,6 +167,10 @@ impl ServerTaskError {
             ServerTaskError::UnclassifiedError(_) => "UnclassifiedError",
         }
     }
+
+    pub(crate) fn invalid_upstream_100_continue_response() -> Self {
+        ServerTaskError::UpstreamAppError(anyhow!("invalid 100-continue response"))
+    }
 }
 
 pub(crate) type ServerTaskResult<T> = Result<T, ServerTaskError>;

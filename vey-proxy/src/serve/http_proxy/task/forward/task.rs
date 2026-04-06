@@ -912,7 +912,7 @@ impl<'a> HttpProxyForwardTask<'a> {
 
         let mut log_interval = self.ctx.get_log_interval();
 
-        let mut allow_continue = self.req.body_type().is_some();
+        let mut allow_continue = self.req.expect_100_continue();
         let clt_read_size = self.task_stats.clt.read.get_bytes();
         let mut rsp_header: Option<HttpForwardRemoteResponse> = None;
         loop {
@@ -931,7 +931,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                                         self.send_response_header(clt_w, &hdr).await?;
                                         allow_continue = false;
                                     } else {
-                                        return Err(ServerTaskError::UpstreamAppError(anyhow!("too many 100-Continue response")));
+                                        return Err(ServerTaskError::invalid_upstream_100_continue_response());
                                     }
                                 }
                                 103 => {
@@ -1190,7 +1190,7 @@ impl<'a> HttpProxyForwardTask<'a> {
 
         let mut rsp_header = match tokio::time::timeout(
             self.rsp_hdr_recv_timeout(),
-            self.recv_final_response_header(ups_r, clt_w, false),
+            self.recv_final_response_header(ups_r, clt_w, self.req.expect_100_continue()),
         )
         .await
         {
@@ -1250,7 +1250,7 @@ impl<'a> HttpProxyForwardTask<'a> {
 
         match tokio::time::timeout(
             self.rsp_hdr_recv_timeout(),
-            self.recv_final_response_header(ups_r, clt_w, true),
+            self.recv_final_response_header(ups_r, clt_w, self.req.expect_100_continue()),
         )
         .await
         {
@@ -1360,7 +1360,7 @@ impl<'a> HttpProxyForwardTask<'a> {
 
         let mut rsp_header: Option<HttpForwardRemoteResponse> = None;
 
-        let mut allow_continue = true;
+        let mut allow_continue = self.req.expect_100_continue();
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
@@ -1379,7 +1379,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                                         self.send_response_header(clt_w, &hdr).await?;
                                         allow_continue = false;
                                     } else {
-                                        return Err(ServerTaskError::UpstreamAppError(anyhow!("too many 100-Continue response")));
+                                        return Err(ServerTaskError::invalid_upstream_100_continue_response());
                                     }
                                 }
                                 103 => {
@@ -1521,9 +1521,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                         self.send_response_header(clt_w, &hdr).await?;
                         allow_continue = false;
                     } else {
-                        return Err(ServerTaskError::UpstreamAppError(anyhow!(
-                            "too many 100-Continue response"
-                        )));
+                        return Err(ServerTaskError::invalid_upstream_100_continue_response());
                     }
                 }
                 103 => {

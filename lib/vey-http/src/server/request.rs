@@ -35,6 +35,7 @@ pub struct HttpProxyClientRequest {
     chunked_transfer: bool,
     has_transfer_encoding: bool,
     has_content_length: bool,
+    expect_100_continue: bool,
 }
 
 impl HttpProxyClientRequest {
@@ -55,6 +56,7 @@ impl HttpProxyClientRequest {
             chunked_transfer: false,
             has_transfer_encoding: false,
             has_content_length: false,
+            expect_100_continue: false,
         }
     }
 
@@ -79,6 +81,7 @@ impl HttpProxyClientRequest {
                     chunked_transfer: false,
                     has_transfer_encoding: false,
                     has_content_length: true,
+                    expect_100_continue: self.expect_100_continue,
                 }
             }
             None => {
@@ -109,6 +112,7 @@ impl HttpProxyClientRequest {
                     chunked_transfer: true,
                     has_transfer_encoding: true,
                     has_content_length: false,
+                    expect_100_continue: self.expect_100_continue,
                 }
             }
         }
@@ -133,6 +137,7 @@ impl HttpProxyClientRequest {
             chunked_transfer: false,
             has_transfer_encoding: false,
             has_content_length: false,
+            expect_100_continue: self.expect_100_continue,
         }
     }
 
@@ -159,6 +164,11 @@ impl HttpProxyClientRequest {
         } else {
             None
         }
+    }
+
+    #[inline]
+    pub fn expect_100_continue(&self) -> bool {
+        self.expect_100_continue
     }
 
     pub fn has_auth_info(&self) -> bool {
@@ -456,7 +466,9 @@ impl HttpProxyClientRequest {
                 self.has_content_length = true;
                 self.content_length = content_length;
             }
-            // ignore "expect"
+            "expect" => {
+                self.expect_100_continue = header.value.contains("100-continue");
+            }
             _ => {}
         }
 
