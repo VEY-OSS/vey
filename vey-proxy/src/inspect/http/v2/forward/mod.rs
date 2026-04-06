@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::time::Duration;
@@ -14,7 +15,10 @@ use h2::{Reason, RecvStream, StreamId};
 use http::{Method, Request, Response, StatusCode, Uri, Version};
 use tokio::time::Instant;
 
-use vey_h2::{H2StreamBodyTransferError, H2StreamFromChunkedTransferError, RequestExt};
+use vey_h2::{
+    H2ResponseHeaderReceiver, H2StreamBodyTransferError, H2StreamFromChunkedTransferError,
+    RequestExt,
+};
 use vey_icap_client::reqmod::h2::{
     H2RequestAdapter, HttpAdapterErrorResponse, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
@@ -120,6 +124,7 @@ pub(crate) struct H2ForwardTask<SC: ServerConfig> {
     ups_stream_id: Option<StreamId>,
     send_error_response: bool,
     http_notes: HttpForwardTaskNotes,
+    allow_continue: bool,
 }
 
 impl<SC> H2ForwardTask<SC>
@@ -132,12 +137,14 @@ where
         req: &Request<RecvStream>,
     ) -> Self {
         let http_notes = HttpForwardTaskNotes::new(req.method().clone(), req.uri().clone());
+        let allow_continue = req.expect_100_continue();
         H2ForwardTask {
             ctx,
             clt_stream_id,
             ups_stream_id: None,
             send_error_response: false,
             http_notes,
+            allow_continue,
         }
     }
 
@@ -148,27 +155,6 @@ where
                 self.http_notes.rsp_status = rsp_status;
             }
         }
-    }
-
-    fn reply_expectation_failed(
-        &mut self,
-        clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<(), H2StreamTransferError> {
-        let response = Response::builder()
-            .version(Version::HTTP_2)
-            .status(StatusCode::EXPECTATION_FAILED)
-            .body(())
-            .map_err(|_| {
-                H2StreamTransferError::InternalServerError(
-                    "failed to build expectation failed error response",
-                )
-            })?;
-        self.send_error_response = false;
-        let rsp_code = response.status().as_u16();
-        if clt_send_rsp.send_response(response, true).is_ok() {
-            self.http_notes.rsp_status = rsp_code;
-        }
-        Ok(())
     }
 
     pub(crate) async fn forward(
@@ -197,8 +183,6 @@ where
         if self.ctx.h2_interception().silent_drop_expect_header {
             // just drop the Expect header to avoid 100-continue response, which currently is not supported by h2
             parts.headers.remove(http::header::EXPECT);
-        } else if parts.headers.contains_key(http::header::EXPECT) {
-            return self.reply_expectation_failed(clt_send_rsp);
         }
 
         let ups_send_req = match tokio::time::timeout(
@@ -289,7 +273,13 @@ where
         let orig_req = ups_req.clone_header();
 
         match icap_adapter
-            .xfer(adaptation_state, ups_req, clt_body, ups_send_req)
+            .xfer(
+                adaptation_state,
+                ups_req,
+                clt_body,
+                ups_send_req,
+                clt_send_rsp,
+            )
             .await
         {
             Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp)) => {
@@ -405,16 +395,13 @@ where
         self.http_notes.mark_req_send_hdr();
         self.http_notes.mark_req_no_body();
 
-        // there shouldn't be 100 response in this case
-        let ups_rsp =
-            match tokio::time::timeout(self.ctx.h2_rsp_hdr_recv_timeout(), ups_rsp_fut).await {
-                Ok(Ok(d)) => {
-                    self.http_notes.mark_rsp_recv_hdr();
-                    d
-                }
-                Ok(Err(e)) => return Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
-                Err(_) => return Err(H2StreamTransferError::ResponseHeadRecvTimeout),
-            };
+        let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_rsp_fut);
+        let ups_rsp = tokio::time::timeout(
+            self.ctx.h2_rsp_hdr_recv_timeout(),
+            self.recv_final_response(&mut ups_recv_rsp, clt_send_rsp),
+        )
+        .await
+        .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)??;
 
         self.send_response(orig_req, ups_rsp, clt_send_rsp, None)
             .await
@@ -429,7 +416,7 @@ where
     ) -> Result<(), H2StreamTransferError> {
         let orig_req = ups_req.clone_header();
 
-        let (mut ups_rsp_fut, ups_send_stream) = ups_send_req
+        let (ups_rsp_fut, ups_send_stream) = ups_send_req
             .send_request(ups_req, false)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?; // do not send REFUSED_STREAM, use the default rst in h2
         self.ups_stream_id = Some(ups_rsp_fut.stream_id());
@@ -445,6 +432,7 @@ where
         let mut idle_count = 0;
 
         let mut ups_rsp: Option<Response<RecvStream>> = None;
+        let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_rsp_fut);
 
         loop {
             tokio::select! {
@@ -461,12 +449,13 @@ where
                         }
                     }
                 }
-                r = &mut ups_rsp_fut => {
+                r = ups_recv_rsp.recv_header() => {
                     match r {
                         Ok(rsp) => {
-                            self.http_notes.mark_rsp_recv_hdr();
-                            ups_rsp = Some(rsp);
-                            break;
+                            if let Some(final_rsp) = self.check_out_final_response(rsp, clt_send_rsp, &mut ups_recv_rsp)? {
+                                ups_rsp = Some(final_rsp);
+                                break;
+                            }
                         }
                         Err(e) => {
                             return Err(H2StreamTransferError::ResponseHeadRecvFailed(e));
@@ -501,19 +490,71 @@ where
             self.send_response(orig_req, ups_rsp, clt_send_rsp, None)
                 .await
         } else {
-            let ups_rsp =
-                match tokio::time::timeout(self.ctx.h2_rsp_hdr_recv_timeout(), ups_rsp_fut).await {
-                    Ok(Ok(d)) => {
-                        self.http_notes.mark_rsp_recv_hdr();
-                        d
-                    }
-                    Ok(Err(e)) => return Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
-                    Err(_) => return Err(H2StreamTransferError::ResponseHeadRecvTimeout),
-                };
+            let ups_rsp = tokio::time::timeout(
+                self.ctx.h2_rsp_hdr_recv_timeout(),
+                self.recv_final_response(&mut ups_recv_rsp, clt_send_rsp),
+            )
+            .await
+            .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)??;
 
             self.send_response(orig_req, ups_rsp, clt_send_rsp, None)
                 .await
         }
+    }
+
+    async fn recv_final_response(
+        &mut self,
+        ups_recv_rsp: &mut H2ResponseHeaderReceiver,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<Response<RecvStream>, H2StreamTransferError> {
+        loop {
+            let rsp = ups_recv_rsp
+                .recv_header()
+                .await
+                .map_err(H2StreamTransferError::ResponseHeadRecvFailed)?;
+            if let Some(final_rsp) =
+                self.check_out_final_response(rsp, clt_send_rsp, ups_recv_rsp)?
+            {
+                return Ok(final_rsp);
+            }
+        }
+    }
+
+    fn check_out_final_response(
+        &mut self,
+        rsp: Response<()>,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        ups_recv_rsp: &mut H2ResponseHeaderReceiver,
+    ) -> Result<Option<Response<RecvStream>>, H2StreamTransferError> {
+        match rsp.status() {
+            StatusCode::CONTINUE => {
+                if self.allow_continue {
+                    clt_send_rsp
+                        .send_informational(rsp)
+                        .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+                    self.allow_continue = false;
+                } else {
+                    return Err(H2StreamTransferError::InvalidContinueResponse);
+                }
+            }
+            StatusCode::EARLY_HINTS => {
+                clt_send_rsp
+                    .send_informational(rsp)
+                    .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            }
+            status => {
+                self.http_notes.mark_rsp_recv_hdr();
+                return if let Some(body) = ups_recv_rsp.take_body() {
+                    let (headers, _) = rsp.into_parts();
+                    Ok(Some(Response::from_parts(headers, body)))
+                } else {
+                    Err(H2StreamTransferError::UnsupportedInformationalResponse(
+                        status,
+                    ))
+                };
+            }
+        }
+        Ok(None)
     }
 
     async fn send_response(
@@ -525,7 +566,6 @@ where
     ) -> Result<(), H2StreamTransferError> {
         let (parts, ups_body) = ups_rsp.into_parts();
         let clt_rsp = Response::from_parts(parts, ());
-
         self.http_notes.origin_status = clt_rsp.status().as_u16();
 
         if let Some(respmod) = self.ctx.audit_handle.icap_respmod_client() {

@@ -1,12 +1,14 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::io::{IoSlice, Write};
 
 use bytes::{BufMut, Bytes};
 use h2::client::SendRequest;
+use h2::server::SendResponse;
 use http::Request;
 use tokio::io::AsyncWriteExt;
 
@@ -45,7 +47,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         mut self,
         state: &mut ReqmodAdaptationRunState,
         http_request: Request<()>,
-        ups_send_request: SendRequest<Bytes>,
+        ups_send_req: SendRequest<Bytes>,
+        clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
         let http_header = http_request.serialize_for_adapter();
         let icap_header = self.build_header_only_request(http_header.len(), &http_request);
@@ -81,7 +84,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     state,
                     rsp,
                     http_request,
-                    ups_send_request,
+                    ups_send_req,
+                    clt_send_rsp,
                 )
                 .await
             }
@@ -96,7 +100,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                         rsp,
                         header_size,
                         http_request,
-                        ups_send_request,
+                        ups_send_req,
+                        clt_send_rsp,
                     )
                     .await
                 }
@@ -106,7 +111,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                         rsp,
                         header_size,
                         http_request,
-                        ups_send_request,
+                        ups_send_req,
+                        clt_send_rsp,
                     )
                     .await
                 }

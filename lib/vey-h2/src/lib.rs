@@ -8,3 +8,6 @@ pub use body::*;
 
 mod ext;
 pub use ext::{RequestExt, ResponseExt};
+
+mod client;
+pub use client::H2ResponseHeaderReceiver;

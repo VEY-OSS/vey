@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::io;
@@ -83,6 +84,10 @@ pub(crate) enum H2StreamTransferError {
     ResponseHeadRecvFailed(h2::Error),
     #[error("timeout to recv response head")]
     ResponseHeadRecvTimeout,
+    #[error("invalid 100-continue response")]
+    InvalidContinueResponse,
+    #[error("unsupported informational response {0}")]
+    UnsupportedInformationalResponse(StatusCode),
     #[error("failed to send response head: {0}")]
     ResponseHeadSendFailed(h2::Error),
     #[error("failed to transfer request body: {0}")]
@@ -117,6 +122,8 @@ impl H2StreamTransferError {
             H2StreamTransferError::InvalidHostHeader => StatusCode::BAD_REQUEST,
             H2StreamTransferError::ResponseHeadRecvFailed(_) => StatusCode::BAD_GATEWAY,
             H2StreamTransferError::ResponseHeadRecvTimeout => StatusCode::GATEWAY_TIMEOUT,
+            H2StreamTransferError::InvalidContinueResponse => StatusCode::BAD_GATEWAY,
+            H2StreamTransferError::UnsupportedInformationalResponse(_) => StatusCode::BAD_GATEWAY,
             _ => return None,
         };
         let rsp = Response::builder()
@@ -170,6 +177,15 @@ impl From<H2ReqmodAdaptationError> for H2StreamTransferError {
             }
             H2ReqmodAdaptationError::HttpUpstreamRecvResponseTimeout => {
                 H2StreamTransferError::ResponseHeadRecvTimeout
+            }
+            H2ReqmodAdaptationError::InvalidUpstreamContinueResponse => {
+                H2StreamTransferError::InvalidContinueResponse
+            }
+            H2ReqmodAdaptationError::UnsupportedInformationalResponse(status) => {
+                H2StreamTransferError::UnsupportedInformationalResponse(status)
+            }
+            H2ReqmodAdaptationError::HttpClientSendResponseFailed(e) => {
+                H2StreamTransferError::ResponseHeadSendFailed(e)
             }
             e => H2StreamTransferError::InternalAdapterError(anyhow!("reqmod: {e}")),
         }

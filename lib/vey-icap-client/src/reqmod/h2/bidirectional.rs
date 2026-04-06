@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::sync::Arc;
@@ -8,16 +9,17 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use h2::client::SendRequest;
-use http::Request;
+use h2::server::SendResponse;
+use http::{Request, Response};
 
 use vey_h2::{
-    H2StreamFromChunkedTransfer, H2StreamFromChunkedTransferError, H2StreamToChunkedTransfer,
-    H2StreamToChunkedTransferError, RequestExt,
+    H2ResponseHeaderReceiver, H2StreamFromChunkedTransfer, H2StreamFromChunkedTransferError,
+    H2StreamToChunkedTransfer, H2StreamToChunkedTransferError, RequestExt,
 };
 use vey_http::server::HttpAdaptedRequest;
 use vey_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopyConfig};
 
-use super::recv_request::recv_ups_response_head_after_transfer;
+use super::recv_request::{check_out_final_response, recv_ups_response_head_after_transfer};
 use super::{H2ReqmodAdaptationError, ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use crate::reqmod::response::ReqmodResponse;
 use crate::{IcapClientReader, IcapClientWriter, IcapServiceClient};
@@ -110,7 +112,9 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
         state: &mut ReqmodAdaptationRunState,
         mut clt_body_transfer: &mut H2StreamToChunkedTransfer<'_, IcapClientWriter>,
         orig_http_request: Request<()>,
-        mut ups_send_request: SendRequest<Bytes>,
+        mut ups_send_req: SendRequest<Bytes>,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        mut allow_continue: bool,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
         let http_req = HttpAdaptedRequest::parse(
             self.icap_reader,
@@ -120,7 +124,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
         .await?;
 
         let final_req = orig_http_request.adapt_to(&http_req);
-        let (mut ups_recv_rsp, mut ups_send_stream) = ups_send_request
+        let (rsp_fut, mut ups_send_stream) = ups_send_req
             .send_request(final_req, false)
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendHeadFailed)?;
         state.mark_ups_send_header();
@@ -133,22 +137,34 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
             self.http_trailer_max_size,
         );
 
+        let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(rsp_fut);
+
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
             tokio::select! {
-                r = &mut ups_recv_rsp => {
-                    return match r {
+                r = ups_recv_rsp.recv_header() => {
+                     match r {
                         Ok(ups_rsp) => {
-                            state.mark_ups_recv_header();
-                            if ups_body_transfer.finished() {
-                                self.icap_read_finished = true;
+                            if let Some(final_rsp) = check_out_final_response(ups_rsp, clt_send_rsp, &mut allow_continue)? {
+                                state.mark_ups_recv_header();
+                                return if let Some(body) = ups_recv_rsp.take_body() {
+                                    let (headers, _) = final_rsp.into_parts();
+                                    if ups_body_transfer.finished() {
+                                        self.icap_read_finished = true;
+                                    }
+                                    let ups_rsp = Response::from_parts(headers, body);
+                                    Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
+                                } else {
+                                    Err(H2ReqmodAdaptationError::UnsupportedInformationalResponse(
+                                        final_rsp.status(),
+                                    ))
+                                };
                             }
-                            Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
                         }
-                        Err(e) => Err(H2ReqmodAdaptationError::HttpUpstreamRecvResponseFailed(e)),
-                    };
+                        Err(e) => return Err(H2ReqmodAdaptationError::HttpUpstreamRecvResponseFailed(e)),
+                    }
                 }
                 r = &mut clt_body_transfer => {
                     return match r {
@@ -157,7 +173,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                                 Ok(_) => {
                                     state.mark_ups_send_all();
                                     self.icap_read_finished = true;
-                                    let ups_rsp = recv_ups_response_head_after_transfer(ups_recv_rsp, self.http_rsp_head_recv_timeout).await?;
+                                    let ups_rsp = recv_ups_response_head_after_transfer(&mut ups_recv_rsp, clt_send_rsp, allow_continue, self.http_rsp_head_recv_timeout).await?;
                                     Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
                                 }
                                 Err(H2StreamFromChunkedTransferError::ReadError(e)) => Err(H2ReqmodAdaptationError::IcapServerReadFailed(e)),
@@ -176,7 +192,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                         Ok(_) => {
                             state.mark_ups_send_all();
                             self.icap_read_finished = true;
-                            let ups_rsp = recv_ups_response_head_after_transfer(ups_recv_rsp, self.http_rsp_head_recv_timeout).await?;
+                            let ups_rsp = recv_ups_response_head_after_transfer(&mut ups_recv_rsp, clt_send_rsp, allow_continue, self.http_rsp_head_recv_timeout).await?;
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
                         }
                         Err(H2StreamFromChunkedTransferError::ReadError(e)) => Err(H2ReqmodAdaptationError::IcapServerReadFailed(e)),

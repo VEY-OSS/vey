@@ -7,7 +7,7 @@ use std::io::Write;
 
 use bytes::BufMut;
 use http::uri::Authority;
-use http::{HeaderMap, Method, Request, Uri};
+use http::{HeaderMap, Method, Request, Uri, header};
 
 use vey_http::server::HttpAdaptedRequest;
 
@@ -15,6 +15,7 @@ pub trait RequestExt {
     fn serialize_for_adapter(&self) -> Vec<u8>;
     fn adapt_to(self, other: &HttpAdaptedRequest) -> Self;
     fn clone_header(&self) -> Request<()>;
+    fn expect_100_continue(&self) -> bool;
 }
 
 impl<T> RequestExt for Request<T> {
@@ -30,7 +31,7 @@ impl<T> RequestExt for Request<T> {
             let _ = write!(buf, "{method} / HTTP/1.1\r\n");
         }
         for (name, value) in self.headers() {
-            if matches!(name, &http::header::TE) {
+            if matches!(name, &header::TE) {
                 // skip hop-by-hop headers
                 continue;
             }
@@ -39,7 +40,7 @@ impl<T> RequestExt for Request<T> {
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
         }
-        if !self.headers().contains_key(http::header::HOST)
+        if !self.headers().contains_key(header::HOST)
             && let Some(host) = uri.host()
         {
             buf.put_slice(b"Host: ");
@@ -53,19 +54,19 @@ impl<T> RequestExt for Request<T> {
     fn adapt_to(self, other: &HttpAdaptedRequest) -> Self {
         let mut headers = HeaderMap::from(&other.headers);
         // add hop-by-hop headers
-        if let Some(v) = self.headers().get(http::header::TE) {
-            headers.insert(http::header::TE, v.into());
+        if let Some(v) = self.headers().get(header::TE) {
+            headers.insert(header::TE, v.into());
         }
         let (mut parts, body) = self.into_parts();
         parts.method = other.method.clone();
         let mut uri_parts = other.uri.clone().into_parts();
         uri_parts.scheme = parts.uri.scheme().cloned();
         uri_parts.authority = parts.uri.authority().cloned();
-        if let Some(host) = headers.remove(http::header::HOST) {
+        if let Some(host) = headers.remove(header::HOST) {
             // we should always remove the Host header to be compatible with Google,
             // but let's keep the same as client behaviour here
-            if parts.headers.contains_key(http::header::HOST) {
-                headers.insert(http::header::HOST, host.clone());
+            if parts.headers.contains_key(header::HOST) {
+                headers.insert(header::HOST, host.clone());
             }
             if uri_parts.authority.is_none()
                 && let Ok(authority) = Authority::from_maybe_shared(host.clone())
@@ -89,5 +90,15 @@ impl<T> RequestExt for Request<T> {
         parts.version = self.version();
         parts.headers = self.headers().clone();
         Request::from_parts(parts, ())
+    }
+
+    fn expect_100_continue(&self) -> bool {
+        for v in self.headers().get_all(header::EXPECT) {
+            if v.as_bytes() == b"100-continue" {
+                return true;
+            }
+        }
+
+        false
     }
 }

@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::io::{IoSlice, Write};
@@ -8,6 +9,7 @@ use std::io::{IoSlice, Write};
 use bytes::{BufMut, Bytes};
 use h2::RecvStream;
 use h2::client::SendRequest;
+use h2::server::SendResponse;
 use http::Request;
 use tokio::io::AsyncWriteExt;
 
@@ -41,7 +43,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         state: &mut ReqmodAdaptationRunState,
         http_request: Request<()>,
         mut clt_body: RecvStream,
-        ups_send_request: SendRequest<Bytes>,
+        ups_send_req: SendRequest<Bytes>,
+        clt_send_rsp: &mut SendResponse<Bytes>,
         max_preview_size: usize,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
         let mut preview_data = H2PreviewData::new(max_preview_size);
@@ -56,7 +59,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     http_request,
                     preview_data,
                     clt_body,
-                    ups_send_request,
+                    ups_send_req,
+                    clt_send_rsp,
                 )
                 .await;
         }
@@ -150,7 +154,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                             rsp,
                             header_size,
                             http_request,
-                            ups_send_request,
+                            ups_send_req,
+                            clt_send_rsp,
                         )
                         .await
                     }
@@ -162,7 +167,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                                 rsp,
                                 header_size,
                                 http_request,
-                                ups_send_request,
+                                ups_send_req,
+                                clt_send_rsp,
                             )
                             .await
                         } else {
@@ -178,7 +184,14 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                                 icap_read_finished: false,
                             };
                             let r = bidirectional_transfer
-                                .transfer(state, &mut body_transfer, http_request, ups_send_request)
+                                .transfer(
+                                    state,
+                                    &mut body_transfer,
+                                    http_request,
+                                    ups_send_req,
+                                    clt_send_rsp,
+                                    self.allow_continue,
+                                )
                                 .await?;
 
                             let icap_read_finished = bidirectional_transfer.icap_read_finished;
@@ -225,7 +238,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     http_request,
                     preview_data,
                     clt_body,
-                    ups_send_request,
+                    ups_send_req,
+                    clt_send_rsp,
                 )
                 .await
             }
@@ -244,7 +258,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                             rsp,
                             header_size,
                             http_request,
-                            ups_send_request,
+                            ups_send_req,
+                            clt_send_rsp,
                         )
                         .await
                     }
@@ -254,7 +269,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                             rsp,
                             header_size,
                             http_request,
-                            ups_send_request,
+                            ups_send_req,
+                            clt_send_rsp,
                         )
                         .await
                     }

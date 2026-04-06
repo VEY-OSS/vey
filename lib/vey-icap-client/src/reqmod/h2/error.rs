@@ -1,10 +1,12 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::io;
 
+use http::StatusCode;
 use thiserror::Error;
 
 use vey_h2::H2PreviewError;
@@ -47,6 +49,12 @@ pub enum H2ReqmodAdaptationError {
     HttpUpstreamRecvResponseFailed(h2::Error),
     #[error("recv response from http upstream timeout")]
     HttpUpstreamRecvResponseTimeout,
+    #[error("invalid http upstream 100-continue response")]
+    InvalidUpstreamContinueResponse,
+    #[error("unsupported http upstream informational response {0}")]
+    UnsupportedInformationalResponse(StatusCode),
+    #[error("send response to client failed: {0}")]
+    HttpClientSendResponseFailed(h2::Error),
     #[error("internal server error: {0}")]
     InternalServerError(&'static str),
     #[error("force quit from idle checker: {0:?}")]

@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::net::SocketAddr;
@@ -11,11 +12,12 @@ use arcstr::ArcStr;
 use bytes::{BufMut, Bytes};
 use h2::client::SendRequest;
 use h2::ext::Protocol;
+use h2::server::SendResponse;
 use h2::{RecvStream, SendStream};
 use http::{Extensions, Request, Response};
 use tokio::time::Instant;
 
-use vey_h2::H2StreamFromChunkedTransfer;
+use vey_h2::{H2StreamFromChunkedTransfer, RequestExt};
 use vey_http::server::HttpAdaptedRequest;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
 use vey_types::net::HttpHeaderMap;
@@ -63,6 +65,7 @@ impl IcapReqmodClient {
             idle_checker,
             client_addr: None,
             client_username: None,
+            allow_continue: false,
         })
     }
 }
@@ -79,6 +82,7 @@ pub struct H2RequestAdapter<I: IdleCheck> {
     idle_checker: I,
     client_addr: Option<SocketAddr>,
     client_username: Option<ArcStr>,
+    allow_continue: bool,
 }
 
 pub struct ReqmodAdaptationRunState {
@@ -155,26 +159,29 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
     }
 
     pub async fn xfer(
-        self,
+        mut self,
         state: &mut ReqmodAdaptationRunState,
         http_request: Request<()>,
         clt_body: RecvStream,
-        ups_send_request: SendRequest<Bytes>,
+        ups_send_req: SendRequest<Bytes>,
+        clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
+        self.allow_continue = http_request.expect_100_continue();
         if clt_body.is_end_stream() {
-            self.xfer_without_body(state, http_request, ups_send_request)
+            self.xfer_without_body(state, http_request, ups_send_req, clt_send_rsp)
                 .await
         } else if let Some(preview_size) = self.preview_size() {
             self.xfer_with_preview(
                 state,
                 http_request,
                 clt_body,
-                ups_send_request,
+                ups_send_req,
+                clt_send_rsp,
                 preview_size,
             )
             .await
         } else {
-            self.xfer_without_preview(state, http_request, clt_body, ups_send_request)
+            self.xfer_without_preview(state, http_request, clt_body, ups_send_req, clt_send_rsp)
                 .await
         }
     }
