@@ -1000,8 +1000,7 @@ checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 [[package]]
 name = "h2"
 version = "0.4.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f44da3a8150a6703ed5d34e164b875fd14c2cdab9af1252a9a1020bde2bdc54"
+source = "git+https://github.com/zh-jq/h2.git?branch=poll-informational#a5c966dcb26e0a3507a747aacecd6ee914ad3ae5"
 dependencies = [
  "atomic-waker",
  "bytes",

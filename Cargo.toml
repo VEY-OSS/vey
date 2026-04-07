@@ -260,3 +260,6 @@ panic = "abort"
 codegen-units = 1
 strip = true
 lto = true
+
+[patch.crates-io]
+h2 = { version = "0.4.13", git = "https://github.com/zh-jq/h2.git", branch = "poll-informational" }
