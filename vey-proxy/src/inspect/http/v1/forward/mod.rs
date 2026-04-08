@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::time::Duration;
@@ -121,12 +122,14 @@ pub(super) struct H1ForwardTask<'a, SC: ServerConfig> {
     send_error_response: bool,
     should_close: bool,
     http_notes: HttpForwardTaskNotes,
+    allow_continue: bool,
 }
 
 impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
     pub(super) fn new(ctx: StreamInspectContext<SC>, req: &'a HttpRequest, req_id: usize) -> Self {
         let http_notes = HttpForwardTaskNotes::new(req.datetime_received, req.time_received);
         let should_close = !req.inner.keep_alive();
+        let allow_continue = req.inner.expect_100_continue();
         H1ForwardTask {
             ctx,
             req: &req.inner,
@@ -134,6 +137,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             send_error_response: true,
             should_close,
             http_notes,
+            allow_continue,
         }
     }
 
@@ -306,7 +310,6 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             )
             .boxed();
 
-        let mut allow_continue = self.req.expect_100_continue();
         let mut rsp_head: Option<(HttpTransparentResponse, Bytes)> = None;
         loop {
             tokio::select! {
@@ -316,25 +319,10 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     match r {
                         Ok(true) => {
                             // we got some data from upstream
-                            let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
-                            match rsp.code {
-                                100 => {
-                                    // CONTINUE
-                                    if allow_continue {
-                                        self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-                                        allow_continue = false;
-                                    } else {
-                                        return Err(ServerTaskError::invalid_upstream_100_continue_response());
-                                    }
-                                }
-                                103 => {
-                                    // Early Hints
-                                    self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-                                }
-                                _ => {
-                                    rsp_head = Some((rsp, bytes));
-                                    break;
-                                }
+                            let (hdr, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
+                            if let Some(v) = self.check_out_final_response(hdr, bytes, &mut rsp_io.clt_w).await? {
+                                rsp_head = Some(v);
+                                break;
                             }
                         }
                         Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
@@ -371,7 +359,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             None => {
                 match tokio::time::timeout(
                     self.ctx.h1_rsp_hdr_recv_timeout(),
-                    self.recv_final_response_header(rsp_io, allow_continue),
+                    self.recv_final_response_header(rsp_io),
                 )
                 .await
                 {
@@ -468,7 +456,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
         match tokio::time::timeout(
             self.ctx.h1_rsp_hdr_recv_timeout(),
-            self.recv_final_response_header(rsp_io, self.req.expect_100_continue()),
+            self.recv_final_response_header(rsp_io),
         )
         .await
         {
@@ -510,7 +498,6 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut idle_count = 0;
 
-        let mut allow_continue = self.req.expect_100_continue();
         loop {
             tokio::select! {
                 biased;
@@ -519,25 +506,10 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     match r {
                         Ok(true) => {
                             // we got some data from upstream
-                            let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
-                            match rsp.code {
-                                100 => {
-                                    // CONTINUE
-                                    if allow_continue {
-                                        self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-                                        allow_continue = false;
-                                    } else {
-                                        return Err(ServerTaskError::invalid_upstream_100_continue_response());
-                                    }
-                                }
-                                103 => {
-                                    // Early Hints
-                                    self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-                                }
-                                _ => {
-                                    rsp_head = Some((rsp, bytes));
-                                    break;
-                                }
+                            let (hdr, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
+                            if let Some(v) = self.check_out_final_response(hdr, bytes, &mut rsp_io.clt_w).await? {
+                                rsp_head = Some(v);
+                                break;
                             }
                         }
                         Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
@@ -594,7 +566,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             None => {
                 match tokio::time::timeout(
                     self.ctx.h1_rsp_hdr_recv_timeout(),
-                    self.recv_final_response_header(rsp_io, allow_continue),
+                    self.recv_final_response_header(rsp_io),
                 )
                 .await
                 {
@@ -635,7 +607,6 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
     async fn recv_final_response_header<CW, UR, UW>(
         &mut self,
         rsp_io: &mut HttpResponseIo<CW, UR, UW>,
-        mut allow_continue: bool,
     ) -> ServerTaskResult<(HttpTransparentResponse, Bytes)>
     where
         UR: AsyncRead + Unpin,
@@ -643,26 +614,44 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         UW: AsyncWrite + Unpin,
     {
         loop {
-            let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
-            match rsp.code {
-                100 => {
-                    // HTTP CONTINUE
-                    if allow_continue {
-                        self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-                        allow_continue = false;
-                    } else {
-                        return Err(ServerTaskError::invalid_upstream_100_continue_response());
-                    }
-                }
-                103 => {
-                    // HTTP Early Hints
-                    self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-                }
-                _ => {
-                    return Ok((rsp, bytes));
-                }
+            let (hdr, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
+            if let Some(v) = self
+                .check_out_final_response(hdr, bytes, &mut rsp_io.clt_w)
+                .await?
+            {
+                return Ok(v);
             }
         }
+    }
+
+    async fn check_out_final_response<CW>(
+        &mut self,
+        hdr: HttpTransparentResponse,
+        bytes: Bytes,
+        clt_w: &mut CW,
+    ) -> ServerTaskResult<Option<(HttpTransparentResponse, Bytes)>>
+    where
+        CW: AsyncWrite + Unpin,
+    {
+        match hdr.code {
+            100 => {
+                // HTTP CONTINUE
+                if self.allow_continue {
+                    self.send_response_header(clt_w, bytes).await?;
+                    self.allow_continue = false;
+                } else {
+                    return Err(ServerTaskError::invalid_upstream_100_continue_response());
+                }
+            }
+            103 => {
+                // HTTP Early Hints
+                self.send_response_header(clt_w, bytes).await?;
+            }
+            _ => {
+                return Ok(Some((hdr, bytes)));
+            }
+        }
+        Ok(None)
     }
 
     async fn send_response<CW, UR, UW>(

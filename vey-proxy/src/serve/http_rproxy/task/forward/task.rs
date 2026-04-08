@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::borrow::Cow;
@@ -48,6 +49,7 @@ pub(crate) struct HttpRProxyForwardTask<'a> {
     req: &'a HttpProxyClientRequest,
     is_https: bool,
     should_close: bool,
+    allow_continue: bool,
     send_error_response: bool,
     task_notes: ServerTaskNotes,
     http_notes: HttpForwardTaskNotes,
@@ -96,6 +98,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             req: &req.inner,
             is_https,
             should_close: !req.inner.keep_alive(),
+            allow_continue: req.inner.expect_100_continue(),
             send_error_response: true,
             task_notes,
             http_notes,
@@ -788,7 +791,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
 
         let mut rsp_header = match tokio::time::timeout(
             self.ctx.server_config.timeout.recv_rsp_header,
-            self.recv_final_response_header(ups_r, clt_w, self.req.expect_100_continue()),
+            self.recv_final_response_header(ups_r, clt_w),
         )
         .await
         {
@@ -848,7 +851,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
 
         match tokio::time::timeout(
             self.ctx.server_config.timeout.recv_rsp_header,
-            self.recv_final_response_header(ups_r, clt_w, self.req.expect_100_continue()),
+            self.recv_final_response_header(ups_r, clt_w),
         )
         .await
         {
@@ -958,7 +961,6 @@ impl<'a> HttpRProxyForwardTask<'a> {
 
         let mut rsp_header: Option<HttpForwardRemoteResponse> = None;
 
-        let mut allow_continue = self.req.expect_100_continue();
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
@@ -971,24 +973,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
                         Ok(true) => {
                             // we got some data from upstream
                             let hdr = self.recv_response_header(ups_r).await?;
-                            match hdr.code {
-                                100 => {
-                                    // CONTINUE
-                                    if allow_continue {
-                                        self.send_response_header(clt_w, &hdr).await?;
-                                        allow_continue = false;
-                                    } else {
-                                        return Err(ServerTaskError::invalid_upstream_100_continue_response());
-                                    }
-                                }
-                                103 => {
-                                    // Early Hints
-                                    self.send_response_header(clt_w, &hdr).await?;
-                                }
-                                _ => {
-                                    rsp_header = Some(hdr);
-                                    break;
-                                }
+                            if let Some(final_hdr) = self.check_out_final_response(hdr, clt_w).await? {
+                                rsp_header = Some(final_hdr);
+                                break;
                             }
                         }
                         Ok(false) => {
@@ -1074,7 +1061,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             None => {
                 match tokio::time::timeout(
                     self.ctx.server_config.timeout.recv_rsp_header,
-                    self.recv_final_response_header(ups_r, clt_w, allow_continue),
+                    self.recv_final_response_header(ups_r, clt_w),
                 )
                 .await
                 {
@@ -1106,32 +1093,45 @@ impl<'a> HttpRProxyForwardTask<'a> {
         &mut self,
         ups_r: &mut BoxHttpForwardReader,
         clt_w: &mut W,
-        mut allow_continue: bool,
     ) -> ServerTaskResult<HttpForwardRemoteResponse>
     where
         W: AsyncWrite + Unpin,
     {
         loop {
             let hdr = self.recv_response_header(ups_r).await?;
-            match hdr.code {
-                100 => {
-                    // HTTP CONTINUE
-                    if allow_continue {
-                        self.send_response_header(clt_w, &hdr).await?;
-                        allow_continue = false;
-                    } else {
-                        return Err(ServerTaskError::invalid_upstream_100_continue_response());
-                    }
-                }
-                103 => {
-                    // HTTP Early Hints
-                    self.send_response_header(clt_w, &hdr).await?;
-                }
-                _ => {
-                    return Ok(hdr);
-                }
+            if let Some(final_hdr) = self.check_out_final_response(hdr, clt_w).await? {
+                return Ok(final_hdr);
             }
         }
+    }
+
+    async fn check_out_final_response<W>(
+        &mut self,
+        hdr: HttpForwardRemoteResponse,
+        clt_w: &mut W,
+    ) -> ServerTaskResult<Option<HttpForwardRemoteResponse>>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        match hdr.code {
+            100 => {
+                // HTTP CONTINUE
+                if self.allow_continue {
+                    self.send_response_header(clt_w, &hdr).await?;
+                    self.allow_continue = false;
+                } else {
+                    return Err(ServerTaskError::invalid_upstream_100_continue_response());
+                }
+            }
+            103 => {
+                // HTTP Early Hints
+                self.send_response_header(clt_w, &hdr).await?;
+            }
+            _ => {
+                return Ok(Some(hdr));
+            }
+        }
+        Ok(None)
     }
 
     async fn recv_response_header(

@@ -455,7 +455,7 @@ impl HttpTransparentRequest {
                 }
             }
             "expect" => {
-                self.expect_100_continue = header.value.contains("100-continue");
+                self.expect_100_continue = header.value == "100-continue";
             }
             _ => {}
         }
