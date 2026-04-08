@@ -179,11 +179,7 @@ where
         clt_send_rsp: &mut SendResponse<Bytes>,
         h2s: SendRequest<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
-        let (mut parts, clt_body) = clt_req.into_parts();
-        if self.ctx.h2_interception().silent_drop_expect_header {
-            // just drop the Expect header to avoid 100-continue response, which currently is not supported by h2
-            parts.headers.remove(http::header::EXPECT);
-        }
+        let (parts, clt_body) = clt_req.into_parts();
 
         let ups_send_req = match tokio::time::timeout(
             self.ctx.h2_interception().upstream_stream_open_timeout,

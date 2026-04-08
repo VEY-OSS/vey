@@ -929,13 +929,6 @@ The keys are:
 
   **default**: 60s
 
-* silent_drop_expect_header
-
-  **optional**, **type**: bool
-
-  Set if we should drop the *Expect* http header silently.
-  If not set, a *417 Expectation Failed* response will be sent to client.
-
 .. _conf_value_dpi_smtp_interception:
 
 smtp interception

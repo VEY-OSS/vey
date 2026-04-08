@@ -4,6 +4,7 @@
  */
 
 use anyhow::{Context, anyhow};
+use log::warn;
 use yaml_rust::Yaml;
 
 use vey_dpi::{H1InterceptionConfig, H2InterceptionConfig};
@@ -125,7 +126,7 @@ pub fn as_h2_interception_config(value: &Yaml) -> anyhow::Result<H2InterceptionC
                 Ok(())
             }
             "silent_drop_expect_header" => {
-                config.silent_drop_expect_header = crate::value::as_bool(v)?;
+                warn!("deprecated config key {k}, it will be ignored");
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

@@ -16,6 +16,7 @@ ascii.workspace = true
 chrono.workspace = true
 url.workspace = true
 rand.workspace = true
+log.workspace = true
 ip_network = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 rustls-pki-types = { workspace = true, optional = true, features = ["std"] }

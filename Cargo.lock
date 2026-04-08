@@ -3759,6 +3759,7 @@ dependencies = [
  "humanize-rs",
  "idna",
  "ip_network",
+ "log",
  "rand 0.10.0",
  "regex",
  "rustls-pki-types",
