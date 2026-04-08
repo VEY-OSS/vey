@@ -302,7 +302,6 @@ mod tests {
                 client_handshake_timeout: 4s
                 ping_interval: 60s
                 rsp_header_recv_timeout: 60s
-                silent_drop_expect_header: true
             "
         );
         let config = as_h2_interception_config(&yaml).unwrap();
@@ -317,7 +316,6 @@ mod tests {
         assert_eq!(config.client_handshake_timeout, Duration::from_secs(4));
         assert_eq!(config.ping_interval, Duration::from_secs(60));
         assert_eq!(config.rsp_head_recv_timeout, Duration::from_secs(60));
-        assert!(config.silent_drop_expect_header);
 
         // alias key (max_header_size)
         let yaml = yaml_doc!(
@@ -342,7 +340,6 @@ mod tests {
         assert_eq!(config.client_handshake_timeout, Duration::from_secs(4));
         assert_eq!(config.ping_interval, Duration::from_secs(60));
         assert_eq!(config.rsp_head_recv_timeout, Duration::from_secs(60));
-        assert!(!config.silent_drop_expect_header);
 
         // value clamping
         let yaml = yaml_doc!(
@@ -450,14 +447,6 @@ mod tests {
         let yaml = yaml_doc!(
             r"
                 rsp_header_recv_timeout: 10x
-            "
-        );
-        assert!(as_h2_interception_config(&yaml).is_err());
-
-        // invalid value for silent_drop_expect_header
-        let yaml = yaml_doc!(
-            r"
-                silent_drop_expect_header: not_bool
             "
         );
         assert!(as_h2_interception_config(&yaml).is_err());
