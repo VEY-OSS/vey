@@ -289,7 +289,8 @@ impl OpensslInterceptionClientConfigBuilder {
                     .read(out_buf)
                     .unwrap_or(0)
             })
-            .map_err(|e| anyhow!("failed to set brotli cert decompression algorithm: {e}"))?;
+            .map_err(|e| anyhow!("failed to add brotli cert decompression algorithm: {e}"))?;
+        // zlib and zstd is not used in chromium by default
 
         Ok(())
     }
