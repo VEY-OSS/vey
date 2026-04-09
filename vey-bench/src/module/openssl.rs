@@ -32,7 +32,7 @@ const TLS_ARG_PROTOCOL: &str = "tls-protocol";
 const TLS_ARG_VERSION_MIN: &str = "tls-version-min";
 const TLS_ARG_VERSION_MAX: &str = "tls-version-max";
 const TLS_ARG_CIPHERS: &str = "tls-ciphers";
-const TLS_ARG_SUPPORTED_GROUPS: &str = "tls-supported-groups";
+const TLS_ARG_KEY_EXCHANGE_GROUPS: &str = "tls-key-exchange-groups";
 const TLS_ARG_USE_OCSP_STAPLING: &str = "tls-use-ocsp-stapling";
 const TLS_ARG_ENABLE_SCT: &str = "tls-enable-sct";
 const TLS_ARG_ENABLE_GREASE: &str = "tls-enable-grease";
@@ -49,7 +49,7 @@ const PROXY_TLS_ARG_PROTOCOL: &str = "proxy-tls-protocol";
 const PROXY_TLS_ARG_VERSION_MIN: &str = "proxy-tls-version-min";
 const PROXY_TLS_ARG_VERSION_MAX: &str = "proxy-tls-version-max";
 const PROXY_TLS_ARG_CIPHERS: &str = "proxy-tls-ciphers";
-const PROXY_TLS_ARG_SUPPORTED_GROUPS: &str = "proxy-tls-supported-groups";
+const PROXY_TLS_ARG_KEY_EXCHANGE_GROUPS: &str = "proxy-tls-key-exchange-groups";
 const PROXY_TLS_ARG_USE_OCSP_STAPLING: &str = "proxy-tls-use-ocsp-stapling";
 const PROXY_TLS_ARG_ENABLE_SCT: &str = "proxy-tls-enable-sct";
 const PROXY_TLS_ARG_ENABLE_GREASE: &str = "proxy-tls-enable-grease";
@@ -231,13 +231,13 @@ impl OpensslTlsClientArgs {
         Ok(())
     }
 
-    fn parse_supported_groups(&mut self, args: &ArgMatches, id: &str) -> anyhow::Result<()> {
+    fn parse_key_exchange_groups(&mut self, args: &ArgMatches, id: &str) -> anyhow::Result<()> {
         let tls_config = self
             .config
             .as_mut()
             .ok_or_else(|| anyhow!("no tls config found"))?;
         if let Some(groups) = args.get_one::<String>(id) {
-            tls_config.set_supported_groups(groups.to_string());
+            tls_config.set_key_exchange_groups(groups.to_string());
         }
         Ok(())
     }
@@ -320,7 +320,7 @@ impl OpensslTlsClientArgs {
         self.parse_session_cache(args, TLS_ARG_SESSION_CACHE)?;
         self.parse_no_verify(args, TLS_ARG_NO_VERIFY);
         self.parse_no_sni(args, TLS_ARG_NO_SNI)?;
-        self.parse_supported_groups(args, TLS_ARG_SUPPORTED_GROUPS)?;
+        self.parse_key_exchange_groups(args, TLS_ARG_KEY_EXCHANGE_GROUPS)?;
         self.parse_use_ocsp_stapling(args, TLS_ARG_USE_OCSP_STAPLING)?;
         self.parse_enable_sct(args, TLS_ARG_ENABLE_SCT)?;
         self.parse_enable_grease(args, TLS_ARG_ENABLE_GREASE)?;
@@ -341,7 +341,7 @@ impl OpensslTlsClientArgs {
         self.parse_session_cache(args, PROXY_TLS_ARG_SESSION_CACHE)?;
         self.parse_no_verify(args, PROXY_TLS_ARG_NO_VERIFY);
         self.parse_no_sni(args, PROXY_TLS_ARG_NO_SNI)?;
-        self.parse_supported_groups(args, PROXY_TLS_ARG_SUPPORTED_GROUPS)?;
+        self.parse_key_exchange_groups(args, PROXY_TLS_ARG_KEY_EXCHANGE_GROUPS)?;
         self.parse_use_ocsp_stapling(args, PROXY_TLS_ARG_USE_OCSP_STAPLING)?;
         self.parse_enable_sct(args, PROXY_TLS_ARG_ENABLE_SCT)?;
         self.parse_enable_grease(args, PROXY_TLS_ARG_ENABLE_GREASE)?;
@@ -450,9 +450,9 @@ pub(crate) fn append_tls_args(cmd: Command) -> Command {
             .long(TLS_ARG_NO_SNI),
     )
     .arg(
-        Arg::new(TLS_ARG_SUPPORTED_GROUPS)
+        Arg::new(TLS_ARG_KEY_EXCHANGE_GROUPS)
             .help("Set the supported elliptic curve groups for target site")
-            .long(TLS_ARG_SUPPORTED_GROUPS)
+            .long(TLS_ARG_KEY_EXCHANGE_GROUPS)
             .num_args(1),
     )
     .arg(
@@ -573,9 +573,9 @@ pub(crate) fn append_proxy_tls_args(cmd: Command) -> Command {
             .long(PROXY_TLS_ARG_NO_SNI),
     )
     .arg(
-        Arg::new(PROXY_TLS_ARG_SUPPORTED_GROUPS)
+        Arg::new(PROXY_TLS_ARG_KEY_EXCHANGE_GROUPS)
             .help("Set the supported elliptic curve groups for proxy")
-            .long(PROXY_TLS_ARG_SUPPORTED_GROUPS)
+            .long(PROXY_TLS_ARG_KEY_EXCHANGE_GROUPS)
             .num_args(1),
     )
     .arg(

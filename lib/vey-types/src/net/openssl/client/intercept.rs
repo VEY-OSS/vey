@@ -91,7 +91,7 @@ pub struct OpensslInterceptionClientConfigBuilder {
     no_default_ca_certs: bool,
     handshake_timeout: Duration,
     session_cache: OpensslSessionCacheConfig,
-    supported_groups: String,
+    key_exchange_groups: String,
     use_ocsp_stapling: bool,
     #[cfg(not(libressl))]
     enable_sct: bool,
@@ -111,7 +111,7 @@ impl Default for OpensslInterceptionClientConfigBuilder {
             no_default_ca_certs: false,
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
             session_cache: OpensslSessionCacheConfig::new_for_many(),
-            supported_groups: String::default(),
+            key_exchange_groups: String::default(),
             use_ocsp_stapling: false,
             #[cfg(not(libressl))]
             enable_sct: false,
@@ -177,8 +177,8 @@ impl OpensslInterceptionClientConfigBuilder {
     }
 
     #[inline]
-    pub fn set_supported_groups(&mut self, groups: String) {
-        self.supported_groups = groups;
+    pub fn set_key_exchange_groups(&mut self, groups: String) {
+        self.key_exchange_groups = groups;
     }
 
     #[inline]
@@ -303,9 +303,9 @@ impl OpensslInterceptionClientConfigBuilder {
 
         self.build_set_tls_version(&mut ctx_builder)?;
 
-        if !self.supported_groups.is_empty() {
+        if !self.key_exchange_groups.is_empty() {
             ctx_builder
-                .set_groups_list(&self.supported_groups)
+                .set_groups_list(&self.key_exchange_groups)
                 .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
         }
 
@@ -349,9 +349,9 @@ impl OpensslInterceptionClientConfigBuilder {
 
         self.build_set_tls_version(&mut ctx_builder)?;
 
-        if !self.supported_groups.is_empty() {
+        if !self.key_exchange_groups.is_empty() {
             ctx_builder
-                .set_groups_list(&self.supported_groups)
+                .set_groups_list(&self.key_exchange_groups)
                 .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
         }
 
@@ -383,9 +383,9 @@ impl OpensslInterceptionClientConfigBuilder {
 
         self.build_set_tls_version(&mut ctx_builder)?;
 
-        if !self.supported_groups.is_empty() {
+        if !self.key_exchange_groups.is_empty() {
             ctx_builder
-                .set_groups_list(&self.supported_groups)
+                .set_groups_list(&self.key_exchange_groups)
                 .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
         }
 
@@ -424,9 +424,9 @@ impl OpensslInterceptionClientConfigBuilder {
 
         self.set_verify(&mut ctx_builder);
 
-        if !self.supported_groups.is_empty() {
+        if !self.key_exchange_groups.is_empty() {
             ctx_builder
-                .set_groups_list(&self.supported_groups)
+                .set_groups_list(&self.key_exchange_groups)
                 .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
         }
 

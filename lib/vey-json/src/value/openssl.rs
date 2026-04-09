@@ -267,9 +267,9 @@ fn set_openssl_tls_client_config_builder(
                         .context(format!("invalid usize value for key {k}"))?;
                     builder.set_session_cache_each_capacity(cap);
                 }
-                "supported_groups" => {
+                "key_exchange_groups" | "supported_groups" => {
                     let groups = crate::value::as_string(v)?;
-                    builder.set_supported_groups(groups);
+                    builder.set_key_exchange_groups(groups);
                 }
                 "use_ocsp_stapling" => {
                     let enable = crate::value::as_bool(v)?;
@@ -474,7 +474,7 @@ mod tests {
             "no_session_cache": true,
             "session_cache_lru_max_sites": 100,
             "session_cache_each_capacity": 10,
-            "supported_groups": "P-256",
+            "key_exchange_groups": "P-256",
             "use_ocsp_stapling": true,
             "enable_sct": true,
             "enable_grease": true,
@@ -501,7 +501,7 @@ mod tests {
         expected.set_no_session_cache();
         expected.set_session_cache_sites_count(100);
         expected.set_session_cache_each_capacity(10);
-        expected.set_supported_groups("P-256".to_string());
+        expected.set_key_exchange_groups("P-256".to_string());
         expected.set_use_ocsp_stapling(true);
         expected.set_enable_sct(true);
         expected.set_enable_grease(true);
@@ -551,7 +551,7 @@ mod tests {
             "use_builtin_session_cache": true,
             "session_cache_lru_max_sites": 50,
             "session_cache_each_cap": 20,
-            "supported_groups": "X25519:P-384",
+            "key_exchange_groups": "X25519:P-384",
             "use_ocsp_stapling": false,
             "enable_sct": false,
             "enable_grease": false,
@@ -588,7 +588,7 @@ mod tests {
         expected.set_use_builtin_session_cache();
         expected.set_session_cache_sites_count(50);
         expected.set_session_cache_each_capacity(20);
-        expected.set_supported_groups("X25519:P-384".to_string());
+        expected.set_key_exchange_groups("X25519:P-384".to_string());
         expected.set_use_ocsp_stapling(false);
         expected.set_enable_sct(false);
         expected.set_enable_grease(false);

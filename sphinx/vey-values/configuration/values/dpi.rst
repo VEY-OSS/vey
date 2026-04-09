@@ -614,11 +614,11 @@ The keys are:
 
   **default**: 16
 
-* supported_groups
+* key_exchange_groups | supported_groups
 
   **optional**, **type**: str
 
-  Set the supported elliptic curve groups.
+  Set the supported key exchange groups.
 
   **default**: not set
 

@@ -107,7 +107,7 @@ pub struct OpensslClientConfigBuilder {
     client_tlcp_cert_pair: Option<OpensslTlcpCertificatePair>,
     handshake_timeout: Duration,
     session_cache: OpensslSessionCacheConfig,
-    supported_groups: String,
+    key_exchange_groups: String,
     use_ocsp_stapling: bool,
     #[cfg(not(libressl))]
     enable_sct: bool,
@@ -132,7 +132,7 @@ impl Default for OpensslClientConfigBuilder {
             client_tlcp_cert_pair: None,
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
             session_cache: OpensslSessionCacheConfig::default(),
-            supported_groups: String::default(),
+            key_exchange_groups: String::default(),
             use_ocsp_stapling: false,
             #[cfg(not(libressl))]
             enable_sct: false,
@@ -257,8 +257,8 @@ impl OpensslClientConfigBuilder {
     }
 
     #[inline]
-    pub fn set_supported_groups(&mut self, groups: String) {
-        self.supported_groups = groups;
+    pub fn set_key_exchange_groups(&mut self, groups: String) {
+        self.key_exchange_groups = groups;
     }
 
     #[inline]
@@ -474,9 +474,9 @@ impl OpensslClientConfigBuilder {
             None => self.new_default_builder()?,
         };
 
-        if !self.supported_groups.is_empty() {
+        if !self.key_exchange_groups.is_empty() {
             ctx_builder
-                .set_groups_list(&self.supported_groups)
+                .set_groups_list(&self.key_exchange_groups)
                 .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
         }
 
