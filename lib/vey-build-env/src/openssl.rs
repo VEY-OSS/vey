@@ -37,7 +37,7 @@ pub fn check_openssl() {
 
     if env::var("DEP_OPENSSL_AWSLC_FIPS").is_ok() {
         println!("cargo:rustc-cfg=awslc");
-        println!("cargo:rustc-cfg=awslc_fips");
+        // println!("cargo:rustc-cfg=awslc_fips"); // awslc_fips is not needed now
         println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=AWS-LC-FIPS");
         return;
     }

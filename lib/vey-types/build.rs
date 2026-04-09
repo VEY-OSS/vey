@@ -26,6 +26,10 @@ fn gen_openssl_flags() {
     if env::var("DEP_OPENSSL_AWSLC").is_ok() {
         println!("cargo:rustc-cfg=awslc");
     }
+
+    if env::var("DEP_OPENSSL_AWSLC_FIPS").is_ok() {
+        println!("cargo:rustc-cfg=awslc");
+    }
 }
 
 fn main() {

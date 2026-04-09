@@ -25,6 +25,10 @@ fn main() {
         println!("cargo:rustc-cfg=awslc");
     }
 
+    if env::var("DEP_OPENSSL_AWSLC_FIPS").is_ok() {
+        println!("cargo:rustc-cfg=awslc");
+    }
+
     if let Ok(version) = env::var("DEP_OPENSSL_VERSION_NUMBER") {
         // this will require a dependency on openssl-sys crate
         let version = u64::from_str_radix(&version, 16).unwrap();
