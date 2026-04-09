@@ -106,7 +106,9 @@ impl UdpSocketExt for UdpSocket {
             let mut msghdr = unsafe { hdr.to_msghdr(control_buf) };
             loop {
                 ready!(self.poll_recv_ready(cx))?;
-                match self.try_io(Interest::READABLE, || recvmsg(self, &mut msghdr)) {
+                match self.try_io(Interest::READABLE | Interest::ERROR, || {
+                    recvmsg(self, &mut msghdr)
+                }) {
                     Ok(nr) => {
                         hdr.n_recv = nr;
                         control_buf.parse_msg(msghdr, hdr)?;
@@ -207,7 +209,7 @@ impl UdpSocketExt for UdpSocket {
         vey_io_sys::udp::with_recvmmsg_buf(hdr_v, |hdr_v, msgvec| {
             loop {
                 ready!(self.poll_recv_ready(cx))?;
-                match self.try_io(Interest::READABLE, || {
+                match self.try_io(Interest::READABLE | Interest::ERROR, || {
                     vey_io_sys::udp::recvmmsg(self, msgvec)
                 }) {
                     Ok(count) => {
@@ -247,7 +249,7 @@ impl UdpSocketExt for UdpSocket {
         vey_io_sys::udp::with_recvmsg_x_buf(hdr_v, |hdr_v, msgvec| {
             loop {
                 ready!(self.poll_recv_ready(cx))?;
-                match self.try_io(Interest::READABLE, || {
+                match self.try_io(Interest::READABLE | Interest::ERROR, || {
                     vey_io_sys::udp::recvmsg_x(self, msgvec)
                 }) {
                     Ok(count) => {
