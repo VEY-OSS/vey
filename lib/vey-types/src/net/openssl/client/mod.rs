@@ -519,7 +519,8 @@ impl OpensslClientConfigBuilder {
                     .read(out_buf)
                     .unwrap_or(0)
             })
-            .map_err(|e| anyhow!("failed to set cert decompression algorithm: {e}"))?;
+            .map_err(|e| anyhow!("failed to add brotli cert decompression algorithm: {e}"))?;
+        // zlib and zstd is not used in chromium by default
 
         let mut store_builder = X509StoreBuilder::new()
             .map_err(|e| anyhow!("failed to create ca cert store builder: {e}"))?;
