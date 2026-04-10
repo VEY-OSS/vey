@@ -2,6 +2,7 @@ version: 2.1
 
 orbs:
   rust: circleci/rust@1.8.0
+  cloudsmith: cloudsmith/cloudsmith@2.0.0
 
 parameters:
   package:
@@ -92,6 +93,17 @@ jobs:
             mv << pipeline.parameters.package >>_<< pipeline.parameters.version >>-* DEBS
       - store_artifacts:
           path: vey/DEBS
+      - cloudsmith/ensure-api-key
+      - cloudsmith/install-cli
+      - run:
+          name: Register variables
+          command: |
+            cat /etc/os-release >> "$BASH_ENV"
+      - cloudsmith/publish:
+          cloudsmith-repository: vey-oss/rolling
+          package-format: deb
+          package-distribution: "${ID}/${VERSION_CODENAME}"
+          package-path: DEBS/pipeline.parameters.package >>_<< pipeline.parameters.version >>-*.deb
   build-rpm-dnf:
     parameters:
       image:
@@ -128,6 +140,17 @@ jobs:
           no_output_timeout: 15m
       - store_artifacts:
           path: ~/rpmbuild/RPMS
+      - cloudsmith/ensure-api-key
+      - cloudsmith/install-cli
+      - run:
+          name: Register variables
+          command: |
+            rpm --eval "%{dist}" | sed 's/[.]el\(.*\)/VERSION=\1/' >> "$BASH_ENV"
+      - cloudsmith/publish:
+          cloudsmith-repository: vey-oss/rolling
+          package-format: rpm
+          package-distribution: "opensuse/$VERSION"
+          package-path: ~/rpmbuild/RPMS/pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
   build-rpm-zypper:
     parameters:
       image:
@@ -162,6 +185,17 @@ jobs:
           no_output_timeout: 15m
       - store_artifacts:
           path: /usr/src/packages/RPMS
+      - cloudsmith/ensure-api-key
+      - cloudsmith/install-cli
+      - run:
+          name: Register variables
+          command: |
+            cat /etc/os-release >> "$BASH_ENV"
+      - cloudsmith/publish:
+          cloudsmith-repository: vey-oss/rolling
+          package-format: rpm
+          package-distribution: "opensuse/$VERSION"
+          package-path: /usr/src/packages/RPMS/pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
 
 workflows:
   build-package:
