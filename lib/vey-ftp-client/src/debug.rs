@@ -3,12 +3,14 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use log::Level;
 
 pub const FTP_DEBUG_LOG_LEVEL: Level = Level::Debug;
 pub const FTP_DEBUG_LOG_TARGET: &str = "";
 
-pub static mut IO_LOG_ENABLED: bool = false;
+pub static IO_LOG_ENABLED: AtomicBool = AtomicBool::new(false);
 
 #[macro_export]
 macro_rules! log_msg {
@@ -44,11 +46,13 @@ macro_rules! log_rsp {
 }
 
 pub fn enable_io_log() {
-    unsafe {
-        IO_LOG_ENABLED = true;
-    }
+    IO_LOG_ENABLED.store(true, Ordering::Relaxed);
 }
 
-pub(crate) const fn io_log_enabled() -> bool {
-    unsafe { IO_LOG_ENABLED }
+pub fn disable_io_log() {
+    IO_LOG_ENABLED.store(false, Ordering::Relaxed);
+}
+
+pub(crate) fn io_log_enabled() -> bool {
+    IO_LOG_ENABLED.load(Ordering::Relaxed)
 }

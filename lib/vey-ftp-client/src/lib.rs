@@ -16,7 +16,7 @@ mod transfer;
 pub use client::FtpClient;
 pub use config::{FtpClientConfig, FtpControlConfig, FtpTransferConfig};
 pub use connection::FtpConnectionProvider;
-pub use debug::{FTP_DEBUG_LOG_LEVEL, FTP_DEBUG_LOG_TARGET, enable_io_log};
+pub use debug::{FTP_DEBUG_LOG_LEVEL, FTP_DEBUG_LOG_TARGET, disable_io_log, enable_io_log};
 pub use error::{
     FtpCommandError, FtpConnectError, FtpFileListError, FtpFileRetrieveError,
     FtpFileRetrieveStartError, FtpFileStatError, FtpFileStoreError, FtpFileStoreStartError,
