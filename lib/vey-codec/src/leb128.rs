@@ -45,17 +45,17 @@ impl Leb128<u32> {
         }
 
         let mut value = bv as u32;
-        let mut encoded_len = 1;
         let mut total_bits = 7;
         let left = &data[1..];
-        for b in left {
-            encoded_len += 1;
-
+        for (i, b) in left.iter().enumerate() {
             let bv = *b & 0x7f;
             value |= (bv as u32) << total_bits;
             if (*b & 0x80) == 0 {
                 // 5 * 7 = 32, so no need to check bits for the last byte
-                return Ok(Leb128 { value, encoded_len });
+                return Ok(Leb128 {
+                    value,
+                    encoded_len: i + 1,
+                });
             } else {
                 total_bits += 7;
                 if total_bits > 32 {
