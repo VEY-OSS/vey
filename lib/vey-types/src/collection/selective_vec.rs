@@ -130,14 +130,12 @@ fn ketama_ring_create<T: SelectiveItem>(nodes: &[T]) -> Vec<(usize, u32)> {
 
         let num_points = node.weight_u32() * POINT_MULTIPLE;
 
-        let mut prev_hash: u32 = 0;
-        for _ in 0..num_points {
+        for j in 0..num_points {
             let mut hasher = hasher.clone();
-            hasher.update(&prev_hash.to_le_bytes());
+            hasher.update(&j.to_le_bytes());
 
             let hash = hasher.finalize();
             ring.push((i, hash));
-            prev_hash = hash;
         }
     }
 
