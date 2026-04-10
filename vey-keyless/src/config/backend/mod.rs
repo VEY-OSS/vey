@@ -82,5 +82,5 @@ pub(super) fn load(value: &Yaml) -> anyhow::Result<()> {
 }
 
 pub(crate) fn get_config() -> &'static BackendConfig {
-    BACKEND_CONFIG.get_or_init(|| BackendConfig::default())
+    BACKEND_CONFIG.get_or_init(BackendConfig::default)
 }

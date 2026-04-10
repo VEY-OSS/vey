@@ -21,7 +21,7 @@ static LOCAL_CONTROLLER_CONFIG: OnceLock<LocalControllerConfig> = OnceLock::new(
 impl LocalControllerConfig {
     pub(crate) fn get_general() -> GeneralControllerConfig {
         LOCAL_CONTROLLER_CONFIG
-            .get_or_init(|| LocalControllerConfig::default())
+            .get_or_init(LocalControllerConfig::default)
             .general
     }
 

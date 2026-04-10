@@ -69,7 +69,7 @@ pub fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
 
 #[inline]
 fn handles() -> &'static [WorkerHandle] {
-    WORKER_HANDLERS.get_or_init(|| Vec::new())
+    WORKER_HANDLERS.get_or_init(Vec::new)
 }
 
 pub fn worker_count() -> usize {
