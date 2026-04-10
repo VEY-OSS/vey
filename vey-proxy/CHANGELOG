@@ -1,35 +1,42 @@
+CHANGELOG
+
+Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.13.1:
- - Feature: support to set egress context based on headers in http_server proxy
- - Feature: support to set egress index in comply_context escaper
- - Feature: allow to set IP addresses directly for parent domain resolve redirection
+ - Bug fix: fix user upstream traffic stats for the FTP-over-HTTP task
+ - Bug fix: fix the inner lock in protected I/O
+ - Compatibility: support loading the old main config entry file
+ - Feature: support setting egress context from headers in the `http_server` proxy
+ - Feature: support setting egress index in the `comply_context` escaper
+ - Feature: allow IP addresses to be used directly for parent-domain resolve redirection
+ - Feature: pass HTTP informational responses through to clients in HTTP/1 and HTTP/2 proxy tasks
 
 v1.13.0:
- - Feature: add facts user group type and enable it in the following servers:
+ - Feature: add the `facts` user group type and enable it in the following servers:
      - tcp_tproxy
      - sni_proxy
      - tcp_stream
      - tls_stream
- - Feature: add ldap user group type to support authenticate with remote LDAP server
- - Feature: add username params to set egress context in the following servers:
+ - Feature: add the `ldap` user group type to support authentication with a remote LDAP server
+ - Feature: add username parameters for setting egress context in the following servers:
      - http_proxy
      - socks_proxy
- - Feature: add comply_context escaper to set egress path based on egress context
- - Feature: allow to overwrite upstream proxy addr based on egress path in the following escapers:
+ - Feature: add the `comply_context` escaper to set egress path based on egress context
+ - Feature: allow overriding upstream proxy address based on egress path in the following escapers:
      - http_proxy
      - https_proxy
      - socks5_proxy
      - socks5s_proxy
- - Feature: support set TCP max segment size in listen config
- - Feature: allow bind to the same client IP address in direct_fixed escaper
+ - Feature: support setting TCP maximum segment size in listen config
+ - Feature: allow binding to the same client IP address in the `direct_fixed` escaper
  - Compatibility: bump MSRV to 1.90.0
  - Deprecated: the following config options are deprecated:
-     - tcp_conn_rate_limit/tcp_conn_limit_quota in user config, use connection_rate_limit instead
-     - task_idle_check_duration in server config, use task_idle_check_interval instead
- - Removed: remove the long deprecated cache_file config option in lua and python user group source
+     - `tcp_conn_rate_limit` / `tcp_conn_limit_quota` in user config; use `connection_rate_limit` instead
+     - `task_idle_check_duration` in server config; use `task_idle_check_interval` instead
+ - Removed: remove the long-deprecated `cache_file` config option in Lua and Python user-group sources
 
 v1.12.0:
- - Feature: allow to connect to ICAP server via UNIX domain socket
+ - Feature: allow connecting to an ICAP server over a UNIX domain socket
 
 v1.11.10:
  - BUG FIX: fix panic when trying to parse PROXY Protocol V1
@@ -1213,4 +1220,3 @@ v0.2.1
 
 v0.2.0
   - Initial release with a CHANGELOG.
-
