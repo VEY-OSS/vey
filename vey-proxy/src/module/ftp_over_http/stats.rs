@@ -41,7 +41,7 @@ impl FtpTaskRemoteTransferStats for UserUpstreamTrafficStats {
     }
 
     fn add_write_bytes(&self, size: u64) {
-        self.io.tcp.add_in_bytes(size);
+        self.io.tcp.add_out_bytes(size);
     }
 }
 
