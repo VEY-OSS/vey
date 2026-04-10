@@ -24,7 +24,7 @@ pub(crate) async fn run_protected_io<F: Future>(future: F) -> Option<F::Output> 
     let outer = IO_MUTEX.lock().await;
     if let Some(inner) = &*outer {
         // io tasks that should avoid corrupt at exit should hold this lock
-        let _guard = inner.lock();
+        let _guard = inner.lock().await;
         Some(future.await)
     } else {
         None
