@@ -11,7 +11,7 @@ mod local;
 const DEFAULT_RECV_TIMEOUT: u64 = 30;
 const DEFAULT_SEND_TIMEOUT: u64 = 1;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub(crate) struct GeneralControllerConfig {
     pub recv_timeout: u64,
     pub send_timeout: u64,
@@ -56,7 +56,7 @@ pub fn load(v: &Yaml) -> anyhow::Result<()> {
     match v {
         Yaml::Hash(map) => {
             vey_yaml::foreach_kv(map, |k, v| match k {
-                "local" => LocalControllerConfig::set_default(v),
+                "local" => LocalControllerConfig::load(v),
                 _ => Err(anyhow!("invalid key '{k}'")),
             })?;
             Ok(())

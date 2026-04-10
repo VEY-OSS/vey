@@ -1,8 +1,10 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
@@ -14,7 +16,7 @@ use vey_types::sync::GlobalInit;
 
 static RUNTIME_CONFIG: GlobalInit<BlendedRuntimeConfig> =
     GlobalInit::new(BlendedRuntimeConfig::new());
-static WORKER_CONFIG: GlobalInit<Option<UnaidedRuntimeConfig>> = GlobalInit::new(None);
+static WORKER_CONFIG: OnceLock<UnaidedRuntimeConfig> = OnceLock::new();
 static GRACEFUL_WAIT_CONFIG: GlobalInit<GracefulWaitConfig> =
     GlobalInit::new(GracefulWaitConfig::new());
 
@@ -47,7 +49,7 @@ pub fn get_runtime_config() -> &'static BlendedRuntimeConfig {
 }
 
 pub fn get_worker_config() -> Option<&'static UnaidedRuntimeConfig> {
-    WORKER_CONFIG.as_ref().as_ref()
+    WORKER_CONFIG.get()
 }
 
 pub fn get_server_offline_delay() -> Duration {
@@ -76,8 +78,9 @@ pub fn load(v: &Yaml) -> anyhow::Result<()> {
 
 pub fn load_worker(v: &Yaml) -> anyhow::Result<()> {
     let config = UnaidedRuntimeConfig::parse_yaml(v)?;
-    WORKER_CONFIG.with_mut(|v| v.replace(config));
-    Ok(())
+    WORKER_CONFIG
+        .set(config)
+        .map_err(|_| anyhow!("worker config already set"))
 }
 
 pub fn set_default_thread_number(num: usize) {

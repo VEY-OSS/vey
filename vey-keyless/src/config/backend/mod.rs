@@ -1,20 +1,20 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2024-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
+
+use std::sync::OnceLock;
 
 use anyhow::anyhow;
 use yaml_rust::Yaml;
-
-use vey_types::sync::GlobalInit;
 
 #[cfg(feature = "openssl-async-job")]
 mod async_job;
 #[cfg(feature = "openssl-async-job")]
 pub(crate) use async_job::AsyncJobBackendConfig;
 
-static BACKEND_CONFIG: GlobalInit<BackendConfig> =
-    GlobalInit::new(BackendConfig::with_driver(BackendDriverConfig::Simple));
+static BACKEND_CONFIG: OnceLock<BackendConfig> = OnceLock::new();
 
 pub(crate) struct BackendConfig {
     pub(crate) dispatch_channel_size: usize,
@@ -76,10 +76,11 @@ pub(super) fn load(value: &Yaml) -> anyhow::Result<()> {
         },
         _ => return Err(anyhow!("invalid yaml value type")),
     }
-    BACKEND_CONFIG.set(config);
-    Ok(())
+    BACKEND_CONFIG
+        .set(config)
+        .map_err(|_| anyhow!("backend config already set"))
 }
 
 pub(crate) fn get_config() -> &'static BackendConfig {
-    BACKEND_CONFIG.as_ref()
+    BACKEND_CONFIG.get_or_init(|| BackendConfig::default())
 }

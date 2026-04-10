@@ -57,6 +57,14 @@ The root value may also be a map with the following keys:
 
   **default**: not set
 
+- request
+
+  **optional**, **type**: :ref:`log config <configuration_log_config>`
+
+  Log configuration for request loggers.
+
+  **default**: not set
+
 - task
 
   **optional**, **type**: :ref:`log config <configuration_log_config>`

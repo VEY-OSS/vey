@@ -14,4 +14,4 @@ pub mod metrics;
 mod registry;
 
 mod config;
-pub use config::{LogConfig, LogConfigContainer, LogConfigDriver};
+pub use config::{LogConfig, LogConfigDriver};

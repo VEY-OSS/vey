@@ -1,18 +1,19 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::cell::RefCell;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use anyhow::anyhow;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use tokio::runtime::Handle;
 
 use vey_compat::CpuAffinity;
 use vey_runtime::unaided::WorkersGuard;
-use vey_types::sync::GlobalInit;
 
 #[derive(Clone)]
 pub struct WorkerHandle {
@@ -21,7 +22,7 @@ pub struct WorkerHandle {
     pub cpu_affinity: Option<CpuAffinity>,
 }
 
-static WORKER_HANDLERS: GlobalInit<Vec<WorkerHandle>> = GlobalInit::new(Vec::new());
+static WORKER_HANDLERS: OnceLock<Vec<WorkerHandle>> = OnceLock::new();
 static CPU_CORE_WORKER_MAP: OnceLock<FxHashMap<usize, WorkerHandle>> = OnceLock::new();
 
 static LISTEN_RR_INDEX: AtomicUsize = AtomicUsize::new(0);
@@ -31,19 +32,22 @@ thread_local! {
 
 fn build_cpu_core_worker_map() {
     let mut map = FxHashMap::with_hasher(FxBuildHasher);
-    for h in WORKER_HANDLERS.as_ref() {
-        if let Some(affinity) = &h.cpu_affinity {
-            let cpu_id_list = affinity.cpu_id_list();
-            if cpu_id_list.len() == 1 {
-                map.insert(cpu_id_list[0], h.clone());
+    if let Some(handles) = WORKER_HANDLERS.get() {
+        for h in handles {
+            if let Some(affinity) = &h.cpu_affinity {
+                let cpu_id_list = affinity.cpu_id_list();
+                if cpu_id_list.len() == 1 {
+                    map.insert(cpu_id_list[0], h.clone());
+                }
             }
         }
+        let _ = CPU_CORE_WORKER_MAP.set(map);
     }
-    let _ = CPU_CORE_WORKER_MAP.set(map);
 }
 
 pub fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
     if let Some(config) = crate::runtime::config::get_worker_config() {
+        let mut handles = Vec::with_capacity(config.thread_number_total().get());
         let guard = config.start(|id, handle, cpu_affinity| {
             super::metrics::add_tokio_stats(handle.metrics(), format!("worker-{id}"));
             let worker_handle = WorkerHandle {
@@ -51,8 +55,11 @@ pub fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
                 id,
                 cpu_affinity,
             };
-            WORKER_HANDLERS.with_mut(|vec| vec.push(worker_handle));
+            handles.push(worker_handle);
         })?;
+        WORKER_HANDLERS
+            .set(handles)
+            .map_err(|_| anyhow!("workers have already been spawned"))?;
         build_cpu_core_worker_map();
         Ok(Some(guard))
     } else {
@@ -62,7 +69,7 @@ pub fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
 
 #[inline]
 fn handles() -> &'static [WorkerHandle] {
-    WORKER_HANDLERS.as_ref().as_slice()
+    WORKER_HANDLERS.get_or_init(|| Vec::new())
 }
 
 pub fn worker_count() -> usize {

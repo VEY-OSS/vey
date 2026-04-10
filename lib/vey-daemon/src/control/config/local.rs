@@ -1,36 +1,38 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
+
+use std::sync::OnceLock;
 
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use vey_types::sync::GlobalInit;
-
 use super::GeneralControllerConfig;
 
+#[derive(Default)]
 pub(crate) struct LocalControllerConfig {
     general: GeneralControllerConfig,
 }
 
-static LOCAL_CONTROLLER_CONFIG: GlobalInit<LocalControllerConfig> =
-    GlobalInit::new(LocalControllerConfig {
-        general: GeneralControllerConfig::new(),
-    });
+static LOCAL_CONTROLLER_CONFIG: OnceLock<LocalControllerConfig> = OnceLock::new();
 
 impl LocalControllerConfig {
     pub(crate) fn get_general() -> GeneralControllerConfig {
-        LOCAL_CONTROLLER_CONFIG.as_ref().general.clone()
+        LOCAL_CONTROLLER_CONFIG
+            .get_or_init(|| LocalControllerConfig::default())
+            .general
     }
 
-    pub(crate) fn set_default(v: &Yaml) -> anyhow::Result<()> {
+    pub(crate) fn load(v: &Yaml) -> anyhow::Result<()> {
         match v {
             Yaml::Hash(map) => {
-                vey_yaml::foreach_kv(map, |k, v| {
-                    LOCAL_CONTROLLER_CONFIG.with_mut(|config| config.set(k, v))
-                })?;
-                Ok(())
+                let mut config = LocalControllerConfig::default();
+                vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+                LOCAL_CONTROLLER_CONFIG
+                    .set(config)
+                    .map_err(|_| anyhow!("local controller config has already been set"))
             }
             Yaml::Null => Ok(()),
             _ => Err(anyhow!("root value type should be hash")),

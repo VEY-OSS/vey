@@ -1,18 +1,18 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::path::Path;
+use std::sync::OnceLock;
 
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use vey_daemon::log::{LogConfig, LogConfigContainer};
-use vey_types::sync::GlobalInit;
+use vey_daemon::log::LogConfig;
 
-static TASK_DEFAULT_LOG_CONFIG_CONTAINER: GlobalInit<LogConfigContainer> =
-    GlobalInit::new(LogConfigContainer::new());
+static TASK_DEFAULT_LOG_CONFIG_CONTAINER: OnceLock<LogConfig> = OnceLock::new();
 
 pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     let mut default_log_config: Option<LogConfig> = None;
@@ -44,8 +44,9 @@ pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
                 "task" => {
                     let config = LogConfig::parse_yaml(v, conf_dir, crate::build::PKG_NAME)
                         .context(format!("invalid value for key {k}"))?;
-                    TASK_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set(config));
-                    Ok(())
+                    TASK_DEFAULT_LOG_CONFIG_CONTAINER
+                        .set(config)
+                        .map_err(|_| anyhow!("task logger has already been set"))
                 }
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
@@ -54,13 +55,13 @@ pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
         _ => return Err(anyhow!("invalid value type")),
     }
     if let Some(config) = default_log_config {
-        TASK_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set_default(config));
+        let _ = TASK_DEFAULT_LOG_CONFIG_CONTAINER.set(config);
     }
     Ok(())
 }
 
 pub(crate) fn get_task_default_config() -> LogConfig {
     TASK_DEFAULT_LOG_CONFIG_CONTAINER
-        .as_ref()
-        .get(crate::build::PKG_NAME)
+        .get_or_init(|| LogConfig::new_discard(crate::build::PKG_NAME))
+        .clone()
 }

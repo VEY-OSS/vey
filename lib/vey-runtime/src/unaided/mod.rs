@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::collections::HashMap;
@@ -72,6 +73,10 @@ impl UnaidedRuntimeConfig {
 
     pub fn set_thread_number_total(&mut self, num: NonZeroUsize) {
         self.thread_number_total = num;
+    }
+
+    pub fn thread_number_total(&self) -> NonZeroUsize {
+        self.thread_number_total
     }
 
     pub fn set_thread_stack_size(&mut self, size: usize) {
@@ -166,12 +171,12 @@ impl UnaidedRuntimeConfig {
 
     fn start_variant_m<F>(
         &self,
-        recv_handle: F,
+        mut recv_handle: F,
         rt_num: usize,
         rt_thread_num: usize,
     ) -> anyhow::Result<WorkersGuard>
     where
-        F: Fn(usize, Handle, Option<CpuAffinity>),
+        F: FnMut(usize, Handle, Option<CpuAffinity>),
     {
         let mut rt_list = Vec::with_capacity(rt_num);
         for i in 0..rt_num {
@@ -212,9 +217,13 @@ impl UnaidedRuntimeConfig {
         Ok(WorkersGuard::VariantM(MvWorkersGuard { _rt_list: rt_list }))
     }
 
-    fn start_variant_c<F>(&self, recv_handle: F, thread_num: usize) -> anyhow::Result<WorkersGuard>
+    fn start_variant_c<F>(
+        &self,
+        mut recv_handle: F,
+        thread_num: usize,
+    ) -> anyhow::Result<WorkersGuard>
     where
-        F: Fn(usize, Handle, Option<CpuAffinity>),
+        F: FnMut(usize, Handle, Option<CpuAffinity>),
     {
         let (close_w, _close_r) = watch::channel(());
 
@@ -301,7 +310,7 @@ impl UnaidedRuntimeConfig {
 
     pub fn start<F>(&self, recv_handle: F) -> anyhow::Result<WorkersGuard>
     where
-        F: Fn(usize, Handle, Option<CpuAffinity>),
+        F: FnMut(usize, Handle, Option<CpuAffinity>),
     {
         let threads_per_rt = self.thread_number_per_rt.get();
         if threads_per_rt == 1 {
