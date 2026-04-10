@@ -467,7 +467,9 @@ impl HttpProxyClientRequest {
                 self.content_length = content_length;
             }
             "expect" => {
-                self.expect_100_continue = header.value == "100-continue";
+                if header.value == "100-continue" {
+                    self.expect_100_continue = true;
+                }
             }
             _ => {}
         }
