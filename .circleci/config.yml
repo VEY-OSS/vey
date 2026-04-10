@@ -103,7 +103,7 @@ jobs:
           cloudsmith-repository: vey-oss/rolling
           package-format: deb
           package-distribution: "${ID}/${VERSION_CODENAME}"
-          package-path: DEBS/pipeline.parameters.package >>_<< pipeline.parameters.version >>-*.deb
+          package-path: DEBS/<< pipeline.parameters.package >>_<< pipeline.parameters.version >>-*.deb
   build-rpm-dnf:
     parameters:
       image:
@@ -124,7 +124,7 @@ jobs:
           command: |
             dnf install -y epel-release
             dnf config-manager --set-enabled devel
-            dnf install -y pkgconf gcc g++ make cmake
+            dnf install -y pkgconf gcc make cmake
             dnf install -y openssl-devel c-ares-devel
             dnf install -y python3-devel lua-devel
       - restore_cache:
@@ -150,7 +150,7 @@ jobs:
           cloudsmith-repository: vey-oss/rolling
           package-format: rpm
           package-distribution: "opensuse/$VERSION"
-          package-path: ~/rpmbuild/RPMS/pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
+          package-path: ~/rpmbuild/RPMS/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
   build-rpm-zypper:
     parameters:
       image:
@@ -195,7 +195,7 @@ jobs:
           cloudsmith-repository: vey-oss/rolling
           package-format: rpm
           package-distribution: "opensuse/$VERSION"
-          package-path: /usr/src/packages/RPMS/pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
+          package-path: /usr/src/packages/RPMS/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
 
 workflows:
   build-package:
