@@ -55,7 +55,7 @@ impl DnsRequestPickState for GlobalRequestPicker {
 
             match self
                 .id
-                .compare_exchange(id, next, Ordering::AcqRel, Ordering::Acquire)
+                .compare_exchange_weak(id, next, Ordering::AcqRel, Ordering::Acquire)
             {
                 Ok(_) => return id,
                 Err(n) => id = n,

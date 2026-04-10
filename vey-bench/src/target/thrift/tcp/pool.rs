@@ -153,7 +153,7 @@ impl ThriftConnectionPool {
                         next = 0;
                     }
 
-                    match self.cur_index.compare_exchange(
+                    match self.cur_index.compare_exchange_weak(
                         indent,
                         next,
                         Ordering::AcqRel,

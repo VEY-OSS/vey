@@ -251,7 +251,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
                         next = 0;
                     }
 
-                    match self.rr_id.compare_exchange(
+                    match self.rr_id.compare_exchange_weak(
                         id,
                         next,
                         atomic::Ordering::AcqRel,
@@ -278,7 +278,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
                         end %= len;
                     }
 
-                    match self.rr_id.compare_exchange(
+                    match self.rr_id.compare_exchange_weak(
                         id,
                         end,
                         atomic::Ordering::AcqRel,

@@ -79,7 +79,7 @@ impl GlobalState {
                     return None;
                 }
 
-                match self.total_left.compare_exchange(
+                match self.total_left.compare_exchange_weak(
                     curr,
                     curr - 1,
                     Ordering::AcqRel,
@@ -101,7 +101,7 @@ impl GlobalState {
                 return false;
             }
 
-            match self.log_error_left.compare_exchange(
+            match self.log_error_left.compare_exchange_weak(
                 curr,
                 curr - 1,
                 Ordering::AcqRel,

@@ -105,7 +105,7 @@ pub fn select_listen_handle() -> Option<WorkerHandle> {
             let max = len - 1;
             loop {
                 let next = if prev >= max { 0 } else { prev + 1 };
-                match LISTEN_RR_INDEX.compare_exchange(
+                match LISTEN_RR_INDEX.compare_exchange_weak(
                     prev,
                     next,
                     Ordering::AcqRel,

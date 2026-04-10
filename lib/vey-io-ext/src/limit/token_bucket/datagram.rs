@@ -68,7 +68,7 @@ impl GlobalDatagramLimiter {
                 break;
             }
             let next_tokens = (cur_tokens + size).min(max_burst);
-            match self.byte_tokens.compare_exchange(
+            match self.byte_tokens.compare_exchange_weak(
                 cur_tokens,
                 next_tokens,
                 Ordering::AcqRel,
@@ -88,7 +88,7 @@ impl GlobalDatagramLimiter {
                 break;
             }
             let next_tokens = (cur_tokens + count).min(max_burst);
-            match self.packet_tokens.compare_exchange(
+            match self.packet_tokens.compare_exchange_weak(
                 cur_tokens,
                 next_tokens,
                 Ordering::AcqRel,
@@ -119,7 +119,7 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
                     return DatagramLimitAction::DelayUntil(self.wait_until());
                 }
                 let left_tokens = cur_tokens.saturating_sub(1);
-                match self.packet_tokens.compare_exchange(
+                match self.packet_tokens.compare_exchange_weak(
                     cur_tokens,
                     left_tokens,
                     Ordering::AcqRel,
@@ -142,7 +142,7 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
                     return DatagramLimitAction::DelayUntil(self.wait_until());
                 }
                 let left_tokens = cur_tokens - buf_size as u64;
-                match self.byte_tokens.compare_exchange(
+                match self.byte_tokens.compare_exchange_weak(
                     cur_tokens,
                     left_tokens,
                     Ordering::AcqRel,
@@ -169,7 +169,7 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
                     return DatagramLimitAction::DelayUntil(self.wait_until());
                 }
                 let left_tokens = cur_tokens.saturating_sub(to_advance as u64);
-                match self.packet_tokens.compare_exchange(
+                match self.packet_tokens.compare_exchange_weak(
                     cur_tokens,
                     left_tokens,
                     Ordering::AcqRel,
@@ -196,7 +196,7 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
                     return DatagramLimitAction::DelayUntil(self.wait_until());
                 }
                 let left_tokens = cur_tokens.saturating_sub(buf_size as u64);
-                match self.byte_tokens.compare_exchange(
+                match self.byte_tokens.compare_exchange_weak(
                     cur_tokens,
                     left_tokens,
                     Ordering::AcqRel,

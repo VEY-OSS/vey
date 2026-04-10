@@ -61,7 +61,7 @@ impl GlobalStreamLimiter {
                 break;
             }
             let next_tokens = (cur_tokens + size).min(max_burst);
-            match self.byte_tokens.compare_exchange(
+            match self.byte_tokens.compare_exchange_weak(
                 cur_tokens,
                 next_tokens,
                 Ordering::AcqRel,
@@ -87,7 +87,7 @@ impl GlobalStreamLimiter {
                 return None;
             }
             let left_tokens = cur_tokens.saturating_sub(size);
-            match self.byte_tokens.compare_exchange(
+            match self.byte_tokens.compare_exchange_weak(
                 cur_tokens,
                 left_tokens,
                 Ordering::AcqRel,

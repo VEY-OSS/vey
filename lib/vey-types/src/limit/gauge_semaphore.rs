@@ -74,7 +74,7 @@ impl GaugeSemaphore {
 
             match self
                 .gauge
-                .compare_exchange(curr, next, Ordering::AcqRel, Ordering::Acquire)
+                .compare_exchange_weak(curr, next, Ordering::AcqRel, Ordering::Acquire)
             {
                 Ok(_) => {
                     return Ok(GaugeSemaphorePermit {
