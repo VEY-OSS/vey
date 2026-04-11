@@ -10,7 +10,8 @@ The workspace requires Rust `1.90.0` or newer. Use the latest stable toolchain u
 
 Install `rustup` from [rustup.rs](https://rustup.rs/). A non-root installation is recommended.
 
-`cargo`, `rustc`, `rustup`, and related binaries are typically installed into `$HOME/.cargo/bin`. Make sure that directory is in your `PATH`.
+`cargo`, `rustc`, `rustup`, and related binaries are typically installed into `$HOME/.cargo/bin`. Make sure that
+directory is in your `PATH`.
 
 #### Bash
 
@@ -121,7 +122,8 @@ Some targets or features also need:
 - `quic`
 - `rustls-ring`
 
-If your platform does not provide all native dependencies, disable the unsupported defaults or use vendored features where appropriate.
+If your platform does not provide all native dependencies, disable the unsupported defaults or use vendored features
+where appropriate.
 
 Example minimal build without Lua and Python:
 
@@ -150,7 +152,8 @@ apt-get install lsb-release dpkg-dev debhelper
 
 ### RHEL-based Linux
 
-Some development packages may live in optional repositories. Check the files under `/etc/yum.repos.d/` and enable the required repositories first. See [EPEL Quickstart](https://docs.fedoraproject.org/en-US/epel/#_quickstart).
+Some development packages may live in optional repositories. Check the files under `/etc/yum.repos.d/` and enable the
+required repositories first. See [EPEL Quickstart](https://docs.fedoraproject.org/en-US/epel/#_quickstart).
 
 ```sh
 # enable EPEL first
@@ -183,7 +186,8 @@ The system toolchain from Xcode is also required.
 
 ### Windows
 
-Native Windows builds are possible, but they usually require disabling some default features or using vendored dependencies.
+Native Windows builds are possible, but they usually require disabling some default features or using vendored
+dependencies.
 
 ```powershell
 # Rust MSVC toolchain
@@ -205,7 +209,8 @@ cargo build --no-default-features --features rustls-ring,quic,c-ares
 
 Tips:
 
-- If `winget` is unavailable, install it from the [winget-cli releases](https://github.com/microsoft/winget-cli/releases).
+- If `winget` is unavailable, install it from
+  the [winget-cli releases](https://github.com/microsoft/winget-cli/releases).
 - If you need a standalone `vcpkg` checkout:
 
 ```powershell
@@ -249,7 +254,8 @@ pkgin install python313
 ln -s /usr/pkg/bin/python3.13 /usr/pkg/bin/python3
 ```
 
-Tip: pkgsrc binary packages are available at <https://cdn.netbsd.org/pub/pkgsrc/packages/NetBSD/>. Update `/usr/pkg/etc/pkgin/repositories.conf` if you need a newer package set.
+Tip: pkgsrc binary packages are available at <https://cdn.netbsd.org/pub/pkgsrc/packages/NetBSD/>. Update
+`/usr/pkg/etc/pkgin/repositories.conf` if you need a newer package set.
 
 ### OpenBSD
 
@@ -261,7 +267,8 @@ pkg_add lua
 pkg_add python
 ```
 
-Tip: if builds fail with an out-of-memory error, increase the `datasize-cur` limit for the `staff` login class in `/etc/login.conf`.
+Tip: if builds fail with an out-of-memory error, increase the `datasize-cur` limit for the `staff` login class in
+`/etc/login.conf`.
 
 ### OmniOS
 
@@ -343,7 +350,8 @@ maxminddb
 
 ### Documentation tools
 
-The documentation toolchain uses [Sphinx](https://www.sphinx-doc.org/en/master/) and [sphinx-rtd-theme](https://pypi.org/project/sphinx-rtd-theme/).
+The documentation toolchain uses [Sphinx](https://www.sphinx-doc.org/en/master/)
+and [sphinx-rtd-theme](https://pypi.org/project/sphinx-rtd-theme/).
 
 ### Packaging tools
 
