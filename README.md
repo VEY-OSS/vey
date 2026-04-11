@@ -9,8 +9,8 @@
 
 ## About
 
-The VEY project is designed for building enterprise-oriented general-purpose proxy solutions, including but not limited to
-forward proxies, reverse proxies (WIP), load balancers (TBD), and NAT traversal services (WIP).
+The VEY project is designed for building enterprise-oriented general-purpose proxy solutions, including but not limited
+to forward proxies, reverse proxies (WIP), load balancers (TBD), and NAT traversal services (WIP).
 
 This project is a fork of [the G3 project](https://github.com/bytedance/g3) by its creator.
 
@@ -67,7 +67,7 @@ designed as a programmable gateway framework for multiple frontend and
 upstream protocols. The current implementation supports TLS- and
 keyless-related traffic handling.
 
-[README](vey-gateway/README.md) | 
+[README](vey-gateway/README.md) |
 [Reference Doc](https://vey.readthedocs.io/projects/gateway/en/latest/)
 
 ### vey-bench
@@ -113,15 +113,7 @@ OpenSSL-based hardware acceleration.
 
 ## Target Platforms
 
-Linux is fully supported.
-
-The code also compiles on the following platforms:
-
-- macOS
-- Windows >= 10
-- FreeBSD >= 14.3
-- NetBSD >= 10.1
-- OpenBSD >= 7.8
+See [Target Platforms](doc/target_platforms.md).
 
 ## Development Environment Setup
 
