@@ -93,19 +93,14 @@ jobs:
             mv << pipeline.parameters.package >>_<< pipeline.parameters.version >>-* DEBS
       - store_artifacts:
           path: vey/DEBS
-      - when:
-          condition: # run only if python3 >= 3.10
-            not:
-              equal: [ "debian:bullseye", << parameters.image >> ] # python3.9
-          steps:
-            - cloudsmith/ensure-api-key
-            - cloudsmith/install-cli
-            - run:
-                name: Upload package to cloudsmith
-                working_directory: vey
-                command: |
-                  source /etc/os-release
-                  cloudsmith push deb vey-oss/rolling/${ID}/${VERSION_CODENAME} DEBS/<< pipeline.parameters.package >>_<< pipeline.parameters.version >>-*.deb
+      - cloudsmith/ensure-api-key
+      - cloudsmith/install-cli
+      - run:
+          name: Upload package to cloudsmith
+          working_directory: vey
+          command: |
+            source /etc/os-release
+            cloudsmith push deb vey-oss/rolling/${ID}/${VERSION_CODENAME} DEBS/<< pipeline.parameters.package >>_<< pipeline.parameters.version >>-*.deb
   build-rpm-dnf:
     parameters:
       image:
@@ -151,19 +146,14 @@ jobs:
           no_output_timeout: 15m
       - store_artifacts:
           path: ~/rpmbuild/RPMS
-      - when:
-          condition: # run only if python3 >= 3.10
-            not:
-              equal: [ "rockylinux/rockylinux:8", << parameters.image >> ] # python3.6, and it's python3.12 not work
-          steps:
-            - cloudsmith/ensure-api-key
-            - cloudsmith/install-cli
-            - run:
-                name: Upload package to cloudsmith
-                command: |
-                  VERSION=$(rpm --eval "%{dist}" | sed 's/[.]el\(.*\)/\1/')
-                  RPM_ARCH=$(rpm --eval "%{_arch}")
-                  cloudsmith push rpm vey-oss/rolling/el/$VERSION ~/rpmbuild/RPMS/${RPM_ARCH}/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
+      - cloudsmith/ensure-api-key
+      - cloudsmith/install-cli
+      - run:
+          name: Upload package to cloudsmith
+          command: |
+            VERSION=$(rpm --eval "%{dist}" | sed 's/[.]el\(.*\)/\1/')
+            RPM_ARCH=$(rpm --eval "%{_arch}")
+            cloudsmith push rpm vey-oss/rolling/el/$VERSION ~/rpmbuild/RPMS/${RPM_ARCH}/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
   build-rpm-zypper:
     parameters:
       image:
