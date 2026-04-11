@@ -131,9 +131,7 @@ jobs:
             dnf install -y python3-devel lua-devel
       - when:
           condition:
-            or:
-              - equal: [ "rockylinux/rockylinux:9", << parameters.image >> ] # python3,9
-              - equal: [ "rockylinux/rockylinux:8", << parameters.image >> ] # python3.6
+            equal: [ "rockylinux/rockylinux:9", << parameters.image >> ] # python3,9
           steps:
             - run:
                 name: Install python 3.12
@@ -153,14 +151,19 @@ jobs:
           no_output_timeout: 15m
       - store_artifacts:
           path: ~/rpmbuild/RPMS
-      - cloudsmith/ensure-api-key
-      - cloudsmith/install-cli
-      - run:
-          name: Upload package to cloudsmith
-          command: |
-            VERSION=$(rpm --eval "%{dist}" | sed 's/[.]el\(.*\)/\1/')
-            RPM_ARCH=$(rpm --eval "%{_arch}")
-            cloudsmith push rpm vey-oss/rolling/el/$VERSION ~/rpmbuild/RPMS/${RPM_ARCH}/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
+      - when:
+          condition: # run only if python3 >= 3.10
+            not:
+              equal: [ "rockylinux/rockylinux:8", << parameters.image >> ] # python3.6, and it's python3.12 not work
+          steps:
+            - cloudsmith/ensure-api-key
+            - cloudsmith/install-cli
+            - run:
+                name: Upload package to cloudsmith
+                command: |
+                  VERSION=$(rpm --eval "%{dist}" | sed 's/[.]el\(.*\)/\1/')
+                  RPM_ARCH=$(rpm --eval "%{_arch}")
+                  cloudsmith push rpm vey-oss/rolling/el/$VERSION ~/rpmbuild/RPMS/${RPM_ARCH}/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
   build-rpm-zypper:
     parameters:
       image:
