@@ -96,15 +96,11 @@ jobs:
       - cloudsmith/ensure-api-key
       - cloudsmith/install-cli
       - run:
-          name: Register variables
+          name: Upload package to cloudsmith
+          working_directory: vey
           command: |
-            cat /etc/os-release >> "$BASH_ENV"
-            echo "UPLOAD_FILE=$(ls --zero DEBS/<< pipeline.parameters.package >>_<< pipeline.parameters.version >>-*.deb)" >> "$BASH_ENV"
-      - cloudsmith/publish:
-          cloudsmith-repository: vey-oss/rolling
-          package-format: deb
-          package-distribution: "${ID}/${VERSION_CODENAME}"
-          package-path: "${UPLOAD_FILE}"
+            source /etc/os-release
+            cloudsmith push deb vey-oss/rolling/${ID}/${VERSION_CODENAME} DEBS/<< pipeline.parameters.package >>_<< pipeline.parameters.version >>-*.deb
   build-rpm-dnf:
     parameters:
       image:
@@ -144,15 +140,11 @@ jobs:
       - cloudsmith/ensure-api-key
       - cloudsmith/install-cli
       - run:
-          name: Register variables
+          name: Upload package to cloudsmith
           command: |
-            rpm --eval "%{dist}" | sed 's/[.]el\(.*\)/VERSION=\1/' >> "$BASH_ENV"
-            echo "UPLOAD_FILE=$(ls --zero ~/rpmbuild/RPMS/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm)" >> "$BASH_ENV"
-      - cloudsmith/publish:
-          cloudsmith-repository: vey-oss/rolling
-          package-format: rpm
-          package-distribution: "opensuse/$VERSION"
-          package-path: "${UPLOAD_FILE}"
+            VERSION=$(rpm --eval "%{dist}" | sed 's/[.]el\(.*\)/\1/')
+            RPM_ARCH=$(rpm --eval "%{_arch}")
+            cloudsmith push rpm vey-oss/rolling/el/$VERSION ~/rpmbuild/RPMS/${RPM_ARCH}/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
   build-rpm-zypper:
     parameters:
       image:
@@ -190,15 +182,11 @@ jobs:
       - cloudsmith/ensure-api-key
       - cloudsmith/install-cli
       - run:
-          name: Register variables
+          name: Upload package to cloudsmith
           command: |
-            cat /etc/os-release >> "$BASH_ENV"
-            echo "UPLOAD_FILE=$(ls --zero /usr/src/packages/RPMS/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm)" >> "$BASH_ENV"
-      - cloudsmith/publish:
-          cloudsmith-repository: vey-oss/rolling
-          package-format: rpm
-          package-distribution: "opensuse/$VERSION"
-          package-path: "${UPLOAD_FILE}"
+            source /etc/os-release
+            RPM_ARCH=$(rpm --eval "%{_arch}")
+            cloudsmith push rpm vey-oss/rolling/opensuse/$VERSION /usr/src/packages/RPMS/${RPM_ARCH}/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
 
 workflows:
   build-package:
