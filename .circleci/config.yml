@@ -99,11 +99,12 @@ jobs:
           name: Register variables
           command: |
             cat /etc/os-release >> "$BASH_ENV"
+            echo "UPLOAD_FILE=$(ls --zero DEBS/<< pipeline.parameters.package >>_<< pipeline.parameters.version >>-*.deb)" >> "$BASH_ENV"
       - cloudsmith/publish:
           cloudsmith-repository: vey-oss/rolling
           package-format: deb
           package-distribution: "${ID}/${VERSION_CODENAME}"
-          package-path: DEBS/<< pipeline.parameters.package >>_<< pipeline.parameters.version >>-*.deb
+          package-path: "${UPLOAD_FILE}"
   build-rpm-dnf:
     parameters:
       image:
@@ -146,11 +147,12 @@ jobs:
           name: Register variables
           command: |
             rpm --eval "%{dist}" | sed 's/[.]el\(.*\)/VERSION=\1/' >> "$BASH_ENV"
+            echo "UPLOAD_FILE=$(ls --zero ~/rpmbuild/RPMS/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm)" >> "$BASH_ENV"
       - cloudsmith/publish:
           cloudsmith-repository: vey-oss/rolling
           package-format: rpm
           package-distribution: "opensuse/$VERSION"
-          package-path: ~/rpmbuild/RPMS/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
+          package-path: "${UPLOAD_FILE}"
   build-rpm-zypper:
     parameters:
       image:
@@ -191,11 +193,12 @@ jobs:
           name: Register variables
           command: |
             cat /etc/os-release >> "$BASH_ENV"
+            echo "UPLOAD_FILE=$(ls --zero /usr/src/packages/RPMS/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm)" >> "$BASH_ENV"
       - cloudsmith/publish:
           cloudsmith-repository: vey-oss/rolling
           package-format: rpm
           package-distribution: "opensuse/$VERSION"
-          package-path: /usr/src/packages/RPMS/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>-*.rpm
+          package-path: "${UPLOAD_FILE}"
 
 workflows:
   build-package:
