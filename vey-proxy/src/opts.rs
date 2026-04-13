@@ -117,8 +117,8 @@ fn build_cli_args() -> Command {
 }
 
 pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
-    let args_parser = build_cli_args();
-    let args = args_parser.get_matches();
+    let mut args_parser = build_cli_args();
+    let args = args_parser.get_matches_mut();
 
     if let Some(target) = args.get_one::<Shell>(ARGS_COMPLETION) {
         let mut app = build_cli_args();
@@ -148,9 +148,12 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         }
     }
     if let Some(config_file) = args.get_one::<PathBuf>(ARGS_CONFIG_FILE) {
+        let bin_name = args_parser
+            .get_bin_name()
+            .unwrap_or_else(|| args_parser.get_name());
         vey_daemon::opts::validate_and_set_config_file(
             config_file,
-            &[crate::build::PKG_NAME, "g3proxy"],
+            &[bin_name, crate::build::PKG_NAME, "g3proxy"],
         )
         .context(format!(
             "failed to load config file {}",
