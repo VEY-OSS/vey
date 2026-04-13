@@ -221,7 +221,6 @@ workflows:
               image:
                 - debian:trixie
                 - debian:bookworm
-                - debian:bullseye
                 - ubuntu:24.04
                 - ubuntu:22.04
       - build-rpm-dnf:
@@ -235,7 +234,6 @@ workflows:
               image:
                 - rockylinux/rockylinux:10
                 - rockylinux/rockylinux:9
-                - rockylinux/rockylinux:8
       - build-rpm-zypper:
           requires:
             - build-source-tar
