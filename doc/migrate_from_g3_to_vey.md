@@ -224,6 +224,18 @@ After starting VEY services, verify at least:
 - any helper service references, such as `vey-iploc` from `vey-proxy`, use the
   updated service names and paths
 
+## Backward compatibility for configuration loading
+
+If you point the `-c` option to a directory instead of a specific file, the
+daemon will automatically search for and load the main configuration file based
+on the executable binary name.
+
+This means you can create a symbolic link from a VEY binary to its old G3
+name (e.g., `ln -s /usr/bin/vey-proxy /usr/bin/g3proxy`). When you execute the
+daemon via the `g3proxy` symlink and specify a directory with `-c` (e.g.,
+`/etc/g3proxy/`), it will automatically look for `g3proxy.yaml` in that
+directory. This allows you to load old config file directories easily.
+
 ## Notes
 
 Some daemon option parsers in VEY still recognize the historical G3 program

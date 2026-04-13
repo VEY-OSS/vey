@@ -7,6 +7,8 @@ Configuration
 ``vey-gateway`` uses YAML for configuration.
 
 The main configuration file is passed with the ``-c`` command-line option.
+If a directory is set, the main configuration file is loaded automatically from
+it based on the executable binary name.
 Its top-level keys are listed below.
 
 At a high level, ``vey-gateway`` is organized around three reusable object

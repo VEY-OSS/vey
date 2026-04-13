@@ -7,6 +7,8 @@ Configuration
 ``vey-proxy`` uses YAML for configuration.
 
 The main configuration file is specified with the ``-c`` command-line option.
+If a directory is set, the main configuration file is loaded automatically from
+it based on the executable binary name.
 Its top-level keys are listed below.
 
 Multiple YAML documents in the same file are accepted and are merged as if they
