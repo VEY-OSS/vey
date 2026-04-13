@@ -10,3 +10,10 @@ rustflags = [
 rustflags = [
     "-C", "target-feature=+neon,+aes",
 ]
+
+# always use dynamic linking for build scripts
+# this requires nightly cargo -Zhost-config option
+[host]
+rustflags = [
+    "-C", "target-feature=-crt-static",
+]
