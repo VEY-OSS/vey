@@ -54,7 +54,7 @@ impl Leb128<u32> {
                 // 5 * 7 = 32, so no need to check bits for the last byte
                 return Ok(Leb128 {
                     value,
-                    encoded_len: i + 1,
+                    encoded_len: i + 2,
                 });
             } else {
                 total_bits += 7;
@@ -98,8 +98,10 @@ mod tests {
     fn decode_u32() {
         let v = Leb128::<u32>::decode(&[0x01]).unwrap();
         assert_eq!(v.value, 1);
+        assert_eq!(v.encoded_len, 1);
         let v = Leb128::<u32>::decode(&[0xE5, 0x8E, 0x26]).unwrap();
         assert_eq!(v.value, 624485);
+        assert_eq!(v.encoded_len, 3);
     }
 
     #[test]
