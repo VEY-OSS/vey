@@ -48,8 +48,8 @@ jobs:
           sudo apt-get install capnproto musl-tools
       - name: Cargo build
         run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares
-  musl-clang:
-    name: musl-clang
+  musl-gxx:
+    name: musl-g++
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/rust-lang/rust:nightly-alpine
@@ -57,13 +57,9 @@ jobs:
         CARGO_TERM_COLOR: always
         RUSTFLAGS: -C target-feature=+crt-static
         UNSTABLE_OPTIONS: -Ztarget-applies-to-host -Zhost-config
-        CC: clang
-        CXX: clang
     strategy:
       matrix:
         feature:
-          - vendored-openssl,rustls-ring
-          - vendored-tongsuo,rustls-ring
           - vendored-boringssl,rustls-ring
     steps:
       - name: Install base tools
@@ -76,11 +72,8 @@ jobs:
       - name: Install dependencies
         run: |
           apk add --no-cache musl-dev linux-headers libunwind-static
-          apk add --no-cache clang capnproto-dev cmake make
+          apk add --no-cache g++ capnproto-dev cmake make
           apk add --no-cache perl nasm
-      - name: Install dependencies for boringssl
-        if: contains(matrix.feature, 'vendored-boringssl')
-        run: |
           apk add --no-cache libstdc++-dev clang-libclang
       - name: Cargo build
         run: cargo $UNSTABLE_OPTIONS build --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares
