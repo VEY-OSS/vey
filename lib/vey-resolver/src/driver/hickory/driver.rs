@@ -12,7 +12,7 @@ use tokio::time::Instant;
 use super::DnsRequest;
 use crate::config::ResolverRuntimeConfig;
 use crate::message::ResolveDriverResponse;
-use crate::{ResolveDriver, ResolveDriverError, ResolveLocalError, ResolvedRecord};
+use crate::{ResolveDriver, ResolveDriverErrorReason, ResolveLocalError, ResolvedRecord};
 
 #[derive(Clone)]
 pub struct HickoryResolver {
@@ -148,19 +148,19 @@ impl HickoryResolver {
                 Ok(None) => ResolvedRecord::failed(
                     domain,
                     self.negative_min_ttl,
-                    ResolveDriverError::Internal("no response received".to_string()).into(),
+                    ResolveDriverErrorReason::Static("no response received").into(),
                 ),
                 Err(_) => ResolvedRecord::failed(
                     domain,
                     self.negative_min_ttl,
-                    ResolveDriverError::Timeout.into(),
+                    ResolveDriverErrorReason::Static("time out").into(),
                 ),
             }
         } else {
             ResolvedRecord::failed(
                 domain,
                 self.negative_min_ttl,
-                ResolveDriverError::Timeout.into(),
+                ResolveDriverErrorReason::Static("time out").into(),
             )
         };
         last_err.unwrap_or(end_err)

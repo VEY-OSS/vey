@@ -27,7 +27,7 @@ use vey_types::net::{
     DnsEncryptionConfig, DnsEncryptionProtocol, TcpMiscSockOpts, UdpMiscSockOpts,
 };
 
-use crate::{ResolveDriverError, ResolveError, ResolveServerError, ResolvedRecord};
+use crate::{ResolveDriverErrorReason, ResolveError, ResolveServerError, ResolvedRecord};
 
 #[derive(Clone)]
 pub(super) struct DnsRequest {
@@ -145,12 +145,15 @@ impl HickoryClientJob {
         mut async_client: Client<TokioRuntimeProvider>,
         req: DnsRequest,
     ) -> ResolvedRecord {
-        let Ok(mut name) = Name::from_ascii(&req.domain) else {
-            return ResolvedRecord::failed(
-                req.domain,
-                self.config.negative_ttl,
-                ResolveDriverError::BadName.into(),
-            );
+        let mut name = match Name::from_ascii(&req.domain) {
+            Ok(name) => name,
+            Err(e) => {
+                return ResolvedRecord::failed(
+                    req.domain,
+                    self.config.negative_ttl,
+                    ResolveDriverErrorReason::Owned(e.to_string()).into(),
+                );
+            }
         };
         // always use FQDN format such like "www.example.com."
         name.set_fqdn(true);
@@ -226,7 +229,7 @@ impl HickoryClientJob {
                         ResolvedRecord::failed(
                             req.domain,
                             ttl,
-                            ResolveError::FromServer(ResolveServerError::NotFound),
+                            ResolveError::ServerError(ResolveServerError::NotFound),
                         )
                     }
                 }
@@ -234,9 +237,11 @@ impl HickoryClientJob {
                     todo!()
                 }
             },
-            Err(NetError::Proto(e)) => {
-                ResolvedRecord::failed(req.domain, self.config.negative_ttl, e.into())
-            }
+            Err(NetError::Proto(e)) => ResolvedRecord::failed(
+                req.domain,
+                self.config.negative_ttl,
+                ResolveError::DriverError(ResolveDriverErrorReason::Owned(e.to_string())),
+            ),
             Err(NetError::Timeout) => {
                 self.state.add_failed();
                 self.try_failed -= 1;
@@ -248,7 +253,7 @@ impl HickoryClientJob {
                 ResolvedRecord::failed(
                     req.domain,
                     self.config.negative_ttl,
-                    ResolveError::FromDriver(ResolveDriverError::Timeout),
+                    ResolveError::DriverTimeout,
                 )
             }
             Err(e) => {
@@ -262,7 +267,7 @@ impl HickoryClientJob {
                 ResolvedRecord::failed(
                     req.domain,
                     self.config.negative_ttl,
-                    ResolveError::FromDriver(ResolveDriverError::Internal(e.to_string())),
+                    ResolveError::DriverError(ResolveDriverErrorReason::Owned(e.to_string())),
                 )
             }
         }

@@ -177,7 +177,7 @@ pub(crate) type ServerTaskResult<T> = Result<T, ServerTaskError>;
 
 impl From<ResolveError> for ServerTaskError {
     fn from(e: ResolveError) -> Self {
-        if matches!(e, ResolveError::FromServer(_)) {
+        if matches!(e, ResolveError::ServerError(_)) {
             ServerTaskError::UpstreamNotResolved(e)
         } else {
             ServerTaskError::InternalResolverError(e)

@@ -70,7 +70,7 @@ impl ResolvedRecord {
             return true;
         };
 
-        matches!(e, ResolveError::FromServer(ResolveServerError::NotFound))
+        matches!(e, ResolveError::ServerError(ResolveServerError::NotFound))
     }
 
     pub fn timed_out(domain: ArcStr, protective_cache_ttl: u32) -> Self {

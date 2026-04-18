@@ -5,9 +5,7 @@
 
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
-use super::{
-    ResolveDriverError, ResolveError, ResolveLocalError, ResolveServerError, ResolvedRecord,
-};
+use super::{ResolveError, ResolveLocalError, ResolveServerError, ResolvedRecord};
 
 #[derive(Default)]
 pub struct ResolverQueryStats {
@@ -15,9 +13,8 @@ pub struct ResolverQueryStats {
     query_cached: AtomicU64,
     query_driver: AtomicU64,
     query_trashed: AtomicU64,
+    driver_failed: AtomicU64,
     driver_timeout: AtomicU64,
-    driver_refused: AtomicU64,
-    driver_malformed: AtomicU64,
     server_refused: AtomicU64,
     server_malformed: AtomicU64,
     server_not_found: AtomicU64,
@@ -30,9 +27,8 @@ pub struct ResolverQuerySnapshot {
     pub cached: u64,
     pub driver: u64,
     pub trashed: u64,
+    pub driver_failed: u64,
     pub driver_timeout: u64,
-    pub driver_refused: u64,
-    pub driver_malformed: u64,
     pub server_refused: u64,
     pub server_malformed: u64,
     pub server_not_found: u64,
@@ -46,9 +42,8 @@ impl ResolverQueryStats {
             cached: self.query_cached.load(Ordering::Relaxed),
             driver: self.query_driver.load(Ordering::Relaxed),
             trashed: self.query_trashed.load(Ordering::Relaxed),
+            driver_failed: self.driver_failed.load(Ordering::Relaxed),
             driver_timeout: self.driver_timeout.load(Ordering::Relaxed),
-            driver_refused: self.driver_refused.load(Ordering::Relaxed),
-            driver_malformed: self.driver_malformed.load(Ordering::Relaxed),
             server_refused: self.server_refused.load(Ordering::Relaxed),
             server_malformed: self.server_malformed.load(Ordering::Relaxed),
             server_not_found: self.server_not_found.load(Ordering::Relaxed),
@@ -90,13 +85,8 @@ impl ResolverQueryStats {
     }
 
     #[inline]
-    fn add_driver_refused(&self) {
-        self.driver_refused.fetch_add(1, Ordering::Relaxed);
-    }
-
-    #[inline]
-    fn add_driver_malformed(&self) {
-        self.driver_malformed.fetch_add(1, Ordering::Relaxed);
+    fn add_driver_failed(&self) {
+        self.driver_failed.fetch_add(1, Ordering::Relaxed);
     }
 
     #[inline]
@@ -135,21 +125,11 @@ impl ResolverQueryStats {
         }
     }
 
-    fn add_driver_error(&self, e: &ResolveDriverError) {
-        match e {
-            ResolveDriverError::ConnRefused => self.add_driver_refused(),
-            ResolveDriverError::Timeout => self.add_driver_timeout(),
-            ResolveDriverError::BadName
-            | ResolveDriverError::BadQuery
-            | ResolveDriverError::BadResp => self.add_driver_malformed(),
-            _ => {}
-        }
-    }
-
     pub(crate) fn add_error(&self, e: &ResolveError) {
         match e {
-            ResolveError::FromServer(e) => self.add_server_error(e),
-            ResolveError::FromDriver(e) => self.add_driver_error(e),
+            ResolveError::ServerError(e) => self.add_server_error(e),
+            ResolveError::DriverError(_) => self.add_driver_failed(),
+            ResolveError::DriverTimeout => self.add_driver_timeout(),
             ResolveError::FromLocal(ResolveLocalError::DriverTimedOut) => self.add_driver_timeout(),
             _ => {}
         }

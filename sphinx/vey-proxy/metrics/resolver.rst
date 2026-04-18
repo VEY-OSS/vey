@@ -56,17 +56,11 @@ The metric names are:
 
   Total upstream DNS queries that timed out.
 
-* resolver.query.driver.refused
+* resolver.query.driver.failed
 
   **type**: count
 
-  Total upstream DNS queries refused before a usable answer was returned.
-
-* resolver.query.driver.malformed
-
-  **type**: count
-
-  Total queries reported as malformed by the resolver driver.
+  Total upstream DNS queries failed when processing by the resolve driver.
 
 * resolver.query.server.refused
 
