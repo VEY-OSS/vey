@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::net::SocketAddr;
@@ -32,6 +33,7 @@ where
 {
     config: FtpControlConfig,
     stream: BufStream<T>,
+    cmd_line: String,
 }
 
 impl<T> FtpControlChannel<T>
@@ -42,6 +44,7 @@ where
         FtpControlChannel {
             config,
             stream: BufStream::new(stream),
+            cmd_line: String::new(),
         }
     }
 

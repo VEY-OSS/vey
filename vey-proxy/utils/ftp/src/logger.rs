@@ -1,11 +1,12 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use log::{Level, LevelFilter, Log, Metadata, Record};
 
-use vey_ftp_client::FTP_DEBUG_LOG_TARGET;
+use vey_ftp_client::{FTP_DEBUG_LOG_CMD, FTP_DEBUG_LOG_RSP};
 
 pub(crate) struct SyncLogger {
     verbose_level: u8,
@@ -29,7 +30,7 @@ impl SyncLogger {
 impl Log for SyncLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
         match metadata.target() {
-            FTP_DEBUG_LOG_TARGET => match metadata.level() {
+            FTP_DEBUG_LOG_CMD | FTP_DEBUG_LOG_RSP => match metadata.level() {
                 Level::Trace => false,
                 Level::Debug => self.verbose_level > 0,
                 _ => true,
@@ -39,10 +40,16 @@ impl Log for SyncLogger {
     }
 
     fn log(&self, record: &Record) {
-        if record.target().is_empty() {
-            eprintln!("{}", record.args());
-        } else {
-            eprintln!("{}: {}", record.target(), record.args());
+        match record.target() {
+            FTP_DEBUG_LOG_CMD => {
+                eprintln!("> {}", record.args());
+            }
+            FTP_DEBUG_LOG_RSP => {
+                eprintln!("< {}", record.args());
+            }
+            _ => {
+                eprintln!("{}: {}", record.target(), record.args());
+            }
         }
     }
 

@@ -1,12 +1,14 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
+use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use vey_types::auth::{Password, Username};
@@ -21,7 +23,6 @@ use crate::error::{
 use crate::transfer::{FtpLineDataReceiver, FtpLineDataTransfer, FtpTransferType};
 use crate::{
     FtpClientConfig, FtpConnectionProvider, FtpControlChannel, FtpFileFacts, FtpServerFeature,
-    log_msg,
 };
 
 pub struct FtpClient<CP, S, E, UD>
@@ -326,7 +327,7 @@ where
             match self.control.pre_list(path).await? {
                 FtpFilePreTransferStatus::Proceed => {}
                 FtpFilePreTransferStatus::Invalid => {
-                    log_msg!("invalid pre transfer for list {}", path);
+                    debug!("invalid pre transfer for list {}", path);
                 }
             }
         }
@@ -402,7 +403,7 @@ where
             match self.control.pre_retrieve(path).await? {
                 FtpFilePreTransferStatus::Proceed => {}
                 FtpFilePreTransferStatus::Invalid => {
-                    log_msg!("invalid pre transfer for retrieve {}", path);
+                    debug!("invalid pre transfer for retrieve {}", path);
                 }
             }
         }
@@ -428,7 +429,7 @@ where
             match self.control.pre_store(path).await? {
                 FtpFilePreTransferStatus::Proceed => {}
                 FtpFilePreTransferStatus::Invalid => {
-                    log_msg!("invalid pre transfer for store {}", path);
+                    debug!("invalid pre transfer for store {}", path);
                 }
             }
         }

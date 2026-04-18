@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::fmt;
@@ -68,31 +69,32 @@ impl<T> FtpControlChannel<T>
 where
     T: AsyncRead + AsyncWrite + Unpin,
 {
-    async fn send_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        crate::log_cmd!(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
-
-        self.stream.write_all_flush(buf).await?;
+    async fn send_all(&mut self) -> io::Result<()> {
+        crate::log_cmd!(&self.cmd_line);
+        self.cmd_line.push_str("\r\n");
+        self.stream
+            .write_all_flush(self.cmd_line.as_bytes())
+            .await?;
+        self.cmd_line.clear();
         Ok(())
     }
 
     pub(super) async fn send_cmd(&mut self, cmd: FtpCommand) -> io::Result<()> {
         let len = cmd.0.len() + 2;
-        let mut buf: Vec<u8> = Vec::with_capacity(len);
-        buf.extend_from_slice(cmd.0.as_bytes());
-        buf.extend_from_slice(b"\r\n");
+        self.cmd_line.reserve(len);
+        self.cmd_line.push_str(cmd.0);
 
-        self.send_all(buf.as_ref()).await
+        self.send_all().await
     }
 
     pub(super) async fn send_cmd1(&mut self, cmd: FtpCommand, param1: &str) -> io::Result<()> {
         let len = cmd.0.len() + 1 + param1.len() + 2;
-        let mut buf: Vec<u8> = Vec::with_capacity(len);
-        buf.extend_from_slice(cmd.0.as_bytes());
-        buf.push(b' ');
-        buf.extend_from_slice(param1.as_bytes());
-        buf.extend_from_slice(b"\r\n");
+        self.cmd_line.reserve(len);
+        self.cmd_line.push_str(cmd.0);
+        self.cmd_line.push(' ');
+        self.cmd_line.push_str(param1);
 
-        self.send_all(buf.as_ref()).await
+        self.send_all().await
     }
 
     pub(super) async fn send_pre_transfer_cmd1(
@@ -101,13 +103,12 @@ where
         param1: &str,
     ) -> io::Result<()> {
         let len = 5 + cmd.0.len() + 1 + param1.len() + 2;
-        let mut buf: Vec<u8> = Vec::with_capacity(len);
-        buf.extend_from_slice(b"PRET ");
-        buf.extend_from_slice(cmd.0.as_bytes());
-        buf.push(b' ');
-        buf.extend_from_slice(param1.as_bytes());
-        buf.extend_from_slice(b"\r\n");
+        self.cmd_line.reserve(len);
+        self.cmd_line.push_str("PRET ");
+        self.cmd_line.push_str(cmd.0);
+        self.cmd_line.push(' ');
+        self.cmd_line.push_str(param1);
 
-        self.send_all(buf.as_ref()).await
+        self.send_all().await
     }
 }

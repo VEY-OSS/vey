@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 VEY-OSS developers.
  */
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -26,29 +27,27 @@ macro_rules! char_to_u16 {
 }
 
 impl FtpRawResponse {
-    pub(super) fn parse_single_line(line: &[u8]) -> Result<Self, FtpRawResponseError> {
-        let code = char_to_u16!(line[0]) * 100 + char_to_u16!(line[1]) * 10 + char_to_u16!(line[2]);
+    fn parse_single_line(line: &str) -> Result<Self, FtpRawResponseError> {
+        let buf = line.as_bytes();
+        let code = char_to_u16!(buf[0]) * 100 + char_to_u16!(buf[1]) * 10 + char_to_u16!(buf[2]);
         if !(100..600).contains(&code) {
             return Err(FtpRawResponseError::InvalidReplyCode(code));
         }
-        let msg =
-            std::str::from_utf8(&line[4..]).map_err(|_| FtpRawResponseError::LineIsNotUtf8)?;
-        Ok(FtpRawResponse::SingleLine(code, msg.trim_end().to_string()))
+        Ok(FtpRawResponse::SingleLine(code, line[4..].to_string()))
     }
 
-    pub(super) fn get_multi_line_parser(
-        line: &[u8],
+    fn get_multi_line_parser(
+        line: &str,
         max_lines: usize,
     ) -> Result<FtpMultiLineReplyParser, FtpRawResponseError> {
-        let code = char_to_u16!(line[0]) * 100 + char_to_u16!(line[1]) * 10 + char_to_u16!(line[2]);
+        let buf = line.as_bytes();
+        let code = char_to_u16!(buf[0]) * 100 + char_to_u16!(buf[1]) * 10 + char_to_u16!(buf[2]);
         if !(100..600).contains(&code) {
             return Err(FtpRawResponseError::InvalidReplyCode(code));
         }
-        let end_prefix = [line[0], line[1], line[2], b' '];
+        let end_prefix = [buf[0], buf[1], buf[2], b' '];
         let mut lines = Vec::<String>::with_capacity(max_lines);
-        let msg =
-            std::str::from_utf8(&line[4..]).map_err(|_| FtpRawResponseError::LineIsNotUtf8)?;
-        lines.push(msg.trim_end().to_string());
+        lines.push(line[4..].to_string());
         Ok(FtpMultiLineReplyParser {
             code,
             end_prefix,
@@ -161,16 +160,13 @@ pub(super) struct FtpMultiLineReplyParser {
 }
 
 impl FtpMultiLineReplyParser {
-    pub(super) fn feed_line(&mut self, line: &[u8]) -> Result<bool, FtpRawResponseError> {
-        if line.starts_with(&self.end_prefix) {
-            let msg =
-                std::str::from_utf8(&line[4..]).map_err(|_| FtpRawResponseError::LineIsNotUtf8)?;
-            self.lines.push(msg.trim_end().to_string());
+    pub(super) fn feed_line(&mut self, line: &str) -> Result<bool, FtpRawResponseError> {
+        if line.as_bytes().starts_with(&self.end_prefix) {
+            self.lines.push(line[4..].to_string());
             Ok(true)
         } else {
-            let msg = std::str::from_utf8(line).map_err(|_| FtpRawResponseError::LineIsNotUtf8)?;
             // do not trim whitespace at beginning
-            self.lines.push(msg.trim_end().to_string());
+            self.lines.push(line.to_string());
             Ok(false)
         }
     }
@@ -184,7 +180,10 @@ impl<T> FtpControlChannel<T>
 where
     T: AsyncRead + AsyncWrite + Unpin,
 {
-    async fn read_first_line(&mut self, buf: &mut Vec<u8>) -> Result<(), FtpRawResponseError> {
+    async fn read_first_line<'a>(
+        &mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> Result<&'a str, FtpRawResponseError> {
         buf.clear();
 
         let (found, len) = self
@@ -196,24 +195,33 @@ where
             0 => Err(FtpRawResponseError::ConnectionClosed),
             1..=4 => {
                 // at least <code>\n
-
-                crate::log_rsp!(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
-
-                Err(FtpRawResponseError::InvalidLineFormat)
+                match std::str::from_utf8(buf) {
+                    Ok(rsp) => {
+                        crate::log_rsp!(rsp.trim_end());
+                        Err(FtpRawResponseError::InvalidLineFormat)
+                    }
+                    Err(_) => Err(FtpRawResponseError::LineIsNotUtf8),
+                }
             }
             _ => {
-                crate::log_rsp!(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
+                let rsp = std::str::from_utf8(buf)
+                    .map_err(|_| FtpRawResponseError::LineIsNotUtf8)?
+                    .trim_end();
+                crate::log_rsp!(rsp);
 
                 if !found {
                     Err(FtpRawResponseError::LineTooLong)
                 } else {
-                    Ok(())
+                    Ok(rsp)
                 }
             }
         }
     }
 
-    async fn read_extra_line(&mut self, buf: &mut Vec<u8>) -> Result<(), FtpRawResponseError> {
+    async fn read_extra_line<'a>(
+        &mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> Result<&'a str, FtpRawResponseError> {
         buf.clear();
 
         let (found, len) = self
@@ -225,18 +233,24 @@ where
             0 => Err(FtpRawResponseError::ConnectionClosed),
             1 => {
                 // at least "\n"
-
-                crate::log_rsp!(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
-
-                Err(FtpRawResponseError::InvalidLineFormat)
+                match std::str::from_utf8(buf) {
+                    Ok(rsp) => {
+                        crate::log_rsp!(rsp.trim_end());
+                        Err(FtpRawResponseError::InvalidLineFormat)
+                    }
+                    Err(_) => Err(FtpRawResponseError::LineIsNotUtf8),
+                }
             }
             _ => {
-                crate::log_rsp!(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
+                let rsp = std::str::from_utf8(buf)
+                    .map_err(|_| FtpRawResponseError::LineIsNotUtf8)?
+                    .trim_end();
+                crate::log_rsp!(rsp);
 
                 if !found {
                     Err(FtpRawResponseError::LineTooLong)
                 } else {
-                    Ok(())
+                    Ok(rsp)
                 }
             }
         }
@@ -246,16 +260,16 @@ where
         &mut self,
     ) -> Result<FtpRawResponse, FtpRawResponseError> {
         let mut buf = Vec::<u8>::with_capacity(self.config.max_line_len);
-        self.read_first_line(&mut buf).await?;
+        let line = self.read_first_line(&mut buf).await?;
 
-        match buf[3] {
-            b' ' => FtpRawResponse::parse_single_line(&buf),
+        match line.as_bytes()[3] {
+            b' ' => FtpRawResponse::parse_single_line(line),
             b'-' => {
                 let mut ml_parser =
-                    FtpRawResponse::get_multi_line_parser(&buf, self.config.max_multi_lines)?;
+                    FtpRawResponse::get_multi_line_parser(line, self.config.max_multi_lines)?;
                 for _i in 0..self.config.max_multi_lines {
-                    self.read_extra_line(&mut buf).await?;
-                    let end = ml_parser.feed_line(&buf)?;
+                    let line = self.read_extra_line(&mut buf).await?;
+                    let end = ml_parser.feed_line(line)?;
                     if end {
                         return Ok(ml_parser.finish());
                     }
