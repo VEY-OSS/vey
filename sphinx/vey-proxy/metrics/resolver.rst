@@ -62,6 +62,8 @@ The metric names are:
 
   Total upstream DNS queries failed when processing by the resolve driver.
 
+  .. versionadded:: 1.13.2
+
 * resolver.query.server.refused
 
   **type**: count
@@ -72,7 +74,7 @@ The metric names are:
 
   **type**: count
 
-  Total queries for which the DNS server returned a malformed response.
+  Total queries for which the DNS server returned ``FormErr``.
 
 * resolver.query.server.not_found
 
@@ -86,6 +88,14 @@ The metric names are:
   **type**: count
 
   Total queries for which the DNS server returned ``SERVFAIL``.
+
+* resolver.query.server.other_code
+
+  **type**: count
+
+  Total queries for which the DNS server returned other response code.
+
+  .. versionadded:: 1.13.2
 
 Memory
 ======

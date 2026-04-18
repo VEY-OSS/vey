@@ -28,6 +28,7 @@ const METRIC_NAME_QUERY_SERVER_REFUSED: &str = "resolver.query.server.refused";
 const METRIC_NAME_QUERY_SERVER_MALFORMED: &str = "resolver.query.server.malformed";
 const METRIC_NAME_QUERY_SERVER_NOT_FOUND: &str = "resolver.query.server.not_found";
 const METRIC_NAME_QUERY_SERVER_SERV_FAIL: &str = "resolver.query.server.serv_fail";
+const METRIC_NAME_QUERY_SERVER_OTHER_CODE: &str = "resolver.query.server.other_code";
 const METRIC_NAME_MEMORY_CACHE_CAPACITY: &str = "resolver.memory.cache.capacity";
 const METRIC_NAME_MEMORY_CACHE_LENGTH: &str = "resolver.memory.cache.length";
 const METRIC_NAME_MEMORY_DOING_CAPACITY: &str = "resolver.memory.doing.capacity";
@@ -151,6 +152,7 @@ fn emit_query_stats_to_statsd(
     emit_query_stats_u64!(server_malformed, METRIC_NAME_QUERY_SERVER_MALFORMED);
     emit_query_stats_u64!(server_not_found, METRIC_NAME_QUERY_SERVER_NOT_FOUND);
     emit_query_stats_u64!(server_serv_fail, METRIC_NAME_QUERY_SERVER_SERV_FAIL);
+    emit_query_stats_u64!(server_other_code, METRIC_NAME_QUERY_SERVER_OTHER_CODE);
 }
 
 fn emit_memory_stats_to_statsd(

@@ -19,6 +19,7 @@ pub struct ResolverQueryStats {
     server_malformed: AtomicU64,
     server_not_found: AtomicU64,
     server_serv_fail: AtomicU64,
+    server_other_code: AtomicU64,
 }
 
 #[derive(Default)]
@@ -33,6 +34,7 @@ pub struct ResolverQuerySnapshot {
     pub server_malformed: u64,
     pub server_not_found: u64,
     pub server_serv_fail: u64,
+    pub server_other_code: u64,
 }
 
 impl ResolverQueryStats {
@@ -48,6 +50,7 @@ impl ResolverQueryStats {
             server_malformed: self.server_malformed.load(Ordering::Relaxed),
             server_not_found: self.server_not_found.load(Ordering::Relaxed),
             server_serv_fail: self.server_serv_fail.load(Ordering::Relaxed),
+            server_other_code: self.server_other_code.load(Ordering::Relaxed),
         }
     }
 
@@ -109,6 +112,11 @@ impl ResolverQueryStats {
         self.server_serv_fail.fetch_add(1, Ordering::Relaxed);
     }
 
+    #[inline]
+    fn add_server_other_code(&self) {
+        self.server_other_code.fetch_add(1, Ordering::Relaxed);
+    }
+
     pub(crate) fn add_record(&self, record: &ResolvedRecord) {
         if let Err(e) = &record.result {
             self.add_error(e);
@@ -121,7 +129,7 @@ impl ResolverQueryStats {
             ResolveServerError::FormErr => self.add_server_malformed(),
             ResolveServerError::NotFound => self.add_server_not_found(),
             ResolveServerError::ServFail => self.add_server_serv_fail(),
-            _ => {}
+            _ => self.add_server_other_code(),
         }
     }
 
