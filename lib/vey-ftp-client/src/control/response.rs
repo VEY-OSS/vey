@@ -22,10 +22,10 @@ pub(super) enum FtpRawResponse {
 
 impl FtpRawResponse {
     fn parse_code(byte: u8) -> Result<u16, FtpRawResponseError> {
-        if byte < b'0' || byte > b'9' {
-            Err(FtpRawResponseError::InvalidLineFormat)
-        } else {
+        if byte.is_ascii_digit() {
             Ok((byte - b'0') as u16)
+        } else {
+            Err(FtpRawResponseError::InvalidLineFormat)
         }
     }
 
