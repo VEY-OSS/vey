@@ -20,19 +20,30 @@ pub(super) enum FtpRawResponse {
     MultiLine(u16, Vec<String>),
 }
 
-macro_rules! char_to_u16 {
-    ($c:expr) => {
-        ($c - b'0') as u16
-    };
-}
-
 impl FtpRawResponse {
+    fn parse_code(byte: u8) -> Result<u16, FtpRawResponseError> {
+        if byte < b'0' || byte > b'9' {
+            Err(FtpRawResponseError::InvalidLineFormat)
+        } else {
+            Ok((byte - b'0') as u16)
+        }
+    }
+
+    fn parse_code_bytes(byte0: u8, byte1: u8, byte2: u8) -> Result<u16, FtpRawResponseError> {
+        let code0 = Self::parse_code(byte0)?;
+        let code1 = Self::parse_code(byte1)?;
+        let code2 = Self::parse_code(byte2)?;
+        let code = code0 * 100 + code1 * 10 + code2;
+        if !(100..600).contains(&code) {
+            Err(FtpRawResponseError::InvalidReplyCode(code))
+        } else {
+            Ok(code)
+        }
+    }
+
     fn parse_single_line(line: &str) -> Result<Self, FtpRawResponseError> {
         let buf = line.as_bytes();
-        let code = char_to_u16!(buf[0]) * 100 + char_to_u16!(buf[1]) * 10 + char_to_u16!(buf[2]);
-        if !(100..600).contains(&code) {
-            return Err(FtpRawResponseError::InvalidReplyCode(code));
-        }
+        let code = Self::parse_code_bytes(buf[0], buf[1], buf[2])?;
         Ok(FtpRawResponse::SingleLine(code, line[4..].to_string()))
     }
 
@@ -41,10 +52,7 @@ impl FtpRawResponse {
         max_lines: usize,
     ) -> Result<FtpMultiLineReplyParser, FtpRawResponseError> {
         let buf = line.as_bytes();
-        let code = char_to_u16!(buf[0]) * 100 + char_to_u16!(buf[1]) * 10 + char_to_u16!(buf[2]);
-        if !(100..600).contains(&code) {
-            return Err(FtpRawResponseError::InvalidReplyCode(code));
-        }
+        let code = Self::parse_code_bytes(buf[0], buf[1], buf[2])?;
         let end_prefix = [buf[0], buf[1], buf[2], b' '];
         let mut lines = Vec::<String>::with_capacity(max_lines);
         lines.push(line[4..].to_string());
