@@ -91,10 +91,12 @@ fn build_cli_args() -> Command {
 pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     let mut args_parser = build_cli_args();
     let args = args_parser.get_matches_mut();
+    let bin_name = args_parser
+        .get_bin_name()
+        .unwrap_or_else(|| args_parser.get_name());
 
     if let Some(target) = args.get_one::<Shell>(ARGS_COMPLETION) {
         let mut app = build_cli_args();
-        let bin_name = app.get_name().to_string();
         clap_complete::generate(*target, &mut app, bin_name, &mut io::stdout());
         return Ok(None);
     }
@@ -108,9 +110,6 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     }
 
     if let Some(config_file) = args.get_one::<PathBuf>(ARGS_CONFIG_FILE) {
-        let bin_name = args_parser
-            .get_bin_name()
-            .unwrap_or_else(|| args_parser.get_name());
         vey_daemon::opts::validate_and_set_config_file(
             config_file,
             &[bin_name, crate::build::PKG_NAME, "g3statsd"],
