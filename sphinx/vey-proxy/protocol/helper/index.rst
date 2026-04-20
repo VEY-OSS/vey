@@ -13,10 +13,7 @@ external services.
    route_query
    cert_generator
    ip_locate
-   icap_http
-   icap_h2
-   icap_imap
-   icap_smtp
+   icap/index
    stream_detour
 
 - route_query
@@ -34,21 +31,10 @@ external services.
   Used by the ``route_geoip`` escaper to look up IP location data. See
   :doc:`ip_locate`.
 
-- icap_http
+- icap
 
-  Describes what is needed to enable ICAP for HTTP/1.x. See :doc:`icap_http`.
-
-- icap_h2
-
-  Describes what is needed to enable ICAP for HTTP/2. See :doc:`icap_h2`.
-
-- icap_imap
-
-  Describes what is needed to enable ICAP for IMAP. See :doc:`icap_imap`.
-
-- icap_smtp
-
-  Describes what is needed to enable ICAP for SMTP. See :doc:`icap_smtp`.
+  Describes the ICAP helper protocol and the protocol-specific integrations for
+  HTTP/1.x, HTTP/2, IMAP, and SMTP. See :doc:`icap/index`.
 
 - stream_detour
 

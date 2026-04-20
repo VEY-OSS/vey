@@ -12,7 +12,10 @@ ICAP server. The ICAP server's response is then forwarded upstream.
 
 The returned mail message must not change in size.
 
-The following header is added to the ICAP request headers:
+See also :doc:`headers` for the ICAP headers that may be added for all ICAP
+adaptation requests.
+
+The following protocol-specific header is added to the ICAP request headers:
 
 - X-Transformed-From
 

@@ -9,6 +9,7 @@ use std::net::SocketAddr;
 use base64::prelude::*;
 use bytes::BufMut;
 
+use vey_types::auth::Username;
 use vey_types::net::HttpHeaderMap;
 
 pub(crate) fn add_client_addr(buf: &mut Vec<u8>, addr: SocketAddr) {
@@ -18,7 +19,8 @@ pub(crate) fn add_client_addr(buf: &mut Vec<u8>, addr: SocketAddr) {
 
 pub(crate) fn add_client_username(buf: &mut Vec<u8>, user: &str) {
     buf.put_slice(b"X-Client-Username: ");
-    buf.put_slice(user.as_bytes());
+    let url_encoded = Username::url_encode(user);
+    buf.put_slice(url_encoded.as_bytes());
     buf.put_slice(b"\r\n");
 
     buf.put_slice(b"X-Authenticated-User: ");

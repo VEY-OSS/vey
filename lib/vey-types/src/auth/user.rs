@@ -71,6 +71,10 @@ impl Username {
         percent_encoding::utf8_percent_encode(self.as_original(), USER_INFO_PCT_ENCODING_SET)
             .to_string()
     }
+
+    pub fn url_encode(original: &str) -> String {
+        percent_encoding::utf8_percent_encode(original, USER_INFO_PCT_ENCODING_SET).to_string()
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

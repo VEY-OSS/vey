@@ -1,13 +1,16 @@
 .. _protocol_helper_icap_http:
 
-=============
-ICAP for HTTP
-=============
+================
+ICAP for HTTP/1
+================
 
 ``vey-proxy`` can use ICAP ``REQMOD`` and ``RESPMOD`` services for HTTP/1.x
 requests and responses.
 
-The following header is added to the ICAP request headers:
+See also :doc:`headers` for the ICAP headers that may be added for all ICAP
+adaptation requests.
+
+The following protocol-specific header is added to the ICAP request headers:
 
 - X-HTTP-Upgrade
 
