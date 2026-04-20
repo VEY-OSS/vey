@@ -19,7 +19,7 @@ mod runtime;
 mod stats;
 
 pub use config::{ResolverConfig, ResolverRuntimeConfig};
-pub use error::{ResolveDriverErrorReason, ResolveError, ResolveLocalError, ResolveServerError};
+pub use error::{ResolveDriverErrorReason, ResolveError, ResolveServerError};
 pub use handle::{ResolveJob, ResolveJobRecvResult, ResolverHandle};
 pub use query::ResolveQueryType;
 pub use record::{ArcResolvedRecord, ResolvedRecord, ResolvedRecordSource};

@@ -10,7 +10,7 @@ use std::task::{Context, Poll};
 use arcstr::ArcStr;
 use tokio::sync::{mpsc, oneshot};
 
-use super::{ArcResolvedRecord, ResolveLocalError, ResolvedRecordSource};
+use super::{ArcResolvedRecord, ResolveError, ResolvedRecordSource};
 use crate::message::ResolveDriverRequest;
 
 #[derive(Clone, Debug)]
@@ -33,23 +33,23 @@ impl ResolverHandle {
         self.req_sender.is_closed()
     }
 
-    pub fn get_v4(&self, domain: ArcStr) -> Result<ResolveJob, ResolveLocalError> {
+    pub fn get_v4(&self, domain: ArcStr) -> Result<ResolveJob, ResolveError> {
         let (sender, receiver) = oneshot::channel();
         let req = ResolveDriverRequest::GetV4(domain, sender);
         let sender = self.req_sender.clone();
         match sender.send(req) {
             Ok(_) => Ok(ResolveJob { receiver }),
-            Err(_) => Err(ResolveLocalError::NoResolverRunning),
+            Err(_) => Err(ResolveError::NoResolverRunning),
         }
     }
 
-    pub fn get_v6(&self, domain: ArcStr) -> Result<ResolveJob, ResolveLocalError> {
+    pub fn get_v6(&self, domain: ArcStr) -> Result<ResolveJob, ResolveError> {
         let (sender, receiver) = oneshot::channel();
         let req = ResolveDriverRequest::GetV6(domain, sender);
         let sender = self.req_sender.clone();
         match sender.send(req) {
             Ok(_) => Ok(ResolveJob { receiver }),
-            Err(_) => Err(ResolveLocalError::NoResolverRunning),
+            Err(_) => Err(ResolveError::NoResolverRunning),
         }
     }
 }
@@ -57,15 +57,14 @@ impl ResolverHandle {
 pub struct ResolveJob {
     receiver: oneshot::Receiver<(ArcResolvedRecord, ResolvedRecordSource)>,
 }
-pub type ResolveJobRecvResult =
-    Result<(ArcResolvedRecord, ResolvedRecordSource), ResolveLocalError>;
+pub type ResolveJobRecvResult = Result<(ArcResolvedRecord, ResolvedRecordSource), ResolveError>;
 
 impl ResolveJob {
     pub fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<ResolveJobRecvResult> {
         match Pin::new(&mut self.receiver).poll(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(Ok(ret)) => Poll::Ready(Ok(ret)),
-            Poll::Ready(Err(_)) => Poll::Ready(Err(ResolveLocalError::NoResolverRunning)),
+            Poll::Ready(Err(_)) => Poll::Ready(Err(ResolveError::NoResolverRunning)),
         }
     }
 

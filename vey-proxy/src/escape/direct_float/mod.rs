@@ -264,9 +264,7 @@ impl DirectFloatEscaper {
         let ips = resolver_job
             .get_r1_or_first_done(self.config.happy_eyeballs.resolution_delay())
             .await?;
-        strategy.pick_best(ips).ok_or(ResolveError::UnexpectedError(
-            "no upstream ip can be selected",
-        ))
+        strategy.pick_best(ips).ok_or(ResolveError::EmptyResult)
     }
 
     async fn redirect_get_best(

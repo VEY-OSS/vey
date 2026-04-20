@@ -13,7 +13,7 @@ use tokio::io::AsyncWrite;
 
 use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_io_ext::LimitedWriteExt;
-use vey_resolver::{ResolveError, ResolveLocalError};
+use vey_resolver::ResolveError;
 use vey_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use vey_types::metrics::NodeName;
 use vey_types::net::{
@@ -130,7 +130,7 @@ impl DivertTcpEscaper {
         if let Some(resolver_handle) = &self.resolver_handle {
             HappyEyeballsResolveJob::new_dyn(self.config.resolve_strategy, resolver_handle, domain)
         } else {
-            Err(ResolveLocalError::NoResolverSet.into())
+            Err(ResolveError::NoResolverSet)
         }
     }
 

@@ -23,7 +23,7 @@ use slog::Logger;
 ))]
 use vey_io_ext::UdpRelayPacket;
 use vey_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
-use vey_resolver::{ResolveError, ResolveLocalError};
+use vey_resolver::ResolveError;
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::net::{Host, UpstreamAddr};
 use vey_types::resolve::ResolveStrategy;
@@ -142,13 +142,13 @@ where
                                                     self.resolver_job = Some(resolver_job);
                                                     // no retry by leaving resolve_retry_domain to None
                                                 }
-                                                Err(_) => return Poll::Ready(Err(
-                                                    UdpRelayRemoteError::DomainNotResolved(
-                                                        ResolveError::FromLocal(
-                                                            ResolveLocalError::NoResolverRunning,
+                                                Err(_) => {
+                                                    return Poll::Ready(Err(
+                                                        UdpRelayRemoteError::DomainNotResolved(
+                                                            ResolveError::NoResolverRunning,
                                                         ),
-                                                    ),
-                                                )),
+                                                    ));
+                                                }
                                             }
                                         } else {
                                             return Poll::Ready(Err(e.into()));

@@ -12,7 +12,6 @@ use arcstr::ArcStr;
 use tokio::time::Instant;
 
 use super::{ResolveError, ResolveServerError};
-use crate::ResolveLocalError;
 
 #[derive(Clone, Copy, Debug)]
 pub enum ResolvedRecordSource {
@@ -74,11 +73,7 @@ impl ResolvedRecord {
     }
 
     pub fn timed_out(domain: ArcStr, protective_cache_ttl: u32) -> Self {
-        ResolvedRecord::failed(
-            domain,
-            protective_cache_ttl,
-            ResolveError::FromLocal(ResolveLocalError::DriverTimedOut),
-        )
+        ResolvedRecord::failed(domain, protective_cache_ttl, ResolveError::RequestTimeout)
     }
 
     pub fn resolved(

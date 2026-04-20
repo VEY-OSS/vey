@@ -21,6 +21,7 @@ const TAG_KEY_RR_TYPE: &str = "rr_type";
 const METRIC_NAME_QUERY_TOTAL: &str = "resolver.query.total";
 const METRIC_NAME_QUERY_CACHED: &str = "resolver.query.cached";
 const METRIC_NAME_QUERY_TRASHED: &str = "resolver.query.trashed";
+const METRIC_NAME_QUERY_TIMEOUT: &str = "resolver.query.timeout";
 const METRIC_NAME_QUERY_DRIVER: &str = "resolver.query.driver.total";
 const METRIC_NAME_QUERY_DRIVER_TIMEOUT: &str = "resolver.query.driver.timeout";
 const METRIC_NAME_QUERY_DRIVER_FAILED: &str = "resolver.query.driver.failed";
@@ -115,19 +116,19 @@ fn emit_query_stats_to_statsd(
     common_tags: &StatsdTagGroup,
     rr_type: ResolveQueryType,
 ) {
-    if stats.total == 0 && snap.total == 0 {
+    if stats.query_total == 0 && snap.query_total == 0 {
         return;
     }
 
     let rr_type = rr_type.as_str();
 
-    let new_value = stats.total;
-    let diff_value = new_value.wrapping_sub(snap.total);
+    let new_value = stats.query_total;
+    let diff_value = new_value.wrapping_sub(snap.query_total);
     client
         .count_with_tags(METRIC_NAME_QUERY_TOTAL, diff_value, common_tags)
         .with_tag(TAG_KEY_RR_TYPE, rr_type)
         .send();
-    snap.total = new_value;
+    snap.query_total = new_value;
 
     macro_rules! emit_query_stats_u64 {
         ($id:ident, $name:expr) => {
@@ -143,9 +144,10 @@ fn emit_query_stats_to_statsd(
         };
     }
 
-    emit_query_stats_u64!(cached, METRIC_NAME_QUERY_CACHED);
-    emit_query_stats_u64!(trashed, METRIC_NAME_QUERY_TRASHED);
-    emit_query_stats_u64!(driver, METRIC_NAME_QUERY_DRIVER);
+    emit_query_stats_u64!(query_cached, METRIC_NAME_QUERY_CACHED);
+    emit_query_stats_u64!(query_trashed, METRIC_NAME_QUERY_TRASHED);
+    emit_query_stats_u64!(query_driver, METRIC_NAME_QUERY_DRIVER);
+    emit_query_stats_u64!(query_timeout, METRIC_NAME_QUERY_TIMEOUT);
     emit_query_stats_u64!(driver_timeout, METRIC_NAME_QUERY_DRIVER_TIMEOUT);
     emit_query_stats_u64!(driver_failed, METRIC_NAME_QUERY_DRIVER_FAILED);
     emit_query_stats_u64!(server_refused, METRIC_NAME_QUERY_SERVER_REFUSED);

@@ -12,7 +12,7 @@ use tokio::time::Instant;
 use super::DnsRequest;
 use crate::config::ResolverRuntimeConfig;
 use crate::message::ResolveDriverResponse;
-use crate::{ResolveDriver, ResolveDriverErrorReason, ResolveLocalError, ResolvedRecord};
+use crate::{ResolveDriver, ResolveDriverErrorReason, ResolveError, ResolvedRecord};
 
 #[derive(Clone)]
 pub struct HickoryResolver {
@@ -99,7 +99,7 @@ impl HickoryResolver {
             return ResolvedRecord::failed(
                 domain,
                 self.negative_min_ttl,
-                ResolveLocalError::NoResolverRunning.into(),
+                ResolveError::NoResolverRunning,
             );
         };
         if client
@@ -153,15 +153,11 @@ impl HickoryResolver {
                 Err(_) => ResolvedRecord::failed(
                     domain,
                     self.negative_min_ttl,
-                    ResolveDriverErrorReason::Static("time out").into(),
+                    ResolveError::DriverTimeout,
                 ),
             }
         } else {
-            ResolvedRecord::failed(
-                domain,
-                self.negative_min_ttl,
-                ResolveDriverErrorReason::Static("time out").into(),
-            )
+            ResolvedRecord::failed(domain, self.negative_min_ttl, ResolveError::DriverTimeout)
         };
         last_err.unwrap_or(end_err)
     }

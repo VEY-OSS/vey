@@ -449,9 +449,7 @@ impl ArriveFirstResolveJob {
         let ip = self
             .strategy
             .pick_best(ips)
-            .ok_or(ResolveError::UnexpectedError(
-                "resolver job return ok but with no ip can be selected",
-            ))?;
+            .ok_or(ResolveError::EmptyResult)?;
         Poll::Ready(Ok(ip))
     }
 }

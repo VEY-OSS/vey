@@ -12,7 +12,7 @@ use super::FailOverDriverStaticConfig;
 use crate::config::ResolverRuntimeConfig;
 use crate::message::ResolveDriverResponse;
 use crate::{
-    ResolveDriver, ResolveJob, ResolveJobRecvResult, ResolveLocalError, ResolvedRecord,
+    ResolveDriver, ResolveError, ResolveJob, ResolveJobRecvResult, ResolvedRecord,
     ResolvedRecordSource, ResolverHandle,
 };
 
@@ -37,7 +37,7 @@ impl FailOverResolverJob {
     ) -> ResolvedRecord {
         match result {
             Ok((r, _)) => r.as_ref().clone(),
-            Err(e) => ResolvedRecord::failed(domain, self.config.negative_ttl, e.into()),
+            Err(e) => ResolvedRecord::failed(domain, self.config.negative_ttl, e),
         }
     }
 
@@ -127,7 +127,7 @@ impl FailOverResolverJob {
                 self.normalize_job_recv_result(domain, job.recv().await)
             }
             (None, None) => {
-                self.normalize_job_recv_result(domain, Err(ResolveLocalError::NoResolverRunning))
+                self.normalize_job_recv_result(domain, Err(ResolveError::NoResolverRunning))
             }
         }
     }

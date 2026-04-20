@@ -16,7 +16,6 @@ use async_recursion::async_recursion;
 use hickory_net::client::{Client, ClientHandle};
 use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::{BufDnsStreamHandle, DnsError, NetError};
-use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
@@ -27,7 +26,7 @@ use vey_types::net::{
     DnsEncryptionConfig, DnsEncryptionProtocol, TcpMiscSockOpts, UdpMiscSockOpts,
 };
 
-use crate::{ResolveDriverErrorReason, ResolveError, ResolveServerError, ResolvedRecord};
+use crate::{ResolveDriverErrorReason, ResolveError, ResolvedRecord};
 
 #[derive(Clone)]
 pub(super) struct DnsRequest {
@@ -215,27 +214,25 @@ impl HickoryClientJob {
             Err(NetError::Dns(e)) => match e {
                 DnsError::ResponseCode(code) => {
                     let e = ResolveError::from_response_code(code).unwrap_or(
-                        ResolveError::UnexpectedError(
+                        ResolveError::DriverError(ResolveDriverErrorReason::Static(
                             "hickory driver returned no-error response code as dns error",
-                        ),
+                        )),
                     );
                     ResolvedRecord::failed(req.domain, self.config.negative_ttl, e)
                 }
                 DnsError::NoRecordsFound(v) => {
                     let ttl = v.negative_ttl.unwrap_or(self.config.negative_ttl);
-                    if v.response_code == ResponseCode::NoError {
-                        ResolvedRecord::empty(req.domain, self.config.negative_ttl)
+                    if let Some(e) = ResolveError::from_response_code(v.response_code) {
+                        ResolvedRecord::failed(req.domain, ttl, e)
                     } else {
-                        ResolvedRecord::failed(
-                            req.domain,
-                            ttl,
-                            ResolveError::ServerError(ResolveServerError::NotFound),
-                        )
+                        ResolvedRecord::empty(req.domain, ttl)
                     }
                 }
-                _ => {
-                    todo!()
-                }
+                _ => ResolvedRecord::failed(
+                    req.domain,
+                    self.config.negative_ttl,
+                    ResolveError::DriverError(ResolveDriverErrorReason::Owned(e.to_string())),
+                ),
             },
             Err(NetError::Proto(e)) => ResolvedRecord::failed(
                 req.domain,

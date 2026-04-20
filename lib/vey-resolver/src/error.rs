@@ -52,41 +52,23 @@ impl fmt::Display for ResolveDriverErrorReason {
 }
 
 #[derive(Error, Debug, Clone)]
-pub enum ResolveLocalError {
-    #[error("no resolver set")]
-    NoResolverSet,
-    #[error("no resolver running")]
-    NoResolverRunning,
-    #[error("driver timed out")]
-    DriverTimedOut,
-}
-
-impl ResolveLocalError {
-    pub fn get_type(&self) -> &str {
-        match self {
-            ResolveLocalError::NoResolverSet => "NoResolverSet",
-            ResolveLocalError::NoResolverRunning => "NoResolverRunning",
-            ResolveLocalError::DriverTimedOut => "DriverTimedOut",
-        }
-    }
-}
-
-#[derive(Error, Debug, Clone)]
 pub enum ResolveError {
     #[error("empty domain")]
     EmptyDomain,
     #[error("empty result")]
     EmptyResult,
+    #[error("no resolver set")]
+    NoResolverSet,
+    #[error("no resolver running")]
+    NoResolverRunning,
+    #[error("request timeout")]
+    RequestTimeout,
     #[error("server error: {0}")]
     ServerError(#[from] ResolveServerError),
     #[error("driver error: {0}")]
     DriverError(ResolveDriverErrorReason),
     #[error("time out")]
     DriverTimeout,
-    #[error("local error: {0}")]
-    FromLocal(#[from] ResolveLocalError),
-    #[error("unexpected error: {0}")]
-    UnexpectedError(&'static str),
 }
 
 impl ResolveError {
@@ -97,19 +79,19 @@ impl ResolveError {
             ResolveError::ServerError(_) => "ServerError",
             ResolveError::DriverError(_) => "DriverError",
             ResolveError::DriverTimeout => "DriverTimeout",
-            ResolveError::FromLocal(_) => "LocalError",
-            ResolveError::UnexpectedError(_) => "UnexpectedError",
+            _ => "LocalError",
         }
     }
 
     pub fn get_subtype(&self) -> &str {
         match self {
-            ResolveError::EmptyDomain | ResolveError::EmptyResult => "",
             ResolveError::ServerError(e) => e.get_type(),
-            ResolveError::DriverError(_) => "",
-            ResolveError::DriverTimeout => "",
-            ResolveError::FromLocal(e) => e.get_type(),
-            ResolveError::UnexpectedError(_) => "",
+            ResolveError::DriverError(_) | ResolveError::DriverTimeout => "",
+            ResolveError::EmptyDomain => "EmptyDomain",
+            ResolveError::EmptyResult => "EmptyResult",
+            ResolveError::NoResolverSet => "NoResolverSet",
+            ResolveError::NoResolverRunning => "NoResolverRunning",
+            ResolveError::RequestTimeout => "RequestTimeout",
         }
     }
 }

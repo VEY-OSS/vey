@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use arcstr::ArcStr;
 use async_trait::async_trait;
 
-use vey_resolver::{ResolveError, ResolveLocalError};
+use vey_resolver::ResolveError;
 use vey_types::metrics::NodeName;
 
 use super::{
@@ -106,13 +106,13 @@ impl IntegratedResolverHandle for DenyAllResolverHandle {
 
     fn query_v4(&self, _domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError> {
         Ok(Box::new(ErrorResolveJob::with_error(
-            ResolveLocalError::NoResolverRunning.into(),
+            ResolveError::NoResolverRunning,
         )))
     }
 
     fn query_v6(&self, _domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError> {
         Ok(Box::new(ErrorResolveJob::with_error(
-            ResolveLocalError::NoResolverRunning.into(),
+            ResolveError::NoResolverRunning,
         )))
     }
 

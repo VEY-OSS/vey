@@ -44,6 +44,14 @@ The metric names are:
 
   .. versionadded:: 1.11.6
 
+* resolver.query.timeout
+
+  **type**: count
+
+  Total queries to the cache runtime that timed out without a response.
+
+  .. versionadded:: 1.13.2
+
 * resolver.query.driver.total
 
   **type**: count
