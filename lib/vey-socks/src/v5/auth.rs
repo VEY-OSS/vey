@@ -142,6 +142,9 @@ where
     }
 
     let ul = clt_r.read_u8().await?;
+    if ul == 0 {
+        return Err(SocksNegotiationError::InvalidUserAuthMsg.into());
+    }
     let mut buf = vec![0u8; ul as usize];
     clt_r.read_exact(&mut buf).await?;
     let username =
@@ -150,6 +153,9 @@ where
         Username::from_original(username).map_err(|_| SocksNegotiationError::InvalidUserAuthMsg)?;
 
     let pl = clt_r.read_u8().await?;
+    if pl == 0 {
+        return Err(SocksNegotiationError::InvalidUserAuthMsg.into());
+    }
     let mut buf = vec![0u8; pl as usize];
     clt_r.read_exact(&mut buf).await?;
     let password =
