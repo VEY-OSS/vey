@@ -3,6 +3,7 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
+use std::collections::BTreeSet;
 use std::fs::DirBuilder;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -10,20 +11,29 @@ use std::path::{Path, PathBuf};
 use anyhow::anyhow;
 use log::{debug, warn};
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::UnixListener;
+use tokio::net::unix::SocketAddr;
+use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::oneshot;
 
 pub(super) struct LocalControllerImpl {
     listen_path: PathBuf,
     listener: UnixListener,
+    whitelist_users: BTreeSet<u32>,
 }
 
 impl LocalControllerImpl {
     fn new(listen_path: PathBuf) -> io::Result<Self> {
         let listener = UnixListener::bind(&listen_path)?;
+
+        let uid = rustix::process::getuid().as_raw();
+        let mut whitelist_users = BTreeSet::new();
+        whitelist_users.insert(uid);
+        whitelist_users.insert(0);
+
         Ok(LocalControllerImpl {
             listen_path,
             listener,
+            whitelist_users,
         })
     }
 
@@ -77,14 +87,12 @@ impl LocalControllerImpl {
         let mut socket_path = crate::opts::control_dir();
         socket_path.push(Path::new(&socket_name));
 
-        tokio::net::UnixStream::connect(&socket_path)
-            .await
-            .map_err(|e| {
-                anyhow!(
-                    "failed to connect to control socket {}: {e:?}",
-                    socket_path.display()
-                )
-            })
+        UnixStream::connect(&socket_path).await.map_err(|e| {
+            anyhow!(
+                "failed to connect to control socket {}: {e:?}",
+                socket_path.display()
+            )
+        })
     }
 
     pub(super) async fn into_running(
@@ -98,27 +106,7 @@ impl LocalControllerImpl {
                 r = self.listener.accept() => {
                     match r {
                         Ok((stream, addr)) => {
-                            if let Ok(ucred) = stream.peer_cred() {
-                                if let Some(addr) = addr.as_pathname() {
-                                    debug!(
-                                        "new ctl client from {} uid {} pid {}",
-                                        addr.display(),
-                                        ucred.uid(),
-                                        ucred.gid(),
-                                    );
-                                } else {
-                                    debug!(
-                                        "new ctl client from uid {} pid {}",
-                                        ucred.uid(),
-                                        ucred.gid()
-                                    );
-                                }
-                            } else {
-                                debug!("new ctl local control client");
-                            }
-
-                            let (r, w) = stream.into_split();
-                            super::ctl_handle(r, w);
+                            self.handle_stream(stream, addr);
                         }
                         Err(e) => {
                             warn!("controller {} accept: {e}", self.listen_path.display());
@@ -133,6 +121,32 @@ impl LocalControllerImpl {
                 }
             }
         }
+    }
+
+    fn handle_stream(&self, stream: UnixStream, addr: SocketAddr) {
+        if let Ok(ucred) = stream.peer_cred() {
+            let peer_uid = ucred.uid();
+            if !self.whitelist_users.contains(&peer_uid) {
+                // only allow control message from root and current running user
+                warn!("dropped ctl connection uid {peer_uid} pid {}", ucred.gid(),);
+            }
+            if let Some(addr) = addr.as_pathname() {
+                debug!(
+                    "new ctl client from {} uid {peer_uid} pid {}",
+                    addr.display(),
+                    ucred.gid(),
+                );
+            } else {
+                debug!("new ctl client from uid {peer_uid} pid {}", ucred.gid());
+            }
+        } else if let Some(addr) = addr.as_pathname() {
+            debug!("new ctl client from {}", addr.display());
+        } else {
+            debug!("new ctl local control client");
+        }
+
+        let (r, w) = stream.into_split();
+        super::ctl_handle(r, w);
     }
 }
 
