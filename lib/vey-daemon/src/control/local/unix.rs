@@ -6,6 +6,7 @@
 use std::collections::BTreeSet;
 use std::fs::DirBuilder;
 use std::io;
+use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
@@ -18,21 +19,42 @@ use tokio::sync::oneshot;
 pub(super) struct LocalControllerImpl {
     listen_path: PathBuf,
     listener: UnixListener,
+    create_time: i64,
     whitelist_users: BTreeSet<u32>,
 }
 
 impl LocalControllerImpl {
-    fn new(listen_path: PathBuf) -> io::Result<Self> {
-        let listener = UnixListener::bind(&listen_path)?;
+    fn new(listen_path: PathBuf) -> anyhow::Result<Self> {
+        let current_uid = rustix::process::getuid().as_raw();
 
-        let uid = rustix::process::getuid().as_raw();
+        let listener = UnixListener::bind(&listen_path).map_err(|e| {
+            anyhow!(
+                "bind to control socket {} failed: {e}",
+                listen_path.display(),
+            )
+        })?;
+        let metadata = listen_path.metadata().map_err(|e| {
+            anyhow!(
+                "failed to get metadata on control socket path {}: {}",
+                listen_path.display(),
+                e
+            )
+        })?;
+        if !metadata.file_type().is_socket() || metadata.uid() != current_uid {
+            return Err(anyhow!(
+                "control socket path {} has been deleted",
+                listen_path.display()
+            ));
+        }
+
         let mut whitelist_users = BTreeSet::new();
-        whitelist_users.insert(uid);
+        whitelist_users.insert(current_uid);
         whitelist_users.insert(0);
 
         Ok(LocalControllerImpl {
             listen_path,
             listener,
+            create_time: metadata.ctime(),
             whitelist_users,
         })
     }
@@ -67,9 +89,32 @@ impl LocalControllerImpl {
         };
         let mut listen_path = crate::opts::control_dir();
         listen_path.push(Path::new(&socket_name));
-        if listen_path.exists() {
-            std::fs::remove_file(&listen_path)
-                .map_err(|e| anyhow!("failed to remove old {}: {e}", listen_path.display()))?;
+        match listen_path.symlink_metadata() {
+            Ok(metadata) => {
+                if !metadata.file_type().is_socket() {
+                    return Err(anyhow!(
+                        "control socket path {} exists but is not a socket",
+                        listen_path.display()
+                    ));
+                }
+                if metadata.uid() != rustix::process::getuid().as_raw() {
+                    return Err(anyhow!(
+                        "control socket path {} belongs to a different uid {}",
+                        listen_path.display(),
+                        metadata.uid()
+                    ));
+                }
+                std::fs::remove_file(&listen_path)
+                    .map_err(|e| anyhow!("failed to remove old {}: {e}", listen_path.display()))?;
+            }
+            Err(e) => {
+                if e.kind() != io::ErrorKind::NotFound {
+                    return Err(anyhow!(
+                        "failed to check control socket {}",
+                        listen_path.display()
+                    ));
+                }
+            }
         }
         check_then_finalize_path(&listen_path)?;
 
@@ -152,9 +197,20 @@ impl LocalControllerImpl {
 
 impl Drop for LocalControllerImpl {
     fn drop(&mut self) {
-        if self.listen_path.exists() {
+        if let Ok(metadata) = self.listen_path.symlink_metadata() {
+            if !metadata.file_type().is_socket() {
+                return;
+            }
+            if metadata.ctime() != self.create_time {
+                return;
+            }
             debug!("unlink socket file {}", self.listen_path.display());
-            let _ = std::fs::remove_file(&self.listen_path);
+            if let Err(e) = std::fs::remove_file(&self.listen_path) {
+                warn!(
+                    "failed to unlink control socket {}: {e}",
+                    self.listen_path.display()
+                );
+            }
         }
     }
 }
