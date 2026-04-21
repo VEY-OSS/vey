@@ -59,6 +59,14 @@ The metric names are:
   Number of client connections from the user. Connections that fail during
   authentication are not counted.
 
+* user.forbidden.crypto_error
+
+  **type**: count
+
+  Number of rejected requests caused by internal crypto error.
+
+  .. versionadded:: 1.13.2
+
 * user.forbidden.auth_failed
 
   **type**: count

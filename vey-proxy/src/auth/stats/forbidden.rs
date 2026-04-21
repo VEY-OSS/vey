@@ -21,6 +21,7 @@ pub(crate) struct UserForbiddenStats {
     user_type: UserType,
     server: NodeName,
     server_extra_tags: Arc<ArcSwapOption<MetricTagMap>>,
+    crypto_error: AtomicU64,
     auth_failed: AtomicU64,
     user_expired: AtomicU64,
     user_blocked: AtomicU64,
@@ -36,6 +37,7 @@ pub(crate) struct UserForbiddenStats {
 
 #[derive(Default)]
 pub(crate) struct UserForbiddenSnapshot {
+    pub(crate) crypto_error: u64,
     pub(crate) auth_failed: u64,
     pub(crate) user_expired: u64,
     pub(crate) user_blocked: u64,
@@ -64,6 +66,7 @@ impl UserForbiddenStats {
             user_type,
             server: server.clone(),
             server_extra_tags: Arc::clone(server_extra_tags),
+            crypto_error: Default::default(),
             auth_failed: Default::default(),
             user_expired: Default::default(),
             user_blocked: Default::default(),
@@ -110,6 +113,7 @@ impl UserForbiddenStats {
 
     pub(crate) fn snapshot(&self) -> UserForbiddenSnapshot {
         UserForbiddenSnapshot {
+            crypto_error: self.crypto_error.load(Ordering::Relaxed),
             auth_failed: self.auth_failed.load(Ordering::Relaxed),
             user_expired: self.user_expired.load(Ordering::Relaxed),
             user_blocked: self.user_blocked.load(Ordering::Relaxed),
@@ -122,6 +126,10 @@ impl UserForbiddenStats {
             ua_blocked: self.ua_blocked.load(Ordering::Relaxed),
             log_skipped: self.log_skipped.load(Ordering::Relaxed),
         }
+    }
+
+    pub(crate) fn add_crypto_error(&self) {
+        self.crypto_error.fetch_add(1, Ordering::Relaxed);
     }
 
     pub(crate) fn add_auth_failed(&self) {

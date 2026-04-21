@@ -140,12 +140,16 @@ impl UserConfig {
         }
     }
 
-    pub(crate) fn check_password(&self, password: &str) -> bool {
+    pub(crate) fn check_password(&self, password: &str) -> anyhow::Result<bool> {
         match &self.password_token {
-            PasswordToken::Forbidden => false,
-            PasswordToken::SkipVerify => true,
-            PasswordToken::FastHash(fast_hash) => fast_hash.verify(password).unwrap(),
-            PasswordToken::XCrypt(xcrypt_hash) => xcrypt_hash.verify(password.as_bytes()).unwrap(),
+            PasswordToken::Forbidden => Ok(false),
+            PasswordToken::SkipVerify => Ok(true),
+            PasswordToken::FastHash(fast_hash) => fast_hash
+                .verify(password)
+                .map_err(|e| anyhow!("fast hash verify failed: {e}")),
+            PasswordToken::XCrypt(xcrypt_hash) => xcrypt_hash
+                .verify(password.as_bytes())
+                .map_err(|e| anyhow!("crypt hash verify failed: {e}")),
         }
     }
 

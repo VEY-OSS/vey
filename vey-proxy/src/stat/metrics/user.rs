@@ -29,6 +29,7 @@ const TAG_KEY_USER_GROUP: &str = "user_group";
 const TAG_KEY_USER: &str = "user";
 const TAG_KEY_USER_TYPE: &str = "user_type";
 
+const METRIC_NAME_FORBIDDEN_CRYPTO_ERROR: &str = "user.forbidden.crypto_error";
 const METRIC_NAME_FORBIDDEN_AUTH_FAILED: &str = "user.forbidden.auth_failed";
 const METRIC_NAME_FORBIDDEN_USER_EXPIRED: &str = "user.forbidden.user_expired";
 const METRIC_NAME_FORBIDDEN_USER_BLOCKED: &str = "user.forbidden.user_blocked";
@@ -273,6 +274,7 @@ fn emit_user_forbidden_stats(
         };
     }
 
+    emit_forbid_stats_u64!(crypto_error, METRIC_NAME_FORBIDDEN_CRYPTO_ERROR);
     emit_forbid_stats_u64!(auth_failed, METRIC_NAME_FORBIDDEN_AUTH_FAILED);
     emit_forbid_stats_u64!(user_expired, METRIC_NAME_FORBIDDEN_USER_EXPIRED);
     emit_forbid_stats_u64!(user_blocked, METRIC_NAME_FORBIDDEN_USER_BLOCKED);

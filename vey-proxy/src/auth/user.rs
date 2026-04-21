@@ -13,6 +13,7 @@ use arc_swap::ArcSwapOption;
 use arcstr::ArcStr;
 use chrono::{DateTime, Utc};
 use foldhash::HashMap;
+use log::warn;
 use tokio::time::Instant;
 
 use vey_io_ext::{GlobalDatagramLimiter, GlobalLimitGroup, GlobalStreamLimiter};
@@ -414,9 +415,17 @@ impl User {
         password: &str,
         forbid_stats: &Arc<UserForbiddenStats>,
     ) -> Result<(), UserAuthError> {
-        if !self.config.check_password(password) {
-            forbid_stats.add_auth_failed();
-            return Err(UserAuthError::TokenNotMatch);
+        match self.config.check_password(password) {
+            Ok(true) => {}
+            Ok(false) => {
+                forbid_stats.add_auth_failed();
+                return Err(UserAuthError::TokenNotMatch);
+            }
+            Err(e) => {
+                forbid_stats.add_crypto_error();
+                warn!("user password check failed: {e}");
+                return Err(UserAuthError::CryptoError);
+            }
         }
         if self.is_expired() {
             forbid_stats.add_user_expired();

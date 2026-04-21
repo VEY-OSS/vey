@@ -28,6 +28,8 @@ pub enum UserAuthError {
     RemoteError,
     #[error("invalid username param")]
     InvalidParam,
+    #[error("internal crypto error")]
+    CryptoError,
 }
 
 impl UserAuthError {
