@@ -10,6 +10,8 @@ use std::os::unix::net::UnixDatagram;
 #[cfg(unix)]
 use std::path::PathBuf;
 
+use bytes::Bytes;
+
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -37,15 +39,15 @@ pub(super) enum SyslogBackend {
 }
 
 impl SyslogBackend {
-    pub(super) fn write_many(&self, msgs: &[String]) -> io::Result<usize> {
+    pub(super) fn write_many(&self, msgs: &[Bytes]) -> io::Result<usize> {
         if msgs.len() == 1 {
             match self {
                 SyslogBackend::Udp(s) => {
-                    s.send(msgs[0].as_bytes())?;
+                    s.send(&msgs[0])?;
                 }
                 #[cfg(unix)]
                 SyslogBackend::Unix(s) => {
-                    s.send(msgs[0].as_bytes())?;
+                    s.send(&msgs[0])?;
                 }
             }
             Ok(1)
@@ -65,7 +67,7 @@ impl SyslogBackend {
                     let mut hdrs: [SendMsgHdr<'_, 1>; MAX_BATCH_SIZE] =
                         unsafe { std::mem::zeroed() };
                     for (i, m) in msgs.iter().take(MAX_BATCH_SIZE).enumerate() {
-                        hdrs[i] = SendMsgHdr::new([io::IoSlice::new(m.as_bytes())], None);
+                        hdrs[i] = SendMsgHdr::new([io::IoSlice::new(m)], None);
                     }
                     s.batch_sendmsg(&mut hdrs[..msgs.len().min(MAX_BATCH_SIZE)])
                 }
@@ -76,7 +78,7 @@ impl SyslogBackend {
                     let mut hdrs: [SendMsgHdr<'_, 1>; MAX_BATCH_SIZE] =
                         unsafe { std::mem::zeroed() };
                     for (i, m) in msgs.iter().take(MAX_BATCH_SIZE).enumerate() {
-                        hdrs[i] = SendMsgHdr::new([io::IoSlice::new(m.as_bytes())], None);
+                        hdrs[i] = SendMsgHdr::new([io::IoSlice::new(m)], None);
                     }
                     s.batch_sendmsg_x(&mut hdrs[..msgs.len().min(MAX_BATCH_SIZE)])
                 }
@@ -90,12 +92,12 @@ impl SyslogBackend {
                     target_os = "macos",
                 )))]
                 SyslogBackend::Udp(s) => {
-                    s.send(msgs[0].as_bytes())?;
+                    s.send(&msgs[0])?;
                     Ok(1)
                 }
                 #[cfg(unix)]
                 SyslogBackend::Unix(s) => {
-                    s.send(msgs[0].as_bytes())?;
+                    s.send(&msgs[0])?;
                     Ok(1)
                 }
             }

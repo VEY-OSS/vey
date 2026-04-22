@@ -3659,6 +3659,7 @@ name = "vey-syslog"
 version = "0.8.0"
 dependencies = [
  "anyhow",
+ "bytes",
  "chrono",
  "itoa",
  "kanal",

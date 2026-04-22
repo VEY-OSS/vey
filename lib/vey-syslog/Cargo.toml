@@ -16,6 +16,7 @@ kanal = { workspace = true, features = ["std-mutex"] }
 serde.workspace = true
 serde_json.workspace = true
 log.workspace = true
+bytes.workspace = true
 anyhow = { workspace = true, optional = true }
 yaml-rust = { workspace = true, optional = true }
 vey-compat.workspace = true

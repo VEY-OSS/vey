@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use bytes::Bytes;
 use log::warn;
 use slog::{Drain, OwnedKVList, Record};
 
@@ -22,7 +23,7 @@ thread_local! {
 
 pub struct AsyncSyslogStreamer {
     header: SyslogHeader,
-    sender: kanal::Sender<String>,
+    sender: kanal::Sender<Bytes>,
     formatter: BoxSyslogFormatter,
     stats: Arc<LogStats>,
 }
@@ -34,7 +35,7 @@ impl AsyncSyslogStreamer {
         formatter: BoxSyslogFormatter,
         backend_builder: &SyslogBackendBuilder,
     ) -> Self {
-        let (sender, receiver) = kanal::bounded::<String>(config.channel_capacity);
+        let (sender, receiver) = kanal::bounded::<Bytes>(config.channel_capacity);
 
         let stats = Arc::new(LogStats::default());
 
@@ -82,7 +83,7 @@ impl Drain for AsyncSyslogStreamer {
                 .format_slog(buf, &self.header, record, logger_values)
             {
                 Ok(_) => {
-                    let s = unsafe { String::from_utf8_unchecked(buf.clone()) };
+                    let s = Bytes::copy_from_slice(buf);
                     match self.sender.try_send(s) {
                         Ok(true) => {}
                         Ok(false) => self.stats.drop.add_channel_overflow(),
@@ -101,10 +102,10 @@ impl Drain for AsyncSyslogStreamer {
 }
 
 struct AsyncIoThread {
-    receiver: kanal::Receiver<String>,
+    receiver: kanal::Receiver<Bytes>,
     backend_builder: SyslogBackendBuilder,
     stats: Arc<LogStats>,
-    recv_buf: Vec<String>,
+    recv_buf: Vec<Bytes>,
     backend_container: Option<SyslogBackend>,
     backend_failed_instant: Instant,
 }
