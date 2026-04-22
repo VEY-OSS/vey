@@ -4,7 +4,7 @@
  */
 
 use std::ffi::CString;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -102,30 +102,11 @@ fn parse_content(
 }
 
 async fn call_python_fetch(script: PathBuf) -> anyhow::Result<String> {
-    let code = tokio::fs::read_to_string(&script).await.map_err(|e| {
-        anyhow!(
-            "failed to read in content of file {}: {e}",
-            script.display(),
-        )
-    })?;
-    let code = unsafe { CString::from_vec_unchecked(code.into_bytes()) };
+    let code = load_code_as_cstring(&script).await?;
 
     tokio::task::spawn_blocking(move || {
         Python::attach(|py| {
-            let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
-                anyhow!(
-                    "failed to load code from script file {}: {e:?}",
-                    script.display(),
-                )
-            })?;
-            code.setattr(VAR_NAME_FILE, script.display().to_string())
-                .map_err(|e| {
-                    anyhow!(
-                        "failed to set {} to {}: {e}",
-                        VAR_NAME_FILE,
-                        script.display()
-                    )
-                })?;
+            let code = load_py_code(py, code, &script)?;
 
             let fetch_users = code.getattr(FN_NAME_FETCH_USERS).map_err(|e| {
                 anyhow!(
@@ -158,30 +139,11 @@ async fn call_python_fetch(script: PathBuf) -> anyhow::Result<String> {
 }
 
 async fn call_python_report_ok(script: PathBuf) -> anyhow::Result<()> {
-    let code = tokio::fs::read_to_string(&script).await.map_err(|e| {
-        anyhow!(
-            "failed to read in content of file {}: {e}",
-            script.display(),
-        )
-    })?;
-    let code = unsafe { CString::from_vec_unchecked(code.into_bytes()) };
+    let code = load_code_as_cstring(&script).await?;
 
     tokio::task::spawn_blocking(move || {
         Python::attach(|py| {
-            let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
-                anyhow!(
-                    "failed to load code from script file {}: {e:?}",
-                    script.display(),
-                )
-            })?;
-            code.setattr(VAR_NAME_FILE, script.display().to_string())
-                .map_err(|e| {
-                    anyhow!(
-                        "failed to set {} to {}: {e}",
-                        VAR_NAME_FILE,
-                        script.display()
-                    )
-                })?;
+            let code = load_py_code(py, code, &script)?;
 
             if let Ok(report_ok) = code.getattr(FN_NAME_REPORT_OK) {
                 report_ok.call0().map_err(|e| {
@@ -200,30 +162,11 @@ async fn call_python_report_ok(script: PathBuf) -> anyhow::Result<()> {
 }
 
 async fn call_python_report_err(script: PathBuf, e: String) -> anyhow::Result<()> {
-    let code = tokio::fs::read_to_string(&script).await.map_err(|e| {
-        anyhow!(
-            "failed to read in content of file {}: {e}",
-            script.display(),
-        )
-    })?;
-    let code = unsafe { CString::from_vec_unchecked(code.into_bytes()) };
+    let code = load_code_as_cstring(&script).await?;
 
     tokio::task::spawn_blocking(move || {
         Python::attach(|py| {
-            let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
-                anyhow!(
-                    "failed to load code from script file {}: {e:?}",
-                    script.display(),
-                )
-            })?;
-            code.setattr(VAR_NAME_FILE, script.display().to_string())
-                .map_err(|e| {
-                    anyhow!(
-                        "failed to set {} to {}: {e}",
-                        VAR_NAME_FILE,
-                        script.display()
-                    )
-                })?;
+            let code = load_py_code(py, code, &script)?;
 
             if let Ok(report_ok) = code.getattr(FN_NAME_REPORT_ERR) {
                 let tup = PyTuple::new(py, [e])
@@ -241,4 +184,28 @@ async fn call_python_report_err(script: PathBuf, e: String) -> anyhow::Result<()
     })
     .await
     .map_err(|e| anyhow!("join blocking task error: {e}"))?
+}
+
+async fn load_code_as_cstring(path: &Path) -> anyhow::Result<CString> {
+    let code = tokio::fs::read_to_string(path)
+        .await
+        .map_err(|e| anyhow!("failed to read in content of file {}: {e}", path.display()))?;
+    CString::from_vec_with_nul(code.into_bytes())
+        .map_err(|e| anyhow!("failed to convert code to CString: {e}"))
+}
+
+fn load_py_code<'py>(
+    py: Python<'py>,
+    code: CString,
+    path: &Path,
+) -> anyhow::Result<Bound<'py, PyModule>> {
+    let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
+        anyhow!(
+            "failed to load code from script file {}: {e}",
+            path.display(),
+        )
+    })?;
+    code.setattr(VAR_NAME_FILE, path.display().to_string())
+        .map_err(|e| anyhow!("failed to set {VAR_NAME_FILE} to {}: {e}", path.display()))?;
+    Ok(code)
 }
