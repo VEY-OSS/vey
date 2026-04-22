@@ -173,16 +173,20 @@ impl LocalControllerImpl {
             let peer_uid = ucred.uid();
             if !self.whitelist_users.contains(&peer_uid) {
                 // only allow control message from root and current running user
-                warn!("dropped ctl connection uid {peer_uid} pid {}", ucred.gid(),);
+                warn!(
+                    "dropped ctl connection uid {peer_uid} pid {:?}",
+                    ucred.pid()
+                );
+                return;
             }
             if let Some(addr) = addr.as_pathname() {
                 debug!(
-                    "new ctl client from {} uid {peer_uid} pid {}",
+                    "new ctl client from {} uid {peer_uid} pid {:?}",
                     addr.display(),
-                    ucred.gid(),
+                    ucred.pid()
                 );
             } else {
-                debug!("new ctl client from uid {peer_uid} pid {}", ucred.gid());
+                debug!("new ctl client from uid {peer_uid} pid {:?}", ucred.pid());
             }
         } else if let Some(addr) = addr.as_pathname() {
             debug!("new ctl client from {}", addr.display());
