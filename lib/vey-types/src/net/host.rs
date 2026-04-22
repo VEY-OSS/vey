@@ -50,6 +50,9 @@ impl Host {
     }
 
     pub fn from_domain_str(domain: &str) -> anyhow::Result<Self> {
+        if domain.is_empty() {
+            return Err(anyhow!("empty domain"));
+        }
         let domain = idna::domain_to_ascii(domain).map_err(|e| anyhow!("invalid domain: {e}"))?;
         Ok(Host::Domain(domain.into()))
     }
