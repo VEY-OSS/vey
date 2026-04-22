@@ -52,9 +52,7 @@ pub fn as_host(v: &Value) -> anyhow::Result<Host> {
         if let Ok(ip) = IpAddr::from_str(value) {
             Ok(Host::Ip(ip))
         } else {
-            // allow more than domain_to_ascii_strict chars
-            let domain = idna::domain_to_ascii(value).map_err(|e| anyhow!("invalid host: {e}"))?;
-            Ok(Host::Domain(domain.into()))
+            Host::from_domain_str(value)
         }
     } else {
         Err(anyhow!("json value type for 'Host' should be 'string'"))

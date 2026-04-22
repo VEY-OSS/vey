@@ -136,9 +136,7 @@ pub fn as_host(value: &Yaml) -> anyhow::Result<Host> {
         if let Ok(ip) = IpAddr::from_str(s) {
             Ok(Host::Ip(ip))
         } else {
-            // allow more than domain_to_ascii_strict chars
-            let domain = idna::domain_to_ascii(s).map_err(|e| anyhow!("invalid host: {e}"))?;
-            Ok(Host::Domain(domain.into()))
+            Host::from_domain_str(s)
         }
     } else {
         Err(anyhow!("yaml value type for 'Host' should be 'string'"))

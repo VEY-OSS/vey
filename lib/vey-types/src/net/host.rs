@@ -53,6 +53,7 @@ impl Host {
         if domain.is_empty() {
             return Err(anyhow!("empty domain"));
         }
+        // allow more than domain_to_ascii_strict chars
         let domain = idna::domain_to_ascii(domain).map_err(|e| anyhow!("invalid domain: {e}"))?;
         Ok(Host::Domain(domain.into()))
     }
