@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * Copyright 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
  */
 
 use libc::{c_int, c_uint, c_void, iovec, size_t, socklen_t, ssize_t};

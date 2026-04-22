@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * Copyright 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
  */
 
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
