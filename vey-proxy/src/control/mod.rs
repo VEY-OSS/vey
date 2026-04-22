@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 mod bridge;
 
@@ -18,10 +18,10 @@ pub use local::{DaemonController, UniqueController};
 
 pub mod capnp;
 
-static IO_MUTEX: Mutex<Option<Mutex<()>>> = Mutex::const_new(Some(Mutex::const_new(())));
+static IO_MUTEX: RwLock<Option<Mutex<()>>> = RwLock::const_new(Some(Mutex::const_new(())));
 
 pub(crate) async fn run_protected_io<F: Future>(future: F) -> Option<F::Output> {
-    let outer = IO_MUTEX.lock().await;
+    let outer = IO_MUTEX.read().await;
     if let Some(inner) = &*outer {
         // io tasks that should avoid corrupt at exit should hold this lock
         let _guard = inner.lock().await;
@@ -32,7 +32,7 @@ pub(crate) async fn run_protected_io<F: Future>(future: F) -> Option<F::Output> 
 }
 
 pub(crate) async fn disable_protected_io() {
-    let mut outer = IO_MUTEX.lock().await;
+    let mut outer = IO_MUTEX.write().await;
     if let Some(inner) = outer.take() {
         // wait all inner lock finish
         let _ = inner.lock().await;
