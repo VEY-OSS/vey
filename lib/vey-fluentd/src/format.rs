@@ -176,7 +176,7 @@ impl Serializer for FormatterKv<'_> {
             TL_BUF.with_borrow_mut(|buf| {
                 buf.clear();
 
-                buf.write_fmt(*value).unwrap();
+                buf.write_fmt(*value).map_err(slog::Error::Fmt)?;
 
                 self.emit_str(key, buf.as_str())
             })
