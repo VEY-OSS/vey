@@ -45,6 +45,9 @@ impl Username {
     }
 
     pub fn from_original(s: &str) -> anyhow::Result<Self> {
+        if s.is_empty() {
+            return Err(anyhow!("empty username is not allowed"));
+        }
         if s.len() > USERNAME_MAX_LENGTH {
             return Err(anyhow!("too long string for a username"));
         }
@@ -69,8 +72,7 @@ impl Username {
     }
 
     pub fn to_encoded(&self) -> String {
-        percent_encoding::utf8_percent_encode(self.as_original(), USER_INFO_PCT_ENCODING_SET)
-            .to_string()
+        Self::url_encode(self.as_original())
     }
 
     pub fn url_encode(original: &str) -> String {
