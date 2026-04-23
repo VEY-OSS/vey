@@ -170,33 +170,35 @@ impl LocalControllerImpl {
     }
 
     fn handle_stream(&self, stream: UnixStream, addr: SocketAddr) {
-        if let Ok(ucred) = stream.peer_cred() {
-            let peer_uid = ucred.uid();
-            if !self.whitelist_users.contains(&peer_uid) {
-                // only allow control message from root and current running user
-                warn!(
-                    "dropped ctl connection uid {peer_uid} pid {:?}",
-                    ucred.pid()
-                );
-                return;
-            }
-            if let Some(addr) = addr.as_pathname() {
-                debug!(
-                    "new ctl client from {} uid {peer_uid} pid {:?}",
-                    addr.display(),
-                    ucred.pid()
-                );
-            } else {
-                debug!("new ctl client from uid {peer_uid} pid {:?}", ucred.pid());
-            }
-        } else if let Some(addr) = addr.as_pathname() {
-            debug!("new ctl client from {}", addr.display());
-        } else {
-            debug!("new ctl local control client");
-        }
+        match stream.peer_cred() {
+            Ok(ucred) => {
+                let peer_uid = ucred.uid();
+                if !self.whitelist_users.contains(&peer_uid) {
+                    // only allow control message from root and current running user
+                    warn!(
+                        "dropped ctl connection uid {peer_uid} pid {:?}",
+                        ucred.pid()
+                    );
+                    return;
+                }
 
-        let (r, w) = stream.into_split();
-        super::ctl_handle(r, w);
+                if let Some(addr) = addr.as_pathname() {
+                    debug!(
+                        "new ctl client from {} uid {peer_uid} pid {:?}",
+                        addr.display(),
+                        ucred.pid()
+                    );
+                } else {
+                    debug!("new ctl client from uid {peer_uid} pid {:?}", ucred.pid());
+                }
+
+                let (r, w) = stream.into_split();
+                super::ctl_handle(r, w);
+            }
+            Err(e) => {
+                warn!("dropped ctl connection as get peer cred failed: {e}");
+            }
+        }
     }
 }
 
