@@ -32,10 +32,14 @@ pub struct RedisClientConfigBuilder {
     response_timeout: Duration,
 }
 
+struct RedisClientTlsConfig {
+    tls_config: RustlsClientConfig,
+    tls_name: ServerName<'static>,
+}
+
 pub struct RedisClientConfig {
     server: UpstreamAddr,
-    tls_client: Option<RustlsClientConfig>,
-    tls_name: Option<ServerName<'static>>,
+    tls_client: Option<RedisClientTlsConfig>,
     db_info: RedisConnectionInfo,
     connect_timeout: Duration,
     response_timeout: Duration,
@@ -109,21 +113,23 @@ impl RedisClientConfigBuilder {
         let mut client = RedisClientConfig {
             server: self.addr.clone(),
             tls_client: None,
-            tls_name: None,
             db_info: connection_info,
             connect_timeout: self.connect_timeout,
             response_timeout: self.response_timeout,
         };
 
         if let Some(config) = &self.tls_client {
-            client.tls_client = Some(config.build()?);
+            let tls_config = config.build()?;
             let tls_name = if let Some(name) = &self.tls_name {
                 name.clone()
             } else {
                 ServerName::try_from(self.addr.host())
                     .map_err(|e| anyhow!("invalid tls server name: {e}"))?
             };
-            client.tls_name = Some(tls_name);
+            client.tls_client = Some(RedisClientTlsConfig {
+                tls_config,
+                tls_name,
+            });
         }
 
         Ok(client)
@@ -162,11 +168,10 @@ impl RedisClientConfig {
         };
 
         if let Some(tls_client) = &self.tls_client {
-            let tls_connector = TlsConnector::from(tls_client.driver.clone());
-            let tls_name = self.tls_name.as_ref().unwrap();
+            let tls_connector = TlsConnector::from(tls_client.tls_config.driver.clone());
             match tokio::time::timeout(
-                tls_client.handshake_timeout,
-                tls_connector.connect(tls_name.clone(), stream),
+                tls_client.tls_config.handshake_timeout,
+                tls_connector.connect(tls_client.tls_name.clone(), stream),
             )
             .await
             {
