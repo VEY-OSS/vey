@@ -9,6 +9,7 @@ use std::io;
 
 use bytes::{BufMut, BytesMut};
 use tokio::io::{AsyncBufRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use zeroize::Zeroize;
 
 use vey_io_ext::LimitedWriteExt;
 use vey_types::auth::{Password, Username};
@@ -163,6 +164,7 @@ where
         std::str::from_utf8(&buf).map_err(|_| SocksNegotiationError::InvalidUserAuthMsg)?;
     let password =
         Password::from_original(password).map_err(|_| SocksNegotiationError::InvalidUserAuthMsg)?;
+    buf.zeroize();
 
     Ok((username, password))
 }

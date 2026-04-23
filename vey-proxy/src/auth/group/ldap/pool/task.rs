@@ -177,11 +177,14 @@ impl LdapAuthTask {
             "{}={},{}",
             self.config.username_attribute, r.username, self.config.base_dn
         );
-        let request_msg = self.request_encoder.encode(&bind_dn, &r.password);
+        let request_msg = self
+            .request_encoder
+            .encode(&bind_dn, r.password.as_original());
         writer
             .write_all_flush(request_msg)
             .await
             .map_err(|e| anyhow!("failed to write bind request: {e}"))?;
+        self.request_encoder.zeroize_buf();
         Ok(self.request_encoder.message_id())
     }
 

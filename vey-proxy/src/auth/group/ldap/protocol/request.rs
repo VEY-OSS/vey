@@ -3,6 +3,8 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use zeroize::Zeroize;
+
 use vey_codec::ber::BerLengthEncoder;
 
 const MAX_MESSAGE_ID: u8 = 0x7F;
@@ -37,6 +39,10 @@ impl SimpleBindRequestEncoder {
 
     pub(crate) fn message_id(&self) -> u32 {
         self.message_id as u32
+    }
+
+    pub(crate) fn zeroize_buf(&mut self) {
+        self.request_buf.zeroize();
     }
 
     pub(crate) fn encode(&mut self, bind_dn: &str, password: &str) -> &[u8] {

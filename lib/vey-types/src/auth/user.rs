@@ -4,8 +4,11 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::cmp::Ordering;
+
 use anyhow::anyhow;
 use percent_encoding::{AsciiSet, CONTROLS};
+use zeroize::Zeroizing;
 
 const USERNAME_MAX_LENGTH: usize = u8::MAX as usize;
 const PASSWORD_MAX_LENGTH: usize = u8::MAX as usize;
@@ -82,14 +85,14 @@ impl Username {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Password {
-    inner: String,
+    inner: Zeroizing<String>,
     len: u8,
 }
 
 impl Password {
     pub fn empty() -> Self {
         Password {
-            inner: String::new(),
+            inner: Zeroizing::new(String::new()),
             len: 0,
         }
     }
@@ -107,7 +110,7 @@ impl Password {
             return Err(anyhow!("too long string for a password"));
         }
         Ok(Password {
-            inner: s.to_string(),
+            inner: Zeroizing::new(s.to_string()),
             len: s.len() as u8,
         })
     }
@@ -126,6 +129,18 @@ impl Password {
     pub fn to_encoded(&self) -> String {
         percent_encoding::utf8_percent_encode(self.as_original(), USER_INFO_PCT_ENCODING_SET)
             .to_string()
+    }
+}
+
+impl PartialOrd for Password {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Password {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.inner.as_str().cmp(other.inner.as_str())
     }
 }
 

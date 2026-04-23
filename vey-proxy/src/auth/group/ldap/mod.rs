@@ -67,7 +67,7 @@ impl LdapUserGroup {
         match &self.base.config.unmanaged_user {
             Some(unmanaged_user_config) => {
                 self.pool_handle
-                    .check_username_password(username, password.as_original())
+                    .check_username_password(username, password)
                     .await?;
 
                 if let Some((user, user_type)) = self.base.get_user(username) {
@@ -118,7 +118,7 @@ impl LdapUserGroup {
             None => {
                 if let Some((user, user_type)) = self.base.get_user(username) {
                     self.pool_handle
-                        .check_username_password(username, password.as_original())
+                        .check_username_password(username, password)
                         .await?;
                     Ok(UserContext::new(
                         Some(username.into()),

@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use log::warn;
 use tokio::sync::{mpsc, oneshot};
 
-use vey_types::auth::UserAuthError;
+use vey_types::auth::{Password, UserAuthError};
 
 use crate::config::auth::{LdapUserGroupConfig, UserGroupConfig};
 
@@ -28,9 +28,9 @@ enum PoolCommand {
 
 struct LdapAuthRequest {
     username: String,
-    password: String,
+    password: Password,
     retry: bool,
-    result_sender: oneshot::Sender<Option<(String, String)>>,
+    result_sender: oneshot::Sender<Option<(String, Password)>>,
 }
 
 pub(super) struct LdapAuthPoolHandle {
@@ -49,7 +49,7 @@ impl LdapAuthPoolHandle {
     pub(super) async fn check_username_password(
         &self,
         username: &str,
-        password: &str,
+        password: &Password,
     ) -> Result<(), UserAuthError> {
         if crate::auth::cache::has_valid_password(
             self.config.basic_config().name(),
@@ -62,7 +62,7 @@ impl LdapAuthPoolHandle {
         let (sender, receiver) = oneshot::channel();
         let req = LdapAuthRequest {
             username: username.to_string(),
-            password: password.to_string(),
+            password: password.clone(),
             retry: true,
             result_sender: sender,
         };

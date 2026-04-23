@@ -105,6 +105,7 @@ arc-swap = "1.8"
 chrono = { version = "0.4.39", default-features = false }
 ascii = "1.0"
 humanize-rs = "0.1"
+zeroize = "1.8"
 #
 portable-atomic = "1.9"
 itoa = "1.0"

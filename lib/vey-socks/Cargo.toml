@@ -11,6 +11,7 @@ rust-version.workspace = true
 thiserror.workspace = true
 bytes.workspace = true
 smallvec.workspace = true
+zeroize.workspace = true
 tokio = { workspace = true, features = ["sync", "io-util", "macros"] }
 quinn = { workspace = true, optional = true, features = ["runtime-tokio"] }
 vey-types.workspace = true

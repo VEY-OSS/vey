@@ -12,6 +12,7 @@ use foldhash::fast::FixedState;
 use lru::LruCache;
 use tokio::time::Instant;
 
+use vey_types::auth::Password;
 use vey_types::metrics::NodeName;
 
 thread_local! {
@@ -22,7 +23,7 @@ thread_local! {
 
 #[derive(Default)]
 struct UserLocalCache {
-    password_map: BTreeMap<String, Instant>,
+    password_map: BTreeMap<Password, Instant>,
 }
 
 struct GroupLocalCache {
@@ -43,7 +44,7 @@ impl GroupLocalCache {
     }
 }
 
-pub(super) fn has_valid_password(group: &NodeName, username: &str, password: &str) -> bool {
+pub(super) fn has_valid_password(group: &NodeName, username: &str, password: &Password) -> bool {
     CACHE.with(|cache| {
         let mut cache = cache.borrow_mut();
         let group = cache
@@ -71,7 +72,7 @@ pub(super) fn save_user_password(
     group: &NodeName,
     user_count: NonZeroUsize,
     username: String,
-    password: String,
+    password: Password,
     expire_time: Duration,
 ) {
     CACHE.with(|cache| {
