@@ -191,8 +191,7 @@ async fn load_code_as_cstring(path: &Path) -> anyhow::Result<CString> {
     let code = tokio::fs::read_to_string(path)
         .await
         .map_err(|e| anyhow!("failed to read in content of file {}: {e}", path.display()))?;
-    CString::from_vec_with_nul(code.into_bytes())
-        .map_err(|e| anyhow!("failed to convert code to CString: {e}"))
+    CString::new(code.into_bytes()).map_err(|e| anyhow!("failed to convert code to CString: {e}"))
 }
 
 fn load_py_code<'py>(
