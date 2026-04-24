@@ -54,8 +54,13 @@ impl Username {
         if s.len() > USERNAME_MAX_LENGTH {
             return Err(anyhow!("too long string for a username"));
         }
-        if s.contains(':') {
-            return Err(anyhow!("colon character is not allowed"));
+        for c in s.chars() {
+            if c.is_control() {
+                return Err(anyhow!("control characters are not allowed"));
+            }
+            if c == ':' {
+                return Err(anyhow!("colon character is not allowed"));
+            }
         }
         Ok(Username {
             inner: s.to_string(),
