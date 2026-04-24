@@ -1039,6 +1039,21 @@ The following fields can be set:
 
   **default**: false
 
+* session_based_auth
+
+  **optional**, **type**: bool
+
+  Whether the proxy supports session-based authentication when the upstream
+  server uses connection-based authentication methods such as ``Negotiate``.
+
+  Enable this only when you are sure that the proxy does not share authenticated connections to the same server across different authenticated clients.
+
+  **default**: false
+
+  .. availability::
+
+     - ``vey-proxy``: available since ``1.13.2``
+
 .. _conf_value_http_server_id:
 
 http server id

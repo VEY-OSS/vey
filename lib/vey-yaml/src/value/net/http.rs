@@ -97,6 +97,11 @@ pub fn as_http_forward_capability(value: &Yaml) -> anyhow::Result<HttpForwardCap
                     Ok(())
                 }
                 "forward_ftp" => Ok(()),
+                "session_based_auth" => {
+                    let enable = crate::value::as_bool(v)?;
+                    cap.set_session_auth(enable);
+                    Ok(())
+                }
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
         }

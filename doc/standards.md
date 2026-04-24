@@ -231,6 +231,8 @@ The code should comply to these, but should be more compliant to existing popula
     : Web technology for developers - HTTP
  - [rfc7617](https://datatracker.ietf.org/doc/html/rfc7617)
     : The 'Basic' HTTP Authentication Scheme
+ - [rfc4559](https://datatracker.ietf.org/doc/html/rfc4559)
+    : SPNEGO-based Kerberos and NTLM HTTP Authentication in Microsoft Windows
  - [rfc7239](https://datatracker.ietf.org/doc/html/rfc7239)
     : Forwarded HTTP Extension
  - [rfc8297](https://datatracker.ietf.org/doc/html/rfc8297)

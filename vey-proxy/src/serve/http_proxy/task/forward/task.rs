@@ -28,7 +28,7 @@ use vey_io_ext::{
     StreamCopyError,
 };
 use vey_types::acl::AclAction;
-use vey_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
+use vey_types::net::{HttpForwardCapability, HttpHeaderMap, ProxyRequestType, UpstreamAddr};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{
@@ -57,6 +57,7 @@ pub(crate) struct HttpProxyForwardTask<'a> {
     audit_ctx: AuditContext,
     upstream: UpstreamAddr,
     req: &'a HttpProxyClientRequest,
+    capability: HttpForwardCapability,
     is_https: bool,
     should_close: bool,
     allow_continue: bool,
@@ -85,6 +86,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         audit_ctx: AuditContext,
         req: &'a HttpProxyRequest<impl AsyncRead>,
         is_https: bool,
+        capability: HttpForwardCapability,
         task_notes: ServerTaskNotes,
     ) -> Self {
         let uri_log_max_chars = task_notes
@@ -107,6 +109,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             audit_ctx,
             upstream: req.upstream.clone(),
             req: &req.inner,
+            capability,
             is_https,
             should_close: !req.inner.keep_alive(),
             allow_continue: req.inner.expect_100_continue(),
@@ -1772,6 +1775,19 @@ impl<'a> HttpProxyForwardTask<'a> {
     }
 
     fn update_response_header(&self, rsp: &mut HttpForwardRemoteResponse) {
+        if rsp.code == 401 {
+            let mut session_based_auth = false;
+            for v in rsp.end_to_end_headers.get_all(header::WWW_AUTHENTICATE) {
+                if v.as_bytes().trim_ascii_start().starts_with(b"Negotiate") {
+                    session_based_auth = true;
+                    break;
+                }
+            }
+            if session_based_auth {
+                rsp.set_session_based_auth(self.capability.allow_session_based_auth());
+            }
+        }
+
         // append headers to hop-by-hop headers, so they will pass to client without adaptation
         if let Some(server_id) = &self.ctx.server_config.server_id {
             if self.ctx.server_config.http_forward_mark_upstream {

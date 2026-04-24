@@ -32,6 +32,7 @@ pub struct HttpForwardRemoteResponse {
     has_transfer_encoding: bool,
     has_content_length: bool,
     has_keep_alive: bool,
+    support_session_based_auth: bool,
 }
 
 impl HttpForwardRemoteResponse {
@@ -51,6 +52,7 @@ impl HttpForwardRemoteResponse {
             has_transfer_encoding: false,
             has_content_length: false,
             has_keep_alive: false,
+            support_session_based_auth: false,
         }
     }
 
@@ -74,6 +76,7 @@ impl HttpForwardRemoteResponse {
                     has_transfer_encoding: false,
                     has_content_length: true,
                     has_keep_alive: self.has_keep_alive,
+                    support_session_based_auth: self.support_session_based_auth,
                 }
             }
             None => {
@@ -103,6 +106,7 @@ impl HttpForwardRemoteResponse {
                     has_transfer_encoding: true,
                     has_content_length: false,
                     has_keep_alive: self.has_keep_alive,
+                    support_session_based_auth: self.support_session_based_auth,
                 }
             }
         }
@@ -133,6 +137,7 @@ impl HttpForwardRemoteResponse {
             has_transfer_encoding: false,
             has_content_length: true,
             has_keep_alive: self.has_keep_alive,
+            support_session_based_auth: self.support_session_based_auth,
         }
     }
 
@@ -151,6 +156,10 @@ impl HttpForwardRemoteResponse {
             self.has_keep_alive = false;
         }
         self.keep_alive = false;
+    }
+
+    pub fn set_session_based_auth(&mut self, enable: bool) {
+        self.support_session_based_auth = enable;
     }
 
     fn expect_no_body(&self, method: &Method) -> bool {
@@ -371,6 +380,12 @@ impl HttpForwardRemoteResponse {
                 self.has_content_length = true;
                 self.content_length = content_length;
             }
+            "proxy-support" => {
+                if header.value.to_lowercase() == "session-based-authentication" {
+                    self.support_session_based_auth = true;
+                }
+                return Ok(());
+            }
             _ => {}
         }
 
@@ -394,6 +409,9 @@ impl HttpForwardRemoteResponse {
         let _ = write!(buf, "{:?} {} {}\r\n", self.version, self.code, self.reason);
         self.end_to_end_headers
             .for_each(|name, value| value.write_to_buf(name, buf));
+        if self.support_session_based_auth {
+            buf.extend_from_slice(b"Proxy-support: Session-Based-Authentication\r\n");
+        }
         self.hop_by_hop_headers
             .for_each(|name, value| value.write_to_buf(name, buf));
 
@@ -412,6 +430,9 @@ impl HttpForwardRemoteResponse {
 
         self.end_to_end_headers
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
+        if self.support_session_based_auth {
+            buf.extend_from_slice(b"Proxy-support: Session-Based-Authentication\r\n");
+        }
         buf.put_slice(b"\r\n");
         buf
     }

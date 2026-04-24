@@ -16,7 +16,7 @@ use tokio::sync::mpsc;
 
 use vey_io_ext::{ArcLimitedWriterStats, LimitedWriter};
 use vey_types::auth::UserAuthError;
-use vey_types::net::{HttpAuth, HttpProxySubProtocol};
+use vey_types::net::{HttpAuth, HttpForwardCapability, HttpProxySubProtocol};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{
@@ -306,17 +306,18 @@ where
             path_selection,
         );
 
+        let mut forward_capability = HttpForwardCapability::default();
         let remote_protocol = match req.client_protocol {
             HttpProxySubProtocol::TcpConnect => HttpProxySubProtocol::TcpConnect,
             HttpProxySubProtocol::HttpForward => {
-                let _ = self
+                forward_capability = self
                     .forward_context
                     .check_in_final_escaper(&task_notes, &req.upstream, false)
                     .await;
                 HttpProxySubProtocol::HttpForward
             }
             HttpProxySubProtocol::HttpsForward => {
-                let forward_capability = self
+                forward_capability = self
                     .forward_context
                     .check_in_final_escaper(&task_notes, &req.upstream, true)
                     .await;
@@ -327,7 +328,7 @@ where
                 }
             }
             HttpProxySubProtocol::FtpOverHttp => {
-                let forward_capability = self
+                forward_capability = self
                     .forward_context
                     .check_in_final_escaper(&task_notes, &req.upstream, false)
                     .await;
@@ -374,7 +375,13 @@ where
             HttpProxySubProtocol::HttpForward | HttpProxySubProtocol::HttpsForward => {
                 if let Some(mut stream_w) = self.stream_writer.take() {
                     match self
-                        .run_forward(&mut stream_w, req, task_notes, remote_protocol)
+                        .run_forward(
+                            &mut stream_w,
+                            req,
+                            task_notes,
+                            remote_protocol,
+                            forward_capability,
+                        )
                         .await
                     {
                         LoopAction::Continue => {
@@ -514,6 +521,7 @@ where
         mut req: HttpProxyRequest<CDR>,
         task_notes: ServerTaskNotes,
         remote_protocol: HttpProxySubProtocol,
+        capability: HttpForwardCapability,
     ) -> LoopAction {
         let is_https = match remote_protocol {
             HttpProxySubProtocol::HttpForward => {
@@ -540,6 +548,7 @@ where
                     self.audit_ctx.clone(),
                     &req,
                     is_https,
+                    capability,
                     task_notes,
                 );
                 let mut clt_r = Some(stream_r);
@@ -567,6 +576,7 @@ where
                     self.audit_ctx.clone(),
                     &req,
                     is_https,
+                    capability,
                     task_notes,
                 );
                 let mut clt_r = None;
