@@ -7,6 +7,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
+use log::warn;
 use tokio::net::UdpSocket;
 
 use vey_types::net::SocketBufferConfig;
@@ -97,12 +98,17 @@ impl CertAgentConfig {
         if let Some(rt) = crate::get_cert_generate_rt_handle() {
             let config = self.clone();
             rt.spawn(async move {
-                let socket = UdpSocket::from_std(socket).expect("failed to setup udp socket");
-                QueryRuntime::new(&config, socket, query_handle).await
+                match UdpSocket::from_std(socket) {
+                    Ok(socket) => QueryRuntime::new(&config, socket, query_handle).await,
+                    Err(e) => {
+                        warn!("failed to setup tokio UDP socket: {}", e);
+                        Err(e)
+                    }
+                }
             });
             rt.spawn(cache_runtime);
         } else {
-            let socket = UdpSocket::from_std(socket).context("failed to setup udp socket")?;
+            let socket = UdpSocket::from_std(socket).context("failed to setup tokio udp socket")?;
             let query_runtime = QueryRuntime::new(self, socket, query_handle);
             tokio::spawn(query_runtime);
             tokio::spawn(cache_runtime);
