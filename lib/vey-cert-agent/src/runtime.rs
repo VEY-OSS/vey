@@ -15,10 +15,9 @@ static THREAD_JOIN_HANDLE: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
 pub async fn spawn_cert_generate_runtime() -> Option<RuntimeMetrics> {
     let (quit_sender, quit_receiver) = oneshot::channel();
-    set_thread_quit_sender(quit_sender);
 
     let (rt_handle_sender, rt_handle_receiver) = oneshot::channel();
-    let Ok(handle) = std::thread::Builder::new()
+    let Ok(thread_handle) = std::thread::Builder::new()
         .name("cert-generate".to_string())
         .spawn(move || {
             let Ok(rt) = tokio::runtime::Builder::new_current_thread()
@@ -35,11 +34,14 @@ pub async fn spawn_cert_generate_runtime() -> Option<RuntimeMetrics> {
     else {
         return None;
     };
-    set_thread_join_handle(handle);
-    if let Ok(handle) = rt_handle_receiver.await {
-        set_cert_generate_rt_handle(handle.clone());
-        Some(handle.metrics())
+
+    if let Ok(runtime_handle) = rt_handle_receiver.await {
+        set_thread_quit_sender(quit_sender);
+        set_thread_join_handle(thread_handle);
+        set_cert_generate_rt_handle(runtime_handle.clone());
+        Some(runtime_handle.metrics())
     } else {
+        let _ = thread_handle.join();
         None
     }
 }
