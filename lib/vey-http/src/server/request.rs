@@ -37,6 +37,7 @@ pub struct HttpProxyClientRequest {
     has_transfer_encoding: bool,
     has_content_length: bool,
     expect_100_continue: bool,
+    authorization_negotiate: bool,
 }
 
 impl HttpProxyClientRequest {
@@ -58,6 +59,7 @@ impl HttpProxyClientRequest {
             has_transfer_encoding: false,
             has_content_length: false,
             expect_100_continue: false,
+            authorization_negotiate: false,
         }
     }
 
@@ -83,6 +85,7 @@ impl HttpProxyClientRequest {
                     has_transfer_encoding: false,
                     has_content_length: true,
                     expect_100_continue: self.expect_100_continue,
+                    authorization_negotiate: self.authorization_negotiate,
                 }
             }
             None => {
@@ -114,6 +117,7 @@ impl HttpProxyClientRequest {
                     has_transfer_encoding: true,
                     has_content_length: false,
                     expect_100_continue: self.expect_100_continue,
+                    authorization_negotiate: self.authorization_negotiate,
                 }
             }
         }
@@ -139,6 +143,7 @@ impl HttpProxyClientRequest {
             has_transfer_encoding: false,
             has_content_length: false,
             expect_100_continue: self.expect_100_continue,
+            authorization_negotiate: self.authorization_negotiate,
         }
     }
 
@@ -157,13 +162,22 @@ impl HttpProxyClientRequest {
         self.keep_alive
     }
 
-    pub fn body_type(&self) -> Option<HttpBodyType> {
+    fn check_body_type(&self) -> Option<HttpBodyType> {
         if self.chunked_transfer {
             Some(HttpBodyType::Chunked)
         } else if self.content_length > 0 {
             Some(HttpBodyType::ContentLength(self.content_length))
         } else {
             None
+        }
+    }
+
+    pub fn body_type(&self) -> Option<HttpBodyType> {
+        if self.authorization_negotiate {
+            // See rfc4559. HTTP Body is only allowed after Negotiate auth success
+            None
+        } else {
+            self.check_body_type()
         }
     }
 
@@ -177,12 +191,16 @@ impl HttpProxyClientRequest {
     }
 
     pub fn pipeline_safe(&self) -> bool {
+        if self.authorization_negotiate {
+            // pipeline is not needed for Negotiate auth request
+            return false;
+        }
         if matches!(
             &self.method,
             &Method::GET | &Method::HEAD | &Method::PUT | &Method::DELETE
         ) {
             // only pipeline idempotent requests without body
-            if self.body_type().is_none() {
+            if self.check_body_type().is_none() {
                 // reader should not be sent
                 return true;
             }
@@ -469,6 +487,9 @@ impl HttpProxyClientRequest {
             }
             "expect" if header.value == "100-continue" => {
                 self.expect_100_continue = true;
+            }
+            "authorization" if header.value.trim_ascii_start().starts_with("Negotiate") => {
+                self.authorization_negotiate = true;
             }
             _ => {}
         }
