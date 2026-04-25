@@ -21,7 +21,7 @@ use vey_resolver::ResolveError;
 use vey_socket::util::AddressFamily;
 use vey_types::acl::AclNetworkRule;
 use vey_types::metrics::NodeName;
-use vey_types::net::{Host, UpstreamAddr};
+use vey_types::net::{Host, HttpForwardCapability, UpstreamAddr};
 use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperRegistry, EscaperStats};
@@ -435,6 +435,12 @@ impl EscaperInternal for DirectFloatEscaper {
         let bind_v6 = self.bind_v6.load_full();
 
         DirectFloatEscaper::prepare_reload(config, stats, bind_v4, bind_v6)
+    }
+
+    fn _local_http_forward_capability(&self) -> HttpForwardCapability {
+        let mut capability = HttpForwardCapability::default();
+        capability.set_session_auth(true);
+        capability
     }
 
     async fn _new_http_forward_connection(

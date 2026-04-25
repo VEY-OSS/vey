@@ -16,7 +16,9 @@ use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_resolver::ResolveError;
 use vey_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use vey_types::metrics::NodeName;
-use vey_types::net::{Host, OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr};
+use vey_types::net::{
+    Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr,
+};
 use vey_types::resolve::ResolveStrategy;
 
 use super::{
@@ -270,6 +272,12 @@ impl EscaperInternal for ProxySocks5sEscaper {
     ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         ProxySocks5sEscaper::prepare_reload(config, stats)
+    }
+
+    fn _local_http_forward_capability(&self) -> HttpForwardCapability {
+        let mut capability = HttpForwardCapability::default();
+        capability.set_session_auth(true);
+        capability
     }
 
     async fn _new_http_forward_connection(

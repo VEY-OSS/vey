@@ -19,7 +19,9 @@ use vey_socket::BindAddr;
 use vey_socket::util::AddressFamily;
 use vey_types::acl::AclNetworkRule;
 use vey_types::metrics::NodeName;
-use vey_types::net::{Host, ProxyProtocolEncoder, ProxyProtocolVersion, UpstreamAddr};
+use vey_types::net::{
+    Host, HttpForwardCapability, ProxyProtocolEncoder, ProxyProtocolVersion, UpstreamAddr,
+};
 use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperRegistry, EscaperStats};
@@ -389,6 +391,12 @@ impl EscaperInternal for DirectFixedEscaper {
     ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         DirectFixedEscaper::prepare_reload(config, stats)
+    }
+
+    fn _local_http_forward_capability(&self) -> HttpForwardCapability {
+        let mut capability = HttpForwardCapability::default();
+        capability.set_session_auth(true);
+        capability
     }
 
     async fn _new_http_forward_connection(

@@ -1048,7 +1048,7 @@ The following fields can be set:
 
   Enable this only when you are sure that the proxy does not share authenticated connections to the same server across different authenticated clients.
 
-  **default**: false
+  **default**: not set, which means we won't add or remove the corresponding `Proxy-support` header
 
   .. availability::
 

@@ -14,17 +14,17 @@ pub struct HttpForwardCapability {
     forward_ftp_get: bool,
     forward_ftp_put: bool,
     forward_ftp_del: bool,
-    session_based_auth: bool,
+    session_based_auth: Option<bool>,
 }
 
 impl HttpForwardCapability {
     #[inline]
     pub fn set_session_auth(&mut self, enable: bool) {
-        self.session_based_auth = enable;
+        self.session_based_auth = Some(enable);
     }
 
     #[inline]
-    pub fn allow_session_based_auth(&self) -> bool {
+    pub fn allow_session_based_auth(&self) -> Option<bool> {
         self.session_based_auth
     }
 
@@ -74,8 +74,13 @@ impl ops::BitAnd for HttpForwardCapability {
     type Output = Self;
 
     fn bitand(self, rhs: Self) -> Self::Output {
+        let session_based_auth = match (self.session_based_auth, rhs.session_based_auth) {
+            (Some(true), Some(true)) => Some(true),
+            (Some(false), _) | (_, Some(false)) => Some(false),
+            _ => None,
+        };
         HttpForwardCapability {
-            session_based_auth: self.session_based_auth && rhs.session_based_auth,
+            session_based_auth,
             forward_https: self.forward_https & rhs.forward_https,
             forward_ftp_all: self.forward_ftp_all & rhs.forward_ftp_all,
             forward_ftp_get: self.forward_ftp_get & rhs.forward_ftp_get,

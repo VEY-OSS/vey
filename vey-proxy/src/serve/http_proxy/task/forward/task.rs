@@ -1775,17 +1775,11 @@ impl<'a> HttpProxyForwardTask<'a> {
     }
 
     fn update_response_header(&self, rsp: &mut HttpForwardRemoteResponse) {
-        if rsp.code == 401 {
-            let mut session_based_auth = false;
-            for v in rsp.end_to_end_headers.get_all(header::WWW_AUTHENTICATE) {
-                if v.as_bytes().trim_ascii_start().starts_with(b"Negotiate") {
-                    session_based_auth = true;
-                    break;
-                }
-            }
-            if session_based_auth {
-                rsp.set_session_based_auth(self.capability.allow_session_based_auth());
-            }
+        if rsp.code == 401
+            && rsp.www_negotiate_auth()
+            && let Some(enable) = self.capability.allow_session_based_auth()
+        {
+            rsp.set_session_based_auth(enable);
         }
 
         // append headers to hop-by-hop headers, so they will pass to client without adaptation

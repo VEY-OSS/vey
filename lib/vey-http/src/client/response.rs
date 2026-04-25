@@ -32,6 +32,7 @@ pub struct HttpForwardRemoteResponse {
     has_transfer_encoding: bool,
     has_content_length: bool,
     has_keep_alive: bool,
+    www_negotiate_auth: bool,
     support_session_based_auth: bool,
 }
 
@@ -52,6 +53,7 @@ impl HttpForwardRemoteResponse {
             has_transfer_encoding: false,
             has_content_length: false,
             has_keep_alive: false,
+            www_negotiate_auth: false,
             support_session_based_auth: false,
         }
     }
@@ -76,6 +78,7 @@ impl HttpForwardRemoteResponse {
                     has_transfer_encoding: false,
                     has_content_length: true,
                     has_keep_alive: self.has_keep_alive,
+                    www_negotiate_auth: self.www_negotiate_auth,
                     support_session_based_auth: self.support_session_based_auth,
                 }
             }
@@ -106,6 +109,7 @@ impl HttpForwardRemoteResponse {
                     has_transfer_encoding: true,
                     has_content_length: false,
                     has_keep_alive: self.has_keep_alive,
+                    www_negotiate_auth: self.www_negotiate_auth,
                     support_session_based_auth: self.support_session_based_auth,
                 }
             }
@@ -137,6 +141,7 @@ impl HttpForwardRemoteResponse {
             has_transfer_encoding: false,
             has_content_length: true,
             has_keep_alive: self.has_keep_alive,
+            www_negotiate_auth: self.www_negotiate_auth,
             support_session_based_auth: self.support_session_based_auth,
         }
     }
@@ -156,6 +161,11 @@ impl HttpForwardRemoteResponse {
             self.has_keep_alive = false;
         }
         self.keep_alive = false;
+    }
+
+    #[inline]
+    pub fn www_negotiate_auth(&self) -> bool {
+        self.www_negotiate_auth
     }
 
     pub fn set_session_based_auth(&mut self, enable: bool) {
@@ -379,6 +389,9 @@ impl HttpForwardRemoteResponse {
                 }
                 self.has_content_length = true;
                 self.content_length = content_length;
+            }
+            "www-authenticate" if header.value.trim_ascii_start().starts_with("Negotiate") => {
+                self.www_negotiate_auth = true;
             }
             "proxy-support" => {
                 if header.value.to_lowercase() == "session-based-authentication" {
