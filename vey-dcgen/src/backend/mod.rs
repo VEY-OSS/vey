@@ -3,7 +3,6 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -16,14 +15,14 @@ use tokio::runtime::Handle;
 use vey_cert_agent::Request;
 use vey_tls_cert::builder::{MimicCertBuilder, ServerCertBuilder, TlsServerCertBuilder};
 use vey_tls_cert::ext::X509Ext;
-use vey_types::net::{Host, TlsCertUsage};
-
-mod stats;
-pub(crate) use stats::BackendStats;
+use vey_types::net::TlsCertUsage;
 
 use super::{BackendRequest, BackendResponse};
 use crate::config::OpensslBackendConfig;
 use crate::frontend::GeneratedData;
+
+mod stats;
+pub(crate) use stats::BackendStats;
 
 pub(crate) struct OpensslBackend {
     config: Arc<OpensslBackendConfig>,
@@ -57,11 +56,13 @@ impl OpensslBackend {
         if let Some(mimic_cert) = req.cert() {
             self.generate_mimic(mimic_cert, req.cert_usage())
         } else {
-            let host = Host::from_str(req.host_str())?;
             self.builder.refresh_serial()?;
-            let cert =
-                self.builder
-                    .build_fake(&host, &self.config.ca_cert, &self.config.ca_key, None)?;
+            let cert = self.builder.build_fake(
+                req.host(),
+                &self.config.ca_cert,
+                &self.config.ca_key,
+                None,
+            )?;
             let ttl = self.builder.valid_seconds()?;
             self.pack_data(cert, self.builder.pkey(), ttl)
         }
@@ -152,7 +153,7 @@ impl OpensslBackend {
                             info!("{}", cert.dump());
                         }
 
-                        let host = req.user_req.host();
+                        let host = req.user_req.host().clone();
                         debug!("{host} - [#{id}] start cert generation");
                         match self.generate(&req.user_req) {
                             Ok(data) => {

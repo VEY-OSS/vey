@@ -33,14 +33,14 @@ impl AclRuleJsonParser for AclRegexDomainRuleBuilder {
                         for (i, v) in seq.iter().enumerate() {
                             let regex = crate::value::as_regex(v)
                                 .context(format!("invalid regex string value for 'regex/{i}'"))?;
-                            self.add_prefix_regex(&parent_domain, &regex, action);
+                            self.add_prefix_regex(parent_domain.clone(), &regex, action);
                         }
                         Ok(())
                     }
                     Value::String(_) => {
                         let regex = crate::value::as_regex(regex_v)
                             .context("invalid regex string value for key 'regex'")?;
-                        self.add_prefix_regex(&parent_domain, &regex, action);
+                        self.add_prefix_regex(parent_domain.clone(), &regex, action);
                         Ok(())
                     }
                     _ => Err(anyhow!("invalid value type for key 'regex'")),

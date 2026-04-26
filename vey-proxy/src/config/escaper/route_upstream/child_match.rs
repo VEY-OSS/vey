@@ -11,12 +11,13 @@ use radix_trie::{Trie, TrieCommon};
 use yaml_rust::Yaml;
 
 use vey_types::metrics::NodeName;
+use vey_types::net::DomainName;
 
 use crate::config::escaper::verify::EscaperConfigVerifier;
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub(crate) struct ChildMatchBuilder {
-    inner: BTreeMap<NodeName, BTreeSet<String>>,
+    inner: BTreeMap<NodeName, BTreeSet<DomainName>>,
 }
 
 impl ChildMatchBuilder {
@@ -68,7 +69,7 @@ impl ChildMatchBuilder {
         }
     }
 
-    fn add_rule(&mut self, escaper: NodeName, domains: Vec<String>) {
+    fn add_rule(&mut self, escaper: NodeName, domains: Vec<DomainName>) {
         self.inner.entry(escaper).or_default().extend(domains);
     }
 
@@ -86,8 +87,8 @@ impl ChildMatchBuilder {
                 let Some(value) = value_table.get(escaper) else {
                     continue;
                 };
-                let reversed = vey_types::resolve::reverse_idna_domain(domain);
-                trie.insert(reversed, value.clone());
+                let reversed_k = domain.to_reversed();
+                trie.insert(reversed_k, value.clone());
             }
         }
         if trie.is_empty() {
@@ -103,15 +104,16 @@ pub(crate) struct ChildMatch<T> {
 }
 
 impl<T> ChildMatch<T> {
-    pub(crate) fn check_domain(&self, domain: &str) -> Option<&T> {
-        let key = vey_types::resolve::reverse_idna_domain(domain);
-        self.inner.get_ancestor_value(&key)
+    pub(crate) fn check_domain(&self, domain: &DomainName) -> Option<&T> {
+        let reversed = domain.to_reversed();
+        self.inner.get_ancestor_value(&reversed)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vey_types::literal_domain;
     use yaml_rust::YamlLoader;
 
     #[test]
@@ -134,12 +136,24 @@ mod tests {
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
         let child_match = builder.build(&value_map).unwrap();
 
-        let value = *child_match.check_domain("abc.example.net").unwrap();
+        let value = *child_match
+            .check_domain(&literal_domain!("abc.example.net"))
+            .unwrap();
         assert!(value.eq("escaper_1"));
-        assert!(child_match.check_domain("abcexample.net").is_none());
-        let value = *child_match.check_domain("cde1.example.com").unwrap();
+        assert!(
+            child_match
+                .check_domain(&literal_domain!("abcexample.net"))
+                .is_none()
+        );
+        let value = *child_match
+            .check_domain(&literal_domain!("cde1.example.com"))
+            .unwrap();
         assert!(value.eq("escaper_2"));
-        assert!(child_match.check_domain("cde.example.info").is_none());
+        assert!(
+            child_match
+                .check_domain(&literal_domain!("cde.example.info"))
+                .is_none()
+        );
     }
 
     #[test]
@@ -161,11 +175,23 @@ mod tests {
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
         let child_match = builder.build(&value_map).unwrap();
 
-        let value = *child_match.check_domain("abc.example.net").unwrap();
+        let value = *child_match
+            .check_domain(&literal_domain!("abc.example.net"))
+            .unwrap();
         assert!(value.eq("escaper_1"));
-        assert!(child_match.check_domain("abcexample.net").is_none());
-        let value = *child_match.check_domain("cde1.example.com").unwrap();
+        assert!(
+            child_match
+                .check_domain(&literal_domain!("abcexample.net"))
+                .is_none()
+        );
+        let value = *child_match
+            .check_domain(&literal_domain!("cde1.example.com"))
+            .unwrap();
         assert!(value.eq("escaper_2"));
-        assert!(child_match.check_domain("cde.example.info").is_none());
+        assert!(
+            child_match
+                .check_domain(&literal_domain!("cde.example.info"))
+                .is_none()
+        );
     }
 }

@@ -76,28 +76,28 @@ where
         };
 
         // fetch fake server cert early in the background
-        let cert_domain = sni_hostname
-            .map(ArcStr::from)
-            .unwrap_or_else(|| self.upstream.host().to_arc_str());
-        let cert_domain2 = cert_domain.clone();
+        let cert_host = sni_hostname
+            .map(Host::from)
+            .unwrap_or_else(|| self.upstream.host().clone());
+        let cert_host2 = cert_host.clone();
         let cert_agent = self.tls_interception.cert_agent.clone();
         let sign_pre_fetch_handle = tokio::spawn(async move {
             cert_agent
                 .pre_fetch(
                     TlsServiceType::Http,
                     TlsCertUsage::TlcpServerSignature,
-                    cert_domain2,
+                    cert_host2,
                 )
                 .await
         });
-        let cert_domain2 = cert_domain.clone();
+        let cert_host2 = cert_host.clone();
         let cert_agent = self.tls_interception.cert_agent.clone();
         let enc_pre_fetch_handle = tokio::spawn(async move {
             cert_agent
                 .pre_fetch(
                     TlsServiceType::Http,
                     TlsCertUsage::TlcpServerEncryption,
-                    cert_domain2,
+                    cert_host2,
                 )
                 .await
         });
@@ -137,7 +137,7 @@ where
                 .fetch(
                     TlsServiceType::Http,
                     TlsCertUsage::TlcpServerSignature,
-                    cert_domain.clone(),
+                    cert_host.clone(),
                     upstream_cert.clone(),
                 )
                 .await
@@ -161,7 +161,7 @@ where
                 .fetch(
                     TlsServiceType::Http,
                     TlsCertUsage::TlcpServerEncryption,
-                    cert_domain,
+                    cert_host,
                     upstream_cert,
                 )
                 .await

@@ -8,7 +8,6 @@ use std::net::IpAddr;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use arcstr::ArcStr;
 use async_trait::async_trait;
 use slog::Logger;
 
@@ -17,7 +16,8 @@ use vey_resolver::ResolveError;
 use vey_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use vey_types::metrics::NodeName;
 use vey_types::net::{
-    Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr,
+    DomainName, Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr,
+    WeightedUpstreamAddr,
 };
 use vey_types::resolve::ResolveStrategy;
 
@@ -135,7 +135,7 @@ impl ProxySocks5sEscaper {
         .inner()
     }
 
-    fn resolve_happy(&self, domain: ArcStr) -> Result<HappyEyeballsResolveJob, ResolveError> {
+    fn resolve_happy(&self, domain: DomainName) -> Result<HappyEyeballsResolveJob, ResolveError> {
         if let Some(resolver_handle) = &self.resolver_handle {
             HappyEyeballsResolveJob::new_dyn(self.config.resolve_strategy, resolver_handle, domain)
         } else {
@@ -143,7 +143,11 @@ impl ProxySocks5sEscaper {
         }
     }
 
-    async fn resolve_consistent(&self, domain: ArcStr, key: &str) -> Result<IpAddr, ResolveError> {
+    async fn resolve_consistent(
+        &self,
+        domain: DomainName,
+        key: &str,
+    ) -> Result<IpAddr, ResolveError> {
         let mut happy_job = self.resolve_happy(domain)?;
         let addrs = happy_job
             .get_r1_or_first_done(self.config.happy_eyeballs.resolution_delay())

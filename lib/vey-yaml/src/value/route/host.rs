@@ -147,6 +147,7 @@ mod tests {
     use super::*;
     use std::net::IpAddr;
     use std::str::FromStr;
+    use vey_types::literal_domain;
 
     // Define a test struct implementing YamlMapCallback
     #[derive(Default)]
@@ -214,7 +215,7 @@ mod tests {
             "#
         );
         let host_match: HostMatch<Arc<TestCallback>> = as_host_matched_obj(&yaml, None).unwrap();
-        let domain = Host::Domain("example.com".into());
+        let domain = Host::Domain(literal_domain!("example.com"));
         let value = host_match.get(&domain).unwrap();
         assert_eq!(value.name, "test2");
         assert_eq!(value.value, 200);
@@ -256,7 +257,7 @@ mod tests {
         let value = host_match.get(&Host::Ip(ip)).unwrap();
         assert_eq!(value.name, "test1");
         assert_eq!(value.value, 100);
-        let domain = Host::Domain("example.com".into());
+        let domain = Host::Domain(literal_domain!("example.com"));
         let value = host_match.get(&domain).unwrap();
         assert_eq!(value.name, "test2");
         assert_eq!(value.value, 200);
@@ -301,11 +302,11 @@ mod tests {
         );
         let host_match: HostMatch<Arc<TestCallback>> =
             as_host_matched_obj::<TestCallback>(&yaml, None).unwrap();
-        let domain1 = Host::Domain("example.com".into());
+        let domain1 = Host::Domain(literal_domain!("example.com"));
         let value1 = host_match.get(&domain1).unwrap();
         assert_eq!(value1.name, "test");
         assert_eq!(value1.value, 100);
-        let domain2 = Host::Domain("test.org".into());
+        let domain2 = Host::Domain(literal_domain!("test.org"));
         let value2 = host_match.get(&domain2).unwrap();
         assert_eq!(value2.name, "test");
         assert_eq!(value2.value, 100);

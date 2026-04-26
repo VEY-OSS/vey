@@ -65,7 +65,7 @@ impl Value for LtHost<'_> {
             serializer.emit_none(key)
         } else {
             match self.0 {
-                Host::Domain(s) => serializer.emit_str(key, s),
+                Host::Domain(s) => serializer.emit_str(key, s.as_str()),
                 Host::Ip(ip) => serializer.emit_arguments(key, &format_args!("{ip}")),
             }
         }

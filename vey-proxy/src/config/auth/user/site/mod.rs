@@ -8,12 +8,11 @@ use std::net::IpAddr;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use arcstr::ArcStr;
 use ip_network::IpNetwork;
 
 use vey_histogram::HistogramMetricsConfig;
 use vey_types::metrics::NodeName;
-use vey_types::net::{Host, OpensslClientConfigBuilder};
+use vey_types::net::{DomainName, Host, OpensslClientConfigBuilder};
 use vey_types::resolve::ResolveStrategy;
 
 mod json;
@@ -22,10 +21,10 @@ mod yaml;
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub(crate) struct UserSiteConfig {
     pub(crate) id: NodeName,
-    pub(crate) exact_match_domain: BTreeSet<ArcStr>,
+    pub(crate) exact_match_domain: BTreeSet<DomainName>,
     pub(crate) exact_match_ipaddr: BTreeSet<IpAddr>,
     pub(crate) subnet_match_ipaddr: BTreeSet<IpNetwork>,
-    pub(crate) child_match_domain: BTreeSet<String>,
+    pub(crate) child_match_domain: BTreeSet<DomainName>,
     pub(crate) emit_stats: bool,
     pub(crate) resolve_strategy: Option<ResolveStrategy>,
     pub(crate) duration_stats: HistogramMetricsConfig,

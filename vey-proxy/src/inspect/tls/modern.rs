@@ -4,7 +4,6 @@
  */
 
 use anyhow::anyhow;
-use arcstr::ArcStr;
 use openssl::ssl::Ssl;
 
 use vey_dpi::{Protocol, ProtocolInspector};
@@ -81,14 +80,14 @@ where
         };
 
         // fetch fake server cert early in the background
-        let cert_domain = sni_hostname
-            .map(ArcStr::from)
-            .unwrap_or_else(|| self.upstream.host().to_arc_str());
-        let cert_domain2 = cert_domain.clone();
+        let cert_host = sni_hostname
+            .map(Host::from)
+            .unwrap_or_else(|| self.upstream.host().clone());
+        let cert_host2 = cert_host.clone();
         let cert_agent = self.tls_interception.cert_agent.clone();
         let pre_fetch_handle = tokio::spawn(async move {
             cert_agent
-                .pre_fetch(TlsServiceType::Http, CERT_USAGE, cert_domain2)
+                .pre_fetch(TlsServiceType::Http, CERT_USAGE, cert_host2)
                 .await
         });
 
@@ -125,7 +124,7 @@ where
                 })?;
                 self.tls_interception
                     .cert_agent
-                    .fetch(TlsServiceType::Http, CERT_USAGE, cert_domain, upstream_cert)
+                    .fetch(TlsServiceType::Http, CERT_USAGE, cert_host, upstream_cert)
                     .await
                     .ok_or_else(|| {
                         TlsInterceptionError::NoFakeCertGenerated(anyhow!(

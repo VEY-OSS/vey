@@ -6,9 +6,10 @@
 
 use std::time::Duration;
 
-use arcstr::ArcStr;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
+
+use vey_types::net::DomainName;
 
 use super::DnsRequest;
 use crate::config::ResolverRuntimeConfig;
@@ -26,7 +27,7 @@ pub struct HickoryResolver {
 impl ResolveDriver for HickoryResolver {
     fn query_v4(
         &self,
-        domain: ArcStr,
+        domain: DomainName,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {
@@ -42,7 +43,7 @@ impl ResolveDriver for HickoryResolver {
 
     fn query_v6(
         &self,
-        domain: ArcStr,
+        domain: DomainName,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {
@@ -60,7 +61,7 @@ impl ResolveDriver for HickoryResolver {
 async fn run_timed(
     job: HickoryResolver,
     timeout: Duration,
-    domain: ArcStr,
+    domain: DomainName,
     request: DnsRequest,
 ) -> ResolvedRecord {
     let error_ttl = job.negative_min_ttl;
@@ -91,7 +92,7 @@ impl HickoryResolver {
         self.clients.push(req_sender);
     }
 
-    async fn run(self, domain: ArcStr, request: DnsRequest) -> ResolvedRecord {
+    async fn run(self, domain: DomainName, request: DnsRequest) -> ResolvedRecord {
         let (rsp_sender, mut rsp_receiver) = mpsc::channel::<ResolvedRecord>(1);
 
         let mut wait_left = self.clients.len();

@@ -6,8 +6,10 @@
 use std::net::IpAddr;
 use std::str::FromStr;
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
+
+use crate::net::DomainName;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FactsMatchType {
@@ -33,9 +35,9 @@ impl FromStr for FactsMatchType {
 pub enum FactsMatchValue {
     Ip(IpAddr),
     Network(IpNetwork),
-    ExactDomain(String),
+    ExactDomain(DomainName),
     #[cfg(feature = "resolve")]
-    ChildDomain(String),
+    ChildDomain(DomainName),
 }
 
 impl FactsMatchValue {
@@ -56,16 +58,13 @@ impl FactsMatchValue {
                 }
             }
             "domain" | "exact_domain" => {
-                let domain = idna::domain_to_ascii(value)
-                    .map_err(|e| anyhow!("invalid domain {value}: {e}"))?;
+                let domain = DomainName::from_str(value).context("invalid domain")?;
                 Ok(FactsMatchValue::ExactDomain(domain))
             }
             #[cfg(feature = "resolve")]
             "child_domain" => {
-                let domain = idna::domain_to_ascii(value)
-                    .map_err(|e| anyhow!("invalid domain {value}: {e}"))?;
-                let reversed_domain = crate::resolve::reverse_idna_domain(&domain);
-                Ok(FactsMatchValue::ExactDomain(reversed_domain))
+                let domain = DomainName::from_str(value).context("invalid domain")?;
+                Ok(FactsMatchValue::ChildDomain(domain))
             }
             _ => Err(anyhow!("invalid facts match value type {ty}")),
         }

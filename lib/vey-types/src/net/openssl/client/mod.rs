@@ -49,10 +49,10 @@ impl OpensslClientConfig {
         match tls_name {
             Host::Domain(domain) => {
                 verify_param
-                    .set_host(domain)
+                    .set_host(domain.as_str())
                     .map_err(|e| anyhow!("failed to set cert verify domain: {e}"))?;
                 if !self.disable_sni {
-                    ssl.set_hostname(domain)
+                    ssl.set_hostname(domain.as_str())
                         .map_err(|e| anyhow!("failed to set sni hostname: {e}"))?;
                 }
             }

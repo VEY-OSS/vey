@@ -7,26 +7,25 @@
 use std::net::IpAddr;
 
 use ahash::AHashMap;
-use arcstr::ArcStr;
 use radix_trie::Trie;
 
-use super::{QueryStrategy, reverse_idna_domain, reverse_to_idna_domain};
-use crate::net::Host;
+use super::QueryStrategy;
+use crate::net::{DomainName, DomainNameParseError, Host};
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum ResolveRedirectionValue {
-    Domain(ArcStr),
+    Domain(DomainName),
     Ip((Vec<IpAddr>, Vec<IpAddr>)),
 }
 
 #[derive(Default, Clone, Eq, PartialEq)]
 pub struct ResolveRedirectionBuilder {
-    ht: AHashMap<String, ResolveRedirectionValue>,
-    trie: AHashMap<String, ResolveRedirectionValue>,
+    ht: AHashMap<DomainName, ResolveRedirectionValue>,
+    trie: AHashMap<DomainName, ResolveRedirectionValue>,
 }
 
 impl ResolveRedirectionBuilder {
-    pub fn insert_exact_addr(&mut self, domain: String, ips: Vec<IpAddr>) {
+    pub fn insert_exact_addr(&mut self, domain: DomainName, ips: Vec<IpAddr>) {
         let mut ipv4 = Vec::new();
         let mut ipv6 = Vec::new();
         for ip in ips {
@@ -46,16 +45,16 @@ impl ResolveRedirectionBuilder {
             .insert(domain, ResolveRedirectionValue::Ip((ipv4, ipv6)));
     }
 
-    pub fn insert_exact_alias(&mut self, domain: String, alias: ArcStr) {
+    pub fn insert_exact_alias(&mut self, domain: DomainName, alias: DomainName) {
         self.ht
             .insert(domain, ResolveRedirectionValue::Domain(alias));
     }
 
-    pub fn insert_parent_alias(&mut self, from: String, to: ArcStr) {
+    pub fn insert_parent_alias(&mut self, from: DomainName, to: DomainName) {
         self.trie.insert(from, ResolveRedirectionValue::Domain(to));
     }
 
-    pub fn insert_parent_addr(&mut self, domain: String, ips: Vec<IpAddr>) {
+    pub fn insert_parent_addr(&mut self, domain: DomainName, ips: Vec<IpAddr>) {
         let mut ipv4 = Vec::new();
         let mut ipv6 = Vec::new();
         for ip in ips {
@@ -79,21 +78,12 @@ impl ResolveRedirectionBuilder {
         let mut trie = Trie::new();
         for (k, v) in self.trie.iter() {
             // append extra '.' to match the exact parent domain
-            let from = reverse_idna_domain(k);
-            let to = match v {
-                ResolveRedirectionValue::Domain(to) => {
-                    let reversed = reverse_idna_domain(to);
-                    ResolveRedirectionValue::Domain(reversed.into())
-                }
-                ResolveRedirectionValue::Ip((ipv4, ipv6)) => {
-                    ResolveRedirectionValue::Ip((ipv4.clone(), ipv6.clone()))
-                }
-            };
+            let lookup_k = k.to_reversed();
             let node = TrieValue {
-                from: from.clone(),
-                to,
+                from: k.clone(),
+                to: v.clone(),
             };
-            trie.insert(from, node);
+            trie.insert(lookup_k, node);
         }
 
         ResolveRedirection {
@@ -105,90 +95,102 @@ impl ResolveRedirectionBuilder {
 }
 
 struct TrieValue {
-    from: String,
+    from: DomainName,
     to: ResolveRedirectionValue,
 }
 
 pub struct ResolveRedirection {
-    ht: AHashMap<String, ResolveRedirectionValue>,
+    ht: AHashMap<DomainName, ResolveRedirectionValue>,
     match_trie: bool,
     trie: Trie<String, TrieValue>,
 }
 
 impl ResolveRedirection {
-    pub fn query_value(&self, domain: &str) -> Option<ResolveRedirectionValue> {
+    pub fn query_value(
+        &self,
+        domain: &DomainName,
+    ) -> Result<Option<ResolveRedirectionValue>, DomainNameParseError> {
         if !self.ht.is_empty()
             && let Some(v) = self.ht.get(domain)
         {
-            return Some(v.clone());
+            return Ok(Some(v.clone()));
         }
 
         if self.match_trie {
-            let reversed_domain = reverse_idna_domain(domain);
+            let reversed_domain = domain.to_reversed();
             if let Some(node) = self.trie.get_ancestor_value(&reversed_domain) {
                 match &node.to {
                     ResolveRedirectionValue::Domain(to) => {
-                        let replaced = reversed_domain.replacen(&node.from, to, 1);
-                        return Some(ResolveRedirectionValue::Domain(
-                            reverse_to_idna_domain(&replaced).into(),
-                        ));
+                        if let Some(replaced) = domain.replace_suffix(&node.from, to)? {
+                            return Ok(Some(ResolveRedirectionValue::Domain(replaced)));
+                        }
                     }
                     ResolveRedirectionValue::Ip((ipv4, ipv6)) => {
-                        return Some(ResolveRedirectionValue::Ip((ipv4.clone(), ipv6.clone())));
+                        return Ok(Some(ResolveRedirectionValue::Ip((
+                            ipv4.clone(),
+                            ipv6.clone(),
+                        ))));
                     }
                 }
             }
         }
 
-        None
+        Ok(None)
     }
 
-    pub fn query_first(&self, domain: &str, strategy: QueryStrategy) -> Option<Host> {
+    pub fn query_first(
+        &self,
+        domain: &DomainName,
+        strategy: QueryStrategy,
+    ) -> Result<Option<Host>, DomainNameParseError> {
         if !self.ht.is_empty()
             && let Some(v) = self.ht.get(domain)
         {
             match v {
                 ResolveRedirectionValue::Domain(alias) => {
-                    return Some(Host::Domain(alias.clone()));
+                    return Ok(Some(Host::Domain(alias.clone())));
                 }
                 ResolveRedirectionValue::Ip((ip4, ip6)) => {
                     if let Some(ip) = strategy.pick_first(ip4, ip6) {
-                        return Some(Host::Ip(ip));
+                        return Ok(Some(Host::Ip(ip)));
                     }
                 }
             }
         }
 
         if self.match_trie {
-            let reversed_domain = reverse_idna_domain(domain);
+            let reversed_domain = domain.to_reversed();
             if let Some(node) = self.trie.get_ancestor_value(&reversed_domain) {
                 match &node.to {
                     ResolveRedirectionValue::Domain(to) => {
-                        let replaced = reversed_domain.replacen(&node.from, to, 1);
-                        return Some(Host::Domain(reverse_to_idna_domain(&replaced).into()));
+                        if let Some(replaced) = domain.replace_suffix(&node.from, to)? {
+                            return Ok(Some(Host::Domain(replaced)));
+                        }
                     }
                     ResolveRedirectionValue::Ip((ip4, ip6)) => {
                         if let Some(ip) = strategy.pick_first(ip4, ip6) {
-                            return Some(Host::Ip(ip));
+                            return Ok(Some(Host::Ip(ip)));
                         }
                     }
                 }
             }
         }
 
-        None
+        Ok(None)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::literal_domain;
+    use std::cell::LazyCell;
     use std::str::FromStr;
 
-    const DOMAIN1: &str = "www.example1.com";
-    const DOMAIN2: &str = "www.example2.com";
-    const DOMAIN3: &str = "www.example3.com";
-    const DOMAIN4: &str = "www.example4.com";
+    const DOMAIN1: LazyCell<DomainName> = LazyCell::new(|| literal_domain!("www.example1.com"));
+    const DOMAIN2: LazyCell<DomainName> = LazyCell::new(|| literal_domain!("www.example2.com"));
+    const DOMAIN3: LazyCell<DomainName> = LazyCell::new(|| literal_domain!("www.example3.com"));
+    const DOMAIN4: LazyCell<DomainName> = LazyCell::new(|| literal_domain!("www.example4.com"));
 
     #[test]
     fn exact_replace_ips() {
@@ -201,71 +203,126 @@ mod tests {
         let target_ips2 = vec![ip61, ip62];
         let target_ips3 = vec![ip41, ip42, ip61, ip62];
 
-        builder.insert_exact_addr(DOMAIN1.to_string(), target_ips1);
-        builder.insert_exact_addr(DOMAIN2.to_string(), target_ips2);
-        builder.insert_exact_addr(DOMAIN3.to_string(), target_ips3);
+        builder.insert_exact_addr(DOMAIN1.clone(), target_ips1);
+        builder.insert_exact_addr(DOMAIN2.clone(), target_ips2);
+        builder.insert_exact_addr(DOMAIN3.clone(), target_ips3);
         let r = builder.build();
 
-        let ret = r.query_first(DOMAIN1, QueryStrategy::Ipv4Only).unwrap();
+        let ret = r
+            .query_first(&DOMAIN1, QueryStrategy::Ipv4Only)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
-        let ret = r.query_first(DOMAIN1, QueryStrategy::Ipv4First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN1, QueryStrategy::Ipv4First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
-        let ret = r.query_first(DOMAIN1, QueryStrategy::Ipv6First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN1, QueryStrategy::Ipv6First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
-        assert!(r.query_first(DOMAIN1, QueryStrategy::Ipv6Only).is_none());
+        assert!(
+            r.query_first(&DOMAIN1, QueryStrategy::Ipv6Only)
+                .unwrap()
+                .is_none()
+        );
 
-        let ret = r.query_first(DOMAIN2, QueryStrategy::Ipv6Only).unwrap();
+        let ret = r
+            .query_first(&DOMAIN2, QueryStrategy::Ipv6Only)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
-        let ret = r.query_first(DOMAIN2, QueryStrategy::Ipv6First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN2, QueryStrategy::Ipv6First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
-        let ret = r.query_first(DOMAIN2, QueryStrategy::Ipv4First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN2, QueryStrategy::Ipv4First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
-        assert!(r.query_first(DOMAIN2, QueryStrategy::Ipv4Only).is_none());
+        assert!(
+            r.query_first(&DOMAIN2, QueryStrategy::Ipv4Only)
+                .unwrap()
+                .is_none()
+        );
 
-        let ret = r.query_first(DOMAIN3, QueryStrategy::Ipv4Only).unwrap();
+        let ret = r
+            .query_first(&DOMAIN3, QueryStrategy::Ipv4Only)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
-        let ret = r.query_first(DOMAIN3, QueryStrategy::Ipv4First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN3, QueryStrategy::Ipv4First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
-        let ret = r.query_first(DOMAIN3, QueryStrategy::Ipv6Only).unwrap();
+        let ret = r
+            .query_first(&DOMAIN3, QueryStrategy::Ipv6Only)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
-        let ret = r.query_first(DOMAIN3, QueryStrategy::Ipv6First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN3, QueryStrategy::Ipv6First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
 
-        assert!(r.query_first(DOMAIN4, QueryStrategy::Ipv4First).is_none());
+        assert!(
+            r.query_first(&DOMAIN4, QueryStrategy::Ipv4First)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
     fn exact_replace_alias() {
         let mut builder = ResolveRedirectionBuilder::default();
-        let to_domain = arcstr::literal!("www.1-example.com");
-        builder.insert_exact_alias(DOMAIN1.to_string(), to_domain.clone());
+        let to_domain = literal_domain!("www.1-example.com");
+        builder.insert_exact_alias(DOMAIN1.clone(), to_domain.clone());
         let r = builder.build();
 
-        let ret = r.query_first(DOMAIN1, QueryStrategy::Ipv4First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN1, QueryStrategy::Ipv4First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Domain(to_domain));
 
-        assert!(r.query_first(DOMAIN4, QueryStrategy::Ipv4First).is_none());
+        assert!(
+            r.query_first(&DOMAIN4, QueryStrategy::Ipv4First)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
     fn parent_replace() {
         let mut builder = ResolveRedirectionBuilder::default();
-        builder.insert_parent_alias("foo.com".to_string(), "bar.com".into());
+        builder.insert_parent_alias(literal_domain!("foo.com"), literal_domain!("bar.com"));
         let r = builder.build();
 
-        let ret = r.query_first("foo.com", QueryStrategy::Ipv4First).unwrap();
-        assert_eq!(ret, Host::Domain(arcstr::literal!("bar.com")));
+        assert!(
+            r.query_first(&literal_domain!("foo.com"), QueryStrategy::Ipv4First,)
+                .unwrap()
+                .is_none()
+        );
         let ret = r
-            .query_first("a.foo.com", QueryStrategy::Ipv4First)
+            .query_first(&literal_domain!("a.foo.com"), QueryStrategy::Ipv4First)
+            .unwrap()
             .unwrap();
-        assert_eq!(ret, Host::Domain(arcstr::literal!("a.bar.com")));
+        assert_eq!(ret.to_string(), "a.bar.com");
 
         assert!(
-            r.query_first("a.zfoo.com", QueryStrategy::Ipv4First)
+            r.query_first(&literal_domain!("a.zfoo.com"), QueryStrategy::Ipv4First)
+                .unwrap()
                 .is_none()
         );
         assert!(
-            r.query_first("a.fooz.com", QueryStrategy::Ipv4First)
+            r.query_first(&literal_domain!("a.fooz.com"), QueryStrategy::Ipv4First)
+                .unwrap()
                 .is_none()
         );
     }
@@ -281,36 +338,78 @@ mod tests {
         let target_ips2 = vec![ip61, ip62];
         let target_ips3 = vec![ip41, ip42, ip61, ip62];
 
-        builder.insert_parent_addr("example1.com".to_string(), target_ips1);
-        builder.insert_parent_addr("example2.com".to_string(), target_ips2);
-        builder.insert_parent_addr("example3.com".to_string(), target_ips3);
+        builder.insert_parent_addr(literal_domain!("example1.com"), target_ips1);
+        builder.insert_parent_addr(literal_domain!("example2.com"), target_ips2);
+        builder.insert_parent_addr(literal_domain!("example3.com"), target_ips3);
         let r = builder.build();
 
-        let ret = r.query_first(DOMAIN1, QueryStrategy::Ipv4Only).unwrap();
+        let ret = r
+            .query_first(&DOMAIN1, QueryStrategy::Ipv4Only)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
-        let ret = r.query_first(DOMAIN1, QueryStrategy::Ipv4First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN1, QueryStrategy::Ipv4First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
-        let ret = r.query_first(DOMAIN1, QueryStrategy::Ipv6First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN1, QueryStrategy::Ipv6First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
-        assert!(r.query_first(DOMAIN1, QueryStrategy::Ipv6Only).is_none());
+        assert!(
+            r.query_first(&DOMAIN1, QueryStrategy::Ipv6Only)
+                .unwrap()
+                .is_none()
+        );
 
-        let ret = r.query_first(DOMAIN2, QueryStrategy::Ipv6Only).unwrap();
+        let ret = r
+            .query_first(&DOMAIN2, QueryStrategy::Ipv6Only)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
-        let ret = r.query_first(DOMAIN2, QueryStrategy::Ipv6First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN2, QueryStrategy::Ipv6First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
-        let ret = r.query_first(DOMAIN2, QueryStrategy::Ipv4First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN2, QueryStrategy::Ipv4First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
-        assert!(r.query_first(DOMAIN2, QueryStrategy::Ipv4Only).is_none());
+        assert!(
+            r.query_first(&DOMAIN2, QueryStrategy::Ipv4Only)
+                .unwrap()
+                .is_none()
+        );
 
-        let ret = r.query_first(DOMAIN3, QueryStrategy::Ipv4Only).unwrap();
+        let ret = r
+            .query_first(&DOMAIN3, QueryStrategy::Ipv4Only)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
-        let ret = r.query_first(DOMAIN3, QueryStrategy::Ipv4First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN3, QueryStrategy::Ipv4First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
-        let ret = r.query_first(DOMAIN3, QueryStrategy::Ipv6Only).unwrap();
+        let ret = r
+            .query_first(&DOMAIN3, QueryStrategy::Ipv6Only)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
-        let ret = r.query_first(DOMAIN3, QueryStrategy::Ipv6First).unwrap();
+        let ret = r
+            .query_first(&DOMAIN3, QueryStrategy::Ipv6First)
+            .unwrap()
+            .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
 
-        assert!(r.query_first(DOMAIN4, QueryStrategy::Ipv4First).is_none());
+        assert!(
+            r.query_first(&DOMAIN4, QueryStrategy::Ipv4First)
+                .unwrap()
+                .is_none()
+        );
     }
 }

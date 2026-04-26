@@ -8,7 +8,6 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use arcstr::ArcStr;
 use async_trait::async_trait;
 use slog::Logger;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
@@ -20,7 +19,8 @@ use vey_socket::util::AddressFamily;
 use vey_types::acl::AclNetworkRule;
 use vey_types::metrics::NodeName;
 use vey_types::net::{
-    Host, HttpForwardCapability, ProxyProtocolEncoder, ProxyProtocolVersion, UpstreamAddr,
+    DomainName, Host, HttpForwardCapability, ProxyProtocolEncoder, ProxyProtocolVersion,
+    UpstreamAddr,
 };
 use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
@@ -166,21 +166,42 @@ impl DirectFixedEscaper {
 
     fn resolve_happy(
         &self,
-        domain: ArcStr,
+        domain: DomainName,
         strategy: ResolveStrategy,
         task_notes: &ServerTaskNotes,
     ) -> Result<HappyEyeballsResolveJob, ResolveError> {
         if let Some(user_ctx) = task_notes.user_ctx()
             && let Some(redirect) = user_ctx.user().resolve_redirection()
-            && let Some(v) = redirect.query_value(&domain)
         {
-            return HappyEyeballsResolveJob::new_redirected(strategy, &self.resolver_handle, v);
+            match redirect.query_value(&domain) {
+                Ok(Some(v)) => {
+                    return HappyEyeballsResolveJob::new_redirected(
+                        strategy,
+                        &self.resolver_handle,
+                        v,
+                    );
+                }
+                Ok(None) => {}
+                Err(_) => {
+                    return Err(ResolveError::InvalidRedirectionDomain);
+                }
+            }
         }
 
-        if let Some(redirect) = &self.resolve_redirection
-            && let Some(v) = redirect.query_value(&domain)
-        {
-            return HappyEyeballsResolveJob::new_redirected(strategy, &self.resolver_handle, v);
+        if let Some(redirect) = &self.resolve_redirection {
+            match redirect.query_value(&domain) {
+                Ok(Some(v)) => {
+                    return HappyEyeballsResolveJob::new_redirected(
+                        strategy,
+                        &self.resolver_handle,
+                        v,
+                    );
+                }
+                Ok(None) => {}
+                Err(_) => {
+                    return Err(ResolveError::InvalidRedirectionDomain);
+                }
+            }
         }
 
         HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, domain)
@@ -188,7 +209,7 @@ impl DirectFixedEscaper {
 
     async fn resolve_best(
         &self,
-        domain: ArcStr,
+        domain: DomainName,
         strategy: ResolveStrategy,
     ) -> Result<IpAddr, ResolveError> {
         let mut resolver_job =
@@ -221,21 +242,30 @@ impl DirectFixedEscaper {
             Host::Domain(domain) => {
                 if let Some(user_ctx) = task_notes.user_ctx()
                     && let Some(redirect) = user_ctx.user().resolve_redirection()
-                    && let Some(v) = redirect.query_first(domain, resolve_strategy.query)
                 {
-                    return self
-                        .redirect_get_best(v, resolve_strategy)
-                        .await
-                        .map(|ip| SocketAddr::new(ip, ups.port()));
+                    match redirect.query_first(domain, resolve_strategy.query) {
+                        Ok(Some(v)) => {
+                            return self
+                                .redirect_get_best(v, resolve_strategy)
+                                .await
+                                .map(|ip| SocketAddr::new(ip, ups.port()));
+                        }
+                        Ok(None) => {}
+                        Err(_) => return Err(ResolveError::InvalidRedirectionDomain),
+                    }
                 }
 
-                if let Some(redirect) = &self.resolve_redirection
-                    && let Some(v) = redirect.query_first(domain, resolve_strategy.query)
-                {
-                    return self
-                        .redirect_get_best(v, resolve_strategy)
-                        .await
-                        .map(|ip| SocketAddr::new(ip, ups.port()));
+                if let Some(redirect) = &self.resolve_redirection {
+                    match redirect.query_first(domain, resolve_strategy.query) {
+                        Ok(Some(v)) => {
+                            return self
+                                .redirect_get_best(v, resolve_strategy)
+                                .await
+                                .map(|ip| SocketAddr::new(ip, ups.port()));
+                        }
+                        Ok(None) => {}
+                        Err(_) => return Err(ResolveError::InvalidRedirectionDomain),
+                    }
                 }
 
                 let ip = self.resolve_best(domain.clone(), resolve_strategy).await?;

@@ -5,6 +5,7 @@
 
 mod buf;
 mod dns;
+mod domain;
 mod egress;
 mod error;
 mod haproxy;
@@ -38,6 +39,7 @@ mod quinn;
 
 pub use buf::SocketBufferConfig;
 pub use dns::*;
+pub use domain::{DomainName, DomainNameParseError};
 pub use egress::{EgressArea, EgressInfo};
 pub use error::ConnectError;
 pub use haproxy::{

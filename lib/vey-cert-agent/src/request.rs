@@ -4,16 +4,15 @@
  */
 
 use anyhow::{Context, anyhow};
-use arcstr::ArcStr;
 use openssl::x509::X509;
 use rmpv::ValueRef;
 
-use vey_types::net::{TlsCertUsage, TlsServiceType};
+use vey_types::net::{Host, TlsCertUsage, TlsServiceType};
 
 use super::{request_key, request_key_id, response_key_id};
 
 pub struct Request {
-    pub(crate) host: ArcStr,
+    pub(crate) host: Host,
     service: TlsServiceType,
     usage: TlsCertUsage,
     pub(crate) cert: Option<X509>,
@@ -22,7 +21,7 @@ pub struct Request {
 impl Default for Request {
     fn default() -> Self {
         Request {
-            host: ArcStr::default(),
+            host: Host::empty(),
             service: TlsServiceType::Http,
             usage: TlsCertUsage::TlsServer,
             cert: None,
@@ -32,13 +31,8 @@ impl Default for Request {
 
 impl Request {
     #[inline]
-    pub fn host(&self) -> ArcStr {
-        self.host.clone()
-    }
-
-    #[inline]
-    pub fn host_str(&self) -> &str {
-        self.host.as_ref()
+    pub fn host(&self) -> &Host {
+        &self.host
     }
 
     #[inline]
@@ -118,8 +112,7 @@ impl Request {
     }
 
     fn set_host_value(&mut self, v: ValueRef) -> anyhow::Result<()> {
-        let host = vey_msgpack::value::as_string(&v)?;
-        self.host = host.into();
+        self.host = vey_msgpack::value::as_host(&v)?;
         Ok(())
     }
 
@@ -143,10 +136,11 @@ impl Request {
     }
 
     pub fn encode_rsp(&self, pem_cert: &str, der_key: &[u8], ttl: u32) -> anyhow::Result<Vec<u8>> {
+        let host_str = self.host().to_string();
         let map = vec![
             (
                 ValueRef::Integer(response_key_id::HOST.into()),
-                ValueRef::String(self.host.as_str().into()),
+                ValueRef::String(host_str.as_str().into()),
             ),
             (
                 ValueRef::Integer(response_key_id::SERVICE.into()),

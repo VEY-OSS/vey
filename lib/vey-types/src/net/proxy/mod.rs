@@ -7,7 +7,7 @@ use thiserror::Error;
 use url::Url;
 
 use crate::auth::AuthParseError;
-use crate::net::UpstreamAddr;
+use crate::net::{DomainNameParseError, UpstreamAddr};
 
 mod common;
 pub use common::ProxyRequestType;
@@ -29,6 +29,8 @@ pub enum ProxyParseError {
     InvalidScheme,
     #[error("no host found")]
     NoHostFound,
+    #[error("invalid domain: {0}")]
+    InvalidDomain(#[from] DomainNameParseError),
     #[error("auth parse failed: {0}")]
     InvalidAuth(#[from] AuthParseError),
     #[error("invalid tls config: {0}")]

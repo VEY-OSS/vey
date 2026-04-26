@@ -4,12 +4,13 @@
  */
 
 use std::rc::Rc;
+use std::str::FromStr;
 use std::time::Duration;
 
-use vey_types::metrics::NodeName;
-use vey_types::resolve::{QueryStrategy as ResolveQueryStrategy, ResolveStrategy};
-
 use vey_proxy_proto::resolver_capnp::{QueryStrategy, resolver_control};
+use vey_types::metrics::NodeName;
+use vey_types::net::DomainName;
+use vey_types::resolve::{QueryStrategy as ResolveQueryStrategy, ResolveStrategy};
 
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 
@@ -39,10 +40,21 @@ impl resolver_control::Server for ResolverControlImpl {
         let query_strategy = params.get_strategy()?;
         let resolver_strategy = get_resolver_strategy(query_strategy);
 
+        let domain = match DomainName::from_str(domain) {
+            Ok(domain) => domain,
+            Err(e) => {
+                results
+                    .get()
+                    .init_result()
+                    .set_err(format!("invalid domain name {domain}: {e}"));
+                return Ok(());
+            }
+        };
+
         let mut job = match HappyEyeballsResolveJob::new_dyn(
             resolver_strategy,
             &self.resolver_handler,
-            domain.into(),
+            domain,
         ) {
             Ok(job) => job,
             Err(e) => {

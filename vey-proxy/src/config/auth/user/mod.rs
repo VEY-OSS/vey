@@ -197,7 +197,7 @@ impl UserConfig {
                 }
             }
             for domain in &config.child_match_domain {
-                if !check_child_domain.insert(domain.strip_prefix('.').unwrap_or(domain)) {
+                if !check_child_domain.insert(domain) {
                     return Err(anyhow!(
                         "Parent Domain {domain} in site group {} has already been added by others",
                         config.id

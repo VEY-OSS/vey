@@ -217,9 +217,10 @@ impl ClientCertBuilder {
         let mut san = SubjectAlternativeName::new();
         let subject_name = match host {
             Host::Domain(domain) => {
-                san.dns(domain);
+                let domain_str = domain.as_str();
+                san.dns(domain_str);
                 self.subject_builder
-                    .build_with_default_common_name(domain)
+                    .build_with_default_common_name(domain_str)
                     .context("failed to build subject name")?
             }
             Host::Ip(ip) => {

@@ -23,7 +23,7 @@ mod tests {
     #[test]
     fn parse_host_from_bytes() {
         let result = parse_host(b"example.com").unwrap();
-        assert_eq!(result, Host::Domain("example.com".into()));
+        assert_eq!(result.to_string(), "example.com");
 
         let result = parse_host(b"[192.168.1.1]").unwrap();
         assert_eq!(result, Host::Ip(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))));
@@ -35,7 +35,7 @@ mod tests {
         );
 
         let result = parse_host(b"example.com additional content").unwrap();
-        assert_eq!(result, Host::Domain("example.com".into()));
+        assert_eq!(result.to_string(), "example.com");
 
         let result = parse_host(b"[192.168.1.1] extra data").unwrap();
         assert_eq!(result, Host::Ip(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))));

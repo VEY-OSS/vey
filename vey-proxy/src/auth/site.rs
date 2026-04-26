@@ -17,7 +17,7 @@ use radix_trie::Trie;
 use rustc_hash::FxHashMap;
 
 use vey_types::metrics::{MetricTagMap, NodeName};
-use vey_types::net::{Host, OpensslClientConfig, UpstreamAddr};
+use vey_types::net::{DomainName, Host, OpensslClientConfig, UpstreamAddr};
 use vey_types::resolve::ResolveStrategy;
 
 use super::stats::{UserSiteDurationRecorder, UserSiteStats};
@@ -155,7 +155,7 @@ impl UserSite {
 pub(super) struct UserSites {
     all_sites: HashMap<NodeName, Arc<UserSite>>,
     exact_match_ipaddr: Option<FxHashMap<IpAddr, Arc<UserSite>>>,
-    exact_match_domain: Option<AHashMap<ArcStr, Arc<UserSite>>>,
+    exact_match_domain: Option<AHashMap<DomainName, Arc<UserSite>>>,
     child_match_domain: Option<Trie<String, Arc<UserSite>>>,
     subnet_match_ipaddr: Option<IpNetworkTable<Arc<UserSite>>>,
 }
@@ -188,8 +188,11 @@ impl UserSites {
                 exact_match_domain.insert(domain.clone(), site.clone());
             }
             for domain in &site_config.child_match_domain {
-                let domain = vey_types::resolve::reverse_idna_domain(domain);
-                if child_match_domain.insert(domain, site.clone()).is_none() {
+                let reversed_k = domain.to_reversed();
+                if child_match_domain
+                    .insert(reversed_k, site.clone())
+                    .is_none()
+                {
                     child_match_domain_count += 1;
                 }
             }
@@ -276,8 +279,8 @@ impl UserSites {
                 }
 
                 if let Some(trie) = &self.child_match_domain {
-                    let key = vey_types::resolve::reverse_idna_domain(domain);
-                    if let Some(r) = trie.get_ancestor_value(&key) {
+                    let reversed = domain.to_reversed();
+                    if let Some(r) = trie.get_ancestor_value(&reversed) {
                         return Some(r.clone());
                     }
                 }

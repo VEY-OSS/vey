@@ -11,12 +11,13 @@ use radix_trie::{Trie, TrieCommon};
 use yaml_rust::Yaml;
 
 use vey_types::metrics::NodeName;
+use vey_types::net::DomainName;
 
 use crate::config::escaper::verify::EscaperConfigVerifier;
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub(crate) struct SuffixMatchBuilder {
-    inner: BTreeMap<NodeName, BTreeSet<String>>,
+    inner: BTreeMap<NodeName, BTreeSet<DomainName>>,
 }
 
 impl SuffixMatchBuilder {
@@ -68,7 +69,7 @@ impl SuffixMatchBuilder {
         }
     }
 
-    fn add_rule(&mut self, escaper: NodeName, domains: Vec<String>) {
+    fn add_rule(&mut self, escaper: NodeName, domains: Vec<DomainName>) {
         self.inner.entry(escaper).or_default().extend(domains);
     }
 
@@ -86,7 +87,7 @@ impl SuffixMatchBuilder {
                 let Some(value) = value_table.get(escaper) else {
                     continue;
                 };
-                let reversed = domain.chars().rev().collect();
+                let reversed = domain.as_str().chars().rev().collect();
                 trie.insert(reversed, value.clone());
             }
         }
@@ -103,8 +104,8 @@ pub(crate) struct SuffixMatch<T> {
 }
 
 impl<T> SuffixMatch<T> {
-    pub(crate) fn check_domain(&self, domain: &str) -> Option<&T> {
-        let key: String = domain.chars().rev().collect();
+    pub(crate) fn check_domain(&self, domain: &DomainName) -> Option<&T> {
+        let key: String = domain.as_str().chars().rev().collect();
         self.inner.get_ancestor_value(&key)
     }
 }
@@ -112,6 +113,7 @@ impl<T> SuffixMatch<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vey_types::literal_domain;
     use yaml_rust::YamlLoader;
 
     #[test]
@@ -134,14 +136,26 @@ mod tests {
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
         let suffix_match = builder.build(&value_map).unwrap();
 
-        let value = *suffix_match.check_domain("abc.example.net").unwrap();
+        let value = *suffix_match
+            .check_domain(&literal_domain!("abc.example.net"))
+            .unwrap();
         assert!(value.eq("escaper_1"));
-        let value = *suffix_match.check_domain("abcexample.net").unwrap();
+        let value = *suffix_match
+            .check_domain(&literal_domain!("abcexample.net"))
+            .unwrap();
         assert!(value.eq("escaper_1"));
-        let value = *suffix_match.check_domain("ba.example.net").unwrap();
+        let value = *suffix_match
+            .check_domain(&literal_domain!("ba.example.net"))
+            .unwrap();
         assert!(value.eq("escaper_2"));
-        assert!(suffix_match.check_domain("cde.example.org").is_none());
-        let value = *suffix_match.check_domain("a.cd.example.org").unwrap();
+        assert!(
+            suffix_match
+                .check_domain(&literal_domain!("cde.example.org"))
+                .is_none()
+        );
+        let value = *suffix_match
+            .check_domain(&literal_domain!("a.cd.example.org"))
+            .unwrap();
         assert!(value.eq("escaper_2"));
     }
 
@@ -164,14 +178,26 @@ mod tests {
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
         let suffix_match = builder.build(&value_map).unwrap();
 
-        let value = *suffix_match.check_domain("abc.example.net").unwrap();
+        let value = *suffix_match
+            .check_domain(&literal_domain!("abc.example.net"))
+            .unwrap();
         assert!(value.eq("escaper_1"));
-        let value = *suffix_match.check_domain("abcexample.net").unwrap();
+        let value = *suffix_match
+            .check_domain(&literal_domain!("abcexample.net"))
+            .unwrap();
         assert!(value.eq("escaper_1"));
-        let value = *suffix_match.check_domain("ba.example.net").unwrap();
+        let value = *suffix_match
+            .check_domain(&literal_domain!("ba.example.net"))
+            .unwrap();
         assert!(value.eq("escaper_2"));
-        assert!(suffix_match.check_domain("cde.example.org").is_none());
-        let value = *suffix_match.check_domain("a.cd.example.org").unwrap();
+        assert!(
+            suffix_match
+                .check_domain(&literal_domain!("cde.example.org"))
+                .is_none()
+        );
+        let value = *suffix_match
+            .check_domain(&literal_domain!("a.cd.example.org"))
+            .unwrap();
         assert!(value.eq("escaper_2"));
     }
 }

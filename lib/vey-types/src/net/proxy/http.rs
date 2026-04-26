@@ -6,7 +6,7 @@
 use url::Url;
 
 use super::ProxyParseError;
-use crate::net::{HttpAuth, UpstreamAddr};
+use crate::net::{Host, HttpAuth, UpstreamAddr};
 
 #[cfg(feature = "openssl")]
 use crate::net::OpensslClientConfigBuilder;
@@ -27,6 +27,7 @@ impl HttpProxy {
         let host = url.host().ok_or(ProxyParseError::NoHostFound)?;
         let port = url.port().unwrap_or(8080);
 
+        let host = Host::try_from(host)?;
         let peer = UpstreamAddr::new(host, port);
 
         let auth = HttpAuth::try_from(url)?;

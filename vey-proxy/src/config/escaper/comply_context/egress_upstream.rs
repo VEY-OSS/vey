@@ -10,7 +10,7 @@ use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use vey_types::metrics::NodeName;
-use vey_types::net::{Host, UpstreamAddr};
+use vey_types::net::{DomainName, Host, UpstreamAddr};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct EgressUpstream {
@@ -29,7 +29,7 @@ pub(crate) struct EgressUpstreamConfig {
     pub(crate) escaper: NodeName,
     host_key: String,
     port_key: String,
-    domain_suffix: String,
+    domain_suffix: Option<DomainName>,
     default_port: u16,
     resolve_sticky_key: String,
 }
@@ -55,8 +55,9 @@ impl EgressUpstreamConfig {
                 Ok(())
             }
             "domain_suffix" => {
-                conf.domain_suffix = vey_yaml::value::as_domain(v)
+                let suffix_domain = vey_yaml::value::as_domain(v)
                     .context(format!("invalid domain value for key {k}"))?;
+                conf.domain_suffix = Some(suffix_domain);
                 Ok(())
             }
             "default_port" => {
@@ -104,13 +105,14 @@ impl EgressUpstreamConfig {
                 port = port_v;
             }
 
-            let host = if self.domain_suffix.is_empty() {
-                Host::from_str(host_name)
-            } else {
-                let mut host_s = host_name.to_string();
-                host_s.push('.');
-                host_s.push_str(&self.domain_suffix);
-                Host::from_domain_str(&host_s)
+            let host = match &self.domain_suffix {
+                Some(suffix_domain) => {
+                    let mut host_s = host_name.to_string();
+                    host_s.push('.');
+                    host_s.push_str(suffix_domain.as_str());
+                    Host::from_domain_str(&host_s)
+                }
+                None => Host::from_str(host_name),
             };
             if let Ok(host) = host {
                 value.addr = Some(UpstreamAddr::new(host, port));

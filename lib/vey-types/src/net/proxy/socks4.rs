@@ -6,7 +6,7 @@
 use url::Url;
 
 use super::ProxyParseError;
-use crate::net::UpstreamAddr;
+use crate::net::{Host, UpstreamAddr};
 
 pub struct Socks4Proxy {
     peer: UpstreamAddr,
@@ -21,6 +21,7 @@ impl Socks4Proxy {
         let host = url.host().ok_or(ProxyParseError::NoHostFound)?;
         let port = url.port().unwrap_or(1080);
 
+        let host = Host::try_from(host)?;
         let peer = UpstreamAddr::new(host, port);
 
         Ok(Socks4Proxy { peer })

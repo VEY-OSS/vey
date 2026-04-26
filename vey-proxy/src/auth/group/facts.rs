@@ -12,6 +12,7 @@ use ip_network_table::IpNetworkTable;
 use radix_trie::Trie;
 
 use vey_types::auth::FactsMatchValue;
+use vey_types::net::DomainName;
 
 use super::BaseUserGroup;
 use crate::auth::{User, UserType};
@@ -63,7 +64,7 @@ impl FactsUserGroup {
         self.base.get_anonymous_user()
     }
 
-    pub(crate) fn get_user_by_domain(&self, domain: &str) -> Option<(Arc<User>, UserType)> {
+    pub(crate) fn get_user_by_domain(&self, domain: &DomainName) -> Option<(Arc<User>, UserType)> {
         let match_table = self.match_table.load();
         if let Some(v) = match_table.get_user_by_domain(domain) {
             return Some(v);
@@ -78,7 +79,7 @@ type MatchedUser = (Arc<User>, UserType);
 struct FactsMatchTable {
     exact_ip: HashMap<IpAddr, MatchedUser>,
     network: IpNetworkTable<MatchedUser>,
-    exact_domain: HashMap<String, MatchedUser>,
+    exact_domain: HashMap<DomainName, MatchedUser>,
     child_domain: Trie<String, MatchedUser>,
 }
 
@@ -116,8 +117,9 @@ impl FactsMatchTable {
                         .insert(domain.clone(), (user.clone(), user_type));
                 }
                 FactsMatchValue::ChildDomain(child_domain) => {
+                    let reversed_k = child_domain.to_reversed();
                     self.child_domain
-                        .insert(child_domain.clone(), (user.clone(), user_type));
+                        .insert(reversed_k, (user.clone(), user_type));
                 }
             }
         }
@@ -135,12 +137,13 @@ impl FactsMatchTable {
         None
     }
 
-    fn get_user_by_domain(&self, domain: &str) -> Option<MatchedUser> {
+    fn get_user_by_domain(&self, domain: &DomainName) -> Option<MatchedUser> {
         if let Some((user, user_type)) = self.exact_domain.get(domain) {
             return Some((user.clone(), *user_type));
         }
 
-        if let Some((user, user_type)) = self.child_domain.get_ancestor_value(domain) {
+        let reversed = domain.to_reversed();
+        if let Some((user, user_type)) = self.child_domain.get_ancestor_value(&reversed) {
             return Some((user.clone(), *user_type));
         }
 

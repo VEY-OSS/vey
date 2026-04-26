@@ -284,9 +284,9 @@ checksum = "c4512299f36f043ab09a583e57bceb5a5aab7a73db1805848e8fef3c9e8c78b3"
 
 [[package]]
 name = "blake3"
-version = "1.8.4"
+version = "1.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d2d5991425dfd0785aed03aedcf0b321d61975c9b5b3689c774a2610ae0b51e"
+checksum = "0aa83c34e62843d924f905e0f5c866eb1dd6545fc4d719e803d9ba6030371fce"
 dependencies = [
  "arrayref",
  "arrayvec",
@@ -2684,7 +2684,6 @@ name = "vey-cert-agent"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "arcstr",
  "log",
  "rmpv",
  "tokio",
@@ -3178,7 +3177,6 @@ dependencies = [
  "chrono",
  "hex",
  "humanize-rs",
- "idna",
  "ip_network",
  "rand 0.10.1",
  "regex",
@@ -3476,7 +3474,6 @@ version = "0.9.0"
 dependencies = [
  "ahash",
  "anyhow",
- "arcstr",
  "async-recursion",
  "c-ares",
  "c-ares-resolver",
@@ -3796,7 +3793,6 @@ dependencies = [
  "chrono",
  "http",
  "humanize-rs",
- "idna",
  "ip_network",
  "log",
  "rand 0.10.1",

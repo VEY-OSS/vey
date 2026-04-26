@@ -12,7 +12,7 @@ use async_trait::async_trait;
 
 use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_types::metrics::NodeName;
-use vey_types::net::{Host, UpstreamAddr};
+use vey_types::net::{DomainName, Host, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats};
 use crate::audit::AuditContext;
@@ -124,7 +124,7 @@ impl RouteUpstreamEscaper {
         self.default_next.clone()
     }
 
-    fn select_next_by_domain(&self, host: &str) -> ArcEscaper {
+    fn select_next_by_domain(&self, host: &DomainName) -> ArcEscaper {
         if let Some(escaper) = self.exact_match.check_domain(host) {
             return escaper.clone();
         }

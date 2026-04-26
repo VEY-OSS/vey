@@ -9,11 +9,11 @@ use radix_trie::{Trie, TrieCommon};
 use regex::Regex;
 
 use super::{AclAction, ActionContract, OrderedActionContract, RegexSetBuilder, RegexSetMatch};
-use crate::resolve::reverse_idna_domain;
+use crate::net::DomainName;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AclRegexDomainRuleBuilder<Action = AclAction> {
-    prefix_regex: HashMap<String, RegexSetBuilder<Action>>,
+    prefix_regex: HashMap<DomainName, RegexSetBuilder<Action>>,
     full_regex: RegexSetBuilder<Action>,
     missed_action: Action,
 }
@@ -27,10 +27,9 @@ impl<Action: ActionContract> AclRegexDomainRuleBuilder<Action> {
         }
     }
 
-    pub fn add_prefix_regex(&mut self, suffix_domain: &str, regex: &Regex, action: Action) {
-        let d = reverse_idna_domain(suffix_domain);
+    pub fn add_prefix_regex(&mut self, suffix_domain: DomainName, regex: &Regex, action: Action) {
         self.prefix_regex
-            .entry(d)
+            .entry(suffix_domain)
             .or_default()
             .add_regex(regex, action);
     }
@@ -58,7 +57,8 @@ impl<Action: OrderedActionContract> AclRegexDomainRuleBuilder<Action> {
         let mut prefix_match_trie = Trie::new();
         for (suffix, map) in &self.prefix_regex {
             let regex_map = map.build();
-            prefix_match_trie.insert(suffix.to_string(), regex_map);
+            let reversed_k = suffix.to_reversed();
+            prefix_match_trie.insert(reversed_k, (suffix.clone(), regex_map));
         }
 
         AclRegexDomainRule {
@@ -70,31 +70,26 @@ impl<Action: OrderedActionContract> AclRegexDomainRuleBuilder<Action> {
 }
 
 pub struct AclRegexDomainRule<Action = AclAction> {
-    prefix_match_trie: Trie<String, RegexSetMatch<Action>>,
+    prefix_match_trie: Trie<String, (DomainName, RegexSetMatch<Action>)>,
     full_match_action_map: RegexSetMatch<Action>,
     missed_action: Action,
 }
 
 impl<Action: ActionContract> AclRegexDomainRule<Action> {
-    pub fn check(&self, domain: &str) -> (bool, Action) {
+    pub fn check(&self, domain: &DomainName) -> (bool, Action) {
         if !self.prefix_match_trie.is_empty() {
-            let s = reverse_idna_domain(domain);
-            if let Some(sub_trie) = self.prefix_match_trie.get_ancestor(&s)
-                && let Some(regex_map) = sub_trie.value()
+            let reversed = domain.to_reversed();
+            if let Some(sub_trie) = self.prefix_match_trie.get_ancestor(&reversed)
+                && let Some((suffix, regex_map)) = sub_trie.value()
+                && let Some(prefix) = domain.strip_suffix(suffix)
             {
-                let suffix_len = sub_trie.prefix().as_bytes().len();
-                let prefix = if domain.len() > suffix_len {
-                    domain.split_at(domain.len() - suffix_len).0
-                } else {
-                    ""
-                };
                 if let Some(action) = regex_map.check(prefix) {
                     return (true, action);
                 }
             }
         }
 
-        if let Some(action) = self.full_match_action_map.check(domain) {
+        if let Some(action) = self.full_match_action_map.check(domain.as_str()) {
             return (true, action);
         }
 
@@ -105,6 +100,7 @@ impl<Action: ActionContract> AclRegexDomainRule<Action> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::literal_domain;
 
     #[test]
     fn check() {
@@ -118,9 +114,18 @@ mod tests {
 
         let rule = builder.build();
 
-        assert_eq!(rule.check("www.example.net"), (true, AclAction::Permit));
-        assert_eq!(rule.check("www.example.com"), (true, AclAction::Permit));
-        assert_eq!(rule.check("abc.example.com"), (false, AclAction::Forbid));
+        assert_eq!(
+            rule.check(&literal_domain!("www.example.net")),
+            (true, AclAction::Permit)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("www.example.com")),
+            (true, AclAction::Permit)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("abc.example.com")),
+            (false, AclAction::Forbid)
+        );
     }
 
     #[test]
@@ -132,7 +137,10 @@ mod tests {
 
         let rule = builder.build();
 
-        assert_eq!(rule.check("www.example.net"), (true, AclAction::Permit));
+        assert_eq!(
+            rule.check(&literal_domain!("www.example.net")),
+            (true, AclAction::Permit)
+        );
     }
 
     #[test]
@@ -151,11 +159,17 @@ mod tests {
         let rule = builder.build();
 
         assert_eq!(
-            rule.check("www.example.net"),
+            rule.check(&literal_domain!("www.example.net")),
             (true, AclAction::PermitAndLog)
         );
-        assert_eq!(rule.check("a.example1.net"), (true, AclAction::Permit));
-        assert_eq!(rule.check("f.example.net"), (true, AclAction::ForbidAndLog));
+        assert_eq!(
+            rule.check(&literal_domain!("a.example1.net")),
+            (true, AclAction::Permit)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("f.example.net")),
+            (true, AclAction::ForbidAndLog)
+        );
     }
 
     #[test]
@@ -163,18 +177,42 @@ mod tests {
         let mut builder = AclRegexDomainRuleBuilder::new(AclAction::Forbid);
 
         let regex = Regex::new("abc.*$").unwrap();
-        builder.add_prefix_regex("example.net", &regex, AclAction::Permit);
+        builder.add_prefix_regex(literal_domain!("example.net"), &regex, AclAction::Permit);
         let regex = Regex::new("abc.+$").unwrap();
-        builder.add_prefix_regex("example.org", &regex, AclAction::Permit);
+        builder.add_prefix_regex(literal_domain!("example.org"), &regex, AclAction::Permit);
 
         let rule = builder.build();
-        assert_eq!(rule.check("example.net"), (false, AclAction::Forbid));
-        assert_eq!(rule.check("abcd.example.net"), (true, AclAction::Permit));
-        assert_eq!(rule.check("abc.example.net"), (true, AclAction::Permit));
-        assert_eq!(rule.check("abcdexample.net"), (false, AclAction::Forbid));
-        assert_eq!(rule.check("cde.example.net"), (false, AclAction::Forbid));
-        assert_eq!(rule.check("abcd.example.org"), (true, AclAction::Permit));
-        assert_eq!(rule.check("abc.example.org"), (false, AclAction::Forbid));
-        assert_eq!(rule.check("cde.example.org"), (false, AclAction::Forbid));
+        assert_eq!(
+            rule.check(&literal_domain!("example.net")),
+            (false, AclAction::Forbid)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("abcd.example.net")),
+            (true, AclAction::Permit)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("abc.example.net")),
+            (true, AclAction::Permit)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("abcdexample.net")),
+            (false, AclAction::Forbid)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("cde.example.net")),
+            (false, AclAction::Forbid)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("abcd.example.org")),
+            (true, AclAction::Permit)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("abc.example.org")),
+            (false, AclAction::Forbid)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("cde.example.org")),
+            (false, AclAction::Forbid)
+        );
     }
 }

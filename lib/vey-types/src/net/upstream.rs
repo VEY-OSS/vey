@@ -58,7 +58,7 @@ impl UpstreamAddr {
 
     pub fn host_str(&self) -> Cow<'_, str> {
         match &self.host {
-            Host::Domain(s) => Cow::Borrowed(s),
+            Host::Domain(s) => Cow::Borrowed(s.as_str()),
             Host::Ip(ip) => Cow::Owned(ip.to_string()),
         }
     }
@@ -122,6 +122,7 @@ impl TryFrom<&Url> for UpstreamAddr {
             let port = u
                 .port_or_known_default()
                 .ok_or_else(|| anyhow!("unable to detect port in this url"))?;
+            let host = Host::try_from(host)?;
             Ok(UpstreamAddr::new(host, port))
         } else {
             Err(anyhow!("no host found in this url"))

@@ -3,8 +3,9 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
-use arcstr::ArcStr;
 use tokio::sync::mpsc;
+
+use vey_types::net::DomainName;
 
 use crate::config::ResolverRuntimeConfig;
 use crate::message::ResolveDriverResponse;
@@ -41,13 +42,13 @@ impl AnyResolveDriverConfig {
 pub(crate) trait ResolveDriver {
     fn query_v4(
         &self,
-        domain: ArcStr,
+        domain: DomainName,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     );
     fn query_v6(
         &self,
-        domain: ArcStr,
+        domain: DomainName,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     );

@@ -103,6 +103,7 @@ impl LdapUserGroupConfig {
                 let Some(host) = url.host() else {
                     return Err(anyhow!("no host found in ldap url {url}"));
                 };
+                let host = Host::try_from(host).context("invalid ldap url host")?;
                 let port = url.port().unwrap_or(default_port);
                 self.server = UpstreamAddr::new(host, port);
                 let path = url.path();

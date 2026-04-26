@@ -40,6 +40,7 @@ pub(super) fn as_child_domain_rule_builder(
 #[cfg(feature = "dpi")]
 mod tests {
     use super::*;
+    use vey_types::literal_domain;
 
     #[test]
     fn add_rule_for_action_ok() {
@@ -84,15 +85,15 @@ mod tests {
         let builder = as_child_domain_rule_builder(&yaml).unwrap();
         let rule = builder.build();
 
-        let result = rule.check("example.com");
+        let result = rule.check(&literal_domain!("example.com"));
         assert!(result.0);
         assert!(matches!(result.1, ProtocolInspectAction::Intercept));
 
-        let result = rule.check("sub.example.com");
+        let result = rule.check(&literal_domain!("sub.example.com"));
         assert!(result.0);
         assert!(matches!(result.1, ProtocolInspectAction::Intercept));
 
-        let result = rule.check("other.com");
+        let result = rule.check(&literal_domain!("other.com"));
         assert!(!result.0);
         assert!(matches!(result.1, ProtocolInspectAction::Intercept));
     }

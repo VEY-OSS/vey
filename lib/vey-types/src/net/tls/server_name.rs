@@ -3,15 +3,12 @@
  * SPDX-FileCopyrightText: 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::str::Utf8Error;
 use std::{fmt, str};
 
 use arcstr::ArcStr;
 use thiserror::Error;
 
-use crate::net::Host;
-
-const MAX_HOST_NAME_LENGTH: usize = 255;
+use crate::net::{DomainName, DomainNameParseError, Host};
 
 #[derive(Debug, Error)]
 pub enum TlsServerNameError {
@@ -24,12 +21,12 @@ pub enum TlsServerNameError {
     #[error("invalid name length {0}")]
     InvalidNameLength(usize),
     #[error("invalid host name: {0}")]
-    InvalidHostName(Utf8Error),
+    InvalidDomain(#[from] DomainNameParseError),
 }
 
 #[derive(Clone)]
 pub struct TlsServerName {
-    host_name: ArcStr,
+    domain: DomainName,
 }
 
 impl TlsServerName {
@@ -50,46 +47,44 @@ impl TlsServerName {
         }
 
         let name_len = u16::from_be_bytes([buf[3], buf[4]]) as usize;
-        if name_len > MAX_HOST_NAME_LENGTH || name_len + 5 > buf_len {
+        if name_len + 5 > buf_len {
             return Err(TlsServerNameError::InvalidNameLength(name_len));
         }
 
         let name = &buf[5..5 + name_len];
-        let host_name = str::from_utf8(name).map_err(TlsServerNameError::InvalidHostName)?;
+        let domain = DomainName::parse(name)?;
 
-        Ok(TlsServerName {
-            host_name: host_name.into(),
-        })
+        Ok(TlsServerName { domain })
     }
 }
 
 impl AsRef<str> for TlsServerName {
     fn as_ref(&self) -> &str {
-        self.host_name.as_ref()
+        self.domain.as_str()
     }
 }
 
 impl From<TlsServerName> for Host {
     fn from(value: TlsServerName) -> Self {
-        Host::Domain(value.host_name)
+        Host::Domain(value.domain)
     }
 }
 
 impl From<&TlsServerName> for ArcStr {
     fn from(value: &TlsServerName) -> Self {
-        value.host_name.clone()
+        value.domain.as_str().into()
     }
 }
 
 impl From<&TlsServerName> for Host {
     fn from(value: &TlsServerName) -> Self {
-        Host::Domain(value.host_name.clone())
+        Host::Domain(value.domain.clone())
     }
 }
 
 impl fmt::Display for TlsServerName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.host_name)
+        f.write_str(self.domain.as_str())
     }
 }
 

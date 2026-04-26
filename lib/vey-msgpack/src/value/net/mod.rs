@@ -4,8 +4,6 @@
  */
 
 mod base;
-
-pub use base::as_ipaddr;
-
 #[cfg(feature = "geoip")]
 pub use base::as_ip_network;
+pub use base::{as_domain_name, as_host, as_ipaddr};

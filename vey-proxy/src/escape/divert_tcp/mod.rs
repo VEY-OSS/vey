@@ -7,7 +7,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use arcstr::ArcStr;
 use async_trait::async_trait;
 use slog::Logger;
 use tokio::io::AsyncWrite;
@@ -18,7 +17,8 @@ use vey_resolver::ResolveError;
 use vey_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use vey_types::metrics::NodeName;
 use vey_types::net::{
-    Host, ProxyProtocolEncodeError, ProxyProtocolV2Encoder, UpstreamAddr, WeightedUpstreamAddr,
+    DomainName, Host, ProxyProtocolEncodeError, ProxyProtocolV2Encoder, UpstreamAddr,
+    WeightedUpstreamAddr,
 };
 
 use super::{
@@ -127,7 +127,7 @@ impl DivertTcpEscaper {
         .inner()
     }
 
-    fn resolve_happy(&self, domain: ArcStr) -> Result<HappyEyeballsResolveJob, ResolveError> {
+    fn resolve_happy(&self, domain: DomainName) -> Result<HappyEyeballsResolveJob, ResolveError> {
         if let Some(resolver_handle) = &self.resolver_handle {
             HappyEyeballsResolveJob::new_dyn(self.config.resolve_strategy, resolver_handle, domain)
         } else {

@@ -475,8 +475,9 @@ fn get_subject_with_host(
         for host in hosts {
             match host {
                 Host::Domain(domain) => {
-                    subject_builder.set_common_name_if_missing(domain);
-                    san.dns(domain);
+                    let domain_str = domain.as_str();
+                    subject_builder.set_common_name_if_missing(domain_str);
+                    san.dns(domain_str);
                 }
                 Host::Ip(ip) => {
                     let text = ip.to_string();

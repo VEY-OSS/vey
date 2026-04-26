@@ -10,7 +10,6 @@ use std::num::NonZero;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 
-use arcstr::ArcStr;
 use lru::LruCache;
 use slog::Logger;
 
@@ -26,7 +25,7 @@ use vey_io_ext::UdpRelayPacket;
 use vey_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
 use vey_resolver::ResolveError;
 use vey_types::acl::{AclAction, AclNetworkRule};
-use vey_types::net::{Host, UpstreamAddr};
+use vey_types::net::{DomainName, Host, UpstreamAddr};
 use vey_types::resolve::ResolveStrategy;
 
 use super::DirectFixedEscaperStats;
@@ -47,8 +46,8 @@ pub(crate) struct DirectUdpRelayRemoteSend<T> {
     resolver_handle: ArcIntegratedResolverHandle,
     resolve_strategy: ResolveStrategy,
     resolver_job: Option<ArriveFirstResolveJob>,
-    resolve_retry_domain: Option<ArcStr>,
-    resolved_lru: LruCache<ArcStr, IpAddr>,
+    resolve_retry_domain: Option<DomainName>,
+    resolved_lru: LruCache<DomainName, IpAddr>,
     logger: Option<Logger>,
 }
 
@@ -285,7 +284,7 @@ where
     ))]
     fn poll_send_packets(
         inner: &mut T,
-        resolved_lru: &mut LruCache<ArcStr, IpAddr>,
+        resolved_lru: &mut LruCache<DomainName, IpAddr>,
         bind_addr: SocketAddr,
         cx: &mut Context<'_>,
         packets: &[UdpRelayPacket],

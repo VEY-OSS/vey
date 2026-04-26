@@ -4,7 +4,6 @@
  */
 
 use anyhow::anyhow;
-use arcstr::ArcStr;
 use bytes::BytesMut;
 use openssl::ssl::Ssl;
 
@@ -87,9 +86,9 @@ where
             TlsInterceptionError::NoFakeCertGenerated(anyhow!("failed to get upstream certificate"))
         })?;
         self.server_verify_result = Some(ups_tls_stream.ssl().verify_result());
-        let cert_domain = sni_hostname
-            .map(ArcStr::from)
-            .unwrap_or_else(|| self.upstream.host().to_arc_str());
+        let cert_host = sni_hostname
+            .map(Host::from)
+            .unwrap_or_else(|| self.upstream.host().clone());
 
         let tls_service_type = TlsServiceType::from(self.protocol);
         let sign_cert_pair = self
@@ -98,7 +97,7 @@ where
             .fetch(
                 tls_service_type,
                 TlsCertUsage::TlcpServerSignature,
-                cert_domain.clone(),
+                cert_host.clone(),
                 upstream_cert.clone(),
             )
             .await
@@ -113,7 +112,7 @@ where
             .fetch(
                 tls_service_type,
                 TlsCertUsage::TlcpServerEncryption,
-                cert_domain.clone(),
+                cert_host.clone(),
                 upstream_cert,
             )
             .await

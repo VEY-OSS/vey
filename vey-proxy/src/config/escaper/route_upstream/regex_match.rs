@@ -15,6 +15,7 @@ use yaml_rust::Yaml;
 use crate::config::escaper::verify::EscaperConfigVerifier;
 
 use vey_types::metrics::NodeName;
+use vey_types::net::DomainName;
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub(crate) struct RegexMatchBuilder {
@@ -83,21 +84,22 @@ impl RegexMatchBuilder {
             return None;
         }
 
-        let mut parent_match_map: BTreeMap<String, Vec<(RegexSet, T)>> = BTreeMap::new();
+        let mut parent_match_map: BTreeMap<DomainName, Vec<(RegexSet, T)>> = BTreeMap::new();
         let mut full_match_vec = Vec::new();
         for (escaper, rules) in &self.inner {
-            let mut parent_regex_map: BTreeMap<String, Vec<&str>> = BTreeMap::new();
+            let mut parent_regex_map: BTreeMap<DomainName, Vec<&str>> = BTreeMap::new();
             let mut full_regex_set: BTreeSet<&str> = BTreeSet::new();
             for rule in rules {
-                if rule.parent_domain.is_empty() {
-                    full_regex_set.insert(&rule.sub_domain_regex);
-                } else {
-                    let parent_reversed =
-                        vey_types::resolve::reverse_idna_domain(&rule.parent_domain);
-                    parent_regex_map
-                        .entry(parent_reversed)
-                        .or_default()
-                        .push(&rule.sub_domain_regex);
+                match &rule.parent_domain {
+                    Some(domain) => {
+                        parent_regex_map
+                            .entry(domain.clone())
+                            .or_default()
+                            .push(&rule.sub_domain_regex);
+                    }
+                    None => {
+                        full_regex_set.insert(&rule.sub_domain_regex);
+                    }
                 }
             }
 
@@ -120,7 +122,8 @@ impl RegexMatchBuilder {
         }
         let mut parent_match_trie = Trie::new();
         for (parent_domain, value) in parent_match_map {
-            parent_match_trie.insert(parent_domain, value);
+            let reversed_k = parent_domain.to_reversed();
+            parent_match_trie.insert(reversed_k, (parent_domain, value));
         }
         if parent_match_trie.is_empty() {
             None
@@ -135,17 +138,21 @@ impl RegexMatchBuilder {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct RegexMatchValue {
-    parent_domain: String,
+    parent_domain: Option<DomainName>,
     sub_domain_regex: String,
 }
 
 impl fmt::Display for RegexMatchValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "regex {} for parent domain {}",
-            self.sub_domain_regex, self.parent_domain
-        )
+        if let Some(domain) = &self.parent_domain {
+            write!(
+                f,
+                "regex {} for parent domain {domain}",
+                self.sub_domain_regex
+            )
+        } else {
+            write!(f, "regex {} for all domains", self.sub_domain_regex)
+        }
     }
 }
 
@@ -156,7 +163,8 @@ impl RegexMatchValue {
             Yaml::Hash(map) => {
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "parent" => {
-                        match_value.parent_domain = vey_yaml::value::as_domain(v)?;
+                        let parent_domain = vey_yaml::value::as_domain(v)?;
+                        match_value.parent_domain = Some(parent_domain);
                         Ok(())
                     }
                     "regex" => {
@@ -183,22 +191,17 @@ impl RegexMatchValue {
 }
 
 pub(crate) struct RegexMatch<T> {
-    parent_match: Trie<String, Vec<(RegexSet, T)>>,
+    parent_match: Trie<String, (DomainName, Vec<(RegexSet, T)>)>,
     full_match: Vec<(RegexSet, T)>,
 }
 
 impl<T> RegexMatch<T> {
-    pub(crate) fn check_domain(&self, domain: &str) -> Option<&T> {
-        let key: String = vey_types::resolve::reverse_idna_domain(domain);
-        if let Some(sub_trie) = self.parent_match.get_ancestor(&key)
-            && let Some(rules) = sub_trie.value()
+    pub(crate) fn check_domain(&self, domain: &DomainName) -> Option<&T> {
+        let reversed = domain.to_reversed();
+        if let Some(sub_trie) = self.parent_match.get_ancestor(&reversed)
+            && let Some((suffix, rules)) = sub_trie.value()
+            && let Some(prefix) = domain.strip_suffix(suffix)
         {
-            let suffix_len = sub_trie.prefix().as_bytes().len();
-            let prefix = if domain.len() > suffix_len {
-                domain.split_at(domain.len() - suffix_len).0
-            } else {
-                ""
-            };
             for (regex, value) in rules {
                 if regex.is_match(prefix) {
                     return Some(value);
@@ -206,7 +209,7 @@ impl<T> RegexMatch<T> {
             }
         }
         for (regex_set, value) in &self.full_match {
-            if regex_set.is_match(domain) {
+            if regex_set.is_match(domain.as_str()) {
                 return Some(value);
             }
         }
@@ -217,6 +220,7 @@ impl<T> RegexMatch<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vey_types::literal_domain;
     use yaml_rust::YamlLoader;
 
     #[test]
@@ -242,14 +246,32 @@ mod tests {
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
         let regex_match = builder.build(&value_map).unwrap();
 
-        assert!(regex_match.check_domain("example.net").is_none());
-        let value = *regex_match.check_domain("abc.example.net").unwrap();
+        assert!(
+            regex_match
+                .check_domain(&literal_domain!("example.net"))
+                .is_none()
+        );
+        let value = *regex_match
+            .check_domain(&literal_domain!("abc.example.net"))
+            .unwrap();
         assert!(value.eq("escaper_1"));
-        assert!(regex_match.check_domain("abcexample.net").is_none());
-        let value = *regex_match.check_domain("cde1.example.net").unwrap();
+        assert!(
+            regex_match
+                .check_domain(&literal_domain!("abcexample.net"))
+                .is_none()
+        );
+        let value = *regex_match
+            .check_domain(&literal_domain!("cde1.example.net"))
+            .unwrap();
         assert!(value.eq("escaper_2"));
-        assert!(regex_match.check_domain("cde.example.net").is_none());
-        let value = *regex_match.check_domain("a.example.org").unwrap();
+        assert!(
+            regex_match
+                .check_domain(&literal_domain!("cde.example.net"))
+                .is_none()
+        );
+        let value = *regex_match
+            .check_domain(&literal_domain!("a.example.org"))
+            .unwrap();
         assert!(value.eq("escaper_2"));
     }
 
@@ -274,14 +296,32 @@ mod tests {
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
         let regex_match = builder.build(&value_map).unwrap();
 
-        assert!(regex_match.check_domain("example.net").is_none());
-        let value = *regex_match.check_domain("abc.example.net").unwrap();
+        assert!(
+            regex_match
+                .check_domain(&literal_domain!("example.net"))
+                .is_none()
+        );
+        let value = *regex_match
+            .check_domain(&literal_domain!("abc.example.net"))
+            .unwrap();
         assert!(value.eq("escaper_1"));
-        assert!(regex_match.check_domain("abcexample.net").is_none());
-        let value = *regex_match.check_domain("cde1.example.net").unwrap();
+        assert!(
+            regex_match
+                .check_domain(&literal_domain!("abcexample.net"))
+                .is_none()
+        );
+        let value = *regex_match
+            .check_domain(&literal_domain!("cde1.example.net"))
+            .unwrap();
         assert!(value.eq("escaper_2"));
-        assert!(regex_match.check_domain("cde.example.net").is_none());
-        let value = *regex_match.check_domain("a.example.org").unwrap();
+        assert!(
+            regex_match
+                .check_domain(&literal_domain!("cde.example.net"))
+                .is_none()
+        );
+        let value = *regex_match
+            .check_domain(&literal_domain!("a.example.org"))
+            .unwrap();
         assert!(value.eq("escaper_2"));
     }
 }

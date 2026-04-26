@@ -35,6 +35,7 @@ pub(super) fn as_exact_host_rule(
 mod test {
     use super::*;
     use std::net::{IpAddr, Ipv4Addr};
+    use vey_types::literal_domain;
 
     #[test]
     fn add_rule_for_action_ok() {
@@ -82,7 +83,7 @@ mod test {
             "#
         );
         let rule = as_exact_host_rule(&yaml).unwrap();
-        let result = rule.check_domain("trusted.example.com");
+        let result = rule.check_domain(&literal_domain!("trusted.example.com"));
         assert!(result.0);
         assert!(matches!(result.1, ProtocolInspectAction::Block));
 

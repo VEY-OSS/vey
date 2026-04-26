@@ -5,15 +5,13 @@
 
 use std::net::IpAddr;
 
-use arcstr::ArcStr;
-
 use super::{AclAHashRule, AclAction, AclFxHashRule, ActionContract};
-use crate::net::Host;
+use crate::net::{DomainName, Host};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AclExactHostRule<Action = AclAction> {
     missed_action: Action,
-    domain: AclAHashRule<ArcStr, Action>,
+    domain: AclAHashRule<DomainName, Action>,
     ip: AclFxHashRule<IpAddr, Action>,
 }
 
@@ -28,7 +26,7 @@ impl<Action: ActionContract> AclExactHostRule<Action> {
     }
 
     #[inline]
-    pub fn add_domain(&mut self, domain: ArcStr, action: Action) {
+    pub fn add_domain(&mut self, domain: DomainName, action: Action) {
         self.domain.add_node(domain, action);
     }
 
@@ -57,7 +55,7 @@ impl<Action: ActionContract> AclExactHostRule<Action> {
     }
 
     #[inline]
-    pub fn check_domain(&self, domain: &str) -> (bool, Action) {
+    pub fn check_domain(&self, domain: &DomainName) -> (bool, Action) {
         self.domain.check(domain)
     }
 
@@ -70,24 +68,25 @@ impl<Action: ActionContract> AclExactHostRule<Action> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::literal_domain;
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
     #[test]
     fn check() {
         let mut rule = AclExactHostRule::new(AclAction::Forbid);
-        rule.add_domain(arcstr::literal!("www.example.com"), AclAction::Permit);
+        rule.add_domain(literal_domain!("www.example.com"), AclAction::Permit);
         rule.add_ip(
             IpAddr::from_str("192.168.1.1").unwrap(),
             AclAction::PermitAndLog,
         );
 
         assert_eq!(
-            rule.check_domain("www.example.com"),
+            rule.check_domain(&literal_domain!("www.example.com")),
             (true, AclAction::Permit)
         );
         assert_eq!(
-            rule.check_domain("www.example.net"),
+            rule.check_domain(&literal_domain!("www.example.net")),
             (false, AclAction::Forbid)
         );
         assert_eq!(
@@ -101,7 +100,7 @@ mod tests {
 
         rule.set_missed_action(AclAction::ForbidAndLog);
         assert_eq!(
-            rule.check_domain("www.example.net"),
+            rule.check_domain(&literal_domain!("www.example.net")),
             (false, AclAction::ForbidAndLog)
         );
     }

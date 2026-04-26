@@ -9,11 +9,12 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use ahash::AHashMap;
-use arcstr::ArcStr;
 use log::{trace, warn};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 use tokio_util::time::{DelayQueue, delay_queue};
+
+use vey_types::net::DomainName;
 
 use super::stats::{ResolverMemoryStats, ResolverStats};
 use super::{ArcResolvedRecord, BoxResolverDriver, ResolvedRecordSource, ResolverConfig};
@@ -37,14 +38,14 @@ pub(crate) struct ResolverRuntime {
     ctl_receiver: mpsc::UnboundedReceiver<ResolverCommand>,
     rsp_receiver: mpsc::UnboundedReceiver<ResolveDriverResponse>,
     rsp_sender: mpsc::UnboundedSender<ResolveDriverResponse>,
-    expired_v4: DelayQueue<ArcStr>,
-    expired_v6: DelayQueue<ArcStr>,
-    cache_v4: AHashMap<ArcStr, CachedRecord>,
-    cache_v6: AHashMap<ArcStr, CachedRecord>,
-    doing_v4: AHashMap<ArcStr, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
-    doing_v6: AHashMap<ArcStr, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
-    trash_v4: AHashMap<ArcStr, TrashedRecord>,
-    trash_v6: AHashMap<ArcStr, TrashedRecord>,
+    expired_v4: DelayQueue<DomainName>,
+    expired_v6: DelayQueue<DomainName>,
+    cache_v4: AHashMap<DomainName, CachedRecord>,
+    cache_v6: AHashMap<DomainName, CachedRecord>,
+    doing_v4: AHashMap<DomainName, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
+    doing_v6: AHashMap<DomainName, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
+    trash_v4: AHashMap<DomainName, TrashedRecord>,
+    trash_v6: AHashMap<DomainName, TrashedRecord>,
     driver: Option<BoxResolverDriver>,
 }
 
@@ -99,8 +100,8 @@ impl ResolverRuntime {
     }
 
     fn update_cache(
-        cache: &mut AHashMap<ArcStr, CachedRecord>,
-        expire_queue: &mut DelayQueue<ArcStr>,
+        cache: &mut AHashMap<DomainName, CachedRecord>,
+        expire_queue: &mut DelayQueue<DomainName>,
         record: ArcResolvedRecord,
         expire_at: Instant,
     ) {
@@ -192,7 +193,7 @@ impl ResolverRuntime {
         }
     }
 
-    fn handle_expired_v4(&mut self, domain: &str) {
+    fn handle_expired_v4(&mut self, domain: &DomainName) {
         trace!("clean expired v4 for domain {domain}");
         if let Some(r) = self.cache_v4.remove(domain)
             && let Some(vanish_at) = r.inner.vanish
@@ -206,7 +207,8 @@ impl ResolverRuntime {
             );
         }
     }
-    fn handle_expired_v6(&mut self, domain: &str) {
+
+    fn handle_expired_v6(&mut self, domain: &DomainName) {
         trace!("clean expired v6 for domain {domain}");
         if let Some(r) = self.cache_v6.remove(domain)
             && let Some(vanish_at) = r.inner.vanish

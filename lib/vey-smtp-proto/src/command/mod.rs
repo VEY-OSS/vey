@@ -178,11 +178,7 @@ fn burl_data_parse_param(msg: &[u8]) -> Result<Command, CommandLineError> {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    // Helper function to create domain Host
-    fn domain_host(domain: &str) -> Host {
-        Host::Domain(domain.into())
-    }
+    use vey_types::literal_domain;
 
     // Helper function to create MailParam
     fn mail_param(reverse_path: &str) -> MailParam {
@@ -198,10 +194,16 @@ mod test {
     fn parse_line_ok() {
         // commands with params
         let cmd = Command::parse_line(b"EHLO example.org\r\n").unwrap();
-        assert_eq!(cmd, Command::ExtendHello(domain_host("example.org")));
+        assert_eq!(
+            cmd,
+            Command::ExtendHello(Host::Domain(literal_domain!("example.org")))
+        );
 
         let cmd = Command::parse_line(b"HELO mail.google.com\r\n").unwrap();
-        assert_eq!(cmd, Command::Hello(domain_host("mail.google.com")));
+        assert_eq!(
+            cmd,
+            Command::Hello(Host::Domain(literal_domain!("mail.google.com")))
+        );
 
         let cmd = Command::parse_line(b"AUTH PLAIN\r\n").unwrap();
         assert_eq!(cmd, Command::Auth);

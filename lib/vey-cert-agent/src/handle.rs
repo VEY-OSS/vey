@@ -6,11 +6,10 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use arcstr::ArcStr;
 use openssl::x509::X509;
 
 use vey_io_ext::EffectiveCacheHandle;
-use vey_types::net::{TlsCertUsage, TlsServiceType};
+use vey_types::net::{Host, TlsCertUsage, TlsServiceType};
 
 use super::{CacheQueryKey, FakeCertPair};
 
@@ -34,7 +33,7 @@ impl CertAgentHandle {
         &self,
         service: TlsServiceType,
         usage: TlsCertUsage,
-        host: ArcStr,
+        host: Host,
     ) -> Option<FakeCertPair> {
         let query_key = CacheQueryKey::new(service, usage, host);
         self.inner
@@ -47,7 +46,7 @@ impl CertAgentHandle {
         &self,
         service: TlsServiceType,
         usage: TlsCertUsage,
-        host: ArcStr,
+        host: Host,
         mimic_cert: X509,
     ) -> Option<FakeCertPair> {
         let mut query_key = CacheQueryKey::new(service, usage, host);

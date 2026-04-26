@@ -10,10 +10,9 @@ use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 use std::time::Duration;
 
-use arcstr::ArcStr;
-
 use vey_resolver::{ResolveError, ResolvedRecordSource};
 use vey_types::metrics::NodeName;
+use vey_types::net::DomainName;
 use vey_types::resolve::{QueryStrategy, ResolveRedirectionValue, ResolveStrategy};
 
 pub(crate) trait LoggedResolveJob {
@@ -43,8 +42,8 @@ macro_rules! impl_logged_poll_query {
 pub(crate) trait IntegratedResolverHandle {
     fn name(&self) -> &NodeName;
     fn is_closed(&self) -> bool;
-    fn query_v4(&self, domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError>;
-    fn query_v6(&self, domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError>;
+    fn query_v4(&self, domain: DomainName) -> Result<BoxLoggedResolveJob, ResolveError>;
+    fn query_v6(&self, domain: DomainName) -> Result<BoxLoggedResolveJob, ResolveError>;
 
     fn clone_inner(&self) -> Option<vey_resolver::ResolverHandle>;
 }
@@ -145,11 +144,8 @@ impl HappyEyeballsResolveJob {
     pub(crate) fn new_dyn(
         s: ResolveStrategy,
         h: &ArcIntegratedResolverHandle,
-        domain: ArcStr,
+        domain: DomainName,
     ) -> Result<Self, ResolveError> {
-        if domain.is_empty() {
-            return Err(ResolveError::EmptyDomain);
-        }
         match s.query {
             QueryStrategy::Ipv4Only => {
                 let h1 = h.query_v4(domain)?;
@@ -353,7 +349,7 @@ enum ArriveFirstResolveJobInner {
 }
 
 pub(crate) struct ArriveFirstResolveJob {
-    pub(crate) domain: ArcStr,
+    pub(crate) domain: DomainName,
     strategy: ResolveStrategy,
     inner: Option<ArriveFirstResolveJobInner>,
 }
@@ -362,11 +358,8 @@ impl ArriveFirstResolveJob {
     pub(crate) fn new(
         handle: &ArcIntegratedResolverHandle,
         strategy: ResolveStrategy,
-        domain: ArcStr,
+        domain: DomainName,
     ) -> Result<Self, ResolveError> {
-        if domain.is_empty() {
-            return Err(ResolveError::EmptyDomain);
-        }
         let inner = match strategy.query {
             QueryStrategy::Ipv4Only => {
                 ArriveFirstResolveJobInner::OnlyOne(handle.query_v4(domain.clone())?)

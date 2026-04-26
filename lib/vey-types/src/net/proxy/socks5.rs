@@ -6,8 +6,7 @@
 use url::Url;
 
 use super::ProxyParseError;
-use crate::net::SocksAuth;
-use crate::net::UpstreamAddr;
+use crate::net::{Host, SocksAuth, UpstreamAddr};
 
 pub struct Socks5Proxy {
     peer: UpstreamAddr,
@@ -23,6 +22,7 @@ impl Socks5Proxy {
         let host = url.host().ok_or(ProxyParseError::NoHostFound)?;
         let port = url.port().unwrap_or(1080);
 
+        let host = Host::try_from(host)?;
         let peer = UpstreamAddr::new(host, port);
 
         let auth = SocksAuth::try_from(url)?;

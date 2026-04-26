@@ -58,6 +58,8 @@ pub enum ResolveError {
     EmptyDomain,
     #[error("empty result")]
     EmptyResult,
+    #[error("invalid redirection domain")]
+    InvalidRedirectionDomain,
     #[error("no resolver set")]
     NoResolverSet,
     #[error("no resolver running")]
@@ -75,8 +77,6 @@ pub enum ResolveError {
 impl ResolveError {
     pub fn get_type(&self) -> &str {
         match self {
-            ResolveError::EmptyDomain => "EmptyDomain",
-            ResolveError::EmptyResult => "EmptyResult",
             ResolveError::ServerError(_) => "ServerError",
             ResolveError::DriverError(_) => "DriverError",
             ResolveError::DriverTimeout => "DriverTimeout",
@@ -90,6 +90,7 @@ impl ResolveError {
             ResolveError::DriverError(_) | ResolveError::DriverTimeout => "",
             ResolveError::EmptyDomain => "EmptyDomain",
             ResolveError::EmptyResult => "EmptyResult",
+            ResolveError::InvalidRedirectionDomain => "InvalidRedirectionDomain",
             ResolveError::NoResolverSet => "NoResolverSet",
             ResolveError::NoResolverRunning => "NoResolverRunning",
             ResolveError::RequestTimeout => "RequestTimeout",

@@ -11,7 +11,6 @@ use std::time::Duration;
 
 #[cfg(feature = "quic")]
 use anyhow::anyhow;
-use arcstr::ArcStr;
 use async_recursion::async_recursion;
 use hickory_net::client::{Client, ClientHandle};
 use hickory_net::runtime::TokioRuntimeProvider;
@@ -23,26 +22,26 @@ use tokio::sync::mpsc;
 
 use vey_socket::{BindAddr, TcpConnectInfo, UdpConnectInfo};
 use vey_types::net::{
-    DnsEncryptionConfig, DnsEncryptionProtocol, TcpMiscSockOpts, UdpMiscSockOpts,
+    DnsEncryptionConfig, DnsEncryptionProtocol, DomainName, TcpMiscSockOpts, UdpMiscSockOpts,
 };
 
 use crate::{ResolveDriverErrorReason, ResolveError, ResolvedRecord};
 
 #[derive(Clone)]
 pub(super) struct DnsRequest {
-    domain: ArcStr,
+    domain: DomainName,
     rtype: RecordType,
 }
 
 impl DnsRequest {
-    pub(super) fn query_ipv6(domain: ArcStr) -> Self {
+    pub(super) fn query_ipv6(domain: DomainName) -> Self {
         DnsRequest {
             domain,
             rtype: RecordType::AAAA,
         }
     }
 
-    pub(super) fn query_ipv4(domain: ArcStr) -> Self {
+    pub(super) fn query_ipv4(domain: DomainName) -> Self {
         DnsRequest {
             domain,
             rtype: RecordType::A,
@@ -144,7 +143,7 @@ impl HickoryClientJob {
         mut async_client: Client<TokioRuntimeProvider>,
         req: DnsRequest,
     ) -> ResolvedRecord {
-        let mut name = match Name::from_ascii(&req.domain) {
+        let mut name = match Name::from_ascii(req.domain.as_fqdn_str()) {
             Ok(name) => name,
             Err(e) => {
                 return ResolvedRecord::failed(

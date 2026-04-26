@@ -15,7 +15,7 @@ use yaml_rust::Yaml;
 use ip_network::IpNetwork;
 
 use vey_types::collection::WeightedValue;
-use vey_types::net::{Host, UpstreamAddr, WeightedUpstreamAddr};
+use vey_types::net::{DomainName, Host, UpstreamAddr, WeightedUpstreamAddr};
 
 pub fn as_env_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
     if let Yaml::String(s) = value {
@@ -144,11 +144,9 @@ pub fn as_host(value: &Yaml) -> anyhow::Result<Host> {
     }
 }
 
-pub fn as_domain(value: &Yaml) -> anyhow::Result<String> {
+pub fn as_domain(value: &Yaml) -> anyhow::Result<DomainName> {
     if let Yaml::String(s) = value {
-        // allow more than domain_to_ascii_strict chars
-        let domain = idna::domain_to_ascii(s).map_err(|e| anyhow!("invalid domain: {e}"))?;
-        Ok(domain)
+        DomainName::from_str(s).map_err(|e| anyhow!("invalid domain name {s}: {e}"))
     } else {
         Err(anyhow!("yaml value type for 'Domain' should be 'string'"))
     }
@@ -479,11 +477,11 @@ mod tests {
 
         let yaml = yaml_str!("example.com");
         let host = as_host(&yaml).unwrap();
-        assert_eq!(host, Host::Domain("example.com".into()));
+        assert_eq!(host.to_string(), "example.com");
 
         let yaml = yaml_str!("valid domain.com");
         let host = as_host(&yaml).unwrap();
-        assert_eq!(host, Host::Domain("valid domain.com".into()));
+        assert_eq!(host.to_string(), "valid domain.com");
     }
 
     #[test]
@@ -499,15 +497,15 @@ mod tests {
     fn as_domain_ok() {
         let yaml = yaml_str!("example.com");
         let domain = as_domain(&yaml).unwrap();
-        assert_eq!(domain, "example.com".to_string());
+        assert_eq!(domain.as_str(), "example.com");
 
         let yaml = yaml_str!("valid domain.com");
         let domain = as_domain(&yaml).unwrap();
-        assert_eq!(domain, "valid domain.com".to_string());
+        assert_eq!(domain.as_str(), "valid domain.com");
 
         let yaml = yaml_str!("ドメイン.テスト");
         let domain = as_domain(&yaml).unwrap();
-        assert_eq!(domain, "xn--eckwd4c7c.xn--zckzah");
+        assert_eq!(domain.as_str(), "xn--eckwd4c7c.xn--zckzah");
     }
 
     #[test]

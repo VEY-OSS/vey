@@ -65,10 +65,7 @@ fn add_exact_redirection_record(
     k: &Value,
     v: &Value,
 ) -> anyhow::Result<()> {
-    let Value::String(s) = k else {
-        return Err(anyhow!("domain should be in string format"));
-    };
-    let domain = idna::domain_to_ascii(s).map_err(|e| anyhow!("invalid domain {s}: {e}"))?;
+    let domain = crate::value::as_domain(k).context("invalid resolve redirection domain key")?;
 
     match v {
         Value::String(_) => {
@@ -101,11 +98,8 @@ fn add_parent_redirection_record(
     k: &Value,
     v: &Value,
 ) -> anyhow::Result<()> {
-    let Value::String(s) = k else {
-        return Err(anyhow!("domain should be in string format"));
-    };
     let parent_domain =
-        idna::domain_to_ascii(s).map_err(|e| anyhow!("invalid parent domain {s}: {e}"))?;
+        crate::value::as_domain(k).context("invalid resolve redirection domain key")?;
 
     match v {
         Value::String(_) => {
@@ -199,6 +193,7 @@ mod tests {
     use serde_json::json;
     use std::net::IpAddr;
     use std::str::FromStr;
+    use vey_types::literal_domain;
     use vey_types::resolve::ResolveRedirectionValue;
 
     #[test]
@@ -320,13 +315,19 @@ mod tests {
         let builder = as_resolve_redirection_builder(&value).unwrap();
         let redirection = builder.build();
 
-        let value = redirection.query_value("example.com").unwrap();
+        let value = redirection
+            .query_value(&literal_domain!("example.com"))
+            .unwrap()
+            .unwrap();
         if let ResolveRedirectionValue::Ip((ipv4, ipv6)) = value {
             assert_eq!(ipv4, vec![IpAddr::from_str("192.168.1.1").unwrap()]);
             assert!(ipv6.is_empty());
         }
 
-        let value = redirection.query_value("example.org").unwrap();
+        let value = redirection
+            .query_value(&literal_domain!("example.org"))
+            .unwrap()
+            .unwrap();
         if let ResolveRedirectionValue::Ip((ipv4, ipv6)) = value {
             assert_eq!(
                 ipv4,
@@ -338,7 +339,10 @@ mod tests {
             assert!(ipv6.is_empty());
         }
 
-        let value = redirection.query_value("alias.com").unwrap();
+        let value = redirection
+            .query_value(&literal_domain!("alias.com"))
+            .unwrap()
+            .unwrap();
         if let ResolveRedirectionValue::Domain(alias) = value {
             assert_eq!(alias.as_str(), "another.com");
         }
@@ -377,13 +381,19 @@ mod tests {
         let builder = as_resolve_redirection_builder(&value).unwrap();
         let redirection = builder.build();
 
-        let value = redirection.query_value("exact1.example.com").unwrap();
+        let value = redirection
+            .query_value(&literal_domain!("exact1.example.com"))
+            .unwrap()
+            .unwrap();
         if let ResolveRedirectionValue::Ip((ipv4, ipv6)) = value {
             assert_eq!(ipv4, vec![IpAddr::from_str("192.168.1.1").unwrap()]);
             assert!(ipv6.is_empty());
         }
 
-        let value = redirection.query_value("exact2.example.com").unwrap();
+        let value = redirection
+            .query_value(&literal_domain!("exact2.example.com"))
+            .unwrap()
+            .unwrap();
         if let ResolveRedirectionValue::Ip((ipv4, ipv6)) = value {
             assert_eq!(
                 ipv4,
@@ -395,22 +405,37 @@ mod tests {
             assert!(ipv6.is_empty());
         }
 
-        let value = redirection.query_value("exact3.example.com").unwrap();
+        let value = redirection
+            .query_value(&literal_domain!("exact3.example.com"))
+            .unwrap()
+            .unwrap();
         if let ResolveRedirectionValue::Domain(alias) = value {
             assert_eq!(alias.as_str(), "alias.domain.com");
         }
 
         let ret = redirection
-            .query_first("sub.example.com", QueryStrategy::Ipv4First)
+            .query_first(
+                &literal_domain!("sub.example.com"),
+                QueryStrategy::Ipv4First,
+            )
+            .unwrap()
             .unwrap();
-        assert_eq!(ret, Host::Domain("sub.redirected.com".into()));
+        assert_eq!(ret.to_string(), "sub.redirected.com");
 
         let ret = redirection
-            .query_first("sub.example.net", QueryStrategy::Ipv4First)
+            .query_first(
+                &literal_domain!("sub.example.net"),
+                QueryStrategy::Ipv4First,
+            )
+            .unwrap()
             .unwrap();
-        assert_eq!(ret, Host::Domain("sub.redirected.net".into()));
+        assert_eq!(ret.to_string(), "sub.redirected.net");
         let ret = redirection
-            .query_first("sub.example1.net", QueryStrategy::Ipv4First)
+            .query_first(
+                &literal_domain!("sub.example1.net"),
+                QueryStrategy::Ipv4First,
+            )
+            .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(IpAddr::from_str("192.168.1.1").unwrap()));
     }

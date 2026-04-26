@@ -11,6 +11,8 @@ use anyhow::anyhow;
 use ip_network::IpNetwork;
 use rmpv::ValueRef;
 
+use vey_types::net::{DomainName, Host};
+
 pub fn as_ipaddr(value: &ValueRef) -> anyhow::Result<IpAddr> {
     match value {
         ValueRef::String(s) => {
@@ -48,6 +50,34 @@ pub fn as_ip_network(value: &ValueRef) -> anyhow::Result<IpNetwork> {
     } else {
         Err(anyhow!(
             "yaml value type for 'IpNetwork' should be 'string'"
+        ))
+    }
+}
+
+pub fn as_host(value: &ValueRef) -> anyhow::Result<Host> {
+    if let ValueRef::String(s) = value {
+        let s = s
+            .as_str()
+            .ok_or(anyhow!("invalid utf-8 domain string value"))?;
+        if let Ok(ip) = IpAddr::from_str(s) {
+            Ok(Host::Ip(ip))
+        } else {
+            Host::from_domain_str(s)
+        }
+    } else {
+        Err(anyhow!("msgpack value type for 'Host' should be 'string'"))
+    }
+}
+
+pub fn as_domain_name(value: &ValueRef) -> anyhow::Result<DomainName> {
+    if let ValueRef::String(s) = value {
+        let s = s
+            .as_str()
+            .ok_or(anyhow!("invalid utf-8 domain string value"))?;
+        DomainName::from_str(s).map_err(|e| anyhow!("invalid domain string {s}: {e}"))
+    } else {
+        Err(anyhow!(
+            "msgpack value type for 'DomainName' should be 'string'"
         ))
     }
 }

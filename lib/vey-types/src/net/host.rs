@@ -13,10 +13,12 @@ use arcstr::ArcStr;
 #[cfg(feature = "rustls")]
 use rustls_pki_types::ServerName;
 
+use super::{DomainName, DomainNameParseError};
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Host {
     Ip(IpAddr),
-    Domain(ArcStr),
+    Domain(DomainName),
 }
 
 impl Host {
@@ -31,14 +33,14 @@ impl Host {
     pub fn to_arc_str(&self) -> ArcStr {
         match self {
             Host::Ip(ip) => ip.to_string().into(),
-            Host::Domain(domain) => domain.clone(),
+            Host::Domain(domain) => domain.to_string().into(),
         }
     }
 
     pub fn is_empty(&self) -> bool {
         match self {
             Host::Ip(ip) => ip.is_unspecified(),
-            Host::Domain(domain) => domain.is_empty(),
+            Host::Domain(_) => false,
         }
     }
 
@@ -51,12 +53,8 @@ impl Host {
     }
 
     pub fn from_domain_str(domain: &str) -> anyhow::Result<Self> {
-        if domain.is_empty() {
-            return Err(anyhow!("empty domain"));
-        }
-        // allow more than domain_to_ascii_strict chars
-        let domain = idna::domain_to_ascii(domain).map_err(|e| anyhow!("invalid domain: {e}"))?;
-        Ok(Host::Domain(domain.into()))
+        let domain = DomainName::from_str(domain)?;
+        Ok(Host::Domain(domain))
     }
 
     pub fn parse_smtp_host_address(buf: &[u8]) -> Option<Self> {
@@ -99,17 +97,22 @@ impl fmt::Display for Host {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Host::Ip(ip) => write!(f, "{ip}"),
-            Host::Domain(domain) => f.write_str(domain),
+            Host::Domain(domain) => f.write_str(domain.as_str()),
         }
     }
 }
 
-impl<T: Into<ArcStr>> From<url::Host<T>> for Host {
-    fn from(v: url::Host<T>) -> Self {
-        match v {
-            url::Host::Ipv4(ip4) => Host::Ip(IpAddr::V4(ip4)),
-            url::Host::Ipv6(ip6) => Host::Ip(IpAddr::V6(ip6)),
-            url::Host::Domain(domain) => Host::Domain(domain.into()),
+impl TryFrom<url::Host<&str>> for Host {
+    type Error = DomainNameParseError;
+
+    fn try_from(value: url::Host<&str>) -> Result<Self, Self::Error> {
+        match value {
+            url::Host::Ipv4(ip) => Ok(Host::Ip(IpAddr::V4(ip))),
+            url::Host::Ipv6(ip) => Ok(Host::Ip(IpAddr::V6(ip))),
+            url::Host::Domain(s) => {
+                let domain = DomainName::from_str(s)?;
+                Ok(Host::Domain(domain))
+            }
         }
     }
 }
@@ -182,7 +185,10 @@ mod tests {
     #[test]
     fn smtp_address() {
         let host = Host::parse_smtp_host_address(b"www.example.net").unwrap();
-        assert_eq!(host, Host::Domain(arcstr::literal!("www.example.net")));
+        assert_eq!(
+            host,
+            Host::Domain(DomainName::from_str("www.example.net").unwrap())
+        );
 
         let host = Host::parse_smtp_host_address(b"[123.255.37.2]").unwrap();
         assert_eq!(host, Host::Ip(IpAddr::from_str("123.255.37.2").unwrap()));

@@ -3,8 +3,9 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
-use arcstr::ArcStr;
 use tokio::sync::oneshot;
+
+use vey_types::net::DomainName;
 
 use super::{ArcResolvedRecord, ResolvedRecord, ResolvedRecordSource, ResolverConfig};
 
@@ -16,11 +17,11 @@ pub(crate) enum ResolverCommand {
 
 pub(crate) enum ResolveDriverRequest {
     GetV4(
-        ArcStr,
+        DomainName,
         oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>,
     ),
     GetV6(
-        ArcStr,
+        DomainName,
         oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>,
     ),
 }

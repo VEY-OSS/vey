@@ -4,7 +4,7 @@
  */
 
 use super::{AclAction, AclRadixTrieRule, AclRadixTrieRuleBuilder, ActionContract};
-use crate::resolve::reverse_idna_domain;
+use crate::net::DomainName;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AclChildDomainRuleBuilder<Action = AclAction>(AclRadixTrieRuleBuilder<String, Action>);
@@ -16,8 +16,9 @@ impl<Action: ActionContract> AclChildDomainRuleBuilder<Action> {
     }
 
     #[inline]
-    pub fn add_node(&mut self, domain: &str, action: Action) {
-        self.0.add_node(reverse_idna_domain(domain), action);
+    pub fn add_node(&mut self, domain: &DomainName, action: Action) {
+        let reversed_k = domain.to_reversed();
+        self.0.add_node(reversed_k, action);
     }
 
     #[inline]
@@ -40,25 +41,38 @@ pub struct AclChildDomainRule<Action = AclAction>(AclRadixTrieRule<String, Actio
 
 impl<Action: ActionContract> AclChildDomainRule<Action> {
     #[inline]
-    pub fn check(&self, host: &str) -> (bool, Action) {
-        let s = reverse_idna_domain(host);
-        self.0.check(&s)
+    pub fn check(&self, domain: &DomainName) -> (bool, Action) {
+        let reversed = domain.to_reversed();
+        self.0.check(&reversed)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::literal_domain;
 
     #[test]
     fn check() {
         let mut builder = AclChildDomainRuleBuilder::new(AclAction::Forbid);
-        builder.add_node("foo.com", AclAction::Permit);
+        builder.add_node(&literal_domain!("foo.com"), AclAction::Permit);
         let rule = builder.build();
 
-        assert_eq!(rule.check("foo.com"), (true, AclAction::Permit));
-        assert_eq!(rule.check("a.foo.com"), (true, AclAction::Permit));
-        assert_eq!(rule.check("a.fooz.com"), (false, AclAction::Forbid));
-        assert_eq!(rule.check("a.zfoo.com"), (false, AclAction::Forbid));
+        assert_eq!(
+            rule.check(&literal_domain!("foo.com")),
+            (true, AclAction::Permit)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("a.foo.com")),
+            (true, AclAction::Permit)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("a.fooz.com")),
+            (false, AclAction::Forbid)
+        );
+        assert_eq!(
+            rule.check(&literal_domain!("a.zfoo.com")),
+            (false, AclAction::Forbid)
+        );
     }
 }

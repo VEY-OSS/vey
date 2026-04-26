@@ -8,8 +8,9 @@ use std::future::poll_fn;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use arcstr::ArcStr;
 use tokio::sync::{mpsc, oneshot};
+
+use vey_types::net::DomainName;
 
 use super::{ArcResolvedRecord, ResolveError, ResolvedRecordSource};
 use crate::message::ResolveDriverRequest;
@@ -34,7 +35,7 @@ impl ResolverHandle {
         self.req_sender.is_closed()
     }
 
-    pub fn get_v4(&self, domain: ArcStr) -> Result<ResolveJob, ResolveError> {
+    pub fn get_v4(&self, domain: DomainName) -> Result<ResolveJob, ResolveError> {
         let (sender, receiver) = oneshot::channel();
         let req = ResolveDriverRequest::GetV4(domain, sender);
         let sender = self.req_sender.clone();
@@ -44,7 +45,7 @@ impl ResolverHandle {
         }
     }
 
-    pub fn get_v6(&self, domain: ArcStr) -> Result<ResolveJob, ResolveError> {
+    pub fn get_v6(&self, domain: DomainName) -> Result<ResolveJob, ResolveError> {
         let (sender, receiver) = oneshot::channel();
         let req = ResolveDriverRequest::GetV6(domain, sender);
         let sender = self.req_sender.clone();

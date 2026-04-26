@@ -8,11 +8,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use arcstr::ArcStr;
 use async_trait::async_trait;
 
 use vey_resolver::ResolveError;
 use vey_types::metrics::NodeName;
+use vey_types::net::DomainName;
 
 use super::{
     ArcIntegratedResolverHandle, BoxLoggedResolveJob, ErrorResolveJob, IntegratedResolverHandle,
@@ -105,13 +105,13 @@ impl IntegratedResolverHandle for DenyAllResolverHandle {
         false
     }
 
-    fn query_v4(&self, _domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError> {
+    fn query_v4(&self, _domain: DomainName) -> Result<BoxLoggedResolveJob, ResolveError> {
         Ok(Box::new(ErrorResolveJob::with_error(
             ResolveError::NoResolverRunning,
         )))
     }
 
-    fn query_v6(&self, _domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError> {
+    fn query_v6(&self, _domain: DomainName) -> Result<BoxLoggedResolveJob, ResolveError> {
         Ok(Box::new(ErrorResolveJob::with_error(
             ResolveError::NoResolverRunning,
         )))

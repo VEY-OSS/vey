@@ -13,7 +13,7 @@ use serde_json::Value;
 #[cfg(feature = "acl-rule")]
 use ip_network::IpNetwork;
 
-use vey_types::net::{EgressArea, Host, UpstreamAddr};
+use vey_types::net::{DomainName, EgressArea, Host, UpstreamAddr};
 
 pub fn as_ipaddr(v: &Value) -> anyhow::Result<IpAddr> {
     match v {
@@ -60,11 +60,9 @@ pub fn as_host(v: &Value) -> anyhow::Result<Host> {
     }
 }
 
-pub fn as_domain(v: &Value) -> anyhow::Result<String> {
+pub fn as_domain(v: &Value) -> anyhow::Result<DomainName> {
     if let Value::String(s) = v {
-        // allow more than domain_to_ascii_strict chars
-        let domain = idna::domain_to_ascii(s).map_err(|e| anyhow!("invalid domain: {e}"))?;
-        Ok(domain)
+        DomainName::from_str(s).map_err(|e| anyhow!("invalid domain name {s}: {e}"))
     } else {
         Err(anyhow!("json value type for 'Domain' should be 'string'"))
     }
@@ -159,25 +157,16 @@ mod tests {
     #[test]
     fn as_host_ok() {
         // IP host
-        let ip_host = json!("192.168.1.1");
-        assert_eq!(
-            as_host(&ip_host).unwrap(),
-            Host::Ip(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)))
-        );
+        let ip_host = as_host(&json!("192.168.1.1")).unwrap();
+        assert_eq!(ip_host, Host::Ip(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))));
 
         // domain host
-        let domain_host = json!("example.com");
-        assert_eq!(
-            as_host(&domain_host).unwrap(),
-            Host::Domain("example.com".into())
-        );
+        let domain_host = as_host(&json!("example.com")).unwrap();
+        assert_eq!(domain_host.to_string(), "example.com");
 
         // IDN host
-        let idn_host = json!("例子.测试");
-        assert_eq!(
-            as_host(&idn_host).unwrap(),
-            Host::Domain("xn--fsqu00a.xn--0zwm56d".into())
-        );
+        let idn_host = as_host(&json!("例子.测试")).unwrap();
+        assert_eq!(idn_host.to_string(), "xn--fsqu00a.xn--0zwm56d");
     }
 
     #[test]
@@ -195,11 +184,11 @@ mod tests {
     fn as_domain_ok() {
         // valid domain
         let domain = json!("example.com");
-        assert_eq!(as_domain(&domain).unwrap(), "example.com");
+        assert_eq!(as_domain(&domain).unwrap().as_str(), "example.com");
 
         // IDN conversion
         let idn = json!("例子.测试");
-        assert_eq!(as_domain(&idn).unwrap(), "xn--fsqu00a.xn--0zwm56d");
+        assert_eq!(as_domain(&idn).unwrap().as_str(), "xn--fsqu00a.xn--0zwm56d");
     }
 
     #[test]
@@ -236,7 +225,7 @@ mod tests {
         // domain address
         let domain = json!("example.com:443");
         let addr = as_upstream_addr(&domain).unwrap();
-        assert_eq!(addr.host(), &Host::Domain("example.com".into()));
+        assert_eq!(addr.host().to_string(), "example.com");
         assert_eq!(addr.port(), 443);
     }
 

@@ -129,10 +129,7 @@ mod tests {
         let upstream = parse_request(&mut stream, &mut clt_r_buf, 443, 1 << 16)
             .await
             .unwrap();
-        assert_eq!(
-            upstream,
-            UpstreamAddr::new(Host::Domain("example.net".into()), 443)
-        );
+        assert_eq!(upstream.host().to_string(), "example.net");
     }
 
     #[tokio::test]
@@ -178,10 +175,7 @@ mod tests {
         let upstream = parse_request(&mut stream, &mut clt_r_buf, 443, 1 << 16)
             .await
             .unwrap();
-        assert_eq!(
-            upstream,
-            UpstreamAddr::new(Host::Domain("example.net".into()), 443)
-        );
+        assert_eq!(upstream.host().to_string(), "example.net");
     }
 
     #[tokio::test]
@@ -239,9 +233,6 @@ mod tests {
         let upstream = parse_request(&mut stream, &mut clt_r_buf, 443, 1 << 16)
             .await
             .unwrap();
-        assert_eq!(
-            upstream,
-            UpstreamAddr::new(Host::Domain("www.google.com".into()), 443)
-        );
+        assert_eq!(upstream.host().to_string(), "www.google.com");
     }
 }

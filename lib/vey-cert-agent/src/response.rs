@@ -8,12 +8,12 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use rmpv::ValueRef;
 
-use vey_types::net::{TlsCertUsage, TlsServiceType};
+use vey_types::net::{Host, TlsCertUsage, TlsServiceType};
 
 use super::{CacheQueryKey, FakeCertPair, response_key, response_key_id};
 
 pub(super) struct Response {
-    host: String,
+    host: Host,
     service: TlsServiceType,
     usage: TlsCertUsage,
     certs: Vec<X509>,
@@ -24,7 +24,7 @@ pub(super) struct Response {
 impl Response {
     fn new(protective_ttl: u32) -> Self {
         Response {
-            host: String::default(),
+            host: Host::empty(),
             service: TlsServiceType::Http,
             usage: TlsCertUsage::TlsServer,
             certs: Vec::new(),
@@ -41,8 +41,8 @@ impl Response {
                     .ok_or_else(|| anyhow!("invalid string key {k}"))?;
                 match vey_msgpack::key::normalize(key).as_str() {
                     response_key::HOST => {
-                        self.host = vey_msgpack::value::as_string(&v)
-                            .context(format!("invalid string value for key {key}"))?;
+                        self.host = vey_msgpack::value::as_host(&v)
+                            .context(format!("invalid host string value for key {key}"))?;
                     }
                     response_key::SERVICE => {
                         self.service = vey_msgpack::value::as_tls_service_type(&v)
@@ -72,8 +72,8 @@ impl Response {
                 let key_id = i.as_u64().ok_or_else(|| anyhow!("invalid u64 key {k}"))?;
                 match key_id {
                     response_key_id::HOST => {
-                        self.host = vey_msgpack::value::as_string(&v)
-                            .context(format!("invalid string value for key id {key_id}"))?;
+                        self.host = vey_msgpack::value::as_host(&v)
+                            .context(format!("invalid host string value for key id {key_id}"))?;
                     }
                     response_key_id::SERVICE => {
                         self.service = vey_msgpack::value::as_tls_service_type(&v).context(
@@ -125,7 +125,7 @@ impl Response {
         }
         let key = self.key.ok_or_else(|| anyhow!("no private key set"))?;
         Ok((
-            CacheQueryKey::new(self.service, self.usage, self.host.into()),
+            CacheQueryKey::new(self.service, self.usage, self.host),
             FakeCertPair {
                 certs: self.certs,
                 key,

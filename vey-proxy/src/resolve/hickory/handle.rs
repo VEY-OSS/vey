@@ -7,13 +7,13 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 
-use arcstr::ArcStr;
 use slog::Logger;
 use tokio::time::Instant;
 
 use vey_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
 use vey_slog_types::{LtBindAddr, LtDuration};
 use vey_types::metrics::NodeName;
+use vey_types::net::DomainName;
 
 use crate::config::resolver::ResolverConfig;
 use crate::config::resolver::hickory::HickoryResolverConfig;
@@ -48,7 +48,7 @@ impl IntegratedResolverHandle for HickoryResolverHandle {
         self.inner.is_closed()
     }
 
-    fn query_v4(&self, domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError> {
+    fn query_v4(&self, domain: DomainName) -> Result<BoxLoggedResolveJob, ResolveError> {
         let job = self.inner.get_v4(domain.clone())?;
         Ok(Box::new(HickoryResolverJob {
             config: Arc::clone(&self.config),
@@ -60,7 +60,7 @@ impl IntegratedResolverHandle for HickoryResolverHandle {
         }))
     }
 
-    fn query_v6(&self, domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError> {
+    fn query_v6(&self, domain: DomainName) -> Result<BoxLoggedResolveJob, ResolveError> {
         let job = self.inner.get_v6(domain.clone())?;
         Ok(Box::new(HickoryResolverJob {
             config: Arc::clone(&self.config),
@@ -79,7 +79,7 @@ impl IntegratedResolverHandle for HickoryResolverHandle {
 
 struct HickoryResolverJob {
     config: Arc<HickoryResolverConfig>,
-    domain: ArcStr,
+    domain: DomainName,
     query_type: ResolveQueryType,
     inner: vey_resolver::ResolveJob,
     logger: Option<Logger>,

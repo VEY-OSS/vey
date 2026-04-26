@@ -6,12 +6,11 @@
 use std::hash::{Hash, Hasher};
 
 use anyhow::anyhow;
-use arcstr::ArcStr;
 use openssl::pkey::{PKey, Private};
 use openssl::ssl::SslRef;
 use openssl::x509::X509;
 
-use vey_types::net::{TlsCertUsage, TlsServiceType};
+use vey_types::net::{Host, TlsCertUsage, TlsServiceType};
 
 mod protocol;
 pub use protocol::*;
@@ -38,7 +37,7 @@ pub use runtime::*;
 struct CacheIndexKey {
     service: TlsServiceType,
     usage: TlsCertUsage,
-    host: ArcStr,
+    host: Host,
 }
 
 #[derive(Clone, Debug)]
@@ -48,7 +47,7 @@ struct CacheQueryKey {
 }
 
 impl CacheQueryKey {
-    fn new(service: TlsServiceType, usage: TlsCertUsage, host: ArcStr) -> Self {
+    fn new(service: TlsServiceType, usage: TlsCertUsage, host: Host) -> Self {
         CacheQueryKey {
             index: CacheIndexKey {
                 service,
@@ -59,10 +58,6 @@ impl CacheQueryKey {
         }
     }
 
-    fn host(&self) -> &str {
-        self.index.host.as_str()
-    }
-
     fn set_mimic_cert(&mut self, cert: X509) {
         self.mimic_cert = Some(cert);
     }
@@ -71,9 +66,10 @@ impl CacheQueryKey {
         use rmpv::ValueRef;
 
         let mut map = Vec::with_capacity(4);
+        let host = self.index.host.to_string();
         map.push((
             ValueRef::Integer(request_key_id::HOST.into()),
-            ValueRef::String(self.host().into()),
+            ValueRef::String(host.as_str().into()),
         ));
         map.push((
             ValueRef::Integer(request_key_id::SERVICE.into()),

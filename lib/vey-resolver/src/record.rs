@@ -9,8 +9,9 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use arcstr::ArcStr;
 use tokio::time::Instant;
+
+use vey_types::net::DomainName;
 
 use super::{ResolveError, ResolveServerError};
 
@@ -39,7 +40,7 @@ impl fmt::Display for ResolvedRecordSource {
 
 #[derive(Clone, Debug)]
 pub struct ResolvedRecord {
-    pub domain: ArcStr,
+    pub domain: DomainName,
     pub created: Instant,
     pub expire: Option<Instant>,
     pub vanish: Option<Instant>,
@@ -73,12 +74,12 @@ impl ResolvedRecord {
         matches!(e, ResolveError::ServerError(ResolveServerError::NotFound))
     }
 
-    pub fn timed_out(domain: ArcStr, protective_cache_ttl: u32) -> Self {
+    pub fn timed_out(domain: DomainName, protective_cache_ttl: u32) -> Self {
         ResolvedRecord::failed(domain, protective_cache_ttl, ResolveError::RequestTimeout)
     }
 
     pub fn resolved(
-        domain: ArcStr,
+        domain: DomainName,
         ttl: u32,
         min_ttl: u32,
         max_ttl: u32,
@@ -105,7 +106,7 @@ impl ResolvedRecord {
         }
     }
 
-    pub fn empty(domain: ArcStr, expire_ttl: u32) -> Self {
+    pub fn empty(domain: DomainName, expire_ttl: u32) -> Self {
         let created = Instant::now();
         let expire = created.checked_add(Duration::from_secs(expire_ttl as u64));
         ResolvedRecord {
@@ -117,7 +118,7 @@ impl ResolvedRecord {
         }
     }
 
-    pub fn failed(domain: ArcStr, protective_cache_ttl: u32, err: ResolveError) -> Self {
+    pub fn failed(domain: DomainName, protective_cache_ttl: u32, err: ResolveError) -> Self {
         let created = Instant::now();
         let expire = created.checked_add(Duration::from_secs(protective_cache_ttl as u64));
         ResolvedRecord {

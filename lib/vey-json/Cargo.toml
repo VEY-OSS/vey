@@ -12,7 +12,6 @@ anyhow.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
 humanize-rs.workspace = true
-idna.workspace = true
 ascii.workspace = true
 rand.workspace = true
 hex.workspace = true

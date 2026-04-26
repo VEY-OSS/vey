@@ -6,10 +6,11 @@
 use std::net::IpAddr;
 use std::time::Duration;
 
-use arcstr::ArcStr;
 use c_ares::{AAAAResults, AResults};
 use c_ares_resolver::{CAresFuture, FutureResolver};
 use tokio::sync::mpsc;
+
+use vey_types::net::DomainName;
 
 use crate::config::ResolverRuntimeConfig;
 use crate::message::ResolveDriverResponse;
@@ -75,7 +76,7 @@ impl ResultConverter for AAAAResults {
 
 async fn resolve<T>(
     query_future: CAresFuture<T>,
-    domain: ArcStr,
+    domain: DomainName,
     config: JobConfig,
 ) -> ResolvedRecord
 where
@@ -104,7 +105,7 @@ where
 
 async fn resolve_protective<T>(
     query_future: CAresFuture<T>,
-    domain: ArcStr,
+    domain: DomainName,
     config: JobConfig,
 ) -> ResolvedRecord
 where
@@ -121,12 +122,12 @@ where
 impl ResolveDriver for CAresResolver {
     fn query_v4(
         &self,
-        domain: ArcStr,
+        domain: DomainName,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {
         let job_config = self.build_job_config(config);
-        let query = self.inner.query_a(&domain);
+        let query = self.inner.query_a(domain.as_fqdn_str());
         tokio::spawn(async move {
             let record = resolve_protective(query, domain, job_config).await;
 
@@ -136,12 +137,12 @@ impl ResolveDriver for CAresResolver {
 
     fn query_v6(
         &self,
-        domain: ArcStr,
+        domain: DomainName,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {
         let job_config = self.build_job_config(config);
-        let query = self.inner.query_aaaa(&domain);
+        let query = self.inner.query_aaaa(domain.as_fqdn_str());
         tokio::spawn(async move {
             let record = resolve_protective(query, domain, job_config).await;
 

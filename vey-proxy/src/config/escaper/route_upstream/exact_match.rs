@@ -9,18 +9,17 @@ use std::str::FromStr;
 
 use ahash::AHashMap;
 use anyhow::{Context, anyhow};
-use arcstr::ArcStr;
 use rustc_hash::FxHashMap;
 use yaml_rust::Yaml;
 
 use vey_types::metrics::NodeName;
-use vey_types::net::Host;
+use vey_types::net::{DomainName, Host};
 
 use crate::config::escaper::verify::EscaperConfigVerifier;
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub(crate) struct ExactMatchBuilder {
-    domain: BTreeMap<NodeName, BTreeSet<ArcStr>>,
+    domain: BTreeMap<NodeName, BTreeSet<DomainName>>,
     ipaddr: BTreeMap<NodeName, BTreeSet<IpAddr>>,
 }
 
@@ -120,7 +119,7 @@ impl ExactMatchBuilder {
 
 #[derive(Default)]
 struct ExactMatchValues {
-    domain: BTreeSet<ArcStr>,
+    domain: BTreeSet<DomainName>,
     ipaddr: BTreeSet<IpAddr>,
 }
 
@@ -153,11 +152,11 @@ impl ExactMatchValues {
 
 pub(crate) struct ExactMatch<T> {
     ipaddr: FxHashMap<IpAddr, T>,
-    domain: AHashMap<ArcStr, T>,
+    domain: AHashMap<DomainName, T>,
 }
 
 impl<T> ExactMatch<T> {
-    pub(crate) fn check_domain(&self, domain: &str) -> Option<&T> {
+    pub(crate) fn check_domain(&self, domain: &DomainName) -> Option<&T> {
         self.domain.get(domain)
     }
 
@@ -169,6 +168,7 @@ impl<T> ExactMatch<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vey_types::literal_domain;
     use yaml_rust::YamlLoader;
 
     #[test]
@@ -191,10 +191,18 @@ mod tests {
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
         let exact_match = builder.build(&value_map);
 
-        let value = *exact_match.check_domain("abc.example.net").unwrap();
+        let value = *exact_match
+            .check_domain(&literal_domain!("abc.example.net"))
+            .unwrap();
         assert!(value.eq("escaper_1"));
-        assert!(exact_match.check_domain("abcexample.net").is_none());
-        let value = *exact_match.check_domain("example.com").unwrap();
+        assert!(
+            exact_match
+                .check_domain(&literal_domain!("abcexample.net"))
+                .is_none()
+        );
+        let value = *exact_match
+            .check_domain(&literal_domain!("example.com"))
+            .unwrap();
         assert!(value.eq("escaper_2"));
         let value = *exact_match
             .check_ip(IpAddr::from_str("192.168.1.1").unwrap())
@@ -226,10 +234,18 @@ mod tests {
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
         let exact_match = builder.build(&value_map);
 
-        let value = *exact_match.check_domain("abc.example.net").unwrap();
+        let value = *exact_match
+            .check_domain(&literal_domain!("abc.example.net"))
+            .unwrap();
         assert!(value.eq("escaper_1"));
-        assert!(exact_match.check_domain("abcexample.net").is_none());
-        let value = *exact_match.check_domain("example.com").unwrap();
+        assert!(
+            exact_match
+                .check_domain(&literal_domain!("abcexample.net"))
+                .is_none()
+        );
+        let value = *exact_match
+            .check_domain(&literal_domain!("example.com"))
+            .unwrap();
         assert!(value.eq("escaper_2"));
         let value = *exact_match
             .check_ip(IpAddr::from_str("192.168.1.1").unwrap())
