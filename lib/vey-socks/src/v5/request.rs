@@ -93,7 +93,7 @@ impl Socks5Request {
         buf.put_u8(0x00);
         match addr.host() {
             Host::Domain(domain) => {
-                let len: u8 = domain.len() as u8;
+                let len: u8 = domain.len_u8();
                 buf.put_u8(0x03);
                 buf.put_u8(len);
                 buf.put_slice(&domain.as_bytes()[0..len as usize]);

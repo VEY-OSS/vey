@@ -34,8 +34,8 @@ impl DomainName {
         DomainName::from_str(s).unwrap()
     }
 
-    pub fn len(&self) -> usize {
-        self.fqdn.len() - 1
+    pub fn len_u8(&self) -> u8 {
+        self.fqdn.len() as u8 - 1
     }
 
     pub fn as_str(&self) -> &str {
@@ -53,7 +53,7 @@ impl DomainName {
             .rev()
             .collect::<Vec<&str>>()
             .join(".");
-        s.push_str(".");
+        s.push('.');
         s
     }
 

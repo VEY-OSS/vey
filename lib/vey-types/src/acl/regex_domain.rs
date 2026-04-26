@@ -83,10 +83,9 @@ impl<Action: ActionContract> AclRegexDomainRule<Action> {
             if let Some(sub_trie) = self.prefix_match_trie.get_ancestor(&reversed)
                 && let Some((suffix, regex_map)) = sub_trie.value()
                 && let Some(prefix) = domain.strip_suffix(suffix)
+                && let Some(action) = regex_map.check(prefix)
             {
-                if let Some(action) = regex_map.check(prefix) {
-                    return (true, action);
-                }
+                return (true, action);
             }
         }
 

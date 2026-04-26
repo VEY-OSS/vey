@@ -116,7 +116,7 @@ impl SocksV4aRequest {
                 ));
             }
             Host::Domain(domain) => {
-                buf_len += domain.len() + 1;
+                buf_len += domain.len_u8() as usize + 1;
                 let mut buf = BytesMut::with_capacity(buf_len);
                 buf.put_u8(0x04);
                 buf.put_u8(command.code());

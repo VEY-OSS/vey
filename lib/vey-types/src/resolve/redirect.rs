@@ -184,13 +184,7 @@ impl ResolveRedirection {
 mod tests {
     use super::*;
     use crate::literal_domain;
-    use std::cell::LazyCell;
     use std::str::FromStr;
-
-    const DOMAIN1: LazyCell<DomainName> = LazyCell::new(|| literal_domain!("www.example1.com"));
-    const DOMAIN2: LazyCell<DomainName> = LazyCell::new(|| literal_domain!("www.example2.com"));
-    const DOMAIN3: LazyCell<DomainName> = LazyCell::new(|| literal_domain!("www.example3.com"));
-    const DOMAIN4: LazyCell<DomainName> = LazyCell::new(|| literal_domain!("www.example4.com"));
 
     #[test]
     fn exact_replace_ips() {
@@ -203,78 +197,85 @@ mod tests {
         let target_ips2 = vec![ip61, ip62];
         let target_ips3 = vec![ip41, ip42, ip61, ip62];
 
-        builder.insert_exact_addr(DOMAIN1.clone(), target_ips1);
-        builder.insert_exact_addr(DOMAIN2.clone(), target_ips2);
-        builder.insert_exact_addr(DOMAIN3.clone(), target_ips3);
+        let domain1 = literal_domain!("www.example1.com");
+        let domain2 = literal_domain!("www.example2.com");
+        let domain3 = literal_domain!("www.example3.com");
+
+        builder.insert_exact_addr(domain1.clone(), target_ips1);
+        builder.insert_exact_addr(domain2.clone(), target_ips2);
+        builder.insert_exact_addr(domain3.clone(), target_ips3);
         let r = builder.build();
 
         let ret = r
-            .query_first(&DOMAIN1, QueryStrategy::Ipv4Only)
+            .query_first(&domain1, QueryStrategy::Ipv4Only)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
         let ret = r
-            .query_first(&DOMAIN1, QueryStrategy::Ipv4First)
+            .query_first(&domain1, QueryStrategy::Ipv4First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
         let ret = r
-            .query_first(&DOMAIN1, QueryStrategy::Ipv6First)
+            .query_first(&domain1, QueryStrategy::Ipv6First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
         assert!(
-            r.query_first(&DOMAIN1, QueryStrategy::Ipv6Only)
+            r.query_first(&domain1, QueryStrategy::Ipv6Only)
                 .unwrap()
                 .is_none()
         );
 
         let ret = r
-            .query_first(&DOMAIN2, QueryStrategy::Ipv6Only)
+            .query_first(&domain2, QueryStrategy::Ipv6Only)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
         let ret = r
-            .query_first(&DOMAIN2, QueryStrategy::Ipv6First)
+            .query_first(&domain2, QueryStrategy::Ipv6First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
         let ret = r
-            .query_first(&DOMAIN2, QueryStrategy::Ipv4First)
+            .query_first(&domain2, QueryStrategy::Ipv4First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
         assert!(
-            r.query_first(&DOMAIN2, QueryStrategy::Ipv4Only)
+            r.query_first(&domain2, QueryStrategy::Ipv4Only)
                 .unwrap()
                 .is_none()
         );
 
         let ret = r
-            .query_first(&DOMAIN3, QueryStrategy::Ipv4Only)
+            .query_first(&domain3, QueryStrategy::Ipv4Only)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
         let ret = r
-            .query_first(&DOMAIN3, QueryStrategy::Ipv4First)
+            .query_first(&domain3, QueryStrategy::Ipv4First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
         let ret = r
-            .query_first(&DOMAIN3, QueryStrategy::Ipv6Only)
+            .query_first(&domain3, QueryStrategy::Ipv6Only)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
         let ret = r
-            .query_first(&DOMAIN3, QueryStrategy::Ipv6First)
+            .query_first(&domain3, QueryStrategy::Ipv6First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
 
         assert!(
-            r.query_first(&DOMAIN4, QueryStrategy::Ipv4First)
-                .unwrap()
-                .is_none()
+            r.query_first(
+                &literal_domain!("www.example4.com"),
+                QueryStrategy::Ipv4First
+            )
+            .unwrap()
+            .is_none()
         );
     }
 
@@ -282,19 +283,23 @@ mod tests {
     fn exact_replace_alias() {
         let mut builder = ResolveRedirectionBuilder::default();
         let to_domain = literal_domain!("www.1-example.com");
-        builder.insert_exact_alias(DOMAIN1.clone(), to_domain.clone());
+        let domain1 = literal_domain!("www.example1.com");
+        builder.insert_exact_alias(domain1.clone(), to_domain.clone());
         let r = builder.build();
 
         let ret = r
-            .query_first(&DOMAIN1, QueryStrategy::Ipv4First)
+            .query_first(&domain1, QueryStrategy::Ipv4First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Domain(to_domain));
 
         assert!(
-            r.query_first(&DOMAIN4, QueryStrategy::Ipv4First)
-                .unwrap()
-                .is_none()
+            r.query_first(
+                &literal_domain!("www.example3.com"),
+                QueryStrategy::Ipv4First
+            )
+            .unwrap()
+            .is_none()
         );
     }
 
@@ -338,78 +343,85 @@ mod tests {
         let target_ips2 = vec![ip61, ip62];
         let target_ips3 = vec![ip41, ip42, ip61, ip62];
 
+        let domain1 = literal_domain!("www.example1.com");
+        let domain2 = literal_domain!("www.example2.com");
+        let domain3 = literal_domain!("www.example3.com");
+
         builder.insert_parent_addr(literal_domain!("example1.com"), target_ips1);
         builder.insert_parent_addr(literal_domain!("example2.com"), target_ips2);
         builder.insert_parent_addr(literal_domain!("example3.com"), target_ips3);
         let r = builder.build();
 
         let ret = r
-            .query_first(&DOMAIN1, QueryStrategy::Ipv4Only)
+            .query_first(&domain1, QueryStrategy::Ipv4Only)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
         let ret = r
-            .query_first(&DOMAIN1, QueryStrategy::Ipv4First)
+            .query_first(&domain1, QueryStrategy::Ipv4First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
         let ret = r
-            .query_first(&DOMAIN1, QueryStrategy::Ipv6First)
+            .query_first(&domain1, QueryStrategy::Ipv6First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
         assert!(
-            r.query_first(&DOMAIN1, QueryStrategy::Ipv6Only)
+            r.query_first(&domain1, QueryStrategy::Ipv6Only)
                 .unwrap()
                 .is_none()
         );
 
         let ret = r
-            .query_first(&DOMAIN2, QueryStrategy::Ipv6Only)
+            .query_first(&domain2, QueryStrategy::Ipv6Only)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
         let ret = r
-            .query_first(&DOMAIN2, QueryStrategy::Ipv6First)
+            .query_first(&domain2, QueryStrategy::Ipv6First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
         let ret = r
-            .query_first(&DOMAIN2, QueryStrategy::Ipv4First)
+            .query_first(&domain2, QueryStrategy::Ipv4First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
         assert!(
-            r.query_first(&DOMAIN2, QueryStrategy::Ipv4Only)
+            r.query_first(&domain2, QueryStrategy::Ipv4Only)
                 .unwrap()
                 .is_none()
         );
 
         let ret = r
-            .query_first(&DOMAIN3, QueryStrategy::Ipv4Only)
+            .query_first(&domain3, QueryStrategy::Ipv4Only)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
         let ret = r
-            .query_first(&DOMAIN3, QueryStrategy::Ipv4First)
+            .query_first(&domain3, QueryStrategy::Ipv4First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip41));
         let ret = r
-            .query_first(&DOMAIN3, QueryStrategy::Ipv6Only)
+            .query_first(&domain3, QueryStrategy::Ipv6Only)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
         let ret = r
-            .query_first(&DOMAIN3, QueryStrategy::Ipv6First)
+            .query_first(&domain3, QueryStrategy::Ipv6First)
             .unwrap()
             .unwrap();
         assert_eq!(ret, Host::Ip(ip61));
 
         assert!(
-            r.query_first(&DOMAIN4, QueryStrategy::Ipv4First)
-                .unwrap()
-                .is_none()
+            r.query_first(
+                &literal_domain!("www.example4.com"),
+                QueryStrategy::Ipv4First
+            )
+            .unwrap()
+            .is_none()
         );
     }
 }

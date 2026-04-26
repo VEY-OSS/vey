@@ -93,7 +93,7 @@ impl UdpOutput {
                 },
                 IpAddr::V4(_) => UDP_HEADER_LEN_IPV4,
             },
-            Host::Domain(domain) => 5 + domain.len() + 2,
+            Host::Domain(domain) => 5 + domain.len_u8() as usize + 2,
         }
     }
 
@@ -105,7 +105,7 @@ impl UdpOutput {
             Host::Ip(ip) => Self::put_addr(buf, *ip, upstream.port()),
             Host::Domain(domain) => {
                 buf.put_u8(0x03);
-                let domain_len = domain.len() as u8;
+                let domain_len = domain.len_u8();
                 buf.put_u8(domain_len);
                 buf.put_slice(&domain.as_bytes()[0..domain_len as usize]);
                 buf.put_u16(upstream.port());
