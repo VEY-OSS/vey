@@ -25,16 +25,16 @@ through [cloudsmith](https://cloudsmith.io/~vey-oss/repos/).
 - Ubuntu: only LTS releases that are still in Canonical's Standard Security Maintenance window are supported.
 - SUSE Enterprise: only currently supported openSUSE Leap releases are supported.
 
-Current supported versions as of 2026-04-11:
+Current supported versions as of 2026-04-27:
 
 This table is date-sensitive and should be updated when upstream vendor support windows change.
 
-| Distribution family | Support policy                              | Currently supported versions                    |
-|---------------------|---------------------------------------------|-------------------------------------------------|
-| RHEL                | Full Support only                           | 10, 9                                           |
-| Debian              | Debian Security Team support only           | 13 (stable), 12 (oldstable; through 2026-06-10) |
-| Ubuntu              | LTS with Standard Security Maintenance only | 24.04 LTS, 22.04 LTS                            |
-| openSUSE Leap       | Supported Leap releases only                | 16.0, 15.6 (through 2026-04-30)                 |
+| Distribution family | Support policy                              | Currently supported versions    |
+|---------------------|---------------------------------------------|---------------------------------|
+| RHEL                | Full Support only                           | 10, 9                           |
+| Debian              | Debian Security Team support only           | 13 (stable), 12 (oldstable)     |
+| Ubuntu              | LTS with Standard Security Maintenance only | 26.04 LTS, 24.04 LTS, 22.04 LTS |
+| openSUSE Leap       | Supported Leap releases only                | 16.0                            |
 
 ## Supported Architectures
 
