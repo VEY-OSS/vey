@@ -7,6 +7,7 @@
 use std::cmp::Ordering;
 
 use anyhow::anyhow;
+use arcstr::ArcStr;
 use percent_encoding::{AsciiSet, CONTROLS};
 use zeroize::Zeroizing;
 
@@ -27,14 +28,14 @@ const USER_INFO_PCT_ENCODING_SET: &AsciiSet = &CONTROLS
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Username {
-    inner: String,
+    inner: ArcStr,
     len: u8,
 }
 
 impl Username {
     pub fn empty() -> Self {
         Username {
-            inner: String::new(),
+            inner: ArcStr::new(),
             len: 0,
         }
     }
@@ -63,7 +64,7 @@ impl Username {
             }
         }
         Ok(Username {
-            inner: s.to_string(),
+            inner: ArcStr::from(s),
             len: s.len() as u8,
         })
     }
