@@ -58,13 +58,13 @@ pub fn finish() {
 }
 
 pub trait UpgradeAction: Sized {
-    #[allow(async_fn_in_trait)]
+    #[expect(async_fn_in_trait)]
     async fn connect_rpc() -> anyhow::Result<(RpcSystem<rpc_twoparty_capnp::Side>, Self)>;
-    #[allow(async_fn_in_trait)]
+    #[expect(async_fn_in_trait)]
     async fn cancel_shutdown(&self) -> anyhow::Result<()>;
-    #[allow(async_fn_in_trait)]
+    #[expect(async_fn_in_trait)]
     async fn release_controller(&self) -> anyhow::Result<()>;
-    #[allow(async_fn_in_trait)]
+    #[expect(async_fn_in_trait)]
     async fn confirm_shutdown(&self) -> anyhow::Result<()>;
 
     fn connect_to_old_daemon() {

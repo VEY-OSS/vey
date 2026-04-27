@@ -44,7 +44,7 @@ pub trait HttpResponseForAdaptation {
     fn adapt_without_body(&self, other: HttpAdaptedResponse) -> Self;
 }
 
-#[allow(async_fn_in_trait)]
+#[expect(async_fn_in_trait)]
 pub trait HttpResponseClientWriter<H: HttpResponseForAdaptation>: AsyncWrite {
     async fn send_response_header(&mut self, req: &H) -> io::Result<()>;
 }

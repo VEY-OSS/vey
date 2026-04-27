@@ -10,7 +10,7 @@ use vey_io_ext::LimitedBufReadExt;
 use crate::config::FtpTransferConfig;
 use crate::error::FtpLineDataReadError;
 
-#[allow(async_fn_in_trait)]
+#[expect(async_fn_in_trait)]
 pub trait FtpLineDataReceiver {
     async fn recv_line(&mut self, line: &str);
     fn should_return_early(&self) -> bool;
