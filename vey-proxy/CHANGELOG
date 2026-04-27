@@ -2,6 +2,9 @@ CHANGELOG
 
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
+v1.13.3:
+ - Compatibility: rename the custom HTTP headers from the `X-BD-*` namespace to `X-VEY-*`
+
 v1.13.2:
  - Security: try to zeroize password data when possible
  - Security: only allow local users and root to control the daemon when possible

@@ -59,7 +59,7 @@ server_id
 
 **optional**, **type**: :external+values:ref:`http server id <conf_value_http_server_id>`
 
-Server ID. If set, the ``X-BD-Remote-Connection-Info`` header is added to
+Server ID. If set, the ``X-VEY-Remote-Connection-Info`` header is added to
 responses, and the value is also used in the ``Via`` header added to requests.
 
 **default**: not set

@@ -82,7 +82,7 @@ server_id
 
 **optional**, **type**: :external+values:ref:`http server id <conf_value_http_server_id>`
 
-Server ID. If set, the ``X-BD-Remote-Connection-Info`` header is added to the
+Server ID. If set, the ``X-VEY-Remote-Connection-Info`` header is added to the
 response.
 
 **default**: not set
@@ -272,7 +272,7 @@ http_forward_mark_upstream
 
 **optional**, **type**: bool
 
-If enabled, the ``X-BD-Upstream-Id`` header is added to responses received from
+If enabled, the ``X-VEY-Upstream-Id`` header is added to responses received from
 upstream, using the value of :ref:`server_id <config_server_http_proxy_server_id>`.
 Responses generated locally do not contain this header.
 
@@ -292,8 +292,8 @@ information about the direct upstream connection.
 
 The custom headers are:
 
-- X-BD-Upstream-Addr
-- X-BD-Outgoing-IP
+- X-VEY-Upstream-Addr
+- X-VEY-Outgoing-IP
 
 **default**: false
 

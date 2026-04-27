@@ -10,7 +10,7 @@ Chained Final Info Headers
 These headers are neither reset nor appended by intermediate proxies. This
 means their values always come from the proxy closest to the final upstream.
 
-X-BD-Upstream-Id
+X-VEY-Upstream-Id
 ----------------
 
 If this header is present, the response came from a remote peer. The value is
@@ -23,7 +23,7 @@ may be either the final upstream server or another proxy in the chain.
 This header is controlled by http_proxy server option
 :ref:`http_forward_mark_upstream <config_server_http_proxy_http_forward_mark_upstream>`.
 
-X-BD-Upstream-Addr
+X-VEY-Upstream-Addr
 ------------------
 
 If present, this header contains the remote address that the outermost proxy in
@@ -32,7 +32,7 @@ the chain is trying to connect to.
 This header is controlled by http_proxy server option
 :ref:`echo_chained_info <config_server_http_proxy_echo_chained_info>`.
 
-X-BD-Outgoing-Ip
+X-VEY-Outgoing-Ip
 ----------------
 
 If present, this header contains the local bind IP used by the outermost proxy
@@ -47,7 +47,7 @@ Local Info Headers
 Each proxy in the chain appends its own value. Values closer to the upstream
 appear first.
 
-X-BD-Remote-Connection-Info
+X-VEY-Remote-Connection-Info
 ---------------------------
 
 The value format:
@@ -75,7 +75,7 @@ The value format:
 
 This header is controlled by http_proxy server option :ref:`server_id <config_server_http_proxy_server_id>`.
 
-X-BD-Dynamic-Egress-Info
+X-VEY-Dynamic-Egress-Info
 ------------------------
 
 The value format:
