@@ -103,27 +103,24 @@ impl FrameConsume for HandshakeCoalescer {
                 }
 
                 if frame_stream_end > self.unfilled_offset {
-                    // we have some new data filled in
+                    // the fragment data has already been written
                     self.unfilled_offset = frame_stream_end;
 
-                    if !self.fragment_set.is_empty() {
-                        // TODO use BTreeSet::extract_if after stablized
-                        for fragment in &self.fragment_set {
-                            if fragment.offset > self.unfilled_offset {
-                                break;
-                            }
+                    self.fragment_set.retain(|fragment| {
+                        if fragment.offset > self.unfilled_offset {
+                            true
+                        } else {
                             let fragment_end = fragment.offset + fragment.length;
                             if fragment_end > self.unfilled_offset {
+                                // the fragment data has already been written
                                 self.unfilled_offset = fragment_end;
                             }
+                            false
                         }
-
-                        self.fragment_set
-                            .retain(|v| v.offset > self.unfilled_offset);
-                    }
+                    });
                 }
             } else {
-                // extend the buf with some new data
+                // extend the buf with new data
                 self.buf.resize(frame.stream_offset, 0);
                 self.buf.extend_from_slice(frame.data);
                 self.unfilled_offset = self.buf.len();
