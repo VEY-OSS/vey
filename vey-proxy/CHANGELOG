@@ -2,6 +2,22 @@ CHANGELOG
 
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
+v1.13.2:
+ - Security: try to zeroize password data when possible
+ - Security: only allow local users and root to control the daemon when possible
+ - Feature: add support for the `proxy-support` header
+ - Feature: enable the `proxy-support` header on non-HTTP proxy escapers
+ - Feature: add proper support for upstream Negotiate auth requests
+ - Feature: add the `server.other_code` resolver error stat
+ - Optimization: use less resolver driver error codes
+ - Optimization: wait for more local cache writes before quit
+ - Optimization: handle crypto errors when verifying user passwords
+ - Optimization: fix loading of Python user source scripts
+ - Compatibility: support loading the main config file based on binary name
+ - Compatibility: URL-encode the `X-Client-Username` header value for ICAP requests
+ - Compatibility: enable Python support when building packages
+ - Compatibility: update Debian package build requirements
+
 v1.13.1:
  - Bug fix: fix user upstream traffic stats for the FTP-over-HTTP task
  - Bug fix: fix the inner lock in protected I/O
