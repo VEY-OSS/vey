@@ -18,11 +18,9 @@ pub fn set_hook(args: &DaemonArgs) {
 
     let monitored = args.monitored;
     std::panic::set_hook(Box::new(move |panic_info| {
-        let panic_message = if let Some(s) = panic_info.payload_as_str() {
-            s
-        } else {
-            "-"
-        };
+        let panic_message = panic_info
+            .payload_as_str()
+            .unwrap_or("no panic payload string available");
 
         match std::thread::current().name() {
             Some(thread) => {
