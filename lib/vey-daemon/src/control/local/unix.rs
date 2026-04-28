@@ -111,7 +111,7 @@ impl LocalControllerImpl {
             Err(e) => {
                 if e.kind() != io::ErrorKind::NotFound {
                     return Err(anyhow!(
-                        "failed to check control socket {}",
+                        "failed to check control socket {}: {e}",
                         listen_path.display()
                     ));
                 }
