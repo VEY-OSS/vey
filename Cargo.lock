@@ -2752,6 +2752,7 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bytes",
  "capnp",
  "capnp-rpc",
  "cfg-if",
@@ -2763,6 +2764,7 @@ dependencies = [
  "itoa",
  "libc",
  "log",
+ "lru",
  "quinn",
  "rand 0.10.1",
  "rustc-hash",

@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::hash::Hash;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 
@@ -17,9 +18,16 @@ pub struct ClientConnectionInfo {
     client_addr: SocketAddr,
     server_addr: SocketAddr,
     sock_peer_addr: SocketAddr,
-    #[allow(unused)]
     sock_local_addr: SocketAddr,
     tcp_raw_socket: Option<RawSocket>,
+}
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct ClientConnectionKey {
+    client_addr: SocketAddr,
+    server_addr: SocketAddr,
+    sock_peer_addr: SocketAddr,
+    sock_local_addr: SocketAddr,
 }
 
 impl ClientConnectionInfo {
@@ -31,6 +39,15 @@ impl ClientConnectionInfo {
             sock_peer_addr: peer_addr,
             sock_local_addr: local_addr,
             tcp_raw_socket: None,
+        }
+    }
+
+    pub fn connection_key(&self) -> ClientConnectionKey {
+        ClientConnectionKey {
+            client_addr: self.client_addr,
+            server_addr: self.server_addr,
+            sock_peer_addr: self.sock_peer_addr,
+            sock_local_addr: self.sock_local_addr,
         }
     }
 

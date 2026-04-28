@@ -1,57 +1,69 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::future::poll_fn;
 use std::io::{self, IoSliceMut};
 use std::net::SocketAddr;
 
+use bytes::Bytes;
+use foldhash::fast::FixedState;
 use log::{info, warn};
+use lru::LruCache;
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 
 use vey_io_ext::UdpSocketExt;
 use vey_io_sys::udp::RecvMsgHdr;
-use vey_types::net::UdpListenConfig;
+use vey_types::net::{UdpConnectionTrackConfig, UdpListenConfig};
 
-use crate::server::{BaseServer, ReloadServer, ServerReloadCommand};
+use crate::server::{
+    BaseServer, ClientConnectionInfo, ClientConnectionKey, ReloadServer, ServerReloadCommand,
+};
 
-pub trait ReceiveUdpServer: BaseServer {
-    fn receive_udp_packet(
+const CLOSE_RECV_BATCH_SIZE: usize = 16;
+
+pub trait AcceptUdpServer: BaseServer {
+    fn run_udp_task(
         &self,
-        packet: &[u8],
-        client_addr: SocketAddr,
-        server_addr: SocketAddr,
-        worker_id: Option<usize>,
+        cc_info: ClientConnectionInfo,
+        packet_receiver: mpsc::Receiver<Bytes>,
+        close_notifier: mpsc::Sender<ClientConnectionKey>,
     );
 }
 
 #[derive(Clone)]
-pub struct ReceiveUdpRuntime<S> {
+pub struct ListenUdpRuntime<S> {
     server: S,
     server_type: &'static str,
     server_version: usize,
     worker_id: Option<usize>,
     listen_config: UdpListenConfig,
+    conn_track: UdpConnectionTrackConfig,
     //listen_stats: Arc<ListenStats>,
     instance_id: usize,
 }
 
-impl<S> ReceiveUdpRuntime<S>
+impl<S> ListenUdpRuntime<S>
 where
-    S: ReceiveUdpServer + ReloadServer + Clone + Send + Sync + 'static,
+    S: AcceptUdpServer + ReloadServer + Clone + Send + Sync + 'static,
 {
-    pub fn new(server: S, listen_config: UdpListenConfig) -> Self {
+    pub fn new(
+        server: S,
+        listen_config: UdpListenConfig,
+        conn_track: UdpConnectionTrackConfig,
+    ) -> Self {
         let server_type = server.r#type();
         let server_version = server.version();
-        ReceiveUdpRuntime {
+        ListenUdpRuntime {
             server,
             server_type,
             server_version,
             worker_id: None,
             listen_config,
+            conn_track,
             instance_id: 0,
         }
     }
@@ -96,6 +108,13 @@ where
     ) {
         use broadcast::error::RecvError;
 
+        let mut connection_table =
+            LruCache::with_hasher(self.conn_track.max_sessions(), FixedState::with_seed(0));
+        let (close_sender, mut close_receiver) = mpsc::channel(self.conn_track.close_queue_size());
+
+        let mut close_recv_buf: Vec<ClientConnectionKey> =
+            Vec::with_capacity(CLOSE_RECV_BATCH_SIZE);
+
         let mut buf = [0u8; u16::MAX as usize];
         loop {
             tokio::select! {
@@ -125,11 +144,30 @@ where
                     self.pre_stop();
                     break;
                 }
+                n = close_receiver.recv_many(&mut close_recv_buf, CLOSE_RECV_BATCH_SIZE) => {
+                    for key in &close_recv_buf[0..n] {
+                        connection_table.pop(key);
+                    }
+                }
                 r = self.recv_packet(&socket, listen_addr, &mut buf) => {
                     match r {
-                        Ok((len, peer_addr, local_addr)) => {
-                            // TODO add stats
-                            self.server.receive_udp_packet(&buf[..len], peer_addr, local_addr, self.worker_id);
+                        Ok((cc_info, data)) => {
+                            let key = cc_info.connection_key();
+                            let sender = connection_table.get_or_insert_ref(&key, || {
+                                let (data_sender, data_receiver) = mpsc::channel(self.conn_track.session_queue_size());
+                                self.server.run_udp_task(cc_info, data_receiver, close_sender.clone());
+                                data_sender
+                            });
+                            match sender.try_send(data) {
+                                Ok(_) => {}
+                                Err(mpsc::error::TrySendError::Full(_)) => {
+                                    // TODO record dropped data
+                                }
+                                Err(mpsc::error::TrySendError::Closed(_)) => {
+                                    // TODO record dropped data
+                                    connection_table.pop(&key);
+                                }
+                            }
                         }
                         Err(e) => {
                             warn!("SRT[{}_v{}#{}] error receiving data from socket, error: {e}",
@@ -148,7 +186,7 @@ where
         socket: &UdpSocket,
         listen_addr: SocketAddr,
         buf: &mut [u8],
-    ) -> io::Result<(usize, SocketAddr, SocketAddr)> {
+    ) -> io::Result<(ClientConnectionInfo, Bytes)> {
         let mut hdr = RecvMsgHdr::new([IoSliceMut::new(buf)]);
 
         poll_fn(|cx| socket.poll_recvmsg(cx, &mut hdr)).await?;
@@ -158,7 +196,13 @@ where
             .ok_or_else(|| io::Error::other("unable to get peer address"))?;
         let local_addr = hdr.dst_addr(listen_addr);
 
-        Ok((hdr.n_recv, peer_addr, local_addr))
+        let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
+        cc_info.set_worker_id(self.worker_id);
+
+        let nr = hdr.n_recv;
+        let data = Bytes::copy_from_slice(&buf[..nr]);
+
+        Ok((cc_info, data))
     }
 
     fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
@@ -186,7 +230,7 @@ where
                 }
                 Err(e) => {
                     warn!(
-                        "SRT[{}_v{}#{}] udp bind async: {e:?}",
+                        "SRT[{}_v{}#{}] udp listen async: {e:?}",
                         self.server.name(),
                         self.server_version,
                         self.instance_id

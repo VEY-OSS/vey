@@ -57,7 +57,7 @@ pub use rate_limit::{
 pub use socks::SocksAuth;
 pub use tcp::*;
 pub use tls::*;
-pub use udp::{UdpListenConfig, UdpMiscSockOpts};
+pub use udp::{UdpConnectionTrackConfig, UdpListenConfig, UdpMiscSockOpts};
 pub use upstream::{UpstreamAddr, UpstreamHostRef, WeightedUpstreamAddr};
 
 #[cfg(unix)]

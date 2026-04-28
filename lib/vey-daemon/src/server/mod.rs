@@ -9,7 +9,7 @@ pub use quit_policy::ServerQuitPolicy;
 pub mod task;
 
 mod connection;
-pub use connection::ClientConnectionInfo;
+pub use connection::{ClientConnectionInfo, ClientConnectionKey};
 
 mod runtime;
 pub use runtime::{BaseServer, ReloadServer, ServerExt, ServerReloadCommand};

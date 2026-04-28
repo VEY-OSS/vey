@@ -10,7 +10,7 @@ mod tcp;
 pub use tcp::{AcceptTcpServer, ListenTcpRuntime};
 
 mod udp;
-pub use udp::{ReceiveUdpRuntime, ReceiveUdpServer};
+pub use udp::{AcceptUdpServer, ListenUdpRuntime, ReceiveUdpRuntime, ReceiveUdpServer};
 
 #[cfg_attr(feature = "quic", path = "quic.rs")]
 #[cfg_attr(not(feature = "quic"), path = "no_quic.rs")]

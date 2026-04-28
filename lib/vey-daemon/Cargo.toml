@@ -10,6 +10,8 @@ rust-version.workspace = true
 [dependencies]
 anyhow.workspace = true
 log = { workspace = true, features = ["std"] }
+bytes.workspace = true
+lru.workspace = true
 clap.workspace = true
 cfg-if.workspace = true
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }

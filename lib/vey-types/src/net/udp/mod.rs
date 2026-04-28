@@ -4,7 +4,7 @@
  */
 
 mod listen;
-pub use listen::UdpListenConfig;
+pub use listen::{UdpConnectionTrackConfig, UdpListenConfig};
 
 mod sockopt;
 pub use sockopt::UdpMiscSockOpts;
