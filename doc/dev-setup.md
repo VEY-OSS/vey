@@ -4,7 +4,7 @@ This document describes the baseline development environment for the VEY workspa
 
 ## Rust Toolchain
 
-The workspace requires Rust `1.90.0` or newer. Use the latest stable toolchain unless you have a specific reason not to.
+The workspace requires Rust `1.91.0` or newer. Use the latest stable toolchain unless you have a specific reason not to.
 
 ### Install `rustup`
 

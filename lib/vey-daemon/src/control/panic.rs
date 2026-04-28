@@ -18,10 +18,8 @@ pub fn set_hook(args: &DaemonArgs) {
 
     let monitored = args.monitored;
     std::panic::set_hook(Box::new(move |panic_info| {
-        let panic_message = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
-            *s
-        } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
-            s.as_str()
+        let panic_message = if let Some(s) = panic_info.payload_as_str() {
+            s
         } else {
             "-"
         };
