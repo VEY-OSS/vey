@@ -5,7 +5,6 @@
  */
 
 use anyhow::anyhow;
-use arcstr::ArcStr;
 use openssl::ssl::Ssl;
 
 use vey_dpi::{Protocol, ProtocolInspector};
