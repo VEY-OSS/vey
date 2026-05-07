@@ -4,7 +4,7 @@
  */
 
 use std::future::poll_fn;
-use std::io::{self, IoSliceMut};
+use std::io::{self, IoSlice, IoSliceMut};
 use std::net::SocketAddr;
 
 use bytes::Bytes;
@@ -16,21 +16,57 @@ use tokio::runtime::Handle;
 use tokio::sync::{broadcast, mpsc};
 
 use vey_io_ext::UdpSocketExt;
-use vey_io_sys::udp::RecvMsgHdr;
+use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 use vey_types::net::{UdpConnectionTrackConfig, UdpListenConfig};
 
 use crate::server::{
     BaseServer, ClientConnectionInfo, ClientConnectionKey, ReloadServer, ServerReloadCommand,
 };
 
-const CLOSE_RECV_BATCH_SIZE: usize = 16;
+const EVENT_RECV_BATCH_SIZE: usize = 16;
+
+pub struct AcceptedUdpPacketReceiver {
+    inner: mpsc::Receiver<io::Result<Bytes>>,
+}
+
+impl AcceptedUdpPacketReceiver {
+    pub async fn recv_packet(&mut self) -> io::Result<Bytes> {
+        self.inner.recv().await.unwrap_or(Ok(Bytes::new()))
+    }
+}
+
+enum Event {
+    Packet(ClientConnectionKey, Bytes),
+    Close(ClientConnectionKey),
+}
+
+pub struct AcceptedUdpPacketSender {
+    connection_key: ClientConnectionKey,
+    inner: mpsc::Sender<Event>,
+}
+
+impl AcceptedUdpPacketSender {
+    pub async fn send_packet(&mut self, packet: Bytes) -> io::Result<()> {
+        self.inner
+            .send(Event::Packet(self.connection_key, packet))
+            .await
+            .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))
+    }
+
+    pub async fn close(&mut self) -> io::Result<()> {
+        self.inner
+            .send(Event::Close(self.connection_key))
+            .await
+            .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))
+    }
+}
 
 pub trait AcceptUdpServer: BaseServer {
     fn run_udp_task(
         &self,
         cc_info: ClientConnectionInfo,
-        packet_receiver: mpsc::Receiver<Bytes>,
-        close_notifier: mpsc::Sender<ClientConnectionKey>,
+        packet_receiver: AcceptedUdpPacketReceiver,
+        packet_sender: AcceptedUdpPacketSender,
     );
 }
 
@@ -110,10 +146,9 @@ where
 
         let mut connection_table =
             LruCache::with_hasher(self.conn_track.max_sessions(), FixedState::with_seed(0));
-        let (close_sender, mut close_receiver) = mpsc::channel(self.conn_track.close_queue_size());
+        let (event_sender, mut event_receiver) = mpsc::channel(self.conn_track.close_queue_size());
 
-        let mut close_recv_buf: Vec<ClientConnectionKey> =
-            Vec::with_capacity(CLOSE_RECV_BATCH_SIZE);
+        let mut event_recv_buf: Vec<Event> = Vec::with_capacity(EVENT_RECV_BATCH_SIZE);
 
         let mut buf = [0u8; u16::MAX as usize];
         loop {
@@ -144,10 +179,9 @@ where
                     self.pre_stop();
                     break;
                 }
-                n = close_receiver.recv_many(&mut close_recv_buf, CLOSE_RECV_BATCH_SIZE) => {
-                    for key in &close_recv_buf[0..n] {
-                        connection_table.pop(key);
-                    }
+                n = event_receiver.recv_many(&mut event_recv_buf, EVENT_RECV_BATCH_SIZE) => {
+                    self.handle_events(&socket, &event_recv_buf[..n], &mut connection_table).await;
+                    event_recv_buf.clear();
                 }
                 r = self.recv_packet(&socket, listen_addr, &mut buf) => {
                     match r {
@@ -155,10 +189,17 @@ where
                             let key = cc_info.connection_key();
                             let sender = connection_table.get_or_insert_ref(&key, || {
                                 let (data_sender, data_receiver) = mpsc::channel(self.conn_track.session_queue_size());
-                                self.server.run_udp_task(cc_info, data_receiver, close_sender.clone());
+                                let packet_receiver = AcceptedUdpPacketReceiver {
+                                    inner: data_receiver,
+                                };
+                                let packet_sender = AcceptedUdpPacketSender {
+                                    connection_key: key,
+                                    inner: event_sender.clone(),
+                                };
+                                self.server.run_udp_task(cc_info, packet_receiver, packet_sender);
                                 data_sender
                             });
-                            match sender.try_send(data) {
+                            match sender.try_send(Ok(data)) {
                                 Ok(_) => {}
                                 Err(mpsc::error::TrySendError::Full(_)) => {
                                     // TODO record dropped data
@@ -203,6 +244,36 @@ where
         let data = Bytes::copy_from_slice(&buf[..nr]);
 
         Ok((cc_info, data))
+    }
+
+    async fn handle_events(
+        &self,
+        socket: &UdpSocket,
+        events: &[Event],
+        connection_table: &mut LruCache<
+            ClientConnectionKey,
+            mpsc::Sender<io::Result<Bytes>>,
+            FixedState,
+        >,
+    ) {
+        for event in events {
+            match event {
+                Event::Packet(key, data) => {
+                    let hdr = SendMsgHdr::new([IoSlice::new(data)], Some(key.sock_peer_addr));
+                    match poll_fn(move |cx| socket.poll_sendmsg(cx, &hdr)).await {
+                        Ok(_nw) => {}
+                        Err(e) => {
+                            if let Some(sender) = connection_table.get(key) {
+                                let _ = sender.send(Err(e)).await;
+                            }
+                        }
+                    }
+                }
+                Event::Close(key) => {
+                    connection_table.pop(key);
+                }
+            }
+        }
     }
 
     fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {

@@ -24,10 +24,10 @@ pub struct ClientConnectionInfo {
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct ClientConnectionKey {
-    client_addr: SocketAddr,
-    server_addr: SocketAddr,
-    sock_peer_addr: SocketAddr,
-    sock_local_addr: SocketAddr,
+    pub client_addr: SocketAddr,
+    pub server_addr: SocketAddr,
+    pub sock_peer_addr: SocketAddr,
+    pub sock_local_addr: SocketAddr,
 }
 
 impl ClientConnectionInfo {
