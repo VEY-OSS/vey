@@ -340,3 +340,257 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::net::SocketAddr;
+    use std::str::FromStr;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+
+    use tokio::time::timeout;
+    use vey_types::metrics::NodeName;
+
+    #[derive(Debug, Clone)]
+    struct SessionStart {
+        session_id: usize,
+        cc_info: ClientConnectionInfo,
+    }
+
+    #[derive(Debug, Clone)]
+    struct ReceivedPacket {
+        session_id: usize,
+        data: Bytes,
+    }
+
+    #[derive(Clone)]
+    struct TestServer {
+        name: NodeName,
+        version: usize,
+        next_session_id: Arc<AtomicUsize>,
+        session_starts: mpsc::UnboundedSender<SessionStart>,
+        packets: mpsc::UnboundedSender<ReceivedPacket>,
+        close_after_first_packet: bool,
+    }
+
+    impl BaseServer for TestServer {
+        fn name(&self) -> &NodeName {
+            &self.name
+        }
+
+        fn r#type(&self) -> &'static str {
+            "test-udp"
+        }
+
+        fn version(&self) -> usize {
+            self.version
+        }
+    }
+
+    impl ReloadServer for TestServer {
+        fn reload(&self) -> Self {
+            let mut new_server = self.clone();
+            new_server.version += 1;
+            new_server
+        }
+    }
+
+    impl AcceptUdpServer for TestServer {
+        fn run_udp_task(
+            &self,
+            cc_info: ClientConnectionInfo,
+            mut packet_receiver: AcceptedUdpPacketReceiver,
+            mut packet_sender: AcceptedUdpPacketSender,
+        ) {
+            let session_id = self.next_session_id.fetch_add(1, Ordering::Relaxed);
+            let _ = self.session_starts.send(SessionStart {
+                session_id,
+                cc_info: cc_info.clone(),
+            });
+
+            let packets = self.packets.clone();
+            let close_after_first_packet = self.close_after_first_packet;
+            tokio::spawn(async move {
+                let mut seen_packets = 0usize;
+                loop {
+                    match packet_receiver.recv_packet().await {
+                        Ok(packet) if packet.is_empty() => break,
+                        Ok(packet) => {
+                            seen_packets += 1;
+                            let _ = packets.send(ReceivedPacket {
+                                session_id,
+                                data: packet.clone(),
+                            });
+                            if close_after_first_packet && seen_packets == 1 {
+                                let _ = packet_sender.close().await;
+                                break;
+                            } else {
+                                let _ = packet_sender.send_packet(packet).await;
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+            });
+        }
+    }
+
+    struct RuntimeHarness {
+        listen_addr: SocketAddr,
+        reload_sender: broadcast::Sender<ServerReloadCommand>,
+        session_starts: mpsc::UnboundedReceiver<SessionStart>,
+        packets: mpsc::UnboundedReceiver<ReceivedPacket>,
+        runtime_task: tokio::task::JoinHandle<()>,
+    }
+
+    impl RuntimeHarness {
+        async fn new(close_after_first_packet: bool) -> Self {
+            let (session_starts_tx, session_starts) = mpsc::unbounded_channel();
+            let (packets_tx, packets) = mpsc::unbounded_channel();
+
+            let server = TestServer {
+                name: NodeName::from_str("udp-test").unwrap(),
+                version: 1,
+                next_session_id: Arc::new(AtomicUsize::new(1)),
+                session_starts: session_starts_tx,
+                packets: packets_tx,
+                close_after_first_packet,
+            };
+
+            let socket = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+            socket.set_nonblocking(true).unwrap();
+            let listen_addr = socket.local_addr().unwrap();
+            let socket = UdpSocket::from_std(socket).unwrap();
+
+            let (reload_sender, reload_receiver) = broadcast::channel(4);
+
+            let runtime = ListenUdpRuntime::new(
+                server,
+                UdpListenConfig::new(listen_addr),
+                UdpConnectionTrackConfig::default(),
+            );
+
+            let runtime_task = tokio::spawn(runtime.run(socket, listen_addr, reload_receiver));
+
+            RuntimeHarness {
+                listen_addr,
+                reload_sender,
+                session_starts,
+                packets,
+                runtime_task,
+            }
+        }
+
+        async fn shutdown(self) {
+            let _ = self.reload_sender.send(ServerReloadCommand::QuitRuntime);
+            let _ = timeout(Duration::from_secs(1), self.runtime_task).await;
+        }
+    }
+
+    async fn recv_packet(socket: &UdpSocket) -> Bytes {
+        let mut buf = [0u8; 64];
+        let n = timeout(Duration::from_secs(1), socket.recv(&mut buf))
+            .await
+            .unwrap()
+            .unwrap();
+        Bytes::copy_from_slice(&buf[..n])
+    }
+
+    async fn recv_session_start(rx: &mut mpsc::UnboundedReceiver<SessionStart>) -> SessionStart {
+        timeout(Duration::from_secs(1), rx.recv())
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    async fn recv_received_packet(
+        rx: &mut mpsc::UnboundedReceiver<ReceivedPacket>,
+    ) -> ReceivedPacket {
+        timeout(Duration::from_secs(1), rx.recv())
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn routes_packets_per_connection_and_forwards_responses() {
+        let mut harness = RuntimeHarness::new(false).await;
+
+        let client_a = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let client_b = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+
+        client_a
+            .send_to(b"alpha-1", harness.listen_addr)
+            .await
+            .unwrap();
+        let start_a = recv_session_start(&mut harness.session_starts).await;
+        let packet_a1 = recv_received_packet(&mut harness.packets).await;
+        assert_eq!(packet_a1.session_id, start_a.session_id);
+        assert_eq!(packet_a1.data, Bytes::from_static(b"alpha-1"));
+        assert_eq!(recv_packet(&client_a).await, Bytes::from_static(b"alpha-1"));
+
+        client_a
+            .send_to(b"alpha-2", harness.listen_addr)
+            .await
+            .unwrap();
+        let packet_a2 = recv_received_packet(&mut harness.packets).await;
+        assert_eq!(packet_a2.session_id, start_a.session_id);
+        assert_eq!(packet_a2.data, Bytes::from_static(b"alpha-2"));
+        assert_eq!(recv_packet(&client_a).await, Bytes::from_static(b"alpha-2"));
+
+        client_b
+            .send_to(b"bravo-1", harness.listen_addr)
+            .await
+            .unwrap();
+        let start_b = recv_session_start(&mut harness.session_starts).await;
+        let packet_b1 = recv_received_packet(&mut harness.packets).await;
+        assert_ne!(start_a.session_id, start_b.session_id);
+        assert_ne!(
+            start_a.cc_info.connection_key(),
+            start_b.cc_info.connection_key()
+        );
+        assert_eq!(packet_b1.session_id, start_b.session_id);
+        assert_eq!(packet_b1.data, Bytes::from_static(b"bravo-1"));
+        assert_eq!(recv_packet(&client_b).await, Bytes::from_static(b"bravo-1"));
+
+        assert!(
+            timeout(Duration::from_millis(100), harness.session_starts.recv())
+                .await
+                .is_err()
+        );
+
+        harness.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn close_event_drops_connection_state_and_recreates_session() {
+        let mut harness = RuntimeHarness::new(true).await;
+
+        let client = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+
+        client.send_to(b"first", harness.listen_addr).await.unwrap();
+        let start_1 = recv_session_start(&mut harness.session_starts).await;
+        let packet_1 = recv_received_packet(&mut harness.packets).await;
+        assert_eq!(packet_1.session_id, start_1.session_id);
+        assert_eq!(packet_1.data, Bytes::from_static(b"first"));
+
+        client
+            .send_to(b"second", harness.listen_addr)
+            .await
+            .unwrap();
+        let start_2 = recv_session_start(&mut harness.session_starts).await;
+        let packet_2 = recv_received_packet(&mut harness.packets).await;
+        assert_ne!(start_1.session_id, start_2.session_id);
+        assert_eq!(
+            start_1.cc_info.connection_key(),
+            start_2.cc_info.connection_key()
+        );
+        assert_eq!(packet_2.session_id, start_2.session_id);
+        assert_eq!(packet_2.data, Bytes::from_static(b"second"));
+
+        harness.shutdown().await;
+    }
+}
