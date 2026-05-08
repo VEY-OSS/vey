@@ -8,3 +8,6 @@ pub use tcp_connect::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStats,
     TcpConnectionTaskRemoteStatsWrapper,
 };
+
+mod udp_connect;
+pub use udp_connect::{ArcUdpConnectTaskRemoteStats, UdpConnectTaskRemoteStats};

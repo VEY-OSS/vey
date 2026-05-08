@@ -5,13 +5,14 @@
 
 use std::sync::Arc;
 
+use vey_daemon::stat::remote::ArcUdpConnectTaskRemoteStats;
 use vey_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 
 use super::ProxySocks5Escaper;
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult,
-    UdpConnectTaskConf, UdpConnectTaskNotes,
+    UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf,
+    UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 

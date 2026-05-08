@@ -5,8 +5,5 @@
 
 use super::SocksProxyServerStats;
 
-mod task;
-pub(super) use task::UdpConnectTaskStats;
-
 mod wrapper;
 pub(super) use wrapper::UdpConnectTaskCltWrapperStats;

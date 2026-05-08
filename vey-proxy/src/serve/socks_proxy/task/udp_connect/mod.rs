@@ -14,4 +14,4 @@ mod stats;
 
 use recv::Socks5UdpConnectClientRecv;
 use send::Socks5UdpConnectClientSend;
-use stats::{UdpConnectTaskCltWrapperStats, UdpConnectTaskStats};
+use stats::UdpConnectTaskCltWrapperStats;

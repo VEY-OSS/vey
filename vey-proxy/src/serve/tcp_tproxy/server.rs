@@ -18,7 +18,10 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
-use vey_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
+use vey_daemon::listen::{
+    AcceptQuicServer, AcceptTcpServer, AcceptUdpServer, AcceptedUdpPacketReceiver,
+    AcceptedUdpPacketSender, ListenStats, ListenTcpRuntime,
+};
 use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use vey_io_ext::IdleWheel;
 use vey_openssl::SslStream;
@@ -304,6 +307,17 @@ impl AcceptTcpServer for TcpTProxyServer {
         }
 
         self.run_task(stream, cc_info).await
+    }
+}
+
+#[async_trait]
+impl AcceptUdpServer for TcpTProxyServer {
+    async fn run_udp_task(
+        &self,
+        _cc_info: ClientConnectionInfo,
+        _packet_receiver: AcceptedUdpPacketReceiver,
+        _packet_sender: AcceptedUdpPacketSender,
+    ) {
     }
 }
 

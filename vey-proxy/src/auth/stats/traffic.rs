@@ -156,3 +156,21 @@ impl TcpConnectionTaskRemoteStats for UserUpstreamTrafficStats {
         self.io.tcp.add_out_bytes(size);
     }
 }
+
+impl UdpConnectTaskRemoteStats for UserUpstreamTrafficStats {
+    fn add_recv_bytes(&self, size: u64) {
+        self.io.udp.add_in_bytes(size);
+    }
+
+    fn add_recv_packets(&self, n: usize) {
+        self.io.udp.add_in_packets(n);
+    }
+
+    fn add_send_bytes(&self, size: u64) {
+        self.io.udp.add_out_bytes(size);
+    }
+
+    fn add_send_packets(&self, n: usize) {
+        self.io.udp.add_out_packets(n);
+    }
+}

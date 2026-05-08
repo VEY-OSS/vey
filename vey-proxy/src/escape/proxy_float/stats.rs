@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use vey_daemon::stat::remote::TcpConnectionTaskRemoteStats;
+use vey_daemon::stat::remote::{TcpConnectionTaskRemoteStats, UdpConnectTaskRemoteStats};
 use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
@@ -17,7 +17,6 @@ use crate::escape::{
     EscaperTcpStats, EscaperTlsSnapshot, EscaperTlsStats, EscaperUdpStats,
 };
 use crate::module::http_forward::HttpForwardTaskRemoteStats;
-use crate::module::udp_connect::UdpConnectTaskRemoteStats;
 use crate::module::udp_relay::UdpRelayTaskRemoteStats;
 
 pub(crate) struct ProxyFloatEscaperStats {

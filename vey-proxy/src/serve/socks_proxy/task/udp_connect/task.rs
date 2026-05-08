@@ -10,6 +10,7 @@ use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::UdpSocket;
 
+use vey_daemon::stat::task::UdpConnectTaskStats;
 use vey_io_ext::{
     LimitedUdpRecv, LimitedUdpSend, UdpCopyClientRecv, UdpCopyClientSend, UdpCopyClientToRemote,
     UdpCopyError, UdpCopyRemoteRecv, UdpCopyRemoteSend, UdpCopyRemoteToClient, UdpRecvHalf,
@@ -21,7 +22,7 @@ use vey_types::net::{ProxyRequestType, UpstreamAddr};
 
 use super::{
     CommonTaskContext, Socks5UdpConnectClientRecv, Socks5UdpConnectClientSend,
-    UdpConnectTaskCltWrapperStats, UdpConnectTaskStats,
+    UdpConnectTaskCltWrapperStats,
 };
 use crate::config::server::ServerConfig;
 use crate::log::escape::udp_sendto::EscapeLogForUdpConnectSendTo;

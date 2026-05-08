@@ -188,7 +188,6 @@ impl UdpListenConfig {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UdpConnectionTrackConfig {
     max_sessions: NonZeroUsize,
-    close_queue_size: NonZeroUsize,
     session_queue_size: NonZeroUsize,
 }
 
@@ -196,7 +195,6 @@ impl Default for UdpConnectionTrackConfig {
     fn default() -> Self {
         UdpConnectionTrackConfig {
             max_sessions: unsafe { NonZeroUsize::new_unchecked(1024) },
-            close_queue_size: unsafe { NonZeroUsize::new_unchecked(128) },
             session_queue_size: unsafe { NonZeroUsize::new_unchecked(32) },
         }
     }
@@ -211,16 +209,6 @@ impl UdpConnectionTrackConfig {
     #[inline]
     pub fn set_max_sessions(&mut self, max_sessions: NonZeroUsize) {
         self.max_sessions = max_sessions;
-    }
-
-    #[inline]
-    pub fn close_queue_size(&self) -> usize {
-        self.close_queue_size.get()
-    }
-
-    #[inline]
-    pub fn set_close_queue_size(&mut self, close_queue_size: NonZeroUsize) {
-        self.close_queue_size = close_queue_size;
     }
 
     #[inline]

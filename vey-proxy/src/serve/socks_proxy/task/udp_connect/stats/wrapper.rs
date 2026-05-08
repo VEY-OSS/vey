@@ -5,9 +5,10 @@
 
 use std::sync::Arc;
 
+use vey_daemon::stat::task::UdpConnectTaskStats;
 use vey_io_ext::{LimitedRecvStats, LimitedSendStats};
 
-use super::{SocksProxyServerStats, UdpConnectTaskStats};
+use super::SocksProxyServerStats;
 use crate::auth::UserTrafficStats;
 
 trait UdpConnectTaskCltStatsWrapper {

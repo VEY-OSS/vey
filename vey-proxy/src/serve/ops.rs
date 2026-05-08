@@ -39,6 +39,13 @@ use super::tcp_stream::TcpStreamServer;
 ))]
 use super::tcp_tproxy::TcpTProxyServer;
 use super::tls_stream::TlsStreamServer;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "openbsd"
+))]
+use super::udp_tproxy::UdpTProxyServer;
 
 static SERVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
@@ -304,6 +311,13 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
             target_os = "openbsd"
         ))]
         AnyServerConfig::TcpTProxy(c) => TcpTProxyServer::prepare_initial(c)?,
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "dragonfly",
+            target_os = "openbsd"
+        ))]
+        AnyServerConfig::UdpTProxy(c) => UdpTProxyServer::prepare_initial(c)?,
         AnyServerConfig::TlsStream(c) => TlsStreamServer::prepare_initial(c)?,
         AnyServerConfig::SniProxy(c) => SniProxyServer::prepare_initial(c)?,
         AnyServerConfig::SocksProxy(c) => SocksProxyServer::prepare_initial(c)?,

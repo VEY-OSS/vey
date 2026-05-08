@@ -13,7 +13,10 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
-use vey_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
+use vey_daemon::listen::{
+    AcceptQuicServer, AcceptTcpServer, AcceptUdpServer, AcceptedUdpPacketReceiver,
+    AcceptedUdpPacketSender, ListenStats,
+};
 use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use vey_openssl::SslStream;
 use vey_types::metrics::NodeName;
@@ -143,6 +146,17 @@ impl BaseServer for DummyCloseServer {
 #[async_trait]
 impl AcceptTcpServer for DummyCloseServer {
     async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
+}
+
+#[async_trait]
+impl AcceptUdpServer for DummyCloseServer {
+    async fn run_udp_task(
+        &self,
+        _cc_info: ClientConnectionInfo,
+        _packet_receiver: AcceptedUdpPacketReceiver,
+        _packet_sender: AcceptedUdpPacketSender,
+    ) {
+    }
 }
 
 #[async_trait]

@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use tokio::net::UdpSocket;
 
+use vey_daemon::stat::remote::ArcUdpConnectTaskRemoteStats;
 use vey_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 use vey_socket::BindAddr;
 use vey_socket::util::AddressFamily;
@@ -17,8 +18,8 @@ use crate::escape::direct_fixed::udp_connect::{
     DirectUdpConnectRemoteRecv, DirectUdpConnectRemoteSend,
 };
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult,
-    UdpConnectTaskConf, UdpConnectTaskNotes,
+    UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf,
+    UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 

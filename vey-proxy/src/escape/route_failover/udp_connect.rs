@@ -7,11 +7,12 @@ use std::pin::pin;
 
 use anyhow::anyhow;
 
+use vey_daemon::stat::remote::ArcUdpConnectTaskRemoteStats;
+
 use super::RouteFailoverEscaper;
 use crate::escape::ArcEscaper;
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskConf,
-    UdpConnectTaskNotes,
+    UdpConnectError, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 

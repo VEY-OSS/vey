@@ -12,7 +12,10 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
-use vey_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
+use vey_daemon::listen::{
+    AcceptQuicServer, AcceptTcpServer, AcceptUdpServer, AcceptedUdpPacketReceiver,
+    AcceptedUdpPacketSender, ListenStats,
+};
 use vey_daemon::server::{
     BaseServer, ClientConnectionInfo, ReloadServer, ServerQuitPolicy, ServerReloadCommand,
 };
@@ -49,11 +52,19 @@ mod tcp_stream;
 ))]
 mod tcp_tproxy;
 mod tls_stream;
+mod udp_stream;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "openbsd"
+))]
+mod udp_tproxy;
 
 mod error;
-mod task;
-
 pub(crate) use error::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
+
+mod task;
 pub(crate) use task::{ServerTaskNotes, ServerTaskStage};
 
 mod ops;
@@ -70,7 +81,9 @@ pub(crate) use stats::{
 };
 
 #[async_trait]
-pub(crate) trait Server: BaseServer + AcceptTcpServer + AcceptQuicServer {
+pub(crate) trait Server:
+    BaseServer + AcceptTcpServer + AcceptUdpServer + AcceptQuicServer
+{
     fn escaper(&self) -> &NodeName;
     fn user_group(&self) -> &NodeName;
     fn auditor(&self) -> &NodeName;
@@ -146,6 +159,20 @@ impl ReloadServer for WrapArcServer {
 impl AcceptTcpServer for WrapArcServer {
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         self.0.run_tcp_task(stream, cc_info).await
+    }
+}
+
+#[async_trait]
+impl AcceptUdpServer for WrapArcServer {
+    async fn run_udp_task(
+        &self,
+        cc_info: ClientConnectionInfo,
+        packet_receiver: AcceptedUdpPacketReceiver,
+        packet_sender: AcceptedUdpPacketSender,
+    ) {
+        self.0
+            .run_udp_task(cc_info, packet_receiver, packet_sender)
+            .await
     }
 }
 

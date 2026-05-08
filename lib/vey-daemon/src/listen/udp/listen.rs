@@ -6,7 +6,9 @@
 use std::future::poll_fn;
 use std::io::{self, IoSlice, IoSliceMut};
 use std::net::SocketAddr;
+use std::task::{Context, Poll};
 
+use async_trait::async_trait;
 use bytes::Bytes;
 use foldhash::fast::FixedState;
 use log::{info, warn};
@@ -33,6 +35,14 @@ impl AcceptedUdpPacketReceiver {
     pub async fn recv_packet(&mut self) -> io::Result<Bytes> {
         self.inner.recv().await.unwrap_or(Ok(Bytes::new()))
     }
+
+    pub fn poll_recv_packet(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<Bytes>> {
+        match self.inner.poll_recv(cx) {
+            Poll::Ready(Some(packet)) => Poll::Ready(packet),
+            Poll::Ready(None) => Poll::Ready(Ok(Bytes::new())),
+            Poll::Pending => Poll::Pending,
+        }
+    }
 }
 
 enum Event {
@@ -42,27 +52,26 @@ enum Event {
 
 pub struct AcceptedUdpPacketSender {
     connection_key: ClientConnectionKey,
-    inner: mpsc::Sender<Event>,
+    inner: mpsc::UnboundedSender<Event>,
 }
 
 impl AcceptedUdpPacketSender {
-    pub async fn send_packet(&mut self, packet: Bytes) -> io::Result<()> {
+    pub fn send_packet(&mut self, packet: Bytes) -> io::Result<()> {
         self.inner
             .send(Event::Packet(self.connection_key, packet))
-            .await
             .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))
     }
 
-    pub async fn close(&mut self) -> io::Result<()> {
+    pub fn close(&mut self) -> io::Result<()> {
         self.inner
             .send(Event::Close(self.connection_key))
-            .await
             .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))
     }
 }
 
+#[async_trait]
 pub trait AcceptUdpServer: BaseServer {
-    fn run_udp_task(
+    async fn run_udp_task(
         &self,
         cc_info: ClientConnectionInfo,
         packet_receiver: AcceptedUdpPacketReceiver,
@@ -146,7 +155,7 @@ where
 
         let mut connection_table =
             LruCache::with_hasher(self.conn_track.max_sessions(), FixedState::with_seed(0));
-        let (event_sender, mut event_receiver) = mpsc::channel(self.conn_track.close_queue_size());
+        let (event_sender, mut event_receiver) = mpsc::unbounded_channel();
 
         let mut event_recv_buf: Vec<Event> = Vec::with_capacity(EVENT_RECV_BATCH_SIZE);
 
@@ -196,7 +205,7 @@ where
                                     connection_key: key,
                                     inner: event_sender.clone(),
                                 };
-                                self.server.run_udp_task(cc_info, packet_receiver, packet_sender);
+                                self.run_task(cc_info, packet_receiver, packet_sender);
                                 data_sender
                             });
                             match sender.try_send(Ok(data)) {
@@ -222,6 +231,40 @@ where
         self.post_stop();
     }
 
+    fn run_task(
+        &self,
+        mut cc_info: ClientConnectionInfo,
+        packet_receiver: AcceptedUdpPacketReceiver,
+        packet_sender: AcceptedUdpPacketSender,
+    ) {
+        let server = self.server.clone();
+
+        if let Some(worker_id) = self.worker_id {
+            cc_info.set_worker_id(Some(worker_id));
+            tokio::spawn(async move {
+                server
+                    .run_udp_task(cc_info, packet_receiver, packet_sender)
+                    .await;
+            });
+            return;
+        }
+
+        if let Some(rt) = crate::runtime::worker::select_handle() {
+            cc_info.set_worker_id(Some(rt.id));
+            rt.handle.spawn(async move {
+                server
+                    .run_udp_task(cc_info, packet_receiver, packet_sender)
+                    .await;
+            });
+        } else {
+            tokio::spawn(async move {
+                server
+                    .run_udp_task(cc_info, packet_receiver, packet_sender)
+                    .await;
+            });
+        }
+    }
+
     async fn recv_packet(
         &self,
         socket: &UdpSocket,
@@ -237,8 +280,7 @@ where
             .ok_or_else(|| io::Error::other("unable to get peer address"))?;
         let local_addr = hdr.dst_addr(listen_addr);
 
-        let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
-        cc_info.set_worker_id(self.worker_id);
+        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
 
         let nr = hdr.n_recv;
         let data = Bytes::copy_from_slice(&buf[..nr]);
@@ -398,8 +440,9 @@ mod tests {
         }
     }
 
+    #[async_trait]
     impl AcceptUdpServer for TestServer {
-        fn run_udp_task(
+        async fn run_udp_task(
             &self,
             cc_info: ClientConnectionInfo,
             mut packet_receiver: AcceptedUdpPacketReceiver,
@@ -411,30 +454,26 @@ mod tests {
                 cc_info: cc_info.clone(),
             });
 
-            let packets = self.packets.clone();
-            let close_after_first_packet = self.close_after_first_packet;
-            tokio::spawn(async move {
-                let mut seen_packets = 0usize;
-                loop {
-                    match packet_receiver.recv_packet().await {
-                        Ok(packet) if packet.is_empty() => break,
-                        Ok(packet) => {
-                            seen_packets += 1;
-                            let _ = packets.send(ReceivedPacket {
-                                session_id,
-                                data: packet.clone(),
-                            });
-                            if close_after_first_packet && seen_packets == 1 {
-                                let _ = packet_sender.close().await;
-                                break;
-                            } else {
-                                let _ = packet_sender.send_packet(packet).await;
-                            }
+            let mut seen_packets = 0usize;
+            loop {
+                match packet_receiver.recv_packet().await {
+                    Ok(packet) if packet.is_empty() => break,
+                    Ok(packet) => {
+                        seen_packets += 1;
+                        let _ = self.packets.send(ReceivedPacket {
+                            session_id,
+                            data: packet.clone(),
+                        });
+                        if self.close_after_first_packet && seen_packets == 1 {
+                            let _ = packet_sender.close();
+                            break;
+                        } else {
+                            let _ = packet_sender.send_packet(packet);
                         }
-                        Err(_) => break,
                     }
+                    Err(_) => break,
                 }
-            });
+            }
         }
     }
 

@@ -1,0 +1,118 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
+ */
+
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, AtomicIsize, AtomicU64, Ordering};
+
+use arc_swap::ArcSwapOption;
+
+use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::stats::{StatId, UdpIoSnapshot, UdpIoStats};
+
+use crate::serve::{ServerForbiddenSnapshot, ServerForbiddenStats, ServerStats};
+
+pub(crate) struct UdpStreamServerStats {
+    name: NodeName,
+    id: StatId,
+
+    extra_metrics_tags: Arc<ArcSwapOption<MetricTagMap>>,
+
+    online: AtomicIsize,
+    conn_total: AtomicU64,
+    task_total: AtomicU64,
+    task_alive_count: AtomicI32,
+
+    pub(crate) udp: UdpIoStats,
+    pub(crate) forbidden: ServerForbiddenStats,
+}
+
+impl UdpStreamServerStats {
+    pub(crate) fn new(name: &NodeName) -> Self {
+        UdpStreamServerStats {
+            name: name.clone(),
+            id: StatId::new_unique(),
+            extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
+            online: AtomicIsize::new(0),
+            conn_total: AtomicU64::new(0),
+            task_total: AtomicU64::new(0),
+            task_alive_count: AtomicI32::new(0),
+            udp: UdpIoStats::default(),
+            forbidden: ServerForbiddenStats::default(),
+        }
+    }
+
+    pub(crate) fn set_online(&self) {
+        self.online.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn set_offline(&self) {
+        self.online.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<MetricTagMap>>) {
+        self.extra_metrics_tags.store(tags);
+    }
+
+    pub(crate) fn add_conn(&self, _addr: SocketAddr) {
+        self.conn_total.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn add_task(self: &Arc<Self>) -> UdpStreamServerAliveTaskGuard {
+        self.task_total.fetch_add(1, Ordering::Relaxed);
+        self.task_alive_count.fetch_add(1, Ordering::Relaxed);
+        UdpStreamServerAliveTaskGuard(self.clone())
+    }
+}
+
+pub(crate) struct UdpStreamServerAliveTaskGuard(Arc<UdpStreamServerStats>);
+
+impl Drop for UdpStreamServerAliveTaskGuard {
+    fn drop(&mut self) {
+        self.0.task_alive_count.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+impl ServerStats for UdpStreamServerStats {
+    fn name(&self) -> &NodeName {
+        &self.name
+    }
+
+    fn stat_id(&self) -> StatId {
+        self.id
+    }
+
+    fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
+        self.extra_metrics_tags.load_full()
+    }
+
+    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<MetricTagMap>> {
+        &self.extra_metrics_tags
+    }
+
+    fn is_online(&self) -> bool {
+        self.online.load(Ordering::Relaxed) > 0
+    }
+
+    fn get_conn_total(&self) -> u64 {
+        self.conn_total.load(Ordering::Relaxed)
+    }
+
+    fn get_task_total(&self) -> u64 {
+        self.task_total.load(Ordering::Relaxed)
+    }
+
+    fn get_alive_count(&self) -> i32 {
+        self.task_alive_count.load(Ordering::Relaxed)
+    }
+
+    fn udp_io_snapshot(&self) -> Option<UdpIoSnapshot> {
+        Some(self.udp.snapshot())
+    }
+
+    fn forbidden_stats(&self) -> ServerForbiddenSnapshot {
+        self.forbidden.snapshot()
+    }
+}

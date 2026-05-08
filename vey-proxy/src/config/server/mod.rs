@@ -43,6 +43,13 @@ pub(crate) mod tcp_stream;
 ))]
 pub(crate) mod tcp_tproxy;
 pub(crate) mod tls_stream;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "openbsd",
+))]
+pub(crate) mod udp_tproxy;
 
 mod registry;
 pub(crate) use registry::clear;
@@ -146,6 +153,13 @@ pub(crate) enum AnyServerConfig {
         target_os = "openbsd"
     ))]
     TcpTProxy(tcp_tproxy::TcpTProxyServerConfig),
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "openbsd"
+    ))]
+    UdpTProxy(udp_tproxy::UdpTProxyServerConfig),
     TlsStream(tls_stream::TlsStreamServerConfig),
     SniProxy(sni_proxy::SniProxyServerConfig),
     SocksProxy(socks_proxy::SocksProxyServerConfig),
@@ -251,6 +265,17 @@ fn load_server(
             let server = tcp_tproxy::TcpTProxyServerConfig::parse(map, position)
                 .context("failed to load this TcpTProxy server")?;
             Ok(AnyServerConfig::TcpTProxy(server))
+        }
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "dragonfly",
+            target_os = "openbsd"
+        ))]
+        "udp_tproxy" | "udptproxy" => {
+            let server = udp_tproxy::UdpTProxyServerConfig::parse(map, position)
+                .context("failed to load this UdpTProxy server")?;
+            Ok(AnyServerConfig::UdpTProxy(server))
         }
         "tls_stream" | "tlsstream" => {
             let server = tls_stream::TlsStreamServerConfig::parse(map, position)

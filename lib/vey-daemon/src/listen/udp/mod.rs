@@ -4,7 +4,9 @@
  */
 
 mod listen;
-pub use listen::{AcceptUdpServer, ListenUdpRuntime};
+pub use listen::{
+    AcceptUdpServer, AcceptedUdpPacketReceiver, AcceptedUdpPacketSender, ListenUdpRuntime,
+};
 
 mod receive;
 pub use receive::{ReceiveUdpRuntime, ReceiveUdpServer};
