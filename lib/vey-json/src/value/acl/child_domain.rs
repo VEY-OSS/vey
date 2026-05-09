@@ -6,11 +6,11 @@
 use anyhow::anyhow;
 use serde_json::Value;
 
-use vey_types::acl::{AclAction, AclChildDomainRuleBuilder};
+use vey_types::acl::{AclAction, AclSuffixDomainRuleBuilder};
 
 use super::AclRuleJsonParser;
 
-impl AclRuleJsonParser for AclChildDomainRuleBuilder {
+impl AclRuleJsonParser for AclSuffixDomainRuleBuilder {
     #[inline]
     fn get_default_found_action(&self) -> AclAction {
         AclAction::Permit
@@ -33,10 +33,10 @@ impl AclRuleJsonParser for AclChildDomainRuleBuilder {
     }
 }
 
-pub(crate) fn as_child_domain_rule_builder(
+pub(crate) fn as_suffix_domain_rule_builder(
     value: &Value,
-) -> anyhow::Result<AclChildDomainRuleBuilder> {
-    let mut builder = AclChildDomainRuleBuilder::new(AclAction::Forbid);
+) -> anyhow::Result<AclSuffixDomainRuleBuilder> {
+    let mut builder = AclSuffixDomainRuleBuilder::new(AclAction::Forbid);
     builder.parse(value)?;
     Ok(builder)
 }

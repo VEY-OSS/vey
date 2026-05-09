@@ -4,8 +4,8 @@
  */
 
 use crate::acl::{
-    AclAction, AclChildDomainRule, AclChildDomainRuleBuilder, AclExactHostRule, AclNetworkRule,
-    AclNetworkRuleBuilder, AclRegexDomainRule, AclRegexDomainRuleBuilder, ActionContract,
+    AclAction, AclExactHostRule, AclNetworkRule, AclNetworkRuleBuilder, AclRegexDomainRule,
+    AclRegexDomainRuleBuilder, AclSuffixDomainRule, AclSuffixDomainRuleBuilder, ActionContract,
     OrderedActionContract,
 };
 use crate::net::Host;
@@ -13,18 +13,18 @@ use crate::net::Host;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AclDstHostRuleSetBuilder<Action = AclAction> {
     pub exact: Option<AclExactHostRule<Action>>,
-    pub child: Option<AclChildDomainRuleBuilder<Action>>,
-    pub regex: Option<AclRegexDomainRuleBuilder<Action>>,
     pub subnet: Option<AclNetworkRuleBuilder<Action>>,
+    pub suffix: Option<AclSuffixDomainRuleBuilder<Action>>,
+    pub regex: Option<AclRegexDomainRuleBuilder<Action>>,
 }
 
 impl<Action> Default for AclDstHostRuleSetBuilder<Action> {
     fn default() -> Self {
         AclDstHostRuleSetBuilder {
             exact: None,
-            child: None,
-            regex: None,
             subnet: None,
+            suffix: None,
+            regex: None,
         }
     }
 }
@@ -33,9 +33,9 @@ impl<Action: OrderedActionContract> AclDstHostRuleSetBuilder<Action> {
     pub fn build_with_missed_action(&self, missed_action: Action) -> AclDstHostRuleSet<Action> {
         AclDstHostRuleSet {
             exact: self.exact.clone(),
-            child: self.child.as_ref().map(|b| b.build()),
-            regex: self.regex.as_ref().map(|b| b.build()),
             subnet: self.subnet.as_ref().map(|b| b.build()),
+            suffix: self.suffix.as_ref().map(|b| b.build()),
+            regex: self.regex.as_ref().map(|b| b.build()),
             missed_action,
         }
     }
@@ -50,7 +50,12 @@ impl AclDstHostRuleSetBuilder<AclAction> {
             rule.clone()
         });
 
-        let child_rule = self.child.as_ref().map(|builder| {
+        let subnet_rule = self.subnet.as_ref().map(|builder| {
+            missed_action = missed_action.restrict(builder.missed_action());
+            builder.build()
+        });
+
+        let suffix_rule = self.suffix.as_ref().map(|builder| {
             missed_action = missed_action.restrict(builder.missed_action());
             builder.build()
         });
@@ -60,16 +65,11 @@ impl AclDstHostRuleSetBuilder<AclAction> {
             builder.build()
         });
 
-        let subnet_rule = self.subnet.as_ref().map(|builder| {
-            missed_action = missed_action.restrict(builder.missed_action());
-            builder.build()
-        });
-
         AclDstHostRuleSet {
             exact: exact_rule,
-            child: child_rule,
-            regex: regex_rule,
             subnet: subnet_rule,
+            suffix: suffix_rule,
+            regex: regex_rule,
             missed_action,
         }
     }
@@ -77,9 +77,9 @@ impl AclDstHostRuleSetBuilder<AclAction> {
 
 pub struct AclDstHostRuleSet<Action = AclAction> {
     exact: Option<AclExactHostRule<Action>>,
-    child: Option<AclChildDomainRule<Action>>,
-    regex: Option<AclRegexDomainRule<Action>>,
     subnet: Option<AclNetworkRule<Action>>,
+    suffix: Option<AclSuffixDomainRule<Action>>,
+    regex: Option<AclRegexDomainRule<Action>>,
     missed_action: Action,
 }
 
@@ -109,7 +109,7 @@ impl<Action: ActionContract> AclDstHostRuleSet<Action> {
                     }
                 }
 
-                if let Some(rule) = &self.child {
+                if let Some(rule) = &self.suffix {
                     let (found, action) = rule.check(domain);
                     if found {
                         return (true, action);

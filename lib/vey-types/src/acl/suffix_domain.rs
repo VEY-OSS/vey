@@ -8,12 +8,12 @@ use super::{AclAction, AclRadixTrieRule, AclRadixTrieRuleBuilder, ActionContract
 use crate::net::DomainName;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AclChildDomainRuleBuilder<Action = AclAction>(AclRadixTrieRuleBuilder<String, Action>);
+pub struct AclSuffixDomainRuleBuilder<Action = AclAction>(AclRadixTrieRuleBuilder<String, Action>);
 
-impl<Action: ActionContract> AclChildDomainRuleBuilder<Action> {
+impl<Action: ActionContract> AclSuffixDomainRuleBuilder<Action> {
     #[inline]
     pub fn new(missed_action: Action) -> Self {
-        AclChildDomainRuleBuilder(AclRadixTrieRuleBuilder::new(missed_action))
+        AclSuffixDomainRuleBuilder(AclRadixTrieRuleBuilder::new(missed_action))
     }
 
     #[inline]
@@ -33,14 +33,14 @@ impl<Action: ActionContract> AclChildDomainRuleBuilder<Action> {
     }
 
     #[inline]
-    pub fn build(&self) -> AclChildDomainRule<Action> {
-        AclChildDomainRule(self.0.build())
+    pub fn build(&self) -> AclSuffixDomainRule<Action> {
+        AclSuffixDomainRule(self.0.build())
     }
 }
 
-pub struct AclChildDomainRule<Action = AclAction>(AclRadixTrieRule<String, Action>);
+pub struct AclSuffixDomainRule<Action = AclAction>(AclRadixTrieRule<String, Action>);
 
-impl<Action: ActionContract> AclChildDomainRule<Action> {
+impl<Action: ActionContract> AclSuffixDomainRule<Action> {
     #[inline]
     pub fn check(&self, domain: &DomainName) -> (bool, Action) {
         let reversed = domain.to_reversed();
@@ -55,7 +55,7 @@ mod tests {
 
     #[test]
     fn check() {
-        let mut builder = AclChildDomainRuleBuilder::new(AclAction::Forbid);
+        let mut builder = AclSuffixDomainRuleBuilder::new(AclAction::Forbid);
         builder.add_node(&literal_domain!("foo.com"), AclAction::Permit);
         let rule = builder.build();
 

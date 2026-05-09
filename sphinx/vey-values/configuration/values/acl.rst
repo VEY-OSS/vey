@@ -167,14 +167,14 @@ exact port acl rule
 
 The record type should be :ref:`ports <conf_value_ports>`.
 
-.. _conf_value_child_domain_acl_rule:
+.. _conf_value_suffix_domain_acl_rule:
 
-child domain acl rule
----------------------
+suffix domain acl rule
+-------=--------------
 
 **yaml value**: :ref:`acl rule <conf_value_acl_rule>`
 
-Specify the parent domain to match, all children domain in this domain will be matched.
+Specify the parent / suffix domain to match, all children domain in this domain will be matched.
 
 The record type should be :ref:`domain <conf_value_domain>`.
 
@@ -242,23 +242,27 @@ Consisted of the following rules:
 
   **optional**, **type**: :ref:`exact host acl rule <conf_value_exact_host_acl_rule>`
 
-* child_match
+* subnet_match
 
-  **optional**, **type**: :ref:`child domain acl rule <conf_value_child_domain_acl_rule>`
+  **optional**, **type**: :ref:`dst subnet acl rule <conf_value_dst_subnet_acl_rule>`
+
+  Match only if the host is an IP Address.
+
+* suffix_match
+
+  **optional**, **type**: :ref:`suffix domain acl rule <conf_value_suffix_domain_acl_rule>`, **alias**: child_match
 
   Match only if the host is a domain.
+
+   .. availability::
+
+     - ``vey-proxy``: changed in ``1.13.3``: support the key 'suffix_match'
 
 * regex_match
 
   **optional**, **type**: :ref:`regex domain acl rule <conf_value_regex_domain_acl_rule>`
 
   Match only if the host is a domain.
-
-* subnet_match
-
-  **optional**, **type**: :ref:`dst subnet acl rule <conf_value_dst_subnet_acl_rule>`
-
-  Match only if the host is an IP Address.
 
 The match order is the same as the list order above.
 
@@ -269,7 +273,7 @@ Example:
    dst_host_filter_set:
      exact_match:
        permit: [api.example.net]
-     child_match:
+     suffix_match:
        permit_log: [corp.example.net]
      subnet_match:
        forbid: [127.0.0.0/8]

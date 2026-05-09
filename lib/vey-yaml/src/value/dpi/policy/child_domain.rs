@@ -8,11 +8,11 @@ use anyhow::anyhow;
 use yaml_rust::Yaml;
 
 use vey_dpi::ProtocolInspectAction;
-use vey_types::acl::AclChildDomainRuleBuilder;
+use vey_types::acl::AclSuffixDomainRuleBuilder;
 
 use super::InspectRuleYamlParser;
 
-impl InspectRuleYamlParser for AclChildDomainRuleBuilder<ProtocolInspectAction> {
+impl InspectRuleYamlParser for AclSuffixDomainRuleBuilder<ProtocolInspectAction> {
     fn add_rule_for_action(
         &mut self,
         action: ProtocolInspectAction,
@@ -31,8 +31,8 @@ impl InspectRuleYamlParser for AclChildDomainRuleBuilder<ProtocolInspectAction> 
 
 pub(super) fn as_child_domain_rule_builder(
     value: &Yaml,
-) -> anyhow::Result<AclChildDomainRuleBuilder<ProtocolInspectAction>> {
-    let mut builder = AclChildDomainRuleBuilder::new(ProtocolInspectAction::Intercept);
+) -> anyhow::Result<AclSuffixDomainRuleBuilder<ProtocolInspectAction>> {
+    let mut builder = AclSuffixDomainRuleBuilder::new(ProtocolInspectAction::Intercept);
     builder.parse(value)?;
     Ok(builder)
 }
@@ -46,7 +46,7 @@ mod tests {
     #[test]
     fn add_rule_for_action_ok() {
         // valid domain addition
-        let mut builder = AclChildDomainRuleBuilder::new(ProtocolInspectAction::Intercept);
+        let mut builder = AclSuffixDomainRuleBuilder::new(ProtocolInspectAction::Intercept);
         let yaml = yaml_str!("example.com");
         assert!(
             builder
@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn add_rule_for_action_err() {
         // invalid domain format
-        let mut builder = AclChildDomainRuleBuilder::new(ProtocolInspectAction::Intercept);
+        let mut builder = AclSuffixDomainRuleBuilder::new(ProtocolInspectAction::Intercept);
         let yaml = yaml_str!("invalid\u{e000}domain");
         assert!(
             builder
@@ -67,7 +67,7 @@ mod tests {
         );
 
         // non-string YAML type
-        let mut builder = AclChildDomainRuleBuilder::new(ProtocolInspectAction::Intercept);
+        let mut builder = AclSuffixDomainRuleBuilder::new(ProtocolInspectAction::Intercept);
         let yaml = Yaml::Boolean(true);
         assert!(
             builder

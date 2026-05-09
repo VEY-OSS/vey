@@ -8,8 +8,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use vey_types::acl::{
-    AclChildDomainRule, AclChildDomainRuleBuilder, AclExactHostRule, AclNetworkRule,
-    AclNetworkRuleBuilder, ActionContract,
+    AclExactHostRule, AclNetworkRule, AclNetworkRuleBuilder, AclSuffixDomainRule,
+    AclSuffixDomainRuleBuilder, ActionContract,
 };
 use vey_types::net::Host;
 
@@ -30,7 +30,7 @@ pub use imap::ImapInterceptionConfig;
 pub struct ProtocolInspectPolicyBuilder {
     missed_action: ProtocolInspectAction,
     pub exact: Option<AclExactHostRule<ProtocolInspectAction>>,
-    pub child: Option<AclChildDomainRuleBuilder<ProtocolInspectAction>>,
+    pub child: Option<AclSuffixDomainRuleBuilder<ProtocolInspectAction>>,
     pub subnet: Option<AclNetworkRuleBuilder<ProtocolInspectAction>>,
 }
 
@@ -66,7 +66,7 @@ impl ProtocolInspectPolicyBuilder {
 
 pub struct ProtocolInspectPolicy {
     exact: Option<AclExactHostRule<ProtocolInspectAction>>,
-    child: Option<AclChildDomainRule<ProtocolInspectAction>>,
+    child: Option<AclSuffixDomainRule<ProtocolInspectAction>>,
     subnet: Option<AclNetworkRule<ProtocolInspectAction>>,
     missed_action: ProtocolInspectAction,
 }

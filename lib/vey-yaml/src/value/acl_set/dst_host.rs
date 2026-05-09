@@ -19,10 +19,10 @@ pub fn as_dst_host_rule_set_builder(value: &Yaml) -> anyhow::Result<AclDstHostRu
                 builder.exact = Some(exact_rule);
                 Ok(())
             }
-            "child_match" | "child" => {
-                let child_builder = crate::value::acl::as_child_domain_rule_builder(v)
-                    .context(format!("invalid child domain acl rule value for key {k}"))?;
-                builder.child = Some(child_builder);
+            "suffix_match" | "suffix" | "child_match" | "child" => {
+                let child_builder = crate::value::acl::as_suffix_domain_rule_builder(v)
+                    .context(format!("invalid suffix domain acl rule value for key {k}"))?;
+                builder.suffix = Some(child_builder);
                 Ok(())
             }
             "regex_match" | "regex" => {

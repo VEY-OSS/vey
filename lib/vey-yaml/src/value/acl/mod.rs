@@ -19,7 +19,7 @@ mod regex_domain;
 mod regex_set;
 mod user_agent;
 
-pub(crate) use child_domain::as_child_domain_rule_builder;
+pub(crate) use child_domain::as_suffix_domain_rule_builder;
 pub(crate) use exact_host::as_exact_host_rule;
 pub(crate) use network::as_dst_subnet_rule_builder;
 pub(crate) use regex_domain::as_regex_domain_rule_builder;
