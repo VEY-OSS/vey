@@ -40,7 +40,7 @@ fn main() -> anyhow::Result<()> {
         Ok(c) => c,
         Err(e) => {
             vey_daemon::control::upgrade::cancel_old_shutdown();
-            return Err(e.context("failed to load config"));
+            return Err(e.context("failed to load config, opts: {proc_args:?}"));
         }
     };
     debug!("loaded config from {}", config_file.display());
