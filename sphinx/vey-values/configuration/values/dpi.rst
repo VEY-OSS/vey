@@ -162,23 +162,20 @@ The record type should be :ref:`host <conf_value_host>`.
 
 .. availability::
 
-
    - ``vey-proxy``: available since ``1.9.9``
 
-.. _conf_value_child_domain_inspect_rule:
+.. _conf_value_suffix_domain_inspect_rule:
 
-child domain inspect rule
--------------------------
+suffix domain inspect rule
+--------------------------
 
 **yaml value**: :ref:`inspect rule <conf_value_inspect_rule>`
 
-Specifies the parent domain to match. Any child domain under that parent also
-matches.
+Specifies the parent / suffix domain to match. Any child domain matches.
 
 The record type should be :ref:`domain <conf_value_domain>`.
 
 .. availability::
-
 
    - ``vey-proxy``: available since ``1.9.9``
 
@@ -204,11 +201,15 @@ It consists of the following rules:
 
   **optional**,  **type**: :ref:`exact host inspect rule <conf_value_exact_host_inspect_rule>`
 
-* child_match
+* suffix_match
 
-  **optional**,  **type**: :ref:`child domain inspect rule <conf_value_child_domain_inspect_rule>`
+  **optional**,  **type**: :ref:`suffix domain inspect rule <conf_value_suffix_domain_inspect_rule>`, **alias**: child_match
 
   Match only if the host is a domain.
+
+.. availability::
+
+   - ``vey-proxy``: the key 'suffix_match' available since ``1.13.3``
 
 * subnet_match
 
@@ -229,7 +230,7 @@ Example:
      default: intercept
      exact_match:
        bypass: [cdn.example.net]
-     child_match:
+     suffix_match:
        detour: [corp.example.net]
      subnet_match:
        block: [127.0.0.0/8]

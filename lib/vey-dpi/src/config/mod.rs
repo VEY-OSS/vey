@@ -30,7 +30,7 @@ pub use imap::ImapInterceptionConfig;
 pub struct ProtocolInspectPolicyBuilder {
     missed_action: ProtocolInspectAction,
     pub exact: Option<AclExactHostRule<ProtocolInspectAction>>,
-    pub child: Option<AclSuffixDomainRuleBuilder<ProtocolInspectAction>>,
+    pub suffix: Option<AclSuffixDomainRuleBuilder<ProtocolInspectAction>>,
     pub subnet: Option<AclNetworkRuleBuilder<ProtocolInspectAction>>,
 }
 
@@ -45,7 +45,7 @@ impl ProtocolInspectPolicyBuilder {
         ProtocolInspectPolicyBuilder {
             missed_action,
             exact: None,
-            child: None,
+            suffix: None,
             subnet: None,
         }
     }
@@ -57,7 +57,7 @@ impl ProtocolInspectPolicyBuilder {
     pub fn build(&self) -> ProtocolInspectPolicy {
         ProtocolInspectPolicy {
             exact: self.exact.clone(),
-            child: self.child.as_ref().map(|b| b.build()),
+            suffix: self.suffix.as_ref().map(|b| b.build()),
             subnet: self.subnet.as_ref().map(|b| b.build()),
             missed_action: self.missed_action,
         }
@@ -66,7 +66,7 @@ impl ProtocolInspectPolicyBuilder {
 
 pub struct ProtocolInspectPolicy {
     exact: Option<AclExactHostRule<ProtocolInspectAction>>,
-    child: Option<AclSuffixDomainRule<ProtocolInspectAction>>,
+    suffix: Option<AclSuffixDomainRule<ProtocolInspectAction>>,
     subnet: Option<AclNetworkRule<ProtocolInspectAction>>,
     missed_action: ProtocolInspectAction,
 }
@@ -97,7 +97,7 @@ impl ProtocolInspectPolicy {
                     }
                 }
 
-                if let Some(rule) = &self.child {
+                if let Some(rule) = &self.suffix {
                     let (found, action) = rule.check(domain);
                     if found {
                         return (true, action);

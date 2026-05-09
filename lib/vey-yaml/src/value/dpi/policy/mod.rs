@@ -10,9 +10,9 @@ use yaml_rust::Yaml;
 
 use vey_dpi::{ProtocolInspectAction, ProtocolInspectPolicyBuilder};
 
-mod child_domain;
 mod exact_host;
 mod network;
+mod suffix_domain;
 
 trait InspectRuleYamlParser {
     fn add_rule_for_action(
@@ -71,11 +71,11 @@ pub fn as_protocol_inspect_policy_builder(
                     builder.exact = Some(exact_rule);
                     Ok(())
                 }
-                "child_match" | "child" => {
-                    let child_builder = child_domain::as_child_domain_rule_builder(v).context(
-                        format!("invalid child domain inspect rule value for key {k}"),
+                "suffix_match" | "suffix" | "child_match" | "child" => {
+                    let suffix_builder = suffix_domain::as_suffix_domain_rule_builder(v).context(
+                        format!("invalid suffix domain inspect rule value for key {k}"),
                     )?;
-                    builder.child = Some(child_builder);
+                    builder.suffix = Some(suffix_builder);
                     Ok(())
                 }
                 "subnet_match" | "subnet" => {

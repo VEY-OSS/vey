@@ -29,7 +29,7 @@ impl InspectRuleYamlParser for AclSuffixDomainRuleBuilder<ProtocolInspectAction>
     }
 }
 
-pub(super) fn as_child_domain_rule_builder(
+pub(super) fn as_suffix_domain_rule_builder(
     value: &Yaml,
 ) -> anyhow::Result<AclSuffixDomainRuleBuilder<ProtocolInspectAction>> {
     let mut builder = AclSuffixDomainRuleBuilder::new(ProtocolInspectAction::Intercept);
@@ -77,13 +77,13 @@ mod tests {
     }
 
     #[test]
-    fn as_child_domain_rule_builder_ok() {
+    fn as_suffix_domain_rule_builder_ok() {
         let yaml = yaml_doc!(
             r#"
             intercept: "example.com"
             "#
         );
-        let builder = as_child_domain_rule_builder(&yaml).unwrap();
+        let builder = as_suffix_domain_rule_builder(&yaml).unwrap();
         let rule = builder.build();
 
         let result = rule.check(&literal_domain!("example.com"));
@@ -100,15 +100,15 @@ mod tests {
     }
 
     #[test]
-    fn as_child_domain_rule_builder_err() {
+    fn as_suffix_domain_rule_builder_err() {
         let yaml = yaml_doc!(
             r#"
             intercept:
             "#
         );
-        assert!(as_child_domain_rule_builder(&yaml).is_err());
+        assert!(as_suffix_domain_rule_builder(&yaml).is_err());
 
         let yaml = Yaml::Integer(42);
-        assert!(as_child_domain_rule_builder(&yaml).is_err());
+        assert!(as_suffix_domain_rule_builder(&yaml).is_err());
     }
 }
