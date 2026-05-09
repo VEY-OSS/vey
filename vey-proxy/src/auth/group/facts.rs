@@ -80,7 +80,7 @@ struct FactsMatchTable {
     exact_ip: HashMap<IpAddr, MatchedUser>,
     network: IpNetworkTable<MatchedUser>,
     exact_domain: HashMap<DomainName, MatchedUser>,
-    child_domain: Trie<String, MatchedUser>,
+    suffix_domain: Trie<String, MatchedUser>,
 }
 
 impl FactsMatchTable {
@@ -89,7 +89,7 @@ impl FactsMatchTable {
             exact_ip: Default::default(),
             network: IpNetworkTable::new(),
             exact_domain: Default::default(),
-            child_domain: Default::default(),
+            suffix_domain: Default::default(),
         };
 
         base.foreach_dynamic_user(|_, user| {
@@ -116,9 +116,9 @@ impl FactsMatchTable {
                     self.exact_domain
                         .insert(domain.clone(), (user.clone(), user_type));
                 }
-                FactsMatchValue::ChildDomain(child_domain) => {
-                    let reversed_k = child_domain.to_reversed();
-                    self.child_domain
+                FactsMatchValue::SuffixDomain(suffix_domain) => {
+                    let reversed_k = suffix_domain.to_reversed();
+                    self.suffix_domain
                         .insert(reversed_k, (user.clone(), user_type));
                 }
             }
@@ -143,7 +143,7 @@ impl FactsMatchTable {
         }
 
         let reversed = domain.to_reversed();
-        if let Some((user, user_type)) = self.child_domain.get_ancestor_value(&reversed) {
+        if let Some((user, user_type)) = self.suffix_domain.get_ancestor_value(&reversed) {
             return Some((user.clone(), *user_type));
         }
 

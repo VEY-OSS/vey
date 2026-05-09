@@ -71,10 +71,10 @@ The fact-type should be one of:
   `<fact-value>` should be :ref:`domain str <conf_value_domain>`.
   It will match if the auth fact is exactly this domain.
 
-- child-domain
+- suffix-domain
 
   `<fact-value>` should be :ref:`domain str <conf_value_domain>`.
-  It will match if the auth fact is a child domain of this domain.
+  It will match if the auth fact is a child domain of this parent / suffix domain.
 
 Examples:
 
@@ -83,10 +83,10 @@ Examples:
    match_by_facts:
      - ip: 192.0.2.10
      - net: 192.0.2.0/24
-     - child-domain: corp.example.net
+     - suffix-domain: corp.example.net
      - "domain:api.example.net"
 
 .. availability::
 
-
    - ``vey-proxy``: available since ``1.13.0``
+   - ``vey-proxy``: 'suffix-domain' available since ``1.13.3``

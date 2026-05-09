@@ -37,7 +37,7 @@ pub enum FactsMatchValue {
     Network(IpNetwork),
     ExactDomain(DomainName),
     #[cfg(feature = "resolve")]
-    ChildDomain(DomainName),
+    SuffixDomain(DomainName),
 }
 
 impl FactsMatchValue {
@@ -62,9 +62,9 @@ impl FactsMatchValue {
                 Ok(FactsMatchValue::ExactDomain(domain))
             }
             #[cfg(feature = "resolve")]
-            "child_domain" => {
+            "suffix_domain" => {
                 let domain = DomainName::from_str(value).context("invalid domain")?;
-                Ok(FactsMatchValue::ChildDomain(domain))
+                Ok(FactsMatchValue::SuffixDomain(domain))
             }
             _ => Err(anyhow!("invalid facts match value type {ty}")),
         }
