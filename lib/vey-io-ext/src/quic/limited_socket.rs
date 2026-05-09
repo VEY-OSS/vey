@@ -282,7 +282,6 @@ impl AsyncUdpSocket for LimitedUdpSocket {
             match l.limit.check_packet(dur_millis, len) {
                 DatagramLimitAction::Advance(_) => match self.inner.try_send(transmit) {
                     Ok(_) => {
-                        self.inner.try_send(transmit)?;
                         l.limit.set_advance(1, len);
                         self.send_state.stats.add_send_packet();
                         self.send_state.stats.add_send_bytes(len);

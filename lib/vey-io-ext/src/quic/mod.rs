@@ -7,4 +7,4 @@ mod udp_poller;
 pub use udp_poller::QuinnUdpPollHelper;
 
 mod limited_socket;
-pub use limited_socket::{LimitedTokioRuntime, LimitedUdpSocket};
+pub use limited_socket::LimitedTokioRuntime;
