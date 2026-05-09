@@ -13,13 +13,11 @@ use vey_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
 
-mod child_match;
 mod exact_match;
 mod regex_match;
 mod subnet_match;
 mod suffix_match;
 
-pub(crate) use child_match::{ChildMatch, ChildMatchBuilder};
 pub(crate) use exact_match::{ExactMatch, ExactMatchBuilder};
 pub(crate) use regex_match::{RegexMatch, RegexMatchBuilder};
 pub(crate) use subnet_match::{SubnetMatch, SubnetMatchBuilder};
@@ -34,7 +32,6 @@ pub(crate) struct RouteUpstreamEscaperConfig {
     pub(crate) exact_match: ExactMatchBuilder,
     pub(crate) subnet_match: SubnetMatchBuilder,
     pub(crate) suffix_match: SuffixMatchBuilder,
-    pub(crate) child_match: ChildMatchBuilder,
     pub(crate) regex_match: RegexMatchBuilder,
     pub(crate) default_next: NodeName,
 }
@@ -47,7 +44,6 @@ impl RouteUpstreamEscaperConfig {
             exact_match: ExactMatchBuilder::default(),
             subnet_match: SubnetMatchBuilder::default(),
             suffix_match: SuffixMatchBuilder::default(),
-            child_match: ChildMatchBuilder::default(),
             regex_match: RegexMatchBuilder::default(),
             default_next: NodeName::default(),
         }
@@ -80,14 +76,10 @@ impl RouteUpstreamEscaperConfig {
                 .subnet_match
                 .set_by_yaml(v)
                 .context(format!("invalid subnet match rules for key {k}")),
-            "suffix_match" | "suffix_rules" | "radix_match" | "radix_rules" => self
+            "suffix_match" | "suffix_rules" | "child_match" | "child_rules" => self
                 .suffix_match
                 .set_by_yaml(v)
                 .context(format!("invalid suffix match rules for key {k}")),
-            "child_match" | "child_rules" => self
-                .child_match
-                .set_by_yaml(v)
-                .context(format!("invalid child match rules for key {k}")),
             "regex_match" | "regex_rules" => self
                 .regex_match
                 .set_by_yaml(v)
@@ -110,7 +102,6 @@ impl RouteUpstreamEscaperConfig {
         self.exact_match.check()?;
         self.subnet_match.check()?;
         self.suffix_match.check()?;
-        self.child_match.check()?;
         self.regex_match.check()?;
         Ok(())
     }
@@ -151,7 +142,6 @@ impl EscaperConfig for RouteUpstreamEscaperConfig {
         self.exact_match.collect_escaper(&mut set);
         self.subnet_match.collect_escaper(&mut set);
         self.suffix_match.collect_escaper(&mut set);
-        self.child_match.collect_escaper(&mut set);
         self.regex_match.collect_escaper(&mut set);
         Some(set)
     }

@@ -18,7 +18,7 @@ use vey_types::net::{DomainName, Host, UpstreamAddr};
 use super::{ArcEscaper, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats};
 use crate::audit::AuditContext;
 use crate::config::escaper::route_upstream::{
-    ChildMatch, ExactMatch, RegexMatch, RouteUpstreamEscaperConfig, SubnetMatch, SuffixMatch,
+    ExactMatch, RegexMatch, RouteUpstreamEscaperConfig, SubnetMatch, SuffixMatch,
 };
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
@@ -46,8 +46,7 @@ pub(super) struct RouteUpstreamEscaper {
     next_table: BTreeMap<NodeName, ArcEscaper>,
     exact_match: ExactMatch<ArcEscaper>,
     subnet_match: Option<SubnetMatch<ArcEscaper>>,
-    child_match: Option<ChildMatch<ArcEscaper>>,
-    suffix_match: Option<SuffixMatch<ArcEscaper>>,
+    child_match: Option<SuffixMatch<ArcEscaper>>,
     regex_match: Option<RegexMatch<ArcEscaper>>,
     default_next: ArcEscaper,
 }
@@ -73,8 +72,7 @@ impl RouteUpstreamEscaper {
 
         let exact_match = config.exact_match.build(&next_table);
         let subnet_match = config.subnet_match.build(&next_table);
-        let child_match = config.child_match.build(&next_table);
-        let suffix_match = config.suffix_match.build(&next_table);
+        let child_match = config.suffix_match.build(&next_table);
         let regex_match = config.regex_match.build(&next_table);
 
         let escaper = RouteUpstreamEscaper {
@@ -84,7 +82,6 @@ impl RouteUpstreamEscaper {
             exact_match,
             subnet_match,
             child_match,
-            suffix_match,
             regex_match,
             default_next,
         };
@@ -131,11 +128,6 @@ impl RouteUpstreamEscaper {
         }
         if let Some(child_match) = &self.child_match
             && let Some(escaper) = child_match.check_domain(host)
-        {
-            return escaper.clone();
-        }
-        if let Some(suffix_match) = &self.suffix_match
-            && let Some(escaper) = suffix_match.check_domain(host)
         {
             return escaper.clone();
         }

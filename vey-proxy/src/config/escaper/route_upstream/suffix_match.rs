@@ -37,8 +37,8 @@ impl SuffixMatchBuilder {
             Yaml::Hash(map) => vey_yaml::foreach_kv(map, |k, v| {
                 let escaper = NodeName::from_str(k)
                     .map_err(|e| anyhow!("the map key is not valid escaper name: {e}"))?;
-                let suffixes = vey_yaml::value::as_list(v, vey_yaml::value::as_domain)?;
-                self.add_rule(escaper, suffixes);
+                let domains = vey_yaml::value::as_list(v, vey_yaml::value::as_domain)?;
+                self.add_rule(escaper, domains);
                 Ok(())
             }),
             Yaml::Array(seq) => {
@@ -48,21 +48,21 @@ impl SuffixMatchBuilder {
                     };
 
                     let mut escaper = NodeName::default();
-                    let mut suffixes = Vec::new();
+                    let mut domains = Vec::new();
                     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                         "next" | "escaper" => {
                             escaper = vey_yaml::value::as_metric_node_name(v)?;
                             Ok(())
                         }
-                        "suffixes" | "suffix" => {
-                            suffixes = vey_yaml::value::as_list(v, vey_yaml::value::as_domain)?;
+                        "domains" | "domain" => {
+                            domains = vey_yaml::value::as_list(v, vey_yaml::value::as_domain)?;
                             Ok(())
                         }
                         _ => Err(anyhow!("invalid key {k}")),
                     })
                     .context(format!("invalid suffix match rule for #{i}"))?;
 
-                    self.add_rule(escaper, suffixes);
+                    self.add_rule(escaper, domains);
                 }
                 Ok(())
             }
@@ -88,8 +88,8 @@ impl SuffixMatchBuilder {
                 let Some(value) = value_table.get(escaper) else {
                     continue;
                 };
-                let reversed = domain.as_str().chars().rev().collect();
-                trie.insert(reversed, value.clone());
+                let reversed_k = domain.to_reversed();
+                trie.insert(reversed_k, value.clone());
             }
         }
         if trie.is_empty() {
@@ -106,8 +106,8 @@ pub(crate) struct SuffixMatch<T> {
 
 impl<T> SuffixMatch<T> {
     pub(crate) fn check_domain(&self, domain: &DomainName) -> Option<&T> {
-        let key: String = domain.as_str().chars().rev().collect();
-        self.inner.get_ancestor_value(&key)
+        let reversed = domain.to_reversed();
+        self.inner.get_ancestor_value(&reversed)
     }
 }
 
@@ -121,11 +121,11 @@ mod tests {
     fn yaml_seq() {
         let conf = r#"
         - next: escaper_1
-          suffix: example.net
+          domain: example.net
         - next: escaper_2
-          suffix:
-            - a.example.net
-            - cd.example.org
+          domains:
+            - example.com
+            - example.org
         "#;
 
         let v = YamlLoader::load_from_str(conf).unwrap();
@@ -141,23 +141,20 @@ mod tests {
             .check_domain(&literal_domain!("abc.example.net"))
             .unwrap();
         assert!(value.eq("escaper_1"));
+        assert!(
+            suffix_match
+                .check_domain(&literal_domain!("abcexample.net"))
+                .is_none()
+        );
         let value = *suffix_match
-            .check_domain(&literal_domain!("abcexample.net"))
-            .unwrap();
-        assert!(value.eq("escaper_1"));
-        let value = *suffix_match
-            .check_domain(&literal_domain!("ba.example.net"))
+            .check_domain(&literal_domain!("cde1.example.com"))
             .unwrap();
         assert!(value.eq("escaper_2"));
         assert!(
             suffix_match
-                .check_domain(&literal_domain!("cde.example.org"))
+                .check_domain(&literal_domain!("cde.example.info"))
                 .is_none()
         );
-        let value = *suffix_match
-            .check_domain(&literal_domain!("a.cd.example.org"))
-            .unwrap();
-        assert!(value.eq("escaper_2"));
     }
 
     #[test]
@@ -166,8 +163,8 @@ mod tests {
         escaper_1:
           - example.net
         escaper_2:
-          - a.example.net
-          - cd.example.org
+          - example.com
+          - example.org
         "#;
 
         let v = YamlLoader::load_from_str(conf).unwrap();
@@ -183,22 +180,19 @@ mod tests {
             .check_domain(&literal_domain!("abc.example.net"))
             .unwrap();
         assert!(value.eq("escaper_1"));
+        assert!(
+            suffix_match
+                .check_domain(&literal_domain!("abcexample.net"))
+                .is_none()
+        );
         let value = *suffix_match
-            .check_domain(&literal_domain!("abcexample.net"))
-            .unwrap();
-        assert!(value.eq("escaper_1"));
-        let value = *suffix_match
-            .check_domain(&literal_domain!("ba.example.net"))
+            .check_domain(&literal_domain!("cde1.example.com"))
             .unwrap();
         assert!(value.eq("escaper_2"));
         assert!(
             suffix_match
-                .check_domain(&literal_domain!("cde.example.org"))
+                .check_domain(&literal_domain!("cde.example.info"))
                 .is_none()
         );
-        let value = *suffix_match
-            .check_domain(&literal_domain!("a.cd.example.org"))
-            .unwrap();
-        assert!(value.eq("escaper_2"));
     }
 }

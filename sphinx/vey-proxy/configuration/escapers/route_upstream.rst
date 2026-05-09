@@ -15,8 +15,7 @@ The following common keys are supported:
 Selection order is fixed by the runtime:
 
 * For IP upstreams: ``exact_match`` then ``subnet_match`` then ``default_next``
-* For domain upstreams: ``exact_match`` then ``child_match`` then
-  ``suffix_match`` then ``regex_match`` then ``default_next``
+* For domain upstreams: ``exact_match`` then ``suffix_match`` then ``regex_match`` then ``default_next``
 
 Rules duplicated across different next escapers are rejected during config
 loading.
@@ -143,12 +142,12 @@ For map format:
 
 .. versionchanged:: 1.11.5 support map format
 
-child_match
------------
+suffix_match
+------------
 
-**optional**, **type**: seq | map
+**optional**, **type**: seq | map, **alias**: child_match
 
-If the upstream domain is a child of a configured domain, the corresponding escaper is selected.
+If the upstream domain ends with the suffix domain (a child of that domain), the corresponding escaper is selected.
 
 For seq format:
 
@@ -193,57 +192,7 @@ For map format:
       - test.example.net
 
 .. versionchanged:: 1.11.5 support map format
-
-suffix_match
-------------
-
-**optional**, **type**: seq | map, **alias**: radix_match
-
-If the upstream domain matches one of the configured suffixes, the corresponding escaper is selected.
-
-For seq format:
-
-  Each rule is in *map* format, with two keys:
-
-  * next
-
-    **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
-
-    Set the next escaper.
-
-  * suffixes
-
-    **optional**, **type**: seq, **alias**: suffix
-
-    Each element should be :external+values:ref:`domain <conf_value_domain>`.
-
-    A suffix must not appear in rules for different next escapers.
-
-  Example:
-
-  .. code-block:: yaml
-
-    - next: deny
-      suffixes:
-        - example.net
-    - next: allow
-      suffixes:
-        - t.example.net
-    # test.example.net will match `allow`
-
-For map format:
-
-  Each key is the next escaper name, and each value has the same format as ``suffixes`` in the sequence form.
-
-  .. code-block:: yaml
-
-    deny:
-      - example.net
-    allow:
-      - t.example.net
-    # test.example.net will match `allow`
-
-.. versionchanged:: 1.11.5 support map format
+.. versionchanged:: 1.13.3 suffix_match now matches by domain hierarchy instead of string suffix
 
 regex_match
 -----------
