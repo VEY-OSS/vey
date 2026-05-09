@@ -30,11 +30,16 @@ matching logic:
 
   Matches when the target host is exactly this host.
 
-* child_match
+* suffix_match | child_match
 
   **optional**, **type**: :ref:`domain <conf_value_domain>`
 
-  Matches when the target host is a child domain of this parent domain.
+  Matches when the target host is a child domain of this parent / suffix domain.
+
+  .. availability::
+
+     - ``vey-proxy``: changed in ``1.13.3``: support the key 'suffix_match'
+     - ``vey-gateway``: changed in ``0.4.0``: support the key 'suffix_match'
 
 * set_default
 
@@ -59,7 +64,7 @@ Example:
    - exact_match: api.example.net
      set_default: false
      backend: api_pool
-   - child_match: corp.example.net
+   - suffix_match: corp.example.net
      backend: corp_pool
    - backend: default_pool
 

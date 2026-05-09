@@ -25,7 +25,7 @@ fn add_host_matched_value<T: YamlMapCallback>(
     if let Yaml::Hash(map) = value {
         let mut exact_ip_vs = vec![];
         let mut exact_domain_vs = vec![];
-        let mut child_domain_vs = vec![];
+        let mut suffix_domain_vs = vec![];
         let mut set_default = false;
 
         let mut add_exact_host_match_value = |v: &Yaml| -> anyhow::Result<()> {
@@ -54,17 +54,17 @@ fn add_host_matched_value<T: YamlMapCallback>(
                 }
                 Ok(())
             }
-            "child_match" => {
+            "suffix_match" | "child_match" => {
                 if let Yaml::Array(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         let domain = crate::value::as_domain(v)
                             .context(format!("invalid domain string value for {k}#{i}"))?;
-                        child_domain_vs.push(domain);
+                        suffix_domain_vs.push(domain);
                     }
                 } else {
                     let domain = crate::value::as_domain(v)
                         .context(format!("invalid domain string value for key {k}"))?;
-                    child_domain_vs.push(domain);
+                    suffix_domain_vs.push(domain);
                 }
                 Ok(())
             }
@@ -96,10 +96,10 @@ fn add_host_matched_value<T: YamlMapCallback>(
             }
             auto_default = false;
         }
-        for domain in &child_domain_vs {
-            if obj.add_child_domain(domain, Arc::clone(&t)).is_some() {
+        for domain in &suffix_domain_vs {
+            if obj.add_suffix_domain(domain, Arc::clone(&t)).is_some() {
                 return Err(anyhow!(
-                    "duplicate {type_name} value for child domain {domain}"
+                    "duplicate {type_name} value for suffix domain {domain}"
                 ));
             }
             auto_default = false;
@@ -210,7 +210,7 @@ mod tests {
         // Single map with domain match
         let yaml = yaml_doc!(
             r#"
-                child_match: example.com
+                suffix_match: example.com
                 name: test2
                 value: 200
             "#
@@ -245,7 +245,7 @@ mod tests {
                 - exact_match: 192.168.0.1
                   name: test1
                   value: 100
-                - child_match: example.com
+                - suffix_match: example.com
                   name: test2
                   value: 200
                 - set_default: true
@@ -291,10 +291,10 @@ mod tests {
         assert_eq!(value2.name, "test");
         assert_eq!(value2.value, 100);
 
-        // Child match as array
+        // suffix match as array
         let yaml = yaml_doc!(
             r#"
-                child_match:
+                suffix_match:
                   - example.com
                   - test.org
                 name: test
@@ -332,13 +332,13 @@ mod tests {
         );
         assert!(as_host_matched_obj::<TestCallback>(&yaml, None).is_err());
 
-        // Duplicate child domain match
+        // Duplicate suffix domain match
         let yaml = yaml_doc!(
             r#"
-                - child_match: example.com
+                - suffix_match: example.com
                   name: test1
                   value: 100
-                - child_match: example.com
+                - suffix_match: example.com
                   name: test2
                   value: 200
             "#

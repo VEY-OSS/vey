@@ -23,7 +23,7 @@ fn add_host_matched_value<T: JsonMapCallback>(
     if let Value::Object(map) = value {
         let mut exact_ip_vs = vec![];
         let mut exact_domain_vs = vec![];
-        let mut child_domain_vs = vec![];
+        let mut suffix_domain_vs = vec![];
         let mut set_default = false;
 
         let mut add_exact_host_match_value = |v: &Value| -> anyhow::Result<()> {
@@ -51,17 +51,17 @@ fn add_host_matched_value<T: JsonMapCallback>(
                             .context(format!("invalid host string value for key {k}"))?;
                     }
                 }
-                "child_match" => {
+                "suffix_match" | "child_match" => {
                     if let Value::Array(seq) = v {
                         for (i, v) in seq.iter().enumerate() {
                             let domain = crate::value::as_domain(v)
                                 .context(format!("invalid domain string value for {k}#{i}"))?;
-                            child_domain_vs.push(domain);
+                            suffix_domain_vs.push(domain);
                         }
                     } else {
                         let domain = crate::value::as_domain(v)
                             .context(format!("invalid domain string value for key {k}"))?;
-                        child_domain_vs.push(domain);
+                        suffix_domain_vs.push(domain);
                     }
                 }
                 normalized_key => target
@@ -93,10 +93,10 @@ fn add_host_matched_value<T: JsonMapCallback>(
             }
             auto_default = false;
         }
-        for domain in &child_domain_vs {
-            if obj.add_child_domain(domain, Arc::clone(&t)).is_some() {
+        for domain in &suffix_domain_vs {
+            if obj.add_suffix_domain(domain, Arc::clone(&t)).is_some() {
                 return Err(anyhow!(
-                    "duplicate {type_name} value for child domain {domain}"
+                    "duplicate {type_name} value for suffix domain {domain}"
                 ));
             }
             auto_default = false;

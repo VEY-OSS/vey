@@ -19,7 +19,7 @@ use crate::net::{DomainName, Host};
 pub struct HostMatch<T> {
     exact_domain: Option<AHashMap<DomainName, T>>,
     exact_ip: Option<FxHashMap<IpAddr, T>>,
-    child_domain: Option<Trie<String, T>>,
+    suffix_domain: Option<Trie<String, T>>,
     default: Option<T>,
 }
 
@@ -28,7 +28,7 @@ impl<T> Default for HostMatch<T> {
         HostMatch {
             exact_domain: None,
             exact_ip: None,
-            child_domain: None,
+            suffix_domain: None,
             default: None,
         }
     }
@@ -47,9 +47,9 @@ impl<T> HostMatch<T> {
             .insert(ip, v)
     }
 
-    pub fn add_child_domain(&mut self, domain: &DomainName, v: T) -> Option<T> {
+    pub fn add_suffix_domain(&mut self, domain: &DomainName, v: T) -> Option<T> {
         let reversed_k = domain.to_reversed();
-        self.child_domain
+        self.suffix_domain
             .get_or_insert(Default::default())
             .insert(reversed_k, v)
     }
@@ -75,7 +75,7 @@ impl<T> HostMatch<T> {
                     return Some(v);
                 }
 
-                if let Some(trie) = &self.child_domain {
+                if let Some(trie) = &self.suffix_domain {
                     let reversed = domain.to_reversed();
                     if let Some(v) = trie.get(&reversed) {
                         return Some(v);
@@ -94,7 +94,7 @@ impl<T> HostMatch<T> {
     pub fn is_empty(&self) -> bool {
         self.exact_domain.is_none()
             && self.exact_ip.is_none()
-            && self.child_domain.is_none()
+            && self.suffix_domain.is_none()
             && self.default.is_none()
     }
 }
@@ -142,13 +142,13 @@ impl<T> HostMatch<Arc<T>> {
             dst.exact_ip = Some(dst_ht);
         }
 
-        if let Some(trie) = &self.child_domain {
+        if let Some(trie) = &self.suffix_domain {
             let mut dst_trie = Trie::new();
             for (prefix, v) in trie.iter() {
                 let dv = get_tmp(v)?;
                 dst_trie.insert(prefix.to_string(), dv);
             }
-            dst.child_domain = Some(dst_trie);
+            dst.suffix_domain = Some(dst_trie);
         }
 
         if let Some(default) = &self.default {
@@ -187,7 +187,7 @@ where
             ht.values().for_each(&mut add_to_map);
         }
 
-        if let Some(trie) = &self.child_domain {
+        if let Some(trie) = &self.suffix_domain {
             trie.values().for_each(&mut add_to_map);
         }
 
@@ -224,14 +224,14 @@ where
             dst.exact_ip = Some(dst_ht);
         }
 
-        if let Some(trie) = &self.child_domain {
+        if let Some(trie) = &self.suffix_domain {
             let mut dst_trie = Trie::new();
             for (prefix, v) in trie.iter() {
                 if let Some(dv) = values.get(v.name()) {
                     dst_trie.insert(prefix.to_string(), dv.clone());
                 }
             }
-            dst.child_domain = Some(dst_trie);
+            dst.suffix_domain = Some(dst_trie);
         }
 
         if let Some(default) = &self.default
@@ -282,7 +282,7 @@ mod tests {
             hm.add_exact_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 2),
             None
         );
-        assert_eq!(hm.add_child_domain(&literal_domain!("test.com"), 3), None);
+        assert_eq!(hm.add_suffix_domain(&literal_domain!("test.com"), 3), None);
 
         assert_eq!(hm.set_default(4), None);
         assert!(!hm.is_empty());
@@ -298,7 +298,7 @@ mod tests {
         let mut hm = HostMatch::default();
         hm.add_exact_domain(literal_domain!("example.com"), 1);
         hm.add_exact_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 2);
-        hm.add_child_domain(&literal_domain!("sub.test.com"), 3);
+        hm.add_suffix_domain(&literal_domain!("sub.test.com"), 3);
         hm.set_default(4);
 
         assert_eq!(
@@ -378,7 +378,7 @@ mod tests {
         let mut hm = HostMatch::<Arc<TestValue>>::default();
         hm.add_exact_domain(literal_domain!("a.com"), Arc::new(TestValue("a")));
         hm.add_exact_ip(IpAddr::V4(Ipv4Addr::LOCALHOST), Arc::new(TestValue("b")));
-        hm.add_child_domain(&literal_domain!("c.com"), Arc::new(TestValue("c")));
+        hm.add_suffix_domain(&literal_domain!("c.com"), Arc::new(TestValue("c")));
         hm.set_default(Arc::new(TestValue("d")));
 
         let values = hm.get_all_values();
