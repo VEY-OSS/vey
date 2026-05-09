@@ -102,16 +102,16 @@ Each rule should be a map with the following keys:
 
      - ``vey-proxy``: changed in ``1.13.0``: allow list values
 
-* parent
+* suffix | parent
 
   **optional**, **type**: :ref:`domain <conf_value_domain>` | list
 
-  Parent domain to replace.
+  Suffix domain to replace.
 
   .. availability::
 
 
-     - ``vey-proxy``: changed in ``1.13.0``: allow list values
+     - ``vey-proxy``: changed in ``1.13.3``: allow list values and support the key 'suffix'
 
 * to
 

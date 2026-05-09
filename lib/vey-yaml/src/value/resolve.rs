@@ -12,8 +12,6 @@ use yaml_rust::Yaml;
 use vey_types::net::Host;
 use vey_types::resolve::{PickStrategy, QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 
-const RESOLVE_REDIRECTION_NODE_KEY_EXACT: &str = "exact";
-const RESOLVE_REDIRECTION_NODE_KEY_PARENT: &str = "parent";
 const RESOLVE_REDIRECTION_NODE_KEY_TO: &str = "to";
 
 pub fn as_query_strategy(v: &Yaml) -> anyhow::Result<QueryStrategy> {
@@ -93,20 +91,20 @@ fn add_exact_redirection_record(
     }
 }
 
-fn add_parent_redirection_record(
+fn add_suffix_redirection_record(
     config: &mut ResolveRedirectionBuilder,
     k: &Yaml,
     v: &Yaml,
 ) -> anyhow::Result<()> {
-    let parent_domain = crate::value::as_domain(k).context("invalid resolve redirection domain")?;
+    let suffix_domain = crate::value::as_domain(k).context("invalid resolve redirection domain")?;
 
     match v {
         Yaml::String(_) => {
             match crate::value::as_host(v).context(format!(
-                "invalid resolve redirect host value for parent domain {parent_domain}",
+                "invalid resolve redirect host value for suffix domain {suffix_domain}",
             ))? {
-                Host::Ip(ip) => config.insert_parent_addr(parent_domain, vec![ip]),
-                Host::Domain(to_domain) => config.insert_parent_alias(parent_domain, to_domain),
+                Host::Ip(ip) => config.insert_suffix_addr(suffix_domain, vec![ip]),
+                Host::Domain(to_domain) => config.insert_suffix_alias(suffix_domain, to_domain),
             }
             Ok(())
         }
@@ -114,15 +112,15 @@ fn add_parent_redirection_record(
             let mut ips = Vec::with_capacity(seq.len());
             for (i, v) in seq.iter().enumerate() {
                 let ip = crate::value::as_ipaddr(v).context(format!(
-                    "invalid ip address value for parent domain {parent_domain}#{i}"
+                    "invalid ip address value for suffix domain {suffix_domain}#{i}"
                 ))?;
                 ips.push(ip);
             }
-            config.insert_parent_addr(parent_domain, ips);
+            config.insert_suffix_addr(suffix_domain, ips);
             Ok(())
         }
         _ => Err(anyhow!(
-            "invalid value type for resolve redirection value of parent domain {parent_domain}",
+            "invalid value type for resolve redirection value of suffix domain {suffix_domain}",
         )),
     }
 }
@@ -144,7 +142,7 @@ pub fn as_resolve_redirection_builder(v: &Yaml) -> anyhow::Result<ResolveRedirec
 
                     crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                         RESOLVE_REDIRECTION_NODE_KEY_TO => Ok(()),
-                        RESOLVE_REDIRECTION_NODE_KEY_EXACT => {
+                        "exact" => {
                             if let Yaml::Array(values) = v {
                                 for (j, v) in values.iter().enumerate() {
                                     add_exact_redirection_record(&mut config, v, to_v).context(
@@ -157,16 +155,16 @@ pub fn as_resolve_redirection_builder(v: &Yaml) -> anyhow::Result<ResolveRedirec
                                     .context(format!("invalid exact domain rule in #{i}/#{k}"))
                             }
                         }
-                        RESOLVE_REDIRECTION_NODE_KEY_PARENT => {
+                        "suffix" | "parent" => {
                             if let Yaml::Array(values) = v {
                                 for (j, v) in values.iter().enumerate() {
-                                    add_parent_redirection_record(&mut config, v, to_v).context(
+                                    add_suffix_redirection_record(&mut config, v, to_v).context(
                                         format!("invalid exact domain rule in #{i}/{k}#{j}"),
                                     )?;
                                 }
                                 Ok(())
                             } else {
-                                add_parent_redirection_record(&mut config, v, to_v)
+                                add_suffix_redirection_record(&mut config, v, to_v)
                                     .context(format!("invalid exact domain rule in #{i}/#{k}"))
                             }
                         }
@@ -343,9 +341,9 @@ mod tests {
               to: [10.0.0.1, 10.0.0.2]
             - exact: exact3.example.com
               to: alias.domain.com
-            - parent: example.com
+            - suffix: example.com
               to: redirected.com
-            - parent: example.net
+            - suffix: example.net
               to: redirected.net
             - parent: example1.net
               to: 192.168.1.1
@@ -431,10 +429,10 @@ mod tests {
         let yaml = yaml_doc!(r#"- 42"#);
         assert!(as_resolve_redirection_builder(&yaml).is_err());
 
-        // array with no domain set in "parent"
+        // array with no domain set in "suffix"
         let yaml = yaml_doc!(
             r#"
-            - parent:
+            - suffix:
               to: redirected.com
             "#
         );

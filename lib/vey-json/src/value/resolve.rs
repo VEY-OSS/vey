@@ -12,8 +12,6 @@ use serde_json::Value;
 use vey_types::net::Host;
 use vey_types::resolve::{PickStrategy, QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 
-const RESOLVE_REDIRECTION_NODE_KEY_EXACT: &str = "exact";
-const RESOLVE_REDIRECTION_NODE_KEY_PARENT: &str = "parent";
 const RESOLVE_REDIRECTION_NODE_KEY_TO: &str = "to";
 
 pub fn as_query_strategy(v: &Value) -> anyhow::Result<QueryStrategy> {
@@ -93,21 +91,21 @@ fn add_exact_redirection_record(
     }
 }
 
-fn add_parent_redirection_record(
+fn add_suffix_redirection_record(
     config: &mut ResolveRedirectionBuilder,
     k: &Value,
     v: &Value,
 ) -> anyhow::Result<()> {
-    let parent_domain =
+    let suffix_domain =
         crate::value::as_domain(k).context("invalid resolve redirection domain key")?;
 
     match v {
         Value::String(_) => {
             match crate::value::as_host(v).context(format!(
-                "invalid resolve redirect host value for parent domain {parent_domain}",
+                "invalid resolve redirect host value for suffix domain {suffix_domain}",
             ))? {
-                Host::Ip(ip) => config.insert_parent_addr(parent_domain, vec![ip]),
-                Host::Domain(to_domain) => config.insert_parent_alias(parent_domain, to_domain),
+                Host::Ip(ip) => config.insert_suffix_addr(suffix_domain, vec![ip]),
+                Host::Domain(to_domain) => config.insert_suffix_alias(suffix_domain, to_domain),
             }
             Ok(())
         }
@@ -115,15 +113,15 @@ fn add_parent_redirection_record(
             let mut ips = Vec::with_capacity(seq.len());
             for (i, v) in seq.iter().enumerate() {
                 let ip = crate::value::as_ipaddr(v).context(format!(
-                    "invalid ip address value for parent domain {parent_domain}#{i}"
+                    "invalid ip address value for suffix domain {suffix_domain}#{i}"
                 ))?;
                 ips.push(ip);
             }
-            config.insert_parent_addr(parent_domain, ips);
+            config.insert_suffix_addr(suffix_domain, ips);
             Ok(())
         }
         _ => Err(anyhow!(
-            "invalid value type for resolve redirection value of parent domain {parent_domain}",
+            "invalid value type for resolve redirection value of suffix domain {suffix_domain}",
         )),
     }
 }
@@ -146,7 +144,7 @@ pub fn as_resolve_redirection_builder(v: &Value) -> anyhow::Result<ResolveRedire
                     for (k, v) in map {
                         match crate::key::normalize(k).as_str() {
                             RESOLVE_REDIRECTION_NODE_KEY_TO => {}
-                            RESOLVE_REDIRECTION_NODE_KEY_EXACT => {
+                            "exact" => {
                                 if let Value::Array(values) = v {
                                     for (j, v) in values.iter().enumerate() {
                                         add_exact_redirection_record(&mut config, v, to_v)
@@ -160,17 +158,17 @@ pub fn as_resolve_redirection_builder(v: &Value) -> anyhow::Result<ResolveRedire
                                     )?;
                                 }
                             }
-                            RESOLVE_REDIRECTION_NODE_KEY_PARENT => {
+                            "suffix" | "parent" => {
                                 if let Value::Array(values) = v {
                                     for (j, v) in values.iter().enumerate() {
-                                        add_parent_redirection_record(&mut config, v, to_v)
+                                        add_suffix_redirection_record(&mut config, v, to_v)
                                             .context(format!(
-                                                "invalid parent domain rule in #{i}/{k}#{j}"
+                                                "invalid suffix domain rule in #{i}/{k}#{j}"
                                             ))?;
                                     }
                                 } else {
-                                    add_parent_redirection_record(&mut config, v, to_v).context(
-                                        format!("invalid parent domain rule in #{i}/{k}"),
+                                    add_suffix_redirection_record(&mut config, v, to_v).context(
+                                        format!("invalid suffix domain rule in #{i}/{k}"),
                                     )?;
                                 }
                             }
@@ -364,11 +362,11 @@ mod tests {
                 "to": "alias.domain.com"
             },
             {
-                "parent": "example.com",
+                "suffix": "example.com",
                 "to": "redirected.com"
             },
             {
-                "parent": [
+                "suffix": [
                     "example.net"
                 ],
                 "to": "redirected.net"

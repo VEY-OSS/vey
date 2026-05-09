@@ -50,11 +50,11 @@ impl ResolveRedirectionBuilder {
             .insert(domain, ResolveRedirectionValue::Domain(alias));
     }
 
-    pub fn insert_parent_alias(&mut self, from: DomainName, to: DomainName) {
+    pub fn insert_suffix_alias(&mut self, from: DomainName, to: DomainName) {
         self.trie.insert(from, ResolveRedirectionValue::Domain(to));
     }
 
-    pub fn insert_parent_addr(&mut self, domain: DomainName, ips: Vec<IpAddr>) {
+    pub fn insert_suffix_addr(&mut self, domain: DomainName, ips: Vec<IpAddr>) {
         let mut ipv4 = Vec::new();
         let mut ipv6 = Vec::new();
         for ip in ips {
@@ -77,7 +77,7 @@ impl ResolveRedirectionBuilder {
     pub fn build(&self) -> ResolveRedirection {
         let mut trie = Trie::new();
         for (k, v) in self.trie.iter() {
-            // append extra '.' to match the exact parent domain
+            // append extra '.' to match the exact suffix domain
             let lookup_k = k.to_reversed();
             let node = TrieValue {
                 from: k.clone(),
@@ -304,9 +304,9 @@ mod tests {
     }
 
     #[test]
-    fn parent_replace() {
+    fn suffix_replace() {
         let mut builder = ResolveRedirectionBuilder::default();
-        builder.insert_parent_alias(literal_domain!("foo.com"), literal_domain!("bar.com"));
+        builder.insert_suffix_alias(literal_domain!("foo.com"), literal_domain!("bar.com"));
         let r = builder.build();
 
         assert!(
@@ -333,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn parent_replace_ips() {
+    fn suffix_replace_ips() {
         let mut builder = ResolveRedirectionBuilder::default();
         let ip41 = IpAddr::from_str("1.1.1.1").unwrap();
         let ip42 = IpAddr::from_str("2.2.2.2").unwrap();
@@ -347,9 +347,9 @@ mod tests {
         let domain2 = literal_domain!("www.example2.com");
         let domain3 = literal_domain!("www.example3.com");
 
-        builder.insert_parent_addr(literal_domain!("example1.com"), target_ips1);
-        builder.insert_parent_addr(literal_domain!("example2.com"), target_ips2);
-        builder.insert_parent_addr(literal_domain!("example3.com"), target_ips3);
+        builder.insert_suffix_addr(literal_domain!("example1.com"), target_ips1);
+        builder.insert_suffix_addr(literal_domain!("example2.com"), target_ips2);
+        builder.insert_suffix_addr(literal_domain!("example3.com"), target_ips3);
         let r = builder.build();
 
         let ret = r
