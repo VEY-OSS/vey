@@ -27,15 +27,15 @@ use vey_types::net::{
     OpensslServerConfig, OpensslTicketKey, ProxyProtocolVersion, RollingTicketer,
 };
 
-use crate::config::server::native_tls_port::NativeTlsPortConfig;
+use crate::config::server::usual_tls_port::UsualTlsPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
     ArcServer, ArcServerInternal, Server, ServerInternal, ServerQuitPolicy, ServerRegistry,
     WrapArcServer,
 };
 
-pub(crate) struct NativeTlsPort {
-    config: NativeTlsPortConfig,
+pub(crate) struct UsualTlsPort {
+    config: UsualTlsPortConfig,
     listen_stats: Arc<ListenStats>,
     tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     tls_server_config: OpensslServerConfig,
@@ -47,9 +47,9 @@ pub(crate) struct NativeTlsPort {
     reload_version: usize,
 }
 
-impl NativeTlsPort {
+impl UsualTlsPort {
     fn new<F>(
-        config: NativeTlsPortConfig,
+        config: UsualTlsPortConfig,
         listen_stats: Arc<ListenStats>,
         tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         reload_version: usize,
@@ -75,7 +75,7 @@ impl NativeTlsPort {
 
         let next_server = Arc::new(fetch_server(&config.server));
 
-        Ok(NativeTlsPort {
+        Ok(UsualTlsPort {
             config,
             listen_stats,
             tls_rolling_ticketer,
@@ -88,9 +88,7 @@ impl NativeTlsPort {
         })
     }
 
-    pub(crate) fn prepare_initial(
-        config: NativeTlsPortConfig,
-    ) -> anyhow::Result<ArcServerInternal> {
+    pub(crate) fn prepare_initial(config: UsualTlsPortConfig) -> anyhow::Result<ArcServerInternal> {
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
         let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
@@ -102,7 +100,7 @@ impl NativeTlsPort {
             None
         };
 
-        let server = NativeTlsPort::new(
+        let server = UsualTlsPort::new(
             config,
             listen_stats,
             tls_rolling_ticketer,
@@ -116,8 +114,8 @@ impl NativeTlsPort {
         &self,
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
-    ) -> anyhow::Result<NativeTlsPort> {
-        if let AnyServerConfig::NativeTlsPort(config) = config {
+    ) -> anyhow::Result<UsualTlsPort> {
+        if let AnyServerConfig::UsualTlsPort(config) = config {
             let listen_stats = Arc::clone(&self.listen_stats);
 
             let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
@@ -131,7 +129,7 @@ impl NativeTlsPort {
                 None
             };
 
-            NativeTlsPort::new(
+            UsualTlsPort::new(
                 config,
                 listen_stats,
                 tls_rolling_ticketer,
@@ -225,9 +223,9 @@ impl NativeTlsPort {
     }
 }
 
-impl ServerInternal for NativeTlsPort {
+impl ServerInternal for UsualTlsPort {
     fn _clone_config(&self) -> AnyServerConfig {
-        AnyServerConfig::NativeTlsPort(self.config.clone())
+        AnyServerConfig::UsualTlsPort(self.config.clone())
     }
 
     fn _depend_on_server(&self, name: &NodeName) -> bool {
@@ -284,7 +282,7 @@ impl ServerInternal for NativeTlsPort {
     }
 }
 
-impl BaseServer for NativeTlsPort {
+impl BaseServer for UsualTlsPort {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -302,7 +300,7 @@ impl BaseServer for NativeTlsPort {
 }
 
 #[async_trait]
-impl AcceptTcpServer for NativeTlsPort {
+impl AcceptTcpServer for UsualTlsPort {
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         if self.drop_early(client_addr) {
@@ -314,13 +312,13 @@ impl AcceptTcpServer for NativeTlsPort {
 }
 
 #[async_trait]
-impl AcceptQuicServer for NativeTlsPort {
+impl AcceptQuicServer for UsualTlsPort {
     #[cfg(feature = "quic")]
     async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }
 
 #[async_trait]
-impl Server for NativeTlsPort {
+impl Server for UsualTlsPort {
     fn escaper(&self) -> &NodeName {
         Default::default()
     }

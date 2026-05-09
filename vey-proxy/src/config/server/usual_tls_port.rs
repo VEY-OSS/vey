@@ -18,10 +18,10 @@ use vey_yaml::YamlDocPosition;
 use super::ServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 
-const SERVER_CONFIG_TYPE: &str = "NativeTlsPort";
+const SERVER_CONFIG_TYPE: &str = "UsualTlsPort";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct NativeTlsPortConfig {
+pub(crate) struct UsualTlsPortConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) listen: TcpListenConfig,
@@ -34,9 +34,9 @@ pub(crate) struct NativeTlsPortConfig {
     pub(crate) proxy_protocol_read_timeout: Duration,
 }
 
-impl NativeTlsPortConfig {
+impl UsualTlsPortConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
-        NativeTlsPortConfig {
+        UsualTlsPortConfig {
             name: NodeName::default(),
             position,
             listen: TcpListenConfig::default(),
@@ -54,7 +54,7 @@ impl NativeTlsPortConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let mut server = NativeTlsPortConfig::new(position);
+        let mut server = UsualTlsPortConfig::new(position);
 
         vey_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
 
@@ -137,7 +137,7 @@ impl NativeTlsPortConfig {
     }
 }
 
-impl ServerConfig for NativeTlsPortConfig {
+impl ServerConfig for UsualTlsPortConfig {
     fn name(&self) -> &NodeName {
         &self.name
     }
@@ -163,7 +163,7 @@ impl ServerConfig for NativeTlsPortConfig {
     }
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let AnyServerConfig::NativeTlsPort(new) = new else {
+        let AnyServerConfig::UsualTlsPort(new) = new else {
             return ServerConfigDiffAction::SpawnNew;
         };
 

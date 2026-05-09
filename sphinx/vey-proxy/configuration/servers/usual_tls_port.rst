@@ -1,12 +1,12 @@
-.. _configuration_server_native_tls_port:
+.. _configuration_server_usual_tls_port:
 
-native_tls_port
-===============
+usual_tls_port
+==============
 
 .. versionadded:: 1.7.29
+.. versionchanged:: renamed to usual_tls_port since 1.13.3
 
-This server exposes a native-TLS listening port in front of another local
-server.
+This server exposes an usual OpenSSL based TLS listening port in front of another local server.
 
 The following common keys are supported:
 
@@ -44,8 +44,8 @@ Example:
 
 .. code-block:: yaml
 
-   - name: native-front
-     type: native_tls_port
+   - name: usual-front
+     type: usual_tls_port
      listen: 0.0.0.0:8443
      tls:
        cert_pairs:

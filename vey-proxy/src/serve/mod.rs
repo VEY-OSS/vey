@@ -30,11 +30,11 @@ pub(crate) use idle_check::ServerIdleChecker;
 
 mod dummy_close;
 mod intelli_proxy;
-mod native_tls_port;
 #[cfg(feature = "quic")]
 mod plain_quic_port;
 mod plain_tcp_port;
 mod plain_tls_port;
+mod usual_tls_port;
 
 mod http_proxy;
 mod http_rproxy;

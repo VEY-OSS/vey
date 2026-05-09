@@ -32,7 +32,7 @@ Servers
    sni_proxy
    plain_tcp_port
    plain_tls_port
-   native_tls_port
+   usual_tls_port
    plain_quic_port
    intelli_proxy
 

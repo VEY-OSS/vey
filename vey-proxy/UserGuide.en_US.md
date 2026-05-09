@@ -693,7 +693,7 @@ server:
 
 This feature requires the `vendored-tongsuo` feature to be enabled at build time.
 
-You can use `NativeTlsPort` to encapsulate Guomi TLCP:
+You can use `UsualTlsPort` to encapsulate Guomi TLCP:
 
 ```yaml
 server:
@@ -702,7 +702,7 @@ server:
     type: http_proxy
     # ... other settings
   - name: tlcp
-    type: native_tls_port
+    type: usual_tls_port
     listen: "[::]:443"
     tls_server:
       tlcp_cert_pairs: # Enables Guomi TLCP

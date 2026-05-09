@@ -20,11 +20,11 @@ use super::{ArcServer, ArcServerInternal, Server, registry};
 
 use super::dummy_close::DummyCloseServer;
 use super::intelli_proxy::IntelliProxy;
-use super::native_tls_port::NativeTlsPort;
 #[cfg(feature = "quic")]
 use super::plain_quic_port::PlainQuicPort;
 use super::plain_tcp_port::PlainTcpPort;
 use super::plain_tls_port::PlainTlsPort;
+use super::usual_tls_port::UsualTlsPort;
 
 use super::http_proxy::HttpProxyServer;
 use super::http_rproxy::HttpRProxyServer;
@@ -292,7 +292,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
         AnyServerConfig::DummyClose(c) => DummyCloseServer::prepare_initial(c)?,
         AnyServerConfig::PlainTcpPort(c) => PlainTcpPort::prepare_initial(c)?,
         AnyServerConfig::PlainTlsPort(c) => PlainTlsPort::prepare_initial(c)?,
-        AnyServerConfig::NativeTlsPort(c) => NativeTlsPort::prepare_initial(c)?,
+        AnyServerConfig::UsualTlsPort(c) => UsualTlsPort::prepare_initial(c)?,
         #[cfg(feature = "quic")]
         AnyServerConfig::PlainQuicPort(c) => PlainQuicPort::prepare_initial(c)?,
         AnyServerConfig::IntelliProxy(c) => IntelliProxy::prepare_initial(c)?,

@@ -679,7 +679,7 @@ server:
 
 此功能需要编译时启用feature vendored-tongsuo。
 
-可使用NativeTlsPort实现国密TLCP协议封装：
+可使用UsualTlsPort实现国密TLCP协议封装：
 
 ```yaml
 server:
@@ -688,7 +688,7 @@ server:
     type: http_proxy
     # ... 其他配置
   - name: tlcp
-    type: native_tls_port
+    type: usual_tls_port
     listen: "[::]:443"
     tls_server:
       tlcp_cert_pairs: # 启用国密TLCP协议

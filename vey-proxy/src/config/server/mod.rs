@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
+use log::warn;
 use slog::Logger;
 use yaml_rust::{Yaml, yaml};
 
@@ -23,11 +24,11 @@ use crate::auth::UserGroup;
 
 pub(crate) mod dummy_close;
 pub(crate) mod intelli_proxy;
-pub(crate) mod native_tls_port;
 #[cfg(feature = "quic")]
 pub(crate) mod plain_quic_port;
 pub(crate) mod plain_tcp_port;
 pub(crate) mod plain_tls_port;
+pub(crate) mod usual_tls_port;
 
 pub(crate) mod http_proxy;
 pub(crate) mod http_rproxy;
@@ -133,7 +134,7 @@ pub(crate) enum AnyServerConfig {
     DummyClose(dummy_close::DummyCloseServerConfig),
     PlainTcpPort(plain_tcp_port::PlainTcpPortConfig),
     PlainTlsPort(plain_tls_port::PlainTlsPortConfig),
-    NativeTlsPort(native_tls_port::NativeTlsPortConfig),
+    UsualTlsPort(usual_tls_port::UsualTlsPortConfig),
     #[cfg(feature = "quic")]
     PlainQuicPort(plain_quic_port::PlainQuicPortConfig),
     IntelliProxy(intelli_proxy::IntelliProxyConfig),
@@ -213,9 +214,15 @@ fn load_server(
             Ok(AnyServerConfig::PlainTlsPort(server))
         }
         "native_tls_port" | "nativetlsport" | "native_tls" | "nativetls" => {
-            let server = native_tls_port::NativeTlsPortConfig::parse(map, position)
-                .context("failed to load this NativeTlsPort server")?;
-            Ok(AnyServerConfig::NativeTlsPort(server))
+            warn!("deprecated server type {server_type}, please use `usual_tls_port` instead");
+            let server = usual_tls_port::UsualTlsPortConfig::parse(map, position)
+                .context("failed to load this UsualTlsPort server")?;
+            Ok(AnyServerConfig::UsualTlsPort(server))
+        }
+        "usual_tls_port" | "usualtlsport" | "usual_tls" | "usualtls" => {
+            let server = usual_tls_port::UsualTlsPortConfig::parse(map, position)
+                .context("failed to load this UsualTlsPort server")?;
+            Ok(AnyServerConfig::UsualTlsPort(server))
         }
         #[cfg(feature = "quic")]
         "plain_quic_port" | "plainquicport" | "plain_quic" | "plainquic" => {

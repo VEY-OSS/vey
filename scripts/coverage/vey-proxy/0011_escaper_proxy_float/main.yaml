@@ -47,7 +47,7 @@ server:
     escaper: default
     use_udp_associate: true
   - name: chained_socks5s_port
-    type: native_tls_port
+    type: usual_tls_port
     listen: 127.0.0.1:6443
     server: chained_socks
     tls_server:

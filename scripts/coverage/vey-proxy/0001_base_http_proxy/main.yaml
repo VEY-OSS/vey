@@ -33,7 +33,7 @@ server:
     listen: '[::1]:8080'
     server: http
   - name: tls1
-    type: native_tls_port
+    type: usual_tls_port
     listen: 127.0.0.1:8443
     server: http
     tls_server:
