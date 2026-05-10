@@ -32,6 +32,8 @@ pub struct UdpListenConfig {
     interface: Option<Interface>,
     #[cfg(not(target_os = "openbsd"))]
     ipv6only: Option<bool>,
+    #[cfg(target_os = "linux")]
+    transparent: bool,
     buf_conf: SocketBufferConfig,
     misc_opts: UdpMiscSockOpts,
     instance: usize,
@@ -58,6 +60,8 @@ impl UdpListenConfig {
             interface: None,
             #[cfg(not(target_os = "openbsd"))]
             ipv6only: None,
+            #[cfg(target_os = "linux")]
+            transparent: false,
             buf_conf: SocketBufferConfig::default(),
             misc_opts: UdpMiscSockOpts::default(),
             instance: 1,
@@ -115,6 +119,12 @@ impl UdpListenConfig {
         self.ipv6only
     }
 
+    #[cfg(target_os = "linux")]
+    #[inline]
+    pub fn transparent(&self) -> bool {
+        self.transparent
+    }
+
     #[inline]
     pub fn instance(&self) -> usize {
         self.instance.max(self.scale)
@@ -156,6 +166,12 @@ impl UdpListenConfig {
     #[inline]
     pub fn set_ipv6_only(&mut self, ipv6only: bool) {
         self.ipv6only = Some(ipv6only);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[inline]
+    pub fn set_transparent(&mut self) {
+        self.transparent = true;
     }
 
     pub fn set_instance(&mut self, instance: usize) {

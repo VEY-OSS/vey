@@ -212,6 +212,8 @@ impl UdpTProxyServerConfig {
             self.task_idle_check_interval = IDLE_CHECK_MAXIMUM_DURATION;
         }
 
+        #[cfg(target_os = "linux")]
+        self.listen.set_transparent();
         self.listen.check()?;
         Ok(())
     }
