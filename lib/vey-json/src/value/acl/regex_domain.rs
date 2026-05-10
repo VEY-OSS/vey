@@ -25,27 +25,33 @@ impl AclRuleJsonParser for AclRegexDomainRuleBuilder {
     fn add_rule_for_action(&mut self, action: AclAction, value: &Value) -> anyhow::Result<()> {
         match value {
             Value::Object(map) => {
-                let parent_v = crate::map::get_required(map, "parent")?;
-                let parent_domain = crate::value::as_domain(parent_v)
-                    .context("invalid domain string value for key 'parent'")?;
-                let regex_v = crate::map::get_required(map, "regex")?;
-                match regex_v {
-                    Value::Array(seq) => {
-                        for (i, v) in seq.iter().enumerate() {
-                            let regex = crate::value::as_regex(v)
-                                .context(format!("invalid regex string value for 'regex/{i}'"))?;
-                            self.add_prefix_regex(parent_domain.clone(), &regex, action);
+                let mut regex_list = vec![];
+                let mut suffix_domain = None;
+
+                for (k, v) in map {
+                    match crate::key::normalize(k).as_str() {
+                        "regex" => {
+                            regex_list = crate::value::as_list(v, crate::value::as_regex)
+                                .context(format!("invalid regex list value for key {k}"))?;
                         }
-                        Ok(())
+                        "suffix" | "parent" => {
+                            let domain = crate::value::as_domain(v)
+                                .context(format!("invalid domain string value for key {k}"))?;
+                            suffix_domain = Some(domain);
+                        }
+                        _ => return Err(anyhow!("invalid key {k}")),
                     }
-                    Value::String(_) => {
-                        let regex = crate::value::as_regex(regex_v)
-                            .context("invalid regex string value for key 'regex'")?;
-                        self.add_prefix_regex(parent_domain.clone(), &regex, action);
-                        Ok(())
-                    }
-                    _ => Err(anyhow!("invalid value type for key 'regex'")),
                 }
+
+                for regex in regex_list {
+                    if let Some(domain) = &suffix_domain {
+                        self.add_prefix_regex(domain.clone(), &regex, action);
+                    } else {
+                        self.add_full_regex(&regex, action);
+                    }
+                }
+
+                Ok(())
             }
             Value::String(_) => {
                 let regex = crate::value::as_regex(value)?;

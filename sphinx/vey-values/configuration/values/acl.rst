@@ -189,17 +189,17 @@ The record type should be a map or :ref:`regex str <conf_value_regex_str>`.
 
 The following keys are required for the map format:
 
- - parent
+ - suffix | parent
 
    **required**, **type**: :ref:`domain <conf_value_domain>`
 
-   Set the parent domain to match.
+   Set the parent / suffix domain to match. If set only the prefix will be used to match the regex.
 
  - regex
 
    **required**, **type**: :ref:`regex str <conf_value_regex_str>`
 
-   Set the regex to match the sub part of the domain.
+   Set the regex to match the domain.
 
 For str format, the regex will match against the full domain.
 
@@ -209,14 +209,14 @@ Example:
 
    regex_match:
      permit:
-       - parent: example.net
+       - suffix: example.net
          regex: '^api[0-9]+$'
        - '.*[.]example[.]org'
 
 .. availability::
 
-
    - ``vey-proxy``: available since ``1.11.5``
+   - ``vey-proxy``: key 'suffix' available since ``1.13.3``
 
 .. _conf_value_regex_set_acl_rule:
 

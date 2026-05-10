@@ -25,27 +25,33 @@ impl AclRuleYamlParser for AclRegexDomainRuleBuilder {
     fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()> {
         match value {
             Yaml::Hash(map) => {
-                let parent_v = crate::hash::get_required(map, "parent")?;
-                let parent_domain = crate::value::as_domain(parent_v)
-                    .context("invalid domain string value for key 'parent'")?;
-                let regex_v = crate::hash::get_required(map, "regex")?;
-                match regex_v {
-                    Yaml::Array(seq) => {
-                        for (i, v) in seq.iter().enumerate() {
-                            let regex = crate::value::as_regex(v)
-                                .context(format!("invalid regex string value for 'regex/{i}'"))?;
-                            self.add_prefix_regex(parent_domain.clone(), &regex, action);
-                        }
+                let mut regex_list = vec![];
+                let mut suffix_domain = None;
+
+                crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+                    "regex" => {
+                        regex_list = crate::value::as_list(v, crate::value::as_regex)
+                            .context(format!("invalid regex list value for key {k}"))?;
                         Ok(())
                     }
-                    Yaml::String(_) => {
-                        let regex = crate::value::as_regex(regex_v)
-                            .context("invalid regex string value for key 'regex'")?;
-                        self.add_prefix_regex(parent_domain.clone(), &regex, action);
+                    "suffix" | "parent" => {
+                        let domain = crate::value::as_domain(v)
+                            .context(format!("invalid domain string value for key {k}"))?;
+                        suffix_domain = Some(domain);
                         Ok(())
                     }
-                    _ => Err(anyhow!("invalid value type for key 'regex'")),
+                    _ => Err(anyhow!("invalid key {k}")),
+                })?;
+
+                for regex in regex_list {
+                    if let Some(domain) = &suffix_domain {
+                        self.add_prefix_regex(domain.clone(), &regex, action);
+                    } else {
+                        self.add_full_regex(&regex, action);
+                    }
                 }
+
+                Ok(())
             }
             Yaml::String(_) => {
                 let regex = crate::value::as_regex(value)?;
