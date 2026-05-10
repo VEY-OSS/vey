@@ -67,6 +67,42 @@ pub trait UdpCopyRemoteRecv {
     ) -> Poll<Result<usize, UdpCopyRemoteError>>;
 }
 
+impl<T: ?Sized + UdpCopyRemoteRecv> UdpCopyRemoteRecv for Box<T> {
+    #[cfg(feature = "log")]
+    fn error_logger(&self) -> Option<&Logger> {
+        self.as_ref().error_logger()
+    }
+
+    fn max_hdr_len(&self) -> usize {
+        self.as_ref().max_hdr_len()
+    }
+
+    fn poll_recv_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<Result<(usize, usize), UdpCopyRemoteError>> {
+        self.as_mut().poll_recv_packet(cx, buf)
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &mut [UdpCopyPacket],
+    ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        self.as_mut().poll_recv_packets(cx, packets)
+    }
+}
+
 pub trait UdpCopyRemoteSend {
     #[cfg(feature = "log")]
     fn error_logger(&self) -> Option<&Logger>;
@@ -92,4 +128,36 @@ pub trait UdpCopyRemoteSend {
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>>;
+}
+
+impl<T: ?Sized + UdpCopyRemoteSend> UdpCopyRemoteSend for Box<T> {
+    #[cfg(feature = "log")]
+    fn error_logger(&self) -> Option<&Logger> {
+        self.as_ref().error_logger()
+    }
+
+    fn poll_send_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        self.as_mut().poll_send_packet(cx, buf)
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    fn poll_send_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[UdpCopyPacket],
+    ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        self.as_mut().poll_send_packets(cx, packets)
+    }
 }

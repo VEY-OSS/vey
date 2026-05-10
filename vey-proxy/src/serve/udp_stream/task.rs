@@ -27,7 +27,7 @@ use crate::serve::{
     ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult, ServerTaskStage,
 };
 
-pub(super) struct TProxyStreamTask {
+pub(super) struct UdpStreamTask {
     ctx: CommonTaskContext,
     upstream: UpstreamAddr,
     udp_notes: UdpConnectTaskNotes,
@@ -38,7 +38,7 @@ pub(super) struct TProxyStreamTask {
     _alive_guard: Option<UdpStreamServerAliveTaskGuard>,
 }
 
-impl Drop for TProxyStreamTask {
+impl Drop for UdpStreamTask {
     fn drop(&mut self) {
         if self.started {
             self.post_stop();
@@ -47,16 +47,19 @@ impl Drop for TProxyStreamTask {
     }
 }
 
-impl TProxyStreamTask {
-    pub(super) fn new(ctx: CommonTaskContext, task_notes: ServerTaskNotes) -> Self {
+impl UdpStreamTask {
+    pub(super) fn new(
+        ctx: CommonTaskContext,
+        upstream: &UpstreamAddr,
+        task_notes: ServerTaskNotes,
+    ) -> Self {
         let max_idle_count = task_notes
             .user_ctx()
             .and_then(|c| c.user().task_max_idle_count())
             .unwrap_or(ctx.server_config.task_idle_max_count);
-        let upstream = UpstreamAddr::from(ctx.target_addr());
-        TProxyStreamTask {
+        UdpStreamTask {
             ctx,
-            upstream,
+            upstream: upstream.clone(),
             udp_notes: UdpConnectTaskNotes::default(),
             task_notes,
             task_stats: Arc::new(UdpConnectTaskStats::default()),
@@ -121,7 +124,7 @@ impl TProxyStreamTask {
 
     fn post_stop(&mut self) {
         if let Some(_user_ctx) = self.task_notes.user_ctx() {
-            // TODO user stats
+            // user stats
 
             if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
                 drop(user_req_alive_permit);

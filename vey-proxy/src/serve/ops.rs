@@ -14,9 +14,8 @@ use tokio::sync::Mutex;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
 
-use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
-
 use super::{ArcServer, ArcServerInternal, Server, registry};
+use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 
 use super::dummy_close::DummyCloseServer;
 use super::intelli_proxy::IntelliProxy;
@@ -39,6 +38,7 @@ use super::tcp_stream::TcpStreamServer;
 ))]
 use super::tcp_tproxy::TcpTProxyServer;
 use super::tls_stream::TlsStreamServer;
+use super::udp_stream::UdpStreamServer;
 #[cfg(any(
     target_os = "linux",
     target_os = "freebsd",
@@ -311,6 +311,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
             target_os = "openbsd"
         ))]
         AnyServerConfig::TcpTProxy(c) => TcpTProxyServer::prepare_initial(c)?,
+        AnyServerConfig::UdpStream(c) => UdpStreamServer::prepare_initial(c)?,
         #[cfg(any(
             target_os = "linux",
             target_os = "freebsd",

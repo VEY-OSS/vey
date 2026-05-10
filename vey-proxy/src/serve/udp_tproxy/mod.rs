@@ -4,8 +4,6 @@
  */
 
 mod common;
-mod recv;
-mod send;
 mod server;
 mod task;
 

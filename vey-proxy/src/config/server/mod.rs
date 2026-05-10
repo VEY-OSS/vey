@@ -43,6 +43,7 @@ pub(crate) mod tcp_stream;
 ))]
 pub(crate) mod tcp_tproxy;
 pub(crate) mod tls_stream;
+pub(crate) mod udp_stream;
 #[cfg(any(
     target_os = "linux",
     target_os = "freebsd",
@@ -153,6 +154,7 @@ pub(crate) enum AnyServerConfig {
         target_os = "openbsd"
     ))]
     TcpTProxy(tcp_tproxy::TcpTProxyServerConfig),
+    UdpStream(udp_stream::UdpStreamServerConfig),
     #[cfg(any(
         target_os = "linux",
         target_os = "freebsd",
@@ -265,6 +267,11 @@ fn load_server(
             let server = tcp_tproxy::TcpTProxyServerConfig::parse(map, position)
                 .context("failed to load this TcpTProxy server")?;
             Ok(AnyServerConfig::TcpTProxy(server))
+        }
+        "udp_stream" | "udpstream" => {
+            let server = udp_stream::UdpStreamServerConfig::parse(map, position)
+                .context("failed to load this UdpStream server")?;
+            Ok(AnyServerConfig::UdpStream(server))
         }
         #[cfg(any(
             target_os = "linux",

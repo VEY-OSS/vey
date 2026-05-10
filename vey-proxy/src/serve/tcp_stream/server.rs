@@ -174,7 +174,7 @@ impl TcpStreamServer {
     }
 
     fn get_task_notes(&self, cc_info: &ClientConnectionInfo) -> Option<ServerTaskNotes> {
-        let task_notes = if let Some(auth_match) = self.config.auth_match {
+        if let Some(auth_match) = self.config.auth_match {
             let ip = match auth_match {
                 FactsMatchType::ClientIp => cc_info.client_ip(),
                 FactsMatchType::ServerIp => cc_info.server_ip(),
@@ -200,11 +200,14 @@ impl TcpStreamServer {
                 // TODO may be attack
                 return None;
             }
-            ServerTaskNotes::new(cc_info.clone(), Some(user_ctx), Duration::ZERO)
+            Some(ServerTaskNotes::new(
+                cc_info.clone(),
+                Some(user_ctx),
+                Duration::ZERO,
+            ))
         } else {
-            ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO)
-        };
-        Some(task_notes)
+            Some(ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO))
+        }
     }
 
     fn get_ctx_and_upstream(

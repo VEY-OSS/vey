@@ -85,7 +85,6 @@ pub struct ListenUdpRuntime<S> {
     server_type: &'static str,
     server_version: usize,
     worker_id: Option<usize>,
-    listen_config: UdpListenConfig,
     conn_track: UdpConnectionTrackConfig,
     //listen_stats: Arc<ListenStats>,
     instance_id: usize,
@@ -95,11 +94,7 @@ impl<S> ListenUdpRuntime<S>
 where
     S: AcceptUdpServer + ReloadServer + Clone + Send + Sync + 'static,
 {
-    pub fn new(
-        server: S,
-        listen_config: UdpListenConfig,
-        conn_track: UdpConnectionTrackConfig,
-    ) -> Self {
+    pub fn new(server: S, conn_track: UdpConnectionTrackConfig) -> Self {
         let server_type = server.r#type();
         let server_version = server.version();
         ListenUdpRuntime {
@@ -107,7 +102,6 @@ where
             server_type,
             server_version,
             worker_id: None,
-            listen_config,
             conn_track,
             instance_id: 0,
         }
@@ -355,10 +349,11 @@ where
 
     pub fn run_all_instances(
         &self,
+        listen_config: &UdpListenConfig,
         listen_in_worker: bool,
         server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
     ) -> anyhow::Result<()> {
-        let mut instance_count = self.listen_config.instance();
+        let mut instance_count = listen_config.instance();
         if listen_in_worker {
             let worker_count = crate::runtime::worker::worker_count();
             if worker_count > 0 {
@@ -370,7 +365,7 @@ where
             let mut runtime = self.clone();
             runtime.instance_id = i;
 
-            let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
+            let socket = vey_socket::udp::new_std_bind_listen(listen_config)?;
             let listen_addr = socket.local_addr()?;
             runtime.into_running(
                 socket,
@@ -506,11 +501,7 @@ mod tests {
 
             let (reload_sender, reload_receiver) = broadcast::channel(4);
 
-            let runtime = ListenUdpRuntime::new(
-                server,
-                UdpListenConfig::new(listen_addr),
-                UdpConnectionTrackConfig::default(),
-            );
+            let runtime = ListenUdpRuntime::new(server, UdpConnectionTrackConfig::default());
 
             let runtime_task = tokio::spawn(runtime.run(socket, listen_addr, reload_receiver));
 

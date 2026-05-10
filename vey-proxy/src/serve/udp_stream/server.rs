@@ -21,29 +21,32 @@ use vey_daemon::listen::{
     AcceptQuicServer, AcceptTcpServer, AcceptUdpServer, AcceptedUdpPacketReceiver,
     AcceptedUdpPacketSender, ListenStats, ListenUdpRuntime,
 };
-use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerExt, ServerReloadCommand};
 use vey_io_ext::IdleWheel;
 use vey_openssl::SslStream;
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::auth::FactsMatchType;
+use vey_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use vey_types::metrics::NodeName;
+use vey_types::net::{UpstreamAddr, WeightedUpstreamAddr};
 
+use super::UdpStreamServerStats;
 use super::common::CommonTaskContext;
-use super::task::TProxyStreamTask;
+use super::task::UdpStreamTask;
 use crate::auth::{FactsUserGroup, UserContext, UserGroup};
-use crate::config::server::udp_tproxy::UdpTProxyServerConfig;
+use crate::config::server::udp_stream::UdpStreamServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
-use crate::serve::udp_stream::UdpStreamServerStats;
 use crate::serve::{
     ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
     ServerRegistry, ServerStats, ServerTaskNotes, WrapArcServer,
 };
 
-pub(crate) struct UdpTProxyServer {
-    config: Arc<UdpTProxyServerConfig>,
+pub(crate) struct UdpStreamServer {
+    config: Arc<UdpStreamServerConfig>,
     server_stats: Arc<UdpStreamServerStats>,
     listen_stats: Arc<ListenStats>,
+    upstream: SelectiveVec<WeightedUpstreamAddr>,
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     task_logger: Option<Logger>,
@@ -55,14 +58,22 @@ pub(crate) struct UdpTProxyServer {
     reload_version: usize,
 }
 
-impl UdpTProxyServer {
+impl UdpStreamServer {
     fn new(
-        config: Arc<UdpTProxyServerConfig>,
+        config: Arc<UdpStreamServerConfig>,
         server_stats: Arc<UdpStreamServerStats>,
         listen_stats: Arc<ListenStats>,
         version: usize,
     ) -> anyhow::Result<Self> {
         let reload_sender = crate::serve::new_reload_notify_channel();
+
+        let mut nodes_builder = SelectiveVecBuilder::new();
+        for node in &config.upstream {
+            nodes_builder.insert(node.clone());
+        }
+        let upstream = nodes_builder
+            .build()
+            .ok_or_else(|| anyhow!("no upstream addr set"))?;
 
         let ingress_net_filter = config
             .ingress_net_filter
@@ -76,10 +87,11 @@ impl UdpTProxyServer {
 
         let escaper = Arc::new(crate::escape::get_or_insert_default(config.escaper()));
 
-        let server = UdpTProxyServer {
+        let server = UdpStreamServer {
             config,
             server_stats,
             listen_stats,
+            upstream,
             ingress_net_filter,
             reload_sender,
             task_logger,
@@ -90,29 +102,28 @@ impl UdpTProxyServer {
             reload_version: version,
         };
         server._update_user_group_in_place();
-
         Ok(server)
     }
 
     pub(crate) fn prepare_initial(
-        config: UdpTProxyServerConfig,
+        config: UdpStreamServerConfig,
     ) -> anyhow::Result<ArcServerInternal> {
         let config = Arc::new(config);
         let server_stats = Arc::new(UdpStreamServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let server = UdpTProxyServer::new(config, server_stats, listen_stats, 1)?;
+        let server = UdpStreamServer::new(config, server_stats, listen_stats, 1)?;
         Ok(Arc::new(server))
     }
 
     fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<Self> {
-        if let AnyServerConfig::UdpTProxy(config) = config {
+        if let AnyServerConfig::UdpStream(config) = config {
             let config = Arc::new(config);
             let server_stats = Arc::clone(&self.server_stats);
             let listen_stats = Arc::clone(&self.listen_stats);
 
             let server =
-                UdpTProxyServer::new(config, server_stats, listen_stats, self.reload_version + 1)?;
+                UdpStreamServer::new(config, server_stats, listen_stats, self.reload_version + 1)?;
             Ok(server)
         } else {
             Err(anyhow!(
@@ -140,17 +151,12 @@ impl UdpTProxyServer {
         false
     }
 
-    async fn run_task(
-        &self,
-        cc_info: ClientConnectionInfo,
-        packet_receiver: AcceptedUdpPacketReceiver,
-        packet_sender: AcceptedUdpPacketSender,
-    ) {
-        let task_notes = if let Some(auth_match) = self.config.auth_match {
+    fn get_task_notes(&self, cc_info: &ClientConnectionInfo) -> Option<ServerTaskNotes> {
+        if let Some(auth_match) = self.config.auth_match {
             let ip = match auth_match {
                 FactsMatchType::ClientIp => cc_info.client_ip(),
                 FactsMatchType::ServerIp => cc_info.server_ip(),
-                FactsMatchType::ServerName => return,
+                FactsMatchType::ServerName => return None,
             };
             let Some((user, user_type)) = self
                 .user_group
@@ -158,7 +164,8 @@ impl UdpTProxyServer {
                 .as_ref()
                 .and_then(|g| g.get_user_by_ip(ip))
             else {
-                return;
+                // TODO log
+                return None;
             };
             let user_ctx = UserContext::new(
                 None,
@@ -168,12 +175,25 @@ impl UdpTProxyServer {
                 self.server_stats.share_extra_tags(),
             );
             if user_ctx.check_client_addr(cc_info.client_addr()).is_err() {
-                return;
+                // TODO may be attack
+                return None;
             }
-            ServerTaskNotes::new(cc_info.clone(), Some(user_ctx), Duration::ZERO)
+            Some(ServerTaskNotes::new(
+                cc_info.clone(),
+                Some(user_ctx),
+                Duration::ZERO,
+            ))
         } else {
-            ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO)
-        };
+            Some(ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO))
+        }
+    }
+
+    fn get_ctx_and_upstream(
+        &self,
+        cc_info: ClientConnectionInfo,
+    ) -> (CommonTaskContext, &UpstreamAddr) {
+        let upstream =
+            self.select_consistent(&self.upstream, self.config.upstream_pick_policy, &cc_info);
 
         let ctx = CommonTaskContext {
             server_config: self.config.clone(),
@@ -185,15 +205,29 @@ impl UdpTProxyServer {
             task_logger: self.task_logger.clone(),
         };
 
-        TProxyStreamTask::new(ctx, task_notes)
+        (ctx, upstream.inner())
+    }
+
+    async fn run_task_with_stream(
+        &self,
+        cc_info: ClientConnectionInfo,
+        packet_receiver: AcceptedUdpPacketReceiver,
+        packet_sender: AcceptedUdpPacketSender,
+    ) {
+        let Some(task_notes) = self.get_task_notes(&cc_info) else {
+            return;
+        };
+        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info);
+
+        UdpStreamTask::new(ctx, upstream, task_notes)
             .into_running(packet_receiver, packet_sender)
             .await;
     }
 }
 
-impl ServerInternal for UdpTProxyServer {
+impl ServerInternal for UdpStreamServer {
     fn _clone_config(&self) -> AnyServerConfig {
-        AnyServerConfig::UdpTProxy(self.config.as_ref().clone())
+        AnyServerConfig::UdpStream(self.config.as_ref().clone())
     }
 
     fn _depend_on_server(&self, _name: &NodeName) -> bool {
@@ -255,13 +289,16 @@ impl ServerInternal for UdpTProxyServer {
     }
 
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
+        let Some(listen_config) = &self.config.listen else {
+            return Ok(());
+        };
         let runtime = ListenUdpRuntime::new(
             WrapArcServer(server),
             vey_types::net::UdpConnectionTrackConfig::default(),
         );
         runtime
             .run_all_instances(
-                &self.config.listen,
+                listen_config,
                 self.config.listen_in_worker,
                 &self.reload_sender,
             )
@@ -274,7 +311,7 @@ impl ServerInternal for UdpTProxyServer {
     }
 }
 
-impl BaseServer for UdpTProxyServer {
+impl BaseServer for UdpStreamServer {
     fn name(&self) -> &NodeName {
         self.config.name()
     }
@@ -288,13 +325,15 @@ impl BaseServer for UdpTProxyServer {
     }
 }
 
+impl ServerExt for UdpStreamServer {}
+
 #[async_trait]
-impl AcceptTcpServer for UdpTProxyServer {
+impl AcceptTcpServer for UdpStreamServer {
     async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
 }
 
 #[async_trait]
-impl AcceptUdpServer for UdpTProxyServer {
+impl AcceptUdpServer for UdpStreamServer {
     async fn run_udp_task(
         &self,
         cc_info: ClientConnectionInfo,
@@ -307,18 +346,19 @@ impl AcceptUdpServer for UdpTProxyServer {
             return;
         }
 
-        self.run_task(cc_info, packet_receiver, packet_sender).await;
+        self.run_task_with_stream(cc_info, packet_receiver, packet_sender)
+            .await;
     }
 }
 
 #[async_trait]
-impl AcceptQuicServer for UdpTProxyServer {
+impl AcceptQuicServer for UdpStreamServer {
     #[cfg(feature = "quic")]
     async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }
 
 #[async_trait]
-impl Server for UdpTProxyServer {
+impl Server for UdpStreamServer {
     fn escaper(&self) -> &NodeName {
         self.config.escaper()
     }

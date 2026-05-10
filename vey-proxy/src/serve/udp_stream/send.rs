@@ -8,21 +8,31 @@ use std::task::{Context, Poll};
 use bytes::Bytes;
 
 use vey_daemon::listen::AcceptedUdpPacketSender;
-use vey_io_ext::{UdpCopyClientError, UdpCopyClientSend, UdpCopyPacket};
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "macos",
+    target_os = "solaris",
+))]
+use vey_io_ext::UdpCopyPacket;
+use vey_io_ext::{UdpCopyClientError, UdpCopyClientSend};
 
-pub(super) struct UdpTProxyClientSend {
+pub(crate) struct UdpStreamClientSend {
     inner: AcceptedUdpPacketSender,
 }
 
-impl UdpTProxyClientSend {
-    pub(super) fn new(packet_sender: AcceptedUdpPacketSender) -> Self {
-        UdpTProxyClientSend {
+impl UdpStreamClientSend {
+    pub(crate) fn new(packet_sender: AcceptedUdpPacketSender) -> Self {
+        UdpStreamClientSend {
             inner: packet_sender,
         }
     }
 }
 
-impl UdpCopyClientSend for UdpTProxyClientSend {
+impl UdpCopyClientSend for UdpStreamClientSend {
     fn poll_send_packet(
         &mut self,
         _cx: &mut Context<'_>,

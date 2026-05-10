@@ -3,23 +3,42 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "macos",
+    target_os = "solaris",
+))]
 use std::io::IoSliceMut;
 use std::task::{Context, Poll};
 
 use vey_daemon::listen::AcceptedUdpPacketReceiver;
-use vey_io_ext::{UdpCopyClientError, UdpCopyClientRecv, UdpCopyPacket, UdpCopyPacketMeta};
+use vey_io_ext::{UdpCopyClientError, UdpCopyClientRecv};
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "macos",
+    target_os = "solaris",
+))]
+use vey_io_ext::{UdpCopyPacket, UdpCopyPacketMeta};
 
-pub(super) struct UdpTProxyClientRecv {
+pub(crate) struct UdpStreamClientRecv {
     inner: AcceptedUdpPacketReceiver,
 }
 
-impl UdpTProxyClientRecv {
-    pub(super) fn new(inner: AcceptedUdpPacketReceiver) -> Self {
-        UdpTProxyClientRecv { inner }
+impl UdpStreamClientRecv {
+    pub(crate) fn new(inner: AcceptedUdpPacketReceiver) -> Self {
+        UdpStreamClientRecv { inner }
     }
 }
 
-impl UdpCopyClientRecv for UdpTProxyClientRecv {
+impl UdpCopyClientRecv for UdpStreamClientRecv {
     fn max_hdr_len(&self) -> usize {
         0
     }
