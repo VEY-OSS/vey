@@ -219,12 +219,14 @@ For seq format:
 
     The following keys are used in the map format:
 
-      - parent
+      - suffix | parent
 
         **optional**, **type**: :external+values:ref:`domain <conf_value_domain>`
 
         Parent domain to strip off, including the trailing ``.``, before applying the regex.
         If omitted, the full domain is matched.
+
+        .. versionchanged:: added suffix key since version 1.13.3
 
       - regex
 

@@ -85,15 +85,15 @@ impl RegexMatchBuilder {
             return None;
         }
 
-        let mut parent_match_map: BTreeMap<DomainName, Vec<(RegexSet, T)>> = BTreeMap::new();
+        let mut suffix_match_map: BTreeMap<DomainName, Vec<(RegexSet, T)>> = BTreeMap::new();
         let mut full_match_vec = Vec::new();
         for (escaper, rules) in &self.inner {
-            let mut parent_regex_map: BTreeMap<DomainName, Vec<&str>> = BTreeMap::new();
+            let mut suffix_regex_map: BTreeMap<DomainName, Vec<&str>> = BTreeMap::new();
             let mut full_regex_set: BTreeSet<&str> = BTreeSet::new();
             for rule in rules {
-                match &rule.parent_domain {
+                match &rule.suffix_domain {
                     Some(domain) => {
-                        parent_regex_map
+                        suffix_regex_map
                             .entry(domain.clone())
                             .or_default()
                             .push(&rule.sub_domain_regex);
@@ -107,12 +107,12 @@ impl RegexMatchBuilder {
             let Some(value) = value_table.get(escaper) else {
                 unreachable!()
             };
-            for (parent_domain, regexes) in parent_regex_map {
+            for (suffix_domain, regexes) in suffix_regex_map {
                 let Ok(regex_set) = RegexSet::new(regexes) else {
                     unreachable!()
                 };
-                parent_match_map
-                    .entry(parent_domain)
+                suffix_match_map
+                    .entry(suffix_domain)
                     .or_default()
                     .push((regex_set, value.clone()));
             }
@@ -121,16 +121,16 @@ impl RegexMatchBuilder {
                 full_match_vec.push((regex_set, value.clone()));
             }
         }
-        let mut parent_match_trie = Trie::new();
-        for (parent_domain, value) in parent_match_map {
-            let reversed_k = parent_domain.to_reversed();
-            parent_match_trie.insert(reversed_k, (parent_domain, value));
+        let mut suffix_match_trie = Trie::new();
+        for (suffix_domain, value) in suffix_match_map {
+            let reversed_k = suffix_domain.to_reversed();
+            suffix_match_trie.insert(reversed_k, (suffix_domain, value));
         }
-        if parent_match_trie.is_empty() {
+        if suffix_match_trie.is_empty() {
             None
         } else {
             Some(RegexMatch {
-                parent_match: parent_match_trie,
+                suffix_match: suffix_match_trie,
                 full_match: full_match_vec,
             })
         }
@@ -139,16 +139,16 @@ impl RegexMatchBuilder {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct RegexMatchValue {
-    parent_domain: Option<DomainName>,
+    suffix_domain: Option<DomainName>,
     sub_domain_regex: String,
 }
 
 impl fmt::Display for RegexMatchValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(domain) = &self.parent_domain {
+        if let Some(domain) = &self.suffix_domain {
             write!(
                 f,
-                "regex {} for parent domain {domain}",
+                "regex {} for suffix domain {domain}",
                 self.sub_domain_regex
             )
         } else {
@@ -163,9 +163,9 @@ impl RegexMatchValue {
         match value {
             Yaml::Hash(map) => {
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
-                    "parent" => {
-                        let parent_domain = vey_yaml::value::as_domain(v)?;
-                        match_value.parent_domain = Some(parent_domain);
+                    "suffix" | "parent" => {
+                        let domain = vey_yaml::value::as_domain(v)?;
+                        match_value.suffix_domain = Some(domain);
                         Ok(())
                     }
                     "regex" => {
@@ -192,14 +192,14 @@ impl RegexMatchValue {
 }
 
 pub(crate) struct RegexMatch<T> {
-    parent_match: Trie<String, (DomainName, Vec<(RegexSet, T)>)>,
+    suffix_match: Trie<String, (DomainName, Vec<(RegexSet, T)>)>,
     full_match: Vec<(RegexSet, T)>,
 }
 
 impl<T> RegexMatch<T> {
     pub(crate) fn check_domain(&self, domain: &DomainName) -> Option<&T> {
         let reversed = domain.to_reversed();
-        if let Some(sub_trie) = self.parent_match.get_ancestor(&reversed)
+        if let Some(sub_trie) = self.suffix_match.get_ancestor(&reversed)
             && let Some((suffix, rules)) = sub_trie.value()
             && let Some(prefix) = domain.strip_suffix(suffix)
         {
@@ -229,11 +229,11 @@ mod tests {
         let conf = r#"
         - next: escaper_1
           rule:
-            parent: example.net
+            suffix: example.net
             regex: abc.*
         - next: escaper_2
           rules:
-            - parent: example.net
+            - suffix: example.net
               regex: cde.+
             - .*[.]example[.]org
         "#;
@@ -280,10 +280,10 @@ mod tests {
     fn yaml_map() {
         let conf = r#"
         escaper_1:
-          parent: example.net
+          suffix: example.net
           regex: abc.*
         escaper_2:
-          - parent: example.net
+          - suffix: example.net
             regex: cde.+
           - .*[.]example[.]org
         "#;
