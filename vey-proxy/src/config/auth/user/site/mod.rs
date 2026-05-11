@@ -25,7 +25,7 @@ pub(crate) struct UserSiteConfig {
     pub(crate) exact_match_domain: BTreeSet<DomainName>,
     pub(crate) exact_match_ipaddr: BTreeSet<IpAddr>,
     pub(crate) subnet_match_ipaddr: BTreeSet<IpNetwork>,
-    pub(crate) child_match_domain: BTreeSet<DomainName>,
+    pub(crate) suffix_match_domain: BTreeSet<DomainName>,
     pub(crate) emit_stats: bool,
     pub(crate) resolve_strategy: Option<ResolveStrategy>,
     pub(crate) duration_stats: HistogramMetricsConfig,

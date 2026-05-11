@@ -45,11 +45,11 @@ impl UserSiteConfig {
                 }
                 Ok(())
             }
-            "child_match" => {
+            "suffix_match" | "child_match" => {
                 let domains = vey_json::value::as_list(v, vey_json::value::as_domain)
                     .context(format!("invalid domain list value for key {k}"))?;
                 for domain in domains {
-                    self.child_match_domain.insert(domain);
+                    self.suffix_match_domain.insert(domain);
                 }
                 Ok(())
             }

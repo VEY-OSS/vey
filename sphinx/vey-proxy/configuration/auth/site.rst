@@ -33,16 +33,18 @@ Both a single host value and a sequence of hosts are accepted.
 
 .. note:: the value should be different within all sites config of the current user.
 
-child_match
------------
+suffix_match
+------------
 
-**optional**, **type**: :external+values:ref:`domain <conf_value_domain>` | seq
+**optional**, **type**: :external+values:ref:`domain <conf_value_domain>` | seq, **alias**: child_match
 
 Parent domain to match. Any child domain under it also matches.
 
 Both a single domain value and a sequence of domains are accepted.
 
 .. note:: the value should be different within all sites config of the current user.
+
+.. versionchanged:: renamed to suffix_match since version 1.13.3
 
 subnet_match
 ------------

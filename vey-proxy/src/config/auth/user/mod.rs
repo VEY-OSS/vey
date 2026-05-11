@@ -177,7 +177,7 @@ impl UserConfig {
 
         let mut check_exact_ip = BTreeSet::new();
         let mut check_exact_domain = BTreeSet::new();
-        let mut check_child_domain = BTreeSet::new();
+        let mut check_suffix_domain = BTreeSet::new();
         let mut check_subnet = BTreeSet::new();
         for config in self.explicit_sites.values() {
             for ip in &config.exact_match_ipaddr {
@@ -196,8 +196,8 @@ impl UserConfig {
                     ));
                 }
             }
-            for domain in &config.child_match_domain {
-                if !check_child_domain.insert(domain) {
+            for domain in &config.suffix_match_domain {
+                if !check_suffix_domain.insert(domain) {
                     return Err(anyhow!(
                         "Parent Domain {domain} in site group {} has already been added by others",
                         config.id

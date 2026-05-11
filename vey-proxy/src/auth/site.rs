@@ -157,7 +157,7 @@ pub(super) struct UserSites {
     all_sites: HashMap<NodeName, Arc<UserSite>>,
     exact_match_ipaddr: Option<FxHashMap<IpAddr, Arc<UserSite>>>,
     exact_match_domain: Option<AHashMap<DomainName, Arc<UserSite>>>,
-    child_match_domain: Option<Trie<String, Arc<UserSite>>>,
+    suffix_match_domain: Option<Trie<String, Arc<UserSite>>>,
     subnet_match_ipaddr: Option<IpNetworkTable<Arc<UserSite>>>,
 }
 
@@ -172,8 +172,8 @@ impl UserSites {
         let mut all_sites = HashMap::default();
         let mut exact_match_ipaddr = FxHashMap::default();
         let mut exact_match_domain = AHashMap::new();
-        let mut child_match_domain = Trie::new();
-        let mut child_match_domain_count = 0usize;
+        let mut suffix_match_domain = Trie::new();
+        let mut suffix_match_domain_count = 0usize;
         let mut subnet_match_ipaddr = IpNetworkTable::new();
 
         for site_config in sites {
@@ -188,13 +188,13 @@ impl UserSites {
             for domain in &site_config.exact_match_domain {
                 exact_match_domain.insert(domain.clone(), site.clone());
             }
-            for domain in &site_config.child_match_domain {
+            for domain in &site_config.suffix_match_domain {
                 let reversed_k = domain.to_reversed();
-                if child_match_domain
+                if suffix_match_domain
                     .insert(reversed_k, site.clone())
                     .is_none()
                 {
-                    child_match_domain_count += 1;
+                    suffix_match_domain_count += 1;
                 }
             }
             for net in &site_config.subnet_match_ipaddr {
@@ -212,8 +212,8 @@ impl UserSites {
         } else {
             Some(exact_match_domain)
         };
-        let child_match_domain = if child_match_domain_count > 0 {
-            Some(child_match_domain)
+        let suffix_match_domain = if suffix_match_domain_count > 0 {
+            Some(suffix_match_domain)
         } else {
             None
         };
@@ -227,7 +227,7 @@ impl UserSites {
             all_sites,
             exact_match_ipaddr,
             exact_match_domain,
-            child_match_domain,
+            suffix_match_domain,
             subnet_match_ipaddr,
         })
     }
@@ -279,7 +279,7 @@ impl UserSites {
                     return Some(r.clone());
                 }
 
-                if let Some(trie) = &self.child_match_domain {
+                if let Some(trie) = &self.suffix_match_domain {
                     let reversed = domain.to_reversed();
                     if let Some(r) = trie.get_ancestor_value(&reversed) {
                         return Some(r.clone());
