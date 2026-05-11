@@ -553,7 +553,7 @@ impl SocksProxyUdpConnectTask {
             log_ctx.log_connected();
         }
 
-        poll_fn(|cx| ups_w.poll_send_packet(cx, &buf[buf_off..buf_nr])).await?;
+        poll_fn(|cx| ups_w.poll_send_buf(cx, &buf[buf_off..buf_nr])).await?;
 
         let clt_w = Socks5UdpConnectClientSend::new(clt_w, upstream);
 

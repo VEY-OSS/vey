@@ -33,7 +33,7 @@ impl UdpStreamClientSend {
 }
 
 impl UdpCopyClientSend for UdpStreamClientSend {
-    fn poll_send_packet(
+    fn poll_send_buf(
         &mut self,
         _cx: &mut Context<'_>,
         buf: &[u8],

@@ -47,7 +47,7 @@ where
         0
     }
 
-    fn poll_recv_packet(
+    fn poll_recv_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],

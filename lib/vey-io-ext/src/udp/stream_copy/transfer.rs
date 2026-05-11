@@ -1,87 +1,19 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::io::IoSliceMut;
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
 
 use thiserror::Error;
 
-use super::LimitedUdpRelayConfig;
-
-mod client;
-mod remote;
-
-pub use client::{UdpCopyClientError, UdpCopyClientRecv, UdpCopyClientSend};
-pub use remote::{UdpCopyRemoteError, UdpCopyRemoteRecv, UdpCopyRemoteSend};
-
-#[derive(Clone)]
-pub struct UdpCopyPacket {
-    buf: Box<[u8]>,
-    buf_data_off: usize,
-    buf_data_end: usize,
-}
-
-impl UdpCopyPacket {
-    fn new(reserved_size: usize, packet_size: usize) -> Self {
-        let buf_size = packet_size + reserved_size;
-        UdpCopyPacket {
-            buf: vec![0; buf_size].into_boxed_slice(),
-            buf_data_off: 0,
-            buf_data_end: 0,
-        }
-    }
-
-    #[inline]
-    pub fn buf_mut(&mut self) -> &mut [u8] {
-        &mut self.buf
-    }
-
-    #[inline]
-    pub fn buf(&self) -> &[u8] {
-        &self.buf
-    }
-
-    #[inline]
-    fn set_offset(&mut self, off: usize) {
-        self.buf_data_off = off;
-    }
-
-    #[inline]
-    fn set_length(&mut self, len: usize) {
-        self.buf_data_end = len;
-    }
-
-    #[inline]
-    pub fn payload(&self) -> &[u8] {
-        &self.buf[self.buf_data_off..self.buf_data_end]
-    }
-}
-
-pub struct UdpCopyPacketMeta {
-    iov_base: *const u8,
-    data_off: usize,
-    data_len: usize,
-}
-
-impl UdpCopyPacketMeta {
-    pub fn new(iov: &IoSliceMut, data_off: usize, data_len: usize) -> Self {
-        UdpCopyPacketMeta {
-            iov_base: iov.as_ptr(),
-            data_off,
-            data_len,
-        }
-    }
-
-    pub fn set_packet(self, p: &mut UdpCopyPacket) {
-        let iov_advance =
-            unsafe { usize::try_from(self.iov_base.offset_from(p.buf().as_ptr())).unwrap() };
-        p.set_offset(iov_advance + self.data_off);
-        p.set_length(iov_advance + self.data_len);
-    }
-}
+use super::{
+    UdpCopyClientError, UdpCopyClientRecv, UdpCopyClientSend, UdpCopyPacket, UdpCopyRemoteError,
+    UdpCopyRemoteRecv, UdpCopyRemoteSend,
+};
+use crate::udp::LimitedUdpRelayConfig;
 
 #[derive(Error, Debug)]
 pub enum UdpCopyError {
@@ -131,7 +63,7 @@ impl<T: UdpCopyClientRecv + ?Sized> UdpCopyRecv for ClientRecv<'_, T> {
     ) -> Poll<Result<usize, UdpCopyError>> {
         let (off, nr) = ready!(
             self.0
-                .poll_recv_packet(cx, &mut packet.buf)
+                .poll_recv_buf(cx, &mut packet.buf)
                 .map_err(UdpCopyError::ClientError)
         )?;
         packet.buf_data_off = off;
@@ -169,7 +101,7 @@ impl<T: UdpCopyRemoteRecv + ?Sized> UdpCopyRecv for RemoteRecv<'_, T> {
     ) -> Poll<Result<usize, UdpCopyError>> {
         let (off, nr) = ready!(
             self.0
-                .poll_recv_packet(cx, &mut packet.buf)
+                .poll_recv_buf(cx, &mut packet.buf)
                 .map_err(UdpCopyError::RemoteError)
         )?;
         packet.buf_data_off = off;
@@ -236,7 +168,7 @@ impl<T: UdpCopyClientSend + ?Sized> UdpCopySend for ClientSend<'_, T> {
         packet: &UdpCopyPacket,
     ) -> Poll<Result<usize, UdpCopyError>> {
         self.0
-            .poll_send_packet(cx, packet.payload())
+            .poll_send_buf(cx, packet.payload())
             .map_err(UdpCopyError::ClientError)
     }
 
@@ -269,7 +201,7 @@ impl<T: UdpCopyRemoteSend + ?Sized> UdpCopySend for RemoteSend<'_, T> {
         packet: &UdpCopyPacket,
     ) -> Poll<Result<usize, UdpCopyError>> {
         self.0
-            .poll_send_packet(cx, packet.payload())
+            .poll_send_buf(cx, packet.payload())
             .map_err(UdpCopyError::RemoteError)
     }
 
@@ -288,7 +220,7 @@ impl<T: UdpCopyRemoteSend + ?Sized> UdpCopySend for RemoteSend<'_, T> {
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyError>> {
         self.0
-            .poll_send_packets(cx, packets)
+            .poll_send_many_packets(cx, packets)
             .map_err(UdpCopyError::RemoteError)
     }
 }
@@ -356,6 +288,7 @@ impl UdpCopyBuffer {
                     .map(|p| p.buf_data_end - p.buf_data_off)
                     .sum::<usize>();
                 self.send_start += count;
+                self.total += count as u64;
                 self.active = true;
             }
             self.send_start = 0;

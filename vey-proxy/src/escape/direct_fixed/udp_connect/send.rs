@@ -16,7 +16,7 @@ use slog::Logger;
     target_os = "openbsd",
     target_os = "macos",
 ))]
-use vey_io_ext::UdpCopyPacket;
+use vey_io_ext::{AsUdpPayload, UdpCopyPacket};
 use vey_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 
 pub(crate) struct DirectUdpConnectRemoteSend<T> {
@@ -34,6 +34,64 @@ where
             logger,
         }
     }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+    ))]
+    fn poll_send_many<B: AsUdpPayload>(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[B],
+    ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        use std::io::IoSlice;
+        use vey_io_sys::udp::SendMsgHdr;
+
+        let mut msgs: Vec<SendMsgHdr<1>> = packets
+            .iter()
+            .map(|p| SendMsgHdr::new([IoSlice::new(p.as_payload())], None))
+            .collect();
+
+        let count = ready!(self.inner.poll_batch_sendmsg(cx, &mut msgs))
+            .map_err(UdpCopyRemoteError::SendFailed)?;
+        if count == 0 {
+            Poll::Ready(Err(UdpCopyRemoteError::SendFailed(io::Error::new(
+                io::ErrorKind::WriteZero,
+                "write zero packet into sender",
+            ))))
+        } else {
+            Poll::Ready(Ok(count))
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn poll_send_many<B: AsUdpPayload>(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[B],
+    ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        use std::io::IoSlice;
+        use vey_io_sys::udp::SendMsgHdr;
+
+        let mut msgs: Vec<SendMsgHdr<1>> = packets
+            .iter()
+            .map(|p| SendMsgHdr::new([IoSlice::new(p.as_payload())], None))
+            .collect();
+
+        let count = ready!(self.inner.poll_batch_sendmsg_x(cx, &mut msgs))
+            .map_err(UdpCopyRemoteError::SendFailed)?;
+        if count == 0 {
+            Poll::Ready(Err(UdpCopyRemoteError::SendFailed(io::Error::new(
+                io::ErrorKind::WriteZero,
+                "write zero packet into sender",
+            ))))
+        } else {
+            Poll::Ready(Ok(count))
+        }
+    }
 }
 
 impl<T> UdpCopyRemoteSend for DirectUdpConnectRemoteSend<T>
@@ -44,7 +102,7 @@ where
         self.logger.as_ref()
     }
 
-    fn poll_send_packet(
+    fn poll_send_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &[u8],
@@ -66,55 +124,29 @@ where
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
-    fn poll_send_packets(
+    fn poll_send_many_packets(
         &mut self,
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        use std::io::IoSlice;
-        use vey_io_sys::udp::SendMsgHdr;
-
-        let mut msgs: Vec<SendMsgHdr<1>> = packets
-            .iter()
-            .map(|p| SendMsgHdr::new([IoSlice::new(p.payload())], None))
-            .collect();
-
-        let count = ready!(self.inner.poll_batch_sendmsg(cx, &mut msgs))
-            .map_err(UdpCopyRemoteError::SendFailed)?;
-        if count == 0 {
-            Poll::Ready(Err(UdpCopyRemoteError::SendFailed(io::Error::new(
-                io::ErrorKind::WriteZero,
-                "write zero packet into sender",
-            ))))
-        } else {
-            Poll::Ready(Ok(count))
-        }
+        self.poll_send_many(cx, packets)
     }
 
-    #[cfg(target_os = "macos")]
-    fn poll_send_packets(
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+    ))]
+    fn poll_send_many_bytes(
         &mut self,
         cx: &mut Context<'_>,
-        packets: &[UdpCopyPacket],
+        packets: &[bytes::Bytes],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        use std::io::IoSlice;
-        use vey_io_sys::udp::SendMsgHdr;
-
-        let mut msgs: Vec<SendMsgHdr<1>> = packets
-            .iter()
-            .map(|p| SendMsgHdr::new([IoSlice::new(p.payload())], None))
-            .collect();
-
-        let count = ready!(self.inner.poll_batch_sendmsg_x(cx, &mut msgs))
-            .map_err(UdpCopyRemoteError::SendFailed)?;
-        if count == 0 {
-            Poll::Ready(Err(UdpCopyRemoteError::SendFailed(io::Error::new(
-                io::ErrorKind::WriteZero,
-                "write zero packet into sender",
-            ))))
-        } else {
-            Poll::Ready(Ok(count))
-        }
+        self.poll_send_many(cx, packets)
     }
 }

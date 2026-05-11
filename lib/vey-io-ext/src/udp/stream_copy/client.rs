@@ -4,19 +4,10 @@
  */
 
 use std::io;
-use std::task::{Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use thiserror::Error;
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-    target_os = "macos",
-    target_os = "solaris",
-))]
 use super::UdpCopyPacket;
 
 #[derive(Error, Debug)]
@@ -40,11 +31,22 @@ pub trait UdpCopyClientRecv {
     fn max_hdr_len(&self) -> usize;
 
     /// return `(off, len)`
-    fn poll_recv_packet(
+    fn poll_recv_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<Result<(usize, usize), UdpCopyClientError>>;
+
+    fn poll_recv_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &mut UdpCopyPacket,
+    ) -> Poll<Result<(), UdpCopyClientError>> {
+        let (off, len) = ready!(self.poll_recv_buf(cx, buf.buf_mut()))?;
+        buf.set_length(len);
+        buf.set_offset(off);
+        Poll::Ready(Ok(()))
+    }
 
     #[cfg(any(
         target_os = "linux",
@@ -64,7 +66,7 @@ pub trait UdpCopyClientRecv {
 
 pub trait UdpCopyClientSend {
     /// return `nw`, which should be greater than 0
-    fn poll_send_packet(
+    fn poll_send_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &[u8],

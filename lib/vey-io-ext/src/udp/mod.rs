@@ -22,12 +22,18 @@ pub use relay::{
 };
 pub use relay::{UdpRelayClientToRemote, UdpRelayError, UdpRelayRemoteToClient};
 
-mod copy;
-pub use copy::{
-    UdpCopyClientError, UdpCopyClientRecv, UdpCopyClientSend, UdpCopyPacket, UdpCopyPacketMeta,
-    UdpCopyRemoteError, UdpCopyRemoteRecv, UdpCopyRemoteSend,
+mod stream_copy;
+pub use stream_copy::{
+    AsUdpPayload, UdpCopyClientError, UdpCopyClientRecv, UdpCopyClientSend, UdpCopyPacket,
+    UdpCopyPacketMeta, UdpCopyRemoteError, UdpCopyRemoteRecv, UdpCopyRemoteSend,
 };
-pub use copy::{UdpCopyClientToRemote, UdpCopyError, UdpCopyRemoteToClient};
+pub use stream_copy::{UdpCopyClientToRemote, UdpCopyError, UdpCopyRemoteToClient};
+
+mod stream_move;
+pub use stream_move::{
+    LimitedUdpMoveRecv, LimitedUdpMoveSend, UdpMoveError, UdpMoveRecv, UdpMoveRemoteReceiver,
+    UdpMoveRemoteSender, UdpMoveSend, UdpMoveTransfer,
+};
 
 mod split;
 pub use split::{

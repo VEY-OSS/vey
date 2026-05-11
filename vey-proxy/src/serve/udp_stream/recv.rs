@@ -43,7 +43,7 @@ impl UdpCopyClientRecv for UdpStreamClientRecv {
         0
     }
 
-    fn poll_recv_packet(
+    fn poll_recv_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
@@ -79,7 +79,7 @@ impl UdpCopyClientRecv for UdpStreamClientRecv {
     ) -> Poll<Result<usize, UdpCopyClientError>> {
         let mut count = 0;
         for packet in packets.iter_mut() {
-            match self.poll_recv_packet(cx, packet.buf_mut()) {
+            match self.poll_recv_buf(cx, packet.buf_mut()) {
                 Poll::Ready(Ok((off, len))) => {
                     let iov = IoSliceMut::new(packet.buf_mut());
                     UdpCopyPacketMeta::new(&iov, off, len).set_packet(packet);

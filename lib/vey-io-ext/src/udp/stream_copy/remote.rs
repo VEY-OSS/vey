@@ -4,21 +4,12 @@
  */
 
 use std::io;
-use std::task::{Context, Poll};
+use std::task::{Context, Poll, ready};
 
 #[cfg(feature = "log")]
 use slog::Logger;
 use thiserror::Error;
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-    target_os = "macos",
-    target_os = "solaris",
-))]
 use super::UdpCopyPacket;
 
 #[derive(Error, Debug)]
@@ -45,11 +36,22 @@ pub trait UdpCopyRemoteRecv {
     fn max_hdr_len(&self) -> usize;
 
     /// return `(off, len. from)`
-    fn poll_recv_packet(
+    fn poll_recv_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<Result<(usize, usize), UdpCopyRemoteError>>;
+
+    fn poll_recv_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &mut UdpCopyPacket,
+    ) -> Poll<Result<(), UdpCopyRemoteError>> {
+        let (off, len) = ready!(self.poll_recv_buf(cx, buf.buf_mut()))?;
+        buf.set_length(len);
+        buf.set_offset(off);
+        Poll::Ready(Ok(()))
+    }
 
     #[cfg(any(
         target_os = "linux",
@@ -77,12 +79,12 @@ impl<T: ?Sized + UdpCopyRemoteRecv> UdpCopyRemoteRecv for Box<T> {
         self.as_ref().max_hdr_len()
     }
 
-    fn poll_recv_packet(
+    fn poll_recv_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<Result<(usize, usize), UdpCopyRemoteError>> {
-        self.as_mut().poll_recv_packet(cx, buf)
+        self.as_mut().poll_recv_buf(cx, buf)
     }
 
     #[cfg(any(
@@ -108,7 +110,7 @@ pub trait UdpCopyRemoteSend {
     fn error_logger(&self) -> Option<&Logger>;
 
     /// return `nw`, which should be greater than 0
-    fn poll_send_packet(
+    fn poll_send_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &[u8],
@@ -123,10 +125,25 @@ pub trait UdpCopyRemoteSend {
         target_os = "macos",
         target_os = "solaris",
     ))]
-    fn poll_send_packets(
+    fn poll_send_many_packets(
         &mut self,
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
+    ) -> Poll<Result<usize, UdpCopyRemoteError>>;
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    fn poll_send_many_bytes(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[bytes::Bytes],
     ) -> Poll<Result<usize, UdpCopyRemoteError>>;
 }
 
@@ -136,12 +153,12 @@ impl<T: ?Sized + UdpCopyRemoteSend> UdpCopyRemoteSend for Box<T> {
         self.as_ref().error_logger()
     }
 
-    fn poll_send_packet(
+    fn poll_send_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        self.as_mut().poll_send_packet(cx, buf)
+        self.as_mut().poll_send_buf(cx, buf)
     }
 
     #[cfg(any(
@@ -153,11 +170,28 @@ impl<T: ?Sized + UdpCopyRemoteSend> UdpCopyRemoteSend for Box<T> {
         target_os = "macos",
         target_os = "solaris",
     ))]
-    fn poll_send_packets(
+    fn poll_send_many_packets(
         &mut self,
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        self.as_mut().poll_send_packets(cx, packets)
+        self.as_mut().poll_send_many_packets(cx, packets)
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    fn poll_send_many_bytes(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[bytes::Bytes],
+    ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        self.as_mut().poll_send_many_bytes(cx, packets)
     }
 }

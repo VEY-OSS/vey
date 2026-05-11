@@ -45,7 +45,7 @@ impl<T> UdpCopyClientSend for Socks5UdpConnectClientSend<T>
 where
     T: AsyncUdpSend + Send,
 {
-    fn poll_send_packet(
+    fn poll_send_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &[u8],
