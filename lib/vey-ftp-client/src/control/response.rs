@@ -44,7 +44,7 @@ impl FtpRawResponse {
     fn parse_single_line(line: &str) -> Result<Self, FtpRawResponseError> {
         let buf = line.as_bytes();
         let code = Self::parse_code_bytes(buf[0], buf[1], buf[2])?;
-        Ok(FtpRawResponse::SingleLine(code, line[4..].to_string()))
+        Ok(FtpRawResponse::SingleLine(code, line[4..].to_owned()))
     }
 
     fn get_multi_line_parser(
@@ -55,7 +55,7 @@ impl FtpRawResponse {
         let code = Self::parse_code_bytes(buf[0], buf[1], buf[2])?;
         let end_prefix = [buf[0], buf[1], buf[2], b' '];
         let mut lines = Vec::<String>::with_capacity(max_lines);
-        lines.push(line[4..].to_string());
+        lines.push(line[4..].to_owned());
         Ok(FtpMultiLineReplyParser {
             code,
             end_prefix,
@@ -151,7 +151,7 @@ impl FtpRawResponse {
         if let Some(p_start) = memchr::memchr(b'(', line.as_bytes())
             && let Some(p_end) = memchr::memchr(b')', &line.as_bytes()[p_start..])
         {
-            let identifier = line[p_start + 1..p_end].to_string();
+            let identifier = line[p_start + 1..p_end].to_owned();
             return Some(identifier);
         }
         // pure-ftpd has removed it's SPSV support in commit
@@ -170,11 +170,11 @@ pub(super) struct FtpMultiLineReplyParser {
 impl FtpMultiLineReplyParser {
     pub(super) fn feed_line(&mut self, line: &str) -> Result<bool, FtpRawResponseError> {
         if line.as_bytes().starts_with(&self.end_prefix) {
-            self.lines.push(line[4..].to_string());
+            self.lines.push(line[4..].to_owned());
             Ok(true)
         } else {
             // do not trim whitespace at beginning
-            self.lines.push(line.to_string());
+            self.lines.push(line.to_owned());
             Ok(false)
         }
     }

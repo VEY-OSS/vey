@@ -29,7 +29,7 @@ pub(crate) struct CAresResolverConfig {
 impl From<&CAresResolverConfig> for vey_resolver::ResolverConfig {
     fn from(c: &CAresResolverConfig) -> Self {
         vey_resolver::ResolverConfig {
-            name: c.name.to_string(),
+            name: c.name.as_str().to_owned(),
             runtime: c.runtime.clone(),
             driver: AnyResolveDriverConfig::CAres(c.driver.clone()),
         }

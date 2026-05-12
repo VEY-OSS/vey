@@ -59,13 +59,13 @@ where
     let (sender, receiver) = mpsc::unbounded_channel::<CapnpMessage>();
     let (ready_notifier, ready) = oneshot::channel::<bool>();
     let handler = std::thread::Builder::new()
-        .name("capnp_ctl".to_string())
+        .name("capnp_ctl".into())
         .spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build_local(LocalOptions::default())
                 .unwrap();
-            crate::runtime::metrics::add_tokio_stats(rt.metrics(), "capnp_ctl".to_string());
+            crate::runtime::metrics::add_tokio_stats(rt.metrics(), "capnp_ctl".into());
             rt.block_on(async move {
                 let mut receiver = receiver;
                 set_capnp_message_sender(sender);

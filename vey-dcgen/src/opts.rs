@@ -124,7 +124,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
 
     if let Some(group_name) = args.get_one::<String>(GLOBAL_ARG_GROUP_NAME) {
         DAEMON_GROUP
-            .set(group_name.to_string())
+            .set(group_name.clone())
             .map_err(|_| anyhow!("daemon group has already been set"))?;
 
         if let Some(s) = group_name.strip_prefix("port")

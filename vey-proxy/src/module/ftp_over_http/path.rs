@@ -62,9 +62,7 @@ impl From<&Uri> for FtpRequestPath {
             _ => {
                 if path.as_bytes().ends_with(b"/") {
                     FtpRequestPath::ListOnly(
-                        path.strip_suffix('/')
-                            .map(|s| s.to_string())
-                            .unwrap_or(path),
+                        path.strip_suffix('/').map(|s| s.to_owned()).unwrap_or(path),
                     )
                 } else {
                     FtpRequestPath::AutoDetect(path)

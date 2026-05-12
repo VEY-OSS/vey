@@ -30,7 +30,7 @@ pub(crate) struct HickoryResolverConfig {
 impl From<&HickoryResolverConfig> for vey_resolver::ResolverConfig {
     fn from(c: &HickoryResolverConfig) -> Self {
         vey_resolver::ResolverConfig {
-            name: c.name.to_string(),
+            name: c.name.as_str().to_owned(),
             runtime: c.runtime.clone(),
             driver: AnyResolveDriverConfig::Hickory(Box::new(c.driver.clone())),
         }

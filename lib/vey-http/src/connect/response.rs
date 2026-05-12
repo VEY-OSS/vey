@@ -116,7 +116,7 @@ impl HttpConnectResponse {
     fn build_from_status_line(line_buf: &[u8]) -> Result<Self, HttpConnectResponseError> {
         let rsp =
             HttpStatusLine::parse(line_buf).map_err(HttpConnectResponseError::InvalidStatusLine)?;
-        Ok(HttpConnectResponse::new(rsp.code, rsp.reason.to_string()))
+        Ok(HttpConnectResponse::new(rsp.code, rsp.reason.to_owned()))
     }
 
     fn parse_header_line(&mut self, line_buf: &[u8]) -> Result<(), HttpConnectResponseError> {
@@ -181,7 +181,7 @@ impl HttpConnectResponse {
         } else {
             Err(HttpConnectError::UnexpectedStatusCode(
                 self.code,
-                self.reason.to_string(),
+                self.reason.to_owned(),
             ))
         }
     }

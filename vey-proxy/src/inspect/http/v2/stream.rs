@@ -34,7 +34,7 @@ pub(super) async fn transfer<SC>(
     if clt_req.method().eq(&Method::CONNECT) {
         if let Some(protocol) = clt_req.extensions().get::<Protocol>() {
             let upgrade_protocol = HttpUpgradeToken::from_str(protocol.as_str())
-                .unwrap_or_else(|_e| HttpUpgradeToken::Unsupported(protocol.as_str().to_string()));
+                .unwrap_or_else(|_e| HttpUpgradeToken::Unsupported(protocol.as_str().to_owned()));
 
             let connect_task = H2ExtendedConnectTask::new(ctx, clt_stream_id, upgrade_protocol);
             connect_task.into_running(clt_req, clt_send_rsp, h2s).await;

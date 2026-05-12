@@ -49,7 +49,7 @@ impl ThriftGlobalArgs {
         let check_message_length = args.get_one::<usize>(ARG_CHECK_MESSAGE_LENGTH).copied();
 
         Ok(ThriftGlobalArgs {
-            method: name.to_string(),
+            method: name.clone(),
             payload: Arc::from(payload),
             request_builder,
             check_message_length,

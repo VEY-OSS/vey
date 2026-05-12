@@ -131,13 +131,13 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         vey_daemon::control::panic::set_hook(&args.daemon_config);
 
         if let Some(stats) = vey_io_ext::spawn_limit_schedule_runtime().await {
-            vey_daemon::runtime::metrics::add_tokio_stats(stats, "limit-schedule".to_string());
+            vey_daemon::runtime::metrics::add_tokio_stats(stats, "limit-schedule".into());
         }
         if let Some(stats) = vey_cert_agent::spawn_cert_generate_runtime().await {
-            vey_daemon::runtime::metrics::add_tokio_stats(stats, "cert-generate".to_string());
+            vey_daemon::runtime::metrics::add_tokio_stats(stats, "cert-generate".into());
         }
         if let Some(stats) = vey_ip_locate::spawn_ip_locate_runtime().await {
-            vey_daemon::runtime::metrics::add_tokio_stats(stats, "ip-locate".to_string());
+            vey_daemon::runtime::metrics::add_tokio_stats(stats, "ip-locate".into());
         }
 
         match load_and_spawn().await {

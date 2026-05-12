@@ -108,7 +108,7 @@ impl HttpAdaptedRequest {
         };
 
         let method = Method::from_str(req.method)
-            .map_err(|_| HttpRequestParseError::UnsupportedMethod(req.method.to_string()))?;
+            .map_err(|_| HttpRequestParseError::UnsupportedMethod(req.method.to_owned()))?;
         let uri =
             Uri::from_str(req.uri).map_err(|_| HttpRequestParseError::InvalidRequestTarget)?;
         Ok(HttpAdaptedRequest::new(method, uri, version))

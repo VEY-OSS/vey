@@ -99,7 +99,7 @@ async fn main() -> anyhow::Result<()> {
 
     if let Some(target) = args.get_one::<Shell>(GLOBAL_ARG_COMPLETION) {
         let mut app = build_cli_args();
-        let bin_name = app.get_name().to_string();
+        let bin_name = app.get_name().to_owned();
         clap_complete::generate(*target, &mut app, bin_name, &mut io::stdout());
         return Ok(());
     }

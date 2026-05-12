@@ -48,7 +48,7 @@ fn add_url_path_matched_value<T: YamlMapCallback>(
         let t = Arc::new(target);
         let mut auto_default = true;
         for prefix in &prefix_match_vs {
-            if obj.add_prefix(prefix.to_string(), Arc::clone(&t)).is_some() {
+            if obj.add_prefix(prefix.clone(), Arc::clone(&t)).is_some() {
                 return Err(anyhow!(
                     "duplicate {type_name} value for path prefix {prefix}"
                 ));

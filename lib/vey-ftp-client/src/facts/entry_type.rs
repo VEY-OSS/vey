@@ -28,7 +28,7 @@ impl FtpFileEntryType {
             "dir" => FtpFileEntryType::Directory,
             "cdir" => FtpFileEntryType::CurrentDir,
             "pdir" => FtpFileEntryType::ParentDir,
-            _ => FtpFileEntryType::OsType(value.to_string()),
+            _ => FtpFileEntryType::OsType(value.to_owned()),
         }
     }
 

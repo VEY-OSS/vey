@@ -39,7 +39,7 @@ impl AsyncLogFormatter<StdLogValue> for StdLogFormatter {
         let code_position = if self.append_code_position {
             let code_position = match record.file().rsplit_once('/').map(|x| x.1) {
                 Some(filename) => format!("{}({filename}:{})", record.module(), record.line()),
-                None => record.module().to_string(),
+                None => record.module().to_owned(),
             };
             Some(code_position)
         } else {
@@ -146,7 +146,7 @@ impl Serializer for FormatterKv<'_> {
     }
 
     fn emit_str(&mut self, key: slog::Key, value: &str) -> slog::Result {
-        self.0.push((key.to_string(), value.to_string()));
+        self.0.push((key.as_str().to_owned(), value.to_owned()));
 
         Ok(())
     }

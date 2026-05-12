@@ -68,7 +68,7 @@ impl HttpClientArgs {
         let path_and_query = if let Some(q) = self.target_url.query() {
             format!("{}?{q}", self.target_url.path())
         } else {
-            self.target_url.path().to_string()
+            self.target_url.path().to_owned()
         };
         let uri = http::Uri::builder()
             .scheme(self.target_url.scheme())

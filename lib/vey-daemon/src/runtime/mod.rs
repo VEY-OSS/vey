@@ -21,7 +21,7 @@ pub fn main_handle() -> Option<&'static Handle> {
 
 pub fn set_main_handle() {
     let handle = Handle::current();
-    metrics::add_tokio_stats(handle.metrics(), "main".to_string());
+    metrics::add_tokio_stats(handle.metrics(), "main".into());
     if MAIN_HANDLE.set(handle).is_err() {
         warn!("main handle has already been set");
     }

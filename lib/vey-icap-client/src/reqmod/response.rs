@@ -102,7 +102,7 @@ impl ReqmodResponse {
         let status =
             StatusLine::parse(line_buf).map_err(IcapReqmodParseError::InvalidStatusLine)?;
 
-        let rsp = ReqmodResponse::new(status.code, status.message.to_string());
+        let rsp = ReqmodResponse::new(status.code, status.message.to_owned());
         Ok(rsp)
     }
 

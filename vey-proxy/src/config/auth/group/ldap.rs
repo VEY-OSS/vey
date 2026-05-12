@@ -48,7 +48,7 @@ impl LdapUserGroupConfig {
             tls_name: None,
             direct_tls: false,
             base_dn: ArcStr::new(),
-            username_attribute: "uid".to_string(),
+            username_attribute: "uid".into(),
             unmanaged_user: None,
             max_message_size: 256,
             connect_timeout: Duration::from_secs(4),

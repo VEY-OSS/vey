@@ -30,7 +30,7 @@ impl RecipientParam {
         let forward_path = s
             .to_lowercase()
             .strip_prefix("to:")
-            .map(|s| s.to_string())
+            .map(|s| s.to_owned())
             .ok_or(CommandLineError::InvalidCommandParam(
                 "RCPT",
                 "invalid forward path prefix",

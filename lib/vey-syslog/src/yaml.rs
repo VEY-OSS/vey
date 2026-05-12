@@ -69,7 +69,7 @@ impl SyslogBuilder {
                     "cee_event_flag" | "cee_cookie" => {
                         let s = vey_yaml::value::as_ascii(v)
                             .context(format!("invalid ascii string value for key {k}"))?;
-                        cee_event_flag = Some(s.to_string());
+                        cee_event_flag = Some(s.as_str().to_owned());
                         Ok(())
                     }
                     "emit_hostname" => {

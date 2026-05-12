@@ -38,7 +38,7 @@ impl server_control::Server for ServerControlImpl {
             Ok(())
         } else {
             Err(capnp::Error::failed(
-                "server status is not supported on this server".to_string(),
+                "server status is not supported on this server".into(),
             ))
         }
     }

@@ -491,7 +491,10 @@ where
 
     fn all_dynamic_users(&self) -> Vec<String> {
         let dynamic_users = self.dynamic_users.load();
-        dynamic_users.keys().map(|k| k.to_string()).collect()
+        dynamic_users
+            .keys()
+            .map(|k| k.as_str().to_owned())
+            .collect()
     }
 
     fn check_user_with_password(

@@ -19,7 +19,7 @@ pub struct ReportLogIoError<D: Drain<Err = slog::Error, Ok = ()>> {
 impl<D: Drain<Err = slog::Error, Ok = ()>> ReportLogIoError<D> {
     pub fn new(drain: D, logger_name: &str, error_report_mask: usize) -> Self {
         ReportLogIoError {
-            logger_id: logger_name.to_string(),
+            logger_id: logger_name.to_owned(),
             error_count: AtomicUsize::new(0),
             report_mask: error_report_mask,
             inner: drain,

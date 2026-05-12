@@ -54,7 +54,7 @@ impl AsyncLogFormatter<Vec<u8>> for JournalFormatter {
         if self.conf.append_code_position {
             let code_position = match record.file().rsplit_once('/').map(|x| x.1) {
                 Some(filename) => format!("{}({filename}:{})", record.module(), record.line()),
-                None => record.module().to_string(),
+                None => record.module().to_owned(),
             };
             kv_formatter.emit_sanitized_one_line("CODE_POSITION", &code_position);
         }

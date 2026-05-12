@@ -89,7 +89,7 @@ impl BlendedRuntimeConfig {
             .thread_name
             .as_ref()
             .map(|s| s.to_owned())
-            .unwrap_or_else(|| "main".to_string());
+            .unwrap_or_else(|| "main".into());
         build.thread_name_fn(move || {
             static ATOMIC_ID: AtomicUsize = AtomicUsize::new(0);
             let id = ATOMIC_ID.fetch_add(1, Ordering::SeqCst);

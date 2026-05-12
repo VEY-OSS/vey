@@ -49,9 +49,7 @@ where
         let time_received = Instant::now();
 
         if matches!(&req.method, &Method::CONNECT) {
-            return Err(HttpRequestParseError::UnsupportedMethod(
-                "CONNECT".to_string(),
-            ));
+            return Err(HttpRequestParseError::UnsupportedMethod("CONNECT".into()));
         }
 
         let upstream = if let Some(mut host) = req.host.clone() {

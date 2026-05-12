@@ -92,7 +92,7 @@ where
             Ok((true, n)) => {
                 let command = std::str::from_utf8(&self.buf[0..n])
                     .map_err(|e| anyhow!("invalid utf-8 string: {e}"))?;
-                Ok((command.trim_end().to_string(), false))
+                Ok((command.trim_end().to_owned(), false))
             }
             Err(e) => Err(anyhow!("read: {e}")),
         }
@@ -139,7 +139,7 @@ where
     fn set(&mut self, mut iter: SplitWhitespace) -> anyhow::Result<String> {
         if let Some(key) = iter.next() {
             if let Some(value) = iter.next() {
-                self.config.set(key, &Yaml::String(value.to_string()))?;
+                self.config.set(key, &Yaml::String(value.to_owned()))?;
                 Ok(format!("{key} = {value}"))
             } else {
                 Err(anyhow!("no value for {key} found"))

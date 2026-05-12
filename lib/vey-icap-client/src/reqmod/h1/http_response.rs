@@ -115,7 +115,7 @@ impl HttpAdapterErrorResponse {
         Ok(HttpAdapterErrorResponse::new(
             version,
             status,
-            rsp.reason.to_string(),
+            rsp.reason.to_owned(),
         ))
     }
 

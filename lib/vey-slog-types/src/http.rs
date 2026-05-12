@@ -86,7 +86,7 @@ impl Value for LtHttpUri<'_> {
     fn serialize(
         &self,
         _record: &Record,
-        key: slog::Key,
+        key: Key,
         serializer: &mut dyn Serializer,
     ) -> slog::Result {
         if self.len() < self.max_chars {

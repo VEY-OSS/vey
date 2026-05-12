@@ -272,7 +272,7 @@ where
 
         for name in &self.ctx.server_config.egress_context_headers {
             if let Some(value) = req.inner.end_to_end_headers.remove(name) {
-                egress_path.set_context(name.to_string(), value.to_string());
+                egress_path.set_context(name.as_str().to_owned(), value.to_str().to_owned());
             }
         }
 

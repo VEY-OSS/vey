@@ -44,7 +44,7 @@ impl RegisterTask {
 
     pub async fn register(&mut self, mut content: Map<String, Value>) -> anyhow::Result<()> {
         for (k, v) in self.config.extra_data.iter() {
-            content.insert(k.to_string(), Value::String(v.to_string()));
+            content.insert(k.into(), Value::String(v.into()));
         }
 
         let body = Value::Object(content).to_string();

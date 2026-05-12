@@ -45,7 +45,7 @@ impl FromStr for YamlDocPosition {
     fn from_str(s: &str) -> anyhow::Result<Self> {
         let mut iter = s.split('#');
         let path = match iter.next() {
-            Some(path) => path.to_string(),
+            Some(path) => path.to_owned(),
             None => return Err(anyhow!("no path found")),
         };
 

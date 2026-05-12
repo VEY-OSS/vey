@@ -171,7 +171,7 @@ impl OpensslTlsClientArgs {
             tls_config.set_protocol(protocol);
         }
         if let Some(ciphers) = args.get_one::<String>(ciphers_id) {
-            let ciphers = ciphers.split(':').map(|s| s.to_string()).collect();
+            let ciphers = ciphers.split(':').map(|s| s.to_owned()).collect();
             tls_config.set_ciphers(ciphers);
         }
         Ok(())
@@ -238,7 +238,7 @@ impl OpensslTlsClientArgs {
             .as_mut()
             .ok_or_else(|| anyhow!("no tls config found"))?;
         if let Some(groups) = args.get_one::<String>(id) {
-            tls_config.set_key_exchange_groups(groups.to_string());
+            tls_config.set_key_exchange_groups(groups.clone());
         }
         Ok(())
     }

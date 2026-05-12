@@ -95,7 +95,7 @@ impl<T> AlpnMatch<T> {
             let mut dst_ht = AHashMap::with_capacity(ht.len());
             for (k, name) in ht {
                 let dv = find(name);
-                dst_ht.insert(k.to_string(), dv);
+                dst_ht.insert(k.clone(), dv);
             }
             dst.full_match = Some(dst_ht);
         }
@@ -104,7 +104,7 @@ impl<T> AlpnMatch<T> {
             let mut dst_ht = AHashMap::with_capacity(ht.len());
             for (k, name) in ht {
                 let dv = find(name);
-                dst_ht.insert(k.to_string(), dv);
+                dst_ht.insert(k.clone(), dv);
             }
             dst.main_match = Some(dst_ht);
         }
@@ -178,7 +178,7 @@ impl<T> AlpnMatch<Arc<T>> {
             let mut dst_ht = AHashMap::with_capacity(ht.len());
             for (k, v) in ht {
                 let dv = get_tmp(v)?;
-                dst_ht.insert(k.to_string(), dv);
+                dst_ht.insert(k.clone(), dv);
             }
             dst.full_match = Some(dst_ht);
         }
@@ -187,7 +187,7 @@ impl<T> AlpnMatch<Arc<T>> {
             let mut dst_ht = AHashMap::with_capacity(ht.len());
             for (k, v) in ht {
                 let dv = get_tmp(v)?;
-                dst_ht.insert(k.to_string(), dv);
+                dst_ht.insert(k.clone(), dv);
             }
             dst.main_match = Some(dst_ht);
         }

@@ -44,7 +44,7 @@ impl BinaryMessageParser {
         let data = &left[4..];
 
         Ok(ThriftResponseMessage {
-            method: name.to_string(),
+            method: name.to_owned(),
             seq_id,
             encoded_length: data.len(),
         })

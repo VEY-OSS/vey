@@ -288,7 +288,7 @@ impl HttpForwardRemoteResponse {
         Ok(HttpForwardRemoteResponse::new(
             version,
             rsp.code,
-            rsp.reason.to_string(),
+            rsp.reason.to_owned(),
         ))
     }
 

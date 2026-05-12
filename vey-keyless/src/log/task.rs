@@ -16,7 +16,7 @@ pub(crate) fn get_logger(server_name: &NodeName) -> Option<Logger> {
         "daemon_name" => crate::opts::daemon_group(),
         "log_type" => super::LOG_TYPE_TASK,
         "pid" => std::process::id(),
-        "server_name" => server_name.to_string(),
+        "server_name" => server_name.clone(),
     );
     config.build_logger(logger_name, super::LOG_TYPE_TASK, common_values)
 }
@@ -25,7 +25,7 @@ pub(crate) fn get_shared_logger(name: &str, server_name: &NodeName) -> Option<Lo
     let logger_name = format!("lt-{name}");
     super::shared::get_shared_logger(SharedLoggerType::Task, logger_name, |logger| {
         logger.new(slog::o!(
-            "server_name" => server_name.to_string(),
+            "server_name" => server_name.clone(),
         ))
     })
 }

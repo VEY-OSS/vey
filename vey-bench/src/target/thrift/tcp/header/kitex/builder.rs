@@ -97,8 +97,8 @@ impl KitexTTHeaderBuilder {
         if k.is_empty() {
             return Err(anyhow!("empty key"));
         }
-        let k = StringValue::try_from(k.to_string()).context(format!("invalid key: {k}"))?;
-        let v = StringValue::try_from(v.to_string()).context(format!("invalid value: {v}"))?;
+        let k = StringValue::try_from(k.to_owned()).context(format!("invalid key: {k}"))?;
+        let v = StringValue::try_from(v.to_owned()).context(format!("invalid value: {v}"))?;
 
         self.info_key_values.insert(k, v);
         Ok(())
@@ -109,7 +109,7 @@ impl KitexTTHeaderBuilder {
             bytes: k.to_be_bytes(),
             value: k,
         };
-        let v = StringValue::try_from(v.to_string()).context(format!("invalid value: {v}"))?;
+        let v = StringValue::try_from(v.to_owned()).context(format!("invalid value: {v}"))?;
 
         self.info_int_key_values.insert(k, v);
         Ok(())
@@ -119,7 +119,7 @@ impl KitexTTHeaderBuilder {
         if token.is_empty() {
             return Err(anyhow!("empty token"));
         }
-        let v = StringValue::try_from(token.to_string())?;
+        let v = StringValue::try_from(token.to_owned())?;
         self.acl_token = Some(v);
         Ok(())
     }

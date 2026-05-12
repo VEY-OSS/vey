@@ -87,7 +87,7 @@ where
                 }
                 None => {
                     return Err(HttpRequestParseError::UnsupportedRequest(
-                        "unsupported local request uri".to_string(),
+                        "unsupported local request uri".into(),
                     ));
                 }
             }

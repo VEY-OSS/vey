@@ -9,9 +9,11 @@ use std::sync::{Arc, Mutex};
 use anyhow::anyhow;
 use foldhash::fast::FixedState;
 
+use vey_types::metrics::NodeName;
+
 use super::AuditorConfig;
 
-static INITIAL_AUDITOR_CONFIG_REGISTRY: Mutex<HashMap<String, Arc<AuditorConfig>, FixedState>> =
+static INITIAL_AUDITOR_CONFIG_REGISTRY: Mutex<HashMap<NodeName, Arc<AuditorConfig>, FixedState>> =
     Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(crate) fn clear() {
@@ -20,9 +22,11 @@ pub(crate) fn clear() {
 }
 
 pub(super) fn add(auditor: AuditorConfig, replace: bool) -> anyhow::Result<()> {
-    let name = auditor.name().to_string();
+    let name = auditor.name().clone();
     let auditor = Arc::new(auditor);
-    let mut ht = INITIAL_AUDITOR_CONFIG_REGISTRY.lock().unwrap();
+    let mut ht = INITIAL_AUDITOR_CONFIG_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock auditor config registry: {e}"))?;
     if let Some(old) = ht.insert(name, auditor) {
         if replace {
             Ok(())

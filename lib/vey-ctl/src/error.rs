@@ -27,7 +27,7 @@ impl CommandError {
         match reason_reader.to_str() {
             Ok(reason) => CommandError::Api {
                 code,
-                reason: reason.to_string(),
+                reason: reason.to_owned(),
             },
             Err(e) => CommandError::Utf8 {
                 field: "reason",

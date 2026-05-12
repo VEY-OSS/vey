@@ -14,7 +14,7 @@ pub(super) fn get_logger(log_type: &'static str, auditor_name: &NodeName) -> Opt
         "daemon_name" => crate::opts::daemon_group(),
         "log_type" => log_type,
         "pid" => std::process::id(),
-        "auditor_name" => auditor_name.to_string(),
+        "auditor_name" => auditor_name.clone(),
     );
     config.build_logger(logger_name, log_type, common_values)
 }

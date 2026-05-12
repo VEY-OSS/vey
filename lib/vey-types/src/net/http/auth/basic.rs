@@ -60,7 +60,7 @@ impl FromStr for HttpBasicAuth {
                 Ok(HttpBasicAuth {
                     username,
                     password,
-                    encoded_value: encoded_value.to_string(),
+                    encoded_value: encoded_value.to_owned(),
                 })
             }
             None => Err(AuthParseError::NoDelimiterFound),

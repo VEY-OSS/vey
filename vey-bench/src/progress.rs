@@ -78,7 +78,7 @@ impl BenchProgress {
 
     pub(crate) fn spawn(self, quit: Arc<AtomicBool>) -> anyhow::Result<thread::JoinHandle<Self>> {
         thread::Builder::new()
-            .name("progress-bar".to_string())
+            .name("progress-bar".into())
             .spawn(move || {
                 loop {
                     let delta = self.counter.0.swap(0, Ordering::Relaxed);

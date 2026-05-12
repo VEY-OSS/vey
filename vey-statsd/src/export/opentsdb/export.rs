@@ -60,20 +60,20 @@ impl OpentsdbAggregateExport {
             .as_ref()
             .map(|p| format!("{}.{}", p.display('.'), name.display('.')))
             .unwrap_or_else(|| name.display('.').to_string());
-        map.insert("metric".to_string(), Value::String(name));
+        map.insert("metric".into(), Value::String(name));
         map.insert(
-            "timestamp".to_string(),
+            "timestamp".into(),
             Value::Number(Number::from(time.timestamp())),
         );
-        map.insert("value".to_string(), Value::Number(value.as_json_number()));
+        map.insert("value".into(), Value::Number(value.as_json_number()));
         let mut tag_map = Map::with_capacity(tags.len());
         for (name, value) in self.global_tags.iter() {
-            tag_map.insert(name.to_string(), Value::String(value.to_string()));
+            tag_map.insert(name.into(), Value::String(value.into()));
         }
         for (name, value) in tags.iter() {
-            tag_map.insert(name.to_string(), Value::String(value.to_string()));
+            tag_map.insert(name.into(), Value::String(value.into()));
         }
-        map.insert("tags".to_string(), Value::Object(tag_map));
+        map.insert("tags".into(), Value::Object(tag_map));
         Value::Object(map)
     }
 

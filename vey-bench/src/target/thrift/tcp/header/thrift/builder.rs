@@ -47,8 +47,8 @@ impl ThriftTHeaderBuilder {
         if k.is_empty() {
             return Err(anyhow!("empty key"));
         }
-        let k = StringValue::try_from(k.to_string()).context(format!("invalid key: {k}"))?;
-        let v = StringValue::try_from(v.to_string()).context(format!("invalid value: {v}"))?;
+        let k = StringValue::try_from(k.to_owned()).context(format!("invalid key: {k}"))?;
+        let v = StringValue::try_from(v.to_owned()).context(format!("invalid value: {v}"))?;
 
         self.info_key_values.insert(k, v);
         Ok(())

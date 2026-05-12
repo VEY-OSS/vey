@@ -110,7 +110,7 @@ impl HttpAdaptedResponse {
         Ok(HttpAdaptedResponse::new(
             version,
             status,
-            rsp.reason.to_string(),
+            rsp.reason.to_owned(),
         ))
     }
 

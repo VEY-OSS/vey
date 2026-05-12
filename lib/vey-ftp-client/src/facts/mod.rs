@@ -27,7 +27,7 @@ pub struct FtpFileFacts {
 impl FtpFileFacts {
     pub(crate) fn new(path: &str) -> Self {
         FtpFileFacts {
-            entry_path: path.to_string(),
+            entry_path: path.to_owned(),
             entry_type: FtpFileEntryType::Unknown,
             size: None,
             media_type: None,
@@ -88,7 +88,7 @@ impl FtpFileFacts {
                 if let Some((key, value)) = fact.split_once('=') {
                     ff.set_fact(key, value)?;
                 } else {
-                    return Err(FtpFileFactsParseError::NoDelimiterInFact(fact.to_string()));
+                    return Err(FtpFileFactsParseError::NoDelimiterInFact(fact.to_owned()));
                 }
             }
 

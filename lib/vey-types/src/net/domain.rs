@@ -110,7 +110,7 @@ impl DomainName {
             if domain.len() > DomainName::MAX_LEN {
                 return Err(DomainNameParseError::TooLong);
             }
-            let mut domain = domain.to_string();
+            let mut domain = domain.into_owned();
             domain.push('.');
             Ok(DomainName {
                 fqdn: ArcStr::from(domain),

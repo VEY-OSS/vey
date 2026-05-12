@@ -131,7 +131,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
     }
 
     pub fn set_client_username(&mut self, user: &str) {
-        self.client_username = Some(user.to_string());
+        self.client_username = Some(user.to_owned());
     }
 
     pub fn set_respond_shared_headers(&mut self, shared_headers: Option<HttpHeaderMap>) {

@@ -41,7 +41,7 @@ impl FromStr for HttpServerId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         check_invalid_chars(s)?;
-        Ok(HttpServerId(s.to_string()))
+        Ok(HttpServerId(s.to_owned()))
     }
 }
 

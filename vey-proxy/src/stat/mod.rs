@@ -33,7 +33,7 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
 
     let emit_duration = config.emit_interval;
     let handle = std::thread::Builder::new()
-        .name("stat-main".to_string())
+        .name("stat-main".into())
         .spawn(move || {
             loop {
                 let instant_start = Instant::now();
@@ -69,7 +69,7 @@ fn spawn_user_site_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHan
 
     let emit_duration = config.emit_interval;
     let handle = std::thread::Builder::new()
-        .name("stat-user-site".to_string())
+        .name("stat-user-site".into())
         .spawn(move || {
             loop {
                 let instant_start = Instant::now();

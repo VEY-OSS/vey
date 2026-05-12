@@ -233,7 +233,7 @@ impl BenchDnsArgs {
         tls_client: ClientConfig,
     ) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         let tls_name = match &self.tls.tls_name {
-            Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
+            Some(ServerName::DnsName(domain)) => domain.as_ref().to_owned(),
             Some(ServerName::IpAddress(ip)) => IpAddr::from(*ip).to_string(),
             Some(_) => return Err(anyhow!("unsupported tls server name type")),
             None => self.target.ip().to_string(),
@@ -260,7 +260,7 @@ impl BenchDnsArgs {
         tls_client: ClientConfig,
     ) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         let tls_name = match &self.tls.tls_name {
-            Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
+            Some(ServerName::DnsName(domain)) => domain.as_ref().to_owned(),
             Some(ServerName::IpAddress(ip)) => IpAddr::from(*ip).to_string(),
             Some(_) => return Err(anyhow!("unsupported tls server name type")),
             None => self.target.ip().to_string(),

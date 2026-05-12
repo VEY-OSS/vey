@@ -104,10 +104,10 @@ impl Frontend {
             builder.set_network(net);
             builder.set_as_number(v.number);
             if let Some(name) = v.isp_name() {
-                builder.set_isp_name(name.to_string());
+                builder.set_isp_name(name.to_owned());
             }
             if let Some(domain) = v.isp_domain() {
-                builder.set_isp_domain(domain.to_string());
+                builder.set_isp_domain(domain.to_owned());
             }
         }
 

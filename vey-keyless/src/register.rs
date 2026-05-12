@@ -12,12 +12,9 @@ use serde_json::{Map, Value};
 use vey_daemon::register::{RegisterConfig, RegisterTask};
 
 pub async fn startup(config: Arc<RegisterConfig>, ctl_socket_path: String) -> anyhow::Result<()> {
-    let mut data = serde_json::Map::new();
-    data.insert("ctl_local".to_string(), Value::String(ctl_socket_path));
-    data.insert(
-        "pid".to_string(),
-        Value::String(std::process::id().to_string()),
-    );
+    let mut data = Map::new();
+    data.insert("ctl_local".into(), Value::String(ctl_socket_path));
+    data.insert("pid".into(), Value::String(std::process::id().to_string()));
 
     let mut retry_count = 0;
     loop {

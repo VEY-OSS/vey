@@ -145,7 +145,7 @@ impl HttpProxyClientResponse {
             response.close = true;
             chunked = false;
         } else {
-            response.add_extra_header(vey_http::header::transfer_encoding_chunked().to_string());
+            response.add_extra_header(vey_http::header::transfer_encoding_chunked().to_owned());
             chunked = true;
         }
         response.add_extra_header(vey_http::header::content_type(content_type));

@@ -34,7 +34,7 @@ impl SubjectNameBuilder {
 
     pub fn set_common_name_if_missing(&mut self, cn: &str) {
         if self.common_name.is_none() {
-            self.common_name = Some(cn.to_string());
+            self.common_name = Some(cn.to_owned());
         }
     }
 

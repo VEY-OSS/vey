@@ -31,7 +31,7 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         // there should be a message body
         Err(SmtpAdaptationError::IcapServerErrorResponse(
             icap_rsp.code,
-            icap_rsp.reason.to_string(),
+            icap_rsp.reason,
         ))
     }
 

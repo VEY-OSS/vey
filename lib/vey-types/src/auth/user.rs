@@ -116,7 +116,7 @@ impl Password {
             return Err(anyhow!("too long string for a password"));
         }
         Ok(Password {
-            inner: Zeroizing::new(s.to_string()),
+            inner: Zeroizing::new(s.to_owned()),
             len: s.len() as u8,
         })
     }

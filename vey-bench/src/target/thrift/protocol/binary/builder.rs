@@ -16,7 +16,7 @@ impl BinaryMessageBuilder {
         let name_len_bytes = name_len.to_be_bytes();
 
         Ok(BinaryMessageBuilder {
-            name: name.to_string(),
+            name: name.to_owned(),
             name_len_bytes,
         })
     }

@@ -20,8 +20,8 @@ pub(crate) fn get_logger(escaper_type: &str, escaper_name: &NodeName) -> Option<
         "daemon_name" => crate::opts::daemon_group(),
         "log_type" => super::LOG_TYPE_ESCAPE,
         "pid" => std::process::id(),
-        "escaper_type" => escaper_type.to_string(),
-        "escaper_name" => escaper_name.to_string(),
+        "escaper_type" => escaper_type.to_owned(),
+        "escaper_name" => escaper_name.clone(),
     );
     config.build_logger(logger_name, super::LOG_TYPE_ESCAPE, common_values)
 }
@@ -34,8 +34,8 @@ pub(crate) fn get_shared_logger(
     let logger_name = format!("le-{name}");
     super::shared::get_shared_logger(SharedLoggerType::Escape, logger_name, |logger| {
         logger.new(slog::o!(
-            "escaper_type" => escaper_type.to_string(),
-            "escaper_name" => escaper_name.to_string(),
+            "escaper_type" => escaper_type.to_owned(),
+            "escaper_name" => escaper_name.clone(),
         ))
     })
 }

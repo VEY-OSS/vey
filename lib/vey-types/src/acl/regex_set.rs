@@ -24,7 +24,7 @@ impl<Action: ActionContract> Default for RegexSetBuilder<Action> {
 
 impl<Action: ActionContract> RegexSetBuilder<Action> {
     pub(super) fn add_regex(&mut self, regex: &Regex, action: Action) {
-        self.inner.insert(regex.as_str().to_string(), action);
+        self.inner.insert(regex.as_str().to_owned(), action);
     }
 }
 

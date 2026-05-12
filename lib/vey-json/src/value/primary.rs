@@ -163,7 +163,7 @@ pub fn as_ascii(v: &Value) -> anyhow::Result<AsciiString> {
 
 pub fn as_string(v: &Value) -> anyhow::Result<String> {
     match v {
-        Value::String(s) => Ok(s.to_string()),
+        Value::String(s) => Ok(s.clone()),
         Value::Number(n) => {
             if let Some(i) = n.as_i64() {
                 Ok(i.to_string())

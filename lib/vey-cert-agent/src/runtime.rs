@@ -19,7 +19,7 @@ pub async fn spawn_cert_generate_runtime() -> Option<RuntimeMetrics> {
 
     let (rt_handle_sender, rt_handle_receiver) = oneshot::channel();
     let Ok(thread_handle) = std::thread::Builder::new()
-        .name("cert-generate".to_string())
+        .name("cert-generate".into())
         .spawn(move || {
             let Ok(rt) = tokio::runtime::Builder::new_current_thread()
                 .enable_all()

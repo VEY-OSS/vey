@@ -90,3 +90,21 @@ impl Borrow<str> for NodeName {
         self.as_str()
     }
 }
+
+impl From<&NodeName> for String {
+    fn from(value: &NodeName) -> Self {
+        value.as_str().to_owned()
+    }
+}
+
+#[cfg(feature = "async-log")]
+impl slog::Value for NodeName {
+    fn serialize(
+        &self,
+        _record: &slog::Record<'_>,
+        key: slog::Key,
+        serializer: &mut dyn slog::Serializer,
+    ) -> slog::Result {
+        serializer.emit_str(key, self.as_str())
+    }
+}

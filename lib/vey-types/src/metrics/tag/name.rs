@@ -52,6 +52,12 @@ impl fmt::Display for MetricTagName {
     }
 }
 
+impl From<&MetricTagName> for String {
+    fn from(value: &MetricTagName) -> Self {
+        value.as_str().to_owned()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

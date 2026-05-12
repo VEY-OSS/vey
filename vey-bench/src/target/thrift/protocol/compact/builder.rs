@@ -20,7 +20,7 @@ impl CompactMessageBuilder {
         let name_len_bytes = encoder.encode_positive_i32(name_len).to_vec();
 
         Ok(CompactMessageBuilder {
-            name: name.to_string(),
+            name: name.to_owned(),
             name_len_bytes,
         })
     }

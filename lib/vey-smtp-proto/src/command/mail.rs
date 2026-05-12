@@ -30,7 +30,7 @@ impl MailParam {
         let reverse_path = s
             .to_lowercase()
             .strip_prefix("from:")
-            .map(|s| s.to_string())
+            .map(|s| s.to_owned())
             .ok_or(CommandLineError::InvalidCommandParam(
                 "MAIL",
                 "invalid reverse path prefix",

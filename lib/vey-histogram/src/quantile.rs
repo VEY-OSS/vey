@@ -76,7 +76,7 @@ impl TryFrom<f64> for Quantile {
     fn try_from(v: f64) -> Result<Self, Self::Error> {
         quantile_in_range(v)?;
         let mut b = Buffer::new();
-        let s = b.format_finite(v).to_string();
+        let s = b.format_finite(v).to_owned();
         Ok(Quantile {
             v,
             s: Cow::Owned(s),
@@ -92,7 +92,7 @@ impl FromStr for Quantile {
         quantile_in_range(v)?;
         Ok(Quantile {
             v,
-            s: Cow::Owned(s.to_string()),
+            s: Cow::Owned(s.to_owned()),
         })
     }
 }

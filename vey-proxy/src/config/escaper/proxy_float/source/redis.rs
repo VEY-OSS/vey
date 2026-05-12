@@ -58,14 +58,14 @@ impl ProxyFloatRedisSource {
             }
             let username = url.username();
             if !username.is_empty() {
-                config.client_builder.set_username(username.to_string());
+                config.client_builder.set_username(username.to_owned());
             }
             if let Some(password) = url.password() {
-                config.client_builder.set_password(password.to_string());
+                config.client_builder.set_password(password.to_owned());
             }
 
             for (k, v) in url.query_pairs() {
-                let yaml_value = Yaml::String(v.to_string());
+                let yaml_value = Yaml::String(v.as_ref().to_owned());
                 config
                     .set(&k, &yaml_value, position)
                     .context(format!("failed to parse query param {k}={v}"))?;

@@ -60,7 +60,7 @@ impl ProcArgs {
         use std::env;
 
         if env::var("OPENSSL_CONF").is_ok() {
-            let s = env::var("OPENSSL_ASYNC_JOB_SIZE").unwrap_or("1024".to_string());
+            let s = env::var("OPENSSL_ASYNC_JOB_SIZE").unwrap_or("1024".to_owned());
             let async_job_size = usize::from_str(&s).unwrap_or(1024);
             self.openssl_async_job = Some(async_job_size);
         }
@@ -143,7 +143,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     }
     if let Some(group_name) = args.get_one::<String>(ARGS_GROUP_NAME) {
         DAEMON_GROUP
-            .set(group_name.to_string())
+            .set(group_name.clone())
             .map_err(|_| anyhow!("daemon group has already been set"))?;
 
         #[cfg(any(

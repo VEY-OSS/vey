@@ -19,7 +19,7 @@ pub async fn spawn_ip_locate_runtime() -> Option<RuntimeMetrics> {
 
     let (rt_handle_sender, rt_handle_receiver) = oneshot::channel();
     let Ok(handle) = std::thread::Builder::new()
-        .name("ip-locate".to_string())
+        .name("ip-locate".into())
         .spawn(move || {
             let Ok(rt) = tokio::runtime::Builder::new_current_thread()
                 .enable_all()

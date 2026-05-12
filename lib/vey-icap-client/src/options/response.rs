@@ -141,7 +141,7 @@ impl IcapServiceOptions {
         if status.code < 200 || status.code >= 300 {
             return Err(IcapOptionsParseError::RequestFailed(
                 status.code,
-                status.message.to_string(),
+                status.message.to_owned(),
             ));
         }
 
@@ -160,8 +160,8 @@ impl IcapServiceOptions {
                 }
                 return Err(IcapOptionsParseError::MethodNotMatch);
             }
-            "service" => self.server = Some(header.value.to_string()),
-            "istag" => self.service_tag = header.value.to_string(),
+            "service" => self.server = Some(header.value.to_owned()),
+            "istag" => self.service_tag = header.value.to_owned(),
             "encapsulated" => {
                 for p in header.value.split(',') {
                     let Some((name, _value)) = p.trim().split_once('=') else {
@@ -176,7 +176,7 @@ impl IcapServiceOptions {
             }
             "opt-body-type" => {
                 return Err(IcapOptionsParseError::UnsupportedBody(
-                    header.value.to_string(),
+                    header.value.to_owned(),
                 ));
             }
             "max-connections" => {
@@ -190,7 +190,7 @@ impl IcapServiceOptions {
                 let expire = Instant::now().add(Duration::from_secs(ttl as u64));
                 self.expire = Some(expire);
             }
-            "service-id" => self.service_id = Some(header.value.to_string()),
+            "service-id" => self.service_id = Some(header.value.to_owned()),
             "allow" => {
                 for p in header.value.split(',') {
                     let code = u16::from_str(p.trim())

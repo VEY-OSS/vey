@@ -61,7 +61,7 @@ async fn publish(client: &escaper_control::Client, args: &ArgMatches) -> Command
             ))
         })?
     } else if let Some(data) = args.get_one::<String>(SUBCOMMAND_PUBLISH_ARG_DATA) {
-        data.to_string()
+        data.clone()
     } else {
         unreachable!()
     };

@@ -19,7 +19,7 @@ pub fn as_string(v: &ValueRef) -> anyhow::Result<String> {
             .ok_or_else(|| anyhow!("invalid utf-8 string")),
         ValueRef::Binary(b) => {
             let s = std::str::from_utf8(b).map_err(|e| anyhow!("invalid utf-8 string: {e}"))?;
-            Ok(s.to_string())
+            Ok(s.to_owned())
         }
         ValueRef::Integer(i) => Ok(i.to_string()),
         _ => Err(anyhow!(

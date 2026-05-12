@@ -291,7 +291,7 @@ where
             let runtime_stats = target.fetch_runtime_stats();
             let quit_notifier = quit_notifier.clone();
             let handler = std::thread::Builder::new()
-                .name("runtime-stats".to_string())
+                .name("runtime-stats".into())
                 .spawn(move || {
                     loop {
                         runtime_stats.emit(&mut statsd_client);
@@ -312,7 +312,7 @@ where
     // histogram runtime stats
     let histogram_stats_handler = if let Some(mut histogram) = target.take_histogram() {
         let quit_notifier = quit_notifier.clone();
-        let thread_builder = std::thread::Builder::new().name("histogram".to_string());
+        let thread_builder = std::thread::Builder::new().name("histogram".into());
         if let Some((mut statsd_client, emit_duration)) = proc_args.new_statsd_client() {
             let handler = thread_builder
                 .spawn(move || {
@@ -356,7 +356,7 @@ where
 
     if let Some(time_limit) = proc_args.time_limit {
         std::thread::Builder::new()
-            .name("quit-timer".to_string())
+            .name("quit-timer".into())
             .spawn(move || {
                 std::thread::sleep(time_limit);
                 stats::mark_force_quit();

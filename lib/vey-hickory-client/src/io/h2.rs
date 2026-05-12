@@ -34,7 +34,7 @@ pub async fn connect(
     request_timeout: Duration,
 ) -> anyhow::Result<HttpsClientStream> {
     let server_name = match &tls_name {
-        ServerName::DnsName(domain) => domain.as_ref().to_string(),
+        ServerName::DnsName(domain) => domain.as_ref().to_owned(),
         ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
         _ => return Err(anyhow!("unsupported tls name: {tls_name:?}")),
     };

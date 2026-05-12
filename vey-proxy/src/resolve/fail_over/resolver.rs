@@ -40,7 +40,7 @@ impl FailOverResolver {
         driver_config.set_static_config(config.static_conf);
 
         let inner_config = vey_resolver::ResolverConfig {
-            name: config.name().to_string(),
+            name: config.name().into(),
             runtime: config.runtime.clone(),
             driver: vey_resolver::AnyResolveDriverConfig::FailOver(driver_config.clone()),
         };
@@ -86,7 +86,7 @@ impl ResolverInternal for FailOverResolver {
             driver_config.set_static_config(config.static_conf);
 
             let inner_config = vey_resolver::ResolverConfig {
-                name: config.name().to_string(),
+                name: config.name().into(),
                 runtime: config.runtime.clone(),
                 driver: vey_resolver::AnyResolveDriverConfig::FailOver(driver_config.clone()),
             };
@@ -121,7 +121,7 @@ impl ResolverInternal for FailOverResolver {
         }
 
         let inner_config = vey_resolver::ResolverConfig {
-            name: self.config.name().to_string(),
+            name: self.config.name().into(),
             runtime: self.config.runtime.clone(),
             driver: vey_resolver::AnyResolveDriverConfig::FailOver(driver_config.clone()),
         };

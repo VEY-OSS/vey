@@ -81,7 +81,7 @@ fn main() -> anyhow::Result<()> {
         Ok(())
     } else if let Some(shell) = args.get_one::<Shell>(ARG_COMPLETION) {
         let mut app = build_cli_args();
-        let bin_name = app.get_name().to_string();
+        let bin_name = app.get_name().to_owned();
         clap_complete::generate(*shell, &mut app, bin_name, &mut std::io::stdout());
         Ok(())
     } else if args.get_flag(ARG_ROOT) {
@@ -452,16 +452,16 @@ fn set_subject_name(
     subject_builder: &mut SubjectNameBuilder,
 ) -> anyhow::Result<()> {
     if let Some(c) = args.get_one::<String>(ARG_COUNTRY) {
-        subject_builder.set_country(c.to_string());
+        subject_builder.set_country(c.clone());
     }
     if let Some(o) = args.get_one::<String>(ARG_ORGANIZATION) {
-        subject_builder.set_organization(o.to_string());
+        subject_builder.set_organization(o.clone());
     }
     if let Some(ou) = args.get_one::<String>(ARG_ORGANIZATION_UNIT) {
-        subject_builder.set_organization_unit(ou.to_string());
+        subject_builder.set_organization_unit(ou.clone());
     }
     if let Some(cn) = args.get_one::<String>(ARG_COMMON_NAME) {
-        subject_builder.set_common_name(cn.to_string());
+        subject_builder.set_common_name(cn.clone());
     }
     Ok(())
 }
@@ -766,8 +766,7 @@ fn generate_tls_mimic(mimic_cert: X509, args: ArgMatches) -> anyhow::Result<()> 
         .build_tls_cert(&ca_cert, &ca_key, None)
         .context("failed to build tls certificate")?;
 
-    let cert_output =
-        get_output_cert_file(&args).unwrap_or_else(|| cn2fn("tls_mimic.crt".to_string()));
+    let cert_output = get_output_cert_file(&args).unwrap_or_else(|| cn2fn("tls_mimic.crt".into()));
     write_certificate_file(&cert, cert_output)?;
 
     Ok(())
@@ -781,7 +780,7 @@ fn generate_tlcp_enc_mimic(mimic_cert: X509, args: ArgMatches) -> anyhow::Result
         .context("failed to build tls certificate")?;
 
     let cert_output =
-        get_output_cert_file(&args).unwrap_or_else(|| cn2fn("tlcp_en_mimic.crt".to_string()));
+        get_output_cert_file(&args).unwrap_or_else(|| cn2fn("tlcp_en_mimic.crt".into()));
     write_certificate_file(&cert, cert_output)?;
 
     Ok(())
@@ -795,7 +794,7 @@ fn generate_tlcp_sign_mimic(mimic_cert: X509, args: ArgMatches) -> anyhow::Resul
         .context("failed to build tls certificate")?;
 
     let cert_output =
-        get_output_cert_file(&args).unwrap_or_else(|| cn2fn("tlcp_sign_mimic.crt".to_string()));
+        get_output_cert_file(&args).unwrap_or_else(|| cn2fn("tlcp_sign_mimic.crt".into()));
     write_certificate_file(&cert, cert_output)?;
 
     Ok(())

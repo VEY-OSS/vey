@@ -204,8 +204,8 @@ impl Sha256Crypt {
 
             Ok(Sha256Crypt {
                 rounds,
-                salt: s[0..d].to_string(),
-                hash: s[d + 1..].to_string(),
+                salt: s[0..d].to_owned(),
+                hash: s[d + 1..].to_owned(),
                 hash_bin,
             })
         } else {

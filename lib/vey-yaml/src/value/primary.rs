@@ -180,7 +180,7 @@ pub fn as_ascii(v: &Yaml) -> anyhow::Result<AsciiString> {
 
 pub fn as_string(v: &Yaml) -> anyhow::Result<String> {
     match v {
-        Yaml::String(s) => Ok(s.to_string()),
+        Yaml::String(s) => Ok(s.clone()),
         Yaml::Integer(i) => Ok(i.to_string()),
         Yaml::Real(s) => Ok(s.to_string()),
         _ => Err(anyhow!(

@@ -237,7 +237,7 @@ impl EscaperInternal for ComplyContextEscaper {
             if !config.string_index_key.is_empty()
                 && let Some(v) = egress_context.get(&config.string_index_key)
             {
-                egress_path.set_string_id(config.escaper.clone(), v.to_string());
+                egress_path.set_string_id(config.escaper.clone(), v.clone());
             }
         }
     }

@@ -30,8 +30,8 @@ impl DummyDenyEscaperConfig {
             name: NodeName::default(),
             position,
             custom_type: match custom_type {
-                Some(custom_type) => custom_type.to_string(),
-                None => ESCAPER_CONFIG_DEFAULT_TYPE.to_string(),
+                Some(custom_type) => custom_type.to_owned(),
+                None => ESCAPER_CONFIG_DEFAULT_TYPE.to_owned(),
             },
             extra_metrics_tags: None,
         }

@@ -18,7 +18,7 @@ pub fn get(args: &ArgMatches, id: &str, decode_binary: bool) -> anyhow::Result<V
             .map(|s| s.into_bytes())
             .map_err(|e| anyhow!("failed to read environment variable {name}: {e}"))?
     } else {
-        s.clone().into_bytes()
+        s.as_bytes().to_vec()
     };
 
     if decode_binary {

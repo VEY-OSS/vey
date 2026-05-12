@@ -31,7 +31,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         Err(H1RespmodAdaptationError::IcapServerErrorResponse(
             IcapErrorReason::NoBodyFound,
             icap_rsp.code,
-            icap_rsp.reason.to_string(),
+            icap_rsp.reason,
         ))
     }
 

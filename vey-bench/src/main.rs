@@ -132,7 +132,7 @@ fn main() -> anyhow::Result<ExitCode> {
 fn generate_completion(args: &ArgMatches) {
     if let Some(target) = args.get_one::<Shell>("target") {
         let mut app = build_cli_args();
-        let bin_name = app.get_name().to_string();
+        let bin_name = app.get_name().to_owned();
         clap_complete::generate(*target, &mut app, bin_name, &mut io::stdout());
     }
 }

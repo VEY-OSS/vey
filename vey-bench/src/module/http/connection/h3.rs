@@ -181,7 +181,7 @@ impl H3ConnectArgs {
         client_config.transport_config(Arc::new(transport));
 
         let tls_name = match &self.target_tls.tls_name {
-            Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
+            Some(ServerName::DnsName(domain)) => domain.as_ref().to_owned(),
             Some(ServerName::IpAddress(ip)) => IpAddr::from(*ip).to_string(),
             Some(_) => return Err(anyhow!("unsupported tls server name type")),
             None => target.host().to_string(),

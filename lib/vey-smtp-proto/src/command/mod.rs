@@ -169,10 +169,10 @@ fn burl_data_parse_param(msg: &[u8]) -> Result<Command, CommandLineError> {
             ));
         }
         let url = str::from_utf8(&msg[..p]).map_err(CommandLineError::InvalidUtf8Command)?;
-        Ok(Command::LastDataByUrl(url.to_string()))
+        Ok(Command::LastDataByUrl(url.to_owned()))
     } else {
         let url = str::from_utf8(msg).map_err(CommandLineError::InvalidUtf8Command)?;
-        Ok(Command::DataByUrl(url.to_string()))
+        Ok(Command::DataByUrl(url.to_owned()))
     }
 }
 

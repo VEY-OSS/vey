@@ -30,7 +30,7 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         // there should be a message body
         Err(ImapAdaptationError::IcapServerErrorResponse(
             icap_rsp.code,
-            icap_rsp.reason.to_string(),
+            icap_rsp.reason,
         ))
     }
 

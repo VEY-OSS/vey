@@ -84,7 +84,7 @@ impl LocalControllerImpl {
 
     pub(super) fn create_daemon(_daemon_name: &str, daemon_group: &str) -> anyhow::Result<Self> {
         let socket_name = if daemon_group.is_empty() {
-            "_.sock".to_string()
+            String::from("_.sock")
         } else {
             format!("{daemon_group}.sock")
         };

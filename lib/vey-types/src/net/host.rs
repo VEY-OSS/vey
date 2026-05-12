@@ -33,7 +33,7 @@ impl Host {
     pub fn to_arc_str(&self) -> ArcStr {
         match self {
             Host::Ip(ip) => ip.to_string().into(),
-            Host::Domain(domain) => domain.to_string().into(),
+            Host::Domain(domain) => domain.as_str().into(),
         }
     }
 

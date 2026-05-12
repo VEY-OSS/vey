@@ -132,7 +132,7 @@ pub fn as_resolve_redirection_builder(v: &Value) -> anyhow::Result<ResolveRedire
     match v {
         Value::Object(map) => {
             for (k, v) in map.iter() {
-                add_exact_redirection_record(&mut config, &Value::String(k.to_string()), v)?;
+                add_exact_redirection_record(&mut config, &Value::String(k.clone()), v)?;
             }
             Ok(config)
         }

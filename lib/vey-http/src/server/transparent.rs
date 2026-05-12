@@ -282,7 +282,7 @@ impl HttpTransparentRequest {
         };
 
         let method = Method::from_str(req.method)
-            .map_err(|_| HttpRequestParseError::UnsupportedMethod(req.method.to_string()))?;
+            .map_err(|_| HttpRequestParseError::UnsupportedMethod(req.method.to_owned()))?;
         let uri =
             Uri::from_str(req.uri).map_err(|_| HttpRequestParseError::InvalidRequestTarget)?;
         Ok(HttpTransparentRequest::new(method, uri, version))
@@ -363,7 +363,7 @@ impl HttpTransparentRequest {
                 }
                 if retain(self, &protocol) {
                     let mut new_value =
-                        unsafe { HttpHeaderValue::from_string_unchecked(s.to_string()) };
+                        unsafe { HttpHeaderValue::from_string_unchecked(s.to_owned()) };
                     if let Some(name) = header.original_name() {
                         new_value.set_original_name(name);
                     }

@@ -38,7 +38,7 @@ pub async fn spawn_limit_schedule_runtime() -> Option<RuntimeMetrics> {
 
     let (rt_handle_sender, rt_handle_receiver) = oneshot::channel();
     let Ok(handle) = std::thread::Builder::new()
-        .name("limit-schedule".to_string())
+        .name("limit-schedule".into())
         .spawn(move || {
             let Ok(rt) = tokio::runtime::Builder::new_current_thread()
                 .enable_time()

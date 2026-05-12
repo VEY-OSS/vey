@@ -61,7 +61,7 @@ impl LdapAuthPoolHandle {
 
         let (sender, receiver) = oneshot::channel();
         let req = LdapAuthRequest {
-            username: username.to_string(),
+            username: username.to_owned(),
             password: password.clone(),
             retry: true,
             result_sender: sender,

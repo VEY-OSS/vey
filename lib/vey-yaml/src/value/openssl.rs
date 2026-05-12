@@ -190,14 +190,14 @@ fn as_openssl_ciphers(value: &Yaml) -> anyhow::Result<Vec<String>> {
     match value {
         Yaml::String(s) => {
             for cipher in s.split(':') {
-                ciphers.push(cipher.to_string());
+                ciphers.push(cipher.to_owned());
             }
             Ok(ciphers)
         }
         Yaml::Array(seq) => {
             for (i, v) in seq.iter().enumerate() {
                 if let Yaml::String(s) = v {
-                    ciphers.push(s.to_string());
+                    ciphers.push(s.clone());
                 } else {
                     return Err(anyhow!("invalid cipher string for #{i}"));
                 }

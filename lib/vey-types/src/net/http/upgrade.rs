@@ -48,7 +48,7 @@ impl FromStr for HttpUpgradeToken {
                     _ => Err(HttpUpgradeTokenParseError::UnsupportedVersion("tls")),
                 },
                 _ => Err(HttpUpgradeTokenParseError::UnsupportedProtocol(
-                    p.to_string(),
+                    p.to_owned(),
                 )),
             },
             None => match s.to_lowercase().as_str() {
@@ -58,7 +58,7 @@ impl FromStr for HttpUpgradeToken {
                 "connect-udp" => Ok(HttpUpgradeToken::ConnectUdp),
                 "connect-ip" => Ok(HttpUpgradeToken::ConnectIp),
                 _ => Err(HttpUpgradeTokenParseError::UnsupportedProtocol(
-                    s.to_string(),
+                    s.to_owned(),
                 )),
             },
         }

@@ -54,7 +54,7 @@ impl UserDynamicFileSource {
         let mut config = UserDynamicFileSource::new(path);
 
         for (k, v) in url.query_pairs() {
-            let yaml_value = Yaml::String(v.to_string());
+            let yaml_value = Yaml::String(v.as_ref().to_owned());
             config
                 .set(&k, &yaml_value)
                 .context(format!("failed to parse query param {k}={v}"))?;

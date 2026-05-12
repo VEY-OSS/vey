@@ -145,14 +145,14 @@ fn as_openssl_ciphers(value: &Value) -> anyhow::Result<Vec<String>> {
     match value {
         Value::String(s) => {
             for cipher in s.split(':') {
-                ciphers.push(cipher.to_string());
+                ciphers.push(cipher.to_owned());
             }
             Ok(ciphers)
         }
         Value::Array(seq) => {
             for (i, v) in seq.iter().enumerate() {
                 if let Value::String(s) = v {
-                    ciphers.push(s.to_string());
+                    ciphers.push(s.clone());
                 } else {
                     return Err(anyhow!("invalid cipher string for #{i}"));
                 }

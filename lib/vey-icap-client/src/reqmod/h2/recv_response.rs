@@ -24,7 +24,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         Err(H2ReqmodAdaptationError::IcapServerErrorResponse(
             IcapErrorReason::NoBodyFound,
             icap_rsp.code,
-            icap_rsp.reason.to_string(),
+            icap_rsp.reason,
         ))
     }
 

@@ -58,7 +58,7 @@ impl CompactMessageParser {
         let data = &left[name_len..];
 
         Ok(ThriftResponseMessage {
-            method: name.to_string(),
+            method: name.to_owned(),
             seq_id: seq_id.positive_value(),
             encoded_length: data.len(),
         })

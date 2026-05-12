@@ -66,7 +66,7 @@ impl DaemonCtlArgs {
             return false;
         };
         let mut cmd = build_cmd();
-        let bin_name = cmd.get_name().to_string();
+        let bin_name = cmd.get_name().to_owned();
         clap_complete::generate(shell, &mut cmd, bin_name, &mut io::stdout());
         true
     }

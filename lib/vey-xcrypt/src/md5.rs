@@ -141,8 +141,8 @@ impl Md5Crypt {
             }
 
             Ok(Md5Crypt {
-                salt: v[0..d].to_string(),
-                hash: v[d + 1..].to_string(),
+                salt: v[0..d].to_owned(),
+                hash: v[d + 1..].to_owned(),
                 hash_bin,
             })
         } else {

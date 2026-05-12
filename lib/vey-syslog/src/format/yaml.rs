@@ -38,7 +38,7 @@ impl SyslogFormatterKind {
                 Ok(SyslogFormatterKind::Rfc5424(enterprise_id, message_id))
             }
             Yaml::String(s) => {
-                message_id = Some(s.to_string());
+                message_id = Some(s.clone());
                 Ok(SyslogFormatterKind::Rfc5424(enterprise_id, message_id))
             }
             _ => Err(anyhow!("invalid yaml value for rfc5424 syslog format")),

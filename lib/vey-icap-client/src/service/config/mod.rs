@@ -110,7 +110,7 @@ impl IcapServiceConfig {
     }
 
     pub fn add_respond_shared_name(&mut self, name: HeaderName) {
-        self.respond_shared_names.insert(name.as_str().to_string());
+        self.respond_shared_names.insert(name.as_str().to_owned());
     }
 
     pub(crate) fn build_request_header(&self) -> Vec<u8> {

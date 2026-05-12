@@ -66,7 +66,7 @@ impl SyslogBuilder {
     }
 
     pub fn enable_cee_log_syntax(&mut self, event_flag: Option<String>) {
-        let event_flag = event_flag.unwrap_or_else(|| crate::format::CEE_EVENT_FLAG.to_string());
+        let event_flag = event_flag.unwrap_or_else(|| format::CEE_EVENT_FLAG.to_owned());
         self.format = match &self.format {
             SyslogFormatterKind::Rfc3164 | SyslogFormatterKind::Rfc3164Cee(_) => {
                 SyslogFormatterKind::Rfc3164Cee(event_flag)
@@ -87,7 +87,7 @@ impl SyslogBuilder {
 
     pub fn start_async(self, async_conf: &AsyncLogConfig) -> AsyncSyslogStreamer {
         let hostname = if self.emit_hostname {
-            Some(vey_compat::hostname().to_string_lossy().to_string())
+            Some(vey_compat::hostname().to_string_lossy().into_owned())
         } else {
             None
         };

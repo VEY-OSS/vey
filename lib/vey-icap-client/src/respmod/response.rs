@@ -90,7 +90,7 @@ impl RespmodResponse {
         let status =
             StatusLine::parse(line_buf).map_err(IcapRespmodParseError::InvalidStatusLine)?;
 
-        let rsp = RespmodResponse::new(status.code, status.message.to_string());
+        let rsp = RespmodResponse::new(status.code, status.message.to_owned());
         Ok(rsp)
     }
 

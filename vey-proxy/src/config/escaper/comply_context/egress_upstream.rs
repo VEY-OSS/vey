@@ -107,7 +107,7 @@ impl EgressUpstreamConfig {
 
             let host = match &self.domain_suffix {
                 Some(suffix_domain) => {
-                    let mut host_s = host_name.to_string();
+                    let mut host_s = host_name.clone();
                     host_s.push('.');
                     host_s.push_str(suffix_domain.as_str());
                     Host::from_domain_str(&host_s)

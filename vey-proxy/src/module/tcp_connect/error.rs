@@ -148,13 +148,13 @@ impl From<SocksConnectError> for TcpConnectError {
             SocksConnectError::ReadFailed(e) => TcpConnectError::NegotiationReadFailed(e),
             SocksConnectError::WriteFailed(e) => TcpConnectError::NegotiationWriteFailed(e),
             SocksConnectError::NoAuthMethodAvailable => {
-                TcpConnectError::NegotiationRejected("no auth method".to_string())
+                TcpConnectError::NegotiationRejected("no auth method".into())
             }
             SocksConnectError::UnsupportedAuthVersion => TcpConnectError::NegotiationRejected(
-                "auth protocol mismatch with remote proxy".to_string(),
+                "auth protocol mismatch with remote proxy".into(),
             ),
             SocksConnectError::AuthFailed => {
-                TcpConnectError::NegotiationRejected("auth failed with remote proxy".to_string())
+                TcpConnectError::NegotiationRejected("auth failed with remote proxy".into())
             }
             SocksConnectError::InvalidProtocol(_) => TcpConnectError::NegotiationProtocolErr,
             SocksConnectError::PeerTimeout => TcpConnectError::NegotiationPeerTimeout,

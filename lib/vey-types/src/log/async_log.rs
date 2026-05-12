@@ -21,7 +21,7 @@ impl AsyncLogConfig {
         AsyncLogConfig {
             channel_capacity: 1024,
             thread_number: 1,
-            thread_name: thread_name.to_string(),
+            thread_name: thread_name.to_owned(),
         }
     }
 }

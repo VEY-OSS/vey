@@ -77,7 +77,7 @@ where
             let mut dst_trie = Trie::new();
             for (prefix, v) in trie.iter() {
                 let dv = get_tmp(v)?;
-                dst_trie.insert(prefix.to_string(), dv);
+                dst_trie.insert(prefix.clone(), dv);
             }
             dst.prefix = Some(dst_trie);
         }
