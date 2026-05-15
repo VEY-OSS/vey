@@ -3,8 +3,7 @@
 socks_proxy
 ===========
 
-This server provides a SOCKS proxy with support for TCP ``CONNECT`` and UDP
-``ASSOCIATE``.
+This server provides a SOCKS proxy with support for TCP ``CONNECT`` and UDP ``ASSOCIATE``.
 
 The following common keys are supported:
 
@@ -21,8 +20,8 @@ The following common keys are supported:
 * :ref:`tcp_copy_buffer_size <conf_server_common_tcp_copy_buffer_size>`
 * :ref:`tcp_copy_yield_size <conf_server_common_tcp_copy_yield_size>`
 * :ref:`udp_relay_packet_size <conf_server_common_udp_relay_packet_size>`
-* :ref:`udp_relay_yield_size <conf_server_common_udp_relay_yield_size>`
-* :ref:`udp_relay_batch_size <conf_server_common_udp_relay_batch_size>`
+* :ref:`udp_relay_yield_count <conf_server_common_udp_relay_yield_count>`
+* :ref:`udp_relay_batch_count <conf_server_common_udp_relay_batch_count>`
 * :ref:`tcp_misc_opts <conf_server_common_tcp_misc_opts>`
 * :ref:`udp_misc_opts <conf_server_common_udp_misc_opts>`
 * :ref:`task_idle_check_interval <conf_server_common_task_idle_check_interval>`

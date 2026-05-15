@@ -7,6 +7,9 @@ v1.13.3:
  - Compatibility: rename the custom HTTP headers from the `X-BD-*` namespace to `X-VEY-*`
  - Compatibility: rename native_tls_port to usual_tls_port
  - Compatibility: the suffix_match in route_upstream escaper now matches by domain hierarchy instead of plain string
+ - Compatibility: the following config options changed in socks_proxy server:
+     - udp_relay_yield_size deprecated, use udp_relay_yield_count instead
+     - udp_relay_batch_size deprecated, use udp_relay_batch_count instead
 
 v1.13.2:
  - Security: try to zeroize password data when possible

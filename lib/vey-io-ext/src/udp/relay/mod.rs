@@ -316,7 +316,7 @@ struct UdpRelayBuffer {
 impl UdpRelayBuffer {
     fn new(max_hdr_size: usize, config: LimitedUdpRelayConfig) -> Self {
         let packets =
-            vec![UdpRelayPacket::new(max_hdr_size, config.packet_size); config.batch_size];
+            vec![UdpRelayPacket::new(max_hdr_size, config.packet_size); config.batch_count];
         UdpRelayBuffer {
             config,
             packets,
@@ -361,18 +361,14 @@ impl UdpRelayBuffer {
             while self.send_end > self.send_start {
                 let packets = &self.packets[self.send_start..self.send_end];
                 let count = ready!(sender.poll_send_packets(cx, packets))?;
-                copy_this_round += packets
-                    .iter()
-                    .take(count)
-                    .map(|p| p.buf_data_end - p.buf_data_off)
-                    .sum::<usize>();
+                copy_this_round += count;
                 self.send_start += count;
                 self.active = true;
             }
             self.send_start = 0;
             self.send_end = 0;
 
-            if copy_this_round >= self.config.yield_size {
+            if copy_this_round >= self.config.yield_count {
                 cx.waker().wake_by_ref();
                 return Poll::Pending;
             }

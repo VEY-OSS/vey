@@ -143,14 +143,14 @@ impl UdpTProxyServerConfig {
                 self.udp_relay.set_packet_size(packet_size);
                 Ok(())
             }
-            "udp_relay_yield_size" => {
-                let yield_size = vey_yaml::humanize::as_usize(v)
-                    .context(format!("invalid humanize usize value for key {k}"))?;
-                self.udp_relay.set_yield_size(yield_size);
+            "udp_relay_yield_count" => {
+                let yield_count = vey_yaml::value::as_usize(v)?;
+                self.udp_relay.set_yield_count(yield_count);
                 Ok(())
             }
-            "udp_relay_batch_size" => {
-                self.udp_relay.set_batch_size(vey_yaml::value::as_usize(v)?);
+            "udp_relay_batch_count" => {
+                let batch_count = vey_yaml::value::as_usize(v)?;
+                self.udp_relay.set_batch_count(batch_count);
                 Ok(())
             }
             "task_idle_check_duration" => {

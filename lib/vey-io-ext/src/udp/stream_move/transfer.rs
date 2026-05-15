@@ -75,7 +75,7 @@ impl UdpMoveBuffer {
 ))]
 impl UdpMoveBuffer {
     fn new(config: LimitedUdpRelayConfig) -> Self {
-        let packets = Vec::with_capacity(config.batch_size);
+        let packets = Vec::with_capacity(config.batch_count);
         UdpMoveBuffer {
             config,
             packets,
@@ -122,13 +122,12 @@ impl UdpMoveBuffer {
                 if count == 0 {
                     return Poll::Ready(Err(UdpMoveError::SendZero));
                 }
-                let start = self.packets.len() - count;
-                copy_this_round += self.packets[start..].iter().map(|p| p.len()).sum::<usize>();
+                copy_this_round += count;
                 self.total += count as u64;
                 self.active = true;
             }
 
-            if copy_this_round >= self.config.yield_size {
+            if copy_this_round >= self.config.yield_count {
                 cx.waker().wake_by_ref();
                 return Poll::Pending;
             }
@@ -151,7 +150,7 @@ impl UdpMoveBuffer {
 )))]
 impl UdpMoveBuffer {
     fn new(config: LimitedUdpRelayConfig) -> Self {
-        let packets = VecDeque::with_capacity(config.batch_size);
+        let packets = VecDeque::with_capacity(config.batch_count);
         UdpMoveBuffer {
             config,
             packets,
@@ -194,12 +193,12 @@ impl UdpMoveBuffer {
             while let Some(packet) = self.packets.pop_front() {
                 let mut to_sent = Some(packet);
                 match sender.poll_send_packet(cx, &mut to_sent) {
-                    Poll::Ready(Ok(nw)) => {
+                    Poll::Ready(Ok(_)) => {
                         if let Some(packet) = to_sent {
                             self.packets.push_front(packet);
                             return Poll::Ready(Err(UdpMoveError::SendZero));
                         }
-                        copy_this_round += nw;
+                        copy_this_round += 1;
                         self.total += 1;
                         self.active = true;
                     }
@@ -218,7 +217,7 @@ impl UdpMoveBuffer {
                 }
             }
 
-            if copy_this_round >= self.config.yield_size {
+            if copy_this_round >= self.config.yield_count {
                 cx.waker().wake_by_ref();
                 return Poll::Pending;
             }

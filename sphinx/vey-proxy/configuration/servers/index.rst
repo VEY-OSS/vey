@@ -284,29 +284,31 @@ Set the udp packet size for udp relay.
 
 **default**: 4K, **maximum**: 16K
 
-.. _conf_server_common_udp_relay_yield_size:
+.. _conf_server_common_udp_relay_yield_count:
 
-udp_relay_yield_size
---------------------
-
-**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
-
-Set the yield out size for the internal relay task.
-
-**default**: 1M, **maximum**: 256K
-
-.. _conf_server_common_udp_relay_batch_size:
-
-udp_relay_batch_size
---------------------
+udp_relay_yield_count
+---------------------
 
 **optional**, **type**: usize
 
-Set the batch recvmsg / sendmsg size.
+Set the yield out count of packets for the internal relay task.
+
+**default**: 1024, **maximum**: 256
+
+.. versionadded:: 1.13.3
+
+.. _conf_server_common_udp_relay_batch_count:
+
+udp_relay_batch_count
+---------------------
+
+**optional**, **type**: usize
+
+Set the batch recvmsg / sendmsg packet count.
 
 **default**: 8
 
-.. versionadded:: 1.7.29
+.. versionadded:: 1.13.3
 
 .. _conf_server_common_tcp_misc_opts:
 

@@ -42,32 +42,32 @@ pub use split::{
 };
 
 const DEFAULT_UDP_PACKET_SIZE: usize = 4096; // at least for DNS with extension
-const DEFAULT_UDP_RELAY_YIELD_SIZE: usize = 1024 * 1024; // 1MB
-const DEFAULT_UDP_BATCH_SIZE: usize = 8;
-const MINIMUM_UDP_PACKET_SIZE: usize = 512;
+const DEFAULT_UDP_RELAY_YIELD_SIZE: usize = 1024;
+const DEFAULT_UDP_BATCH_COUNT: usize = 8;
+const MINIMUM_UDP_PACKET_COUNT: usize = 512;
 const MAXIMUM_UDP_PACKET_SIZE: usize = 64 * 1024;
-const MINIMUM_UDP_RELAY_YIELD_SIZE: usize = 256 * 1024;
+const MINIMUM_UDP_RELAY_YIELD_COUNT: usize = 256;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct LimitedUdpRelayConfig {
     packet_size: usize,
-    yield_size: usize,
-    batch_size: usize,
+    yield_count: usize,
+    batch_count: usize,
 }
 
 impl Default for LimitedUdpRelayConfig {
     fn default() -> Self {
         LimitedUdpRelayConfig {
             packet_size: DEFAULT_UDP_PACKET_SIZE,
-            yield_size: DEFAULT_UDP_RELAY_YIELD_SIZE,
-            batch_size: DEFAULT_UDP_BATCH_SIZE,
+            yield_count: DEFAULT_UDP_RELAY_YIELD_SIZE,
+            batch_count: DEFAULT_UDP_BATCH_COUNT,
         }
     }
 }
 
 impl LimitedUdpRelayConfig {
     pub fn set_packet_size(&mut self, packet_size: usize) {
-        self.packet_size = packet_size.clamp(MINIMUM_UDP_PACKET_SIZE, MAXIMUM_UDP_PACKET_SIZE)
+        self.packet_size = packet_size.clamp(MINIMUM_UDP_PACKET_COUNT, MAXIMUM_UDP_PACKET_SIZE)
     }
 
     #[inline]
@@ -75,11 +75,11 @@ impl LimitedUdpRelayConfig {
         self.packet_size
     }
 
-    pub fn set_yield_size(&mut self, yield_size: usize) {
-        self.yield_size = yield_size.max(MINIMUM_UDP_RELAY_YIELD_SIZE);
+    pub fn set_yield_count(&mut self, yield_count: usize) {
+        self.yield_count = yield_count.max(MINIMUM_UDP_RELAY_YIELD_COUNT);
     }
 
-    pub fn set_batch_size(&mut self, batch_size: usize) {
-        self.batch_size = batch_size;
+    pub fn set_batch_count(&mut self, batch_count: usize) {
+        self.batch_count = batch_count;
     }
 }
