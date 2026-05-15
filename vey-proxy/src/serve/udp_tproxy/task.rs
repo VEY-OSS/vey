@@ -10,8 +10,8 @@ use tokio::time::Instant;
 use vey_daemon::listen::{AcceptedUdpPacketReceiver, AcceptedUdpPacketSender};
 use vey_daemon::stat::task::UdpConnectTaskStats;
 use vey_io_ext::{
-    OptionalInterval, UdpCopyClientToRemote, UdpCopyError, UdpCopyRemoteRecv, UdpCopyRemoteSend,
-    UdpCopyRemoteToClient,
+    OptionalInterval, UdpCopyRemoteRecv, UdpCopyRemoteSend, UdpMoveError, UdpMoveRemoteReceiver,
+    UdpMoveRemoteSender, UdpMoveTransfer,
 };
 use vey_types::acl::AclAction;
 use vey_types::net::UpstreamAddr;
@@ -20,9 +20,7 @@ use super::common::CommonTaskContext;
 use crate::log::escape::udp_sendto::EscapeLogForUdpConnectSendTo;
 use crate::log::task::udp_connect::TaskLogForUdpConnect;
 use crate::module::udp_connect::{UdpConnectTaskConf, UdpConnectTaskNotes};
-use crate::serve::udp_stream::{
-    UdpStreamClientRecv, UdpStreamClientSend, UdpStreamServerAliveTaskGuard,
-};
+use crate::serve::udp_stream::UdpStreamServerAliveTaskGuard;
 use crate::serve::{
     ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult, ServerTaskStage,
 };
@@ -221,10 +219,10 @@ impl TProxyStreamTask {
 
     async fn relay<UR, UW>(
         &mut self,
-        clt_r: AcceptedUdpPacketReceiver,
-        clt_w: AcceptedUdpPacketSender,
-        mut ups_r: UR,
-        mut ups_w: UW,
+        mut clt_r: AcceptedUdpPacketReceiver,
+        mut clt_w: AcceptedUdpPacketSender,
+        ups_r: UR,
+        ups_w: UW,
     ) -> ServerTaskResult<()>
     where
         UR: UdpCopyRemoteRecv + Send + Unpin,
@@ -233,13 +231,15 @@ impl TProxyStreamTask {
         let task_id = &self.task_notes.id;
 
         // TODO speed limit and stats
-        let mut clt_r = UdpStreamClientRecv::new(clt_r);
-        let mut clt_w = UdpStreamClientSend::new(clt_w);
+
+        let mut ups_r =
+            UdpMoveRemoteReceiver::new(ups_r, self.ctx.server_config.udp_relay.packet_size());
+        let mut ups_w = UdpMoveRemoteSender::new(ups_w);
 
         let mut c_to_r =
-            UdpCopyClientToRemote::new(&mut clt_r, &mut ups_w, self.ctx.server_config.udp_relay);
+            UdpMoveTransfer::new(&mut clt_r, &mut ups_w, self.ctx.server_config.udp_relay);
         let mut r_to_c =
-            UdpCopyRemoteToClient::new(&mut clt_w, &mut ups_r, self.ctx.server_config.udp_relay);
+            UdpMoveTransfer::new(&mut ups_r, &mut clt_w, self.ctx.server_config.udp_relay);
 
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut log_interval = self.get_log_interval();
@@ -252,8 +252,12 @@ impl TProxyStreamTask {
                 r = &mut c_to_r => {
                     return match r {
                         Ok(_) => Ok(()),
-                        Err(UdpCopyError::RemoteError(e)) => {
-                            if let Some(logger) = ups_w.error_logger() {
+                        Err(UdpMoveError::RecvError(e)) => {
+                            // yes it's send error returned from the udp packet receiver
+                            Err(ServerTaskError::ClientUdpSendFailed(e))
+                        }
+                        Err(UdpMoveError::SendError(e)) => {
+                            if let Some(logger) = ups_w.inner().error_logger() {
                                 EscapeLogForUdpConnectSendTo {
                                     task_id,
                                     upstream: Some(&self.upstream),
@@ -261,16 +265,20 @@ impl TProxyStreamTask {
                                 }
                                 .log(logger, &e);
                             }
+                            clt_w.close().await;
                             Err(e.into())
                         }
-                        Err(UdpCopyError::ClientError(e)) => Err(e.into()),
+                        Err(UdpMoveError::SendZero) => {
+                            clt_w.close().await;
+                            Err(ServerTaskError::ClosedByUpstream)
+                        }
                     };
                 }
                 r = &mut r_to_c => {
                     return match r {
                         Ok(_) => Ok(()),
-                        Err(UdpCopyError::RemoteError(e)) => {
-                            if let Some(logger) = ups_r.error_logger() {
+                        Err(UdpMoveError::RecvError(e)) => {
+                            if let Some(logger) = ups_r.inner().error_logger() {
                                 EscapeLogForUdpConnectSendTo {
                                     task_id,
                                     upstream: Some(&self.upstream),
@@ -278,9 +286,13 @@ impl TProxyStreamTask {
                                 }
                                 .log(logger, &e);
                             }
+                            clt_w.close().await;
                             Err(e.into())
                         }
-                        Err(UdpCopyError::ClientError(e)) => Err(e.into()),
+                        Err(UdpMoveError::SendError(())) => {
+                            Err(ServerTaskError::InternalServerError("the client side packet sender shouldn't return any error"))
+                        }
+                        Err(UdpMoveError::SendZero) => Err(ServerTaskError::ClosedByClient),
                     };
                 }
                 _ = log_interval.tick() => {
@@ -294,10 +306,12 @@ impl TProxyStreamTask {
 
                         if let Some(user_ctx) = self.task_notes.user_ctx()
                             && user_ctx.user().is_blocked() {
+                            clt_w.close().await;
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
 
                         if idle_count >= self.max_idle_count {
+                            clt_w.close().await;
                             return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {

@@ -14,16 +14,20 @@
 )))]
 use std::collections::VecDeque;
 use std::pin::Pin;
-use std::task::{Context, Poll, ready};
+use std::task::{Context, Poll};
 
 use bytes::Bytes;
 
 use super::{UdpMoveRecv, UdpMoveSend};
 use crate::LimitedUdpRelayConfig;
 
-pub enum UdpMoveError<R, S> {
-    RecvError(R),
-    SendError(S),
+pub enum UdpMoveError<R, S>
+where
+    R: UdpMoveRecv + ?Sized,
+    S: UdpMoveSend + ?Sized,
+{
+    RecvError(R::RecvError),
+    SendError(S::SendError),
     SendZero,
 }
 
@@ -85,13 +89,12 @@ impl UdpMoveBuffer {
         }
     }
 
-    #[allow(clippy::type_complexity)]
     fn poll_batch_move<R, S>(
         &mut self,
         cx: &mut Context<'_>,
         receiver: &mut R,
         sender: &mut S,
-    ) -> Poll<Result<u64, UdpMoveError<R::RecvError, S::SendError>>>
+    ) -> Poll<Result<u64, UdpMoveError<R, S>>>
     where
         R: UdpMoveRecv + ?Sized,
         S: UdpMoveSend + ?Sized,
@@ -117,7 +120,7 @@ impl UdpMoveBuffer {
             }
 
             while !self.packets.is_empty() {
-                let count = ready!(sender.poll_send_packets(cx, &mut self.packets))
+                let count = std::task::ready!(sender.poll_send_packets(cx, &mut self.packets))
                     .map_err(UdpMoveError::SendError)?;
                 if count == 0 {
                     return Poll::Ready(Err(UdpMoveError::SendZero));
@@ -165,7 +168,7 @@ impl UdpMoveBuffer {
         cx: &mut Context<'_>,
         receiver: &mut R,
         sender: &mut S,
-    ) -> Poll<Result<u64, UdpMoveError<R::RecvError, S::SendError>>>
+    ) -> Poll<Result<u64, UdpMoveError<R, S>>>
     where
         R: UdpMoveRecv + ?Sized,
         S: UdpMoveSend + ?Sized,
@@ -264,7 +267,7 @@ where
     R: UdpMoveRecv + Unpin + ?Sized,
     S: UdpMoveSend + Unpin + ?Sized,
 {
-    type Output = Result<u64, UdpMoveError<R::RecvError, S::SendError>>;
+    type Output = Result<u64, UdpMoveError<R, S>>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;

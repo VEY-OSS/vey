@@ -295,6 +295,7 @@ impl ServerInternal for UdpStreamServer {
         let runtime = ListenUdpRuntime::new(
             WrapArcServer(server),
             vey_types::net::UdpConnectionTrackConfig::default(),
+            self.config.udp_relay.packet_size(),
         );
         runtime
             .run_all_instances(

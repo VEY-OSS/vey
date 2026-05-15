@@ -3,9 +3,22 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "macos",
+    target_os = "solaris",
+))]
+use std::collections::VecDeque;
 use std::future::poll_fn;
 use std::io::{self, IoSlice, IoSliceMut};
 use std::net::SocketAddr;
+use std::pin::Pin;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
@@ -16,8 +29,7 @@ use lru::LruCache;
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, mpsc};
-
-use vey_io_ext::UdpSocketExt;
+use vey_io_ext::{UdpMoveRecv, UdpMoveSend, UdpSocketExt};
 use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 use vey_types::net::{UdpConnectionTrackConfig, UdpListenConfig};
 
@@ -27,19 +39,90 @@ use crate::server::{
 
 const EVENT_RECV_BATCH_SIZE: usize = 16;
 
+#[derive(Default)]
+struct StreamState {
+    last_send_error: Mutex<Option<io::Error>>,
+    recv_dropped: AtomicUsize,
+    send_dropped: AtomicUsize,
+}
+
+impl StreamState {
+    fn take_send_error(&self) -> Option<io::Error> {
+        self.last_send_error
+            .lock()
+            .ok()
+            .and_then(|mut guard| guard.take())
+    }
+
+    fn save_send_error(&self, e: io::Error) {
+        let mut guard = self.last_send_error.lock().unwrap();
+        *guard = Some(e);
+    }
+
+    fn add_recv_dropped(&self) {
+        self.recv_dropped.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn add_send_dropped(&self) {
+        self.send_dropped.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+struct StreamDispatcher {
+    state: Arc<StreamState>,
+    sender: mpsc::Sender<Bytes>,
+}
+
 pub struct AcceptedUdpPacketReceiver {
-    inner: mpsc::Receiver<io::Result<Bytes>>,
+    state: Arc<StreamState>,
+    packet_max_size: usize,
+    inner: mpsc::Receiver<Bytes>,
 }
 
 impl AcceptedUdpPacketReceiver {
     pub async fn recv_packet(&mut self) -> io::Result<Bytes> {
-        self.inner.recv().await.unwrap_or(Ok(Bytes::new()))
+        poll_fn(|cx| self.poll_recv_packet(cx)).await
+    }
+}
+
+impl UdpMoveRecv for AcceptedUdpPacketReceiver {
+    type RecvError = io::Error;
+
+    fn packet_max_size(&self) -> usize {
+        self.packet_max_size
     }
 
-    pub fn poll_recv_packet(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<Bytes>> {
+    fn poll_recv_packet(&mut self, cx: &mut Context<'_>) -> Poll<Result<Bytes, Self::RecvError>> {
+        if let Some(e) = self.state.take_send_error() {
+            return Poll::Ready(Err(e));
+        }
         match self.inner.poll_recv(cx) {
-            Poll::Ready(Some(packet)) => Poll::Ready(packet),
+            Poll::Ready(Some(packet)) => Poll::Ready(Ok(packet)),
             Poll::Ready(None) => Poll::Ready(Ok(Bytes::new())),
+            Poll::Pending => Poll::Pending,
+        }
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &mut Vec<Bytes>,
+        max_count: usize,
+    ) -> Poll<Result<usize, Self::RecvError>> {
+        if let Some(e) = self.state.take_send_error() {
+            return Poll::Ready(Err(e));
+        }
+        match self.inner.poll_recv_many(cx, packets, max_count) {
+            Poll::Ready(nr) => Poll::Ready(Ok(nr)),
             Poll::Pending => Poll::Pending,
         }
     }
@@ -50,22 +133,157 @@ enum Event {
     Close(ClientConnectionKey),
 }
 
+type WaitPermitFuture = dyn Future<Output = Result<mpsc::OwnedPermit<Event>, mpsc::error::SendError<()>>>
+    + Send
+    + Sync
+    + 'static;
+
 pub struct AcceptedUdpPacketSender {
     connection_key: ClientConnectionKey,
-    inner: mpsc::UnboundedSender<Event>,
+    inner: mpsc::Sender<Event>,
+    wait_permit: Option<Pin<Box<WaitPermitFuture>>>,
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    batch_queue: VecDeque<Bytes>,
 }
 
 impl AcceptedUdpPacketSender {
-    pub fn send_packet(&mut self, packet: Bytes) -> io::Result<()> {
+    fn new(connection_key: ClientConnectionKey, event_sender: mpsc::Sender<Event>) -> Self {
+        AcceptedUdpPacketSender {
+            connection_key,
+            inner: event_sender,
+            wait_permit: None,
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd",
+                target_os = "macos",
+                target_os = "solaris",
+            ))]
+            batch_queue: VecDeque::new(),
+        }
+    }
+
+    pub async fn send_packet(&mut self, packet: Bytes) -> io::Result<()> {
         self.inner
             .send(Event::Packet(self.connection_key, packet))
+            .await
             .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))
     }
 
-    pub fn close(&mut self) -> io::Result<()> {
-        self.inner
-            .send(Event::Close(self.connection_key))
-            .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))
+    pub async fn close(&mut self) {
+        let _ = self.inner.send(Event::Close(self.connection_key)).await;
+    }
+}
+
+impl UdpMoveSend for AcceptedUdpPacketSender {
+    // TODO use never type for this
+    type SendError = ();
+
+    fn poll_send_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        packet: &mut Option<Bytes>,
+    ) -> Poll<Result<usize, Self::SendError>> {
+        if packet.is_none() {
+            return Poll::Ready(Ok(0));
+        };
+
+        let mut wait_permit = self
+            .wait_permit
+            .take()
+            .unwrap_or_else(|| Box::pin(self.inner.clone().reserve_owned()));
+        match wait_permit.as_mut().poll(cx) {
+            Poll::Ready(Ok(permit)) => {
+                let data = packet.take().unwrap();
+                let data_len = data.len();
+                permit.send(Event::Packet(self.connection_key, data));
+                Poll::Ready(Ok(data_len))
+            }
+            Poll::Ready(Err(_)) => Poll::Ready(Ok(0)),
+            Poll::Pending => {
+                self.wait_permit = Some(wait_permit);
+                Poll::Pending
+            }
+        }
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    fn poll_send_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &mut Vec<Bytes>,
+    ) -> Poll<Result<usize, Self::SendError>> {
+        use mpsc::error::TrySendError;
+
+        let total_sent = packets.len();
+
+        self.batch_queue.clear();
+        self.batch_queue.reserve(packets.len());
+        self.batch_queue.extend(packets.drain(..));
+
+        let Some(first) = self.batch_queue.pop_front() else {
+            return Poll::Ready(Ok(0));
+        };
+
+        let mut to_send = Some(first);
+        match self.poll_send_packet(cx, &mut to_send) {
+            Poll::Ready(Ok(_)) => {}
+            Poll::Ready(Err(e)) => {
+                if let Some(packet) = to_send {
+                    packets.push(packet);
+                }
+                packets.extend(self.batch_queue.drain(..));
+                return Poll::Ready(Err(e));
+            }
+            Poll::Pending => {
+                if let Some(packet) = to_send {
+                    packets.push(packet);
+                }
+                packets.extend(self.batch_queue.drain(..));
+                return Poll::Pending;
+            }
+        }
+
+        while let Some(packet) = self.batch_queue.pop_front() {
+            match self
+                .inner
+                .try_send(Event::Packet(self.connection_key, packet))
+            {
+                Ok(_) => {}
+                Err(TrySendError::Closed(Event::Packet(_, packet))) => {
+                    packets.push(packet);
+                    packets.extend(self.batch_queue.drain(..));
+                    return Poll::Ready(Ok(0));
+                }
+                Err(TrySendError::Closed(_)) => unreachable!(),
+                Err(TrySendError::Full(Event::Packet(_, packet))) => {
+                    packets.push(packet);
+                    packets.extend(self.batch_queue.drain(..));
+                    return Poll::Ready(Ok(total_sent - packets.len()));
+                }
+                Err(TrySendError::Full(_)) => unreachable!(),
+            }
+        }
+
+        Poll::Ready(Ok(total_sent))
     }
 }
 
@@ -86,6 +304,7 @@ pub struct ListenUdpRuntime<S> {
     server_version: usize,
     worker_id: Option<usize>,
     conn_track: UdpConnectionTrackConfig,
+    packet_max_size: usize,
     //listen_stats: Arc<ListenStats>,
     instance_id: usize,
 }
@@ -94,7 +313,7 @@ impl<S> ListenUdpRuntime<S>
 where
     S: AcceptUdpServer + ReloadServer + Clone + Send + Sync + 'static,
 {
-    pub fn new(server: S, conn_track: UdpConnectionTrackConfig) -> Self {
+    pub fn new(server: S, conn_track: UdpConnectionTrackConfig, packet_max_size: usize) -> Self {
         let server_type = server.r#type();
         let server_version = server.version();
         ListenUdpRuntime {
@@ -103,6 +322,7 @@ where
             server_version,
             worker_id: None,
             conn_track,
+            packet_max_size,
             instance_id: 0,
         }
     }
@@ -149,11 +369,11 @@ where
 
         let mut connection_table =
             LruCache::with_hasher(self.conn_track.max_sessions(), FixedState::with_seed(0));
-        let (event_sender, mut event_receiver) = mpsc::unbounded_channel();
+        let (event_sender, mut event_receiver) = mpsc::channel(1024);
 
         let mut event_recv_buf: Vec<Event> = Vec::with_capacity(EVENT_RECV_BATCH_SIZE);
 
-        let mut buf = [0u8; u16::MAX as usize];
+        let mut buf = vec![0u8; self.packet_max_size];
         loop {
             tokio::select! {
                 biased;
@@ -190,25 +410,27 @@ where
                     match r {
                         Ok((cc_info, data)) => {
                             let key = cc_info.connection_key();
-                            let sender = connection_table.get_or_insert_ref(&key, || {
+                            let dispatcher = connection_table.get_or_insert_ref(&key, || {
+                                let state = Arc::new(StreamState::default());
                                 let (data_sender, data_receiver) = mpsc::channel(self.conn_track.session_queue_size());
                                 let packet_receiver = AcceptedUdpPacketReceiver {
+                                    state: state.clone(),
+                                    packet_max_size: self.packet_max_size,
                                     inner: data_receiver,
                                 };
-                                let packet_sender = AcceptedUdpPacketSender {
-                                    connection_key: key,
-                                    inner: event_sender.clone(),
-                                };
+                                let packet_sender = AcceptedUdpPacketSender::new(key, event_sender.clone());
                                 self.run_task(cc_info, packet_receiver, packet_sender);
-                                data_sender
+                                StreamDispatcher {
+                                    state, sender: data_sender
+                                }
                             });
-                            match sender.try_send(Ok(data)) {
+                            match dispatcher.sender.try_send(data) {
                                 Ok(_) => {}
                                 Err(mpsc::error::TrySendError::Full(_)) => {
-                                    // TODO record dropped data
+                                    dispatcher.state.add_recv_dropped();
                                 }
                                 Err(mpsc::error::TrySendError::Closed(_)) => {
-                                    // TODO record dropped data
+                                    dispatcher.state.add_recv_dropped();
                                     connection_table.pop(&key);
                                 }
                             }
@@ -286,21 +508,18 @@ where
         &self,
         socket: &UdpSocket,
         events: &[Event],
-        connection_table: &mut LruCache<
-            ClientConnectionKey,
-            mpsc::Sender<io::Result<Bytes>>,
-            FixedState,
-        >,
+        connection_table: &mut LruCache<ClientConnectionKey, StreamDispatcher, FixedState>,
     ) {
         for event in events {
             match event {
                 Event::Packet(key, data) => {
                     let hdr = SendMsgHdr::new([IoSlice::new(data)], Some(key.sock_peer_addr));
-                    match poll_fn(move |cx| socket.poll_sendmsg(cx, &hdr)).await {
+                    match socket.try_sendmsg(&hdr) {
                         Ok(_nw) => {}
                         Err(e) => {
-                            if let Some(sender) = connection_table.get(key) {
-                                let _ = sender.send(Err(e)).await;
+                            if let Some(dispatcher) = connection_table.get(key) {
+                                dispatcher.state.add_send_dropped();
+                                dispatcher.state.save_send_error(e);
                             }
                         }
                     }
@@ -460,10 +679,10 @@ mod tests {
                             data: packet.clone(),
                         });
                         if self.close_after_first_packet && seen_packets == 1 {
-                            let _ = packet_sender.close();
+                            packet_sender.close().await;
                             break;
                         } else {
-                            let _ = packet_sender.send_packet(packet);
+                            let _ = packet_sender.send_packet(packet).await;
                         }
                     }
                     Err(_) => break,
@@ -501,7 +720,7 @@ mod tests {
 
             let (reload_sender, reload_receiver) = broadcast::channel(4);
 
-            let runtime = ListenUdpRuntime::new(server, UdpConnectionTrackConfig::default());
+            let runtime = ListenUdpRuntime::new(server, UdpConnectionTrackConfig::default(), 4096);
 
             let runtime_task = tokio::spawn(runtime.run(socket, listen_addr, reload_receiver));
 

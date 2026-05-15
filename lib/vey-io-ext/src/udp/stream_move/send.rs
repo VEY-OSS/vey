@@ -51,6 +51,11 @@ impl<T> UdpMoveRemoteSender<T> {
     pub fn new(inner: T) -> Self {
         UdpMoveRemoteSender { inner }
     }
+
+    #[inline]
+    pub fn inner(&self) -> &T {
+        &self.inner
+    }
 }
 
 impl<T: UdpCopyRemoteSend> UdpMoveSend for UdpMoveRemoteSender<T> {
