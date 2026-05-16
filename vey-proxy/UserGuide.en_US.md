@@ -815,7 +815,7 @@ Within a user configuration, you can define site-specific rules and attach indep
 ```yaml
 explicit_sites:
   - id: example-net
-    child_match: example.net
+    suffix_match: example.net
     emit_stats: true # Emit separate metrics; id becomes part of the metric name
     resolve_strategy:
       query: ipv4only # Resolve IPv4 only
@@ -828,7 +828,7 @@ Within a user-site rule, you can customize how the TLS client behaves when TLS i
 ```yaml
 explicit_sites:
   - id: example-net
-    child_match: example.net
+    suffix_match: example.net
     tls_client:
       ca_certificate: xxx      # PEM CA certificate
       cert_pairs:

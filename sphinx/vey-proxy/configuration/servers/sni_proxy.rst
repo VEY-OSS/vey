@@ -164,7 +164,7 @@ Example:
         - www.example.net
         - example.net
       redirect_host: www.example.net:443 # all redirect to www.example.net:*
-    - child_match: example.org # pass all *.example.org:*
+    - suffix_match: example.org # pass all *.example.org:*
     - exact_match: legacy.example.com
       redirect_port: 8443 # keep the original host, override only the port
 

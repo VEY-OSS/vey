@@ -19,9 +19,9 @@ pub fn as_dst_host_rule_set_builder(value: &Value) -> anyhow::Result<AclDstHostR
                     builder.exact = Some(exact_rule);
                 }
                 "suffix_match" | "suffix" | "child_match" | "child" => {
-                    let child_builder = crate::value::acl::as_suffix_domain_rule_builder(v)
+                    let suffix_builder = crate::value::acl::as_suffix_domain_rule_builder(v)
                         .context(format!("invalid suffix domain acl rule value for key {k}"))?;
-                    builder.suffix = Some(child_builder);
+                    builder.suffix = Some(suffix_builder);
                 }
                 "regex_match" | "regex" => {
                     let regex_builder = crate::value::acl::as_regex_domain_rule_builder(v)
@@ -59,7 +59,7 @@ mod tests {
                     "match1.example.net",
                     "192.168.2.1"
                 ],
-                "child_match": "example.org",
+                "suffix_match": "example.org",
                 "regex_match": [
                     ".*2[.]example[.]net$"
                 ],

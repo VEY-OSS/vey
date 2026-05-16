@@ -117,7 +117,7 @@ Example:
      exact_match:
        - www.example.com
        - 203.0.113.10
-     child_match: example.net
+     suffix_match: example.net
      subnet_match:
        - 192.0.2.0/24
        - 2001:db8::/32

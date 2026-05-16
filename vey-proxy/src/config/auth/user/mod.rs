@@ -199,7 +199,7 @@ impl UserConfig {
             for domain in &config.suffix_match_domain {
                 if !check_suffix_domain.insert(domain) {
                     return Err(anyhow!(
-                        "Parent Domain {domain} in site group {} has already been added by others",
+                        "Suffix Domain {domain} in site group {} has already been added by others",
                         config.id
                     ));
                 }

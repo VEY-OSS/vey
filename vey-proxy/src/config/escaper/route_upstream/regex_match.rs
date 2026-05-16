@@ -63,13 +63,13 @@ impl RegexMatchBuilder {
                         }
                         _ => Err(anyhow!("invalid key {k}")),
                     })
-                    .context(format!("invalid child match rule for #{i}"))?;
+                    .context(format!("invalid suffix match rule for #{i}"))?;
 
                     self.add_rule(escaper, regexes);
                 }
                 Ok(())
             }
-            _ => Err(anyhow!("child match rules should be a map or an array")),
+            _ => Err(anyhow!("suffix match rules should be a map or an array")),
         }
     }
 

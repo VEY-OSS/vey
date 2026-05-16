@@ -10,19 +10,19 @@ use yaml_rust::Yaml;
 
 use vey_types::acl::AclAction;
 
-mod child_domain;
 mod exact_host;
 mod exact_port;
 mod network;
 mod proxy_request;
 mod regex_domain;
 mod regex_set;
+mod suffix_domain;
 mod user_agent;
 
-pub(crate) use child_domain::as_suffix_domain_rule_builder;
 pub(crate) use exact_host::as_exact_host_rule;
 pub(crate) use network::as_dst_subnet_rule_builder;
 pub(crate) use regex_domain::as_regex_domain_rule_builder;
+pub(crate) use suffix_domain::as_suffix_domain_rule_builder;
 
 pub use exact_port::as_exact_port_rule;
 pub use network::{as_egress_network_rule_builder, as_ingress_network_rule_builder};

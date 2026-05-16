@@ -795,7 +795,7 @@ vey-proxy-ctl -G <daemon_group> -p <pid> escaper float publish '{"type":"socks5"
 ```yaml
 explicit_sites:
   - id: example-net
-    child_match: example.net
+    suffix_match: example.net
     emit_stats: true           # 建立独立的监控，id字段会作为监控条目名称的一部分
     resolve_strategy: # 可配置单独的解析策略
       query: ipv4only          # 仅解析ipv4地址
@@ -808,7 +808,7 @@ explicit_sites:
 ```yaml
 explicit_sites:
   - id: example-net
-    child_match: example.net
+    suffix_match: example.net
     tls_client:
       ca_certificate: xxx      # PEM格式CA证书
       cert_pairs:

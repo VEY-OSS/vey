@@ -268,7 +268,7 @@ Example 2:
         - example.net
       services:
         upstream: www.example.net
-    - child_match: example.org
+    - suffix_match: example.org
       set_default: true
       services:
         upstream: www.example.org
@@ -332,7 +332,7 @@ Example
          - example.net
        services:
          upstream: app.example.net:8080
-     - child_match: example.org
+     - suffix_match: example.org
        set_default: true
        services:
          upstream: app.example.org:8080

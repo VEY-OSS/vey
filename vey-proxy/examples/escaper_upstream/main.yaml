@@ -49,9 +49,9 @@ escaper:
     regex_match:
       - next: deny
         rules:
-          - parent: example.net
+          - suffix: example.net
             regex: abc.*
-          - parent: example.org
+          - suffix: example.org
             regex: abc.+
     default_next: internet
   - name: deny

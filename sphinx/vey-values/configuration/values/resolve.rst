@@ -139,7 +139,7 @@ Examples:
 .. code-block:: yaml
 
    resolve_redirection:
-     - parent: corp.example.net
+     - suffix: corp.example.net
        to: edge.example.net
      - exact:
          - api.example.net

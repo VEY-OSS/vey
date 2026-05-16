@@ -30,9 +30,9 @@ matching logic:
 
   Matches when the target host is exactly this host.
 
-* suffix_match | child_match
+* suffix_match
 
-  **optional**, **type**: :ref:`domain <conf_value_domain>`
+  **optional**, **type**: :ref:`domain <conf_value_domain>`, **alias**: child_match
 
   Matches when the target host is a child domain of this parent / suffix domain.
 

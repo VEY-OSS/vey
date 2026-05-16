@@ -80,7 +80,7 @@ Example
    exact_match:
      deny:
        - blocked.example.net
-   child_match:
+   suffix_match:
      internal:
        - corp.example.net
    suffix_match:
@@ -88,7 +88,7 @@ Example
        - s1.example.net
    regex_match:
      debug:
-       - parent: corp.example.net
+       - suffix: corp.example.net
          regex: '^test[0-9]+$'
 
 subnet_match
@@ -242,11 +242,11 @@ For seq format:
 
     - next: deny
       rules:
-        - parent: example.net
+        - suffix: example.net
           regex: abc.*  # only match the sub part
     - next: allow
       rules:
-        - parent: example.net
+        - suffix: example.net
           regex: tes.+ # only match the sub part
         - .*[.]example[.]org  # match the full domain
     # test.example.net will match `allow`
@@ -260,10 +260,10 @@ For map format:
   .. code-block:: yaml
 
     deny:
-      - parent: example.net
+      - suffix: example.net
         regex: abc.*  # only match the sub part
     allow:
-      - parent: example.net
+      - suffix: example.net
         regex: tes.+ # only match the sub part
       - .*[.]example[.]org  # match the full domain
     # test.example.net will match `allow`
