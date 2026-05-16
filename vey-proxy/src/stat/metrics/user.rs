@@ -455,6 +455,7 @@ where
     }
 
     emit_field!(tcp_connect, MetricUserRequestType::TcpConnect);
+    emit_field!(udp_connect, MetricUserRequestType::UdpConnect);
     emit_field!(http_forward, MetricUserRequestType::HttpForward);
     emit_field!(https_forward, MetricUserRequestType::HttpsForward);
     emit_field!(http_connect, MetricUserRequestType::HttpConnect);
@@ -472,6 +473,7 @@ where
     F: FnMut(i32, MetricUserRequestType),
 {
     emit(stats.tcp_connect(), MetricUserRequestType::TcpConnect);
+    emit(stats.udp_connect(), MetricUserRequestType::UdpConnect);
     emit(stats.http_forward(), MetricUserRequestType::HttpForward);
     emit(stats.https_forward(), MetricUserRequestType::HttpsForward);
     emit(stats.http_connect(), MetricUserRequestType::HttpConnect);
@@ -551,6 +553,7 @@ fn find_io_stat<'a, F>(
         };
     }
 
+    emit_udp_field!(udp_connect, MetricUserRequestType::UdpConnect);
     emit_udp_field!(socks_udp_connect, MetricUserRequestType::SocksUdpConnect);
     emit_udp_field!(
         socks_udp_associate,

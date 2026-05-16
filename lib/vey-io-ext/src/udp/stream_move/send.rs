@@ -129,6 +129,11 @@ impl<T: UdpMoveSend> LimitedUdpMoveSend<T> {
     }
 
     #[inline]
+    pub fn inner_mut(&mut self) -> &mut T {
+        &mut self.inner
+    }
+
+    #[inline]
     pub fn add_global_limiter<L>(&mut self, limiter: Arc<L>)
     where
         L: GlobalDatagramLimit + Send + Sync + 'static,

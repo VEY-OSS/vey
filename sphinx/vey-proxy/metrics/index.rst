@@ -51,6 +51,7 @@ The following tags are common to all metrics:
   The request type. Supported values are:
 
   - tcp_connect
+  - udp_connect
   - http_forward
   - https_forward
   - http_connect

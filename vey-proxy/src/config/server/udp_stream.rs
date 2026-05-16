@@ -16,7 +16,9 @@ use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::auth::FactsMatchType;
 use vey_types::collection::SelectivePickPolicy;
 use vey_types::metrics::{MetricTagMap, NodeName};
-use vey_types::net::{SocketBufferConfig, UdpListenConfig, WeightedUpstreamAddr};
+use vey_types::net::{
+    SocketBufferConfig, UdpListenConfig, UdpSockSpeedLimitConfig, WeightedUpstreamAddr,
+};
 use vey_yaml::YamlDocPosition;
 
 use super::{
@@ -41,6 +43,7 @@ pub(crate) struct UdpStreamServerConfig {
     pub(crate) upstream: Vec<WeightedUpstreamAddr>,
     pub(crate) upstream_pick_policy: SelectivePickPolicy,
     pub(crate) udp_socket_buffer: SocketBufferConfig,
+    pub(crate) udp_sock_speed_limit: UdpSockSpeedLimitConfig,
     pub(crate) task_idle_check_interval: Duration,
     pub(crate) task_idle_max_count: usize,
     pub(crate) flush_task_log_on_created: bool,
@@ -66,6 +69,7 @@ impl UdpStreamServerConfig {
             upstream: Vec::new(),
             upstream_pick_policy: SelectivePickPolicy::Random,
             udp_socket_buffer: SocketBufferConfig::default(),
+            udp_sock_speed_limit: UdpSockSpeedLimitConfig::default(),
             task_idle_check_interval: IDLE_CHECK_DEFAULT_DURATION,
             task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
             flush_task_log_on_created: false,
@@ -148,6 +152,11 @@ impl UdpStreamServerConfig {
             "udp_socket_buffer" => {
                 self.udp_socket_buffer = vey_yaml::value::as_socket_buffer_config(v)
                     .context(format!("invalid socket buffer config value for key {k}"))?;
+                Ok(())
+            }
+            "udp_sock_speed_limit" => {
+                self.udp_sock_speed_limit = vey_yaml::value::as_udp_sock_speed_limit(v)
+                    .context(format!("invalid udp socket speed limit value for key {k}"))?;
                 Ok(())
             }
             "udp_relay_packet_size" => {

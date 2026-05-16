@@ -10,19 +10,22 @@ use tokio::time::Instant;
 use vey_daemon::listen::{AcceptedUdpPacketReceiver, AcceptedUdpPacketSender};
 use vey_daemon::stat::task::UdpConnectTaskStats;
 use vey_io_ext::{
-    OptionalInterval, UdpCopyRemoteRecv, UdpCopyRemoteSend, UdpMoveError, UdpMoveRemoteReceiver,
-    UdpMoveRemoteSender, UdpMoveTransfer,
+    LimitedUdpMoveRecv, LimitedUdpMoveSend, OptionalInterval, UdpCopyRemoteRecv, UdpCopyRemoteSend,
+    UdpMoveError, UdpMoveRecv, UdpMoveRemoteReceiver, UdpMoveRemoteSender, UdpMoveSend,
+    UdpMoveTransfer,
 };
 use vey_types::acl::AclAction;
 use vey_types::net::UpstreamAddr;
 
 use super::common::CommonTaskContext;
+use crate::config::server::ServerConfig;
 use crate::log::escape::udp_sendto::EscapeLogForUdpConnectSendTo;
 use crate::log::task::udp_connect::TaskLogForUdpConnect;
 use crate::module::udp_connect::{UdpConnectTaskConf, UdpConnectTaskNotes};
-use crate::serve::udp_stream::UdpStreamServerAliveTaskGuard;
+use crate::serve::udp_stream::{UdpStreamServerAliveTaskGuard, UdpStreamTaskCltWrapperStats};
 use crate::serve::{
-    ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult, ServerTaskStage,
+    ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
+    ServerTaskStage,
 };
 
 pub(super) struct TProxyStreamTask {
@@ -106,7 +109,10 @@ impl TProxyStreamTask {
     fn pre_start(&mut self) {
         self._alive_guard = Some(self.ctx.server_stats.add_task());
 
-        // TODO user stats
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            user_ctx.req_stats().req_total.add_udp_connect();
+            user_ctx.req_stats().req_alive.add_udp_connect();
+        }
 
         if self.ctx.server_config.flush_task_log_on_created
             && let Some(log_ctx) = self.get_log_context()
@@ -118,8 +124,8 @@ impl TProxyStreamTask {
     }
 
     fn post_stop(&mut self) {
-        if let Some(_user_ctx) = self.task_notes.user_ctx() {
-            // TODO user stats
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            user_ctx.foreach_req_stats(|s| s.req_alive.del_udp_connect());
 
             if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
                 drop(user_req_alive_permit);
@@ -219,8 +225,8 @@ impl TProxyStreamTask {
 
     async fn relay<UR, UW>(
         &mut self,
-        mut clt_r: AcceptedUdpPacketReceiver,
-        mut clt_w: AcceptedUdpPacketSender,
+        clt_r: AcceptedUdpPacketReceiver,
+        clt_w: AcceptedUdpPacketSender,
         ups_r: UR,
         ups_w: UW,
     ) -> ServerTaskResult<()>
@@ -230,7 +236,7 @@ impl TProxyStreamTask {
     {
         let task_id = &self.task_notes.id;
 
-        // TODO speed limit and stats
+        let (mut clt_r, mut clt_w) = self.setup_limit_and_stats(clt_r, clt_w);
 
         let mut ups_r =
             UdpMoveRemoteReceiver::new(ups_r, self.ctx.server_config.udp_relay.packet_size());
@@ -265,11 +271,11 @@ impl TProxyStreamTask {
                                 }
                                 .log(logger, &e);
                             }
-                            clt_w.close().await;
+                            clt_w.inner_mut().close().await;
                             Err(e.into())
                         }
                         Err(UdpMoveError::SendZero) => {
-                            clt_w.close().await;
+                            clt_w.inner_mut().close().await;
                             Err(ServerTaskError::ClosedByUpstream)
                         }
                     };
@@ -286,7 +292,7 @@ impl TProxyStreamTask {
                                 }
                                 .log(logger, &e);
                             }
-                            clt_w.close().await;
+                            clt_w.inner_mut().close().await;
                             Err(e.into())
                         }
                         Err(UdpMoveError::SendError(())) => {
@@ -306,12 +312,12 @@ impl TProxyStreamTask {
 
                         if let Some(user_ctx) = self.task_notes.user_ctx()
                             && user_ctx.user().is_blocked() {
-                            clt_w.close().await;
+                            clt_w.inner_mut().close().await;
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
 
                         if idle_count >= self.max_idle_count {
-                            clt_w.close().await;
+                            clt_w.inner_mut().close().await;
                             return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
@@ -326,6 +332,61 @@ impl TProxyStreamTask {
                 }
             }
         }
+    }
+
+    fn setup_limit_and_stats<CR, CW>(
+        &self,
+        clt_r: CR,
+        clt_w: CW,
+    ) -> (LimitedUdpMoveRecv<CR>, LimitedUdpMoveSend<CW>)
+    where
+        CR: UdpMoveRecv,
+        CW: UdpMoveSend,
+    {
+        let mut wrapper_stats =
+            UdpStreamTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
+
+        let limit_config = if let Some(user_ctx) = self.task_notes.user_ctx() {
+            wrapper_stats.push_user_io_stats(user_ctx.fetch_traffic_stats(
+                self.ctx.server_config.name(),
+                self.ctx.server_stats.share_extra_tags(),
+            ));
+
+            user_ctx
+                .user_config()
+                .udp_sock_speed_limit
+                .shrink_as_smaller(&self.ctx.server_config.udp_sock_speed_limit)
+        } else {
+            self.ctx.server_config.udp_sock_speed_limit
+        };
+
+        let wrapper_stats = Arc::new(wrapper_stats);
+        let mut clt_r = LimitedUdpMoveRecv::local_limited(
+            clt_r,
+            limit_config.shift_millis,
+            limit_config.max_north_packets,
+            limit_config.max_north_bytes,
+            wrapper_stats.clone(),
+        );
+        let mut clt_w = LimitedUdpMoveSend::local_limited(
+            clt_w,
+            limit_config.shift_millis,
+            limit_config.max_south_packets,
+            limit_config.max_south_bytes,
+            wrapper_stats,
+        );
+
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            let user = user_ctx.user();
+            if let Some(limiter) = user.udp_all_upload_speed_limit() {
+                clt_r.add_global_limiter(limiter.clone());
+            }
+            if let Some(limiter) = user.udp_all_download_speed_limit() {
+                clt_w.add_global_limiter(limiter.clone());
+            }
+        }
+
+        (clt_r, clt_w)
     }
 
     fn get_log_interval(&self) -> OptionalInterval {

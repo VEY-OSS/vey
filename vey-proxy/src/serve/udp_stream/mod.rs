@@ -9,4 +9,6 @@ mod stats;
 mod task;
 
 pub(super) use server::UdpStreamServer;
-pub(crate) use stats::*;
+pub(crate) use stats::{
+    UdpStreamServerAliveTaskGuard, UdpStreamServerStats, UdpStreamTaskCltWrapperStats,
+};

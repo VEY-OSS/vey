@@ -7,3 +7,4 @@ mod server;
 pub(crate) use server::{UdpStreamServerAliveTaskGuard, UdpStreamServerStats};
 
 mod wrapper;
+pub(crate) use wrapper::UdpStreamTaskCltWrapperStats;
