@@ -257,7 +257,7 @@ impl ServerInternal for UdpTProxyServer {
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
         let runtime = ListenUdpRuntime::new(
             WrapArcServer(server),
-            vey_types::net::UdpConnectionTrackConfig::default(),
+            self.config.conn_track,
             self.config.udp_relay.packet_size(),
         );
         runtime

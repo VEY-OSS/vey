@@ -201,17 +201,19 @@ impl UdpListenConfig {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct UdpConnectionTrackConfig {
     max_sessions: NonZeroUsize,
-    session_queue_size: NonZeroUsize,
+    dispatch_queue_size: NonZeroUsize,
+    send_queue_size: NonZeroUsize,
 }
 
 impl Default for UdpConnectionTrackConfig {
     fn default() -> Self {
         UdpConnectionTrackConfig {
             max_sessions: unsafe { NonZeroUsize::new_unchecked(1024) },
-            session_queue_size: unsafe { NonZeroUsize::new_unchecked(32) },
+            dispatch_queue_size: unsafe { NonZeroUsize::new_unchecked(32) },
+            send_queue_size: unsafe { NonZeroUsize::new_unchecked(512) },
         }
     }
 }
@@ -228,12 +230,22 @@ impl UdpConnectionTrackConfig {
     }
 
     #[inline]
-    pub fn session_queue_size(&self) -> usize {
-        self.session_queue_size.get()
+    pub fn dispatch_queue_size(&self) -> usize {
+        self.dispatch_queue_size.get()
     }
 
     #[inline]
-    pub fn set_session_queue_size(&mut self, session_queue_size: NonZeroUsize) {
-        self.session_queue_size = session_queue_size;
+    pub fn set_dispatch_queue_size(&mut self, queue_size: NonZeroUsize) {
+        self.dispatch_queue_size = queue_size;
+    }
+
+    #[inline]
+    pub fn send_queue_size(&self) -> usize {
+        self.send_queue_size.get()
+    }
+
+    #[inline]
+    pub fn set_send_queue_size(&mut self, queue_size: NonZeroUsize) {
+        self.send_queue_size = queue_size;
     }
 }

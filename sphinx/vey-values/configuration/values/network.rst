@@ -667,6 +667,45 @@ The yaml value for *listen* can be in the following formats:
 
    - ``vey-proxy``: available since ``1.7.30``
 
+.. _conf_value_udp_conn_track:
+
+udp conn track
+==============
+
+**yaml value**: map
+
+The set UDP connection track config for local listening UDP sockets.
+
+It consists of the following fields:
+
+* max_sessions
+
+  **optional**, **type**: nonzero usize
+
+  This set the max tracked udp connections.
+
+  **default**: 4096
+
+* dispatch_queue_size
+
+  **optional**, **type**: nonzero usize
+
+  This set the dispatch queue size for each tracked udp connection.
+
+  **default**: 32
+
+* send_queue_size
+
+  **optional**, **type**: nonzero usize
+
+  This set the send queue size. The send queue is shared among all tracked connections.
+
+  **default**: 512
+
+.. availability::
+
+    - ``vey-proxy``: available since ``1.13.3``
+
 .. _conf_value_happy_eyeballs:
 
 happy eyeballs

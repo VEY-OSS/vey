@@ -17,7 +17,8 @@ use vey_types::auth::FactsMatchType;
 use vey_types::collection::SelectivePickPolicy;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
-    SocketBufferConfig, UdpListenConfig, UdpSockSpeedLimitConfig, WeightedUpstreamAddr,
+    SocketBufferConfig, UdpConnectionTrackConfig, UdpListenConfig, UdpSockSpeedLimitConfig,
+    WeightedUpstreamAddr,
 };
 use vey_yaml::YamlDocPosition;
 
@@ -39,6 +40,7 @@ pub(crate) struct UdpStreamServerConfig {
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: Option<UdpListenConfig>,
     pub(crate) listen_in_worker: bool,
+    pub(crate) conn_track: UdpConnectionTrackConfig,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) upstream: Vec<WeightedUpstreamAddr>,
     pub(crate) upstream_pick_policy: SelectivePickPolicy,
@@ -65,6 +67,7 @@ impl UdpStreamServerConfig {
             shared_logger: None,
             listen: None,
             listen_in_worker: false,
+            conn_track: UdpConnectionTrackConfig::default(),
             ingress_net_filter: None,
             upstream: Vec::new(),
             upstream_pick_policy: SelectivePickPolicy::Random,
@@ -127,6 +130,12 @@ impl UdpStreamServerConfig {
             }
             "listen_in_worker" => {
                 self.listen_in_worker = vey_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "udp_conn_track" | "udp_connection_track" | "conn_track" | "connection_track" => {
+                self.conn_track = vey_yaml::value::as_udp_conn_track_config(v).context(format!(
+                    "invalid udp connection track config value for key {k}"
+                ))?;
                 Ok(())
             }
             "ingress_network_filter" | "ingress_net_filter" => {

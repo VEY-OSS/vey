@@ -15,7 +15,9 @@ use vey_io_ext::LimitedUdpRelayConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::auth::FactsMatchType;
 use vey_types::metrics::{MetricTagMap, NodeName};
-use vey_types::net::{SocketBufferConfig, UdpListenConfig, UdpSockSpeedLimitConfig};
+use vey_types::net::{
+    SocketBufferConfig, UdpConnectionTrackConfig, UdpListenConfig, UdpSockSpeedLimitConfig,
+};
 use vey_yaml::YamlDocPosition;
 
 use super::{
@@ -37,6 +39,7 @@ pub(crate) struct UdpTProxyServerConfig {
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: UdpListenConfig,
     pub(crate) listen_in_worker: bool,
+    pub(crate) conn_track: UdpConnectionTrackConfig,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) udp_socket_buffer: SocketBufferConfig,
     pub(crate) udp_sock_speed_limit: UdpSockSpeedLimitConfig,
@@ -62,6 +65,7 @@ impl UdpTProxyServerConfig {
             shared_logger: None,
             listen: UdpListenConfig::default(),
             listen_in_worker: false,
+            conn_track: UdpConnectionTrackConfig::default(),
             ingress_net_filter: None,
             udp_socket_buffer: SocketBufferConfig::default(),
             udp_sock_speed_limit: UdpSockSpeedLimitConfig::default(),
@@ -125,6 +129,12 @@ impl UdpTProxyServerConfig {
             }
             "listen_in_worker" => {
                 self.listen_in_worker = vey_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "udp_conn_track" | "udp_connection_track" | "conn_track" | "connection_track" => {
+                self.conn_track = vey_yaml::value::as_udp_conn_track_config(v).context(format!(
+                    "invalid udp connection track config value for key {k}"
+                ))?;
                 Ok(())
             }
             "ingress_network_filter" | "ingress_net_filter" => {

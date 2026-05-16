@@ -36,7 +36,7 @@ pub use tcp::{
     as_tcp_misc_sock_opts,
 };
 pub use tls::as_tls_version;
-pub use udp::{as_udp_listen_config, as_udp_misc_sock_opts};
+pub use udp::{as_udp_conn_track_config, as_udp_listen_config, as_udp_misc_sock_opts};
 
 #[cfg(unix)]
 pub use interface::as_interface;

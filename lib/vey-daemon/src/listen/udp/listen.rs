@@ -29,6 +29,7 @@ use lru::LruCache;
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, mpsc};
+
 use vey_io_ext::{UdpMoveRecv, UdpMoveSend, UdpSocketExt};
 use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 use vey_types::net::{UdpConnectionTrackConfig, UdpListenConfig};
@@ -412,7 +413,7 @@ where
                             let key = cc_info.connection_key();
                             let dispatcher = connection_table.get_or_insert_ref(&key, || {
                                 let state = Arc::new(StreamState::default());
-                                let (data_sender, data_receiver) = mpsc::channel(self.conn_track.session_queue_size());
+                                let (data_sender, data_receiver) = mpsc::channel(self.conn_track.dispatch_queue_size());
                                 let packet_receiver = AcceptedUdpPacketReceiver {
                                     state: state.clone(),
                                     packet_max_size: self.packet_max_size,

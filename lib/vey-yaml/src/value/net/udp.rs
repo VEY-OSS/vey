@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use vey_types::net::{UdpListenConfig, UdpMiscSockOpts};
+use vey_types::net::{UdpConnectionTrackConfig, UdpListenConfig, UdpMiscSockOpts};
 
 pub fn as_udp_misc_sock_opts(v: &Yaml) -> anyhow::Result<UdpMiscSockOpts> {
     let mut config = UdpMiscSockOpts::default();
@@ -172,6 +172,37 @@ pub fn as_udp_listen_config(value: &Yaml) -> anyhow::Result<UdpListenConfig> {
     }
 
     config.check()?;
+    Ok(config)
+}
+
+pub fn as_udp_conn_track_config(value: &Yaml) -> anyhow::Result<UdpConnectionTrackConfig> {
+    let Yaml::Hash(map) = value else {
+        return Err(anyhow!(
+            "yaml value type for udp connection track config value should be 'map'"
+        ));
+    };
+
+    let mut config = UdpConnectionTrackConfig::default();
+
+    crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+        "max_sessions" => {
+            let max_sessions = crate::value::as_nonzero_usize(v)?;
+            config.set_max_sessions(max_sessions);
+            Ok(())
+        }
+        "dispatch_queue_size" => {
+            let queue_size = crate::value::as_nonzero_usize(v)?;
+            config.set_dispatch_queue_size(queue_size);
+            Ok(())
+        }
+        "send_queue_size" => {
+            let queue_size = crate::value::as_nonzero_usize(v)?;
+            config.set_send_queue_size(queue_size);
+            Ok(())
+        }
+        _ => Err(anyhow!("invalid key {k}")),
+    })?;
+
     Ok(config)
 }
 

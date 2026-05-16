@@ -24,6 +24,8 @@ Servers
 
    dummy_close
    tcp_stream
+   udp_stream
+   udp_tproxy
    tcp_tproxy
    tls_stream
    http_proxy
