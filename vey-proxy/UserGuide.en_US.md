@@ -12,6 +12,7 @@
     + [HTTP Proxy](#http-proxy)
     + [SOCKS Proxy](#socks-proxy)
     + [TCP Mapping](#tcp-mapping)
+    + [UDP Mapping](#udp-mapping)
     + [TLS Offloading](#tls-offloading)
     + [TLS Encapsulation](#tls-encapsulation)
     + [SNI Proxy](#sni-proxy)
@@ -194,6 +195,23 @@ server:
     upstream_pick_policy: rr # Load-balancing policy; default is random
 ```
 
+### UDP Mapping
+
+To map a local UDP port to a specific port on the target host, add a `UdpStream` server:
+
+```yaml
+server:
+  - name: udp           # Must be unique; used by logs and metrics
+    escaper: default    # Required; it should support the UdpConnect method
+    type: udp_stream
+    listen:
+      address: "[::1]:10086"
+    proxy_pass: # One or more target addresses
+      - "127.0.0.1:5201"
+      - "127.0.0.1:5202"
+    upstream_pick_policy: rr # Load-balancing policy; default is random
+```
+
 ### TLS Offloading
 
 To map a local TCP port to a TLS port on the target host, use a `TcpStream` server:
@@ -269,15 +287,20 @@ server:
 
 ### Transparent Proxy
 
-On a gateway device, you can redirect the TCP connections that need proxying to a `TcpTProxy` server so the proxy can
-forward them transparently:
+On a gateway device, you can redirect the TCP traffic to a `TcpTProxy` server or redirect the UDP traffic to a '
+UdpTProxy' so the proxy can forward them transparently:
 
 ```yaml
 server:
-  - name: transparent
+  - name: transparent_tcp
     escaper: default
     auditor: default  # Needed for protocol inspection, TLS interception, and similar features
     type: tcp_tproxy
+    listen: "127.0.0.1:1234"
+  - name: transparent_udp
+    escaper: default
+    auditor: default  # Needed for protocol inspection, TLS interception, and similar features
+    type: udp_tproxy
     listen: "127.0.0.1:1234"
 ```
 

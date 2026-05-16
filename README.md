@@ -38,9 +38,9 @@ policy-driven request handling.
 #### Feature highlights
 
 - High-performance async Rust implementation
-- HTTP/1 and SOCKS5 forward proxy support, plus SNI proxy and TCP TPROXY
+- HTTP/1 and SOCKS5 forward proxy support, plus SNI proxy and TCP/UDP TPROXY
 - Proxy chaining and multiple egress-route selection methods, including custom selection agents
-- TCP/TLS stream proxying and basic HTTP reverse-proxy support
+- TCP/UDP/TLS stream proxying and basic HTTP reverse-proxy support
 - TLS based on OpenSSL, BoringSSL, AWS-LC, AWS-LC-FIPS, Tongsuo, or rustls
 - TLS interception, decrypted-traffic export, and HTTP/1, HTTP/2, IMAP, and SMTP inspection
 - ICAP integration for common application-layer inspection workflows

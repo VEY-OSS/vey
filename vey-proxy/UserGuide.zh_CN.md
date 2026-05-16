@@ -184,6 +184,23 @@ server:
     upstream_pick_policy: rr # 负载均衡算法，默认random
 ```
 
+### UDP映射
+
+本地UDP端口映射到目标机器的特定端口，需要添加UdpStream类型入口，示例如下：
+
+```yaml
+server:
+  - name: udp           # 名称需要唯一，不跟其他入口冲突，日志&监控需要使用该字段
+    escaper: default    # 必填，需要支持UdpConnect方法
+    type: udp_stream
+    listen:
+      address: "[::1]:10086"
+    proxy_pass: # 目标地址，可以单条/多条
+      - "127.0.0.1:5201"
+      - "127.0.0.1:5202"
+    upstream_pick_policy: rr # 负载均衡算法，默认random
+```
+
 ### TLS卸载
 
 本地TCP端口映射到目标机器的TLS端口。需要添加TcpStream类型入口，示例如下：
@@ -260,14 +277,19 @@ server:
 
 ### 透明代理
 
-在网关设备上，可以配置将需要代理的TCP连接，转发给TcpTProxy入口，由代理进行透明中转，示例如下：
+在网关设备上，可以配置将TCP流量转发给TcpTProxy，或者将UDP流量转发给UdpTProxy，由代理进行透明中转，示例如下：
 
 ```yaml
 server:
-  - name: transparent
+  - name: transparent_tcp
     escaper: default
     auditor: default  # 如果需要进行协议识别及TLS劫持等
     type: tcp_tproxy
+    listen: "127.0.0.1:1234"
+  - name: transparent_udp
+    escaper: default
+    auditor: default  # 如果需要进行协议识别及TLS劫持等
+    type: udp_tproxy
     listen: "127.0.0.1:1234"
 ```
 

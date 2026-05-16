@@ -165,6 +165,13 @@ Common capabilities include:
         - OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to)
     - Fact-based user authentication
 
+- UDP TPROXY
+    - Supported platforms:
+        - Linux [Netfilter TPROXY](https://docs.kernel.org/networking/tproxy.html)
+        - FreeBSD [ipfw forward](https://man.freebsd.org/cgi/man.cgi?query=ipfw)
+        - OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to)
+    - Fact-based user authentication
+
 #### Reverse Proxy Servers
 
 - HTTP(S) Reverse Proxy
@@ -176,6 +183,11 @@ Common capabilities include:
 #### Streaming Servers
 
 - TCP Stream
+    - Upstream TLS / mTLS
+    - Load balancing: RR / Random / Rendezvous / Jump Hash
+    - Fact-based user authentication
+
+- UDP Stream
     - Upstream TLS / mTLS
     - Load balancing: RR / Random / Rendezvous / Jump Hash
     - Fact-based user authentication
