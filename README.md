@@ -134,6 +134,12 @@ details.
 
 See [Long-Term Support](doc/long-term_support.md).
 
+## Community
+
+Join the Larksuite (飞书) user group via this [link](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=a7an15cf-4851-41ee-9741-b3a223ab9998) or by scanning the QR code below:
+
+<a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=a7an15cf-4851-41ee-9741-b3a223ab9998"><img src="assets/lark_group.svg" alt="Lark Group" width="200"/></a>
+
 ## Contribution
 
 See [Contributing](CONTRIBUTING.md) for details.
