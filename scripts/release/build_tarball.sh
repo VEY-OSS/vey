@@ -106,7 +106,7 @@ echo "==> moving package files"
 if [ -d ${SOURCE_NAME}/debian ]
 then
 	[ ! -e debian ] || rm -rf debian
-	mv ${SOURCE_NAME}/debian debian
+	cp -r ${SOURCE_NAME}/debian debian
 	echo "  - moved debian package build files"
 fi
 
