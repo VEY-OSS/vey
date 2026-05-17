@@ -286,9 +286,16 @@ impl OpensslInterceptionClientConfigBuilder {
             .add_cert_decompression_alg(CertCompressionAlgorithm::BROTLI, |in_buf, out_buf| {
                 use std::io::Read;
 
-                brotli::Decompressor::new(in_buf, 4096)
-                    .read(out_buf)
-                    .unwrap_or(0)
+                let mut decompressor = brotli::Decompressor::new(in_buf, 4096);
+                if decompressor.read_exact(out_buf).is_err() {
+                    return 0;
+                }
+
+                let mut extra = [0u8; 1];
+                match decompressor.read(&mut extra) {
+                    Ok(0) => out_buf.len(),
+                    _ => 0,
+                }
             })
             .map_err(|e| anyhow!("failed to add brotli cert decompression algorithm: {e}"))?;
         // zlib and zstd is not used in chromium by default
