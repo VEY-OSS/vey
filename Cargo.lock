@@ -2580,9 +2580,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.17.27"
+version = "0.17.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39ca71f99477b9b1c25ab25bb85f7b64227f14a56b6fe12244d1a2febcf1ab33"
+checksum = "010ae944d03d348cadb2335321944ee0aeba1645dd4636f83163fd58e083d112"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -2594,9 +2594,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.17.27"
+version = "0.17.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb3cb4385a08580a561519a8b871c05d9fa8536a7d13019d79dff5b9a07bd94b"
+checksum = "7300471e732ebaf7cd1d4835dfc71bcf47bc5752983af4f71050674c9d30ebbf"
 dependencies = [
  "aws-lc-fips-sys",
  "aws-lc-sys",

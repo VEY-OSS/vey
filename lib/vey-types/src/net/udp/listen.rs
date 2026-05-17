@@ -212,7 +212,7 @@ pub struct UdpConnectionTrackConfig {
 impl Default for UdpConnectionTrackConfig {
     fn default() -> Self {
         UdpConnectionTrackConfig {
-            max_sessions: unsafe { NonZeroUsize::new_unchecked(1024) },
+            max_sessions: unsafe { NonZeroUsize::new_unchecked(4096) },
             dispatch_queue_size: unsafe { NonZeroUsize::new_unchecked(32) },
             send_queue_size: unsafe { NonZeroUsize::new_unchecked(512) },
         }

@@ -47,7 +47,7 @@ udp_conn_track
 
 Set the UDP connection track config.
 
-**default**: set with default values
+**default**: set with default values, the max sessions count is 4096, which should be adjusted according the listen instance count
 
 udp_socket_buffer
 -----------------
