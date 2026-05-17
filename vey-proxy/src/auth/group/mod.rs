@@ -31,11 +31,18 @@ pub(crate) use facts::FactsUserGroup;
 mod ldap;
 pub(crate) use ldap::LdapUserGroup;
 
+#[cfg(feature = "python")]
+mod python_basic;
+#[cfg(feature = "python")]
+pub(crate) use python_basic::PythonBasicUserGroup;
+
 #[derive(Clone)]
 pub(crate) enum UserGroup {
     Basic(Arc<BasicUserGroup>),
     Facts(Arc<FactsUserGroup>),
     Ldap(Arc<LdapUserGroup>),
+    #[cfg(feature = "python")]
+    PythonBasic(Arc<PythonBasicUserGroup>),
 }
 
 impl UserGroup {
@@ -44,6 +51,8 @@ impl UserGroup {
             UserGroup::Basic(v) => v.base().r#type(),
             UserGroup::Facts(v) => v.base().r#type(),
             UserGroup::Ldap(v) => v.base().r#type(),
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => v.base().r#type(),
         }
     }
 
@@ -60,6 +69,11 @@ impl UserGroup {
             UserGroup::Ldap(v) => {
                 let c = v.clone_config();
                 AnyUserGroupConfig::Ldap(c)
+            }
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => {
+                let c = v.clone_config();
+                AnyUserGroupConfig::PythonBasic(c)
             }
         }
     }
@@ -83,6 +97,11 @@ impl UserGroup {
                 let group = LdapUserGroup::new_with_config(c).await?;
                 Ok(UserGroup::Ldap(group))
             }
+            #[cfg(feature = "python")]
+            AnyUserGroupConfig::PythonBasic(c) => {
+                let group = PythonBasicUserGroup::new_with_config(c).await?;
+                Ok(UserGroup::PythonBasic(group))
+            }
         }
     }
 
@@ -100,6 +119,11 @@ impl UserGroup {
                 let group = g.reload(c)?;
                 Ok(UserGroup::Ldap(group))
             }
+            #[cfg(feature = "python")]
+            (UserGroup::PythonBasic(g), AnyUserGroupConfig::PythonBasic(c)) => {
+                let group = g.reload(c)?;
+                Ok(UserGroup::PythonBasic(group))
+            }
             (_, config) => Err(anyhow!(
                 "reload user group {} type {} to {} is invalid",
                 config.name(),
@@ -114,6 +138,8 @@ impl UserGroup {
             UserGroup::Basic(v) => v.base().stop_fetch_job(),
             UserGroup::Facts(v) => v.base().stop_fetch_job(),
             UserGroup::Ldap(v) => v.base().stop_fetch_job(),
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => v.base().stop_fetch_job(),
         }
     }
 
@@ -122,6 +148,8 @@ impl UserGroup {
             UserGroup::Basic(v) => v.base().allow_anonymous(client_addr),
             UserGroup::Facts(v) => v.base().allow_anonymous(client_addr),
             UserGroup::Ldap(v) => v.base().allow_anonymous(client_addr),
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => v.base().allow_anonymous(client_addr),
         }
     }
 
@@ -130,6 +158,8 @@ impl UserGroup {
             UserGroup::Basic(v) => v.base().get_anonymous_user(),
             UserGroup::Facts(v) => v.base().get_anonymous_user(),
             UserGroup::Ldap(v) => v.base().get_anonymous_user(),
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => v.base().get_anonymous_user(),
         }
     }
 
@@ -141,6 +171,8 @@ impl UserGroup {
             UserGroup::Basic(v) => v.base().foreach_user(f),
             UserGroup::Facts(v) => v.base().foreach_user(f),
             UserGroup::Ldap(v) => v.base().foreach_user(f),
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => v.base().foreach_user(f),
         }
     }
 
@@ -149,6 +181,8 @@ impl UserGroup {
             UserGroup::Basic(v) => v.base().all_static_users(),
             UserGroup::Facts(v) => v.base().all_static_users(),
             UserGroup::Ldap(v) => v.base().all_static_users(),
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => v.base().all_static_users(),
         }
     }
 
@@ -157,6 +191,8 @@ impl UserGroup {
             UserGroup::Basic(v) => v.base().all_dynamic_users(),
             UserGroup::Facts(v) => v.base().all_dynamic_users(),
             UserGroup::Ldap(v) => v.base().all_dynamic_users(),
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => v.base().all_dynamic_users(),
         }
     }
 
@@ -165,6 +201,8 @@ impl UserGroup {
             UserGroup::Basic(v) => v.base().publish_dynamic_users(contents).await,
             UserGroup::Facts(v) => v.base().publish_dynamic_users(contents).await,
             UserGroup::Ldap(v) => v.base().publish_dynamic_users(contents).await,
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => v.base().publish_dynamic_users(contents).await,
         }
     }
 
@@ -192,6 +230,12 @@ impl UserGroup {
                     .save_dynamic_users(contents, dynamic_config, Some(dynamic_key))
                     .await
             }
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => {
+                v.base()
+                    .save_dynamic_users(contents, dynamic_config, Some(dynamic_key))
+                    .await
+            }
         }
     }
 
@@ -211,6 +255,11 @@ impl UserGroup {
             ),
             UserGroup::Facts(_) => Err(UserAuthError::NoSuchUser),
             UserGroup::Ldap(v) => {
+                v.check_user_with_password(username, password, server_name, server_extra_tags)
+                    .await
+            }
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => {
                 v.check_user_with_password(username, password, server_name, server_extra_tags)
                     .await
             }

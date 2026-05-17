@@ -20,6 +20,8 @@ mod source;
 pub(crate) use source::*;
 
 pub(crate) mod group;
+#[cfg(feature = "python")]
+pub(crate) use group::PythonBasicUserGroupConfig;
 pub(crate) use group::{
     AnyUserGroupConfig, BasicUserGroupConfig, FactsUserGroupConfig, LdapUserGroupConfig,
     UserGroupConfig,
@@ -66,6 +68,11 @@ fn load_user_group(
         "ldap" => {
             let group = LdapUserGroupConfig::parse(map, position)?;
             Ok(AnyUserGroupConfig::Ldap(group))
+        }
+        #[cfg(feature = "python")]
+        "python_basic" => {
+            let group = PythonBasicUserGroupConfig::parse(map, position)?;
+            Ok(AnyUserGroupConfig::PythonBasic(group))
         }
         _ => Err(anyhow!("unsupported user group type {group_type}")),
     }

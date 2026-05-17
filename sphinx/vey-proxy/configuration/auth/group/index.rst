@@ -35,6 +35,7 @@ Groups
    basic
    facts
    ldap
+   python_basic
 
 Common Keys
 ===========
