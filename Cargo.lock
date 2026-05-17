@@ -3314,7 +3314,7 @@ dependencies = [
 
 [[package]]
 name = "vey-proxy"
-version = "1.13.2"
+version = "1.13.3"
 dependencies = [
  "ahash",
  "anyhow",
