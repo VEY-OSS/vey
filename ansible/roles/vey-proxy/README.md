@@ -2,7 +2,7 @@
 
 The `vey-proxy` role is the foundational role responsible for installing, managing, and performing basic operations on the `vey-proxy` binary and its systemd service.
 
-This role is typically imported and used by other configuration-specific roles (like `border-classic`, `benchmark`, etc.) rather than being run directly for configurations.
+This role must be included before any configuration-specific roles (such as `border-classic`, `benchmark`, etc.) in your playbook to properly install the binary and base daemon configuration. While other configuration roles *do* import this role, they only do so for specific life-cycle actions (like starting or restarting the service), not for the initial deployment.
 
 ## Tasks & Tags
 
@@ -33,12 +33,29 @@ The following variables can be configured to control the role's behavior (often 
 
 ## Usage Example
 
-Typically, this role is invoked via an `import_role` in other roles:
+### 1. Primary Deployment
+
+When deploying a new proxy instance, you must run the `vey-proxy` role before your specific profile role. You can do this by creating a playbook that lists them in order:
+
+```yaml
+---
+- hosts: my_proxies
+  roles:
+    - role: vey-proxy
+    - role: border-classic
+```
+
+Then deploy using:
+```bash
+ansible-playbook -i inventory my_playbook.yml -t deploy
+```
+
+### 2. Imported Actions
+
+Other configuration roles will import `vey-proxy` behind the scenes for specific actions (such as restarting or querying versions) like this:
 
 ```yaml
 - ansible.builtin.import_role:
     name: vey-proxy
-    tasks_from: restart
-  tags:
-    - restart
+    tasks_from: start-after-deploy
 ```
