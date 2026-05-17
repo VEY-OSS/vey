@@ -325,10 +325,10 @@ Routing escapers choose the actual upstream escaper based on routing rules.
 #### Authentication Methods
 
 - Fact-based
-- Basic username/password
-    - LDAP simple bind
-    - HTTP Basic authentication
-    - SOCKS5 user authentication
+- Basic username/password, check by checked with
+    - Local password records written in user config
+    - LDAP simple bind to a remote LDAP server
+    - A Python script that can be customized to support all other methods
 - Anonymous user
 
 #### User Sources
