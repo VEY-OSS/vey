@@ -34,6 +34,7 @@ use vey_io_ext::{UdpMoveRecv, UdpMoveSend, UdpSocketExt};
 use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 use vey_types::net::{UdpConnectionTrackConfig, UdpListenConfig};
 
+use crate::listen::{ListenAliveGuard, ListenStats};
 use crate::server::{
     BaseServer, ClientConnectionInfo, ClientConnectionKey, ReloadServer, ServerReloadCommand,
 };
@@ -298,37 +299,95 @@ pub trait AcceptUdpServer: BaseServer {
     );
 }
 
-#[derive(Clone)]
 pub struct ListenUdpRuntime<S> {
     server: S,
-    server_type: &'static str,
-    server_version: usize,
-    worker_id: Option<usize>,
     conn_track: UdpConnectionTrackConfig,
     packet_max_size: usize,
-    //listen_stats: Arc<ListenStats>,
-    instance_id: usize,
+    listen_stats: Arc<ListenStats>,
 }
 
 impl<S> ListenUdpRuntime<S>
 where
     S: AcceptUdpServer + ReloadServer + Clone + Send + Sync + 'static,
 {
-    pub fn new(server: S, conn_track: UdpConnectionTrackConfig, packet_max_size: usize) -> Self {
-        let server_type = server.r#type();
-        let server_version = server.version();
+    pub fn new(
+        server: S,
+        listen_stats: Arc<ListenStats>,
+        conn_track: UdpConnectionTrackConfig,
+        packet_max_size: usize,
+    ) -> Self {
         ListenUdpRuntime {
             server,
-            server_type,
-            server_version,
-            worker_id: None,
             conn_track,
             packet_max_size,
-            instance_id: 0,
+            listen_stats,
         }
     }
 
-    fn pre_start(&self) {
+    fn create_instance(&self) -> ListenUdpRuntimeInstance<S> {
+        let server_type = self.server.r#type();
+        let server_version = self.server.version();
+        ListenUdpRuntimeInstance {
+            server: self.server.clone(),
+            server_type,
+            server_version,
+            worker_id: None,
+            conn_track: self.conn_track,
+            packet_max_size: self.packet_max_size,
+            listen_stats: self.listen_stats.clone(),
+            instance_id: 0,
+            _alive_guard: None,
+        }
+    }
+
+    pub fn run_all_instances(
+        &self,
+        listen_config: &UdpListenConfig,
+        listen_in_worker: bool,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
+    ) -> anyhow::Result<()> {
+        let mut instance_count = listen_config.instance();
+        if listen_in_worker {
+            let worker_count = crate::runtime::worker::worker_count();
+            if worker_count > 0 {
+                instance_count = worker_count;
+            }
+        }
+
+        for i in 0..instance_count {
+            let mut runtime = self.create_instance();
+            runtime.instance_id = i;
+
+            let socket = vey_socket::udp::new_std_bind_listen(listen_config)?;
+            let listen_addr = socket.local_addr()?;
+            runtime.into_running(
+                socket,
+                listen_addr,
+                listen_in_worker,
+                server_reload_sender.subscribe(),
+            );
+        }
+        Ok(())
+    }
+}
+
+struct ListenUdpRuntimeInstance<S> {
+    server: S,
+    server_type: &'static str,
+    server_version: usize,
+    worker_id: Option<usize>,
+    conn_track: UdpConnectionTrackConfig,
+    packet_max_size: usize,
+    listen_stats: Arc<ListenStats>,
+    instance_id: usize,
+    _alive_guard: Option<ListenAliveGuard>,
+}
+
+impl<S> ListenUdpRuntimeInstance<S>
+where
+    S: AcceptUdpServer + ReloadServer + Clone + Send + Sync + 'static,
+{
+    fn pre_start(&mut self) {
         info!(
             "started {} SRT[{}_v{}#{}]",
             self.server_type,
@@ -336,7 +395,7 @@ where
             self.server_version,
             self.instance_id,
         );
-        //self.listen_stats.add_running_runtime();
+        self._alive_guard = Some(self.listen_stats.add_running_runtime());
     }
 
     fn pre_stop(&self) {
@@ -357,7 +416,6 @@ where
             self.server_version,
             self.instance_id,
         );
-        //self.listen_stats.del_running_runtime();
     }
 
     async fn run(
@@ -420,6 +478,7 @@ where
                                     inner: data_receiver,
                                 };
                                 let packet_sender = AcceptedUdpPacketSender::new(key, event_sender.clone());
+                                self.listen_stats.add_accepted();
                                 self.run_task(cc_info, packet_receiver, packet_sender);
                                 StreamDispatcher {
                                     state, sender: data_sender
@@ -566,36 +625,6 @@ where
             }
         });
     }
-
-    pub fn run_all_instances(
-        &self,
-        listen_config: &UdpListenConfig,
-        listen_in_worker: bool,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
-    ) -> anyhow::Result<()> {
-        let mut instance_count = listen_config.instance();
-        if listen_in_worker {
-            let worker_count = crate::runtime::worker::worker_count();
-            if worker_count > 0 {
-                instance_count = worker_count;
-            }
-        }
-
-        for i in 0..instance_count {
-            let mut runtime = self.clone();
-            runtime.instance_id = i;
-
-            let socket = vey_socket::udp::new_std_bind_listen(listen_config)?;
-            let listen_addr = socket.local_addr()?;
-            runtime.into_running(
-                socket,
-                listen_addr,
-                listen_in_worker,
-                server_reload_sender.subscribe(),
-            );
-        }
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -721,7 +750,14 @@ mod tests {
 
             let (reload_sender, reload_receiver) = broadcast::channel(4);
 
-            let runtime = ListenUdpRuntime::new(server, UdpConnectionTrackConfig::default(), 4096);
+            let listen_stats = ListenStats::new(Default::default());
+            let runtime = ListenUdpRuntime::new(
+                server,
+                Arc::new(listen_stats),
+                UdpConnectionTrackConfig::default(),
+                4096,
+            )
+            .create_instance();
 
             let runtime_task = tokio::spawn(runtime.run(socket, listen_addr, reload_receiver));
 
