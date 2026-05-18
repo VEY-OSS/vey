@@ -85,6 +85,7 @@ vey-msgpack.workspace = true
 vey-openssl.workspace = true
 vey-redis-client = { workspace = true, features = ["yaml"] }
 vey-resolver = { workspace = true, features = ["yaml", "hickory"] }
+vey-rustls-provider.workspace = true
 vey-slog-types = { workspace = true, features = ["auth", "http", "openssl", "socket"] }
 vey-smtp-proto.workspace = true
 vey-socket.workspace = true
@@ -115,9 +116,9 @@ lua55 = ["lua", "mlua/lua55"]
 python = ["pyo3"]
 c-ares = ["vey-resolver/c-ares"]
 quic = ["vey-daemon/quic", "vey-resolver/quic", "vey-yaml/quinn", "vey-types/quinn", "vey-dpi/quic", "dep:quinn"]
-rustls-ring = ["vey-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
-rustls-aws-lc = ["vey-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
-rustls-aws-lc-fips = ["vey-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]
+rustls-ring = ["vey-rustls-provider/rustls-ring", "vey-types/rustls-ring", "quinn?/rustls-ring"]
+rustls-aws-lc = ["vey-rustls-provider/rustls-aws-lc", "vey-types/rustls-aws-lc", "quinn?/rustls-aws-lc-rs"]
+rustls-aws-lc-fips = ["vey-rustls-provider/rustls-aws-lc-fips", "vey-types/rustls-aws-lc-fips", "quinn?/rustls-aws-lc-rs-fips"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "vey-cert-agent/tongsuo"]
 vendored-boringssl = ["openssl/boringssl", "openssl-probe"]

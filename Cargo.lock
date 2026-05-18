@@ -2666,6 +2666,7 @@ dependencies = [
  "vey-io-ext",
  "vey-openssl",
  "vey-runtime",
+ "vey-rustls-provider",
  "vey-socket",
  "vey-socks",
  "vey-statsd-client",
@@ -2913,12 +2914,12 @@ dependencies = [
  "vey-build-env",
  "vey-codec",
  "vey-daemon",
- "vey-dpi",
  "vey-gateway-proto",
  "vey-histogram",
  "vey-io-ext",
  "vey-macros",
  "vey-openssl",
+ "vey-rustls-provider",
  "vey-slog-types",
  "vey-socket",
  "vey-statsd-client",
@@ -3393,6 +3394,7 @@ dependencies = [
  "vey-proxy-proto",
  "vey-redis-client",
  "vey-resolver",
+ "vey-rustls-provider",
  "vey-slog-types",
  "vey-smtp-proto",
  "vey-socket",
@@ -3510,6 +3512,15 @@ dependencies = [
  "vey-openssl",
  "vey-yaml",
  "yaml-rust2",
+]
+
+[[package]]
+name = "vey-rustls-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cfg-if",
+ "rustls",
 ]
 
 [[package]]

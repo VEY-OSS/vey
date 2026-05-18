@@ -1,0 +1,16 @@
+[package]
+name = "vey-rustls-provider"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+cfg-if.workspace = true
+rustls.workspace = true
+
+[features]
+rustls-ring = ["rustls/ring"]
+rustls-aws-lc = ["rustls/aws-lc-rs"]
+rustls-aws-lc-fips = ["rustls/fips"]

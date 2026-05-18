@@ -54,6 +54,7 @@ vey-histogram.workspace = true
 vey-tls-cert.workspace = true
 vey-openssl.workspace = true
 vey-hickory-client.workspace = true
+vey-rustls-provider.workspace = true
 
 [build-dependencies]
 vey-build-env.workspace = true
@@ -61,9 +62,9 @@ vey-build-env.workspace = true
 [features]
 default = ["quic", "rustls-ring"]
 quic = ["vey-types/quic", "vey-socks/quic", "vey-io-ext/quic", "vey-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
-rustls-ring = ["vey-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
-rustls-aws-lc = ["vey-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
-rustls-aws-lc-fips = ["vey-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]
+rustls-ring = ["vey-rustls-provider/rustls-ring", "vey-types/rustls-ring", "quinn?/rustls-ring"]
+rustls-aws-lc = ["vey-rustls-provider/rustls-aws-lc", "vey-types/rustls-aws-lc", "quinn?/rustls-aws-lc-rs"]
+rustls-aws-lc-fips = ["vey-rustls-provider/rustls-aws-lc-fips", "vey-types/rustls-aws-lc-fips", "quinn?/rustls-aws-lc-rs-fips"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe"]
 vendored-boringssl = ["openssl/boringssl", "openssl-probe"]

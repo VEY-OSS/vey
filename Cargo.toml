@@ -48,6 +48,7 @@ members = [
     "lib/vey-redis-client",
     "lib/vey-resolver",
     "lib/vey-runtime",
+    "lib/vey-rustls-provider",
     "lib/vey-slog-types",
     "lib/vey-smtp-proto",
     "lib/vey-socket",
@@ -229,6 +230,7 @@ vey-openssl = { version = "0.4", path = "lib/vey-openssl" }
 vey-redis-client = { version = "0.3", path = "lib/vey-redis-client" }
 vey-resolver = { version = "0.9", path = "lib/vey-resolver" }
 vey-runtime = { version = "0.5", path = "lib/vey-runtime" }
+vey-rustls-provider = { version = "0.1", path = "lib/vey-rustls-provider" }
 vey-slog-types = { version = "0.3", path = "lib/vey-slog-types" }
 vey-smtp-proto = { version = "0.3", path = "lib/vey-smtp-proto" }
 vey-socket = { version = "0.6", path = "lib/vey-socket" }
