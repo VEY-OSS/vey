@@ -180,8 +180,9 @@ impl UdpMoveBuffer {
                     Poll::Ready(Ok(packet)) => {
                         if packet.is_empty() {
                             self.recv_done = true;
+                        } else {
+                            self.packets.push_back(packet);
                         }
-                        self.packets.push_back(packet);
                         self.active = true;
                     }
                     Poll::Ready(Err(e)) => return Poll::Ready(Err(UdpMoveError::RecvError(e))),

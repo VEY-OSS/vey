@@ -273,7 +273,7 @@ impl UdpMoveSend for AcceptedUdpPacketSender {
                 Err(TrySendError::Closed(Event::Packet(_, packet))) => {
                     packets.push(packet);
                     packets.extend(self.batch_queue.drain(..));
-                    return Poll::Ready(Ok(0));
+                    return Poll::Ready(Ok(total_sent - packets.len()));
                 }
                 Err(TrySendError::Closed(_)) => unreachable!(),
                 Err(TrySendError::Full(Event::Packet(_, packet))) => {
