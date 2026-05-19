@@ -8,6 +8,12 @@ use anyhow::Context;
 use log::{debug, error, info};
 
 use vey_iploc::opts::ProcArgs;
+#[cfg(feature = "jemalloc")]
+use vey_jemalloc::Jemalloc;
+
+#[cfg(feature = "jemalloc")]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 
 fn main() -> anyhow::Result<()> {
     let Some(proc_args) =

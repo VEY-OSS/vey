@@ -1484,6 +1484,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
 
 [[package]]
+name = "libjemalloc-sys"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f88ec3a53894cb697dbea7179b19f6512cf27c71dd231ddfb278862684c936a"
+dependencies = [
+ "bindgen",
+ "pkg-config",
+ "vcpkg",
+]
+
+[[package]]
 name = "libloading"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2664,6 +2675,7 @@ dependencies = [
  "vey-histogram",
  "vey-http",
  "vey-io-ext",
+ "vey-jemalloc",
  "vey-openssl",
  "vey-runtime",
  "vey-rustls-provider",
@@ -2814,6 +2826,7 @@ dependencies = [
  "vey-cert-agent",
  "vey-daemon",
  "vey-histogram",
+ "vey-jemalloc",
  "vey-socket",
  "vey-statsd-client",
  "vey-std-ext",
@@ -2917,6 +2930,7 @@ dependencies = [
  "vey-gateway-proto",
  "vey-histogram",
  "vey-io-ext",
+ "vey-jemalloc",
  "vey-macros",
  "vey-openssl",
  "vey-rustls-provider",
@@ -3149,11 +3163,19 @@ dependencies = [
  "vey-geoip-db",
  "vey-geoip-types",
  "vey-ip-locate",
+ "vey-jemalloc",
  "vey-socket",
  "vey-statsd-client",
  "vey-types",
  "vey-yaml",
  "yaml-rust2",
+]
+
+[[package]]
+name = "vey-jemalloc"
+version = "0.1.0"
+dependencies = [
+ "libjemalloc-sys",
 ]
 
 [[package]]
@@ -3222,6 +3244,7 @@ dependencies = [
  "vey-daemon",
  "vey-histogram",
  "vey-io-ext",
+ "vey-jemalloc",
  "vey-keyless-proto",
  "vey-macros",
  "vey-openssl",
@@ -3387,6 +3410,7 @@ dependencies = [
  "vey-io-ext",
  "vey-io-sys",
  "vey-ip-locate",
+ "vey-jemalloc",
  "vey-json",
  "vey-macros",
  "vey-msgpack",
@@ -3607,6 +3631,7 @@ dependencies = [
  "vey-daemon",
  "vey-http",
  "vey-io-ext",
+ "vey-jemalloc",
  "vey-macros",
  "vey-socket",
  "vey-statsd-proto",

@@ -51,11 +51,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+          sudo apt-get install capnproto libjemalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
       - name: Cargo build
-        run: cargo build --features lua54
+        run: cargo build --features jemalloc,lua54
       - name: Cargo test
-        run: cargo test --workspace --features lua54
+        run: cargo test --workspace --features jemalloc,lua54
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
@@ -72,6 +72,6 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+          sudo apt-get install capnproto libjemalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
       - name: Cargo clippy
-        run: cargo clippy --tests --workspace --features lua54 -- --deny warnings
+        run: cargo clippy --tests --workspace --features jemalloc,lua54 -- --deny warnings

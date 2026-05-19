@@ -54,6 +54,7 @@ vey-histogram.workspace = true
 vey-slog-types.workspace = true
 vey-tls-ticket = { workspace = true, features = ["yaml"] }
 vey-rustls-provider.workspace = true
+vey-jemalloc = { workspace = true, optional = true }
 vey-gateway-proto = { path = "proto" }
 
 [build-dependencies]
@@ -61,6 +62,7 @@ vey-build-env.workspace = true
 
 [features]
 default = ["quic", "rustls-ring"]
+jemalloc = ["vey-jemalloc"]
 quic = ["vey-daemon/quic", "vey-yaml/quinn", "vey-types/quinn", "dep:quinn"]
 rustls-ring = ["vey-rustls-provider/rustls-ring", "vey-types/rustls-ring", "quinn?/rustls-ring"]
 rustls-aws-lc = ["vey-rustls-provider/rustls-aws-lc", "vey-types/rustls-aws-lc", "quinn?/rustls-aws-lc-rs"]

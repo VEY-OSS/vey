@@ -20,6 +20,11 @@ vey-geoip-db.workspace = true
 vey-ip-locate.workspace = true
 vey-socket.workspace = true
 vey-types.workspace = true
+vey-jemalloc = { workspace = true, optional = true }
 
 [build-dependencies]
 vey-build-env.workspace = true
+
+[features]
+default = []
+jemalloc = ["vey-jemalloc"]

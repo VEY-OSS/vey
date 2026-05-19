@@ -79,6 +79,7 @@ vey-imap-proto.workspace = true
 vey-io-ext = { workspace = true, features = ["resolver", "openssl", "rustls", "log"] }
 vey-io-sys.workspace = true
 vey-ip-locate = { workspace = true, features = ["yaml"] }
+vey-jemalloc = { workspace = true, optional = true }
 vey-json = { workspace = true, features = ["auth-facts", "acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
 vey-macros.workspace = true
 vey-msgpack.workspace = true
@@ -108,6 +109,7 @@ vey-build-env.workspace = true
 
 [features]
 default = ["python", "c-ares", "quic", "rustls-ring"]
+jemalloc = ["vey-jemalloc"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
 lua53 = ["lua", "mlua/lua53"]

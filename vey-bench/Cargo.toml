@@ -55,12 +55,14 @@ vey-tls-cert.workspace = true
 vey-openssl.workspace = true
 vey-hickory-client.workspace = true
 vey-rustls-provider.workspace = true
+vey-jemalloc = { workspace = true, optional = true }
 
 [build-dependencies]
 vey-build-env.workspace = true
 
 [features]
 default = ["quic", "rustls-ring"]
+jemalloc = ["vey-jemalloc"]
 quic = ["vey-types/quic", "vey-socks/quic", "vey-io-ext/quic", "vey-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
 rustls-ring = ["vey-rustls-provider/rustls-ring", "vey-types/rustls-ring", "quinn?/rustls-ring"]
 rustls-aws-lc = ["vey-rustls-provider/rustls-aws-lc", "vey-types/rustls-aws-lc", "quinn?/rustls-aws-lc-rs"]

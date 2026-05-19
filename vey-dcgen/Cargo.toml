@@ -26,12 +26,14 @@ vey-histogram.workspace = true
 vey-tls-cert.workspace = true
 vey-cert-agent.workspace = true
 vey-socket.workspace = true
+vey-jemalloc = { workspace = true, optional = true }
 
 [build-dependencies]
 vey-build-env.workspace = true
 
 [features]
 default = []
+jemalloc = ["vey-jemalloc"]
 vendored-openssl = ["openssl/vendored"]
 vendored-tongsuo = ["openssl/tongsuo", "vey-cert-agent/tongsuo"]
 vendored-boringssl = ["openssl/boringssl"]
