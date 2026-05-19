@@ -176,7 +176,11 @@ impl Socks5UdpSocket {
         }
 
         let (off, ups) = UdpInput::parse_header(socks_header.as_ref()).map_err(io::Error::other)?;
-        assert_eq!(socks_header_len, off);
+        if socks_header_len != off {
+            return Err(io::Error::other(format!(
+                "the received socks header length {off} is different than expected {socks_header_len}"
+            )));
+        }
         let ip = match ups.host() {
             Host::Ip(ip) => *ip,
             Host::Domain(_) => {
