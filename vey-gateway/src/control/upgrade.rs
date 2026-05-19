@@ -48,7 +48,7 @@ impl UpgradeAction for UpgradeActor {
 }
 
 fn check_operation_result(r: operation_result::Reader<'_>) -> anyhow::Result<()> {
-    match r.which().unwrap() {
+    match r.which().map_err(|e| anyhow!("rpc protocol error: {e}"))? {
         operation_result::Which::Ok(_) => Ok(()),
         operation_result::Which::Err(err) => {
             let e = err?;
