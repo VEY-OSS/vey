@@ -1485,9 +1485,9 @@ checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
 
 [[package]]
 name = "libjemalloc-sys"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f88ec3a53894cb697dbea7179b19f6512cf27c71dd231ddfb278862684c936a"
+checksum = "bd3da677a89895f2b467841d5184032198bbbe398e125505cc95964c1394724e"
 dependencies = [
  "bindgen",
  "pkg-config",

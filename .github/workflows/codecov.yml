@@ -45,7 +45,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+          sudo apt-get install capnproto libjemalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
       - name: Install binutils
         run: |
           cargo install cargo-binutils@0.3.6

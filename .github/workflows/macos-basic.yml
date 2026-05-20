@@ -44,10 +44,10 @@ jobs:
           components: clippy
       - name: Install dependencies
         run: |
-          brew install capnp openssl c-ares lua
+          brew install capnp jemalloc openssl c-ares lua
       - name: Cargo build
-        run: cargo build --features lua55
+        run: cargo build --features jemalloc,lua55
       - name: Cargo clippy
-        run: cargo clippy --tests --features lua55 -- --deny warnings
+        run: cargo clippy --tests --features jemalloc,lua55 -- --deny warnings
       - name: Cargo test
-        run: cargo test --workspace --features lua55 --exclude vey-journal
+        run: cargo test --workspace --features jemalloc,lua55 --exclude vey-journal
