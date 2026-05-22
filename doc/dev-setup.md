@@ -184,7 +184,7 @@ brew install python
 
 The system toolchain from Xcode is also required.
 
-### Windows
+### Windows Native
 
 Native Windows builds are possible, but they usually require disabling some default features or using vendored
 dependencies.
@@ -196,15 +196,18 @@ winget install Rustlang.Rust.MSVC
 # Core tools
 winget install capnproto.capnproto
 
-# Option 1: vendored native libraries
+# Option 1:
+#   vendored native libraries
 winget install Kitware.CMake NASM.NASM Ninja-build.Ninja
-
-# Option 2: vcpkg-managed libraries
-vcpkg install --triplet=x64-windows-static-md openssl c-ares
-$Env:VCPKG_ROOT = "C:\path\to\vcpkg"
-
-# Example build without Python or Lua
+#   build without Python and Lua
 cargo build --no-default-features --features rustls-ring,quic,c-ares
+
+# Option 2:
+#   vcpkg-managed libraries
+vcpkg install --triplet=x64-windows-static-md openssl c-ares jemalloc
+$Env:VCPKG_ROOT = "C:\path\to\vcpkg"
+#   build without Python and Lua
+cargo build --no-default-features --features jemalloc,rustls-ring,quic,c-ares
 ```
 
 Tips:
@@ -219,7 +222,18 @@ cd vcpkg
 .\bootstrap-vcpkg.bat
 ```
 
-Then add the install directory to `Path` and set `VCPKG_ROOT`.
+Then add the installation directory to `Path` and set `VCPKG_ROOT`.
+
+### Windows MSYS2
+
+```shell
+pacman -S ucrt64/mingw-w64-ucrt-x86_64-rust
+pacman -S ucrt64/mingw-w64-ucrt-x86_64-capnproto
+pacman -S ucrt64/mingw-w64-ucrt-x86_64-openssl ucrt64/mingw-w64-ucrt-x86_64-c-ares
+pacman -S ucrt64/mingw-w64-ucrt-x86_64-python ucrt64/mingw-w64-ucrt-x86_64-lua
+# build without Python and Lua
+cargo build --features jemalloc
+```
 
 ### FreeBSD
 
