@@ -17,7 +17,6 @@ const BUILD_DEBUG: &str = env!("VEY_BUILD_DEBUG");
 
 const PACKAGE_VERSION: Option<&str> = option_env!("VEY_PACKAGE_VERSION");
 
-const HICKORY_FEATURE: Option<&str> = option_env!("VEY_HICKORY_FEATURE");
 const QUIC_FEATURE: Option<&str> = option_env!("VEY_QUIC_FEATURE");
 
 const OPENSSL_VARIANT: Option<&str> = option_env!("VEY_OPENSSL_VARIANT");
@@ -26,8 +25,9 @@ const RUSTLS_PROVIDER: Option<&str> = option_env!("VEY_RUSTLS_PROVIDER");
 pub fn print_version() {
     println!("{PKG_NAME} {VERSION}");
     print!("Features:");
-    if let Some(hickory) = HICKORY_FEATURE {
-        print!(" {hickory}");
+    #[cfg(feature = "jemalloc")]
+    if let Some(version) = vey_jemalloc::lib_version() {
+        print!(" jemalloc({})", version.to_string_lossy());
     }
     if let Some(quic) = QUIC_FEATURE {
         print!(" {quic}");

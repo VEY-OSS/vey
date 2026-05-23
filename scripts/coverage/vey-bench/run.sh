@@ -29,6 +29,8 @@ vey_bench()
 
 set -x
 
+"${PROJECT_DIR}"/target/debug/vey-bench version
+
 . "${RUN_DIR}"/target_dns.sh
 . "${RUN_DIR}"/target_h1.sh
 . "${RUN_DIR}"/target_h2.sh

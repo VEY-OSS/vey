@@ -21,10 +21,16 @@ const OPENSSL_VARIANT: Option<&str> = option_env!("VEY_OPENSSL_VARIANT");
 
 pub fn print_version(verbose_level: u8) {
     println!("{PKG_NAME} {VERSION}");
-    if verbose_level > 0
-        && let Some(variant) = OPENSSL_VARIANT
-    {
-        println!("OpenSSL Variant: {variant}");
+    if verbose_level > 0 {
+        print!("Features:");
+        #[cfg(feature = "jemalloc")]
+        if let Some(version) = vey_jemalloc::lib_version() {
+            print!(" jemalloc({})", version.to_string_lossy());
+        }
+        println!();
+        if let Some(variant) = OPENSSL_VARIANT {
+            println!("OpenSSL Variant: {variant}");
+        }
     }
     if verbose_level > 1 {
         println!("Compiler: {RUSTC_VERSION} ({RUSTC_CHANNEL})");

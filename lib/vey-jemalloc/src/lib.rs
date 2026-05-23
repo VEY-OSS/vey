@@ -8,6 +8,9 @@ use core::ffi::c_int;
 
 pub mod stats;
 
+mod version;
+pub use version::lib_version;
+
 pub struct Jemalloc;
 
 const ZERO_FLAG: c_int = 0x40;

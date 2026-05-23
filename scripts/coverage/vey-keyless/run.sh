@@ -47,6 +47,8 @@ test_ec()
 
 set -x
 
+"${PROJECT_DIR}"/target/debug/vey-keyless -Vvv
+
 for dir in $(ls "${PROJECT_DIR}"/vey-keyless/examples)
 do
 	example_dir="${PROJECT_DIR}/vey-keyless/examples/${dir}"

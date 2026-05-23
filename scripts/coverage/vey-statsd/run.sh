@@ -12,6 +12,8 @@ vey_statsd_ctl()
 
 set -x
 
+"${PROJECT_DIR}"/target/debug/vey-statsd -Vvv
+
 for dir in $(ls "${PROJECT_DIR}/vey-statsd/examples")
 do
 	example_dir="${PROJECT_DIR}/vey-statsd/examples/${dir}"

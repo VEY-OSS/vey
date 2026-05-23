@@ -44,6 +44,8 @@ vey_proxy_ftp()
 
 set -x
 
+"${PROJECT_DIR}"/target/debug/vey-proxy -Vvv
+
 for dir in $(ls "${PROJECT_DIR}"/vey-proxy/examples)
 do
 	example_dir="${PROJECT_DIR}/vey-proxy/examples/${dir}"

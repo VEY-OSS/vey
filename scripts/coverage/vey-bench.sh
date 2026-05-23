@@ -10,7 +10,7 @@ TEST_NAME="bench-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build -p vey-bench -p vey-mkcert -p vey-proxy -p vey-proxy-ctl -p vey-statsd
+cargo build --features jemalloc -p vey-bench -p vey-mkcert -p vey-proxy -p vey-proxy-ctl -p vey-statsd
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')

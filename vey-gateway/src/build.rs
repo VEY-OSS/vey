@@ -26,6 +26,10 @@ pub(crate) fn print_version(verbose_level: u8) {
     println!("{PKG_NAME} {VERSION}");
     if verbose_level > 0 {
         print!("Features:");
+        #[cfg(feature = "jemalloc")]
+        if let Some(version) = vey_jemalloc::lib_version() {
+            print!(" jemalloc({})", version.to_string_lossy());
+        }
         if let Some(quic) = QUIC_FEATURE {
             print!(" {quic}");
         }

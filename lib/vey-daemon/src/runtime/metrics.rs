@@ -75,13 +75,13 @@ fn emit_jemalloc_stats(client: &mut StatsdClient) {
 
     const METRIC_NAME_RUNTIME_JEMALLOC_ACTIVE: &str = "runtime.jemalloc.approximate_active";
     static ACTIVE_STATS: LazyLock<Option<JemallocStatsEntry<usize>>> =
-        LazyLock::new(|| vey_jemalloc::stats::approximate_active());
+        LazyLock::new(vey_jemalloc::stats::approximate_active);
 
-    if let Some(stats) = ACTIVE_STATS.as_ref() {
-        if let Some(value) = stats.value() {
-            client
-                .gauge(METRIC_NAME_RUNTIME_JEMALLOC_ACTIVE, value)
-                .send();
-        }
+    if let Some(stats) = ACTIVE_STATS.as_ref()
+        && let Some(value) = stats.value()
+    {
+        client
+            .gauge(METRIC_NAME_RUNTIME_JEMALLOC_ACTIVE, value)
+            .send();
     }
 }

@@ -19,6 +19,14 @@ const PACKAGE_VERSION: Option<&str> = option_env!("VEY_PACKAGE_VERSION");
 
 pub fn print_version(verbose_level: u8) {
     println!("{PKG_NAME} {VERSION}");
+    if verbose_level > 0 {
+        print!("Features:");
+        #[cfg(feature = "jemalloc")]
+        if let Some(version) = vey_jemalloc::lib_version() {
+            print!(" jemalloc({})", version.to_string_lossy());
+        }
+        println!();
+    }
     if verbose_level > 1 {
         println!("Compiler: {RUSTC_VERSION} ({RUSTC_CHANNEL})");
         println!("Host: {BUILD_HOST}, Target: {BUILD_TARGET}");
