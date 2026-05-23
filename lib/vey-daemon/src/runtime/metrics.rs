@@ -36,6 +36,9 @@ pub fn add_tokio_stats(stats: RuntimeMetrics, id: String) {
 }
 
 pub fn emit_stats(client: &mut StatsdClient) {
+    #[cfg(feature = "jemalloc")]
+    emit_jemalloc_stats(client);
+
     let mut tokio_stats_vec = TOKIO_STATS_VEC.lock().unwrap();
     for v in tokio_stats_vec.iter_mut() {
         emit_tokio_stats(client, v);
@@ -63,4 +66,22 @@ fn emit_tokio_stats(client: &mut StatsdClient, v: &mut TokioStatsValue) {
             &common_tags,
         )
         .send();
+}
+
+#[cfg(feature = "jemalloc")]
+fn emit_jemalloc_stats(client: &mut StatsdClient) {
+    use std::sync::LazyLock;
+    use vey_jemalloc::stats::JemallocStatsEntry;
+
+    const METRIC_NAME_RUNTIME_JEMALLOC_ACTIVE: &str = "runtime.jemalloc.approximate_active";
+    static ACTIVE_STATS: LazyLock<Option<JemallocStatsEntry<usize>>> =
+        LazyLock::new(|| vey_jemalloc::stats::approximate_active());
+
+    if let Some(stats) = ACTIVE_STATS.as_ref() {
+        if let Some(value) = stats.value() {
+            client
+                .gauge(METRIC_NAME_RUNTIME_JEMALLOC_ACTIVE, value)
+                .send();
+        }
+    }
 }

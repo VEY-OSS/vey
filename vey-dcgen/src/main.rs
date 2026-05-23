@@ -61,6 +61,8 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
     rt.block_on(async {
         vey_daemon::runtime::set_main_handle();
 
+        // TODO setup signal handler
+
         vey_dcgen::run(args).await
     })
 }

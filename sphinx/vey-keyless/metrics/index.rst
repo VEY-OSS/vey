@@ -53,3 +53,4 @@ Metric Types
 .. toctree::
 
    server
+   runtime

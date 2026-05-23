@@ -62,7 +62,7 @@ vey-build-env.workspace = true
 
 [features]
 default = ["quic", "rustls-ring"]
-jemalloc = ["vey-jemalloc"]
+jemalloc = ["dep:vey-jemalloc"]
 quic = ["vey-types/quic", "vey-socks/quic", "vey-io-ext/quic", "vey-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
 rustls-ring = ["vey-rustls-provider/rustls-ring", "vey-types/rustls-ring", "quinn?/rustls-ring"]
 rustls-aws-lc = ["vey-rustls-provider/rustls-aws-lc", "vey-types/rustls-aws-lc", "quinn?/rustls-aws-lc-rs"]

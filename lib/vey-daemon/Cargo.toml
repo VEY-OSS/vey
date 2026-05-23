@@ -44,6 +44,7 @@ vey-io-sys.workspace = true
 vey-socket.workspace = true
 vey-std-ext.workspace = true
 vey-http = { workspace = true, optional = true }
+vey-jemalloc = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true, features = ["process"] }
@@ -54,6 +55,7 @@ vey-journal.workspace = true
 
 [features]
 default = []
+jemalloc = ["dep:vey-jemalloc"]
 event-log = ["dep:vey-fluentd"]
 register = ["vey-yaml/http", "dep:http", "dep:serde_json", "dep:vey-http"]
 quic = ["dep:quinn", "vey-types/acl-rule"]

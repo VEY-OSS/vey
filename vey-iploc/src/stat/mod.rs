@@ -31,6 +31,7 @@ pub(crate) fn spawn_working_thread(
                 let instant_start = Instant::now();
 
                 metrics::frontend::emit_stats(&mut client, &frontend_stats);
+                vey_daemon::runtime::metrics::emit_stats(&mut client);
 
                 client.flush_sink();
 

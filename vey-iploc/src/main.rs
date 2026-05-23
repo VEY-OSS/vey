@@ -55,6 +55,8 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         .start()
         .context("failed to start runtime")?;
     rt.block_on(async {
+        vey_daemon::runtime::set_main_handle();
+
         // TODO setup signal handler
 
         vey_iploc::run(args).await

@@ -6,6 +6,8 @@
 use core::alloc::{GlobalAlloc, Layout};
 use core::ffi::c_int;
 
+pub mod stats;
+
 pub struct Jemalloc;
 
 const ZERO_FLAG: c_int = 0x40;

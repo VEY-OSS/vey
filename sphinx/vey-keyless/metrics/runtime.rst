@@ -34,7 +34,7 @@ There metrics come from the jemalloc memory allocator.
 
   The total number of bytes in active pages collected in an unsynchronized manner, without requiring an epoch update.
 
-  .. versionadded:: 0.4.0
+  .. versionadded:: 0.5.0
 
 .. _metrics_runtime_tokio:
 
