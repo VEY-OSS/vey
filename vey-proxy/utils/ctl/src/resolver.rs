@@ -73,7 +73,10 @@ async fn query_domain(client: &resolver_control::Client, args: &ArgMatches) -> C
 
     let rsp = req.send().promise.await?;
     let result = rsp.get()?.get_result()?;
-    match result.which().unwrap() {
+    match result
+        .which()
+        .map_err(|e| anyhow!("invalid query result: {e}"))?
+    {
         query_result::Which::Ip(ips) => {
             let ips = ips?;
             vey_ctl::print_text_list("ip", ips)

@@ -3,12 +3,17 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
+use anyhow::anyhow;
+
 use vey_ctl::{CommandError, CommandResult};
 
 use vey_gateway_proto::types_capnp::{fetch_result, operation_result};
 
 pub(crate) fn parse_operation_result(r: operation_result::Reader<'_>) -> CommandResult<()> {
-    match r.which().unwrap() {
+    match r
+        .which()
+        .map_err(|e| anyhow!("invalid operation result: {e}"))?
+    {
         operation_result::Which::Ok(ok) => vey_ctl::print_ok_notice(ok?),
         operation_result::Which::Err(err) => {
             let e = err?;
@@ -23,7 +28,10 @@ pub(crate) fn parse_fetch_result<T>(
 where
     T: capnp::traits::Owned,
 {
-    match r.which().unwrap() {
+    match r
+        .which()
+        .map_err(|e| anyhow!("invalid fetch result: {e}"))?
+    {
         fetch_result::Which::Data(data) => Ok(data?),
         fetch_result::Which::Err(err) => {
             let e = err?;
