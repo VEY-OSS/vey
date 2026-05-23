@@ -10,3 +10,7 @@ mod config;
 pub use config::CAresDriverConfig;
 
 mod error;
+
+pub fn lib_version() -> &'static str {
+    c_ares::version().0
+}

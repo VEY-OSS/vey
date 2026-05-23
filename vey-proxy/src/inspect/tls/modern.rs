@@ -16,9 +16,9 @@ use super::{ParsedClientHello, TlsInterceptIo, TlsInterceptObject, TlsIntercepti
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspection;
 
-#[cfg(not(feature = "vendored-tongsuo"))]
+#[cfg(not(tongsuo))]
 const CERT_USAGE: TlsCertUsage = TlsCertUsage::TlsServer;
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(tongsuo)]
 const CERT_USAGE: TlsCertUsage = TlsCertUsage::TLsServerTongsuo;
 
 impl<SC> TlsInterceptObject<SC>

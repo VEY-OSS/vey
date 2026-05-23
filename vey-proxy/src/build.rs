@@ -17,12 +17,8 @@ const BUILD_DEBUG: &str = env!("VEY_BUILD_DEBUG");
 
 const PACKAGE_VERSION: Option<&str> = option_env!("VEY_PACKAGE_VERSION");
 
-const OPENSSL_VARIANT: Option<&str> = option_env!("VEY_OPENSSL_VARIANT");
-const RUSTLS_PROVIDER: Option<&str> = option_env!("VEY_RUSTLS_PROVIDER");
-
 const LUA_FEATURE: Option<&str> = option_env!("VEY_LUA_FEATURE");
 const PYTHON_FEATURE: Option<&str> = option_env!("VEY_PYTHON_FEATURE");
-const C_ARES_FEATURE: Option<&str> = option_env!("VEY_C_ARES_FEATURE");
 const QUIC_FEATURE: Option<&str> = option_env!("VEY_QUIC_FEATURE");
 
 pub(crate) fn print_version(verbose_level: u8) {
@@ -39,17 +35,16 @@ pub(crate) fn print_version(verbose_level: u8) {
         if let Some(py) = PYTHON_FEATURE {
             print!(" {py}");
         }
-        if let Some(c_ares) = C_ARES_FEATURE {
-            print!(" {c_ares}");
-        }
+        #[cfg(feature = "c-ares")]
+        print!(" c-ares({})", vey_resolver::driver::c_ares::lib_version());
         if let Some(quic) = QUIC_FEATURE {
             print!(" {quic}");
         }
         println!();
-        if let Some(variant) = OPENSSL_VARIANT {
+        if let Some(variant) = vey_openssl::variant_name() {
             println!("OpenSSL Variant: {variant}");
         }
-        if let Some(provider) = RUSTLS_PROVIDER {
+        if let Some(provider) = vey_rustls_provider::provider_name() {
             println!("Rustls Provider: {provider}");
         }
     }

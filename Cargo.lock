@@ -3238,7 +3238,6 @@ dependencies = [
  "url",
  "uuid",
  "variant-ssl",
- "variant-ssl-sys",
  "vey-build-env",
  "vey-codec",
  "vey-compat",

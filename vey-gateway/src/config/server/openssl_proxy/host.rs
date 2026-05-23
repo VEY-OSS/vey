@@ -26,14 +26,14 @@ use vey_types::net::{
 use vey_types::route::AlpnMatch;
 use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(tongsuo)]
 use vey_types::net::OpensslTlcpCertificatePair;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct OpensslHostConfig {
     name: String,
     cert_pairs: Vec<OpensslCertificatePair>,
-    #[cfg(feature = "vendored-tongsuo")]
+    #[cfg(tongsuo)]
     tlcp_cert_pairs: Vec<OpensslTlcpCertificatePair>,
     client_auth: bool,
     client_auth_certs: Vec<Vec<u8>>,
@@ -139,11 +139,11 @@ impl OpensslHostConfig {
                 .map_err(|e| anyhow!("failed to add session id context text: {e}"))?;
         }
 
-        #[cfg(not(feature = "vendored-tongsuo"))]
+        #[cfg(not(tongsuo))]
         let mut ssl_builder =
             SslAcceptor::mozilla_intermediate_v5(openssl::ssl::SslMethod::tls_server())
                 .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
-        #[cfg(feature = "vendored-tongsuo")]
+        #[cfg(tongsuo)]
         let mut ssl_builder =
             SslAcceptor::tongsuo_tls().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
@@ -196,7 +196,7 @@ impl OpensslHostConfig {
         Ok(Some(ssl_acceptor.into_context()))
     }
 
-    #[cfg(feature = "vendored-tongsuo")]
+    #[cfg(tongsuo)]
     pub(crate) fn build_tlcp_context(
         &self,
         ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
@@ -307,7 +307,7 @@ impl YamlMapCallback for OpensslHostConfig {
                 ))?;
                 Ok(())
             }
-            #[cfg(feature = "vendored-tongsuo")]
+            #[cfg(tongsuo)]
             "tlcp_cert_pairs" => {
                 let lookup_dir = vey_daemon::config::get_lookup_dir(doc)?;
                 self.tlcp_cert_pairs = vey_yaml::value::as_list(value, |v| {
@@ -378,11 +378,11 @@ impl YamlMapCallback for OpensslHostConfig {
         if self.name.is_empty() {
             return Err(anyhow!("no name set"));
         }
-        #[cfg(not(feature = "vendored-tongsuo"))]
+        #[cfg(not(tongsuo))]
         if self.cert_pairs.is_empty() {
             return Err(anyhow!("no certificate set"));
         }
-        #[cfg(feature = "vendored-tongsuo")]
+        #[cfg(tongsuo)]
         if self.cert_pairs.is_empty() && self.tlcp_cert_pairs.is_empty() {
             return Err(anyhow!("neither tls nor tlcp certificate set"));
         }

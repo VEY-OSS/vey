@@ -8,6 +8,3 @@ pub use basic::check_basic;
 
 mod openssl;
 pub use openssl::check_openssl;
-
-mod rustls;
-pub use rustls::check_rustls_provider;

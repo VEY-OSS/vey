@@ -13,7 +13,7 @@ use vey_slog_types::{LtUpstreamAddr, LtUuid, LtX509VerifyResult};
 use vey_types::net::{TlsServiceType, UpstreamAddr};
 use vey_udpdump::{ExportedPduDissectorHint, StreamDumpProxyAddresses};
 
-#[cfg(not(feature = "vendored-tongsuo"))]
+#[cfg(not(tongsuo))]
 use super::tls::ParsedClientHello;
 use super::{
     BoxAsyncRead, BoxAsyncWrite, InterceptionError, StreamInspectContext, StreamInspection,
@@ -25,7 +25,7 @@ use crate::log::inspect::InspectSource;
 use crate::log::inspect::stream::StreamInspectLog;
 use crate::serve::ServerTaskResult;
 
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(tongsuo)]
 mod tlcp;
 mod tls;
 
@@ -156,7 +156,7 @@ where
         }
     }
 
-    #[cfg(not(feature = "vendored-tongsuo"))]
+    #[cfg(not(tongsuo))]
     pub(super) async fn do_intercept_tlcp(
         &mut self,
         _client_hello: ParsedClientHello,

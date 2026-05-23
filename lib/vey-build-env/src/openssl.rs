@@ -6,41 +6,17 @@
 use std::env;
 
 pub fn check_openssl() {
-    println!("cargo:rustc-check-cfg=cfg(libressl)");
-    println!("cargo:rustc-check-cfg=cfg(tongsuo)");
-    println!("cargo:rustc-check-cfg=cfg(boringssl)");
-    println!("cargo:rustc-check-cfg=cfg(awslc)");
-
     if env::var("DEP_OPENSSL_LIBRESSL").is_ok() {
-        println!("cargo:rustc-cfg=libressl");
         println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=LibreSSL");
-        return;
-    }
-
-    if env::var("DEP_OPENSSL_TONGSUO").is_ok() {
-        println!("cargo:rustc-cfg=tongsuo");
+    } else if env::var("DEP_OPENSSL_TONGSUO").is_ok() {
         println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=Tongsuo");
-        return;
-    }
-
-    if env::var("DEP_OPENSSL_BORINGSSL").is_ok() {
-        println!("cargo:rustc-cfg=boringssl");
+    } else if env::var("DEP_OPENSSL_BORINGSSL").is_ok() {
         println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=BoringSSL");
-        return;
-    }
-
-    if env::var("DEP_OPENSSL_AWSLC").is_ok() {
-        println!("cargo:rustc-cfg=awslc");
-        println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=AWS-LC");
-        return;
-    }
-
-    if env::var("DEP_OPENSSL_AWSLC_FIPS").is_ok() {
-        println!("cargo:rustc-cfg=awslc");
-        println!("cargo:rustc-cfg=awslc_fips");
+    } else if env::var("DEP_OPENSSL_AWSLC_FIPS").is_ok() {
         println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=AWS-LC-FIPS");
-        return;
+    } else if env::var("DEP_OPENSSL_AWSLC").is_ok() {
+        println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=AWS-LC");
+    } else {
+        println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=OpenSSL");
     }
-
-    println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=OpenSSL");
 }

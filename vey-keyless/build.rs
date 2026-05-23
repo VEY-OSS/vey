@@ -5,5 +5,4 @@
 
 fn main() {
     vey_build_env::check_basic();
-    vey_build_env::check_openssl();
 }

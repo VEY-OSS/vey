@@ -320,7 +320,7 @@ impl TcpStreamTask {
                                 .await;
                         }
                     }
-                    #[cfg(feature = "vendored-tongsuo")]
+                    #[cfg(tongsuo)]
                     Protocol::TlsTlcp => {
                         if let Some(tls_interception) = ctx.tls_interception() {
                             let mut tls_obj = crate::inspect::tls::TlsInterceptObject::new(

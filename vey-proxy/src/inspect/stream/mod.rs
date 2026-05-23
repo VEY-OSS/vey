@@ -485,7 +485,7 @@ where
                     inspector.reset_state();
                     inspector.set_no_explicit_ssl();
                 }
-                #[cfg(feature = "vendored-tongsuo")]
+                #[cfg(tongsuo)]
                 StreamInspection::TlsTlcp(tlcp) => {
                     obj = tlcp.intercept(&mut inspector).await?;
                     inspector.reset_state();

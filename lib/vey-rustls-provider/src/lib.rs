@@ -6,6 +6,8 @@
 use anyhow::anyhow;
 use cfg_if::cfg_if;
 
+const PROVIDER_NAME: Option<&str> = option_env!("VEY_RUSTLS_PROVIDER");
+
 pub fn install_default() -> anyhow::Result<()> {
     // TODO use cfg_select
 
@@ -22,4 +24,8 @@ pub fn install_default() -> anyhow::Result<()> {
             compile_error!("no rustls provider can be used")
         }
     }
+}
+
+pub fn provider_name() -> Option<&'static str> {
+    PROVIDER_NAME
 }

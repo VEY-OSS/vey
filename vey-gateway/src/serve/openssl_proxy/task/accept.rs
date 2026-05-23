@@ -208,9 +208,9 @@ impl OpensslAcceptTask {
             .map_err(|_| anyhow!("host level alive limit reached"))?;
 
         let ssl_context = if legacy_version.is_tlcp() {
-            #[cfg(not(feature = "vendored-tongsuo"))]
+            #[cfg(not(tongsuo))]
             return Err(anyhow!("tlcp protocol is not supported"));
-            #[cfg(feature = "vendored-tongsuo")]
+            #[cfg(tongsuo)]
             host.tlcp_context.as_ref()
         } else {
             host.ssl_context.as_ref()

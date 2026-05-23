@@ -7,8 +7,11 @@ use std::env;
 
 fn main() {
     vey_build_env::check_basic();
-    vey_build_env::check_openssl();
-    vey_build_env::check_rustls_provider();
+
+    println!("cargo:rustc-check-cfg=cfg(tongsuo)");
+    if env::var("DEP_OPENSSL_TONGSUO").is_ok() {
+        println!("cargo:rustc-cfg=tongsuo");
+    }
 
     if env::var("CARGO_FEATURE_QUIC").is_ok() {
         println!("cargo:rustc-env=VEY_QUIC_FEATURE=quinn");

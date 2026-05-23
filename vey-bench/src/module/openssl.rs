@@ -57,9 +57,9 @@ const PROXY_TLS_ARG_ENABLE_GREASE: &str = "proxy-tls-enable-grease";
 const PROXY_TLS_ARG_PERMUTE_EXTENSIONS: &str = "proxy-tls-permute-extensions";
 
 const SESSION_CACHE_VALUES: [&str; 2] = ["off", "builtin"];
-#[cfg(not(feature = "vendored-tongsuo"))]
+#[cfg(not(tongsuo))]
 const PROTOCOL_VALUES: [&str; 5] = ["ssl3.0", "tls1.0", "tls1.1", "tls1.2", "tls1.3"];
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(tongsuo)]
 const PROTOCOL_VALUES: [&str; 6] = ["ssl3.0", "tls1.0", "tls1.1", "tls1.2", "tls1.3", "tlcp"];
 
 pub(crate) trait AppendOpensslArgs {

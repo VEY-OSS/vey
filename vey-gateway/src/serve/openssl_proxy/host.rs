@@ -20,7 +20,7 @@ use crate::config::server::openssl_proxy::OpensslHostConfig;
 pub(crate) struct OpensslHost {
     pub(super) config: Arc<OpensslHostConfig>,
     pub(super) ssl_context: Option<SslContext>,
-    #[cfg(feature = "vendored-tongsuo")]
+    #[cfg(tongsuo)]
     pub(super) tlcp_context: Option<SslContext>,
     req_alive_sem: Option<GaugeSemaphore>,
     request_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
@@ -33,7 +33,7 @@ impl OpensslHost {
         tls_ticketer: &Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     ) -> anyhow::Result<Self> {
         let ssl_context = config.build_ssl_context(tls_ticketer.clone())?;
-        #[cfg(feature = "vendored-tongsuo")]
+        #[cfg(tongsuo)]
         let tlcp_context = config.build_tlcp_context(tls_ticketer.clone())?;
 
         let backends = config.backends.build(crate::backend::get_or_insert_default);
@@ -46,7 +46,7 @@ impl OpensslHost {
         Ok(OpensslHost {
             config: config.clone(),
             ssl_context,
-            #[cfg(feature = "vendored-tongsuo")]
+            #[cfg(tongsuo)]
             tlcp_context,
             req_alive_sem,
             request_rate_limit,
@@ -60,7 +60,7 @@ impl OpensslHost {
         tls_ticketer: &Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     ) -> anyhow::Result<Self> {
         let ssl_context = config.build_ssl_context(tls_ticketer.clone())?;
-        #[cfg(feature = "vendored-tongsuo")]
+        #[cfg(tongsuo)]
         let tlcp_context = config.build_tlcp_context(tls_ticketer.clone())?;
 
         let request_rate_limit = if let Some(quota) = config.request_rate_limit {
@@ -95,7 +95,7 @@ impl OpensslHost {
         let new_host = OpensslHost {
             config,
             ssl_context,
-            #[cfg(feature = "vendored-tongsuo")]
+            #[cfg(tongsuo)]
             tlcp_context,
             req_alive_sem,
             request_rate_limit,

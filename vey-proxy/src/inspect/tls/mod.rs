@@ -37,7 +37,7 @@ mod error;
 pub(crate) use error::TlsInterceptionError;
 
 mod modern;
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(tongsuo)]
 mod tlcp;
 
 pub(super) struct ParsedClientHello {
@@ -349,7 +349,7 @@ where
         }
     }
 
-    #[cfg(not(feature = "vendored-tongsuo"))]
+    #[cfg(not(tongsuo))]
     async fn do_intercept_tlcp(
         &mut self,
         _client_hello: ParsedClientHello,

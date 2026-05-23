@@ -17,8 +17,6 @@ const BUILD_DEBUG: &str = env!("VEY_BUILD_DEBUG");
 
 const PACKAGE_VERSION: Option<&str> = option_env!("VEY_PACKAGE_VERSION");
 
-const OPENSSL_VARIANT: Option<&str> = option_env!("VEY_OPENSSL_VARIANT");
-
 pub(crate) fn print_version(verbose_level: u8) {
     println!("{PKG_NAME} {VERSION}");
     if verbose_level > 0 {
@@ -28,7 +26,7 @@ pub(crate) fn print_version(verbose_level: u8) {
             print!(" jemalloc({})", version.to_string_lossy());
         }
         println!();
-        if let Some(variant) = OPENSSL_VARIANT {
+        if let Some(variant) = vey_openssl::variant_name() {
             println!("OpenSSL Variant: {variant}");
         }
     }

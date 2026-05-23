@@ -19,9 +19,6 @@ const PACKAGE_VERSION: Option<&str> = option_env!("VEY_PACKAGE_VERSION");
 
 const QUIC_FEATURE: Option<&str> = option_env!("VEY_QUIC_FEATURE");
 
-const OPENSSL_VARIANT: Option<&str> = option_env!("VEY_OPENSSL_VARIANT");
-const RUSTLS_PROVIDER: Option<&str> = option_env!("VEY_RUSTLS_PROVIDER");
-
 pub(crate) fn print_version(verbose_level: u8) {
     println!("{PKG_NAME} {VERSION}");
     if verbose_level > 0 {
@@ -34,10 +31,10 @@ pub(crate) fn print_version(verbose_level: u8) {
             print!(" {quic}");
         }
         println!();
-        if let Some(variant) = OPENSSL_VARIANT {
+        if let Some(variant) = vey_openssl::variant_name() {
             println!("OpenSSL Variant: {variant}");
         }
-        if let Some(provider) = RUSTLS_PROVIDER {
+        if let Some(provider) = vey_rustls_provider::provider_name() {
             println!("Rustls Provider: {provider}");
         }
     }
