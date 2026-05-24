@@ -2,7 +2,7 @@ Source: vey-keyless
 Section: net
 Priority: optional
 Maintainer: VEY-OSS Developers <developers@vey.oss>
-Build-Depends: debhelper, pkg-config, libssl-dev
+Build-Depends: debhelper, pkg-config, libjemalloc-dev, libssl-dev
 Standards-Version: 3.9.8
 Homepage: https://github.com/VEY-OSS/vey
 

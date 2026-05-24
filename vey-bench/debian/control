@@ -2,7 +2,7 @@ Source: vey-bench
 Section: net
 Priority: optional
 Maintainer: VEY-OSS Developers <developers@vey.oss>
-Build-Depends: debhelper, libssl-dev
+Build-Depends: debhelper, libjemalloc-dev, libssl-dev
 Standards-Version: 3.9.8
 Homepage: https://github.com/VEY-OSS/vey
 

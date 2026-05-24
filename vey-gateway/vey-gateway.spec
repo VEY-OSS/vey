@@ -12,8 +12,7 @@ URL:            https://github.com/VEY-OSS/vey
 Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc, make, pkgconf
-BuildRequires:  openssl-devel,
-BuildRequires:  libtool
+BuildRequires:  jemalloc-devel,openssl-devel
 Requires:       ca-certificates
 
 %description
@@ -27,7 +26,7 @@ Generic Gateway
 %build
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features rustls-ring,quic --package vey-gateway --package vey-gateway-ctl
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --features jemalloc,rustls-ring,quic --package vey-gateway --package vey-gateway-ctl
 
 
 %install
