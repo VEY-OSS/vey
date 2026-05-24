@@ -12,7 +12,7 @@ URL:            https://github.com/VEY-OSS/vey
 Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc, make, pkgconf
-BuildRequires:  jemalloc-devel, openssl-devel
+BuildRequires:  openssl-devel
 
 %description
 Keyless Server
@@ -25,7 +25,7 @@ Keyless Server
 %build
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features jemalloc,openssl-async-job --package vey-keyless --package vey-keyless-ctl
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --features openssl-async-job --package vey-keyless --package vey-keyless-ctl
 
 
 %install
