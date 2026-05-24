@@ -214,7 +214,12 @@ impl AsyncUdpSocket for Socks5UdpSocket {
     }
 
     fn try_send(&self, transmit: &Transmit) -> io::Result<()> {
-        assert_eq!(self.quic_peer_addr, transmit.destination);
+        if self.quic_peer_addr != transmit.destination {
+            return Err(io::Error::other(format!(
+                "the transmit destination {} is different than the quic peer address {}",
+                transmit.destination, self.quic_peer_addr
+            )));
+        }
 
         let hdr = SendMsgHdr::new(
             [
