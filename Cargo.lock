@@ -1484,17 +1484,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
 
 [[package]]
-name = "libjemalloc-sys"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55d43bfb22b3a0b2172f13030b317c21229d81ea4be543075379c3ba6ed9aa70"
-dependencies = [
- "bindgen",
- "pkg-config",
- "vcpkg",
-]
-
-[[package]]
 name = "libloading"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1527,9 +1516,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.29"
+version = "0.4.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
+checksum = "616ec5685824bcc94416c6d4a7a446eea774a31efd7062c8480ba6fd06d7a6e5"
 
 [[package]]
 name = "lru"
@@ -3176,7 +3165,18 @@ dependencies = [
 name = "vey-jemalloc"
 version = "0.1.0"
 dependencies = [
- "libjemalloc-sys",
+ "vey-jemalloc-sys",
+]
+
+[[package]]
+name = "vey-jemalloc-sys"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c5ce504856b155758a22655eba0bfc53e557e75c35e6c6208c1bb5e34d6c1b6"
+dependencies = [
+ "bindgen",
+ "pkg-config",
+ "vcpkg",
 ]
 
 [[package]]

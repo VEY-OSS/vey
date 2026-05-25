@@ -6,4 +6,4 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-jemalloc-sys = { package = "libjemalloc-sys", version = "0.1" }
+jemalloc-sys = { package = "vey-jemalloc-sys", version = "0.1" }
