@@ -44,7 +44,7 @@ jobs:
           components: clippy
       - name: Install dependencies
         run: |
-          brew install capnp jemalloc openssl c-ares lua
+          brew install capnp jemalloc mimalloc openssl c-ares lua
       - name: Cargo build
         run: cargo build --features jemalloc,lua55
       - name: Cargo clippy
