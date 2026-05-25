@@ -11,6 +11,7 @@ description = "Multi-Target Benchmark Tool developed by the VEY project"
 [dependencies]
 thiserror.workspace = true
 anyhow.workspace = true
+cfg-if.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 indicatif = "0.18"

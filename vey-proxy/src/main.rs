@@ -11,13 +11,15 @@ use vey_daemon::control::{QuitAction, UpgradeAction};
 
 use vey_proxy::opts::ProcArgs;
 
-#[cfg(feature = "jemalloc")]
-#[global_allocator]
-static GLOBAL: vey_jemalloc::Jemalloc = vey_jemalloc::Jemalloc;
-
-#[cfg(feature = "mimalloc")]
-#[global_allocator]
-static GLOBAL: vey_mimalloc::Mimalloc = vey_mimalloc::Mimalloc;
+cfg_if::cfg_if! {
+    if #[cfg(feature="jemalloc")] {
+        #[global_allocator]
+        static GLOBAL: vey_jemalloc::Jemalloc = vey_jemalloc::Jemalloc;
+    } else if #[cfg(feature="mimalloc")] {
+        #[global_allocator]
+        static GLOBAL: vey_mimalloc::Mimalloc = vey_mimalloc::Mimalloc;
+    }
+}
 
 fn main() -> anyhow::Result<()> {
     #[cfg(feature = "openssl-probe")]

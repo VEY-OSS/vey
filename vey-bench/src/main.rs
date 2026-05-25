@@ -15,13 +15,15 @@ use clap_complete::Shell;
 const COMMAND_VERSION: &str = "version";
 const COMMAND_COMPLETION: &str = "completion";
 
-#[cfg(feature = "jemalloc")]
-#[global_allocator]
-static GLOBAL: vey_jemalloc::Jemalloc = vey_jemalloc::Jemalloc;
-
-#[cfg(feature = "mimalloc")]
-#[global_allocator]
-static GLOBAL: vey_mimalloc::Mimalloc = vey_mimalloc::Mimalloc;
+cfg_if::cfg_if! {
+    if #[cfg(feature="jemalloc")] {
+        #[global_allocator]
+        static GLOBAL: vey_jemalloc::Jemalloc = vey_jemalloc::Jemalloc;
+    } else if #[cfg(feature="mimalloc")] {
+        #[global_allocator]
+        static GLOBAL: vey_mimalloc::Mimalloc = vey_mimalloc::Mimalloc;
+    }
+}
 
 fn build_cli_args() -> Command {
     vey_bench::add_global_args(Command::new(vey_bench::build::PKG_NAME))

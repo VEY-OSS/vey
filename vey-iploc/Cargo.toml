@@ -9,6 +9,7 @@ description = "IP Locate Service"
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
+cfg-if.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 tokio = { workspace = true, features = ["net", "io-util", "time", "signal", "macros"] }
 yaml-rust.workspace = true

@@ -11,6 +11,7 @@ description = "Dynamic certificate generator"
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
+cfg-if.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 openssl.workspace = true
 openssl-sys.workspace = true # for openssl variant detection

@@ -12,6 +12,7 @@ description = "Generic Gateway"
 anyhow.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
+cfg-if.workspace = true
 yaml-rust.workspace = true
 serde_json.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }

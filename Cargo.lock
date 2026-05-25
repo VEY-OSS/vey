@@ -2631,6 +2631,7 @@ dependencies = [
  "atomic-waker",
  "base64",
  "bytes",
+ "cfg-if",
  "clap",
  "clap_complete",
  "concurrent-queue",
@@ -2807,6 +2808,7 @@ name = "vey-dcgen"
 version = "0.9.0"
 dependencies = [
  "anyhow",
+ "cfg-if",
  "clap",
  "kanal",
  "log",
@@ -2895,6 +2897,7 @@ dependencies = [
  "bytes",
  "capnp",
  "capnp-rpc",
+ "cfg-if",
  "chrono",
  "clap",
  "clap_complete",
@@ -3148,6 +3151,7 @@ name = "vey-iploc"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "cfg-if",
  "clap",
  "log",
  "tokio",
@@ -3228,6 +3232,7 @@ dependencies = [
  "ascii",
  "capnp",
  "capnp-rpc",
+ "cfg-if",
  "chrono",
  "clap",
  "foldhash 0.2.0",
@@ -3374,6 +3379,7 @@ dependencies = [
  "bytes",
  "capnp",
  "capnp-rpc",
+ "cfg-if",
  "chrono",
  "clap",
  "clap_complete",
@@ -3638,6 +3644,7 @@ dependencies = [
  "async-recursion",
  "capnp",
  "capnp-rpc",
+ "cfg-if",
  "chrono",
  "clap",
  "clap_complete",
