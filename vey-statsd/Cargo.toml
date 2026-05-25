@@ -32,6 +32,7 @@ vey-http.workspace = true
 vey-io-ext.workspace = true
 vey-jemalloc = { workspace = true, optional = true }
 vey-macros.workspace = true
+vey-mimalloc = { workspace = true, optional = true }
 vey-socket.workspace = true
 vey-types = { workspace = true, features = ["acl-rule"] }
 vey-yaml = { workspace = true, features = ["acl-rule", "http"] }
@@ -43,3 +44,4 @@ vey-build-env.workspace = true
 [features]
 default = []
 jemalloc = ["dep:vey-jemalloc", "vey-daemon/jemalloc"]
+mimalloc = ["dep:vey-mimalloc"]

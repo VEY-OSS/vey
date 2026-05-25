@@ -21,6 +21,7 @@ vey-ip-locate.workspace = true
 vey-socket.workspace = true
 vey-types.workspace = true
 vey-jemalloc = { workspace = true, optional = true }
+vey-mimalloc = { workspace = true, optional = true }
 
 [build-dependencies]
 vey-build-env.workspace = true
@@ -28,3 +29,4 @@ vey-build-env.workspace = true
 [features]
 default = []
 jemalloc = ["dep:vey-jemalloc", "vey-daemon/jemalloc"]
+mimalloc = ["dep:vey-mimalloc"]

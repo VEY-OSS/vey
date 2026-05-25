@@ -29,6 +29,8 @@ pub(crate) fn print_version(verbose_level: u8) {
         if let Some(version) = vey_jemalloc::lib_version() {
             print!(" jemalloc({})", version.to_string_lossy());
         }
+        #[cfg(feature = "mimalloc")]
+        println!(" mimalloc({})", vey_mimalloc::lib_version());
         if let Some(lua) = LUA_FEATURE {
             print!(" {lua}");
         }

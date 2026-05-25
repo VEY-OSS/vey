@@ -44,6 +44,7 @@ members = [
     "lib/vey-journal",
     "lib/vey-json",
     "lib/vey-macros",
+    "lib/vey-mimalloc",
     "lib/vey-msgpack",
     "lib/vey-openssl",
     "lib/vey-redis-client",
@@ -227,6 +228,7 @@ vey-jemalloc = { version = "0.1", path = "lib/vey-jemalloc" }
 vey-journal = { version = "0.4", path = "lib/vey-journal" }
 vey-json = { version = "0.5", path = "lib/vey-json" }
 vey-macros = { version = "0.1", path = "lib/vey-macros" }
+vey-mimalloc = { version = "0.1", path = "lib/vey-mimalloc" }
 vey-msgpack = { version = "0.4", path = "lib/vey-msgpack" }
 vey-openssl = { version = "0.4", path = "lib/vey-openssl" }
 vey-redis-client = { version = "0.3", path = "lib/vey-redis-client" }

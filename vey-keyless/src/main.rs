@@ -7,14 +7,16 @@ use anyhow::{Context, anyhow};
 use log::{debug, error, info, warn};
 
 use vey_daemon::control::{QuitAction, UpgradeAction};
-#[cfg(feature = "jemalloc")]
-use vey_jemalloc::Jemalloc;
 
 use vey_keyless::opts::ProcArgs;
 
 #[cfg(feature = "jemalloc")]
 #[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
+static GLOBAL: vey_jemalloc::Jemalloc = vey_jemalloc::Jemalloc;
+
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL: vey_mimalloc::Mimalloc = vey_mimalloc::Mimalloc;
 
 fn main() -> anyhow::Result<()> {
     #[cfg(feature = "openssl-probe")]

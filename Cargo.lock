@@ -2665,6 +2665,7 @@ dependencies = [
  "vey-http",
  "vey-io-ext",
  "vey-jemalloc",
+ "vey-mimalloc",
  "vey-openssl",
  "vey-runtime",
  "vey-rustls-provider",
@@ -2817,6 +2818,7 @@ dependencies = [
  "vey-daemon",
  "vey-histogram",
  "vey-jemalloc",
+ "vey-mimalloc",
  "vey-socket",
  "vey-statsd-client",
  "vey-std-ext",
@@ -2922,6 +2924,7 @@ dependencies = [
  "vey-io-ext",
  "vey-jemalloc",
  "vey-macros",
+ "vey-mimalloc",
  "vey-openssl",
  "vey-rustls-provider",
  "vey-slog-types",
@@ -3154,6 +3157,7 @@ dependencies = [
  "vey-geoip-types",
  "vey-ip-locate",
  "vey-jemalloc",
+ "vey-mimalloc",
  "vey-socket",
  "vey-statsd-client",
  "vey-types",
@@ -3247,6 +3251,7 @@ dependencies = [
  "vey-jemalloc",
  "vey-keyless-proto",
  "vey-macros",
+ "vey-mimalloc",
  "vey-openssl",
  "vey-slog-types",
  "vey-socket",
@@ -3289,6 +3294,23 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "vey-mimalloc"
+version = "0.1.0"
+dependencies = [
+ "vey-mimalloc-sys",
+]
+
+[[package]]
+name = "vey-mimalloc-sys"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4890bd67df040b137582a955938b52bf5779c4380b99005c30ba9137b7c73abc"
+dependencies = [
+ "bindgen",
+ "vcpkg",
 ]
 
 [[package]]
@@ -3413,6 +3435,7 @@ dependencies = [
  "vey-jemalloc",
  "vey-json",
  "vey-macros",
+ "vey-mimalloc",
  "vey-msgpack",
  "vey-openssl",
  "vey-proxy-proto",
@@ -3633,6 +3656,7 @@ dependencies = [
  "vey-io-ext",
  "vey-jemalloc",
  "vey-macros",
+ "vey-mimalloc",
  "vey-socket",
  "vey-statsd-proto",
  "vey-types",

@@ -8,14 +8,16 @@ use anyhow::Context;
 use log::{debug, error, info};
 
 use vey_daemon::control::{QuitAction, UpgradeAction};
-#[cfg(feature = "jemalloc")]
-use vey_jemalloc::Jemalloc;
 
 use vey_statsd::opts::ProcArgs;
 
 #[cfg(feature = "jemalloc")]
 #[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
+static GLOBAL: vey_jemalloc::Jemalloc = vey_jemalloc::Jemalloc;
+
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL: vey_mimalloc::Mimalloc = vey_mimalloc::Mimalloc;
 
 fn main() -> anyhow::Result<()> {
     let Some(proc_args) =

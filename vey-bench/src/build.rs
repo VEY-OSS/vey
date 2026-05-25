@@ -26,6 +26,8 @@ pub fn print_version() {
     if let Some(version) = vey_jemalloc::lib_version() {
         print!(" jemalloc({})", version.to_string_lossy());
     }
+    #[cfg(feature = "mimalloc")]
+    println!(" mimalloc({})", vey_mimalloc::lib_version());
     if let Some(quic) = QUIC_FEATURE {
         print!(" {quic}");
     }
