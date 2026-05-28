@@ -3310,11 +3310,12 @@ dependencies = [
 
 [[package]]
 name = "vey-mimalloc-sys"
-version = "0.1.3"
+version = "0.2.0+3.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a0bbbc4435f25f16e636e999760181a9f5975f2abb32e74ef53be31812920b6"
+checksum = "3ef9fbcc14897dea5d01223fbeb6f07ed7465105a4fbe163305e4be6d0b83928"
 dependencies = [
  "bindgen",
+ "cmake",
  "pkg-config",
  "vcpkg",
 ]

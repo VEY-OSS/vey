@@ -47,7 +47,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install capnproto musl-tools
       - name: Cargo build
-        run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares
+        run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares
   musl-gxx:
     name: musl-g++
     runs-on: ubuntu-latest
@@ -76,7 +76,7 @@ jobs:
           apk add --no-cache perl nasm
           apk add --no-cache libstdc++-dev clang-libclang
       - name: Cargo build
-        run: cargo $UNSTABLE_OPTIONS build --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares
+        run: cargo $UNSTABLE_OPTIONS build --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares
   musl-clang-libcxx:
     name: musl-clang-libcxx
     runs-on: ubuntu-latest
@@ -111,7 +111,7 @@ jobs:
         if: contains(matrix.feature, 'vendored-aws-lc-fips')
         run: apk add --no-cache go perl nasm
       - name: Cargo build
-        run: cargo $UNSTABLE_OPTIONS build --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares
+        run: cargo $UNSTABLE_OPTIONS build --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares
   msvc-vcpkg:
     name: msvc-vcpkg
     runs-on: windows-latest
@@ -119,7 +119,7 @@ jobs:
       - name: Install common tools
         run: choco install capnproto
       - name: Install lib dependencies (vcpkg)
-        run: vcpkg install --triplet=x64-windows-static openssl c-ares jemalloc
+        run: vcpkg install --triplet=x64-windows-static openssl c-ares mimalloc
       - name: Checkout sources
         uses: actions/checkout@v6
         with:
@@ -129,7 +129,7 @@ jobs:
         with:
           toolchain: stable
       - name: Cargo build
-        run: cargo build --no-default-features --features rustls-ring,quic,c-ares,jemalloc
+        run: cargo build --no-default-features --features mimalloc,rustls-ring,quic,c-ares
   msvc-vendored:
     name: msvc-vendored
     runs-on: windows-latest
@@ -155,4 +155,4 @@ jobs:
         with:
           toolchain: stable
       - name: Cargo build
-        run: cargo build --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares
+        run: cargo build --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares
