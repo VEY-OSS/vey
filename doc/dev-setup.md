@@ -200,7 +200,7 @@ winget install capnproto.capnproto
 #   vendored native libraries
 winget install Kitware.CMake NASM.NASM Ninja-build.Ninja
 #   build without Python and Lua
-cargo build --no-default-features --features rustls-ring,quic,c-ares
+cargo build --no-default-features --features vendored-openssl,rustls-ring,quic,vendored-c-ares
 
 # Option 2:
 #   vcpkg-managed libraries
@@ -227,12 +227,13 @@ Then add the installation directory to `Path` and set `VCPKG_ROOT`.
 ### Windows MSYS2
 
 ```shell
-pacman -S ucrt64/mingw-w64-ucrt-x86_64-rust
-pacman -S ucrt64/mingw-w64-ucrt-x86_64-capnproto
-pacman -S ucrt64/mingw-w64-ucrt-x86_64-openssl ucrt64/mingw-w64-ucrt-x86_64-c-ares
-pacman -S ucrt64/mingw-w64-ucrt-x86_64-python ucrt64/mingw-w64-ucrt-x86_64-lua
+pacman -S mingw-w64-ucrt-x86_64-rust
+pacman -S mingw-w64-ucrt-x86_64-capnproto
+# install tools for vendored build
+pacman -S make cmake
 # build without Python and Lua
-cargo build --features jemalloc
+export RUSTFLAGS="-C target-feature=+crt-static"
+cargo build --no-default-features --features vendored-openssl,rustls-ring,quic,vendored-c-ares
 ```
 
 ### FreeBSD
