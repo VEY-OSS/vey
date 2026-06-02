@@ -43,17 +43,6 @@ where
     }
 }
 
-pub(crate) fn ipv6_only<T: AsRawSocket>(socket: &T) -> io::Result<bool> {
-    unsafe {
-        let value = getsockopt::<u32>(
-            socket.as_raw_socket() as _,
-            WinSock::IPPROTO_IPV6,
-            WinSock::IPV6_V6ONLY,
-        )?;
-        Ok(value != 0)
-    }
-}
-
 pub(crate) fn set_reuse_unicastport<T: AsRawSocket>(socket: &T, enable: bool) -> io::Result<()> {
     unsafe {
         setsockopt(
