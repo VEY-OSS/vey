@@ -13,7 +13,9 @@ use http::{HeaderName, Method, Uri, Version, header};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
-use vey_types::net::{Host, HttpAuth, HttpHeaderMap, HttpHeaderValue, UpstreamAddr};
+use vey_types::net::{
+    Host, HttpAuth, HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, UpstreamAddr,
+};
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
 use crate::header::Connection;
@@ -31,6 +33,8 @@ pub struct HttpProxyClientRequest {
     original_connection_name: Connection,
     extra_connection_headers: Vec<HeaderName>,
     origin_header_size: usize,
+    is_upgrade: bool,
+    upgrade_token: Option<HttpUpgradeToken>,
     keep_alive: bool,
     content_length: u64,
     chunked_transfer: bool,
@@ -53,6 +57,8 @@ impl HttpProxyClientRequest {
             original_connection_name: Connection::default(),
             extra_connection_headers: Vec::new(),
             origin_header_size: 0,
+            is_upgrade: false,
+            upgrade_token: None,
             keep_alive: false,
             content_length: 0,
             chunked_transfer: false,
@@ -79,6 +85,8 @@ impl HttpProxyClientRequest {
                     original_connection_name: self.original_connection_name.clone(),
                     extra_connection_headers: self.extra_connection_headers.clone(),
                     origin_header_size: self.origin_header_size,
+                    is_upgrade: self.is_upgrade,
+                    upgrade_token: self.upgrade_token.clone(),
                     keep_alive: self.keep_alive,
                     content_length,
                     chunked_transfer: false,
@@ -111,6 +119,8 @@ impl HttpProxyClientRequest {
                     original_connection_name: self.original_connection_name.clone(),
                     extra_connection_headers: self.extra_connection_headers.clone(),
                     origin_header_size: self.origin_header_size,
+                    is_upgrade: self.is_upgrade,
+                    upgrade_token: self.upgrade_token.clone(),
                     keep_alive: self.keep_alive,
                     content_length: 0,
                     chunked_transfer: true,
@@ -137,6 +147,8 @@ impl HttpProxyClientRequest {
             original_connection_name: self.original_connection_name.clone(),
             extra_connection_headers: self.extra_connection_headers.clone(),
             origin_header_size: self.origin_header_size,
+            is_upgrade: self.is_upgrade,
+            upgrade_token: self.upgrade_token.clone(),
             keep_alive: self.keep_alive,
             content_length: 0,
             chunked_transfer: false,
@@ -206,6 +218,16 @@ impl HttpProxyClientRequest {
             }
         }
         false
+    }
+
+    #[inline]
+    pub fn upgrade_token(&self) -> Option<&HttpUpgradeToken> {
+        self.upgrade_token.as_ref()
+    }
+
+    #[inline]
+    pub fn is_connect(&self) -> bool {
+        matches!(self.method, Method::CONNECT)
     }
 
     pub fn is_local_request(&self, local_names: &HashSet<Host>) -> bool {
@@ -312,13 +334,24 @@ impl HttpProxyClientRequest {
         }
         req.origin_header_size = header_size;
 
-        req.post_check_and_fix();
+        req.post_check_and_fix()?;
         Ok(req)
     }
 
     /// do some necessary check and fix
-    fn post_check_and_fix(&mut self) {
+    fn post_check_and_fix(&mut self) -> Result<(), HttpRequestParseError> {
+        if self.is_upgrade {
+            if self.has_content_length || self.has_transfer_encoding || self.upgrade_token.is_none()
+            {
+                return Err(HttpRequestParseError::InvalidUpgradeRequest);
+            }
+        } else if self.upgrade_token.take().is_some() {
+            self.hop_by_hop_headers.remove(header::UPGRADE);
+        }
+
         // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
+
+        Ok(())
     }
 
     fn build_from_method_line(line_buf: &[u8]) -> Result<Self, HttpRequestParseError> {
@@ -375,6 +408,12 @@ impl HttpProxyClientRequest {
                 }
                 "close" => {
                     self.keep_alive = false;
+                }
+                "upgrade" => {
+                    if self.is_upgrade || self.method != Method::GET {
+                        return Err(HttpRequestParseError::InvalidUpgradeRequest);
+                    }
+                    self.is_upgrade = true;
                 }
                 s => {
                     if let Ok(h) = HeaderName::from_str(s) {
@@ -448,8 +487,13 @@ impl HttpProxyClientRequest {
                 return self.insert_hop_by_hop_header(name, &header);
             }
             "upgrade" => {
-                // TODO we have no support for it right now
-                return Err(HttpRequestParseError::UpgradeIsNotSupported);
+                if self.upgrade_token.is_some() {
+                    return Err(HttpRequestParseError::InvalidUpgradeRequest);
+                }
+                let upgrade_token = HttpUpgradeToken::from_str(header.value)
+                    .map_err(|_| HttpRequestParseError::InvalidUpgradeRequest)?;
+                self.upgrade_token = Some(upgrade_token);
+                return self.insert_hop_by_hop_header(name, &header);
             }
             "transfer-encoding" => {
                 // it's a hop-by-hop option, but we just pass it

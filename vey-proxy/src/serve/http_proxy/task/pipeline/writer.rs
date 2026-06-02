@@ -309,6 +309,7 @@ where
         let mut forward_capability = HttpForwardCapability::default();
         let remote_protocol = match req.client_protocol {
             HttpProxySubProtocol::TcpConnect => HttpProxySubProtocol::TcpConnect,
+            HttpProxySubProtocol::UdpConnect => HttpProxySubProtocol::UdpConnect,
             HttpProxySubProtocol::HttpForward => {
                 forward_capability = self
                     .forward_context
@@ -371,6 +372,9 @@ where
                 } else {
                     unreachable!()
                 }
+            }
+            HttpProxySubProtocol::UdpConnect => {
+                todo!()
             }
             HttpProxySubProtocol::HttpForward | HttpProxySubProtocol::HttpsForward => {
                 if let Some(mut stream_w) = self.stream_writer.take() {

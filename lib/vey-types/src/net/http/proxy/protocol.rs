@@ -6,6 +6,7 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HttpProxySubProtocol {
     TcpConnect,
+    UdpConnect,
     HttpForward,
     HttpsForward,
     FtpOverHttp,

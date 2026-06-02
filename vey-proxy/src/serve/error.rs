@@ -291,7 +291,7 @@ impl From<HttpRequestParseError> for ServerTaskError {
             HttpRequestParseError::TooLargeHeader(_) => {
                 ServerTaskError::InvalidClientProtocol("too large header in client request")
             }
-            HttpRequestParseError::UpgradeIsNotSupported
+            HttpRequestParseError::InvalidUpgradeRequest
             | HttpRequestParseError::UnsupportedMethod(_)
             | HttpRequestParseError::UnsupportedScheme => ServerTaskError::UnimplementedProtocol,
             HttpRequestParseError::IoFailed(e) => ServerTaskError::ClientTcpReadFailed(e),

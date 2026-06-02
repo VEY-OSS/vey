@@ -6,7 +6,7 @@
 
 use std::borrow::Cow;
 
-use http::{Method, Version};
+use http::Version;
 use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
@@ -49,7 +49,12 @@ where
             .await?;
         let time_received = Instant::now();
 
-        if matches!(&req.method, &Method::CONNECT) {
+        if req.upgrade_token().is_some() {
+            return Err(HttpRequestParseError::UnsupportedRequest(String::from(
+                "http upgrade is not supported",
+            )));
+        }
+        if req.is_connect() {
             return Err(HttpRequestParseError::UnsupportedMethod("CONNECT".into()));
         }
 

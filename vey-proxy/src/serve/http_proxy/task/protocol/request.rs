@@ -4,14 +4,14 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use http::{HeaderValue, Method, Version, header};
+use http::{HeaderValue, Version, header};
 use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use vey_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
 use vey_http::uri::{HttpMasque, WellKnownUri};
-use vey_types::net::{HttpProxySubProtocol, UpstreamAddr};
+use vey_types::net::{HttpProxySubProtocol, HttpUpgradeToken, UpstreamAddr};
 
 use super::HttpClientReader;
 use crate::config::server::http_proxy::HttpProxyServerConfig;
@@ -61,7 +61,33 @@ where
         .await?;
         let time_received = Instant::now();
 
-        let (upstream, sub_protocol) = if matches!(&req.method, &Method::CONNECT) {
+        let (upstream, sub_protocol) = if let Some(upgrade_token) = req.upgrade_token() {
+            let sub_protocol;
+            match upgrade_token {
+                HttpUpgradeToken::ConnectUdp => sub_protocol = HttpProxySubProtocol::UdpConnect,
+                _ => {
+                    return Err(HttpRequestParseError::UnsupportedRequest(format!(
+                        "unsupported upgrade token: {upgrade_token}"
+                    )));
+                }
+            }
+            match WellKnownUri::parse(&req.uri).map_err(|e| {
+                HttpRequestParseError::UnsupportedRequest(format!("invalid well-known uri: {e}",))
+            })? {
+                Some(WellKnownUri::Masque(HttpMasque::Udp(addr))) => (addr, sub_protocol),
+                Some(v) => {
+                    return Err(HttpRequestParseError::UnsupportedRequest(format!(
+                        "unsupported well-known uri suffix: {}",
+                        v.suffix()
+                    )));
+                }
+                None => {
+                    return Err(HttpRequestParseError::UnsupportedRequest(
+                        "unsupported local request uri".into(),
+                    ));
+                }
+            }
+        } else if req.is_connect() {
             let addr = req.uri.get_upstream_with_default_port(443)?;
             (addr, HttpProxySubProtocol::TcpConnect)
         } else if req.is_local_request(&config.local_server_names) {
@@ -112,23 +138,27 @@ where
             stream_sender: sender,
         };
 
+        let mut send_reader = true;
         match req.client_protocol {
             HttpProxySubProtocol::TcpConnect => {
                 // just send to forward task, which will go into a connect task
                 // reader should be sent
-                return Ok((req, true));
+            }
+            HttpProxySubProtocol::UdpConnect => {
+                // just send to forward task, which will go into a connect-udp task
+                // reader should be sent
             }
             HttpProxySubProtocol::FtpOverHttp => {}
             HttpProxySubProtocol::HttpForward | HttpProxySubProtocol::HttpsForward => {
                 if req.inner.pipeline_safe() {
                     // reader should not be sent
-                    return Ok((req, false));
+                    send_reader = false;
                 }
             }
         }
 
         // reader should be sent by default
-        Ok((req, true))
+        Ok((req, send_reader))
     }
 
     pub(crate) fn drop_default_port_in_host(&mut self) {

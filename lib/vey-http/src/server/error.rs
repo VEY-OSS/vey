@@ -42,8 +42,8 @@ pub enum HttpRequestParseError {
     InvalidChunkedTransferEncoding,
     #[error("invalid content length")]
     InvalidContentLength,
-    #[error("upgrade is not supported")]
-    UpgradeIsNotSupported,
+    #[error("invalid upgrade request")]
+    InvalidUpgradeRequest,
     #[error("loop detected")]
     LoopDetected,
     #[error("io failed: {0:?}")]
@@ -57,8 +57,7 @@ impl HttpRequestParseError {
             HttpRequestParseError::TooLargeHeader(_) => {
                 Some(StatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE)
             }
-            HttpRequestParseError::UpgradeIsNotSupported
-            | HttpRequestParseError::UnsupportedMethod(_)
+            HttpRequestParseError::UnsupportedMethod(_)
             | HttpRequestParseError::UnsupportedScheme
             | HttpRequestParseError::UnsupportedRequest(_) => Some(StatusCode::NOT_IMPLEMENTED),
             HttpRequestParseError::UnmatchedHostAndAuthority => Some(StatusCode::CONFLICT),
@@ -97,7 +96,7 @@ mod tests {
 
         // Not Implemented cases
         assert_eq!(
-            HttpRequestParseError::UpgradeIsNotSupported.status_code(),
+            HttpRequestParseError::InvalidUpgradeRequest.status_code(),
             Some(StatusCode::NOT_IMPLEMENTED)
         );
         assert_eq!(
