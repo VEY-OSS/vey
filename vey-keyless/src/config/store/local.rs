@@ -139,7 +139,7 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
         Ok(())
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     fn spawn_subscriber(&self) -> anyhow::Result<Option<oneshot::Sender<()>>> {
         use std::future::poll_fn;
 
@@ -196,7 +196,7 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
         Ok(Some(quit_sender))
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
     fn spawn_subscriber(&self) -> anyhow::Result<Option<oneshot::Sender<()>>> {
         Ok(None)
     }

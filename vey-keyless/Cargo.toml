@@ -47,7 +47,7 @@ vey-jemalloc = { workspace = true, optional = true }
 vey-mimalloc = { workspace = true, optional = true }
 vey-keyless-proto = { path = "proto" }
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 inotify = "0.11"
 
 [build-dependencies]

@@ -23,6 +23,6 @@ Enable write watching for ``.key`` files under the store directory.
 
 Newly written keys are loaded automatically after a completed write event is observed.
 
-This is only supported on Linux.
+This is only supported on Linux and FreeBSD.
 
 **default**: false
