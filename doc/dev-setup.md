@@ -230,7 +230,7 @@ Then add the installation directory to `Path` and set `VCPKG_ROOT`.
 pacman -S mingw-w64-ucrt-x86_64-rust
 pacman -S mingw-w64-ucrt-x86_64-capnproto
 # install tools for vendored build
-pacman -S make cmake
+pacman -S make mingw-w64-ucrt-x86_64-cmake
 # build without Python and Lua
 export RUSTFLAGS="-C target-feature=+crt-static"
 cargo build --no-default-features --features vendored-openssl,rustls-ring,quic,vendored-c-ares

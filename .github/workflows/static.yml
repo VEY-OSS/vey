@@ -159,3 +159,29 @@ jobs:
           toolchain: stable
       - name: Cargo build
         run: cargo build --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares
+  msys2-vendored:
+    name: msys2-vendored
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        feature:
+          - vendored-openssl,rustls-ring
+          - vendored-tongsuo,rustls-ring
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: git
+      - name: Checkout sources
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Install build tools
+        run: |
+          pacman -S --noconfirm --needed make mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-rust mingw-w64-ucrt-x86_64-capnproto
+      - name: Cargo build
+        run: cargo build --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares
