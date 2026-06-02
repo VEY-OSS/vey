@@ -255,8 +255,6 @@ The code should comply to these, but should be more compliant to existing popula
     : Proxying UDP in HTTP
  - [rfc9484](https://datatracker.ietf.org/doc/html/rfc9484)
     : Proxying IP in HTTP
- - [draft-schwartz-modern-http-proxies](https://datatracker.ietf.org/doc/html/draft-schwartz-modern-http-proxies-02)
-    : Template-Driven HTTP Request Proxying
  - [iana-http-upgrade-tokens](https://www.iana.org/assignments/http-upgrade-tokens/http-upgrade-tokens.xhtml)
     : Hypertext Transfer Protocol (HTTP) Upgrade Token Registry
 

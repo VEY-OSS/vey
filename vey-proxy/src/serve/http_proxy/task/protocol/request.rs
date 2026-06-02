@@ -99,12 +99,6 @@ where
                     req.set_host(&addr);
                     (addr, protocol)
                 }
-                Some(WellKnownUri::Masque(HttpMasque::Http(uri))) => {
-                    req.uri = uri;
-                    let (addr, protocol) = req.uri.get_upstream_and_protocol()?;
-                    req.set_host(&addr);
-                    (addr, protocol)
-                }
                 Some(v) => {
                     return Err(HttpRequestParseError::UnsupportedRequest(format!(
                         "unsupported well-known uri suffix: {}",

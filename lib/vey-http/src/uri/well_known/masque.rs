@@ -38,14 +38,6 @@ impl WellKnownUriParser<'_> {
                 let masque = HttpMasque::new_ip(host, proto)?;
                 Ok(WellKnownUri::Masque(masque))
             }
-            "http" => {
-                let Some(uri) = self.next_path_segment() else {
-                    return Err(UriParseError::RequiredFieldNotFound("target_uri"));
-                };
-
-                let masque = HttpMasque::new_http(uri)?;
-                Ok(WellKnownUri::Masque(masque))
-            }
             _ => Ok(WellKnownUri::Unsupported(SmolStr::from_iter([
                 "masque", "/", segment,
             ]))),
@@ -163,39 +155,6 @@ mod tests {
         };
         assert!(host.is_none());
         assert!(proto.is_none());
-    }
-
-    #[test]
-    fn http_missing_uri() {
-        let err = setup_parser("/.well-known/masque/http/").unwrap_err();
-        assert!(matches!(
-            err,
-            UriParseError::RequiredFieldNotFound("target_uri")
-        ));
-    }
-
-    #[test]
-    fn http_invalid_uri() {
-        let err = setup_parser("/.well-known/masque/http/::invalid::/").unwrap_err();
-        assert!(matches!(err, UriParseError::NotValidUri("target_uri")));
-    }
-
-    #[test]
-    fn http_invalid_encoding() {
-        let err = setup_parser("/.well-known/masque/http/%/").unwrap_err();
-        assert!(matches!(err, UriParseError::NotValidUri("target_uri")));
-    }
-
-    #[test]
-    fn http_valid() {
-        let parsed =
-            setup_parser("/.well-known/masque/http/http%3A%2F%2Fhttpbin.org%2Fget").unwrap();
-        let WellKnownUri::Masque(HttpMasque::Http(uri)) = parsed else {
-            panic!("not parsed as masque/http")
-        };
-        assert_eq!(uri.scheme_str(), Some("http"));
-        assert_eq!(uri.host(), Some("httpbin.org"));
-        assert_eq!(uri.path(), "/get");
     }
 
     #[test]

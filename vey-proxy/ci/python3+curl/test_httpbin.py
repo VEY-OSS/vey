@@ -18,7 +18,6 @@ local_resolve = None
 request_target_prefix = None
 no_auth = False
 proxy_tunnel = False
-proxy_masque = False
 
 ACCEPT_JSON = 'Accept: application/json'
 ACCEPT_HTML = 'Accept: text/html'
@@ -35,19 +34,11 @@ class TestHttpBin(unittest.TestCase):
         if target_ca_cert is not None:
             self.c.setopt(pycurl.CAINFO, target_ca_cert)
         if target_proxy is not None:
-            if proxy_masque:
-                proxy_uri = urllib.parse.urlparse(target_proxy)
-                if proxy_uri.username is not None and proxy_uri.password is not None:
-                    s = f"{proxy_uri.username}:{proxy_uri.password}"
-                    auth_header = "Proxy-Authorization: Basic {}".format(
-                        base64.standard_b64encode(s.encode("utf-8")).decode('utf-8'))
-                    self.c.setopt(pycurl.HTTPHEADER, [auth_header])
-            else:
-                self.c.setopt(pycurl.PROXY, target_proxy)
-                if proxy_ca_cert is not None:
-                    self.c.setopt(pycurl.PROXY_CAINFO, proxy_ca_cert)
-                if proxy_tunnel:
-                    self.c.setopt(pycurl.HTTPPROXYTUNNEL, 1)
+            self.c.setopt(pycurl.PROXY, target_proxy)
+            if proxy_ca_cert is not None:
+                self.c.setopt(pycurl.PROXY_CAINFO, proxy_ca_cert)
+            if proxy_tunnel:
+                self.c.setopt(pycurl.HTTPPROXYTUNNEL, 1)
         if local_resolve is not None:
             self.c.setopt(pycurl.RESOLVE, [local_resolve])
 
@@ -56,16 +47,7 @@ class TestHttpBin(unittest.TestCase):
 
     def set_url_and_request_target(self, path: str):
         target_uri = f"{target_site}{path}"
-        if target_proxy is not None and proxy_masque:
-            proxy_uri = urllib.parse.urlparse(target_proxy)
-            encoded_target_uri = urllib.parse.quote(target_uri, safe='')  # use safe parameter to also escape '/'
-            if ':' in proxy_uri.hostname:
-                uri = f"{proxy_uri.scheme}://[{proxy_uri.hostname}]:{proxy_uri.port}/.well-known/masque/http/{encoded_target_uri}"
-            else:
-                uri = f"{proxy_uri.scheme}://{proxy_uri.hostname}:{proxy_uri.port}/.well-known/masque/http/{encoded_target_uri}"
-            self.c.setopt(pycurl.URL, uri)
-        else:
-            self.c.setopt(pycurl.URL, target_uri)
+        self.c.setopt(pycurl.URL, target_uri)
         if request_target_prefix is not None:
             self.c.setopt(pycurl.REQUEST_TARGET, f"{request_target_prefix}{path}")
 
@@ -211,7 +193,6 @@ if __name__ == '__main__':
     parser.add_argument('--request-target-prefix', nargs='?', help='Set request target')
     parser.add_argument('--no-auth', action='store_true', help='No http auth tests')
     parser.add_argument('--proxy-tunnel', action='store_true', help='Tunnel the traffic through the proxy')
-    parser.add_argument('--proxy-masque', action='store_true', help='Use masque/http well known uri')
 
     (args, left_args) = parser.parse_known_args()
 
@@ -228,7 +209,6 @@ if __name__ == '__main__':
     target_site = args.site
     no_auth = args.no_auth
     proxy_tunnel = args.proxy_tunnel
-    proxy_masque = args.proxy_masque
 
     left_args.insert(0, sys.argv[0])
 

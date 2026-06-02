@@ -170,13 +170,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_masque_http() {
-        let uri = Uri::from_static("/.well-known/masque/http/http%3A%2F%2Fexample.com");
-        let result = WellKnownUri::parse(&uri).unwrap().unwrap();
-        assert_eq!(result.suffix(), "masque");
-    }
-
-    #[test]
     fn parse_error_invalid_masque_segment() {
         let uri = Uri::from_static("/.well-known/masque/invalid");
         let result = WellKnownUri::parse(&uri).unwrap().unwrap();

@@ -5,9 +5,6 @@
 
 use std::str::FromStr;
 
-use http::Uri;
-use percent_encoding::percent_decode_str;
-
 use vey_types::net::{Host, UpstreamAddr};
 
 use super::UriParseError;
@@ -16,7 +13,6 @@ use super::UriParseError;
 pub enum HttpMasque {
     Udp(UpstreamAddr),
     Ip(Option<Host>, Option<u16>),
-    Http(Uri),
 }
 
 impl HttpMasque {
@@ -38,14 +34,6 @@ impl HttpMasque {
             Some(u16::from_str(proto).map_err(|_| UriParseError::NotValidProtocol("ipproto"))?)
         };
         Ok(HttpMasque::Ip(host, proto))
-    }
-
-    pub(super) fn new_http(uri: &str) -> Result<Self, UriParseError> {
-        let decoded = percent_decode_str(uri)
-            .decode_utf8()
-            .map_err(|_| UriParseError::NotValidUri("target_uri"))?;
-        let uri = Uri::from_str(&decoded).map_err(|_| UriParseError::NotValidUri("target_uri"))?;
-        Ok(HttpMasque::Http(uri))
     }
 }
 
@@ -110,47 +98,6 @@ mod tests {
         fn invalid_proto_non_wildcard() {
             let result = HttpMasque::new_ip("*", "not_a_number").unwrap_err();
             assert!(matches!(result, UriParseError::NotValidProtocol("ipproto")));
-        }
-    }
-
-    mod new_http {
-        use super::*;
-
-        #[test]
-        fn valid_encoded_uri() {
-            let result = HttpMasque::new_http("http%3A%2F%2Fexample.com%2Fpath").unwrap();
-            let HttpMasque::Http(uri) = result else {
-                panic!("not a http masque")
-            };
-            assert_eq!(uri.scheme_str(), Some("http"));
-            assert_eq!(uri.host(), Some("example.com"));
-            assert_eq!(uri.path(), "/path");
-        }
-
-        #[test]
-        fn valid_unencoded_uri() {
-            let result = HttpMasque::new_http("http://example.com/path").unwrap();
-            assert!(matches!(result, HttpMasque::Http(_)));
-        }
-
-        #[test]
-        fn invalid_encoding() {
-            let result = HttpMasque::new_http("http%ZZexample.com").unwrap_err();
-            assert!(matches!(result, UriParseError::NotValidUri("target_uri")));
-        }
-
-        #[test]
-        fn invalid_uri_after_decoding() {
-            let result = HttpMasque::new_http(":not:a:valid:uri:").unwrap_err();
-            assert!(matches!(result, UriParseError::NotValidUri("target_uri")));
-        }
-
-        #[test]
-        fn complex_uri_with_query() {
-            let result =
-                HttpMasque::new_http("https%3A%2F%2Fapi.example.com%2Fv1%2Fdata%3Fkey%3Dvalue")
-                    .unwrap();
-            assert!(matches!(result, HttpMasque::Http(_)));
         }
     }
 }

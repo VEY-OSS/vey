@@ -31,15 +31,6 @@ test_http_easy_proxy_https_forward()
 }
 
 
-test_http_masque_https_forward()
-{
-	date
-
-	python3 "${PROJECT_DIR}/vey-proxy/ci/python3+curl/test_httpbin.py" -x ${HTTP_PROXY} --proxy-masque -T https://httpbin.local:9443/ --no-auth
-	python3 "${PROJECT_DIR}/vey-proxy/ci/python3+curl/test_httpbin.py" -x ${HTTP_PROXY} --proxy-masque -T https://httpbin.local:2443/ --no-auth
-}
-
-
 test_http_proxy_h2()
 {
 	date
@@ -78,15 +69,6 @@ test_https_easy_proxy_https_forward()
 }
 
 
-test_https_masque_https_forward()
-{
-	date
-
-	python3 "${PROJECT_DIR}/vey-proxy/ci/python3+curl/test_httpbin.py" -x ${HTTPS_PROXY} --proxy-masque -T https://httpbin.local:9443/ --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
-	python3 "${PROJECT_DIR}/vey-proxy/ci/python3+curl/test_httpbin.py" -x ${HTTPS_PROXY} --proxy-masque -T https://httpbin.local:2443/ --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
-}
-
-
 test_https_proxy_h2()
 {
 	date
@@ -121,7 +103,6 @@ test_http_proxy_http_forward
 # FTP not supported in proxy escaper
 #test_http_proxy_ftp_over_http
 test_http_easy_proxy_https_forward
-test_http_masque_https_forward
 test_http_proxy_https_connect
 test_http_proxy_https_forward
 
@@ -130,7 +111,6 @@ HTTPS_PROXY="https://vey-proxy.local:8443"
 test_https_proxy_http_forward
 test_https_proxy_ftp_over_http
 test_https_easy_proxy_https_forward
-test_https_masque_https_forward
 test_https_proxy_https_connect
 test_https_proxy_https_forward
 
