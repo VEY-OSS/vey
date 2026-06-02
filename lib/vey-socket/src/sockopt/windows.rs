@@ -28,6 +28,7 @@ where
     }
 }
 
+#[allow(unused)]
 unsafe fn getsockopt<T>(socket: WinSock::SOCKET, level: i32, name: i32) -> io::Result<T>
 where
     T: Copy,
