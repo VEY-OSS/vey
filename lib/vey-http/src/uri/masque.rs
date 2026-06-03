@@ -17,7 +17,10 @@ pub enum HttpMasque {
 
 impl HttpMasque {
     pub(super) fn new_udp(host: &str, port: &str) -> Result<Self, UriParseError> {
-        let host = Host::from_str(host).map_err(|_| UriParseError::NotValidHost("target_host"))?;
+        let host = percent_encoding::percent_decode_str(host)
+            .decode_utf8()
+            .map_err(|_| UriParseError::NotValidHost("target_host"))?;
+        let host = Host::from_str(&host).map_err(|_| UriParseError::NotValidHost("target_host"))?;
         let port = u16::from_str(port).map_err(|_| UriParseError::NotValidPort("target_port"))?;
         Ok(HttpMasque::Udp(UpstreamAddr::new(host, port)))
     }
@@ -26,7 +29,11 @@ impl HttpMasque {
         let host = if host.eq("*") {
             None
         } else {
-            Some(Host::from_str(host).map_err(|_| UriParseError::NotValidHost("target"))?)
+            let host = percent_encoding::percent_decode_str(host)
+                .decode_utf8()
+                .map_err(|_| UriParseError::NotValidHost("target_host"))?;
+            let host = Host::from_str(&host).map_err(|_| UriParseError::NotValidHost("target"))?;
+            Some(host)
         };
         let proto = if proto.eq("*") {
             None
