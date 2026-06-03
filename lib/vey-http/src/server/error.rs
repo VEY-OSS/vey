@@ -5,8 +5,10 @@
 
 use std::io;
 
-use http::{StatusCode, Version};
+use http::{StatusCode, Uri, Version};
 use thiserror::Error;
+
+use vey_types::net::HttpUpgradeToken;
 
 use crate::HttpLineParseError;
 
@@ -22,8 +24,10 @@ pub enum HttpRequestParseError {
     UnsupportedMethod(String),
     #[error("unsupported version: {0:?}")]
     UnsupportedVersion(Version),
-    #[error("unsupported well-known uri: {0}")]
-    UnsupportedRequest(String),
+    #[error("not a local request")]
+    NotLocalRequest,
+    #[error("unsupported uri: {0}")]
+    UnsupportedUri(Uri),
     #[error("invalid request target")]
     InvalidRequestTarget,
     #[error("invalid scheme")]
@@ -44,6 +48,8 @@ pub enum HttpRequestParseError {
     InvalidContentLength,
     #[error("invalid upgrade request")]
     InvalidUpgradeRequest,
+    #[error("unsupported upgrade token {0}")]
+    UnsupportedUpgradeToken(HttpUpgradeToken),
     #[error("loop detected")]
     LoopDetected,
     #[error("io failed: {0:?}")]
@@ -57,9 +63,11 @@ impl HttpRequestParseError {
             HttpRequestParseError::TooLargeHeader(_) => {
                 Some(StatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE)
             }
+            HttpRequestParseError::NotLocalRequest
+            | HttpRequestParseError::UnsupportedUpgradeToken(_)
+            | HttpRequestParseError::UnsupportedUri(_) => Some(StatusCode::FORBIDDEN),
             HttpRequestParseError::UnsupportedMethod(_)
-            | HttpRequestParseError::UnsupportedScheme
-            | HttpRequestParseError::UnsupportedRequest(_) => Some(StatusCode::NOT_IMPLEMENTED),
+            | HttpRequestParseError::UnsupportedScheme => Some(StatusCode::NOT_IMPLEMENTED),
             HttpRequestParseError::UnmatchedHostAndAuthority => Some(StatusCode::CONFLICT),
             HttpRequestParseError::LoopDetected => Some(StatusCode::LOOP_DETECTED),
             _ => Some(StatusCode::BAD_REQUEST),
@@ -97,7 +105,7 @@ mod tests {
         // Not Implemented cases
         assert_eq!(
             HttpRequestParseError::InvalidUpgradeRequest.status_code(),
-            Some(StatusCode::NOT_IMPLEMENTED)
+            Some(StatusCode::BAD_REQUEST)
         );
         assert_eq!(
             HttpRequestParseError::UnsupportedMethod("INVALID".to_string()).status_code(),
@@ -105,10 +113,6 @@ mod tests {
         );
         assert_eq!(
             HttpRequestParseError::UnsupportedScheme.status_code(),
-            Some(StatusCode::NOT_IMPLEMENTED)
-        );
-        assert_eq!(
-            HttpRequestParseError::UnsupportedRequest("foo".to_string()).status_code(),
             Some(StatusCode::NOT_IMPLEMENTED)
         );
 

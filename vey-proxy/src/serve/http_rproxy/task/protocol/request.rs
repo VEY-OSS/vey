@@ -49,10 +49,8 @@ where
             .await?;
         let time_received = Instant::now();
 
-        if req.upgrade_token().is_some() {
-            return Err(HttpRequestParseError::UnsupportedRequest(String::from(
-                "http upgrade is not supported",
-            )));
+        if let Some(v) = req.take_upgrade_token() {
+            return Err(HttpRequestParseError::UnsupportedUpgradeToken(v.clone()));
         }
         if req.is_connect() {
             return Err(HttpRequestParseError::UnsupportedMethod("CONNECT".into()));

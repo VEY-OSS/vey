@@ -62,54 +62,30 @@ where
         let time_received = Instant::now();
 
         let (upstream, sub_protocol) = if let Some(upgrade_token) = req.upgrade_token() {
-            let sub_protocol;
-            match upgrade_token {
-                HttpUpgradeToken::ConnectUdp => sub_protocol = HttpProxySubProtocol::UdpConnect,
-                _ => {
-                    return Err(HttpRequestParseError::UnsupportedRequest(format!(
-                        "unsupported upgrade token: {upgrade_token}"
-                    )));
-                }
-            }
-            match WellKnownUri::parse(&req.uri).map_err(|e| {
-                HttpRequestParseError::UnsupportedRequest(format!("invalid well-known uri: {e}",))
-            })? {
-                Some(WellKnownUri::Masque(HttpMasque::Udp(addr))) => (addr, sub_protocol),
-                Some(v) => {
-                    return Err(HttpRequestParseError::UnsupportedRequest(format!(
-                        "unsupported well-known uri suffix: {}",
-                        v.suffix()
-                    )));
-                }
-                None => {
-                    return Err(HttpRequestParseError::UnsupportedRequest(
-                        "unsupported local request uri".into(),
-                    ));
-                }
+            // All upgrade requests are considered a local request here
+            let sub_protocol = match upgrade_token {
+                HttpUpgradeToken::ConnectUdp => HttpProxySubProtocol::UdpConnect,
+                v => return Err(HttpRequestParseError::UnsupportedUpgradeToken(v.clone())),
+            };
+            match WellKnownUri::parse(&req.uri) {
+                Ok(Some(WellKnownUri::Masque(HttpMasque::Udp(addr)))) => (addr, sub_protocol),
+                Ok(Some(_v)) => return Err(HttpRequestParseError::UnsupportedUri(req.uri)),
+                Ok(None) => return Err(HttpRequestParseError::UnsupportedUri(req.uri)),
+                Err(_) => return Err(HttpRequestParseError::UnsupportedUri(req.uri)),
             }
         } else if req.is_connect() {
             let addr = req.uri.get_upstream_with_default_port(443)?;
             (addr, HttpProxySubProtocol::TcpConnect)
         } else if req.is_local_request(&config.local_server_names) {
-            match WellKnownUri::parse(&req.uri).map_err(|e| {
-                HttpRequestParseError::UnsupportedRequest(format!("invalid well-known uri: {e}",))
-            })? {
-                Some(WellKnownUri::EasyProxy(protocol, addr, uri)) => {
+            match WellKnownUri::parse(&req.uri) {
+                Ok(Some(WellKnownUri::EasyProxy(protocol, addr, uri))) => {
                     req.uri = uri;
                     req.set_host(&addr);
                     (addr, protocol)
                 }
-                Some(v) => {
-                    return Err(HttpRequestParseError::UnsupportedRequest(format!(
-                        "unsupported well-known uri suffix: {}",
-                        v.suffix()
-                    )));
-                }
-                None => {
-                    return Err(HttpRequestParseError::UnsupportedRequest(
-                        "unsupported local request uri".into(),
-                    ));
-                }
+                Ok(Some(_v)) => return Err(HttpRequestParseError::UnsupportedUri(req.uri)),
+                Ok(None) => return Err(HttpRequestParseError::UnsupportedUri(req.uri)),
+                Err(_) => return Err(HttpRequestParseError::UnsupportedUri(req.uri)),
             }
         } else {
             req.uri.get_upstream_and_protocol()?

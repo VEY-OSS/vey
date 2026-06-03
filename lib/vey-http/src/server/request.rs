@@ -226,6 +226,11 @@ impl HttpProxyClientRequest {
     }
 
     #[inline]
+    pub fn take_upgrade_token(&mut self) -> Option<HttpUpgradeToken> {
+        self.upgrade_token.take()
+    }
+
+    #[inline]
     pub fn is_connect(&self) -> bool {
         matches!(self.method, Method::CONNECT)
     }
