@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 
 use vey_socket::BindAddr;
 use vey_types::metrics::NodeName;
-use vey_types::net::{SocketBufferConfig, UpstreamAddr};
+use vey_types::net::{EgressInfo, SocketBufferConfig, UpstreamAddr};
 
 pub(crate) struct UdpConnectTaskConf<'a> {
     pub(crate) upstream: &'a UpstreamAddr,
@@ -23,4 +23,6 @@ pub(crate) struct UdpConnectTaskNotes {
     pub(crate) next: Option<SocketAddr>,
     pub(crate) local: Option<SocketAddr>,
     pub(crate) expire: Option<DateTime<Utc>>,
+    pub(crate) egress: Option<EgressInfo>,
+    pub(crate) override_peer: Option<UpstreamAddr>,
 }

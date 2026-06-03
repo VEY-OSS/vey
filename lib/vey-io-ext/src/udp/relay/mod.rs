@@ -29,8 +29,8 @@ pub struct UdpRelayPacket {
 }
 
 impl UdpRelayPacket {
-    fn new(reserved_size: usize, packet_size: usize) -> Self {
-        let buf_size = packet_size + reserved_size;
+    fn new(reserved_size: usize, packet_size: u16) -> Self {
+        let buf_size = packet_size as usize + reserved_size;
         UdpRelayPacket {
             buf: vec![0; buf_size].into_boxed_slice(),
             buf_data_off: 0,

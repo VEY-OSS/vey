@@ -66,6 +66,32 @@ impl VarInt {
     }
 }
 
+#[derive(Clone, Copy, Default)]
+pub struct VarIntEncoder {
+    buf: [u8; 8],
+}
+
+impl VarIntEncoder {
+    pub fn encode_u16(&mut self, value: u16) -> &[u8] {
+        let high_byte = (value >> 8) as u8;
+        let low_byte = (value & 0xff) as u8;
+        if high_byte & 0b1100_0000 != 0 {
+            self.buf[0] = 0b1000_0000;
+            self.buf[1] = 0;
+            self.buf[2] = high_byte;
+            self.buf[3] = low_byte;
+            &self.buf[..4]
+        } else if high_byte != 0 || (low_byte & 0b1100_0000) != 0 {
+            self.buf[0] = high_byte | 0b0100_0000;
+            self.buf[1] = low_byte;
+            &self.buf[..2]
+        } else {
+            self.buf[0] = low_byte;
+            &self.buf[..1]
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,5 +118,30 @@ mod tests {
         let v = VarInt::parse(&[0b1100_1111, 0, 0, 0, 0, 0, 0, 0x01]).unwrap();
         assert_eq!(v.value, 0x0F00000000000001);
         assert_eq!(v.encoded_len(), 8);
+    }
+
+    #[test]
+    fn encode_u16() {
+        let mut encoder = VarIntEncoder::default();
+
+        let buf = &[0b1000_0000, 0, 0xFF, 0xFF];
+        assert_eq!(encoder.encode_u16(u16::MAX), buf);
+        let v = VarInt::parse(buf).unwrap();
+        assert_eq!(v.encoded_len(), 4);
+        assert_eq!(v.value(), u16::MAX as u64);
+
+        let buf = &[0b0111_1111, 0xFF];
+        assert_eq!(encoder.encode_u16(0x3FFF), buf);
+        let v = VarInt::parse(buf).unwrap();
+        assert_eq!(v.encoded_len(), 2);
+        assert_eq!(v.value(), 0x3FFF);
+
+        let buf = &[0b0011_1111];
+        assert_eq!(encoder.encode_u16(0x3F), buf);
+        let v = VarInt::parse(buf).unwrap();
+        assert_eq!(v.encoded_len(), 1);
+        assert_eq!(v.value(), 0x3F);
+
+        assert_eq!(encoder.encode_u16(0), &[0]);
     }
 }

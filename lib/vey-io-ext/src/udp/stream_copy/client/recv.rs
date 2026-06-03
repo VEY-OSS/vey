@@ -1,10 +1,8 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::io;
-use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
@@ -13,25 +11,32 @@ use std::time::Duration;
 use futures_util::FutureExt;
 use tokio::time::{Instant, Sleep};
 
-use vey_io_sys::udp::RecvMsgHdr;
+use super::UdpCopyClientError;
+use crate::{
+    ArcLimitedRecvStats, DatagramLimitAction, DatagramLimiter, GlobalDatagramLimit, UdpCopyPacket,
+};
 
-use crate::limit::{DatagramLimitAction, DatagramLimiter};
-use crate::{ArcLimitedRecvStats, GlobalDatagramLimit};
+pub trait UdpCopyClientRecv {
+    /// reserve some space for offloading header
+    fn max_hdr_len(&self) -> usize;
 
-pub trait AsyncUdpRecv {
-    fn poll_recv_from(
+    /// return `(off, len)`
+    fn poll_recv_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<io::Result<(usize, SocketAddr)>>;
+    ) -> Poll<Result<(usize, usize), UdpCopyClientError>>;
 
-    fn poll_recv(&mut self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>>;
-
-    fn poll_recvmsg<const C: usize>(
+    fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
-        hdr: &mut RecvMsgHdr<'_, C>,
-    ) -> Poll<io::Result<()>>;
+        buf: &mut UdpCopyPacket,
+    ) -> Poll<Result<(), UdpCopyClientError>> {
+        let (off, len) = ready!(self.poll_recv_buf(cx, buf.buf_mut()))?;
+        buf.set_length(len);
+        buf.set_offset(off);
+        Poll::Ready(Ok(()))
+    }
 
     #[cfg(any(
         target_os = "linux",
@@ -42,14 +47,29 @@ pub trait AsyncUdpRecv {
         target_os = "macos",
         target_os = "solaris",
     ))]
-    fn poll_batch_recvmsg<const C: usize>(
+    fn poll_recv_packets(
         &mut self,
         cx: &mut Context<'_>,
-        hdr_v: &mut [RecvMsgHdr<'_, C>],
-    ) -> Poll<io::Result<usize>>;
+        packets: &mut [UdpCopyPacket],
+    ) -> Poll<Result<usize, UdpCopyClientError>> {
+        for (n, packet) in packets.iter_mut().enumerate() {
+            match self.poll_recv_buf(cx, packet.buf_mut()) {
+                Poll::Ready(Ok(_)) => {}
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+                Poll::Pending => {
+                    return if n == 0 {
+                        Poll::Pending
+                    } else {
+                        Poll::Ready(Ok(n - 1))
+                    };
+                }
+            }
+        }
+        Poll::Ready(Ok(packets.len()))
+    }
 }
 
-pub struct LimitedUdpRecv<T> {
+pub struct LimitedUdpCopyClientRecv<T> {
     inner: T,
     delay: Pin<Box<Sleep>>,
     started: Instant,
@@ -57,9 +77,9 @@ pub struct LimitedUdpRecv<T> {
     stats: ArcLimitedRecvStats,
 }
 
-impl<T: AsyncUdpRecv> LimitedUdpRecv<T> {
+impl<T: UdpCopyClientRecv> LimitedUdpCopyClientRecv<T> {
     pub fn unlimited(inner: T, stats: ArcLimitedRecvStats) -> Self {
-        LimitedUdpRecv {
+        LimitedUdpCopyClientRecv {
             inner,
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started: Instant::now(),
@@ -75,7 +95,7 @@ impl<T: AsyncUdpRecv> LimitedUdpRecv<T> {
         max_bytes: usize,
         stats: ArcLimitedRecvStats,
     ) -> Self {
-        LimitedUdpRecv {
+        LimitedUdpCopyClientRecv {
             inner,
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started: Instant::now(),
@@ -101,24 +121,29 @@ impl<T: AsyncUdpRecv> LimitedUdpRecv<T> {
     }
 }
 
-impl<T> AsyncUdpRecv for LimitedUdpRecv<T>
+impl<T> UdpCopyClientRecv for LimitedUdpCopyClientRecv<T>
 where
-    T: AsyncUdpRecv + Send,
+    T: UdpCopyClientRecv + Unpin,
 {
-    fn poll_recv_from(
+    fn max_hdr_len(&self) -> usize {
+        self.inner.max_hdr_len()
+    }
+
+    fn poll_recv_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<io::Result<(usize, SocketAddr)>> {
+    ) -> Poll<Result<(usize, usize), UdpCopyClientError>> {
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check_packet(dur_millis, buf.len()) {
-                DatagramLimitAction::Advance(_) => match self.inner.poll_recv_from(cx, buf) {
-                    Poll::Ready(Ok((nr, addr))) => {
-                        self.limit.set_advance(1, nr);
+                DatagramLimitAction::Advance(_) => match self.inner.poll_recv_buf(cx, buf) {
+                    Poll::Ready(Ok((start, end))) => {
+                        let pkt_size = end - start;
+                        self.limit.set_advance(1, pkt_size);
                         self.stats.add_recv_packet();
-                        self.stats.add_recv_bytes(nr);
-                        Poll::Ready(Ok((nr, addr)))
+                        self.stats.add_recv_bytes(pkt_size);
+                        Poll::Ready(Ok((start, end)))
                     }
                     Poll::Ready(Err(e)) => {
                         self.limit.release_global();
@@ -153,78 +178,27 @@ where
                 }
             }
         } else {
-            let (nr, addr) = ready!(self.inner.poll_recv_from(cx, buf))?;
+            let (start, end) = ready!(self.inner.poll_recv_buf(cx, buf))?;
             self.stats.add_recv_packet();
-            self.stats.add_recv_bytes(nr);
-            Poll::Ready(Ok((nr, addr)))
+            self.stats.add_recv_bytes(end - start);
+            Poll::Ready(Ok((start, end)))
         }
     }
 
-    fn poll_recv(&mut self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
-        if self.limit.is_set() {
-            let dur_millis = self.started.elapsed().as_millis() as u64;
-            match self.limit.check_packet(dur_millis, buf.len()) {
-                DatagramLimitAction::Advance(_) => match self.inner.poll_recv(cx, buf) {
-                    Poll::Ready(Ok(nr)) => {
-                        self.limit.set_advance(1, nr);
-                        self.stats.add_recv_packet();
-                        self.stats.add_recv_bytes(nr);
-                        Poll::Ready(Ok(nr))
-                    }
-                    Poll::Ready(Err(e)) => {
-                        self.limit.release_global();
-                        Poll::Ready(Err(e))
-                    }
-                    Poll::Pending => {
-                        self.limit.release_global();
-                        Poll::Pending
-                    }
-                },
-                DatagramLimitAction::DelayUntil(t) => {
-                    self.delay.as_mut().reset(t);
-                    match self.delay.poll_unpin(cx) {
-                        Poll::Ready(_) => {
-                            cx.waker().wake_by_ref();
-                            Poll::Pending
-                        }
-                        Poll::Pending => Poll::Pending,
-                    }
-                }
-                DatagramLimitAction::DelayFor(ms) => {
-                    self.delay
-                        .as_mut()
-                        .reset(self.started + Duration::from_millis(dur_millis + ms));
-                    match self.delay.poll_unpin(cx) {
-                        Poll::Ready(_) => {
-                            cx.waker().wake_by_ref();
-                            Poll::Pending
-                        }
-                        Poll::Pending => Poll::Pending,
-                    }
-                }
-            }
-        } else {
-            let nr = ready!(self.inner.poll_recv(cx, buf))?;
-            self.stats.add_recv_packet();
-            self.stats.add_recv_bytes(nr);
-            Poll::Ready(Ok(nr))
-        }
-    }
-
-    fn poll_recvmsg<const C: usize>(
+    fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
-        hdr: &mut RecvMsgHdr<'_, C>,
-    ) -> Poll<io::Result<()>> {
+        packet: &mut UdpCopyPacket,
+    ) -> Poll<Result<(), UdpCopyClientError>> {
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
-            let total_size = hdr.iov.iter().map(|v| v.len()).sum::<usize>();
-            match self.limit.check_packet(dur_millis, total_size) {
-                DatagramLimitAction::Advance(_) => match self.inner.poll_recvmsg(cx, hdr) {
+            match self.limit.check_packet(dur_millis, packet.buf_len()) {
+                DatagramLimitAction::Advance(_) => match self.inner.poll_recv_packet(cx, packet) {
                     Poll::Ready(Ok(_)) => {
-                        self.limit.set_advance(1, hdr.n_recv);
+                        let pkt_size = packet.payload_len();
+                        self.limit.set_advance(1, pkt_size);
                         self.stats.add_recv_packet();
-                        self.stats.add_recv_bytes(hdr.n_recv);
+                        self.stats.add_recv_bytes(pkt_size);
                         Poll::Ready(Ok(()))
                     }
                     Poll::Ready(Err(e)) => {
@@ -260,9 +234,9 @@ where
                 }
             }
         } else {
-            ready!(self.inner.poll_recvmsg(cx, hdr))?;
+            ready!(self.inner.poll_recv_packet(cx, packet))?;
             self.stats.add_recv_packet();
-            self.stats.add_recv_bytes(hdr.n_recv);
+            self.stats.add_recv_bytes(packet.payload_len());
             Poll::Ready(Ok(()))
         }
     }
@@ -276,26 +250,26 @@ where
         target_os = "macos",
         target_os = "solaris",
     ))]
-    fn poll_batch_recvmsg<const C: usize>(
+    fn poll_recv_packets(
         &mut self,
         cx: &mut Context<'_>,
-        hdr_v: &mut [RecvMsgHdr<'_, C>],
-    ) -> Poll<io::Result<usize>> {
+        packets: &mut [UdpCopyPacket],
+    ) -> Poll<Result<usize, UdpCopyClientError>> {
         use smallvec::SmallVec;
 
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
-            let mut total_size_v = SmallVec::<[usize; 32]>::with_capacity(hdr_v.len());
+            let mut total_size_v = SmallVec::<[usize; 32]>::with_capacity(packets.len());
             let mut total_size = 0usize;
-            for hdr in hdr_v.iter() {
-                total_size += hdr.iov.iter().map(|v| v.len()).sum::<usize>();
+            for packet in packets.iter() {
+                total_size += packet.buf_len();
                 total_size_v.push(total_size);
             }
             match self.limit.check_packets(dur_millis, total_size_v.as_ref()) {
                 DatagramLimitAction::Advance(n) => {
-                    match self.inner.poll_batch_recvmsg(cx, &mut hdr_v[0..n]) {
+                    match self.inner.poll_recv_packets(cx, &mut packets[0..n]) {
                         Poll::Ready(Ok(count)) => {
-                            let len = hdr_v.iter().take(count).map(|h| h.n_recv).sum();
+                            let len = packets.iter().take(count).map(|h| h.payload_len()).sum();
                             self.limit.set_advance(count, len);
                             self.stats.add_recv_packets(count);
                             self.stats.add_recv_bytes(len);
@@ -335,10 +309,10 @@ where
                 }
             }
         } else {
-            let count = ready!(self.inner.poll_batch_recvmsg(cx, hdr_v))?;
+            let count = ready!(self.inner.poll_recv_packets(cx, packets))?;
             self.stats.add_recv_packets(count);
             self.stats
-                .add_recv_bytes(hdr_v.iter().take(count).map(|h| h.n_recv).sum());
+                .add_recv_bytes(packets.iter().take(count).map(|h| h.payload_len()).sum());
             Poll::Ready(Ok(count))
         }
     }

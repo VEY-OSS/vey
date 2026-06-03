@@ -74,8 +74,8 @@ impl TProxyStreamTask {
             .map(|logger| TaskLogForUdpConnect {
                 logger,
                 task_notes: &self.task_notes,
-                tcp_server_addr: self.ctx.server_addr(),
-                tcp_client_addr: self.ctx.client_addr(),
+                tcp_server_addr: None,
+                tcp_client_addr: None,
                 udp_listen_addr: Some(self.ctx.server_addr()),
                 udp_client_addr: Some(self.ctx.client_addr()),
                 upstream: Some(&self.upstream),

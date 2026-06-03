@@ -16,7 +16,7 @@ use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use vey_ftp_client::FtpClientConfig;
-use vey_io_ext::StreamCopyConfig;
+use vey_io_ext::{LimitedUdpRelayConfig, StreamCopyConfig};
 use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use vey_types::acl_set::AclDstHostRuleSetBuilder;
@@ -81,6 +81,7 @@ pub(crate) struct HttpProxyServerConfig {
     pub(crate) flush_task_log_on_connected: bool,
     pub(crate) task_log_flush_interval: Option<Duration>,
     pub(crate) tcp_copy: StreamCopyConfig,
+    pub(crate) udp_relay: LimitedUdpRelayConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) req_hdr_max_size: usize,
     pub(crate) rsp_hdr_max_size: usize,
@@ -132,6 +133,7 @@ impl HttpProxyServerConfig {
             flush_task_log_on_connected: false,
             task_log_flush_interval: None,
             tcp_copy: Default::default(),
+            udp_relay: Default::default(),
             tcp_misc_opts: Default::default(),
             req_hdr_max_size: 65536, // 64KiB
             rsp_hdr_max_size: 65536, // 64KiB
@@ -299,6 +301,22 @@ impl HttpProxyServerConfig {
                 let yield_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 self.tcp_copy.set_yield_size(yield_size);
+                Ok(())
+            }
+            "udp_relay_packet_size" => {
+                let packet_size = vey_yaml::humanize::as_u16(v)
+                    .context(format!("invalid humanize u16 value for key {k}"))?;
+                self.udp_relay.set_packet_size(packet_size);
+                Ok(())
+            }
+            "udp_relay_yield_count" => {
+                let yield_count = vey_yaml::value::as_usize(v)?;
+                self.udp_relay.set_yield_count(yield_count);
+                Ok(())
+            }
+            "udp_relay_batch_count" => {
+                let batch_count = vey_yaml::value::as_usize(v)?;
+                self.udp_relay.set_batch_count(batch_count);
                 Ok(())
             }
             "tcp_misc_opts" => {

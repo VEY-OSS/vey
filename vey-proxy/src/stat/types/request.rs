@@ -13,6 +13,7 @@ pub(crate) struct RequestStats {
     http_forward: AtomicU64,
     https_forward: AtomicU64,
     http_connect: AtomicU64,
+    http_masque_udp: AtomicU64,
     ftp_over_http: AtomicU64,
     socks_tcp_connect: AtomicU64,
     socks_udp_connect: AtomicU64,
@@ -26,6 +27,7 @@ pub(crate) struct RequestSnapshot {
     pub(crate) http_forward: u64,
     pub(crate) https_forward: u64,
     pub(crate) http_connect: u64,
+    pub(crate) http_masque_udp: u64,
     pub(crate) ftp_over_http: u64,
     pub(crate) socks_tcp_connect: u64,
     pub(crate) socks_udp_connect: u64,
@@ -71,6 +73,14 @@ impl RequestStats {
 
     pub(crate) fn http_connect(&self) -> u64 {
         self.http_connect.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn add_http_masque_udp(&self) {
+        self.http_masque_udp.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn http_masque_udp(&self) -> u64 {
+        self.http_masque_udp.load(Ordering::Relaxed)
     }
 
     pub(crate) fn add_ftp_over_http(&self) {
@@ -143,6 +153,7 @@ pub(crate) struct RequestAliveStats {
     http_forward: AtomicI32,
     https_forward: AtomicI32,
     http_connect: AtomicI32,
+    http_masque_udp: AtomicI32,
     ftp_over_http: AtomicI32,
     socks_tcp_connect: AtomicI32,
     socks_udp_connect: AtomicI32,
@@ -208,6 +219,18 @@ impl RequestAliveStats {
 
     pub(crate) fn http_connect(&self) -> i32 {
         self.http_connect.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn add_http_masque_udp(&self) {
+        self.http_masque_udp.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn del_http_masque_udp(&self) {
+        self.http_masque_udp.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn http_masque_udp(&self) -> i32 {
+        self.http_masque_udp.load(Ordering::Relaxed)
     }
 
     pub(crate) fn add_ftp_over_http(&self) {

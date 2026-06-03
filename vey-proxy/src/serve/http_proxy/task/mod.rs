@@ -14,12 +14,14 @@ mod protocol;
 mod connect;
 mod forward;
 mod ftp;
+mod masque_udp;
 mod pipeline;
 mod untrusted;
 
 use connect::HttpProxyConnectTask;
 use forward::HttpProxyForwardTask;
 use ftp::FtpOverHttpTask;
+use masque_udp::HttpProxyMasqueUdpTask;
 pub(super) use pipeline::{
     HttpProxyPipelineReaderTask, HttpProxyPipelineStats, HttpProxyPipelineWriterTask,
 };

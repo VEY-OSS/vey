@@ -21,7 +21,7 @@ use vey_types::net::{HttpAuth, HttpForwardCapability, HttpProxySubProtocol};
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{
     CommonTaskContext, FtpOverHttpTask, HttpProxyCltWrapperStats, HttpProxyConnectTask,
-    HttpProxyForwardTask, HttpProxyPipelineStats, HttpProxyUntrustedTask,
+    HttpProxyForwardTask, HttpProxyMasqueUdpTask, HttpProxyPipelineStats, HttpProxyUntrustedTask,
 };
 use crate::audit::AuditContext;
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
@@ -343,38 +343,62 @@ where
 
         match remote_protocol {
             HttpProxySubProtocol::TcpConnect => {
-                if let (Some(mut stream_w), Some(stream_r)) =
+                let (Some(mut stream_w), Some(stream_r)) =
                     (self.stream_writer.take(), req.body_reader.take())
-                {
-                    let mut connect_task = HttpProxyConnectTask::new(
-                        &self.ctx,
-                        self.audit_ctx.clone(),
-                        &req,
-                        task_notes,
-                    );
-                    connect_task.connect_to_upstream(&mut stream_w).await;
-                    if connect_task.back_to_http() {
-                        // reopen write end
-                        self.stream_writer = Some(stream_w);
-                        // reopen read end
-                        if req.stream_sender.try_send(Some(stream_r)).is_err() {
-                            // read end has closed, impossible as reader should be waiting this channel
-                            LoopAction::Break
-                        } else {
-                            LoopAction::Continue
-                        }
-                    } else {
-                        // close read end
-                        let _ = req.stream_sender.try_send(None);
-                        connect_task.into_running(stream_r.into_inner(), stream_w);
+                else {
+                    unreachable!()
+                };
+
+                let mut connect_task = HttpProxyConnectTask::new(
+                    self.ctx.clone(),
+                    self.audit_ctx.clone(),
+                    &req,
+                    task_notes,
+                );
+                connect_task.connect_to_upstream(&mut stream_w).await;
+                if connect_task.back_to_http() {
+                    // reopen write end
+                    self.stream_writer = Some(stream_w);
+                    // reopen read end
+                    if req.stream_sender.try_send(Some(stream_r)).is_err() {
+                        // read end has closed, impossible as reader should be waiting this channel
                         LoopAction::Break
+                    } else {
+                        LoopAction::Continue
                     }
                 } else {
-                    unreachable!()
+                    // close read end
+                    let _ = req.stream_sender.try_send(None);
+                    connect_task.into_running(stream_r.into_inner(), stream_w);
+                    LoopAction::Break
                 }
             }
             HttpProxySubProtocol::UdpConnect => {
-                todo!()
+                let (Some(mut stream_w), Some(stream_r)) =
+                    (self.stream_writer.take(), req.body_reader.take())
+                else {
+                    unreachable!()
+                };
+
+                let mut masque_udp_task =
+                    HttpProxyMasqueUdpTask::new(self.ctx.clone(), &req, task_notes);
+                masque_udp_task.connect_to_upstream(&mut stream_w).await;
+                if masque_udp_task.back_to_http() {
+                    // reopen write end
+                    self.stream_writer = Some(stream_w);
+                    // reopen read end
+                    if req.stream_sender.try_send(Some(stream_r)).is_err() {
+                        // read end has closed, impossible as reader should be waiting this channel
+                        LoopAction::Break
+                    } else {
+                        LoopAction::Continue
+                    }
+                } else {
+                    // close read end
+                    let _ = req.stream_sender.try_send(None);
+                    masque_udp_task.into_running(stream_r.into_inner(), stream_w);
+                    LoopAction::Break
+                }
             }
             HttpProxySubProtocol::HttpForward | HttpProxySubProtocol::HttpsForward => {
                 if let Some(mut stream_w) = self.stream_writer.take() {

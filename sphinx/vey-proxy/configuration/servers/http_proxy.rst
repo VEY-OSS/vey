@@ -21,6 +21,9 @@ The following common keys are supported:
 * :ref:`dst_port_filter <conf_server_common_dst_port_filter>`
 * :ref:`tcp_copy_buffer_size <conf_server_common_tcp_copy_buffer_size>`
 * :ref:`tcp_copy_yield_size <conf_server_common_tcp_copy_yield_size>`
+* :ref:`udp_relay_packet_size <conf_server_common_udp_relay_packet_size>`
+* :ref:`udp_relay_yield_count <conf_server_common_udp_relay_yield_count>`
+* :ref:`udp_relay_batch_count <conf_server_common_udp_relay_batch_count>`
 * :ref:`tcp_misc_opts <conf_server_common_tcp_misc_opts>`
 * :ref:`task_idle_check_interval <conf_server_common_task_idle_check_interval>`
 * :ref:`task_idle_max_count <conf_server_common_task_idle_max_count>`

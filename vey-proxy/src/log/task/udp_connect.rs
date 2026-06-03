@@ -17,8 +17,8 @@ use crate::serve::{ServerTaskError, ServerTaskNotes};
 pub(crate) struct TaskLogForUdpConnect<'a> {
     pub(crate) logger: &'a Logger,
     pub(crate) task_notes: &'a ServerTaskNotes,
-    pub(crate) tcp_server_addr: SocketAddr,
-    pub(crate) tcp_client_addr: SocketAddr,
+    pub(crate) tcp_server_addr: Option<SocketAddr>,
+    pub(crate) tcp_client_addr: Option<SocketAddr>,
     pub(crate) udp_listen_addr: Option<SocketAddr>,
     pub(crate) udp_client_addr: Option<SocketAddr>,
     pub(crate) upstream: Option<&'a UpstreamAddr>,

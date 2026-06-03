@@ -193,7 +193,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         );
 
         self.ctx
-            .set_custom_header_for_local_reply(&self.tcp_notes, &mut rsp);
+            .set_custom_header_for_tcp_local_reply(&self.tcp_notes, &mut rsp);
 
         if rsp.should_close() {
             self.should_close = true;
@@ -219,7 +219,7 @@ impl<'a> HttpProxyForwardTask<'a> {
 
         if let Some(mut rsp) = rsp {
             self.ctx
-                .set_custom_header_for_local_reply(&self.tcp_notes, &mut rsp);
+                .set_custom_header_for_tcp_local_reply(&self.tcp_notes, &mut rsp);
 
             if rsp.should_close() {
                 self.should_close = true;

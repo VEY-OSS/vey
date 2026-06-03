@@ -46,6 +46,19 @@ pub fn as_u32(v: &Yaml) -> anyhow::Result<u32> {
     }
 }
 
+pub fn as_u16(v: &Yaml) -> anyhow::Result<u16> {
+    match v {
+        Yaml::String(value) => {
+            let v = value.parse::<Bytes<u16>>()?;
+            Ok(v.size())
+        }
+        Yaml::Integer(value) => Ok(u16::try_from(*value)?),
+        _ => Err(anyhow!(
+            "yaml value type for humanize u16 should be 'string' or 'integer'"
+        )),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,5 +133,26 @@ mod tests {
 
         let v = Yaml::Null;
         assert!(as_u32(&v).is_err());
+    }
+
+    #[test]
+    fn as_u16_ok() {
+        let v = yaml_str!("4000");
+        assert_eq!(as_u16(&v).unwrap(), 4000);
+
+        let v = Yaml::Integer(4096);
+        assert_eq!(as_u16(&v).unwrap(), 4096);
+    }
+
+    #[test]
+    fn as_u16_err() {
+        let v = Yaml::Integer(-4096);
+        assert!(as_u16(&v).is_err());
+
+        let v = Yaml::Real("4.04".to_string());
+        assert!(as_u16(&v).is_err());
+
+        let v = Yaml::Null;
+        assert!(as_u16(&v).is_err());
     }
 }

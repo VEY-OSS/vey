@@ -1,53 +1,56 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::borrow::Cow;
 use std::sync::Arc;
-use std::time::Duration;
 
 use http::Version;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use vey_daemon::server::ServerQuitPolicy;
-use vey_daemon::stat::task::TcpStreamTaskStats;
-use vey_io_ext::{IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
+use vey_daemon::stat::task::UdpConnectTaskStats;
+use vey_io_ext::{
+    LimitedReader, LimitedUdpCopyClientRecv, LimitedUdpCopyClientSend, LimitedWriter,
+    UdpCopyClientRecv, UdpCopyClientSend, UdpCopyClientToRemote, UdpCopyError, UdpCopyRemoteRecv,
+    UdpCopyRemoteSend, UdpCopyRemoteToClient,
+};
 use vey_types::acl::AclAction;
 use vey_types::net::{ProxyRequestType, UpstreamAddr};
 
 use super::protocol::{HttpClientWriter, HttpProxyRequest};
-use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
-use crate::audit::AuditContext;
-use crate::auth::User;
-use crate::config::server::ServerConfig;
-use crate::inspect::{StreamInspectContext, StreamTransitTask};
-use crate::log::task::tcp_connect::TaskLogForTcpConnect;
-use crate::module::http_forward::HttpProxyClientResponse;
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TcpConnection,
+use super::{
+    CommonTaskContext, MasqueUdpRecv, MasqueUdpSend, MasqueUdpTaskCltWrapperStats,
+    MasqueUdpTaskServerCltWrapperStats,
 };
-use crate::serve::http_proxy::HttpConnectTaskAliveGuard;
+use crate::config::server::ServerConfig;
+use crate::log::escape::udp_sendto::EscapeLogForUdpConnectSendTo;
+use crate::log::task::udp_connect::TaskLogForUdpConnect;
+use crate::module::http_forward::HttpProxyClientResponse;
+use crate::module::udp_connect::{
+    UdpConnectError, UdpConnectTaskConf, UdpConnectTaskNotes, UdpConnection,
+};
+use crate::serve::http_proxy::MasqueUdpTaskAliveGuard;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
 
-pub(crate) struct HttpProxyConnectTask {
+pub(crate) struct HttpProxyMasqueUdpTask {
     ctx: Arc<CommonTaskContext>,
     upstream: UpstreamAddr,
-    ups_c: Option<TcpConnection>,
+    ups_c: Option<UdpConnection>,
     back_to_http: bool,
     task_notes: ServerTaskNotes,
-    tcp_notes: TcpConnectTaskNotes,
-    task_stats: Arc<TcpStreamTaskStats>,
-    audit_ctx: AuditContext,
+    udp_notes: UdpConnectTaskNotes,
+    task_stats: Arc<UdpConnectTaskStats>,
     http_version: Version,
+    max_idle_count: usize,
     started: bool,
-    _alive_guard: Option<HttpConnectTaskAliveGuard>,
+    _alive_guard: Option<MasqueUdpTaskAliveGuard>,
 }
 
-impl Drop for HttpProxyConnectTask {
+impl Drop for HttpProxyMasqueUdpTask {
     fn drop(&mut self) {
         if self.started {
             self.post_stop();
@@ -56,23 +59,26 @@ impl Drop for HttpProxyConnectTask {
     }
 }
 
-impl HttpProxyConnectTask {
+impl HttpProxyMasqueUdpTask {
     pub(crate) fn new(
         ctx: Arc<CommonTaskContext>,
-        audit_ctx: AuditContext,
         req: &HttpProxyRequest<impl AsyncRead>,
         task_notes: ServerTaskNotes,
     ) -> Self {
-        HttpProxyConnectTask {
+        let max_idle_count = task_notes
+            .user_ctx()
+            .and_then(|c| c.user().task_max_idle_count())
+            .unwrap_or(ctx.server_config.task_idle_max_count);
+        HttpProxyMasqueUdpTask {
             ctx,
             upstream: req.upstream.clone(),
             ups_c: None,
             back_to_http: false,
             task_notes,
-            tcp_notes: TcpConnectTaskNotes::default(),
-            task_stats: Arc::new(TcpStreamTaskStats::default()),
-            audit_ctx,
+            udp_notes: UdpConnectTaskNotes::default(),
+            task_stats: Arc::new(UdpConnectTaskStats::default()),
             http_version: req.inner.version,
+            max_idle_count,
             started: false,
             _alive_guard: None,
         }
@@ -108,26 +114,30 @@ impl HttpProxyConnectTask {
         self.back_to_http = false;
     }
 
-    async fn reply_ok<W>(&self, clt_w: &mut W) -> ServerTaskResult<()>
+    async fn reply_upgraded<W>(&self, clt_w: &mut W) -> ServerTaskResult<()>
     where
         W: AsyncWrite + Unpin,
     {
-        let mut rsp =
-            HttpProxyClientResponse::from_standard(http::StatusCode::OK, self.http_version, false);
+        let mut rsp = HttpProxyClientResponse::from_standard(
+            http::StatusCode::SWITCHING_PROTOCOLS,
+            self.http_version,
+            false,
+        );
         self.ctx
-            .set_custom_header_for_tcp_local_reply(&self.tcp_notes, &mut rsp);
+            .set_custom_header_for_udp_local_reply(&self.udp_notes, &mut rsp);
+        // TODO set Capsule Protocol header
         rsp.reply_ok_to_connect(clt_w)
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)
     }
 
-    async fn reply_connect_err<W>(&mut self, e: &TcpConnectError, clt_w: &mut W)
+    async fn reply_connect_err<W>(&mut self, e: &UdpConnectError, clt_w: &mut W)
     where
         W: AsyncWrite + Unpin,
     {
         // If the next-hop was derived from username params and DNS failed,
         // treat it as a bad request (400) instead of origin DNS error.
-        if self.tcp_notes.override_peer.is_some() && matches!(e, TcpConnectError::ResolveFailed(_))
+        if self.udp_notes.override_peer.is_some() && matches!(e, UdpConnectError::ResolveFailed(_))
         {
             let mut rsp = HttpProxyClientResponse::bad_request(self.http_version);
             rsp.set_error_message("Proxy targeting didn't find a match");
@@ -137,9 +147,9 @@ impl HttpProxyConnectTask {
             return;
         }
 
-        let mut rsp = HttpProxyClientResponse::from_tcp_connect_error(e, self.http_version, false);
+        let mut rsp = HttpProxyClientResponse::from_udp_connect_error(e, self.http_version, false);
         self.ctx
-            .set_custom_header_for_tcp_local_reply(&self.tcp_notes, &mut rsp);
+            .set_custom_header_for_udp_local_reply(&self.udp_notes, &mut rsp);
         let should_close = rsp.should_close();
         self.back_to_http = !should_close;
 
@@ -152,6 +162,8 @@ impl HttpProxyConnectTask {
     where
         W: AsyncWrite + Unpin,
     {
+        // TODO check capsule protocol header
+
         self.pre_start();
         match self.do_connect(clt_w).await {
             Ok(()) => {
@@ -286,7 +298,7 @@ impl HttpProxyConnectTask {
                 }
             }
 
-            let action = user_ctx.check_proxy_request(ProxyRequestType::HttpConnect);
+            let action = user_ctx.check_proxy_request(ProxyRequestType::HttpMasqueUdp);
             self.handle_user_protocol_acl_action(action, clt_w).await?;
 
             let action = user_ctx.check_upstream(&self.upstream);
@@ -319,24 +331,24 @@ impl HttpProxyConnectTask {
 
         self.task_notes.stage = ServerTaskStage::Connecting;
 
-        let task_conf = TcpConnectTaskConf {
+        let task_conf = UdpConnectTaskConf {
             upstream: &self.upstream,
+            sock_buf: Default::default(), // TODO
         };
         match self
             .ctx
             .escaper
-            .tcp_setup_connection(
+            .udp_setup_connection(
                 &task_conf,
-                &mut self.tcp_notes,
+                &mut self.udp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
-                &mut self.audit_ctx,
             )
             .await
         {
-            Ok(connection) => {
+            Ok(c) => {
                 self.task_notes.stage = ServerTaskStage::Connected;
-                self.ups_c = Some(connection);
+                self.ups_c = Some(c);
                 Ok(())
             }
             Err(e) => {
@@ -351,12 +363,12 @@ impl HttpProxyConnectTask {
     }
 
     fn pre_start(&mut self) {
-        self._alive_guard = Some(self.ctx.server_stats.add_http_connect_task());
+        self._alive_guard = Some(self.ctx.server_stats.add_masque_udp_task());
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| {
-                s.req_total.add_http_connect();
-                s.req_alive.add_http_connect();
+                s.req_total.add_http_masque_udp();
+                s.req_alive.add_http_masque_udp();
             });
         }
 
@@ -372,7 +384,7 @@ impl HttpProxyConnectTask {
     fn post_stop(&mut self) {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| {
-                s.req_alive.del_http_connect();
+                s.req_alive.del_http_masque_udp();
             });
 
             if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
@@ -381,19 +393,27 @@ impl HttpProxyConnectTask {
         }
     }
 
-    fn get_log_context(&self) -> Option<TaskLogForTcpConnect<'_>> {
+    fn get_log_context(&self) -> Option<TaskLogForUdpConnect<'_>> {
         self.ctx
             .task_logger
             .as_ref()
-            .map(|logger| TaskLogForTcpConnect {
+            .map(|logger| TaskLogForUdpConnect {
                 logger,
-                upstream: &self.upstream,
                 task_notes: &self.task_notes,
-                tcp_notes: &self.tcp_notes,
-                client_rd_bytes: self.task_stats.clt.read.get_bytes(),
-                client_wr_bytes: self.task_stats.clt.write.get_bytes(),
-                remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
-                remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
+                tcp_server_addr: Some(self.ctx.server_addr()),
+                tcp_client_addr: Some(self.ctx.client_addr()),
+                udp_listen_addr: None,
+                udp_client_addr: None,
+                upstream: Some(&self.upstream),
+                udp_notes: &self.udp_notes,
+                client_rd_bytes: self.task_stats.clt.recv.get_bytes(),
+                client_rd_packets: self.task_stats.clt.recv.get_packets(),
+                client_wr_bytes: self.task_stats.clt.send.get_bytes(),
+                client_wr_packets: self.task_stats.clt.send.get_packets(),
+                remote_rd_bytes: self.task_stats.ups.recv.get_bytes(),
+                remote_rd_packets: self.task_stats.ups.recv.get_packets(),
+                remote_wr_bytes: self.task_stats.ups.send.get_bytes(),
+                remote_wr_packets: self.task_stats.ups.send.get_packets(),
             })
     }
 
@@ -427,8 +447,8 @@ impl HttpProxyConnectTask {
     where
         CDR: AsyncRead + Send + Sync + Unpin + 'static,
         CDW: AsyncWrite + Send + Sync + Unpin + 'static,
-        UR: AsyncRead + Send + Sync + Unpin + 'static,
-        UW: AsyncWrite + Send + Sync + Unpin + 'static,
+        UR: UdpCopyRemoteRecv + Send + Sync + Unpin + 'static,
+        UW: UdpCopyRemoteSend + Send + Sync + Unpin + 'static,
     {
         if self.ctx.server_config.flush_task_log_on_connected
             && let Some(log_ctx) = self.get_log_context()
@@ -437,7 +457,7 @@ impl HttpProxyConnectTask {
         }
 
         self.task_notes.stage = ServerTaskStage::Replying;
-        self.reply_ok(&mut clt_w).await?;
+        self.reply_upgraded(&mut clt_w).await?;
 
         self.task_notes.mark_relaying();
         if let Some(user_ctx) = self.task_notes.user_ctx() {
@@ -459,144 +479,159 @@ impl HttpProxyConnectTask {
     where
         CDR: AsyncRead + Send + Sync + Unpin + 'static,
         CDW: AsyncWrite + Send + Sync + Unpin + 'static,
-        UR: AsyncRead + Send + Sync + Unpin + 'static,
-        UW: AsyncWrite + Send + Sync + Unpin + 'static,
+        UR: UdpCopyRemoteRecv + Send + Sync + Unpin + 'static,
+        UW: UdpCopyRemoteSend + Send + Sync + Unpin + 'static,
     {
-        let (clt_r, clt_w) = self.update_clt(clt_r, clt_w);
+        let tcp_wrapper_stats = Arc::new(MasqueUdpTaskServerCltWrapperStats::new(
+            self.ctx.server_stats.clone(),
+        ));
+        let clt_r = LimitedReader::local_limited(
+            clt_r,
+            self.ctx.server_config.tcp_sock_speed_limit.shift_millis,
+            self.ctx.server_config.tcp_sock_speed_limit.max_north,
+            tcp_wrapper_stats.clone(),
+        );
+        let clt_w = LimitedWriter::local_limited(
+            clt_w,
+            self.ctx.server_config.tcp_sock_speed_limit.shift_millis,
+            self.ctx.server_config.tcp_sock_speed_limit.max_south,
+            tcp_wrapper_stats,
+        );
 
-        if let Some(audit_handle) = self.audit_ctx.handle() {
-            let audit_task = self
-                .task_notes
-                .user_ctx()
-                .map(|ctx| {
-                    let user_config = &ctx.user_config().audit;
-                    user_config.enable_protocol_inspection
-                        && user_config
-                            .do_task_audit()
-                            .unwrap_or_else(|| audit_handle.do_task_audit())
-                })
-                .unwrap_or_else(|| audit_handle.do_task_audit());
+        let max_packet_size = self.ctx.server_config.udp_relay.packet_size();
+        let clt_r = MasqueUdpRecv::new(
+            clt_r,
+            self.ctx.server_config.tcp_copy.buffer_size(),
+            max_packet_size,
+        );
+        let clt_w = MasqueUdpSend::new(clt_w, max_packet_size);
 
-            if audit_task {
-                let ctx = StreamInspectContext::new(
-                    audit_handle.clone(),
-                    self.ctx.server_config.clone(),
-                    self.ctx.server_stats.clone(),
-                    self.ctx.server_quit_policy.clone(),
-                    self.ctx.idle_wheel.clone(),
-                    &self.task_notes,
-                    &self.tcp_notes,
-                );
-                return crate::inspect::stream::transit_with_inspection(
-                    clt_r,
-                    clt_w,
-                    ups_r,
-                    ups_w,
-                    ctx,
-                    self.upstream.clone(),
-                    None,
-                )
-                .await;
-            }
-        }
-
-        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
-    }
-
-    fn update_clt<CDR, CDW>(
-        &self,
-        clt_r: CDR,
-        clt_w: CDW,
-    ) -> (LimitedReader<CDR>, LimitedWriter<CDW>)
-    where
-        CDR: AsyncRead + Unpin,
-        CDW: AsyncWrite + Unpin,
-    {
-        let mut wrapper_stats =
-            TcpConnectTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
-
-        let limit_config = if let Some(user_ctx) = self.task_notes.user_ctx() {
-            wrapper_stats.push_user_io_stats(user_ctx.fetch_traffic_stats(
+        let mut udp_wrapper_stats = MasqueUdpTaskCltWrapperStats::new(&self.task_stats);
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            let user_io_stats = user_ctx.fetch_traffic_stats(
                 self.ctx.server_config.name(),
                 self.ctx.server_stats.share_extra_tags(),
-            ));
+            );
 
-            user_ctx
-                .user_config()
-                .tcp_sock_speed_limit
-                .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit)
-        } else {
-            self.ctx.server_config.tcp_sock_speed_limit
-        };
+            udp_wrapper_stats.push_user_io_stats(user_io_stats);
 
-        let wrapper_stats = Arc::new(wrapper_stats);
-        let mut clt_r = LimitedReader::local_limited(
-            clt_r,
-            limit_config.shift_millis,
-            limit_config.max_north,
-            wrapper_stats.clone(),
-        );
-        let mut clt_w = LimitedWriter::local_limited(
-            clt_w,
-            limit_config.shift_millis,
-            limit_config.max_south,
-            wrapper_stats,
-        );
+            let wrapper_stats = Arc::new(udp_wrapper_stats);
+            let mut clt_r = LimitedUdpCopyClientRecv::unlimited(clt_r, wrapper_stats.clone());
+            let mut clt_w = LimitedUdpCopyClientSend::unlimited(clt_w, wrapper_stats);
 
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user = user_ctx.user();
-            if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+            if let Some(limiter) = user.udp_all_upload_speed_limit() {
                 clt_r.add_global_limiter(limiter.clone());
             }
-            if let Some(limiter) = user.tcp_all_download_speed_limit() {
+            if let Some(limiter) = user.udp_all_download_speed_limit() {
                 clt_w.add_global_limiter(limiter.clone());
             }
-        }
-
-        (clt_r, clt_w)
-    }
-}
-
-impl StreamTransitTask for HttpProxyConnectTask {
-    fn copy_config(&self) -> StreamCopyConfig {
-        self.ctx.server_config.tcp_copy
-    }
-
-    fn idle_check_interval(&self) -> IdleInterval {
-        self.ctx.idle_wheel.register()
-    }
-
-    fn max_idle_count(&self) -> usize {
-        self.ctx.server_config.task_idle_max_count
-    }
-
-    fn log_client_shutdown(&self) {
-        if let Some(log_ctx) = self.get_log_context() {
-            log_ctx.log_client_shutdown();
+            self.run_relay(clt_r, clt_w, ups_r, ups_w).await
+        } else {
+            let wrapper_stats = Arc::new(udp_wrapper_stats);
+            let clt_r = LimitedUdpCopyClientRecv::unlimited(clt_r, wrapper_stats.clone());
+            let clt_w = LimitedUdpCopyClientSend::unlimited(clt_w, wrapper_stats);
+            self.run_relay(clt_r, clt_w, ups_r, ups_w).await
         }
     }
 
-    fn log_upstream_shutdown(&self) {
-        if let Some(log_ctx) = self.get_log_context() {
-            log_ctx.log_upstream_shutdown();
+    async fn run_relay<CR, CW, UR, UW>(
+        &mut self,
+        mut clt_r: CR,
+        mut clt_w: CW,
+        mut ups_r: UR,
+        mut ups_w: UW,
+    ) -> ServerTaskResult<()>
+    where
+        CR: UdpCopyClientRecv + Send + Sync + Unpin + 'static,
+        CW: UdpCopyClientSend + Send + Sync + Unpin + 'static,
+        UR: UdpCopyRemoteRecv + Send + Sync + Unpin + 'static,
+        UW: UdpCopyRemoteSend + Send + Sync + Unpin + 'static,
+    {
+        let task_id = &self.task_notes.id;
+
+        let mut c_to_r =
+            UdpCopyClientToRemote::new(&mut clt_r, &mut ups_w, self.ctx.server_config.udp_relay);
+        let mut r_to_c =
+            UdpCopyRemoteToClient::new(&mut clt_w, &mut ups_r, self.ctx.server_config.udp_relay);
+
+        let mut idle_interval = self.ctx.idle_wheel.register();
+        let mut log_interval = self.ctx.get_log_interval();
+        let mut idle_count = 0;
+        loop {
+            tokio::select! {
+                biased;
+
+                r = &mut c_to_r => {
+                    return match r {
+                        Ok(_) => Ok(()),
+                        Err(UdpCopyError::RemoteError(e)) => {
+                            if let Some(logger) = ups_w.error_logger() {
+                                EscapeLogForUdpConnectSendTo {
+                                    task_id,
+                                    upstream: Some(&self.upstream),
+                                    udp_notes: &self.udp_notes,
+                                }
+                                .log(logger, &e);
+                            }
+                            Err(e.into())
+                        },
+                        Err(UdpCopyError::ClientError(e)) => Err(e.into()),
+                    };
+                }
+                r = &mut r_to_c => {
+                    return match r {
+                        Ok(_) => Ok(()),
+                        Err(UdpCopyError::RemoteError(e)) => {
+                            if let Some(logger) = ups_r.error_logger() {
+                                EscapeLogForUdpConnectSendTo {
+                                    task_id,
+                                    upstream: Some(&self.upstream),
+                                    udp_notes: &self.udp_notes,
+                                }
+                                .log(logger, &e);
+                            }
+                            Err(e.into())
+                        },
+                        Err(UdpCopyError::ClientError(e)) => Err(e.into()),
+                    };
+                }
+                _ = log_interval.tick() => {
+                    if let Some(log_ctx) = self.get_log_context() {
+                        log_ctx.log_periodic();
+                    }
+                }
+                n = idle_interval.tick() => {
+                    if c_to_r.is_idle() && r_to_c.is_idle() {
+                        idle_count += n;
+
+                        if let Some(user_ctx) = self.task_notes.user_ctx() {
+                            let user = user_ctx.user();
+                            if user.is_blocked() {
+                                return Err(ServerTaskError::CanceledAsUserBlocked);
+                            }
+                        }
+
+                        if idle_count >= self.max_idle_count {
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
+                        }
+                    } else {
+                        idle_count = 0;
+
+                        c_to_r.reset_active();
+                        r_to_c.reset_active();
+                    }
+
+                    if let Some(user_ctx) = self.task_notes.user_ctx()
+                        && user_ctx.user().is_blocked() {
+                            return Err(ServerTaskError::CanceledAsUserBlocked);
+                        }
+
+                    if self.ctx.server_quit_policy.force_quit() {
+                        return Err(ServerTaskError::CanceledAsServerQuit)
+                    }
+                }
+            }
         }
-    }
-
-    fn log_periodic(&self) {
-        if let Some(log_ctx) = self.get_log_context() {
-            log_ctx.log_periodic();
-        }
-    }
-
-    fn log_flush_interval(&self) -> Option<Duration> {
-        self.ctx.log_flush_interval()
-    }
-
-    fn quit_policy(&self) -> &ServerQuitPolicy {
-        self.ctx.server_quit_policy.as_ref()
-    }
-
-    fn user(&self) -> Option<&User> {
-        self.task_notes.user_ctx().map(|ctx| ctx.user().as_ref())
     }
 }

@@ -171,7 +171,7 @@ impl<'a> FtpOverHttpTask<'a> {
 
     fn enable_custom_header_for_local_reply(&self, rsp: &mut HttpProxyClientResponse) {
         self.ctx
-            .set_custom_header_for_local_reply(&self.ftp_notes.control_tcp_notes, rsp);
+            .set_custom_header_for_tcp_local_reply(&self.ftp_notes.control_tcp_notes, rsp);
     }
 
     async fn reply_too_many_requests<W>(&mut self, clt_w: &mut W)

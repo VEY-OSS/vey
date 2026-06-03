@@ -4,7 +4,7 @@
  */
 
 mod var_int;
-pub use var_int::VarInt;
+pub use var_int::{VarInt, VarIntEncoder};
 
 mod frame;
 pub use frame::{AckFrame, AckRange, CryptoFrame, EcnCounts, FrameConsume, FrameParseError};

@@ -14,10 +14,8 @@ pub(crate) use error::UdpConnectError;
 pub(crate) use stats::UdpConnectRemoteWrapperStats;
 pub(crate) use task::{UdpConnectTaskConf, UdpConnectTaskNotes};
 
-pub(crate) type UdpConnectResult = Result<
-    (
-        Box<dyn UdpCopyRemoteRecv + Unpin + Send + Sync>,
-        Box<dyn UdpCopyRemoteSend + Unpin + Send + Sync>,
-    ),
-    UdpConnectError,
->;
+pub(crate) type UdpConnection = (
+    Box<dyn UdpCopyRemoteRecv + Unpin + Send + Sync>,
+    Box<dyn UdpCopyRemoteSend + Unpin + Send + Sync>,
+);
+pub(crate) type UdpConnectResult = Result<UdpConnection, UdpConnectError>;

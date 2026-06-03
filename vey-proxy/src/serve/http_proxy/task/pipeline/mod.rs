@@ -5,7 +5,7 @@
 
 use super::{
     CommonTaskContext, FtpOverHttpTask, HttpProxyConnectTask, HttpProxyForwardTask,
-    HttpProxyServerStats, HttpProxyUntrustedTask, protocol,
+    HttpProxyMasqueUdpTask, HttpProxyServerStats, HttpProxyUntrustedTask, protocol,
 };
 
 mod reader;

@@ -25,10 +25,11 @@ pub use relay::{UdpRelayClientToRemote, UdpRelayError, UdpRelayRemoteToClient};
 
 mod stream_copy;
 pub use stream_copy::{
-    AsUdpPayload, UdpCopyClientError, UdpCopyClientRecv, UdpCopyClientSend, UdpCopyPacket,
+    AsUdpPayload, LimitedUdpCopyClientRecv, LimitedUdpCopyClientSend, UdpCopyClientError,
+    UdpCopyClientRecv, UdpCopyClientSend, UdpCopyClientToRemote, UdpCopyError, UdpCopyPacket,
     UdpCopyPacketMeta, UdpCopyRemoteError, UdpCopyRemoteRecv, UdpCopyRemoteSend,
+    UdpCopyRemoteToClient,
 };
-pub use stream_copy::{UdpCopyClientToRemote, UdpCopyError, UdpCopyRemoteToClient};
 
 mod stream_move;
 pub use stream_move::{
@@ -42,16 +43,16 @@ pub use split::{
     split as split_udp,
 };
 
-const DEFAULT_UDP_PACKET_SIZE: usize = 4096; // at least for DNS with extension
+const DEFAULT_UDP_PACKET_SIZE: u16 = 4096; // at least for DNS with extension
 const DEFAULT_UDP_RELAY_YIELD_COUNT: usize = 1024;
 const DEFAULT_UDP_BATCH_COUNT: usize = 8;
-const MINIMUM_UDP_PACKET_SIZE: usize = 512;
-const MAXIMUM_UDP_PACKET_SIZE: usize = 64 * 1024;
+const MINIMUM_UDP_PACKET_SIZE: u16 = 512;
+const MAXIMUM_UDP_PACKET_SIZE: u16 = 16 * 1024;
 const MINIMUM_UDP_RELAY_YIELD_COUNT: usize = 256;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct LimitedUdpRelayConfig {
-    packet_size: usize,
+    packet_size: u16,
     yield_count: usize,
     batch_count: usize,
 }
@@ -67,12 +68,12 @@ impl Default for LimitedUdpRelayConfig {
 }
 
 impl LimitedUdpRelayConfig {
-    pub fn set_packet_size(&mut self, packet_size: usize) {
-        self.packet_size = packet_size.clamp(MINIMUM_UDP_PACKET_SIZE, MAXIMUM_UDP_PACKET_SIZE)
+    pub fn set_packet_size(&mut self, packet_size: u16) {
+        self.packet_size = packet_size.clamp(MINIMUM_UDP_PACKET_SIZE, MAXIMUM_UDP_PACKET_SIZE);
     }
 
     #[inline]
-    pub fn packet_size(&self) -> usize {
+    pub fn packet_size(&self) -> u16 {
         self.packet_size
     }
 

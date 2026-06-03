@@ -20,7 +20,7 @@ use crate::{
 pub trait UdpMoveRecv {
     type RecvError;
 
-    fn packet_max_size(&self) -> usize;
+    fn packet_max_size(&self) -> u16;
 
     fn poll_recv_packet(&mut self, cx: &mut Context<'_>) -> Poll<Result<Bytes, Self::RecvError>>;
 
@@ -42,13 +42,13 @@ pub trait UdpMoveRecv {
 }
 
 pub struct UdpMoveRemoteReceiver<T> {
-    packet_max_size: usize,
+    packet_max_size: u16,
     packets: Vec<UdpCopyPacket>,
     inner: T,
 }
 
 impl<T> UdpMoveRemoteReceiver<T> {
-    pub fn new(inner: T, packet_max_size: usize) -> Self {
+    pub fn new(inner: T, packet_max_size: u16) -> Self {
         UdpMoveRemoteReceiver {
             packet_max_size,
             packets: Vec::new(),
@@ -65,7 +65,7 @@ impl<T> UdpMoveRemoteReceiver<T> {
 impl<T: UdpCopyRemoteRecv> UdpMoveRecv for UdpMoveRemoteReceiver<T> {
     type RecvError = UdpCopyRemoteError;
 
-    fn packet_max_size(&self) -> usize {
+    fn packet_max_size(&self) -> u16 {
         self.packet_max_size
     }
 
@@ -160,7 +160,7 @@ impl<T: UdpMoveRecv> LimitedUdpMoveRecv<T> {
 impl<T: UdpMoveRecv> UdpMoveRecv for LimitedUdpMoveRecv<T> {
     type RecvError = T::RecvError;
 
-    fn packet_max_size(&self) -> usize {
+    fn packet_max_size(&self) -> u16 {
         self.inner.packet_max_size()
     }
 
@@ -169,7 +169,7 @@ impl<T: UdpMoveRecv> UdpMoveRecv for LimitedUdpMoveRecv<T> {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self
                 .limit
-                .check_packet(dur_millis, self.inner.packet_max_size())
+                .check_packet(dur_millis, self.inner.packet_max_size() as usize)
             {
                 DatagramLimitAction::Advance(_) => match self.inner.poll_recv_packet(cx) {
                     Poll::Ready(Ok(packet)) => {
@@ -241,7 +241,7 @@ impl<T: UdpMoveRecv> UdpMoveRecv for LimitedUdpMoveRecv<T> {
             let mut total_size_v = SmallVec::<[usize; 32]>::with_capacity(max_count);
             let mut total_size = 0usize;
             for _ in 0..max_count {
-                total_size += self.packet_max_size();
+                total_size += self.packet_max_size() as usize;
                 total_size_v.push(total_size);
             }
             match self.limit.check_packets(dur_millis, total_size_v.as_ref()) {

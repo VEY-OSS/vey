@@ -155,8 +155,8 @@ impl UdpTProxyServerConfig {
                 Ok(())
             }
             "udp_relay_packet_size" => {
-                let packet_size = vey_yaml::humanize::as_usize(v)
-                    .context(format!("invalid humanize usize value for key {k}"))?;
+                let packet_size = vey_yaml::humanize::as_u16(v)
+                    .context(format!("invalid humanize u16 value for key {k}"))?;
                 self.udp_relay.set_packet_size(packet_size);
                 Ok(())
             }

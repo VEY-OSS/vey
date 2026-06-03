@@ -9,7 +9,10 @@ use std::io::IoSliceMut;
 use bytes::{Bytes, BytesMut};
 
 mod client;
-pub use client::{UdpCopyClientError, UdpCopyClientRecv, UdpCopyClientSend};
+pub use client::{
+    LimitedUdpCopyClientRecv, LimitedUdpCopyClientSend, UdpCopyClientError, UdpCopyClientRecv,
+    UdpCopyClientSend,
+};
 
 mod remote;
 pub use remote::{UdpCopyRemoteError, UdpCopyRemoteRecv, UdpCopyRemoteSend};
@@ -29,8 +32,8 @@ pub struct UdpCopyPacket {
 }
 
 impl UdpCopyPacket {
-    pub(crate) fn new(reserved_size: usize, packet_size: usize) -> Self {
-        let buf_size = packet_size + reserved_size;
+    pub(crate) fn new(reserved_size: usize, packet_size: u16) -> Self {
+        let buf_size = packet_size as usize + reserved_size;
         UdpCopyPacket {
             buf: BytesMut::zeroed(buf_size),
             buf_data_off: 0,
@@ -48,19 +51,27 @@ impl UdpCopyPacket {
         self.buf.as_ref()
     }
 
+    pub fn buf_len(&self) -> usize {
+        self.buf.len()
+    }
+
     #[inline]
-    fn set_offset(&mut self, off: usize) {
+    pub fn set_offset(&mut self, off: usize) {
         self.buf_data_off = off;
     }
 
     #[inline]
-    fn set_length(&mut self, len: usize) {
+    pub fn set_length(&mut self, len: usize) {
         self.buf_data_end = len;
     }
 
     #[inline]
     pub fn payload(&self) -> &[u8] {
         &self.buf[self.buf_data_off..self.buf_data_end]
+    }
+
+    pub fn payload_len(&self) -> usize {
+        self.buf_data_end - self.buf_data_off
     }
 
     #[inline]

@@ -31,10 +31,12 @@ pub(crate) struct HttpProxyServerStats {
     task_http_untrusted: ServerPerTaskStats,
     task_http_connect: ServerPerTaskStats,
     task_http_forward: ServerPerTaskStats,
+    task_masque_udp: ServerPerTaskStats,
     task_ftp_over_http: ServerPerTaskStats,
 
     pub io_http: TcpIoStats,
     pub io_connect: TcpIoStats,
+    pub io_masque_udp: TcpIoStats,
     pub io_untrusted: TcpIoStats,
 }
 
@@ -50,9 +52,11 @@ impl HttpProxyServerStats {
             task_http_untrusted: Default::default(),
             task_http_connect: Default::default(),
             task_http_forward: Default::default(),
+            task_masque_udp: Default::default(),
             task_ftp_over_http: Default::default(),
             io_http: Default::default(),
             io_connect: Default::default(),
+            io_masque_udp: Default::default(),
             io_untrusted: Default::default(),
         }
     }
@@ -85,6 +89,12 @@ impl HttpProxyServerStats {
         HttpConnectTaskAliveGuard(self.clone())
     }
 
+    pub(super) fn add_masque_udp_task(self: &Arc<Self>) -> MasqueUdpTaskAliveGuard {
+        self.task_masque_udp.add_task();
+        self.task_masque_udp.inc_alive_task();
+        MasqueUdpTaskAliveGuard(self.clone())
+    }
+
     pub(super) fn add_ftp_over_http_task(self: &Arc<Self>) -> FtpOverHttpTaskAliveGuard {
         self.task_ftp_over_http.add_task();
         self.task_ftp_over_http.inc_alive_task();
@@ -111,6 +121,14 @@ pub(super) struct HttpConnectTaskAliveGuard(Arc<HttpProxyServerStats>);
 impl Drop for HttpConnectTaskAliveGuard {
     fn drop(&mut self) {
         self.0.task_http_connect.dec_alive_task();
+    }
+}
+
+pub(super) struct MasqueUdpTaskAliveGuard(Arc<HttpProxyServerStats>);
+
+impl Drop for MasqueUdpTaskAliveGuard {
+    fn drop(&mut self) {
+        self.0.task_masque_udp.dec_alive_task();
     }
 }
 
@@ -163,6 +181,7 @@ impl ServerStats for HttpProxyServerStats {
         // untrusted stats is not counted in
         self.task_http_connect.get_task_total()
             + self.task_http_forward.get_task_total()
+            + self.task_masque_udp.get_task_total()
             + self.task_ftp_over_http.get_task_total()
     }
 
@@ -170,13 +189,14 @@ impl ServerStats for HttpProxyServerStats {
         // untrusted stats is not counted in
         self.task_http_connect.get_alive_count()
             + self.task_http_forward.get_alive_count()
+            + self.task_masque_udp.get_alive_count()
             + self.task_ftp_over_http.get_alive_count()
     }
 
     fn tcp_io_snapshot(&self) -> Option<TcpIoSnapshot> {
         // the untrusted read stats is collected as buffer stats,
         // which has been contained in io_http
-        Some(self.io_http.snapshot() + self.io_connect.snapshot())
+        Some(self.io_http.snapshot() + self.io_connect.snapshot() + self.io_masque_udp.snapshot())
     }
 
     #[inline]

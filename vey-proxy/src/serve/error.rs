@@ -245,6 +245,7 @@ impl From<UdpCopyClientError> for ServerTaskError {
     fn from(e: UdpCopyClientError) -> Self {
         match e {
             UdpCopyClientError::RecvFailed(e) => ServerTaskError::ClientUdpRecvFailed(e),
+            UdpCopyClientError::RecvClosed => ServerTaskError::ClosedByClient,
             UdpCopyClientError::SendFailed(e) => ServerTaskError::ClientUdpSendFailed(e),
             UdpCopyClientError::InvalidPacket(_) => {
                 ServerTaskError::InvalidClientProtocol("invalid udp packet from client")

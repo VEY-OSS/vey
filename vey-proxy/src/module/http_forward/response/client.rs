@@ -19,6 +19,7 @@ use vey_types::net::ConnectError;
 
 use crate::module::http_header;
 use crate::module::tcp_connect::TcpConnectError;
+use crate::module::udp_connect::UdpConnectError;
 use crate::serve::ServerTaskError;
 
 struct CustomStatusCode {}
@@ -248,9 +249,7 @@ impl HttpProxyClientResponse {
     ) -> Self {
         let close = should_close;
         match e {
-            TcpConnectError::MethodUnavailable => {
-                HttpProxyClientResponse::from_standard(StatusCode::FORBIDDEN, version, true)
-            }
+            TcpConnectError::MethodUnavailable => HttpProxyClientResponse::forbidden(version),
             TcpConnectError::EscaperNotUsable(_) => HttpProxyClientResponse::from_standard(
                 StatusCode::SERVICE_UNAVAILABLE,
                 version,
@@ -315,6 +314,33 @@ impl HttpProxyClientResponse {
                     close,
                 )
             }
+        }
+    }
+
+    pub(crate) fn from_udp_connect_error(
+        e: &UdpConnectError,
+        version: Version,
+        should_close: bool,
+    ) -> Self {
+        let close = should_close;
+        match e {
+            UdpConnectError::MethodUnavailable => HttpProxyClientResponse::forbidden(version),
+            UdpConnectError::EscaperNotUsable(_) => HttpProxyClientResponse::from_standard(
+                StatusCode::SERVICE_UNAVAILABLE,
+                version,
+                true,
+            ),
+            UdpConnectError::ResolveFailed(_) => HttpProxyClientResponse::from_standard(
+                StatusCode::from_u16(CustomStatusCode::ORIGIN_DNS_ERROR).unwrap(),
+                version,
+                close,
+            ),
+            UdpConnectError::SetupSocketFailed(_) => HttpProxyClientResponse::from_standard(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                version,
+                true,
+            ),
+            UdpConnectError::ForbiddenRemoteAddress => HttpProxyClientResponse::forbidden(version),
         }
     }
 

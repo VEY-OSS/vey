@@ -87,8 +87,8 @@ impl SocksProxyUdpConnectTask {
             .map(|logger| TaskLogForUdpConnect {
                 logger,
                 task_notes: &self.task_notes,
-                tcp_server_addr: self.ctx.server_addr(),
-                tcp_client_addr: self.ctx.client_addr(),
+                tcp_server_addr: Some(self.ctx.server_addr()),
+                tcp_client_addr: Some(self.ctx.client_addr()),
                 udp_listen_addr: self.udp_listen_addr,
                 udp_client_addr: self.udp_client_addr,
                 upstream: self.upstream.as_ref(),
@@ -461,7 +461,7 @@ impl SocksProxyUdpConnectTask {
 
         let mut clt_r = Socks5UdpConnectClientRecv::new(clt_r, self.udp_client_addr);
 
-        let buf_len = self.ctx.server_config.udp_relay.packet_size();
+        let buf_len = self.ctx.server_config.udp_relay.packet_size() as usize;
         let mut buf = vec![0u8; buf_len];
 
         let (buf_off, buf_nr, udp_client_addr, upstream) = self

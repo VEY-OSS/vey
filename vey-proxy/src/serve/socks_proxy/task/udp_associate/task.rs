@@ -415,7 +415,7 @@ impl SocksProxyUdpAssociateTask {
             self.task_notes.user_ctx(),
         );
 
-        let buf_len = self.ctx.server_config.udp_relay.packet_size();
+        let buf_len = self.ctx.server_config.udp_relay.packet_size() as usize;
         let mut buf = vec![0u8; buf_len];
 
         let (buf_off, buf_nr, udp_client_addr) = self

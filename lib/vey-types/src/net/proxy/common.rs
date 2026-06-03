@@ -11,6 +11,7 @@ pub enum ProxyRequestType {
     HttpsForward,
     FtpOverHttp,
     HttpConnect,
+    HttpMasqueUdp,
     SocksTcpConnect,
     SocksUdpAssociate,
 }
@@ -24,6 +25,7 @@ impl FromStr for ProxyRequestType {
             "httpsforward" | "https_forward" => Ok(ProxyRequestType::HttpsForward),
             "ftpoverhttp" | "ftp_over_http" => Ok(ProxyRequestType::FtpOverHttp),
             "httpconnect" | "http_connect" => Ok(ProxyRequestType::HttpConnect),
+            "httpmasqueudp" | "http_masque_udp" => Ok(ProxyRequestType::HttpMasqueUdp),
             "sockstcpconnect" | "socks_tcp_connect" => Ok(ProxyRequestType::SocksTcpConnect),
             "socksudpassociate" | "socks_udp_associate" => Ok(ProxyRequestType::SocksUdpAssociate),
             _ => Err(()),

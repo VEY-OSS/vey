@@ -22,6 +22,7 @@ use crate::escape::ArcEscaper;
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::module::http_header;
 use crate::module::tcp_connect::TcpConnectTaskNotes;
+use crate::module::udp_connect::UdpConnectTaskNotes;
 use crate::serve::{ServerIdleChecker, ServerQuitPolicy, ServerTaskNotes};
 
 #[derive(Clone)]
@@ -39,6 +40,11 @@ pub(crate) struct CommonTaskContext {
 }
 
 impl CommonTaskContext {
+    #[inline]
+    pub(crate) fn server_addr(&self) -> SocketAddr {
+        self.cc_info.server_addr()
+    }
+
     #[inline]
     pub(crate) fn client_addr(&self) -> SocketAddr {
         self.cc_info.client_addr()
@@ -80,7 +86,7 @@ impl CommonTaskContext {
         default_action
     }
 
-    pub(crate) fn set_custom_header_for_local_reply(
+    pub(crate) fn set_custom_header_for_tcp_local_reply(
         &self,
         tcp_notes: &TcpConnectTaskNotes,
         rsp: &mut HttpProxyClientResponse,
@@ -110,6 +116,39 @@ impl CommonTaskContext {
                 rsp.set_outgoing_ip(addr.ip());
             }
         }
+    }
+
+    pub(crate) fn set_custom_header_for_udp_local_reply(
+        &self,
+        udp_notes: &UdpConnectTaskNotes,
+        rsp: &mut HttpProxyClientResponse,
+    ) {
+        if let Some(server_id) = &self.server_config.server_id {
+            let line = http_header::remote_connection_info(
+                server_id,
+                udp_notes.bind.ip(),
+                udp_notes.local,
+                udp_notes.next,
+                &udp_notes.expire,
+            );
+            rsp.add_extra_header(line);
+
+            if let Some(egress_info) = &udp_notes.egress {
+                let line = http_header::dynamic_egress_info(server_id, egress_info);
+                rsp.add_extra_header(line);
+            }
+        }
+
+        /* TODO
+        if self.server_config.echo_chained_info {
+            if let Some(addr) = udp_notes.chained.target_addr {
+                rsp.set_upstream_addr(addr);
+            }
+
+            if let Some(addr) = udp_notes.chained.outgoing_addr {
+                rsp.set_outgoing_ip(addr.ip());
+            }
+        }*/
     }
 
     pub(crate) fn set_custom_header_for_adaptation_error_reply(

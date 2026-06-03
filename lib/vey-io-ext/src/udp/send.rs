@@ -65,6 +65,16 @@ pub struct LimitedUdpSend<T> {
 }
 
 impl<T: AsyncUdpSend> LimitedUdpSend<T> {
+    pub fn unlimited(inner: T, stats: ArcLimitedSendStats) -> LimitedUdpSend<T> {
+        LimitedUdpSend {
+            inner,
+            delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
+            started: Instant::now(),
+            limit: DatagramLimiter::default(),
+            stats,
+        }
+    }
+
     pub fn local_limited(
         inner: T,
         shift_millis: u8,

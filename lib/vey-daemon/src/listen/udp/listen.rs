@@ -77,7 +77,7 @@ struct StreamDispatcher {
 
 pub struct AcceptedUdpPacketReceiver {
     state: Arc<StreamState>,
-    packet_max_size: usize,
+    packet_max_size: u16,
     inner: mpsc::Receiver<Bytes>,
 }
 
@@ -90,7 +90,7 @@ impl AcceptedUdpPacketReceiver {
 impl UdpMoveRecv for AcceptedUdpPacketReceiver {
     type RecvError = io::Error;
 
-    fn packet_max_size(&self) -> usize {
+    fn packet_max_size(&self) -> u16 {
         self.packet_max_size
     }
 
@@ -302,7 +302,7 @@ pub trait AcceptUdpServer: BaseServer {
 pub struct ListenUdpRuntime<S> {
     server: S,
     conn_track: UdpConnectionTrackConfig,
-    packet_max_size: usize,
+    packet_max_size: u16,
     listen_stats: Arc<ListenStats>,
 }
 
@@ -314,7 +314,7 @@ where
         server: S,
         listen_stats: Arc<ListenStats>,
         conn_track: UdpConnectionTrackConfig,
-        packet_max_size: usize,
+        packet_max_size: u16,
     ) -> Self {
         ListenUdpRuntime {
             server,
@@ -377,7 +377,7 @@ struct ListenUdpRuntimeInstance<S> {
     server_version: usize,
     worker_id: Option<usize>,
     conn_track: UdpConnectionTrackConfig,
-    packet_max_size: usize,
+    packet_max_size: u16,
     listen_stats: Arc<ListenStats>,
     instance_id: usize,
     _alive_guard: Option<ListenAliveGuard>,
@@ -432,7 +432,7 @@ where
 
         let mut event_recv_buf: Vec<Event> = Vec::with_capacity(EVENT_RECV_BATCH_SIZE);
 
-        let mut buf = vec![0u8; self.packet_max_size];
+        let mut buf = vec![0u8; self.packet_max_size as usize];
         loop {
             tokio::select! {
                 biased;

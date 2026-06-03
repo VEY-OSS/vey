@@ -36,6 +36,8 @@ impl ProxySocks5Escaper {
             .timed_socks5_udp_associate(task_conf.sock_buf, &mut tcp_notes, task_notes)
             .await
             .map_err(UdpConnectError::SetupSocketFailed)?;
+        udp_notes.egress = tcp_notes.egress;
+        udp_notes.override_peer = tcp_notes.override_peer;
 
         udp_notes.local = Some(udp_local_addr);
         udp_notes.next = Some(udp_peer_addr);
