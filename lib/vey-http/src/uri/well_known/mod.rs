@@ -90,24 +90,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn next_path_segment_empty() {
-        let uri = Uri::from_static("/");
+    fn next_path_segment_skips_empty_segments() {
+        let uri = Uri::from_static("///a//b/c///");
         let mut parser = WellKnownUriParser::new(&uri);
-        assert_eq!(parser.next_path_segment(), None);
-    }
 
-    #[test]
-    fn next_path_segment_single() {
-        let uri = Uri::from_static("/test/");
-        let mut parser = WellKnownUriParser::new(&uri);
-        assert_eq!(parser.next_path_segment(), Some("test"));
-        assert_eq!(parser.next_path_segment(), None);
-    }
-
-    #[test]
-    fn next_path_segment_multiple() {
-        let uri = Uri::from_static("/a/b/c/");
-        let mut parser = WellKnownUriParser::new(&uri);
         assert_eq!(parser.next_path_segment(), Some("a"));
         assert_eq!(parser.next_path_segment(), Some("b"));
         assert_eq!(parser.next_path_segment(), Some("c"));
@@ -115,64 +101,145 @@ mod tests {
     }
 
     #[test]
-    fn next_path_segment_with_leading_slash() {
-        let uri = Uri::from_static("//a/b/");
-        let mut parser = WellKnownUriParser::new(&uri);
-        assert_eq!(parser.next_path_segment(), Some("a"));
-        assert_eq!(parser.next_path_segment(), Some("b"));
-        assert_eq!(parser.next_path_segment(), None);
+    fn parse_returns_none_for_non_well_known_paths() {
+        for uri in [
+            Uri::default(),
+            Uri::from_static("/"),
+            Uri::from_static("///"),
+            Uri::from_static("/other-path"),
+            Uri::from_static("/.well-known/"),
+        ] {
+            assert!(WellKnownUri::parse(&uri).unwrap().is_none());
+        }
     }
 
     #[test]
-    fn next_path_segment_only_slashes() {
-        let uri = Uri::from_static("///");
-        let mut parser = WellKnownUriParser::new(&uri);
-        assert_eq!(parser.next_path_segment(), None);
-    }
-
-    #[test]
-    fn parse_empty_uri() {
-        let uri = Uri::default();
-        assert!(WellKnownUri::parse(&uri).unwrap().is_none());
-    }
-
-    #[test]
-    fn parse_non_well_known() {
-        let uri = Uri::from_static("/other-path");
-        assert!(WellKnownUri::parse(&uri).unwrap().is_none());
-    }
-
-    #[test]
-    fn parse_missing_protocol() {
-        let uri = Uri::from_static("/.well-known/");
-        assert!(WellKnownUri::parse(&uri).unwrap().is_none());
-    }
-
-    #[test]
-    fn parse_unsupported_protocol() {
-        let uri = Uri::from_static("/.well-known/unknown");
+    fn parse_unsupported_well_known_name() {
+        let uri = Uri::from_static("/.well-known/unknown/value");
         let result = WellKnownUri::parse(&uri).unwrap().unwrap();
-        assert_eq!(result.suffix(), "unknown")
+        let WellKnownUri::Unsupported(suffix) = result else {
+            panic!("not parsed as unsupported")
+        };
+
+        assert_eq!(suffix, "unknown");
     }
 
     #[test]
-    fn parse_easy_proxy() {
-        let uri = Uri::from_static("/.well-known/easy-proxy/http/target.com/80/path?query=1");
+    fn parse_easy_proxy_dispatch() {
+        let uri = Uri::from_static("/.well-known/easy-proxy/http/target.example/8080/path?q=1");
         let result = WellKnownUri::parse(&uri).unwrap().unwrap();
-        assert_eq!(result.suffix(), "easy-proxy");
+        let WellKnownUri::EasyProxy(protocol, target, target_uri) = result else {
+            panic!("not parsed as easy-proxy")
+        };
+
+        assert_eq!(protocol, HttpProxySubProtocol::HttpForward);
+        assert_eq!(target.host_str(), "target.example");
+        assert_eq!(target.port(), 8080);
+        assert_eq!(
+            target_uri,
+            Uri::from_static("http://target.example:8080/path?q=1")
+        );
     }
 
     #[test]
-    fn parse_masque_udp() {
+    fn parse_easy_proxy_ipv6_dispatch() {
+        let uri = Uri::from_static("/.well-known/easy-proxy/https/2001%3Adb8%3A%3A2/8443/api");
+        let result = WellKnownUri::parse(&uri).unwrap().unwrap();
+        let WellKnownUri::EasyProxy(protocol, target, target_uri) = result else {
+            panic!("not parsed as easy-proxy")
+        };
+
+        assert_eq!(protocol, HttpProxySubProtocol::HttpsForward);
+        assert_eq!(target.host_str(), "2001:db8::2");
+        assert_eq!(target.port(), 8443);
+        assert_eq!(
+            target_uri,
+            Uri::from_static("https://[2001:db8::2]:8443/api")
+        );
+    }
+
+    #[test]
+    fn parse_masque_udp_dispatch() {
         let uri = Uri::from_static("/.well-known/masque/udp/192.0.2.1/53");
         let result = WellKnownUri::parse(&uri).unwrap().unwrap();
-        assert_eq!(result.suffix(), "masque");
+        let WellKnownUri::Masque(HttpMasque::Udp(addr)) = result else {
+            panic!("not parsed as masque udp")
+        };
+
+        assert_eq!(addr.host_str(), "192.0.2.1");
+        assert_eq!(addr.port(), 53);
     }
 
     #[test]
-    fn parse_error_invalid_masque_segment() {
-        let uri = Uri::from_static("/.well-known/masque/invalid");
+    fn parse_masque_udp_ipv6_dispatch() {
+        let uri = Uri::from_static("/.well-known/masque/udp/2001%3Adb8%3A%3A3/53");
         let result = WellKnownUri::parse(&uri).unwrap().unwrap();
-        assert_eq!(result.suffix(), "masque/invalid")
+        let WellKnownUri::Masque(HttpMasque::Udp(addr)) = result else {
+            panic!("not parsed as masque udp")
+        };
+
+        assert_eq!(addr.host_str(), "2001:db8::3");
+        assert_eq!(addr.port(), 53);
+    }
+
+    #[test]
+    fn parse_masque_ip_dispatch() {
+        let uri = Uri::from_static("/.well-known/masque/ip/example.com/17");
+        let result = WellKnownUri::parse(&uri).unwrap().unwrap();
+        let WellKnownUri::Masque(HttpMasque::Ip(host, proto)) = result else {
+            panic!("not parsed as masque ip")
+        };
+
+        assert_eq!(host.unwrap().to_string(), "example.com");
+        assert_eq!(proto, Some(17));
+    }
+
+    #[test]
+    fn parse_masque_ip_ipv6_dispatch() {
+        let uri = Uri::from_static("/.well-known/masque/ip/2001%3Adb8%3A%3A4/17");
+        let result = WellKnownUri::parse(&uri).unwrap().unwrap();
+        let WellKnownUri::Masque(HttpMasque::Ip(host, proto)) = result else {
+            panic!("not parsed as masque ip")
+        };
+
+        assert_eq!(host.unwrap().to_string(), "2001:db8::4");
+        assert_eq!(proto, Some(17));
+    }
+
+    #[test]
+    fn parse_unsupported_masque_segment() {
+        let uri = Uri::from_static("/.well-known/masque/unknown-protocol");
+        let result = WellKnownUri::parse(&uri).unwrap().unwrap();
+        let WellKnownUri::Unsupported(suffix) = result else {
+            panic!("not parsed as unsupported")
+        };
+
+        assert_eq!(suffix, "masque/unknown-protocol");
+        assert_eq!(
+            WellKnownUri::Unsupported(suffix).suffix(),
+            "masque/unknown-protocol"
+        );
+    }
+
+    #[test]
+    fn parse_propagates_easy_proxy_error() {
+        let uri = Uri::from_static("/.well-known/easy-proxy/");
+        let err = WellKnownUri::parse(&uri).unwrap_err();
+
+        assert!(matches!(
+            err,
+            UriParseError::RequiredFieldNotFound("scheme")
+        ));
+    }
+
+    #[test]
+    fn parse_propagates_masque_error() {
+        let uri = Uri::from_static("/.well-known/masque/");
+        let err = WellKnownUri::parse(&uri).unwrap_err();
+
+        assert!(matches!(
+            err,
+            UriParseError::RequiredFieldNotFound("segment")
+        ));
     }
 }

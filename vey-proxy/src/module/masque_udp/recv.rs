@@ -229,3 +229,171 @@ impl MasqueUdpRecvBuffer {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::future::poll_fn;
+
+    use tokio_test::io::Builder as MockIoBuilder;
+    use vey_codec::quic::VarIntEncoder;
+
+    fn capsule(payload: &[u8]) -> Vec<u8> {
+        let mut encoder = VarIntEncoder::default();
+        let mut buf = Vec::with_capacity(payload.len() + 6);
+        buf.push(0); // Context ID
+        buf.push(0); // Capsule Type: Datagram
+        buf.extend_from_slice(encoder.encode_u16(payload.len() as u16));
+        buf.extend_from_slice(payload);
+        buf
+    }
+
+    async fn next_datagram(
+        buffer: &mut MasqueUdpRecvBuffer,
+        reader: &mut tokio_test::io::Mock,
+    ) -> Result<Vec<u8>, MasqueUdpRecvError> {
+        poll_fn(
+            |cx| match buffer.poll_datagram(cx, Pin::new(&mut *reader)) {
+                Poll::Ready(Ok(datagram)) => Poll::Ready(Ok(datagram.to_vec())),
+                Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
+                Poll::Pending => Poll::Pending,
+            },
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn decode_single_datagram() {
+        let payload = b"hello";
+        let data = capsule(payload);
+        let mut reader = MockIoBuilder::new().read(&data).build();
+        let mut buffer = MasqueUdpRecvBuffer::new(8, 128);
+
+        let datagram = next_datagram(&mut buffer, &mut reader).await.unwrap();
+        assert_eq!(datagram, payload);
+
+        buffer.consume_datagram();
+    }
+
+    #[tokio::test]
+    async fn decode_datagram_from_split_header_and_payload() {
+        let payload = vec![b'x'; 70];
+        let data = capsule(&payload);
+        let mut reader = MockIoBuilder::new()
+            .read(&data[..1])
+            .read(&data[1..2])
+            .read(&data[2..3])
+            .read(&data[3..20])
+            .read(&data[20..])
+            .build();
+        let mut buffer = MasqueUdpRecvBuffer::new(16, 128);
+
+        let datagram = next_datagram(&mut buffer, &mut reader).await.unwrap();
+        assert_eq!(datagram, payload);
+
+        buffer.consume_datagram();
+    }
+
+    #[tokio::test]
+    async fn decode_multiple_datagrams_from_one_read() {
+        let payloads: [&[u8]; 3] = [b"one", b"two", b"three"];
+        let data = payloads
+            .iter()
+            .flat_map(|payload| capsule(payload))
+            .collect::<Vec<_>>();
+        let mut reader = MockIoBuilder::new().read(&data).build();
+        let mut buffer = MasqueUdpRecvBuffer::new(16, 128);
+
+        for payload in payloads {
+            let datagram = next_datagram(&mut buffer, &mut reader).await.unwrap();
+            assert_eq!(datagram, payload);
+            buffer.consume_datagram();
+        }
+    }
+
+    #[tokio::test]
+    async fn decode_after_compacting_consumed_prefix() {
+        let payloads: [&[u8]; 4] = [b"aaaaaa", b"bbbbbb", b"cccccc", b"dddddd"];
+        let data = payloads
+            .iter()
+            .flat_map(|payload| capsule(payload))
+            .collect::<Vec<_>>();
+        let mut reader = MockIoBuilder::new()
+            .read(&data[..30])
+            .read(&data[30..])
+            .build();
+        let mut buffer = MasqueUdpRecvBuffer::new(30, 6);
+
+        for payload in payloads {
+            let datagram = next_datagram(&mut buffer, &mut reader).await.unwrap();
+            assert_eq!(datagram, payload);
+            buffer.consume_datagram();
+        }
+    }
+
+    #[tokio::test]
+    async fn decode_empty_datagram() {
+        let data = capsule(b"");
+        let mut reader = MockIoBuilder::new().read(&data).build();
+        let mut buffer = MasqueUdpRecvBuffer::new(8, 128);
+
+        let datagram = next_datagram(&mut buffer, &mut reader).await.unwrap();
+        assert!(datagram.is_empty());
+
+        buffer.consume_datagram();
+    }
+
+    #[tokio::test]
+    async fn reject_non_zero_context_id() {
+        let data = [1, 0, 0];
+        let mut reader = MockIoBuilder::new().read(&data).build();
+        let mut buffer = MasqueUdpRecvBuffer::new(8, 128);
+
+        let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
+        assert!(matches!(err, MasqueUdpRecvError::InvalidContextId(1)));
+    }
+
+    #[tokio::test]
+    async fn reject_non_datagram_capsule_type() {
+        let data = [0, 1, 0];
+        let mut reader = MockIoBuilder::new().read(&data).build();
+        let mut buffer = MasqueUdpRecvBuffer::new(8, 128);
+
+        let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
+        assert!(matches!(err, MasqueUdpRecvError::InvalidCapsuleType(1)));
+    }
+
+    #[tokio::test]
+    async fn reject_datagram_larger_than_max_packet_size() {
+        let data = capsule(b"oversized");
+        let mut reader = MockIoBuilder::new().read(&data).build();
+        let mut buffer = MasqueUdpRecvBuffer::new(8, 4);
+
+        let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
+        assert!(matches!(err, MasqueUdpRecvError::InvalidPacketSize(9)));
+    }
+
+    #[tokio::test]
+    async fn report_closed_before_header() {
+        let mut reader = MockIoBuilder::new().read(b"").build();
+        let mut buffer = MasqueUdpRecvBuffer::new(8, 128);
+
+        let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
+        assert!(matches!(err, MasqueUdpRecvError::IoClosed));
+    }
+
+    #[tokio::test]
+    async fn report_unexpected_eof_in_payload() {
+        let data = capsule(b"payload");
+        let mut reader = MockIoBuilder::new()
+            .read(&data[..data.len() - 1])
+            .read(b"")
+            .build();
+        let mut buffer = MasqueUdpRecvBuffer::new(8, 128);
+
+        let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
+        assert!(
+            matches!(err, MasqueUdpRecvError::IoFailed(e) if e.kind() == io::ErrorKind::UnexpectedEof)
+        );
+    }
+}

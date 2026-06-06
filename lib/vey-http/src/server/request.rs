@@ -672,4 +672,48 @@ mod tests {
                 .unwrap();
         assert!(!request.keep_alive());
     }
+
+    #[tokio::test]
+    async fn read_http11_masque_connect_udp() {
+        let content = b"GET /.well-known/masque/udp/target.example.com/443/ HTTP/1.1\r\n\
+            Host: proxy.example.com\r\n\
+            Connection: Upgrade\r\n\
+            Upgrade: connect-udp\r\n\
+            Capsule-Protocol: ?1\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut version = Version::HTTP_11;
+        let request =
+            HttpProxyClientRequest::parse(&mut buf_stream, 4096, &mut version, parse_more_header)
+                .await
+                .unwrap();
+
+        assert_eq!(request.version, Version::HTTP_11);
+        assert_eq!(version, Version::HTTP_11);
+        assert_eq!(request.method, Method::GET);
+        assert_eq!(
+            request.uri,
+            Uri::from_static("/.well-known/masque/udp/target.example.com/443/")
+        );
+        assert!(request.keep_alive());
+        assert!(request.body_type().is_none());
+        assert_eq!(request.upgrade_token(), Some(&HttpUpgradeToken::ConnectUdp));
+        let host = request.host.as_ref().unwrap();
+        assert_eq!(host.host_str(), "proxy.example.com");
+        assert_eq!(host.port(), 0);
+        assert_eq!(
+            request
+                .hop_by_hop_headers
+                .get(header::UPGRADE)
+                .map(|v| v.to_str()),
+            Some("connect-udp")
+        );
+        assert_eq!(
+            request
+                .end_to_end_headers
+                .get(HeaderName::from_static("capsule-protocol"))
+                .map(|v| v.to_str()),
+            Some("?1")
+        );
+    }
 }

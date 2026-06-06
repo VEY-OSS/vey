@@ -108,6 +108,16 @@ mod tests {
     }
 
     #[test]
+    fn udp_valid_ipv6_percent_encoded() {
+        let parsed = setup_parser("/.well-known/masque/udp/2001%3Adb8%3A%3A1/443/").unwrap();
+        let WellKnownUri::Masque(HttpMasque::Udp(addr)) = parsed else {
+            panic!("not parsed as masque/udp")
+        };
+        assert_eq!(addr.host_str(), "2001:db8::1");
+        assert_eq!(addr.port(), 443);
+    }
+
+    #[test]
     fn ip_missing_target() {
         let err = setup_parser("/.well-known/masque/ip/").unwrap_err();
         assert!(matches!(
@@ -144,6 +154,16 @@ mod tests {
             panic!("not parsed as masque/ip")
         };
         assert_eq!(host.unwrap().to_string(), "target.example.com");
+        assert_eq!(proto.unwrap(), 17);
+    }
+
+    #[test]
+    fn ip_valid_ipv6_percent_encoded() {
+        let parsed = setup_parser("/.well-known/masque/ip/2001%3Adb8%3A%3A2/17/").unwrap();
+        let WellKnownUri::Masque(HttpMasque::Ip(host, proto)) = parsed else {
+            panic!("not parsed as masque/ip")
+        };
+        assert_eq!(host.unwrap().to_string(), "2001:db8::2");
         assert_eq!(proto.unwrap(), 17);
     }
 

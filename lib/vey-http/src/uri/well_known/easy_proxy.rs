@@ -31,7 +31,10 @@ impl WellKnownUriParser<'_> {
         let host = self
             .next_path_segment()
             .ok_or(UriParseError::RequiredFieldNotFound("target_host"))?;
-        let host = Host::from_str(host).map_err(|_| UriParseError::NotValidHost("target_host"))?;
+        let host = percent_encoding::percent_decode_str(host)
+            .decode_utf8()
+            .map_err(|_| UriParseError::NotValidHost("target_host"))?;
+        let host = Host::from_str(&host).map_err(|_| UriParseError::NotValidHost("target_host"))?;
 
         let port = self
             .next_path_segment()
@@ -124,6 +127,21 @@ mod tests {
         assert_eq!(uri.authority().unwrap().as_str(), "www.example.com:80");
         assert_eq!(uri.path(), "/get");
         assert_eq!(uri.query().unwrap(), "name=foo");
+    }
+
+    #[test]
+    fn valid_http_ipv6_percent_encoded() {
+        let parsed =
+            setup_parser("/.well-known/easy-proxy/http/2001%3Adb8%3A%3A1/8080/get").unwrap();
+        let WellKnownUri::EasyProxy(protocol, target, uri) = parsed else {
+            panic!("not parsed as easy-proxy")
+        };
+        assert_eq!(protocol, HttpProxySubProtocol::HttpForward);
+        assert_eq!(target.host_str(), "2001:db8::1");
+        assert_eq!(target.port(), 8080);
+        assert_eq!(uri.scheme_str().unwrap(), "http");
+        assert_eq!(uri.authority().unwrap().as_str(), "[2001:db8::1]:8080");
+        assert_eq!(uri.path(), "/get");
     }
 
     #[test]
