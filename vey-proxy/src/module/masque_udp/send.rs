@@ -58,6 +58,16 @@ impl MasqueUdpSendBuffer {
         }
     }
 
+    #[allow(unused)]
+    pub(crate) fn push_or_drop_many_bytes(&mut self, packets: &[bytes::Bytes]) {
+        if !self.buffer.is_empty() {
+            return;
+        }
+        for packet in packets {
+            self.push_packet(packet);
+        }
+    }
+
     pub(crate) fn poll_write<W>(
         &mut self,
         cx: &mut Context<'_>,

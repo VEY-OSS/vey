@@ -3,7 +3,6 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
@@ -24,6 +23,7 @@ use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
 };
+use crate::module::udp_connect::UdpConnectError;
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatSocks5sPeer {
@@ -81,21 +81,16 @@ impl ProxyFloatSocks5sPeer {
             SocketAddr,
             SocketAddr,
         ),
-        io::Error,
+        UdpConnectError,
     > {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: &UpstreamAddr::empty(),
         };
         let mut ctl_stream = escaper
             .tls_handshake_with_peer(&tcp_task_conf, tcp_notes, task_notes, &self.tls_name, self)
-            .await
-            .map_err(io::Error::other)?;
-        let local_tcp_addr = tcp_notes
-            .local
-            .ok_or_else(|| io::Error::other("no local tcp address"))?;
-        let peer_tcp_addr = tcp_notes
-            .next
-            .ok_or_else(|| io::Error::other("no peer tcp address"))?;
+            .await?;
+        let local_tcp_addr = tcp_notes.local.unwrap();
+        let peer_tcp_addr = tcp_notes.next.unwrap();
 
         // bind early and send listen_addr if configured ?
         let send_udp_ip = match local_tcp_addr.ip() {
@@ -109,18 +104,22 @@ impl ProxyFloatSocks5sPeer {
             &self.shared_config.auth_info,
             send_udp_addr,
         )
-        .await
-        .map_err(io::Error::other)?;
+        .await?;
         let peer_udp_addr = self.transmute_udp_peer_addr(peer_udp_addr, peer_tcp_addr.ip());
         let socket = vey_socket::udp::new_std_socket_to(
             peer_udp_addr,
             &BindAddr::Ip(local_tcp_addr.ip()),
             buf_conf,
             escaper.config.udp_misc_opts,
-        )?;
-        socket.connect(peer_udp_addr)?;
-        let socket = UdpSocket::from_std(socket)?;
-        let listen_addr = socket.local_addr()?;
+        )
+        .map_err(UdpConnectError::SetupSocketFailed)?;
+        socket
+            .connect(peer_udp_addr)
+            .map_err(UdpConnectError::SetupSocketFailed)?;
+        let socket = UdpSocket::from_std(socket).map_err(UdpConnectError::SetupSocketFailed)?;
+        let listen_addr = socket
+            .local_addr()
+            .map_err(UdpConnectError::SetupSocketFailed)?;
 
         Ok((ctl_stream, socket, listen_addr, peer_udp_addr))
     }
@@ -138,14 +137,14 @@ impl ProxyFloatSocks5sPeer {
             SocketAddr,
             SocketAddr,
         ),
-        io::Error,
+        UdpConnectError,
     > {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
             self.socks5_udp_associate(escaper, buf_conf, tcp_notes, task_notes),
         )
         .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "peer negotiation timeout"))?
+        .map_err(|_| UdpConnectError::NegotiationPeerTimeout)?
     }
 
     pub(super) async fn socks5_new_tcp_connection(

@@ -24,8 +24,8 @@ use vey_types::net::{
 use super::DirectFixedEscaper;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf,
-    TcpConnectTaskNotes,
+    TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes,
+    UnderlyingTcpConnectError,
 };
 use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
@@ -41,7 +41,7 @@ impl DirectFixedEscaper {
         &self,
         action: AclAction,
         task_notes: &ServerTaskNotes,
-    ) -> Result<(), TcpConnectError> {
+    ) -> Result<(), UnderlyingTcpConnectError> {
         let forbid = match action {
             AclAction::Permit => false,
             AclAction::PermitAndLog => {
@@ -59,7 +59,7 @@ impl DirectFixedEscaper {
             if let Some(user_ctx) = task_notes.user_ctx() {
                 user_ctx.add_ip_blocked();
             }
-            Err(TcpConnectError::ForbiddenRemoteAddress)
+            Err(UnderlyingTcpConnectError::ForbiddenRemoteAddress)
         } else {
             Ok(())
         }
@@ -71,16 +71,16 @@ impl DirectFixedEscaper {
         mut bind: BindAddr,
         task_notes: &ServerTaskNotes,
         connect_config: &DirectTcpConnectConfig<'_>,
-    ) -> Result<(TcpSocket, BindAddr), TcpConnectError> {
+    ) -> Result<(TcpSocket, BindAddr), UnderlyingTcpConnectError> {
         match peer_ip {
             IpAddr::V4(_) => {
                 if self.config.no_ipv4 {
-                    return Err(TcpConnectError::ForbiddenAddressFamily);
+                    return Err(UnderlyingTcpConnectError::ForbiddenAddressFamily);
                 }
             }
             IpAddr::V6(_) => {
                 if self.config.no_ipv6 {
-                    return Err(TcpConnectError::ForbiddenAddressFamily);
+                    return Err(UnderlyingTcpConnectError::ForbiddenAddressFamily);
                 }
             }
         }
@@ -112,7 +112,7 @@ impl DirectFixedEscaper {
             &connect_config.misc_opts,
             true,
         )
-        .map_err(TcpConnectError::SetupSocketFailed)?;
+        .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
         Ok((sock, bind))
     }
 
@@ -123,7 +123,7 @@ impl DirectFixedEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<TcpStream, TcpConnectError> {
+    ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         let (sock, bind) =
             self.prepare_connect_socket(peer_ip, tcp_notes.bind, task_notes, &config)?;
         let peer = SocketAddr::new(peer_ip, task_conf.upstream.port());
@@ -141,7 +141,7 @@ impl DirectFixedEscaper {
 
                 let local_addr = ups_stream
                     .local_addr()
-                    .map_err(TcpConnectError::SetupSocketFailed)?;
+                    .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                 self.stats.tcp.connect.add_established();
                 tcp_notes.local = Some(local_addr);
                 tcp_notes.chained.target_addr = Some(peer);
@@ -152,7 +152,7 @@ impl DirectFixedEscaper {
                 self.stats.tcp.connect.add_error();
                 tcp_notes.duration = instant_now.elapsed();
 
-                let e = TcpConnectError::ConnectFailed(ConnectError::from(e));
+                let e = UnderlyingTcpConnectError::ConnectFailed(ConnectError::from(e));
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
@@ -167,7 +167,7 @@ impl DirectFixedEscaper {
                 self.stats.tcp.connect.add_timeout();
                 tcp_notes.duration = instant_now.elapsed();
 
-                let e = TcpConnectError::TimeoutByRule;
+                let e = UnderlyingTcpConnectError::TimeoutByRule;
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
@@ -192,7 +192,7 @@ impl DirectFixedEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<TcpStream, TcpConnectError> {
+    ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         let max_tries_each_family = config.connect.max_tries();
         let mut ips = resolver_job
             .get_r1_or_first_many(
@@ -217,7 +217,7 @@ impl DirectFixedEscaper {
 
         tcp_notes.tries = 0;
         let instant_now = Instant::now();
-        let mut returned_err = TcpConnectError::NoAddressConnected;
+        let mut returned_err = UnderlyingTcpConnectError::NoAddressConnected;
 
         loop {
             if spawn_new_connection && let Some(ip) = ips.pop() {
@@ -238,14 +238,16 @@ impl DirectFixedEscaper {
                         Ok(Err(e)) => {
                             stats.tcp.connect.add_error();
                             (
-                                Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
+                                Err(UnderlyingTcpConnectError::ConnectFailed(
+                                    ConnectError::from(e),
+                                )),
                                 peer,
                                 bind,
                             )
                         }
                         Err(_) => {
                             stats.tcp.connect.add_timeout();
-                            (Err(TcpConnectError::TimeoutByRule), peer, bind)
+                            (Err(UnderlyingTcpConnectError::TimeoutByRule), peer, bind)
                         }
                     }
                 });
@@ -268,7 +270,7 @@ impl DirectFixedEscaper {
                                     Ok(ups_stream) => {
                                         let local_addr = ups_stream
                                             .local_addr()
-                                            .map_err(TcpConnectError::SetupSocketFailed)?;
+                                            .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                                         self.stats.tcp.connect.add_established();
                                         tcp_notes.local = Some(local_addr);
                                         tcp_notes.chained.target_addr = Some(peer_addr);
@@ -293,7 +295,7 @@ impl DirectFixedEscaper {
                             Some(Err(r)) => {
                                 running_connection -= 1;
                                 if r.is_panic() {
-                                    return Err(TcpConnectError::InternalServerError("connect task panic"));
+                                    return Err(UnderlyingTcpConnectError::InternalServerError("connect task panic"));
                                 }
                                 spawn_new_connection = true;
                             }
@@ -335,7 +337,7 @@ impl DirectFixedEscaper {
                     }
                     Err(_) => {
                         tcp_notes.duration = instant_now.elapsed();
-                        return Err(TcpConnectError::TimeoutByRule);
+                        return Err(UnderlyingTcpConnectError::TimeoutByRule);
                     }
                 }
             }
@@ -347,7 +349,7 @@ impl DirectFixedEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<TcpStream, TcpConnectError> {
+    ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         let mut config = DirectTcpConnectConfig {
             connect: self.config.general.tcp_connect,
             keepalive: self.config.tcp_keepalive,
@@ -390,7 +392,7 @@ impl DirectFixedEscaper {
         new_tcp_notes: &mut TcpConnectTaskNotes,
         old_tcp_notes: &TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<TcpStream, TcpConnectError> {
+    ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         new_tcp_notes.bind = old_tcp_notes.bind;
         #[cfg(target_os = "linux")]
         if let BindAddr::Foreign(addr) = new_tcp_notes.bind {
@@ -417,7 +419,7 @@ impl DirectFixedEscaper {
 
         if task_conf.upstream.host_eq(old_upstream) {
             let control_addr = old_tcp_notes.next.ok_or_else(|| {
-                TcpConnectError::SetupSocketFailed(io::Error::new(
+                UnderlyingTcpConnectError::SetupSocketFailed(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "no peer address for referenced connection found",
                 ))

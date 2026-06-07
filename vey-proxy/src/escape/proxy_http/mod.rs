@@ -41,8 +41,7 @@ use crate::module::udp_connect::{
     UdpConnectError, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskConf,
-    UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
@@ -52,7 +51,10 @@ pub(crate) use stats::ProxyHttpEscaperStats;
 
 mod http_connect;
 mod http_forward;
+mod masque_udp;
 mod tcp_connect;
+
+pub(crate) use masque_udp::{ProxyHttpMasqueUdpRecv, ProxyHttpMasqueUdpSend};
 
 pub(super) struct ProxyHttpEscaper {
     config: Arc<ProxyHttpEscaperConfig>,
@@ -200,14 +202,15 @@ impl Escaper for ProxyHttpEscaper {
 
     async fn udp_setup_connection(
         &self,
-        _task_conf: &UdpConnectTaskConf<'_>,
+        task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &mut UdpConnectTaskNotes,
-        _task_notes: &ServerTaskNotes,
-        _task_stats: ArcUdpConnectTaskRemoteStats,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         self.stats.interface.add_udp_connect_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        Err(UdpConnectError::MethodUnavailable)
+        self.http_upgrade_new_udp_connection(task_conf, udp_notes, task_notes, task_stats)
+            .await
     }
 
     async fn udp_setup_relay(
@@ -219,7 +222,7 @@ impl Escaper for ProxyHttpEscaper {
     ) -> UdpRelaySetupResult {
         self.stats.interface.add_udp_relay_session_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        Err(UdpRelaySetupError::MethodUnavailable)
+        Err(UdpConnectError::MethodUnavailable)
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {

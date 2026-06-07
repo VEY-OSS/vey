@@ -17,7 +17,7 @@ pub async fn http_connect_to<S>(
 where
     S: AsyncBufRead + AsyncWrite + Unpin,
 {
-    let mut req = HttpConnectRequest::new(addr, &[]);
+    let mut req = HttpConnectRequest::new(&[]);
 
     match auth {
         HttpAuth::None => {}
@@ -27,7 +27,7 @@ where
         }
     }
 
-    req.send(buf_stream)
+    req.send(addr, buf_stream)
         .await
         .map_err(HttpConnectError::WriteFailed)?;
 
@@ -50,7 +50,6 @@ mod tests {
     async fn http_connect_to_success_no_auth() {
         let stream = Builder::new()
             .write(b"CONNECT example.com:8080 HTTP/1.1\r\n")
-            .write(b"Host: example.com:8080\r\n")
             .write(b"Connection: keep-alive\r\n")
             .write(b"\r\n")
             .read(b"HTTP/1.1 200 OK\r\n\r\n")
@@ -68,7 +67,6 @@ mod tests {
     async fn http_connect_to_success_basic_auth() {
         let stream = Builder::new()
             .write(b"CONNECT example.com:8080 HTTP/1.1\r\n")
-            .write(b"Host: example.com:8080\r\n")
             .write(b"Connection: keep-alive\r\n")
             .write(b"Proxy-Authorization: Basic dXNlcjpwYXNz\r\n")
             .write(b"\r\n")
@@ -108,7 +106,6 @@ mod tests {
     async fn http_connect_to_read_failed() {
         let stream = Builder::new()
             .write(b"CONNECT example.com:8080 HTTP/1.1\r\n")
-            .write(b"Host: example.com:8080\r\n")
             .write(b"Connection: keep-alive\r\n")
             .write(b"\r\n")
             .read_error(io::Error::new(
@@ -131,7 +128,6 @@ mod tests {
     async fn http_connect_to_unexpected_status_code() {
         let stream = Builder::new()
             .write(b"CONNECT example.com:8080 HTTP/1.1\r\n")
-            .write(b"Host: example.com:8080\r\n")
             .write(b"Connection: keep-alive\r\n")
             .write(b"\r\n")
             .read(b"HTTP/1.1 404 Not Found\r\n\r\n")

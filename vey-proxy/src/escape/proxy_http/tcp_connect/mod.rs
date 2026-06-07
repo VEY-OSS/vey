@@ -12,11 +12,13 @@ use tokio::time::Instant;
 
 use vey_io_ext::LimitedStream;
 use vey_socket::BindAddr;
-use vey_types::net::{ConnectError, Host, ProxyProtocolEncoder};
+use vey_types::net::{ConnectError, Host, ProxyProtocolEncoder, UpstreamAddr};
 
 use super::ProxyHttpEscaper;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectTaskConf, TcpConnectTaskNotes, UnderlyingTcpConnectError,
+};
 use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
 
@@ -24,17 +26,17 @@ impl ProxyHttpEscaper {
     fn prepare_connect_socket(
         &self,
         peer_ip: IpAddr,
-    ) -> Result<(TcpSocket, BindAddr), TcpConnectError> {
+    ) -> Result<(TcpSocket, BindAddr), UnderlyingTcpConnectError> {
         let bind_ip = match peer_ip {
             IpAddr::V4(_) => {
                 if self.config.no_ipv4 {
-                    return Err(TcpConnectError::ForbiddenAddressFamily);
+                    return Err(UnderlyingTcpConnectError::ForbiddenAddressFamily);
                 }
                 self.config.bind_v4.map(IpAddr::V4)
             }
             IpAddr::V6(_) => {
                 if self.config.no_ipv6 {
-                    return Err(TcpConnectError::ForbiddenAddressFamily);
+                    return Err(UnderlyingTcpConnectError::ForbiddenAddressFamily);
                 }
                 self.config.bind_v6.map(IpAddr::V6)
             }
@@ -68,7 +70,7 @@ impl ProxyHttpEscaper {
             &self.config.tcp_misc_opts,
             true,
         )
-        .map_err(TcpConnectError::SetupSocketFailed)?;
+        .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
         Ok((sock, bind))
     }
 
@@ -78,7 +80,7 @@ impl ProxyHttpEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<TcpStream, TcpConnectError> {
+    ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         let (sock, bind) = self.prepare_connect_socket(peer.ip())?;
         tcp_notes.next = Some(peer);
         tcp_notes.bind = bind;
@@ -99,7 +101,7 @@ impl ProxyHttpEscaper {
 
                 let local_addr = ups_stream
                     .local_addr()
-                    .map_err(TcpConnectError::SetupSocketFailed)?;
+                    .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                 self.stats.tcp.connect.add_established();
                 tcp_notes.local = Some(local_addr);
                 // the chained outgoing addr is not detected at here
@@ -109,7 +111,7 @@ impl ProxyHttpEscaper {
                 self.stats.tcp.connect.add_error();
                 tcp_notes.duration = instant_now.elapsed();
 
-                let e = TcpConnectError::ConnectFailed(ConnectError::from(e));
+                let e = UnderlyingTcpConnectError::ConnectFailed(ConnectError::from(e));
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
@@ -124,7 +126,7 @@ impl ProxyHttpEscaper {
                 self.stats.tcp.connect.add_timeout();
                 tcp_notes.duration = instant_now.elapsed();
 
-                let e = TcpConnectError::TimeoutByRule;
+                let e = UnderlyingTcpConnectError::TimeoutByRule;
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
@@ -149,7 +151,7 @@ impl ProxyHttpEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<TcpStream, TcpConnectError> {
+    ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         let max_tries_each_family = self.config.general.tcp_connect.max_tries();
         let mut ips = resolver_job
             .get_r1_or_first_many(
@@ -173,7 +175,7 @@ impl ProxyHttpEscaper {
 
         tcp_notes.tries = 0;
         let instant_now = Instant::now();
-        let mut returned_err = TcpConnectError::NoAddressConnected;
+        let mut returned_err = UnderlyingTcpConnectError::NoAddressConnected;
 
         loop {
             if spawn_new_connection && let Some(ip) = ips.pop() {
@@ -193,14 +195,16 @@ impl ProxyHttpEscaper {
                         Ok(Err(e)) => {
                             stats.tcp.connect.add_error();
                             (
-                                Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
+                                Err(UnderlyingTcpConnectError::ConnectFailed(
+                                    ConnectError::from(e),
+                                )),
                                 peer,
                                 bind,
                             )
                         }
                         Err(_) => {
                             stats.tcp.connect.add_timeout();
-                            (Err(TcpConnectError::TimeoutByRule), peer, bind)
+                            (Err(UnderlyingTcpConnectError::TimeoutByRule), peer, bind)
                         }
                     }
                 });
@@ -223,7 +227,7 @@ impl ProxyHttpEscaper {
                                     Ok(ups_stream) => {
                                         let local_addr = ups_stream
                                             .local_addr()
-                                            .map_err(TcpConnectError::SetupSocketFailed)?;
+                                            .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                                         self.stats.tcp.connect.add_established();
                                         tcp_notes.local = Some(local_addr);
                                         // the chained outgoing addr is not detected at here
@@ -247,7 +251,7 @@ impl ProxyHttpEscaper {
                             Some(Err(r)) => {
                                 running_connection -= 1;
                                 if r.is_panic() {
-                                    return Err(TcpConnectError::InternalServerError("connect task panic"));
+                                    return Err(UnderlyingTcpConnectError::InternalServerError("connect task panic"));
                                 }
                                 spawn_new_connection = true;
                             }
@@ -289,7 +293,7 @@ impl ProxyHttpEscaper {
                     }
                     Err(_) => {
                         tcp_notes.duration = instant_now.elapsed();
-                        return Err(TcpConnectError::TimeoutByRule);
+                        return Err(UnderlyingTcpConnectError::TimeoutByRule);
                     }
                 }
             }
@@ -301,7 +305,7 @@ impl ProxyHttpEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<TcpStream, TcpConnectError> {
+    ) -> Result<(UpstreamAddr, TcpStream), UnderlyingTcpConnectError> {
         let peer_proxy = match task_notes.egress_path_upstream(&self.config.name) {
             Some(ups) => {
                 let addr = if let Some(addr) = &ups.addr {
@@ -317,14 +321,15 @@ impl ProxyHttpEscaper {
                     let ip = self
                         .resolve_consistent(domain.clone(), &ups.resolve_sticky_key)
                         .await?;
-                    return self
+                    let stream = self
                         .fixed_try_connect(
                             SocketAddr::new(ip, addr.port()),
                             task_conf,
                             tcp_notes,
                             task_notes,
                         )
-                        .await;
+                        .await?;
+                    return Ok((addr.clone(), stream));
                 }
                 addr.clone()
             }
@@ -333,7 +338,7 @@ impl ProxyHttpEscaper {
                 .clone(),
         };
 
-        match peer_proxy.host() {
+        let stream = match peer_proxy.host() {
             Host::Ip(ip) => {
                 self.fixed_try_connect(
                     SocketAddr::new(*ip, peer_proxy.port()),
@@ -341,7 +346,7 @@ impl ProxyHttpEscaper {
                     tcp_notes,
                     task_notes,
                 )
-                .await
+                .await?
             }
             Host::Domain(domain) => {
                 let resolver_job = self.resolve_happy(domain.clone())?;
@@ -352,9 +357,10 @@ impl ProxyHttpEscaper {
                     tcp_notes,
                     task_notes,
                 )
-                .await
+                .await?
             }
-        }
+        };
+        Ok((peer_proxy, stream))
     }
 
     pub(super) async fn tcp_new_connection(
@@ -362,8 +368,8 @@ impl ProxyHttpEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
-        let stream = self
+    ) -> Result<(UpstreamAddr, LimitedStream<TcpStream>), UnderlyingTcpConnectError> {
+        let (peer, stream) = self
             .tcp_connect_to(task_conf, tcp_notes, task_notes)
             .await?;
 
@@ -380,13 +386,13 @@ impl ProxyHttpEscaper {
             let mut encoder = ProxyProtocolEncoder::new(version);
             let bytes = encoder
                 .encode_tcp(task_notes.client_addr(), task_notes.server_addr())
-                .map_err(TcpConnectError::ProxyProtocolEncodeError)?;
+                .map_err(UnderlyingTcpConnectError::ProxyProtocolEncodeError)?;
             stream
                 .write_all(bytes) // no need to flush data
                 .await
-                .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
+                .map_err(UnderlyingTcpConnectError::ProxyProtocolWriteFailed)?;
         }
 
-        Ok(stream)
+        Ok((peer, stream))
     }
 }

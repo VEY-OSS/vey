@@ -312,6 +312,19 @@ Set the batch recvmsg / sendmsg packet count.
 
 .. versionadded:: 1.13.3
 
+.. _conf_server_common_udp_relay_underlying_buffer_size:
+
+udp_relay_underlying_buffer_size
+--------------------------------
+
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
+
+Set the underlying buffer size when we need to parsing UDP packets from a underlying layer.
+
+**default**: 16K, or at least 8 * :ref:`udp_relay_packet_size <conf_server_common_udp_relay_packet_size>`
+
+.. versionadded:: 1.13.5
+
 .. _conf_server_common_tcp_misc_opts:
 
 tcp_misc_opts

@@ -11,7 +11,7 @@ use thiserror::Error;
 use tokio::io::{AsyncRead, ReadBuf};
 
 use vey_codec::quic::VarInt;
-use vey_io_ext::UdpCopyClientError;
+use vey_io_ext::{UdpCopyClientError, UdpCopyRemoteError};
 
 #[derive(Debug, Error)]
 pub(crate) enum MasqueUdpRecvError {
@@ -39,6 +39,24 @@ impl From<MasqueUdpRecvError> for UdpCopyClientError {
                 format!("invalid capsule type {v} while reading masque udp capsule header"),
             ),
             MasqueUdpRecvError::InvalidPacketSize(v) => UdpCopyClientError::InvalidPacket(format!(
+                "invalid packet size {v} while reading masque udp capsule header"
+            )),
+        }
+    }
+}
+
+impl From<MasqueUdpRecvError> for UdpCopyRemoteError {
+    fn from(value: MasqueUdpRecvError) -> Self {
+        match value {
+            MasqueUdpRecvError::IoFailed(e) => UdpCopyRemoteError::RecvFailed(e),
+            MasqueUdpRecvError::IoClosed => UdpCopyRemoteError::RecvClosed,
+            MasqueUdpRecvError::InvalidContextId(v) => UdpCopyRemoteError::InvalidPacket(format!(
+                "invalid context id {v} while reading masque udp capsule header"
+            )),
+            MasqueUdpRecvError::InvalidCapsuleType(v) => UdpCopyRemoteError::InvalidPacket(
+                format!("invalid capsule type {v} while reading masque udp capsule header"),
+            ),
+            MasqueUdpRecvError::InvalidPacketSize(v) => UdpCopyRemoteError::InvalidPacket(format!(
                 "invalid packet size {v} while reading masque udp capsule header"
             )),
         }

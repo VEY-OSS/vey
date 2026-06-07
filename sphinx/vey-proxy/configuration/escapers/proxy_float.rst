@@ -313,6 +313,14 @@ The following types are supported:
 http
 ----
 
+* host_name | tls_name
+
+  **optional**, **type**: :external+values:ref:`host <conf_value_host>`
+
+  Set the server host name for HTTP Upgrade request.
+
+  **default**: not set
+
 * username
 
   **optional**, **type**: :external+values:ref:`username <conf_value_username>`
@@ -342,19 +350,12 @@ http
 
   .. note:: Duplicate headers are not checked. Use this carefully.
 
-
 https
 -----
 
-HTTPS peers support all HTTP peer keys plus the following:
+HTTPS peers support all HTTP peer keys and have no extra keys currently.
 
-* tls_name
-
-  **optional**, **type**: :external+values:ref:`tls name <conf_value_tls_name>`
-
-  Set the TLS server name used for certificate verification.
-
-  **default**: not set
+The host_name/tls_name key is also used for TLS certificate verification.
 
 socks5
 ------
@@ -416,11 +417,11 @@ socks5s
 
 SOCKS5-over-TLS peers support all SOCKS5 peer keys plus the following:
 
-* tls_name
+* host_name | tls_name
 
-  **optional**, **type**: :external+values:ref:`tls name <conf_value_tls_name>`
+  **optional**, **type**: :external+values:ref:`host <conf_value_host>`
 
-  Set the TLS server name used for certificate verification.
+  Set the server host name for TLS certificate verification.
 
   **default**: not set
 

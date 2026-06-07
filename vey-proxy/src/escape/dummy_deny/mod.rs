@@ -32,8 +32,7 @@ use crate::module::udp_connect::{
     UdpConnectError, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskConf,
-    UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -138,7 +137,7 @@ impl Escaper for DummyDenyEscaper {
     ) -> UdpRelaySetupResult {
         self.stats.interface.add_udp_relay_session_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        Err(UdpRelaySetupError::MethodUnavailable)
+        Err(UdpConnectError::MethodUnavailable)
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {

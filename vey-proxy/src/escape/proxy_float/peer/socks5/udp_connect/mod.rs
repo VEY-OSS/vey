@@ -15,8 +15,7 @@ use crate::escape::proxy_socks5::udp_connect::{
 };
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::module::udp_connect::{
-    UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf,
-    UdpConnectTaskNotes,
+    UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -32,8 +31,7 @@ impl ProxyFloatSocks5Peer {
         let mut tcp_notes = TcpConnectTaskNotes::default();
         let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
             .timed_socks5_udp_associate(escaper, task_conf.sock_buf, &mut tcp_notes, task_notes)
-            .await
-            .map_err(UdpConnectError::SetupSocketFailed)?;
+            .await?;
 
         udp_notes.local = Some(udp_local_addr);
         udp_notes.next = Some(udp_peer_addr);

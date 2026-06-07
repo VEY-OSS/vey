@@ -334,6 +334,7 @@ impl HttpProxyMasqueUdpTask {
         let task_conf = UdpConnectTaskConf {
             upstream: &self.upstream,
             sock_buf: Default::default(), // TODO
+            relay: self.ctx.server_config.udp_relay,
         };
         match self
             .ctx
@@ -501,7 +502,7 @@ impl HttpProxyMasqueUdpTask {
         let max_packet_size = self.ctx.server_config.udp_relay.packet_size();
         let clt_r = MasqueUdpRecv::new(
             clt_r,
-            self.ctx.server_config.tcp_copy.buffer_size(),
+            self.ctx.server_config.udp_relay.underlying_buffer_size(),
             max_packet_size,
         );
         let clt_w = MasqueUdpSend::new(clt_w, max_packet_size);

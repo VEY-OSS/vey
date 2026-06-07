@@ -18,4 +18,5 @@ pub mod client;
 pub mod connect;
 pub mod header;
 pub mod server;
+pub mod upgrade;
 pub mod uri;

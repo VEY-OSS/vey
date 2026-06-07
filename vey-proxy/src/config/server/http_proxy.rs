@@ -319,6 +319,12 @@ impl HttpProxyServerConfig {
                 self.udp_relay.set_batch_count(batch_count);
                 Ok(())
             }
+            "udp_relay_inderlying_buffer_size" => {
+                let buffer_size = vey_yaml::humanize::as_usize(v)
+                    .context(format!("invalid humanize usize value for key {k}"))?;
+                self.udp_relay.set_underlying_buffer_size(buffer_size);
+                Ok(())
+            }
             "tcp_misc_opts" => {
                 self.tcp_misc_opts = vey_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;

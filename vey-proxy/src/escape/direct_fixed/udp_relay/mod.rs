@@ -12,9 +12,9 @@ use vey_socket::util::AddressFamily;
 use tokio::net::UdpSocket;
 
 use super::{DirectFixedEscaper, DirectFixedEscaperStats};
+use crate::module::udp_connect::UdpConnectError;
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupError,
-    UdpRelaySetupResult, UdpRelayTaskConf,
+    ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupResult, UdpRelayTaskConf,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -76,7 +76,7 @@ impl DirectFixedEscaper {
             LimitedUdpRecv<UdpRecvHalf>,
             LimitedUdpSend<UdpSendHalf>,
         ),
-        UdpRelaySetupError,
+        UdpConnectError,
     > {
         let bind = self.get_bind_random(family, task_notes);
 
@@ -90,8 +90,8 @@ impl DirectFixedEscaper {
 
         let (socket, bind_addr) =
             vey_socket::udp::new_std_bind_relay(&bind, family, task_conf.sock_buf, misc_opts)
-                .map_err(UdpRelaySetupError::SetupSocketFailed)?;
-        let socket = UdpSocket::from_std(socket).map_err(UdpRelaySetupError::SetupSocketFailed)?;
+                .map_err(UdpConnectError::SetupSocketFailed)?;
+        let socket = UdpSocket::from_std(socket).map_err(UdpConnectError::SetupSocketFailed)?;
 
         let (recv, send) = vey_io_ext::split_udp(socket);
         let recv = LimitedUdpRecv::local_limited(

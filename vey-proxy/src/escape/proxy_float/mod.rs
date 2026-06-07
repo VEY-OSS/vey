@@ -37,8 +37,7 @@ use crate::module::udp_connect::{
     UdpConnectError, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskConf,
-    UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -240,7 +239,7 @@ impl Escaper for ProxyFloatEscaper {
         udp_notes.escaper.clone_from(&self.config.name);
         let peer = self
             .select_peer(task_notes)
-            .map_err(UdpRelaySetupError::EscaperNotUsable)?;
+            .map_err(UdpConnectError::EscaperNotUsable)?;
         peer.udp_setup_relay(self, task_conf, udp_notes, task_notes, task_stats)
             .await
     }

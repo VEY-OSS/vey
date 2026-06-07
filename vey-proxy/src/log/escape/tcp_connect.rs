@@ -9,7 +9,7 @@ use uuid::Uuid;
 use vey_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;
 
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{TcpConnectTaskNotes, UnderlyingTcpConnectError};
 
 pub(crate) struct EscapeLogForTcpConnect<'a> {
     pub(crate) upstream: &'a UpstreamAddr,
@@ -18,7 +18,7 @@ pub(crate) struct EscapeLogForTcpConnect<'a> {
 }
 
 impl EscapeLogForTcpConnect<'_> {
-    pub(crate) fn log(&self, logger: &Logger, e: &TcpConnectError) {
+    pub(crate) fn log(&self, logger: &Logger, e: &UnderlyingTcpConnectError) {
         slog::info!(logger, "{}", e;
             "escape_type" => "TcpConnect",
             "task_id" => LtUuid(self.task_id),

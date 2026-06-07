@@ -31,7 +31,7 @@ impl ProxyHttpsEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        let tls_stream = self
+        let (_peer, tls_stream) = self
             .tls_handshake_to_remote(task_conf, tcp_notes, task_notes)
             .await?;
         let (ups_r, ups_w) = tls_stream.into_split();

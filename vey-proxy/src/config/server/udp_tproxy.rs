@@ -8,7 +8,6 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use vey_io_ext::LimitedUdpRelayConfig;
@@ -170,9 +169,11 @@ impl UdpTProxyServerConfig {
                 self.udp_relay.set_batch_count(batch_count);
                 Ok(())
             }
-            "task_idle_check_duration" => {
-                warn!("deprecated config key '{k}', please use 'task_idle_check_interval' instead");
-                self.set("task_idle_check_interval", v)
+            "udp_relay_inderlying_buffer_size" => {
+                let buffer_size = vey_yaml::humanize::as_usize(v)
+                    .context(format!("invalid humanize usize value for key {k}"))?;
+                self.udp_relay.set_underlying_buffer_size(buffer_size);
+                Ok(())
             }
             "task_idle_check_interval" => {
                 self.task_idle_check_interval = vey_yaml::humanize::as_duration(v)

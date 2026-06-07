@@ -22,6 +22,7 @@ The following common keys are supported:
 * :ref:`udp_relay_packet_size <conf_server_common_udp_relay_packet_size>`
 * :ref:`udp_relay_yield_count <conf_server_common_udp_relay_yield_count>`
 * :ref:`udp_relay_batch_count <conf_server_common_udp_relay_batch_count>`
+* :ref:`udp_relay_underlying_buffer_size <conf_server_common_udp_relay_underlying_buffer_size>`
 * :ref:`task_idle_check_interval <conf_server_common_task_idle_check_interval>`
 * :ref:`task_idle_max_count <conf_server_common_task_idle_max_count>`
 * :ref:`flush_task_log_on_created <conf_server_common_flush_task_log_on_created>`

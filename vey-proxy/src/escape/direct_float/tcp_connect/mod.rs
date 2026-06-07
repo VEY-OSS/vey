@@ -23,8 +23,8 @@ use super::{DirectFloatBindIp, DirectFloatEscaper};
 use crate::escape::direct_fixed::tcp_connect::DirectTcpConnectConfig;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf,
-    TcpConnectTaskNotes,
+    TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes,
+    UnderlyingTcpConnectError,
 };
 use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
@@ -34,7 +34,7 @@ impl DirectFloatEscaper {
         &self,
         action: AclAction,
         task_notes: &ServerTaskNotes,
-    ) -> Result<(), TcpConnectError> {
+    ) -> Result<(), UnderlyingTcpConnectError> {
         let forbid = match action {
             AclAction::Permit => false,
             AclAction::PermitAndLog => {
@@ -52,7 +52,7 @@ impl DirectFloatEscaper {
             if let Some(user_ctx) = task_notes.user_ctx() {
                 user_ctx.add_ip_blocked();
             }
-            Err(TcpConnectError::ForbiddenRemoteAddress)
+            Err(UnderlyingTcpConnectError::ForbiddenRemoteAddress)
         } else {
             Ok(())
         }
@@ -64,16 +64,16 @@ impl DirectFloatEscaper {
         bind: BindAddr,
         task_notes: &ServerTaskNotes,
         config: &DirectTcpConnectConfig<'_>,
-    ) -> Result<(TcpSocket, DirectFloatBindIp), TcpConnectError> {
+    ) -> Result<(TcpSocket, DirectFloatBindIp), UnderlyingTcpConnectError> {
         match peer_ip {
             IpAddr::V4(_) => {
                 if self.config.no_ipv4 {
-                    return Err(TcpConnectError::ForbiddenAddressFamily);
+                    return Err(UnderlyingTcpConnectError::ForbiddenAddressFamily);
                 }
             }
             IpAddr::V6(_) => {
                 if self.config.no_ipv6 {
-                    return Err(TcpConnectError::ForbiddenAddressFamily);
+                    return Err(UnderlyingTcpConnectError::ForbiddenAddressFamily);
                 }
             }
         }
@@ -83,10 +83,10 @@ impl DirectFloatEscaper {
 
         let bind = if let Some(ip) = bind.ip() {
             self.select_bind_again(ip, task_notes)
-                .map_err(TcpConnectError::EscaperNotUsable)?
+                .map_err(UnderlyingTcpConnectError::EscaperNotUsable)?
         } else {
             self.select_bind(AddressFamily::from(&peer_ip), task_notes)
-                .map_err(TcpConnectError::EscaperNotUsable)?
+                .map_err(UnderlyingTcpConnectError::EscaperNotUsable)?
         };
 
         let sock = vey_socket::tcp::new_socket_to(
@@ -96,7 +96,7 @@ impl DirectFloatEscaper {
             &config.misc_opts,
             true,
         )
-        .map_err(TcpConnectError::SetupSocketFailed)?;
+        .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
         Ok((sock, bind))
     }
 
@@ -107,7 +107,7 @@ impl DirectFloatEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<(TcpStream, DirectFloatBindIp), TcpConnectError> {
+    ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
         let (sock, bind) =
             self.prepare_connect_socket(peer_ip, tcp_notes.bind, task_notes, &config)?;
         let peer = SocketAddr::new(peer_ip, task_conf.upstream.port());
@@ -127,7 +127,7 @@ impl DirectFloatEscaper {
 
                 let local_addr = ups_stream
                     .local_addr()
-                    .map_err(TcpConnectError::SetupSocketFailed)?;
+                    .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                 self.stats.tcp.connect.add_established();
                 tcp_notes.local = Some(local_addr);
                 tcp_notes.chained.target_addr = Some(peer);
@@ -138,7 +138,7 @@ impl DirectFloatEscaper {
                 self.stats.tcp.connect.add_error();
                 tcp_notes.duration = instant_now.elapsed();
 
-                let e = TcpConnectError::ConnectFailed(ConnectError::from(e));
+                let e = UnderlyingTcpConnectError::ConnectFailed(ConnectError::from(e));
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
@@ -153,7 +153,7 @@ impl DirectFloatEscaper {
                 self.stats.tcp.connect.add_timeout();
                 tcp_notes.duration = instant_now.elapsed();
 
-                let e = TcpConnectError::TimeoutByRule;
+                let e = UnderlyingTcpConnectError::TimeoutByRule;
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
@@ -178,7 +178,7 @@ impl DirectFloatEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<(TcpStream, DirectFloatBindIp), TcpConnectError> {
+    ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
         let max_tries_each_family = config.connect.max_tries();
         let mut ips = resolver_job
             .get_r1_or_first_many(
@@ -202,7 +202,7 @@ impl DirectFloatEscaper {
 
         tcp_notes.tries = 0;
         let instant_now = Instant::now();
-        let mut returned_err = TcpConnectError::NoAddressConnected;
+        let mut returned_err = UnderlyingTcpConnectError::NoAddressConnected;
 
         loop {
             if spawn_new_connection && let Some(ip) = ips.pop() {
@@ -223,14 +223,16 @@ impl DirectFloatEscaper {
                         Ok(Err(e)) => {
                             stats.tcp.connect.add_error();
                             (
-                                Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
+                                Err(UnderlyingTcpConnectError::ConnectFailed(
+                                    ConnectError::from(e),
+                                )),
                                 peer,
                                 bind,
                             )
                         }
                         Err(_) => {
                             stats.tcp.connect.add_timeout();
-                            (Err(TcpConnectError::TimeoutByRule), peer, bind)
+                            (Err(UnderlyingTcpConnectError::TimeoutByRule), peer, bind)
                         }
                     }
                 });
@@ -256,7 +258,7 @@ impl DirectFloatEscaper {
                                     Ok(ups_stream) => {
                                         let local_addr = ups_stream
                                             .local_addr()
-                                            .map_err(TcpConnectError::SetupSocketFailed)?;
+                                            .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                                         self.stats.tcp.connect.add_established();
                                         tcp_notes.local = Some(local_addr);
                                         tcp_notes.chained.target_addr = Some(peer_addr);
@@ -281,7 +283,7 @@ impl DirectFloatEscaper {
                             Some(Err(r)) => {
                                 running_connection -= 1;
                                 if r.is_panic() {
-                                    return Err(TcpConnectError::InternalServerError("connect task panic"));
+                                    return Err(UnderlyingTcpConnectError::InternalServerError("connect task panic"));
                                 }
                                 spawn_new_connection = true;
                             }
@@ -323,7 +325,7 @@ impl DirectFloatEscaper {
                     }
                     Err(_) => {
                         tcp_notes.duration = instant_now.elapsed();
-                        return Err(TcpConnectError::TimeoutByRule);
+                        return Err(UnderlyingTcpConnectError::TimeoutByRule);
                     }
                 }
             }
@@ -335,7 +337,7 @@ impl DirectFloatEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<(TcpStream, DirectFloatBindIp), TcpConnectError> {
+    ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
         let mut config = DirectTcpConnectConfig {
             connect: self.config.general.tcp_connect,
             keepalive: self.config.tcp_keepalive,
@@ -378,7 +380,7 @@ impl DirectFloatEscaper {
         new_tcp_notes: &mut TcpConnectTaskNotes,
         old_tcp_notes: &TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<(TcpStream, DirectFloatBindIp), TcpConnectError> {
+    ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
         new_tcp_notes.bind = old_tcp_notes.bind;
 
         let mut config = DirectTcpConnectConfig {
@@ -400,7 +402,7 @@ impl DirectFloatEscaper {
 
         if task_conf.upstream.host_eq(old_upstream) {
             let control_addr = old_tcp_notes.next.ok_or_else(|| {
-                TcpConnectError::SetupSocketFailed(io::Error::new(
+                UnderlyingTcpConnectError::SetupSocketFailed(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "no peer address for referenced connection found",
                 ))
@@ -427,7 +429,7 @@ impl DirectFloatEscaper {
                         BindAddr::Ip(IpAddr::V6(_)) => resolve_strategy.query_v6only(),
                         #[cfg(target_os = "linux")]
                         BindAddr::Foreign(_) => {
-                            return Err(TcpConnectError::InternalServerError(
+                            return Err(UnderlyingTcpConnectError::InternalServerError(
                                 "foreign ip address binding is not supported",
                             ));
                         }

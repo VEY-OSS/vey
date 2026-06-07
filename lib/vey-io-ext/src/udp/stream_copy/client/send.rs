@@ -182,8 +182,12 @@ where
             match self.limit.check_packets(dur_millis, total_size_v.as_ref()) {
                 DatagramLimitAction::Advance(n) => {
                     match self.inner.poll_send_packets(cx, &packets[0..n]) {
+                        Poll::Ready(Ok(0)) => {
+                            self.limit.set_advance(0, 0);
+                            Poll::Ready(Ok(0))
+                        }
                         Poll::Ready(Ok(count)) => {
-                            let len = packets.iter().take(count).map(|v| v.payload_len()).sum();
+                            let len = total_size_v[count - 1];
                             self.limit.set_advance(count, len);
                             self.stats.add_send_packets(count);
                             self.stats.add_send_bytes(len);

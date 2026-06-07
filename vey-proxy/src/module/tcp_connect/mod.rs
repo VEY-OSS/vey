@@ -9,7 +9,7 @@ mod error;
 mod stats;
 mod task;
 
-pub(crate) use error::TcpConnectError;
+pub(crate) use error::{TcpConnectError, UnderlyingTcpConnectError};
 pub(crate) use stats::TcpConnectRemoteWrapperStats;
 pub(crate) use task::{TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf};
 

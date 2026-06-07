@@ -177,7 +177,7 @@ impl HttpConnectResponse {
         if self.code >= 200 && self.code < 300 {
             Ok(())
         } else if self.code == 504 || self.code == 522 || self.code == 524 {
-            // Peer tells us it timeout
+            // Peer tells us it times out
             Err(HttpConnectError::PeerTimeout(self.code))
         } else {
             Err(HttpConnectError::UnexpectedStatusCode(

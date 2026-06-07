@@ -297,6 +297,10 @@ where
             match self.limit.check_packets(dur_millis, total_size_v.as_ref()) {
                 DatagramLimitAction::Advance(n) => {
                     match self.inner.poll_batch_sendmsg(cx, &mut msgs[0..n]) {
+                        Poll::Ready(Ok(0)) => {
+                            self.limit.set_advance(0, 0);
+                            Poll::Ready(Ok(0))
+                        }
                         Poll::Ready(Ok(count)) => {
                             let len = msgs.iter().take(count).map(|v| v.n_send).sum();
                             self.limit.set_advance(count, len);
@@ -365,6 +369,10 @@ where
             match self.limit.check_packets(dur_millis, total_size_v.as_ref()) {
                 DatagramLimitAction::Advance(n) => {
                     match self.inner.poll_batch_sendmsg_x(cx, &mut msgs[0..n]) {
+                        Poll::Ready(Ok(0)) => {
+                            self.limit.set_advance(0, 0);
+                            Poll::Ready(Ok(0))
+                        }
                         Poll::Ready(Ok(count)) => {
                             let len = msgs.iter().take(count).map(|v| v.n_send).sum();
                             self.limit.set_advance(count, len);

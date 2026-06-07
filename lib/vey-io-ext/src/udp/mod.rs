@@ -25,10 +25,10 @@ pub use relay::{UdpRelayClientToRemote, UdpRelayError, UdpRelayRemoteToClient};
 
 mod stream_copy;
 pub use stream_copy::{
-    AsUdpPayload, LimitedUdpCopyClientRecv, LimitedUdpCopyClientSend, UdpCopyClientError,
-    UdpCopyClientRecv, UdpCopyClientSend, UdpCopyClientToRemote, UdpCopyError, UdpCopyPacket,
-    UdpCopyPacketMeta, UdpCopyRemoteError, UdpCopyRemoteRecv, UdpCopyRemoteSend,
-    UdpCopyRemoteToClient,
+    AsUdpPayload, LimitedUdpCopyClientRecv, LimitedUdpCopyClientSend, LimitedUdpCopyRemoteRecv,
+    LimitedUdpCopyRemoteSend, UdpCopyClientError, UdpCopyClientRecv, UdpCopyClientSend,
+    UdpCopyClientToRemote, UdpCopyError, UdpCopyPacket, UdpCopyPacketMeta, UdpCopyRemoteError,
+    UdpCopyRemoteRecv, UdpCopyRemoteSend, UdpCopyRemoteToClient,
 };
 
 mod stream_move;
@@ -45,7 +45,8 @@ pub use split::{
 
 const DEFAULT_UDP_PACKET_SIZE: u16 = 4096; // at least for DNS with extension
 const DEFAULT_UDP_RELAY_YIELD_COUNT: usize = 1024;
-const DEFAULT_UDP_BATCH_COUNT: usize = 8;
+const DEFAULT_UDP_RELAY_BATCH_COUNT: usize = 8;
+const DEFAULT_UDP_UNDERLYING_BUFFER_SIZE: usize = 16384;
 const MINIMUM_UDP_PACKET_SIZE: u16 = 512;
 const MAXIMUM_UDP_PACKET_SIZE: u16 = 16 * 1024;
 const MINIMUM_UDP_RELAY_YIELD_COUNT: usize = 256;
@@ -55,6 +56,7 @@ pub struct LimitedUdpRelayConfig {
     packet_size: u16,
     yield_count: usize,
     batch_count: usize,
+    underlying_buffer_size: usize,
 }
 
 impl Default for LimitedUdpRelayConfig {
@@ -62,7 +64,8 @@ impl Default for LimitedUdpRelayConfig {
         LimitedUdpRelayConfig {
             packet_size: DEFAULT_UDP_PACKET_SIZE,
             yield_count: DEFAULT_UDP_RELAY_YIELD_COUNT,
-            batch_count: DEFAULT_UDP_BATCH_COUNT,
+            batch_count: DEFAULT_UDP_RELAY_BATCH_COUNT,
+            underlying_buffer_size: DEFAULT_UDP_UNDERLYING_BUFFER_SIZE,
         }
     }
 }
@@ -83,5 +86,14 @@ impl LimitedUdpRelayConfig {
 
     pub fn set_batch_count(&mut self, batch_count: usize) {
         self.batch_count = batch_count;
+    }
+
+    pub fn set_underlying_buffer_size(&mut self, underlying_buffer_size: usize) {
+        self.underlying_buffer_size = underlying_buffer_size;
+    }
+
+    pub fn underlying_buffer_size(&self) -> usize {
+        self.underlying_buffer_size
+            .max(self.packet_size as usize * self.batch_count.min(DEFAULT_UDP_RELAY_BATCH_COUNT))
     }
 }

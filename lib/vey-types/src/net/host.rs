@@ -178,6 +178,12 @@ impl TryFrom<&Host> for ServerName<'static> {
     }
 }
 
+impl From<IpAddr> for Host {
+    fn from(value: IpAddr) -> Self {
+        Host::Ip(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

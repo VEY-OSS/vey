@@ -107,9 +107,10 @@ impl NextProxyPeerInternal for ProxyFloatSocks5sPeer {
                     .context(format!("invalid password value for key {k}"))?;
                 Ok(())
             }
-            "tls_name" => {
-                self.tls_name = vey_json::value::as_host(v)
-                    .context(format!("invalid tls server name value for key {k}"))?;
+            "host_name" | "hostname" | "tls_name" => {
+                let host = vey_json::value::as_host(v)
+                    .context(format!("invalid server host name value for key {k}"))?;
+                self.tls_name = host;
                 Ok(())
             }
             "transmute_udp_peer_ip" => {

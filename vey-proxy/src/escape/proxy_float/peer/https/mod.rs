@@ -15,7 +15,7 @@ use tokio::time::Instant;
 
 use vey_daemon::stat::remote::{ArcTcpConnectionTaskRemoteStats, ArcUdpConnectTaskRemoteStats};
 use vey_types::auth::{Password, Username};
-use vey_types::net::{EgressInfo, Host, TcpSockSpeedLimitConfig};
+use vey_types::net::{EgressInfo, Host, TcpSockSpeedLimitConfig, UpstreamAddr};
 
 use super::http::ProxyFloatHttpPeerSharedConfig;
 use super::{ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEscaper};
@@ -27,17 +27,18 @@ use crate::module::udp_connect::{
     UdpConnectError, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskConf,
-    UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
 mod http_connect;
 mod http_forward;
+mod masque_udp;
 
 pub(super) struct ProxyFloatHttpsPeer {
     addr: SocketAddr,
     tls_name: Host,
+    http_host: UpstreamAddr,
     username: Username,
     password: Password,
     egress_info: EgressInfo,
@@ -47,9 +48,12 @@ pub(super) struct ProxyFloatHttpsPeer {
 
 impl ProxyFloatHttpsPeer {
     pub(super) fn new_obj(addr: SocketAddr) -> ArcNextProxyPeer {
+        let tls_name = Host::Ip(addr.ip());
+        let http_host = UpstreamAddr::new(addr.ip(), addr.port());
         Arc::new(ProxyFloatHttpsPeer {
             addr,
-            tls_name: Host::Ip(addr.ip()),
+            tls_name,
+            http_host,
             username: Username::empty(),
             password: Password::empty(),
             egress_info: Default::default(),
@@ -87,9 +91,11 @@ impl NextProxyPeerInternal for ProxyFloatHttpsPeer {
                     .context(format!("invalid password value for key {k}"))?;
                 Ok(())
             }
-            "tls_name" => {
-                self.tls_name = vey_json::value::as_host(v)
-                    .context(format!("invalid tls server name value for key {k}"))?;
+            "host_name" | "hostname" | "tls_name" => {
+                let host = vey_json::value::as_host(v)
+                    .context(format!("invalid server host name value for key {k}"))?;
+                self.http_host.set_host(host.clone());
+                self.tls_name = host;
                 Ok(())
             }
             "http_connect_rsp_header_max_size" => {
@@ -118,9 +124,6 @@ impl NextProxyPeerInternal for ProxyFloatHttpsPeer {
         let shared_config = Arc::make_mut(&mut self.shared_config);
         if !self.username.is_empty() {
             shared_config.set_user(&self.username, &self.password);
-        }
-        if self.tls_name.is_empty() {
-            self.tls_name = Host::Ip(self.addr.ip());
         }
         Ok(())
     }
@@ -203,13 +206,14 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
 
     async fn udp_setup_connection(
         &self,
-        _escaper: &ProxyFloatEscaper,
-        _task_conf: &UdpConnectTaskConf<'_>,
-        _udp_notes: &mut UdpConnectTaskNotes,
-        _task_notes: &ServerTaskNotes,
-        _task_stats: ArcUdpConnectTaskRemoteStats,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &UdpConnectTaskConf<'_>,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        Err(UdpConnectError::MethodUnavailable)
+        self.http_upgrade_new_udp_connection(escaper, task_conf, udp_notes, task_notes, task_stats)
+            .await
     }
 
     async fn udp_setup_relay(
@@ -220,6 +224,6 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        Err(UdpRelaySetupError::MethodUnavailable)
+        Err(UdpConnectError::MethodUnavailable)
     }
 }

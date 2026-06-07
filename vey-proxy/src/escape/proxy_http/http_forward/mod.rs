@@ -32,7 +32,7 @@ impl ProxyHttpEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        let stream = self
+        let (_peer, stream) = self
             .tcp_new_connection(task_conf, tcp_notes, task_notes)
             .await?;
         let (ups_r, mut ups_w) = stream.into_split();

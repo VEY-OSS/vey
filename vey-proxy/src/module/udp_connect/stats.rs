@@ -27,6 +27,12 @@ impl UdpConnectRemoteWrapperStats {
         UdpConnectRemoteWrapperStats { all }
     }
 
+    pub(crate) fn new_layered(task: ArcUdpConnectTaskRemoteStats) -> Self {
+        let mut all = Vec::with_capacity(3);
+        all.push(task);
+        UdpConnectRemoteWrapperStats { all }
+    }
+
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
             self.all.push(s as ArcUdpConnectTaskRemoteStats);

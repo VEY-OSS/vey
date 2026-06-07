@@ -5,11 +5,11 @@
 
 use vey_io_ext::{UdpRelayRemoteRecv, UdpRelayRemoteSend};
 
-mod error;
 mod stats;
 mod task;
 
-pub(crate) use error::UdpRelaySetupError;
+use crate::module::udp_connect::UdpConnectError;
+
 pub(crate) use stats::{
     ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelayTaskRemoteStats,
 };
@@ -20,5 +20,5 @@ pub(crate) type UdpRelaySetupResult = Result<
         Box<dyn UdpRelayRemoteRecv + Unpin + Send + Sync>,
         Box<dyn UdpRelayRemoteSend + Unpin + Send + Sync>,
     ),
-    UdpRelaySetupError,
+    UdpConnectError,
 >;

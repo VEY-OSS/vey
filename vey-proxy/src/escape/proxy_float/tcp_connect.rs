@@ -14,7 +14,9 @@ use vey_types::net::ConnectError;
 
 use super::{NextProxyPeer, ProxyFloatEscaper};
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectTaskConf, TcpConnectTaskNotes, UnderlyingTcpConnectError,
+};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatEscaper {
@@ -22,7 +24,7 @@ impl ProxyFloatEscaper {
         &self,
         peer: SocketAddr,
         bind: &BindAddr,
-    ) -> Result<TcpStream, TcpConnectError> {
+    ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         // use new socket every time, as we set bind_no_port
         let sock = vey_socket::tcp::new_socket_to(
             peer.ip(),
@@ -31,11 +33,13 @@ impl ProxyFloatEscaper {
             &self.config.tcp_misc_opts,
             true,
         )
-        .map_err(TcpConnectError::SetupSocketFailed)?;
+        .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
         self.stats.tcp.connect.add_attempted();
         match sock.connect(peer).await {
             Ok(ups_stream) => Ok(ups_stream),
-            Err(e) => Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
+            Err(e) => Err(UnderlyingTcpConnectError::ConnectFailed(
+                ConnectError::from(e),
+            )),
         }
     }
 
@@ -45,7 +49,7 @@ impl ProxyFloatEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<TcpStream, TcpConnectError> {
+    ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         let peer_addr = peer.peer_addr();
         let bind_ip = match peer_addr {
             SocketAddr::V4(_) => self.config.bind_v4,
@@ -90,7 +94,7 @@ impl ProxyFloatEscaper {
 
                 let local_addr = ups_stream
                     .local_addr()
-                    .map_err(TcpConnectError::SetupSocketFailed)?;
+                    .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                 self.stats.tcp.connect.add_established();
                 tcp_notes.local = Some(local_addr);
                 Ok(ups_stream)
@@ -110,7 +114,7 @@ impl ProxyFloatEscaper {
             Err(_) => {
                 self.stats.tcp.connect.add_timeout();
 
-                let e = TcpConnectError::TimeoutByRule;
+                let e = UnderlyingTcpConnectError::TimeoutByRule;
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
@@ -130,7 +134,7 @@ impl ProxyFloatEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
+    ) -> Result<LimitedStream<TcpStream>, UnderlyingTcpConnectError> {
         let stream = self
             .tcp_connect_to(peer, task_conf, tcp_notes, task_notes)
             .await?;

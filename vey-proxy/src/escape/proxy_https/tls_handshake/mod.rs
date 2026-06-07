@@ -7,11 +7,13 @@ use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use vey_openssl::{SslConnector, SslInfoCallbackWhere, SslStream};
-use vey_types::net::{TlsAlert, TlsAlertType};
+use vey_types::net::{TlsAlert, TlsAlertType, UpstreamAddr};
 
 use super::ProxyHttpsEscaper;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectTaskConf, TcpConnectTaskNotes, UnderlyingTcpConnectError,
+};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyHttpsEscaper {
@@ -20,7 +22,10 @@ impl ProxyHttpsEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
+    ) -> Result<
+        (UpstreamAddr, SslStream<impl AsyncRead + AsyncWrite + use<>>),
+        UnderlyingTcpConnectError,
+    > {
         let (peer, ups_s) = self
             .tcp_new_connection(task_conf, tcp_notes, task_notes)
             .await?;
@@ -29,7 +34,7 @@ impl ProxyHttpsEscaper {
         let mut ssl = self
             .tls_config
             .build_ssl(tls_name, peer.port())
-            .map_err(TcpConnectError::InternalTlsClientError)?;
+            .map_err(UnderlyingTcpConnectError::InternalTlsClientError)?;
         let escaper_stats = self.stats.clone();
         ssl.set_info_callback(move |_ssl, r#where, ret| {
             let mask = SslInfoCallbackWhere::from_bits_retain(r#where);
@@ -42,13 +47,14 @@ impl ProxyHttpsEscaper {
             }
         });
 
-        let connector = SslConnector::new(ssl, ups_s)
-            .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
+        let connector = SslConnector::new(ssl, ups_s).map_err(|e| {
+            UnderlyingTcpConnectError::InternalTlsClientError(anyhow::Error::new(e))
+        })?;
 
         match tokio::time::timeout(self.tls_config.handshake_timeout, connector.connect()).await {
             Ok(Ok(stream)) => {
                 self.stats.tls.add_handshake_success();
-                Ok(stream)
+                Ok((peer, stream))
             }
             Ok(Err(e)) => {
                 self.stats.tls.add_handshake_error();
@@ -64,7 +70,7 @@ impl ProxyHttpsEscaper {
                     }
                     .log(logger, &e);
                 }
-                Err(TcpConnectError::PeerTlsHandshakeFailed(e))
+                Err(UnderlyingTcpConnectError::PeerTlsHandshakeFailed(e))
             }
             Err(_) => {
                 self.stats.tls.add_handshake_timeout();
@@ -80,7 +86,7 @@ impl ProxyHttpsEscaper {
                     }
                     .log(logger, &e);
                 }
-                Err(TcpConnectError::PeerTlsHandshakeTimeout)
+                Err(UnderlyingTcpConnectError::PeerTlsHandshakeTimeout)
             }
         }
     }

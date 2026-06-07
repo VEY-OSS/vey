@@ -9,9 +9,9 @@ use anyhow::anyhow;
 
 use super::RouteFailoverEscaper;
 use crate::escape::ArcEscaper;
+use crate::module::udp_connect::UdpConnectError;
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskConf,
-    UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -24,7 +24,7 @@ impl UdpRelayFailoverContext {
     fn new() -> Self {
         UdpRelayFailoverContext {
             udp_notes: UdpRelayTaskNotes::default(),
-            setup_result: Err(UdpRelaySetupError::EscaperNotUsable(anyhow!(
+            setup_result: Err(UdpConnectError::EscaperNotUsable(anyhow!(
                 "no udp set relay called yet"
             ))),
         }

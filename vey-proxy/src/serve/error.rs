@@ -61,6 +61,10 @@ pub(crate) enum ServerTaskError {
     InternalResolverError(ResolveError),
     #[error("internal tls client error: {0:?}")]
     InternalTlsClientError(anyhow::Error),
+    #[error("peer tls handshake timeout")]
+    PeerTlsHandshakeTimeout,
+    #[error("peer tls handshake failed: {0:?}")]
+    PeerTlsHandshakeFailed(anyhow::Error),
     #[error("escaper not usable: {0:?}")]
     EscaperNotUsable(anyhow::Error),
     #[error("forbidden by rule: {0}")]
@@ -134,6 +138,8 @@ impl ServerTaskError {
             ServerTaskError::InternalAdapterError(_) => "InternalAdapterError",
             ServerTaskError::InternalResolverError(_) => "InternalResolverError",
             ServerTaskError::InternalTlsClientError(_) => "InternalTlsClientError",
+            ServerTaskError::PeerTlsHandshakeTimeout => "PeerTlsHandshakeTimeout",
+            ServerTaskError::PeerTlsHandshakeFailed(_) => "PeerTlsHandshakeFailed",
             ServerTaskError::EscaperNotUsable(_) => "EscaperNotUsable",
             ServerTaskError::ForbiddenByRule(_) => "ForbiddenByRule",
             ServerTaskError::InvalidClientProtocol(_) => "InvalidClientProtocol",
@@ -265,6 +271,7 @@ impl From<UdpCopyRemoteError> for ServerTaskError {
     fn from(e: UdpCopyRemoteError) -> Self {
         match e {
             UdpCopyRemoteError::RecvFailed(e) => ServerTaskError::UpstreamReadFailed(e),
+            UdpCopyRemoteError::RecvClosed => ServerTaskError::ClosedByUpstream,
             UdpCopyRemoteError::SendFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
             UdpCopyRemoteError::InvalidPacket(_) => {
                 ServerTaskError::InvalidUpstreamProtocol("invalid received udp packet")

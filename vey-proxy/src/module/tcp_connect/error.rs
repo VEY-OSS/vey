@@ -9,12 +9,66 @@ use std::io;
 use thiserror::Error;
 
 use vey_http::connect::HttpConnectError;
+use vey_http::upgrade::HttpUpgradeError;
 use vey_resolver::ResolveError;
 use vey_socks::SocksConnectError;
 use vey_socks::v5::Socks5Reply;
 use vey_types::net::{ConnectError, ProxyProtocolEncodeError};
 
 use crate::serve::{ServerTaskError, ServerTaskForbiddenError};
+
+#[derive(Debug, Error)]
+pub(crate) enum UnderlyingTcpConnectError {
+    #[error("resolve failed: {0}")]
+    ResolveFailed(#[from] ResolveError),
+    #[error("forbidden address family")]
+    ForbiddenAddressFamily,
+    #[error("forbidden remote address")]
+    ForbiddenRemoteAddress,
+    #[error("setup socket failed: {0:?}")]
+    SetupSocketFailed(io::Error),
+    #[error("escaper not usable: {0:?}")]
+    EscaperNotUsable(anyhow::Error),
+    #[error("connect failed: {0}")]
+    ConnectFailed(#[from] ConnectError),
+    #[error("timeout by rule")]
+    TimeoutByRule,
+    #[error("no address connected")]
+    NoAddressConnected,
+    #[error("proxy protocol encode error: {0}")]
+    ProxyProtocolEncodeError(#[from] ProxyProtocolEncodeError),
+    #[error("proxy protocol write failed: {0:?}")]
+    ProxyProtocolWriteFailed(io::Error),
+    #[error("internal server error: {0}")]
+    InternalServerError(&'static str),
+    #[error("internal tls client error: {0:?}")]
+    InternalTlsClientError(anyhow::Error),
+    #[error("peer tls handshake timeout")]
+    PeerTlsHandshakeTimeout,
+    #[error("peer tls handshake failed: {0:?}")]
+    PeerTlsHandshakeFailed(anyhow::Error),
+}
+
+impl UnderlyingTcpConnectError {
+    pub(crate) fn brief(&self) -> &'static str {
+        match self {
+            UnderlyingTcpConnectError::ResolveFailed(_) => "ResolveFailed",
+            UnderlyingTcpConnectError::SetupSocketFailed(_) => "SetupSocketFailed",
+            UnderlyingTcpConnectError::EscaperNotUsable(_) => "EscaperNotUsable",
+            UnderlyingTcpConnectError::ConnectFailed(_) => "ConnectFailed",
+            UnderlyingTcpConnectError::TimeoutByRule => "TimeoutByRule",
+            UnderlyingTcpConnectError::NoAddressConnected => "NoAddressConnected",
+            UnderlyingTcpConnectError::ForbiddenAddressFamily => "ForbiddenAddressFamily",
+            UnderlyingTcpConnectError::ForbiddenRemoteAddress => "ForbiddenRemoteAddress",
+            UnderlyingTcpConnectError::ProxyProtocolEncodeError(_) => "ProxyProtocolEncodeError",
+            UnderlyingTcpConnectError::ProxyProtocolWriteFailed(_) => "ProxyProtocolWriteFailed",
+            UnderlyingTcpConnectError::InternalServerError(_) => "InternalServerError",
+            UnderlyingTcpConnectError::InternalTlsClientError(_) => "InternalTlsClientError",
+            UnderlyingTcpConnectError::PeerTlsHandshakeTimeout => "PeerTLSHandshakeTimeout",
+            UnderlyingTcpConnectError::PeerTlsHandshakeFailed(_) => "PeerTLSHandshakeFailed",
+        }
+    }
+}
 
 #[derive(Error, Debug)]
 pub(crate) enum TcpConnectError {
@@ -64,35 +118,6 @@ pub(crate) enum TcpConnectError {
     UpstreamTlsHandshakeFailed(anyhow::Error),
 }
 
-impl TcpConnectError {
-    pub(crate) fn brief(&self) -> &'static str {
-        match self {
-            TcpConnectError::MethodUnavailable => "MethodUnavailable",
-            TcpConnectError::EscaperNotUsable(_) => "EscaperNotUsable",
-            TcpConnectError::ResolveFailed(_) => "ResolveFailed",
-            TcpConnectError::SetupSocketFailed(_) => "SetupSocketFailed",
-            TcpConnectError::ConnectFailed(_) => "ConnectFailed",
-            TcpConnectError::TimeoutByRule => "TimeoutByRule",
-            TcpConnectError::NoAddressConnected => "NoAddressConnected",
-            TcpConnectError::ForbiddenAddressFamily => "ForbiddenAddressFamily",
-            TcpConnectError::ForbiddenRemoteAddress => "ForbiddenRemoteAddress",
-            TcpConnectError::ProxyProtocolEncodeError(_) => "ProxyProtocolEncodeError",
-            TcpConnectError::ProxyProtocolWriteFailed(_) => "ProxyProtocolWriteFailed",
-            TcpConnectError::NegotiationReadFailed(_) => "NegotiationReadFailed",
-            TcpConnectError::NegotiationWriteFailed(_) => "NegotiationWriteFailed",
-            TcpConnectError::NegotiationRejected(_) => "NegotiationRejected",
-            TcpConnectError::NegotiationPeerTimeout => "NegotiationPeerTimeout",
-            TcpConnectError::NegotiationProtocolErr => "NegotiationProtocolErr",
-            TcpConnectError::InternalServerError(_) => "InternalServerError",
-            TcpConnectError::InternalTlsClientError(_) => "InternalTlsClientError",
-            TcpConnectError::PeerTlsHandshakeTimeout => "PeerTlsHandshakeTimeout",
-            TcpConnectError::PeerTlsHandshakeFailed(_) => "PeerTlsHandshakeFailed",
-            TcpConnectError::UpstreamTlsHandshakeTimeout => "UpstreamTlsHandshakeTimeout",
-            TcpConnectError::UpstreamTlsHandshakeFailed(_) => "UpstreamTlsHandshakeFailed",
-        }
-    }
-}
-
 impl From<TcpConnectError> for ServerTaskError {
     fn from(e: TcpConnectError) -> Self {
         match e {
@@ -129,15 +154,54 @@ impl From<TcpConnectError> for ServerTaskError {
             TcpConnectError::InternalTlsClientError(e) => {
                 ServerTaskError::InternalTlsClientError(e)
             }
-            TcpConnectError::PeerTlsHandshakeTimeout
-            | TcpConnectError::PeerTlsHandshakeFailed(_) => {
-                ServerTaskError::InternalServerError("tls handshake with remote peer failed")
+            TcpConnectError::PeerTlsHandshakeTimeout => ServerTaskError::PeerTlsHandshakeTimeout,
+            TcpConnectError::PeerTlsHandshakeFailed(e) => {
+                ServerTaskError::PeerTlsHandshakeFailed(e)
             }
             TcpConnectError::UpstreamTlsHandshakeTimeout => {
                 ServerTaskError::UpstreamTlsHandshakeTimeout
             }
             TcpConnectError::UpstreamTlsHandshakeFailed(e) => {
                 ServerTaskError::UpstreamTlsHandshakeFailed(e)
+            }
+        }
+    }
+}
+
+impl From<UnderlyingTcpConnectError> for TcpConnectError {
+    fn from(e: UnderlyingTcpConnectError) -> Self {
+        match e {
+            UnderlyingTcpConnectError::ResolveFailed(e) => TcpConnectError::ResolveFailed(e),
+            UnderlyingTcpConnectError::ForbiddenAddressFamily => {
+                TcpConnectError::ForbiddenAddressFamily
+            }
+            UnderlyingTcpConnectError::ForbiddenRemoteAddress => {
+                TcpConnectError::ForbiddenRemoteAddress
+            }
+            UnderlyingTcpConnectError::EscaperNotUsable(e) => TcpConnectError::EscaperNotUsable(e),
+            UnderlyingTcpConnectError::SetupSocketFailed(e) => {
+                TcpConnectError::SetupSocketFailed(e)
+            }
+            UnderlyingTcpConnectError::ConnectFailed(e) => TcpConnectError::ConnectFailed(e),
+            UnderlyingTcpConnectError::TimeoutByRule => TcpConnectError::TimeoutByRule,
+            UnderlyingTcpConnectError::NoAddressConnected => TcpConnectError::NoAddressConnected,
+            UnderlyingTcpConnectError::ProxyProtocolEncodeError(e) => {
+                TcpConnectError::ProxyProtocolEncodeError(e)
+            }
+            UnderlyingTcpConnectError::ProxyProtocolWriteFailed(e) => {
+                TcpConnectError::ProxyProtocolWriteFailed(e)
+            }
+            UnderlyingTcpConnectError::InternalServerError(s) => {
+                TcpConnectError::InternalServerError(s)
+            }
+            UnderlyingTcpConnectError::InternalTlsClientError(e) => {
+                TcpConnectError::InternalTlsClientError(e)
+            }
+            UnderlyingTcpConnectError::PeerTlsHandshakeTimeout => {
+                TcpConnectError::PeerTlsHandshakeTimeout
+            }
+            UnderlyingTcpConnectError::PeerTlsHandshakeFailed(e) => {
+                TcpConnectError::PeerTlsHandshakeFailed(e)
             }
         }
     }
@@ -217,6 +281,25 @@ impl From<HttpConnectError> for TcpConnectError {
                 ))
             }
             HttpConnectError::PeerTimeout(_) => TcpConnectError::NegotiationPeerTimeout,
+        }
+    }
+}
+
+impl From<HttpUpgradeError> for TcpConnectError {
+    fn from(e: HttpUpgradeError) -> Self {
+        match e {
+            HttpUpgradeError::RemoteClosed => TcpConnectError::NegotiationReadFailed(
+                io::Error::new(io::ErrorKind::UnexpectedEof, "early eof"),
+            ),
+            HttpUpgradeError::ReadFailed(e) => TcpConnectError::NegotiationReadFailed(e),
+            HttpUpgradeError::WriteFailed(e) => TcpConnectError::NegotiationWriteFailed(e),
+            HttpUpgradeError::InvalidResponse(_) => TcpConnectError::NegotiationProtocolErr,
+            HttpUpgradeError::UnexpectedStatusCode(code, reason) => {
+                TcpConnectError::NegotiationRejected(format!(
+                    "rejected by remote proxy with response {code} {reason}"
+                ))
+            }
+            HttpUpgradeError::PeerTimeout(_) => TcpConnectError::NegotiationPeerTimeout,
         }
     }
 }

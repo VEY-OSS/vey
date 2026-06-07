@@ -13,7 +13,9 @@ use vey_types::net::{Host, UpstreamAddr};
 use super::ProxyFloatEscaper;
 use crate::escape::proxy_float::peer::NextProxyPeer;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectTaskConf, TcpConnectTaskNotes, UnderlyingTcpConnectError,
+};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatEscaper {
@@ -24,8 +26,10 @@ impl ProxyFloatEscaper {
         task_notes: &ServerTaskNotes,
         tls_name: &Host,
         peer: &P,
-    ) -> Result<SslStream<LimitedStream<impl AsyncRead + AsyncWrite + use<P>>>, TcpConnectError>
-    {
+    ) -> Result<
+        SslStream<LimitedStream<impl AsyncRead + AsyncWrite + use<P>>>,
+        UnderlyingTcpConnectError,
+    > {
         let stream = self
             .tcp_new_connection(peer, task_conf, tcp_notes, task_notes)
             .await?;
@@ -34,9 +38,10 @@ impl ProxyFloatEscaper {
         let ssl = self
             .tls_config
             .build_ssl(tls_name, peer_addr.port())
-            .map_err(TcpConnectError::InternalTlsClientError)?;
-        let connector = SslConnector::new(ssl, stream)
-            .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
+            .map_err(UnderlyingTcpConnectError::InternalTlsClientError)?;
+        let connector = SslConnector::new(ssl, stream).map_err(|e| {
+            UnderlyingTcpConnectError::InternalTlsClientError(anyhow::Error::new(e))
+        })?;
 
         match tokio::time::timeout(self.tls_config.handshake_timeout, connector.connect()).await {
             Ok(Ok(stream)) => {
@@ -58,7 +63,7 @@ impl ProxyFloatEscaper {
                     }
                     .log(logger, &e);
                 }
-                Err(TcpConnectError::PeerTlsHandshakeFailed(e))
+                Err(UnderlyingTcpConnectError::PeerTlsHandshakeFailed(e))
             }
             Err(_) => {
                 self.stats.tls.add_handshake_timeout();
@@ -75,7 +80,7 @@ impl ProxyFloatEscaper {
                     }
                     .log(logger, &e);
                 }
-                Err(TcpConnectError::PeerTlsHandshakeTimeout)
+                Err(UnderlyingTcpConnectError::PeerTlsHandshakeTimeout)
             }
         }
     }

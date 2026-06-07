@@ -33,8 +33,7 @@ use crate::module::udp_connect::{
     UdpConnectError, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskConf,
-    UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -200,7 +199,7 @@ impl Escaper for TrickFloatEscaper {
             }
             Err(e) => {
                 self.stats.add_request_failed();
-                Err(UdpRelaySetupError::EscaperNotUsable(e))
+                Err(UdpConnectError::EscaperNotUsable(e))
             }
         }
     }

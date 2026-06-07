@@ -15,7 +15,10 @@ pub use client::{
 };
 
 mod remote;
-pub use remote::{UdpCopyRemoteError, UdpCopyRemoteRecv, UdpCopyRemoteSend};
+pub use remote::{
+    LimitedUdpCopyRemoteRecv, LimitedUdpCopyRemoteSend, UdpCopyRemoteError, UdpCopyRemoteRecv,
+    UdpCopyRemoteSend,
+};
 
 mod transfer;
 pub use transfer::{UdpCopyClientToRemote, UdpCopyError, UdpCopyRemoteToClient};

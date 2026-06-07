@@ -30,11 +30,11 @@ impl ProxyHttpsEscaper {
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, TcpConnectError>
     {
-        let mut stream = self
+        let (_peer, mut stream) = self
             .tls_handshake_to_remote(task_conf, tcp_notes, task_notes)
             .await?;
 
-        let mut req = HttpConnectRequest::new(task_conf.upstream, &self.config.append_http_headers);
+        let mut req = HttpConnectRequest::new(&self.config.append_http_headers);
 
         if self.config.pass_proxy_userid
             && let Some(name) = task_notes.raw_user_name()
@@ -43,7 +43,7 @@ impl ProxyHttpsEscaper {
             req.append_dyn_header(line);
         }
 
-        req.send(&mut stream)
+        req.send(task_conf.upstream, &mut stream)
             .await
             .map_err(TcpConnectError::NegotiationWriteFailed)?;
 

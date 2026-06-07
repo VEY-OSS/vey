@@ -15,9 +15,9 @@ use vey_socket::util::AddressFamily;
 
 use super::DirectFloatEscaper;
 use crate::escape::direct_fixed::udp_relay::{DirectUdpRelayRemoteRecv, DirectUdpRelayRemoteSend};
+use crate::module::udp_connect::UdpConnectError;
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupError,
-    UdpRelaySetupResult, UdpRelayTaskConf,
+    ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupResult, UdpRelayTaskConf,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -61,7 +61,7 @@ impl DirectFloatEscaper {
         }
 
         if !send.usable() {
-            return Err(UdpRelaySetupError::EscaperNotUsable(anyhow!(
+            return Err(UdpConnectError::EscaperNotUsable(anyhow!(
                 "no ipv4 / ipv6 bind address found"
             )));
         }
@@ -81,11 +81,11 @@ impl DirectFloatEscaper {
             LimitedUdpRecv<UdpRecvHalf>,
             LimitedUdpSend<UdpSendHalf>,
         ),
-        UdpRelaySetupError,
+        UdpConnectError,
     > {
         let bind = self
             .select_bind(family, task_notes)
-            .map_err(UdpRelaySetupError::EscaperNotUsable)?;
+            .map_err(UdpConnectError::EscaperNotUsable)?;
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx
@@ -101,8 +101,8 @@ impl DirectFloatEscaper {
             task_conf.sock_buf,
             misc_opts,
         )
-        .map_err(UdpRelaySetupError::SetupSocketFailed)?;
-        let socket = UdpSocket::from_std(socket).map_err(UdpRelaySetupError::SetupSocketFailed)?;
+        .map_err(UdpConnectError::SetupSocketFailed)?;
+        let socket = UdpSocket::from_std(socket).map_err(UdpConnectError::SetupSocketFailed)?;
 
         let (recv, send) = vey_io_ext::split_udp(socket);
         let recv = LimitedUdpRecv::local_limited(

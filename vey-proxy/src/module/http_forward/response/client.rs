@@ -285,14 +285,14 @@ impl HttpProxyClientResponse {
             TcpConnectError::ProxyProtocolWriteFailed(_)
             | TcpConnectError::NegotiationReadFailed(_)
             | TcpConnectError::NegotiationWriteFailed(_)
-            | TcpConnectError::NegotiationRejected(_) => {
+            | TcpConnectError::NegotiationRejected(_)
+            | TcpConnectError::NegotiationProtocolErr => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
             }
-            TcpConnectError::NegotiationPeerTimeout => {
+            TcpConnectError::NegotiationPeerTimeout
+            | TcpConnectError::PeerTlsHandshakeTimeout
+            | TcpConnectError::UpstreamTlsHandshakeTimeout => {
                 HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, close)
-            }
-            TcpConnectError::NegotiationProtocolErr => {
-                HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
             }
             TcpConnectError::InternalServerError(_)
             | TcpConnectError::InternalTlsClientError(_) => HttpProxyClientResponse::from_standard(
@@ -300,14 +300,12 @@ impl HttpProxyClientResponse {
                 version,
                 true,
             ),
-            TcpConnectError::PeerTlsHandshakeTimeout
-            | TcpConnectError::PeerTlsHandshakeFailed(_) => HttpProxyClientResponse::from_standard(
+            TcpConnectError::PeerTlsHandshakeFailed(_) => HttpProxyClientResponse::from_standard(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 version,
                 true,
             ),
-            TcpConnectError::UpstreamTlsHandshakeTimeout
-            | TcpConnectError::UpstreamTlsHandshakeFailed(_) => {
+            TcpConnectError::UpstreamTlsHandshakeFailed(_) => {
                 HttpProxyClientResponse::from_standard(
                     StatusCode::from_u16(CustomStatusCode::SSL_HANDSHAKE_FAILED).unwrap(),
                     version,
@@ -335,12 +333,32 @@ impl HttpProxyClientResponse {
                 version,
                 close,
             ),
-            UdpConnectError::SetupSocketFailed(_) => HttpProxyClientResponse::from_standard(
+            UdpConnectError::SetupSocketFailed(_)
+            | UdpConnectError::ProxyProtocolEncodeError(_)
+            | UdpConnectError::InternalServerError(_)
+            | UdpConnectError::InternalTlsClientError(_) => HttpProxyClientResponse::from_standard(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 version,
                 true,
             ),
-            UdpConnectError::ForbiddenRemoteAddress => HttpProxyClientResponse::forbidden(version),
+            UdpConnectError::ForbiddenAddressFamily | UdpConnectError::ForbiddenRemoteAddress => {
+                HttpProxyClientResponse::forbidden(version)
+            }
+            UdpConnectError::NegotiationPeerTimeout
+            | UdpConnectError::UnderlyingTimeoutByRule
+            | UdpConnectError::PeerTlsHandshakeTimeout => {
+                HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, close)
+            }
+            UdpConnectError::ProxyProtocolWriteFailed(_)
+            | UdpConnectError::NegotiationReadFailed(_)
+            | UdpConnectError::NegotiationWriteFailed(_)
+            | UdpConnectError::NegotiationRejected(_)
+            | UdpConnectError::NegotiationProtocolErr
+            | UdpConnectError::UnderlyingTcpConnectFailed(_)
+            | UdpConnectError::UnderlyingNoAddressConnected
+            | UdpConnectError::PeerTlsHandshakeFailed(_) => {
+                HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
+            }
         }
     }
 
@@ -364,6 +382,12 @@ impl HttpProxyClientResponse {
                 version,
                 true,
             ),
+            ServerTaskError::PeerTlsHandshakeTimeout => {
+                HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, close)
+            }
+            ServerTaskError::PeerTlsHandshakeFailed(_) => {
+                HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
+            }
             ServerTaskError::EscaperNotUsable(_) => HttpProxyClientResponse::from_standard(
                 StatusCode::SERVICE_UNAVAILABLE,
                 version,
@@ -406,8 +430,10 @@ impl HttpProxyClientResponse {
             | ServerTaskError::ClosedByUpstream => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
             }
-            ServerTaskError::UpstreamTlsHandshakeTimeout
-            | ServerTaskError::UpstreamTlsHandshakeFailed(_) => {
+            ServerTaskError::UpstreamTlsHandshakeTimeout => {
+                HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, close)
+            }
+            ServerTaskError::UpstreamTlsHandshakeFailed(_) => {
                 HttpProxyClientResponse::from_standard(
                     StatusCode::from_u16(CustomStatusCode::SSL_HANDSHAKE_FAILED).unwrap(),
                     version,

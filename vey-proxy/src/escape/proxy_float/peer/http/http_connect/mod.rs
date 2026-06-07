@@ -33,9 +33,8 @@ impl ProxyFloatHttpPeer {
             .tcp_new_connection(self, task_conf, tcp_notes, task_notes)
             .await?;
 
-        let req =
-            HttpConnectRequest::new(task_conf.upstream, &self.shared_config.append_http_headers);
-        req.send(&mut stream)
+        let req = HttpConnectRequest::new(&self.shared_config.append_http_headers);
+        req.send(task_conf.upstream, &mut stream)
             .await
             .map_err(TcpConnectError::NegotiationWriteFailed)?;
 

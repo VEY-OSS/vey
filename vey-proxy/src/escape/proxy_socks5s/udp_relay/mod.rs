@@ -13,8 +13,7 @@ use crate::escape::proxy_socks5::udp_relay::{
 };
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupError,
-    UdpRelaySetupResult, UdpRelayTaskConf,
+    ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupResult, UdpRelayTaskConf,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -28,8 +27,7 @@ impl ProxySocks5sEscaper {
         let mut tcp_notes = TcpConnectTaskNotes::default();
         let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
             .timed_socks5_udp_associate(task_conf.sock_buf, &mut tcp_notes, task_notes)
-            .await
-            .map_err(UdpRelaySetupError::SetupSocketFailed)?;
+            .await?;
 
         let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
