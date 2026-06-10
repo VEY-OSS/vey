@@ -115,11 +115,15 @@ test_https_proxy_https_connect
 test_https_proxy_https_forward
 
 
-SOCKS5_PROXY="socks5h://127.0.0.1:1080"
-test_socks5_proxy_http
-test_socks5_proxy_https
+for port in 1080 1081
+do
+	SOCKS5_PROXY="socks5h://127.0.0.1:${port}"
+	test_socks5_proxy_http
+	test_socks5_proxy_https
+	test_socks5_proxy_dns
 
 
-SOCKS4_PROXY="socks4a://127.0.0.1:1080"
-test_socks4_proxy_http
-test_socks4_proxy_https
+	SOCKS4_PROXY="socks4a://127.0.0.1:${port}"
+	test_socks4_proxy_http
+	test_socks4_proxy_https
+done

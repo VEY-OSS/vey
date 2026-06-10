@@ -80,10 +80,14 @@ server:
         private-key: ../vey-proxy.local-key.pem
     tls_client:
       ca_certificate: ../rootCA.pem
-  - name: socks
+  - name: socks1
     type: socks_proxy
     listen: 127.0.0.1:1080
     escaper: chained_http
+  - name: socks2
+    type: socks_proxy
+    listen: 127.0.0.1:1081
+    escaper: chained_https
   - name: http
     type: http_proxy
     listen: 127.0.0.1:8080
