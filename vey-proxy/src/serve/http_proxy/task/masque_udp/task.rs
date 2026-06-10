@@ -566,7 +566,8 @@ impl HttpProxyMasqueUdpTask {
                 r = &mut c_to_r => {
                     return match r {
                         Ok(_) => Ok(()),
-                        Err(UdpCopyError::RemoteError(e)) => {
+                        Err(UdpCopyError::RecvError(e)) => Err(e.into()),
+                        Err(UdpCopyError::SendError(e)) => {
                             if let Some(logger) = ups_w.error_logger() {
                                 EscapeLogForUdpConnectSendTo {
                                     task_id,
@@ -577,13 +578,13 @@ impl HttpProxyMasqueUdpTask {
                             }
                             Err(e.into())
                         },
-                        Err(UdpCopyError::ClientError(e)) => Err(e.into()),
+                        Err(UdpCopyError::SendZero) => Err(ServerTaskError::ClosedByUpstream),
                     };
                 }
                 r = &mut r_to_c => {
                     return match r {
                         Ok(_) => Ok(()),
-                        Err(UdpCopyError::RemoteError(e)) => {
+                        Err(UdpCopyError::RecvError(e)) => {
                             if let Some(logger) = ups_r.error_logger() {
                                 EscapeLogForUdpConnectSendTo {
                                     task_id,
@@ -594,7 +595,8 @@ impl HttpProxyMasqueUdpTask {
                             }
                             Err(e.into())
                         },
-                        Err(UdpCopyError::ClientError(e)) => Err(e.into()),
+                        Err(UdpCopyError::SendError(e)) => Err(e.into()),
+                        Err(UdpCopyError::SendZero) => Err(ServerTaskError::ClosedByClient),
                     };
                 }
                 _ = log_interval.tick() => {

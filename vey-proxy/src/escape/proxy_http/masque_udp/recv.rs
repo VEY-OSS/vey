@@ -62,7 +62,7 @@ where
     ) -> Poll<Result<(usize, usize), UdpCopyRemoteError>> {
         let datagram = ready!(self.poll_datagram(cx))?;
         if datagram.is_empty() {
-            return Poll::Ready(Err(UdpCopyRemoteError::RecvClosed));
+            return Poll::Ready(Ok((0, 0)));
         }
         let copy_len = datagram.len().min(buf.len());
         unsafe {
@@ -79,7 +79,10 @@ where
     ) -> Poll<Result<(), UdpCopyRemoteError>> {
         let datagram = ready!(self.poll_datagram(cx))?;
         if datagram.is_empty() {
-            return Poll::Ready(Err(UdpCopyRemoteError::RecvClosed));
+            buf.set_offset(0);
+            buf.set_length(0);
+            self.buffer.consume_datagram();
+            return Poll::Ready(Ok(()));
         }
         let fill_buf = buf.buf_mut();
         let copy_len = datagram.len().min(fill_buf.len());

@@ -50,7 +50,8 @@ where
     ) -> Poll<Result<(usize, usize), UdpCopyClientError>> {
         let datagram = ready!(self.poll_datagram(cx))?;
         if datagram.is_empty() {
-            return Poll::Ready(Err(UdpCopyClientError::RecvClosed));
+            self.buffer.consume_datagram();
+            return Poll::Ready(Ok((0, 0)));
         }
         let copy_len = datagram.len().min(buf.len());
         unsafe {
@@ -63,20 +64,23 @@ where
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut UdpCopyPacket,
+        packet: &mut UdpCopyPacket,
     ) -> Poll<Result<(), UdpCopyClientError>> {
         let datagram = ready!(self.poll_datagram(cx))?;
         if datagram.is_empty() {
-            return Poll::Ready(Err(UdpCopyClientError::RecvClosed));
+            packet.set_offset(0);
+            packet.set_length(0);
+            self.buffer.consume_datagram();
+            return Poll::Ready(Ok(()));
         }
-        let fill_buf = buf.buf_mut();
+        let fill_buf = packet.buf_mut();
         let copy_len = datagram.len().min(fill_buf.len());
         unsafe {
             std::ptr::copy_nonoverlapping(datagram.as_ptr(), fill_buf.as_mut_ptr(), copy_len);
         }
         self.buffer.consume_datagram();
-        buf.set_offset(0);
-        buf.set_length(copy_len);
+        packet.set_offset(0);
+        packet.set_length(copy_len);
         Poll::Ready(Ok(()))
     }
 }

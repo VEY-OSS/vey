@@ -19,7 +19,7 @@ use vey_icap_client::reqmod::imap::ImapAdaptationError;
 use vey_icap_client::reqmod::smtp::SmtpAdaptationError;
 use vey_icap_client::respmod::h1::H1RespmodAdaptationError;
 use vey_io_ext::{
-    IdleForceQuitReason, UdpCopyClientError, UdpCopyError, UdpCopyRemoteError, UdpRelayClientError,
+    IdleForceQuitReason, UdpCopyClientError, UdpCopyRemoteError, UdpRelayClientError,
     UdpRelayError, UdpRelayRemoteError,
 };
 use vey_resolver::ResolveError;
@@ -251,7 +251,6 @@ impl From<UdpCopyClientError> for ServerTaskError {
     fn from(e: UdpCopyClientError) -> Self {
         match e {
             UdpCopyClientError::RecvFailed(e) => ServerTaskError::ClientUdpRecvFailed(e),
-            UdpCopyClientError::RecvClosed => ServerTaskError::ClosedByClient,
             UdpCopyClientError::SendFailed(e) => ServerTaskError::ClientUdpSendFailed(e),
             UdpCopyClientError::InvalidPacket(_) => {
                 ServerTaskError::InvalidClientProtocol("invalid udp packet from client")
@@ -271,7 +270,6 @@ impl From<UdpCopyRemoteError> for ServerTaskError {
     fn from(e: UdpCopyRemoteError) -> Self {
         match e {
             UdpCopyRemoteError::RecvFailed(e) => ServerTaskError::UpstreamReadFailed(e),
-            UdpCopyRemoteError::RecvClosed => ServerTaskError::ClosedByUpstream,
             UdpCopyRemoteError::SendFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
             UdpCopyRemoteError::InvalidPacket(_) => {
                 ServerTaskError::InvalidUpstreamProtocol("invalid received udp packet")
@@ -279,15 +277,6 @@ impl From<UdpCopyRemoteError> for ServerTaskError {
             UdpCopyRemoteError::RemoteSessionClosed => ServerTaskError::ClosedByUpstream,
             UdpCopyRemoteError::RemoteSessionError(e) => ServerTaskError::UpstreamReadFailed(e),
             UdpCopyRemoteError::InternalServerError(s) => ServerTaskError::InternalServerError(s),
-        }
-    }
-}
-
-impl From<UdpCopyError> for ServerTaskError {
-    fn from(e: UdpCopyError) -> Self {
-        match e {
-            UdpCopyError::ClientError(e) => ServerTaskError::from(e),
-            UdpCopyError::RemoteError(e) => ServerTaskError::from(e),
         }
     }
 }

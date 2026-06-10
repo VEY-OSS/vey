@@ -104,10 +104,11 @@ impl UdpMoveBuffer {
             if !self.recv_done && self.packets.len() < self.packets.capacity() {
                 let max_recv = self.packets.capacity() - self.packets.len();
                 match receiver.poll_recv_packets(cx, &mut self.packets, max_recv) {
-                    Poll::Ready(Ok(count)) => {
-                        if count == 0 {
-                            self.recv_done = true;
-                        }
+                    Poll::Ready(Ok(0)) => {
+                        self.recv_done = true;
+                        self.active = true;
+                    }
+                    Poll::Ready(Ok(_)) => {
                         self.active = true;
                     }
                     Poll::Ready(Err(e)) => return Poll::Ready(Err(UdpMoveError::RecvError(e))),

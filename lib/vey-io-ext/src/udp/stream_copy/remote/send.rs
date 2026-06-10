@@ -184,9 +184,13 @@ where
             match self.limit.check_packet(dur_millis, buf.len()) {
                 DatagramLimitAction::Advance(_) => match self.inner.poll_send_buf(cx, buf) {
                     Poll::Ready(Ok(nw)) => {
-                        self.limit.set_advance(1, nw);
-                        self.stats.add_send_packet();
-                        self.stats.add_send_bytes(nw);
+                        if nw > 0 {
+                            self.limit.set_advance(1, nw);
+                            self.stats.add_send_packet();
+                            self.stats.add_send_bytes(nw);
+                        } else {
+                            self.limit.release_global();
+                        }
                         Poll::Ready(Ok(nw))
                     }
                     Poll::Ready(Err(e)) => {
@@ -223,8 +227,10 @@ where
             }
         } else {
             let nw = ready!(self.inner.poll_send_buf(cx, buf))?;
-            self.stats.add_send_packet();
-            self.stats.add_send_bytes(nw);
+            if nw > 0 {
+                self.stats.add_send_packet();
+                self.stats.add_send_bytes(nw);
+            }
             Poll::Ready(Ok(nw))
         }
     }
@@ -257,7 +263,7 @@ where
                 DatagramLimitAction::Advance(n) => {
                     match self.inner.poll_send_many_packets(cx, &packets[0..n]) {
                         Poll::Ready(Ok(0)) => {
-                            self.limit.set_advance(0, 0);
+                            self.limit.release_global();
                             Poll::Ready(Ok(0))
                         }
                         Poll::Ready(Ok(count)) => {
@@ -337,7 +343,7 @@ where
                 DatagramLimitAction::Advance(n) => {
                     match self.inner.poll_send_many_bytes(cx, &packets[0..n]) {
                         Poll::Ready(Ok(0)) => {
-                            self.limit.set_advance(0, 0);
+                            self.limit.release_global();
                             Poll::Ready(Ok(0))
                         }
                         Poll::Ready(Ok(count)) => {

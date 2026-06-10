@@ -52,9 +52,17 @@ pub trait UdpCopyClientRecv {
         cx: &mut Context<'_>,
         packets: &mut [UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyClientError>> {
+        let mut count = 0;
         for (n, packet) in packets.iter_mut().enumerate() {
             match self.poll_recv_buf(cx, packet.buf_mut()) {
-                Poll::Ready(Ok(_)) => {}
+                Poll::Ready(Ok((off, len))) => {
+                    packet.set_length(off);
+                    packet.set_length(len);
+                    if len <= off {
+                        break;
+                    }
+                    count += 1;
+                }
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                 Poll::Pending => {
                     return if n == 0 {
@@ -65,7 +73,7 @@ pub trait UdpCopyClientRecv {
                 }
             }
         }
-        Poll::Ready(Ok(packets.len()))
+        Poll::Ready(Ok(count))
     }
 }
 
@@ -140,9 +148,11 @@ where
                 DatagramLimitAction::Advance(_) => match self.inner.poll_recv_buf(cx, buf) {
                     Poll::Ready(Ok((start, end))) => {
                         let pkt_size = end - start;
-                        self.limit.set_advance(1, pkt_size);
-                        self.stats.add_recv_packet();
-                        self.stats.add_recv_bytes(pkt_size);
+                        if pkt_size > 0 {
+                            self.limit.set_advance(1, pkt_size);
+                            self.stats.add_recv_packet();
+                            self.stats.add_recv_bytes(pkt_size);
+                        }
                         Poll::Ready(Ok((start, end)))
                     }
                     Poll::Ready(Err(e)) => {
@@ -179,8 +189,11 @@ where
             }
         } else {
             let (start, end) = ready!(self.inner.poll_recv_buf(cx, buf))?;
-            self.stats.add_recv_packet();
-            self.stats.add_recv_bytes(end - start);
+            let pkt_size = end - start;
+            if pkt_size > 0 {
+                self.stats.add_recv_packet();
+                self.stats.add_recv_bytes(pkt_size);
+            }
             Poll::Ready(Ok((start, end)))
         }
     }
@@ -196,9 +209,13 @@ where
                 DatagramLimitAction::Advance(_) => match self.inner.poll_recv_packet(cx, packet) {
                     Poll::Ready(Ok(_)) => {
                         let pkt_size = packet.payload_len();
-                        self.limit.set_advance(1, pkt_size);
-                        self.stats.add_recv_packet();
-                        self.stats.add_recv_bytes(pkt_size);
+                        if pkt_size > 0 {
+                            self.limit.set_advance(1, pkt_size);
+                            self.stats.add_recv_packet();
+                            self.stats.add_recv_bytes(pkt_size);
+                        } else {
+                            self.limit.release_global();
+                        }
                         Poll::Ready(Ok(()))
                     }
                     Poll::Ready(Err(e)) => {
@@ -235,8 +252,11 @@ where
             }
         } else {
             ready!(self.inner.poll_recv_packet(cx, packet))?;
-            self.stats.add_recv_packet();
-            self.stats.add_recv_bytes(packet.payload_len());
+            let pkt_size = packet.payload_len();
+            if pkt_size > 0 {
+                self.stats.add_recv_packet();
+                self.stats.add_recv_bytes(pkt_size);
+            }
             Poll::Ready(Ok(()))
         }
     }

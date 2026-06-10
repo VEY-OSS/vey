@@ -243,7 +243,7 @@ impl<T: UdpMoveSend> UdpMoveSend for LimitedUdpMoveSend<T> {
                     let not_to_send = packets.split_off(n);
                     let ret = match self.inner.poll_send_packets(cx, packets) {
                         Poll::Ready(Ok(0)) => {
-                            self.limit.set_advance(0, 0);
+                            self.limit.release_global();
                             Poll::Ready(Ok(0))
                         }
                         Poll::Ready(Ok(n)) => {

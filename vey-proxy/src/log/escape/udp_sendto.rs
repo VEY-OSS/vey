@@ -63,7 +63,6 @@ impl EscapeLogForUdpConnectSendTo<'_> {
         let reason = match e {
             UdpCopyRemoteError::SendFailed(_) => "SendFailed",
             UdpCopyRemoteError::RecvFailed(_) => "RecvFailed",
-            UdpCopyRemoteError::RecvClosed => "RecvClosed",
             UdpCopyRemoteError::InvalidPacket(_) => "InvalidPacket",
             UdpCopyRemoteError::RemoteSessionClosed => "RemoteSessionClosed",
             UdpCopyRemoteError::RemoteSessionError(_) => "RemoteSessionError",

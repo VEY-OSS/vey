@@ -17,8 +17,6 @@ use vey_io_ext::{UdpCopyClientError, UdpCopyRemoteError};
 pub(crate) enum MasqueUdpRecvError {
     #[error("io failed: {0}")]
     IoFailed(#[from] io::Error),
-    #[error("io closed")]
-    IoClosed,
     #[error("invalid context id {0}")]
     InvalidContextId(u64),
     #[error("invalid capsule type {0}")]
@@ -31,7 +29,6 @@ impl From<MasqueUdpRecvError> for UdpCopyClientError {
     fn from(value: MasqueUdpRecvError) -> Self {
         match value {
             MasqueUdpRecvError::IoFailed(e) => UdpCopyClientError::RecvFailed(e),
-            MasqueUdpRecvError::IoClosed => UdpCopyClientError::RecvClosed,
             MasqueUdpRecvError::InvalidContextId(v) => UdpCopyClientError::InvalidPacket(format!(
                 "invalid context id {v} while reading masque udp capsule header"
             )),
@@ -49,7 +46,6 @@ impl From<MasqueUdpRecvError> for UdpCopyRemoteError {
     fn from(value: MasqueUdpRecvError) -> Self {
         match value {
             MasqueUdpRecvError::IoFailed(e) => UdpCopyRemoteError::RecvFailed(e),
-            MasqueUdpRecvError::IoClosed => UdpCopyRemoteError::RecvClosed,
             MasqueUdpRecvError::InvalidContextId(v) => UdpCopyRemoteError::InvalidPacket(format!(
                 "invalid context id {v} while reading masque udp capsule header"
             )),
@@ -187,7 +183,7 @@ impl MasqueUdpRecvBuffer {
                 let nr = read_buf.filled().len();
                 if nr == 0 {
                     return if self.read_start == 0 {
-                        Poll::Ready(Err(MasqueUdpRecvError::IoClosed))
+                        Poll::Ready(Ok(b""))
                     } else {
                         Poll::Ready(Err(MasqueUdpRecvError::IoFailed(io::Error::new(
                             io::ErrorKind::UnexpectedEof,
@@ -389,15 +385,6 @@ mod tests {
 
         let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
         assert!(matches!(err, MasqueUdpRecvError::InvalidPacketSize(9)));
-    }
-
-    #[tokio::test]
-    async fn report_closed_before_header() {
-        let mut reader = MockIoBuilder::new().read(b"").build();
-        let mut buffer = MasqueUdpRecvBuffer::new(8, 128);
-
-        let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
-        assert!(matches!(err, MasqueUdpRecvError::IoClosed));
     }
 
     #[tokio::test]

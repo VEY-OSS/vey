@@ -17,8 +17,6 @@ pub use send::{LimitedUdpCopyClientSend, UdpCopyClientSend};
 pub enum UdpCopyClientError {
     #[error("recv failed: {0:?}")]
     RecvFailed(io::Error),
-    #[error("recv closed")]
-    RecvClosed,
     #[error("send failed: {0:?}")]
     SendFailed(io::Error),
     #[error("invalid packet: {0}")]

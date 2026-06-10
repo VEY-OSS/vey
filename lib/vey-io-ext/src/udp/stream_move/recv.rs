@@ -174,9 +174,13 @@ impl<T: UdpMoveRecv> UdpMoveRecv for LimitedUdpMoveRecv<T> {
                 DatagramLimitAction::Advance(_) => match self.inner.poll_recv_packet(cx) {
                     Poll::Ready(Ok(packet)) => {
                         let nr = packet.len();
-                        self.limit.set_advance(1, nr);
-                        self.stats.add_recv_packet();
-                        self.stats.add_recv_bytes(nr);
+                        if nr > 0 {
+                            self.limit.set_advance(1, nr);
+                            self.stats.add_recv_packet();
+                            self.stats.add_recv_bytes(nr);
+                        } else {
+                            self.limit.release_global();
+                        }
                         Poll::Ready(Ok(packet))
                     }
                     Poll::Ready(Err(e)) => {
@@ -213,8 +217,10 @@ impl<T: UdpMoveRecv> UdpMoveRecv for LimitedUdpMoveRecv<T> {
             }
         } else {
             let packet = ready!(self.inner.poll_recv_packet(cx))?;
-            self.stats.add_recv_packet();
-            self.stats.add_recv_bytes(packet.len());
+            if !packet.is_empty() {
+                self.stats.add_recv_packet();
+                self.stats.add_recv_bytes(packet.len());
+            }
             Poll::Ready(Ok(packet))
         }
     }
@@ -248,7 +254,7 @@ impl<T: UdpMoveRecv> UdpMoveRecv for LimitedUdpMoveRecv<T> {
                 DatagramLimitAction::Advance(n) => {
                     match self.inner.poll_recv_packets(cx, packets, n) {
                         Poll::Ready(Ok(0)) => {
-                            self.limit.set_advance(0, 0);
+                            self.limit.release_global();
                             Poll::Ready(Ok(0))
                         }
                         Poll::Ready(Ok(nr)) => {
@@ -293,14 +299,14 @@ impl<T: UdpMoveRecv> UdpMoveRecv for LimitedUdpMoveRecv<T> {
                 }
             }
         } else {
-            let received = ready!(self.inner.poll_recv_packets(cx, packets, max_count))?;
-            if received > 0 {
-                self.stats.add_recv_packets(received);
-                let start = packets.len() - received;
+            let nr = ready!(self.inner.poll_recv_packets(cx, packets, max_count))?;
+            if nr > 0 {
+                self.stats.add_recv_packets(nr);
+                let start = packets.len() - nr;
                 let len = packets[start..].iter().map(|h| h.len()).sum();
                 self.stats.add_recv_bytes(len);
             }
-            Poll::Ready(Ok(received))
+            Poll::Ready(Ok(nr))
         }
     }
 }
