@@ -1807,11 +1807,11 @@ impl<'a> HttpProxyForwardTask<'a> {
         }
 
         if self.ctx.server_config.echo_chained_info {
-            if let Some(addr) = self.tcp_notes.chained.target_addr {
+            if let Some(addr) = self.tcp_notes.final_addr.target_addr {
                 http_header::set_upstream_addr(&mut rsp.hop_by_hop_headers, addr);
             }
 
-            if let Some(addr) = self.tcp_notes.chained.outgoing_addr {
+            if let Some(addr) = self.tcp_notes.final_addr.outgoing_addr {
                 http_header::set_outgoing_ip(&mut rsp.hop_by_hop_headers, addr);
             }
         }

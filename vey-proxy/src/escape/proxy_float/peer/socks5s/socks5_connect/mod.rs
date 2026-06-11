@@ -45,7 +45,7 @@ impl ProxyFloatSocks5sPeer {
         .await?;
         // no need to replace the ip with registered public address.
         // prefer to use the one returned directly by remote proxy
-        tcp_notes.chained.outgoing_addr = Some(outgoing_addr);
+        tcp_notes.final_addr.outgoing_addr = Some(outgoing_addr);
         // we can not determine the real upstream addr that the proxy choose to connect to
 
         Ok(stream)

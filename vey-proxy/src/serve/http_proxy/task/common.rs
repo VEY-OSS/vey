@@ -108,11 +108,11 @@ impl CommonTaskContext {
         }
 
         if self.server_config.echo_chained_info {
-            if let Some(addr) = tcp_notes.chained.target_addr {
+            if let Some(addr) = tcp_notes.final_addr.target_addr {
                 rsp.set_upstream_addr(addr);
             }
 
-            if let Some(addr) = tcp_notes.chained.outgoing_addr {
+            if let Some(addr) = tcp_notes.final_addr.outgoing_addr {
                 rsp.set_outgoing_ip(addr.ip());
             }
         }
@@ -139,16 +139,15 @@ impl CommonTaskContext {
             }
         }
 
-        /* TODO
         if self.server_config.echo_chained_info {
-            if let Some(addr) = udp_notes.chained.target_addr {
+            if let Some(addr) = udp_notes.final_addr.target_addr {
                 rsp.set_upstream_addr(addr);
             }
 
-            if let Some(addr) = udp_notes.chained.outgoing_addr {
+            if let Some(addr) = udp_notes.final_addr.outgoing_addr {
                 rsp.set_outgoing_ip(addr.ip());
             }
-        }*/
+        }
     }
 
     pub(crate) fn set_custom_header_for_adaptation_error_reply(
@@ -172,11 +171,11 @@ impl CommonTaskContext {
         }
 
         if self.server_config.echo_chained_info {
-            if let Some(addr) = tcp_notes.chained.target_addr {
+            if let Some(addr) = tcp_notes.final_addr.target_addr {
                 http_header::set_upstream_addr(&mut rsp.headers, addr);
             }
 
-            if let Some(addr) = tcp_notes.chained.outgoing_addr {
+            if let Some(addr) = tcp_notes.final_addr.outgoing_addr {
                 http_header::set_outgoing_ip(&mut rsp.headers, addr);
             }
         }

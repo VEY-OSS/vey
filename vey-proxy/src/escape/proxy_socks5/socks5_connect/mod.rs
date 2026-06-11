@@ -41,7 +41,7 @@ impl ProxySocks5Escaper {
         let outgoing_addr =
             v5::client::socks5_connect_to(&mut stream, &self.config.auth_info, task_conf.upstream)
                 .await?;
-        tcp_notes.chained.outgoing_addr = Some(outgoing_addr);
+        tcp_notes.final_addr.outgoing_addr = Some(outgoing_addr);
         // we can not determine the real upstream addr that the proxy choose to connect to
 
         Ok(stream)

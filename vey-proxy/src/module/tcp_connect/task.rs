@@ -39,12 +39,12 @@ impl TlsConnectTaskConf<'_> {
 
 /// This contains the final chained info about the client request
 #[derive(Debug, Clone, Default)]
-pub(crate) struct TcpConnectChainedNotes {
+pub(crate) struct FinalAddressNotes {
     pub(crate) target_addr: Option<SocketAddr>,
     pub(crate) outgoing_addr: Option<SocketAddr>,
 }
 
-impl TcpConnectChainedNotes {
+impl FinalAddressNotes {
     fn reset(&mut self) {
         self.target_addr = None;
         self.outgoing_addr = None;
@@ -60,7 +60,7 @@ pub(crate) struct TcpConnectTaskNotes {
     pub(crate) local: Option<SocketAddr>,
     pub(crate) expire: Option<DateTime<Utc>>,
     pub(crate) egress: Option<EgressInfo>,
-    pub(crate) chained: TcpConnectChainedNotes,
+    pub(crate) final_addr: FinalAddressNotes,
     pub(crate) duration: Duration,
     pub(crate) override_peer: Option<UpstreamAddr>,
 }
@@ -74,7 +74,7 @@ impl TcpConnectTaskNotes {
         self.local = None;
         self.expire = None;
         self.egress = None;
-        self.chained.reset();
+        self.final_addr.reset();
         self.duration = Duration::ZERO;
         self.override_peer = None;
     }

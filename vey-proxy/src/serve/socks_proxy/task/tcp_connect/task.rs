@@ -354,7 +354,7 @@ impl SocksProxyTcpConnectTask {
                     .map_err(ServerTaskError::ClientTcpWriteFailed)?;
             }
             SocksVersion::V5 => {
-                let addr = if let Some(addr) = &self.tcp_notes.chained.outgoing_addr {
+                let addr = if let Some(addr) = &self.tcp_notes.final_addr.outgoing_addr {
                     *addr
                 } else {
                     let (ip, port) = match &self.tcp_notes.local {

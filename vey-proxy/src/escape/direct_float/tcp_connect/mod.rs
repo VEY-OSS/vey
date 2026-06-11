@@ -130,8 +130,8 @@ impl DirectFloatEscaper {
                     .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                 self.stats.tcp.connect.add_established();
                 tcp_notes.local = Some(local_addr);
-                tcp_notes.chained.target_addr = Some(peer);
-                tcp_notes.chained.outgoing_addr = Some(local_addr);
+                tcp_notes.final_addr.target_addr = Some(peer);
+                tcp_notes.final_addr.outgoing_addr = Some(local_addr);
                 Ok((ups_stream, bind))
             }
             Ok(Err(e)) => {
@@ -261,8 +261,8 @@ impl DirectFloatEscaper {
                                             .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                                         self.stats.tcp.connect.add_established();
                                         tcp_notes.local = Some(local_addr);
-                                        tcp_notes.chained.target_addr = Some(peer_addr);
-                                        tcp_notes.chained.outgoing_addr = Some(local_addr);
+                                        tcp_notes.final_addr.target_addr = Some(peer_addr);
+                                        tcp_notes.final_addr.outgoing_addr = Some(local_addr);
                                         return Ok((ups_stream, bind));
                                     }
                                     Err(e) => {

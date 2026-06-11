@@ -382,7 +382,9 @@ where
 
                 let mut masque_udp_task =
                     HttpProxyMasqueUdpTask::new(self.ctx.clone(), &req, task_notes);
-                masque_udp_task.connect_to_upstream(&mut stream_w).await;
+                masque_udp_task
+                    .connect_to_upstream(&req.inner, &mut stream_w)
+                    .await;
                 if masque_udp_task.back_to_http() {
                     // reopen write end
                     self.stream_writer = Some(stream_w);

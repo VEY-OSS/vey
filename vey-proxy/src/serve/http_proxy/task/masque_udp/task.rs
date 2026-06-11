@@ -10,6 +10,7 @@ use http::Version;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use vey_daemon::stat::task::UdpConnectTaskStats;
+use vey_http::server::HttpProxyClientRequest;
 use vey_io_ext::{
     LimitedReader, LimitedUdpCopyClientRecv, LimitedUdpCopyClientSend, LimitedWriter,
     UdpCopyClientRecv, UdpCopyClientSend, UdpCopyClientToRemote, UdpCopyError, UdpCopyRemoteRecv,
@@ -84,6 +85,16 @@ impl HttpProxyMasqueUdpTask {
         }
     }
 
+    async fn reply_bad_request<W>(&mut self, clt_w: &mut W)
+    where
+        W: AsyncWrite + Unpin,
+    {
+        let rsp = HttpProxyClientResponse::bad_request(self.http_version);
+        // no custom header is set
+        let _ = rsp.reply_err_to_request(clt_w).await;
+        self.back_to_http = false;
+    }
+
     async fn reply_too_many_requests<W>(&mut self, clt_w: &mut W)
     where
         W: AsyncWrite + Unpin,
@@ -125,7 +136,9 @@ impl HttpProxyMasqueUdpTask {
         );
         self.ctx
             .set_custom_header_for_udp_local_reply(&self.udp_notes, &mut rsp);
-        // TODO set Capsule Protocol header
+        rsp.add_extra_header(String::from(
+            "Connection: Upgrade\r\nUpgrade: connect-udp\r\nCapsule-Protocol: ?1\r\n",
+        ));
         rsp.reply_ok_to_connect(clt_w)
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)
@@ -158,11 +171,21 @@ impl HttpProxyMasqueUdpTask {
         }
     }
 
-    pub(crate) async fn connect_to_upstream<W>(&mut self, clt_w: &mut W)
-    where
+    pub(crate) async fn connect_to_upstream<W>(
+        &mut self,
+        req: &HttpProxyClientRequest,
+        clt_w: &mut W,
+    ) where
         W: AsyncWrite + Unpin,
     {
-        // TODO check capsule protocol header
+        let Some(v) = req.end_to_end_headers.get("capsule-protocol") else {
+            self.reply_bad_request(clt_w).await;
+            return;
+        };
+        if !v.as_bytes().starts_with(b"?1") {
+            self.reply_bad_request(clt_w).await;
+            return;
+        }
 
         self.pre_start();
         match self.do_connect(clt_w).await {
