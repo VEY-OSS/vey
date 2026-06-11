@@ -21,8 +21,8 @@ use vey_types::net::{ProxyRequestType, UpstreamAddr};
 
 use super::protocol::{HttpClientWriter, HttpProxyRequest};
 use super::{
-    CommonTaskContext, MasqueUdpRecv, MasqueUdpSend, MasqueUdpTaskCltWrapperStats,
-    MasqueUdpTaskServerCltWrapperStats,
+    CommonTaskContext, HttpConnectUdpRecv, HttpConnectUdpSend, HttpConnectUdpTaskCltWrapperStats,
+    HttpConnectUdpTaskServerCltWrapperStats,
 };
 use crate::config::server::ServerConfig;
 use crate::log::escape::udp_sendto::EscapeLogForUdpConnectSendTo;
@@ -31,13 +31,13 @@ use crate::module::http_forward::HttpProxyClientResponse;
 use crate::module::udp_connect::{
     UdpConnectError, UdpConnectTaskConf, UdpConnectTaskNotes, UdpConnection,
 };
-use crate::serve::http_proxy::MasqueUdpTaskAliveGuard;
+use crate::serve::http_proxy::HttpConnectUdpTaskAliveGuard;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
 
-pub(crate) struct HttpProxyMasqueUdpTask {
+pub(crate) struct HttpProxyConnectUdpTask {
     ctx: Arc<CommonTaskContext>,
     upstream: UpstreamAddr,
     ups_c: Option<UdpConnection>,
@@ -48,10 +48,10 @@ pub(crate) struct HttpProxyMasqueUdpTask {
     http_version: Version,
     max_idle_count: usize,
     started: bool,
-    _alive_guard: Option<MasqueUdpTaskAliveGuard>,
+    _alive_guard: Option<HttpConnectUdpTaskAliveGuard>,
 }
 
-impl Drop for HttpProxyMasqueUdpTask {
+impl Drop for HttpProxyConnectUdpTask {
     fn drop(&mut self) {
         if self.started {
             self.post_stop();
@@ -60,7 +60,7 @@ impl Drop for HttpProxyMasqueUdpTask {
     }
 }
 
-impl HttpProxyMasqueUdpTask {
+impl HttpProxyConnectUdpTask {
     pub(crate) fn new(
         ctx: Arc<CommonTaskContext>,
         req: &HttpProxyRequest<impl AsyncRead>,
@@ -70,7 +70,7 @@ impl HttpProxyMasqueUdpTask {
             .user_ctx()
             .and_then(|c| c.user().task_max_idle_count())
             .unwrap_or(ctx.server_config.task_idle_max_count);
-        HttpProxyMasqueUdpTask {
+        HttpProxyConnectUdpTask {
             ctx,
             upstream: req.upstream.clone(),
             ups_c: None,
@@ -321,7 +321,7 @@ impl HttpProxyMasqueUdpTask {
                 }
             }
 
-            let action = user_ctx.check_proxy_request(ProxyRequestType::HttpMasqueUdp);
+            let action = user_ctx.check_proxy_request(ProxyRequestType::HttpConnectUdp);
             self.handle_user_protocol_acl_action(action, clt_w).await?;
 
             let action = user_ctx.check_upstream(&self.upstream);
@@ -386,12 +386,12 @@ impl HttpProxyMasqueUdpTask {
     }
 
     fn pre_start(&mut self) {
-        self._alive_guard = Some(self.ctx.server_stats.add_masque_udp_task());
+        self._alive_guard = Some(self.ctx.server_stats.add_http_connect_udp_task());
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| {
-                s.req_total.add_http_masque_udp();
-                s.req_alive.add_http_masque_udp();
+                s.req_total.add_http_connect_udp();
+                s.req_alive.add_http_connect_udp();
             });
         }
 
@@ -407,7 +407,7 @@ impl HttpProxyMasqueUdpTask {
     fn post_stop(&mut self) {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| {
-                s.req_alive.del_http_masque_udp();
+                s.req_alive.del_http_connect_udp();
             });
 
             if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
@@ -505,7 +505,7 @@ impl HttpProxyMasqueUdpTask {
         UR: UdpCopyRemoteRecv + Send + Sync + Unpin + 'static,
         UW: UdpCopyRemoteSend + Send + Sync + Unpin + 'static,
     {
-        let tcp_wrapper_stats = Arc::new(MasqueUdpTaskServerCltWrapperStats::new(
+        let tcp_wrapper_stats = Arc::new(HttpConnectUdpTaskServerCltWrapperStats::new(
             self.ctx.server_stats.clone(),
         ));
         let clt_r = LimitedReader::local_limited(
@@ -522,14 +522,14 @@ impl HttpProxyMasqueUdpTask {
         );
 
         let max_packet_size = self.ctx.server_config.udp_relay.packet_size();
-        let clt_r = MasqueUdpRecv::new(
+        let clt_r = HttpConnectUdpRecv::new(
             clt_r,
             self.ctx.server_config.udp_relay.underlying_buffer_size(),
             max_packet_size,
         );
-        let clt_w = MasqueUdpSend::new(clt_w, max_packet_size);
+        let clt_w = HttpConnectUdpSend::new(clt_w, max_packet_size);
 
-        let mut udp_wrapper_stats = MasqueUdpTaskCltWrapperStats::new(&self.task_stats);
+        let mut udp_wrapper_stats = HttpConnectUdpTaskCltWrapperStats::new(&self.task_stats);
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_io_stats = user_ctx.fetch_traffic_stats(
                 self.ctx.server_config.name(),

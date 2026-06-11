@@ -34,8 +34,8 @@ use crate::module::udp_relay::{
 use crate::serve::ServerTaskNotes;
 
 mod http_connect;
+mod http_connect_udp;
 mod http_forward;
-mod masque_udp;
 
 pub(crate) use http_forward::HttpPeerHttpForwardReader;
 

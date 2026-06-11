@@ -3,8 +3,8 @@
 http_proxy
 ==========
 
-This server provides a forward HTTP proxy, including plain HTTP forwarding and
-``CONNECT`` tunneling.
+This server provides a forward HTTP proxy, including plain HTTP forwarding, ``CONNECT`` tunneling
+and ``MASQUE CONNECT-UDP`` tunneling.
 
 The following common keys are supported:
 

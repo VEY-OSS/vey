@@ -14,7 +14,7 @@ use vey_codec::quic::VarInt;
 use vey_io_ext::{UdpCopyClientError, UdpCopyRemoteError};
 
 #[derive(Debug, Error)]
-pub(crate) enum MasqueUdpRecvError {
+pub(crate) enum HttpConnectUdpRecvError {
     #[error("io failed: {0}")]
     IoFailed(#[from] io::Error),
     #[error("invalid context id {0}")]
@@ -25,36 +25,36 @@ pub(crate) enum MasqueUdpRecvError {
     InvalidPacketSize(u64),
 }
 
-impl From<MasqueUdpRecvError> for UdpCopyClientError {
-    fn from(value: MasqueUdpRecvError) -> Self {
+impl From<HttpConnectUdpRecvError> for UdpCopyClientError {
+    fn from(value: HttpConnectUdpRecvError) -> Self {
         match value {
-            MasqueUdpRecvError::IoFailed(e) => UdpCopyClientError::RecvFailed(e),
-            MasqueUdpRecvError::InvalidContextId(v) => UdpCopyClientError::InvalidPacket(format!(
-                "invalid context id {v} while reading masque udp capsule header"
-            )),
-            MasqueUdpRecvError::InvalidCapsuleType(v) => UdpCopyClientError::InvalidPacket(
-                format!("invalid capsule type {v} while reading masque udp capsule header"),
+            HttpConnectUdpRecvError::IoFailed(e) => UdpCopyClientError::RecvFailed(e),
+            HttpConnectUdpRecvError::InvalidContextId(v) => UdpCopyClientError::InvalidPacket(
+                format!("invalid context id {v} while reading masque connect-udp capsule header"),
             ),
-            MasqueUdpRecvError::InvalidPacketSize(v) => UdpCopyClientError::InvalidPacket(format!(
-                "invalid packet size {v} while reading masque udp capsule header"
-            )),
+            HttpConnectUdpRecvError::InvalidCapsuleType(v) => UdpCopyClientError::InvalidPacket(
+                format!("invalid capsule type {v} while reading masque connect-udp capsule header"),
+            ),
+            HttpConnectUdpRecvError::InvalidPacketSize(v) => UdpCopyClientError::InvalidPacket(
+                format!("invalid packet size {v} while reading masque connect-udp capsule header"),
+            ),
         }
     }
 }
 
-impl From<MasqueUdpRecvError> for UdpCopyRemoteError {
-    fn from(value: MasqueUdpRecvError) -> Self {
+impl From<HttpConnectUdpRecvError> for UdpCopyRemoteError {
+    fn from(value: HttpConnectUdpRecvError) -> Self {
         match value {
-            MasqueUdpRecvError::IoFailed(e) => UdpCopyRemoteError::RecvFailed(e),
-            MasqueUdpRecvError::InvalidContextId(v) => UdpCopyRemoteError::InvalidPacket(format!(
-                "invalid context id {v} while reading masque udp capsule header"
-            )),
-            MasqueUdpRecvError::InvalidCapsuleType(v) => UdpCopyRemoteError::InvalidPacket(
-                format!("invalid capsule type {v} while reading masque udp capsule header"),
+            HttpConnectUdpRecvError::IoFailed(e) => UdpCopyRemoteError::RecvFailed(e),
+            HttpConnectUdpRecvError::InvalidContextId(v) => UdpCopyRemoteError::InvalidPacket(
+                format!("invalid context id {v} while reading masque connect-udp capsule header"),
             ),
-            MasqueUdpRecvError::InvalidPacketSize(v) => UdpCopyRemoteError::InvalidPacket(format!(
-                "invalid packet size {v} while reading masque udp capsule header"
-            )),
+            HttpConnectUdpRecvError::InvalidCapsuleType(v) => UdpCopyRemoteError::InvalidPacket(
+                format!("invalid capsule type {v} while reading masque connect-udp capsule header"),
+            ),
+            HttpConnectUdpRecvError::InvalidPacketSize(v) => UdpCopyRemoteError::InvalidPacket(
+                format!("invalid packet size {v} while reading masque connect-udp capsule header"),
+            ),
         }
     }
 }
@@ -66,7 +66,7 @@ struct Datagram {
     left: usize,
 }
 
-pub(crate) struct MasqueUdpRecvBuffer {
+pub(crate) struct HttpConnectUdpRecvBuffer {
     max_packet_size: usize,
     buffer: Box<[u8]>,
     datagram: Option<Datagram>,
@@ -74,10 +74,10 @@ pub(crate) struct MasqueUdpRecvBuffer {
     read_start: usize,
 }
 
-impl MasqueUdpRecvBuffer {
+impl HttpConnectUdpRecvBuffer {
     pub(crate) fn new(capacity: usize, max_packet_size: u16) -> Self {
         let capacity = capacity.max(max_packet_size as usize + 24); // at least for 1 packet
-        MasqueUdpRecvBuffer {
+        HttpConnectUdpRecvBuffer {
             max_packet_size: max_packet_size as usize,
             buffer: vec![0u8; capacity].into_boxed_slice(),
             datagram: None,
@@ -101,7 +101,7 @@ impl MasqueUdpRecvBuffer {
         &mut self,
         cx: &mut Context<'_>,
         mut reader: Pin<&mut R>,
-    ) -> Poll<Result<&[u8], MasqueUdpRecvError>>
+    ) -> Poll<Result<&[u8], HttpConnectUdpRecvError>>
     where
         R: AsyncRead + Unpin,
     {
@@ -119,10 +119,12 @@ impl MasqueUdpRecvBuffer {
                     Poll::Ready(Ok(())) => {
                         let nr = read_buf.filled().len();
                         if nr == 0 {
-                            return Poll::Ready(Err(MasqueUdpRecvError::IoFailed(io::Error::new(
-                                io::ErrorKind::UnexpectedEof,
-                                "unexpected eof while reading datagram data",
-                            ))));
+                            return Poll::Ready(Err(HttpConnectUdpRecvError::IoFailed(
+                                io::Error::new(
+                                    io::ErrorKind::UnexpectedEof,
+                                    "unexpected eof while reading datagram data",
+                                ),
+                            )));
                         }
                         self.read_start += nr;
                         if nr > datagram.left {
@@ -135,7 +137,7 @@ impl MasqueUdpRecvBuffer {
                     }
                     Poll::Ready(Err(e)) => {
                         self.datagram = Some(datagram);
-                        return Poll::Ready(Err(MasqueUdpRecvError::IoFailed(e)));
+                        return Poll::Ready(Err(HttpConnectUdpRecvError::IoFailed(e)));
                     }
                     Poll::Pending => {
                         self.datagram = Some(datagram);
@@ -185,9 +187,9 @@ impl MasqueUdpRecvBuffer {
                     return if self.read_start == 0 {
                         Poll::Ready(Ok(b""))
                     } else {
-                        Poll::Ready(Err(MasqueUdpRecvError::IoFailed(io::Error::new(
+                        Poll::Ready(Err(HttpConnectUdpRecvError::IoFailed(io::Error::new(
                             io::ErrorKind::UnexpectedEof,
-                            "unexpected eof while reading masque udp capsule header",
+                            "unexpected eof while reading masque connect-udp capsule header",
                         ))))
                     };
                 }
@@ -196,7 +198,7 @@ impl MasqueUdpRecvBuffer {
         }
     }
 
-    fn parse_header(&mut self) -> Result<(), MasqueUdpRecvError> {
+    fn parse_header(&mut self) -> Result<(), HttpConnectUdpRecvError> {
         let left_data = &self.buffer[self.parse_start..self.read_start];
 
         // Context ID
@@ -205,7 +207,7 @@ impl MasqueUdpRecvBuffer {
             Some(data) => {
                 let context_id = data.value();
                 if context_id != 0 {
-                    return Err(MasqueUdpRecvError::InvalidContextId(context_id));
+                    return Err(HttpConnectUdpRecvError::InvalidContextId(context_id));
                 }
                 offset += data.encoded_len();
             }
@@ -217,7 +219,7 @@ impl MasqueUdpRecvBuffer {
             Some(data) => {
                 let capsule_type = data.value();
                 if capsule_type != 0 {
-                    return Err(MasqueUdpRecvError::InvalidCapsuleType(capsule_type));
+                    return Err(HttpConnectUdpRecvError::InvalidCapsuleType(capsule_type));
                 }
                 offset += data.encoded_len();
             }
@@ -228,7 +230,7 @@ impl MasqueUdpRecvBuffer {
         if let Some(data) = VarInt::parse(&left_data[offset..]) {
             let capsule_length = data.value();
             if capsule_length > self.max_packet_size as u64 {
-                return Err(MasqueUdpRecvError::InvalidPacketSize(capsule_length));
+                return Err(HttpConnectUdpRecvError::InvalidPacketSize(capsule_length));
             }
             let datagram_len = capsule_length as usize;
             offset += data.encoded_len();
@@ -263,9 +265,9 @@ mod tests {
     }
 
     async fn next_datagram(
-        buffer: &mut MasqueUdpRecvBuffer,
+        buffer: &mut HttpConnectUdpRecvBuffer,
         reader: &mut tokio_test::io::Mock,
-    ) -> Result<Vec<u8>, MasqueUdpRecvError> {
+    ) -> Result<Vec<u8>, HttpConnectUdpRecvError> {
         poll_fn(
             |cx| match buffer.poll_datagram(cx, Pin::new(&mut *reader)) {
                 Poll::Ready(Ok(datagram)) => Poll::Ready(Ok(datagram.to_vec())),
@@ -281,7 +283,7 @@ mod tests {
         let payload = b"hello";
         let data = capsule(payload);
         let mut reader = MockIoBuilder::new().read(&data).build();
-        let mut buffer = MasqueUdpRecvBuffer::new(8, 128);
+        let mut buffer = HttpConnectUdpRecvBuffer::new(8, 128);
 
         let datagram = next_datagram(&mut buffer, &mut reader).await.unwrap();
         assert_eq!(datagram, payload);
@@ -300,7 +302,7 @@ mod tests {
             .read(&data[3..20])
             .read(&data[20..])
             .build();
-        let mut buffer = MasqueUdpRecvBuffer::new(16, 128);
+        let mut buffer = HttpConnectUdpRecvBuffer::new(16, 128);
 
         let datagram = next_datagram(&mut buffer, &mut reader).await.unwrap();
         assert_eq!(datagram, payload);
@@ -316,7 +318,7 @@ mod tests {
             .flat_map(|payload| capsule(payload))
             .collect::<Vec<_>>();
         let mut reader = MockIoBuilder::new().read(&data).build();
-        let mut buffer = MasqueUdpRecvBuffer::new(16, 128);
+        let mut buffer = HttpConnectUdpRecvBuffer::new(16, 128);
 
         for payload in payloads {
             let datagram = next_datagram(&mut buffer, &mut reader).await.unwrap();
@@ -336,7 +338,7 @@ mod tests {
             .read(&data[..30])
             .read(&data[30..])
             .build();
-        let mut buffer = MasqueUdpRecvBuffer::new(30, 6);
+        let mut buffer = HttpConnectUdpRecvBuffer::new(30, 6);
 
         for payload in payloads {
             let datagram = next_datagram(&mut buffer, &mut reader).await.unwrap();
@@ -349,7 +351,7 @@ mod tests {
     async fn decode_empty_datagram() {
         let data = capsule(b"");
         let mut reader = MockIoBuilder::new().read(&data).build();
-        let mut buffer = MasqueUdpRecvBuffer::new(8, 128);
+        let mut buffer = HttpConnectUdpRecvBuffer::new(8, 128);
 
         let datagram = next_datagram(&mut buffer, &mut reader).await.unwrap();
         assert!(datagram.is_empty());
@@ -361,30 +363,33 @@ mod tests {
     async fn reject_non_zero_context_id() {
         let data = [1, 0, 0];
         let mut reader = MockIoBuilder::new().read(&data).build();
-        let mut buffer = MasqueUdpRecvBuffer::new(8, 128);
+        let mut buffer = HttpConnectUdpRecvBuffer::new(8, 128);
 
         let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
-        assert!(matches!(err, MasqueUdpRecvError::InvalidContextId(1)));
+        assert!(matches!(err, HttpConnectUdpRecvError::InvalidContextId(1)));
     }
 
     #[tokio::test]
     async fn reject_non_datagram_capsule_type() {
         let data = [0, 1, 0];
         let mut reader = MockIoBuilder::new().read(&data).build();
-        let mut buffer = MasqueUdpRecvBuffer::new(8, 128);
+        let mut buffer = HttpConnectUdpRecvBuffer::new(8, 128);
 
         let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
-        assert!(matches!(err, MasqueUdpRecvError::InvalidCapsuleType(1)));
+        assert!(matches!(
+            err,
+            HttpConnectUdpRecvError::InvalidCapsuleType(1)
+        ));
     }
 
     #[tokio::test]
     async fn reject_datagram_larger_than_max_packet_size() {
         let data = capsule(b"oversized");
         let mut reader = MockIoBuilder::new().read(&data).build();
-        let mut buffer = MasqueUdpRecvBuffer::new(8, 4);
+        let mut buffer = HttpConnectUdpRecvBuffer::new(8, 4);
 
         let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
-        assert!(matches!(err, MasqueUdpRecvError::InvalidPacketSize(9)));
+        assert!(matches!(err, HttpConnectUdpRecvError::InvalidPacketSize(9)));
     }
 
     #[tokio::test]
@@ -394,11 +399,11 @@ mod tests {
             .read(&data[..data.len() - 1])
             .read(b"")
             .build();
-        let mut buffer = MasqueUdpRecvBuffer::new(8, 128);
+        let mut buffer = HttpConnectUdpRecvBuffer::new(8, 128);
 
         let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
         assert!(
-            matches!(err, MasqueUdpRecvError::IoFailed(e) if e.kind() == io::ErrorKind::UnexpectedEof)
+            matches!(err, HttpConnectUdpRecvError::IoFailed(e) if e.kind() == io::ErrorKind::UnexpectedEof)
         );
     }
 }

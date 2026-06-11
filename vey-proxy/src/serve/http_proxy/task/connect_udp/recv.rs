@@ -6,50 +6,38 @@
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
 
-use slog::Logger;
 use tokio::io::AsyncRead;
 
-use vey_io_ext::{UdpCopyPacket, UdpCopyRemoteError, UdpCopyRemoteRecv};
+use vey_io_ext::{UdpCopyClientError, UdpCopyClientRecv, UdpCopyPacket};
 
-use crate::module::masque_udp::MasqueUdpRecvBuffer;
+use crate::module::http_connect_udp::HttpConnectUdpRecvBuffer;
 
-pub(crate) struct ProxyHttpMasqueUdpRecv<R> {
+pub(super) struct HttpConnectUdpRecv<R> {
     reader: R,
-    logger: Option<Logger>,
-    buffer: MasqueUdpRecvBuffer,
+    buffer: HttpConnectUdpRecvBuffer,
 }
 
-impl<R> ProxyHttpMasqueUdpRecv<R>
+impl<R> HttpConnectUdpRecv<R>
 where
     R: AsyncRead + Unpin,
 {
-    pub(crate) fn new(
-        reader: R,
-        logger: Option<Logger>,
-        capacity: usize,
-        max_packet_size: u16,
-    ) -> Self {
-        ProxyHttpMasqueUdpRecv {
+    pub(super) fn new(reader: R, capacity: usize, max_packet_size: u16) -> Self {
+        HttpConnectUdpRecv {
             reader,
-            logger,
-            buffer: MasqueUdpRecvBuffer::new(capacity, max_packet_size),
+            buffer: HttpConnectUdpRecvBuffer::new(capacity, max_packet_size),
         }
     }
 
-    fn poll_datagram(&mut self, cx: &mut Context<'_>) -> Poll<Result<&[u8], UdpCopyRemoteError>> {
+    fn poll_datagram(&mut self, cx: &mut Context<'_>) -> Poll<Result<&[u8], UdpCopyClientError>> {
         let buf = ready!(self.buffer.poll_datagram(cx, Pin::new(&mut self.reader)))?;
         Poll::Ready(Ok(buf))
     }
 }
 
-impl<R> UdpCopyRemoteRecv for ProxyHttpMasqueUdpRecv<R>
+impl<R> UdpCopyClientRecv for HttpConnectUdpRecv<R>
 where
     R: AsyncRead + Unpin,
 {
-    fn error_logger(&self) -> Option<&Logger> {
-        self.logger.as_ref()
-    }
-
     fn max_hdr_len(&self) -> usize {
         // the capsule header is parsed in local buf, so we don't need to reserve extra space for it
         0
@@ -59,9 +47,10 @@ where
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<Result<(usize, usize), UdpCopyRemoteError>> {
+    ) -> Poll<Result<(usize, usize), UdpCopyClientError>> {
         let datagram = ready!(self.poll_datagram(cx))?;
         if datagram.is_empty() {
+            self.buffer.consume_datagram();
             return Poll::Ready(Ok((0, 0)));
         }
         let copy_len = datagram.len().min(buf.len());
@@ -75,23 +64,23 @@ where
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut UdpCopyPacket,
-    ) -> Poll<Result<(), UdpCopyRemoteError>> {
+        packet: &mut UdpCopyPacket,
+    ) -> Poll<Result<(), UdpCopyClientError>> {
         let datagram = ready!(self.poll_datagram(cx))?;
         if datagram.is_empty() {
-            buf.set_offset(0);
-            buf.set_length(0);
+            packet.set_offset(0);
+            packet.set_length(0);
             self.buffer.consume_datagram();
             return Poll::Ready(Ok(()));
         }
-        let fill_buf = buf.buf_mut();
+        let fill_buf = packet.buf_mut();
         let copy_len = datagram.len().min(fill_buf.len());
         unsafe {
             std::ptr::copy_nonoverlapping(datagram.as_ptr(), fill_buf.as_mut_ptr(), copy_len);
         }
         self.buffer.consume_datagram();
-        buf.set_offset(0);
-        buf.set_length(copy_len);
+        packet.set_offset(0);
+        packet.set_length(copy_len);
         Poll::Ready(Ok(()))
     }
 }

@@ -4,7 +4,7 @@
  */
 
 mod recv;
-pub(crate) use recv::MasqueUdpRecvBuffer;
+pub(crate) use recv::HttpConnectUdpRecvBuffer;
 
 mod send;
-pub(crate) use send::MasqueUdpSendBuffer;
+pub(crate) use send::HttpConnectUdpSendBuffer;

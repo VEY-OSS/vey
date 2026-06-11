@@ -53,8 +53,8 @@ mod stats;
 use stats::ProxyHttpsEscaperStats;
 
 mod http_connect;
+mod http_connect_udp;
 mod http_forward;
-mod masque_udp;
 mod tcp_connect;
 mod tls_handshake;
 

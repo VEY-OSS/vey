@@ -13,9 +13,7 @@ use vey_io_ext::{
     AsyncStream, FlexBufReader, LimitedStream, LimitedUdpCopyRemoteRecv, LimitedUdpCopyRemoteSend,
 };
 
-use super::ProxyFloatHttpPeer;
-use crate::escape::proxy_float::ProxyFloatEscaper;
-use crate::escape::proxy_http::{ProxyHttpMasqueUdpRecv, ProxyHttpMasqueUdpSend};
+use super::ProxyHttpEscaper;
 use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::module::udp_connect::{
     UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf,
@@ -23,10 +21,15 @@ use crate::module::udp_connect::{
 };
 use crate::serve::ServerTaskNotes;
 
-impl ProxyFloatHttpPeer {
+mod recv;
+pub(crate) use recv::ProxyHttpConnectUdpRecv;
+
+mod send;
+pub(crate) use send::ProxyHttpConnectUdpSend;
+
+impl ProxyHttpEscaper {
     async fn masque_udp_connect_to(
         &self,
-        escaper: &ProxyFloatEscaper,
         task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &mut UdpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
@@ -35,12 +38,20 @@ impl ProxyFloatHttpPeer {
             upstream: task_conf.upstream,
         };
         let mut tcp_notes = TcpConnectTaskNotes::default();
-        let mut stream = escaper
-            .tcp_new_connection(self, &tcp_task_conf, &mut tcp_notes, task_notes)
+        let (peer, mut stream) = self
+            .tcp_new_connection(&tcp_task_conf, &mut tcp_notes, task_notes)
             .await?;
         udp_notes.fill_from_underlying_tcp(tcp_notes);
 
-        let req = HttpUpgradeRequest::new(&self.http_host, &self.shared_config.append_http_headers);
+        let mut req = HttpUpgradeRequest::new(&peer, &self.config.append_http_headers);
+
+        if self.config.pass_proxy_userid
+            && let Some(name) = task_notes.raw_user_name()
+        {
+            let line = crate::module::http_header::proxy_authorization_basic_pass(name);
+            req.append_dyn_header(line);
+        }
+
         req.send_connect_udp(task_conf.upstream, &mut stream)
             .await
             .map_err(UdpConnectError::NegotiationWriteFailed)?;
@@ -48,7 +59,7 @@ impl ProxyFloatHttpPeer {
         let mut buf_stream = FlexBufReader::new(stream);
         let _ = HttpUpgradeResponse::recv_for_connect_udp(
             &mut buf_stream,
-            self.http_connect_rsp_hdr_max_size,
+            self.config.http_connect_rsp_hdr_max_size,
         )
         .await?;
 
@@ -59,14 +70,13 @@ impl ProxyFloatHttpPeer {
 
     async fn timed_masque_udp_connect_to(
         &self,
-        escaper: &ProxyFloatEscaper,
         task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &mut UdpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, UdpConnectError> {
         tokio::time::timeout(
-            escaper.config.peer_negotiation_timeout,
-            self.masque_udp_connect_to(escaper, task_conf, udp_notes, task_notes),
+            self.config.peer_negotiation_timeout,
+            self.masque_udp_connect_to(task_conf, udp_notes, task_notes),
         )
         .await
         .map_err(|_| UdpConnectError::NegotiationPeerTimeout)?
@@ -74,31 +84,30 @@ impl ProxyFloatHttpPeer {
 
     pub(super) async fn http_upgrade_new_udp_connection(
         &self,
-        escaper: &ProxyFloatEscaper,
         task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &mut UdpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         let buf_stream = self
-            .timed_masque_udp_connect_to(escaper, task_conf, udp_notes, task_notes)
+            .timed_masque_udp_connect_to(task_conf, udp_notes, task_notes)
             .await?;
 
         let mut wrapper_stats = UdpConnectRemoteWrapperStats::new_layered(task_stats);
-        let user_stats = escaper.fetch_user_upstream_io_stats(task_notes);
+        let user_stats = self.fetch_user_upstream_io_stats(task_notes);
         wrapper_stats.push_user_io_stats(user_stats);
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let (r, w) = buf_stream.into_split();
-        let recv = ProxyHttpMasqueUdpRecv::new(
+        let recv = ProxyHttpConnectUdpRecv::new(
             r,
-            escaper.escape_logger.clone(),
+            self.escape_logger.clone(),
             task_conf.relay.underlying_buffer_size(),
             task_conf.relay.packet_size(),
         );
-        let send = ProxyHttpMasqueUdpSend::new(
+        let send = ProxyHttpConnectUdpSend::new(
             w,
-            escaper.escape_logger.clone(),
+            self.escape_logger.clone(),
             task_conf.relay.packet_size(),
         );
 

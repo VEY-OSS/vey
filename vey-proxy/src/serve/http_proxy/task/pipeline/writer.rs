@@ -21,7 +21,7 @@ use vey_types::net::{HttpAuth, HttpForwardCapability, HttpProxySubProtocol};
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{
     CommonTaskContext, FtpOverHttpTask, HttpProxyCltWrapperStats, HttpProxyConnectTask,
-    HttpProxyForwardTask, HttpProxyMasqueUdpTask, HttpProxyPipelineStats, HttpProxyUntrustedTask,
+    HttpProxyConnectUdpTask, HttpProxyForwardTask, HttpProxyPipelineStats, HttpProxyUntrustedTask,
 };
 use crate::audit::AuditContext;
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
@@ -380,12 +380,12 @@ where
                     unreachable!()
                 };
 
-                let mut masque_udp_task =
-                    HttpProxyMasqueUdpTask::new(self.ctx.clone(), &req, task_notes);
-                masque_udp_task
+                let mut connect_udp_task =
+                    HttpProxyConnectUdpTask::new(self.ctx.clone(), &req, task_notes);
+                connect_udp_task
                     .connect_to_upstream(&req.inner, &mut stream_w)
                     .await;
-                if masque_udp_task.back_to_http() {
+                if connect_udp_task.back_to_http() {
                     // reopen write end
                     self.stream_writer = Some(stream_w);
                     // reopen read end
@@ -398,7 +398,7 @@ where
                 } else {
                     // close read end
                     let _ = req.stream_sender.try_send(None);
-                    masque_udp_task.into_running(stream_r.into_inner(), stream_w);
+                    connect_udp_task.into_running(stream_r.into_inner(), stream_w);
                     LoopAction::Break
                 }
             }

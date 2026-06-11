@@ -13,27 +13,27 @@ use crate::auth::UserTrafficStats;
 use super::HttpProxyServerStats;
 
 #[derive(Clone)]
-pub(super) struct MasqueUdpTaskServerCltWrapperStats(Arc<HttpProxyServerStats>);
+pub(super) struct HttpConnectUdpTaskServerCltWrapperStats(Arc<HttpProxyServerStats>);
 
-impl MasqueUdpTaskServerCltWrapperStats {
+impl HttpConnectUdpTaskServerCltWrapperStats {
     pub(super) fn new(inner: Arc<HttpProxyServerStats>) -> Self {
-        MasqueUdpTaskServerCltWrapperStats(inner)
+        HttpConnectUdpTaskServerCltWrapperStats(inner)
     }
 }
 
-impl LimitedReaderStats for MasqueUdpTaskServerCltWrapperStats {
+impl LimitedReaderStats for HttpConnectUdpTaskServerCltWrapperStats {
     fn add_read_bytes(&self, size: usize) {
-        self.0.io_masque_udp.add_in_bytes(size as u64);
+        self.0.io_connect_udp.add_in_bytes(size as u64);
     }
 }
 
-impl LimitedWriterStats for MasqueUdpTaskServerCltWrapperStats {
+impl LimitedWriterStats for HttpConnectUdpTaskServerCltWrapperStats {
     fn add_write_bytes(&self, size: usize) {
-        self.0.io_masque_udp.add_out_bytes(size as u64);
+        self.0.io_connect_udp.add_out_bytes(size as u64);
     }
 }
 
-trait UdpConnectTaskCltStatsWrapper {
+trait ConnectUdpTaskCltStatsWrapper {
     fn add_recv_bytes(&self, size: u64);
     #[allow(unused)]
     fn add_recv_packet(&self) {
@@ -48,35 +48,35 @@ trait UdpConnectTaskCltStatsWrapper {
     fn add_send_packets(&self, n: usize);
 }
 
-type ArcUdpConnectTaskCltStatsWrapper = Arc<dyn UdpConnectTaskCltStatsWrapper + Send + Sync>;
+type ArcConnectUdpTaskCltStatsWrapper = Arc<dyn ConnectUdpTaskCltStatsWrapper + Send + Sync>;
 
-impl UdpConnectTaskCltStatsWrapper for UserTrafficStats {
+impl ConnectUdpTaskCltStatsWrapper for UserTrafficStats {
     fn add_recv_bytes(&self, size: u64) {
-        self.io.http_masque_udp.add_in_bytes(size);
+        self.io.http_connect_udp.add_in_bytes(size);
     }
 
     fn add_recv_packets(&self, n: usize) {
-        self.io.http_masque_udp.add_in_packets(n);
+        self.io.http_connect_udp.add_in_packets(n);
     }
 
     fn add_send_bytes(&self, size: u64) {
-        self.io.http_masque_udp.add_out_bytes(size);
+        self.io.http_connect_udp.add_out_bytes(size);
     }
 
     fn add_send_packets(&self, n: usize) {
-        self.io.http_masque_udp.add_out_packets(n);
+        self.io.http_connect_udp.add_out_packets(n);
     }
 }
 
 #[derive(Clone)]
-pub(crate) struct MasqueUdpTaskCltWrapperStats {
+pub(crate) struct HttpConnectUdpTaskCltWrapperStats {
     task: Arc<UdpConnectTaskStats>,
-    others: Vec<ArcUdpConnectTaskCltStatsWrapper>,
+    others: Vec<ArcConnectUdpTaskCltStatsWrapper>,
 }
 
-impl MasqueUdpTaskCltWrapperStats {
+impl HttpConnectUdpTaskCltWrapperStats {
     pub(crate) fn new(task: &Arc<UdpConnectTaskStats>) -> Self {
-        MasqueUdpTaskCltWrapperStats {
+        HttpConnectUdpTaskCltWrapperStats {
             task: Arc::clone(task),
             others: Vec::with_capacity(2),
         }
@@ -89,7 +89,7 @@ impl MasqueUdpTaskCltWrapperStats {
     }
 }
 
-impl LimitedRecvStats for MasqueUdpTaskCltWrapperStats {
+impl LimitedRecvStats for HttpConnectUdpTaskCltWrapperStats {
     fn add_recv_bytes(&self, size: usize) {
         let size = size as u64;
         self.task.clt.recv.add_bytes(size);
@@ -102,7 +102,7 @@ impl LimitedRecvStats for MasqueUdpTaskCltWrapperStats {
     }
 }
 
-impl LimitedSendStats for MasqueUdpTaskCltWrapperStats {
+impl LimitedSendStats for HttpConnectUdpTaskCltWrapperStats {
     fn add_send_bytes(&self, size: usize) {
         let size = size as u64;
         self.task.clt.send.add_bytes(size);

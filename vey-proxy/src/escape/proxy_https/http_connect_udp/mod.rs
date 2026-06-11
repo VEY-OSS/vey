@@ -13,7 +13,7 @@ use vey_io_ext::{AsyncStream, FlexBufReader, LimitedUdpCopyRemoteRecv, LimitedUd
 use vey_openssl::SslStream;
 
 use super::ProxyHttpsEscaper;
-use crate::escape::proxy_http::{ProxyHttpMasqueUdpRecv, ProxyHttpMasqueUdpSend};
+use crate::escape::proxy_http::{ProxyHttpConnectUdpRecv, ProxyHttpConnectUdpSend};
 use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::module::udp_connect::{
     UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf,
@@ -95,13 +95,13 @@ impl ProxyHttpsEscaper {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let (r, w) = buf_stream.into_split();
-        let recv = ProxyHttpMasqueUdpRecv::new(
+        let recv = ProxyHttpConnectUdpRecv::new(
             r,
             self.escape_logger.clone(),
             task_conf.relay.underlying_buffer_size(),
             task_conf.relay.packet_size(),
         );
-        let send = ProxyHttpMasqueUdpSend::new(
+        let send = ProxyHttpConnectUdpSend::new(
             w,
             self.escape_logger.clone(),
             task_conf.relay.packet_size(),

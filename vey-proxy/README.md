@@ -141,7 +141,7 @@ Common capabilities include:
 
 - HTTP(S) Proxy
     - TLS / mTLS
-    - HTTP forward, HTTPS forward, HTTP CONNECT, and FTP over HTTP
+    - HTTP forward, HTTPS forward, HTTP CONNECT, FTP over HTTP and MASQUE CONNECT-UDP
     - easy-proxy and `masque/http` Well-Known URI support
     - Basic user authentication
     - Port hiding

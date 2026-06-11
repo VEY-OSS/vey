@@ -6,13 +6,13 @@
 use super::{CommonTaskContext, HttpProxyServerStats, protocol};
 
 mod stats;
-use stats::{MasqueUdpTaskCltWrapperStats, MasqueUdpTaskServerCltWrapperStats};
+use stats::{HttpConnectUdpTaskCltWrapperStats, HttpConnectUdpTaskServerCltWrapperStats};
 
 mod recv;
-use recv::MasqueUdpRecv;
+use recv::HttpConnectUdpRecv;
 
 mod send;
-use send::MasqueUdpSend;
+use send::HttpConnectUdpSend;
 
 mod task;
-pub(super) use task::HttpProxyMasqueUdpTask;
+pub(super) use task::HttpProxyConnectUdpTask;

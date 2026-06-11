@@ -21,28 +21,28 @@ use tokio::io::AsyncWrite;
 use vey_io_ext::UdpCopyPacket;
 use vey_io_ext::{UdpCopyRemoteError, UdpCopyRemoteSend};
 
-use crate::module::masque_udp::MasqueUdpSendBuffer;
+use crate::module::http_connect_udp::HttpConnectUdpSendBuffer;
 
-pub(crate) struct ProxyHttpMasqueUdpSend<W> {
-    buffer: MasqueUdpSendBuffer,
+pub(crate) struct ProxyHttpConnectUdpSend<W> {
+    buffer: HttpConnectUdpSendBuffer,
     writer: W,
     logger: Option<Logger>,
 }
 
-impl<W> ProxyHttpMasqueUdpSend<W>
+impl<W> ProxyHttpConnectUdpSend<W>
 where
     W: AsyncWrite + Unpin,
 {
     pub(crate) fn new(writer: W, logger: Option<Logger>, max_packet_size: u16) -> Self {
-        ProxyHttpMasqueUdpSend {
-            buffer: MasqueUdpSendBuffer::new(max_packet_size),
+        ProxyHttpConnectUdpSend {
+            buffer: HttpConnectUdpSendBuffer::new(max_packet_size),
             writer,
             logger,
         }
     }
 }
 
-impl<W> UdpCopyRemoteSend for ProxyHttpMasqueUdpSend<W>
+impl<W> UdpCopyRemoteSend for ProxyHttpConnectUdpSend<W>
 where
     W: AsyncWrite + Unpin,
 {

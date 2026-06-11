@@ -55,6 +55,7 @@ The following tags are common to all metrics:
   - http_forward
   - https_forward
   - http_connect
+  - http_connect_udp
   - socks_tcp_connect
   - socks_udp_connect
   - socks_udp_associate

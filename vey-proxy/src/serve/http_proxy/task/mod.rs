@@ -12,16 +12,16 @@ pub(super) use common::CommonTaskContext;
 mod protocol;
 
 mod connect;
+mod connect_udp;
 mod forward;
 mod ftp;
-mod masque_udp;
 mod pipeline;
 mod untrusted;
 
 use connect::HttpProxyConnectTask;
+use connect_udp::HttpProxyConnectUdpTask;
 use forward::HttpProxyForwardTask;
 use ftp::FtpOverHttpTask;
-use masque_udp::HttpProxyMasqueUdpTask;
 pub(super) use pipeline::{
     HttpProxyPipelineReaderTask, HttpProxyPipelineStats, HttpProxyPipelineWriterTask,
 };

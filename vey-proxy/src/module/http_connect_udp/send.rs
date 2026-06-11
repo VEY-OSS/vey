@@ -12,16 +12,16 @@ use tokio::io::AsyncWrite;
 use vey_codec::quic::VarIntEncoder;
 use vey_io_ext::UdpCopyPacket;
 
-pub(crate) struct MasqueUdpSendBuffer {
+pub(crate) struct HttpConnectUdpSendBuffer {
     max_packet_size: u16,
     len_encoder: VarIntEncoder,
     buffer: Vec<u8>,
     write_offset: usize,
 }
 
-impl MasqueUdpSendBuffer {
+impl HttpConnectUdpSendBuffer {
     pub(crate) fn new(max_packet_size: u16) -> Self {
-        MasqueUdpSendBuffer {
+        HttpConnectUdpSendBuffer {
             max_packet_size,
             len_encoder: VarIntEncoder::default(),
             buffer: Vec::new(),

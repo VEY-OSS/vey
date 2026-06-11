@@ -4,9 +4,9 @@
  */
 
 pub(crate) mod ftp_over_http;
+pub(crate) mod http_connect_udp;
 pub(crate) mod http_forward;
 pub(crate) mod http_header;
-pub(crate) mod masque_udp;
 pub(crate) mod tcp_connect;
 pub(crate) mod udp_connect;
 pub(crate) mod udp_relay;

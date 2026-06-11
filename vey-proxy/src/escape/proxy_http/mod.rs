@@ -50,11 +50,11 @@ mod stats;
 pub(crate) use stats::ProxyHttpEscaperStats;
 
 mod http_connect;
+mod http_connect_udp;
 mod http_forward;
-mod masque_udp;
 mod tcp_connect;
 
-pub(crate) use masque_udp::{ProxyHttpMasqueUdpRecv, ProxyHttpMasqueUdpSend};
+pub(crate) use http_connect_udp::{ProxyHttpConnectUdpRecv, ProxyHttpConnectUdpSend};
 
 pub(super) struct ProxyHttpEscaper {
     config: Arc<ProxyHttpEscaperConfig>,
