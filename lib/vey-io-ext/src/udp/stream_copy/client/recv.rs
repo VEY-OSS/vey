@@ -53,7 +53,7 @@ pub trait UdpCopyClientRecv {
         packets: &mut [UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyClientError>> {
         let mut count = 0;
-        for (n, packet) in packets.iter_mut().enumerate() {
+        for packet in packets.iter_mut() {
             match self.poll_recv_buf(cx, packet.buf_mut()) {
                 Poll::Ready(Ok((off, len))) => {
                     packet.set_length(off);
@@ -65,10 +65,10 @@ pub trait UdpCopyClientRecv {
                 }
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                 Poll::Pending => {
-                    return if n == 0 {
+                    return if count == 0 {
                         Poll::Pending
                     } else {
-                        Poll::Ready(Ok(n - 1))
+                        Poll::Ready(Ok(count))
                     };
                 }
             }

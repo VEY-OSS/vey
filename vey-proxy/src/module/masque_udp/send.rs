@@ -54,7 +54,7 @@ impl MasqueUdpSendBuffer {
             return;
         }
         for packet in packets {
-            self.push_packet(packet.buf());
+            self.push_packet(packet.payload());
         }
     }
 

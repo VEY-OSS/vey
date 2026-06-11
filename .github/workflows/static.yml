@@ -76,7 +76,7 @@ jobs:
           submodules: true
       - name: Install dependencies
         run: |
-          apk add --no-cache musl-dev linux-headers libc++-dev libunwind-static
+          apk add --no-cache musl-dev linux-headers libc++-dev llvm-libunwind-static
           apk add --no-cache clang lld capnproto-dev clang-libclang cmake make
       - name: Install Go for AWS-LC-FIPS
         if: contains(matrix.feature, 'vendored-aws-lc-fips')
@@ -111,7 +111,7 @@ jobs:
           submodules: true
       - name: Install dependencies
         run: |
-          apk add --no-cache musl-dev linux-headers libc++-dev libc++-static libunwind-static
+          apk add --no-cache musl-dev linux-headers libc++-dev libc++-static llvm-libunwind-static
           apk add --no-cache clang lld capnproto-dev clang-libclang cmake make
       - name: Cargo build
         run: cargo $UNSTABLE_OPTIONS build --profile release --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares

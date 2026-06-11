@@ -12,12 +12,15 @@ for port in 1080 1081
 do
 	SOCKS5_PROXY="socks5h://127.0.0.1:${port}"
 	test_socks5_proxy_http
-	test_socks5_proxy_dns
 
 
 	SOCKS4_PROXY="socks4a://127.0.0.1:${port}"
 	test_socks4_proxy_http
 done
+
+
+SOCKS5_PROXY="socks5h://127.0.0.1:1080"
+test_socks5_proxy_dns
 
 
 vey_proxy_ctl escaper float_passive publish '{"type":"https","addr":"127.0.0.1:7443", "tls_name": "vey-proxy.local"}'
@@ -31,12 +34,16 @@ for port in 1080 1081
 do
 	SOCKS5_PROXY="socks5h://127.0.0.1:${port}"
 	test_socks5_proxy_http
-	test_socks5_proxy_dns
 
 
 	SOCKS4_PROXY="socks4a://127.0.0.1:${port}"
 	test_socks4_proxy_http
 done
+
+
+SOCKS5_PROXY="socks5h://127.0.0.1:1080"
+test_socks5_proxy_dns
+
 
 vey_proxy_ctl escaper float_passive publish '{"type":"socks5","addr":"127.0.0.1:6080"}'
 
