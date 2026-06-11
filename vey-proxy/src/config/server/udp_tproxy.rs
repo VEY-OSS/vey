@@ -14,9 +14,7 @@ use vey_io_ext::LimitedUdpRelayConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::auth::FactsMatchType;
 use vey_types::metrics::{MetricTagMap, NodeName};
-use vey_types::net::{
-    SocketBufferConfig, UdpConnectionTrackConfig, UdpListenConfig, UdpSockSpeedLimitConfig,
-};
+use vey_types::net::{UdpConnectionTrackConfig, UdpListenConfig, UdpSockSpeedLimitConfig};
 use vey_yaml::YamlDocPosition;
 
 use super::{
@@ -40,7 +38,6 @@ pub(crate) struct UdpTProxyServerConfig {
     pub(crate) listen_in_worker: bool,
     pub(crate) conn_track: UdpConnectionTrackConfig,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
-    pub(crate) udp_socket_buffer: SocketBufferConfig,
     pub(crate) udp_sock_speed_limit: UdpSockSpeedLimitConfig,
     pub(crate) task_idle_check_interval: Duration,
     pub(crate) task_idle_max_count: usize,
@@ -66,7 +63,6 @@ impl UdpTProxyServerConfig {
             listen_in_worker: false,
             conn_track: UdpConnectionTrackConfig::default(),
             ingress_net_filter: None,
-            udp_socket_buffer: SocketBufferConfig::default(),
             udp_sock_speed_limit: UdpSockSpeedLimitConfig::default(),
             task_idle_check_interval: IDLE_CHECK_DEFAULT_DURATION,
             task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
@@ -141,11 +137,6 @@ impl UdpTProxyServerConfig {
                     format!("invalid ingress network acl rule value for key {k}"),
                 )?;
                 self.ingress_net_filter = Some(filter);
-                Ok(())
-            }
-            "udp_socket_buffer" => {
-                self.udp_socket_buffer = vey_yaml::value::as_socket_buffer_config(v)
-                    .context(format!("invalid socket buffer config value for key {k}"))?;
                 Ok(())
             }
             "udp_sock_speed_limit" => {

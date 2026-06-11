@@ -333,7 +333,6 @@ impl HttpProxyMasqueUdpTask {
 
         let task_conf = UdpConnectTaskConf {
             upstream: &self.upstream,
-            sock_buf: Default::default(), // TODO
             relay: self.ctx.server_config.udp_relay,
         };
         match self

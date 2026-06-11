@@ -29,6 +29,7 @@ The following common keys are supported:
 * :ref:`resolve_strategy <conf_escaper_common_resolve_strategy>`
 * :ref:`tcp_sock_speed_limit <conf_escaper_common_tcp_sock_speed_limit>`
 * :ref:`udp_sock_speed_limit <conf_escaper_common_udp_sock_speed_limit>`
+* :ref:`udp_socket_buffer <conf_escaper_common_udp_socket_buffer>`
 * :ref:`bind_interface <conf_escaper_common_bind_interface>`
 * :ref:`no_ipv4 <conf_escaper_common_no_ipv4>`
 * :ref:`no_ipv6 <conf_escaper_common_no_ipv6>`

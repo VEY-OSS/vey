@@ -10,13 +10,12 @@ use chrono::{DateTime, Utc};
 use vey_io_ext::LimitedUdpRelayConfig;
 use vey_socket::BindAddr;
 use vey_types::metrics::NodeName;
-use vey_types::net::{EgressInfo, SocketBufferConfig, UpstreamAddr};
+use vey_types::net::{EgressInfo, UpstreamAddr};
 
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 
 pub(crate) struct UdpConnectTaskConf<'a> {
     pub(crate) upstream: &'a UpstreamAddr,
-    pub(crate) sock_buf: SocketBufferConfig,
     pub(crate) relay: LimitedUdpRelayConfig,
 }
 

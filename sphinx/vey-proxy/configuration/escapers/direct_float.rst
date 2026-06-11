@@ -58,6 +58,7 @@ The following common keys are supported:
 
 * :ref:`tcp_sock_speed_limit <conf_escaper_common_tcp_sock_speed_limit>`
 * :ref:`udp_sock_speed_limit <conf_escaper_common_udp_sock_speed_limit>`
+* :ref:`udp_socket_buffer <conf_escaper_common_udp_socket_buffer>`
 * :ref:`no_ipv4 <conf_escaper_common_no_ipv4>`
 * :ref:`no_ipv6 <conf_escaper_common_no_ipv6>`
 * :ref:`tcp_connect <conf_escaper_common_tcp_connect>`

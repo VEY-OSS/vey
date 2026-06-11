@@ -162,6 +162,19 @@ relay_limit
 
 .. versionchanged:: 1.11.8 deprecated, use udp_sock_speed_limit instead
 
+.. _conf_escaper_common_udp_socket_buffer:
+
+udp_socket_buffer
+-----------------
+
+**optional**, **type**: :external+values:ref:`socket buffer config <conf_value_socket_buffer_config>`
+
+Socket-buffer configuration for new created UDP socket.
+
+**default**: not set
+
+.. versionadded:: 1.13.5
+
 .. _conf_escaper_common_bind_interface:
 
 bind_interface

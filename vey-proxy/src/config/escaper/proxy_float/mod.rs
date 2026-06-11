@@ -24,7 +24,8 @@ use vey_types::metrics::{MetricTagMap, NodeName};
 ))]
 use vey_types::net::Interface;
 use vey_types::net::{
-    OpensslClientConfigBuilder, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts,
+    OpensslClientConfigBuilder, SocketBufferConfig, TcpKeepAliveConfig, TcpMiscSockOpts,
+    UdpMiscSockOpts,
 };
 use vey_yaml::YamlDocPosition;
 
@@ -58,6 +59,7 @@ pub(crate) struct ProxyFloatEscaperConfig {
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
+    pub(crate) udp_socket_buffer: SocketBufferConfig,
     pub(crate) expire_guard_duration: chrono::Duration,
     pub(crate) peer_negotiation_timeout: Duration,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
@@ -87,6 +89,7 @@ impl ProxyFloatEscaperConfig {
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
             tcp_misc_opts: Default::default(),
             udp_misc_opts: Default::default(),
+            udp_socket_buffer: SocketBufferConfig::default(),
             expire_guard_duration: chrono::Duration::seconds(5),
             peer_negotiation_timeout: Duration::from_secs(10),
             extra_metrics_tags: None,
@@ -193,6 +196,11 @@ impl ProxyFloatEscaperConfig {
             "udp_misc_opts" => {
                 self.udp_misc_opts = vey_yaml::value::as_udp_misc_sock_opts(v)
                     .context(format!("invalid udp misc sock opts value for key {k}"))?;
+                Ok(())
+            }
+            "udp_socket_buffer" => {
+                self.udp_socket_buffer = vey_yaml::value::as_socket_buffer_config(v)
+                    .context(format!("invalid socket buffer config value for key {k}"))?;
                 Ok(())
             }
             "expire_guard_duration" => {

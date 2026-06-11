@@ -55,17 +55,6 @@ Set the UDP connection track config.
 
 **default**: set with default values, the max sessions count is 4096, which should be adjusted according the listen instance count
 
-udp_socket_buffer
------------------
-
-**optional**, **type**: :external+values:ref:`socket buffer config <conf_value_socket_buffer_config>`
-
-Socket-buffer configuration for the UDP socket.
-
-.. note:: The buffer size of the socket at escaper side will also be set.
-
-**default**: not set
-
 auth_by_client_ip
 -----------------
 

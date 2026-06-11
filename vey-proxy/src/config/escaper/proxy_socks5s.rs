@@ -25,8 +25,8 @@ use vey_types::metrics::{MetricTagMap, NodeName};
 ))]
 use vey_types::net::Interface;
 use vey_types::net::{
-    HappyEyeballsConfig, Host, OpensslClientConfigBuilder, SocksAuth, TcpKeepAliveConfig,
-    TcpMiscSockOpts, UdpMiscSockOpts, WeightedUpstreamAddr,
+    HappyEyeballsConfig, Host, OpensslClientConfigBuilder, SocketBufferConfig, SocksAuth,
+    TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts, WeightedUpstreamAddr,
 };
 use vey_types::resolve::{QueryStrategy, ResolveStrategy};
 use vey_yaml::YamlDocPosition;
@@ -65,6 +65,7 @@ pub(crate) struct ProxySocks5sEscaperConfig {
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
+    pub(crate) udp_socket_buffer: SocketBufferConfig,
     pub(crate) auth_info: SocksAuth,
     pub(crate) peer_negotiation_timeout: Duration,
     transmute_udp_peer_ip: Option<FxHashMap<IpAddr, IpAddr>>,
@@ -103,6 +104,7 @@ impl ProxySocks5sEscaperConfig {
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
             tcp_misc_opts: Default::default(),
             udp_misc_opts: Default::default(),
+            udp_socket_buffer: SocketBufferConfig::default(),
             auth_info: SocksAuth::None,
             peer_negotiation_timeout: Duration::from_secs(10),
             transmute_udp_peer_ip: None,
@@ -226,6 +228,11 @@ impl ProxySocks5sEscaperConfig {
             "udp_misc_opts" => {
                 self.udp_misc_opts = vey_yaml::value::as_udp_misc_sock_opts(v)
                     .context(format!("invalid udp misc sock opts value for key {k}"))?;
+                Ok(())
+            }
+            "udp_socket_buffer" => {
+                self.udp_socket_buffer = vey_yaml::value::as_socket_buffer_config(v)
+                    .context(format!("invalid socket buffer config value for key {k}"))?;
                 Ok(())
             }
             "no_ipv4" => {

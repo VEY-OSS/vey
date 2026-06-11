@@ -16,8 +16,7 @@ use vey_types::auth::FactsMatchType;
 use vey_types::collection::SelectivePickPolicy;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
-    SocketBufferConfig, UdpConnectionTrackConfig, UdpListenConfig, UdpSockSpeedLimitConfig,
-    WeightedUpstreamAddr,
+    UdpConnectionTrackConfig, UdpListenConfig, UdpSockSpeedLimitConfig, WeightedUpstreamAddr,
 };
 use vey_yaml::YamlDocPosition;
 
@@ -43,7 +42,6 @@ pub(crate) struct UdpStreamServerConfig {
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) upstream: Vec<WeightedUpstreamAddr>,
     pub(crate) upstream_pick_policy: SelectivePickPolicy,
-    pub(crate) udp_socket_buffer: SocketBufferConfig,
     pub(crate) udp_sock_speed_limit: UdpSockSpeedLimitConfig,
     pub(crate) task_idle_check_interval: Duration,
     pub(crate) task_idle_max_count: usize,
@@ -70,7 +68,6 @@ impl UdpStreamServerConfig {
             ingress_net_filter: None,
             upstream: Vec::new(),
             upstream_pick_policy: SelectivePickPolicy::Random,
-            udp_socket_buffer: SocketBufferConfig::default(),
             udp_sock_speed_limit: UdpSockSpeedLimitConfig::default(),
             task_idle_check_interval: IDLE_CHECK_DEFAULT_DURATION,
             task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
@@ -155,11 +152,6 @@ impl UdpStreamServerConfig {
             }
             "upstream_pick_policy" => {
                 self.upstream_pick_policy = vey_yaml::value::as_selective_pick_policy(v)?;
-                Ok(())
-            }
-            "udp_socket_buffer" => {
-                self.udp_socket_buffer = vey_yaml::value::as_socket_buffer_config(v)
-                    .context(format!("invalid socket buffer config value for key {k}"))?;
                 Ok(())
             }
             "udp_sock_speed_limit" => {

@@ -29,7 +29,7 @@ impl ProxySocks5sEscaper {
     ) -> UdpConnectResult {
         let mut tcp_notes = TcpConnectTaskNotes::default();
         let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
-            .timed_socks5_udp_associate(task_conf.sock_buf, &mut tcp_notes, task_notes)
+            .timed_socks5_udp_associate(self.config.udp_socket_buffer, &mut tcp_notes, task_notes)
             .await?;
         udp_notes.egress = tcp_notes.egress;
         udp_notes.override_peer = tcp_notes.override_peer;

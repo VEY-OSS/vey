@@ -149,9 +149,9 @@ udp_socket_buffer
 
 Socket-buffer configuration for the UDP socket.
 
-.. note:: The buffer size of the socket at escaper side will also be set.
-
 **default**: not set
+
+.. versionchanged:: this will not change escaper side config since version 1.13.5
 
 transmute_udp_echo_ip
 ---------------------

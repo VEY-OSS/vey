@@ -89,7 +89,7 @@ impl DirectFloatEscaper {
         let socket = vey_socket::udp::new_std_socket_to(
             peer_addr,
             &udp_notes.bind,
-            task_conf.sock_buf,
+            self.config.udp_socket_buffer,
             misc_opts,
         )
         .map_err(UdpConnectError::SetupSocketFailed)?;

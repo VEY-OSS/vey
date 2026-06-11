@@ -13,7 +13,9 @@ use yaml_rust::{Yaml, yaml};
 
 use vey_types::acl::{AclAction, AclNetworkRuleBuilder};
 use vey_types::metrics::{MetricTagMap, NodeName};
-use vey_types::net::{HappyEyeballsConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts};
+use vey_types::net::{
+    HappyEyeballsConfig, SocketBufferConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts,
+};
 use vey_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 use vey_yaml::YamlDocPosition;
 
@@ -42,6 +44,7 @@ pub(crate) struct DirectFloatEscaperConfig {
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
+    pub(crate) udp_socket_buffer: SocketBufferConfig,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
@@ -64,6 +67,7 @@ impl DirectFloatEscaperConfig {
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
             tcp_misc_opts: Default::default(),
             udp_misc_opts: Default::default(),
+            udp_socket_buffer: SocketBufferConfig::default(),
             extra_metrics_tags: None,
         }
     }
@@ -180,6 +184,11 @@ impl DirectFloatEscaperConfig {
             "udp_misc_opts" => {
                 self.udp_misc_opts = vey_yaml::value::as_udp_misc_sock_opts(v)
                     .context(format!("invalid udp misc sock opts value for key {k}"))?;
+                Ok(())
+            }
+            "udp_socket_buffer" => {
+                self.udp_socket_buffer = vey_yaml::value::as_socket_buffer_config(v)
+                    .context(format!("invalid socket buffer config value for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

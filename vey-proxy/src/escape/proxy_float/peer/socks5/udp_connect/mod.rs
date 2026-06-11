@@ -30,7 +30,12 @@ impl ProxyFloatSocks5Peer {
     ) -> UdpConnectResult {
         let mut tcp_notes = TcpConnectTaskNotes::default();
         let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
-            .timed_socks5_udp_associate(escaper, task_conf.sock_buf, &mut tcp_notes, task_notes)
+            .timed_socks5_udp_associate(
+                escaper,
+                escaper.config.udp_socket_buffer,
+                &mut tcp_notes,
+                task_notes,
+            )
             .await?;
 
         udp_notes.local = Some(udp_local_addr);

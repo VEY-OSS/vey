@@ -189,7 +189,6 @@ impl UdpStreamTask {
         self.task_notes.stage = ServerTaskStage::Connecting;
         let task_conf = UdpConnectTaskConf {
             upstream: &self.upstream,
-            sock_buf: self.ctx.server_config.udp_socket_buffer,
             relay: self.ctx.server_config.udp_relay,
         };
         let (ups_r, ups_w) = self

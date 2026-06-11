@@ -22,7 +22,8 @@ use vey_types::metrics::{MetricTagMap, NodeName};
 ))]
 use vey_types::net::Interface;
 use vey_types::net::{
-    HappyEyeballsConfig, ProxyProtocolVersion, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts,
+    HappyEyeballsConfig, ProxyProtocolVersion, SocketBufferConfig, TcpKeepAliveConfig,
+    TcpMiscSockOpts, UdpMiscSockOpts,
 };
 use vey_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 use vey_yaml::YamlDocPosition;
@@ -61,6 +62,7 @@ pub(crate) struct DirectFixedEscaperConfig {
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
+    pub(crate) udp_socket_buffer: SocketBufferConfig,
     pub(crate) enable_path_selection: bool,
     pub(crate) use_proxy_protocol: Option<ProxyProtocolVersion>,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
@@ -97,6 +99,7 @@ impl DirectFixedEscaperConfig {
             tcp_keepalive: Default::default(),
             tcp_misc_opts: Default::default(),
             udp_misc_opts: Default::default(),
+            udp_socket_buffer: SocketBufferConfig::default(),
             enable_path_selection: false,
             use_proxy_protocol: None,
             extra_metrics_tags: None,
@@ -219,6 +222,11 @@ impl DirectFixedEscaperConfig {
             "udp_misc_opts" => {
                 self.udp_misc_opts = vey_yaml::value::as_udp_misc_sock_opts(v)
                     .context(format!("invalid udp misc sock opts value for key {k}"))?;
+                Ok(())
+            }
+            "udp_socket_buffer" => {
+                self.udp_socket_buffer = vey_yaml::value::as_socket_buffer_config(v)
+                    .context(format!("invalid socket buffer config value for key {k}"))?;
                 Ok(())
             }
             "no_ipv4" => {
