@@ -38,11 +38,6 @@ impl CommonTaskContext {
         self.cc_info.server_addr()
     }
 
-    #[inline]
-    pub(super) fn target_addr(&self) -> SocketAddr {
-        self.cc_info.server_addr()
-    }
-
     pub(super) fn log_flush_interval(&self) -> Option<Duration> {
         self.task_logger.as_ref()?;
         self.server_config.task_log_flush_interval

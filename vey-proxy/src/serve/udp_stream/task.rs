@@ -114,8 +114,10 @@ impl UdpStreamTask {
         self._alive_guard = Some(self.ctx.server_stats.add_task());
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.req_stats().req_total.add_udp_connect();
-            user_ctx.req_stats().req_alive.add_udp_connect();
+            user_ctx.foreach_req_stats(|s| {
+                s.req_total.add_udp_connect();
+                s.req_alive.add_udp_connect();
+            });
         }
 
         if self.ctx.server_config.flush_task_log_on_created

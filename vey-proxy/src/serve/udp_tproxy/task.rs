@@ -49,12 +49,15 @@ impl Drop for TProxyStreamTask {
 }
 
 impl TProxyStreamTask {
-    pub(super) fn new(ctx: CommonTaskContext, task_notes: ServerTaskNotes) -> Self {
+    pub(super) fn new(
+        ctx: CommonTaskContext,
+        task_notes: ServerTaskNotes,
+        upstream: UpstreamAddr,
+    ) -> Self {
         let max_idle_count = task_notes
             .user_ctx()
             .and_then(|c| c.user().task_max_idle_count())
             .unwrap_or(ctx.server_config.task_idle_max_count);
-        let upstream = UpstreamAddr::from(ctx.target_addr());
         TProxyStreamTask {
             ctx,
             upstream,
@@ -110,8 +113,10 @@ impl TProxyStreamTask {
         self._alive_guard = Some(self.ctx.server_stats.add_task());
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.req_stats().req_total.add_udp_connect();
-            user_ctx.req_stats().req_alive.add_udp_connect();
+            user_ctx.foreach_req_stats(|s| {
+                s.req_total.add_udp_connect();
+                s.req_alive.add_udp_connect();
+            });
         }
 
         if self.ctx.server_config.flush_task_log_on_created

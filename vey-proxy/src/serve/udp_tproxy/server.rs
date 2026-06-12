@@ -27,6 +27,7 @@ use vey_openssl::SslStream;
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::auth::FactsMatchType;
 use vey_types::metrics::NodeName;
+use vey_types::net::UpstreamAddr;
 
 use super::common::CommonTaskContext;
 use super::task::TProxyStreamTask;
@@ -146,6 +147,7 @@ impl UdpTProxyServer {
         packet_receiver: AcceptedUdpPacketReceiver,
         packet_sender: AcceptedUdpPacketSender,
     ) {
+        let upstream = UpstreamAddr::from(cc_info.server_addr());
         let task_notes = if let Some(auth_match) = self.config.auth_match {
             let ip = match auth_match {
                 FactsMatchType::ClientIp => cc_info.client_ip(),
@@ -160,7 +162,7 @@ impl UdpTProxyServer {
             else {
                 return;
             };
-            let user_ctx = UserContext::new(
+            let mut user_ctx = UserContext::new(
                 None,
                 user,
                 user_type,
@@ -170,6 +172,11 @@ impl UdpTProxyServer {
             if user_ctx.check_client_addr(cc_info.client_addr()).is_err() {
                 return;
             }
+            user_ctx.check_in_site(
+                self.config.name(),
+                self.server_stats.share_extra_tags(),
+                &upstream,
+            );
             ServerTaskNotes::new(cc_info.clone(), Some(user_ctx), Duration::ZERO)
         } else {
             ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO)
@@ -185,7 +192,7 @@ impl UdpTProxyServer {
             task_logger: self.task_logger.clone(),
         };
 
-        TProxyStreamTask::new(ctx, task_notes)
+        TProxyStreamTask::new(ctx, task_notes, upstream)
             .into_running(packet_receiver, packet_sender)
             .await;
     }

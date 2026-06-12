@@ -174,7 +174,11 @@ impl TcpStreamServer {
         AuditContext::new(self.audit_handle.load_full())
     }
 
-    fn get_task_notes(&self, cc_info: &ClientConnectionInfo) -> Option<ServerTaskNotes> {
+    fn get_task_notes(
+        &self,
+        cc_info: &ClientConnectionInfo,
+        upstream: &UpstreamAddr,
+    ) -> Option<ServerTaskNotes> {
         if let Some(auth_match) = self.config.auth_match {
             let ip = match auth_match {
                 FactsMatchType::ClientIp => cc_info.client_ip(),
@@ -190,7 +194,7 @@ impl TcpStreamServer {
                 // TODO log
                 return None;
             };
-            let user_ctx = UserContext::new(
+            let mut user_ctx = UserContext::new(
                 None,
                 user,
                 user_type,
@@ -201,6 +205,11 @@ impl TcpStreamServer {
                 // TODO may be attack
                 return None;
             }
+            user_ctx.check_in_site(
+                self.config.name(),
+                self.server_stats.share_extra_tags(),
+                upstream,
+            );
             Some(ServerTaskNotes::new(
                 cc_info.clone(),
                 Some(user_ctx),
@@ -211,14 +220,8 @@ impl TcpStreamServer {
         }
     }
 
-    fn get_ctx_and_upstream(
-        &self,
-        cc_info: ClientConnectionInfo,
-    ) -> (CommonTaskContext, &UpstreamAddr) {
-        let upstream =
-            self.select_consistent(&self.upstream, self.config.upstream_pick_policy, &cc_info);
-
-        let ctx = CommonTaskContext {
+    fn build_ctx(&self, cc_info: ClientConnectionInfo) -> CommonTaskContext {
+        CommonTaskContext {
             server_config: self.config.clone(),
             server_stats: self.server_stats.clone(),
             server_quit_policy: self.quit_policy.clone(),
@@ -227,9 +230,7 @@ impl TcpStreamServer {
             cc_info,
             tls_client_config: self.tls_client_config.clone(),
             task_logger: self.task_logger.clone(),
-        };
-
-        (ctx, upstream.inner())
+        }
     }
 
     async fn run_task_with_stream<T>(&self, stream: T, cc_info: ClientConnectionInfo)
@@ -238,13 +239,16 @@ impl TcpStreamServer {
         T::R: AsyncRead + Send + Sync + Unpin + 'static,
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let Some(task_notes) = self.get_task_notes(&cc_info) else {
+        let upstream =
+            self.select_consistent(&self.upstream, self.config.upstream_pick_policy, &cc_info);
+        let Some(task_notes) = self.get_task_notes(&cc_info, upstream.inner()) else {
             return;
         };
-        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info);
+
+        let ctx = self.build_ctx(cc_info);
 
         let (clt_r, clt_w) = stream.into_split();
-        TcpStreamTask::new(ctx, upstream, self.audit_context(), task_notes)
+        TcpStreamTask::new(ctx, upstream.inner(), self.audit_context(), task_notes)
             .into_running(clt_r, clt_w)
             .await;
     }
@@ -256,13 +260,16 @@ impl TcpStreamServer {
         recv_stream: quinn::RecvStream,
         cc_info: ClientConnectionInfo,
     ) {
-        let Some(task_notes) = self.get_task_notes(&cc_info) else {
+        let upstream =
+            self.select_consistent(&self.upstream, self.config.upstream_pick_policy, &cc_info);
+        let Some(task_notes) = self.get_task_notes(&cc_info, upstream.inner()) else {
             return;
         };
-        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info);
+
+        let ctx = self.build_ctx(cc_info);
 
         tokio::spawn(
-            TcpStreamTask::new(ctx, upstream, self.audit_context(), task_notes)
+            TcpStreamTask::new(ctx, upstream.inner(), self.audit_context(), task_notes)
                 .into_running(recv_stream, send_stream),
         );
     }

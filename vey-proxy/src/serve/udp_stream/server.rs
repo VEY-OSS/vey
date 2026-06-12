@@ -151,7 +151,11 @@ impl UdpStreamServer {
         false
     }
 
-    fn get_task_notes(&self, cc_info: &ClientConnectionInfo) -> Option<ServerTaskNotes> {
+    fn get_task_notes(
+        &self,
+        cc_info: &ClientConnectionInfo,
+        upstream: &UpstreamAddr,
+    ) -> Option<ServerTaskNotes> {
         if let Some(auth_match) = self.config.auth_match {
             let ip = match auth_match {
                 FactsMatchType::ClientIp => cc_info.client_ip(),
@@ -167,7 +171,7 @@ impl UdpStreamServer {
                 // TODO log
                 return None;
             };
-            let user_ctx = UserContext::new(
+            let mut user_ctx = UserContext::new(
                 None,
                 user,
                 user_type,
@@ -178,6 +182,11 @@ impl UdpStreamServer {
                 // TODO may be attack
                 return None;
             }
+            user_ctx.check_in_site(
+                self.config.name(),
+                self.server_stats.share_extra_tags(),
+                upstream,
+            );
             Some(ServerTaskNotes::new(
                 cc_info.clone(),
                 Some(user_ctx),
@@ -188,12 +197,17 @@ impl UdpStreamServer {
         }
     }
 
-    fn get_ctx_and_upstream(
+    async fn run_task_with_stream(
         &self,
         cc_info: ClientConnectionInfo,
-    ) -> (CommonTaskContext, &UpstreamAddr) {
+        packet_receiver: AcceptedUdpPacketReceiver,
+        packet_sender: AcceptedUdpPacketSender,
+    ) {
         let upstream =
             self.select_consistent(&self.upstream, self.config.upstream_pick_policy, &cc_info);
+        let Some(task_notes) = self.get_task_notes(&cc_info, upstream.inner()) else {
+            return;
+        };
 
         let ctx = CommonTaskContext {
             server_config: self.config.clone(),
@@ -205,21 +219,7 @@ impl UdpStreamServer {
             task_logger: self.task_logger.clone(),
         };
 
-        (ctx, upstream.inner())
-    }
-
-    async fn run_task_with_stream(
-        &self,
-        cc_info: ClientConnectionInfo,
-        packet_receiver: AcceptedUdpPacketReceiver,
-        packet_sender: AcceptedUdpPacketSender,
-    ) {
-        let Some(task_notes) = self.get_task_notes(&cc_info) else {
-            return;
-        };
-        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info);
-
-        UdpStreamTask::new(ctx, upstream, task_notes)
+        UdpStreamTask::new(ctx, upstream.inner(), task_notes)
             .into_running(packet_receiver, packet_sender)
             .await;
     }

@@ -216,6 +216,8 @@ impl TlsStreamServer {
     }
 
     async fn run_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo) {
+        let upstream =
+            self.select_consistent(&self.upstream, self.config.upstream_pick_policy, &cc_info);
         let task_notes = if let Some(auth_match) = self.config.auth_match {
             let ip = match auth_match {
                 FactsMatchType::ClientIp => cc_info.client_ip(),
@@ -231,7 +233,7 @@ impl TlsStreamServer {
                 // TODO log
                 return;
             };
-            let user_ctx = UserContext::new(
+            let mut user_ctx = UserContext::new(
                 None,
                 user,
                 user_type,
@@ -242,13 +244,15 @@ impl TlsStreamServer {
                 // TODO may be attack
                 return;
             }
+            user_ctx.check_in_site(
+                self.config.name(),
+                self.server_stats.share_extra_tags(),
+                upstream.inner(),
+            );
             ServerTaskNotes::new(cc_info.clone(), Some(user_ctx), Duration::ZERO)
         } else {
             ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO)
         };
-
-        let upstream =
-            self.select_consistent(&self.upstream, self.config.upstream_pick_policy, &cc_info);
 
         let ctx = CommonTaskContext {
             server_config: self.config.clone(),

@@ -54,11 +54,11 @@ impl TProxyStreamTask {
         ctx: CommonTaskContext,
         audit_ctx: AuditContext,
         task_notes: ServerTaskNotes,
+        upstream: UpstreamAddr,
     ) -> Self {
-        let target = ctx.target_addr();
         TProxyStreamTask {
             ctx,
-            upstream: UpstreamAddr::from(target),
+            upstream,
             tcp_notes: TcpConnectTaskNotes::default(),
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::default()),
