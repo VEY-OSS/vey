@@ -16,7 +16,6 @@ mlua = { workspace = true, features = ["send"], optional = true }
 default = []
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
-lua53 = ["lua", "mlua/lua53"]
 lua54 = ["lua", "mlua/lua54"]
 lua55 = ["lua", "mlua/lua55"]
 
