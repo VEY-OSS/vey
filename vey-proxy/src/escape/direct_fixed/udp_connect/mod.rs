@@ -6,8 +6,6 @@
 
 use std::sync::Arc;
 
-use tokio::net::UdpSocket;
-
 use vey_daemon::stat::remote::ArcUdpConnectTaskRemoteStats;
 use vey_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 use vey_socket::util::AddressFamily;
@@ -86,21 +84,14 @@ impl DirectFixedEscaper {
             self.config.udp_misc_opts
         };
 
-        let socket = vey_socket::udp::new_std_socket_to(
+        let (socket, local_addr) = vey_socket::udp::new_connected_to(
             peer_addr,
             &udp_notes.bind,
             self.config.udp_socket_buffer,
             misc_opts,
         )
         .map_err(UdpConnectError::SetupSocketFailed)?;
-        socket
-            .connect(peer_addr)
-            .map_err(UdpConnectError::SetupSocketFailed)?;
-        let socket = UdpSocket::from_std(socket).map_err(UdpConnectError::SetupSocketFailed)?;
-        let bind_addr = socket
-            .local_addr()
-            .map_err(UdpConnectError::SetupSocketFailed)?;
-        udp_notes.local = Some(bind_addr);
+        udp_notes.local = Some(local_addr);
 
         let mut wrapper_stats = UdpConnectRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));

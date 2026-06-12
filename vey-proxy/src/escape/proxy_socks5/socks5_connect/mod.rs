@@ -95,22 +95,15 @@ impl ProxySocks5Escaper {
         let peer_udp_addr = self
             .config
             .transmute_udp_peer_addr(peer_udp_addr, peer_tcp_addr.ip());
-        let socket = vey_socket::udp::new_std_socket_to(
+        let (socket, local_addr) = vey_socket::udp::new_connected_to(
             peer_udp_addr,
             &BindAddr::Ip(local_tcp_addr.ip()),
             buf_conf,
             self.config.udp_misc_opts,
         )
         .map_err(UdpConnectError::SetupSocketFailed)?;
-        socket
-            .connect(peer_udp_addr)
-            .map_err(UdpConnectError::SetupSocketFailed)?;
-        let socket = UdpSocket::from_std(socket).map_err(UdpConnectError::SetupSocketFailed)?;
-        let listen_addr = socket
-            .local_addr()
-            .map_err(UdpConnectError::SetupSocketFailed)?;
 
-        Ok((ctl_stream, socket, listen_addr, peer_udp_addr))
+        Ok((ctl_stream, socket, local_addr, peer_udp_addr))
     }
 
     pub(super) async fn timed_socks5_udp_associate(

@@ -28,6 +28,24 @@ pub fn new_std_socket_to(
     Ok(UdpSocket::from(socket))
 }
 
+pub fn new_connected_to(
+    peer_addr: SocketAddr,
+    bind: &BindAddr,
+    buf_conf: SocketBufferConfig,
+    misc_opts: UdpMiscSockOpts,
+) -> io::Result<(tokio::net::UdpSocket, SocketAddr)> {
+    let peer_family = AddressFamily::from(&peer_addr);
+    let socket = new_udp_socket(peer_family, buf_conf)?;
+    bind.bind_udp_for_connect(&socket, peer_family)?;
+    // use peer_addr here as the socket is not listen socket
+    RawSocket::from(&socket).set_udp_misc_opts(peer_addr, misc_opts)?;
+    let socket = UdpSocket::from(socket);
+    socket.connect(peer_addr)?;
+    let socket = tokio::net::UdpSocket::from_std(socket)?;
+    let local_addr = socket.local_addr()?;
+    Ok((socket, local_addr))
+}
+
 pub fn new_std_bind_lazy_connect(
     bind_ip: Option<IpAddr>,
     buf_conf: SocketBufferConfig,
