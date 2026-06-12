@@ -240,13 +240,13 @@ impl From<&TcpConnectError> for Socks5Reply {
                 }
                 ConnectError::NetworkUnreachable => Socks5Reply::NetworkUnreachable,
                 ConnectError::HostUnreachable => Socks5Reply::HostUnreachable,
-                ConnectError::TimedOut => Socks5Reply::ConnectionTimedOut,
+                ConnectError::TimedOut => Socks5Reply::GeneralServerFailure,
                 ConnectError::UnspecifiedError(_) => Socks5Reply::GeneralServerFailure,
             },
             TcpConnectError::ResolveFailed(_) | TcpConnectError::NoAddressConnected => {
                 Socks5Reply::HostUnreachable
             }
-            TcpConnectError::TimeoutByRule => Socks5Reply::ConnectionTimedOut,
+            TcpConnectError::TimeoutByRule => Socks5Reply::GeneralServerFailure,
             TcpConnectError::EscaperNotUsable(_)
             | TcpConnectError::SetupSocketFailed(_)
             | TcpConnectError::ProxyProtocolEncodeError(_)
@@ -255,7 +255,7 @@ impl From<&TcpConnectError> for Socks5Reply {
             | TcpConnectError::NegotiationReadFailed(_)
             | TcpConnectError::NegotiationWriteFailed(_) => Socks5Reply::GeneralServerFailure,
             TcpConnectError::NegotiationRejected(_) => Socks5Reply::ConnectionRefused,
-            TcpConnectError::NegotiationPeerTimeout => Socks5Reply::ConnectionTimedOut,
+            TcpConnectError::NegotiationPeerTimeout => Socks5Reply::GeneralServerFailure,
             TcpConnectError::InternalServerError(_)
             | TcpConnectError::InternalTlsClientError(_) => Socks5Reply::GeneralServerFailure,
             TcpConnectError::PeerTlsHandshakeTimeout

@@ -23,7 +23,6 @@ pub enum Socks5Reply {
     TtlExpired,
     CommandNotSupported,
     AddressTypeNotSupported,
-    ConnectionTimedOut,
     Unassigned(u8),
 }
 
@@ -39,7 +38,6 @@ impl Socks5Reply {
             0x06 => Socks5Reply::TtlExpired,
             0x07 => Socks5Reply::CommandNotSupported,
             0x08 => Socks5Reply::AddressTypeNotSupported,
-            0x09 => Socks5Reply::ConnectionTimedOut,
             n => Socks5Reply::Unassigned(n),
         }
     }
@@ -55,7 +53,6 @@ impl Socks5Reply {
             Socks5Reply::TtlExpired => 0x06,
             Socks5Reply::CommandNotSupported => 0x07,
             Socks5Reply::AddressTypeNotSupported => 0x08,
-            Socks5Reply::ConnectionTimedOut => 0x09,
             Socks5Reply::Unassigned(n) => *n,
         }
     }
@@ -72,8 +69,6 @@ impl Socks5Reply {
             Socks5Reply::TtlExpired => "TTL expired",
             Socks5Reply::CommandNotSupported => "Command not supported",
             Socks5Reply::AddressTypeNotSupported => "Address type not supported",
-            // message from socks-6-09
-            Socks5Reply::ConnectionTimedOut => "Connection attempt timed out",
             Socks5Reply::Unassigned(_) => "unassigned reply code",
         }
     }

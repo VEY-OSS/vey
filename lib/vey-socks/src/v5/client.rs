@@ -53,7 +53,6 @@ where
     let rsp = Socks5Reply::recv(stream).await?;
     match rsp {
         Socks5Reply::Succeeded(addr) => Ok(addr),
-        Socks5Reply::ConnectionTimedOut => Err(SocksConnectError::PeerTimeout),
         _ => Err(SocksConnectError::RequestFailed(format!(
             "request failed: {}",
             rsp.error_message()
@@ -82,7 +81,6 @@ where
     let rsp = Socks5Reply::recv(stream).await?;
     match rsp {
         Socks5Reply::Succeeded(addr) => Ok(addr),
-        Socks5Reply::ConnectionTimedOut => Err(SocksConnectError::PeerTimeout),
         _ => Err(SocksConnectError::RequestFailed(format!(
             "request failed: {}",
             rsp.error_message()

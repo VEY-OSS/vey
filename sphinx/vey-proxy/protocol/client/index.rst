@@ -8,8 +8,9 @@ Client Protocol
 
 * HTTP proxy
 
-  - Supports both HTTP forward and HTTP CONNECT.
+  - Supports HTTP forward, HTTP CONNECT, FTP over HTTP and HTTP CONNECT-UDP.
   - HTTPS forward is also supported, but is disabled by default.
+  - `easy-proxy` Well-Known URI is also supported.
   - HTTP/1.0 and HTTP/1.1 are supported. HTTP/2 and HTTP/3 are not currently supported on the client side.
   - Only Basic authentication is supported.
   - TLS 1.2 and later can be enabled.
@@ -26,13 +27,11 @@ Client Protocol
     If no explicit bind IP is configured, the client-side TCP and UDP connections should use the same address family.
   - SOCKS5 username/password authentication is the only SOCKS authentication method currently supported.
   - TLS and DTLS are not yet supported.
-  - SOCKS6 is not yet supported.
-  - See :doc:`socks5_custom_reply` for custom SOCKS5 reply values.
+  - SOCKS6 draft is not supported.
 
 .. toctree::
    :hidden:
 
    http_custom_headers
    http_custom_codes
-   socks5_custom_reply
    egress_path_selection
