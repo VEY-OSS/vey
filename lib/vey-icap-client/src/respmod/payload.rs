@@ -45,12 +45,13 @@ impl IcapRespmodResponsePayload {
                         .ok_or(IcapRespmodParseError::UnsupportedBody(
                             "invalid body byte-offsets pair",
                         ))?;
-                let (hdr_len, offset) = usize::from_radix_10(value.as_bytes());
+                let (hdr_len, offset) = u32::from_radix_10(value.as_bytes());
                 if offset != value.len() {
                     return Err(IcapRespmodParseError::UnsupportedBody(
                         "invalid body byte-offsets value",
                     ));
                 }
+                let hdr_len = hdr_len as usize;
                 match name.to_lowercase().as_str() {
                     "res-body" => Ok(IcapRespmodResponsePayload::HttpResponseWithBody(hdr_len)),
                     "null-body" => Ok(IcapRespmodResponsePayload::HttpResponseWithoutBody(hdr_len)),
