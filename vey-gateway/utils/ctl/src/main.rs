@@ -34,15 +34,18 @@ fn build_cli_args() -> Command {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
-    let args = build_cli_args().get_matches();
+    let mut args_parser = build_cli_args();
+    let args = args_parser.get_matches_mut();
 
     let mut ctl_opts = DaemonCtlArgs::parse_clap(&args);
     if ctl_opts.generate_shell_completion(build_cli_args) {
         return Ok(());
     }
 
+    let bin_name = args_parser.get_bin_name().unwrap_or(args_parser.get_name());
+    let daemon_name = bin_name.strip_suffix("-ctl").unwrap_or("vey-gateway");
     let (rpc_system, proc_control) = ctl_opts
-        .connect_rpc::<proc_control::Client>("vey-gateway")
+        .connect_rpc::<proc_control::Client>(daemon_name)
         .await?;
 
     tokio::task::LocalSet::new()
