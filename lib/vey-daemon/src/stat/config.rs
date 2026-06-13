@@ -25,7 +25,7 @@ fn set_global_stat_config(config: StatsdClientConfig) {
     }
 }
 
-pub fn load(v: &Yaml, prefix: &'static str) -> anyhow::Result<()> {
+pub fn load(v: &Yaml, prefix: &str) -> anyhow::Result<()> {
     let prefix =
         NodeName::from_str(prefix).map_err(|e| anyhow!("invalid default metrics prefix: {e}"))?;
     let config = StatsdClientConfig::parse_yaml(v, prefix)?;

@@ -10,7 +10,7 @@ use yaml_rust::Yaml;
 use super::{Facility, SyslogBackendBuilder, SyslogBuilder, SyslogFormatterKind};
 
 impl SyslogBuilder {
-    pub fn parse_yaml(value: &Yaml, ident: &'static str) -> anyhow::Result<Self> {
+    pub fn parse_yaml(value: &Yaml, ident: &str) -> anyhow::Result<Self> {
         match value {
             Yaml::Hash(map) => {
                 let mut builder = SyslogBuilder::with_ident(ident);

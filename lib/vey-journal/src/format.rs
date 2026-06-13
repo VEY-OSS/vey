@@ -47,7 +47,7 @@ impl AsyncLogFormatter<Vec<u8>> for JournalFormatter {
         let mut kv_formatter = FormatterKv(&mut buf);
 
         kv_formatter.emit_sanitized_one_line("PRIORITY", level_to_sd_priority(record.level()));
-        kv_formatter.emit_sanitized_one_line("SYSLOG_IDENTIFIER", self.conf.ident);
+        kv_formatter.emit_sanitized_one_line("SYSLOG_IDENTIFIER", &self.conf.ident);
 
         logger_values.serialize(record, &mut kv_formatter)?;
         record.kv().serialize(record, &mut kv_formatter)?;

@@ -15,16 +15,16 @@ mod io;
 mod format;
 pub use format::JournalFormatter;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct JournalConfig {
-    ident: &'static str,
+    ident: String,
     append_code_position: bool,
 }
 
 impl JournalConfig {
-    pub fn with_ident(ident: &'static str) -> Self {
+    pub fn with_ident(ident: &str) -> Self {
         JournalConfig {
-            ident,
+            ident: String::from(ident),
             append_code_position: false,
         }
     }

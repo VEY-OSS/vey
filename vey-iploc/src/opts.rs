@@ -28,10 +28,10 @@ pub struct ProcArgs {
     listen: UdpListenConfig,
 }
 
-impl Default for ProcArgs {
-    fn default() -> Self {
+impl ProcArgs {
+    fn new(name: String) -> Self {
         ProcArgs {
-            daemon_config: DaemonArgs::new(crate::build::PKG_NAME),
+            daemon_config: DaemonArgs::new(name),
             listen: UdpListenConfig::new(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2888)),
         }
     }
@@ -80,7 +80,11 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     let mut args_parser = build_cli_args();
     let args = args_parser.get_matches_mut();
 
-    let mut proc_args = ProcArgs::default();
+    let bin_name = args_parser
+        .get_bin_name()
+        .unwrap_or_else(|| args_parser.get_name());
+
+    let mut proc_args = ProcArgs::new(String::from(bin_name));
     proc_args.daemon_config.parse_clap(&args)?;
 
     if args.get_flag(GLOBAL_ARG_VERSION) {
@@ -89,9 +93,6 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     }
 
     if let Some(config_file) = args.get_one::<PathBuf>(GLOBAL_ARG_CONFIG_FILE) {
-        let bin_name = args_parser
-            .get_bin_name()
-            .unwrap_or_else(|| args_parser.get_name());
         vey_daemon::opts::validate_and_set_config_file(
             config_file,
             &[bin_name, crate::build::PKG_NAME, "g3iploc"],

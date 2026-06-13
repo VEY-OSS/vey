@@ -39,10 +39,10 @@ fn main() -> anyhow::Result<()> {
     // set up process logger early, only proc args is used inside
     vey_daemon::log::process::setup(&proc_args.daemon_config);
     if proc_args.daemon_config.need_daemon_controller() {
-        vey_proxy::control::UpgradeActor::connect_to_old_daemon();
+        vey_proxy::control::UpgradeActor::connect_to_old_daemon(proc_args.program_name());
     }
 
-    let config_file = match vey_proxy::config::load() {
+    let config_file = match vey_proxy::config::load(proc_args.program_name()) {
         Ok(c) => c,
         Err(e) => {
             vey_daemon::control::upgrade::cancel_old_shutdown();
@@ -113,17 +113,18 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         let ctl_thread_handler = vey_proxy::control::capnp::spawn_working_thread().await?;
 
-        let unique_ctl = vey_proxy::control::UniqueController::start()
+        let unique_ctl = vey_proxy::control::UniqueController::start(args.program_name())
             .context("failed to start unique controller")?;
         if args.daemon_config.need_daemon_controller() {
             vey_daemon::control::upgrade::release_old_controller().await;
-            let daemon_ctl = vey_proxy::control::DaemonController::start()
-                .context("failed to start daemon controller")?;
+            let daemon_ctl =
+                vey_proxy::control::DaemonController::start(args.program_name().to_owned())
+                    .context("failed to start daemon controller")?;
             tokio::spawn(async move {
                 daemon_ctl.await;
             });
         }
-        vey_proxy::control::QuitActor::tokio_spawn_run();
+        vey_proxy::control::QuitActor::tokio_spawn_run(args.program_name());
 
         vey_proxy::signal::register().context("failed to setup signal handler")?;
         vey_daemon::control::panic::set_hook(&args.daemon_config);

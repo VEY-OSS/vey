@@ -19,9 +19,9 @@ pub struct UpgradeActor {
 }
 
 impl UpgradeAction for UpgradeActor {
-    async fn connect_rpc() -> anyhow::Result<(RpcSystem<Side>, Self)> {
+    async fn connect_rpc(program_name: &str) -> anyhow::Result<(RpcSystem<Side>, Self)> {
         LocalController::connect_rpc::<proc_control::Client>(
-            crate::build::PKG_NAME,
+            program_name,
             crate::opts::daemon_group(),
         )
         .await

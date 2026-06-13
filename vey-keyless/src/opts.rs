@@ -44,13 +44,17 @@ pub struct ProcArgs {
     pub openssl_async_job: Option<usize>,
 }
 
-impl Default for ProcArgs {
-    fn default() -> Self {
+impl ProcArgs {
+    fn new(name: String) -> Self {
         ProcArgs {
-            daemon_config: DaemonArgs::new(crate::build::PKG_NAME),
+            daemon_config: DaemonArgs::new(name),
             core_affinity: None,
             openssl_async_job: None,
         }
+    }
+
+    pub fn program_name(&self) -> &str {
+        &self.daemon_config.program_name
     }
 }
 
@@ -114,7 +118,11 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     let mut args_parser = build_cli_args();
     let args = args_parser.get_matches_mut();
 
-    let mut proc_args = ProcArgs::default();
+    let bin_name = args_parser
+        .get_bin_name()
+        .unwrap_or_else(|| args_parser.get_name());
+
+    let mut proc_args = ProcArgs::new(String::from(bin_name));
     proc_args.daemon_config.parse_clap(&args)?;
 
     if args.get_flag(ARGS_VERSION) {
@@ -122,9 +130,6 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         return Ok(None);
     }
     if let Some(config_file) = args.get_one::<PathBuf>(ARGS_CONFIG_FILE) {
-        let bin_name = args_parser
-            .get_bin_name()
-            .unwrap_or_else(|| args_parser.get_name());
         vey_daemon::opts::validate_and_set_config_file(
             config_file,
             &[bin_name, crate::build::PKG_NAME, "g3keymess"],

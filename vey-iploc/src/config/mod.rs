@@ -10,26 +10,26 @@ use yaml_rust::{Yaml, yaml};
 
 mod geoip;
 
-pub fn load() -> anyhow::Result<&'static Path> {
+pub fn load(program_name: &str) -> anyhow::Result<&'static Path> {
     let config_file =
         vey_daemon::opts::config_file().ok_or_else(|| anyhow!("no config file set"))?;
 
     // allow multiple docs, and treat them as the same
     vey_yaml::foreach_doc(config_file, |_, doc| match doc {
-        Yaml::Hash(map) => load_doc(map),
+        Yaml::Hash(map) => load_doc(map, program_name),
         _ => Err(anyhow!("yaml doc root should be hash")),
     })?;
 
     Ok(config_file)
 }
 
-fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
+fn load_doc(map: &yaml::Hash, program_name: &str) -> anyhow::Result<()> {
     let conf_dir = vey_daemon::opts::config_dir()
         .ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
         "runtime" => vey_daemon::runtime::config::load(v),
         "worker" => vey_daemon::runtime::config::load_worker(v),
-        "stat" => vey_daemon::stat::config::load(v, crate::build::PKG_NAME),
+        "stat" => vey_daemon::stat::config::load(v, program_name),
         "geoip_db" => geoip::load(v, conf_dir),
         _ => Err(anyhow!("invalid key {k} in main conf")),
     })?;

@@ -60,7 +60,9 @@ pub fn finish() {
 
 pub trait UpgradeAction: Sized {
     #[expect(async_fn_in_trait)]
-    async fn connect_rpc() -> anyhow::Result<(RpcSystem<rpc_twoparty_capnp::Side>, Self)>;
+    async fn connect_rpc(
+        program_name: &str,
+    ) -> anyhow::Result<(RpcSystem<rpc_twoparty_capnp::Side>, Self)>;
     #[expect(async_fn_in_trait)]
     async fn cancel_shutdown(&self) -> anyhow::Result<()>;
     #[expect(async_fn_in_trait)]
@@ -68,15 +70,16 @@ pub trait UpgradeAction: Sized {
     #[expect(async_fn_in_trait)]
     async fn confirm_shutdown(&self) -> anyhow::Result<()>;
 
-    fn connect_to_old_daemon() {
+    fn connect_to_old_daemon(program_name: &str) {
         let (sender, receiver) = mpsc::channel(4);
+        let program_name = program_name.to_owned();
         let handle = std::thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_io()
                 .build()
                 .unwrap();
             rt.block_on(async {
-                if let Err(e) = connect_run::<Self>(receiver).await {
+                if let Err(e) = connect_run::<Self>(receiver, &program_name).await {
                     warn!("upgrade channel error: {e}");
                 }
             })
@@ -90,8 +93,9 @@ pub trait UpgradeAction: Sized {
 
 async fn connect_run<T: UpgradeAction>(
     mut msg_receiver: mpsc::Receiver<Msg>,
+    program_name: &str,
 ) -> anyhow::Result<()> {
-    let (rpc_system, action) = T::connect_rpc().await?;
+    let (rpc_system, action) = T::connect_rpc(program_name).await?;
     tokio::task::LocalSet::new()
         .run_until(async move {
             tokio::task::spawn_local(async move {

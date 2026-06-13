@@ -28,13 +28,13 @@ pub use format::SyslogFormatterKind;
 pub struct SyslogHeader {
     pub facility: Facility,
     pub hostname: Option<String>,
-    pub process: &'static str,
+    pub process: String,
     pub pid: u32,
 }
 
 #[derive(Clone, Debug)]
 pub struct SyslogBuilder {
-    ident: &'static str,
+    ident: String,
     facility: Facility,
     backend: SyslogBackendBuilder,
     format: SyslogFormatterKind,
@@ -43,9 +43,9 @@ pub struct SyslogBuilder {
 }
 
 impl SyslogBuilder {
-    pub fn with_ident(ident: &'static str) -> Self {
+    pub fn with_ident(ident: &str) -> Self {
         SyslogBuilder {
-            ident,
+            ident: String::from(ident),
             facility: Facility::User,
             backend: SyslogBackendBuilder::default(),
             format: SyslogFormatterKind::Rfc3164,

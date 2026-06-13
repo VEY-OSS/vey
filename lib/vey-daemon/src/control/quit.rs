@@ -56,33 +56,36 @@ pub fn trigger_force_shutdown() {
 
 pub trait QuitAction: Default {
     fn do_release_controller(&self) -> impl Future<Output = ()> + Send;
-    fn do_resume_controller(&self) -> anyhow::Result<()>;
+    fn do_resume_controller(&self, program_name: String) -> anyhow::Result<()>;
     fn do_graceful_shutdown(&self) -> impl Future<Output = ()> + Send;
     fn do_force_shutdown(&self) -> impl Future<Output = ()> + Send;
 
-    fn tokio_spawn_run()
+    fn tokio_spawn_run(program_name: &str)
     where
         Self: Send + Sync + 'static,
     {
         let actor = Self::default();
-        tokio::spawn(QuitLoop::new(actor).run());
+        let program_name = program_name.to_owned();
+        tokio::spawn(QuitLoop::new(program_name, actor).run());
     }
 }
 
 struct QuitLoop<T: QuitAction> {
     action: T,
+    program_name: String,
     graceful_wait: Duration,
     controller_released: bool,
     msg_receiver: mpsc::Receiver<Command>,
 }
 
 impl<T: QuitAction> QuitLoop<T> {
-    fn new(action: T) -> Self {
+    fn new(program_name: String, action: T) -> Self {
         let (msg_sender, msg_receiver) = mpsc::channel(4);
         set_daemon_quit_channel(msg_sender);
 
         QuitLoop {
             action,
+            program_name,
             graceful_wait: crate::runtime::config::get_server_offline_delay(),
             controller_released: false,
             msg_receiver,
@@ -215,7 +218,7 @@ impl<T: QuitAction> QuitLoop<T> {
 
     async fn resume_controller(&mut self) -> bool {
         if self.controller_released {
-            match self.action.do_resume_controller() {
+            match self.action.do_resume_controller(self.program_name.clone()) {
                 Ok(_) => {
                     self.controller_released = false;
                     info!("daemon controller resumed");

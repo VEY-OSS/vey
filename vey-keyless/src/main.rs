@@ -42,11 +42,11 @@ fn main() -> anyhow::Result<()> {
     // set up process logger early, only proc args is used inside
     vey_daemon::log::process::setup(&proc_args.daemon_config);
     if proc_args.daemon_config.need_daemon_controller() {
-        vey_keyless::control::UpgradeActor::connect_to_old_daemon();
+        vey_keyless::control::UpgradeActor::connect_to_old_daemon(proc_args.program_name());
     }
 
     vey_daemon::runtime::config::set_default_thread_number(0); // default to use current thread
-    let config_file = match vey_keyless::config::load() {
+    let config_file = match vey_keyless::config::load(proc_args.program_name()) {
         Ok(c) => c,
         Err(e) => {
             vey_daemon::control::upgrade::cancel_old_shutdown();
@@ -114,7 +114,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         let ctl_thread_handler = vey_keyless::control::capnp::spawn_working_thread().await?;
 
-        let unique_controller = vey_keyless::control::UniqueController::create()
+        let unique_controller = vey_keyless::control::UniqueController::create(args.program_name())
             .context("failed to create unique controller")?;
         let unique_ctl_path = unique_controller.listen_path();
         let unique_ctl = unique_controller
@@ -122,13 +122,14 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
             .context("failed to start unique controller")?;
         if args.daemon_config.need_daemon_controller() {
             vey_daemon::control::upgrade::release_old_controller().await;
-            let daemon_ctl = vey_keyless::control::DaemonController::start()
-                .context("failed to start daemon controller")?;
+            let daemon_ctl =
+                vey_keyless::control::DaemonController::start(args.program_name().to_owned())
+                    .context("failed to start daemon controller")?;
             tokio::spawn(async move {
                 daemon_ctl.await;
             });
         }
-        vey_keyless::control::QuitActor::tokio_spawn_run();
+        vey_keyless::control::QuitActor::tokio_spawn_run(args.program_name());
 
         vey_keyless::signal::register().context("failed to setup signal handler")?;
         vey_daemon::control::panic::set_hook(&args.daemon_config);

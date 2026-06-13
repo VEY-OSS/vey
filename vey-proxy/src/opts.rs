@@ -37,14 +37,18 @@ pub struct ProcArgs {
     pub output_plantuml_graph: bool,
 }
 
-impl Default for ProcArgs {
-    fn default() -> Self {
+impl ProcArgs {
+    fn new(name: String) -> Self {
         ProcArgs {
-            daemon_config: DaemonArgs::new(crate::build::PKG_NAME),
+            daemon_config: DaemonArgs::new(name),
             output_graphviz_graph: false,
             output_mermaid_graph: false,
             output_plantuml_graph: false,
         }
+    }
+
+    pub fn program_name(&self) -> &str {
+        &self.daemon_config.program_name
     }
 }
 
@@ -120,6 +124,7 @@ fn build_cli_args() -> Command {
 pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     let mut args_parser = build_cli_args();
     let args = args_parser.get_matches_mut();
+
     let bin_name = args_parser
         .get_bin_name()
         .unwrap_or_else(|| args_parser.get_name());
@@ -130,7 +135,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         return Ok(None);
     }
 
-    let mut proc_args = ProcArgs::default();
+    let mut proc_args = ProcArgs::new(String::from(bin_name));
     proc_args.daemon_config.parse_clap(&args)?;
 
     if args.get_flag(ARGS_VERSION) {

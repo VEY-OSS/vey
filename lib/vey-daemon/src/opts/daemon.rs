@@ -25,20 +25,20 @@ pub struct DaemonArgs {
     pub(crate) daemon_mode: bool,
     pub(crate) monitored: bool,
     pub verbose_level: u8,
-    pub process_name: &'static str,
+    pub program_name: String,
     pub pid_file: Option<PathBuf>,
     pub test_config: bool,
     pub(crate) panic_quit: bool,
 }
 
 impl DaemonArgs {
-    pub fn new(process_name: &'static str) -> Self {
+    pub fn new(process_name: String) -> Self {
         DaemonArgs {
             with_systemd: false,
             daemon_mode: false,
             monitored: false,
             verbose_level: 0,
-            process_name,
+            program_name: process_name,
             pid_file: None,
             test_config: false,
             panic_quit: false,

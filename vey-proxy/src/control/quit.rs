@@ -15,8 +15,8 @@ impl QuitAction for QuitActor {
         DaemonController::abort().await;
     }
 
-    fn do_resume_controller(&self) -> anyhow::Result<()> {
-        let daemon_ctl = DaemonController::start()?;
+    fn do_resume_controller(&self, program_name: String) -> anyhow::Result<()> {
+        let daemon_ctl = DaemonController::start(program_name)?;
         tokio::spawn(async move {
             daemon_ctl.await;
         });

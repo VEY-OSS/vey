@@ -39,23 +39,23 @@ pub struct LogConfig {
     pub(crate) async_channel_size: usize,
     pub(crate) async_thread_number: usize,
     pub(crate) io_err_sampling_mask: usize,
-    pub(crate) program_name: &'static str,
+    pub(crate) program_name: String,
 }
 
 impl LogConfig {
-    fn with_driver(driver: LogConfigDriver, program_name: &'static str) -> Self {
+    fn with_driver(driver: LogConfigDriver, program_name: &str) -> Self {
         LogConfig {
             driver,
             async_channel_size: DEFAULT_CHANNEL_SIZE,
             async_thread_number: 1,
             io_err_sampling_mask: (1 << IO_ERROR_SAMPLING_OFFSET_DEFAULT) - 1,
-            program_name,
+            program_name: String::from(program_name),
         }
     }
 
-    pub fn with_driver_name(driver: &str, program_name: &'static str) -> anyhow::Result<Self> {
+    pub fn with_driver_name(driver: &str, program_name: &str) -> anyhow::Result<Self> {
         match driver {
-            "discard" => Ok(LogConfig::new_discard(program_name)),
+            "discard" => Ok(LogConfig::new_discard()),
             #[cfg(target_os = "linux")]
             "journal" => Ok(LogConfig::new_journal(program_name)),
             "syslog" => Ok(LogConfig::new_syslog(program_name)),
@@ -65,44 +65,40 @@ impl LogConfig {
         }
     }
 
-    pub fn new_discard(program_name: &'static str) -> Self {
-        Self::with_driver(LogConfigDriver::Discard, program_name)
+    pub fn new_discard() -> Self {
+        Self::with_driver(LogConfigDriver::Discard, "")
     }
 
     #[cfg(target_os = "linux")]
-    pub fn new_journal(program_name: &'static str) -> Self {
+    pub fn new_journal(program_name: &str) -> Self {
         Self::with_driver(
             LogConfigDriver::Journal(JournalConfig::with_ident(program_name)),
             program_name,
         )
     }
 
-    pub fn new_syslog(program_name: &'static str) -> Self {
+    pub fn new_syslog(program_name: &str) -> Self {
         Self::with_driver(
             LogConfigDriver::Syslog(SyslogBuilder::with_ident(program_name)),
             program_name,
         )
     }
 
-    pub fn new_fluentd(program_name: &'static str) -> Self {
+    pub fn new_fluentd(program_name: &str) -> Self {
         Self::with_driver(
             LogConfigDriver::Fluentd(Arc::new(FluentdClientConfig::default())),
             program_name,
         )
     }
 
-    pub fn new_stdout(program_name: &'static str) -> Self {
+    pub fn new_stdout(program_name: &str) -> Self {
         Self::with_driver(LogConfigDriver::Stdout, program_name)
     }
 
-    pub fn parse_yaml(
-        v: &Yaml,
-        conf_dir: &Path,
-        program_name: &'static str,
-    ) -> anyhow::Result<LogConfig> {
+    pub fn parse_yaml(v: &Yaml, conf_dir: &Path, program_name: &str) -> anyhow::Result<LogConfig> {
         match v {
             Yaml::String(s) => match s.as_str() {
-                "discard" => Ok(LogConfig::new_discard(program_name)),
+                "discard" => Ok(LogConfig::new_discard()),
                 #[cfg(target_os = "linux")]
                 "journal" => Ok(LogConfig::new_journal(program_name)),
                 "syslog" => Ok(LogConfig::new_syslog(program_name)),
@@ -111,7 +107,7 @@ impl LogConfig {
                 _ => Err(anyhow!("invalid log config")),
             },
             Yaml::Hash(map) => {
-                let mut config = LogConfig::new_discard(program_name);
+                let mut config = LogConfig::new_discard();
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     #[cfg(target_os = "linux")]
                     "journal" => {
@@ -163,7 +159,7 @@ impl LogConfig {
         }
     }
 
-    pub fn parse_syslog_yaml(v: &Yaml, program_name: &'static str) -> anyhow::Result<LogConfig> {
+    pub fn parse_syslog_yaml(v: &Yaml, program_name: &str) -> anyhow::Result<LogConfig> {
         let driver = SyslogBuilder::parse_yaml(v, program_name).context("invalid syslog config")?;
         Ok(LogConfig::with_driver(
             LogConfigDriver::Syslog(driver),
@@ -174,7 +170,7 @@ impl LogConfig {
     pub fn parse_fluentd_yaml(
         v: &Yaml,
         conf_dir: &Path,
-        program_name: &'static str,
+        program_name: &str,
     ) -> anyhow::Result<LogConfig> {
         let driver =
             FluentdClientConfig::parse_yaml(v, Some(conf_dir)).context("invalid fluentd config")?;

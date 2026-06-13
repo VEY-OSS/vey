@@ -11,8 +11,8 @@ pub struct UniqueController {}
 pub struct DaemonController {}
 
 impl UniqueController {
-    pub fn start() -> anyhow::Result<impl Future> {
-        LocalController::start_unique(crate::build::PKG_NAME, crate::opts::daemon_group())
+    pub fn start(program_name: &str) -> anyhow::Result<impl Future> {
+        LocalController::start_unique(program_name, crate::opts::daemon_group())
     }
 
     pub(super) async fn abort_immediately() {
@@ -32,8 +32,8 @@ impl UniqueController {
 }
 
 impl DaemonController {
-    pub fn start() -> anyhow::Result<impl Future> {
-        LocalController::start_daemon(crate::build::PKG_NAME, crate::opts::daemon_group())
+    pub fn start(program_name: String) -> anyhow::Result<impl Future> {
+        LocalController::start_daemon(&program_name, crate::opts::daemon_group())
     }
 
     pub(super) async fn abort() {
