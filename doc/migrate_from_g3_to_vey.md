@@ -11,18 +11,79 @@ That means migration is mostly operational rather than conceptual. You will
 usually spend more time updating service management, deployment scripts, and
 filesystem paths than rewriting configuration content.
 
+## Simplified migration via symbolic links
+
+If you want a seamless transition without modifying your existing G3 systemd services, configuration paths, scripts, or
+metrics pipelines, you can simply create symbolic links from the new VEY binaries to their old G3 names.
+
+VEY daemons and control utilities dynamically detect the executable binary name they are run as, so they will
+automatically adopt the corresponding G3 behaviors:
+
+- **Configuration loading**: If you point the `-c` option to a directory, the daemon will automatically search for and
+  load the main configuration file based on the symlinked executable name (e.g., `g3proxy.yaml` instead of
+  `vey-proxy.yaml`).
+- **Daemon identity**: The daemon will use the old G3 service names for default metrics prefixes, runtime directories,
+  and control socket names.
+- **Control utility matching**: When you execute a control utility via a G3 symlink (e.g., `g3proxy-ctl`), it will
+  automatically connect to the matching G3 control socket.
+
+By using this method, your existing G3 systemd units (e.g., `g3proxy@.service`), configs under `/etc/g3proxy/`,
+runtime/control directories under `/run/g3proxy/`, and scripts using `g3proxy-ctl` will continue to work without any
+modification. You can skip the detailed renaming and update steps described in the following sections.
+
+### Creating the symbolic links
+
+After installing the VEY binaries, create symbolic links in your PATH (e.g., `/usr/bin/` or `/usr/local/bin/`):
+
+```bash
+# Daemons
+ln -s /usr/bin/vey-proxy   /usr/bin/g3proxy
+ln -s /usr/bin/vey-keyless /usr/bin/g3keymess
+ln -s /usr/bin/vey-statsd  /usr/bin/g3statsd
+ln -s /usr/bin/vey-gateway /usr/bin/g3tiles
+ln -s /usr/bin/vey-iploc   /usr/bin/g3iploc
+ln -s /usr/bin/vey-dcgen   /usr/bin/g3fcgen
+
+# Controllers
+ln -s /usr/bin/vey-proxy-ctl   /usr/bin/g3proxy-ctl
+ln -s /usr/bin/vey-keyless-ctl /usr/bin/g3keymess-ctl
+ln -s /usr/bin/vey-statsd-ctl  /usr/bin/g3statsd-ctl
+ln -s /usr/bin/vey-gateway-ctl /usr/bin/g3tiles-ctl
+
+# Utilities
+ln -s /usr/bin/vey-proxy-lua /usr/bin/g3proxy-lua
+ln -s /usr/bin/vey-proxy-ftp /usr/bin/g3proxy-ftp
+```
+
 ## Component renames
 
 The current VEY tree shows these daemon renames:
 
-| G3 name    | VEY name      | Typical role |
-|------------|---------------|--------------|
-| `g3proxy`  | `vey-proxy`   | forward/transparent/stream proxy |
-| `g3keymess`| `vey-keyless` | keyless TLS service |
-| `g3statsd` | `vey-statsd`  | StatsD-compatible metrics service |
-| `g3tiles`  | `vey-gateway` | reverse proxy / gateway daemon |
-| `g3iploc`  | `vey-iploc`   | IP location helper service |
-| `g3fcgen`  | `vey-dcgen`   | dynamic certificate generator |
+| G3 name     | VEY name      | Typical role                      |
+|-------------|---------------|-----------------------------------|
+| `g3proxy`   | `vey-proxy`   | forward/transparent/stream proxy  |
+| `g3keymess` | `vey-keyless` | keyless TLS service               |
+| `g3statsd`  | `vey-statsd`  | StatsD-compatible metrics service |
+| `g3tiles`   | `vey-gateway` | reverse proxy / gateway daemon    |
+| `g3iploc`   | `vey-iploc`   | IP location helper service        |
+| `g3fcgen`   | `vey-dcgen`   | dynamic certificate generator     |
+
+For services that expose a local controller, the VEY command names also use the
+new prefix:
+
+| Old command     | New command       |
+|-----------------|-------------------|
+| `g3proxy-ctl`   | `vey-proxy-ctl`   |
+| `g3keymess-ctl` | `vey-keyless-ctl` |
+| `g3statsd-ctl`  | `vey-statsd-ctl`  |
+| `g3tiles-ctl`   | `vey-gateway-ctl` |
+
+The proxy utility binaries are renamed as well:
+
+| Old command   | New command     |
+|---------------|-----------------|
+| `g3proxy-lua` | `vey-proxy-lua` |
+| `g3proxy-ftp` | `vey-proxy-ftp` |
 
 The corresponding packaged systemd unit names follow the same pattern:
 
@@ -37,46 +98,27 @@ The corresponding packaged systemd unit names follow the same pattern:
 
 The packaged configuration directories also follow the same rename:
 
-| Old config dir       | New config dir         |
-|----------------------|------------------------|
-| `/etc/g3proxy/`      | `/etc/vey-proxy/`      |
-| `/etc/g3keymess/`    | `/etc/vey-keyless/`    |
-| `/etc/g3statsd/`     | `/etc/vey-statsd/`     |
-| `/etc/g3tiles/`      | `/etc/vey-gateway/`    |
-| `/etc/g3iploc/`      | `/etc/vey-iploc/`      |
-| `/etc/g3fcgen/`      | `/etc/vey-dcgen/`      |
+| Old config dir    | New config dir      |
+|-------------------|---------------------|
+| `/etc/g3proxy/`   | `/etc/vey-proxy/`   |
+| `/etc/g3keymess/` | `/etc/vey-keyless/` |
+| `/etc/g3statsd/`  | `/etc/vey-statsd/`  |
+| `/etc/g3tiles/`   | `/etc/vey-gateway/` |
+| `/etc/g3iploc/`   | `/etc/vey-iploc/`   |
+| `/etc/g3fcgen/`   | `/etc/vey-dcgen/`   |
 
 The packaged runtime directories used by the shipped systemd services are:
 
-| VEY service          | RuntimeDirectory       |
-|----------------------|------------------------|
-| `vey-proxy`          | `/run/vey-proxy/`      |
-| `vey-keyless`        | `/run/vey-keyless/`    |
-| `vey-statsd`         | `/run/vey-statsd/`     |
-| `vey-gateway`        | `/run/vey-gateway/`    |
+| VEY service   | RuntimeDirectory    |
+|---------------|---------------------|
+| `vey-proxy`   | `/run/vey-proxy/`   |
+| `vey-keyless` | `/run/vey-keyless/` |
+| `vey-statsd`  | `/run/vey-statsd/`  |
+| `vey-gateway` | `/run/vey-gateway/` |
 
 `vey-iploc` and `vey-dcgen` do not currently declare a `RuntimeDirectory` in
 their packaged systemd templates, so if your old deployment used explicit state
 or socket paths for those services, review them manually.
-
-## Control and helper commands
-
-For services that expose a local controller, the VEY command names also use the
-new prefix:
-
-| Old command        | New command          |
-|--------------------|----------------------|
-| `g3proxy-ctl`      | `vey-proxy-ctl`      |
-| `g3keymess-ctl`    | `vey-keyless-ctl`    |
-| `g3statsd-ctl`     | `vey-statsd-ctl`     |
-| `g3tiles-ctl`      | `vey-gateway-ctl`    |
-
-The proxy utility binaries are renamed as well:
-
-| Old command        | New command        |
-|--------------------|--------------------|
-| `g3proxy-lua`      | `vey-proxy-lua`    |
-| `g3proxy-ftp`      | `vey-proxy-ftp`    |
 
 ## What usually does not need rewriting
 
@@ -183,8 +225,7 @@ So the matching migration for one instance is usually:
 - `g3proxy-ctl` -> `vey-proxy-ctl`
 - old control dir under `/run/g3proxy/` -> `/run/vey-proxy/`
 
-The same pattern applies to `g3keymess`, `g3statsd`, `g3tiles`, `g3iploc`, and
-`g3fcgen`.
+The same pattern applies to `g3keymess`, `g3statsd`, `g3tiles`, `g3iploc`, and `g3fcgen`.
 
 ## Practical checklist
 
@@ -223,18 +264,6 @@ After starting VEY services, verify at least:
 - reload and offline actions still work
 - any helper service references, such as `vey-iploc` from `vey-proxy`, use the
   updated service names and paths
-
-## Backward compatibility for configuration loading
-
-If you point the `-c` option to a directory instead of a specific file, the
-daemon will automatically search for and load the main configuration file based
-on the executable binary name.
-
-This means you can create a symbolic link from a VEY binary to its old G3
-name (e.g., `ln -s /usr/bin/vey-proxy /usr/bin/g3proxy`). When you execute the
-daemon via the `g3proxy` symlink and specify a directory with `-c` (e.g.,
-`/etc/g3proxy/`), it will automatically look for `g3proxy.yaml` in that
-directory. This allows you to load old config file directories easily.
 
 ## Notes
 
