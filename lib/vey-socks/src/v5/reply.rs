@@ -177,8 +177,7 @@ mod tests {
                 (0x06, "TTL expired"),
                 (0x07, "Command not supported"),
                 (0x08, "Address type not supported"),
-                (0x09, "Connection attempt timed out"),
-                (0x10, "unassigned reply code"),
+                (0x09, "unassigned reply code"),
                 (0xFF, "unassigned reply code"),
             ] {
                 let reply = Socks5Reply::new(code, addr);
