@@ -6,15 +6,6 @@
 docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-proxy/docker-compose.yml up -d
 
 
-# start glauth
-git clone https://github.com/glauth/glauth --depth 1
-cd glauth/v2
-cp "${PROJECT_DIR}"/scripts/coverage/vey-proxy/*pem .
-go build
-./glauth -c "${PROJECT_DIR}"/scripts/coverage/vey-proxy/glauth.cfg &
-GLAUTH_PID=$!
-cd -
-
 # start vey-dcgen
 "${PROJECT_DIR}"/target/debug/vey-dcgen -c "${RUN_DIR}"/vey-dcgen.yaml -G port2999 &
 DCGEN_PID=$!
@@ -80,7 +71,6 @@ set +x
 kill -INT $STATSD_PID
 kill -INT $IPLOC_PID
 kill -INT $DCGEN_PID
-kill -INT $GLAUTH_PID
 
 ## vey-proxy-ftp
 

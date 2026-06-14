@@ -37,6 +37,17 @@ services:
       - "127.0.0.1:2003:2003"
     restart: always
 
+  glauth:
+    image: ghcr.io/glauth/glauth:latest
+    container_name: vey-proxy-glauth
+    ports:
+      - "127.0.0.1:3893:3893"
+      - "127.0.0.1:6363:6363"
+    volumes:
+      - ./glauth.cfg:/app/config/config.cfg:ro
+      - ./vey-proxy.local.pem:/app/config/vey-proxy.local.pem:ro
+      - ./vey-proxy.local-key.pem:/app/config/vey-proxy.local-key.pem:ro
+
   nginx:
     image: nginx:alpine
     container_name: vey-proxy-nginx
