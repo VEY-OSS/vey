@@ -130,7 +130,7 @@ jobs:
           verbose: false
   vey-proxy-test:
     name: vey-proxy test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     services:
       ftp-server:
         image: bogem/ftp:latest
@@ -171,7 +171,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install capnproto libjemalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
+          sudo apt-get install capnproto libjemalloc-dev libc-ares-dev libssl-dev libpython3-dev liblua5.4-dev
       - name: Install CA Certificates
         run: |
           sudo apt-get install ca-certificates
@@ -230,7 +230,7 @@ jobs:
           verbose: false
   vey-bench-test:
     name: vey-bench test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     services:
       httpbin:
         image: ghcr.io/psf/httpbin:0.10.2
@@ -260,7 +260,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install capnproto libmimalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
+          sudo apt-get install capnproto libmimalloc-dev libc-ares-dev libssl-dev libpython3-dev liblua5.4-dev
       - name: Install CA Certificates
         run: |
           sudo apt-get install ca-certificates
