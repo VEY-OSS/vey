@@ -1,7 +1,10 @@
+# start docker compose services (influxdb, graphite)
+docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-statsd/docker-compose.yml up -d
 
 # get influxdb auth token
 [ -n "${INFLUXDB3_AUTH_TOKEN}" ] || INFLUXDB3_AUTH_TOKEN=$(curl -X POST http://127.0.0.1:8181/api/v3/configure/token/admin | jq ".token" -r)
 export INFLUXDB3_AUTH_TOKEN
+
 
 # run vey-statsd integration tests
 
@@ -42,3 +45,5 @@ do
 done
 
 set +x
+
+docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-statsd/docker-compose.yml down

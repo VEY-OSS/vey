@@ -1,0 +1,17 @@
+services:
+  influxdb:
+    image: influxdb:3-core
+    container_name: vey-statsd-influxdb
+    environment:
+      INFLUXDB3_NODE_IDENTIFIER_PREFIX: local
+      INFLUXDB3_OBJECT_STORE: memory
+    ports:
+      - "127.0.0.1:8181:8181"
+    restart: always
+
+  graphite:
+    image: graphiteapp/graphite-statsd:latest
+    container_name: vey-statsd-graphite
+    ports:
+      - "127.0.0.1:2003:2003"
+    restart: always

@@ -1,9 +1,10 @@
 # generate resource files
 "${RUN_DIR}"/mkcert.sh
 
-# start nginx
-[ -d /tmp/nginx ] || mkdir /tmp/nginx
-/usr/sbin/nginx -c "${PROJECT_DIR}"/scripts/coverage/vey-proxy/nginx.conf
+# start docker compose services (nginx, httpbin, ftp-server, influxdb, graphite)
+[ -d /tmp/vsftpd ] || mkdir -p /tmp/vsftpd
+docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-proxy/docker-compose.yml up -d
+
 
 # start glauth
 git clone https://github.com/glauth/glauth --depth 1
@@ -80,8 +81,8 @@ kill -INT $STATSD_PID
 kill -INT $IPLOC_PID
 kill -INT $DCGEN_PID
 kill -INT $GLAUTH_PID
-NGINX_PID=$(cat /tmp/nginx.pid)
-kill -INT $NGINX_PID
+docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-proxy/docker-compose.yml down
+
 
 ## vey-proxy-ftp
 

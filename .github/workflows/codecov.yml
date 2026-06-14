@@ -131,33 +131,6 @@ jobs:
   vey-proxy-test:
     name: vey-proxy test
     runs-on: ubuntu-latest
-    services:
-      ftp-server:
-        image: bogem/ftp:latest
-        env:
-          FTP_USER: ftpuser
-          FTP_PASS: ftppass
-          PASV_ADDRESS: 127.0.0.1
-        ports:
-          - '20-21:20-21/tcp'
-          - '47400-47470:47400-47470/tcp'
-        volumes:
-          - /tmp/vsftpd:/home/vsftpd
-      httpbin:
-        image: ghcr.io/psf/httpbin:0.10.2
-        ports:
-          - 80:8080
-      influxdb:
-        image: influxdb:3-core
-        env:
-          INFLUXDB3_NODE_IDENTIFIER_PREFIX: local
-          INFLUXDB3_OBJECT_STORE: memory
-        ports:
-          - 8181:8181
-      graphite:
-        image: graphiteapp/graphite-statsd:latest
-        ports:
-          - 2003:2003
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -181,9 +154,6 @@ jobs:
       - name: Install binutils
         run: |
           cargo install cargo-binutils@0.3.6
-      - name: Install nginx
-        run: |
-          sudo apt-get install nginx-light
       - name: Install and run c-icap
         run: |
           sudo apt-get install c-icap
@@ -231,22 +201,6 @@ jobs:
   vey-bench-test:
     name: vey-bench test
     runs-on: ubuntu-latest
-    services:
-      httpbin:
-        image: ghcr.io/psf/httpbin:0.10.2
-        ports:
-          - 80:8080
-      influxdb:
-        image: influxdb:3-core
-        env:
-          INFLUXDB3_NODE_IDENTIFIER_PREFIX: local
-          INFLUXDB3_OBJECT_STORE: memory
-        ports:
-          - 8181:8181
-      graphite:
-        image: graphiteapp/graphite-statsd:latest
-        ports:
-          - 2003:2003
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -267,9 +221,6 @@ jobs:
       - name: Install binutils
         run: |
           cargo install cargo-binutils@0.3.6
-      - name: Install nginx
-        run: |
-          sudo apt-get install nginx-light
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
@@ -307,18 +258,6 @@ jobs:
   vey-statsd-test:
     name: vey-statsd test
     runs-on: ubuntu-latest
-    services:
-      influxdb:
-        image: influxdb:3-core
-        env:
-          INFLUXDB3_NODE_IDENTIFIER_PREFIX: local
-          INFLUXDB3_OBJECT_STORE: memory
-        ports:
-          - 8181:8181
-      graphite:
-        image: graphiteapp/graphite-statsd:latest
-        ports:
-          - 2003:2003
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
