@@ -9,11 +9,9 @@ stat:
 resolver:
   - name: cares1
     type: c-ares
-    server:
-      - 127.0.0.1
   - name: cares2
     type: c-ares
-    server: 127.0.0.1
+    server: 127.0.0.53
   - name: main
     type: fail_over
     primary: cares1
@@ -26,14 +24,14 @@ escaper:
     bind_interface: lo
     egress_net_filter:
       default: allow
-      allow: 127.0.0.1
+      allow: 127.0.0.0/8
   - name: direct2
     type: direct_fixed
     resolver: main
     bind_ip: 127.0.0.1
     egress_net_filter:
       default: allow
-      allow: 127.0.0.1
+      allow: 127.0.0.0/8
   - name: failover
     type: route_failover
     primary: direct1

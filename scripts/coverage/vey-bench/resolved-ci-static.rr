@@ -1,0 +1,16 @@
+[
+    {
+        "key": {
+            "type": 1,
+            "name": "httpbin.local"
+        },
+        "address": [ 127, 0, 0, 1 ]
+    },
+    {
+        "key": {
+            "type": 1,
+            "name": "vey-proxy.local"
+        },
+        "address": [ 127, 0, 0, 1 ]
+    }
+]

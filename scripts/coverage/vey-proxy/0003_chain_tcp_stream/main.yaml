@@ -9,8 +9,6 @@ stat:
 resolver:
   - name: default
     type: c-ares
-    server:
-      - 127.0.0.1
 
 escaper:
   - name: default
@@ -18,13 +16,13 @@ escaper:
     resolver: default
     egress_net_filter:
       default: allow
-      allow: 127.0.0.1
+      allow: 127.0.0.0/8
   - name: to_inner
     type: direct_fixed
     resolver: default
     egress_net_filter:
       default: allow
-      allow: 127.0.0.1
+      allow: 127.0.0.0/8
     use_proxy_protocol: 2
 
 server:

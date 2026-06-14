@@ -9,7 +9,7 @@ stat:
 resolver:
   - name: hickory
     type: hickory
-    server: 127.0.0.1
+    server: 127.0.0.53
 
 escaper:
   - name: default
@@ -17,7 +17,7 @@ escaper:
     resolver: hickory
     egress_net_filter:
       default: allow
-      allow: 127.0.0.1
+      allow: 127.0.0.0/8
   - name: chained_socks5
     type: proxy_socks5
     proxy_addr: 127.0.0.1:6080

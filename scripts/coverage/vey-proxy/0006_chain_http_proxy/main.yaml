@@ -9,18 +9,16 @@ stat:
 resolver:
   - name: cares1
     type: c-ares
-    server:
-      - 127.0.0.1
   - name: cares2
     type: c-ares
-    server: 127.0.0.1
+    server: 127.0.0.53
   - name: main
     type: fail_over
     primary: cares1
     standby: cares2
   - name: hickory
     type: hickory
-    server: 127.0.0.1
+    server: 127.0.0.53
 
 escaper:
   - name: default
@@ -28,7 +26,7 @@ escaper:
     resolver: main
     egress_net_filter:
       default: allow
-      allow: 127.0.0.1
+      allow: 127.0.0.0/8
   - name: chained_http
     type: proxy_http
     resolver: hickory

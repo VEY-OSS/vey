@@ -9,8 +9,6 @@ stat:
 resolver:
   - name: default
     type: c-ares
-    server:
-      - 127.0.0.1
 
 escaper:
   - name: default
@@ -18,7 +16,7 @@ escaper:
     resolver: default
     egress_net_filter:
       default: allow
-      allow: 127.0.0.1
+      allow: 127.0.0.0/8
 
 user-group:
   - name: default
@@ -66,6 +64,7 @@ user-group:
             default: allow
             forbid:
               - 192.168.0.0/16
+            allow: 127.0.0.0/8
 
 server:
   - name: rss

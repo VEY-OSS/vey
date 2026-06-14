@@ -45,5 +45,7 @@ set +x
 "${PROJECT_DIR}"/target/debug/vey-proxy-ctl -G "${TEST_NAME}" -p $PROXY_PID offline
 
 kill -INT $STATSD_PID
-docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-bench/docker-compose.yml down
 
+# cleanup
+
+docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-bench/docker-compose.yml down

@@ -9,7 +9,6 @@ stat:
 resolver:
   - name: cares1
     type: c-ares
-    server: 127.0.0.1
 
 escaper:
   - name: default
@@ -17,7 +16,7 @@ escaper:
     resolver: cares1
     egress_net_filter:
       default: allow
-      allow: 127.0.0.1
+      allow: 127.0.0.0/8
   # Chaining via HTTP proxy; per-connection next-hop overridden by username params
   - name: comply_chained_http
     type: comply_context

@@ -81,8 +81,6 @@ kill -INT $STATSD_PID
 kill -INT $IPLOC_PID
 kill -INT $DCGEN_PID
 kill -INT $GLAUTH_PID
-docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-proxy/docker-compose.yml down
-
 
 ## vey-proxy-ftp
 
@@ -91,3 +89,7 @@ vey_proxy_ftp -u ftpuser -p ftppass 127.0.0.1 list
 vey_proxy_ftp -u ftpuser -p ftppass 127.0.0.1 put --file "${RUN_DIR}/README.md" README
 vey_proxy_ftp -u ftpuser -p ftppass 127.0.0.1 get README
 vey_proxy_ftp -u ftpuser -p ftppass 127.0.0.1 del README
+
+# cleanup
+
+docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-proxy/docker-compose.yml down

@@ -141,6 +141,9 @@ jobs:
         with:
           toolchain: stable
           components: llvm-tools
+      - name: Check if systemd-resolved is running
+        run: |
+          sudo systemctl status systemd-resolved
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -170,24 +173,26 @@ jobs:
           sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
           sudo cp ${{ github.workspace }}/scripts/coverage/vey-proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
           sudo systemctl start fluent-bit
-      - name: Install dnsmasq
+      - name: Backup /etc/hosts # delete this after systemd-resolved 261
         run: |
-          sudo apt-get install dnsmasq-base
-      - name: Backup /etc/resolv.conf
+          sudo cp /etc/hosts /etc/hosts.backup
+      - name: Edit /etc/hosts   # delete this after systemd-resolved 261
         run: |
-          sudo cp /etc/resolv.conf /etc/resolv.conf.backup
-      - name: Edit /etc/resolv.conf
+          cp /etc/hosts /tmp/ci-hosts
+          echo "127.0.0.1 httpbin.local" >> /tmp/ci-hosts
+          echo "127.0.0.1 vey-proxy.local" >> /tmp/ci-hosts
+          sudo cp /tmp/ci-hosts /etc/hosts
+      - name: Add static records to systemd-resolved # work only with systemd-resolved >= 261
         run: |
-          echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf
-      - name: Run dnsmasq
-        run: |
-          sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/vey-proxy/dnsmasq.conf
+          sudo mkdir /run/systemd/resolve/static.d
+          sudo cp ${{ github.workspace }}/scripts/coverage/vey-bench/resolved-ci-static.rr /run/systemd/resolve/static.d/
+          resolvectl query httpbin.local vey-proxy.local
       - name: run unit test
         run: |
           ./scripts/coverage/vey-proxy.sh
-      - name: Restore /etc/resolv.conf
+      - name: Restore /etc/hosts # delete this after systemd-resolved 261
         run: |
-          sudo mv /etc/resolv.conf.backup /etc/resolv.conf
+          sudo mv /etc/hosts.backup /etc/hosts
       - name: Upload coverage data
         uses: codecov/codecov-action@v7
         with:
@@ -211,6 +216,9 @@ jobs:
         with:
           toolchain: stable
           components: llvm-tools
+      - name: Check if systemd-resolved is running
+        run: |
+          sudo systemctl status systemd-resolved
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -224,27 +232,29 @@ jobs:
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
-      - name: Install dnsmasq
-        run: |
-          sudo apt-get install dnsmasq-base
-      - name: Backup /etc/resolv.conf
-        run: |
-          sudo cp /etc/resolv.conf /etc/resolv.conf.backup
-      - name: Edit /etc/resolv.conf
-        run: |
-          echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf
-      - name: Run dnsmasq
-        run: |
-          sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/vey-bench/dnsmasq.conf
       - name: Install thrift compiler
         run: |
           sudo apt-get install thrift-compiler
+      - name: Backup /etc/hosts # delete this after systemd-resolved 261
+        run: |
+          sudo cp /etc/hosts /etc/hosts.backup
+      - name: Edit /etc/hosts   # delete this after systemd-resolved 261
+        run: |
+          cp /etc/hosts /tmp/ci-hosts
+          echo "127.0.0.1 httpbin.local" >> /tmp/ci-hosts
+          echo "127.0.0.1 vey-proxy.local" >> /tmp/ci-hosts
+          sudo cp /tmp/ci-hosts /etc/hosts
+      - name: Add static records to systemd-resolved # work only with systemd-resolved >= 261
+        run: |
+          sudo mkdir /run/systemd/resolve/static.d
+          sudo cp ${{ github.workspace }}/scripts/coverage/vey-bench/resolved-ci-static.rr /run/systemd/resolve/static.d/
+          resolvectl query httpbin.local vey-proxy.local
       - name: run unit test
         run: |
           ./scripts/coverage/vey-bench.sh
-      - name: Restore /etc/resolv.conf
+      - name: Restore /etc/hosts # delete this after systemd-resolved 261
         run: |
-          sudo mv /etc/resolv.conf.backup /etc/resolv.conf
+          sudo mv /etc/hosts.backup /etc/hosts
       - name: Upload coverage data
         uses: codecov/codecov-action@v7
         with:

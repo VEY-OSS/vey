@@ -5,90 +5,51 @@ Setup for vey-proxy coverage tests
 
 We use the following tools in the coverage scripts:
 
-## docker
+## docker-compose
 
 We use docker containers to run various target services, i.e. httpbin.
 
 Install on Debian:
 
 ```shell
-apt install docker.io
+apt install docker.io docker-compose
 ```
 
-## dnsmasq
+## systemd-resolved
 
-We use dnsmasq to add local dns records, and also use it as the target dns server.
+We use systemd-resolved to add local dns records, and also use it as the target dns server.
 
-You have 2 choices to run dnsmasq:
+Install on Debian:
 
-- NetworkManager Plugin
-
-  If you have enabled dnsmasq plugin in NetworkManager, then there is nothing to do. The conf directory will be
-  **/etc/NetworkManager/dnsmasq.d/**.
-
-- Standalone dnsmasq Service
-
-  If not, you have to install dnsmasq as a standalone service. The conf directory will be **/etc/dnsmasq.d/**.
-
-  Install on Debian:
-  ```text
-  apt install dnsmasq
-  ```
+```text
+apt install systemd-resolved
+```
 
 # Setup local DNS
 
-Save the following conf file to **dnsmasq.d/vey-proxy-ci.conf**:
+Add the following to `/etc/hosts` if you have systemd-resolved < 261:
 
 ```text
-address=/httpbin.local/127.0.0.1
-address=/vey-proxy.local/127.0.0.1
+127.0.0.1 httpbin.local
+127.0.0.1 vey-proxy.local
 ```
 
-Then restart **NetworkManager** or **dnsmasq** which should respawn the real dnsmasq process.
+Add a static record if you have systemd-resolved >= 261.
+
+```shell
+cp resolved-ci-static.rr /etc/systemd/resolve/static.d/
+```
 
 # Run the Docker Containers
 
-## httpbin
+Start:
 
 ```shell
-docker run -p 127.0.0.1:80:80 -d --name httpbin kennethreitz/httpbin
+docker compose -f docker-compose.yml up -d
 ```
 
-## vsftpd
+Stop:
 
 ```shell
-mkdir /tmp/vsftpd
-docker run -d -v /tmp/vsftpd:/home/vsftpd \
-                -p 127.0.0.1:20:20 \
-                -p 127.0.0.1:21:21 \
-                -p 127.0.0.1:47400-47470:47400-47470 \
-                -e FTP_USER=ftpuser \
-                -e FTP_PASS=ftppass \
-                -e PASV_ADDRESS=127.0.0.1 \
-                --name ftp \
-                -d bogem/ftp
-```
-
-## influxdb
-
-1. Run the container
-
-   ```shell
-   docker pull influxdb:3-core
-   docker run -p 127.0.0.1:8181:8181 --rm influxdb:3-core --node-id local --object-store=memory
-   ```
-
-2. Create the auth token
-
-   ```shell
-   curl -X POST http://127.0.0.1:8181/api/v3/configure/token/admin | jq ".token" -r
-   ```
-
-3. Export the auth token as variable `INFLUXDB3_AUTH_TOKEN`.
-
-## graphite
-
-```shell
-docker pull graphiteapp/graphite-statsd:latest
-docker run -p 127.0.0.1:2003:2003 --rm graphiteapp/graphite-statsd
+docker compose -f docker-compose.yml down
 ```

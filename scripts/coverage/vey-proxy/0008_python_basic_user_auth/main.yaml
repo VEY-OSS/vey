@@ -9,8 +9,6 @@ stat:
 resolver:
   - name: default
     type: c-ares
-    server:
-      - 127.0.0.1
 
 escaper:
   - name: default
@@ -18,12 +16,12 @@ escaper:
     resolver: default
     egress_net_filter:
       default: allow
-      allow: 127.0.0.1
+      allow: 127.0.0.0/8
 
 user-group:
   - name: default
     type: python_basic
-    script:  check_password.py
+    script: check_password.py
     unmanaged_user:
       name: unmanaged
     static_users:
