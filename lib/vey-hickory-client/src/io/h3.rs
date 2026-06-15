@@ -39,7 +39,10 @@ pub async fn connect(
     .map_err(|_| anyhow!("quic connect to {} timed out", connect_info.server))??;
 
     let h3_connection = h3_quinn::Connection::new(connection);
-    let (driver, send_request) = h3::client::new(h3_connection)
+    let mut client_builder = h3::client::builder();
+    client_builder.send_grease(false);
+    let (driver, send_request) = client_builder
+        .build(h3_connection)
         .await
         .map_err(|e| anyhow!("h3 connect to {} failed: {e}", connect_info.server))?;
 
