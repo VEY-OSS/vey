@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
 use bytes::Bytes;
-use clap::{Arg, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use h3::client::SendRequest;
 use h3_quinn::{OpenStreams, VarInt};
 use quinn::crypto::rustls::QuicClientConfig;
@@ -28,6 +28,7 @@ use crate::module::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
 use crate::module::socket::{AppendSocketArgs, SocketArgs};
 
 const HTTP_ARG_PROXY: &str = "proxy";
+const HTTP_ARG_GREASE: &str = "grease";
 
 pub(crate) trait AppendH3ConnectArgs {
     fn append_h3_connect_args(self) -> Self;
@@ -35,6 +36,7 @@ pub(crate) trait AppendH3ConnectArgs {
 
 pub(crate) struct H3ConnectArgs {
     socks_proxy: Option<Socks5Proxy>,
+    enable_grease: bool,
 
     socket: SocketArgs,
     target_tls: RustlsTlsClientArgs,
@@ -59,6 +61,7 @@ impl H3ConnectArgs {
 
         H3ConnectArgs {
             socks_proxy: None,
+            enable_grease: false,
             socket: SocketArgs::default(),
             target_tls: tls,
             proxy_peer_addrs: None,
@@ -204,6 +207,7 @@ impl H3ConnectArgs {
         let quic_conn = self.new_quic_connection(target, stats, proc_args).await?;
 
         let mut client_builder = h3::client::builder();
+        client_builder.send_grease(self.enable_grease);
         // TODO add more client config
         let (mut driver, send_request) = client_builder
             .build(quic_conn)
@@ -226,6 +230,10 @@ impl H3ConnectArgs {
             self.socks_proxy = Some(proxy);
         }
 
+        if args.get_flag(HTTP_ARG_GREASE) {
+            self.enable_grease = true;
+        }
+
         self.socket
             .parse_args(args)
             .context("invalid socket config")?;
@@ -244,8 +252,13 @@ impl AppendH3ConnectArgs for Command {
                 .short('x')
                 .help("Use a proxy")
                 .long(HTTP_ARG_PROXY)
-                .num_args(1)
-                .value_name("PROXY URL"),
+                .num_args(1),
+        )
+        .arg(
+            Arg::new(HTTP_ARG_GREASE)
+                .help("Enable HTTP/3 GREASE")
+                .long(HTTP_ARG_GREASE)
+                .action(ArgAction::SetTrue),
         )
         .append_socket_args()
         .append_rustls_args()
