@@ -6,6 +6,23 @@
 docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-proxy/docker-compose.yml up -d
 sleep 2
 
+CURL_TEST_H2=no
+CURL_TEST_H3=no
+
+for feature in $(curl --version | awk -F':' '$1 == "Features" { print $2  }')
+do
+	case "${feature}" in
+		"HTTP2")
+			CURL_TEST_H2=yes
+			;;
+		"HTTP3")
+			CURL_TEST_H3=yes
+			;;
+		*)
+			;;
+	esac
+done
+
 # start vey-dcgen
 "${PROJECT_DIR}"/target/debug/vey-dcgen -c "${RUN_DIR}"/vey-dcgen.yaml -G port2999 &
 DCGEN_PID=$!

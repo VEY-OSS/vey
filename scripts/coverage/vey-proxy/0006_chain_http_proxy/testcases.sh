@@ -35,7 +35,10 @@ test_http_proxy_h2()
 {
 	date
 
-	python3 "${PROJECT_DIR}/vey-proxy/ci/python3+curl/test_httpbin_h2.py" -x ${HTTP_PROXY} -T https://httpbin.local:2443 --ca-cert "${TEST_CA_CERT_FILE}"
+	if [ "${CURL_TEST_H2}" = "yes" ]
+	then
+		python3 "${PROJECT_DIR}/vey-proxy/ci/python3+curl/test_httpbin_h2.py" -x ${HTTP_PROXY} -T https://httpbin.local:2443 --ca-cert "${TEST_CA_CERT_FILE}"
+	fi
 }
 
 
@@ -73,7 +76,10 @@ test_https_proxy_h2()
 {
 	date
 
-	python3 "${PROJECT_DIR}/vey-proxy/ci/python3+curl/test_httpbin_h2.py" -x ${HTTPS_PROXY} -T https://httpbin.local:2443 --proxy-ca-cert "${TEST_CA_CERT_FILE}" --ca-cert "${TEST_CA_CERT_FILE}"
+	if [ "${CURL_TEST_H2}" = "yes" ]
+	then
+		python3 "${PROJECT_DIR}/vey-proxy/ci/python3+curl/test_httpbin_h2.py" -x ${HTTPS_PROXY} -T https://httpbin.local:2443 --proxy-ca-cert "${TEST_CA_CERT_FILE}" --ca-cert "${TEST_CA_CERT_FILE}"
+	fi
 }
 
 

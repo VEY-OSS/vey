@@ -19,7 +19,7 @@ escaper:
       allow: 127.0.0.0/8
 
 server:
-  - name: udp
+  - name: quic
     type: udp_stream
     listen: 127.0.0.1:8443
     escaper: default
