@@ -130,7 +130,7 @@ jobs:
           verbose: false
   vey-proxy-test:
     name: vey-proxy test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -147,7 +147,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install capnproto libjemalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
+          sudo apt-get install capnproto libjemalloc-dev libc-ares-dev libssl-dev libpython3-dev liblua5.4-dev
       - name: Install CA Certificates
         run: |
           sudo apt-get install ca-certificates
@@ -189,6 +189,7 @@ jobs:
           resolvectl query httpbin.local vey-proxy.local
       - name: run unit test
         run: |
+          cargo clean
           ./scripts/coverage/vey-proxy.sh
       - name: Restore /etc/hosts # delete this after systemd-resolved 261
         run: |
@@ -205,7 +206,7 @@ jobs:
           verbose: false
   vey-bench-test:
     name: vey-bench test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -222,7 +223,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install capnproto libmimalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
+          sudo apt-get install capnproto libmimalloc-dev libc-ares-dev libssl-dev libpython3-dev liblua5.4-dev
       - name: Install CA Certificates
         run: |
           sudo apt-get install ca-certificates
@@ -251,6 +252,7 @@ jobs:
           resolvectl query httpbin.local vey-proxy.local
       - name: run unit test
         run: |
+          cargo clean
           ./scripts/coverage/vey-bench.sh
       - name: Restore /etc/hosts # delete this after systemd-resolved 261
         run: |
