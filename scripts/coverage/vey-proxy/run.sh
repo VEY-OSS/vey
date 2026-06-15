@@ -4,7 +4,7 @@
 # start docker compose services (nginx, httpbin, ftp-server, influxdb, graphite)
 [ -d /tmp/vsftpd ] || mkdir -p /tmp/vsftpd
 docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-proxy/docker-compose.yml up -d
-
+sleep 2
 
 # start vey-dcgen
 "${PROJECT_DIR}"/target/debug/vey-dcgen -c "${RUN_DIR}"/vey-dcgen.yaml -G port2999 &
