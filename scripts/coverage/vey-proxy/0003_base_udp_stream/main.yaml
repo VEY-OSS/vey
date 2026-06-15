@@ -1,0 +1,30 @@
+---
+
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.0/8
+
+server:
+  - name: udp
+    type: udp_stream
+    listen: 127.0.0.1:8443
+    escaper: default
+    upstream: 127.0.0.1:2443
+    flush_task_log_on_created: true
+    flush_task_log_on_connected: true
+    task_log_flush_interval: 1s
+    udp_sock_speed_limit: 800K
