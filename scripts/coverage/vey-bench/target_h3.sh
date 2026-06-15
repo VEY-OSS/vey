@@ -1,0 +1,18 @@
+
+# GET
+
+URL=https://httpbin.local:2443/get
+
+vey_bench h3 "${URL}" --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
+
+vey_bench h3 "${URL}" -H "Accept: application/json" --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
+
+vey_bench h3 "${URL}" -x socks5h://t1:toor@vey-proxy.local:1080 --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
+
+# POST
+
+URL=https://httpbin.local:2443/post
+
+vey_bench h3 "${URL}" --method POST --payload 31323334 --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
+vey_bench h3 "${URL}" --method POST --payload 31323334 --binary --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
+vey_bench h3 "${URL}" --method POST --payload name=foo -H "Content-Type: application/x-www-form-urlencoded" --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
