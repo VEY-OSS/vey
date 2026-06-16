@@ -24,6 +24,11 @@ server:
     listen: 127.0.0.1:8443
     escaper: default
     upstream: 127.0.0.1:2443
+  - name: dns
+    type: udp_stream
+    listen: 127.0.0.1:5353
+    escaper: default
+    upstream: 127.0.0.53:53
     flush_task_log_on_created: true
     flush_task_log_on_connected: true
     task_log_flush_interval: 1s
