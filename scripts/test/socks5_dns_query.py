@@ -2,33 +2,14 @@
 
 import argparse
 import socket
-import ipaddress
 import datetime
 from urllib.parse import urlparse
-
 
 import socks
 import dns.message
 import dns.query
 
-
 dns_server = '223.5.5.5'
-
-
-def to_proxy_addr(s: str):
-    try:
-        ip = ipaddress.IPv6Address(s.strip("[]"))
-        return "{}".format(ip), socket.AF_INET6
-    except ValueError:
-        if s.find(":") >= 0:
-            a = s.rsplit(":", 1)
-            ip_str = a[0]
-            if ip_str.endswith("]"):
-                return "{}".format(ipaddress.IPv6Address(ip_str.strip("[]"))), socket.AF_INET6
-            else:
-                return "{}".format(ipaddress.IPv4Address(ip_str)), socket.AF_INET
-        else:
-            return "{}".format(ipaddress.IPv4Address(s)), socket.AF_INET
 
 
 def query_for(sock, domain, verbose=False):
@@ -55,7 +36,8 @@ if __name__ == "__main__":
 
     url = urlparse(args.proxy)
 
-    (proxy_addr, proxy_family) = to_proxy_addr(url.hostname)
+    proxy_addr = url.hostname
+    proxy_family = dns.inet.af_for_address(proxy_addr)
 
     s = socks.socksocket(family=proxy_family, type=socket.SOCK_DGRAM, proto=0)
     s.set_proxy(proxy_type=socks.SOCKS5, addr=proxy_addr, port=url.port,

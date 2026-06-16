@@ -14,7 +14,8 @@ test_socks5_proxy_dns()
 {
 	date
 
-	python3 "${PROJECT_DIR}/scripts/test/socks5_dns_query.py" -x ${SOCKS5_PROXY} --dns-server 127.0.0.53 vey-proxy.local httpbin.local -v
+	python3 "${PROJECT_DIR}/vey-proxy/ci/python3+dns/test_dns.py" -x ${SOCKS5_PROXY} --dns-server 127.0.0.53 --expected-ip 127.0.0.1 httpbin.local
+	python3 "${PROJECT_DIR}/vey-proxy/ci/python3+dns/test_dns.py" -x ${SOCKS5_PROXY} --dns-server 127.0.0.53 --expected-ip 127.0.0.1 vey-proxy.local
 }
 
 
