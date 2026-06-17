@@ -319,9 +319,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2605265"
+version = "0.1.2606160"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea25b715cd9f0a09e51ce8b66295ea4b6e4652e83d5b78180c3f6a040b1bb795"
+checksum = "1882aeabd67f8cf1bec6a4a13eb95b6306b6fbb64ea566f7d3e177fbd7ce1fa7"
 dependencies = [
  "bindgen",
  "cc",
@@ -1385,6 +1385,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b4baf93f58d4425749ca49a51c50ebab072c5df6994d08fed93541c331481dc"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2331,9 +2340,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "syn"
-version = "2.0.117"
+version = "2.0.118"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e665b8803e7b1d2a727f4023456bbbbe74da67099c585258af0ad9c5013b9b99"
+checksum = "1b9ae57f904213ebb649ce6895b8a66c66f0203b9319718f69a5612a065b1422"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2585,9 +2594,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.17.31"
+version = "0.17.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9765c41f6b2a0b30df4dc1f3f7d7f46e474eb6a14ef81f300813d35099fa554a"
+checksum = "9cbb2757b09e03bcd5d20d513aba6da0235d6e092bff291a3921e0c94ff425c1"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -2599,9 +2608,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.17.31"
+version = "0.17.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c549858d16b2a92d1c7ed024fae73a22b56352231d5b26e6f70bcb1b78a2994c"
+checksum = "15cfdeb0f67765ad5bf076d5c9a37f139b9d5c489ef39a5fc7366ff5c7a9defc"
 dependencies = [
  "aws-lc-fips-sys",
  "aws-lc-sys",
@@ -3759,7 +3768,7 @@ version = "0.7.0"
 dependencies = [
  "anyhow",
  "chrono",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "libc",
  "variant-ssl",
  "variant-ssl-sys",
