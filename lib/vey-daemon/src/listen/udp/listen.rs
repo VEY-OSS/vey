@@ -280,41 +280,45 @@ pub trait AcceptUdpServer: BaseServer {
     );
 }
 
-struct ShardSender {
+struct PacketRecvSender {
+    socket: Arc<UdpSocket>,
     event_receiver: mpsc::Receiver<Event>,
     global_event_sender: mpsc::Sender<Event>,
 }
 
-impl ShardSender {
-    async fn run_to_end(mut self, socket: Arc<UdpSocket>) {
+impl PacketRecvSender {
+    async fn run_to_end(mut self) {
         let mut event_recv_buf: Vec<Event> = Vec::with_capacity(EVENT_RECV_BATCH_SIZE);
 
         loop {
-            event_recv_buf.clear();
-            let nr = self
-                .event_receiver
-                .recv_many(&mut event_recv_buf, EVENT_RECV_BATCH_SIZE)
+            let limit = EVENT_RECV_BATCH_SIZE - event_recv_buf.len();
+            self.event_receiver
+                .recv_many(&mut event_recv_buf, limit)
                 .await;
-            if nr == 0 {
+            if event_recv_buf.is_empty() {
                 break;
             }
-            for event in event_recv_buf.drain(..) {
-                let global_event = if let Event::Packet(key, data) = event {
-                    match poll_fn(|cx| {
-                        let hdr = SendMsgHdr::new([IoSlice::new(&data)], Some(key.sock_peer_addr));
-                        socket.poll_sendmsg(cx, &hdr)
-                    })
-                    .await
-                    {
-                        Ok(_nw) => continue,
-                        Err(_e) => Event::Drop(key),
-                    }
-                } else {
-                    event
-                };
-                if self.global_event_sender.send(global_event).await.is_err() {
-                    break;
+            self.handle_events(&mut event_recv_buf).await;
+        }
+    }
+
+    async fn handle_events(&self, events: &mut Vec<Event>) {
+        for event in events.drain(..) {
+            let global_event = if let Event::Packet(key, data) = event {
+                match poll_fn(|cx| {
+                    let hdr = SendMsgHdr::new([IoSlice::new(&data)], Some(key.sock_peer_addr));
+                    self.socket.poll_sendmsg(cx, &hdr)
+                })
+                .await
+                {
+                    Ok(_nw) => continue,
+                    Err(_e) => Event::Drop(key),
                 }
+            } else {
+                event
+            };
+            if self.global_event_sender.send(global_event).await.is_err() {
+                break;
             }
         }
     }
@@ -324,64 +328,24 @@ struct RuntimeState {
     socket: Arc<UdpSocket>,
     event_sender: mpsc::Sender<Event>,
     event_receiver: mpsc::Receiver<Event>,
-    sharded_event_senders: Vec<mpsc::Sender<Event>>,
-    sharded_select_id: usize,
 }
 
 impl RuntimeState {
     fn new(socket: UdpSocket) -> Self {
-        let (event_sender, event_receiver) = mpsc::channel(256);
-        RuntimeState {
-            socket: Arc::new(socket),
-            event_sender,
+        let socket = Arc::new(socket);
+        let (global_event_sender, global_event_receiver) = mpsc::channel(256);
+        let (event_sender, event_receiver) = mpsc::channel(1024);
+        let packet_recv_sender = PacketRecvSender {
+            socket: socket.clone(),
             event_receiver,
-            sharded_event_senders: Vec::new(),
-            sharded_select_id: 0,
-        }
-    }
-
-    fn new_in_worker(socket: UdpSocket) -> Self {
-        Self::new_sharded(socket, 1)
-    }
-
-    fn new_in_main(socket: UdpSocket) -> Self {
-        Self::new_sharded(
+            global_event_sender,
+        };
+        tokio::spawn(packet_recv_sender.run_to_end());
+        RuntimeState {
             socket,
-            crate::runtime::config::get_runtime_config().intended_thread_number(),
-        )
-    }
-
-    fn new_sharded(socket: UdpSocket, mut shard_number: usize) -> Self {
-        let mut state = RuntimeState::new(socket);
-        if shard_number == 0 {
-            shard_number = 1;
+            event_sender,
+            event_receiver: global_event_receiver,
         }
-        for _ in 0..shard_number {
-            let (event_sender, event_receiver) = mpsc::channel(256);
-            state.sharded_event_senders.push(event_sender);
-            let rt_sender = ShardSender {
-                event_receiver,
-                global_event_sender: state.event_sender.clone(),
-            };
-            let socket = state.socket.clone();
-            tokio::spawn(async move {
-                rt_sender.run_to_end(socket).await;
-            });
-        }
-        state
-    }
-
-    fn select_event_sender(&mut self) -> mpsc::Sender<Event> {
-        let sender = self
-            .sharded_event_senders
-            .get(self.sharded_select_id)
-            .unwrap_or(&self.event_sender)
-            .clone();
-        self.sharded_select_id += 1;
-        if self.sharded_select_id >= self.sharded_event_senders.len() {
-            self.sharded_select_id = 0;
-        }
-        sender
     }
 }
 
@@ -423,6 +387,8 @@ where
             listen_stats: self.listen_stats.clone(),
             instance_id: 0,
             _alive_guard: None,
+
+            packet_buf: vec![0; self.packet_max_size as usize],
         }
     }
 
@@ -467,6 +433,8 @@ struct ListenUdpRuntimeInstance<S> {
     listen_stats: Arc<ListenStats>,
     instance_id: usize,
     _alive_guard: Option<ListenAliveGuard>,
+
+    packet_buf: Vec<u8>,
 }
 
 impl<S> ListenUdpRuntimeInstance<S>
@@ -508,22 +476,16 @@ where
         mut self,
         socket: UdpSocket,
         listen_addr: SocketAddr,
-        listen_in_worker: bool,
         mut server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
     ) {
         use broadcast::error::RecvError;
 
-        let mut connection_table =
+        let mut ct_table =
             LruCache::with_hasher(self.conn_track.max_sessions(), FixedState::with_seed(0));
-        let mut rt_state = if listen_in_worker {
-            RuntimeState::new_in_worker(socket)
-        } else {
-            RuntimeState::new_in_main(socket)
-        };
+        let mut rt_state = RuntimeState::new(socket);
 
         let mut event_recv_buf: Vec<Event> = Vec::with_capacity(EVENT_RECV_BATCH_SIZE);
 
-        let mut buf = vec![0u8; self.packet_max_size as usize];
         loop {
             tokio::select! {
                 biased;
@@ -554,38 +516,13 @@ where
                 }
                 _ = rt_state.event_receiver.recv_many(&mut event_recv_buf, EVENT_RECV_BATCH_SIZE) => {
                     // the recv number won't be zero here
-                    self.handle_events(&mut event_recv_buf, &mut connection_table).await;
+                    self.handle_events(&mut event_recv_buf, &mut ct_table).await;
                     event_recv_buf.clear();
                 }
-                r = self.recv_packet(&rt_state.socket, listen_addr, &mut buf) => {
+                r = self.recv_packet(&rt_state.socket, listen_addr) => {
                     match r {
                         Ok((cc_info, data)) => {
-                            let key = cc_info.connection_key();
-                            let dispatcher = connection_table.get_or_insert_ref(&key, || {
-                                let state = Arc::new(StreamState::default());
-                                let (data_sender, data_receiver) = mpsc::channel(self.conn_track.dispatch_queue_size());
-                                let packet_receiver = AcceptedUdpPacketReceiver {
-                                    packet_max_size: self.packet_max_size,
-                                    inner: data_receiver,
-                                };
-                                let event_sender = rt_state.select_event_sender();
-                                let packet_sender = AcceptedUdpPacketSender::new(key, event_sender);
-                                self.listen_stats.add_accepted();
-                                self.run_task(cc_info, packet_receiver, packet_sender);
-                                StreamDispatcher {
-                                    state, sender: data_sender
-                                }
-                            });
-                            match dispatcher.sender.try_send(data) {
-                                Ok(_) => {}
-                                Err(mpsc::error::TrySendError::Full(_)) => {
-                                    dispatcher.state.add_recv_dropped();
-                                }
-                                Err(mpsc::error::TrySendError::Closed(_)) => {
-                                    dispatcher.state.add_recv_dropped();
-                                    connection_table.pop(&key);
-                                }
-                            }
+                            self.handle_packet(cc_info, data, &rt_state, &mut ct_table);
                         }
                         Err(e) => {
                             warn!("SRT[{}_v{}#{}] error receiving data from socket, error: {e}",
@@ -597,6 +534,63 @@ where
         }
 
         self.post_stop();
+    }
+
+    async fn recv_packet(
+        &mut self,
+        socket: &UdpSocket,
+        listen_addr: SocketAddr,
+    ) -> io::Result<(ClientConnectionInfo, Bytes)> {
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut self.packet_buf)]);
+
+        poll_fn(|cx| socket.poll_recvmsg(cx, &mut hdr)).await?;
+
+        let peer_addr = hdr
+            .src_addr()
+            .ok_or_else(|| io::Error::other("unable to get peer address"))?;
+        let local_addr = hdr.dst_addr(listen_addr);
+
+        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
+
+        let nr = hdr.n_recv;
+        let data = Bytes::copy_from_slice(&self.packet_buf[..nr]);
+
+        Ok((cc_info, data))
+    }
+
+    fn handle_packet(
+        &self,
+        cc_info: ClientConnectionInfo,
+        data: Bytes,
+        rt_state: &RuntimeState,
+        ct_table: &mut LruCache<ClientConnectionKey, StreamDispatcher, FixedState>,
+    ) {
+        let key = cc_info.connection_key();
+        let dispatcher = ct_table.get_or_insert_ref(&key, || {
+            let state = Arc::new(StreamState::default());
+            let (data_sender, data_receiver) = mpsc::channel(self.conn_track.dispatch_queue_size());
+            let packet_receiver = AcceptedUdpPacketReceiver {
+                packet_max_size: self.packet_max_size,
+                inner: data_receiver,
+            };
+            let packet_sender = AcceptedUdpPacketSender::new(key, rt_state.event_sender.clone());
+            self.listen_stats.add_accepted();
+            self.run_task(cc_info, packet_receiver, packet_sender);
+            StreamDispatcher {
+                state,
+                sender: data_sender,
+            }
+        });
+        match dispatcher.sender.try_send(data) {
+            Ok(_) => {}
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                dispatcher.state.add_recv_dropped();
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => {
+                dispatcher.state.add_recv_dropped();
+                ct_table.pop(&key);
+            }
+        }
     }
 
     fn run_task(
@@ -633,33 +627,10 @@ where
         }
     }
 
-    async fn recv_packet(
-        &self,
-        socket: &UdpSocket,
-        listen_addr: SocketAddr,
-        buf: &mut [u8],
-    ) -> io::Result<(ClientConnectionInfo, Bytes)> {
-        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(buf)]);
-
-        poll_fn(|cx| socket.poll_recvmsg(cx, &mut hdr)).await?;
-
-        let peer_addr = hdr
-            .src_addr()
-            .ok_or_else(|| io::Error::other("unable to get peer address"))?;
-        let local_addr = hdr.dst_addr(listen_addr);
-
-        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
-
-        let nr = hdr.n_recv;
-        let data = Bytes::copy_from_slice(&buf[..nr]);
-
-        Ok((cc_info, data))
-    }
-
     async fn handle_events(
         &self,
         events: &mut Vec<Event>,
-        connection_table: &mut LruCache<ClientConnectionKey, StreamDispatcher, FixedState>,
+        ct_table: &mut LruCache<ClientConnectionKey, StreamDispatcher, FixedState>,
     ) {
         for event in events.drain(..) {
             match event {
@@ -667,12 +638,12 @@ where
                     unreachable!()
                 }
                 Event::Drop(key) => {
-                    if let Some(dispatcher) = connection_table.get(&key) {
+                    if let Some(dispatcher) = ct_table.get(&key) {
                         dispatcher.state.add_send_dropped();
                     }
                 }
                 Event::Close(key) => {
-                    connection_table.pop(&key);
+                    ct_table.pop(&key);
                 }
             }
         }
@@ -699,8 +670,7 @@ where
             match UdpSocket::from_std(socket) {
                 Ok(socket) => {
                     self.pre_start();
-                    self.run(socket, listen_addr, listen_in_worker, server_reload_channel)
-                        .await;
+                    self.run(socket, listen_addr, server_reload_channel).await;
                 }
                 Err(e) => {
                     warn!(
@@ -847,8 +817,7 @@ mod tests {
             )
             .create_instance();
 
-            let runtime_task =
-                tokio::spawn(runtime.run(socket, listen_addr, false, reload_receiver));
+            let runtime_task = tokio::spawn(runtime.run(socket, listen_addr, reload_receiver));
 
             RuntimeHarness {
                 listen_addr,
