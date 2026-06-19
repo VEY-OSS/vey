@@ -207,6 +207,7 @@ pub struct UdpConnectionTrackConfig {
     max_sessions: NonZeroUsize,
     dispatch_queue_size: NonZeroUsize,
     send_queue_size: NonZeroUsize,
+    batch_recv_size: NonZeroUsize,
 }
 
 impl Default for UdpConnectionTrackConfig {
@@ -215,6 +216,7 @@ impl Default for UdpConnectionTrackConfig {
             max_sessions: unsafe { NonZeroUsize::new_unchecked(4096) },
             dispatch_queue_size: unsafe { NonZeroUsize::new_unchecked(32) },
             send_queue_size: unsafe { NonZeroUsize::new_unchecked(512) },
+            batch_recv_size: unsafe { NonZeroUsize::new_unchecked(16) },
         }
     }
 }
@@ -248,5 +250,15 @@ impl UdpConnectionTrackConfig {
     #[inline]
     pub fn set_send_queue_size(&mut self, queue_size: NonZeroUsize) {
         self.send_queue_size = queue_size;
+    }
+
+    #[inline]
+    pub fn batch_recv_size(&self) -> usize {
+        self.batch_recv_size.get()
+    }
+
+    #[inline]
+    pub fn set_batch_recv_size(&mut self, batch_recv_size: NonZeroUsize) {
+        self.batch_recv_size = batch_recv_size;
     }
 }

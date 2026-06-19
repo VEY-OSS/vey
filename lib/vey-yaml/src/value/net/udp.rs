@@ -201,6 +201,11 @@ pub fn as_udp_conn_track_config(value: &Yaml) -> anyhow::Result<UdpConnectionTra
             config.set_send_queue_size(queue_size);
             Ok(())
         }
+        "batch_recv_size" => {
+            let batch_size = crate::value::as_nonzero_usize(v)?;
+            config.set_batch_recv_size(batch_size);
+            Ok(())
+        }
         _ => Err(anyhow!("invalid key {k}")),
     })?;
 

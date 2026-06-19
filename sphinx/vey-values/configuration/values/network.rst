@@ -702,6 +702,14 @@ It consists of the following fields:
 
   **default**: 512
 
+* batch_recv_size
+
+  **optional**, **type**: nonzero usize
+
+  This set the batch size when we try to recv from the listen socket.
+
+  **default**: 16
+
 .. availability::
 
     - ``vey-proxy``: available since ``1.13.3``

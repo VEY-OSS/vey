@@ -26,6 +26,7 @@ use bytes::Bytes;
 use foldhash::fast::FixedState;
 use log::{info, warn};
 use lru::LruCache;
+use smallvec::SmallVec;
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, mpsc};
@@ -302,6 +303,14 @@ impl PacketRecvSender {
         }
     }
 
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    )))]
     async fn handle_events(&self, events: &mut Vec<Event>) {
         for event in events.drain(..) {
             let global_event = if let Event::Packet(key, data) = event {
@@ -318,6 +327,60 @@ impl PacketRecvSender {
                 event
             };
             if self.global_event_sender.send(global_event).await.is_err() {
+                break;
+            }
+        }
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    ))]
+    async fn handle_events(&self, events: &mut Vec<Event>) {
+        let mut data_events: SmallVec<[(ClientConnectionKey, Bytes); EVENT_RECV_BATCH_SIZE]> =
+            SmallVec::new();
+        let mut other_events: SmallVec<[Event; EVENT_RECV_BATCH_SIZE]> = SmallVec::new();
+
+        for event in events.drain(..) {
+            if let Event::Packet(key, data) = event {
+                data_events.push((key, data));
+            } else {
+                other_events.push(event);
+            }
+        }
+
+        while !data_events.is_empty() {
+            let consumed = match poll_fn(|cx| {
+                let mut headers: SmallVec<[SendMsgHdr<1>; EVENT_RECV_BATCH_SIZE]> = SmallVec::new();
+                for (key, data) in &data_events {
+                    headers.push(SendMsgHdr::new(
+                        [IoSlice::new(data)],
+                        Some(key.sock_peer_addr),
+                    ))
+                }
+                self.socket.poll_batch_sendmsg(cx, &mut headers)
+            })
+            .await
+            {
+                Ok(n) => n,
+                Err(_e) => {
+                    if let Some((key, _data)) = data_events.first() {
+                        let _ = self.global_event_sender.send(Event::Drop(*key)).await;
+                    } else {
+                        break;
+                    }
+                    1
+                }
+            };
+            let _ = data_events.drain(0..consumed);
+        }
+
+        for event in other_events {
+            if self.global_event_sender.send(event).await.is_err() {
                 break;
             }
         }
@@ -374,6 +437,15 @@ where
         }
     }
 
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    )))]
     fn create_instance(&self) -> ListenUdpRuntimeInstance<S> {
         let server_type = self.server.r#type();
         let server_version = self.server.version();
@@ -389,6 +461,39 @@ where
             _alive_guard: None,
 
             packet_buf: vec![0; self.packet_max_size as usize],
+        }
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    fn create_instance(&self) -> ListenUdpRuntimeInstance<S> {
+        let server_type = self.server.r#type();
+        let server_version = self.server.version();
+
+        let mut packets_buf = Vec::with_capacity(self.conn_track.batch_recv_size());
+        for _i in 0..self.conn_track.batch_recv_size() {
+            packets_buf.push(vec![0; self.packet_max_size as usize]);
+        }
+
+        ListenUdpRuntimeInstance {
+            server: self.server.clone(),
+            server_type,
+            server_version,
+            worker_id: None,
+            conn_track: self.conn_track,
+            packet_max_size: self.packet_max_size,
+            listen_stats: self.listen_stats.clone(),
+            instance_id: 0,
+            _alive_guard: None,
+
+            packets_buf,
         }
     }
 
@@ -434,7 +539,26 @@ struct ListenUdpRuntimeInstance<S> {
     instance_id: usize,
     _alive_guard: Option<ListenAliveGuard>,
 
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    )))]
     packet_buf: Vec<u8>,
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    packets_buf: Vec<Vec<u8>>,
 }
 
 impl<S> ListenUdpRuntimeInstance<S>
@@ -519,10 +643,12 @@ where
                     self.handle_events(&mut event_recv_buf, &mut ct_table).await;
                     event_recv_buf.clear();
                 }
-                r = self.recv_packet(&rt_state.socket, listen_addr) => {
+                r = self.recv_packets(&rt_state.socket, listen_addr) => {
                     match r {
-                        Ok((cc_info, data)) => {
-                            self.handle_packet(cc_info, data, &rt_state, &mut ct_table);
+                        Ok(packets) => {
+                            for (cc_info, data) in packets {
+                                self.handle_packet(cc_info, data, &rt_state, &mut ct_table);
+                            }
                         }
                         Err(e) => {
                             warn!("SRT[{}_v{}#{}] error receiving data from socket, error: {e}",
@@ -536,26 +662,98 @@ where
         self.post_stop();
     }
 
-    async fn recv_packet(
+    async fn recv_packets(
         &mut self,
         socket: &UdpSocket,
         listen_addr: SocketAddr,
-    ) -> io::Result<(ClientConnectionInfo, Bytes)> {
-        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut self.packet_buf)]);
+    ) -> io::Result<SmallVec<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>> {
+        poll_fn(|cx| self.poll_recv_packets(cx, socket, listen_addr)).await
+    }
 
-        poll_fn(|cx| socket.poll_recvmsg(cx, &mut hdr)).await?;
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    )))]
+    #[allow(clippy::type_complexity)]
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context,
+        socket: &UdpSocket,
+        listen_addr: SocketAddr,
+    ) -> Poll<io::Result<SmallVec<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>>> {
+        let mut packets = SmallVec::<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>::new();
 
-        let peer_addr = hdr
-            .src_addr()
-            .ok_or_else(|| io::Error::other("unable to get peer address"))?;
-        let local_addr = hdr.dst_addr(listen_addr);
+        while packets.len() < self.conn_track.batch_recv_size() {
+            let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut self.packet_buf)]);
+            match socket.poll_recvmsg(cx, &mut hdr) {
+                Poll::Ready(Ok(_)) => {
+                    let peer_addr = hdr
+                        .src_addr()
+                        .ok_or_else(|| io::Error::other("unable to get peer address"))?;
+                    let local_addr = hdr.dst_addr(listen_addr);
 
-        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
+                    let cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
+                    let nr = hdr.n_recv;
+                    let data = Bytes::copy_from_slice(&self.packet_buf[..nr]);
 
-        let nr = hdr.n_recv;
-        let data = Bytes::copy_from_slice(&self.packet_buf[..nr]);
+                    packets.push((cc_info, data));
+                }
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+                Poll::Pending => {
+                    return if packets.is_empty() {
+                        Poll::Pending
+                    } else {
+                        Poll::Ready(Ok(packets))
+                    };
+                }
+            }
+        }
+        Poll::Ready(Ok(packets))
+    }
 
-        Ok((cc_info, data))
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    #[allow(clippy::type_complexity)]
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context,
+        socket: &UdpSocket,
+        listen_addr: SocketAddr,
+    ) -> Poll<io::Result<SmallVec<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>>> {
+        let mut packets = SmallVec::<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>::new();
+
+        let mut hdr_v = SmallVec::<[RecvMsgHdr<1>; EVENT_RECV_BATCH_SIZE]>::new();
+        for p in &mut self.packets_buf {
+            hdr_v.push(RecvMsgHdr::new([IoSliceMut::new(p)]))
+        }
+
+        let nr = std::task::ready!(socket.poll_batch_recvmsg(cx, &mut hdr_v))?;
+        for hdr in hdr_v.iter().take(nr) {
+            let peer_addr = hdr
+                .src_addr()
+                .ok_or_else(|| io::Error::other("unable to get peer address"))?;
+            let local_addr = hdr.dst_addr(listen_addr);
+
+            let cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
+            let nr = hdr.n_recv;
+            let data = Bytes::copy_from_slice(&hdr.iov[0][..nr]);
+
+            packets.push((cc_info, data));
+        }
+
+        Poll::Ready(Ok(packets))
     }
 
     fn handle_packet(
