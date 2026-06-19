@@ -34,7 +34,7 @@ jobs:
           - vendored-tongsuo,rustls-ring
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install stable toolchain
@@ -71,7 +71,7 @@ jobs:
         run: |
           apk add --no-cache git curl
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install dependencies
@@ -106,7 +106,7 @@ jobs:
         run: |
           apk add --no-cache git curl
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install dependencies
@@ -124,7 +124,7 @@ jobs:
       - name: Install lib dependencies (vcpkg)
         run: vcpkg install --triplet=x64-windows-static openssl c-ares mimalloc
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install rust toolchain
@@ -150,7 +150,7 @@ jobs:
         if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install rust toolchain
@@ -177,7 +177,7 @@ jobs:
           update: true
           install: git
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install build tools
