@@ -39,7 +39,7 @@ jobs:
             component: vey-proxy
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install rust toolchain
@@ -70,7 +70,7 @@ jobs:
           - vey-keyless
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install rust toolchain

@@ -44,7 +44,7 @@ jobs:
         if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install rust toolchain
@@ -77,7 +77,7 @@ jobs:
         if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Install rust toolchain
