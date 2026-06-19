@@ -1,6 +1,6 @@
 [package]
 name = "vey-proxy"
-version = "1.13.4"
+version = "1.13.5"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true

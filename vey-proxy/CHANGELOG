@@ -2,6 +2,15 @@ CHANGELOG
 
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
+v1.13.5:
+ - Bug fix: fix support of user-site in facts user group
+ - Feature: get the metrics/log/controller app name from the binary name instead of the crate name
+ - Feature: support to use jemalloc or mimalloc as global allocator at compile time
+ - Feature: add support for MASQUE CONNECT-UDP in http_proxy server and proxy_http(s) escapers
+ - Removed: drop support for masque/http draft Well-Known URI in http_proxy server
+ - Removed: drop support for lua 5.3 and python 3.7
+ - Removed: drop the previously used custom 0x09 timeout draft socks6 error code
+
 v1.13.4:
  - BUG FIX: fix brotli cert decompression when build with boringssl / AWS-LC
 

@@ -70,7 +70,7 @@ jobs:
             DEBIAN_FRONTEND: noninteractive
           command: |
             apt-get install -y pkgconf cmake capnproto
-            apt-get install -y libssl-dev libc-ares-dev
+            apt-get install -y libssl-dev libc-ares-dev libjemalloc-dev
             apt-get install -y python3-dev liblua5.4-dev
       - restore_cache:
           name: Restore source tarball
