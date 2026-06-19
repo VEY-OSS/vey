@@ -394,10 +394,10 @@ struct RuntimeState {
 }
 
 impl RuntimeState {
-    fn new(socket: UdpSocket) -> Self {
+    fn new(socket: UdpSocket, send_queue_size: usize) -> Self {
         let socket = Arc::new(socket);
-        let (global_event_sender, global_event_receiver) = mpsc::channel(256);
-        let (event_sender, event_receiver) = mpsc::channel(1024);
+        let (global_event_sender, global_event_receiver) = mpsc::channel(send_queue_size);
+        let (event_sender, event_receiver) = mpsc::channel(send_queue_size);
         let packet_recv_sender = PacketRecvSender {
             socket: socket.clone(),
             event_receiver,
@@ -606,7 +606,7 @@ where
 
         let mut ct_table =
             LruCache::with_hasher(self.conn_track.max_sessions(), FixedState::with_seed(0));
-        let mut rt_state = RuntimeState::new(socket);
+        let mut rt_state = RuntimeState::new(socket, self.conn_track.send_queue_size());
 
         let mut event_recv_buf: Vec<Event> = Vec::with_capacity(EVENT_RECV_BATCH_SIZE);
 
