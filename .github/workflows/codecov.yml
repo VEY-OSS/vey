@@ -41,11 +41,12 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-          components: llvm-tools
+          components: llvm-tools,rustfmt
       - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libjemalloc-dev libmimalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
+          sudo apt-get install libbpf-dev linux-bpf-dev
       - name: Install binutils
         run: |
           cargo install cargo-binutils@0.3.6
