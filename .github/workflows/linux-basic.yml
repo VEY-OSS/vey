@@ -48,10 +48,12 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
+          components: rustfmt
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libjemalloc-dev libmimalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
+          sudo apt-get install libbpf-dev linux-bpf-dev
       - name: Cargo build
         run: cargo build --features jemalloc,lua54
       - name: Cargo test
@@ -73,5 +75,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libjemalloc-dev libmimalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
+          sudo apt-get install libbpf-dev linux-bpf-dev
       - name: Cargo clippy
         run: cargo clippy --tests --workspace --features jemalloc,lua54 -- --deny warnings
