@@ -6,6 +6,7 @@
 use std::fs;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::num::NonZeroU32;
 use std::os::fd::AsRawFd;
 use std::thread;
 use std::time::Duration;
@@ -38,6 +39,8 @@ fn main() -> anyhow::Result<()> {
     println!("   UdpSocketSelector Hot-Upgrade & Fallback Test  ");
     println!("==================================================");
 
+    let max_entries = NonZeroU32::new(1024).unwrap();
+
     // 1. Check root privileges
     if unsafe { libc::getuid() } != 0 {
         println!("[ERROR] This test case must be run as root to load eBPF programs and pin maps.");
@@ -61,8 +64,8 @@ fn main() -> anyhow::Result<()> {
     );
 
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
-    let mut selector_gen1 =
-        UdpSocketSelector::new(1234, 1, addr, 1024).context("failed to create Gen 1 selector")?;
+    let mut selector_gen1 = UdpSocketSelector::new(1234, 1, addr, max_entries)
+        .context("failed to create Gen 1 selector")?;
     selector_gen1.add_socket(s1_gen1.as_raw_fd());
     selector_gen1.add_socket(s2_gen1.as_raw_fd());
 
@@ -116,8 +119,8 @@ fn main() -> anyhow::Result<()> {
         s2_gen2.as_raw_fd()
     );
 
-    let mut selector_gen2 =
-        UdpSocketSelector::new(1234, 2, addr, 1024).context("failed to create Gen 2 selector")?;
+    let mut selector_gen2 = UdpSocketSelector::new(1234, 2, addr, max_entries)
+        .context("failed to create Gen 2 selector")?;
     selector_gen2.add_socket(s1_gen2.as_raw_fd());
     selector_gen2.add_socket(s2_gen2.as_raw_fd());
 

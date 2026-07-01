@@ -4,11 +4,11 @@
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 
-const volatile __u32 load_pid = 0;
+const volatile __s32 load_pid = 0;
 const volatile __u32 load_generation = 0;
 
 struct socket_id {
-	__u32 pid;
+	__s32 pid;
 	__u32 generation;
 	__u32 worker;
 };
@@ -22,7 +22,7 @@ struct {
 } conn_track SEC(".maps");
 
 struct proc_info_key {
-	__u32 pid;
+	__s32 pid;
 	__u32 generation;
 };
 

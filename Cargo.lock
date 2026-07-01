@@ -2792,6 +2792,7 @@ dependencies = [
  "vey-io-sys",
  "vey-jemalloc",
  "vey-journal",
+ "vey-reuseport",
  "vey-runtime",
  "vey-socket",
  "vey-statsd-client",

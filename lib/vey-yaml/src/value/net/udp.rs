@@ -191,6 +191,11 @@ pub fn as_udp_conn_track_config(value: &Yaml) -> anyhow::Result<UdpConnectionTra
             config.set_max_sessions(max_sessions);
             Ok(())
         }
+        "ebpf_conn_track_size" => {
+            let size = crate::value::as_nonzero_u32(v)?;
+            config.set_ebpf_conn_track_size(size);
+            Ok(())
+        }
         "dispatch_queue_size" => {
             let queue_size = crate::value::as_nonzero_usize(v)?;
             config.set_dispatch_queue_size(queue_size);

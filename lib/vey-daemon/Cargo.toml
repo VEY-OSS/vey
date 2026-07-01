@@ -53,10 +53,12 @@ libc.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 vey-journal.workspace = true
+vey-reuseport = { workspace = true, optional = true }
 
 [features]
 default = []
 jemalloc = ["dep:vey-jemalloc"]
+ebpf = ["dep:vey-reuseport"]
 event-log = ["dep:vey-fluentd"]
 register = ["vey-yaml/http", "dep:http", "dep:serde_json", "dep:vey-http"]
 quic = ["dep:quinn", "vey-types/acl-rule"]

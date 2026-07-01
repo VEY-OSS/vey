@@ -131,7 +131,7 @@ impl<T: QuitAction> QuitLoop<T> {
                             Ok(None) => break 'outer,
                             Err(_) => {
                                 if is_restart {
-                                    // the new process may be failed to start, so we consume
+                                    // the new process may be failed to start, so we resume
                                     info!(
                                         "timeout to wait StartGracefulShutdown request, will resume"
                                     );
@@ -140,7 +140,7 @@ impl<T: QuitAction> QuitLoop<T> {
                                     continue 'outer;
                                 } else {
                                     // treat timeout to stop
-                                    info!("timeout to wait new request, will stop");
+                                    info!("timeout to wait new controller request, will stop");
                                     self.release_controller().await;
                                     break;
                                 }

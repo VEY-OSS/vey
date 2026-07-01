@@ -684,7 +684,19 @@ It consists of the following fields:
 
   This set the max tracked udp connections.
 
-  **default**: 4096
+  **default**: 32768
+
+* ebpf_conn_track_size
+
+  **optional**, **type**: nonzero u32
+
+  Set the global ebpf conn_track map size. The value is only used when the conn_track map has not been pinned.
+
+  **default**: 1048576
+
+  .. availability::
+
+    - ``vey-proxy``: available since ``1.13.6``
 
 * dispatch_queue_size
 
@@ -712,7 +724,7 @@ It consists of the following fields:
 
 .. availability::
 
-    - ``vey-proxy``: available since ``1.13.3``
+  - ``vey-proxy``: available since ``1.13.3``
 
 .. _conf_value_happy_eyeballs:
 

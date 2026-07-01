@@ -5,7 +5,7 @@
  */
 
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 
 use anyhow::anyhow;
 use num_traits::ToPrimitive;
@@ -205,6 +205,7 @@ impl UdpListenConfig {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct UdpConnectionTrackConfig {
     max_sessions: NonZeroUsize,
+    ebpf_conn_track_size: NonZeroU32,
     dispatch_queue_size: NonZeroUsize,
     send_queue_size: NonZeroUsize,
     batch_recv_size: NonZeroUsize,
@@ -213,7 +214,8 @@ pub struct UdpConnectionTrackConfig {
 impl Default for UdpConnectionTrackConfig {
     fn default() -> Self {
         UdpConnectionTrackConfig {
-            max_sessions: unsafe { NonZeroUsize::new_unchecked(4096) },
+            max_sessions: unsafe { NonZeroUsize::new_unchecked(32768) },
+            ebpf_conn_track_size: unsafe { NonZeroU32::new_unchecked(1048576) },
             dispatch_queue_size: unsafe { NonZeroUsize::new_unchecked(32) },
             send_queue_size: unsafe { NonZeroUsize::new_unchecked(512) },
             batch_recv_size: unsafe { NonZeroUsize::new_unchecked(16) },
@@ -230,6 +232,16 @@ impl UdpConnectionTrackConfig {
     #[inline]
     pub fn set_max_sessions(&mut self, max_sessions: NonZeroUsize) {
         self.max_sessions = max_sessions;
+    }
+
+    #[inline]
+    pub fn ebpf_conn_track_size(&self) -> NonZeroU32 {
+        self.ebpf_conn_track_size
+    }
+
+    #[inline]
+    pub fn set_ebpf_conn_track_size(&mut self, ebpf_conn_track_size: NonZeroU32) {
+        self.ebpf_conn_track_size = ebpf_conn_track_size;
     }
 
     #[inline]

@@ -5,6 +5,7 @@
 
 use std::io;
 use std::net::{IpAddr, SocketAddr};
+use std::num::NonZeroU32;
 use std::os::fd::AsFd;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::{Path, PathBuf};
@@ -25,7 +26,7 @@ const NAME_PROGRAM: &str = "udp_select_reuseport";
 #[derive(IntoBytes, Immutable)]
 #[repr(C)]
 struct SocketId {
-    pid: u32,
+    pid: i32,
     generation: u32,
     worker: u32,
 }
@@ -33,7 +34,7 @@ struct SocketId {
 #[derive(IntoBytes, Immutable)]
 #[repr(C)]
 struct ProcMapKey {
-    pid: u32,
+    pid: i32,
     generation: u32,
 }
 
@@ -45,14 +46,14 @@ struct ProcMapValue {
 }
 
 struct ReadOnlyData {
-    load_pid: u32,
+    load_pid: i32,
     load_generation: u32,
 }
 
 pub struct UdpSocketSelector {
     pin_dir: PathBuf,
-    conn_track_max_entries: u32,
-    pid: u32,
+    conn_track_max_entries: NonZeroU32,
+    pid: i32,
     generation: u32,
     sockets: Vec<RawFd>,
     proc_map_handle: Option<MapHandle>,
@@ -65,10 +66,10 @@ impl UdpSocketSelector {
     }
 
     pub fn new(
-        pid: u32,
+        pid: i32,
         generation: u32,
         addr: SocketAddr,
-        conn_track_max_entries: u32,
+        conn_track_max_entries: NonZeroU32,
     ) -> anyhow::Result<Self> {
         let ip = match addr.ip() {
             IpAddr::V4(ip) => ip.to_ipv6_compatible(), // IPv4 "." is not allowed in path
@@ -148,8 +149,9 @@ impl UdpSocketSelector {
             };
             match name {
                 NAME_CONN_TRACK => {
+                    let max_entries = self.conn_track_max_entries.get();
                     if let Ok(handle) = MapHandle::from_pinned_path(&conn_track_path) {
-                        if handle.max_entries() != self.conn_track_max_entries {
+                        if handle.max_entries() != max_entries {
                             warn!(
                                 "udp conn_track map {} already pinned with max entries {}, delete it first if you want to set max entries to {}",
                                 conn_track_path.display(),
@@ -165,10 +167,9 @@ impl UdpSocketSelector {
                             )
                         })?;
                     } else {
-                        map.set_max_entries(self.conn_track_max_entries)
-                            .map_err(|e| {
-                                anyhow!("failed to set max entries for conn_track map: {e}")
-                            })?;
+                        map.set_max_entries(max_entries).map_err(|e| {
+                            anyhow!("failed to set max entries for conn_track map: {e}")
+                        })?;
                     }
                 }
                 NAME_SOCKET_MAP => {
