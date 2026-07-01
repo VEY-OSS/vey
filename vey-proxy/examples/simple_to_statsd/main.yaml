@@ -5,7 +5,7 @@ runtime:
 stat:
   target:
     udp: 127.0.0.1:8125
-  emit_duration: 2s
+  emit_interval: 2s
 
 controller:
   local:

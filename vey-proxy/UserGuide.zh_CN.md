@@ -131,7 +131,7 @@ stat:
     udp: 127.0.0.1:8125 # StatsD的UDP套接字地址
     # unix: /run/statsd.sock
   prefix: vey-proxy       # 打点名称前缀，比如 server.task.total 会转变为 vey-proxy.server.task.total
-  emit_duration: 200ms  # 打点间隔
+  emit_interval: 200ms  # 打点间隔
 ```
 
 具体metrics定义在 [metrics](../sphinx/vey-proxy/metrics) 文件夹下，建议生成sphinx html文档后查看。

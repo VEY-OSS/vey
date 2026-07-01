@@ -288,7 +288,7 @@ where
     };
     // simple runtime stats
     let runtime_stats_handler =
-        if let Some((mut statsd_client, emit_duration)) = proc_args.new_statsd_client() {
+        if let Some((mut statsd_client, emit_interval)) = proc_args.new_statsd_client() {
             let runtime_stats = target.fetch_runtime_stats();
             let quit_notifier = quit_notifier.clone();
             let handler = std::thread::Builder::new()
@@ -302,7 +302,7 @@ where
                             break;
                         }
 
-                        std::thread::sleep(emit_duration);
+                        std::thread::sleep(emit_interval);
                     }
                 })
                 .map_err(|e| anyhow!("failed to create runtime stats thread: {e}"))?;
@@ -314,7 +314,7 @@ where
     let histogram_stats_handler = if let Some(mut histogram) = target.take_histogram() {
         let quit_notifier = quit_notifier.clone();
         let thread_builder = std::thread::Builder::new().name("histogram".into());
-        if let Some((mut statsd_client, emit_duration)) = proc_args.new_statsd_client() {
+        if let Some((mut statsd_client, emit_interval)) = proc_args.new_statsd_client() {
             let handler = thread_builder
                 .spawn(move || {
                     loop {
@@ -325,7 +325,7 @@ where
                             break;
                         }
 
-                        std::thread::sleep(emit_duration);
+                        std::thread::sleep(emit_interval);
                     }
                     histogram
                 })
