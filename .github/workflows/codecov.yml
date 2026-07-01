@@ -167,6 +167,9 @@ jobs:
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
+      - name: Install wait4x
+        run: |
+          sudo apt-get install wait4x
       - name: Listen udpdump port
         run: |
           nc -u -l -k 127.0.0.1 5555 >/dev/null &
@@ -235,6 +238,9 @@ jobs:
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
+      - name: Install wait4x
+        run: |
+          sudo apt-get install wait4x
       - name: Install thrift compiler
         run: |
           sudo apt-get install thrift-compiler
@@ -292,6 +298,9 @@ jobs:
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
+      - name: Install wait4x
+        run: |
+          sudo apt-get install wait4x
       - name: Install and run fluent-bit
         run: |
           sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
