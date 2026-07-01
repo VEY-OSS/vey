@@ -54,7 +54,7 @@ jobs:
           sudo apt-get install capnproto libjemalloc-dev libmimalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
           sudo apt-get install libbpf-dev linux-bpf-dev
       - name: Cargo build
-        run: cargo build --features jemalloc,lua54
+        run: cargo build --features jemalloc,ebpf,lua54
       - name: Cargo test
         run: cargo test --workspace --features jemalloc,lua54
   clippy:
@@ -76,4 +76,4 @@ jobs:
           sudo apt-get install capnproto libjemalloc-dev libmimalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
           sudo apt-get install libbpf-dev linux-bpf-dev
       - name: Cargo clippy
-        run: cargo clippy --tests --workspace --features jemalloc,lua54 -- --deny warnings
+        run: cargo clippy --tests --workspace --features jemalloc,ebpf,lua54 -- --deny warnings

@@ -19,7 +19,7 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	VEY_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --profile $(BUILD_PROFILE) \
-	    --no-default-features --features jemalloc,$(LUA_FEATURE),python,rustls-ring,quic,$(CARES_FEATURE) \
+	    --no-default-features --features jemalloc,ebpf,$(LUA_FEATURE),python,rustls-ring,quic,$(CARES_FEATURE) \
 	    --package vey-proxy --package vey-proxy-ctl --package vey-proxy-lua --package vey-proxy-ftp
 
 override_dh_auto_install:

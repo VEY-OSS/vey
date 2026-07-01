@@ -149,6 +149,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libjemalloc-dev libc-ares-dev libssl-dev libpython3-dev liblua5.4-dev
+          sudo apt-get install libbpf-dev linux-bpf-dev
       - name: Install CA Certificates
         run: |
           sudo apt-get install ca-certificates

@@ -3457,6 +3457,7 @@ dependencies = [
  "vey-proxy-proto",
  "vey-redis-client",
  "vey-resolver",
+ "vey-reuseport",
  "vey-rustls-provider",
  "vey-slog-types",
  "vey-smtp-proto",
