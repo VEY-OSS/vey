@@ -688,7 +688,49 @@ where
             }
         }
 
+        #[cfg(feature = "ebpf")]
+        self.run_wait_all(listen_addr, event_recv_buf, rt_state, ct_table)
+            .await;
+
         self.post_stop();
+    }
+
+    #[cfg(feature = "ebpf")]
+    async fn run_wait_all(
+        &mut self,
+        listen_addr: SocketAddr,
+        mut event_recv_buf: Vec<Event>,
+        mut rt_state: RuntimeState,
+        mut ct_table: LruCache<ClientConnectionKey, StreamDispatcher, FixedState>,
+    ) {
+        loop {
+            tokio::select! {
+                biased;
+
+                _ = rt_state.event_receiver.recv_many(&mut event_recv_buf, EVENT_RECV_BATCH_SIZE) => {
+                    // the recv number won't be zero here
+                    self.handle_events(&mut event_recv_buf, &mut ct_table).await;
+                    event_recv_buf.clear();
+                    if ct_table.is_empty() {
+                        break;
+                    }
+                }
+                r = self.recv_packets(&rt_state.socket, listen_addr) => {
+                    match r {
+                        Ok(packets) => {
+                            for (cc_info, data) in packets {
+                                self.handle_packet(cc_info, data, &rt_state, &mut ct_table);
+                            }
+                        }
+                        Err(e) => {
+                            warn!("SRT[{}_v{}#{}] error receiving data from socket, error: {e}",
+                                self.server.name(), self.server_version, self.instance_id);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     async fn recv_packets(
