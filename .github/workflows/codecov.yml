@@ -64,6 +64,40 @@ jobs:
           name: lib-unit-test
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
+  lib-reuseport:
+    name: reuseport test
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: llvm-tools
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install libbpf-dev linux-bpf-dev
+      - name: Install binutils
+        run: |
+          cargo install cargo-binutils@0.3.6
+      - name: run unit test
+        run: |
+          cargo clean
+          ./scripts/coverage/lib_reuseport.sh
+      - name: Upload coverage data
+        uses: codecov/codecov-action@v7
+        with:
+          fail_ci_if_error: true
+          disable_search: true
+          files: output.lcov
+          flags: reuseport
+          name: lib-reuseport
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false
   vey-mkcert-test:
     name: vey-mkcert test
     runs-on: ubuntu-26.04
