@@ -24,10 +24,6 @@ fn main() {
         }
     }
 
-    if env::var("CARGO_FEATURE_PYTHON").is_ok() {
-        println!("cargo:rustc-env=VEY_PYTHON_FEATURE=python");
-    }
-
     if env::var("CARGO_FEATURE_QUIC").is_ok() {
         println!("cargo:rustc-env=VEY_QUIC_FEATURE=quinn");
     }

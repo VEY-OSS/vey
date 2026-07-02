@@ -19,19 +19,19 @@ const BUILD_DEBUG: &str = env!("VEY_BUILD_DEBUG");
 const PACKAGE_VERSION: Option<&str> = option_env!("VEY_PACKAGE_VERSION");
 
 const LUA_FEATURE: Option<&str> = option_env!("VEY_LUA_FEATURE");
-const PYTHON_FEATURE: Option<&str> = option_env!("VEY_PYTHON_FEATURE");
 const QUIC_FEATURE: Option<&str> = option_env!("VEY_QUIC_FEATURE");
 
 pub(crate) fn print_version(verbose_level: u8) {
     println!("{PKG_NAME} {VERSION}");
     if verbose_level > 0 {
         print!("Features:");
+        #[cfg(feature = "ebpf")]
+        print!(" ebpf");
         if let Some(lua) = LUA_FEATURE {
             print!(" {lua}");
         }
-        if let Some(py) = PYTHON_FEATURE {
-            print!(" {py}");
-        }
+        #[cfg(feature = "python")]
+        print!(" python");
         #[cfg(feature = "c-ares")]
         print!(" c-ares({})", vey_resolver::driver::c_ares::lib_version());
         if let Some(quic) = QUIC_FEATURE {
