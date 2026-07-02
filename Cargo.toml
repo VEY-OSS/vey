@@ -49,6 +49,7 @@ members = [
     "lib/vey-openssl",
     "lib/vey-redis-client",
     "lib/vey-resolver",
+    "lib/vey-reuseport",
     "lib/vey-runtime",
     "lib/vey-rustls-provider",
     "lib/vey-slog-types",
@@ -109,6 +110,7 @@ chrono = { version = "0.4.45", default-features = false }
 ascii = "1.0"
 humanize-rs = "0.1"
 zeroize = "1.8"
+zerocopy = { version = "0.8", default-features = false, features = ["derive"] }
 #
 portable-atomic = "1.9"
 itoa = "1.0"
@@ -187,6 +189,7 @@ capnpc = "0.26"
 libc = "0.2.182"
 rustix = { version = "1.1", default-features = false }
 windows-sys = "0.61"
+socket2 = { version = "0.6.4", features = ["all"] }
 #
 serde = "1.0"
 yaml-rust = { package = "yaml-rust2", version = "0.11" }
@@ -233,6 +236,7 @@ vey-msgpack = { version = "0.4", path = "lib/vey-msgpack" }
 vey-openssl = { version = "0.4", path = "lib/vey-openssl" }
 vey-redis-client = { version = "0.3", path = "lib/vey-redis-client" }
 vey-resolver = { version = "0.9", path = "lib/vey-resolver" }
+vey-reuseport = { version = "0.1", path = "lib/vey-reuseport" }
 vey-runtime = { version = "0.5", path = "lib/vey-runtime" }
 vey-rustls-provider = { version = "0.1", path = "lib/vey-rustls-provider" }
 vey-slog-types = { version = "0.3", path = "lib/vey-slog-types" }

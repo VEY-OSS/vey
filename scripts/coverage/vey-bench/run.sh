@@ -3,13 +3,13 @@
 
 # start docker compose services (httpbin, influxdb, graphite, nginx)
 docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-bench/docker-compose.yml up -d
-sleep 2
 
 # start vey-proxy
 "${PROJECT_DIR}"/target/debug/vey-proxy -c "${RUN_DIR}"/vey-proxy.yaml -G "${TEST_NAME}" &
 PROXY_PID=$!
 
 # start vey-statsd
+wait4x tcp 127.0.0.1:8181
 [ -n "${INFLUX_TOKEN}" ] || INFLUX_TOKEN=$(curl -X POST http://127.0.0.1:8181/api/v3/configure/token/admin | jq ".token" -r)
 export INFLUX_TOKEN
 "${PROJECT_DIR}"/target/debug/vey-statsd -c "${RUN_DIR}"/vey-statsd.yaml -G ${TEST_NAME} &

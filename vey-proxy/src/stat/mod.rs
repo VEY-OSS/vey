@@ -32,7 +32,7 @@ fn build_statsd_client(config: &StatsdClientConfig) -> anyhow::Result<StatsdClie
 fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<()>> {
     let mut client = build_statsd_client(config)?;
 
-    let emit_duration = config.emit_interval;
+    let emit_interval = config.emit_interval;
     let handle = std::thread::Builder::new()
         .name("stat-main".into())
         .spawn(move || {
@@ -58,7 +58,7 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
                     break;
                 }
 
-                vey_daemon::stat::emit::wait_duration(emit_duration, instant_start);
+                vey_daemon::stat::emit::wait_duration(emit_interval, instant_start);
             }
         })
         .map_err(|e| anyhow!("failed to spawn thread: {e:?}"))?;
@@ -68,7 +68,7 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
 fn spawn_user_site_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<()>> {
     let mut client = build_statsd_client(config)?;
 
-    let emit_duration = config.emit_interval;
+    let emit_interval = config.emit_interval;
     let handle = std::thread::Builder::new()
         .name("stat-user-site".into())
         .spawn(move || {
@@ -84,7 +84,7 @@ fn spawn_user_site_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHan
                     break;
                 }
 
-                vey_daemon::stat::emit::wait_duration(emit_duration, instant_start);
+                vey_daemon::stat::emit::wait_duration(emit_interval, instant_start);
             }
         })
         .map_err(|e| anyhow!("failed to spawn thread: {e:?}"))?;

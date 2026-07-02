@@ -88,6 +88,7 @@ vey-msgpack.workspace = true
 vey-openssl.workspace = true
 vey-redis-client = { workspace = true, features = ["yaml"] }
 vey-resolver = { workspace = true, features = ["yaml", "hickory"] }
+vey-reuseport = { workspace = true, optional = true }
 vey-rustls-provider.workspace = true
 vey-slog-types = { workspace = true, features = ["auth", "http", "openssl", "socket"] }
 vey-smtp-proto.workspace = true
@@ -115,6 +116,8 @@ jemalloc = ["dep:vey-jemalloc", "vey-daemon/jemalloc"]
 mimalloc = ["dep:vey-mimalloc"]
 vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]
+ebpf = ["vey-daemon/ebpf"]
+vendored-ebpf = ["ebpf", "vey-reuseport/vendored"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
 lua54 = ["lua", "mlua/lua54"]

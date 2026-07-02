@@ -71,7 +71,7 @@ jobs:
           command: |
             apt-get install -y pkgconf cmake capnproto
             apt-get install -y libclang-dev
-            apt-get install -y libssl-dev libc-ares-dev libjemalloc-dev
+            apt-get install -y libssl-dev libc-ares-dev libjemalloc-dev libbpf-dev linux-bpf-dev
             apt-get install -y python3-dev liblua5.4-dev
       - restore_cache:
           name: Restore source tarball
@@ -123,7 +123,7 @@ jobs:
             dnf install -y 'dnf-command(config-manager)'
             dnf config-manager --set-enabled devel
             dnf install -y pkgconf gcc make cmake
-            dnf install -y openssl-devel c-ares-devel
+            dnf install -y openssl-devel c-ares-devel libbpf-devel
             dnf install -y python3-devel lua-devel
       - when:
           condition:
@@ -174,7 +174,7 @@ jobs:
           name: Install dev tools and libs
           command: |
             zypper install -y pkgconf gcc make cmake
-            zypper install -y openssl-devel c-ares-devel
+            zypper install -y openssl-devel c-ares-devel libbpf-devel
             zypper install -y python3-devel lua-devel
       - restore_cache:
           name: Restore source tarball

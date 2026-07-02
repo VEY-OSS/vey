@@ -141,7 +141,7 @@ stat:
     udp: 127.0.0.1:8125 # StatsD UDP socket
     # unix: /run/statsd.sock
   prefix: vey-proxy     # Metric prefix, for example server.task.total becomes vey-proxy.server.task.total
-  emit_duration: 200ms  # Emission interval
+  emit_interval: 200ms  # Emission interval
 ```
 
 Metric definitions are under [metrics](../sphinx/vey-proxy/metrics). Generating the Sphinx HTML documentation makes

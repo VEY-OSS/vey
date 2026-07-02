@@ -46,8 +46,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto musl-tools
+          sudo apt-get install autoconf autopoint flex bison gawk
       - name: Cargo build
-        run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares
+        run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features secure-vendored-mimalloc,vendored-ebpf,${{ matrix.feature }},quic,vendored-c-ares
   musl-clang:
     name: musl-clang
     runs-on: ubuntu-latest
@@ -77,12 +78,13 @@ jobs:
       - name: Install dependencies
         run: |
           apk add --no-cache musl-dev linux-headers libc++-dev llvm-libunwind-static
+          apk add --no-cache autoconf automake argp-standalone gettext-tiny flex bison gawk
           apk add --no-cache clang lld capnproto-dev clang-libclang cmake make
       - name: Install Go for AWS-LC-FIPS
         if: contains(matrix.feature, 'vendored-aws-lc-fips')
         run: apk add --no-cache go perl nasm
       - name: Cargo build
-        run: cargo $UNSTABLE_OPTIONS build --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares
+        run: cargo $UNSTABLE_OPTIONS build --no-default-features --features secure-vendored-mimalloc,vendored-ebpf,${{ matrix.feature }},quic,vendored-c-ares
   musl-clang-libcxx:
     name: musl-clang-libc++
     runs-on: ubuntu-latest
@@ -112,9 +114,10 @@ jobs:
       - name: Install dependencies
         run: |
           apk add --no-cache musl-dev linux-headers libc++-dev libc++-static llvm-libunwind-static
+          apk add --no-cache autoconf automake argp-standalone gettext-tiny flex bison gawk
           apk add --no-cache clang lld capnproto-dev clang-libclang cmake make
       - name: Cargo build
-        run: cargo $UNSTABLE_OPTIONS build --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares
+        run: cargo $UNSTABLE_OPTIONS build --no-default-features --features secure-vendored-mimalloc,vendored-ebpf,${{ matrix.feature }},quic,vendored-c-ares
   msvc-vcpkg:
     name: msvc-vcpkg
     runs-on: windows-latest

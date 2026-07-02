@@ -164,7 +164,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
         let rsp = self.recv_response(reader).await?;
         self.close_connection = !rsp.keep_alive();
         if let Err(e) = self.exporter.check_response(rsp, &self.rsp_body_buf) {
-            warn!("exporter {}: error response: {e:?}", self.config.exporter);
+            warn!("exporter {}: error response: {e}", self.config.exporter);
         }
         Ok(())
     }

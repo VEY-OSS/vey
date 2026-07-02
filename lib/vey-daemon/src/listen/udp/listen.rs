@@ -16,6 +16,8 @@ use std::collections::VecDeque;
 use std::future::poll_fn;
 use std::io::{self, IoSlice, IoSliceMut};
 use std::net::SocketAddr;
+#[cfg(all(target_os = "linux", feature = "ebpf"))]
+use std::os::fd::AsRawFd;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -33,6 +35,8 @@ use tokio::sync::{broadcast, mpsc};
 
 use vey_io_ext::{UdpMoveRecv, UdpMoveSend, UdpSocketExt};
 use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
+#[cfg(all(target_os = "linux", feature = "ebpf"))]
+use vey_reuseport::udp::UdpSocketSelector;
 use vey_types::net::{UdpConnectionTrackConfig, UdpListenConfig};
 
 use crate::listen::{ListenAliveGuard, ListenStats};
@@ -511,11 +515,21 @@ where
             }
         }
 
+        #[cfg(all(target_os = "linux", feature = "ebpf"))]
+        let mut udp_reuseport_selector = UdpSocketSelector::new(
+            rustix::process::getpid().as_raw_pid(),
+            self.server.version() as u32,
+            listen_config.address(),
+            self.conn_track.ebpf_conn_track_size(),
+        )?;
+
         for i in 0..instance_count {
             let mut runtime = self.create_instance();
             runtime.instance_id = i;
 
             let socket = vey_socket::udp::new_std_bind_listen(listen_config)?;
+            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            udp_reuseport_selector.add_socket(socket.as_raw_fd());
             let listen_addr = socket.local_addr()?;
             runtime.into_running(
                 socket,
@@ -524,6 +538,21 @@ where
                 server_reload_sender.subscribe(),
             );
         }
+
+        #[cfg(all(target_os = "linux", feature = "ebpf"))]
+        {
+            udp_reuseport_selector.load_and_attach()?;
+            let mut server_reload_receiver = server_reload_sender.subscribe();
+            tokio::spawn(async move {
+                while let Ok(cmd) = server_reload_receiver.recv().await {
+                    if matches!(cmd, ServerReloadCommand::QuitRuntime) {
+                        break;
+                    }
+                }
+                drop(udp_reuseport_selector);
+            });
+        }
+
         Ok(())
     }
 }

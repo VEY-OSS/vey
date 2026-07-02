@@ -50,4 +50,4 @@ jobs:
       - name: Cargo clippy
         run: cargo clippy --tests --features jemalloc,lua55 -- --deny warnings
       - name: Cargo test
-        run: cargo test --workspace --features jemalloc,lua55 --exclude vey-journal
+        run: cargo test --workspace --features jemalloc,lua55 --exclude vey-journal --exclude vey-reuseport

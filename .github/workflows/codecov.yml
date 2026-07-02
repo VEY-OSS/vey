@@ -31,7 +31,7 @@ env:
 jobs:
   lib-unit-test:
     name: lib unit test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
@@ -45,7 +45,8 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install capnproto libjemalloc-dev libmimalloc-dev libc-ares-dev libssl-dev liblua5.4-dev
+          sudo apt-get install capnproto libjemalloc-dev libmimalloc-dev libc-ares-dev libssl-dev libpython3-dev liblua5.4-dev
+          sudo apt-get install libbpf-dev linux-bpf-dev
       - name: Install binutils
         run: |
           cargo install cargo-binutils@0.3.6
@@ -64,7 +65,7 @@ jobs:
           verbose: false
   vey-mkcert-test:
     name: vey-mkcert test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
@@ -97,7 +98,7 @@ jobs:
           verbose: false
   vey-keyless-test:
     name: vey-keyless test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
@@ -148,6 +149,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libjemalloc-dev libc-ares-dev libssl-dev libpython3-dev liblua5.4-dev
+          sudo apt-get install libbpf-dev linux-bpf-dev
       - name: Install CA Certificates
         run: |
           sudo apt-get install ca-certificates
@@ -165,6 +167,9 @@ jobs:
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
+      - name: Install wait4x
+        run: |
+          sudo apt-get install wait4x
       - name: Listen udpdump port
         run: |
           nc -u -l -k 127.0.0.1 5555 >/dev/null &
@@ -233,6 +238,9 @@ jobs:
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
+      - name: Install wait4x
+        run: |
+          sudo apt-get install wait4x
       - name: Install thrift compiler
         run: |
           sudo apt-get install thrift-compiler
@@ -269,7 +277,7 @@ jobs:
           verbose: false
   vey-statsd-test:
     name: vey-statsd test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
@@ -290,6 +298,9 @@ jobs:
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
+      - name: Install wait4x
+        run: |
+          sudo apt-get install wait4x
       - name: Install and run fluent-bit
         run: |
           sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh

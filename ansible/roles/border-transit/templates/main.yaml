@@ -29,6 +29,6 @@ stat:
   target:
     udp: 127.0.0.1:8125
   prefix: vey-proxy
-  emit_duration: 200ms
+  emit_interval: 200ms
 {% endif %}
 
