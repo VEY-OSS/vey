@@ -2,7 +2,7 @@
 docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-statsd/docker-compose.yml up -d
 
 # get influxdb auth token
-wait4x tcp 127.0.0.1:8181
+wait4x http http://127.0.0.1:8181
 [ -n "${INFLUXDB3_AUTH_TOKEN}" ] || INFLUXDB3_AUTH_TOKEN=$(curl -X POST http://127.0.0.1:8181/api/v3/configure/token/admin | jq ".token" -r)
 export INFLUXDB3_AUTH_TOKEN
 

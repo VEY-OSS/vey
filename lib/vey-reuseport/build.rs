@@ -65,6 +65,10 @@ fn compile_single(name: &str) {
         }
     }
 
+    if let Ok(dir) = env::var("DEP_BPF_INCLUDE") {
+        cmd.arg("-I").arg(&dir);
+    }
+
     cmd.arg("-g")
         .arg("-O2")
         .arg("-target")

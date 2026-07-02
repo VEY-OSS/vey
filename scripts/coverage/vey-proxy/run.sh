@@ -31,7 +31,7 @@ DCGEN_PID=$!
 IPLOC_PID=$!
 
 # start vey-statsd
-wait4x tcp 127.0.0.1:8181
+wait4x http http://127.0.0.1:8181
 [ -n "${INFLUXDB3_AUTH_TOKEN}" ] || INFLUXDB3_AUTH_TOKEN=$(curl -X POST http://127.0.0.1:8181/api/v3/configure/token/admin | jq ".token" -r)
 export INFLUXDB3_AUTH_TOKEN
 "${PROJECT_DIR}"/target/debug/vey-statsd -c "${RUN_DIR}"/vey-statsd.yaml -G ${TEST_NAME} &

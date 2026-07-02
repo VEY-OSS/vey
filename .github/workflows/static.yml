@@ -46,9 +46,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto musl-tools
-          sudp apt-get install autoconf autopoint flex bison gawk
       - name: Cargo build
-        run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features secure-vendored-mimalloc,vendored-ebpf,${{ matrix.feature }},quic,vendored-c-ares
+        run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares
   musl-clang:
     name: musl-clang
     runs-on: ubuntu-latest
@@ -64,6 +63,8 @@ jobs:
     strategy:
       matrix:
         feature:
+          - vendored-openssl,rustls-ring
+          - vendored-tongsuo,rustls-ring
           # aws-lc won't link with a c++ runtime library
           - vendored-aws-lc,rustls-aws-lc
           - vendored-aws-lc-fips,rustls-aws-lc-fips
@@ -78,11 +79,11 @@ jobs:
       - name: Install dependencies
         run: |
           apk add --no-cache musl-dev linux-headers libc++-dev llvm-libunwind-static
-          apk add --no-cache autoconf gettext flex bison gawk
-          apk add --no-cache clang lld capnproto-dev clang-libclang cmake make
+          apk add --no-cache autoconf automake argp-standalone musl-fts-dev musl-obstack-dev musl-libintl gettext-tiny flex bison gawk
+          apk add --no-cache clang lld capnproto-dev clang-libclang cmake make perl nasm
       - name: Install Go for AWS-LC-FIPS
         if: contains(matrix.feature, 'vendored-aws-lc-fips')
-        run: apk add --no-cache go perl nasm
+        run: apk add --no-cache go
       - name: Cargo build
         run: cargo $UNSTABLE_OPTIONS build --no-default-features --features secure-vendored-mimalloc,vendored-ebpf,${{ matrix.feature }},quic,vendored-c-ares
   musl-clang-libcxx:
@@ -114,7 +115,7 @@ jobs:
       - name: Install dependencies
         run: |
           apk add --no-cache musl-dev linux-headers libc++-dev libc++-static llvm-libunwind-static
-          apk add --no-cache autoconf gettext flex bison gawk
+          apk add --no-cache autoconf automake argp-standalone musl-fts-dev musl-obstack-dev musl-libintl gettext-tiny flex bison gawk
           apk add --no-cache clang lld capnproto-dev clang-libclang cmake make
       - name: Cargo build
         run: cargo $UNSTABLE_OPTIONS build --no-default-features --features secure-vendored-mimalloc,vendored-ebpf,${{ matrix.feature }},quic,vendored-c-ares
