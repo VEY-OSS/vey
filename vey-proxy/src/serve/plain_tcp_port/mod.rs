@@ -199,7 +199,7 @@ impl ServerInternal for PlainTcpPort {
 
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
         let listen_stats = server.get_listen_stats();
-        let runtime = ListenTcpRuntime::new(WrapArcServer(server), listen_stats);
+        let mut runtime = ListenTcpRuntime::new(WrapArcServer(server), listen_stats);
         runtime.run_all_instances(
             &self.config.listen,
             self.config.listen_in_worker,

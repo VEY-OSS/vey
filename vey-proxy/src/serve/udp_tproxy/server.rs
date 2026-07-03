@@ -262,7 +262,7 @@ impl ServerInternal for UdpTProxyServer {
     }
 
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
-        let runtime = ListenUdpRuntime::new(
+        let mut runtime = ListenUdpRuntime::new(
             WrapArcServer(server),
             self.listen_stats.clone(),
             self.config.conn_track,

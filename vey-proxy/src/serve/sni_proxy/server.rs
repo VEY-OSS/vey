@@ -243,7 +243,7 @@ impl ServerInternal for SniProxyServer {
             return Ok(());
         };
         let listen_stats = server.get_listen_stats();
-        let runtime = ListenTcpRuntime::new(WrapArcServer(server), listen_stats);
+        let mut runtime = ListenTcpRuntime::new(WrapArcServer(server), listen_stats);
         runtime
             .run_all_instances(
                 listen_config,

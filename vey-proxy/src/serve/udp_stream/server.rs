@@ -292,7 +292,7 @@ impl ServerInternal for UdpStreamServer {
         let Some(listen_config) = &self.config.listen else {
             return Ok(());
         };
-        let runtime = ListenUdpRuntime::new(
+        let mut runtime = ListenUdpRuntime::new(
             WrapArcServer(server),
             self.listen_stats.clone(),
             self.config.conn_track,

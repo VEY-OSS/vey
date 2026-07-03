@@ -4,6 +4,8 @@
  */
 
 use std::net::SocketAddr;
+#[cfg(all(target_os = "linux", feature = "ebpf"))]
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -14,6 +16,8 @@ use tokio::sync::broadcast;
 
 use vey_compat::CpuAffinity;
 use vey_io_ext::LimitedTcpListener;
+#[cfg(all(target_os = "linux", feature = "ebpf"))]
+use vey_reuseport::tcp::TcpSocketSelector;
 use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
 use vey_types::net::TcpListenConfig;
@@ -26,10 +30,11 @@ pub trait AcceptTcpServer: BaseServer {
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo);
 }
 
-#[derive(Clone)]
 pub struct ListenTcpRuntime<S> {
     server: S,
     listen_stats: Arc<ListenStats>,
+    #[cfg(all(target_os = "linux", feature = "ebpf"))]
+    socket_selector: Option<TcpSocketSelector>,
 }
 
 impl<S> ListenTcpRuntime<S>
@@ -40,6 +45,8 @@ where
         ListenTcpRuntime {
             server,
             listen_stats,
+            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            socket_selector: None,
         }
     }
 
@@ -60,7 +67,7 @@ where
     }
 
     pub fn run_all_instances(
-        &self,
+        &mut self,
         listen_config: &TcpListenConfig,
         listen_in_worker: bool,
         server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
@@ -73,11 +80,32 @@ where
             }
         }
 
+        #[cfg(all(target_os = "linux", feature = "ebpf"))]
+        match TcpSocketSelector::new(
+            rustix::process::getpid().as_raw_pid(),
+            self.server.version() as u32,
+            listen_config.address(),
+        ) {
+            Ok(selector) => {
+                self.socket_selector = Some(selector);
+            }
+            Err(e) => {
+                warn!(
+                    "reuseport ebpf on socket {} disabled due to error: {e}",
+                    listen_config.address()
+                );
+            }
+        }
+
         for i in 0..instance_count {
             let mut runtime = self.create_instance();
             runtime.instance_id = i;
 
             let listener = vey_socket::tcp::new_std_listener(listen_config)?;
+            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            if let Some(selector) = &mut self.socket_selector {
+                selector.add_socket(listener.as_raw_fd());
+            }
             runtime.into_running(
                 listener,
                 listen_in_worker,
@@ -85,6 +113,21 @@ where
                 server_reload_sender.subscribe(),
             );
         }
+
+        #[cfg(all(target_os = "linux", feature = "ebpf"))]
+        if let Some(mut selector) = self.socket_selector.take() {
+            selector.load_and_attach()?;
+            let mut server_reload_receiver = server_reload_sender.subscribe();
+            tokio::spawn(async move {
+                while let Ok(cmd) = server_reload_receiver.recv().await {
+                    if matches!(cmd, ServerReloadCommand::QuitRuntime) {
+                        break;
+                    }
+                }
+                drop(selector);
+            });
+        }
+
         Ok(())
     }
 }

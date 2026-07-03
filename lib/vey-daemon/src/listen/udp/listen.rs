@@ -421,6 +421,8 @@ pub struct ListenUdpRuntime<S> {
     conn_track: UdpConnectionTrackConfig,
     packet_max_size: u16,
     listen_stats: Arc<ListenStats>,
+    #[cfg(all(target_os = "linux", feature = "ebpf"))]
+    socket_selector: Option<UdpSocketSelector>,
 }
 
 impl<S> ListenUdpRuntime<S>
@@ -438,6 +440,8 @@ where
             conn_track,
             packet_max_size,
             listen_stats,
+            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            socket_selector: None,
         }
     }
 
@@ -502,7 +506,7 @@ where
     }
 
     pub fn run_all_instances(
-        &self,
+        &mut self,
         listen_config: &UdpListenConfig,
         listen_in_worker: bool,
         server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
@@ -516,12 +520,22 @@ where
         }
 
         #[cfg(all(target_os = "linux", feature = "ebpf"))]
-        let mut udp_reuseport_selector = UdpSocketSelector::new(
+        match UdpSocketSelector::new(
             rustix::process::getpid().as_raw_pid(),
             self.server.version() as u32,
             listen_config.address(),
             self.conn_track.ebpf_conn_track_size(),
-        )?;
+        ) {
+            Ok(selector) => {
+                self.socket_selector = Some(selector);
+            }
+            Err(e) => {
+                warn!(
+                    "reuseport ebpf on socket {} disabled due to error {e}",
+                    listen_config.address()
+                );
+            }
+        }
 
         for i in 0..instance_count {
             let mut runtime = self.create_instance();
@@ -529,7 +543,9 @@ where
 
             let socket = vey_socket::udp::new_std_bind_listen(listen_config)?;
             #[cfg(all(target_os = "linux", feature = "ebpf"))]
-            udp_reuseport_selector.add_socket(socket.as_raw_fd());
+            if let Some(selector) = &mut self.socket_selector {
+                selector.add_socket(socket.as_raw_fd());
+            }
             let listen_addr = socket.local_addr()?;
             runtime.into_running(
                 socket,
@@ -540,8 +556,8 @@ where
         }
 
         #[cfg(all(target_os = "linux", feature = "ebpf"))]
-        {
-            udp_reuseport_selector.load_and_attach()?;
+        if let Some(mut selector) = self.socket_selector.take() {
+            selector.load_and_attach()?;
             let mut server_reload_receiver = server_reload_sender.subscribe();
             tokio::spawn(async move {
                 while let Ok(cmd) = server_reload_receiver.recv().await {
@@ -549,7 +565,7 @@ where
                         break;
                     }
                 }
-                drop(udp_reuseport_selector);
+                drop(selector);
             });
         }
 
