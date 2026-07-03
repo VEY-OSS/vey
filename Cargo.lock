@@ -139,9 +139,9 @@ checksum = "76a2e8124351fda1ef8aaaa3bbd7ebbcb486bbcd4225aca0aa0d84bb2db8fecb"
 
 [[package]]
 name = "arrayvec"
-version = "0.7.7"
+version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f02882884d3e1bc524fb12c79f107f6ad0e1cfd498c536ffb494301740995dfe"
+checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 
 [[package]]
 name = "ascii"
@@ -416,18 +416,18 @@ dependencies = [
 
 [[package]]
 name = "capnp"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71338171543626713e427635f7de390328d9e85828a816a0c88d959032b34a2f"
+checksum = "7436c94a2012ebd7847d2a3b5756f02603ddda4026faae19d01df6a3e37084db"
 dependencies = [
  "embedded-io",
 ]
 
 [[package]]
 name = "capnp-futures"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a732246b9523a962319faa1000b163645721accbc759cdf296f5f8424a97bdc"
+checksum = "e2a0655816a8c19628e54f9f9c373549e4a7166effd0cf92c3d05e3426e85d4e"
 dependencies = [
  "capnp",
  "futures-channel",
@@ -445,9 +445,9 @@ dependencies = [
 
 [[package]]
 name = "capnp-rpc"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09a77734dd5aa0dbbc2e1a5953a80cef75c11af289641cdaeb59cce38b11e2e1"
+checksum = "ea82a287f0c2abac618a94f17ad93097fefc7368196f33f4635ed08236ee7bd9"
 dependencies = [
  "capnp",
  "capnp-futures",
@@ -1088,7 +1088,7 @@ dependencies = [
  "idna",
  "ipnet",
  "jni",
- "rand 0.10.1",
+ "rand 0.10.2",
  "thiserror",
  "tinyvec",
  "tokio",
@@ -1107,7 +1107,7 @@ dependencies = [
  "ipnet",
  "jni",
  "once_cell",
- "rand 0.10.1",
+ "rand 0.10.2",
  "ring",
  "thiserror",
  "tinyvec",
@@ -1296,9 +1296,9 @@ dependencies = [
 
 [[package]]
 name = "inotify-sys"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fda9741ca16536952da2ecaa6105c2f4653fa6f0724681df6d2414c4106d0b0"
+checksum = "9ea94e891b3606826e9c998be69ddca42247dad8ad50b1649a5cb7e1c9ae06fd"
 dependencies = [
  "libc",
 ]
@@ -1913,9 +1913,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2e8e8bcc7961af1fdac401278c6a831614941f6164ee3bf4ce61b7edb162207"
+checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
 dependencies = [
  "chacha20",
  "getrandom 0.4.3",
@@ -2052,9 +2052,9 @@ dependencies = [
 
 [[package]]
 name = "rustc-hash"
-version = "2.1.2"
+version = "2.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94300abf3f1ae2e2b8ffb7b58043de3d399c73fa6f4b73826402a5c457614dbe"
+checksum = "6b1e7f9a428571be2dc5bc0505c13fb6bf936822b894ec87abf8a08a4e51742d"
 
 [[package]]
 name = "rustc_version"
@@ -2778,7 +2778,7 @@ dependencies = [
  "log",
  "lru",
  "quinn",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rustc-hash",
  "rustix",
  "serde_json",
@@ -3224,7 +3224,7 @@ dependencies = [
  "hex",
  "humanize-rs",
  "ip_network",
- "rand 0.10.1",
+ "rand 0.10.2",
  "regex",
  "rustls-pki-types",
  "serde_json",
@@ -3418,7 +3418,7 @@ dependencies = [
  "pyo3",
  "quinn",
  "radix_trie",
- "rand 0.10.1",
+ "rand 0.10.2",
  "redis",
  "regex",
  "rmpv",
@@ -3837,7 +3837,7 @@ dependencies = [
  "percent-encoding",
  "quinn",
  "radix_trie",
- "rand 0.10.1",
+ "rand 0.10.2",
  "regex",
  "rustc-hash",
  "rustls",
@@ -3892,7 +3892,7 @@ dependencies = [
  "humanize-rs",
  "ip_network",
  "log",
- "rand 0.10.1",
+ "rand 0.10.2",
  "regex",
  "rustls-pki-types",
  "url",
