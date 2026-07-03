@@ -1,0 +1,54 @@
+
+#include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
+
+const volatile __s32 load_pid = 0;
+const volatile __u32 load_generation = 0;
+
+struct socket_id {
+	__s32 pid;
+	__u32 generation;
+	__u32 worker;
+};
+
+struct proc_info_key {
+	__s32 pid;
+	__u32 generation;
+};
+
+struct proc_info_value {
+	__u32 count;
+	__u32 invalid;
+};
+
+struct proc_info_result {
+	const struct proc_info_key *k;
+	struct proc_info_value *v;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 32);
+	__type(key, struct proc_info_key);
+	__type(value, struct proc_info_value);
+} proc_map SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_SOCKHASH);
+	__uint(max_entries, 512);
+	__type(key, struct socket_id);
+	__type(value, __u64);
+} socket_map SEC(".maps");
+
+static long select_valid(void *map, const void *key, void *value, void *ctx)
+{
+	const struct proc_info_key *k = key;
+    struct proc_info_value *v = value;
+	struct proc_info_result *r = ctx;
+	if (v->invalid) {
+		return 0;
+	}
+	r->k = k;
+	r->v = v;
+	return 1;
+}

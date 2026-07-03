@@ -3,26 +3,9 @@
 
 #include "common.h"
 
-struct {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__uint(max_entries, 32768);
-	__type(key, __u32);
-	__type(value, struct socket_id);
-	__uint(map_flags, BPF_F_NO_COMMON_LRU | BPF_F_RDONLY);
-} conn_track SEC(".maps");
-
-SEC("sk_reuseport")
-int udp_select_reuseport(struct sk_reuseport_md *ctx)
+SEC("sk_reuseport/migrate")
+int tcp_select_reuseport(struct sk_reuseport_md *ctx)
 {
-	__u32 hash = ctx->hash;
-
-	struct socket_id *sock_id = bpf_map_lookup_elem(&conn_track, &hash);
-	if (sock_id) {
-		if (bpf_sk_select_reuseport(ctx, &socket_map, sock_id, 0) == 0)
-			return SK_PASS;
-		bpf_map_delete_elem(&conn_track, &hash);
-	}
-
 	__u32 random = bpf_get_prandom_u32();
 	struct socket_id selected = {};
 
@@ -37,7 +20,6 @@ int udp_select_reuseport(struct sk_reuseport_md *ctx)
 		selected.worker = random % main_value->count;
 		bpf_repeat(2) {
 			if (bpf_sk_select_reuseport(ctx, &socket_map, &selected, 0) == 0) {
-				bpf_map_update_elem(&conn_track, &hash, &selected, 0);
 				return SK_PASS;
 			}
 			selected.worker += 1;
@@ -59,7 +41,6 @@ int udp_select_reuseport(struct sk_reuseport_md *ctx)
 	selected.generation = r.k->generation;
 	selected.worker = random % r.v->count;
 	if (bpf_sk_select_reuseport(ctx, &socket_map, &selected, 0) == 0) {
-		bpf_map_update_elem(&conn_track, &hash, &selected, 0);
 		return SK_PASS;
 	} else {
 		// Mark the selected pid+generation as invalid

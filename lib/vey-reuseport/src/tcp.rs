@@ -4,7 +4,6 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
-use std::num::NonZeroU32;
 use std::os::fd::AsFd;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::{Path, PathBuf};
@@ -12,24 +11,21 @@ use std::{fs, ptr};
 
 use anyhow::anyhow;
 use libbpf_rs::{AsRawLibbpf, MapCore, MapFlags, MapHandle, OpenObject};
-use log::warn;
 use zerocopy::IntoBytes;
 
 use super::{ProcMapKey, ProcMapValue, ReadOnlyData, SocketId};
 
-const NAME_OBJECT: &str = "udp_bpf";
-const NAME_OBJECT_RODATA: &str = "udp_bpf.rodata";
-const NAME_CONN_TRACK: &str = "conn_track";
+const NAME_OBJECT: &str = "tcp_bpf";
+const NAME_OBJECT_RODATA: &str = "tcp_bpf.rodata";
 const NAME_SOCKET_MAP: &str = "socket_map";
 const NAME_PROC_MAP: &str = "proc_map";
-const NAME_PROGRAM: &str = "udp_select_reuseport";
+const NAME_PROGRAM: &str = "tcp_select_reuseport";
 
 #[unsafe(link_section = ".bpf.objs")]
-static BPF_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/udp.bpf.o"));
+static BPF_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tcp.bpf.o"));
 
-pub struct UdpSocketSelector {
+pub struct TcpSocketSelector {
     pin_dir: PathBuf,
-    conn_track_max_entries: NonZeroU32,
     pid: i32,
     generation: u32,
     sockets: Vec<RawFd>,
@@ -37,30 +33,24 @@ pub struct UdpSocketSelector {
     socket_map_handle: Option<MapHandle>,
 }
 
-impl UdpSocketSelector {
+impl TcpSocketSelector {
     pub fn pin_dir(&self) -> &Path {
         &self.pin_dir
     }
 
-    pub fn new(
-        pid: i32,
-        generation: u32,
-        addr: SocketAddr,
-        conn_track_max_entries: NonZeroU32,
-    ) -> anyhow::Result<Self> {
+    pub fn new(pid: i32, generation: u32, addr: SocketAddr) -> anyhow::Result<Self> {
         let ip = match addr.ip() {
             IpAddr::V4(ip) => ip.to_ipv6_compatible(), // IPv4 "." is not allowed in path
             IpAddr::V6(ip) => ip,
         };
-        let dir = format!("/sys/fs/bpf/vey-reuseport/udp/{ip}_{}", addr.port());
+        let dir = format!("/sys/fs/bpf/vey-reuseport/tcp/{ip}_{}", addr.port());
         let pin_dir = PathBuf::from(dir);
 
         fs::create_dir_all(&pin_dir)
             .map_err(|e| anyhow!("failed to create pin directory {}: {e}", pin_dir.display()))?;
 
-        Ok(UdpSocketSelector {
+        Ok(TcpSocketSelector {
             pin_dir,
-            conn_track_max_entries,
             pid,
             generation,
             sockets: Vec::new(),
@@ -78,7 +68,6 @@ impl UdpSocketSelector {
         builder
             .name(NAME_OBJECT)
             .map(NAME_OBJECT_RODATA, true)
-            .map(NAME_CONN_TRACK, false)
             .map(NAME_SOCKET_MAP, false)
             .map(NAME_PROC_MAP, false)
             .prog(NAME_PROGRAM);
@@ -115,8 +104,6 @@ impl UdpSocketSelector {
     pub fn load_and_attach(&mut self) -> anyhow::Result<()> {
         let mut open_object = self.open_object()?;
 
-        let mut conn_track_pin = true;
-        let conn_track_path = self.pin_dir.join(NAME_CONN_TRACK);
         let socket_map_path = self.pin_dir.join(NAME_SOCKET_MAP);
         let proc_map_path = self.pin_dir.join(NAME_PROC_MAP);
 
@@ -125,30 +112,6 @@ impl UdpSocketSelector {
                 continue;
             };
             match name {
-                NAME_CONN_TRACK => {
-                    let max_entries = self.conn_track_max_entries.get();
-                    if let Ok(handle) = MapHandle::from_pinned_path(&conn_track_path) {
-                        if handle.max_entries() != max_entries {
-                            warn!(
-                                "udp conn_track map {} already pinned with max entries {}, delete it first if you want to set max entries to {}",
-                                conn_track_path.display(),
-                                handle.max_entries(),
-                                self.conn_track_max_entries
-                            );
-                        }
-                        conn_track_pin = false;
-                        map.reuse_fd(handle.as_fd()).map_err(|e| {
-                            anyhow!(
-                                "failed to reuse already pinned {}: {e}",
-                                conn_track_path.display()
-                            )
-                        })?;
-                    } else {
-                        map.set_max_entries(max_entries).map_err(|e| {
-                            anyhow!("failed to set max entries for conn_track map: {e}")
-                        })?;
-                    }
-                }
                 NAME_SOCKET_MAP => {
                     if let Ok(handle) = MapHandle::from_pinned_path(&socket_map_path) {
                         map.reuse_fd(handle.as_fd()).map_err(|e| {
@@ -186,12 +149,6 @@ impl UdpSocketSelector {
                 .to_str()
                 .ok_or_else(|| anyhow!("invalid map name"))?;
             match name {
-                NAME_CONN_TRACK => {
-                    if conn_track_pin {
-                        map.pin(&conn_track_path)
-                            .map_err(|e| anyhow!("failed to pin conn_track map: {e}"))?;
-                    }
-                }
                 NAME_SOCKET_MAP => {
                     if self.socket_map_handle.is_none() {
                         map.pin(&socket_map_path)
@@ -304,7 +261,7 @@ impl UdpSocketSelector {
     }
 }
 
-impl Drop for UdpSocketSelector {
+impl Drop for TcpSocketSelector {
     fn drop(&mut self) {
         self.unregister_proc();
         self.unregister_sockets();

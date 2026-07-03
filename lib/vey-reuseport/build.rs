@@ -8,7 +8,14 @@ use std::process::Command;
 use std::{env, fs};
 
 fn main() {
+    let mut common = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    common.push("src");
+    common.push("bpf");
+    common.push("common.h");
+    println!("cargo:rerun-if-changed={}", common.display());
+
     compile_single("udp");
+    compile_single("tcp");
 }
 
 fn compile_single(name: &str) {
