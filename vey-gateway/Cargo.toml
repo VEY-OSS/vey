@@ -41,22 +41,23 @@ uuid.workspace = true
 bitflags.workspace = true
 kanal = { workspace = true, features = ["async"] }
 rustc-hash.workspace = true
-vey-macros.workspace = true
 vey-codec = { workspace = true, features = ["tls"] }
 vey-daemon = { workspace = true, features = ["event-log"] }
-vey-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls", "histogram"] }
-vey-std-ext.workspace = true
-vey-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
-vey-socket.workspace = true
-vey-io-ext = { workspace = true, features = ["openssl", "rustls"] }
-vey-openssl.workspace = true
-vey-statsd-client.workspace = true
 vey-histogram.workspace = true
-vey-slog-types.workspace = true
-vey-tls-ticket = { workspace = true, features = ["yaml"] }
-vey-rustls-provider.workspace = true
+vey-io-ext = { workspace = true, features = ["openssl", "rustls"] }
 vey-jemalloc = { workspace = true, optional = true }
+vey-macros.workspace = true
 vey-mimalloc = { workspace = true, optional = true }
+vey-openssl.workspace = true
+vey-reuseport = { workspace = true, optional = true }
+vey-rustls-provider.workspace = true
+vey-slog-types.workspace = true
+vey-socket.workspace = true
+vey-statsd-client.workspace = true
+vey-std-ext.workspace = true
+vey-tls-ticket = { workspace = true, features = ["yaml"] }
+vey-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
+vey-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls", "histogram"] }
 vey-gateway-proto = { path = "proto" }
 
 [build-dependencies]
@@ -68,6 +69,8 @@ jemalloc = ["dep:vey-jemalloc", "vey-daemon/jemalloc"]
 mimalloc = ["dep:vey-mimalloc"]
 vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]
+ebpf = ["vey-daemon/ebpf"]
+vendored-ebpf = ["ebpf", "vey-reuseport/vendored"]
 quic = ["vey-daemon/quic", "vey-yaml/quinn", "vey-types/quinn", "dep:quinn"]
 rustls-ring = ["vey-rustls-provider/rustls-ring", "vey-types/rustls-ring", "quinn?/rustls-ring"]
 rustls-aws-lc = ["vey-rustls-provider/rustls-aws-lc", "vey-types/rustls-aws-lc", "quinn?/rustls-aws-lc-rs"]

@@ -2939,6 +2939,7 @@ dependencies = [
  "vey-macros",
  "vey-mimalloc",
  "vey-openssl",
+ "vey-reuseport",
  "vey-rustls-provider",
  "vey-slog-types",
  "vey-socket",

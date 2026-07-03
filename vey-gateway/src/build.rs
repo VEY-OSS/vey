@@ -24,6 +24,8 @@ pub(crate) fn print_version(verbose_level: u8) {
     println!("{PKG_NAME} {VERSION}");
     if verbose_level > 0 {
         print!("Features:");
+        #[cfg(feature = "ebpf")]
+        print!(" ebpf");
         if let Some(quic) = QUIC_FEATURE {
             print!(" {quic}");
         }
