@@ -2,6 +2,9 @@ CHANGELOG
 
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
+v1.13.7:
+ - Compatibility: remove linux-bpf-dev from deb package build dependency
+
 v1.13.6:
  - Feature: add ebpf reuseport socket selector for TCP & UDP listen sockets on Linux
 
