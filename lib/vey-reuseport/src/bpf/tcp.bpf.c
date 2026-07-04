@@ -18,15 +18,22 @@ int tcp_select_reuseport(struct sk_reuseport_md *ctx)
 		selected.pid = load_pid;
 		selected.generation = load_generation;
 		selected.worker = random % main_value->count;
-		bpf_repeat(2) {
-			if (bpf_sk_select_reuseport(ctx, &socket_map, &selected, 0) == 0) {
-				return SK_PASS;
-			}
+
+		if (bpf_sk_select_reuseport(ctx, &socket_map, &selected, 0) == 0) {
+			return SK_PASS;
+		}
+
+		if (main_value->count > 1) {
+			// try another one in the same pid+generation group
 			selected.worker += 1;
 			if (selected.worker >= main_value->count) {
 				selected.worker -= main_value->count;
 			}
+			if (bpf_sk_select_reuseport(ctx, &socket_map, &selected, 0) == 0) {
+				return SK_PASS;
+			}
 		}
+
 		// Mark the selected pid+generation as invalid
 		__sync_fetch_and_add(&main_value->invalid, 1);
 	}

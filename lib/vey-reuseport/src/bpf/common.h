@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
+
+#ifndef VEY_REUSEPORT_COMMON_H
+#define VEY_REUSEPORT_COMMON_H 1
 
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
@@ -43,7 +48,7 @@ struct {
 static long select_valid(void *map, const void *key, void *value, void *ctx)
 {
 	const struct proc_info_key *k = key;
-    struct proc_info_value *v = value;
+	struct proc_info_value *v = value;
 	struct proc_info_result *r = ctx;
 	if (v->invalid) {
 		return 0;
@@ -52,3 +57,5 @@ static long select_valid(void *map, const void *key, void *value, void *ctx)
 	r->v = v;
 	return 1;
 }
+
+#endif
