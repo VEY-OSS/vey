@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: VEY-OSS <developers@vey.oss>
 Build-Depends: debhelper, pkg-config, capnproto,
- libjemalloc-dev, libssl-dev, libc-ares-dev, libbpf-dev, linux-bpf-dev,
+ libjemalloc-dev, libssl-dev, libc-ares-dev, libbpf-dev,
  libpython3-dev, liblua5.5-dev | liblua5.4-dev | libluajit-5.1-dev
 Standards-Version: 3.9.8
 Homepage: https://github.com/VEY-OSS/vey

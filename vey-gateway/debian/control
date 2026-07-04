@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: VEY-OSS Developers <developers@vey.oss>
 Build-Depends: debhelper, pkg-config, capnproto,
- libjemalloc-dev, libssl-dev, libbpf-dev, linux-bpf-dev
+ libjemalloc-dev, libssl-dev, libbpf-dev
 Standards-Version: 3.9.8
 Homepage: https://github.com/VEY-OSS/vey
 
