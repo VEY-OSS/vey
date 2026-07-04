@@ -131,6 +131,12 @@ pub fn as_tcp_listen_config(value: &Yaml) -> anyhow::Result<TcpListenConfig> {
                     config.set_follow_cpu_affinity(enable);
                     Ok(())
                 }
+                #[cfg(target_os = "linux")]
+                "fail_on_ebpf_error" => {
+                    let fail = crate::value::as_bool(v)?;
+                    config.set_fail_on_ebpf_error(fail);
+                    Ok(())
+                }
                 "keepalive" => {
                     let keepalive = as_tcp_keepalive_config(v)
                         .context(format!("invalid tcp keepalive config value for key {k}"))?;

@@ -8,6 +8,8 @@ use std::net::SocketAddr;
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
+#[cfg(all(target_os = "linux", feature = "ebpf"))]
+use anyhow::anyhow;
 use async_trait::async_trait;
 use log::{info, warn};
 use tokio::net::TcpStream;
@@ -90,8 +92,14 @@ where
                 self.socket_selector = Some(selector);
             }
             Err(e) => {
+                if listen_config.fail_on_ebpf_error() {
+                    return Err(anyhow!(
+                        "TCP {} ebpf reuseport socket selector create failed: {e}",
+                        listen_config.address()
+                    ));
+                }
                 warn!(
-                    "reuseport ebpf on socket {} disabled due to error: {e}",
+                    "reuseport ebpf on TCP socket {} disabled due to create error: {e}",
                     listen_config.address()
                 );
             }
@@ -116,7 +124,18 @@ where
 
         #[cfg(all(target_os = "linux", feature = "ebpf"))]
         if let Some(mut selector) = self.socket_selector.take() {
-            selector.load_and_attach()?;
+            if let Err(e) = selector.load_and_attach() {
+                if listen_config.fail_on_ebpf_error() {
+                    return Err(anyhow!(
+                        "TCP {} ebpf reuseport socket selector attach failed: {e}",
+                        listen_config.address()
+                    ));
+                }
+                warn!(
+                    "reuseport ebpf on TCP socket {} disabled due to attach error {e}",
+                    listen_config.address()
+                );
+            }
             let mut server_reload_receiver = server_reload_sender.subscribe();
             tokio::spawn(async move {
                 while let Ok(cmd) = server_reload_receiver.recv().await {

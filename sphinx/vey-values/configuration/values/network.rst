@@ -519,8 +519,20 @@ It consists of the following fields:
 
   .. availability::
 
-
      - ``vey-proxy``: available since ``1.11.3``
+
+* fail_on_ebpf_error
+
+  **optional**, **type**: bool
+
+  Set to true if the server should abort when ebpf reuseport attach failed.
+
+  **default**: false
+
+  .. availability::
+
+     - ``vey-proxy``: available since ``1.13.6``.
+     - ``vey-gateway``: available since ``0.4.0``.
 
 The yaml value for *listen* can be in the following formats:
 
@@ -647,6 +659,18 @@ It consists of the following fields:
     scale: 50%
 
   **default**: 0
+
+* fail_on_ebpf_error
+
+  **optional**, **type**: bool
+
+  Set to true if the server should abort when ebpf reuseport attach failed.
+
+  **default**: false
+
+  .. availability::
+
+     - ``vey-proxy``: available since ``1.13.6``.
 
 The yaml value for *listen* can be in the following formats:
 

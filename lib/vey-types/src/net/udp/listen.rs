@@ -39,6 +39,8 @@ pub struct UdpListenConfig {
     misc_opts: UdpMiscSockOpts,
     instance: usize,
     scale: usize,
+    #[cfg(target_os = "linux")]
+    fail_on_ebpf_error: bool,
 }
 
 impl Default for UdpListenConfig {
@@ -67,6 +69,8 @@ impl UdpListenConfig {
             misc_opts: UdpMiscSockOpts::default(),
             instance: 1,
             scale: 0,
+            #[cfg(target_os = "linux")]
+            fail_on_ebpf_error: false,
         }
     }
 
@@ -199,6 +203,17 @@ impl UdpListenConfig {
             let v = p.get() * numerator / denominator;
             self.scale = v;
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[inline]
+    pub fn fail_on_ebpf_error(&self) -> bool {
+        self.fail_on_ebpf_error
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn set_fail_on_ebpf_error(&mut self, fail: bool) {
+        self.fail_on_ebpf_error = fail;
     }
 }
 
