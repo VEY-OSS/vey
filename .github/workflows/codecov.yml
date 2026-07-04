@@ -208,11 +208,6 @@ jobs:
       - name: Listen udpdump port
         run: |
           nc -u -l -k 127.0.0.1 5555 >/dev/null &
-      - name: Install and run fluent-bit
-        run: |
-          sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
-          sudo cp ${{ github.workspace }}/scripts/coverage/vey-proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
-          sudo systemctl start fluent-bit
       - name: Backup /etc/hosts # delete this after systemd-resolved 261
         run: |
           sudo cp /etc/hosts /etc/hosts.backup
@@ -336,11 +331,6 @@ jobs:
       - name: Install wait4x
         run: |
           sudo apt-get install wait4x
-      - name: Install and run fluent-bit
-        run: |
-          sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
-          sudo cp ${{ github.workspace }}/scripts/coverage/vey-proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
-          sudo systemctl start fluent-bit
       - name: run unit test
         run: |
           ./scripts/coverage/vey-statsd.sh

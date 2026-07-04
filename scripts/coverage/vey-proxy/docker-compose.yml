@@ -37,6 +37,14 @@ services:
       - "127.0.0.1:2003:2003"
     restart: always
 
+  fluent-bit:
+    image: ghcr.io/fluent/fluent-bit
+    container_name: vey-proxy-fluent-bit
+    ports:
+      - "127.0.0.1:24224:24224"
+    volumes:
+      - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+
   glauth:
     image: ghcr.io/glauth/glauth:latest
     container_name: vey-proxy-glauth
