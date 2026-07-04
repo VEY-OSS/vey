@@ -2,6 +2,9 @@ CHANGELOG
 
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
+v1.13.6:
+ - Feature: add ebpf reuseport socket selector for TCP & UDP listen sockets on Linux
+
 v1.13.5:
  - Bug fix: fix support of user-site in facts user group
  - Feature: get the metrics/log/controller app name from the binary name instead of the crate name
