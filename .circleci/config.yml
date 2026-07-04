@@ -218,7 +218,6 @@ workflows:
                 - debian:bookworm
                 - ubuntu:26.04
                 - ubuntu:24.04
-                - ubuntu:22.04
       - build-rpm-dnf:
           requires:
             - build-source-tar

@@ -13,28 +13,14 @@ validation are welcome:
 
 ## Linux Distribution Support Policy
 
-For Linux distributions, the following policies and version lists define VEY's primary support targets. The code is
-still expected to work on other distributions and may also work on older versions, but those environments are not
-primary support targets.
+The following Linux distributions are fully supported:
 
-For the primary target Linux distributions listed below, VEY also provides prebuilt binary packages
-through [cloudsmith](https://cloudsmith.io/~vey-oss/repos/).
+- RHEL: 10, 9
+- Debian: 13, 12
+- Ubuntu: 26.04 LTS, 24.04 LTS
+- openSUSE Leap: 16.0
 
-- RHEL: only versions that are in Red Hat's Full Support phase are supported.
-- Debian: only versions that still receive security updates from the Debian Security Team are supported.
-- Ubuntu: only LTS releases that are still in Canonical's Standard Security Maintenance window are supported.
-- SUSE Enterprise: only currently supported openSUSE Leap releases are supported.
-
-Current supported versions as of 2026-04-27:
-
-This table is date-sensitive and should be updated when upstream vendor support windows change.
-
-| Distribution family | Support policy                              | Currently supported versions    |
-|---------------------|---------------------------------------------|---------------------------------|
-| RHEL                | Full Support only                           | 10, 9                           |
-| Debian              | Debian Security Team support only           | 13 (stable), 12 (oldstable)     |
-| Ubuntu              | LTS with Standard Security Maintenance only | 26.04 LTS, 24.04 LTS, 22.04 LTS |
-| openSUSE Leap       | Supported Leap releases only                | 16.0                            |
+Other Linux distributions with newer dependencies should also work. Old versions may work with some features disabled.
 
 ## Supported Architectures
 
