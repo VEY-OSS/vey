@@ -26,7 +26,10 @@ struct H1WebSocketTaskLoop {
     args: Arc<H1WebsocketArgs>,
     proc_args: Arc<ProcArgs>,
 
+    conn_used_times: u64,
+
     runtime_stats: Arc<HttpRuntimeStats>,
+    histogram_recorder: WebsocketHistogramRecorder,
 
     request_buf: Vec<u8>,
     response_buf: Vec<u8>,
@@ -34,16 +37,29 @@ struct H1WebSocketTaskLoop {
     task_rsp_sender: Option<oneshot::Sender<anyhow::Result<()>>>,
 }
 
+impl Drop for H1WebSocketTaskLoop {
+    fn drop(&mut self) {
+        if self.conn_used_times > 0 {
+            self.histogram_recorder
+                .record_conn_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
+        }
+    }
+}
+
 impl H1WebSocketTaskLoop {
     fn new(
         args: Arc<H1WebsocketArgs>,
         proc_args: Arc<ProcArgs>,
         runtime_stats: Arc<HttpRuntimeStats>,
+        histogram_recorder: WebsocketHistogramRecorder,
     ) -> Self {
         H1WebSocketTaskLoop {
             args,
             proc_args,
+            conn_used_times: 0,
             runtime_stats,
+            histogram_recorder,
             request_buf: Vec::new(),
             response_buf: Vec::new(),
             task_rsp_sender: None,
@@ -226,8 +242,14 @@ impl H1WebSocketTaskLoop {
                 break;
             }
 
+            if self.conn_used_times > 0 {
+                self.histogram_recorder
+                    .record_conn_used_times(self.conn_used_times);
+                self.conn_used_times = 0;
+            }
             match self.new_connection().await {
                 Ok(c) => {
+                    self.conn_used_times += 1;
                     if let Err(e) = self.run_with_connection(c, &mut req_receiver).await {
                         self.runtime_stats.add_conn_close_fail();
 
@@ -329,7 +351,12 @@ impl H1WebsocketTaskContext {
         runtime_stats: Arc<HttpRuntimeStats>,
         histogram_recorder: WebsocketHistogramRecorder,
     ) -> Self {
-        let task_loop = H1WebSocketTaskLoop::new(args.clone(), proc_args, runtime_stats.clone());
+        let task_loop = H1WebSocketTaskLoop::new(
+            args.clone(),
+            proc_args,
+            runtime_stats.clone(),
+            histogram_recorder.clone(),
+        );
         let (req_sender, req_receiver) = mpsc::channel(1);
         tokio::spawn(async move {
             task_loop.run(req_receiver).await;
