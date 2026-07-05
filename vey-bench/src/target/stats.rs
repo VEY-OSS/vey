@@ -126,7 +126,7 @@ impl GlobalState {
         self.total_failed.load(Ordering::Relaxed) == 0
     }
 
-    pub(super) fn summary(&self, total_time: Duration, distribution: &Histogram<u64>) {
+    pub(super) fn summary(&self, total_time: Duration, distribution: Option<&Histogram<u64>>) {
         println!("Time taken for tests: {total_time:?}");
 
         let passed = self.total_passed.load(Ordering::Relaxed);
@@ -147,6 +147,9 @@ impl GlobalState {
             passed as f64 / total_time.as_secs_f64()
         );
 
+        let Some(distribution) = distribution else {
+            return;
+        };
         println!("Requests distribution:");
         println!("  min   {}", distribution.min());
         println!(

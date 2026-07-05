@@ -102,6 +102,10 @@ pub(crate) trait BenchHistogram {
     }
 
     fn summary_total_percentage(h: &Histogram<u64>) {
+        if h.len() <= 1 {
+            return;
+        }
+
         macro_rules! print_pct {
             ($pct:literal) => {
                 let v = Duration::from_nanos(h.value_at_percentile($pct as f64));
@@ -386,7 +390,12 @@ where
     target.notify_finish();
 
     if !proc_args.no_summary {
-        stats::global_state().summary(total_time, &distribute_histogram);
+        let distribution = if proc_args.concurrency.get() > 1 {
+            Some(&distribute_histogram)
+        } else {
+            None
+        };
+        stats::global_state().summary(total_time, distribution);
         H::summary_newline();
         target.fetch_runtime_stats().summary(total_time);
     }
