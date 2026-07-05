@@ -11,6 +11,7 @@ use anyhow::anyhow;
 use bytes::Bytes;
 use h2::client::SendRequest;
 use tokio::sync::Mutex;
+use tokio::time::Instant;
 
 use super::{BenchH2Args, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs};
 
@@ -68,6 +69,7 @@ impl H2ConnectionUnlocked {
         }
 
         self.runtime_stats.add_conn_attempt();
+        let attempt_time = Instant::now();
         let new_h2s = match tokio::time::timeout(
             self.args.common.connect_timeout,
             self.args.connect.new_h2_connection(
@@ -78,7 +80,11 @@ impl H2ConnectionUnlocked {
         )
         .await
         {
-            Ok(Ok(h2s)) => h2s,
+            Ok(Ok(h2s)) => {
+                self.histogram_recorder
+                    .record_connect_time(attempt_time.elapsed());
+                h2s
+            }
             Ok(Err(e)) => return Err(e.context(format!("P#{} new connection failed", self.index))),
             Err(_) => return Err(anyhow!("timeout to get new connection")),
         };

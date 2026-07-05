@@ -88,6 +88,7 @@ impl H3TaskContext {
         }
 
         self.runtime_stats.add_conn_attempt();
+        let attempt_time = Instant::now();
         let h3s = match tokio::time::timeout(
             self.args.common.connect_timeout,
             self.args.connect.new_h3_connection(
@@ -98,7 +99,11 @@ impl H3TaskContext {
         )
         .await
         {
-            Ok(Ok(h3s)) => h3s,
+            Ok(Ok(h3s)) => {
+                self.histogram_recorder
+                    .record_connect_time(attempt_time.elapsed());
+                h3s
+            }
             Ok(Err(e)) => return Err(e),
             Err(_) => return Err(anyhow!("timeout to get new connection")),
         };

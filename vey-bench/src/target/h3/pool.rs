@@ -12,6 +12,7 @@ use bytes::Bytes;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use tokio::sync::Mutex;
+use tokio::time::Instant;
 
 use super::{BenchH3Args, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs};
 
@@ -68,6 +69,7 @@ impl H3ConnectionUnlocked {
         }
 
         self.runtime_stats.add_conn_attempt();
+        let attempt_time = Instant::now();
         let new_h3s = match tokio::time::timeout(
             self.args.common.connect_timeout,
             self.args.connect.new_h3_connection(
@@ -78,7 +80,11 @@ impl H3ConnectionUnlocked {
         )
         .await
         {
-            Ok(Ok(h3s)) => h3s,
+            Ok(Ok(h3s)) => {
+                self.histogram_recorder
+                    .record_connect_time(attempt_time.elapsed());
+                h3s
+            }
             Ok(Err(e)) => return Err(e.context(format!("P#{} new connection failed", self.index))),
             Err(_) => return Err(anyhow!("timeout to get new connection")),
         };

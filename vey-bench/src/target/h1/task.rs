@@ -85,6 +85,7 @@ impl HttpTaskContext {
         }
 
         self.runtime_stats.add_conn_attempt();
+        let attempt_time = Instant::now();
         let (r, w) = match tokio::time::timeout(
             self.args.common.connect_timeout,
             self.args.connect.new_http_connection(
@@ -95,7 +96,11 @@ impl HttpTaskContext {
         )
         .await
         {
-            Ok(Ok(c)) => c,
+            Ok(Ok(c)) => {
+                self.histogram_recorder
+                    .record_connect_time(attempt_time.elapsed());
+                c
+            }
             Ok(Err(e)) => return Err(e),
             Err(_) => return Err(anyhow!("timeout to get new connection")),
         };
