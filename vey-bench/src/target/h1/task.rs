@@ -24,13 +24,23 @@ pub(super) struct HttpTaskContext {
     args: Arc<BenchHttpArgs>,
     proc_args: Arc<ProcArgs>,
     saved_connection: Option<SavedHttpForwardConnection>,
-    reuse_conn_count: u64,
+    conn_used_times: u64,
 
     runtime_stats: Arc<HttpRuntimeStats>,
     histogram_recorder: HttpHistogramRecorder,
 
     req_header: Vec<u8>,
     req_header_fixed_len: usize,
+}
+
+impl Drop for HttpTaskContext {
+    fn drop(&mut self) {
+        if self.conn_used_times > 0 {
+            self.histogram_recorder
+                .record_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
+        }
+    }
 }
 
 impl HttpTaskContext {
@@ -50,7 +60,7 @@ impl HttpTaskContext {
             args: args.clone(),
             proc_args: proc_args.clone(),
             saved_connection: None,
-            reuse_conn_count: 0,
+            conn_used_times: 0,
             runtime_stats: runtime_stats.clone(),
             histogram_recorder,
             req_header: hdr_buf,
@@ -63,14 +73,16 @@ impl HttpTaskContext {
             let mut buf = [0u8; 4];
             if c.reader.read(&mut buf).now_or_never().is_none() {
                 // no eof, reuse the old connection
-                self.reuse_conn_count += 1;
+                self.conn_used_times += 1;
                 return Ok(c);
             }
         }
 
-        self.histogram_recorder
-            .record_conn_reuse_count(self.reuse_conn_count);
-        self.reuse_conn_count = 0;
+        if self.conn_used_times > 0 {
+            self.histogram_recorder
+                .record_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
+        }
 
         self.runtime_stats.add_conn_attempt();
         let (r, w) = match tokio::time::timeout(
@@ -101,6 +113,7 @@ impl HttpTaskContext {
             self.proc_args.tcp_sock_speed_limit.max_north,
             self.runtime_stats.clone(),
         );
+        self.conn_used_times += 1;
         Ok(SavedHttpForwardConnection::new(BufReader::new(r), w))
     }
 

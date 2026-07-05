@@ -24,7 +24,7 @@ pub(super) struct ThriftTcpTaskContext {
     multiplex: Option<Arc<MultiplexTransfer>>,
     simplex: Option<SimplexTransfer>,
 
-    reuse_conn_count: u64,
+    conn_used_times: u64,
 
     runtime_stats: Arc<ThriftRuntimeStats>,
     histogram_recorder: ThriftHistogramRecorder,
@@ -32,8 +32,11 @@ pub(super) struct ThriftTcpTaskContext {
 
 impl Drop for ThriftTcpTaskContext {
     fn drop(&mut self) {
-        self.histogram_recorder
-            .record_conn_reuse_count(self.reuse_conn_count);
+        if self.conn_used_times > 0 {
+            self.histogram_recorder
+                .record_conn_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
+        }
     }
 }
 
@@ -51,7 +54,7 @@ impl ThriftTcpTaskContext {
             pool,
             multiplex: None,
             simplex: None,
-            reuse_conn_count: 0,
+            conn_used_times: 0,
             runtime_stats: runtime_stats.clone(),
             histogram_recorder,
         })
@@ -64,16 +67,16 @@ impl ThriftTcpTaskContext {
 
         if let Some(handle) = &self.multiplex {
             if !handle.is_closed() {
-                self.reuse_conn_count += 1;
+                self.conn_used_times += 1;
                 return Ok(handle.clone());
             }
             self.multiplex = None;
         }
 
-        if self.reuse_conn_count > 0 {
+        if self.conn_used_times > 0 {
             self.histogram_recorder
-                .record_conn_reuse_count(self.reuse_conn_count);
-            self.reuse_conn_count = 0;
+                .record_conn_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
         }
 
         self.runtime_stats.add_conn_attempt();
@@ -90,6 +93,7 @@ impl ThriftTcpTaskContext {
         self.runtime_stats.add_conn_success();
 
         self.multiplex = Some(handle.clone());
+        self.conn_used_times += 1;
         Ok(handle)
     }
 
@@ -97,14 +101,14 @@ impl ThriftTcpTaskContext {
         if let Some(mut c) = self.simplex.take()
             && !c.is_closed()
         {
-            self.reuse_conn_count += 1;
+            self.conn_used_times += 1;
             return Ok(c);
         }
 
-        if self.reuse_conn_count > 0 {
+        if self.conn_used_times > 0 {
             self.histogram_recorder
-                .record_conn_reuse_count(self.reuse_conn_count);
-            self.reuse_conn_count = 0;
+                .record_conn_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
         }
 
         self.runtime_stats.add_conn_attempt();
@@ -116,6 +120,7 @@ impl ThriftTcpTaskContext {
         {
             Ok(Ok(c)) => {
                 self.runtime_stats.add_conn_success();
+                self.conn_used_times += 1;
                 Ok(c)
             }
             Ok(Err(e)) => Err(e),

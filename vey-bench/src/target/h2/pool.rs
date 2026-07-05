@@ -21,14 +21,16 @@ struct H2ConnectionUnlocked {
     h2s: Option<SendRequest<Bytes>>,
     runtime_stats: Arc<HttpRuntimeStats>,
     histogram_recorder: HttpHistogramRecorder,
-    reuse_conn_count: u64,
+    conn_used_times: u64,
 }
 
 impl Drop for H2ConnectionUnlocked {
     fn drop(&mut self) {
-        self.histogram_recorder
-            .record_conn_reuse_count(self.reuse_conn_count);
-        self.reuse_conn_count = 0;
+        if self.conn_used_times > 0 {
+            self.histogram_recorder
+                .record_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
+        }
     }
 }
 
@@ -47,7 +49,7 @@ impl H2ConnectionUnlocked {
             h2s: None,
             runtime_stats,
             histogram_recorder,
-            reuse_conn_count: 0,
+            conn_used_times: 0,
         }
     }
 
@@ -55,13 +57,15 @@ impl H2ConnectionUnlocked {
         if let Some(h2s) = self.h2s.clone()
             && let Ok(send_req) = h2s.ready().await
         {
-            self.reuse_conn_count += 1;
+            self.conn_used_times += 1;
             return Ok(send_req);
         }
 
-        self.histogram_recorder
-            .record_conn_reuse_count(self.reuse_conn_count);
-        self.reuse_conn_count = 0;
+        if self.conn_used_times > 0 {
+            self.histogram_recorder
+                .record_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
+        }
 
         self.runtime_stats.add_conn_attempt();
         let new_h2s = match tokio::time::timeout(
@@ -85,6 +89,7 @@ impl H2ConnectionUnlocked {
             .await
             .map_err(|e| anyhow!("P#{} failed to open new stream: {e:?}", self.index))?;
         self.h2s = Some(new_h2s);
+        self.conn_used_times += 1;
         Ok(s)
     }
 }

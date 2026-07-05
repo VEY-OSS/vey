@@ -25,7 +25,7 @@ pub(super) struct H2TaskContext {
     pool: Option<Arc<H2ConnectionPool>>,
     h2s: Option<SendRequest<Bytes>>,
 
-    reuse_conn_count: u64,
+    conn_used_times: u64,
     static_headers: Request<()>,
 
     runtime_stats: Arc<HttpRuntimeStats>,
@@ -34,8 +34,11 @@ pub(super) struct H2TaskContext {
 
 impl Drop for H2TaskContext {
     fn drop(&mut self) {
-        self.histogram_recorder
-            .record_conn_reuse_count(self.reuse_conn_count);
+        if self.conn_used_times > 0 {
+            self.histogram_recorder
+                .record_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
+        }
     }
 }
 
@@ -56,7 +59,7 @@ impl H2TaskContext {
             proc_args: Arc::clone(proc_args),
             pool,
             h2s: None,
-            reuse_conn_count: 0,
+            conn_used_times: 0,
             static_headers: static_request,
             runtime_stats: Arc::clone(runtime_stats),
             histogram_recorder,
@@ -75,14 +78,14 @@ impl H2TaskContext {
         if let Some(h2s) = self.h2s.clone()
             && let Ok(ups_send_req) = h2s.ready().await
         {
-            self.reuse_conn_count += 1;
+            self.conn_used_times += 1;
             return Ok(ups_send_req);
         }
 
-        if self.reuse_conn_count > 0 {
+        if self.conn_used_times > 0 {
             self.histogram_recorder
-                .record_conn_reuse_count(self.reuse_conn_count);
-            self.reuse_conn_count = 0;
+                .record_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
         }
 
         self.runtime_stats.add_conn_attempt();
@@ -108,6 +111,7 @@ impl H2TaskContext {
             .await
             .map_err(|e| anyhow!("failed to open new stream on new connection: {e:?}"))?;
         self.h2s = Some(h2s);
+        self.conn_used_times += 1;
         Ok(s)
     }
 

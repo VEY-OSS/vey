@@ -22,14 +22,16 @@ struct H3ConnectionUnlocked {
     h3s: Option<SendRequest<OpenStreams, Bytes>>,
     runtime_stats: Arc<HttpRuntimeStats>,
     histogram_recorder: HttpHistogramRecorder,
-    reuse_conn_count: u64,
+    conn_used_times: u64,
 }
 
 impl Drop for H3ConnectionUnlocked {
     fn drop(&mut self) {
-        self.histogram_recorder
-            .record_conn_reuse_count(self.reuse_conn_count);
-        self.reuse_conn_count = 0;
+        if self.conn_used_times > 0 {
+            self.histogram_recorder
+                .record_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
+        }
     }
 }
 
@@ -48,20 +50,22 @@ impl H3ConnectionUnlocked {
             h3s: None,
             runtime_stats,
             histogram_recorder,
-            reuse_conn_count: 0,
+            conn_used_times: 0,
         }
     }
 
     async fn fetch_stream(&mut self) -> anyhow::Result<SendRequest<OpenStreams, Bytes>> {
         if let Some(h3s) = self.h3s.clone() {
             // TODO check close
-            self.reuse_conn_count += 1;
+            self.conn_used_times += 1;
             return Ok(h3s);
         }
 
-        self.histogram_recorder
-            .record_conn_reuse_count(self.reuse_conn_count);
-        self.reuse_conn_count = 0;
+        if self.conn_used_times > 0 {
+            self.histogram_recorder
+                .record_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
+        }
 
         self.runtime_stats.add_conn_attempt();
         let new_h3s = match tokio::time::timeout(
@@ -81,6 +85,7 @@ impl H3ConnectionUnlocked {
         self.runtime_stats.add_conn_success();
         let s = new_h3s.clone();
         self.h3s = Some(new_h3s);
+        self.conn_used_times += 1;
         Ok(s)
     }
 }

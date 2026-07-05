@@ -21,14 +21,16 @@ struct ThriftConnectionUnlocked {
     save: Option<Arc<MultiplexTransfer>>,
     runtime_stats: Arc<ThriftRuntimeStats>,
     histogram_recorder: ThriftHistogramRecorder,
-    reuse_conn_count: u64,
+    conn_used_times: u64,
 }
 
 impl Drop for ThriftConnectionUnlocked {
     fn drop(&mut self) {
-        self.histogram_recorder
-            .record_conn_reuse_count(self.reuse_conn_count);
-        self.reuse_conn_count = 0;
+        if self.conn_used_times > 0 {
+            self.histogram_recorder
+                .record_conn_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
+        }
     }
 }
 
@@ -47,22 +49,24 @@ impl ThriftConnectionUnlocked {
             save: None,
             runtime_stats,
             histogram_recorder,
-            reuse_conn_count: 0,
+            conn_used_times: 0,
         }
     }
 
     async fn fetch_handle(&mut self) -> anyhow::Result<Arc<MultiplexTransfer>> {
         if let Some(handle) = &self.save {
             if !handle.is_closed() {
-                self.reuse_conn_count += 1;
+                self.conn_used_times += 1;
                 return Ok(handle.clone());
             }
             self.save = None;
         }
 
-        self.histogram_recorder
-            .record_conn_reuse_count(self.reuse_conn_count);
-        self.reuse_conn_count = 0;
+        if self.conn_used_times > 0 {
+            self.histogram_recorder
+                .record_conn_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
+        }
 
         self.runtime_stats.add_conn_attempt();
         let handle = match tokio::time::timeout(
@@ -77,6 +81,7 @@ impl ThriftConnectionUnlocked {
         };
         self.runtime_stats.add_conn_success();
         self.save = Some(handle.clone());
+        self.conn_used_times += 1;
         Ok(handle)
     }
 }

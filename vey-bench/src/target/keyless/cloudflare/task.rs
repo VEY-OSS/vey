@@ -24,7 +24,7 @@ pub(super) struct KeylessCloudflareTaskContext {
     multiplex: Option<Arc<MultiplexTransfer>>,
     simplex: Option<SimplexTransfer>,
 
-    reuse_conn_count: u64,
+    conn_used_times: u64,
     request_message: KeylessRequest,
 
     runtime_stats: Arc<KeylessRuntimeStats>,
@@ -33,8 +33,11 @@ pub(super) struct KeylessCloudflareTaskContext {
 
 impl Drop for KeylessCloudflareTaskContext {
     fn drop(&mut self) {
-        self.histogram_recorder
-            .record_conn_reuse_count(self.reuse_conn_count);
+        if self.conn_used_times > 0 {
+            self.histogram_recorder
+                .record_conn_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
+        }
     }
 }
 
@@ -55,7 +58,7 @@ impl KeylessCloudflareTaskContext {
             pool,
             multiplex: None,
             simplex: None,
-            reuse_conn_count: 0,
+            conn_used_times: 0,
             request_message,
             runtime_stats: Arc::clone(runtime_stats),
             histogram_recorder,
@@ -69,16 +72,16 @@ impl KeylessCloudflareTaskContext {
 
         if let Some(handle) = &self.multiplex {
             if !handle.is_closed() {
-                self.reuse_conn_count += 1;
+                self.conn_used_times += 1;
                 return Ok(handle.clone());
             }
             self.multiplex = None;
         }
 
-        if self.reuse_conn_count > 0 {
+        if self.conn_used_times > 0 {
             self.histogram_recorder
-                .record_conn_reuse_count(self.reuse_conn_count);
-            self.reuse_conn_count = 0;
+                .record_conn_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
         }
 
         self.runtime_stats.add_conn_attempt();
@@ -96,6 +99,7 @@ impl KeylessCloudflareTaskContext {
         self.runtime_stats.add_conn_success();
 
         self.multiplex = Some(handle.clone());
+        self.conn_used_times += 1;
         Ok(handle)
     }
 
@@ -103,14 +107,14 @@ impl KeylessCloudflareTaskContext {
         if let Some(mut c) = self.simplex.take()
             && !c.is_closed()
         {
-            self.reuse_conn_count += 1;
+            self.conn_used_times += 1;
             return Ok(c);
         }
 
-        if self.reuse_conn_count > 0 {
+        if self.conn_used_times > 0 {
             self.histogram_recorder
-                .record_conn_reuse_count(self.reuse_conn_count);
-            self.reuse_conn_count = 0;
+                .record_conn_used_times(self.conn_used_times);
+            self.conn_used_times = 0;
         }
 
         self.runtime_stats.add_conn_attempt();
@@ -123,6 +127,7 @@ impl KeylessCloudflareTaskContext {
         {
             Ok(Ok(c)) => {
                 self.runtime_stats.add_conn_success();
+                self.conn_used_times += 1;
                 Ok(c)
             }
             Ok(Err(e)) => Err(e),
