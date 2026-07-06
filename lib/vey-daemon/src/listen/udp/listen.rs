@@ -522,26 +522,28 @@ where
         }
 
         #[cfg(all(target_os = "linux", feature = "ebpf"))]
-        match UdpSocketSelector::new(
-            rustix::process::getpid().as_raw_pid(),
-            self.server.version() as u32,
-            listen_config.address(),
-            self.conn_track.ebpf_conn_track_size(),
-        ) {
-            Ok(selector) => {
-                self.socket_selector = Some(selector);
-            }
-            Err(e) => {
-                if listen_config.fail_on_ebpf_error() {
-                    return Err(anyhow!(
-                        "UDP {} ebpf reuseport socket selector create failed: {e}",
-                        listen_config.address()
-                    ));
+        if listen_config.use_ebpf(rustix::process::getuid().as_raw()) {
+            match UdpSocketSelector::new(
+                rustix::process::getpid().as_raw_pid(),
+                self.server.version() as u32,
+                listen_config.address(),
+                self.conn_track.ebpf_conn_track_size(),
+            ) {
+                Ok(selector) => {
+                    self.socket_selector = Some(selector);
                 }
-                warn!(
-                    "reuseport ebpf on UDP socket {} disabled due to create error {e}",
-                    listen_config.address()
-                );
+                Err(e) => {
+                    if listen_config.fail_on_ebpf_error() {
+                        return Err(anyhow!(
+                            "UDP {} ebpf reuseport socket selector create failed: {e}",
+                            listen_config.address()
+                        ));
+                    }
+                    warn!(
+                        "reuseport ebpf on UDP socket {} disabled due to create error {e}",
+                        listen_config.address()
+                    );
+                }
             }
         }
 

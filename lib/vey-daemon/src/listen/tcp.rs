@@ -84,25 +84,27 @@ where
         }
 
         #[cfg(all(target_os = "linux", feature = "ebpf"))]
-        match TcpSocketSelector::new(
-            rustix::process::getpid().as_raw_pid(),
-            self.server.version() as u32,
-            listen_config.address(),
-        ) {
-            Ok(selector) => {
-                self.socket_selector = Some(selector);
-            }
-            Err(e) => {
-                if listen_config.fail_on_ebpf_error() {
-                    return Err(anyhow!(
-                        "TCP {} ebpf reuseport socket selector create failed: {e}",
-                        listen_config.address()
-                    ));
+        if listen_config.use_ebpf(rustix::process::getuid().as_raw()) {
+            match TcpSocketSelector::new(
+                rustix::process::getpid().as_raw_pid(),
+                self.server.version() as u32,
+                listen_config.address(),
+            ) {
+                Ok(selector) => {
+                    self.socket_selector = Some(selector);
                 }
-                warn!(
-                    "reuseport ebpf on TCP socket {} disabled due to create error: {e}",
-                    listen_config.address()
-                );
+                Err(e) => {
+                    if listen_config.fail_on_ebpf_error() {
+                        return Err(anyhow!(
+                            "TCP {} ebpf reuseport socket selector create failed: {e}",
+                            listen_config.address()
+                        ));
+                    }
+                    warn!(
+                        "reuseport ebpf on TCP socket {} disabled due to create error: {e}",
+                        listen_config.address()
+                    );
+                }
             }
         }
 

@@ -166,6 +166,18 @@ pub fn as_udp_listen_config(value: &Yaml) -> anyhow::Result<UdpListenConfig> {
                 }
                 "scale" => set_udp_listen_scale(&mut config, v)
                     .context(format!("invalid scale value for key {k}")),
+                #[cfg(target_os = "linux")]
+                "use_ebpf" => {
+                    let enable = crate::value::as_bool(v)?;
+                    config.set_use_ebpf(enable);
+                    Ok(())
+                }
+                #[cfg(target_os = "linux")]
+                "fail_on_ebpf_error" => {
+                    let fail = crate::value::as_bool(v)?;
+                    config.set_fail_on_ebpf_error(fail);
+                    Ok(())
+                }
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
         }

@@ -521,6 +521,19 @@ It consists of the following fields:
 
      - ``vey-proxy``: available since ``1.11.3``
 
+* use_ebpf
+
+  **optional**, **type**: bool
+
+  Explicitly set if ebpf should be used. If not set, ebpf will be used when UID is 0.
+
+  **default**: not set
+
+  .. availability::
+
+     - ``vey-proxy``: available since ``1.13.9``.
+     - ``vey-gateway``: available since ``0.4.0``.
+
 * fail_on_ebpf_error
 
   **optional**, **type**: bool
@@ -659,6 +672,18 @@ It consists of the following fields:
     scale: 50%
 
   **default**: 0
+
+* use_ebpf
+
+  **optional**, **type**: bool
+
+  Explicitly set if ebpf should be used. If not set, ebpf will be used when UID is 0.
+
+  **default**: not set
+
+  .. availability::
+
+     - ``vey-proxy``: available since ``1.13.9``.
 
 * fail_on_ebpf_error
 

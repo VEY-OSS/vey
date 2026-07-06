@@ -45,6 +45,8 @@ pub struct TcpListenConfig {
     scale: usize,
     follow_cpu_affinity: bool,
     #[cfg(target_os = "linux")]
+    use_ebpf: Option<bool>,
+    #[cfg(target_os = "linux")]
     fail_on_ebpf_error: bool,
     keepalive: Option<TcpKeepAliveConfig>,
 }
@@ -78,6 +80,8 @@ impl TcpListenConfig {
             instance: 1,
             scale: 0,
             follow_cpu_affinity: false,
+            #[cfg(target_os = "linux")]
+            use_ebpf: None,
             #[cfg(target_os = "linux")]
             fail_on_ebpf_error: false,
             keepalive: None,
@@ -236,6 +240,16 @@ impl TcpListenConfig {
 
     pub fn set_follow_cpu_affinity(&mut self, enable: bool) {
         self.follow_cpu_affinity = enable;
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn use_ebpf(&self, uid: u32) -> bool {
+        self.use_ebpf.unwrap_or(uid == 0)
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn set_use_ebpf(&mut self, use_ebpf: bool) {
+        self.use_ebpf = Some(use_ebpf);
     }
 
     #[cfg(target_os = "linux")]

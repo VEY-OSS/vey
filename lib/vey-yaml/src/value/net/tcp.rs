@@ -133,6 +133,12 @@ pub fn as_tcp_listen_config(value: &Yaml) -> anyhow::Result<TcpListenConfig> {
                     Ok(())
                 }
                 #[cfg(target_os = "linux")]
+                "use_ebpf" => {
+                    let enable = crate::value::as_bool(v)?;
+                    config.set_use_ebpf(enable);
+                    Ok(())
+                }
+                #[cfg(target_os = "linux")]
                 "fail_on_ebpf_error" => {
                     let fail = crate::value::as_bool(v)?;
                     config.set_fail_on_ebpf_error(fail);
