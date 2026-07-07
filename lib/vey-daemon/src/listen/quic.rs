@@ -58,7 +58,12 @@ where
         }
     }
 
-    fn create_instance(&self) -> ListenQuicRuntimeInstance<S> {
+    fn create_instance(
+        &self,
+        id: usize,
+        listen_addr: SocketAddr,
+        listen_in_worker: bool,
+    ) -> ListenQuicRuntimeInstance<S> {
         let server_type = self.server.r#type();
         let server_version = self.server.version();
         ListenQuicRuntimeInstance {
@@ -68,7 +73,9 @@ where
             worker_id: None,
             listen_config: self.listen_config.clone(),
             listen_stats: self.listen_stats.clone(),
-            instance_id: 0,
+            listen_addr,
+            listen_in_worker,
+            instance_id: id,
             _alive_guard: None,
         }
     }
@@ -92,16 +99,13 @@ where
         }
 
         for i in 0..instance_count {
-            let mut runtime = self.create_instance();
-            runtime.instance_id = i;
-
             let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
             let listen_addr = socket.local_addr()?;
+
+            let runtime = self.create_instance(i, listen_addr, listen_in_worker);
             runtime.into_running(
                 socket,
-                listen_addr,
                 quic_config.clone(),
-                listen_in_worker,
                 server_reload_sender.subscribe(),
                 quic_cfg_receiver.subscribe(),
             );
@@ -117,6 +121,8 @@ pub struct ListenQuicRuntimeInstance<S> {
     worker_id: Option<usize>,
     listen_config: UdpListenConfig,
     listen_stats: Arc<ListenStats>,
+    listen_addr: SocketAddr,
+    listen_in_worker: bool,
     instance_id: usize,
     _alive_guard: Option<ListenAliveGuard>,
 }
@@ -159,7 +165,6 @@ where
     async fn run<C>(
         mut self,
         listener: Endpoint,
-        mut listen_addr: SocketAddr,
         mut sock_raw_fd: RawSocket,
         mut server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
         mut quic_cfg_receiver: watch::Receiver<C>,
@@ -196,7 +201,7 @@ where
                     info!("SRT[{}_v{}#{}] will go offline",
                         self.server.name(), self.server_version, self.instance_id);
                     self.pre_stop();
-                    self.goto_offline(listener, listen_addr, aux_config.offline_rebind_port());
+                    self.goto_offline(listener, aux_config.offline_rebind_port());
                     break;
                 }
                 ev = quic_cfg_receiver.changed() => {
@@ -212,13 +217,13 @@ where
                     }
                     if let Some(listen_config) = aux_config.take_udp_listen_config() {
                         self.listen_config = listen_config;
-                        if self.listen_config.address() != listen_addr {
+                        if self.listen_config.address() != self.listen_addr {
                             if let Ok((socket, addr)) = self.rebind_socket(&listener) {
                                 sock_raw_fd = socket;
-                                listen_addr = addr;
+                                self.listen_addr = addr;
                             }
                         } else {
-                            self.update_socket_opts(&sock_raw_fd, listen_addr);
+                            self.update_socket_opts(&sock_raw_fd);
                         }
                     }
                 }
@@ -227,14 +232,14 @@ where
                         continue;
                     };
                     self.listen_stats.add_accepted();
-                    self.run_task(incoming, listen_addr, &aux_config);
+                    self.run_task(incoming, &aux_config);
                 }
             }
         }
         self.post_stop();
     }
 
-    fn run_task<C>(&self, incoming: Incoming, listen_addr: SocketAddr, aux_config: &C)
+    fn run_task<C>(&self, incoming: Incoming, aux_config: &C)
     where
         C: ListenQuicConf + Send + Clone + 'static,
     {
@@ -245,6 +250,7 @@ where
                 AclAction::Permit | AclAction::PermitAndLog => {}
                 AclAction::Forbid | AclAction::ForbidAndLog => {
                     self.listen_stats.add_dropped();
+                    incoming.ignore();
                     return;
                 }
             }
@@ -252,8 +258,8 @@ where
 
         let local_addr = incoming
             .local_ip()
-            .map(|ip| SocketAddr::new(ip, listen_addr.port()))
-            .unwrap_or(listen_addr);
+            .map(|ip| SocketAddr::new(ip, self.listen_addr.port()))
+            .unwrap_or(self.listen_addr);
         let mut cc_info =
             ClientConnectionInfo::new(peer_addr.to_canonical(), local_addr.to_canonical());
 
@@ -329,9 +335,9 @@ where
         }
     }
 
-    fn update_socket_opts(&self, raw_socket: &RawSocket, listen_addr: SocketAddr) {
+    fn update_socket_opts(&self, raw_socket: &RawSocket) {
         if let Err(e) =
-            raw_socket.set_udp_misc_opts(listen_addr, self.listen_config.socket_misc_opts())
+            raw_socket.set_udp_misc_opts(self.listen_addr, self.listen_config.socket_misc_opts())
         {
             warn!(
                 "SRT[{}_v{}#{}] update socket misc opts failed: {e}",
@@ -355,7 +361,7 @@ where
             Ok(socket) => {
                 let raw_socket = RawSocket::from(&socket);
                 match listener.rebind(socket) {
-                    Ok(_) => Ok((raw_socket, listener.local_addr().unwrap())),
+                    Ok(_) => Ok((raw_socket, listener.local_addr()?)),
                     Err(e) => {
                         warn!(
                             "SRT[{}_v{}#{}] reload rebind {} failed: {e}",
@@ -381,12 +387,12 @@ where
         }
     }
 
-    fn goto_offline(&self, listener: Endpoint, listen_addr: SocketAddr, rebind_port: Option<u16>) {
+    fn goto_offline(&self, listener: Endpoint, rebind_port: Option<u16>) {
         if let Some(port) = rebind_port {
-            let rebind_addr = SocketAddr::new(listen_addr.ip(), port);
+            let rebind_addr = SocketAddr::new(self.listen_addr.ip(), port);
             match vey_socket::udp::new_std_rebind_listen(
                 &self.listen_config,
-                SocketAddr::new(listen_addr.ip(), port),
+                SocketAddr::new(self.listen_addr.ip(), port),
             ) {
                 Ok(socket) => match listener.rebind(socket) {
                     Ok(_) => {
@@ -432,8 +438,10 @@ where
         listener.close(quinn::VarInt::default(), b"close as server shutdown");
     }
 
-    fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
-        if listen_in_worker && let Some(rt) = crate::runtime::worker::select_listen_handle() {
+    fn get_rt_handle(&mut self) -> Handle {
+        if self.listen_in_worker
+            && let Some(rt) = crate::runtime::worker::select_listen_handle()
+        {
             self.worker_id = Some(rt.id);
             return rt.handle;
         }
@@ -443,15 +451,13 @@ where
     fn into_running<C>(
         mut self,
         socket: UdpSocket,
-        listen_addr: SocketAddr,
         config: quinn::ServerConfig,
-        listen_in_worker: bool,
         server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
         quic_cfg_receiver: watch::Receiver<C>,
     ) where
         C: ListenQuicConf + Clone + Send + Sync + 'static,
     {
-        let handle = self.get_rt_handle(listen_in_worker);
+        let handle = self.get_rt_handle();
         handle.spawn(async move {
             let raw_socket = RawSocket::from(&socket);
             // make sure the listen socket associated with the correct reactor
@@ -465,7 +471,6 @@ where
                     self.pre_start();
                     self.run(
                         endpoint,
-                        listen_addr,
                         raw_socket,
                         server_reload_channel,
                         quic_cfg_receiver,

@@ -53,7 +53,7 @@ where
         }
     }
 
-    fn create_instance(&self) -> ListenTcpRuntimeInstance<S> {
+    fn create_instance(&self, id: usize, listen_in_worker: bool) -> ListenTcpRuntimeInstance<S> {
         let server_type = self.server.r#type();
         let server_version = self.server.version();
         ListenTcpRuntimeInstance {
@@ -64,7 +64,8 @@ where
             #[cfg(target_os = "linux")]
             follow_incoming_cpu: false,
             listen_stats: self.listen_stats.clone(),
-            instance_id: 0,
+            listen_in_worker,
+            instance_id: id,
             _alive_guard: None,
         }
     }
@@ -109,17 +110,15 @@ where
         }
 
         for i in 0..instance_count {
-            let mut runtime = self.create_instance();
-            runtime.instance_id = i;
-
             let listener = vey_socket::tcp::new_std_listener(listen_config)?;
             #[cfg(all(target_os = "linux", feature = "ebpf"))]
             if let Some(selector) = &mut self.socket_selector {
                 selector.add_socket(listener.as_raw_fd());
             }
+
+            let runtime = self.create_instance(i, listen_in_worker);
             runtime.into_running(
                 listener,
-                listen_in_worker,
                 listen_config.follow_cpu_affinity(),
                 server_reload_sender.subscribe(),
             );
@@ -162,6 +161,7 @@ pub struct ListenTcpRuntimeInstance<S> {
     #[cfg(target_os = "linux")]
     follow_incoming_cpu: bool,
     listen_stats: Arc<ListenStats>,
+    listen_in_worker: bool,
     instance_id: usize,
     _alive_guard: Option<ListenAliveGuard>,
 }
@@ -311,8 +311,10 @@ where
         }
     }
 
-    fn get_rt_handle(&mut self, listen_in_worker: bool) -> (Handle, Option<CpuAffinity>) {
-        if listen_in_worker && let Some(rt) = crate::runtime::worker::select_listen_handle() {
+    fn get_rt_handle(&mut self) -> (Handle, Option<CpuAffinity>) {
+        if self.listen_in_worker
+            && let Some(rt) = crate::runtime::worker::select_listen_handle()
+        {
             self.worker_id = Some(rt.id);
             return (rt.handle, rt.cpu_affinity);
         }
@@ -322,11 +324,10 @@ where
     fn into_running(
         mut self,
         listener: std::net::TcpListener,
-        listen_in_worker: bool,
         follow_cpu_affinity: bool,
         server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
     ) {
-        let (handle, cpu_affinity) = self.get_rt_handle(listen_in_worker);
+        let (handle, cpu_affinity) = self.get_rt_handle();
         handle.spawn(async move {
             #[allow(clippy::collapsible_if)]
             if follow_cpu_affinity {

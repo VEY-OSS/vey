@@ -456,7 +456,12 @@ where
         target_os = "macos",
         target_os = "solaris",
     )))]
-    fn create_instance(&self) -> ListenUdpRuntimeInstance<S> {
+    fn create_instance(
+        &self,
+        id: usize,
+        listen_addr: SocketAddr,
+        listen_in_worker: bool,
+    ) -> ListenUdpRuntimeInstance<S> {
         let server_type = self.server.r#type();
         let server_version = self.server.version();
         ListenUdpRuntimeInstance {
@@ -467,7 +472,9 @@ where
             conn_track: self.conn_track,
             packet_max_size: self.packet_max_size,
             listen_stats: self.listen_stats.clone(),
-            instance_id: 0,
+            listen_addr,
+            listen_in_worker,
+            instance_id: id,
             _alive_guard: None,
 
             packet_buf: vec![0; self.packet_max_size as usize],
@@ -483,7 +490,12 @@ where
         target_os = "macos",
         target_os = "solaris",
     ))]
-    fn create_instance(&self) -> ListenUdpRuntimeInstance<S> {
+    fn create_instance(
+        &self,
+        id: usize,
+        listen_addr: SocketAddr,
+        listen_in_worker: bool,
+    ) -> ListenUdpRuntimeInstance<S> {
         let server_type = self.server.r#type();
         let server_version = self.server.version();
 
@@ -500,7 +512,9 @@ where
             conn_track: self.conn_track,
             packet_max_size: self.packet_max_size,
             listen_stats: self.listen_stats.clone(),
-            instance_id: 0,
+            listen_addr,
+            listen_in_worker,
+            instance_id: id,
             _alive_guard: None,
 
             packets_buf,
@@ -548,21 +562,15 @@ where
         }
 
         for i in 0..instance_count {
-            let mut runtime = self.create_instance();
-            runtime.instance_id = i;
-
             let socket = vey_socket::udp::new_std_bind_listen(listen_config)?;
             #[cfg(all(target_os = "linux", feature = "ebpf"))]
             if let Some(selector) = &mut self.socket_selector {
                 selector.add_socket(socket.as_raw_fd());
             }
             let listen_addr = socket.local_addr()?;
-            runtime.into_running(
-                socket,
-                listen_addr,
-                listen_in_worker,
-                server_reload_sender.subscribe(),
-            );
+
+            let runtime = self.create_instance(i, listen_addr, listen_in_worker);
+            runtime.into_running(socket, server_reload_sender.subscribe());
         }
 
         #[cfg(all(target_os = "linux", feature = "ebpf"))]
@@ -602,6 +610,8 @@ struct ListenUdpRuntimeInstance<S> {
     conn_track: UdpConnectionTrackConfig,
     packet_max_size: u16,
     listen_stats: Arc<ListenStats>,
+    listen_addr: SocketAddr,
+    listen_in_worker: bool,
     instance_id: usize,
     _alive_guard: Option<ListenAliveGuard>,
 
@@ -665,7 +675,6 @@ where
     async fn run(
         mut self,
         socket: UdpSocket,
-        listen_addr: SocketAddr,
         mut server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
     ) {
         use broadcast::error::RecvError;
@@ -709,7 +718,7 @@ where
                     self.handle_events(&mut event_recv_buf, &mut ct_table).await;
                     event_recv_buf.clear();
                 }
-                r = self.recv_packets(&rt_state.socket, listen_addr) => {
+                r = self.recv_packets(&rt_state.socket) => {
                     match r {
                         Ok(packets) => {
                             for (cc_info, data) in packets {
@@ -726,8 +735,7 @@ where
         }
 
         #[cfg(feature = "ebpf")]
-        self.run_wait_all(listen_addr, event_recv_buf, rt_state, ct_table)
-            .await;
+        self.run_wait_all(event_recv_buf, rt_state, ct_table).await;
 
         self.post_stop();
     }
@@ -735,7 +743,6 @@ where
     #[cfg(feature = "ebpf")]
     async fn run_wait_all(
         &mut self,
-        listen_addr: SocketAddr,
         mut event_recv_buf: Vec<Event>,
         mut rt_state: RuntimeState,
         mut ct_table: LruCache<ClientConnectionKey, StreamDispatcher, FixedState>,
@@ -752,7 +759,7 @@ where
                         break;
                     }
                 }
-                r = self.recv_packets(&rt_state.socket, listen_addr) => {
+                r = self.recv_packets(&rt_state.socket) => {
                     match r {
                         Ok(packets) => {
                             for (cc_info, data) in packets {
@@ -773,9 +780,8 @@ where
     async fn recv_packets(
         &mut self,
         socket: &UdpSocket,
-        listen_addr: SocketAddr,
     ) -> io::Result<SmallVec<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>> {
-        poll_fn(|cx| self.poll_recv_packets(cx, socket, listen_addr)).await
+        poll_fn(|cx| self.poll_recv_packets(cx, socket)).await
     }
 
     #[cfg(not(any(
@@ -792,7 +798,6 @@ where
         &mut self,
         cx: &mut Context,
         socket: &UdpSocket,
-        listen_addr: SocketAddr,
     ) -> Poll<io::Result<SmallVec<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>>> {
         let mut packets = SmallVec::<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>::new();
 
@@ -803,7 +808,7 @@ where
                     let peer_addr = hdr
                         .src_addr()
                         .ok_or_else(|| io::Error::other("unable to get peer address"))?;
-                    let local_addr = hdr.dst_addr(listen_addr);
+                    let local_addr = hdr.dst_addr(self.listen_addr);
 
                     let cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
                     let nr = hdr.n_recv;
@@ -838,7 +843,6 @@ where
         &mut self,
         cx: &mut Context,
         socket: &UdpSocket,
-        listen_addr: SocketAddr,
     ) -> Poll<io::Result<SmallVec<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>>> {
         let mut packets = SmallVec::<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>::new();
 
@@ -852,7 +856,7 @@ where
             let peer_addr = hdr
                 .src_addr()
                 .ok_or_else(|| io::Error::other("unable to get peer address"))?;
-            let local_addr = hdr.dst_addr(listen_addr);
+            let local_addr = hdr.dst_addr(self.listen_addr);
 
             let cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
             let nr = hdr.n_recv;
@@ -955,8 +959,10 @@ where
         }
     }
 
-    fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
-        if listen_in_worker && let Some(rt) = crate::runtime::worker::select_listen_handle() {
+    fn get_rt_handle(&mut self) -> Handle {
+        if self.listen_in_worker
+            && let Some(rt) = crate::runtime::worker::select_listen_handle()
+        {
             self.worker_id = Some(rt.id);
             return rt.handle;
         }
@@ -966,17 +972,15 @@ where
     fn into_running(
         mut self,
         socket: std::net::UdpSocket,
-        listen_addr: SocketAddr,
-        listen_in_worker: bool,
         server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
     ) {
-        let handle = self.get_rt_handle(listen_in_worker);
+        let handle = self.get_rt_handle();
         handle.spawn(async move {
             // make sure the listen socket associated with the correct reactor
             match UdpSocket::from_std(socket) {
                 Ok(socket) => {
                     self.pre_start();
-                    self.run(socket, listen_addr, server_reload_channel).await;
+                    self.run(socket, server_reload_channel).await;
                 }
                 Err(e) => {
                     warn!(
@@ -1121,9 +1125,9 @@ mod tests {
                 UdpConnectionTrackConfig::default(),
                 4096,
             )
-            .create_instance();
+            .create_instance(0, listen_addr, false);
 
-            let runtime_task = tokio::spawn(runtime.run(socket, listen_addr, reload_receiver));
+            let runtime_task = tokio::spawn(runtime.run(socket, reload_receiver));
 
             RuntimeHarness {
                 listen_addr,
