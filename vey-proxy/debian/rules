@@ -4,6 +4,7 @@ PACKAGE_NAME := vey-proxy
 BUILD_PROFILE := release-lto
 
 DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
+EBPF_FEATURE ?= $(shell scripts/package/detect_ebpf_feature.sh)
 LUA_FEATURE ?= $(shell scripts/package/detect_lua_feature.sh)
 CARES_FEATURE ?= $(shell scripts/package/detect_c-ares_feature.sh)
 
@@ -19,7 +20,7 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	VEY_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --profile $(BUILD_PROFILE) \
-	    --no-default-features --features jemalloc,ebpf,$(LUA_FEATURE),python,rustls-ring,quic,$(CARES_FEATURE) \
+	    --no-default-features --features jemalloc,$(EBPF_FEATURE),$(LUA_FEATURE),python,rustls-ring,quic,$(CARES_FEATURE) \
 	    --package vey-proxy --package vey-proxy-ctl --package vey-proxy-lua --package vey-proxy-ftp
 
 override_dh_auto_install:

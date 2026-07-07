@@ -74,6 +74,14 @@ jobs:
             apt-get install -y libssl-dev libc-ares-dev libjemalloc-dev
             apt-get install -y clang libbpf-dev
             apt-get install -y python3-dev liblua5.4-dev
+      - when:
+          condition:
+            equal: [ "ubuntu:22.04", << parameters.image >> ] # vendored-ebpf
+          steps:
+            - run:
+                name: Install tools to build libbpf
+                command: |
+                  apt-get install -y flex bison gawk
       - restore_cache:
           name: Restore source tarball
           keys:
@@ -218,6 +226,7 @@ workflows:
                 - debian:bookworm
                 - ubuntu:26.04
                 - ubuntu:24.04
+                - ubuntu:22.04
       - build-rpm-dnf:
           requires:
             - build-source-tar

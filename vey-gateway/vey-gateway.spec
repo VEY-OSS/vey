@@ -26,7 +26,8 @@ Generic Gateway
 %build
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features ebpf,rustls-ring,quic --package vey-gateway --package vey-gateway-ctl
+EBPF_FEATURE=$(sh scripts/package/detect_ebpf_feature.sh)
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $EBPF_FEATURE,ebpf,rustls-ring,quic --package vey-gateway --package vey-gateway-ctl
 
 
 %install
