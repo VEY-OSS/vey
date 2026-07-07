@@ -17,7 +17,7 @@ impl CAresDriverConfig {
                 _ => Err(anyhow!("invalid yaml value type, expect string / array")),
             },
             "each_timeout" => {
-                self.each_timeout = vey_yaml::value::as_u32(v)?;
+                self.set_each_timeout(vey_yaml::value::as_u64(v)?);
                 Ok(())
             }
             "each_tries" => {
@@ -25,11 +25,11 @@ impl CAresDriverConfig {
                 Ok(())
             }
             "max_timeout" => {
-                self.set_max_timeout(vey_yaml::value::as_i32(v)?);
+                self.set_max_timeout(vey_yaml::value::as_u64(v)?);
                 Ok(())
             }
             "udp_max_quires" => {
-                self.set_udp_max_queries(vey_yaml::value::as_i32(v)?);
+                self.set_udp_max_queries(vey_yaml::value::as_u32(v)?);
                 Ok(())
             }
             "round_robin" => {
@@ -78,6 +78,7 @@ mod tests {
     use super::*;
     use std::net::{Ipv4Addr, Ipv6Addr};
     use std::str::FromStr;
+    use std::time::Duration;
     use vey_yaml::yaml_doc;
 
     #[test]
@@ -107,15 +108,15 @@ mod tests {
         let mut expected = CAresDriverConfig::default();
         expected.add_server("8.8.8.8").unwrap();
         expected.add_server("8.8.4.4").unwrap();
-        expected.each_timeout = 3000;
+        expected.each_timeout = Duration::from_millis(3000);
         expected.each_tries = 2;
         #[cfg(cares1_22)]
         {
-            expected.max_timeout = 5000;
+            expected.max_timeout = Duration::from_millis(5000);
         }
         #[cfg(cares1_20)]
         {
-            expected.udp_max_queries = 100;
+            expected.udp_max_queries = Some(100);
         }
         expected.round_robin = true;
         expected.so_send_buf_size = Some(8192);
@@ -144,7 +145,7 @@ mod tests {
         let mut expected = CAresDriverConfig::default();
         expected.add_server("1.1.1.1").unwrap();
         expected.add_server("1.0.0.1:53").unwrap();
-        expected.each_timeout = 1500;
+        expected.each_timeout = Duration::from_millis(1500);
         expected.round_robin = false;
 
         assert_eq!(config, expected);

@@ -5,6 +5,7 @@
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::str::FromStr;
+use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use c_ares_resolver::FutureResolver;
@@ -20,12 +21,12 @@ mod yaml;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CAresDriverConfig {
     flags: c_ares::Flags,
-    each_timeout: u32,
+    each_timeout: Duration,
     each_tries: u32,
     #[cfg(cares1_22)]
-    max_timeout: i32,
+    max_timeout: Duration,
     #[cfg(cares1_20)]
-    udp_max_queries: i32,
+    udp_max_queries: Option<u32>,
     round_robin: bool,
     so_send_buf_size: Option<u32>,
     so_recv_buf_size: Option<u32>,
@@ -41,12 +42,12 @@ impl Default for CAresDriverConfig {
     fn default() -> Self {
         CAresDriverConfig {
             flags: c_ares::Flags::empty() | c_ares::Flags::NOCHECKRESP,
-            each_timeout: 2000,
+            each_timeout: Duration::from_secs(2),
             each_tries: 3,
             #[cfg(cares1_22)]
-            max_timeout: 0,
+            max_timeout: Duration::ZERO,
             #[cfg(cares1_20)]
-            udp_max_queries: 0,
+            udp_max_queries: None,
             round_robin: false,
             so_send_buf_size: None,
             so_recv_buf_size: None,
@@ -126,23 +127,27 @@ impl CAresDriverConfig {
         self.bind_v6
     }
 
+    pub fn set_each_timeout(&mut self, timeout_ms: u64) {
+        self.each_timeout = Duration::from_millis(timeout_ms);
+    }
+
     #[cfg(cares1_20)]
-    pub fn set_udp_max_queries(&mut self, max: i32) {
-        self.udp_max_queries = max.max(0);
+    pub fn set_udp_max_queries(&mut self, max: u32) {
+        self.udp_max_queries = Some(max);
     }
 
     #[cfg(not(cares1_20))]
-    pub fn set_udp_max_queries(&mut self, _max: i32) {
+    pub fn set_udp_max_queries(&mut self, _max: u32) {
         log::warn!("option udp_max_queries requires c-ares version 1.20");
     }
 
     #[cfg(cares1_22)]
-    pub fn set_max_timeout(&mut self, timeout_ms: i32) {
-        self.max_timeout = timeout_ms.max(0);
+    pub fn set_max_timeout(&mut self, timeout_ms: u64) {
+        self.max_timeout = Duration::from_millis(timeout_ms);
     }
 
     #[cfg(not(cares1_22))]
-    pub fn set_max_timeout(&mut self, _timeout_ms: i32) {
+    pub fn set_max_timeout(&mut self, _timeout_ms: u64) {
         log::warn!("option max_timeout requires c-ares version 1.22");
     }
 
@@ -154,7 +159,9 @@ impl CAresDriverConfig {
         #[cfg(cares1_20)]
         opts.set_udp_max_queries(self.udp_max_queries);
         #[cfg(cares1_22)]
-        opts.set_max_timeout(self.max_timeout);
+        if !self.max_timeout.is_zero() {
+            opts.set_max_timeout(self.max_timeout);
+        }
         if self.round_robin {
             opts.set_rotate();
         } else {
@@ -174,7 +181,7 @@ impl CAresDriverConfig {
             resolver.set_local_ipv4(*ip4);
         }
         if let Some(ip6) = &self.bind_v6 {
-            resolver.set_local_ipv6(ip6);
+            resolver.set_local_ipv6(*ip6);
         }
         if !self.servers.is_empty() {
             let mut servers = Vec::<String>::new();

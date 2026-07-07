@@ -38,7 +38,7 @@ If omitted, the resolver uses the system configuration from ``/etc/resolv.conf``
 each_timeout
 ------------
 
-**optional**, **type**: int, **unit**: ms
+**optional**, **type**: u64, **unit**: ms
 
 The number of milliseconds each name server is given to respond to a query on the first try.
 After the first try, the timeout algorithm becomes more complicated, but scales linearly with the value of timeout.
@@ -61,7 +61,7 @@ Number of attempts made to contact each name server before giving up.
 max_timeout
 -----------
 
-**optional**, **type**: int, **unit**: ms
+**optional**, **type**: u64, **unit**: ms
 
 Upper bound on the timeout between sequential retry attempts. Retry timeouts
 increase from the base timeout value, and this setting caps the result.
@@ -75,7 +75,7 @@ increase from the base timeout value, and this setting caps the result.
 udp_max_quires
 --------------
 
-**optional**, **type**: int
+**optional**, **type**: u32
 
 Maximum number of UDP queries sent from a single ephemeral port to one DNS
 server before a new ephemeral port is allocated.
