@@ -176,9 +176,9 @@ openssl-probe = "0.2"
 #
 kanal = { version = "0.1.1", default-features = false }
 #
-c-ares = { version = "12.0", default-features = false }
-c-ares-resolver = { version = "11.0", default-features = false }
-c-ares-sys = { version = "11.0", default-features = false }
+c-ares = { version = "13.0", default-features = false }
+c-ares-resolver = { version = "12.0", default-features = false }
+c-ares-sys = { version = "12.0", default-features = false }
 hickory-proto = { version = "0.26.1", default-features = false }
 hickory-net = { version = "0.26.1", default-features = false }
 #
