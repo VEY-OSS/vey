@@ -8,35 +8,38 @@ use std::os::fd::RawFd;
 
 use zerocopy::{Immutable, IntoBytes};
 
-pub mod udp;
-
+pub mod quic;
 pub mod tcp;
+pub mod udp;
 
 #[derive(IntoBytes, Immutable)]
 #[repr(C)]
 struct SocketId {
     pid: i32,
-    generation: u32,
-    worker: u32,
+    generation: u16,
+    worker: u16,
 }
 
 #[derive(IntoBytes, Immutable)]
 #[repr(C)]
 struct ProcMapKey {
     pid: i32,
-    generation: u32,
+    generation: u16,
+    padding: u16,
 }
 
 #[derive(IntoBytes, Immutable)]
 #[repr(C)]
 struct ProcMapValue {
-    count: u32,
     invalid: u32,
+    count: u16,
+    padding: u16,
 }
 
+#[repr(C)]
 struct ReadOnlyData {
     load_pid: i32,
-    load_generation: u32,
+    load_generation: u16,
 }
 
 /// Attach a BPF program to a reuseport socket via `setsockopt`.

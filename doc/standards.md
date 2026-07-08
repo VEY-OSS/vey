@@ -214,6 +214,8 @@ The code should comply to these, but should be more compliant to existing popula
 
 ## QUIC
 
+ - [rfc8999](https://datatracker.ietf.org/doc/html/rfc8999)
+    : Version-Independent Properties of QUIC
  - [rfc9000](https://datatracker.ietf.org/doc/html/rfc9000)
     : QUIC: A UDP-Based Multiplexed and Secure Transport
  - [rfc9001](https://datatracker.ietf.org/doc/html/rfc9001)

@@ -88,7 +88,7 @@ where
         if listen_config.use_ebpf(rustix::process::getuid().as_raw()) {
             match TcpSocketSelector::new(
                 rustix::process::getpid().as_raw_pid(),
-                self.server.version() as u32,
+                self.server.version() as u16,
                 listen_config.address(),
             ) {
                 Ok(selector) => {

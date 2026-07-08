@@ -31,7 +31,7 @@ pub struct UdpSocketSelector {
     pin_dir: PathBuf,
     conn_track_max_entries: NonZeroU32,
     pid: i32,
-    generation: u32,
+    generation: u16,
     sockets: Vec<RawFd>,
     proc_map_handle: Option<MapHandle>,
     socket_map_handle: Option<MapHandle>,
@@ -44,7 +44,7 @@ impl UdpSocketSelector {
 
     pub fn new(
         pid: i32,
-        generation: u32,
+        generation: u16,
         addr: SocketAddr,
         conn_track_max_entries: NonZeroU32,
     ) -> anyhow::Result<Self> {
@@ -250,7 +250,7 @@ impl UdpSocketSelector {
             let key = SocketId {
                 pid: self.pid,
                 generation: self.generation,
-                worker: i as u32,
+                worker: i as u16,
             };
             let value = *socket as u64;
             handle
@@ -267,10 +267,12 @@ impl UdpSocketSelector {
         let key = ProcMapKey {
             pid: self.pid,
             generation: self.generation,
+            padding: 0,
         };
         let value = ProcMapValue {
-            count: self.sockets.len() as u32,
             invalid: 0,
+            count: self.sockets.len() as u16,
+            padding: 0,
         };
         handle
             .update(key.as_bytes(), value.as_bytes(), MapFlags::NO_EXIST)
@@ -285,6 +287,7 @@ impl UdpSocketSelector {
         let key = ProcMapKey {
             pid: self.pid,
             generation: self.generation,
+            padding: 0,
         };
         let _ = handle.delete(key.as_bytes());
     }
@@ -297,7 +300,7 @@ impl UdpSocketSelector {
             let key = SocketId {
                 pid: self.pid,
                 generation: self.generation,
-                worker: i as u32,
+                worker: i as u16,
             };
             let _ = handle.delete(key.as_bytes());
         }

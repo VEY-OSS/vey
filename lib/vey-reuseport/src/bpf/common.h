@@ -8,22 +8,24 @@
 #include <bpf/bpf_helpers.h>
 
 const volatile __s32 load_pid = 0;
-const volatile __u32 load_generation = 0;
+const volatile __u16 load_generation = 0;
 
 struct socket_id {
 	__s32 pid;
-	__u32 generation;
-	__u32 worker;
+	__u16 generation;
+	__u16 worker;
 };
 
 struct proc_info_key {
 	__s32 pid;
-	__u32 generation;
+	__u16 generation;
+	__u16 padding;
 };
 
 struct proc_info_value {
-	__u32 count;
 	__u32 invalid;
+	__u16 count;
+	__u16 padding;
 };
 
 struct proc_info_result {

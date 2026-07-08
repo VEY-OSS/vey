@@ -14,8 +14,9 @@ fn main() {
     common.push("common.h");
     println!("cargo:rerun-if-changed={}", common.display());
 
-    compile_single("udp");
     compile_single("tcp");
+    compile_single("udp");
+    compile_single("quic");
 }
 
 fn compile_single(name: &str) {

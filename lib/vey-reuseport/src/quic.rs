@@ -4,6 +4,7 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
+use std::num::NonZeroU32;
 use std::os::fd::AsFd;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::{Path, PathBuf};
@@ -11,56 +12,68 @@ use std::{fs, ptr};
 
 use anyhow::anyhow;
 use libbpf_rs::{AsRawLibbpf, MapCore, MapFlags, MapHandle, OpenObject};
+use log::warn;
 use zerocopy::IntoBytes;
 
 use super::{ProcMapKey, ProcMapValue, ReadOnlyData, SocketId};
 
-const NAME_OBJECT: &str = "tcp_bpf";
-const NAME_OBJECT_RODATA: &str = "tcp_bpf.rodata";
+const NAME_OBJECT: &str = "quic_bpf";
+const NAME_OBJECT_RODATA: &str = "quic_bpf.rodata";
+const NAME_UDP_CONN_TRACK: &str = "udp_conn_track";
+const NAME_QUIC_CONN_TRACK: &str = "quic_conn_track";
 const NAME_SOCKET_MAP: &str = "socket_map";
 const NAME_PROC_MAP: &str = "proc_map";
-const NAME_PROGRAM: &str = "tcp_select_reuseport";
+const NAME_PROGRAM: &str = "quic_select_reuseport";
 
 #[unsafe(link_section = ".bpf.objs")]
-static BPF_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tcp.bpf.o"));
+static BPF_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/quic.bpf.o"));
 
-pub struct TcpSocketSelector {
+pub struct QuicSocketSelector {
     pin_dir: PathBuf,
+    conn_track_max_entries: NonZeroU32,
     pid: i32,
     generation: u16,
-    sockets: Vec<RawFd>,
+    sockets: Vec<(RawFd, u64)>,
+    quic_conn_track_handle: Option<MapHandle>,
     proc_map_handle: Option<MapHandle>,
     socket_map_handle: Option<MapHandle>,
 }
 
-impl TcpSocketSelector {
+impl QuicSocketSelector {
     pub fn pin_dir(&self) -> &Path {
         &self.pin_dir
     }
 
-    pub fn new(pid: i32, generation: u16, addr: SocketAddr) -> anyhow::Result<Self> {
+    pub fn new(
+        pid: i32,
+        generation: u16,
+        addr: SocketAddr,
+        conn_track_max_entries: NonZeroU32,
+    ) -> anyhow::Result<Self> {
         let ip = match addr.ip() {
             IpAddr::V4(ip) => ip.to_ipv6_compatible(), // IPv4 "." is not allowed in path
             IpAddr::V6(ip) => ip,
         };
-        let dir = format!("/sys/fs/bpf/vey-reuseport/tcp/{ip}_{}", addr.port());
+        let dir = format!("/sys/fs/bpf/vey-reuseport/quic/{ip}_{}", addr.port());
         let pin_dir = PathBuf::from(dir);
 
         fs::create_dir_all(&pin_dir)
             .map_err(|e| anyhow!("failed to create pin directory {}: {e}", pin_dir.display()))?;
 
-        Ok(TcpSocketSelector {
+        Ok(QuicSocketSelector {
             pin_dir,
+            conn_track_max_entries,
             pid,
             generation,
             sockets: Vec::new(),
+            quic_conn_track_handle: None,
             proc_map_handle: None,
             socket_map_handle: None,
         })
     }
 
-    pub fn add_socket(&mut self, socket: RawFd) {
-        self.sockets.push(socket);
+    pub fn add_socket(&mut self, socket: RawFd, cookie: u64) {
+        self.sockets.push((socket, cookie));
     }
 
     fn open_object(&mut self) -> anyhow::Result<OpenObject> {
@@ -68,6 +81,8 @@ impl TcpSocketSelector {
         builder
             .name(NAME_OBJECT)
             .map(NAME_OBJECT_RODATA, true)
+            .map(NAME_UDP_CONN_TRACK, false)
+            .map(NAME_QUIC_CONN_TRACK, false)
             .map(NAME_SOCKET_MAP, false)
             .map(NAME_PROC_MAP, false)
             .prog(NAME_PROGRAM);
@@ -104,6 +119,9 @@ impl TcpSocketSelector {
     pub fn load_and_attach(&mut self) -> anyhow::Result<()> {
         let mut open_object = self.open_object()?;
 
+        let mut udp_conn_track_pin = true;
+        let udp_conn_track_path = self.pin_dir.join(NAME_UDP_CONN_TRACK);
+        let quic_conn_track_path = self.pin_dir.join(NAME_QUIC_CONN_TRACK);
         let socket_map_path = self.pin_dir.join(NAME_SOCKET_MAP);
         let proc_map_path = self.pin_dir.join(NAME_PROC_MAP);
 
@@ -112,6 +130,41 @@ impl TcpSocketSelector {
                 continue;
             };
             match name {
+                NAME_UDP_CONN_TRACK => {
+                    let max_entries = self.conn_track_max_entries.get();
+                    if let Ok(handle) = MapHandle::from_pinned_path(&udp_conn_track_path) {
+                        if handle.max_entries() != max_entries {
+                            warn!(
+                                "quic udp_conn_track map {} already pinned with max entries {}, delete it first if you want to set max entries to {}",
+                                udp_conn_track_path.display(),
+                                handle.max_entries(),
+                                self.conn_track_max_entries
+                            );
+                        }
+                        udp_conn_track_pin = false;
+                        map.reuse_fd(handle.as_fd()).map_err(|e| {
+                            anyhow!(
+                                "failed to reuse already pinned {}: {e}",
+                                udp_conn_track_path.display()
+                            )
+                        })?;
+                    } else {
+                        map.set_max_entries(max_entries).map_err(|e| {
+                            anyhow!("failed to set max entries for udp_conn_track map: {e}")
+                        })?;
+                    }
+                }
+                NAME_QUIC_CONN_TRACK => {
+                    if let Ok(handle) = MapHandle::from_pinned_path(&quic_conn_track_path) {
+                        map.reuse_fd(handle.as_fd()).map_err(|e| {
+                            anyhow!(
+                                "failed to reuse already pinned {}: {e}",
+                                quic_conn_track_path.display()
+                            )
+                        })?;
+                        self.quic_conn_track_handle = Some(handle);
+                    }
+                }
                 NAME_SOCKET_MAP => {
                     if let Ok(handle) = MapHandle::from_pinned_path(&socket_map_path) {
                         map.reuse_fd(handle.as_fd()).map_err(|e| {
@@ -149,6 +202,26 @@ impl TcpSocketSelector {
                 .to_str()
                 .ok_or_else(|| anyhow!("invalid map name"))?;
             match name {
+                NAME_UDP_CONN_TRACK => {
+                    if udp_conn_track_pin {
+                        map.pin(&udp_conn_track_path)
+                            .map_err(|e| anyhow!("failed to pin udp_conn_track map: {e}"))?;
+                    }
+                }
+                NAME_QUIC_CONN_TRACK => {
+                    if self.quic_conn_track_handle.is_none() {
+                        map.pin(&quic_conn_track_path)
+                            .map_err(|e| anyhow!("failed to pin quic_conn_track map: {e}"))?;
+                        let handle =
+                            MapHandle::from_pinned_path(&quic_conn_track_path).map_err(|e| {
+                                anyhow!(
+                                    "failed to open quic_conn_track map {}: {e}",
+                                    quic_conn_track_path.display()
+                                )
+                            })?;
+                        self.quic_conn_track_handle = Some(handle);
+                    }
+                }
                 NAME_SOCKET_MAP => {
                     if self.socket_map_handle.is_none() {
                         map.pin(&socket_map_path)
@@ -187,7 +260,7 @@ impl TcpSocketSelector {
             };
             match name {
                 NAME_PROGRAM => {
-                    if let Some(fd) = self.sockets.first() {
+                    if let Some((fd, _cookie)) = self.sockets.first() {
                         let prog_fd = prog.as_fd().as_raw_fd();
                         super::attach_reuseport_ebpf(*fd, prog_fd)?;
                     }
@@ -200,18 +273,30 @@ impl TcpSocketSelector {
     }
 
     fn register_sockets(&mut self) -> anyhow::Result<()> {
-        let Some(handle) = &self.socket_map_handle else {
+        let Some(cookie_handle) = &self.quic_conn_track_handle else {
+            return Err(anyhow!("no quic_conn_track handle set"));
+        };
+        let Some(socket_handle) = &self.socket_map_handle else {
             return Err(anyhow!("no socket_map handle set"));
         };
-        for (i, socket) in self.sockets.iter().enumerate() {
-            let key = SocketId {
+        for (i, (socket, cookie)) in self.sockets.iter().enumerate() {
+            let socket_id = SocketId {
                 pid: self.pid,
                 generation: self.generation,
                 worker: i as u16,
             };
-            let value = *socket as u64;
-            handle
-                .update(key.as_bytes(), value.as_bytes(), MapFlags::NO_EXIST)
+            cookie_handle
+                .update(cookie.as_bytes(), socket_id.as_bytes(), MapFlags::ANY)
+                .map_err(|e| {
+                    anyhow!("failed to add #{i} socket {socket} to quic_conn_track map: {e}")
+                })?;
+            let socket_fd = *socket as u64;
+            socket_handle
+                .update(
+                    socket_id.as_bytes(),
+                    socket_fd.as_bytes(),
+                    MapFlags::NO_EXIST,
+                )
                 .map_err(|e| anyhow!("failed to add #{i} socket {socket} to socket map: {e}"))?;
         }
         Ok(())
@@ -264,7 +349,7 @@ impl TcpSocketSelector {
     }
 }
 
-impl Drop for TcpSocketSelector {
+impl Drop for QuicSocketSelector {
     fn drop(&mut self) {
         self.unregister_proc();
         self.unregister_sockets();

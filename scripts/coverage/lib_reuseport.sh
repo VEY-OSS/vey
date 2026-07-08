@@ -17,6 +17,7 @@ all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "
 # run the tests
 sudo --preserve-env=LLVM_PROFILE_FILE "${PROJECT_DIR}"/target/debug/udp_reuseport_test
 sudo --preserve-env=LLVM_PROFILE_FILE "${PROJECT_DIR}"/target/debug/tcp_reuseport_test
+sudo --preserve-env=LLVM_PROFILE_FILE "${PROJECT_DIR}"/target/debug/quic_reuseport_test
 
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
