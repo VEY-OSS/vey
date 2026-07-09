@@ -3,31 +3,47 @@
  * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
  */
 
-use log::{error, info, warn};
+use anyhow::Context;
+use log::{info, warn};
 use tokio::sync::Mutex;
 
 use vey_daemon::signal::AsyncSignalAction;
 
 static RELOAD_MUTEX: Mutex<()> = Mutex::const_new(());
 
-async fn do_reload() {
+pub(super) async fn reload() -> anyhow::Result<()> {
     let _guard = RELOAD_MUTEX.lock().await;
     info!("reloading config");
 
-    if let Err(e) = crate::config::reload().await {
-        warn!("error reloading config: {e:?}");
-        warn!("reload aborted");
+    match reload_locked().await {
+        Ok(_) => {
+            info!("reload finished");
+            Ok(())
+        }
+        Err(e) => {
+            warn!("reload error: {e:?}");
+            warn!("reload aborted");
+            Err(e)
+        }
     }
+}
 
-    if let Err(e) = crate::collect::load_all().await {
-        error!("failed to reload all collectors: {e}");
-    }
-    if let Err(e) = crate::import::spawn_all().await {
-        error!("failed to reload all importers: {e}");
-    }
-    // TODO reload all exporters
+async fn reload_locked() -> anyhow::Result<()> {
+    crate::config::reload()
+        .await
+        .context("failed to reload config")?;
 
-    info!("reload finished");
+    crate::collect::load_all()
+        .await
+        .context("failed to reload all collectors")?;
+    crate::import::spawn_all()
+        .await
+        .context("failed to reload all importers")?;
+    crate::export::load_all()
+        .await
+        .context("failed to reload all exporters")?;
+
+    Ok(())
 }
 
 #[derive(Clone, Copy)]
@@ -39,30 +55,37 @@ impl AsyncSignalAction for QuitAction {
     }
 }
 
-#[allow(unused)]
-#[derive(Clone, Copy)]
-struct OfflineAction {}
+#[cfg(unix)]
+mod unix {
+    use vey_daemon::signal::AsyncSignalAction;
 
-impl AsyncSignalAction for OfflineAction {
-    async fn run(&self) {
-        vey_daemon::control::quit::start_graceful_shutdown().await;
+    #[derive(Clone, Copy)]
+    struct OfflineAction {}
+
+    impl AsyncSignalAction for OfflineAction {
+        async fn run(&self) {
+            vey_daemon::control::quit::start_graceful_shutdown().await;
+        }
     }
-}
 
-#[allow(unused)]
-#[derive(Clone, Copy)]
-struct ReloadAction {}
+    #[derive(Clone, Copy)]
+    struct ReloadAction {}
 
-impl AsyncSignalAction for ReloadAction {
-    async fn run(&self) {
-        do_reload().await
+    impl AsyncSignalAction for ReloadAction {
+        async fn run(&self) {
+            let _ = super::reload().await;
+        }
+    }
+
+    pub(super) fn register() -> anyhow::Result<()> {
+        vey_daemon::signal::register_reload(ReloadAction {})?;
+        vey_daemon::signal::register_offline(OfflineAction {})?;
+        Ok(())
     }
 }
 
 pub fn register() -> anyhow::Result<()> {
     #[cfg(unix)]
-    vey_daemon::signal::register_reload(ReloadAction {})?;
-    #[cfg(unix)]
-    vey_daemon::signal::register_offline(OfflineAction {})?;
+    unix::register()?;
     vey_daemon::signal::register_quit(QuitAction {})
 }
