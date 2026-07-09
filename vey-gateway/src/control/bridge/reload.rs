@@ -8,6 +8,14 @@ use anyhow::anyhow;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
 
+pub(in crate::control) async fn reload() -> anyhow::Result<()> {
+    vey_daemon::runtime::main_handle()
+        .ok_or(anyhow!("unable to get main runtime handle"))?
+        .spawn(crate::signal::reload())
+        .await
+        .map_err(|e| anyhow!("failed to spawn reload task: {e}"))?
+}
+
 macro_rules! impl_reload {
     ($f:ident, $m:tt) => {
         pub(in crate::control) async fn $f(
