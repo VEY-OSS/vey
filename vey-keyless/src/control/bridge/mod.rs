@@ -25,6 +25,10 @@ pub(crate) async fn check_key(ski: Vec<u8>) -> anyhow::Result<()> {
     .await
 }
 
+pub(crate) async fn reload() -> anyhow::Result<()> {
+    run_in_main_thread(crate::signal::reload()).await
+}
+
 async fn run_in_main_thread<T, F>(future: F) -> anyhow::Result<T>
 where
     T: Send + 'static,
