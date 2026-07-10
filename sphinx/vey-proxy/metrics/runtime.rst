@@ -36,6 +36,39 @@ There metrics come from the jemalloc memory allocator.
 
   .. versionadded:: 1.13.5
 
+.. _metrics_runtime_mimalloc:
+
+Mimalloc Runtime Metrics
+========================
+
+There metrics come from the mimalloc memory allocator.
+
+* runtime.mimalloc.current_pages
+
+  **type**: gauge
+
+  Current count of mimalloc pages.
+
+* runtime.mimalloc.peak_pages
+
+  **type**: gauge
+
+  Peak count of mimalloc pages.
+
+* runtime.mimalloc.current_commit
+
+  **type**: gauge
+
+  Current committed memory (backed by the page file).
+
+* runtime.mimalloc.peak_commit
+
+  **type**: gauge
+
+  Peak committed memory (backed by the page file).
+
+.. versionadded:: 1.13.9
+
 .. _metrics_runtime_tokio:
 
 Tokio Runtime Metrics

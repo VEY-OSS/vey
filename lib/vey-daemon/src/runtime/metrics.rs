@@ -39,6 +39,8 @@ pub fn add_tokio_stats(stats: RuntimeMetrics, id: String) {
 pub fn emit_stats(client: &mut StatsdClient) {
     #[cfg(feature = "jemalloc")]
     emit_jemalloc_stats(client);
+    #[cfg(feature = "mimalloc")]
+    emit_mimalloc_stats(client);
 
     let mut tokio_stats_vec = TOKIO_STATS_VEC.lock().unwrap();
     for v in tokio_stats_vec.iter_mut() {
@@ -74,7 +76,6 @@ fn emit_jemalloc_stats(client: &mut StatsdClient) {
     use std::sync::LazyLock;
     use vey_jemalloc::stats::JemallocStatsEntry;
 
-    const METRIC_NAME_RUNTIME_JEMALLOC_ACTIVE: &str = "runtime.jemalloc.approximate_active";
     static ACTIVE_STATS: LazyLock<Option<JemallocStatsEntry<usize>>> =
         LazyLock::new(vey_jemalloc::stats::approximate_active);
 
@@ -82,7 +83,23 @@ fn emit_jemalloc_stats(client: &mut StatsdClient) {
         && let Some(value) = stats.value()
     {
         client
-            .gauge(METRIC_NAME_RUNTIME_JEMALLOC_ACTIVE, value)
+            .gauge("runtime.jemalloc.approximate_active", value)
             .send();
+    }
+}
+
+#[cfg(feature = "mimalloc")]
+fn emit_mimalloc_stats(client: &mut StatsdClient) {
+    if let Some(stats) = vey_mimalloc::stats::get() {
+        macro_rules! emit_gauge_field {
+            ($name:literal, $field:ident) => {
+                client.gauge($name, stats.$field).send();
+            };
+        }
+
+        emit_gauge_field!("runtime.mimalloc.current_pages", current_pages);
+        emit_gauge_field!("runtime.mimalloc.peak_pages", peak_pages);
+        emit_gauge_field!("runtime.mimalloc.current_commit", current_commit);
+        emit_gauge_field!("runtime.mimalloc.peak_commit", peak_commit);
     }
 }

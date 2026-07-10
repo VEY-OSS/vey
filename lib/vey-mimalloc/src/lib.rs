@@ -5,6 +5,8 @@
 
 use core::alloc::{GlobalAlloc, Layout};
 
+pub mod stats;
+
 mod version;
 pub use version::lib_version;
 

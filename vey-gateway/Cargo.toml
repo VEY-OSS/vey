@@ -66,7 +66,7 @@ vey-build-env.workspace = true
 [features]
 default = ["quic", "rustls-ring"]
 jemalloc = ["dep:vey-jemalloc", "vey-daemon/jemalloc"]
-mimalloc = ["dep:vey-mimalloc"]
+mimalloc = ["dep:vey-mimalloc", "vey-daemon/mimalloc"]
 vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]
 ebpf = ["vey-daemon/ebpf"]

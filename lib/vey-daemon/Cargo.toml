@@ -46,6 +46,7 @@ vey-socket.workspace = true
 vey-std-ext.workspace = true
 vey-http = { workspace = true, optional = true }
 vey-jemalloc = { workspace = true, optional = true }
+vey-mimalloc = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true, features = ["process"] }
@@ -58,6 +59,7 @@ vey-reuseport = { workspace = true, optional = true }
 [features]
 default = []
 jemalloc = ["dep:vey-jemalloc"]
+mimalloc = ["dep:vey-mimalloc"]
 ebpf = ["dep:vey-reuseport"]
 event-log = ["dep:vey-fluentd"]
 register = ["vey-yaml/http", "dep:http", "dep:serde_json", "dep:vey-http"]

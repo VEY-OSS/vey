@@ -44,7 +44,7 @@ vey-build-env.workspace = true
 
 [features]
 default = []
-jemalloc = ["dep:vey-jemalloc", "vey-daemon/jemalloc"]
+jemalloc = ["dep:vey-jemalloc"]
 mimalloc = ["dep:vey-mimalloc"]
 vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]

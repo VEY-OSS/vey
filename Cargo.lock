@@ -2757,6 +2757,7 @@ dependencies = [
  "vey-io-sys",
  "vey-jemalloc",
  "vey-journal",
+ "vey-mimalloc",
  "vey-reuseport",
  "vey-runtime",
  "vey-socket",
@@ -3284,9 +3285,9 @@ dependencies = [
 
 [[package]]
 name = "vey-mimalloc-sys"
-version = "0.2.2+3.3.2"
+version = "0.2.3+3.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5881ab5b65158cd3a95abb985d19f544bae8f22b82334422b5f0222ae216998"
+checksum = "72f06aaa007da5c8645724da8792fb11e09af850889982bf73bc415389abdf12"
 dependencies = [
  "bindgen",
  "cmake",
