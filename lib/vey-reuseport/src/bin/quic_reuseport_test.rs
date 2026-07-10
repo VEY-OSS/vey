@@ -239,17 +239,17 @@ fn main() -> anyhow::Result<()> {
         .context("failed to send short packet cookie1 post-upgrade")?;
     thread::sleep(Duration::from_millis(50));
 
-    let recv_tracked = try_recv(tracked_socket);
-    let recv_other = try_recv(other_gen1_socket);
+    let recv_gen1_s1 = try_recv(&s1_gen1);
+    let recv_gen1_s2 = try_recv(&s2_gen1);
     let recv_gen2_s1 = try_recv(&s1_gen2);
     let recv_gen2_s2 = try_recv(&s2_gen2);
 
-    if recv_tracked.is_some()
-        && recv_other.is_none()
+    if recv_gen1_s1.is_some()
+        && recv_gen1_s2.is_none()
         && recv_gen2_s1.is_none()
         && recv_gen2_s2.is_none()
     {
-        println!("[SUCCESS] Gen 1 tracked socket received cookie1 post-upgrade.");
+        println!("[SUCCESS] Gen 1 Socket 1 received cookie1 post-upgrade.");
     } else {
         anyhow::bail!("Short packet routing for cookie1 failed post-upgrade.");
     }
