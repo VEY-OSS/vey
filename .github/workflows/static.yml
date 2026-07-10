@@ -26,7 +26,7 @@ env:
 jobs:
   musl-gcc:
     name: musl-gcc
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         feature:
@@ -46,6 +46,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto musl-tools
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares
   musl-clang:

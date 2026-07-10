@@ -23,7 +23,7 @@ env:
 jobs:
   build-vendored-g1:
     name: Build vendored
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         feature:
@@ -53,13 +53,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libc-ares-dev libssl-dev
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
         run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }} -- --deny warnings
   build-vendored-g2:
     name: Build vendored
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         feature:
@@ -86,13 +88,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libssl-dev
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
         run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }} -- --deny warnings
   openssl-async-job:
     name: Build with OpenSSL Async Job
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         component:
@@ -112,6 +116,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libssl-dev
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --features openssl-async-job -p ${{ matrix.component }}
       - name: Cargo clippy

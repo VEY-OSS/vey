@@ -50,9 +50,10 @@ jobs:
       - name: Install binutils
         run: |
           cargo install cargo-binutils@0.3.6
+      - name: Cargo clean
+        run: cargo clean
       - name: run unit test
         run: |
-          cargo clean
           ./scripts/coverage/lib_unit_test.sh
       - name: Upload coverage data
         uses: codecov/codecov-action@v7
@@ -84,9 +85,10 @@ jobs:
       - name: Install binutils
         run: |
           cargo install cargo-binutils@0.3.6
+      - name: Cargo clean
+        run: cargo clean
       - name: run unit test
         run: |
-          cargo clean
           ./scripts/coverage/lib_reuseport.sh
       - name: Upload coverage data
         uses: codecov/codecov-action@v7
@@ -118,6 +120,8 @@ jobs:
       - name: Install binutils
         run: |
           cargo install cargo-binutils@0.3.6
+      - name: Cargo clean
+        run: cargo clean
       - name: run unit test
         run: |
           ./scripts/coverage/vey-mkcert.sh
@@ -151,6 +155,8 @@ jobs:
       - name: Install binutils
         run: |
           cargo install cargo-binutils@0.3.6
+      - name: Cargo clean
+        run: cargo clean
       - name: run unit test
         run: |
           ./scripts/coverage/vey-keyless.sh
@@ -222,9 +228,10 @@ jobs:
           sudo mkdir /run/systemd/resolve/static.d
           sudo cp ${{ github.workspace }}/scripts/coverage/vey-bench/resolved-ci-static.rr /run/systemd/resolve/static.d/
           resolvectl query httpbin.local vey-proxy.local
+      - name: Cargo clean
+        run: cargo clean
       - name: run unit test
         run: |
-          cargo clean
           ./scripts/coverage/vey-proxy.sh
       - name: Restore /etc/hosts # delete this after systemd-resolved 261
         run: |
@@ -288,9 +295,10 @@ jobs:
           sudo mkdir /run/systemd/resolve/static.d
           sudo cp ${{ github.workspace }}/scripts/coverage/vey-bench/resolved-ci-static.rr /run/systemd/resolve/static.d/
           resolvectl query httpbin.local vey-proxy.local
+      - name: Cargo clean
+        run: cargo clean
       - name: run unit test
         run: |
-          cargo clean
           ./scripts/coverage/vey-bench.sh
       - name: Restore /etc/hosts # delete this after systemd-resolved 261
         run: |
@@ -331,6 +339,8 @@ jobs:
       - name: Install wait4x
         run: |
           sudo apt-get install wait4x
+      - name: Cargo clean
+        run: cargo clean
       - name: run unit test
         run: |
           ./scripts/coverage/vey-statsd.sh
