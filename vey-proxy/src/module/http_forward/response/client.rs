@@ -139,17 +139,16 @@ impl HttpProxyClientResponse {
         close: bool,
         content_type: &Mime,
     ) -> (Self, bool) {
-        let chunked: bool;
         let mut response = HttpProxyClientResponse::from_standard(StatusCode::OK, version, close);
-        if close {
-            chunked = false;
+        let chunked = if close {
+            false
         } else if matches!(version, Version::HTTP_09 | Version::HTTP_10) {
             response.close = true;
-            chunked = false;
+            false
         } else {
             response.add_extra_header(vey_http::header::transfer_encoding_chunked().to_owned());
-            chunked = true;
-        }
+            true
+        };
         response.add_extra_header(vey_http::header::content_type(content_type));
         (response, chunked)
     }

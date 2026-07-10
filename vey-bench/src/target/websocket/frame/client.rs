@@ -41,14 +41,14 @@ impl ClientFrameBuilder {
         if !data.is_empty() {
             buf.reserve(data.len());
             // TODO use SIMD XOR
-            let mut chunks_iter = data.chunks_exact(4);
-            for s in &mut chunks_iter {
+            let (chunks, left) = data.as_chunks::<4>();
+            for s in chunks {
                 buf.push(s[0] ^ mask[0]);
                 buf.push(s[1] ^ mask[1]);
                 buf.push(s[2] ^ mask[2]);
                 buf.push(s[3] ^ mask[3]);
             }
-            for (i, b) in chunks_iter.remainder().iter().enumerate() {
+            for (i, b) in left.iter().enumerate() {
                 buf.push(*b ^ mask[i]);
             }
         }

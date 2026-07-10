@@ -38,20 +38,11 @@ impl UdpConnectFailoverContext {
         task_conf: &UdpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
-    ) -> Result<Self, Self> {
-        match escaper
+    ) -> Self {
+        self.connect_result = escaper
             .udp_setup_connection(task_conf, &mut self.udp_notes, task_notes, task_stats)
-            .await
-        {
-            Ok(c) => {
-                self.connect_result = Ok(c);
-                Ok(self)
-            }
-            Err(e) => {
-                self.connect_result = Err(e);
-                Err(self)
-            }
-        }
+            .await;
+        self
     }
 }
 
@@ -71,45 +62,59 @@ impl RouteFailoverEscaper {
             task_stats.clone()
         ));
 
-        match tokio::time::timeout(self.config.fallback_delay, &mut primary_task).await {
-            Ok(Ok(ctx)) => {
-                self.stats.add_request_passed();
-                udp_notes.clone_from(&ctx.udp_notes);
-                return ctx.connect_result;
-            }
-            Ok(Err(_)) => {
-                return match self
-                    .standby_node
-                    .udp_setup_connection(task_conf, udp_notes, task_notes, task_stats)
-                    .await
-                {
-                    Ok(c) => {
-                        self.stats.add_request_passed();
-                        Ok(c)
+        if let Ok(ctx) = tokio::time::timeout(self.config.fallback_delay, &mut primary_task).await {
+            return match ctx.connect_result {
+                Ok(c) => {
+                    self.stats.add_request_passed();
+                    *udp_notes = ctx.udp_notes;
+                    Ok(c)
+                }
+                Err(_e) => {
+                    match self
+                        .standby_node
+                        .udp_setup_connection(task_conf, udp_notes, task_notes, task_stats)
+                        .await
+                    {
+                        Ok(c) => {
+                            self.stats.add_request_passed();
+                            Ok(c)
+                        }
+                        Err(e) => {
+                            self.stats.add_request_failed();
+                            Err(e)
+                        }
                     }
-                    Err(e) => {
-                        self.stats.add_request_failed();
-                        Err(e)
-                    }
-                };
-            }
-            Err(_) => {}
+                }
+            };
         }
 
         let standby_context = UdpConnectFailoverContext::new();
         let standby_task =
             pin!(standby_context.run(&self.standby_node, task_conf, task_notes, task_stats));
 
-        match futures_util::future::select_ok([primary_task, standby_task]).await {
-            Ok((ctx, _left)) => {
+        let (ctx, left) = futures_util::future::select(primary_task, standby_task)
+            .await
+            .into_inner();
+        match ctx.connect_result {
+            Ok(c) => {
                 self.stats.add_request_passed();
-                udp_notes.clone_from(&ctx.udp_notes);
-                ctx.connect_result
+                *udp_notes = ctx.udp_notes;
+                Ok(c)
             }
-            Err(ctx) => {
-                self.stats.add_request_failed();
-                udp_notes.clone_from(&ctx.udp_notes);
-                ctx.connect_result
+            Err(_e) => {
+                let ctx = left.await;
+                match ctx.connect_result {
+                    Ok(c) => {
+                        self.stats.add_request_passed();
+                        *udp_notes = ctx.udp_notes;
+                        Ok(c)
+                    }
+                    Err(e) => {
+                        self.stats.add_request_failed();
+                        *udp_notes = ctx.udp_notes;
+                        Err(e)
+                    }
+                }
             }
         }
     }

@@ -79,7 +79,7 @@ impl FtpConnectFailoverContext {
         self,
         task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
-    ) -> Result<FailoverFtpConnectContext, FailoverFtpConnectContext> {
+    ) -> Result<FailoverFtpConnectContext, TcpConnectError> {
         let mut ftp_ctx = self
             .escaper
             .new_ftp_connect_context(self.escaper.clone(), task_conf, task_notes)
@@ -94,10 +94,7 @@ impl FtpConnectFailoverContext {
                 control_connection: Some(c),
                 inner: ftp_ctx,
             }),
-            Err(_) => Err(FailoverFtpConnectContext {
-                control_connection: None,
-                inner: ftp_ctx,
-            }),
+            Err(e) => Err(e),
         }
     }
 }
@@ -134,9 +131,12 @@ impl RouteFailoverEscaper {
                 self.stats.add_request_passed();
                 Box::new(ctx)
             }
-            Err(ctx) => {
+            Err(_e) => {
                 self.stats.add_request_failed();
-                Box::new(ctx)
+                // always use the primary node if both failed
+                self.primary_node
+                    .new_ftp_connect_context(self.primary_node.clone(), task_conf, task_notes)
+                    .await
             }
         }
     }

@@ -91,15 +91,14 @@ impl LdapUserGroupConfig {
             "ldap_url" => {
                 let url = vey_yaml::value::as_url(v)
                     .context(format!("invalid ldap url value for key {k}"))?;
-                let default_port;
-                match url.scheme() {
-                    "ldap" => default_port = 389,
+                let default_port = match url.scheme() {
+                    "ldap" => 389,
                     "ldaps" => {
                         self.direct_tls = true;
-                        default_port = 636;
+                        636
                     }
                     scheme => return Err(anyhow!("unsupported ldap url scheme {scheme}")),
-                }
+                };
                 let Some(host) = url.host() else {
                     return Err(anyhow!("no host found in ldap url {url}"));
                 };
