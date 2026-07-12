@@ -39,7 +39,7 @@ struct ProcMapValue {
 #[repr(C)]
 struct ReadOnlyData {
     load_pid: i32,
-    load_generation: u16,
+    load_generation: u32,
 }
 
 /// Attach a BPF program to a reuseport socket via `setsockopt`.

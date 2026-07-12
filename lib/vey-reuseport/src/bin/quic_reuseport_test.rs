@@ -12,6 +12,8 @@ use std::thread;
 use std::time::Duration;
 
 use anyhow::Context;
+use libbpf_rs::{MapCore, MapFlags, MapHandle};
+use zerocopy::IntoBytes;
 
 use vey_reuseport::quic::QuicSocketSelector;
 
@@ -303,6 +305,19 @@ fn main() -> anyhow::Result<()> {
 
     // 10. Verify Graceful Fallback for Short Packet (dead cookie)
     println!("\n--- [Phase 8: Verify Graceful Fallback for Short Packet] ---");
+
+    let quic_conn_track_path = selector_gen2.pin_dir().join("quic_conn_track");
+    let map_handle = MapHandle::from_pinned_path(&quic_conn_track_path)
+        .context("failed to open quic_conn_track map")?;
+
+    // Verify cookie1 is in the map before sending the packet
+    let val_before = map_handle.lookup(cookie1.as_bytes(), MapFlags::ANY)
+        .context("failed to lookup cookie1 before fallback")?;
+    if val_before.is_none() {
+        anyhow::bail!("Expected cookie1 to be present in quic_conn_track map before fallback");
+    }
+    println!("[Gen 2] Verified cookie1 is present in quic_conn_track map before sending packet.");
+
     println!("[Client 1] Sending short packet with cookie1 (belonged to dropped Gen 1)...");
     send_short_packet(&client1, cookie1).context("failed to send short packet for fallback")?;
     thread::sleep(Duration::from_millis(50));
@@ -320,6 +335,14 @@ fn main() -> anyhow::Result<()> {
     } else {
         anyhow::bail!("Short packet fallback failed.");
     }
+
+    // Verify cookie1 was deleted from the map by the BPF program due to the routing failure
+    let val_after = map_handle.lookup(cookie1.as_bytes(), MapFlags::ANY)
+        .context("failed to lookup cookie1 after fallback")?;
+    if val_after.is_some() {
+        anyhow::bail!("Expected cookie1 to be deleted from quic_conn_track map after fallback");
+    }
+    println!("[SUCCESS] Verified cookie1 was deleted from quic_conn_track map by BPF.");
 
     // 11. Verify Graceful Fallback for Long Packet
     println!("\n--- [Phase 9: Verify Graceful Fallback for Long Packet] ---");

@@ -110,7 +110,7 @@ impl QuicSocketSelector {
                 .as_mut()
         } {
             ro_data.load_pid = self.pid;
-            ro_data.load_generation = self.generation;
+            ro_data.load_generation = self.generation as u32;
         }
 
         Ok(open_object)

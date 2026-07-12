@@ -32,6 +32,7 @@ fn compile_single(name: &str) {
 
     let mut cmd = Command::new("clang");
 
+    println!("cargo:rerun-if-env-changed=CARGO_CFG_TARGET_ARCH");
     let mut arch_path = PathBuf::from("/usr/lib/linux/uapi");
     if let Ok(true) = fs::exists(&arch_path) {
         let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();

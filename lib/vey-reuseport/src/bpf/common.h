@@ -8,7 +8,7 @@
 #include <bpf/bpf_helpers.h>
 
 const volatile __s32 load_pid = 0;
-const volatile __u16 load_generation = 0;
+const volatile __u32 load_generation = 0;
 
 struct socket_id {
 	__s32 pid;
@@ -35,14 +35,14 @@ struct proc_info_result {
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
-	__uint(max_entries, 32);
+	__uint(max_entries, 128);
 	__type(key, struct proc_info_key);
 	__type(value, struct proc_info_value);
 } proc_map SEC(".maps");
 
 struct {
 	__uint(type, BPF_MAP_TYPE_SOCKHASH);
-	__uint(max_entries, 512);
+	__uint(max_entries, 4096);
 	__type(key, struct socket_id);
 	__type(value, __u64);
 } socket_map SEC(".maps");
