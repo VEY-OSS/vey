@@ -225,8 +225,9 @@ jobs:
           sudo cp /tmp/ci-hosts /etc/hosts
       - name: Add static records to systemd-resolved # work only with systemd-resolved >= 261
         run: |
-          sudo mkdir /run/systemd/resolve/static.d
+          sudo mkdir -p /run/systemd/resolve/static.d
           sudo cp ${{ github.workspace }}/scripts/coverage/vey-bench/resolved-ci-static.rr /run/systemd/resolve/static.d/
+          sudo systemctl restart systemd-resolved
           resolvectl query httpbin.local vey-proxy.local
       - name: Cargo clean
         run: cargo clean
@@ -292,8 +293,9 @@ jobs:
           sudo cp /tmp/ci-hosts /etc/hosts
       - name: Add static records to systemd-resolved # work only with systemd-resolved >= 261
         run: |
-          sudo mkdir /run/systemd/resolve/static.d
+          sudo mkdir -p /run/systemd/resolve/static.d
           sudo cp ${{ github.workspace }}/scripts/coverage/vey-bench/resolved-ci-static.rr /run/systemd/resolve/static.d/
+          sudo systemctl restart systemd-resolved
           resolvectl query httpbin.local vey-proxy.local
       - name: Cargo clean
         run: cargo clean
