@@ -159,17 +159,22 @@ mod tests {
     use super::*;
     use std::fs;
     use std::io::Write;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use yaml_rust::yaml::Hash;
+
+    static TEST_DIR_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     /// Helper function to create a temporary test directory with unique naming
     fn create_test_dir() -> PathBuf {
+        let counter = TEST_DIR_COUNTER.fetch_add(1, Ordering::SeqCst);
         let temp_dir = std::env::temp_dir().join(format!(
-            "vey_yaml_test_{}_{}",
+            "vey_yaml_test_{}_{}_{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            counter
         ));
         if temp_dir.exists() {
             let _ = fs::remove_dir_all(&temp_dir);
