@@ -37,7 +37,7 @@ fn compile_single(name: &str) {
         let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
         match target_arch.as_str() {
             "aarch64" => arch_path.push("arm64"),
-            "loongarch64" => arch_path.push("loongaarch"),
+            "loongarch64" => arch_path.push("loongarch"),
             "mips64" | "mips64el" | "mipsisa64r6" | "mipsisa64r6el" => arch_path.push("mips"),
             "powerpc64" | "powerpc64le" => arch_path.push("powerpc"),
             "riscv64a23" | "riscv64gc" => arch_path.push("riscv"),

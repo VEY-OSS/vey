@@ -94,7 +94,7 @@ impl QuicSocketSelector {
         let ret = unsafe { libbpf_sys::bpf_object__open_skeleton(skel_ptr.as_ptr(), ptr::null()) };
         if ret != 0 {
             return Err(anyhow!(
-                "bpf_object__open_skeletion error: {}",
+                "bpf_object__open_skeleton error: {}",
                 libbpf_rs::Error::from_raw_os_error(-ret)
             ));
         }
