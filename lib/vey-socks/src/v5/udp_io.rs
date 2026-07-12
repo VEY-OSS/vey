@@ -165,3 +165,112 @@ impl Default for SocksUdpHeader {
         }
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_round_trip(upstream: UpstreamAddr) {
+        let header_len = UdpOutput::calc_header_len(&upstream);
+        let mut buf = vec![0xff; header_len];
+
+        UdpOutput::generate_header(&mut buf, &upstream);
+        let (parsed_len, parsed_upstream) = UdpInput::parse_header(&buf).unwrap();
+
+        assert_eq!(parsed_len, header_len);
+        assert_eq!(parsed_upstream, upstream);
+    }
+
+    #[test]
+    fn ipv4_header_round_trips() {
+        assert_round_trip(UpstreamAddr::from_host_str_and_port("192.0.2.10", 8080).unwrap());
+    }
+
+    #[test]
+    fn ipv6_header_round_trips() {
+        assert_round_trip(UpstreamAddr::from_host_str_and_port("2001:db8::1", 443).unwrap());
+    }
+
+    #[test]
+    fn ipv4_mapped_ipv6_uses_ipv4_header() {
+        let upstream = UpstreamAddr::from_host_str_and_port("::ffff:192.0.2.10", 53).unwrap();
+        let header_len = UdpOutput::calc_header_len(&upstream);
+        let mut buf = vec![0; header_len];
+
+        UdpOutput::generate_header(&mut buf, &upstream);
+
+        assert_eq!(header_len, UDP_HEADER_LEN_IPV4);
+        assert_eq!(buf[3], 0x01);
+        assert_eq!(&buf[4..8], &[192, 0, 2, 10]);
+        assert_eq!(&buf[8..10], &[0, 53]);
+    }
+
+    #[test]
+    fn domain_header_round_trips() {
+        let domain = "example.com".to_string();
+        let upstream = UpstreamAddr::from_host_str_and_port(&domain, 8443).unwrap();
+        let header_len = UdpOutput::calc_header_len(&upstream);
+        let mut buf = vec![0; header_len];
+
+        UdpOutput::generate_header(&mut buf, &upstream);
+        let (parsed_len, parsed_upstream) = UdpInput::parse_header(&buf).unwrap();
+
+        assert_eq!(parsed_len, header_len);
+        assert_eq!(buf[3], 0x03);
+        assert_eq!(buf[4], domain.len() as u8);
+        assert_eq!(parsed_upstream.port(), 8443);
+        assert_eq!(parsed_upstream.host().to_string(), domain);
+    }
+
+    #[test]
+    fn generate_header2_encodes_socket_addr() {
+        let addr: SocketAddr = "127.0.0.1:5353".parse().unwrap();
+        let mut buf = vec![0; UDP_HEADER_LEN_IPV4];
+
+        UdpOutput::generate_header2(&mut buf, addr);
+
+        assert_eq!(buf, vec![0, 0, 0, 1, 127, 0, 0, 1, 20, 233]);
+    }
+
+    #[test]
+    fn reusable_header_resizes_for_domain_then_shrinks_view_for_ipv4() {
+        let domain = UpstreamAddr::from_host_str_and_port("example.com", 443).unwrap();
+        let ipv4 = UpstreamAddr::from_host_str_and_port("198.51.100.7", 80).unwrap();
+        let mut header = SocksUdpHeader::default();
+
+        let domain_buf = header.encode(&domain);
+        assert_eq!(domain_buf.len(), UdpOutput::calc_header_len(&domain));
+        assert_eq!(domain_buf[3], 0x03);
+
+        let ipv4_buf = header.encode(&ipv4);
+        assert_eq!(ipv4_buf.len(), UDP_HEADER_LEN_IPV4);
+        assert_eq!(ipv4_buf, &[0, 0, 0, 1, 198, 51, 100, 7, 0, 80]);
+    }
+
+    #[test]
+    fn parse_header_rejects_malformed_packets() {
+        assert!(matches!(
+            UdpInput::parse_header(&[0; 8]),
+            Err(SocksUdpPacketError::TooSmallPacket)
+        ));
+        assert!(matches!(
+            UdpInput::parse_header(&[1, 0, 0, 1, 127, 0, 0, 1, 0, 80]),
+            Err(SocksUdpPacketError::ReservedNotZeroed)
+        ));
+        assert!(matches!(
+            UdpInput::parse_header(&[0, 0, 1, 1, 127, 0, 0, 1, 0, 80]),
+            Err(SocksUdpPacketError::FragmentNotSupported)
+        ));
+        assert!(matches!(
+            UdpInput::parse_header(&[0, 0, 0, 0xff, 127, 0, 0, 1, 0, 80]),
+            Err(SocksUdpPacketError::InvalidAddrType)
+        ));
+        assert!(matches!(
+            UdpInput::parse_header(&[0, 0, 0, 3, 4, b't', b'e', b's']),
+            Err(SocksUdpPacketError::TooSmallPacket)
+        ));
+        assert!(matches!(
+            UdpInput::parse_header(&[0, 0, 0, 3, 1, 0xff, 0, 0, 80]),
+            Err(SocksUdpPacketError::InvalidDomainString)
+        ));
+    }
+}
