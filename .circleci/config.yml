@@ -76,7 +76,9 @@ jobs:
             apt-get install -y python3-dev liblua5.4-dev
       - when:
           condition:
-            equal: [ "ubuntu:22.04", << parameters.image >> ] # vendored-ebpf
+            or:
+              - equal: [ "ubuntu:22.04", << parameters.image >> ] # vendored-ebpf
+              - equal: [ "ubuntu:24.04", << parameters.image >> ] # vendored-ebpf
           steps:
             - run:
                 name: Install tools to build libbpf

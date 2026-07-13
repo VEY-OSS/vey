@@ -2,13 +2,13 @@
 
 set -e
 
-if $(pkg-config --exists lua)
+if pkg-config --exists lua
 then
 	pkg-config --variable=lib_name lua | tr -d '.'
 else
 	for lib in lua55 lua54 luajit
 	do
-		if $(pkg-config --exists ${lib})
+		if pkg-config --exists ${lib}
 		then
 			echo "${lib}"
 			break
