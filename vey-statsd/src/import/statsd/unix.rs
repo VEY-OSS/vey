@@ -26,7 +26,7 @@ use crate::import::{
 
 pub(crate) struct StatsdUnixImporter {
     config: StatsdUnixImporterConfig,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
 
     collector: ArcSwap<ArcCollector>,
     reload_version: usize,
@@ -34,7 +34,7 @@ pub(crate) struct StatsdUnixImporter {
 
 impl StatsdUnixImporter {
     fn new(config: StatsdUnixImporterConfig, reload_version: usize) -> Self {
-        let reload_sender = crate::import::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let collector = Arc::new(crate::collect::get_or_insert_default(config.collector()));
 

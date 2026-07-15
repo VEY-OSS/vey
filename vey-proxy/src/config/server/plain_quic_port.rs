@@ -22,9 +22,11 @@ const SERVER_CONFIG_TYPE: &str = "PlainQuicPort";
 
 bitflags! {
     pub(crate) struct PlainQuicPortUpdateFlags: u64 {
-        const LISTEN = 0b0001;
-        const QUINN = 0b0010;
-        const NEXT_SERVER = 0b0100;
+        const LISTEN_CONFIG = 0b0001;
+        const QUINN_CONFIG = 0b0010;
+        const INGRESS_FILTER = 0b0100;
+        const ACCEPT_TIMEOUT = 0b1000;
+        const NEXT_SERVER = 0b0001_0000;
     }
 }
 
@@ -169,13 +171,22 @@ impl ServerConfig for PlainQuicPortConfig {
         if self.listen_in_worker != new.listen_in_worker {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
+        if self.listen.need_respawn(&new.listen) {
+            return ServerConfigDiffAction::ReloadAndRespawn;
+        }
 
         let mut flags = PlainQuicPortUpdateFlags::empty();
         if self.listen != new.listen {
-            flags.set(PlainQuicPortUpdateFlags::LISTEN, true);
+            flags.set(PlainQuicPortUpdateFlags::LISTEN_CONFIG, true);
+        }
+        if self.ingress_net_filter != new.ingress_net_filter {
+            flags.set(PlainQuicPortUpdateFlags::INGRESS_FILTER, true);
         }
         if self.tls_server != new.tls_server {
-            flags.set(PlainQuicPortUpdateFlags::QUINN, true);
+            if self.tls_server.accept_timeout() != new.tls_server.accept_timeout() {
+                flags.set(PlainQuicPortUpdateFlags::ACCEPT_TIMEOUT, true);
+            }
+            flags.set(PlainQuicPortUpdateFlags::QUINN_CONFIG, true);
         }
         if self.server != new.server {
             flags.set(PlainQuicPortUpdateFlags::NEXT_SERVER, true);

@@ -47,7 +47,7 @@ pub(crate) struct SniProxyServer {
     ingress_net_filter: Option<AclNetworkRule>,
     server_tcp_portmap: Arc<ProtocolPortMap>,
     client_tcp_portmap: Arc<ProtocolPortMap>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
     task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
@@ -65,7 +65,7 @@ impl SniProxyServer {
         listen_stats: Arc<ListenStats>,
         version: usize,
     ) -> anyhow::Result<SniProxyServer> {
-        let reload_sender = crate::serve::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let ingress_net_filter = config
             .ingress_net_filter

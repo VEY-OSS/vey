@@ -23,12 +23,12 @@ use crate::config::importer::{AnyImporterConfig, ImporterConfig};
 
 pub(crate) struct DummyImporter {
     config: DummyImporterConfig,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
 }
 
 impl DummyImporter {
     fn new(config: DummyImporterConfig) -> Self {
-        let reload_sender = crate::import::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         DummyImporter {
             config,

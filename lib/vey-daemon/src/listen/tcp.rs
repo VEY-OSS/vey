@@ -74,7 +74,7 @@ where
         &mut self,
         listen_config: &TcpListenConfig,
         listen_in_worker: bool,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand<()>>,
     ) -> anyhow::Result<()> {
         let mut instance_count = listen_config.instance();
         if listen_in_worker {
@@ -204,7 +204,7 @@ where
     async fn run(
         mut self,
         mut listener: LimitedTcpListener,
-        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
+        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand<()>>,
     ) {
         use broadcast::error::RecvError;
 
@@ -220,6 +220,10 @@ where
                             let new_server = self.server.reload();
                             self.server_version = new_server.version();
                             self.server = new_server;
+                            continue;
+                        }
+                        Ok(ServerReloadCommand::UpdateInPlace(_c)) => {
+                            // TODO
                             continue;
                         }
                         Ok(ServerReloadCommand::QuitRuntime) => {},
@@ -325,7 +329,7 @@ where
         mut self,
         listener: std::net::TcpListener,
         follow_cpu_affinity: bool,
-        server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
+        server_reload_channel: broadcast::Receiver<ServerReloadCommand<()>>,
     ) {
         let (handle, cpu_affinity) = self.get_rt_handle();
         handle.spawn(async move {

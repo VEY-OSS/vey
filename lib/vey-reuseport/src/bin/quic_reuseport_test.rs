@@ -311,7 +311,8 @@ fn main() -> anyhow::Result<()> {
         .context("failed to open quic_conn_track map")?;
 
     // Verify cookie1 is in the map before sending the packet
-    let val_before = map_handle.lookup(cookie1.as_bytes(), MapFlags::ANY)
+    let val_before = map_handle
+        .lookup(cookie1.as_bytes(), MapFlags::ANY)
         .context("failed to lookup cookie1 before fallback")?;
     if val_before.is_none() {
         anyhow::bail!("Expected cookie1 to be present in quic_conn_track map before fallback");
@@ -337,7 +338,8 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Verify cookie1 was deleted from the map by the BPF program due to the routing failure
-    let val_after = map_handle.lookup(cookie1.as_bytes(), MapFlags::ANY)
+    let val_after = map_handle
+        .lookup(cookie1.as_bytes(), MapFlags::ANY)
         .context("failed to lookup cookie1 after fallback")?;
     if val_after.is_some() {
         anyhow::bail!("Expected cookie1 to be deleted from quic_conn_track map after fallback");

@@ -8,12 +8,11 @@ use std::sync::Arc;
 
 #[cfg(unix)]
 use tokio::net::unix::SocketAddr as UnixSocketAddr;
-use tokio::sync::broadcast;
 
 use vey_daemon::listen::ReceiveUdpServer;
 #[cfg(unix)]
 use vey_daemon::listen::ReceiveUnixDatagramServer;
-use vey_daemon::server::{BaseServer, ReloadServer, ServerReloadCommand};
+use vey_daemon::server::{BaseServer, ReloadServer};
 use vey_types::metrics::NodeName;
 
 use crate::config::importer::AnyImporterConfig;
@@ -105,8 +104,4 @@ impl ReceiveUnixDatagramServer for WrapArcImporter {
     fn receive_unix_packet(&self, packet: &[u8], peer_addr: UnixSocketAddr) {
         self.0.receive_unix_packet(packet, peer_addr)
     }
-}
-
-fn new_reload_notify_channel() -> broadcast::Sender<ServerReloadCommand> {
-    broadcast::Sender::new(16)
 }

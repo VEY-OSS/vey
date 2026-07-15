@@ -44,7 +44,7 @@ pub(crate) struct UsualTlsPort {
     tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     tls_server_config: OpensslServerConfig,
     ingress_net_filter: Option<AclNetworkRule>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
 
     next_server: ArcSwap<ArcServer>,
     quit_policy: Arc<ServerQuitPolicy>,
@@ -62,7 +62,7 @@ impl UsualTlsPort {
     where
         F: FnMut(&NodeName) -> ArcServer,
     {
-        let reload_sender = crate::serve::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let tls_server_config = if let Some(builder) = &config.server_tls_config {
             builder

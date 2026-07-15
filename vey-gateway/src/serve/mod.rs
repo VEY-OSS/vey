@@ -9,12 +9,9 @@ use async_trait::async_trait;
 #[cfg(feature = "quic")]
 use quinn::Connection;
 use tokio::net::TcpStream;
-use tokio::sync::broadcast;
 
 use vey_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
-use vey_daemon::server::{
-    BaseServer, ClientConnectionInfo, ReloadServer, ServerQuitPolicy, ServerReloadCommand,
-};
+use vey_daemon::server::{BaseServer, ClientConnectionInfo, ReloadServer, ServerQuitPolicy};
 use vey_types::metrics::NodeName;
 
 use crate::config::server::AnyServerConfig;
@@ -125,8 +122,4 @@ impl AcceptQuicServer for WrapArcServer {
     async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo) {
         self.0.run_quic_task(connection, cc_info).await
     }
-}
-
-fn new_reload_notify_channel() -> broadcast::Sender<ServerReloadCommand> {
-    broadcast::Sender::new(16)
 }

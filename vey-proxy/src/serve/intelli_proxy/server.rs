@@ -39,7 +39,7 @@ pub(crate) struct IntelliProxy {
     config: IntelliProxyConfig,
     listen_stats: Arc<ListenStats>,
     ingress_net_filter: Option<AclNetworkRule>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
 
     http_server: ArcSwap<ArcServer>,
     socks_server: ArcSwap<ArcServer>,
@@ -57,7 +57,7 @@ impl IntelliProxy {
     where
         F: FnMut(&NodeName) -> ArcServer,
     {
-        let reload_sender = crate::serve::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let ingress_net_filter = config
             .ingress_net_filter

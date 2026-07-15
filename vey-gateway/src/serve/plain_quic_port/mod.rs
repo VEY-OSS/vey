@@ -4,22 +4,21 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use quinn::Connection;
 use tokio::net::TcpStream;
-use tokio::sync::{broadcast, watch};
+use tokio::sync::broadcast;
 
 use vey_daemon::listen::{
-    AcceptQuicServer, AcceptTcpServer, ListenQuicConf, ListenQuicRuntime, ListenStats,
+    AcceptQuicServer, AcceptTcpServer, ListenQuicInPlaceConfig, ListenQuicRuntime, ListenStats,
 };
 use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use vey_types::acl::AclNetworkRule;
 use vey_types::metrics::NodeName;
-use vey_types::net::{OpensslTicketKey, RollingTicketer, UdpListenConfig};
+use vey_types::net::{OpensslTicketKey, RollingTicketer};
 
 use crate::config::server::plain_quic_port::{PlainQuicPortConfig, PlainQuicPortUpdateFlags};
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -28,51 +27,14 @@ use crate::serve::{
     WrapArcServer,
 };
 
-#[derive(Clone)]
-struct PlainQuicPortAuxConfig {
-    ingress_net_filter: Option<Arc<AclNetworkRule>>,
-    listen_config: Option<UdpListenConfig>,
-    quinn_config: Option<quinn::ServerConfig>,
-    accept_timeout: Duration,
-    offline_rebind_port: Option<u16>,
-}
-
-impl ListenQuicConf for PlainQuicPortAuxConfig {
-    #[inline]
-    fn take_udp_listen_config(&mut self) -> Option<UdpListenConfig> {
-        self.listen_config.take()
-    }
-
-    #[inline]
-    fn take_quinn_config(&mut self) -> Option<quinn::ServerConfig> {
-        self.quinn_config.take()
-    }
-
-    #[inline]
-    fn offline_rebind_port(&self) -> Option<u16> {
-        self.offline_rebind_port
-    }
-
-    #[inline]
-    fn ingress_network_acl(&self) -> Option<&AclNetworkRule> {
-        self.ingress_net_filter.as_ref().map(|v| v.as_ref())
-    }
-
-    #[inline]
-    fn accept_timeout(&self) -> Duration {
-        self.accept_timeout
-    }
-}
-
 pub(crate) struct PlainQuicPort {
     name: NodeName,
     config: ArcSwap<PlainQuicPortConfig>,
     tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     quinn_config: quinn::ServerConfig,
     listen_stats: Arc<ListenStats>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
-
-    cfg_sender: watch::Sender<PlainQuicPortAuxConfig>,
+    ingress_net_filter: Option<Arc<AclNetworkRule>>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<ListenQuicInPlaceConfig>>,
 
     next_server: ArcSwap<ArcServer>,
     quit_policy: Arc<ServerQuitPolicy>,
@@ -90,7 +52,7 @@ impl PlainQuicPort {
     where
         F: FnMut(&NodeName) -> ArcServer,
     {
-        let reload_sender = crate::serve::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let quic_server = config
             .tls_server
@@ -103,23 +65,14 @@ impl PlainQuicPort {
 
         let next_server = Arc::new(fetch_server(&config.server));
 
-        let aux_config = PlainQuicPortAuxConfig {
-            ingress_net_filter,
-            listen_config: None,
-            quinn_config: None,
-            accept_timeout: quic_server.accept_timeout,
-            offline_rebind_port: config.offline_rebind_port,
-        };
-        let (cfg_sender, _cfg_receiver) = watch::channel(aux_config);
-
         Ok(PlainQuicPort {
             name: config.name().clone(),
             config: ArcSwap::new(config),
             tls_rolling_ticketer,
             quinn_config: quinn::ServerConfig::with_crypto(quic_server.driver),
             listen_stats,
+            ingress_net_filter,
             reload_sender,
-            cfg_sender,
             next_server: ArcSwap::new(next_server),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version,
@@ -186,6 +139,13 @@ impl PlainQuicPort {
             ))
         }
     }
+
+    fn update_runtime_in_place(&self, config: ListenQuicInPlaceConfig) -> anyhow::Result<()> {
+        self.reload_sender
+            .send(ServerReloadCommand::UpdateInPlace(config))
+            .map_err(|e| anyhow!("failed to send server reload command: {e}"))?;
+        Ok(())
+    }
 }
 
 impl ServerInternal for PlainQuicPort {
@@ -201,29 +161,34 @@ impl ServerInternal for PlainQuicPort {
                 return Err(anyhow!("unknown update flags: {flags}"));
             };
 
-            let quinn_config = if flags.contains(PlainQuicPortUpdateFlags::QUINN) {
+            if flags.contains(PlainQuicPortUpdateFlags::LISTEN_CONFIG) {
+                self.update_runtime_in_place(ListenQuicInPlaceConfig::ListenConfig(
+                    config.listen.clone(),
+                ))?;
+            }
+
+            if flags.contains(PlainQuicPortUpdateFlags::QUINN_CONFIG) {
                 let quic_config = config.tls_server.build_quic()?;
-                Some(quinn::ServerConfig::with_crypto(quic_config.driver))
-            } else {
-                None
-            };
-            let listen_config = if flags.contains(PlainQuicPortUpdateFlags::LISTEN) {
-                Some(config.listen.clone())
-            } else {
-                None
-            };
-            let ingress_net_filter = config
-                .ingress_net_filter
-                .as_ref()
-                .map(|builder| Arc::new(builder.build()));
-            let aux_config = PlainQuicPortAuxConfig {
-                ingress_net_filter,
-                listen_config,
-                quinn_config,
-                accept_timeout: config.tls_server.accept_timeout(),
-                offline_rebind_port: config.offline_rebind_port,
-            };
-            self.cfg_sender.send_replace(aux_config);
+                let quinn_config = quinn::ServerConfig::with_crypto(quic_config.driver);
+                self.update_runtime_in_place(ListenQuicInPlaceConfig::QuinnConfig(quinn_config))?;
+            }
+
+            if flags.contains(PlainQuicPortUpdateFlags::INGRESS_FILTER) {
+                let ingress_net_filter = config
+                    .ingress_net_filter
+                    .as_ref()
+                    .map(|builder| Arc::new(builder.build()));
+                self.update_runtime_in_place(ListenQuicInPlaceConfig::IngressAcl(
+                    ingress_net_filter,
+                ))?;
+            }
+
+            if flags.contains(PlainQuicPortUpdateFlags::ACCEPT_TIMEOUT) {
+                self.update_runtime_in_place(ListenQuicInPlaceConfig::AcceptTimeout(
+                    config.tls_server.accept_timeout(),
+                ))?;
+            }
+
             self.config.store(config);
 
             if flags.contains(PlainQuicPortUpdateFlags::NEXT_SERVER) {
@@ -277,8 +242,9 @@ impl ServerInternal for PlainQuicPort {
         runtime.run_all_instances(
             config.listen_in_worker,
             &self.quinn_config,
+            self.ingress_net_filter.as_ref(),
+            config.tls_server.accept_timeout(),
             &self.reload_sender,
-            &self.cfg_sender,
         )
     }
 

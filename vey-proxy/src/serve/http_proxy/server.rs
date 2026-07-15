@@ -59,7 +59,7 @@ pub(crate) struct HttpProxyServer {
     tls_client_config: Arc<OpensslClientConfig>,
     ingress_net_filter: Option<AclNetworkRule>,
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
     task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
@@ -78,7 +78,7 @@ impl HttpProxyServer {
         tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> anyhow::Result<HttpProxyServer> {
-        let reload_sender = crate::serve::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let mut tls_accept_timeout = Duration::from_secs(10);
         let tls_acceptor = if let Some(tls_config_builder) = &config.server_tls_config {

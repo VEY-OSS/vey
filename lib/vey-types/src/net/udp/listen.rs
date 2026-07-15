@@ -95,6 +95,39 @@ impl UdpListenConfig {
         Ok(())
     }
 
+    pub fn need_respawn(&self, other: &Self) -> bool {
+        if self.address != other.address {
+            return true;
+        }
+        if self.instance() != other.instance() {
+            return true;
+        }
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "illumos",
+            target_os = "solaris"
+        ))]
+        if self.interface != other.interface {
+            return true;
+        }
+        #[cfg(not(target_os = "openbsd"))]
+        if self.ipv6only != other.ipv6only {
+            return true;
+        }
+        #[cfg(target_os = "linux")]
+        if self.transparent != other.transparent {
+            return true;
+        }
+        #[cfg(target_os = "linux")]
+        if self.use_ebpf != other.use_ebpf || self.fail_on_ebpf_error != other.fail_on_ebpf_error {
+            return true;
+        }
+
+        false
+    }
+
     #[inline]
     pub fn address(&self) -> SocketAddr {
         self.address

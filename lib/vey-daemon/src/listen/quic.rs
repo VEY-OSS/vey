@@ -4,7 +4,6 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::Arc;
 use std::time::Duration;
@@ -13,7 +12,7 @@ use async_trait::async_trait;
 use log::{info, warn};
 use quinn::{Connection, Endpoint, Incoming};
 use tokio::runtime::Handle;
-use tokio::sync::{broadcast, watch};
+use tokio::sync::broadcast;
 
 use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
@@ -28,16 +27,12 @@ pub trait AcceptQuicServer: BaseServer {
     async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo);
 }
 
-pub trait ListenQuicConf {
-    fn take_udp_listen_config(&mut self) -> Option<UdpListenConfig>;
-
-    fn take_quinn_config(&mut self) -> Option<quinn::ServerConfig>;
-
-    fn offline_rebind_port(&self) -> Option<u16>;
-
-    fn ingress_network_acl(&self) -> Option<&AclNetworkRule>;
-
-    fn accept_timeout(&self) -> Duration;
+#[derive(Clone)]
+pub enum ListenQuicInPlaceConfig {
+    ListenConfig(UdpListenConfig),
+    QuinnConfig(quinn::ServerConfig),
+    IngressAcl(Option<Arc<AclNetworkRule>>),
+    AcceptTimeout(Duration),
 }
 
 #[derive(Clone)]
@@ -64,6 +59,8 @@ where
         id: usize,
         listen_addr: SocketAddr,
         listen_in_worker: bool,
+        ingress_network_acl: Option<Arc<AclNetworkRule>>,
+        accept_timeout: Duration,
     ) -> ListenQuicRuntimeInstance<S> {
         let server_type = self.server.r#type();
         let server_version = self.server.version();
@@ -77,20 +74,20 @@ where
             listen_addr,
             listen_in_worker,
             instance_id: id,
+            ingress_network_acl,
+            accept_timeout,
             _alive_guard: None,
         }
     }
 
-    pub fn run_all_instances<C>(
+    pub fn run_all_instances(
         &self,
         listen_in_worker: bool,
         quic_config: &quinn::ServerConfig,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
-        quic_cfg_receiver: &watch::Sender<C>,
-    ) -> anyhow::Result<()>
-    where
-        C: ListenQuicConf + Clone + Send + Sync + 'static,
-    {
+        ingress_network_acl: Option<&Arc<AclNetworkRule>>,
+        accept_timeout: Duration,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand<ListenQuicInPlaceConfig>>,
+    ) -> anyhow::Result<()> {
         let mut instance_count = self.listen_config.instance();
         if listen_in_worker {
             let worker_count = crate::runtime::worker::worker_count();
@@ -103,12 +100,17 @@ where
             let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
             let listen_addr = socket.local_addr()?;
 
-            let runtime = self.create_instance(i, listen_addr, listen_in_worker);
+            let runtime = self.create_instance(
+                i,
+                listen_addr,
+                listen_in_worker,
+                ingress_network_acl.cloned(),
+                accept_timeout,
+            );
             runtime.into_running(
                 socket,
                 quic_config.clone(),
                 server_reload_sender.subscribe(),
-                quic_cfg_receiver.subscribe(),
             );
         }
         Ok(())
@@ -125,6 +127,8 @@ pub struct ListenQuicRuntimeInstance<S> {
     listen_addr: SocketAddr,
     listen_in_worker: bool,
     instance_id: usize,
+    ingress_network_acl: Option<Arc<AclNetworkRule>>,
+    accept_timeout: Duration,
     _alive_guard: Option<ListenAliveGuard>,
 }
 
@@ -163,18 +167,15 @@ where
         );
     }
 
-    async fn run<C>(
+    async fn run(
         mut self,
         listener: Endpoint,
-        mut sock_raw_fd: RawSocket,
-        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
-        mut quic_cfg_receiver: watch::Receiver<C>,
-    ) where
-        C: ListenQuicConf + Send + Clone + 'static,
-    {
+        raw_socket: RawSocket,
+        mut server_reload_channel: broadcast::Receiver<
+            ServerReloadCommand<ListenQuicInPlaceConfig>,
+        >,
+    ) {
         use broadcast::error::RecvError;
-
-        let mut aux_config = quic_cfg_receiver.borrow().clone();
 
         loop {
             tokio::select! {
@@ -190,6 +191,22 @@ where
                             self.server = new_server;
                             continue;
                         }
+                        Ok(ServerReloadCommand::UpdateInPlace(ListenQuicInPlaceConfig::ListenConfig(config))) => {
+                            self.update_socket_opts(&raw_socket, config);
+                            continue;
+                        }
+                        Ok(ServerReloadCommand::UpdateInPlace(ListenQuicInPlaceConfig::QuinnConfig(config))) => {
+                            listener.set_server_config(Some(config));
+                            continue;
+                        }
+                        Ok(ServerReloadCommand::UpdateInPlace(ListenQuicInPlaceConfig::IngressAcl(ingress_net_acl))) => {
+                            self.ingress_network_acl = ingress_net_acl;
+                            continue;
+                        }
+                        Ok(ServerReloadCommand::UpdateInPlace(ListenQuicInPlaceConfig::AcceptTimeout(timeout))) => {
+                            self.accept_timeout = timeout;
+                            continue;
+                        }
                         Ok(ServerReloadCommand::QuitRuntime) => {},
                         Err(RecvError::Closed) => {},
                         Err(RecvError::Lagged(dropped)) => {
@@ -202,50 +219,24 @@ where
                     info!("SRT[{}_v{}#{}] will go offline",
                         self.server.name(), self.server_version, self.instance_id);
                     self.pre_stop();
-                    self.goto_offline(listener, aux_config.offline_rebind_port());
+                    self.goto_offline(listener).await;
                     break;
-                }
-                ev = quic_cfg_receiver.changed() => {
-                    if ev.is_err() {
-                        warn!("SRT[{}_v{}#{}] quit as quic cfg channel closed",
-                            self.server.name(), self.server_version, self.instance_id);
-                        self.goto_close(listener);
-                        break;
-                    }
-                    aux_config = quic_cfg_receiver.borrow().clone();
-                    if let Some(quinn_config) = aux_config.take_quinn_config() {
-                        listener.set_server_config(Some(quinn_config));
-                    }
-                    if let Some(listen_config) = aux_config.take_udp_listen_config() {
-                        self.listen_config = listen_config;
-                        if self.listen_config.address() != self.listen_addr {
-                            if let Ok((socket, addr)) = self.rebind_socket(&listener) {
-                                sock_raw_fd = socket;
-                                self.listen_addr = addr;
-                            }
-                        } else {
-                            self.update_socket_opts(&sock_raw_fd);
-                        }
-                    }
                 }
                 result = listener.accept() => {
                     let Some(incoming) = result else {
                         continue;
                     };
                     self.listen_stats.add_accepted();
-                    self.run_task(incoming, &aux_config);
+                    self.run_task(incoming);
                 }
             }
         }
         self.post_stop();
     }
 
-    fn run_task<C>(&self, incoming: Incoming, aux_config: &C)
-    where
-        C: ListenQuicConf + Send + Clone + 'static,
-    {
+    fn run_task(&self, incoming: Incoming) {
         let peer_addr = incoming.remote_address();
-        if let Some(filter) = aux_config.ingress_network_acl() {
+        if let Some(filter) = &self.ingress_network_acl {
             let (_, action) = filter.check(peer_addr.ip());
             match action {
                 AclAction::Permit | AclAction::PermitAndLog => {}
@@ -266,7 +257,7 @@ where
 
         let server = self.server.clone();
         let listen_stats = self.listen_stats.clone();
-        let accept_timeout = aux_config.accept_timeout();
+        let accept_timeout = self.accept_timeout;
         if let Some(worker_id) = self.worker_id {
             cc_info.set_worker_id(Some(worker_id));
             tokio::spawn(async move {
@@ -336,96 +327,44 @@ where
         }
     }
 
-    fn update_socket_opts(&self, raw_socket: &RawSocket) {
-        if let Err(e) =
-            raw_socket.set_udp_misc_opts(self.listen_addr, self.listen_config.socket_misc_opts())
-        {
-            warn!(
-                "SRT[{}_v{}#{}] update socket misc opts failed: {e}",
-                self.server.name(),
-                self.server_version,
-                self.instance_id,
-            );
-        }
-        if let Err(e) = raw_socket.set_buf_opts(self.listen_config.socket_buffer()) {
-            warn!(
-                "SRT[{}_v{}#{}] update socket buf opts failed: {e}",
-                self.server.name(),
-                self.server_version,
-                self.instance_id,
-            );
-        }
-    }
-
-    fn rebind_socket(&self, listener: &Endpoint) -> io::Result<(RawSocket, SocketAddr)> {
-        match vey_socket::udp::new_std_bind_listen(&self.listen_config) {
-            Ok(socket) => {
-                let raw_socket = RawSocket::from(&socket);
-                match listener.rebind(socket) {
-                    Ok(_) => Ok((raw_socket, listener.local_addr()?)),
-                    Err(e) => {
-                        warn!(
-                            "SRT[{}_v{}#{}] reload rebind {} failed: {e}",
-                            self.server.name(),
-                            self.server_version,
-                            self.instance_id,
-                            self.listen_config.address()
-                        );
-                        Err(e)
-                    }
+    fn update_socket_opts(&mut self, raw_socket: &RawSocket, config: UdpListenConfig) {
+        if self.listen_config.socket_misc_opts() != config.socket_misc_opts() {
+            match raw_socket.set_udp_misc_opts(self.listen_addr, config.socket_misc_opts()) {
+                Ok(_) => {
+                    self.listen_config
+                        .set_socket_misc_opts(config.socket_misc_opts());
                 }
-            }
-            Err(e) => {
-                warn!(
-                    "SRT[{}_v{}#{}] reload create new socket {} failed: {e}",
-                    self.server.name(),
-                    self.server_version,
-                    self.instance_id,
-                    self.listen_config.address()
-                );
-                Err(e)
-            }
-        }
-    }
-
-    fn goto_offline(&self, listener: Endpoint, rebind_port: Option<u16>) {
-        if let Some(port) = rebind_port {
-            let rebind_addr = SocketAddr::new(self.listen_addr.ip(), port);
-            match vey_socket::udp::new_std_rebind_listen(
-                &self.listen_config,
-                SocketAddr::new(self.listen_addr.ip(), port),
-            ) {
-                Ok(socket) => match listener.rebind(socket) {
-                    Ok(_) => {
-                        info!(
-                            "SRT[{}_v{}#{}] re-bound to: {rebind_addr}",
-                            self.server.name(),
-                            self.server_version,
-                            self.instance_id
-                        );
-                        // listener.reject_new_connections();
-                        tokio::spawn(async move { listener.wait_idle().await });
-                        return;
-                    }
-                    Err(e) => {
-                        warn!(
-                            "SRT[{}_v{}#{}] rebind failed: {e}",
-                            self.server.name(),
-                            self.server_version,
-                            self.instance_id
-                        );
-                    }
-                },
                 Err(e) => {
                     warn!(
-                        "SRT[{}_v{}#{}] create rebind socket failed: {e}",
+                        "SRT[{}_v{}#{}] update socket misc opts failed: {e}",
                         self.server.name(),
                         self.server_version,
-                        self.instance_id
+                        self.instance_id,
                     );
                 }
             }
         }
+
+        if self.listen_config.socket_buffer() != config.socket_buffer() {
+            match raw_socket.set_buf_opts(config.socket_buffer()) {
+                Ok(_) => {
+                    self.listen_config
+                        .set_socket_misc_opts(config.socket_misc_opts());
+                }
+                Err(e) => {
+                    warn!(
+                        "SRT[{}_v{}#{}] update socket buf opts failed: {e}",
+                        self.server.name(),
+                        self.server_version,
+                        self.instance_id,
+                    );
+                }
+            }
+        }
+    }
+
+    async fn goto_offline(&self, listener: Endpoint) {
+        listener.wait_idle().await;
         self.goto_close(listener);
     }
 
@@ -449,15 +388,12 @@ where
         Handle::current()
     }
 
-    fn into_running<C>(
+    fn into_running(
         mut self,
         socket: UdpSocket,
         config: quinn::ServerConfig,
-        server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
-        quic_cfg_receiver: watch::Receiver<C>,
-    ) where
-        C: ListenQuicConf + Clone + Send + Sync + 'static,
-    {
+        server_reload_channel: broadcast::Receiver<ServerReloadCommand<ListenQuicInPlaceConfig>>,
+    ) {
         let handle = self.get_rt_handle();
         handle.spawn(async move {
             let raw_socket = RawSocket::from(&socket);
@@ -470,13 +406,7 @@ where
             ) {
                 Ok(endpoint) => {
                     self.pre_start();
-                    self.run(
-                        endpoint,
-                        raw_socket,
-                        server_reload_channel,
-                        quic_cfg_receiver,
-                    )
-                    .await;
+                    self.run(endpoint, raw_socket, server_reload_channel).await;
                 }
                 Err(e) => {
                     warn!(

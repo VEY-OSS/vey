@@ -39,7 +39,7 @@ pub(crate) struct OpensslProxyServer {
     listen_stats: Arc<ListenStats>,
     ingress_net_filter: Option<AclNetworkRule>,
     tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
     task_logger: Option<Logger>,
     hosts: Arc<HostMatch<Arc<OpensslHost>>>,
 
@@ -57,7 +57,7 @@ impl OpensslProxyServer {
         tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> anyhow::Result<Self> {
-        let reload_sender = crate::serve::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let ingress_net_filter = config
             .ingress_net_filter

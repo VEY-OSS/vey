@@ -78,7 +78,7 @@ where
     async fn run(
         mut self,
         socket: UnixDatagram,
-        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
+        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand<()>>,
     ) {
         use broadcast::error::RecvError;
 
@@ -95,6 +95,10 @@ where
                             let new_server = self.server.reload();
                             self.server_version = new_server.version();
                             self.server = new_server;
+                            continue;
+                        }
+                        Ok(ServerReloadCommand::UpdateInPlace(_c)) => {
+                            // TODO
                             continue;
                         }
                         Ok(ServerReloadCommand::QuitRuntime) => {},
@@ -131,7 +135,7 @@ where
 
     pub fn spawn(
         mut self,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand<()>>,
     ) -> anyhow::Result<()> {
         match self.listen_path.symlink_metadata() {
             Ok(metadata) => {

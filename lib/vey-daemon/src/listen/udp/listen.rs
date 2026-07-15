@@ -525,7 +525,7 @@ where
         &mut self,
         listen_config: &UdpListenConfig,
         listen_in_worker: bool,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand<()>>,
     ) -> anyhow::Result<()> {
         let mut instance_count = listen_config.instance();
         if listen_in_worker {
@@ -675,7 +675,7 @@ where
     async fn run(
         mut self,
         socket: UdpSocket,
-        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
+        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand<()>>,
     ) {
         use broadcast::error::RecvError;
 
@@ -697,6 +697,10 @@ where
                             let new_server = self.server.reload();
                             self.server_version = new_server.version();
                             self.server = new_server;
+                            continue;
+                        }
+                        Ok(ServerReloadCommand::UpdateInPlace(_c)) => {
+                            // TODO
                             continue;
                         }
                         Ok(ServerReloadCommand::QuitRuntime) => {},
@@ -972,7 +976,7 @@ where
     fn into_running(
         mut self,
         socket: std::net::UdpSocket,
-        server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
+        server_reload_channel: broadcast::Receiver<ServerReloadCommand<()>>,
     ) {
         let handle = self.get_rt_handle();
         handle.spawn(async move {
@@ -1091,7 +1095,7 @@ mod tests {
 
     struct RuntimeHarness {
         listen_addr: SocketAddr,
-        reload_sender: broadcast::Sender<ServerReloadCommand>,
+        reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
         session_starts: mpsc::UnboundedReceiver<SessionStart>,
         packets: mpsc::UnboundedReceiver<ReceivedPacket>,
         runtime_task: tokio::task::JoinHandle<()>,

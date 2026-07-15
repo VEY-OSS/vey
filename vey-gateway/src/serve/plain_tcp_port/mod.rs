@@ -33,7 +33,7 @@ pub(crate) struct PlainTcpPort {
     config: PlainTcpPortConfig,
     listen_stats: Arc<ListenStats>,
     ingress_net_filter: Option<AclNetworkRule>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
 
     next_server: ArcSwap<ArcServer>,
     quit_policy: Arc<ServerQuitPolicy>,
@@ -50,7 +50,7 @@ impl PlainTcpPort {
     where
         F: FnMut(&NodeName) -> ArcServer,
     {
-        let reload_sender = crate::serve::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let ingress_net_filter = config
             .ingress_net_filter

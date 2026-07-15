@@ -93,7 +93,7 @@ where
         mut self,
         socket: UdpSocket,
         listen_addr: SocketAddr,
-        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
+        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand<()>>,
     ) {
         use broadcast::error::RecvError;
 
@@ -110,6 +110,10 @@ where
                             let new_server = self.server.reload();
                             self.server_version = new_server.version();
                             self.server = new_server;
+                            continue;
+                        }
+                        Ok(ServerReloadCommand::UpdateInPlace(_c)) => {
+                            // TODO
                             continue;
                         }
                         Ok(ServerReloadCommand::QuitRuntime) => {},
@@ -175,7 +179,7 @@ where
         socket: std::net::UdpSocket,
         listen_addr: SocketAddr,
         listen_in_worker: bool,
-        server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
+        server_reload_channel: broadcast::Receiver<ServerReloadCommand<()>>,
     ) {
         let handle = self.get_rt_handle(listen_in_worker);
         handle.spawn(async move {
@@ -200,7 +204,7 @@ where
     pub fn run_all_instances(
         &self,
         listen_in_worker: bool,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand<()>>,
     ) -> anyhow::Result<()> {
         let mut instance_count = self.listen_config.instance();
         if listen_in_worker {

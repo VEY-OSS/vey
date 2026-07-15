@@ -10,6 +10,6 @@ use crate::server::BaseServer;
 #[async_trait]
 pub trait AcceptQuicServer: BaseServer {}
 
-pub trait ListenQuicConf {}
+pub enum ListenQuicInPlaceConfig {}
 
 pub struct ListenQuicRuntime {}

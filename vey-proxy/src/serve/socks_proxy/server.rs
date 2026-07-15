@@ -47,7 +47,7 @@ pub(crate) struct SocksProxyServer {
     listen_stats: Arc<ListenStats>,
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
     task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
@@ -65,7 +65,7 @@ impl SocksProxyServer {
         listen_stats: Arc<ListenStats>,
         version: usize,
     ) -> anyhow::Result<SocksProxyServer> {
-        let reload_sender = crate::serve::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let ingress_net_filter = config
             .ingress_net_filter

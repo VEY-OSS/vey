@@ -31,14 +31,14 @@ use crate::serve::{
 pub(crate) struct DummyCloseServer {
     config: DummyCloseServerConfig,
     listen_stats: Arc<ListenStats>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
 
     quit_policy: Arc<ServerQuitPolicy>,
 }
 
 impl DummyCloseServer {
     fn new(config: DummyCloseServerConfig, listen_stats: Arc<ListenStats>) -> Self {
-        let reload_sender = crate::serve::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         DummyCloseServer {
             config,

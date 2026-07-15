@@ -57,7 +57,7 @@ pub(crate) struct HttpRProxyServer {
     tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     global_tls_server: Option<RustlsServerConfig>,
     ingress_net_filter: Option<AclNetworkRule>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
     task_logger: Option<Logger>,
     hosts: HostMatch<Arc<HttpHost>>,
 
@@ -77,7 +77,7 @@ impl HttpRProxyServer {
         tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> anyhow::Result<Self> {
-        let reload_sender = crate::serve::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let global_tls_server = match &config.global_tls_server {
             Some(builder) => {

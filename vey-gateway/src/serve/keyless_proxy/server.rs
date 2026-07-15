@@ -18,7 +18,7 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
 use vey_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
-use vey_daemon::server::{BaseServer, ClientConnectionInfo};
+use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use vey_io_ext::IdleWheel;
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;
@@ -29,7 +29,7 @@ use crate::config::server::keyless_proxy::KeylessProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
     ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
-    ServerRegistry, ServerReloadCommand, ServerStats,
+    ServerRegistry, ServerStats,
 };
 
 pub(crate) struct KeylessProxyServer {
@@ -37,7 +37,7 @@ pub(crate) struct KeylessProxyServer {
     server_stats: Arc<KeylessProxyServerStats>,
     listen_stats: Arc<ListenStats>,
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
     task_logger: Option<Logger>,
 
     backend_selector: Arc<ArcSwap<ArcBackend>>,
@@ -53,7 +53,7 @@ impl KeylessProxyServer {
         listen_stats: Arc<ListenStats>,
         version: usize,
     ) -> anyhow::Result<Self> {
-        let reload_sender = crate::serve::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let ingress_net_filter = config
             .ingress_net_filter

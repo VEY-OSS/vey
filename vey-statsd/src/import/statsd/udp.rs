@@ -32,7 +32,7 @@ use crate::import::{
 pub(crate) struct StatsdUdpImporter {
     config: StatsdUdpImporterConfig,
     ingress_net_filter: Option<AclNetworkRule>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
 
     collector: ArcSwap<ArcCollector>,
     reload_version: usize,
@@ -40,7 +40,7 @@ pub(crate) struct StatsdUdpImporter {
 
 impl StatsdUdpImporter {
     fn new(config: StatsdUdpImporterConfig, reload_version: usize) -> Self {
-        let reload_sender = crate::import::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let ingress_net_filter = config
             .ingress_net_filter

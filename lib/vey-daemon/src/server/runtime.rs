@@ -5,15 +5,24 @@
 
 use std::net::IpAddr;
 
+use tokio::sync::broadcast;
+
 use vey_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
 use vey_types::metrics::NodeName;
 
 use super::ClientConnectionInfo;
 
 #[derive(Clone)]
-pub enum ServerReloadCommand {
+pub enum ServerReloadCommand<C: Clone> {
     QuitRuntime,
+    UpdateInPlace(C),
     ReloadVersion(usize),
+}
+
+impl<C: Clone> ServerReloadCommand<C> {
+    pub fn new_sender() -> broadcast::Sender<ServerReloadCommand<C>> {
+        broadcast::Sender::new(64)
+    }
 }
 
 pub trait BaseServer {

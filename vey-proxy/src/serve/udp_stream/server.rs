@@ -48,7 +48,7 @@ pub(crate) struct UdpStreamServer {
     listen_stats: Arc<ListenStats>,
     upstream: SelectiveVec<WeightedUpstreamAddr>,
     ingress_net_filter: Option<AclNetworkRule>,
-    reload_sender: broadcast::Sender<ServerReloadCommand>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
     task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
@@ -65,7 +65,7 @@ impl UdpStreamServer {
         listen_stats: Arc<ListenStats>,
         version: usize,
     ) -> anyhow::Result<Self> {
-        let reload_sender = crate::serve::new_reload_notify_channel();
+        let reload_sender = ServerReloadCommand::new_sender();
 
         let mut nodes_builder = SelectiveVecBuilder::new();
         for node in &config.upstream {
