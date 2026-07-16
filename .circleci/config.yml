@@ -81,9 +81,9 @@ jobs:
               - equal: [ "ubuntu:24.04", << parameters.image >> ] # vendored-ebpf
           steps:
             - run:
-                name: Install tools to build libbpf
+                name: Install libs to build libbpf
                 command: |
-                  apt-get install -y flex bison gawk
+                  apt-get install -y libelf-dev zlib1g-dev
       - restore_cache:
           name: Restore source tarball
           keys:

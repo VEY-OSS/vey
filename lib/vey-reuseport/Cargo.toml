@@ -15,4 +15,4 @@ zerocopy.workspace = true
 socket2.workspace = true
 
 [features]
-vendored = ["libbpf-rs/vendored"]
+vendored = ["libbpf-sys/vendored-libbpf"]
