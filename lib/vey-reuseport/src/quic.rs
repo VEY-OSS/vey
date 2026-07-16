@@ -4,16 +4,15 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
-use std::num::NonZeroU32;
 use std::os::fd::AsFd;
-use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::{Path, PathBuf};
 use std::{fs, ptr};
 
 use anyhow::anyhow;
 use libbpf_rs::{AsRawLibbpf, MapCore, MapFlags, MapHandle, OpenObject};
-use log::warn;
 use zerocopy::IntoBytes;
+
+use vey_socket::RawSocket;
 
 use super::{ProcMapKey, ProcMapValue, ReadOnlyData, SocketId};
 
@@ -30,10 +29,9 @@ static BPF_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/quic.bpf.o"))
 
 pub struct QuicSocketSelector {
     pin_dir: PathBuf,
-    conn_track_max_entries: NonZeroU32,
     pid: i32,
     generation: u16,
-    sockets: Vec<(RawFd, u64)>,
+    sockets: Vec<(RawSocket, u64)>,
     quic_conn_track_handle: Option<MapHandle>,
     proc_map_handle: Option<MapHandle>,
     socket_map_handle: Option<MapHandle>,
@@ -44,12 +42,7 @@ impl QuicSocketSelector {
         &self.pin_dir
     }
 
-    pub fn new(
-        pid: i32,
-        generation: u16,
-        addr: SocketAddr,
-        conn_track_max_entries: NonZeroU32,
-    ) -> anyhow::Result<Self> {
+    pub fn new(pid: i32, generation: u16, addr: SocketAddr) -> anyhow::Result<Self> {
         let ip = match addr.ip() {
             IpAddr::V4(ip) => ip.to_ipv6_compatible(), // IPv4 "." is not allowed in path
             IpAddr::V6(ip) => ip,
@@ -62,7 +55,6 @@ impl QuicSocketSelector {
 
         Ok(QuicSocketSelector {
             pin_dir,
-            conn_track_max_entries,
             pid,
             generation,
             sockets: Vec::new(),
@@ -72,8 +64,12 @@ impl QuicSocketSelector {
         })
     }
 
-    pub fn add_socket(&mut self, socket: RawFd, cookie: u64) {
-        self.sockets.push((socket, cookie));
+    pub fn add_socket(&mut self, socket: RawSocket) -> anyhow::Result<u64> {
+        let cookie = socket
+            .so_cookie()
+            .map_err(|e| anyhow!("failed to get socket cookie: {e}"))?;
+        self.sockets.push((socket.clone(), cookie));
+        Ok(cookie)
     }
 
     fn open_object(&mut self) -> anyhow::Result<OpenObject> {
@@ -131,26 +127,13 @@ impl QuicSocketSelector {
             };
             match name {
                 NAME_UDP_CONN_TRACK => {
-                    let max_entries = self.conn_track_max_entries.get();
                     if let Ok(handle) = MapHandle::from_pinned_path(&udp_conn_track_path) {
-                        if handle.max_entries() != max_entries {
-                            warn!(
-                                "quic udp_conn_track map {} already pinned with max entries {}, delete it first if you want to set max entries to {}",
-                                udp_conn_track_path.display(),
-                                handle.max_entries(),
-                                self.conn_track_max_entries
-                            );
-                        }
                         udp_conn_track_pin = false;
                         map.reuse_fd(handle.as_fd()).map_err(|e| {
                             anyhow!(
                                 "failed to reuse already pinned {}: {e}",
                                 udp_conn_track_path.display()
                             )
-                        })?;
-                    } else {
-                        map.set_max_entries(max_entries).map_err(|e| {
-                            anyhow!("failed to set max entries for udp_conn_track map: {e}")
                         })?;
                     }
                 }
@@ -260,9 +243,8 @@ impl QuicSocketSelector {
             };
             match name {
                 NAME_PROGRAM => {
-                    if let Some((fd, _cookie)) = self.sockets.first() {
-                        let prog_fd = prog.as_fd().as_raw_fd();
-                        super::attach_reuseport_ebpf(*fd, prog_fd)?;
+                    if let Some((socket, _cookie)) = self.sockets.first() {
+                        socket.attach_reuseport_ebpf(&prog.as_fd())?;
                     }
                 }
                 _ => panic!("encountered unexpected program: `{name}`"),
@@ -290,7 +272,7 @@ impl QuicSocketSelector {
                 .map_err(|e| {
                     anyhow!("failed to add #{i} socket {socket} to quic_conn_track map: {e}")
                 })?;
-            let socket_fd = *socket as u64;
+            let socket_fd = socket.as_ebpf_fd();
             socket_handle
                 .update(
                     socket_id.as_bytes(),
@@ -335,16 +317,20 @@ impl QuicSocketSelector {
     }
 
     pub fn unregister_sockets(&mut self) {
-        let Some(handle) = self.socket_map_handle.take() else {
+        let Some(socket_map_handle) = self.socket_map_handle.take() else {
             return;
         };
-        for i in 0..self.sockets.len() {
+        let Some(cookie_handle) = &self.quic_conn_track_handle else {
+            return;
+        };
+        for (i, (_socket, cookie)) in self.sockets.iter().enumerate() {
             let key = SocketId {
                 pid: self.pid,
                 generation: self.generation,
                 worker: i as u16,
             };
-            let _ = handle.delete(key.as_bytes());
+            let _ = cookie_handle.delete(cookie.as_bytes());
+            let _ = socket_map_handle.delete(key.as_bytes());
         }
     }
 }

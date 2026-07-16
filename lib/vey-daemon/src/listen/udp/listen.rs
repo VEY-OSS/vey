@@ -16,8 +16,6 @@ use std::collections::VecDeque;
 use std::future::poll_fn;
 use std::io::{self, IoSlice, IoSliceMut};
 use std::net::SocketAddr;
-#[cfg(all(target_os = "linux", feature = "ebpf"))]
-use std::os::fd::AsRawFd;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -39,6 +37,8 @@ use vey_io_ext::{UdpMoveRecv, UdpMoveSend, UdpSocketExt};
 use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 #[cfg(all(target_os = "linux", feature = "ebpf"))]
 use vey_reuseport::udp::UdpSocketSelector;
+#[cfg(all(target_os = "linux", feature = "ebpf"))]
+use vey_socket::RawSocket;
 use vey_types::net::{UdpConnectionTrackConfig, UdpListenConfig};
 
 use crate::listen::{ListenAliveGuard, ListenStats};
@@ -565,7 +565,7 @@ where
             let socket = vey_socket::udp::new_std_bind_listen(listen_config)?;
             #[cfg(all(target_os = "linux", feature = "ebpf"))]
             if let Some(selector) = &mut self.socket_selector {
-                selector.add_socket(socket.as_raw_fd());
+                selector.add_socket(RawSocket::from(&socket));
             }
             let listen_addr = socket.local_addr()?;
 

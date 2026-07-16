@@ -5,6 +5,7 @@
  */
 
 use std::io;
+use std::mem::ManuallyDrop;
 use std::net::SocketAddr;
 
 use socket2::Socket;
@@ -13,6 +14,8 @@ use vey_types::net::{SocketBufferConfig, TcpMiscSockOpts, UdpMiscSockOpts};
 
 use crate::util::AddressFamily;
 
+#[cfg(target_os = "linux")]
+mod linux;
 #[cfg(unix)]
 mod unix;
 #[cfg(windows)]
@@ -20,23 +23,20 @@ mod windows;
 
 #[derive(Debug)]
 pub struct RawSocket {
-    inner: Option<Socket>,
+    inner: ManuallyDrop<Socket>,
 }
 
 impl RawSocket {
-    fn get_inner(&self) -> io::Result<&Socket> {
-        self.inner
-            .as_ref()
-            .ok_or_else(|| io::Error::other("no socket set"))
+    fn get_inner(&self) -> &Socket {
+        &self.inner
     }
 
     pub fn set_buf_opts(&self, buf_conf: SocketBufferConfig) -> io::Result<()> {
-        let socket = self.get_inner()?;
         if let Some(size) = buf_conf.recv_size() {
-            socket.set_recv_buffer_size(size)?;
+            self.inner.set_recv_buffer_size(size)?;
         }
         if let Some(size) = buf_conf.send_size() {
-            socket.set_send_buffer_size(size)?;
+            self.inner.set_send_buffer_size(size)?;
         }
         Ok(())
     }
@@ -47,7 +47,7 @@ impl RawSocket {
         misc_opts: &TcpMiscSockOpts,
         default_set_nodelay: bool,
     ) -> io::Result<()> {
-        let socket = self.get_inner()?;
+        let socket = self.get_inner();
         if let Some(no_delay) = misc_opts.no_delay {
             socket.set_tcp_nodelay(no_delay)?;
         } else if default_set_nodelay {
@@ -94,14 +94,12 @@ impl RawSocket {
 
     #[cfg(any(target_os = "linux", target_os = "android", target_os = "illumos"))]
     pub fn trigger_tcp_quick_ack(&self) -> io::Result<()> {
-        let socket = self.get_inner()?;
-        crate::sockopt::set_tcp_quick_ack(socket, true)
+        crate::sockopt::set_tcp_quick_ack(self.get_inner(), true)
     }
 
     #[cfg(any(target_os = "linux", target_os = "android"))]
     pub fn tcp_incoming_cpu(&self) -> io::Result<usize> {
-        let socket = self.get_inner()?;
-        super::sockopt::get_incoming_cpu(socket)
+        super::sockopt::get_incoming_cpu(self.get_inner())
     }
 
     pub fn set_udp_misc_opts(
@@ -109,7 +107,7 @@ impl RawSocket {
         local_addr: SocketAddr,
         misc_opts: UdpMiscSockOpts,
     ) -> io::Result<()> {
-        let socket = self.get_inner()?;
+        let socket = self.get_inner();
         match local_addr {
             SocketAddr::V4(_) => {
                 if let Some(ttl) = misc_opts.time_to_live {

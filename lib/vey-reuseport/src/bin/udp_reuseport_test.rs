@@ -14,6 +14,7 @@ use std::time::Duration;
 use anyhow::Context;
 
 use vey_reuseport::udp::UdpSocketSelector;
+use vey_socket::RawSocket;
 
 fn create_reuseport_udp_socket(port: u16) -> io::Result<UdpSocket> {
     let socket = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::DGRAM, None)?;
@@ -66,8 +67,8 @@ fn main() -> anyhow::Result<()> {
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let mut selector_gen1 = UdpSocketSelector::new(1234, 1, addr, max_entries)
         .context("failed to create Gen 1 selector")?;
-    selector_gen1.add_socket(s1_gen1.as_raw_fd());
-    selector_gen1.add_socket(s2_gen1.as_raw_fd());
+    selector_gen1.add_socket(RawSocket::from(&s1_gen1));
+    selector_gen1.add_socket(RawSocket::from(&s2_gen1));
 
     selector_gen1
         .load_and_attach()
@@ -121,8 +122,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut selector_gen2 = UdpSocketSelector::new(1234, 2, addr, max_entries)
         .context("failed to create Gen 2 selector")?;
-    selector_gen2.add_socket(s1_gen2.as_raw_fd());
-    selector_gen2.add_socket(s2_gen2.as_raw_fd());
+    selector_gen2.add_socket(RawSocket::from(&s1_gen2));
+    selector_gen2.add_socket(RawSocket::from(&s2_gen2));
 
     selector_gen2
         .load_and_attach()

@@ -7,7 +7,7 @@ use std::io;
 use std::mem::MaybeUninit;
 use std::os::unix::io::AsRawFd;
 
-use libc::{c_int, socklen_t};
+use libc::{c_int, c_longlong, socklen_t};
 
 unsafe fn getsockopt<T>(fd: c_int, level: c_int, name: c_int) -> io::Result<T>
 where
@@ -69,6 +69,13 @@ pub(crate) fn get_incoming_cpu<T: AsRawFd>(fd: &T) -> io::Result<usize> {
     }
 }
 
+pub(crate) fn get_so_cookie<T: AsRawFd>(fd: &T) -> io::Result<u64> {
+    unsafe {
+        let cpu_id: c_longlong = getsockopt(fd.as_raw_fd(), libc::SOL_SOCKET, libc::SO_COOKIE)?;
+        u64::try_from(cpu_id).map_err(|e| io::Error::other(format!("invalid socket cookie: {e}")))
+    }
+}
+
 pub(crate) fn set_tcp_quick_ack<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
     unsafe {
         super::setsockopt(
@@ -76,6 +83,18 @@ pub(crate) fn set_tcp_quick_ack<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<
             libc::IPPROTO_TCP,
             libc::TCP_QUICKACK,
             enable as c_int,
+        )?;
+        Ok(())
+    }
+}
+
+pub(crate) fn attach_reuseport_ebpf<T: AsRawFd, P: AsRawFd>(fd: &T, prog_fd: &P) -> io::Result<()> {
+    unsafe {
+        super::setsockopt(
+            fd.as_raw_fd(),
+            libc::SOL_SOCKET,
+            libc::SO_ATTACH_REUSEPORT_EBPF,
+            prog_fd.as_raw_fd(),
         )?;
         Ok(())
     }

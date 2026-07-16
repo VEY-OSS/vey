@@ -237,7 +237,7 @@ impl ServerInternal for PlainQuicPort {
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
         let config = self.config.load();
         let listen_stats = server.get_listen_stats();
-        let runtime =
+        let mut runtime =
             ListenQuicRuntime::new(WrapArcServer(server), listen_stats, config.listen.clone());
         runtime.run_all_instances(
             config.listen_in_worker,

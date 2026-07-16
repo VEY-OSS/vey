@@ -13,6 +13,7 @@ use std::time::Duration;
 use anyhow::Context;
 
 use vey_reuseport::tcp::TcpSocketSelector;
+use vey_socket::RawSocket;
 
 fn create_reuseport_tcp_listener(port: u16) -> io::Result<TcpListener> {
     let socket = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None)?;
@@ -103,8 +104,8 @@ fn main() -> anyhow::Result<()> {
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let mut selector_gen1 =
         TcpSocketSelector::new(1234, 1, addr).context("failed to create Gen 1 selector")?;
-    selector_gen1.add_socket(s1_gen1.as_raw_fd());
-    selector_gen1.add_socket(s2_gen1.as_raw_fd());
+    selector_gen1.add_socket(RawSocket::from(&s1_gen1));
+    selector_gen1.add_socket(RawSocket::from(&s2_gen1));
 
     selector_gen1
         .load_and_attach()
@@ -146,8 +147,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut selector_gen2 =
         TcpSocketSelector::new(1234, 2, addr).context("failed to create Gen 2 selector")?;
-    selector_gen2.add_socket(s1_gen2.as_raw_fd());
-    selector_gen2.add_socket(s2_gen2.as_raw_fd());
+    selector_gen2.add_socket(RawSocket::from(&s1_gen2));
+    selector_gen2.add_socket(RawSocket::from(&s2_gen2));
 
     selector_gen2
         .load_and_attach()

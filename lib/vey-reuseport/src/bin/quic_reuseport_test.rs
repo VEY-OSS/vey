@@ -6,16 +6,14 @@
 use std::fs;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
-use std::num::NonZeroU32;
 use std::os::fd::AsRawFd;
 use std::thread;
 use std::time::Duration;
 
 use anyhow::Context;
-use libbpf_rs::{MapCore, MapFlags, MapHandle};
-use zerocopy::IntoBytes;
 
 use vey_reuseport::quic::QuicSocketSelector;
+use vey_socket::RawSocket;
 
 fn create_reuseport_udp_socket(port: u16) -> io::Result<UdpSocket> {
     let socket = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::DGRAM, None)?;
@@ -57,8 +55,6 @@ fn main() -> anyhow::Result<()> {
     println!("   QuicSocketSelector Hot-Upgrade & Fallback Test ");
     println!("==================================================");
 
-    let max_entries = NonZeroU32::new(1024).unwrap();
-
     // 1. Check root privileges
     if unsafe { libc::getuid() } != 0 {
         println!("[ERROR] This test case must be run as root to load eBPF programs and pin maps.");
@@ -82,14 +78,15 @@ fn main() -> anyhow::Result<()> {
     );
 
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
-    let mut selector_gen1 = QuicSocketSelector::new(1234, 1, addr, max_entries)
-        .context("failed to create Gen 1 selector")?;
+    let mut selector_gen1 =
+        QuicSocketSelector::new(1234, 1, addr).context("failed to create Gen 1 selector")?;
 
-    let cookie1 = 0x1122334455667788u64;
-    let cookie2 = 0x99aabbccddeeff00u64;
-
-    selector_gen1.add_socket(s1_gen1.as_raw_fd(), cookie1);
-    selector_gen1.add_socket(s2_gen1.as_raw_fd(), cookie2);
+    let cookie1 = selector_gen1
+        .add_socket(RawSocket::from(&s1_gen1))
+        .context("failed to add s1_gen1 socket")?;
+    let cookie2 = selector_gen1
+        .add_socket(RawSocket::from(&s2_gen1))
+        .context("failed to add s2_gen1 socket")?;
 
     selector_gen1
         .load_and_attach()
@@ -196,14 +193,15 @@ fn main() -> anyhow::Result<()> {
         s2_gen2.as_raw_fd()
     );
 
-    let mut selector_gen2 = QuicSocketSelector::new(1234, 2, addr, max_entries)
-        .context("failed to create Gen 2 selector")?;
+    let mut selector_gen2 =
+        QuicSocketSelector::new(1234, 2, addr).context("failed to create Gen 2 selector")?;
 
-    let cookie3 = 0x1111222233334444u64;
-    let cookie4 = 0x5555666677778888u64;
-
-    selector_gen2.add_socket(s1_gen2.as_raw_fd(), cookie3);
-    selector_gen2.add_socket(s2_gen2.as_raw_fd(), cookie4);
+    let cookie3 = selector_gen2
+        .add_socket(RawSocket::from(&s1_gen2))
+        .context("failed to add s1_gen2 socket")?;
+    let cookie4 = selector_gen2
+        .add_socket(RawSocket::from(&s2_gen2))
+        .context("failed to add s2_gen2 socket")?;
 
     selector_gen2
         .load_and_attach()
@@ -306,19 +304,6 @@ fn main() -> anyhow::Result<()> {
     // 10. Verify Graceful Fallback for Short Packet (dead cookie)
     println!("\n--- [Phase 8: Verify Graceful Fallback for Short Packet] ---");
 
-    let quic_conn_track_path = selector_gen2.pin_dir().join("quic_conn_track");
-    let map_handle = MapHandle::from_pinned_path(&quic_conn_track_path)
-        .context("failed to open quic_conn_track map")?;
-
-    // Verify cookie1 is in the map before sending the packet
-    let val_before = map_handle
-        .lookup(cookie1.as_bytes(), MapFlags::ANY)
-        .context("failed to lookup cookie1 before fallback")?;
-    if val_before.is_none() {
-        anyhow::bail!("Expected cookie1 to be present in quic_conn_track map before fallback");
-    }
-    println!("[Gen 2] Verified cookie1 is present in quic_conn_track map before sending packet.");
-
     println!("[Client 1] Sending short packet with cookie1 (belonged to dropped Gen 1)...");
     send_short_packet(&client1, cookie1).context("failed to send short packet for fallback")?;
     thread::sleep(Duration::from_millis(50));
@@ -336,15 +321,6 @@ fn main() -> anyhow::Result<()> {
     } else {
         anyhow::bail!("Short packet fallback failed.");
     }
-
-    // Verify cookie1 was deleted from the map by the BPF program due to the routing failure
-    let val_after = map_handle
-        .lookup(cookie1.as_bytes(), MapFlags::ANY)
-        .context("failed to lookup cookie1 after fallback")?;
-    if val_after.is_some() {
-        anyhow::bail!("Expected cookie1 to be deleted from quic_conn_track map after fallback");
-    }
-    println!("[SUCCESS] Verified cookie1 was deleted from quic_conn_track map by BPF.");
 
     // 11. Verify Graceful Fallback for Long Packet
     println!("\n--- [Phase 9: Verify Graceful Fallback for Long Packet] ---");

@@ -5,8 +5,6 @@
  */
 
 use std::net::SocketAddr;
-#[cfg(all(target_os = "linux", feature = "ebpf"))]
-use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 #[cfg(all(target_os = "linux", feature = "ebpf"))]
@@ -113,7 +111,7 @@ where
             let listener = vey_socket::tcp::new_std_listener(listen_config)?;
             #[cfg(all(target_os = "linux", feature = "ebpf"))]
             if let Some(selector) = &mut self.socket_selector {
-                selector.add_socket(listener.as_raw_fd());
+                selector.add_socket(RawSocket::from(&listener));
             }
 
             let runtime = self.create_instance(i, listen_in_worker);

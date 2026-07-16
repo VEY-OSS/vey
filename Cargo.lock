@@ -3542,6 +3542,7 @@ dependencies = [
  "libc",
  "log",
  "socket2",
+ "vey-socket",
  "zerocopy",
 ]
 

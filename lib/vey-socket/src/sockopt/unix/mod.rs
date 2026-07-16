@@ -14,8 +14,8 @@ use libc::{c_int, socklen_t};
 mod linux;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub(crate) use linux::{
-    get_incoming_cpu, set_bind_address_no_port, set_incoming_cpu, set_ip_transparent_v6,
-    set_tcp_quick_ack,
+    attach_reuseport_ebpf, get_incoming_cpu, get_so_cookie, set_bind_address_no_port,
+    set_incoming_cpu, set_ip_transparent_v6, set_tcp_quick_ack,
 };
 
 #[cfg(target_os = "freebsd")]

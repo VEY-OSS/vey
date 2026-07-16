@@ -6,7 +6,6 @@
 use std::net::{IpAddr, SocketAddr};
 use std::num::NonZeroU32;
 use std::os::fd::AsFd;
-use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::{Path, PathBuf};
 use std::{fs, ptr};
 
@@ -14,6 +13,8 @@ use anyhow::anyhow;
 use libbpf_rs::{AsRawLibbpf, MapCore, MapFlags, MapHandle, OpenObject};
 use log::warn;
 use zerocopy::IntoBytes;
+
+use vey_socket::RawSocket;
 
 use super::{ProcMapKey, ProcMapValue, ReadOnlyData, SocketId};
 
@@ -32,7 +33,7 @@ pub struct UdpSocketSelector {
     conn_track_max_entries: NonZeroU32,
     pid: i32,
     generation: u16,
-    sockets: Vec<RawFd>,
+    sockets: Vec<RawSocket>,
     proc_map_handle: Option<MapHandle>,
     socket_map_handle: Option<MapHandle>,
 }
@@ -69,7 +70,7 @@ impl UdpSocketSelector {
         })
     }
 
-    pub fn add_socket(&mut self, socket: RawFd) {
+    pub fn add_socket(&mut self, socket: RawSocket) {
         self.sockets.push(socket);
     }
 
@@ -230,9 +231,8 @@ impl UdpSocketSelector {
             };
             match name {
                 NAME_PROGRAM => {
-                    if let Some(fd) = self.sockets.first() {
-                        let prog_fd = prog.as_fd().as_raw_fd();
-                        super::attach_reuseport_ebpf(*fd, prog_fd)?;
+                    if let Some(socket) = self.sockets.first() {
+                        socket.attach_reuseport_ebpf(&prog.as_fd())?;
                     }
                 }
                 _ => panic!("encountered unexpected program: `{name}`"),
@@ -252,7 +252,7 @@ impl UdpSocketSelector {
                 generation: self.generation,
                 worker: i as u16,
             };
-            let value = *socket as u64;
+            let value = socket.as_ebpf_fd();
             handle
                 .update(key.as_bytes(), value.as_bytes(), MapFlags::NO_EXIST)
                 .map_err(|e| anyhow!("failed to add #{i} socket {socket} to socket map: {e}"))?;

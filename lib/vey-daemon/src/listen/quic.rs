@@ -8,12 +8,16 @@ use std::net::{SocketAddr, UdpSocket};
 use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg(all(target_os = "linux", feature = "ebpf"))]
+use anyhow::anyhow;
 use async_trait::async_trait;
 use log::{info, warn};
 use quinn::{Connection, Endpoint, Incoming};
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
+#[cfg(all(target_os = "linux", feature = "ebpf"))]
+use vey_reuseport::quic::QuicSocketSelector;
 use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
 use vey_types::acl::{AclAction, AclNetworkRule};
@@ -35,11 +39,12 @@ pub enum ListenQuicInPlaceConfig {
     AcceptTimeout(Duration),
 }
 
-#[derive(Clone)]
 pub struct ListenQuicRuntime<S> {
     server: S,
     listen_config: UdpListenConfig,
     listen_stats: Arc<ListenStats>,
+    #[cfg(all(target_os = "linux", feature = "ebpf"))]
+    socket_selector: Option<QuicSocketSelector>,
 }
 
 impl<S> ListenQuicRuntime<S>
@@ -51,40 +56,16 @@ where
             server,
             listen_config,
             listen_stats,
-        }
-    }
-
-    fn create_instance(
-        &self,
-        id: usize,
-        listen_addr: SocketAddr,
-        listen_in_worker: bool,
-        ingress_network_acl: Option<Arc<AclNetworkRule>>,
-        accept_timeout: Duration,
-    ) -> ListenQuicRuntimeInstance<S> {
-        let server_type = self.server.r#type();
-        let server_version = self.server.version();
-        ListenQuicRuntimeInstance {
-            server: self.server.clone(),
-            server_type,
-            server_version,
-            worker_id: None,
-            listen_config: self.listen_config.clone(),
-            listen_stats: self.listen_stats.clone(),
-            listen_addr,
-            listen_in_worker,
-            instance_id: id,
-            ingress_network_acl,
-            accept_timeout,
-            _alive_guard: None,
+            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            socket_selector: None,
         }
     }
 
     pub fn run_all_instances(
-        &self,
+        &mut self,
         listen_in_worker: bool,
         quic_config: &quinn::ServerConfig,
-        ingress_network_acl: Option<&Arc<AclNetworkRule>>,
+        ingress_net_filter: Option<&Arc<AclNetworkRule>>,
         accept_timeout: Duration,
         server_reload_sender: &broadcast::Sender<ServerReloadCommand<ListenQuicInPlaceConfig>>,
     ) -> anyhow::Result<()> {
@@ -96,23 +77,88 @@ where
             }
         }
 
+        #[cfg(all(target_os = "linux", feature = "ebpf"))]
+        if self
+            .listen_config
+            .use_ebpf(rustix::process::getuid().as_raw())
+        {
+            match QuicSocketSelector::new(
+                rustix::process::getpid().as_raw_pid(),
+                self.server.version() as u16,
+                self.listen_config.address(),
+            ) {
+                Ok(selector) => {
+                    self.socket_selector = Some(selector);
+                }
+                Err(e) => {
+                    if self.listen_config.fail_on_ebpf_error() {
+                        return Err(anyhow!(
+                            "QUIC {} ebpf reuseport socket selector create failed: {e}",
+                            self.listen_config.address()
+                        ));
+                    }
+                    warn!(
+                        "reuseport ebpf on QUIC socket {} disabled due to create error {e}",
+                        self.listen_config.address()
+                    );
+                }
+            }
+        }
+
         for i in 0..instance_count {
             let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
+            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            if let Some(selector) = &mut self.socket_selector {
+                selector.add_socket(RawSocket::from(&socket))?;
+            }
             let listen_addr = socket.local_addr()?;
 
-            let runtime = self.create_instance(
-                i,
+            let runtime = ListenQuicRuntimeInstance {
+                server: self.server.clone(),
+                server_type: self.server.r#type(),
+                server_version: self.server.version(),
+                worker_id: None,
+                listen_config: self.listen_config.clone(),
+                listen_stats: self.listen_stats.clone(),
                 listen_addr,
                 listen_in_worker,
-                ingress_network_acl.cloned(),
+                instance_id: i,
+                ingress_net_filter: ingress_net_filter.cloned(),
                 accept_timeout,
-            );
+                _alive_guard: None,
+            };
             runtime.into_running(
                 socket,
                 quic_config.clone(),
                 server_reload_sender.subscribe(),
             );
         }
+
+        #[cfg(all(target_os = "linux", feature = "ebpf"))]
+        if let Some(mut selector) = self.socket_selector.take() {
+            if let Err(e) = selector.load_and_attach() {
+                if self.listen_config.fail_on_ebpf_error() {
+                    return Err(anyhow!(
+                        "QUIC {} ebpf reuseport socket selector attach failed: {e}",
+                        self.listen_config.address()
+                    ));
+                }
+                warn!(
+                    "reuseport ebpf on QUIC socket {} disabled due to attach error {e}",
+                    self.listen_config.address()
+                );
+            }
+            let mut server_reload_receiver = server_reload_sender.subscribe();
+            tokio::spawn(async move {
+                while let Ok(cmd) = server_reload_receiver.recv().await {
+                    if matches!(cmd, ServerReloadCommand::QuitRuntime) {
+                        break;
+                    }
+                }
+                drop(selector);
+            });
+        }
+
         Ok(())
     }
 }
@@ -127,7 +173,7 @@ pub struct ListenQuicRuntimeInstance<S> {
     listen_addr: SocketAddr,
     listen_in_worker: bool,
     instance_id: usize,
-    ingress_network_acl: Option<Arc<AclNetworkRule>>,
+    ingress_net_filter: Option<Arc<AclNetworkRule>>,
     accept_timeout: Duration,
     _alive_guard: Option<ListenAliveGuard>,
 }
@@ -199,8 +245,8 @@ where
                             listener.set_server_config(Some(config));
                             continue;
                         }
-                        Ok(ServerReloadCommand::UpdateInPlace(ListenQuicInPlaceConfig::IngressAcl(ingress_net_acl))) => {
-                            self.ingress_network_acl = ingress_net_acl;
+                        Ok(ServerReloadCommand::UpdateInPlace(ListenQuicInPlaceConfig::IngressAcl(ingress_net_filter))) => {
+                            self.ingress_net_filter = ingress_net_filter;
                             continue;
                         }
                         Ok(ServerReloadCommand::UpdateInPlace(ListenQuicInPlaceConfig::AcceptTimeout(timeout))) => {
@@ -236,7 +282,7 @@ where
 
     fn run_task(&self, incoming: Incoming) {
         let peer_addr = incoming.remote_address();
-        if let Some(filter) = &self.ingress_network_acl {
+        if let Some(filter) = &self.ingress_net_filter {
             let (_, action) = filter.check(peer_addr.ip());
             match action {
                 AclAction::Permit | AclAction::PermitAndLog => {}

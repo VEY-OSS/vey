@@ -13,6 +13,7 @@ libc.workspace = true
 log.workspace = true
 zerocopy.workspace = true
 socket2.workspace = true
+vey-socket.workspace = true
 
 [features]
 vendored = ["libbpf-sys/vendored-libbpf"]
