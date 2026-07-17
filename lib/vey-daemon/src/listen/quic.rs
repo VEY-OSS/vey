@@ -242,38 +242,26 @@ where
                             let new_server = self.server.reload();
                             self.server_version = new_server.version();
                             self.server = new_server;
-                            continue;
                         }
                         Ok(ServerReloadCommand::UpdateInPlace(ListenQuicInPlaceConfig::ListenConfig(config))) => {
                             self.update_socket_opts(&raw_socket, config);
-                            continue;
                         }
                         Ok(ServerReloadCommand::UpdateInPlace(ListenQuicInPlaceConfig::QuinnConfig(config))) => {
                             listener.set_server_config(Some(config));
-                            continue;
                         }
                         Ok(ServerReloadCommand::UpdateInPlace(ListenQuicInPlaceConfig::IngressAcl(ingress_net_filter))) => {
                             self.ingress_net_filter = ingress_net_filter;
-                            continue;
                         }
                         Ok(ServerReloadCommand::UpdateInPlace(ListenQuicInPlaceConfig::AcceptTimeout(timeout))) => {
                             self.accept_timeout = timeout;
-                            continue;
                         }
-                        Ok(ServerReloadCommand::QuitRuntime) => {},
-                        Err(RecvError::Closed) => {},
+                        Ok(ServerReloadCommand::QuitRuntime) => break,
+                        Err(RecvError::Closed) => break,
                         Err(RecvError::Lagged(dropped)) => {
                             warn!("SRT[{}_v{}#{}] server {} reload notify channel overflowed, {dropped} msg dropped",
                                 self.server.name(), self.server_version, self.instance_id, self.server.name());
-                            continue;
                         },
                     }
-
-                    info!("SRT[{}_v{}#{}] will go offline",
-                        self.server.name(), self.server_version, self.instance_id);
-                    self.pre_stop();
-                    self.goto_offline(listener).await;
-                    break;
                 }
                 result = listener.accept() => {
                     let Some(incoming) = result else {
@@ -284,6 +272,15 @@ where
                 }
             }
         }
+
+        info!(
+            "SRT[{}_v{}#{}] will go offline",
+            self.server.name(),
+            self.server_version,
+            self.instance_id
+        );
+        self.pre_stop();
+        self.goto_offline(listener).await;
         self.post_stop();
     }
 
@@ -417,6 +414,25 @@ where
     }
 
     async fn goto_offline(&self, listener: Endpoint) {
+        let mut timeout = Box::pin(tokio::time::sleep(self.accept_timeout));
+
+        loop {
+            tokio::select! {
+                biased;
+
+                _ = &mut timeout => {
+                    break;
+                }
+                result = listener.accept() => {
+                    let Some(incoming) = result else {
+                        continue;
+                    };
+                    self.listen_stats.add_accepted();
+                    self.run_task(incoming);
+                }
+            }
+        }
+
         listener.wait_idle().await;
         self.goto_close(listener);
     }
