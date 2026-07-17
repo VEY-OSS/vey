@@ -16,4 +16,5 @@ socket2.workspace = true
 vey-socket.workspace = true
 
 [features]
-vendored = ["libbpf-sys/vendored-libbpf"]
+vendored-libbpf = ["libbpf-sys/vendored-libbpf"]
+vendored = ["libbpf-sys/vendored"]

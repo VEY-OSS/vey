@@ -57,7 +57,7 @@ jobs:
       image: ghcr.io/rust-lang/rust:nightly-alpine
       env:
         CARGO_TERM_COLOR: always
-        RUSTFLAGS: -Ctarget-feature=+crt-static -Clinker=clang -Clink-arg=-fuse-ld=lld -lstatic=zstd -L/usr/lib
+        RUSTFLAGS: -Ctarget-feature=+crt-static -Clinker=clang -Clink-arg=-fuse-ld=lld
         UNSTABLE_OPTIONS: -Ztarget-applies-to-host -Zhost-config
         CC: clang
         CXX: clang++
@@ -81,7 +81,8 @@ jobs:
       - name: Install dependencies
         run: |
           apk add --no-cache musl-dev linux-headers libc++-dev llvm-libunwind-static
-          apk add --no-cache elfutils-dev zlib-static zstd-static
+          # apk add --no-cache elfutils-dev zlib-static zstd-static
+          apk add --no-cache autoconf automake argp-standalone musl-fts-dev musl-obstack-dev musl-libintl gettext-tiny flex bison gawk
           apk add --no-cache clang lld capnproto-dev clang-libclang cmake make perl nasm
       - name: Install Go for AWS-LC-FIPS
         if: contains(matrix.feature, 'vendored-aws-lc-fips')
@@ -96,7 +97,7 @@ jobs:
       env:
         CARGO_TERM_COLOR: always
         # The c++abi lib is needed when build boringssl as -Zhost-config hide crt-static unexpectedly
-        RUSTFLAGS: -Ctarget-feature=+crt-static -Clinker=clang -Clink-arg=-fuse-ld=lld -lstatic=c++abi -lstatic=zstd -L/usr/lib
+        RUSTFLAGS: -Ctarget-feature=+crt-static -Clinker=clang -Clink-arg=-fuse-ld=lld -Clink-arg=-lc++abi
         UNSTABLE_OPTIONS: -Ztarget-applies-to-host -Zhost-config
         CC: clang
         CXX: clang++
@@ -117,7 +118,8 @@ jobs:
       - name: Install dependencies
         run: |
           apk add --no-cache musl-dev linux-headers libc++-dev libc++-static llvm-libunwind-static
-          apk add --no-cache elfutils-dev zlib-static zstd-static
+          # apk add --no-cache elfutils-dev zlib-static zstd-static
+          apk add --no-cache autoconf automake argp-standalone musl-fts-dev musl-obstack-dev musl-libintl gettext-tiny flex bison gawk
           apk add --no-cache clang lld capnproto-dev clang-libclang cmake make
       - name: Cargo build
         run: cargo $UNSTABLE_OPTIONS build --no-default-features --features secure-vendored-mimalloc,vendored-ebpf,${{ matrix.feature }},quic,vendored-c-ares

@@ -77,8 +77,8 @@ jobs:
       - when:
           condition:
             or:
-              - equal: [ "ubuntu:22.04", << parameters.image >> ] # vendored-ebpf
-              - equal: [ "ubuntu:24.04", << parameters.image >> ] # vendored-ebpf
+              - equal: [ "ubuntu:22.04", << parameters.image >> ] # vendored-libbpf
+              - equal: [ "ubuntu:24.04", << parameters.image >> ] # vendored-libbpf
           steps:
             - run:
                 name: Install libs to build libbpf

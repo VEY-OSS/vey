@@ -18,5 +18,5 @@ elif pkg-config --atleast-version 1.1.2 --max-version 1.1.100 libbpf
 then
   echo "ebpf"
 else
-	echo "vendored-ebpf"
+	echo "vendored-libbpf"
 fi
