@@ -10,6 +10,7 @@ use std::{fs, ptr};
 
 use anyhow::anyhow;
 use libbpf_rs::{AsRawLibbpf, MapCore, MapFlags, MapHandle, OpenObject};
+use log::debug;
 use zerocopy::IntoBytes;
 
 use vey_socket::RawSocket;
@@ -27,13 +28,62 @@ const NAME_PROGRAM: &str = "quic_select_reuseport";
 #[unsafe(link_section = ".bpf.objs")]
 static BPF_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/quic.bpf.o"));
 
+#[must_use]
+pub struct QuicSocketSelectGuard {
+    pid: i32,
+    generation: u16,
+    worker: u16,
+    cookie: u64,
+    socket_map_path: PathBuf,
+    quic_conn_track_path: PathBuf,
+}
+
+impl QuicSocketSelectGuard {
+    #[inline]
+    pub fn cookie(&self) -> u64 {
+        self.cookie
+    }
+}
+
+impl Drop for QuicSocketSelectGuard {
+    fn drop(&mut self) {
+        if let Ok(handle) = MapHandle::from_pinned_path(&self.quic_conn_track_path)
+            && handle.delete(self.cookie.as_bytes()).is_ok()
+        {
+            debug!(
+                "deleted cookie {} from bpf map {}",
+                self.cookie,
+                self.socket_map_path.display()
+            );
+        }
+        if let Ok(handle) = MapHandle::from_pinned_path(&self.socket_map_path) {
+            let key = SocketId {
+                pid: self.pid,
+                generation: self.generation,
+                worker: self.worker,
+            };
+            if handle.delete(key.as_bytes()).is_ok() {
+                debug!(
+                    "deleted pid:{}-generation:{}-worker:{} from bpf map {}",
+                    self.pid,
+                    self.generation,
+                    self.worker,
+                    self.socket_map_path.display()
+                );
+            }
+        }
+    }
+}
+
 pub struct QuicSocketSelector {
     pin_dir: PathBuf,
     pid: i32,
     generation: u16,
     sockets: Vec<(RawSocket, u64)>,
+    quic_conn_track_path: PathBuf,
     quic_conn_track_handle: Option<MapHandle>,
     proc_map_handle: Option<MapHandle>,
+    socket_map_path: PathBuf,
     socket_map_handle: Option<MapHandle>,
 }
 
@@ -49,6 +99,8 @@ impl QuicSocketSelector {
         };
         let dir = format!("/sys/fs/bpf/vey-reuseport/quic/{ip}_{}", addr.port());
         let pin_dir = PathBuf::from(dir);
+        let quic_conn_track_path = pin_dir.join(NAME_QUIC_CONN_TRACK);
+        let socket_map_path = pin_dir.join(NAME_SOCKET_MAP);
 
         fs::create_dir_all(&pin_dir)
             .map_err(|e| anyhow!("failed to create pin directory {}: {e}", pin_dir.display()))?;
@@ -58,18 +110,27 @@ impl QuicSocketSelector {
             pid,
             generation,
             sockets: Vec::new(),
+            quic_conn_track_path,
             quic_conn_track_handle: None,
             proc_map_handle: None,
+            socket_map_path,
             socket_map_handle: None,
         })
     }
 
-    pub fn add_socket(&mut self, socket: RawSocket) -> anyhow::Result<u64> {
+    pub fn add_socket(&mut self, socket: RawSocket) -> anyhow::Result<QuicSocketSelectGuard> {
         let cookie = socket
             .so_cookie()
             .map_err(|e| anyhow!("failed to get socket cookie: {e}"))?;
         self.sockets.push((socket.clone(), cookie));
-        Ok(cookie)
+        Ok(QuicSocketSelectGuard {
+            pid: self.pid,
+            generation: self.generation,
+            worker: self.sockets.len() as u16 - 1,
+            cookie,
+            quic_conn_track_path: self.quic_conn_track_path.clone(),
+            socket_map_path: self.socket_map_path.clone(),
+        })
     }
 
     fn open_object(&mut self) -> anyhow::Result<OpenObject> {
@@ -117,8 +178,6 @@ impl QuicSocketSelector {
 
         let mut udp_conn_track_pin = true;
         let udp_conn_track_path = self.pin_dir.join(NAME_UDP_CONN_TRACK);
-        let quic_conn_track_path = self.pin_dir.join(NAME_QUIC_CONN_TRACK);
-        let socket_map_path = self.pin_dir.join(NAME_SOCKET_MAP);
         let proc_map_path = self.pin_dir.join(NAME_PROC_MAP);
 
         for mut map in open_object.maps_mut() {
@@ -138,22 +197,22 @@ impl QuicSocketSelector {
                     }
                 }
                 NAME_QUIC_CONN_TRACK => {
-                    if let Ok(handle) = MapHandle::from_pinned_path(&quic_conn_track_path) {
+                    if let Ok(handle) = MapHandle::from_pinned_path(&self.quic_conn_track_path) {
                         map.reuse_fd(handle.as_fd()).map_err(|e| {
                             anyhow!(
                                 "failed to reuse already pinned {}: {e}",
-                                quic_conn_track_path.display()
+                                self.quic_conn_track_path.display()
                             )
                         })?;
                         self.quic_conn_track_handle = Some(handle);
                     }
                 }
                 NAME_SOCKET_MAP => {
-                    if let Ok(handle) = MapHandle::from_pinned_path(&socket_map_path) {
+                    if let Ok(handle) = MapHandle::from_pinned_path(&self.socket_map_path) {
                         map.reuse_fd(handle.as_fd()).map_err(|e| {
                             anyhow!(
                                 "failed to reuse already pinned {}: {e}",
-                                socket_map_path.display()
+                                self.socket_map_path.display()
                             )
                         })?;
                         self.socket_map_handle = Some(handle);
@@ -193,13 +252,13 @@ impl QuicSocketSelector {
                 }
                 NAME_QUIC_CONN_TRACK => {
                     if self.quic_conn_track_handle.is_none() {
-                        map.pin(&quic_conn_track_path)
+                        map.pin(&self.quic_conn_track_path)
                             .map_err(|e| anyhow!("failed to pin quic_conn_track map: {e}"))?;
-                        let handle =
-                            MapHandle::from_pinned_path(&quic_conn_track_path).map_err(|e| {
+                        let handle = MapHandle::from_pinned_path(&self.quic_conn_track_path)
+                            .map_err(|e| {
                                 anyhow!(
                                     "failed to open quic_conn_track map {}: {e}",
-                                    quic_conn_track_path.display()
+                                    self.quic_conn_track_path.display()
                                 )
                             })?;
                         self.quic_conn_track_handle = Some(handle);
@@ -207,13 +266,13 @@ impl QuicSocketSelector {
                 }
                 NAME_SOCKET_MAP => {
                     if self.socket_map_handle.is_none() {
-                        map.pin(&socket_map_path)
+                        map.pin(&self.socket_map_path)
                             .map_err(|e| anyhow!("failed to pin socket_map map: {e}"))?;
                         let handle =
-                            MapHandle::from_pinned_path(&socket_map_path).map_err(|e| {
+                            MapHandle::from_pinned_path(&self.socket_map_path).map_err(|e| {
                                 anyhow!(
                                     "failed to open socket_map {}: {e}",
-                                    socket_map_path.display()
+                                    self.socket_map_path.display()
                                 )
                             })?;
                         self.socket_map_handle = Some(handle);
@@ -317,10 +376,10 @@ impl QuicSocketSelector {
     }
 
     pub fn unregister_sockets(&mut self) {
-        let Some(socket_map_handle) = self.socket_map_handle.take() else {
+        let Some(cookie_handle) = &self.quic_conn_track_handle else {
             return;
         };
-        let Some(cookie_handle) = &self.quic_conn_track_handle else {
+        let Some(socket_map_handle) = self.socket_map_handle.take() else {
             return;
         };
         for (i, (_socket, cookie)) in self.sockets.iter().enumerate() {
@@ -338,6 +397,6 @@ impl QuicSocketSelector {
 impl Drop for QuicSocketSelector {
     fn drop(&mut self) {
         self.unregister_proc();
-        self.unregister_sockets();
+        // The cookies and sockets should be dropped in guard
     }
 }

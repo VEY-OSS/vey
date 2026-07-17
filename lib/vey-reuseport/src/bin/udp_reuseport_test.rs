@@ -67,8 +67,8 @@ fn main() -> anyhow::Result<()> {
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let mut selector_gen1 = UdpSocketSelector::new(1234, 1, addr, max_entries)
         .context("failed to create Gen 1 selector")?;
-    selector_gen1.add_socket(RawSocket::from(&s1_gen1));
-    selector_gen1.add_socket(RawSocket::from(&s2_gen1));
+    let _s1_gen1_guard = selector_gen1.add_socket(RawSocket::from(&s1_gen1));
+    let _s2_gen1_guard = selector_gen1.add_socket(RawSocket::from(&s2_gen1));
 
     selector_gen1
         .load_and_attach()
@@ -122,8 +122,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut selector_gen2 = UdpSocketSelector::new(1234, 2, addr, max_entries)
         .context("failed to create Gen 2 selector")?;
-    selector_gen2.add_socket(RawSocket::from(&s1_gen2));
-    selector_gen2.add_socket(RawSocket::from(&s2_gen2));
+    let _s1_gen2_guard = selector_gen2.add_socket(RawSocket::from(&s1_gen2));
+    let _s2_gen2_guard = selector_gen2.add_socket(RawSocket::from(&s2_gen2));
 
     selector_gen2
         .load_and_attach()

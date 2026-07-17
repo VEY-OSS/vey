@@ -17,7 +17,7 @@ use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
 #[cfg(all(target_os = "linux", feature = "ebpf"))]
-use vey_reuseport::quic::QuicSocketSelector;
+use vey_reuseport::quic::{QuicSocketSelectGuard, QuicSocketSelector};
 use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
 use vey_types::acl::{AclAction, AclNetworkRule};
@@ -108,9 +108,12 @@ where
         for i in 0..instance_count {
             let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
             #[cfg(all(target_os = "linux", feature = "ebpf"))]
-            if let Some(selector) = &mut self.socket_selector {
-                selector.add_socket(RawSocket::from(&socket))?;
-            }
+            let guard = if let Some(selector) = &mut self.socket_selector {
+                let guard = selector.add_socket(RawSocket::from(&socket))?;
+                Some(guard)
+            } else {
+                None
+            };
             let listen_addr = socket.local_addr()?;
 
             let runtime = ListenQuicRuntimeInstance {
@@ -125,6 +128,8 @@ where
                 instance_id: i,
                 ingress_net_filter: ingress_net_filter.cloned(),
                 accept_timeout,
+                #[cfg(all(target_os = "linux", feature = "ebpf"))]
+                _bpf_guard: guard,
                 _alive_guard: None,
             };
             runtime.into_running(
@@ -155,7 +160,7 @@ where
                         break;
                     }
                 }
-                drop(selector);
+                selector.unregister_proc();
             });
         }
 
@@ -175,6 +180,8 @@ pub struct ListenQuicRuntimeInstance<S> {
     instance_id: usize,
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
     accept_timeout: Duration,
+    #[cfg(all(target_os = "linux", feature = "ebpf"))]
+    _bpf_guard: Option<QuicSocketSelectGuard>,
     _alive_guard: Option<ListenAliveGuard>,
 }
 

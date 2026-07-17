@@ -81,10 +81,10 @@ fn main() -> anyhow::Result<()> {
     let mut selector_gen1 =
         QuicSocketSelector::new(1234, 1, addr).context("failed to create Gen 1 selector")?;
 
-    let cookie1 = selector_gen1
+    let s1_gen1_guard = selector_gen1
         .add_socket(RawSocket::from(&s1_gen1))
         .context("failed to add s1_gen1 socket")?;
-    let cookie2 = selector_gen1
+    let s2_gen1_guard = selector_gen1
         .add_socket(RawSocket::from(&s2_gen1))
         .context("failed to add s2_gen1 socket")?;
 
@@ -106,7 +106,8 @@ fn main() -> anyhow::Result<()> {
     // 4. Test Short Packet Routing in Gen 1
     println!("\n--- [Phase 2: Test Short Packet Routing in Gen 1] ---");
     println!("[Client 1] Sending short packet with cookie1...");
-    send_short_packet(&client1, cookie1).context("failed to send short packet cookie1")?;
+    send_short_packet(&client1, s1_gen1_guard.cookie())
+        .context("failed to send short packet cookie1")?;
     thread::sleep(Duration::from_millis(50));
 
     let recv_gen1_s1 = try_recv(&s1_gen1);
@@ -123,7 +124,8 @@ fn main() -> anyhow::Result<()> {
     }
 
     println!("[Client 1] Sending short packet with cookie2...");
-    send_short_packet(&client1, cookie2).context("failed to send short packet cookie2")?;
+    send_short_packet(&client1, s2_gen1_guard.cookie())
+        .context("failed to send short packet cookie2")?;
     thread::sleep(Duration::from_millis(50));
 
     let recv_gen1_s1 = try_recv(&s1_gen1);
@@ -196,10 +198,10 @@ fn main() -> anyhow::Result<()> {
     let mut selector_gen2 =
         QuicSocketSelector::new(1234, 2, addr).context("failed to create Gen 2 selector")?;
 
-    let cookie3 = selector_gen2
+    let s1_gen2_guard = selector_gen2
         .add_socket(RawSocket::from(&s1_gen2))
         .context("failed to add s1_gen2 socket")?;
-    let cookie4 = selector_gen2
+    let s2_gen2_guard = selector_gen2
         .add_socket(RawSocket::from(&s2_gen2))
         .context("failed to add s2_gen2 socket")?;
 
@@ -211,7 +213,8 @@ fn main() -> anyhow::Result<()> {
     // 7. Test Short Packet Routing in Gen 2 and Gen 1 (both should work)
     println!("\n--- [Phase 5: Test Short Packet Routing in Gen 2 and Gen 1] ---");
     println!("[Client 1] Sending short packet with cookie3 (Gen 2 Socket 1)...");
-    send_short_packet(&client1, cookie3).context("failed to send short packet cookie3")?;
+    send_short_packet(&client1, s1_gen2_guard.cookie())
+        .context("failed to send short packet cookie3")?;
     thread::sleep(Duration::from_millis(50));
 
     let recv_gen2_s1 = try_recv(&s1_gen2);
@@ -223,7 +226,8 @@ fn main() -> anyhow::Result<()> {
     }
 
     println!("[Client 1] Sending short packet with cookie4 (Gen 2 Socket 2)...");
-    send_short_packet(&client1, cookie4).context("failed to send short packet cookie4")?;
+    send_short_packet(&client1, s2_gen2_guard.cookie())
+        .context("failed to send short packet cookie4")?;
     thread::sleep(Duration::from_millis(50));
 
     let recv_gen2_s1 = try_recv(&s1_gen2);
@@ -235,7 +239,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     println!("[Client 1] Sending short packet with cookie1 (should route to Gen 1)...");
-    send_short_packet(&client1, cookie1)
+    send_short_packet(&client1, s1_gen1_guard.cookie())
         .context("failed to send short packet cookie1 post-upgrade")?;
     thread::sleep(Duration::from_millis(50));
 
@@ -305,7 +309,8 @@ fn main() -> anyhow::Result<()> {
     println!("\n--- [Phase 8: Verify Graceful Fallback for Short Packet] ---");
 
     println!("[Client 1] Sending short packet with cookie1 (belonged to dropped Gen 1)...");
-    send_short_packet(&client1, cookie1).context("failed to send short packet for fallback")?;
+    send_short_packet(&client1, s1_gen1_guard.cookie())
+        .context("failed to send short packet for fallback")?;
     thread::sleep(Duration::from_millis(50));
 
     // Since Gen 1 is dropped, the BPF should fail to route to Gen 1 Socket 1,

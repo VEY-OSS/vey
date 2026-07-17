@@ -36,7 +36,7 @@ use tokio::sync::{broadcast, mpsc};
 use vey_io_ext::{UdpMoveRecv, UdpMoveSend, UdpSocketExt};
 use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 #[cfg(all(target_os = "linux", feature = "ebpf"))]
-use vey_reuseport::udp::UdpSocketSelector;
+use vey_reuseport::udp::{UdpSocketSelectGuard, UdpSocketSelector};
 #[cfg(all(target_os = "linux", feature = "ebpf"))]
 use vey_socket::RawSocket;
 use vey_types::net::{UdpConnectionTrackConfig, UdpListenConfig};
@@ -456,12 +456,7 @@ where
         target_os = "macos",
         target_os = "solaris",
     )))]
-    fn create_instance(
-        &self,
-        id: usize,
-        listen_addr: SocketAddr,
-        listen_in_worker: bool,
-    ) -> ListenUdpRuntimeInstance<S> {
+    fn create_instance(&self, id: usize, listen_addr: SocketAddr) -> ListenUdpRuntimeInstance<S> {
         let server_type = self.server.r#type();
         let server_version = self.server.version();
         ListenUdpRuntimeInstance {
@@ -473,7 +468,7 @@ where
             packet_max_size: self.packet_max_size,
             listen_stats: self.listen_stats.clone(),
             listen_addr,
-            listen_in_worker,
+            listen_in_worker: false,
             instance_id: id,
             _alive_guard: None,
 
@@ -490,12 +485,7 @@ where
         target_os = "macos",
         target_os = "solaris",
     ))]
-    fn create_instance(
-        &self,
-        id: usize,
-        listen_addr: SocketAddr,
-        listen_in_worker: bool,
-    ) -> ListenUdpRuntimeInstance<S> {
+    fn create_instance(&self, id: usize, listen_addr: SocketAddr) -> ListenUdpRuntimeInstance<S> {
         let server_type = self.server.r#type();
         let server_version = self.server.version();
 
@@ -513,8 +503,10 @@ where
             packet_max_size: self.packet_max_size,
             listen_stats: self.listen_stats.clone(),
             listen_addr,
-            listen_in_worker,
+            listen_in_worker: false,
             instance_id: id,
+            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            _bpf_guard: None,
             _alive_guard: None,
 
             packets_buf,
@@ -563,13 +555,15 @@ where
 
         for i in 0..instance_count {
             let socket = vey_socket::udp::new_std_bind_listen(listen_config)?;
-            #[cfg(all(target_os = "linux", feature = "ebpf"))]
-            if let Some(selector) = &mut self.socket_selector {
-                selector.add_socket(RawSocket::from(&socket));
-            }
             let listen_addr = socket.local_addr()?;
 
-            let runtime = self.create_instance(i, listen_addr, listen_in_worker);
+            let mut runtime = self.create_instance(i, listen_addr);
+            runtime.listen_in_worker = listen_in_worker;
+            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            if let Some(selector) = &mut self.socket_selector {
+                let guard = selector.add_socket(RawSocket::from(&socket));
+                runtime._bpf_guard = Some(guard);
+            }
             runtime.into_running(socket, server_reload_sender.subscribe());
         }
 
@@ -594,7 +588,7 @@ where
                         break;
                     }
                 }
-                drop(selector);
+                selector.unregister_proc();
             });
         }
 
@@ -613,6 +607,8 @@ struct ListenUdpRuntimeInstance<S> {
     listen_addr: SocketAddr,
     listen_in_worker: bool,
     instance_id: usize,
+    #[cfg(all(target_os = "linux", feature = "ebpf"))]
+    _bpf_guard: Option<UdpSocketSelectGuard>,
     _alive_guard: Option<ListenAliveGuard>,
 
     #[cfg(not(any(
@@ -1129,7 +1125,7 @@ mod tests {
                 UdpConnectionTrackConfig::default(),
                 4096,
             )
-            .create_instance(0, listen_addr, false);
+            .create_instance(0, listen_addr);
 
             let runtime_task = tokio::spawn(runtime.run(socket, reload_receiver));
 

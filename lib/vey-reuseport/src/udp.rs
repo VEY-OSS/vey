@@ -11,7 +11,7 @@ use std::{fs, ptr};
 
 use anyhow::anyhow;
 use libbpf_rs::{AsRawLibbpf, MapCore, MapFlags, MapHandle, OpenObject};
-use log::warn;
+use log::{debug, warn};
 use zerocopy::IntoBytes;
 
 use vey_socket::RawSocket;
@@ -28,6 +28,35 @@ const NAME_PROGRAM: &str = "udp_select_reuseport";
 #[unsafe(link_section = ".bpf.objs")]
 static BPF_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/udp.bpf.o"));
 
+#[must_use]
+pub struct UdpSocketSelectGuard {
+    pid: i32,
+    generation: u16,
+    worker: u16,
+    socket_map_path: PathBuf,
+}
+
+impl Drop for UdpSocketSelectGuard {
+    fn drop(&mut self) {
+        if let Ok(handle) = MapHandle::from_pinned_path(&self.socket_map_path) {
+            let key = SocketId {
+                pid: self.pid,
+                generation: self.generation,
+                worker: self.worker,
+            };
+            if handle.delete(key.as_bytes()).is_ok() {
+                debug!(
+                    "deleted pid:{}-generation:{}-worker:{} from bpf map {}",
+                    self.pid,
+                    self.generation,
+                    self.worker,
+                    self.socket_map_path.display()
+                );
+            }
+        }
+    }
+}
+
 pub struct UdpSocketSelector {
     pin_dir: PathBuf,
     conn_track_max_entries: NonZeroU32,
@@ -35,6 +64,7 @@ pub struct UdpSocketSelector {
     generation: u16,
     sockets: Vec<RawSocket>,
     proc_map_handle: Option<MapHandle>,
+    socket_map_path: PathBuf,
     socket_map_handle: Option<MapHandle>,
 }
 
@@ -55,6 +85,7 @@ impl UdpSocketSelector {
         };
         let dir = format!("/sys/fs/bpf/vey-reuseport/udp/{ip}_{}", addr.port());
         let pin_dir = PathBuf::from(dir);
+        let socket_map_path = pin_dir.join(NAME_SOCKET_MAP);
 
         fs::create_dir_all(&pin_dir)
             .map_err(|e| anyhow!("failed to create pin directory {}: {e}", pin_dir.display()))?;
@@ -66,12 +97,19 @@ impl UdpSocketSelector {
             generation,
             sockets: Vec::new(),
             proc_map_handle: None,
+            socket_map_path,
             socket_map_handle: None,
         })
     }
 
-    pub fn add_socket(&mut self, socket: RawSocket) {
+    pub fn add_socket(&mut self, socket: RawSocket) -> UdpSocketSelectGuard {
         self.sockets.push(socket);
+        UdpSocketSelectGuard {
+            pid: self.pid,
+            generation: self.generation,
+            worker: self.sockets.len() as u16 - 1,
+            socket_map_path: self.socket_map_path.clone(),
+        }
     }
 
     fn open_object(&mut self) -> anyhow::Result<OpenObject> {
@@ -118,7 +156,6 @@ impl UdpSocketSelector {
 
         let mut conn_track_pin = true;
         let conn_track_path = self.pin_dir.join(NAME_CONN_TRACK);
-        let socket_map_path = self.pin_dir.join(NAME_SOCKET_MAP);
         let proc_map_path = self.pin_dir.join(NAME_PROC_MAP);
 
         for mut map in open_object.maps_mut() {
@@ -151,11 +188,11 @@ impl UdpSocketSelector {
                     }
                 }
                 NAME_SOCKET_MAP => {
-                    if let Ok(handle) = MapHandle::from_pinned_path(&socket_map_path) {
+                    if let Ok(handle) = MapHandle::from_pinned_path(&self.socket_map_path) {
                         map.reuse_fd(handle.as_fd()).map_err(|e| {
                             anyhow!(
                                 "failed to reuse already pinned {}: {e}",
-                                socket_map_path.display()
+                                self.socket_map_path.display()
                             )
                         })?;
                         self.socket_map_handle = Some(handle);
@@ -195,13 +232,13 @@ impl UdpSocketSelector {
                 }
                 NAME_SOCKET_MAP => {
                     if self.socket_map_handle.is_none() {
-                        map.pin(&socket_map_path)
+                        map.pin(&self.socket_map_path)
                             .map_err(|e| anyhow!("failed to pin socket_map map: {e}"))?;
                         let handle =
-                            MapHandle::from_pinned_path(&socket_map_path).map_err(|e| {
+                            MapHandle::from_pinned_path(&self.socket_map_path).map_err(|e| {
                                 anyhow!(
                                     "failed to open socket_map {}: {e}",
-                                    socket_map_path.display()
+                                    self.socket_map_path.display()
                                 )
                             })?;
                         self.socket_map_handle = Some(handle);
@@ -310,6 +347,6 @@ impl UdpSocketSelector {
 impl Drop for UdpSocketSelector {
     fn drop(&mut self) {
         self.unregister_proc();
-        self.unregister_sockets();
+        // The sockets should be dropped in guard
     }
 }
