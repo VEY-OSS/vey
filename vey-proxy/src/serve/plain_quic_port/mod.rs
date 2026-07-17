@@ -159,48 +159,46 @@ impl ServerInternal for PlainQuicPort {
     }
 
     fn _update_config_in_place(&self, flags: u64, config: AnyServerConfig) -> anyhow::Result<()> {
-        if let AnyServerConfig::PlainQuicPort(config) = config {
-            let Some(flags) = PlainQuicPortUpdateFlags::from_bits(flags) else {
-                return Err(anyhow!("unknown update flags: {flags}"));
-            };
+        let AnyServerConfig::PlainQuicPort(config) = config else {
+            return Err(anyhow!("invalid config type for PlainQuicPort server"));
+        };
 
-            if flags.contains(PlainQuicPortUpdateFlags::LISTEN_CONFIG) {
-                self.update_runtime_in_place(ListenQuicInPlaceConfig::ListenConfig(
-                    config.listen.clone(),
-                ))?;
-            }
+        let Some(flags) = PlainQuicPortUpdateFlags::from_bits(flags) else {
+            return Err(anyhow!("unknown update flags: {flags}"));
+        };
 
-            if flags.contains(PlainQuicPortUpdateFlags::QUINN_CONFIG) {
-                let quic_config = config.tls_server.build_quic()?;
-                let quinn_config = quinn::ServerConfig::with_crypto(quic_config.driver);
-                self.update_runtime_in_place(ListenQuicInPlaceConfig::QuinnConfig(quinn_config))?;
-            }
-
-            if flags.contains(PlainQuicPortUpdateFlags::INGRESS_FILTER) {
-                let ingress_net_filter = config
-                    .ingress_net_filter
-                    .as_ref()
-                    .map(|builder| Arc::new(builder.build()));
-                self.update_runtime_in_place(ListenQuicInPlaceConfig::IngressAcl(
-                    ingress_net_filter,
-                ))?;
-            }
-
-            if flags.contains(PlainQuicPortUpdateFlags::ACCEPT_TIMEOUT) {
-                self.update_runtime_in_place(ListenQuicInPlaceConfig::AcceptTimeout(
-                    config.tls_server.accept_timeout(),
-                ))?;
-            }
-
-            self.config.store(Arc::new(config));
-
-            if flags.contains(PlainQuicPortUpdateFlags::NEXT_SERVER) {
-                self._update_next_servers_in_place();
-            }
-            Ok(())
-        } else {
-            Err(anyhow!("invalid config type for PlainQuicPort server"))
+        if flags.contains(PlainQuicPortUpdateFlags::LISTEN_CONFIG) {
+            self.update_runtime_in_place(ListenQuicInPlaceConfig::ListenConfig(
+                config.listen.clone(),
+            ))?;
         }
+
+        if flags.contains(PlainQuicPortUpdateFlags::QUINN_CONFIG) {
+            let quic_config = config.tls_server.build_quic()?;
+            let quinn_config = quinn::ServerConfig::with_crypto(quic_config.driver);
+            self.update_runtime_in_place(ListenQuicInPlaceConfig::QuinnConfig(quinn_config))?;
+        }
+
+        if flags.contains(PlainQuicPortUpdateFlags::INGRESS_FILTER) {
+            let ingress_net_filter = config
+                .ingress_net_filter
+                .as_ref()
+                .map(|builder| Arc::new(builder.build()));
+            self.update_runtime_in_place(ListenQuicInPlaceConfig::IngressAcl(ingress_net_filter))?;
+        }
+
+        if flags.contains(PlainQuicPortUpdateFlags::ACCEPT_TIMEOUT) {
+            self.update_runtime_in_place(ListenQuicInPlaceConfig::AcceptTimeout(
+                config.tls_server.accept_timeout(),
+            ))?;
+        }
+
+        self.config.store(Arc::new(config));
+
+        if flags.contains(PlainQuicPortUpdateFlags::NEXT_SERVER) {
+            self._update_next_servers_in_place();
+        }
+        Ok(())
     }
 
     fn _depend_on_server(&self, name: &NodeName) -> bool {

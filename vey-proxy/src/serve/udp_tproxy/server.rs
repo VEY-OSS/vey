@@ -19,7 +19,7 @@ use tokio_rustls::server::TlsStream;
 
 use vey_daemon::listen::{
     AcceptQuicServer, AcceptTcpServer, AcceptUdpServer, AcceptedUdpPacketReceiver,
-    AcceptedUdpPacketSender, ListenStats, ListenUdpRuntime,
+    AcceptedUdpPacketSender, ListenStats, ListenUdpInPlaceConfig, ListenUdpRuntime,
 };
 use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use vey_io_ext::IdleWheel;
@@ -32,7 +32,7 @@ use vey_types::net::UpstreamAddr;
 use super::common::CommonTaskContext;
 use super::task::TProxyStreamTask;
 use crate::auth::{FactsUserGroup, UserContext, UserGroup};
-use crate::config::server::udp_tproxy::UdpTProxyServerConfig;
+use crate::config::server::udp_tproxy::{UdpTProxyServerConfig, UdpTProxyServerUpdateFlags};
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::udp_stream::UdpStreamServerStats;
@@ -45,8 +45,8 @@ pub(crate) struct UdpTProxyServer {
     config: Arc<UdpTProxyServerConfig>,
     server_stats: Arc<UdpStreamServerStats>,
     listen_stats: Arc<ListenStats>,
-    ingress_net_filter: Option<AclNetworkRule>,
-    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
+    ingress_net_filter: Option<Arc<AclNetworkRule>>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<ListenUdpInPlaceConfig>>,
     task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
@@ -68,7 +68,7 @@ impl UdpTProxyServer {
         let ingress_net_filter = config
             .ingress_net_filter
             .as_ref()
-            .map(|builder| builder.build());
+            .map(|builder| Arc::new(builder.build()));
 
         let task_logger = config.get_task_logger();
         let idle_wheel = IdleWheel::spawn(config.task_idle_check_interval);
@@ -196,11 +196,44 @@ impl UdpTProxyServer {
             .into_running(packet_receiver, packet_sender)
             .await;
     }
+
+    fn update_runtime_in_place(&self, config: ListenUdpInPlaceConfig) -> anyhow::Result<()> {
+        self.reload_sender
+            .send(ServerReloadCommand::UpdateInPlace(config))
+            .map_err(|e| anyhow!("failed to send server reload command: {e}"))?;
+        Ok(())
+    }
 }
 
 impl ServerInternal for UdpTProxyServer {
     fn _clone_config(&self) -> AnyServerConfig {
         AnyServerConfig::UdpTProxy(self.config.as_ref().clone())
+    }
+
+    fn _update_config_in_place(&self, flags: u64, config: AnyServerConfig) -> anyhow::Result<()> {
+        let AnyServerConfig::UdpTProxy(config) = config else {
+            return Err(anyhow!("invalid config type for UdpTProxy server"));
+        };
+
+        let Some(flags) = UdpTProxyServerUpdateFlags::from_bits(flags) else {
+            return Err(anyhow!("unknown update flags: {flags}"));
+        };
+
+        if flags.contains(UdpTProxyServerUpdateFlags::LISTEN_CONFIG) {
+            self.update_runtime_in_place(ListenUdpInPlaceConfig::ListenConfig(
+                config.listen.clone(),
+            ))?;
+        }
+
+        if flags.contains(UdpTProxyServerUpdateFlags::INGRESS_FILTER) {
+            let ingress_net_filter = config
+                .ingress_net_filter
+                .as_ref()
+                .map(|builder| Arc::new(builder.build()));
+            self.update_runtime_in_place(ListenUdpInPlaceConfig::IngressAcl(ingress_net_filter))?;
+        }
+
+        Ok(())
     }
 
     fn _depend_on_server(&self, _name: &NodeName) -> bool {
@@ -264,14 +297,15 @@ impl ServerInternal for UdpTProxyServer {
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
         let mut runtime = ListenUdpRuntime::new(
             WrapArcServer(server),
+            self.config.listen.clone(),
             self.listen_stats.clone(),
             self.config.conn_track,
             self.config.udp_relay.packet_size(),
         );
         runtime
             .run_all_instances(
-                &self.config.listen,
                 self.config.listen_in_worker,
+                self.ingress_net_filter.as_ref(),
                 &self.reload_sender,
             )
             .map(|_| self.server_stats.set_online())

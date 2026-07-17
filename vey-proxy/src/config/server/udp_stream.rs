@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
+use bitflags::bitflags;
 use yaml_rust::{Yaml, yaml};
 
 use vey_io_ext::LimitedUdpRelayConfig;
@@ -26,6 +27,13 @@ use super::{
 };
 
 const SERVER_CONFIG_TYPE: &str = "UdpStream";
+
+bitflags! {
+    pub(crate) struct UdpStreamServerUpdateFlags: u64 {
+        const LISTEN_CONFIG = 0b0001;
+        const INGRESS_FILTER = 0b0010;
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct UdpStreamServerConfig {
@@ -270,11 +278,33 @@ impl ServerConfig for UdpStreamServerConfig {
             return ServerConfigDiffAction::NoAction;
         }
 
-        if self.listen != new.listen {
+        if self.conn_track != new.conn_track {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::ReloadNoRespawn
+        let mut flags = UdpStreamServerUpdateFlags::empty();
+        match (&self.listen, &new.listen) {
+            (Some(old), Some(new)) => {
+                if old.need_respawn(new) {
+                    return ServerConfigDiffAction::ReloadAndRespawn;
+                }
+                if old != new {
+                    flags.set(UdpStreamServerUpdateFlags::LISTEN_CONFIG, true);
+                }
+            }
+            (None, None) => {}
+            _ => return ServerConfigDiffAction::ReloadAndRespawn,
+        }
+
+        if self.ingress_net_filter != new.ingress_net_filter {
+            flags.set(UdpStreamServerUpdateFlags::INGRESS_FILTER, true);
+        }
+
+        if flags.is_empty() {
+            ServerConfigDiffAction::ReloadNoRespawn
+        } else {
+            ServerConfigDiffAction::UpdateInPlace(flags.bits())
+        }
     }
 
     fn shared_logger(&self) -> Option<&str> {

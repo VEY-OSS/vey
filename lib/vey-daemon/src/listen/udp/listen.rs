@@ -37,8 +37,8 @@ use vey_io_ext::{UdpMoveRecv, UdpMoveSend, UdpSocketExt};
 use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 #[cfg(all(target_os = "linux", feature = "ebpf"))]
 use vey_reuseport::udp::{UdpSocketSelectGuard, UdpSocketSelector};
-#[cfg(all(target_os = "linux", feature = "ebpf"))]
 use vey_socket::RawSocket;
+use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::net::{UdpConnectionTrackConfig, UdpListenConfig};
 
 use crate::listen::{ListenAliveGuard, ListenStats};
@@ -47,6 +47,12 @@ use crate::server::{
 };
 
 const EVENT_RECV_BATCH_SIZE: usize = 16;
+
+#[derive(Clone)]
+pub enum ListenUdpInPlaceConfig {
+    ListenConfig(UdpListenConfig),
+    IngressAcl(Option<Arc<AclNetworkRule>>),
+}
 
 #[derive(Default)]
 struct StreamState {
@@ -420,6 +426,7 @@ impl RuntimeState {
 
 pub struct ListenUdpRuntime<S> {
     server: S,
+    listen_config: UdpListenConfig,
     conn_track: UdpConnectionTrackConfig,
     packet_max_size: u16,
     listen_stats: Arc<ListenStats>,
@@ -433,12 +440,14 @@ where
 {
     pub fn new(
         server: S,
+        listen_config: UdpListenConfig,
         listen_stats: Arc<ListenStats>,
         conn_track: UdpConnectionTrackConfig,
         packet_max_size: u16,
     ) -> Self {
         ListenUdpRuntime {
             server,
+            listen_config,
             conn_track,
             packet_max_size,
             listen_stats,
@@ -456,7 +465,12 @@ where
         target_os = "macos",
         target_os = "solaris",
     )))]
-    fn create_instance(&self, id: usize, listen_addr: SocketAddr) -> ListenUdpRuntimeInstance<S> {
+    fn create_instance(
+        &self,
+        id: usize,
+        listen_addr: SocketAddr,
+        listen_in_worker: bool,
+    ) -> ListenUdpRuntimeInstance<S> {
         let server_type = self.server.r#type();
         let server_version = self.server.version();
         ListenUdpRuntimeInstance {
@@ -466,10 +480,12 @@ where
             worker_id: None,
             conn_track: self.conn_track,
             packet_max_size: self.packet_max_size,
+            listen_config: self.listen_config.clone(),
             listen_stats: self.listen_stats.clone(),
             listen_addr,
-            listen_in_worker: false,
+            listen_in_worker,
             instance_id: id,
+            ingress_net_filter: None,
             _alive_guard: None,
 
             packet_buf: vec![0; self.packet_max_size as usize],
@@ -485,7 +501,12 @@ where
         target_os = "macos",
         target_os = "solaris",
     ))]
-    fn create_instance(&self, id: usize, listen_addr: SocketAddr) -> ListenUdpRuntimeInstance<S> {
+    fn create_instance(
+        &self,
+        id: usize,
+        listen_addr: SocketAddr,
+        listen_in_worker: bool,
+    ) -> ListenUdpRuntimeInstance<S> {
         let server_type = self.server.r#type();
         let server_version = self.server.version();
 
@@ -501,10 +522,12 @@ where
             worker_id: None,
             conn_track: self.conn_track,
             packet_max_size: self.packet_max_size,
+            listen_config: self.listen_config.clone(),
             listen_stats: self.listen_stats.clone(),
             listen_addr,
-            listen_in_worker: false,
+            listen_in_worker,
             instance_id: id,
+            ingress_net_filter: None,
             #[cfg(all(target_os = "linux", feature = "ebpf"))]
             _bpf_guard: None,
             _alive_guard: None,
@@ -515,11 +538,11 @@ where
 
     pub fn run_all_instances(
         &mut self,
-        listen_config: &UdpListenConfig,
         listen_in_worker: bool,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand<()>>,
+        ingress_net_filter: Option<&Arc<AclNetworkRule>>,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand<ListenUdpInPlaceConfig>>,
     ) -> anyhow::Result<()> {
-        let mut instance_count = listen_config.instance();
+        let mut instance_count = self.listen_config.instance();
         if listen_in_worker {
             let worker_count = crate::runtime::worker::worker_count();
             if worker_count > 0 {
@@ -528,37 +551,40 @@ where
         }
 
         #[cfg(all(target_os = "linux", feature = "ebpf"))]
-        if listen_config.use_ebpf(rustix::process::getuid().as_raw()) {
+        if self
+            .listen_config
+            .use_ebpf(rustix::process::getuid().as_raw())
+        {
             match UdpSocketSelector::new(
                 rustix::process::getpid().as_raw_pid(),
                 self.server.version() as u16,
-                listen_config.address(),
+                self.listen_config.address(),
                 self.conn_track.ebpf_conn_track_size(),
             ) {
                 Ok(selector) => {
                     self.socket_selector = Some(selector);
                 }
                 Err(e) => {
-                    if listen_config.fail_on_ebpf_error() {
+                    if self.listen_config.fail_on_ebpf_error() {
                         return Err(anyhow!(
                             "UDP {} ebpf reuseport socket selector create failed: {e}",
-                            listen_config.address()
+                            self.listen_config.address()
                         ));
                     }
                     warn!(
                         "reuseport ebpf on UDP socket {} disabled due to create error {e}",
-                        listen_config.address()
+                        self.listen_config.address()
                     );
                 }
             }
         }
 
         for i in 0..instance_count {
-            let socket = vey_socket::udp::new_std_bind_listen(listen_config)?;
+            let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
             let listen_addr = socket.local_addr()?;
 
-            let mut runtime = self.create_instance(i, listen_addr);
-            runtime.listen_in_worker = listen_in_worker;
+            let mut runtime = self.create_instance(i, listen_addr, listen_in_worker);
+            runtime.ingress_net_filter = ingress_net_filter.cloned();
             #[cfg(all(target_os = "linux", feature = "ebpf"))]
             if let Some(selector) = &mut self.socket_selector {
                 let guard = selector.add_socket(RawSocket::from(&socket));
@@ -570,15 +596,15 @@ where
         #[cfg(all(target_os = "linux", feature = "ebpf"))]
         if let Some(mut selector) = self.socket_selector.take() {
             if let Err(e) = selector.load_and_attach() {
-                if listen_config.fail_on_ebpf_error() {
+                if self.listen_config.fail_on_ebpf_error() {
                     return Err(anyhow!(
                         "UDP {} ebpf reuseport socket selector attach failed: {e}",
-                        listen_config.address()
+                        self.listen_config.address()
                     ));
                 }
                 warn!(
                     "reuseport ebpf on UDP socket {} disabled due to attach error {e}",
-                    listen_config.address()
+                    self.listen_config.address()
                 );
             }
             let mut server_reload_receiver = server_reload_sender.subscribe();
@@ -603,10 +629,12 @@ struct ListenUdpRuntimeInstance<S> {
     worker_id: Option<usize>,
     conn_track: UdpConnectionTrackConfig,
     packet_max_size: u16,
+    listen_config: UdpListenConfig,
     listen_stats: Arc<ListenStats>,
     listen_addr: SocketAddr,
     listen_in_worker: bool,
     instance_id: usize,
+    ingress_net_filter: Option<Arc<AclNetworkRule>>,
     #[cfg(all(target_os = "linux", feature = "ebpf"))]
     _bpf_guard: Option<UdpSocketSelectGuard>,
     _alive_guard: Option<ListenAliveGuard>,
@@ -671,10 +699,11 @@ where
     async fn run(
         mut self,
         socket: UdpSocket,
-        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand<()>>,
+        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand<ListenUdpInPlaceConfig>>,
     ) {
         use broadcast::error::RecvError;
 
+        let raw_socket = RawSocket::from(&socket);
         let mut ct_table =
             LruCache::with_hasher(self.conn_track.max_sessions(), FixedState::with_seed(0));
         let mut rt_state = RuntimeState::new(socket, self.conn_track.send_queue_size());
@@ -695,8 +724,12 @@ where
                             self.server = new_server;
                             continue;
                         }
-                        Ok(ServerReloadCommand::UpdateInPlace(_c)) => {
-                            // TODO
+                        Ok(ServerReloadCommand::UpdateInPlace(ListenUdpInPlaceConfig::ListenConfig(config))) => {
+                            self.update_socket_opts(&raw_socket, config);
+                            continue;
+                        }
+                        Ok(ServerReloadCommand::UpdateInPlace(ListenUdpInPlaceConfig::IngressAcl(ingress_net_filter))) => {
+                            self.ingress_net_filter = ingress_net_filter;
                             continue;
                         }
                         Ok(ServerReloadCommand::QuitRuntime) => {},
@@ -738,6 +771,42 @@ where
         self.run_wait_all(event_recv_buf, rt_state, ct_table).await;
 
         self.post_stop();
+    }
+
+    fn update_socket_opts(&mut self, raw_socket: &RawSocket, config: UdpListenConfig) {
+        if self.listen_config.socket_misc_opts() != config.socket_misc_opts() {
+            match raw_socket.set_udp_misc_opts(self.listen_addr, config.socket_misc_opts()) {
+                Ok(_) => {
+                    self.listen_config
+                        .set_socket_misc_opts(config.socket_misc_opts());
+                }
+                Err(e) => {
+                    warn!(
+                        "SRT[{}_v{}#{}] update socket misc opts failed: {e}",
+                        self.server.name(),
+                        self.server_version,
+                        self.instance_id,
+                    );
+                }
+            }
+        }
+
+        if self.listen_config.socket_buffer() != config.socket_buffer() {
+            match raw_socket.set_buf_opts(config.socket_buffer()) {
+                Ok(_) => {
+                    self.listen_config
+                        .set_socket_misc_opts(config.socket_misc_opts());
+                }
+                Err(e) => {
+                    warn!(
+                        "SRT[{}_v{}#{}] update socket buf opts failed: {e}",
+                        self.server.name(),
+                        self.server_version,
+                        self.instance_id,
+                    );
+                }
+            }
+        }
     }
 
     #[cfg(feature = "ebpf")]
@@ -808,6 +877,16 @@ where
                     let peer_addr = hdr
                         .src_addr()
                         .ok_or_else(|| io::Error::other("unable to get peer address"))?;
+                    if let Some(filter) = &self.ingress_net_filter {
+                        let (_, action) = filter.check(peer_addr.ip());
+                        match action {
+                            AclAction::Permit | AclAction::PermitAndLog => {}
+                            AclAction::Forbid | AclAction::ForbidAndLog => {
+                                self.listen_stats.add_dropped();
+                                continue;
+                            }
+                        }
+                    }
                     let local_addr = hdr.dst_addr(self.listen_addr);
 
                     let cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
@@ -856,6 +935,16 @@ where
             let peer_addr = hdr
                 .src_addr()
                 .ok_or_else(|| io::Error::other("unable to get peer address"))?;
+            if let Some(filter) = &self.ingress_net_filter {
+                let (_, action) = filter.check(peer_addr.ip());
+                match action {
+                    AclAction::Permit | AclAction::PermitAndLog => {}
+                    AclAction::Forbid | AclAction::ForbidAndLog => {
+                        self.listen_stats.add_dropped();
+                        continue;
+                    }
+                }
+            }
             let local_addr = hdr.dst_addr(self.listen_addr);
 
             let cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
@@ -972,7 +1061,7 @@ where
     fn into_running(
         mut self,
         socket: std::net::UdpSocket,
-        server_reload_channel: broadcast::Receiver<ServerReloadCommand<()>>,
+        server_reload_channel: broadcast::Receiver<ServerReloadCommand<ListenUdpInPlaceConfig>>,
     ) {
         let handle = self.get_rt_handle();
         handle.spawn(async move {
@@ -1091,7 +1180,7 @@ mod tests {
 
     struct RuntimeHarness {
         listen_addr: SocketAddr,
-        reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
+        reload_sender: broadcast::Sender<ServerReloadCommand<ListenUdpInPlaceConfig>>,
         session_starts: mpsc::UnboundedReceiver<SessionStart>,
         packets: mpsc::UnboundedReceiver<ReceivedPacket>,
         runtime_task: tokio::task::JoinHandle<()>,
@@ -1118,14 +1207,16 @@ mod tests {
 
             let (reload_sender, reload_receiver) = broadcast::channel(4);
 
+            let listen_config = UdpListenConfig::new(listen_addr);
             let listen_stats = ListenStats::new(Default::default());
             let runtime = ListenUdpRuntime::new(
                 server,
+                listen_config,
                 Arc::new(listen_stats),
                 UdpConnectionTrackConfig::default(),
                 4096,
             )
-            .create_instance(0, listen_addr);
+            .create_instance(0, listen_addr, false);
 
             let runtime_task = tokio::spawn(runtime.run(socket, reload_receiver));
 

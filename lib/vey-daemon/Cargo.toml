@@ -33,7 +33,7 @@ http = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = ["runtime-tokio", "ring"] }
 vey-compat.workspace = true
-vey-types = { workspace = true, features = ["async-log"] }
+vey-types = { workspace = true, features = ["async-log", "acl-rule"] }
 vey-stdlog.workspace = true
 vey-syslog = { workspace = true, features = ["yaml"] }
 vey-fluentd = { workspace = true, optional = true, features = ["yaml"] }
@@ -63,5 +63,5 @@ mimalloc = ["dep:vey-mimalloc"]
 ebpf = ["dep:vey-reuseport"]
 event-log = ["dep:vey-fluentd"]
 register = ["vey-yaml/http", "dep:http", "dep:serde_json", "dep:vey-http"]
-quic = ["dep:quinn", "vey-types/acl-rule"]
+quic = ["dep:quinn"]
 openssl-async-job = ["vey-runtime/openssl-async-job"]

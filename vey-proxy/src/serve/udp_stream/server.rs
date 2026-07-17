@@ -19,7 +19,7 @@ use tokio_rustls::server::TlsStream;
 
 use vey_daemon::listen::{
     AcceptQuicServer, AcceptTcpServer, AcceptUdpServer, AcceptedUdpPacketReceiver,
-    AcceptedUdpPacketSender, ListenStats, ListenUdpRuntime,
+    AcceptedUdpPacketSender, ListenStats, ListenUdpInPlaceConfig, ListenUdpRuntime,
 };
 use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerExt, ServerReloadCommand};
 use vey_io_ext::IdleWheel;
@@ -34,7 +34,7 @@ use super::UdpStreamServerStats;
 use super::common::CommonTaskContext;
 use super::task::UdpStreamTask;
 use crate::auth::{FactsUserGroup, UserContext, UserGroup};
-use crate::config::server::udp_stream::UdpStreamServerConfig;
+use crate::config::server::udp_stream::{UdpStreamServerConfig, UdpStreamServerUpdateFlags};
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::{
@@ -47,8 +47,8 @@ pub(crate) struct UdpStreamServer {
     server_stats: Arc<UdpStreamServerStats>,
     listen_stats: Arc<ListenStats>,
     upstream: SelectiveVec<WeightedUpstreamAddr>,
-    ingress_net_filter: Option<AclNetworkRule>,
-    reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
+    ingress_net_filter: Option<Arc<AclNetworkRule>>,
+    reload_sender: broadcast::Sender<ServerReloadCommand<ListenUdpInPlaceConfig>>,
     task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
@@ -78,7 +78,7 @@ impl UdpStreamServer {
         let ingress_net_filter = config
             .ingress_net_filter
             .as_ref()
-            .map(|builder| builder.build());
+            .map(|builder| Arc::new(builder.build()));
 
         let task_logger = config.get_task_logger();
         let idle_wheel = IdleWheel::spawn(config.task_idle_check_interval);
@@ -223,11 +223,44 @@ impl UdpStreamServer {
             .into_running(packet_receiver, packet_sender)
             .await;
     }
+
+    fn update_runtime_in_place(&self, config: ListenUdpInPlaceConfig) -> anyhow::Result<()> {
+        self.reload_sender
+            .send(ServerReloadCommand::UpdateInPlace(config))
+            .map_err(|e| anyhow!("failed to send server reload command: {e}"))?;
+        Ok(())
+    }
 }
 
 impl ServerInternal for UdpStreamServer {
     fn _clone_config(&self) -> AnyServerConfig {
         AnyServerConfig::UdpStream(self.config.as_ref().clone())
+    }
+
+    fn _update_config_in_place(&self, flags: u64, config: AnyServerConfig) -> anyhow::Result<()> {
+        let AnyServerConfig::UdpStream(config) = config else {
+            return Err(anyhow!("invalid config type for UdpStream server"));
+        };
+
+        let Some(flags) = UdpStreamServerUpdateFlags::from_bits(flags) else {
+            return Err(anyhow!("unknown update flags: {flags}"));
+        };
+
+        if flags.contains(UdpStreamServerUpdateFlags::LISTEN_CONFIG)
+            && let Some(config) = &config.listen
+        {
+            self.update_runtime_in_place(ListenUdpInPlaceConfig::ListenConfig(config.clone()))?;
+        }
+
+        if flags.contains(UdpStreamServerUpdateFlags::INGRESS_FILTER) {
+            let ingress_net_filter = config
+                .ingress_net_filter
+                .as_ref()
+                .map(|builder| Arc::new(builder.build()));
+            self.update_runtime_in_place(ListenUdpInPlaceConfig::IngressAcl(ingress_net_filter))?;
+        }
+
+        Ok(())
     }
 
     fn _depend_on_server(&self, _name: &NodeName) -> bool {
@@ -294,14 +327,15 @@ impl ServerInternal for UdpStreamServer {
         };
         let mut runtime = ListenUdpRuntime::new(
             WrapArcServer(server),
+            listen_config.clone(),
             self.listen_stats.clone(),
             self.config.conn_track,
             self.config.udp_relay.packet_size(),
         );
         runtime
             .run_all_instances(
-                listen_config,
                 self.config.listen_in_worker,
+                self.ingress_net_filter.as_ref(),
                 &self.reload_sender,
             )
             .map(|_| self.server_stats.set_online())

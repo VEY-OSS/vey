@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
+use bitflags::bitflags;
 use yaml_rust::{Yaml, yaml};
 
 use vey_io_ext::LimitedUdpRelayConfig;
@@ -23,6 +24,13 @@ use super::{
 };
 
 const SERVER_CONFIG_TYPE: &str = "UdpTProxy";
+
+bitflags! {
+    pub(crate) struct UdpTProxyServerUpdateFlags: u64 {
+        const LISTEN_CONFIG = 0b0001;
+        const INGRESS_FILTER = 0b0010;
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct UdpTProxyServerConfig {
@@ -262,11 +270,28 @@ impl ServerConfig for UdpTProxyServerConfig {
             return ServerConfigDiffAction::NoAction;
         }
 
-        if self.listen != new.listen {
+        if self.conn_track != new.conn_track {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::ReloadNoRespawn
+        let mut flags = UdpTProxyServerUpdateFlags::empty();
+
+        if self.listen.need_respawn(&new.listen) {
+            return ServerConfigDiffAction::ReloadAndRespawn;
+        }
+        if self.listen != new.listen {
+            flags.set(UdpTProxyServerUpdateFlags::LISTEN_CONFIG, true);
+        }
+
+        if self.ingress_net_filter != new.ingress_net_filter {
+            flags.set(UdpTProxyServerUpdateFlags::INGRESS_FILTER, true);
+        }
+
+        if flags.is_empty() {
+            ServerConfigDiffAction::ReloadNoRespawn
+        } else {
+            ServerConfigDiffAction::UpdateInPlace(flags.bits())
+        }
     }
 
     fn shared_logger(&self) -> Option<&str> {
