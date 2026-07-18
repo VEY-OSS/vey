@@ -771,6 +771,33 @@ It consists of the following fields:
 
   **default**: 16
 
+* offline_wait_time
+
+  **option**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  When bpf feature is enabled, the udp socket will be in offline-wait mode, and it will still accept new connections.
+  This config option set the total time of this offline-wait mode.
+
+  **default**: 60s
+
+  .. availability::
+
+    - ``vey-proxy``: available since ``1.13.9``
+
+* offline_quit_time
+
+  **option**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  When bpf feature is enabled, the udp socket will be in offline-quit mode after offline-wait mode end, new connections
+  are not allowed in this mode. This config option set the total time of this offline-quit mode. The socket will be
+  closed after offline-quit mode.
+
+  **default**: 1h
+
+  .. availability::
+
+    - ``vey-proxy``: available since ``1.13.9``
+
 .. availability::
 
   - ``vey-proxy``: available since ``1.13.3``

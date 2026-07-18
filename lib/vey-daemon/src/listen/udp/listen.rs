@@ -32,6 +32,7 @@ use smallvec::SmallVec;
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, mpsc};
+use tokio::time::Instant;
 
 use vey_io_ext::{UdpMoveRecv, UdpMoveSend, UdpSocketExt};
 use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
@@ -96,7 +97,10 @@ impl UdpMoveRecv for AcceptedUdpPacketReceiver {
     fn poll_recv_packet(&mut self, cx: &mut Context<'_>) -> Poll<Result<Bytes, Self::RecvError>> {
         match self.inner.poll_recv(cx) {
             Poll::Ready(Some(packet)) => Poll::Ready(Ok(packet)),
-            Poll::Ready(None) => Poll::Ready(Ok(Bytes::new())),
+            Poll::Ready(None) => Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "packet receiver closed",
+            ))),
             Poll::Pending => Poll::Pending,
         }
     }
@@ -816,6 +820,16 @@ where
         mut rt_state: RuntimeState,
         mut ct_table: LruCache<ClientConnectionKey, StreamDispatcher, FixedState>,
     ) {
+        let mut wait_sleep = Box::pin(tokio::time::sleep(self.conn_track.offline_wait_time()));
+        let mut allow_new = true;
+
+        info!(
+            "SRT[{}_v{}#{}] enters offline-wait mode",
+            self.server.name(),
+            self.server_version,
+            self.instance_id
+        );
+
         loop {
             tokio::select! {
                 biased;
@@ -825,14 +839,32 @@ where
                     self.handle_events(&mut event_recv_buf, &mut ct_table).await;
                     event_recv_buf.clear();
                     if ct_table.is_empty() {
-                        break;
+                        return;
                     }
                 }
                 r = self.recv_packets(&rt_state.socket) => {
                     match r {
                         Ok(packets) => {
                             for (cc_info, data) in packets {
-                                self.handle_packet(cc_info, data, &rt_state, &mut ct_table);
+                                if allow_new {
+                                    self.handle_packet(cc_info, data, &rt_state, &mut ct_table);
+                                } else {
+                                    let key = cc_info.connection_key();
+                                    if let Some(dispatcher) = ct_table.get(&key) {
+                                        match dispatcher.sender.try_send(data) {
+                                            Ok(_) => {}
+                                            Err(mpsc::error::TrySendError::Full(_)) => {
+                                                dispatcher.state.add_recv_dropped();
+                                            }
+                                            Err(mpsc::error::TrySendError::Closed(_)) => {
+                                                dispatcher.state.add_recv_dropped();
+                                                ct_table.pop(&key);
+                                            }
+                                        }
+                                    } else {
+                                        self.listen_stats.add_dropped();
+                                    }
+                                }
                             }
                         }
                         Err(e) => {
@@ -841,6 +873,14 @@ where
                             break;
                         }
                     }
+                }
+                _ = &mut wait_sleep => {
+                    if !allow_new {
+                        break;
+                    }
+                    info!("SRT[{}_v{}#{}] enters offline-quit mode", self.server.name(), self.server_version, self.instance_id);
+                    allow_new = false;
+                    wait_sleep.as_mut().reset(Instant::now() + self.conn_track.offline_quit_time());
                 }
             }
         }

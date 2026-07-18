@@ -223,6 +223,18 @@ pub fn as_udp_conn_track_config(value: &Yaml) -> anyhow::Result<UdpConnectionTra
             config.set_batch_recv_size(batch_size);
             Ok(())
         }
+        "offline_wait_time" => {
+            let wait_time = crate::humanize::as_duration(v)
+                .context(format!("invalid humanize duration value for key {k}"))?;
+            config.set_offline_wait_time(wait_time);
+            Ok(())
+        }
+        "offline_quit_time" => {
+            let wait_time = crate::humanize::as_duration(v)
+                .context(format!("invalid humanize duration value for key {k}"))?;
+            config.set_offline_quit_time(wait_time);
+            Ok(())
+        }
         _ => Err(anyhow!("invalid key {k}")),
     })?;
 

@@ -6,6 +6,7 @@
 
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::num::{NonZeroU32, NonZeroUsize};
+use std::time::Duration;
 
 use anyhow::anyhow;
 use num_traits::ToPrimitive;
@@ -260,6 +261,8 @@ pub struct UdpConnectionTrackConfig {
     dispatch_queue_size: NonZeroUsize,
     send_queue_size: NonZeroUsize,
     batch_recv_size: NonZeroUsize,
+    offline_wait_time: Duration,
+    offline_quit_time: Duration,
 }
 
 impl Default for UdpConnectionTrackConfig {
@@ -270,6 +273,8 @@ impl Default for UdpConnectionTrackConfig {
             dispatch_queue_size: unsafe { NonZeroUsize::new_unchecked(32) },
             send_queue_size: unsafe { NonZeroUsize::new_unchecked(512) },
             batch_recv_size: unsafe { NonZeroUsize::new_unchecked(16) },
+            offline_wait_time: Duration::from_secs(60),
+            offline_quit_time: Duration::from_hours(1),
         }
     }
 }
@@ -323,5 +328,25 @@ impl UdpConnectionTrackConfig {
     #[inline]
     pub fn set_batch_recv_size(&mut self, batch_recv_size: NonZeroUsize) {
         self.batch_recv_size = batch_recv_size;
+    }
+
+    #[inline]
+    pub fn offline_wait_time(&self) -> Duration {
+        self.offline_wait_time
+    }
+
+    #[inline]
+    pub fn set_offline_wait_time(&mut self, wait_time: Duration) {
+        self.offline_wait_time = wait_time;
+    }
+
+    #[inline]
+    pub fn offline_quit_time(&self) -> Duration {
+        self.offline_quit_time
+    }
+
+    #[inline]
+    pub fn set_offline_quit_time(&mut self, quit_time: Duration) {
+        self.offline_quit_time = quit_time;
     }
 }
