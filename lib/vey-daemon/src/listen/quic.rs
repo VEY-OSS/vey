@@ -8,7 +8,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::sync::Arc;
 use std::time::Duration;
 
-#[cfg(all(target_os = "linux", feature = "ebpf"))]
+#[cfg(feature = "ebpf")]
 use anyhow::anyhow;
 use async_trait::async_trait;
 use log::{info, warn};
@@ -16,7 +16,7 @@ use quinn::{Connection, Endpoint, Incoming};
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
-#[cfg(all(target_os = "linux", feature = "ebpf"))]
+#[cfg(feature = "ebpf")]
 use vey_reuseport::quic::{QuicSocketSelectGuard, QuicSocketSelector};
 use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
@@ -43,7 +43,7 @@ pub struct ListenQuicRuntime<S> {
     server: S,
     listen_config: UdpListenConfig,
     listen_stats: Arc<ListenStats>,
-    #[cfg(all(target_os = "linux", feature = "ebpf"))]
+    #[cfg(feature = "ebpf")]
     socket_selector: Option<QuicSocketSelector>,
 }
 
@@ -56,7 +56,7 @@ where
             server,
             listen_config,
             listen_stats,
-            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            #[cfg(feature = "ebpf")]
             socket_selector: None,
         }
     }
@@ -77,7 +77,7 @@ where
             }
         }
 
-        #[cfg(all(target_os = "linux", feature = "ebpf"))]
+        #[cfg(feature = "ebpf")]
         if self
             .listen_config
             .use_ebpf(rustix::process::getuid().as_raw())
@@ -107,7 +107,7 @@ where
 
         for i in 0..instance_count {
             let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
-            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            #[cfg(feature = "ebpf")]
             let guard = if let Some(selector) = &mut self.socket_selector {
                 let guard = selector.add_socket(RawSocket::from(&socket))?;
                 Some(guard)
@@ -128,7 +128,7 @@ where
                 instance_id: i,
                 ingress_net_filter: ingress_net_filter.cloned(),
                 accept_timeout,
-                #[cfg(all(target_os = "linux", feature = "ebpf"))]
+                #[cfg(feature = "ebpf")]
                 _bpf_guard: guard,
                 _alive_guard: None,
             };
@@ -139,7 +139,7 @@ where
             );
         }
 
-        #[cfg(all(target_os = "linux", feature = "ebpf"))]
+        #[cfg(feature = "ebpf")]
         if let Some(mut selector) = self.socket_selector.take() {
             if let Err(e) = selector.load_and_attach() {
                 if self.listen_config.fail_on_ebpf_error() {
@@ -180,7 +180,7 @@ pub struct ListenQuicRuntimeInstance<S> {
     instance_id: usize,
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
     accept_timeout: Duration,
-    #[cfg(all(target_os = "linux", feature = "ebpf"))]
+    #[cfg(feature = "ebpf")]
     _bpf_guard: Option<QuicSocketSelectGuard>,
     _alive_guard: Option<ListenAliveGuard>,
 }

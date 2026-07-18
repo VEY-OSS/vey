@@ -21,7 +21,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::{Context, Poll};
 
-#[cfg(all(target_os = "linux", feature = "ebpf"))]
+#[cfg(feature = "ebpf")]
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -32,11 +32,12 @@ use smallvec::SmallVec;
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, mpsc};
+#[cfg(feature = "ebpf")]
 use tokio::time::Instant;
 
 use vey_io_ext::{UdpMoveRecv, UdpMoveSend, UdpSocketExt};
 use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
-#[cfg(all(target_os = "linux", feature = "ebpf"))]
+#[cfg(feature = "ebpf")]
 use vey_reuseport::udp::{UdpSocketSelectGuard, UdpSocketSelector};
 use vey_socket::RawSocket;
 use vey_types::acl::{AclAction, AclNetworkRule};
@@ -434,7 +435,7 @@ pub struct ListenUdpRuntime<S> {
     conn_track: UdpConnectionTrackConfig,
     packet_max_size: u16,
     listen_stats: Arc<ListenStats>,
-    #[cfg(all(target_os = "linux", feature = "ebpf"))]
+    #[cfg(feature = "ebpf")]
     socket_selector: Option<UdpSocketSelector>,
 }
 
@@ -455,7 +456,7 @@ where
             conn_track,
             packet_max_size,
             listen_stats,
-            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            #[cfg(feature = "ebpf")]
             socket_selector: None,
         }
     }
@@ -532,7 +533,7 @@ where
             listen_in_worker,
             instance_id: id,
             ingress_net_filter: None,
-            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            #[cfg(feature = "ebpf")]
             _bpf_guard: None,
             _alive_guard: None,
 
@@ -554,7 +555,7 @@ where
             }
         }
 
-        #[cfg(all(target_os = "linux", feature = "ebpf"))]
+        #[cfg(feature = "ebpf")]
         if self
             .listen_config
             .use_ebpf(rustix::process::getuid().as_raw())
@@ -589,7 +590,7 @@ where
 
             let mut runtime = self.create_instance(i, listen_addr, listen_in_worker);
             runtime.ingress_net_filter = ingress_net_filter.cloned();
-            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            #[cfg(feature = "ebpf")]
             if let Some(selector) = &mut self.socket_selector {
                 let guard = selector.add_socket(RawSocket::from(&socket));
                 runtime._bpf_guard = Some(guard);
@@ -597,7 +598,7 @@ where
             runtime.into_running(socket, server_reload_sender.subscribe());
         }
 
-        #[cfg(all(target_os = "linux", feature = "ebpf"))]
+        #[cfg(feature = "ebpf")]
         if let Some(mut selector) = self.socket_selector.take() {
             if let Err(e) = selector.load_and_attach() {
                 if self.listen_config.fail_on_ebpf_error() {
@@ -639,7 +640,7 @@ struct ListenUdpRuntimeInstance<S> {
     listen_in_worker: bool,
     instance_id: usize,
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
-    #[cfg(all(target_os = "linux", feature = "ebpf"))]
+    #[cfg(feature = "ebpf")]
     _bpf_guard: Option<UdpSocketSelectGuard>,
     _alive_guard: Option<ListenAliveGuard>,
 

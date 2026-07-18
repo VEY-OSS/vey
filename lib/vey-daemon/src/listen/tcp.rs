@@ -7,7 +7,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-#[cfg(all(target_os = "linux", feature = "ebpf"))]
+#[cfg(feature = "ebpf")]
 use anyhow::anyhow;
 use async_trait::async_trait;
 use log::{info, warn};
@@ -17,7 +17,7 @@ use tokio::sync::broadcast;
 
 use vey_compat::CpuAffinity;
 use vey_io_ext::LimitedTcpListener;
-#[cfg(all(target_os = "linux", feature = "ebpf"))]
+#[cfg(feature = "ebpf")]
 use vey_reuseport::tcp::TcpSocketSelector;
 use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
@@ -34,7 +34,7 @@ pub trait AcceptTcpServer: BaseServer {
 pub struct ListenTcpRuntime<S> {
     server: S,
     listen_stats: Arc<ListenStats>,
-    #[cfg(all(target_os = "linux", feature = "ebpf"))]
+    #[cfg(feature = "ebpf")]
     socket_selector: Option<TcpSocketSelector>,
 }
 
@@ -46,7 +46,7 @@ where
         ListenTcpRuntime {
             server,
             listen_stats,
-            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            #[cfg(feature = "ebpf")]
             socket_selector: None,
         }
     }
@@ -82,7 +82,7 @@ where
             }
         }
 
-        #[cfg(all(target_os = "linux", feature = "ebpf"))]
+        #[cfg(feature = "ebpf")]
         if listen_config.use_ebpf(rustix::process::getuid().as_raw()) {
             match TcpSocketSelector::new(
                 rustix::process::getpid().as_raw_pid(),
@@ -109,7 +109,7 @@ where
 
         for i in 0..instance_count {
             let listener = vey_socket::tcp::new_std_listener(listen_config)?;
-            #[cfg(all(target_os = "linux", feature = "ebpf"))]
+            #[cfg(feature = "ebpf")]
             if let Some(selector) = &mut self.socket_selector {
                 selector.add_socket(RawSocket::from(&listener));
             }
@@ -122,7 +122,7 @@ where
             );
         }
 
-        #[cfg(all(target_os = "linux", feature = "ebpf"))]
+        #[cfg(feature = "ebpf")]
         if let Some(mut selector) = self.socket_selector.take() {
             if let Err(e) = selector.load_and_attach() {
                 if listen_config.fail_on_ebpf_error() {
