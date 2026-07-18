@@ -10,10 +10,10 @@ use vey_daemon::stat::remote::ArcUdpConnectTaskRemoteStats;
 use vey_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 
 use super::{ProxyFloatEscaper, ProxyFloatSocks5Peer};
+use crate::escape::EgressNotes;
 use crate::escape::proxy_socks5::udp_connect::{
     ProxySocks5UdpConnectRemoteRecv, ProxySocks5UdpConnectRemoteSend,
 };
-use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::module::udp_connect::{
     UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
@@ -28,12 +28,12 @@ impl ProxyFloatSocks5Peer {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        let mut tcp_notes = TcpConnectTaskNotes::default();
+        let mut egress_notes = EgressNotes::default();
         let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
             .timed_socks5_udp_associate(
                 escaper,
                 escaper.config.udp_socket_buffer,
-                &mut tcp_notes,
+                &mut egress_notes,
                 task_notes,
             )
             .await?;

@@ -15,22 +15,21 @@ use vey_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
 use vey_openssl::{SslConnector, SslStream};
 
 use super::DirectFixedEscaper;
+use crate::escape::EgressNotes;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskNotes, TlsConnectTaskConf,
-};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 impl DirectFixedEscaper {
     pub(super) async fn tls_connect_to(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let mut stream = self
-            .tcp_connect_to(&task_conf.tcp, tcp_notes, task_notes)
+            .tcp_connect_to(&task_conf.tcp, egress_notes, task_notes)
             .await?;
         if let Some(version) = self.config.use_proxy_protocol {
             self.send_tcp_proxy_protocol_header(version, &mut stream, task_notes, false)
@@ -58,7 +57,7 @@ impl DirectFixedEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.tcp.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name: task_conf.tls_name,
                         tls_peer: task_conf.tcp.upstream,
@@ -73,7 +72,7 @@ impl DirectFixedEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.tcp.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name: task_conf.tls_name,
                         tls_peer: task_conf.tcp.upstream,
@@ -89,12 +88,17 @@ impl DirectFixedEscaper {
     pub(super) async fn tls_new_connection(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let tls_stream = self
-            .tls_connect_to(task_conf, tcp_notes, task_notes, TlsApplication::TcpStream)
+            .tls_connect_to(
+                task_conf,
+                egress_notes,
+                task_notes,
+                TlsApplication::TcpStream,
+            )
             .await?;
 
         let (ups_r, ups_w) = tls_stream.into_split();

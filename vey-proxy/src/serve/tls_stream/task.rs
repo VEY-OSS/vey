@@ -21,9 +21,10 @@ use super::common::CommonTaskContext;
 use crate::audit::AuditContext;
 use crate::auth::User;
 use crate::config::server::ServerConfig;
+use crate::escape::EgressNotes;
 use crate::inspect::{StreamInspectContext, StreamTransitTask};
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
-use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf};
+use crate::module::tcp_connect::{TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::tcp_stream::{TcpStreamServerAliveTaskGuard, TcpStreamTaskCltWrapperStats};
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
@@ -33,7 +34,7 @@ use crate::serve::{
 pub(super) struct TlsStreamTask {
     ctx: CommonTaskContext,
     upstream: UpstreamAddr,
-    tcp_notes: TcpConnectTaskNotes,
+    egress_notes: EgressNotes,
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
     audit_ctx: AuditContext,
@@ -60,7 +61,7 @@ impl TlsStreamTask {
         TlsStreamTask {
             ctx,
             upstream: upstream.clone(),
-            tcp_notes: TcpConnectTaskNotes::default(),
+            egress_notes: EgressNotes::default(),
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
@@ -77,7 +78,7 @@ impl TlsStreamTask {
                 logger,
                 upstream: &self.upstream,
                 task_notes: &self.task_notes,
-                tcp_notes: &self.tcp_notes,
+                egress_notes: &self.egress_notes,
                 client_rd_bytes: self.task_stats.clt.read.get_bytes(),
                 client_wr_bytes: self.task_stats.clt.write.get_bytes(),
                 remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
@@ -209,7 +210,7 @@ impl TlsStreamTask {
                 .escaper
                 .tls_setup_connection(
                     &task_conf,
-                    &mut self.tcp_notes,
+                    &mut self.egress_notes,
                     &self.task_notes,
                     self.task_stats.clone(),
                     &mut self.audit_ctx,
@@ -223,7 +224,7 @@ impl TlsStreamTask {
                 .escaper
                 .tcp_setup_connection(
                     &task_conf,
-                    &mut self.tcp_notes,
+                    &mut self.egress_notes,
                     &self.task_notes,
                     self.task_stats.clone(),
                     &mut self.audit_ctx,
@@ -287,7 +288,7 @@ impl TlsStreamTask {
                     self.ctx.server_quit_policy.clone(),
                     self.ctx.idle_wheel.clone(),
                     &self.task_notes,
-                    &self.tcp_notes,
+                    &self.egress_notes,
                 );
                 return crate::inspect::stream::transit_with_inspection(
                     clt_r,

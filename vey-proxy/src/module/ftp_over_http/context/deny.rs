@@ -11,7 +11,8 @@ use super::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection,
     FtpConnectContext,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::escape::EgressNotes;
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 pub(crate) struct DenyFtpConnectContext {
@@ -43,8 +44,8 @@ impl FtpConnectContext for DenyFtpConnectContext {
         }
     }
 
-    fn fetch_control_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        tcp_notes.escaper.clone_from(&self.escaper_name)
+    fn fetch_control_egress_notes(&self, egress_notes: &mut EgressNotes) {
+        egress_notes.escaper.clone_from(&self.escaper_name)
     }
 
     async fn new_transfer_connection(
@@ -56,7 +57,7 @@ impl FtpConnectContext for DenyFtpConnectContext {
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    fn fetch_transfer_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        tcp_notes.escaper.clone_from(&self.escaper_name)
+    fn fetch_transfer_egress_notes(&self, egress_notes: &mut EgressNotes) {
+        egress_notes.escaper.clone_from(&self.escaper_name)
     }
 }

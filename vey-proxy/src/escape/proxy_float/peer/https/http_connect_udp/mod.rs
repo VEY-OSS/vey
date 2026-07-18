@@ -13,9 +13,10 @@ use vey_io_ext::{AsyncStream, FlexBufReader, LimitedUdpCopyRemoteRecv, LimitedUd
 use vey_openssl::SslStream;
 
 use super::ProxyFloatHttpsPeer;
+use crate::escape::EgressNotes;
 use crate::escape::proxy_float::ProxyFloatEscaper;
 use crate::escape::proxy_http::{ProxyHttpConnectUdpRecv, ProxyHttpConnectUdpSend};
-use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::module::tcp_connect::TcpConnectTaskConf;
 use crate::module::udp_connect::{
     UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf,
     UdpConnectTaskNotes,
@@ -34,17 +35,17 @@ impl ProxyFloatHttpsPeer {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: task_conf.upstream,
         };
-        let mut tcp_notes = TcpConnectTaskNotes::default();
+        let mut egress_notes = EgressNotes::default();
         let mut stream = escaper
             .tls_handshake_with_peer(
                 &tcp_task_conf,
-                &mut tcp_notes,
+                &mut egress_notes,
                 task_notes,
                 &self.tls_name,
                 self,
             )
             .await?;
-        udp_notes.fill_from_underlying_tcp(tcp_notes);
+        udp_notes.fill_from_underlying_tcp(egress_notes);
 
         let req = HttpUpgradeRequest::new(&self.http_host, &self.shared_config.append_http_headers);
         req.send_connect_udp(task_conf.upstream, &mut stream)

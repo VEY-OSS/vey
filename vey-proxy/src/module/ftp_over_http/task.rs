@@ -10,7 +10,7 @@ use vey_types::auth::{Password, Username};
 use vey_types::net::{HttpAuth, HttpBasicAuth, UpstreamAddr};
 
 use super::FtpRequestPath;
-use crate::module::tcp_connect::TcpConnectTaskNotes;
+use crate::escape::EgressNotes;
 
 pub(crate) struct FtpOverHttpTaskNotes {
     upstream: UpstreamAddr,
@@ -21,8 +21,8 @@ pub(crate) struct FtpOverHttpTaskNotes {
     pub(crate) ftp_path: FtpRequestPath,
     ftp_user: Option<Username>,
     ftp_pass: Option<Password>,
-    pub(crate) control_tcp_notes: TcpConnectTaskNotes,
-    pub(crate) transfer_tcp_notes: TcpConnectTaskNotes,
+    pub(crate) control_egress_notes: EgressNotes,
+    pub(crate) transfer_egress_notes: EgressNotes,
 }
 
 impl FtpOverHttpTaskNotes {
@@ -67,8 +67,8 @@ impl FtpOverHttpTaskNotes {
             ftp_path: FtpRequestPath::from(&req.uri),
             ftp_user: username,
             ftp_pass: password,
-            control_tcp_notes: TcpConnectTaskNotes::default(),
-            transfer_tcp_notes: TcpConnectTaskNotes::default(),
+            control_egress_notes: EgressNotes::default(),
+            transfer_egress_notes: EgressNotes::default(),
         }
     }
 

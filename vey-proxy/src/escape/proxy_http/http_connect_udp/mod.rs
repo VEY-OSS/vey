@@ -14,7 +14,8 @@ use vey_io_ext::{
 };
 
 use super::ProxyHttpEscaper;
-use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::escape::EgressNotes;
+use crate::module::tcp_connect::TcpConnectTaskConf;
 use crate::module::udp_connect::{
     UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf,
     UdpConnectTaskNotes,
@@ -37,11 +38,11 @@ impl ProxyHttpEscaper {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: task_conf.upstream,
         };
-        let mut tcp_notes = TcpConnectTaskNotes::default();
+        let mut egress_notes = EgressNotes::default();
         let (peer, mut stream) = self
-            .tcp_new_connection(&tcp_task_conf, &mut tcp_notes, task_notes)
+            .tcp_new_connection(&tcp_task_conf, &mut egress_notes, task_notes)
             .await?;
-        udp_notes.fill_from_underlying_tcp(tcp_notes);
+        udp_notes.fill_from_underlying_tcp(egress_notes);
 
         let mut req = HttpUpgradeRequest::new(&peer, &self.config.append_http_headers);
 

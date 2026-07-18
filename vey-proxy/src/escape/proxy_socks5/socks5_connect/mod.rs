@@ -21,10 +21,11 @@ use vey_socks::v5;
 use vey_types::net::{SocketBufferConfig, UpstreamAddr};
 
 use super::ProxySocks5Escaper;
+use crate::escape::EgressNotes;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf,
-    TcpConnectTaskNotes, TlsConnectTaskConf,
+    TlsConnectTaskConf,
 };
 use crate::module::udp_connect::UdpConnectError;
 use crate::serve::ServerTaskNotes;
@@ -33,16 +34,16 @@ impl ProxySocks5Escaper {
     async fn socks5_connect_tcp_connect_to(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
         let mut stream = self
-            .tcp_new_connection(task_conf, tcp_notes, task_notes)
+            .tcp_new_connection(task_conf, egress_notes, task_notes)
             .await?;
         let outgoing_addr =
             v5::client::socks5_connect_to(&mut stream, &self.config.auth_info, task_conf.upstream)
                 .await?;
-        tcp_notes.final_addr.outgoing_addr = Some(outgoing_addr);
+        egress_notes.final_addr.outgoing_addr = Some(outgoing_addr);
         // we can not determine the real upstream addr that the proxy choose to connect to
 
         Ok(stream)
@@ -51,12 +52,12 @@ impl ProxySocks5Escaper {
     pub(super) async fn timed_socks5_connect_tcp_connect_to(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
         tokio::time::timeout(
             self.config.peer_negotiation_timeout,
-            self.socks5_connect_tcp_connect_to(task_conf, tcp_notes, task_notes),
+            self.socks5_connect_tcp_connect_to(task_conf, egress_notes, task_notes),
         )
         .await
         .map_err(|_| TcpConnectError::NegotiationPeerTimeout)?
@@ -67,7 +68,7 @@ impl ProxySocks5Escaper {
     async fn socks5_udp_associate(
         &self,
         buf_conf: SocketBufferConfig,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(LimitedStream<TcpStream>, UdpSocket, SocketAddr, SocketAddr), UdpConnectError>
     {
@@ -75,10 +76,10 @@ impl ProxySocks5Escaper {
             upstream: &UpstreamAddr::empty(),
         };
         let mut ctl_stream = self
-            .tcp_new_connection(&tcp_task_conf, tcp_notes, task_notes)
+            .tcp_new_connection(&tcp_task_conf, egress_notes, task_notes)
             .await?;
-        let local_tcp_addr = tcp_notes.local.unwrap();
-        let peer_tcp_addr = tcp_notes.next.unwrap();
+        let local_tcp_addr = egress_notes.local.unwrap();
+        let peer_tcp_addr = egress_notes.next.unwrap();
 
         // bind early and send listen_addr if configured ?
         let send_udp_ip = match local_tcp_addr.ip() {
@@ -110,13 +111,13 @@ impl ProxySocks5Escaper {
     pub(super) async fn timed_socks5_udp_associate(
         &self,
         buf_conf: SocketBufferConfig,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(LimitedStream<TcpStream>, UdpSocket, SocketAddr, SocketAddr), UdpConnectError>
     {
         tokio::time::timeout(
             self.config.peer_negotiation_timeout,
-            self.socks5_udp_associate(buf_conf, tcp_notes, task_notes),
+            self.socks5_udp_associate(buf_conf, egress_notes, task_notes),
         )
         .await
         .map_err(|_| UdpConnectError::NegotiationPeerTimeout)?
@@ -125,12 +126,12 @@ impl ProxySocks5Escaper {
     pub(super) async fn socks5_new_tcp_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let mut ups_s = self
-            .timed_socks5_connect_tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .timed_socks5_connect_tcp_connect_to(task_conf, egress_notes, task_notes)
             .await?;
 
         let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(self.stats.clone(), task_stats);
@@ -146,12 +147,12 @@ impl ProxySocks5Escaper {
     pub(super) async fn socks5_connect_tls_connect_to(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let ups_s = self
-            .timed_socks5_connect_tcp_connect_to(&task_conf.tcp, tcp_notes, task_notes)
+            .timed_socks5_connect_tcp_connect_to(&task_conf.tcp, egress_notes, task_notes)
             .await?;
 
         let ssl = task_conf.build_ssl()?;
@@ -165,7 +166,7 @@ impl ProxySocks5Escaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.tcp.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name: task_conf.tls_name,
                         tls_peer: task_conf.tcp.upstream,
@@ -180,7 +181,7 @@ impl ProxySocks5Escaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.tcp.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name: task_conf.tls_name,
                         tls_peer: task_conf.tcp.upstream,
@@ -196,14 +197,14 @@ impl ProxySocks5Escaper {
     pub(super) async fn socks5_new_tls_connection(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let tls_stream = self
             .socks5_connect_tls_connect_to(
                 task_conf,
-                tcp_notes,
+                egress_notes,
                 task_notes,
                 TlsApplication::TcpStream,
             )

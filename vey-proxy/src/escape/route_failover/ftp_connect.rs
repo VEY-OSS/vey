@@ -9,12 +9,12 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use super::RouteFailoverEscaper;
-use crate::escape::ArcEscaper;
+use crate::escape::{ArcEscaper, EgressNotes};
 use crate::module::ftp_over_http::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
     BoxFtpRemoteConnection, FtpConnectContext, FtpTaskRemoteControlStats,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 struct NullStats {}
@@ -50,8 +50,8 @@ impl FtpConnectContext for FailoverFtpConnectContext {
             .await
     }
 
-    fn fetch_control_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        self.inner.fetch_control_tcp_notes(tcp_notes)
+    fn fetch_control_egress_notes(&self, egress_notes: &mut EgressNotes) {
+        self.inner.fetch_control_egress_notes(egress_notes)
     }
 
     async fn new_transfer_connection(
@@ -65,8 +65,8 @@ impl FtpConnectContext for FailoverFtpConnectContext {
             .await
     }
 
-    fn fetch_transfer_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        self.inner.fetch_transfer_tcp_notes(tcp_notes)
+    fn fetch_transfer_egress_notes(&self, egress_notes: &mut EgressNotes) {
+        self.inner.fetch_transfer_egress_notes(egress_notes)
     }
 }
 

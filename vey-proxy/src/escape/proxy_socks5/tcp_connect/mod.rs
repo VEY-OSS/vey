@@ -15,10 +15,9 @@ use vey_socket::BindAddr;
 use vey_types::net::{ConnectError, Host};
 
 use super::ProxySocks5Escaper;
+use crate::escape::EgressNotes;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
-use crate::module::tcp_connect::{
-    TcpConnectTaskConf, TcpConnectTaskNotes, UnderlyingTcpConnectError,
-};
+use crate::module::tcp_connect::{TcpConnectTaskConf, UnderlyingTcpConnectError};
 use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
 
@@ -78,17 +77,17 @@ impl ProxySocks5Escaper {
         &self,
         peer: SocketAddr,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         let (sock, bind) = self.prepare_connect_socket(peer.ip())?;
-        tcp_notes.next = Some(peer);
-        tcp_notes.bind = bind;
+        egress_notes.next = Some(peer);
+        egress_notes.bind = bind;
 
         let instant_now = Instant::now();
 
         self.stats.tcp.connect.add_attempted();
-        tcp_notes.tries = 1;
+        egress_notes.tries = 1;
         match tokio::time::timeout(
             self.config.general.tcp_connect.each_timeout(),
             sock.connect(peer),
@@ -97,25 +96,25 @@ impl ProxySocks5Escaper {
         {
             Ok(Ok(ups_stream)) => {
                 self.stats.tcp.connect.add_success();
-                tcp_notes.duration = instant_now.elapsed();
+                egress_notes.duration = instant_now.elapsed();
 
                 let local_addr = ups_stream
                     .local_addr()
                     .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                 self.stats.tcp.connect.add_established();
-                tcp_notes.local = Some(local_addr);
+                egress_notes.local = Some(local_addr);
                 // the chained outgoing addr is not detected at here
                 Ok(ups_stream)
             }
             Ok(Err(e)) => {
                 self.stats.tcp.connect.add_error();
-                tcp_notes.duration = instant_now.elapsed();
+                egress_notes.duration = instant_now.elapsed();
 
                 let e = UnderlyingTcpConnectError::ConnectFailed(ConnectError::from(e));
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                     }
                     .log(logger, &e);
@@ -124,13 +123,13 @@ impl ProxySocks5Escaper {
             }
             Err(_) => {
                 self.stats.tcp.connect.add_timeout();
-                tcp_notes.duration = instant_now.elapsed();
+                egress_notes.duration = instant_now.elapsed();
 
                 let e = UnderlyingTcpConnectError::TimeoutByRule;
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                     }
                     .log(logger, &e);
@@ -149,7 +148,7 @@ impl ProxySocks5Escaper {
         mut resolver_job: HappyEyeballsResolveJob,
         peer_port: u16,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         let max_tries_each_family = self.config.general.tcp_connect.max_tries();
@@ -173,7 +172,7 @@ impl ProxySocks5Escaper {
         let mut resolver_r2_done = false;
         let each_timeout = self.config.general.tcp_connect.each_timeout();
 
-        tcp_notes.tries = 0;
+        egress_notes.tries = 0;
         let instant_now = Instant::now();
         let mut returned_err = UnderlyingTcpConnectError::NoAddressConnected;
 
@@ -183,7 +182,7 @@ impl ProxySocks5Escaper {
                 let peer = SocketAddr::new(ip, peer_port);
                 running_connection += 1;
                 spawn_new_connection = false;
-                tcp_notes.tries += 1;
+                egress_notes.tries += 1;
                 let stats = self.stats.clone();
                 c_set.spawn(async move {
                     stats.tcp.connect.add_attempted();
@@ -216,20 +215,20 @@ impl ProxySocks5Escaper {
                     biased;
 
                     r = c_set.join_next() => {
-                        tcp_notes.duration = instant_now.elapsed();
+                        egress_notes.duration = instant_now.elapsed();
                         match r {
                             Some(Ok(r)) => {
                                 running_connection -= 1;
                                 let peer_addr = r.1;
-                                tcp_notes.next = Some(peer_addr);
-                                tcp_notes.bind = r.2;
+                                egress_notes.next = Some(peer_addr);
+                                egress_notes.bind = r.2;
                                 match r.0 {
                                     Ok(ups_stream) => {
                                         let local_addr = ups_stream
                                             .local_addr()
                                             .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                                         self.stats.tcp.connect.add_established();
-                                        tcp_notes.local = Some(local_addr);
+                                        egress_notes.local = Some(local_addr);
                                         // the chained outgoing addr is not detected at here
                                         return Ok(ups_stream);
                                     }
@@ -237,7 +236,7 @@ impl ProxySocks5Escaper {
                                         if let Some(logger) = &self.escape_logger {
                                             EscapeLogForTcpConnect {
                                                 upstream: task_conf.upstream,
-                                                tcp_notes,
+                                                egress_notes,
                                                 task_id: &task_notes.id,
                                             }
                                             .log(logger, &e);
@@ -268,12 +267,12 @@ impl ProxySocks5Escaper {
                     r = resolver_job.get_r2_or_never(max_tries_each_family) => {
                         resolver_r2_done = true;
                         if let Ok(ips2) = r {
-                            self.merge_ip_list(tcp_notes.tries, &mut ips, ips2);
+                            self.merge_ip_list(egress_notes.tries, &mut ips, ips2);
                         }
                     }
                 }
             } else if resolver_r2_done {
-                tcp_notes.duration = instant_now.elapsed();
+                egress_notes.duration = instant_now.elapsed();
                 return Err(returned_err);
             } else {
                 match tokio::time::timeout(
@@ -284,15 +283,15 @@ impl ProxySocks5Escaper {
                 {
                     Ok(Ok(ips2)) => {
                         resolver_r2_done = true;
-                        self.merge_ip_list(tcp_notes.tries, &mut ips, ips2);
+                        self.merge_ip_list(egress_notes.tries, &mut ips, ips2);
                         spawn_new_connection = true;
                     }
                     Ok(Err(_e)) => {
-                        tcp_notes.duration = instant_now.elapsed();
+                        egress_notes.duration = instant_now.elapsed();
                         return Err(returned_err);
                     }
                     Err(_) => {
-                        tcp_notes.duration = instant_now.elapsed();
+                        egress_notes.duration = instant_now.elapsed();
                         return Err(UnderlyingTcpConnectError::TimeoutByRule);
                     }
                 }
@@ -303,13 +302,13 @@ impl ProxySocks5Escaper {
     async fn tcp_connect_to(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         let peer_proxy = match task_notes.egress_path_upstream(&self.config.name) {
             Some(ups) => {
                 let addr = if let Some(addr) = &ups.addr {
-                    tcp_notes.override_peer = Some(addr.clone());
+                    egress_notes.override_peer = Some(addr.clone());
                     addr
                 } else {
                     self.get_next_proxy(task_notes, task_conf.upstream.host())
@@ -325,7 +324,7 @@ impl ProxySocks5Escaper {
                         .fixed_try_connect(
                             SocketAddr::new(ip, addr.port()),
                             task_conf,
-                            tcp_notes,
+                            egress_notes,
                             task_notes,
                         )
                         .await;
@@ -342,7 +341,7 @@ impl ProxySocks5Escaper {
                 self.fixed_try_connect(
                     SocketAddr::new(*ip, peer_proxy.port()),
                     task_conf,
-                    tcp_notes,
+                    egress_notes,
                     task_notes,
                 )
                 .await
@@ -353,7 +352,7 @@ impl ProxySocks5Escaper {
                     resolver_job,
                     peer_proxy.port(),
                     task_conf,
-                    tcp_notes,
+                    egress_notes,
                     task_notes,
                 )
                 .await
@@ -364,11 +363,11 @@ impl ProxySocks5Escaper {
     pub(super) async fn tcp_new_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<LimitedStream<TcpStream>, UnderlyingTcpConnectError> {
         let stream = self
-            .tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .tcp_connect_to(task_conf, egress_notes, task_notes)
             .await?;
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;

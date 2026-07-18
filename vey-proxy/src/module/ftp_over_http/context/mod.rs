@@ -6,7 +6,8 @@
 use async_trait::async_trait;
 
 use super::{ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::escape::EgressNotes;
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 mod deny;
@@ -23,7 +24,7 @@ pub(crate) trait FtpConnectContext {
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError>;
-    fn fetch_control_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes);
+    fn fetch_control_egress_notes(&self, egress_notes: &mut EgressNotes);
 
     async fn new_transfer_connection(
         &mut self,
@@ -31,7 +32,7 @@ pub(crate) trait FtpConnectContext {
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError>;
-    fn fetch_transfer_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes);
+    fn fetch_transfer_egress_notes(&self, egress_notes: &mut EgressNotes);
 }
 
 pub(crate) type BoxFtpConnectContext = Box<dyn FtpConnectContext + Send>;

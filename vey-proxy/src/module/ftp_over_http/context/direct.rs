@@ -12,14 +12,15 @@ use super::{
     FtpConnectContext,
 };
 use crate::escape::ArcEscaper;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::escape::EgressNotes;
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 pub(crate) struct DirectFtpConnectContext {
     escaper: ArcEscaper,
     upstream: UpstreamAddr,
-    control_tcp_notes: TcpConnectTaskNotes,
-    transfer_tcp_notes: TcpConnectTaskNotes,
+    control_egress_notes: EgressNotes,
+    transfer_egress_notes: EgressNotes,
 }
 
 impl DirectFtpConnectContext {
@@ -27,8 +28,8 @@ impl DirectFtpConnectContext {
         DirectFtpConnectContext {
             escaper,
             upstream,
-            control_tcp_notes: TcpConnectTaskNotes::default(),
-            transfer_tcp_notes: TcpConnectTaskNotes::default(),
+            control_egress_notes: EgressNotes::default(),
+            transfer_egress_notes: EgressNotes::default(),
         }
     }
 }
@@ -44,15 +45,15 @@ impl FtpConnectContext for DirectFtpConnectContext {
         self.escaper
             ._new_ftp_control_connection(
                 task_conf,
-                &mut self.control_tcp_notes,
+                &mut self.control_egress_notes,
                 task_notes,
                 task_stats,
             )
             .await
     }
 
-    fn fetch_control_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        tcp_notes.clone_from(&self.control_tcp_notes);
+    fn fetch_control_egress_notes(&self, egress_notes: &mut EgressNotes) {
+        egress_notes.clone_from(&self.control_egress_notes);
     }
 
     async fn new_transfer_connection(
@@ -64,8 +65,8 @@ impl FtpConnectContext for DirectFtpConnectContext {
         self.escaper
             ._new_ftp_transfer_connection(
                 task_conf,
-                &mut self.transfer_tcp_notes,
-                &self.control_tcp_notes,
+                &mut self.transfer_egress_notes,
+                &self.control_egress_notes,
                 task_notes,
                 task_stats,
                 &self.upstream,
@@ -73,7 +74,7 @@ impl FtpConnectContext for DirectFtpConnectContext {
             .await
     }
 
-    fn fetch_transfer_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        tcp_notes.clone_from(&self.transfer_tcp_notes);
+    fn fetch_transfer_egress_notes(&self, egress_notes: &mut EgressNotes) {
+        egress_notes.clone_from(&self.transfer_egress_notes);
     }
 }

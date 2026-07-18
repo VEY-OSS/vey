@@ -15,10 +15,11 @@ use vey_io_ext::{AsyncStream, FlexBufReader, LimitedStream, OnceBufReader};
 use vey_openssl::SslStream;
 
 use super::{ProxyFloatEscaper, ProxyFloatHttpPeer};
+use crate::escape::EgressNotes;
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf,
-    TcpConnectTaskNotes, TlsConnectTaskConf,
+    TlsConnectTaskConf,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -27,11 +28,11 @@ impl ProxyFloatHttpPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, TcpConnectError> {
         let mut stream = escaper
-            .tcp_new_connection(self, task_conf, tcp_notes, task_notes)
+            .tcp_new_connection(self, task_conf, egress_notes, task_notes)
             .await?;
 
         let req = HttpConnectRequest::new(&self.shared_config.append_http_headers);
@@ -53,12 +54,12 @@ impl ProxyFloatHttpPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, TcpConnectError> {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
-            self.http_connect_tcp_connect_to(escaper, task_conf, tcp_notes, task_notes),
+            self.http_connect_tcp_connect_to(escaper, task_conf, egress_notes, task_notes),
         )
         .await
         .map_err(|_| TcpConnectError::NegotiationPeerTimeout)?
@@ -68,12 +69,12 @@ impl ProxyFloatHttpPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let mut buf_stream = self
-            .timed_http_connect_tcp_connect_to(escaper, task_conf, tcp_notes, task_notes)
+            .timed_http_connect_tcp_connect_to(escaper, task_conf, egress_notes, task_notes)
             .await?;
 
         // add in read buffered data
@@ -100,19 +101,19 @@ impl ProxyFloatHttpPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let buf_stream = self
-            .timed_http_connect_tcp_connect_to(escaper, &task_conf.tcp, tcp_notes, task_notes)
+            .timed_http_connect_tcp_connect_to(escaper, &task_conf.tcp, egress_notes, task_notes)
             .await?;
 
         escaper
             .tls_connect_over_tunnel(
                 buf_stream.into_inner(),
                 task_conf,
-                tcp_notes,
+                egress_notes,
                 task_notes,
                 tls_application,
             )
@@ -123,19 +124,19 @@ impl ProxyFloatHttpPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let buf_stream = self
-            .timed_http_connect_tcp_connect_to(escaper, &task_conf.tcp, tcp_notes, task_notes)
+            .timed_http_connect_tcp_connect_to(escaper, &task_conf.tcp, egress_notes, task_notes)
             .await?;
 
         escaper
             .new_tls_connection_over_tunnel(
                 buf_stream.into_inner(),
                 task_conf,
-                tcp_notes,
+                egress_notes,
                 task_notes,
                 task_stats,
             )

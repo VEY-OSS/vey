@@ -24,7 +24,7 @@ use vey_types::net::{Host, OpensslClientConfig};
 use crate::audit::AuditHandle;
 use crate::auth::{User, UserForbiddenStats, UserSite};
 use crate::config::server::ServerConfig;
-use crate::module::tcp_connect::TcpConnectTaskNotes;
+use crate::escape::EgressNotes;
 use crate::serve::{ArcServerStats, ServerIdleChecker, ServerTaskNotes};
 
 mod error;
@@ -111,11 +111,11 @@ pub(crate) struct StreamInspectConnectNotes {
     pub(crate) server_addr: SocketAddr,
 }
 
-impl From<&TcpConnectTaskNotes> for StreamInspectConnectNotes {
-    fn from(tcp_notes: &TcpConnectTaskNotes) -> Self {
+impl From<&EgressNotes> for StreamInspectConnectNotes {
+    fn from(egress_notes: &EgressNotes) -> Self {
         StreamInspectConnectNotes {
-            client_addr: tcp_notes.local.unwrap(),
-            server_addr: tcp_notes.next.unwrap(),
+            client_addr: egress_notes.local.unwrap(),
+            server_addr: egress_notes.next.unwrap(),
         }
     }
 }
@@ -157,7 +157,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         server_quit_policy: Arc<ServerQuitPolicy>,
         idle_wheel: Arc<IdleWheel>,
         task_notes: &ServerTaskNotes,
-        tcp_notes: &TcpConnectTaskNotes,
+        egress_notes: &EgressNotes,
     ) -> Self {
         let max_idle_count = task_notes
             .user_ctx()
@@ -171,7 +171,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
             server_quit_policy,
             idle_wheel,
             task_notes: StreamInspectTaskNotes::from(task_notes),
-            connect_notes: StreamInspectConnectNotes::from(tcp_notes),
+            connect_notes: StreamInspectConnectNotes::from(egress_notes),
             inspection_depth: 0,
             max_idle_count,
         }

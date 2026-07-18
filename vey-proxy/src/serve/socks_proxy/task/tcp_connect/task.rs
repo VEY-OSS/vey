@@ -22,9 +22,10 @@ use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
 use crate::audit::AuditContext;
 use crate::auth::User;
 use crate::config::server::ServerConfig;
+use crate::escape::EgressNotes;
 use crate::inspect::{StreamInspectContext, StreamTransitTask};
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
-use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::module::tcp_connect::TcpConnectTaskConf;
 use crate::serve::socks_proxy::TcpConnectTaskAliveGuard;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
@@ -36,7 +37,7 @@ pub(crate) struct SocksProxyTcpConnectTask {
     ctx: CommonTaskContext,
     upstream: UpstreamAddr,
     task_notes: ServerTaskNotes,
-    tcp_notes: TcpConnectTaskNotes,
+    egress_notes: EgressNotes,
     task_stats: Arc<TcpStreamTaskStats>,
     audit_ctx: AuditContext,
     started: bool,
@@ -75,7 +76,7 @@ impl SocksProxyTcpConnectTask {
             ctx,
             upstream,
             task_notes,
-            tcp_notes: TcpConnectTaskNotes::default(),
+            egress_notes: EgressNotes::default(),
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
             started: false,
@@ -91,7 +92,7 @@ impl SocksProxyTcpConnectTask {
                 logger,
                 upstream: &self.upstream,
                 task_notes: &self.task_notes,
-                tcp_notes: &self.tcp_notes,
+                egress_notes: &self.egress_notes,
                 client_rd_bytes: self.task_stats.clt.read.get_bytes(),
                 client_wr_bytes: self.task_stats.clt.write.get_bytes(),
                 remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
@@ -299,7 +300,7 @@ impl SocksProxyTcpConnectTask {
             .escaper
             .tcp_setup_connection(
                 &task_conf,
-                &mut self.tcp_notes,
+                &mut self.egress_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
                 &mut self.audit_ctx,
@@ -355,12 +356,12 @@ impl SocksProxyTcpConnectTask {
                     .map_err(ServerTaskError::ClientTcpWriteFailed)?;
             }
             SocksVersion::V5 => {
-                let addr = if let Some(addr) = &self.tcp_notes.final_addr.outgoing_addr {
+                let addr = if let Some(addr) = &self.egress_notes.final_addr.outgoing_addr {
                     *addr
                 } else {
-                    let (ip, port) = match &self.tcp_notes.local {
+                    let (ip, port) = match &self.egress_notes.local {
                         Some(addr) => (addr.ip(), addr.port()),
-                        None => match self.tcp_notes.next {
+                        None => match self.egress_notes.next {
                             Some(SocketAddr::V4(_)) => (IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
                             Some(SocketAddr::V6(_)) => (IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                             None => unreachable!(),
@@ -418,7 +419,7 @@ impl SocksProxyTcpConnectTask {
                     self.ctx.server_quit_policy.clone(),
                     self.ctx.idle_wheel.clone(),
                     &self.task_notes,
-                    &self.tcp_notes,
+                    &self.egress_notes,
                 );
                 return crate::inspect::stream::transit_with_inspection(
                     clt_r,

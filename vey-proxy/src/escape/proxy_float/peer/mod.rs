@@ -19,9 +19,10 @@ use vey_daemon::stat::remote::{ArcTcpConnectionTaskRemoteStats, ArcUdpConnectTas
 use vey_types::net::{EgressInfo, TcpSockSpeedLimitConfig};
 
 use super::{ProxyFloatEscaper, ProxyFloatEscaperConfig, ProxyFloatEscaperStats};
+use crate::escape::EgressNotes;
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes};
 use crate::module::udp_relay::{
@@ -84,7 +85,7 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult;
@@ -93,7 +94,7 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult;
@@ -102,7 +103,7 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
@@ -111,7 +112,7 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;

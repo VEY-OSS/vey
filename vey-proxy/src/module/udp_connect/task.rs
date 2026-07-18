@@ -13,7 +13,7 @@ use vey_socket::BindAddr;
 use vey_types::metrics::NodeName;
 use vey_types::net::{EgressInfo, UpstreamAddr};
 
-use crate::module::tcp_connect::{FinalAddressNotes, TcpConnectTaskNotes};
+use crate::escape::{EgressNotes, FinalAddressNotes};
 
 pub(crate) struct UdpConnectTaskConf<'a> {
     pub(crate) upstream: &'a UpstreamAddr,
@@ -33,7 +33,7 @@ pub(crate) struct UdpConnectTaskNotes {
 }
 
 impl UdpConnectTaskNotes {
-    pub(crate) fn fill_from_underlying_tcp(&mut self, tcp: TcpConnectTaskNotes) {
+    pub(crate) fn fill_from_underlying_tcp(&mut self, tcp: EgressNotes) {
         self.bind = tcp.bind;
         self.next = tcp.next;
         self.local = tcp.local;

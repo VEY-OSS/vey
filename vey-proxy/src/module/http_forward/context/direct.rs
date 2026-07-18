@@ -15,15 +15,13 @@ use super::{
     HttpForwardContext,
 };
 use crate::audit::AuditContext;
-use crate::escape::ArcEscaper;
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
-};
+use crate::escape::{ArcEscaper, EgressNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 pub(crate) struct DirectHttpForwardContext {
     escaper: ArcEscaper,
-    tcp_notes: TcpConnectTaskNotes,
+    egress_notes: EgressNotes,
     last_upstream: UpstreamAddr,
     last_is_tls: bool,
     last_connection: Option<(Instant, HttpConnectionEofPoller)>,
@@ -33,7 +31,7 @@ impl DirectHttpForwardContext {
     pub(crate) fn new(escaper: ArcEscaper) -> Self {
         DirectHttpForwardContext {
             escaper,
-            tcp_notes: TcpConnectTaskNotes::default(),
+            egress_notes: EgressNotes::default(),
             last_upstream: UpstreamAddr::empty(),
             last_is_tls: false,
             last_connection: None,
@@ -52,7 +50,7 @@ impl HttpForwardContext for DirectHttpForwardContext {
         if self.last_upstream.ne(upstream) || self.last_is_tls != is_tls {
             // new upstream
             self.last_upstream.clone_from(upstream);
-            self.tcp_notes.reset();
+            self.egress_notes.reset();
             // always use different connection for different upstream
             let _old_connection = self.last_connection.take();
         } else {
@@ -89,7 +87,7 @@ impl HttpForwardContext for DirectHttpForwardContext {
         self.escaper._update_audit_context(audit_ctx);
         let conn = self
             .escaper
-            ._new_http_forward_connection(task_conf, &mut self.tcp_notes, task_notes, task_stats)
+            ._new_http_forward_connection(task_conf, &mut self.egress_notes, task_notes, task_stats)
             .await?;
         Ok((conn, self.escaper.clone()))
     }
@@ -105,7 +103,12 @@ impl HttpForwardContext for DirectHttpForwardContext {
         self.escaper._update_audit_context(audit_ctx);
         let conn = self
             .escaper
-            ._new_https_forward_connection(task_conf, &mut self.tcp_notes, task_notes, task_stats)
+            ._new_https_forward_connection(
+                task_conf,
+                &mut self.egress_notes,
+                task_notes,
+                task_stats,
+            )
             .await?;
         Ok((conn, self.escaper.clone()))
     }
@@ -115,7 +118,7 @@ impl HttpForwardContext for DirectHttpForwardContext {
         self.last_connection = Some((Instant::now(), eof_poller));
     }
 
-    fn fetch_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        tcp_notes.clone_from(&self.tcp_notes);
+    fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes) {
+        egress_notes.clone_from(&self.egress_notes);
     }
 }

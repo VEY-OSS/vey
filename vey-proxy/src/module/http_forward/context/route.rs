@@ -18,11 +18,9 @@ use super::{
     HttpForwardContext,
 };
 use crate::audit::AuditContext;
-use crate::escape::ArcEscaper;
+use crate::escape::{ArcEscaper, EgressNotes};
 use crate::module::http_forward::BoxHttpForwardContext;
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
-};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 pub(crate) struct RouteHttpForwardContext {
@@ -30,7 +28,7 @@ pub(crate) struct RouteHttpForwardContext {
     fwd_ctx: Option<BoxHttpForwardContext>,
     run_local_update: bool,
     final_escaper: ArcEscaper,
-    tcp_notes: TcpConnectTaskNotes,
+    egress_notes: EgressNotes,
     last_upstream: UpstreamAddr,
     last_is_tls: bool,
     last_connection: Option<(Instant, HttpConnectionEofPoller)>,
@@ -44,7 +42,7 @@ impl RouteHttpForwardContext {
             fwd_ctx: None,
             run_local_update: false,
             final_escaper: fake_final_escaper,
-            tcp_notes: TcpConnectTaskNotes::default(),
+            egress_notes: EgressNotes::default(),
             last_upstream: UpstreamAddr::empty(),
             last_is_tls: false,
             last_connection: None,
@@ -175,7 +173,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
         self.last_connection = Some((Instant::now(), eof_poller));
     }
 
-    fn fetch_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        tcp_notes.clone_from(&self.tcp_notes);
+    fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes) {
+        egress_notes.clone_from(&self.egress_notes);
     }
 }

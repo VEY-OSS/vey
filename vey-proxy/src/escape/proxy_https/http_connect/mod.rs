@@ -17,9 +17,10 @@ use vey_io_ext::{AsyncStream, FlexBufReader, LimitedReader, LimitedWriter, OnceB
 use vey_openssl::{SslConnector, SslStream};
 
 use super::ProxyHttpsEscaper;
+use crate::escape::EgressNotes;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -27,12 +28,12 @@ impl ProxyHttpsEscaper {
     async fn http_connect_tcp_connect_to(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, TcpConnectError>
     {
         let (_peer, mut stream) = self
-            .tls_handshake_to_remote(task_conf, tcp_notes, task_notes)
+            .tls_handshake_to_remote(task_conf, egress_notes, task_notes)
             .await?;
 
         let mut req = HttpConnectRequest::new(&self.config.append_http_headers);
@@ -61,13 +62,13 @@ impl ProxyHttpsEscaper {
     async fn timed_http_connect_tcp_connect_to(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, TcpConnectError>
     {
         tokio::time::timeout(
             self.config.peer_negotiation_timeout,
-            self.http_connect_tcp_connect_to(task_conf, tcp_notes, task_notes),
+            self.http_connect_tcp_connect_to(task_conf, egress_notes, task_notes),
         )
         .await
         .map_err(|_| TcpConnectError::NegotiationPeerTimeout)?
@@ -76,12 +77,12 @@ impl ProxyHttpsEscaper {
     pub(super) async fn http_connect_new_tcp_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let buf_stream = self
-            .timed_http_connect_tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .timed_http_connect_tcp_connect_to(task_conf, egress_notes, task_notes)
             .await?;
 
         // add task and user stats
@@ -107,12 +108,12 @@ impl ProxyHttpsEscaper {
     pub(super) async fn http_connect_tls_connect_to(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let buf_stream = self
-            .timed_http_connect_tcp_connect_to(&task_conf.tcp, tcp_notes, task_notes)
+            .timed_http_connect_tcp_connect_to(&task_conf.tcp, egress_notes, task_notes)
             .await?;
 
         let ssl = task_conf.build_ssl()?;
@@ -126,7 +127,7 @@ impl ProxyHttpsEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.tcp.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name: task_conf.tls_name,
                         tls_peer: task_conf.tcp.upstream,
@@ -141,7 +142,7 @@ impl ProxyHttpsEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.tcp.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name: task_conf.tls_name,
                         tls_peer: task_conf.tcp.upstream,
@@ -157,14 +158,14 @@ impl ProxyHttpsEscaper {
     pub(super) async fn http_connect_new_tls_connection(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let tls_stream = self
             .http_connect_tls_connect_to(
                 task_conf,
-                tcp_notes,
+                egress_notes,
                 task_notes,
                 TlsApplication::TcpStream,
             )

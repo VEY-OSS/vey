@@ -12,18 +12,17 @@ use vey_openssl::{SslConnector, SslStream};
 use vey_types::net::{Host, UpstreamAddr};
 
 use super::ProxyFloatEscaper;
+use crate::escape::EgressNotes;
 use crate::escape::proxy_float::peer::NextProxyPeer;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
-use crate::module::tcp_connect::{
-    TcpConnectTaskConf, TcpConnectTaskNotes, UnderlyingTcpConnectError,
-};
+use crate::module::tcp_connect::{TcpConnectTaskConf, UnderlyingTcpConnectError};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatEscaper {
     pub(super) async fn tls_handshake_with_peer<P: NextProxyPeer>(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         tls_name: &Host,
         peer: &P,
@@ -32,7 +31,7 @@ impl ProxyFloatEscaper {
         UnderlyingTcpConnectError,
     > {
         let stream = self
-            .tcp_new_connection(peer, task_conf, tcp_notes, task_notes)
+            .tcp_new_connection(peer, task_conf, egress_notes, task_notes)
             .await?;
         let peer_addr = peer.peer_addr();
 
@@ -56,7 +55,7 @@ impl ProxyFloatEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name,
                         tls_peer: &tls_peer,
@@ -73,7 +72,7 @@ impl ProxyFloatEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name,
                         tls_peer: &tls_peer,

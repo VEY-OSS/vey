@@ -28,14 +28,13 @@ use super::{
 };
 use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
+use crate::escape::EgressNotes;
 use crate::log::task::http_forward::TaskLogForHttpForward;
 use crate::module::http_forward::{
     BoxHttpForwardConnection, BoxHttpForwardContext, BoxHttpForwardReader, BoxHttpForwardWriter,
     HttpForwardTaskNotes, HttpProxyClientResponse,
 };
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
-};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::http_rproxy::HttpForwardTaskAliveGuard;
 use crate::serve::http_rproxy::host::HttpHost;
 use crate::serve::{
@@ -53,7 +52,7 @@ pub(crate) struct HttpRProxyForwardTask<'a> {
     send_error_response: bool,
     task_notes: ServerTaskNotes,
     http_notes: HttpForwardTaskNotes,
-    tcp_notes: TcpConnectTaskNotes,
+    egress_notes: EgressNotes,
     task_stats: Arc<HttpForwardTaskStats>,
     max_idle_count: usize,
     started: bool,
@@ -102,7 +101,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             send_error_response: true,
             task_notes,
             http_notes,
-            tcp_notes: TcpConnectTaskNotes::default(),
+            egress_notes: EgressNotes::default(),
             task_stats: Arc::new(HttpForwardTaskStats::default()),
             max_idle_count,
             started: false,
@@ -212,7 +211,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             task_notes: &self.task_notes,
             http_notes: &self.http_notes,
             http_user_agent,
-            tcp_notes: &self.tcp_notes,
+            egress_notes: &self.egress_notes,
             client_rd_bytes: self.task_stats.clt.read.get_bytes(),
             client_wr_bytes: self.task_stats.clt.write.get_bytes(),
             remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
@@ -510,7 +509,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         {
             self.task_notes.stage = ServerTaskStage::Connected;
             self.http_notes.reused_connection = true;
-            fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+            fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
             self.http_notes.retry_new_connection = false;
             if let Some(user_ctx) = self.task_notes.user_ctx() {
                 user_ctx.foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
@@ -608,7 +607,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         match self.make_new_connection(fwd_ctx).await {
             Ok(mut connection) => {
                 self.task_notes.stage = ServerTaskStage::Connected;
-                fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+                fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
 
                 if self.ctx.server_config.flush_task_log_on_connected
                     && let Some(log_ctx) = self.get_log_context()
@@ -623,7 +622,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 Ok(connection)
             }
             Err(e) => {
-                fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+                fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
                 self.should_close = true;
                 self.reply_connect_err(&e, clt_w).await;
                 Err(e.into())

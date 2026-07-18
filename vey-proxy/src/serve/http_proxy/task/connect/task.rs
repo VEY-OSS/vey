@@ -22,12 +22,11 @@ use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
 use crate::audit::AuditContext;
 use crate::auth::User;
 use crate::config::server::ServerConfig;
+use crate::escape::EgressNotes;
 use crate::inspect::{StreamInspectContext, StreamTransitTask};
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
 use crate::module::http_forward::HttpProxyClientResponse;
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TcpConnection,
-};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnection};
 use crate::serve::http_proxy::HttpConnectTaskAliveGuard;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
@@ -40,7 +39,7 @@ pub(crate) struct HttpProxyConnectTask {
     ups_c: Option<TcpConnection>,
     back_to_http: bool,
     task_notes: ServerTaskNotes,
-    tcp_notes: TcpConnectTaskNotes,
+    egress_notes: EgressNotes,
     task_stats: Arc<TcpStreamTaskStats>,
     audit_ctx: AuditContext,
     http_version: Version,
@@ -70,7 +69,7 @@ impl HttpProxyConnectTask {
             ups_c: None,
             back_to_http: false,
             task_notes,
-            tcp_notes: TcpConnectTaskNotes::default(),
+            egress_notes: EgressNotes::default(),
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
             http_version: req.inner.version,
@@ -116,7 +115,7 @@ impl HttpProxyConnectTask {
         let mut rsp =
             HttpProxyClientResponse::from_standard(http::StatusCode::OK, self.http_version, false);
         self.ctx
-            .set_custom_header_for_tcp_local_reply(&self.tcp_notes, &mut rsp);
+            .set_custom_header_for_tcp_local_reply(&self.egress_notes, &mut rsp);
         rsp.reply_ok_to_connect(clt_w)
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)
@@ -128,7 +127,8 @@ impl HttpProxyConnectTask {
     {
         // If the next-hop was derived from username params and DNS failed,
         // treat it as a bad request (400) instead of origin DNS error.
-        if self.tcp_notes.override_peer.is_some() && matches!(e, TcpConnectError::ResolveFailed(_))
+        if self.egress_notes.override_peer.is_some()
+            && matches!(e, TcpConnectError::ResolveFailed(_))
         {
             let mut rsp = HttpProxyClientResponse::bad_request(self.http_version);
             rsp.set_error_message("Proxy targeting didn't find a match");
@@ -140,7 +140,7 @@ impl HttpProxyConnectTask {
 
         let mut rsp = HttpProxyClientResponse::from_tcp_connect_error(e, self.http_version, false);
         self.ctx
-            .set_custom_header_for_tcp_local_reply(&self.tcp_notes, &mut rsp);
+            .set_custom_header_for_tcp_local_reply(&self.egress_notes, &mut rsp);
         let should_close = rsp.should_close();
         self.back_to_http = !should_close;
 
@@ -328,7 +328,7 @@ impl HttpProxyConnectTask {
             .escaper
             .tcp_setup_connection(
                 &task_conf,
-                &mut self.tcp_notes,
+                &mut self.egress_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
                 &mut self.audit_ctx,
@@ -390,7 +390,7 @@ impl HttpProxyConnectTask {
                 logger,
                 upstream: &self.upstream,
                 task_notes: &self.task_notes,
-                tcp_notes: &self.tcp_notes,
+                egress_notes: &self.egress_notes,
                 client_rd_bytes: self.task_stats.clt.read.get_bytes(),
                 client_wr_bytes: self.task_stats.clt.write.get_bytes(),
                 remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
@@ -486,7 +486,7 @@ impl HttpProxyConnectTask {
                     self.ctx.server_quit_policy.clone(),
                     self.ctx.idle_wheel.clone(),
                     &self.task_notes,
-                    &self.tcp_notes,
+                    &self.egress_notes,
                 );
                 return crate::inspect::stream::transit_with_inspection(
                     clt_r,

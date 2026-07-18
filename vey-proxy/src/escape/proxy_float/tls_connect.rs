@@ -15,10 +15,9 @@ use vey_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use vey_openssl::{SslConnector, SslStream};
 
 use super::ProxyFloatEscaper;
+use crate::escape::EgressNotes;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskNotes, TlsConnectTaskConf,
-};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatEscaper {
@@ -26,7 +25,7 @@ impl ProxyFloatEscaper {
         &self,
         stream: S,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
     ) -> Result<SslStream<S>, TcpConnectError>
@@ -44,7 +43,7 @@ impl ProxyFloatEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.tcp.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name: task_conf.tls_name,
                         tls_peer: task_conf.tcp.upstream,
@@ -59,7 +58,7 @@ impl ProxyFloatEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.tcp.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name: task_conf.tls_name,
                         tls_peer: task_conf.tcp.upstream,
@@ -76,7 +75,7 @@ impl ProxyFloatEscaper {
         &self,
         stream: S,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult
@@ -87,7 +86,7 @@ impl ProxyFloatEscaper {
             .tls_connect_over_tunnel(
                 stream,
                 task_conf,
-                tcp_notes,
+                egress_notes,
                 task_notes,
                 TlsApplication::TcpStream,
             )

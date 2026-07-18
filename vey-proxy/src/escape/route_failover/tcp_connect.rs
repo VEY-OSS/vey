@@ -11,14 +11,12 @@ use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 
 use super::RouteFailoverEscaper;
 use crate::audit::AuditContext;
-use crate::escape::ArcEscaper;
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes,
-};
+use crate::escape::{ArcEscaper, EgressNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 pub struct TcpConnectFailoverContext {
-    tcp_notes: TcpConnectTaskNotes,
+    egress_notes: EgressNotes,
     audit_ctx: AuditContext,
     connect_result: TcpConnectResult,
 }
@@ -26,7 +24,7 @@ pub struct TcpConnectFailoverContext {
 impl TcpConnectFailoverContext {
     fn new(audit_ctx: &AuditContext) -> Self {
         TcpConnectFailoverContext {
-            tcp_notes: TcpConnectTaskNotes::default(),
+            egress_notes: EgressNotes::default(),
             audit_ctx: audit_ctx.clone(),
             connect_result: Err(TcpConnectError::EscaperNotUsable(anyhow!(
                 "tcp setup connection not called yet"
@@ -44,7 +42,7 @@ impl TcpConnectFailoverContext {
         self.connect_result = escaper
             .tcp_setup_connection(
                 task_conf,
-                &mut self.tcp_notes,
+                &mut self.egress_notes,
                 task_notes,
                 task_stats,
                 &mut self.audit_ctx,
@@ -58,7 +56,7 @@ impl RouteFailoverEscaper {
     pub(super) async fn tcp_setup_connection_with_failover(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         audit_ctx: &mut AuditContext,
@@ -76,14 +74,18 @@ impl RouteFailoverEscaper {
                 Ok(c) => {
                     self.stats.add_request_passed();
                     *audit_ctx = ctx.audit_ctx;
-                    *tcp_notes = ctx.tcp_notes;
+                    *egress_notes = ctx.egress_notes;
                     Ok(c)
                 }
                 Err(_e) => {
                     match self
                         .standby_node
                         .tcp_setup_connection(
-                            task_conf, tcp_notes, task_notes, task_stats, audit_ctx,
+                            task_conf,
+                            egress_notes,
+                            task_notes,
+                            task_stats,
+                            audit_ctx,
                         )
                         .await
                     {
@@ -111,7 +113,7 @@ impl RouteFailoverEscaper {
             Ok(c) => {
                 self.stats.add_request_passed();
                 *audit_ctx = ctx.audit_ctx;
-                *tcp_notes = ctx.tcp_notes;
+                *egress_notes = ctx.egress_notes;
                 Ok(c)
             }
             Err(_e) => {
@@ -120,13 +122,13 @@ impl RouteFailoverEscaper {
                     Ok(c) => {
                         self.stats.add_request_passed();
                         *audit_ctx = ctx.audit_ctx;
-                        *tcp_notes = ctx.tcp_notes;
+                        *egress_notes = ctx.egress_notes;
                         Ok(c)
                     }
                     Err(e) => {
                         self.stats.add_request_failed();
                         *audit_ctx = ctx.audit_ctx;
-                        *tcp_notes = ctx.tcp_notes;
+                        *egress_notes = ctx.egress_notes;
                         Err(e)
                     }
                 }

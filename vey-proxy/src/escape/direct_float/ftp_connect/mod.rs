@@ -9,23 +9,24 @@ use vey_io_ext::LimitedStream;
 use vey_types::net::UpstreamAddr;
 
 use super::DirectFloatEscaper;
+use crate::escape::EgressNotes;
 use crate::module::ftp_over_http::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection,
     FtpControlRemoteWrapperStats, FtpTransferRemoteWrapperStats,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 impl DirectFloatEscaper {
     pub(super) async fn new_ftp_control_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         let (stream, _) = self
-            .tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .tcp_connect_to(task_conf, egress_notes, task_notes)
             .await?;
 
         let mut wrapper_stats = FtpControlRemoteWrapperStats::new(self.stats.clone(), task_stats);
@@ -47,8 +48,8 @@ impl DirectFloatEscaper {
     pub(super) async fn new_ftp_transfer_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        transfer_tcp_notes: &mut TcpConnectTaskNotes,
-        control_tcp_notes: &TcpConnectTaskNotes,
+        transfer_egress_notes: &mut EgressNotes,
+        control_egress_notes: &EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
         ftp_server: &UpstreamAddr,
@@ -57,8 +58,8 @@ impl DirectFloatEscaper {
             .tcp_connect_to_again(
                 task_conf,
                 ftp_server,
-                transfer_tcp_notes,
-                control_tcp_notes,
+                transfer_egress_notes,
+                control_egress_notes,
                 task_notes,
             )
             .await?;

@@ -15,22 +15,21 @@ use vey_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
 use vey_openssl::{SslConnector, SslStream};
 
 use super::DivertTcpEscaper;
+use crate::escape::EgressNotes;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskNotes, TlsConnectTaskConf,
-};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 impl DivertTcpEscaper {
     pub(super) async fn tls_connect_to(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let stream = self
-            .tcp_connect_to(&task_conf.tcp, tcp_notes, task_notes)
+            .tcp_connect_to(&task_conf.tcp, egress_notes, task_notes)
             .await?;
 
         // set limit config and add escaper stats, do not count in task stats
@@ -62,7 +61,7 @@ impl DivertTcpEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.tcp.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name: task_conf.tls_name,
                         tls_peer: task_conf.tcp.upstream,
@@ -77,7 +76,7 @@ impl DivertTcpEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.tcp.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name: task_conf.tls_name,
                         tls_peer: task_conf.tcp.upstream,
@@ -93,12 +92,17 @@ impl DivertTcpEscaper {
     pub(super) async fn tls_new_connection(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let tls_stream = self
-            .tls_connect_to(task_conf, tcp_notes, task_notes, TlsApplication::TcpStream)
+            .tls_connect_to(
+                task_conf,
+                egress_notes,
+                task_notes,
+                TlsApplication::TcpStream,
+            )
             .await?;
 
         let (ups_r, ups_w) = tls_stream.into_split();

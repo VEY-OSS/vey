@@ -9,7 +9,7 @@ use std::sync::Arc;
 use vey_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 
 use super::ProxySocks5Escaper;
-use crate::module::tcp_connect::TcpConnectTaskNotes;
+use crate::escape::EgressNotes;
 use crate::module::udp_relay::{
     ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupResult, UdpRelayTaskConf,
 };
@@ -28,9 +28,9 @@ impl ProxySocks5Escaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        let mut tcp_notes = TcpConnectTaskNotes::default();
+        let mut egress_notes = EgressNotes::default();
         let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
-            .timed_socks5_udp_associate(task_conf.sock_buf, &mut tcp_notes, task_notes)
+            .timed_socks5_udp_associate(task_conf.sock_buf, &mut egress_notes, task_notes)
             .await?;
 
         let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(self.stats.clone(), task_stats);

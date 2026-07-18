@@ -21,9 +21,10 @@ use super::{
     ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEscaper,
     ProxyFloatEscaperStats,
 };
+use crate::escape::EgressNotes;
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{
     UdpConnectError, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
@@ -182,35 +183,47 @@ impl NextProxyPeer for ProxyFloatHttpPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
-        self.http_connect_new_tcp_connection(escaper, task_conf, tcp_notes, task_notes, task_stats)
-            .await
+        self.http_connect_new_tcp_connection(
+            escaper,
+            task_conf,
+            egress_notes,
+            task_notes,
+            task_stats,
+        )
+        .await
     }
 
     async fn tls_setup_connection(
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
-        self.http_connect_new_tls_connection(escaper, task_conf, tcp_notes, task_notes, task_stats)
-            .await
+        self.http_connect_new_tls_connection(
+            escaper,
+            task_conf,
+            egress_notes,
+            task_notes,
+            task_stats,
+        )
+        .await
     }
 
     async fn new_http_forward_connection(
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.http_forward_new_connection(escaper, task_conf, tcp_notes, task_notes, task_stats)
+        self.http_forward_new_connection(escaper, task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 
@@ -218,11 +231,11 @@ impl NextProxyPeer for ProxyFloatHttpPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.https_forward_new_connection(escaper, task_conf, tcp_notes, task_notes, task_stats)
+        self.https_forward_new_connection(escaper, task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 

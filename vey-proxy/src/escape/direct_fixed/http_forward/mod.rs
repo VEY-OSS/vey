@@ -8,14 +8,13 @@ use std::sync::Arc;
 use vey_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 
 use super::{DirectFixedEscaper, DirectFixedEscaperStats};
+use crate::escape::EgressNotes;
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteWrapperStats,
     HttpForwardTaskRemoteWrapperStats,
 };
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
-};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 mod reader;
@@ -28,12 +27,12 @@ impl DirectFixedEscaper {
     pub(super) async fn http_forward_new_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let mut stream = self
-            .tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .tcp_connect_to(task_conf, egress_notes, task_notes)
             .await?;
         if let Some(version) = self.config.use_proxy_protocol {
             self.send_tcp_proxy_protocol_header(version, &mut stream, task_notes, false)
@@ -72,14 +71,14 @@ impl DirectFixedEscaper {
     pub(super) async fn https_forward_new_connection(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let tls_stream = self
             .tls_connect_to(
                 task_conf,
-                tcp_notes,
+                egress_notes,
                 task_notes,
                 TlsApplication::HttpForward,
             )

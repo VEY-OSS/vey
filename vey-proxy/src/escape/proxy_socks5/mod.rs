@@ -19,8 +19,8 @@ use vey_types::net::{DomainName, Host, HttpForwardCapability, UpstreamAddr, Weig
 use vey_types::resolve::ResolveStrategy;
 
 use super::{
-    ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperRegistry,
-    EscaperStats,
+    ArcEscaper, ArcEscaperStats, EgressNotes, Escaper, EscaperExt, EscaperInternal,
+    EscaperRegistry, EscaperStats,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
@@ -35,7 +35,7 @@ use crate::module::http_forward::{
     DirectHttpForwardContext,
 };
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes};
 use crate::module::udp_relay::{
@@ -172,28 +172,28 @@ impl Escaper for ProxySocks5Escaper {
     async fn tcp_setup_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
-        tcp_notes.escaper.clone_from(&self.config.name);
-        self.socks5_new_tcp_connection(task_conf, tcp_notes, task_notes, task_stats)
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.socks5_new_tcp_connection(task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 
     async fn tls_setup_connection(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
-        tcp_notes.escaper.clone_from(&self.config.name);
-        self.socks5_new_tls_connection(task_conf, tcp_notes, task_notes, task_stats)
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.socks5_new_tls_connection(task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 
@@ -274,55 +274,55 @@ impl EscaperInternal for ProxySocks5Escaper {
     async fn _new_http_forward_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats.interface.add_http_forward_connection_attempted();
-        tcp_notes.escaper.clone_from(&self.config.name);
-        self.http_forward_new_connection(task_conf, tcp_notes, task_notes, task_stats)
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.http_forward_new_connection(task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 
     async fn _new_https_forward_connection(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats
             .interface
             .add_https_forward_connection_attempted();
-        tcp_notes.escaper.clone_from(&self.config.name);
-        self.https_forward_new_connection(task_conf, tcp_notes, task_notes, task_stats)
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.https_forward_new_connection(task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 
     async fn _new_ftp_control_connection(
         &self,
         _task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.stats.interface.add_ftp_over_http_request_attempted();
         self.stats.interface.add_ftp_control_connection_attempted();
-        tcp_notes.escaper.clone_from(&self.config.name);
+        egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
     async fn _new_ftp_transfer_connection(
         &self,
         _task_conf: &TcpConnectTaskConf<'_>,
-        transfer_tcp_notes: &mut TcpConnectTaskNotes,
-        _control_tcp_notes: &TcpConnectTaskNotes,
+        transfer_egress_notes: &mut EgressNotes,
+        _control_egress_notes: &EgressNotes,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
         _ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.stats.interface.add_ftp_transfer_connection_attempted();
-        transfer_tcp_notes.escaper.clone_from(&self.config.name);
+        transfer_egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 }

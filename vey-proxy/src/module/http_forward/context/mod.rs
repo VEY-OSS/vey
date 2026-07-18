@@ -12,10 +12,8 @@ use vey_types::net::{HttpForwardCapability, UpstreamAddr};
 
 use super::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller};
 use crate::audit::AuditContext;
-use crate::escape::ArcEscaper;
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
-};
+use crate::escape::{ArcEscaper, EgressNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 mod direct;
@@ -60,7 +58,7 @@ pub(crate) trait HttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError>;
     fn save_alive_connection(&mut self, c: BoxHttpForwardConnection);
-    fn fetch_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes);
+    fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes);
 
     async fn get_prepared_alive_connection(
         &mut self,

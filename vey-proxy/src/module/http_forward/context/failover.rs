@@ -19,11 +19,9 @@ use super::{
     HttpForwardContext,
 };
 use crate::audit::AuditContext;
-use crate::escape::{ArcEscaper, RouteEscaperStats};
+use crate::escape::{ArcEscaper, EgressNotes, RouteEscaperStats};
 use crate::module::http_forward::BoxHttpForwardContext;
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
-};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 struct HttpConnectFailoverContext {
@@ -77,7 +75,7 @@ pub(crate) struct FailoverHttpForwardContext {
     primary_forward_ctx: Option<BoxHttpForwardContext>,
     standby_forward_ctx: Option<BoxHttpForwardContext>,
     final_escaper: ArcEscaper,
-    tcp_notes: TcpConnectTaskNotes,
+    egress_notes: EgressNotes,
     last_upstream: UpstreamAddr,
     last_is_tls: bool,
     last_connection: Option<(Instant, HttpConnectionEofPoller)>,
@@ -98,7 +96,7 @@ impl FailoverHttpForwardContext {
             primary_forward_ctx: None,
             standby_forward_ctx: None,
             final_escaper: Arc::clone(primary_escaper),
-            tcp_notes: TcpConnectTaskNotes::default(),
+            egress_notes: EgressNotes::default(),
             last_upstream: UpstreamAddr::empty(),
             last_is_tls: false,
             last_connection: None,
@@ -120,11 +118,11 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                 // do not set forward context here, we always try all escapers when connect
             } else {
                 self.last_upstream.clone_from(upstream);
-                self.tcp_notes.reset();
+                self.egress_notes.reset();
             }
         } else {
             self.last_upstream.clone_from(upstream);
-            self.tcp_notes.reset();
+            self.egress_notes.reset();
         }
 
         let mut primary_fwd_ctx = self
@@ -192,7 +190,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         match tokio::time::timeout(self.fallback_delay, &mut primary_task).await {
             Ok(Ok((ctx, conn, escaper))) => {
                 *audit_ctx = ctx.audit_ctx;
-                ctx.fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+                ctx.fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
                 self.route_stats.add_request_passed();
                 self.final_escaper = escaper.clone();
                 return Ok((conn, escaper));
@@ -201,13 +199,13 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                 return match standby_task.await {
                     Ok((ctx, conn, escaper)) => {
                         *audit_ctx = ctx.audit_ctx;
-                        ctx.fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+                        ctx.fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
                         self.route_stats.add_request_passed();
                         self.final_escaper = escaper.clone();
                         Ok((conn, escaper))
                     }
                     Err((ctx, e)) => {
-                        ctx.fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+                        ctx.fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
                         self.route_stats.add_request_failed();
                         Err(e)
                     }
@@ -219,13 +217,13 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         match futures_util::future::select_ok([primary_task, standby_task]).await {
             Ok(((ctx, conn, escaper), _left)) => {
                 *audit_ctx = ctx.audit_ctx;
-                ctx.fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+                ctx.fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
                 self.route_stats.add_request_passed();
                 self.final_escaper = escaper.clone();
                 Ok((conn, escaper))
             }
             Err((ctx, e)) => {
-                ctx.fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+                ctx.fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
                 self.route_stats.add_request_failed();
                 Err(e)
             }
@@ -262,7 +260,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         match tokio::time::timeout(self.fallback_delay, &mut primary_task).await {
             Ok(Ok((ctx, conn, escaper))) => {
                 *audit_ctx = ctx.audit_ctx;
-                ctx.fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+                ctx.fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
                 self.route_stats.add_request_passed();
                 self.final_escaper = escaper.clone();
                 return Ok((conn, escaper));
@@ -271,13 +269,13 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                 return match standby_task.await {
                     Ok((ctx, conn, escaper)) => {
                         *audit_ctx = ctx.audit_ctx;
-                        ctx.fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+                        ctx.fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
                         self.route_stats.add_request_passed();
                         self.final_escaper = escaper.clone();
                         Ok((conn, escaper))
                     }
                     Err((ctx, e)) => {
-                        ctx.fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+                        ctx.fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
                         self.route_stats.add_request_failed();
                         Err(e)
                     }
@@ -289,13 +287,13 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         match futures_util::future::select_ok([primary_task, standby_task]).await {
             Ok(((ctx, conn, escaper), _left)) => {
                 *audit_ctx = ctx.audit_ctx;
-                ctx.fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+                ctx.fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
                 self.route_stats.add_request_passed();
                 self.final_escaper = escaper.clone();
                 Ok((conn, escaper))
             }
             Err((ctx, e)) => {
-                ctx.fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
+                ctx.fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
                 self.route_stats.add_request_failed();
                 Err(e)
             }
@@ -307,7 +305,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         self.last_connection = Some((Instant::now(), eof_poller));
     }
 
-    fn fetch_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        tcp_notes.clone_from(&self.tcp_notes);
+    fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes) {
+        egress_notes.clone_from(&self.egress_notes);
     }
 }

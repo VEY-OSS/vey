@@ -21,9 +21,10 @@ use vey_types::net::{EgressInfo, Host, TcpSockSpeedLimitConfig, UdpSockSpeedLimi
 
 use super::socks5::ProxyFloatSocks5PeerSharedConfig;
 use super::{ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEscaper};
+use crate::escape::EgressNotes;
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes};
 use crate::module::udp_relay::{
@@ -185,11 +186,11 @@ impl NextProxyPeer for ProxyFloatSocks5sPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
-        self.socks5_new_tcp_connection(escaper, task_conf, tcp_notes, task_notes, task_stats)
+        self.socks5_new_tcp_connection(escaper, task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 
@@ -197,11 +198,11 @@ impl NextProxyPeer for ProxyFloatSocks5sPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
-        self.socks5_new_tls_connection(escaper, task_conf, tcp_notes, task_notes, task_stats)
+        self.socks5_new_tls_connection(escaper, task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 
@@ -209,11 +210,11 @@ impl NextProxyPeer for ProxyFloatSocks5sPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.http_forward_new_connection(escaper, task_conf, tcp_notes, task_notes, task_stats)
+        self.http_forward_new_connection(escaper, task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 
@@ -221,11 +222,11 @@ impl NextProxyPeer for ProxyFloatSocks5sPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.https_forward_new_connection(escaper, task_conf, tcp_notes, task_notes, task_stats)
+        self.https_forward_new_connection(escaper, task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 

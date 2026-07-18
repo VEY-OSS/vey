@@ -172,7 +172,7 @@ impl<'a> FtpOverHttpTask<'a> {
 
     fn enable_custom_header_for_local_reply(&self, rsp: &mut HttpProxyClientResponse) {
         self.ctx
-            .set_custom_header_for_tcp_local_reply(&self.ftp_notes.control_tcp_notes, rsp);
+            .set_custom_header_for_tcp_local_reply(&self.ftp_notes.control_egress_notes, rsp);
     }
 
     async fn reply_too_many_requests<W>(&mut self, clt_w: &mut W)
@@ -684,7 +684,7 @@ impl<'a> FtpOverHttpTask<'a> {
                 client
                     .connection_provider()
                     .connect_context()
-                    .fetch_control_tcp_notes(&mut self.ftp_notes.control_tcp_notes);
+                    .fetch_control_egress_notes(&mut self.ftp_notes.control_egress_notes);
 
                 if self.ctx.server_config.flush_task_log_on_connected
                     && let Some(log_ctx) = self.get_log_context()
@@ -697,7 +697,7 @@ impl<'a> FtpOverHttpTask<'a> {
             Err((e, ftp_connection_provider)) => {
                 ftp_connection_provider
                     .connect_context()
-                    .fetch_control_tcp_notes(&mut self.ftp_notes.control_tcp_notes);
+                    .fetch_control_egress_notes(&mut self.ftp_notes.control_egress_notes);
                 let mut rsp = HttpProxyClientResponse::from_ftp_connect_error(
                     &e,
                     self.req.version,
@@ -850,7 +850,7 @@ impl<'a> FtpOverHttpTask<'a> {
                 ftp_client
                     .connection_provider()
                     .connect_context()
-                    .fetch_transfer_tcp_notes(&mut self.ftp_notes.transfer_tcp_notes);
+                    .fetch_transfer_egress_notes(&mut self.ftp_notes.transfer_egress_notes);
 
                 self.task_notes.stage = ServerTaskStage::Replying;
                 let (mut rsp, chunked) = HttpProxyClientResponse::auto_chunked_ok(
@@ -1016,7 +1016,7 @@ impl<'a> FtpOverHttpTask<'a> {
                 ftp_client
                     .connection_provider()
                     .connect_context()
-                    .fetch_transfer_tcp_notes(&mut self.ftp_notes.transfer_tcp_notes);
+                    .fetch_transfer_egress_notes(&mut self.ftp_notes.transfer_egress_notes);
 
                 self.task_notes.stage = ServerTaskStage::Replying;
                 let mime = file_facts
@@ -1129,7 +1129,7 @@ impl<'a> FtpOverHttpTask<'a> {
                 ftp_client
                     .connection_provider()
                     .connect_context()
-                    .fetch_transfer_tcp_notes(&mut self.ftp_notes.transfer_tcp_notes);
+                    .fetch_transfer_egress_notes(&mut self.ftp_notes.transfer_egress_notes);
 
                 self.task_notes.stage = ServerTaskStage::Replying;
                 let mime = file_facts
@@ -1351,7 +1351,7 @@ impl<'a> FtpOverHttpTask<'a> {
                 ftp_client
                     .connection_provider()
                     .connect_context()
-                    .fetch_transfer_tcp_notes(&mut self.ftp_notes.transfer_tcp_notes);
+                    .fetch_transfer_egress_notes(&mut self.ftp_notes.transfer_egress_notes);
 
                 self.check_and_send_continue(clt_w).await?;
 

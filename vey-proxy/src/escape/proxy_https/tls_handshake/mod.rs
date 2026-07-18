@@ -11,24 +11,23 @@ use vey_openssl::{SslConnector, SslInfoCallbackWhere, SslStream};
 use vey_types::net::{TlsAlert, TlsAlertType, UpstreamAddr};
 
 use super::ProxyHttpsEscaper;
+use crate::escape::EgressNotes;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
-use crate::module::tcp_connect::{
-    TcpConnectTaskConf, TcpConnectTaskNotes, UnderlyingTcpConnectError,
-};
+use crate::module::tcp_connect::{TcpConnectTaskConf, UnderlyingTcpConnectError};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyHttpsEscaper {
     pub(super) async fn tls_handshake_to_remote(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<
         (UpstreamAddr, SslStream<impl AsyncRead + AsyncWrite + use<>>),
         UnderlyingTcpConnectError,
     > {
         let (peer, ups_s) = self
-            .tcp_new_connection(task_conf, tcp_notes, task_notes)
+            .tcp_new_connection(task_conf, egress_notes, task_notes)
             .await?;
 
         let tls_name = self.config.tls_name.as_ref().unwrap_or_else(|| peer.host());
@@ -63,7 +62,7 @@ impl ProxyHttpsEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name,
                         tls_peer: &peer,
@@ -79,7 +78,7 @@ impl ProxyHttpsEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTlsHandshake {
                         upstream: task_conf.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                         tls_name,
                         tls_peer: &peer,

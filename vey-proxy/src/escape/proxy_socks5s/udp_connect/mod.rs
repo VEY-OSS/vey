@@ -10,10 +10,10 @@ use vey_daemon::stat::remote::ArcUdpConnectTaskRemoteStats;
 use vey_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 
 use super::ProxySocks5sEscaper;
+use crate::escape::EgressNotes;
 use crate::escape::proxy_socks5::udp_connect::{
     ProxySocks5UdpConnectRemoteRecv, ProxySocks5UdpConnectRemoteSend,
 };
-use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::module::udp_connect::{
     UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
@@ -27,12 +27,16 @@ impl ProxySocks5sEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        let mut tcp_notes = TcpConnectTaskNotes::default();
+        let mut egress_notes = EgressNotes::default();
         let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
-            .timed_socks5_udp_associate(self.config.udp_socket_buffer, &mut tcp_notes, task_notes)
+            .timed_socks5_udp_associate(
+                self.config.udp_socket_buffer,
+                &mut egress_notes,
+                task_notes,
+            )
             .await?;
-        udp_notes.egress = tcp_notes.egress;
-        udp_notes.override_peer = tcp_notes.override_peer;
+        udp_notes.egress = egress_notes.egress;
+        udp_notes.override_peer = egress_notes.override_peer;
 
         udp_notes.local = Some(udp_local_addr);
         udp_notes.next = Some(udp_peer_addr);

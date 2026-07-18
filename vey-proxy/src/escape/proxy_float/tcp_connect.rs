@@ -14,10 +14,9 @@ use vey_socket::BindAddr;
 use vey_types::net::ConnectError;
 
 use super::{NextProxyPeer, ProxyFloatEscaper};
+use crate::escape::EgressNotes;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
-use crate::module::tcp_connect::{
-    TcpConnectTaskConf, TcpConnectTaskNotes, UnderlyingTcpConnectError,
-};
+use crate::module::tcp_connect::{TcpConnectTaskConf, UnderlyingTcpConnectError};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatEscaper {
@@ -48,7 +47,7 @@ impl ProxyFloatEscaper {
         &self,
         peer: &P,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         let peer_addr = peer.peer_addr();
@@ -77,18 +76,18 @@ impl ProxyFloatEscaper {
             target_os = "solaris"
         )))]
         let bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
-        tcp_notes.bind = bind;
-        tcp_notes.next = Some(peer_addr);
-        tcp_notes.expire = peer.expire_datetime();
-        tcp_notes.egress = Some(peer.egress_info());
-        tcp_notes.tries = 1;
+        egress_notes.bind = bind;
+        egress_notes.next = Some(peer_addr);
+        egress_notes.expire = peer.expire_datetime();
+        egress_notes.egress = Some(peer.egress_info());
+        egress_notes.tries = 1;
         let instant_now = Instant::now();
         let ret = tokio::time::timeout(
             self.config.tcp_connect_timeout,
-            self.try_connect_tcp(peer_addr, &tcp_notes.bind),
+            self.try_connect_tcp(peer_addr, &egress_notes.bind),
         )
         .await;
-        tcp_notes.duration = instant_now.elapsed();
+        egress_notes.duration = instant_now.elapsed();
         match ret {
             Ok(Ok(ups_stream)) => {
                 self.stats.tcp.connect.add_success();
@@ -97,7 +96,7 @@ impl ProxyFloatEscaper {
                     .local_addr()
                     .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                 self.stats.tcp.connect.add_established();
-                tcp_notes.local = Some(local_addr);
+                egress_notes.local = Some(local_addr);
                 Ok(ups_stream)
             }
             Ok(Err(e)) => {
@@ -105,7 +104,7 @@ impl ProxyFloatEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                     }
                     .log(logger, &e);
@@ -119,7 +118,7 @@ impl ProxyFloatEscaper {
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                     }
                     .log(logger, &e);
@@ -133,11 +132,11 @@ impl ProxyFloatEscaper {
         &self,
         peer: &P,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<LimitedStream<TcpStream>, UnderlyingTcpConnectError> {
         let stream = self
-            .tcp_connect_to(peer, task_conf, tcp_notes, task_notes)
+            .tcp_connect_to(peer, task_conf, egress_notes, task_notes)
             .await?;
 
         let limit_config = peer.tcp_sock_speed_limit();

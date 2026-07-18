@@ -21,11 +21,11 @@ use vey_types::acl::AclAction;
 use vey_types::net::{ConnectError, Host, TcpKeepAliveConfig, UpstreamAddr};
 
 use super::{DirectFloatBindIp, DirectFloatEscaper};
+use crate::escape::EgressNotes;
 use crate::escape::direct_fixed::tcp_connect::DirectTcpConnectConfig;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
 use crate::module::tcp_connect::{
-    TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes,
-    UnderlyingTcpConnectError,
+    TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf, UnderlyingTcpConnectError,
 };
 use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
@@ -106,44 +106,45 @@ impl DirectFloatEscaper {
         peer_ip: IpAddr,
         config: DirectTcpConnectConfig<'_>,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
-        let (sock, bind) =
-            self.prepare_connect_socket(peer_ip, tcp_notes.bind, task_notes, &config)?;
         let peer = SocketAddr::new(peer_ip, task_conf.upstream.port());
-        tcp_notes.next = Some(peer);
-        tcp_notes.bind = BindAddr::Ip(bind.ip);
-        tcp_notes.expire = bind.expire_datetime;
-        tcp_notes.egress = Some(bind.egress_info.clone());
+        egress_notes.next = Some(peer);
+
+        let (sock, bind) =
+            self.prepare_connect_socket(peer_ip, egress_notes.bind, task_notes, &config)?;
+        egress_notes.bind = BindAddr::Ip(bind.ip);
+        egress_notes.expire = bind.expire_datetime;
+        egress_notes.egress = Some(bind.egress_info.clone());
 
         let instant_now = Instant::now();
 
         self.stats.tcp.connect.add_attempted();
-        tcp_notes.tries = 1;
+        egress_notes.tries = 1;
         match tokio::time::timeout(config.connect.each_timeout(), sock.connect(peer)).await {
             Ok(Ok(ups_stream)) => {
                 self.stats.tcp.connect.add_success();
-                tcp_notes.duration = instant_now.elapsed();
+                egress_notes.duration = instant_now.elapsed();
 
                 let local_addr = ups_stream
                     .local_addr()
                     .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                 self.stats.tcp.connect.add_established();
-                tcp_notes.local = Some(local_addr);
-                tcp_notes.final_addr.target_addr = Some(peer);
-                tcp_notes.final_addr.outgoing_addr = Some(local_addr);
+                egress_notes.local = Some(local_addr);
+                egress_notes.final_addr.target_addr = Some(peer);
+                egress_notes.final_addr.outgoing_addr = Some(local_addr);
                 Ok((ups_stream, bind))
             }
             Ok(Err(e)) => {
                 self.stats.tcp.connect.add_error();
-                tcp_notes.duration = instant_now.elapsed();
+                egress_notes.duration = instant_now.elapsed();
 
                 let e = UnderlyingTcpConnectError::ConnectFailed(ConnectError::from(e));
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                     }
                     .log(logger, &e);
@@ -152,13 +153,13 @@ impl DirectFloatEscaper {
             }
             Err(_) => {
                 self.stats.tcp.connect.add_timeout();
-                tcp_notes.duration = instant_now.elapsed();
+                egress_notes.duration = instant_now.elapsed();
 
                 let e = UnderlyingTcpConnectError::TimeoutByRule;
                 if let Some(logger) = &self.escape_logger {
                     EscapeLogForTcpConnect {
                         upstream: task_conf.upstream,
-                        tcp_notes,
+                        egress_notes,
                         task_id: &task_notes.id,
                     }
                     .log(logger, &e);
@@ -177,7 +178,7 @@ impl DirectFloatEscaper {
         mut resolver_job: HappyEyeballsResolveJob,
         config: DirectTcpConnectConfig<'_>,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
         let max_tries_each_family = config.connect.max_tries();
@@ -201,18 +202,19 @@ impl DirectFloatEscaper {
         let mut resolver_r2_done = false;
         let each_timeout = config.connect.each_timeout();
 
-        tcp_notes.tries = 0;
+        egress_notes.tries = 0;
         let instant_now = Instant::now();
         let mut returned_err = UnderlyingTcpConnectError::NoAddressConnected;
 
         loop {
             if spawn_new_connection && let Some(ip) = ips.pop() {
-                let (sock, bind) =
-                    self.prepare_connect_socket(ip, tcp_notes.bind, task_notes, &config)?;
                 let peer = SocketAddr::new(ip, task_conf.upstream.port());
+                egress_notes.next = Some(peer);
+                let (sock, bind) =
+                    self.prepare_connect_socket(ip, egress_notes.bind, task_notes, &config)?;
                 running_connection += 1;
                 spawn_new_connection = false;
-                tcp_notes.tries += 1;
+                egress_notes.tries += 1;
                 let stats = self.stats.clone();
                 c_set.spawn(async move {
                     stats.tcp.connect.add_attempted();
@@ -245,32 +247,32 @@ impl DirectFloatEscaper {
                     biased;
 
                     r = c_set.join_next() => {
-                        tcp_notes.duration = instant_now.elapsed();
+                        egress_notes.duration = instant_now.elapsed();
                         match r {
                             Some(Ok(r)) => {
                                 running_connection -= 1;
                                 let peer_addr = r.1;
                                 let bind = r.2;
-                                tcp_notes.next = Some(peer_addr);
-                                tcp_notes.bind = BindAddr::Ip(bind.ip);
-                                tcp_notes.expire = bind.expire_datetime;
-                                tcp_notes.egress = Some(bind.egress_info.clone());
+                                egress_notes.next = Some(peer_addr);
+                                egress_notes.bind = BindAddr::Ip(bind.ip);
+                                egress_notes.expire = bind.expire_datetime;
+                                egress_notes.egress = Some(bind.egress_info.clone());
                                 match r.0 {
                                     Ok(ups_stream) => {
                                         let local_addr = ups_stream
                                             .local_addr()
                                             .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                                         self.stats.tcp.connect.add_established();
-                                        tcp_notes.local = Some(local_addr);
-                                        tcp_notes.final_addr.target_addr = Some(peer_addr);
-                                        tcp_notes.final_addr.outgoing_addr = Some(local_addr);
+                                        egress_notes.local = Some(local_addr);
+                                        egress_notes.final_addr.target_addr = Some(peer_addr);
+                                        egress_notes.final_addr.outgoing_addr = Some(local_addr);
                                         return Ok((ups_stream, bind));
                                     }
                                     Err(e) => {
                                         if let Some(logger) = &self.escape_logger {
                                             EscapeLogForTcpConnect {
                                                 upstream: task_conf.upstream,
-                                                tcp_notes,
+                                                egress_notes,
                                                 task_id: &task_notes.id,
                                             }
                                             .log(logger, &e);
@@ -301,12 +303,12 @@ impl DirectFloatEscaper {
                     r = resolver_job.get_r2_or_never(max_tries_each_family) => {
                         resolver_r2_done = true;
                         if let Ok(ips2) = r {
-                            self.merge_ip_list(tcp_notes.tries, &mut ips, ips2);
+                            self.merge_ip_list(egress_notes.tries, &mut ips, ips2);
                         }
                     }
                 }
             } else if resolver_r2_done {
-                tcp_notes.duration = instant_now.elapsed();
+                egress_notes.duration = instant_now.elapsed();
                 return Err(returned_err);
             } else {
                 match tokio::time::timeout(
@@ -317,15 +319,15 @@ impl DirectFloatEscaper {
                 {
                     Ok(Ok(ips2)) => {
                         resolver_r2_done = true;
-                        self.merge_ip_list(tcp_notes.tries, &mut ips, ips2);
+                        self.merge_ip_list(egress_notes.tries, &mut ips, ips2);
                         spawn_new_connection = true;
                     }
                     Ok(Err(_e)) => {
-                        tcp_notes.duration = instant_now.elapsed();
+                        egress_notes.duration = instant_now.elapsed();
                         return Err(returned_err);
                     }
                     Err(_) => {
-                        tcp_notes.duration = instant_now.elapsed();
+                        egress_notes.duration = instant_now.elapsed();
                         return Err(UnderlyingTcpConnectError::TimeoutByRule);
                     }
                 }
@@ -336,7 +338,7 @@ impl DirectFloatEscaper {
     pub(super) async fn tcp_connect_to(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
         let mut config = DirectTcpConnectConfig {
@@ -358,7 +360,7 @@ impl DirectFloatEscaper {
 
         match task_conf.upstream.host() {
             Host::Ip(ip) => {
-                self.fixed_try_connect(*ip, config, task_conf, tcp_notes, task_notes)
+                self.fixed_try_connect(*ip, config, task_conf, egress_notes, task_notes)
                     .await
             }
             Host::Domain(domain) => {
@@ -368,7 +370,7 @@ impl DirectFloatEscaper {
                     task_notes,
                 )?;
 
-                self.happy_try_connect(resolver_job, config, task_conf, tcp_notes, task_notes)
+                self.happy_try_connect(resolver_job, config, task_conf, egress_notes, task_notes)
                     .await
             }
         }
@@ -378,11 +380,11 @@ impl DirectFloatEscaper {
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
         old_upstream: &UpstreamAddr,
-        new_tcp_notes: &mut TcpConnectTaskNotes,
-        old_tcp_notes: &TcpConnectTaskNotes,
+        new_egress_notes: &mut EgressNotes,
+        old_egress_notes: &EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
-        new_tcp_notes.bind = old_tcp_notes.bind;
+        new_egress_notes.bind = old_egress_notes.bind;
 
         let mut config = DirectTcpConnectConfig {
             connect: self.config.general.tcp_connect,
@@ -402,7 +404,7 @@ impl DirectFloatEscaper {
         }
 
         if task_conf.upstream.host_eq(old_upstream) {
-            let control_addr = old_tcp_notes.next.ok_or_else(|| {
+            let control_addr = old_egress_notes.next.ok_or_else(|| {
                 UnderlyingTcpConnectError::SetupSocketFailed(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "no peer address for referenced connection found",
@@ -413,19 +415,19 @@ impl DirectFloatEscaper {
                 control_addr.ip(),
                 config,
                 task_conf,
-                new_tcp_notes,
+                new_egress_notes,
                 task_notes,
             )
             .await
         } else {
             match task_conf.upstream.host() {
                 Host::Ip(ip) => {
-                    self.fixed_try_connect(*ip, config, task_conf, new_tcp_notes, task_notes)
+                    self.fixed_try_connect(*ip, config, task_conf, new_egress_notes, task_notes)
                         .await
                 }
                 Host::Domain(domain) => {
                     let mut resolve_strategy = self.get_resolve_strategy(task_notes);
-                    match new_tcp_notes.bind {
+                    match new_egress_notes.bind {
                         BindAddr::Ip(IpAddr::V4(_)) => resolve_strategy.query_v4only(),
                         BindAddr::Ip(IpAddr::V6(_)) => resolve_strategy.query_v6only(),
                         #[cfg(target_os = "linux")]
@@ -443,7 +445,7 @@ impl DirectFloatEscaper {
                         resolver_job,
                         config,
                         task_conf,
-                        new_tcp_notes,
+                        new_egress_notes,
                         task_notes,
                     )
                     .await
@@ -455,12 +457,12 @@ impl DirectFloatEscaper {
     pub(super) async fn tcp_new_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let (stream, _) = self
-            .tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .tcp_connect_to(task_conf, egress_notes, task_notes)
             .await?;
         let (r, w) = stream.into_split();
 

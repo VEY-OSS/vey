@@ -13,7 +13,9 @@ use vey_daemon::stat::remote::{ArcTcpConnectionTaskRemoteStats, ArcUdpConnectTas
 use vey_types::metrics::NodeName;
 use vey_types::net::UpstreamAddr;
 
-use super::{ArcEscaper, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats};
+use super::{
+    ArcEscaper, EgressNotes, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats,
+};
 use crate::audit::AuditContext;
 use crate::config::escaper::route_mapping::RouteMappingEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -26,7 +28,7 @@ use crate::module::http_forward::{
     RouteHttpForwardContext,
 };
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes};
 use crate::module::udp_relay::{
@@ -118,32 +120,32 @@ impl Escaper for RouteMappingEscaper {
     async fn tcp_setup_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
-        tcp_notes.escaper.clone_from(&self.config.name);
+        egress_notes.escaper.clone_from(&self.config.name);
         let escaper = self.select_next(task_notes);
         self.stats.add_request_passed();
         escaper
-            .tcp_setup_connection(task_conf, tcp_notes, task_notes, task_stats, audit_ctx)
+            .tcp_setup_connection(task_conf, egress_notes, task_notes, task_stats, audit_ctx)
             .await
     }
 
     async fn tls_setup_connection(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
-        tcp_notes.escaper.clone_from(&self.config.name);
+        egress_notes.escaper.clone_from(&self.config.name);
         let escaper = self.select_next(task_notes);
         self.stats.add_request_passed();
         escaper
-            .tls_setup_connection(task_conf, tcp_notes, task_notes, task_stats, audit_ctx)
+            .tls_setup_connection(task_conf, egress_notes, task_notes, task_stats, audit_ctx)
             .await
     }
 
@@ -232,46 +234,46 @@ impl EscaperInternal for RouteMappingEscaper {
     async fn _new_http_forward_connection(
         &self,
         _task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        tcp_notes.escaper.clone_from(&self.config.name);
+        egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
     async fn _new_https_forward_connection(
         &self,
         _task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        tcp_notes.escaper.clone_from(&self.config.name);
+        egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
     async fn _new_ftp_control_connection(
         &self,
         _task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
-        tcp_notes.escaper.clone_from(&self.config.name);
+        egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
     async fn _new_ftp_transfer_connection(
         &self,
         _task_conf: &TcpConnectTaskConf<'_>,
-        transfer_tcp_notes: &mut TcpConnectTaskNotes,
-        _control_tcp_notes: &TcpConnectTaskNotes,
+        transfer_egress_notes: &mut EgressNotes,
+        _control_egress_notes: &EgressNotes,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
         _ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
-        transfer_tcp_notes.escaper.clone_from(&self.config.name);
+        transfer_egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 }

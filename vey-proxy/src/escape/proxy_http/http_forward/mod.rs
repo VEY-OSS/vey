@@ -9,14 +9,13 @@ use std::sync::Arc;
 use vey_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 
 use super::{ProxyHttpEscaper, ProxyHttpEscaperConfig, ProxyHttpEscaperStats};
+use crate::escape::EgressNotes;
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteWrapperStats,
     HttpForwardTaskRemoteWrapperStats,
 };
-use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
-};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 mod reader;
@@ -29,12 +28,12 @@ impl ProxyHttpEscaper {
     pub(super) async fn http_forward_new_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let (_peer, stream) = self
-            .tcp_new_connection(task_conf, tcp_notes, task_notes)
+            .tcp_new_connection(task_conf, egress_notes, task_notes)
             .await?;
         let (ups_r, mut ups_w) = stream.into_split();
 
@@ -62,14 +61,14 @@ impl ProxyHttpEscaper {
     pub(super) async fn https_forward_new_connection(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let tls_stream = self
             .http_connect_tls_connect_to(
                 task_conf,
-                tcp_notes,
+                egress_notes,
                 task_notes,
                 TlsApplication::HttpForward,
             )
