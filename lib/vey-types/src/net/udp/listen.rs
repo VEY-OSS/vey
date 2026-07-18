@@ -21,7 +21,7 @@ use crate::net::Interface;
 use crate::net::{SocketBufferConfig, UdpMiscSockOpts};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct UdpListenConfig {
+struct NonReloadablePart {
     address: SocketAddr,
     #[cfg(any(
         target_os = "linux",
@@ -35,14 +35,24 @@ pub struct UdpListenConfig {
     ipv6only: Option<bool>,
     #[cfg(target_os = "linux")]
     transparent: bool,
-    buf_conf: SocketBufferConfig,
-    misc_opts: UdpMiscSockOpts,
     instance: usize,
     scale: usize,
     #[cfg(target_os = "linux")]
     use_ebpf: Option<bool>,
     #[cfg(target_os = "linux")]
     fail_on_ebpf_error: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ReloadablePart {
+    buf_conf: SocketBufferConfig,
+    misc_opts: UdpMiscSockOpts,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UdpListenConfig {
+    non_reloadable: NonReloadablePart,
+    reloadable: ReloadablePart,
 }
 
 impl Default for UdpListenConfig {
@@ -54,40 +64,44 @@ impl Default for UdpListenConfig {
 impl UdpListenConfig {
     pub fn new(address: SocketAddr) -> Self {
         UdpListenConfig {
-            address,
-            #[cfg(any(
-                target_os = "linux",
-                target_os = "android",
-                target_os = "macos",
-                target_os = "illumos",
-                target_os = "solaris"
-            ))]
-            interface: None,
-            #[cfg(not(target_os = "openbsd"))]
-            ipv6only: None,
-            #[cfg(target_os = "linux")]
-            transparent: false,
-            buf_conf: SocketBufferConfig::default(),
-            misc_opts: UdpMiscSockOpts::default(),
-            instance: 1,
-            scale: 0,
-            #[cfg(target_os = "linux")]
-            use_ebpf: None,
-            #[cfg(target_os = "linux")]
-            fail_on_ebpf_error: false,
+            non_reloadable: NonReloadablePart {
+                address,
+                #[cfg(any(
+                    target_os = "linux",
+                    target_os = "android",
+                    target_os = "macos",
+                    target_os = "illumos",
+                    target_os = "solaris"
+                ))]
+                interface: None,
+                #[cfg(not(target_os = "openbsd"))]
+                ipv6only: None,
+                #[cfg(target_os = "linux")]
+                transparent: false,
+                instance: 1,
+                scale: 0,
+                #[cfg(target_os = "linux")]
+                use_ebpf: None,
+                #[cfg(target_os = "linux")]
+                fail_on_ebpf_error: false,
+            },
+            reloadable: ReloadablePart {
+                buf_conf: SocketBufferConfig::default(),
+                misc_opts: UdpMiscSockOpts::default(),
+            },
         }
     }
 
     pub fn check(&mut self) -> anyhow::Result<()> {
-        if self.address.port() == 0 {
+        if self.non_reloadable.address.port() == 0 {
             return Err(anyhow!("no listen port is set"));
         }
         #[cfg(not(target_os = "openbsd"))]
-        match self.address.ip() {
-            IpAddr::V4(_) => self.ipv6only = None,
+        match self.non_reloadable.address.ip() {
+            IpAddr::V4(_) => self.non_reloadable.ipv6only = None,
             IpAddr::V6(v6) => {
                 if !v6.is_unspecified() {
-                    self.ipv6only = None;
+                    self.non_reloadable.ipv6only = None;
                 }
             }
         }
@@ -96,41 +110,16 @@ impl UdpListenConfig {
     }
 
     pub fn need_respawn(&self, other: &Self) -> bool {
-        if self.address != other.address {
-            return true;
-        }
-        if self.instance() != other.instance() {
-            return true;
-        }
-        #[cfg(any(
-            target_os = "linux",
-            target_os = "android",
-            target_os = "macos",
-            target_os = "illumos",
-            target_os = "solaris"
-        ))]
-        if self.interface != other.interface {
-            return true;
-        }
-        #[cfg(not(target_os = "openbsd"))]
-        if self.ipv6only != other.ipv6only {
-            return true;
-        }
-        #[cfg(target_os = "linux")]
-        if self.transparent != other.transparent {
-            return true;
-        }
-        #[cfg(target_os = "linux")]
-        if self.use_ebpf != other.use_ebpf || self.fail_on_ebpf_error != other.fail_on_ebpf_error {
-            return true;
-        }
+        self.non_reloadable != other.non_reloadable
+    }
 
-        false
+    pub fn need_reloadable_change(&self, other: &Self) -> bool {
+        self.reloadable != other.reloadable
     }
 
     #[inline]
     pub fn address(&self) -> SocketAddr {
-        self.address
+        self.non_reloadable.address
     }
 
     #[cfg(any(
@@ -142,39 +131,39 @@ impl UdpListenConfig {
     ))]
     #[inline]
     pub fn interface(&self) -> Option<&Interface> {
-        self.interface.as_ref()
+        self.non_reloadable.interface.as_ref()
     }
 
     #[inline]
     pub fn socket_buffer(&self) -> SocketBufferConfig {
-        self.buf_conf
+        self.reloadable.buf_conf
     }
 
     #[inline]
     pub fn socket_misc_opts(&self) -> UdpMiscSockOpts {
-        self.misc_opts
+        self.reloadable.misc_opts
     }
 
     #[cfg(not(target_os = "openbsd"))]
     #[inline]
     pub fn is_ipv6only(&self) -> Option<bool> {
-        self.ipv6only
+        self.non_reloadable.ipv6only
     }
 
     #[cfg(target_os = "linux")]
     #[inline]
     pub fn transparent(&self) -> bool {
-        self.transparent
+        self.non_reloadable.transparent
     }
 
     #[inline]
     pub fn instance(&self) -> usize {
-        self.instance.max(self.scale)
+        self.non_reloadable.instance.max(self.non_reloadable.scale)
     }
 
     #[inline]
     pub fn set_socket_address(&mut self, addr: SocketAddr) {
-        self.address = addr;
+        self.non_reloadable.address = addr;
     }
 
     #[cfg(any(
@@ -186,48 +175,48 @@ impl UdpListenConfig {
     ))]
     #[inline]
     pub fn set_interface(&mut self, interface: Interface) {
-        self.interface = Some(interface);
+        self.non_reloadable.interface = Some(interface);
     }
 
     #[inline]
     pub fn set_socket_buffer(&mut self, buf_conf: SocketBufferConfig) {
-        self.buf_conf = buf_conf;
+        self.reloadable.buf_conf = buf_conf;
     }
 
     #[inline]
     pub fn set_socket_misc_opts(&mut self, misc_opts: UdpMiscSockOpts) {
-        self.misc_opts = misc_opts;
+        self.reloadable.misc_opts = misc_opts;
     }
 
     #[inline]
     pub fn set_port(&mut self, port: u16) {
-        self.address.set_port(port);
+        self.non_reloadable.address.set_port(port);
     }
 
     #[cfg(not(target_os = "openbsd"))]
     #[inline]
     pub fn set_ipv6_only(&mut self, ipv6only: bool) {
-        self.ipv6only = Some(ipv6only);
+        self.non_reloadable.ipv6only = Some(ipv6only);
     }
 
     #[cfg(target_os = "linux")]
     #[inline]
     pub fn set_transparent(&mut self) {
-        self.transparent = true;
+        self.non_reloadable.transparent = true;
     }
 
     pub fn set_instance(&mut self, instance: usize) {
         if instance == 0 {
-            self.instance = 1;
+            self.non_reloadable.instance = 1;
         } else {
-            self.instance = instance;
+            self.non_reloadable.instance = instance;
         }
     }
 
     pub fn set_scale(&mut self, scale: f64) -> anyhow::Result<()> {
         if let Ok(p) = std::thread::available_parallelism() {
             let v = (p.get() as f64) * scale;
-            self.scale = v
+            self.non_reloadable.scale = v
                 .round()
                 .to_usize()
                 .ok_or(anyhow!("out of range result: {v}"))?;
@@ -238,29 +227,29 @@ impl UdpListenConfig {
     pub fn set_fraction_scale(&mut self, numerator: usize, denominator: usize) {
         if let Ok(p) = std::thread::available_parallelism() {
             let v = p.get() * numerator / denominator;
-            self.scale = v;
+            self.non_reloadable.scale = v;
         }
     }
 
     #[cfg(target_os = "linux")]
     pub fn use_ebpf(&self, uid: u32) -> bool {
-        self.use_ebpf.unwrap_or(uid == 0)
+        self.non_reloadable.use_ebpf.unwrap_or(uid == 0)
     }
 
     #[cfg(target_os = "linux")]
     pub fn set_use_ebpf(&mut self, use_ebpf: bool) {
-        self.use_ebpf = Some(use_ebpf);
+        self.non_reloadable.use_ebpf = Some(use_ebpf);
     }
 
     #[cfg(target_os = "linux")]
     #[inline]
     pub fn fail_on_ebpf_error(&self) -> bool {
-        self.fail_on_ebpf_error
+        self.non_reloadable.fail_on_ebpf_error
     }
 
     #[cfg(target_os = "linux")]
     pub fn set_fail_on_ebpf_error(&mut self, fail: bool) {
-        self.fail_on_ebpf_error = fail;
+        self.non_reloadable.fail_on_ebpf_error = fail;
     }
 }
 

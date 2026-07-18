@@ -98,7 +98,7 @@ where
                             continue;
                         }
                         Ok(ServerReloadCommand::UpdateInPlace(_c)) => {
-                            // TODO
+                            // we have no in place config for now
                             continue;
                         }
                         Ok(ServerReloadCommand::QuitRuntime) => {},

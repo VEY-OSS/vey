@@ -164,7 +164,7 @@ impl ServerConfig for PlainQuicPortConfig {
         }
 
         let mut flags = PlainQuicPortUpdateFlags::empty();
-        if self.listen != new.listen {
+        if self.listen.need_reloadable_change(&new.listen) {
             flags.set(PlainQuicPortUpdateFlags::LISTEN_CONFIG, true);
         }
         if self.ingress_net_filter != new.ingress_net_filter {

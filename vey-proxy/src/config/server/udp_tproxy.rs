@@ -279,7 +279,7 @@ impl ServerConfig for UdpTProxyServerConfig {
         if self.listen.need_respawn(&new.listen) {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
-        if self.listen != new.listen {
+        if self.listen.need_reloadable_change(&new.listen) {
             flags.set(UdpTProxyServerUpdateFlags::LISTEN_CONFIG, true);
         }
 

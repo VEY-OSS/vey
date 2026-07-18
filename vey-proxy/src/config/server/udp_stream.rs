@@ -288,7 +288,7 @@ impl ServerConfig for UdpStreamServerConfig {
                 if old.need_respawn(new) {
                     return ServerConfigDiffAction::ReloadAndRespawn;
                 }
-                if old != new {
+                if old.need_reloadable_change(new) {
                     flags.set(UdpStreamServerUpdateFlags::LISTEN_CONFIG, true);
                 }
             }
