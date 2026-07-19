@@ -71,8 +71,7 @@ pub(super) fn derive(input: DeriveInput) -> TokenStream {
 
         let fn_name = v.name;
         let expanded = match v.types.pop() {
-            Some(pair) => {
-                let fn_result = pair.into_value();
+            Some(fn_result) => {
                 if v.types.is_empty() {
                     if is_async {
                         derive_async_fn_r(&fn_name, fn_result, &arm_attrs, &arm_idents)
