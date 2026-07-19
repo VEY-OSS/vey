@@ -35,8 +35,8 @@ pub(crate) struct UdpConnectTaskNotes {
 impl UdpConnectTaskNotes {
     pub(crate) fn fill_from_underlying_tcp(&mut self, tcp: EgressNotes) {
         self.bind = tcp.bind;
-        self.next = tcp.next;
-        self.local = tcp.local;
+        self.next = tcp.tcp.peer;
+        self.local = tcp.tcp.local;
         self.expire = tcp.expire;
         self.egress = tcp.egress;
         self.final_addr = tcp.final_addr;

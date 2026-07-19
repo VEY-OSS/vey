@@ -359,9 +359,9 @@ impl SocksProxyTcpConnectTask {
                 let addr = if let Some(addr) = &self.egress_notes.final_addr.outgoing_addr {
                     *addr
                 } else {
-                    let (ip, port) = match &self.egress_notes.local {
+                    let (ip, port) = match &self.egress_notes.tcp.local {
                         Some(addr) => (addr.ip(), addr.port()),
-                        None => match self.egress_notes.next {
+                        None => match self.egress_notes.tcp_connect_peer_addr() {
                             Some(SocketAddr::V4(_)) => (IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
                             Some(SocketAddr::V6(_)) => (IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                             None => unreachable!(),

@@ -14,7 +14,7 @@ use vey_socket::BindAddr;
 use vey_types::net::ConnectError;
 
 use super::{NextProxyPeer, ProxyFloatEscaper};
-use crate::escape::EgressNotes;
+use crate::escape::{EgressNotes, EgressSocketType};
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
 use crate::module::tcp_connect::{TcpConnectTaskConf, UnderlyingTcpConnectError};
 use crate::serve::ServerTaskNotes;
@@ -50,7 +50,9 @@ impl ProxyFloatEscaper {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
+        egress_notes.socket_type = Some(EgressSocketType::Tcp);
         let peer_addr = peer.peer_addr();
+        egress_notes.tcp.peer = Some(peer_addr);
         let bind_ip = match peer_addr {
             SocketAddr::V4(_) => self.config.bind_v4,
             SocketAddr::V6(_) => self.config.bind_v6,
@@ -77,7 +79,6 @@ impl ProxyFloatEscaper {
         )))]
         let bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
         egress_notes.bind = bind;
-        egress_notes.next = Some(peer_addr);
         egress_notes.expire = peer.expire_datetime();
         egress_notes.egress = Some(peer.egress_info());
         egress_notes.tries = 1;
@@ -96,7 +97,7 @@ impl ProxyFloatEscaper {
                     .local_addr()
                     .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                 self.stats.tcp.connect.add_established();
-                egress_notes.local = Some(local_addr);
+                egress_notes.tcp.local = Some(local_addr);
                 Ok(ups_stream)
             }
             Ok(Err(e)) => {

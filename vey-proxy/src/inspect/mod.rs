@@ -114,8 +114,8 @@ pub(crate) struct StreamInspectConnectNotes {
 impl From<&EgressNotes> for StreamInspectConnectNotes {
     fn from(egress_notes: &EgressNotes) -> Self {
         StreamInspectConnectNotes {
-            client_addr: egress_notes.local.unwrap(),
-            server_addr: egress_notes.next.unwrap(),
+            client_addr: egress_notes.tcp_connect_local_addr().unwrap(),
+            server_addr: egress_notes.tcp_connect_peer_addr().unwrap(),
         }
     }
 }

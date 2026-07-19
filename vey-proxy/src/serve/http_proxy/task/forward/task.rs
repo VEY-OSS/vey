@@ -1792,8 +1792,8 @@ impl<'a> HttpProxyForwardTask<'a> {
                 &mut rsp.hop_by_hop_headers,
                 server_id,
                 self.egress_notes.bind.ip(),
-                self.egress_notes.local,
-                self.egress_notes.next,
+                self.egress_notes.tcp_connect_local_addr(),
+                self.egress_notes.tcp_connect_peer_addr(),
                 &self.egress_notes.expire,
             );
 

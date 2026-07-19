@@ -21,8 +21,8 @@ use vey_types::acl::AclAction;
 use vey_types::net::{ConnectError, Host, TcpKeepAliveConfig, UpstreamAddr};
 
 use super::{DirectFloatBindIp, DirectFloatEscaper};
-use crate::escape::EgressNotes;
 use crate::escape::direct_fixed::tcp_connect::DirectTcpConnectConfig;
+use crate::escape::{EgressNotes, EgressSocketType};
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
 use crate::module::tcp_connect::{
     TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf, UnderlyingTcpConnectError,
@@ -110,7 +110,7 @@ impl DirectFloatEscaper {
         task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
         let peer = SocketAddr::new(peer_ip, task_conf.upstream.port());
-        egress_notes.next = Some(peer);
+        egress_notes.tcp.peer = Some(peer);
 
         let (sock, bind) =
             self.prepare_connect_socket(peer_ip, egress_notes.bind, task_notes, &config)?;
@@ -131,7 +131,7 @@ impl DirectFloatEscaper {
                     .local_addr()
                     .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                 self.stats.tcp.connect.add_established();
-                egress_notes.local = Some(local_addr);
+                egress_notes.tcp.local = Some(local_addr);
                 egress_notes.final_addr.target_addr = Some(peer);
                 egress_notes.final_addr.outgoing_addr = Some(local_addr);
                 Ok((ups_stream, bind))
@@ -209,7 +209,7 @@ impl DirectFloatEscaper {
         loop {
             if spawn_new_connection && let Some(ip) = ips.pop() {
                 let peer = SocketAddr::new(ip, task_conf.upstream.port());
-                egress_notes.next = Some(peer);
+                egress_notes.tcp.peer = Some(peer);
                 let (sock, bind) =
                     self.prepare_connect_socket(ip, egress_notes.bind, task_notes, &config)?;
                 running_connection += 1;
@@ -253,7 +253,7 @@ impl DirectFloatEscaper {
                                 running_connection -= 1;
                                 let peer_addr = r.1;
                                 let bind = r.2;
-                                egress_notes.next = Some(peer_addr);
+                                egress_notes.tcp.peer = Some(peer_addr);
                                 egress_notes.bind = BindAddr::Ip(bind.ip);
                                 egress_notes.expire = bind.expire_datetime;
                                 egress_notes.egress = Some(bind.egress_info.clone());
@@ -263,7 +263,7 @@ impl DirectFloatEscaper {
                                             .local_addr()
                                             .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                                         self.stats.tcp.connect.add_established();
-                                        egress_notes.local = Some(local_addr);
+                                        egress_notes.tcp.local = Some(local_addr);
                                         egress_notes.final_addr.target_addr = Some(peer_addr);
                                         egress_notes.final_addr.outgoing_addr = Some(local_addr);
                                         return Ok((ups_stream, bind));
@@ -341,6 +341,8 @@ impl DirectFloatEscaper {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
+        egress_notes.socket_type = Some(EgressSocketType::Tcp);
+
         let mut config = DirectTcpConnectConfig {
             connect: self.config.general.tcp_connect,
             keepalive: self.config.tcp_keepalive,
@@ -384,6 +386,7 @@ impl DirectFloatEscaper {
         old_egress_notes: &EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
+        new_egress_notes.socket_type = Some(EgressSocketType::Tcp);
         new_egress_notes.bind = old_egress_notes.bind;
 
         let mut config = DirectTcpConnectConfig {
@@ -404,7 +407,8 @@ impl DirectFloatEscaper {
         }
 
         if task_conf.upstream.host_eq(old_upstream) {
-            let control_addr = old_egress_notes.next.ok_or_else(|| {
+            // This escaper only set tcp.peer for TCP connections
+            let control_addr = old_egress_notes.tcp.peer.ok_or_else(|| {
                 UnderlyingTcpConnectError::SetupSocketFailed(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "no peer address for referenced connection found",

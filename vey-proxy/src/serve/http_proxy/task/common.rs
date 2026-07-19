@@ -95,8 +95,8 @@ impl CommonTaskContext {
             let line = http_header::remote_connection_info(
                 server_id,
                 egress_notes.bind.ip(),
-                egress_notes.local,
-                egress_notes.next,
+                egress_notes.tcp_connect_local_addr(),
+                egress_notes.tcp_connect_peer_addr(),
                 &egress_notes.expire,
             );
             rsp.add_extra_header(line);
@@ -160,8 +160,8 @@ impl CommonTaskContext {
                 &mut rsp.headers,
                 server_id,
                 egress_notes.bind.ip(),
-                egress_notes.local,
-                egress_notes.next,
+                egress_notes.tcp_connect_local_addr(),
+                egress_notes.tcp_connect_peer_addr(),
                 &egress_notes.expire,
             );
 

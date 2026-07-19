@@ -15,7 +15,7 @@ use vey_socket::BindAddr;
 use vey_types::net::{ConnectError, Host, UpstreamAddr};
 
 use super::ProxySocks5sEscaper;
-use crate::escape::EgressNotes;
+use crate::escape::{EgressNotes, EgressSocketType};
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
 use crate::module::tcp_connect::{TcpConnectTaskConf, UnderlyingTcpConnectError};
 use crate::resolve::HappyEyeballsResolveJob;
@@ -80,8 +80,9 @@ impl ProxySocks5sEscaper {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
+        egress_notes.tcp.peer = Some(peer);
+
         let (sock, bind) = self.prepare_connect_socket(peer.ip())?;
-        egress_notes.next = Some(peer);
         egress_notes.bind = bind;
 
         let instant_now = Instant::now();
@@ -102,7 +103,7 @@ impl ProxySocks5sEscaper {
                     .local_addr()
                     .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                 self.stats.tcp.connect.add_established();
-                egress_notes.local = Some(local_addr);
+                egress_notes.tcp.local = Some(local_addr);
                 // the chained outgoing addr is not detected at here
                 Ok(ups_stream)
             }
@@ -178,8 +179,10 @@ impl ProxySocks5sEscaper {
 
         loop {
             if spawn_new_connection && let Some(ip) = ips.pop() {
-                let (sock, bind) = self.prepare_connect_socket(ip)?;
                 let peer = SocketAddr::new(ip, peer_port);
+                egress_notes.tcp.peer = Some(peer);
+
+                let (sock, bind) = self.prepare_connect_socket(ip)?;
                 running_connection += 1;
                 spawn_new_connection = false;
                 egress_notes.tries += 1;
@@ -220,7 +223,7 @@ impl ProxySocks5sEscaper {
                             Some(Ok(r)) => {
                                 running_connection -= 1;
                                 let peer_addr = r.1;
-                                egress_notes.next = Some(peer_addr);
+                                egress_notes.tcp.peer = Some(peer_addr);
                                 egress_notes.bind = r.2;
                                 match r.0 {
                                     Ok(ups_stream) => {
@@ -228,7 +231,7 @@ impl ProxySocks5sEscaper {
                                             .local_addr()
                                             .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
                                         self.stats.tcp.connect.add_established();
-                                        egress_notes.local = Some(local_addr);
+                                        egress_notes.tcp.local = Some(local_addr);
                                         // the chained outgoing addr is not detected at here
                                         return Ok(ups_stream);
                                     }
@@ -305,6 +308,8 @@ impl ProxySocks5sEscaper {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(UpstreamAddr, TcpStream), UnderlyingTcpConnectError> {
+        egress_notes.socket_type = Some(EgressSocketType::Tcp);
+
         let peer_proxy = match task_notes.egress_path_upstream(&self.config.name) {
             Some(ups) => {
                 let addr = if let Some(addr) = &ups.addr {

@@ -47,7 +47,7 @@ mod egress_path;
 pub(crate) use egress_path::EgressPathSelection;
 
 mod egress_notes;
-pub(crate) use egress_notes::{EgressNotes, FinalAddressNotes};
+pub(crate) use egress_notes::{EgressNotes, EgressSocketType, FinalAddressNotes};
 
 mod comply_audit;
 mod comply_context;

@@ -21,7 +21,7 @@ use vey_socks::v5;
 use vey_types::net::{SocketBufferConfig, UpstreamAddr};
 
 use super::ProxySocks5sEscaper;
-use crate::escape::EgressNotes;
+use crate::escape::{EgressNotes, EgressSocketType};
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
@@ -39,6 +39,7 @@ impl ProxySocks5sEscaper {
         let mut stream = self
             .tls_handshake_to_remote(task_conf, egress_notes, task_notes)
             .await?;
+        egress_notes.socket_type = Some(EgressSocketType::Socks5);
         let outgoing_addr =
             v5::client::socks5_connect_to(&mut stream, &self.config.auth_info, task_conf.upstream)
                 .await?;
@@ -84,8 +85,8 @@ impl ProxySocks5sEscaper {
         let mut ctl_stream = self
             .tls_handshake_to_remote(&tcp_task_conf, egress_notes, task_notes)
             .await?;
-        let local_tcp_addr = egress_notes.local.unwrap();
-        let peer_tcp_addr = egress_notes.next.unwrap();
+        let local_tcp_addr = egress_notes.tcp.local.unwrap();
+        let peer_tcp_addr = egress_notes.tcp.peer.unwrap();
 
         // bind early and send listen_addr if configured ?
         let send_udp_ip = match local_tcp_addr.ip() {
