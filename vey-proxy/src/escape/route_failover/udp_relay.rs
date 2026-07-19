@@ -9,22 +9,20 @@ use std::pin::pin;
 use anyhow::anyhow;
 
 use super::RouteFailoverEscaper;
-use crate::escape::ArcEscaper;
+use crate::escape::{ArcEscaper, EgressNotes};
 use crate::module::udp_connect::UdpConnectError;
-use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
-};
+use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
 use crate::serve::ServerTaskNotes;
 
 struct UdpRelayFailoverContext {
-    udp_notes: UdpRelayTaskNotes,
+    egress_notes: EgressNotes,
     setup_result: UdpRelaySetupResult,
 }
 
 impl UdpRelayFailoverContext {
     fn new() -> Self {
         UdpRelayFailoverContext {
-            udp_notes: UdpRelayTaskNotes::default(),
+            egress_notes: EgressNotes::default(),
             setup_result: Err(UdpConnectError::EscaperNotUsable(anyhow!(
                 "no udp set relay called yet"
             ))),
@@ -39,7 +37,7 @@ impl UdpRelayFailoverContext {
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> Self {
         self.setup_result = escaper
-            .udp_setup_relay(task_conf, &mut self.udp_notes, task_notes, task_stats)
+            .udp_setup_relay(task_conf, &mut self.egress_notes, task_notes, task_stats)
             .await;
         self
     }
@@ -49,7 +47,7 @@ impl RouteFailoverEscaper {
     pub(super) async fn udp_setup_relay_with_failover(
         &self,
         task_conf: &UdpRelayTaskConf<'_>,
-        udp_notes: &mut UdpRelayTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
@@ -65,13 +63,13 @@ impl RouteFailoverEscaper {
             return match ctx.setup_result {
                 Ok(c) => {
                     self.stats.add_request_passed();
-                    *udp_notes = ctx.udp_notes;
+                    *egress_notes = ctx.egress_notes;
                     Ok(c)
                 }
                 Err(_e) => {
                     match self
                         .standby_node
-                        .udp_setup_relay(task_conf, udp_notes, task_notes, task_stats)
+                        .udp_setup_relay(task_conf, egress_notes, task_notes, task_stats)
                         .await
                     {
                         Ok(c) => {
@@ -97,7 +95,7 @@ impl RouteFailoverEscaper {
         match ctx.setup_result {
             Ok(c) => {
                 self.stats.add_request_passed();
-                *udp_notes = ctx.udp_notes;
+                *egress_notes = ctx.egress_notes;
                 Ok(c)
             }
             Err(_e) => {
@@ -105,12 +103,12 @@ impl RouteFailoverEscaper {
                 match ctx.setup_result {
                     Ok(c) => {
                         self.stats.add_request_passed();
-                        *udp_notes = ctx.udp_notes;
+                        *egress_notes = ctx.egress_notes;
                         Ok(c)
                     }
                     Err(e) => {
                         self.stats.add_request_failed();
-                        *udp_notes = ctx.udp_notes;
+                        *egress_notes = ctx.egress_notes;
                         Err(e)
                     }
                 }

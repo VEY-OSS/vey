@@ -27,9 +27,7 @@ use crate::module::tcp_connect::{
 use crate::module::udp_connect::{
     UdpConnectError, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
-use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
-};
+use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
 use crate::serve::ServerTaskNotes;
 
 mod http_connect;
@@ -233,7 +231,7 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
         &self,
         _escaper: &ProxyFloatEscaper,
         _task_conf: &UdpRelayTaskConf<'_>,
-        _udp_notes: &mut UdpRelayTaskNotes,
+        _egress_notes: &mut EgressNotes,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {

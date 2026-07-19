@@ -13,6 +13,7 @@ use vey_socket::util::AddressFamily;
 use tokio::net::UdpSocket;
 
 use super::{DirectFixedEscaper, DirectFixedEscaperStats};
+use crate::escape::{EgressNotes, EgressSocketType};
 use crate::module::udp_connect::UdpConnectError;
 use crate::module::udp_relay::{
     ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupResult, UdpRelayTaskConf,
@@ -29,9 +30,12 @@ impl DirectFixedEscaper {
     pub(super) async fn udp_setup_relay(
         &self,
         task_conf: &UdpRelayTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
+        egress_notes.socket_type = Some(EgressSocketType::Direct);
+
         let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
@@ -49,17 +53,29 @@ impl DirectFixedEscaper {
         );
 
         if !self.config.no_ipv4 {
-            let (bind, r, w) =
-                self.get_relay_socket(AddressFamily::Ipv4, task_conf, task_notes, &wrapper_stats)?;
+            let (bind, r, w) = self.get_relay_socket(
+                AddressFamily::Ipv4,
+                task_conf,
+                egress_notes,
+                task_notes,
+                &wrapper_stats,
+            )?;
             recv.enable_v4(r, bind);
             send.enable_v4(w, bind);
+            egress_notes.udp_relay_v4.local = Some(bind);
         }
 
         if !self.config.no_ipv6 {
-            let (bind, r, w) =
-                self.get_relay_socket(AddressFamily::Ipv6, task_conf, task_notes, &wrapper_stats)?;
+            let (bind, r, w) = self.get_relay_socket(
+                AddressFamily::Ipv6,
+                task_conf,
+                egress_notes,
+                task_notes,
+                &wrapper_stats,
+            )?;
             recv.enable_v6(r, bind);
             send.enable_v6(w, bind);
+            egress_notes.udp_relay_v6.local = Some(bind);
         }
 
         Ok((Box::new(recv), Box::new(send)))
@@ -69,6 +85,7 @@ impl DirectFixedEscaper {
         &self,
         family: AddressFamily,
         task_conf: &UdpRelayTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         stats: &Arc<UdpRelayRemoteWrapperStats>,
     ) -> Result<
@@ -80,6 +97,10 @@ impl DirectFixedEscaper {
         UdpConnectError,
     > {
         let bind = self.get_bind_random(family, task_notes);
+        match family {
+            AddressFamily::Ipv4 => egress_notes.udp_relay_v4.bind = Some(bind),
+            AddressFamily::Ipv6 => egress_notes.udp_relay_v6.bind = Some(bind),
+        }
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx

@@ -16,6 +16,7 @@ use vey_socket::util::AddressFamily;
 
 use super::DirectFloatEscaper;
 use crate::escape::direct_fixed::udp_relay::{DirectUdpRelayRemoteRecv, DirectUdpRelayRemoteSend};
+use crate::escape::{EgressNotes, EgressSocketType};
 use crate::module::udp_connect::UdpConnectError;
 use crate::module::udp_relay::{
     ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupResult, UdpRelayTaskConf,
@@ -26,9 +27,12 @@ impl DirectFloatEscaper {
     pub(super) async fn udp_setup_relay(
         &self,
         task_conf: &UdpRelayTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
+        egress_notes.socket_type = Some(EgressSocketType::Direct);
+
         let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
@@ -46,19 +50,31 @@ impl DirectFloatEscaper {
         );
 
         if !self.config.no_ipv4
-            && let Ok((bind, r, w)) =
-                self.get_relay_socket(AddressFamily::Ipv4, task_conf, task_notes, &wrapper_stats)
+            && let Ok((bind, r, w)) = self.get_relay_socket(
+                AddressFamily::Ipv4,
+                task_conf,
+                egress_notes,
+                task_notes,
+                &wrapper_stats,
+            )
         {
             recv.enable_v4(r, bind);
             send.enable_v4(w, bind);
+            egress_notes.udp_relay_v4.local = Some(bind);
         }
 
         if !self.config.no_ipv6
-            && let Ok((bind, r, w)) =
-                self.get_relay_socket(AddressFamily::Ipv6, task_conf, task_notes, &wrapper_stats)
+            && let Ok((bind, r, w)) = self.get_relay_socket(
+                AddressFamily::Ipv6,
+                task_conf,
+                egress_notes,
+                task_notes,
+                &wrapper_stats,
+            )
         {
             recv.enable_v6(r, bind);
             send.enable_v6(w, bind);
+            egress_notes.udp_relay_v6.local = Some(bind);
         }
 
         if !send.usable() {
@@ -74,6 +90,7 @@ impl DirectFloatEscaper {
         &self,
         family: AddressFamily,
         task_conf: &UdpRelayTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         stats: &Arc<UdpRelayRemoteWrapperStats>,
     ) -> Result<
@@ -87,6 +104,19 @@ impl DirectFloatEscaper {
         let bind = self
             .select_bind(family, task_notes)
             .map_err(UdpConnectError::EscaperNotUsable)?;
+        let bind_addr = BindAddr::Ip(bind.ip);
+        match family {
+            AddressFamily::Ipv4 => {
+                egress_notes.egress = Some(bind.egress_info);
+                egress_notes.expire = bind.expire_datetime;
+                egress_notes.udp_relay_v4.bind = Some(bind_addr);
+            }
+            AddressFamily::Ipv6 => {
+                egress_notes.egress = Some(bind.egress_info);
+                egress_notes.expire = bind.expire_datetime;
+                egress_notes.udp_relay_v6.bind = Some(bind_addr);
+            }
+        }
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx
@@ -96,7 +126,7 @@ impl DirectFloatEscaper {
             self.config.udp_misc_opts
         };
 
-        let (socket, bind_addr) = vey_socket::udp::new_std_bind_relay(
+        let (socket, local_addr) = vey_socket::udp::new_std_bind_relay(
             &BindAddr::Ip(bind.ip),
             family,
             task_conf.sock_buf,
@@ -121,6 +151,6 @@ impl DirectFloatEscaper {
             stats.clone(),
         );
 
-        Ok((bind_addr, recv, send))
+        Ok((local_addr, recv, send))
     }
 }

@@ -11,7 +11,7 @@ use vey_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUserName, LtUuid}
 use vey_types::net::UpstreamAddr;
 
 use super::TaskEvent;
-use crate::module::udp_relay::UdpRelayTaskNotes;
+use crate::escape::EgressNotes;
 use crate::serve::{ServerTaskError, ServerTaskNotes};
 
 pub(crate) struct TaskLogForUdpAssociate<'a> {
@@ -22,7 +22,7 @@ pub(crate) struct TaskLogForUdpAssociate<'a> {
     pub(crate) udp_listen_addr: Option<SocketAddr>,
     pub(crate) udp_client_addr: Option<SocketAddr>,
     pub(crate) initial_peer: &'a UpstreamAddr,
-    pub(crate) udp_notes: &'a UdpRelayTaskNotes,
+    pub(crate) egress_notes: &'a EgressNotes,
     pub(crate) client_rd_bytes: u64,
     pub(crate) client_rd_packets: u64,
     pub(crate) client_wr_bytes: u64,
@@ -73,7 +73,7 @@ impl TaskLogForUdpAssociate<'_> {
             "udp_listen_addr" => self.udp_listen_addr,
             "udp_client_addr" => self.udp_client_addr,
             "initial_peer" => LtUpstreamAddr(self.initial_peer),
-            "escaper" => self.udp_notes.escaper.as_str(),
+            "escaper" => self.egress_notes.escaper.as_str(),
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),
             "c_rd_bytes" => self.client_rd_bytes,
@@ -100,7 +100,7 @@ impl TaskLogForUdpAssociate<'_> {
             "udp_listen_addr" => self.udp_listen_addr,
             "udp_client_addr" => self.udp_client_addr,
             "initial_peer" => LtUpstreamAddr(self.initial_peer),
-            "escaper" => self.udp_notes.escaper.as_str(),
+            "escaper" => self.egress_notes.escaper.as_str(),
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),
             "total_time" => LtDuration(self.task_notes.time_elapsed()),
@@ -134,7 +134,7 @@ impl TaskLogForUdpAssociate<'_> {
             "udp_listen_addr" => self.udp_listen_addr,
             "udp_client_addr" => self.udp_client_addr,
             "initial_peer" => LtUpstreamAddr(self.initial_peer),
-            "escaper" => self.udp_notes.escaper.as_str(),
+            "escaper" => self.egress_notes.escaper.as_str(),
             "reason" => e.brief(),
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),

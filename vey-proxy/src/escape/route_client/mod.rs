@@ -35,9 +35,7 @@ use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes};
-use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
-};
+use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
 use crate::serve::ServerTaskNotes;
 
 pub(super) struct RouteClientEscaper {
@@ -194,15 +192,15 @@ impl Escaper for RouteClientEscaper {
     async fn udp_setup_relay(
         &self,
         task_conf: &UdpRelayTaskConf<'_>,
-        udp_notes: &mut UdpRelayTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        udp_notes.escaper.clone_from(&self.config.name);
+        egress_notes.escaper.clone_from(&self.config.name);
         let escaper = self.select_next(task_notes.client_ip());
         self.stats.add_request_passed();
         escaper
-            .udp_setup_relay(task_conf, udp_notes, task_notes, task_stats)
+            .udp_setup_relay(task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 

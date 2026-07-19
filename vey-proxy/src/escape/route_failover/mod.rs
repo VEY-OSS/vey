@@ -32,9 +32,7 @@ use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes};
-use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
-};
+use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
 use crate::serve::ServerTaskNotes;
 
 mod ftp_connect;
@@ -163,12 +161,12 @@ impl Escaper for RouteFailoverEscaper {
     async fn udp_setup_relay(
         &self,
         task_conf: &UdpRelayTaskConf<'_>,
-        udp_notes: &mut UdpRelayTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        udp_notes.escaper.clone_from(&self.config.name);
-        self.udp_setup_relay_with_failover(task_conf, udp_notes, task_notes, task_stats)
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.udp_setup_relay_with_failover(task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 

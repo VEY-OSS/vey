@@ -25,9 +25,10 @@ use super::{
     UdpAssociateTaskCltWrapperStats, UdpAssociateTaskStats,
 };
 use crate::config::server::ServerConfig;
+use crate::escape::EgressNotes;
 use crate::log::escape::udp_sendto::EscapeLogForUdpRelaySendto;
 use crate::log::task::udp_associate::TaskLogForUdpAssociate;
-use crate::module::udp_relay::{UdpRelayTaskConf, UdpRelayTaskNotes};
+use crate::module::udp_relay::UdpRelayTaskConf;
 use crate::serve::socks_proxy::UdpAssociateTaskAliveGuard;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
@@ -37,7 +38,7 @@ use crate::serve::{
 pub(crate) struct SocksProxyUdpAssociateTask {
     ctx: Arc<CommonTaskContext>,
     initial_peer: UpstreamAddr,
-    udp_notes: UdpRelayTaskNotes,
+    egress_notes: EgressNotes,
     task_notes: ServerTaskNotes,
     task_stats: Arc<UdpAssociateTaskStats>,
     udp_listen_addr: Option<SocketAddr>,
@@ -69,7 +70,7 @@ impl SocksProxyUdpAssociateTask {
         SocksProxyUdpAssociateTask {
             ctx: Arc::new(ctx),
             initial_peer: UpstreamAddr::empty(),
-            udp_notes: UdpRelayTaskNotes::default(),
+            egress_notes: EgressNotes::default(),
             task_notes: notes,
             task_stats: Arc::new(UdpAssociateTaskStats::default()),
             udp_listen_addr: None,
@@ -92,7 +93,7 @@ impl SocksProxyUdpAssociateTask {
                 udp_listen_addr: self.udp_listen_addr,
                 udp_client_addr: self.udp_client_addr,
                 initial_peer: &self.initial_peer,
-                udp_notes: &self.udp_notes,
+                egress_notes: &self.egress_notes,
                 client_rd_bytes: self.task_stats.clt.recv.get_bytes(),
                 client_rd_packets: self.task_stats.clt.recv.get_packets(),
                 client_wr_bytes: self.task_stats.clt.send.get_bytes(),
@@ -301,7 +302,7 @@ impl SocksProxyUdpAssociateTask {
                             if let Some(logger) = ups_w.error_logger() {
                                 EscapeLogForUdpRelaySendto {
                                     task_id,
-                                    udp_notes: &self.udp_notes,
+                                    egress_notes: &self.egress_notes,
                                     remote_addr: &ra,
                                 }
                                 .log(logger, &e);
@@ -318,7 +319,7 @@ impl SocksProxyUdpAssociateTask {
                             if let Some(logger) = ups_r.error_logger() {
                                 EscapeLogForUdpRelaySendto {
                                     task_id,
-                                    udp_notes: &self.udp_notes,
+                                    egress_notes: &self.egress_notes,
                                     remote_addr: &ra,
                                 }
                                 .log(logger, &e);
@@ -490,7 +491,7 @@ impl SocksProxyUdpAssociateTask {
             .escaper
             .udp_setup_relay(
                 &task_conf,
-                &mut self.udp_notes,
+                &mut self.egress_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
             )

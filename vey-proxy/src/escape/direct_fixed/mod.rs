@@ -44,9 +44,7 @@ use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes};
-use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
-};
+use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
 
@@ -372,13 +370,13 @@ impl Escaper for DirectFixedEscaper {
     async fn udp_setup_relay(
         &self,
         task_conf: &UdpRelayTaskConf<'_>,
-        udp_notes: &mut UdpRelayTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         self.stats.interface.add_udp_relay_session_attempted();
-        udp_notes.escaper.clone_from(&self.config.name);
-        self.udp_setup_relay(task_conf, task_notes, task_stats)
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.udp_setup_relay(task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 

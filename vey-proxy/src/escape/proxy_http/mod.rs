@@ -40,9 +40,7 @@ use crate::module::tcp_connect::{
 use crate::module::udp_connect::{
     UdpConnectError, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
-use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
-};
+use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
 
@@ -216,12 +214,12 @@ impl Escaper for ProxyHttpEscaper {
     async fn udp_setup_relay(
         &self,
         _task_conf: &UdpRelayTaskConf<'_>,
-        udp_notes: &mut UdpRelayTaskNotes,
+        egress_notes: &mut EgressNotes,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         self.stats.interface.add_udp_relay_session_attempted();
-        udp_notes.escaper.clone_from(&self.config.name);
+        egress_notes.escaper.clone_from(&self.config.name);
         Err(UdpConnectError::MethodUnavailable)
     }
 

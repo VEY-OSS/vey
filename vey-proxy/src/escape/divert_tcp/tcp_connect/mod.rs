@@ -311,7 +311,7 @@ impl DivertTcpEscaper {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
-        egress_notes.socket_type = Some(EgressSocketType::Tcp);
+        egress_notes.socket_type = Some(EgressSocketType::Direct);
 
         let peer_proxy = self.get_next_proxy(task_notes, task_conf.upstream.host());
 

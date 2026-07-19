@@ -23,12 +23,12 @@ impl ProxyFloatSocks5Peer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &UdpRelayTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        let mut egress_notes = EgressNotes::default();
         let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
-            .timed_socks5_udp_associate(escaper, task_conf.sock_buf, &mut egress_notes, task_notes)
+            .timed_socks5_udp_associate(escaper, task_conf.sock_buf, egress_notes, task_notes)
             .await?;
 
         let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(escaper.stats.clone(), task_stats);

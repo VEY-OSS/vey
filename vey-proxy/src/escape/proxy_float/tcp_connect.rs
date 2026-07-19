@@ -50,7 +50,7 @@ impl ProxyFloatEscaper {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
-        egress_notes.socket_type = Some(EgressSocketType::Tcp);
+        egress_notes.socket_type = Some(EgressSocketType::Direct);
         let peer_addr = peer.peer_addr();
         egress_notes.tcp.peer = Some(peer_addr);
         let bind_ip = match peer_addr {

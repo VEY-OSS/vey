@@ -14,7 +14,7 @@ use crate::module::udp_connect::UdpConnectError;
 pub(crate) use stats::{
     ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelayTaskRemoteStats,
 };
-pub(crate) use task::{UdpRelayTaskConf, UdpRelayTaskNotes};
+pub(crate) use task::UdpRelayTaskConf;
 
 pub(crate) type UdpRelaySetupResult = Result<
     (

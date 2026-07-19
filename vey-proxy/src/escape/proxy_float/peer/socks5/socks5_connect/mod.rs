@@ -87,12 +87,15 @@ impl ProxyFloatSocks5Peer {
         let local_tcp_addr = egress_notes.tcp.local.unwrap();
         let peer_tcp_addr = egress_notes.tcp.peer.unwrap();
 
+        egress_notes.socket_type = Some(EgressSocketType::Socks5);
+
         // bind early and send listen_addr if configured ?
         let send_udp_ip = match local_tcp_addr.ip() {
             IpAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
             IpAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
         };
         let send_udp_addr = SocketAddr::new(send_udp_ip, 0);
+        egress_notes.udp.local = Some(send_udp_addr);
 
         let peer_udp_addr = v5::client::socks5_udp_associate(
             &mut ctl_stream,
@@ -101,6 +104,7 @@ impl ProxyFloatSocks5Peer {
         )
         .await?;
         let peer_udp_addr = self.transmute_udp_peer_addr(peer_udp_addr, peer_tcp_addr.ip());
+        egress_notes.udp.peer = Some(peer_udp_addr);
         let (socket, local_addr) = vey_socket::udp::new_connected_to(
             peer_udp_addr,
             &BindAddr::Ip(local_tcp_addr.ip()),
@@ -108,6 +112,7 @@ impl ProxyFloatSocks5Peer {
             escaper.config.udp_misc_opts,
         )
         .map_err(UdpConnectError::SetupSocketFailed)?;
+        egress_notes.udp.local = Some(local_addr);
 
         Ok((ctl_stream, socket, local_addr, peer_udp_addr))
     }

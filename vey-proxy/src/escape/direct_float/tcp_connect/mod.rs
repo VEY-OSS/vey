@@ -341,7 +341,7 @@ impl DirectFloatEscaper {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
-        egress_notes.socket_type = Some(EgressSocketType::Tcp);
+        egress_notes.socket_type = Some(EgressSocketType::Direct);
 
         let mut config = DirectTcpConnectConfig {
             connect: self.config.general.tcp_connect,
@@ -386,7 +386,7 @@ impl DirectFloatEscaper {
         old_egress_notes: &EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
-        new_egress_notes.socket_type = Some(EgressSocketType::Tcp);
+        new_egress_notes.socket_type = Some(EgressSocketType::Direct);
         new_egress_notes.bind = old_egress_notes.bind;
 
         let mut config = DirectTcpConnectConfig {

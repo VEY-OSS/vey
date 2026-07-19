@@ -308,7 +308,7 @@ impl ProxySocks5sEscaper {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(UpstreamAddr, TcpStream), UnderlyingTcpConnectError> {
-        egress_notes.socket_type = Some(EgressSocketType::Tcp);
+        egress_notes.socket_type = Some(EgressSocketType::Direct);
 
         let peer_proxy = match task_notes.egress_path_upstream(&self.config.name) {
             Some(ups) => {

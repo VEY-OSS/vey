@@ -22,12 +22,12 @@ impl ProxySocks5sEscaper {
     pub(super) async fn udp_setup_relay(
         &self,
         task_conf: &UdpRelayTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        let mut egress_notes = EgressNotes::default();
         let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
-            .timed_socks5_udp_associate(task_conf.sock_buf, &mut egress_notes, task_notes)
+            .timed_socks5_udp_associate(task_conf.sock_buf, egress_notes, task_notes)
             .await?;
 
         let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(self.stats.clone(), task_stats);

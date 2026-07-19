@@ -27,9 +27,7 @@ use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes};
-use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
-};
+use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
 use crate::serve::ServerTaskNotes;
 
 mod registry;
@@ -191,7 +189,7 @@ pub(crate) trait Escaper: EscaperInternal {
     async fn udp_setup_relay(
         &self,
         task_conf: &UdpRelayTaskConf<'_>,
-        udp_notes: &mut UdpRelayTaskNotes,
+        udp_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult;

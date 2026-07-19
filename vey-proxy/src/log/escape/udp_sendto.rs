@@ -10,12 +10,12 @@ use vey_io_ext::{UdpCopyRemoteError, UdpRelayRemoteError};
 use vey_slog_types::{LtDateTime, LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;
 
+use crate::escape::EgressNotes;
 use crate::module::udp_connect::UdpConnectTaskNotes;
-use crate::module::udp_relay::UdpRelayTaskNotes;
 
 pub(crate) struct EscapeLogForUdpRelaySendto<'a> {
     pub(crate) task_id: &'a Uuid,
-    pub(crate) udp_notes: &'a UdpRelayTaskNotes,
+    pub(crate) egress_notes: &'a EgressNotes,
     pub(crate) remote_addr: &'a Option<UpstreamAddr>,
 }
 
@@ -46,7 +46,7 @@ impl EscapeLogForUdpRelaySendto<'_> {
             "upstream" => self.remote_addr.as_ref().map(LtUpstreamAddr),
             "next_bound_addr" => bind_addr,
             "next_peer_addr" => next_addr,
-            "next_expire" => self.udp_notes.expire.as_ref().map(LtDateTime),
+            "next_expire" => self.egress_notes.expire.as_ref().map(LtDateTime),
             "reason" => reason,
         )
     }

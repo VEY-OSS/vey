@@ -25,9 +25,15 @@ pub(crate) struct ConnectNotes {
     pub(crate) local: Option<SocketAddr>,
 }
 
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct RelayNotes {
+    pub(crate) bind: Option<BindAddr>,
+    pub(crate) local: Option<SocketAddr>,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum EgressSocketType {
-    Tcp,
+    Direct,
     Socks5,
 }
 
@@ -40,6 +46,9 @@ pub(crate) struct EgressNotes {
     pub(crate) egress: Option<EgressInfo>,
     pub(crate) socket_type: Option<EgressSocketType>,
     pub(crate) tcp: ConnectNotes,
+    pub(crate) udp: ConnectNotes,
+    pub(crate) udp_relay_v4: RelayNotes,
+    pub(crate) udp_relay_v6: RelayNotes,
     pub(crate) final_addr: FinalAddressNotes,
     pub(crate) duration: Duration,
     pub(crate) override_peer: Option<UpstreamAddr>,
@@ -53,7 +62,7 @@ impl EgressNotes {
     pub(crate) fn tcp_connect_peer_addr(&self) -> Option<SocketAddr> {
         let socket_type = self.socket_type?;
         match socket_type {
-            EgressSocketType::Tcp => self.tcp.peer,
+            EgressSocketType::Direct => self.tcp.peer,
             EgressSocketType::Socks5 => self.tcp.peer,
         }
     }
@@ -61,7 +70,7 @@ impl EgressNotes {
     pub(crate) fn tcp_connect_local_addr(&self) -> Option<SocketAddr> {
         let socket_type = self.socket_type?;
         match socket_type {
-            EgressSocketType::Tcp => self.tcp.local,
+            EgressSocketType::Direct => self.tcp.local,
             EgressSocketType::Socks5 => self.tcp.local,
         }
     }
