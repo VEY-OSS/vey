@@ -3036,6 +3036,7 @@ dependencies = [
  "http",
  "itoa",
  "kanal",
+ "log",
  "memchr",
  "rustls-pki-types",
  "thiserror",

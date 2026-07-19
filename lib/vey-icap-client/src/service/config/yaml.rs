@@ -46,6 +46,12 @@ impl IcapServiceConfig {
                 config.set_tcp_keepalive(keepalive);
                 Ok(())
             }
+            "tcp_connect_timeout" => {
+                let connect_timeout = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                config.set_tcp_connect_timeout(connect_timeout);
+                Ok(())
+            }
             #[cfg(unix)]
             "use_unix_socket" => {
                 let path = vey_yaml::value::as_absolute_path(v)
