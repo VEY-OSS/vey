@@ -62,8 +62,8 @@ impl DirectFloatEscaper {
     fn prepare_connect_socket(
         &self,
         peer_ip: IpAddr,
-        bind: BindAddr,
         task_notes: &ServerTaskNotes,
+        egress_notes: &mut EgressNotes,
         config: &DirectTcpConnectConfig<'_>,
     ) -> Result<(TcpSocket, DirectFloatBindIp), UnderlyingTcpConnectError> {
         match peer_ip {
@@ -82,17 +82,20 @@ impl DirectFloatEscaper {
         let (_, action) = self.egress_net_filter.check(peer_ip);
         self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
-        let bind = if let Some(ip) = bind.ip() {
+        let bind = if let Some(ip) = egress_notes.bind.ip() {
             self.select_bind_again(ip, task_notes)
                 .map_err(UnderlyingTcpConnectError::EscaperNotUsable)?
         } else {
             self.select_bind(AddressFamily::from(&peer_ip), task_notes)
                 .map_err(UnderlyingTcpConnectError::EscaperNotUsable)?
         };
+        egress_notes.bind = BindAddr::Ip(bind.ip);
+        egress_notes.expire = bind.expire_datetime;
+        egress_notes.egress = Some(bind.egress_info.clone());
 
         let sock = vey_socket::tcp::new_socket_to(
             peer_ip,
-            &BindAddr::Ip(bind.ip),
+            &egress_notes.bind,
             &config.keepalive,
             &config.misc_opts,
             true,
@@ -113,10 +116,7 @@ impl DirectFloatEscaper {
         egress_notes.tcp.peer = Some(peer);
 
         let (sock, bind) =
-            self.prepare_connect_socket(peer_ip, egress_notes.bind, task_notes, &config)?;
-        egress_notes.bind = BindAddr::Ip(bind.ip);
-        egress_notes.expire = bind.expire_datetime;
-        egress_notes.egress = Some(bind.egress_info.clone());
+            self.prepare_connect_socket(peer_ip, task_notes, egress_notes, &config)?;
 
         let instant_now = Instant::now();
 
@@ -211,7 +211,7 @@ impl DirectFloatEscaper {
                 let peer = SocketAddr::new(ip, task_conf.upstream.port());
                 egress_notes.tcp.peer = Some(peer);
                 let (sock, bind) =
-                    self.prepare_connect_socket(ip, egress_notes.bind, task_notes, &config)?;
+                    self.prepare_connect_socket(ip, task_notes, egress_notes, &config)?;
                 running_connection += 1;
                 spawn_new_connection = false;
                 egress_notes.tries += 1;

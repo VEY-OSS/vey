@@ -26,7 +26,8 @@ impl ProxyHttpEscaper {
     fn prepare_connect_socket(
         &self,
         peer_ip: IpAddr,
-    ) -> Result<(TcpSocket, BindAddr), UnderlyingTcpConnectError> {
+        egress_notes: &mut EgressNotes,
+    ) -> Result<TcpSocket, UnderlyingTcpConnectError> {
         let bind_ip = match peer_ip {
             IpAddr::V4(_) => {
                 if self.config.no_ipv4 {
@@ -49,12 +50,14 @@ impl ProxyHttpEscaper {
             target_os = "illumos",
             target_os = "solaris"
         ))]
-        let bind = bind_ip.map(BindAddr::Ip).unwrap_or_else(|| {
-            self.config
-                .bind_interface
-                .map(BindAddr::Interface)
-                .unwrap_or_default()
-        });
+        {
+            egress_notes.bind = bind_ip.map(BindAddr::Ip).unwrap_or_else(|| {
+                self.config
+                    .bind_interface
+                    .map(BindAddr::Interface)
+                    .unwrap_or_default()
+            });
+        }
         #[cfg(not(any(
             target_os = "linux",
             target_os = "android",
@@ -62,16 +65,18 @@ impl ProxyHttpEscaper {
             target_os = "illumos",
             target_os = "solaris"
         )))]
-        let bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
+        {
+            egress_notes.bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
+        }
         let sock = vey_socket::tcp::new_socket_to(
             peer_ip,
-            &bind,
+            &egress_notes.bind,
             &self.config.tcp_keepalive,
             &self.config.tcp_misc_opts,
             true,
         )
         .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
-        Ok((sock, bind))
+        Ok(sock)
     }
 
     async fn fixed_try_connect(
@@ -83,8 +88,7 @@ impl ProxyHttpEscaper {
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         egress_notes.tcp.peer = Some(peer);
 
-        let (sock, bind) = self.prepare_connect_socket(peer.ip())?;
-        egress_notes.bind = bind;
+        let sock = self.prepare_connect_socket(peer.ip(), egress_notes)?;
 
         let instant_now = Instant::now();
 
@@ -183,10 +187,11 @@ impl ProxyHttpEscaper {
                 let peer = SocketAddr::new(ip, peer_port);
                 egress_notes.tcp.peer = Some(peer);
 
-                let (sock, bind) = self.prepare_connect_socket(ip)?;
+                let sock = self.prepare_connect_socket(ip, egress_notes)?;
                 running_connection += 1;
                 spawn_new_connection = false;
                 egress_notes.tries += 1;
+                let bind = egress_notes.bind;
                 let stats = self.stats.clone();
                 c_set.spawn(async move {
                     stats.tcp.connect.add_attempted();

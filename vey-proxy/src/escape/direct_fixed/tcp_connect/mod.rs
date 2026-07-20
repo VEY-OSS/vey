@@ -69,10 +69,10 @@ impl DirectFixedEscaper {
     fn prepare_connect_socket(
         &self,
         peer_ip: IpAddr,
-        mut bind: BindAddr,
         task_notes: &ServerTaskNotes,
+        egress_notes: &mut EgressNotes,
         connect_config: &DirectTcpConnectConfig<'_>,
-    ) -> Result<(TcpSocket, BindAddr), UnderlyingTcpConnectError> {
+    ) -> Result<TcpSocket, UnderlyingTcpConnectError> {
         match peer_ip {
             IpAddr::V4(_) => {
                 if self.config.no_ipv4 {
@@ -90,31 +90,31 @@ impl DirectFixedEscaper {
         self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
         #[cfg(target_os = "linux")]
-        if bind.is_none() {
+        if egress_notes.bind.is_none() {
             if self.config.bind_foreign {
                 if self.config.bind_foreign_port {
-                    bind = BindAddr::Foreign(task_notes.client_addr());
+                    egress_notes.bind = BindAddr::Foreign(task_notes.client_addr());
                 } else {
-                    bind = BindAddr::Foreign(SocketAddr::new(task_notes.client_ip(), 0));
+                    egress_notes.bind =
+                        BindAddr::Foreign(SocketAddr::new(task_notes.client_ip(), 0));
                 }
             } else {
-                bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
+                egress_notes.bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
             }
         }
         #[cfg(not(target_os = "linux"))]
-        if bind.is_none() {
-            bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
+        if egress_notes.bind.is_none() {
+            egress_notes.bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
         }
 
-        let sock = vey_socket::tcp::new_socket_to(
+        vey_socket::tcp::new_socket_to(
             peer_ip,
-            &bind,
+            &egress_notes.bind,
             &connect_config.keepalive,
             &connect_config.misc_opts,
             true,
         )
-        .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
-        Ok((sock, bind))
+        .map_err(UnderlyingTcpConnectError::SetupSocketFailed)
     }
 
     async fn fixed_try_connect(
@@ -128,9 +128,7 @@ impl DirectFixedEscaper {
         let peer = SocketAddr::new(peer_ip, task_conf.upstream.port());
         egress_notes.tcp.peer = Some(peer);
 
-        let (sock, bind) =
-            self.prepare_connect_socket(peer_ip, egress_notes.bind, task_notes, &config)?;
-        egress_notes.bind = bind;
+        let sock = self.prepare_connect_socket(peer_ip, task_notes, egress_notes, &config)?;
 
         let instant_now = Instant::now();
 
@@ -226,11 +224,11 @@ impl DirectFixedEscaper {
                 let peer = SocketAddr::new(ip, port);
                 egress_notes.tcp.peer = Some(peer);
 
-                let (sock, bind) =
-                    self.prepare_connect_socket(ip, egress_notes.bind, task_notes, &config)?;
+                let sock = self.prepare_connect_socket(ip, task_notes, egress_notes, &config)?;
                 running_connection += 1;
                 spawn_new_connection = false;
                 egress_notes.tries += 1;
+                let bind = egress_notes.bind;
                 let stats = self.stats.clone();
                 c_set.spawn(async move {
                     stats.tcp.connect.add_attempted();
