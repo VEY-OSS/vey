@@ -16,7 +16,7 @@ use vey_io_ext::{AsyncStream, FlexBufReader, LimitedReader, LimitedWriter, OnceB
 use vey_openssl::SslStream;
 
 use super::{ProxyFloatEscaper, ProxyFloatHttpsPeer};
-use crate::escape::EgressNotes;
+use crate::escape::{EgressNotes, EgressSocketType};
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
@@ -36,6 +36,7 @@ impl ProxyFloatHttpsPeer {
             .tls_handshake_with_peer(task_conf, egress_notes, task_notes, &self.tls_name, self)
             .await?;
 
+        egress_notes.socket_type = Some(EgressSocketType::Http);
         let req = HttpConnectRequest::new(&self.shared_config.append_http_headers);
         req.send(task_conf.upstream, &mut stream)
             .await

@@ -34,6 +34,7 @@ pub(crate) struct RelayNotes {
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum EgressSocketType {
     Direct,
+    Http,
     Socks5,
 }
 
@@ -63,6 +64,7 @@ impl EgressNotes {
         let socket_type = self.socket_type?;
         match socket_type {
             EgressSocketType::Direct => self.tcp.peer,
+            EgressSocketType::Http => self.tcp.peer,
             EgressSocketType::Socks5 => self.tcp.peer,
         }
     }
@@ -71,6 +73,7 @@ impl EgressNotes {
         let socket_type = self.socket_type?;
         match socket_type {
             EgressSocketType::Direct => self.tcp.local,
+            EgressSocketType::Http => self.tcp.local,
             EgressSocketType::Socks5 => self.tcp.local,
         }
     }

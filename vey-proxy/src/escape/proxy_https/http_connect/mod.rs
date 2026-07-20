@@ -17,7 +17,7 @@ use vey_io_ext::{AsyncStream, FlexBufReader, LimitedReader, LimitedWriter, OnceB
 use vey_openssl::{SslConnector, SslStream};
 
 use super::ProxyHttpsEscaper;
-use crate::escape::EgressNotes;
+use crate::escape::{EgressNotes, EgressSocketType};
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
@@ -36,6 +36,7 @@ impl ProxyHttpsEscaper {
             .tls_handshake_to_remote(task_conf, egress_notes, task_notes)
             .await?;
 
+        egress_notes.socket_type = Some(EgressSocketType::Http);
         let mut req = HttpConnectRequest::new(&self.config.append_http_headers);
 
         if self.config.pass_proxy_userid
