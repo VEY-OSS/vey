@@ -77,15 +77,7 @@ impl ProxyFloatSocks5sPeer {
         buf_conf: SocketBufferConfig,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<
-        (
-            SslStream<impl AsyncRead + AsyncWrite + use<>>,
-            UdpSocket,
-            SocketAddr,
-            SocketAddr,
-        ),
-        UdpConnectError,
-    > {
+    ) -> Result<(SslStream<impl AsyncRead + AsyncWrite + use<>>, UdpSocket), UdpConnectError> {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: &UpstreamAddr::empty(),
         };
@@ -128,7 +120,7 @@ impl ProxyFloatSocks5sPeer {
         .map_err(UdpConnectError::SetupSocketFailed)?;
         egress_notes.udp.local = Some(local_addr);
 
-        Ok((ctl_stream, socket, local_addr, peer_udp_addr))
+        Ok((ctl_stream, socket))
     }
 
     pub(super) async fn timed_socks5_udp_associate(
@@ -137,15 +129,7 @@ impl ProxyFloatSocks5sPeer {
         buf_conf: SocketBufferConfig,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<
-        (
-            SslStream<impl AsyncRead + AsyncWrite + use<>>,
-            UdpSocket,
-            SocketAddr,
-            SocketAddr,
-        ),
-        UdpConnectError,
-    > {
+    ) -> Result<(SslStream<impl AsyncRead + AsyncWrite + use<>>, UdpSocket), UdpConnectError> {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
             self.socks5_udp_associate(escaper, buf_conf, egress_notes, task_notes),

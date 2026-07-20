@@ -77,4 +77,22 @@ impl EgressNotes {
             EgressSocketType::Socks5 => self.tcp.local,
         }
     }
+
+    pub(crate) fn udp_connect_peer_addr(&self) -> Option<SocketAddr> {
+        let socket_type = self.socket_type?;
+        match socket_type {
+            EgressSocketType::Direct => self.udp.peer,
+            EgressSocketType::Http => self.tcp.peer,
+            EgressSocketType::Socks5 => self.udp.peer,
+        }
+    }
+
+    pub(crate) fn udp_connect_local_addr(&self) -> Option<SocketAddr> {
+        let socket_type = self.socket_type?;
+        match socket_type {
+            EgressSocketType::Direct => self.udp.local,
+            EgressSocketType::Http => self.tcp.local,
+            EgressSocketType::Socks5 => self.udp.local,
+        }
+    }
 }

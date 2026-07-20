@@ -12,9 +12,9 @@ use vey_socket::util::AddressFamily;
 use vey_types::acl::AclAction;
 
 use super::DirectFixedEscaper;
+use crate::escape::{EgressNotes, EgressSocketType};
 use crate::module::udp_connect::{
     UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf,
-    UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -56,10 +56,12 @@ impl DirectFixedEscaper {
     pub(super) async fn udp_connect_to(
         &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
+        egress_notes.socket_type = Some(EgressSocketType::Direct);
+
         let peer_addr = self
             .select_upstream_addr(
                 task_conf.upstream,
@@ -67,14 +69,14 @@ impl DirectFixedEscaper {
                 task_notes,
             )
             .await?;
-        udp_notes.next = Some(peer_addr);
+        egress_notes.udp.peer = Some(peer_addr);
 
         let (_, action) = self.egress_net_filter.check(peer_addr.ip());
         self.handle_udp_target_ip_acl_action(action, task_notes)?;
 
         let family = AddressFamily::from(&peer_addr);
         let bind = self.get_bind_random(family, task_notes);
-        udp_notes.bind = bind;
+        egress_notes.bind = bind;
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx
@@ -86,12 +88,12 @@ impl DirectFixedEscaper {
 
         let (socket, local_addr) = vey_socket::udp::new_connected_to(
             peer_addr,
-            &udp_notes.bind,
+            &egress_notes.bind,
             self.config.udp_socket_buffer,
             misc_opts,
         )
         .map_err(UdpConnectError::SetupSocketFailed)?;
-        udp_notes.local = Some(local_addr);
+        egress_notes.udp.local = Some(local_addr);
 
         let mut wrapper_stats = UdpConnectRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));

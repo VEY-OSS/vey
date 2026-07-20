@@ -26,7 +26,7 @@ use crate::module::http_forward::{
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
-use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes};
+use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
 use crate::serve::ServerTaskNotes;
 
@@ -45,7 +45,7 @@ mod egress_path;
 pub(crate) use egress_path::EgressPathSelection;
 
 mod egress_notes;
-pub(crate) use egress_notes::{EgressNotes, EgressSocketType, FinalAddressNotes};
+pub(crate) use egress_notes::{EgressNotes, EgressSocketType};
 
 mod comply_audit;
 mod comply_context;
@@ -181,7 +181,7 @@ pub(crate) trait Escaper: EscaperInternal {
     async fn udp_setup_connection(
         &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult;
@@ -189,7 +189,7 @@ pub(crate) trait Escaper: EscaperInternal {
     async fn udp_setup_relay(
         &self,
         task_conf: &UdpRelayTaskConf<'_>,
-        udp_notes: &mut EgressNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult;

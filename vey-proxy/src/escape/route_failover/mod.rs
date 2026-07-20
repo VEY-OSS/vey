@@ -31,7 +31,7 @@ use crate::module::http_forward::{
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
-use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes};
+use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
 use crate::serve::ServerTaskNotes;
 
@@ -149,12 +149,12 @@ impl Escaper for RouteFailoverEscaper {
     async fn udp_setup_connection(
         &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        udp_notes.escaper.clone_from(&self.config.name);
-        self.udp_setup_connection_with_failover(task_conf, udp_notes, task_notes, task_stats)
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.udp_setup_connection_with_failover(task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 

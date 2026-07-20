@@ -26,7 +26,7 @@ use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardC
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
-use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes};
+use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
 use crate::serve::ServerTaskNotes;
 
@@ -232,12 +232,12 @@ impl NextProxyPeer for ProxyFloatSocks5sPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        udp_notes.expire = self.expire_datetime();
-        self.udp_connect_to(escaper, task_conf, udp_notes, task_notes, task_stats)
+        egress_notes.expire = self.expire_datetime();
+        self.udp_connect_to(escaper, task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 

@@ -26,9 +26,10 @@ use super::{
     UdpConnectTaskCltWrapperStats,
 };
 use crate::config::server::ServerConfig;
+use crate::escape::EgressNotes;
 use crate::log::escape::udp_sendto::EscapeLogForUdpConnectSendTo;
 use crate::log::task::udp_connect::TaskLogForUdpConnect;
-use crate::module::udp_connect::{UdpConnectTaskConf, UdpConnectTaskNotes};
+use crate::module::udp_connect::UdpConnectTaskConf;
 use crate::serve::socks_proxy::UdpConnectTaskAliveGuard;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
@@ -38,7 +39,7 @@ use crate::serve::{
 pub(crate) struct SocksProxyUdpConnectTask {
     ctx: CommonTaskContext,
     upstream: Option<UpstreamAddr>,
-    udp_notes: UdpConnectTaskNotes,
+    udp_notes: EgressNotes,
     task_notes: ServerTaskNotes,
     task_stats: Arc<UdpConnectTaskStats>,
     udp_listen_addr: Option<SocketAddr>,
@@ -69,7 +70,7 @@ impl SocksProxyUdpConnectTask {
         SocksProxyUdpConnectTask {
             ctx,
             upstream: None,
-            udp_notes: UdpConnectTaskNotes::default(),
+            udp_notes: EgressNotes::default(),
             task_notes: notes,
             task_stats: Arc::new(UdpConnectTaskStats::default()),
             udp_listen_addr: None,

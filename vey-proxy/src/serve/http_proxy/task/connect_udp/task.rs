@@ -25,12 +25,11 @@ use super::{
     HttpConnectUdpTaskServerCltWrapperStats,
 };
 use crate::config::server::ServerConfig;
+use crate::escape::EgressNotes;
 use crate::log::escape::udp_sendto::EscapeLogForUdpConnectSendTo;
 use crate::log::task::udp_connect::TaskLogForUdpConnect;
 use crate::module::http_forward::HttpProxyClientResponse;
-use crate::module::udp_connect::{
-    UdpConnectError, UdpConnectTaskConf, UdpConnectTaskNotes, UdpConnection,
-};
+use crate::module::udp_connect::{UdpConnectError, UdpConnectTaskConf, UdpConnection};
 use crate::serve::http_proxy::HttpConnectUdpTaskAliveGuard;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
@@ -43,7 +42,7 @@ pub(crate) struct HttpProxyConnectUdpTask {
     ups_c: Option<UdpConnection>,
     back_to_http: bool,
     task_notes: ServerTaskNotes,
-    udp_notes: UdpConnectTaskNotes,
+    udp_notes: EgressNotes,
     task_stats: Arc<UdpConnectTaskStats>,
     http_version: Version,
     max_idle_count: usize,
@@ -76,7 +75,7 @@ impl HttpProxyConnectUdpTask {
             ups_c: None,
             back_to_http: false,
             task_notes,
-            udp_notes: UdpConnectTaskNotes::default(),
+            udp_notes: EgressNotes::default(),
             task_stats: Arc::new(UdpConnectTaskStats::default()),
             http_version: req.inner.version,
             max_idle_count,

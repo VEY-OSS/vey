@@ -26,9 +26,7 @@ use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardC
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
-use crate::module::udp_connect::{
-    UdpConnectError, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
-};
+use crate::module::udp_connect::{UdpConnectError, UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
 use crate::serve::ServerTaskNotes;
 
@@ -241,12 +239,18 @@ impl NextProxyPeer for ProxyFloatHttpPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        self.http_upgrade_new_udp_connection(escaper, task_conf, udp_notes, task_notes, task_stats)
-            .await
+        self.http_upgrade_new_udp_connection(
+            escaper,
+            task_conf,
+            egress_notes,
+            task_notes,
+            task_stats,
+        )
+        .await
     }
 
     async fn udp_setup_relay(

@@ -22,7 +22,6 @@ use super::{HttpProxyServerConfig, HttpProxyServerStats};
 use crate::escape::{ArcEscaper, EgressNotes};
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::module::http_header;
-use crate::module::udp_connect::UdpConnectTaskNotes;
 use crate::serve::{ServerIdleChecker, ServerQuitPolicy, ServerTaskNotes};
 
 #[derive(Clone)]
@@ -120,31 +119,31 @@ impl CommonTaskContext {
 
     pub(crate) fn set_custom_header_for_udp_local_reply(
         &self,
-        udp_notes: &UdpConnectTaskNotes,
+        egress_notes: &EgressNotes,
         rsp: &mut HttpProxyClientResponse,
     ) {
         if let Some(server_id) = &self.server_config.server_id {
             let line = http_header::remote_connection_info(
                 server_id,
-                udp_notes.bind.ip(),
-                udp_notes.local,
-                udp_notes.next,
-                &udp_notes.expire,
+                egress_notes.bind.ip(),
+                egress_notes.udp_connect_local_addr(),
+                egress_notes.udp_connect_peer_addr(),
+                &egress_notes.expire,
             );
             rsp.add_extra_header(line);
 
-            if let Some(egress_info) = &udp_notes.egress {
+            if let Some(egress_info) = &egress_notes.egress {
                 let line = http_header::dynamic_egress_info(server_id, egress_info);
                 rsp.add_extra_header(line);
             }
         }
 
         if self.server_config.echo_chained_info {
-            if let Some(addr) = udp_notes.final_addr.target_addr {
+            if let Some(addr) = egress_notes.final_addr.target_addr {
                 rsp.set_upstream_addr(addr);
             }
 
-            if let Some(addr) = udp_notes.final_addr.outgoing_addr {
+            if let Some(addr) = egress_notes.final_addr.outgoing_addr {
                 rsp.set_outgoing_ip(addr.ip());
             }
         }

@@ -11,21 +11,19 @@ use anyhow::anyhow;
 use vey_daemon::stat::remote::ArcUdpConnectTaskRemoteStats;
 
 use super::RouteFailoverEscaper;
-use crate::escape::ArcEscaper;
-use crate::module::udp_connect::{
-    UdpConnectError, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
-};
+use crate::escape::{ArcEscaper, EgressNotes};
+use crate::module::udp_connect::{UdpConnectError, UdpConnectResult, UdpConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 struct UdpConnectFailoverContext {
-    udp_notes: UdpConnectTaskNotes,
+    egress_notes: EgressNotes,
     connect_result: UdpConnectResult,
 }
 
 impl UdpConnectFailoverContext {
     fn new() -> Self {
         UdpConnectFailoverContext {
-            udp_notes: UdpConnectTaskNotes::default(),
+            egress_notes: EgressNotes::default(),
             connect_result: Err(UdpConnectError::EscaperNotUsable(anyhow!(
                 "no udp setup connection called yet"
             ))),
@@ -40,7 +38,7 @@ impl UdpConnectFailoverContext {
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> Self {
         self.connect_result = escaper
-            .udp_setup_connection(task_conf, &mut self.udp_notes, task_notes, task_stats)
+            .udp_setup_connection(task_conf, &mut self.egress_notes, task_notes, task_stats)
             .await;
         self
     }
@@ -50,7 +48,7 @@ impl RouteFailoverEscaper {
     pub(super) async fn udp_setup_connection_with_failover(
         &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
@@ -66,13 +64,13 @@ impl RouteFailoverEscaper {
             return match ctx.connect_result {
                 Ok(c) => {
                     self.stats.add_request_passed();
-                    *udp_notes = ctx.udp_notes;
+                    *egress_notes = ctx.egress_notes;
                     Ok(c)
                 }
                 Err(_e) => {
                     match self
                         .standby_node
-                        .udp_setup_connection(task_conf, udp_notes, task_notes, task_stats)
+                        .udp_setup_connection(task_conf, egress_notes, task_notes, task_stats)
                         .await
                     {
                         Ok(c) => {
@@ -98,7 +96,7 @@ impl RouteFailoverEscaper {
         match ctx.connect_result {
             Ok(c) => {
                 self.stats.add_request_passed();
-                *udp_notes = ctx.udp_notes;
+                *egress_notes = ctx.egress_notes;
                 Ok(c)
             }
             Err(_e) => {
@@ -106,12 +104,12 @@ impl RouteFailoverEscaper {
                 match ctx.connect_result {
                     Ok(c) => {
                         self.stats.add_request_passed();
-                        *udp_notes = ctx.udp_notes;
+                        *egress_notes = ctx.egress_notes;
                         Ok(c)
                     }
                     Err(e) => {
                         self.stats.add_request_failed();
-                        *udp_notes = ctx.udp_notes;
+                        *egress_notes = ctx.egress_notes;
                         Err(e)
                     }
                 }

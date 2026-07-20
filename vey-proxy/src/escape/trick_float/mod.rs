@@ -31,9 +31,7 @@ use crate::module::http_forward::{
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
-use crate::module::udp_connect::{
-    UdpConnectError, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
-};
+use crate::module::udp_connect::{UdpConnectError, UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
 use crate::serve::ServerTaskNotes;
 
@@ -175,16 +173,16 @@ impl Escaper for TrickFloatEscaper {
     async fn udp_setup_connection(
         &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        udp_notes.escaper.clone_from(&self.config.name);
+        egress_notes.escaper.clone_from(&self.config.name);
         match self.random_next() {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .udp_setup_connection(task_conf, udp_notes, task_notes, task_stats)
+                    .udp_setup_connection(task_conf, egress_notes, task_notes, task_stats)
                     .await
             }
             Err(e) => {

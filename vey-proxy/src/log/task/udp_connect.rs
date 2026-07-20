@@ -12,7 +12,7 @@ use vey_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUserNam
 use vey_types::net::UpstreamAddr;
 
 use super::TaskEvent;
-use crate::module::udp_connect::UdpConnectTaskNotes;
+use crate::escape::EgressNotes;
 use crate::serve::{ServerTaskError, ServerTaskNotes};
 
 pub(crate) struct TaskLogForUdpConnect<'a> {
@@ -23,7 +23,7 @@ pub(crate) struct TaskLogForUdpConnect<'a> {
     pub(crate) udp_listen_addr: Option<SocketAddr>,
     pub(crate) udp_client_addr: Option<SocketAddr>,
     pub(crate) upstream: Option<&'a UpstreamAddr>,
-    pub(crate) udp_notes: &'a UdpConnectTaskNotes,
+    pub(crate) udp_notes: &'a EgressNotes,
     pub(crate) client_rd_bytes: u64,
     pub(crate) client_rd_packets: u64,
     pub(crate) client_wr_bytes: u64,
@@ -76,8 +76,8 @@ impl TaskLogForUdpConnect<'_> {
             "upstream" => self.upstream.map(LtUpstreamAddr),
             "escaper" => self.udp_notes.escaper.as_str(),
             "next_bind_ip" => self.udp_notes.bind.ip().map(LtIpAddr),
-            "next_bound_addr" => self.udp_notes.local,
-            "next_peer_addr" => self.udp_notes.next,
+            "next_bound_addr" => self.udp_notes.udp_connect_local_addr(),
+            "next_peer_addr" => self.udp_notes.udp_connect_peer_addr(),
             "next_expire" => self.udp_notes.expire.as_ref().map(LtDateTime),
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),
@@ -107,8 +107,8 @@ impl TaskLogForUdpConnect<'_> {
             "upstream" => self.upstream.map(LtUpstreamAddr),
             "escaper" => self.udp_notes.escaper.as_str(),
             "next_bind_ip" => self.udp_notes.bind.ip().map(LtIpAddr),
-            "next_bound_addr" => self.udp_notes.local,
-            "next_peer_addr" => self.udp_notes.next,
+            "next_bound_addr" => self.udp_notes.udp_connect_local_addr(),
+            "next_peer_addr" => self.udp_notes.udp_connect_peer_addr(),
             "next_expire" => self.udp_notes.expire.as_ref().map(LtDateTime),
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),
@@ -145,8 +145,8 @@ impl TaskLogForUdpConnect<'_> {
             "upstream" => self.upstream.map(LtUpstreamAddr),
             "escaper" => self.udp_notes.escaper.as_str(),
             "next_bind_ip" => self.udp_notes.bind.ip().map(LtIpAddr),
-            "next_bound_addr" => self.udp_notes.local,
-            "next_peer_addr" => self.udp_notes.next,
+            "next_bound_addr" => self.udp_notes.udp_connect_local_addr(),
+            "next_peer_addr" => self.udp_notes.udp_connect_peer_addr(),
             "next_expire" => self.udp_notes.expire.as_ref().map(LtDateTime),
             "reason" => e.brief(),
             "wait_time" => LtDuration(self.task_notes.wait_time),

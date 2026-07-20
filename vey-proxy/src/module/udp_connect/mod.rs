@@ -12,7 +12,7 @@ mod task;
 
 pub(crate) use error::UdpConnectError;
 pub(crate) use stats::UdpConnectRemoteWrapperStats;
-pub(crate) use task::{UdpConnectTaskConf, UdpConnectTaskNotes};
+pub(crate) use task::UdpConnectTaskConf;
 
 pub(crate) type UdpConnection = (
     Box<dyn UdpCopyRemoteRecv + Unpin + Send + Sync>,

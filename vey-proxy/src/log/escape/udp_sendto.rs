@@ -11,7 +11,6 @@ use vey_slog_types::{LtDateTime, LtUpstreamAddr, LtUuid};
 use vey_types::net::UpstreamAddr;
 
 use crate::escape::EgressNotes;
-use crate::module::udp_connect::UdpConnectTaskNotes;
 
 pub(crate) struct EscapeLogForUdpRelaySendto<'a> {
     pub(crate) task_id: &'a Uuid,
@@ -55,7 +54,7 @@ impl EscapeLogForUdpRelaySendto<'_> {
 pub(crate) struct EscapeLogForUdpConnectSendTo<'a> {
     pub(crate) task_id: &'a Uuid,
     pub(crate) upstream: Option<&'a UpstreamAddr>,
-    pub(crate) udp_notes: &'a UdpConnectTaskNotes,
+    pub(crate) udp_notes: &'a EgressNotes,
 }
 
 impl EscapeLogForUdpConnectSendTo<'_> {
@@ -72,8 +71,8 @@ impl EscapeLogForUdpConnectSendTo<'_> {
             "escape_type" => "UdpSendto",
             "task_id" => LtUuid(self.task_id),
             "upstream" => self.upstream.map(LtUpstreamAddr),
-            "next_bound_addr" => self.udp_notes.local,
-            "next_peer_addr" => self.udp_notes.next,
+            "next_bound_addr" => self.udp_notes.udp_connect_local_addr(),
+            "next_peer_addr" => self.udp_notes.udp_connect_peer_addr(),
             "next_expire" => self.udp_notes.expire.as_ref().map(LtDateTime),
             "reason" => reason,
         )

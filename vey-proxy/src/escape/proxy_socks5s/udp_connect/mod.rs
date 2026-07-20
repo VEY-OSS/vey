@@ -15,7 +15,7 @@ use crate::escape::proxy_socks5::udp_connect::{
     ProxySocks5UdpConnectRemoteRecv, ProxySocks5UdpConnectRemoteSend,
 };
 use crate::module::udp_connect::{
-    UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
+    UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -23,23 +23,13 @@ impl ProxySocks5sEscaper {
     pub(super) async fn udp_connect_to(
         &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        let mut egress_notes = EgressNotes::default();
-        let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
-            .timed_socks5_udp_associate(
-                self.config.udp_socket_buffer,
-                &mut egress_notes,
-                task_notes,
-            )
+        let (ctl_stream, udp_socket) = self
+            .timed_socks5_udp_associate(self.config.udp_socket_buffer, egress_notes, task_notes)
             .await?;
-        udp_notes.egress = egress_notes.egress;
-        udp_notes.override_peer = egress_notes.override_peer;
-
-        udp_notes.local = Some(udp_local_addr);
-        udp_notes.next = Some(udp_peer_addr);
 
         let mut wrapper_stats = UdpConnectRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));

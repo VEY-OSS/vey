@@ -20,9 +20,10 @@ use vey_types::net::UpstreamAddr;
 use super::UdpStreamTaskCltWrapperStats;
 use super::common::CommonTaskContext;
 use crate::config::server::ServerConfig;
+use crate::escape::EgressNotes;
 use crate::log::escape::udp_sendto::EscapeLogForUdpConnectSendTo;
 use crate::log::task::udp_connect::TaskLogForUdpConnect;
-use crate::module::udp_connect::{UdpConnectTaskConf, UdpConnectTaskNotes};
+use crate::module::udp_connect::UdpConnectTaskConf;
 use crate::serve::udp_stream::UdpStreamServerAliveTaskGuard;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
@@ -32,7 +33,7 @@ use crate::serve::{
 pub(super) struct UdpStreamTask {
     ctx: CommonTaskContext,
     upstream: UpstreamAddr,
-    udp_notes: UdpConnectTaskNotes,
+    udp_notes: EgressNotes,
     task_notes: ServerTaskNotes,
     task_stats: Arc<UdpConnectTaskStats>,
     max_idle_count: usize,
@@ -62,7 +63,7 @@ impl UdpStreamTask {
         UdpStreamTask {
             ctx,
             upstream: upstream.clone(),
-            udp_notes: UdpConnectTaskNotes::default(),
+            udp_notes: EgressNotes::default(),
             task_notes,
             task_stats: Arc::new(UdpConnectTaskStats::default()),
             max_idle_count,

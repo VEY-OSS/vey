@@ -13,13 +13,12 @@ use vey_io_ext::{AsyncStream, FlexBufReader, LimitedUdpCopyRemoteRecv, LimitedUd
 use vey_openssl::SslStream;
 
 use super::ProxyFloatHttpsPeer;
-use crate::escape::EgressNotes;
 use crate::escape::proxy_float::ProxyFloatEscaper;
 use crate::escape::proxy_http::{ProxyHttpConnectUdpRecv, ProxyHttpConnectUdpSend};
+use crate::escape::{EgressNotes, EgressSocketType};
 use crate::module::tcp_connect::TcpConnectTaskConf;
 use crate::module::udp_connect::{
     UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf,
-    UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -28,25 +27,24 @@ impl ProxyFloatHttpsPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, UdpConnectError>
     {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: task_conf.upstream,
         };
-        let mut egress_notes = EgressNotes::default();
         let mut stream = escaper
             .tls_handshake_with_peer(
                 &tcp_task_conf,
-                &mut egress_notes,
+                egress_notes,
                 task_notes,
                 &self.tls_name,
                 self,
             )
             .await?;
-        udp_notes.fill_from_underlying_tcp(egress_notes);
 
+        egress_notes.socket_type = Some(EgressSocketType::Http);
         let req = HttpUpgradeRequest::new(&self.http_host, &self.shared_config.append_http_headers);
         req.send_connect_udp(task_conf.upstream, &mut stream)
             .await
@@ -68,13 +66,13 @@ impl ProxyFloatHttpsPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, UdpConnectError>
     {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
-            self.masque_udp_connect_to(escaper, task_conf, udp_notes, task_notes),
+            self.masque_udp_connect_to(escaper, task_conf, egress_notes, task_notes),
         )
         .await
         .map_err(|_| UdpConnectError::NegotiationPeerTimeout)?
@@ -84,12 +82,12 @@ impl ProxyFloatHttpsPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         let buf_stream = self
-            .timed_masque_udp_connect_to(escaper, task_conf, udp_notes, task_notes)
+            .timed_masque_udp_connect_to(escaper, task_conf, egress_notes, task_notes)
             .await?;
 
         let mut wrapper_stats = UdpConnectRemoteWrapperStats::new_layered(task_stats);

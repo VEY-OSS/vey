@@ -13,12 +13,11 @@ use vey_io_ext::{AsyncStream, FlexBufReader, LimitedUdpCopyRemoteRecv, LimitedUd
 use vey_openssl::SslStream;
 
 use super::ProxyHttpsEscaper;
-use crate::escape::EgressNotes;
 use crate::escape::proxy_http::{ProxyHttpConnectUdpRecv, ProxyHttpConnectUdpSend};
+use crate::escape::{EgressNotes, EgressSocketType};
 use crate::module::tcp_connect::TcpConnectTaskConf;
 use crate::module::udp_connect::{
     UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf,
-    UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -26,19 +25,18 @@ impl ProxyHttpsEscaper {
     async fn masque_udp_connect_to(
         &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, UdpConnectError>
     {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: task_conf.upstream,
         };
-        let mut egress_notes = EgressNotes::default();
         let (peer, mut stream) = self
-            .tls_handshake_to_remote(&tcp_task_conf, &mut egress_notes, task_notes)
+            .tls_handshake_to_remote(&tcp_task_conf, egress_notes, task_notes)
             .await?;
-        udp_notes.fill_from_underlying_tcp(egress_notes);
 
+        egress_notes.socket_type = Some(EgressSocketType::Http);
         let mut req = HttpUpgradeRequest::new(&peer, &self.config.append_http_headers);
 
         if self.config.pass_proxy_userid
@@ -67,13 +65,13 @@ impl ProxyHttpsEscaper {
     async fn timed_masque_udp_connect_to(
         &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, UdpConnectError>
     {
         tokio::time::timeout(
             self.config.peer_negotiation_timeout,
-            self.masque_udp_connect_to(task_conf, udp_notes, task_notes),
+            self.masque_udp_connect_to(task_conf, egress_notes, task_notes),
         )
         .await
         .map_err(|_| UdpConnectError::NegotiationPeerTimeout)?
@@ -82,12 +80,12 @@ impl ProxyHttpsEscaper {
     pub(super) async fn http_upgrade_new_udp_connection(
         &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         let buf_stream = self
-            .timed_masque_udp_connect_to(task_conf, udp_notes, task_notes)
+            .timed_masque_udp_connect_to(task_conf, egress_notes, task_notes)
             .await?;
 
         let mut wrapper_stats = UdpConnectRemoteWrapperStats::new_layered(task_stats);

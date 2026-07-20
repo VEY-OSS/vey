@@ -14,13 +14,12 @@ use vey_io_ext::{
 };
 
 use super::ProxyFloatHttpPeer;
-use crate::escape::EgressNotes;
 use crate::escape::proxy_float::ProxyFloatEscaper;
 use crate::escape::proxy_http::{ProxyHttpConnectUdpRecv, ProxyHttpConnectUdpSend};
+use crate::escape::{EgressNotes, EgressSocketType};
 use crate::module::tcp_connect::TcpConnectTaskConf;
 use crate::module::udp_connect::{
     UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult, UdpConnectTaskConf,
-    UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -29,18 +28,17 @@ impl ProxyFloatHttpPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, UdpConnectError> {
         let tcp_task_conf = TcpConnectTaskConf {
             upstream: task_conf.upstream,
         };
-        let mut egress_notes = EgressNotes::default();
         let mut stream = escaper
-            .tcp_new_connection(self, &tcp_task_conf, &mut egress_notes, task_notes)
+            .tcp_new_connection(self, &tcp_task_conf, egress_notes, task_notes)
             .await?;
-        udp_notes.fill_from_underlying_tcp(egress_notes);
 
+        egress_notes.socket_type = Some(EgressSocketType::Http);
         let req = HttpUpgradeRequest::new(&self.http_host, &self.shared_config.append_http_headers);
         req.send_connect_udp(task_conf.upstream, &mut stream)
             .await
@@ -62,12 +60,12 @@ impl ProxyFloatHttpPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, UdpConnectError> {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
-            self.masque_udp_connect_to(escaper, task_conf, udp_notes, task_notes),
+            self.masque_udp_connect_to(escaper, task_conf, egress_notes, task_notes),
         )
         .await
         .map_err(|_| UdpConnectError::NegotiationPeerTimeout)?
@@ -77,12 +75,12 @@ impl ProxyFloatHttpPeer {
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &mut UdpConnectTaskNotes,
+        egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         let buf_stream = self
-            .timed_masque_udp_connect_to(escaper, task_conf, udp_notes, task_notes)
+            .timed_masque_udp_connect_to(escaper, task_conf, egress_notes, task_notes)
             .await?;
 
         let mut wrapper_stats = UdpConnectRemoteWrapperStats::new_layered(task_stats);
