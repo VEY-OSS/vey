@@ -67,15 +67,14 @@ impl ProxySocks5sEscaper {
         {
             egress_notes.bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
         }
-        let sock = vey_socket::tcp::new_socket_to(
+        vey_socket::tcp::new_socket_to(
             peer_ip,
             &egress_notes.bind,
             &self.config.tcp_keepalive,
             &self.config.tcp_misc_opts,
             true,
         )
-        .map_err(UnderlyingTcpConnectError::SetupSocketFailed)?;
-        Ok(sock)
+        .map_err(UnderlyingTcpConnectError::SetupSocketFailed)
     }
 
     async fn fixed_try_connect(
