@@ -12,7 +12,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use log::{info, warn};
-use quinn::{Connection, Endpoint, Incoming};
+use quinn::{Connection, Endpoint, EndpointConfig, Incoming, ServerConfig};
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
@@ -43,6 +43,7 @@ pub struct ListenQuicRuntime<S> {
     server: S,
     listen_config: UdpListenConfig,
     listen_stats: Arc<ListenStats>,
+    payload_max_size: Option<u16>,
     #[cfg(feature = "ebpf")]
     socket_selector: Option<QuicSocketSelector>,
 }
@@ -51,11 +52,17 @@ impl<S> ListenQuicRuntime<S>
 where
     S: AcceptQuicServer + ReloadServer + Clone + Send + Sync + 'static,
 {
-    pub fn new(server: S, listen_stats: Arc<ListenStats>, listen_config: UdpListenConfig) -> Self {
+    pub fn new(
+        server: S,
+        listen_stats: Arc<ListenStats>,
+        listen_config: UdpListenConfig,
+        payload_max_size: Option<u16>,
+    ) -> Self {
         ListenQuicRuntime {
             server,
             listen_config,
             listen_stats,
+            payload_max_size,
             #[cfg(feature = "ebpf")]
             socket_selector: None,
         }
@@ -64,7 +71,7 @@ where
     pub fn run_all_instances(
         &mut self,
         listen_in_worker: bool,
-        quic_config: &quinn::ServerConfig,
+        quic_config: &ServerConfig,
         ingress_net_filter: Option<&Arc<AclNetworkRule>>,
         accept_timeout: Duration,
         server_reload_sender: &broadcast::Sender<ServerReloadCommand<ListenQuicInPlaceConfig>>,
@@ -116,6 +123,13 @@ where
             };
             let listen_addr = socket.local_addr()?;
 
+            let mut endpoint_config = EndpointConfig::default();
+            if let Some(payload_max_size) = self.payload_max_size
+                && let Err(e) = endpoint_config.max_udp_payload_size(payload_max_size)
+            {
+                warn!("ignored UDP payload size {payload_max_size}: {e}");
+            }
+
             let runtime = ListenQuicRuntimeInstance {
                 server: self.server.clone(),
                 server_type: self.server.r#type(),
@@ -134,6 +148,7 @@ where
             };
             runtime.into_running(
                 socket,
+                endpoint_config,
                 quic_config.clone(),
                 server_reload_sender.subscribe(),
             );
@@ -460,7 +475,8 @@ where
     fn into_running(
         mut self,
         socket: UdpSocket,
-        config: quinn::ServerConfig,
+        endpoint_config: EndpointConfig,
+        server_config: ServerConfig,
         server_reload_channel: broadcast::Receiver<ServerReloadCommand<ListenQuicInPlaceConfig>>,
     ) {
         let handle = self.get_rt_handle();
@@ -468,8 +484,8 @@ where
             let raw_socket = RawSocket::from(&socket);
             // make sure the listen socket associated with the correct reactor
             match Endpoint::new(
-                Default::default(),
-                Some(config),
+                endpoint_config,
+                Some(server_config),
                 socket,
                 Arc::new(quinn::TokioRuntime),
             ) {

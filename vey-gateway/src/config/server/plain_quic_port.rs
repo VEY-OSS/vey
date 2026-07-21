@@ -41,7 +41,7 @@ pub(crate) struct PlainQuicPortConfig {
     pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) server: NodeName,
-    pub(crate) offline_rebind_port: Option<u16>,
+    pub(crate) udp_payload_max_size: Option<u16>,
 }
 
 impl PlainQuicPortConfig {
@@ -55,7 +55,7 @@ impl PlainQuicPortConfig {
             tls_ticketer: None,
             ingress_net_filter: None,
             server: NodeName::default(),
-            offline_rebind_port: None,
+            udp_payload_max_size: None,
         }
     }
 
@@ -87,9 +87,9 @@ impl PlainQuicPortConfig {
                 self.listen_in_worker = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
-            "offline_rebind_port" => {
-                let port = vey_yaml::value::as_u16(v)?;
-                self.offline_rebind_port = Some(port);
+            "udp_payload_max_size" => {
+                let size = vey_yaml::value::as_u16(v)?;
+                self.udp_payload_max_size = Some(size);
                 Ok(())
             }
             "quic_server" => {

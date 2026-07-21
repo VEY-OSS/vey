@@ -28,17 +28,16 @@ quic_server
 
 Set the cryptographic configuration for this QUIC server.
 
-offline_rebind_port
--------------------
+udp_payload_max_size
+--------------------
 
 **optional**, **type**: u16
 
-Set a rebind port used during graceful shutdown.
+Set the max UDP payload size. The value should be in inclusive range 1200..65527.
 
-The new port must be reachable by clients or the handoff will not work as
-expected.
+**default**: not set, which should be 1472 in underlying quic implementation.
 
-**default**: not set
+.. versionadded:: 0.4.0
 
 server
 ------
