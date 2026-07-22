@@ -21,6 +21,8 @@ use vey_reuseport::quic::{QuicSocketSelectGuard, QuicSocketSelector};
 use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
 use vey_types::acl::{AclAction, AclNetworkRule};
+#[cfg(feature = "ebpf")]
+use vey_types::net::QuinnReuseportIdGenerator;
 use vey_types::net::UdpListenConfig;
 
 use crate::listen::{ListenAliveGuard, ListenStats};
@@ -114,13 +116,6 @@ where
 
         for i in 0..instance_count {
             let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
-            #[cfg(feature = "ebpf")]
-            let guard = if let Some(selector) = &mut self.socket_selector {
-                let guard = selector.add_socket(RawSocket::from(&socket))?;
-                Some(guard)
-            } else {
-                None
-            };
             let listen_addr = socket.local_addr()?;
 
             let mut endpoint_config = EndpointConfig::default();
@@ -129,6 +124,17 @@ where
             {
                 warn!("ignored UDP payload size {payload_max_size}: {e}");
             }
+
+            #[cfg(feature = "ebpf")]
+            let guard = if let Some(selector) = &mut self.socket_selector {
+                let guard = selector.add_socket(RawSocket::from(&socket))?;
+                let cid_generator = QuinnReuseportIdGenerator::new(guard.cookie());
+                // TODO set cid lifetime
+                endpoint_config.cid_generator(move || Box::new(cid_generator));
+                Some(guard)
+            } else {
+                None
+            };
 
             let runtime = ListenQuicRuntimeInstance {
                 server: self.server.clone(),

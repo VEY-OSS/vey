@@ -3814,6 +3814,7 @@ dependencies = [
  "num-traits",
  "percent-encoding",
  "quinn",
+ "quinn-proto",
  "radix_trie",
  "rand",
  "regex",

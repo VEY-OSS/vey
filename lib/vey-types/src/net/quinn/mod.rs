@@ -5,3 +5,6 @@
 
 mod transport;
 pub use transport::QuinnTransportConfigBuilder;
+
+mod connection_id;
+pub use connection_id::QuinnReuseportIdGenerator;
