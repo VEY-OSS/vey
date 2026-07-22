@@ -191,6 +191,9 @@ impl ServerConfig for PlainQuicPortConfig {
             }
             flags.set(PlainQuicPortUpdateFlags::QUINN_CONFIG, true);
         }
+        if self.tls_ticketer != new.tls_ticketer {
+            flags.set(PlainQuicPortUpdateFlags::QUINN_CONFIG, true);
+        }
         if self.server != new.server {
             flags.set(PlainQuicPortUpdateFlags::NEXT_SERVER, true);
         }

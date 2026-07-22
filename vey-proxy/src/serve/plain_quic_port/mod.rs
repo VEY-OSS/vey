@@ -58,9 +58,7 @@ impl PlainQuicPort {
     {
         let reload_sender = ServerReloadCommand::new_sender();
 
-        let tls_server = config
-            .tls_server
-            .build_quic_with_ticketer(tls_rolling_ticketer.clone())?;
+        let quinn_config = Self::build_quinn_config(&config, tls_rolling_ticketer.clone())?;
 
         let ingress_net_filter = config
             .ingress_net_filter
@@ -68,7 +66,6 @@ impl PlainQuicPort {
             .map(|builder| Arc::new(builder.build()));
 
         let next_server = Arc::new(fetch_server(&config.server));
-        let quinn_config = quinn::ServerConfig::with_crypto(tls_server.driver);
 
         Ok(PlainQuicPort {
             name: config.name().clone(),
@@ -82,6 +79,16 @@ impl PlainQuicPort {
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version,
         })
+    }
+
+    fn build_quinn_config(
+        config: &PlainQuicPortConfig,
+        tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<quinn::ServerConfig> {
+        let tls_server = config
+            .tls_server
+            .build_quic_with_ticketer(tls_rolling_ticketer.clone())?;
+        Ok(quinn::ServerConfig::with_crypto(tls_server.driver))
     }
 
     pub(crate) fn prepare_initial(
@@ -175,8 +182,8 @@ impl ServerInternal for PlainQuicPort {
         }
 
         if flags.contains(PlainQuicPortUpdateFlags::QUINN_CONFIG) {
-            let quic_config = config.tls_server.build_quic()?;
-            let quinn_config = quinn::ServerConfig::with_crypto(quic_config.driver);
+            let quinn_config =
+                Self::build_quinn_config(&config, self.tls_rolling_ticketer.clone())?;
             self.update_runtime_in_place(ListenQuicInPlaceConfig::QuinnConfig(quinn_config))?;
         }
 
