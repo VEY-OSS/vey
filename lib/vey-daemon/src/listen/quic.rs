@@ -13,6 +13,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use log::{info, warn};
 use quinn::{Connection, Endpoint, EndpointConfig, Incoming, ServerConfig};
+use quinn_proto::HashedConnectionIdGenerator;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
@@ -23,7 +24,7 @@ use vey_std_ext::net::SocketAddrExt;
 use vey_types::acl::{AclAction, AclNetworkRule};
 #[cfg(feature = "ebpf")]
 use vey_types::net::QuinnReuseportIdGenerator;
-use vey_types::net::UdpListenConfig;
+use vey_types::net::{QuinnEndpointConfig, UdpListenConfig};
 
 use crate::listen::{ListenAliveGuard, ListenStats};
 use crate::server::{BaseServer, ClientConnectionInfo, ReloadServer, ServerReloadCommand};
@@ -36,7 +37,7 @@ pub trait AcceptQuicServer: BaseServer {
 #[derive(Clone)]
 pub enum ListenQuicInPlaceConfig {
     ListenConfig(UdpListenConfig),
-    QuinnConfig(quinn::ServerConfig),
+    QuinnConfig(ServerConfig),
     IngressAcl(Option<Arc<AclNetworkRule>>),
     AcceptTimeout(Duration),
 }
@@ -45,7 +46,7 @@ pub struct ListenQuicRuntime<S> {
     server: S,
     listen_config: UdpListenConfig,
     listen_stats: Arc<ListenStats>,
-    payload_max_size: Option<u16>,
+    endpoint_config: QuinnEndpointConfig,
     #[cfg(feature = "ebpf")]
     socket_selector: Option<QuicSocketSelector>,
 }
@@ -58,13 +59,13 @@ where
         server: S,
         listen_stats: Arc<ListenStats>,
         listen_config: UdpListenConfig,
-        payload_max_size: Option<u16>,
+        endpoint_config: QuinnEndpointConfig,
     ) -> Self {
         ListenQuicRuntime {
             server,
             listen_config,
             listen_stats,
-            payload_max_size,
+            endpoint_config,
             #[cfg(feature = "ebpf")]
             socket_selector: None,
         }
@@ -119,22 +120,43 @@ where
             let listen_addr = socket.local_addr()?;
 
             let mut endpoint_config = EndpointConfig::default();
-            if let Some(payload_max_size) = self.payload_max_size
-                && let Err(e) = endpoint_config.max_udp_payload_size(payload_max_size)
+            if let Some(payload_size) = self.endpoint_config.udp_payload_size()
+                && let Err(e) = endpoint_config.max_udp_payload_size(payload_size)
             {
-                warn!("ignored UDP payload size {payload_max_size}: {e}");
+                warn!("ignored UDP payload size {payload_size}: {e}");
             }
 
             #[cfg(feature = "ebpf")]
             let guard = if let Some(selector) = &mut self.socket_selector {
                 let guard = selector.add_socket(RawSocket::from(&socket))?;
-                let cid_generator = QuinnReuseportIdGenerator::new(guard.cookie());
-                // TODO set cid lifetime
-                endpoint_config.cid_generator(move || Box::new(cid_generator));
+                let cookie = guard.cookie();
+                let lifetime = self.endpoint_config.connection_id_lifetime();
+                endpoint_config.cid_generator(move || {
+                    let mut cid_generator = QuinnReuseportIdGenerator::new(cookie);
+                    if let Some(lifetime) = lifetime {
+                        cid_generator.set_lifetime(lifetime);
+                    }
+                    Box::new(cid_generator)
+                });
                 Some(guard)
             } else {
+                if let Some(lifetime) = self.endpoint_config.connection_id_lifetime() {
+                    endpoint_config.cid_generator(move || {
+                        let mut cid_generator = HashedConnectionIdGenerator::new();
+                        cid_generator.set_lifetime(lifetime);
+                        Box::new(cid_generator)
+                    });
+                }
                 None
             };
+            #[cfg(not(feature = "ebpf"))]
+            if let Some(lifetime) = self.endpoint_config.connection_id_lifetime() {
+                endpoint_config.cid_generator(move || {
+                    let mut cid_generator = HashedConnectionIdGenerator::new();
+                    cid_generator.set_lifetime(lifetime);
+                    Box::new(cid_generator)
+                });
+            }
 
             let runtime = ListenQuicRuntimeInstance {
                 server: self.server.clone(),

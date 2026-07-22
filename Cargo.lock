@@ -2753,6 +2753,7 @@ dependencies = [
  "log",
  "lru",
  "quinn",
+ "quinn-proto",
  "rand",
  "rustc-hash",
  "rustix",

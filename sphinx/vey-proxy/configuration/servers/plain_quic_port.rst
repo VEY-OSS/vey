@@ -25,21 +25,19 @@ UDP listening configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
-quic_server
------------
+tls_server
+----------
 
 **required**, **type**: :external+values:ref:`rustls server config <conf_value_rustls_server_config>`
 
-Cryptographic configuration for this QUIC server.
+TLS cryptographic configuration for this QUIC server.
 
-udp_payload_max_size
---------------------
+quic_endpoint
+-------------
 
-**optional**, **type**: u16
+**optional**, **type**: :external+values:ref:`quinn endpoint <conf_value_quinn_endpoint>`
 
-Set the max UDP payload size. The value should be in inclusive range 1200..65527.
-
-**default**: not set, which should be 1472 in underlying quic implementation.
+Set the quinn endpoint config.
 
 .. versionadded:: 1.13.9
 

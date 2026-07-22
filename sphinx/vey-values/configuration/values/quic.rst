@@ -12,6 +12,40 @@ QUIC
    - ``vey-keyless``: not currently used
    - ``vey-statsd``: not currently used
 
+.. _conf_value_quinn_endpoint:
+
+Quinn Endpoint
+==============
+
+**yaml value**: map
+
+Endpoint configuration used with Quinn. This can't be updated in place without creating new quic listen instances.
+
+The loader requires a map. An empty map is valid and still inherits Quinn's
+builder defaults.
+
+The map support the following fields:
+
+* udp_payload_size
+
+  **optional**, **type**: u16
+
+  Set the UDP max payload size.
+
+  **default**: not set, **min**: 1200, **max**: 65527
+
+* connection_id_lifetime
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the lifetime for generated connection ID.
+
+  **default**: not set
+
+.. availability::
+
+   - ``vey-proxy``: available since ``1.13.9``
+
 .. _conf_value_quinn_transport:
 
 Quinn Transport
@@ -88,6 +122,5 @@ Example:
      send_window: 8MiB
 
 .. availability::
-
 
    - ``vey-proxy``: available since ``1.9.9``

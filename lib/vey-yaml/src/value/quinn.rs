@@ -6,7 +6,32 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use vey_types::net::QuinnTransportConfigBuilder;
+use vey_types::net::{QuinnEndpointConfig, QuinnTransportConfigBuilder};
+
+pub fn as_quinn_endpoint_config(value: &Yaml) -> anyhow::Result<QuinnEndpointConfig> {
+    let Yaml::Hash(map) = value else {
+        return Err(anyhow!(
+            "yaml value type for quinn endpoint config should be 'map'"
+        ));
+    };
+
+    let mut config = QuinnEndpointConfig::default();
+    crate::hash::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+        "udp_payload_size" => {
+            let payload_size = crate::value::as_u16(v)?;
+            config.set_udp_payload_size(payload_size);
+            Ok(())
+        }
+        "connection_id_lifetime" => {
+            let lifetime = crate::humanize::as_duration(v)
+                .context(format!("invalid humanize duration value for key {k}"))?;
+            config.set_connection_id_lifetime(lifetime);
+            Ok(())
+        }
+        _ => Err(anyhow!("invalid key {k}")),
+    })?;
+    Ok(config)
+}
 
 pub fn as_quinn_transport_config(value: &Yaml) -> anyhow::Result<QuinnTransportConfigBuilder> {
     let Yaml::Hash(map) = value else {

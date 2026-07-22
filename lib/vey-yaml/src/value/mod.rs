@@ -76,7 +76,7 @@ pub use self::openssl::{
 #[cfg(feature = "quinn")]
 mod quinn;
 #[cfg(feature = "quinn")]
-pub use quinn::as_quinn_transport_config;
+pub use quinn::{as_quinn_endpoint_config, as_quinn_transport_config};
 
 #[cfg(all(
     any(

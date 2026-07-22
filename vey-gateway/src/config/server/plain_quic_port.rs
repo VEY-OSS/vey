@@ -13,7 +13,7 @@ use yaml_rust::{Yaml, yaml};
 use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::NodeName;
-use vey_types::net::{RustlsServerConfigBuilder, UdpListenConfig};
+use vey_types::net::{QuinnEndpointConfig, RustlsServerConfigBuilder, UdpListenConfig};
 use vey_yaml::YamlDocPosition;
 
 use super::ServerConfig;
@@ -39,6 +39,7 @@ pub(crate) struct PlainQuicPortConfig {
     pub(crate) listen_in_worker: bool,
     pub(crate) tls_server: RustlsServerConfigBuilder,
     pub(crate) tls_ticketer: Option<TlsTicketConfig>,
+    pub(crate) quic_endpoint: QuinnEndpointConfig,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) server: NodeName,
     pub(crate) udp_payload_max_size: Option<u16>,
@@ -53,6 +54,7 @@ impl PlainQuicPortConfig {
             listen_in_worker: false,
             tls_server: RustlsServerConfigBuilder::empty(),
             tls_ticketer: None,
+            quic_endpoint: QuinnEndpointConfig::default(),
             ingress_net_filter: None,
             server: NodeName::default(),
             udp_payload_max_size: None,
@@ -87,12 +89,7 @@ impl PlainQuicPortConfig {
                 self.listen_in_worker = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
-            "udp_payload_max_size" => {
-                let size = vey_yaml::value::as_u16(v)?;
-                self.udp_payload_max_size = Some(size);
-                Ok(())
-            }
-            "quic_server" => {
+            "tls_server" | "quic_server" => {
                 let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.tls_server =
                     vey_yaml::value::as_rustls_server_config_builder(v, Some(lookup_dir))?;
@@ -103,6 +100,11 @@ impl PlainQuicPortConfig {
                 let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
                     .context(format!("invalid tls ticket config value for key {k}"))?;
                 self.tls_ticketer = Some(ticketer);
+                Ok(())
+            }
+            "quic_endpoint" => {
+                self.quic_endpoint = vey_yaml::value::as_quinn_endpoint_config(v)
+                    .context(format!("invalid quinn endpoint config for key {k}"))?;
                 Ok(())
             }
             "ingress_network_filter" | "ingress_net_filter" => {
@@ -157,10 +159,10 @@ impl ServerConfig for PlainQuicPortConfig {
             return ServerConfigDiffAction::NoAction;
         }
 
-        if self.listen_in_worker != new.listen_in_worker {
-            return ServerConfigDiffAction::ReloadAndRespawn;
-        }
-        if self.listen.need_respawn(&new.listen) {
+        if self.listen_in_worker != new.listen_in_worker
+            || self.listen.need_respawn(&new.listen)
+            || self.quic_endpoint != new.quic_endpoint
+        {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 

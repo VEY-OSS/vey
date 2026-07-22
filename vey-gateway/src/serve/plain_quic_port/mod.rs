@@ -55,7 +55,7 @@ impl PlainQuicPort {
     {
         let reload_sender = ServerReloadCommand::new_sender();
 
-        let quic_server = config
+        let tls_server = config
             .tls_server
             .build_quic_with_ticketer(tls_rolling_ticketer.clone())?;
 
@@ -65,12 +65,13 @@ impl PlainQuicPort {
             .map(|builder| Arc::new(builder.build()));
 
         let next_server = Arc::new(fetch_server(&config.server));
+        let quinn_config = quinn::ServerConfig::with_crypto(tls_server.driver);
 
         Ok(PlainQuicPort {
             name: config.name().clone(),
             config: ArcSwap::new(config),
             tls_rolling_ticketer,
-            quinn_config: quinn::ServerConfig::with_crypto(quic_server.driver),
+            quinn_config,
             listen_stats,
             ingress_net_filter,
             reload_sender,
@@ -242,7 +243,7 @@ impl ServerInternal for PlainQuicPort {
             WrapArcServer(server),
             listen_stats,
             config.listen.clone(),
-            config.udp_payload_max_size,
+            config.quic_endpoint,
         );
         runtime.run_all_instances(
             config.listen_in_worker,
