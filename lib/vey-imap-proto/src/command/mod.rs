@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2024-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::fmt;
@@ -176,7 +177,7 @@ impl Command {
                 b"DELETE" => ParsedCommand::Delete,
                 b"RENAME" => ParsedCommand::Rename,
                 b"SUBSCRIBE" => ParsedCommand::Subscribe,
-                b"UBSUBSCRIBE" => ParsedCommand::Unsubscribe,
+                b"UNSUBSCRIBE" => ParsedCommand::Unsubscribe,
                 b"LIST" => ParsedCommand::List,
                 b"LSUB" => ParsedCommand::Lsub,
                 b"STATUS" => ParsedCommand::Status,
