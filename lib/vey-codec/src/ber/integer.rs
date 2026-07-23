@@ -60,17 +60,15 @@ impl BerInteger {
 
         let offset = 1 + length.encoded_len();
         let left = &data[offset..];
+        if left.is_empty() {
+            return Err(BerIntegerParseError::NeedMoreData(1));
+        }
         let value0 = left[0] & 0x7F;
         let mut integer = match length.value() {
-            1 => {
-                if left.is_empty() {
-                    return Err(BerIntegerParseError::NeedMoreData(1));
-                }
-                BerInteger {
-                    value: i64::from(value0),
-                    encoded_len: offset + 1,
-                }
-            }
+            1 => BerInteger {
+                value: i64::from(value0),
+                encoded_len: offset + 1,
+            },
             2 => {
                 if left.len() < 2 {
                     return Err(BerIntegerParseError::NeedMoreData(2 - left.len()));
