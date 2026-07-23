@@ -8,6 +8,7 @@ v1.13.9:
  - BUG FIX: fix continent rules match in route_geoip escaper
  - BUG FIX: fix parsing of IMAP command UNSUBSCRIBE
  - BUG FIX: fix parsing of malformed BER integer in LDAP response
+ - BUG FIX: correctly handle download of 0 size FTP file
  - BUG FIX: limit size strictly when download FTP files
 
 v1.13.8:
