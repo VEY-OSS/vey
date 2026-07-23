@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::sync::Arc;
@@ -69,7 +70,7 @@ impl RateLimiter<Arc<GlobalRateLimitState>> {
 
     pub fn reload(&self, quota: RateLimitQuota) -> Self {
         let replenish_nanos = quota.replenish_nanos.get();
-        let max_burst_nanos = (quota.max_burst.get() as u64).saturating_mul(replenish_nanos);
+        let max_burst_nanos = (quota.max_burst.get() as u64 - 1).saturating_mul(replenish_nanos);
         RateLimiter {
             start: self.start,
             replenish_nanos,
