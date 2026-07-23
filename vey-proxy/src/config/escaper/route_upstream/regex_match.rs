@@ -80,9 +80,9 @@ impl RegexMatchBuilder {
     pub(crate) fn build<T: Clone>(
         &self,
         value_table: &BTreeMap<NodeName, T>,
-    ) -> Option<RegexMatch<T>> {
+    ) -> anyhow::Result<Option<RegexMatch<T>>> {
         if self.inner.is_empty() {
-            return None;
+            return Ok(None);
         }
 
         let mut suffix_match_map: BTreeMap<DomainName, Vec<(RegexSet, T)>> = BTreeMap::new();
@@ -105,12 +105,11 @@ impl RegexMatchBuilder {
             }
 
             let Some(value) = value_table.get(escaper) else {
-                unreachable!()
+                return Err(anyhow!("no regex match value found for escaper {escaper}"));
             };
             for (suffix_domain, regexes) in suffix_regex_map {
-                let Ok(regex_set) = RegexSet::new(regexes) else {
-                    unreachable!()
-                };
+                let regex_set = RegexSet::new(regexes)
+                    .map_err(|e| anyhow!("failed to build regex for escaper {escaper}: {e}"))?;
                 suffix_match_map
                     .entry(suffix_domain)
                     .or_default()
@@ -127,12 +126,12 @@ impl RegexMatchBuilder {
             suffix_match_trie.insert(reversed_k, (suffix_domain, value));
         }
         if suffix_match_trie.is_empty() {
-            None
+            Ok(None)
         } else {
-            Some(RegexMatch {
+            Ok(Some(RegexMatch {
                 suffix_match: suffix_match_trie,
                 full_match: full_match_vec,
-            })
+            }))
         }
     }
 }
@@ -245,7 +244,7 @@ mod tests {
         let mut value_map = BTreeMap::new();
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_1") }, "escaper_1");
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
-        let regex_match = builder.build(&value_map).unwrap();
+        let regex_match = builder.build(&value_map).unwrap().unwrap();
 
         assert!(
             regex_match
@@ -295,7 +294,7 @@ mod tests {
         let mut value_map = BTreeMap::new();
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_1") }, "escaper_1");
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
-        let regex_match = builder.build(&value_map).unwrap();
+        let regex_match = builder.build(&value_map).unwrap().unwrap();
 
         assert!(
             regex_match
