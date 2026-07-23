@@ -1,5 +1,6 @@
 
 v0.2.0:
+ - BUG FIX: fix diff value when aggregate in exporter
  - Compatibility: bump MSRV to 1.90.0
 
 v0.1.1:
