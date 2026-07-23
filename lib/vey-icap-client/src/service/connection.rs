@@ -117,7 +117,17 @@ impl IcapConnector {
             &Default::default(),
             true,
         )?;
-        let stream = socket.connect(peer).await?;
+
+        let stream =
+            match tokio::time::timeout(self.config.tcp_connect_timeout, socket.connect(peer)).await
+            {
+                Ok(Ok(s)) => Ok(s),
+                Ok(Err(e)) => Err(e),
+                Err(_) => Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "tcp connection with ICAP server timed out",
+                )),
+            }?;
 
         if let Some(client) = &self.tls_client {
             let tls_connector = TlsConnector::from(client.driver.clone());

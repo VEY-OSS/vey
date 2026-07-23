@@ -48,7 +48,9 @@ impl IcapServicePool {
         connector: Arc<IcapConnector>,
     ) -> Self {
         let options = Arc::new(IcapServiceOptions::new_expired(config.method));
-        let check_interval = tokio::time::interval(config.connection_pool.check_interval());
+        let mut check_interval = tokio::time::interval(config.connection_pool.check_interval());
+        check_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
         let (pool_cmd_sender, pool_cmd_receiver) = mpsc::channel(POOL_CMD_CHANNEL_SIZE);
         let (conn_req_sender, conn_req_receiver) =
             kanal::bounded_async(config.connection_pool.max_idle_count());
