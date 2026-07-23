@@ -200,19 +200,7 @@ impl HttpConnectUdpRecvBuffer {
 
     fn parse_header(&mut self) -> Result<(), HttpConnectUdpRecvError> {
         let left_data = &self.buffer[self.parse_start..self.read_start];
-
-        // Context ID
         let mut offset = 0;
-        match VarInt::parse(left_data) {
-            Some(data) => {
-                let context_id = data.value();
-                if context_id != 0 {
-                    return Err(HttpConnectUdpRecvError::InvalidContextId(context_id));
-                }
-                offset += data.encoded_len();
-            }
-            None => return Ok(()),
-        }
 
         // Capsule Type
         match VarInt::parse(&left_data[offset..]) {
@@ -227,19 +215,39 @@ impl HttpConnectUdpRecvBuffer {
         }
 
         // Capsule Length
-        if let Some(data) = VarInt::parse(&left_data[offset..]) {
-            let capsule_length = data.value();
-            if capsule_length > self.max_packet_size as u64 {
-                return Err(HttpConnectUdpRecvError::InvalidPacketSize(capsule_length));
+        let capsule_len = match VarInt::parse(&left_data[offset..]) {
+            Some(data) => {
+                let capsule_length = data.value();
+                offset += data.encoded_len();
+                capsule_length
             }
-            let datagram_len = capsule_length as usize;
-            offset += data.encoded_len();
-            let datagram = Datagram {
+            None => return Ok(()),
+        };
+
+        // Context ID
+        if let Some(data) = VarInt::parse(&left_data[offset..]) {
+            let context_id = data.value();
+            if context_id != 0 {
+                return Err(HttpConnectUdpRecvError::InvalidContextId(context_id));
+            }
+            let context_id_len = data.encoded_len();
+            if context_id_len > capsule_len as usize {
+                return Err(HttpConnectUdpRecvError::InvalidPacketSize(capsule_len));
+            }
+            let datagram_len = capsule_len as usize - context_id_len;
+            if datagram_len > self.max_packet_size {
+                return Err(HttpConnectUdpRecvError::InvalidPacketSize(
+                    datagram_len as u64,
+                ));
+            }
+
+            offset += context_id_len;
+
+            self.datagram = Some(Datagram {
                 length: datagram_len,
                 start: self.parse_start + offset,
                 left: datagram_len,
-            };
-            self.datagram = Some(datagram);
+            });
         }
 
         Ok(())
@@ -257,9 +265,9 @@ mod tests {
     fn capsule(payload: &[u8]) -> Vec<u8> {
         let mut encoder = VarIntEncoder::default();
         let mut buf = Vec::with_capacity(payload.len() + 6);
-        buf.push(0); // Context ID
         buf.push(0); // Capsule Type: Datagram
-        buf.extend_from_slice(encoder.encode_u16(payload.len() as u16));
+        buf.extend_from_slice(encoder.encode_u16(payload.len() as u16 + 1));
+        buf.push(0); // Context ID
         buf.extend_from_slice(payload);
         buf
     }
@@ -361,7 +369,7 @@ mod tests {
 
     #[tokio::test]
     async fn reject_non_zero_context_id() {
-        let data = [1, 0, 0];
+        let data = [0, 1, 1]; // Capsule Type: 0 (Datagram), Capsule Length: 1, Context ID: 1
         let mut reader = MockIoBuilder::new().read(&data).build();
         let mut buffer = HttpConnectUdpRecvBuffer::new(8, 128);
 
@@ -371,7 +379,7 @@ mod tests {
 
     #[tokio::test]
     async fn reject_non_datagram_capsule_type() {
-        let data = [0, 1, 0];
+        let data = [1, 0]; // Capsule Type: 1 (non-datagram), Capsule Length: 0
         let mut reader = MockIoBuilder::new().read(&data).build();
         let mut buffer = HttpConnectUdpRecvBuffer::new(8, 128);
 

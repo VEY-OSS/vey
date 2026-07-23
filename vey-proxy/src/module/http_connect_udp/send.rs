@@ -34,10 +34,10 @@ impl HttpConnectUdpSendBuffer {
             return;
         }
         self.buffer.reserve(packet.len() + 2 + 4);
-        self.buffer.push(0); // Context ID
         self.buffer.push(0); // Capsule Type: Datagram
         self.buffer
-            .extend_from_slice(self.len_encoder.encode_u16(packet.len() as u16));
+            .extend_from_slice(self.len_encoder.encode_u16(packet.len() as u16 + 1));
+        self.buffer.push(0); // Context ID
         self.buffer.extend_from_slice(packet);
     }
 
@@ -89,5 +89,32 @@ impl HttpConnectUdpSendBuffer {
             )?;
             self.write_offset += nw;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_send_buffer_format() {
+        let mut send_buf = HttpConnectUdpSendBuffer::new(128);
+        let payload = b"hello";
+        send_buf.push_packet(payload);
+
+        // Expected format:
+        // Capsule Type: 0 (1 byte)
+        // Capsule Length: payload.len() + 1 = 6 (1 byte VarInt)
+        // Context ID: 0 (1 byte)
+        // Payload: "hello" (5 bytes)
+        let expected = vec![0, 6, 0, b'h', b'e', b'l', b'l', b'o'];
+        assert_eq!(send_buf.buffer, expected);
+    }
+
+    #[test]
+    fn test_send_buffer_oversized_packet_dropped() {
+        let mut send_buf = HttpConnectUdpSendBuffer::new(4);
+        send_buf.push_packet(b"oversized");
+        assert!(send_buf.buffer.is_empty());
     }
 }

@@ -5,6 +5,7 @@ Release notes for `vey-proxy`, ordered from newest to oldest.
 v1.13.9:
  - BUG FIX: fix deadlock in hickory resolver when response contains only CNAME record
  - BUG FIX: fix udp packet copy when uses socks_proxy server
+ - BUG FIX: fix the encoding of CONNECT-UDP CAPSULE data format
  - BUG FIX: fix continent rules match in route_geoip escaper
  - BUG FIX: fix parsing of IMAP command UNSUBSCRIBE
  - BUG FIX: fix parsing of malformed BER integer in LDAP response
