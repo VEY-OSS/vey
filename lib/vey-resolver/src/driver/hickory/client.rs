@@ -103,7 +103,7 @@ impl HickoryClient {
                     };
                     let async_client = self.client.clone();
                     tokio::spawn(async move {
-                        let r = client_job.run(async_client, req).await;
+                        let r = client_job.run(async_client, req, None).await;
                         let _ = rsp_sender.send(r).await;
                     });
                 }
@@ -142,16 +142,20 @@ impl HickoryClientJob {
         mut self,
         mut async_client: Client<TokioRuntimeProvider>,
         req: DnsRequest,
+        query_name: Option<Name>,
     ) -> ResolvedRecord {
-        let mut name = match Name::from_ascii(req.domain.as_fqdn_str()) {
-            Ok(name) => name,
-            Err(e) => {
-                return ResolvedRecord::failed(
-                    req.domain,
-                    self.config.negative_ttl,
-                    ResolveDriverErrorReason::Owned(e.to_string()).into(),
-                );
-            }
+        let mut name = match query_name {
+            Some(name) => name,
+            None => match Name::from_ascii(req.domain.as_fqdn_str()) {
+                Ok(name) => name,
+                Err(e) => {
+                    return ResolvedRecord::failed(
+                        req.domain,
+                        self.config.negative_ttl,
+                        ResolveDriverErrorReason::Owned(e.to_string()).into(),
+                    );
+                }
+            },
         };
         // always use FQDN format such like "www.example.com."
         name.set_fqdn(true);
@@ -170,7 +174,7 @@ impl HickoryClientJob {
                 if msg.truncation && self.try_truncated {
                     self.try_truncated = false;
                     if let Ok(client) = self.config.new_dns_over_tcp_client().await {
-                        return self.run(client, req).await;
+                        return self.run(client, req, Some(name)).await;
                     }
                 }
 
@@ -196,7 +200,7 @@ impl HickoryClientJob {
                 if ips.is_empty() {
                     if has_cname {
                         self.try_truncated = true;
-                        self.run(async_client, req).await
+                        self.run(async_client, req, Some(name)).await
                     } else {
                         ResolvedRecord::empty(req.domain, self.config.negative_ttl)
                     }
@@ -244,7 +248,7 @@ impl HickoryClientJob {
                 if self.try_failed > 0
                     && let Ok(client) = self.config.build_async_client().await
                 {
-                    return self.run(client, req).await;
+                    return self.run(client, req, Some(name)).await;
                 }
                 ResolvedRecord::failed(
                     req.domain,
@@ -258,7 +262,7 @@ impl HickoryClientJob {
                 if self.try_failed > 0
                     && let Ok(client) = self.config.build_async_client().await
                 {
-                    return self.run(client, req).await;
+                    return self.run(client, req, Some(name)).await;
                 }
                 ResolvedRecord::failed(
                     req.domain,
