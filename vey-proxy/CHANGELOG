@@ -4,6 +4,7 @@ Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.13.9:
  - BUG FIX: fix deadlock in hickory resolver when response contains only CNAME record
+ - BUG FIX: fix udp packet copy when uses socks_proxy server
  - BUG FIX: fix continent rules match in route_geoip escaper
  - BUG FIX: limit size strictly when download FTP files
 

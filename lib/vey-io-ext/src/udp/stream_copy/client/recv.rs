@@ -56,7 +56,7 @@ pub trait UdpCopyClientRecv {
         for packet in packets.iter_mut() {
             match self.poll_recv_buf(cx, packet.buf_mut()) {
                 Poll::Ready(Ok((off, len))) => {
-                    packet.set_length(off);
+                    packet.set_offset(off);
                     packet.set_length(len);
                     if len <= off {
                         break;
