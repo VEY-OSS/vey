@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::io;
@@ -314,6 +315,7 @@ where
         ready!(this.inner.poll_read(cx, &mut limited_buf))?;
         let nr = limited_buf.filled().len();
         buf.advance(nr);
+        *this.cur_size += nr as u64;
         Poll::Ready(Ok(()))
     }
 }
