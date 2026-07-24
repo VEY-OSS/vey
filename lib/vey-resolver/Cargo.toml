@@ -25,7 +25,7 @@ rustls-pki-types = { workspace = true, optional = true }
 kanal = { workspace = true, optional = true, features = ["async"] }
 async-recursion = { workspace = true, optional = true }
 yaml-rust = { workspace = true, optional = true }
-vey-types = { workspace = true, optional = true }
+vey-types.workspace = true
 vey-socket = { workspace = true, optional = true }
 vey-hickory-client = { workspace = true, optional = true }
 vey-yaml = { workspace = true, optional = true }
@@ -36,4 +36,4 @@ yaml = ["dep:yaml-rust", "dep:vey-yaml"]
 c-ares = ["dep:c-ares", "dep:c-ares-resolver", "dep:c-ares-sys"]
 vendored-c-ares = ["c-ares", "c-ares-resolver/vendored", "c-ares/vendored"]
 hickory = ["dep:hickory-net", "dep:hickory-proto", "dep:kanal", "dep:rustls", "dep:rustls-pki-types", "dep:async-recursion", "dep:vey-hickory-client", "vey-types/rustls", "dep:vey-socket", "vey-yaml?/rustls"]
-quic = ["vey-types?/quic", "vey-hickory-client?/quic"]
+quic = ["vey-types/quic", "vey-hickory-client?/quic"]

@@ -5,10 +5,14 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
+#[cfg(feature = "yaml")]
 use std::str::FromStr;
 use std::time::Duration;
 
-use anyhow::{Context, anyhow};
+#[cfg(feature = "yaml")]
+use anyhow::Context;
+use anyhow::anyhow;
+#[cfg(feature = "yaml")]
 use yaml_rust::Yaml;
 
 use vey_socket::BindAddr;
@@ -71,6 +75,7 @@ impl HickoryDriverConfig {
         Ok(())
     }
 
+    #[cfg(feature = "yaml")]
     fn parse_server_str(&mut self, addrs: &str) -> anyhow::Result<()> {
         let addrs = addrs.split_whitespace();
         for (i, addr) in addrs.enumerate() {
@@ -80,6 +85,7 @@ impl HickoryDriverConfig {
         Ok(())
     }
 
+    #[cfg(feature = "yaml")]
     fn parse_server_array(&mut self, addrs: &[Yaml]) -> anyhow::Result<()> {
         for (i, addr) in addrs.iter().enumerate() {
             if let Yaml::String(addr) = addr {
@@ -92,6 +98,7 @@ impl HickoryDriverConfig {
         Ok(())
     }
 
+    #[cfg(feature = "yaml")]
     fn add_server_str(&mut self, addr: &str) -> anyhow::Result<()> {
         let ip = IpAddr::from_str(addr)?;
         self.servers.push(ip);
