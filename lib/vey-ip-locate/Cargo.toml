@@ -20,6 +20,9 @@ vey-msgpack = { workspace = true, features = ["geoip"] }
 vey-socket.workspace = true
 vey-yaml = { workspace = true, optional = true }
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "time", "sync"] }
+
 [features]
 default = []
 yaml = ["dep:vey-yaml", "dep:yaml-rust"]
