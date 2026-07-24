@@ -71,16 +71,15 @@ impl IpLocationCacheRuntime {
                     location,
                 },
             );
-        } else if let Some(ip) = ip {
+        } else if let Some(ip) = ip
+            && let Some(vec) = self.doing.remove(&ip)
+            && let Some((_net, v)) = self.cache.longest_match(ip)
+        {
             // Always clear doing so a miss (no geo data) cannot pin the IP forever.
             // Prefer a stale cache entry when present; otherwise drop notifiers so
             // waiters observe Err and map to None.
-            if let Some(vec) = self.doing.remove(&ip) {
-                if let Some((_net, v)) = self.cache.longest_match(ip) {
-                    for req in vec.into_iter() {
-                        let _ = req.notifier.send(v.location.clone());
-                    }
-                }
+            for req in vec.into_iter() {
+                let _ = req.notifier.send(v.location.clone());
             }
         }
     }
@@ -165,9 +164,7 @@ mod tests {
 
         let ip = IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4));
         let (notifier, waiter) = oneshot::channel();
-        req_sender
-            .send(CacheQueryRequest { ip, notifier })
-            .unwrap();
+        req_sender.send(CacheQueryRequest { ip, notifier }).unwrap();
 
         let queried = tokio::time::timeout(Duration::from_secs(1), query_receiver.recv())
             .await
