@@ -32,11 +32,11 @@ impl MetricValue {
         }
     }
 
-    pub(crate) fn as_json_number(&self) -> Number {
+    pub(crate) fn as_json_number(&self) -> Option<Number> {
         match self {
-            MetricValue::Double(f) => Number::from_f64(*f).unwrap(),
-            MetricValue::Signed(i) => Number::from(*i),
-            MetricValue::Unsigned(u) => Number::from(*u),
+            MetricValue::Double(f) => Number::from_f64(*f),
+            MetricValue::Signed(i) => Some(Number::from(*i)),
+            MetricValue::Unsigned(u) => Some(Number::from(*u)),
         }
     }
 }

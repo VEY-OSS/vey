@@ -54,7 +54,8 @@ impl OpentsdbAggregateExport {
         time: &DateTime<Utc>,
         tags: &MetricTagMap,
         value: &MetricValue,
-    ) -> Value {
+    ) -> Option<Value> {
+        let value = value.as_json_number()?;
         let mut map = Map::with_capacity(4);
         let name = self
             .prefix
@@ -66,7 +67,7 @@ impl OpentsdbAggregateExport {
             "timestamp".into(),
             Value::Number(Number::from(time.timestamp())),
         );
-        map.insert("value".into(), Value::Number(value.as_json_number()));
+        map.insert("value".into(), Value::Number(value));
         let mut tag_map = Map::with_capacity(tags.len());
         for (name, value) in self.global_tags.iter() {
             tag_map.insert(name.into(), Value::String(value.into()));
@@ -75,7 +76,7 @@ impl OpentsdbAggregateExport {
             tag_map.insert(name.into(), Value::String(value.into()));
         }
         map.insert("tags".into(), Value::Object(tag_map));
-        Value::Object(map)
+        Some(Value::Object(map))
     }
 
     fn send_data_points(&mut self) {
@@ -103,8 +104,9 @@ impl AggregateExport for OpentsdbAggregateExport {
             if self.value_buf.len() >= self.max_data_points {
                 self.send_data_points();
             }
-            let data = self.build_data_point(name, &v.time, tag_map, &v.value);
-            self.value_buf.push(data);
+            if let Some(data) = self.build_data_point(name, &v.time, tag_map, &v.value) {
+                self.value_buf.push(data);
+            }
         }
         self.send_data_points();
     }
@@ -119,8 +121,9 @@ impl AggregateExport for OpentsdbAggregateExport {
             if self.value_buf.len() >= self.max_data_points {
                 self.send_data_points();
             }
-            let data = self.build_data_point(name, &v.time, tag_map, &v.sum);
-            self.value_buf.push(data);
+            if let Some(data) = self.build_data_point(name, &v.time, tag_map, &v.sum) {
+                self.value_buf.push(data);
+            }
         }
         self.send_data_points();
     }
