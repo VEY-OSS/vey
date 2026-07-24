@@ -3,6 +3,7 @@ CHANGELOG
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.13.9:
+ - BUG FIX: fix read of HTTP trailer ending empty line when "\r\n" received separately
  - BUG FIX: fix deadlock in hickory resolver when response contains only CNAME record
  - BUG FIX: fix the encoding of CONNECT-UDP CAPSULE data format
  - BUG FIX: fix idle check when receiving H2 data for preview
