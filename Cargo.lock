@@ -254,9 +254,9 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.22.1"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+checksum = "b25655df2c3cdd83c5e5b293b88acd880332b2ddadd7c30ac43144fdc0033da9"
 
 [[package]]
 name = "bindgen"
@@ -446,9 +446,9 @@ dependencies = [
 
 [[package]]
 name = "capnp-rpc"
-version = "0.26.1"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea82a287f0c2abac618a94f17ad93097fefc7368196f33f4635ed08236ee7bd9"
+checksum = "5add08e7584dae5e384a348c8521a8fb874bc69853613b0542288fdb250e4f8c"
 dependencies = [
  "capnp",
  "capnp-futures",
@@ -466,9 +466,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.3.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c89588d05638b5b4594a3348a2d6c20277e43a7f5c5202b05cc56888475a47b8"
+checksum = "5add81bb678e6cb321aff7fa0dc7689ad82b112dbc032cea19f91d6b8e3582b9"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -2072,9 +2072,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.15.0"
+version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "764899a24af3980067ee14bc143654f297b22eaebfe3c7b6b211920a5a59b046"
+checksum = "2f4925028c7eb5d1fcdaf196971378ed9d2c1c4efc7dc5d011256f76c99c0a96"
 dependencies = [
  "web-time",
  "zeroize",
@@ -3298,9 +3298,9 @@ dependencies = [
 
 [[package]]
 name = "vey-mimalloc-sys"
-version = "0.2.4+3.4.1"
+version = "0.2.5+3.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d620d33b78015165a9f456c4ceb38b130da7f5f677134f7a294bf26f0fe78c0"
+checksum = "3cca3e04ec8a0a5e48a31bcac62a1f318aaf06c9760b98aeb6c91af9748d0d97"
 dependencies = [
  "bindgen",
  "cmake",
