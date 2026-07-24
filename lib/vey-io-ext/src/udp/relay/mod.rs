@@ -364,6 +364,7 @@ impl UdpRelayBuffer {
                 let count = ready!(sender.poll_send_packets(cx, packets))?;
                 copy_this_round += count;
                 self.send_start += count;
+                self.total += count as u64;
                 self.active = true;
             }
             self.send_start = 0;
