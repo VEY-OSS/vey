@@ -1,6 +1,7 @@
 
 v0.9.8:
  - BUG FIX: fix some stats in h1 & h3 target
+ - BUG FIX: fix support of socks4 proxy
 
 v0.9.7:
  - Feature: allow to set more flexible rate limit value
