@@ -5,6 +5,7 @@
  */
 
 use std::rc::Rc;
+use std::str::FromStr;
 
 use vey_types::metrics::NodeName;
 
@@ -195,8 +196,10 @@ impl proc_control::Server for ProcControlImpl {
         mut results: proc_control::GetUserGroupResults,
     ) -> capnp::Result<()> {
         let user_group = params.get()?.get_name()?.to_str()?;
-        let ug = super::user_group::UserGroupControlImpl::new_client(user_group);
-        set_fetch_result::<user_group_control::Owned>(results.get().init_user_group(), Ok(ug))
+        set_fetch_result::<user_group_control::Owned>(
+            results.get().init_user_group(),
+            super::user_group::UserGroupControlImpl::new_client(user_group),
+        )
     }
 
     async fn get_resolver(
@@ -251,9 +254,17 @@ impl proc_control::Server for ProcControlImpl {
         mut results: proc_control::ForceQuitOfflineServerResults,
     ) -> capnp::Result<()> {
         let server = params.get()?.get_name()?.to_str()?;
-        let server = unsafe { NodeName::new_unchecked(server) };
-        crate::serve::force_quit_offline_server(&server);
-        results.get().init_result().set_ok("success");
+        match NodeName::from_str(server) {
+            Ok(server) => {
+                crate::serve::force_quit_offline_server(&server);
+                results.get().init_result().set_ok("success");
+            }
+            Err(e) => {
+                let mut ev = results.get().init_result().init_err();
+                ev.set_code(-1);
+                ev.set_reason(format!("invalid server {server}: {e}"));
+            }
+        }
         Ok(())
     }
 }

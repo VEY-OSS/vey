@@ -4,6 +4,8 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::str::FromStr;
+
 use anyhow::anyhow;
 
 use vey_types::metrics::NodeName;
@@ -23,7 +25,8 @@ macro_rules! impl_reload {
             name: String,
             position: Option<YamlDocPosition>,
         ) -> anyhow::Result<()> {
-            let name = unsafe { NodeName::new_unchecked(name) };
+            let name =
+                NodeName::from_str(&name).map_err(|e| anyhow!("invalid node name {name}: {e}"))?;
             vey_daemon::runtime::main_handle()
                 .ok_or(anyhow!("unable to get main runtime handle"))?
                 .spawn(async move { crate::$m::reload(&name, position).await })

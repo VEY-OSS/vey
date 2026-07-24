@@ -22,7 +22,8 @@ pub(super) struct ServerControlImpl {
 
 impl ServerControlImpl {
     pub(super) fn new_client(name: &str) -> anyhow::Result<server_control::Client> {
-        let name = unsafe { NodeName::new_unchecked(name) };
+        let name =
+            NodeName::from_str(name).map_err(|e| anyhow!("invalid server name {name}: {e}"))?;
         let server = crate::serve::get_server(&name)?;
         Ok(capnp_rpc::new_client(ServerControlImpl { server }))
     }

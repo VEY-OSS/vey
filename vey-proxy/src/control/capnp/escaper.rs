@@ -4,6 +4,9 @@
  */
 
 use std::rc::Rc;
+use std::str::FromStr;
+
+use anyhow::anyhow;
 
 use vey_types::metrics::NodeName;
 
@@ -18,7 +21,8 @@ pub(super) struct EscaperControlImpl {
 
 impl EscaperControlImpl {
     pub(super) fn new_client(name: &str) -> anyhow::Result<escaper_control::Client> {
-        let name = unsafe { NodeName::new_unchecked(name) };
+        let name =
+            NodeName::from_str(name).map_err(|e| anyhow!("invalid escaper name {name}: {e}"))?;
         let escaper = crate::escape::get_escaper(&name)?;
         Ok(capnp_rpc::new_client(EscaperControlImpl { escaper }))
     }

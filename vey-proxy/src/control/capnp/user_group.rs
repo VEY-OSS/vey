@@ -4,6 +4,9 @@
  */
 
 use std::rc::Rc;
+use std::str::FromStr;
+
+use anyhow::anyhow;
 
 use vey_types::metrics::NodeName;
 
@@ -17,10 +20,11 @@ pub(super) struct UserGroupControlImpl {
 }
 
 impl UserGroupControlImpl {
-    pub(super) fn new_client(name: &str) -> user_group_control::Client {
-        let name = unsafe { NodeName::new_unchecked(name) };
+    pub(super) fn new_client(name: &str) -> anyhow::Result<user_group_control::Client> {
+        let name =
+            NodeName::from_str(name).map_err(|e| anyhow!("invalid user group name {name}: {e}"))?;
         let user_group = crate::auth::get_or_insert_default(&name);
-        capnp_rpc::new_client(UserGroupControlImpl { user_group })
+        Ok(capnp_rpc::new_client(UserGroupControlImpl { user_group }))
     }
 }
 

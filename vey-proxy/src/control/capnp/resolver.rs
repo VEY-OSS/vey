@@ -8,10 +8,13 @@ use std::rc::Rc;
 use std::str::FromStr;
 use std::time::Duration;
 
-use vey_proxy_proto::resolver_capnp::{QueryStrategy, resolver_control};
+use anyhow::anyhow;
+
 use vey_types::metrics::NodeName;
 use vey_types::net::DomainName;
 use vey_types::resolve::{QueryStrategy as ResolveQueryStrategy, ResolveStrategy};
+
+use vey_proxy_proto::resolver_capnp::{QueryStrategy, resolver_control};
 
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 
@@ -21,7 +24,8 @@ pub(super) struct ResolverControlImpl {
 
 impl ResolverControlImpl {
     pub(super) fn new_client(name: &str) -> anyhow::Result<resolver_control::Client> {
-        let name = unsafe { NodeName::new_unchecked(name) };
+        let name =
+            NodeName::from_str(name).map_err(|e| anyhow!("invalid resolver name {name}: {e}"))?;
         let handler = crate::resolve::get_handle(&name)?;
         Ok(capnp_rpc::new_client(ResolverControlImpl {
             resolver_handler: handler,

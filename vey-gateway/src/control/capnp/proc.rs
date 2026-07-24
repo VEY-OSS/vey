@@ -5,6 +5,7 @@
  */
 
 use std::rc::Rc;
+use std::str::FromStr;
 
 use vey_types::metrics::NodeName;
 
@@ -119,9 +120,17 @@ impl proc_control::Server for ProcControlImpl {
         mut results: proc_control::ForceQuitOfflineServerResults,
     ) -> capnp::Result<()> {
         let server = params.get()?.get_name()?.to_str()?;
-        let server = unsafe { NodeName::new_unchecked(server) };
-        crate::serve::force_quit_offline_server(&server);
-        results.get().init_result().set_ok("success");
+        match NodeName::from_str(server) {
+            Ok(server) => {
+                crate::serve::force_quit_offline_server(&server);
+                results.get().init_result().set_ok("success");
+            }
+            Err(e) => {
+                let mut ev = results.get().init_result().init_err();
+                ev.set_code(-1);
+                ev.set_reason(format!("invalid server {server}: {e}"));
+            }
+        }
         Ok(())
     }
 

@@ -4,6 +4,9 @@
  */
 
 use std::rc::Rc;
+use std::str::FromStr;
+
+use anyhow::anyhow;
 
 use vey_types::metrics::NodeName;
 
@@ -17,7 +20,8 @@ pub(super) struct BackendControlImpl {
 
 impl BackendControlImpl {
     pub(super) fn new_client(name: &str) -> anyhow::Result<backend_control::Client> {
-        let name = unsafe { NodeName::new_unchecked(name) };
+        let name =
+            NodeName::from_str(name).map_err(|e| anyhow!("invalid backend name {name}: {e}"))?;
         let backend = crate::backend::get_backend(&name)?;
         Ok(capnp_rpc::new_client(BackendControlImpl { backend }))
     }
