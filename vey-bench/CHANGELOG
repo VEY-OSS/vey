@@ -1,4 +1,7 @@
 
+v0.9.8:
+ - BUG FIX: fix some stats in h1 & h3 target
+
 v0.9.7:
  - Feature: allow to set more flexible rate limit value
  - Feature: allow to set tcp max segment size

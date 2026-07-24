@@ -234,7 +234,15 @@ impl<W: AsyncWrite> AsyncWrite for LimitedWriter<W> {
                 .map_or(&[][..], |b| &**b);
             self.poll_write(cx, buf)
         } else {
-            self.project().inner.poll_write_vectored(cx, bufs)
+            let this = self.project();
+            match this.inner.poll_write_vectored(cx, bufs) {
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
+                Poll::Ready(Ok(nw)) => {
+                    this.state.stats.add_write_bytes(nw);
+                    Poll::Ready(Ok(nw))
+                }
+            }
         }
     }
 

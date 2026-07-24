@@ -144,6 +144,8 @@ impl HttpTaskContext {
         let ups_w = &mut connection.writer;
 
         if let Some(data) = self.args.common.payload() {
+            self.histogram_recorder
+                .record_send_hdr_time(time_started.elapsed());
             ups_w
                 .write_all_vectored([IoSlice::new(&self.req_header), IoSlice::new(data)])
                 .await
