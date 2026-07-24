@@ -181,9 +181,10 @@ mod tests {
         let key = Arc::new("key1".to_string());
         let fetch_handle = handle.clone();
         let key_clone = key.clone();
-        let fetch_task = tokio::spawn(async move {
-            fetch_handle.fetch(key_clone, Duration::from_secs(5)).await
-        });
+        let fetch_task =
+            tokio::spawn(
+                async move { fetch_handle.fetch(key_clone, Duration::from_secs(5)).await },
+            );
 
         // Query handle receives the request key via poll_recv_req
         let req_key = std::future::poll_fn(|cx| query_handle.poll_recv_req(cx))
