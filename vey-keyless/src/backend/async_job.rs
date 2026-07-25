@@ -44,8 +44,8 @@ impl AsyncJobBackend {
 
             tokio::spawn(async move {
                 match task.await {
+                    // Stats for crypto success/failure are recorded inside OpensslOperation.
                     OpensslAsyncOutput::Finished(Ok(r)) => {
-                        req_server_stats.add_passed();
                         let _ = rsp_sender.send(r).await;
                     }
                     OpensslAsyncOutput::Finished(Err(_)) => {
@@ -106,10 +106,8 @@ impl SyncOperation for OpensslOperation {
     type Output = WrappedKeylessResponse;
 
     fn run(&mut self) -> anyhow::Result<Self::Output> {
-        let rsp = match self.req.inner.process(&self.key) {
-            Ok(d) => KeylessResponse::Data(d),
-            Err(e) => KeylessResponse::Error(e),
-        };
+        // Same success/failure accounting as the synchronous path.
+        let rsp = self.req.process_by_openssl(&self.key);
         Ok(self.req.build_response(rsp))
     }
 }

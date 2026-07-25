@@ -237,8 +237,8 @@ impl KeylessTask {
         let msg_sender = msg_sender.clone();
         tokio::spawn(async move {
             match task.await {
+                // Stats for crypto success/failure are recorded inside OpensslOperation.
                 vey_openssl::async_job::OpensslAsyncOutput::Finished(Ok(r)) => {
-                    req_stats.add_passed();
                     let _ = msg_sender.send(r).await;
                 }
                 vey_openssl::async_job::OpensslAsyncOutput::Finished(Err(_)) => {
