@@ -5,6 +5,7 @@
  */
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::num::NonZeroUsize;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
@@ -20,7 +21,7 @@ mod yaml;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CertAgentConfig {
-    pub(crate) cache_request_batch_count: usize,
+    pub(crate) cache_request_batch_count: NonZeroUsize,
     pub(crate) cache_request_timeout: Duration,
     pub(crate) cache_vanish_wait: Duration,
     pub(crate) query_peer_addr: SocketAddr,
@@ -33,7 +34,7 @@ pub struct CertAgentConfig {
 impl Default for CertAgentConfig {
     fn default() -> Self {
         CertAgentConfig {
-            cache_request_batch_count: 10,
+            cache_request_batch_count: unsafe { NonZeroUsize::new_unchecked(10) },
             cache_request_timeout: Duration::from_secs(4),
             cache_vanish_wait: Duration::from_secs(300),
             query_peer_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2999),
@@ -46,7 +47,7 @@ impl Default for CertAgentConfig {
 }
 
 impl CertAgentConfig {
-    pub fn set_cache_request_batch_count(&mut self, count: usize) {
+    pub fn set_cache_request_batch_count(&mut self, count: NonZeroUsize) {
         self.cache_request_batch_count = count;
     }
 

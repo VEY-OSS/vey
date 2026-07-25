@@ -22,7 +22,7 @@ impl CertAgentConfig {
 
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "cache_request_batch_count" => {
-                        let count = vey_yaml::value::as_usize(v)?;
+                        let count = vey_yaml::value::as_nonzero_usize(v)?;
                         config.set_cache_request_batch_count(count);
                         Ok(())
                     }
@@ -111,7 +111,7 @@ mod tests {
             "#
         );
         let config = CertAgentConfig::parse_yaml(&yaml).unwrap();
-        assert_eq!(config.cache_request_batch_count, 20);
+        assert_eq!(config.cache_request_batch_count.get(), 20);
         assert_eq!(config.cache_request_timeout, Duration::from_secs(15));
         assert_eq!(config.cache_vanish_wait, Duration::from_secs(600));
         assert_eq!(config.query_peer_addr, "127.0.0.1:5353".parse().unwrap());
@@ -131,7 +131,7 @@ mod tests {
         );
 
         let config = CertAgentConfig::parse_yaml(&yaml).unwrap();
-        assert_eq!(config.cache_request_batch_count, 5);
+        assert_eq!(config.cache_request_batch_count.get(), 5);
         assert_eq!(
             config.query_peer_addr,
             "192.168.1.100:2999".parse().unwrap()
@@ -143,7 +143,7 @@ mod tests {
         let yaml = yaml_doc!("192.168.0.1:5353");
         let config = CertAgentConfig::parse_yaml(&yaml).unwrap();
         assert_eq!(config.query_peer_addr, "192.168.0.1:5353".parse().unwrap());
-        assert_eq!(config.cache_request_batch_count, 10); // Default
+        assert_eq!(config.cache_request_batch_count.get(), 10); // Default
     }
 
     #[test]

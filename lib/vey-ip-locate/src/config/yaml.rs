@@ -22,7 +22,7 @@ impl IpLocateServiceConfig {
 
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "cache_request_batch_count" => {
-                        let count = vey_yaml::value::as_usize(v)?;
+                        let count = vey_yaml::value::as_nonzero_usize(v)?;
                         config.set_cache_request_batch_count(count);
                         Ok(())
                     }
@@ -100,7 +100,7 @@ mod tests {
             "#
         );
         let config = IpLocateServiceConfig::parse_yaml(&yaml).unwrap();
-        assert_eq!(config.cache_request_batch_count, 20);
+        assert_eq!(config.cache_request_batch_count.get(), 20);
         assert_eq!(
             config.cache_request_timeout,
             std::time::Duration::from_secs(5)

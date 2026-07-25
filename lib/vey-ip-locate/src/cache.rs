@@ -6,6 +6,7 @@
 use std::collections::hash_map;
 use std::io;
 use std::net::IpAddr;
+use std::num::NonZeroUsize;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -25,7 +26,7 @@ struct CacheValue {
 }
 
 pub(crate) struct IpLocationCacheRuntime {
-    request_batch_handle_count: usize,
+    request_batch_handle_count: NonZeroUsize,
     cache: IpNetworkTable<CacheValue>,
     doing: FxHashMap<IpAddr, Vec<CacheQueryRequest>>,
     req_receiver: mpsc::UnboundedReceiver<CacheQueryRequest>,
@@ -123,7 +124,7 @@ impl IpLocationCacheRuntime {
             }
 
             // handle req
-            for _ in 0..self.request_batch_handle_count {
+            for _ in 0..self.request_batch_handle_count.get() {
                 match self.req_receiver.poll_recv(cx) {
                     Poll::Pending => return Poll::Pending,
                     Poll::Ready(None) => return Poll::Ready(Ok(())),
