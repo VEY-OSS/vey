@@ -77,7 +77,7 @@ impl<T> HostMatch<T> {
 
                 if let Some(trie) = &self.suffix_domain {
                     let reversed = domain.to_reversed();
-                    if let Some(v) = trie.get(&reversed) {
+                    if let Some(v) = trie.get_ancestor_value(&reversed) {
                         return Some(v);
                     }
                 }
@@ -312,8 +312,12 @@ mod tests {
         );
 
         assert_eq!(
+            hm.get(&Host::Domain(literal_domain!("sub.test.com"))),
+            Some(&3)
+        );
+        assert_eq!(
             hm.get(&Host::Domain(literal_domain!("a.sub.test.com"))),
-            Some(&4)
+            Some(&3)
         );
 
         assert_eq!(
