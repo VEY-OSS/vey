@@ -19,6 +19,9 @@ vey-io-sys.workspace = true
 vey-dpi.workspace = true
 vey-yaml = { workspace = true, optional = true }
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "io-util"] }
+
 [features]
 default = []
 yaml = ["dep:vey-yaml", "dep:yaml-rust", "dep:anyhow"]
