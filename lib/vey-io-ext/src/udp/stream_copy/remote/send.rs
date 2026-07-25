@@ -266,7 +266,7 @@ where
             let mut total_size_v = SmallVec::<[usize; 32]>::with_capacity(packets.len());
             let mut total_size = 0;
             for packet in packets.iter() {
-                total_size += packet.buf_len();
+                total_size += packet.payload_len();
                 total_size_v.push(total_size);
             }
             match self.limit.check_packets(dur_millis, total_size_v.as_ref()) {
