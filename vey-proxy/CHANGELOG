@@ -33,6 +33,7 @@ v1.13.9:
  - BUG FIX: treat ICAP Preview: 0 as no-preview so REQMOD/H1 does not drop bodies or emit malformed preview chunks
  - BUG FIX: record checked_bytes for full-batch global datagram checks so Pending/Err paths refund byte tokens
  - BUG FIX: rate-limit and account UDP stream_copy send paths by payload length instead of buffer capacity
+ - BUG FIX: await delivery of rebuilt Hickory DNS clients instead of dropping them when the replacement channel is full
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat

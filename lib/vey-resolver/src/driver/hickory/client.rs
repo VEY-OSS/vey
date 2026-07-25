@@ -113,7 +113,7 @@ impl HickoryClient {
                         let client_config = self.config.clone();
                         tokio::spawn(async move {
                             if let Ok(client) = client_config.build_async_client().await {
-                                let _ = client_sender.try_send(client);
+                                let _ = client_sender.send(client).await;
                             }
                         });
                     }
