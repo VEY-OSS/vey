@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
-use atoi::FromRadix16;
+use atoi::FromRadix16Checked;
 
 use super::HttpLineParseError;
 
@@ -15,7 +15,10 @@ pub struct HttpChunkedLine<'a> {
 
 impl<'a> HttpChunkedLine<'a> {
     pub fn parse(buf: &'a [u8]) -> Result<HttpChunkedLine<'a>, HttpLineParseError> {
-        let (chunk_size, offset) = u64::from_radix_16(buf);
+        let (chunk_size, offset) = u64::from_radix_16_checked(buf);
+        let Some(chunk_size) = chunk_size else {
+            return Err(HttpLineParseError::InvalidChunkSize);
+        };
         if offset == 0 {
             return Err(HttpLineParseError::InvalidChunkSize);
         }
@@ -85,5 +88,15 @@ mod tests {
     fn non_utf8_extension() {
         let err = HttpChunkedLine::parse(b"1;\xFF").unwrap_err();
         assert!(matches!(err, HttpLineParseError::InvalidUtf8Encoding(_)));
+    }
+
+    #[test]
+    fn reject_overflowing_chunk_size() {
+        // 2^64 in hex — must not wrap to 0
+        let err = HttpChunkedLine::parse(b"10000000000000000\r\n").unwrap_err();
+        assert!(matches!(err, HttpLineParseError::InvalidChunkSize));
+
+        let err = HttpChunkedLine::parse(b"1000000000000000f\r\n").unwrap_err();
+        assert!(matches!(err, HttpLineParseError::InvalidChunkSize));
     }
 }

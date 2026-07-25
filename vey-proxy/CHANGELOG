@@ -15,6 +15,7 @@ v1.13.9:
  - BUG FIX: reject empty TLS Handshake records and limit ClientHello receive buffer in sni_proxy and TLS interception to avoid unbounded memory growth
  - BUG FIX: parse SOCKS5 UDP headers against the received packet length instead of the whole buffer to avoid panics on short datagrams
  - BUG FIX: drop Content-Length and disable keep-alive when Transfer-Encoding is present in transparent HTTP request parsing to prevent request smuggling
+ - BUG FIX: reject overflowing HTTP chunk sizes instead of wrapping, to prevent request smuggling and panics
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat
