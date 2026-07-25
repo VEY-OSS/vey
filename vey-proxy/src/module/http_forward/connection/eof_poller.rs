@@ -69,6 +69,11 @@ impl HttpConnectionEofPoller {
     }
 
     pub(crate) fn is_closed(&self) -> bool {
-        self.recv_channel.is_terminated()
+        // Prefer the notify sender: EOF detection explicitly calls
+        // `wait_channel.close()`, and oneshot::Sender::is_closed() becomes true
+        // as soon as the receiver is closed/dropped. `recv_channel.is_terminated()`
+        // stays false until that receiver has been polled to completion, so it
+        // never observed upstream EOF here.
+        self.notify_channel.is_closed()
     }
 }
