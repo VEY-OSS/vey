@@ -30,6 +30,7 @@ v1.13.9:
  - BUG FIX: stop double-counting sni_proxy pre-handshake client bytes in task stats
  - BUG FIX: encode BER long-form lengths with the 0x80 flag so LDAP binds with long DNs are well-formed
  - BUG FIX: reject overflowing decimal integers in msgpack binary as_u32 instead of wrapping or panicking
+ - BUG FIX: treat ICAP Preview: 0 as no-preview so REQMOD/H1 does not drop bodies or emit malformed preview chunks
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat
