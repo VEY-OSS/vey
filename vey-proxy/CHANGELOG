@@ -19,6 +19,7 @@ v1.13.9:
  - BUG FIX: return the client read half to the H1 interception pipeline after a failed CONNECT or Upgrade so the connection does not hang
  - BUG FIX: reject overflowing LDAP BER sequence lengths instead of panicking on malformed responses
  - BUG FIX: make HostMatch suffix domain matching use longest-prefix lookup so subdomains match again
+ - BUG FIX: advance User-Agent ACL search from the match position so non-ASCII headers cannot panic
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat
