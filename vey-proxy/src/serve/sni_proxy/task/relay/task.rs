@@ -175,8 +175,6 @@ impl TcpStreamTask {
         R: AsyncRead + Send + Sync + Unpin + 'static,
         W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        self.task_stats.clt.read.add_bytes(clt_r_buf.len() as u64);
-
         let tcp_client_misc_opts;
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
