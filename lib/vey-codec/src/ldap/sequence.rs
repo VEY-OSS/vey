@@ -76,10 +76,12 @@ impl<'a> LdapSequence<'a> {
                 data: b"",
                 encoded_len: offset,
             })
-        } else if ber_length.value() + offset as u64 > data.len() as u64 {
+        } else if ber_length.value() > data.len().saturating_sub(offset) as u64 {
+            // Compare against remaining capacity instead of adding value+offset,
+            // which can overflow when value is near u64::MAX.
             Err(LdapSequenceParseError::TooLargeLength)
         } else {
-            let encoded_len = ber_length.value() as usize + offset;
+            let encoded_len = offset + ber_length.value() as usize;
             Ok(LdapSequence {
                 data: &data[offset..encoded_len],
                 encoded_len,
@@ -113,5 +115,17 @@ mod tests {
         let v = LdapSequence::parse_octet_string(&[0x04, 0x02, 0x01, 0x02]).unwrap();
         assert_eq!(v.data, &[0x01, 0x02]);
         assert_eq!(v.encoded_len(), 4);
+    }
+
+    #[test]
+    fn reject_overflowing_length() {
+        // OCTET STRING with 8-byte length u64::MAX — must not panic on add/slice.
+        match LdapSequence::parse_octet_string(&[
+            0x04, 0x88, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        ]) {
+            Err(LdapSequenceParseError::TooLargeLength) => {}
+            Err(e) => panic!("unexpected error: {e}"),
+            Ok(_) => panic!("expected TooLargeLength"),
+        }
     }
 }
