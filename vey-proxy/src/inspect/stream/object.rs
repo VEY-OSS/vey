@@ -226,12 +226,14 @@ where
 
             r = clt_r.read_buf(clt_r_buf) => {
                 match r {
+                    Ok(0) => Err(ServerTaskError::ClosedByClient),
                     Ok(_) => Ok(InitialDataSource::Client),
                     Err(e) => Err(ServerTaskError::ClientTcpReadFailed(e)),
                 }
             }
             r = ups_r.read_buf(ups_r_buf) => {
                 match r {
+                    Ok(0) => Err(ServerTaskError::ClosedByUpstream),
                     Ok(_) => Ok(InitialDataSource::Server),
                     Err(e) => Err(ServerTaskError::UpstreamReadFailed(e)),
                 }
@@ -248,12 +250,15 @@ where
         ups_r: &mut BoxAsyncRead,
         ups_r_buf: &mut BytesMut,
     ) -> ServerTaskResult<Protocol> {
+        let inspect_buffer_size = self.ctx.protocol_inspection().data0_buffer_size();
         match source {
             InitialDataSource::Client => {
-                self.inspect_client_data(inspector, clt_r_buf, clt_r).await
+                self.inspect_client_data(inspector, clt_r_buf, clt_r, inspect_buffer_size)
+                    .await
             }
             InitialDataSource::Server => {
-                self.inspect_server_data(inspector, ups_r_buf, ups_r).await
+                self.inspect_server_data(inspector, ups_r_buf, ups_r, inspect_buffer_size)
+                    .await
             }
         }
     }
@@ -263,6 +268,7 @@ where
         inspector: &mut ProtocolInspector,
         clt_r_buf: &mut BytesMut,
         clt_r: &mut CR,
+        inspect_buffer_size: usize,
     ) -> Result<Protocol, ServerTaskError>
     where
         CR: AsyncRead + Unpin,
@@ -275,7 +281,7 @@ where
             ) {
                 Ok(p) => return Ok(p),
                 Err(ProtocolInspectError::NeedMoreData(_)) => {
-                    if clt_r_buf.remaining() == 0 {
+                    if clt_r_buf.len() >= inspect_buffer_size {
                         return Ok(Protocol::Unknown);
                     }
                     match clt_r.read_buf(clt_r_buf).await {
@@ -293,6 +299,7 @@ where
         inspector: &mut ProtocolInspector,
         ups_r_buf: &mut BytesMut,
         ups_r: &mut UR,
+        inspect_buffer_size: usize,
     ) -> Result<Protocol, ServerTaskError>
     where
         UR: AsyncRead + Unpin,
@@ -305,7 +312,7 @@ where
             ) {
                 Ok(p) => return Ok(p),
                 Err(ProtocolInspectError::NeedMoreData(_)) => {
-                    if ups_r_buf.remaining() == 0 {
+                    if ups_r_buf.len() >= inspect_buffer_size {
                         return Ok(Protocol::Unknown);
                     }
                     match ups_r.read_buf(ups_r_buf).await {

@@ -36,6 +36,7 @@ v1.13.9:
  - BUG FIX: await delivery of rebuilt Hickory DNS clients instead of dropping them when the replacement channel is full
  - Optimization: log when a Hickory DNS client stops because its request channel closed
  - BUG FIX: strip default ports from Host headers without truncating IPv6 literals, and only when the Host port matches
+ - BUG FIX: stop protocol inspection when data0 buffer is full by length, and treat initial EOF as closed
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat
