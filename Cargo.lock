@@ -3328,7 +3328,6 @@ name = "vey-msgpack"
 version = "0.4.0"
 dependencies = [
  "anyhow",
- "atoi",
  "chrono",
  "ip_network",
  "rmpv",
