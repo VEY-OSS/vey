@@ -141,6 +141,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
         let (conn, escaper) = fwd_ctx
             .make_new_http_connection(task_conf, task_notes, task_stats, audit_ctx)
             .await?;
+        fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
         self.final_escaper = escaper.clone();
         Ok((conn, escaper))
     }
@@ -164,6 +165,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
         let (conn, escaper) = fwd_ctx
             .make_new_https_connection(task_conf, task_notes, task_stats, audit_ctx)
             .await?;
+        fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
         self.final_escaper = escaper.clone();
         Ok((conn, escaper))
     }
