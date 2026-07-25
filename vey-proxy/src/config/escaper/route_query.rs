@@ -46,7 +46,7 @@ impl RouteQueryEscaperConfig {
             query_pass_client_ip: false,
             query_allowed_nodes: BTreeSet::new(),
             fallback_node: NodeName::default(),
-            cache_request_batch_count: unsafe { NonZeroUsize::new_unchecked(10) },
+            cache_request_batch_count: NonZeroUsize::new(10).unwrap(),
             cache_request_timeout: Duration::from_millis(100),
             cache_pick_policy: SelectivePickPolicy::Ketama,
             query_peer_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1053),

@@ -58,27 +58,21 @@ fn min_ttl_u32(ttls: impl IntoIterator<Item = i32>) -> u32 {
             None => ttl,
         });
     }
-    min_ttl
-        .map(|t| u32::try_from(t).unwrap_or(0))
-        .unwrap_or(0)
+    min_ttl.map(|t| u32::try_from(t).unwrap_or(0)).unwrap_or(0)
 }
 
 impl ResultConverter for AResults {
     fn finalize(self) -> (u32, Vec<IpAddr>) {
-        let (ttls, addrs): (Vec<_>, Vec<_>) = self
-            .iter()
-            .map(|r| (r.ttl(), IpAddr::V4(r.ipv4())))
-            .unzip();
+        let (ttls, addrs): (Vec<_>, Vec<_>) =
+            self.iter().map(|r| (r.ttl(), IpAddr::V4(r.ipv4()))).unzip();
         (min_ttl_u32(ttls), addrs)
     }
 }
 
 impl ResultConverter for AAAAResults {
     fn finalize(self) -> (u32, Vec<IpAddr>) {
-        let (ttls, addrs): (Vec<_>, Vec<_>) = self
-            .iter()
-            .map(|r| (r.ttl(), IpAddr::V6(r.ipv6())))
-            .unzip();
+        let (ttls, addrs): (Vec<_>, Vec<_>) =
+            self.iter().map(|r| (r.ttl(), IpAddr::V6(r.ipv6()))).unzip();
         (min_ttl_u32(ttls), addrs)
     }
 }

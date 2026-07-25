@@ -34,7 +34,7 @@ pub struct CertAgentConfig {
 impl Default for CertAgentConfig {
     fn default() -> Self {
         CertAgentConfig {
-            cache_request_batch_count: unsafe { NonZeroUsize::new_unchecked(10) },
+            cache_request_batch_count: NonZeroUsize::new(10).unwrap(),
             cache_request_timeout: Duration::from_secs(4),
             cache_vanish_wait: Duration::from_secs(300),
             query_peer_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2999),

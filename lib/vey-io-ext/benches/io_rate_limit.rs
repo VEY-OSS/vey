@@ -29,7 +29,7 @@ fn test_leaky_bucket(limiter: &RateLimiter<GlobalRateLimitState>) {
 }
 
 fn test_leaky_bucket_3(limiter: &RateLimiter<GlobalRateLimitState>) {
-    let _ = limiter.check_n(unsafe { NonZeroU32::new_unchecked(3) });
+    let _ = limiter.check_n(NonZeroU32::new(3).unwrap());
 }
 
 #[bench]
@@ -55,25 +55,21 @@ fn fixed_window_empty(b: &mut Bencher) {
 
 #[bench]
 fn leaky_bucket_ok1(b: &mut Bencher) {
-    let quota =
-        RateLimitQuota::per_second(unsafe { NonZeroU32::new_unchecked(1024 * 1024 * 1024) })
-            .unwrap();
+    let quota = RateLimitQuota::per_second(NonZeroU32::new(1024 * 1024 * 1024).unwrap()).unwrap();
     let limiter = RateLimiter::new_global(quota);
     b.iter(|| test_leaky_bucket(&limiter));
 }
 
 #[bench]
 fn leaky_bucket_ok3(b: &mut Bencher) {
-    let quota =
-        RateLimitQuota::per_second(unsafe { NonZeroU32::new_unchecked(1024 * 1024 * 1024) })
-            .unwrap();
+    let quota = RateLimitQuota::per_second(NonZeroU32::new(1024 * 1024 * 1024).unwrap()).unwrap();
     let limiter = RateLimiter::new_global(quota);
     b.iter(|| test_leaky_bucket_3(&limiter));
 }
 
 #[bench]
 fn leaky_bucket_empty(b: &mut Bencher) {
-    let quota = RateLimitQuota::per_second(unsafe { NonZeroU32::new_unchecked(1024) }).unwrap();
+    let quota = RateLimitQuota::per_second(NonZeroU32::new(1024).unwrap()).unwrap();
     let limiter = RateLimiter::new_global(quota);
     b.iter(|| test_leaky_bucket(&limiter));
 }

@@ -268,11 +268,11 @@ pub struct UdpConnectionTrackConfig {
 impl Default for UdpConnectionTrackConfig {
     fn default() -> Self {
         UdpConnectionTrackConfig {
-            max_sessions: unsafe { NonZeroUsize::new_unchecked(32768) },
-            ebpf_conn_track_size: unsafe { NonZeroU32::new_unchecked(1048576) },
-            dispatch_queue_size: unsafe { NonZeroUsize::new_unchecked(32) },
-            send_queue_size: unsafe { NonZeroUsize::new_unchecked(512) },
-            batch_recv_size: unsafe { NonZeroUsize::new_unchecked(16) },
+            max_sessions: NonZeroUsize::new(32768).unwrap(),
+            ebpf_conn_track_size: NonZeroU32::new(1048576).unwrap(),
+            dispatch_queue_size: NonZeroUsize::new(32).unwrap(),
+            send_queue_size: NonZeroUsize::new(512).unwrap(),
+            batch_recv_size: NonZeroUsize::new(16).unwrap(),
             offline_wait_time: Duration::from_secs(60),
             offline_quit_time: Duration::from_hours(1),
         }
