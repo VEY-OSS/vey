@@ -3,6 +3,7 @@ v0.4.0:
  - BUG FIX: fix off-by-one when check max_request_count in keyless backend
  - BUG FIX: reject empty TLS Handshake records and limit ClientHello receive buffer in openssl_proxy to avoid unbounded memory growth
  - BUG FIX: make HostMatch suffix domain matching use longest-prefix lookup so subdomains match again
+ - BUG FIX: return a config error instead of panicking when openssl_proxy client auth CA DER is invalid
  - Feature: support set TCP max segment size in listen config
  - Compatibility: bump MSRV to 1.90.0
  - Deprecated: the following config options are deprecated:
