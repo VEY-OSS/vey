@@ -224,32 +224,35 @@ impl KeylessTask {
         let crypto_fail = crate::protocol::KeylessErrorResponse::new(req.inner.id).crypto_fail();
         let rsp = req.build_response(KeylessResponse::Error(crypto_fail));
         let sync_op = crate::backend::OpensslOperation::new(req, key);
-        let Ok(task) = vey_openssl::async_job::TokioAsyncOperation::build_async_task(sync_op)
-        else {
+        let async_op_timeout = self.ctx.server_config.async_op_timeout;
+        let Ok(task) = vey_openssl::async_job::TokioAsyncOperation::build_async_task(
+            sync_op,
+            async_op_timeout,
+        ) else {
             req_stats.add_crypto_fail();
             let _ = msg_sender.send(rsp).await;
             return;
         };
 
         let msg_sender = msg_sender.clone();
-        let async_op_timeout = self.ctx.server_config.async_op_timeout;
         tokio::spawn(async move {
-            let rsp = match tokio::time::timeout(async_op_timeout, task).await {
-                Ok(Ok(r)) => {
+            match task.await {
+                vey_openssl::async_job::OpensslAsyncOutput::Finished(Ok(r)) => {
                     req_stats.add_passed();
-                    r
+                    let _ = msg_sender.send(r).await;
                 }
-                Ok(Err(_)) => {
+                vey_openssl::async_job::OpensslAsyncOutput::Finished(Err(_)) => {
                     req_stats.add_crypto_fail();
-                    rsp
+                    let _ = msg_sender.send(rsp).await;
                 }
-                Err(_) => {
+                vey_openssl::async_job::OpensslAsyncOutput::TimedOut { cleanup } => {
                     req_stats.add_crypto_fail();
-                    rsp
+                    let _ = msg_sender.send(rsp).await;
+                    if let Some(cleanup) = cleanup {
+                        let _ = cleanup.await;
+                    }
                 }
-            };
-
-            let _ = msg_sender.send(rsp).await;
+            }
         });
     }
 }

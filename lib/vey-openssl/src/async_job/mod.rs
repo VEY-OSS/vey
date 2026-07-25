@@ -11,7 +11,10 @@ mod wait_ctx;
 pub use wait_ctx::AsyncWaitCtx;
 
 mod task;
-pub use task::{AsyncOperation, OpensslAsyncTask, SyncOperation};
+pub use task::{
+    AsyncOperation, OpensslAsyncCleanup, OpensslAsyncOutput, OpensslAsyncTask,
+    OpensslAsyncTaskError, SyncOperation,
+};
 
 mod tokio_op;
 pub use tokio_op::TokioAsyncOperation;

@@ -114,7 +114,7 @@ mod ossl3 {
     }
 
     extern "C" fn wake(arg: *mut c_void) -> c_int {
-        let waker = unsafe { arg.cast::<AtomicWaker>().as_mut().unwrap() };
+        let waker = unsafe { arg.cast::<AtomicWaker>().as_ref().unwrap() };
         waker.wake();
         0
     }
