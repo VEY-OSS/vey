@@ -272,5 +272,15 @@ mod tests {
             UdpInput::parse_header(&[0, 0, 0, 3, 1, 0xff, 0, 0, 80]),
             Err(SocksUdpPacketError::InvalidDomainString)
         ));
+        // Truncated IPv4 / domain headers must be rejected when parsed against the
+        // received length (not the full socket buffer capacity).
+        assert!(matches!(
+            UdpInput::parse_header(&[0, 0, 0, 1, 0xaa, 0xbb, 0xcc, 0xdd, 0xee]),
+            Err(SocksUdpPacketError::TooSmallPacket)
+        ));
+        assert!(matches!(
+            UdpInput::parse_header(&[0, 0, 0, 3, 0x40]),
+            Err(SocksUdpPacketError::TooSmallPacket)
+        ));
     }
 }

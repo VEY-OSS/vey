@@ -13,6 +13,7 @@ v1.13.9:
  - BUG FIX: correctly handle download of 0 size FTP file
  - BUG FIX: limit size strictly when download FTP files
  - BUG FIX: reject empty TLS Handshake records and limit ClientHello receive buffer in sni_proxy and TLS interception to avoid unbounded memory growth
+ - BUG FIX: parse SOCKS5 UDP headers against the received packet length instead of the whole buffer to avoid panics on short datagrams
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat
