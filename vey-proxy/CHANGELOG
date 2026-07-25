@@ -16,6 +16,7 @@ v1.13.9:
  - BUG FIX: parse SOCKS5 UDP headers against the received packet length instead of the whole buffer to avoid panics on short datagrams
  - BUG FIX: drop Content-Length and disable keep-alive when Transfer-Encoding is present in transparent HTTP request parsing to prevent request smuggling
  - BUG FIX: reject overflowing HTTP chunk sizes instead of wrapping, to prevent request smuggling and panics
+ - BUG FIX: return the client read half to the H1 interception pipeline after a failed CONNECT or Upgrade so the connection does not hang
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat
