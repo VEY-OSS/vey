@@ -6,6 +6,7 @@ v0.4.0:
  - BUG FIX: return a config error instead of panicking when openssl_proxy client auth CA DER is invalid
  - Feature: support set TCP max segment size in listen config
  - Compatibility: bump MSRV to 1.90.0
+ - Compatibility: remove unused openssl_proxy option alert_unrecognized_name (never wired to send TLS alerts)
  - Deprecated: the following config options are deprecated:
      - task_idle_check_duration in server config, use task_idle_check_interval instead
 

@@ -71,15 +71,6 @@ Set whether task futures should be spawned with Tokio's unconstrained mode.
 
 **default**: false
 
-alert_unrecognized_name
------------------------
-
-**optional**, **type**: bool
-
-Set whether to send a TLS alert when no virtual host matches.
-
-**default**: false
-
 tls_no_async_mode
 -----------------
 

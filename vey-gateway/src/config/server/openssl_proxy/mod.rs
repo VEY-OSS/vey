@@ -55,7 +55,6 @@ pub(crate) struct OpensslProxyServerConfig {
     #[cfg(feature = "openssl-async-job")]
     pub(crate) tls_no_async_mode: bool,
     pub(crate) spawn_task_unconstrained: bool,
-    pub(crate) alert_unrecognized_name: bool,
 }
 
 impl OpensslProxyServerConfig {
@@ -84,7 +83,6 @@ impl OpensslProxyServerConfig {
             #[cfg(feature = "openssl-async-job")]
             tls_no_async_mode: false,
             spawn_task_unconstrained: false,
-            alert_unrecognized_name: false,
         }
     }
 
@@ -230,11 +228,6 @@ impl OpensslProxyServerConfig {
             }
             "spawn_task_unconstrained" | "task_unconstrained" => {
                 self.spawn_task_unconstrained = vey_yaml::value::as_bool(v)?;
-                Ok(())
-            }
-            "alert_unrecognized_name" => {
-                self.alert_unrecognized_name = vey_yaml::value::as_bool(v)
-                    .context(format!("invalid bool value for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
