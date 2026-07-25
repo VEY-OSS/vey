@@ -7,4 +7,4 @@ mod recv;
 pub(crate) use recv::HttpConnectUdpRecvBuffer;
 
 mod send;
-pub(crate) use send::HttpConnectUdpSendBuffer;
+pub(crate) use send::{HttpConnectUdpSendBuffer, PacketTooLarge};

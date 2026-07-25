@@ -21,6 +21,7 @@ v1.13.9:
  - BUG FIX: make HostMatch suffix domain matching use longest-prefix lookup so subdomains match again
  - BUG FIX: advance User-Agent ACL search from the match position so non-ASCII headers cannot panic
  - BUG FIX: use saturating TTL arithmetic in ResolvedRecord to avoid u32 overflow
+ - BUG FIX: reject oversized CONNECT-UDP datagrams instead of silently dropping them while reporting success
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat

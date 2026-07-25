@@ -20,7 +20,7 @@ use tokio::io::AsyncWrite;
 use vey_io_ext::UdpCopyPacket;
 use vey_io_ext::{UdpCopyClientError, UdpCopyClientSend};
 
-use crate::module::http_connect_udp::HttpConnectUdpSendBuffer;
+use crate::module::http_connect_udp::{HttpConnectUdpSendBuffer, PacketTooLarge};
 
 pub(super) struct HttpConnectUdpSend<W> {
     buffer: HttpConnectUdpSendBuffer,
@@ -48,7 +48,15 @@ where
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyClientError>> {
-        self.buffer.queue_packet(buf);
+        self.buffer
+            .queue_packet(buf)
+            .map_err(|PacketTooLarge| {
+                UdpCopyClientError::InvalidPacket(format!(
+                    "UDP packet length {} exceeds max {}",
+                    buf.len(),
+                    self.buffer.max_packet_size()
+                ))
+            })?;
         ready!(
             self.buffer
                 .poll_write(cx, Pin::new(&mut self.writer))
@@ -71,7 +79,15 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyClientError>> {
-        let count = self.buffer.queue_packets(packets);
+        let count = self
+            .buffer
+            .queue_packets(packets)
+            .map_err(|PacketTooLarge| {
+                UdpCopyClientError::InvalidPacket(format!(
+                    "UDP packet exceeds max {}",
+                    self.buffer.max_packet_size()
+                ))
+            })?;
         ready!(
             self.buffer
                 .poll_write(cx, Pin::new(&mut self.writer))

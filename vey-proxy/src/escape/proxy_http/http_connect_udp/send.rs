@@ -21,7 +21,7 @@ use tokio::io::AsyncWrite;
 use vey_io_ext::UdpCopyPacket;
 use vey_io_ext::{UdpCopyRemoteError, UdpCopyRemoteSend};
 
-use crate::module::http_connect_udp::HttpConnectUdpSendBuffer;
+use crate::module::http_connect_udp::{HttpConnectUdpSendBuffer, PacketTooLarge};
 
 pub(crate) struct ProxyHttpConnectUdpSend<W> {
     buffer: HttpConnectUdpSendBuffer,
@@ -55,7 +55,15 @@ where
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        self.buffer.queue_packet(buf);
+        self.buffer
+            .queue_packet(buf)
+            .map_err(|PacketTooLarge| {
+                UdpCopyRemoteError::InvalidPacket(format!(
+                    "UDP packet length {} exceeds max {}",
+                    buf.len(),
+                    self.buffer.max_packet_size()
+                ))
+            })?;
         ready!(
             self.buffer
                 .poll_write(cx, Pin::new(&mut self.writer))
@@ -78,7 +86,15 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        let count = self.buffer.queue_packets(packets);
+        let count = self
+            .buffer
+            .queue_packets(packets)
+            .map_err(|PacketTooLarge| {
+                UdpCopyRemoteError::InvalidPacket(format!(
+                    "UDP packet exceeds max {}",
+                    self.buffer.max_packet_size()
+                ))
+            })?;
         ready!(
             self.buffer
                 .poll_write(cx, Pin::new(&mut self.writer))
@@ -101,7 +117,15 @@ where
         cx: &mut Context<'_>,
         packets: &[bytes::Bytes],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        let count = self.buffer.queue_many_bytes(packets);
+        let count = self
+            .buffer
+            .queue_many_bytes(packets)
+            .map_err(|PacketTooLarge| {
+                UdpCopyRemoteError::InvalidPacket(format!(
+                    "UDP packet exceeds max {}",
+                    self.buffer.max_packet_size()
+                ))
+            })?;
         ready!(
             self.buffer
                 .poll_write(cx, Pin::new(&mut self.writer))
