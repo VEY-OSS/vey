@@ -4,7 +4,6 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::ops::Add;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -188,7 +187,9 @@ impl IcapServiceOptions {
             "options-ttl" => {
                 let ttl = usize::from_str(header.value)
                     .map_err(|_| IcapOptionsParseError::InvalidHeaderValue("Options-TTL"))?;
-                let expire = Instant::now().add(Duration::from_secs(ttl as u64));
+                let expire = Instant::now()
+                    .checked_add(Duration::from_secs(ttl as u64))
+                    .ok_or(IcapOptionsParseError::InvalidHeaderValue("Options-TTL"))?;
                 self.expire = Some(expire);
             }
             "service-id" => self.service_id = Some(header.value.to_owned()),
@@ -212,5 +213,32 @@ impl IcapServiceOptions {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn options_ttl_rejects_overflowing_value() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        let err = options
+            .parse_header_line(b"Options-TTL: 18446744073709551615\r\n")
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            IcapOptionsParseError::InvalidHeaderValue("Options-TTL")
+        ));
+    }
+
+    #[test]
+    fn options_ttl_accepts_reasonable_value() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        options
+            .parse_header_line(b"Options-TTL: 3600\r\n")
+            .unwrap();
+        assert!(options.expire.is_some());
+        assert!(!options.expired());
     }
 }

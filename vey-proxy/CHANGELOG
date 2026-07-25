@@ -37,6 +37,7 @@ v1.13.9:
  - Optimization: log when a Hickory DNS client stops because its request channel closed
  - BUG FIX: strip default ports from Host headers without truncating IPv6 literals, and only when the Host port matches
  - BUG FIX: stop protocol inspection when data0 buffer is full by length, and treat initial EOF as closed
+ - BUG FIX: reject overflowing ICAP Options-TTL values instead of panicking on Instant addition
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat
