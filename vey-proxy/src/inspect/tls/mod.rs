@@ -14,7 +14,8 @@ use tokio::runtime::Handle;
 
 use vey_cert_agent::CertAgentHandle;
 use vey_codec::tls::{
-    ClientHello, ExtensionType, HandshakeCoalescer, RawVersion, Record, RecordParseError,
+    ClientHello, ExtensionType, HandshakeCoalescer, RawVersion, Record, RecordHeader,
+    RecordParseError,
 };
 use vey_dpi::{Protocol, ProtocolInspector};
 use vey_io_ext::{AsyncStream, FlexBufReader, OnceBufReader};
@@ -166,6 +167,13 @@ impl TlsInterceptionContext {
     where
         R: AsyncRead + Unpin,
     {
+        let max_hello_size = self.server_config.client_hello_max_size as usize;
+        // Bound the raw receive buffer even with 1-byte handshake fragments.
+        // The buffer cannot be advanced here because OpenSSL must re-read the
+        // original ClientHello wire bytes afterwards.
+        let max_buf_size = max_hello_size
+            .saturating_mul(RecordHeader::SIZE + 1)
+            .saturating_add(1 << 14);
         let mut handshake_coalescer =
             HandshakeCoalescer::new(self.server_config.client_hello_max_size);
         let mut record_offset = 0;
@@ -173,15 +181,20 @@ impl TlsInterceptionContext {
         loop {
             let mut record = match Record::parse(&clt_r_buf[record_offset..]) {
                 Ok(r) => r,
-                Err(RecordParseError::NeedMoreData(_)) => match clt_r.read_buf(clt_r_buf).await {
-                    Ok(0) => {
-                        return Err(anyhow!("connection closed by client"));
+                Err(RecordParseError::NeedMoreData(_)) => {
+                    if clt_r_buf.len() >= max_buf_size {
+                        return Err(anyhow!("tls client hello message too large"));
                     }
-                    Ok(_) => continue,
-                    Err(e) => {
-                        return Err(anyhow!("client read error: {e}"));
+                    match clt_r.read_buf(clt_r_buf).await {
+                        Ok(0) => {
+                            return Err(anyhow!("connection closed by client"));
+                        }
+                        Ok(_) => continue,
+                        Err(e) => {
+                            return Err(anyhow!("client read error: {e}"));
+                        }
                     }
-                },
+                }
                 Err(_) => {
                     return Err(anyhow!("invalid tls client hello request"));
                 }
