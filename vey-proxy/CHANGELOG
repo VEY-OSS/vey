@@ -25,6 +25,7 @@ v1.13.9:
  - BUG FIX: copy inner egress notes in RouteHttpForwardContext so route escapers keep remote/egress audit headers
  - BUG FIX: detect closed keep-alive HTTP forward connections via notify channel is_closed instead of oneshot is_terminated
  - BUG FIX: split overlong FTP listing lines across chunked HTTP chunks instead of emitting an early terminator or underflowing the buffer
+ - BUG FIX: treat response Transfer-Encoding without chunked as read-until-close and drop conflicting Content-Length to avoid connection desync
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat
