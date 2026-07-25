@@ -163,9 +163,9 @@ impl BerLengthEncoder {
         unsafe {
             std::ptr::copy_nonoverlapping(bytes.as_ptr(), self.buf[1..].as_mut_ptr(), 8);
         }
-        let unused_bits = value.leading_zeros() as usize;
+        let unused_bits = (value as u64).leading_zeros() as usize;
         self.offset = unused_bits / 8;
-        self.buf[self.offset] = 8 - self.offset as u8;
+        self.buf[self.offset] = 0x80 | (8 - self.offset as u8);
         &self.buf[self.offset..]
     }
 }
@@ -244,10 +244,17 @@ mod tests {
         assert_eq!(encoder.encode(0), &[0]);
         assert_eq!(encoder.encode(1), &[1]);
         assert_eq!(encoder.encode(0x7F), &[0x7F]);
-        assert_eq!(encoder.encode(0x80), &[0x01, 0x80]);
-        assert_eq!(encoder.encode(0x0100), &[0x02, 0x01, 0x00]);
-        assert_eq!(encoder.encode(0x010000), &[0x03, 0x01, 0x00, 0x00]);
-        assert_eq!(encoder.encode(0x01000000), &[0x04, 0x01, 0x00, 0x00, 0x00]);
+        assert_eq!(encoder.encode(0x80), &[0x81, 0x80]);
+        assert_eq!(encoder.encode(0x0100), &[0x82, 0x01, 0x00]);
+        assert_eq!(encoder.encode(0x010000), &[0x83, 0x01, 0x00, 0x00]);
+        assert_eq!(encoder.encode(0x01000000), &[0x84, 0x01, 0x00, 0x00, 0x00]);
+
+        for v in [0usize, 1, 0x7F, 0x80, 0x0100, 0x010000, 0x01000000] {
+            let encoded = encoder.encode(v).to_vec();
+            let parsed = BerLength::parse(&encoded).unwrap();
+            assert_eq!(parsed.value(), v as u64);
+            assert_eq!(parsed.encoded_len(), encoded.len());
+        }
     }
 
     #[cfg(target_pointer_width = "64")]
@@ -256,19 +263,19 @@ mod tests {
         let mut encoder = BerLengthEncoder::default();
         assert_eq!(
             encoder.encode(0x0100000000),
-            &[0x05, 0x01, 0x00, 0x00, 0x00, 0x00]
+            &[0x85, 0x01, 0x00, 0x00, 0x00, 0x00]
         );
         assert_eq!(
             encoder.encode(0x010000000000),
-            &[0x06, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00]
+            &[0x86, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
         assert_eq!(
             encoder.encode(0x01000000000000),
-            &[0x07, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+            &[0x87, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
         assert_eq!(
             encoder.encode(0x0100000000000000),
-            &[0x08, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+            &[0x88, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
     }
 }

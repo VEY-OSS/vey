@@ -28,6 +28,7 @@ v1.13.9:
  - BUG FIX: treat response Transfer-Encoding without chunked as read-until-close and drop conflicting Content-Length to avoid connection desync
  - BUG FIX: clear HTTP pipeline egress_path after auth failure so anonymous keep-alive requests cannot reuse it
  - BUG FIX: stop double-counting sni_proxy pre-handshake client bytes in task stats
+ - BUG FIX: encode BER long-form lengths with the 0x80 flag so LDAP binds with long DNs are well-formed
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat
