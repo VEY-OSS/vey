@@ -127,6 +127,9 @@ where
         req: &HttpProxyRequest<CDR>,
     ) -> Result<Option<UserContext>, UserAuthError> {
         if let Some(user_group) = &self.user_group {
+            // Hold username-param egress context locally until auth fully succeeds,
+            // so a failed password/addr check cannot leak it to a later anonymous request.
+            let mut pending_egress_path = None;
             let mut user_ctx = match &req.inner.auth_info {
                 HttpAuth::None => user_group
                     .get_anonymous_user()
@@ -144,7 +147,7 @@ where
                     let real_name = if let Some(config) = &self.ctx.server_config.username_params {
                         match config.parse_name_and_params(v.username.as_original()) {
                             Ok((name, context)) => {
-                                self.egress_path =
+                                pending_egress_path =
                                     Some(EgressPathSelection::with_context_kv(context));
                                 name
                             }
@@ -171,6 +174,8 @@ where
                 }
             };
             user_ctx.check_client_addr(self.ctx.client_addr())?;
+            // Auth succeeded: install this request's path (or clear a stale one).
+            self.egress_path = pending_egress_path;
 
             user_ctx.check_in_site(
                 self.ctx.server_config.name(),
@@ -203,6 +208,7 @@ where
                 });
             Ok(Some(user_ctx))
         } else {
+            self.egress_path = None;
             self.req_count.anonymous += 1;
             Ok(None)
         }
@@ -218,6 +224,9 @@ where
                             self.run(req, user_ctx).await
                         }
                         Err(e) => {
+                            // Drop any egress context from a partially processed username
+                            // so it cannot be taken by a later anonymous keep-alive request.
+                            self.egress_path = None;
                             self.req_count.consequent_auth_failed += 1;
                             self.req_count.auth_failed += 1;
                             self.run_untrusted(req, e.blocked_delay()).await
