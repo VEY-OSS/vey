@@ -277,6 +277,9 @@ impl UdpCopyBuffer {
             }
 
             while self.send_end > self.send_start {
+                // send_start is kept on Pending and send_end only grows, so a retried
+                // batch always begins with the packets the sender may have buffered,
+                // as required by the cancel safety of the send traits
                 let packets = &self.packets[self.send_start..self.send_end];
                 let count = ready!(sender.poll_send_packets(cx, packets))
                     .map_err(UdpCopyError::SendError)?;

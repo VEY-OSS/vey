@@ -26,12 +26,21 @@ use crate::{ArcLimitedSendStats, DatagramLimitAction, DatagramLimiter, GlobalDat
 
 pub trait UdpCopyClientSend {
     /// return `nw`, which should be greater than 0
+    ///
+    /// Not cancel safe: the implementation may have buffered `buf` before returning
+    /// `Pending`, so the caller has to retry with the same packet, or the buffered one
+    /// will be sent in place of the new one.
     fn poll_send_buf(
         &mut self,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyClientError>>;
 
+    /// return the count of accepted packets, which may be less than `packets.len()`
+    ///
+    /// Not cancel safe: the implementation may have buffered some packets before
+    /// returning `Pending`, so the caller has to retry with a batch that still begins
+    /// with those packets in the same order, and may only append new ones to the tail.
     #[cfg(any(
         target_os = "linux",
         target_os = "android",

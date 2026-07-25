@@ -55,8 +55,7 @@ where
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        // The new packet will be dropped if a previous poll_send get canceled
-        self.buffer.push_or_drop_packet(buf);
+        self.buffer.queue_packet(buf);
         ready!(
             self.buffer
                 .poll_write(cx, Pin::new(&mut self.writer))
@@ -79,14 +78,13 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        // The new packet will be dropped if a previous poll_send get canceled
-        self.buffer.push_or_drop_packets(packets);
+        let count = self.buffer.queue_packets(packets);
         ready!(
             self.buffer
                 .poll_write(cx, Pin::new(&mut self.writer))
                 .map_err(UdpCopyRemoteError::SendFailed)
         )?;
-        Poll::Ready(Ok(packets.len()))
+        Poll::Ready(Ok(count))
     }
 
     #[cfg(any(
@@ -103,13 +101,12 @@ where
         cx: &mut Context<'_>,
         packets: &[bytes::Bytes],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        // The new packet will be dropped if a previous poll_send get canceled
-        self.buffer.push_or_drop_many_bytes(packets);
+        let count = self.buffer.queue_many_bytes(packets);
         ready!(
             self.buffer
                 .poll_write(cx, Pin::new(&mut self.writer))
                 .map_err(UdpCopyRemoteError::SendFailed)
         )?;
-        Poll::Ready(Ok(packets.len()))
+        Poll::Ready(Ok(count))
     }
 }

@@ -17,6 +17,7 @@ pub(crate) struct HttpConnectUdpSendBuffer {
     len_encoder: VarIntEncoder,
     buffer: Vec<u8>,
     write_offset: usize,
+    queued_count: usize,
 }
 
 impl HttpConnectUdpSendBuffer {
@@ -26,10 +27,13 @@ impl HttpConnectUdpSendBuffer {
             len_encoder: VarIntEncoder::default(),
             buffer: Vec::new(),
             write_offset: 0,
+            queued_count: 0,
         }
     }
 
-    pub(crate) fn push_packet(&mut self, packet: &[u8]) {
+    fn push_packet(&mut self, packet: &[u8]) {
+        // count the oversized packet as queued, or the caller will retry it forever
+        self.queued_count += 1;
         if packet.len() > self.max_packet_size as usize {
             return;
         }
@@ -41,29 +45,34 @@ impl HttpConnectUdpSendBuffer {
         self.buffer.extend_from_slice(packet);
     }
 
-    pub(crate) fn push_or_drop_packet(&mut self, packet: &[u8]) {
-        if !self.buffer.is_empty() {
-            return;
-        }
-        self.push_packet(packet);
-    }
-
+    /// The packets left by a poll_write that returned Pending are always at the head of
+    /// the next batch, so only the newly appended tail needs to be queued.
+    ///
+    /// Return the count of caller packets held in this buffer.
     #[allow(unused)]
-    pub(crate) fn push_or_drop_packets(&mut self, packets: &[UdpCopyPacket]) {
-        if !self.buffer.is_empty() {
-            return;
-        }
-        for packet in packets {
+    pub(crate) fn queue_packets(&mut self, packets: &[UdpCopyPacket]) -> usize {
+        debug_assert!(self.queued_count <= packets.len());
+        for packet in packets.iter().skip(self.queued_count) {
             self.push_packet(packet.payload());
         }
+        self.queued_count
     }
 
+    /// See [`Self::queue_packets`]
     #[allow(unused)]
-    pub(crate) fn push_or_drop_many_bytes(&mut self, packets: &[bytes::Bytes]) {
-        if !self.buffer.is_empty() {
-            return;
+    pub(crate) fn queue_many_bytes(&mut self, packets: &[bytes::Bytes]) -> usize {
+        debug_assert!(self.queued_count <= packets.len());
+        for packet in packets.iter().skip(self.queued_count) {
+            self.push_packet(packet);
         }
-        for packet in packets {
+        self.queued_count
+    }
+
+    /// Queue the packet, which is skipped if it has been queued by a poll_write that
+    /// returned Pending
+    pub(crate) fn queue_packet(&mut self, packet: &[u8]) {
+        debug_assert!(self.queued_count <= 1);
+        if self.queued_count == 0 {
             self.push_packet(packet);
         }
     }
@@ -80,6 +89,7 @@ impl HttpConnectUdpSendBuffer {
             if self.write_offset >= self.buffer.len() {
                 self.write_offset = 0;
                 self.buffer.clear();
+                self.queued_count = 0;
                 return Poll::Ready(Ok(()));
             }
             let nw = ready!(
@@ -95,6 +105,54 @@ impl HttpConnectUdpSendBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use std::task::Waker;
+
+    use bytes::Bytes;
+
+    struct TestWriter {
+        allowed: usize,
+        written: Vec<u8>,
+    }
+
+    impl TestWriter {
+        fn new(allowed: usize) -> Self {
+            TestWriter {
+                allowed,
+                written: Vec::new(),
+            }
+        }
+    }
+
+    impl AsyncWrite for TestWriter {
+        fn poll_write(
+            mut self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            if self.allowed == 0 {
+                return Poll::Pending;
+            }
+            let nw = buf.len().min(self.allowed);
+            self.written.extend_from_slice(&buf[..nw]);
+            self.allowed -= nw;
+            Poll::Ready(Ok(nw))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    fn capsule(payload: &[u8]) -> Vec<u8> {
+        let mut v = vec![0, payload.len() as u8 + 1, 0];
+        v.extend_from_slice(payload);
+        v
+    }
 
     #[test]
     fn test_send_buffer_format() {
@@ -116,5 +174,72 @@ mod tests {
         let mut send_buf = HttpConnectUdpSendBuffer::new(4);
         send_buf.push_packet(b"oversized");
         assert!(send_buf.buffer.is_empty());
+        // the caller still needs to advance over it
+        assert_eq!(send_buf.queued_count, 1);
+    }
+
+    #[test]
+    fn test_queue_many_bytes_append_new_tail() {
+        let mut send_buf = HttpConnectUdpSendBuffer::new(128);
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut writer = TestWriter::new(0);
+
+        let packets = vec![Bytes::from_static(b"aa"), Bytes::from_static(b"bb")];
+        assert_eq!(send_buf.queue_many_bytes(&packets), 2);
+        assert!(
+            send_buf
+                .poll_write(&mut cx, Pin::new(&mut writer))
+                .is_pending()
+        );
+
+        // the caller retries with two more packets appended
+        let packets = vec![
+            Bytes::from_static(b"aa"),
+            Bytes::from_static(b"bb"),
+            Bytes::from_static(b"cc"),
+            Bytes::from_static(b"dd"),
+        ];
+        assert_eq!(send_buf.queue_many_bytes(&packets), 4);
+
+        let mut expected = Vec::new();
+        for payload in [b"aa", b"bb", b"cc", b"dd"] {
+            expected.extend_from_slice(&capsule(payload));
+        }
+        assert_eq!(send_buf.buffer, expected);
+
+        let mut writer = TestWriter::new(expected.len());
+        assert!(
+            send_buf
+                .poll_write(&mut cx, Pin::new(&mut writer))
+                .is_ready()
+        );
+        assert_eq!(writer.written, expected);
+        assert_eq!(send_buf.queued_count, 0);
+    }
+
+    #[test]
+    fn test_queue_packet_skip_pending() {
+        let mut send_buf = HttpConnectUdpSendBuffer::new(128);
+        let mut cx = Context::from_waker(Waker::noop());
+
+        let mut writer = TestWriter::new(2);
+        send_buf.queue_packet(b"hello");
+        assert!(
+            send_buf
+                .poll_write(&mut cx, Pin::new(&mut writer))
+                .is_pending()
+        );
+
+        // the same packet is retried, it should not be queued twice
+        send_buf.queue_packet(b"hello");
+        assert_eq!(send_buf.buffer, capsule(b"hello"));
+
+        let mut writer = TestWriter::new(1024);
+        assert!(
+            send_buf
+                .poll_write(&mut cx, Pin::new(&mut writer))
+                .is_ready()
+        );
+        assert_eq!(send_buf.queued_count, 0);
     }
 }
