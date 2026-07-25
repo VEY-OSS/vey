@@ -35,6 +35,7 @@ v1.13.9:
  - BUG FIX: rate-limit and account UDP stream_copy send paths by payload length instead of buffer capacity
  - BUG FIX: await delivery of rebuilt Hickory DNS clients instead of dropping them when the replacement channel is full
  - Optimization: log when a Hickory DNS client stops because its request channel closed
+ - BUG FIX: strip default ports from Host headers without truncating IPv6 literals, and only when the Host port matches
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat
