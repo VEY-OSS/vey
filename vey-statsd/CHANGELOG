@@ -1,6 +1,7 @@
 
 v0.2.1:
  - Feature: graphite exporter `counter_value` (`sum` | `diff`) to choose lifetime total vs emit-interval delta; default remains `sum`
+ - BUG FIX: scale statsd counters by `1/sample_rate` when `|@rate` is present (gauges unchanged)
 
 v0.2.0:
  - BUG FIX: fix diff value when aggregate in exporter

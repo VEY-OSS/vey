@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use thiserror::Error;
@@ -26,6 +27,8 @@ pub(super) enum StatsdParseError {
     UnsupportedType,
     #[error("invalid tag value field: {0}")]
     InvalidTagValue(anyhow::Error),
+    #[error("invalid sample rate field: {0}")]
+    InvalidSampleRate(anyhow::Error),
 }
 
 pub(super) struct StatsdRecordVisitor<'a> {

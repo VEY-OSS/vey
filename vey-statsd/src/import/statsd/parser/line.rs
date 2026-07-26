@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::str::FromStr;
@@ -34,13 +35,16 @@ impl<'a> LineParser<'a> {
         let metric_type = parse_type(part2)?;
 
         let mut tag_map = MetricTagMap::default();
+        let mut sample_rate = None;
         while let Some(part) = self.next_part() {
             if part.is_empty() {
                 continue;
             }
 
             match part[0] {
-                b'@' => {} // sample rate
+                b'@' => {
+                    sample_rate = Some(parse_sample_rate(&part[1..])?);
+                }
                 b'#' => {
                     tag_map
                         .parse_statsd(&part[1..])
@@ -52,7 +56,7 @@ impl<'a> LineParser<'a> {
             }
         }
 
-        LineValueIter::new(part1, metric_type, tag_map)
+        LineValueIter::new(part1, metric_type, tag_map, sample_rate)
     }
 
     fn next_part(&mut self) -> Option<&'a [u8]> {
@@ -77,6 +81,7 @@ pub(super) struct LineValueIter<'a> {
     r#type: MetricType,
     name: Arc<MetricName>,
     tag_map: Arc<MetricTagMap>,
+    sample_rate: Option<f64>,
     value_buf: &'a [u8],
     offset: usize,
 }
@@ -86,6 +91,7 @@ impl<'a> LineValueIter<'a> {
         part: &'a [u8],
         r#type: MetricType,
         tag_map: MetricTagMap,
+        sample_rate: Option<f64>,
     ) -> Result<LineValueIter<'a>, StatsdParseError> {
         let Some(p) = memchr::memchr(b':', part) else {
             return Err(StatsdParseError::NoValue);
@@ -108,6 +114,7 @@ impl<'a> LineValueIter<'a> {
             r#type,
             name: Arc::new(name),
             tag_map: Arc::new(tag_map),
+            sample_rate,
             value_buf: &part[p + 1..],
             offset: 0,
         })
@@ -143,12 +150,20 @@ impl Iterator for LineValueIter<'_> {
 
             return match std::str::from_utf8(value) {
                 Ok(s) => match MetricValue::from_str(s) {
-                    Ok(value) => Some(Ok(MetricRecord {
-                        r#type: self.r#type,
-                        name: self.name.clone(),
-                        tag_map: self.tag_map.clone(),
-                        value,
-                    })),
+                    Ok(value) => {
+                        let value = match (self.r#type, self.sample_rate) {
+                            (MetricType::Counter, Some(rate)) => {
+                                scale_counter_by_sample_rate(value, rate)
+                            }
+                            _ => value,
+                        };
+                        Some(Ok(MetricRecord {
+                            r#type: self.r#type,
+                            name: self.name.clone(),
+                            tag_map: self.tag_map.clone(),
+                            value,
+                        }))
+                    }
                     Err(e) => Some(Err(StatsdParseError::InvalidValue(e))),
                 },
                 Err(e) => Some(Err(StatsdParseError::InvalidValue(anyhow::Error::new(e)))),
@@ -167,6 +182,36 @@ fn parse_type(part: &[u8]) -> Result<MetricType, StatsdParseError> {
         },
         _ => Err(StatsdParseError::UnsupportedType),
     }
+}
+
+fn parse_sample_rate(part: &[u8]) -> Result<f64, StatsdParseError> {
+    let s = std::str::from_utf8(part)
+        .map_err(|e| StatsdParseError::InvalidSampleRate(anyhow::Error::new(e)))?;
+    let rate = f64::from_str(s)
+        .map_err(|e| StatsdParseError::InvalidSampleRate(anyhow!("invalid f64 string: {e}")))?;
+    if !rate.is_finite() || !(rate > 0.0 && rate <= 1.0) {
+        return Err(StatsdParseError::InvalidSampleRate(anyhow!(
+            "sample rate must be in (0, 1], got {rate}"
+        )));
+    }
+    Ok(rate)
+}
+
+/// Scale a sampled counter to the estimated unsampled total (`value / rate`).
+fn scale_counter_by_sample_rate(value: MetricValue, rate: f64) -> MetricValue {
+    let scaled = value.as_f64() / rate;
+    if !scaled.is_finite() {
+        return MetricValue::Double(scaled);
+    }
+    if scaled.fract() == 0.0 {
+        if scaled >= 0.0 && scaled <= u64::MAX as f64 {
+            return MetricValue::Unsigned(scaled as u64);
+        }
+        if scaled >= i64::MIN as f64 && scaled <= i64::MAX as f64 {
+            return MetricValue::Signed(scaled as i64);
+        }
+    }
+    MetricValue::Double(scaled)
 }
 
 #[cfg(test)]
@@ -189,7 +234,7 @@ mod tests {
         let mut iter = parser.parse().unwrap();
         let r = iter.next().unwrap().unwrap();
         assert_eq!(r.r#type, MetricType::Counter);
-        assert_eq!(r.value, MetricValue::Signed(-1));
+        assert_eq!(r.value, MetricValue::Signed(-10));
         assert!(r.name.display('.').to_string().as_bytes().eq(b"gorets"));
 
         let gauge = b"gaugor:333|g";
@@ -216,7 +261,7 @@ mod tests {
         let mut iter = parser.parse().unwrap();
         let r = iter.next().unwrap().unwrap();
         assert_eq!(r.r#type, MetricType::Counter);
-        assert_eq!(r.value, MetricValue::Unsigned(1));
+        assert_eq!(r.value, MetricValue::Unsigned(2));
         assert!(
             r.name
                 .display('.')
@@ -235,6 +280,14 @@ mod tests {
         assert_eq!(r.r#type, MetricType::Gauge);
         assert_eq!(r.value, MetricValue::Double(0.5));
         assert!(r.name.display('.').to_string().as_bytes().eq(b"fuel.level"));
+
+        // Gauges ignore sample rate (absolute values).
+        let gauge = b"fuel.level:0.5|g|@0.5";
+        let parser = LineParser::new(gauge);
+        let mut iter = parser.parse().unwrap();
+        let r = iter.next().unwrap().unwrap();
+        assert_eq!(r.r#type, MetricType::Gauge);
+        assert_eq!(r.value, MetricValue::Double(0.5));
     }
 
     #[test]
@@ -244,7 +297,7 @@ mod tests {
         let mut iter = parser.parse().unwrap();
         let r1 = iter.next().unwrap().unwrap();
         assert_eq!(r1.r#type, MetricType::Counter);
-        assert_eq!(r1.value, MetricValue::Unsigned(1));
+        assert_eq!(r1.value, MetricValue::Unsigned(2));
         assert!(
             r1.name
                 .display('.')
@@ -258,7 +311,7 @@ mod tests {
 
         let r2 = iter.next().unwrap().unwrap();
         assert_eq!(r2.r#type, MetricType::Counter);
-        assert_eq!(r2.value, MetricValue::Unsigned(2));
+        assert_eq!(r2.value, MetricValue::Unsigned(4));
         assert!(
             r2.name
                 .display('.')
@@ -271,6 +324,13 @@ mod tests {
 
         let r3 = iter.next().unwrap().unwrap();
         assert_eq!(r3.r#type, MetricType::Counter);
-        assert_eq!(r3.value, MetricValue::Unsigned(3));
+        assert_eq!(r3.value, MetricValue::Unsigned(6));
+    }
+
+    #[test]
+    fn invalid_sample_rate() {
+        assert!(LineParser::new(b"gorets:1|c|@0").parse().is_err());
+        assert!(LineParser::new(b"gorets:1|c|@1.5").parse().is_err());
+        assert!(LineParser::new(b"gorets:1|c|@").parse().is_err());
     }
 }
