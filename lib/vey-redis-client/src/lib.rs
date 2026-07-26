@@ -200,3 +200,86 @@ impl RedisClientConfig {
         Ok(conn)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::net::IpAddr;
+    use std::str::FromStr;
+    use std::sync::Once;
+    use std::time::Duration;
+
+    use rustls_pki_types::ServerName;
+    use vey_types::net::{Host, RustlsClientConfigBuilder, UpstreamAddr};
+
+    use super::*;
+
+    fn init_test_rustls_provider() {
+        static INIT: Once = Once::new();
+        INIT.call_once(|| {
+            rustls::crypto::ring::default_provider()
+                .install_default()
+                .expect("test rustls ring provider should install once");
+        });
+    }
+
+    #[test]
+    fn default_builder_uses_localhost_and_redis_port() {
+        let builder = RedisClientConfigBuilder::default();
+        assert_eq!(
+            builder.addr,
+            UpstreamAddr::new(
+                Host::Ip(IpAddr::from_str("127.0.0.1").unwrap()),
+                REDIS_DEFAULT_PORT,
+            )
+        );
+        assert_eq!(builder.connect_timeout, Duration::from_secs(5));
+        assert_eq!(builder.response_timeout, Duration::from_secs(2));
+        assert_eq!(builder.db, 0);
+        assert!(builder.tls_client.is_none());
+    }
+
+    #[test]
+    fn build_plain_config_sets_resp3_and_credentials() {
+        let mut builder = RedisClientConfigBuilder::default();
+        builder.set_db(3);
+        builder.set_username("user".to_string());
+        builder.set_password("secret".to_string());
+        builder.set_connect_timeout(Duration::from_secs(11));
+        builder.set_response_timeout(Duration::from_secs(4));
+
+        let config = builder.build().unwrap();
+        assert_eq!(config.server.port(), REDIS_DEFAULT_PORT);
+        assert_eq!(config.connect_timeout, Duration::from_secs(11));
+        assert_eq!(config.response_timeout, Duration::from_secs(4));
+        assert!(config.tls_client.is_none());
+    }
+
+    #[test]
+    fn build_tls_config_uses_explicit_server_name() {
+        init_test_rustls_provider();
+        let mut builder = RedisClientConfigBuilder::default();
+        builder.set_tls_client(RustlsClientConfigBuilder::default());
+        builder.set_tls_name(ServerName::try_from("redis.internal").unwrap());
+
+        let config = builder.build().unwrap();
+        let tls = config.tls_client.as_ref().unwrap();
+        assert_eq!(
+            tls.tls_name,
+            ServerName::try_from("redis.internal").unwrap()
+        );
+    }
+
+    #[test]
+    fn build_tls_config_derives_server_name_from_ip_host() {
+        init_test_rustls_provider();
+        let mut builder = RedisClientConfigBuilder::new(UpstreamAddr::new(
+            Host::Ip(IpAddr::from_str("10.0.0.5").unwrap()),
+            6379,
+        ));
+        builder.set_tls_client(RustlsClientConfigBuilder::default());
+
+        let config = builder.build().unwrap();
+        let tls = config.tls_client.as_ref().unwrap();
+        assert_eq!(tls.tls_name, ServerName::try_from("10.0.0.5").unwrap());
+    }
+}

@@ -3287,6 +3287,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.3",
+ "tokio",
 ]
 
 [[package]]
@@ -3508,6 +3509,7 @@ version = "0.3.0"
 dependencies = [
  "anyhow",
  "redis",
+ "rustls",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",

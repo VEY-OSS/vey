@@ -19,3 +19,6 @@ vey-yaml = { workspace = true, optional = true, features = ["rustls"] }
 [features]
 default = []
 yaml = ["dep:vey-yaml", "dep:yaml-rust"]
+
+[dev-dependencies]
+rustls = { workspace = true, features = ["ring"] }

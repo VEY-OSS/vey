@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2024-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::path::Path;
@@ -122,6 +123,36 @@ mod tests {
         expected.set_response_timeout(Duration::from_secs(5));
 
         assert_eq!(builder, expected);
+    }
+
+    #[test]
+    fn set_by_yaml_kv_address_alias() {
+        let mut builder = RedisClientConfigBuilder::default();
+        let yaml = yaml_doc!(r#"address: "192.168.1.1:6399""#);
+        for (k, v) in yaml.as_hash().unwrap().iter() {
+            builder
+                .set_by_yaml_kv(k.as_str().unwrap(), v, None)
+                .unwrap();
+        }
+        assert_eq!(
+            builder.addr,
+            UpstreamAddr::new(
+                Host::Ip(IpAddr::from_str("192.168.1.1").unwrap()),
+                6399,
+            )
+        );
+    }
+
+    #[test]
+    fn set_by_yaml_kv_read_timeout_alias() {
+        let mut builder = RedisClientConfigBuilder::default();
+        let yaml = yaml_doc!(r#"read_timeout: "3s""#);
+        for (k, v) in yaml.as_hash().unwrap().iter() {
+            builder
+                .set_by_yaml_kv(k.as_str().unwrap(), v, None)
+                .unwrap();
+        }
+        assert_eq!(builder.response_timeout, Duration::from_secs(3));
     }
 
     #[test]
