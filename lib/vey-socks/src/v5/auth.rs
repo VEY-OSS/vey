@@ -184,3 +184,35 @@ where
     let buf = [0x01, 0x01];
     clt_w.write_all_flush(&buf).await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, duplex};
+
+    #[tokio::test]
+    async fn send_method_to_client_writes_version_and_code() {
+        let (mut client, mut server) = duplex(16);
+        send_method_to_client(&mut client, &SocksAuthMethod::User)
+            .await
+            .unwrap();
+        drop(client);
+
+        let mut buf = [0u8; 2];
+        server.read_exact(&mut buf).await.unwrap();
+        assert_eq!(buf, [0x05, 0x02]);
+    }
+
+    #[tokio::test]
+    async fn send_methods_to_remote_none_auth() {
+        let (mut client, mut server) = duplex(16);
+        send_methods_to_remote(&mut client, &SocksAuth::None)
+            .await
+            .unwrap();
+        drop(client);
+
+        let mut buf = [0u8; 3];
+        server.read_exact(&mut buf).await.unwrap();
+        assert_eq!(buf, [0x05, 0x01, 0x00]);
+    }
+}
