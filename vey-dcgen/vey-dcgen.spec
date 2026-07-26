@@ -3,7 +3,7 @@
 %define build_profile release-lto
 
 Name:           vey-dcgen
-Version:        0.8.4
+Version:        0.9.0
 Release:        1%{?dist}
 Summary:        Dynamic Certificate Generator
 
@@ -43,5 +43,5 @@ install -m 644 -D %{name}/debian/vey-dcgen@.service %{buildroot}/lib/systemd/sys
 
 
 %changelog
-* Sat Aug 09 2025 VEY-OSS Developers <developers@vey.oss> - 0.8.4-1
+* Sun Jul 26 2026 VEY-OSS Developers <developers@vey.oss> - 0.9.0-1
 - New upstream release
