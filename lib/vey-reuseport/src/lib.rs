@@ -38,3 +38,29 @@ struct ReadOnlyData {
     load_pid: i32,
     load_generation: u32,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::mem::size_of;
+
+    #[test]
+    fn bpf_struct_layout_matches_expectations() {
+        assert_eq!(size_of::<SocketId>(), 8);
+        assert_eq!(size_of::<ProcMapKey>(), 8);
+        assert_eq!(size_of::<ProcMapValue>(), 8);
+        assert_eq!(size_of::<ReadOnlyData>(), 8);
+    }
+
+    #[test]
+    fn socket_id_serializes_to_expected_byte_length() {
+        let id = SocketId {
+            pid: 4242,
+            generation: 7,
+            worker: 3,
+        };
+        let bytes = id.as_bytes();
+        assert_eq!(bytes.len(), size_of::<SocketId>());
+        assert_eq!(bytes.len(), 8);
+    }
+}
