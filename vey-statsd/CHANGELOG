@@ -1,13 +1,15 @@
 
-v0.2.1:
- - Feature: graphite exporter `counter_value` (`sum` | `diff`) to choose lifetime total vs emit-interval delta; default remains `sum`
- - BUG FIX: scale statsd counters by `1/sample_rate` when `|@rate` is present (gauges unchanged)
-
 v0.2.0:
- - BUG FIX: fix diff value when aggregate in exporter
- - Compatibility: bump MSRV to 1.90.0
+ - BUG FIX: scale statsd counters by `1/sample_rate` when `|@rate` is present so sampled metrics are not under-counted (gauges stay absolute)
+ - BUG FIX: exporter aggregate `diff` resets per emit interval instead of being overwritten, so interval counters and rates are correct
+ - Feature: graphite exporter `counter_value` (`sum` | `diff`) chooses lifetime total vs emit-interval delta; default remains `sum` for existing dashboards
+ - Feature: reload the running process via RPC/ctl (`reload`) without a full restart
+ - Feature: optional jemalloc or mimalloc global allocator at compile time; allocator name/version appear in `--version`
+ - Feature: derive default config / log / metrics / controller names from the binary name (supports renamed installs)
+ - Compatibility: bump MSRV to 1.91.0
 
 v0.1.1:
+ - Feature: statsd importer can listen on a Unix datagram socket in addition to UDP
  - Feature: allow to set hop_limit and traffic_class ipv6 socket options
 
 v0.1.0:
