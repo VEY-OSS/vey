@@ -111,3 +111,38 @@ impl IpLocation {
         self.isp_domain.as_deref()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    use ip_network::IpNetwork;
+
+    #[test]
+    fn builder_requires_network() {
+        let builder = IpLocationBuilder::default();
+        assert!(builder.build().is_err());
+    }
+
+    #[test]
+    fn builder_prefers_more_specific_network() {
+        let broad = IpNetwork::from_str("10.0.0.0/8").unwrap();
+        let narrow = IpNetwork::from_str("10.1.2.0/24").unwrap();
+
+        let mut builder = IpLocationBuilder::default();
+        builder.set_network(broad);
+        builder.set_network(narrow);
+        let location = builder.build().unwrap();
+        assert_eq!(location.network_addr(), narrow);
+    }
+
+    #[test]
+    fn continent_derived_from_country() {
+        let mut builder = IpLocationBuilder::default();
+        builder.set_network(IpNetwork::from_str("8.8.8.0/24").unwrap());
+        builder.set_country(IsoCountryCode::US);
+        let location = builder.build().unwrap();
+        assert_eq!(location.continent(), Some(ContinentCode::NA));
+    }
+}
