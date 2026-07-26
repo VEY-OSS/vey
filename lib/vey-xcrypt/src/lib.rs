@@ -85,4 +85,23 @@ mod tests {
         let crypt = XCryptHash::parse(s).unwrap();
         assert!(crypt.verify("123456".as_bytes()).unwrap());
     }
+
+    #[test]
+    fn unknown_prefix_rejected() {
+        assert!(matches!(
+            XCryptHash::parse("$2a$salt$hash"),
+            Err(XCryptParseError::UnknownPrefix)
+        ));
+    }
+
+    #[test]
+    fn md5_wrong_phrase_fails() {
+        let crypt = XCryptHash::parse("$1$DDiGYGte$K/SAC4VvllDonGcP1EfaY1").unwrap();
+        assert!(!crypt.verify(b"wrong").unwrap());
+    }
+
+    #[test]
+    fn sha256_invalid_rounds_rejected() {
+        assert!(XCryptHash::parse("$5$rounds=abc$salt$hash").is_err());
+    }
 }
