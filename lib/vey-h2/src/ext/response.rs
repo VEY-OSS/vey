@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::io::Write;
@@ -42,5 +43,26 @@ impl<T> ResponseExt for Response<T> {
         parts.status = other.status;
         parts.headers = HeaderMap::from(&other.headers);
         Response::from_parts(parts, body)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http::StatusCode;
+
+    #[test]
+    fn serialize_for_adapter_includes_status_and_headers() {
+        let rsp = Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .header("X-Test", "missing")
+            .body(())
+            .unwrap();
+
+        let text = String::from_utf8(rsp.serialize_for_adapter()).unwrap();
+
+        assert!(text.starts_with("HTTP/1.1 404 Not Found\r\n"));
+        assert!(text.to_ascii_lowercase().contains("x-test: missing\r\n"));
+        assert!(text.ends_with("\r\n\r\n"));
     }
 }

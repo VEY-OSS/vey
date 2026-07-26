@@ -264,3 +264,36 @@ impl H2PreviewData {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_starts_empty() {
+        let mut preview = H2PreviewData::new(1024);
+        assert_eq!(preview.preview_size(), 0);
+        assert!(!preview.end_of_data());
+        assert!(preview.take_left().is_none());
+    }
+
+    #[tokio::test]
+    async fn icap_write_preview_data_formats_chunk() {
+        let mut preview = H2PreviewData::new(1024);
+        preview.buffer.extend_from_slice(b"hello");
+        preview.received = preview.buffer.len();
+
+        let mut out = Vec::new();
+        preview.icap_write_preview_data(&mut out).await.unwrap();
+
+        assert_eq!(out, b"5\r\nhello\r\n0\r\n\r\n");
+    }
+
+    #[tokio::test]
+    async fn icap_write_all_as_chunked_writes_zero_chunk_for_empty_body() {
+        let preview = H2PreviewData::new(1024);
+        let mut out = Vec::new();
+        preview.icap_write_all_as_chunked(&mut out).await.unwrap();
+        assert_eq!(out, b"0\r\n");
+    }
+}
