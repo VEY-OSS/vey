@@ -61,7 +61,28 @@ impl BindAddr {
             BindAddr::Foreign(addr) => Some(addr.ip()),
         }
     }
+}
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::Ipv4Addr;
+
+    #[test]
+    fn none_is_none() {
+        assert!(BindAddr::None.is_none());
+        assert!(!BindAddr::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST)).is_none());
+    }
+
+    #[test]
+    fn ip_returns_address() {
+        let ip = IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1));
+        assert_eq!(BindAddr::Ip(ip).ip(), Some(ip));
+        assert_eq!(BindAddr::None.ip(), None);
+    }
+}
+
+impl BindAddr {
     pub(crate) fn bind_tcp_for_connect(
         &self,
         socket: &Socket,
