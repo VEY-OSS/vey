@@ -14,3 +14,21 @@ pub fn random_16() -> anyhow::Result<Asn1Integer> {
     bn.to_asn1_integer()
         .map_err(|e| anyhow!("failed to convert bn to asn1 integer: {e}"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn random_16_is_positive() {
+        let serial = random_16().unwrap();
+        assert!(serial.to_bn().unwrap().num_bits() > 0);
+    }
+
+    #[test]
+    fn random_16_unique() {
+        let a = random_16().unwrap();
+        let b = random_16().unwrap();
+        assert_ne!(a.to_bn().unwrap(), b.to_bn().unwrap());
+    }
+}

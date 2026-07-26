@@ -86,3 +86,44 @@ impl SubjectNameBuilder {
         Ok(builder.build())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use openssl::nid::Nid;
+
+    #[test]
+    fn build_full_subject() {
+        let mut builder = SubjectNameBuilder::default();
+        builder.set_country("US".to_string());
+        builder.set_organization("Example Inc".to_string());
+        builder.set_organization_unit("Engineering".to_string());
+        builder.set_common_name("example.com".to_string());
+
+        let name = builder.build().unwrap();
+        assert_eq!(name.entries_by_nid(Nid::COUNTRYNAME).count(), 1);
+        assert_eq!(name.entries_by_nid(Nid::ORGANIZATIONNAME).count(), 1);
+        assert_eq!(name.entries_by_nid(Nid::ORGANIZATIONALUNITNAME).count(), 1);
+        assert_eq!(name.entries_by_nid(Nid::COMMONNAME).count(), 1);
+    }
+
+    #[test]
+    fn set_common_name_if_missing() {
+        let mut builder = SubjectNameBuilder::default();
+        builder.set_common_name_if_missing("fallback.example");
+        assert_eq!(builder.common_name(), Some("fallback.example"));
+
+        builder.set_common_name("primary.example".to_string());
+        builder.set_common_name_if_missing("fallback.example");
+        assert_eq!(builder.common_name(), Some("primary.example"));
+    }
+
+    #[test]
+    fn build_with_default_common_name() {
+        let builder = SubjectNameBuilder::default();
+        let name = builder
+            .build_with_default_common_name("default.example")
+            .unwrap();
+        assert_eq!(name.entries_by_nid(Nid::COMMONNAME).count(), 1);
+    }
+}
