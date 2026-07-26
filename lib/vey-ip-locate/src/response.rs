@@ -193,3 +193,69 @@ impl Response {
         Ok(buf)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::Ipv4Addr;
+
+    use vey_geoip_types::{ContinentCode, IsoCountryCode};
+
+    fn parsed_location() -> IpLocation {
+        let map = rmpv::ValueRef::Map(vec![
+            (
+                rmpv::ValueRef::Integer(response_key_id::NETWORK.into()),
+                rmpv::ValueRef::String("203.0.113.0/24".into()),
+            ),
+            (
+                rmpv::ValueRef::Integer(response_key_id::COUNTRY.into()),
+                rmpv::ValueRef::String("US".into()),
+            ),
+            (
+                rmpv::ValueRef::Integer(response_key_id::CONTINENT.into()),
+                rmpv::ValueRef::String("NA".into()),
+            ),
+            (
+                rmpv::ValueRef::Integer(response_key_id::AS_NUMBER.into()),
+                rmpv::ValueRef::Integer(64512.into()),
+            ),
+            (
+                rmpv::ValueRef::Integer(response_key_id::ISP_NAME.into()),
+                rmpv::ValueRef::String("Example ISP".into()),
+            ),
+            (
+                rmpv::ValueRef::Integer(response_key_id::ISP_DOMAIN.into()),
+                rmpv::ValueRef::String("example.net".into()),
+            ),
+        ]);
+        let parsed = Response::parse(map).unwrap();
+        parsed.into_parts().1.unwrap()
+    }
+
+    #[test]
+    fn encode_decode_roundtrip() {
+        let ip = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 42));
+        let location = parsed_location();
+        let ttl = 300u32;
+
+        let encoded = Response::encode_new(ip, location, ttl).unwrap();
+        let mut data = encoded.as_slice();
+        let value = rmpv::decode::read_value_ref(&mut data).unwrap();
+        let parsed = Response::parse(value).unwrap();
+        let (parsed_ip, parsed_location, parsed_ttl) = parsed.into_parts();
+
+        assert_eq!(parsed_ip, Some(ip));
+        assert_eq!(parsed_ttl, Some(ttl));
+        let loc = parsed_location.unwrap();
+        assert_eq!(loc.country(), Some(IsoCountryCode::US));
+        assert_eq!(loc.continent(), Some(ContinentCode::NA));
+        assert_eq!(loc.network_asn(), Some(64512));
+        assert_eq!(loc.isp_name(), Some("Example ISP"));
+        assert_eq!(loc.isp_domain(), Some("example.net"));
+    }
+
+    #[test]
+    fn parse_rejects_non_map() {
+        assert!(Response::parse(rmpv::ValueRef::String("not-a-map".into())).is_err());
+    }
+}

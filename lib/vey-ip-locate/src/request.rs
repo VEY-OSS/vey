@@ -80,3 +80,56 @@ impl Request {
         Ok(buf)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::Ipv4Addr;
+
+    #[test]
+    fn encode_and_parse_single_ip() {
+        let ip = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));
+        let encoded = Request::encode_new(ip).unwrap();
+        let parsed = Request::parse_req(&encoded).unwrap();
+        assert_eq!(parsed.ip(), Some(ip));
+    }
+
+    #[test]
+    fn parse_map_with_string_key() {
+        let ip = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 5));
+        let ip_str = ip.to_string();
+        let map = rmpv::ValueRef::Map(vec![(
+            rmpv::ValueRef::String("ip".into()),
+            rmpv::ValueRef::String(ip_str.as_str().into()),
+        )]);
+        let mut buf = Vec::new();
+        rmpv::encode::write_value_ref(&mut buf, &map).unwrap();
+        let parsed = Request::parse_req(&buf).unwrap();
+        assert_eq!(parsed.ip(), Some(ip));
+    }
+
+    #[test]
+    fn parse_map_with_integer_key() {
+        let ip = IpAddr::V4(Ipv4Addr::new(172, 16, 0, 1));
+        let ip_str = ip.to_string();
+        let map = rmpv::ValueRef::Map(vec![(
+            rmpv::ValueRef::Integer(request_key_id::IP.into()),
+            rmpv::ValueRef::String(ip_str.as_str().into()),
+        )]);
+        let mut buf = Vec::new();
+        rmpv::encode::write_value_ref(&mut buf, &map).unwrap();
+        let parsed = Request::parse_req(&buf).unwrap();
+        assert_eq!(parsed.ip(), Some(ip));
+    }
+
+    #[test]
+    fn parse_invalid_key_rejected() {
+        let map = rmpv::ValueRef::Map(vec![(
+            rmpv::ValueRef::String("unknown".into()),
+            rmpv::ValueRef::String("1.2.3.4".into()),
+        )]);
+        let mut buf = Vec::new();
+        rmpv::encode::write_value_ref(&mut buf, &map).unwrap();
+        assert!(Request::parse_req(&buf).is_err());
+    }
+}
