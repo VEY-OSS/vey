@@ -56,4 +56,28 @@ mod tests {
         assert_eq!(status.code, 200);
         assert_eq!(status.message, "");
     }
+
+    #[test]
+    fn rejects_invalid_version() {
+        match StatusLine::parse(b"HTTP/1.1 200 OK\r\n") {
+            Err(IcapLineParseError::InvalidIcapVersion) => {}
+            _ => panic!("expected InvalidIcapVersion"),
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_status_code() {
+        match StatusLine::parse(b"ICAP/1.0 99 Bad\r\n") {
+            Err(IcapLineParseError::InvalidStatusCode) => {}
+            _ => panic!("expected InvalidStatusCode"),
+        }
+    }
+
+    #[test]
+    fn rejects_too_short_input() {
+        match StatusLine::parse(b"ICAP/1.0") {
+            Err(IcapLineParseError::NotLongEnough) => {}
+            _ => panic!("expected NotLongEnough"),
+        }
+    }
 }

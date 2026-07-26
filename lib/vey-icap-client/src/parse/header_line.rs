@@ -38,4 +38,20 @@ mod tests {
         assert_eq!(header.name, "测试");
         assert_eq!(header.value, "结果");
     }
+
+    #[test]
+    fn rejects_missing_header_name() {
+        match HeaderLine::parse(b": value\r\n") {
+            Err(IcapLineParseError::MissingHeaderName) => {}
+            _ => panic!("expected MissingHeaderName"),
+        }
+    }
+
+    #[test]
+    fn rejects_missing_delimiter() {
+        match HeaderLine::parse(b"Preview 1024\r\n") {
+            Err(IcapLineParseError::NoDelimiterFound(':')) => {}
+            _ => panic!("expected NoDelimiterFound(':')"),
+        }
+    }
 }

@@ -38,3 +38,46 @@ pub(crate) fn add_shared(buf: &mut Vec<u8>, headers: &HttpHeaderMap) {
         buf.put_slice(b"\r\n");
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use http::header::HeaderName;
+    use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
+
+    #[test]
+    fn add_client_addr_serializes_ip_and_port() {
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 8080);
+        let mut buf = Vec::new();
+        add_client_addr(&mut buf, addr);
+
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.contains("X-Client-IP: 10.0.0.1\r\n"));
+        assert!(text.contains("X-Client-Port: 8080\r\n"));
+    }
+
+    #[test]
+    fn add_client_username_url_encodes_and_base64_authenticated_user() {
+        let mut buf = Vec::new();
+        add_client_username(&mut buf, "user@example");
+
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.starts_with("X-Client-Username: "));
+        assert!(text.contains("X-Authenticated-User: "));
+        assert!(text.contains("user%40example") || text.contains("user@example"));
+    }
+
+    #[test]
+    fn add_shared_copies_custom_headers() {
+        let mut headers = HttpHeaderMap::default();
+        headers.append(
+            HeaderName::from_static("x-custom"),
+            HttpHeaderValue::from_static("alpha"),
+        );
+        let mut buf = Vec::new();
+        add_shared(&mut buf, &headers);
+
+        assert_eq!(String::from_utf8(buf).unwrap(), "x-custom: alpha\r\n");
+    }
+}

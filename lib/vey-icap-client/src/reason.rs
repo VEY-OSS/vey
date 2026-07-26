@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2024-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::fmt;
@@ -39,5 +40,17 @@ impl IcapErrorReason {
 impl fmt::Display for IcapErrorReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_matches_as_str() {
+        let reason = IcapErrorReason::NoBodyFound;
+        assert_eq!(reason.to_string(), reason.as_str());
+        assert_eq!(reason.to_string(), "no ICAP body found");
     }
 }
