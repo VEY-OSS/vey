@@ -34,3 +34,6 @@ pub use self::http::{LtH2StreamId, LtHttpHeaderValue, LtHttpMethod, LtHttpUri};
 mod openssl;
 #[cfg(feature = "openssl")]
 pub use self::openssl::LtX509VerifyResult;
+
+#[cfg(test)]
+mod tests;
