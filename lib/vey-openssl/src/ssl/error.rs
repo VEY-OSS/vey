@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::error::Error;
@@ -57,5 +58,20 @@ impl fmt::Display for SslError {
 impl Error for SslError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         self.inner.source()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn action_as_str_covers_all_variants() {
+        assert_eq!(SslErrorAction::Accept.as_str(), "accept");
+        assert_eq!(SslErrorAction::Connect.as_str(), "connect");
+        assert_eq!(SslErrorAction::Read.as_str(), "read");
+        assert_eq!(SslErrorAction::Peek.as_str(), "peek");
+        assert_eq!(SslErrorAction::Write.as_str(), "write");
+        assert_eq!(SslErrorAction::Shutdown.as_str(), "shutdown");
     }
 }

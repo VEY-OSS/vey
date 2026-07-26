@@ -36,4 +36,18 @@ mod tests {
         assert_eq!(SslInfoCallbackWhere::HANDSHAKE_DONE.bits(), 0x20);
         assert_eq!(SslInfoCallbackWhere::ALERT.bits(), 0x4000);
     }
+
+    #[test]
+    fn all_flags_combine_without_overlap() {
+        let all = SslInfoCallbackWhere::LOOP
+            | SslInfoCallbackWhere::EXIT
+            | SslInfoCallbackWhere::READ
+            | SslInfoCallbackWhere::WRITE
+            | SslInfoCallbackWhere::HANDSHAKE_START
+            | SslInfoCallbackWhere::HANDSHAKE_DONE
+            | SslInfoCallbackWhere::ALERT;
+        assert!(all.contains(SslInfoCallbackWhere::LOOP));
+        assert!(all.contains(SslInfoCallbackWhere::ALERT));
+        assert_eq!(all.bits(), 0x403F);
+    }
 }
