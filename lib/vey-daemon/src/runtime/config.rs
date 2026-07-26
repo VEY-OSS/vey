@@ -116,3 +116,30 @@ fn set_global_config(k: &str, v: &Yaml) -> anyhow::Result<()> {
         _ => RUNTIME_CONFIG.with_mut(|config| config.parse_by_yaml_kv(k, v)),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vey_yaml::yaml_doc;
+
+    #[test]
+    fn load_updates_graceful_wait_durations() {
+        let yaml = yaml_doc!(
+            r#"
+                server_offline_delay: 10s
+                task_wait_delay: 3s
+            "#
+        );
+
+        load(&yaml).unwrap();
+
+        assert_eq!(get_server_offline_delay(), Duration::from_secs(10));
+        assert_eq!(get_task_wait_delay(), Duration::from_secs(3));
+    }
+
+    #[test]
+    fn load_rejects_non_hash_root() {
+        let err = load(&yaml_rust::Yaml::Integer(1)).unwrap_err();
+        assert!(err.to_string().contains("root value type should be hash"));
+    }
+}

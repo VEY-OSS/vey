@@ -51,6 +51,38 @@ impl GeneralControllerConfig {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vey_yaml::yaml_str;
+
+    #[test]
+    fn default_timeouts() {
+        let config = GeneralControllerConfig::default();
+        assert_eq!(config.recv_timeout, 30);
+        assert_eq!(config.send_timeout, 1);
+    }
+
+    #[test]
+    fn set_updates_timeouts() {
+        let mut config = GeneralControllerConfig::new();
+        config
+            .set("recv_timeout", &yaml_str!("120"))
+            .unwrap();
+        config.set("send_timeout", &yaml_str!("5")).unwrap();
+
+        assert_eq!(config.recv_timeout, 120);
+        assert_eq!(config.send_timeout, 5);
+    }
+
+    #[test]
+    fn set_rejects_unknown_key() {
+        let mut config = GeneralControllerConfig::new();
+        let err = config.set("unknown", &yaml_str!("1")).unwrap_err();
+        assert!(err.to_string().contains("invalid key"));
+    }
+}
+
 pub(crate) use local::LocalControllerConfig;
 
 pub fn load(v: &Yaml) -> anyhow::Result<()> {
