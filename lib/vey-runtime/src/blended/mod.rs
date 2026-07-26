@@ -111,3 +111,31 @@ impl BlendedRuntimeConfig {
             .map_err(|e| anyhow!("runtime build failed: {e:?}"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn intended_thread_number_minimum_one() {
+        let mut config = BlendedRuntimeConfig::new();
+        config.set_thread_number(0);
+        assert_eq!(config.intended_thread_number(), 1);
+    }
+
+    #[test]
+    fn run_in_current_thread_when_zero() {
+        let mut config = BlendedRuntimeConfig::new();
+        assert!(!config.run_in_current_thread());
+        config.set_thread_number(0);
+        assert!(config.run_in_current_thread());
+    }
+
+    #[test]
+    fn builder_current_thread_for_zero_threads() {
+        let mut config = BlendedRuntimeConfig::new();
+        config.set_thread_number(0);
+        let rt = config.builder().build().unwrap();
+        assert!(rt.handle().runtime_flavor() == tokio::runtime::RuntimeFlavor::CurrentThread);
+    }
+}
