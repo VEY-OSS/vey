@@ -203,3 +203,19 @@ impl AsyncIoThread {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_message_renders_as_unit() {
+        let value = StdLogValue {
+            level: Level::Info,
+            message: String::new(),
+            kv_pairs: vec![],
+            location: None,
+        };
+        assert_eq!(value.message_str(), "()");
+    }
+}
