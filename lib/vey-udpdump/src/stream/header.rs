@@ -433,3 +433,47 @@ fn push_var_tcp_header(buf: &mut Vec<u8>) {
     // end of option
     buf.extend_from_slice(&[0x00, EXP_PDU_TAG_END_OF_OPT, 0x00, 0x00]);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{Ipv4Addr, SocketAddr};
+    use std::str::FromStr;
+
+    use crate::ExportedPduDissectorHint;
+
+    #[test]
+    fn to_client_header_updates_tcp_seq() {
+        let client = SocketAddr::from_str("192.168.1.10:50000").unwrap();
+        let remote = SocketAddr::from_str("203.0.113.1:443").unwrap();
+        let (mut to_client, _) =
+            new_pair(client, remote, ExportedPduDissectorHint::TlsPort(443));
+
+        let mut hdr = to_client.new_header(512);
+        to_client.update_tcp_dissector_data(&mut hdr, 100);
+        to_client.record_written_data(100);
+
+        let offset = hdr
+            .windows(2)
+            .position(|w| w == [0x00, EXP_PDU_TAG_TCP_INFO_DATA])
+            .expect("tcp info tag")
+            + 6;
+        let seq = u32::from_be_bytes(hdr[offset..offset + 4].try_into().unwrap());
+        assert_eq!(seq, 1);
+        let next_seq = u32::from_be_bytes(hdr[offset + 4..offset + 8].try_into().unwrap());
+        assert_eq!(next_seq, 101);
+    }
+
+    #[test]
+    fn header_contains_ipv4_addresses() {
+        let client = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 1234);
+        let remote = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 443);
+        let (mut to_client, _) =
+            new_pair(client, remote, ExportedPduDissectorHint::TcpPort(443));
+
+        let hdr = to_client.new_header(256);
+        assert!(hdr.contains(&10));
+        assert!(hdr.contains(&2));
+        assert!(hdr.contains(&1));
+    }
+}
