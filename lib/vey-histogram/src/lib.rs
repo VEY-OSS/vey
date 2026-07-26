@@ -20,3 +20,6 @@ pub use quantile::Quantile;
 
 mod config;
 pub use config::HistogramMetricsConfig;
+
+#[cfg(test)]
+mod tests;
