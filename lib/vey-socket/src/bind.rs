@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2024-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::io;
@@ -79,6 +80,11 @@ mod tests {
         let ip = IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1));
         assert_eq!(BindAddr::Ip(ip).ip(), Some(ip));
         assert_eq!(BindAddr::None.ip(), None);
+    }
+
+    #[test]
+    fn default_is_none() {
+        assert!(BindAddr::default().is_none());
     }
 }
 
