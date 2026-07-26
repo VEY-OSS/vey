@@ -238,4 +238,35 @@ mod tests {
         assert_eq!(msg, b"");
         assert!(rsp.finished());
     }
+
+    #[test]
+    fn reply_code_as_u16() {
+        assert_eq!(ReplyCode::SERVICE_READY.as_u16(), 220);
+        assert_eq!(ReplyCode::OK.as_u16(), 250);
+        assert_eq!(ReplyCode::AUTHENTICATION_REQUIRED.as_u16(), 530);
+    }
+
+    #[test]
+    fn reply_code_new_rejects_invalid_first_digit() {
+        assert!(ReplyCode::new(b'1', b'2', b'0').is_none());
+        assert!(ReplyCode::new(b'6', b'0', b'0').is_none());
+    }
+
+    #[test]
+    fn is_first_line_after_initial_feed() {
+        let line = b"250-first line\r\n";
+        let mut rsp = ResponseParser::default();
+        rsp.feed_line(line).unwrap();
+        assert!(rsp.is_first_line());
+    }
+
+    #[test]
+    fn following_line_code_mismatch_is_invalid() {
+        let line1 = b"250-first\r\n";
+        let line2 = b"251-second\r\n";
+        let mut rsp = ResponseParser::default();
+        rsp.feed_line(line1).unwrap();
+        let err = rsp.feed_line(line2).unwrap_err();
+        assert_eq!(err, ResponseLineError::InvalidCode);
+    }
 }
