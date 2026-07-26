@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::sync::Arc;
@@ -49,4 +50,22 @@ pub trait IdleCheck {
     fn interval_timer(&self) -> IdleInterval;
     fn check_quit(&self, idle_count: usize) -> bool;
     fn check_force_quit(&self) -> Option<IdleForceQuitReason>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn idle_wheel_tick_advances() {
+        let wheel = IdleWheel::spawn(Duration::from_millis(5));
+        let mut interval = wheel.register();
+
+        assert_eq!(interval.period(), Duration::from_millis(5));
+
+        let tick = tokio::time::timeout(Duration::from_millis(50), interval.tick()).await;
+        assert!(tick.is_ok());
+        assert_eq!(tick.unwrap(), 1);
+    }
 }

@@ -137,3 +137,28 @@ where
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytes::BytesMut;
+    use tokio::io::AsyncReadExt;
+
+    #[tokio::test]
+    async fn serves_prefixed_bytes_before_inner_reader() {
+        let inner = tokio_test::io::Builder::new().read(b"tail").build();
+        let reader = OnceBufReader::new(inner, BytesMut::from(&b"head"[..]));
+
+        let mut out = Vec::new();
+        let mut reader = reader;
+        reader.read_to_end(&mut out).await.unwrap();
+        assert_eq!(out, b"headtail");
+    }
+
+    #[test]
+    fn empty_initial_buffer_delegates_to_inner() {
+        let mut reader = OnceBufReader::with_no_buf(());
+        assert!(reader.buf().is_none());
+        assert!(reader.take_buf().is_none());
+    }
+}
