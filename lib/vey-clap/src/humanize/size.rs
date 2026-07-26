@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::str::FromStr;
@@ -59,11 +60,18 @@ mod tests {
             ("1KB", 1000),
             ("1M", 1000 * 1000),
             ("1G", 1000 * 1000 * 1000),
+            ("1KiB", 1024),
+            ("1MiB", 1024 * 1024),
+            ("2 KiB", 2048),
         ];
 
         for (input, expected) in cases {
             let args = create_args(Some(input));
-            assert_eq!(get_usize(&args, "size").unwrap(), Some(expected));
+            assert_eq!(
+                get_usize(&args, "size").unwrap(),
+                Some(expected),
+                "input {input}"
+            );
         }
     }
 

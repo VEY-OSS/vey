@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::str::FromStr;
@@ -74,6 +75,13 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0, "x-empty-header");
         assert_eq!(result[0].1, "");
+
+        // Value may contain additional colons (split on first ':')
+        let args = create_args(&["X-Time:12:34:56"]);
+        let result = get_headers(&args, "headers").unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].0, "x-time");
+        assert_eq!(result[0].1, "12:34:56");
     }
 
     #[test]
