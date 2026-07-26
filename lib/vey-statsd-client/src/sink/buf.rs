@@ -90,3 +90,46 @@ impl<'a> Iterator for SinkBufIter<'a> {
         Some(IoSlice::new(&left_data[..to_read]))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn receive_tracks_message_lengths() {
+        let mut buf = SinkBuf::new(64);
+        buf.receive(|b| b.extend_from_slice(b"one\n"));
+        buf.receive(|b| b.extend_from_slice(b"two\n"));
+        assert!(!buf.is_empty());
+        assert_eq!(buf.msg_length_vec, vec![4, 4]);
+    }
+
+    #[test]
+    fn iter_respects_segment_size() {
+        let mut buf = SinkBuf::new(64);
+        buf.receive(|b| b.extend_from_slice(b"aaa\n"));
+        buf.receive(|b| b.extend_from_slice(b"bbbb\n"));
+        let slices: Vec<_> = buf.iter(5).collect();
+        assert_eq!(slices.len(), 2);
+        assert_eq!(slices[0].len(), 4);
+        assert_eq!(slices[1].len(), 5);
+    }
+
+    #[test]
+    fn iter_emits_oversized_message_as_single_slice() {
+        let mut buf = SinkBuf::new(64);
+        buf.receive(|b| b.extend_from_slice(b"0123456789\n"));
+        let slices: Vec<_> = buf.iter(4).collect();
+        assert_eq!(slices.len(), 1);
+        assert_eq!(slices[0].len(), 11);
+    }
+
+    #[test]
+    fn reset_clears_buffer() {
+        let mut buf = SinkBuf::new(16);
+        buf.receive(|b| b.push(b'x'));
+        buf.reset();
+        assert!(buf.is_empty());
+        assert!(buf.msg_length_vec.is_empty());
+    }
+}

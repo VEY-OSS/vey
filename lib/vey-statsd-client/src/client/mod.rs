@@ -177,4 +177,34 @@ mod tests {
             b"test.count:20|c|#c1:v1,c2:v2\ntest.count:30|c|#c1:v1\n"
         );
     }
+
+    #[test]
+    fn gauge_float_simple() {
+        let buf = Rc::new(Mutex::new(Vec::default()));
+        let sink = StatsdMetricsSink::test_with_capacity(buf.clone(), 32);
+        let prefix = unsafe { NodeName::new_unchecked("test") };
+        let mut client = StatsdClient::new(prefix, sink);
+        client.gauge_float("latency", 1.25).send();
+        client.flush_sink();
+
+        let buf = buf.lock().unwrap();
+        assert_eq!(buf.as_slice(), b"test.latency:1.25|g\n");
+    }
+
+    #[test]
+    fn gauge_float_with_tags() {
+        let buf = Rc::new(Mutex::new(Vec::default()));
+        let sink = StatsdMetricsSink::test_with_capacity(buf.clone(), 64);
+        let mut common_tags = StatsdTagGroup::default();
+        common_tags.add_tag("host", "a");
+        let mut client = StatsdClient::new(NodeName::default(), sink);
+        client
+            .gauge_float_with_tags("load", 0.5, &common_tags)
+            .with_tag("zone", "z1")
+            .send();
+        client.flush_sink();
+
+        let buf = buf.lock().unwrap();
+        assert_eq!(buf.as_slice(), b"load:0.5|g|#host:a,zone:z1\n");
+    }
 }
