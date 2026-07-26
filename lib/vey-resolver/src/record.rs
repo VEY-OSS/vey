@@ -192,4 +192,59 @@ mod tests {
             Duration::from_secs(100)
         );
     }
+
+    #[test]
+    fn record_source_as_str() {
+        assert_eq!(ResolvedRecordSource::Cache.as_str(), "cache");
+        assert_eq!(format!("{}", ResolvedRecordSource::Query), "query");
+    }
+
+    #[test]
+    fn is_expired_without_expire_is_always_true() {
+        let mut record = ResolvedRecord::empty(domain(), 60);
+        record.expire = None;
+        assert!(record.is_expired(Instant::now()));
+    }
+
+    #[test]
+    fn is_acceptable_only_for_not_found() {
+        let ok = ResolvedRecord::resolved(
+            domain(),
+            60,
+            30,
+            300,
+            vec!["127.0.0.1".parse().unwrap()],
+        );
+        assert!(ok.is_acceptable());
+
+        let not_found = ResolvedRecord::failed(
+            domain(),
+            60,
+            ResolveError::ServerError(ResolveServerError::NotFound),
+        );
+        assert!(not_found.is_acceptable());
+
+        let refused = ResolvedRecord::failed(
+            domain(),
+            60,
+            ResolveError::ServerError(ResolveServerError::Refused),
+        );
+        assert!(!refused.is_acceptable());
+    }
+
+    #[test]
+    fn is_usable_requires_non_empty_ips() {
+        let empty = ResolvedRecord::empty(domain(), 60);
+        assert!(empty.is_ok());
+        assert!(!empty.is_usable());
+
+        let with_ip = ResolvedRecord::resolved(
+            domain(),
+            60,
+            30,
+            300,
+            vec!["10.0.0.1".parse().unwrap()],
+        );
+        assert!(with_ip.is_usable());
+    }
 }
