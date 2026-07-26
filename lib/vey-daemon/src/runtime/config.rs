@@ -142,4 +142,11 @@ mod tests {
         let err = load(&yaml_rust::Yaml::Integer(1)).unwrap_err();
         assert!(err.to_string().contains("root value type should be hash"));
     }
+
+    #[test]
+    fn load_parses_task_wait_delay_alone() {
+        let yaml = yaml_doc!(r#"task_wait_delay: 500ms"#);
+        load(&yaml).unwrap();
+        assert_eq!(get_task_wait_delay(), Duration::from_millis(500));
+    }
 }

@@ -33,3 +33,28 @@ pub fn load(v: &Yaml, prefix: &str) -> anyhow::Result<()> {
     set_global_stat_config(config);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vey_yaml::yaml_doc;
+
+    #[test]
+    fn load_accepts_valid_yaml() {
+        let yaml = yaml_doc!(
+            r#"
+                target_udp: "127.0.0.1:8125"
+                cache_size: 1024
+            "#
+        );
+        load(&yaml, "daemon.metrics").unwrap();
+        assert!(get_global_stat_config().is_some());
+    }
+
+    #[test]
+    fn load_rejects_invalid_prefix() {
+        let yaml = yaml_doc!(r#"target_udp: "127.0.0.1:8125""#);
+        let err = load(&yaml, "not a valid node name!!!").unwrap_err();
+        assert!(err.to_string().contains("invalid default metrics prefix"));
+    }
+}
