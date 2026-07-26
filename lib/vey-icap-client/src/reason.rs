@@ -53,4 +53,21 @@ mod tests {
         assert_eq!(reason.to_string(), reason.as_str());
         assert_eq!(reason.to_string(), "no ICAP body found");
     }
+
+    #[test]
+    fn all_variants_have_nonempty_display() {
+        let variants = [
+            IcapErrorReason::InvalidResponse,
+            IcapErrorReason::UnknownResponse,
+            IcapErrorReason::InvalidResponseAfterContinue,
+            IcapErrorReason::UnknownResponseAfterContinue,
+            IcapErrorReason::ContinueAfterPreviewEof,
+            IcapErrorReason::UnknownResponseForPreview,
+            IcapErrorReason::NoBodyFound,
+        ];
+        for reason in variants {
+            assert_eq!(reason.to_string(), reason.as_str());
+            assert!(!reason.to_string().is_empty());
+        }
+    }
 }

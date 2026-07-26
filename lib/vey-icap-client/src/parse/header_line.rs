@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use super::IcapLineParseError;
@@ -53,5 +54,12 @@ mod tests {
             Err(IcapLineParseError::NoDelimiterFound(':')) => {}
             _ => panic!("expected NoDelimiterFound(':')"),
         }
+    }
+
+    #[test]
+    fn trims_header_value() {
+        let header = HeaderLine::parse(b"Service: my-icap-server  \r\n").unwrap();
+        assert_eq!(header.name, "Service");
+        assert_eq!(header.value, "my-icap-server");
     }
 }

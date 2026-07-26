@@ -239,4 +239,47 @@ mod tests {
         assert!(options.expire.is_some());
         assert!(!options.expired());
     }
+
+    #[test]
+    fn parse_header_allow_sets_support_flags() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        options
+            .parse_header_line(b"Allow: 204, 206\r\n")
+            .unwrap();
+        assert!(options.support_204);
+        assert!(options.support_206);
+    }
+
+    #[test]
+    fn parse_header_preview_sets_size() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        options.parse_header_line(b"Preview: 4096\r\n").unwrap();
+        assert_eq!(options.preview_size, Some(4096));
+    }
+
+    #[test]
+    fn parse_header_methods_must_match() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        assert!(matches!(
+            options.parse_header_line(b"Methods: RESPMOD\r\n"),
+            Err(IcapOptionsParseError::MethodNotMatch)
+        ));
+    }
+
+    #[test]
+    fn parse_header_encapsulated_accepts_null_and_opt_body() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        options
+            .parse_header_line(b"Encapsulated: null-body=0, opt-body=42\r\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn check_requires_istag() {
+        let options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        assert!(matches!(
+            options.check(),
+            Err(IcapOptionsParseError::NoServiceTagSet)
+        ));
+    }
 }

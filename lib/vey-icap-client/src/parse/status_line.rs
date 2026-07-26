@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use atoi::FromRadix10;
@@ -78,6 +79,25 @@ mod tests {
         match StatusLine::parse(b"ICAP/1.0") {
             Err(IcapLineParseError::NotLongEnough) => {}
             _ => panic!("expected NotLongEnough"),
+        }
+    }
+
+    #[test]
+    fn accepts_1xx_and_5xx_codes() {
+        let status = StatusLine::parse(b"ICAP/1.0 100 Continue\r\n").unwrap();
+        assert_eq!(status.code, 100);
+        assert_eq!(status.message, "Continue");
+
+        let status = StatusLine::parse(b"ICAP/1.0 599 Custom\r\n").unwrap();
+        assert_eq!(status.code, 599);
+        assert_eq!(status.message, "Custom");
+    }
+
+    #[test]
+    fn rejects_code_outside_valid_range() {
+        match StatusLine::parse(b"ICAP/1.0 600 Too High\r\n") {
+            Err(IcapLineParseError::InvalidStatusCode) => {}
+            _ => panic!("expected InvalidStatusCode"),
         }
     }
 }
