@@ -190,4 +190,42 @@ mod tests {
         assert_eq!(header_only.version(), Version::HTTP_2);
         assert_eq!(header_only.headers().get("X-Test").unwrap(), "1");
     }
+
+    #[test]
+    fn serialize_for_adapter_default_path_without_query() {
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("http://example.com")
+            .body(())
+            .unwrap();
+
+        let text = String::from_utf8(req.serialize_for_adapter()).unwrap();
+        assert!(text.starts_with("GET / HTTP/1.1\r\n"));
+        assert!(text.to_ascii_lowercase().contains("host: example.com\r\n"));
+    }
+
+    #[tokio::test]
+    async fn adapt_to_replaces_method_and_uri() {
+        use tokio::io::BufReader;
+        use vey_http::server::HttpAdaptedRequest;
+
+        let mut reader = BufReader::new(&b"POST /new HTTP/1.1\r\n\r\n"[..]);
+        let adapted = HttpAdaptedRequest::parse(&mut reader, 4096, false)
+            .await
+            .unwrap();
+
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("https://old.example/path?x=1")
+            .header(header::HOST, "old.example")
+            .header(header::TE, "trailers")
+            .body("body")
+            .unwrap();
+
+        let adapted_req = req.adapt_to(&adapted);
+        assert_eq!(adapted_req.method(), Method::POST);
+        assert_eq!(adapted_req.uri().path(), "/new");
+        assert_eq!(adapted_req.uri().scheme().unwrap().as_str(), "https");
+        assert_eq!(adapted_req.headers().get(header::TE).unwrap(), "trailers");
+    }
 }

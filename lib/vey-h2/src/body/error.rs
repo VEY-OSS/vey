@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use thiserror::Error;
@@ -23,4 +24,15 @@ pub enum H2StreamBodyTransferError {
     SendTrailersFailed(h2::Error),
     #[error("error while set graceful end of stream: {0}")]
     GracefulCloseError(h2::Error),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_display_includes_variant_context() {
+        let err = H2StreamBodyTransferError::SenderNotInSendState;
+        assert!(err.to_string().contains("sender not in send state"));
+    }
 }

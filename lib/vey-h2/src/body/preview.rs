@@ -296,4 +296,16 @@ mod tests {
         preview.icap_write_all_as_chunked(&mut out).await.unwrap();
         assert_eq!(out, b"0\r\n");
     }
+
+    #[test]
+    fn take_left_returns_remaining_bytes() {
+        let mut preview = H2PreviewData::new(4);
+        preview.buffer.extend_from_slice(b"abcd");
+        preview.received = 8;
+        preview.left = Some(Bytes::from_static(b"efgh"));
+
+        assert_eq!(preview.preview_size(), 4);
+        assert_eq!(preview.take_left().unwrap(), Bytes::from_static(b"efgh"));
+        assert!(preview.take_left().is_none());
+    }
 }

@@ -65,4 +65,35 @@ mod tests {
         assert!(text.to_ascii_lowercase().contains("x-test: missing\r\n"));
         assert!(text.ends_with("\r\n\r\n"));
     }
+
+    #[test]
+    fn serialize_uses_custom_reason_for_non_standard_status() {
+        let rsp = Response::builder()
+            .status(599)
+            .header("X-Test", "custom")
+            .body(())
+            .unwrap();
+
+        let text = String::from_utf8(rsp.serialize_for_adapter()).unwrap();
+        assert!(text.starts_with("HTTP/1.1 599 NOT STANDARD STATUS CODE\r\n"));
+    }
+
+    #[tokio::test]
+    async fn adapt_to_replaces_status_and_headers() {
+        use tokio::io::BufReader;
+        use vey_http::client::HttpAdaptedResponse;
+
+        let mut reader = BufReader::new(&b"HTTP/1.1 204 No Content\r\n\r\n"[..]);
+        let adapted = HttpAdaptedResponse::parse(&mut reader, 4096).await.unwrap();
+
+        let rsp = Response::builder()
+            .status(StatusCode::OK)
+            .header("X-Old", "1")
+            .body("payload")
+            .unwrap();
+
+        let adapted_rsp = rsp.adapt_to(&adapted);
+        assert_eq!(adapted_rsp.status(), StatusCode::NO_CONTENT);
+        assert!(adapted_rsp.headers().get("X-Old").is_none());
+    }
 }
