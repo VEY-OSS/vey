@@ -3,7 +3,7 @@
 %define build_profile release-lto
 
 Name:           vey-iploc
-Version:        0.3.0
+Version:        0.4.0
 Release:        1%{?dist}
 Summary:        IP Locate Service
 
@@ -40,5 +40,5 @@ install -m 644 -D %{name}/debian/vey-iploc@.service %{buildroot}/lib/systemd/sys
 
 
 %changelog
-* Sat Aug 09 2025 VEY-OSS Developers <developers@vey.oss> - 0.3.0-1
+* Sun Jul 26 2026 VEY-OSS Developers <developers@vey.oss> - 0.4.0-1
 - New upstream release
