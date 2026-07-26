@@ -192,3 +192,34 @@ impl Serializer for FormatterKv<'_> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn emit_u64_writes_key_and_value() {
+        let mut buf = Vec::new();
+        let mut fmt = FormatterKv(&mut buf);
+        fmt.emit_u64("count".into(), 42).unwrap();
+        assert!(buf.windows(5).any(|w| w == b"count"));
+    }
+
+    #[test]
+    fn emit_none_writes_nil() {
+        let mut buf = Vec::new();
+        let mut fmt = FormatterKv(&mut buf);
+        fmt.emit_none("empty".into()).unwrap();
+        assert!(buf.windows(5).any(|w| w == b"empty"));
+        assert!(buf.contains(&0xc0));
+    }
+
+    #[test]
+    fn emit_str_writes_key_and_value() {
+        let mut buf = Vec::new();
+        let mut fmt = FormatterKv(&mut buf);
+        fmt.emit_str("msg".into(), "hello").unwrap();
+        assert!(buf.windows(3).any(|w| w == b"msg"));
+        assert!(buf.windows(5).any(|w| w == b"hello"));
+    }
+}
