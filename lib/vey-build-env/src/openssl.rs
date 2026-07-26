@@ -6,18 +6,38 @@
 
 use std::env;
 
-pub fn check_openssl() {
+/// Resolve the OpenSSL variant from build-time dependency flags.
+pub fn openssl_variant() -> &'static str {
     if env::var("DEP_OPENSSL_LIBRESSL").is_ok() {
-        println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=LibreSSL");
+        "LibreSSL"
     } else if env::var("DEP_OPENSSL_TONGSUO").is_ok() {
-        println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=Tongsuo");
+        "Tongsuo"
     } else if env::var("DEP_OPENSSL_BORINGSSL").is_ok() {
-        println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=BoringSSL");
+        "BoringSSL"
     } else if env::var("DEP_OPENSSL_AWSLC_FIPS").is_ok() {
-        println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=AWS-LC-FIPS");
+        "AWS-LC-FIPS"
     } else if env::var("DEP_OPENSSL_AWSLC").is_ok() {
-        println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=AWS-LC");
+        "AWS-LC"
     } else {
-        println!("cargo:rustc-env=VEY_OPENSSL_VARIANT=OpenSSL");
+        "OpenSSL"
+    }
+}
+
+pub fn check_openssl() {
+    println!("cargo:rustc-env=VEY_OPENSSL_VARIANT={}", openssl_variant());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_openssl_smoke() {
+        check_openssl();
+    }
+
+    #[test]
+    fn openssl_variant_defaults_to_openssl_without_flags() {
+        assert_eq!(openssl_variant(), "OpenSSL");
     }
 }
