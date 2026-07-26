@@ -202,3 +202,68 @@ impl DaemonCtlArgsExt for Command {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use clap::Command;
+
+    use super::*;
+
+    fn ctl_command() -> Command {
+        Command::new("vey-ctl-test").append_daemon_ctl_args()
+    }
+
+    #[test]
+    fn clap_requires_group_or_pid_unless_completion() {
+        let cmd = ctl_command();
+        assert!(cmd.try_get_matches_from(["vey-ctl-test"]).is_err());
+    }
+
+    #[test]
+    fn clap_accepts_daemon_group_and_pid() {
+        let cmd = ctl_command();
+        let matches = cmd
+            .try_get_matches_from(["vey-ctl-test", "-G", "workers", "-p", "4242"])
+            .unwrap();
+        assert_eq!(
+            matches.get_one::<String>("daemon-group").map(String::as_str),
+            Some("workers")
+        );
+        assert_eq!(matches.get_one::<usize>("pid"), Some(&4242));
+        let _ = DaemonCtlArgs::parse_clap(&matches);
+    }
+
+    #[test]
+    fn parse_clap_completion_enables_generate_shell_completion() {
+        let cmd = ctl_command();
+        let matches = cmd
+            .try_get_matches_from(["vey-ctl-test", "--completion", "bash"])
+            .unwrap();
+        let mut args = DaemonCtlArgs::parse_clap(&matches);
+        assert!(args.generate_shell_completion(|| Command::new("vey-ctl-test")));
+        assert!(!args.generate_shell_completion(|| Command::new("vey-ctl-test")));
+    }
+
+    #[test]
+    fn clap_control_dir_unix() {
+        #[cfg(unix)]
+        {
+            let cmd = ctl_command();
+            let matches = cmd
+                .try_get_matches_from([
+                    "vey-ctl-test",
+                    "-G",
+                    "main",
+                    "--control-dir",
+                    "/tmp/custom",
+                ])
+                .unwrap();
+            assert_eq!(
+                matches
+                    .get_one::<std::path::PathBuf>("control-dir")
+                    .map(|p| p.as_os_str()),
+                Some(std::ffi::OsStr::new("/tmp/custom"))
+            );
+        }
+    }
+}
