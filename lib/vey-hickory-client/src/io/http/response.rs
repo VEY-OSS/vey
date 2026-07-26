@@ -156,4 +156,39 @@ mod tests {
             Ok(_) => panic!("expected length mismatch error"),
         }
     }
+
+    #[test]
+    fn new_rejects_invalid_content_length() {
+        let mut headers = http::HeaderMap::new();
+        headers.insert(header::CONTENT_LENGTH, http::HeaderValue::from_static("abc"));
+        let rsp = dns_response(headers);
+        match HttpDnsResponse::new(rsp) {
+            Err(e) => assert!(e.to_string().contains("invalid Content-Length header")),
+            Ok(_) => panic!("expected invalid Content-Length error"),
+        }
+    }
+
+    #[test]
+    fn into_dns_response_rejects_non_success_status() {
+        let mut rsp = Response::builder()
+            .status(StatusCode::BAD_GATEWAY)
+            .header(header::CONTENT_TYPE, MIME_APPLICATION_DNS)
+            .body(())
+            .unwrap();
+        rsp.headers_mut()
+            .insert(header::CONTENT_LENGTH, http::HeaderValue::from_static("5"));
+        let mut http_rsp = HttpDnsResponse::new(rsp).unwrap();
+        http_rsp.push_body(&b"error"[..]);
+
+        match http_rsp.into_dns_response() {
+            Err(e) => assert!(e.to_string().contains("http unsuccessful code: 502")),
+            Ok(_) => panic!("expected HTTP error"),
+        }
+    }
+
+    #[test]
+    fn body_end_without_content_length_never_true() {
+        let rsp = HttpDnsResponse::new(dns_response(http::HeaderMap::new())).unwrap();
+        assert!(!rsp.body_end());
+    }
 }

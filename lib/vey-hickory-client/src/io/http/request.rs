@@ -79,4 +79,14 @@ mod tests {
             Ok(_) => panic!("expected invalid authority error"),
         }
     }
+
+    #[test]
+    fn new_builds_http2_dns_query_request() {
+        let builder = HttpDnsRequestBuilder::new(Version::HTTP_2, "dns.google").unwrap();
+        let req = builder.post(128);
+
+        assert_eq!(req.version(), Version::HTTP_2);
+        assert_eq!(req.uri().authority().unwrap().host(), "dns.google");
+        assert_eq!(req.headers().get(header::CONTENT_LENGTH).unwrap(), "128");
+    }
 }
