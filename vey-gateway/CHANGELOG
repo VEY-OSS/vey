@@ -1,12 +1,21 @@
 
 v0.4.0:
- - BUG FIX: fix off-by-one when check max_request_count in keyless backend
- - BUG FIX: reject empty TLS Handshake records and limit ClientHello receive buffer in openssl_proxy to avoid unbounded memory growth
- - BUG FIX: make HostMatch suffix domain matching use longest-prefix lookup so subdomains match again
- - BUG FIX: return a config error instead of panicking when openssl_proxy client auth CA DER is invalid
+ - BUG FIX: keyless backend closes multiplex connections at the configured `max_request_count` (off-by-one no longer allows one extra request)
+ - BUG FIX: reject empty TLS Handshake records and bound ClientHello buffers in openssl_proxy so bad clients cannot grow memory without limit
+ - BUG FIX: Host suffix / child domain ACLs and routes use longest-prefix match again (`vey-types` HostMatch), so `a.b.example.com` hits the intended rule
+ - BUG FIX: invalid openssl_proxy client-auth CA DER fails config load instead of panicking at runtime
+ - BUG FIX: RateLimiter reload keeps the intended burst size (`vey-types`; was inconsistent with construction)
+ - BUG FIX: reloading PlainQuicPort keeps the TLS session ticketer so clients can still resume tickets
+ - Feature: reload the running process via RPC/ctl (`reload`) without a full restart
+ - Feature: TCP/UDP (and PlainQuicPort) listen configs can enable `use_ebpf` for reuseport selection on Linux (`ebpf` feature); QUIC uses a dedicated eBPF selector
+ - Feature: PlainQuicPort gains `QuinnEndpointConfig` and `udp_max_payload_size` for QUIC tuning
  - Feature: support set TCP max segment size in listen config
- - Compatibility: bump MSRV to 1.90.0
- - Compatibility: remove unused openssl_proxy option alert_unrecognized_name (never wired to send TLS alerts)
+ - Feature: optional jemalloc or mimalloc global allocator at compile time; allocator name/version appear in `--version`
+ - Feature: derive default config / log / metrics / controller names from the binary name (supports renamed installs)
+ - Feature: `--version` reports the OpenSSL variant actually linked
+ - Compatibility: replace `governor` with the shared `vey-types` RateLimiter for request rate limits
+ - Compatibility: bump MSRV to 1.91.0
+ - Compatibility: remove unused openssl_proxy option `alert_unrecognized_name` (never wired to send TLS alerts)
  - Deprecated: the following config options are deprecated:
      - task_idle_check_duration in server config, use task_idle_check_interval instead
 

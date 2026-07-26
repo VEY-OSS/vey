@@ -3,7 +3,7 @@
 %define build_profile release-lto
 
 Name:           vey-gateway
-Version:        0.3.9
+Version:        0.4.0
 Release:        1%{?dist}
 Summary:        Generic Gateway
 
@@ -46,5 +46,5 @@ install -m 644 -D %{name}/debian/vey-gateway@.service %{buildroot}/lib/systemd/s
 %license LICENSE-FOREIGN
 
 %changelog
-* Mon Jul 14 2025 VEY-OSS Developers <developers@vey.oss> - 0.3.9-1
+* Sun Jul 26 2026 VEY-OSS Developers <developers@vey.oss> - 0.4.0-1
 - New upstream release
