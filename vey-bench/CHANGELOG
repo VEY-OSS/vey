@@ -1,7 +1,16 @@
 
 v0.9.8:
- - BUG FIX: fix some stats in h1 & h3 target
- - BUG FIX: fix support of socks4 proxy
+ - BUG FIX: SOCKS4 proxy replies parse the bound port correctly again (broken SOCKS4 via proxy no longer fails handshake)
+ - BUG FIX: h1 target records send-header time when the request has a body (header latency stats were missing before)
+ - BUG FIX: thrift compact / framed headers encode varints correctly so compact thrift peers interoperate
+ - Feature: h1/h2/h3 targets report connect-time histograms in summary and StatsD (`http.time.connect`)
+ - Feature: replace connection-reuse counters with requests-per-connection (`conn used times` / Req/Conn) for http, websocket, thrift, and cloudflare keyless
+ - Feature: websocket target reports Req/Conn (conn used times) like other multiplexed targets
+ - Feature: HTTP/3 GREASE is off by default; pass `--grease` when the peer needs it
+ - Feature: optional jemalloc or mimalloc global allocator at compile time; allocator name/version appear in `--version`
+ - Optimization: skip noisy percentile / request-distribution summary lines when concurrency is 1 or the sample set is too small
+ - Compatibility: OpenSSL CLI `--tls-supported-groups` / `--proxy-tls-supported-groups` renamed to `--tls-key-exchange-groups` / `--proxy-tls-key-exchange-groups`
+ - Compatibility: bump MSRV to 1.91
 
 v0.9.7:
  - Feature: allow to set more flexible rate limit value

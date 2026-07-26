@@ -3,7 +3,7 @@
 %define build_profile release-lto
 
 Name:           vey-bench
-Version:        0.9.7
+Version:        0.9.8
 Release:        1%{?dist}
 Summary:        Multi-Target Benchmark tool
 
@@ -43,5 +43,5 @@ install -m 755 -D target/%{build_profile}/vey-bench %{buildroot}%{_bindir}/vey-b
 
 
 %changelog
-* Thu Jan 15 2026 VEY-OSS Developers <developers@vey.oss> - 0.9.7-1
+* Sun Jul 26 2026 VEY-OSS Developers <developers@vey.oss> - 0.9.8-1
 - New upstream release
