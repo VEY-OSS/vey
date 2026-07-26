@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::io::Write;
@@ -14,7 +15,7 @@ use tokio::sync::mpsc;
 
 use vey_types::metrics::MetricTagMap;
 
-use crate::config::exporter::graphite::GraphiteExporterConfig;
+use crate::config::exporter::graphite::{GraphiteCounterValue, GraphiteExporterConfig};
 use crate::runtime::export::{AggregateExport, CounterStoreValue, GaugeStoreValue, StreamExport};
 use crate::types::{MetricName, MetricValue};
 
@@ -22,6 +23,7 @@ pub(super) struct GraphitePlaintextAggregateExport {
     emit_interval: Duration,
     prefix: Option<MetricName>,
     global_tags: MetricTagMap,
+    counter_value: GraphiteCounterValue,
     data_sender: mpsc::UnboundedSender<Vec<u8>>,
 
     buf: Vec<u8>,
@@ -36,6 +38,7 @@ impl GraphitePlaintextAggregateExport {
             emit_interval: config.emit_interval,
             prefix: config.prefix.clone(),
             global_tags: config.global_tags.clone(),
+            counter_value: config.counter_value,
             data_sender,
             buf: Vec::with_capacity(2048),
         }
@@ -94,7 +97,11 @@ impl AggregateExport for GraphitePlaintextAggregateExport {
         self.buf.clear();
         let now = Utc::now();
         for (tags, v) in values {
-            self.serialize(&now, name, tags, &v.sum);
+            let value = match self.counter_value {
+                GraphiteCounterValue::Sum => &v.sum,
+                GraphiteCounterValue::Diff => &v.diff,
+            };
+            self.serialize(&now, name, tags, value);
         }
         let _ = self.data_sender.send(self.buf.clone());
     }

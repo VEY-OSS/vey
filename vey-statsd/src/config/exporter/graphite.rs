@@ -1,8 +1,10 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
@@ -17,6 +19,43 @@ use crate::types::MetricName;
 
 const EXPORTER_CONFIG_TYPE: &str = "Graphite";
 
+/// Which aggregate counter field Graphite plaintext export should send.
+///
+/// Graphite accepts a single numeric value per line, so callers choose either
+/// the lifetime total (`sum`) or the current emit-interval delta (`diff`).
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum GraphiteCounterValue {
+    /// Lifetime cumulative counter (historical default).
+    #[default]
+    Sum,
+    /// Count accumulated only in the current emit interval.
+    Diff,
+}
+
+impl FromStr for GraphiteCounterValue {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "sum" => Ok(Self::Sum),
+            "diff" => Ok(Self::Diff),
+            _ => Err(anyhow!("invalid graphite counter value: {s}")),
+        }
+    }
+}
+
+impl GraphiteCounterValue {
+    pub(crate) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
+        if let Yaml::String(s) = value {
+            Self::from_str(s)
+        } else {
+            Err(anyhow!(
+                "yaml value type for graphite counter_value should be string"
+            ))
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct GraphiteExporterConfig {
     name: NodeName,
@@ -25,6 +64,7 @@ pub(crate) struct GraphiteExporterConfig {
     pub(crate) stream_export: StreamExportConfig,
     pub(crate) prefix: Option<MetricName>,
     pub(crate) global_tags: MetricTagMap,
+    pub(crate) counter_value: GraphiteCounterValue,
 }
 
 impl GraphiteExporterConfig {
@@ -36,6 +76,7 @@ impl GraphiteExporterConfig {
             stream_export: StreamExportConfig::new(2003),
             prefix: None,
             global_tags: MetricTagMap::default(),
+            counter_value: GraphiteCounterValue::default(),
         }
     }
 
@@ -74,6 +115,11 @@ impl GraphiteExporterConfig {
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 Ok(())
             }
+            "counter_value" => {
+                self.counter_value = GraphiteCounterValue::parse_yaml(v)
+                    .context(format!("invalid value for key {k}"))?;
+                Ok(())
+            }
             _ => self.stream_export.set_by_yaml_kv(k, v),
         }
     }
@@ -106,5 +152,23 @@ impl ExporterConfig for GraphiteExporterConfig {
         };
 
         ExporterConfigDiffAction::Reload
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_counter_value() {
+        assert_eq!(
+            GraphiteCounterValue::from_str("sum").unwrap(),
+            GraphiteCounterValue::Sum
+        );
+        assert_eq!(
+            GraphiteCounterValue::from_str("DIFF").unwrap(),
+            GraphiteCounterValue::Diff
+        );
+        assert!(GraphiteCounterValue::from_str("rate").is_err());
     }
 }

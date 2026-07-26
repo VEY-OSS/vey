@@ -23,3 +23,16 @@ emit_interval
 Emit interval for outgoing batches.
 
 **default**: 10s
+
+counter_value
+-------------
+
+**optional**, **type**: str
+
+Which aggregate counter field to write in each Graphite plaintext line.
+Graphite accepts only one numeric value per metric sample, so choose:
+
+* ``sum`` — lifetime cumulative counter (compatible with existing dashboards that apply a derivative)
+* ``diff`` — count accumulated only in the current ``emit_interval`` (statsd-style flush deltas)
+
+**default**: ``sum``
