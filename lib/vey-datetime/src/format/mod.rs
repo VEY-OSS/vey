@@ -7,3 +7,6 @@ pub mod asn1;
 pub mod ftp;
 pub mod log;
 pub mod std;
+
+#[cfg(test)]
+mod tests;
