@@ -301,4 +301,12 @@ mod tests {
             .unwrap();
         assert_eq!(vars, b"A_KEY\n\x07\0\0\0\0\0\0\0a-v1\nv2\n");
     }
+
+    #[test]
+    fn priority_mapping() {
+        let mut vars = Vec::new();
+        let mut kv_formatter = FormatterKv(&mut vars);
+        kv_formatter.emit_sanitized_one_line("PRIORITY", level_to_sd_priority(Level::Error));
+        assert_eq!(vars, b"PRIORITY=3\n");
+    }
 }
