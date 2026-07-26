@@ -121,3 +121,29 @@ fn format_content_as_json(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use super::SyslogFormatter;
+
+    #[test]
+    fn cee_event_flag_constant() {
+        assert_eq!(CEE_EVENT_FLAG, "@cee:");
+    }
+
+    #[test]
+    fn rfc3164_cee_formatter_lifecycle() {
+        let mut formatter = FormatterRfc3164Cee::new("@cee:".into());
+        formatter.append_report_ts(true);
+        formatter.append_report_ts(false);
+    }
+
+    #[test]
+    fn rfc5424_cee_formatter_lifecycle() {
+        let mut formatter =
+            FormatterRfc5424Cee::new(Some("MID-1".into()), "@cee:".into());
+        formatter.append_report_ts(true);
+    }
+}

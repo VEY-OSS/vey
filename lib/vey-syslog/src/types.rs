@@ -62,3 +62,23 @@ pub enum Severity {
 }
 
 pub type Priority = u8;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn facility_values_are_multiples_of_eight() {
+        assert_eq!(Facility::Kern as u8, 0);
+        assert_eq!(Facility::User as u8, 8);
+        assert_eq!(Facility::Mail as u8, 16);
+        assert_eq!(Facility::Local7 as u8, 23 << 3);
+    }
+
+    #[test]
+    fn severity_values_are_sequential() {
+        assert_eq!(Severity::Emergency as u8, 0);
+        assert_eq!(Severity::Alert as u8, 1);
+        assert_eq!(Severity::Debug as u8, 7);
+    }
+}
