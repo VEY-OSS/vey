@@ -60,3 +60,67 @@ fn test_any() {
     let any_config2 = AnyTestConfig::Variant2(ConfigA {});
     assert!(!any_config.same_as(&any_config2));
 }
+
+#[test]
+fn test_async_run() {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    rt.block_on(async {
+        let any_config = AnyTestConfig::Variant1(ConfigA {});
+        any_config.run().await;
+    });
+}
+
+struct ConfigB {
+    label: String,
+}
+
+impl ConfigB {
+    fn name(&self) -> &str {
+        &self.label
+    }
+
+    fn version(&self) -> usize {
+        2
+    }
+
+    fn same_as(&self, other: &AnyTestConfigWithParams) -> bool {
+        match other {
+            AnyTestConfigWithParams::Left(c) | AnyTestConfigWithParams::Right(c) => {
+                c.label == self.label
+            }
+        }
+    }
+
+    fn reload(&self) {}
+
+    async fn run(&self) {}
+}
+
+#[derive(AnyConfig)]
+#[def_fn(name, &str)]
+#[def_fn(version, usize)]
+#[def_fn(same_as, &AnyTestConfigWithParams, bool)]
+#[def_fn(reload)]
+#[def_async_fn(run)]
+pub(crate) enum AnyTestConfigWithParams {
+    Left(ConfigB),
+    Right(ConfigB),
+}
+
+#[test]
+fn test_param_same_as() {
+    let a = AnyTestConfigWithParams::Left(ConfigB {
+        label: "B".to_string(),
+    });
+    let b = AnyTestConfigWithParams::Right(ConfigB {
+        label: "B".to_string(),
+    });
+    let c = AnyTestConfigWithParams::Right(ConfigB {
+        label: "C".to_string(),
+    });
+    assert!(a.same_as(&b));
+    assert!(!a.same_as(&c));
+}
