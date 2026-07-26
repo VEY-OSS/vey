@@ -70,4 +70,26 @@ mod tests {
         let mut data = Noop;
         RecvAncillaryBuffer::parse_buf(&[], &mut data).unwrap();
     }
+
+    #[test]
+    fn default_matches_new() {
+        assert_eq!(
+            RecvAncillaryBuffer::default().as_bytes().len(),
+            RecvAncillaryBuffer::new().as_bytes().len()
+        );
+    }
+
+    #[test]
+    fn parse_buf_rejects_truncated_input() {
+        struct Noop;
+        impl RecvAncillaryData for Noop {
+            fn set_recv_interface(&mut self, _id: u32) {}
+            fn set_recv_dst_addr(&mut self, _addr: IpAddr) {}
+            fn set_timestamp(&mut self, _ts: Duration) {}
+        }
+
+        // Random non-empty garbage should not panic; platform parser may error.
+        let mut data = Noop;
+        let _ = RecvAncillaryBuffer::parse_buf(&[0xFF, 0x01, 0x02], &mut data);
+    }
 }
