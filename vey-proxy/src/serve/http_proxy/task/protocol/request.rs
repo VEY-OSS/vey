@@ -170,7 +170,10 @@ mod tests {
             host_header_without_default_port(b"example.com:80", 80),
             Some(&b"example.com"[..])
         );
-        assert_eq!(host_header_without_default_port(b"example.com:8080", 80), None);
+        assert_eq!(
+            host_header_without_default_port(b"example.com:8080", 80),
+            None
+        );
         assert_eq!(host_header_without_default_port(b"example.com", 80), None);
     }
 
@@ -188,9 +191,6 @@ mod tests {
             host_header_without_default_port(b"[2001:db8::1]:8080", 80),
             None
         );
-        assert_eq!(
-            host_header_without_default_port(b"[2001:db8::1]", 80),
-            None
-        );
+        assert_eq!(host_header_without_default_port(b"[2001:db8::1]", 80), None);
     }
 }

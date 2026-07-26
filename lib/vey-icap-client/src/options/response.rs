@@ -235,9 +235,7 @@ mod tests {
     #[test]
     fn options_ttl_accepts_reasonable_value() {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
-        options
-            .parse_header_line(b"Options-TTL: 3600\r\n")
-            .unwrap();
+        options.parse_header_line(b"Options-TTL: 3600\r\n").unwrap();
         assert!(options.expire.is_some());
         assert!(!options.expired());
     }

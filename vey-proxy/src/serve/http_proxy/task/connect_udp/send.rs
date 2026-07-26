@@ -48,15 +48,13 @@ where
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyClientError>> {
-        self.buffer
-            .queue_packet(buf)
-            .map_err(|PacketTooLarge| {
-                UdpCopyClientError::InvalidPacket(format!(
-                    "UDP packet length {} exceeds max {}",
-                    buf.len(),
-                    self.buffer.max_packet_size()
-                ))
-            })?;
+        self.buffer.queue_packet(buf).map_err(|PacketTooLarge| {
+            UdpCopyClientError::InvalidPacket(format!(
+                "UDP packet length {} exceeds max {}",
+                buf.len(),
+                self.buffer.max_packet_size()
+            ))
+        })?;
         ready!(
             self.buffer
                 .poll_write(cx, Pin::new(&mut self.writer))
