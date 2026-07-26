@@ -51,3 +51,40 @@ impl VarIntEncoder {
         self.leb128.encode_u32(i32::cast_unsigned(v))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{VarInt32, VarIntEncoder};
+
+    #[test]
+    fn zigzag_roundtrip() {
+        let mut enc = VarIntEncoder::default();
+        for v in [0, 1, -1, 2, -2, i32::MAX, i32::MIN, 12345, -67890] {
+            let encoded = enc.encode_i32(v).to_vec();
+            let parsed = VarInt32::parse(&encoded).unwrap();
+            assert_eq!(parsed.value(), v, "zigzag value for {v}");
+            assert_eq!(parsed.encoded_len(), encoded.len());
+        }
+    }
+
+    #[test]
+    fn positive_varint_no_zigzag() {
+        let mut enc = VarIntEncoder::default();
+        let encoded = enc.encode_positive_i32(150).to_vec();
+        let parsed = VarInt32::parse(&encoded).unwrap();
+        assert_eq!(parsed.positive_value(), 150);
+        // Zigzag decode of the same bytes is a different integer.
+        assert_ne!(parsed.value(), 150);
+
+        let encoded = enc.encode_positive_i32(1).to_vec();
+        assert_eq!(encoded, [0x01]);
+        assert_eq!(VarInt32::parse(&encoded).unwrap().positive_value(), 1);
+    }
+
+    #[test]
+    fn parse_errors() {
+        assert!(VarInt32::parse(&[]).is_err());
+        // Continuation bit set with no following byte
+        assert!(VarInt32::parse(&[0x80]).is_err());
+    }
+}

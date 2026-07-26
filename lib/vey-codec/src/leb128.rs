@@ -110,4 +110,29 @@ mod tests {
         assert_eq!(encoder.encode_u32(1), &[0x01]);
         assert_eq!(encoder.encode_u32(624485), &[0xE5, 0x8E, 0x26]);
     }
+
+    #[test]
+    fn roundtrip_and_errors() {
+        let mut encoder = Leb128Encoder::default();
+        for v in [0u32, 127, 128, 255, 624485, u32::MAX] {
+            let encoded = encoder.encode_u32(v).to_vec();
+            let decoded = Leb128::<u32>::decode(&encoded).unwrap();
+            assert_eq!(decoded.value(), v);
+            assert_eq!(decoded.encoded_len(), encoded.len());
+        }
+
+        assert!(matches!(
+            Leb128::<u32>::decode(&[]),
+            Err(Leb128DecodeError::NeedMoreData)
+        ));
+        assert!(matches!(
+            Leb128::<u32>::decode(&[0x80]),
+            Err(Leb128DecodeError::NeedMoreData)
+        ));
+        // More than 5 continuation bytes for u32
+        assert!(matches!(
+            Leb128::<u32>::decode(&[0x80, 0x80, 0x80, 0x80, 0x80, 0x01]),
+            Err(Leb128DecodeError::NoEndFound)
+        ));
+    }
 }

@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 pub trait TlvParse<'a> {
@@ -71,5 +72,63 @@ where
 
     fn parse_value(&mut self, tag: Self::Tag, buf: &'a [u8]) -> Result<(), Self::Error> {
         self.parse_value(tag, buf)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{T1L2BVParse, TlvParse};
+
+    #[derive(Default)]
+    struct Collector {
+        values: Vec<(u8, Vec<u8>)>,
+    }
+
+    #[derive(Debug, PartialEq, Eq)]
+    enum Err {
+        Truncated,
+        BadTag,
+    }
+
+    impl<'a> T1L2BVParse<'a> for Collector {
+        type Error = Err;
+
+        fn no_enough_data() -> Self::Error {
+            Err::Truncated
+        }
+
+        fn parse_value(&mut self, tag: u8, buf: &'a [u8]) -> Result<(), Self::Error> {
+            if tag == 0xFF {
+                return Err(Err::BadTag);
+            }
+            self.values.push((tag, buf.to_vec()));
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn parse_t1l2_ok() {
+        // tag=1, len=2, value=ab ; tag=2, len=0
+        let data = [0x01, 0x00, 0x02, b'a', b'b', 0x02, 0x00, 0x00];
+        let mut c = Collector::default();
+        c.parse_tlv(&data).unwrap();
+        assert_eq!(c.values, vec![(1, b"ab".to_vec()), (2, Vec::new())]);
+    }
+
+    #[test]
+    fn parse_t1l2_truncated() {
+        let mut c = Collector::default();
+        assert_eq!(c.parse_tlv(&[0x01, 0x00]).unwrap_err(), Err::Truncated);
+        assert_eq!(
+            c.parse_tlv(&[0x01, 0x00, 0x02, b'a']).unwrap_err(),
+            Err::Truncated
+        );
+    }
+
+    #[test]
+    fn parse_t1l2_propagates_value_error() {
+        let data = [0xFF, 0x00, 0x01, 0x00];
+        let mut c = Collector::default();
+        assert_eq!(c.parse_tlv(&data).unwrap_err(), Err::BadTag);
     }
 }

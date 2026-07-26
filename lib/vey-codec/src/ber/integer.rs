@@ -194,4 +194,23 @@ mod tests {
             .unwrap();
         assert_eq!(v.value(), i64::MIN);
     }
+
+    #[test]
+    fn parse_enumerated_and_reject_too_large() {
+        let v = BerInteger::parse_enumerated_value(&[0x0a, 0x01, 0x05]).unwrap();
+        assert_eq!(v.value(), 5);
+        assert_eq!(v.encoded_len(), 3);
+
+        // Wrong identifier for enumerated
+        assert_eq!(
+            BerInteger::parse_enumerated_value(&[0x02, 0x01, 0x05]).unwrap_err(),
+            BerIntegerParseError::InvalidType
+        );
+
+        // Content longer than 8 octets
+        assert_eq!(
+            BerInteger::parse(&[0x02, 0x09, 0, 0, 0, 0, 0, 0, 0, 0, 1]).unwrap_err(),
+            BerIntegerParseError::InvalidValueBytes
+        );
+    }
 }

@@ -1,11 +1,12 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2024-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use thiserror::Error;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExtensionType {
     ServerName,                          // rfc6066
     MaxFragmentLength,                   // rfc6066
@@ -161,10 +162,99 @@ impl<'a> Iterator for ExtensionIter<'a> {
                     self.offset += Extension::HEADER_LEN + ext.ext_len as usize;
                     Some(Ok(ext))
                 }
-                Err(e) => Some(Err(e)),
+                Err(e) => {
+                    // Fuse on error so callers like `.collect()` cannot spin forever.
+                    self.offset = self.data.len();
+                    Some(Err(e))
+                }
             }
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Extension, ExtensionIter, ExtensionList, ExtensionParseError, ExtensionType};
+
+    #[test]
+    fn extension_type_from_u16() {
+        assert_eq!(ExtensionType::from(0), ExtensionType::ServerName);
+        assert_eq!(ExtensionType::from(16), ExtensionType::ApplicationLayerProtocolNegotiation);
+        assert_eq!(ExtensionType::from(43), ExtensionType::SupportedVersions);
+        assert_eq!(ExtensionType::from(51), ExtensionType::KeyShare);
+        assert_eq!(ExtensionType::from(0x1234), ExtensionType::Unknown(0x1234));
+    }
+
+    #[test]
+    fn parse_extension_ok_and_errors() {
+        // type=0 (SNI), len=0
+        let ext = Extension::parse(&[0x00, 0x00, 0x00, 0x00]).unwrap();
+        assert_eq!(ext.r#type(), ExtensionType::ServerName);
+        assert!(ext.data().is_none());
+
+        // type=16, len=3, data=abc
+        let ext = Extension::parse(&[0x00, 0x10, 0x00, 0x03, b'a', b'b', b'c']).unwrap();
+        assert_eq!(
+            ext.r#type(),
+            ExtensionType::ApplicationLayerProtocolNegotiation
+        );
+        assert_eq!(ext.data(), Some(b"abc".as_slice()));
+
+        assert!(matches!(
+            Extension::parse(&[0x00, 0x00, 0x00]),
+            Err(ExtensionParseError::NotEnoughData)
+        ));
+        assert!(matches!(
+            Extension::parse(&[0x00, 0x00, 0x00, 0x02, 0x01]),
+            Err(ExtensionParseError::InvalidLength)
+        ));
+    }
+
+    #[test]
+    fn extension_list_get_and_iter() {
+        // SNI empty + ALPN "h2"
+        let data = [
+            0x00, 0x00, 0x00, 0x00, // SNI len 0
+            0x00, 0x10, 0x00, 0x02, b'h', b'2', // ALPN
+        ];
+        assert_eq!(
+            ExtensionList::get_ext(&data, ExtensionType::ServerName).unwrap(),
+            None
+        );
+        assert_eq!(
+            ExtensionList::get_ext(&data, ExtensionType::ApplicationLayerProtocolNegotiation)
+                .unwrap(),
+            Some(b"h2".as_slice())
+        );
+        assert_eq!(
+            ExtensionList::get_ext(&data, ExtensionType::KeyShare).unwrap(),
+            None
+        );
+
+        let items: Vec<_> = ExtensionIter::new(&data).collect();
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].as_ref().unwrap().r#type(), ExtensionType::ServerName);
+        assert_eq!(
+            items[1].as_ref().unwrap().r#type(),
+            ExtensionType::ApplicationLayerProtocolNegotiation
+        );
+    }
+
+    #[test]
+    fn extension_iter_fuses_on_parse_error() {
+        // Valid empty SNI, then a truncated extension (claimed len=2, only 1 byte left).
+        let data = [
+            0x00, 0x00, 0x00, 0x00, // SNI len 0
+            0x00, 0x10, 0x00, 0x02, 0x01, // truncated ALPN
+        ];
+        let items: Vec<_> = ExtensionIter::new(&data).collect();
+        assert_eq!(items.len(), 2);
+        assert!(items[0].is_ok());
+        assert!(matches!(
+            items[1],
+            Err(ExtensionParseError::InvalidLength)
+        ));
     }
 }
