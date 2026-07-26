@@ -3,7 +3,7 @@
 %define build_profile release-lto
 
 Name:           vey-keyless
-Version:        0.4.3
+Version:        0.5.0
 Release:        1%{?dist}
 Summary:        Keyless Server
 
@@ -44,5 +44,5 @@ install -m 644 -D %{name}/debian/vey-keyless@.service %{buildroot}/lib/systemd/s
 %license LICENSE-FOREIGN
 
 %changelog
-* Mon Jun 30 2025 VEY-OSS Developers <developers@vey.oss> - 0.4.3-1
+* Sun Jul 26 2026 VEY-OSS Developers <developers@vey.oss> - 0.5.0-1
 - New upstream release

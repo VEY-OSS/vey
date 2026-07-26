@@ -1,9 +1,14 @@
 
 v0.5.0:
- - BUG FIX: enforce async-op timeout inside OpensslAsyncTask; on timeout return a cleanup handle so the error response can be sent before draining the in-flight ASYNC_JOB
- - BUG FIX: count async-job crypto failures with add_by_error_code instead of always incrementing passed
+ - BUG FIX: enforce async-op timeout inside OpensslAsyncTask (`vey-openssl`); on timeout return a cleanup handle so the error response can be sent before draining the in-flight ASYNC_JOB (avoids job-pool leaks under load)
+ - BUG FIX: count async-job crypto failures with `add_by_error_code` instead of always incrementing passed, so success metrics are not inflated on encrypt/sign failures
+ - Feature: reload the running process via RPC/ctl (`reload`) without a full restart
  - Feature: support set TCP max segment size in listen config
- - Compatibility: update MSRV to 1.90.0
+ - Feature: local key store file watching (inotify) also works on FreeBSD
+ - Feature: optional jemalloc or mimalloc global allocator at compile time; allocator name/version appear in `--version`
+ - Feature: derive default config / log / metrics / controller names from the binary name (supports renamed installs)
+ - Feature: `--version` reports the OpenSSL variant actually linked
+ - Compatibility: bump MSRV to 1.91.0
 
 v0.4.4:
  - Feature: allow to set tcp keepalive on tcp listen socket in server
