@@ -77,3 +77,56 @@ impl CommandPipeline {
         self.ongoing_response.take()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::command::{Command, ParsedCommand};
+    use crate::response::{CommandData, UntaggedResponse};
+
+    fn tagged_command(tag: &str) -> Command {
+        Command {
+            tag: SmolStr::from(tag),
+            parsed: ParsedCommand::NoOperation,
+            literal_arg: None,
+        }
+    }
+
+    fn empty_untagged() -> UntaggedResponse {
+        UntaggedResponse {
+            command_data: CommandData::Other,
+            literal_data: None,
+        }
+    }
+
+    #[test]
+    fn insert_and_remove_completed() {
+        let mut pipeline = CommandPipeline::new();
+        let old = pipeline.insert_completed(tagged_command("A001"));
+        assert!(old.is_none());
+        assert!(pipeline.remove(&SmolStr::from("A001")).is_some());
+        assert!(pipeline.remove(&SmolStr::from("A001")).is_none());
+    }
+
+    #[test]
+    fn remove_ongoing_command() {
+        let mut pipeline = CommandPipeline::new();
+        pipeline.set_ongoing_command(tagged_command("B002"));
+        assert!(pipeline.remove(&SmolStr::from("B002")).is_some());
+
+        pipeline.set_ongoing_command(tagged_command("B003"));
+        assert!(pipeline.remove(&SmolStr::from("B002")).is_none());
+        assert!(pipeline.ongoing_command().is_some());
+    }
+
+    #[test]
+    fn ongoing_response_lifecycle() {
+        let mut pipeline = CommandPipeline::new();
+        assert!(pipeline.ongoing_response().is_none());
+
+        pipeline.set_ongoing_response(empty_untagged());
+        assert!(pipeline.ongoing_response().is_some());
+        assert!(pipeline.take_ongoing_response().is_some());
+        assert!(pipeline.take_ongoing_response().is_none());
+    }
+}

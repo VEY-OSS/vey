@@ -311,4 +311,31 @@ mod tests {
         assert_eq!(cmd.parsed, ParsedCommand::Enable);
         assert!(cmd.literal_arg.is_none());
     }
+
+    #[test]
+    fn login() {
+        let cmd = Command::parse_line(b"A002 LOGIN user pass\r\n").unwrap();
+        assert_eq!(cmd.parsed, ParsedCommand::Login);
+    }
+
+    #[test]
+    fn noop() {
+        let cmd = Command::parse_line(b"A003 NOOP\r\n").unwrap();
+        assert_eq!(cmd.parsed, ParsedCommand::NoOperation);
+    }
+
+    #[test]
+    fn missing_crlf_rejected() {
+        assert!(Command::parse_line(b"A003 NOOP").is_err());
+    }
+
+    #[test]
+    fn missing_tag_rejected() {
+        assert!(Command::parse_line(b"NOOP\r\n").is_err());
+    }
+
+    #[test]
+    fn invalid_literal_size() {
+        assert!(Command::parse_line(b"A003 APPEND m () {abc}\r\n").is_err());
+    }
 }
