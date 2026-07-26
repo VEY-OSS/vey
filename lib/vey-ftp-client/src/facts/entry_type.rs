@@ -64,3 +64,39 @@ impl FtpFileEntryType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_known_types() {
+        assert_eq!(FtpFileEntryType::parse("file"), FtpFileEntryType::File);
+        assert_eq!(FtpFileEntryType::parse("DIR"), FtpFileEntryType::Directory);
+        assert_eq!(
+            FtpFileEntryType::parse("cdir"),
+            FtpFileEntryType::CurrentDir
+        );
+        assert_eq!(FtpFileEntryType::parse("pdir"), FtpFileEntryType::ParentDir);
+    }
+
+    #[test]
+    fn parse_os_specific_type() {
+        let t = FtpFileEntryType::parse("unix.slink");
+        assert_eq!(t.as_str(), "unix.slink");
+        assert!(t.maybe_file());
+        assert!(!t.is_dir());
+    }
+
+    #[test]
+    fn display_roundtrip() {
+        for t in [
+            FtpFileEntryType::File,
+            FtpFileEntryType::Directory,
+            FtpFileEntryType::CurrentDir,
+            FtpFileEntryType::ParentDir,
+        ] {
+            assert_eq!(format!("{t}"), t.as_str());
+        }
+    }
+}

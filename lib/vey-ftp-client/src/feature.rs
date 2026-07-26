@@ -74,3 +74,43 @@ impl FtpServerFeature {
         self.single_port_passive
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_and_set_features() {
+        let mut feat = FtpServerFeature::default();
+        for line in [
+            "UTF8",
+            "SIZE",
+            "MDTM",
+            "REST STREAM",
+            "PRET",
+            "MLST",
+            "EPSV",
+            "SPSV",
+            "UNKNOWN",
+        ] {
+            feat.parse_and_set(line);
+        }
+        assert!(feat.support_utf8_path());
+        assert!(feat.support_file_size());
+        assert!(feat.support_file_mtime());
+        assert!(feat.support_rest_stream());
+        assert!(feat.support_pre_transfer());
+        assert!(feat.support_machine_list());
+        assert!(feat.support_epsv());
+        assert!(feat.support_spsv());
+    }
+
+    #[test]
+    fn rest_requires_stream_suffix() {
+        let mut feat = FtpServerFeature::default();
+        feat.parse_and_set("REST");
+        assert!(!feat.support_rest_stream());
+        feat.parse_and_set("REST stream");
+        assert!(feat.support_rest_stream());
+    }
+}

@@ -298,3 +298,64 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+    #[test]
+    fn parse_single_line() {
+        let rsp = FtpRawResponse::parse_single_line("220 Service ready").unwrap();
+        assert_eq!(rsp.code(), 220);
+        assert_eq!(rsp.line_trimmed(), Some("Service ready"));
+        assert!(rsp.lines().is_none());
+    }
+
+    #[test]
+    fn parse_code_bytes_rejects_out_of_range() {
+        assert!(FtpRawResponse::parse_code_bytes(b'0', b'0', b'0').is_err());
+        assert!(FtpRawResponse::parse_code_bytes(b'6', b'0', b'0').is_err());
+        assert!(FtpRawResponse::parse_code_bytes(b'2', b'2', b'0').is_ok());
+    }
+
+    #[test]
+    fn parse_pasv_227_reply() {
+        let rsp = FtpRawResponse::parse_single_line("227 Entering Passive Mode (192,168,1,1,195,149)")
+            .unwrap();
+        let addr = rsp.parse_pasv_227_reply().unwrap();
+        assert_eq!(
+            addr,
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 50069)
+        );
+    }
+
+    #[test]
+    fn parse_epsv_229_reply() {
+        let rsp =
+            FtpRawResponse::parse_single_line("229 Entering Extended Passive Mode (|||6446|)")
+                .unwrap();
+        assert_eq!(rsp.parse_epsv_229_reply(), Some(6446));
+    }
+
+    #[test]
+    fn parse_spsv_227_reply() {
+        let rsp = FtpRawResponse::parse_single_line("227 (abc123)").unwrap();
+        assert_eq!(rsp.parse_spsv_227_reply(), Some("abc123".to_owned()));
+    }
+
+    #[test]
+    fn multi_line_parser() {
+        let mut parser =
+            FtpRawResponse::get_multi_line_parser("211-Features:", 8).unwrap();
+        assert!(!parser.feed_line(" UTF8").unwrap());
+        assert!(!parser.feed_line(" SIZE").unwrap());
+        assert!(parser.feed_line("211 End").unwrap());
+        let rsp = parser.finish();
+        assert_eq!(rsp.code(), 211);
+        let lines = rsp.lines().unwrap();
+        assert_eq!(lines.len(), 4);
+        assert_eq!(lines[0], "Features:");
+        assert_eq!(lines[3], "End");
+    }
+}
