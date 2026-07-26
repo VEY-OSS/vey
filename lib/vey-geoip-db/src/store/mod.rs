@@ -30,3 +30,52 @@ pub fn load_asn() -> Option<Arc<IpNetworkTable<GeoIpAsnRecord>>> {
 pub fn store_asn(db: Arc<IpNetworkTable<GeoIpAsnRecord>>) {
     GEO_ASN_DB.store(Some(db));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::IpAddr;
+    use std::str::FromStr;
+
+    use ip_network::IpNetwork;
+    use vey_geoip_types::{ContinentCode, IsoCountryCode};
+
+    #[test]
+    fn store_and_load_country() {
+        let mut table = IpNetworkTable::new();
+        let network = IpNetwork::new(IpAddr::from_str("10.0.0.0").unwrap(), 8).unwrap();
+        table.insert(
+            network,
+            GeoIpCountryRecord {
+                country: IsoCountryCode::US,
+                continent: ContinentCode::NA,
+            },
+        );
+        store_country(Arc::new(table));
+
+        let loaded = load_country().expect("country db should be stored");
+        let ip: IpAddr = "10.0.0.1".parse().unwrap();
+        let record = loaded.longest_match(ip).unwrap();
+        assert_eq!(record.1.country, IsoCountryCode::US);
+    }
+
+    #[test]
+    fn store_and_load_asn() {
+        let mut table = IpNetworkTable::new();
+        let network = IpNetwork::new(IpAddr::from_str("192.168.0.0").unwrap(), 16).unwrap();
+        table.insert(
+            network,
+            GeoIpAsnRecord {
+                number: 64512,
+                name: None,
+                domain: None,
+            },
+        );
+        store_asn(Arc::new(table));
+
+        let loaded = load_asn().expect("asn db should be stored");
+        let ip: IpAddr = "192.168.1.1".parse().unwrap();
+        let record = loaded.longest_match(ip).unwrap();
+        assert_eq!(record.1.number, 64512);
+    }
+}

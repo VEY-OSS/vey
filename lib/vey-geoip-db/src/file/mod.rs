@@ -328,4 +328,13 @@ mod tests {
         let result = load_asn_from_csv(FailingReader);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn load_country_ipv6_longest_match() {
+        let csv = "2001:db8::/32,US\n2001:db8:1::/48,CN\n";
+        let table = load_country_from_csv(csv.as_bytes()).unwrap();
+        let ip: IpAddr = "2001:db8:1:2::1".parse().unwrap();
+        let record = table.longest_match(ip).unwrap();
+        assert_eq!(record.1.country, IsoCountryCode::CN);
+    }
 }
