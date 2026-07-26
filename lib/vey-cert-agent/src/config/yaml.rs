@@ -145,6 +145,19 @@ mod tests {
         let config = CertAgentConfig::parse_yaml(&yaml).unwrap();
         assert_eq!(config.query_peer_addr, "192.168.0.1:5353".parse().unwrap());
         assert_eq!(config.cache_request_batch_count.get(), 10); // Default
+
+        // Alias vanish_after_expire + query_wait_timeout
+        let yaml = yaml_doc!(
+            r#"
+            vanish_after_expire: 1m
+            query_wait_timeout: 2s
+            query_peer_addr: "[::1]:2999"
+            "#
+        );
+        let config = CertAgentConfig::parse_yaml(&yaml).unwrap();
+        assert_eq!(config.cache_vanish_wait, Duration::from_secs(60));
+        assert_eq!(config.query_wait_timeout, Duration::from_secs(2));
+        assert_eq!(config.query_peer_addr, "[::1]:2999".parse().unwrap());
     }
 
     #[test]

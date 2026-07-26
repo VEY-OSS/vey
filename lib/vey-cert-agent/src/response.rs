@@ -135,3 +135,110 @@ impl Response {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use rmpv::ValueRef;
+
+    use vey_types::net::{Host, TlsCertUsage, TlsServiceType};
+
+    use super::super::{response_key, response_key_id};
+    use super::Response;
+    use crate::test_util;
+
+    fn encode_map(entries: Vec<(ValueRef<'_>, ValueRef<'_>)>) -> Vec<u8> {
+        let mut buf = Vec::new();
+        rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(entries)).unwrap();
+        buf
+    }
+
+    #[test]
+    fn parse_response_string_keys() {
+        let (_, _, pem, der_key) = test_util::self_signed_cert_key();
+        let buf = encode_map(vec![
+            (
+                ValueRef::String(response_key::HOST.into()),
+                ValueRef::String("s.example".into()),
+            ),
+            (
+                ValueRef::String(response_key::SERVICE.into()),
+                ValueRef::Integer((TlsServiceType::Http as u8).into()),
+            ),
+            (
+                ValueRef::String(response_key::USAGE.into()),
+                ValueRef::Integer((TlsCertUsage::TlsServer as u8).into()),
+            ),
+            (
+                ValueRef::String(response_key::CERT_CHAIN.into()),
+                ValueRef::String(pem.as_str().into()),
+            ),
+            (
+                ValueRef::String(response_key::PRIVATE_KEY.into()),
+                ValueRef::Binary(&der_key),
+            ),
+            (
+                ValueRef::String(response_key::TTL.into()),
+                ValueRef::Integer(42u32.into()),
+            ),
+            (
+                ValueRef::String("ignored".into()),
+                ValueRef::String("x".into()),
+            ),
+        ]);
+        let mut data = buf.as_slice();
+        let v = rmpv::decode::read_value_ref(&mut data).unwrap();
+        let rsp = Response::parse(v, 10).unwrap();
+        let (key, pair, ttl) = rsp.into_parts().unwrap();
+        assert_eq!(ttl, 42);
+        assert_eq!(key.index.host, Host::from_str("s.example").unwrap());
+        assert_eq!(pair.certs.len(), 1);
+    }
+
+    #[test]
+    fn parse_response_integer_keys_and_errors() {
+        let (_, _, pem, der_key) = test_util::self_signed_cert_key();
+        let buf = encode_map(vec![
+            (
+                ValueRef::Integer(response_key_id::HOST.into()),
+                ValueRef::String("i.example".into()),
+            ),
+            (
+                ValueRef::Integer(response_key_id::SERVICE.into()),
+                ValueRef::Integer((TlsServiceType::Http as u8).into()),
+            ),
+            (
+                ValueRef::Integer(response_key_id::USAGE.into()),
+                ValueRef::Integer((TlsCertUsage::TlsServer as u8).into()),
+            ),
+            (
+                ValueRef::Integer(response_key_id::CERT_CHAIN.into()),
+                ValueRef::String(pem.as_str().into()),
+            ),
+            (
+                ValueRef::Integer(response_key_id::PRIVATE_KEY.into()),
+                ValueRef::Binary(&der_key),
+            ),
+            (
+                ValueRef::Integer(response_key_id::TTL.into()),
+                ValueRef::Integer(7u32.into()),
+            ),
+        ]);
+        let mut data = buf.as_slice();
+        let v = rmpv::decode::read_value_ref(&mut data).unwrap();
+        let (_, _, ttl) = Response::parse(v, 10).unwrap().into_parts().unwrap();
+        assert_eq!(ttl, 7);
+
+        // non-map
+        let mut buf = Vec::new();
+        rmpv::encode::write_value_ref(&mut buf, &ValueRef::String("x".into())).unwrap();
+        let mut data = buf.as_slice();
+        let v = rmpv::decode::read_value_ref(&mut data).unwrap();
+        assert!(Response::parse(v, 10).is_err());
+
+        // missing cert / key
+        let empty = Response::new(10);
+        assert!(empty.into_parts().is_err());
+    }
+}

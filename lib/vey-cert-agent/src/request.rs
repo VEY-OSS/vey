@@ -171,3 +171,119 @@ impl Request {
         Ok(buf)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use rmpv::ValueRef;
+
+    use vey_types::net::{Host, TlsCertUsage, TlsServiceType};
+
+    use super::super::{request_key, request_key_id};
+    use super::Request;
+    use crate::test_util;
+
+    fn encode_map(entries: Vec<(ValueRef<'_>, ValueRef<'_>)>) -> Vec<u8> {
+        let mut buf = Vec::new();
+        rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(entries)).unwrap();
+        buf
+    }
+
+    #[test]
+    fn parse_req_host_only_string() {
+        let mut buf = Vec::new();
+        rmpv::encode::write_value_ref(&mut buf, &ValueRef::String("only.example".into())).unwrap();
+        let req = Request::parse_req(&buf).unwrap();
+        assert_eq!(req.host(), &Host::from_str("only.example").unwrap());
+        assert_eq!(req.cert_usage(), TlsCertUsage::TlsServer);
+        assert!(req.cert().is_none());
+    }
+
+    #[test]
+    fn parse_req_string_keys_with_mimic_cert() {
+        let (cert, _, _, _) = test_util::self_signed_cert_key();
+        let der = cert.to_der().unwrap();
+        let buf = encode_map(vec![
+            (
+                ValueRef::String(request_key::HOST.into()),
+                ValueRef::String("str.example".into()),
+            ),
+            (
+                ValueRef::String(request_key::SERVICE.into()),
+                ValueRef::Integer((TlsServiceType::Http as u8).into()),
+            ),
+            (
+                ValueRef::String(request_key::USAGE.into()),
+                ValueRef::Integer((TlsCertUsage::TLsServerTongsuo as u8).into()),
+            ),
+            (
+                ValueRef::String(request_key::CERT.into()),
+                ValueRef::Binary(&der),
+            ),
+        ]);
+        let req = Request::parse_req(&buf).unwrap();
+        assert_eq!(req.host(), &Host::from_str("str.example").unwrap());
+        assert_eq!(req.cert_usage(), TlsCertUsage::TLsServerTongsuo);
+        assert!(req.cert().is_some());
+    }
+
+    #[test]
+    fn parse_req_integer_key_ids() {
+        let buf = encode_map(vec![
+            (
+                ValueRef::Integer(request_key_id::HOST.into()),
+                ValueRef::String("id.example".into()),
+            ),
+            (
+                ValueRef::Integer(request_key_id::SERVICE.into()),
+                ValueRef::Integer((TlsServiceType::Smtp as u8).into()),
+            ),
+            (
+                ValueRef::Integer(request_key_id::USAGE.into()),
+                ValueRef::Integer((TlsCertUsage::TlsServer as u8).into()),
+            ),
+        ]);
+        let req = Request::parse_req(&buf).unwrap();
+        assert_eq!(req.host(), &Host::from_str("id.example").unwrap());
+        assert_eq!(req.cert_usage(), TlsCertUsage::TlsServer);
+    }
+
+    #[test]
+    fn parse_req_rejects_empty_host_and_bad_input() {
+        let buf = encode_map(vec![(
+            ValueRef::Integer(request_key_id::SERVICE.into()),
+            ValueRef::Integer((TlsServiceType::Http as u8).into()),
+        )]);
+        assert!(Request::parse_req(&buf).is_err());
+        assert!(Request::parse_req(b"not-msgpack").is_err());
+
+        let buf = encode_map(vec![(
+            ValueRef::String("unknown_key".into()),
+            ValueRef::String("x".into()),
+        )]);
+        assert!(Request::parse_req(&buf).is_err());
+    }
+
+    #[test]
+    fn encode_rsp_roundtrips_through_response() {
+        use crate::response::Response;
+
+        let req = Request {
+            host: Host::from_str("rsp.example").unwrap(),
+            service: TlsServiceType::Http,
+            usage: TlsCertUsage::TlsServer,
+            cert: None,
+        };
+        let (_, _, pem, der_key) = test_util::self_signed_cert_key();
+        let buf = req.encode_rsp(&pem, &der_key, 120).unwrap();
+
+        let mut data = buf.as_slice();
+        let v = rmpv::decode::read_value_ref(&mut data).unwrap();
+        let rsp = Response::parse(v, 10).unwrap();
+        let (key, pair, ttl) = rsp.into_parts().unwrap();
+        assert_eq!(ttl, 120);
+        assert_eq!(key.index.host, Host::from_str("rsp.example").unwrap());
+        assert_eq!(pair.certs.len(), 1);
+    }
+}

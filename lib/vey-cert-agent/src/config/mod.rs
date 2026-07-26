@@ -122,3 +122,43 @@ impl CertAgentConfig {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::num::NonZeroUsize;
+    use std::time::Duration;
+
+    use super::CertAgentConfig;
+
+    #[test]
+    fn default_and_setters() {
+        let mut config = CertAgentConfig::default();
+        assert_eq!(config.cache_request_batch_count.get(), 10);
+        assert_eq!(config.cache_request_timeout, Duration::from_secs(4));
+        assert_eq!(config.cache_vanish_wait, Duration::from_secs(300));
+        assert_eq!(
+            config.query_peer_addr,
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2999)
+        );
+        assert_eq!(config.query_wait_timeout, Duration::from_secs(4));
+        assert_eq!(config.protective_cache_ttl, 10);
+        assert_eq!(config.maximum_cache_ttl, 300);
+
+        config.set_cache_request_batch_count(NonZeroUsize::new(3).unwrap());
+        config.set_cache_request_timeout(Duration::from_secs(1));
+        config.set_cache_vanish_wait(Duration::from_secs(2));
+        config.set_query_peer_addr("10.0.0.1:4000".parse().unwrap());
+        config.set_query_wait_timeout(Duration::from_millis(500));
+        config.set_protective_cache_ttl(5);
+        config.set_maximum_cache_ttl(60);
+
+        assert_eq!(config.cache_request_batch_count.get(), 3);
+        assert_eq!(config.cache_request_timeout, Duration::from_secs(1));
+        assert_eq!(config.cache_vanish_wait, Duration::from_secs(2));
+        assert_eq!(config.query_peer_addr, "10.0.0.1:4000".parse().unwrap());
+        assert_eq!(config.query_wait_timeout, Duration::from_millis(500));
+        assert_eq!(config.protective_cache_ttl, 5);
+        assert_eq!(config.maximum_cache_ttl, 60);
+    }
+}

@@ -171,3 +171,112 @@ impl FakeCertPair {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test_util {
+    use openssl::asn1::Asn1Time;
+    use openssl::bn::BigNum;
+    use openssl::hash::MessageDigest;
+    use openssl::nid::Nid;
+    use openssl::pkey::{PKey, Private};
+    use openssl::rsa::Rsa;
+    use openssl::x509::{X509, X509NameBuilder};
+
+    /// Self-signed RSA leaf used by unit tests.
+    pub(crate) fn self_signed_cert_key() -> (X509, PKey<Private>, String, Vec<u8>) {
+        let rsa = Rsa::generate(2048).unwrap();
+        let pkey = PKey::from_rsa(rsa).unwrap();
+
+        let mut name = X509NameBuilder::new().unwrap();
+        name.append_entry_by_nid(Nid::COMMONNAME, "test.example")
+            .unwrap();
+        let name = name.build();
+
+        let mut builder = X509::builder().unwrap();
+        builder.set_version(2).unwrap();
+        let serial = BigNum::from_u32(1).unwrap().to_asn1_integer().unwrap();
+        builder.set_serial_number(&serial).unwrap();
+        builder.set_subject_name(&name).unwrap();
+        builder.set_issuer_name(&name).unwrap();
+        builder.set_pubkey(&pkey).unwrap();
+        builder
+            .set_not_before(&Asn1Time::days_from_now(0).unwrap())
+            .unwrap();
+        builder
+            .set_not_after(&Asn1Time::days_from_now(365).unwrap())
+            .unwrap();
+        builder.sign(&pkey, MessageDigest::sha256()).unwrap();
+        let cert = builder.build();
+
+        let pem = String::from_utf8(cert.to_pem().unwrap()).unwrap();
+        let der_key = pkey.private_key_to_der().unwrap();
+        (cert, pkey, pem, der_key)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    use std::str::FromStr;
+
+    use openssl::ssl::{Ssl, SslContext, SslMethod};
+
+    use vey_types::net::{Host, TlsCertUsage, TlsServiceType};
+
+    use super::{CacheQueryKey, FakeCertPair, test_util};
+
+    fn hash_of(key: &CacheQueryKey) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        key.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn cache_query_key_eq_and_hash_ignore_mimic_cert() {
+        let host = Host::from_str("a.example").unwrap();
+        let mut a = CacheQueryKey::new(TlsServiceType::Http, TlsCertUsage::TlsServer, host.clone());
+        let b = CacheQueryKey::new(TlsServiceType::Http, TlsCertUsage::TlsServer, host);
+        assert_eq!(a, b);
+        assert_eq!(hash_of(&a), hash_of(&b));
+
+        let (cert, _, _, _) = test_util::self_signed_cert_key();
+        a.set_mimic_cert(cert);
+        assert_eq!(a, b);
+        assert_eq!(hash_of(&a), hash_of(&b));
+    }
+
+    #[test]
+    fn cache_query_key_encode_with_and_without_mimic() {
+        let host = Host::from_str("encode.example").unwrap();
+        let key = CacheQueryKey::new(TlsServiceType::Http, TlsCertUsage::TlsServer, host.clone());
+        let buf = key.encode().unwrap();
+        assert!(!buf.is_empty());
+
+        let mut with_mimic =
+            CacheQueryKey::new(TlsServiceType::Http, TlsCertUsage::TlsServer, host);
+        let (cert, _, _, _) = test_util::self_signed_cert_key();
+        with_mimic.set_mimic_cert(cert);
+        let buf_mimic = with_mimic.encode().unwrap();
+        assert!(buf_mimic.len() > buf.len());
+    }
+
+    #[test]
+    fn fake_cert_pair_add_to_ssl() {
+        let (cert, key, _, _) = test_util::self_signed_cert_key();
+        let pair = FakeCertPair {
+            certs: vec![cert],
+            key,
+        };
+        let ctx = SslContext::builder(SslMethod::tls_server()).unwrap().build();
+        let mut ssl = Ssl::new(&ctx).unwrap();
+        pair.add_to_ssl(&mut ssl).unwrap();
+
+        let empty = FakeCertPair {
+            certs: Vec::new(),
+            key: test_util::self_signed_cert_key().1,
+        };
+        let mut ssl = Ssl::new(&ctx).unwrap();
+        assert!(empty.add_to_ssl(&mut ssl).is_err());
+    }
+}

@@ -18,6 +18,9 @@ vey-socket.workspace = true
 vey-io-ext.workspace = true
 vey-yaml = { workspace = true, optional = true }
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "time", "net"] }
+
 [features]
 default = []
 tongsuo = ["openssl/tongsuo"]

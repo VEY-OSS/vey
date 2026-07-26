@@ -58,3 +58,61 @@ impl CertAgentHandle {
             .and_then(|r| r.inner().cloned())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+    use std::time::Duration;
+
+    use tokio::net::UdpSocket;
+
+    use vey_types::net::{Host, TlsCertUsage, TlsServiceType};
+
+    use super::super::{CertAgentConfig, Request};
+    use crate::test_util;
+
+    #[tokio::test]
+    async fn fetch_from_mock_udp_generator() {
+        let peer = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let peer_addr = peer.local_addr().unwrap();
+        let (_, _, pem, der_key) = test_util::self_signed_cert_key();
+        let (mimic_cert, _, _, _) = test_util::self_signed_cert_key();
+
+        tokio::spawn(async move {
+            let mut buf = [0u8; 16384];
+            let (n, from) = peer.recv_from(&mut buf).await.unwrap();
+            let req = Request::parse_req(&buf[..n]).unwrap();
+            assert_eq!(req.host(), &Host::from_str("fetch.example").unwrap());
+            assert!(req.cert().is_some());
+            let rsp = req.encode_rsp(&pem, &der_key, 90).unwrap();
+            peer.send_to(&rsp, from).await.unwrap();
+        });
+
+        let mut config = CertAgentConfig::default();
+        config.set_query_peer_addr(peer_addr);
+        config.set_cache_request_timeout(Duration::from_secs(2));
+        config.set_query_wait_timeout(Duration::from_secs(2));
+        let handle = config.spawn_cert_agent().unwrap();
+
+        let pair = handle
+            .fetch(
+                TlsServiceType::Http,
+                TlsCertUsage::TlsServer,
+                Host::from_str("fetch.example").unwrap(),
+                mimic_cert,
+            )
+            .await;
+        assert!(pair.is_some());
+        assert_eq!(pair.unwrap().certs.len(), 1);
+
+        // Cache hit without querying again
+        let cached = handle
+            .pre_fetch(
+                TlsServiceType::Http,
+                TlsCertUsage::TlsServer,
+                Host::from_str("fetch.example").unwrap(),
+            )
+            .await;
+        assert!(cached.is_some());
+    }
+}
