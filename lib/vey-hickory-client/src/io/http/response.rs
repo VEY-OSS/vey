@@ -96,3 +96,64 @@ impl HttpDnsResponse {
         DnsResponse::from_buffer(self.body.to_vec()).map_err(NetError::Proto)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http::Response;
+    use http::StatusCode;
+    use http::header;
+
+    const MIME_APPLICATION_DNS: &str = "application/dns-message";
+
+    fn dns_response(headers: http::HeaderMap) -> Response<()> {
+        let mut rsp = Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, MIME_APPLICATION_DNS)
+            .body(())
+            .unwrap();
+        *rsp.headers_mut() = headers;
+        rsp
+    }
+
+    #[test]
+    fn new_rejects_unsupported_content_type() {
+        let rsp = Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "text/plain")
+            .body(())
+            .unwrap();
+
+        match HttpDnsResponse::new(rsp) {
+            Err(e) => assert!(e.to_string().contains("unsupported ContentType")),
+            Ok(_) => panic!("expected unsupported content type error"),
+        }
+    }
+
+    #[test]
+    fn body_end_respects_content_length() {
+        let mut headers = http::HeaderMap::new();
+        headers.insert(header::CONTENT_LENGTH, http::HeaderValue::from_static("6"));
+        let mut rsp = HttpDnsResponse::new(dns_response(headers)).unwrap();
+        assert!(!rsp.body_end());
+
+        rsp.push_body(&b"abc"[..]);
+        assert!(!rsp.body_end());
+
+        rsp.push_body(&b"def"[..]);
+        assert!(rsp.body_end());
+    }
+
+    #[test]
+    fn into_dns_response_rejects_length_mismatch() {
+        let mut headers = http::HeaderMap::new();
+        headers.insert(header::CONTENT_LENGTH, http::HeaderValue::from_static("4"));
+        let mut rsp = HttpDnsResponse::new(dns_response(headers)).unwrap();
+        rsp.push_body(&b"abc"[..]);
+
+        match rsp.into_dns_response() {
+            Err(e) => assert!(e.to_string().contains("expected byte length: 4, got: 3")),
+            Ok(_) => panic!("expected length mismatch error"),
+        }
+    }
+}

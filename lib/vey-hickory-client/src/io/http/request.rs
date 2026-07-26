@@ -45,3 +45,38 @@ impl HttpDnsRequestBuilder {
         req
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http::header;
+
+    #[test]
+    fn new_builds_post_dns_query_request() {
+        let builder = HttpDnsRequestBuilder::new(Version::HTTP_11, "dns.example.com:443").unwrap();
+        let req = builder.post(512);
+
+        assert_eq!(req.method(), Method::POST);
+        assert_eq!(req.version(), Version::HTTP_11);
+        assert_eq!(req.uri().scheme().unwrap().as_str(), "https");
+        assert_eq!(req.uri().authority().unwrap().as_str(), "dns.example.com:443");
+        assert_eq!(req.uri().path(), "/dns-query");
+        assert_eq!(
+            req.headers().get(header::CONTENT_TYPE).unwrap(),
+            "application/dns-message"
+        );
+        assert_eq!(
+            req.headers().get(header::ACCEPT).unwrap(),
+            "application/dns-message"
+        );
+        assert_eq!(req.headers().get(header::CONTENT_LENGTH).unwrap(), "512");
+    }
+
+    #[test]
+    fn new_rejects_invalid_authority() {
+        match HttpDnsRequestBuilder::new(Version::HTTP_11, "bad authority") {
+            Err(e) => assert!(e.to_string().contains("invalid authority")),
+            Ok(_) => panic!("expected invalid authority error"),
+        }
+    }
+}
