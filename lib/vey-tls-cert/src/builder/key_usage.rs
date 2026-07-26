@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2024-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use openssl::error::ErrorStack;
@@ -58,5 +59,42 @@ impl KeyUsageBuilder {
 
     pub fn build(&self) -> Result<X509Extension, ErrorStack> {
         self.0.build()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_key_usage_builds(builder: KeyUsageBuilder) {
+        let ext = builder.build().unwrap();
+        assert!(!ext.to_der().unwrap().is_empty());
+    }
+
+    #[test]
+    fn ca_usage_builds_critical_extension() {
+        assert_key_usage_builds(KeyUsageBuilder::ca());
+    }
+
+    #[test]
+    fn tls_general_usage_builds_critical_extension() {
+        assert_key_usage_builds(KeyUsageBuilder::tls_general());
+    }
+
+    #[test]
+    fn ed_dsa_usage_builds_critical_extension() {
+        assert_key_usage_builds(KeyUsageBuilder::ed_dsa());
+    }
+
+    #[test]
+    fn x_dh_usage_builds_critical_extension() {
+        assert_key_usage_builds(KeyUsageBuilder::x_dh());
+    }
+
+    #[test]
+    fn tlcp_usages_build_distinct_extensions() {
+        let sign = KeyUsageBuilder::tlcp_sign().build().unwrap();
+        let enc = KeyUsageBuilder::tlcp_enc().build().unwrap();
+        assert_ne!(sign.to_der().unwrap(), enc.to_der().unwrap());
     }
 }
