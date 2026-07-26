@@ -3,7 +3,7 @@
 %define build_profile release-lto
 
 Name:           vey-proxy
-Version:        1.13.8
+Version:        1.13.9
 Release:        1%{?dist}
 Summary:        Generic Proxy Server
 
@@ -53,5 +53,5 @@ install -m 644 -D %{name}/debian/vey-proxy@.service %{buildroot}/lib/systemd/sys
 %license LICENSE-FOREIGN
 
 %changelog
-* Sat Jul 04 2026 VEY-OSS Developers <developers@vey.oss> - 1.13.8-1
+* Sun Jul 26 2026 VEY-OSS Developers <developers@vey.oss> - 1.13.9-1
 - New upstream release

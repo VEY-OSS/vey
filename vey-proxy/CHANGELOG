@@ -3,41 +3,49 @@ CHANGELOG
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.13.9:
- - BUG FIX: fix read of HTTP trailer ending empty line when "\r\n" received separately
- - BUG FIX: fix deadlock in hickory resolver when response contains only CNAME record
- - BUG FIX: fix the encoding of CONNECT-UDP CAPSULE data format
- - BUG FIX: fix idle check when receiving H2 data for preview
- - BUG FIX: fix continent rules match in route_geoip escaper
- - BUG FIX: fix parsing of IMAP command UNSUBSCRIBE
- - BUG FIX: fix parsing of malformed BER integer in LDAP response
- - BUG FIX: correctly handle download of 0 size FTP file
- - BUG FIX: limit size strictly when download FTP files
- - BUG FIX: reject empty TLS Handshake records and limit ClientHello receive buffer in sni_proxy and TLS interception to avoid unbounded memory growth
- - BUG FIX: parse SOCKS5 UDP headers against the received packet length instead of the whole buffer to avoid panics on short datagrams
- - BUG FIX: drop Content-Length and disable keep-alive when Transfer-Encoding is present in transparent HTTP request parsing to prevent request smuggling
- - BUG FIX: reject overflowing HTTP chunk sizes instead of wrapping, to prevent request smuggling and panics
- - BUG FIX: return the client read half to the H1 interception pipeline after a failed CONNECT or Upgrade so the connection does not hang
- - BUG FIX: reject overflowing LDAP BER sequence lengths instead of panicking on malformed responses
- - BUG FIX: make HostMatch suffix domain matching use longest-prefix lookup so subdomains match again
- - BUG FIX: advance User-Agent ACL search from the match position so non-ASCII headers cannot panic
- - BUG FIX: use saturating TTL arithmetic in ResolvedRecord to avoid u32 overflow
- - BUG FIX: reject oversized CONNECT-UDP datagrams instead of silently dropping them while reporting success
- - BUG FIX: copy inner egress notes in RouteHttpForwardContext so route escapers keep remote/egress audit headers
- - BUG FIX: detect closed keep-alive HTTP forward connections via notify channel is_closed instead of oneshot is_terminated
- - BUG FIX: split overlong FTP listing lines across chunked HTTP chunks instead of emitting an early terminator or underflowing the buffer
- - BUG FIX: treat response Transfer-Encoding without chunked as read-until-close and drop conflicting Content-Length to avoid connection desync
- - BUG FIX: clear HTTP pipeline egress_path after auth failure so anonymous keep-alive requests cannot reuse it
- - BUG FIX: stop double-counting sni_proxy pre-handshake client bytes in task stats
- - BUG FIX: encode BER long-form lengths with the 0x80 flag so LDAP binds with long DNs are well-formed
- - BUG FIX: reject overflowing decimal integers in msgpack binary as_u32 instead of wrapping or panicking
- - BUG FIX: treat ICAP Preview: 0 as no-preview so REQMOD/H1 does not drop bodies or emit malformed preview chunks
- - BUG FIX: record checked_bytes for full-batch global datagram checks so Pending/Err paths refund byte tokens
- - BUG FIX: rate-limit and account UDP stream_copy send paths by payload length instead of buffer capacity
- - BUG FIX: await delivery of rebuilt Hickory DNS clients instead of dropping them when the replacement channel is full
- - Optimization: log when a Hickory DNS client stops because its request channel closed
- - BUG FIX: strip default ports from Host headers without truncating IPv6 literals, and only when the Host port matches
- - BUG FIX: stop protocol inspection when data0 buffer is full by length, and treat initial EOF as closed
- - BUG FIX: reject overflowing ICAP Options-TTL values instead of panicking on Instant addition
+ - BUG FIX: HTTP clients sending trailers split across packets (CRLF alone in a later read) no longer stall or fail trailer parsing
+ - BUG FIX: domains that resolve to CNAME-only answers no longer deadlock the Hickory resolver (lookups can complete / follow CNAME again)
+ - BUG FIX: MASQUE CONNECT-UDP capsule encoding matches the spec so UDP-over-HTTP peers interoperate correctly
+ - BUG FIX: H2 ICAP/preview idle timers advance when data arrives, so busy preview streams are not closed as idle
+ - BUG FIX: route_geoip continent rules match again (continent-based routing no longer silently falls through)
+ - BUG FIX: IMAP `UNSUBSCRIBE` / `ENABLE` and non-synchronizing literals (`{N+}`) are recognized, so those client commands work through inspection
+ - BUG FIX: malformed or negative LDAP BER integers/lengths are rejected instead of panicking or mis-decoding binds with long DNs
+ - BUG FIX: zero-size and size-limited FTP downloads finish or stop at the configured limit instead of hanging or reading past the limit
+ - BUG FIX: empty/oversized TLS ClientHello fragments are rejected in sni_proxy and TLS interception, bounding memory use from bad clients
+ - BUG FIX: short SOCKS5 UDP datagrams no longer panic the worker; only the received bytes are parsed
+ - BUG FIX: requests with both `Transfer-Encoding` and `Content-Length` drop CL and disable keep-alive, blocking request-smuggling shapes
+ - BUG FIX: overflowing HTTP chunk sizes are rejected (no wrap/panic), blocking smuggling via huge chunk lengths
+ - BUG FIX: failed HTTP CONNECT/Upgrade under H1 interception returns the client stream to the pipeline instead of leaving the connection hung
+ - BUG FIX: Host suffix / child domain ACLs and routes use longest-prefix match again, so `a.b.example.com` matches the intended rule
+ - BUG FIX: User-Agent ACL matching no longer panics on non-ASCII headers
+ - BUG FIX: DNS cache TTLs no longer overflow; positive answers use the minimum A/AAAA TTL (c-ares and Hickory), so records do not stick longer than intended
+ - BUG FIX: oversized CONNECT-UDP datagrams are failed explicitly instead of being dropped while still reported as success
+ - BUG FIX: route escapers keep remote/egress notes on HTTP forward, so audit/egress headers are not lost after routing
+ - BUG FIX: dead keep-alive upstream HTTP connections are detected and replaced instead of being reused until write fails
+ - BUG FIX: long FTP directory listing lines are split across chunked HTTP responses instead of truncating the listing
+ - BUG FIX: upstream responses with non-chunked `Transfer-Encoding` are read until close (conflicting CL dropped), avoiding body/desync issues
+ - BUG FIX: after HTTP proxy auth failure, the next keep-alive request on the same connection cannot reuse the previous user's egress path
+ - BUG FIX: sni_proxy task stats no longer double-count pre-handshake client bytes
+ - BUG FIX: oversized msgpack / ICAP Options-TTL / QUIC ACK-range inputs are rejected instead of wrapping or panicking
+ - BUG FIX: ICAP `Preview: 0` is treated as no preview, so REQMOD no longer drops or corrupts request bodies
+ - BUG FIX: global UDP rate limits refund tokens on Pending/error and charge by payload size, so limits and traffic stats match real datagrams
+ - BUG FIX: UDP copy/batch receive sets packet bounds correctly, avoiding truncated or misframed SOCKS/UDP payloads
+ - BUG FIX: after resolver client rebuild, the new Hickory client is installed reliably under load (fewer stuck DNS lookups)
+ - BUG FIX: stripping default ports from `Host` no longer corrupts IPv6 literals and only strips when the port is the real default
+ - BUG FIX: protocol inspection stops when the peek buffer is full (and treats initial EOF as closed), avoiding stuck or unbounded inspect
+ - BUG FIX: RateLimiter reload keeps the intended burst size; connection `each_timeout: 0` is ignored so reload/limit_to cannot force instant connect failure
+ - BUG FIX: empty ip-locate results no longer pin an IP forever, so geo routing can retry later
+ - BUG FIX: forged/mitm certificate validity periods use the configured day count correctly (seconds conversion)
+ - BUG FIX: password hashes with explicit `rounds=` verify like libcrypt again (xcrypt)
+ - BUG FIX: selective routing (ketama / consistent hash) ignores invalid zero weights and avoids overflow skew
+ - BUG FIX: count-based rate limiters restore remaining quota on reset instead of dropping to zero
+ - BUG FIX: CONNECT-UDP under send rate-limit retries without dropping the datagram
+ - BUG FIX: reloading PlainQuicPort keeps the TLS session ticketer so clients can still resume tickets
+ - Feature: reload the running process via RPC/ctl (`reload`) without a full restart
+ - Feature: PlainQuicPort gains `QuinnEndpointConfig` and `udp_max_payload_size` for QUIC tuning
+ - Feature: TCP/UDP listen configs can enable `use_ebpf` for reuseport selection where supported
+ - Feature: PlainQuicPort can use eBPF reuseport selection on Linux so multiproc QUIC stays sticky by connection
+ - Optimization: log when a Hickory DNS client stops because its request channel closed (easier ops diagnosis)
 
 v1.13.8:
  - Compatibility: fix build of reuseport ebpf code with old libbpf without bpf_repeat
