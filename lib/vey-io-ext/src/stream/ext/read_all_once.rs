@@ -95,7 +95,10 @@ mod tests {
 
     #[tokio::test]
     async fn read_stops_after_first_pending_with_partial_data() {
-        let mut stream = tokio_test::io::Builder::new().read(b"ab").wait(std::time::Duration::from_secs(60)).build();
+        let mut stream = tokio_test::io::Builder::new()
+            .read(b"ab")
+            .wait(std::time::Duration::from_secs(60))
+            .build();
         let mut buf = [0u8; 8];
         let nr = ReadAllOnce::new(&mut stream, &mut buf).await.unwrap();
         assert_eq!(nr, 2);

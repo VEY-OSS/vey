@@ -66,9 +66,7 @@ mod tests {
     #[test]
     fn set_updates_timeouts() {
         let mut config = GeneralControllerConfig::new();
-        config
-            .set("recv_timeout", &yaml_str!("120"))
-            .unwrap();
+        config.set("recv_timeout", &yaml_str!("120")).unwrap();
         config.set("send_timeout", &yaml_str!("5")).unwrap();
 
         assert_eq!(config.recv_timeout, 120);

@@ -42,8 +42,8 @@ pub(crate) fn add_shared(buf: &mut Vec<u8>, headers: &HttpHeaderMap) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use http::header::HeaderName;
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
 
     #[test]

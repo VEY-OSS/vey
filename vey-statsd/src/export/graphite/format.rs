@@ -129,7 +129,12 @@ mod tests {
 
     use crate::config::exporter::graphite::GraphiteExporterConfig;
 
-    fn export(yaml: &str) -> (GraphitePlaintextAggregateExport, mpsc::UnboundedReceiver<Vec<u8>>) {
+    fn export(
+        yaml: &str,
+    ) -> (
+        GraphitePlaintextAggregateExport,
+        mpsc::UnboundedReceiver<Vec<u8>>,
+    ) {
         let docs = YamlLoader::load_from_str(yaml).unwrap();
         let cfg = GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).unwrap();
         let (tx, rx) = mpsc::unbounded_channel();

@@ -243,9 +243,7 @@ mod tests {
     #[test]
     fn parse_header_allow_sets_support_flags() {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
-        options
-            .parse_header_line(b"Allow: 204, 206\r\n")
-            .unwrap();
+        options.parse_header_line(b"Allow: 204, 206\r\n").unwrap();
         assert!(options.support_204);
         assert!(options.support_206);
     }

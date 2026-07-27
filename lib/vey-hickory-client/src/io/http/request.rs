@@ -59,7 +59,10 @@ mod tests {
         assert_eq!(req.method(), Method::POST);
         assert_eq!(req.version(), Version::HTTP_11);
         assert_eq!(req.uri().scheme().unwrap().as_str(), "https");
-        assert_eq!(req.uri().authority().unwrap().as_str(), "dns.example.com:443");
+        assert_eq!(
+            req.uri().authority().unwrap().as_str(),
+            "dns.example.com:443"
+        );
         assert_eq!(req.uri().path(), "/dns-query");
         assert_eq!(
             req.headers().get(header::CONTENT_TYPE).unwrap(),

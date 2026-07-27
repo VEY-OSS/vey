@@ -268,7 +268,9 @@ mod tests {
             certs: vec![cert],
             key,
         };
-        let ctx = SslContext::builder(SslMethod::tls_server()).unwrap().build();
+        let ctx = SslContext::builder(SslMethod::tls_server())
+            .unwrap()
+            .build();
         let mut ssl = Ssl::new(&ctx).unwrap();
         pair.add_to_ssl(&mut ssl).unwrap();
 

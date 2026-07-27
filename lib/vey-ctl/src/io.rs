@@ -96,9 +96,7 @@ mod tests {
     #[test]
     fn print_text_list_ok() {
         let mut message = message::Builder::new_default();
-        message
-            .set_root(&["alpha", "beta"] as &[&str])
-            .unwrap();
+        message.set_root(&["alpha", "beta"] as &[&str]).unwrap();
         let reader = message
             .get_root_as_reader::<capnp::text_list::Reader>()
             .unwrap();

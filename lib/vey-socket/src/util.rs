@@ -88,10 +88,7 @@ mod tests {
         let v6 = IpAddr::V6(Ipv6Addr::LOCALHOST);
         assert_eq!(AddressFamily::from(&v4), AddressFamily::Ipv4);
         assert_eq!(AddressFamily::from(&v6), AddressFamily::Ipv6);
-        assert_eq!(
-            Domain::from(AddressFamily::Ipv4),
-            Domain::IPV4
-        );
+        assert_eq!(Domain::from(AddressFamily::Ipv4), Domain::IPV4);
     }
 
     #[test]

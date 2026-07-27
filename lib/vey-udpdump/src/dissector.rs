@@ -122,6 +122,9 @@ mod tests {
         ExportedPduDissectorHint::Protocol(Protocol::Http1).serialize(&mut buf);
         let dissector = Protocol::Http1.wireshark_dissector();
         assert!(!dissector.is_empty());
-        assert!(buf.windows(dissector.len()).any(|w| w == dissector.as_bytes()));
+        assert!(
+            buf.windows(dissector.len())
+                .any(|w| w == dissector.as_bytes())
+        );
     }
 }

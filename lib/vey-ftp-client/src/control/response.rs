@@ -321,8 +321,9 @@ mod tests {
 
     #[test]
     fn parse_pasv_227_reply() {
-        let rsp = FtpRawResponse::parse_single_line("227 Entering Passive Mode (192,168,1,1,195,149)")
-            .unwrap();
+        let rsp =
+            FtpRawResponse::parse_single_line("227 Entering Passive Mode (192,168,1,1,195,149)")
+                .unwrap();
         let addr = rsp.parse_pasv_227_reply().unwrap();
         assert_eq!(
             addr,
@@ -346,8 +347,7 @@ mod tests {
 
     #[test]
     fn multi_line_parser() {
-        let mut parser =
-            FtpRawResponse::get_multi_line_parser("211-Features:", 8).unwrap();
+        let mut parser = FtpRawResponse::get_multi_line_parser("211-Features:", 8).unwrap();
         assert!(!parser.feed_line(" UTF8").unwrap());
         assert!(!parser.feed_line(" SIZE").unwrap());
         assert!(parser.feed_line("211 End").unwrap());

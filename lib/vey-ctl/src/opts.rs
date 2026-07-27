@@ -226,7 +226,9 @@ mod tests {
             .try_get_matches_from(["vey-ctl-test", "-G", "workers", "-p", "4242"])
             .unwrap();
         assert_eq!(
-            matches.get_one::<String>("daemon-group").map(String::as_str),
+            matches
+                .get_one::<String>("daemon-group")
+                .map(String::as_str),
             Some("workers")
         );
         assert_eq!(matches.get_one::<usize>("pid"), Some(&4242));

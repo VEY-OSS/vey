@@ -136,10 +136,7 @@ mod tests {
         }
         assert_eq!(
             builder.addr,
-            UpstreamAddr::new(
-                Host::Ip(IpAddr::from_str("192.168.1.1").unwrap()),
-                6399,
-            )
+            UpstreamAddr::new(Host::Ip(IpAddr::from_str("192.168.1.1").unwrap()), 6399,)
         );
     }
 

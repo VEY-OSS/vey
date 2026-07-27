@@ -231,7 +231,10 @@ mod tests {
             result.src_addr,
             SocketAddr::from_str("192.168.1.2:54321").unwrap()
         );
-        assert_eq!(result.dst_addr, SocketAddr::from_str("10.0.0.1:443").unwrap());
+        assert_eq!(
+            result.dst_addr,
+            SocketAddr::from_str("10.0.0.1:443").unwrap()
+        );
     }
 
     #[test]
@@ -248,6 +251,9 @@ mod tests {
     fn parse_rejects_bad_src_port() {
         let reader = ProxyProtocolV1Reader::new(Duration::from_secs(1));
         let result = reader.parse_buf(b"PROXY TCP4 192.168.1.1 10.0.0.1 abc 443\r\n");
-        assert!(matches!(result, Err(ProxyProtocolReadError::InvalidSrcAddr)));
+        assert!(matches!(
+            result,
+            Err(ProxyProtocolReadError::InvalidSrcAddr)
+        ));
     }
 }

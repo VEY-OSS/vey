@@ -160,7 +160,10 @@ mod tests {
     #[test]
     fn new_rejects_invalid_content_length() {
         let mut headers = http::HeaderMap::new();
-        headers.insert(header::CONTENT_LENGTH, http::HeaderValue::from_static("abc"));
+        headers.insert(
+            header::CONTENT_LENGTH,
+            http::HeaderValue::from_static("abc"),
+        );
         let rsp = dns_response(headers);
         match HttpDnsResponse::new(rsp) {
             Err(e) => assert!(e.to_string().contains("invalid Content-Length header")),

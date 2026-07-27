@@ -446,8 +446,7 @@ mod tests {
     fn to_client_header_updates_tcp_seq() {
         let client = SocketAddr::from_str("192.168.1.10:50000").unwrap();
         let remote = SocketAddr::from_str("203.0.113.1:443").unwrap();
-        let (mut to_client, _) =
-            new_pair(client, remote, ExportedPduDissectorHint::TlsPort(443));
+        let (mut to_client, _) = new_pair(client, remote, ExportedPduDissectorHint::TlsPort(443));
 
         let mut hdr = to_client.new_header(512);
         to_client.update_tcp_dissector_data(&mut hdr, 100);
@@ -468,8 +467,7 @@ mod tests {
     fn header_contains_ipv4_addresses() {
         let client = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 1234);
         let remote = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 443);
-        let (mut to_client, _) =
-            new_pair(client, remote, ExportedPduDissectorHint::TcpPort(443));
+        let (mut to_client, _) = new_pair(client, remote, ExportedPduDissectorHint::TcpPort(443));
 
         let hdr = to_client.new_header(256);
         assert!(hdr.contains(&10));

@@ -52,7 +52,8 @@ mod tests {
     use super::get_rate_limit;
 
     fn create_args(value: Option<&str>) -> clap::ArgMatches {
-        let command = Command::new("test").arg(Arg::new("rate").long("rate").action(ArgAction::Set));
+        let command =
+            Command::new("test").arg(Arg::new("rate").long("rate").action(ArgAction::Set));
         if let Some(v) = value {
             command.get_matches_from(vec!["test", &format!("--rate={v}")])
         } else {

@@ -208,13 +208,8 @@ mod tests {
 
     #[test]
     fn is_acceptable_only_for_not_found() {
-        let ok = ResolvedRecord::resolved(
-            domain(),
-            60,
-            30,
-            300,
-            vec!["127.0.0.1".parse().unwrap()],
-        );
+        let ok =
+            ResolvedRecord::resolved(domain(), 60, 30, 300, vec!["127.0.0.1".parse().unwrap()]);
         assert!(ok.is_acceptable());
 
         let not_found = ResolvedRecord::failed(
@@ -238,13 +233,8 @@ mod tests {
         assert!(empty.is_ok());
         assert!(!empty.is_usable());
 
-        let with_ip = ResolvedRecord::resolved(
-            domain(),
-            60,
-            30,
-            300,
-            vec!["10.0.0.1".parse().unwrap()],
-        );
+        let with_ip =
+            ResolvedRecord::resolved(domain(), 60, 30, 300, vec!["10.0.0.1".parse().unwrap()]);
         assert!(with_ip.is_usable());
     }
 }

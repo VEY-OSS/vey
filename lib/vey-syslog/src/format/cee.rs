@@ -142,8 +142,7 @@ mod tests {
 
     #[test]
     fn rfc5424_cee_formatter_lifecycle() {
-        let mut formatter =
-            FormatterRfc5424Cee::new(Some("MID-1".into()), "@cee:".into());
+        let mut formatter = FormatterRfc5424Cee::new(Some("MID-1".into()), "@cee:".into());
         formatter.append_report_ts(true);
     }
 }

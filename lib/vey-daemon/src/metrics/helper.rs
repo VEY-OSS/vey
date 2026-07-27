@@ -16,7 +16,7 @@ pub fn move_ht<T>(in_ht_lock: &Mutex<GlobalStatsMap<T>>, out_ht_lock: &Mutex<Glo
     }
     drop(in_req_map); // drop early
 
-        if !tmp_req_map.is_empty() {
+    if !tmp_req_map.is_empty() {
         let mut out_req_map = out_ht_lock.lock().unwrap();
         for (k, v) in tmp_req_map.drain() {
             out_req_map.insert(k, v);

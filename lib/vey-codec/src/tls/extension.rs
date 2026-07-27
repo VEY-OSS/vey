@@ -181,7 +181,10 @@ mod tests {
     #[test]
     fn extension_type_from_u16() {
         assert_eq!(ExtensionType::from(0), ExtensionType::ServerName);
-        assert_eq!(ExtensionType::from(16), ExtensionType::ApplicationLayerProtocolNegotiation);
+        assert_eq!(
+            ExtensionType::from(16),
+            ExtensionType::ApplicationLayerProtocolNegotiation
+        );
         assert_eq!(ExtensionType::from(43), ExtensionType::SupportedVersions);
         assert_eq!(ExtensionType::from(51), ExtensionType::KeyShare);
         assert_eq!(ExtensionType::from(0x1234), ExtensionType::Unknown(0x1234));
@@ -235,7 +238,10 @@ mod tests {
 
         let items: Vec<_> = ExtensionIter::new(&data).collect();
         assert_eq!(items.len(), 2);
-        assert_eq!(items[0].as_ref().unwrap().r#type(), ExtensionType::ServerName);
+        assert_eq!(
+            items[0].as_ref().unwrap().r#type(),
+            ExtensionType::ServerName
+        );
         assert_eq!(
             items[1].as_ref().unwrap().r#type(),
             ExtensionType::ApplicationLayerProtocolNegotiation
@@ -252,9 +258,6 @@ mod tests {
         let items: Vec<_> = ExtensionIter::new(&data).collect();
         assert_eq!(items.len(), 2);
         assert!(items[0].is_ok());
-        assert!(matches!(
-            items[1],
-            Err(ExtensionParseError::InvalidLength)
-        ));
+        assert!(matches!(items[1], Err(ExtensionParseError::InvalidLength)));
     }
 }

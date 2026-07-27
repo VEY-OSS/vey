@@ -162,8 +162,14 @@ mod tests {
 
     #[test]
     fn from_str_variants() {
-        assert_eq!(MetricValue::from_str("42").unwrap(), MetricValue::Unsigned(42));
-        assert_eq!(MetricValue::from_str("-7").unwrap(), MetricValue::Signed(-7));
+        assert_eq!(
+            MetricValue::from_str("42").unwrap(),
+            MetricValue::Unsigned(42)
+        );
+        assert_eq!(
+            MetricValue::from_str("-7").unwrap(),
+            MetricValue::Signed(-7)
+        );
         assert_eq!(
             MetricValue::from_str("1.5").unwrap(),
             MetricValue::Double(1.5)
@@ -207,17 +213,11 @@ mod tests {
     #[test]
     fn as_json_number() {
         assert_eq!(
-            MetricValue::Unsigned(8)
-                .as_json_number()
-                .unwrap()
-                .as_u64(),
+            MetricValue::Unsigned(8).as_json_number().unwrap().as_u64(),
             Some(8)
         );
         assert_eq!(
-            MetricValue::Signed(-2)
-                .as_json_number()
-                .unwrap()
-                .as_i64(),
+            MetricValue::Signed(-2).as_json_number().unwrap().as_i64(),
             Some(-2)
         );
         assert!(MetricValue::Double(f64::NAN).as_json_number().is_none());

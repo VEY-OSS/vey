@@ -41,7 +41,8 @@ mod tests {
     use super::get;
 
     fn create_args(value: Option<&str>) -> clap::ArgMatches {
-        let command = Command::new("test").arg(Arg::new("data").long("data").action(ArgAction::Set));
+        let command =
+            Command::new("test").arg(Arg::new("data").long("data").action(ArgAction::Set));
         if let Some(v) = value {
             command.get_matches_from(vec!["test", &format!("--data={v}")])
         } else {

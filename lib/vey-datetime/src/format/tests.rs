@@ -41,10 +41,7 @@ fn rfc5424_matches_syslog_timestamp_shape() {
     let dt = DateTime::parse_from_rfc3339("2021-12-01T10:20:30.123456789Z")
         .unwrap()
         .with_timezone(&Utc);
-    assert_eq!(
-        format_utc(log::RFC5424, &dt),
-        "2021-12-01T10:20:30.123456Z"
-    );
+    assert_eq!(format_utc(log::RFC5424, &dt), "2021-12-01T10:20:30.123456Z");
 
     let dt = DateTime::parse_from_rfc3339("2021-12-01T10:20:30+08:00")
         .unwrap()
@@ -79,8 +76,14 @@ fn rfc3659_ftp_format_parses_compact_timestamp() {
 fn asn1_rfc5280_formats() {
     let dt = Utc.with_ymd_and_hms(2021, 12, 1, 10, 20, 30).unwrap();
     assert_eq!(format_utc(asn1::RFC5280_UTC, &dt), "211201102030Z");
-    assert_eq!(format_utc(asn1::RFC5280_GENERALIZED, &dt), "20211201102030Z");
+    assert_eq!(
+        format_utc(asn1::RFC5280_GENERALIZED, &dt),
+        "20211201102030Z"
+    );
 
     let future = Utc.with_ymd_and_hms(2050, 1, 2, 3, 4, 5).unwrap();
-    assert_eq!(format_utc(asn1::RFC5280_GENERALIZED, &future), "20500102030405Z");
+    assert_eq!(
+        format_utc(asn1::RFC5280_GENERALIZED, &future),
+        "20500102030405Z"
+    );
 }

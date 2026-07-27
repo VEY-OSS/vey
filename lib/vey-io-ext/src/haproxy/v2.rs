@@ -242,9 +242,7 @@ mod tests {
             .read(b"not-a-proxy-hdr!")
             .build();
         let mut reader = ProxyProtocolV2Reader::new(Duration::from_secs(1));
-        let err = reader
-            .read_proxy_protocol_v2_for_tcp(&mut stream)
-            .await;
+        let err = reader.read_proxy_protocol_v2_for_tcp(&mut stream).await;
         assert!(matches!(
             err,
             Err(ProxyProtocolReadError::InvalidMagicHeader)
@@ -260,11 +258,11 @@ mod tests {
         // Flip protocol nibble to DGRAM (0x02) while keeping INET family.
         encoded[13] = (encoded[13] & 0xF0) | 0x02;
 
-        let mut stream = tokio_test::io::Builder::new().read(encoded.as_slice()).build();
+        let mut stream = tokio_test::io::Builder::new()
+            .read(encoded.as_slice())
+            .build();
         let mut reader = ProxyProtocolV2Reader::new(Duration::from_secs(1));
-        let err = reader
-            .read_proxy_protocol_v2_for_tcp(&mut stream)
-            .await;
+        let err = reader.read_proxy_protocol_v2_for_tcp(&mut stream).await;
         assert!(matches!(
             err,
             Err(ProxyProtocolReadError::InvalidProtocol(2))

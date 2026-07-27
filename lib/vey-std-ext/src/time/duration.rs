@@ -29,7 +29,10 @@ mod tests {
 
     #[test]
     fn millis_f64() {
-        assert_eq!(DurationExt::as_millis_f64(&Duration::from_millis(1500)), 1500.0);
+        assert_eq!(
+            DurationExt::as_millis_f64(&Duration::from_millis(1500)),
+            1500.0
+        );
         assert_eq!(DurationExt::as_millis_f64(&Duration::from_secs(2)), 2000.0);
         assert!(
             (DurationExt::as_millis_f64(&Duration::from_nanos(1_500_000)) - 1.5).abs()
