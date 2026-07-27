@@ -121,6 +121,17 @@ fn test_param_same_as() {
     let c = AnyTestConfigWithParams::Right(ConfigB {
         label: "C".to_string(),
     });
+    assert_eq!(a.name(), "B");
+    assert_eq!(a.version(), 2);
+    a.reload();
     assert!(a.same_as(&b));
     assert!(!a.same_as(&c));
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    rt.block_on(async {
+        a.run().await;
+    });
 }
