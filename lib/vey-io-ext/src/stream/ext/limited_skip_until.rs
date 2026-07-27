@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::io;
@@ -73,5 +74,50 @@ impl<R: AsyncBufRead + ?Sized + Unpin> Future for LimitedSkipUntil<'_, R> {
             limit,
         } = &mut *self;
         skip_until_internal(Pin::new(reader), cx, *delimiter, read, *limit)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::BufReader;
+
+    #[tokio::test]
+    async fn skip_until_delimiter() {
+        let content = b"junk prefix\r\nrest";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+
+        let (found, size) = LimitedSkipUntil::new(&mut buf_stream, b'\n', 128)
+            .await
+            .unwrap();
+        assert!(found);
+        assert_eq!(size, 13);
+    }
+
+    #[tokio::test]
+    async fn skip_until_exceeds_limit() {
+        let content = b"0123456789abcdef\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+
+        let (found, size) = LimitedSkipUntil::new(&mut buf_stream, b'\n', 8)
+            .await
+            .unwrap();
+        assert!(!found);
+        assert!(size >= 8);
+    }
+
+    #[tokio::test]
+    async fn skip_until_eof_without_delimiter() {
+        let content = b"no newline here";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+
+        let (found, size) = LimitedSkipUntil::new(&mut buf_stream, b'\n', 128)
+            .await
+            .unwrap();
+        assert!(!found);
+        assert_eq!(size, content.len());
     }
 }

@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::future::Future;
@@ -68,5 +69,36 @@ where
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let ReadAllOnce { reader, buf } = &mut *self;
         read_all_once_internal(Pin::new(reader), cx, buf)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn read_fills_buffer_once() {
+        let mut stream = tokio_test::io::Builder::new().read(&b"abcd"[..]).build();
+        let mut buf = [0u8; 4];
+        let nr = ReadAllOnce::new(&mut stream, &mut buf).await.unwrap();
+        assert_eq!(nr, 4);
+        assert_eq!(&buf, b"abcd");
+    }
+
+    #[tokio::test]
+    async fn read_returns_zero_on_closed_stream() {
+        let mut stream = tokio_test::io::Builder::new().read(&[]).build();
+        let mut buf = [0u8; 8];
+        let nr = ReadAllOnce::new(&mut stream, &mut buf).await.unwrap();
+        assert_eq!(nr, 0);
+    }
+
+    #[tokio::test]
+    async fn read_stops_after_first_pending_with_partial_data() {
+        let mut stream = tokio_test::io::Builder::new().read(b"ab").wait(std::time::Duration::from_secs(60)).build();
+        let mut buf = [0u8; 8];
+        let nr = ReadAllOnce::new(&mut stream, &mut buf).await.unwrap();
+        assert_eq!(nr, 2);
+        assert_eq!(&buf[..2], b"ab");
     }
 }

@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -211,5 +212,62 @@ mod tests {
         let server = SocketAddr::from_str("[2001:db8::11]:443").unwrap();
 
         run_t(client, server).await;
+    }
+
+    fn build_v2_local() -> Vec<u8> {
+        let mut buf = Vec::with_capacity(16);
+        buf.extend_from_slice(V2_MAGIC_HEADER);
+        buf.push(0x20); // version 2, LOCAL command
+        buf.push(0x00); // UNSPEC family/protocol
+        buf.extend_from_slice(&0u16.to_be_bytes());
+        buf
+    }
+
+    #[tokio::test]
+    async fn t_local_command_returns_none() {
+        let mut stream = tokio_test::io::Builder::new()
+            .read(&build_v2_local())
+            .build();
+        let mut reader = ProxyProtocolV2Reader::new(Duration::from_secs(1));
+        let addr = reader
+            .read_proxy_protocol_v2_for_tcp(&mut stream)
+            .await
+            .unwrap();
+        assert!(addr.is_none());
+    }
+
+    #[tokio::test]
+    async fn t_invalid_magic_header() {
+        let mut stream = tokio_test::io::Builder::new()
+            .read(b"not-a-proxy-hdr!")
+            .build();
+        let mut reader = ProxyProtocolV2Reader::new(Duration::from_secs(1));
+        let err = reader
+            .read_proxy_protocol_v2_for_tcp(&mut stream)
+            .await;
+        assert!(matches!(
+            err,
+            Err(ProxyProtocolReadError::InvalidMagicHeader)
+        ));
+    }
+
+    #[tokio::test]
+    async fn t_rejects_dgram_protocol() {
+        let mut encoder = ProxyProtocolEncoder::new(ProxyProtocolVersion::V2);
+        let client = SocketAddr::from_str("192.168.0.1:56324").unwrap();
+        let server = SocketAddr::from_str("192.168.0.11:443").unwrap();
+        let mut encoded = encoder.encode_tcp(client, server).unwrap().to_vec();
+        // Flip protocol nibble to DGRAM (0x02) while keeping INET family.
+        encoded[13] = (encoded[13] & 0xF0) | 0x02;
+
+        let mut stream = tokio_test::io::Builder::new().read(encoded.as_slice()).build();
+        let mut reader = ProxyProtocolV2Reader::new(Duration::from_secs(1));
+        let err = reader
+            .read_proxy_protocol_v2_for_tcp(&mut stream)
+            .await;
+        assert!(matches!(
+            err,
+            Err(ProxyProtocolReadError::InvalidProtocol(2))
+        ));
     }
 }

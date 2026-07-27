@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::io;
@@ -40,5 +41,25 @@ impl<R: AsyncBufRead + ?Sized + Unpin> Future for FillWaitData<'_, R> {
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let Self { reader } = &mut *self;
         fill_wait_data(Pin::new(reader), cx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::BufReader;
+
+    #[tokio::test]
+    async fn returns_true_when_data_available() {
+        let stream = tokio_test::io::Builder::new().read(b"data").build();
+        let mut reader = BufReader::new(stream);
+        assert!(FillWaitData::new(&mut reader).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn returns_false_on_immediate_eof() {
+        let stream = tokio_test::io::Builder::new().read(&[]).build();
+        let mut reader = BufReader::new(stream);
+        assert!(!FillWaitData::new(&mut reader).await.unwrap());
     }
 }

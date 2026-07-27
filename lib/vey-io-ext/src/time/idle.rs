@@ -68,4 +68,28 @@ mod tests {
         assert!(tick.is_ok());
         assert_eq!(tick.unwrap(), 1);
     }
+
+    #[tokio::test]
+    async fn idle_wheel_multiple_ticks() {
+        let wheel = IdleWheel::spawn(Duration::from_millis(5));
+        let mut interval = wheel.register();
+
+        for _ in 0..3 {
+            let tick = tokio::time::timeout(Duration::from_millis(50), interval.tick()).await;
+            assert!(tick.is_ok());
+            assert_eq!(tick.unwrap(), 1);
+        }
+    }
+
+    #[test]
+    fn idle_force_quit_reason_debug() {
+        assert_eq!(
+            format!("{:?}", IdleForceQuitReason::UserBlocked),
+            "UserBlocked"
+        );
+        assert_eq!(
+            format!("{:?}", IdleForceQuitReason::ServerQuit),
+            "ServerQuit"
+        );
+    }
 }

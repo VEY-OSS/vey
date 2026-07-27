@@ -91,4 +91,17 @@ mod tests {
         assert!(limit_info.check(4).is_err());
         assert!(limit_info.check(1025).is_ok());
     }
+
+    #[test]
+    fn threaded_limiter_resets_on_update() {
+        let limiter = ThreadedCountLimiter::new(10, 1);
+        assert!(limiter.check(1).is_ok());
+        assert!(limiter.check(2).is_err());
+
+        let updated = limiter.new_updated(10, 3, 1024);
+        assert!(updated.check(1024).is_ok());
+        assert!(updated.check(1025).is_ok());
+        assert!(updated.check(1026).is_ok());
+        assert!(updated.check(1027).is_err());
+    }
 }

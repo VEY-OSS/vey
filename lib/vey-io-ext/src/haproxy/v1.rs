@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -45,6 +46,8 @@ impl ProxyProtocolV1Reader {
         let family = iter
             .next()
             .ok_or(ProxyProtocolReadError::InvalidFamily(0x00))?;
+        // UNKNOWN lines end the family token with CRLF (no following fields).
+        let family = family.trim_ascii_end();
         let family_c = match family.len() {
             4 => {
                 if !family.starts_with(b"TCP") {
@@ -208,5 +211,43 @@ mod tests {
         let result = reader.read_proxy_protocol_v1_for_tcp(&mut server).await;
 
         assert!(result.is_err_and(|e| matches!(e, ProxyProtocolReadError::InvalidMagicHeader)));
+    }
+
+    #[test]
+    fn parse_unknown_line() {
+        let reader = ProxyProtocolV1Reader::new(Duration::from_secs(1));
+        let result = reader.parse_buf(b"PROXY UNKNOWN\r\n");
+        assert!(matches!(result, Ok(None)));
+    }
+
+    #[test]
+    fn parse_tcp4_line() {
+        let reader = ProxyProtocolV1Reader::new(Duration::from_secs(1));
+        let result = reader
+            .parse_buf(b"PROXY TCP4 192.168.1.2 10.0.0.1 54321 443\r\n")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            result.src_addr,
+            SocketAddr::from_str("192.168.1.2:54321").unwrap()
+        );
+        assert_eq!(result.dst_addr, SocketAddr::from_str("10.0.0.1:443").unwrap());
+    }
+
+    #[test]
+    fn parse_rejects_invalid_family() {
+        let reader = ProxyProtocolV1Reader::new(Duration::from_secs(1));
+        let result = reader.parse_buf(b"PROXY UDP4 1.1.1.1 2.2.2.2 80 443\r\n");
+        assert!(matches!(
+            result,
+            Err(ProxyProtocolReadError::InvalidFamily(_))
+        ));
+    }
+
+    #[test]
+    fn parse_rejects_bad_src_port() {
+        let reader = ProxyProtocolV1Reader::new(Duration::from_secs(1));
+        let result = reader.parse_buf(b"PROXY TCP4 192.168.1.1 10.0.0.1 abc 443\r\n");
+        assert!(matches!(result, Err(ProxyProtocolReadError::InvalidSrcAddr)));
     }
 }

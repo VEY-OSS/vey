@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::io;
@@ -220,7 +221,7 @@ impl<S> From<FlexBufReader<S>> for OnceBufReader<S> {
 mod tests {
     use super::FlexBufReader;
     use bytes::{BufMut, BytesMut};
-    use tokio::io::AsyncBufReadExt;
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt};
 
     #[tokio::test]
     async fn with_bytes() {
@@ -239,5 +240,21 @@ mod tests {
 
         let buf = v.fill_buf().await.unwrap();
         assert_eq!(buf, content);
+    }
+
+    #[tokio::test]
+    async fn into_parts_and_from_once_buf_reader() {
+        let mut b = BytesMut::with_capacity(8);
+        b.put_slice(b"pref");
+        let stream = tokio_test::io::Builder::new().read(b"rest").build();
+        let reader = FlexBufReader::with_bytes(b, stream);
+
+        let (buf, inner) = reader.into_parts();
+        assert_eq!(&buf[..], b"pref");
+
+        let mut restored = FlexBufReader::with_bytes(BytesMut::from(buf), inner);
+        let mut out = Vec::new();
+        restored.read_to_end(&mut out).await.unwrap();
+        assert_eq!(out, b"prefrest");
     }
 }
