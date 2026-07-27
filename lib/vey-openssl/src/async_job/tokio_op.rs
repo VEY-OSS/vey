@@ -16,6 +16,10 @@ use tokio::runtime::{Handle, RuntimeFlavor};
 
 use super::{AsyncOperation, OpensslAsyncTask, SyncOperation};
 
+/// Tokio-backed OpenSSL async operation (FD wait via [`AsyncFd`]).
+///
+/// Construct only through [`Self::build_async_task`], which requires a
+/// `current_thread` runtime. See [`OpensslAsyncTask`] for the threading contract.
 pub struct TokioAsyncOperation<T> {
     sync_op: T,
     tracked_fds: Vec<AsyncFd<RawFd>>,
@@ -25,21 +29,25 @@ impl<T> TokioAsyncOperation<T>
 where
     T: SyncOperation,
 {
-    /// Create a openssl async task in tokio single threaded runtime
+    /// Build an [`OpensslAsyncTask`] on the current Tokio **current-thread** runtime.
     ///
     /// `timeout` is enforced inside the task: after it elapses the future returns
     /// [`OpensslAsyncOutput::TimedOut`](super::OpensslAsyncOutput::TimedOut) with
     /// an optional cleanup handle to drain any in-flight `ASYNC_JOB`.
     /// Do not wrap the returned future in `tokio::time::timeout`.
     ///
-    /// It will panic if called in multi-threaded runtime
+    /// # Panics
+    ///
+    /// Panics if the current runtime is multi-threaded. OpenSSL `ASYNC_JOB`s are
+    /// thread-affine and must not migrate across worker threads.
     pub fn build_async_task(
         sync_op: T,
         timeout: Duration,
     ) -> Result<OpensslAsyncTask<TokioAsyncOperation<T>>, ErrorStack> {
         assert_eq!(
             Handle::current().runtime_flavor(),
-            RuntimeFlavor::CurrentThread
+            RuntimeFlavor::CurrentThread,
+            "OpensslAsyncTask requires a current_thread Tokio runtime"
         );
 
         let async_op = TokioAsyncOperation {

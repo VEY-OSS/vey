@@ -74,6 +74,22 @@ struct TaskState<T: AsyncOperation> {
     action: Box<UnsafeCell<Action<T>>>,
 }
 
+/// Future that drives an OpenSSL `ASYNC_JOB` to completion (with an internal timeout).
+///
+/// # Concurrency / threading
+///
+/// OpenSSL requires that a paused `ASYNC_JOB` be resumed via `ASYNC_start_job` on
+/// **the same OS thread** that started it. Job pools are also per-thread
+/// (`ASYNC_init_thread` / `ASYNC_cleanup_thread`).
+///
+/// Therefore this future must:
+/// - be created and polled only on a Tokio **current-thread** runtime (see
+///   [`TokioAsyncOperation::build_async_task`](crate::async_job::TokioAsyncOperation::build_async_task));
+/// - never migrate to another thread while a job is in flight.
+///
+/// Prefer constructing via [`TokioAsyncOperation::build_async_task`], which asserts
+/// `RuntimeFlavor::CurrentThread`. Polling from a multi-thread runtime or after
+/// thread migration is undefined behavior with respect to OpenSSL.
 pub struct OpensslAsyncTask<T: AsyncOperation> {
     state: Option<TaskState<T>>,
     sleep_future: Pin<Box<Sleep>>,
@@ -81,13 +97,16 @@ pub struct OpensslAsyncTask<T: AsyncOperation> {
 
 /// Drains an in-flight OpenSSL `ASYNC_JOB` after a timeout.
 ///
-/// Must be polled on the same current-thread runtime that started the job.
+/// Must be polled on the **same** current-thread runtime (same OS thread) that
+/// started the job. See [`OpensslAsyncTask`] concurrency notes.
 pub struct OpensslAsyncCleanup<T: AsyncOperation> {
     state: TaskState<T>,
 }
 
-/// NOTE: OpensslAsyncTask in fact is not Send,
-/// make sure you call it in a single threaded async runtime
+// SAFETY: OpenSSL ASYNC_JOBs are thread-affine. These types are not logically
+// Send for in-flight jobs; `Send` exists so they can appear in async signatures
+// that require it. Callers must keep polling on the creating current-thread
+// runtime (enforced for the usual path by TokioAsyncOperation::build_async_task).
 unsafe impl<T: AsyncOperation + Send> Send for OpensslAsyncTask<T> {}
 unsafe impl<T: AsyncOperation + Send> Send for OpensslAsyncCleanup<T> {}
 
