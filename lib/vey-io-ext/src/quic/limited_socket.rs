@@ -203,12 +203,29 @@ impl UdpPoller for LimitedUdpPoller {
     }
 }
 
+/// Rate-limited wrapper around a Quinn [`AsyncUdpSocket`].
+///
+/// # Concurrency
+///
+/// Quinn requires `AsyncUdpSocket: Sync` so the socket can be shared via `Arc`
+/// across connection tasks that call [`AsyncUdpSocket::try_send`]. Send-side
+/// limiting uses a [`Mutex`]; receive-side state (`recv_state`) is mutated
+/// through [`UnsafeCell`] inside [`AsyncUdpSocket::poll_recv`], which is **not**
+/// safe to call concurrently.
+///
+/// This type must only be used with a Quinn [`quinn::Endpoint`]: Quinn drives
+/// UDP receive from a single `EndpointDriver` task (serialized under the
+/// endpoint state mutex), so `poll_recv` is never invoked concurrently.
+/// Calling `poll_recv` from multiple tasks yourself is undefined behavior.
 pub struct LimitedUdpSocket {
     inner: Arc<dyn AsyncUdpSocket>,
     send_state: LimitedSendState,
     recv_state: UnsafeCell<LimitedRecvState>,
 }
 
+// SAFETY: See type-level docs. Sync is required by Quinn's AsyncUdpSocket;
+// exclusive access to recv_state is guaranteed by Quinn's single
+// EndpointDriver receive path (no concurrent poll_recv).
 unsafe impl Sync for LimitedUdpSocket {}
 
 impl LimitedUdpSocket {
@@ -326,6 +343,8 @@ impl AsyncUdpSocket for LimitedUdpSocket {
         bufs: &mut [IoSliceMut<'_>],
         meta: &mut [udp::RecvMeta],
     ) -> Poll<io::Result<usize>> {
+        // SAFETY: poll_recv is only driven by Quinn's single EndpointDriver
+        // (see type-level docs); no concurrent &mut to recv_state.
         let l = unsafe { &mut *self.recv_state.get() };
         if l.limit.is_set() {
             let dur_millis = l.started.elapsed().as_millis() as u64;

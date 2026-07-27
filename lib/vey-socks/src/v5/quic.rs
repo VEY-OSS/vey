@@ -152,6 +152,19 @@ impl AsMut<[u8]> for SocksHeaderBuffer {
     }
 }
 
+/// SOCKS5 UDP ASSOCIATE socket exposed as a Quinn [`AsyncUdpSocket`].
+///
+/// # Concurrency
+///
+/// Quinn requires `AsyncUdpSocket: Sync` so the socket can be shared via `Arc`
+/// across connection tasks that call [`AsyncUdpSocket::try_send`]. Receive-side
+/// state (`ctl_close_receiver`) is mutated through [`UnsafeCell`] inside
+/// [`AsyncUdpSocket::poll_recv`], which is **not** safe to call concurrently.
+///
+/// This type must only be used with a Quinn [`quinn::Endpoint`]: Quinn drives
+/// UDP receive from a single `EndpointDriver` task (serialized under the
+/// endpoint state mutex), so `poll_recv` is never invoked concurrently.
+/// Calling `poll_recv` from multiple tasks yourself is undefined behavior.
 #[derive(Debug)]
 pub struct Socks5UdpSocket {
     io: tokio::net::UdpSocket,
@@ -160,6 +173,9 @@ pub struct Socks5UdpSocket {
     send_socks_header: SocksHeaderBuffer,
 }
 
+// SAFETY: See type-level docs. Sync is required by Quinn's AsyncUdpSocket;
+// exclusive access to ctl_close_receiver is guaranteed by Quinn's single
+// EndpointDriver receive path (no concurrent poll_recv).
 unsafe impl Sync for Socks5UdpSocket {}
 
 impl Socks5UdpSocket {
@@ -249,6 +265,8 @@ impl AsyncUdpSocket for Socks5UdpSocket {
     ) -> Poll<io::Result<usize>> {
         use smallvec::{SmallVec, smallvec};
 
+        // SAFETY: poll_recv is only driven by Quinn's single EndpointDriver
+        // (see type-level docs); no concurrent &mut to ctl_close_receiver.
         let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
         match Pin::new(ctl_close_receiver).poll(cx) {
             Poll::Pending => {}
@@ -292,6 +310,8 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         meta: &mut [RecvMeta],
     ) -> Poll<io::Result<usize>> {
         // logics from quinn-udp::fallback.rs
+        // SAFETY: poll_recv is only driven by Quinn's single EndpointDriver
+        // (see type-level docs); no concurrent &mut to ctl_close_receiver.
         let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
         match Pin::new(ctl_close_receiver).poll(cx) {
             Poll::Pending => {}
