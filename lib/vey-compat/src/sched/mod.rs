@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::io;
@@ -84,7 +85,7 @@ impl CpuAffinity {
                 Some((s1, s2)) => {
                     let start = CpuId::from_str(s1)?;
                     let end = CpuId::from_str(s2)?;
-                    if start >= end {
+                    if start > end {
                         return Err(io::Error::new(
                             io::ErrorKind::InvalidInput,
                             format!("invalid CPU ID range {part}"),
@@ -143,5 +144,39 @@ mod tests {
         let mut affinity = CpuAffinity::default();
         affinity.parse_add("0-1,4").unwrap();
         assert_eq!(affinity.cpu_id_list(), &[0, 1, 4]);
+    }
+
+    #[test]
+    fn parse_add_skips_empty_parts() {
+        let mut affinity = CpuAffinity::default();
+        affinity.parse_add(" 1 , ,2 ").unwrap();
+        assert_eq!(affinity.cpu_id_list(), &[1, 2]);
+    }
+
+    #[test]
+    fn parse_add_accepts_single_id_range() {
+        let mut affinity = CpuAffinity::default();
+        affinity.parse_add("1-1,4-4").unwrap();
+        assert_eq!(affinity.cpu_id_list(), &[1, 4]);
+    }
+
+    #[test]
+    fn parse_add_rejects_inverted_range() {
+        let mut affinity = CpuAffinity::default();
+        assert!(affinity.parse_add("2-1").is_err());
+    }
+
+    #[test]
+    fn parse_add_rejects_non_numeric() {
+        let mut affinity = CpuAffinity::default();
+        let err = affinity.parse_add("abc").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn add_id_rejects_out_of_range() {
+        let mut affinity = CpuAffinity::default();
+        let err = affinity.add_id(usize::MAX).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
     }
 }
