@@ -332,5 +332,67 @@ mod tests {
         assert!(LineParser::new(b"gorets:1|c|@0").parse().is_err());
         assert!(LineParser::new(b"gorets:1|c|@1.5").parse().is_err());
         assert!(LineParser::new(b"gorets:1|c|@").parse().is_err());
+        assert!(LineParser::new(b"gorets:1|c|@-0.5").parse().is_err());
+    }
+
+    #[test]
+    fn sample_rate_one_is_identity() {
+        let mut iter = LineParser::new(b"gorets:5|c|@1").parse().unwrap();
+        let r = iter.next().unwrap().unwrap();
+        assert_eq!(r.value, MetricValue::Unsigned(5));
+    }
+
+    #[test]
+    fn parse_errors() {
+        assert!(matches!(
+            LineParser::new(b"").parse(),
+            Err(StatsdParseError::NoName)
+        ));
+        assert!(matches!(
+            LineParser::new(b"gorets:1").parse(),
+            Err(StatsdParseError::NoType)
+        ));
+        assert!(matches!(
+            LineParser::new(b"gorets:1|ms").parse(),
+            Err(StatsdParseError::UnsupportedType)
+        ));
+        assert!(matches!(
+            LineParser::new(b"gorets|c").parse(),
+            Err(StatsdParseError::NoValue)
+        ));
+        assert!(matches!(
+            LineParser::new(b":1|c").parse(),
+            Err(StatsdParseError::NoName)
+        ));
+        assert!(matches!(
+            LineParser::new(b"gorets:|c").parse(),
+            Err(StatsdParseError::NoValue)
+        ));
+    }
+
+    #[test]
+    fn skips_empty_multi_values() {
+        let mut iter = LineParser::new(b"multi:1::2|c").parse().unwrap();
+        assert_eq!(
+            iter.next().unwrap().unwrap().value,
+            MetricValue::Unsigned(1)
+        );
+        assert_eq!(
+            iter.next().unwrap().unwrap().value,
+            MetricValue::Unsigned(2)
+        );
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn scale_counter_preserves_double_when_needed() {
+        assert_eq!(
+            scale_counter_by_sample_rate(MetricValue::Unsigned(1), 0.3),
+            MetricValue::Double(1.0 / 0.3)
+        );
+        assert_eq!(
+            scale_counter_by_sample_rate(MetricValue::Unsigned(3), 0.5),
+            MetricValue::Unsigned(6)
+        );
     }
 }

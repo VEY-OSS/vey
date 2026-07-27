@@ -158,6 +158,7 @@ impl ExporterConfig for GraphiteExporterConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use yaml_rust::YamlLoader;
 
     #[test]
     fn parse_counter_value() {
@@ -170,5 +171,42 @@ mod tests {
             GraphiteCounterValue::Diff
         );
         assert!(GraphiteCounterValue::from_str("rate").is_err());
+        assert_eq!(
+            GraphiteCounterValue::parse_yaml(&Yaml::String("diff".into())).unwrap(),
+            GraphiteCounterValue::Diff
+        );
+        assert!(GraphiteCounterValue::parse_yaml(&Yaml::Boolean(true)).is_err());
+    }
+
+    #[test]
+    fn parse_exporter_config() {
+        let docs = YamlLoader::load_from_str(
+            r#"
+name: g1
+server: 127.0.0.1
+port: 2003
+emit_interval: 5s
+prefix: app.metrics
+counter_value: diff
+"#,
+        )
+        .unwrap();
+        let cfg = GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).unwrap();
+        assert_eq!(cfg.name().as_str(), "g1");
+        assert_eq!(cfg.emit_interval, Duration::from_secs(5));
+        assert_eq!(cfg.counter_value, GraphiteCounterValue::Diff);
+        assert_eq!(
+            cfg.prefix.as_ref().unwrap().display('.').to_string(),
+            "app.metrics"
+        );
+    }
+
+    #[test]
+    fn parse_requires_name_and_server() {
+        let docs = YamlLoader::load_from_str("server: 127.0.0.1\n").unwrap();
+        assert!(GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).is_err());
+
+        let docs = YamlLoader::load_from_str("name: g1\n").unwrap();
+        assert!(GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).is_err());
     }
 }

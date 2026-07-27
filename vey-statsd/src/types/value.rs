@@ -159,4 +159,67 @@ mod tests {
         let v = MetricValue::Double(1.0);
         assert_eq!(v.display_influxdb().to_string(), "1.0");
     }
+
+    #[test]
+    fn from_str_variants() {
+        assert_eq!(MetricValue::from_str("42").unwrap(), MetricValue::Unsigned(42));
+        assert_eq!(MetricValue::from_str("-7").unwrap(), MetricValue::Signed(-7));
+        assert_eq!(
+            MetricValue::from_str("1.5").unwrap(),
+            MetricValue::Double(1.5)
+        );
+        assert_eq!(
+            MetricValue::from_str("-0.25").unwrap(),
+            MetricValue::Double(-0.25)
+        );
+        assert!(MetricValue::from_str("").is_err());
+        assert!(MetricValue::from_str("abc").is_err());
+    }
+
+    #[test]
+    fn display_and_as_f64() {
+        assert_eq!(MetricValue::Unsigned(9).to_string(), "9");
+        assert_eq!(MetricValue::Signed(-3).to_string(), "-3");
+        assert_eq!(MetricValue::Unsigned(3).as_f64(), 3.0);
+        assert_eq!(MetricValue::Signed(-3).as_f64(), -3.0);
+        assert_eq!(MetricValue::Double(1.25).as_f64(), 1.25);
+    }
+
+    #[test]
+    fn add_and_add_assign() {
+        assert_eq!(
+            MetricValue::Unsigned(1) + MetricValue::Unsigned(2),
+            MetricValue::Unsigned(3)
+        );
+        assert_eq!(
+            MetricValue::Signed(-1) + MetricValue::Unsigned(5),
+            MetricValue::Signed(4)
+        );
+        assert_eq!(
+            MetricValue::Double(1.0) + MetricValue::Signed(2),
+            MetricValue::Double(3.0)
+        );
+        let mut v = MetricValue::Unsigned(1);
+        v += MetricValue::Unsigned(4);
+        assert_eq!(v, MetricValue::Unsigned(5));
+    }
+
+    #[test]
+    fn as_json_number() {
+        assert_eq!(
+            MetricValue::Unsigned(8)
+                .as_json_number()
+                .unwrap()
+                .as_u64(),
+            Some(8)
+        );
+        assert_eq!(
+            MetricValue::Signed(-2)
+                .as_json_number()
+                .unwrap()
+                .as_i64(),
+            Some(-2)
+        );
+        assert!(MetricValue::Double(f64::NAN).as_json_number().is_none());
+    }
 }

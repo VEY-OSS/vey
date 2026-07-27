@@ -110,4 +110,41 @@ mod tests {
 
         assert!(iter.next().is_none());
     }
+
+    #[test]
+    fn trailing_line_without_newline() {
+        let mut iter = StatsdRecordVisitor::new(b"a:1|c\nb:2|g");
+        assert_eq!(
+            iter.next().unwrap().unwrap().value,
+            MetricValue::Unsigned(1)
+        );
+        assert_eq!(
+            iter.next().unwrap().unwrap().value,
+            MetricValue::Unsigned(2)
+        );
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn yields_error_then_continues() {
+        let mut iter = StatsdRecordVisitor::new(b"bad\ngood:1|c\n");
+        assert!(iter.next().unwrap().is_err());
+        let ok = iter.next().unwrap().unwrap();
+        assert_eq!(ok.value, MetricValue::Unsigned(1));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn multi_value_line_across_visitor() {
+        let mut iter = StatsdRecordVisitor::new(b"m:1:2|c\n");
+        assert_eq!(
+            iter.next().unwrap().unwrap().value,
+            MetricValue::Unsigned(1)
+        );
+        assert_eq!(
+            iter.next().unwrap().unwrap().value,
+            MetricValue::Unsigned(2)
+        );
+        assert!(iter.next().is_none());
+    }
 }

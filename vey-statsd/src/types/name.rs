@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::collections::VecDeque;
@@ -108,5 +109,26 @@ mod tests {
             name.display('.').to_string().as_str(),
             "vey.bar.foo.counter"
         );
+    }
+
+    #[test]
+    fn parse_dotted_and_display_slash() {
+        let name = MetricName::parse("a.b.c").unwrap();
+        assert_eq!(name.display('/').to_string(), "a/b/c");
+    }
+
+    #[test]
+    fn parse_yaml_string_and_array() {
+        let name = MetricName::parse_yaml(&Yaml::String("x.y".to_string())).unwrap();
+        assert_eq!(name.display('.').to_string(), "x.y");
+
+        let arr = Yaml::Array(vec![
+            Yaml::String("n1".to_string()),
+            Yaml::String("n2".to_string()),
+        ]);
+        let name = MetricName::parse_yaml(&arr).unwrap();
+        assert_eq!(name.display('.').to_string(), "n1.n2");
+
+        assert!(MetricName::parse_yaml(&Yaml::Boolean(true)).is_err());
     }
 }

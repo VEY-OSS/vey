@@ -262,4 +262,31 @@ mod tests {
         assert_eq!(counter_entry.sum, MetricValue::Signed(25));
         assert_eq!(counter_entry.diff, MetricValue::Signed(10));
     }
+
+    #[test]
+    fn gauge_overwrites_same_tags() {
+        let (_tx, rx) = mpsc::unbounded_channel();
+        let exporter = TestExporter {
+            counters: AHashMap::default(),
+        };
+        let mut runtime = AggregateExportRuntime::new(exporter, rx);
+        let name = Arc::new(MetricName::parse("g").unwrap());
+        let tag_map = Arc::new(MetricTagMap::default());
+
+        runtime.add_record(MetricRecord {
+            name: name.clone(),
+            tag_map: tag_map.clone(),
+            r#type: MetricType::Gauge,
+            value: MetricValue::Unsigned(1),
+        });
+        runtime.add_record(MetricRecord {
+            name: name.clone(),
+            tag_map: tag_map.clone(),
+            r#type: MetricType::Gauge,
+            value: MetricValue::Unsigned(9),
+        });
+
+        let gauge = &runtime.gauge.get(&name).unwrap().inner[&tag_map];
+        assert_eq!(gauge.value, MetricValue::Unsigned(9));
+    }
 }

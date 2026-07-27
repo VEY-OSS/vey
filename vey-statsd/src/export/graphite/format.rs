@@ -120,3 +120,90 @@ impl StreamExport for GraphitePlaintextStreamExport {
         pieces.len()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+    use yaml_rust::YamlLoader;
+
+    use crate::config::exporter::graphite::GraphiteExporterConfig;
+
+    fn export(yaml: &str) -> (GraphitePlaintextAggregateExport, mpsc::UnboundedReceiver<Vec<u8>>) {
+        let docs = YamlLoader::load_from_str(yaml).unwrap();
+        let cfg = GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).unwrap();
+        let (tx, rx) = mpsc::unbounded_channel();
+        (GraphitePlaintextAggregateExport::new(&cfg, tx), rx)
+    }
+
+    #[test]
+    fn serialize_with_prefix_and_tags() {
+        let (mut export, _) = export(
+            r#"
+name: g1
+server: 127.0.0.1
+prefix: pref
+global_tags:
+  env: prod
+"#,
+        );
+        let time = Utc.with_ymd_and_hms(2020, 1, 2, 3, 4, 5).unwrap();
+        let name = MetricName::parse("foo.bar").unwrap();
+        let mut tags = MetricTagMap::default();
+        tags.parse_statsd(b"k:v").unwrap();
+        export.serialize(&time, &name, &tags, &MetricValue::Unsigned(9));
+        let line = std::str::from_utf8(&export.buf).unwrap();
+        assert!(line.starts_with("pref.foo.bar;"));
+        assert!(line.contains("env=prod"));
+        assert!(line.contains("k=v"));
+        assert!(line.contains(" 9 "));
+        assert!(line.ends_with('\n'));
+        assert!(line.contains(&time.timestamp().to_string()));
+    }
+
+    #[test]
+    fn emit_counter_uses_sum_or_diff() {
+        let name = MetricName::parse("c").unwrap();
+        let tags = Arc::new(MetricTagMap::default());
+        let mut values = AHashMap::new();
+        values.insert(
+            tags,
+            CounterStoreValue {
+                time: Utc::now(),
+                sum: MetricValue::Unsigned(100),
+                diff: MetricValue::Unsigned(7),
+            },
+        );
+
+        let (mut sum_export, mut sum_rx) = export(
+            r#"
+name: g1
+server: 127.0.0.1
+counter_value: sum
+"#,
+        );
+        sum_export.emit_counter(&name, &values);
+        let buf = sum_rx.try_recv().unwrap();
+        assert!(std::str::from_utf8(&buf).unwrap().contains(" 100 "));
+
+        let (mut diff_export, mut diff_rx) = export(
+            r#"
+name: g1
+server: 127.0.0.1
+counter_value: diff
+"#,
+        );
+        diff_export.emit_counter(&name, &values);
+        let buf = diff_rx.try_recv().unwrap();
+        assert!(std::str::from_utf8(&buf).unwrap().contains(" 7 "));
+    }
+
+    #[test]
+    fn stream_export_concatenates_pieces() {
+        let export = GraphitePlaintextStreamExport::default();
+        let mut buf = Vec::new();
+        let n = export.serialize(&[b"a\n".to_vec(), b"b\n".to_vec()], &mut buf);
+        assert_eq!(n, 2);
+        assert_eq!(buf, b"a\nb\n");
+    }
+}
