@@ -314,7 +314,7 @@ pub fn as_tcp_misc_sock_opts(v: &Yaml) -> anyhow::Result<TcpMiscSockOpts> {
                 target_os = "illumos"
             ))]
             "congestion_control" => {
-                let ca = crate::value::as_string(v)?;
+                let ca = crate::value::as_congestion_algorithm(v)?;
                 config.set_congestion_control(ca);
                 Ok(())
             }
@@ -614,6 +614,21 @@ mod tests {
         assert_eq!(config.type_of_service, default_config.type_of_service);
         #[cfg(target_os = "linux")]
         assert_eq!(config.netfilter_mark, default_config.netfilter_mark);
+
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "solaris",
+            target_os = "illumos"
+        ))]
+        {
+            let yaml = yaml_doc!("congestion_control: bbr");
+            let config = as_tcp_misc_sock_opts(&yaml).unwrap();
+            assert_eq!(config.congestion_control(), Some(b"bbr".as_slice()));
+
+            let yaml = yaml_doc!("congestion_control: \"\"");
+            assert!(as_tcp_misc_sock_opts(&yaml).is_err());
+        }
     }
 
     #[test]

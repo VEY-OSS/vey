@@ -13,7 +13,7 @@ use serde_json::Value;
 #[cfg(feature = "acl-rule")]
 use ip_network::IpNetwork;
 
-use vey_types::net::{DomainName, EgressArea, Host, UpstreamAddr};
+use vey_types::net::{CongestionAlgorithm, DomainName, EgressArea, Host, UpstreamAddr};
 
 pub fn as_ipaddr(v: &Value) -> anyhow::Result<IpAddr> {
     match v {
@@ -85,6 +85,16 @@ pub fn as_egress_area(v: &Value) -> anyhow::Result<EgressArea> {
     } else {
         Err(anyhow!(
             "json value type for 'EgressArea' should be 'string'"
+        ))
+    }
+}
+
+pub fn as_congestion_algorithm(v: &Value) -> anyhow::Result<CongestionAlgorithm> {
+    if let Value::String(s) = v {
+        CongestionAlgorithm::from_str(s).map_err(|e| anyhow!("invalid congestion algorithm: {e}"))
+    } else {
+        Err(anyhow!(
+            "json value type for 'CongestionAlgorithm' should be 'string'"
         ))
     }
 }
@@ -274,5 +284,18 @@ mod tests {
         // non-string type
         let non_string = json!(123);
         assert!(as_egress_area(&non_string).is_err());
+    }
+
+    #[test]
+    fn as_congestion_algorithm_ok() {
+        let ca = as_congestion_algorithm(&json!("bbr")).unwrap();
+        assert_eq!(ca.as_str(), "bbr");
+    }
+
+    #[test]
+    fn as_congestion_algorithm_err() {
+        assert!(as_congestion_algorithm(&json!("")).is_err());
+        assert!(as_congestion_algorithm(&json!("abcdefghijklmnop")).is_err());
+        assert!(as_congestion_algorithm(&json!(1)).is_err());
     }
 }

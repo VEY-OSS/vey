@@ -893,6 +893,21 @@ If the root value type is bool, the value will be parsed the same as the *enable
 If the root value type is not map and not bool, the value will be parsed the same as the *idle_time* key, but with
 *enable* set to true.
 
+.. _conf_value_congestion_algorithm:
+
+congestion algorithm
+====================
+
+**yaml value**: str
+
+Name of a TCP congestion-control algorithm accepted by the kernel
+(for example ``cubic``, ``bbr``, ``reno``).
+
+The value must be a non-empty ASCII string of at most 15 bytes, matching the
+usable length of Linux ``TCP_CA_NAME_MAX`` (16 including the trailing NUL).
+
+Load the corresponding kernel module before using a non-default algorithm.
+
 .. _conf_value_tcp_misc_sock_opts:
 
 tcp misc sock opts
@@ -964,7 +979,7 @@ Keys:
 
 * congestion_control
 
-  **optional**, **type**: str
+  **optional**, **type**: :ref:`congestion algorithm <conf_value_congestion_algorithm>`
 
   Set a custom TCP congestion control algorithm to use.
 

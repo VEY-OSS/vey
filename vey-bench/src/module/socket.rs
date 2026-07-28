@@ -79,7 +79,7 @@ impl SocketArgs {
             server,
             bind: self.bind,
             keepalive: Default::default(),
-            misc_opts: self.tcp_opts.clone(),
+            misc_opts: self.tcp_opts,
         }
     }
 

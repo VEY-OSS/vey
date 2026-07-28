@@ -1,7 +1,10 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
+
+use vey_std_ext::core::OptionExt;
 
 #[cfg(any(
     target_os = "linux",
@@ -9,11 +12,9 @@
     target_os = "solaris",
     target_os = "illumos"
 ))]
-use arcstr::ArcStr;
+use crate::net::CongestionAlgorithm;
 
-use vey_std_ext::core::OptionExt;
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct TcpMiscSockOpts {
     pub no_delay: Option<bool>,
     pub max_segment_size: Option<u16>,
@@ -28,7 +29,7 @@ pub struct TcpMiscSockOpts {
         target_os = "solaris",
         target_os = "illumos"
     ))]
-    congestion_control: Option<ArcStr>,
+    congestion_control: Option<CongestionAlgorithm>,
     #[cfg(target_os = "linux")]
     pub netfilter_mark: Option<u32>,
 }
@@ -40,8 +41,8 @@ impl TcpMiscSockOpts {
         target_os = "solaris",
         target_os = "illumos"
     ))]
-    pub fn set_congestion_control(&mut self, ca: String) {
-        self.congestion_control = Some(ca.into());
+    pub fn set_congestion_control(&mut self, ca: CongestionAlgorithm) {
+        self.congestion_control = Some(ca);
     }
 
     #[cfg(any(
@@ -76,10 +77,7 @@ impl TcpMiscSockOpts {
                 target_os = "solaris",
                 target_os = "illumos"
             ))]
-            congestion_control: other
-                .congestion_control
-                .clone()
-                .or(self.congestion_control.clone()),
+            congestion_control: other.congestion_control.or(self.congestion_control),
             #[cfg(target_os = "linux")]
             netfilter_mark: other.netfilter_mark.or(self.netfilter_mark),
         }
@@ -89,6 +87,13 @@ impl TcpMiscSockOpts {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "freebsd",
+        target_os = "solaris",
+        target_os = "illumos"
+    ))]
+    use std::str::FromStr;
 
     #[test]
     fn adjust_to_no_delay_logic() {
@@ -242,13 +247,13 @@ mod tests {
     #[test]
     fn adjust_to_congestion_control() {
         let mut config1 = TcpMiscSockOpts::default();
-        config1.set_congestion_control("cubic".to_string());
+        config1.set_congestion_control(CongestionAlgorithm::from_str("cubic").unwrap());
         let mut config2 = TcpMiscSockOpts::default();
 
         let result = config1.adjust_to(&config2);
         assert_eq!(result.congestion_control(), Some("cubic".as_bytes()));
 
-        config2.set_congestion_control("bbr".to_string());
+        config2.set_congestion_control(CongestionAlgorithm::from_str("bbr").unwrap());
         let result = config1.adjust_to(&config2);
         assert_eq!(result.congestion_control(), Some("bbr".as_bytes()));
     }
@@ -269,7 +274,7 @@ mod tests {
                 target_os = "solaris",
                 target_os = "illumos"
             ))]
-            congestion_control: Some(arcstr::literal!("reno")),
+            congestion_control: Some(CongestionAlgorithm::from_str("reno").unwrap()),
             #[cfg(target_os = "linux")]
             netfilter_mark: None,
         };
@@ -288,7 +293,7 @@ mod tests {
                 target_os = "solaris",
                 target_os = "illumos"
             ))]
-            congestion_control: Some(arcstr::literal!("cubic")), // should win (other takes precedence)
+            congestion_control: Some(CongestionAlgorithm::from_str("cubic").unwrap()), // should win (other takes precedence)
             #[cfg(target_os = "linux")]
             netfilter_mark: Some(0x5678), // should win (other takes precedence)
         };

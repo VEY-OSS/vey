@@ -125,7 +125,7 @@ pub fn as_tcp_misc_sock_opts(v: &Value) -> anyhow::Result<TcpMiscSockOpts> {
                     target_os = "illumos"
                 ))]
                 "congestion_control" => {
-                    let ca = crate::value::as_string(v)?;
+                    let ca = crate::value::as_congestion_algorithm(v)?;
                     config.set_congestion_control(ca);
                 }
                 #[cfg(target_os = "linux")]
@@ -285,5 +285,19 @@ mod tests {
         // non-object input
         let non_object = json!(123);
         assert!(as_tcp_misc_sock_opts(&non_object).is_err());
+
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "solaris",
+            target_os = "illumos"
+        ))]
+        {
+            assert!(as_tcp_misc_sock_opts(&json!({"congestion_control": ""})).is_err());
+            assert!(
+                as_tcp_misc_sock_opts(&json!({"congestion_control": "abcdefghijklmnop"}))
+                    .is_err()
+            );
+        }
     }
 }

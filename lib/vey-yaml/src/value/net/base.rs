@@ -15,7 +15,7 @@ use yaml_rust::Yaml;
 use ip_network::IpNetwork;
 
 use vey_types::collection::WeightedValue;
-use vey_types::net::{DomainName, Host, UpstreamAddr, WeightedUpstreamAddr};
+use vey_types::net::{CongestionAlgorithm, DomainName, Host, UpstreamAddr, WeightedUpstreamAddr};
 
 pub fn as_env_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
     if let Yaml::String(s) = value {
@@ -212,6 +212,18 @@ pub fn as_weighted_upstream_addr(
             }
         }
         _ => Err(anyhow!("invalid 'weighted upstream addr' yaml value")),
+    }
+}
+
+pub fn as_congestion_algorithm(value: &Yaml) -> anyhow::Result<CongestionAlgorithm> {
+    if let Yaml::String(s) = value {
+        let ca = CongestionAlgorithm::from_str(s)
+            .map_err(|e| anyhow!("invalid congestion algorithm: {e}"))?;
+        Ok(ca)
+    } else {
+        Err(anyhow!(
+            "yaml value type for 'CongestionAlgorithm' should be 'string'"
+        ))
     }
 }
 
@@ -634,5 +646,18 @@ mod tests {
         map.insert(yaml_str!("addr"), yaml_str!(""));
         let yaml = Yaml::Hash(map);
         assert!(as_weighted_upstream_addr(&yaml, 80).is_err());
+    }
+
+    #[test]
+    fn as_congestion_algorithm_ok() {
+        let ca = as_congestion_algorithm(&yaml_str!("cubic")).unwrap();
+        assert_eq!(ca.as_str(), "cubic");
+    }
+
+    #[test]
+    fn as_congestion_algorithm_err() {
+        assert!(as_congestion_algorithm(&yaml_str!("")).is_err());
+        assert!(as_congestion_algorithm(&yaml_str!("abcdefghijklmnop")).is_err());
+        assert!(as_congestion_algorithm(&Yaml::Integer(1)).is_err());
     }
 }
