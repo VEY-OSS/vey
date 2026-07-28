@@ -89,6 +89,14 @@ impl RawSocket {
         if let Some(mark) = misc_opts.netfilter_mark {
             socket.set_mark(mark)?;
         }
+        #[cfg(target_os = "freebsd")]
+        if let Some(cookie) = misc_opts.user_cookie {
+            crate::sockopt::set_user_cookie(socket, cookie)?;
+        }
+        #[cfg(target_os = "openbsd")]
+        if let Some(rtable) = misc_opts.rtable {
+            crate::sockopt::set_rtable(socket, rtable)?;
+        }
         Ok(())
     }
 
@@ -155,6 +163,14 @@ impl RawSocket {
         #[cfg(target_os = "linux")]
         if let Some(mark) = misc_opts.netfilter_mark {
             socket.set_mark(mark)?;
+        }
+        #[cfg(target_os = "freebsd")]
+        if let Some(cookie) = misc_opts.user_cookie {
+            crate::sockopt::set_user_cookie(socket, cookie)?;
+        }
+        #[cfg(target_os = "openbsd")]
+        if let Some(rtable) = misc_opts.rtable {
+            crate::sockopt::set_rtable(socket, rtable)?;
         }
         Ok(())
     }

@@ -46,9 +46,9 @@ pub(crate) struct DirectFixedEscaperConfig {
         target_os = "solaris"
     ))]
     pub(crate) bind_interface: Option<Interface>,
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     pub(crate) bind_foreign: bool,
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     pub(crate) bind_foreign_port: bool,
     pub(crate) bind4: Vec<IpAddr>,
     pub(crate) bind6: Vec<IpAddr>,
@@ -83,9 +83,9 @@ impl DirectFixedEscaperConfig {
                 target_os = "solaris"
             ))]
             bind_interface: None,
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             bind_foreign: false,
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             bind_foreign_port: false,
             bind4: Vec::new(),
             bind6: Vec::new(),
@@ -150,12 +150,12 @@ impl DirectFixedEscaperConfig {
                 self.bind_interface = Some(interface);
                 Ok(())
             }
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             "bind_foreign" => {
                 self.bind_foreign = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             "bind_foreign_port" => {
                 self.bind_foreign_port = vey_yaml::value::as_bool(v)?;
                 Ok(())

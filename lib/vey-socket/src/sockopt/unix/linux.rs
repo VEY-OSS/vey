@@ -37,6 +37,18 @@ pub(crate) fn set_bind_address_no_port<T: AsRawFd>(fd: &T, enable: bool) -> io::
     }
 }
 
+pub(crate) fn set_ip_transparent_v4<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
+    unsafe {
+        super::setsockopt(
+            fd.as_raw_fd(),
+            libc::IPPROTO_IP,
+            libc::IP_TRANSPARENT,
+            enable as c_int,
+        )?;
+        Ok(())
+    }
+}
+
 pub(crate) fn set_ip_transparent_v6<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
     unsafe {
         super::setsockopt(

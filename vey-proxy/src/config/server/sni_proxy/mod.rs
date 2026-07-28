@@ -60,7 +60,7 @@ pub(crate) struct SniProxyServerConfig {
     pub(crate) client_tcp_portmap: ProtocolPortMap,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) allowed_sites: Option<HostMatch<Arc<SniHostConfig>>>,
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     listen_transparent: bool,
 }
 
@@ -95,7 +95,7 @@ impl SniProxyServerConfig {
             client_tcp_portmap: ProtocolPortMap::tcp_client(),
             extra_metrics_tags: None,
             allowed_sites: None,
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             listen_transparent: false,
         }
     }
@@ -259,7 +259,7 @@ impl SniProxyServerConfig {
                 self.allowed_sites = Some(allowed_sites);
                 Ok(())
             }
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             "listen_transparent" => {
                 self.listen_transparent = vey_yaml::value::as_bool(v)?;
                 Ok(())
@@ -294,7 +294,7 @@ impl SniProxyServerConfig {
             self.task_idle_check_interval = IDLE_CHECK_MAXIMUM_DURATION;
         }
 
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
         if self.listen_transparent
             && let Some(listen) = &mut self.listen
         {

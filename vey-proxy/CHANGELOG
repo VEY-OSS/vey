@@ -2,6 +2,10 @@ CHANGELOG
 
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
+v1.13.10:
+ - Feature: enable transparent listen (`tcp_tproxy` / `udp_tproxy` / `sni_proxy`) and foreign bind on FreeBSD (`IP_BINDANY`) and OpenBSD (`SO_BINDANY`)
+ - Feature: add FreeBSD `user_cookie` (`SO_USER_COOKIE`) and OpenBSD `rtable` (`SO_RTABLE`) listen / misc socket options alongside Linux `mark` / `netfilter_mark`
+
 v1.13.9:
  - BUG FIX: HTTP clients sending trailers split across packets (CRLF alone in a later read) no longer stall or fail trailer parsing
  - BUG FIX: domains that resolve to CNAME-only answers no longer deadlock the Hickory resolver (lookups can complete / follow CNAME again)

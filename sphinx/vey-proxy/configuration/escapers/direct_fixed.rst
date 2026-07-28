@@ -62,7 +62,8 @@ bind_foreign
 
 **optional**, **type**: bool
 
-Set to true to bind to the same foreign IP address as the client. This is useful with Linux TPROXY.
+Set to true to bind to the same foreign IP address as the client. This is useful
+with Linux TPROXY, FreeBSD ``ipfw`` forward, and OpenBSD pf ``divert-to``.
 
 **default**: false
 

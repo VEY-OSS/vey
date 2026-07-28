@@ -134,6 +134,18 @@ pub fn as_tcp_misc_sock_opts(v: &Value) -> anyhow::Result<TcpMiscSockOpts> {
                         .context(format!("invalid u32 value for key {k}"))?;
                     config.netfilter_mark = Some(mark);
                 }
+                #[cfg(target_os = "freebsd")]
+                "user_cookie" => {
+                    let cookie = crate::value::as_u32(v)
+                        .context(format!("invalid u32 value for key {k}"))?;
+                    config.user_cookie = Some(cookie);
+                }
+                #[cfg(target_os = "openbsd")]
+                "rtable" => {
+                    let rtable = crate::value::as_u32(v)
+                        .context(format!("invalid u32 value for key {k}"))?;
+                    config.rtable = Some(rtable);
+                }
                 _ => return Err(anyhow!("invalid key {k}")),
             }
         }
@@ -270,6 +282,20 @@ mod tests {
             let config = as_tcp_misc_sock_opts(&mark_json).unwrap();
             assert_eq!(config.netfilter_mark, Some(12345));
         }
+
+        #[cfg(target_os = "freebsd")]
+        {
+            let mark_json = json!({"user_cookie": 7});
+            let config = as_tcp_misc_sock_opts(&mark_json).unwrap();
+            assert_eq!(config.user_cookie, Some(7));
+        }
+
+        #[cfg(target_os = "openbsd")]
+        {
+            let mark_json = json!({"rtable": 3});
+            let config = as_tcp_misc_sock_opts(&mark_json).unwrap();
+            assert_eq!(config.rtable, Some(3));
+        }
     }
 
     #[test]
@@ -295,8 +321,7 @@ mod tests {
         {
             assert!(as_tcp_misc_sock_opts(&json!({"congestion_control": ""})).is_err());
             assert!(
-                as_tcp_misc_sock_opts(&json!({"congestion_control": "abcdefghijklmnop"}))
-                    .is_err()
+                as_tcp_misc_sock_opts(&json!({"congestion_control": "abcdefghijklmnop"})).is_err()
             );
         }
     }

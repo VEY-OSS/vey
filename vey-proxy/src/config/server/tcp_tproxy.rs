@@ -227,7 +227,7 @@ impl TcpTProxyServerConfig {
             self.task_idle_check_interval = IDLE_CHECK_MAXIMUM_DURATION;
         }
 
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
         self.listen.set_transparent();
         self.listen.check()?;
 

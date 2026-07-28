@@ -10,18 +10,28 @@ use std::{io, ptr};
 
 use libc::{c_int, socklen_t};
 
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+use crate::util::AddressFamily;
+
 #[cfg(any(target_os = "linux", target_os = "android"))]
 mod linux;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub(crate) use linux::{
     attach_reuseport_ebpf, get_incoming_cpu, get_so_cookie, set_bind_address_no_port,
-    set_incoming_cpu, set_ip_transparent_v6, set_tcp_quick_ack,
+    set_incoming_cpu, set_ip_transparent_v4, set_ip_transparent_v6, set_tcp_quick_ack,
 };
 
 #[cfg(target_os = "freebsd")]
 mod freebsd;
 #[cfg(target_os = "freebsd")]
-pub(crate) use freebsd::set_tcp_reuseport_lb_numa_current_domain;
+pub(crate) use freebsd::{
+    set_ip_bindany_v4, set_ip_bindany_v6, set_tcp_reuseport_lb_numa_current_domain, set_user_cookie,
+};
+
+#[cfg(target_os = "openbsd")]
+mod openbsd;
+#[cfg(target_os = "openbsd")]
+pub(crate) use openbsd::{set_bindany, set_rtable};
 
 #[cfg(target_os = "solaris")]
 mod solaris;
@@ -32,6 +42,30 @@ pub(crate) use solaris::set_tcp_congestion;
 mod illumos;
 #[cfg(target_os = "illumos")]
 pub(crate) use illumos::set_tcp_quick_ack;
+
+/// Enable non-local bind for transparent / foreign bind.
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+pub(crate) fn set_transparent<T: AsRawFd>(fd: &T, family: AddressFamily) -> io::Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        match family {
+            AddressFamily::Ipv6 => set_ip_transparent_v6(fd, true),
+            AddressFamily::Ipv4 => set_ip_transparent_v4(fd, true),
+        }
+    }
+    #[cfg(target_os = "freebsd")]
+    {
+        match family {
+            AddressFamily::Ipv6 => set_ip_bindany_v6(fd, true),
+            AddressFamily::Ipv4 => set_ip_bindany_v4(fd, true),
+        }
+    }
+    #[cfg(target_os = "openbsd")]
+    {
+        let _ = family;
+        set_bindany(fd, true)
+    }
+}
 
 unsafe fn setsockopt<T>(fd: c_int, level: c_int, name: c_int, value: T) -> io::Result<()>
 where

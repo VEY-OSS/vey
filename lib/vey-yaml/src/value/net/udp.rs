@@ -48,6 +48,20 @@ pub fn as_udp_misc_sock_opts(v: &Yaml) -> anyhow::Result<UdpMiscSockOpts> {
                 config.netfilter_mark = Some(mark);
                 Ok(())
             }
+            #[cfg(target_os = "freebsd")]
+            "user_cookie" => {
+                let cookie =
+                    crate::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
+                config.user_cookie = Some(cookie);
+                Ok(())
+            }
+            #[cfg(target_os = "openbsd")]
+            "rtable" => {
+                let rtable =
+                    crate::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
+                config.rtable = Some(rtable);
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 
@@ -273,6 +287,31 @@ mod tests {
         assert!(config.traffic_class.is_none());
         #[cfg(target_os = "linux")]
         assert!(config.netfilter_mark.is_none());
+        #[cfg(target_os = "freebsd")]
+        assert!(config.user_cookie.is_none());
+        #[cfg(target_os = "openbsd")]
+        assert!(config.rtable.is_none());
+
+        #[cfg(target_os = "linux")]
+        {
+            let yaml = yaml_doc!("mark: 99");
+            let config = as_udp_misc_sock_opts(&yaml).unwrap();
+            assert_eq!(config.netfilter_mark, Some(99));
+        }
+
+        #[cfg(target_os = "freebsd")]
+        {
+            let yaml = yaml_doc!("user_cookie: 11");
+            let config = as_udp_misc_sock_opts(&yaml).unwrap();
+            assert_eq!(config.user_cookie, Some(11));
+        }
+
+        #[cfg(target_os = "openbsd")]
+        {
+            let yaml = yaml_doc!("rtable: 5");
+            let config = as_udp_misc_sock_opts(&yaml).unwrap();
+            assert_eq!(config.rtable, Some(5));
+        }
     }
 
     #[test]

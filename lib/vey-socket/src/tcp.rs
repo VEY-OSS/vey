@@ -25,20 +25,21 @@ pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpLis
     if let Some(enable) = config.is_ipv6only() {
         super::listen::set_only_v6(&socket, addr, enable)?;
     }
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     if config.transparent() {
-        match family {
-            AddressFamily::Ipv4 => {
-                socket.set_ip_transparent_v4(true)?;
-            }
-            AddressFamily::Ipv6 => {
-                crate::sockopt::set_ip_transparent_v6(&socket, true)?;
-            }
-        }
+        crate::sockopt::set_transparent(&socket, family)?;
     }
     #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
     if let Some(mark) = config.mark() {
         socket.set_mark(mark)?;
+    }
+    #[cfg(target_os = "freebsd")]
+    if let Some(cookie) = config.user_cookie() {
+        crate::sockopt::set_user_cookie(&socket, cookie)?;
+    }
+    #[cfg(target_os = "openbsd")]
+    if let Some(rtable) = config.rtable() {
+        crate::sockopt::set_rtable(&socket, rtable)?;
     }
     #[cfg(unix)]
     if let Some(mss) = config.max_segment_size() {

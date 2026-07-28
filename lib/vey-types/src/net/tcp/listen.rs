@@ -35,10 +35,14 @@ pub struct TcpListenConfig {
     interface: Option<Interface>,
     #[cfg(not(target_os = "openbsd"))]
     ipv6only: Option<bool>,
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     transparent: bool,
     #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
     mark: Option<u32>,
+    #[cfg(target_os = "freebsd")]
+    user_cookie: Option<u32>,
+    #[cfg(target_os = "openbsd")]
+    rtable: Option<u32>,
     max_segment_size: Option<u16>,
     backlog: u32,
     instance: usize,
@@ -71,10 +75,14 @@ impl TcpListenConfig {
             interface: None,
             #[cfg(not(target_os = "openbsd"))]
             ipv6only: None,
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             transparent: false,
             #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
             mark: None,
+            #[cfg(target_os = "freebsd")]
+            user_cookie: None,
+            #[cfg(target_os = "openbsd")]
+            rtable: None,
             max_segment_size: None,
             backlog: DEFAULT_LISTEN_BACKLOG,
             instance: 1,
@@ -119,7 +127,7 @@ impl TcpListenConfig {
         self.ipv6only
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     #[inline]
     pub fn transparent(&self) -> bool {
         self.transparent
@@ -134,6 +142,18 @@ impl TcpListenConfig {
     #[inline]
     pub fn mark(&self) -> Option<u32> {
         self.mark
+    }
+
+    #[cfg(target_os = "freebsd")]
+    #[inline]
+    pub fn user_cookie(&self) -> Option<u32> {
+        self.user_cookie
+    }
+
+    #[cfg(target_os = "openbsd")]
+    #[inline]
+    pub fn rtable(&self) -> Option<u32> {
+        self.rtable
     }
 
     #[inline]
@@ -179,7 +199,7 @@ impl TcpListenConfig {
         self.ipv6only = Some(ipv6only);
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     #[inline]
     pub fn set_transparent(&mut self) {
         self.transparent = true;
@@ -189,6 +209,18 @@ impl TcpListenConfig {
     #[inline]
     pub fn set_mark(&mut self, mark: u32) {
         self.mark = Some(mark);
+    }
+
+    #[cfg(target_os = "freebsd")]
+    #[inline]
+    pub fn set_user_cookie(&mut self, cookie: u32) {
+        self.user_cookie = Some(cookie);
+    }
+
+    #[cfg(target_os = "openbsd")]
+    #[inline]
+    pub fn set_rtable(&mut self, rtable: u32) {
+        self.rtable = Some(rtable);
     }
 
     pub fn set_max_segment_size(&mut self, max_segment_size: u16) {

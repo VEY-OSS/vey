@@ -14,6 +14,10 @@ pub struct UdpMiscSockOpts {
     pub traffic_class: Option<u8>,
     #[cfg(target_os = "linux")]
     pub netfilter_mark: Option<u32>,
+    #[cfg(target_os = "freebsd")]
+    pub user_cookie: Option<u32>,
+    #[cfg(target_os = "openbsd")]
+    pub rtable: Option<u32>,
 }
 
 impl UdpMiscSockOpts {
@@ -27,6 +31,10 @@ impl UdpMiscSockOpts {
             traffic_class: other.traffic_class.or(self.traffic_class),
             #[cfg(target_os = "linux")]
             netfilter_mark: other.netfilter_mark.or(self.netfilter_mark),
+            #[cfg(target_os = "freebsd")]
+            user_cookie: other.user_cookie.or(self.user_cookie),
+            #[cfg(target_os = "openbsd")]
+            rtable: other.rtable.or(self.rtable),
         }
     }
 }

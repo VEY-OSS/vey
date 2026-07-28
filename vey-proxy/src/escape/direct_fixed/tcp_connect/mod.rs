@@ -89,7 +89,7 @@ impl DirectFixedEscaper {
         let (_, action) = self.egress_net_filter.check(peer_ip);
         self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
         if egress_notes.bind.is_none() {
             if self.config.bind_foreign {
                 if self.config.bind_foreign_port {
@@ -102,7 +102,7 @@ impl DirectFixedEscaper {
                 egress_notes.bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
             }
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd")))]
         if egress_notes.bind.is_none() {
             egress_notes.bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
         }
@@ -399,7 +399,7 @@ impl DirectFixedEscaper {
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         new_egress_notes.socket_type = Some(EgressSocketType::Direct);
         new_egress_notes.bind = old_egress_notes.bind;
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
         if let BindAddr::Foreign(addr) = new_egress_notes.bind {
             // we have to select a new port as it may not usable with a new connection
             new_egress_notes.bind = BindAddr::Foreign(SocketAddr::new(addr.ip(), 0));
@@ -450,9 +450,17 @@ impl DirectFixedEscaper {
                     match new_egress_notes.bind {
                         BindAddr::Ip(IpAddr::V4(_)) => resolve_strategy.query_v4only(),
                         BindAddr::Ip(IpAddr::V6(_)) => resolve_strategy.query_v6only(),
-                        #[cfg(target_os = "linux")]
+                        #[cfg(any(
+                            target_os = "linux",
+                            target_os = "freebsd",
+                            target_os = "openbsd"
+                        ))]
                         BindAddr::Foreign(SocketAddr::V4(_)) => resolve_strategy.query_v4only(),
-                        #[cfg(target_os = "linux")]
+                        #[cfg(any(
+                            target_os = "linux",
+                            target_os = "freebsd",
+                            target_os = "openbsd"
+                        ))]
                         BindAddr::Foreign(SocketAddr::V6(_)) => resolve_strategy.query_v6only(),
                         _ => {}
                     }

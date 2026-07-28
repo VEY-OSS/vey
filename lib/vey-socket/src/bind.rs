@@ -37,7 +37,7 @@ pub enum BindAddr {
         target_os = "solaris"
     ))]
     Interface(Interface),
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     Foreign(SocketAddr),
 }
 
@@ -58,7 +58,7 @@ impl BindAddr {
                 target_os = "solaris"
             ))]
             BindAddr::Interface(_) => None,
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             BindAddr::Foreign(addr) => Some(addr.ip()),
         }
     }
@@ -96,7 +96,7 @@ impl BindAddr {
                 AddressFamily::Ipv4 => socket.bind_device_by_index_v4(Some(iface.id())),
                 AddressFamily::Ipv6 => socket.bind_device_by_index_v6(Some(iface.id())),
             },
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             BindAddr::Foreign(addr) => {
                 if AddressFamily::from(addr) != peer_family {
                     return Err(io::Error::new(
@@ -105,18 +105,12 @@ impl BindAddr {
                     ));
                 }
                 if addr.port() == 0 {
+                    #[cfg(target_os = "linux")]
                     set_bind_address_no_port(socket, true)?;
                 } else {
                     socket.set_reuse_address(true)?;
                 }
-                match addr {
-                    SocketAddr::V4(_) => {
-                        socket.set_ip_transparent_v4(true)?;
-                    }
-                    SocketAddr::V6(_) => {
-                        crate::sockopt::set_ip_transparent_v6(socket, true)?;
-                    }
-                }
+                crate::sockopt::set_transparent(socket, peer_family)?;
                 let addr: SockAddr = (*addr).into();
                 socket.bind(&addr)
             }
@@ -153,7 +147,7 @@ impl BindAddr {
                 AddressFamily::Ipv4 => socket.bind_device_by_index_v4(Some(iface.id())),
                 AddressFamily::Ipv6 => socket.bind_device_by_index_v6(Some(iface.id())),
             },
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             BindAddr::Foreign(addr) => {
                 if AddressFamily::from(addr) != peer_family {
                     return Err(io::Error::new(
@@ -162,16 +156,10 @@ impl BindAddr {
                     ));
                 }
                 if addr.port() == 0 {
+                    #[cfg(target_os = "linux")]
                     set_bind_address_no_port(socket, true)?;
                 }
-                match addr {
-                    SocketAddr::V4(_) => {
-                        socket.set_ip_transparent_v4(true)?;
-                    }
-                    SocketAddr::V6(_) => {
-                        crate::sockopt::set_ip_transparent_v6(socket, true)?;
-                    }
-                }
+                crate::sockopt::set_transparent(socket, peer_family)?;
                 let addr: SockAddr = (*addr).into();
                 socket.bind(&addr)
             }
@@ -204,7 +192,7 @@ impl BindAddr {
                     IpAddr::V6(Ipv6Addr::UNSPECIFIED)
                 }
             },
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             BindAddr::Foreign(addr) => {
                 if AddressFamily::from(addr) != family {
                     return Err(io::Error::new(
@@ -212,14 +200,7 @@ impl BindAddr {
                         "foreign bind addr has incorrect address family",
                     ));
                 }
-                match addr {
-                    SocketAddr::V4(_) => {
-                        socket.set_ip_transparent_v4(true)?;
-                    }
-                    SocketAddr::V6(_) => {
-                        crate::sockopt::set_ip_transparent_v6(socket, true)?;
-                    }
-                }
+                crate::sockopt::set_transparent(socket, family)?;
                 let addr: SockAddr = (*addr).into();
                 return socket.bind(&addr);
             }

@@ -32,6 +32,10 @@ pub struct TcpMiscSockOpts {
     congestion_control: Option<CongestionAlgorithm>,
     #[cfg(target_os = "linux")]
     pub netfilter_mark: Option<u32>,
+    #[cfg(target_os = "freebsd")]
+    pub user_cookie: Option<u32>,
+    #[cfg(target_os = "openbsd")]
+    pub rtable: Option<u32>,
 }
 
 impl TcpMiscSockOpts {
@@ -80,6 +84,10 @@ impl TcpMiscSockOpts {
             congestion_control: other.congestion_control.or(self.congestion_control),
             #[cfg(target_os = "linux")]
             netfilter_mark: other.netfilter_mark.or(self.netfilter_mark),
+            #[cfg(target_os = "freebsd")]
+            user_cookie: other.user_cookie.or(self.user_cookie),
+            #[cfg(target_os = "openbsd")]
+            rtable: other.rtable.or(self.rtable),
         }
     }
 }

@@ -119,6 +119,20 @@ pub fn as_tcp_listen_config(value: &Yaml) -> anyhow::Result<TcpListenConfig> {
                     config.set_mark(mark);
                     Ok(())
                 }
+                #[cfg(target_os = "freebsd")]
+                "user_cookie" => {
+                    let cookie = crate::value::as_u32(v)
+                        .context(format!("invalid u32 value for key {k}"))?;
+                    config.set_user_cookie(cookie);
+                    Ok(())
+                }
+                #[cfg(target_os = "openbsd")]
+                "rtable" => {
+                    let rtable = crate::value::as_u32(v)
+                        .context(format!("invalid u32 value for key {k}"))?;
+                    config.set_rtable(rtable);
+                    Ok(())
+                }
                 "max_segment_size" | "mss" => {
                     let mss = crate::value::as_u16(v)
                         .context(format!("invalid u16 value for key {k}"))?;
@@ -325,6 +339,20 @@ pub fn as_tcp_misc_sock_opts(v: &Yaml) -> anyhow::Result<TcpMiscSockOpts> {
                 config.netfilter_mark = Some(mark);
                 Ok(())
             }
+            #[cfg(target_os = "freebsd")]
+            "user_cookie" => {
+                let cookie =
+                    crate::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
+                config.user_cookie = Some(cookie);
+                Ok(())
+            }
+            #[cfg(target_os = "openbsd")]
+            "rtable" => {
+                let rtable =
+                    crate::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
+                config.rtable = Some(rtable);
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 
@@ -413,6 +441,42 @@ mod tests {
         let yaml_value = Yaml::Real("2.5".to_string());
         let mut cfg = TcpListenConfig::default();
         assert!(set_tcp_listen_scale(&mut cfg, &yaml_value).is_ok());
+
+        #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
+        {
+            let yaml = yaml_doc!(
+                r#"
+                    address: "127.0.0.1:8085"
+                    mark: 42
+                "#
+            );
+            let config = as_tcp_listen_config(&yaml).unwrap();
+            assert_eq!(config.mark(), Some(42));
+        }
+
+        #[cfg(target_os = "freebsd")]
+        {
+            let yaml = yaml_doc!(
+                r#"
+                    address: "127.0.0.1:8086"
+                    user_cookie: 7
+                "#
+            );
+            let config = as_tcp_listen_config(&yaml).unwrap();
+            assert_eq!(config.user_cookie(), Some(7));
+        }
+
+        #[cfg(target_os = "openbsd")]
+        {
+            let yaml = yaml_doc!(
+                r#"
+                    address: "127.0.0.1:8087"
+                    rtable: 3
+                "#
+            );
+            let config = as_tcp_listen_config(&yaml).unwrap();
+            assert_eq!(config.rtable(), Some(3));
+        }
     }
 
     #[test]
@@ -614,6 +678,10 @@ mod tests {
         assert_eq!(config.type_of_service, default_config.type_of_service);
         #[cfg(target_os = "linux")]
         assert_eq!(config.netfilter_mark, default_config.netfilter_mark);
+        #[cfg(target_os = "freebsd")]
+        assert_eq!(config.user_cookie, default_config.user_cookie);
+        #[cfg(target_os = "openbsd")]
+        assert_eq!(config.rtable, default_config.rtable);
 
         #[cfg(any(
             target_os = "linux",
@@ -628,6 +696,27 @@ mod tests {
 
             let yaml = yaml_doc!("congestion_control: \"\"");
             assert!(as_tcp_misc_sock_opts(&yaml).is_err());
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            let yaml = yaml_doc!("mark: 42");
+            let config = as_tcp_misc_sock_opts(&yaml).unwrap();
+            assert_eq!(config.netfilter_mark, Some(42));
+        }
+
+        #[cfg(target_os = "freebsd")]
+        {
+            let yaml = yaml_doc!("user_cookie: 7");
+            let config = as_tcp_misc_sock_opts(&yaml).unwrap();
+            assert_eq!(config.user_cookie, Some(7));
+        }
+
+        #[cfg(target_os = "openbsd")]
+        {
+            let yaml = yaml_doc!("rtable: 3");
+            let config = as_tcp_misc_sock_opts(&yaml).unwrap();
+            assert_eq!(config.rtable, Some(3));
         }
     }
 

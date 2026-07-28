@@ -434,7 +434,11 @@ impl DirectFloatEscaper {
                     match new_egress_notes.bind {
                         BindAddr::Ip(IpAddr::V4(_)) => resolve_strategy.query_v4only(),
                         BindAddr::Ip(IpAddr::V6(_)) => resolve_strategy.query_v6only(),
-                        #[cfg(target_os = "linux")]
+                        #[cfg(any(
+                            target_os = "linux",
+                            target_os = "freebsd",
+                            target_os = "openbsd"
+                        ))]
                         BindAddr::Foreign(_) => {
                             return Err(UnderlyingTcpConnectError::InternalServerError(
                                 "foreign ip address binding is not supported",

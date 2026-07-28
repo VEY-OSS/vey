@@ -21,11 +21,18 @@ FreeBSD
 
 On FreeBSD, the equivalent mechanism is the `ipfw`_ ``forward`` rule.
 
+Transparent listeners and foreign binds require ``IP_BINDANY`` /
+``IPV6_BINDANY`` so the process can bind non-local addresses. Use the
+``user_cookie`` listen / misc option to set ``SO_USER_COOKIE``.
+
 .. _ipfw: https://man.freebsd.org/cgi/man.cgi?query=ipfw
 
 OpenBSD
 =======
 
 On OpenBSD, use the pf `divert-to`_ rule.
+
+Transparent listeners and foreign binds require ``SO_BINDANY``. Use the
+``rtable`` listen / misc option to set ``SO_RTABLE``.
 
 .. _divert-to: https://man.openbsd.org/pf.conf.5#divert-to

@@ -455,10 +455,22 @@ It consists of the following fields:
 
 * netfilter_mark
 
+  **optional**, **type**: unsigned int, **alias**: fwmark, mark
+
+  Set the netfilter mark (``SO_MARK``) for the listening socket. Linux only.
+  If this field is not present, the mark is left untouched.
+
+* user_cookie
+
   **optional**, **type**: unsigned int
 
-  Set the netfilter mark (SOL_SOCKET, SO_MARK) value for the listening socket. If this field not present,
-  the mark value will not be touch. This value can be used for advanced routing policy or netfilter rules.
+  Set ``SO_USER_COOKIE`` for the listening socket. FreeBSD only.
+
+* rtable
+
+  **optional**, **type**: unsigned int
+
+  Set ``SO_RTABLE`` for the listening socket. OpenBSD only.
 
 * ipv6_only
 
@@ -996,7 +1008,23 @@ Keys:
 
   **optional**, **type**: u32, **alias**: mark
 
-  Set value for socket level socket option SO_MARK, the netfilter mark value for our tcp sockets.
+  Set ``SO_MARK`` for TCP sockets. Linux only.
+
+  **default**: not set
+
+* user_cookie
+
+  **optional**, **type**: u32
+
+  Set ``SO_USER_COOKIE`` for TCP sockets. FreeBSD only.
+
+  **default**: not set
+
+* rtable
+
+  **optional**, **type**: u32
+
+  Set ``SO_RTABLE`` for TCP sockets. OpenBSD only.
 
   **default**: not set
 
@@ -1057,7 +1085,23 @@ Keys:
 
   **optional**, **type**: u32, **alias**: mark
 
-  Set value for socket level socket option SO_MARK, the netfilter mark value for our tcp sockets.
+  Set ``SO_MARK`` for UDP sockets. Linux only.
+
+  **default**: not set
+
+* user_cookie
+
+  **optional**, **type**: u32
+
+  Set ``SO_USER_COOKIE`` for UDP sockets. FreeBSD only.
+
+  **default**: not set
+
+* rtable
+
+  **optional**, **type**: u32
+
+  Set ``SO_RTABLE`` for UDP sockets. OpenBSD only.
 
   **default**: not set
 

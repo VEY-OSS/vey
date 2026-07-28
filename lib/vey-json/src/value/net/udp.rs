@@ -41,6 +41,18 @@ pub fn as_udp_misc_sock_opts(v: &Value) -> anyhow::Result<UdpMiscSockOpts> {
                         .context(format!("invalid u32 value for key {k}"))?;
                     config.netfilter_mark = Some(mark);
                 }
+                #[cfg(target_os = "freebsd")]
+                "user_cookie" => {
+                    let cookie = crate::value::as_u32(v)
+                        .context(format!("invalid u32 value for key {k}"))?;
+                    config.user_cookie = Some(cookie);
+                }
+                #[cfg(target_os = "openbsd")]
+                "rtable" => {
+                    let rtable = crate::value::as_u32(v)
+                        .context(format!("invalid u32 value for key {k}"))?;
+                    config.rtable = Some(rtable);
+                }
                 _ => return Err(anyhow!("invalid key {k}")),
             }
         }
@@ -85,6 +97,20 @@ mod tests {
             let mark_json = json!({"netfilter_mark": 99});
             let config = as_udp_misc_sock_opts(&mark_json).unwrap();
             assert_eq!(config.netfilter_mark, Some(99));
+        }
+
+        #[cfg(target_os = "freebsd")]
+        {
+            let mark_json = json!({"user_cookie": 11});
+            let config = as_udp_misc_sock_opts(&mark_json).unwrap();
+            assert_eq!(config.user_cookie, Some(11));
+        }
+
+        #[cfg(target_os = "openbsd")]
+        {
+            let mark_json = json!({"rtable": 5});
+            let config = as_udp_misc_sock_opts(&mark_json).unwrap();
+            assert_eq!(config.rtable, Some(5));
         }
     }
 
