@@ -23,6 +23,8 @@ use vey_types::net::{
 };
 
 use super::DirectFixedEscaper;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+use crate::config::escaper::direct_fixed::encode_foreign_port_hint;
 use crate::escape::{EgressNotes, EgressSocketType};
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
 use crate::module::tcp_connect::{
@@ -89,7 +91,36 @@ impl DirectFixedEscaper {
         let (_, action) = self.egress_net_filter.check(peer_ip);
         self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
-        #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+        let mut misc_opts = *connect_config.misc_opts.as_ref();
+
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+        if let Some(prefix) = self.config.foreign_port_hint_prefix {
+            if egress_notes.bind.is_none() {
+                egress_notes.bind = BindAddr::Foreign(SocketAddr::new(task_notes.client_ip(), 0));
+            }
+            let encoded = encode_foreign_port_hint(prefix, task_notes.client_addr().port());
+            #[cfg(target_os = "linux")]
+            {
+                misc_opts.netfilter_mark = Some(encoded);
+            }
+            #[cfg(target_os = "freebsd")]
+            {
+                misc_opts.user_cookie = Some(encoded);
+            }
+        } else if egress_notes.bind.is_none() {
+            if self.config.bind_foreign {
+                if self.config.bind_foreign_port {
+                    egress_notes.bind = BindAddr::Foreign(task_notes.client_addr());
+                } else {
+                    egress_notes.bind =
+                        BindAddr::Foreign(SocketAddr::new(task_notes.client_ip(), 0));
+                }
+            } else {
+                egress_notes.bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
+            }
+        }
+
+        #[cfg(target_os = "openbsd")]
         if egress_notes.bind.is_none() {
             if self.config.bind_foreign {
                 if self.config.bind_foreign_port {
@@ -111,7 +142,7 @@ impl DirectFixedEscaper {
             peer_ip,
             &egress_notes.bind,
             &connect_config.keepalive,
-            &connect_config.misc_opts,
+            &misc_opts,
             true,
         )
         .map_err(UnderlyingTcpConnectError::SetupSocketFailed)

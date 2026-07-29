@@ -14,6 +14,11 @@ On Linux, transparent proxying is typically implemented with netfilter
 `TPROXY`_. Use it to redirect traffic to ``vey-proxy`` while preserving the
 original destination address.
 
+For GWLB-style egress that must preserve the client IP and port without
+``EADDRINUSE``, see ``foreign_port_hint_prefix`` on the ``direct_fixed``
+escaper: the original client port is encoded into ``SO_MARK`` for a tc/XDP
+rewriter.
+
 .. _TPROXY: https://docs.kernel.org/networking/tproxy.html
 
 FreeBSD
@@ -24,6 +29,9 @@ On FreeBSD, the equivalent mechanism is the `ipfw`_ ``forward`` rule.
 Transparent listeners and foreign binds require ``IP_BINDANY`` /
 ``IPV6_BINDANY`` so the process can bind non-local addresses. Use the
 ``user_cookie`` listen / misc option to set ``SO_USER_COOKIE``.
+
+``foreign_port_hint_prefix`` on ``direct_fixed`` encodes the client port into
+``SO_USER_COOKIE`` the same way (visible to ipfw ``sockarg``).
 
 .. _ipfw: https://man.freebsd.org/cgi/man.cgi?query=ipfw
 

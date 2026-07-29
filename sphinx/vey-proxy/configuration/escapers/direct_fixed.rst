@@ -82,6 +82,31 @@ Set to true if you also want to bind to the same foreign port when `bind_foreign
 
 **default**: false
 
+foreign_port_hint_prefix
+------------------------
+
+**optional**, **type**: u16
+
+Available on Linux and FreeBSD. When set together with ``bind_foreign``, the
+outgoing socket binds ``client_ip:0`` (ephemeral local port) and encodes the
+original client port into the socket mark / user cookie as:
+
+``(foreign_port_hint_prefix << 16) | client_port``
+
+- Linux: written to ``SO_MARK`` (overrides any ``tcp_misc_opts.netfilter_mark``
+  for that connect). Pair with a tc/XDP program that restores the source port
+  from the mark for GWLB-style deployments.
+- FreeBSD: written to ``SO_USER_COOKIE`` (overrides ``tcp_misc_opts.user_cookie``).
+  The value is visible to ipfw via ``sockarg``; port rewrite is left to external
+  tooling.
+
+This option conflicts with ``bind_foreign_port`` and is not supported on OpenBSD
+(``SO_RTABLE`` cannot carry a port encoding).
+
+.. versionadded:: 1.13.10
+
+**default**: not set
+
 egress_network_filter
 ---------------------
 

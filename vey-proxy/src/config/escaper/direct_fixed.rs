@@ -50,6 +50,10 @@ pub(crate) struct DirectFixedEscaperConfig {
     pub(crate) bind_foreign: bool,
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     pub(crate) bind_foreign_port: bool,
+    /// When set with `bind_foreign`, bind `client_ip:0` and encode
+    /// `(prefix << 16) | client_port` into `SO_MARK` / `SO_USER_COOKIE`.
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    pub(crate) foreign_port_hint_prefix: Option<u16>,
     pub(crate) bind4: Vec<IpAddr>,
     pub(crate) bind6: Vec<IpAddr>,
     pub(crate) no_ipv4: bool,
@@ -87,6 +91,8 @@ impl DirectFixedEscaperConfig {
             bind_foreign: false,
             #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             bind_foreign_port: false,
+            #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+            foreign_port_hint_prefix: None,
             bind4: Vec::new(),
             bind6: Vec::new(),
             no_ipv4: false,
@@ -160,6 +166,15 @@ impl DirectFixedEscaperConfig {
                 self.bind_foreign_port = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
+            #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+            "foreign_port_hint_prefix" => {
+                self.foreign_port_hint_prefix = Some(vey_yaml::value::as_u16(v)?);
+                Ok(())
+            }
+            #[cfg(target_os = "openbsd")]
+            "foreign_port_hint_prefix" => Err(anyhow!(
+                "foreign_port_hint_prefix is not supported on OpenBSD"
+            )),
             "bind_ip" => {
                 let ips = vey_yaml::value::as_list(v, vey_yaml::value::as_ipaddr)
                     .context(format!("invalid ip address list value for key {k}"))?;
@@ -280,6 +295,20 @@ impl DirectFixedEscaperConfig {
             }
         }
 
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+        if self.foreign_port_hint_prefix.is_some() {
+            if !self.bind_foreign {
+                return Err(anyhow!(
+                    "foreign_port_hint_prefix requires bind_foreign to be enabled"
+                ));
+            }
+            if self.bind_foreign_port {
+                return Err(anyhow!(
+                    "foreign_port_hint_prefix conflicts with bind_foreign_port"
+                ));
+            }
+        }
+
         Ok(())
     }
 
@@ -325,3 +354,117 @@ impl EscaperConfig for DirectFixedEscaperConfig {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
 }
+
+/// Encode a client TCP port into a 32-bit socket mark / user cookie:
+/// `(prefix << 16) | port`.
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+pub(crate) fn encode_foreign_port_hint(prefix: u16, port: u16) -> u32 {
+    ((prefix as u32) << 16) | (port as u32)
+}
+
+#[cfg(all(test, any(target_os = "linux", target_os = "freebsd")))]
+mod tests {
+    use super::*;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn encode_foreign_port_hint_layout() {
+        assert_eq!(encode_foreign_port_hint(0x1234, 0x5678), 0x1234_5678);
+        assert_eq!(encode_foreign_port_hint(0, 443), 443);
+        assert_eq!(encode_foreign_port_hint(1, 0), 0x0001_0000);
+    }
+
+    fn parse_direct_fixed(yaml: &str) -> anyhow::Result<DirectFixedEscaperConfig> {
+        let docs = YamlLoader::load_from_str(yaml).unwrap();
+        let Yaml::Hash(map) = &docs[0] else {
+            panic!("expected map");
+        };
+        DirectFixedEscaperConfig::parse(map, None)
+    }
+
+    #[test]
+    fn foreign_port_hint_prefix_ok() {
+        let config = parse_direct_fixed(
+            r#"
+                name: direct
+                type: DirectFixed
+                resolver: default
+                bind_foreign: true
+                foreign_port_hint_prefix: 0x1000
+            "#,
+        )
+        .unwrap();
+        assert_eq!(config.foreign_port_hint_prefix, Some(0x1000));
+        assert!(config.bind_foreign);
+        assert!(!config.bind_foreign_port);
+    }
+
+    #[test]
+    fn foreign_port_hint_prefix_requires_bind_foreign() {
+        let Err(err) = parse_direct_fixed(
+            r#"
+                name: direct
+                type: DirectFixed
+                resolver: default
+                foreign_port_hint_prefix: 1
+            "#,
+        ) else {
+            panic!("expected error");
+        };
+        assert!(
+            err.to_string()
+                .contains("foreign_port_hint_prefix requires bind_foreign")
+        );
+    }
+
+    #[test]
+    fn foreign_port_hint_prefix_conflicts_with_bind_foreign_port() {
+        let Err(err) = parse_direct_fixed(
+            r#"
+                name: direct
+                type: DirectFixed
+                resolver: default
+                bind_foreign: true
+                bind_foreign_port: true
+                foreign_port_hint_prefix: 1
+            "#,
+        ) else {
+            panic!("expected error");
+        };
+        assert!(
+            err.to_string()
+                .contains("foreign_port_hint_prefix conflicts with bind_foreign_port")
+        );
+    }
+}
+
+#[cfg(all(test, target_os = "openbsd"))]
+mod openbsd_tests {
+    use super::*;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn foreign_port_hint_prefix_rejected() {
+        let docs = YamlLoader::load_from_str(
+            r#"
+                name: direct
+                type: DirectFixed
+                resolver: default
+                bind_foreign: true
+                foreign_port_hint_prefix: 1
+            "#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &docs[0] else {
+            panic!("expected map");
+        };
+        let Err(err) = DirectFixedEscaperConfig::parse(map, None) else {
+            panic!("expected error");
+        };
+        assert!(
+            err.to_string()
+                .contains("foreign_port_hint_prefix is not supported on OpenBSD")
+        );
+    }
+}
+
