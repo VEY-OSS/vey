@@ -6,7 +6,6 @@
 
 use std::io;
 use std::mem::ManuallyDrop;
-use std::net::SocketAddr;
 
 use socket2::Socket;
 
@@ -89,6 +88,10 @@ impl RawSocket {
         if let Some(mark) = misc_opts.netfilter_mark {
             socket.set_mark(mark)?;
         }
+        #[cfg(target_os = "linux")]
+        if let Some(range) = misc_opts.local_port_range {
+            crate::sockopt::set_ip_local_port_range(socket, range)?;
+        }
         #[cfg(target_os = "freebsd")]
         if let Some(cookie) = misc_opts.user_cookie {
             crate::sockopt::set_user_cookie(socket, cookie)?;
@@ -112,12 +115,13 @@ impl RawSocket {
 
     pub fn set_udp_misc_opts(
         &self,
-        local_addr: SocketAddr,
+        family: AddressFamily,
+        bind_all: bool,
         misc_opts: UdpMiscSockOpts,
     ) -> io::Result<()> {
         let socket = self.get_inner();
-        match local_addr {
-            SocketAddr::V4(_) => {
+        match family {
+            AddressFamily::Ipv4 => {
                 if let Some(ttl) = misc_opts.time_to_live {
                     socket.set_ttl_v4(ttl as u32)?;
                 }
@@ -125,8 +129,7 @@ impl RawSocket {
                     crate::sockopt::set_tos_v4(socket, tos)?;
                 }
             }
-            #[cfg(not(target_os = "openbsd"))]
-            SocketAddr::V6(s6) => {
+            AddressFamily::Ipv6 => {
                 if let Some(hops) = misc_opts.hop_limit {
                     socket.set_unicast_hops_v6(hops as u32)?;
                 }
@@ -134,35 +137,32 @@ impl RawSocket {
                 if let Some(class) = misc_opts.traffic_class {
                     crate::sockopt::set_tclass_v6(socket, class)?;
                 }
-                if s6.ip().is_unspecified()
+                if bind_all
                     && (misc_opts.time_to_live.is_some() || misc_opts.type_of_service.is_some())
                 {
-                    let v6only = socket.only_v6()?;
-                    if !v6only {
-                        if let Some(ttl) = misc_opts.time_to_live {
-                            socket.set_ttl_v4(ttl as u32)?;
-                        }
-                        if let Some(tos) = misc_opts.type_of_service {
-                            crate::sockopt::set_tos_v4(socket, tos)?;
+                    #[cfg(not(target_os = "openbsd"))]
+                    {
+                        let v6only = socket.only_v6()?;
+                        if !v6only {
+                            if let Some(ttl) = misc_opts.time_to_live {
+                                socket.set_ttl_v4(ttl as u32)?;
+                            }
+                            if let Some(tos) = misc_opts.type_of_service {
+                                crate::sockopt::set_tos_v4(socket, tos)?;
+                            }
                         }
                     }
                 }
-            }
-            #[cfg(target_os = "openbsd")]
-            SocketAddr::V6(_) => {
-                if let Some(hops) = misc_opts.hop_limit {
-                    socket.set_unicast_hops_v6(hops as u32)?;
-                }
-                if let Some(class) = misc_opts.traffic_class {
-                    crate::sockopt::set_tclass_v6(socket, class)?;
-                }
-                // OpenBSD is always ipv6 only
             }
         }
 
         #[cfg(target_os = "linux")]
         if let Some(mark) = misc_opts.netfilter_mark {
             socket.set_mark(mark)?;
+        }
+        #[cfg(target_os = "linux")]
+        if let Some(range) = misc_opts.local_port_range {
+            crate::sockopt::set_ip_local_port_range(socket, range)?;
         }
         #[cfg(target_os = "freebsd")]
         if let Some(cookie) = misc_opts.user_cookie {

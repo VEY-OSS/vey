@@ -142,6 +142,14 @@ UDP port range used when binding the local UDP socket exposed to the SOCKS
 client.
 If not set, the port is chosen by the operating system.
 
+On Linux, this key is an alias that writes
+``udp_misc_opts.local_port_range`` and uses ``IP_LOCAL_PORT_RANGE`` when
+binding port ``0`` (kernel 6.3+). Setting either key last wins if both are
+present.
+
+On other platforms, the process still picks a free port inside the range in
+userspace.
+
 udp_socket_buffer
 -----------------
 

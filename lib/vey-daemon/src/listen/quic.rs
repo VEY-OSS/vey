@@ -20,6 +20,7 @@ use tokio::sync::broadcast;
 #[cfg(feature = "ebpf")]
 use vey_reuseport::quic::{QuicSocketSelectGuard, QuicSocketSelector};
 use vey_socket::RawSocket;
+use vey_socket::util::AddressFamily;
 use vey_std_ext::net::SocketAddrExt;
 use vey_types::acl::{AclAction, AclNetworkRule};
 #[cfg(feature = "ebpf")]
@@ -422,7 +423,11 @@ where
 
     fn update_socket_opts(&mut self, raw_socket: &RawSocket, config: UdpListenConfig) {
         if self.listen_config.socket_misc_opts() != config.socket_misc_opts() {
-            match raw_socket.set_udp_misc_opts(self.listen_addr, config.socket_misc_opts()) {
+            match raw_socket.set_udp_misc_opts(
+                AddressFamily::from(&self.listen_addr),
+                self.listen_addr.ip().is_unspecified(),
+                config.socket_misc_opts(),
+            ) {
                 Ok(_) => {
                     self.listen_config
                         .set_socket_misc_opts(config.socket_misc_opts());

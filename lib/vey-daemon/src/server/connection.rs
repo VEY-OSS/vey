@@ -115,7 +115,7 @@ impl ClientConnectionInfo {
     ) -> io::Result<()> {
         if let Some(raw_socket) = &self.tcp_raw_socket {
             raw_socket.set_tcp_misc_opts(
-                AddressFamily::from(&self.client_addr),
+                AddressFamily::from(&self.sock_local_addr),
                 opts,
                 default_set_nodelay,
             )

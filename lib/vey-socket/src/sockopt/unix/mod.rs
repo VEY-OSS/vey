@@ -23,7 +23,8 @@ mod linux;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub(crate) use linux::{
     attach_reuseport_ebpf, get_incoming_cpu, get_so_cookie, set_bind_address_no_port,
-    set_incoming_cpu, set_ip_transparent_v4, set_ip_transparent_v6, set_tcp_quick_ack,
+    set_incoming_cpu, set_ip_local_port_range, set_ip_transparent_v4, set_ip_transparent_v6,
+    set_tcp_quick_ack,
 };
 
 #[cfg(target_os = "freebsd")]

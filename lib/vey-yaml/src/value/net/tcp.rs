@@ -339,6 +339,13 @@ pub fn as_tcp_misc_sock_opts(v: &Yaml) -> anyhow::Result<TcpMiscSockOpts> {
                 config.netfilter_mark = Some(mark);
                 Ok(())
             }
+            #[cfg(target_os = "linux")]
+            "local_port_range" => {
+                let range = crate::value::as_port_range(v)
+                    .context(format!("invalid port range value for key {k}"))?;
+                config.local_port_range = Some(range);
+                Ok(())
+            }
             #[cfg(target_os = "freebsd")]
             "user_cookie" => {
                 let cookie =
@@ -703,6 +710,12 @@ mod tests {
             let yaml = yaml_doc!("mark: 42");
             let config = as_tcp_misc_sock_opts(&yaml).unwrap();
             assert_eq!(config.netfilter_mark, Some(42));
+
+            let yaml = yaml_doc!("local_port_range: 40000-40511");
+            let config = as_tcp_misc_sock_opts(&yaml).unwrap();
+            let range = config.local_port_range.unwrap();
+            assert_eq!(range.start(), 40000);
+            assert_eq!(range.end(), 40511);
         }
 
         #[cfg(target_os = "freebsd")]

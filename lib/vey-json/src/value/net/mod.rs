@@ -11,7 +11,7 @@ pub use base::{
 };
 
 mod ports;
-pub use ports::as_ports;
+pub use ports::{as_port_range, as_ports};
 
 mod proxy;
 pub use proxy::as_proxy_request_type;

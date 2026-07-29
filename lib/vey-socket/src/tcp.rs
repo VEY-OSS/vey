@@ -83,13 +83,14 @@ pub fn new_std_socket_to(
 ) -> io::Result<std::net::TcpStream> {
     let peer_family = AddressFamily::from(&peer_ip);
     let socket = new_tcp_socket(peer_family)?;
+    // Apply before bind so IP_LOCAL_PORT_RANGE can affect ephemeral port selection.
+    RawSocket::from(&socket).set_tcp_misc_opts(peer_family, misc_opts, default_set_nodelay)?;
     bind.bind_tcp_for_connect(&socket, peer_family)?;
 
     if let Some(setting) = enable_tcp_keepalive(keepalive) {
         socket.set_tcp_keepalive(&setting)?;
     }
 
-    RawSocket::from(&socket).set_tcp_misc_opts(peer_family, misc_opts, default_set_nodelay)?;
     Ok(std::net::TcpStream::from(socket))
 }
 

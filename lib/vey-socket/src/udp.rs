@@ -22,9 +22,9 @@ pub fn new_std_socket_to(
 ) -> io::Result<UdpSocket> {
     let peer_family = AddressFamily::from(&peer_addr);
     let socket = new_udp_socket(peer_family, buf_conf)?;
+    // Apply before bind so IP_LOCAL_PORT_RANGE can affect ephemeral port selection.
+    RawSocket::from(&socket).set_udp_misc_opts(peer_family, false, misc_opts)?;
     bind.bind_udp_for_connect(&socket, peer_family)?;
-    // use peer_addr here as the socket is not listen socket
-    RawSocket::from(&socket).set_udp_misc_opts(peer_addr, misc_opts)?;
     Ok(UdpSocket::from(socket))
 }
 
@@ -36,9 +36,9 @@ pub fn new_connected_to(
 ) -> io::Result<(tokio::net::UdpSocket, SocketAddr)> {
     let peer_family = AddressFamily::from(&peer_addr);
     let socket = new_udp_socket(peer_family, buf_conf)?;
+    // Apply before bind so IP_LOCAL_PORT_RANGE can affect ephemeral port selection.
+    RawSocket::from(&socket).set_udp_misc_opts(peer_family, false, misc_opts)?;
     bind.bind_udp_for_connect(&socket, peer_family)?;
-    // use peer_addr here as the socket is not listen socket
-    RawSocket::from(&socket).set_udp_misc_opts(peer_addr, misc_opts)?;
     let socket = UdpSocket::from(socket);
     socket.connect(peer_addr)?;
     let socket = tokio::net::UdpSocket::from_std(socket)?;
@@ -55,12 +55,14 @@ pub fn new_std_bind_lazy_connect(
         Some(ip) => SocketAddr::new(ip, 0),
         None => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
     };
-    let socket = new_udp_socket(AddressFamily::from(&bind_addr), buf_conf)?;
+    let family = AddressFamily::from(&bind_addr);
+    let bind_all = bind_addr.ip().is_unspecified();
+    let socket = new_udp_socket(family, buf_conf)?;
+    RawSocket::from(&socket).set_udp_misc_opts(family, bind_all, misc_opts)?;
     let bind_addr = SockAddr::from(bind_addr);
     socket.bind(&bind_addr)?;
     let socket = UdpSocket::from(socket);
     let listen_addr = socket.local_addr()?;
-    RawSocket::from(&socket).set_udp_misc_opts(listen_addr, misc_opts)?;
 
     Ok((socket, listen_addr))
 }
@@ -76,7 +78,9 @@ pub fn new_std_in_range_bind_lazy_connect(
 
     debug_assert!(port_start < port_end);
 
-    let socket = new_udp_socket(AddressFamily::from(&bind_ip), buf_conf)?;
+    let family = AddressFamily::from(&bind_ip);
+    let bind_all = bind_ip.is_unspecified();
+    let socket = new_udp_socket(family, buf_conf)?;
 
     // like what's has been done in dante/sockd/sockd_request.c
     let tries = port.count().min(10);
@@ -86,7 +90,7 @@ pub fn new_std_in_range_bind_lazy_connect(
         if socket.bind(&bind_addr).is_ok() {
             let socket = UdpSocket::from(socket);
             let listen_addr = socket.local_addr()?;
-            RawSocket::from(&socket).set_udp_misc_opts(listen_addr, misc_opts)?;
+            RawSocket::from(&socket).set_udp_misc_opts(family, bind_all, misc_opts)?;
             return Ok((socket, listen_addr));
         }
     }
@@ -96,7 +100,7 @@ pub fn new_std_in_range_bind_lazy_connect(
         if socket.bind(&bind_addr).is_ok() {
             let socket = UdpSocket::from(socket);
             let listen_addr = socket.local_addr()?;
-            RawSocket::from(&socket).set_udp_misc_opts(listen_addr, misc_opts)?;
+            RawSocket::from(&socket).set_udp_misc_opts(family, bind_all, misc_opts)?;
             return Ok((socket, listen_addr));
         }
     }
@@ -114,10 +118,15 @@ pub fn new_std_bind_relay(
     misc_opts: UdpMiscSockOpts,
 ) -> io::Result<(UdpSocket, SocketAddr)> {
     let socket = new_udp_socket(family, buf_conf)?;
+    // Apply before bind so IP_LOCAL_PORT_RANGE can affect ephemeral port selection.
+    let bind_all = match bind.ip() {
+        Some(ip) => ip.is_unspecified(),
+        None => true,
+    };
+    RawSocket::from(&socket).set_udp_misc_opts(family, bind_all, misc_opts)?;
     bind.bind_for_relay(&socket, family)?;
     let socket = UdpSocket::from(socket);
     let listen_addr = socket.local_addr()?;
-    RawSocket::from(&socket).set_udp_misc_opts(listen_addr, misc_opts)?;
     Ok((socket, listen_addr))
 }
 
@@ -157,7 +166,11 @@ pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
     super::listen::set_udp_recv_pktinfo(&socket, addr)?;
     #[cfg(windows)]
     super::listen::set_udp_recv_pktinfo(&socket, addr, config.is_ipv6only())?;
-    RawSocket::from(&socket).set_udp_misc_opts(addr, config.socket_misc_opts())?;
+    RawSocket::from(&socket).set_udp_misc_opts(
+        family,
+        addr.ip().is_unspecified(),
+        config.socket_misc_opts(),
+    )?;
     Ok(UdpSocket::from(socket))
 }
 
@@ -175,7 +188,11 @@ pub fn new_std_rebind_listen(config: &UdpListenConfig, addr: SocketAddr) -> io::
     super::listen::set_udp_recv_pktinfo(&socket, addr)?;
     #[cfg(windows)]
     super::listen::set_udp_recv_pktinfo(&socket, addr, config.is_ipv6only())?;
-    RawSocket::from(&socket).set_udp_misc_opts(addr, config.socket_misc_opts())?;
+    RawSocket::from(&socket).set_udp_misc_opts(
+        AddressFamily::from(&addr),
+        addr.ip().is_unspecified(),
+        config.socket_misc_opts(),
+    )?;
     Ok(UdpSocket::from(socket))
 }
 

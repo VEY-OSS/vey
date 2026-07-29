@@ -1012,6 +1012,15 @@ Keys:
 
   **default**: not set
 
+* local_port_range
+
+  **optional**, **type**: :ref:`port range <conf_value_port_range>`
+
+  Set ``IP_LOCAL_PORT_RANGE`` for TCP sockets to clamp the ephemeral local port
+  range used on connect / bind-to-port-0. Linux only (kernel 6.3+).
+
+  **default**: not set
+
 * user_cookie
 
   **optional**, **type**: u32
@@ -1086,6 +1095,15 @@ Keys:
   **optional**, **type**: u32, **alias**: mark
 
   Set ``SO_MARK`` for UDP sockets. Linux only.
+
+  **default**: not set
+
+* local_port_range
+
+  **optional**, **type**: :ref:`port range <conf_value_port_range>`
+
+  Set ``IP_LOCAL_PORT_RANGE`` for UDP sockets to clamp the ephemeral local port
+  range used on connect / bind-to-port-0. Linux only (kernel 6.3+).
 
   **default**: not set
 

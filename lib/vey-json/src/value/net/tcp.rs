@@ -134,6 +134,12 @@ pub fn as_tcp_misc_sock_opts(v: &Value) -> anyhow::Result<TcpMiscSockOpts> {
                         .context(format!("invalid u32 value for key {k}"))?;
                     config.netfilter_mark = Some(mark);
                 }
+                #[cfg(target_os = "linux")]
+                "local_port_range" => {
+                    let range = crate::value::as_port_range(v)
+                        .context(format!("invalid port range value for key {k}"))?;
+                    config.local_port_range = Some(range);
+                }
                 #[cfg(target_os = "freebsd")]
                 "user_cookie" => {
                     let cookie = crate::value::as_u32(v)
@@ -281,6 +287,12 @@ mod tests {
             let mark_json = json!({"mark": 12345});
             let config = as_tcp_misc_sock_opts(&mark_json).unwrap();
             assert_eq!(config.netfilter_mark, Some(12345));
+
+            let range_json = json!({"local_port_range": "40000-40511"});
+            let config = as_tcp_misc_sock_opts(&range_json).unwrap();
+            let range = config.local_port_range.unwrap();
+            assert_eq!(range.start(), 40000);
+            assert_eq!(range.end(), 40511);
         }
 
         #[cfg(target_os = "freebsd")]

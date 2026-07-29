@@ -18,9 +18,11 @@ use vey_io_ext::{LimitedUdpRelayConfig, StreamCopyConfig};
 use vey_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use vey_types::acl_set::AclDstHostRuleSetBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
+#[cfg(not(target_os = "linux"))]
+use vey_types::net::PortRange;
 use vey_types::net::{
-    PortRange, SocketBufferConfig, TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
-    UdpMiscSockOpts, UdpSockSpeedLimitConfig,
+    SocketBufferConfig, TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig, UdpMiscSockOpts,
+    UdpSockSpeedLimitConfig,
 };
 use vey_yaml::YamlDocPosition;
 
@@ -64,6 +66,7 @@ pub(crate) struct SocksProxyServerConfig {
     pub(crate) use_udp_associate: bool,
     pub(crate) udp_bind4: Vec<IpAddr>,
     pub(crate) udp_bind6: Vec<IpAddr>,
+    #[cfg(not(target_os = "linux"))]
     pub(crate) udp_bind_port_range: Option<PortRange>,
     pub(crate) udp_socket_buffer: SocketBufferConfig,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
@@ -101,6 +104,7 @@ impl SocksProxyServerConfig {
             use_udp_associate: false,
             udp_bind4: Vec::new(),
             udp_bind6: Vec::new(),
+            #[cfg(not(target_os = "linux"))]
             udp_bind_port_range: None,
             udp_socket_buffer: SocketBufferConfig::default(),
             ingress_net_filter: None,
@@ -203,7 +207,14 @@ impl SocksProxyServerConfig {
             "udp_bind_port_range" => {
                 let range = vey_yaml::value::as_port_range(v)
                     .context(format!("invalid port range value for key {k}"))?;
-                self.udp_bind_port_range = Some(range);
+                #[cfg(target_os = "linux")]
+                {
+                    self.udp_misc_opts.local_port_range = Some(range);
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    self.udp_bind_port_range = Some(range);
+                }
                 Ok(())
             }
             "udp_socket_buffer" => {

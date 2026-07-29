@@ -8,7 +8,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use vey_types::net::Ports;
+use vey_types::net::{PortRange, Ports};
 
 fn as_single_ports(value: &Value) -> anyhow::Result<Ports> {
     match value {
@@ -38,6 +38,35 @@ pub fn as_ports(value: &Value) -> anyhow::Result<Ports> {
             }
 
             Ok(ports)
+        }
+        _ => Err(anyhow!("invalid value type")),
+    }
+}
+
+pub fn as_port_range(value: &Value) -> anyhow::Result<PortRange> {
+    match value {
+        Value::String(s) => PortRange::from_str(s),
+        Value::Object(map) => {
+            let mut start = 0;
+            let mut end = 0;
+
+            for (k, v) in map {
+                match crate::key::normalize(k).as_str() {
+                    "start" | "from" => {
+                        start = crate::value::as_u16(v)
+                            .context(format!("invalid port number for key {k}"))?;
+                    }
+                    "end" | "to" => {
+                        end = crate::value::as_u16(v)
+                            .context(format!("invalid port number for key {k}"))?;
+                    }
+                    _ => return Err(anyhow!("invalid key {k}")),
+                }
+            }
+
+            let range = PortRange::new(start, end);
+            range.check()?;
+            Ok(range)
         }
         _ => Err(anyhow!("invalid value type")),
     }

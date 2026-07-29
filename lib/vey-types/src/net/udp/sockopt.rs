@@ -1,9 +1,13 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use vey_std_ext::core::OptionExt;
+
+#[cfg(target_os = "linux")]
+use crate::net::PortRange;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct UdpMiscSockOpts {
@@ -14,6 +18,8 @@ pub struct UdpMiscSockOpts {
     pub traffic_class: Option<u8>,
     #[cfg(target_os = "linux")]
     pub netfilter_mark: Option<u32>,
+    #[cfg(target_os = "linux")]
+    pub local_port_range: Option<PortRange>,
     #[cfg(target_os = "freebsd")]
     pub user_cookie: Option<u32>,
     #[cfg(target_os = "openbsd")]
@@ -31,6 +37,8 @@ impl UdpMiscSockOpts {
             traffic_class: other.traffic_class.or(self.traffic_class),
             #[cfg(target_os = "linux")]
             netfilter_mark: other.netfilter_mark.or(self.netfilter_mark),
+            #[cfg(target_os = "linux")]
+            local_port_range: other.local_port_range.or(self.local_port_range),
             #[cfg(target_os = "freebsd")]
             user_cookie: other.user_cookie.or(self.user_cookie),
             #[cfg(target_os = "openbsd")]

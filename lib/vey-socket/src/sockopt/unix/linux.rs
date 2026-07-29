@@ -10,6 +10,8 @@ use std::os::unix::io::AsRawFd;
 
 use libc::{c_int, c_longlong, socklen_t};
 
+use vey_types::net::PortRange;
+
 unsafe fn getsockopt<T>(fd: c_int, level: c_int, name: c_int) -> io::Result<T>
 where
     T: Copy,
@@ -97,6 +99,16 @@ pub(crate) fn set_tcp_quick_ack<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<
             libc::TCP_QUICKACK,
             enable as c_int,
         )?;
+        Ok(())
+    }
+}
+
+pub(crate) fn set_ip_local_port_range<T: AsRawFd>(fd: &T, range: PortRange) -> io::Result<()> {
+    // Not yet in the crates.io libc bindings (Linux 6.3+).
+    const IP_LOCAL_PORT_RANGE: c_int = 51;
+    let value = ((range.end() as u32) << 16) | (range.start() as u32);
+    unsafe {
+        super::setsockopt(fd.as_raw_fd(), libc::IPPROTO_IP, IP_LOCAL_PORT_RANGE, value)?;
         Ok(())
     }
 }
