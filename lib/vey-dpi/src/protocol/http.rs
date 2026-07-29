@@ -142,6 +142,14 @@ impl ProtocolInspectState {
                 check_method!(b"PROPPATCH ");
                 check_method!(b"PATCH ");
             }
+            b'Q' => {
+                // 0x51
+                self.http_exclude_by_byte0();
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
+
+                check_method!(b"QUERY ");
+            }
             b'R' => {
                 // 0x52
                 self.http_exclude_by_byte0();

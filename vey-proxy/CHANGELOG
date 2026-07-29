@@ -9,6 +9,7 @@ v1.13.10:
  - Feature: `direct_fixed` `foreign_port_hint_prefix` encodes the client port into Linux `SO_MARK` / FreeBSD `SO_USER_COOKIE` while binding `client_ip:0` (GWLB-friendly, avoids `EADDRINUSE`)
  - Feature: TCP/UDP misc sock opts gain Linux `local_port_range` (`IP_LOCAL_PORT_RANGE`) to clamp ephemeral local ports
  - Feature: socks_proxy falls back to `udp_misc_opts.local_port_range` when `udp_bind_port_range` is not set
+ - Feature: support HTTP `QUERY` method (RFC 10008) for forwarding, inspection, and DPI classification
 
 v1.13.9:
  - BUG FIX: HTTP clients sending trailers split across packets (CRLF alone in a later read) no longer stall or fail trailer parsing

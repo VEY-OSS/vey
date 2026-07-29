@@ -8,6 +8,7 @@ v0.9.8:
  - Feature: websocket target reports Req/Conn (conn used times) like other multiplexed targets
  - Feature: HTTP/3 GREASE is off by default; pass `--grease` when the peer needs it
  - Feature: optional jemalloc or mimalloc global allocator at compile time; allocator name/version appear in `--version`
+ - Feature: h1/h2/h3 targets support the HTTP `QUERY` method (RFC 10008), including `--payload`
  - Optimization: skip noisy percentile / request-distribution summary lines when concurrency is 1 or the sample set is too small
  - Compatibility: OpenSSL CLI `--tls-supported-groups` / `--proxy-tls-supported-groups` renamed to `--tls-key-exchange-groups` / `--proxy-tls-key-exchange-groups`
  - Compatibility: bump MSRV to 1.91

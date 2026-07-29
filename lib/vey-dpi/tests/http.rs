@@ -38,7 +38,7 @@ fn http_methods() {
     let config = ProtocolInspectionConfig::default();
 
     let methods = [
-        "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "CONNECT", "TRACE", "PATCH",
+        "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "CONNECT", "TRACE", "PATCH", "QUERY",
     ];
 
     for method in methods {

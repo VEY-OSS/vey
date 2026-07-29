@@ -144,7 +144,7 @@ impl HttpClientArgs {
 
         if let Ok(payload) = vey_clap::data::get(args, HTTP_ARG_PAYLOAD, http_args.binary_payload) {
             match http_args.method {
-                Method::POST | Method::PUT => {
+                Method::POST | Method::PUT | Method::QUERY => {
                     if !payload.is_empty() {
                         http_args.body = Some(payload);
                     }
@@ -155,7 +155,7 @@ impl HttpClientArgs {
                             http_args.body = Some(payload);
                         } else {
                             return Err(anyhow!(format!(
-                                "--{HTTP_ARG_PAYLOAD} argument is only allowed for POST or PUT methods. \
+                                "--{HTTP_ARG_PAYLOAD} argument is only allowed for POST, PUT or QUERY methods. \
                                 Use --{HTTP_ARG_NO_STRICT} to ignore this check."
                             )));
                         }
@@ -188,7 +188,9 @@ impl AppendHttpArgs for Command {
                     .short('m')
                     .long(HTTP_ARG_METHOD)
                     .num_args(1)
-                    .value_parser(["DELETE", "GET", "HEAD", "OPTIONS", "TRACE", "POST", "PUT"])
+                    .value_parser([
+                        "DELETE", "GET", "HEAD", "OPTIONS", "TRACE", "POST", "PUT", "QUERY",
+                    ])
                     .default_value("GET"),
             )
             .arg(

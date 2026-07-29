@@ -209,7 +209,7 @@ impl HttpProxyClientRequest {
         }
         if matches!(
             &self.method,
-            &Method::GET | &Method::HEAD | &Method::PUT | &Method::DELETE
+            &Method::GET | &Method::HEAD | &Method::PUT | &Method::DELETE | &Method::QUERY
         ) {
             // only pipeline idempotent requests without body
             if self.check_body_type().is_none() {

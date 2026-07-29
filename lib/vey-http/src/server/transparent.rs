@@ -180,7 +180,7 @@ impl HttpTransparentRequest {
     pub fn pipeline_safe(&self) -> bool {
         if matches!(
             &self.method,
-            &Method::GET | &Method::HEAD | &Method::PUT | &Method::DELETE
+            &Method::GET | &Method::HEAD | &Method::PUT | &Method::DELETE | &Method::QUERY
         ) {
             if self.upgrade {
                 return false;
