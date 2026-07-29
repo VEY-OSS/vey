@@ -498,13 +498,15 @@ impl DirectFixedEscaper {
                         #[cfg(any(
                             target_os = "linux",
                             target_os = "freebsd",
-                            target_os = "openbsd"
+                            target_os = "openbsd",
+                            target_os = "netbsd"
                         ))]
                         BindAddr::Foreign(SocketAddr::V4(_)) => resolve_strategy.query_v4only(),
                         #[cfg(any(
                             target_os = "linux",
                             target_os = "freebsd",
-                            target_os = "openbsd"
+                            target_os = "openbsd",
+                            target_os = "netbsd"
                         ))]
                         BindAddr::Foreign(SocketAddr::V6(_)) => resolve_strategy.query_v6only(),
                         _ => {}

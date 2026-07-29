@@ -293,6 +293,10 @@ mod tests {
             netfilter_mark: None,
             #[cfg(target_os = "linux")]
             local_port_range: None,
+            #[cfg(target_os = "freebsd")]
+            user_cookie: None,
+            #[cfg(target_os = "openbsd")]
+            rtable: None,
         };
 
         let config2 = TcpMiscSockOpts {
@@ -314,6 +318,10 @@ mod tests {
             netfilter_mark: Some(0x5678), // should win (other takes precedence)
             #[cfg(target_os = "linux")]
             local_port_range: None,
+            #[cfg(target_os = "freebsd")]
+            user_cookie: Some(0x5678), // should win (other takes precedence)
+            #[cfg(target_os = "openbsd")]
+            rtable: Some(3), // should win (other takes precedence)
         };
 
         let result = config1.adjust_to(&config2);
@@ -334,5 +342,9 @@ mod tests {
         assert_eq!(result.congestion_control(), Some("cubic".as_bytes()));
         #[cfg(target_os = "linux")]
         assert_eq!(result.netfilter_mark, Some(0x5678));
+        #[cfg(target_os = "freebsd")]
+        assert_eq!(result.user_cookie, Some(0x5678));
+        #[cfg(target_os = "openbsd")]
+        assert_eq!(result.rtable, Some(3));
     }
 }

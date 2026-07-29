@@ -437,7 +437,8 @@ impl DirectFloatEscaper {
                         #[cfg(any(
                             target_os = "linux",
                             target_os = "freebsd",
-                            target_os = "openbsd"
+                            target_os = "openbsd",
+                            target_os = "netbsd"
                         ))]
                         BindAddr::Foreign(_) => {
                             return Err(UnderlyingTcpConnectError::InternalServerError(
