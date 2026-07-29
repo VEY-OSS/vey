@@ -91,7 +91,10 @@ impl DirectFixedEscaper {
         let (_, action) = self.egress_net_filter.check(peer_ip);
         self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         let mut misc_opts = *connect_config.misc_opts.as_ref();
+        #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+        let misc_opts = *connect_config.misc_opts.as_ref();
 
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         if let Some(prefix) = self.config.foreign_port_hint_prefix {
@@ -133,6 +136,7 @@ impl DirectFixedEscaper {
                 egress_notes.bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
             }
         }
+
         #[cfg(not(any(
             target_os = "linux",
             target_os = "freebsd",
