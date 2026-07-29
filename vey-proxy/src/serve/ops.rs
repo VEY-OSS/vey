@@ -35,8 +35,7 @@ use super::tcp_stream::TcpStreamServer;
     target_os = "linux",
     target_os = "freebsd",
     target_os = "dragonfly",
-    target_os = "openbsd",
-    target_os = "netbsd"
+    target_os = "openbsd"
 ))]
 use super::tcp_tproxy::TcpTProxyServer;
 use super::tls_stream::TlsStreamServer;
@@ -45,8 +44,7 @@ use super::udp_stream::UdpStreamServer;
     target_os = "linux",
     target_os = "freebsd",
     target_os = "dragonfly",
-    target_os = "openbsd",
-    target_os = "netbsd"
+    target_os = "openbsd"
 ))]
 use super::udp_tproxy::UdpTProxyServer;
 
@@ -311,8 +309,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
             target_os = "linux",
             target_os = "freebsd",
             target_os = "dragonfly",
-            target_os = "openbsd",
-            target_os = "netbsd"
+            target_os = "openbsd"
         ))]
         AnyServerConfig::TcpTProxy(c) => TcpTProxyServer::prepare_initial(c)?,
         AnyServerConfig::UdpStream(c) => UdpStreamServer::prepare_initial(c)?,
@@ -320,8 +317,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
             target_os = "linux",
             target_os = "freebsd",
             target_os = "dragonfly",
-            target_os = "openbsd",
-            target_os = "netbsd"
+            target_os = "openbsd"
         ))]
         AnyServerConfig::UdpTProxy(c) => UdpTProxyServer::prepare_initial(c)?,
         AnyServerConfig::TlsStream(c) => TlsStreamServer::prepare_initial(c)?,

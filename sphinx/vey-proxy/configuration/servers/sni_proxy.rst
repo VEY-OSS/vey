@@ -52,9 +52,10 @@ listen_transparent
 
 Set to ``true`` to enable transparent mode on the listening socket.
 
-This flag is available on Linux, FreeBSD, OpenBSD, and NetBSD. When enabled, the
+This flag is available on Linux, FreeBSD and OpenBSD. When enabled, the
 listener socket is placed into transparent mode before accept
-(``IP_TRANSPARENT`` / ``IP_BINDANY`` / ``SO_BINDANY``).
+(``IP_TRANSPARENT`` / ``IP_BINDANY`` / ``SO_BINDANY``). It is not available on
+NetBSD, see :ref:`transparent proxy setup <protocol_setup_transparent_proxy>`.
 
 **default**: false
 

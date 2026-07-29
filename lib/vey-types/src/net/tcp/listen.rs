@@ -35,12 +35,7 @@ pub struct TcpListenConfig {
     interface: Option<Interface>,
     #[cfg(not(target_os = "openbsd"))]
     ipv6only: Option<bool>,
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "freebsd",
-        target_os = "openbsd",
-        target_os = "netbsd"
-    ))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     transparent: bool,
     #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
     mark: Option<u32>,
@@ -80,12 +75,7 @@ impl TcpListenConfig {
             interface: None,
             #[cfg(not(target_os = "openbsd"))]
             ipv6only: None,
-            #[cfg(any(
-                target_os = "linux",
-                target_os = "freebsd",
-                target_os = "openbsd",
-                target_os = "netbsd"
-            ))]
+            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
             transparent: false,
             #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
             mark: None,
@@ -137,12 +127,7 @@ impl TcpListenConfig {
         self.ipv6only
     }
 
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "freebsd",
-        target_os = "openbsd",
-        target_os = "netbsd"
-    ))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     #[inline]
     pub fn transparent(&self) -> bool {
         self.transparent
@@ -214,12 +199,7 @@ impl TcpListenConfig {
         self.ipv6only = Some(ipv6only);
     }
 
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "freebsd",
-        target_os = "openbsd",
-        target_os = "netbsd"
-    ))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     #[inline]
     pub fn set_transparent(&mut self) {
         self.transparent = true;

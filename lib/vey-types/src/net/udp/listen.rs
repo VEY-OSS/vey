@@ -34,12 +34,7 @@ struct NonReloadablePart {
     interface: Option<Interface>,
     #[cfg(not(target_os = "openbsd"))]
     ipv6only: Option<bool>,
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "freebsd",
-        target_os = "openbsd",
-        target_os = "netbsd"
-    ))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     transparent: bool,
     instance: usize,
     scale: usize,
@@ -82,12 +77,7 @@ impl UdpListenConfig {
                 interface: None,
                 #[cfg(not(target_os = "openbsd"))]
                 ipv6only: None,
-                #[cfg(any(
-                    target_os = "linux",
-                    target_os = "freebsd",
-                    target_os = "openbsd",
-                    target_os = "netbsd"
-                ))]
+                #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
                 transparent: false,
                 instance: 1,
                 scale: 0,
@@ -161,12 +151,7 @@ impl UdpListenConfig {
         self.non_reloadable.ipv6only
     }
 
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "freebsd",
-        target_os = "openbsd",
-        target_os = "netbsd"
-    ))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     #[inline]
     pub fn transparent(&self) -> bool {
         self.non_reloadable.transparent
@@ -215,12 +200,7 @@ impl UdpListenConfig {
         self.non_reloadable.ipv6only = Some(ipv6only);
     }
 
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "freebsd",
-        target_os = "openbsd",
-        target_os = "netbsd"
-    ))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     #[inline]
     pub fn set_transparent(&mut self) {
         self.non_reloadable.transparent = true;

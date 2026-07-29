@@ -46,8 +46,7 @@ mod tcp_stream;
     target_os = "linux",
     target_os = "freebsd",
     target_os = "dragonfly",
-    target_os = "openbsd",
-    target_os = "netbsd"
+    target_os = "openbsd"
 ))]
 mod tcp_tproxy;
 mod tls_stream;
@@ -56,8 +55,7 @@ mod udp_stream;
     target_os = "linux",
     target_os = "freebsd",
     target_os = "dragonfly",
-    target_os = "openbsd",
-    target_os = "netbsd"
+    target_os = "openbsd"
 ))]
 mod udp_tproxy;
 

@@ -35,6 +35,20 @@ Transparent listeners and foreign binds require ``IP_BINDANY`` /
 
 .. _ipfw: https://man.freebsd.org/cgi/man.cgi?query=ipfw
 
+DragonFly BSD
+=============
+
+On DragonFly BSD, use the `ipfw fwd`_ rule. It does not rewrite the packet, and
+for packets forwarded to a local address the kernel sets the local address of
+the socket to the original destination, which is what the intercepting servers
+read. No transparent socket option is involved, so a listener bound to a local
+address is enough.
+
+``bind_foreign`` on the ``direct_fixed`` escaper is not available here, as
+DragonFly BSD has no ``IP_BINDANY`` equivalent to bind a non-local address.
+
+.. _ipfw fwd: https://man.dragonflybsd.org/?command=ipfw&section=8
+
 OpenBSD
 =======
 
@@ -48,27 +62,24 @@ Transparent listeners and foreign binds require ``SO_BINDANY``. Use the
 NetBSD
 ======
 
-On NetBSD, use NPF `map`_ rules for address translation when building a
-transparent proxy path. Mapping directions:
-
-- ``<-`` inbound NAT (rewrite destination; used for redirect / port forward)
-- ``->`` outbound NAT (rewrite source)
-- ``<->`` bi-directional NAT
-
-Transparent listeners and foreign binds require ``IP_BINDANY`` /
-``IPV6_BINDANY`` so the process can bind non-local addresses (needs
-``KAUTH_REQ_NETWORK_BIND_ANYADDR``).
+On NetBSD, only the outbound half of transparent proxying is supported: the
+``direct_fixed`` escaper can bind the client address with ``bind_foreign``,
+using ``IP_BINDANY`` / ``IPV6_BINDANY`` to bind a non-local address (needs the
+``KAUTH_REQ_NETWORK_BIND_ANYADDR`` privilege).
 
 ``foreign_port_hint_prefix`` is not supported on NetBSD (there is no
 ``SO_MARK`` / ``SO_USER_COOKIE`` equivalent used for this purpose).
 
-Example NPF inbound ``map`` (port-forward style; adjust for your topology)::
+The intercepting servers (``tcp_tproxy``, ``udp_tproxy`` and the
+``listen_transparent`` option of ``sni_proxy``) are **not** available on
+NetBSD. They recover the original destination from the accepted socket, which
+requires the firewall to deliver the packet without rewriting it. NetBSD has
+neither TPROXY nor divert sockets, and NPF `map`_ is address translation: the
+destination is rewritten before the socket layer, so the server would see its
+own listening address as the upstream.
 
-    # Redirect TCP $ext_if:1080 to the local transparent listener
-    map $ext_if dynamic proto tcp $proxy_ip port 1080 <- $ext_if port 1080
-
-Outbound source translation when leaving the proxy host can use ``->``::
-
-    map $ext_if dynamic $proxy_net -> ifaddrs($ext_if)
+Supporting interception on NetBSD requires querying the translation table for
+the original destination, either ``IOC_NPF_CONN_LOOKUP`` (``npf_nat_lookup()``
+in libnpf) for NPF, or ``SIOCGNATL`` for IPFilter. Neither is implemented yet.
 
 .. _map: https://man.netbsd.org/npf.conf.5

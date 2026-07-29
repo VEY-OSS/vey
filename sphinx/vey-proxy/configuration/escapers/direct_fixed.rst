@@ -63,8 +63,9 @@ bind_foreign
 **optional**, **type**: bool
 
 Set to true to bind to the same foreign IP address as the client. This is useful
-with Linux TPROXY, FreeBSD ``ipfw`` forward, OpenBSD pf ``divert-to``, and
-NetBSD NPF ``map``.
+with Linux TPROXY, FreeBSD ``ipfw`` forward and OpenBSD pf ``divert-to``. It is
+also available on NetBSD (``IP_BINDANY``), where it is the only supported part
+of transparent proxying.
 
 **default**: false
 

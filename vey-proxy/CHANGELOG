@@ -3,7 +3,8 @@ CHANGELOG
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.13.10:
- - Feature: enable transparent listen (`tcp_tproxy` / `udp_tproxy` / `sni_proxy`) and foreign bind on FreeBSD (`IP_BINDANY`), OpenBSD (`SO_BINDANY`), and NetBSD (`IP_BINDANY`)
+ - Feature: enable transparent listen (`tcp_tproxy` / `udp_tproxy` / `sni_proxy`) and foreign bind on FreeBSD (`IP_BINDANY`) and OpenBSD (`SO_BINDANY`)
+ - Feature: enable `direct_fixed` foreign bind on NetBSD (`IP_BINDANY`); the intercepting servers stay unavailable there as NPF gives no original destination
  - Feature: add FreeBSD `user_cookie` (`SO_USER_COOKIE`) and OpenBSD `rtable` (`SO_RTABLE`) listen / misc socket options alongside Linux `mark` / `netfilter_mark`
  - Feature: `direct_fixed` `foreign_port_hint_prefix` encodes the client port into Linux `SO_MARK` / FreeBSD `SO_USER_COOKIE` while binding `client_ip:0` (GWLB-friendly, avoids `EADDRINUSE`)
  - Feature: TCP/UDP misc sock opts gain Linux `local_port_range` (`IP_LOCAL_PORT_RANGE`) to clamp ephemeral local ports

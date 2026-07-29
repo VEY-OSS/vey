@@ -9,7 +9,8 @@ This server is a transparent TCP listener that forwards traffic to the original
 destination address.
 
 See :ref:`transparent proxy <protocol_setup_transparent_proxy>` for the
-required host firewall and routing setup.
+required host firewall and routing setup. This server type is not available on
+NetBSD.
 
 The following common keys are supported:
 
@@ -46,9 +47,13 @@ Listening configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
-On Linux, FreeBSD, OpenBSD, and NetBSD, the listener is always switched into
-transparent mode (``IP_TRANSPARENT`` / ``IP_BINDANY`` / ``SO_BINDANY``).
+On Linux, FreeBSD and OpenBSD, the listener is always switched into transparent
+mode (``IP_TRANSPARENT`` / ``IP_BINDANY`` / ``SO_BINDANY``).
 There is no separate ``listen_transparent`` key for this server type.
+
+On DragonFly BSD no such option is needed: ``ipfw fwd`` keeps the original
+destination address on the accepted socket, so a listener bound to a local
+address works as is.
 
 auth_by_client_ip
 -----------------
