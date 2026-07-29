@@ -8,7 +8,12 @@ use slog::{Record, Serializer, Value};
 use vey_socket::BindAddr;
 
 use crate::LtIpAddr;
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd"
+))]
 use crate::LtSocketAddr;
 
 pub struct LtBindAddr(pub BindAddr);
@@ -31,7 +36,12 @@ impl Value for LtBindAddr {
                 target_os = "solaris"
             ))]
             BindAddr::Interface(name) => serializer.emit_str(key, name.name()),
-            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "openbsd",
+                target_os = "netbsd"
+            ))]
             BindAddr::Foreign(addr) => LtSocketAddr(addr).serialize(record, key, serializer),
         }
     }

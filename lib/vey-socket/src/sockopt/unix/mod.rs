@@ -10,7 +10,12 @@ use std::{io, ptr};
 
 use libc::{c_int, socklen_t};
 
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd"
+))]
 use crate::util::AddressFamily;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -28,6 +33,11 @@ pub(crate) use freebsd::{
     set_ip_bindany_v4, set_ip_bindany_v6, set_tcp_reuseport_lb_numa_current_domain, set_user_cookie,
 };
 
+#[cfg(target_os = "netbsd")]
+mod netbsd;
+#[cfg(target_os = "netbsd")]
+pub(crate) use netbsd::{set_ip_bindany_v4, set_ip_bindany_v6};
+
 #[cfg(target_os = "openbsd")]
 mod openbsd;
 #[cfg(target_os = "openbsd")]
@@ -44,7 +54,12 @@ mod illumos;
 pub(crate) use illumos::set_tcp_quick_ack;
 
 /// Enable non-local bind for transparent / foreign bind.
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd"
+))]
 pub(crate) fn set_transparent<T: AsRawFd>(fd: &T, family: AddressFamily) -> io::Result<()> {
     #[cfg(target_os = "linux")]
     {
@@ -53,7 +68,7 @@ pub(crate) fn set_transparent<T: AsRawFd>(fd: &T, family: AddressFamily) -> io::
             AddressFamily::Ipv4 => set_ip_transparent_v4(fd, true),
         }
     }
-    #[cfg(target_os = "freebsd")]
+    #[cfg(any(target_os = "freebsd", target_os = "netbsd"))]
     {
         match family {
             AddressFamily::Ipv6 => set_ip_bindany_v6(fd, true),

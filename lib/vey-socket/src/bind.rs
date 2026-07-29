@@ -37,7 +37,12 @@ pub enum BindAddr {
         target_os = "solaris"
     ))]
     Interface(Interface),
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd"
+    ))]
     Foreign(SocketAddr),
 }
 
@@ -58,7 +63,12 @@ impl BindAddr {
                 target_os = "solaris"
             ))]
             BindAddr::Interface(_) => None,
-            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "openbsd",
+                target_os = "netbsd"
+            ))]
             BindAddr::Foreign(addr) => Some(addr.ip()),
         }
     }
@@ -96,7 +106,12 @@ impl BindAddr {
                 AddressFamily::Ipv4 => socket.bind_device_by_index_v4(Some(iface.id())),
                 AddressFamily::Ipv6 => socket.bind_device_by_index_v6(Some(iface.id())),
             },
-            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "openbsd",
+                target_os = "netbsd"
+            ))]
             BindAddr::Foreign(addr) => {
                 if AddressFamily::from(addr) != peer_family {
                     return Err(io::Error::new(
@@ -147,7 +162,12 @@ impl BindAddr {
                 AddressFamily::Ipv4 => socket.bind_device_by_index_v4(Some(iface.id())),
                 AddressFamily::Ipv6 => socket.bind_device_by_index_v6(Some(iface.id())),
             },
-            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "openbsd",
+                target_os = "netbsd"
+            ))]
             BindAddr::Foreign(addr) => {
                 if AddressFamily::from(addr) != peer_family {
                     return Err(io::Error::new(
@@ -192,7 +212,12 @@ impl BindAddr {
                     IpAddr::V6(Ipv6Addr::UNSPECIFIED)
                 }
             },
-            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "openbsd",
+                target_os = "netbsd"
+            ))]
             BindAddr::Foreign(addr) => {
                 if AddressFamily::from(addr) != family {
                     return Err(io::Error::new(

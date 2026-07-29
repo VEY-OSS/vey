@@ -25,7 +25,12 @@ pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpLis
     if let Some(enable) = config.is_ipv6only() {
         super::listen::set_only_v6(&socket, addr, enable)?;
     }
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd"
+    ))]
     if config.transparent() {
         crate::sockopt::set_transparent(&socket, family)?;
     }

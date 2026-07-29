@@ -120,7 +120,7 @@ impl DirectFixedEscaper {
             }
         }
 
-        #[cfg(target_os = "openbsd")]
+        #[cfg(any(target_os = "openbsd", target_os = "netbsd"))]
         if egress_notes.bind.is_none() {
             if self.config.bind_foreign {
                 if self.config.bind_foreign_port {
@@ -133,7 +133,12 @@ impl DirectFixedEscaper {
                 egress_notes.bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
             }
         }
-        #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd")))]
+        #[cfg(not(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd"
+        )))]
         if egress_notes.bind.is_none() {
             egress_notes.bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
         }
@@ -430,7 +435,12 @@ impl DirectFixedEscaper {
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         new_egress_notes.socket_type = Some(EgressSocketType::Direct);
         new_egress_notes.bind = old_egress_notes.bind;
-        #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd"
+        ))]
         if let BindAddr::Foreign(addr) = new_egress_notes.bind {
             // we have to select a new port as it may not usable with a new connection
             new_egress_notes.bind = BindAddr::Foreign(SocketAddr::new(addr.ip(), 0));

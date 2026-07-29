@@ -63,7 +63,8 @@ bind_foreign
 **optional**, **type**: bool
 
 Set to true to bind to the same foreign IP address as the client. This is useful
-with Linux TPROXY, FreeBSD ``ipfw`` forward, and OpenBSD pf ``divert-to``.
+with Linux TPROXY, FreeBSD ``ipfw`` forward, OpenBSD pf ``divert-to``, and
+NetBSD NPF ``map``.
 
 **default**: false
 
@@ -101,7 +102,7 @@ original client port into the socket mark / user cookie as:
   tooling.
 
 This option conflicts with ``bind_foreign_port`` and is not supported on OpenBSD
-(``SO_RTABLE`` cannot carry a port encoding).
+or NetBSD (no suitable mark / cookie / rtable encoding for the client port).
 
 .. versionadded:: 1.13.10
 

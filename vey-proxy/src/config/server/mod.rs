@@ -41,6 +41,7 @@ pub(crate) mod tcp_stream;
     target_os = "freebsd",
     target_os = "dragonfly",
     target_os = "openbsd",
+    target_os = "netbsd",
 ))]
 pub(crate) mod tcp_tproxy;
 pub(crate) mod tls_stream;
@@ -50,6 +51,7 @@ pub(crate) mod udp_stream;
     target_os = "freebsd",
     target_os = "dragonfly",
     target_os = "openbsd",
+    target_os = "netbsd",
 ))]
 pub(crate) mod udp_tproxy;
 
@@ -152,7 +154,8 @@ pub(crate) enum AnyServerConfig {
         target_os = "linux",
         target_os = "freebsd",
         target_os = "dragonfly",
-        target_os = "openbsd"
+        target_os = "openbsd",
+        target_os = "netbsd"
     ))]
     TcpTProxy(tcp_tproxy::TcpTProxyServerConfig),
     UdpStream(udp_stream::UdpStreamServerConfig),
@@ -160,7 +163,8 @@ pub(crate) enum AnyServerConfig {
         target_os = "linux",
         target_os = "freebsd",
         target_os = "dragonfly",
-        target_os = "openbsd"
+        target_os = "openbsd",
+        target_os = "netbsd"
     ))]
     UdpTProxy(udp_tproxy::UdpTProxyServerConfig),
     TlsStream(tls_stream::TlsStreamServerConfig),
@@ -262,7 +266,8 @@ fn load_server(
             target_os = "linux",
             target_os = "freebsd",
             target_os = "dragonfly",
-            target_os = "openbsd"
+            target_os = "openbsd",
+            target_os = "netbsd"
         ))]
         "tcp_tproxy" | "tcptproxy" => {
             let server = tcp_tproxy::TcpTProxyServerConfig::parse(map, position)
@@ -278,7 +283,8 @@ fn load_server(
             target_os = "linux",
             target_os = "freebsd",
             target_os = "dragonfly",
-            target_os = "openbsd"
+            target_os = "openbsd",
+            target_os = "netbsd"
         ))]
         "udp_tproxy" | "udptproxy" => {
             let server = udp_tproxy::UdpTProxyServerConfig::parse(map, position)

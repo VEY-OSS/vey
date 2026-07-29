@@ -46,7 +46,7 @@ Listening configuration for this server.
 
 The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
-On Linux, FreeBSD, and OpenBSD, the listener is always switched into
+On Linux, FreeBSD, OpenBSD, and NetBSD, the listener is always switched into
 transparent mode (``IP_TRANSPARENT`` / ``IP_BINDANY`` / ``SO_BINDANY``).
 There is no separate ``listen_transparent`` key for this server type.
 

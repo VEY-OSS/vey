@@ -46,9 +46,19 @@ pub(crate) struct DirectFixedEscaperConfig {
         target_os = "solaris"
     ))]
     pub(crate) bind_interface: Option<Interface>,
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd"
+    ))]
     pub(crate) bind_foreign: bool,
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd"
+    ))]
     pub(crate) bind_foreign_port: bool,
     /// When set with `bind_foreign`, bind `client_ip:0` and encode
     /// `(prefix << 16) | client_port` into `SO_MARK` / `SO_USER_COOKIE`.
@@ -87,9 +97,19 @@ impl DirectFixedEscaperConfig {
                 target_os = "solaris"
             ))]
             bind_interface: None,
-            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "openbsd",
+                target_os = "netbsd"
+            ))]
             bind_foreign: false,
-            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "openbsd",
+                target_os = "netbsd"
+            ))]
             bind_foreign_port: false,
             #[cfg(any(target_os = "linux", target_os = "freebsd"))]
             foreign_port_hint_prefix: None,
@@ -156,12 +176,22 @@ impl DirectFixedEscaperConfig {
                 self.bind_interface = Some(interface);
                 Ok(())
             }
-            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "openbsd",
+                target_os = "netbsd"
+            ))]
             "bind_foreign" => {
                 self.bind_foreign = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
-            #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "openbsd",
+                target_os = "netbsd"
+            ))]
             "bind_foreign_port" => {
                 self.bind_foreign_port = vey_yaml::value::as_bool(v)?;
                 Ok(())
@@ -171,9 +201,9 @@ impl DirectFixedEscaperConfig {
                 self.foreign_port_hint_prefix = Some(vey_yaml::value::as_u16(v)?);
                 Ok(())
             }
-            #[cfg(target_os = "openbsd")]
+            #[cfg(any(target_os = "openbsd", target_os = "netbsd"))]
             "foreign_port_hint_prefix" => Err(anyhow!(
-                "foreign_port_hint_prefix is not supported on OpenBSD"
+                "foreign_port_hint_prefix is not supported on this platform"
             )),
             "bind_ip" => {
                 let ips = vey_yaml::value::as_list(v, vey_yaml::value::as_ipaddr)
@@ -463,8 +493,7 @@ mod openbsd_tests {
         };
         assert!(
             err.to_string()
-                .contains("foreign_port_hint_prefix is not supported on OpenBSD")
+                .contains("foreign_port_hint_prefix is not supported on this platform")
         );
     }
 }
-
