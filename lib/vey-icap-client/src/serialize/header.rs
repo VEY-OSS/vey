@@ -58,6 +58,19 @@ mod tests {
     }
 
     #[test]
+    fn add_client_addr_serializes_ipv6() {
+        use std::net::Ipv6Addr;
+
+        let addr = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 1344);
+        let mut buf = Vec::new();
+        add_client_addr(&mut buf, addr);
+
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.contains("X-Client-IP: ::1\r\n"));
+        assert!(text.contains("X-Client-Port: 1344\r\n"));
+    }
+
+    #[test]
     fn add_client_username_url_encodes_and_base64_authenticated_user() {
         let mut buf = Vec::new();
         add_client_username(&mut buf, "user@example");

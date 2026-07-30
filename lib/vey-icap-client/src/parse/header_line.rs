@@ -62,4 +62,12 @@ mod tests {
         assert_eq!(header.name, "Service");
         assert_eq!(header.value, "my-icap-server");
     }
+
+    #[test]
+    fn rejects_invalid_utf8() {
+        match HeaderLine::parse(b"Name: \xff\r\n") {
+            Err(IcapLineParseError::InvalidUtf8Encoding(_)) => {}
+            _ => panic!("expected InvalidUtf8Encoding"),
+        }
+    }
 }

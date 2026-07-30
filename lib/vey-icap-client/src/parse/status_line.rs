@@ -100,4 +100,23 @@ mod tests {
             _ => panic!("expected InvalidStatusCode"),
         }
     }
+
+    #[test]
+    fn rejects_four_digit_status_code() {
+        match StatusLine::parse(b"ICAP/1.0 2000 OK\r\n") {
+            Err(IcapLineParseError::InvalidStatusCode) => {}
+            _ => panic!("expected InvalidStatusCode"),
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_utf8_message() {
+        let mut buf = b"ICAP/1.0 200 ".to_vec();
+        buf.push(0xff);
+        buf.extend_from_slice(b"\r\n");
+        match StatusLine::parse(&buf) {
+            Err(IcapLineParseError::InvalidUtf8Encoding(_)) => {}
+            _ => panic!("expected InvalidUtf8Encoding"),
+        }
+    }
 }

@@ -34,6 +34,8 @@ If the value is a map, the following keys are supported:
 
   ICAP service URL. The scheme must be either ``icap`` or ``icaps``.
   When the scheme is ``icaps``, a default TLS client configuration is used.
+  The default port is ``1344`` for ``icap`` and ``11344`` for ``icaps`` and
+  may be omitted.
 
 * use_unix_socket
 

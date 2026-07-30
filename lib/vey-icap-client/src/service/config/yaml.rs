@@ -155,6 +155,14 @@ mod tests {
         );
         assert!(config.tls_client.is_some());
 
+        // Default ports when omitted
+        let yaml = yaml_str!("icap://example.com/service");
+        let config = IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).unwrap();
+        assert_eq!(config.upstream.port(), 1344);
+        let yaml = yaml_str!("icaps://secure.example.com/service");
+        let config = IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).unwrap();
+        assert_eq!(config.upstream.port(), 11344);
+
         // Invalid URL format
         let yaml = yaml_str!("invalid-url");
         assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());

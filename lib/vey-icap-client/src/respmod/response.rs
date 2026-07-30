@@ -125,3 +125,60 @@ impl RespmodResponse {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[tokio::test]
+    async fn parse_null_body_response() {
+        let data = b"ICAP/1.0 204 No Modifications\r\n\
+Encapsulated: null-body=0\r\n\
+\r\n";
+        let mut reader = Cursor::new(&data[..]);
+        let rsp = RespmodResponse::parse(&mut reader, 8192).await.unwrap();
+        assert_eq!(rsp.code, 204);
+        assert_eq!(rsp.reason, "No Modifications");
+        assert!(rsp.keep_alive);
+        assert_eq!(rsp.payload, IcapRespmodResponsePayload::NoPayload);
+    }
+
+    #[tokio::test]
+    async fn parse_connection_close_and_res_body() {
+        let data = b"ICAP/1.0 200 OK\r\n\
+Connection: Keep-Alive, close\r\n\
+Encapsulated: res-hdr=0, res-body=100\r\n\
+\r\n";
+        let mut reader = Cursor::new(&data[..]);
+        let rsp = RespmodResponse::parse(&mut reader, 8192).await.unwrap();
+        assert_eq!(rsp.code, 200);
+        assert!(!rsp.keep_alive);
+        assert_eq!(
+            rsp.payload,
+            IcapRespmodResponsePayload::HttpResponseWithBody(100)
+        );
+    }
+
+    #[tokio::test]
+    async fn parse_rejects_too_large_header() {
+        let data = b"ICAP/1.0 200 OK\r\nEncapsulated: null-body=0\r\n\r\n";
+        let mut reader = Cursor::new(&data[..]);
+        match RespmodResponse::parse(&mut reader, 8).await {
+            Err(IcapRespmodParseError::TooLargeHeader(8)) => {}
+            Err(e) => panic!("unexpected error: {e}"),
+            Ok(_) => panic!("expected TooLargeHeader"),
+        }
+    }
+
+    #[tokio::test]
+    async fn parse_rejects_remote_closed() {
+        let data = b"";
+        let mut reader = Cursor::new(&data[..]);
+        match RespmodResponse::parse(&mut reader, 8192).await {
+            Err(IcapRespmodParseError::RemoteClosed) => {}
+            Err(e) => panic!("unexpected error: {e}"),
+            Ok(_) => panic!("expected RemoteClosed"),
+        }
+    }
+}

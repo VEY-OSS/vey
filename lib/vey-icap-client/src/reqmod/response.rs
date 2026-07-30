@@ -155,3 +155,82 @@ impl ReqmodResponse {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[tokio::test]
+    async fn parse_null_body_response() {
+        let data = b"ICAP/1.0 204 No Content\r\n\
+Encapsulated: null-body=0\r\n\
+\r\n";
+        let mut reader = Cursor::new(&data[..]);
+        let rsp = ReqmodResponse::parse(&mut reader, 8192, &BTreeSet::new())
+            .await
+            .unwrap();
+        assert_eq!(rsp.code, 204);
+        assert_eq!(rsp.reason, "No Content");
+        assert!(rsp.keep_alive);
+        assert_eq!(rsp.payload, IcapReqmodResponsePayload::NoPayload);
+    }
+
+    #[tokio::test]
+    async fn parse_connection_close_and_req_body() {
+        let data = b"ICAP/1.0 200 OK\r\n\
+Connection: close\r\n\
+Encapsulated: req-hdr=0, req-body=42\r\n\
+\r\n";
+        let mut reader = Cursor::new(&data[..]);
+        let rsp = ReqmodResponse::parse(&mut reader, 8192, &BTreeSet::new())
+            .await
+            .unwrap();
+        assert_eq!(rsp.code, 200);
+        assert!(!rsp.keep_alive);
+        assert_eq!(
+            rsp.payload,
+            IcapReqmodResponsePayload::HttpRequestWithBody(42)
+        );
+    }
+
+    #[tokio::test]
+    async fn parse_collects_shared_headers() {
+        let mut shared = BTreeSet::new();
+        shared.insert("x-virus-id".to_string());
+        let data = b"ICAP/1.0 200 OK\r\n\
+X-Virus-ID: clamav\r\n\
+X-Ignored: skip\r\n\
+Encapsulated: null-body=0\r\n\
+\r\n";
+        let mut reader = Cursor::new(&data[..]);
+        let mut rsp = ReqmodResponse::parse(&mut reader, 8192, &shared)
+            .await
+            .unwrap();
+        let headers = rsp.take_shared_headers();
+        assert!(headers.contains_key(&HeaderName::from_static("x-virus-id")));
+        assert!(!headers.contains_key(&HeaderName::from_static("x-ignored")));
+    }
+
+    #[tokio::test]
+    async fn parse_rejects_too_large_header() {
+        let data = b"ICAP/1.0 200 OK\r\nEncapsulated: null-body=0\r\n\r\n";
+        let mut reader = Cursor::new(&data[..]);
+        match ReqmodResponse::parse(&mut reader, 8, &BTreeSet::new()).await {
+            Err(IcapReqmodParseError::TooLargeHeader(8)) => {}
+            Err(e) => panic!("unexpected error: {e}"),
+            Ok(_) => panic!("expected TooLargeHeader"),
+        }
+    }
+
+    #[tokio::test]
+    async fn parse_rejects_remote_closed() {
+        let data = b"";
+        let mut reader = Cursor::new(&data[..]);
+        match ReqmodResponse::parse(&mut reader, 8192, &BTreeSet::new()).await {
+            Err(IcapReqmodParseError::RemoteClosed) => {}
+            Err(e) => panic!("unexpected error: {e}"),
+            Ok(_) => panic!("expected RemoteClosed"),
+        }
+    }
+}

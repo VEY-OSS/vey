@@ -32,3 +32,15 @@ impl IcapMethod {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn method_as_str() {
+        assert_eq!(IcapMethod::Options.as_str(), "OPTIONS");
+        assert_eq!(IcapMethod::Reqmod.as_str(), "REQMOD");
+        assert_eq!(IcapMethod::Respmod.as_str(), "RESPMOD");
+    }
+}

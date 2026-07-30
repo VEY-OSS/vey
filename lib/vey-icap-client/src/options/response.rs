@@ -280,4 +280,125 @@ mod tests {
             Err(IcapOptionsParseError::NoServiceTagSet)
         ));
     }
+
+    #[test]
+    fn parse_header_methods_accepts_matching_method() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        options
+            .parse_header_line(b"Methods: OPTIONS, REQMOD, RESPMOD\r\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn parse_header_service_and_istag() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Respmod);
+        options
+            .parse_header_line(b"Service: Example ICAP Server 1.0\r\n")
+            .unwrap();
+        options
+            .parse_header_line(b"ISTag: \"W3E4R7U9-L3E4R7U9-W3E4R7U9\"\r\n")
+            .unwrap();
+        options
+            .parse_header_line(b"Service-ID: respmod-scan\r\n")
+            .unwrap();
+        options
+            .parse_header_line(b"Max-Connections: 100\r\n")
+            .unwrap();
+        assert_eq!(options.server.as_deref(), Some("Example ICAP Server 1.0"));
+        assert_eq!(
+            options.service_tag,
+            "\"W3E4R7U9-L3E4R7U9-W3E4R7U9\""
+        );
+        assert_eq!(options.service_id.as_deref(), Some("respmod-scan"));
+        assert_eq!(options.max_connections, Some(100));
+        options.check().unwrap();
+    }
+
+    #[test]
+    fn parse_header_preview_rejects_invalid_value() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        assert!(matches!(
+            options.parse_header_line(b"Preview: not-a-number\r\n"),
+            Err(IcapOptionsParseError::InvalidHeaderValue("Preview"))
+        ));
+    }
+
+    #[test]
+    fn parse_header_max_connections_rejects_invalid_value() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        assert!(matches!(
+            options.parse_header_line(b"Max-Connections: abc\r\n"),
+            Err(IcapOptionsParseError::InvalidHeaderValue("Max-Connections"))
+        ));
+    }
+
+    #[test]
+    fn parse_header_encapsulated_rejects_unknown_part() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        assert!(matches!(
+            options.parse_header_line(b"Encapsulated: req-hdr=0\r\n"),
+            Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated"))
+        ));
+    }
+
+    #[test]
+    fn parse_header_opt_body_type_unsupported() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        assert!(matches!(
+            options.parse_header_line(b"Opt-body-type: text/html\r\n"),
+            Err(IcapOptionsParseError::UnsupportedBody(_))
+        ));
+    }
+
+    #[test]
+    fn parse_status_line_rejects_non_2xx() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        assert!(matches!(
+            options.parse_status_line(b"ICAP/1.0 500 Internal Error\r\n"),
+            Err(IcapOptionsParseError::RequestFailed(500, _))
+        ));
+    }
+
+    #[test]
+    fn new_expired_is_expired() {
+        let options = IcapServiceOptions::new_expired(IcapMethod::Options);
+        assert!(options.expired());
+    }
+
+    #[tokio::test]
+    async fn parse_full_options_response() {
+        use std::io::Cursor;
+
+        let data = b"ICAP/1.0 200 OK\r\n\
+Methods: REQMOD\r\n\
+Service: test\r\n\
+ISTag: \"tag-1\"\r\n\
+Allow: 204\r\n\
+Preview: 1024\r\n\
+\r\n";
+        let mut reader = Cursor::new(&data[..]);
+        let options = IcapServiceOptions::parse(&mut reader, IcapMethod::Reqmod, 8192)
+            .await
+            .unwrap();
+        assert!(options.support_204);
+        assert!(!options.support_206);
+        assert_eq!(options.preview_size, Some(1024));
+        assert_eq!(options.service_tag, "\"tag-1\"");
+        assert!(!options.expired());
+    }
+
+    #[tokio::test]
+    async fn parse_full_options_requires_istag() {
+        use std::io::Cursor;
+
+        let data = b"ICAP/1.0 200 OK\r\n\
+Methods: REQMOD\r\n\
+\r\n";
+        let mut reader = Cursor::new(&data[..]);
+        match IcapServiceOptions::parse(&mut reader, IcapMethod::Reqmod, 8192).await {
+            Err(IcapOptionsParseError::NoServiceTagSet) => {}
+            Err(e) => panic!("unexpected error: {e}"),
+            Ok(_) => panic!("expected NoServiceTagSet"),
+        }
+    }
 }

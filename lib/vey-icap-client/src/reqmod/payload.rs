@@ -98,3 +98,88 @@ impl IcapReqmodResponsePayload {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_null_body() {
+        assert_eq!(
+            IcapReqmodResponsePayload::parse("null-body=0").unwrap(),
+            IcapReqmodResponsePayload::NoPayload
+        );
+    }
+
+    #[test]
+    fn parse_req_hdr_with_body() {
+        assert_eq!(
+            IcapReqmodResponsePayload::parse("req-hdr=0, req-body=128").unwrap(),
+            IcapReqmodResponsePayload::HttpRequestWithBody(128)
+        );
+    }
+
+    #[test]
+    fn parse_req_hdr_without_body() {
+        assert_eq!(
+            IcapReqmodResponsePayload::parse("req-hdr=0, null-body=64").unwrap(),
+            IcapReqmodResponsePayload::HttpRequestWithoutBody(64)
+        );
+    }
+
+    #[test]
+    fn parse_res_hdr_with_body() {
+        assert_eq!(
+            IcapReqmodResponsePayload::parse("res-hdr=0, res-body=256").unwrap(),
+            IcapReqmodResponsePayload::HttpResponseWithBody(256)
+        );
+    }
+
+    #[test]
+    fn parse_res_hdr_without_body() {
+        assert_eq!(
+            IcapReqmodResponsePayload::parse("res-hdr=0, null-body=32").unwrap(),
+            IcapReqmodResponsePayload::HttpResponseWithoutBody(32)
+        );
+    }
+
+    #[test]
+    fn rejects_non_zero_hdr_offset() {
+        assert!(matches!(
+            IcapReqmodResponsePayload::parse("req-hdr=8, req-body=16"),
+            Err(IcapReqmodParseError::UnsupportedBody(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_missing_equals() {
+        assert!(matches!(
+            IcapReqmodResponsePayload::parse("null-body"),
+            Err(IcapReqmodParseError::InvalidHeaderValue("Encapsulated"))
+        ));
+    }
+
+    #[test]
+    fn rejects_missing_body_part() {
+        assert!(matches!(
+            IcapReqmodResponsePayload::parse("req-hdr=0"),
+            Err(IcapReqmodParseError::UnsupportedBody(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_invalid_body_name() {
+        assert!(matches!(
+            IcapReqmodResponsePayload::parse("req-hdr=0, opt-body=10"),
+            Err(IcapReqmodParseError::UnsupportedBody(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_invalid_body_offset() {
+        assert!(matches!(
+            IcapReqmodResponsePayload::parse("req-hdr=0, req-body=abc"),
+            Err(IcapReqmodParseError::UnsupportedBody(_))
+        ));
+    }
+}
