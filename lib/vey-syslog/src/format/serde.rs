@@ -109,3 +109,39 @@ impl<S: serde::Serializer> Serializer for SerdeFormatterKV<S> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use slog::Serializer;
+
+    #[test]
+    fn serde_formatter_kv_emits_json_object() {
+        let mut buf = Vec::new();
+        let mut ser = serde_json::Serializer::new(&mut buf);
+        let mut kv = SerdeFormatterKV::start(&mut ser, Some(3)).unwrap();
+        kv.emit_str("msg".into(), "hi").unwrap();
+        kv.emit_u8("n".into(), 7).unwrap();
+        kv.emit_bool("ok".into(), true).unwrap();
+        kv.end().unwrap();
+
+        let value: serde_json::Value = serde_json::from_slice(&buf).unwrap();
+        assert_eq!(value["msg"], "hi");
+        assert_eq!(value["n"], 7);
+        assert_eq!(value["ok"], true);
+    }
+
+    #[test]
+    fn serde_formatter_kv_skips_none() {
+        let mut buf = Vec::new();
+        let mut ser = serde_json::Serializer::new(&mut buf);
+        let mut kv = SerdeFormatterKV::start(&mut ser, None).unwrap();
+        kv.emit_none("missing".into()).unwrap();
+        kv.emit_i64("report_ts".into(), 123).unwrap();
+        kv.end().unwrap();
+
+        let value: serde_json::Value = serde_json::from_slice(&buf).unwrap();
+        assert!(value.get("missing").is_none());
+        assert_eq!(value["report_ts"], 123);
+    }
+}

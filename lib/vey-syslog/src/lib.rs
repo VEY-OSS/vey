@@ -122,3 +122,60 @@ impl SyslogBuilder {
         AsyncSyslogStreamer::new(async_conf, header, formatter, &self.backend)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+    #[test]
+    fn builder_defaults_and_setters() {
+        let mut builder = SyslogBuilder::with_ident("vey");
+        assert_eq!(builder.ident, "vey");
+        assert!(matches!(builder.facility, Facility::User));
+        assert!(matches!(builder.format, SyslogFormatterKind::Rfc3164));
+        assert!(!builder.emit_hostname);
+        assert!(!builder.append_report_ts);
+
+        builder.set_facility(Facility::Local0);
+        builder.set_format(SyslogFormatterKind::Rfc5424(32473, Some("MID".into())));
+        builder.set_emit_hostname(true);
+        builder.append_report_ts(true);
+        builder.set_backend(SyslogBackendBuilder::Udp(
+            None,
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 514),
+        ));
+
+        assert!(matches!(builder.facility, Facility::Local0));
+        assert!(builder.emit_hostname);
+        assert!(builder.append_report_ts);
+        match &builder.format {
+            SyslogFormatterKind::Rfc5424(eid, mid) => {
+                assert_eq!(*eid, 32473);
+                assert_eq!(mid.as_deref(), Some("MID"));
+            }
+            _ => panic!("expected Rfc5424"),
+        }
+        assert!(matches!(builder.backend, SyslogBackendBuilder::Udp(_, _)));
+    }
+
+    #[test]
+    fn enable_cee_log_syntax_from_rfc3164_and_rfc5424() {
+        let mut builder = SyslogBuilder::with_ident("vey");
+        builder.enable_cee_log_syntax(None);
+        match &builder.format {
+            SyslogFormatterKind::Rfc3164Cee(flag) => assert_eq!(flag, "@cee:"),
+            _ => panic!("expected Rfc3164Cee"),
+        }
+
+        builder.set_format(SyslogFormatterKind::Rfc5424(1, Some("ID".into())));
+        builder.enable_cee_log_syntax(Some("FLAG:".into()));
+        match &builder.format {
+            SyslogFormatterKind::Rfc5424Cee(mid, flag) => {
+                assert_eq!(mid.as_deref(), Some("ID"));
+                assert_eq!(flag, "FLAG:");
+            }
+            _ => panic!("expected Rfc5424Cee"),
+        }
+    }
+}

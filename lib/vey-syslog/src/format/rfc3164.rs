@@ -346,4 +346,84 @@ mod tests {
             .unwrap();
         assert_eq!(std::str::from_utf8(&vec).unwrap(), ", a-key=\"a-value\"");
     }
+
+    #[test]
+    fn format_header_includes_hostname() {
+        let lh = SyslogHeader {
+            facility: Facility::User,
+            hostname: Some("host1".into()),
+            process: "app".into(),
+            pid: 7,
+        };
+
+        let mut buffer: Vec<u8> = Vec::new();
+        let datetime = NaiveDateTime::new(
+            NaiveDate::from_ymd_opt(2021, 1, 2).unwrap(),
+            NaiveTime::from_hms_opt(3, 4, 5).unwrap(),
+        );
+        let dt = datetime
+            .and_local_timezone(Local::from_offset(&FixedOffset::east_opt(0).unwrap()))
+            .unwrap();
+        format_rfc3164_header(&mut buffer, &lh, Level::Error, &dt).unwrap();
+
+        let s = String::from_utf8(buffer).unwrap();
+        assert_eq!(s, "<11>Jan  2 03:04:05 host1 app[7]: ");
+    }
+
+    #[test]
+    fn format_str_char_none_and_false() {
+        let mut vec = Vec::new();
+        let mut kv_formatter = FormatterKv(&mut vec);
+        kv_formatter.emit_str("s".into(), "x\"y").unwrap();
+        kv_formatter.emit_char("c".into(), 'Z').unwrap();
+        kv_formatter.emit_bool("b".into(), false).unwrap();
+        kv_formatter.emit_none("n".into()).unwrap();
+        assert_eq!(
+            std::str::from_utf8(&vec).unwrap(),
+            ", s=\"x\\\"y\", c=\"Z\", b=false"
+        );
+    }
+
+    #[test]
+    fn format_slog_appends_msg_kv_and_report_ts() {
+        use slog::{OwnedKVList, Record, RecordLocation, RecordStatic, o};
+
+        static LOC: RecordLocation = RecordLocation {
+            file: file!(),
+            line: line!(),
+            column: 0,
+            module: module_path!(),
+            function: "",
+        };
+        static RS: RecordStatic = RecordStatic {
+            location: &LOC,
+            tag: "",
+            level: Level::Warning,
+        };
+
+        let header = SyslogHeader {
+            facility: Facility::Daemon,
+            hostname: None,
+            process: "test".into(),
+            pid: 1,
+        };
+        let mut formatter = FormatterRfc3164::new();
+        formatter.append_report_ts(true);
+
+        let msg = format_args!("hello");
+        let kv = slog::b!("k" => 2u8);
+        let record = Record::new(&RS, &msg, kv);
+        let owned: OwnedKVList = o!("host" => "local").into();
+        let mut buf = Vec::new();
+        formatter
+            .format_slog(&mut buf, &header, &record, &owned)
+            .unwrap();
+
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.starts_with("<28>"));
+        assert!(text.contains("test[1]: hello"));
+        assert!(text.contains(", host=\"local\""));
+        assert!(text.contains(", k=2"));
+        assert!(text.contains(", report_ts="));
+    }
 }

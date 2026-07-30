@@ -392,4 +392,89 @@ mod tests {
             .unwrap();
         assert_eq!(std::str::from_utf8(&vec).unwrap(), " a-key=\"a-value\"");
     }
+
+    #[test]
+    fn format_header_with_hostname_and_message_id() {
+        let lh = SyslogHeader {
+            facility: Facility::Local0,
+            hostname: Some("edge".into()),
+            process: "vey".into(),
+            pid: 9,
+        };
+        let datetime = DateTime::parse_from_rfc3339("2021-12-01T10:20:30Z").unwrap();
+        let dt = datetime.with_timezone(&Utc);
+
+        let mut buffer = Vec::new();
+        format_rfc5424_header(
+            &mut buffer,
+            &lh,
+            Level::Error,
+            &dt,
+            &Some("MSGID".into()),
+        )
+        .unwrap();
+
+        assert_eq!(
+            String::from_utf8(buffer).unwrap(),
+            "<131>1 2021-12-01T10:20:30.000000Z edge vey 9 MSGID "
+        );
+    }
+
+    #[test]
+    fn format_str_escapes_bracket_and_skips_none() {
+        let mut vec = Vec::new();
+        let mut kv_formatter = FormatterKv(&mut vec);
+        kv_formatter.emit_str("peer".into(), "a]b").unwrap();
+        kv_formatter.emit_char("c".into(), ']').unwrap();
+        kv_formatter.emit_none("skip".into()).unwrap();
+        assert_eq!(
+            std::str::from_utf8(&vec).unwrap(),
+            " peer=\"a\\]b\" c=\"\\]\""
+        );
+    }
+
+    #[test]
+    fn format_slog_writes_structured_data_and_msg() {
+        use slog::{OwnedKVList, Record, RecordLocation, RecordStatic, o};
+
+        static LOC: RecordLocation = RecordLocation {
+            file: file!(),
+            line: line!(),
+            column: 0,
+            module: module_path!(),
+            function: "",
+        };
+        static RS: RecordStatic = RecordStatic {
+            location: &LOC,
+            tag: "",
+            level: Level::Info,
+        };
+
+        let header = SyslogHeader {
+            facility: Facility::User,
+            hostname: None,
+            process: "test".into(),
+            pid: 3,
+        };
+        let mut formatter = FormatterRfc5424::new(32473, None);
+        formatter.append_report_ts(true);
+
+        let msg = format_args!("payload");
+        let kv = slog::b!("code" => 1u8);
+        let record = Record::new(&RS, &msg, kv);
+        let owned: OwnedKVList = o!("src" => "unit").into();
+        let mut buf = Vec::new();
+        formatter
+            .format_slog(&mut buf, &header, &record, &owned)
+            .unwrap();
+
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.starts_with("<13>1 "));
+        assert!(text.contains(" - test 3 - "));
+        assert!(text.contains("[vey-proxy@32473"));
+        assert!(text.contains(" src=\"unit\""));
+        assert!(text.contains(" code=\"1\""));
+        assert!(text.contains(" report_ts=\""));
+        assert!(text.contains("] payload"));
+    }
 }

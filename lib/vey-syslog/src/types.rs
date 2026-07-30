@@ -81,4 +81,15 @@ mod tests {
         assert_eq!(Severity::Alert as u8, 1);
         assert_eq!(Severity::Debug as u8, 7);
     }
+
+    #[test]
+    fn facility_covers_standard_and_local_range() {
+        assert_eq!(Facility::Auth as u8, 4 << 3);
+        assert_eq!(Facility::Syslog as u8, 5 << 3);
+        assert_eq!(Facility::Cron as u8, 9 << 3);
+        assert_eq!(Facility::Ftp as u8, 11 << 3);
+        assert_eq!(Facility::Local0 as u8, 16 << 3);
+        assert_eq!(Facility::Local3 as u8, 19 << 3);
+        assert_eq!(Facility::Local6 as u8, 22 << 3);
+    }
 }

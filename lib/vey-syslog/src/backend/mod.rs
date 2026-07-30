@@ -150,3 +150,48 @@ impl SyslogBackendBuilder {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{Ipv4Addr, Ipv6Addr};
+
+    #[test]
+    fn udp_backend_builds_and_sends_to_connected_peer() {
+        let server = UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).unwrap();
+        let addr = server.local_addr().unwrap();
+
+        let backend = SyslogBackendBuilder::Udp(Some(IpAddr::V4(Ipv4Addr::LOCALHOST)), addr)
+            .build()
+            .unwrap();
+
+        let n = backend
+            .write_many(&[Bytes::from_static(b"hello-syslog")])
+            .unwrap();
+        assert_eq!(n, 1);
+
+        let mut buf = [0u8; 32];
+        let (nr, _) = server.recv_from(&mut buf).unwrap();
+        assert_eq!(&buf[..nr], b"hello-syslog");
+    }
+
+    #[test]
+    fn udp_backend_default_bind_accepts_ipv6_unspecified() {
+        // Bind an IPv6 localhost socket when available; otherwise skip via dual-stack IPv4.
+        let server = match UdpSocket::bind(SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 0)) {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+        let addr = server.local_addr().unwrap();
+        assert!(SyslogBackendBuilder::Udp(None, addr).build().is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn default_backend_is_unix() {
+        assert!(matches!(
+            SyslogBackendBuilder::default(),
+            SyslogBackendBuilder::Unix(None)
+        ));
+    }
+}

@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::io;
@@ -125,8 +126,17 @@ fn format_content_as_json(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Facility;
+    use slog::{Level, OwnedKVList, Record, RecordLocation, RecordStatic, o};
 
-    use super::SyslogFormatter;
+    fn sample_header() -> SyslogHeader {
+        SyslogHeader {
+            facility: Facility::Daemon,
+            hostname: None,
+            process: "test".into(),
+            pid: 42,
+        }
+    }
 
     #[test]
     fn cee_event_flag_constant() {
@@ -144,5 +154,72 @@ mod tests {
     fn rfc5424_cee_formatter_lifecycle() {
         let mut formatter = FormatterRfc5424Cee::new(Some("MID-1".into()), "@cee:".into());
         formatter.append_report_ts(true);
+    }
+
+    #[test]
+    fn rfc3164_cee_format_slog_emits_json_after_flag() {
+        static LOC: RecordLocation = RecordLocation {
+            file: file!(),
+            line: line!(),
+            column: 0,
+            module: module_path!(),
+            function: "",
+        };
+        static RS: RecordStatic = RecordStatic {
+            location: &LOC,
+            tag: "",
+            level: Level::Info,
+        };
+
+        let formatter = FormatterRfc3164Cee::new("@cee:".into());
+        let msg = format_args!("hello");
+        let kv = slog::b!("n" => 1u8);
+        let record = Record::new(&RS, &msg, kv);
+        let owned: OwnedKVList = o!("src" => "cee").into();
+        let mut buf = Vec::new();
+        formatter
+            .format_slog(&mut buf, &sample_header(), &record, &owned)
+            .unwrap();
+
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.contains("@cee:"));
+        let json = text.rsplit_once("@cee:").unwrap().1;
+        assert!(json.contains("\"msg\":\"hello\""));
+        assert!(json.contains("\"src\":\"cee\""));
+        assert!(json.contains("\"n\":1"));
+    }
+
+    #[test]
+    fn rfc5424_cee_format_slog_emits_json_with_report_ts() {
+        static LOC: RecordLocation = RecordLocation {
+            file: file!(),
+            line: line!(),
+            column: 0,
+            module: module_path!(),
+            function: "",
+        };
+        static RS: RecordStatic = RecordStatic {
+            location: &LOC,
+            tag: "",
+            level: Level::Error,
+        };
+
+        let mut formatter = FormatterRfc5424Cee::new(Some("MID".into()), "@cee:".into());
+        formatter.append_report_ts(true);
+        let msg = format_args!("err");
+        let kv = slog::b!();
+        let record = Record::new(&RS, &msg, kv);
+        let owned: OwnedKVList = o!().into();
+        let mut buf = Vec::new();
+        formatter
+            .format_slog(&mut buf, &sample_header(), &record, &owned)
+            .unwrap();
+
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.contains(" MID "));
+        assert!(text.contains("@cee:"));
+        let json = text.rsplit_once("@cee:").unwrap().1;
+        assert!(json.contains("\"msg\":\"err\""));
+        assert!(json.contains("\"report_ts\":"));
     }
 }
