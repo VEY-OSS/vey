@@ -30,3 +30,26 @@ pub trait LimitedWriteExt: AsyncWrite {
 }
 
 impl<W: AsyncWrite + ?Sized> LimitedWriteExt for W {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::AsyncWriteExt;
+
+    #[tokio::test]
+    async fn write_all_flush_writes_and_flushes() {
+        let mut writer = Vec::new();
+        writer.write_all_flush(b"abcdef").await.unwrap();
+        assert_eq!(writer, b"abcdef");
+    }
+
+    #[tokio::test]
+    async fn write_all_vectored_writes_all_slices() {
+        let mut writer = Vec::new();
+        let bufs = [IoSlice::new(b"ab"), IoSlice::new(b"cd"), IoSlice::new(b"ef")];
+        writer.write_all_vectored(bufs).await.unwrap();
+        // Vec's AsyncWrite may not implement vectored specially; still should complete.
+        writer.flush().await.unwrap();
+        assert_eq!(writer, b"abcdef");
+    }
+}

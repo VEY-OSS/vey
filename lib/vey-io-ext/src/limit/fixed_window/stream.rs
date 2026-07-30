@@ -91,5 +91,23 @@ mod tests {
         limit.set_advance(900);
     }
 
-    // TODO add reset test case
+    #[test]
+    fn reset_starts_new_window_budget() {
+        let mut limit = LocalStreamLimiter::new(10, 100);
+        assert!(limit.is_set());
+        assert_eq!(limit.check(0, 100), StreamLimitAction::AdvanceBy(100));
+        limit.set_advance(100);
+        assert!(matches!(limit.check(1, 1), StreamLimitAction::DelayFor(_)));
+
+        limit.reset(10, 50, 2048);
+        assert_eq!(limit.check(2048, 40), StreamLimitAction::AdvanceBy(40));
+        limit.set_advance(40);
+        assert_eq!(limit.check(2050, 20), StreamLimitAction::AdvanceBy(10));
+    }
+
+    #[test]
+    fn shift_zero_is_disabled() {
+        let limit = LocalStreamLimiter::new(0, 1000);
+        assert!(!limit.is_set());
+    }
 }

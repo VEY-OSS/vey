@@ -97,3 +97,48 @@ impl LimitedUdpRelayConfig {
             .max(self.packet_size as usize * self.batch_count.min(DEFAULT_UDP_RELAY_BATCH_COUNT))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_config_values() {
+        let cfg = LimitedUdpRelayConfig::default();
+        assert_eq!(cfg.packet_size(), DEFAULT_UDP_PACKET_SIZE);
+        assert_eq!(
+            cfg.underlying_buffer_size(),
+            (DEFAULT_UDP_PACKET_SIZE as usize * DEFAULT_UDP_RELAY_BATCH_COUNT)
+                .max(DEFAULT_UDP_UNDERLYING_BUFFER_SIZE)
+        );
+    }
+
+    #[test]
+    fn set_packet_size_clamps_to_valid_range() {
+        let mut cfg = LimitedUdpRelayConfig::default();
+        cfg.set_packet_size(1);
+        assert_eq!(cfg.packet_size(), MINIMUM_UDP_PACKET_SIZE);
+        cfg.set_packet_size(u16::MAX);
+        assert_eq!(cfg.packet_size(), MAXIMUM_UDP_PACKET_SIZE);
+        cfg.set_packet_size(1500);
+        assert_eq!(cfg.packet_size(), 1500);
+    }
+
+    #[test]
+    fn set_yield_count_enforces_minimum() {
+        let mut cfg = LimitedUdpRelayConfig::default();
+        cfg.set_yield_count(1);
+        assert_eq!(cfg.yield_count, MINIMUM_UDP_RELAY_YIELD_COUNT);
+        cfg.set_yield_count(4096);
+        assert_eq!(cfg.yield_count, 4096);
+    }
+
+    #[test]
+    fn underlying_buffer_size_grows_with_packet_and_batch() {
+        let mut cfg = LimitedUdpRelayConfig::default();
+        cfg.set_underlying_buffer_size(0);
+        cfg.set_packet_size(1024);
+        cfg.set_batch_count(4);
+        assert_eq!(cfg.underlying_buffer_size(), 1024 * 4);
+    }
+}

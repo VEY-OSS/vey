@@ -256,4 +256,51 @@ mod tests {
             Err(ProxyProtocolReadError::InvalidSrcAddr)
         ));
     }
+
+    #[test]
+    fn parse_tcp6_line() {
+        let reader = ProxyProtocolV1Reader::new(Duration::from_secs(1));
+        let result = reader
+            .parse_buf(b"PROXY TCP6 2001:db8::1 2001:db8::2 12345 443\r\n")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            result.src_addr,
+            SocketAddr::from_str("[2001:db8::1]:12345").unwrap()
+        );
+        assert_eq!(
+            result.dst_addr,
+            SocketAddr::from_str("[2001:db8::2]:443").unwrap()
+        );
+    }
+
+    #[test]
+    fn parse_rejects_bad_dst_port() {
+        let reader = ProxyProtocolV1Reader::new(Duration::from_secs(1));
+        let result = reader.parse_buf(b"PROXY TCP4 192.168.1.1 10.0.0.1 80 xyz\r\n");
+        assert!(matches!(
+            result,
+            Err(ProxyProtocolReadError::InvalidDstAddr)
+        ));
+    }
+
+    #[test]
+    fn parse_rejects_invalid_src_ip() {
+        let reader = ProxyProtocolV1Reader::new(Duration::from_secs(1));
+        let result = reader.parse_buf(b"PROXY TCP4 not-an-ip 10.0.0.1 80 443\r\n");
+        assert!(matches!(
+            result,
+            Err(ProxyProtocolReadError::InvalidSrcAddr)
+        ));
+    }
+
+    #[test]
+    fn parse_rejects_truncated_fields() {
+        let reader = ProxyProtocolV1Reader::new(Duration::from_secs(1));
+        let result = reader.parse_buf(b"PROXY TCP4 192.168.1.1\r\n");
+        assert!(matches!(
+            result,
+            Err(ProxyProtocolReadError::InvalidDstAddr)
+        ));
+    }
 }

@@ -132,4 +132,16 @@ mod tests {
         limiter.release(100);
         assert_eq!(limiter.check(1000), StreamLimitAction::AdvanceBy(100));
     }
+
+    #[test]
+    fn group_and_delay_when_tokens_exhausted() {
+        let config = GlobalStreamSpeedLimitConfig::per_second(10);
+        let limiter = GlobalStreamLimiter::new(GlobalLimitGroup::User, config);
+        assert!(matches!(limiter.group(), GlobalLimitGroup::User));
+        assert_eq!(limiter.check(10), StreamLimitAction::AdvanceBy(10));
+        assert!(matches!(
+            limiter.check(1),
+            StreamLimitAction::DelayUntil(_)
+        ));
+    }
 }

@@ -159,3 +159,31 @@ impl AsyncUdpRecv for RecvHalf {
         self.0.poll_batch_recvmsg(cx, hdr_v)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::net::UdpSocket;
+
+    #[tokio::test]
+    async fn reunite_same_socket_succeeds() {
+        let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let addr = socket.local_addr().unwrap();
+        let (recv, send) = split(socket);
+        let reunited = send.reunite(recv).unwrap();
+        assert_eq!(reunited.local_addr().unwrap(), addr);
+    }
+
+    #[tokio::test]
+    async fn reunite_different_sockets_fails() {
+        let a = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let b = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let (_ra, sa) = split(a);
+        let (rb, _sb) = split(b);
+        let err = sa.reunite(rb).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "tried to reunite halves that are not from the same socket"
+        );
+    }
+}
