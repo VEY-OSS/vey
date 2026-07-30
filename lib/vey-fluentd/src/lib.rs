@@ -201,3 +201,33 @@ impl AsyncIoThread {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use vey_types::log::LogStats;
+
+    #[test]
+    fn push_to_retry_keeps_and_drops_overflow() {
+        let mut cfg = FluentdClientConfig::default();
+        cfg.set_retry_queue_len(2);
+        let (_sender, receiver) = kanal::bounded::<Vec<u8>>(1);
+        let mut thread = AsyncIoThread {
+            config: Arc::new(cfg),
+            receiver: receiver.clone_async(),
+            stats: Arc::new(LogStats::default()),
+            retry_queue: VecDeque::new(),
+        };
+
+        assert!(thread.push_to_retry(vec![1]).is_none());
+        assert!(thread.push_to_retry(vec![2]).is_none());
+        assert_eq!(thread.retry_queue.len(), 2);
+
+        let dropped = thread.push_to_retry(vec![3]).unwrap();
+        assert_eq!(dropped, vec![1]);
+        assert_eq!(thread.retry_queue.len(), 2);
+        assert_eq!(thread.retry_queue[0], vec![2]);
+        assert_eq!(thread.retry_queue[1], vec![3]);
+    }
+}

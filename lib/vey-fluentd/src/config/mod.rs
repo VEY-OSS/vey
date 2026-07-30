@@ -5,6 +5,7 @@
  */
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
@@ -289,5 +290,268 @@ impl FluentdClientConfig {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::handshake::{PongMsgRef, parse_helo};
+    use openssl::md::Md;
+    use openssl::md_ctx::MdCtx;
+    use std::net::{Ipv4Addr, SocketAddr};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
+
+    fn sha512_hex(parts: &[&[u8]]) -> String {
+        let mut md = MdCtx::new().unwrap();
+        md.digest_init(Md::sha512()).unwrap();
+        for part in parts {
+            md.digest_update(part).unwrap();
+        }
+        let mut hash = [0u8; FLUENTD_HASH_SIZE];
+        md.digest_final(&mut hash).unwrap();
+        hex::encode(hash)
+    }
+
+    #[test]
+    fn defaults_and_setters() {
+        let mut cfg = FluentdClientConfig::default();
+        assert_eq!(
+            cfg.server_addr,
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), FLUENTD_DEFAULT_PORT)
+        );
+        assert_eq!(cfg.connect_timeout, Duration::from_secs(10));
+        assert_eq!(cfg.connect_delay, Duration::from_secs(10));
+        assert_eq!(cfg.write_timeout, Duration::from_secs(1));
+        assert_eq!(cfg.flush_interval, Duration::from_millis(100));
+        assert_eq!(cfg.retry_queue_len, 10);
+        assert!(cfg.shared_key.is_empty());
+        assert!(cfg.tls_client.is_none());
+
+        cfg.set_server_addr("10.0.0.1:24225".parse().unwrap());
+        cfg.set_bind_ip("127.0.0.1".parse().unwrap());
+        cfg.set_shared_key("sk".into());
+        cfg.set_username("u".into());
+        cfg.set_password("p".into());
+        cfg.set_hostname("host".into());
+        cfg.set_connect_timeout(Duration::from_secs(3));
+        cfg.set_connect_delay(Duration::from_secs(4));
+        cfg.set_write_timeout(Duration::from_millis(250));
+        cfg.set_flush_interval(Duration::from_millis(50));
+        cfg.set_retry_queue_len(7);
+        cfg.set_tls_name(Host::from_str("example.com").unwrap());
+
+        assert_eq!(cfg.server_addr, "10.0.0.1:24225".parse().unwrap());
+        assert_eq!(cfg.bind.ip().unwrap().to_string(), "127.0.0.1");
+        assert_eq!(cfg.shared_key, "sk");
+        assert_eq!(cfg.username, "u");
+        assert_eq!(cfg.password, "p");
+        assert_eq!(cfg.hostname, "host");
+        assert_eq!(cfg.connect_timeout, Duration::from_secs(3));
+        assert_eq!(cfg.connect_delay, Duration::from_secs(4));
+        assert_eq!(cfg.write_timeout, Duration::from_millis(250));
+        assert_eq!(cfg.flush_interval, Duration::from_millis(50));
+        assert_eq!(cfg.retry_queue_len, 7);
+        assert!(cfg.tls_name.is_some());
+    }
+
+    #[tokio::test]
+    async fn handshake_skipped_without_shared_key() {
+        let cfg = FluentdClientConfig::default();
+        let (client, _server) = duplex(64);
+        cfg.handshake(client).await.unwrap();
+    }
+
+    #[test]
+    fn build_ping_and_verify_pong_roundtrip() {
+        let mut cfg = FluentdClientConfig::default();
+        cfg.set_shared_key("secret".into());
+        cfg.set_hostname("client-host".into());
+        cfg.set_username("alice".into());
+        cfg.set_password("pw".into());
+
+        let helo = parse_helo(&[
+            0x92, 0xa4, b'H', b'E', b'L', b'O', 0x82, 0xa5, b'n', b'o', b'n', b'c', b'e', 0xab,
+            b'n', b'o', b'n', b'c', b'e', b'-', b'b', b'y', b't', b'e', b's', 0xa4, b'a', b'u',
+            b't', b'h', 0xaa, b's', b'a', b'l', b't', b'-', b'b', b'y', b't', b'e', b's',
+        ])
+        .unwrap();
+        assert_eq!(helo.nonce, b"nonce-bytes");
+        assert_eq!(helo.auth_salt, b"salt-bytes");
+        let shared_key_salt = b"0123456789abcdef";
+        let ping = cfg.build_ping(&helo, shared_key_salt).unwrap();
+
+        // PING is ["PING", hostname, salt, shared_key_digest, username, password_digest]
+        let mut bytes = rmp::decode::Bytes::new(&ping);
+        assert_eq!(rmp::decode::read_array_len(&mut bytes).unwrap(), 6);
+        let (msg_type, rest) = rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+        assert_eq!(msg_type, "PING");
+        bytes = rmp::decode::Bytes::new(rest);
+        let (hostname, rest) = rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+        assert_eq!(hostname, "client-host");
+        bytes = rmp::decode::Bytes::new(rest);
+        let salt_len = rmp::decode::read_bin_len(&mut bytes).unwrap() as usize;
+        assert_eq!(&bytes.remaining_slice()[..salt_len], shared_key_salt);
+        bytes = rmp::decode::Bytes::new(&bytes.remaining_slice()[salt_len..]);
+        let (client_digest, rest) =
+            rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+        assert_eq!(
+            client_digest,
+            sha512_hex(&[shared_key_salt, b"client-host", b"nonce-bytes", b"secret"])
+        );
+        bytes = rmp::decode::Bytes::new(rest);
+        let (username, rest) = rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+        assert_eq!(username, "alice");
+        bytes = rmp::decode::Bytes::new(rest);
+        let (password_digest, _) =
+            rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+        assert_eq!(
+            password_digest,
+            sha512_hex(&[b"salt-bytes", b"alice", b"pw"])
+        );
+
+        let server_hostname = "fluentd.example";
+        let shared_key_digest = sha512_hex(&[
+            shared_key_salt,
+            server_hostname.as_bytes(),
+            b"nonce-bytes",
+            b"secret",
+        ]);
+        let pong = PongMsgRef {
+            auth_result: true,
+            reason: "",
+            server_hostname,
+            shared_key_digest: &shared_key_digest,
+        };
+        cfg.verify_pong(pong, shared_key_salt, b"nonce-bytes")
+            .unwrap();
+    }
+
+    #[test]
+    fn verify_pong_rejects_auth_failure_and_digest_mismatch() {
+        let mut cfg = FluentdClientConfig::default();
+        cfg.set_shared_key("secret".into());
+
+        let failed = PongMsgRef {
+            auth_result: false,
+            reason: "bad key",
+            server_hostname: "s",
+            shared_key_digest: "",
+        };
+        assert!(
+            cfg.verify_pong(failed, b"salt", b"nonce")
+                .unwrap_err()
+                .to_string()
+                .contains("server auth failed")
+        );
+
+        let bad_hex = PongMsgRef {
+            auth_result: true,
+            reason: "",
+            server_hostname: "s",
+            shared_key_digest: "zz",
+        };
+        assert!(
+            cfg.verify_pong(bad_hex, b"salt", b"nonce")
+                .unwrap_err()
+                .to_string()
+                .contains("invalid shared_key_hex_digest")
+        );
+
+        let mismatch = PongMsgRef {
+            auth_result: true,
+            reason: "",
+            server_hostname: "s",
+            shared_key_digest: &"ab".repeat(64),
+        };
+        assert!(
+            cfg.verify_pong(mismatch, b"salt", b"nonce")
+                .unwrap_err()
+                .to_string()
+                .contains("mismatch")
+        );
+    }
+
+    #[test]
+    fn build_ping_omits_user_digest_when_nonce_empty() {
+        let mut cfg = FluentdClientConfig::default();
+        cfg.set_shared_key("secret".into());
+        cfg.set_hostname("h".into());
+        cfg.set_username("alice".into());
+        cfg.set_password("pw".into());
+
+        let helo = parse_helo(&[0x92, 0xa4, b'H', b'E', b'L', b'O', 0x80]).unwrap();
+        assert_eq!(helo.nonce, b"");
+        let ping = cfg.build_ping(&helo, b"salt0123456789ab").unwrap();
+        let mut bytes = rmp::decode::Bytes::new(&ping);
+        assert_eq!(rmp::decode::read_array_len(&mut bytes).unwrap(), 6);
+        let (_, rest) = rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+        bytes = rmp::decode::Bytes::new(rest);
+        let (_, rest) = rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+        bytes = rmp::decode::Bytes::new(rest);
+        let salt_len = rmp::decode::read_bin_len(&mut bytes).unwrap() as usize;
+        bytes = rmp::decode::Bytes::new(&bytes.remaining_slice()[salt_len..]);
+        let (_, rest) = rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+        bytes = rmp::decode::Bytes::new(rest);
+        let (username, rest) = rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+        assert_eq!(username, "");
+        bytes = rmp::decode::Bytes::new(rest);
+        let (password_digest, _) =
+            rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+        assert_eq!(password_digest, "");
+    }
+
+    #[tokio::test]
+    async fn handshake_roundtrip_with_shared_key() {
+        let mut cfg = FluentdClientConfig::default();
+        cfg.set_shared_key("secret".into());
+        cfg.set_hostname("client-host".into());
+        cfg.set_username("alice".into());
+        cfg.set_password("pw".into());
+
+        let (client, mut server) = duplex(4096);
+        let server_task = tokio::spawn(async move {
+            // HELO with string nonce/auth
+            let helo: &[u8] = &[
+                0x92, 0xa4, b'H', b'E', b'L', b'O', 0x82, 0xa5, b'n', b'o', b'n', b'c', b'e', 0xa5,
+                b'n', b'o', b'n', b'c', b'e', 0xa4, b'a', b'u', b't', b'h', 0xa4, b's', b'a', b'l',
+                b't',
+            ];
+            assert_eq!(parse_helo(helo).unwrap().nonce, b"nonce");
+            server.write_all(helo).await.unwrap();
+
+            let mut buf = vec![0u8; 2048];
+            let n = server.read(&mut buf).await.unwrap();
+            let ping = &buf[..n];
+
+            let mut bytes = rmp::decode::Bytes::new(ping);
+            assert_eq!(rmp::decode::read_array_len(&mut bytes).unwrap(), 6);
+            let (_, rest) = rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+            bytes = rmp::decode::Bytes::new(rest);
+            let (_, rest) = rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+            bytes = rmp::decode::Bytes::new(rest);
+            let salt_len = rmp::decode::read_bin_len(&mut bytes).unwrap() as usize;
+            let shared_key_salt = bytes.remaining_slice()[..salt_len].to_vec();
+
+            let server_hostname = "fluentd";
+            let digest = sha512_hex(&[
+                shared_key_salt.as_slice(),
+                server_hostname.as_bytes(),
+                b"nonce",
+                b"secret",
+            ]);
+
+            let mut pong = Vec::new();
+            rmp::encode::write_array_len(&mut pong, 5).unwrap();
+            rmp::encode::write_str(&mut pong, "PONG").unwrap();
+            rmp::encode::write_bool(&mut pong, true).unwrap();
+            rmp::encode::write_str(&mut pong, "").unwrap();
+            rmp::encode::write_str(&mut pong, server_hostname).unwrap();
+            rmp::encode::write_str(&mut pong, &digest).unwrap();
+            server.write_all(&pong).await.unwrap();
+        });
+
+        cfg.handshake(client).await.unwrap();
+        server_task.await.unwrap();
     }
 }

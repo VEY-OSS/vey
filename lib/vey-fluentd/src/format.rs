@@ -196,6 +196,7 @@ impl Serializer for FormatterKv<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use slog::{OwnedKVList, Record, RecordLocation, RecordStatic, Serializer, b, o};
 
     #[test]
     fn emit_u64_writes_key_and_value() {
@@ -221,5 +222,115 @@ mod tests {
         fmt.emit_str("msg".into(), "hello").unwrap();
         assert!(buf.windows(3).any(|w| w == b"msg"));
         assert!(buf.windows(5).any(|w| w == b"hello"));
+    }
+
+    #[test]
+    fn emit_scalar_types() {
+        let mut buf = Vec::new();
+        let mut fmt = FormatterKv(&mut buf);
+        fmt.emit_bool("ok".into(), true).unwrap();
+        fmt.emit_i64("neg".into(), -7).unwrap();
+        fmt.emit_f64("pi".into(), 3.5).unwrap();
+        fmt.emit_char("ch".into(), 'Z').unwrap();
+        assert!(buf.windows(2).any(|w| w == b"ok"));
+        assert!(buf.windows(3).any(|w| w == b"neg"));
+        assert!(buf.windows(2).any(|w| w == b"pi"));
+        assert!(buf.windows(2).any(|w| w == b"ch"));
+        assert!(buf.windows(1).any(|w| w == b"Z"));
+        assert!(buf.contains(&0xc3)); // true
+    }
+
+    #[test]
+    fn emit_arguments_static_and_formatted() {
+        let mut buf = Vec::new();
+        let mut fmt = FormatterKv(&mut buf);
+        fmt.emit_arguments("static".into(), &format_args!("plain"))
+            .unwrap();
+        fmt.emit_arguments("fmt".into(), &format_args!("n={}", 9))
+            .unwrap();
+        assert!(buf.windows(5).any(|w| w == b"plain"));
+        assert!(buf.windows(3).any(|w| w == b"n=9"));
+    }
+
+    #[test]
+    fn counter_kv_counts_emits() {
+        let mut counter = CounterKV(0);
+        counter
+            .emit_arguments("a".into(), &format_args!("1"))
+            .unwrap();
+        counter
+            .emit_arguments("b".into(), &format_args!("2"))
+            .unwrap();
+        assert_eq!(counter.0, 2);
+    }
+
+    #[test]
+    fn format_slog_encodes_fluent_forward_shape() {
+        static LOC: RecordLocation = RecordLocation {
+            file: file!(),
+            line: line!(),
+            column: 0,
+            module: module_path!(),
+            function: "",
+        };
+        static RS: RecordStatic = RecordStatic {
+            location: &LOC,
+            tag: "",
+            level: slog::Level::Info,
+        };
+
+        let fmt = FluentdFormatter::new("vey.app".to_owned());
+        let msg = format_args!("hello {}", "world");
+        let kv = b!("count" => 3u64);
+        let record = Record::new(&RS, &msg, kv);
+        let owned: OwnedKVList = o!("host" => "local").into();
+        let buf = fmt.format_slog(&record, &owned).unwrap();
+
+        let mut bytes = rmp::decode::Bytes::new(&buf);
+        assert_eq!(rmp::decode::read_array_len(&mut bytes).unwrap(), 3);
+
+        let (tag, rest) = rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+        assert_eq!(tag, "vey.app");
+        bytes = rmp::decode::Bytes::new(rest);
+
+        let ext = rmp::decode::read_ext_meta(&mut bytes).unwrap();
+        assert_eq!(ext.typeid, 0);
+        assert_eq!(ext.size, 8);
+        let rem = bytes.remaining_slice();
+        bytes = rmp::decode::Bytes::new(&rem[8..]);
+
+        let map_len = rmp::decode::read_map_len(&mut bytes).unwrap();
+        assert_eq!(map_len, 3); // host + count + msg
+
+        let mut saw_msg = false;
+        let mut saw_host = false;
+        let mut saw_count = false;
+        for _ in 0..map_len {
+            let (key, rest) = rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+            bytes = rmp::decode::Bytes::new(rest);
+            match key {
+                "msg" => {
+                    let (value, rest) =
+                        rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+                    assert_eq!(value, "hello world");
+                    bytes = rmp::decode::Bytes::new(rest);
+                    saw_msg = true;
+                }
+                "host" => {
+                    let (value, rest) =
+                        rmp::decode::read_str_from_slice(bytes.remaining_slice()).unwrap();
+                    assert_eq!(value, "local");
+                    bytes = rmp::decode::Bytes::new(rest);
+                    saw_host = true;
+                }
+                "count" => {
+                    let value = rmp::decode::read_int::<u64, _>(&mut bytes).unwrap();
+                    assert_eq!(value, 3);
+                    saw_count = true;
+                }
+                other => panic!("unexpected key {other}"),
+            }
+        }
+        assert!(saw_msg && saw_host && saw_count);
     }
 }

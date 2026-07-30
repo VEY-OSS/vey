@@ -239,6 +239,32 @@ mod tests {
             0x92, 0xa4, b'H', b'E', b'L', b'O', 0x81, 0xa4, b'a', b'u', b't', b'h', 0x01,
         ];
         assert!(parse_helo(buf).is_err());
+
+        let buf: &[u8] = &[
+            0x92, 0xa4, b'H', b'E', b'L', b'O', 0x81, 0xa9, b'k', b'e', b'e', b'p', b'a', b'l',
+            b'i', b'v', b'e', 0xa4, b't', b'r', b'u', b'e',
+        ];
+        assert!(parse_helo(buf).is_err());
+    }
+
+    #[test]
+    fn parse_helo_empty_options_defaults() {
+        let buf: &[u8] = &[0x92, 0xa4, b'H', b'E', b'L', b'O', 0x80];
+        let helo = parse_helo(buf).unwrap();
+        assert_eq!(helo.nonce, b"");
+        assert_eq!(helo.auth_salt, b"");
+        assert!(helo.keepalive);
+    }
+
+    #[test]
+    fn parse_helo_empty_bin_nonce() {
+        let buf: &[u8] = &[
+            0x92, 0xa4, b'H', b'E', b'L', b'O', 0x81, 0xa5, b'n', b'o', b'n', b'c', b'e', 0xc4,
+            0x00,
+        ];
+        let helo = parse_helo(buf).unwrap();
+        assert_eq!(helo.nonce, b"");
+        assert!(helo.keepalive);
     }
 
     #[test]
