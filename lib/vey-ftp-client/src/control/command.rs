@@ -112,3 +112,38 @@ where
         self.send_all().await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::FtpControlConfig;
+    use tokio::io::{AsyncReadExt, duplex};
+
+    #[test]
+    fn command_display() {
+        assert_eq!(FtpCommand::FEAT.to_string(), "FEAT");
+        assert_eq!(FtpCommand::OPTS_UTF8_ON.to_string(), "OPTS UTF8 ON");
+        assert_eq!(FtpCommand::TYPE_I.to_string(), "TYPE I");
+    }
+
+    #[tokio::test]
+    async fn send_cmd_and_cmd1() {
+        let (client, mut server) = duplex(256);
+        let mut channel = FtpControlChannel::new(client, FtpControlConfig::default());
+
+        channel.send_cmd(FtpCommand::FEAT).await.unwrap();
+        channel
+            .send_cmd1(FtpCommand::USER, "anonymous")
+            .await
+            .unwrap();
+        channel
+            .send_pre_transfer_cmd1(FtpCommand::RETR, "/a")
+            .await
+            .unwrap();
+
+        let mut buf = vec![0u8; 128];
+        let n = server.read(&mut buf).await.unwrap();
+        let sent = std::str::from_utf8(&buf[..n]).unwrap();
+        assert_eq!(sent, "FEAT\r\nUSER anonymous\r\nPRET RETR /a\r\n");
+    }
+}

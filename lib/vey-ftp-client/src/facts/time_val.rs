@@ -37,4 +37,12 @@ mod tests {
         let expected = DateTime::parse_from_rfc3339("2021-12-01T10:20:30.123+00:00").unwrap();
         assert_eq!(dt, expected.with_timezone(&Utc));
     }
+
+    #[test]
+    fn parse_rejects_invalid() {
+        assert!(parse_from_str("").is_err());
+        assert!(parse_from_str("2021").is_err());
+        assert!(parse_from_str("not-a-timestamp").is_err());
+        assert!(parse_from_str("20211301102030").is_err());
+    }
 }

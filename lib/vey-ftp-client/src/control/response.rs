@@ -310,13 +310,38 @@ mod tests {
         assert_eq!(rsp.code(), 220);
         assert_eq!(rsp.line_trimmed(), Some("Service ready"));
         assert!(rsp.lines().is_none());
+
+        let rsp = FtpRawResponse::parse_single_line("213  42  ").unwrap();
+        assert_eq!(rsp.code(), 213);
+        assert_eq!(rsp.line_trimmed(), Some("42"));
     }
 
     #[test]
     fn parse_code_bytes_rejects_out_of_range() {
-        assert!(FtpRawResponse::parse_code_bytes(b'0', b'0', b'0').is_err());
-        assert!(FtpRawResponse::parse_code_bytes(b'6', b'0', b'0').is_err());
-        assert!(FtpRawResponse::parse_code_bytes(b'2', b'2', b'0').is_ok());
+        assert!(matches!(
+            FtpRawResponse::parse_code_bytes(b'0', b'0', b'0'),
+            Err(FtpRawResponseError::InvalidReplyCode(0))
+        ));
+        assert!(matches!(
+            FtpRawResponse::parse_code_bytes(b'6', b'0', b'0'),
+            Err(FtpRawResponseError::InvalidReplyCode(600))
+        ));
+        assert!(matches!(
+            FtpRawResponse::parse_code_bytes(b'a', b'2', b'0'),
+            Err(FtpRawResponseError::InvalidLineFormat)
+        ));
+        assert_eq!(
+            FtpRawResponse::parse_code_bytes(b'1', b'0', b'0').unwrap(),
+            100
+        );
+        assert_eq!(
+            FtpRawResponse::parse_code_bytes(b'5', b'9', b'9').unwrap(),
+            599
+        );
+        assert_eq!(
+            FtpRawResponse::parse_code_bytes(b'2', b'2', b'0').unwrap(),
+            220
+        );
     }
 
     #[test]
@@ -332,6 +357,24 @@ mod tests {
     }
 
     #[test]
+    fn parse_pasv_227_rejects_malformed() {
+        let no_parens = FtpRawResponse::parse_single_line("227 Entering Passive Mode").unwrap();
+        assert!(no_parens.parse_pasv_227_reply().is_none());
+
+        let wrong_count =
+            FtpRawResponse::parse_single_line("227 Entering Passive Mode (1,2,3,4,5)").unwrap();
+        assert!(wrong_count.parse_pasv_227_reply().is_none());
+
+        let non_numeric =
+            FtpRawResponse::parse_single_line("227 Entering Passive Mode (a,b,c,d,e,f)").unwrap();
+        assert!(non_numeric.parse_pasv_227_reply().is_none());
+
+        let mut parser = FtpRawResponse::get_multi_line_parser("227-Entering", 4).unwrap();
+        assert!(parser.feed_line("227 Done").unwrap());
+        assert!(parser.finish().parse_pasv_227_reply().is_none());
+    }
+
+    #[test]
     fn parse_epsv_229_reply() {
         let rsp =
             FtpRawResponse::parse_single_line("229 Entering Extended Passive Mode (|||6446|)")
@@ -340,9 +383,34 @@ mod tests {
     }
 
     #[test]
+    fn parse_epsv_229_rejects_malformed() {
+        let wrong_delim =
+            FtpRawResponse::parse_single_line("229 Entering Extended Passive Mode (|1|2|3|)")
+                .unwrap();
+        assert!(wrong_delim.parse_epsv_229_reply().is_none());
+
+        let empty_port =
+            FtpRawResponse::parse_single_line("229 Entering Extended Passive Mode (||||)").unwrap();
+        assert!(empty_port.parse_epsv_229_reply().is_none());
+
+        let missing_close =
+            FtpRawResponse::parse_single_line("229 Entering Extended Passive Mode (|||6446")
+                .unwrap();
+        assert!(missing_close.parse_epsv_229_reply().is_none());
+
+        let non_numeric =
+            FtpRawResponse::parse_single_line("229 Entering Extended Passive Mode (|||abc|)")
+                .unwrap();
+        assert!(non_numeric.parse_epsv_229_reply().is_none());
+    }
+
+    #[test]
     fn parse_spsv_227_reply() {
         let rsp = FtpRawResponse::parse_single_line("227 (abc123)").unwrap();
         assert_eq!(rsp.parse_spsv_227_reply(), Some("abc123".to_owned()));
+
+        let no_parens = FtpRawResponse::parse_single_line("227 no identifier").unwrap();
+        assert!(no_parens.parse_spsv_227_reply().is_none());
     }
 
     #[test]
@@ -356,6 +424,8 @@ mod tests {
         let lines = rsp.lines().unwrap();
         assert_eq!(lines.len(), 4);
         assert_eq!(lines[0], "Features:");
+        assert_eq!(lines[1], " UTF8");
         assert_eq!(lines[3], "End");
+        assert!(rsp.line_trimmed().is_none());
     }
 }

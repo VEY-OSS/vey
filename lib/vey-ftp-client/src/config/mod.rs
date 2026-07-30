@@ -72,3 +72,30 @@ impl FtpTransferConfig {
         self.list_all_timeout = timeout.min(MAXIMUM_LIST_ALL_TIMEOUT);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults() {
+        let cfg = FtpClientConfig::default();
+        assert_eq!(cfg.connect_timeout, Duration::from_secs(30));
+        assert_eq!(cfg.greeting_timeout, Duration::from_secs(10));
+        assert!(cfg.always_try_epsv);
+        assert_eq!(cfg.control.max_line_len, 2048);
+        assert_eq!(cfg.control.max_multi_lines, 128);
+        assert_eq!(cfg.transfer.list_max_entries, 1024);
+        assert_eq!(cfg.transfer.list_max_line_len, 2048);
+    }
+
+    #[test]
+    fn list_all_timeout_is_clamped() {
+        let mut transfer = FtpTransferConfig::default();
+        transfer.set_list_all_timeout(Duration::from_secs(60));
+        assert_eq!(transfer.list_all_timeout, Duration::from_secs(60));
+
+        transfer.set_list_all_timeout(Duration::from_secs(10_000));
+        assert_eq!(transfer.list_all_timeout, MAXIMUM_LIST_ALL_TIMEOUT);
+    }
+}

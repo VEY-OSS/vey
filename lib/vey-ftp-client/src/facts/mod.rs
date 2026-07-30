@@ -135,6 +135,79 @@ mod tests {
     fn parse_line() {
         let ff = FtpFileFacts::parse_line("type=pdir;sizd=4096;modify=20210525083610;UNIX.mode=0755;UNIX.uid=0;UNIX.gid=0;unique=804g2; /").unwrap();
         assert_eq!(ff.entry_type, FtpFileEntryType::ParentDir);
+        assert_eq!(ff.entry_path(), "/");
         assert!(ff.size.is_none());
+        assert!(!ff.maybe_file());
+    }
+
+    #[test]
+    fn parse_line_with_common_facts() {
+        let ff = FtpFileFacts::parse_line(
+            "type=file;size=1024;modify=20211201102030;create=20211101000000;media-type=text/plain; /docs/readme.txt",
+        )
+        .unwrap();
+        assert_eq!(ff.entry_type(), &FtpFileEntryType::File);
+        assert_eq!(ff.entry_path(), "/docs/readme.txt");
+        assert_eq!(ff.size(), Some(1024));
+        assert!(ff.maybe_file());
+        assert_eq!(
+            ff.mtime().unwrap().to_rfc3339(),
+            "2021-12-01T10:20:30+00:00"
+        );
+        assert_eq!(
+            ff.create_time.as_ref().unwrap().to_rfc3339(),
+            "2021-11-01T00:00:00+00:00"
+        );
+        assert_eq!(ff.media_type().unwrap().essence_str(), "text/plain");
+    }
+
+    #[test]
+    fn parse_line_skips_empty_facts_and_unknown_keys() {
+        let ff = FtpFileFacts::parse_line("type=file;;perm=r; /a").unwrap();
+        assert_eq!(ff.entry_type(), &FtpFileEntryType::File);
+        assert_eq!(ff.entry_path(), "/a");
+        assert!(ff.size().is_none());
+    }
+
+    #[test]
+    fn parse_line_ignores_invalid_media_type() {
+        let ff = FtpFileFacts::parse_line("type=file;media-type=@@@; /a").unwrap();
+        assert!(ff.media_type().is_none());
+    }
+
+    #[test]
+    fn parse_line_errors() {
+        assert!(matches!(
+            FtpFileFacts::parse_line("nospace"),
+            Err(FtpFileFactsParseError::NoSpaceDelimiter)
+        ));
+        assert!(matches!(
+            FtpFileFacts::parse_line("typefile; /a"),
+            Err(FtpFileFactsParseError::NoDelimiterInFact(_))
+        ));
+        assert!(matches!(
+            FtpFileFacts::parse_line("size=abc; /a"),
+            Err(FtpFileFactsParseError::InvalidSize)
+        ));
+        assert!(matches!(
+            FtpFileFacts::parse_line("modify=not-a-time; /a"),
+            Err(FtpFileFactsParseError::InvalidModifyTime(_))
+        ));
+        assert!(matches!(
+            FtpFileFacts::parse_line("create=not-a-time; /a"),
+            Err(FtpFileFactsParseError::InvalidCreateTime(_))
+        ));
+    }
+
+    #[test]
+    fn set_size_and_mtime() {
+        let mut ff = FtpFileFacts::new("/tmp/x");
+        assert_eq!(ff.entry_path(), "/tmp/x");
+        assert!(ff.maybe_file());
+        ff.set_size(9);
+        assert_eq!(ff.size(), Some(9));
+        let dt = time_val::parse_from_str("20211201102030").unwrap();
+        ff.set_mtime(dt);
+        assert_eq!(ff.mtime().unwrap(), &dt);
     }
 }

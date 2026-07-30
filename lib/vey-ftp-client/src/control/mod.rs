@@ -624,3 +624,91 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::FtpControlConfig;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
+
+    async fn pump_reply(server: &mut (impl AsyncWrite + Unpin), reply: &str) {
+        server.write_all(reply.as_bytes()).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn wait_greetings_accepts_220() {
+        let (client, mut server) = duplex(256);
+        let mut channel = FtpControlChannel::new(client, FtpControlConfig::default());
+        pump_reply(&mut server, "220 Service ready.\r\n").await;
+        channel.wait_greetings().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn wait_greetings_skips_120_then_accepts_220() {
+        let (client, mut server) = duplex(256);
+        let mut channel = FtpControlChannel::new(client, FtpControlConfig::default());
+        pump_reply(
+            &mut server,
+            "120 Service ready in n minutes.\r\n220 Service ready.\r\n",
+        )
+        .await;
+        channel.wait_greetings().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn wait_greetings_rejects_421() {
+        let (client, mut server) = duplex(256);
+        let mut channel = FtpControlChannel::new(client, FtpControlConfig::default());
+        pump_reply(&mut server, "421 Service not available.\r\n").await;
+        let err = channel.wait_greetings().await.unwrap_err();
+        assert!(matches!(err, FtpCommandError::ServiceNotAvailable));
+    }
+
+    #[tokio::test]
+    async fn check_server_feature_parses_feat_list() {
+        let (client, mut server) = duplex(1024);
+        let mut channel = FtpControlChannel::new(client, FtpControlConfig::default());
+
+        let reader = tokio::spawn(async move {
+            let mut buf = vec![0u8; 64];
+            let n = server.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"FEAT\r\n");
+            server
+                .write_all(b"211-Features:\r\n UTF8\r\n SIZE\r\n REST STREAM\r\n211 End\r\n")
+                .await
+                .unwrap();
+            server
+        });
+
+        let feat = channel.check_server_feature().await.unwrap();
+        assert!(feat.support_utf8_path());
+        assert!(feat.support_file_size());
+        assert!(feat.support_rest_stream());
+        reader.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn read_raw_response_single_and_multiline() {
+        let (client, mut server) = duplex(1024);
+        let mut channel = FtpControlChannel::new(client, FtpControlConfig::default());
+
+        pump_reply(&mut server, "200 Command okay.\r\n").await;
+        let rsp = channel.read_raw_response().await.unwrap();
+        assert_eq!(rsp.code(), 200);
+        assert_eq!(rsp.line_trimmed(), Some("Command okay."));
+
+        pump_reply(&mut server, "211-Features:\r\n SIZE\r\n211 End\r\n").await;
+        let rsp = channel.read_raw_response().await.unwrap();
+        assert_eq!(rsp.code(), 211);
+        assert_eq!(rsp.lines().unwrap().len(), 3);
+    }
+
+    #[tokio::test]
+    async fn read_raw_response_rejects_short_line() {
+        let (client, mut server) = duplex(64);
+        let mut channel = FtpControlChannel::new(client, FtpControlConfig::default());
+        pump_reply(&mut server, "22\r\n").await;
+        let err = channel.read_raw_response().await.unwrap_err();
+        assert!(matches!(err, FtpRawResponseError::InvalidLineFormat));
+    }
+}

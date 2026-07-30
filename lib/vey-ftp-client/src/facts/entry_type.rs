@@ -89,14 +89,16 @@ mod tests {
     }
 
     #[test]
-    fn display_roundtrip() {
-        for t in [
-            FtpFileEntryType::File,
-            FtpFileEntryType::Directory,
-            FtpFileEntryType::CurrentDir,
-            FtpFileEntryType::ParentDir,
-        ] {
-            assert_eq!(format!("{t}"), t.as_str());
-        }
+    fn is_dir_and_unknown() {
+        assert!(FtpFileEntryType::Directory.is_dir());
+        assert!(FtpFileEntryType::CurrentDir.is_dir());
+        assert!(FtpFileEntryType::ParentDir.is_dir());
+        assert!(!FtpFileEntryType::File.is_dir());
+        assert!(!FtpFileEntryType::Unknown.is_dir());
+
+        assert_eq!(FtpFileEntryType::Unknown.as_str(), "unknown");
+        assert!(FtpFileEntryType::Unknown.maybe_file());
+        assert!(FtpFileEntryType::File.maybe_file());
+        assert!(!FtpFileEntryType::Directory.maybe_file());
     }
 }

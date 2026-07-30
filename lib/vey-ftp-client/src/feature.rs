@@ -113,4 +113,34 @@ mod tests {
         feat.parse_and_set("REST stream");
         assert!(feat.support_rest_stream());
     }
+
+    #[test]
+    fn feature_names_are_case_insensitive() {
+        let mut feat = FtpServerFeature::default();
+        feat.parse_and_set("utf8");
+        feat.parse_and_set("Size");
+        feat.parse_and_set("mDtM");
+        feat.parse_and_set("MLST type*;size*;");
+        feat.parse_and_set("EpSv");
+        assert!(feat.support_utf8_path());
+        assert!(feat.support_file_size());
+        assert!(feat.support_file_mtime());
+        assert!(feat.support_machine_list());
+        assert!(feat.support_epsv());
+        assert!(!feat.support_spsv());
+        assert!(!feat.support_pre_transfer());
+    }
+
+    #[test]
+    fn default_has_no_features() {
+        let feat = FtpServerFeature::default();
+        assert!(!feat.support_utf8_path());
+        assert!(!feat.support_file_size());
+        assert!(!feat.support_file_mtime());
+        assert!(!feat.support_rest_stream());
+        assert!(!feat.support_pre_transfer());
+        assert!(!feat.support_machine_list());
+        assert!(!feat.support_epsv());
+        assert!(!feat.support_spsv());
+    }
 }
