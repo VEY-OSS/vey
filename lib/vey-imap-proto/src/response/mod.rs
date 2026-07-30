@@ -317,52 +317,309 @@ fn check_literal_size(left: &[u8]) -> Result<Option<u64>, ResponseLineError> {
 mod tests {
     use super::*;
 
+    fn parse(line: &[u8]) -> Response {
+        Response::parse_line(line).unwrap()
+    }
+
+    fn command_data(line: &[u8]) -> UntaggedResponse {
+        let Response::CommandData(r) = parse(line) else {
+            panic!("expected command data for {line:?}")
+        };
+        r
+    }
+
+    fn server_status(line: &[u8]) -> ServerStatus {
+        let Response::ServerStatus(status) = parse(line) else {
+            panic!("expected server status for {line:?}")
+        };
+        status
+    }
+
+    fn tagged(line: &[u8]) -> TaggedResponse {
+        let Response::CommandResult(r) = parse(line) else {
+            panic!("expected tagged response for {line:?}")
+        };
+        r
+    }
+
     #[test]
     fn bye() {
-        let rsp = Response::parse_line(b"* BYE Autologout; idle for too long\r\n").unwrap();
-        let Response::ServerStatus(status) = rsp else {
-            panic!("parse failed")
-        };
-        assert_eq!(status, ServerStatus::Close);
+        assert_eq!(
+            server_status(b"* BYE Autologout; idle for too long\r\n"),
+            ServerStatus::Close
+        );
     }
 
     #[test]
     fn capability() {
-        let rsp = Response::parse_line(
+        let r = command_data(
             b"* CAPABILITY STARTTLS AUTH=GSSAPI IMAP4rev2 LOGINDISABLED XPIG-LATIN\r\n",
-        )
-        .unwrap();
-        let Response::CommandData(r) = rsp else {
-            panic!("parse failed")
-        };
+        );
         assert_eq!(r.command_data, CommandData::Capability);
         assert!(r.literal_data.is_none());
     }
 
     #[test]
     fn exists() {
-        let rsp = Response::parse_line(b"* 23 EXISTS\r\n").unwrap();
-        let Response::CommandData(r) = rsp else {
-            panic!("parse failed")
-        };
+        let r = command_data(b"* 23 EXISTS\r\n");
         assert_eq!(r.command_data, CommandData::Other);
         assert!(r.literal_data.is_none());
     }
 
     #[test]
     fn fetch() {
-        let rsp = Response::parse_line(b"* 12 FETCH (BODY[HEADER] {342}\r\n").unwrap();
-        let Response::CommandData(r) = rsp else {
-            panic!("parse failed")
-        };
+        let r = command_data(b"* 12 FETCH (BODY[HEADER] {342}\r\n");
         assert_eq!(r.command_data, CommandData::Fetch);
         assert_eq!(r.literal_data, Some(342));
 
-        let rsp = Response::parse_line(b"* 12 FETCH (BODY[HEADER] {342+}\r\n").unwrap();
-        let Response::CommandData(r) = rsp else {
-            panic!("parse failed")
-        };
+        let r = command_data(b"* 12 FETCH (BODY[HEADER] {342+}\r\n");
         assert_eq!(r.command_data, CommandData::Fetch);
         assert_eq!(r.literal_data, Some(342));
+
+        let r = command_data(b"* 12 FETCH (FLAGS (\\Seen))\r\n");
+        assert_eq!(r.command_data, CommandData::Fetch);
+        assert!(r.literal_data.is_none());
+    }
+
+    #[test]
+    fn tagged_results() {
+        let r = tagged(b"A001 OK CAPABILITY completed\r\n");
+        assert_eq!(r.tag.as_str(), "A001");
+        assert_eq!(r.result, CommandResult::Success);
+
+        let r = tagged(b"A002 NO login failed\r\n");
+        assert_eq!(r.result, CommandResult::Fail);
+
+        let r = tagged(b"A003 BAD Command unknown\r\n");
+        assert_eq!(r.result, CommandResult::ProtocolError);
+
+        let r = tagged(b"a004 ok done\r\n");
+        assert_eq!(r.tag.as_str(), "a004");
+        assert_eq!(r.result, CommandResult::Success);
+    }
+
+    #[test]
+    fn continuation_request() {
+        assert!(matches!(
+            parse(b"+ Ready for literal data\r\n"),
+            Response::ContinuationRequest
+        ));
+        assert!(matches!(parse(b"+ \r\n"), Response::ContinuationRequest));
+    }
+
+    #[test]
+    fn server_status_variants() {
+        assert_eq!(
+            server_status(b"* OK IMAP4rev1 Service Ready\r\n"),
+            ServerStatus::Information
+        );
+        assert_eq!(
+            server_status(b"* NO [ALERT] System too busy\r\n"),
+            ServerStatus::Warning
+        );
+        assert_eq!(
+            server_status(b"* BAD Command line too long\r\n"),
+            ServerStatus::Error
+        );
+        assert_eq!(
+            server_status(b"* PREAUTH welcome\r\n"),
+            ServerStatus::Authenticated
+        );
+        assert_eq!(
+            server_status(b"* bye shutting down\r\n"),
+            ServerStatus::Close
+        );
+    }
+
+    #[test]
+    fn untagged_command_data() {
+        assert_eq!(
+            command_data(b"* ENABLED CONDSTORE\r\n").command_data,
+            CommandData::Enabled
+        );
+        assert_eq!(
+            command_data(b"* ID (\"name\" \"demo\")\r\n").command_data,
+            CommandData::Id
+        );
+        assert_eq!(
+            command_data(b"* LIST (\\Noselect) \"/\" \"\"\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* LSUB () \"/\" INBOX\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* NAMESPACE NIL NIL NIL\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* STATUS INBOX (MESSAGES 231)\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* SEARCH 2 84 882\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* SEARCH\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* ESEARCH (TAG \"A001\") ALL 1:3\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* FLAGS (\\Answered \\Flagged \\Deleted)\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* SORT 2 84 882\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* THREAD (2)(3 6 (4 23)(44 7 96))\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* LANGUAGE (EN)\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* COMPARATOR \"i;unicode-casemap\"\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* VANISHED 300:399\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* QUOTA \"\" (STORAGE 10 512)\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* QUOTAROOT INBOX \"\"\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* ACL INBOX user lrswipkxtecdan\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* LISTRIGHTS INBOX user l r s\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* MYRIGHTS INBOX lrswipkxtecdan\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* CONVERSION image/jpeg image/png\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* CONVERTED image/jpeg image/png\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* METADATA INBOX (/shared/comment \"Hi\")\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* GENURLAUTH imap://x\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* URLFETCH imap://x\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* 1 EXPUNGE\r\n").command_data,
+            CommandData::Other
+        );
+        assert_eq!(
+            command_data(b"* 23 RECENT\r\n").command_data,
+            CommandData::Other
+        );
+    }
+
+    #[test]
+    fn parse_continue_line_updates_literal() {
+        let mut r = command_data(b"* 12 FETCH (BODY[HEADER] {10}\r\n");
+        assert_eq!(r.literal_data, Some(10));
+
+        r.parse_continue_line(b"{20+}\r\n").unwrap();
+        assert_eq!(r.literal_data, Some(20));
+
+        r.parse_continue_line(b"\r\n").unwrap();
+        assert!(r.literal_data.is_none());
+    }
+
+    #[test]
+    fn malformed_lines_rejected() {
+        assert!(matches!(
+            Response::parse_line(b"* BYE done"),
+            Err(ResponseLineError::NoTrailingSequence)
+        ));
+        assert!(matches!(
+            Response::parse_line(b"OK done\r\n"),
+            Err(ResponseLineError::NoResultField)
+        ));
+        assert!(matches!(
+            Response::parse_line(b" A001 OK done\r\n"),
+            Err(ResponseLineError::NotTagPrefixed)
+        ));
+        assert!(matches!(
+            Response::parse_line(b"A001\r\n"),
+            Err(ResponseLineError::NotTagPrefixed)
+        ));
+        assert!(matches!(
+            Response::parse_line(b"A001 DONE completed\r\n"),
+            Err(ResponseLineError::InvalidTaggedResult)
+        ));
+        assert!(matches!(
+            Response::parse_line(b"A001 OK\r\n"),
+            Err(ResponseLineError::NoResultField)
+        ));
+        assert!(matches!(
+            Response::parse_line(b"* UNKNOWN stuff\r\n"),
+            Err(ResponseLineError::UnknownUntaggedResult)
+        ));
+        assert!(matches!(
+            Response::parse_line(b"* 12 UNKNOWN\r\n"),
+            Err(ResponseLineError::UnknownUntaggedResult)
+        ));
+        assert!(matches!(
+            Response::parse_line(b"* FOO\r\n"),
+            Err(ResponseLineError::UnknownUntaggedResult)
+        ));
+    }
+
+    #[test]
+    fn invalid_literal_in_fetch_rejected() {
+        assert!(matches!(
+            Response::parse_line(b"* 12 FETCH (BODY[HEADER] {}\r\n"),
+            Err(ResponseLineError::InvalidLiteralSize)
+        ));
+        assert!(matches!(
+            Response::parse_line(b"* 12 FETCH (BODY[HEADER] {abc}\r\n"),
+            Err(ResponseLineError::InvalidLiteralSize)
+        ));
+        assert!(matches!(
+            Response::parse_line(b"* 12 FETCH (BODY[HEADER] {12x}\r\n"),
+            Err(ResponseLineError::InvalidLiteralSize)
+        ));
+    }
+
+    #[test]
+    fn invalid_utf8_rejected() {
+        assert!(matches!(
+            Response::parse_line(b"A\xff01 OK done\r\n"),
+            Err(ResponseLineError::InvalidUtf8Response(_))
+        ));
+        assert!(matches!(
+            Response::parse_line(b"* CAPABILIT\xff X\r\n"),
+            Err(ResponseLineError::InvalidUtf8Response(_))
+        ));
     }
 }

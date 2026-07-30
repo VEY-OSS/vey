@@ -14,3 +14,6 @@ ahash.workspace = true
 log.workspace = true
 tokio = { workspace = true, features = ["io-util"] }
 vey-io-ext.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "io-util", "rt"] }

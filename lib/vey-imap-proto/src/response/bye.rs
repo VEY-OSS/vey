@@ -41,3 +41,28 @@ impl ByeResponse {
     impl_method!(reply_upstream_io_error, BYE_UPSTREAM_IO_ERROR);
     impl_method!(reply_client_protocol_error, BYE_CLIENT_PROTOCOL_ERROR);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn bye_replies() {
+        macro_rules! assert_reply {
+            ($method:ident, $expected:expr) => {{
+                let mut buf = Vec::new();
+                ByeResponse::$method(&mut buf).await.unwrap();
+                assert_eq!(std::str::from_utf8(&buf).unwrap(), $expected);
+            }};
+        }
+
+        assert_reply!(reply_blocked, BYE_BLOCKED);
+        assert_reply!(reply_idle_logout, BYE_AUTO_LOGOUT);
+        assert_reply!(reply_server_quit, BYE_SERVER_QUIT);
+        assert_reply!(reply_internal_error, BYE_INTERNAL_ERROR);
+        assert_reply!(reply_upstream_timeout, BYE_UPSTREAM_TIMEOUT);
+        assert_reply!(reply_upstream_protocol_error, BYE_UPSTREAM_PROTOCOL_ERROR);
+        assert_reply!(reply_upstream_io_error, BYE_UPSTREAM_IO_ERROR);
+        assert_reply!(reply_client_protocol_error, BYE_CLIENT_PROTOCOL_ERROR);
+    }
+}

@@ -100,12 +100,61 @@ mod tests {
     }
 
     #[test]
+    fn default_and_capacity() {
+        let mut pipeline = CommandPipeline::default();
+        assert!(pipeline.ongoing_command().is_none());
+        assert!(pipeline.ongoing_response().is_none());
+
+        let mut pipeline = CommandPipeline::with_capacity(4);
+        assert!(pipeline.take_ongoing_command().is_none());
+        assert!(pipeline.take_ongoing_response().is_none());
+    }
+
+    #[test]
     fn insert_and_remove_completed() {
         let mut pipeline = CommandPipeline::new();
         let old = pipeline.insert_completed(tagged_command("A001"));
         assert!(old.is_none());
         assert!(pipeline.remove(&SmolStr::from("A001")).is_some());
         assert!(pipeline.remove(&SmolStr::from("A001")).is_none());
+    }
+
+    #[test]
+    fn insert_completed_replaces_existing() {
+        let mut pipeline = CommandPipeline::new();
+        pipeline.insert_completed(Command {
+            tag: SmolStr::from("A001"),
+            parsed: ParsedCommand::NoOperation,
+            literal_arg: None,
+        });
+        let old = pipeline.insert_completed(Command {
+            tag: SmolStr::from("A001"),
+            parsed: ParsedCommand::Logout,
+            literal_arg: None,
+        });
+        assert_eq!(old.unwrap().parsed, ParsedCommand::NoOperation);
+        assert_eq!(
+            pipeline.remove(&SmolStr::from("A001")).unwrap().parsed,
+            ParsedCommand::Logout
+        );
+    }
+
+    #[test]
+    fn remove_prefers_completed_over_ongoing() {
+        let mut pipeline = CommandPipeline::new();
+        pipeline.insert_completed(tagged_command("A001"));
+        pipeline.set_ongoing_command(Command {
+            tag: SmolStr::from("A001"),
+            parsed: ParsedCommand::Logout,
+            literal_arg: None,
+        });
+
+        let removed = pipeline.remove(&SmolStr::from("A001")).unwrap();
+        assert_eq!(removed.parsed, ParsedCommand::NoOperation);
+        assert_eq!(
+            pipeline.ongoing_command().unwrap().parsed,
+            ParsedCommand::Logout
+        );
     }
 
     #[test]
@@ -117,6 +166,20 @@ mod tests {
         pipeline.set_ongoing_command(tagged_command("B003"));
         assert!(pipeline.remove(&SmolStr::from("B002")).is_none());
         assert!(pipeline.ongoing_command().is_some());
+    }
+
+    #[test]
+    fn ongoing_command_lifecycle() {
+        let mut pipeline = CommandPipeline::new();
+        assert!(pipeline.ongoing_command().is_none());
+
+        pipeline.set_ongoing_command(tagged_command("C001"));
+        assert_eq!(pipeline.ongoing_command().unwrap().tag.as_str(), "C001");
+        assert_eq!(
+            pipeline.take_ongoing_command().unwrap().tag.as_str(),
+            "C001"
+        );
+        assert!(pipeline.take_ongoing_command().is_none());
     }
 
     #[test]
