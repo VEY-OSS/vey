@@ -208,8 +208,8 @@ Encapsulated: null-body=0\r\n\
             .await
             .unwrap();
         let headers = rsp.take_shared_headers();
-        assert!(headers.contains_key(&HeaderName::from_static("x-virus-id")));
-        assert!(!headers.contains_key(&HeaderName::from_static("x-ignored")));
+        assert!(headers.contains_key(HeaderName::from_static("x-virus-id")));
+        assert!(!headers.contains_key(HeaderName::from_static("x-ignored")));
     }
 
     #[tokio::test]

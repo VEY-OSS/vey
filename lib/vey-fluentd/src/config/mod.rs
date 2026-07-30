@@ -5,7 +5,6 @@
  */
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
@@ -300,6 +299,7 @@ mod tests {
     use openssl::md::Md;
     use openssl::md_ctx::MdCtx;
     use std::net::{Ipv4Addr, SocketAddr};
+    use std::str::FromStr;
     use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 
     fn sha512_hex(parts: &[&[u8]]) -> String {
