@@ -405,14 +405,7 @@ mod tests {
         let dt = datetime.with_timezone(&Utc);
 
         let mut buffer = Vec::new();
-        format_rfc5424_header(
-            &mut buffer,
-            &lh,
-            Level::Error,
-            &dt,
-            &Some("MSGID".into()),
-        )
-        .unwrap();
+        format_rfc5424_header(&mut buffer, &lh, Level::Error, &dt, &Some("MSGID".into())).unwrap();
 
         assert_eq!(
             String::from_utf8(buffer).unwrap(),

@@ -141,4 +141,61 @@ mod tests {
         cfg.set_batch_count(4);
         assert_eq!(cfg.underlying_buffer_size(), 1024 * 4);
     }
+
+    #[test]
+    fn underlying_buffer_size_caps_the_batch_used_as_floor() {
+        let mut cfg = LimitedUdpRelayConfig::default();
+        cfg.set_underlying_buffer_size(0);
+        cfg.set_packet_size(1024);
+        cfg.set_batch_count(1024);
+        assert_eq!(
+            cfg.underlying_buffer_size(),
+            1024 * DEFAULT_UDP_RELAY_BATCH_COUNT
+        );
+    }
+
+    #[test]
+    fn underlying_buffer_size_keeps_the_larger_explicit_value() {
+        let mut cfg = LimitedUdpRelayConfig::default();
+        cfg.set_packet_size(MINIMUM_UDP_PACKET_SIZE);
+        cfg.set_batch_count(1);
+        cfg.set_underlying_buffer_size(1 << 20);
+        assert_eq!(cfg.underlying_buffer_size(), 1 << 20);
+    }
+
+    #[test]
+    fn underlying_buffer_size_with_zero_batch_falls_back_to_explicit_value() {
+        let mut cfg = LimitedUdpRelayConfig::default();
+        cfg.set_batch_count(0);
+        cfg.set_underlying_buffer_size(64);
+        assert_eq!(cfg.underlying_buffer_size(), 64);
+    }
+
+    #[test]
+    fn set_packet_size_accepts_the_exact_bounds() {
+        let mut cfg = LimitedUdpRelayConfig::default();
+        cfg.set_packet_size(MINIMUM_UDP_PACKET_SIZE);
+        assert_eq!(cfg.packet_size(), MINIMUM_UDP_PACKET_SIZE);
+        cfg.set_packet_size(MAXIMUM_UDP_PACKET_SIZE);
+        assert_eq!(cfg.packet_size(), MAXIMUM_UDP_PACKET_SIZE);
+    }
+
+    #[test]
+    fn set_yield_count_accepts_the_exact_minimum() {
+        let mut cfg = LimitedUdpRelayConfig::default();
+        cfg.set_yield_count(MINIMUM_UDP_RELAY_YIELD_COUNT);
+        assert_eq!(cfg.yield_count, MINIMUM_UDP_RELAY_YIELD_COUNT);
+        cfg.set_yield_count(0);
+        assert_eq!(cfg.yield_count, MINIMUM_UDP_RELAY_YIELD_COUNT);
+    }
+
+    #[test]
+    fn config_copy_keeps_the_source_unchanged() {
+        let mut cfg = LimitedUdpRelayConfig::default();
+        cfg.set_packet_size(1200);
+        let copied = cfg;
+        cfg.set_packet_size(1300);
+        assert_eq!(copied.packet_size(), 1200);
+        assert_ne!(copied, cfg);
+    }
 }

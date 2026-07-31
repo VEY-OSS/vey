@@ -337,3 +337,257 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::VecDeque;
+    use std::io;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::task::Waker;
+
+    use super::*;
+    use crate::LimitedRecvStats;
+
+    #[derive(Default)]
+    struct TestStats {
+        packets: AtomicUsize,
+        bytes: AtomicUsize,
+    }
+
+    impl TestStats {
+        fn packets(&self) -> usize {
+            self.packets.load(Ordering::Relaxed)
+        }
+
+        fn bytes(&self) -> usize {
+            self.bytes.load(Ordering::Relaxed)
+        }
+    }
+
+    impl LimitedRecvStats for TestStats {
+        fn add_recv_bytes(&self, size: usize) {
+            self.bytes.fetch_add(size, Ordering::Relaxed);
+        }
+
+        fn add_recv_packets(&self, n: usize) {
+            self.packets.fetch_add(n, Ordering::Relaxed);
+        }
+    }
+
+    enum Step {
+        /// a payload placed after 4 reserved header bytes
+        Packet(&'static [u8]),
+        Eof,
+        Pending,
+        Error,
+    }
+
+    struct MockRecv {
+        steps: VecDeque<Step>,
+        calls: usize,
+    }
+
+    impl MockRecv {
+        fn new<I: IntoIterator<Item = Step>>(steps: I) -> Self {
+            MockRecv {
+                steps: steps.into_iter().collect(),
+                calls: 0,
+            }
+        }
+    }
+
+    impl UdpCopyClientRecv for MockRecv {
+        fn max_hdr_len(&self) -> usize {
+            4
+        }
+
+        fn poll_recv_buf(
+            &mut self,
+            _cx: &mut Context<'_>,
+            buf: &mut [u8],
+        ) -> Poll<Result<(usize, usize), UdpCopyClientError>> {
+            self.calls += 1;
+            if matches!(self.steps.front(), Some(Step::Eof)) {
+                return Poll::Ready(Ok((0, 0)));
+            }
+            match self.steps.pop_front() {
+                Some(Step::Packet(data)) => {
+                    buf[4..4 + data.len()].copy_from_slice(data);
+                    Poll::Ready(Ok((4, 4 + data.len())))
+                }
+                Some(Step::Eof) => unreachable!("handled above"),
+                Some(Step::Error) => Poll::Ready(Err(UdpCopyClientError::RecvFailed(
+                    io::Error::other("mock recv failed"),
+                ))),
+                Some(Step::Pending) | None => Poll::Pending,
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn the_unlimited_wrapper_counts_only_the_payload() {
+        let stats = Arc::new(TestStats::default());
+        let mut recv = LimitedUdpCopyClientRecv::unlimited(
+            MockRecv::new([Step::Packet(b"hello")]),
+            stats.clone(),
+        );
+        assert_eq!(recv.max_hdr_len(), 4);
+
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut packet = UdpCopyPacket::new(recv.max_hdr_len(), 512);
+        assert!(matches!(
+            recv.poll_recv_packet(&mut cx, &mut packet),
+            Poll::Ready(Ok(()))
+        ));
+        assert_eq!(packet.payload(), b"hello");
+        assert_eq!(stats.packets(), 1);
+        assert_eq!(stats.bytes(), 5);
+    }
+
+    #[tokio::test]
+    async fn an_empty_packet_is_not_counted() {
+        let stats = Arc::new(TestStats::default());
+        let mut recv =
+            LimitedUdpCopyClientRecv::unlimited(MockRecv::new([Step::Eof]), stats.clone());
+
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut packet = UdpCopyPacket::new(4, 512);
+        assert!(matches!(
+            recv.poll_recv_packet(&mut cx, &mut packet),
+            Poll::Ready(Ok(()))
+        ));
+        assert!(packet.payload().is_empty());
+        assert_eq!(stats.packets(), 0);
+        assert_eq!(stats.bytes(), 0);
+    }
+
+    #[tokio::test]
+    async fn a_limited_recv_delays_once_the_packet_quota_is_used() {
+        let stats = Arc::new(TestStats::default());
+        let mut recv = LimitedUdpCopyClientRecv::local_limited(
+            MockRecv::new([Step::Packet(b"first"), Step::Packet(b"second")]),
+            10,
+            1,
+            0,
+            stats.clone(),
+        );
+
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut packet = UdpCopyPacket::new(4, 512);
+        assert!(recv.poll_recv_packet(&mut cx, &mut packet).is_ready());
+        assert!(recv.poll_recv_packet(&mut cx, &mut packet).is_pending());
+        assert_eq!(recv.inner().calls, 1);
+        assert_eq!(stats.packets(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_pending_socket_is_forwarded() {
+        let stats = Arc::new(TestStats::default());
+        let mut recv =
+            LimitedUdpCopyClientRecv::unlimited(MockRecv::new([Step::Pending]), stats.clone());
+
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut packet = UdpCopyPacket::new(4, 512);
+        assert!(recv.poll_recv_packet(&mut cx, &mut packet).is_pending());
+        assert_eq!(stats.packets(), 0);
+    }
+
+    #[tokio::test]
+    async fn a_recv_error_is_forwarded() {
+        let stats = Arc::new(TestStats::default());
+        let mut recv =
+            LimitedUdpCopyClientRecv::unlimited(MockRecv::new([Step::Error]), stats.clone());
+
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut packet = UdpCopyPacket::new(4, 512);
+        let e = match recv.poll_recv_packet(&mut cx, &mut packet) {
+            Poll::Ready(r) => r.unwrap_err(),
+            Poll::Pending => panic!("unexpected pending"),
+        };
+        assert!(e.to_string().starts_with("recv failed"));
+        assert_eq!(stats.packets(), 0);
+    }
+
+    #[tokio::test]
+    async fn reset_stats_switches_the_counter() {
+        let first = Arc::new(TestStats::default());
+        let second = Arc::new(TestStats::default());
+        let mut recv = LimitedUdpCopyClientRecv::unlimited(
+            MockRecv::new([Step::Packet(b"one"), Step::Packet(b"two")]),
+            first.clone(),
+        );
+
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut packet = UdpCopyPacket::new(4, 512);
+        assert!(recv.poll_recv_packet(&mut cx, &mut packet).is_ready());
+        recv.reset_stats(second.clone());
+        assert!(recv.poll_recv_packet(&mut cx, &mut packet).is_ready());
+
+        assert_eq!(first.packets(), 1);
+        assert_eq!(second.packets(), 1);
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    #[tokio::test]
+    async fn the_default_batch_recv_stops_at_an_empty_packet() {
+        let mut recv = MockRecv::new([Step::Packet(b"aa"), Step::Packet(b"bbb"), Step::Eof]);
+        let mut packets = vec![UdpCopyPacket::new(4, 512); 4];
+
+        let mut cx = Context::from_waker(Waker::noop());
+        let count = match recv.poll_recv_packets(&mut cx, &mut packets) {
+            Poll::Ready(r) => r.unwrap(),
+            Poll::Pending => panic!("unexpected pending"),
+        };
+        assert_eq!(count, 2);
+        assert_eq!(packets[0].payload(), b"aa");
+        assert_eq!(packets[1].payload(), b"bbb");
+        assert!(packets[2].payload().is_empty());
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    #[tokio::test]
+    async fn a_limited_batch_recv_trims_the_batch_to_the_quota() {
+        let stats = Arc::new(TestStats::default());
+        let mut recv = LimitedUdpCopyClientRecv::local_limited(
+            MockRecv::new([
+                Step::Packet(b"aa"),
+                Step::Packet(b"bb"),
+                Step::Packet(b"cc"),
+            ]),
+            10,
+            2,
+            0,
+            stats.clone(),
+        );
+
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut packets = vec![UdpCopyPacket::new(4, 512); 3];
+        let count = match recv.poll_recv_packets(&mut cx, &mut packets) {
+            Poll::Ready(r) => r.unwrap(),
+            Poll::Pending => panic!("unexpected pending"),
+        };
+        assert_eq!(count, 2);
+        assert_eq!(recv.inner().calls, 2);
+        assert_eq!(stats.packets(), 2);
+        assert_eq!(stats.bytes(), 4);
+
+        assert!(recv.poll_recv_packets(&mut cx, &mut packets).is_pending());
+        assert_eq!(recv.inner().calls, 2);
+    }
+}

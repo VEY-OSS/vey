@@ -120,3 +120,75 @@ impl UdpCopyPacketMeta {
         p.set_length(iov_advance + self.data_len);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn packet_with_payload(reserved: usize, payload: &[u8]) -> UdpCopyPacket {
+        let mut packet = UdpCopyPacket::new(reserved, 512);
+        packet.buf_mut()[reserved..reserved + payload.len()].copy_from_slice(payload);
+        packet.set_offset(reserved);
+        packet.set_length(reserved + payload.len());
+        packet
+    }
+
+    #[test]
+    fn a_new_packet_reserves_room_for_the_header() {
+        let packet = UdpCopyPacket::new(8, 512);
+        assert_eq!(packet.buf_len(), 520);
+        assert_eq!(packet.buf().len(), 520);
+        assert!(packet.payload().is_empty());
+        assert_eq!(packet.payload_len(), 0);
+    }
+
+    #[test]
+    fn payload_covers_only_the_data_range() {
+        let packet = packet_with_payload(4, b"payload");
+        assert_eq!(packet.payload(), b"payload");
+        assert_eq!(packet.payload_len(), 7);
+        assert_eq!(packet.as_payload(), b"payload");
+    }
+
+    #[test]
+    fn into_payload_drops_the_header_and_the_tail() {
+        let packet = packet_with_payload(4, b"payload");
+        let payload = packet.into_payload();
+        assert_eq!(payload.as_ref(), b"payload");
+        assert_eq!(payload.as_payload(), b"payload");
+    }
+
+    #[test]
+    fn into_payload_of_an_untouched_packet_is_empty() {
+        let packet = UdpCopyPacket::new(4, 512);
+        assert!(packet.into_payload().is_empty());
+    }
+
+    #[test]
+    fn a_cloned_packet_keeps_its_own_buffer() {
+        let packet = packet_with_payload(4, b"first");
+        let mut clone = packet.clone();
+        clone.buf_mut()[4..9].copy_from_slice(b"other");
+
+        assert_eq!(packet.payload(), b"first");
+        assert_eq!(clone.payload(), b"other");
+    }
+
+    #[test]
+    fn packet_meta_offsets_are_relative_to_the_packet_buffer() {
+        let mut packet = UdpCopyPacket::new(8, 512);
+        packet.buf_mut()[8..16].copy_from_slice(b"hdrHELLO");
+
+        let meta = {
+            // the iov starts 8 bytes into the packet buffer, and the payload starts
+            // 3 bytes into the iov
+            let (_, tail) = packet.buf_mut().split_at_mut(8);
+            let iov = IoSliceMut::new(tail);
+            UdpCopyPacketMeta::new(&iov, 3, 8)
+        };
+        meta.set_packet(&mut packet);
+
+        assert_eq!(packet.payload(), b"HELLO");
+        assert_eq!(packet.payload_len(), 5);
+    }
+}

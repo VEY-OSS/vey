@@ -46,7 +46,11 @@ mod tests {
     #[tokio::test]
     async fn write_all_vectored_writes_all_slices() {
         let mut writer = Vec::new();
-        let bufs = [IoSlice::new(b"ab"), IoSlice::new(b"cd"), IoSlice::new(b"ef")];
+        let bufs = [
+            IoSlice::new(b"ab"),
+            IoSlice::new(b"cd"),
+            IoSlice::new(b"ef"),
+        ];
         writer.write_all_vectored(bufs).await.unwrap();
         // Vec's AsyncWrite may not implement vectored specially; still should complete.
         writer.flush().await.unwrap();
