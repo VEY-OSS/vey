@@ -1,10 +1,10 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -13,8 +13,8 @@ use tokio::sync::Mutex;
 
 use vey_types::metrics::NodeName;
 
-use super::{KeyServer, registry};
-use crate::config::server::KeyServerConfig;
+use super::{ArcKeyServer, registry};
+use crate::config::server::{AnyKeyServerConfig, KeyServerConfigDiffAction};
 
 static SERVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
@@ -58,7 +58,7 @@ pub async fn spawn_all() -> anyhow::Result<()> {
         match registry::get_config(name) {
             Some(old) => {
                 debug!("reloading server {name}");
-                reload_old_unlocked(old.as_ref(), config.as_ref().clone())?;
+                reload_old_unlocked(&old, config.as_ref().clone())?;
                 debug!("server {name} reload OK");
             }
             None => {
@@ -83,38 +83,44 @@ pub async fn spawn_all() -> anyhow::Result<()> {
 pub async fn stop_all() {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
-    registry::foreach_online(|_name, server| {
-        server.abort_runtime();
-        registry::add_offline(Arc::clone(server));
-    });
+    registry::move_all_offline();
 }
 
-pub(crate) fn get_server(name: &NodeName) -> anyhow::Result<Arc<KeyServer>> {
+pub(crate) fn get_server(name: &NodeName) -> anyhow::Result<ArcKeyServer> {
     match registry::get_server(name) {
         Some(server) => Ok(server),
         None => Err(anyhow!("no server named {name} found")),
     }
 }
 
-fn reload_old_unlocked(old: &KeyServerConfig, new: KeyServerConfig) -> anyhow::Result<()> {
-    let name = old.name();
-    debug!("server {name} reload: will respawn with old stats");
-    registry::reload_and_respawn(name, new)
+fn reload_old_unlocked(old: &AnyKeyServerConfig, new: AnyKeyServerConfig) -> anyhow::Result<()> {
+    let name = old.name().clone();
+    match old.diff_action(&new) {
+        KeyServerConfigDiffAction::NoAction => {
+            debug!("server {name} reload: no action is needed");
+            Ok(())
+        }
+        KeyServerConfigDiffAction::SpawnNew => {
+            debug!("server {name} reload: will create a new server");
+            spawn_new_unlocked(new)
+        }
+        KeyServerConfigDiffAction::ReloadAndRespawn => {
+            debug!("server {name} reload: will respawn with old stats");
+            registry::reload_and_respawn(&name, new)
+        }
+    }
 }
 
-// use async fn to allow tokio schedule
-fn spawn_new_unlocked(config: KeyServerConfig) -> anyhow::Result<()> {
+fn spawn_new_unlocked(config: AnyKeyServerConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
-    let server = KeyServer::prepare_initial(config)?;
-    registry::add(name, Arc::new(server))?;
-    Ok(())
+    let server = super::new_server(config)?;
+    registry::add(name, server)
 }
 
-// use async fn to allow tokio schedule
-fn spawn_new_lazy_unlocked(config: KeyServerConfig) -> anyhow::Result<()> {
+fn spawn_new_lazy_unlocked(config: AnyKeyServerConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
-    let server = KeyServer::prepare_initial(config)?;
-    registry::add_lazy(name, Arc::new(server));
+    let server = super::new_server(config)?;
+    registry::add_lazy(name, server);
     Ok(())
 }
 

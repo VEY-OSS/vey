@@ -6,7 +6,6 @@
 
 use std::rc::Rc;
 use std::str::FromStr;
-use std::sync::Arc;
 
 use anyhow::anyhow;
 
@@ -15,10 +14,10 @@ use vey_types::metrics::{MetricTagName, MetricTagValue, NodeName};
 use vey_keyless_proto::server_capnp::server_control;
 
 use super::set_operation_result;
-use crate::serve::KeyServer;
+use crate::serve::ArcKeyServer;
 
 pub(super) struct ServerControlImpl {
-    server: Arc<KeyServer>,
+    server: ArcKeyServer,
 }
 
 impl ServerControlImpl {
@@ -45,11 +44,21 @@ impl server_control::Server for ServerControlImpl {
         _params: server_control::StatusParams,
         mut results: server_control::StatusResults,
     ) -> capnp::Result<()> {
-        let stats = self.server.get_server_stats();
         let mut builder = results.get().init_status();
-        builder.set_online(stats.is_online());
-        builder.set_alive_task_count(stats.get_alive_count());
-        builder.set_total_task_count(stats.get_task_total());
+        match self.server.get_server_stats() {
+            Some(stats) => {
+                builder.set_online(stats.is_online());
+                builder.set_alive_task_count(stats.get_alive_count());
+                builder.set_total_task_count(stats.get_task_total());
+            }
+            None => {
+                // port servers do not track key operation tasks
+                let stats = self.server.get_listen_stats();
+                builder.set_online(stats.is_running());
+                builder.set_alive_task_count(0);
+                builder.set_total_task_count(stats.accepted());
+            }
+        }
         Ok(())
     }
 
@@ -71,7 +80,11 @@ impl server_control::Server for ServerControlImpl {
         _params: server_control::GetListenAddrParams,
         mut results: server_control::GetListenAddrResults,
     ) -> capnp::Result<()> {
-        let addr = self.server.listen_addr().to_string();
+        let addr = self
+            .server
+            .listen_addr()
+            .map(|addr| addr.to_string())
+            .unwrap_or_default();
         results.get().set_addr(addr.as_str());
         Ok(())
     }

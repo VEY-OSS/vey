@@ -13,6 +13,8 @@ with hardware acceleration, and keep private-key access under tighter control.
 At a high level, `vey-keyless` provides:
 
 - a network service that accepts keyless requests from front-end TLS systems
+- pluggable server types, so listening sockets can be chained in front of the
+  key operation protocol
 - pluggable private-key stores
 - backend execution modes for local OpenSSL or OpenSSL async jobs
 - structured logging and StatsD-compatible metrics
@@ -22,7 +24,9 @@ At a high level, `vey-keyless` provides:
 The main configuration areas are:
 
 - `server`
-  Accepts incoming keyless protocol requests.
+  Accepts incoming connections. A server either speaks a key operation protocol
+  (`keyless_cf`) or only owns a listening socket and forwards every accepted
+  connection to a next server (`plain_tcp_port`, `plain_tls_port`).
 
 - `store`
   Defines where private keys are loaded from.
@@ -86,6 +90,13 @@ You can choose different TLS/crypto libraries with feature flags:
 - vendored-tongsuo
 
   Use Tongsuo.
+
+The `plain_tls_port` server uses rustls, whose crypto provider is selected with
+one of these mutually exclusive feature flags:
+
+- rustls-ring (default)
+- rustls-aws-lc
+- rustls-aws-lc-fips
 
 ### Hardware Acceleration
 

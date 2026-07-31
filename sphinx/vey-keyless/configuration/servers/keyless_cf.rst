@@ -1,43 +1,34 @@
-.. _configuration_server:
+.. _configuration_server_keyless_cf:
 
-******
-server
-******
+keyless_cf
+==========
 
-The following keys are supported in a single keyless server:
-The following keys are supported in a single keyless server definition:
+This server speaks the Cloudflare Keyless protocol and runs the private key
+operations.
 
-name
-----
+It is the default server type, so ``type`` may be omitted.
 
-**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
+**alias**: cloudflare_keyless \| keyless
 
-Server name.
+The following common keys are supported:
 
-shared_logger
--------------
-
-**optional**, **type**: ascii
-
-Makes this server use a logger running on a shared thread.
-
-**default**: not set
-
-extra_metrics_tags
-------------------
-
-**optional**, **type**: :external+values:ref:`static metrics tags <conf_value_static_metrics_tags>`
-
-Extra metric tags added to server statistics.
-
-**default**: not set
+* :ref:`shared_logger <conf_server_common_shared_logger>`
+* :ref:`extra_metrics_tags <conf_server_common_extra_metrics_tags>`
 
 listen
 ------
 
-**required**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
+**optional**, **type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
 
 Listen configuration for this server.
+
+If not set, this server has no listening socket of its own and only serves the
+connections sent by a port server, such as
+:ref:`plain_tls_port <configuration_server_plain_tls_port>`.
+
+**default**: not set
+
+.. versionchanged:: 0.6.0 became optional
 
 tls_server
 ----------
@@ -45,6 +36,12 @@ tls_server
 **optional**, **type**: :external+values:ref:`openssl server config <conf_value_openssl_server_config>`
 
 Enable TLS on the listening socket and configure TLS parameters.
+
+This uses OpenSSL. To terminate TLS with rustls instead, put a
+:ref:`plain_tls_port <configuration_server_plain_tls_port>` server in front of
+this one.
+
+This requires ``listen`` to be set.
 
 **default**: disabled
 

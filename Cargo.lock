@@ -3234,11 +3234,12 @@ dependencies = [
 
 [[package]]
 name = "vey-keyless"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "arc-swap",
  "ascii",
+ "async-trait",
  "capnp",
  "capnp-rpc",
  "cfg-if",
@@ -3254,6 +3255,7 @@ dependencies = [
  "snmalloc-rs",
  "thiserror",
  "tokio",
+ "tokio-rustls",
  "url",
  "uuid",
  "variant-ssl",
@@ -3268,11 +3270,13 @@ dependencies = [
  "vey-macros",
  "vey-mimalloc",
  "vey-openssl",
+ "vey-rustls-provider",
  "vey-slog-types",
  "vey-socket",
  "vey-statsd-client",
  "vey-std-ext",
  "vey-tls-cert",
+ "vey-tls-ticket",
  "vey-types",
  "vey-yaml",
  "yaml-rust2",

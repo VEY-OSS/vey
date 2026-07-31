@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::collections::HashMap;
@@ -11,17 +12,18 @@ use foldhash::fast::FixedState;
 
 use vey_types::metrics::NodeName;
 
-use super::KeyServerConfig;
+use super::AnyKeyServerConfig;
 
-static INITIAL_SERVER_CONFIG_REGISTRY: Mutex<HashMap<NodeName, Arc<KeyServerConfig>, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static INITIAL_SERVER_CONFIG_REGISTRY: Mutex<
+    HashMap<NodeName, Arc<AnyKeyServerConfig>, FixedState>,
+> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(crate) fn clear() {
     let mut ht = INITIAL_SERVER_CONFIG_REGISTRY.lock().unwrap();
     ht.clear();
 }
 
-pub(super) fn add(server: KeyServerConfig, replace: bool) -> anyhow::Result<()> {
+pub(super) fn add(server: AnyKeyServerConfig, replace: bool) -> anyhow::Result<()> {
     let name = server.name().clone();
     let server = Arc::new(server);
     let mut ht = INITIAL_SERVER_CONFIG_REGISTRY.lock().unwrap();
@@ -39,7 +41,7 @@ pub(super) fn add(server: KeyServerConfig, replace: bool) -> anyhow::Result<()> 
     }
 }
 
-pub(crate) fn get_all() -> Vec<Arc<KeyServerConfig>> {
+pub(crate) fn get_all() -> Vec<Arc<AnyKeyServerConfig>> {
     let mut vec = Vec::new();
     let ht = INITIAL_SERVER_CONFIG_REGISTRY.lock().unwrap();
     for v in ht.values() {

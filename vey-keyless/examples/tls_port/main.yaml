@@ -1,0 +1,36 @@
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+  prefix: vey-keyless
+  emit_interval: 200ms
+
+server:
+  # terminate TLS with rustls, then hand the connection over to the keyless server
+  - name: tls_port
+    type: plain_tls_port
+    listen: "[::]:11300"
+    tls:
+      certificate: cert.pem
+      private_key: key.pem
+    server: keyless
+
+  # a plain TCP port, useful when TLS is already terminated by a front load balancer
+  - name: tcp_port
+    type: plain_tcp_port
+    listen: "[::]:1300"
+    proxy_protocol: 2
+    server: keyless
+
+  # the Cloudflare Keyless server, it has no listen socket of its own and only
+  # serves the connections sent by the two port servers above
+  - name: keyless
+    type: keyless_cf
+    extra_metrics_tags:
+      cluster: default
+
+store:
+  - name: local
+    type: local
+    dir: keys

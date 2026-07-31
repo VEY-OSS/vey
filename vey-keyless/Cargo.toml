@@ -1,6 +1,6 @@
 [package]
 name = "vey-keyless"
-version = "0.5.0"
+version = "0.6.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,6 +13,7 @@ anyhow.workspace = true
 thiserror.workspace = true
 cfg-if.workspace = true
 clap.workspace = true
+async-trait.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 ascii.workspace = true
@@ -20,6 +21,7 @@ capnp.workspace = true
 capnp-rpc.workspace = true
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
+tokio-rustls.workspace = true
 tokio = { workspace = true, features = ["time", "sync", "fs"] }
 yaml-rust.workspace = true
 chrono = { workspace = true, features = ["clock"] }
@@ -33,12 +35,14 @@ snmalloc = { workspace = true, optional = true }
 vey-codec.workspace = true
 vey-daemon = { workspace = true, features = ["register", "event-log"] }
 vey-macros.workspace = true
-vey-yaml = { workspace = true, features = ["histogram"] }
+vey-yaml = { workspace = true, features = ["histogram", "openssl", "rustls"] }
 vey-std-ext.workspace = true
-vey-types = { workspace = true, features = ["openssl"] }
+vey-types = { workspace = true, features = ["openssl", "rustls"] }
 vey-socket.workspace = true
 vey-io-ext.workspace = true
 vey-tls-cert.workspace = true
+vey-tls-ticket = { workspace = true, features = ["yaml"] }
+vey-rustls-provider.workspace = true
 vey-slog-types.workspace = true
 vey-statsd-client.workspace = true
 vey-histogram.workspace = true
@@ -55,7 +59,10 @@ inotify = "0.11"
 vey-build-env.workspace = true
 
 [features]
-default = []
+default = ["rustls-ring"]
+rustls-ring = ["vey-rustls-provider/rustls-ring", "vey-types/rustls-ring"]
+rustls-aws-lc = ["vey-rustls-provider/rustls-aws-lc", "vey-types/rustls-aws-lc"]
+rustls-aws-lc-fips = ["vey-rustls-provider/rustls-aws-lc-fips", "vey-types/rustls-aws-lc-fips"]
 jemalloc = ["dep:vey-jemalloc", "vey-daemon/jemalloc"]
 mimalloc = ["dep:vey-mimalloc", "vey-daemon/mimalloc"]
 vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]

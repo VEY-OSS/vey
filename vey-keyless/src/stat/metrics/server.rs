@@ -53,23 +53,29 @@ static DURATION_STATS_MAP: Mutex<GlobalStatsMap<Arc<KeyServerDurationStats>>> =
 pub(in crate::stat) fn sync_stats() {
     let mut server_stats_map = SERVER_STATS_MAP.lock().unwrap();
     crate::serve::foreach_server(|_, server| {
-        let stats = server.get_server_stats();
-        server_stats_map
-            .get_or_insert_with(stats.stat_id(), || (stats, KeyServerSnapshot::default()));
+        if let Some(stats) = server.get_server_stats() {
+            server_stats_map
+                .get_or_insert_with(stats.stat_id(), || (stats, KeyServerSnapshot::default()));
+        }
     });
     drop(server_stats_map);
 
     let mut listen_stats_map = LISTEN_STATS_MAP.lock().unwrap();
     crate::serve::foreach_server(|_, server| {
-        let stats = server.get_listen_stats();
-        listen_stats_map.get_or_insert_with(stats.stat_id(), || (stats, ListenSnapshot::default()));
+        // a server without a listening socket of its own has no listen stats to report
+        if server.listen_addr().is_some() {
+            let stats = server.get_listen_stats();
+            listen_stats_map
+                .get_or_insert_with(stats.stat_id(), || (stats, ListenSnapshot::default()));
+        }
     });
     drop(listen_stats_map);
 
     let mut duration_stats_map = DURATION_STATS_MAP.lock().unwrap();
     crate::serve::foreach_server(|_, server| {
-        let stats = server.get_duration_stats();
-        duration_stats_map.get_or_insert_with(stats.stat_id(), || stats);
+        if let Some(stats) = server.get_duration_stats() {
+            duration_stats_map.get_or_insert_with(stats.stat_id(), || stats);
+        }
     });
     drop(duration_stats_map);
 }

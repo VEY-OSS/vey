@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::net::SocketAddr;
@@ -17,34 +18,38 @@ use vey_socket::RawSocket;
 use vey_std_ext::net::SocketAddrExt;
 use vey_types::net::TcpListenConfig;
 
-use super::{KeyServer, ServerReloadCommand};
+use super::{ArcKeyServer, ServerReloadCommand};
 
 pub(super) struct KeyServerRuntime {
-    server: Arc<KeyServer>,
+    server: ArcKeyServer,
+    server_type: &'static str,
     listen_stats: Arc<ListenStats>,
     _alive_guard: Option<ListenAliveGuard>,
 }
 
 impl KeyServerRuntime {
-    pub(crate) fn new(server: &Arc<KeyServer>) -> Self {
+    pub(super) fn new(server: ArcKeyServer) -> Self {
+        let server_type = server.r#type();
+        let listen_stats = server.get_listen_stats();
         KeyServerRuntime {
-            server: Arc::clone(server),
-            listen_stats: server.get_listen_stats(),
+            server,
+            server_type,
+            listen_stats,
             _alive_guard: None,
         }
     }
 
     fn pre_start(&mut self) {
-        info!("started SRT {}", self.server.name());
+        info!("started {} SRT {}", self.server_type, self.server.name());
         self._alive_guard = Some(self.listen_stats.add_running_runtime());
     }
 
     fn pre_stop(&self) {
-        info!("stopping SRT {}", self.server.name());
+        info!("stopping {} SRT {}", self.server_type, self.server.name());
     }
 
     fn post_stop(&self) {
-        info!("stopped SRT {}", self.server.name());
+        info!("stopped {} SRT {}", self.server_type, self.server.name());
     }
 
     async fn run(

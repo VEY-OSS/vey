@@ -13,7 +13,8 @@ Its top-level keys are listed below.
 
 At a high level, ``vey-keyless`` is organized around a few main object types:
 
-* ``server`` accepts incoming keyless protocol requests
+* ``server`` accepts incoming connections, either running the key operations
+  itself or forwarding the connections to another server
 * ``store`` defines where private keys are loaded from
 * ``backend`` defines how key operations are executed
 
@@ -54,7 +55,7 @@ control how the daemon runs and how it reports operational state.
    * - server
      - Mix [#m]_
      - yes
-     - Server configuration, see :doc:`server`
+     - Server configuration, see :doc:`servers/index`
    * - store
      - Mix [#m]_
      - yes
@@ -78,7 +79,7 @@ need the detailed fields and behavior for each component type.
    runtime
    log/index
    stat
-   server
+   servers/index
    stores/index
    backend
    values

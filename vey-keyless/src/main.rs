@@ -30,6 +30,7 @@ fn main() -> anyhow::Result<()> {
         openssl_probe::try_init_openssl_env_vars();
     }
     openssl::init();
+    vey_rustls_provider::install_default()?;
 
     let Some(proc_args) =
         vey_keyless::opts::parse_clap().context("failed to parse command line options")?
