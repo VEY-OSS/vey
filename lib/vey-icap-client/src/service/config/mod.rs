@@ -156,10 +156,7 @@ impl IcapServiceConfig {
             "icaps" => 11344,
             _ => 1344,
         };
-        let include_port = self
-            .url
-            .port()
-            .is_some_and(|port| port != default_port);
+        let include_port = self.url.port().is_some_and(|port| port != default_port);
 
         match host {
             url::Host::Domain(domain) => {

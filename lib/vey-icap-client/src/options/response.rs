@@ -305,10 +305,7 @@ mod tests {
             .parse_header_line(b"Max-Connections: 100\r\n")
             .unwrap();
         assert_eq!(options.server.as_deref(), Some("Example ICAP Server 1.0"));
-        assert_eq!(
-            options.service_tag,
-            "\"W3E4R7U9-L3E4R7U9-W3E4R7U9\""
-        );
+        assert_eq!(options.service_tag, "\"W3E4R7U9-L3E4R7U9-W3E4R7U9\"");
         assert_eq!(options.service_id.as_deref(), Some("respmod-scan"));
         assert_eq!(options.max_connections, Some(100));
         options.check().unwrap();

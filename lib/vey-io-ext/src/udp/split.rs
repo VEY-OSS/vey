@@ -162,8 +162,178 @@ impl AsyncUdpRecv for RecvHalf {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::future::poll_fn;
+    use std::io::{IoSlice, IoSliceMut};
+
     use tokio::net::UdpSocket;
+
+    use super::*;
+
+    async fn split_pair() -> (RecvHalf, SendHalf, SocketAddr, UdpSocket, SocketAddr) {
+        let local = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let local_addr = local.local_addr().unwrap();
+        let peer = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let peer_addr = peer.local_addr().unwrap();
+        let (recv, send) = split(local);
+        (recv, send, local_addr, peer, peer_addr)
+    }
+
+    #[tokio::test]
+    async fn split_halves_share_the_same_socket() {
+        let (mut recv, mut send, local_addr, peer, peer_addr) = split_pair().await;
+
+        let nw = poll_fn(|cx| send.poll_send_to(cx, b"to peer", peer_addr))
+            .await
+            .unwrap();
+        assert_eq!(nw, 7);
+
+        let mut buf = [0u8; 16];
+        let (nr, from) = peer.recv_from(&mut buf).await.unwrap();
+        assert_eq!(&buf[..nr], b"to peer");
+        // both halves are the same socket, so the peer sees the address of the split one
+        assert_eq!(from, local_addr);
+
+        peer.send_to(b"to local", local_addr).await.unwrap();
+        let (nr, from) = poll_fn(|cx| recv.poll_recv_from(cx, &mut buf))
+            .await
+            .unwrap();
+        assert_eq!(&buf[..nr], b"to local");
+        assert_eq!(from, peer_addr);
+    }
+
+    #[tokio::test]
+    async fn connected_halves_send_and_recv_without_an_address() {
+        let (mut recv, mut send, local_addr, peer, peer_addr) = split_pair().await;
+        recv.connect(peer_addr).await.unwrap();
+        peer.connect(local_addr).await.unwrap();
+
+        let nw = poll_fn(|cx| send.poll_send(cx, b"ping")).await.unwrap();
+        assert_eq!(nw, 4);
+
+        let mut buf = [0u8; 16];
+        let nr = peer.recv(&mut buf).await.unwrap();
+        assert_eq!(&buf[..nr], b"ping");
+
+        peer.send(b"pong").await.unwrap();
+        let nr = poll_fn(|cx| recv.poll_recv(cx, &mut buf)).await.unwrap();
+        assert_eq!(&buf[..nr], b"pong");
+    }
+
+    #[tokio::test]
+    async fn sendmsg_and_recvmsg_go_through_the_halves() {
+        let (mut recv, mut send, local_addr, peer, peer_addr) = split_pair().await;
+
+        let hdr = SendMsgHdr::new([IoSlice::new(b"ab"), IoSlice::new(b"cd")], Some(peer_addr));
+        let nw = poll_fn(|cx| send.poll_sendmsg(cx, &hdr)).await.unwrap();
+        assert_eq!(nw, 4);
+
+        let mut buf = [0u8; 16];
+        let (nr, _) = peer.recv_from(&mut buf).await.unwrap();
+        assert_eq!(&buf[..nr], b"abcd");
+
+        peer.send_to(b"efgh", local_addr).await.unwrap();
+        let mut recv_buf = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_buf)]);
+        poll_fn(|cx| recv.poll_recvmsg(cx, &mut hdr)).await.unwrap();
+        assert_eq!(hdr.n_recv, 4);
+        assert_eq!(hdr.src_addr(), Some(peer_addr));
+        assert_eq!(&recv_buf[..4], b"efgh");
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    ))]
+    #[tokio::test]
+    async fn batch_sendmsg_and_batch_recvmsg_go_through_the_halves() {
+        let (mut recv, mut send, local_addr, peer, peer_addr) = split_pair().await;
+
+        let mut msgs = [
+            SendMsgHdr::new([IoSlice::new(b"one")], Some(peer_addr)),
+            SendMsgHdr::new([IoSlice::new(b"two")], Some(peer_addr)),
+        ];
+        let count = poll_fn(|cx| send.poll_batch_sendmsg(cx, &mut msgs))
+            .await
+            .unwrap();
+        assert_eq!(count, 2);
+
+        let mut buf = [0u8; 16];
+        for expect in [b"one", b"two"] {
+            let (nr, _) = peer.recv_from(&mut buf).await.unwrap();
+            assert_eq!(&buf[..nr], expect);
+        }
+
+        peer.send_to(b"back", local_addr).await.unwrap();
+        let mut recv_buf = [0u8; 16];
+        let mut hdr_v = [RecvMsgHdr::new([IoSliceMut::new(&mut recv_buf)])];
+        let count = poll_fn(|cx| recv.poll_batch_recvmsg(cx, &mut hdr_v))
+            .await
+            .unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(hdr_v[0].n_recv, 4);
+        assert_eq!(&recv_buf[..4], b"back");
+    }
+
+    /// macOS `sendmsg_x` only works on connected sockets, so the destination is taken from
+    /// the connection rather than from each `SendMsgHdr`.
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn batch_sendmsg_x_and_batch_recvmsg_go_through_the_halves() {
+        let (mut recv, mut send, local_addr, peer, peer_addr) = split_pair().await;
+        recv.connect(peer_addr).await.unwrap();
+
+        let mut msgs = [
+            SendMsgHdr::new([IoSlice::new(b"one")], None),
+            SendMsgHdr::new([IoSlice::new(b"two")], None),
+        ];
+        let count = poll_fn(|cx| send.poll_batch_sendmsg_x(cx, &mut msgs))
+            .await
+            .unwrap();
+        assert_eq!(count, 2);
+
+        let mut buf = [0u8; 16];
+        for expect in [b"one", b"two"] {
+            let (nr, _) = peer.recv_from(&mut buf).await.unwrap();
+            assert_eq!(&buf[..nr], expect);
+        }
+
+        peer.send_to(b"back", local_addr).await.unwrap();
+        let mut recv_buf = [0u8; 16];
+        let mut hdr_v = [RecvMsgHdr::new([IoSliceMut::new(&mut recv_buf)])];
+        let count = poll_fn(|cx| recv.poll_batch_recvmsg(cx, &mut hdr_v))
+            .await
+            .unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(hdr_v[0].n_recv, 4);
+        assert_eq!(&recv_buf[..4], b"back");
+    }
+
+    #[tokio::test]
+    async fn recv_half_reunites_with_its_send_half() {
+        let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let addr = socket.local_addr().unwrap();
+        let (recv, send) = split(socket);
+        let reunited = recv.reunite(send).unwrap();
+        assert_eq!(reunited.local_addr().unwrap(), addr);
+    }
+
+    #[tokio::test]
+    async fn reunite_error_keeps_both_halves() {
+        let a = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let a_addr = a.local_addr().unwrap();
+        let b = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let (ra, sa) = split(a);
+        let (rb, sb) = split(b);
+
+        let ReuniteError(sa, rb) = sa.reunite(rb).unwrap_err();
+        // the returned halves are still usable, each with its own socket
+        assert_eq!(sa.reunite(ra).unwrap().local_addr().unwrap(), a_addr);
+        assert!(rb.reunite(sb).is_ok());
+    }
 
     #[tokio::test]
     async fn reunite_same_socket_succeeds() {

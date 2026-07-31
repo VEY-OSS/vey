@@ -139,9 +139,6 @@ mod tests {
         let limiter = GlobalStreamLimiter::new(GlobalLimitGroup::User, config);
         assert!(matches!(limiter.group(), GlobalLimitGroup::User));
         assert_eq!(limiter.check(10), StreamLimitAction::AdvanceBy(10));
-        assert!(matches!(
-            limiter.check(1),
-            StreamLimitAction::DelayUntil(_)
-        ));
+        assert!(matches!(limiter.check(1), StreamLimitAction::DelayUntil(_)));
     }
 }

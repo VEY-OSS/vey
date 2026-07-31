@@ -403,3 +403,392 @@ where
             .poll_batch_copy(cx, RemoteRecv(&mut *me.remote), ClientSend(&mut *me.client))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::VecDeque;
+    use std::io;
+    use std::task::Waker;
+
+    use super::*;
+
+    enum RecvStep {
+        /// a payload placed after `hdr_len` reserved bytes
+        Packet(&'static [u8], usize),
+        Eof,
+        Pending,
+        Error,
+    }
+
+    enum SendStep {
+        Accept,
+        /// the socket accepted nothing, which the copy loop reports as `SendZero`
+        Blocked,
+        Pending,
+        Error,
+    }
+
+    #[derive(Default)]
+    struct Mock {
+        recv_steps: VecDeque<RecvStep>,
+        send_steps: VecDeque<SendStep>,
+        sent: Vec<Vec<u8>>,
+    }
+
+    impl Mock {
+        fn recving<I: IntoIterator<Item = RecvStep>>(steps: I) -> Self {
+            Mock {
+                recv_steps: steps.into_iter().collect(),
+                ..Default::default()
+            }
+        }
+
+        fn sending<I: IntoIterator<Item = SendStep>>(steps: I) -> Self {
+            Mock {
+                send_steps: steps.into_iter().collect(),
+                ..Default::default()
+            }
+        }
+
+        fn recv_one(&mut self, buf: &mut [u8]) -> Poll<Result<(usize, usize), ()>> {
+            if matches!(self.recv_steps.front(), Some(RecvStep::Eof)) {
+                // a closed receive side stays closed
+                return Poll::Ready(Ok((0, 0)));
+            }
+            match self.recv_steps.pop_front() {
+                Some(RecvStep::Packet(data, hdr_len)) => {
+                    buf[hdr_len..hdr_len + data.len()].copy_from_slice(data);
+                    Poll::Ready(Ok((hdr_len, hdr_len + data.len())))
+                }
+                Some(RecvStep::Eof) => unreachable!("handled above"),
+                Some(RecvStep::Error) => Poll::Ready(Err(())),
+                Some(RecvStep::Pending) | None => Poll::Pending,
+            }
+        }
+
+        fn send_one(&mut self, buf: &[u8]) -> Poll<Result<usize, ()>> {
+            match self.send_steps.pop_front() {
+                Some(SendStep::Accept) => {
+                    self.sent.push(buf.to_vec());
+                    Poll::Ready(Ok(buf.len()))
+                }
+                Some(SendStep::Blocked) => Poll::Ready(Ok(0)),
+                Some(SendStep::Error) => Poll::Ready(Err(())),
+                Some(SendStep::Pending) | None => Poll::Pending,
+            }
+        }
+
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd",
+            target_os = "macos",
+            target_os = "solaris",
+        ))]
+        fn send_batch<E: Fn() -> Er, Er>(
+            &mut self,
+            payloads: impl IntoIterator<Item = Vec<u8>>,
+            make_error: E,
+        ) -> Poll<Result<usize, Er>> {
+            let mut count = 0;
+            for payload in payloads {
+                match self.send_one(&payload) {
+                    Poll::Ready(Ok(0)) => break,
+                    Poll::Ready(Ok(_)) => count += 1,
+                    Poll::Ready(Err(())) => {
+                        return if count > 0 {
+                            Poll::Ready(Ok(count))
+                        } else {
+                            Poll::Ready(Err(make_error()))
+                        };
+                    }
+                    Poll::Pending => {
+                        return if count > 0 {
+                            Poll::Ready(Ok(count))
+                        } else {
+                            Poll::Pending
+                        };
+                    }
+                }
+            }
+            Poll::Ready(Ok(count))
+        }
+    }
+
+    fn client_recv_error() -> UdpCopyClientError {
+        UdpCopyClientError::RecvFailed(io::Error::other("mock client recv failed"))
+    }
+
+    fn client_send_error() -> UdpCopyClientError {
+        UdpCopyClientError::SendFailed(io::Error::other("mock client send failed"))
+    }
+
+    fn remote_recv_error() -> UdpCopyRemoteError {
+        UdpCopyRemoteError::RecvFailed(io::Error::other("mock remote recv failed"))
+    }
+
+    fn remote_send_error() -> UdpCopyRemoteError {
+        UdpCopyRemoteError::SendFailed(io::Error::other("mock remote send failed"))
+    }
+
+    impl UdpCopyClientRecv for Mock {
+        fn max_hdr_len(&self) -> usize {
+            4
+        }
+
+        fn poll_recv_buf(
+            &mut self,
+            _cx: &mut Context<'_>,
+            buf: &mut [u8],
+        ) -> Poll<Result<(usize, usize), UdpCopyClientError>> {
+            self.recv_one(buf).map_err(|_| client_recv_error())
+        }
+    }
+
+    impl UdpCopyClientSend for Mock {
+        fn poll_send_buf(
+            &mut self,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<Result<usize, UdpCopyClientError>> {
+            self.send_one(buf).map_err(|_| client_send_error())
+        }
+
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd",
+            target_os = "macos",
+            target_os = "solaris",
+        ))]
+        fn poll_send_packets(
+            &mut self,
+            _cx: &mut Context<'_>,
+            packets: &[UdpCopyPacket],
+        ) -> Poll<Result<usize, UdpCopyClientError>> {
+            let payloads: Vec<Vec<u8>> = packets.iter().map(|p| p.payload().to_vec()).collect();
+            self.send_batch(payloads, client_send_error)
+        }
+    }
+
+    impl UdpCopyRemoteRecv for Mock {
+        #[cfg(feature = "log")]
+        fn error_logger(&self) -> Option<&slog::Logger> {
+            None
+        }
+
+        fn max_hdr_len(&self) -> usize {
+            2
+        }
+
+        fn poll_recv_buf(
+            &mut self,
+            _cx: &mut Context<'_>,
+            buf: &mut [u8],
+        ) -> Poll<Result<(usize, usize), UdpCopyRemoteError>> {
+            self.recv_one(buf).map_err(|_| remote_recv_error())
+        }
+    }
+
+    impl UdpCopyRemoteSend for Mock {
+        #[cfg(feature = "log")]
+        fn error_logger(&self) -> Option<&slog::Logger> {
+            None
+        }
+
+        fn poll_send_buf(
+            &mut self,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+            self.send_one(buf).map_err(|_| remote_send_error())
+        }
+
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd",
+            target_os = "macos",
+            target_os = "solaris",
+        ))]
+        fn poll_send_many_packets(
+            &mut self,
+            _cx: &mut Context<'_>,
+            packets: &[UdpCopyPacket],
+        ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+            let payloads: Vec<Vec<u8>> = packets.iter().map(|p| p.payload().to_vec()).collect();
+            self.send_batch(payloads, remote_send_error)
+        }
+
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd",
+            target_os = "macos",
+            target_os = "solaris",
+        ))]
+        fn poll_send_many_bytes(
+            &mut self,
+            _cx: &mut Context<'_>,
+            packets: &[bytes::Bytes],
+        ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+            let payloads: Vec<Vec<u8>> = packets.iter().map(|p| p.to_vec()).collect();
+            self.send_batch(payloads, remote_send_error)
+        }
+    }
+
+    fn test_config(batch_count: usize) -> LimitedUdpRelayConfig {
+        let mut config = LimitedUdpRelayConfig::default();
+        config.set_packet_size(512);
+        config.set_batch_count(batch_count);
+        config
+    }
+
+    #[tokio::test]
+    async fn client_to_remote_copies_until_the_client_is_done() {
+        let mut client = Mock::recving([
+            RecvStep::Packet(b"one", 4),
+            RecvStep::Packet(b"two", 4),
+            RecvStep::Eof,
+        ]);
+        let mut remote = Mock::sending([SendStep::Accept, SendStep::Accept]);
+
+        let total = UdpCopyClientToRemote::new(&mut client, &mut remote, test_config(4))
+            .await
+            .map_err(|_| "copy failed")
+            .unwrap();
+        assert_eq!(total, 2);
+        assert_eq!(remote.sent, vec![b"one".to_vec(), b"two".to_vec()]);
+    }
+
+    #[tokio::test]
+    async fn remote_to_client_copies_until_the_remote_is_done() {
+        let mut client = Mock::sending([SendStep::Accept, SendStep::Accept]);
+        let mut remote = Mock::recving([
+            RecvStep::Packet(b"back", 2),
+            RecvStep::Packet(b"again", 2),
+            RecvStep::Eof,
+        ]);
+
+        let total = UdpCopyRemoteToClient::new(&mut client, &mut remote, test_config(4))
+            .await
+            .map_err(|_| "copy failed")
+            .unwrap();
+        assert_eq!(total, 2);
+        assert_eq!(client.sent, vec![b"back".to_vec(), b"again".to_vec()]);
+    }
+
+    #[tokio::test]
+    async fn a_copy_larger_than_one_batch_needs_several_rounds() {
+        let mut recv_steps: Vec<RecvStep> =
+            (0..5).map(|_| RecvStep::Packet(b"payload", 4)).collect();
+        recv_steps.push(RecvStep::Eof);
+        let mut client = Mock::recving(recv_steps);
+        let mut remote = Mock::sending((0..5).map(|_| SendStep::Accept));
+
+        let total = UdpCopyClientToRemote::new(&mut client, &mut remote, test_config(2))
+            .await
+            .map_err(|_| "copy failed")
+            .unwrap();
+        assert_eq!(total, 5);
+        assert_eq!(remote.sent.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn a_send_that_accepts_nothing_ends_the_copy_with_send_zero() {
+        let mut client = Mock::recving([RecvStep::Packet(b"one", 4), RecvStep::Eof]);
+        let mut remote = Mock::sending([SendStep::Blocked]);
+
+        let e = UdpCopyClientToRemote::new(&mut client, &mut remote, test_config(2))
+            .await
+            .expect_err("the copy should fail");
+        assert!(matches!(e, UdpCopyError::SendZero));
+    }
+
+    #[tokio::test]
+    async fn a_recv_failure_is_reported_as_a_recv_error() {
+        let mut client = Mock::recving([RecvStep::Error]);
+        let mut remote = Mock::sending([]);
+
+        let e = UdpCopyClientToRemote::new(&mut client, &mut remote, test_config(2))
+            .await
+            .expect_err("the copy should fail");
+        match e {
+            UdpCopyError::RecvError(e) => {
+                assert!(e.to_string().starts_with("recv failed"));
+            }
+            _ => panic!("expected a recv error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_send_failure_is_reported_as_a_send_error() {
+        let mut client = Mock::recving([RecvStep::Packet(b"one", 4), RecvStep::Eof]);
+        let mut remote = Mock::sending([SendStep::Error]);
+
+        let e = UdpCopyClientToRemote::new(&mut client, &mut remote, test_config(2))
+            .await
+            .expect_err("the copy should fail");
+        match e {
+            UdpCopyError::SendError(e) => {
+                assert!(e.to_string().starts_with("send failed"));
+            }
+            _ => panic!("expected a send error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_copy_without_traffic_stays_idle() {
+        let mut client = Mock::recving([RecvStep::Pending]);
+        let mut remote = Mock::sending([]);
+        let mut copy = UdpCopyClientToRemote::new(&mut client, &mut remote, test_config(2));
+        assert!(copy.is_idle());
+
+        let mut cx = Context::from_waker(Waker::noop());
+        assert!(Pin::new(&mut copy).poll(&mut cx).is_pending());
+        assert!(copy.is_idle());
+    }
+
+    #[tokio::test]
+    async fn a_copy_with_traffic_becomes_active_until_it_is_reset() {
+        let mut client = Mock::recving([RecvStep::Packet(b"one", 4), RecvStep::Pending]);
+        let mut remote = Mock::sending([SendStep::Accept]);
+        let mut copy = UdpCopyClientToRemote::new(&mut client, &mut remote, test_config(2));
+
+        let mut cx = Context::from_waker(Waker::noop());
+        assert!(Pin::new(&mut copy).poll(&mut cx).is_pending());
+        assert!(!copy.is_idle());
+
+        copy.reset_active();
+        assert!(copy.is_idle());
+    }
+
+    #[tokio::test]
+    async fn a_blocked_send_side_keeps_the_received_packets_buffered() {
+        let mut client = Mock::recving([
+            RecvStep::Packet(b"one", 4),
+            RecvStep::Packet(b"two", 4),
+            RecvStep::Eof,
+        ]);
+        let mut remote = Mock::sending([SendStep::Pending, SendStep::Accept, SendStep::Accept]);
+        let mut copy = UdpCopyClientToRemote::new(&mut client, &mut remote, test_config(4));
+
+        let mut cx = Context::from_waker(Waker::noop());
+        assert!(Pin::new(&mut copy).poll(&mut cx).is_pending());
+        let total = match Pin::new(&mut copy).poll(&mut cx) {
+            Poll::Ready(r) => r.map_err(|_| "copy failed").unwrap(),
+            Poll::Pending => panic!("the copy should finish once the send side is ready"),
+        };
+
+        assert_eq!(total, 2);
+        assert_eq!(remote.sent, vec![b"one".to_vec(), b"two".to_vec()]);
+    }
+}
