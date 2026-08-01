@@ -117,7 +117,10 @@ pub(crate) fn get_server(name: &NodeName) -> Option<ArcKeyServer> {
     })
 }
 
-pub(super) fn reload_and_respawn(name: &NodeName, config: AnyKeyServerConfig) -> anyhow::Result<()> {
+pub(super) fn reload_and_respawn(
+    name: &NodeName,
+    config: AnyKeyServerConfig,
+) -> anyhow::Result<()> {
     let mut sr = RUNTIME_SERVER_REGISTRY
         .lock()
         .map_err(|e| anyhow!("failed to lock server registry: {e}"))?;

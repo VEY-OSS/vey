@@ -10,8 +10,7 @@ use super::KeylessResponse;
 
 const MESSAGE_HEADER_LENGTH: usize = 8;
 const ITEM_HEADER_LENGTH: usize = 3;
-const BUF_PREFIX_LEN: usize =
-    MESSAGE_HEADER_LENGTH + ITEM_HEADER_LENGTH + 1 + ITEM_HEADER_LENGTH;
+const BUF_PREFIX_LEN: usize = MESSAGE_HEADER_LENGTH + ITEM_HEADER_LENGTH + 1 + ITEM_HEADER_LENGTH;
 
 impl KeylessResponse {
     /// Encode this response into the Cloudflare Keyless wire format.

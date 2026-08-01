@@ -224,8 +224,7 @@ impl KeylessTask {
         }
 
         let req_stats = req.stats.clone();
-        let crypto_fail =
-            crate::protocol::KeylessErrorResponse::new(req.inner.id).crypto_fail();
+        let crypto_fail = crate::protocol::KeylessErrorResponse::new(req.inner.id).crypto_fail();
         let rsp = req.build_response(KeylessResponse::Error(crypto_fail));
         let sync_op = crate::backend::OpensslOperation::new(req, key);
         let async_op_timeout = self.ctx.server_config.async_op_timeout;
