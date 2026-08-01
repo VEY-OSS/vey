@@ -46,4 +46,8 @@ impl Backend for SimpleBackend {
     async fn run_ecdsa_p521(self, receiver: mpsc::Receiver<DispatchedKeylessRequest>) {
         self.run(receiver).await
     }
+
+    async fn run_ed25519(self, receiver: mpsc::Receiver<DispatchedKeylessRequest>) {
+        self.run(receiver).await
+    }
 }

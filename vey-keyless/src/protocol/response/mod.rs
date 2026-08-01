@@ -35,6 +35,14 @@ impl KeylessDataResponse {
         }
     }
 
+    #[cfg(all(feature = "crypto-mb", target_arch = "x86_64"))]
+    pub(crate) fn with_payload(id: u32, payload: impl Into<Vec<u8>>) -> Self {
+        KeylessDataResponse {
+            id,
+            payload: payload.into(),
+        }
+    }
+
     pub(crate) fn payload_data_mut(&mut self) -> &mut [u8] {
         &mut self.payload
     }

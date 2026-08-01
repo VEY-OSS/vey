@@ -90,6 +90,10 @@ impl Backend for AsyncJobBackend {
     async fn run_ecdsa_p521(self, receiver: mpsc::Receiver<DispatchedKeylessRequest>) {
         self.loop_run(receiver).await
     }
+
+    async fn run_ed25519(self, receiver: mpsc::Receiver<DispatchedKeylessRequest>) {
+        self.loop_run(receiver).await
+    }
 }
 
 pub(crate) struct OpensslOperation {

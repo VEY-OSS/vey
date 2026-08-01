@@ -2737,6 +2737,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "vey-crypto-mb"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "pkg-config",
+ "variant-ssl",
+ "variant-ssl-sys",
+]
+
+[[package]]
 name = "vey-ctl"
 version = "0.2.0"
 dependencies = [
@@ -3262,6 +3272,7 @@ dependencies = [
  "vey-build-env",
  "vey-codec",
  "vey-compat",
+ "vey-crypto-mb",
  "vey-daemon",
  "vey-histogram",
  "vey-io-ext",

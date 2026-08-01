@@ -54,6 +54,7 @@ pub struct DispatcherContainer {
     ecdsa_p256: Dispatcher,
     ecdsa_p384: Dispatcher,
     ecdsa_p521: Dispatcher,
+    ed25519: Dispatcher,
 }
 
 impl DispatcherContainer {
@@ -65,6 +66,7 @@ impl DispatcherContainer {
             ecdsa_p256: Dispatcher::with_counter_shift(shift),
             ecdsa_p384: Dispatcher::with_counter_shift(shift),
             ecdsa_p521: Dispatcher::with_counter_shift(shift),
+            ed25519: Dispatcher::with_counter_shift(shift),
         }
     }
 
@@ -87,6 +89,7 @@ impl DispatcherContainer {
                     _ => Err(req),
                 }
             }
+            Id::ED25519 => self.ed25519.dispatch(req),
             _ => Err(req),
         }
     }
@@ -116,3 +119,4 @@ define_register!(register_rsa_4096, rsa_4096);
 define_register!(register_ecdsa_p256, ecdsa_p256);
 define_register!(register_ecdsa_p384, ecdsa_p384);
 define_register!(register_ecdsa_p521, ecdsa_p521);
+define_register!(register_ed25519, ed25519);

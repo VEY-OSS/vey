@@ -7,6 +7,8 @@ v0.6.0:
  - Feature: `listen` is now optional in a `cloudflare` server, so it can serve only the connections sent by port servers
  - Feature: port servers support the PROXY Protocol via `proxy_protocol` and `proxy_protocol_read_timeout`
  - Feature: `server` references are verified when the config is loaded, so a missing or self-referencing next server is rejected at startup
+ - Feature: optional `crypto_mb` backend (feature `crypto-mb`, x86_64 only) using Intel crypto_mb for batched RSA-2048/3072/4096, ECDSA P-256/P-384/P-521, and Ed25519; single-request batches fall back to OpenSSL
+ - Feature: dispatch Ed25519 private-key operations to worker backends
 
 v0.5.0:
  - BUG FIX: enforce async-op timeout inside OpensslAsyncTask (`vey-openssl`); on timeout return a cleanup handle so the error response can be sent before draining the in-flight ASYNC_JOB (avoids job-pool leaks under load)

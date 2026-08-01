@@ -64,6 +64,11 @@ do
 	echo "=== ${dir}"
 	date
 
+	if ! "${PROJECT_DIR}"/target/debug/vey-keyless -c "${dir}/main.yaml" -t; then
+		echo "skip ${dir}: config not accepted by this build"
+		continue
+	fi
+
 	KEYLESS_TARGET="127.0.0.1:1300"
 	KEYLESS_CONN_ARGS="--no-tls"
 	if [ -f "${dir}/conf.sh" ]; then

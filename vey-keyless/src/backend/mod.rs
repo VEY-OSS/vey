@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2024-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use openssl::pkey::{PKey, Private};
@@ -18,6 +19,9 @@ mod async_job;
 #[cfg(feature = "openssl-async-job")]
 pub(crate) use async_job::OpensslOperation;
 
+#[cfg(all(feature = "crypto-mb", target_arch = "x86_64"))]
+mod crypto_mb;
+
 mod simple;
 
 pub(crate) struct DispatchedKeylessRequest {
@@ -33,6 +37,7 @@ trait Backend {
     async fn run_ecdsa_p256(self, receiver: mpsc::Receiver<DispatchedKeylessRequest>);
     async fn run_ecdsa_p384(self, receiver: mpsc::Receiver<DispatchedKeylessRequest>);
     async fn run_ecdsa_p521(self, receiver: mpsc::Receiver<DispatchedKeylessRequest>);
+    async fn run_ed25519(self, receiver: mpsc::Receiver<DispatchedKeylessRequest>);
 }
 
 pub fn create(_id: usize, handle: &Handle) -> anyhow::Result<()> {
@@ -41,14 +46,19 @@ pub fn create(_id: usize, handle: &Handle) -> anyhow::Result<()> {
     macro_rules! setup {
         ($run:ident, $register:ident) => {
             let (sender, receiver) = mpsc::channel(config.dispatch_channel_size);
-            match config.driver {
+            match &config.driver {
                 BackendDriverConfig::Simple => {
                     let backend = simple::SimpleBackend::new();
                     handle.spawn(backend.$run(receiver));
                 }
                 #[cfg(feature = "openssl-async-job")]
-                BackendDriverConfig::AsyncJob(config) => {
-                    let backend = async_job::AsyncJobBackend::new(config);
+                BackendDriverConfig::AsyncJob(driver) => {
+                    let backend = async_job::AsyncJobBackend::new(*driver);
+                    handle.spawn(backend.$run(receiver));
+                }
+                #[cfg(all(feature = "crypto-mb", target_arch = "x86_64"))]
+                BackendDriverConfig::CryptoMb(driver) => {
+                    let backend = crypto_mb::CryptoMbBackend::new(*driver);
                     handle.spawn(backend.$run(receiver));
                 }
             }
@@ -62,6 +72,7 @@ pub fn create(_id: usize, handle: &Handle) -> anyhow::Result<()> {
     setup!(run_ecdsa_p256, register_ecdsa_p256);
     setup!(run_ecdsa_p384, register_ecdsa_p384);
     setup!(run_ecdsa_p521, register_ecdsa_p521);
+    setup!(run_ed25519, register_ed25519);
 
     Ok(())
 }

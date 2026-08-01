@@ -52,6 +52,9 @@ vey-jemalloc = { workspace = true, optional = true }
 vey-mimalloc = { workspace = true, optional = true }
 vey-keyless-proto = { path = "proto" }
 
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+vey-crypto-mb = { workspace = true, optional = true }
+
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 inotify = "0.11"
 
@@ -75,3 +78,4 @@ vendored-boringssl = ["openssl/boringssl", "openssl-probe"]
 vendored-aws-lc = ["openssl/aws-lc", "openssl-probe"]
 vendored-aws-lc-fips = ["openssl/aws-lc-fips", "openssl-probe"]
 openssl-async-job = ["vey-openssl/async-job", "vey-daemon/openssl-async-job"]
+crypto-mb = ["dep:vey-crypto-mb"]

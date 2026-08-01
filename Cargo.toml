@@ -23,6 +23,7 @@ members = [
     "lib/vey-clap",
     "lib/vey-codec",
     "lib/vey-compat",
+    "lib/vey-crypto-mb",
     "lib/vey-ctl",
     "lib/vey-daemon",
     "lib/vey-datetime",
@@ -212,6 +213,7 @@ vey-cert-agent = { version = "0.3", path = "lib/vey-cert-agent" }
 vey-clap = { version = "0.2", path = "lib/vey-clap" }
 vey-codec = { version = "0.1", path = "lib/vey-codec" }
 vey-compat = { version = "0.2", path = "lib/vey-compat" }
+vey-crypto-mb = { version = "0.1", path = "lib/vey-crypto-mb" }
 vey-ctl = { version = "0.2", path = "lib/vey-ctl" }
 vey-daemon = { version = "0.4", path = "lib/vey-daemon" }
 vey-datetime = { version = "0.2", path = "lib/vey-datetime" }

@@ -122,3 +122,34 @@ jobs:
         run: cargo build --features openssl-async-job -p ${{ matrix.component }}
       - name: Cargo clippy
         run: cargo clippy --features openssl-async-job -p ${{ matrix.component }} -- --deny warnings
+  crypto-mb:
+    name: Build with crypto_mb (x86_64)
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Install stable toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libssl-dev libcrypto-mb-dev pkg-config
+      - name: Cargo clean
+        run: cargo clean
+      - name: Cargo build
+        run: cargo build -p vey-crypto-mb -p vey-keyless --features crypto-mb
+      - name: Cargo clippy
+        run: |
+          cargo clippy -p vey-crypto-mb -- --deny warnings
+          cargo clippy -p vey-keyless --features crypto-mb -- --deny warnings
+      - name: Cargo test
+        run: |
+          lscpu
+          cargo test -p vey-crypto-mb
+      - name: Cargo test vey-keyless
+        run: cargo test -p vey-keyless --features crypto-mb

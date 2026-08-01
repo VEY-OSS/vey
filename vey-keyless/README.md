@@ -122,6 +122,18 @@ through the `OPENSSL_CONF` environment variable.
 
 See [Intel QAT Engine](IntelQatEngine.md) for a concrete setup example.
 
+For a direct Intel `crypto_mb` multi-buffer backend (RSA-2048/3072/4096, ECDSA
+P-256/P-384/P-521, Ed25519; **x86_64 only**), install `libcrypto_mb` and build
+with:
+
+```text
+cargo build --features crypto-mb
+```
+
+Then set `backend: crypto_mb` (requires worker runtimes and a multiplex-enabled
+`cloudflare` server). Single-request batches still use OpenSSL; batches of two or
+more use `crypto_mb`.
+
 ## Typical Use Cases
 
 - Run a dedicated keyless service behind an existing TLS edge.

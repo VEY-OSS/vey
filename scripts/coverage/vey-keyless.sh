@@ -10,14 +10,18 @@ TEST_NAME="vey-keyless-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build --features mimalloc,openssl-async-job -p vey-keyless -p vey-keyless-ctl -p vey-mkcert -p vey-statsd -p vey-bench
+FEATURES="mimalloc,openssl-async-job"
+if [ "$(uname -m)" = "x86_64" ] && pkg-config --exists crypto-mb; then
+	FEATURES="${FEATURES},crypto-mb"
+fi
+cargo build --features "${FEATURES}" -p vey-keyless -p vey-keyless-ctl -p vey-mkcert -p vey-statsd -p vey-bench
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
 # run vey-keyless tests
 
-cargo test -p vey-keyless -p vey-keyless-ctl
+cargo test --features "${FEATURES}" -p vey-keyless -p vey-keyless-ctl
 
 RUN_DIR="${SCRIPTS_DIR}/vey-keyless"
 . "${RUN_DIR}/run.sh"

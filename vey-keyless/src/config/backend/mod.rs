@@ -14,6 +14,11 @@ mod async_job;
 #[cfg(feature = "openssl-async-job")]
 pub(crate) use async_job::AsyncJobBackendConfig;
 
+#[cfg(all(feature = "crypto-mb", target_arch = "x86_64"))]
+mod crypto_mb;
+#[cfg(all(feature = "crypto-mb", target_arch = "x86_64"))]
+pub(crate) use crypto_mb::CryptoMbBackendConfig;
+
 static BACKEND_CONFIG: OnceLock<BackendConfig> = OnceLock::new();
 
 pub(crate) struct BackendConfig {
@@ -42,6 +47,8 @@ pub(crate) enum BackendDriverConfig {
     Simple,
     #[cfg(feature = "openssl-async-job")]
     AsyncJob(AsyncJobBackendConfig),
+    #[cfg(all(feature = "crypto-mb", target_arch = "x86_64"))]
+    CryptoMb(CryptoMbBackendConfig),
 }
 
 pub(super) fn load(value: &Yaml) -> anyhow::Result<()> {
@@ -63,6 +70,12 @@ pub(super) fn load(value: &Yaml) -> anyhow::Result<()> {
                     config.driver = BackendDriverConfig::AsyncJob(driver);
                     Ok(())
                 }
+                #[cfg(all(feature = "crypto-mb", target_arch = "x86_64"))]
+                "crypto_mb" | "cryptomb" => {
+                    let driver = CryptoMbBackendConfig::parse_yaml(v)?;
+                    config.driver = BackendDriverConfig::CryptoMb(driver);
+                    Ok(())
+                }
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
         }
@@ -71,6 +84,10 @@ pub(super) fn load(value: &Yaml) -> anyhow::Result<()> {
             #[cfg(feature = "openssl-async-job")]
             "async_job" | "openssl_async_job" => {
                 config.driver = BackendDriverConfig::AsyncJob(AsyncJobBackendConfig::default());
+            }
+            #[cfg(all(feature = "crypto-mb", target_arch = "x86_64"))]
+            "crypto_mb" | "cryptomb" => {
+                config.driver = BackendDriverConfig::CryptoMb(CryptoMbBackendConfig::default());
             }
             _ => return Err(anyhow!("unsupported backend type {s}")),
         },

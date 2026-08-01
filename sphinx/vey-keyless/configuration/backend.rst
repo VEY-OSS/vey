@@ -46,6 +46,20 @@ Enable the OpenSSL async-job driver.
 
 **default**: not enabled
 
+crypto_mb
+---------
+
+**optional**, **type**: :ref:`crypto_mb <conf_backend_driver_crypto_mb>`
+
+Enable the Intel ``crypto_mb`` multi-buffer driver.
+
+This requires building ``vey-keyless`` with the ``crypto-mb`` feature on
+``x86_64`` and a system ``libcrypto_mb``.
+
+**default**: not enabled
+
+.. versionadded:: 0.6.0
+
 Drivers
 =======
 
@@ -76,3 +90,29 @@ The following keys are supported for this driver:
   handling.
 
   **default**: 1s
+
+.. _conf_backend_driver_crypto_mb:
+
+crypto_mb
+---------
+
+Use Intel ``crypto_mb`` multi-buffer primitives for RSA-2048/3072/4096, ECDSA
+(P-256/P-384/P-521), and Ed25519.
+
+Requests are taken with ``recv_many`` up to 8. A single request is handled by
+OpenSSL; two or more requests in the same batch use ``crypto_mb``.
+
+This driver requires worker runtimes and a multiplex-enabled ``cloudflare``
+server so requests are dispatched to backend workers.
+
+The driver map currently has no additional keys; ``crypto_mb: {}`` or the
+string form ``backend: crypto_mb`` is enough.
+
+This driver is only available on ``x86_64`` when ``vey-keyless`` is built with
+the ``crypto-mb`` feature.
+
+If the CPU lacks a supported ISA for ``crypto_mb`` (for example AVX-512 IFMA
+or AVX2-IFMA), the daemon logs a warning and falls back to OpenSSL for every
+request.
+
+.. versionadded:: 0.6.0
