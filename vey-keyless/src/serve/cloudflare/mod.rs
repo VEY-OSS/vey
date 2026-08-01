@@ -26,7 +26,7 @@ use vey_openssl::SslAcceptor;
 use vey_types::metrics::{MetricTagMap, MetricTagName, MetricTagValue, NodeName};
 use vey_types::net::OpensslServerConfig;
 
-use crate::config::server::keyless_cf::KeylessCfServerConfig;
+use crate::config::server::cloudflare::CloudflareServerConfig;
 use crate::config::server::{AnyKeyServerConfig, KeyServerConfig};
 use crate::serve::{
     ArcKeyServer, ArcKeyServerInternal, KeyServer, KeyServerDurationRecorder,
@@ -36,7 +36,7 @@ use crate::serve::{
 
 /// The parts of a server that are carried over to the new instance on reload, so that the
 /// emitted metrics stay continuous.
-struct KeylessCfServerState {
+struct CloudflareServerState {
     server_stats: Arc<KeyServerStats>,
     listen_stats: Arc<ListenStats>,
     duration_recorder: KeyServerDurationRecorder,
@@ -45,8 +45,8 @@ struct KeylessCfServerState {
 }
 
 /// A server that speaks the Cloudflare Keyless protocol.
-pub(crate) struct KeylessCfServer {
-    config: Arc<KeylessCfServerConfig>,
+pub(crate) struct CloudflareServer {
+    config: Arc<CloudflareServerConfig>,
     server_stats: Arc<KeyServerStats>,
     listen_stats: Arc<ListenStats>,
     tls_server_config: Option<OpensslServerConfig>,
@@ -61,13 +61,13 @@ pub(crate) struct KeylessCfServer {
     dynamic_metrics_tags: Arc<ArcSwap<MetricTagMap>>,
 }
 
-impl KeylessCfServer {
+impl CloudflareServer {
     fn new(
-        config: KeylessCfServerConfig,
-        state: KeylessCfServerState,
+        config: CloudflareServerConfig,
+        state: CloudflareServerState,
         reload_version: usize,
     ) -> anyhow::Result<Self> {
-        let KeylessCfServerState {
+        let CloudflareServerState {
             server_stats,
             listen_stats,
             duration_recorder,
@@ -109,7 +109,7 @@ impl KeylessCfServer {
             duration_stats.set_extra_tags(Some(extra));
         }
 
-        Ok(KeylessCfServer {
+        Ok(CloudflareServer {
             config: Arc::new(config),
             server_stats,
             listen_stats,
@@ -127,23 +127,23 @@ impl KeylessCfServer {
     }
 
     pub(super) fn prepare_initial(
-        config: KeylessCfServerConfig,
+        config: CloudflareServerConfig,
     ) -> anyhow::Result<ArcKeyServerInternal> {
         let (duration_recorder, duration_stats) =
             KeyServerDurationRecorder::new(config.name(), &config.duration_stats);
-        let state = KeylessCfServerState {
+        let state = CloudflareServerState {
             server_stats: Arc::new(KeyServerStats::new(config.name())),
             listen_stats: Arc::new(ListenStats::new(config.name())),
             duration_recorder,
             duration_stats,
             dynamic_metrics_tags: Arc::new(ArcSwap::new(Default::default())),
         };
-        let server = KeylessCfServer::new(config, state, 1)?;
+        let server = CloudflareServer::new(config, state, 1)?;
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyKeyServerConfig) -> anyhow::Result<KeylessCfServer> {
-        let AnyKeyServerConfig::KeylessCf(config) = config else {
+    fn prepare_reload(&self, config: AnyKeyServerConfig) -> anyhow::Result<CloudflareServer> {
+        let AnyKeyServerConfig::Cloudflare(config) = config else {
             return Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
                 self.config.r#type(),
@@ -157,14 +157,14 @@ impl KeylessCfServer {
             } else {
                 (self.duration_recorder.clone(), self.duration_stats.clone())
             };
-        let state = KeylessCfServerState {
+        let state = CloudflareServerState {
             server_stats: self.server_stats.clone(),
             listen_stats: self.listen_stats.clone(),
             duration_recorder,
             duration_stats,
             dynamic_metrics_tags: self.dynamic_metrics_tags.clone(),
         };
-        KeylessCfServer::new(config, state, self.reload_version + 1)
+        CloudflareServer::new(config, state, self.reload_version + 1)
     }
 
     async fn run_task<R, W>(&self, cc_info: ClientConnectionInfo, clt_r: R, clt_w: W)
@@ -242,15 +242,12 @@ impl KeylessCfServer {
     }
 }
 
-impl KeyServerInternal for KeylessCfServer {
+impl KeyServerInternal for CloudflareServer {
     fn _clone_config(&self) -> AnyKeyServerConfig {
-        AnyKeyServerConfig::KeylessCf(self.config.as_ref().clone())
+        AnyKeyServerConfig::Cloudflare(self.config.as_ref().clone())
     }
 
-    fn _reload(
-        &self,
-        config: AnyKeyServerConfig,
-    ) -> anyhow::Result<ArcKeyServerInternal> {
+    fn _reload(&self, config: AnyKeyServerConfig) -> anyhow::Result<ArcKeyServerInternal> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
@@ -277,7 +274,7 @@ impl KeyServerInternal for KeylessCfServer {
     }
 }
 
-impl BaseServer for KeylessCfServer {
+impl BaseServer for CloudflareServer {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -295,7 +292,7 @@ impl BaseServer for KeylessCfServer {
 }
 
 #[async_trait]
-impl AcceptTcpServer for KeylessCfServer {
+impl AcceptTcpServer for CloudflareServer {
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         if let Some(tls_server) = &self.tls_server_config {
             self.run_openssl_task(tls_server, stream, cc_info).await
@@ -307,7 +304,7 @@ impl AcceptTcpServer for KeylessCfServer {
 }
 
 #[async_trait]
-impl KeyServer for KeylessCfServer {
+impl KeyServer for CloudflareServer {
     fn listen_addr(&self) -> Option<SocketAddr> {
         self.config.listen.as_ref().map(|c| c.address())
     }

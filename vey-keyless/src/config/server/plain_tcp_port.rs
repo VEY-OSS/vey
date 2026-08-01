@@ -4,7 +4,6 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::collections::BTreeSet;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
@@ -124,9 +123,7 @@ impl KeyServerConfig for PlainTcpPortConfig {
         KeyServerConfigDiffAction::ReloadAndRespawn
     }
 
-    fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {
-        let mut set = BTreeSet::new();
-        set.insert(self.server.clone());
-        Some(set)
+    fn dependent_server(&self) -> Option<NodeName> {
+        Some(self.server.clone())
     }
 }

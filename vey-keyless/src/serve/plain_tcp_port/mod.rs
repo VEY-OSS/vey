@@ -24,7 +24,7 @@ use vey_types::net::ProxyProtocolVersion;
 use crate::config::server::plain_tcp_port::PlainTcpPortConfig;
 use crate::config::server::{AnyKeyServerConfig, KeyServerConfig};
 use crate::serve::{
-    ArcKeyServer, ArcKeyServerInternal, FetchServer, KeyServer, KeyServerInternal, KeyServerRuntime,
+    ArcKeyServer, ArcKeyServerInternal, KeyServer, KeyServerInternal, KeyServerRuntime,
     ServerReloadCommand,
 };
 
@@ -44,11 +44,12 @@ impl PlainTcpPort {
         listen_stats: Arc<ListenStats>,
         reload_version: usize,
     ) -> Self {
+        let next_server = crate::serve::registry::get_server(&config.server).map(Arc::new);
         PlainTcpPort {
             config,
             listen_stats,
             reload_sender: broadcast::Sender::new(16),
-            next_server: ArcSwapOption::empty(),
+            next_server: ArcSwapOption::new(next_server),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version,
         }
@@ -82,14 +83,16 @@ impl KeyServerInternal for PlainTcpPort {
         AnyKeyServerConfig::PlainTcpPort(self.config.clone())
     }
 
-    fn _update_next_servers_in_place(&self, fetch: &FetchServer<'_>) {
-        self.next_server.store(fetch(&self.config.server).map(Arc::new));
+    fn _depend_on_server(&self, name: &NodeName) -> bool {
+        self.config.server.eq(name)
     }
 
-    fn _reload(
-        &self,
-        config: AnyKeyServerConfig,
-    ) -> anyhow::Result<ArcKeyServerInternal> {
+    fn _update_next_server_in_place(&self) {
+        self.next_server
+            .store(crate::serve::registry::get_server(&self.config.server).map(Arc::new));
+    }
+
+    fn _reload(&self, config: AnyKeyServerConfig) -> anyhow::Result<ArcKeyServerInternal> {
         let AnyKeyServerConfig::PlainTcpPort(config) = config else {
             return Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",

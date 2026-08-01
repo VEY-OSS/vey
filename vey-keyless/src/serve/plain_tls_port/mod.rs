@@ -27,7 +27,7 @@ use vey_types::net::{
 use crate::config::server::plain_tls_port::PlainTlsPortConfig;
 use crate::config::server::{AnyKeyServerConfig, KeyServerConfig};
 use crate::serve::{
-    ArcKeyServer, ArcKeyServerInternal, FetchServer, KeyServer, KeyServerInternal, KeyServerRuntime,
+    ArcKeyServer, ArcKeyServerInternal, KeyServer, KeyServerInternal, KeyServerRuntime,
     ServerReloadCommand,
 };
 
@@ -57,6 +57,7 @@ impl PlainTlsPort {
         let tls_server_config = builder
             .build_with_ticketer(tls_rolling_ticketer.clone())
             .context("failed to build tls server config")?;
+        let next_server = crate::serve::registry::get_server(&config.server).map(Arc::new);
 
         Ok(PlainTlsPort {
             config,
@@ -65,7 +66,7 @@ impl PlainTlsPort {
             tls_acceptor: TlsAcceptor::from(tls_server_config.driver),
             tls_accept_timeout: tls_server_config.accept_timeout,
             reload_sender: broadcast::Sender::new(16),
-            next_server: ArcSwapOption::empty(),
+            next_server: ArcSwapOption::new(next_server),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version,
         })
@@ -172,15 +173,16 @@ impl KeyServerInternal for PlainTlsPort {
         AnyKeyServerConfig::PlainTlsPort(self.config.clone())
     }
 
-    fn _update_next_servers_in_place(&self, fetch: &FetchServer<'_>) {
-        self.next_server
-            .store(fetch(&self.config.server).map(Arc::new));
+    fn _depend_on_server(&self, name: &NodeName) -> bool {
+        self.config.server.eq(name)
     }
 
-    fn _reload(
-        &self,
-        config: AnyKeyServerConfig,
-    ) -> anyhow::Result<ArcKeyServerInternal> {
+    fn _update_next_server_in_place(&self) {
+        self.next_server
+            .store(crate::serve::registry::get_server(&self.config.server).map(Arc::new));
+    }
+
+    fn _reload(&self, config: AnyKeyServerConfig) -> anyhow::Result<ArcKeyServerInternal> {
         let AnyKeyServerConfig::PlainTlsPort(config) = config else {
             return Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",

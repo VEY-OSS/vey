@@ -30,57 +30,18 @@ impl ServerRegistry {
     }
 
     fn add(&mut self, name: NodeName, server: ArcKeyServerInternal) -> anyhow::Result<()> {
-        // resolve the next server before this one starts to accept connections
-        self.update_next_servers_of(&server);
-
         server._start_runtime(server.clone())?;
         if let Some(old_server) = self.inner.insert(name, server) {
             old_server._abort_runtime();
             add_offline(old_server);
         }
-        // let the servers depending on this one pick it up
-        self.update_all_next_servers();
         Ok(())
-    }
-
-    fn add_lazy(&mut self, name: NodeName, server: ArcKeyServerInternal) {
-        // no runtime started, and the replaced one is not moved to offline
-        self.inner.insert(name, server);
-        self.update_all_next_servers();
     }
 
     fn del(&mut self, name: &NodeName) {
         if let Some(old_server) = self.inner.remove(name) {
             old_server._abort_runtime();
             add_offline(old_server);
-            // clear the dangling pointers to the deleted server
-            self.update_all_next_servers();
-        }
-    }
-
-    fn snapshot(&self) -> HashMap<NodeName, ArcKeyServer> {
-        self.inner
-            .iter()
-            .map(|(name, server)| {
-                let server: ArcKeyServer = server.clone();
-                (name.clone(), server)
-            })
-            .collect()
-    }
-
-    fn update_next_servers_of(&self, server: &ArcKeyServerInternal) {
-        let snapshot = self.snapshot();
-        server._update_next_servers_in_place(&|name| snapshot.get(name).cloned());
-    }
-
-    /// Re-resolve the `next` server pointer of every registered server.
-    ///
-    /// A lookup snapshot is taken first, so that no server needs to lock the registry while it
-    /// is already locked here.
-    fn update_all_next_servers(&self) {
-        let snapshot = self.snapshot();
-        for server in self.inner.values() {
-            server._update_next_servers_in_place(&|name| snapshot.get(name).cloned());
         }
     }
 }
@@ -129,7 +90,8 @@ pub(super) fn add(name: NodeName, server: ArcKeyServerInternal) -> anyhow::Resul
 
 pub(super) fn add_lazy(name: NodeName, server: ArcKeyServerInternal) {
     let mut sr = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    sr.add_lazy(name, server);
+    // no runtime started, and the replaced one is not moved to offline
+    sr.inner.insert(name, server);
 }
 
 pub(super) fn del(name: &NodeName) {
@@ -175,6 +137,16 @@ where
     for (name, server) in sr.inner.iter() {
         let server: ArcKeyServer = server.clone();
         f(name, &server)
+    }
+}
+
+pub(super) fn foreach_online_internal<F>(mut f: F)
+where
+    F: FnMut(&NodeName, &ArcKeyServerInternal),
+{
+    let sr = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    for (name, server) in sr.inner.iter() {
+        f(name, server)
     }
 }
 

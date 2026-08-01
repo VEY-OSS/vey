@@ -1,6 +1,6 @@
-.. _configuration_server_keyless_cf:
+.. _configuration_server_cloudflare:
 
-keyless_cf
+cloudflare
 ==========
 
 This server speaks the Cloudflare Keyless protocol and runs the private key
@@ -8,7 +8,7 @@ operations.
 
 It is the default server type, so ``type`` may be omitted.
 
-**alias**: cloudflare_keyless \| keyless
+**alias**: cloudflare_keyless
 
 The following common keys are supported:
 

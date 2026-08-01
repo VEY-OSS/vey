@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 
 use vey_types::metrics::NodeName;
 
-use super::{ArcKeyServer, registry};
+use super::{ArcKeyServer, ArcKeyServerInternal, registry};
 use crate::config::server::{AnyKeyServerConfig, KeyServerConfigDiffAction};
 
 static SERVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
@@ -72,7 +72,7 @@ pub async fn spawn_all() -> anyhow::Result<()> {
     for name in &registry::get_names() {
         if !new_names.contains(name) {
             debug!("deleting server {name}");
-            registry::del(name);
+            delete_existed_unlocked(name);
             debug!("server {name} deleted");
         }
     }
@@ -93,6 +93,32 @@ pub(crate) fn get_server(name: &NodeName) -> anyhow::Result<ArcKeyServer> {
     }
 }
 
+fn update_dependency_to_server_unlocked(target: &NodeName, status: &str) {
+    let mut servers = Vec::<ArcKeyServerInternal>::new();
+
+    registry::foreach_online_internal(|_name, server| {
+        if server._depend_on_server(target) {
+            servers.push(server.clone());
+        }
+    });
+
+    if servers.is_empty() {
+        return;
+    }
+
+    debug!(
+        "server {target} changed({status}), will reload {} server(s)",
+        servers.len()
+    );
+    for server in servers.iter() {
+        debug!(
+            "server {}: will reload next servers as it's using server {target}",
+            server.name()
+        );
+        server._update_next_server_in_place();
+    }
+}
+
 fn reload_old_unlocked(old: &AnyKeyServerConfig, new: AnyKeyServerConfig) -> anyhow::Result<()> {
     let name = old.name().clone();
     match old.diff_action(&new) {
@@ -106,21 +132,31 @@ fn reload_old_unlocked(old: &AnyKeyServerConfig, new: AnyKeyServerConfig) -> any
         }
         KeyServerConfigDiffAction::ReloadAndRespawn => {
             debug!("server {name} reload: will respawn with old stats");
-            registry::reload_and_respawn(&name, new)
+            registry::reload_and_respawn(&name, new)?;
+            update_dependency_to_server_unlocked(&name, "reloaded");
+            Ok(())
         }
     }
+}
+
+fn delete_existed_unlocked(name: &NodeName) {
+    registry::del(name);
+    update_dependency_to_server_unlocked(name, "deleted");
 }
 
 fn spawn_new_unlocked(config: AnyKeyServerConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
     let server = super::new_server(config)?;
-    registry::add(name, server)
+    registry::add(name.clone(), server)?;
+    update_dependency_to_server_unlocked(&name, "spawned");
+    Ok(())
 }
 
 fn spawn_new_lazy_unlocked(config: AnyKeyServerConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
     let server = super::new_server(config)?;
-    registry::add_lazy(name, server);
+    registry::add_lazy(name.clone(), server);
+    update_dependency_to_server_unlocked(&name, "spawned");
     Ok(())
 }
 

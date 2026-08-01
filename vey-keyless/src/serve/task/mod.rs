@@ -19,7 +19,7 @@ use vey_histogram::HistogramRecorder;
 use vey_slog_types::{LtDateTime, LtUuid};
 use vey_std_ext::time::DurationExt;
 
-use crate::config::server::keyless_cf::KeylessCfServerConfig;
+use crate::config::server::cloudflare::CloudflareServerConfig;
 use crate::protocol::{KeylessAction, KeylessErrorResponse, KeylessRequest, KeylessResponse};
 use crate::serve::{
     KeyServerAliveTaskGuard, KeyServerDurationRecorder, KeyServerRequestStats, KeyServerStats,
@@ -152,7 +152,7 @@ impl Drop for WrappedKeylessRequest {
 }
 
 pub(crate) struct KeylessTaskContext {
-    pub(crate) server_config: Arc<KeylessCfServerConfig>,
+    pub(crate) server_config: Arc<CloudflareServerConfig>,
     pub(crate) server_stats: Arc<KeyServerStats>,
     pub(crate) duration_recorder: KeyServerDurationRecorder,
     pub(crate) cc_info: ClientConnectionInfo,

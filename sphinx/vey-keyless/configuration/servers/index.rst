@@ -15,7 +15,7 @@ and one optional key:
 
 Servers fall into two groups:
 
-* *key operation servers*, such as :ref:`keyless_cf <configuration_server_keyless_cf>`,
+* *key operation servers*, such as :ref:`cloudflare <configuration_server_cloudflare>`,
   which speak a key operation protocol and run the private key operations
 * *port servers*, such as :ref:`plain_tcp_port <configuration_server_plain_tcp_port>`
   and :ref:`plain_tls_port <configuration_server_plain_tls_port>`, which only own
@@ -40,7 +40,7 @@ Servers
 .. toctree::
    :maxdepth: 2
 
-   keyless_cf
+   cloudflare
    plain_tcp_port
    plain_tls_port
 
@@ -67,7 +67,7 @@ type
 
 Set the server type.
 
-**default**: keyless_cf
+**default**: cloudflare
 
 .. versionadded:: 0.6.0
 
@@ -81,15 +81,6 @@ server
 Set the name of the next server that will receive the accepted connections.
 
 .. versionadded:: 0.6.0
-
-.. _conf_server_common_listen:
-
-listen
-------
-
-**type**: :external+values:ref:`tcp listen <conf_value_tcp_listen>`
-
-Set the listening socket configuration for this server.
 
 .. _conf_server_common_proxy_protocol:
 

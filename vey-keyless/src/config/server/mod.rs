@@ -4,7 +4,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 use std::path::Path;
 
 use anyhow::{Context, anyhow};
@@ -17,7 +17,7 @@ use vey_yaml::{HybridParser, YamlDocPosition};
 mod registry;
 pub(crate) use registry::{clear, get_all};
 
-pub(crate) mod keyless_cf;
+pub(crate) mod cloudflare;
 pub(crate) mod plain_tcp_port;
 pub(crate) mod plain_tls_port;
 
@@ -38,7 +38,7 @@ pub(crate) trait KeyServerConfig {
     fn diff_action(&self, new: &AnyKeyServerConfig) -> KeyServerConfigDiffAction;
 
     /// The names of the servers this one will send accepted connections to.
-    fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {
+    fn dependent_server(&self) -> Option<NodeName> {
         None
     }
 }
@@ -47,10 +47,10 @@ pub(crate) trait KeyServerConfig {
 #[def_fn(name, &NodeName)]
 #[def_fn(position, Option<YamlDocPosition>)]
 #[def_fn(r#type, &'static str)]
-#[def_fn(dependent_server, Option<BTreeSet<NodeName>>)]
+#[def_fn(dependent_server, Option<NodeName>)]
 #[def_fn(diff_action, &Self, KeyServerConfigDiffAction)]
 pub(crate) enum AnyKeyServerConfig {
-    KeylessCf(keyless_cf::KeylessCfServerConfig),
+    Cloudflare(cloudflare::CloudflareServerConfig),
     PlainTcpPort(plain_tcp_port::PlainTcpPortConfig),
     PlainTlsPort(plain_tls_port::PlainTlsPortConfig),
 }
@@ -78,19 +78,17 @@ fn check_dependency() -> anyhow::Result<()> {
             continue;
         };
         let name = config.name();
-        for next in dependent {
-            if next.eq(name) {
-                return Err(anyhow!(
-                    "server {name}{} can not use itself as its next server",
-                    describe_position(config)
-                ));
-            }
-            if !all_names.contains(&next) {
-                return Err(anyhow!(
-                    "no server {next} found, which is required by server {name}{}",
-                    describe_position(config)
-                ));
-            }
+        if dependent.eq(name) {
+            return Err(anyhow!(
+                "server {name}{} can not use itself as its next server",
+                describe_position(config)
+            ));
+        }
+        if !all_names.contains(&dependent) {
+            return Err(anyhow!(
+                "no server {dependent} found, which is required by server {name}{}",
+                describe_position(config)
+            ));
         }
     }
     Ok(())
@@ -109,12 +107,12 @@ fn load_server(
 ) -> anyhow::Result<AnyKeyServerConfig> {
     // the server type is optional, and defaults to the cloudflare keyless server
     let server_type = vey_yaml::hash_get_optional_str(map, CONFIG_KEY_SERVER_TYPE)?
-        .unwrap_or(keyless_cf::SERVER_CONFIG_TYPE);
+        .unwrap_or(cloudflare::SERVER_CONFIG_TYPE);
     match vey_yaml::key::normalize(server_type).as_str() {
-        "keyless_cf" | "keylesscf" | "cloudflare_keyless" | "cloudflarekeyless" | "keyless" => {
-            let server = keyless_cf::KeylessCfServerConfig::parse(map, position)
-                .context("failed to load this KeylessCf server")?;
-            Ok(AnyKeyServerConfig::KeylessCf(server))
+        "cloudflare" | "cloudflare_keyless" | "cloudflarekeyless" => {
+            let server = cloudflare::CloudflareServerConfig::parse(map, position)
+                .context("failed to load this Cloudflare server")?;
+            Ok(AnyKeyServerConfig::Cloudflare(server))
         }
         "plain_tcp_port" | "plaintcpport" | "plain_tcp" | "plaintcp" => {
             let server = plain_tcp_port::PlainTcpPortConfig::parse(map, position)

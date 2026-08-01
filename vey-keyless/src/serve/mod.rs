@@ -40,11 +40,11 @@ mod ops;
 pub use ops::{create_all_stopped, spawn_all, spawn_offline_clean, start_all_stopped};
 pub(crate) use ops::{get_server, stop_all, wait_all_tasks};
 
-mod keyless_cf;
+mod cloudflare;
 mod plain_tcp_port;
 mod plain_tls_port;
 
-use keyless_cf::KeylessCfServer;
+use cloudflare::CloudflareServer;
 use plain_tcp_port::PlainTcpPort;
 use plain_tls_port::PlainTlsPort;
 
@@ -52,9 +52,6 @@ use plain_tls_port::PlainTlsPort;
 pub(crate) enum ServerReloadCommand {
     QuitRuntime,
 }
-
-/// Look up a sibling server by name, used to resolve the `next` server of port servers.
-pub(crate) type FetchServer<'a> = dyn Fn(&NodeName) -> Option<ArcKeyServer> + 'a;
 
 /// A server that can accept client connections and either handle key operations itself,
 /// or hand the connection over to another server.
@@ -93,14 +90,14 @@ pub(crate) trait KeyServer: BaseServer + AcceptTcpServer {
 trait KeyServerInternal: KeyServer {
     fn _clone_config(&self) -> AnyKeyServerConfig;
 
-    /// Re-resolve the `next` server pointer. The lookup closure is called while the runtime
-    /// registry lock is held, so it must not touch the registry itself.
-    fn _update_next_servers_in_place(&self, _fetch: &FetchServer<'_>) {}
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
+        false
+    }
 
-    fn _reload(
-        &self,
-        config: AnyKeyServerConfig,
-    ) -> anyhow::Result<ArcKeyServerInternal>;
+    /// Re-resolve the `next` server pointer from the runtime registry.
+    fn _update_next_server_in_place(&self) {}
+
+    fn _reload(&self, config: AnyKeyServerConfig) -> anyhow::Result<ArcKeyServerInternal>;
 
     fn _start_runtime(&self, server: ArcKeyServer) -> anyhow::Result<()>;
 
@@ -112,7 +109,7 @@ type ArcKeyServerInternal = Arc<dyn KeyServerInternal + Send + Sync>;
 
 fn new_server(config: AnyKeyServerConfig) -> anyhow::Result<ArcKeyServerInternal> {
     match config {
-        AnyKeyServerConfig::KeylessCf(c) => KeylessCfServer::prepare_initial(c),
+        AnyKeyServerConfig::Cloudflare(c) => CloudflareServer::prepare_initial(c),
         AnyKeyServerConfig::PlainTcpPort(c) => PlainTcpPort::prepare_initial(c),
         AnyKeyServerConfig::PlainTlsPort(c) => PlainTlsPort::prepare_initial(c),
     }

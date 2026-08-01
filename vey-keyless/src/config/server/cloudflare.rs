@@ -19,10 +19,10 @@ use vey_yaml::YamlDocPosition;
 
 use super::{AnyKeyServerConfig, KeyServerConfig, KeyServerConfigDiffAction};
 
-pub(crate) const SERVER_CONFIG_TYPE: &str = "KeylessCf";
+pub(crate) const SERVER_CONFIG_TYPE: &str = "Cloudflare";
 
 #[derive(Clone)]
-pub(crate) struct KeylessCfServerConfig {
+pub(crate) struct CloudflareServerConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
@@ -37,9 +37,9 @@ pub(crate) struct KeylessCfServerConfig {
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
-impl KeylessCfServerConfig {
+impl CloudflareServerConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
-        KeylessCfServerConfig {
+        CloudflareServerConfig {
             name: NodeName::default(),
             position,
             shared_logger: None,
@@ -59,7 +59,7 @@ impl KeylessCfServerConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let mut server = KeylessCfServerConfig::new(position);
+        let mut server = CloudflareServerConfig::new(position);
 
         vey_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
 
@@ -70,11 +70,6 @@ impl KeylessCfServerConfig {
     fn check(&mut self) -> anyhow::Result<()> {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
-        }
-        if let Some(listen) = &mut self.listen {
-            listen.check().context("invalid listen address")?;
-        } else if self.tls_server.is_some() {
-            return Err(anyhow!("tls_server requires listen to be set"));
         }
         Ok(())
     }
@@ -155,7 +150,7 @@ impl KeylessCfServerConfig {
     }
 }
 
-impl KeyServerConfig for KeylessCfServerConfig {
+impl KeyServerConfig for CloudflareServerConfig {
     #[inline]
     fn name(&self) -> &NodeName {
         &self.name
@@ -172,7 +167,7 @@ impl KeyServerConfig for KeylessCfServerConfig {
     }
 
     fn diff_action(&self, new: &AnyKeyServerConfig) -> KeyServerConfigDiffAction {
-        let AnyKeyServerConfig::KeylessCf(_) = new else {
+        let AnyKeyServerConfig::Cloudflare(_) = new else {
             return KeyServerConfigDiffAction::SpawnNew;
         };
 
