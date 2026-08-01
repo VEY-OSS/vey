@@ -131,7 +131,7 @@ impl KeylessTask {
         }
 
         writer
-            .write_all_flush(rsp.message())
+            .write_all_flush(&rsp.cloudflare_message())
             .await
             .map_err(ServerTaskError::WriteFailed)?;
 

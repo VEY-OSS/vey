@@ -6,77 +6,41 @@
 
 use thiserror::Error;
 
-const BUF_PREFIX_LEN: usize =
-    super::MESSAGE_HEADER_LENGTH + super::ITEM_HEADER_LENGTH + 1 + super::ITEM_HEADER_LENGTH;
+pub(crate) mod cloudflare;
 
 pub(crate) struct KeylessPongResponse {
     pub(crate) id: u32,
-    pub(crate) buf: Vec<u8>,
+    pub(crate) payload: Vec<u8>,
 }
 
 impl KeylessPongResponse {
     pub(crate) fn new(id: u32, payload: &[u8]) -> Self {
-        let item_len = payload.len() as u16;
-        let item_len_h = (item_len >> 8) as u8;
-        let item_len_l = (item_len & 0xFF) as u8;
-
-        let msg_len = (payload.len() + BUF_PREFIX_LEN - super::MESSAGE_HEADER_LENGTH) as u16;
-        let msg_len_h = (msg_len >> 8) as u8;
-        let msg_len_l = (msg_len & 0xFF) as u8;
-
-        let b = id.to_be_bytes();
-        let prefix: [u8; BUF_PREFIX_LEN] = [
-            0x01, 0x00, // protocol version
-            msg_len_h, msg_len_l, // message length
-            b[0], b[1], b[2], b[3], // message id
-            0x11, 0x00, 0x01, 0xF2, // OpCode
-            0x12, item_len_h, item_len_l, // Payload
-        ];
-        let mut buf = Vec::with_capacity(payload.len() + BUF_PREFIX_LEN);
-        buf.extend_from_slice(&prefix);
-        buf.extend_from_slice(payload);
-
-        KeylessPongResponse { id, buf }
+        KeylessPongResponse {
+            id,
+            payload: payload.to_vec(),
+        }
     }
 }
 
 pub(crate) struct KeylessDataResponse {
     pub(crate) id: u32,
-    pub(crate) buf: Vec<u8>,
+    pub(crate) payload: Vec<u8>,
 }
 
 impl KeylessDataResponse {
     pub(crate) fn new(id: u32, key_size: usize) -> Self {
-        let b = id.to_be_bytes();
-        let prefix: [u8; BUF_PREFIX_LEN] = [
-            0x01, 0x00, // protocol version
-            0x00, 0x00, // message length
-            b[0], b[1], b[2], b[3], // message id
-            0x11, 0x00, 0x01, 0xF0, // OpCode
-            0x12, 0x00, 0x00, // Payload
-        ];
-        let buf_max_size = prefix.len() + key_size;
-        let mut buf = Vec::with_capacity(buf_max_size);
-        buf.extend_from_slice(&prefix);
-        unsafe { buf.set_len(buf_max_size) };
-        KeylessDataResponse { id, buf }
+        KeylessDataResponse {
+            id,
+            payload: vec![0u8; key_size],
+        }
     }
 
     pub(crate) fn payload_data_mut(&mut self) -> &mut [u8] {
-        &mut self.buf[BUF_PREFIX_LEN..]
+        &mut self.payload
     }
 
     pub(crate) fn finalize_payload(&mut self, payload_len: usize) {
-        let buf_len = payload_len + BUF_PREFIX_LEN;
-        unsafe { self.buf.set_len(buf_len) };
-
-        let item_len = payload_len as u16;
-        self.buf[13] = (item_len >> 8) as u8;
-        self.buf[14] = (item_len & 0xFF) as u8;
-
-        let msg_len = (buf_len - super::MESSAGE_HEADER_LENGTH) as u16;
-        self.buf[2] = (msg_len >> 8) as u8;
-        self.buf[3] = (msg_len & 0xFF) as u8;
+        self.payload.truncate(payload_len);
     }
 }
 
@@ -114,22 +78,13 @@ pub(crate) enum KeylessResponseErrorCode {
 pub(crate) struct KeylessErrorResponse {
     pub(crate) id: u32,
     pub(crate) code: KeylessResponseErrorCode,
-    pub(crate) buf: [u8; BUF_PREFIX_LEN + 1],
 }
 
 impl KeylessErrorResponse {
     pub(crate) fn new(id: u32) -> Self {
-        let b = id.to_be_bytes();
         KeylessErrorResponse {
             id,
             code: KeylessResponseErrorCode::NoError,
-            buf: [
-                0x01, 0x00, // protocol version
-                0x00, 0x08, // message length
-                b[0], b[1], b[2], b[3], // message id
-                0x11, 0x00, 0x01, 0xFF, // OpCode
-                0x12, 0x00, 0x01, 0x00, // Payload
-            ],
         }
     }
 
@@ -139,7 +94,6 @@ impl KeylessErrorResponse {
 
     fn set_error_code(mut self, error_code: KeylessResponseErrorCode) -> Self {
         self.code = error_code;
-        self.buf[BUF_PREFIX_LEN] = error_code as u8;
         self
     }
 
@@ -176,14 +130,6 @@ pub(crate) enum KeylessResponse {
 }
 
 impl KeylessResponse {
-    pub(crate) fn message(&self) -> &[u8] {
-        match self {
-            KeylessResponse::Data(d) => &d.buf,
-            KeylessResponse::Pong(p) => &p.buf,
-            KeylessResponse::Error(e) => &e.buf,
-        }
-    }
-
     #[allow(unused)]
     pub(crate) fn id(&self) -> u32 {
         match self {

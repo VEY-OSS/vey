@@ -30,9 +30,12 @@ use crate::config::server::cloudflare::CloudflareServerConfig;
 use crate::config::server::{AnyKeyServerConfig, KeyServerConfig};
 use crate::serve::{
     ArcKeyServer, ArcKeyServerInternal, KeyServer, KeyServerDurationRecorder,
-    KeyServerDurationStats, KeyServerInternal, KeyServerRuntime, KeyServerStats, KeylessTask,
-    KeylessTaskContext, ServerReloadCommand,
+    KeyServerDurationStats, KeyServerInternal, KeyServerRuntime, KeyServerStats,
+    ServerReloadCommand,
 };
+
+mod task;
+use task::{KeylessTask, KeylessTaskContext};
 
 /// The parts of a server that are carried over to the new instance on reload, so that the
 /// emitted metrics stay continuous.

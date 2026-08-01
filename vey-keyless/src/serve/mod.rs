@@ -26,9 +26,8 @@ pub(crate) use stats::{
 mod error;
 pub(crate) use error::ServerTaskError;
 
-mod task;
-use task::{KeylessTask, KeylessTaskContext};
-pub(crate) use task::{RequestProcessContext, WrappedKeylessRequest, WrappedKeylessResponse};
+mod keyless;
+pub(crate) use keyless::{RequestProcessContext, WrappedKeylessRequest, WrappedKeylessResponse};
 
 mod runtime;
 use runtime::KeyServerRuntime;

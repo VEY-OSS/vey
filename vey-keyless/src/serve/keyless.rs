@@ -1,33 +1,26 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
+
+//! Common wrappers around [`crate::protocol`] request/response types, shared by
+//! key-operation servers and the crypto backend.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use openssl::pkey::{PKey, Private};
-use slog::Logger;
-use tokio::io::AsyncRead;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore, broadcast};
+use tokio::sync::OwnedSemaphorePermit;
 use tokio::time::Instant;
-use uuid::Uuid;
 
-use vey_daemon::server::ClientConnectionInfo;
 use vey_histogram::HistogramRecorder;
-use vey_slog_types::{LtDateTime, LtUuid};
 use vey_std_ext::time::DurationExt;
 
-use crate::config::server::cloudflare::CloudflareServerConfig;
 use crate::protocol::{KeylessAction, KeylessErrorResponse, KeylessRequest, KeylessResponse};
-use crate::serve::{
-    KeyServerAliveTaskGuard, KeyServerDurationRecorder, KeyServerRequestStats, KeyServerStats,
-    ServerReloadCommand, ServerTaskError,
-};
 
-mod multiplex;
-mod simplex;
+use super::{KeyServerDurationRecorder, KeyServerRequestStats, KeyServerStats};
 
 #[derive(Clone)]
 pub(crate) struct RequestProcessContext {
@@ -47,7 +40,7 @@ impl RequestProcessContext {
         }
     }
 
-    fn record_duration_stats(&self) {
+    pub(super) fn record_duration_stats(&self) {
         let _ = self
             .duration_recorder
             .record(self.duration().as_nanos_u64());
@@ -59,8 +52,8 @@ impl RequestProcessContext {
 }
 
 pub(crate) struct WrappedKeylessResponse {
-    inner: KeylessResponse,
-    ctx: RequestProcessContext,
+    pub(super) inner: KeylessResponse,
+    pub(super) ctx: RequestProcessContext,
 }
 
 impl WrappedKeylessResponse {
@@ -72,18 +65,18 @@ impl WrappedKeylessResponse {
 pub(crate) struct WrappedKeylessRequest {
     pub(crate) inner: KeylessRequest,
     pub(crate) stats: Arc<KeyServerRequestStats>,
-    ctx: RequestProcessContext,
+    pub(super) ctx: RequestProcessContext,
     err_rsp: Option<KeylessErrorResponse>,
-    server_sem_permit: Option<OwnedSemaphorePermit>,
+    pub(super) server_sem_permit: Option<OwnedSemaphorePermit>,
 }
 
 impl WrappedKeylessRequest {
-    fn new(
-        mut req: KeylessRequest,
+    pub(super) fn new(
+        req: KeylessRequest,
+        err_rsp: Option<KeylessErrorResponse>,
         server_stats: &Arc<KeyServerStats>,
         duration_recorder: &KeyServerDurationRecorder,
     ) -> Self {
-        let err_rsp = req.verify_opcode().err();
         let (stats, duration_recorder) = match req.action {
             KeylessAction::Ping => (
                 server_stats.ping_pong.clone(),
@@ -123,7 +116,7 @@ impl WrappedKeylessRequest {
         }
     }
 
-    fn take_err_rsp(&mut self) -> Option<KeylessErrorResponse> {
+    pub(super) fn take_err_rsp(&mut self) -> Option<KeylessErrorResponse> {
         self.err_rsp.take()
     }
 
@@ -148,95 +141,5 @@ impl WrappedKeylessRequest {
 impl Drop for WrappedKeylessRequest {
     fn drop(&mut self) {
         self.stats.dec_alive();
-    }
-}
-
-pub(crate) struct KeylessTaskContext {
-    pub(crate) server_config: Arc<CloudflareServerConfig>,
-    pub(crate) server_stats: Arc<KeyServerStats>,
-    pub(crate) duration_recorder: KeyServerDurationRecorder,
-    pub(crate) cc_info: ClientConnectionInfo,
-    pub(crate) task_logger: Option<Logger>,
-    pub(crate) request_logger: Option<Logger>,
-    pub(crate) reload_notifier: broadcast::Receiver<ServerReloadCommand>,
-    pub(crate) concurrency_limit: Option<Arc<Semaphore>>,
-}
-
-pub(crate) struct KeylessTask {
-    id: Uuid,
-    ctx: KeylessTaskContext,
-    started: DateTime<Utc>,
-    buf: Vec<u8>,
-    #[cfg(feature = "openssl-async-job")]
-    allow_openssl_async_job: bool,
-    allow_dispatch: bool,
-    _alive_guard: KeyServerAliveTaskGuard,
-}
-
-impl KeylessTask {
-    pub(crate) fn new(ctx: KeylessTaskContext) -> Self {
-        let alive_guard = ctx.server_stats.add_task();
-        let started = Utc::now();
-        KeylessTask {
-            id: vey_daemon::server::task::generate_uuid(&started),
-            ctx,
-            started,
-            buf: Vec::with_capacity(crate::protocol::MESSAGE_PADDED_LENGTH + 2),
-            #[cfg(feature = "openssl-async-job")]
-            allow_openssl_async_job: false,
-            allow_dispatch: false,
-            _alive_guard: alive_guard,
-        }
-    }
-
-    pub(crate) fn set_allow_dispatch(&mut self) {
-        self.allow_dispatch = true;
-    }
-
-    #[cfg(feature = "openssl-async-job")]
-    pub(crate) fn set_allow_openssl_async_job(&mut self) {
-        self.allow_openssl_async_job = true;
-    }
-
-    async fn timed_read_request<R>(
-        &mut self,
-        reader: &mut R,
-        msg_count: usize,
-    ) -> Result<WrappedKeylessRequest, ServerTaskError>
-    where
-        R: AsyncRead + Unpin,
-    {
-        match tokio::time::timeout(
-            self.ctx.server_config.request_read_timeout,
-            KeylessRequest::read(reader, &mut self.buf, msg_count),
-        )
-        .await
-        {
-            Ok(Ok(req)) => Ok(WrappedKeylessRequest::new(
-                req,
-                &self.ctx.server_stats,
-                &self.ctx.duration_recorder,
-            )),
-            Ok(Err(e)) => Err(e.into()),
-            Err(_) => Err(ServerTaskError::ReadTimeout),
-        }
-    }
-
-    fn log_task_err(&self, e: ServerTaskError) {
-        if e.ignore_log() {
-            return;
-        }
-        if let Some(logger) = &self.ctx.task_logger {
-            slog::info!(logger, "{}", e;
-                "task_id" => LtUuid(&self.id),
-                "start_at" => LtDateTime(&self.started),
-                "server_addr" => self.ctx.cc_info.server_addr(),
-                "client_addr" => self.ctx.cc_info.client_addr(),
-            );
-        }
-    }
-
-    fn log_task_ok(&self) {
-        self.log_task_err(ServerTaskError::NoError)
     }
 }

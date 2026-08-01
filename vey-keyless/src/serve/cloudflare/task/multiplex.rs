@@ -10,11 +10,13 @@ use tokio::sync::{broadcast, mpsc};
 
 use vey_io_ext::LimitedBufReadExt;
 
-use super::{KeylessTask, WrappedKeylessRequest, WrappedKeylessResponse};
+use super::KeylessTask;
 use crate::backend::DispatchedKeylessRequest;
 use crate::log::request::RequestErrorLogContext;
 use crate::protocol::KeylessResponse;
-use crate::serve::{ServerReloadCommand, ServerTaskError};
+use crate::serve::{
+    ServerReloadCommand, ServerTaskError, WrappedKeylessRequest, WrappedKeylessResponse,
+};
 
 impl KeylessTask {
     pub(crate) async fn into_multiplex_running<R, W>(mut self, reader: R, mut writer: W)
@@ -35,7 +37,7 @@ impl KeylessTask {
                 if let Some(logger) = &request_logger {
                     RequestErrorLogContext { task_id: &task_id }.log(logger, &rsp.ctx, &rsp.inner);
                 }
-                if let Err(e) = writer.write_all(rsp.inner.message()).await {
+                if let Err(e) = writer.write_all(&rsp.inner.cloudflare_message()).await {
                     write_error = Err(ServerTaskError::WriteFailed(e));
                     break;
                 }
@@ -46,7 +48,7 @@ impl KeylessTask {
                         RequestErrorLogContext { task_id: &task_id }
                             .log(logger, &rsp.ctx, &rsp.inner);
                     }
-                    if let Err(e) = writer.write_all(rsp.inner.message()).await {
+                    if let Err(e) = writer.write_all(&rsp.inner.cloudflare_message()).await {
                         write_error = Err(ServerTaskError::WriteFailed(e));
                         break 'outer;
                     }
@@ -222,7 +224,8 @@ impl KeylessTask {
         }
 
         let req_stats = req.stats.clone();
-        let crypto_fail = crate::protocol::KeylessErrorResponse::new(req.inner.id).crypto_fail();
+        let crypto_fail =
+            crate::protocol::KeylessErrorResponse::new(req.inner.id).crypto_fail();
         let rsp = req.build_response(KeylessResponse::Error(crypto_fail));
         let sync_op = crate::backend::OpensslOperation::new(req, key);
         let async_op_timeout = self.ctx.server_config.async_op_timeout;
