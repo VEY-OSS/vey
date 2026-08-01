@@ -36,6 +36,7 @@ jobs:
           - vey-proxy
           - vey-bench
           - vey-gateway
+          - vey-keyless
         include:
           - feature: vendored-c-ares,rustls-ring
             component: vey-proxy
@@ -73,7 +74,6 @@ jobs:
         component:
           - vey-dcgen
           - vey-mkcert
-          - vey-keyless
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
