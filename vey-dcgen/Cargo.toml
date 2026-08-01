@@ -18,6 +18,7 @@ openssl-sys.workspace = true # for openssl variant detection
 tokio = { workspace = true, features = ["macros", "net", "io-util", "time", "signal"] }
 kanal = { workspace = true, features = ["async"] }
 yaml-rust.workspace = true
+snmalloc = { workspace = true, optional = true }
 vey-std-ext.workspace = true
 vey-types.workspace = true
 vey-yaml = { workspace = true, features = ["histogram", "openssl"] }
@@ -39,6 +40,8 @@ jemalloc = ["dep:vey-jemalloc", "vey-daemon/jemalloc"]
 mimalloc = ["dep:vey-mimalloc", "vey-daemon/mimalloc"]
 vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]
+snmalloc = ["dep:snmalloc"]
+secure-snmalloc = ["snmalloc", "snmalloc/check"]
 vendored-openssl = ["openssl/vendored"]
 vendored-tongsuo = ["openssl/tongsuo", "vey-cert-agent/tongsuo"]
 vendored-boringssl = ["openssl/boringssl"]

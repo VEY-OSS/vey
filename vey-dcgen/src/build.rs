@@ -31,6 +31,8 @@ pub fn print_version(verbose_level: u8) {
                 }
             } else if #[cfg(feature = "mimalloc")] {
                 println!("mimalloc {}", vey_mimalloc::lib_version());
+            } else if #[cfg(feature = "snmalloc")] {
+                println!("snmalloc");
             } else {
                 println!("system");
             }

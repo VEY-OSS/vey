@@ -29,6 +29,7 @@ foldhash.workspace = true
 futures-util.workspace = true
 arc-swap.workspace = true
 serde_json.workspace = true
+snmalloc = { workspace = true, optional = true }
 vey-codec.workspace = true
 vey-daemon = { workspace = true, features = ["register", "event-log"] }
 vey-macros.workspace = true
@@ -59,6 +60,8 @@ jemalloc = ["dep:vey-jemalloc", "vey-daemon/jemalloc"]
 mimalloc = ["dep:vey-mimalloc", "vey-daemon/mimalloc"]
 vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]
+snmalloc = ["dep:snmalloc"]
+secure-snmalloc = ["snmalloc", "snmalloc/check"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe"]
 vendored-boringssl = ["openssl/boringssl", "openssl-probe"]

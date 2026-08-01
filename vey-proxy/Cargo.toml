@@ -65,6 +65,7 @@ lru.workspace = true
 regex.workspace = true
 mlua = { workspace = true, features = ["send"], optional = true }
 pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
+snmalloc = { workspace = true, optional = true }
 vey-cert-agent = { workspace = true, features = ["yaml"] }
 vey-codec = { workspace = true, features = ["ldap", "tls"] }
 vey-daemon = { workspace = true, features = ["event-log"] }
@@ -116,6 +117,8 @@ jemalloc = ["dep:vey-jemalloc", "vey-daemon/jemalloc"]
 mimalloc = ["dep:vey-mimalloc", "vey-daemon/mimalloc"]
 vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]
+snmalloc = ["dep:snmalloc"]
+secure-snmalloc = ["snmalloc", "snmalloc/check"]
 ebpf = ["vey-daemon/ebpf"]
 vendored-libbpf = ["ebpf", "vey-reuseport/vendored-libbpf"]
 vendored-ebpf = ["ebpf", "vey-reuseport/vendored"]

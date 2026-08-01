@@ -41,6 +41,7 @@ uuid.workspace = true
 bitflags.workspace = true
 kanal = { workspace = true, features = ["async"] }
 rustc-hash.workspace = true
+snmalloc = { workspace = true, optional = true }
 vey-codec = { workspace = true, features = ["tls"] }
 vey-daemon = { workspace = true, features = ["event-log"] }
 vey-histogram.workspace = true
@@ -69,6 +70,8 @@ jemalloc = ["dep:vey-jemalloc", "vey-daemon/jemalloc"]
 mimalloc = ["dep:vey-mimalloc", "vey-daemon/mimalloc"]
 vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]
+snmalloc = ["dep:snmalloc"]
+secure-snmalloc = ["snmalloc", "snmalloc/check"]
 ebpf = ["vey-daemon/ebpf"]
 vendored-libbpf = ["ebpf", "vey-reuseport/vendored-libbpf"]
 vendored-ebpf = ["ebpf", "vey-reuseport/vendored"]

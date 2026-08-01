@@ -191,6 +191,7 @@ libc = "0.2.182"
 rustix = { version = "1.1", default-features = false }
 windows-sys = "0.61"
 socket2 = { version = "0.6.4", features = ["all"] }
+snmalloc = { package = "snmalloc-rs", version = "0.7", features = ["libc-api"] }
 #
 serde = "1.0"
 yaml-rust = { package = "yaml-rust2", version = "0.11" }

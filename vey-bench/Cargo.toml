@@ -41,6 +41,7 @@ fastrand.workspace = true
 base64.workspace = true
 hickory-net.workspace = true
 hickory-proto.workspace = true
+snmalloc = { workspace = true, optional = true }
 vey-runtime.workspace = true
 vey-std-ext.workspace = true
 vey-types = { workspace = true, features = ["openssl", "rustls"] }
@@ -68,6 +69,8 @@ jemalloc = ["dep:vey-jemalloc"]
 mimalloc = ["dep:vey-mimalloc"]
 vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]
+snmalloc = ["dep:snmalloc"]
+secure-snmalloc = ["snmalloc", "snmalloc/check"]
 quic = ["vey-types/quic", "vey-socks/quic", "vey-io-ext/quic", "vey-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
 rustls-ring = ["vey-rustls-provider/rustls-ring", "vey-types/rustls-ring", "quinn?/rustls-ring"]
 rustls-aws-lc = ["vey-rustls-provider/rustls-aws-lc", "vey-types/rustls-aws-lc", "quinn?/rustls-aws-lc-rs"]

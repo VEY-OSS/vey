@@ -13,6 +13,7 @@ cfg-if.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 tokio = { workspace = true, features = ["net", "io-util", "time", "signal", "macros"] }
 yaml-rust.workspace = true
+snmalloc = { workspace = true, optional = true }
 vey-yaml.workspace = true
 vey-daemon.workspace = true
 vey-statsd-client.workspace = true
@@ -33,3 +34,5 @@ jemalloc = ["dep:vey-jemalloc", "vey-daemon/jemalloc"]
 mimalloc = ["dep:vey-mimalloc", "vey-daemon/mimalloc"]
 vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]
+snmalloc = ["dep:snmalloc"]
+secure-snmalloc = ["snmalloc", "snmalloc/check"]

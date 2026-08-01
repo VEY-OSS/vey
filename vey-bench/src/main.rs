@@ -22,6 +22,9 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature="mimalloc")] {
         #[global_allocator]
         static GLOBAL: vey_mimalloc::Mimalloc = vey_mimalloc::Mimalloc;
+    } else if #[cfg(feature="snmalloc")] {
+        #[global_allocator]
+        static GLOBAL: snmalloc::SnMalloc = snmalloc::SnMalloc;
     }
 }
 
