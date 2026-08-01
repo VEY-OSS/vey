@@ -2,16 +2,22 @@
 
 # VEY Keyless
 
-`vey-keyless` is a server implementation of the Cloudflare Keyless SSL protocol.
+`vey-keyless` is a dedicated private-key service for TLS deployments. Its primary
+key-operation protocol is [Cloudflare Keyless SSL](https://blog.cloudflare.com/keyless-ssl-the-nitty-gritty-technical-details/),
+and listening sockets can be composed in front of that protocol through pluggable
+server types.
 
-It is intended for deployments where TLS private-key operations should be handled by a dedicated service rather than by
-the edge process that terminates client connections. This makes it easier to centralize key handling, integrate with
+It is intended for deployments where TLS private-key operations should be handled
+by a dedicated service rather than by the edge process that terminates client
+connections. This makes it easier to centralize key handling, integrate with
 hardware acceleration, and keep private-key access under tighter control.
 
 At a high level, `vey-keyless` provides:
 
-- a network service that accepts keyless requests from front-end TLS systems
-- pluggable server types, so listening sockets can be chained in front of the key operation protocol
+- a network service that accepts connections from front-end TLS systems
+- pluggable server types, so listening sockets can be chained in front of the
+  key-operation protocol
+- the Cloudflare Keyless protocol for RSA/ECDSA/Ed25519 private-key operations
 - pluggable private-key stores
 - backend execution modes for local OpenSSL or OpenSSL async jobs
 - structured logging and StatsD-compatible metrics
@@ -21,8 +27,11 @@ At a high level, `vey-keyless` provides:
 The main configuration areas are:
 
 - `server`
-  Accepts incoming connections. A server either speaks a key operation protocol (`cloudflare`) or only owns a listening
-  socket and forwards every accepted connection to a next server (`plain_tcp_port`, `plain_tls_port`).
+  Accepts incoming connections. A server either speaks a key-operation protocol
+  (`cloudflare`, the default) or only owns a listening socket and forwards every
+  accepted connection to a next server (`plain_tcp_port`, `plain_tls_port`).
+  A `cloudflare` server may omit `listen` and serve only the connections handed
+  over by port servers.
 
 - `store`
   Defines where private keys are loaded from.
@@ -87,8 +96,8 @@ You can choose different TLS/crypto libraries with feature flags:
 
   Use Tongsuo.
 
-The `plain_tls_port` server uses rustls, whose crypto provider is selected with one of these mutually exclusive feature
-flags:
+The `plain_tls_port` server uses rustls, whose crypto provider is selected with
+one of these mutually exclusive feature flags:
 
 - rustls-ring (default)
 - rustls-aws-lc
@@ -107,8 +116,9 @@ cargo build --features openssl-async-job
 ```
 
 You can build a hardware engine against the system OpenSSL, and enable it
-in [openssl.cnf](https://docs.openssl.org/master/man5/config/). If you don't want to change the default `openssl.cnf`,
-you can create a separate file and export it through the `OPENSSL_CONF` environment variable.
+in [openssl.cnf](https://docs.openssl.org/master/man5/config/). If you don't want
+to change the default `openssl.cnf`, you can create a separate file and export it
+through the `OPENSSL_CONF` environment variable.
 
 See [Intel QAT Engine](IntelQatEngine.md) for a concrete setup example.
 
@@ -116,9 +126,18 @@ See [Intel QAT Engine](IntelQatEngine.md) for a concrete setup example.
 
 - Run a dedicated keyless service behind an existing TLS edge.
 - Keep private keys on a restricted host instead of on every front-end node.
-- Combine keyless processing with OpenSSL engines or provider-based hardware acceleration.
+- Terminate TLS with rustls on a `plain_tls_port`, then hand the stream to a
+  `cloudflare` key-operation server.
+- Combine keyless processing with OpenSSL engines or provider-based hardware
+  acceleration.
 - Separate network termination from cryptographic key use for operational control.
 
 ## Examples
 
-Example configurations are available in [examples](examples).
+Example configurations are available in [examples](examples):
+
+- [simple_openssl](examples/simple_openssl): a single `cloudflare` server with its
+  own TLS listen socket
+- [tls_port](examples/tls_port): `plain_tls_port` and `plain_tcp_port` chained to a
+  `cloudflare` server that has no listen socket of its own
+- [worker_openssl](examples/worker_openssl): multi-worker setup with OpenSSL

@@ -1,10 +1,10 @@
 
 v0.6.0:
  - Feature: support multiple server types, selected with the `type` key in each server config
-     - `keyless_cf`: the Cloudflare Keyless server, which is the default type if `type` is omitted
+     - `cloudflare`: the Cloudflare Keyless server, which is the default type if `type` is omitted
      - `plain_tcp_port`: a plain TCP port that forwards accepted connections to the `server` it points to
      - `plain_tls_port`: a TLS port backed by rustls, which terminates TLS and forwards the stream to the `server` it points to
- - Feature: `listen` is now optional in a `keyless_cf` server, so it can serve only the connections sent by port servers
+ - Feature: `listen` is now optional in a `cloudflare` server, so it can serve only the connections sent by port servers
  - Feature: port servers support the PROXY Protocol via `proxy_protocol` and `proxy_protocol_read_timeout`
  - Feature: `server` references are verified when the config is loaded, so a missing or self-referencing next server is rejected at startup
 

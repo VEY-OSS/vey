@@ -4,7 +4,8 @@
 Server Metrics
 ##############
 
-Server metrics describe listener, task, and request activity on the keyless server.
+Server metrics describe listener, task, and request activity on each configured
+server.
 
 The following tags are present on all server metrics:
 

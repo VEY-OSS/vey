@@ -4,7 +4,7 @@ cloudflare
 ==========
 
 This server speaks the Cloudflare Keyless protocol and runs the private key
-operations.
+operations. It is the only key-operation server type currently supported.
 
 It is the default server type, so ``type`` may be omitted.
 

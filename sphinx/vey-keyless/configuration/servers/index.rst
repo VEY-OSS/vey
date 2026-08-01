@@ -32,6 +32,28 @@ A key operation server may be used in either of two ways:
 * without a ``listen`` key, so it only serves the connections sent by port
   servers
 
+Example of chaining port servers to a ``cloudflare`` server that has no listen
+socket of its own::
+
+   server:
+     - name: tls_port
+       type: plain_tls_port
+       listen: "[::]:11300"
+       tls:
+         certificate: cert.pem
+         private_key: key.pem
+       server: keyless
+
+     - name: tcp_port
+       type: plain_tcp_port
+       listen: "[::]:1300"
+       proxy_protocol: 2
+       server: keyless
+
+     - name: keyless
+       type: cloudflare
+       multiplex_queue_depth: 128
+
 The supported server types are documented below.
 
 Servers
