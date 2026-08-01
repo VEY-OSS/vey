@@ -25,12 +25,12 @@ test_rsa()
 	for hash in sha256 sha384 sha512
 	do
 		payload=$("${hash}sum" "${TEST_RSA_KEY_FILE}" | awk '{print $1}')
-		vey_bench keyless cloudflare --no-tls --target 127.0.0.1:1300 --key "${TEST_RSA_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
-		vey_bench keyless cloudflare --no-tls --target 127.0.0.1:1300 --key "${TEST_RSA_KEY_FILE}" --sign --digest-type $hash --rsa-padding PSS --verify "${payload}"
+		vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_RSA_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
+		vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_RSA_KEY_FILE}" --sign --digest-type $hash --rsa-padding PSS --verify "${payload}"
 	done
 
 	TO_DECRYPT_DATA=$(vey_bench keyless openssl --key "${TEST_RSA_KEY_FILE}" --encrypt "abcdef" --no-summary --dump-result)
-	vey_bench keyless cloudflare --no-tls --target 127.0.0.1:1300 --key "${TEST_RSA_KEY_FILE}" --decrypt --verify --verify-data "abcdef" "${TO_DECRYPT_DATA}"
+	vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_RSA_KEY_FILE}" --decrypt --verify --verify-data "abcdef" "${TO_DECRYPT_DATA}"
 }
 
 test_ec()
@@ -40,8 +40,8 @@ test_ec()
 
 	for hash in sha256 sha384 sha512
 	do
-		payload=$("${hash}sum" "${TEST_RSA_KEY_FILE}" | awk '{print $1}')
-		vey_bench keyless cloudflare --no-tls --target 127.0.0.1:1300 --key "${TEST_EC_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
+		payload=$("${hash}sum" "${TEST_EC_KEY_FILE}" | awk '{print $1}')
+		vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_EC_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
 	done
 }
 
@@ -63,6 +63,12 @@ do
 
 	echo "=== ${dir}"
 	date
+
+	KEYLESS_TARGET="127.0.0.1:1300"
+	KEYLESS_CONN_ARGS="--no-tls"
+	if [ -f "${dir}/conf.sh" ]; then
+		. "${dir}/conf.sh"
+	fi
 
 	"${PROJECT_DIR}"/target/debug/vey-keyless -c "${dir}/main.yaml" -G ${TEST_NAME} &
 	KEYSERVER_PID=$!

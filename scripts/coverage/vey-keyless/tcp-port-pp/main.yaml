@@ -1,0 +1,24 @@
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+  prefix: vey-keyless
+
+server:
+  - name: tcp_port
+    type: plain_tcp_port
+    listen: "[::]:1300"
+    proxy_protocol: 2
+    server: keyless
+
+  - name: keyless
+    type: cloudflare
+    multiplex_queue_depth: 128
+    extra_metrics_tags:
+      cluster: default
+
+store:
+  - name: local
+    type: local
+    dir: ../keys

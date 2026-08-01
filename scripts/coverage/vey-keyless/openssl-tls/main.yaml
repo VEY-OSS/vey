@@ -1,0 +1,23 @@
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+  prefix: vey-keyless
+
+server:
+  - name: default
+    type: cloudflare
+    listen: "[::]:1300"
+    tls_server:
+      cert_pairs:
+        certificate: ../rsa2048.crt
+        private_key: ../keys/rsa2048.key
+    multiplex_queue_depth: 128
+    extra_metrics_tags:
+      cluster: default
+
+store:
+  - name: local
+    type: local
+    dir: ../keys
