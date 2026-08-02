@@ -9,6 +9,7 @@ use std::time::Duration;
 use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use vey_statsd_client::StatsdClient;
 
+use crate::summary::{KvRow, print_kv_section, print_tcp_traffic};
 use crate::target::BenchRuntimeStats;
 
 #[derive(Default)]
@@ -113,27 +114,33 @@ impl BenchRuntimeStats for ThriftRuntimeStats {
     fn summary(&self, total_time: Duration) {
         let total_secs = total_time.as_secs_f64();
 
-        println!("# Connections");
         let total_attempt = self.conn_attempt_total.load(Ordering::Relaxed)
             + self.conn_attempt.load(Ordering::Relaxed);
-        println!("Attempt count: {total_attempt}");
         let total_success = self.conn_success_total.load(Ordering::Relaxed)
             + self.conn_success.load(Ordering::Relaxed);
-        println!("Success count: {total_success}");
-        println!(
-            "Success ratio: {:.2}%",
-            (total_success as f64 / total_attempt as f64) * 100.0
+        print_kv_section(
+            "# Connections",
+            &[
+                KvRow::new("Attempt count", total_attempt),
+                KvRow::new("Success count", total_success),
+                KvRow::new(
+                    "Success ratio",
+                    format!(
+                        "{:.2}%",
+                        (total_success as f64 / total_attempt as f64) * 100.0
+                    ),
+                ),
+                KvRow::new(
+                    "Success rate",
+                    format!("{:.3}/s", total_success as f64 / total_secs),
+                ),
+            ],
         );
-        println!("Success rate:  {:.3}/s", total_success as f64 / total_secs);
 
-        println!("# Traffic");
-        let total_send =
+        let send_bytes =
             self.io.write_total.load(Ordering::Relaxed) + self.io.write.load(Ordering::Relaxed);
-        println!("Send bytes:    {total_send}");
-        println!("Send rate:     {:.3}B/s", total_send as f64 / total_secs);
-        let total_recv =
+        let recv_bytes =
             self.io.read_total.load(Ordering::Relaxed) + self.io.read.load(Ordering::Relaxed);
-        println!("Recv bytes:    {total_recv}");
-        println!("Recv rate:     {:.3}B/s", total_recv as f64 / total_secs);
+        print_tcp_traffic(send_bytes, recv_bytes, total_secs);
     }
 }

@@ -15,6 +15,7 @@ cfg-if.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 indicatif = "0.18"
+tabled = { version = "0.21", default-features = false, features = ["derive"] }
 tokio = { workspace = true, features = ["rt", "net", "macros", "signal"] }
 http.workspace = true
 url.workspace = true

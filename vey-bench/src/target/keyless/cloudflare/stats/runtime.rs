@@ -9,6 +9,7 @@ use std::time::Duration;
 use vey_statsd_client::StatsdClient;
 
 use crate::module::ssl::SslSessionStats;
+use crate::summary::{KvRow, print_kv_section};
 use crate::target::BenchRuntimeStats;
 
 #[derive(Default)]
@@ -81,18 +82,28 @@ impl BenchRuntimeStats for KeylessRuntimeStats {
     fn summary(&self, total_time: Duration) {
         let total_secs = total_time.as_secs_f64();
 
-        println!("# Connections");
         let total_attempt = self.conn_attempt_total.load(Ordering::Relaxed)
             + self.conn_attempt.load(Ordering::Relaxed);
-        println!("Attempt count: {total_attempt}");
         let total_success = self.conn_success_total.load(Ordering::Relaxed)
             + self.conn_success.load(Ordering::Relaxed);
-        println!("Success count: {total_success}");
-        println!(
-            "Success ratio: {:.2}%",
-            (total_success as f64 / total_attempt as f64) * 100.0
+        print_kv_section(
+            "# Connections",
+            &[
+                KvRow::new("Attempt count", total_attempt),
+                KvRow::new("Success count", total_success),
+                KvRow::new(
+                    "Success ratio",
+                    format!(
+                        "{:.2}%",
+                        (total_success as f64 / total_attempt as f64) * 100.0
+                    ),
+                ),
+                KvRow::new(
+                    "Success rate",
+                    format!("{:.3}/s", total_success as f64 / total_secs),
+                ),
+            ],
         );
-        println!("Success rate:  {:.3}/s", total_success as f64 / total_secs);
 
         self.ssl_session.summary("TLS");
     }

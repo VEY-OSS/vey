@@ -108,8 +108,13 @@ impl ProcArgs {
             return;
         }
 
-        println!("Concurrency Level: {}", self.concurrency);
-        println!();
+        crate::summary::print_kv_section(
+            "",
+            &[crate::summary::KvRow::new(
+                "Concurrency Level",
+                self.concurrency,
+            )],
+        );
     }
 
     pub(super) fn new_progress_bar(&self) -> Option<BenchProgress> {

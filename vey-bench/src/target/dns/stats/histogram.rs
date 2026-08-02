@@ -9,6 +9,7 @@ use vey_histogram::{HistogramRecorder, KeepingHistogram};
 use vey_statsd_client::StatsdClient;
 use vey_std_ext::time::DurationExt;
 
+use crate::summary::{hist_row_from_duration, print_hist_table, print_pct_table};
 use crate::target::BenchHistogram;
 
 pub(crate) struct DnsHistogram {
@@ -35,11 +36,12 @@ impl BenchHistogram for DnsHistogram {
     }
 
     fn summary(&self) {
-        Self::summary_histogram_title("# Duration Times");
         let total_time = self.total_time.inner();
-        Self::summary_duration_line("Total:", total_time);
-        Self::summary_newline();
-        Self::summary_total_percentage(total_time);
+        print_hist_table(
+            "# Duration Times",
+            &[hist_row_from_duration("Total", total_time)],
+        );
+        print_pct_table(total_time);
     }
 }
 

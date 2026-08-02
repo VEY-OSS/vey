@@ -65,66 +65,6 @@ pub(crate) trait BenchHistogram {
     }
 
     fn summary(&self);
-
-    fn summary_histogram_title(title: &str) {
-        println!("{title}");
-        println!("                 min      mean[+/-sd]        pct90       max");
-    }
-
-    fn summary_newline() {
-        println!();
-    }
-
-    fn summary_data_line(name: &str, h: &Histogram<u64>) {
-        let d_min = h.min();
-        let d_mean = h.mean();
-        let d_std_dev = h.stdev();
-        let d_pct90 = h.value_at_quantile(0.90);
-        let d_max = h.max();
-
-        println!(
-            "{name:<10} {d_min:>9.3?} {d_mean:>9.3?} {d_std_dev:<9.3?} {d_pct90:>9.3?} {d_max:>9.3?}"
-        );
-    }
-
-    fn summary_duration_line(name: &str, h: &Histogram<u64>) {
-        const NANOS_PER_SEC: f64 = 1_000_000_000.0;
-
-        let t_min = Duration::from_nanos(h.min());
-        let t_mean = Duration::from_secs_f64(h.mean() / NANOS_PER_SEC);
-        let t_std_dev = Duration::from_secs_f64(h.stdev() / NANOS_PER_SEC);
-        let t_pct90 = Duration::from_nanos(h.value_at_quantile(0.90));
-        let t_max = Duration::from_nanos(h.max());
-
-        println!(
-            "{name:<10} {t_min:>9.3?} {t_mean:>9.3?} {t_std_dev:9.3?} {t_pct90:>9.3?} {t_max:>9.3?}"
-        );
-    }
-
-    fn summary_total_percentage(h: &Histogram<u64>) {
-        if h.len() <= 1 {
-            return;
-        }
-
-        macro_rules! print_pct {
-            ($pct:literal) => {
-                let v = Duration::from_nanos(h.value_at_percentile($pct as f64));
-                println!("{:4}% {v:8.3?}", $pct);
-            };
-        }
-
-        println!("Percentage of the requests served within a certain time");
-
-        print_pct!(50);
-        print_pct!(66);
-        print_pct!(75);
-        print_pct!(80);
-        print_pct!(90);
-        print_pct!(95);
-        print_pct!(98);
-        print_pct!(99);
-        print_pct!(100);
-    }
 }
 
 pub(crate) trait BenchRuntimeStats {
@@ -396,7 +336,6 @@ where
             None
         };
         stats::global_state().summary(total_time, distribution);
-        H::summary_newline();
         target.fetch_runtime_stats().summary(total_time);
     }
 

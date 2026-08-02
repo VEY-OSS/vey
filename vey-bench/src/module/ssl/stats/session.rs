@@ -5,6 +5,8 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::summary::{KvRow, print_kv_section};
+
 #[derive(Default)]
 pub(crate) struct SslSessionStats {
     total: AtomicU64,
@@ -29,11 +31,15 @@ impl SslSessionStats {
         }
 
         let session_reused = self.reused.load(Ordering::Relaxed);
-        println!("# {prefix} Session");
-        println!("Reused Count: {session_reused}");
-        println!(
-            "Reuse Ratio: {:.2}%",
-            (session_reused as f64 / total as f64) * 100.0
+        print_kv_section(
+            &format!("# {prefix} Session"),
+            &[
+                KvRow::new("Reused Count", session_reused),
+                KvRow::new(
+                    "Reuse Ratio",
+                    format!("{:.2}%", (session_reused as f64 / total as f64) * 100.0),
+                ),
+            ],
         );
     }
 }

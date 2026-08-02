@@ -10,6 +10,9 @@ use vey_histogram::{HistogramRecorder, KeepingHistogram};
 use vey_statsd_client::StatsdClient;
 use vey_std_ext::time::DurationExt;
 
+use crate::summary::{
+    hist_row_from_data, hist_row_from_duration, print_hist_table, print_pct_table,
+};
 use crate::target::BenchHistogram;
 
 pub(crate) struct ThriftHistogram {
@@ -44,12 +47,15 @@ impl BenchHistogram for ThriftHistogram {
     }
 
     fn summary(&self) {
-        Self::summary_histogram_title("# Connection Used Times:");
-        Self::summary_data_line("Req/Conn:", self.conn_used_times.inner());
-        Self::summary_histogram_title("# Duration Times");
-        Self::summary_duration_line("Total:", self.total_time.inner());
-        Self::summary_newline();
-        Self::summary_total_percentage(self.total_time.inner());
+        print_hist_table(
+            "# Connection Used Times",
+            &[hist_row_from_data("Req/Conn", self.conn_used_times.inner())],
+        );
+        print_hist_table(
+            "# Duration Times",
+            &[hist_row_from_duration("Total", self.total_time.inner())],
+        );
+        print_pct_table(self.total_time.inner());
     }
 }
 

@@ -10,6 +10,7 @@ use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use vey_statsd_client::StatsdClient;
 
 use super::SslSessionStats;
+use crate::summary::{KvRow, print_kv_section, print_tcp_traffic};
 use crate::target::BenchRuntimeStats;
 
 #[derive(Default)]
@@ -114,38 +115,41 @@ impl BenchRuntimeStats for SslRuntimeStats {
     fn summary(&self, total_time: Duration) {
         let total_secs = total_time.as_secs_f64();
 
-        println!("# Connections");
         let total_attempt = self.conn_attempt_total.load(Ordering::Relaxed)
             + self.conn_attempt.load(Ordering::Relaxed);
-        println!("Attempt count: {total_attempt}");
         let total_success = self.conn_success_total.load(Ordering::Relaxed)
             + self.conn_success.load(Ordering::Relaxed);
-        println!("Success count: {total_success}");
-        println!(
-            "Success ratio: {:.2}%",
-            (total_success as f64 / total_attempt as f64) * 100.0
-        );
-        println!("Success rate:  {:.3}/s", total_success as f64 / total_secs);
-
+        let mut conn_rows = vec![
+            KvRow::new("Attempt count", total_attempt),
+            KvRow::new("Success count", total_success),
+            KvRow::new(
+                "Success ratio",
+                format!(
+                    "{:.2}%",
+                    (total_success as f64 / total_attempt as f64) * 100.0
+                ),
+            ),
+            KvRow::new(
+                "Success rate",
+                format!("{:.3}/s", total_success as f64 / total_secs),
+            ),
+        ];
         let close_error = self.conn_close_error.load(Ordering::Relaxed);
         if close_error > 0 {
-            println!("Close error:   {close_error}");
+            conn_rows.push(KvRow::new("Close error", close_error));
         }
         let close_timeout = self.conn_close_timeout.load(Ordering::Relaxed);
         if close_timeout > 0 {
-            println!("Close timeout: {close_timeout}");
+            conn_rows.push(KvRow::new("Close timeout", close_timeout));
         }
+        print_kv_section("# Connections", &conn_rows);
 
         self.session.summary("TLS");
 
-        println!("# Traffic");
-        let total_send =
+        let send_bytes =
             self.tcp_write_total.load(Ordering::Relaxed) + self.tcp_write.load(Ordering::Relaxed);
-        println!("Send bytes:    {total_send}");
-        println!("Send rate:     {:.3}B/s", total_send as f64 / total_secs);
-        let total_recv =
+        let recv_bytes =
             self.tcp_read_total.load(Ordering::Relaxed) + self.tcp_read.load(Ordering::Relaxed);
-        println!("Recv bytes:    {total_recv}");
-        println!("Recv rate:     {:.3}B/s", total_recv as f64 / total_secs);
+        print_tcp_traffic(send_bytes, recv_bytes, total_secs);
     }
 }

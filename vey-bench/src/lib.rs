@@ -6,6 +6,7 @@
 mod module;
 mod opts;
 mod progress;
+mod summary;
 
 pub mod build;
 pub mod target;

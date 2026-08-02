@@ -9,6 +9,10 @@ use std::time::Duration;
 
 use hdrhistogram::Histogram;
 
+use crate::summary::{
+    KvRow, hist_row_from_data, print_hist_table, print_kv_section, print_split_line,
+};
+
 static GLOBAL_STATE: GlobalState = GlobalState::new(None, 0);
 
 pub(super) fn global_state() -> &'static GlobalState {
@@ -127,37 +131,38 @@ impl GlobalState {
     }
 
     pub(super) fn summary(&self, total_time: Duration, distribution: Option<&Histogram<u64>>) {
-        println!("Time taken for tests: {total_time:?}");
-
         let passed = self.total_passed.load(Ordering::Relaxed);
-        println!("Complete requests:    {passed:<10}");
+        let mut rows = vec![
+            KvRow::new("Time taken for tests", format!("{total_time:?}")),
+            KvRow::new("Complete requests", passed),
+        ];
 
         let failed = self.total_failed.load(Ordering::Relaxed);
         if failed > 0 {
-            println!("Failed requests:      {failed}");
+            rows.push(KvRow::new("Failed requests", failed));
         }
 
         let left = self.total_left.load(Ordering::Relaxed);
         if left > 0 {
-            println!("Left requests:        {left}");
+            rows.push(KvRow::new("Left requests", left));
         }
 
-        println!(
-            "Requests per second:  {:.3} [#/sec] (mean)",
-            passed as f64 / total_time.as_secs_f64()
-        );
+        rows.push(KvRow::new(
+            "Requests per second",
+            format!(
+                "{:.3} [#/sec] (mean)",
+                passed as f64 / total_time.as_secs_f64()
+            ),
+        ));
+        print_split_line();
+        print_kv_section("", &rows);
 
         let Some(distribution) = distribution else {
             return;
         };
-        println!("Requests distribution:");
-        println!("  min   {}", distribution.min());
-        println!(
-            "  mean  {:.2}[+/- {:.2}]",
-            distribution.mean(),
-            distribution.stdev()
+        print_hist_table(
+            "Requests distribution",
+            &[hist_row_from_data("", distribution)],
         );
-        println!("  pct90 {}", distribution.value_at_percentile(90.0));
-        println!("  max   {}", distribution.max());
     }
 }
