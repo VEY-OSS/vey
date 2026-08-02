@@ -160,9 +160,9 @@ impl FormatterKv<'_> {
                 // same as String.push()
                 match e.len_utf8() {
                     1 => self.0.push(e as u8),
-                    _ => self
-                        .0
-                        .extend_from_slice(e.encode_utf8(&mut [0u8; 4]).as_bytes()),
+                    _ => self.0.extend_from_slice(
+                        e.encode_utf8(&mut [0u8; char::MAX_LEN_UTF8]).as_bytes(),
+                    ),
                 }
             }
         }

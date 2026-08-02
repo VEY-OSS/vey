@@ -170,7 +170,7 @@ impl Serializer for FormatterKv<'_> {
         if value == '\n' {
             self.emit_multi_line(key, "\n")
         } else {
-            self.emit_one_line(key, value.encode_utf8(&mut [0u8; 4]))
+            self.emit_one_line(key, value.encode_utf8(&mut [0u8; char::MAX_LEN_UTF8]))
         }
     }
 

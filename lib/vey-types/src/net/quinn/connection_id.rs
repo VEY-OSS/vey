@@ -72,9 +72,8 @@ impl ConnectionIdGenerator for QuinnReuseportIdGenerator {
             return Err(InvalidCid);
         }
 
-        let cookie_bytes: [u8; CID_COOKIE_LENGTH] = cid[..CID_COOKIE_LENGTH]
-            .try_into()
-            .map_err(|_| InvalidCid)?;
+        let cookie_bytes: [u8; CID_COOKIE_LENGTH] =
+            *cid[..CID_COOKIE_LENGTH].as_array().ok_or(InvalidCid)?;
         let cookie = u64::from_be_bytes(cookie_bytes);
         if cookie != self.cookie {
             return Err(InvalidCid);

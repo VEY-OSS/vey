@@ -1,4 +1,7 @@
 
+v0.4.1:
+ - Compatibility: bump MSRV to 1.94.0
+
 v0.4.0:
  - BUG FIX: keyless backend closes multiplex connections at the configured `max_request_count` (off-by-one no longer allows one extra request)
  - BUG FIX: reject empty TLS Handshake records and bound ClientHello buffers in openssl_proxy so bad clients cannot grow memory without limit

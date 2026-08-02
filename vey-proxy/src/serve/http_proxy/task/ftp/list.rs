@@ -250,7 +250,7 @@ mod tests {
         let mut rest = body;
         loop {
             let crlf = rest
-                .windows(2)
+                .array_windows::<2>()
                 .position(|w| w == b"\r\n")
                 .expect("chunk size line");
             let size = usize::from_str_radix(std::str::from_utf8(&rest[..crlf]).unwrap(), 16)

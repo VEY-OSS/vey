@@ -139,7 +139,7 @@ impl Serializer for FormatterKv<'_> {
     }
 
     fn emit_char(&mut self, key: slog::Key, value: char) -> slog::Result {
-        self.emit_str(key, value.encode_utf8(&mut [0u8; 4]))
+        self.emit_str(key, value.encode_utf8(&mut [0u8; char::MAX_LEN_UTF8]))
     }
 
     fn emit_none(&mut self, _key: slog::Key) -> slog::Result {

@@ -1,5 +1,6 @@
 
 v0.6.0:
+ - Compatibility: bump MSRV to 1.94.0
  - Feature: support multiple server types, selected with the `type` key in each server config
      - `cloudflare`: the Cloudflare Keyless server, which is the default type if `type` is omitted
      - `plain_tcp_port`: a plain TCP port that forwards accepted connections to the `server` it points to

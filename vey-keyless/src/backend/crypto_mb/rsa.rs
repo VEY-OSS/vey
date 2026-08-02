@@ -68,9 +68,7 @@ async fn process_sized<const N: usize>(batch: &mut Vec<DispatchedKeylessRequest>
     }
 
     let statuses = {
-        let slots = unsafe {
-            std::slice::from_raw_parts_mut(slots_buf.as_mut_ptr() as *mut RsaSlot<'_, N>, mb_n)
-        };
+        let slots = unsafe { slots_buf[..mb_n].assume_init_mut() };
         private_crt_mb8(slots)
     };
 

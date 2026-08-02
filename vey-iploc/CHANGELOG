@@ -1,4 +1,7 @@
 
+v0.4.1:
+ - Compatibility: bump MSRV to 1.94.0
+
 v0.4.0:
  - Feature: optional jemalloc or mimalloc global allocator at compile time; allocator name/version appear in `--version`
  - Feature: derive default config / log / metrics / controller names from the binary name (supports renamed installs)

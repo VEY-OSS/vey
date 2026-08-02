@@ -68,9 +68,7 @@ async fn process_batch<const N: usize>(batch: &mut Vec<DispatchedKeylessRequest>
     }
 
     let statuses = {
-        let slots = unsafe {
-            std::slice::from_raw_parts_mut(slots_buf.as_mut_ptr() as *mut EcdsaSlot<'_, N>, mb_n)
-        };
+        let slots = unsafe { slots_buf[..mb_n].assume_init_mut() };
         ecdsa_sign_mb8(slots)
     };
 
@@ -84,10 +82,8 @@ async fn process_batch<const N: usize>(batch: &mut Vec<DispatchedKeylessRequest>
         }
     }
 
-    for slot in slots_buf.iter_mut().take(mb_n) {
-        unsafe {
-            slot.assume_init_drop();
-        }
+    unsafe {
+        slots_buf[..mb_n].assume_init_drop();
     }
 
     let mut mb_slot_of = [BATCH_SIZE; BATCH_SIZE];

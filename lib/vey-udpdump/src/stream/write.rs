@@ -168,11 +168,11 @@ mod tests {
 
         let pkt = receiver.try_recv().expect("should dump one PDU");
         assert!(
-            pkt.windows(5).any(|w| w == b"ABCDE"),
+            pkt.array_windows::<5>().any(|w| w == b"ABCDE"),
             "dump should contain the accepted prefix"
         );
         assert!(
-            !pkt.windows(6).any(|w| w == b"ABCDEF"),
+            !pkt.array_windows::<6>().any(|w| w == b"ABCDEF"),
             "dump must not contain bytes beyond what the inner writer accepted"
         );
     }
@@ -190,7 +190,7 @@ mod tests {
         assert_eq!(&writer.writer.written, b"AAAABBB");
 
         let pkt = receiver.try_recv().expect("should dump one PDU");
-        assert!(pkt.windows(7).any(|w| w == b"AAAABBB"));
-        assert!(!pkt.windows(8).any(|w| w == b"AAAABBBB"));
+        assert!(pkt.array_windows::<7>().any(|w| w == b"AAAABBB"));
+        assert!(!pkt.array_windows::<8>().any(|w| w == b"AAAABBBB"));
     }
 }

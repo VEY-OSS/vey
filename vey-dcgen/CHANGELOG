@@ -1,4 +1,7 @@
 
+v0.9.1:
+ - Compatibility: bump MSRV to 1.94.0
+
 v0.9.0:
  - BUG FIX: convert certificate valid days to seconds correctly in `vey-tls-cert` (`valid_seconds` used 3600 instead of 86400), so forged/mimic cert TTLs and reported validity match the real NotAfter
  - Feature: log the upstream TLS certificate (when info logging is enabled) while generating a forged cert (`vey-tls-cert` X509 dump)

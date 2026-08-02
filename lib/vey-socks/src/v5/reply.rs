@@ -93,8 +93,8 @@ impl Socks5Reply {
             0x01 => {
                 let mut left_bytes = [0u8; 6];
                 reader.read_exact(&mut left_bytes).await?;
-                let ip_bytes: [u8; 4] = left_bytes[0..4].try_into().unwrap();
-                let port_bytes: [u8; 2] = left_bytes[4..6].try_into().unwrap();
+                let ip_bytes = *left_bytes[..4].as_array().unwrap();
+                let port_bytes = *left_bytes[4..6].as_array().unwrap();
                 let port = u16::from_be_bytes(port_bytes);
                 SocketAddr::new(IpAddr::V4(Ipv4Addr::from(ip_bytes)), port)
             }
@@ -102,8 +102,8 @@ impl Socks5Reply {
             0x04 => {
                 let mut left_bytes: [u8; 18] = [0; 18];
                 reader.read_exact(&mut left_bytes).await?;
-                let ip_bytes: [u8; 16] = left_bytes[0..16].try_into().unwrap();
-                let port_bytes: [u8; 2] = left_bytes[16..18].try_into().unwrap();
+                let ip_bytes = *left_bytes[..16].as_array().unwrap();
+                let port_bytes = *left_bytes[16..18].as_array().unwrap();
                 let port = u16::from_be_bytes(port_bytes);
                 SocketAddr::new(IpAddr::V6(Ipv6Addr::from(ip_bytes)), port)
             }

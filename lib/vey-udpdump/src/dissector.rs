@@ -97,14 +97,14 @@ mod tests {
     fn serialize_exported_pdu_prefix() {
         let mut buf = Vec::new();
         ExportedPduDissectorHint::serialize_exported_pdu(&mut buf);
-        assert!(buf.windows(12).any(|w| w == b"exported_pdu"));
+        assert!(buf.array_windows::<12>().any(|w| w == b"exported_pdu"));
     }
 
     #[test]
     fn serialize_tcp_port_hint() {
         let mut buf = Vec::new();
         ExportedPduDissectorHint::TcpPort(443).serialize(&mut buf);
-        assert!(buf.windows(8).any(|w| w == b"tcp.port"));
+        assert!(buf.array_windows::<8>().any(|w| w == b"tcp.port"));
         assert!(buf.ends_with(&443u16.to_be_bytes()));
     }
 
@@ -112,7 +112,7 @@ mod tests {
     fn serialize_tls_port_hint() {
         let mut buf = Vec::new();
         ExportedPduDissectorHint::TlsPort(8443).serialize(&mut buf);
-        assert!(buf.windows(8).any(|w| w == b"tls.port"));
+        assert!(buf.array_windows::<8>().any(|w| w == b"tls.port"));
         assert!(buf.ends_with(&8443u16.to_be_bytes()));
     }
 

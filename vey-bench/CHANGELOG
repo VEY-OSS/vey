@@ -1,5 +1,6 @@
 
 v0.9.9:
+ - Compatibility: bump MSRV to 1.94.0
  - Feature: h1/h2/h3 targets support the HTTP `QUERY` method (RFC 10008), including `--payload`
 
 v0.9.8:

@@ -55,9 +55,7 @@ pub(super) async fn process_batch(batch: &mut Vec<DispatchedKeylessRequest>) {
     }
 
     let statuses = {
-        let slots = unsafe {
-            std::slice::from_raw_parts_mut(slots_buf.as_mut_ptr() as *mut Ed25519Slot, mb_n)
-        };
+        let slots = unsafe { slots_buf[..mb_n].assume_init_mut() };
         ed25519_sign_mb8(slots, &msgs[..mb_n])
     };
 
@@ -84,9 +82,7 @@ pub(super) async fn process_batch(batch: &mut Vec<DispatchedKeylessRequest>) {
         let _ = req.rsp_sender.send(req.inner.build_response(rsp)).await;
     }
 
-    for slot in slots_buf.iter_mut().take(mb_n) {
-        unsafe {
-            slot.assume_init_drop();
-        }
+    unsafe {
+        slots_buf[..mb_n].assume_init_drop();
     }
 }

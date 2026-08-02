@@ -114,8 +114,7 @@ impl UdpCopyPacketMeta {
     }
 
     pub fn set_packet(self, p: &mut UdpCopyPacket) {
-        let iov_advance =
-            unsafe { usize::try_from(self.iov_base.offset_from(p.buf().as_ptr())).unwrap() };
+        let iov_advance = p.buf().element_offset(unsafe { &*self.iov_base }).unwrap();
         p.set_offset(iov_advance + self.data_off);
         p.set_length(iov_advance + self.data_len);
     }

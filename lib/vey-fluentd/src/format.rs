@@ -156,7 +156,7 @@ impl Serializer for FormatterKv<'_> {
     }
 
     fn emit_char(&mut self, key: slog::Key, value: char) -> slog::Result {
-        self.emit_str(key, value.encode_utf8(&mut [0u8; 4]))
+        self.emit_str(key, value.encode_utf8(&mut [0u8; char::MAX_LEN_UTF8]))
     }
 
     fn emit_none(&mut self, key: slog::Key) -> slog::Result {
@@ -203,7 +203,7 @@ mod tests {
         let mut buf = Vec::new();
         let mut fmt = FormatterKv(&mut buf);
         fmt.emit_u64("count".into(), 42).unwrap();
-        assert!(buf.windows(5).any(|w| w == b"count"));
+        assert!(buf.array_windows::<5>().any(|w| w == b"count"));
     }
 
     #[test]
@@ -211,7 +211,7 @@ mod tests {
         let mut buf = Vec::new();
         let mut fmt = FormatterKv(&mut buf);
         fmt.emit_none("empty".into()).unwrap();
-        assert!(buf.windows(5).any(|w| w == b"empty"));
+        assert!(buf.array_windows::<5>().any(|w| w == b"empty"));
         assert!(buf.contains(&0xc0));
     }
 
@@ -220,8 +220,8 @@ mod tests {
         let mut buf = Vec::new();
         let mut fmt = FormatterKv(&mut buf);
         fmt.emit_str("msg".into(), "hello").unwrap();
-        assert!(buf.windows(3).any(|w| w == b"msg"));
-        assert!(buf.windows(5).any(|w| w == b"hello"));
+        assert!(buf.array_windows::<3>().any(|w| w == b"msg"));
+        assert!(buf.array_windows::<5>().any(|w| w == b"hello"));
     }
 
     #[test]
@@ -232,11 +232,11 @@ mod tests {
         fmt.emit_i64("neg".into(), -7).unwrap();
         fmt.emit_f64("pi".into(), 3.5).unwrap();
         fmt.emit_char("ch".into(), 'Z').unwrap();
-        assert!(buf.windows(2).any(|w| w == b"ok"));
-        assert!(buf.windows(3).any(|w| w == b"neg"));
-        assert!(buf.windows(2).any(|w| w == b"pi"));
-        assert!(buf.windows(2).any(|w| w == b"ch"));
-        assert!(buf.windows(1).any(|w| w == b"Z"));
+        assert!(buf.array_windows::<2>().any(|w| w == b"ok"));
+        assert!(buf.array_windows::<3>().any(|w| w == b"neg"));
+        assert!(buf.array_windows::<2>().any(|w| w == b"pi"));
+        assert!(buf.array_windows::<2>().any(|w| w == b"ch"));
+        assert!(buf.array_windows::<1>().any(|w| w == b"Z"));
         assert!(buf.contains(&0xc3)); // true
     }
 
@@ -248,8 +248,8 @@ mod tests {
             .unwrap();
         fmt.emit_arguments("fmt".into(), &format_args!("n={}", 9))
             .unwrap();
-        assert!(buf.windows(5).any(|w| w == b"plain"));
-        assert!(buf.windows(3).any(|w| w == b"n=9"));
+        assert!(buf.array_windows::<5>().any(|w| w == b"plain"));
+        assert!(buf.array_windows::<3>().any(|w| w == b"n=9"));
     }
 
     #[test]

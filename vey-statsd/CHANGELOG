@@ -1,4 +1,7 @@
 
+v0.2.1:
+ - Compatibility: bump MSRV to 1.94.0
+
 v0.2.0:
  - BUG FIX: scale statsd counters by `1/sample_rate` when `|@rate` is present so sampled metrics are not under-counted (gauges stay absolute)
  - BUG FIX: exporter aggregate `diff` resets per emit interval instead of being overwritten, so interval counters and rates are correct

@@ -453,13 +453,13 @@ mod tests {
         to_client.record_written_data(100);
 
         let offset = hdr
-            .windows(2)
-            .position(|w| w == [0x00, EXP_PDU_TAG_TCP_INFO_DATA])
+            .array_windows::<2>()
+            .position(|w| w == &[0x00, EXP_PDU_TAG_TCP_INFO_DATA])
             .expect("tcp info tag")
             + 6;
-        let seq = u32::from_be_bytes(hdr[offset..offset + 4].try_into().unwrap());
+        let seq = u32::from_be_bytes(*hdr[offset..offset + 4].as_array().unwrap());
         assert_eq!(seq, 1);
-        let next_seq = u32::from_be_bytes(hdr[offset + 4..offset + 8].try_into().unwrap());
+        let next_seq = u32::from_be_bytes(*hdr[offset + 4..offset + 8].as_array().unwrap());
         assert_eq!(next_seq, 101);
     }
 
