@@ -89,5 +89,5 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
         pool,
     };
 
-    super::run(target, proc_args).await
+    super::run(target, proc_args, COMMAND).await
 }

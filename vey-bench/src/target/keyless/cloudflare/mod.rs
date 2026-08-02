@@ -104,5 +104,5 @@ pub(super) async fn run(
         pool,
     };
 
-    crate::target::run(target, proc_args).await
+    crate::target::run(target, proc_args, "keyless/cloudflare").await
 }

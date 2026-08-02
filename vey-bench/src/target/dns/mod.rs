@@ -60,7 +60,7 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
         histogram_recorder,
     };
 
-    super::run(target, proc_args).await
+    super::run(target, proc_args, COMMAND).await
 }
 
 struct DnsRequest {

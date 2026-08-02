@@ -9,6 +9,7 @@ use std::time::Duration;
 use vey_statsd_client::StatsdClient;
 
 use crate::module::ssl::SslSessionStats;
+use crate::report::{JsonObject, connections_object, insert, keys};
 use crate::summary::{KvRow, print_kv_section};
 use crate::target::BenchRuntimeStats;
 
@@ -106,5 +107,26 @@ impl BenchRuntimeStats for KeylessRuntimeStats {
         );
 
         self.ssl_session.summary("TLS");
+    }
+
+    fn json_report(&self, total_time: Duration) -> JsonObject {
+        let total_secs = total_time.as_secs_f64();
+        let total_attempt = self.conn_attempt_total.load(Ordering::Relaxed)
+            + self.conn_attempt.load(Ordering::Relaxed);
+        let total_success = self.conn_success_total.load(Ordering::Relaxed)
+            + self.conn_success.load(Ordering::Relaxed);
+
+        let mut obj = JsonObject::new();
+        insert(
+            &mut obj,
+            keys::CONNECTIONS,
+            connections_object(total_attempt, total_success, total_secs, 0, 0),
+        );
+        if let Some(target) = self.ssl_session.json_report() {
+            let mut tls = JsonObject::new();
+            insert(&mut tls, keys::TARGET, target);
+            insert(&mut obj, keys::TLS, serde_json::Value::Object(tls));
+        }
+        obj
     }
 }

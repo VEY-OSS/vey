@@ -46,6 +46,7 @@ const GLOBAL_ARG_STATSD_TARGET_UDP: &str = "statsd-target-udp";
 const GLOBAL_ARG_STATSD_TARGET_UNIX: &str = "statsd-target-unix";
 const GLOBAL_ARG_NO_PROGRESS_BAR: &str = "no-progress-bar";
 const GLOBAL_ARG_NO_SUMMARY: &str = "no-summary";
+const GLOBAL_ARG_JSON_FILE: &str = "json-file";
 
 const GLOBAL_ARG_PEER_PICK_POLICY: &str = "peer-pick-policy";
 const GLOBAL_ARG_TCP_LIMIT_SHIFT: &str = "tcp-limit-shift";
@@ -71,6 +72,7 @@ pub struct ProcArgs {
     statsd_client_config: Option<StatsdClientConfig>,
     no_progress_bar: bool,
     pub(super) no_summary: bool,
+    pub(super) json_file: Option<PathBuf>,
 
     peer_pick_policy: SelectivePickPolicy,
     pub(super) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
@@ -95,6 +97,7 @@ impl Default for ProcArgs {
             statsd_client_config: None,
             no_progress_bar: false,
             no_summary: false,
+            json_file: None,
             peer_pick_policy: SelectivePickPolicy::RoundRobin,
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             udp_sock_speed_limit: UdpSockSpeedLimitConfig::default(),
@@ -378,6 +381,16 @@ pub fn add_global_args(app: Command) -> Command {
             .global(true),
     )
     .arg(
+        Arg::new(GLOBAL_ARG_JSON_FILE)
+            .help("Write machine-readable JSON result to the given file")
+            .value_name("PATH")
+            .long(GLOBAL_ARG_JSON_FILE)
+            .num_args(1)
+            .value_parser(value_parser!(PathBuf))
+            .value_hint(ValueHint::FilePath)
+            .global(true),
+    )
+    .arg(
         Arg::new(GLOBAL_ARG_PEER_PICK_POLICY)
             .help("Set the pick policy for selecting peers")
             .long(GLOBAL_ARG_PEER_PICK_POLICY)
@@ -519,6 +532,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         proc_args.no_progress_bar = true;
     }
     proc_args.no_summary = args.get_flag(GLOBAL_ARG_NO_SUMMARY);
+    proc_args.json_file = args.get_one::<PathBuf>(GLOBAL_ARG_JSON_FILE).cloned();
 
     if let Some(s) = args.get_one::<String>(GLOBAL_ARG_PEER_PICK_POLICY) {
         proc_args.peer_pick_policy = SelectivePickPolicy::from_str(s).unwrap();

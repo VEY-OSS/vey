@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use hdrhistogram::Histogram;
+use serde_json::Value;
 use tokio::sync::{Barrier, Semaphore, mpsc};
 use tokio::time::{Instant, MissedTickBehavior};
 
@@ -18,6 +19,7 @@ use vey_statsd_client::StatsdClient;
 use vey_types::limit::RateLimiter;
 
 use super::ProcArgs;
+use crate::report::{self, JsonObject, insert, json_usize, keys};
 
 mod stats;
 
@@ -65,11 +67,17 @@ pub(crate) trait BenchHistogram {
     }
 
     fn summary(&self);
+
+    /// Target-specific histogram fields for `--json-file` output.
+    fn json_report(&self) -> JsonObject;
 }
 
 pub(crate) trait BenchRuntimeStats {
     fn emit(&self, client: &mut StatsdClient);
     fn summary(&self, total_time: Duration);
+
+    /// Target-specific runtime fields for `--json-file` output.
+    fn json_report(&self, total_time: Duration) -> JsonObject;
 }
 
 enum BenchError {
@@ -112,7 +120,11 @@ fn register_signal_handler() {
     });
 }
 
-async fn run<RS, H, C, T>(mut target: T, proc_args: &ProcArgs) -> anyhow::Result<ExitCode>
+async fn run<RS, H, C, T>(
+    mut target: T,
+    proc_args: &ProcArgs,
+    target_name: &'static str,
+) -> anyhow::Result<ExitCode>
 where
     RS: BenchRuntimeStats + Send + Sync + 'static,
     H: BenchHistogram + Send + 'static,
@@ -329,16 +341,18 @@ where
     }
     target.notify_finish();
 
+    let distribution = if proc_args.concurrency.get() > 1 {
+        Some(&distribute_histogram)
+    } else {
+        None
+    };
+
     if !proc_args.no_summary {
-        let distribution = if proc_args.concurrency.get() > 1 {
-            Some(&distribute_histogram)
-        } else {
-            None
-        };
         stats::global_state().summary(total_time, distribution);
         target.fetch_runtime_stats().summary(total_time);
     }
 
+    let mut histogram_json = JsonObject::new();
     if let Some(handler) = histogram_stats_handler {
         match handler.join() {
             Ok(mut histogram) => {
@@ -346,9 +360,41 @@ where
                 if !proc_args.no_summary {
                     histogram.summary();
                 }
+                if proc_args.json_file.is_some() {
+                    histogram_json = histogram.json_report();
+                }
             }
             Err(e) => eprintln!("error to join histogram stats thread: {e:?}"),
         }
+    }
+
+    if let Some(path) = &proc_args.json_file {
+        let mut root = JsonObject::new();
+        insert(&mut root, keys::VERSION, Value::Number(1.into()));
+        insert(
+            &mut root,
+            keys::TARGET,
+            Value::String(target_name.to_string()),
+        );
+        insert(
+            &mut root,
+            keys::CONCURRENCY,
+            json_usize(proc_args.concurrency.get()),
+        );
+        insert(
+            &mut root,
+            keys::GLOBAL,
+            stats::global_state().json_report(total_time, distribution),
+        );
+
+        for (key, value) in target.fetch_runtime_stats().json_report(total_time) {
+            root.insert(key, value);
+        }
+        for (key, value) in histogram_json {
+            root.insert(key, value);
+        }
+
+        report::write_json_file(path, &Value::Object(root))?;
     }
 
     let exit_code = if stats::global_state().all_succeeded() {

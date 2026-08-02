@@ -8,7 +8,9 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use hdrhistogram::Histogram;
+use serde_json::Value;
 
+use crate::report::{JsonObject, hist_snapshot, insert, json_f64, json_u64, json_usize, keys};
 use crate::summary::{
     KvRow, hist_row_from_data, print_hist_table, print_kv_section, print_split_line,
 };
@@ -164,5 +166,37 @@ impl GlobalState {
             "Requests distribution",
             &[hist_row_from_data("", distribution)],
         );
+    }
+
+    pub(super) fn json_report(
+        &self,
+        total_time: Duration,
+        distribution: Option<&Histogram<u64>>,
+    ) -> Value {
+        let passed = self.total_passed.load(Ordering::Relaxed);
+        let failed = self.total_failed.load(Ordering::Relaxed);
+        let left = self.total_left.load(Ordering::Relaxed);
+        let mut obj = JsonObject::new();
+        insert(
+            &mut obj,
+            keys::TOTAL_TIME_NS,
+            json_u64(total_time.as_nanos() as u64),
+        );
+        insert(&mut obj, keys::COMPLETE_REQUESTS, json_usize(passed));
+        insert(&mut obj, keys::FAILED_REQUESTS, json_usize(failed));
+        insert(&mut obj, keys::LEFT_REQUESTS, json_usize(left));
+        insert(
+            &mut obj,
+            keys::REQUESTS_PER_SEC,
+            json_f64(passed as f64 / total_time.as_secs_f64()),
+        );
+        if let Some(distribution) = distribution {
+            insert(
+                &mut obj,
+                keys::REQUESTS_DISTRIBUTION,
+                hist_snapshot(distribution),
+            );
+        }
+        Value::Object(obj)
     }
 }

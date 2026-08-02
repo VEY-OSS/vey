@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use vey_statsd_client::StatsdClient;
 
+use crate::report::JsonObject;
 use crate::target::BenchRuntimeStats;
 
 #[derive(Default)]
@@ -58,4 +59,8 @@ impl BenchRuntimeStats for KeylessRuntimeStats {
     }
 
     fn summary(&self, _total_time: Duration) {}
+
+    fn json_report(&self, _total_time: Duration) -> JsonObject {
+        JsonObject::new()
+    }
 }

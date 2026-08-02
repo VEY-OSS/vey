@@ -79,5 +79,5 @@ pub(super) async fn run(
         histogram_recorder,
     };
 
-    crate::target::run(target, proc_args).await
+    crate::target::run(target, proc_args, "keyless/openssl").await
 }

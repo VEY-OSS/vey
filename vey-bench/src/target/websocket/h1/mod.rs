@@ -70,5 +70,5 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
         histogram_recorder,
     };
 
-    crate::target::run(target, proc_args).await
+    crate::target::run(target, proc_args, "websocket/h1").await
 }

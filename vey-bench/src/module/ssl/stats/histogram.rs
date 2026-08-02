@@ -9,6 +9,7 @@ use vey_histogram::{HistogramRecorder, KeepingHistogram};
 use vey_statsd_client::StatsdClient;
 use vey_std_ext::time::DurationExt;
 
+use crate::report::{JsonObject, hist_snapshot, insert, keys, percentiles_ns};
 use crate::summary::{hist_row_from_duration, print_hist_table, print_pct_table};
 use crate::target::BenchHistogram;
 
@@ -42,6 +43,30 @@ impl BenchHistogram for SslHistogram {
             &[hist_row_from_duration("Total", total_time)],
         );
         print_pct_table(total_time);
+    }
+
+    fn json_report(&self) -> JsonObject {
+        let total_time = self.total_time.inner();
+        let mut durations = JsonObject::new();
+        insert(&mut durations, keys::TOTAL, hist_snapshot(total_time));
+
+        let mut histograms = JsonObject::new();
+        insert(
+            &mut histograms,
+            keys::DURATIONS_NS,
+            serde_json::Value::Object(durations),
+        );
+
+        let mut obj = JsonObject::new();
+        insert(
+            &mut obj,
+            keys::HISTOGRAMS,
+            serde_json::Value::Object(histograms),
+        );
+        if let Some(pct) = percentiles_ns(total_time) {
+            insert(&mut obj, keys::PERCENTILES_NS, pct);
+        }
+        obj
     }
 }
 

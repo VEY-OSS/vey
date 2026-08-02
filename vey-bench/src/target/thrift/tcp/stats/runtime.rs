@@ -9,6 +9,7 @@ use std::time::Duration;
 use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use vey_statsd_client::StatsdClient;
 
+use crate::report::{JsonObject, connections_object, insert, keys, tcp_traffic_stats};
 use crate::summary::{KvRow, print_kv_section, print_tcp_traffic};
 use crate::target::BenchRuntimeStats;
 
@@ -142,5 +143,32 @@ impl BenchRuntimeStats for ThriftRuntimeStats {
         let recv_bytes =
             self.io.read_total.load(Ordering::Relaxed) + self.io.read.load(Ordering::Relaxed);
         print_tcp_traffic(send_bytes, recv_bytes, total_secs);
+    }
+
+    fn json_report(&self, total_time: Duration) -> JsonObject {
+        let total_secs = total_time.as_secs_f64();
+        let total_attempt = self.conn_attempt_total.load(Ordering::Relaxed)
+            + self.conn_attempt.load(Ordering::Relaxed);
+        let total_success = self.conn_success_total.load(Ordering::Relaxed)
+            + self.conn_success.load(Ordering::Relaxed);
+
+        let mut obj = JsonObject::new();
+        insert(
+            &mut obj,
+            keys::CONNECTIONS,
+            connections_object(total_attempt, total_success, total_secs, 0, 0),
+        );
+        let send_bytes =
+            self.io.write_total.load(Ordering::Relaxed) + self.io.write.load(Ordering::Relaxed);
+        let recv_bytes =
+            self.io.read_total.load(Ordering::Relaxed) + self.io.read.load(Ordering::Relaxed);
+        let mut traffic = JsonObject::new();
+        insert(
+            &mut traffic,
+            keys::TCP,
+            tcp_traffic_stats(send_bytes, recv_bytes, total_secs),
+        );
+        insert(&mut obj, keys::TRAFFIC, serde_json::Value::Object(traffic));
+        obj
     }
 }

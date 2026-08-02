@@ -10,6 +10,7 @@ use vey_histogram::{HistogramRecorder, KeepingHistogram};
 use vey_statsd_client::StatsdClient;
 use vey_std_ext::time::DurationExt;
 
+use crate::report::{JsonObject, hist_snapshot, insert, keys, percentiles_ns};
 use crate::summary::{
     hist_row_from_data, hist_row_from_duration, print_hist_table, print_pct_table,
 };
@@ -86,6 +87,58 @@ impl BenchHistogram for HttpHistogram {
             ],
         );
         print_pct_table(self.total_time.inner());
+    }
+
+    fn json_report(&self) -> JsonObject {
+        let mut durations = JsonObject::new();
+        insert(
+            &mut durations,
+            keys::CONNECT,
+            hist_snapshot(self.connect_time.inner()),
+        );
+        insert(
+            &mut durations,
+            keys::SEND_HDR,
+            hist_snapshot(self.send_hdr_time.inner()),
+        );
+        insert(
+            &mut durations,
+            keys::SEND_ALL,
+            hist_snapshot(self.send_all_time.inner()),
+        );
+        insert(
+            &mut durations,
+            keys::RECV_HDR,
+            hist_snapshot(self.recv_hdr_time.inner()),
+        );
+        insert(
+            &mut durations,
+            keys::TOTAL,
+            hist_snapshot(self.total_time.inner()),
+        );
+
+        let mut histograms = JsonObject::new();
+        insert(
+            &mut histograms,
+            keys::CONN_USED_TIMES,
+            hist_snapshot(self.conn_used_times.inner()),
+        );
+        insert(
+            &mut histograms,
+            keys::DURATIONS_NS,
+            serde_json::Value::Object(durations),
+        );
+
+        let mut obj = JsonObject::new();
+        insert(
+            &mut obj,
+            keys::HISTOGRAMS,
+            serde_json::Value::Object(histograms),
+        );
+        if let Some(pct) = percentiles_ns(self.total_time.inner()) {
+            insert(&mut obj, keys::PERCENTILES_NS, pct);
+        }
+        obj
     }
 }
 

@@ -2730,6 +2730,7 @@ dependencies = [
  "rustc-hash",
  "rustls",
  "rustls-pki-types",
+ "serde_json",
  "snmalloc-rs",
  "tabled",
  "thiserror",

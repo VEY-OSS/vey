@@ -5,6 +5,9 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::Value;
+
+use crate::report::tls_session_object;
 use crate::summary::{KvRow, print_kv_section};
 
 #[derive(Default)]
@@ -41,5 +44,11 @@ impl SslSessionStats {
                 ),
             ],
         );
+    }
+
+    pub(crate) fn json_report(&self) -> Option<Value> {
+        let total = self.total.load(Ordering::Relaxed);
+        let reused = self.reused.load(Ordering::Relaxed);
+        tls_session_object(total, reused)
     }
 }

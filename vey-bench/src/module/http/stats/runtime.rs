@@ -10,6 +10,9 @@ use vey_io_ext::{LimitedReaderStats, LimitedRecvStats, LimitedSendStats, Limited
 use vey_statsd_client::StatsdClient;
 
 use crate::module::ssl::SslSessionStats;
+use crate::report::{
+    JsonObject, connections_object, insert, keys, tcp_traffic_stats, udp_traffic_stats,
+};
 use crate::summary::{KvRow, print_kv_section, print_tcp_traffic, print_udp_traffic};
 use crate::target::BenchRuntimeStats;
 
@@ -294,5 +297,77 @@ impl BenchRuntimeStats for HttpRuntimeStats {
                 );
             }
         }
+    }
+
+    fn json_report(&self, total_time: Duration) -> JsonObject {
+        let total_secs = total_time.as_secs_f64();
+        let total_attempt = self.conn_attempt_total.load(Ordering::Relaxed)
+            + self.conn_attempt.load(Ordering::Relaxed);
+        let total_success = self.conn_success_total.load(Ordering::Relaxed)
+            + self.conn_success.load(Ordering::Relaxed);
+        let close_error = self.conn_close_error.load(Ordering::Relaxed);
+        let close_timeout = self.conn_close_timeout.load(Ordering::Relaxed);
+
+        let mut obj = JsonObject::new();
+        insert(
+            &mut obj,
+            keys::CONNECTIONS,
+            connections_object(
+                total_attempt,
+                total_success,
+                total_secs,
+                close_error,
+                close_timeout,
+            ),
+        );
+
+        let mut tls = JsonObject::new();
+        if let Some(proxy) = self.proxy_ssl_session.json_report() {
+            insert(&mut tls, keys::PROXY, proxy);
+        }
+        if let Some(target) = self.target_ssl_session.json_report() {
+            insert(&mut tls, keys::TARGET, target);
+        }
+        if !tls.is_empty() {
+            insert(&mut obj, keys::TLS, serde_json::Value::Object(tls));
+        }
+
+        let mut traffic = JsonObject::new();
+        match &self.io {
+            HttpIoStats::Tcp(tcp) => {
+                let send_bytes =
+                    tcp.write_total.load(Ordering::Relaxed) + tcp.write.load(Ordering::Relaxed);
+                let recv_bytes =
+                    tcp.read_total.load(Ordering::Relaxed) + tcp.read.load(Ordering::Relaxed);
+                insert(
+                    &mut traffic,
+                    keys::TCP,
+                    tcp_traffic_stats(send_bytes, recv_bytes, total_secs),
+                );
+            }
+            HttpIoStats::Udp(udp) => {
+                let send_bytes = udp.send_bytes_total.load(Ordering::Relaxed)
+                    + udp.send_bytes.load(Ordering::Relaxed);
+                let send_packets = udp.send_packets_total.load(Ordering::Relaxed)
+                    + udp.send_packets.load(Ordering::Relaxed);
+                let recv_bytes = udp.recv_bytes_total.load(Ordering::Relaxed)
+                    + udp.recv_bytes.load(Ordering::Relaxed);
+                let recv_packets = udp.recv_packets_total.load(Ordering::Relaxed)
+                    + udp.recv_packets.load(Ordering::Relaxed);
+                insert(
+                    &mut traffic,
+                    keys::UDP,
+                    udp_traffic_stats(
+                        send_bytes,
+                        send_packets,
+                        recv_bytes,
+                        recv_packets,
+                        total_secs,
+                    ),
+                );
+            }
+        }
+        insert(&mut obj, keys::TRAFFIC, serde_json::Value::Object(traffic));
+        obj
     }
 }
