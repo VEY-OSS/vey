@@ -27,6 +27,8 @@ vey_bench()
 	"${PROJECT_DIR}"/target/debug/vey-bench --no-progress-bar --log-error 1 "$@"
 }
 
+. "${RUN_DIR}"/json_assert.sh
+
 set -x
 
 "${PROJECT_DIR}"/target/debug/vey-bench version
@@ -49,4 +51,5 @@ kill -INT $STATSD_PID
 
 # cleanup
 
+rm -rf "${JSON_OUT_DIR}"
 docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-bench/docker-compose.yml down

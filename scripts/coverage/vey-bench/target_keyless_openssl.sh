@@ -25,3 +25,14 @@ vey_bench -c 2 -l 5 -r 10/100ms -t 4 ${TARGET_PARAMS}
 vey_bench -c 2 -l 5 -r 100/s -t 4 ${TARGET_PARAMS}
 vey_bench -c 2 -l 5 -r 100 -t 4 ${TARGET_PARAMS}
 vey_bench -c 1 -t 4 --unaided --emit-metrics ${TARGET_PARAMS}
+
+# JSON result
+JSON_FILE="${JSON_OUT_DIR}/keyless-openssl.json"
+vey_bench -c 2 -n 4 --json-file "${JSON_FILE}" ${TARGET_PARAMS}
+assert_json_report "${JSON_FILE}" keyless/openssl 2 4
+assert_json_type "${JSON_FILE}" .global.requests_distribution object
+assert_json_null "${JSON_FILE}" .connections
+assert_json_null "${JSON_FILE}" .traffic
+assert_json_null "${JSON_FILE}" .tls
+assert_json_null "${JSON_FILE}" .histograms.conn_used_times
+assert_json_null "${JSON_FILE}" .histograms.durations_ns.connect

@@ -27,6 +27,15 @@ vey_bench thrift tcp --target 127.0.0.1:8888 --check-message-length 22 --binary 
 vey_bench thrift tcp --target 127.0.0.1:8888 --check-message-length 22 --binary --kitex-ttheader --acl-token "abcdefg" echo ${KITEX_REQUEST}
 vey_bench thrift tcp --target 127.0.0.1:8888 --check-message-length 22 --binary --kitex-ttheader --info-int-kv "4:not-default" echo ${KITEX_REQUEST}
 
+## JSON result
+JSON_FILE="${JSON_OUT_DIR}/thrift-tcp.json"
+vey_bench thrift tcp --target 127.0.0.1:8888 --check-message-length 22 --binary echo ${KITEX_REQUEST} -n 3 -c 1 --json-file "${JSON_FILE}"
+assert_json_report "${JSON_FILE}" thrift/tcp 1 3
+assert_json_type "${JSON_FILE}" .connections object
+assert_hist_snapshot "${JSON_FILE}" .histograms.conn_used_times
+assert_json_null "${JSON_FILE}" .histograms.durations_ns.connect
+assert_json_null "${JSON_FILE}" .tls
+
 kill -INT $KITEX_PID
 
 # Thrift go tutorial
