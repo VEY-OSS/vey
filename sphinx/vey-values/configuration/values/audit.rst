@@ -88,6 +88,21 @@ If the value is a map, the following keys are supported:
 
   **default**: enabled with default value
 
+* tcp_connect_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  TCP connection timeout when establishing a connection to the ICAP server.
+  Without this bound, an unreachable (black-holed) ICAP endpoint can block each
+  audited request for the full OS SYN timeout before ``bypass`` can take effect.
+
+  **default**: 1s
+
+  .. availability::
+
+
+     - ``vey-proxy``: available since ``1.13.10``
+
 * icap_connection_pool
 
   **optional**, **type**: :ref:`connection pool <conf_value_connection_pool_config>`

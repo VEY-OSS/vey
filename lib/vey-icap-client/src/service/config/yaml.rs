@@ -46,6 +46,12 @@ impl IcapServiceConfig {
                 config.set_tcp_keepalive(keepalive);
                 Ok(())
             }
+            "tcp_connect_timeout" => {
+                let connect_timeout = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                config.set_tcp_connect_timeout(connect_timeout);
+                Ok(())
+            }
             #[cfg(unix)]
             "use_unix_socket" => {
                 let path = vey_yaml::value::as_absolute_path(v)
@@ -205,6 +211,7 @@ mod tests {
                   max_idle_count: 10
                   idle_timeout: 30s
                 disable_preview: true
+                tcp_connect_timeout: "3s"
                 respond_shared_names:
                   - "X-Header-1"
                   - "X-Header-2"
@@ -217,6 +224,10 @@ mod tests {
         assert_eq!(
             config.tls_name,
             rustls_pki_types::ServerName::try_from("example.com").unwrap()
+        );
+        assert_eq!(
+            config.tcp_connect_timeout,
+            std::time::Duration::from_secs(3)
         );
         assert_eq!(
             config.tcp_keepalive.idle_time(),
@@ -379,6 +390,14 @@ mod tests {
             "#
         );
         assert!(IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                url: "icap://example.com:1344/service"
+                tcp_connect_timeout: "-1s"
+            "#
+        );
+        assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());
 
         let yaml = yaml_doc!(
             r#"
