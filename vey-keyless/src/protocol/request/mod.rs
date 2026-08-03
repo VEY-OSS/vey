@@ -11,7 +11,7 @@ use openssl::nid::Nid;
 use openssl::pkey::{PKey, Private};
 use openssl::pkey_ctx::PkeyCtx;
 use openssl::rsa::Padding;
-use openssl::sign::RsaPssSaltlen;
+use openssl::sign::{RsaPssSaltlen, Signer};
 use thiserror::Error;
 
 use super::{KeylessDataResponse, KeylessErrorResponse, KeylessPongResponse};
@@ -151,11 +151,11 @@ impl KeylessRequest {
                 Ok(data_rsp)
             }
             KeylessAction::Ed25519Sign => {
-                let mut ctx = PkeyCtx::new(key).map_err(|_| err_rsp.crypto_fail())?;
-                ctx.sign_init().map_err(|_| err_rsp.crypto_fail())?;
-
-                let len = ctx
-                    .sign(&self.payload, Some(data_rsp.payload_data_mut()))
+                // PureEdDSA: one-shot EVP_DigestSign with NULL digest (OpenSSL 1.1.1+).
+                let mut signer =
+                    Signer::new_without_digest(key).map_err(|_| err_rsp.crypto_fail())?;
+                let len = signer
+                    .sign_oneshot(data_rsp.payload_data_mut(), &self.payload)
                     .map_err(|_| err_rsp.crypto_fail())?;
                 data_rsp.finalize_payload(len);
                 Ok(data_rsp)
