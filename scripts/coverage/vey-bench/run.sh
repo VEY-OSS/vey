@@ -21,6 +21,7 @@ export TEST_CA_CERT_FILE="${RUN_DIR}/rootCA.pem"
 export TEST_RSA_KEY_FILE="${RUN_DIR}/rootCA-RSA-key.pem"
 export TEST_RSA_CERT_FILE="${RUN_DIR}/rootCA-RSA.pem"
 export TEST_EC_KEY_FILE="${RUN_DIR}/rootCA-EC-key.pem"
+export TEST_ED25519_KEY_FILE="${RUN_DIR}/rootCA-ED25519-key.pem"
 
 vey_bench()
 {

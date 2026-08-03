@@ -5,8 +5,8 @@
 
 mod common;
 
-use openssl::pkey::{Id, PKey, Private};
-use openssl::pkey_ctx::PkeyCtx;
+use openssl::pkey::{PKey, Private};
+use openssl::sign::Verifier;
 
 use vey_crypto_mb::{Ed25519Slot, ed25519_sign_mb8, status_ok};
 
@@ -35,15 +35,13 @@ fn ed25519_sign() {
     verify_ed25519(&key1, slots[1].signature(), msg1);
 }
 
-/// `EVP_PKEY_verify` with the public key, matching vey-bench keyless `verify_ed`.
+/// PureEdDSA verify via one-shot `EVP_DigestVerify` with NULL digest.
 fn verify_ed25519(key: &PKey<Private>, sig: &[u8], msg: &[u8]) {
-    let pub_raw = key.raw_public_key().expect("ed25519 public key");
-    let public_key =
-        PKey::public_key_from_raw_bytes(&pub_raw, Id::ED25519).expect("pkey from raw public");
-    let mut ctx = PkeyCtx::new(&public_key).expect("pkey ctx");
-    ctx.verify_init().expect("verify init");
+    let pub_der = key.public_key_to_der().expect("public der");
+    let public_key = PKey::public_key_from_der(&pub_der).expect("public key");
+    let mut verifier = Verifier::new_without_digest(&public_key).expect("verifier");
     assert!(
-        ctx.verify(msg, sig).expect("verify"),
-        "Ed25519 EVP_PKEY_verify failed"
+        verifier.verify_oneshot(sig, msg).expect("verify"),
+        "Ed25519 verify failed"
     );
 }

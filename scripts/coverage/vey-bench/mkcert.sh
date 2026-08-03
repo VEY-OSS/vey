@@ -19,3 +19,4 @@ $MKCERT --tls-server --ca-cert rootCA.pem --ca-key rootCA-key.pem --host httpbin
 
 $MKCERT --root --common-name "VEY root" --output-cert rootCA-RSA.pem --output-key rootCA-RSA-key.pem --rsa 2048
 $MKCERT --root --common-name "VEY root" --output-cert rootCA-EC.pem --output-key rootCA-EC-key.pem --ec256
+$MKCERT --root --common-name "VEY root" --output-cert rootCA-ED25519.pem --output-key rootCA-ED25519-key.pem --ed25519

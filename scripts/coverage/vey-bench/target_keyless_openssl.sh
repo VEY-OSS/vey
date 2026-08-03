@@ -16,6 +16,10 @@ vey_bench keyless openssl --cert "${TEST_RSA_CERT_FILE}" --rsa-padding PKCS1 --r
 
 vey_bench keyless openssl --key "${TEST_EC_KEY_FILE}" --sign --digest-type sha256 --verify "4d4dfb668f8c6ddd0227c03907515c58779914098a1bf8c169faafdea4d1b91d"
 
+# Ed25519 (digest-type is required by CLI but unused for PureEdDSA)
+
+vey_bench keyless openssl --key "${TEST_ED25519_KEY_FILE}" --sign --digest-type sha256 --verify "abcdef"
+
 # global args
 
 TARGET_PARAMS="keyless openssl --key ${TEST_EC_KEY_FILE} --sign --digest-type sha256 --verify 4d4dfb668f8c6ddd0227c03907515c58779914098a1bf8c169faafdea4d1b91d"

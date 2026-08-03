@@ -14,6 +14,7 @@ use openssl::nid::Nid;
 use openssl::pkey::{Id, PKey, Private, Public};
 use openssl::pkey_ctx::PkeyCtx;
 use openssl::rsa::Padding;
+use openssl::sign::{Signer, Verifier};
 
 use vey_tls_cert::ext::PublicKeyExt;
 
@@ -526,25 +527,20 @@ impl KeylessGlobalArgs {
 
     pub(super) fn sign_ed(&self) -> anyhow::Result<Vec<u8>> {
         let pkey = self.get_private_key()?;
-        let mut ctx =
-            PkeyCtx::new(pkey).map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
-        ctx.sign_init()
-            .map_err(|e| anyhow!("sign init failed: {e}"))?;
-
-        let mut buf = Vec::new();
-        ctx.sign_to_vec(&self.payload, &mut buf)
-            .map_err(|e| anyhow!("sign failed: {e}"))?;
-        Ok(buf)
+        // PureEdDSA: one-shot EVP_DigestSign with NULL digest (OpenSSL 1.1.1+).
+        let mut signer = Signer::new_without_digest(pkey)
+            .map_err(|e| anyhow!("failed to create ed25519 signer: {e}"))?;
+        signer
+            .sign_oneshot_to_vec(&self.payload)
+            .map_err(|e| anyhow!("sign failed: {e}"))
     }
 
     fn verify_ed(&self, sig: &[u8]) -> anyhow::Result<()> {
-        let mut ctx = PkeyCtx::new(&self.public_key)
-            .map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
-        ctx.verify_init()
-            .map_err(|e| anyhow!("verify init failed: {e}"))?;
-
-        let verified = ctx
-            .verify(&self.payload, sig)
+        // PureEdDSA: one-shot EVP_DigestVerify with NULL digest (OpenSSL 1.1.1+).
+        let mut verifier = Verifier::new_without_digest(&self.public_key)
+            .map_err(|e| anyhow!("failed to create ed25519 verifier: {e}"))?;
+        let verified = verifier
+            .verify_oneshot(sig, &self.payload)
             .map_err(|e| anyhow!("verify failed: {e}"))?;
         if verified {
             Ok(())
