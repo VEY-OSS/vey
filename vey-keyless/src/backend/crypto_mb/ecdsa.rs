@@ -5,19 +5,32 @@
 
 use std::mem::MaybeUninit;
 
-use vey_crypto_mb::{BATCH_SIZE, EcdsaCurve, EcdsaSlot, ecdsa_sign_mb8, status_ok};
+use vey_crypto_mb::{
+    BATCH_SIZE, ECDSA_P256_FIELD_LEN, ECDSA_P384_FIELD_LEN, ECDSA_P521_FIELD_LEN, EcdsaSlot,
+    ecdsa_sign_mb8, status_ok,
+};
 
 use super::process_openssl;
 use crate::backend::DispatchedKeylessRequest;
 use crate::protocol::{KeylessAction, KeylessDataResponse, KeylessErrorResponse, KeylessResponse};
 
-pub(super) type Curve = EcdsaCurve;
+pub(super) async fn process_p256_batch(batch: &mut Vec<DispatchedKeylessRequest>) {
+    process_batch::<ECDSA_P256_FIELD_LEN>(batch).await;
+}
 
-pub(super) async fn process_batch(curve: Curve, batch: &mut Vec<DispatchedKeylessRequest>) {
+pub(super) async fn process_p384_batch(batch: &mut Vec<DispatchedKeylessRequest>) {
+    process_batch::<ECDSA_P384_FIELD_LEN>(batch).await;
+}
+
+pub(super) async fn process_p521_batch(batch: &mut Vec<DispatchedKeylessRequest>) {
+    process_batch::<ECDSA_P521_FIELD_LEN>(batch).await;
+}
+
+async fn process_batch<const N: usize>(batch: &mut Vec<DispatchedKeylessRequest>) {
     let n = batch.len();
     debug_assert!(n <= BATCH_SIZE);
 
-    let mut prepared: [Option<EcdsaSlot>; BATCH_SIZE] = [const { None }; BATCH_SIZE];
+    let mut prepared: [Option<EcdsaSlot<N>>; BATCH_SIZE] = [const { None }; BATCH_SIZE];
     let mut fallback = [false; BATCH_SIZE];
     let mut mb_count = 0usize;
 
@@ -26,7 +39,7 @@ pub(super) async fn process_batch(curve: Curve, batch: &mut Vec<DispatchedKeyles
             fallback[i] = true;
             continue;
         }
-        match EcdsaSlot::prepare(curve, &req.key, &req.inner.inner.payload) {
+        match EcdsaSlot::prepare(&req.key, &req.inner.inner.payload) {
             Some(p) => {
                 prepared[i] = Some(p);
                 mb_count += 1;
@@ -43,7 +56,7 @@ pub(super) async fn process_batch(curve: Curve, batch: &mut Vec<DispatchedKeyles
     }
 
     let mut mb_indices = [0usize; BATCH_SIZE];
-    let mut slots_buf: [MaybeUninit<EcdsaSlot>; BATCH_SIZE] =
+    let mut slots_buf: [MaybeUninit<EcdsaSlot<N>>; BATCH_SIZE] =
         [const { MaybeUninit::uninit() }; BATCH_SIZE];
     let mut mb_n = 0usize;
     for (i, prep) in prepared.iter_mut().enumerate().take(n) {
@@ -56,9 +69,9 @@ pub(super) async fn process_batch(curve: Curve, batch: &mut Vec<DispatchedKeyles
 
     let statuses = {
         let slots = unsafe {
-            std::slice::from_raw_parts_mut(slots_buf.as_mut_ptr() as *mut EcdsaSlot, mb_n)
+            std::slice::from_raw_parts_mut(slots_buf.as_mut_ptr() as *mut EcdsaSlot<N>, mb_n)
         };
-        ecdsa_sign_mb8(curve, slots)
+        ecdsa_sign_mb8(slots)
     };
 
     let mut mb_slot_of = [BATCH_SIZE; BATCH_SIZE];

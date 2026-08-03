@@ -13,9 +13,9 @@ use openssl::nid::Nid;
 use openssl::pkey::{PKey, Private};
 use openssl::pkey_ctx::PkeyCtx;
 use openssl::rsa::Padding;
-use openssl::sign::{RsaPssSaltlen, Verifier};
+use openssl::sign::RsaPssSaltlen;
 
-use vey_crypto_mb::{EcdsaCurve, EcdsaSlot, ecdsa_sign_mb8, status_ok};
+use vey_crypto_mb::{EcdsaSlot, ecdsa_sign_mb8, status_ok};
 
 pub fn require_crypto_mb() -> bool {
     if vey_crypto_mb::is_applicable() {
@@ -100,9 +100,9 @@ pub fn verify_rsa_pss(key: &PKey<Private>, md: MessageDigest, sig: &[u8], digest
 }
 
 /// Sign one digest with one key, then verify via `ECDSA_do_verify` and `EVP_PKEY_verify`.
-pub fn test_ecdsa_sign(curve: EcdsaCurve, key: &PKey<Private>, digest: &[u8]) {
-    let mut slots = [EcdsaSlot::prepare(curve, key, digest).expect("prepare")];
-    let statuses = ecdsa_sign_mb8(curve, &mut slots);
+pub fn test_ecdsa_sign<const N: usize>(key: &PKey<Private>, digest: &[u8], slot: EcdsaSlot<N>) {
+    let mut slots = [slot];
+    let statuses = ecdsa_sign_mb8(&mut slots);
     assert!(status_ok(statuses[0]), "statuses={statuses:?}");
 
     let slot = &slots[0];
@@ -125,10 +125,13 @@ pub fn test_ecdsa_sign(curve: EcdsaCurve, key: &PKey<Private>, digest: &[u8]) {
     );
 }
 
+/// `EVP_PKEY_verify`.
 pub fn verify_ed25519(key: &PKey<Private>, sig: &[u8], msg: &[u8]) {
-    let mut verifier = Verifier::new_without_digest(key).expect("verifier");
-    assert!(
-        verifier.verify_oneshot(sig, msg).expect("ed25519 verify"),
-        "Ed25519 verify failed"
+    let mut ctx = PkeyCtx::new(key).expect("pkey ctx");
+    ctx.verify_init().expect("verify init");
+    assert_eq!(
+        ctx.verify(msg, sig).ok(),
+        Some(true),
+        "Ed25519 EVP_PKEY_verify failed"
     );
 }

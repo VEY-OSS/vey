@@ -4,11 +4,12 @@
  */
 
 fn main() {
-    let lib = pkg_config::Config::new()
-        .probe("crypto-mb")
-        .expect("crypto-mb not found; install Intel crypto_mb and pkg-config metadata");
-
-    for path in &lib.include_paths {
-        println!("cargo:rerun-if-changed={}", path.display());
+    if let Ok(lib) = pkg_config::Config::new().probe("crypto-mb") {
+        for path in &lib.include_paths {
+            println!("cargo:rerun-if-changed={}", path.display());
+        }
+    } else {
+        // fallback to use the system installed libcrypto_mb
+        println!("cargo:rustc-link-lib=crypto_mb");
     }
 }

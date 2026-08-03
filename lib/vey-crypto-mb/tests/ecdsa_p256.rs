@@ -7,7 +7,7 @@ mod common;
 
 use openssl::nid::Nid;
 
-use vey_crypto_mb::EcdsaCurve;
+use vey_crypto_mb::EcdsaP256Slot;
 
 #[test]
 fn ecdsa_p256_sign() {
@@ -16,7 +16,19 @@ fn ecdsa_p256_sign() {
     }
 
     let key = common::gen_ec(Nid::X9_62_PRIME256V1);
-    common::test_ecdsa_sign(EcdsaCurve::P256, &key, &common::SHA1_DIGEST);
-    common::test_ecdsa_sign(EcdsaCurve::P256, &key, &common::SHA256_DIGEST);
-    common::test_ecdsa_sign(EcdsaCurve::P256, &key, &common::SHA384_DIGEST);
+    common::test_ecdsa_sign(
+        &key,
+        &common::SHA1_DIGEST,
+        EcdsaP256Slot::prepare(&key, &common::SHA1_DIGEST).expect("prepare"),
+    );
+    common::test_ecdsa_sign(
+        &key,
+        &common::SHA256_DIGEST,
+        EcdsaP256Slot::prepare(&key, &common::SHA256_DIGEST).expect("prepare"),
+    );
+    common::test_ecdsa_sign(
+        &key,
+        &common::SHA384_DIGEST,
+        EcdsaP256Slot::prepare(&key, &common::SHA384_DIGEST).expect("prepare"),
+    );
 }

@@ -67,15 +67,9 @@ impl CryptoMbBackend {
 
             match kind {
                 CryptoMbKind::Rsa { bits } => rsa::process_batch(bits, &mut batch).await,
-                CryptoMbKind::EcdsaP256 => {
-                    ecdsa::process_batch(ecdsa::Curve::P256, &mut batch).await
-                }
-                CryptoMbKind::EcdsaP384 => {
-                    ecdsa::process_batch(ecdsa::Curve::P384, &mut batch).await
-                }
-                CryptoMbKind::EcdsaP521 => {
-                    ecdsa::process_batch(ecdsa::Curve::P521, &mut batch).await
-                }
+                CryptoMbKind::EcdsaP256 => ecdsa::process_p256_batch(&mut batch).await,
+                CryptoMbKind::EcdsaP384 => ecdsa::process_p384_batch(&mut batch).await,
+                CryptoMbKind::EcdsaP521 => ecdsa::process_p521_batch(&mut batch).await,
                 CryptoMbKind::Ed25519 => ed25519::process_batch(&mut batch).await,
             }
         }

@@ -14,40 +14,42 @@ use crate::MbStatus;
 use crate::ffi::{self, BATCH_SIZE, MBX_STATUS_OK};
 use crate::openssl_ffi;
 
+pub const P256_FIELD_LEN: usize = 32;
+pub const P384_FIELD_LEN: usize = 48;
+pub const P521_FIELD_LEN: usize = 66;
+
 /// Largest NIST curve field size we support (P-521).
-pub const MAX_FIELD_LEN: usize = 66;
+pub const MAX_FIELD_LEN: usize = P521_FIELD_LEN;
 
-#[derive(Clone, Copy)]
-pub enum Curve {
-    P256,
-    P384,
-    P521,
-}
-
-impl Curve {
-    pub fn field_len(self) -> usize {
-        match self {
-            Curve::P256 => 32,
-            Curve::P384 => 48,
-            Curve::P521 => 66,
-        }
-    }
-}
-
-pub struct EcdsaSlot {
-    field_len: usize,
-    msg: [u8; MAX_FIELD_LEN],
-    sign_r: [u8; MAX_FIELD_LEN],
-    sign_s: [u8; MAX_FIELD_LEN],
+pub struct EcdsaSlot<const N: usize> {
+    msg: [u8; N],
+    sign_r: [u8; N],
+    sign_s: [u8; N],
     eph: BigNum,
     /// Owned copy of the EC private scalar; must outlive `sign_mb8`.
     reg: BigNum,
 }
 
-impl EcdsaSlot {
-    pub fn prepare(curve: Curve, key: &PKeyRef<Private>, digest: &[u8]) -> Option<Self> {
-        let field_len = curve.field_len();
+pub type EcdsaP256Slot = EcdsaSlot<P256_FIELD_LEN>;
+pub type EcdsaP384Slot = EcdsaSlot<P384_FIELD_LEN>;
+pub type EcdsaP521Slot = EcdsaSlot<P521_FIELD_LEN>;
+
+impl<const N: usize> EcdsaSlot<N> {
+    pub fn prepare(key: &PKeyRef<Private>, digest: &[u8]) -> Option<Self> {
+        const {
+            assert!(
+                N == P256_FIELD_LEN || N == P384_FIELD_LEN || N == P521_FIELD_LEN,
+                "unsupported ECDSA field length"
+            );
+        }
+
         let ec = key.ec_key().ok()?;
+        let bits = ec.group().degree() as usize;
+        let field_len = bits.div_ceil(8);
+        if field_len != N {
+            return None;
+        }
+
         let mut order = BigNum::new().ok()?;
         let mut ctx = BigNumContext::new().ok()?;
         ec.group().order(&mut order, &mut ctx).ok()?;
@@ -55,40 +57,39 @@ impl EcdsaSlot {
         // after `ec` is dropped at the end of this function.
         let reg = ec.private_key().to_owned().ok()?;
 
-        let mut msg = [0u8; MAX_FIELD_LEN];
-        if digest.len() >= field_len {
-            msg[..field_len].copy_from_slice(&digest[..field_len]);
+        let mut msg = [0u8; N];
+        if digest.len() >= N {
+            msg.copy_from_slice(&digest[..N]);
         } else {
-            msg[field_len - digest.len()..field_len].copy_from_slice(digest);
+            msg[N - digest.len()..].copy_from_slice(digest);
         }
 
         let eph = priv_rand_range(&order)?;
         Some(EcdsaSlot {
-            field_len,
             msg,
-            sign_r: [0u8; MAX_FIELD_LEN],
-            sign_s: [0u8; MAX_FIELD_LEN],
+            sign_r: [0u8; N],
+            sign_s: [0u8; N],
             eph,
             reg,
         })
     }
 
-    pub fn field_len(&self) -> usize {
-        self.field_len
+    pub const fn field_len(&self) -> usize {
+        N
     }
 
-    pub fn sign_r(&self) -> &[u8] {
-        &self.sign_r[..self.field_len]
+    pub fn sign_r(&self) -> &[u8; N] {
+        &self.sign_r
     }
 
-    pub fn sign_s(&self) -> &[u8] {
-        &self.sign_s[..self.field_len]
+    pub fn sign_s(&self) -> &[u8; N] {
+        &self.sign_s
     }
 
     /// Encode the signature as DER.
     pub fn der_signature(&self) -> Option<Vec<u8>> {
-        let r_bn = BigNum::from_slice(self.sign_r()).ok()?;
-        let s_bn = BigNum::from_slice(self.sign_s()).ok()?;
+        let r_bn = BigNum::from_slice(self.sign_r.as_slice()).ok()?;
+        let s_bn = BigNum::from_slice(self.sign_s.as_slice()).ok()?;
         let sig = EcdsaSig::from_private_components(r_bn, s_bn).ok()?;
         sig.to_der().ok()
     }
@@ -96,7 +97,16 @@ impl EcdsaSlot {
 
 /// Sign up to [`BATCH_SIZE`] slots. Returns per-lane status; only the first
 /// `slots.len().min(BATCH_SIZE)` entries are meaningful.
-pub fn sign_mb8(curve: Curve, slots: &mut [EcdsaSlot]) -> [MbStatus; BATCH_SIZE] {
+///
+/// `N` must be [`P256_FIELD_LEN`], [`P384_FIELD_LEN`], or [`P521_FIELD_LEN`].
+pub fn sign_mb8<const N: usize>(slots: &mut [EcdsaSlot<N>]) -> [MbStatus; BATCH_SIZE] {
+    const {
+        assert!(
+            N == P256_FIELD_LEN || N == P384_FIELD_LEN || N == P521_FIELD_LEN,
+            "unsupported ECDSA field length"
+        );
+    }
+
     let n = slots.len().min(BATCH_SIZE);
     let mut statuses = [MBX_STATUS_OK; BATCH_SIZE];
     if n == 0 {
@@ -118,8 +128,8 @@ pub fn sign_mb8(curve: Curve, slots: &mut [EcdsaSlot]) -> [MbStatus; BATCH_SIZE]
     }
 
     let status = unsafe {
-        match curve {
-            Curve::P256 => ffi::mbx_nistp256_ecdsa_sign_ssl_mb8(
+        match N {
+            P256_FIELD_LEN => ffi::mbx_nistp256_ecdsa_sign_ssl_mb8(
                 pa_sign_r.as_ptr(),
                 pa_sign_s.as_ptr(),
                 pa_msg.as_ptr(),
@@ -127,7 +137,7 @@ pub fn sign_mb8(curve: Curve, slots: &mut [EcdsaSlot]) -> [MbStatus; BATCH_SIZE]
                 pa_reg.as_ptr(),
                 ptr::null_mut(),
             ),
-            Curve::P384 => ffi::mbx_nistp384_ecdsa_sign_ssl_mb8(
+            P384_FIELD_LEN => ffi::mbx_nistp384_ecdsa_sign_ssl_mb8(
                 pa_sign_r.as_ptr(),
                 pa_sign_s.as_ptr(),
                 pa_msg.as_ptr(),
@@ -135,7 +145,7 @@ pub fn sign_mb8(curve: Curve, slots: &mut [EcdsaSlot]) -> [MbStatus; BATCH_SIZE]
                 pa_reg.as_ptr(),
                 ptr::null_mut(),
             ),
-            Curve::P521 => ffi::mbx_nistp521_ecdsa_sign_ssl_mb8(
+            P521_FIELD_LEN => ffi::mbx_nistp521_ecdsa_sign_ssl_mb8(
                 pa_sign_r.as_ptr(),
                 pa_sign_s.as_ptr(),
                 pa_msg.as_ptr(),
@@ -143,6 +153,7 @@ pub fn sign_mb8(curve: Curve, slots: &mut [EcdsaSlot]) -> [MbStatus; BATCH_SIZE]
                 pa_reg.as_ptr(),
                 ptr::null_mut(),
             ),
+            _ => unreachable!(),
         }
     };
     for (i, sts) in statuses.iter_mut().take(n).enumerate() {

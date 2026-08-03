@@ -12,8 +12,9 @@ mod openssl_ffi;
 mod rsa;
 
 pub use ecdsa::{
-    Curve as EcdsaCurve, EcdsaSlot, MAX_FIELD_LEN as ECDSA_MAX_FIELD_LEN,
-    sign_mb8 as ecdsa_sign_mb8,
+    EcdsaP256Slot, EcdsaP384Slot, EcdsaP521Slot, EcdsaSlot, MAX_FIELD_LEN as ECDSA_MAX_FIELD_LEN,
+    P256_FIELD_LEN as ECDSA_P256_FIELD_LEN, P384_FIELD_LEN as ECDSA_P384_FIELD_LEN,
+    P521_FIELD_LEN as ECDSA_P521_FIELD_LEN, sign_mb8 as ecdsa_sign_mb8,
 };
 pub use ed25519::{Ed25519Slot, sign_mb8 as ed25519_sign_mb8};
 pub use rsa::{
