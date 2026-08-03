@@ -124,14 +124,3 @@ pub fn test_ecdsa_sign<const N: usize>(key: &PKey<Private>, digest: &[u8], slot:
         "EVP_PKEY_verify failed"
     );
 }
-
-/// `EVP_PKEY_verify`.
-pub fn verify_ed25519(key: &PKey<Private>, sig: &[u8], msg: &[u8]) {
-    let mut ctx = PkeyCtx::new(key).expect("pkey ctx");
-    ctx.verify_init().expect("verify init");
-    assert_eq!(
-        ctx.verify(msg, sig).ok(),
-        Some(true),
-        "Ed25519 EVP_PKEY_verify failed"
-    );
-}

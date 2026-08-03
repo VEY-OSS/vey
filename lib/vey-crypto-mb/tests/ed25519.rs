@@ -5,7 +5,8 @@
 
 mod common;
 
-use openssl::pkey::PKey;
+use openssl::pkey::{Id, PKey, Private};
+use openssl::pkey_ctx::PkeyCtx;
 
 use vey_crypto_mb::{Ed25519Slot, ed25519_sign_mb8, status_ok};
 
@@ -30,6 +31,19 @@ fn ed25519_sign() {
         "statuses={statuses:?}"
     );
 
-    common::verify_ed25519(&key0, slots[0].signature(), msg0);
-    common::verify_ed25519(&key1, slots[1].signature(), msg1);
+    verify_ed25519(&key0, slots[0].signature(), msg0);
+    verify_ed25519(&key1, slots[1].signature(), msg1);
+}
+
+/// `EVP_PKEY_verify` with the public key, matching vey-bench keyless `verify_ed`.
+fn verify_ed25519(key: &PKey<Private>, sig: &[u8], msg: &[u8]) {
+    let pub_raw = key.raw_public_key().expect("ed25519 public key");
+    let public_key =
+        PKey::public_key_from_raw_bytes(&pub_raw, Id::ED25519).expect("pkey from raw public");
+    let mut ctx = PkeyCtx::new(&public_key).expect("pkey ctx");
+    ctx.verify_init().expect("verify init");
+    assert!(
+        ctx.verify(msg, sig).expect("verify"),
+        "Ed25519 EVP_PKEY_verify failed"
+    );
 }
