@@ -35,6 +35,7 @@ pub struct IcapServiceConfig {
     pub(crate) tls_name: ServerName<'static>,
     pub(crate) connection_pool: ConnectionPoolConfig,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
+    pub(crate) tcp_connect_timeout: Duration,
     #[cfg(unix)]
     pub(crate) use_unix_socket: Option<PathBuf>,
     pub(crate) icap_206_enable: bool,
@@ -80,6 +81,7 @@ impl IcapServiceConfig {
             tls_name,
             connection_pool: ConnectionPoolConfig::default(),
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
+            tcp_connect_timeout: Duration::from_secs(1),
             #[cfg(unix)]
             use_unix_socket: None,
             icap_206_enable: false,
@@ -93,6 +95,10 @@ impl IcapServiceConfig {
 
     pub fn set_tcp_keepalive(&mut self, config: TcpKeepAliveConfig) {
         self.tcp_keepalive = config;
+    }
+
+    pub fn set_tcp_connect_timeout(&mut self, time: Duration) {
+        self.tcp_connect_timeout = time;
     }
 
     pub fn set_tls_client(&mut self, config: RustlsClientConfigBuilder) {
@@ -203,6 +209,7 @@ mod tests {
         let mut config = IcapServiceConfig::new(IcapMethod::Reqmod, url).unwrap();
         assert!(config.tls_client.is_none());
         assert_eq!(config.upstream.port(), 1344);
+        assert_eq!(config.tcp_connect_timeout, Duration::from_secs(1));
         config.user_agent = Some("vey-test/1.0".to_string());
 
         let header = String::from_utf8(config.build_request_header()).unwrap();
