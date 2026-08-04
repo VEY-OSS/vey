@@ -6,13 +6,13 @@
 mod common;
 
 use openssl::pkey::{PKey, Private};
-use openssl::sign::Verifier;
+use openssl::sign::{Signer, Verifier};
 
 use vey_crypto_mb::{Ed25519Slot, ed25519_sign_mb8, status_ok};
 
 #[test]
 fn ed25519_sign() {
-    if !common::require_crypto_mb() {
+    if !common::require_ed25519() {
         return;
     }
 
@@ -31,8 +31,20 @@ fn ed25519_sign() {
         "statuses={statuses:?}"
     );
 
+    // Ed25519 is deterministic: crypto_mb must match OpenSSL PureEdDSA.
+    assert_eq!(slots[0].signature(), &openssl_ed25519_sign(&key0, msg0));
+    assert_eq!(slots[1].signature(), &openssl_ed25519_sign(&key1, msg1));
+
     verify_ed25519(&key0, slots[0].signature(), msg0);
     verify_ed25519(&key1, slots[1].signature(), msg1);
+}
+
+fn openssl_ed25519_sign(key: &PKey<Private>, msg: &[u8]) -> [u8; 64] {
+    let mut signer = Signer::new_without_digest(key).expect("signer");
+    let sig = signer.sign_oneshot_to_vec(msg).expect("sign");
+    let mut out = [0u8; 64];
+    out.copy_from_slice(&sig);
+    out
 }
 
 /// PureEdDSA verify via one-shot `EVP_DigestVerify` with NULL digest.

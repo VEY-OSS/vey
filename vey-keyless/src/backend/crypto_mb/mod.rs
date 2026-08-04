@@ -17,6 +17,7 @@ mod ed25519;
 mod rsa;
 
 static WARN_UNSUPPORTED_CPU: Once = Once::new();
+static WARN_ED25519_KAT: Once = Once::new();
 
 #[derive(Clone, Copy)]
 enum CryptoMbKind {
@@ -30,6 +31,7 @@ enum CryptoMbKind {
 pub(super) struct CryptoMbBackend {
     _config: CryptoMbBackendConfig,
     mb_applicable: bool,
+    ed25519_applicable: bool,
 }
 
 impl CryptoMbBackend {
@@ -42,9 +44,25 @@ impl CryptoMbBackend {
                 );
             });
         }
+        let ed25519_applicable = vey_crypto_mb::ed25519_is_applicable();
+        if mb_applicable && !ed25519_applicable {
+            WARN_ED25519_KAT.call_once(|| {
+                log::warn!(
+                    "crypto_mb Ed25519 FIPS KAT failed on this host; using OpenSSL for Ed25519"
+                );
+            });
+        }
         CryptoMbBackend {
             _config: config,
             mb_applicable,
+            ed25519_applicable,
+        }
+    }
+
+    fn mb_enabled_for(&self, kind: CryptoMbKind) -> bool {
+        match kind {
+            CryptoMbKind::Ed25519 => self.ed25519_applicable,
+            _ => self.mb_applicable,
         }
     }
 
@@ -58,7 +76,7 @@ impl CryptoMbBackend {
                 break;
             }
 
-            if n == 1 || !self.mb_applicable {
+            if n == 1 || !self.mb_enabled_for(kind) {
                 for req in batch.drain(..) {
                     process_openssl(req).await;
                 }

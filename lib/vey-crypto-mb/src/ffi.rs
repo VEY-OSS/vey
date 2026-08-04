@@ -9,6 +9,7 @@ use openssl_sys::BIGNUM;
 pub type MbStatus = u32;
 
 pub const MBX_STATUS_OK: MbStatus = 0;
+pub const MBX_STATUS_UNSUPPORTED_ISA_ERR: MbStatus = 10;
 
 pub const BATCH_SIZE: usize = 8;
 
@@ -65,6 +66,11 @@ unsafe extern "C" {
         msg_len: *const u32,
         pa_private_key: *const *const Ed25519PrivateKey,
         pa_public_key: *const *const Ed25519PublicKey,
+    ) -> MbStatus;
+
+    pub(crate) fn mbx_ed25519_public_key_mb8(
+        pa_public_key: *const *mut Ed25519PublicKey,
+        pa_private_key: *const *const Ed25519PrivateKey,
     ) -> MbStatus;
 }
 

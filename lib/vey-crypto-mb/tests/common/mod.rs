@@ -26,6 +26,22 @@ pub fn require_crypto_mb() -> bool {
     }
 }
 
+/// Ed25519 additionally requires a passing FIPS/Wycheproof KAT. Some hosts
+/// advertise AVX-512 IFMA but produce incorrect `mbx_ed25519_*` results.
+pub fn require_ed25519() -> bool {
+    if !require_crypto_mb() {
+        return false;
+    }
+    if vey_crypto_mb::ed25519_is_applicable() {
+        true
+    } else {
+        eprintln!(
+            "skip: crypto_mb Ed25519 FIPS KAT failed (library/CPU produces incorrect results)"
+        );
+        false
+    }
+}
+
 // Precomputed digests of:
 //   SHA-1  ("vey-crypto-mb/tests sha1 digest v1")
 //   SHA-256("vey-crypto-mb/tests sha256 digest v1")

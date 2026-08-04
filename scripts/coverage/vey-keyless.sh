@@ -40,6 +40,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=vey-dcgen \
     --ignore-filename-regex=vey-iploc \
     --ignore-filename-regex=vey-mkcert \
+    --ignore-filename-regex=vey-statsd \
     --ignore-filename-regex=vey-proxy \
     --ignore-filename-regex=vey-gateway"
 

@@ -16,7 +16,9 @@ pub use ecdsa::{
     P256_FIELD_LEN as ECDSA_P256_FIELD_LEN, P384_FIELD_LEN as ECDSA_P384_FIELD_LEN,
     P521_FIELD_LEN as ECDSA_P521_FIELD_LEN, sign_mb8 as ecdsa_sign_mb8,
 };
-pub use ed25519::{Ed25519Slot, sign_mb8 as ed25519_sign_mb8};
+pub use ed25519::{
+    Ed25519Slot, is_applicable as ed25519_is_applicable, sign_mb8 as ed25519_sign_mb8,
+};
 pub use rsa::{
     RsaCrtSlot, add_pkcs1_sign_padding, add_pss_sign_padding, check_decrypt_padding,
     has_crt_params, private_crt_mb8, rsa_from_pkey,
@@ -24,6 +26,7 @@ pub use rsa::{
 
 pub const BATCH_SIZE: usize = ffi::BATCH_SIZE;
 pub const MBX_STATUS_OK: MbStatus = ffi::MBX_STATUS_OK;
+pub const MBX_STATUS_UNSUPPORTED_ISA_ERR: MbStatus = ffi::MBX_STATUS_UNSUPPORTED_ISA_ERR;
 pub type MbStatus = ffi::MbStatus;
 
 /// Returns whether the installed `crypto_mb` library can run on this CPU.
