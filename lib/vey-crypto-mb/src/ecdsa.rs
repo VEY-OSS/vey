@@ -5,7 +5,8 @@
 
 use std::ptr;
 
-use openssl::bn::{BigNum, BigNumContext};
+use openssl::bn::{BigNum, BigNumContext, BigNumRef};
+use openssl::ec::EcKeyRef;
 use openssl::ecdsa::EcdsaSig;
 use openssl::foreign_types::{ForeignType, ForeignTypeRef};
 use openssl::pkey::{PKeyRef, Private};
@@ -21,21 +22,21 @@ pub const P521_FIELD_LEN: usize = 66;
 /// Largest NIST curve field size we support (P-521).
 pub const MAX_FIELD_LEN: usize = P521_FIELD_LEN;
 
-pub struct EcdsaSlot<const N: usize> {
+pub struct EcdsaSlot<'a, const N: usize> {
     msg: [u8; N],
     sign_r: [u8; N],
     sign_s: [u8; N],
     eph: BigNum,
-    /// Owned copy of the EC private scalar; must outlive `sign_mb8`.
-    reg: BigNum,
+    /// Borrowed EC private scalar from the caller's `PKey`; must outlive `sign_mb8`.
+    reg: &'a BigNumRef,
 }
 
-pub type EcdsaP256Slot = EcdsaSlot<P256_FIELD_LEN>;
-pub type EcdsaP384Slot = EcdsaSlot<P384_FIELD_LEN>;
-pub type EcdsaP521Slot = EcdsaSlot<P521_FIELD_LEN>;
+pub type EcdsaP256Slot<'a> = EcdsaSlot<'a, P256_FIELD_LEN>;
+pub type EcdsaP384Slot<'a> = EcdsaSlot<'a, P384_FIELD_LEN>;
+pub type EcdsaP521Slot<'a> = EcdsaSlot<'a, P521_FIELD_LEN>;
 
-impl<const N: usize> EcdsaSlot<N> {
-    pub fn prepare(key: &PKeyRef<Private>, digest: &[u8]) -> Option<Self> {
+impl<'a, const N: usize> EcdsaSlot<'a, N> {
+    pub fn prepare(key: &'a PKeyRef<Private>, digest: &[u8]) -> Option<Self> {
         const {
             assert!(
                 N == P256_FIELD_LEN || N == P384_FIELD_LEN || N == P521_FIELD_LEN,
@@ -43,7 +44,15 @@ impl<const N: usize> EcdsaSlot<N> {
             );
         }
 
-        let ec = key.ec_key().ok()?;
+        // Borrow the EC_KEY / private scalar from `key` (no get1 / BN_dup).
+        let ec = unsafe {
+            let ec_ptr = openssl_ffi::EVP_PKEY_get0_EC_KEY(key.as_ptr());
+            if ec_ptr.is_null() {
+                return None;
+            }
+            EcKeyRef::<Private>::from_ptr(ec_ptr as *mut _)
+        };
+
         let bits = ec.group().degree() as usize;
         let field_len = bits.div_ceil(8);
         if field_len != N {
@@ -53,9 +62,7 @@ impl<const N: usize> EcdsaSlot<N> {
         let mut order = BigNum::new().ok()?;
         let mut ctx = BigNumContext::new().ok()?;
         ec.group().order(&mut order, &mut ctx).ok()?;
-        // `ec_key()` returns an owned key; copy the scalar so it stays valid
-        // after `ec` is dropped at the end of this function.
-        let reg = ec.private_key().to_owned().ok()?;
+        let reg = ec.private_key();
 
         let mut msg = [0u8; N];
         if digest.len() >= N {
@@ -99,7 +106,7 @@ impl<const N: usize> EcdsaSlot<N> {
 /// `slots.len().min(BATCH_SIZE)` entries are meaningful.
 ///
 /// `N` must be [`P256_FIELD_LEN`], [`P384_FIELD_LEN`], or [`P521_FIELD_LEN`].
-pub fn sign_mb8<const N: usize>(slots: &mut [EcdsaSlot<N>]) -> [MbStatus; BATCH_SIZE] {
+pub fn sign_mb8<const N: usize>(slots: &mut [EcdsaSlot<'_, N>]) -> [MbStatus; BATCH_SIZE] {
     const {
         assert!(
             N == P256_FIELD_LEN || N == P384_FIELD_LEN || N == P521_FIELD_LEN,
@@ -162,7 +169,7 @@ pub fn sign_mb8<const N: usize>(slots: &mut [EcdsaSlot<N>]) -> [MbStatus; BATCH_
     statuses
 }
 
-fn priv_rand_range(order: &openssl::bn::BigNumRef) -> Option<BigNum> {
+fn priv_rand_range(order: &BigNumRef) -> Option<BigNum> {
     let eph = BigNum::new().ok()?;
     for _ in 0..64 {
         let rc = unsafe { openssl_ffi::BN_priv_rand_range(eph.as_ptr(), order.as_ptr()) };

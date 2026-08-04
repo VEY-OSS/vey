@@ -116,7 +116,7 @@ pub fn verify_rsa_pss(key: &PKey<Private>, md: MessageDigest, sig: &[u8], digest
 }
 
 /// Sign one digest with one key, then verify via `ECDSA_do_verify` and `EVP_PKEY_verify`.
-pub fn test_ecdsa_sign<const N: usize>(key: &PKey<Private>, digest: &[u8], slot: EcdsaSlot<N>) {
+pub fn test_ecdsa_sign<const N: usize>(key: &PKey<Private>, digest: &[u8], slot: EcdsaSlot<'_, N>) {
     let mut slots = [slot];
     let statuses = ecdsa_sign_mb8(&mut slots);
     assert!(status_ok(statuses[0]), "statuses={statuses:?}");

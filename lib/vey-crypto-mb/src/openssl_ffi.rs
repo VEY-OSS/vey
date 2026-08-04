@@ -4,9 +4,12 @@
  */
 
 use libc::c_int;
-use openssl_sys::{BIGNUM, EVP_MD, RSA};
+use openssl_sys::{BIGNUM, EC_KEY, EVP_MD, EVP_PKEY, RSA};
 
 unsafe extern "C" {
+    /// Borrowed EC_KEY inside `pkey`; valid for the lifetime of `pkey`.
+    pub(crate) fn EVP_PKEY_get0_EC_KEY(pkey: *const EVP_PKEY) -> *const EC_KEY;
+
     pub(crate) fn RSA_padding_add_PKCS1_type_1(
         to: *mut u8,
         tlen: c_int,

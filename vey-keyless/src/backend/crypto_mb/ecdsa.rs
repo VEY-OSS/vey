@@ -30,7 +30,7 @@ async fn process_batch<const N: usize>(batch: &mut Vec<DispatchedKeylessRequest>
     let n = batch.len();
     debug_assert!(n <= BATCH_SIZE);
 
-    let mut prepared: [Option<EcdsaSlot<N>>; BATCH_SIZE] = [const { None }; BATCH_SIZE];
+    let mut prepared: [Option<EcdsaSlot<'_, N>>; BATCH_SIZE] = [const { None }; BATCH_SIZE];
     let mut fallback = [false; BATCH_SIZE];
     let mut mb_count = 0usize;
 
@@ -56,7 +56,7 @@ async fn process_batch<const N: usize>(batch: &mut Vec<DispatchedKeylessRequest>
     }
 
     let mut mb_indices = [0usize; BATCH_SIZE];
-    let mut slots_buf: [MaybeUninit<EcdsaSlot<N>>; BATCH_SIZE] =
+    let mut slots_buf: [MaybeUninit<EcdsaSlot<'_, N>>; BATCH_SIZE] =
         [const { MaybeUninit::uninit() }; BATCH_SIZE];
     let mut mb_n = 0usize;
     for (i, prep) in prepared.iter_mut().enumerate().take(n) {
@@ -69,10 +69,26 @@ async fn process_batch<const N: usize>(batch: &mut Vec<DispatchedKeylessRequest>
 
     let statuses = {
         let slots = unsafe {
-            std::slice::from_raw_parts_mut(slots_buf.as_mut_ptr() as *mut EcdsaSlot<N>, mb_n)
+            std::slice::from_raw_parts_mut(slots_buf.as_mut_ptr() as *mut EcdsaSlot<'_, N>, mb_n)
         };
         ecdsa_sign_mb8(slots)
     };
+
+    // Own DER outputs before draining `batch` (slots borrow `req.key`).
+    let mut ders: [Option<Vec<u8>>; BATCH_SIZE] = [const { None }; BATCH_SIZE];
+    for j in 0..mb_n {
+        let i = mb_indices[j];
+        if status_ok(statuses[j]) {
+            let slot = unsafe { slots_buf[j].assume_init_ref() };
+            ders[i] = slot.der_signature();
+        }
+    }
+
+    for slot in slots_buf.iter_mut().take(mb_n) {
+        unsafe {
+            slot.assume_init_drop();
+        }
+    }
 
     let mut mb_slot_of = [BATCH_SIZE; BATCH_SIZE];
     for j in 0..mb_n {
@@ -82,33 +98,23 @@ async fn process_batch<const N: usize>(batch: &mut Vec<DispatchedKeylessRequest>
     for (i, req) in batch.drain(..).enumerate() {
         let rsp = if fallback[i] || mb_slot_of[i] >= mb_n {
             req.inner.process_by_openssl(&req.key)
+        } else if !status_ok(statuses[mb_slot_of[i]]) {
+            req.inner.stats.add_crypto_fail();
+            KeylessResponse::Error(KeylessErrorResponse::new(req.inner.inner.id).crypto_fail())
         } else {
-            let j = mb_slot_of[i];
-            if !status_ok(statuses[j]) {
-                req.inner.stats.add_crypto_fail();
-                KeylessResponse::Error(KeylessErrorResponse::new(req.inner.inner.id).crypto_fail())
-            } else {
-                let slot = unsafe { slots_buf[j].assume_init_ref() };
-                match slot.der_signature() {
-                    Some(der) => {
-                        let data = KeylessDataResponse::with_payload(req.inner.inner.id, der);
-                        req.inner.stats.add_passed();
-                        KeylessResponse::Data(data)
-                    }
-                    None => {
-                        let err = KeylessErrorResponse::new(req.inner.inner.id).crypto_fail();
-                        req.inner.stats.add_by_error_code(err.error_code());
-                        KeylessResponse::Error(err)
-                    }
+            match ders[i].take() {
+                Some(der) => {
+                    let data = KeylessDataResponse::with_payload(req.inner.inner.id, der);
+                    req.inner.stats.add_passed();
+                    KeylessResponse::Data(data)
+                }
+                None => {
+                    let err = KeylessErrorResponse::new(req.inner.inner.id).crypto_fail();
+                    req.inner.stats.add_by_error_code(err.error_code());
+                    KeylessResponse::Error(err)
                 }
             }
         };
         let _ = req.rsp_sender.send(req.inner.build_response(rsp)).await;
-    }
-
-    for slot in slots_buf.iter_mut().take(mb_n) {
-        unsafe {
-            slot.assume_init_drop();
-        }
     }
 }
