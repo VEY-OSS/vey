@@ -21,7 +21,8 @@ impl LdapMessageReceiver {
         let buffer_size = max_message_size + 10;
         LdapMessageReceiver {
             max_message_size,
-            buffer: vec![0; buffer_size].into_boxed_slice(),
+            // SAFETY: only `buffer[..received_len]` is parsed after reads fill it.
+            buffer: unsafe { Box::<[u8]>::new_uninit_slice(buffer_size).assume_init() },
             received_len: 0,
             cur_message_len: 0,
         }

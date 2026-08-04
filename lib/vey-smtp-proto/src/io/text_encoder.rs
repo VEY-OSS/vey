@@ -34,7 +34,8 @@ impl EncodeCopyBuffer {
     fn new(config: StreamCopyConfig) -> Self {
         EncodeCopyBuffer {
             read_done: false,
-            buf: vec![0; config.buffer_size()].into_boxed_slice(),
+            // SAFETY: only `buf[w_off..r_off]` / line ranges are read after fills.
+            buf: unsafe { Box::<[u8]>::new_uninit_slice(config.buffer_size()).assume_init() },
             yield_size: config.yield_size(),
             r_off: 0,
             w_off: 0,

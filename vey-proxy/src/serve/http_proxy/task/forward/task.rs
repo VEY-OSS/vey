@@ -1104,7 +1104,11 @@ impl<'a> HttpProxyForwardTask<'a> {
                         .await;
                 }
 
-                let mut fast_read_buf = vec![0u8; self.ctx.server_config.tcp_copy.buffer_size()];
+                // SAFETY: only `[..nr]` is kept after read_all_now fills it.
+                let n = self.ctx.server_config.tcp_copy.buffer_size();
+                let mut fast_read_buf = Vec::from(unsafe {
+                    Box::<[u8]>::new_uninit_slice(n).assume_init()
+                });
                 let nr = clt_body_reader
                     .read_all_now(&mut fast_read_buf)
                     .await

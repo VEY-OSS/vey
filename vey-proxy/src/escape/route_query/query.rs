@@ -44,7 +44,8 @@ impl QueryRuntime {
             query_handle,
             id_key_map: AHashMap::new(),
             key_id_map: AHashMap::new(),
-            read_buffer: vec![0u8; 4096].into_boxed_slice(),
+            // SAFETY: only `read_buffer[..len]` is parsed after poll_recv fills it.
+            read_buffer: unsafe { Box::<[u8]>::new_uninit_slice(4096).assume_init() },
             write_queue: VecDeque::new(),
         }
     }

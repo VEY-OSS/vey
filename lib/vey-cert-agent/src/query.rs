@@ -39,7 +39,8 @@ impl QueryRuntime {
         QueryRuntime {
             socket,
             query_handle,
-            read_buffer: vec![0u8; 16384].into_boxed_slice(),
+            // SAFETY: only `read_buffer[..len]` is parsed after poll_recv fills it.
+            read_buffer: unsafe { Box::<[u8]>::new_uninit_slice(16384).assume_init() },
             write_queue: VecDeque::new(),
             protective_ttl: config.protective_cache_ttl,
             maximum_ttl: config.maximum_cache_ttl,

@@ -32,7 +32,8 @@ impl UdpRelayPacket {
     fn new(reserved_size: usize, packet_size: u16) -> Self {
         let buf_size = packet_size as usize + reserved_size;
         UdpRelayPacket {
-            buf: vec![0; buf_size].into_boxed_slice(),
+            // SAFETY: only `buf[off..end]` is read after recv fills that range.
+            buf: unsafe { Box::<[u8]>::new_uninit_slice(buf_size).assume_init() },
             buf_data_off: 0,
             buf_data_end: 0,
             ups: UpstreamAddr::empty(),

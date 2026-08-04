@@ -160,9 +160,9 @@ impl SocksUdpHeader {
 
 impl Default for SocksUdpHeader {
     fn default() -> Self {
-        SocksUdpHeader {
-            buf: vec![0; 22], // large enough for ipv6
-        }
+        // SAFETY: `generate_header` fully writes the used prefix before return.
+        let buf = Vec::from(unsafe { Box::<[u8]>::new_uninit_slice(22).assume_init() }); // ipv6
+        SocksUdpHeader { buf }
     }
 }
 #[cfg(test)]

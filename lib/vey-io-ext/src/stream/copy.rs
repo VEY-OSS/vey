@@ -76,7 +76,8 @@ impl StreamCopyBuffer {
     fn new(config: &StreamCopyConfig) -> Self {
         StreamCopyBuffer {
             read_done: false,
-            buf: vec![0; config.buffer_size].into_boxed_slice(),
+            // SAFETY: only `buf[w_off..r_off]` is read after poll_read fills it.
+            buf: unsafe { Box::<[u8]>::new_uninit_slice(config.buffer_size).assume_init() },
             yield_size: config.yield_size,
             r_off: 0,
             w_off: 0,
@@ -433,5 +434,25 @@ where
 
         me.buf
             .poll_copy(cx, Pin::new(&mut me.reader), Pin::new(&mut *me.writer))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn with_data_handles_spare_capacity_below_buffer_size() {
+        // len << capacity < buffer_size used to panic: reserve_exact is based on len.
+        let mut data = Vec::with_capacity(64);
+        data.extend_from_slice(b"hello");
+        assert!(data.len() < data.capacity());
+        assert!(data.capacity() < MINIMAL_COPY_BUFFER_SIZE);
+
+        let mut config = StreamCopyConfig::default();
+        config.set_buffer_size(MINIMAL_COPY_BUFFER_SIZE);
+        let buf = StreamCopyBuffer::with_data(&config, data);
+        assert_eq!(&buf.buf[..buf.r_off], b"hello");
+        assert_eq!(buf.buf.len(), MINIMAL_COPY_BUFFER_SIZE);
     }
 }
