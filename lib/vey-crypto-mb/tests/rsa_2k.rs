@@ -7,14 +7,11 @@ mod common;
 
 use openssl::hash::MessageDigest;
 use openssl::nid::Nid;
+use openssl::rsa::Padding;
 
-use vey_crypto_mb::{
-    RsaCrtSlot, add_pkcs1_sign_padding, add_pss_sign_padding, check_decrypt_padding,
-    private_crt_mb8, status_ok,
-};
+use vey_crypto_mb::{RSA_2K_LEN, RsaSlot, add_pkcs1_sign_padding, private_crt_mb8, status_ok};
 
 const BITS: i32 = 2048;
-const KEY_LEN: usize = 256;
 
 #[test]
 fn rsa_2k_sign_pkcs1() {
@@ -24,53 +21,35 @@ fn rsa_2k_sign_pkcs1() {
 
     let key0 = common::gen_rsa(BITS as u32);
     let key1 = common::gen_rsa(BITS as u32);
-    let rsa0 = key0.rsa().unwrap();
-    let rsa1 = key1.rsa().unwrap();
 
-    let mut in0 = vec![0u8; KEY_LEN];
-    let mut in1 = vec![0u8; KEY_LEN];
-    let mut out0 = vec![0u8; KEY_LEN];
-    let mut out1 = vec![0u8; KEY_LEN];
-
-    assert!(add_pkcs1_sign_padding(
-        Nid::SHA256,
-        &common::SHA256_DIGEST,
-        &mut in0
-    ));
-    assert!(add_pkcs1_sign_padding(
-        Nid::SHA256,
-        &common::SHA256_DIGEST,
-        &mut in1
-    ));
-
-    let mut slots = vec![
-        RsaCrtSlot {
-            from: &in0,
-            to: &mut out0,
-            key: &rsa0,
-        },
-        RsaCrtSlot {
-            from: &in1,
-            to: &mut out1,
-            key: &rsa1,
-        },
+    let mut slots = [
+        RsaSlot::<RSA_2K_LEN>::prepare_pkcs1_sign(&key0, Nid::SHA256, &common::SHA256_DIGEST)
+            .expect("prepare0"),
+        RsaSlot::<RSA_2K_LEN>::prepare_pkcs1_sign(&key1, Nid::SHA256, &common::SHA256_DIGEST)
+            .expect("prepare1"),
     ];
-    let statuses = private_crt_mb8(BITS, &mut slots);
+    let statuses = private_crt_mb8(&mut slots);
     assert!(
         statuses.iter().all(|s| status_ok(*s)),
         "statuses={statuses:?}"
     );
 
+    let [s0, s1] = slots;
+    let (sig0, len0) = s0.into_output().expect("out0");
+    let (sig1, len1) = s1.into_output().expect("out1");
+    assert_eq!(len0, RSA_2K_LEN);
+    assert_eq!(len1, RSA_2K_LEN);
+
     common::verify_rsa_pkcs1(
         &key0,
         MessageDigest::sha256(),
-        &out0,
+        &sig0[..len0],
         &common::SHA256_DIGEST,
     );
     common::verify_rsa_pkcs1(
         &key1,
         MessageDigest::sha256(),
-        &out1,
+        &sig1[..len1],
         &common::SHA256_DIGEST,
     );
 }
@@ -83,55 +62,33 @@ fn rsa_2k_sign_pss() {
 
     let key0 = common::gen_rsa(BITS as u32);
     let key1 = common::gen_rsa(BITS as u32);
-    let rsa0 = key0.rsa().unwrap();
-    let rsa1 = key1.rsa().unwrap();
 
-    let mut in0 = vec![0u8; KEY_LEN];
-    let mut in1 = vec![0u8; KEY_LEN];
-    let mut out0 = vec![0u8; KEY_LEN];
-    let mut out1 = vec![0u8; KEY_LEN];
-
-    assert!(add_pss_sign_padding(
-        &rsa0,
-        Nid::SHA256,
-        &common::SHA256_DIGEST,
-        &mut in0
-    ));
-    assert!(add_pss_sign_padding(
-        &rsa1,
-        Nid::SHA256,
-        &common::SHA256_DIGEST,
-        &mut in1
-    ));
-
-    let mut slots = vec![
-        RsaCrtSlot {
-            from: &in0,
-            to: &mut out0,
-            key: &rsa0,
-        },
-        RsaCrtSlot {
-            from: &in1,
-            to: &mut out1,
-            key: &rsa1,
-        },
+    let mut slots = [
+        RsaSlot::<RSA_2K_LEN>::prepare_pss_sign(&key0, Nid::SHA256, &common::SHA256_DIGEST)
+            .expect("prepare0"),
+        RsaSlot::<RSA_2K_LEN>::prepare_pss_sign(&key1, Nid::SHA256, &common::SHA256_DIGEST)
+            .expect("prepare1"),
     ];
-    let statuses = private_crt_mb8(BITS, &mut slots);
+    let statuses = private_crt_mb8(&mut slots);
     assert!(
         statuses.iter().all(|s| status_ok(*s)),
         "statuses={statuses:?}"
     );
 
+    let [s0, s1] = slots;
+    let (sig0, len0) = s0.into_output().expect("out0");
+    let (sig1, len1) = s1.into_output().expect("out1");
+
     common::verify_rsa_pss(
         &key0,
         MessageDigest::sha256(),
-        &out0,
+        &sig0[..len0],
         &common::SHA256_DIGEST,
     );
     common::verify_rsa_pss(
         &key1,
         MessageDigest::sha256(),
-        &out1,
+        &sig1[..len1],
         &common::SHA256_DIGEST,
     );
 }
@@ -148,45 +105,32 @@ fn rsa_2k_private_decrypt() {
     let rsa1 = key1.rsa().unwrap();
 
     let plain = b"vey-crypto-mb rsa decrypt v1";
-    let mut in0 = vec![0u8; KEY_LEN];
-    let mut in1 = vec![0u8; KEY_LEN];
+    let mut ct0 = [0u8; RSA_2K_LEN];
+    let mut ct1 = [0u8; RSA_2K_LEN];
     assert_eq!(
-        rsa0.public_encrypt(plain, &mut in0, openssl::rsa::Padding::PKCS1)
+        rsa0.public_encrypt(plain, &mut ct0, Padding::PKCS1)
             .unwrap(),
-        KEY_LEN
+        RSA_2K_LEN
     );
     assert_eq!(
-        rsa1.public_encrypt(plain, &mut in1, openssl::rsa::Padding::PKCS1)
+        rsa1.public_encrypt(plain, &mut ct1, Padding::PKCS1)
             .unwrap(),
-        KEY_LEN
+        RSA_2K_LEN
     );
 
-    let mut out0 = vec![0u8; KEY_LEN];
-    let mut out1 = vec![0u8; KEY_LEN];
-    let mut slots = vec![
-        RsaCrtSlot {
-            from: &in0,
-            to: &mut out0,
-            key: &rsa0,
-        },
-        RsaCrtSlot {
-            from: &in1,
-            to: &mut out1,
-            key: &rsa1,
-        },
+    let mut slots = [
+        RsaSlot::<RSA_2K_LEN>::prepare_decrypt(&key0, &ct0, Padding::PKCS1).expect("prepare0"),
+        RsaSlot::<RSA_2K_LEN>::prepare_decrypt(&key1, &ct1, Padding::PKCS1).expect("prepare1"),
     ];
-    let statuses = private_crt_mb8(BITS, &mut slots);
+    let statuses = private_crt_mb8(&mut slots);
     assert!(
         statuses.iter().all(|s| status_ok(*s)),
         "statuses={statuses:?}"
     );
 
-    let mut buf0 = vec![0u8; KEY_LEN];
-    let mut buf1 = vec![0u8; KEY_LEN];
-    let n0 = check_decrypt_padding(openssl::rsa::Padding::PKCS1, &out0, &mut buf0, KEY_LEN)
-        .expect("unpad0");
-    let n1 = check_decrypt_padding(openssl::rsa::Padding::PKCS1, &out1, &mut buf1, KEY_LEN)
-        .expect("unpad1");
+    let [s0, s1] = slots;
+    let (buf0, n0) = s0.into_output().expect("unpad0");
+    let (buf1, n1) = s1.into_output().expect("unpad1");
     assert_eq!(&buf0[..n0], plain);
     assert_eq!(&buf1[..n1], plain);
 }
@@ -195,17 +139,16 @@ fn rsa_2k_private_decrypt() {
 fn rsa_2k_pkcs1_padding_roundtrip_openssl() {
     let key = common::gen_rsa(BITS as u32);
     let rsa = key.rsa().unwrap();
-    let mut em = vec![0u8; KEY_LEN];
+    let mut em = [0u8; RSA_2K_LEN];
     assert!(add_pkcs1_sign_padding(
         Nid::SHA256,
         &common::SHA256_DIGEST,
         &mut em
     ));
-    let mut sig = vec![0u8; KEY_LEN];
+    let mut sig = [0u8; RSA_2K_LEN];
     assert_eq!(
-        rsa.private_encrypt(&em, &mut sig, openssl::rsa::Padding::NONE)
-            .unwrap(),
-        KEY_LEN
+        rsa.private_encrypt(&em, &mut sig, Padding::NONE).unwrap(),
+        RSA_2K_LEN
     );
     common::verify_rsa_pkcs1(&key, MessageDigest::sha256(), &sig, &common::SHA256_DIGEST);
 }

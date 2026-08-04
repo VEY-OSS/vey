@@ -17,24 +17,155 @@ use crate::MbStatus;
 use crate::ffi::{self, BATCH_SIZE, MBX_STATUS_OK};
 use crate::openssl_ffi;
 
-/// One RSA CRT slot for a multi-buffer private operation.
-pub struct RsaCrtSlot<'a> {
-    pub from: &'a [u8],
-    pub to: &'a mut [u8],
-    pub key: &'a RsaRef<Private>,
+pub const RSA_2K_LEN: usize = 256;
+pub const RSA_3K_LEN: usize = 384;
+pub const RSA_4K_LEN: usize = 512;
+
+/// Largest RSA modulus we support (4096-bit).
+pub const MAX_RSA_LEN: usize = RSA_4K_LEN;
+
+/// Operation prepared into an [`RsaSlot`] (sign vs decrypt padding).
+pub enum PreparedKind {
+    Sign,
+    Decrypt { padding: Padding },
+}
+
+/// Owned input/output buffers plus a borrowed RSA key for one CRT lane.
+///
+/// `N` is the modulus size in bytes and must be [`RSA_2K_LEN`], [`RSA_3K_LEN`],
+/// or [`RSA_4K_LEN`].
+pub struct RsaSlot<'a, const N: usize> {
+    key: &'a RsaRef<Private>,
+    input: [u8; N],
+    out: [u8; N],
+    kind: PreparedKind,
+}
+
+pub type Rsa2kSlot<'a> = RsaSlot<'a, RSA_2K_LEN>;
+pub type Rsa3kSlot<'a> = RsaSlot<'a, RSA_3K_LEN>;
+pub type Rsa4kSlot<'a> = RsaSlot<'a, RSA_4K_LEN>;
+
+impl<'a, const N: usize> RsaSlot<'a, N> {
+    fn from_pkey(key: &'a PKeyRef<Private>, kind: PreparedKind) -> Option<Self> {
+        const {
+            assert!(
+                N == RSA_2K_LEN || N == RSA_3K_LEN || N == RSA_4K_LEN,
+                "unsupported RSA modulus length"
+            );
+        }
+
+        let rsa = unsafe {
+            let rsa_ptr = openssl_ffi::EVP_PKEY_get0_RSA(key.as_ptr());
+            if rsa_ptr.is_null() {
+                return None;
+            }
+            RsaRef::<Private>::from_ptr(rsa_ptr as *mut _)
+        };
+        if !has_crt_params(rsa) {
+            return None;
+        }
+        if rsa.size() as usize != N {
+            return None;
+        }
+        Some(RsaSlot {
+            key: rsa,
+            input: [0u8; N],
+            out: [0u8; N],
+            kind,
+        })
+    }
+
+    pub fn prepare_decrypt(
+        key: &'a PKeyRef<Private>,
+        ciphertext: &[u8],
+        padding: Padding,
+    ) -> Option<Self> {
+        let mut slot = Self::from_pkey(key, PreparedKind::Decrypt { padding })?;
+        if ciphertext.len() != N {
+            return None;
+        }
+        slot.input.copy_from_slice(ciphertext);
+        Some(slot)
+    }
+
+    pub fn prepare_pkcs1_sign(key: &'a PKeyRef<Private>, nid: Nid, digest: &[u8]) -> Option<Self> {
+        let mut slot = Self::from_pkey(key, PreparedKind::Sign)?;
+        if !add_pkcs1_sign_padding(nid, digest, &mut slot.input) {
+            return None;
+        }
+        Some(slot)
+    }
+
+    pub fn prepare_pss_sign(key: &'a PKeyRef<Private>, nid: Nid, digest: &[u8]) -> Option<Self> {
+        let mut slot = Self::from_pkey(key, PreparedKind::Sign)?;
+        if !add_pss_sign_padding(slot.key, nid, digest, &mut slot.input) {
+            return None;
+        }
+        Some(slot)
+    }
+
+    pub const fn key_len(&self) -> usize {
+        N
+    }
+
+    pub fn kind(&self) -> &PreparedKind {
+        &self.kind
+    }
+
+    /// Consume the slot after CRT and return `(buf, len)`.
+    ///
+    /// Sign: `buf` is the signature (`len == N`).
+    /// Decrypt: unpads CRT output into the reused input buffer; `len` is plaintext length.
+    pub fn into_output(self) -> Option<([u8; N], usize)> {
+        match self.kind {
+            PreparedKind::Sign => Some((self.out, N)),
+            PreparedKind::Decrypt { padding } => {
+                let mut plain = self.input;
+                let len = Self::check_decrypt_padding(padding, &self.out, &mut plain)?;
+                Some((plain, len))
+            }
+        }
+    }
+
+    /// Unpad CRT decrypt result (`from`) into `to` (typically the reused input buffer).
+    fn check_decrypt_padding(padding: Padding, from: &[u8; N], to: &mut [u8; N]) -> Option<usize> {
+        let flen = N as c_int;
+        let tlen = N as c_int;
+        let num = N as c_int;
+        let len = match padding {
+            Padding::NONE => unsafe {
+                openssl_ffi::RSA_padding_check_none(to.as_mut_ptr(), tlen, from.as_ptr(), flen, num)
+            },
+            Padding::PKCS1 => unsafe {
+                RSA_padding_check_PKCS1_type_2(to.as_mut_ptr(), tlen, from.as_ptr(), flen, num)
+            },
+            _ => return None,
+        };
+        if len < 0 { None } else { Some(len as usize) }
+    }
 }
 
 /// Run up to [`BATCH_SIZE`] RSA private CRT operations.
 ///
 /// Returns per-lane status; only the first `slots.len().min(BATCH_SIZE)` entries
 /// are meaningful. `MBX_STATUS_OK` means success.
-pub fn private_crt_mb8(bits: i32, slots: &mut [RsaCrtSlot<'_>]) -> [MbStatus; BATCH_SIZE] {
+///
+/// `N` must be [`RSA_2K_LEN`], [`RSA_3K_LEN`], or [`RSA_4K_LEN`].
+pub fn private_crt_mb8<const N: usize>(slots: &mut [RsaSlot<'_, N>]) -> [MbStatus; BATCH_SIZE] {
+    const {
+        assert!(
+            N == RSA_2K_LEN || N == RSA_3K_LEN || N == RSA_4K_LEN,
+            "unsupported RSA modulus length"
+        );
+    }
+
     let n = slots.len().min(BATCH_SIZE);
     let mut statuses = [MBX_STATUS_OK; BATCH_SIZE];
     if n == 0 {
         return statuses;
     }
 
+    let bits = (N * 8) as i32;
     let mut from_pa = [ptr::null(); BATCH_SIZE];
     let mut to_pa = [ptr::null_mut(); BATCH_SIZE];
     let mut p_pa = [ptr::null(); BATCH_SIZE];
@@ -51,8 +182,8 @@ pub fn private_crt_mb8(bits: i32, slots: &mut [RsaCrtSlot<'_>]) -> [MbStatus; BA
             }
             return statuses;
         };
-        from_pa[i] = slot.from.as_ptr();
-        to_pa[i] = slot.to.as_mut_ptr();
+        from_pa[i] = slot.input.as_ptr();
+        to_pa[i] = slot.out.as_mut_ptr();
         p_pa[i] = p;
         q_pa[i] = q;
         dp_pa[i] = dp;
@@ -157,27 +288,6 @@ pub fn add_pss_sign_padding(rsa: &RsaRef<Private>, nid: Nid, digest: &[u8], em: 
         )
     };
     rc == 1
-}
-
-pub fn check_decrypt_padding(
-    padding: Padding,
-    from: &[u8],
-    to: &mut [u8],
-    rsa_len: usize,
-) -> Option<usize> {
-    let flen = from.len() as c_int;
-    let tlen = to.len() as c_int;
-    let num = rsa_len as c_int;
-    let len = match padding {
-        Padding::NONE => unsafe {
-            openssl_ffi::RSA_padding_check_none(to.as_mut_ptr(), tlen, from.as_ptr(), flen, num)
-        },
-        Padding::PKCS1 => unsafe {
-            RSA_padding_check_PKCS1_type_2(to.as_mut_ptr(), tlen, from.as_ptr(), flen, num)
-        },
-        _ => return None,
-    };
-    if len < 0 { None } else { Some(len as usize) }
 }
 
 /// DER prefix of the `DigestInfo` value `T` for EMSA-PKCS1-v1_5.

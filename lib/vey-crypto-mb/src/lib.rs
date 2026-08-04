@@ -20,8 +20,9 @@ pub use ed25519::{
     Ed25519Slot, is_applicable as ed25519_is_applicable, sign_mb8 as ed25519_sign_mb8,
 };
 pub use rsa::{
-    RsaCrtSlot, add_pkcs1_sign_padding, add_pss_sign_padding, check_decrypt_padding,
-    has_crt_params, private_crt_mb8, rsa_from_pkey,
+    MAX_RSA_LEN as RSA_MAX_LEN, PreparedKind as RsaPreparedKind, RSA_2K_LEN, RSA_3K_LEN,
+    RSA_4K_LEN, Rsa2kSlot, Rsa3kSlot, Rsa4kSlot, RsaSlot, add_pkcs1_sign_padding,
+    add_pss_sign_padding, has_crt_params, private_crt_mb8, rsa_from_pkey,
 };
 
 pub const BATCH_SIZE: usize = ffi::BATCH_SIZE;

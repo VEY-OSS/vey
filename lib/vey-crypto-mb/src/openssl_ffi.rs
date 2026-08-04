@@ -10,6 +10,9 @@ unsafe extern "C" {
     /// Borrowed EC_KEY inside `pkey`; valid for the lifetime of `pkey`.
     pub(crate) fn EVP_PKEY_get0_EC_KEY(pkey: *const EVP_PKEY) -> *const EC_KEY;
 
+    /// Borrowed RSA inside `pkey`; valid for the lifetime of `pkey`.
+    pub(crate) fn EVP_PKEY_get0_RSA(pkey: *const EVP_PKEY) -> *const RSA;
+
     pub(crate) fn RSA_padding_add_PKCS1_type_1(
         to: *mut u8,
         tlen: c_int,
