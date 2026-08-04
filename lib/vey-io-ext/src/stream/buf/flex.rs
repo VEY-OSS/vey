@@ -6,6 +6,7 @@
 
 use std::io;
 use std::io::IoSlice;
+use std::mem::MaybeUninit;
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
 
@@ -20,7 +21,7 @@ pin_project! {
     pub struct FlexBufReader<R> {
         #[pin]
         inner: R,
-        buf: Box<[u8]>,
+        buf: Box<[MaybeUninit<u8>]>,
         pos: usize,
         cap: usize,
     }
@@ -35,7 +36,12 @@ impl<R> FlexBufReader<R> {
 
     /// Creates a new `BufReader` with the specified buffer capacity.
     pub fn with_capacity(capacity: usize, inner: R) -> Self {
-        Self::with_buffer(vec![0; capacity], 0, inner)
+        Self {
+            inner,
+            buf: Box::new_uninit_slice(capacity),
+            pos: 0,
+            cap: 0,
+        }
     }
 
     /// Creates a new `BufReader` with BytesMut
@@ -45,15 +51,27 @@ impl<R> FlexBufReader<R> {
         Self::with_buffer(vec, len, inner)
     }
 
-    /// Creates a new `BufReader` with a existed buffer
-    pub fn with_buffer(mut buffer: Vec<u8>, len: usize, inner: R) -> Self {
-        unsafe {
-            // safe here as we didn't use the uninitialized data
-            buffer.set_len(buffer.capacity())
+    /// Creates a new `BufReader` with an existing buffer.
+    ///
+    /// The first `len` bytes of `buffer` are treated as initialized; any spare
+    /// capacity becomes uninitialized space for later reads via [`ReadBuf::uninit`].
+    pub fn with_buffer(buffer: Vec<u8>, len: usize, inner: R) -> Self {
+        let len = len.min(buffer.len());
+        let mut buffer = buffer;
+        buffer.truncate(len);
+        let (ptr, init_len, capacity) = buffer.into_raw_parts();
+        debug_assert_eq!(init_len, len);
+        // SAFETY: `into_raw_parts` yields `init_len` initialized bytes and spare
+        // capacity that we expose as `MaybeUninit`. Ownership moves into `Box`.
+        let buf = unsafe {
+            Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+                ptr as *mut MaybeUninit<u8>,
+                capacity,
+            ))
         };
         Self {
             inner,
-            buf: buffer.into_boxed_slice(),
+            buf,
             pos: 0,
             cap: len,
         }
@@ -86,8 +104,14 @@ impl<R> FlexBufReader<R> {
 
     pub fn into_parts(self) -> (Bytes, R) {
         if self.pos < self.cap {
-            let mut bytes = Bytes::from(self.buf);
-            let _ = bytes.split_off(self.cap);
+            // SAFETY: `buf[..cap]` was initialized by `with_buffer` and/or
+            // `ReadBuf::uninit` fills; spare capacity beyond `cap` stays unused.
+            let vec = unsafe {
+                let capacity = self.buf.len();
+                let ptr = Box::into_raw(self.buf) as *mut u8;
+                Vec::from_raw_parts(ptr, self.cap, capacity)
+            };
+            let mut bytes = Bytes::from(vec);
             bytes.advance(self.pos);
             (bytes, self.inner)
         } else {
@@ -99,7 +123,8 @@ impl<R> FlexBufReader<R> {
     ///
     /// Unlike `fill_buf`, this will not attempt to fill the buffer if it is empty.
     pub fn buffer(&self) -> &[u8] {
-        &self.buf[self.pos..self.cap]
+        // SAFETY: `pos..cap` is always initialized (constructor or last fill).
+        unsafe { self.buf[self.pos..self.cap].assume_init_ref() }
     }
 
     /// Invalidates all data in the internal buffer.
@@ -143,12 +168,13 @@ impl<R: AsyncRead> AsyncBufRead for FlexBufReader<R> {
         // to tell the compiler that the pos..cap slice is always valid.
         if *me.pos >= *me.cap {
             debug_assert!(*me.pos == *me.cap);
-            let mut buf = ReadBuf::new(me.buf);
+            let mut buf = ReadBuf::uninit(me.buf);
             ready!(me.inner.poll_read(cx, &mut buf))?;
             *me.cap = buf.filled().len();
             *me.pos = 0;
         }
-        Poll::Ready(Ok(&me.buf[*me.pos..*me.cap]))
+        // SAFETY: `pos..cap` is initialized by the fill above or by construction.
+        Poll::Ready(Ok(unsafe { me.buf[*me.pos..*me.cap].assume_init_ref() }))
     }
 
     fn consume(self: Pin<&mut Self>, amt: usize) {
@@ -256,5 +282,15 @@ mod tests {
         let mut out = Vec::new();
         restored.read_to_end(&mut out).await.unwrap();
         assert_eq!(out, b"prefrest");
+    }
+
+    #[tokio::test]
+    async fn with_capacity_reads_without_prior_zeroing() {
+        let content = b"hello uninit";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut v = FlexBufReader::with_capacity(64, stream);
+        let mut out = Vec::new();
+        v.read_to_end(&mut out).await.unwrap();
+        assert_eq!(out, content);
     }
 }

@@ -5,6 +5,7 @@
 
 use std::io;
 use std::io::IoSlice;
+use std::mem::MaybeUninit;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
@@ -21,7 +22,7 @@ pin_project! {
         #[pin]
         inner: LimitedReader<R>,
         stats: ArcLimitedReaderStats,
-        buf: Box<[u8]>,
+        buf: Box<[MaybeUninit<u8>]>,
         pos: usize,
         cap: usize,
     }
@@ -73,11 +74,10 @@ where
         direct_stats: ArcLimitedReaderStats,
         buffer_stats: ArcLimitedReaderStats,
     ) -> Self {
-        let buffer = vec![0; capacity];
         LimitedBufReader {
             inner: LimitedReader::local_limited(inner, shift_millis, max_bytes, direct_stats),
             stats: buffer_stats,
-            buf: buffer.into_boxed_slice(),
+            buf: Box::new_uninit_slice(capacity),
             pos: 0,
             cap: 0,
         }
@@ -88,11 +88,10 @@ where
         from: LimitedReader<R>,
         buffer_stats: ArcLimitedReaderStats,
     ) -> Self {
-        let buffer = vec![0; capacity];
         LimitedBufReader {
             inner: from,
             stats: buffer_stats,
-            buf: buffer.into_boxed_slice(),
+            buf: Box::new_uninit_slice(capacity),
             pos: 0,
             cap: 0,
         }
@@ -104,11 +103,10 @@ where
         direct_stats: ArcLimitedReaderStats,
         buffer_stats: ArcLimitedReaderStats,
     ) -> Self {
-        let buffer = vec![0; capacity];
         LimitedBufReader {
             inner: LimitedReader::new(inner, direct_stats),
             stats: buffer_stats,
-            buf: buffer.into_boxed_slice(),
+            buf: Box::new_uninit_slice(capacity),
             pos: 0,
             cap: 0,
         }
@@ -180,13 +178,14 @@ impl<R: AsyncRead> AsyncBufRead for LimitedBufReader<R> {
     fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<&[u8]>> {
         let me = self.project();
         if *me.pos >= *me.cap {
-            let mut buf = ReadBuf::new(me.buf);
+            let mut buf = ReadBuf::uninit(me.buf);
             ready!(me.inner.poll_read(cx, &mut buf))?;
             *me.cap = buf.filled().len();
             *me.pos = 0;
         }
 
-        Poll::Ready(Ok(&me.buf[*me.pos..*me.cap]))
+        // SAFETY: `pos..cap` is initialized by `ReadBuf::uninit` fills.
+        Poll::Ready(Ok(unsafe { me.buf[*me.pos..*me.cap].assume_init_ref() }))
     }
 
     fn consume(self: Pin<&mut Self>, amt: usize) {
