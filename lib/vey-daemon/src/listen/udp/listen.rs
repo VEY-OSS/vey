@@ -494,7 +494,11 @@ where
             ingress_net_filter: None,
             _alive_guard: None,
 
-            packet_buf: vec![0; self.packet_max_size as usize],
+            // SAFETY: only `packet_buf[..nr]` is copied after recv fills it.
+            packet_buf: {
+                let n = self.packet_max_size as usize;
+                Vec::from(unsafe { Box::<[u8]>::new_uninit_slice(n).assume_init() })
+            },
         }
     }
 
@@ -518,7 +522,11 @@ where
 
         let mut packets_buf = Vec::with_capacity(self.conn_track.batch_recv_size());
         for _i in 0..self.conn_track.batch_recv_size() {
-            packets_buf.push(vec![0; self.packet_max_size as usize]);
+            // SAFETY: only `packets_buf[i][..nr]` is copied after recv fills it.
+            let n = self.packet_max_size as usize;
+            packets_buf.push(Vec::from(unsafe {
+                Box::<[u8]>::new_uninit_slice(n).assume_init()
+            }));
         }
 
         ListenUdpRuntimeInstance {

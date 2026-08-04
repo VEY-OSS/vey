@@ -79,7 +79,8 @@ impl HttpConnectUdpRecvBuffer {
         let capacity = capacity.max(max_packet_size as usize + 24); // at least for 1 packet
         HttpConnectUdpRecvBuffer {
             max_packet_size: max_packet_size as usize,
-            buffer: vec![0u8; capacity].into_boxed_slice(),
+            // SAFETY: only `buffer[parse_start..read_start]` / datagram ranges are read.
+            buffer: unsafe { Box::<[u8]>::new_uninit_slice(capacity).assume_init() },
             datagram: None,
             parse_start: 0,
             read_start: 0,

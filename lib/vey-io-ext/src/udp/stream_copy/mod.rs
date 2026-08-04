@@ -37,8 +37,11 @@ pub struct UdpCopyPacket {
 impl UdpCopyPacket {
     pub(crate) fn new(reserved_size: usize, packet_size: u16) -> Self {
         let buf_size = packet_size as usize + reserved_size;
+        let mut buf = BytesMut::with_capacity(buf_size);
+        // SAFETY: only `buf[off..end]` is read after recv fills that range.
+        unsafe { buf.set_len(buf_size) };
         UdpCopyPacket {
-            buf: BytesMut::zeroed(buf_size),
+            buf,
             buf_data_off: 0,
             buf_data_end: 0,
         }

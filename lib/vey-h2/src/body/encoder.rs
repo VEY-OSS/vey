@@ -107,7 +107,9 @@ impl H2BodyEncodeTransferInternal {
                     }
                 }
             } else {
-                let mut data = BytesMut::zeroed(self.buffer_size);
+                let mut data = BytesMut::with_capacity(self.buffer_size);
+                // SAFETY: only `filled()` / `split_to(nr)` is used after poll_read.
+                unsafe { data.set_len(self.buffer_size) };
                 let mut buf = ReadBuf::new(&mut data);
                 ready!(reader.as_mut().poll_read(cx, &mut buf))
                     .map_err(H2StreamBodyEncodeTransferError::ReadError)?;

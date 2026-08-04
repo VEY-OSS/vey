@@ -21,7 +21,8 @@ struct DataDecodeBuffer {
 impl DataDecodeBuffer {
     fn new(buf_size: usize) -> Self {
         DataDecodeBuffer {
-            buf: vec![0; buf_size].into_boxed_slice(),
+            // SAFETY: only `buf[start..end]` is read after poll_read fills it.
+            buf: unsafe { Box::<[u8]>::new_uninit_slice(buf_size).assume_init() },
             start: 0,
             end: 0,
             cache_data: None,

@@ -22,7 +22,8 @@ impl LineRecvVec {
             length: 0,
             line_start: 0,
             line_end: 0,
-            buf: vec![0; cap].into_boxed_slice(),
+            // SAFETY: only `buf[line_start..line_end]` / `[0..length]` are read after fills.
+            buf: unsafe { Box::<[u8]>::new_uninit_slice(cap).assume_init() },
         }
     }
 

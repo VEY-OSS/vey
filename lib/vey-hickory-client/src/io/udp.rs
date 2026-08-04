@@ -104,10 +104,13 @@ async fn udp_send_recv(
     }
 
     loop {
-        let mut recv_buf = vec![0; MAX_RECEIVE_BUFFER_SIZE];
+        // SAFETY: only `[..nr]` is kept after recv fills it.
+        let mut recv_buf = Vec::from(unsafe {
+            Box::<[u8]>::new_uninit_slice(MAX_RECEIVE_BUFFER_SIZE).assume_init()
+        });
 
         let nr = socket.recv(&mut recv_buf).await?;
-        recv_buf.resize(nr, 0);
+        recv_buf.truncate(nr);
         let response = DnsResponse::from_buffer(recv_buf)?;
         if response.id() != id {
             continue;
