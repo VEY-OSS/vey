@@ -17,6 +17,7 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	VEY_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
+	    --features secure-snmalloc \
 	    --package vey-iploc
 
 override_dh_auto_install:

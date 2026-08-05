@@ -11,7 +11,7 @@ License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
 Source0:        %{name}-%{version}.tar.xz
 
-BuildRequires:  gcc, make, pkgconf
+BuildRequires:  gcc, gcc-c++, make, pkgconf, cmake
 BuildRequires:  openssl-devel, libbpf-devel
 Requires:       ca-certificates
 
@@ -27,7 +27,7 @@ Generic Gateway
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
 EBPF_FEATURE=$(sh scripts/package/detect_ebpf_feature.sh)
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $EBPF_FEATURE,ebpf,rustls-ring,quic --package vey-gateway --package vey-gateway-ctl
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --features secure-snmalloc,$EBPF_FEATURE,rustls-ring,quic --package vey-gateway --package vey-gateway-ctl
 
 
 %install

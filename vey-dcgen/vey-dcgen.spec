@@ -11,7 +11,7 @@ License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
 Source0:        %{name}-%{version}.tar.xz
 
-BuildRequires:  gcc, make, pkgconf
+BuildRequires:  gcc, gcc-c++, make, pkgconf, cmake
 BuildRequires:  openssl-devel
 
 %description
@@ -25,7 +25,7 @@ Dynamic Certificate Generator developed by the VEY project
 %build
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --package vey-dcgen
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --features secure-snmalloc --package vey-dcgen
 
 
 %install

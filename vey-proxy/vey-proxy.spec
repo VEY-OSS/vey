@@ -11,7 +11,7 @@ License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
 Source0:        %{name}-%{version}.tar.xz
 
-BuildRequires:  gcc, make, pkgconf, cmake
+BuildRequires:  gcc, gcc-c++, make, pkgconf, cmake
 BuildRequires:  c-ares-devel, openssl-devel, libbpf-devel
 BuildRequires:  python3-devel, lua-devel
 Requires:       ca-certificates
@@ -30,7 +30,7 @@ export VEY_PACKAGE_VERSION
 EBPF_FEATURE=$(sh scripts/package/detect_ebpf_feature.sh)
 LUA_FEATURE=$(lua -v | sed 's/Lua \([0-9]\+\)[.]\([0-9]\+\)[.].*/lua\1\2/')
 CARES_FEATURE=$(sh scripts/package/detect_c-ares_feature.sh)
-cargo build --frozen --profile %{build_profile} --no-default-features --features $EBPF_FEATURE,$LUA_FEATURE,python,rustls-ring,quic,$CARES_FEATURE --package vey-proxy --package vey-proxy-ctl --package vey-proxy-lua --package vey-proxy-ftp
+cargo build --frozen --profile %{build_profile} --no-default-features --features secure-snmalloc,$EBPF_FEATURE,$LUA_FEATURE,python,rustls-ring,quic,$CARES_FEATURE --package vey-proxy --package vey-proxy-ctl --package vey-proxy-lua --package vey-proxy-ftp
 
 
 %install

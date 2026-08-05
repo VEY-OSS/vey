@@ -11,7 +11,7 @@ License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
 Source0:        %{name}-%{version}.tar.xz
 
-BuildRequires:  gcc, make, pkgconf
+BuildRequires:  gcc, gcc-c++, make, pkgconf, cmake
 BuildRequires:  openssl-devel
 
 Requires:       ca-certificates
@@ -27,7 +27,7 @@ Multi-Target Benchmark tool
 %build
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features rustls-ring,quic --package vey-bench
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --features secure-snmalloc,rustls-ring,quic --package vey-bench
 
 
 %install

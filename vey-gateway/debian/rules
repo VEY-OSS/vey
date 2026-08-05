@@ -18,7 +18,7 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	VEY_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
-	    --no-default-features --features $(EBPF_FEATURE),jemalloc,ebpf,rustls-ring,quic \
+	    --no-default-features --features secure-snmalloc,$(EBPF_FEATURE),rustls-ring,quic \
 	    --package vey-gateway --package vey-gateway-ctl
 
 override_dh_auto_install:

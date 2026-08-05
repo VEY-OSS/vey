@@ -11,6 +11,8 @@ License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
 Source0:        %{name}-%{version}.tar.xz
 
+BuildRequires:  gcc, gcc-c++, make, pkgconf, cmake
+
 %description
 IP Locate Service
 
@@ -22,7 +24,7 @@ IP Locate Service
 %build
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
-cargo build --frozen --offline --profile %{build_profile} --package vey-iploc
+cargo build --frozen --offline --profile %{build_profile} --features secure-snmalloc --package vey-iploc
 
 
 %install
