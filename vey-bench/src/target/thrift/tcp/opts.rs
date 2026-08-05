@@ -13,12 +13,15 @@ use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, value_parser};
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::net::TcpStream;
 
-use vey_io_ext::LimitedReadExt;
+use vey_io_ext::{AsyncStream, LimitedReadExt, LimitedStream};
 use vey_types::collection::{SelectiveVec, WeightedValue};
 use vey_types::net::UpstreamAddr;
 
 use super::header::{HeaderBuilder, KitexTTHeaderBuilder, ThriftTHeaderBuilder};
-use super::{MultiplexTransfer, SimplexTransfer, ThriftTcpResponse, ThriftTcpResponseError};
+use super::{
+    MultiplexTransfer, SimplexTransfer, ThriftRuntimeStats, ThriftTcpResponse,
+    ThriftTcpResponseError,
+};
 use crate::module::socket::{AppendSocketArgs, SocketArgs};
 use crate::opts::ProcArgs;
 use crate::target::thrift::{AppendThriftArgs, ThriftGlobalArgs};
@@ -82,39 +85,49 @@ impl ThriftTcpArgs {
 
     pub(super) async fn new_tcp_connection(
         &self,
+        stats: &Arc<ThriftRuntimeStats>,
         proc_args: &ProcArgs,
-    ) -> anyhow::Result<TcpStream> {
+    ) -> anyhow::Result<(LimitedStream<TcpStream>, SocketAddr)> {
         let addrs = self
             .target_addrs
             .as_ref()
             .ok_or_else(|| anyhow!("no target addr set"))?;
         let peer = *proc_args.select_peer(addrs);
 
-        self.socket.tcp_connect_to(peer).await
+        let stream = self.socket.tcp_connect_to(peer).await?;
+        let local_addr = stream
+            .local_addr()
+            .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
+
+        let speed_limit = &proc_args.tcp_sock_speed_limit;
+        Ok((
+            LimitedStream::local_limited(
+                stream,
+                speed_limit.shift_millis,
+                speed_limit.max_south,
+                speed_limit.max_north,
+                Arc::clone(stats),
+            ),
+            local_addr,
+        ))
     }
 
     pub(super) async fn new_multiplex_connection(
         self: &Arc<Self>,
+        stats: &Arc<ThriftRuntimeStats>,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<MultiplexTransfer> {
-        let tcp_stream = self.new_tcp_connection(proc_args).await?;
-        let local_addr = tcp_stream
-            .local_addr()
-            .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
-
+        let (tcp_stream, local_addr) = self.new_tcp_connection(stats, proc_args).await?;
         let (r, w) = tcp_stream.into_split();
         MultiplexTransfer::start(self.clone(), r, w, local_addr, self.timeout)
     }
 
     pub(super) async fn new_simplex_connection(
         self: &Arc<Self>,
+        stats: &Arc<ThriftRuntimeStats>,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<SimplexTransfer> {
-        let tcp_stream = self.new_tcp_connection(proc_args).await?;
-        let local_addr = tcp_stream
-            .local_addr()
-            .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
-
+        let (tcp_stream, local_addr) = self.new_tcp_connection(stats, proc_args).await?;
         let (r, w) = tcp_stream.into_split();
         SimplexTransfer::new(self.clone(), r, w, local_addr)
     }
