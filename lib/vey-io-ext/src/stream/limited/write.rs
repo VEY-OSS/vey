@@ -142,6 +142,33 @@ impl LimitedWriterState {
             Poll::Ready(Ok(nw))
         }
     }
+
+    pub(crate) fn poll_write_vectored<W>(
+        &mut self,
+        writer: Pin<&mut W>,
+        cx: &mut Context<'_>,
+        bufs: &[IoSlice<'_>],
+    ) -> Poll<io::Result<usize>>
+    where
+        W: AsyncWrite,
+    {
+        if self.limit.is_set() {
+            let buf = bufs
+                .iter()
+                .find(|b| !b.is_empty())
+                .map_or(&[][..], |b| &**b);
+            self.poll_write(writer, cx, buf)
+        } else {
+            match writer.poll_write_vectored(cx, bufs) {
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
+                Poll::Ready(Ok(nw)) => {
+                    self.stats.add_write_bytes(nw);
+                    Poll::Ready(Ok(nw))
+                }
+            }
+        }
+    }
 }
 
 pin_project! {
@@ -228,23 +255,8 @@ impl<W: AsyncWrite> AsyncWrite for LimitedWriter<W> {
         cx: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        if self.state.limit_is_set() {
-            let buf = bufs
-                .iter()
-                .find(|b| !b.is_empty())
-                .map_or(&[][..], |b| &**b);
-            self.poll_write(cx, buf)
-        } else {
-            let this = self.project();
-            match this.inner.poll_write_vectored(cx, bufs) {
-                Poll::Pending => Poll::Pending,
-                Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
-                Poll::Ready(Ok(nw)) => {
-                    this.state.stats.add_write_bytes(nw);
-                    Poll::Ready(Ok(nw))
-                }
-            }
-        }
+        let this = self.project();
+        this.state.poll_write_vectored(this.inner, cx, bufs)
     }
 
     fn is_write_vectored(&self) -> bool {

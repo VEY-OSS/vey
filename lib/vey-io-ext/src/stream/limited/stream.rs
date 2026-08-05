@@ -128,15 +128,8 @@ impl<W: AsyncWrite> AsyncWrite for LimitedStream<W> {
         cx: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        if self.writer_state.limit_is_set() {
-            let buf = bufs
-                .iter()
-                .find(|b| !b.is_empty())
-                .map_or(&[][..], |b| &**b);
-            self.poll_write(cx, buf)
-        } else {
-            self.project().inner.poll_write_vectored(cx, bufs)
-        }
+        let this = self.project();
+        this.writer_state.poll_write_vectored(this.inner, cx, bufs)
     }
 
     fn is_write_vectored(&self) -> bool {
@@ -163,5 +156,45 @@ where
             LimitedReader::from_parts(r, self.reader_state),
             LimitedWriter::from_parts(w, self.writer_state),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::IoSlice;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use tokio::io::AsyncWriteExt;
+
+    use super::*;
+
+    #[derive(Default)]
+    struct CountingStats {
+        read: AtomicUsize,
+        write: AtomicUsize,
+    }
+
+    impl LimitedReaderStats for CountingStats {
+        fn add_read_bytes(&self, size: usize) {
+            self.read.fetch_add(size, Ordering::Relaxed);
+        }
+    }
+
+    impl LimitedWriterStats for CountingStats {
+        fn add_write_bytes(&self, size: usize) {
+            self.write.fetch_add(size, Ordering::Relaxed);
+        }
+    }
+
+    #[tokio::test]
+    async fn unlimited_vectored_write_is_counted() {
+        let stats = Arc::new(CountingStats::default());
+        let mut stream = LimitedStream::new(Vec::<u8>::new(), stats.clone());
+        let n = stream
+            .write_vectored(&[IoSlice::new(b"abc"), IoSlice::new(b"de")])
+            .await
+            .unwrap();
+        assert_eq!(n, 5);
+        assert_eq!(stats.write.load(Ordering::Relaxed), 5);
     }
 }
