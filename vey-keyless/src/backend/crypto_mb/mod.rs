@@ -3,8 +3,6 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::sync::Once;
-
 use tokio::sync::mpsc;
 
 use vey_crypto_mb::BATCH_SIZE;
@@ -15,9 +13,6 @@ use crate::config::backend::CryptoMbBackendConfig;
 mod ecdsa;
 mod ed25519;
 mod rsa;
-
-static WARN_UNSUPPORTED_CPU: Once = Once::new();
-static WARN_ED25519_KAT: Once = Once::new();
 
 #[derive(Clone, Copy)]
 enum CryptoMbKind {
@@ -36,22 +31,9 @@ pub(super) struct CryptoMbBackend {
 
 impl CryptoMbBackend {
     pub(super) fn new(config: CryptoMbBackendConfig) -> Self {
+        // Applicability checks log a warning once inside `vey-crypto-mb` when disabled.
         let mb_applicable = vey_crypto_mb::is_applicable();
-        if !mb_applicable {
-            WARN_UNSUPPORTED_CPU.call_once(|| {
-                log::warn!(
-                    "crypto_mb backend selected but not supported on this CPU; using OpenSSL for all requests"
-                );
-            });
-        }
         let ed25519_applicable = vey_crypto_mb::ed25519_is_applicable();
-        if mb_applicable && !ed25519_applicable {
-            WARN_ED25519_KAT.call_once(|| {
-                log::warn!(
-                    "crypto_mb Ed25519 FIPS KAT failed on this host; using OpenSSL for Ed25519"
-                );
-            });
-        }
         CryptoMbBackend {
             _config: config,
             mb_applicable,

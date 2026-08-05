@@ -5,6 +5,8 @@
 
 //! High-level helpers around Intel `crypto_mb` multi-buffer primitives.
 
+use std::sync::OnceLock;
+
 mod ecdsa;
 mod ed25519;
 mod ffi;
@@ -34,11 +36,23 @@ pub type MbStatus = ffi::MbStatus;
 ///
 /// Calling multi-buffer kernels without a supported ISA (for example AVX-512
 /// IFMA or AVX2-IFMA) may raise SIGILL.
+///
+/// Logs a warning once when the library is not applicable.
 pub fn is_applicable() -> bool {
-    unsafe {
-        let features = ffi::mbx_get_cpu_features();
-        ffi::mbx_is_crypto_mb_applicable(features) != 0
-    }
+    static APPLICABLE: OnceLock<bool> = OnceLock::new();
+    *APPLICABLE.get_or_init(|| {
+        let ok = unsafe {
+            let features = ffi::mbx_get_cpu_features();
+            ffi::mbx_is_crypto_mb_applicable(features) != 0
+        };
+        if !ok {
+            log::warn!(
+                "crypto_mb is not applicable on this CPU (missing supported ISA); \
+                 multi-buffer kernels will not be used"
+            );
+        }
+        ok
+    })
 }
 
 pub fn status_ok(status: MbStatus) -> bool {

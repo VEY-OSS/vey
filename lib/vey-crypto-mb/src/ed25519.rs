@@ -81,9 +81,23 @@ const KAT_SIG: [u8; 64] = [
 /// (notably certain cloud VMs that advertise AVX-512 IFMA) report success from
 /// `mbx_ed25519_*` while producing incorrect public keys and signatures; the
 /// KAT refuses to enable the path in that case.
+///
+/// Logs a warning once when the ISA is supported but the KAT fails.
 pub fn is_applicable() -> bool {
     static OK: OnceLock<bool> = OnceLock::new();
-    *OK.get_or_init(|| crate::is_applicable() && fips_kat_ok())
+    *OK.get_or_init(|| {
+        if !crate::is_applicable() {
+            return false;
+        }
+        if fips_kat_ok() {
+            return true;
+        }
+        log::warn!(
+            "crypto_mb Ed25519 FIPS KAT failed on this host; \
+             Ed25519 multi-buffer path disabled"
+        );
+        false
+    })
 }
 
 fn fips_kat_ok() -> bool {

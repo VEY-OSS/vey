@@ -8,6 +8,7 @@ description = "Intel crypto_mb helpers for multi-buffer asymmetric crypto"
 
 [dependencies]
 libc.workspace = true
+log.workspace = true
 openssl.workspace = true
 openssl-sys.workspace = true
 
