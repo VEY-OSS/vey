@@ -19,12 +19,12 @@ use std::task::{Context, Poll, ready};
 use vey_io_ext::UdpCopyPacket;
 use vey_io_ext::{AsyncUdpSend, UdpCopyClientError, UdpCopyClientSend};
 use vey_io_sys::udp::SendMsgHdr;
-use vey_socks::v5::UdpOutput;
+use vey_socks::v5::SocksUdpHeader;
 use vey_types::net::UpstreamAddr;
 
 pub(super) struct Socks5UdpConnectClientSend<T> {
     inner: T,
-    socks5_header: Vec<u8>,
+    socks5_header: SocksUdpHeader,
 }
 
 impl<T> Socks5UdpConnectClientSend<T>
@@ -32,12 +32,9 @@ where
     T: AsyncUdpSend,
 {
     pub(super) fn new(inner: T, upstream: UpstreamAddr) -> Self {
-        let header_len = UdpOutput::calc_header_len(&upstream);
-        let mut socks5_header = vec![0; header_len];
-        UdpOutput::generate_header(&mut socks5_header, &upstream);
         Socks5UdpConnectClientSend {
             inner,
-            socks5_header,
+            socks5_header: SocksUdpHeader::new(&upstream),
         }
     }
 }

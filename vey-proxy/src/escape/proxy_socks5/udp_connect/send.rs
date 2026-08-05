@@ -20,12 +20,12 @@ use slog::Logger;
 use vey_io_ext::{AsUdpPayload, UdpCopyPacket};
 use vey_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 use vey_io_sys::udp::SendMsgHdr;
-use vey_socks::v5::UdpOutput;
+use vey_socks::v5::SocksUdpHeader;
 use vey_types::net::UpstreamAddr;
 
 pub(crate) struct ProxySocks5UdpConnectRemoteSend<T> {
     inner: T,
-    socks5_header: Vec<u8>,
+    socks5_header: SocksUdpHeader,
     logger: Option<Logger>,
 }
 
@@ -34,12 +34,9 @@ where
     T: AsyncUdpSend,
 {
     pub(crate) fn new(send: T, upstream: &UpstreamAddr, logger: Option<Logger>) -> Self {
-        let header_len = UdpOutput::calc_header_len(upstream);
-        let mut socks5_header = vec![0; header_len];
-        UdpOutput::generate_header(&mut socks5_header, upstream);
         ProxySocks5UdpConnectRemoteSend {
             inner: send,
-            socks5_header,
+            socks5_header: SocksUdpHeader::new(upstream),
             logger,
         }
     }

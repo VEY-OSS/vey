@@ -6,14 +6,18 @@
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use vey_types::net::{Host, UpstreamAddr};
-
 use bytes::{Buf, BufMut};
+use smallvec::SmallVec;
+
+use vey_types::net::{Host, UpstreamAddr};
 
 use super::SocksUdpPacketError;
 
 pub(crate) const UDP_HEADER_LEN_IPV4: usize = 10;
 pub(crate) const UDP_HEADER_LEN_IPV6: usize = 22;
+/// Inline capacity for [`SocksUdpHeader`]: covers IPv4/IPv6 and domains up to
+/// 57 bytes (`7 + domain_len`); longer names spill to the heap.
+const UDP_HEADER_INLINE_LEN: usize = 64;
 
 pub struct UdpInput {}
 
@@ -142,27 +146,42 @@ impl UdpOutput {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct SocksUdpHeader {
-    buf: Vec<u8>,
+    buf: SmallVec<[u8; UDP_HEADER_INLINE_LEN]>,
 }
 
 impl SocksUdpHeader {
+    pub fn new(ups: &UpstreamAddr) -> Self {
+        let mut header = Self::default();
+        header.encode(ups);
+        header
+    }
+
     pub fn encode(&mut self, ups: &UpstreamAddr) -> &[u8] {
         let header_len = UdpOutput::calc_header_len(ups);
         if header_len > self.buf.len() {
-            self.buf.resize(header_len, 0);
+            self.buf.reserve(header_len - self.buf.len());
+            // SAFETY: `generate_header` fully writes `[..header_len]` before return.
+            unsafe { self.buf.set_len(header_len) };
         }
-        UdpOutput::generate_header(&mut self.buf, ups);
-        &self.buf[0..header_len]
+        UdpOutput::generate_header(&mut self.buf[..header_len], ups);
+        self.buf.truncate(header_len);
+        &self.buf
     }
 }
 
-impl Default for SocksUdpHeader {
-    fn default() -> Self {
-        // SAFETY: `generate_header` fully writes the used prefix before return.
-        let buf = Vec::from(unsafe { Box::<[u8]>::new_uninit_slice(22).assume_init() }); // ipv6
-        SocksUdpHeader { buf }
+impl AsRef<[u8]> for SocksUdpHeader {
+    fn as_ref(&self) -> &[u8] {
+        self.buf.as_ref()
+    }
+}
+
+impl std::ops::Deref for SocksUdpHeader {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        &self.buf
     }
 }
 #[cfg(test)]
@@ -240,10 +259,22 @@ mod tests {
         let domain_buf = header.encode(&domain);
         assert_eq!(domain_buf.len(), UdpOutput::calc_header_len(&domain));
         assert_eq!(domain_buf[3], 0x03);
+        assert!(!header.buf.spilled());
 
         let ipv4_buf = header.encode(&ipv4);
         assert_eq!(ipv4_buf.len(), UDP_HEADER_LEN_IPV4);
         assert_eq!(ipv4_buf, &[0, 0, 0, 1, 198, 51, 100, 7, 0, 80]);
+    }
+
+    #[test]
+    fn reusable_header_spills_for_long_domain() {
+        let host = "a".repeat(UDP_HEADER_INLINE_LEN); // header_len > inline
+        let domain = UpstreamAddr::from_host_str_and_port(&host, 443).unwrap();
+        let mut header = SocksUdpHeader::default();
+
+        let domain_buf = header.encode(&domain);
+        assert_eq!(domain_buf.len(), UdpOutput::calc_header_len(&domain));
+        assert!(header.buf.spilled());
     }
 
     #[test]
