@@ -145,9 +145,7 @@ async fn quic_recv(mut recv_stream: RecvStream) -> Result<DnsResponse, NetError>
     let message_len = u16::from_be_bytes(len_buf) as usize;
 
     // SAFETY: `read_exact` fully initializes `buffer` before it is parsed.
-    let mut buffer = Vec::from(unsafe {
-        Box::<[u8]>::new_uninit_slice(message_len).assume_init()
-    });
+    let mut buffer = Vec::from(unsafe { Box::<[u8]>::new_uninit_slice(message_len).assume_init() });
     recv_stream
         .read_exact(&mut buffer)
         .await
