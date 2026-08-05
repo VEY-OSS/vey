@@ -19,29 +19,46 @@ vey_bench()
 
 test_rsa()
 {
-	TEST_RSA_KEY_FILE="${RUN_DIR}/keys/rsa2048.key"
-	TEST_RSA_CERT_FILE="${RUN_DIR}/rsa2048.crt"
-
-	for hash in sha256 sha384 sha512
+	for bits in 2048 3072 4096
 	do
-		payload=$("${hash}sum" "${TEST_RSA_KEY_FILE}" | awk '{print $1}')
-		vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_RSA_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
-		vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_RSA_KEY_FILE}" --sign --digest-type $hash --rsa-padding PSS --verify "${payload}"
-	done
+		TEST_RSA_KEY_FILE="${RUN_DIR}/keys/rsa${bits}.key"
 
-	TO_DECRYPT_DATA=$(vey_bench keyless openssl --key "${TEST_RSA_KEY_FILE}" --encrypt "abcdef" --no-summary --dump-result)
-	vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_RSA_KEY_FILE}" --decrypt --verify --verify-data "abcdef" "${TO_DECRYPT_DATA}"
+		for hash in sha256 sha384 sha512
+		do
+			payload=$("${hash}sum" "${TEST_RSA_KEY_FILE}" | awk '{print $1}')
+			vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_RSA_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
+			vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_RSA_KEY_FILE}" --sign --digest-type $hash --rsa-padding PSS --verify "${payload}"
+		done
+
+		TO_DECRYPT_DATA=$(vey_bench keyless openssl --key "${TEST_RSA_KEY_FILE}" --encrypt "abcdef" --no-summary --dump-result)
+		vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_RSA_KEY_FILE}" --decrypt --verify --verify-data "abcdef" "${TO_DECRYPT_DATA}"
+	done
 }
 
 test_ec()
 {
-	TEST_EC_KEY_FILE="${RUN_DIR}/keys/ec256.key"
-	TEST_EC_CERT_FILE="${RUN_DIR}/ec256.crt"
+	for curve in ec256 ec384 ec521
+	do
+		TEST_EC_KEY_FILE="${RUN_DIR}/keys/${curve}.key"
 
+		for hash in sha256 sha384 sha512
+		do
+			payload=$("${hash}sum" "${TEST_EC_KEY_FILE}" | awk '{print $1}')
+			vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_EC_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
+		done
+	done
+}
+
+test_ed25519()
+{
+	TEST_ED25519_KEY_FILE="${RUN_DIR}/keys/ed25519.key"
+	TEST_ED25519_CERT_FILE="${RUN_DIR}/ed25519.crt"
+
+	# digest-type is required by CLI but unused for PureEdDSA
 	for hash in sha256 sha384 sha512
 	do
-		payload=$("${hash}sum" "${TEST_EC_KEY_FILE}" | awk '{print $1}')
-		vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_EC_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
+		payload=$("${hash}sum" "${TEST_ED25519_KEY_FILE}" | awk '{print $1}')
+		vey_bench keyless cloudflare ${KEYLESS_CONN_ARGS} --target "${KEYLESS_TARGET}" --key "${TEST_ED25519_KEY_FILE}" --sign --digest-type $hash --verify "${payload}"
 	done
 }
 
@@ -82,6 +99,7 @@ do
 
 	test_rsa
 	test_ec
+	test_ed25519
 
 	vey_keyless_ctl offline
 	wait $KEYSERVER_PID
