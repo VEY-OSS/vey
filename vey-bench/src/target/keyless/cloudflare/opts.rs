@@ -4,6 +4,7 @@
  */
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
@@ -11,7 +12,7 @@ use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-use vey_io_ext::AsyncStream;
+use vey_io_ext::{AsyncStream, LimitedStream};
 use vey_openssl::SslStream;
 use vey_types::collection::{SelectiveVec, WeightedValue};
 use vey_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAddr};
@@ -80,13 +81,10 @@ impl KeylessCloudflareArgs {
 
     pub(super) async fn new_multiplex_keyless_connection(
         &self,
-        stats: &KeylessRuntimeStats,
+        stats: &Arc<KeylessRuntimeStats>,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<MultiplexTransfer> {
-        let tcp_stream = self.new_tcp_connection(proc_args).await?;
-        let local_addr = tcp_stream
-            .local_addr()
-            .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
+        let (tcp_stream, local_addr) = self.new_tcp_connection(stats, proc_args).await?;
         if let Some(tls_client) = &self.tls.client {
             let ssl_stream = self
                 .tls_connect_to_target(tls_client, tcp_stream, stats)
@@ -101,13 +99,10 @@ impl KeylessCloudflareArgs {
 
     pub(super) async fn new_simplex_keyless_connection(
         &self,
-        stats: &KeylessRuntimeStats,
+        stats: &Arc<KeylessRuntimeStats>,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<SimplexTransfer> {
-        let tcp_stream = self.new_tcp_connection(proc_args).await?;
-        let local_addr = tcp_stream
-            .local_addr()
-            .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
+        let (tcp_stream, local_addr) = self.new_tcp_connection(stats, proc_args).await?;
         if let Some(tls_client) = &self.tls.client {
             let ssl_stream = self
                 .tls_connect_to_target(tls_client, tcp_stream, stats)
@@ -120,7 +115,11 @@ impl KeylessCloudflareArgs {
         }
     }
 
-    async fn new_tcp_connection(&self, proc_args: &ProcArgs) -> anyhow::Result<TcpStream> {
+    async fn new_tcp_connection(
+        &self,
+        stats: &Arc<KeylessRuntimeStats>,
+        proc_args: &ProcArgs,
+    ) -> anyhow::Result<(LimitedStream<TcpStream>, SocketAddr)> {
         let addrs = self
             .target_addrs
             .as_ref()
@@ -128,6 +127,9 @@ impl KeylessCloudflareArgs {
         let peer = *proc_args.select_peer(addrs);
 
         let mut stream = self.socket.tcp_connect_to(peer).await?;
+        let local_addr = stream
+            .local_addr()
+            .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
 
         if let Some(data) = self.proxy_protocol.data() {
             stream
@@ -136,7 +138,17 @@ impl KeylessCloudflareArgs {
                 .map_err(|e| anyhow!("failed to write proxy protocol data: {e:?}"))?;
         }
 
-        Ok(stream)
+        let speed_limit = &proc_args.tcp_sock_speed_limit;
+        Ok((
+            LimitedStream::local_limited(
+                stream,
+                speed_limit.shift_millis,
+                speed_limit.max_south,
+                speed_limit.max_north,
+                Arc::clone(stats),
+            ),
+            local_addr,
+        ))
     }
 
     async fn tls_connect_to_target<S>(

@@ -38,6 +38,7 @@ set -x
 . "${RUN_DIR}"/target_h1.sh
 . "${RUN_DIR}"/target_h2.sh
 . "${RUN_DIR}"/target_h3.sh
+. "${RUN_DIR}"/target_keyless_cloudflare.sh
 . "${RUN_DIR}"/target_keyless_openssl.sh
 . "${RUN_DIR}"/target_openssl.sh
 . "${RUN_DIR}"/target_rustls.sh

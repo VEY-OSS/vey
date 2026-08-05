@@ -6,11 +6,12 @@
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::time::Duration;
 
+use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use vey_statsd_client::StatsdClient;
 
 use crate::module::ssl::SslSessionStats;
-use crate::report::{JsonObject, connections_object, insert, keys};
-use crate::summary::{KvRow, print_kv_section};
+use crate::report::{JsonObject, connections_object, insert, keys, tcp_traffic_stats};
+use crate::summary::{KvRow, print_kv_section, print_tcp_traffic};
 use crate::target::BenchRuntimeStats;
 
 #[derive(Default)]
@@ -25,6 +26,11 @@ pub(crate) struct KeylessRuntimeStats {
     conn_success_total: AtomicU64,
 
     pub(crate) ssl_session: SslSessionStats,
+
+    tcp_read: AtomicU64,
+    tcp_write: AtomicU64,
+    tcp_read_total: AtomicU64,
+    tcp_write_total: AtomicU64,
 }
 
 impl KeylessRuntimeStats {
@@ -57,6 +63,18 @@ impl KeylessRuntimeStats {
     }
 }
 
+impl LimitedReaderStats for KeylessRuntimeStats {
+    fn add_read_bytes(&self, size: usize) {
+        self.tcp_read.fetch_add(size as u64, Ordering::Relaxed);
+    }
+}
+
+impl LimitedWriterStats for KeylessRuntimeStats {
+    fn add_write_bytes(&self, size: usize) {
+        self.tcp_write.fetch_add(size as u64, Ordering::Relaxed);
+    }
+}
+
 impl BenchRuntimeStats for KeylessRuntimeStats {
     fn emit(&self, client: &mut StatsdClient) {
         macro_rules! emit_count {
@@ -78,6 +96,10 @@ impl BenchRuntimeStats for KeylessRuntimeStats {
         emit_count!(conn_success, "connection.success");
         self.conn_success_total
             .fetch_add(conn_success, Ordering::Relaxed);
+        emit_count!(tcp_write, "io.tcp.write");
+        self.tcp_write_total.fetch_add(tcp_write, Ordering::Relaxed);
+        emit_count!(tcp_read, "io.tcp.read");
+        self.tcp_read_total.fetch_add(tcp_read, Ordering::Relaxed);
     }
 
     fn summary(&self, total_time: Duration) {
@@ -107,6 +129,12 @@ impl BenchRuntimeStats for KeylessRuntimeStats {
         );
 
         self.ssl_session.summary("TLS");
+
+        let send_bytes =
+            self.tcp_write_total.load(Ordering::Relaxed) + self.tcp_write.load(Ordering::Relaxed);
+        let recv_bytes =
+            self.tcp_read_total.load(Ordering::Relaxed) + self.tcp_read.load(Ordering::Relaxed);
+        print_tcp_traffic(send_bytes, recv_bytes, total_secs);
     }
 
     fn json_report(&self, total_time: Duration) -> JsonObject {
@@ -127,6 +155,17 @@ impl BenchRuntimeStats for KeylessRuntimeStats {
             insert(&mut tls, keys::TARGET, target);
             insert(&mut obj, keys::TLS, serde_json::Value::Object(tls));
         }
+        let send_bytes =
+            self.tcp_write_total.load(Ordering::Relaxed) + self.tcp_write.load(Ordering::Relaxed);
+        let recv_bytes =
+            self.tcp_read_total.load(Ordering::Relaxed) + self.tcp_read.load(Ordering::Relaxed);
+        let mut traffic = JsonObject::new();
+        insert(
+            &mut traffic,
+            keys::TCP,
+            tcp_traffic_stats(send_bytes, recv_bytes, total_secs),
+        );
+        insert(&mut obj, keys::TRAFFIC, serde_json::Value::Object(traffic));
         obj
     }
 }
