@@ -42,6 +42,18 @@ impl UdpConnectFailoverContext {
             .await;
         self
     }
+
+    async fn run_nested(
+        mut self,
+        escaper: &ArcEscaper,
+        task_conf: &UdpConnectTaskConf<'_>,
+        task_notes: &ServerTaskNotes,
+    ) -> Self {
+        self.connect_result = escaper
+            ._nested_udp_connect(task_conf, &mut self.egress_notes, task_notes)
+            .await;
+        self
+    }
 }
 
 impl RouteFailoverEscaper {
@@ -89,6 +101,73 @@ impl RouteFailoverEscaper {
         let standby_context = UdpConnectFailoverContext::new();
         let standby_task =
             pin!(standby_context.run(&self.standby_node, task_conf, task_notes, task_stats));
+
+        let (ctx, left) = futures_util::future::select(primary_task, standby_task)
+            .await
+            .into_inner();
+        match ctx.connect_result {
+            Ok(c) => {
+                self.stats.add_request_passed();
+                *egress_notes = ctx.egress_notes;
+                Ok(c)
+            }
+            Err(_e) => {
+                let ctx = left.await;
+                match ctx.connect_result {
+                    Ok(c) => {
+                        self.stats.add_request_passed();
+                        *egress_notes = ctx.egress_notes;
+                        Ok(c)
+                    }
+                    Err(e) => {
+                        self.stats.add_request_failed();
+                        *egress_notes = ctx.egress_notes;
+                        Err(e)
+                    }
+                }
+            }
+        }
+    }
+
+    pub(super) async fn nested_udp_connect_with_failover(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        let primary_context = UdpConnectFailoverContext::new();
+        let mut primary_task =
+            pin!(primary_context.run_nested(&self.primary_node, task_conf, task_notes));
+
+        if let Ok(ctx) = tokio::time::timeout(self.config.fallback_delay, &mut primary_task).await {
+            return match ctx.connect_result {
+                Ok(c) => {
+                    self.stats.add_request_passed();
+                    *egress_notes = ctx.egress_notes;
+                    Ok(c)
+                }
+                Err(_e) => {
+                    match self
+                        .standby_node
+                        ._nested_udp_connect(task_conf, egress_notes, task_notes)
+                        .await
+                    {
+                        Ok(c) => {
+                            self.stats.add_request_passed();
+                            Ok(c)
+                        }
+                        Err(e) => {
+                            self.stats.add_request_failed();
+                            Err(e)
+                        }
+                    }
+                }
+            };
+        }
+
+        let standby_context = UdpConnectFailoverContext::new();
+        let standby_task =
+            pin!(standby_context.run_nested(&self.standby_node, task_conf, task_notes));
 
         let (ctx, left) = futures_util::future::select(primary_task, standby_task)
             .await

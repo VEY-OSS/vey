@@ -115,4 +115,30 @@ impl ProxyHttpEscaper {
 
         Ok((Box::new(recv), Box::new(send)))
     }
+
+    pub(super) async fn http_upgrade_nested_udp_connect(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        let buf_stream = self
+            .timed_masque_udp_connect_to(task_conf, egress_notes, task_notes)
+            .await?;
+
+        let (r, w) = buf_stream.into_split();
+        let recv = ProxyHttpConnectUdpRecv::new(
+            r,
+            self.escape_logger.clone(),
+            task_conf.relay.underlying_buffer_size(),
+            task_conf.relay.packet_size(),
+        );
+        let send = ProxyHttpConnectUdpSend::new(
+            w,
+            self.escape_logger.clone(),
+            task_conf.relay.packet_size(),
+        );
+
+        Ok((Box::new(recv), Box::new(send)))
+    }
 }

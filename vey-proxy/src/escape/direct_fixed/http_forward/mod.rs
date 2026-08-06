@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use vey_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
+use vey_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedStats};
 
 use super::{DirectFixedEscaper, DirectFixedEscaperStats};
 use crate::escape::EgressNotes;
@@ -94,7 +94,7 @@ impl DirectFixedEscaper {
 
         let ups_r = LimitedBufReader::new_unlimited(
             ups_r,
-            Arc::new(NilLimitedReaderStats::default()),
+            Arc::new(NilLimitedStats::default()),
             wrapper_stats.clone(),
         );
         let ups_w = LimitedWriter::new(ups_w, wrapper_stats);

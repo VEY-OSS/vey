@@ -193,6 +193,17 @@ impl NextProxyPeer for ProxyFloatHttpPeer {
         .await
     }
 
+    async fn nested_tcp_connect(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> TcpConnectResult {
+        self.http_connect_nested_tcp_connect(escaper, task_conf, egress_notes, task_notes)
+            .await
+    }
+
     async fn tls_setup_connection(
         &self,
         escaper: &ProxyFloatEscaper,
@@ -251,6 +262,17 @@ impl NextProxyPeer for ProxyFloatHttpPeer {
             task_stats,
         )
         .await
+    }
+
+    async fn nested_udp_connect(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        self.http_upgrade_nested_udp_connect(escaper, task_conf, egress_notes, task_notes)
+            .await
     }
 
     async fn udp_setup_relay(

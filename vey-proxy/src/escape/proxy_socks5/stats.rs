@@ -9,7 +9,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwapOption;
 
 use vey_daemon::stat::remote::{TcpConnectionTaskRemoteStats, UdpConnectTaskRemoteStats};
-use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
+use vey_io_ext::{LimitedReaderStats, LimitedRecvStats, LimitedSendStats, LimitedWriterStats};
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
@@ -111,6 +111,26 @@ impl LimitedWriterStats for ProxySocks5EscaperStats {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
         self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl LimitedRecvStats for ProxySocks5EscaperStats {
+    fn add_recv_bytes(&self, size: usize) {
+        self.udp.io.add_in_bytes(size as u64);
+    }
+
+    fn add_recv_packets(&self, n: usize) {
+        self.udp.io.add_in_packets(n);
+    }
+}
+
+impl LimitedSendStats for ProxySocks5EscaperStats {
+    fn add_send_bytes(&self, size: usize) {
+        self.udp.io.add_out_bytes(size as u64);
+    }
+
+    fn add_send_packets(&self, n: usize) {
+        self.udp.io.add_out_packets(n);
     }
 }
 

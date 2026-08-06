@@ -16,6 +16,7 @@ use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::time::{Instant, Sleep};
 
+use crate::NilLimitedStats;
 use crate::limit::{GlobalLimitGroup, GlobalStreamLimit, StreamLimitAction, StreamLimiter};
 use crate::stream::AsyncStream;
 
@@ -24,10 +25,7 @@ pub trait LimitedReaderStats {
 }
 pub type ArcLimitedReaderStats = Arc<dyn LimitedReaderStats + Send + Sync>;
 
-#[derive(Default)]
-pub struct NilLimitedReaderStats(());
-
-impl LimitedReaderStats for NilLimitedReaderStats {
+impl LimitedReaderStats for NilLimitedStats {
     fn add_read_bytes(&self, _size: usize) {}
 }
 

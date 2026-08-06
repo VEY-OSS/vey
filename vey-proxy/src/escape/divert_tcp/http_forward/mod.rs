@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use vey_io_ext::{
-    AsyncStream, LimitedBufReader, LimitedWriter, LimitedWriterStats, NilLimitedReaderStats,
+    AsyncStream, LimitedBufReader, LimitedWriter, LimitedWriterStats, NilLimitedStats,
 };
 
 use super::{DivertTcpEscaper, DivertTcpEscaperStats};
@@ -92,7 +92,7 @@ impl DivertTcpEscaper {
 
         let ups_r = LimitedBufReader::new_unlimited(
             ups_r,
-            Arc::new(NilLimitedReaderStats::default()),
+            Arc::new(NilLimitedStats::default()),
             wrapper_stats.clone(),
         );
         let ups_w = LimitedWriter::new(ups_w, wrapper_stats);

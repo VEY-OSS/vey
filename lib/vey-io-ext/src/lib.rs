@@ -3,6 +3,9 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
+#[derive(Default)]
+pub struct NilLimitedStats(());
+
 mod cache;
 mod limit;
 mod listen;

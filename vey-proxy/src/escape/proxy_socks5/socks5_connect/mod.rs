@@ -148,6 +148,20 @@ impl ProxySocks5Escaper {
         Ok((Box::new(r), Box::new(w)))
     }
 
+    pub(super) async fn socks5_nested_tcp_connect(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> TcpConnectResult {
+        let ups_s = self
+            .timed_socks5_connect_tcp_connect_to(task_conf, egress_notes, task_notes)
+            .await?;
+
+        let (r, w) = ups_s.into_split();
+        Ok((Box::new(r), Box::new(w)))
+    }
+
     pub(super) async fn socks5_connect_tls_connect_to(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,

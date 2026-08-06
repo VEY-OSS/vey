@@ -377,4 +377,37 @@ impl DivertTcpEscaper {
 
         Ok((Box::new(r), Box::new(w)))
     }
+
+    pub(super) async fn nested_tcp_connect(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> TcpConnectResult {
+        let stream = self
+            .tcp_connect_to(task_conf, egress_notes, task_notes)
+            .await?;
+        let (r, mut w) = stream.into_split();
+
+        let nw = self
+            .send_pp2_header(&mut w, task_conf, task_notes, None)
+            .await?;
+        self.stats.add_write_bytes(nw as u64);
+
+        let limit_config = &self.config.general.tcp_sock_speed_limit;
+        let r = LimitedReader::local_limited(
+            r,
+            limit_config.shift_millis,
+            limit_config.max_south,
+            self.stats.clone(),
+        );
+        let w = LimitedWriter::local_limited(
+            w,
+            limit_config.shift_millis,
+            limit_config.max_north,
+            self.stats.clone(),
+        );
+
+        Ok((Box::new(r), Box::new(w)))
+    }
 }

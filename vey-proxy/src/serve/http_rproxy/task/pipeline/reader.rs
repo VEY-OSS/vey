@@ -9,7 +9,7 @@ use log::trace;
 use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 
-use vey_io_ext::{GlobalLimitGroup, LimitedBufReadExt, LimitedBufReader, NilLimitedReaderStats};
+use vey_io_ext::{GlobalLimitGroup, LimitedBufReadExt, LimitedBufReader, NilLimitedStats};
 use vey_types::net::{HttpForwardedHeaderType, HttpForwardedHeaderValue};
 
 use super::protocol::{HttpClientReader, HttpRProxyRequest};
@@ -41,7 +41,7 @@ where
             limit_config.shift_millis,
             limit_config.max_north,
             clt_r_stats,
-            Arc::new(NilLimitedReaderStats::default()),
+            Arc::new(NilLimitedStats::default()),
         );
         HttpRProxyPipelineReaderTask {
             ctx: Arc::clone(ctx),
@@ -180,7 +180,7 @@ where
                 match stream_receiver.recv().await.flatten() {
                     Some(mut reader) => {
                         // we can now read the next request
-                        reader.reset_buffer_stats(Arc::new(NilLimitedReaderStats::default()));
+                        reader.reset_buffer_stats(Arc::new(NilLimitedStats::default()));
                         let limit_config = &self.ctx.server_config.tcp_sock_speed_limit;
                         reader.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
                         reader.retain_global_limiter_by_group(GlobalLimitGroup::Server);

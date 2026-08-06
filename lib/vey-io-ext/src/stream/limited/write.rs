@@ -16,6 +16,7 @@ use pin_project_lite::pin_project;
 use tokio::io::AsyncWrite;
 use tokio::time::{Instant, Sleep};
 
+use crate::NilLimitedStats;
 use crate::limit::{GlobalLimitGroup, GlobalStreamLimit, StreamLimitAction, StreamLimiter};
 
 pub trait LimitedWriterStats {
@@ -23,10 +24,7 @@ pub trait LimitedWriterStats {
 }
 pub type ArcLimitedWriterStats = Arc<dyn LimitedWriterStats + Send + Sync>;
 
-#[derive(Default)]
-pub struct NilLimitedWriterStats(());
-
-impl LimitedWriterStats for NilLimitedWriterStats {
+impl LimitedWriterStats for NilLimitedStats {
     fn add_write_bytes(&self, _size: usize) {}
 }
 

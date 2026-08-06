@@ -268,6 +268,31 @@ impl EscaperInternal for ProxyHttpEscaper {
         self.config.http_forward_capability
     }
 
+    async fn _nested_tcp_connect(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        _audit_ctx: &mut AuditContext,
+    ) -> TcpConnectResult {
+        self.stats.interface.add_tcp_connect_attempted();
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.http_connect_nested_tcp_connect(task_conf, egress_notes, task_notes)
+            .await
+    }
+
+    async fn _nested_udp_connect(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        self.stats.interface.add_udp_connect_attempted();
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.http_upgrade_nested_udp_connect(task_conf, egress_notes, task_notes)
+            .await
+    }
+
     async fn _new_http_forward_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,

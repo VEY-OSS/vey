@@ -141,10 +141,17 @@ impl RouteResolvedEscaper {
     }
 
     async fn select_next(&self, ups: &UpstreamAddr) -> Result<ArcEscaper, ResolveError> {
-        let ip = self.get_upstream_ip(ups.host()).await?;
-
-        let escaper = self.select_next_by_ip(ip);
-        Ok(escaper)
+        match self.get_upstream_ip(ups.host()).await {
+            Ok(ip) => {
+                self.stats.add_request_passed();
+                let escaper = self.select_next_by_ip(ip);
+                Ok(escaper)
+            }
+            Err(e) => {
+                self.stats.add_request_failed();
+                Err(e)
+            }
+        }
     }
 }
 
@@ -171,24 +178,10 @@ impl Escaper for RouteResolvedEscaper {
         audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         egress_notes.escaper.clone_from(&self.config.name);
-        match self.select_next(task_conf.upstream).await {
-            Ok(escaper) => {
-                self.stats.add_request_passed();
-                escaper
-                    .tcp_setup_connection(
-                        task_conf,
-                        egress_notes,
-                        task_notes,
-                        task_stats,
-                        audit_ctx,
-                    )
-                    .await
-            }
-            Err(e) => {
-                self.stats.add_request_failed();
-                Err(e.into())
-            }
-        }
+        let escaper = self.select_next(task_conf.upstream).await?;
+        escaper
+            .tcp_setup_connection(task_conf, egress_notes, task_notes, task_stats, audit_ctx)
+            .await
     }
 
     async fn tls_setup_connection(
@@ -200,24 +193,10 @@ impl Escaper for RouteResolvedEscaper {
         audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         egress_notes.escaper.clone_from(&self.config.name);
-        match self.select_next(task_conf.tcp.upstream).await {
-            Ok(escaper) => {
-                self.stats.add_request_passed();
-                escaper
-                    .tls_setup_connection(
-                        task_conf,
-                        egress_notes,
-                        task_notes,
-                        task_stats,
-                        audit_ctx,
-                    )
-                    .await
-            }
-            Err(e) => {
-                self.stats.add_request_failed();
-                Err(e.into())
-            }
-        }
+        let escaper = self.select_next(task_conf.tcp.upstream).await?;
+        escaper
+            .tls_setup_connection(task_conf, egress_notes, task_notes, task_stats, audit_ctx)
+            .await
     }
 
     async fn udp_setup_connection(
@@ -228,18 +207,10 @@ impl Escaper for RouteResolvedEscaper {
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         egress_notes.escaper.clone_from(&self.config.name);
-        match self.select_next(task_conf.upstream).await {
-            Ok(escaper) => {
-                self.stats.add_request_passed();
-                escaper
-                    .udp_setup_connection(task_conf, egress_notes, task_notes, task_stats)
-                    .await
-            }
-            Err(e) => {
-                self.stats.add_request_failed();
-                Err(e.into())
-            }
-        }
+        let escaper = self.select_next(task_conf.upstream).await?;
+        escaper
+            .udp_setup_connection(task_conf, egress_notes, task_notes, task_stats)
+            .await
     }
 
     async fn udp_setup_relay(
@@ -250,18 +221,10 @@ impl Escaper for RouteResolvedEscaper {
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         egress_notes.escaper.clone_from(&self.config.name);
-        match self.select_next(task_conf.initial_peer).await {
-            Ok(escaper) => {
-                self.stats.add_request_passed();
-                escaper
-                    .udp_setup_relay(task_conf, egress_notes, task_notes, task_stats)
-                    .await
-            }
-            Err(e) => {
-                self.stats.add_request_failed();
-                Err(e.into())
-            }
-        }
+        let escaper = self.select_next(task_conf.initial_peer).await?;
+        escaper
+            .udp_setup_relay(task_conf, egress_notes, task_notes, task_stats)
+            .await
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
@@ -277,18 +240,14 @@ impl Escaper for RouteResolvedEscaper {
     ) -> BoxFtpConnectContext {
         match self.select_next(task_conf.upstream).await {
             Ok(escaper) => {
-                self.stats.add_request_passed();
                 escaper
                     .new_ftp_connect_context(Arc::clone(&escaper), task_conf, task_notes)
                     .await
             }
-            Err(e) => {
-                self.stats.add_request_failed();
-                Box::new(DenyFtpConnectContext::new(
-                    self.name(),
-                    Some(TcpConnectError::ResolveFailed(e)),
-                ))
-            }
+            Err(e) => Box::new(DenyFtpConnectContext::new(
+                self.name(),
+                Some(TcpConnectError::ResolveFailed(e)),
+            )),
         }
     }
 }
@@ -321,13 +280,34 @@ impl EscaperInternal for RouteResolvedEscaper {
         _task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
     ) -> Option<ArcEscaper> {
-        if let Ok(escaper) = self.select_next(upstream).await {
-            self.stats.add_request_passed();
-            Some(escaper)
-        } else {
-            self.stats.add_request_failed();
-            None
-        }
+        self.select_next(upstream).await.ok()
+    }
+
+    async fn _nested_tcp_connect(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        audit_ctx: &mut AuditContext,
+    ) -> TcpConnectResult {
+        egress_notes.escaper.clone_from(&self.config.name);
+        let escaper = self.select_next(task_conf.upstream).await?;
+        escaper
+            ._nested_tcp_connect(task_conf, egress_notes, task_notes, audit_ctx)
+            .await
+    }
+
+    async fn _nested_udp_connect(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        egress_notes.escaper.clone_from(&self.config.name);
+        let escaper = self.select_next(task_conf.upstream).await?;
+        escaper
+            ._nested_udp_connect(task_conf, egress_notes, task_notes)
+            .await
     }
 
     async fn _new_http_forward_connection(

@@ -204,7 +204,7 @@ impl Escaper for ProxySocks5Escaper {
     ) -> UdpConnectResult {
         self.stats.interface.add_udp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
-        self.udp_connect_to(task_conf, egress_notes, task_notes, task_stats)
+        self.udp_new_connection(task_conf, egress_notes, task_notes, task_stats)
             .await
     }
 
@@ -267,6 +267,31 @@ impl EscaperInternal for ProxySocks5Escaper {
         let mut capability = HttpForwardCapability::default();
         capability.set_session_auth(true);
         capability
+    }
+
+    async fn _nested_tcp_connect(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        _audit_ctx: &mut AuditContext,
+    ) -> TcpConnectResult {
+        self.stats.interface.add_tcp_connect_attempted();
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.socks5_nested_tcp_connect(task_conf, egress_notes, task_notes)
+            .await
+    }
+
+    async fn _nested_udp_connect(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        self.stats.interface.add_udp_connect_attempted();
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.nested_udp_connect(task_conf, egress_notes, task_notes)
+            .await
     }
 
     async fn _new_http_forward_connection(

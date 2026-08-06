@@ -88,6 +88,14 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult;
 
+    async fn nested_tcp_connect(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> TcpConnectResult;
+
     async fn tls_setup_connection(
         &self,
         escaper: &ProxyFloatEscaper,
@@ -122,6 +130,14 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
+    ) -> UdpConnectResult;
+
+    async fn nested_udp_connect(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
     ) -> UdpConnectResult;
 
     async fn udp_setup_relay(

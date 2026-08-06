@@ -229,6 +229,35 @@ impl EscaperInternal for RouteMappingEscaper {
         Some(escaper)
     }
 
+    async fn _nested_tcp_connect(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        audit_ctx: &mut AuditContext,
+    ) -> TcpConnectResult {
+        egress_notes.escaper.clone_from(&self.config.name);
+        let escaper = self.select_next(task_notes);
+        self.stats.add_request_passed();
+        escaper
+            ._nested_tcp_connect(task_conf, egress_notes, task_notes, audit_ctx)
+            .await
+    }
+
+    async fn _nested_udp_connect(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        egress_notes.escaper.clone_from(&self.config.name);
+        let escaper = self.select_next(task_notes);
+        self.stats.add_request_passed();
+        escaper
+            ._nested_udp_connect(task_conf, egress_notes, task_notes)
+            .await
+    }
+
     async fn _new_http_forward_connection(
         &self,
         _task_conf: &TcpConnectTaskConf<'_>,

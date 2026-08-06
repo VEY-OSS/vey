@@ -563,4 +563,36 @@ impl DirectFixedEscaper {
 
         Ok((Box::new(r), Box::new(w)))
     }
+
+    pub(super) async fn nested_tcp_connect(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> TcpConnectResult {
+        let mut stream = self
+            .tcp_connect_to(task_conf, egress_notes, task_notes)
+            .await?;
+        if let Some(version) = self.config.use_proxy_protocol {
+            self.send_tcp_proxy_protocol_header(version, &mut stream, task_notes, true)
+                .await?;
+        }
+        let (r, w) = stream.into_split();
+
+        let limit_config = &self.config.general.tcp_sock_speed_limit;
+        let r = LimitedReader::local_limited(
+            r,
+            limit_config.shift_millis,
+            limit_config.max_south,
+            self.stats.clone(),
+        );
+        let w = LimitedWriter::local_limited(
+            w,
+            limit_config.shift_millis,
+            limit_config.max_north,
+            self.stats.clone(),
+        );
+
+        Ok((Box::new(r), Box::new(w)))
+    }
 }

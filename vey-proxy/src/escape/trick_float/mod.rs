@@ -280,6 +280,48 @@ impl EscaperInternal for TrickFloatEscaper {
         }
     }
 
+    async fn _nested_tcp_connect(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        audit_ctx: &mut AuditContext,
+    ) -> TcpConnectResult {
+        egress_notes.escaper.clone_from(&self.config.name);
+        match self.random_next() {
+            Ok(escaper) => {
+                self.stats.add_request_passed();
+                escaper
+                    ._nested_tcp_connect(task_conf, egress_notes, task_notes, audit_ctx)
+                    .await
+            }
+            Err(e) => {
+                self.stats.add_request_failed();
+                Err(TcpConnectError::EscaperNotUsable(e))
+            }
+        }
+    }
+
+    async fn _nested_udp_connect(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        match self.random_next() {
+            Ok(escaper) => {
+                self.stats.add_request_passed();
+                escaper
+                    ._nested_udp_connect(task_conf, egress_notes, task_notes)
+                    .await
+            }
+            Err(e) => {
+                self.stats.add_request_failed();
+                Err(UdpConnectError::EscaperNotUsable(e))
+            }
+        }
+    }
+
     async fn _new_http_forward_connection(
         &self,
         _task_conf: &TcpConnectTaskConf<'_>,

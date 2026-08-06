@@ -5,6 +5,8 @@
 
 use std::sync::Arc;
 
+use crate::NilLimitedStats;
+
 pub trait LimitedRecvStats {
     fn add_recv_bytes(&self, size: usize);
     fn add_recv_packet(&self) {
@@ -14,6 +16,14 @@ pub trait LimitedRecvStats {
 }
 pub type ArcLimitedRecvStats = Arc<dyn LimitedRecvStats + Send + Sync>;
 
+impl LimitedRecvStats for NilLimitedStats {
+    fn add_recv_bytes(&self, _size: usize) {}
+
+    fn add_recv_packet(&self) {}
+
+    fn add_recv_packets(&self, _n: usize) {}
+}
+
 pub trait LimitedSendStats {
     fn add_send_bytes(&self, size: usize);
     fn add_send_packet(&self) {
@@ -22,6 +32,14 @@ pub trait LimitedSendStats {
     fn add_send_packets(&self, n: usize);
 }
 pub type ArcLimitedSendStats = Arc<dyn LimitedSendStats + Send + Sync>;
+
+impl LimitedSendStats for NilLimitedStats {
+    fn add_send_bytes(&self, _size: usize) {}
+
+    fn add_send_packet(&self) {}
+
+    fn add_send_packets(&self, _n: usize) {}
+}
 
 #[cfg(test)]
 mod tests {

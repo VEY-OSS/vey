@@ -20,7 +20,7 @@ use crate::module::udp_connect::{
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatSocks5Peer {
-    pub(super) async fn udp_connect_to(
+    pub(super) async fn new_udp_connection(
         &self,
         escaper: &ProxyFloatEscaper,
         task_conf: &UdpConnectTaskConf<'_>,
@@ -56,6 +56,53 @@ impl ProxyFloatSocks5Peer {
             self.udp_sock_speed_limit.max_north_packets,
             self.udp_sock_speed_limit.max_north_bytes,
             wrapper_stats,
+        );
+
+        let recv = ProxySocks5UdpConnectRemoteRecv::new(
+            recv,
+            ctl_stream,
+            self.end_on_control_closed,
+            escaper.escape_logger.clone(),
+        );
+        let send = ProxySocks5UdpConnectRemoteSend::new(
+            send,
+            task_conf.upstream,
+            escaper.escape_logger.clone(),
+        );
+
+        Ok((Box::new(recv), Box::new(send)))
+    }
+
+    pub(super) async fn nested_udp_connect(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        let (ctl_stream, udp_socket) = self
+            .timed_socks5_udp_associate(
+                escaper,
+                escaper.config.udp_socket_buffer,
+                egress_notes,
+                task_notes,
+            )
+            .await?;
+
+        let (recv, send) = vey_io_ext::split_udp(udp_socket);
+        let recv = LimitedUdpRecv::local_limited(
+            recv,
+            self.udp_sock_speed_limit.shift_millis,
+            self.udp_sock_speed_limit.max_south_packets,
+            self.udp_sock_speed_limit.max_south_bytes,
+            escaper.stats.clone(),
+        );
+        let send = LimitedUdpSend::local_limited(
+            send,
+            self.udp_sock_speed_limit.shift_millis,
+            self.udp_sock_speed_limit.max_north_packets,
+            self.udp_sock_speed_limit.max_north_bytes,
+            escaper.stats.clone(),
         );
 
         let recv = ProxySocks5UdpConnectRemoteRecv::new(

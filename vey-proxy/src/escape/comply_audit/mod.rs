@@ -215,6 +215,34 @@ impl EscaperInternal for ComplyAuditEscaper {
         audit_ctx.set_handle(self.audit_handle.clone());
     }
 
+    async fn _nested_tcp_connect(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        audit_ctx: &mut AuditContext,
+    ) -> TcpConnectResult {
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.stats.add_request_passed();
+        self._update_audit_context(audit_ctx);
+        self.next
+            ._nested_tcp_connect(task_conf, egress_notes, task_notes, audit_ctx)
+            .await
+    }
+
+    async fn _nested_udp_connect(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        egress_notes.escaper.clone_from(&self.config.name);
+        self.stats.add_request_passed();
+        self.next
+            ._nested_udp_connect(task_conf, egress_notes, task_notes)
+            .await
+    }
+
     async fn _new_http_forward_connection(
         &self,
         _task_conf: &TcpConnectTaskConf<'_>,

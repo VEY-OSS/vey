@@ -98,6 +98,22 @@ impl ProxyFloatHttpPeer {
         Ok((Box::new(r), Box::new(w)))
     }
 
+    pub(super) async fn http_connect_nested_tcp_connect(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> TcpConnectResult {
+        let buf_stream = self
+            .timed_http_connect_tcp_connect_to(escaper, task_conf, egress_notes, task_notes)
+            .await?;
+
+        let (r, w) = buf_stream.into_split();
+        let r = OnceBufReader::from(r);
+        Ok((Box::new(r), Box::new(w)))
+    }
+
     pub(super) async fn http_connect_tls_connect_to(
         &self,
         escaper: &ProxyFloatEscaper,

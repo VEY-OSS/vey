@@ -110,6 +110,23 @@ pub(crate) trait EscaperInternal {
     fn _update_audit_context(&self, _audit_ctx: &mut AuditContext) {}
     fn _update_egress_path(&self, _task_notes: &ServerTaskNotes) {}
 
+    #[allow(unused)]
+    async fn _nested_tcp_connect(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        audit_ctx: &mut AuditContext,
+    ) -> TcpConnectResult;
+
+    #[allow(unused)]
+    async fn _nested_udp_connect(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult;
+
     async fn _new_http_forward_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,

@@ -211,6 +211,17 @@ impl NextProxyPeer for ProxyFloatSocks5Peer {
             .await
     }
 
+    async fn nested_tcp_connect(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> TcpConnectResult {
+        self.socks5_nested_tcp_connect(escaper, task_conf, egress_notes, task_notes)
+            .await
+    }
+
     async fn tls_setup_connection(
         &self,
         escaper: &ProxyFloatEscaper,
@@ -256,7 +267,19 @@ impl NextProxyPeer for ProxyFloatSocks5Peer {
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         egress_notes.expire = self.expire_datetime();
-        self.udp_connect_to(escaper, task_conf, egress_notes, task_notes, task_stats)
+        self.new_udp_connection(escaper, task_conf, egress_notes, task_notes, task_stats)
+            .await
+    }
+
+    async fn nested_udp_connect(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        egress_notes.expire = self.expire_datetime();
+        self.nested_udp_connect(escaper, task_conf, egress_notes, task_notes)
             .await
     }
 

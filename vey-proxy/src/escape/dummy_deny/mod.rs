@@ -174,6 +174,29 @@ impl EscaperInternal for DummyDenyEscaper {
         DummyDenyEscaper::prepare_reload(config, stats)
     }
 
+    async fn _nested_tcp_connect(
+        &self,
+        _task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        _task_notes: &ServerTaskNotes,
+        _audit_ctx: &mut AuditContext,
+    ) -> TcpConnectResult {
+        self.stats.interface.add_tcp_connect_attempted();
+        egress_notes.escaper.clone_from(&self.config.name);
+        Err(TcpConnectError::MethodUnavailable)
+    }
+
+    async fn _nested_udp_connect(
+        &self,
+        _task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        _task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        self.stats.interface.add_udp_connect_attempted();
+        egress_notes.escaper.clone_from(&self.config.name);
+        Err(UdpConnectError::MethodUnavailable)
+    }
+
     async fn _new_http_forward_connection(
         &self,
         _task_conf: &TcpConnectTaskConf<'_>,

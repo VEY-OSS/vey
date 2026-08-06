@@ -4,12 +4,10 @@
  */
 
 mod read;
-pub use read::{
-    ArcLimitedReaderStats, LimitedReader, LimitedReaderStats, NilLimitedReaderStats, SizedReader,
-};
+pub use read::{ArcLimitedReaderStats, LimitedReader, LimitedReaderStats, SizedReader};
 
 mod stream;
 pub use stream::LimitedStream;
 
 mod write;
-pub use write::{ArcLimitedWriterStats, LimitedWriter, LimitedWriterStats, NilLimitedWriterStats};
+pub use write::{ArcLimitedWriterStats, LimitedWriter, LimitedWriterStats};

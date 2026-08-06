@@ -6,6 +6,8 @@
 
 use std::sync::Arc;
 
+use tokio::net::UdpSocket;
+
 use vey_daemon::stat::remote::ArcUdpConnectTaskRemoteStats;
 use vey_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 use vey_socket::util::AddressFamily;
@@ -58,8 +60,7 @@ impl DirectFixedEscaper {
         task_conf: &UdpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-        task_stats: ArcUdpConnectTaskRemoteStats,
-    ) -> UdpConnectResult {
+    ) -> Result<UdpSocket, UdpConnectError> {
         egress_notes.socket_type = Some(EgressSocketType::Direct);
 
         let peer_addr = self
@@ -95,6 +96,20 @@ impl DirectFixedEscaper {
         .map_err(UdpConnectError::SetupSocketFailed)?;
         egress_notes.udp.local = Some(local_addr);
 
+        Ok(socket)
+    }
+
+    pub(super) async fn new_udp_connection(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcUdpConnectTaskRemoteStats,
+    ) -> UdpConnectResult {
+        let socket = self
+            .udp_connect_to(task_conf, egress_notes, task_notes)
+            .await?;
+
         let mut wrapper_stats = UdpConnectRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
@@ -113,6 +128,44 @@ impl DirectFixedEscaper {
             self.config.general.udp_sock_speed_limit.max_north_packets,
             self.config.general.udp_sock_speed_limit.max_north_bytes,
             wrapper_stats,
+        );
+
+        Ok((
+            Box::new(DirectUdpConnectRemoteRecv::new(
+                recv,
+                self.escape_logger.clone(),
+            )),
+            Box::new(DirectUdpConnectRemoteSend::new(
+                send,
+                self.escape_logger.clone(),
+            )),
+        ))
+    }
+
+    pub(super) async fn nested_udp_connect(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> UdpConnectResult {
+        let socket = self
+            .udp_connect_to(task_conf, egress_notes, task_notes)
+            .await?;
+
+        let (recv, send) = vey_io_ext::split_udp(socket);
+        let recv = LimitedUdpRecv::local_limited(
+            recv,
+            self.config.general.udp_sock_speed_limit.shift_millis,
+            self.config.general.udp_sock_speed_limit.max_south_packets,
+            self.config.general.udp_sock_speed_limit.max_south_bytes,
+            self.stats.clone(),
+        );
+        let send = LimitedUdpSend::local_limited(
+            send,
+            self.config.general.udp_sock_speed_limit.shift_millis,
+            self.config.general.udp_sock_speed_limit.max_north_packets,
+            self.config.general.udp_sock_speed_limit.max_north_bytes,
+            self.stats.clone(),
         );
 
         Ok((
