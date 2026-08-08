@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
@@ -20,7 +20,7 @@ use crate::inspect::StreamInspectContext;
 pub(crate) struct HttpRequest {
     pub(crate) inner: HttpTransparentRequest,
     pub(crate) time_received: Instant,
-    pub(crate) datetime_received: DateTime<Utc>,
+    pub(crate) datetime_received: Timestamp,
 }
 
 pub(crate) enum HttpRecvRequest<R: AsyncRead> {
@@ -149,7 +149,7 @@ where
                 .await
                 {
                     Ok(Ok((mut req, _head_bytes))) => {
-                        let datetime_received = Utc::now();
+                        let datetime_received = Timestamp::now();
                         let time_received = Instant::now();
 
                         if self.ctx.server_offline() {

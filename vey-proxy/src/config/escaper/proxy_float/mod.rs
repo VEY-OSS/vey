@@ -61,7 +61,7 @@ pub(crate) struct ProxyFloatEscaperConfig {
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) udp_socket_buffer: SocketBufferConfig,
-    pub(crate) expire_guard_duration: chrono::Duration,
+    pub(crate) expire_guard_duration: jiff::SignedDuration,
     pub(crate) peer_negotiation_timeout: Duration,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
@@ -91,7 +91,7 @@ impl ProxyFloatEscaperConfig {
             tcp_misc_opts: Default::default(),
             udp_misc_opts: Default::default(),
             udp_socket_buffer: SocketBufferConfig::default(),
-            expire_guard_duration: chrono::Duration::seconds(5),
+            expire_guard_duration: jiff::SignedDuration::from_secs(5),
             peer_negotiation_timeout: Duration::from_secs(10),
             extra_metrics_tags: None,
         }
@@ -207,7 +207,7 @@ impl ProxyFloatEscaperConfig {
             "expire_guard_duration" => {
                 let dur = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
-                self.expire_guard_duration = chrono::Duration::from_std(dur)
+                self.expire_guard_duration = jiff::SignedDuration::try_from(dur)
                     .map_err(|e| anyhow!("invalid duration: {e}"))?;
                 Ok(())
             }

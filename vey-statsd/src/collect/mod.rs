@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 use vey_types::metrics::NodeName;
 
@@ -30,7 +30,7 @@ pub(crate) trait Collector {
     #[allow(unused)]
     fn r#type(&self) -> &'static str;
 
-    fn add_metric(&self, time: DateTime<Utc>, record: MetricRecord, worker_id: Option<usize>);
+    fn add_metric(&self, time: Timestamp, record: MetricRecord, worker_id: Option<usize>);
 }
 
 trait CollectorInternal: Collector {

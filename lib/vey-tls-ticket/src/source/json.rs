@@ -4,7 +4,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde_json::Value;
 
 use vey_types::net::OpensslTicketKeyBuilder;
@@ -45,7 +45,7 @@ impl RemoteEncryptKey {
 impl RemoteDecryptKey {
     pub(super) fn parse_json(value: &Value) -> anyhow::Result<Self> {
         if let Value::Object(map) = value {
-            let mut expire: Option<DateTime<Utc>> = None;
+            let mut expire: Option<Timestamp> = None;
             let mut builder = OpensslTicketKeyBuilder::default();
             for (k, v) in map {
                 match vey_json::key::normalize(k).as_str() {
@@ -126,7 +126,6 @@ impl RemoteKeys {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
     use serde_json::json;
 
     // Helper function to create valid JSON values for testing
@@ -222,10 +221,8 @@ mod tests {
             decrypt_key.key.name().as_ref(),
             b"old_key\x00\x00\x00\x00\x00\x00\x00\x00\x00"
         );
-        assert_eq!(
-            decrypt_key.expire,
-            Utc.with_ymd_and_hms(2025, 12, 31, 23, 59, 59).unwrap()
-        );
+        let expected: Timestamp = "2025-12-31T23:59:59Z".parse().unwrap();
+        assert_eq!(decrypt_key.expire, expected);
 
         // Missing expire field
         let json_value = json!({

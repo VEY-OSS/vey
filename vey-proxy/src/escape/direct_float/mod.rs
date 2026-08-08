@@ -10,7 +10,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use chrono::Utc;
+use jiff::Timestamp;
 use log::warn;
 use slog::Logger;
 use tokio::time::Instant;
@@ -150,7 +150,7 @@ impl DirectFloatEscaper {
 
     fn parse_dyn_bind_ip(&self, value: &serde_json::Value) -> anyhow::Result<DirectFloatBindIp> {
         let instant_now = Instant::now();
-        let datetime_now = Utc::now();
+        let datetime_now = Timestamp::now();
         DirectFloatBindIp::parse_json(value, instant_now, datetime_now)?
             .ok_or_else(|| anyhow!("expired bind IP json value"))
     }

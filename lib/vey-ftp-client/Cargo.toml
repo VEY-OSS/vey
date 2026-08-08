@@ -12,7 +12,7 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "io-util", "macros"] }
 async-trait.workspace = true
 memchr.workspace = true
-chrono.workspace = true
+jiff.workspace = true
 mime.workspace = true
 log.workspace = true
 anyhow = { workspace = true, optional = true }

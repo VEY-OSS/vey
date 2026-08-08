@@ -7,7 +7,7 @@ use std::future::poll_fn;
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Utc;
+use jiff::Timestamp;
 use log::warn;
 use rustc_hash::FxHashSet;
 use tokio::time::Instant;
@@ -94,7 +94,7 @@ impl TicketKeyUpdate {
                 Ok(data) => {
                     roll_local = false;
                     self.update_encrypt_key(data.enc.key, Instant::now());
-                    let now = Utc::now();
+                    let now = Timestamp::now();
                     for dec_key in data.dec {
                         if let Some(expire_dur) = dec_key.expire_duration(&now) {
                             let key = dec_key.key;

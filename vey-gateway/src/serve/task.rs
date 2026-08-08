@@ -6,7 +6,7 @@
 use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use tokio::time::Instant;
 use uuid::Uuid;
 
@@ -45,7 +45,7 @@ impl ServerTaskStage {
 pub(crate) struct ServerTaskNotes {
     cc_info: ClientConnectionInfo,
     pub(crate) stage: ServerTaskStage,
-    pub(crate) start_at: DateTime<Utc>,
+    pub(crate) start_at: Timestamp,
     create_ins: Instant,
     pub(crate) id: Uuid,
     pub(crate) wait_time: Duration,
@@ -54,7 +54,7 @@ pub(crate) struct ServerTaskNotes {
 
 impl ServerTaskNotes {
     pub(crate) fn new(cc_info: ClientConnectionInfo, wait_time: Duration) -> Self {
-        let started = Utc::now();
+        let started = Timestamp::now();
         let uuid = vey_daemon::server::task::generate_uuid(&started);
         ServerTaskNotes {
             cc_info,

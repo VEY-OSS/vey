@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use tokio::sync::mpsc;
 
 use vey_types::metrics::NodeName;
@@ -22,7 +22,7 @@ use format::{GraphitePlaintextAggregateExport, GraphitePlaintextStreamExport};
 
 pub(crate) struct GraphiteExporter {
     config: GraphiteExporterConfig,
-    sender: mpsc::UnboundedSender<(DateTime<Utc>, MetricRecord)>,
+    sender: mpsc::UnboundedSender<(Timestamp, MetricRecord)>,
 }
 
 impl GraphiteExporter {
@@ -70,7 +70,7 @@ impl Exporter for GraphiteExporter {
         self.config.exporter_type()
     }
 
-    fn add_metric(&self, time: DateTime<Utc>, record: &MetricRecord) {
+    fn add_metric(&self, time: Timestamp, record: &MetricRecord) {
         let _ = self.sender.send((time, record.clone())); // TODO record drop
     }
 }

@@ -10,7 +10,7 @@ use std::time::Duration;
 use ahash::AHashMap;
 use arc_swap::ArcSwap;
 use arcstr::ArcStr;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use log::warn;
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
@@ -46,7 +46,7 @@ pub(super) async fn load_initial_users(
         }
     };
 
-    let datetime_now = Utc::now();
+    let datetime_now = Timestamp::now();
     let mut dynamic_users = AHashMap::new();
     for user_config in all_config {
         let user_config = Arc::new(user_config);
@@ -135,7 +135,7 @@ pub(super) fn new_check_job(
                 Err(TryRecvError::Closed) => break,
             }
 
-            let datetime_now = Utc::now();
+            let datetime_now = Timestamp::now();
             check_dynamic_users(&datetime_now, &dynamic_users_container);
             check_static_users(&datetime_now, &static_users);
 
@@ -147,7 +147,7 @@ pub(super) fn new_check_job(
 }
 
 fn check_dynamic_users(
-    datetime_now: &DateTime<Utc>,
+    datetime_now: &Timestamp,
     dynamic_users_container: &Arc<ArcSwap<AHashMap<ArcStr, Arc<User>>>>,
 ) {
     let old_dynamic_users = dynamic_users_container.load();
@@ -156,10 +156,7 @@ fn check_dynamic_users(
     }
 }
 
-fn check_static_users(
-    datetime_now: &DateTime<Utc>,
-    static_users: &Arc<AHashMap<ArcStr, Arc<User>>>,
-) {
+fn check_static_users(datetime_now: &Timestamp, static_users: &Arc<AHashMap<ArcStr, Arc<User>>>) {
     for user in static_users.values() {
         user.check_expired(datetime_now);
     }

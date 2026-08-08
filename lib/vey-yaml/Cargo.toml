@@ -12,7 +12,7 @@ anyhow.workspace = true
 yaml-rust.workspace = true
 humanize-rs.workspace = true
 ascii.workspace = true
-chrono.workspace = true
+jiff.workspace = true
 url.workspace = true
 rand.workspace = true
 log.workspace = true
@@ -21,14 +21,12 @@ regex = { workspace = true, optional = true }
 rustls-pki-types = { workspace = true, optional = true, features = ["std"] }
 openssl = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
+vey-datetime.workspace = true
 vey-types.workspace = true
 vey-histogram = { workspace = true, optional = true }
 vey-compat = { workspace = true, optional = true }
 vey-dpi = { workspace = true, optional = true }
 vey-geoip-types = { workspace = true, optional = true }
-
-[dev-dependencies]
-chrono = { workspace = true, features = ["serde", "clock"] }
 
 [features]
 default = []

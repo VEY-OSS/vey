@@ -7,7 +7,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use ahash::AHashMap;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 use vey_types::metrics::MetricTagMap;
 
@@ -29,7 +29,7 @@ impl<T> Default for InnerMap<T> {
 impl InnerMap<CounterStoreValue> {
     fn add(
         &mut self,
-        time: DateTime<Utc>,
+        time: Timestamp,
         store_count: usize,
         tag_map: Arc<MetricTagMap>,
         value: MetricValue,
@@ -54,7 +54,7 @@ impl InnerMap<CounterStoreValue> {
 impl InnerMap<GaugeStoreValue> {
     fn add(
         &mut self,
-        time: DateTime<Utc>,
+        time: Timestamp,
         store_count: usize,
         tag_map: Arc<MetricTagMap>,
         value: MetricValue,
@@ -84,12 +84,7 @@ impl Default for MemoryStore {
 }
 
 impl MemoryStore {
-    pub(super) fn add_record(
-        &self,
-        time: DateTime<Utc>,
-        store_count: usize,
-        record: &MetricRecord,
-    ) {
+    pub(super) fn add_record(&self, time: Timestamp, store_count: usize, record: &MetricRecord) {
         match record.r#type {
             MetricType::Counter => {
                 let mut map = self.counter.lock().unwrap();

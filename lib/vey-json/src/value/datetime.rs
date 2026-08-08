@@ -1,18 +1,19 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use anyhow::anyhow;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde_json::Value;
 
-pub fn as_rfc3339_datetime(v: &Value) -> anyhow::Result<DateTime<Utc>> {
+use vey_datetime::DateTimeParseExt;
+
+pub fn as_rfc3339_datetime(v: &Value) -> anyhow::Result<Timestamp> {
     match v {
         Value::String(s) => {
-            let datetime = DateTime::parse_from_rfc3339(s)
-                .map_err(|e| anyhow!("invalid rfc3339 datetime string: {e}"))?;
-            Ok(datetime.with_timezone(&Utc))
+            Timestamp::parse_rfc3339(s).map_err(|e| anyhow!("invalid rfc3339 datetime string: {e}"))
         }
         _ => Err(anyhow!(
             "json value type for 'rfc3339 datetime' should be string"
@@ -26,7 +27,6 @@ mod tests {
 
     #[test]
     fn as_rfc3339_datetime_ok() {
-        // valid RFC3339 datetime strings
         let valid_cases = vec![
             "2023-01-01T00:00:00Z",
             "2025-12-31T23:59:59.999Z",
@@ -37,16 +37,13 @@ mod tests {
         for case in valid_cases {
             let value = Value::String(case.to_string());
             let result = as_rfc3339_datetime(&value).unwrap();
-            let expected = DateTime::parse_from_rfc3339(case)
-                .expect("valid RFC3339 string in test case")
-                .with_timezone(&Utc);
+            let expected: Timestamp = case.parse().expect("valid RFC3339 string in test case");
             assert_eq!(result, expected);
         }
     }
 
     #[test]
     fn as_rfc3339_datetime_err() {
-        // invalid RFC3339 strings
         let invalid_strings = vec![
             "",
             "invalid-date",
@@ -61,7 +58,6 @@ mod tests {
             assert!(as_rfc3339_datetime(&value).is_err());
         }
 
-        // non-string JSON types
         let non_string_types = vec![
             Value::Null,
             Value::Bool(true),

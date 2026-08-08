@@ -13,7 +13,7 @@ mod subject;
 pub use subject::SubjectNameBuilder;
 
 mod time;
-use time::asn1_time_from_chrono;
+use time::{asn1_time_from_timestamp, checked_add_days, checked_sub_days, timestamp_now_utc_zoned};
 
 mod server;
 pub use server::{

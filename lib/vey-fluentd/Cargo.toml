@@ -10,7 +10,7 @@ rust-version.workspace = true
 [dependencies]
 anyhow.workspace = true
 slog.workspace = true
-chrono = { workspace = true, features = ["clock"] }
+jiff.workspace = true
 kanal = { workspace = true, features = ["async"] }
 rmp.workspace = true
 rmp-serde.workspace = true

@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 use vey_types::metrics::NodeName;
 
@@ -59,7 +59,7 @@ impl Exporter for MemoryExporter {
         self.config.exporter_type()
     }
 
-    fn add_metric(&self, time: DateTime<Utc>, record: &MetricRecord) {
+    fn add_metric(&self, time: Timestamp, record: &MetricRecord) {
         self.store
             .add_record(time, self.config.store_count.get(), record);
     }

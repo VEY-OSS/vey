@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use rustc_hash::FxHashMap;
 use serde_json::Value;
 use tokio::time::Instant;
@@ -83,7 +83,7 @@ impl NextProxyPeerInternal for ProxyFloatSocks5sPeer {
         &mut self.egress_info
     }
 
-    fn set_expire(&mut self, expire_datetime: DateTime<Utc>, expire_instant: Instant) {
+    fn set_expire(&mut self, expire_datetime: Timestamp, expire_instant: Instant) {
         let shared_config = Arc::make_mut(&mut self.shared_config);
         shared_config.expire_datetime = Some(expire_datetime);
         shared_config.expire_instant = Some(expire_instant);
@@ -171,7 +171,7 @@ impl NextProxyPeer for ProxyFloatSocks5sPeer {
     }
 
     #[inline]
-    fn expire_datetime(&self) -> Option<DateTime<Utc>> {
+    fn expire_datetime(&self) -> Option<Timestamp> {
         self.shared_config.expire_datetime
     }
 

@@ -10,7 +10,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use openssl::pkey::{PKey, Private};
 use tokio::sync::OwnedSemaphorePermit;
 use tokio::time::Instant;
@@ -26,7 +26,7 @@ use super::{KeyServerDurationRecorder, KeyServerRequestStats, KeyServerStats};
 pub(crate) struct RequestProcessContext {
     pub(crate) msg_id: u32,
     create_time: Instant,
-    pub(crate) create_datetime: DateTime<Utc>,
+    pub(crate) create_datetime: Timestamp,
     duration_recorder: Arc<HistogramRecorder<u64>>,
 }
 
@@ -35,7 +35,7 @@ impl RequestProcessContext {
         RequestProcessContext {
             msg_id,
             create_time: Instant::now(),
-            create_datetime: Utc::now(),
+            create_datetime: Timestamp::now(),
             duration_recorder,
         }
     }

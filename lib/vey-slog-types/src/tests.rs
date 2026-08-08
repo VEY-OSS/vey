@@ -9,7 +9,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::time::Duration;
 
-use chrono::{TimeZone, Utc};
+use jiff::Timestamp;
 use slog::{Key, Serializer, Value};
 use uuid::Uuid;
 use vey_types::net::{Host, UpstreamAddr};
@@ -78,7 +78,7 @@ fn serialize_value<V: Value>(value: V) -> (String, String) {
 
 #[test]
 fn datetime_rfc3339_micros() {
-    let dt = Utc.with_ymd_and_hms(2024, 6, 15, 12, 30, 45).unwrap();
+    let dt: Timestamp = "2024-06-15T12:30:45Z".parse().unwrap();
     let (_, value) = serialize_value(LtDateTime(&dt));
     assert_eq!(value, "2024-06-15T12:30:45.000000Z");
 }

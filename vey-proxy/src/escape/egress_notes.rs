@@ -6,7 +6,7 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 use vey_socket::BindAddr;
 use vey_types::metrics::NodeName;
@@ -43,7 +43,7 @@ pub(crate) struct EgressNotes {
     pub(crate) escaper: NodeName,
     pub(crate) bind: BindAddr,
     pub(crate) tries: usize,
-    pub(crate) expire: Option<DateTime<Utc>>,
+    pub(crate) expire: Option<Timestamp>,
     pub(crate) egress: Option<EgressInfo>,
     pub(crate) socket_type: Option<EgressSocketType>,
     pub(crate) tcp: ConnectNotes,

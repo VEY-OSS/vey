@@ -12,8 +12,8 @@ use std::time::Duration;
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use arcstr::ArcStr;
-use chrono::{DateTime, Utc};
 use foldhash::HashMap;
+use jiff::Timestamp;
 use log::warn;
 use tokio::time::Instant;
 
@@ -90,7 +90,7 @@ impl User {
     pub(super) fn new(
         group: &NodeName,
         config: &Arc<UserConfig>,
-        datetime_now: &DateTime<Utc>,
+        datetime_now: &Timestamp,
     ) -> anyhow::Result<Self> {
         Self::new_with_name(config.name().clone(), group, config, datetime_now)
     }
@@ -100,7 +100,7 @@ impl User {
         group: &NodeName,
         config: &Arc<UserConfig>,
     ) -> anyhow::Result<Self> {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self::new_with_name(name.clone(), group, config, &now)
     }
 
@@ -108,7 +108,7 @@ impl User {
         name: ArcStr,
         group: &NodeName,
         config: &Arc<UserConfig>,
-        datetime_now: &DateTime<Utc>,
+        datetime_now: &Timestamp,
     ) -> anyhow::Result<Self> {
         let request_rate_limit = config
             .request_rate_limit
@@ -190,7 +190,7 @@ impl User {
     pub(super) fn new_for_reload(
         &self,
         config: &Arc<UserConfig>,
-        datetime_now: &DateTime<Utc>,
+        datetime_now: &Timestamp,
     ) -> anyhow::Result<Self> {
         let request_rate_limit = if let Some(quota) = config.request_rate_limit {
             if let Some(old_limiter) = &self.request_rate_limit {
@@ -368,7 +368,7 @@ impl User {
         self.is_expired.load(Ordering::Relaxed)
     }
 
-    pub(super) fn check_expired(&self, datetime_now: &DateTime<Utc>) -> bool {
+    pub(super) fn check_expired(&self, datetime_now: &Timestamp) -> bool {
         if self.config.is_expired(datetime_now) {
             // TODO log user expire ?
             self.is_expired.swap(true, Ordering::Relaxed);

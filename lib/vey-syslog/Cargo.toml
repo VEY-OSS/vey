@@ -9,7 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 slog.workspace = true
-chrono = { workspace = true, features = ["clock"] }
+jiff = { workspace = true, features = ["tz-system", "tzdb-zoneinfo", "tzdb-bundle-platform"] }
 itoa.workspace = true
 zmij.workspace = true
 kanal = { workspace = true, features = ["std-mutex"] }

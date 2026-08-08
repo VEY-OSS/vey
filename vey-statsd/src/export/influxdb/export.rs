@@ -9,10 +9,10 @@ use std::time::Duration;
 
 use ahash::AHashMap;
 use anyhow::anyhow;
-use chrono::{DateTime, Utc};
 use http::uri::PathAndQuery;
 use http::{HeaderMap, HeaderValue, header};
 use itoa::Buffer;
+use jiff::Timestamp;
 use tokio::sync::mpsc;
 
 use vey_http::client::HttpForwardRemoteResponse;
@@ -73,30 +73,28 @@ impl InfluxdbAggregateExport {
         }
     }
 
-    fn serialize_timestamp(&mut self, time: &DateTime<Utc>) {
+    fn serialize_timestamp(&mut self, time: &Timestamp) {
         let mut ts_buffer = Buffer::new();
         match self.precision {
             TimestampPrecision::Seconds => {
-                let ts = ts_buffer.format(time.timestamp());
+                let ts = ts_buffer.format(time.as_second());
                 self.buf.push(b' ');
                 self.buf.extend_from_slice(ts.as_bytes());
             }
             TimestampPrecision::MilliSeconds => {
-                let ts = ts_buffer.format(time.timestamp_millis());
+                let ts = ts_buffer.format(time.as_millisecond());
                 self.buf.push(b' ');
                 self.buf.extend_from_slice(ts.as_bytes());
             }
             TimestampPrecision::MicroSeconds => {
-                let ts = ts_buffer.format(time.timestamp_micros());
+                let ts = ts_buffer.format(time.as_microsecond());
                 self.buf.push(b' ');
                 self.buf.extend_from_slice(ts.as_bytes());
             }
             TimestampPrecision::NanoSeconds => {
-                if let Some(ts_nanos) = time.timestamp_nanos_opt() {
-                    let ts = ts_buffer.format(ts_nanos);
-                    self.buf.push(b' ');
-                    self.buf.extend_from_slice(ts.as_bytes());
-                }
+                let ts = ts_buffer.format(time.as_nanosecond());
+                self.buf.push(b' ');
+                self.buf.extend_from_slice(ts.as_bytes());
             }
         };
     }

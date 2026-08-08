@@ -6,7 +6,7 @@
 
 use std::str::FromStr;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use mime::Mime;
 
 use crate::error::FtpFileFactsParseError;
@@ -21,8 +21,8 @@ pub struct FtpFileFacts {
     entry_type: FtpFileEntryType,
     size: Option<u64>,
     media_type: Option<Mime>,
-    modify_time: Option<DateTime<Utc>>,
-    create_time: Option<DateTime<Utc>>,
+    modify_time: Option<Timestamp>,
+    create_time: Option<Timestamp>,
 }
 
 impl FtpFileFacts {
@@ -63,12 +63,12 @@ impl FtpFileFacts {
     }
 
     #[inline]
-    pub fn mtime(&self) -> Option<&DateTime<Utc>> {
+    pub fn mtime(&self) -> Option<&Timestamp> {
         self.modify_time.as_ref()
     }
 
     #[inline]
-    pub(crate) fn set_mtime(&mut self, mtime: DateTime<Utc>) {
+    pub(crate) fn set_mtime(&mut self, mtime: Timestamp) {
         self.modify_time = Some(mtime);
     }
 
@@ -150,13 +150,10 @@ mod tests {
         assert_eq!(ff.entry_path(), "/docs/readme.txt");
         assert_eq!(ff.size(), Some(1024));
         assert!(ff.maybe_file());
+        assert_eq!(ff.mtime().unwrap().to_string(), "2021-12-01T10:20:30Z");
         assert_eq!(
-            ff.mtime().unwrap().to_rfc3339(),
-            "2021-12-01T10:20:30+00:00"
-        );
-        assert_eq!(
-            ff.create_time.as_ref().unwrap().to_rfc3339(),
-            "2021-11-01T00:00:00+00:00"
+            ff.create_time.as_ref().unwrap().to_string(),
+            "2021-11-01T00:00:00Z"
         );
         assert_eq!(ff.media_type().unwrap().essence_str(), "text/plain");
     }

@@ -11,10 +11,11 @@ rust-version.workspace = true
 anyhow.workspace = true
 rmpv.workspace = true
 uuid.workspace = true
-chrono = { workspace = true, features = ["std"] }
+jiff.workspace = true
 rustls-pki-types = { workspace = true, optional = true, features = ["std"] }
 openssl = { workspace = true, optional = true }
 ip_network = { workspace = true, optional = true }
+vey-datetime.workspace = true
 vey-types.workspace = true
 vey-geoip-types = { workspace = true, optional = true }
 

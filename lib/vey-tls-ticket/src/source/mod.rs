@@ -4,7 +4,7 @@
  */
 
 use anyhow::Context;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 use std::time::Duration;
 
@@ -25,12 +25,12 @@ pub(crate) struct RemoteEncryptKey {
 
 pub(crate) struct RemoteDecryptKey {
     pub(crate) key: OpensslTicketKey,
-    expire: DateTime<Utc>,
+    expire: Timestamp,
 }
 
 impl RemoteDecryptKey {
-    pub(crate) fn expire_duration(&self, now: &DateTime<Utc>) -> Option<Duration> {
-        self.expire.signed_duration_since(now).to_std().ok()
+    pub(crate) fn expire_duration(&self, now: &Timestamp) -> Option<Duration> {
+        Duration::try_from(self.expire.duration_since(*now)).ok()
     }
 }
 
@@ -75,11 +75,10 @@ impl TicketSource {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
     use vey_types::net::OpensslTicketKeyBuilder;
 
     // Helper function to create a test RemoteDecryptKey
-    fn create_test_decrypt_key(expire: DateTime<Utc>) -> RemoteDecryptKey {
+    fn create_test_decrypt_key(expire: Timestamp) -> RemoteDecryptKey {
         let builder = OpensslTicketKeyBuilder::default();
         RemoteDecryptKey {
             key: builder.build(),
@@ -89,21 +88,26 @@ mod tests {
 
     #[test]
     fn remote_decrypt_key_expire_duration_future() {
-        let future_time = Utc.with_ymd_and_hms(2025, 12, 31, 23, 59, 59).unwrap();
-        let now = Utc.with_ymd_and_hms(2025, 6, 15, 12, 0, 0).unwrap();
+        let future_time: Timestamp = "2025-12-31T23:59:59Z".parse().unwrap();
+        let now: Timestamp = "2025-06-15T12:00:00Z".parse().unwrap();
 
         let key = create_test_decrypt_key(future_time);
         let duration = key.expire_duration(&now);
 
         assert!(duration.is_some());
         let dur = duration.unwrap();
-        assert_eq!(dur.as_secs(), (future_time - now).num_seconds() as u64);
+        assert_eq!(
+            dur.as_secs(),
+            Duration::try_from(future_time.duration_since(now))
+                .unwrap()
+                .as_secs()
+        );
     }
 
     #[test]
     fn remote_decrypt_key_expire_duration_past() {
-        let past_time = Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
-        let now = Utc.with_ymd_and_hms(2025, 6, 15, 12, 0, 0).unwrap();
+        let past_time: Timestamp = "2024-01-01T00:00:00Z".parse().unwrap();
+        let now: Timestamp = "2025-06-15T12:00:00Z".parse().unwrap();
 
         let key = create_test_decrypt_key(past_time);
         let duration = key.expire_duration(&now);

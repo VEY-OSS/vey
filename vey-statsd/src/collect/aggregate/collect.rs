@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use tokio::sync::broadcast;
 
 use vey_types::metrics::NodeName;
@@ -54,7 +54,7 @@ impl Collector for AggregateCollector {
         self.config.load().collector_type()
     }
 
-    fn add_metric(&self, _time: DateTime<Utc>, record: MetricRecord, worker_id: Option<usize>) {
+    fn add_metric(&self, _time: Timestamp, record: MetricRecord, worker_id: Option<usize>) {
         self.handle.add_metric(record, worker_id);
     }
 }

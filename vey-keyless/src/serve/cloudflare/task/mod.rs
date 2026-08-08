@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use slog::Logger;
 use tokio::io::AsyncRead;
 use tokio::sync::{Semaphore, broadcast};
@@ -39,7 +39,7 @@ pub(crate) struct KeylessTaskContext {
 pub(crate) struct KeylessTask {
     id: Uuid,
     ctx: KeylessTaskContext,
-    started: DateTime<Utc>,
+    started: Timestamp,
     buf: Vec<u8>,
     #[cfg(feature = "openssl-async-job")]
     allow_openssl_async_job: bool,
@@ -50,7 +50,7 @@ pub(crate) struct KeylessTask {
 impl KeylessTask {
     pub(crate) fn new(ctx: KeylessTaskContext) -> Self {
         let alive_guard = ctx.server_stats.add_task();
-        let started = Utc::now();
+        let started = Timestamp::now();
         KeylessTask {
             id: vey_daemon::server::task::generate_uuid(&started),
             ctx,

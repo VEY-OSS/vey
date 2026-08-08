@@ -10,7 +10,7 @@ rust-version.workspace = true
 [dependencies]
 anyhow.workspace = true
 serde_json.workspace = true
-chrono.workspace = true
+jiff.workspace = true
 humanize-rs.workspace = true
 ascii.workspace = true
 rand.workspace = true
@@ -19,6 +19,7 @@ ip_network = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 rustls-pki-types = { workspace = true, optional = true, features = ["std"] }
 openssl = { workspace = true, optional = true }
+vey-datetime.workspace = true
 vey-types.workspace = true
 vey-histogram = { workspace = true, optional = true }
 

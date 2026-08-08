@@ -107,11 +107,12 @@ uuid = "1.21"
 base64 = "0.23"
 regex = "1.11"
 arc-swap = "1.8"
-chrono = { version = "0.4.45", default-features = false }
 ascii = "1.0"
 humanize-rs = "0.1"
 zeroize = "1.8"
 zerocopy = { version = "0.8", default-features = false, features = ["derive"] }
+#
+jiff = { version = "0.2", default-features = false, features = ["std"] }
 #
 portable-atomic = "1.9"
 itoa = "1.0"

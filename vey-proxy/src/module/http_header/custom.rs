@@ -9,9 +9,10 @@ use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 
 use base64::prelude::*;
-use chrono::{DateTime, Utc};
 use http::HeaderName;
+use jiff::Timestamp;
 
+use vey_datetime::DateTimeFormatExt;
 use vey_types::net::{EgressInfo, HttpHeaderMap, HttpHeaderValue, HttpServerId};
 
 // chained final info header
@@ -38,7 +39,7 @@ fn set_value_for_remote_connection_info(
     bind: Option<IpAddr>,
     local: Option<SocketAddr>,
     remote: Option<SocketAddr>,
-    expire: &Option<DateTime<Utc>>,
+    expire: &Option<Timestamp>,
 ) {
     v.extend_from_slice(server_id.as_bytes());
     if let Some(ip) = bind {
@@ -51,11 +52,7 @@ fn set_value_for_remote_connection_info(
         let _ = write!(v, "; remote={addr}");
     }
     if let Some(expire) = expire {
-        let _ = write!(
-            v,
-            "; expire={}",
-            expire.format_with_items(vey_datetime::format::std::RFC3339_FIXED_MICROSECOND.iter())
-        );
+        let _ = write!(v, "; expire={}", expire.format_rfc3339_fixed_microsecond());
     }
 }
 
@@ -64,7 +61,7 @@ pub(crate) fn remote_connection_info(
     bind: Option<IpAddr>,
     local: Option<SocketAddr>,
     remote: Option<SocketAddr>,
-    expire: &Option<DateTime<Utc>>,
+    expire: &Option<Timestamp>,
 ) -> String {
     let mut buf = Vec::<u8>::with_capacity(256);
     buf.extend_from_slice(REMOTE_CONNECTION_INFO.as_bytes());
@@ -81,7 +78,7 @@ pub(crate) fn set_remote_connection_info(
     bind: Option<IpAddr>,
     local: Option<SocketAddr>,
     remote: Option<SocketAddr>,
-    expire: &Option<DateTime<Utc>>,
+    expire: &Option<Timestamp>,
 ) {
     TL_BUF.with_borrow_mut(|buf| {
         set_value_for_remote_connection_info(buf, server_id, bind, local, remote, expire);

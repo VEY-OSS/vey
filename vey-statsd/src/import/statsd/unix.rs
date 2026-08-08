@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
-use chrono::Utc;
+use jiff::Timestamp;
 use log::debug;
 use tokio::net::unix::SocketAddr;
 use tokio::sync::broadcast;
@@ -144,7 +144,7 @@ impl ReceiveUdpServer for StatsdUnixImporter {
 
 impl ReceiveUnixDatagramServer for StatsdUnixImporter {
     fn receive_unix_packet(&self, packet: &[u8], client_addr: SocketAddr) {
-        let time = Utc::now();
+        let time = Timestamp::now();
         let iter = StatsdRecordVisitor::new(packet);
         for r in iter {
             match r {

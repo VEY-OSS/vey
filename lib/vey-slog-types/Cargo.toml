@@ -9,13 +9,14 @@ rust-version.workspace = true
 
 [dependencies]
 slog.workspace = true
-chrono = { workspace = true, features = ["clock"] }
+jiff.workspace = true
 uuid.workspace = true
 arcstr = { workspace = true, optional = true }
 memchr = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 h2 = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
+vey-datetime.workspace = true
 vey-types.workspace = true
 vey-socket = { workspace = true, optional = true }
 

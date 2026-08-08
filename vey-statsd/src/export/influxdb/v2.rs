@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use tokio::sync::mpsc;
 
 use vey_types::metrics::NodeName;
@@ -21,7 +21,7 @@ use super::{InfluxdbAggregateExport, InfluxdbHttpExport};
 
 pub(crate) struct InfluxdbV2Exporter {
     config: InfluxdbV2ExporterConfig,
-    sender: mpsc::UnboundedSender<(DateTime<Utc>, MetricRecord)>,
+    sender: mpsc::UnboundedSender<(Timestamp, MetricRecord)>,
 }
 
 impl InfluxdbV2Exporter {
@@ -71,7 +71,7 @@ impl Exporter for InfluxdbV2Exporter {
         self.config.exporter_type()
     }
 
-    fn add_metric(&self, time: DateTime<Utc>, record: &MetricRecord) {
+    fn add_metric(&self, time: Timestamp, record: &MetricRecord) {
         let _ = self.sender.send((time, record.clone())); // TODO record drop
     }
 }

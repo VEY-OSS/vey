@@ -8,10 +8,12 @@ use std::cell::RefCell;
 use std::fmt::{Arguments, Write};
 use std::io;
 
-use chrono::{DateTime, Local};
 use itoa::Integer;
+use jiff::Zoned;
 use slog::{KV, Level, OwnedKVList, Record, Serializer};
 use zmij::Float;
+
+use vey_datetime::DateTimeFormatExt;
 
 use super::{SyslogFormatter, SyslogHeader};
 use crate::util::{encode_priority, level_to_severity};
@@ -45,12 +47,12 @@ impl SyslogFormatter for FormatterRfc3164 {
         record: &Record,
         logger_values: &OwnedKVList,
     ) -> Result<(), slog::Error> {
-        let datetime_now = Local::now();
+        let datetime_now = Zoned::now();
 
         format_rfc3164_header(w, header, record.level(), &datetime_now)?;
 
         let report_ts = if self.append_report_ts {
-            Some(datetime_now.timestamp())
+            Some(datetime_now.timestamp().as_second())
         } else {
             None
         };
@@ -62,12 +64,12 @@ pub(super) fn format_rfc3164_header(
     w: &mut Vec<u8>,
     header: &SyslogHeader,
     level: Level,
-    datetime_now: &DateTime<Local>,
+    datetime_now: &Zoned,
 ) -> io::Result<()> {
     use std::io::Write;
 
     let priority = encode_priority(level_to_severity(level), header.facility);
-    let datetime_fmt = datetime_now.format_with_items(vey_datetime::format::log::RFC3164.iter());
+    let datetime_fmt = datetime_now.format_rfc3164();
 
     let mut buffer = itoa::Buffer::new();
 
@@ -267,7 +269,8 @@ impl Serializer for FormatterKv<'_> {
 mod tests {
     use super::*;
     use crate::Facility;
-    use chrono::{FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
+    use jiff::civil::date;
+    use jiff::tz::{Offset, TimeZone};
 
     #[test]
     fn format_header() {
@@ -279,12 +282,9 @@ mod tests {
         };
 
         let mut buffer: Vec<u8> = Vec::new();
-        let datetime = NaiveDateTime::new(
-            NaiveDate::from_ymd_opt(2021, 12, 1).unwrap(),
-            NaiveTime::from_hms_opt(10, 20, 30).unwrap(),
-        );
-        let dt = datetime
-            .and_local_timezone(Local::from_offset(&FixedOffset::east_opt(8).unwrap()))
+        let dt = date(2021, 12, 1)
+            .at(10, 20, 30, 0)
+            .to_zoned(TimeZone::fixed(Offset::constant(8)))
             .unwrap();
         format_rfc3164_header(&mut buffer, &lh, Level::Info, &dt).unwrap();
 
@@ -357,12 +357,9 @@ mod tests {
         };
 
         let mut buffer: Vec<u8> = Vec::new();
-        let datetime = NaiveDateTime::new(
-            NaiveDate::from_ymd_opt(2021, 1, 2).unwrap(),
-            NaiveTime::from_hms_opt(3, 4, 5).unwrap(),
-        );
-        let dt = datetime
-            .and_local_timezone(Local::from_offset(&FixedOffset::east_opt(0).unwrap()))
+        let dt = date(2021, 1, 2)
+            .at(3, 4, 5, 0)
+            .to_zoned(TimeZone::fixed(Offset::UTC))
             .unwrap();
         format_rfc3164_header(&mut buffer, &lh, Level::Error, &dt).unwrap();
 

@@ -36,7 +36,7 @@ rustls.workspace = true
 rustls-pki-types.workspace = true
 quinn = { workspace = true, optional = true, features = ["rustls"] }
 tokio-rustls.workspace = true
-chrono = { workspace = true, features = ["clock"] }
+jiff.workspace = true
 uuid.workspace = true
 bitflags.workspace = true
 kanal = { workspace = true, features = ["async"] }

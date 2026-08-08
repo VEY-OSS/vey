@@ -6,7 +6,7 @@
 
 use std::io;
 
-use chrono::{Local, Utc};
+use jiff::{Timestamp, Zoned};
 use slog::{KV, OwnedKVList, Record, Serializer};
 
 use super::rfc3164::format_rfc3164_header;
@@ -42,14 +42,14 @@ impl SyslogFormatter for FormatterRfc3164Cee {
         record: &Record,
         logger_values: &OwnedKVList,
     ) -> Result<(), slog::Error> {
-        let datetime_now = Local::now();
+        let datetime_now = Zoned::now();
 
         format_rfc3164_header(w, header, record.level(), &datetime_now)?;
 
         w.extend_from_slice(self.event_flag.as_bytes());
 
         let report_ts = if self.append_report_ts {
-            Some(datetime_now.timestamp())
+            Some(datetime_now.timestamp().as_second())
         } else {
             None
         };
@@ -85,14 +85,14 @@ impl SyslogFormatter for FormatterRfc5424Cee {
         record: &Record,
         logger_values: &OwnedKVList,
     ) -> Result<(), slog::Error> {
-        let datetime_now = Utc::now();
+        let datetime_now = Timestamp::now();
 
         format_rfc5424_header(w, header, record.level(), &datetime_now, &self.message_id)?;
 
         w.extend_from_slice(self.event_flag.as_bytes());
 
         let report_ts = if self.append_report_ts {
-            Some(datetime_now.timestamp())
+            Some(datetime_now.as_second())
         } else {
             None
         };

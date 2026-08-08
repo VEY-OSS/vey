@@ -1,16 +1,16 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use chrono::format::{Parsed, parse};
-use chrono::{DateTime, ParseResult, Utc};
+use jiff::{Error, Timestamp};
+
+use vey_datetime::DateTimeParseExt;
 
 #[inline]
-pub(crate) fn parse_from_str(s: &str) -> ParseResult<DateTime<Utc>> {
-    let mut parsed = Parsed::new();
-    parse(&mut parsed, s, vey_datetime::format::ftp::RFC3659.iter())?;
-    parsed.to_datetime_with_timezone(&Utc)
+pub(crate) fn parse_from_str(s: &str) -> Result<Timestamp, Error> {
+    Timestamp::parse_rfc3659(s)
 }
 
 #[cfg(test)]
@@ -20,22 +20,22 @@ mod tests {
     #[test]
     fn parse_no_dot() {
         let dt = parse_from_str("20211201102030").unwrap();
-        let expected = DateTime::parse_from_rfc3339("2021-12-01T10:20:30+00:00").unwrap();
-        assert_eq!(dt, expected.with_timezone(&Utc));
+        let expected = Timestamp::parse_rfc3339("2021-12-01T10:20:30Z").unwrap();
+        assert_eq!(dt, expected);
     }
 
     #[test]
     fn parse_dot_1() {
         let dt = parse_from_str("20211201102030.1").unwrap();
-        let expected = DateTime::parse_from_rfc3339("2021-12-01T10:20:30.1+00:00").unwrap();
-        assert_eq!(dt, expected.with_timezone(&Utc));
+        let expected = Timestamp::parse_rfc3339("2021-12-01T10:20:30.1Z").unwrap();
+        assert_eq!(dt, expected);
     }
 
     #[test]
     fn parse_dot_3() {
         let dt = parse_from_str("20211201102030.123").unwrap();
-        let expected = DateTime::parse_from_rfc3339("2021-12-01T10:20:30.123+00:00").unwrap();
-        assert_eq!(dt, expected.with_timezone(&Utc));
+        let expected = Timestamp::parse_rfc3339("2021-12-01T10:20:30.123Z").unwrap();
+        assert_eq!(dt, expected);
     }
 
     #[test]

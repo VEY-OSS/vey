@@ -24,7 +24,7 @@ openssl-probe = { workspace = true, optional = true }
 tokio-rustls.workspace = true
 tokio = { workspace = true, features = ["time", "sync", "fs"] }
 yaml-rust.workspace = true
-chrono = { workspace = true, features = ["clock"] }
+jiff.workspace = true
 uuid.workspace = true
 url.workspace = true
 foldhash.workspace = true

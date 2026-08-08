@@ -26,7 +26,7 @@ rand.workspace = true
 fastrand.workspace = true
 uuid = { workspace = true, features = ["v1"] }
 rustc-hash.workspace = true
-chrono.workspace = true
+jiff.workspace = true
 tokio = { workspace = true, features = ["net", "io-util", "signal", "macros"] }
 tokio-util = { workspace = true, features = ["compat"] }
 http = { workspace = true, optional = true }

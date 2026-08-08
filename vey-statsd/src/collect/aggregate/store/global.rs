@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use ahash::AHashMap;
-use chrono::Utc;
+use jiff::Timestamp;
 use tokio::sync::{broadcast, mpsc};
 
 use vey_types::metrics::MetricTagMap;
@@ -152,7 +152,7 @@ impl GlobalStore {
     }
 
     fn emit(&mut self) {
-        let time = Utc::now();
+        let time = Timestamp::now();
 
         macro_rules! emit_orig {
             ($map:ident, $metric_type:expr) => {

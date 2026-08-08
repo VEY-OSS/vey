@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use arcstr::ArcStr;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use tokio::time::Instant;
 use uuid::Uuid;
 
@@ -54,7 +54,7 @@ impl ServerTaskStage {
 pub(crate) struct ServerTaskNotes {
     cc_info: ClientConnectionInfo,
     pub(crate) stage: ServerTaskStage,
-    pub(crate) start_at: DateTime<Utc>,
+    pub(crate) start_at: Timestamp,
     create_ins: Instant,
     pub(crate) id: Uuid,
     user_ctx: Option<UserContext>,
@@ -80,7 +80,7 @@ impl ServerTaskNotes {
         wait_time: Duration,
         egress_path_selection: Option<EgressPathSelection>,
     ) -> Self {
-        let started = Utc::now();
+        let started = Timestamp::now();
         let uuid = vey_daemon::server::task::generate_uuid(&started);
         ServerTaskNotes {
             cc_info,

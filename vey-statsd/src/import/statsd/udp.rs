@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
-use chrono::Utc;
+use jiff::Timestamp;
 use log::debug;
 #[cfg(unix)]
 use tokio::net::unix::SocketAddr as UnixSocketAddr;
@@ -171,7 +171,7 @@ impl ReceiveUdpServer for StatsdUdpImporter {
             return;
         }
 
-        let time = Utc::now();
+        let time = Timestamp::now();
         let iter = StatsdRecordVisitor::new(packet);
         for r in iter {
             match r {

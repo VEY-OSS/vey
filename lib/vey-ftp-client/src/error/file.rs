@@ -22,9 +22,9 @@ pub enum FtpFileFactsParseError {
     #[error("no delimiter in fact ({0})")]
     NoDelimiterInFact(String),
     #[error("invalid modify time: {0}")]
-    InvalidModifyTime(chrono::ParseError),
+    InvalidModifyTime(jiff::Error),
     #[error("invalid create time: {0}")]
-    InvalidCreateTime(chrono::ParseError),
+    InvalidCreateTime(jiff::Error),
     #[error("invalid size")]
     InvalidSize,
 }

@@ -9,8 +9,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::AHashMap;
-use chrono::{DateTime, Utc};
 use itoa::Buffer;
+use jiff::Timestamp;
 use tokio::sync::mpsc;
 
 use vey_types::metrics::MetricTagMap;
@@ -46,7 +46,7 @@ impl GraphitePlaintextAggregateExport {
 
     fn serialize(
         &mut self,
-        time: &DateTime<Utc>,
+        time: &Timestamp,
         name: &MetricName,
         tags: &MetricTagMap,
         value: &MetricValue,
@@ -64,7 +64,7 @@ impl GraphitePlaintextAggregateExport {
         }
         let _ = write!(self.buf, " {value}");
         let mut ts_buffer = Buffer::new();
-        let ts = ts_buffer.format(time.timestamp());
+        let ts = ts_buffer.format(time.as_second());
         self.buf.push(b' ');
         self.buf.extend_from_slice(ts.as_bytes());
         self.buf.push(b'\n');
@@ -82,7 +82,7 @@ impl AggregateExport for GraphitePlaintextAggregateExport {
         values: &AHashMap<Arc<MetricTagMap>, GaugeStoreValue>,
     ) {
         self.buf.clear();
-        let now = Utc::now();
+        let now = Timestamp::now();
         for (tags, v) in values {
             self.serialize(&now, name, tags, &v.value);
         }
@@ -95,7 +95,7 @@ impl AggregateExport for GraphitePlaintextAggregateExport {
         values: &AHashMap<Arc<MetricTagMap>, CounterStoreValue>,
     ) {
         self.buf.clear();
-        let now = Utc::now();
+        let now = Timestamp::now();
         for (tags, v) in values {
             let value = match self.counter_value {
                 GraphiteCounterValue::Sum => &v.sum,
@@ -124,7 +124,6 @@ impl StreamExport for GraphitePlaintextStreamExport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
     use yaml_rust::YamlLoader;
 
     use crate::config::exporter::graphite::GraphiteExporterConfig;
@@ -152,7 +151,7 @@ global_tags:
   env: prod
 "#,
         );
-        let time = Utc.with_ymd_and_hms(2020, 1, 2, 3, 4, 5).unwrap();
+        let time = "2020-01-02T03:04:05Z".parse::<Timestamp>().unwrap();
         let name = MetricName::parse("foo.bar").unwrap();
         let mut tags = MetricTagMap::default();
         tags.parse_statsd(b"k:v").unwrap();
@@ -163,7 +162,7 @@ global_tags:
         assert!(line.contains("k=v"));
         assert!(line.contains(" 9 "));
         assert!(line.ends_with('\n'));
-        assert!(line.contains(&time.timestamp().to_string()));
+        assert!(line.contains(&time.as_second().to_string()));
     }
 
     #[test]
@@ -174,7 +173,7 @@ global_tags:
         values.insert(
             tags,
             CounterStoreValue {
-                time: Utc::now(),
+                time: Timestamp::now(),
                 sum: MetricValue::Unsigned(100),
                 diff: MetricValue::Unsigned(7),
             },

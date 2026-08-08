@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::AHashMap;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use tokio::sync::mpsc;
 
 use vey_types::metrics::MetricTagMap;
@@ -44,33 +44,33 @@ pub(crate) trait AggregateExport {
 
 pub(crate) struct AggregateExportRuntime<T: AggregateExport> {
     exporter: T,
-    receiver: mpsc::UnboundedReceiver<(DateTime<Utc>, MetricRecord)>,
-    store_time: DateTime<Utc>,
+    receiver: mpsc::UnboundedReceiver<(Timestamp, MetricRecord)>,
+    store_time: Timestamp,
 
     counter: AHashMap<Arc<MetricName>, InnerMap<CounterStoreValue>>,
     gauge: AHashMap<Arc<MetricName>, InnerMap<GaugeStoreValue>>,
 }
 
 pub(crate) struct CounterStoreValue {
-    pub(crate) time: DateTime<Utc>,
+    pub(crate) time: Timestamp,
     pub(crate) sum: MetricValue,
     pub(crate) diff: MetricValue,
 }
 
 pub(crate) struct GaugeStoreValue {
-    pub(crate) time: DateTime<Utc>,
+    pub(crate) time: Timestamp,
     pub(crate) value: MetricValue,
 }
 
 impl<T: AggregateExport> AggregateExportRuntime<T> {
     pub(crate) fn new(
         exporter: T,
-        receiver: mpsc::UnboundedReceiver<(DateTime<Utc>, MetricRecord)>,
+        receiver: mpsc::UnboundedReceiver<(Timestamp, MetricRecord)>,
     ) -> Self {
         AggregateExportRuntime {
             exporter,
             receiver,
-            store_time: Utc::now(),
+            store_time: Timestamp::now(),
             counter: AHashMap::default(),
             gauge: AHashMap::default(),
         }
@@ -117,7 +117,7 @@ impl<T: AggregateExport> AggregateExportRuntime<T> {
             inner.inner.retain(|_, v| v.time >= self.store_time);
             !inner.inner.is_empty()
         });
-        self.store_time = Utc::now();
+        self.store_time = Timestamp::now();
     }
 
     fn emit(&mut self) {

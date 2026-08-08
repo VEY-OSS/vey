@@ -4,14 +4,16 @@
  */
 
 use anyhow::{Context, anyhow};
-use chrono::{Days, Utc};
 use openssl::asn1::{Asn1Integer, Asn1Time};
 use openssl::hash::MessageDigest;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::extension::{BasicConstraints, SubjectKeyIdentifier};
 use openssl::x509::{X509, X509Builder, X509Extension};
 
-use super::{KeyUsageBuilder, SubjectNameBuilder, asn1_time_from_chrono};
+use super::{
+    KeyUsageBuilder, SubjectNameBuilder, asn1_time_from_timestamp, checked_add_days,
+    checked_sub_days, timestamp_now_utc_zoned,
+};
 use crate::ext::X509BuilderExt;
 
 pub struct RootCertBuilder {
@@ -67,17 +69,13 @@ impl RootCertBuilder {
             .build()
             .map_err(|e| anyhow!("failed to build BasicConstraints extension: {e}"))?;
 
-        let time_now = Utc::now();
-        let time_before = time_now
-            .checked_sub_days(Days::new(1))
-            .ok_or(anyhow!("unable to get time before date"))?;
-        let time_after = time_now
-            .checked_add_days(Days::new(3650))
-            .ok_or(anyhow!("unable to get time after date"))?;
+        let time_now = timestamp_now_utc_zoned();
+        let time_before = checked_sub_days(&time_now, 1)?;
+        let time_after = checked_add_days(&time_now, 3650)?;
         let not_before =
-            asn1_time_from_chrono(&time_before).context("failed to get NotBefore time")?;
+            asn1_time_from_timestamp(&time_before).context("failed to get NotBefore time")?;
         let not_after =
-            asn1_time_from_chrono(&time_after).context("failed to set NotAfter time")?;
+            asn1_time_from_timestamp(&time_after).context("failed to set NotAfter time")?;
 
         Ok(RootCertBuilder {
             pkey,

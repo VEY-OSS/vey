@@ -8,10 +8,12 @@ use std::cell::RefCell;
 use std::fmt::{Arguments, Write};
 use std::io;
 
-use chrono::{DateTime, Timelike, Utc};
 use itoa::Integer;
+use jiff::Timestamp;
 use slog::{KV, Level, OwnedKVList, Record, Serializer};
 use zmij::Float;
+
+use vey_datetime::DateTimeFormatExt;
 
 use super::{SyslogFormatter, SyslogHeader};
 use crate::util::{encode_priority, level_to_severity};
@@ -49,12 +51,12 @@ impl SyslogFormatter for FormatterRfc5424 {
         record: &Record,
         logger_values: &OwnedKVList,
     ) -> Result<(), slog::Error> {
-        let datetime_now = Utc::now();
+        let datetime_now = Timestamp::now();
 
         format_rfc5424_header(w, header, record.level(), &datetime_now, &self.message_id)?;
 
         let report_ts = if self.append_report_ts {
-            Some(datetime_now.timestamp())
+            Some(datetime_now.as_second())
         } else {
             None
         };
@@ -66,18 +68,13 @@ pub(super) fn format_rfc5424_header(
     w: &mut Vec<u8>,
     header: &SyslogHeader,
     level: Level,
-    datetime_now: &DateTime<Utc>,
+    datetime_now: &Timestamp,
     message_id: &Option<String>,
 ) -> io::Result<()> {
     use std::io::Write;
 
     let priority = encode_priority(level_to_severity(level), header.facility);
-    let datetime_fmt = if datetime_now.nanosecond() >= 1_000_000_000 {
-        let dt = datetime_now.with_nanosecond(999_999_999).unwrap();
-        dt.format_with_items(vey_datetime::format::log::RFC5424.iter())
-    } else {
-        datetime_now.format_with_items(vey_datetime::format::log::RFC5424.iter())
-    };
+    let datetime_fmt = datetime_now.format_rfc5424();
 
     let mut buffer = itoa::Buffer::new();
 
@@ -302,7 +299,7 @@ mod tests {
 
     #[test]
     fn format_header() {
-        fn format_header_to_string(lh: &SyslogHeader, datetime: &DateTime<Utc>) -> String {
+        fn format_header_to_string(lh: &SyslogHeader, datetime: &Timestamp) -> String {
             let mut buffer: Vec<u8> = Vec::new();
             format_rfc5424_header(&mut buffer, lh, Level::Info, datetime, &None).unwrap();
 
@@ -316,22 +313,19 @@ mod tests {
             pid: 1024,
         };
 
-        let datetime = DateTime::parse_from_rfc3339("2021-12-01T10:20:30.123456789Z").unwrap();
-        let dt = datetime.with_timezone(&Utc);
+        let dt: Timestamp = "2021-12-01T10:20:30.123456789Z".parse().unwrap();
         assert_eq!(
             format_header_to_string(&lh, &dt),
             "<29>1 2021-12-01T10:20:30.123456Z - test 1024 - "
         );
 
-        let datetime = DateTime::parse_from_rfc3339("2021-12-01T10:20:30.12345Z").unwrap();
-        let dt = datetime.with_timezone(&Utc);
+        let dt: Timestamp = "2021-12-01T10:20:30.12345Z".parse().unwrap();
         assert_eq!(
             format_header_to_string(&lh, &dt),
             "<29>1 2021-12-01T10:20:30.123450Z - test 1024 - "
         );
 
-        let datetime = DateTime::parse_from_rfc3339("2021-12-01T10:20:30+08:00").unwrap();
-        let dt = datetime.with_timezone(&Utc);
+        let dt: Timestamp = "2021-12-01T10:20:30+08:00".parse().unwrap();
         assert_eq!(
             format_header_to_string(&lh, &dt),
             "<29>1 2021-12-01T02:20:30.000000Z - test 1024 - "
@@ -401,8 +395,7 @@ mod tests {
             process: "vey".into(),
             pid: 9,
         };
-        let datetime = DateTime::parse_from_rfc3339("2021-12-01T10:20:30Z").unwrap();
-        let dt = datetime.with_timezone(&Utc);
+        let dt: Timestamp = "2021-12-01T10:20:30Z".parse().unwrap();
 
         let mut buffer = Vec::new();
         format_rfc5424_header(&mut buffer, &lh, Level::Error, &dt, &Some("MSGID".into())).unwrap();

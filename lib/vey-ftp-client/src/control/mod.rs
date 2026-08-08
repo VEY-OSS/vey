@@ -7,7 +7,7 @@
 use std::net::SocketAddr;
 use std::str::FromStr;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use tokio::io::{AsyncRead, AsyncWrite, BufStream};
 
 use vey_io_ext::LimitedBufReadExt;
@@ -304,7 +304,7 @@ where
     pub(crate) async fn request_mtime(
         &mut self,
         path: &str,
-    ) -> Result<Option<DateTime<Utc>>, FtpCommandError> {
+    ) -> Result<Option<Timestamp>, FtpCommandError> {
         let cmd = FtpCommand::MDTM;
         self.send_cmd1(cmd, path)
             .await

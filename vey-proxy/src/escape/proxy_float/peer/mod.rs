@@ -10,7 +10,7 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use anyhow::Context;
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use rand::seq::IteratorRandom;
 use serde_json::Value;
 use tokio::time::Instant;
@@ -46,7 +46,7 @@ const CONFIG_KEY_PEER_TCP_SOCK_SPEED_LIMIT: &str = "tcp_sock_speed_limit";
 
 pub(super) trait NextProxyPeerInternal {
     fn egress_info_mut(&mut self) -> &mut EgressInfo;
-    fn set_expire(&mut self, expire_datetime: DateTime<Utc>, expire_instant: Instant);
+    fn set_expire(&mut self, expire_datetime: Timestamp, expire_instant: Instant);
     fn set_tcp_sock_speed_limit(&mut self, speed_limit: TcpSockSpeedLimitConfig);
     fn set_kv(&mut self, k: &str, v: &Value) -> anyhow::Result<()>;
     fn finalize(&mut self) -> anyhow::Result<()>;
@@ -76,7 +76,7 @@ pub(super) trait NextProxyPeerInternal {
 pub(super) trait NextProxyPeer: NextProxyPeerInternal {
     fn peer_addr(&self) -> SocketAddr;
     fn tcp_sock_speed_limit(&self) -> &TcpSockSpeedLimitConfig;
-    fn expire_datetime(&self) -> Option<DateTime<Utc>>;
+    fn expire_datetime(&self) -> Option<Timestamp>;
     fn egress_info(&self) -> EgressInfo;
 
     async fn tcp_setup_connection(
@@ -157,7 +157,7 @@ pub(super) fn parse_peer(
     record: &Value,
 ) -> anyhow::Result<Option<ArcNextProxyPeer>> {
     let instant_now = Instant::now();
-    let datetime_now = Utc::now();
+    let datetime_now = Timestamp::now();
 
     json::do_parse_peer(record, escaper_config, instant_now, datetime_now).map(|r| r.map(|v| v.1))
 }
@@ -169,7 +169,7 @@ pub(super) fn parse_peers(
     let mut peer_set = PeerSet::default();
 
     let instant_now = Instant::now();
-    let datetime_now = Utc::now();
+    let datetime_now = Timestamp::now();
 
     for (i, record) in records.iter().enumerate() {
         if let Some((peer_id, peer)) =

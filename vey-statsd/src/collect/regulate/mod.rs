@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 use vey_types::metrics::NodeName;
 
@@ -78,7 +78,7 @@ impl Collector for RegulateCollector {
         self.config.collector_type()
     }
 
-    fn add_metric(&self, time: DateTime<Utc>, mut record: MetricRecord, worker_id: Option<usize>) {
+    fn add_metric(&self, time: Timestamp, mut record: MetricRecord, worker_id: Option<usize>) {
         if let Some(prefix) = &self.config.prefix {
             let name = Arc::make_mut(&mut record.name);
             name.add_prefix(prefix);

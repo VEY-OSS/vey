@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
@@ -53,14 +53,14 @@ struct HttpForwardTaskNotes {
     rsp_status: u16,
     origin_status: u16,
     receive_ins: Instant,
-    receive_datetime: DateTime<Utc>,
+    receive_datetime: Timestamp,
     dur_req_send_hdr: Duration,
     dur_req_pipeline: Duration,
     dur_rsp_recv_hdr: Duration,
 }
 
 impl HttpForwardTaskNotes {
-    fn new(datetime_received: DateTime<Utc>, time_received: Instant) -> Self {
+    fn new(datetime_received: Timestamp, time_received: Instant) -> Self {
         let dur_req_pipeline = time_received.elapsed();
         HttpForwardTaskNotes {
             rsp_status: 0,

@@ -10,9 +10,9 @@ use std::time::Duration;
 
 use ahash::AHashMap;
 use anyhow::anyhow;
-use chrono::{DateTime, Utc};
 use http::uri::PathAndQuery;
 use http::{HeaderMap, HeaderValue, header};
+use jiff::Timestamp;
 use serde_json::{Map, Number, Value};
 use tokio::sync::mpsc;
 
@@ -51,7 +51,7 @@ impl OpentsdbAggregateExport {
     fn build_data_point(
         &self,
         name: &MetricName,
-        time: &DateTime<Utc>,
+        time: &Timestamp,
         tags: &MetricTagMap,
         value: &MetricValue,
     ) -> Option<Value> {
@@ -65,7 +65,7 @@ impl OpentsdbAggregateExport {
         map.insert("metric".into(), Value::String(name));
         map.insert(
             "timestamp".into(),
-            Value::Number(Number::from(time.timestamp())),
+            Value::Number(Number::from(time.as_second())),
         );
         map.insert("value".into(), Value::Number(value));
         let mut tag_map = Map::with_capacity(tags.len());

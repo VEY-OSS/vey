@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 use vey_types::metrics::NodeName;
 
@@ -31,7 +31,7 @@ pub(crate) trait Exporter {
     #[allow(unused)]
     fn r#type(&self) -> &str;
 
-    fn add_metric(&self, time: DateTime<Utc>, record: &MetricRecord);
+    fn add_metric(&self, time: Timestamp, record: &MetricRecord);
 }
 
 trait ExporterInternal: Exporter {

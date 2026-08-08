@@ -6,7 +6,7 @@
 use std::net::IpAddr;
 
 use ahash::AHashMap;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use rand::seq::IteratorRandom;
 use tokio::time::Instant;
 
@@ -26,7 +26,7 @@ const CONFIG_KEY_AREA: &str = "area";
 pub(crate) struct DirectFloatBindIp {
     id: Option<String>,
     pub(crate) ip: IpAddr,
-    pub(crate) expire_datetime: Option<DateTime<Utc>>,
+    pub(crate) expire_datetime: Option<Timestamp>,
     expire_instant: Option<Instant>,
     pub(crate) egress_info: EgressInfo,
 }
@@ -42,7 +42,7 @@ impl DirectFloatBindIp {
         }
     }
 
-    fn set_expire(&mut self, datetime: DateTime<Utc>, instant: Instant) {
+    fn set_expire(&mut self, datetime: Timestamp, instant: Instant) {
         self.expire_datetime = Some(datetime);
         self.expire_instant = Some(instant);
     }

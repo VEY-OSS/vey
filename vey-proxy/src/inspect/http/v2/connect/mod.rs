@@ -7,11 +7,11 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{Reason, RecvStream, SendStream, StreamId};
 use http::{Request, Response, Version};
+use jiff::Timestamp;
 use tokio::time::Instant;
 
 use vey_h2::{H2BodyTransfer, H2StreamBodyTransferError, H2StreamFromChunkedTransferError};
@@ -38,7 +38,7 @@ struct HttpConnectTaskNotes {
     rsp_status: u16,
     origin_status: u16,
     started_ins: Instant,
-    started_datetime: DateTime<Utc>,
+    started_datetime: Timestamp,
     dur_req_send_hdr: Duration,
     dur_rsp_recv_hdr: Duration,
 }
@@ -49,7 +49,7 @@ impl Default for HttpConnectTaskNotes {
             ready_time: Duration::default(),
             rsp_status: 0,
             origin_status: 0,
-            started_datetime: Utc::now(),
+            started_datetime: Timestamp::now(),
             started_ins: Instant::now(),
             dur_req_send_hdr: Duration::default(),
             dur_rsp_recv_hdr: Duration::default(),

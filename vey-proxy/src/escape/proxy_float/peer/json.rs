@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde_json::Value;
 use tokio::time::Instant;
 
@@ -23,7 +23,7 @@ pub(super) fn do_parse_peer(
     value: &Value,
     escaper_config: &ProxyFloatEscaperConfig,
     instant_now: Instant,
-    datetime_now: DateTime<Utc>,
+    datetime_now: Timestamp,
 ) -> anyhow::Result<Option<(String, ArcNextProxyPeer)>> {
     if let Value::Object(map) = value {
         let peer_type = vey_json::get_required_str(map, CONFIG_KEY_PEER_TYPE)?;
@@ -65,15 +65,17 @@ pub(super) fn do_parse_peer(
                 }
                 CONFIG_KEY_PEER_EXPIRE => {
                     let datetime_expire_orig = vey_json::value::as_rfc3339_datetime(v)?;
-                    let Some(datetime_expire) = datetime_expire_orig
-                        .checked_sub_signed(escaper_config.expire_guard_duration)
+                    let Ok(datetime_expire) =
+                        datetime_expire_orig.checked_sub(escaper_config.expire_guard_duration)
                     else {
                         return Ok(None);
                     };
                     if datetime_expire <= datetime_now {
                         return Ok(None);
                     }
-                    let Ok(duration) = datetime_expire.signed_duration_since(datetime_now).to_std()
+                    let Some(duration) =
+                        std::time::Duration::try_from(datetime_expire.duration_since(datetime_now))
+                            .ok()
                     else {
                         return Ok(None);
                     };

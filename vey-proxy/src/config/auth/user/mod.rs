@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use arcstr::ArcStr;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 use vey_types::acl::{
     AclExactPortRule, AclNetworkRuleBuilder, AclProxyRequestRule, AclUserAgentRule,
@@ -50,7 +50,7 @@ pub(crate) struct UserConfig {
     name: ArcStr,
     password_token: PasswordToken,
     pub(crate) match_by_facts: Vec<FactsMatchValue>,
-    expire_datetime: Option<DateTime<Utc>>,
+    expire_datetime: Option<Timestamp>,
     pub(crate) audit: UserAuditConfig,
     pub(crate) block_and_delay: Option<Duration>,
     pub(crate) tcp_connect: Option<TcpConnectConfig>,
@@ -133,7 +133,7 @@ impl UserConfig {
         &self.name
     }
 
-    pub(crate) fn is_expired(&self, dt_now: &DateTime<Utc>) -> bool {
+    pub(crate) fn is_expired(&self, dt_now: &Timestamp) -> bool {
         if let Some(dt_expire) = &self.expire_datetime {
             dt_expire.lt(dt_now)
         } else {

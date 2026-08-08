@@ -11,7 +11,7 @@ use ahash::AHashMap;
 use anyhow::anyhow;
 use arc_swap::{ArcSwap, ArcSwapOption};
 use arcstr::ArcStr;
-use chrono::Utc;
+use jiff::Timestamp;
 use log::{info, warn};
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
@@ -310,7 +310,7 @@ where
     async fn new_with_config(config: T) -> anyhow::Result<Self> {
         let basic_config = config.basic_config();
 
-        let datetime_now = Utc::now();
+        let datetime_now = Timestamp::now();
         let mut users = AHashMap::new();
         for (username, user_config) in &basic_config.static_users {
             let user = User::new(basic_config.name(), user_config, &datetime_now)?;
@@ -366,7 +366,7 @@ where
     fn reload(&self, config: T) -> anyhow::Result<Self> {
         let basic_config = config.basic_config();
 
-        let datetime_now = Utc::now();
+        let datetime_now = Timestamp::now();
         let mut static_users = AHashMap::new();
         for (username, user_config) in &basic_config.static_users {
             let user = if let Some(user) = self.static_users.get(username) {
@@ -457,7 +457,7 @@ where
             );
         }
 
-        let datetime_now = Utc::now();
+        let datetime_now = Timestamp::now();
         let old_dynamic_users = self.dynamic_users.load();
         let mut new_dynamic_users = AHashMap::new();
         for user_config in dynamic_config {

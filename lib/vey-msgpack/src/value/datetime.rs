@@ -1,24 +1,24 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use anyhow::anyhow;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use rmpv::ValueRef;
 
-pub fn as_rfc3339_datetime(value: &ValueRef) -> anyhow::Result<DateTime<Utc>> {
+use vey_datetime::DateTimeParseExt;
+
+pub fn as_rfc3339_datetime(value: &ValueRef) -> anyhow::Result<Timestamp> {
     match value {
         ValueRef::String(s) => match s.as_str() {
-            Some(s) => {
-                let datetime = DateTime::parse_from_rfc3339(s)
-                    .map_err(|e| anyhow!("invalid rfc3339 datetime string: {e}"))?;
-                Ok(datetime.with_timezone(&Utc))
-            }
+            Some(s) => Timestamp::parse_rfc3339(s)
+                .map_err(|e| anyhow!("invalid rfc3339 datetime string: {e}")),
             None => Err(anyhow!("invalid utf-8 string")),
         },
         _ => Err(anyhow!(
-            "yaml value type for 'rfc3339 datetime' should be string"
+            "msgpack value type for 'rfc3339 datetime' should be string"
         )),
     }
 }
@@ -32,7 +32,7 @@ mod tests {
     fn as_rfc3339_datetime_ok() {
         let value = ValueRef::String(Utf8StringRef::from("2019-05-23T17:38:00Z"));
         let dt = as_rfc3339_datetime(&value).unwrap();
-        assert_eq!(dt.to_rfc3339(), "2019-05-23T17:38:00+00:00");
+        assert_eq!(dt.to_string(), "2019-05-23T17:38:00Z");
     }
 
     #[test]

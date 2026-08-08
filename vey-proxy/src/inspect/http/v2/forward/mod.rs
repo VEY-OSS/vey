@@ -8,11 +8,11 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{Reason, RecvStream, StreamId};
 use http::{Method, Request, Response, StatusCode, Uri, Version};
+use jiff::Timestamp;
 use tokio::time::Instant;
 
 use vey_h2::{
@@ -65,7 +65,7 @@ struct HttpForwardTaskNotes {
     rsp_status: u16,
     origin_status: u16,
     started_ins: Instant,
-    started_datetime: DateTime<Utc>,
+    started_datetime: Timestamp,
     dur_req_send_hdr: Duration,
     dur_req_send_all: Duration,
     dur_rsp_recv_hdr: Duration,
@@ -80,7 +80,7 @@ impl HttpForwardTaskNotes {
             ready_time: Duration::default(),
             rsp_status: 0,
             origin_status: 0,
-            started_datetime: Utc::now(),
+            started_datetime: Timestamp::now(),
             started_ins: Instant::now(),
             dur_req_send_hdr: Duration::default(),
             dur_req_send_all: Duration::default(),

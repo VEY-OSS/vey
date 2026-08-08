@@ -4,7 +4,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde_json::Value;
 use tokio::time::Instant;
 
@@ -19,7 +19,7 @@ impl DirectFloatBindIp {
     pub(crate) fn parse_json(
         value: &Value,
         instant_now: Instant,
-        datetime_now: DateTime<Utc>,
+        datetime_now: Timestamp,
     ) -> anyhow::Result<Option<Self>> {
         match value {
             Value::Object(map) => {
@@ -41,9 +41,10 @@ impl DirectFloatBindIp {
                             if datetime_expire < datetime_now {
                                 return Ok(None);
                             }
-                            let Ok(duration) =
-                                datetime_expire.signed_duration_since(datetime_now).to_std()
-                            else {
+                            let Some(duration) = std::time::Duration::try_from(
+                                datetime_expire.duration_since(datetime_now),
+                            )
+                            .ok() else {
                                 return Ok(None);
                             };
                             let Some(instant_expire) = instant_now.checked_add(duration) else {
@@ -90,7 +91,7 @@ impl BindSet {
         let mut bind_set = BindSet::new(family);
 
         let instant_now = Instant::now();
-        let datetime_now = Utc::now();
+        let datetime_now = Timestamp::now();
 
         match value {
             Value::Null => {}

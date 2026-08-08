@@ -6,9 +6,10 @@
 use std::io::{self, IsTerminal, Write};
 use std::sync::Arc;
 
-use chrono::Local;
+use jiff::Zoned;
 use slog::Level;
 
+use vey_datetime::DateTimeFormatExt;
 use vey_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
 
 #[macro_use]
@@ -68,8 +69,8 @@ struct AsyncIoThread {
 
 impl AsyncIoThread {
     fn write_time<IO: Write>(&self, io: &mut IO) -> io::Result<()> {
-        let datetime = Local::now();
-        let fmt = datetime.format_with_items(vey_datetime::format::log::STDIO.iter());
+        let datetime = Zoned::now();
+        let fmt = datetime.format_stdio();
         write!(io, "{fmt}")?;
         Ok(())
     }

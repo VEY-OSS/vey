@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::fmt::{Arguments, Write};
 use std::io;
 
-use chrono::Utc;
+use jiff::Timestamp;
 use serde::ser::Serialize;
 use slog::{KV, OwnedKVList, Record, Serializer};
 
@@ -46,7 +46,7 @@ impl FluentdFormatter {
         record: &Record,
         logger_values: &OwnedKVList,
     ) -> Result<Vec<u8>, EncodeError> {
-        let datetime_now = Utc::now();
+        let datetime_now = Timestamp::now();
         let mut buf = Vec::<u8>::with_capacity(1024);
 
         rmp::encode::write_array_len(&mut buf, 3)?;
@@ -56,14 +56,12 @@ impl FluentdFormatter {
 
             // #2
             rmp::encode::write_ext_meta(&mut buf, 8, 0)?;
-            let sec = u32::try_from(datetime_now.timestamp())
+            let sec = u32::try_from(datetime_now.as_second())
                 .map_err(|_| slog::Error::Io(io::Error::other("out of range unix timestamp")))?
                 .to_be_bytes();
             buf.extend_from_slice(&sec);
-            let nano = datetime_now
-                .timestamp_subsec_nanos()
-                .min(999_999_999) // ignore leap second
-                .to_be_bytes();
+            // jiff has no leap seconds; subsec is already in 0..=999_999_999 for now().
+            let nano = (datetime_now.subsec_nanosecond() as u32).to_be_bytes();
             buf.extend_from_slice(&nano);
 
             // #3
