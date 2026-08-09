@@ -3,11 +3,10 @@ CHANGELOG
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.13.10:
- - Compatibility: bump MSRV to 1.94.0
- - Feature: add ICAP service `tcp_connect_timeout` (default 1s) so black-holed ICAP endpoints fail promptly and `bypass` can take effect
  - BUG FIX: ICAP `Host` includes the non-default port (and brackets IPv6 literals)
  - BUG FIX: ICAP OPTIONS requests include `Encapsulated: null-body=0` (RFC 3507)
  - BUG FIX: ICAP/ICAPS service URLs without an explicit port use defaults 1344 / 11344 instead of failing to parse
+ - Feature: add ICAP service `tcp_connect_timeout` (default 1s) so black-holed ICAP endpoints fail promptly and `bypass` can take effect
  - Feature: enable transparent listen (`tcp_tproxy` / `udp_tproxy` / `sni_proxy`) and foreign bind on FreeBSD (`IP_BINDANY`) and OpenBSD (`SO_BINDANY`)
  - Feature: enable `direct_fixed` foreign bind on NetBSD (`IP_BINDANY`); the intercepting servers stay unavailable there as NPF gives no original destination
  - Feature: add FreeBSD `user_cookie` (`SO_USER_COOKIE`) and OpenBSD `rtable` (`SO_RTABLE`) listen / misc socket options alongside Linux `mark` / `netfilter_mark`
@@ -15,6 +14,9 @@ v1.13.10:
  - Feature: TCP/UDP misc sock opts gain Linux `local_port_range` (`IP_LOCAL_PORT_RANGE`) to clamp ephemeral local ports
  - Feature: socks_proxy falls back to `udp_misc_opts.local_port_range` when `udp_bind_port_range` is not set
  - Feature: support HTTP `QUERY` method (RFC 10008) for forwarding, inspection, and DPI classification
+ - Compatibility: bump MSRV to 1.94.0
+ - Compatibility: replace chrono with jiff for datetime handling
+ - Compatibility: default deb/rpm package builds toward secure-snmalloc where applicable
 
 v1.13.9:
  - BUG FIX: HTTP clients sending trailers split across packets (CRLF alone in a later read) no longer stall or fail trailer parsing
