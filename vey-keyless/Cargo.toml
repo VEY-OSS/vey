@@ -22,7 +22,7 @@ capnp-rpc.workspace = true
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 tokio-rustls.workspace = true
-tokio = { workspace = true, features = ["time", "sync", "fs"] }
+tokio = { workspace = true, features = ["time", "sync", "fs", "rt"] }
 yaml-rust.workspace = true
 jiff.workspace = true
 uuid.workspace = true
@@ -55,6 +55,9 @@ vey-keyless-proto = { path = "proto" }
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 vey-crypto-mb = { workspace = true, optional = true }
 
+[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
+vey-qat = { workspace = true, optional = true }
+
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 inotify = "0.11"
 
@@ -79,3 +82,4 @@ vendored-aws-lc = ["openssl/aws-lc", "openssl-probe"]
 vendored-aws-lc-fips = ["openssl/aws-lc-fips", "openssl-probe"]
 openssl-async-job = ["vey-openssl/async-job", "vey-daemon/openssl-async-job"]
 crypto-mb = ["dep:vey-crypto-mb"]
+qat = ["dep:vey-qat"]

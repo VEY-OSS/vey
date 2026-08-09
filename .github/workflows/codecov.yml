@@ -46,7 +46,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libjemalloc-dev libmimalloc-dev libc-ares-dev libssl-dev libpython3-dev liblua5.4-dev
-          sudo apt-get install libbpf-dev libcrypto-mb-dev
+          sudo apt-get install libbpf-dev libcrypto-mb-dev libqat-dev libusdm-dev pkg-config
       - name: Install binutils
         run: |
           cargo install cargo-binutils@0.3.6
@@ -55,6 +55,7 @@ jobs:
       - name: run unit test
         run: |
           ./scripts/coverage/lib_unit_test.sh
+
       - name: Upload coverage data
         uses: codecov/codecov-action@v7
         with:
@@ -151,7 +152,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install capnproto libmimalloc-dev libssl-dev libcrypto-mb-dev pkg-config
+          sudo apt-get install capnproto libmimalloc-dev libssl-dev libcrypto-mb-dev libqat-dev libusdm-dev pkg-config
       - name: Install binutils
         run: |
           cargo install cargo-binutils@0.3.6
@@ -160,6 +161,7 @@ jobs:
       - name: run unit test
         run: |
           ./scripts/coverage/vey-keyless.sh
+
       - name: Upload coverage data
         uses: codecov/codecov-action@v7
         with:

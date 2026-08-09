@@ -153,3 +153,32 @@ jobs:
           cargo test -p vey-crypto-mb
       - name: Cargo test vey-keyless
         run: cargo test -p vey-keyless --features crypto-mb
+  qat:
+    name: Build with qatlib (linux x86_64)
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Install stable toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libssl-dev libqat-dev libusdm-dev pkg-config
+      - name: Cargo clean
+        run: cargo clean
+      - name: Cargo build
+        run: cargo build -p vey-qat -p vey-keyless --features qat
+      - name: Cargo clippy
+        run: |
+          cargo clippy -p vey-qat -- --deny warnings
+          cargo clippy -p vey-keyless --features qat -- --deny warnings
+      - name: Cargo test
+        run: |
+          cargo test -p vey-qat
+          cargo test -p vey-keyless --features qat

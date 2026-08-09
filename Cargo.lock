@@ -3375,6 +3375,7 @@ dependencies = [
  "vey-macros",
  "vey-mimalloc",
  "vey-openssl",
+ "vey-qat",
  "vey-rustls-provider",
  "vey-slog-types",
  "vey-socket",
@@ -3634,6 +3635,18 @@ version = "0.1.0"
 dependencies = [
  "capnp",
  "capnpc",
+]
+
+[[package]]
+name = "vey-qat"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "log",
+ "pkg-config",
+ "tokio",
+ "variant-ssl",
+ "variant-ssl-sys",
 ]
 
 [[package]]

@@ -14,6 +14,9 @@ FEATURES="mimalloc,openssl-async-job"
 if [ "$(uname -m)" = "x86_64" ] && pkg-config --exists crypto-mb; then
 	FEATURES="${FEATURES},crypto-mb"
 fi
+if [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ] && pkg-config --exists qatlib; then
+	FEATURES="${FEATURES},qat"
+fi
 cargo build --features "${FEATURES}" -p vey-keyless -p vey-keyless-ctl -p vey-mkcert -p vey-statsd -p vey-bench
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')

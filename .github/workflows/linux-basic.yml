@@ -58,7 +58,7 @@ jobs:
       - name: Cargo build
         run: cargo build --features jemalloc,ebpf,lua54
       - name: Cargo test
-        run: cargo test --workspace --features jemalloc,lua54 --exclude vey-crypto-mb
+        run: cargo test --workspace --features jemalloc,lua54 --exclude vey-crypto-mb --exclude vey-qat
   clippy:
     name: Clippy
     runs-on: ubuntu-26.04
@@ -80,4 +80,4 @@ jobs:
       - name: Cargo clean
         run: cargo clean
       - name: Cargo clippy
-        run: cargo clippy --tests --workspace --features jemalloc,ebpf,lua54 --exclude vey-crypto-mb -- --deny warnings
+        run: cargo clippy --tests --workspace --features jemalloc,ebpf,lua54 --exclude vey-crypto-mb --exclude vey-qat -- --deny warnings

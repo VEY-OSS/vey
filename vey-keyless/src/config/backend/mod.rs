@@ -19,6 +19,11 @@ mod crypto_mb;
 #[cfg(all(feature = "crypto-mb", target_arch = "x86_64"))]
 pub(crate) use crypto_mb::CryptoMbBackendConfig;
 
+#[cfg(all(feature = "qat", target_os = "linux", target_arch = "x86_64"))]
+mod qat;
+#[cfg(all(feature = "qat", target_os = "linux", target_arch = "x86_64"))]
+pub(crate) use qat::QatBackendConfig;
+
 static BACKEND_CONFIG: OnceLock<BackendConfig> = OnceLock::new();
 
 pub(crate) struct BackendConfig {
@@ -49,6 +54,8 @@ pub(crate) enum BackendDriverConfig {
     AsyncJob(AsyncJobBackendConfig),
     #[cfg(all(feature = "crypto-mb", target_arch = "x86_64"))]
     CryptoMb(CryptoMbBackendConfig),
+    #[cfg(all(feature = "qat", target_os = "linux", target_arch = "x86_64"))]
+    Qat(QatBackendConfig),
 }
 
 pub(super) fn load(value: &Yaml) -> anyhow::Result<()> {
@@ -76,6 +83,12 @@ pub(super) fn load(value: &Yaml) -> anyhow::Result<()> {
                     config.driver = BackendDriverConfig::CryptoMb(driver);
                     Ok(())
                 }
+                #[cfg(all(feature = "qat", target_os = "linux", target_arch = "x86_64"))]
+                "qat" | "qatlib" => {
+                    let driver = QatBackendConfig::parse_yaml(v)?;
+                    config.driver = BackendDriverConfig::Qat(driver);
+                    Ok(())
+                }
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
         }
@@ -88,6 +101,10 @@ pub(super) fn load(value: &Yaml) -> anyhow::Result<()> {
             #[cfg(all(feature = "crypto-mb", target_arch = "x86_64"))]
             "crypto_mb" | "cryptomb" => {
                 config.driver = BackendDriverConfig::CryptoMb(CryptoMbBackendConfig::default());
+            }
+            #[cfg(all(feature = "qat", target_os = "linux", target_arch = "x86_64"))]
+            "qat" | "qatlib" => {
+                config.driver = BackendDriverConfig::Qat(QatBackendConfig::default());
             }
             _ => return Err(anyhow!("unsupported backend type {s}")),
         },
