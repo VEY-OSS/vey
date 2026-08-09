@@ -2,6 +2,9 @@ CHANGELOG
 
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
+v1.14.0:
+ - Start of the 1.14 LTS branch
+
 v1.13.10:
  - BUG FIX: ICAP `Host` includes the non-default port (and brackets IPv6 literals)
  - BUG FIX: ICAP OPTIONS requests include `Encapsulated: null-body=0` (RFC 3507)
