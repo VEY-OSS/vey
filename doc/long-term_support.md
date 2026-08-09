@@ -27,7 +27,9 @@ Long-Term branch for
 - [vey-iploc](../vey-iploc) 0.4.x
 
 Release notes for the first 1.14.0 cut:
-[vey-proxy v1.14.0](lts/vey-proxy-v1.14.0.md).
+
+- [English](lts/vey-proxy-v1.14.0.md)
+- [简体中文](lts/vey-proxy-v1.14.0.zh_CN.md)
 
 Minimum requirements:
 

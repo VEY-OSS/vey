@@ -11,8 +11,9 @@ bugfixes alone.
 
 LTS branch: [`lts/vey-proxy/1.14/default`](https://github.com/VEY-OSS/vey/tree/lts/vey-proxy/1.14/default).
 
-See also [Long-Term Support](../long-term_support.md) and
-[vey-proxy/CHANGELOG](../../vey-proxy/CHANGELOG).
+See also [Long-Term Support](../long-term_support.md),
+[vey-proxy/CHANGELOG](../../vey-proxy/CHANGELOG), and the
+[Chinese release notes](vey-proxy-v1.14.0.zh_CN.md).
 
 ## Highlights
 
