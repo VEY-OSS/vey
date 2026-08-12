@@ -69,6 +69,27 @@ There metrics come from the mimalloc memory allocator.
 
 .. versionadded:: 1.13.9
 
+.. _metrics_runtime_snmalloc:
+
+snmalloc Runtime Metrics
+========================
+
+There metrics come from the snmalloc memory allocator.
+
+* runtime.snmalloc.current_memory_usage
+
+  **type**: gauge
+
+  Bytes currently reserved from the OS.
+
+* runtime.mimalloc.peak_memory_usage
+
+  **type**: gauge
+
+  High-water mark of current_memory_usage.
+
+.. versionadded:: 1.14.1
+
 .. _metrics_runtime_tokio:
 
 Tokio Runtime Metrics

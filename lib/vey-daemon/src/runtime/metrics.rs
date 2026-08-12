@@ -41,6 +41,8 @@ pub fn emit_stats(client: &mut StatsdClient) {
     emit_jemalloc_stats(client);
     #[cfg(feature = "mimalloc")]
     emit_mimalloc_stats(client);
+    #[cfg(feature = "snmalloc")]
+    emit_snmalloc_stats(client);
 
     let mut tokio_stats_vec = TOKIO_STATS_VEC.lock().unwrap();
     for v in tokio_stats_vec.iter_mut() {
@@ -102,4 +104,21 @@ fn emit_mimalloc_stats(client: &mut StatsdClient) {
         emit_gauge_field!("runtime.mimalloc.current_commit", current_commit);
         emit_gauge_field!("runtime.mimalloc.peak_commit", peak_commit);
     }
+}
+
+#[cfg(feature = "snmalloc")]
+fn emit_snmalloc_stats(client: &mut StatsdClient) {
+    let stats = snmalloc::SnMalloc::memory_stats();
+    client
+        .gauge(
+            "runtime.snmalloc.current_memory_usage",
+            stats.current_memory_usage,
+        )
+        .send();
+    client
+        .gauge(
+            "runtime.snmalloc.peak_memory_usage",
+            stats.peak_memory_usage,
+        )
+        .send();
 }
