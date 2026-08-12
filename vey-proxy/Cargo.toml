@@ -13,7 +13,6 @@ anyhow.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
 async-recursion.workspace = true
-cfg-if.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 arcstr.workspace = true

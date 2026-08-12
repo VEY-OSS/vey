@@ -2721,7 +2721,6 @@ dependencies = [
  "atomic-waker",
  "base64",
  "bytes",
- "cfg-if",
  "clap",
  "clap_complete",
  "concurrent-queue",
@@ -2863,7 +2862,6 @@ dependencies = [
  "bytes",
  "capnp",
  "capnp-rpc",
- "cfg-if",
  "clap",
  "fastrand",
  "foldhash",
@@ -2917,7 +2915,6 @@ name = "vey-dcgen"
 version = "0.9.0"
 dependencies = [
  "anyhow",
- "cfg-if",
  "clap",
  "kanal",
  "log",
@@ -3007,7 +3004,6 @@ dependencies = [
  "bytes",
  "capnp",
  "capnp-rpc",
- "cfg-if",
  "clap",
  "clap_complete",
  "foldhash",
@@ -3263,7 +3259,6 @@ name = "vey-iploc"
 version = "0.4.0"
 dependencies = [
  "anyhow",
- "cfg-if",
  "clap",
  "log",
  "snmalloc-rs",
@@ -3347,7 +3342,6 @@ dependencies = [
  "async-trait",
  "capnp",
  "capnp-rpc",
- "cfg-if",
  "clap",
  "foldhash",
  "futures-util",
@@ -3503,7 +3497,6 @@ dependencies = [
  "bytes",
  "capnp",
  "capnp-rpc",
- "cfg-if",
  "clap",
  "clap_complete",
  "fastrand",
@@ -3725,7 +3718,6 @@ name = "vey-rustls-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cfg-if",
  "rustls",
 ]
 
@@ -3798,7 +3790,6 @@ dependencies = [
  "async-recursion",
  "capnp",
  "capnp-rpc",
- "cfg-if",
  "clap",
  "clap_complete",
  "fastrand",

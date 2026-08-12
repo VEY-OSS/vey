@@ -251,24 +251,14 @@ impl<T: SelectiveItem> SelectiveVec<T> {
         match self.inner.len() {
             0 => panic_on_empty!(),
             1 => &self.inner[0],
-            _ => {
-                let mut id = self.rr_id.load(atomic::Ordering::Acquire);
-                loop {
-                    let mut next = id + 1;
-                    if next >= self.inner.len() {
-                        next = 0;
-                    }
-
-                    match self.rr_id.compare_exchange_weak(
-                        id,
-                        next,
-                        atomic::Ordering::AcqRel,
-                        atomic::Ordering::Acquire,
-                    ) {
-                        Ok(_) => return self.inner.get(id).unwrap_or(&self.inner[0]),
-                        Err(n) => id = n,
-                    }
-                }
+            len => {
+                let id =
+                    self.rr_id
+                        .update(atomic::Ordering::AcqRel, atomic::Ordering::Acquire, |id| {
+                            let next = id + 1;
+                            if next >= len { 0 } else { next }
+                        });
+                self.inner.get(id).unwrap_or(&self.inner[0])
             }
         }
     }
@@ -279,38 +269,33 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             1 => vec![&self.inner[0]],
             len => {
                 let n = n.min(len);
-                let mut id = self.rr_id.load(atomic::Ordering::Acquire);
-                loop {
+                let next_end = |id: usize| {
                     let mut end = id + n;
                     if end >= len {
                         end %= len;
                     }
-
-                    match self.rr_id.compare_exchange_weak(
-                        id,
-                        end,
-                        atomic::Ordering::AcqRel,
-                        atomic::Ordering::Acquire,
-                    ) {
-                        Ok(_) => {
-                            let mut r = Vec::with_capacity(n);
-                            if end <= id {
-                                for item in &self.inner.as_slice()[id..] {
-                                    r.push(item);
-                                }
-                                for item in &self.inner.as_slice()[0..end] {
-                                    r.push(item);
-                                }
-                            } else {
-                                for item in &self.inner.as_slice()[id..end] {
-                                    r.push(item);
-                                }
-                            }
-                            return r;
-                        }
-                        Err(n) => id = n,
+                    end
+                };
+                let id = self.rr_id.update(
+                    atomic::Ordering::AcqRel,
+                    atomic::Ordering::Acquire,
+                    next_end,
+                );
+                let end = next_end(id);
+                let mut r = Vec::with_capacity(n);
+                if end <= id {
+                    for item in &self.inner.as_slice()[id..] {
+                        r.push(item);
+                    }
+                    for item in &self.inner.as_slice()[0..end] {
+                        r.push(item);
+                    }
+                } else {
+                    for item in &self.inner.as_slice()[id..end] {
+                        r.push(item);
                     }
                 }
+                r
             }
         }
     }

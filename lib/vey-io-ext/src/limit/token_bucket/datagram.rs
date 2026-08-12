@@ -62,43 +62,19 @@ impl GlobalDatagramLimiter {
     }
 
     fn add_bytes(&self, size: u64, max_burst: u64) {
-        let mut cur_tokens = self.byte_tokens.load(Ordering::Acquire);
-
-        loop {
-            if cur_tokens >= max_burst {
-                break;
-            }
-            let next_tokens = (cur_tokens + size).min(max_burst);
-            match self.byte_tokens.compare_exchange_weak(
-                cur_tokens,
-                next_tokens,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
-                Ok(_) => break,
-                Err(actual) => cur_tokens = actual,
-            }
-        }
+        let _ = self
+            .byte_tokens
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |cur_tokens| {
+                (cur_tokens < max_burst).then(|| (cur_tokens + size).min(max_burst))
+            });
     }
 
     fn add_packets(&self, count: u64, max_burst: u64) {
-        let mut cur_tokens = self.packet_tokens.load(Ordering::Acquire);
-
-        loop {
-            if cur_tokens >= max_burst {
-                break;
-            }
-            let next_tokens = (cur_tokens + count).min(max_burst);
-            match self.packet_tokens.compare_exchange_weak(
-                cur_tokens,
-                next_tokens,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
-                Ok(_) => break,
-                Err(actual) => cur_tokens = actual,
-            }
-        }
+        let _ = self
+            .packet_tokens
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |cur_tokens| {
+                (cur_tokens < max_burst).then(|| (cur_tokens + count).min(max_burst))
+            });
     }
 
     fn wait_until(&self) -> Instant {
@@ -112,47 +88,29 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
     fn check_packet(&self, buf_size: usize) -> DatagramLimitAction {
         let config = *self.config.load().as_ref();
 
-        if config.replenish_packets() > 0 {
-            let mut cur_tokens = self.packet_tokens.load(Ordering::Acquire);
-
-            loop {
-                if cur_tokens == 0 {
-                    return DatagramLimitAction::DelayUntil(self.wait_until());
-                }
-                let left_tokens = cur_tokens.saturating_sub(1);
-                match self.packet_tokens.compare_exchange_weak(
-                    cur_tokens,
-                    left_tokens,
-                    Ordering::AcqRel,
-                    Ordering::Acquire,
-                ) {
-                    Ok(_) => break,
-                    Err(actual) => cur_tokens = actual,
-                }
-            }
+        if config.replenish_packets() > 0
+            && self
+                .packet_tokens
+                .try_update(Ordering::AcqRel, Ordering::Acquire, |cur_tokens| {
+                    (cur_tokens > 0).then(|| cur_tokens - 1)
+                })
+                .is_err()
+        {
+            return DatagramLimitAction::DelayUntil(self.wait_until());
         }
 
-        if config.replenish_bytes() > 0 {
-            let mut cur_tokens = self.byte_tokens.load(Ordering::Acquire);
-
-            loop {
-                if cur_tokens < buf_size as u64 {
-                    if config.replenish_packets() > 0 {
-                        self.add_packets(1, config.max_burst_packets());
-                    }
-                    return DatagramLimitAction::DelayUntil(self.wait_until());
-                }
-                let left_tokens = cur_tokens - buf_size as u64;
-                match self.byte_tokens.compare_exchange_weak(
-                    cur_tokens,
-                    left_tokens,
-                    Ordering::AcqRel,
-                    Ordering::Acquire,
-                ) {
-                    Ok(_) => break,
-                    Err(actual) => cur_tokens = actual,
-                }
+        if config.replenish_bytes() > 0
+            && self
+                .byte_tokens
+                .try_update(Ordering::AcqRel, Ordering::Acquire, |cur_tokens| {
+                    (cur_tokens >= buf_size as u64).then(|| cur_tokens - buf_size as u64)
+                })
+                .is_err()
+        {
+            if config.replenish_packets() > 0 {
+                self.add_packets(1, config.max_burst_packets());
             }
+            return DatagramLimitAction::DelayUntil(self.wait_until());
         }
 
         DatagramLimitAction::Advance(1)
@@ -167,51 +125,33 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
 
         let mut to_advance = total_size_v.len();
         if config.replenish_packets() > 0 {
-            let mut cur_tokens = self.packet_tokens.load(Ordering::Acquire);
-
-            loop {
-                if cur_tokens == 0 {
-                    return DatagramLimitAction::DelayUntil(self.wait_until());
+            match self
+                .packet_tokens
+                .try_update(Ordering::AcqRel, Ordering::Acquire, |cur_tokens| {
+                    (cur_tokens > 0).then(|| cur_tokens.saturating_sub(to_advance as u64))
+                }) {
+                Ok(prev) => {
+                    to_advance = (prev - prev.saturating_sub(to_advance as u64)) as usize;
                 }
-                let left_tokens = cur_tokens.saturating_sub(to_advance as u64);
-                match self.packet_tokens.compare_exchange_weak(
-                    cur_tokens,
-                    left_tokens,
-                    Ordering::AcqRel,
-                    Ordering::Acquire,
-                ) {
-                    Ok(_) => {
-                        to_advance = (cur_tokens - left_tokens) as usize;
-                        break;
-                    }
-                    Err(actual) => cur_tokens = actual,
-                }
+                Err(_) => return DatagramLimitAction::DelayUntil(self.wait_until()),
             }
         }
 
         let mut buf_size = total_size_v[to_advance - 1];
         if config.replenish_bytes() > 0 {
-            let mut cur_tokens = self.byte_tokens.load(Ordering::Acquire);
-
-            loop {
-                if cur_tokens == 0 {
+            match self
+                .byte_tokens
+                .try_update(Ordering::AcqRel, Ordering::Acquire, |cur_tokens| {
+                    (cur_tokens > 0).then(|| cur_tokens.saturating_sub(buf_size as u64))
+                }) {
+                Ok(prev) => {
+                    buf_size = (prev - prev.saturating_sub(buf_size as u64)) as usize;
+                }
+                Err(_) => {
                     if config.replenish_packets() > 0 {
                         self.add_packets(to_advance as u64, config.max_burst_packets());
                     }
                     return DatagramLimitAction::DelayUntil(self.wait_until());
-                }
-                let left_tokens = cur_tokens.saturating_sub(buf_size as u64);
-                match self.byte_tokens.compare_exchange_weak(
-                    cur_tokens,
-                    left_tokens,
-                    Ordering::AcqRel,
-                    Ordering::Acquire,
-                ) {
-                    Ok(_) => {
-                        buf_size = (cur_tokens - left_tokens) as usize;
-                        break;
-                    }
-                    Err(actual) => cur_tokens = actual,
                 }
             }
         }

@@ -61,30 +61,25 @@ impl GaugeSemaphore {
         &self,
         num_permits: usize,
     ) -> Result<GaugeSemaphorePermit, GaugeSemaphoreAcquireError> {
-        let mut curr = self.gauge.load(Ordering::Acquire);
-        loop {
-            // check for overflow
-            let next = match curr.checked_add(num_permits) {
-                Some(n) => n,
-                None => return Err(GaugeSemaphoreAcquireError::Overflow),
-            };
-
-            if self.permits > 0 && next > self.permits {
-                return Err(GaugeSemaphoreAcquireError::NoPermits);
-            }
-
-            match self
-                .gauge
-                .compare_exchange_weak(curr, next, Ordering::AcqRel, Ordering::Acquire)
-            {
-                Ok(_) => {
-                    return Ok(GaugeSemaphorePermit {
-                        count: num_permits,
-                        gauge: Arc::clone(&self.gauge),
-                    });
+        let mut err = None;
+        match self
+            .gauge
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |curr| {
+                let Some(next) = curr.checked_add(num_permits) else {
+                    err = Some(GaugeSemaphoreAcquireError::Overflow);
+                    return None;
+                };
+                if self.permits > 0 && next > self.permits {
+                    err = Some(GaugeSemaphoreAcquireError::NoPermits);
+                    return None;
                 }
-                Err(actual) => curr = actual,
-            }
+                Some(next)
+            }) {
+            Ok(_) => Ok(GaugeSemaphorePermit {
+                count: num_permits,
+                gauge: Arc::clone(&self.gauge),
+            }),
+            Err(_) => Err(err.expect("try_update failed only after a limit check")),
         }
     }
 

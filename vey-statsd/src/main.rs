@@ -11,17 +11,20 @@ use vey_daemon::control::{QuitAction, UpgradeAction};
 
 use vey_statsd::opts::ProcArgs;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature="jemalloc")] {
+cfg_select! {
+    feature = "jemalloc" => {
         #[global_allocator]
         static GLOBAL: vey_jemalloc::Jemalloc = vey_jemalloc::Jemalloc;
-    } else if #[cfg(feature="mimalloc")] {
+    }
+    feature = "mimalloc" => {
         #[global_allocator]
         static GLOBAL: vey_mimalloc::Mimalloc = vey_mimalloc::Mimalloc;
-    } else if #[cfg(feature="snmalloc")] {
+    }
+    feature = "snmalloc" => {
         #[global_allocator]
         static GLOBAL: snmalloc::SnMalloc = snmalloc::SnMalloc;
     }
+    _ => {}
 }
 
 fn main() -> anyhow::Result<()> {

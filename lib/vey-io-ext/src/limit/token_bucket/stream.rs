@@ -55,23 +55,11 @@ impl GlobalStreamLimiter {
     }
 
     fn add_bytes(&self, size: u64, max_burst: u64) {
-        let mut cur_tokens = self.byte_tokens.load(Ordering::Acquire);
-
-        loop {
-            if cur_tokens >= max_burst {
-                break;
-            }
-            let next_tokens = (cur_tokens + size).min(max_burst);
-            match self.byte_tokens.compare_exchange_weak(
-                cur_tokens,
-                next_tokens,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
-                Ok(_) => break,
-                Err(actual) => cur_tokens = actual,
-            }
-        }
+        let _ = self
+            .byte_tokens
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |cur_tokens| {
+                (cur_tokens < max_burst).then(|| (cur_tokens + size).min(max_burst))
+            });
     }
 
     fn wait_until(&self) -> Instant {
@@ -81,23 +69,12 @@ impl GlobalStreamLimiter {
     }
 
     pub fn try_consume(&self, size: u64) -> Option<u64> {
-        let mut cur_tokens = self.byte_tokens.load(Ordering::Acquire);
-
-        loop {
-            if cur_tokens == 0 {
-                return None;
-            }
-            let left_tokens = cur_tokens.saturating_sub(size);
-            match self.byte_tokens.compare_exchange_weak(
-                cur_tokens,
-                left_tokens,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
-                Ok(_) => return Some(cur_tokens - left_tokens),
-                Err(actual) => cur_tokens = actual,
-            }
-        }
+        self.byte_tokens
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |cur_tokens| {
+                (cur_tokens > 0).then(|| cur_tokens.saturating_sub(size))
+            })
+            .ok()
+            .map(|prev| prev - prev.saturating_sub(size))
     }
 }
 

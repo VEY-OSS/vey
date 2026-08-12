@@ -48,21 +48,10 @@ pub(super) struct GlobalRequestPicker {
 
 impl DnsRequestPickState for GlobalRequestPicker {
     fn pick_next(&self, max: usize) -> usize {
-        let mut id = self.id.load(Ordering::Acquire);
-        loop {
-            let mut next = id + 1;
-            if next > max {
-                next = 0;
-            }
-
-            match self
-                .id
-                .compare_exchange_weak(id, next, Ordering::AcqRel, Ordering::Acquire)
-            {
-                Ok(_) => return id,
-                Err(n) => id = n,
-            }
-        }
+        self.id.update(Ordering::AcqRel, Ordering::Acquire, |id| {
+            let next = id + 1;
+            if next > max { 0 } else { next }
+        })
     }
 }
 

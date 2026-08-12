@@ -24,17 +24,20 @@ impl RateLimitState for GlobalRateLimitState {
     where
         F: Fn(u64) -> Result<u64, Duration>,
     {
-        let mut cur = self.0.load(Ordering::Acquire);
-        let mut decision = update(cur)?;
-        loop {
-            match self
-                .0
-                .compare_exchange_weak(cur, decision, Ordering::Acquire, Ordering::Relaxed)
-            {
-                Ok(_) => return Ok(()),
-                Err(v) => cur = v,
-            }
-            decision = update(cur)?;
+        let mut err = None;
+        match self
+            .0
+            .try_update(Ordering::Acquire, Ordering::Relaxed, |cur| {
+                match update(cur) {
+                    Ok(next) => Some(next),
+                    Err(d) => {
+                        err = Some(d);
+                        None
+                    }
+                }
+            }) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(err.expect("try_update failed only after update returned Err")),
         }
     }
 }

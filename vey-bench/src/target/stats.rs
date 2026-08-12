@@ -79,45 +79,26 @@ impl GlobalState {
             return None;
         }
 
-        if self.check_total.load(Ordering::Relaxed) {
-            let mut curr = self.total_left.load(Ordering::Acquire);
-            loop {
-                if curr == 0 {
-                    return None;
-                }
-
-                match self.total_left.compare_exchange_weak(
-                    curr,
-                    curr - 1,
-                    Ordering::AcqRel,
-                    Ordering::Acquire,
-                ) {
-                    Ok(_) => break,
-                    Err(actual) => curr = actual,
-                }
-            }
+        if self.check_total.load(Ordering::Relaxed)
+            && self
+                .total_left
+                .try_update(Ordering::AcqRel, Ordering::Acquire, |curr| {
+                    (curr > 0).then_some(curr - 1)
+                })
+                .is_err()
+        {
+            return None;
         }
 
         Some(self.request_id.fetch_add(1, Ordering::Relaxed))
     }
 
     pub(super) fn check_log_error(&self) -> bool {
-        let mut curr = self.log_error_left.load(Ordering::Acquire);
-        loop {
-            if curr == 0 {
-                return false;
-            }
-
-            match self.log_error_left.compare_exchange_weak(
-                curr,
-                curr - 1,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
-                Ok(_) => return true,
-                Err(actual) => curr = actual,
-            }
-        }
+        self.log_error_left
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |curr| {
+                (curr > 0).then_some(curr - 1)
+            })
+            .is_ok()
     }
 
     pub(super) fn add_passed(&self) {

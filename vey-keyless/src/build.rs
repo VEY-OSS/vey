@@ -22,19 +22,22 @@ pub(crate) fn print_version(verbose_level: u8) {
     println!("{PKG_NAME} {VERSION}");
     if verbose_level > 0 {
         print!("Memory Allocator: ");
-        cfg_if::cfg_if!(
-            if #[cfg(feature = "jemalloc")] {
+        cfg_select! {
+            feature = "jemalloc" => {
                 if let Some(version) = vey_jemalloc::lib_version() {
                     println!("jemalloc {}", version.to_string_lossy());
                 }
-            } else if #[cfg(feature = "mimalloc")] {
+            }
+            feature = "mimalloc" => {
                 println!("mimalloc {}", vey_mimalloc::lib_version());
-            } else if #[cfg(feature = "snmalloc")] {
+            }
+            feature = "snmalloc" => {
                 println!("snmalloc");
-            } else {
+            }
+            _ => {
                 println!("system");
             }
-        );
+        };
         if let Some(variant) = vey_openssl::variant_name() {
             println!("OpenSSL Variant: {variant}");
         }

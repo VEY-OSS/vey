@@ -47,23 +47,11 @@ impl DaemonArgs {
     }
 
     fn set_with_systemd(&mut self) {
-        cfg_if::cfg_if! {
-            if #[cfg(target_os = "linux")] {
-                self.with_systemd = true;
-            } else {
-                self.with_systemd = false;
-            }
-        }
+        self.with_systemd = cfg!(target_os = "linux");
     }
 
     fn enable_daemon_mode(&mut self) {
-        cfg_if::cfg_if! {
-            if #[cfg(unix)] {
-                self.daemon_mode = true;
-            } else {
-                self.daemon_mode = false;
-            }
-        }
+        self.daemon_mode = cfg!(unix);
     }
 
     pub fn need_daemon_controller(&self) -> bool {

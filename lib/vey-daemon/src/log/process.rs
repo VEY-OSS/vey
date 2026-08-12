@@ -20,14 +20,13 @@ static PROCESS_LOGGER: OnceLock<Logger> = OnceLock::new();
 pub fn setup(args: &DaemonArgs) {
     let async_conf = AsyncLogConfig::with_name(PROCESS_LOG_THREAD_NAME);
     let logger = if args.with_systemd {
-        cfg_if::cfg_if! {
-            if #[cfg(target_os = "linux")] {
+        cfg_select! {
+            target_os = "linux" => {
                 let journal_conf = vey_journal::JournalConfig::with_ident(&args.program_name).append_code_position();
                 let drain = vey_journal::new_async_logger(&async_conf, journal_conf);
                 Logger::root(drain.fuse(), slog::o!())
-            } else {
-                unreachable!()
             }
+            _ => unreachable!(),
         }
     } else if args.daemon_mode {
         let drain =

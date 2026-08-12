@@ -15,17 +15,20 @@ use clap_complete::Shell;
 const COMMAND_VERSION: &str = "version";
 const COMMAND_COMPLETION: &str = "completion";
 
-cfg_if::cfg_if! {
-    if #[cfg(feature="jemalloc")] {
+cfg_select! {
+    feature = "jemalloc" => {
         #[global_allocator]
         static GLOBAL: vey_jemalloc::Jemalloc = vey_jemalloc::Jemalloc;
-    } else if #[cfg(feature="mimalloc")] {
+    }
+    feature = "mimalloc" => {
         #[global_allocator]
         static GLOBAL: vey_mimalloc::Mimalloc = vey_mimalloc::Mimalloc;
-    } else if #[cfg(feature="snmalloc")] {
+    }
+    feature = "snmalloc" => {
         #[global_allocator]
         static GLOBAL: snmalloc::SnMalloc = snmalloc::SnMalloc;
     }
+    _ => {}
 }
 
 fn build_cli_args() -> Command {

@@ -165,24 +165,14 @@ impl H2ConnectionPool {
         match self.pool_size {
             0 => Err(anyhow!("no connections configured for this pool")),
             1 => self.pool[0].fetch_stream().await,
-            _ => {
-                let mut indent = self.cur_index.load(Ordering::Acquire);
-                loop {
-                    let mut next = indent + 1;
-                    if next >= self.pool_size {
-                        next = 0;
-                    }
-
-                    match self.cur_index.compare_exchange_weak(
-                        indent,
-                        next,
-                        Ordering::AcqRel,
-                        Ordering::Acquire,
-                    ) {
-                        Ok(_) => return self.pool.get(indent).unwrap().fetch_stream().await,
-                        Err(v) => indent = v,
-                    }
-                }
+            pool_size => {
+                let indent = self
+                    .cur_index
+                    .update(Ordering::AcqRel, Ordering::Acquire, |indent| {
+                        let next = indent + 1;
+                        if next >= pool_size { 0 } else { next }
+                    });
+                self.pool.get(indent).unwrap().fetch_stream().await
             }
         }
     }

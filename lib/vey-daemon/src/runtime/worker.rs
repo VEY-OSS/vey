@@ -108,20 +108,11 @@ pub fn select_listen_handle() -> Option<WorkerHandle> {
         0 => None,
         1 => Some(handles[0].clone()),
         len => {
-            let mut prev = LISTEN_RR_INDEX.load(Ordering::Acquire);
             let max = len - 1;
-            loop {
-                let next = if prev >= max { 0 } else { prev + 1 };
-                match LISTEN_RR_INDEX.compare_exchange_weak(
-                    prev,
-                    next,
-                    Ordering::AcqRel,
-                    Ordering::Acquire,
-                ) {
-                    Ok(p) => return Some(handles[p].clone()),
-                    Err(n) => prev = n,
-                }
-            }
+            let prev = LISTEN_RR_INDEX.update(Ordering::AcqRel, Ordering::Acquire, |prev| {
+                if prev >= max { 0 } else { prev + 1 }
+            });
+            Some(handles[prev].clone())
         }
     }
 }
