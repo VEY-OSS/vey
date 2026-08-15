@@ -71,26 +71,26 @@ impl LdapUserGroup {
                     .await?;
 
                 if let Some((user, user_type)) = self.base.get_user(username) {
-                    return Ok(UserContext::new(
+                    return UserContext::new_with_local_policy(
                         Some(username.into()),
                         user,
                         user_type,
                         server_name,
                         server_extra_tags,
-                    ));
+                    );
                 }
 
                 let mut ht = self.unmanaged_users.lock().unwrap();
                 match ht.entry(username.into()) {
                     Entry::Occupied(o) => {
                         let user = o.get().clone();
-                        Ok(UserContext::new(
+                        UserContext::new_with_local_policy(
                             Some(username.into()),
                             user.clone(),
                             UserType::Unmanaged,
                             server_name,
                             server_extra_tags,
-                        ))
+                        )
                     }
                     Entry::Vacant(v) => {
                         let username = ArcStr::from(username);
@@ -105,13 +105,13 @@ impl LdapUserGroup {
 
                         v.insert(user.clone());
 
-                        Ok(UserContext::new(
+                        UserContext::new_with_local_policy(
                             Some(username),
                             user.clone(),
                             UserType::Unmanaged,
                             server_name,
                             server_extra_tags,
-                        ))
+                        )
                     }
                 }
             }
@@ -120,13 +120,13 @@ impl LdapUserGroup {
                     self.pool_handle
                         .check_username_password(username, password)
                         .await?;
-                    Ok(UserContext::new(
+                    UserContext::new_with_local_policy(
                         Some(username.into()),
                         user,
                         user_type,
                         server_name,
                         server_extra_tags,
-                    ))
+                    )
                 } else {
                     Err(UserAuthError::NoSuchUser)
                 }
