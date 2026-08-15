@@ -24,6 +24,8 @@ enum HashValue {
     Md5([u8; MD5_LENGTH]),
     Sha1([u8; SHA1_LENGTH]),
     Blake3(blake3::Hash),
+    #[cfg(test)]
+    Failing,
 }
 
 impl HashValue {
@@ -49,6 +51,8 @@ impl HashValue {
                 let b3 = blake3::hash(buf);
                 Ok(v.eq(&b3))
             }
+            #[cfg(test)]
+            HashValue::Failing => Err(ErrorStack::get()),
         }
     }
 }
@@ -120,14 +124,26 @@ impl FastHashedPassPhrase {
 
             let mut all_verified = true;
             for hv in self.values.iter() {
-                if !hv.hash_match(buf.as_slice())? {
-                    all_verified = false;
-                    break;
+                match hv.hash_match(buf.as_slice()) {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        all_verified = false;
+                        break;
+                    }
+                    Err(e) => {
+                        buf.clear();
+                        return Err(e);
+                    }
                 }
             }
             buf.clear();
             Ok(all_verified)
         })
+    }
+
+    #[cfg(test)]
+    fn push_failing_hash(&mut self) {
+        self.values.push(HashValue::Failing);
     }
 
     pub fn check_config(&self) -> anyhow::Result<()> {
@@ -249,5 +265,16 @@ mod tests {
         p.push_md5("28cb2d22a1148a2c4c43d2c8eab0a202").unwrap();
         assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
         assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
+    }
+
+    #[test]
+    fn verify_clears_buffer_on_hash_error() {
+        let mut failing = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        failing.push_failing_hash();
+        assert!(failing.verify("IQ5ZhanWaop2cw").is_err());
+
+        let mut ok = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        ok.push_md5("28cb2d22a1148a2c4c43d2c8eab0a202").unwrap();
+        assert!(ok.verify("IQ5ZhanWaop2cw").unwrap());
     }
 }
