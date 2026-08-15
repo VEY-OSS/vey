@@ -29,7 +29,7 @@ pub struct UdpRelayPacket {
 }
 
 impl UdpRelayPacket {
-    fn new(reserved_size: usize, packet_size: u16) -> Self {
+    pub fn new(reserved_size: usize, packet_size: u16) -> Self {
         let buf_size = packet_size as usize + reserved_size;
         UdpRelayPacket {
             // SAFETY: only `buf[off..end]` is read after recv fills that range.

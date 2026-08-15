@@ -88,6 +88,11 @@ pub(crate) struct SocksProxyServerConfig {
 }
 
 impl SocksProxyServerConfig {
+    #[cfg(test)]
+    pub(crate) fn new_for_test() -> Self {
+        Self::new(None)
+    }
+
     fn new(position: Option<YamlDocPosition>) -> Self {
         SocksProxyServerConfig {
             name: NodeName::default(),
