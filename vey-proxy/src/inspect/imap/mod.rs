@@ -544,8 +544,10 @@ mod tests {
             "127.0.0.1:143".parse().unwrap(),
         );
         let task_notes = ServerTaskNotes::new(cc_info, None, Duration::ZERO);
-        let mut egress_notes = EgressNotes::default();
-        egress_notes.socket_type = Some(EgressSocketType::Direct);
+        let mut egress_notes = EgressNotes {
+            socket_type: Some(EgressSocketType::Direct),
+            ..Default::default()
+        };
         egress_notes.tcp.local = Some("127.0.0.1:12345".parse().unwrap());
         egress_notes.tcp.peer = Some("127.0.0.1:143".parse().unwrap());
         let ctx = StreamInspectContext::new(
