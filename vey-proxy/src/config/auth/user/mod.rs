@@ -158,6 +158,11 @@ impl UserConfig {
         self.password_token = PasswordToken::SkipVerify;
     }
 
+    #[cfg(test)]
+    pub(crate) fn set_expire_datetime(&mut self, dt: Timestamp) {
+        self.expire_datetime = Some(dt);
+    }
+
     fn add_site_group(&mut self, sg: UserSiteConfig) -> anyhow::Result<()> {
         let name = sg.id.clone();
         if let Some(old_sg) = self.explicit_sites.insert(name, Arc::new(sg)) {

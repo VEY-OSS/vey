@@ -428,6 +428,13 @@ impl User {
                 return Err(UserAuthError::CryptoError);
             }
         }
+        self.check_local_policy(forbid_stats)
+    }
+
+    pub(super) fn check_local_policy(
+        &self,
+        forbid_stats: &Arc<UserForbiddenStats>,
+    ) -> Result<(), UserAuthError> {
         if self.is_expired() {
             forbid_stats.add_user_expired();
             return Err(UserAuthError::ExpiredUser);
@@ -743,6 +750,18 @@ impl UserContext {
         }
     }
 
+    pub(crate) fn new_with_local_policy(
+        raw_user_name: Option<ArcStr>,
+        user: Arc<User>,
+        user_type: UserType,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
+    ) -> Result<Self, UserAuthError> {
+        let user_ctx = Self::new(raw_user_name, user, user_type, server, server_extra_tags);
+        user_ctx.check_local_policy()?;
+        Ok(user_ctx)
+    }
+
     pub(crate) fn mark_reused_client_connection(&mut self) {
         self.reused_client_connection = true;
     }
@@ -895,6 +914,11 @@ impl UserContext {
     }
 
     #[inline]
+    pub(crate) fn check_local_policy(&self) -> Result<(), UserAuthError> {
+        self.user.check_local_policy(&self.forbid_stats)
+    }
+
+    #[inline]
     pub(crate) fn skip_log(&self) -> bool {
         self.user.skip_log(&self.forbid_stats)
     }
@@ -940,5 +964,91 @@ impl UserContext {
             .as_ref()
             .and_then(|site| site.http_rsp_hdr_recv_timeout())
             .or(self.user.config.http_rsp_hdr_recv_timeout)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::UserType;
+
+    fn user_from_config(config: UserConfig) -> Arc<User> {
+        let group = NodeName::new_static("test-group");
+        let now = Timestamp::now();
+        Arc::new(User::new(&group, &Arc::new(config), &now).unwrap())
+    }
+
+    fn context_after_external_auth(user: Arc<User>) -> Result<UserContext, UserAuthError> {
+        UserContext::new_with_local_policy(
+            Some(user.name.clone()),
+            user,
+            UserType::Static,
+            &NodeName::new_static("test-server"),
+            &Arc::new(ArcSwapOption::new(None)),
+        )
+    }
+
+    #[test]
+    fn external_auth_rejects_expired_user() {
+        let mut config = UserConfig::default();
+        config.set_expire_datetime(Timestamp::from_second(1).unwrap());
+        let user = user_from_config(config);
+        assert!(matches!(
+            context_after_external_auth(user),
+            Err(UserAuthError::ExpiredUser)
+        ));
+    }
+
+    #[test]
+    fn external_auth_rejects_blocked_user() {
+        let mut config = UserConfig::default();
+        config.block_and_delay = Some(Duration::from_secs(7));
+        let user = user_from_config(config);
+        assert!(matches!(
+            context_after_external_auth(user),
+            Err(UserAuthError::BlockedUser(d)) if d == Duration::from_secs(7)
+        ));
+    }
+
+    #[test]
+    fn external_auth_accepts_active_user() {
+        let user = user_from_config(UserConfig::default());
+        assert!(context_after_external_auth(user).is_ok());
+    }
+
+    #[test]
+    fn unmanaged_template_expire_and_block_are_enforced() {
+        let group = NodeName::new_static("test-group");
+        let name = ArcStr::from("ldap-user");
+
+        let mut expired = UserConfig::default();
+        expired.set_expire_datetime(Timestamp::from_second(1).unwrap());
+        let expired_user =
+            Arc::new(User::new_unmanaged(&name, &group, &Arc::new(expired)).unwrap());
+        assert!(matches!(
+            UserContext::new_with_local_policy(
+                Some(name.clone()),
+                expired_user,
+                UserType::Unmanaged,
+                &NodeName::new_static("test-server"),
+                &Arc::new(ArcSwapOption::new(None)),
+            ),
+            Err(UserAuthError::ExpiredUser)
+        ));
+
+        let mut blocked = UserConfig::default();
+        blocked.block_and_delay = Some(Duration::from_millis(50));
+        let blocked_user =
+            Arc::new(User::new_unmanaged(&name, &group, &Arc::new(blocked)).unwrap());
+        assert!(matches!(
+            UserContext::new_with_local_policy(
+                Some(name),
+                blocked_user,
+                UserType::Unmanaged,
+                &NodeName::new_static("test-server"),
+                &Arc::new(ArcSwapOption::new(None)),
+            ),
+            Err(UserAuthError::BlockedUser(_))
+        ));
     }
 }
