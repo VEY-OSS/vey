@@ -137,9 +137,7 @@ fn try_enable_event_fd(instance: CpaInstanceHandle, instance_id: u16) -> Option<
         )
     };
     if sts != CPA_STATUS_SUCCESS {
-        log::warn!(
-            "qat instance {instance_id}: cpaInstanceSetResponseMode(EVENT) failed: {sts}"
-        );
+        log::warn!("qat instance {instance_id}: cpaInstanceSetResponseMode(EVENT) failed: {sts}");
         return None;
     }
 
@@ -183,8 +181,7 @@ async fn poll_loop_epoll(instance_addr: usize, fd: RawFd, stop: Arc<AtomicBool>)
 
         // Drain completions until the instance reports empty.
         loop {
-            let sts =
-                unsafe { ffi::icp_sal_CyPollInstance(instance_addr as CpaInstanceHandle, 0) };
+            let sts = unsafe { ffi::icp_sal_CyPollInstance(instance_addr as CpaInstanceHandle, 0) };
             if sts == CPA_STATUS_RETRY {
                 break;
             }

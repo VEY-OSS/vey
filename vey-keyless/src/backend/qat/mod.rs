@@ -121,8 +121,7 @@ impl QatBackend {
 
 fn instance_id_from_env(worker_id: usize) -> anyhow::Result<u16> {
     let key = format!("WORKER_{worker_id}_QAT_INSTANCE");
-    let value = std::env::var(&key)
-        .map_err(|_| anyhow::anyhow!("env {key} is not set"))?;
+    let value = std::env::var(&key).map_err(|_| anyhow::anyhow!("env {key} is not set"))?;
     value
         .parse::<u16>()
         .map_err(|e| anyhow::anyhow!("env {key}={value:?} is not a valid u16: {e}"))
