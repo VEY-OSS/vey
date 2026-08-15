@@ -19,10 +19,11 @@ use super::{
 use crate::config::server::ServerConfig;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
-enum ClientAction {
+pub(super) enum ClientAction {
     Loop,
     Logout,
     Auth,
+    Login,
     StartTls,
     SendLiteral(u64),
 }
@@ -127,7 +128,7 @@ where
                             ClientAction::SendLiteral(size) => {
                                 self.relay_client_literal(size, clt_r, clt_w, ups_w, relay_buf).await?;
                             }
-                            ClientAction::Loop => {}
+                            ClientAction::Loop | ClientAction::Login => {}
                         }
                     }
                 }
@@ -136,6 +137,9 @@ where
                     match self.handle_rsp_line(line, clt_w).await? {
                         ResponseAction::Loop => {}
                         ResponseAction::Close => return Ok(InitiationStatus::ServerClose),
+                        ResponseAction::Authenticated => {
+                            return Ok(InitiationStatus::Authenticated);
+                        }
                         ResponseAction::SendLiteral(size) => {
                             self.relay_server_literal(size, clt_w, ups_r,  relay_buf).await?;
                         }
@@ -148,7 +152,7 @@ where
         }
     }
 
-    async fn handle_not_authenticated_cmd_line<CW, UW>(
+    pub(super) async fn handle_not_authenticated_cmd_line<CW, UW>(
         &mut self,
         line: &[u8],
         clt_w: &mut CW,
@@ -192,6 +196,7 @@ where
                             self.cmd_pipeline.set_ongoing_command(cmd);
                         } else {
                             self.cmd_pipeline.insert_completed(cmd);
+                            action = ClientAction::Login;
                         }
                     }
                     _ => {

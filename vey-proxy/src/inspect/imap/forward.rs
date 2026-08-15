@@ -22,6 +22,7 @@ use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 pub(super) enum ResponseAction {
     Loop,
     Close,
+    Authenticated,
     SendLiteral(u64),
     RecvClientLiteral(u64),
 }
@@ -357,6 +358,10 @@ where
                             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                         if r.result == CommandResult::Success {
                             match cmd.parsed {
+                                ParsedCommand::Login => {
+                                    self.authenticated = true;
+                                    action = ResponseAction::Authenticated;
+                                }
                                 ParsedCommand::Select | ParsedCommand::Examine => {
                                     self.mailbox_selected = true;
                                 }

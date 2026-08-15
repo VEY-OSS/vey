@@ -17,7 +17,7 @@ use super::{
 use crate::config::server::ServerConfig;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
-enum ClientAction {
+pub(super) enum ClientAction {
     Loop,
     Logout,
     Idle,
@@ -107,7 +107,7 @@ where
                         }
                     } else {
                         match self.handle_rsp_line(line, clt_w).await? {
-                            ResponseAction::Loop => {}
+                            ResponseAction::Loop | ResponseAction::Authenticated => {}
                             ResponseAction::Close => return Ok(CloseReason::Server),
                             ResponseAction::SendLiteral(size) => {
                                 self.relay_server_literal(size, clt_w, ups_r,  relay_buf).await?;
@@ -143,7 +143,7 @@ where
         }
     }
 
-    async fn handle_authenticated_cmd_line<CW, UW>(
+    pub(super) async fn handle_authenticated_cmd_line<CW, UW>(
         &mut self,
         line: &[u8],
         clt_w: &mut CW,
@@ -427,7 +427,7 @@ where
                         }
                     } else {
                         match self.handle_rsp_line(line, clt_w).await? {
-                            ResponseAction::Loop => {}
+                            ResponseAction::Loop | ResponseAction::Authenticated => {}
                             ResponseAction::Close => return Ok(Some(CloseReason::Server)),
                             ResponseAction::SendLiteral(size) => {
                                 self.relay_server_literal(size, clt_w, ups_r,  relay_buf).await?;
