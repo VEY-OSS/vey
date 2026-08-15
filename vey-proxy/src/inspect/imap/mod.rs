@@ -458,3 +458,177 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use arc_swap::ArcSwapOption;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use vey_daemon::server::{ClientConnectionInfo, ServerQuitPolicy};
+    use vey_io_ext::{IdleWheel, LineRecvVec};
+    use vey_types::metrics::{MetricTagMap, NodeName};
+    use vey_types::net::UpstreamAddr;
+    use vey_types::stats::StatId;
+
+    use super::*;
+    use crate::config::server::dummy_close::DummyCloseServerConfig;
+    use crate::escape::{EgressNotes, EgressSocketType};
+    use crate::inspect::StreamInspectContext;
+    use crate::serve::{
+        ServerForbiddenSnapshot, ServerForbiddenStats, ServerStats, ServerTaskNotes,
+    };
+
+    struct DummyServerStats {
+        name: NodeName,
+        id: StatId,
+        extra: Arc<ArcSwapOption<MetricTagMap>>,
+        forbidden: ServerForbiddenStats,
+    }
+
+    impl DummyServerStats {
+        fn new() -> Self {
+            DummyServerStats {
+                name: NodeName::default(),
+                id: StatId::new_unique(),
+                extra: Arc::new(ArcSwapOption::new(None)),
+                forbidden: ServerForbiddenStats::default(),
+            }
+        }
+    }
+
+    impl ServerStats for DummyServerStats {
+        fn name(&self) -> &NodeName {
+            &self.name
+        }
+
+        fn stat_id(&self) -> StatId {
+            self.id
+        }
+
+        fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
+            None
+        }
+
+        fn share_extra_tags(&self) -> &Arc<ArcSwapOption<MetricTagMap>> {
+            &self.extra
+        }
+
+        fn is_online(&self) -> bool {
+            true
+        }
+
+        fn get_conn_total(&self) -> u64 {
+            0
+        }
+
+        fn get_task_total(&self) -> u64 {
+            0
+        }
+
+        fn get_alive_count(&self) -> i32 {
+            0
+        }
+
+        fn forbidden_stats(&self) -> ServerForbiddenSnapshot {
+            self.forbidden.snapshot()
+        }
+    }
+
+    fn test_object() -> ImapInterceptObject<DummyCloseServerConfig> {
+        let auditor = crate::audit::get_or_insert_default(&NodeName::default());
+        let handle = auditor.build_handle().unwrap();
+        let cc_info = ClientConnectionInfo::new(
+            "127.0.0.1:12345".parse().unwrap(),
+            "127.0.0.1:143".parse().unwrap(),
+        );
+        let task_notes = ServerTaskNotes::new(cc_info, None, Duration::ZERO);
+        let mut egress_notes = EgressNotes::default();
+        egress_notes.socket_type = Some(EgressSocketType::Direct);
+        egress_notes.tcp.local = Some("127.0.0.1:12345".parse().unwrap());
+        egress_notes.tcp.peer = Some("127.0.0.1:143".parse().unwrap());
+        let ctx = StreamInspectContext::new(
+            handle,
+            Arc::new(DummyCloseServerConfig::new(&NodeName::default(), None)),
+            Arc::new(DummyServerStats::new()),
+            Arc::new(ServerQuitPolicy::default()),
+            IdleWheel::spawn(Duration::from_secs(60)),
+            &task_notes,
+            &egress_notes,
+        );
+        ImapInterceptObject::new(
+            ctx,
+            UpstreamAddr::from_ip_and_port("127.0.0.1".parse().unwrap(), 143),
+        )
+    }
+
+    fn test_relay_buf() -> ImapRelayBuf {
+        ImapRelayBuf {
+            rsp_recv_buf: LineRecvVec::with_capacity(4096),
+            cmd_recv_buf: LineRecvVec::with_capacity(4096),
+        }
+    }
+
+    #[tokio::test]
+    async fn login_ok_enters_authenticated_and_select_is_forwarded() {
+        let mut obj = test_object();
+        let mut relay_buf = test_relay_buf();
+
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(4096);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(4096);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(4096);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(4096);
+
+        let login = b"A002 LOGIN user pass\r\n";
+        clt_in.write_all(login).await.unwrap();
+
+        let intercept = obj.do_relay_not_authenticated(
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+            &mut relay_buf,
+        );
+        let drive = async {
+            let mut buf = [0u8; 64];
+            let n = ups_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], login);
+            ups_in.write_all(b"A002 OK logged in\r\n").await.unwrap();
+            let n = clt_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"A002 OK logged in\r\n");
+        };
+
+        let (status, _) = tokio::join!(intercept, drive);
+        assert!(matches!(status.unwrap(), InitiationStatus::Authenticated));
+        assert!(obj.authenticated);
+
+        let mut ups_sink = Vec::new();
+        let mut clt_sink = Vec::new();
+        obj.handle_authenticated_cmd_line(b"A003 SELECT INBOX\r\n", &mut clt_sink, &mut ups_sink)
+            .await
+            .unwrap();
+        assert_eq!(ups_sink, b"A003 SELECT INBOX\r\n");
+        assert!(
+            clt_sink.is_empty(),
+            "SELECT after LOGIN OK must be forwarded, got client {}",
+            String::from_utf8_lossy(&clt_sink)
+        );
+    }
+
+    #[tokio::test]
+    async fn select_before_login_is_rejected() {
+        let mut obj = test_object();
+        let mut ups_sink = Vec::new();
+        let mut clt_sink = Vec::new();
+        obj.handle_not_authenticated_cmd_line(
+            b"A003 SELECT INBOX\r\n",
+            &mut clt_sink,
+            &mut ups_sink,
+        )
+        .await
+        .unwrap();
+        assert!(ups_sink.is_empty());
+        assert_eq!(clt_sink, b"A003 BAD invalid command\r\n");
+    }
+}
