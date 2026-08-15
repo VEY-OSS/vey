@@ -88,7 +88,18 @@ pub(crate) struct SocksProxyServerConfig {
 }
 
 impl SocksProxyServerConfig {
-    #[cfg(test)]
+    #[cfg(all(
+        test,
+        any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd",
+            target_os = "macos",
+            target_os = "solaris",
+        )
+    ))]
     pub(crate) fn new_for_test() -> Self {
         Self::new(None)
     }
