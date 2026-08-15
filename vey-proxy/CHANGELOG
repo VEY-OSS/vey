@@ -2,6 +2,9 @@ CHANGELOG
 
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
+v1.15.0:
+ - BUG FIX: SOCKS5 UDP ASSOCIATE batch receive applies destination ACL to every datagram, so a later forbidden target is rejected
+
 v1.14.0:
  - Start of the 1.14 LTS branch
 
