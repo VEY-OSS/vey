@@ -8,6 +8,7 @@ v1.15.0:
  - BUG FIX: SOCKS5 UDP ASSOCIATE batch receive applies destination ACL to every datagram, so a later forbidden target is rejected
  - BUG FIX: IMAP interception enters the authenticated state after a successful LOGIN, so SELECT/FETCH are forwarded instead of rejected as BAD
  - BUG FIX: LDAP and Python password auth apply local `expire_datetime` and `block_and_delay` like Basic
+ - Compatibility: simple rate-limit quota values (e.g. `1000/s`) no longer burst a full period; default burst is the number of cells allowed in 1ms, rounded up (at least 1). Set `max_burst` for a larger burst
 
 v1.14.0:
  - Start of the 1.14 LTS branch

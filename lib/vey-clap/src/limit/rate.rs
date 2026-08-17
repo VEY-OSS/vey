@@ -19,24 +19,24 @@ pub fn get_rate_limit(args: &ArgMatches, id: &str) -> anyhow::Result<Option<Rate
     };
 
     let quota = if let Some((v1, v2)) = v.split_once('/') {
-        let burst =
-            NonZeroU32::from_str(v1.trim()).map_err(|e| anyhow!("invalid burst value: {e}"))?;
+        let cells =
+            NonZeroU32::from_str(v1.trim()).map_err(|e| anyhow!("invalid cells value: {e}"))?;
         let interval_s = v2.trim();
         if let Ok(seconds) = u64::from_str(interval_s) {
-            RateLimitQuota::new(Duration::from_secs(seconds), burst)?
+            RateLimitQuota::new(Duration::from_secs(seconds), cells)?
         } else if let Ok(interval) = humanize_rs::duration::parse(interval_s) {
-            RateLimitQuota::new(interval, burst)?
+            RateLimitQuota::new(interval, cells)?
         } else {
             match interval_s {
-                "s" => RateLimitQuota::per_second(burst)?,
-                "m" => RateLimitQuota::per_minute(burst)?,
-                "h" => RateLimitQuota::per_hour(burst)?,
+                "s" => RateLimitQuota::per_second(cells)?,
+                "m" => RateLimitQuota::per_minute(cells)?,
+                "h" => RateLimitQuota::per_hour(cells)?,
                 _ => return Err(anyhow!("invalid interval value {v2}")),
             }
         }
     } else {
-        let burst = NonZeroU32::from_str(v).map_err(|e| anyhow!("invalid burst value: {e}"))?;
-        RateLimitQuota::per_second(burst)?
+        let cells = NonZeroU32::from_str(v).map_err(|e| anyhow!("invalid cells value: {e}"))?;
+        RateLimitQuota::per_second(cells)?
     };
     Ok(Some(quota))
 }

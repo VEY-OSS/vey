@@ -274,7 +274,8 @@ It consists of three fields:
   **type**: :ref:`nonzero u32 <conf_value_nonzero_u32>`
 
   If an integer or a string without a unit is used, the default unit is
-  requests per second.
+  requests per second. Burst is the number of cells allowed in 1ms rounded up
+  (at least 1), unless *max_burst* is set.
 
   Supported units for string values:
 
@@ -300,7 +301,9 @@ The yaml value for *u32 limit quota* can be in varies formats:
 
 * simple rate
 
-  Just the rate value. The max_burst value is the same as the one set in the rate.
+  Just the rate value. The default max_burst is the number of cells allowed in
+  1ms rounded up (at least 1); use the map form with *max_burst* to allow a
+  larger burst.
 
 * map
 

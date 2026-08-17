@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::num::{NonZeroU32, NonZeroU64};
@@ -18,27 +19,38 @@ pub struct RateLimitQuota {
 }
 
 impl RateLimitQuota {
-    pub fn new(period: Duration, max_burst: NonZeroU32) -> anyhow::Result<Self> {
-        let replenish_nanos = period.as_nanos_u64() / (max_burst.get() as u64);
-        let replenish_nanos = NonZeroU64::new(replenish_nanos).ok_or_else(|| {
-            anyhow!("too large max burst value {max_burst} within {period:?} period")
-        })?;
+    /// Construct a quota of `cells` events per `period`.
+    ///
+    /// Burst is `max(1, ceil(cells allowed in 1ms))` so the limiter stays close
+    /// to the steady rate without being clipped by millisecond timer granularity.
+    /// Use [`allow_burst`](Self::allow_burst) when a larger burst is needed.
+    pub fn new(period: Duration, cells: NonZeroU32) -> anyhow::Result<Self> {
+        let period_nanos = period.as_nanos_u64();
+        let cell_count = u64::from(cells.get());
+        let replenish_nanos = period_nanos / cell_count;
+        let replenish_nanos = NonZeroU64::new(replenish_nanos)
+            .ok_or_else(|| anyhow!("too large cell count {cells} within {period:?} period"))?;
+        let cells_in_1ms = cell_count
+            .saturating_mul(Duration::from_millis(1).as_nanos_u64())
+            .div_ceil(period_nanos);
+        let max_burst =
+            NonZeroU32::new(u32::try_from(cells_in_1ms).unwrap_or(u32::MAX).max(1)).unwrap();
         Ok(RateLimitQuota {
             max_burst,
             replenish_nanos,
         })
     }
 
-    pub fn per_second(max_burst: NonZeroU32) -> anyhow::Result<Self> {
-        Self::new(Duration::from_secs(1), max_burst)
+    pub fn per_second(cells: NonZeroU32) -> anyhow::Result<Self> {
+        Self::new(Duration::from_secs(1), cells)
     }
 
-    pub fn per_minute(max_burst: NonZeroU32) -> anyhow::Result<Self> {
-        Self::new(Duration::from_secs(60), max_burst)
+    pub fn per_minute(cells: NonZeroU32) -> anyhow::Result<Self> {
+        Self::new(Duration::from_secs(60), cells)
     }
 
-    pub fn per_hour(max_burst: NonZeroU32) -> anyhow::Result<Self> {
-        Self::new(Duration::from_secs(3600), max_burst)
+    pub fn per_hour(cells: NonZeroU32) -> anyhow::Result<Self> {
+        Self::new(Duration::from_secs(3600), cells)
     }
 
     pub fn with_period(period: Duration) -> Option<Self> {
@@ -93,11 +105,35 @@ mod tests {
             RateLimitQuota::per_second(NonZeroU32::new(30).unwrap()).unwrap()
         );
 
-        let mut v = RateLimitQuota::with_period(Duration::from_secs(1)).unwrap();
-        v.allow_burst(NonZeroU32::new(60).unwrap());
+        let v = RateLimitQuota::with_period(Duration::from_secs(1)).unwrap();
         assert_eq!(RateLimitQuota::from_str("60/m").unwrap(), v);
-
-        v.allow_burst(NonZeroU32::new(3600).unwrap());
         assert_eq!(RateLimitQuota::from_str("3600/h").unwrap(), v);
+    }
+
+    #[test]
+    fn t_new_flattens_burst() {
+        let cells = NonZeroU32::new(30).unwrap();
+        let q = RateLimitQuota::new(Duration::from_secs(1), cells).unwrap();
+        assert_eq!(q.max_burst, NonZeroU32::MIN);
+        assert_eq!(
+            q.replenish_nanos,
+            NonZeroU64::new(1_000_000_000 / 30).unwrap()
+        );
+
+        let q = RateLimitQuota::per_second(NonZeroU32::new(1_000).unwrap()).unwrap();
+        assert_eq!(q.max_burst, NonZeroU32::MIN);
+
+        let q = RateLimitQuota::per_second(NonZeroU32::new(1_200).unwrap()).unwrap();
+        assert_eq!(q.max_burst, NonZeroU32::new(2).unwrap());
+
+        let q = RateLimitQuota::per_second(NonZeroU32::new(2_000).unwrap()).unwrap();
+        assert_eq!(q.max_burst, NonZeroU32::new(2).unwrap());
+
+        let q = RateLimitQuota::per_second(NonZeroU32::new(10_000).unwrap()).unwrap();
+        assert_eq!(q.max_burst, NonZeroU32::new(10).unwrap());
+
+        let mut q = RateLimitQuota::per_second(cells).unwrap();
+        q.allow_burst(cells);
+        assert_eq!(q.max_burst, cells);
     }
 }
