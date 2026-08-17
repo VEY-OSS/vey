@@ -172,6 +172,32 @@ impl From<RecvLineError> for GreetingError {
     }
 }
 
+impl From<GreetingError> for ServerTaskError {
+    fn from(value: GreetingError) -> Self {
+        match value {
+            GreetingError::Timeout => ServerTaskError::UpstreamAppTimeout("smtp greeting timeout"),
+            GreetingError::InvalidResponseLine(e) => {
+                ServerTaskError::UpstreamAppError(anyhow!("invalid greeting response line: {e}"))
+            }
+            GreetingError::TooLongResponseLine => {
+                ServerTaskError::UpstreamAppError(anyhow!("response line too long"))
+            }
+            GreetingError::UnexpectedReplyCode(c) => ServerTaskError::UpstreamAppError(anyhow!(
+                "unknown reply code {c} in greeting stage",
+            )),
+            GreetingError::NoHostField => {
+                ServerTaskError::UpstreamAppError(anyhow!("no host found in smtp greeting message"))
+            }
+            GreetingError::UnsupportedHostFormat => ServerTaskError::UpstreamAppError(anyhow!(
+                "unsupported host in smtp greeting message"
+            )),
+            GreetingError::ClientWriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
+            GreetingError::UpstreamReadFailed(e) => ServerTaskError::UpstreamReadFailed(e),
+            GreetingError::UpstreamClosed => ServerTaskError::ClosedByUpstream,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -279,31 +305,5 @@ mod tests {
         assert_eq!(code, ReplyCode::SERVICE_READY);
         assert_eq!(host.to_string(), "mail.example.com");
         assert_eq!(out, b"220 mail.example.com ready\r\n");
-    }
-}
-
-impl From<GreetingError> for ServerTaskError {
-    fn from(value: GreetingError) -> Self {
-        match value {
-            GreetingError::Timeout => ServerTaskError::UpstreamAppTimeout("smtp greeting timeout"),
-            GreetingError::InvalidResponseLine(e) => {
-                ServerTaskError::UpstreamAppError(anyhow!("invalid greeting response line: {e}"))
-            }
-            GreetingError::TooLongResponseLine => {
-                ServerTaskError::UpstreamAppError(anyhow!("response line too long"))
-            }
-            GreetingError::UnexpectedReplyCode(c) => ServerTaskError::UpstreamAppError(anyhow!(
-                "unknown reply code {c} in greeting stage",
-            )),
-            GreetingError::NoHostField => {
-                ServerTaskError::UpstreamAppError(anyhow!("no host found in smtp greeting message"))
-            }
-            GreetingError::UnsupportedHostFormat => ServerTaskError::UpstreamAppError(anyhow!(
-                "unsupported host in smtp greeting message"
-            )),
-            GreetingError::ClientWriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
-            GreetingError::UpstreamReadFailed(e) => ServerTaskError::UpstreamReadFailed(e),
-            GreetingError::UpstreamClosed => ServerTaskError::ClosedByUpstream,
-        }
     }
 }
