@@ -324,7 +324,24 @@ mod tests {
 
     #[test]
     fn login() {
-        assert_parsed(b"A002 LOGIN user pass\r\n", ParsedCommand::Login);
+        let cmd = assert_parsed(b"A002 LOGIN user pass\r\n", ParsedCommand::Login);
+        assert!(cmd.literal_arg.is_none());
+
+        let cmd = assert_parsed(
+            b"A002 LOGIN \"user name\" \"p ass\"\r\n",
+            ParsedCommand::Login,
+        );
+        assert!(cmd.literal_arg.is_none());
+
+        let cmd = assert_parsed(b"A002 LOGIN {4}\r\n", ParsedCommand::Login);
+        let literal = cmd.literal_arg.unwrap();
+        assert!(literal.wait_continuation);
+        assert_eq!(literal.size, 4);
+
+        let cmd = assert_parsed(b"A002 LOGIN {4+}\r\n", ParsedCommand::Login);
+        let literal = cmd.literal_arg.unwrap();
+        assert!(!literal.wait_continuation);
+        assert_eq!(literal.size, 4);
     }
 
     #[test]

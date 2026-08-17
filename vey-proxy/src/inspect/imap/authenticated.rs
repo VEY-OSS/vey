@@ -107,7 +107,7 @@ where
                         }
                     } else {
                         match self.handle_rsp_line(line, clt_w).await? {
-                            ResponseAction::Loop | ResponseAction::Authenticated => {}
+                            ResponseAction::Loop => {}
                             ResponseAction::Close => return Ok(CloseReason::Server),
                             ResponseAction::SendLiteral(size) => {
                                 self.relay_server_literal(size, clt_w, ups_r,  relay_buf).await?;
@@ -427,7 +427,7 @@ where
                         }
                     } else {
                         match self.handle_rsp_line(line, clt_w).await? {
-                            ResponseAction::Loop | ResponseAction::Authenticated => {}
+                            ResponseAction::Loop => {}
                             ResponseAction::Close => return Ok(Some(CloseReason::Server)),
                             ResponseAction::SendLiteral(size) => {
                                 self.relay_server_literal(size, clt_w, ups_r,  relay_buf).await?;

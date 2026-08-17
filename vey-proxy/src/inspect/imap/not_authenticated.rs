@@ -23,7 +23,6 @@ pub(super) enum ClientAction {
     Loop,
     Logout,
     Auth,
-    Login,
     StartTls,
     SendLiteral(u64),
 }
@@ -128,18 +127,19 @@ where
                             ClientAction::SendLiteral(size) => {
                                 self.relay_client_literal(size, clt_r, clt_w, ups_w, relay_buf).await?;
                             }
-                            ClientAction::Loop | ClientAction::Login => {}
+                            ClientAction::Loop => {}
                         }
                     }
                 }
                 r = relay_buf.rsp_recv_buf.recv_rsp_line(ups_r) => {
                     let line = r?;
                     match self.handle_rsp_line(line, clt_w).await? {
-                        ResponseAction::Loop => {}
-                        ResponseAction::Close => return Ok(InitiationStatus::ServerClose),
-                        ResponseAction::Authenticated => {
-                            return Ok(InitiationStatus::Authenticated);
+                        ResponseAction::Loop => {
+                            if self.authenticated {
+                                return Ok(InitiationStatus::Authenticated);
+                            }
                         }
+                        ResponseAction::Close => return Ok(InitiationStatus::ServerClose),
                         ResponseAction::SendLiteral(size) => {
                             self.relay_server_literal(size, clt_w, ups_r,  relay_buf).await?;
                         }
@@ -196,7 +196,6 @@ where
                             self.cmd_pipeline.set_ongoing_command(cmd);
                         } else {
                             self.cmd_pipeline.insert_completed(cmd);
-                            action = ClientAction::Login;
                         }
                     }
                     _ => {
@@ -421,19 +420,25 @@ where
             }
         };
 
-        let upper = orig.to_uppercase();
-        let Some(list) = upper.strip_prefix("* CAPABILITY ") else {
+        const PREFIX: &str = "* CAPABILITY ";
+        if orig.len() < PREFIX.len()
+            || !orig.as_bytes()[..PREFIX.len()].eq_ignore_ascii_case(PREFIX.as_bytes())
+        {
             let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
             return Err(ServerTaskError::UpstreamAppError(anyhow!(
                 "invalid IMAP CAPABILITY response line prefix"
             )));
-        };
+        }
+        let list = &orig[PREFIX.len()..];
 
         let mut new_cap = Capability::default();
 
         let mut new_line = Vec::with_capacity(line.len());
         new_line.extend_from_slice(b"* CAPABILITY");
         for item in list.split(' ') {
+            if item.is_empty() {
+                continue;
+            }
             if let Some(cap) = new_cap.check_supported(item, false) {
                 new_line.push(b' ');
                 new_line.extend_from_slice(cap.as_bytes());

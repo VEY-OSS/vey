@@ -47,6 +47,11 @@ use forward::ResponseAction;
 
 mod logout;
 
+#[cfg(test)]
+use authenticated::ClientAction as AuthClientAction;
+#[cfg(test)]
+use not_authenticated::ClientAction as NaClientAction;
+
 struct ImapRelayBuf {
     rsp_recv_buf: LineRecvVec,
     cmd_recv_buf: LineRecvVec,
@@ -572,6 +577,241 @@ mod tests {
         }
     }
 
+    async fn na_cmd(
+        obj: &mut ImapInterceptObject<DummyCloseServerConfig>,
+        line: &[u8],
+    ) -> (NaClientAction, Vec<u8>, Vec<u8>) {
+        let mut clt = Vec::new();
+        let mut ups = Vec::new();
+        let action = obj
+            .handle_not_authenticated_cmd_line(line, &mut clt, &mut ups)
+            .await
+            .unwrap();
+        (action, clt, ups)
+    }
+
+    async fn auth_cmd(
+        obj: &mut ImapInterceptObject<DummyCloseServerConfig>,
+        line: &[u8],
+    ) -> (AuthClientAction, Vec<u8>, Vec<u8>) {
+        let mut clt = Vec::new();
+        let mut ups = Vec::new();
+        let action = obj
+            .handle_authenticated_cmd_line(line, &mut clt, &mut ups)
+            .await
+            .unwrap();
+        (action, clt, ups)
+    }
+
+    async fn rsp(
+        obj: &mut ImapInterceptObject<DummyCloseServerConfig>,
+        line: &[u8],
+    ) -> (ResponseAction, Vec<u8>) {
+        let mut clt = Vec::new();
+        let action = obj.handle_rsp_line(line, &mut clt).await.unwrap();
+        (action, clt)
+    }
+
+    fn assert_forwarded(clt: &[u8], ups: &[u8], line: &[u8]) {
+        assert!(clt.is_empty(), "client {}", String::from_utf8_lossy(clt));
+        assert_eq!(ups, line);
+    }
+
+    fn assert_client_bad(clt: &[u8], ups: &[u8], tag: &str) {
+        assert!(ups.is_empty(), "upstream {}", String::from_utf8_lossy(ups));
+        assert_eq!(clt, format!("{tag} BAD invalid command\r\n").as_bytes());
+    }
+
+    #[tokio::test]
+    async fn not_authenticated_forwards_allowed_commands() {
+        let mut obj = test_object();
+        for line in [
+            &b"A001 CAPABILITY\r\n"[..],
+            b"A002 NOOP\r\n",
+            b"A003 ID NIL\r\n",
+            b"A004 LOGIN user pass\r\n",
+            b"A005 AUTHENTICATE PLAIN\r\n",
+            b"A006 STARTTLS\r\n",
+        ] {
+            let (action, clt, ups) = na_cmd(&mut obj, line).await;
+            assert!(
+                !matches!(action, NaClientAction::Logout),
+                "{}",
+                String::from_utf8_lossy(line)
+            );
+            assert_forwarded(&clt, &ups, line);
+        }
+
+        let (action, clt, ups) = na_cmd(&mut obj, b"A007 LOGOUT\r\n").await;
+        assert!(matches!(action, NaClientAction::Logout));
+        assert_forwarded(&clt, &ups, b"A007 LOGOUT\r\n");
+    }
+
+    #[tokio::test]
+    async fn not_authenticated_rejects_selected_state_commands() {
+        let mut obj = test_object();
+        for (tag, line) in [
+            ("A003", &b"A003 SELECT INBOX\r\n"[..]),
+            ("A004", b"A004 FETCH 1:* FLAGS\r\n"),
+            ("A005", b"A005 APPEND INBOX {1}\r\n"),
+            ("A006", b"A006 ENABLE CONDSTORE\r\n"),
+        ] {
+            let (action, clt, ups) = na_cmd(&mut obj, line).await;
+            assert!(matches!(action, NaClientAction::Loop));
+            assert_client_bad(&clt, &ups, tag);
+        }
+    }
+
+    #[tokio::test]
+    async fn login_literals_stay_ongoing_until_complete() {
+        let mut obj = test_object();
+        let (action, clt, ups) = na_cmd(&mut obj, b"A002 LOGIN {4}\r\n").await;
+        assert!(matches!(action, NaClientAction::Loop));
+        assert_forwarded(&clt, &ups, b"A002 LOGIN {4}\r\n");
+        assert!(obj.cmd_pipeline.ongoing_command().is_some());
+
+        let mut obj = test_object();
+        let (action, _, _) = na_cmd(&mut obj, b"A002 LOGIN {4+}\r\n").await;
+        assert!(matches!(action, NaClientAction::SendLiteral(4)));
+        assert!(obj.cmd_pipeline.ongoing_command().is_some());
+    }
+
+    #[tokio::test]
+    async fn starttls_rejected_after_already_upgraded() {
+        let mut obj = test_object();
+        obj.set_from_starttls();
+        let (action, clt, ups) = na_cmd(&mut obj, b"A001 STARTTLS\r\n").await;
+        assert!(matches!(action, NaClientAction::Loop));
+        assert_client_bad(&clt, &ups, "A001");
+    }
+
+    #[tokio::test]
+    async fn login_ok_sets_authenticated_login_no_does_not() {
+        let mut obj = test_object();
+        let _ = na_cmd(&mut obj, b"A002 LOGIN user pass\r\n").await;
+        let (action, clt) = rsp(&mut obj, b"A002 OK logged in\r\n").await;
+        assert!(matches!(action, ResponseAction::Loop));
+        assert_eq!(clt, b"A002 OK logged in\r\n");
+        assert!(obj.authenticated);
+
+        let mut obj = test_object();
+        let _ = na_cmd(&mut obj, b"A002 LOGIN user pass\r\n").await;
+        let (action, clt) = rsp(&mut obj, b"A002 NO [AUTHENTICATIONFAILED] failed\r\n").await;
+        assert!(matches!(action, ResponseAction::Loop));
+        assert_eq!(clt, b"A002 NO [AUTHENTICATIONFAILED] failed\r\n");
+        assert!(!obj.authenticated);
+
+        let mut obj = test_object();
+        let _ = na_cmd(&mut obj, b"A002 LOGIN user pass\r\n").await;
+        let (action, _) = rsp(&mut obj, b"A002 BAD invalid arguments\r\n").await;
+        assert!(matches!(action, ResponseAction::Loop));
+        assert!(!obj.authenticated);
+    }
+
+    #[tokio::test]
+    async fn login_ok_after_capability_untagged() {
+        let mut obj = test_object();
+        let _ = na_cmd(&mut obj, b"A001 CAPABILITY\r\n").await;
+        let _ = na_cmd(&mut obj, b"A002 LOGIN user pass\r\n").await;
+
+        let (action, clt) = rsp(
+            &mut obj,
+            b"* CAPABILITY IMAP4rev1 STARTTLS AUTH=PLAIN COMPRESS=DEFLATE LITERAL+\r\n",
+        )
+        .await;
+        assert!(matches!(action, ResponseAction::Loop));
+        assert_eq!(
+            clt,
+            b"* CAPABILITY IMAP4rev1 STARTTLS AUTH=PLAIN LITERAL+\r\n"
+        );
+        assert!(!obj.authenticated);
+
+        let (action, _) = rsp(&mut obj, b"A001 OK completed\r\n").await;
+        assert!(matches!(action, ResponseAction::Loop));
+        assert!(!obj.authenticated);
+
+        let (action, _) = rsp(&mut obj, b"A002 OK logged in\r\n").await;
+        assert!(matches!(action, ResponseAction::Loop));
+        assert!(obj.authenticated);
+    }
+
+    #[tokio::test]
+    async fn bye_closes_and_unknown_tag_is_protocol_error() {
+        let mut obj = test_object();
+        let (action, clt) = rsp(&mut obj, b"* BYE Autologout\r\n").await;
+        assert!(matches!(action, ResponseAction::Close));
+        assert_eq!(clt, b"* BYE Autologout\r\n");
+
+        let mut obj = test_object();
+        let mut clt = Vec::new();
+        let err = obj
+            .handle_rsp_line(b"Z999 OK unexpected\r\n", &mut clt)
+            .await;
+        assert!(err.is_err());
+    }
+
+    #[tokio::test]
+    async fn select_and_close_toggle_mailbox_selected() {
+        let mut obj = test_object();
+        obj.authenticated = true;
+        let _ = auth_cmd(&mut obj, b"A003 SELECT INBOX\r\n").await;
+        let (action, _) = rsp(&mut obj, b"A003 OK [READ-WRITE] selected\r\n").await;
+        assert!(matches!(action, ResponseAction::Loop));
+        assert!(obj.mailbox_selected);
+
+        let _ = auth_cmd(&mut obj, b"A004 CLOSE\r\n").await;
+        let _ = rsp(&mut obj, b"A004 OK closed\r\n").await;
+        assert!(!obj.mailbox_selected);
+    }
+
+    #[tokio::test]
+    async fn authenticated_forwards_select_and_rejects_login() {
+        let mut obj = test_object();
+        obj.authenticated = true;
+
+        let (action, clt, ups) = auth_cmd(&mut obj, b"A003 SELECT INBOX\r\n").await;
+        assert!(matches!(action, AuthClientAction::Loop));
+        assert_forwarded(&clt, &ups, b"A003 SELECT INBOX\r\n");
+
+        for (tag, line) in [
+            ("A004", &b"A004 LOGIN user pass\r\n"[..]),
+            ("A005", b"A005 AUTHENTICATE PLAIN\r\n"),
+            ("A006", b"A006 STARTTLS\r\n"),
+        ] {
+            let (action, clt, ups) = auth_cmd(&mut obj, line).await;
+            assert!(matches!(action, AuthClientAction::Loop));
+            assert_client_bad(&clt, &ups, tag);
+        }
+    }
+
+    #[tokio::test]
+    async fn fetch_requires_selected_mailbox() {
+        let mut obj = test_object();
+        obj.authenticated = true;
+        let (action, clt, ups) = auth_cmd(&mut obj, b"A004 FETCH 1:* FLAGS\r\n").await;
+        assert!(matches!(action, AuthClientAction::Loop));
+        assert_client_bad(&clt, &ups, "A004");
+
+        obj.mailbox_selected = true;
+        let (action, clt, ups) = auth_cmd(&mut obj, b"A005 FETCH 1:* FLAGS\r\n").await;
+        assert!(matches!(action, AuthClientAction::Loop));
+        assert_forwarded(&clt, &ups, b"A005 FETCH 1:* FLAGS\r\n");
+    }
+
+    #[tokio::test]
+    async fn enable_without_supported_caps_is_local_ok() {
+        let mut obj = test_object();
+        obj.authenticated = true;
+        let (action, clt, ups) = auth_cmd(&mut obj, b"A001 ENABLE XPIG-LATIN\r\n").await;
+        assert!(matches!(action, AuthClientAction::Loop));
+        assert!(ups.is_empty());
+        assert_eq!(clt, b"A001 OK no enabled\r\n");
+
+        let (action, clt, ups) = auth_cmd(&mut obj, b"A002 ENABLE CONDSTORE\r\n").await;
+        assert!(matches!(action, AuthClientAction::Loop));
+        assert_forwarded(&clt, &ups, b"A002 ENABLE CONDSTORE\r\n");
+    }
+
     #[tokio::test]
     async fn login_ok_enters_authenticated_and_select_is_forwarded() {
         let mut obj = test_object();
@@ -605,32 +845,117 @@ mod tests {
         assert!(matches!(status.unwrap(), InitiationStatus::Authenticated));
         assert!(obj.authenticated);
 
-        let mut ups_sink = Vec::new();
-        let mut clt_sink = Vec::new();
-        obj.handle_authenticated_cmd_line(b"A003 SELECT INBOX\r\n", &mut clt_sink, &mut ups_sink)
-            .await
-            .unwrap();
-        assert_eq!(ups_sink, b"A003 SELECT INBOX\r\n");
-        assert!(
-            clt_sink.is_empty(),
-            "SELECT after LOGIN OK must be forwarded, got client {}",
-            String::from_utf8_lossy(&clt_sink)
-        );
+        let (action, clt, ups) = auth_cmd(&mut obj, b"A003 SELECT INBOX\r\n").await;
+        assert!(matches!(action, AuthClientAction::Loop));
+        assert_forwarded(&clt, &ups, b"A003 SELECT INBOX\r\n");
     }
 
     #[tokio::test]
-    async fn select_before_login_is_rejected() {
+    async fn login_no_stays_not_authenticated() {
         let mut obj = test_object();
-        let mut ups_sink = Vec::new();
-        let mut clt_sink = Vec::new();
-        obj.handle_not_authenticated_cmd_line(
-            b"A003 SELECT INBOX\r\n",
-            &mut clt_sink,
-            &mut ups_sink,
-        )
-        .await
-        .unwrap();
-        assert!(ups_sink.is_empty());
-        assert_eq!(clt_sink, b"A003 BAD invalid command\r\n");
+        let mut relay_buf = test_relay_buf();
+
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(4096);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(4096);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(4096);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(4096);
+
+        let login = b"A002 LOGIN user pass\r\n";
+        let logout = b"A003 LOGOUT\r\n";
+        clt_in.write_all(login).await.unwrap();
+
+        let intercept = obj.do_relay_not_authenticated(
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+            &mut relay_buf,
+        );
+        let drive = async {
+            let mut buf = [0u8; 64];
+            let n = ups_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], login);
+            ups_in
+                .write_all(b"A002 NO [AUTHENTICATIONFAILED] failed\r\n")
+                .await
+                .unwrap();
+            let n = clt_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"A002 NO [AUTHENTICATIONFAILED] failed\r\n");
+            clt_in.write_all(logout).await.unwrap();
+            let n = ups_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], logout);
+        };
+
+        let (status, _) = tokio::join!(intercept, drive);
+        assert!(matches!(status.unwrap(), InitiationStatus::ClientClose));
+        assert!(!obj.authenticated);
+    }
+
+    #[tokio::test]
+    async fn authenticate_ok_enters_authenticated() {
+        let mut obj = test_object();
+        let mut relay_buf = test_relay_buf();
+
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(4096);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(4096);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(4096);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(4096);
+
+        let auth = b"A001 AUTHENTICATE PLAIN\r\n";
+        clt_in.write_all(auth).await.unwrap();
+
+        let intercept = obj.do_relay_not_authenticated(
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+            &mut relay_buf,
+        );
+        let drive = async {
+            let mut buf = [0u8; 64];
+            let n = ups_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], auth);
+            ups_in.write_all(b"A001 OK logged in\r\n").await.unwrap();
+            let n = clt_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"A001 OK logged in\r\n");
+        };
+
+        let (status, _) = tokio::join!(intercept, drive);
+        assert!(matches!(status.unwrap(), InitiationStatus::Authenticated));
+        assert!(obj.authenticated);
+    }
+
+    #[tokio::test]
+    async fn starttls_ok_returns_starttls_status() {
+        let mut obj = test_object();
+        let mut relay_buf = test_relay_buf();
+
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(4096);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(4096);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(4096);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(4096);
+
+        let starttls = b"A001 STARTTLS\r\n";
+        clt_in.write_all(starttls).await.unwrap();
+
+        let intercept = obj.do_relay_not_authenticated(
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+            &mut relay_buf,
+        );
+        let drive = async {
+            let mut buf = [0u8; 64];
+            let n = ups_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], starttls);
+            ups_in.write_all(b"A001 OK begin TLS\r\n").await.unwrap();
+            let n = clt_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"A001 OK begin TLS\r\n");
+        };
+
+        let (status, _) = tokio::join!(intercept, drive);
+        assert!(matches!(status.unwrap(), InitiationStatus::StartTls));
+        assert!(!obj.authenticated);
     }
 }
