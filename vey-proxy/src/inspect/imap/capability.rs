@@ -19,7 +19,7 @@ impl Capability {
         from_enable: bool,
     ) -> Option<&'a str> {
         if let Some(p) = memchr::memchr(b'=', cap.as_bytes()) {
-            let name = &cap[..p];
+            let name = cap[..p].to_ascii_uppercase();
             match name.as_bytes() {
                 b"AUTH" => {}
                 b"CONTEXT" => {}            // rfc5267
@@ -37,12 +37,11 @@ impl Capability {
                 _ => return None,
             }
         } else {
-            let name = cap;
-
+            let name = cap.to_ascii_uppercase();
             match name.as_bytes() {
                 b"IMAP4" => {}
-                b"IMAP4rev1" => self.imap4_rev1 = true,
-                b"IMAP4rev2" => {
+                b"IMAP4REV1" => self.imap4_rev1 = true,
+                b"IMAP4REV2" => {
                     if from_enable {
                         self.imap4_rev2 = true;
                     }
@@ -114,9 +113,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn literal() {
+    fn supported_and_filtered() {
         let mut cap = Capability::default();
-        let s = cap.check_supported("LITERAL+", false).unwrap();
-        assert_eq!(s, "LITERAL+")
+        assert_eq!(cap.check_supported("IMAP4rev1", false), Some("IMAP4rev1"));
+        assert!(cap.imap4_rev1);
+        assert_eq!(cap.check_supported("IMAP4REV1", false), Some("IMAP4REV1"));
+        assert_eq!(cap.check_supported("imap4rev1", false), Some("imap4rev1"));
+        assert_eq!(cap.check_supported("AUTH=PLAIN", false), Some("AUTH=PLAIN"));
+        assert_eq!(cap.check_supported("auth=plain", false), Some("auth=plain"));
+        assert_eq!(cap.check_supported("STARTTLS", false), Some("STARTTLS"));
+        assert_eq!(cap.check_supported("COMPRESS=DEFLATE", false), None);
+        assert_eq!(cap.check_supported("CATENATE", false), None);
+        assert_eq!(cap.check_supported("UNAUTHENTICATE", false), None);
+    }
+
+    #[test]
+    fn literal_plus_and_minus_are_exclusive() {
+        let mut cap = Capability::default();
+        assert_eq!(cap.check_supported("LITERAL+", false), Some("LITERAL+"));
+        assert!(cap.has_non_sync_literal);
+        assert_eq!(cap.check_supported("LITERAL-", false), None);
+
+        let mut cap = Capability::default();
+        assert_eq!(cap.check_supported("LITERAL-", false), Some("LITERAL-"));
+        assert_eq!(cap.check_supported("LITERAL+", false), None);
+    }
+
+    #[test]
+    fn imap4rev2_recorded_only_from_enable() {
+        let mut cap = Capability::default();
+        assert_eq!(cap.check_supported("IMAP4rev2", false), Some("IMAP4rev2"));
+        assert!(!cap.imap4_rev2);
+        assert_eq!(cap.check_supported("IMAP4rev2", true), Some("IMAP4rev2"));
+        assert!(cap.imap4_rev2);
     }
 }

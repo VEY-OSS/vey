@@ -113,7 +113,7 @@ impl Greeting {
         let Some(code) = items.next() else {
             return Ok(None);
         };
-        if code != "CAPABILITY" {
+        if !code.eq_ignore_ascii_case("CAPABILITY") {
             return Ok(None);
         }
 
@@ -224,5 +224,71 @@ impl From<GreetingError> for ServerTaskError {
             GreetingError::UpstreamReadFailed(e) => ServerTaskError::UpstreamReadFailed(e),
             GreetingError::UpstreamClosed => ServerTaskError::ClosedByUpstream,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use vey_io_ext::LineRecvVec;
+
+    use super::*;
+
+    async fn relay_greeting(line: &[u8]) -> (Greeting, Vec<u8>) {
+        let mut greeting = Greeting::default();
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(1024);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(1024);
+        let mut buf = LineRecvVec::with_capacity(1024);
+        ups_in.write_all(line).await.unwrap();
+        greeting
+            .relay(&mut ups_r, &mut clt_w, &mut buf, Duration::from_secs(1))
+            .await
+            .unwrap();
+        drop(clt_w);
+        let mut out = Vec::new();
+        clt_out.read_to_end(&mut out).await.unwrap();
+        (greeting, out)
+    }
+
+    #[tokio::test]
+    async fn ok_greeting() {
+        let (g, out) = relay_greeting(b"* OK IMAP4rev1 ready\r\n").await;
+        assert!(!g.pre_authenticated());
+        assert!(!g.close_service());
+        assert_eq!(out, b"* OK IMAP4rev1 ready\r\n");
+    }
+
+    #[tokio::test]
+    async fn preauth_greeting() {
+        let (g, out) = relay_greeting(b"* PREAUTH IMAP4rev1 logged in\r\n").await;
+        assert!(g.pre_authenticated());
+        assert!(!g.close_service());
+        assert_eq!(out, b"* PREAUTH IMAP4rev1 logged in\r\n");
+    }
+
+    #[tokio::test]
+    async fn bye_greeting_closes_service() {
+        let (g, out) = relay_greeting(b"* BYE shutting down\r\n").await;
+        assert!(!g.pre_authenticated());
+        assert!(g.close_service());
+        assert_eq!(out, b"* BYE shutting down\r\n");
+    }
+
+    #[tokio::test]
+    async fn capability_in_ok_greeting_is_filtered() {
+        let (g, out) =
+            relay_greeting(b"* OK [CAPABILITY IMAP4rev1 COMPRESS=DEFLATE AUTH=PLAIN] ready\r\n")
+                .await;
+        assert!(!g.pre_authenticated());
+        assert_eq!(out, b"* OK [CAPABILITY IMAP4rev1 AUTH=PLAIN] ready\r\n");
+    }
+
+    #[tokio::test]
+    async fn capability_code_in_greeting_is_case_insensitive() {
+        let (g, out) = relay_greeting(b"* OK [capability IMAP4rev1] ready\r\n").await;
+        assert!(!g.pre_authenticated());
+        assert_eq!(out, b"* OK [CAPABILITY IMAP4rev1] ready\r\n");
     }
 }
