@@ -172,6 +172,116 @@ impl From<RecvLineError> for GreetingError {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use vey_io_ext::OnceBufReader;
+    use vey_smtp_proto::response::ReplyCode;
+
+    use super::*;
+
+    async fn relay_greeting(line: &[u8]) -> Result<(Greeting, Vec<u8>), GreetingError> {
+        let mut greeting = Greeting::new("127.0.0.1".parse().unwrap());
+        let (mut ups_in, ups_r) = tokio::io::duplex(1024);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(1024);
+        ups_in.write_all(line).await.unwrap();
+        let ups_r = OnceBufReader::new(ups_r, Default::default());
+        let result = greeting
+            .relay(ups_r, &mut clt_w, Duration::from_secs(1))
+            .await;
+        drop(clt_w);
+        let mut out = Vec::new();
+        clt_out.read_to_end(&mut out).await.unwrap();
+        result.map(|_| (greeting, out))
+    }
+
+    #[tokio::test]
+    async fn ok_greeting_forwards_and_parses_host() {
+        let (g, out) = relay_greeting(b"220 mail.example.com ESMTP ready\r\n")
+            .await
+            .unwrap();
+        let (code, host) = g.into_parts();
+        assert_eq!(code, ReplyCode::SERVICE_READY);
+        assert_eq!(host.to_string(), "mail.example.com");
+        assert_eq!(out, b"220 mail.example.com ESMTP ready\r\n");
+    }
+
+    #[tokio::test]
+    async fn ok_greeting_parses_ipv4_host() {
+        let (g, out) = relay_greeting(b"220 [192.0.2.1] ESMTP ready\r\n")
+            .await
+            .unwrap();
+        let (code, host) = g.into_parts();
+        assert_eq!(code, ReplyCode::SERVICE_READY);
+        assert_eq!(host.to_string(), "192.0.2.1");
+        assert_eq!(out, b"220 [192.0.2.1] ESMTP ready\r\n");
+    }
+
+    #[tokio::test]
+    async fn multiline_ok_greeting_uses_first_line_host() {
+        let (g, out) = relay_greeting(b"220-mail.example.com ESMTP\r\n220 ready\r\n")
+            .await
+            .unwrap();
+        let (code, host) = g.into_parts();
+        assert_eq!(code, ReplyCode::SERVICE_READY);
+        assert_eq!(host.to_string(), "mail.example.com");
+        assert_eq!(out, b"220-mail.example.com ESMTP\r\n220 ready\r\n");
+    }
+
+    #[tokio::test]
+    async fn no_service_greeting_is_forwarded() {
+        let (g, out) = relay_greeting(b"554 5.3.0 No SMTP service here\r\n")
+            .await
+            .unwrap();
+        let (code, host) = g.into_parts();
+        assert_eq!(code, ReplyCode::NO_SERVICE);
+        assert!(host.is_empty());
+        assert_eq!(out, b"554 5.3.0 No SMTP service here\r\n");
+    }
+
+    #[tokio::test]
+    async fn unexpected_greeting_code_is_an_error() {
+        match relay_greeting(b"250 OK\r\n").await {
+            Err(GreetingError::UnexpectedReplyCode(_)) => {}
+            Ok(_) => panic!("expected unexpected reply code"),
+            Err(e) => panic!("unexpected error: {e}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn empty_host_field_is_an_error() {
+        match relay_greeting(b"220  ready\r\n").await {
+            Err(GreetingError::NoHostField) => {}
+            Ok(_) => panic!("expected no host field"),
+            Err(e) => panic!("unexpected error: {e}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn prebuffered_greeting_is_relayed() {
+        let mut greeting = Greeting::new("127.0.0.1".parse().unwrap());
+        let (_ups_in, ups_r) = tokio::io::duplex(1024);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(1024);
+        let ups_r = OnceBufReader::new(
+            ups_r,
+            bytes::BytesMut::from(&b"220 mail.example.com ready\r\n"[..]),
+        );
+        greeting
+            .relay(ups_r, &mut clt_w, Duration::from_secs(1))
+            .await
+            .unwrap();
+        drop(clt_w);
+        let mut out = Vec::new();
+        clt_out.read_to_end(&mut out).await.unwrap();
+        let (code, host) = greeting.into_parts();
+        assert_eq!(code, ReplyCode::SERVICE_READY);
+        assert_eq!(host.to_string(), "mail.example.com");
+        assert_eq!(out, b"220 mail.example.com ready\r\n");
+    }
+}
+
 impl From<GreetingError> for ServerTaskError {
     fn from(value: GreetingError) -> Self {
         match value {
