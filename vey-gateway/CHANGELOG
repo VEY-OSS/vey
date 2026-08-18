@@ -1,7 +1,6 @@
 
 v0.4.1:
  - Compatibility: bump MSRV to 1.94.0
- - Compatibility: simple request_rate_limit quota values (e.g. `1000/s`) no longer burst a full period; default burst is the number of cells allowed in 1ms, rounded up (at least 1). Set `max_burst` for a larger burst
 
 v0.4.0:
  - BUG FIX: keyless backend closes multiplex connections at the configured `max_request_count` (off-by-one no longer allows one extra request)

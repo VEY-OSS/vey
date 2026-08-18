@@ -19,38 +19,46 @@ pub struct RateLimitQuota {
 }
 
 impl RateLimitQuota {
-    /// Construct a quota of `cells` events per `period`.
-    ///
-    /// Burst is `max(1, ceil(cells allowed in 1ms))` so the limiter stays close
-    /// to the steady rate without being clipped by millisecond timer granularity.
-    /// Use [`allow_burst`](Self::allow_burst) when a larger burst is needed.
-    pub fn new(period: Duration, cells: NonZeroU32) -> anyhow::Result<Self> {
-        let period_nanos = period.as_nanos_u64();
-        let cell_count = u64::from(cells.get());
-        let replenish_nanos = period_nanos / cell_count;
-        let replenish_nanos = NonZeroU64::new(replenish_nanos)
-            .ok_or_else(|| anyhow!("too large cell count {cells} within {period:?} period"))?;
-        let cells_in_1ms = cell_count
-            .saturating_mul(Duration::from_millis(1).as_nanos_u64())
-            .div_ceil(period_nanos);
-        let max_burst =
-            NonZeroU32::new(u32::try_from(cells_in_1ms).unwrap_or(u32::MAX).max(1)).unwrap();
+    pub fn new(period: Duration, max_burst: NonZeroU32) -> anyhow::Result<Self> {
+        let replenish_nanos = period.as_nanos_u64() / (max_burst.get() as u64);
+        let replenish_nanos = NonZeroU64::new(replenish_nanos).ok_or_else(|| {
+            anyhow!("too large max burst value {max_burst} within {period:?} period")
+        })?;
         Ok(RateLimitQuota {
             max_burst,
             replenish_nanos,
         })
     }
 
-    pub fn per_second(cells: NonZeroU32) -> anyhow::Result<Self> {
-        Self::new(Duration::from_secs(1), cells)
+    pub fn per_second(max_burst: NonZeroU32) -> anyhow::Result<Self> {
+        Self::new(Duration::from_secs(1), max_burst)
     }
 
-    pub fn per_minute(cells: NonZeroU32) -> anyhow::Result<Self> {
-        Self::new(Duration::from_secs(60), cells)
+    pub fn per_minute(max_burst: NonZeroU32) -> anyhow::Result<Self> {
+        Self::new(Duration::from_secs(60), max_burst)
     }
 
-    pub fn per_hour(cells: NonZeroU32) -> anyhow::Result<Self> {
-        Self::new(Duration::from_secs(3600), cells)
+    pub fn per_hour(max_burst: NonZeroU32) -> anyhow::Result<Self> {
+        Self::new(Duration::from_secs(3600), max_burst)
+    }
+
+    /// Like [`new`](Self::new), but burst is paced to about 1ms of traffic.
+    pub fn paced_new(period: Duration, cells: NonZeroU32) -> anyhow::Result<Self> {
+        let mut quota = Self::new(period, cells)?;
+        quota.pace();
+        Ok(quota)
+    }
+
+    pub fn paced_per_second(cells: NonZeroU32) -> anyhow::Result<Self> {
+        Self::paced_new(Duration::from_secs(1), cells)
+    }
+
+    pub fn paced_per_minute(cells: NonZeroU32) -> anyhow::Result<Self> {
+        Self::paced_new(Duration::from_secs(60), cells)
+    }
+
+    pub fn paced_per_hour(cells: NonZeroU32) -> anyhow::Result<Self> {
+        Self::paced_new(Duration::from_secs(3600), cells)
     }
 
     pub fn with_period(period: Duration) -> Option<Self> {
@@ -63,6 +71,20 @@ impl RateLimitQuota {
 
     pub fn allow_burst(&mut self, max_burst: NonZeroU32) {
         self.max_burst = max_burst;
+    }
+
+    /// Shrink burst to about 1ms of traffic for paced request generation.
+    ///
+    /// Rate-limit checks reject immediately, so they keep the constructed
+    /// burst (usually equal to the rate). Load generators wait instead, and
+    /// a full-period burst dumps a spike; this keeps the cell interval and
+    /// sets burst to `ceil(1ms / cell)` so a ~1ms timer does not clip rates
+    /// such as `1200/s` down to `1000/s`.
+    pub fn pace(&mut self) {
+        const TICK_NS: u64 = 1_000_000;
+        let cell = self.replenish_nanos.get();
+        let burst = TICK_NS.div_ceil(cell).min(u64::from(u32::MAX));
+        self.max_burst = NonZeroU32::new(burst as u32).unwrap_or(NonZeroU32::MIN);
     }
 }
 
@@ -94,6 +116,10 @@ impl FromStr for RateLimitQuota {
 mod tests {
     use super::*;
 
+    fn nz(n: u32) -> NonZeroU32 {
+        NonZeroU32::new(n).unwrap()
+    }
+
     #[test]
     fn t_from_str() {
         assert_eq!(
@@ -105,35 +131,36 @@ mod tests {
             RateLimitQuota::per_second(NonZeroU32::new(30).unwrap()).unwrap()
         );
 
-        let v = RateLimitQuota::with_period(Duration::from_secs(1)).unwrap();
+        let mut v = RateLimitQuota::with_period(Duration::from_secs(1)).unwrap();
+        v.allow_burst(NonZeroU32::new(60).unwrap());
         assert_eq!(RateLimitQuota::from_str("60/m").unwrap(), v);
+
+        v.allow_burst(NonZeroU32::new(3600).unwrap());
         assert_eq!(RateLimitQuota::from_str("3600/h").unwrap(), v);
     }
 
     #[test]
-    fn t_new_flattens_burst() {
-        let cells = NonZeroU32::new(30).unwrap();
-        let q = RateLimitQuota::new(Duration::from_secs(1), cells).unwrap();
-        assert_eq!(q.max_burst, NonZeroU32::MIN);
+    fn t_new_keeps_rate_as_burst() {
+        let q = RateLimitQuota::per_second(nz(500)).unwrap();
+        assert_eq!(q.max_burst, nz(500));
         assert_eq!(
             q.replenish_nanos,
-            NonZeroU64::new(1_000_000_000 / 30).unwrap()
+            NonZeroU64::new(1_000_000_000 / 500).unwrap()
         );
+    }
 
-        let q = RateLimitQuota::per_second(NonZeroU32::new(1_000).unwrap()).unwrap();
-        assert_eq!(q.max_burst, NonZeroU32::MIN);
+    #[test]
+    fn t_paced_keeps_cell_and_ceils_tick_burst() {
+        let q = RateLimitQuota::paced_per_second(nz(10)).unwrap();
+        assert_eq!(q.replenish_nanos.get(), 100_000_000);
+        assert_eq!(q.max_burst, nz(1));
 
-        let q = RateLimitQuota::per_second(NonZeroU32::new(1_200).unwrap()).unwrap();
-        assert_eq!(q.max_burst, NonZeroU32::new(2).unwrap());
+        let q = RateLimitQuota::paced_per_second(nz(1200)).unwrap();
+        assert_eq!(q.replenish_nanos.get(), 1_000_000_000 / 1200);
+        assert_eq!(q.max_burst, nz(2));
 
-        let q = RateLimitQuota::per_second(NonZeroU32::new(2_000).unwrap()).unwrap();
-        assert_eq!(q.max_burst, NonZeroU32::new(2).unwrap());
-
-        let q = RateLimitQuota::per_second(NonZeroU32::new(10_000).unwrap()).unwrap();
-        assert_eq!(q.max_burst, NonZeroU32::new(10).unwrap());
-
-        let mut q = RateLimitQuota::per_second(cells).unwrap();
-        q.allow_burst(cells);
-        assert_eq!(q.max_burst, cells);
+        let q = RateLimitQuota::paced_per_second(nz(10_000)).unwrap();
+        assert_eq!(q.replenish_nanos.get(), 100_000);
+        assert_eq!(q.max_burst, nz(10));
     }
 }

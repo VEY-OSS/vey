@@ -23,20 +23,20 @@ pub fn get_rate_limit(args: &ArgMatches, id: &str) -> anyhow::Result<Option<Rate
             NonZeroU32::from_str(v1.trim()).map_err(|e| anyhow!("invalid cells value: {e}"))?;
         let interval_s = v2.trim();
         if let Ok(seconds) = u64::from_str(interval_s) {
-            RateLimitQuota::new(Duration::from_secs(seconds), cells)?
+            RateLimitQuota::paced_new(Duration::from_secs(seconds), cells)?
         } else if let Ok(interval) = humanize_rs::duration::parse(interval_s) {
-            RateLimitQuota::new(interval, cells)?
+            RateLimitQuota::paced_new(interval, cells)?
         } else {
             match interval_s {
-                "s" => RateLimitQuota::per_second(cells)?,
-                "m" => RateLimitQuota::per_minute(cells)?,
-                "h" => RateLimitQuota::per_hour(cells)?,
+                "s" => RateLimitQuota::paced_per_second(cells)?,
+                "m" => RateLimitQuota::paced_per_minute(cells)?,
+                "h" => RateLimitQuota::paced_per_hour(cells)?,
                 _ => return Err(anyhow!("invalid interval value {v2}")),
             }
         }
     } else {
         let cells = NonZeroU32::from_str(v).map_err(|e| anyhow!("invalid cells value: {e}"))?;
-        RateLimitQuota::per_second(cells)?
+        RateLimitQuota::paced_per_second(cells)?
     };
     Ok(Some(quota))
 }
@@ -76,43 +76,43 @@ mod tests {
         let args = create_args(Some("10"));
         assert_eq!(
             get_rate_limit(&args, "rate").unwrap(),
-            Some(RateLimitQuota::per_second(nz(10)).unwrap())
+            Some(RateLimitQuota::paced_per_second(nz(10)).unwrap())
         );
 
         let args = create_args(Some("10/s"));
         assert_eq!(
             get_rate_limit(&args, "rate").unwrap(),
-            Some(RateLimitQuota::per_second(nz(10)).unwrap())
+            Some(RateLimitQuota::paced_per_second(nz(10)).unwrap())
         );
 
         let args = create_args(Some("10/m"));
         assert_eq!(
             get_rate_limit(&args, "rate").unwrap(),
-            Some(RateLimitQuota::per_minute(nz(10)).unwrap())
+            Some(RateLimitQuota::paced_per_minute(nz(10)).unwrap())
         );
 
         let args = create_args(Some("10/h"));
         assert_eq!(
             get_rate_limit(&args, "rate").unwrap(),
-            Some(RateLimitQuota::per_hour(nz(10)).unwrap())
+            Some(RateLimitQuota::paced_per_hour(nz(10)).unwrap())
         );
 
         let args = create_args(Some("5/2"));
         assert_eq!(
             get_rate_limit(&args, "rate").unwrap(),
-            Some(RateLimitQuota::new(Duration::from_secs(2), nz(5)).unwrap())
+            Some(RateLimitQuota::paced_new(Duration::from_secs(2), nz(5)).unwrap())
         );
 
         let args = create_args(Some("5/2s"));
         assert_eq!(
             get_rate_limit(&args, "rate").unwrap(),
-            Some(RateLimitQuota::new(Duration::from_secs(2), nz(5)).unwrap())
+            Some(RateLimitQuota::paced_new(Duration::from_secs(2), nz(5)).unwrap())
         );
 
         let args = create_args(Some(" 8 / s "));
         assert_eq!(
             get_rate_limit(&args, "rate").unwrap(),
-            Some(RateLimitQuota::per_second(nz(8)).unwrap())
+            Some(RateLimitQuota::paced_per_second(nz(8)).unwrap())
         );
     }
 
