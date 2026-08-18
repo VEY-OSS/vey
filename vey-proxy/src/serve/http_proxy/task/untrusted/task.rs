@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::sync::Arc;
@@ -101,14 +102,13 @@ impl<'a> HttpProxyUntrustedTask<'a> {
     where
         CDW: AsyncWrite + Unpin,
     {
-        let result = HttpProxyClientResponse::reply_proxy_auth_err(
+        let mut rsp = HttpProxyClientResponse::proxy_auth_required(
             self.req.version,
-            clt_w,
-            &self.ctx.server_config.auth_realm,
             self.should_close,
-        )
-        .await;
-        if result.is_err() {
+            self.ctx.server_config.auth_realm.as_str(),
+        );
+        self.ctx.apply_proxy_status_ident(&mut rsp);
+        if rsp.reply_err_to_request(clt_w).await.is_err() {
             self.should_close = true;
         }
     }

@@ -72,6 +72,7 @@ pub(crate) struct HttpProxyServerConfig {
     pub(crate) dst_port_filter: Option<AclExactPortRule>,
     pub(crate) local_server_names: HashSet<Host>,
     pub(crate) server_id: Option<HttpServerId>,
+    pub(crate) no_proxy_status: bool,
     pub(crate) auth_realm: AsciiString,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) timeout: HttpProxyServerTimeoutConfig,
@@ -124,6 +125,7 @@ impl HttpProxyServerConfig {
             dst_port_filter: None,
             local_server_names: HashSet::new(),
             server_id: None,
+            no_proxy_status: false,
             auth_realm: AsciiString::from_ascii("proxy").unwrap(),
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             timeout: HttpProxyServerTimeoutConfig::default(),
@@ -275,6 +277,11 @@ impl HttpProxyServerConfig {
                 let server_id = vey_yaml::value::as_http_server_id(v)
                     .context(format!("invalid http server id value for key {k}"))?;
                 self.server_id = Some(server_id);
+                Ok(())
+            }
+            "no_proxy_status" => {
+                self.no_proxy_status = vey_yaml::value::as_bool(v)
+                    .context(format!("invalid bool value for key {k}"))?;
                 Ok(())
             }
             "auth_realm" => {

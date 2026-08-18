@@ -15,6 +15,11 @@ use vey_h2::H2StreamBodyTransferError;
 use vey_icap_client::reqmod::h2::H2ReqmodAdaptationError;
 use vey_icap_client::respmod::h2::H2RespmodAdaptationError;
 use vey_io_ext::IdleForceQuitReason;
+use vey_types::net::HttpServerId;
+
+use crate::config::server::ServerConfig;
+use crate::inspect::StreamInspectContext;
+use crate::module::http_header::{self, ProxyErrorType};
 
 #[derive(Debug, Error)]
 pub(crate) enum H2InterceptionError {
@@ -111,25 +116,63 @@ pub(crate) enum H2StreamTransferError {
 }
 
 impl H2StreamTransferError {
-    pub(super) fn build_reply(&self) -> Option<Response<()>> {
-        let status_code = match self {
+    pub(super) fn status_and_error(&self) -> Option<(StatusCode, ProxyErrorType)> {
+        match self {
             H2StreamTransferError::UpstreamStreamOpenFailed(_)
-            | H2StreamTransferError::UpstreamStreamOpenTimeout => {
-                // we should refuse stream
-                return None;
+            | H2StreamTransferError::UpstreamStreamOpenTimeout => None,
+            H2StreamTransferError::RequestHeadSendFailed(_) => Some((
+                StatusCode::BAD_GATEWAY,
+                ProxyErrorType::ConnectionTerminated,
+            )),
+            H2StreamTransferError::InvalidHostHeader => {
+                Some((StatusCode::BAD_REQUEST, ProxyErrorType::HttpRequestError))
             }
-            H2StreamTransferError::RequestHeadSendFailed(_) => StatusCode::BAD_GATEWAY,
-            H2StreamTransferError::InvalidHostHeader => StatusCode::BAD_REQUEST,
-            H2StreamTransferError::ResponseHeadRecvFailed(_) => StatusCode::BAD_GATEWAY,
-            H2StreamTransferError::ResponseHeadRecvTimeout => StatusCode::GATEWAY_TIMEOUT,
-            H2StreamTransferError::InvalidContinueResponse => StatusCode::BAD_GATEWAY,
-            H2StreamTransferError::UnsupportedInformationalResponse(_) => StatusCode::BAD_GATEWAY,
-            _ => return None,
-        };
-        let rsp = Response::builder()
-            .status(status_code)
-            .version(Version::HTTP_2);
-        rsp.body(()).ok()
+            H2StreamTransferError::ResponseHeadRecvFailed(_) => Some((
+                StatusCode::BAD_GATEWAY,
+                ProxyErrorType::ConnectionTerminated,
+            )),
+            H2StreamTransferError::ResponseHeadRecvTimeout => Some((
+                StatusCode::GATEWAY_TIMEOUT,
+                ProxyErrorType::HttpResponseTimeout,
+            )),
+            H2StreamTransferError::InvalidContinueResponse => {
+                Some((StatusCode::BAD_GATEWAY, ProxyErrorType::HttpProtocolError))
+            }
+            H2StreamTransferError::UnsupportedInformationalResponse(_) => {
+                Some((StatusCode::BAD_GATEWAY, ProxyErrorType::HttpProtocolError))
+            }
+            _ => None,
+        }
+    }
+}
+
+impl<SC: ServerConfig> StreamInspectContext<SC> {
+    pub(crate) fn h2_local_error_response(
+        &self,
+        status: StatusCode,
+        error: ProxyErrorType,
+    ) -> Option<Response<()>> {
+        if self.audit_handle.no_proxy_status() {
+            return Response::builder()
+                .status(status)
+                .version(Version::HTTP_2)
+                .body(())
+                .ok();
+        }
+        let ident = self
+            .audit_handle
+            .server_id()
+            .map(HttpServerId::as_str)
+            .unwrap_or(http_header::DEFAULT_PROXY_STATUS_IDENT);
+        Response::builder()
+            .status(status)
+            .version(Version::HTTP_2)
+            .header(
+                "proxy-status",
+                http_header::proxy_status_value(ident, error),
+            )
+            .body(())
+            .ok()
     }
 }
 

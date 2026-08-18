@@ -7,7 +7,7 @@ use bytes::Bytes;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{RecvStream, SendStream, StreamId};
-use http::{Request, Response, StatusCode, Version};
+use http::{Request, StatusCode};
 
 use vey_h2::{H2StreamReader, H2StreamWriter};
 use vey_http::server::UriExt;
@@ -17,6 +17,7 @@ use vey_types::net::UpstreamAddr;
 use super::{ExchangeHead, HttpConnectTaskNotes};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
+use crate::module::http_header::ProxyErrorType;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
@@ -62,10 +63,9 @@ where
     }
 
     fn reply_bad_request(&mut self, mut clt_send_rsp: SendResponse<Bytes>) {
-        if let Ok(rsp) = Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .version(Version::HTTP_2)
-            .body(())
+        if let Some(rsp) = self
+            .ctx
+            .h2_local_error_response(StatusCode::BAD_REQUEST, ProxyErrorType::HttpRequestError)
         {
             let rsp_status = rsp.status().as_u16();
             if clt_send_rsp.send_response(rsp, true).is_ok() {

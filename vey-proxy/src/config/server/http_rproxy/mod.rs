@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::num::NonZeroUsize;
@@ -62,6 +63,7 @@ pub(crate) struct HttpRProxyServerConfig {
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) server_id: Option<HttpServerId>,
+    pub(crate) no_proxy_status: bool,
     pub(crate) auth_realm: AsciiString,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) timeout: HttpRProxyServerTimeoutConfig,
@@ -102,6 +104,7 @@ impl HttpRProxyServerConfig {
             listen_in_worker: false,
             ingress_net_filter: None,
             server_id: None,
+            no_proxy_status: false,
             auth_realm: AsciiString::from_ascii("vey-proxy").unwrap(),
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             timeout: HttpRProxyServerTimeoutConfig::default(),
@@ -190,6 +193,11 @@ impl HttpRProxyServerConfig {
                 let server_id = vey_yaml::value::as_http_server_id(v)
                     .context(format!("invalid http server id value for key {k}"))?;
                 self.server_id = Some(server_id);
+                Ok(())
+            }
+            "no_proxy_status" => {
+                self.no_proxy_status = vey_yaml::value::as_bool(v)
+                    .context(format!("invalid bool value for key {k}"))?;
                 Ok(())
             }
             "auth_realm" => {

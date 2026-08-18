@@ -119,7 +119,8 @@ where
     {
         let rsp = HttpProxyClientResponse::from_task_err(e, self.req.version, self.should_close);
 
-        if let Some(rsp) = rsp {
+        if let Some(mut rsp) = rsp {
+            self.ctx.apply_proxy_status_ident(&mut rsp);
             if rsp.should_close() {
                 self.should_close = true;
             }

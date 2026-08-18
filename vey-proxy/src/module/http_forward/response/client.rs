@@ -7,7 +7,6 @@
 use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr};
 
-use ascii::AsciiStr;
 use http::{StatusCode, Version};
 use mime::Mime;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
@@ -15,9 +14,10 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 use vey_ftp_client::FtpConnectError;
 use vey_http::server::HttpRequestParseError;
 use vey_io_ext::LimitedWriteExt;
-use vey_types::net::ConnectError;
+use vey_resolver::ResolveError;
+use vey_types::net::{ConnectError, HttpServerId};
 
-use crate::module::http_header;
+use crate::module::http_header::{self, ProxyErrorType};
 use crate::module::tcp_connect::TcpConnectError;
 use crate::module::udp_connect::UdpConnectError;
 use crate::serve::ServerTaskError;
@@ -49,6 +49,9 @@ pub(crate) struct HttpProxyClientResponse {
     close: bool,
     extra_headers: Vec<String>,
     custom_error_message: Option<&'static str>,
+    proxy_error: Option<ProxyErrorType>,
+    proxy_status_ident: Option<HttpServerId>,
+    omit_proxy_status: bool,
 }
 
 impl HttpProxyClientResponse {
@@ -65,7 +68,52 @@ impl HttpProxyClientResponse {
             close,
             extra_headers: Vec::new(),
             custom_error_message: None,
+            proxy_error: None,
+            proxy_status_ident: None,
+            omit_proxy_status: false,
         }
+    }
+
+    fn with_proxy_error(mut self, error: ProxyErrorType) -> Self {
+        self.proxy_error = Some(error);
+        self
+    }
+
+    pub(crate) fn set_proxy_status_ident(&mut self, ident: &HttpServerId) {
+        self.proxy_status_ident = Some(ident.clone());
+    }
+
+    pub(crate) fn set_optional_proxy_status_ident(&mut self, ident: Option<&HttpServerId>) {
+        if let Some(id) = ident {
+            self.set_proxy_status_ident(id);
+        }
+    }
+
+    pub(crate) fn apply_proxy_status(
+        &mut self,
+        no_proxy_status: bool,
+        ident: Option<&HttpServerId>,
+    ) {
+        if no_proxy_status {
+            self.omit_proxy_status = true;
+        } else {
+            self.set_optional_proxy_status_ident(ident);
+        }
+    }
+
+    fn append_proxy_status_header(&self, header: &mut Vec<u8>) {
+        if self.omit_proxy_status {
+            return;
+        }
+        let Some(error) = self.proxy_error else {
+            return;
+        };
+        let ident = self
+            .proxy_status_ident
+            .as_ref()
+            .map(HttpServerId::as_str)
+            .unwrap_or(http_header::DEFAULT_PROXY_STATUS_IDENT);
+        header.extend_from_slice(http_header::proxy_status(ident, error).as_bytes());
     }
 
     pub(crate) fn add_extra_header(&mut self, line: String) {
@@ -88,48 +136,69 @@ impl HttpProxyClientResponse {
     #[inline]
     pub(crate) fn too_many_requests(version: Version) -> Self {
         HttpProxyClientResponse::from_standard(StatusCode::TOO_MANY_REQUESTS, version, true)
+            .with_proxy_error(ProxyErrorType::HttpRequestError)
     }
 
     #[inline]
     pub(crate) fn forbidden(version: Version) -> Self {
         HttpProxyClientResponse::from_standard(StatusCode::FORBIDDEN, version, true)
+            .with_proxy_error(ProxyErrorType::HttpRequestDenied)
     }
 
     #[inline]
     pub(crate) fn method_not_allowed(version: Version) -> Self {
         HttpProxyClientResponse::from_standard(StatusCode::METHOD_NOT_ALLOWED, version, true)
+            .with_proxy_error(ProxyErrorType::HttpRequestError)
     }
 
     #[allow(unused)]
     #[inline]
     pub(crate) fn unimplemented(version: Version) -> Self {
         HttpProxyClientResponse::from_standard(StatusCode::NOT_IMPLEMENTED, version, true)
+            .with_proxy_error(ProxyErrorType::HttpRequestError)
     }
 
     #[inline]
     pub(crate) fn bad_request(version: Version) -> Self {
         HttpProxyClientResponse::from_standard(StatusCode::BAD_REQUEST, version, true)
+            .with_proxy_error(ProxyErrorType::HttpRequestError)
     }
 
     #[inline]
     pub(crate) fn bad_gateway(version: Version) -> Self {
         HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
+            .with_proxy_error(ProxyErrorType::HttpProtocolError)
     }
 
     #[inline]
     pub(crate) fn service_unavailable(version: Version) -> Self {
         HttpProxyClientResponse::from_standard(StatusCode::SERVICE_UNAVAILABLE, version, true)
+            .with_proxy_error(ProxyErrorType::DestinationUnavailable)
     }
 
     #[inline]
     pub(crate) fn resource_not_found(version: Version, close: bool) -> Self {
         HttpProxyClientResponse::from_standard(StatusCode::NOT_FOUND, version, close)
+            .with_proxy_error(ProxyErrorType::HttpRequestError)
     }
 
     pub(crate) fn need_login(version: Version, close: bool, realm: &str) -> Self {
         let mut response =
-            HttpProxyClientResponse::from_standard(StatusCode::UNAUTHORIZED, version, close);
+            HttpProxyClientResponse::from_standard(StatusCode::UNAUTHORIZED, version, close)
+                .with_proxy_error(ProxyErrorType::HttpRequestDenied);
         let auth_header = vey_http::header::www_authenticate_basic(realm);
+        response.add_extra_header(auth_header);
+        response
+    }
+
+    pub(crate) fn proxy_auth_required(version: Version, close: bool, realm: &str) -> Self {
+        let mut response = HttpProxyClientResponse::from_standard(
+            StatusCode::PROXY_AUTHENTICATION_REQUIRED,
+            version,
+            close,
+        )
+        .with_proxy_error(ProxyErrorType::HttpRequestDenied);
+        let auth_header = vey_http::header::proxy_authenticate_basic(realm);
         response.add_extra_header(auth_header);
         response
     }
@@ -204,7 +273,8 @@ impl HttpProxyClientResponse {
             StatusCode::RANGE_NOT_SATISFIABLE,
             version,
             close,
-        );
+        )
+        .with_proxy_error(ProxyErrorType::HttpRequestError);
         if let Some(start) = start_size {
             response.add_extra_header(vey_http::header::content_range_overflowed(start));
         }
@@ -212,8 +282,10 @@ impl HttpProxyClientResponse {
     }
 
     pub(crate) fn from_request_error(e: &HttpRequestParseError, version: Version) -> Option<Self> {
-        e.status_code()
-            .map(|status| HttpProxyClientResponse::from_standard(status, version, true))
+        e.status_code().map(|status| {
+            HttpProxyClientResponse::from_standard(status, version, true)
+                .with_proxy_error(proxy_error_for_client_status(status))
+        })
     }
 
     pub(crate) fn from_ftp_connect_error(
@@ -225,19 +297,26 @@ impl HttpProxyClientResponse {
             FtpConnectError::ConnectIoError(e) => {
                 HttpProxyClientResponse::from_tcp_connect_error(e, version, should_close)
             }
-            FtpConnectError::ConnectTimedOut | FtpConnectError::GreetingTimedOut => {
+            FtpConnectError::ConnectTimedOut => {
                 HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, true)
+                    .with_proxy_error(ProxyErrorType::ConnectionTimeout)
+            }
+            FtpConnectError::GreetingTimedOut => {
+                HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpResponseTimeout)
             }
             FtpConnectError::GreetingFailed(_)
             | FtpConnectError::NegotiationFailed(_)
             | FtpConnectError::InvalidReplyCode(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpProtocolError)
             }
             FtpConnectError::ServiceNotAvailable => HttpProxyClientResponse::from_standard(
                 StatusCode::SERVICE_UNAVAILABLE,
                 version,
                 true,
-            ),
+            )
+            .with_proxy_error(ProxyErrorType::DestinationUnavailable),
         }
     }
 
@@ -253,63 +332,75 @@ impl HttpProxyClientResponse {
                 StatusCode::SERVICE_UNAVAILABLE,
                 version,
                 true,
-            ),
-            TcpConnectError::ResolveFailed(_) => HttpProxyClientResponse::from_standard(
+            )
+            .with_proxy_error(ProxyErrorType::DestinationUnavailable),
+            TcpConnectError::ResolveFailed(e) => HttpProxyClientResponse::from_standard(
                 StatusCode::from_u16(CustomStatusCode::ORIGIN_DNS_ERROR).unwrap(),
                 version,
                 close,
-            ),
+            )
+            .with_proxy_error(proxy_error_for_resolve(e)),
             TcpConnectError::SetupSocketFailed(_) => HttpProxyClientResponse::from_standard(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 version,
                 true,
-            ),
+            )
+            .with_proxy_error(ProxyErrorType::ProxyInternalError),
             TcpConnectError::ConnectFailed(e) => {
                 HttpProxyClientResponse::from_net_connect_err(e, version, should_close)
             }
             TcpConnectError::TimeoutByRule => {
                 HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, close)
+                    .with_proxy_error(ProxyErrorType::ConnectionTimeout)
             }
             TcpConnectError::NoAddressConnected => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, close)
+                    .with_proxy_error(ProxyErrorType::ConnectionRefused)
             }
             TcpConnectError::ForbiddenAddressFamily | TcpConnectError::ForbiddenRemoteAddress => {
                 HttpProxyClientResponse::from_standard(StatusCode::FORBIDDEN, version, close)
+                    .with_proxy_error(ProxyErrorType::DestinationIpProhibited)
             }
             TcpConnectError::ProxyProtocolEncodeError(_) => HttpProxyClientResponse::from_standard(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 version,
                 true,
-            ),
+            )
+            .with_proxy_error(ProxyErrorType::ProxyInternalError),
             TcpConnectError::ProxyProtocolWriteFailed(_)
             | TcpConnectError::NegotiationReadFailed(_)
             | TcpConnectError::NegotiationWriteFailed(_)
             | TcpConnectError::NegotiationRejected(_)
             | TcpConnectError::NegotiationProtocolErr => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpProtocolError)
             }
             TcpConnectError::NegotiationPeerTimeout
             | TcpConnectError::PeerTlsHandshakeTimeout
             | TcpConnectError::UpstreamTlsHandshakeTimeout => {
                 HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, close)
+                    .with_proxy_error(ProxyErrorType::ConnectionTimeout)
             }
             TcpConnectError::InternalServerError(_)
             | TcpConnectError::InternalTlsClientError(_) => HttpProxyClientResponse::from_standard(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 version,
                 true,
-            ),
+            )
+            .with_proxy_error(ProxyErrorType::ProxyInternalError),
             TcpConnectError::PeerTlsHandshakeFailed(_) => HttpProxyClientResponse::from_standard(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 version,
                 true,
-            ),
+            )
+            .with_proxy_error(ProxyErrorType::TlsProtocolError),
             TcpConnectError::UpstreamTlsHandshakeFailed(_) => {
                 HttpProxyClientResponse::from_standard(
                     StatusCode::from_u16(CustomStatusCode::SSL_HANDSHAKE_FAILED).unwrap(),
                     version,
                     close,
                 )
+                .with_proxy_error(ProxyErrorType::TlsProtocolError)
             }
         }
     }
@@ -326,12 +417,14 @@ impl HttpProxyClientResponse {
                 StatusCode::SERVICE_UNAVAILABLE,
                 version,
                 true,
-            ),
-            UdpConnectError::ResolveFailed(_) => HttpProxyClientResponse::from_standard(
+            )
+            .with_proxy_error(ProxyErrorType::DestinationUnavailable),
+            UdpConnectError::ResolveFailed(e) => HttpProxyClientResponse::from_standard(
                 StatusCode::from_u16(CustomStatusCode::ORIGIN_DNS_ERROR).unwrap(),
                 version,
                 close,
-            ),
+            )
+            .with_proxy_error(proxy_error_for_resolve(e)),
             UdpConnectError::SetupSocketFailed(_)
             | UdpConnectError::ProxyProtocolEncodeError(_)
             | UdpConnectError::InternalServerError(_)
@@ -339,7 +432,8 @@ impl HttpProxyClientResponse {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 version,
                 true,
-            ),
+            )
+            .with_proxy_error(ProxyErrorType::ProxyInternalError),
             UdpConnectError::ForbiddenAddressFamily | UdpConnectError::ForbiddenRemoteAddress => {
                 HttpProxyClientResponse::forbidden(version)
             }
@@ -347,16 +441,24 @@ impl HttpProxyClientResponse {
             | UdpConnectError::UnderlyingTimeoutByRule
             | UdpConnectError::PeerTlsHandshakeTimeout => {
                 HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, close)
+                    .with_proxy_error(ProxyErrorType::ConnectionTimeout)
+            }
+            UdpConnectError::UnderlyingTcpConnectFailed(e) => {
+                HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
+                    .with_proxy_error(proxy_error_for_connect(e))
             }
             UdpConnectError::ProxyProtocolWriteFailed(_)
             | UdpConnectError::NegotiationReadFailed(_)
             | UdpConnectError::NegotiationWriteFailed(_)
             | UdpConnectError::NegotiationRejected(_)
             | UdpConnectError::NegotiationProtocolErr
-            | UdpConnectError::UnderlyingTcpConnectFailed(_)
-            | UdpConnectError::UnderlyingNoAddressConnected
-            | UdpConnectError::PeerTlsHandshakeFailed(_) => {
+            | UdpConnectError::UnderlyingNoAddressConnected => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpProtocolError)
+            }
+            UdpConnectError::PeerTlsHandshakeFailed(_) => {
+                HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
+                    .with_proxy_error(ProxyErrorType::TlsProtocolError)
             }
         }
     }
@@ -375,62 +477,78 @@ impl HttpProxyClientResponse {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 version,
                 close,
-            ),
+            )
+            .with_proxy_error(ProxyErrorType::ProxyInternalError),
             ServerTaskError::InternalTlsClientError(_) => HttpProxyClientResponse::from_standard(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 version,
                 true,
-            ),
+            )
+            .with_proxy_error(ProxyErrorType::ProxyInternalError),
             ServerTaskError::PeerTlsHandshakeTimeout => {
                 HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, close)
+                    .with_proxy_error(ProxyErrorType::ConnectionTimeout)
             }
             ServerTaskError::PeerTlsHandshakeFailed(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
+                    .with_proxy_error(ProxyErrorType::TlsProtocolError)
             }
             ServerTaskError::EscaperNotUsable(_) => HttpProxyClientResponse::from_standard(
                 StatusCode::SERVICE_UNAVAILABLE,
                 version,
                 true,
-            ),
+            )
+            .with_proxy_error(ProxyErrorType::DestinationUnavailable),
             ServerTaskError::ForbiddenByRule(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::FORBIDDEN, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpRequestDenied)
             }
             ServerTaskError::InvalidClientProtocol(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_REQUEST, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpRequestError)
             }
             ServerTaskError::ClientAppError(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_REQUEST, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpRequestError)
             }
             ServerTaskError::UnimplementedProtocol => {
                 HttpProxyClientResponse::from_standard(StatusCode::NOT_IMPLEMENTED, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpRequestError)
             }
             ServerTaskError::ClientAuthFailed => {
                 // not in this stage
                 return None;
             }
-            ServerTaskError::UpstreamNotResolved(_) => HttpProxyClientResponse::from_standard(
+            ServerTaskError::UpstreamNotResolved(e) => HttpProxyClientResponse::from_standard(
                 StatusCode::from_u16(CustomStatusCode::ORIGIN_DNS_ERROR).unwrap(),
                 version,
                 close,
-            ),
+            )
+            .with_proxy_error(proxy_error_for_resolve(e)),
             ServerTaskError::UpstreamNotConnected(e) => {
                 Self::from_net_connect_err(e, version, should_close)
             }
             ServerTaskError::UpstreamNotAvailable => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, close)
+                    .with_proxy_error(ProxyErrorType::ConnectionRefused)
             }
             ServerTaskError::InvalidUpstreamProtocol(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpProtocolError)
             }
             ServerTaskError::UpstreamReadFailed(_)
             | ServerTaskError::UpstreamWriteFailed(_)
-            | ServerTaskError::UpstreamNotNegotiated(_)
-            | ServerTaskError::UpstreamAppError(_)
             | ServerTaskError::ClosedByUpstream => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
+                    .with_proxy_error(ProxyErrorType::ConnectionTerminated)
+            }
+            ServerTaskError::UpstreamNotNegotiated(_) | ServerTaskError::UpstreamAppError(_) => {
+                HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpProtocolError)
             }
             ServerTaskError::UpstreamTlsHandshakeTimeout => {
                 HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, close)
+                    .with_proxy_error(ProxyErrorType::ConnectionTimeout)
             }
             ServerTaskError::UpstreamTlsHandshakeFailed(_) => {
                 HttpProxyClientResponse::from_standard(
@@ -438,26 +556,32 @@ impl HttpProxyClientResponse {
                     version,
                     close,
                 )
+                .with_proxy_error(ProxyErrorType::TlsProtocolError)
             }
             ServerTaskError::UpstreamAppUnavailable => HttpProxyClientResponse::from_standard(
                 StatusCode::SERVICE_UNAVAILABLE,
                 version,
                 true,
-            ),
+            )
+            .with_proxy_error(ProxyErrorType::DestinationUnavailable),
             ServerTaskError::UpstreamAppTimeout(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpResponseTimeout)
             }
             ServerTaskError::ClientAppTimeout(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::REQUEST_TIMEOUT, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpRequestError)
             }
             ServerTaskError::CanceledAsUserBlocked => {
                 HttpProxyClientResponse::from_standard(StatusCode::FORBIDDEN, version, true)
+                    .with_proxy_error(ProxyErrorType::HttpRequestDenied)
             }
             ServerTaskError::CanceledAsServerQuit => HttpProxyClientResponse::from_standard(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 version,
                 true,
-            ),
+            )
+            .with_proxy_error(ProxyErrorType::ProxyInternalError),
             ServerTaskError::ClientTcpReadFailed(_)
             | ServerTaskError::ClientTcpWriteFailed(_)
             | ServerTaskError::ClientUdpRecvFailed(_)
@@ -474,27 +598,35 @@ impl HttpProxyClientResponse {
     fn from_net_connect_err(e: &ConnectError, version: Version, should_close: bool) -> Self {
         let close = should_close;
         match e {
-            ConnectError::ConnectionRefused | ConnectError::ConnectionReset => {
-                HttpProxyClientResponse::from_standard(
-                    StatusCode::from_u16(CustomStatusCode::WEB_SERVER_IS_DOWN).unwrap(),
-                    version,
-                    close,
-                )
-            }
+            ConnectError::ConnectionRefused => HttpProxyClientResponse::from_standard(
+                StatusCode::from_u16(CustomStatusCode::WEB_SERVER_IS_DOWN).unwrap(),
+                version,
+                close,
+            )
+            .with_proxy_error(ProxyErrorType::ConnectionRefused),
+            ConnectError::ConnectionReset => HttpProxyClientResponse::from_standard(
+                StatusCode::from_u16(CustomStatusCode::WEB_SERVER_IS_DOWN).unwrap(),
+                version,
+                close,
+            )
+            .with_proxy_error(ProxyErrorType::ConnectionTerminated),
             ConnectError::NetworkUnreachable | ConnectError::HostUnreachable => {
                 HttpProxyClientResponse::from_standard(
                     StatusCode::from_u16(CustomStatusCode::ORIGIN_IS_UNREACHABLE).unwrap(),
                     version,
                     close,
                 )
+                .with_proxy_error(ProxyErrorType::DestinationIpUnroutable)
             }
             ConnectError::TimedOut => HttpProxyClientResponse::from_standard(
                 StatusCode::from_u16(CustomStatusCode::CONNECTION_TIMED_OUT).unwrap(),
                 version,
                 close,
-            ),
+            )
+            .with_proxy_error(ProxyErrorType::ConnectionTimeout),
             ConnectError::UnspecifiedError(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, close)
+                    .with_proxy_error(ProxyErrorType::ProxyInternalError)
             }
         }
     }
@@ -597,6 +729,7 @@ impl HttpProxyClientResponse {
         for line in &self.extra_headers {
             header.extend_from_slice(line.as_bytes());
         }
+        self.append_proxy_status_header(&mut header);
         header.extend_from_slice(vey_http::header::content_type(&mime::TEXT_HTML).as_bytes());
         header.extend_from_slice(vey_http::header::content_length(body.len() as u64).as_bytes());
         header.extend_from_slice(vey_http::header::connection_as_bytes(self.close));
@@ -614,36 +747,217 @@ impl HttpProxyClientResponse {
     {
         self.reply_err(writer).await
     }
+}
 
-    pub(crate) async fn reply_proxy_auth_err<W>(
-        version: Version,
-        writer: &mut W,
-        realm: &AsciiStr,
-        close: bool,
-    ) -> io::Result<()>
-    where
-        W: AsyncWrite + Unpin,
-    {
-        let mut response = HttpProxyClientResponse::from_standard(
-            StatusCode::PROXY_AUTHENTICATION_REQUIRED,
-            version,
-            close,
-        );
-        let auth_header = vey_http::header::proxy_authenticate_basic(realm.as_str());
-        response.add_extra_header(auth_header);
-        response.reply_err(writer).await
+fn proxy_error_for_resolve(e: &ResolveError) -> ProxyErrorType {
+    match e {
+        ResolveError::RequestTimeout | ResolveError::DriverTimeout => ProxyErrorType::DnsTimeout,
+        _ => ProxyErrorType::DnsError,
+    }
+}
+
+fn proxy_error_for_connect(e: &ConnectError) -> ProxyErrorType {
+    match e {
+        ConnectError::ConnectionRefused => ProxyErrorType::ConnectionRefused,
+        ConnectError::ConnectionReset => ProxyErrorType::ConnectionTerminated,
+        ConnectError::NetworkUnreachable | ConnectError::HostUnreachable => {
+            ProxyErrorType::DestinationIpUnroutable
+        }
+        ConnectError::TimedOut => ProxyErrorType::ConnectionTimeout,
+        ConnectError::UnspecifiedError(_) => ProxyErrorType::ProxyInternalError,
+    }
+}
+
+fn proxy_error_for_client_status(status: StatusCode) -> ProxyErrorType {
+    match status {
+        StatusCode::FORBIDDEN => ProxyErrorType::HttpRequestDenied,
+        StatusCode::LOOP_DETECTED => ProxyErrorType::ProxyLoopDetected,
+        _ => ProxyErrorType::HttpRequestError,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http::Version;
+
+    fn status_and_error(rsp: &HttpProxyClientResponse) -> (u16, Option<&'static str>) {
+        (rsp.status(), rsp.proxy_error.map(ProxyErrorType::as_token))
     }
 
-    pub(crate) async fn reply_auth_err<W>(
-        version: Version,
-        writer: &mut W,
-        realm: &AsciiStr,
-        close: bool,
-    ) -> io::Result<()>
-    where
-        W: AsyncWrite + Unpin,
-    {
-        let response = HttpProxyClientResponse::need_login(version, close, realm.as_str());
-        response.reply_err(writer).await
+    fn proxy_status_line(rsp: &HttpProxyClientResponse) -> Option<String> {
+        if rsp.omit_proxy_status {
+            return None;
+        }
+        rsp.proxy_error.map(|error| {
+            http_header::proxy_status(
+                rsp.proxy_status_ident
+                    .as_ref()
+                    .map(HttpServerId::as_str)
+                    .unwrap_or(http_header::DEFAULT_PROXY_STATUS_IDENT),
+                error,
+            )
+        })
+    }
+
+    #[test]
+    fn ok_response_has_no_proxy_status() {
+        let rsp = HttpProxyClientResponse::ok(Version::HTTP_11, false);
+        assert_eq!(status_and_error(&rsp), (200, None));
+        assert!(proxy_status_line(&rsp).is_none());
+    }
+
+    #[test]
+    fn connect_timeout_maps_to_proxy_status() {
+        let rsp = HttpProxyClientResponse::from_tcp_connect_error(
+            &TcpConnectError::TimeoutByRule,
+            Version::HTTP_11,
+            false,
+        );
+        assert_eq!(rsp.status(), 504);
+        assert_eq!(
+            proxy_status_line(&rsp).as_deref(),
+            Some("Proxy-Status: vey-proxy; error=connection_timeout\r\n")
+        );
+    }
+
+    #[test]
+    fn dns_and_tls_use_custom_codes_with_proxy_status() {
+        let dns = HttpProxyClientResponse::from_tcp_connect_error(
+            &TcpConnectError::ResolveFailed(ResolveError::EmptyResult),
+            Version::HTTP_11,
+            false,
+        );
+        assert_eq!(status_and_error(&dns), (530, Some("dns_error")));
+
+        let dns_timeout = HttpProxyClientResponse::from_tcp_connect_error(
+            &TcpConnectError::ResolveFailed(ResolveError::RequestTimeout),
+            Version::HTTP_11,
+            false,
+        );
+        assert_eq!(status_and_error(&dns_timeout), (530, Some("dns_timeout")));
+
+        let tls = HttpProxyClientResponse::from_tcp_connect_error(
+            &TcpConnectError::UpstreamTlsHandshakeFailed(anyhow::anyhow!("tls")),
+            Version::HTTP_11,
+            false,
+        );
+        assert_eq!(status_and_error(&tls), (525, Some("tls_protocol_error")));
+    }
+
+    #[test]
+    fn net_connect_errors_keep_custom_codes() {
+        let refused = HttpProxyClientResponse::from_net_connect_err(
+            &ConnectError::ConnectionRefused,
+            Version::HTTP_11,
+            false,
+        );
+        assert_eq!(
+            status_and_error(&refused),
+            (521, Some("connection_refused"))
+        );
+
+        let unreachable = HttpProxyClientResponse::from_net_connect_err(
+            &ConnectError::HostUnreachable,
+            Version::HTTP_11,
+            false,
+        );
+        assert_eq!(
+            status_and_error(&unreachable),
+            (523, Some("destination_ip_unroutable"))
+        );
+
+        let timed_out = HttpProxyClientResponse::from_net_connect_err(
+            &ConnectError::TimedOut,
+            Version::HTTP_11,
+            false,
+        );
+        assert_eq!(
+            status_and_error(&timed_out),
+            (522, Some("connection_timeout"))
+        );
+    }
+
+    #[test]
+    fn server_id_replaces_default_ident() {
+        let ident: HttpServerId = "edge-1".parse().unwrap();
+        let mut rsp = HttpProxyClientResponse::forbidden(Version::HTTP_11);
+        rsp.set_proxy_status_ident(&ident);
+        assert_eq!(
+            proxy_status_line(&rsp).as_deref(),
+            Some("Proxy-Status: edge-1; error=http_request_denied\r\n")
+        );
+
+        let mut rate_limited = HttpProxyClientResponse::too_many_requests(Version::HTTP_11);
+        rate_limited.set_optional_proxy_status_ident(Some(&ident));
+        assert_eq!(
+            proxy_status_line(&rate_limited).as_deref(),
+            Some("Proxy-Status: edge-1; error=http_request_error\r\n")
+        );
+
+        let mut method = HttpProxyClientResponse::method_not_allowed(Version::HTTP_11);
+        method.set_optional_proxy_status_ident(Some(&ident));
+        assert_eq!(
+            proxy_status_line(&method).as_deref(),
+            Some("Proxy-Status: edge-1; error=http_request_error\r\n")
+        );
+
+        let mut bad_request = HttpProxyClientResponse::bad_request(Version::HTTP_11);
+        bad_request.set_optional_proxy_status_ident(Some(&ident));
+        assert_eq!(
+            proxy_status_line(&bad_request).as_deref(),
+            Some("Proxy-Status: edge-1; error=http_request_error\r\n")
+        );
+
+        let mut unimplemented = HttpProxyClientResponse::unimplemented(Version::HTTP_11);
+        unimplemented.set_optional_proxy_status_ident(Some(&ident));
+        assert_eq!(
+            proxy_status_line(&unimplemented).as_deref(),
+            Some("Proxy-Status: edge-1; error=http_request_error\r\n")
+        );
+
+        let mut proxy_auth =
+            HttpProxyClientResponse::proxy_auth_required(Version::HTTP_11, true, "proxy");
+        proxy_auth.set_optional_proxy_status_ident(Some(&ident));
+        assert_eq!(
+            proxy_status_line(&proxy_auth).as_deref(),
+            Some("Proxy-Status: edge-1; error=http_request_denied\r\n")
+        );
+
+        let mut origin_auth = HttpProxyClientResponse::need_login(Version::HTTP_11, true, "ftp");
+        origin_auth.set_optional_proxy_status_ident(Some(&ident));
+        assert_eq!(
+            proxy_status_line(&origin_auth).as_deref(),
+            Some("Proxy-Status: edge-1; error=http_request_denied\r\n")
+        );
+    }
+
+    #[test]
+    fn proxy_status_can_be_disabled() {
+        let ident: HttpServerId = "edge-1".parse().unwrap();
+        let mut rsp = HttpProxyClientResponse::forbidden(Version::HTTP_11);
+        rsp.apply_proxy_status(true, Some(&ident));
+        assert!(proxy_status_line(&rsp).is_none());
+    }
+
+    #[test]
+    fn loop_detected_parse_error() {
+        let rsp = HttpProxyClientResponse::from_request_error(
+            &HttpRequestParseError::LoopDetected,
+            Version::HTTP_11,
+        )
+        .unwrap();
+        assert_eq!(status_and_error(&rsp), (508, Some("proxy_loop_detected")));
+    }
+
+    #[test]
+    fn local_forbidden_and_auth_errors() {
+        let rsp = HttpProxyClientResponse::from_task_err(
+            &ServerTaskError::ForbiddenByRule(crate::serve::ServerTaskForbiddenError::DestDenied),
+            Version::HTTP_11,
+            true,
+        )
+        .unwrap();
+        assert_eq!(status_and_error(&rsp), (403, Some("http_request_denied")));
     }
 }

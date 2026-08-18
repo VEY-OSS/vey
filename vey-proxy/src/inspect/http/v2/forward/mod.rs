@@ -149,7 +149,9 @@ where
     }
 
     fn reply_task_err(&mut self, mut clt_send_rsp: SendResponse<Bytes>, e: &H2StreamTransferError) {
-        if let Some(rsp) = e.build_reply() {
+        if let Some((status, error)) = e.status_and_error()
+            && let Some(rsp) = self.ctx.h2_local_error_response(status, error)
+        {
             let rsp_status = rsp.status().as_u16();
             if clt_send_rsp.send_response(rsp, true).is_ok() {
                 self.http_notes.rsp_status = rsp_status;

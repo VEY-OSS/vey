@@ -82,8 +82,8 @@ impl HttpProxyConnectTask {
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::too_many_requests(self.http_version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::too_many_requests(self.http_version);
+        self.ctx.apply_proxy_status_ident(&mut rsp);
         let _ = rsp.reply_err_to_request(clt_w).await;
         self.back_to_http = false;
     }
@@ -92,8 +92,8 @@ impl HttpProxyConnectTask {
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::forbidden(self.http_version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::forbidden(self.http_version);
+        self.ctx.apply_proxy_status_ident(&mut rsp);
         let _ = rsp.reply_err_to_request(clt_w).await;
         self.back_to_http = false;
     }
@@ -102,8 +102,8 @@ impl HttpProxyConnectTask {
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::method_not_allowed(self.http_version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::method_not_allowed(self.http_version);
+        self.ctx.apply_proxy_status_ident(&mut rsp);
         let _ = rsp.reply_err_to_request(clt_w).await;
         self.back_to_http = false;
     }
@@ -132,7 +132,7 @@ impl HttpProxyConnectTask {
         {
             let mut rsp = HttpProxyClientResponse::bad_request(self.http_version);
             rsp.set_error_message("Proxy targeting didn't find a match");
-            // no custom header is set for 400
+            self.ctx.apply_proxy_status_ident(&mut rsp);
             self.back_to_http = false;
             let _ = rsp.reply_err_to_request(clt_w).await;
             return;

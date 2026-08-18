@@ -157,7 +157,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             self.should_close || body_pending,
         );
 
-        if let Some(rsp) = rsp {
+        if let Some(mut rsp) = rsp {
+            self.ctx.apply_proxy_status_ident(&mut rsp);
             if rsp.should_close() {
                 self.should_close = true;
             }

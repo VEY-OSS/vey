@@ -179,8 +179,8 @@ impl<'a> FtpOverHttpTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::too_many_requests(self.req.version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::too_many_requests(self.req.version);
+        self.ctx.apply_proxy_status_ident(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
             self.ftp_notes.rsp_status = rsp.status();
         }
@@ -191,8 +191,8 @@ impl<'a> FtpOverHttpTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::forbidden(self.req.version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::forbidden(self.req.version);
+        self.ctx.apply_proxy_status_ident(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
             self.ftp_notes.rsp_status = rsp.status();
         }
@@ -203,8 +203,8 @@ impl<'a> FtpOverHttpTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::method_not_allowed(self.req.version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::method_not_allowed(self.req.version);
+        self.ctx.apply_proxy_status_ident(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
             self.ftp_notes.rsp_status = rsp.status();
         }
@@ -529,8 +529,8 @@ impl<'a> FtpOverHttpTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::bad_request(self.req.version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::bad_request(self.req.version);
+        self.ctx.apply_proxy_status_ident(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
             self.ftp_notes.rsp_status = rsp.status();
         }
@@ -542,8 +542,8 @@ impl<'a> FtpOverHttpTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::unimplemented(self.req.version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::unimplemented(self.req.version);
+        self.ctx.apply_proxy_status_ident(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
             self.ftp_notes.rsp_status = rsp.status();
         }

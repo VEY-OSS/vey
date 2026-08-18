@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::sync::Arc;
@@ -13,6 +14,7 @@ use vey_dpi::{
 };
 use vey_icap_client::reqmod::IcapReqmodClient;
 use vey_icap_client::respmod::IcapRespmodClient;
+use vey_types::net::HttpServerId;
 
 use super::Auditor;
 #[cfg(feature = "quic")]
@@ -102,6 +104,16 @@ impl AuditHandle {
     #[inline]
     pub(crate) fn log_uri_max_chars(&self) -> usize {
         self.auditor_config.log_uri_max_chars
+    }
+
+    #[inline]
+    pub(crate) fn server_id(&self) -> Option<&HttpServerId> {
+        self.auditor_config.server_id.as_ref()
+    }
+
+    #[inline]
+    pub(crate) fn no_proxy_status(&self) -> bool {
+        self.auditor_config.no_proxy_status
     }
 
     #[inline]

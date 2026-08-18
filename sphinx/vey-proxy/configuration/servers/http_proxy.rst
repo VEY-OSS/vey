@@ -87,9 +87,35 @@ server_id
 **optional**, **type**: :external+values:ref:`http server id <conf_value_http_server_id>`
 
 Server ID. If set, the ``X-VEY-Remote-Connection-Info`` header is added to the
-response.
+response, and the value is also used as the RFC 9209 ``Proxy-Status`` identifier
+on locally generated error responses. If unset, those error responses use
+``vey-proxy`` as the identifier.
+
+HTTP errors generated during protocol interception use the auditor
+:ref:`server_id <conf_auditor_server_id>`, not this value.
+
+See :ref:`protocol_client_proxy_status`.
 
 **default**: not set
+
+.. _config_server_http_proxy_no_proxy_status:
+
+no_proxy_status
+---------------
+
+**optional**, **type**: bool
+
+If set to ``true``, locally generated HTTP error responses do not include an
+RFC 9209 ``Proxy-Status`` header.
+
+HTTP errors generated during protocol interception use the auditor
+:ref:`no_proxy_status <conf_auditor_no_proxy_status>`, not this value.
+
+See :ref:`protocol_client_proxy_status`.
+
+**default**: false
+
+.. versionadded:: 1.15.0
 
 auth_realm
 ----------

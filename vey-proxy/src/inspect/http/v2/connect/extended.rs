@@ -9,7 +9,7 @@ use bytes::Bytes;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{RecvStream, StreamId};
-use http::{Request, Response, StatusCode, Version, header};
+use http::{Request, StatusCode, header};
 
 use vey_dpi::Protocol;
 use vey_h2::{H2StreamReader, H2StreamWriter};
@@ -21,6 +21,7 @@ use super::{ExchangeHead, H2StreamTransferError, HttpConnectTaskNotes};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::inspect::{InspectSource, stream::StreamInspectLog};
+use crate::module::http_header::ProxyErrorType;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
@@ -87,10 +88,9 @@ where
     }
 
     fn reply_bad_request(&mut self, mut clt_send_rsp: SendResponse<Bytes>) {
-        if let Ok(rsp) = Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .version(Version::HTTP_2)
-            .body(())
+        if let Some(rsp) = self
+            .ctx
+            .h2_local_error_response(StatusCode::BAD_REQUEST, ProxyErrorType::HttpRequestError)
         {
             let rsp_status = rsp.status().as_u16();
             if clt_send_rsp.send_response(rsp, true).is_ok() {
@@ -100,10 +100,9 @@ where
     }
 
     fn reply_forbidden(&mut self, mut clt_send_rsp: SendResponse<Bytes>) {
-        if let Ok(rsp) = Response::builder()
-            .status(StatusCode::FORBIDDEN)
-            .version(Version::HTTP_2)
-            .body(())
+        if let Some(rsp) = self
+            .ctx
+            .h2_local_error_response(StatusCode::FORBIDDEN, ProxyErrorType::HttpRequestDenied)
         {
             let rsp_status = rsp.status().as_u16();
             if clt_send_rsp.send_response(rsp, true).is_ok() {

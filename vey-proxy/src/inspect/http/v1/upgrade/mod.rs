@@ -127,7 +127,8 @@ where
     {
         let rsp = HttpProxyClientResponse::from_task_err(e, self.req.version, self.should_close);
 
-        if let Some(rsp) = rsp {
+        if let Some(mut rsp) = rsp {
+            self.ctx.apply_proxy_status_ident(&mut rsp);
             if rsp.should_close() {
                 self.should_close = true;
             }
@@ -140,10 +141,11 @@ where
         }
     }
 
-    async fn reply_fatal<CW>(&mut self, rsp: HttpProxyClientResponse, clt_w: &mut CW)
+    async fn reply_fatal<CW>(&mut self, mut rsp: HttpProxyClientResponse, clt_w: &mut CW)
     where
         CW: AsyncWrite + Unpin,
     {
+        self.ctx.apply_proxy_status_ident(&mut rsp);
         self.should_close = true;
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
             self.http_notes.rsp_status = rsp.status();

@@ -114,6 +114,45 @@ Maximum number of URI characters retained in logs.
 
 **default**: 1024
 
+.. _conf_auditor_server_id:
+
+server_id
+---------
+
+**optional**, **type**: :external+values:ref:`http server id <conf_value_http_server_id>`
+
+Identifier used as the RFC 9209 ``Proxy-Status`` member when this auditor
+generates an HTTP error response during interception (H1 or H2).
+
+This value is independent of the front-end server's
+:ref:`server_id <config_server_http_proxy_server_id>`. If unset, intercept
+error responses use ``vey-proxy``.
+
+See :ref:`protocol_client_proxy_status`.
+
+**default**: not set
+
+.. versionadded:: 1.15.0
+
+.. _conf_auditor_no_proxy_status:
+
+no_proxy_status
+---------------
+
+**optional**, **type**: bool
+
+If set to ``true``, HTTP error responses generated during interception (H1 or
+H2) do not include an RFC 9209 ``Proxy-Status`` header.
+
+This is independent of the front-end server's
+:ref:`no_proxy_status <config_server_http_proxy_no_proxy_status>`.
+
+See :ref:`protocol_client_proxy_status`.
+
+**default**: false
+
+.. versionadded:: 1.15.0
+
 .. _conf_auditor_h1_interception:
 
 h1_interception

@@ -132,8 +132,8 @@ impl<'a> HttpProxyForwardTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::too_many_requests(self.req.version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::too_many_requests(self.req.version);
+        self.ctx.apply_proxy_status_ident(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
             self.http_notes.rsp_status = rsp.status();
         }
@@ -144,8 +144,8 @@ impl<'a> HttpProxyForwardTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::forbidden(self.req.version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::forbidden(self.req.version);
+        self.ctx.apply_proxy_status_ident(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
             self.http_notes.rsp_status = rsp.status();
         }
@@ -156,8 +156,8 @@ impl<'a> HttpProxyForwardTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::method_not_allowed(self.req.version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::method_not_allowed(self.req.version);
+        self.ctx.apply_proxy_status_ident(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
             self.http_notes.rsp_status = rsp.status();
         }
@@ -176,7 +176,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         {
             let mut rsp = HttpProxyClientResponse::bad_request(self.req.version);
             rsp.set_error_message("Proxy targeting didn't find a match");
-            // no custom header is set for 400
+            self.ctx.apply_proxy_status_ident(&mut rsp);
             if rsp.should_close() {
                 self.should_close = true;
             }

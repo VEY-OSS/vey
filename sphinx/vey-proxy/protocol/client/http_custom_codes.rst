@@ -5,7 +5,8 @@ Http Custom Codes
 #################
 
 ``vey-proxy`` uses the following non-standard HTTP response codes in addition to
-the standard ones:
+the standard ones. Locally generated error responses also include
+:ref:`Proxy-Status <protocol_client_proxy_status>`; these codes are unchanged.
 
 * 521 WEB_SERVER_IS_DOWN
 

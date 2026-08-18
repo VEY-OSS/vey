@@ -3,6 +3,8 @@ CHANGELOG
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.15.0:
+ - Feature: locally generated HTTP error responses include RFC 9209 ``Proxy-Status`` (``error=`` only; ident is ``server_id`` or ``vey-proxy``; disable with ``no_proxy_status``)
+ - Feature: auditor ``server_id`` is used as the ``Proxy-Status`` ident on intercept-generated HTTP errors
  - BUG FIX: SMTP interception answers out-of-sequence commands locally without forwarding them upstream
  - BUG FIX: IMAP interception matches CAPABILITY names and greeting response codes case-insensitively
  - BUG FIX: IMAP interception logs use `ImapConnection` instead of `SmtpConnection`

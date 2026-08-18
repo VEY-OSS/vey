@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::net::{IpAddr, SocketAddr};
@@ -15,6 +16,7 @@ use vey_io_ext::{IdleWheel, OptionalInterval};
 
 use super::{HttpRProxyServerConfig, HttpRProxyServerStats};
 use crate::escape::ArcEscaper;
+use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::ServerQuitPolicy;
 
 #[derive(Clone)]
@@ -42,6 +44,13 @@ impl CommonTaskContext {
     #[inline]
     pub(crate) fn server_addr(&self) -> SocketAddr {
         self.cc_info.server_addr()
+    }
+
+    pub(crate) fn apply_proxy_status_ident(&self, rsp: &mut HttpProxyClientResponse) {
+        rsp.apply_proxy_status(
+            self.server_config.no_proxy_status,
+            self.server_config.server_id.as_ref(),
+        );
     }
 
     pub(super) fn log_flush_interval(&self) -> Option<Duration> {

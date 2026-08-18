@@ -165,9 +165,10 @@ where
                 }
                 HttpRecvRequest::ClientConnectionError(e) => return Err(e),
                 HttpRecvRequest::ClientRequestError(e) => {
-                    if let Some(rsp) =
+                    if let Some(mut rsp) =
                         HttpProxyClientResponse::from_request_error(&e, Version::HTTP_11)
                     {
+                        self.ctx.apply_proxy_status_ident(&mut rsp);
                         let _ = rsp.reply_err_to_request(&mut rsp_io.clt_w).await;
                     }
                     return Err(e.into());

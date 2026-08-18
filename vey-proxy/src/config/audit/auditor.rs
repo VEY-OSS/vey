@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::sync::Arc;
@@ -19,7 +20,7 @@ use vey_icap_client::IcapServiceConfig;
 use vey_tls_ticket::TlsTicketConfig;
 use vey_types::metrics::NodeName;
 use vey_types::net::{
-    OpensslInterceptionClientConfigBuilder, OpensslInterceptionServerConfigBuilder,
+    HttpServerId, OpensslInterceptionClientConfigBuilder, OpensslInterceptionServerConfigBuilder,
 };
 use vey_udpdump::StreamDumpConfig;
 use vey_yaml::YamlDocPosition;
@@ -40,6 +41,8 @@ pub(crate) struct AuditorConfig {
     pub(crate) tls_interception_server: OpensslInterceptionServerConfigBuilder,
     pub(crate) tls_stream_dump: Option<StreamDumpConfig>,
     pub(crate) log_uri_max_chars: usize,
+    pub(crate) server_id: Option<HttpServerId>,
+    pub(crate) no_proxy_status: bool,
     pub(crate) h1_interception: H1InterceptionConfig,
     pub(crate) h2_inspect_policy: ProtocolInspectPolicyBuilder,
     pub(crate) h2_interception: H2InterceptionConfig,
@@ -77,6 +80,8 @@ impl AuditorConfig {
             tls_interception_server: Default::default(),
             tls_stream_dump: None,
             log_uri_max_chars: 1024,
+            server_id: None,
+            no_proxy_status: false,
             h1_interception: Default::default(),
             h2_inspect_policy: Default::default(),
             h2_interception: Default::default(),
@@ -180,6 +185,17 @@ impl AuditorConfig {
                     .context(format!("invalid usize value for key {k}"))?;
                 Ok(())
             }
+            "server_id" => {
+                let server_id = vey_yaml::value::as_http_server_id(v)
+                    .context(format!("invalid http server id value for key {k}"))?;
+                self.server_id = Some(server_id);
+                Ok(())
+            }
+            "no_proxy_status" => {
+                self.no_proxy_status = vey_yaml::value::as_bool(v)
+                    .context(format!("invalid bool value for key {k}"))?;
+                Ok(())
+            }
             "h1_interception" => {
                 self.h1_interception = vey_yaml::value::as_h1_interception_config(v)
                     .context(format!("invalid h1 interception value for key {k}"))?;
@@ -256,5 +272,34 @@ impl AuditorConfig {
             }
             _ => Err(anyhow!("invalid key {k}")),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn parse_server_id() {
+        let docs = YamlLoader::load_from_str("name: audit1\nserver_id: intercept-edge\n").unwrap();
+        let Yaml::Hash(map) = &docs[0] else {
+            panic!("expected map");
+        };
+        let mut cfg = AuditorConfig::new(None);
+        cfg.parse(map).unwrap();
+        assert_eq!(cfg.server_id.as_ref().unwrap().as_str(), "intercept-edge");
+        assert!(!cfg.no_proxy_status);
+    }
+
+    #[test]
+    fn parse_no_proxy_status() {
+        let docs = YamlLoader::load_from_str("name: audit1\nno_proxy_status: true\n").unwrap();
+        let Yaml::Hash(map) = &docs[0] else {
+            panic!("expected map");
+        };
+        let mut cfg = AuditorConfig::new(None);
+        cfg.parse(map).unwrap();
+        assert!(cfg.no_proxy_status);
     }
 }

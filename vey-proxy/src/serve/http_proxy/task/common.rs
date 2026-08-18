@@ -85,11 +85,19 @@ impl CommonTaskContext {
         default_action
     }
 
+    pub(crate) fn apply_proxy_status_ident(&self, rsp: &mut HttpProxyClientResponse) {
+        rsp.apply_proxy_status(
+            self.server_config.no_proxy_status,
+            self.server_config.server_id.as_ref(),
+        );
+    }
+
     pub(crate) fn set_custom_header_for_tcp_local_reply(
         &self,
         egress_notes: &EgressNotes,
         rsp: &mut HttpProxyClientResponse,
     ) {
+        self.apply_proxy_status_ident(rsp);
         if let Some(server_id) = &self.server_config.server_id {
             let line = http_header::remote_connection_info(
                 server_id,
@@ -122,6 +130,7 @@ impl CommonTaskContext {
         egress_notes: &EgressNotes,
         rsp: &mut HttpProxyClientResponse,
     ) {
+        self.apply_proxy_status_ident(rsp);
         if let Some(server_id) = &self.server_config.server_id {
             let line = http_header::remote_connection_info(
                 server_id,

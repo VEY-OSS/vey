@@ -118,7 +118,8 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
             Ok(d) => Ok(d),
             Err(e) => {
                 if self.send_error_response
-                    && let Some(rsp) = e.build_reply()
+                    && let Some((status, error)) = e.status_and_error()
+                    && let Some(rsp) = self.ctx.h2_local_error_response(status, error)
                 {
                     let rsp_status = rsp.status().as_u16();
                     if clt_send_rsp.send_response(rsp, true).is_ok() {

@@ -25,6 +25,7 @@ use crate::audit::AuditHandle;
 use crate::auth::{User, UserForbiddenStats, UserSite};
 use crate::config::server::ServerConfig;
 use crate::escape::EgressNotes;
+use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::{ArcServerStats, ServerIdleChecker, ServerTaskNotes};
 
 mod error;
@@ -214,6 +215,13 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     #[inline]
     pub(crate) fn intercept_logger(&self) -> Option<&Logger> {
         self.audit_handle.intercept_logger()
+    }
+
+    pub(crate) fn apply_proxy_status_ident(&self, rsp: &mut HttpProxyClientResponse) {
+        rsp.apply_proxy_status(
+            self.audit_handle.no_proxy_status(),
+            self.audit_handle.server_id(),
+        );
     }
 
     pub(crate) fn idle_checker(&self) -> ServerIdleChecker {

@@ -114,18 +114,16 @@ impl<'a> HttpRProxyForwardTask<'a> {
         self.should_close
     }
 
-    fn enable_custom_header_for_local_reply(&self, _rsp: &mut HttpProxyClientResponse) {
-        if let Some(_server_id) = &self.ctx.server_config.server_id {
-            // TODO custom header
-        }
+    fn enable_custom_header_for_local_reply(&self, rsp: &mut HttpProxyClientResponse) {
+        self.ctx.apply_proxy_status_ident(rsp);
     }
 
     async fn reply_too_many_requests<W>(&mut self, clt_w: &mut W)
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::too_many_requests(self.req.version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::too_many_requests(self.req.version);
+        self.enable_custom_header_for_local_reply(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
             self.http_notes.rsp_status = rsp.status();
         }
@@ -136,8 +134,8 @@ impl<'a> HttpRProxyForwardTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
-        let rsp = HttpProxyClientResponse::forbidden(self.req.version);
-        // no custom header is set
+        let mut rsp = HttpProxyClientResponse::forbidden(self.req.version);
+        self.enable_custom_header_for_local_reply(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
             self.http_notes.rsp_status = rsp.status();
         }

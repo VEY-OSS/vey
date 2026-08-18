@@ -235,12 +235,13 @@ where
                     self.pipeline_stats.del_task();
                     res
                 }
-                Some(Err(rsp)) => {
+                Some(Err(mut rsp)) => {
                     // the response will always be `Connection: Close`
                     self.req_count.invalid += 1;
                     if !self.ctx.server_config.no_early_error_reply
                         && let Some(stream_w) = &mut self.stream_writer
                     {
+                        self.ctx.apply_proxy_status_ident(&mut rsp);
                         let _ = rsp.reply_err_to_request(stream_w).await;
                     }
 
@@ -301,7 +302,8 @@ where
             self.req_count.invalid += 1;
             // Bad request: unsupported param combo or invalid params
             if let Some(stream_w) = &mut self.stream_writer {
-                let rsp = HttpProxyClientResponse::bad_request(req.inner.version);
+                let mut rsp = HttpProxyClientResponse::bad_request(req.inner.version);
+                self.ctx.apply_proxy_status_ident(&mut rsp);
                 let _ = rsp.reply_err_to_request(stream_w).await;
             }
             self.notify_reader_to_close();
@@ -486,8 +488,8 @@ where
 
             // user is blocked, always close the connection
             if let Some(clt_w) = &mut self.stream_writer {
-                let rsp = HttpProxyClientResponse::forbidden(req.inner.version);
-                // no custom header is set
+                let mut rsp = HttpProxyClientResponse::forbidden(req.inner.version);
+                self.ctx.apply_proxy_status_ident(&mut rsp);
                 let _ = rsp.reply_err_to_request(clt_w).await;
             }
 
@@ -498,14 +500,13 @@ where
             self.ctx.server_stats.forbidden.add_auth_failed();
 
             if let Some(clt_w) = &mut self.stream_writer {
-                // no custom header is set
-                let _ = HttpProxyClientResponse::reply_proxy_auth_err(
+                let mut rsp = HttpProxyClientResponse::proxy_auth_required(
                     req.inner.version,
-                    clt_w,
-                    &self.ctx.server_config.auth_realm,
                     true,
-                )
-                .await;
+                    self.ctx.server_config.auth_realm.as_str(),
+                );
+                self.ctx.apply_proxy_status_ident(&mut rsp);
+                let _ = rsp.reply_err_to_request(clt_w).await;
             }
 
             self.notify_reader_to_close();
