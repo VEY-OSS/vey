@@ -12,16 +12,17 @@ user-group: user-group.d
 
 {% if proxy_enable_syslog is defined and proxy_enable_syslog|bool %}
 log:
-  default:
-    syslog:
-      target_udp: 127.0.0.1:{{ proxy_log_udp_port }}
+  syslog:
+    target_udp: 127.0.0.1:{{ proxy_log_udp_port }}
 {% if proxy_use_cee_log_syntax is defined and proxy_use_cee_log_syntax|bool %}
-      use_cee_log_syntax: true
+    use_cee_log_syntax: true
 {% else %}
-      format_rfc5424:
-        enterprise_id: {{ enterprise_id }}
-        message_id: vey-proxy
+    format_rfc5424:
+      enterprise_id: {{ enterprise_id }}
+      message_id: vey-proxy
 {% endif %}
+{% else %}
+log: journal
 {% endif %}
 
 {% if proxy_enable_statsd is defined and proxy_enable_statsd|bool %}

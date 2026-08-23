@@ -1,6 +1,6 @@
 ---
 
-- hosts: "{{ group | default('vey-proxy') }}"
+- hosts: "{{ group | default('proxy') }}"
   roles:
     - sysconf-idc
   environment: "{{ ansible_run_env|default('{}') }}"

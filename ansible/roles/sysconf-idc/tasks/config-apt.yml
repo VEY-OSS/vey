@@ -1,13 +1,5 @@
 ---
 
-- name: Create /etc/apt/keyrings
-  ansible.builtin.file:
-    path: /etc/apt/keyrings
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
 - name: Install apt-transport-https
   ansible.builtin.apt:
     name: apt-transport-https
@@ -28,21 +20,12 @@
     state: absent
   when: vey_repo_proxy is not defined
 
-- name: Import apt key for VEY repo
-  ansible.builtin.get_url:
-    url: https://dl.cloudsmith.io/public/vey-oss/rolling/gpg.819A41862B04BBE1.key
-    dest: /etc/apt/keyrings/vey.gpg.ascii
-    owner: root
-    group: root
-    mode: "0644"
-  notify: Dearmor vey apt gpg key
-
-- name: Make sure the vey repo apt key is imported
-  ansible.builtin.meta: flush_handlers
-
 - name: Add VEY repo
-  ansible.builtin.apt_repository:
-    filename: vey
-    repo: "deb [signed-by=/etc/apt/keyrings/vey.gpg] https://dl.cloudsmith.io/public/vey-oss/rolling/deb/{{ ansible_distribution|lower }} {{ ansible_distribution_release }} main"
-    state: present
-    update_cache: true
+  ansible.builtin.deb822_repository:
+    name: vey-oss
+    install_python_debian: true
+    types: deb
+    uris: 'https://dl.cloudsmith.io/public/vey-oss/rolling/deb/{{ ansible_facts["distribution"]|lower }}'
+    suites: '{{ ansible_facts["distribution_release"] }}'
+    components: main
+    signed_by: https://dl.cloudsmith.io/public/vey-oss/rolling/gpg.819A41862B04BBE1.key

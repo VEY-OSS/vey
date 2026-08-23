@@ -1,5 +1,5 @@
 ---
 
-- hosts: "{{ group | default('vey-proxy') }}"
+- hosts: "{{ group | default('proxy') }}"
   roles:
     - rsyslog

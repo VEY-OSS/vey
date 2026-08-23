@@ -2,8 +2,8 @@
 
 - name: Config apt repo
   ansible.builtin.include_tasks: config-apt.yml
-  when: ansible_pkg_mgr == "apt"
+  when: ansible_facts["pkg_mgr"] == 'apt'
 
 - name: Config yum repo
   ansible.builtin.include_tasks: config-yum.yml
-  when: ansible_pkg_mgr == "yum" or ansible_pkg_mgr == "dnf"
+  when: ansible_facts["pkg_mgr"] == 'yum' or ansible_facts["pkg_mgr"] == 'dnf'

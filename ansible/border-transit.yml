@@ -1,6 +1,6 @@
 ---
 
-- hosts: "{{ group | default('vey-proxy') }}"
+- hosts: "{{ group | default('proxy') }}"
   roles:
     - role: border-transit
   handlers:
