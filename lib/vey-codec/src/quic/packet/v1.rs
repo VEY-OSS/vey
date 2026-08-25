@@ -54,13 +54,12 @@ impl InitialPacketV1 {
             return Err(PacketParseError::TooSmall);
         }
         let src_cid_len = left[0] as usize;
-        if src_cid_len > 0 {
-            offset += 1 + src_cid_len;
-            if data.len() < offset {
-                return Err(PacketParseError::TooSmall);
-            }
-        } else {
-            offset += 1;
+        if src_cid_len > 20 {
+            return Err(PacketParseError::InvalidConnectionIdLength(left[0]));
+        }
+        offset += 1 + src_cid_len;
+        if data.len() < offset {
+            return Err(PacketParseError::TooSmall);
         }
 
         // Token

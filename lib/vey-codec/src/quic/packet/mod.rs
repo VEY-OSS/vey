@@ -267,4 +267,24 @@ mod tests {
             Ok(_) => panic!("expected InvalidConnectionIdLength"),
         }
     }
+
+    #[test]
+    fn invalid_src_cid_length_is_rejected() {
+        // Long header + version + DCID length=0 + SCID length=21 (>20).
+        // v1 Initial: header form 1xxx, long packet type bits = 00
+        let v1 = [0xC0, 0x00, 0x00, 0x00, 0x01, 0, 21];
+        match InitialPacket::parse_client(&v1) {
+            Err(PacketParseError::InvalidConnectionIdLength(len)) => assert_eq!(len, 21),
+            Err(e) => panic!("unexpected error: {e}"),
+            Ok(_) => panic!("expected InvalidConnectionIdLength"),
+        }
+
+        // v2 Initial: long packet type bits = 01, version 0x6b3343cf
+        let v2 = [0xD0, 0x6b, 0x33, 0x43, 0xcf, 0, 21];
+        match InitialPacket::parse_client(&v2) {
+            Err(PacketParseError::InvalidConnectionIdLength(len)) => assert_eq!(len, 21),
+            Err(e) => panic!("unexpected error: {e}"),
+            Ok(_) => panic!("expected InvalidConnectionIdLength"),
+        }
+    }
 }
