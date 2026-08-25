@@ -13,4 +13,4 @@ mod content;
 pub use content::{content_length, content_range_overflowed, content_range_sized, content_type};
 
 mod transfer;
-pub use transfer::transfer_encoding_chunked;
+pub use transfer::{TransferEncodingKind, transfer_encoding_chunked};

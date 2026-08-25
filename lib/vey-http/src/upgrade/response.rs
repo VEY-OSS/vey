@@ -12,6 +12,7 @@ use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use super::{HttpUpgradeError, HttpUpgradeResponseError};
+use crate::header::TransferEncodingKind;
 use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 #[derive(Debug)]
@@ -181,11 +182,12 @@ impl HttpUpgradeResponse {
                     self.content_length = 0;
                 }
 
-                let v = header.value.to_lowercase();
-                if v.ends_with("chunked") {
-                    self.chunked_transfer = true;
-                } else if v.contains("chunked") {
-                    return Err(HttpUpgradeResponseError::InvalidChunkedTransferEncoding);
+                match TransferEncodingKind::parse(header.value) {
+                    Some(TransferEncodingKind::Chunked) => self.chunked_transfer = true,
+                    Some(TransferEncodingKind::Other) => {}
+                    None => {
+                        return Err(HttpUpgradeResponseError::InvalidChunkedTransferEncoding);
+                    }
                 }
             }
             "content-length" => {

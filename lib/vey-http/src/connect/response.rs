@@ -13,6 +13,7 @@ use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use super::{HttpConnectError, HttpConnectResponseError};
+use crate::header::TransferEncodingKind;
 use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 #[derive(Debug)]
@@ -141,11 +142,10 @@ impl HttpConnectResponse {
                     self.content_length = 0;
                 }
 
-                let v = header.value.to_lowercase();
-                if v.ends_with("chunked") {
-                    self.chunked_transfer = true;
-                } else if v.contains("chunked") {
-                    return Err(HttpConnectResponseError::InvalidChunkedTransferEncoding);
+                match TransferEncodingKind::parse(header.value) {
+                    Some(TransferEncodingKind::Chunked) => self.chunked_transfer = true,
+                    Some(TransferEncodingKind::Other) => {}
+                    None => return Err(HttpConnectResponseError::InvalidChunkedTransferEncoding),
                 }
             }
             "content-length" => {
@@ -386,6 +386,18 @@ mod tests {
         let result = response.handle_header(header3);
         assert!(result.is_ok());
         assert!(response.chunked_transfer);
+    }
+
+    #[test]
+    fn suffix_lookalike_is_not_chunked() {
+        let mut response = HttpConnectResponse::new(200, "OK".to_string());
+        let header = HttpHeaderLine {
+            name: "transfer-encoding",
+            value: "notchunked",
+        };
+        assert!(response.handle_header(header).is_ok());
+        assert!(response.has_transfer_encoding);
+        assert!(!response.chunked_transfer);
     }
 
     #[test]
