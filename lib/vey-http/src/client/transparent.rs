@@ -12,7 +12,7 @@ use http::{HeaderName, Method, Version, header};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
-use vey_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken};
+use vey_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, TransferEncodingValue};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
 use crate::header::Connection;
@@ -354,11 +354,11 @@ impl HttpTransparentResponse {
                     self.keep_alive = false; // according to rfc9112 Section 6.1
                 }
 
-                let v = header.value.to_lowercase();
-                if v.ends_with("chunked") {
+                let mut te = TransferEncodingValue::default();
+                te.parse(header.value.as_bytes())
+                    .map_err(HttpResponseParseError::InvalidTransferEncoding)?;
+                if te.chunked() {
                     self.chunked_transfer = true;
-                } else if v.contains("chunked") {
-                    return Err(HttpResponseParseError::InvalidChunkedTransferEncoding);
                 } else {
                     // Non-chunked TE (e.g. "gzip"): message length is delimited by
                     // closing the connection.
@@ -517,5 +517,49 @@ mod tests {
         assert!(!rsp.keep_alive());
         assert_eq!(rsp.body_type(&method), Some(HttpBodyType::Chunked));
         assert!(!rsp.end_to_end_headers.contains_key(header::CONTENT_LENGTH));
+    }
+
+    #[tokio::test]
+    async fn gzip_then_chunked_is_chunked() {
+        let content = b"HTTP/1.1 200 OK\r\n\
+            Transfer-Encoding: gzip, chunked\r\n\
+            Connection: keep-alive\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let method = Method::GET;
+        let (rsp, _) = HttpTransparentResponse::parse(&mut buf_stream, &method, true, 4096)
+            .await
+            .unwrap();
+        assert_eq!(rsp.body_type(&method), Some(HttpBodyType::Chunked));
+    }
+
+    #[tokio::test]
+    async fn notchunked_is_rejected() {
+        let content = b"HTTP/1.1 200 OK\r\n\
+            Transfer-Encoding: notchunked\r\n\
+            Connection: keep-alive\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let method = Method::GET;
+        match HttpTransparentResponse::parse(&mut buf_stream, &method, true, 4096).await {
+            Err(HttpResponseParseError::InvalidTransferEncoding(_)) => {}
+            Err(err) => panic!("unexpected error {err:?}"),
+            Ok(_) => panic!("expected InvalidTransferEncoding"),
+        }
+    }
+
+    #[tokio::test]
+    async fn chunked_not_last_is_rejected() {
+        let content = b"HTTP/1.1 200 OK\r\n\
+            Transfer-Encoding: chunked, gzip\r\n\
+            Connection: keep-alive\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let method = Method::GET;
+        match HttpTransparentResponse::parse(&mut buf_stream, &method, true, 4096).await {
+            Err(HttpResponseParseError::InvalidTransferEncoding(_)) => {}
+            Err(err) => panic!("unexpected error {err:?}"),
+            Ok(_) => panic!("expected InvalidTransferEncoding"),
+        }
     }
 }

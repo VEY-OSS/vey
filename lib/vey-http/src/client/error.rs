@@ -8,7 +8,7 @@ use std::io;
 use http::Version;
 use thiserror::Error;
 
-use vey_types::net::HttpUpgradeTokenParseError;
+use vey_types::net::{HttpUpgradeTokenParseError, InvalidTransferEncodingValue};
 
 use crate::HttpLineParseError;
 
@@ -24,8 +24,8 @@ pub enum HttpResponseParseError {
     InvalidStatusLine(HttpLineParseError),
     #[error("invalid header line: {0}")]
     InvalidHeaderLine(HttpLineParseError),
-    #[error("invalid chunked transfer-encoding")]
-    InvalidChunkedTransferEncoding,
+    #[error("invalid transfer-encoding value: {0}")]
+    InvalidTransferEncoding(InvalidTransferEncodingValue),
     #[error("invalid content length")]
     InvalidContentLength,
     #[error("invalid upgrade protocol: {0}")]

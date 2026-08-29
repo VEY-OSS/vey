@@ -7,6 +7,8 @@ use std::io;
 
 use thiserror::Error;
 
+use vey_types::net::InvalidTransferEncodingValue;
+
 use crate::HttpLineParseError;
 
 #[derive(Debug, Error)]
@@ -21,8 +23,8 @@ pub enum HttpUpgradeResponseError {
     UnsupportedHeaderValue(&'static str),
     #[error("upgrade token not match")]
     UpgradeTokenNotMatch,
-    #[error("invalid chunked transfer-encoding")]
-    InvalidChunkedTransferEncoding,
+    #[error("invalid transfer-encoding value: {0}")]
+    InvalidTransferEncoding(InvalidTransferEncodingValue),
     #[error("invalid content length")]
     InvalidContentLength,
 }

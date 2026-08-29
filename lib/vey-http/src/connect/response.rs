@@ -10,7 +10,7 @@ use http::HeaderName;
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
-use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
+use vey_types::net::{HttpHeaderMap, HttpHeaderValue, TransferEncodingValue};
 
 use super::{HttpConnectError, HttpConnectResponseError};
 use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
@@ -141,11 +141,11 @@ impl HttpConnectResponse {
                     self.content_length = 0;
                 }
 
-                let v = header.value.to_lowercase();
-                if v.ends_with("chunked") {
+                let mut te = TransferEncodingValue::default();
+                te.parse(header.value.as_bytes())
+                    .map_err(HttpConnectResponseError::InvalidTransferEncoding)?;
+                if te.chunked() {
                     self.chunked_transfer = true;
-                } else if v.contains("chunked") {
-                    return Err(HttpConnectResponseError::InvalidChunkedTransferEncoding);
                 }
             }
             "content-length" => {
@@ -380,12 +380,23 @@ mod tests {
         // Transfer-encoding with chunked at end
         let header3 = HttpHeaderLine {
             name: "transfer-encoding",
-            value: "gzip, deflate, chunked",
+            value: "gzip, chunked",
         };
 
         let result = response.handle_header(header3);
         assert!(result.is_ok());
         assert!(response.chunked_transfer);
+    }
+
+    #[test]
+    fn suffix_lookalike_is_rejected() {
+        let mut response = HttpConnectResponse::new(200, "OK".to_string());
+        let header = HttpHeaderLine {
+            name: "transfer-encoding",
+            value: "notchunked",
+        };
+        assert!(response.handle_header(header).is_err());
+        assert!(!response.chunked_transfer);
     }
 
     #[test]

@@ -9,7 +9,7 @@ use std::io;
 use http::{StatusCode, Uri, Version};
 use thiserror::Error;
 
-use vey_types::net::HttpUpgradeToken;
+use vey_types::net::{HttpUpgradeToken, InvalidTransferEncodingValue};
 
 use crate::HttpLineParseError;
 
@@ -43,8 +43,10 @@ pub enum HttpRequestParseError {
     MissedHost,
     #[error("unmatched host and authority")]
     UnmatchedHostAndAuthority,
-    #[error("invalid chunked transfer-encoding")]
-    InvalidChunkedTransferEncoding,
+    #[error("invalid transfer-encoding value: {0}")]
+    InvalidTransferEncoding(InvalidTransferEncodingValue),
+    #[error("not chunked transfer encoding")]
+    NotChunkedTransferEncoding,
     #[error("invalid content length")]
     InvalidContentLength,
     #[error("invalid upgrade request")]
@@ -149,7 +151,14 @@ mod tests {
             Some(StatusCode::BAD_REQUEST)
         );
         assert_eq!(
-            HttpRequestParseError::InvalidChunkedTransferEncoding.status_code(),
+            HttpRequestParseError::NotChunkedTransferEncoding.status_code(),
+            Some(StatusCode::BAD_REQUEST)
+        );
+        assert_eq!(
+            HttpRequestParseError::InvalidTransferEncoding(
+                InvalidTransferEncodingValue::InvalidCodingType
+            )
+            .status_code(),
             Some(StatusCode::BAD_REQUEST)
         );
         assert_eq!(

@@ -1,20 +1,25 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 mod map;
-mod name;
-mod value;
-
 pub use map::HttpHeaderMap;
+
+mod name;
 pub use name::HttpOriginalHeaderName;
+
+mod value;
 pub use value::HttpHeaderValue;
 
-mod forwarded;
 mod server_id;
+pub use server_id::HttpServerId;
 
+mod forwarded;
 pub use forwarded::{
     HttpForwardedHeaderType, HttpForwardedHeaderValue, HttpStandardForwardedHeaderValue,
 };
-pub use server_id::HttpServerId;
+
+mod transfer;
+pub use transfer::{InvalidTransferEncodingValue, TransferCompressKind, TransferEncodingValue};

@@ -14,7 +14,8 @@ use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{
-    Host, HttpAuth, HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, UpstreamAddr,
+    Host, HttpAuth, HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, TransferEncodingValue,
+    UpstreamAddr,
 };
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
@@ -510,12 +511,13 @@ impl HttpProxyClientRequest {
                     self.keep_alive = false; // according to rfc9112 Section 6.1
                 }
 
-                let v = header.value.to_lowercase();
-                if v.ends_with("chunked") {
-                    self.chunked_transfer = true;
-                } else {
-                    return Err(HttpRequestParseError::InvalidChunkedTransferEncoding);
+                let mut te = TransferEncodingValue::default();
+                te.parse(header.value.as_bytes())
+                    .map_err(HttpRequestParseError::InvalidTransferEncoding)?;
+                if !te.chunked() {
+                    return Err(HttpRequestParseError::NotChunkedTransferEncoding);
                 }
+                self.chunked_transfer = true;
                 return self.insert_hop_by_hop_header(name, &header);
             }
             "content-length" => {
@@ -715,5 +717,40 @@ mod tests {
                 .map(|v| v.to_str()),
             Some("?1")
         );
+    }
+
+    async fn parse_req(content: &[u8]) -> Result<HttpProxyClientRequest, HttpRequestParseError> {
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut version = Version::HTTP_11;
+        HttpProxyClientRequest::parse(&mut buf_stream, 4096, &mut version, parse_more_header).await
+    }
+
+    #[tokio::test]
+    async fn transfer_encoding_last_coding_must_be_chunked() {
+        let ok = parse_req(
+            b"POST /x HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: gzip, chunked\r\n\r\n",
+        )
+        .await
+        .unwrap();
+        assert_eq!(ok.body_type(), Some(HttpBodyType::Chunked));
+
+        for te in ["notchunked", "foochunked", "chunked, gzip"] {
+            let content =
+                format!("POST /x HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: {te}\r\n\r\n");
+            match parse_req(content.as_bytes()).await {
+                Err(HttpRequestParseError::InvalidTransferEncoding(_)) => {}
+                Err(err) => panic!("{te}: unexpected error {err:?}"),
+                Ok(_) => panic!("{te}: expected InvalidTransferEncoding"),
+            }
+        }
+
+        match parse_req(b"POST /x HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: gzip\r\n\r\n")
+            .await
+        {
+            Err(HttpRequestParseError::NotChunkedTransferEncoding) => {}
+            Err(err) => panic!("gzip: unexpected error {err:?}"),
+            Ok(_) => panic!("gzip: expected NotChunkedTransferEncoding"),
+        }
     }
 }
