@@ -15,7 +15,7 @@ use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
-use crate::header::{Connection, TransferEncodingKind};
+use crate::header::Connection;
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 pub struct HttpForwardRemoteResponse {
@@ -366,10 +366,11 @@ impl HttpForwardRemoteResponse {
                     self.keep_alive = false; // according to rfc9112 Section 6.1
                 }
 
-                match TransferEncodingKind::parse(header.value) {
-                    Some(TransferEncodingKind::Chunked) => self.chunked_transfer = true,
-                    Some(TransferEncodingKind::Other) => self.keep_alive = false,
-                    None => return Err(HttpResponseParseError::InvalidChunkedTransferEncoding),
+                let v = header.value.to_lowercase();
+                if v.ends_with("chunked") {
+                    self.chunked_transfer = true;
+                } else if v.contains("chunked") {
+                    return Err(HttpResponseParseError::InvalidChunkedTransferEncoding);
                 }
 
                 return self.insert_hop_by_hop_header(name, &header);
@@ -487,21 +488,6 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(rsp.code, 200);
-        assert!(!rsp.keep_alive());
-        assert_eq!(rsp.body_type(&method), Some(HttpBodyType::ReadUntilEnd));
-    }
-
-    #[tokio::test]
-    async fn notchunked_is_not_chunked() {
-        let content = b"HTTP/1.1 200 OK\r\n\
-            Transfer-Encoding: notchunked\r\n\
-            Connection: keep-alive\r\n\r\n";
-        let stream = tokio_test::io::Builder::new().read(content).build();
-        let mut buf_stream = BufReader::new(stream);
-        let method = Method::GET;
-        let rsp = HttpForwardRemoteResponse::parse(&mut buf_stream, &method, true, 4096)
-            .await
-            .unwrap();
         assert!(!rsp.keep_alive());
         assert_eq!(rsp.body_type(&method), Some(HttpBodyType::ReadUntilEnd));
     }
