@@ -15,7 +15,7 @@ use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue, TransferEncodingValue};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
-use crate::header::{Connection, TRANSFER_ENCODING_NAME};
+use crate::header::{CONNECTION_NAME, ConnectionValue, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 pub struct HttpForwardRemoteResponse {
@@ -24,8 +24,8 @@ pub struct HttpForwardRemoteResponse {
     pub reason: String,
     pub end_to_end_headers: HttpHeaderMap,
     pub hop_by_hop_headers: HttpHeaderMap,
-    original_connection_name: Connection,
-    extra_connection_headers: Vec<HeaderName>,
+    original_connection_name: [u8; 10],
+    connection: ConnectionValue,
     origin_header_size: usize,
     keep_alive: bool,
     content_length: u64,
@@ -45,8 +45,8 @@ impl HttpForwardRemoteResponse {
             reason,
             end_to_end_headers: HttpHeaderMap::default(),
             hop_by_hop_headers: HttpHeaderMap::default(),
-            original_connection_name: Connection::default(),
-            extra_connection_headers: Vec::new(),
+            original_connection_name: CONNECTION_NAME,
+            connection: ConnectionValue::default(),
             origin_header_size: 0,
             keep_alive: false,
             content_length: 0,
@@ -68,8 +68,8 @@ impl HttpForwardRemoteResponse {
                 reason: adapted.reason,
                 end_to_end_headers: adapted.headers,
                 hop_by_hop_headers,
-                original_connection_name: self.original_connection_name.clone(),
-                extra_connection_headers: self.extra_connection_headers.clone(),
+                original_connection_name: self.original_connection_name,
+                connection: self.connection.clone(),
                 origin_header_size: self.origin_header_size,
                 keep_alive: self.keep_alive,
                 content_length,
@@ -86,8 +86,8 @@ impl HttpForwardRemoteResponse {
                 reason: adapted.reason,
                 end_to_end_headers: adapted.headers,
                 hop_by_hop_headers,
-                original_connection_name: self.original_connection_name.clone(),
-                extra_connection_headers: self.extra_connection_headers.clone(),
+                original_connection_name: self.original_connection_name,
+                connection: self.connection.clone(),
                 origin_header_size: self.origin_header_size,
                 keep_alive: self.keep_alive,
                 content_length: 0,
@@ -122,8 +122,8 @@ impl HttpForwardRemoteResponse {
             reason: adapted.reason,
             end_to_end_headers,
             hop_by_hop_headers,
-            original_connection_name: self.original_connection_name.clone(),
-            extra_connection_headers: self.extra_connection_headers.clone(),
+            original_connection_name: self.original_connection_name,
+            connection: self.connection.clone(),
             origin_header_size: self.origin_header_size,
             keep_alive: self.keep_alive,
             content_length: 0,
@@ -174,6 +174,8 @@ impl HttpForwardRemoteResponse {
             None
         } else if self.transfer_encoding.chunked() {
             Some(HttpBodyType::Chunked)
+        } else if self.original_transfer_encoding_name.is_some() {
+            Some(HttpBodyType::ReadUntilEnd)
         } else if self.has_content_length {
             if self.content_length > 0 {
                 Some(HttpBodyType::ContentLength(self.content_length))
@@ -213,7 +215,6 @@ impl HttpForwardRemoteResponse {
         header_size += nr;
 
         let mut rsp = HttpForwardRemoteResponse::build_from_status_line(line_buf.as_ref())?;
-        rsp.keep_alive = keep_alive;
 
         loop {
             if header_size >= max_header_size {
@@ -246,19 +247,21 @@ impl HttpForwardRemoteResponse {
         }
         rsp.origin_header_size = header_size;
 
-        rsp.post_check_and_fix(method);
+        rsp.post_check_and_fix(method, keep_alive);
         Ok(rsp)
     }
 
     /// do some necessary check and fix
-    fn post_check_and_fix(&mut self, method: &Method) {
-        if !self.transfer_encoding.chunked() {
-            if self.expect_no_body(method) {
-                // ignore the check of content-length as body is unexpected
-            } else if !self.has_content_length {
-                // read to end and close the connection
+    fn post_check_and_fix(&mut self, method: &Method, request_keep_alive: bool) {
+        self.keep_alive = self.connection.keep_alive(self.version) && request_keep_alive;
+        if self.original_transfer_encoding_name.is_some() {
+            if self.has_content_length || !self.transfer_encoding.chunked() {
+                // TE+CL (rfc9112 §6.1) or non-chunked TE (length is the connection)
                 self.keep_alive = false;
             }
+        } else if !self.has_content_length && !self.expect_no_body(method) {
+            // no TE and no CL: read to end and close
+            self.keep_alive = false;
         }
 
         // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
@@ -312,29 +315,9 @@ impl HttpForwardRemoteResponse {
         match name.as_str() {
             "connection" | "proxy-connection" => {
                 // proxy-connection is not standard, but at least curl use it
-                let value = header.value.to_lowercase();
-
-                for v in value.as_str().split(',') {
-                    if v.is_empty() {
-                        continue;
-                    }
-
-                    match v.trim() {
-                        "keep-alive" => {
-                            // keep the original value from request
-                        }
-                        "close" => {
-                            self.keep_alive = false;
-                        }
-                        s => {
-                            if let Ok(h) = HeaderName::from_str(s) {
-                                self.extra_connection_headers.push(h);
-                            }
-                        }
-                    }
-                }
-
-                self.original_connection_name = Connection::from_original(header.name);
+                self.connection.parse(header.value.as_bytes());
+                self.original_connection_name =
+                    header.name.as_bytes().try_into().unwrap_or(CONNECTION_NAME);
                 return Ok(());
             }
             "upgrade" => {
@@ -359,23 +342,16 @@ impl HttpForwardRemoteResponse {
                     // delete content-length
                     self.end_to_end_headers.remove(header::CONTENT_LENGTH);
                     self.content_length = 0;
-                    self.keep_alive = false; // according to rfc9112 Section 6.1
                 }
 
                 self.transfer_encoding
                     .parse(header.value.as_bytes())
                     .map_err(HttpResponseParseError::InvalidTransferEncoding)?;
-                if !self.transfer_encoding.chunked() {
-                    // Non-chunked TE (e.g. "gzip"): message length is delimited by
-                    // closing the connection.
-                    self.keep_alive = false;
-                }
                 return Ok(());
             }
             "content-length" => {
                 if self.original_transfer_encoding_name.is_some() {
-                    // ignore content-length
-                    self.keep_alive = false; // according to rfc9112 Section 6.1
+                    self.has_content_length = true;
                     return Ok(());
                 }
 
@@ -432,11 +408,8 @@ impl HttpForwardRemoteResponse {
             buf,
         );
 
-        self.original_connection_name.write_to_buf(
-            !self.keep_alive,
-            &self.extra_connection_headers,
-            buf,
-        );
+        self.connection
+            .write_for_rsp(&self.original_connection_name, !self.keep_alive, buf);
         buf.put_slice(b"\r\n");
     }
 
@@ -493,6 +466,33 @@ mod tests {
         assert_eq!(rsp.code, 200);
         assert!(!rsp.keep_alive());
         assert_eq!(rsp.body_type(&method), Some(HttpBodyType::ReadUntilEnd));
+    }
+
+    #[tokio::test]
+    async fn http10_keep_alive_token_and_request_must_agree() {
+        let content = b"HTTP/1.0 200 OK\r\nContent-Length: 0\r\nConnection: Keep-Alive\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let method = Method::GET;
+        let rsp = HttpForwardRemoteResponse::parse(&mut buf_stream, &method, true, 4096)
+            .await
+            .unwrap();
+        assert!(rsp.keep_alive());
+
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let rsp = HttpForwardRemoteResponse::parse(&mut buf_stream, &method, false, 4096)
+            .await
+            .unwrap();
+        assert!(!rsp.keep_alive());
+
+        let content = b"HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let rsp = HttpForwardRemoteResponse::parse(&mut buf_stream, &method, true, 4096)
+            .await
+            .unwrap();
+        assert!(!rsp.keep_alive());
     }
 
     #[tokio::test]

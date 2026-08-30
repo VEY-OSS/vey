@@ -1,10 +1,13 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use bytes::BufMut;
-use http::HeaderName;
+use http::{HeaderName, Version};
+
+pub const CONNECTION_NAME: [u8; 10] = *b"Connection";
 
 pub const fn connection_as_bytes(close: bool) -> &'static [u8] {
     if close {
@@ -14,41 +17,121 @@ pub const fn connection_as_bytes(close: bool) -> &'static [u8] {
     }
 }
 
-#[derive(Clone, Default)]
-pub enum Connection {
-    #[default]
-    CamelCase,
-    LowerCase,
-    UpperCase,
+fn next_comma_item<'a>(left: &mut &'a [u8]) -> Option<&'a [u8]> {
+    if left.is_empty() {
+        return None;
+    }
+    match memchr::memchr(b',', left) {
+        Some(p) => {
+            let this = &left[..p];
+            *left = &left[p + 1..];
+            Some(this)
+        }
+        None => {
+            let this = *left;
+            *left = &[];
+            Some(this)
+        }
+    }
 }
 
-impl Connection {
-    pub fn from_original(original: &str) -> Self {
-        match original {
-            "Connection" | "Proxy-Connection" => Connection::CamelCase,
-            "connection" | "proxy-connection" => Connection::LowerCase,
-            "CONNECTION" | "PROXY-CONNECTION" => Connection::UpperCase,
-            _ => Connection::CamelCase,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ConnectionPersistence {
+    KeepAlive,
+    Close,
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
+pub struct ConnectionValue {
+    persistence: Option<ConnectionPersistence>,
+    upgrade: bool,
+    extra: Vec<HeaderName>,
+}
+
+impl ConnectionValue {
+    #[inline]
+    pub fn keep_alive(&self, version: Version) -> bool {
+        match self.persistence {
+            Some(ConnectionPersistence::KeepAlive) => true,
+            Some(ConnectionPersistence::Close) => false,
+            None => version == Version::HTTP_11,
         }
     }
 
-    fn as_str(&self) -> &str {
-        match self {
-            Connection::CamelCase => "Connection",
-            Connection::LowerCase => "connection",
-            Connection::UpperCase => "CONNECTION",
+    #[inline]
+    pub fn close(&self, version: Version) -> bool {
+        !self.keep_alive(version)
+    }
+
+    #[inline]
+    pub fn upgrade(&self) -> bool {
+        self.upgrade
+    }
+
+    pub fn parse(&mut self, buf: &[u8]) {
+        let mut left = buf;
+        while let Some(this) = next_comma_item(&mut left) {
+            let token = this.trim_ascii();
+            if token.is_empty() {
+                continue;
+            }
+            match token[0] {
+                b'K' | b'k' => {
+                    if token.eq_ignore_ascii_case(b"keep-alive") {
+                        self.persistence = Some(ConnectionPersistence::KeepAlive);
+                        continue;
+                    }
+                }
+                b'C' | b'c' => {
+                    if token.eq_ignore_ascii_case(b"close") {
+                        self.persistence = Some(ConnectionPersistence::Close);
+                        continue;
+                    }
+                }
+                b'U' | b'u' => {
+                    if token.eq_ignore_ascii_case(b"upgrade") {
+                        self.upgrade = true;
+                        continue;
+                    }
+                }
+                b'T' | b't' => {
+                    if token.eq_ignore_ascii_case(b"te") {
+                        // Listed only when we actually emit TE (see write).
+                        continue;
+                    }
+                }
+                _ => {}
+            }
+            if let Ok(h) = HeaderName::from_bytes(token) {
+                self.extra.push(h);
+            }
         }
     }
 
-    pub fn write_to_buf(&self, close: bool, headers: &[HeaderName], buf: &mut Vec<u8>) {
-        buf.put_slice(self.as_str().as_bytes());
+    pub fn write_for_rsp(&self, name: &[u8], close: bool, buf: &mut Vec<u8>) {
+        self.write_inner(name, close, None, buf);
+    }
+
+    pub fn write_for_req(&self, name: &[u8], close: bool, te: Option<&[u8]>, buf: &mut Vec<u8>) {
+        self.write_inner(name, close, te, buf);
+    }
+
+    fn write_inner(&self, name: &[u8], close: bool, te: Option<&[u8]>, buf: &mut Vec<u8>) {
+        buf.put_slice(name);
         buf.put_slice(b": ");
         if close {
             buf.put_slice(b"Close");
         } else {
             buf.put_slice(b"Keep-Alive");
         }
-        for h in headers {
+        if let Some(te) = te {
+            buf.put_slice(b", ");
+            buf.put_slice(te);
+        }
+        if self.upgrade {
+            buf.put_slice(b", upgrade");
+        }
+        for h in &self.extra {
             buf.put_slice(b", ");
             buf.put_slice(h.as_str().as_bytes());
         }
@@ -67,52 +150,32 @@ mod tests {
     }
 
     #[test]
-    fn connection_from_original() {
-        assert!(matches!(
-            Connection::from_original("Connection"),
-            Connection::CamelCase
-        ));
-        assert!(matches!(
-            Connection::from_original("connection"),
-            Connection::LowerCase
-        ));
-        assert!(matches!(
-            Connection::from_original("CONNECTION"),
-            Connection::UpperCase
-        ));
-        assert!(matches!(
-            Connection::from_original("invalid"),
-            Connection::CamelCase
-        ));
-    }
+    fn connection_value_parse_and_write() {
+        let mut v = ConnectionValue::default();
+        v.parse(b"Keep-Alive, TE, upgrade");
+        assert!(v.keep_alive(Version::HTTP_10));
+        assert!(!v.close(Version::HTTP_10));
+        assert!(v.upgrade());
 
-    #[test]
-    fn connection_as_str() {
-        assert_eq!(Connection::CamelCase.as_str(), "Connection");
-        assert_eq!(Connection::LowerCase.as_str(), "connection");
-        assert_eq!(Connection::UpperCase.as_str(), "CONNECTION");
-    }
-
-    #[test]
-    fn connection_write_to_buf() {
         let mut buf = Vec::new();
-        let headers = [
-            HeaderName::from_static("upgrade"),
-            HeaderName::from_static("content-length"),
-        ];
+        v.write_for_rsp(&CONNECTION_NAME, false, &mut buf);
+        assert_eq!(buf, b"Connection: Keep-Alive, upgrade\r\n");
 
-        // close=true and headers
-        Connection::CamelCase.write_to_buf(true, &headers, &mut buf);
-        assert_eq!(buf, b"Connection: Close, upgrade, content-length\r\n");
         buf.clear();
+        v.write_for_req(&CONNECTION_NAME, false, Some(b"TE"), &mut buf);
+        assert_eq!(buf, b"Connection: Keep-Alive, TE, upgrade\r\n");
 
-        // close=false and no headers
-        Connection::LowerCase.write_to_buf(false, &[], &mut buf);
-        assert_eq!(buf, b"connection: Keep-Alive\r\n");
+        v.parse(b"close, keep-alive, Foo");
+        assert!(v.keep_alive(Version::HTTP_11));
+        assert!(!v.close(Version::HTTP_11));
+        v.parse(b"close");
+        assert!(v.close(Version::HTTP_11));
+        assert!(!v.keep_alive(Version::HTTP_11));
+        let empty = ConnectionValue::default();
+        assert!(empty.keep_alive(Version::HTTP_11));
+        assert!(!empty.keep_alive(Version::HTTP_10));
         buf.clear();
-
-        // close=false and headers (uppercase variant)
-        Connection::UpperCase.write_to_buf(false, &headers, &mut buf);
-        assert_eq!(buf, b"CONNECTION: Keep-Alive, upgrade, content-length\r\n");
+        v.write_for_req(b"connection", true, Some(b"te"), &mut buf);
+        assert_eq!(buf, b"connection: Close, te, upgrade, foo\r\n");
     }
 }

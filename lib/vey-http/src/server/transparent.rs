@@ -19,7 +19,7 @@ use vey_types::net::{
 };
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
-use crate::header::{Connection, TRANSFER_ENCODING_NAME};
+use crate::header::{CONNECTION_NAME, ConnectionValue, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpMethodLine};
 
 pub struct HttpTransparentRequest {
@@ -31,11 +31,10 @@ pub struct HttpTransparentRequest {
     pub hop_by_hop_headers: HttpHeaderMap,
     /// the port may be 0
     pub host: Option<UpstreamAddr>,
-    original_connection_name: Connection,
-    extra_connection_headers: Vec<HeaderName>,
+    original_connection_name: [u8; 10],
+    connection: ConnectionValue,
     origin_header_size: usize,
     keep_alive: bool,
-    connection_upgrade: bool,
     pub upgrade: bool,
     content_length: u64,
     transfer_encoding: TransferEncodingValue,
@@ -56,11 +55,10 @@ impl HttpTransparentRequest {
             end_to_end_headers: HttpHeaderMap::default(),
             hop_by_hop_headers: HttpHeaderMap::default(),
             host: None,
-            original_connection_name: Connection::default(),
-            extra_connection_headers: Vec::new(),
+            original_connection_name: CONNECTION_NAME,
+            connection: ConnectionValue::default(),
             origin_header_size: 0,
             keep_alive: false,
-            connection_upgrade: false,
             upgrade: false,
             content_length: 0,
             transfer_encoding: TransferEncodingValue::default(),
@@ -83,11 +81,10 @@ impl HttpTransparentRequest {
                 end_to_end_headers: adapted.headers,
                 hop_by_hop_headers,
                 host: None,
-                original_connection_name: self.original_connection_name.clone(),
-                extra_connection_headers: self.extra_connection_headers.clone(),
+                original_connection_name: self.original_connection_name,
+                connection: self.connection.clone(),
                 origin_header_size: self.origin_header_size,
                 keep_alive: self.keep_alive,
-                connection_upgrade: self.connection_upgrade,
                 upgrade: self.upgrade,
                 content_length,
                 transfer_encoding: TransferEncodingValue::default(),
@@ -105,11 +102,10 @@ impl HttpTransparentRequest {
                 end_to_end_headers: adapted.headers,
                 hop_by_hop_headers,
                 host: None,
-                original_connection_name: self.original_connection_name.clone(),
-                extra_connection_headers: self.extra_connection_headers.clone(),
+                original_connection_name: self.original_connection_name,
+                connection: self.connection.clone(),
                 origin_header_size: self.origin_header_size,
                 keep_alive: self.keep_alive,
-                connection_upgrade: self.connection_upgrade,
                 upgrade: self.upgrade,
                 content_length: 0,
                 transfer_encoding: TransferEncodingValue::CHUNKED,
@@ -134,11 +130,10 @@ impl HttpTransparentRequest {
             end_to_end_headers: adapted.headers,
             hop_by_hop_headers,
             host: None,
-            original_connection_name: self.original_connection_name.clone(),
-            extra_connection_headers: self.extra_connection_headers.clone(),
+            original_connection_name: self.original_connection_name,
+            connection: self.connection.clone(),
             origin_header_size: self.origin_header_size,
             keep_alive: self.keep_alive,
-            connection_upgrade: self.connection_upgrade,
             upgrade: self.upgrade,
             content_length: 0,
             transfer_encoding: TransferEncodingValue::default(),
@@ -217,11 +212,6 @@ impl HttpTransparentRequest {
         }
 
         let mut req = HttpTransparentRequest::build_from_method_line(head_bytes.as_ref())?;
-        match req.version {
-            Version::HTTP_10 => req.keep_alive = false,
-            Version::HTTP_11 => req.keep_alive = true,
-            _ => {}
-        }
         req.steal_forwarded_for = steal_forwarded_for;
 
         loop {
@@ -261,9 +251,14 @@ impl HttpTransparentRequest {
 
     /// do some necessary check and fix
     fn post_check_and_fix(&mut self) {
-        if !self.connection_upgrade {
+        if !self.connection.upgrade() {
             self.upgrade = false;
             self.hop_by_hop_headers.remove(header::UPGRADE);
+        }
+
+        self.keep_alive = self.connection.keep_alive(self.version);
+        if self.original_transfer_encoding_name.is_some() && self.has_content_length {
+            self.keep_alive = false; // according to rfc9112 Section 6.1
         }
 
         // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
@@ -296,33 +291,12 @@ impl HttpTransparentRequest {
         &mut self,
         header: &HttpHeaderLine,
     ) -> Result<(), HttpRequestParseError> {
-        let value = header.value.to_lowercase();
-
-        for v in value.as_str().split(',') {
-            if v.is_empty() {
-                continue;
-            }
-
-            match v.trim() {
-                "keep-alive" => {
-                    self.keep_alive = true;
-                }
-                "close" => {
-                    self.keep_alive = false;
-                }
-                "upgrade" => {
-                    self.connection_upgrade = true;
-                    self.extra_connection_headers.push(header::UPGRADE);
-                }
-                s => {
-                    if let Ok(h) = HeaderName::from_str(s) {
-                        self.extra_connection_headers.push(h);
-                    }
-                }
-            }
-        }
-
-        self.original_connection_name = Connection::from_original(header.name);
+        self.connection.parse(header.value.as_bytes());
+        self.original_connection_name = header
+            .name
+            .as_bytes()
+            .try_into()
+            .unwrap_or(CONNECTION_NAME);
         Ok(())
     }
 
@@ -428,7 +402,6 @@ impl HttpTransparentRequest {
                     // delete content-length
                     self.end_to_end_headers.remove(header::CONTENT_LENGTH);
                     self.content_length = 0;
-                    self.keep_alive = false; // according to rfc9112 Section 6.1
                 }
 
                 self.transfer_encoding
@@ -444,8 +417,7 @@ impl HttpTransparentRequest {
             }
             "content-length" => {
                 if self.original_transfer_encoding_name.is_some() {
-                    // ignore content-length
-                    self.keep_alive = false; // according to rfc9112 Section 6.1
+                    self.has_content_length = true;
                     return Ok(());
                 }
 
@@ -505,9 +477,20 @@ impl HttpTransparentRequest {
         );
         self.accept_transfer_encoding
             .write_trailers(self.original_te_name.as_ref().unwrap_or(b"TE"), &mut buf);
-        self.original_connection_name.write_to_buf(
+        let te = if self.accept_transfer_encoding.trailers() {
+            Some(
+                self.original_te_name
+                    .as_ref()
+                    .map(|n| n.as_slice())
+                    .unwrap_or(b"TE"),
+            )
+        } else {
+            None
+        };
+        self.connection.write_for_req(
+            &self.original_connection_name,
             !self.keep_alive,
-            &self.extra_connection_headers,
+            te,
             &mut buf,
         );
         buf.put_slice(b"\r\n");
@@ -676,6 +659,7 @@ mod tests {
             Host: example.com\r\n\
             Content-Length: 6\r\n\
             Transfer-Encoding: chunked\r\n\
+            Connection: Keep-Alive\r\n\
             \r\n";
         let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
@@ -702,6 +686,7 @@ mod tests {
             Host: example.com\r\n\
             Transfer-Encoding: chunked\r\n\
             Content-Length: 6\r\n\
+            Connection: Keep-Alive\r\n\
             \r\n";
         let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);

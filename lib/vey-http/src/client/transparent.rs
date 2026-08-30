@@ -15,7 +15,7 @@ use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, TransferEncodingValue};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
-use crate::header::{Connection, TRANSFER_ENCODING_NAME};
+use crate::header::{CONNECTION_NAME, ConnectionValue, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 pub struct HttpTransparentResponse {
@@ -24,11 +24,10 @@ pub struct HttpTransparentResponse {
     pub reason: String,
     pub end_to_end_headers: HttpHeaderMap,
     pub hop_by_hop_headers: HttpHeaderMap,
-    original_connection_name: Connection,
-    extra_connection_headers: Vec<HeaderName>,
+    original_connection_name: [u8; 10],
+    connection: ConnectionValue,
     origin_header_size: usize,
     keep_alive: bool,
-    connection_upgrade: bool,
     pub upgrade: Option<HttpUpgradeToken>,
     content_length: u64,
     transfer_encoding: TransferEncodingValue,
@@ -45,11 +44,10 @@ impl HttpTransparentResponse {
             reason,
             end_to_end_headers: HttpHeaderMap::default(),
             hop_by_hop_headers: HttpHeaderMap::default(),
-            original_connection_name: Connection::default(),
-            extra_connection_headers: Vec::new(),
+            original_connection_name: CONNECTION_NAME,
+            connection: ConnectionValue::default(),
             origin_header_size: 0,
             keep_alive: false,
-            connection_upgrade: false,
             upgrade: None,
             content_length: 0,
             transfer_encoding: TransferEncodingValue::default(),
@@ -68,11 +66,10 @@ impl HttpTransparentResponse {
                 reason: adapted.reason,
                 end_to_end_headers: adapted.headers,
                 hop_by_hop_headers,
-                original_connection_name: self.original_connection_name.clone(),
-                extra_connection_headers: self.extra_connection_headers.clone(),
+                original_connection_name: self.original_connection_name,
+                connection: self.connection.clone(),
                 origin_header_size: self.origin_header_size,
                 keep_alive: self.keep_alive,
-                connection_upgrade: self.connection_upgrade,
                 upgrade: self.upgrade.clone(),
                 content_length,
                 transfer_encoding: TransferEncodingValue::default(),
@@ -86,11 +83,10 @@ impl HttpTransparentResponse {
                 reason: adapted.reason,
                 end_to_end_headers: adapted.headers,
                 hop_by_hop_headers,
-                original_connection_name: self.original_connection_name.clone(),
-                extra_connection_headers: self.extra_connection_headers.clone(),
+                original_connection_name: self.original_connection_name,
+                connection: self.connection.clone(),
                 origin_header_size: self.origin_header_size,
                 keep_alive: self.keep_alive,
-                connection_upgrade: self.connection_upgrade,
                 upgrade: self.upgrade.clone(),
                 content_length: 0,
                 transfer_encoding: if self.transfer_encoding.chunked() {
@@ -122,11 +118,10 @@ impl HttpTransparentResponse {
             reason: adapted.reason,
             end_to_end_headers,
             hop_by_hop_headers,
-            original_connection_name: self.original_connection_name.clone(),
-            extra_connection_headers: self.extra_connection_headers.clone(),
+            original_connection_name: self.original_connection_name,
+            connection: self.connection.clone(),
             origin_header_size: self.origin_header_size,
             keep_alive: self.keep_alive,
-            connection_upgrade: self.connection_upgrade,
             upgrade: self.upgrade.clone(),
             content_length: 0,
             transfer_encoding: TransferEncodingValue::default(),
@@ -161,6 +156,8 @@ impl HttpTransparentResponse {
             None
         } else if self.transfer_encoding.chunked() {
             Some(HttpBodyType::Chunked)
+        } else if self.original_transfer_encoding_name.is_some() {
+            Some(HttpBodyType::ReadUntilEnd)
         } else if self.has_content_length {
             if self.content_length > 0 {
                 Some(HttpBodyType::ContentLength(self.content_length))
@@ -198,7 +195,6 @@ impl HttpTransparentResponse {
         }
 
         let mut rsp = HttpTransparentResponse::build_from_status_line(head_bytes.as_ref())?;
-        rsp.keep_alive = keep_alive;
 
         loop {
             let header_size = head_bytes.len();
@@ -231,22 +227,24 @@ impl HttpTransparentResponse {
         }
 
         rsp.origin_header_size = head_bytes.len();
-        rsp.post_check_and_fix(method);
+        rsp.post_check_and_fix(method, keep_alive);
         Ok((rsp, head_bytes.freeze()))
     }
 
     /// do some necessary check and fix
-    fn post_check_and_fix(&mut self, method: &Method) {
-        if !self.transfer_encoding.chunked() {
-            if self.expect_no_body(method) {
-                // ignore the check of content-length as body is unexpected
-            } else if !self.has_content_length {
-                // read to end and close the connection
+    fn post_check_and_fix(&mut self, method: &Method, request_keep_alive: bool) {
+        self.keep_alive = self.connection.keep_alive(self.version) && request_keep_alive;
+        if self.original_transfer_encoding_name.is_some() {
+            if self.has_content_length || !self.transfer_encoding.chunked() {
+                // TE+CL (rfc9112 §6.1) or non-chunked TE (length is the connection)
                 self.keep_alive = false;
             }
+        } else if !self.has_content_length && !self.expect_no_body(method) {
+            // no TE and no CL: read to end and close
+            self.keep_alive = false;
         }
 
-        if !self.connection_upgrade {
+        if !self.connection.upgrade() {
             self.upgrade = None;
             self.hop_by_hop_headers.remove(header::UPGRADE);
         }
@@ -298,31 +296,12 @@ impl HttpTransparentResponse {
         match name.as_str() {
             "connection" | "proxy-connection" => {
                 // proxy-connection is not standard, but at least curl use it
-                for v in header.value.to_lowercase().as_str().split(',') {
-                    if v.is_empty() {
-                        continue;
-                    }
-
-                    match v.trim() {
-                        "keep-alive" => {
-                            // keep the original value from request
-                        }
-                        "close" => {
-                            self.keep_alive = false;
-                        }
-                        "upgrade" => {
-                            self.connection_upgrade = true;
-                            self.extra_connection_headers.push(header::UPGRADE);
-                        }
-                        s => {
-                            if let Ok(h) = HeaderName::from_str(s) {
-                                self.extra_connection_headers.push(h);
-                            }
-                        }
-                    }
-                }
-
-                self.original_connection_name = Connection::from_original(header.name);
+                self.connection.parse(header.value.as_bytes());
+                self.original_connection_name = header
+                    .name
+                    .as_bytes()
+                    .try_into()
+                    .unwrap_or(CONNECTION_NAME);
                 return Ok(());
             }
             "upgrade" => {
@@ -342,28 +321,20 @@ impl HttpTransparentResponse {
                 }
                 if self.has_content_length {
                     // Content-Length must be ignored when Transfer-Encoding is present
-                    // (RFC 7230 / RFC 9112). Drop the header and the length flag so
-                    // body_type() does not treat a zeroed length as "no body".
+                    // (RFC 7230 / RFC 9112). Drop the header; keep the flag so
+                    // post_check can close per RFC 9112 Section 6.1.
                     self.end_to_end_headers.remove(header::CONTENT_LENGTH);
                     self.content_length = 0;
-                    self.has_content_length = false;
-                    self.keep_alive = false; // according to rfc9112 Section 6.1
                 }
 
                 self.transfer_encoding
                     .parse(header.value.as_bytes())
                     .map_err(HttpResponseParseError::InvalidTransferEncoding)?;
-                if !self.transfer_encoding.chunked() {
-                    // Non-chunked TE (e.g. "gzip"): message length is delimited by
-                    // closing the connection.
-                    self.keep_alive = false;
-                }
                 return Ok(());
             }
             "content-length" => {
                 if self.original_transfer_encoding_name.is_some() {
-                    // ignore content-length
-                    self.keep_alive = false; // according to rfc9112 Section 6.1
+                    self.has_content_length = true;
                     return Ok(());
                 }
 
@@ -405,9 +376,9 @@ impl HttpTransparentResponse {
                 .unwrap_or(&TRANSFER_ENCODING_NAME),
             &mut buf,
         );
-        self.original_connection_name.write_to_buf(
+        self.connection.write_for_rsp(
+            &self.original_connection_name,
             !self.keep_alive,
-            &self.extra_connection_headers,
             &mut buf,
         );
         buf.put_slice(b"\r\n");
@@ -466,6 +437,33 @@ mod tests {
         assert_eq!(rsp.code, 200);
         assert!(!rsp.keep_alive());
         assert_eq!(rsp.body_type(&method), Some(HttpBodyType::ReadUntilEnd));
+    }
+
+    #[tokio::test]
+    async fn http10_keep_alive_token_and_request_must_agree() {
+        let content = b"HTTP/1.0 200 OK\r\nContent-Length: 0\r\nConnection: Keep-Alive\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let method = Method::GET;
+        let (rsp, _) = HttpTransparentResponse::parse(&mut buf_stream, &method, true, 4096)
+            .await
+            .unwrap();
+        assert!(rsp.keep_alive());
+
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let (rsp, _) = HttpTransparentResponse::parse(&mut buf_stream, &method, false, 4096)
+            .await
+            .unwrap();
+        assert!(!rsp.keep_alive());
+
+        let content = b"HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let (rsp, _) = HttpTransparentResponse::parse(&mut buf_stream, &method, true, 4096)
+            .await
+            .unwrap();
+        assert!(!rsp.keep_alive());
     }
 
     #[tokio::test]

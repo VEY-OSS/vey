@@ -19,7 +19,7 @@ use vey_types::net::{
 };
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
-use crate::header::{Connection, TRANSFER_ENCODING_NAME};
+use crate::header::{CONNECTION_NAME, ConnectionValue, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpMethodLine};
 
 pub struct HttpProxyClientRequest {
@@ -31,10 +31,9 @@ pub struct HttpProxyClientRequest {
     pub auth_info: HttpAuth,
     /// the port may be 0
     pub host: Option<UpstreamAddr>,
-    original_connection_name: Connection,
-    extra_connection_headers: Vec<HeaderName>,
+    original_connection_name: [u8; 10],
+    connection: ConnectionValue,
     origin_header_size: usize,
-    is_upgrade: bool,
     upgrade_token: Option<HttpUpgradeToken>,
     keep_alive: bool,
     content_length: u64,
@@ -57,10 +56,9 @@ impl HttpProxyClientRequest {
             hop_by_hop_headers: HttpHeaderMap::default(),
             auth_info: HttpAuth::None,
             host: None,
-            original_connection_name: Connection::default(),
-            extra_connection_headers: Vec::new(),
+            original_connection_name: CONNECTION_NAME,
+            connection: ConnectionValue::default(),
             origin_header_size: 0,
-            is_upgrade: false,
             upgrade_token: None,
             keep_alive: false,
             content_length: 0,
@@ -85,10 +83,9 @@ impl HttpProxyClientRequest {
                 hop_by_hop_headers,
                 auth_info: HttpAuth::None,
                 host: None,
-                original_connection_name: self.original_connection_name.clone(),
-                extra_connection_headers: self.extra_connection_headers.clone(),
+                original_connection_name: self.original_connection_name,
+                connection: self.connection.clone(),
                 origin_header_size: self.origin_header_size,
-                is_upgrade: self.is_upgrade,
                 upgrade_token: self.upgrade_token.clone(),
                 keep_alive: self.keep_alive,
                 content_length,
@@ -108,10 +105,9 @@ impl HttpProxyClientRequest {
                 hop_by_hop_headers,
                 auth_info: HttpAuth::None,
                 host: None,
-                original_connection_name: self.original_connection_name.clone(),
-                extra_connection_headers: self.extra_connection_headers.clone(),
+                original_connection_name: self.original_connection_name,
+                connection: self.connection.clone(),
                 origin_header_size: self.origin_header_size,
-                is_upgrade: self.is_upgrade,
                 upgrade_token: self.upgrade_token.clone(),
                 keep_alive: self.keep_alive,
                 content_length: 0,
@@ -138,10 +134,9 @@ impl HttpProxyClientRequest {
             hop_by_hop_headers,
             auth_info: HttpAuth::None,
             host: None,
-            original_connection_name: self.original_connection_name.clone(),
-            extra_connection_headers: self.extra_connection_headers.clone(),
+            original_connection_name: self.original_connection_name,
+            connection: self.connection.clone(),
             origin_header_size: self.origin_header_size,
-            is_upgrade: self.is_upgrade,
             upgrade_token: self.upgrade_token.clone(),
             keep_alive: self.keep_alive,
             content_length: 0,
@@ -297,11 +292,6 @@ impl HttpProxyClientRequest {
         header_size += nr;
 
         let mut req = HttpProxyClientRequest::build_from_method_line(line_buf.as_ref())?;
-        match req.version {
-            Version::HTTP_10 => req.keep_alive = false,
-            Version::HTTP_11 => req.keep_alive = true,
-            _ => unreachable!(),
-        }
         *version = req.version; // always set version in case of error
 
         loop {
@@ -341,7 +331,7 @@ impl HttpProxyClientRequest {
 
     /// do some necessary check and fix
     fn post_check_and_fix(&mut self) -> Result<(), HttpRequestParseError> {
-        if self.is_upgrade {
+        if self.connection.upgrade() {
             if self.has_content_length
                 || self.original_transfer_encoding_name.is_some()
                 || self.upgrade_token.is_none()
@@ -350,6 +340,11 @@ impl HttpProxyClientRequest {
             }
         } else if self.upgrade_token.take().is_some() {
             self.hop_by_hop_headers.remove(header::UPGRADE);
+        }
+
+        self.keep_alive = self.connection.keep_alive(self.version);
+        if self.original_transfer_encoding_name.is_some() && self.has_content_length {
+            self.keep_alive = false; // according to rfc9112 Section 6.1
         }
 
         // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
@@ -398,35 +393,15 @@ impl HttpProxyClientRequest {
         &mut self,
         header: &HttpHeaderLine,
     ) -> Result<(), HttpRequestParseError> {
-        let value = header.value.to_lowercase();
-
-        for v in value.as_str().split(',') {
-            if v.is_empty() {
-                continue;
-            }
-
-            match v.trim() {
-                "keep-alive" => {
-                    self.keep_alive = true;
-                }
-                "close" => {
-                    self.keep_alive = false;
-                }
-                "upgrade" => {
-                    if self.is_upgrade || self.method != Method::GET {
-                        return Err(HttpRequestParseError::InvalidUpgradeRequest);
-                    }
-                    self.is_upgrade = true;
-                }
-                s => {
-                    if let Ok(h) = HeaderName::from_str(s) {
-                        self.extra_connection_headers.push(h);
-                    }
-                }
-            }
+        self.connection.parse(header.value.as_bytes());
+        if self.connection.upgrade() && self.method != Method::GET {
+            return Err(HttpRequestParseError::InvalidUpgradeRequest);
         }
-
-        self.original_connection_name = Connection::from_original(header.name);
+        self.original_connection_name = header
+            .name
+            .as_bytes()
+            .try_into()
+            .unwrap_or(CONNECTION_NAME);
         Ok(())
     }
 
@@ -517,7 +492,6 @@ impl HttpProxyClientRequest {
                     // delete content-length
                     self.end_to_end_headers.remove(header::CONTENT_LENGTH);
                     self.content_length = 0;
-                    self.keep_alive = false; // according to rfc9112 Section 6.1
                 }
 
                 self.transfer_encoding
@@ -533,8 +507,7 @@ impl HttpProxyClientRequest {
             }
             "content-length" => {
                 if self.original_transfer_encoding_name.is_some() {
-                    // ignore content-length
-                    self.keep_alive = false; // according to rfc9112 Section 6.1
+                    self.has_content_length = true;
                     return Ok(());
                 }
 
@@ -575,11 +548,7 @@ impl HttpProxyClientRequest {
         self.hop_by_hop_headers
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
         self.write_te_header(&mut buf);
-        self.original_connection_name.write_to_buf(
-            !self.keep_alive,
-            &self.extra_connection_headers,
-            &mut buf,
-        );
+        self.write_connection_header(&mut buf);
         buf.put_slice(b"\r\n");
         buf
     }
@@ -605,12 +574,27 @@ impl HttpProxyClientRequest {
         self.hop_by_hop_headers
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
         self.write_te_header(&mut buf);
-        self.original_connection_name.write_to_buf(
-            !self.keep_alive,
-            &self.extra_connection_headers,
-            &mut buf,
-        );
+        self.write_connection_header(&mut buf);
         buf
+    }
+
+    fn write_connection_header(&self, buf: &mut Vec<u8>) {
+        let te = if self.accept_transfer_encoding.trailers() {
+            Some(
+                self.original_te_name
+                    .as_ref()
+                    .map(|n| n.as_slice())
+                    .unwrap_or(b"TE"),
+            )
+        } else {
+            None
+        };
+        self.connection.write_for_req(
+            &self.original_connection_name,
+            !self.keep_alive,
+            te,
+            buf,
+        );
     }
 
     fn write_te_header(&self, buf: &mut Vec<u8>) {
@@ -806,6 +790,36 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn multiple_connection_headers_are_merged() {
+        let req = parse_req(
+            b"GET /x HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\nConnection: keep-alive\r\n\r\n",
+        )
+        .await
+        .unwrap();
+        assert!(req.keep_alive());
+
+        let req = parse_req(
+            b"GET /x HTTP/1.0\r\nHost: example.com\r\nConnection: keep-alive\r\nConnection: upgrade\r\nUpgrade: websocket\r\n\r\n",
+        )
+        .await
+        .unwrap();
+        assert!(req.keep_alive());
+        assert_eq!(req.upgrade_token(), Some(&HttpUpgradeToken::Websocket));
+    }
+
+    #[tokio::test]
+    async fn te_and_content_length_closes_after_connection() {
+        for content in [
+            b"POST /x HTTP/1.1\r\nHost: example.com\r\nContent-Length: 6\r\nTransfer-Encoding: chunked\r\nConnection: Keep-Alive\r\n\r\n".as_slice(),
+            b"POST /x HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: chunked\r\nContent-Length: 6\r\nConnection: Keep-Alive\r\n\r\n".as_slice(),
+        ] {
+            let req = parse_req(content).await.unwrap();
+            assert!(!req.keep_alive());
+            assert_eq!(req.body_type(), Some(HttpBodyType::Chunked));
+        }
+    }
+
+    #[tokio::test]
     async fn te_header_keeps_only_trailers() {
         let req =
             parse_req(b"GET /x HTTP/1.1\r\nHost: example.com\r\nTE: gzip, trailers;q=1.0\r\n\r\n")
@@ -829,6 +843,26 @@ mod tests {
             .unwrap()
             .to_ascii_lowercase();
         assert!(!origin.contains("\nte:"));
+
+        let req = parse_req(
+            b"GET /x HTTP/1.1\r\nHost: example.com\r\nConnection: keep-alive, TE\r\n\r\n",
+        )
+        .await
+        .unwrap();
+        let origin = String::from_utf8(req.serialize_for_origin())
+            .unwrap()
+            .to_ascii_lowercase();
+        assert!(origin.contains("connection: keep-alive\r\n"));
+        assert!(!origin.contains("\nte:"));
+
+        let req = parse_req(
+            b"GET /x HTTP/1.1\r\nHost: example.com\r\nConnection: keep-alive, TE\r\nTE: trailers\r\n\r\n",
+        )
+        .await
+        .unwrap();
+        let origin = String::from_utf8(req.serialize_for_origin()).unwrap();
+        assert!(origin.contains("TE: trailers\r\n"));
+        assert!(origin.contains("Connection: Keep-Alive, TE\r\n"));
 
         match parse_req(b"GET /x HTTP/1.1\r\nHost: example.com\r\nTE: nottrailers\r\n\r\n").await {
             Err(HttpRequestParseError::InvalidAcceptTransferEncoding(_)) => {}
