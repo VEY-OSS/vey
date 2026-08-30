@@ -76,29 +76,21 @@ impl ConnectionValue {
                 continue;
             }
             match token[0] {
-                b'K' | b'k' => {
-                    if token.eq_ignore_ascii_case(b"keep-alive") {
-                        self.persistence = Some(ConnectionPersistence::KeepAlive);
-                        continue;
-                    }
+                b'K' | b'k' if token.eq_ignore_ascii_case(b"keep-alive") => {
+                    self.persistence = Some(ConnectionPersistence::KeepAlive);
+                    continue;
                 }
-                b'C' | b'c' => {
-                    if token.eq_ignore_ascii_case(b"close") {
-                        self.persistence = Some(ConnectionPersistence::Close);
-                        continue;
-                    }
+                b'C' | b'c' if token.eq_ignore_ascii_case(b"close") => {
+                    self.persistence = Some(ConnectionPersistence::Close);
+                    continue;
                 }
-                b'U' | b'u' => {
-                    if token.eq_ignore_ascii_case(b"upgrade") {
-                        self.upgrade = true;
-                        continue;
-                    }
+                b'U' | b'u' if token.eq_ignore_ascii_case(b"upgrade") => {
+                    self.upgrade = true;
+                    continue;
                 }
-                b'T' | b't' => {
-                    if token.eq_ignore_ascii_case(b"te") {
-                        // Listed only when we actually emit TE (see write).
-                        continue;
-                    }
+                b'T' | b't' if token.eq_ignore_ascii_case(b"te") => {
+                    // Listed only when we actually emit TE (see write).
+                    continue;
                 }
                 _ => {}
             }
