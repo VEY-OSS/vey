@@ -13,6 +13,7 @@ use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue, TransferEncodingValue};
 
 use super::{HttpConnectError, HttpConnectResponseError};
+use crate::header::TRANSFER_ENCODING_NAME;
 use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 #[derive(Debug)]
@@ -21,8 +22,8 @@ pub struct HttpConnectResponse {
     pub reason: String,
     pub headers: HttpHeaderMap,
     content_length: u64,
-    chunked_transfer: bool,
-    has_transfer_encoding: bool,
+    transfer_encoding: TransferEncodingValue,
+    original_transfer_encoding_name: Option<[u8; 17]>,
     has_content_length: bool,
 }
 
@@ -33,14 +34,14 @@ impl HttpConnectResponse {
             reason,
             headers: HttpHeaderMap::default(),
             content_length: 0,
-            chunked_transfer: false,
-            has_transfer_encoding: false,
+            transfer_encoding: TransferEncodingValue::default(),
+            original_transfer_encoding_name: None,
             has_content_length: false,
         }
     }
 
     fn body_type(&self) -> Option<HttpBodyType> {
-        if self.chunked_transfer {
+        if self.transfer_encoding.chunked() {
             Some(HttpBodyType::Chunked)
         } else if self.content_length > 0 {
             Some(HttpBodyType::ContentLength(self.content_length))
@@ -134,22 +135,27 @@ impl HttpConnectResponse {
         match name.as_str() {
             "connection" | "proxy-connection" => {}
             "transfer-encoding" => {
-                self.has_transfer_encoding = true;
+                if self.original_transfer_encoding_name.is_none() {
+                    self.original_transfer_encoding_name = Some(
+                        header
+                            .name
+                            .as_bytes()
+                            .try_into()
+                            .unwrap_or(TRANSFER_ENCODING_NAME),
+                    );
+                }
                 if self.has_content_length {
                     // delete content-length
                     self.headers.remove(http::header::CONTENT_LENGTH);
                     self.content_length = 0;
                 }
 
-                let mut te = TransferEncodingValue::default();
-                te.parse(header.value.as_bytes())
+                self.transfer_encoding
+                    .parse(header.value.as_bytes())
                     .map_err(HttpConnectResponseError::InvalidTransferEncoding)?;
-                if te.chunked() {
-                    self.chunked_transfer = true;
-                }
             }
             "content-length" => {
-                if self.has_transfer_encoding {
+                if self.original_transfer_encoding_name.is_some() {
                     // ignore content-length
                     return Ok(());
                 }
@@ -222,8 +228,8 @@ mod tests {
         assert_eq!(response.reason, "OK");
         assert!(response.headers.is_empty());
         assert_eq!(response.content_length, 0);
-        assert!(!response.chunked_transfer);
-        assert!(!response.has_transfer_encoding);
+        assert!(!response.transfer_encoding.chunked());
+        assert!(response.original_transfer_encoding_name.is_none());
         assert!(!response.has_content_length);
     }
 
@@ -244,7 +250,7 @@ mod tests {
         // Chunked transfer body type
         response.content_length = 0;
         response.has_content_length = false;
-        response.chunked_transfer = true;
+        response.transfer_encoding = TransferEncodingValue::CHUNKED;
         assert_eq!(response.body_type().unwrap(), HttpBodyType::Chunked);
     }
 
@@ -365,27 +371,24 @@ mod tests {
 
         let result = response.handle_header(header);
         assert!(result.is_ok());
-        assert!(response.has_transfer_encoding);
-        assert!(response.chunked_transfer);
+        assert!(response.original_transfer_encoding_name.is_some());
+        assert!(response.transfer_encoding.chunked());
 
-        // Invalid transfer-encoding with chunked in middle
+        let mut response = HttpConnectResponse::new(200, "OK".to_string());
         let header2 = HttpHeaderLine {
             name: "transfer-encoding",
             value: "gzip, chunked, deflate",
         };
+        assert!(response.handle_header(header2).is_err());
 
-        let result = response.handle_header(header2);
-        assert!(result.is_err());
-
-        // Transfer-encoding with chunked at end
+        let mut response = HttpConnectResponse::new(200, "OK".to_string());
         let header3 = HttpHeaderLine {
             name: "transfer-encoding",
             value: "gzip, chunked",
         };
-
-        let result = response.handle_header(header3);
-        assert!(result.is_ok());
-        assert!(response.chunked_transfer);
+        assert!(response.handle_header(header3).is_ok());
+        assert!(response.transfer_encoding.chunked());
+        assert!(response.transfer_encoding.body_compressed());
     }
 
     #[test]
@@ -396,7 +399,7 @@ mod tests {
             value: "notchunked",
         };
         assert!(response.handle_header(header).is_err());
-        assert!(!response.chunked_transfer);
+        assert!(!response.transfer_encoding.chunked());
     }
 
     #[test]
@@ -416,8 +419,8 @@ mod tests {
             value: "chunked",
         };
         assert!(response.handle_header(transfer_encoding_header).is_ok());
-        assert!(response.has_transfer_encoding);
-        assert!(response.chunked_transfer);
+        assert!(response.original_transfer_encoding_name.is_some());
+        assert!(response.transfer_encoding.chunked());
         assert_eq!(response.content_length, 0);
 
         // Add transfer-encoding then content-length
@@ -427,7 +430,7 @@ mod tests {
             value: "chunked",
         };
         assert!(response.handle_header(transfer_encoding_header).is_ok());
-        assert!(response.has_transfer_encoding);
+        assert!(response.original_transfer_encoding_name.is_some());
 
         let content_length_header = HttpHeaderLine {
             name: "content-length",
@@ -509,8 +512,8 @@ mod tests {
         let response = HttpConnectResponse::parse(&mut reader, 1024).await.unwrap();
         assert_eq!(response.code, 200);
         assert_eq!(response.reason, "OK");
-        assert!(response.has_transfer_encoding);
-        assert!(response.chunked_transfer);
+        assert!(response.original_transfer_encoding_name.is_some());
+        assert!(response.transfer_encoding.chunked());
         assert_eq!(response.content_length, 0);
     }
 

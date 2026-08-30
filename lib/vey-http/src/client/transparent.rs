@@ -15,7 +15,7 @@ use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, TransferEncodingValue};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
-use crate::header::Connection;
+use crate::header::{Connection, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 pub struct HttpTransparentResponse {
@@ -31,8 +31,8 @@ pub struct HttpTransparentResponse {
     connection_upgrade: bool,
     pub upgrade: Option<HttpUpgradeToken>,
     content_length: u64,
-    chunked_transfer: bool,
-    has_transfer_encoding: bool,
+    transfer_encoding: TransferEncodingValue,
+    original_transfer_encoding_name: Option<[u8; 17]>,
     has_content_length: bool,
     has_keep_alive: bool,
 }
@@ -52,74 +52,63 @@ impl HttpTransparentResponse {
             connection_upgrade: false,
             upgrade: None,
             content_length: 0,
-            chunked_transfer: false,
-            has_transfer_encoding: false,
+            transfer_encoding: TransferEncodingValue::default(),
+            original_transfer_encoding_name: None,
             has_content_length: false,
             has_keep_alive: false,
         }
     }
 
     pub fn adapt_with_body(&self, adapted: HttpAdaptedResponse) -> Self {
-        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
+        let hop_by_hop_headers = self.hop_by_hop_headers.clone();
         match adapted.content_length {
-            Some(content_length) => {
-                hop_by_hop_headers.remove(header::TRANSFER_ENCODING);
-                HttpTransparentResponse {
-                    version: adapted.version,
-                    code: adapted.status.as_u16(),
-                    reason: adapted.reason,
-                    end_to_end_headers: adapted.headers,
-                    hop_by_hop_headers,
-                    original_connection_name: self.original_connection_name.clone(),
-                    extra_connection_headers: self.extra_connection_headers.clone(),
-                    origin_header_size: self.origin_header_size,
-                    keep_alive: self.keep_alive,
-                    connection_upgrade: self.connection_upgrade,
-                    upgrade: self.upgrade.clone(),
-                    content_length,
-                    chunked_transfer: false,
-                    has_transfer_encoding: false,
-                    has_content_length: true,
-                    has_keep_alive: self.has_keep_alive,
-                }
-            }
-            None => {
-                if !self.chunked_transfer {
-                    if let Some(mut v) = hop_by_hop_headers.remove(header::TRANSFER_ENCODING) {
-                        v.set_static_value("chunked");
-                        hop_by_hop_headers.insert(header::TRANSFER_ENCODING, v);
-                    } else {
-                        hop_by_hop_headers.insert(
-                            header::TRANSFER_ENCODING,
-                            HttpHeaderValue::from_static("chunked"),
-                        );
-                    }
-                }
-                HttpTransparentResponse {
-                    version: adapted.version,
-                    code: adapted.status.as_u16(),
-                    reason: adapted.reason,
-                    end_to_end_headers: adapted.headers,
-                    hop_by_hop_headers,
-                    original_connection_name: self.original_connection_name.clone(),
-                    extra_connection_headers: self.extra_connection_headers.clone(),
-                    origin_header_size: self.origin_header_size,
-                    keep_alive: self.keep_alive,
-                    connection_upgrade: self.connection_upgrade,
-                    upgrade: self.upgrade.clone(),
-                    content_length: 0,
-                    chunked_transfer: true,
-                    has_transfer_encoding: true,
-                    has_content_length: false,
-                    has_keep_alive: self.has_keep_alive,
-                }
-            }
+            Some(content_length) => HttpTransparentResponse {
+                version: adapted.version,
+                code: adapted.status.as_u16(),
+                reason: adapted.reason,
+                end_to_end_headers: adapted.headers,
+                hop_by_hop_headers,
+                original_connection_name: self.original_connection_name.clone(),
+                extra_connection_headers: self.extra_connection_headers.clone(),
+                origin_header_size: self.origin_header_size,
+                keep_alive: self.keep_alive,
+                connection_upgrade: self.connection_upgrade,
+                upgrade: self.upgrade.clone(),
+                content_length,
+                transfer_encoding: TransferEncodingValue::default(),
+                original_transfer_encoding_name: None,
+                has_content_length: true,
+                has_keep_alive: self.has_keep_alive,
+            },
+            None => HttpTransparentResponse {
+                version: adapted.version,
+                code: adapted.status.as_u16(),
+                reason: adapted.reason,
+                end_to_end_headers: adapted.headers,
+                hop_by_hop_headers,
+                original_connection_name: self.original_connection_name.clone(),
+                extra_connection_headers: self.extra_connection_headers.clone(),
+                origin_header_size: self.origin_header_size,
+                keep_alive: self.keep_alive,
+                connection_upgrade: self.connection_upgrade,
+                upgrade: self.upgrade.clone(),
+                content_length: 0,
+                transfer_encoding: if self.transfer_encoding.chunked() {
+                    self.transfer_encoding
+                } else {
+                    TransferEncodingValue::CHUNKED
+                },
+                original_transfer_encoding_name: self
+                    .original_transfer_encoding_name
+                    .or(Some(TRANSFER_ENCODING_NAME)),
+                has_content_length: false,
+                has_keep_alive: self.has_keep_alive,
+            },
         }
     }
 
     pub fn adapt_without_body(&self, adapted: HttpAdaptedResponse) -> Self {
-        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
-        hop_by_hop_headers.remove(header::TRANSFER_ENCODING);
+        let hop_by_hop_headers = self.hop_by_hop_headers.clone();
         let mut end_to_end_headers = adapted.headers;
         if let Some(mut v) = end_to_end_headers.remove(header::CONTENT_LENGTH) {
             v.set_static_value("0");
@@ -140,8 +129,8 @@ impl HttpTransparentResponse {
             connection_upgrade: self.connection_upgrade,
             upgrade: self.upgrade.clone(),
             content_length: 0,
-            chunked_transfer: false,
-            has_transfer_encoding: false,
+            transfer_encoding: TransferEncodingValue::default(),
+            original_transfer_encoding_name: None,
             has_content_length: true,
             has_keep_alive: self.has_keep_alive,
         }
@@ -170,7 +159,7 @@ impl HttpTransparentResponse {
         // see https://datatracker.ietf.org/doc/html/rfc7230#section-3.3.3 for Message Body Length
         if self.expect_no_body(method) {
             None
-        } else if self.chunked_transfer {
+        } else if self.transfer_encoding.chunked() {
             Some(HttpBodyType::Chunked)
         } else if self.has_content_length {
             if self.content_length > 0 {
@@ -248,7 +237,7 @@ impl HttpTransparentResponse {
 
     /// do some necessary check and fix
     fn post_check_and_fix(&mut self, method: &Method) {
-        if !self.chunked_transfer {
+        if !self.transfer_encoding.chunked() {
             if self.expect_no_body(method) {
                 // ignore the check of content-length as body is unexpected
             } else if !self.has_content_length {
@@ -342,8 +331,15 @@ impl HttpTransparentResponse {
                 return self.insert_hop_by_hop_header(name, &header);
             }
             "transfer-encoding" => {
-                // it's a hop-by-hop option, but we just pass it
-                self.has_transfer_encoding = true;
+                if self.original_transfer_encoding_name.is_none() {
+                    self.original_transfer_encoding_name = Some(
+                        header
+                            .name
+                            .as_bytes()
+                            .try_into()
+                            .unwrap_or(TRANSFER_ENCODING_NAME),
+                    );
+                }
                 if self.has_content_length {
                     // Content-Length must be ignored when Transfer-Encoding is present
                     // (RFC 7230 / RFC 9112). Drop the header and the length flag so
@@ -354,20 +350,18 @@ impl HttpTransparentResponse {
                     self.keep_alive = false; // according to rfc9112 Section 6.1
                 }
 
-                let mut te = TransferEncodingValue::default();
-                te.parse(header.value.as_bytes())
+                self.transfer_encoding
+                    .parse(header.value.as_bytes())
                     .map_err(HttpResponseParseError::InvalidTransferEncoding)?;
-                if te.chunked() {
-                    self.chunked_transfer = true;
-                } else {
+                if !self.transfer_encoding.chunked() {
                     // Non-chunked TE (e.g. "gzip"): message length is delimited by
                     // closing the connection.
                     self.keep_alive = false;
                 }
-                return self.insert_hop_by_hop_header(name, &header);
+                return Ok(());
             }
             "content-length" => {
-                if self.has_transfer_encoding {
+                if self.original_transfer_encoding_name.is_some() {
                     // ignore content-length
                     self.keep_alive = false; // according to rfc9112 Section 6.1
                     return Ok(());
@@ -405,6 +399,12 @@ impl HttpTransparentResponse {
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
         self.hop_by_hop_headers
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
+        self.transfer_encoding.write(
+            self.original_transfer_encoding_name
+                .as_ref()
+                .unwrap_or(&TRANSFER_ENCODING_NAME),
+            &mut buf,
+        );
         self.original_connection_name.write_to_buf(
             !self.keep_alive,
             &self.extra_connection_headers,

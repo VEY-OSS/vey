@@ -290,7 +290,10 @@ impl From<HttpRequestParseError> for ServerTaskError {
             }
             HttpRequestParseError::InvalidUpgradeRequest
             | HttpRequestParseError::UnsupportedMethod(_)
-            | HttpRequestParseError::UnsupportedScheme => ServerTaskError::UnimplementedProtocol,
+            | HttpRequestParseError::UnsupportedScheme
+            | HttpRequestParseError::UnsupportedTransferEncoding => {
+                ServerTaskError::UnimplementedProtocol
+            }
             HttpRequestParseError::IoFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
             HttpRequestParseError::UnmatchedHostAndAuthority => {
                 ServerTaskError::InvalidClientProtocol("host header doesn't match host in uri")

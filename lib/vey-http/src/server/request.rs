@@ -14,12 +14,12 @@ use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{
-    Host, HttpAuth, HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, TransferEncodingValue,
-    UpstreamAddr,
+    AcceptTransferEncodingValue, Host, HttpAuth, HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken,
+    TransferEncodingValue, UpstreamAddr,
 };
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
-use crate::header::Connection;
+use crate::header::{Connection, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpMethodLine};
 
 pub struct HttpProxyClientRequest {
@@ -38,11 +38,13 @@ pub struct HttpProxyClientRequest {
     upgrade_token: Option<HttpUpgradeToken>,
     keep_alive: bool,
     content_length: u64,
-    chunked_transfer: bool,
-    has_transfer_encoding: bool,
+    transfer_encoding: TransferEncodingValue,
     has_content_length: bool,
     expect_100_continue: bool,
     authorization_negotiate: bool,
+    accept_transfer_encoding: AcceptTransferEncodingValue,
+    original_te_name: Option<[u8; 2]>,
+    original_transfer_encoding_name: Option<[u8; 17]>,
 }
 
 impl HttpProxyClientRequest {
@@ -62,81 +64,72 @@ impl HttpProxyClientRequest {
             upgrade_token: None,
             keep_alive: false,
             content_length: 0,
-            chunked_transfer: false,
-            has_transfer_encoding: false,
+            transfer_encoding: TransferEncodingValue::default(),
             has_content_length: false,
             expect_100_continue: false,
             authorization_negotiate: false,
+            accept_transfer_encoding: AcceptTransferEncodingValue::default(),
+            original_te_name: None,
+            original_transfer_encoding_name: None,
         }
     }
 
     pub fn adapt_with_body(&self, adapted: HttpAdaptedRequest) -> Self {
-        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
+        let hop_by_hop_headers = self.hop_by_hop_headers.clone();
         match adapted.content_length {
-            Some(content_length) => {
-                hop_by_hop_headers.remove(header::TRANSFER_ENCODING);
-                HttpProxyClientRequest {
-                    version: adapted.version,
-                    method: adapted.method,
-                    uri: adapted.uri,
-                    end_to_end_headers: adapted.headers,
-                    hop_by_hop_headers,
-                    auth_info: HttpAuth::None,
-                    host: None,
-                    original_connection_name: self.original_connection_name.clone(),
-                    extra_connection_headers: self.extra_connection_headers.clone(),
-                    origin_header_size: self.origin_header_size,
-                    is_upgrade: self.is_upgrade,
-                    upgrade_token: self.upgrade_token.clone(),
-                    keep_alive: self.keep_alive,
-                    content_length,
-                    chunked_transfer: false,
-                    has_transfer_encoding: false,
-                    has_content_length: true,
-                    expect_100_continue: self.expect_100_continue,
-                    authorization_negotiate: self.authorization_negotiate,
-                }
-            }
-            None => {
-                if !self.chunked_transfer {
-                    if let Some(mut v) = hop_by_hop_headers.remove(header::TRANSFER_ENCODING) {
-                        v.set_static_value("chunked");
-                        hop_by_hop_headers.insert(header::TRANSFER_ENCODING, v);
-                    } else {
-                        hop_by_hop_headers.insert(
-                            header::TRANSFER_ENCODING,
-                            HttpHeaderValue::from_static("chunked"),
-                        );
-                    }
-                }
-                HttpProxyClientRequest {
-                    version: adapted.version,
-                    method: adapted.method,
-                    uri: adapted.uri,
-                    end_to_end_headers: adapted.headers,
-                    hop_by_hop_headers,
-                    auth_info: HttpAuth::None,
-                    host: None,
-                    original_connection_name: self.original_connection_name.clone(),
-                    extra_connection_headers: self.extra_connection_headers.clone(),
-                    origin_header_size: self.origin_header_size,
-                    is_upgrade: self.is_upgrade,
-                    upgrade_token: self.upgrade_token.clone(),
-                    keep_alive: self.keep_alive,
-                    content_length: 0,
-                    chunked_transfer: true,
-                    has_transfer_encoding: true,
-                    has_content_length: false,
-                    expect_100_continue: self.expect_100_continue,
-                    authorization_negotiate: self.authorization_negotiate,
-                }
-            }
+            Some(content_length) => HttpProxyClientRequest {
+                version: adapted.version,
+                method: adapted.method,
+                uri: adapted.uri,
+                end_to_end_headers: adapted.headers,
+                hop_by_hop_headers,
+                auth_info: HttpAuth::None,
+                host: None,
+                original_connection_name: self.original_connection_name.clone(),
+                extra_connection_headers: self.extra_connection_headers.clone(),
+                origin_header_size: self.origin_header_size,
+                is_upgrade: self.is_upgrade,
+                upgrade_token: self.upgrade_token.clone(),
+                keep_alive: self.keep_alive,
+                content_length,
+                transfer_encoding: TransferEncodingValue::default(),
+                has_content_length: true,
+                expect_100_continue: self.expect_100_continue,
+                authorization_negotiate: self.authorization_negotiate,
+                accept_transfer_encoding: self.accept_transfer_encoding,
+                original_te_name: self.original_te_name,
+                original_transfer_encoding_name: None,
+            },
+            None => HttpProxyClientRequest {
+                version: adapted.version,
+                method: adapted.method,
+                uri: adapted.uri,
+                end_to_end_headers: adapted.headers,
+                hop_by_hop_headers,
+                auth_info: HttpAuth::None,
+                host: None,
+                original_connection_name: self.original_connection_name.clone(),
+                extra_connection_headers: self.extra_connection_headers.clone(),
+                origin_header_size: self.origin_header_size,
+                is_upgrade: self.is_upgrade,
+                upgrade_token: self.upgrade_token.clone(),
+                keep_alive: self.keep_alive,
+                content_length: 0,
+                transfer_encoding: TransferEncodingValue::CHUNKED,
+                has_content_length: false,
+                expect_100_continue: self.expect_100_continue,
+                authorization_negotiate: self.authorization_negotiate,
+                accept_transfer_encoding: self.accept_transfer_encoding,
+                original_te_name: self.original_te_name,
+                original_transfer_encoding_name: self
+                    .original_transfer_encoding_name
+                    .or(Some(TRANSFER_ENCODING_NAME)),
+            },
         }
     }
 
     pub fn adapt_without_body(&self, adapted: HttpAdaptedRequest) -> Self {
-        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
-        hop_by_hop_headers.remove(header::TRANSFER_ENCODING);
+        let hop_by_hop_headers = self.hop_by_hop_headers.clone();
         HttpProxyClientRequest {
             version: adapted.version,
             method: adapted.method,
@@ -152,11 +145,13 @@ impl HttpProxyClientRequest {
             upgrade_token: self.upgrade_token.clone(),
             keep_alive: self.keep_alive,
             content_length: 0,
-            chunked_transfer: false,
-            has_transfer_encoding: false,
+            transfer_encoding: TransferEncodingValue::default(),
             has_content_length: false,
             expect_100_continue: self.expect_100_continue,
             authorization_negotiate: self.authorization_negotiate,
+            accept_transfer_encoding: self.accept_transfer_encoding,
+            original_te_name: self.original_te_name,
+            original_transfer_encoding_name: None,
         }
     }
 
@@ -176,7 +171,7 @@ impl HttpProxyClientRequest {
     }
 
     fn check_body_type(&self) -> Option<HttpBodyType> {
-        if self.chunked_transfer {
+        if self.transfer_encoding.chunked() {
             Some(HttpBodyType::Chunked)
         } else if self.content_length > 0 {
             Some(HttpBodyType::ContentLength(self.content_length))
@@ -347,7 +342,9 @@ impl HttpProxyClientRequest {
     /// do some necessary check and fix
     fn post_check_and_fix(&mut self) -> Result<(), HttpRequestParseError> {
         if self.is_upgrade {
-            if self.has_content_length || self.has_transfer_encoding || self.upgrade_token.is_none()
+            if self.has_content_length
+                || self.original_transfer_encoding_name.is_some()
+                || self.upgrade_token.is_none()
             {
                 return Err(HttpRequestParseError::InvalidUpgradeRequest);
             }
@@ -489,8 +486,13 @@ impl HttpProxyClientRequest {
                 return Ok(());
             }
             "te" => {
-                // hop-by-hop option, but let's pass it
-                return self.insert_hop_by_hop_header(name, &header);
+                self.accept_transfer_encoding
+                    .parse(header.value.as_bytes())
+                    .map_err(HttpRequestParseError::InvalidAcceptTransferEncoding)?;
+                if self.original_te_name.is_none() {
+                    self.original_te_name = header.name.as_bytes().try_into().ok();
+                }
+                return Ok(());
             }
             "upgrade" => {
                 if self.upgrade_token.is_some() {
@@ -502,8 +504,15 @@ impl HttpProxyClientRequest {
                 return self.insert_hop_by_hop_header(name, &header);
             }
             "transfer-encoding" => {
-                // it's a hop-by-hop option, but we just pass it
-                self.has_transfer_encoding = true;
+                if self.original_transfer_encoding_name.is_none() {
+                    self.original_transfer_encoding_name = Some(
+                        header
+                            .name
+                            .as_bytes()
+                            .try_into()
+                            .unwrap_or(TRANSFER_ENCODING_NAME),
+                    );
+                }
                 if self.has_content_length {
                     // delete content-length
                     self.end_to_end_headers.remove(header::CONTENT_LENGTH);
@@ -511,17 +520,19 @@ impl HttpProxyClientRequest {
                     self.keep_alive = false; // according to rfc9112 Section 6.1
                 }
 
-                let mut te = TransferEncodingValue::default();
-                te.parse(header.value.as_bytes())
+                self.transfer_encoding
+                    .parse(header.value.as_bytes())
                     .map_err(HttpRequestParseError::InvalidTransferEncoding)?;
-                if !te.chunked() {
+                if self.transfer_encoding.body_compressed() {
+                    return Err(HttpRequestParseError::UnsupportedTransferEncoding);
+                }
+                if !self.transfer_encoding.chunked() {
                     return Err(HttpRequestParseError::NotChunkedTransferEncoding);
                 }
-                self.chunked_transfer = true;
-                return self.insert_hop_by_hop_header(name, &header);
+                return Ok(());
             }
             "content-length" => {
-                if self.has_transfer_encoding {
+                if self.original_transfer_encoding_name.is_some() {
                     // ignore content-length
                     self.keep_alive = false; // according to rfc9112 Section 6.1
                     return Ok(());
@@ -563,6 +574,7 @@ impl HttpProxyClientRequest {
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
         self.hop_by_hop_headers
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
+        self.write_te_header(&mut buf);
         self.original_connection_name.write_to_buf(
             !self.keep_alive,
             &self.extra_connection_headers,
@@ -592,12 +604,24 @@ impl HttpProxyClientRequest {
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
         self.hop_by_hop_headers
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
+        self.write_te_header(&mut buf);
         self.original_connection_name.write_to_buf(
             !self.keep_alive,
             &self.extra_connection_headers,
             &mut buf,
         );
         buf
+    }
+
+    fn write_te_header(&self, buf: &mut Vec<u8>) {
+        self.transfer_encoding.write_chunked(
+            self.original_transfer_encoding_name
+                .as_ref()
+                .unwrap_or(&TRANSFER_ENCODING_NAME),
+            buf,
+        );
+        self.accept_transfer_encoding
+            .write_trailers(self.original_te_name.as_ref().unwrap_or(b"TE"), buf);
     }
 
     pub fn serialize_for_adapter(&self) -> Vec<u8> {
@@ -729,11 +753,26 @@ mod tests {
     #[tokio::test]
     async fn transfer_encoding_last_coding_must_be_chunked() {
         let ok = parse_req(
-            b"POST /x HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: gzip, chunked\r\n\r\n",
+            b"POST /x HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: identity, chunked\r\n\r\n",
         )
         .await
         .unwrap();
         assert_eq!(ok.body_type(), Some(HttpBodyType::Chunked));
+        assert!(
+            ok.hop_by_hop_headers
+                .get(header::TRANSFER_ENCODING)
+                .is_none()
+        );
+        let origin = String::from_utf8(ok.serialize_for_origin()).unwrap();
+        assert!(origin.contains("Transfer-Encoding: chunked\r\n"));
+
+        let ok = parse_req(
+            b"POST /x HTTP/1.1\r\nHost: example.com\r\ntransfer-encoding: chunked\r\n\r\n",
+        )
+        .await
+        .unwrap();
+        let origin = String::from_utf8(ok.serialize_for_origin()).unwrap();
+        assert!(origin.contains("transfer-encoding: chunked\r\n"));
 
         for te in ["notchunked", "foochunked", "chunked, gzip"] {
             let content =
@@ -745,12 +784,56 @@ mod tests {
             }
         }
 
-        match parse_req(b"POST /x HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: gzip\r\n\r\n")
-            .await
+        match parse_req(
+            b"POST /x HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: identity\r\n\r\n",
+        )
+        .await
         {
             Err(HttpRequestParseError::NotChunkedTransferEncoding) => {}
-            Err(err) => panic!("gzip: unexpected error {err:?}"),
-            Ok(_) => panic!("gzip: expected NotChunkedTransferEncoding"),
+            Err(err) => panic!("identity: unexpected error {err:?}"),
+            Ok(_) => panic!("identity: expected NotChunkedTransferEncoding"),
+        }
+
+        for te in ["gzip", "gzip, chunked", "deflate, chunked"] {
+            let content =
+                format!("POST /x HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: {te}\r\n\r\n");
+            match parse_req(content.as_bytes()).await {
+                Err(HttpRequestParseError::UnsupportedTransferEncoding) => {}
+                Err(err) => panic!("{te}: unexpected error {err:?}"),
+                Ok(_) => panic!("{te}: expected UnsupportedTransferEncoding"),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn te_header_keeps_only_trailers() {
+        let req =
+            parse_req(b"GET /x HTTP/1.1\r\nHost: example.com\r\nTE: gzip, trailers;q=1.0\r\n\r\n")
+                .await
+                .unwrap();
+        assert!(req.hop_by_hop_headers.get(header::TE).is_none());
+        let origin = String::from_utf8(req.serialize_for_origin()).unwrap();
+        assert!(origin.contains("TE: trailers\r\n"));
+
+        let req = parse_req(b"GET /x HTTP/1.1\r\nHost: example.com\r\nte: gzip, trailers\r\n\r\n")
+            .await
+            .unwrap();
+        let origin = String::from_utf8(req.serialize_for_origin()).unwrap();
+        assert!(origin.contains("te: trailers\r\n"));
+
+        let req = parse_req(b"GET /x HTTP/1.1\r\nHost: example.com\r\nTE: deflate\r\n\r\n")
+            .await
+            .unwrap();
+        assert!(req.hop_by_hop_headers.get(header::TE).is_none());
+        let origin = String::from_utf8(req.serialize_for_origin())
+            .unwrap()
+            .to_ascii_lowercase();
+        assert!(!origin.contains("\nte:"));
+
+        match parse_req(b"GET /x HTTP/1.1\r\nHost: example.com\r\nTE: nottrailers\r\n\r\n").await {
+            Err(HttpRequestParseError::InvalidAcceptTransferEncoding(_)) => {}
+            Err(err) => panic!("unexpected error {err:?}"),
+            Ok(_) => panic!("expected InvalidAcceptTransferEncoding"),
         }
     }
 }

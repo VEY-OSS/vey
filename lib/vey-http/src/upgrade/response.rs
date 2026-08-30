@@ -12,6 +12,7 @@ use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue, TransferEncodingValue};
 
 use super::{HttpUpgradeError, HttpUpgradeResponseError};
+use crate::header::TRANSFER_ENCODING_NAME;
 use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 #[derive(Debug)]
@@ -21,8 +22,8 @@ pub struct HttpUpgradeResponse {
     pub headers: HttpHeaderMap,
     protocol: &'static str,
     content_length: u64,
-    chunked_transfer: bool,
-    has_transfer_encoding: bool,
+    transfer_encoding: TransferEncodingValue,
+    original_transfer_encoding_name: Option<[u8; 17]>,
     has_content_length: bool,
 }
 
@@ -34,14 +35,14 @@ impl HttpUpgradeResponse {
             headers: HttpHeaderMap::default(),
             protocol,
             content_length: 0,
-            chunked_transfer: false,
-            has_transfer_encoding: false,
+            transfer_encoding: TransferEncodingValue::default(),
+            original_transfer_encoding_name: None,
             has_content_length: false,
         }
     }
 
     fn body_type(&self) -> Option<HttpBodyType> {
-        if self.chunked_transfer {
+        if self.transfer_encoding.chunked() {
             Some(HttpBodyType::Chunked)
         } else if self.content_length > 0 {
             Some(HttpBodyType::ContentLength(self.content_length))
@@ -175,21 +176,26 @@ impl HttpUpgradeResponse {
                 return Ok(());
             }
             "transfer-encoding" => {
-                self.has_transfer_encoding = true;
+                if self.original_transfer_encoding_name.is_none() {
+                    self.original_transfer_encoding_name = Some(
+                        header
+                            .name
+                            .as_bytes()
+                            .try_into()
+                            .unwrap_or(TRANSFER_ENCODING_NAME),
+                    );
+                }
                 if self.has_content_length {
                     // delete content-length
                     self.content_length = 0;
                 }
 
-                let mut te = TransferEncodingValue::default();
-                te.parse(header.value.as_bytes())
+                self.transfer_encoding
+                    .parse(header.value.as_bytes())
                     .map_err(HttpUpgradeResponseError::InvalidTransferEncoding)?;
-                if te.chunked() {
-                    self.chunked_transfer = true;
-                }
             }
             "content-length" => {
-                if self.has_transfer_encoding {
+                if self.original_transfer_encoding_name.is_some() {
                     // ignore content-length
                     return Ok(());
                 }

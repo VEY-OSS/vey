@@ -22,4 +22,7 @@ pub use forwarded::{
 };
 
 mod transfer;
-pub use transfer::{InvalidTransferEncodingValue, TransferCompressKind, TransferEncodingValue};
+pub use transfer::{
+    AcceptTransferEncodingValue, InvalidAcceptTransferEncodingValue, InvalidTransferEncodingValue,
+    TransferCodingQValue, TransferCompressKind, TransferEncodingValue,
+};

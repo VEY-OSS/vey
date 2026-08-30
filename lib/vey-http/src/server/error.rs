@@ -9,7 +9,9 @@ use std::io;
 use http::{StatusCode, Uri, Version};
 use thiserror::Error;
 
-use vey_types::net::{HttpUpgradeToken, InvalidTransferEncodingValue};
+use vey_types::net::{
+    HttpUpgradeToken, InvalidAcceptTransferEncodingValue, InvalidTransferEncodingValue,
+};
 
 use crate::HttpLineParseError;
 
@@ -45,8 +47,12 @@ pub enum HttpRequestParseError {
     UnmatchedHostAndAuthority,
     #[error("invalid transfer-encoding value: {0}")]
     InvalidTransferEncoding(InvalidTransferEncodingValue),
+    #[error("invalid TE value: {0}")]
+    InvalidAcceptTransferEncoding(InvalidAcceptTransferEncodingValue),
     #[error("not chunked transfer encoding")]
     NotChunkedTransferEncoding,
+    #[error("unsupported transfer encoding")]
+    UnsupportedTransferEncoding,
     #[error("invalid content length")]
     InvalidContentLength,
     #[error("invalid upgrade request")]
@@ -70,7 +76,10 @@ impl HttpRequestParseError {
             | HttpRequestParseError::UnsupportedUpgradeToken(_)
             | HttpRequestParseError::UnsupportedUri(_) => Some(StatusCode::FORBIDDEN),
             HttpRequestParseError::UnsupportedMethod(_)
-            | HttpRequestParseError::UnsupportedScheme => Some(StatusCode::NOT_IMPLEMENTED),
+            | HttpRequestParseError::UnsupportedScheme
+            | HttpRequestParseError::UnsupportedTransferEncoding => {
+                Some(StatusCode::NOT_IMPLEMENTED)
+            }
             HttpRequestParseError::UnmatchedHostAndAuthority => Some(StatusCode::CONFLICT),
             HttpRequestParseError::LoopDetected => Some(StatusCode::LOOP_DETECTED),
             _ => Some(StatusCode::BAD_REQUEST),
@@ -118,6 +127,10 @@ mod tests {
             HttpRequestParseError::UnsupportedScheme.status_code(),
             Some(StatusCode::NOT_IMPLEMENTED)
         );
+        assert_eq!(
+            HttpRequestParseError::UnsupportedTransferEncoding.status_code(),
+            Some(StatusCode::NOT_IMPLEMENTED)
+        );
 
         // Bad Request cases
         let inner_err = HttpLineParseError::InvalidVersion;
@@ -157,6 +170,13 @@ mod tests {
         assert_eq!(
             HttpRequestParseError::InvalidTransferEncoding(
                 InvalidTransferEncodingValue::InvalidCodingType
+            )
+            .status_code(),
+            Some(StatusCode::BAD_REQUEST)
+        );
+        assert_eq!(
+            HttpRequestParseError::InvalidAcceptTransferEncoding(
+                InvalidAcceptTransferEncodingValue::InvalidCodingType
             )
             .status_code(),
             Some(StatusCode::BAD_REQUEST)
