@@ -103,7 +103,7 @@ itertools = "0.15"
 rand = { version = "0.10", default-features = false, features = ["thread_rng"] }
 fastrand = "2.3"
 memchr = "2.8"
-constant_time_eq = "0.5"
+constant_time_eq = "0.6"
 uuid = "1.21"
 base64 = "0.23"
 regex = "1.11"

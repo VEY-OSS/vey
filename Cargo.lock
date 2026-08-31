@@ -603,9 +603,12 @@ checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
 
 [[package]]
 name = "constant_time_eq"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a1ec0cfec728a79a5109075543131387f911cb4d07716436d7ae20533657a96"
+checksum = "6187e670c346a04bcbf5def0393d57ec0e5ab56565cde6be4a7cbdb6cdc2f3f6"
+dependencies = [
+ "rustversion",
+]
 
 [[package]]
 name = "core-foundation"
@@ -1588,9 +1591,9 @@ dependencies = [
 
 [[package]]
 name = "mlua"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad72ffa037cf5970c9860674f32f703fda25d86cf217475fe7a79c5f9961bcaa"
+checksum = "d96e5d00f19d8c46c71ceaced99593b90c31c57aa1fe2cb3e93a8b1698eedba9"
 dependencies = [
  "bstr",
  "either",
@@ -1603,9 +1606,9 @@ dependencies = [
 
 [[package]]
 name = "mlua-sys"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92136787b906d4e55cfe96cd6c62e010bb1a56889d0d6cf83eb016dbad07576b"
+checksum = "b806d7ade031f5d6607eae3e283fb034cb795a76247dd0d1ba753c8c42debccf"
 dependencies = [
  "cc",
  "cfg-if",
@@ -2924,7 +2927,7 @@ name = "vey-fluentd"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "constant_time_eq 0.5.0",
+ "constant_time_eq 0.6.0",
  "hex",
  "jiff",
  "kanal",
@@ -3908,7 +3911,7 @@ dependencies = [
  "blake3",
  "brotli",
  "bytes",
- "constant_time_eq 0.5.0",
+ "constant_time_eq 0.6.0",
  "crc32fast",
  "fastrand",
  "fnv",
@@ -3967,7 +3970,7 @@ dependencies = [
 name = "vey-xcrypt"
 version = "0.3.0"
 dependencies = [
- "constant_time_eq 0.5.0",
+ "constant_time_eq 0.6.0",
  "memchr",
  "thiserror",
  "variant-ssl",
