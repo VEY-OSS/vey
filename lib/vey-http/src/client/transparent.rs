@@ -12,10 +12,13 @@ use http::{HeaderName, Method, Version, header};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
-use vey_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, TransferEncodingValue};
+use vey_types::net::http_names;
+use vey_types::net::{
+    ConnectionValue, HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, KeepAliveValue,
+    TransferEncodingValue,
+};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
-use crate::header::{CONNECTION_NAME, ConnectionValue, KeepAliveValue, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 pub struct HttpTransparentResponse {
@@ -43,7 +46,7 @@ impl HttpTransparentResponse {
             reason,
             end_to_end_headers: HttpHeaderMap::default(),
             hop_by_hop_headers: HttpHeaderMap::default(),
-            original_connection_name: CONNECTION_NAME,
+            original_connection_name: http_names::CONNECTION_NAME,
             connection: ConnectionValue::default(),
             origin_header_size: 0,
             keep_alive: false,
@@ -93,7 +96,7 @@ impl HttpTransparentResponse {
                 },
                 original_transfer_encoding_name: self
                     .original_transfer_encoding_name
-                    .or(Some(TRANSFER_ENCODING_NAME)),
+                    .or(Some(http_names::TRANSFER_ENCODING_NAME)),
                 has_content_length: false,
             },
         }
@@ -294,7 +297,7 @@ impl HttpTransparentResponse {
                 // proxy-connection is not standard, but at least curl use it
                 self.connection.parse(header.value.as_bytes());
                 self.original_connection_name =
-                    header.name.as_bytes().try_into().unwrap_or(CONNECTION_NAME);
+                    http_names::copy(header.name.as_bytes(), http_names::CONNECTION_NAME);
                 return Ok(());
             }
             "upgrade" => {
@@ -309,13 +312,10 @@ impl HttpTransparentResponse {
             }
             "transfer-encoding" => {
                 if self.original_transfer_encoding_name.is_none() {
-                    self.original_transfer_encoding_name = Some(
-                        header
-                            .name
-                            .as_bytes()
-                            .try_into()
-                            .unwrap_or(TRANSFER_ENCODING_NAME),
-                    );
+                    self.original_transfer_encoding_name = Some(http_names::copy(
+                        header.name.as_bytes(),
+                        http_names::TRANSFER_ENCODING_NAME,
+                    ));
                 }
                 if self.has_content_length {
                     // Content-Length must be ignored when Transfer-Encoding is present
@@ -371,7 +371,7 @@ impl HttpTransparentResponse {
         self.transfer_encoding.write(
             self.original_transfer_encoding_name
                 .as_ref()
-                .unwrap_or(&TRANSFER_ENCODING_NAME),
+                .unwrap_or(&http_names::TRANSFER_ENCODING_NAME),
             &mut buf,
         );
         self.connection

@@ -13,13 +13,13 @@ use http::{HeaderName, Method, Uri, Version, header};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
+use vey_types::net::http_names;
 use vey_types::net::{
-    AcceptTransferEncodingValue, HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken,
-    TransferEncodingValue, UpstreamAddr,
+    AcceptTransferEncodingValue, ConnectionValue, HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken,
+    KeepAliveValue, TransferEncodingValue, UpstreamAddr,
 };
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
-use crate::header::{CONNECTION_NAME, ConnectionValue, KeepAliveValue, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpMethodLine};
 
 pub struct HttpTransparentRequest {
@@ -55,7 +55,7 @@ impl HttpTransparentRequest {
             end_to_end_headers: HttpHeaderMap::default(),
             hop_by_hop_headers: HttpHeaderMap::default(),
             host: None,
-            original_connection_name: CONNECTION_NAME,
+            original_connection_name: http_names::CONNECTION_NAME,
             connection: ConnectionValue::default(),
             origin_header_size: 0,
             keep_alive: false,
@@ -115,7 +115,7 @@ impl HttpTransparentRequest {
                 original_te_name: self.original_te_name,
                 original_transfer_encoding_name: self
                     .original_transfer_encoding_name
-                    .or(Some(TRANSFER_ENCODING_NAME)),
+                    .or(Some(http_names::TRANSFER_ENCODING_NAME)),
             },
         }
     }
@@ -298,7 +298,7 @@ impl HttpTransparentRequest {
     ) -> Result<(), HttpRequestParseError> {
         self.connection.parse(header.value.as_bytes());
         self.original_connection_name =
-            header.name.as_bytes().try_into().unwrap_or(CONNECTION_NAME);
+            http_names::copy(header.name.as_bytes(), http_names::CONNECTION_NAME);
         Ok(())
     }
 
@@ -397,13 +397,10 @@ impl HttpTransparentRequest {
             }
             "transfer-encoding" => {
                 if self.original_transfer_encoding_name.is_none() {
-                    self.original_transfer_encoding_name = Some(
-                        header
-                            .name
-                            .as_bytes()
-                            .try_into()
-                            .unwrap_or(TRANSFER_ENCODING_NAME),
-                    );
+                    self.original_transfer_encoding_name = Some(http_names::copy(
+                        header.name.as_bytes(),
+                        http_names::TRANSFER_ENCODING_NAME,
+                    ));
                 }
                 if self.has_content_length {
                     // delete content-length
@@ -442,7 +439,10 @@ impl HttpTransparentRequest {
                     .parse(header.value.as_bytes())
                     .map_err(HttpRequestParseError::InvalidAcceptTransferEncoding)?;
                 if self.original_te_name.is_none() {
-                    self.original_te_name = header.name.as_bytes().try_into().ok();
+                    self.original_te_name = Some(http_names::copy(
+                        header.name.as_bytes(),
+                        http_names::TE_NAME,
+                    ));
                 }
                 return Ok(());
             }
@@ -479,17 +479,21 @@ impl HttpTransparentRequest {
         self.transfer_encoding.write_chunked(
             self.original_transfer_encoding_name
                 .as_ref()
-                .unwrap_or(&TRANSFER_ENCODING_NAME),
+                .unwrap_or(&http_names::TRANSFER_ENCODING_NAME),
             &mut buf,
         );
-        self.accept_transfer_encoding
-            .write_trailers(self.original_te_name.as_ref().unwrap_or(b"TE"), &mut buf);
+        self.accept_transfer_encoding.write_trailers(
+            self.original_te_name
+                .as_ref()
+                .unwrap_or(&http_names::TE_NAME),
+            &mut buf,
+        );
         let te = if self.accept_transfer_encoding.trailers() {
             Some(
                 self.original_te_name
                     .as_ref()
                     .map(|n| n.as_slice())
-                    .unwrap_or(b"TE"),
+                    .unwrap_or(&http_names::TE_NAME),
             )
         } else {
             None

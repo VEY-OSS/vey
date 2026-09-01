@@ -9,8 +9,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::time::Instant;
 
-use vey_http::header::KeepAliveValue;
-use vey_types::net::{HttpForwardCapability, UpstreamAddr};
+use vey_types::net::{HttpForwardCapability, KeepAliveValue, UpstreamAddr};
 
 use super::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller};
 use crate::audit::AuditContext;

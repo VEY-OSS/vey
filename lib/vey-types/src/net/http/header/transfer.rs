@@ -8,6 +8,8 @@ use std::fmt;
 use bytes::BufMut;
 use thiserror::Error;
 
+use super::HttpStructuredFieldParser;
+
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TransferCompressKind {
     #[default]
@@ -167,31 +169,6 @@ fn parse_transfer_coding_name(kind: &[u8]) -> Option<TransferCodingName> {
     None
 }
 
-fn next_comma_item<'a>(left: &mut &'a [u8]) -> Option<&'a [u8]> {
-    if left.is_empty() {
-        return None;
-    }
-    match memchr::memchr(b',', left) {
-        Some(p) => {
-            let this = &left[..p];
-            *left = &left[p + 1..];
-            Some(this)
-        }
-        None => {
-            let this = *left;
-            *left = &[];
-            Some(this)
-        }
-    }
-}
-
-fn split_name_params(this: &[u8]) -> (&[u8], Option<&[u8]>) {
-    match memchr::memchr(b';', this) {
-        Some(p) => (this[..p].trim_ascii(), Some(&this[p + 1..])),
-        None => (this.trim_ascii(), None),
-    }
-}
-
 fn parse_q_param(
     params: &[u8],
 ) -> Result<TransferCodingQValue, InvalidAcceptTransferEncodingValue> {
@@ -282,20 +259,15 @@ impl TransferEncodingValue {
     }
 
     pub fn parse(&mut self, buf: &[u8]) -> Result<(), InvalidTransferEncodingValue> {
-        let mut left = buf;
-        while let Some(this) = next_comma_item(&mut left) {
+        for item in buf.as_item_list() {
             if self.chunked {
                 return Err(InvalidTransferEncodingValue::InvalidChunkedPosition);
             }
 
-            let (kind, params) = split_name_params(this);
-            if kind.is_empty() {
-                continue;
-            }
-            if params.is_some() {
+            if !item.params().is_empty() {
                 return Err(InvalidTransferEncodingValue::UnexpectedParameter);
             }
-            match parse_transfer_coding_name(kind) {
+            match parse_transfer_coding_name(item.value()) {
                 Some(TransferCodingName::Chunked) => {
                     self.chunked = true;
                 }
@@ -375,17 +347,13 @@ impl AcceptTransferEncodingValue {
     }
 
     pub fn parse(&mut self, buf: &[u8]) -> Result<(), InvalidAcceptTransferEncodingValue> {
-        let mut left = buf;
-        while let Some(this) = next_comma_item(&mut left) {
-            let (kind, params) = split_name_params(this);
-            if kind.is_empty() {
-                continue;
-            }
-            let q = match params {
-                Some(params) => parse_q_param(params)?,
-                None => TransferCodingQValue::ONE,
+        for item in buf.as_item_list() {
+            let q = if item.params().is_empty() {
+                TransferCodingQValue::ONE
+            } else {
+                parse_q_param(item.params())?
             };
-            match parse_transfer_coding_name(kind) {
+            match parse_transfer_coding_name(item.value()) {
                 Some(TransferCodingName::Trailers) => {
                     self.trailers = true;
                 }

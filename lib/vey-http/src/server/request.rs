@@ -13,13 +13,13 @@ use http::{HeaderName, Method, Uri, Version, header};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
+use vey_types::net::http_names;
 use vey_types::net::{
-    AcceptTransferEncodingValue, Host, HttpAuth, HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken,
-    TransferEncodingValue, UpstreamAddr,
+    AcceptTransferEncodingValue, ConnectionValue, Host, HttpAuth, HttpHeaderMap, HttpHeaderValue,
+    HttpUpgradeToken, KeepAliveValue, TransferEncodingValue, UpstreamAddr,
 };
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
-use crate::header::{CONNECTION_NAME, ConnectionValue, KeepAliveValue, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpMethodLine};
 
 pub struct HttpProxyClientRequest {
@@ -56,7 +56,7 @@ impl HttpProxyClientRequest {
             hop_by_hop_headers: HttpHeaderMap::default(),
             auth_info: HttpAuth::None,
             host: None,
-            original_connection_name: CONNECTION_NAME,
+            original_connection_name: http_names::CONNECTION_NAME,
             connection: ConnectionValue::default(),
             origin_header_size: 0,
             upgrade_token: None,
@@ -119,7 +119,7 @@ impl HttpProxyClientRequest {
                 original_te_name: self.original_te_name,
                 original_transfer_encoding_name: self
                     .original_transfer_encoding_name
-                    .or(Some(TRANSFER_ENCODING_NAME)),
+                    .or(Some(http_names::TRANSFER_ENCODING_NAME)),
             },
         }
     }
@@ -403,7 +403,7 @@ impl HttpProxyClientRequest {
             return Err(HttpRequestParseError::InvalidUpgradeRequest);
         }
         self.original_connection_name =
-            header.name.as_bytes().try_into().unwrap_or(CONNECTION_NAME);
+            http_names::copy(header.name.as_bytes(), http_names::CONNECTION_NAME);
         Ok(())
     }
 
@@ -468,7 +468,10 @@ impl HttpProxyClientRequest {
                     .parse(header.value.as_bytes())
                     .map_err(HttpRequestParseError::InvalidAcceptTransferEncoding)?;
                 if self.original_te_name.is_none() {
-                    self.original_te_name = header.name.as_bytes().try_into().ok();
+                    self.original_te_name = Some(http_names::copy(
+                        header.name.as_bytes(),
+                        http_names::TE_NAME,
+                    ));
                 }
                 return Ok(());
             }
@@ -483,13 +486,10 @@ impl HttpProxyClientRequest {
             }
             "transfer-encoding" => {
                 if self.original_transfer_encoding_name.is_none() {
-                    self.original_transfer_encoding_name = Some(
-                        header
-                            .name
-                            .as_bytes()
-                            .try_into()
-                            .unwrap_or(TRANSFER_ENCODING_NAME),
-                    );
+                    self.original_transfer_encoding_name = Some(http_names::copy(
+                        header.name.as_bytes(),
+                        http_names::TRANSFER_ENCODING_NAME,
+                    ));
                 }
                 if self.has_content_length {
                     // delete content-length
@@ -587,7 +587,7 @@ impl HttpProxyClientRequest {
                 self.original_te_name
                     .as_ref()
                     .map(|n| n.as_slice())
-                    .unwrap_or(b"TE"),
+                    .unwrap_or(&http_names::TE_NAME),
             )
         } else {
             None
@@ -600,11 +600,15 @@ impl HttpProxyClientRequest {
         self.transfer_encoding.write_chunked(
             self.original_transfer_encoding_name
                 .as_ref()
-                .unwrap_or(&TRANSFER_ENCODING_NAME),
+                .unwrap_or(&http_names::TRANSFER_ENCODING_NAME),
             buf,
         );
-        self.accept_transfer_encoding
-            .write_trailers(self.original_te_name.as_ref().unwrap_or(b"TE"), buf);
+        self.accept_transfer_encoding.write_trailers(
+            self.original_te_name
+                .as_ref()
+                .unwrap_or(&http_names::TE_NAME),
+            buf,
+        );
     }
 
     pub fn serialize_for_adapter(&self) -> Vec<u8> {

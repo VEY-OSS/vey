@@ -13,7 +13,6 @@ use http::header;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use vey_http::client::HttpForwardRemoteResponse;
-use vey_http::header::KeepAliveValue;
 use vey_http::server::HttpProxyClientRequest;
 use vey_http::{HttpBodyReader, HttpBodyType};
 use vey_io_ext::{
@@ -21,6 +20,7 @@ use vey_io_ext::{
     StreamCopyError,
 };
 use vey_types::acl::AclAction;
+use vey_types::net::KeepAliveValue;
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpRProxyRequest};
 use super::{

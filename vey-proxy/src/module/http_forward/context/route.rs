@@ -10,8 +10,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use async_trait::async_trait;
 
-use vey_http::header::KeepAliveValue;
-use vey_types::net::{HttpForwardCapability, UpstreamAddr};
+use vey_types::net::{HttpForwardCapability, KeepAliveValue, UpstreamAddr};
 
 use super::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpAliveReuseState,

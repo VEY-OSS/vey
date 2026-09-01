@@ -10,10 +10,10 @@ use http::HeaderName;
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
+use vey_types::net::http_names;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue, TransferEncodingValue};
 
 use super::{HttpConnectError, HttpConnectResponseError};
-use crate::header::TRANSFER_ENCODING_NAME;
 use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 #[derive(Debug)]
@@ -136,13 +136,10 @@ impl HttpConnectResponse {
             "connection" | "proxy-connection" => {}
             "transfer-encoding" => {
                 if self.original_transfer_encoding_name.is_none() {
-                    self.original_transfer_encoding_name = Some(
-                        header
-                            .name
-                            .as_bytes()
-                            .try_into()
-                            .unwrap_or(TRANSFER_ENCODING_NAME),
-                    );
+                    self.original_transfer_encoding_name = Some(http_names::copy(
+                        header.name.as_bytes(),
+                        http_names::TRANSFER_ENCODING_NAME,
+                    ));
                 }
                 if self.has_content_length {
                     // delete content-length

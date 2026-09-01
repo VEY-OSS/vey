@@ -26,3 +26,11 @@ pub use transfer::{
     AcceptTransferEncodingValue, InvalidAcceptTransferEncodingValue, InvalidTransferEncodingValue,
     TransferCodingQValue, TransferCompressKind, TransferEncodingValue,
 };
+
+mod connection;
+pub use connection::{ConnectionValue, KeepAliveValue};
+
+pub mod http_names;
+
+mod item_list;
+pub use item_list::{HttpStructuredFieldParser, ItemListIter, SfItem};
