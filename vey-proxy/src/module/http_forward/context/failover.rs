@@ -10,12 +10,12 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use tokio::time::Instant;
 
+use vey_http::header::KeepAliveValue;
 use vey_types::net::{HttpForwardCapability, UpstreamAddr};
 
 use super::{
-    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller,
+    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpAliveReuseState,
     HttpForwardContext,
 };
 use crate::audit::AuditContext;
@@ -78,7 +78,7 @@ pub(crate) struct FailoverHttpForwardContext {
     egress_notes: EgressNotes,
     last_upstream: UpstreamAddr,
     last_is_tls: bool,
-    last_connection: Option<(Instant, HttpConnectionEofPoller)>,
+    reuse: HttpAliveReuseState,
 }
 
 impl FailoverHttpForwardContext {
@@ -99,7 +99,7 @@ impl FailoverHttpForwardContext {
             egress_notes: EgressNotes::default(),
             last_upstream: UpstreamAddr::empty(),
             last_is_tls: false,
-            last_connection: None,
+            reuse: HttpAliveReuseState::default(),
         }
     }
 }
@@ -112,9 +112,9 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         upstream: &UpstreamAddr,
         is_tls: bool,
     ) -> HttpForwardCapability {
-        if let Some(saved_connection) = self.last_connection.take() {
+        if let Some(saved) = self.reuse.take_last() {
             if self.last_is_tls == is_tls && self.last_upstream.eq(upstream) {
-                self.last_connection = Some(saved_connection);
+                self.reuse.restore_last(saved);
                 // do not set forward context here, we always try all escapers when connect
             } else {
                 self.last_upstream.clone_from(upstream);
@@ -149,15 +149,10 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         &mut self,
         idle_expire: Duration,
     ) -> Option<(BoxHttpForwardConnection, ArcEscaper)> {
-        let (instant, eof_poller) = self.last_connection.take()?;
-        if instant.elapsed() < idle_expire {
-            eof_poller
-                .recv_conn()
-                .await
-                .map(|c| (c, self.final_escaper.clone()))
-        } else {
-            None
-        }
+        self.reuse
+            .get_alive(idle_expire)
+            .await
+            .map(|c| (c, self.final_escaper.clone()))
     }
 
     async fn make_new_http_connection(
@@ -168,6 +163,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError> {
         self.last_is_tls = false;
+        self.reuse.clear_inflight();
 
         let Some(primary_fwd_ctx) = self.primary_forward_ctx.take() else {
             return Err(TcpConnectError::EscaperNotUsable(anyhow!(
@@ -238,6 +234,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError> {
         self.last_is_tls = true;
+        self.reuse.clear_inflight();
 
         let Some(primary_fwd_ctx) = self.primary_forward_ctx.take() else {
             return Err(TcpConnectError::EscaperNotUsable(anyhow!(
@@ -300,9 +297,8 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         }
     }
 
-    fn save_alive_connection(&mut self, c: BoxHttpForwardConnection) {
-        let eof_poller = HttpConnectionEofPoller::spawn(c);
-        self.last_connection = Some((Instant::now(), eof_poller));
+    fn save_alive_connection(&mut self, c: BoxHttpForwardConnection, ka: KeepAliveValue) {
+        self.reuse.save(c, ka);
     }
 
     fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes) {

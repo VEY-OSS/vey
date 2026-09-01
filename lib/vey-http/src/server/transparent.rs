@@ -19,7 +19,7 @@ use vey_types::net::{
 };
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
-use crate::header::{CONNECTION_NAME, ConnectionValue, TRANSFER_ENCODING_NAME};
+use crate::header::{CONNECTION_NAME, ConnectionValue, KeepAliveValue, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpMethodLine};
 
 pub struct HttpTransparentRequest {
@@ -153,6 +153,11 @@ impl HttpTransparentRequest {
     #[inline]
     pub fn keep_alive(&self) -> bool {
         self.keep_alive
+    }
+
+    #[inline]
+    pub fn keep_alive_header(&self) -> KeepAliveValue {
+        self.connection.keep_alive_header()
     }
 
     pub fn body_type(&self) -> Option<HttpBodyType> {
@@ -292,11 +297,8 @@ impl HttpTransparentRequest {
         header: &HttpHeaderLine,
     ) -> Result<(), HttpRequestParseError> {
         self.connection.parse(header.value.as_bytes());
-        self.original_connection_name = header
-            .name
-            .as_bytes()
-            .try_into()
-            .unwrap_or(CONNECTION_NAME);
+        self.original_connection_name =
+            header.name.as_bytes().try_into().unwrap_or(CONNECTION_NAME);
         Ok(())
     }
 
@@ -384,6 +386,11 @@ impl HttpTransparentRequest {
                 }
             }
             "connection" => return self.parse_header_connection(&header),
+            "keep-alive" => {
+                self.connection
+                    .parse_keep_alive(header.name.as_bytes(), header.value.as_bytes());
+                return Ok(());
+            }
             "upgrade" => {
                 self.upgrade = true;
                 return self.insert_hop_by_hop_header(name, &header);
@@ -489,7 +496,7 @@ impl HttpTransparentRequest {
         };
         self.connection.write_for_req(
             &self.original_connection_name,
-            !self.keep_alive,
+            self.keep_alive,
             te,
             &mut buf,
         );
@@ -784,5 +791,26 @@ mod tests {
             .unwrap()
             .to_ascii_lowercase();
         assert!(!origin.contains("\nte:"));
+    }
+
+    #[tokio::test]
+    async fn keep_alive_header_is_parsed_and_serialized() {
+        let content = b"GET /x HTTP/1.0\r\n\
+            Host: example.com\r\n\
+            Connection: keep-alive\r\n\
+            Keep-Alive: timeout=5, max=1000\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let (request, _) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
+            .await
+            .unwrap();
+        assert!(request.keep_alive());
+        assert_eq!(
+            request.keep_alive_header().timeout(),
+            Some(std::time::Duration::from_secs(5))
+        );
+        assert_eq!(request.keep_alive_header().max(), Some(1000));
+        let origin = String::from_utf8(request.serialize_for_origin()).unwrap();
+        assert!(origin.contains("Keep-Alive: timeout=5, max=1000\r\n"));
     }
 }

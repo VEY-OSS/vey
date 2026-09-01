@@ -19,7 +19,7 @@ use vey_types::net::{
 };
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
-use crate::header::{CONNECTION_NAME, ConnectionValue, TRANSFER_ENCODING_NAME};
+use crate::header::{CONNECTION_NAME, ConnectionValue, KeepAliveValue, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpMethodLine};
 
 pub struct HttpProxyClientRequest {
@@ -163,6 +163,11 @@ impl HttpProxyClientRequest {
     #[inline]
     pub fn keep_alive(&self) -> bool {
         self.keep_alive
+    }
+
+    #[inline]
+    pub fn keep_alive_header(&self) -> KeepAliveValue {
+        self.connection.keep_alive_header()
     }
 
     fn check_body_type(&self) -> Option<HttpBodyType> {
@@ -397,11 +402,8 @@ impl HttpProxyClientRequest {
         if self.connection.upgrade() && self.method != Method::GET {
             return Err(HttpRequestParseError::InvalidUpgradeRequest);
         }
-        self.original_connection_name = header
-            .name
-            .as_bytes()
-            .try_into()
-            .unwrap_or(CONNECTION_NAME);
+        self.original_connection_name =
+            header.name.as_bytes().try_into().unwrap_or(CONNECTION_NAME);
         Ok(())
     }
 
@@ -457,7 +459,8 @@ impl HttpProxyClientRequest {
             }
             "connection" => return self.parse_header_connection(&header),
             "keep-alive" => {
-                // the client should not send this, just ignore it
+                self.connection
+                    .parse_keep_alive(header.name.as_bytes(), header.value.as_bytes());
                 return Ok(());
             }
             "te" => {
@@ -589,12 +592,8 @@ impl HttpProxyClientRequest {
         } else {
             None
         };
-        self.connection.write_for_req(
-            &self.original_connection_name,
-            !self.keep_alive,
-            te,
-            buf,
-        );
+        self.connection
+            .write_for_req(&self.original_connection_name, self.keep_alive, te, buf);
     }
 
     fn write_te_header(&self, buf: &mut Vec<u8>) {
@@ -869,5 +868,42 @@ mod tests {
             Err(err) => panic!("unexpected error {err:?}"),
             Ok(_) => panic!("expected InvalidAcceptTransferEncoding"),
         }
+    }
+
+    #[tokio::test]
+    async fn keep_alive_header_is_parsed_and_serialized() {
+        let req = parse_req(
+            b"GET /x HTTP/1.0\r\nHost: example.com\r\nConnection: keep-alive\r\nKeep-Alive: timeout=5, max=1000\r\n\r\n",
+        )
+        .await
+        .unwrap();
+        assert!(req.keep_alive());
+        assert_eq!(
+            req.keep_alive_header().timeout(),
+            Some(std::time::Duration::from_secs(5))
+        );
+        assert_eq!(req.keep_alive_header().max(), Some(1000));
+        assert!(
+            req.end_to_end_headers
+                .get(HeaderName::from_static("keep-alive"))
+                .is_none()
+        );
+        assert!(
+            req.hop_by_hop_headers
+                .get(HeaderName::from_static("keep-alive"))
+                .is_none()
+        );
+        let origin = String::from_utf8(req.serialize_for_origin()).unwrap();
+        assert!(origin.contains("Keep-Alive: timeout=5, max=1000\r\n"));
+
+        let req = parse_req(b"GET /x HTTP/1.1\r\nHost: example.com\r\n\r\n")
+            .await
+            .unwrap();
+        assert!(req.keep_alive());
+        assert!(req.keep_alive_header().is_empty());
+        let origin = String::from_utf8(req.serialize_for_origin())
+            .unwrap()
+            .to_ascii_lowercase();
+        assert!(!origin.contains("keep-alive:"));
     }
 }

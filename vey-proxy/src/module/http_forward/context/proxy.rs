@@ -7,15 +7,15 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use tokio::time::Instant;
 
+use vey_http::header::KeepAliveValue;
 use vey_types::net::{HttpForwardCapability, UpstreamAddr};
 
+use super::HttpAliveReuseState;
 use crate::audit::AuditContext;
 use crate::escape::{ArcEscaper, EgressNotes};
 use crate::module::http_forward::{
-    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller,
-    HttpForwardContext,
+    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardContext,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
@@ -25,7 +25,7 @@ pub(crate) struct ProxyHttpForwardContext {
     egress_notes: EgressNotes,
     last_upstream: UpstreamAddr,
     last_is_tls: bool,
-    last_connection: Option<(Instant, HttpConnectionEofPoller)>,
+    reuse: HttpAliveReuseState,
 }
 
 impl ProxyHttpForwardContext {
@@ -35,7 +35,7 @@ impl ProxyHttpForwardContext {
             egress_notes: EgressNotes::default(),
             last_upstream: UpstreamAddr::empty(),
             last_is_tls: false,
-            last_connection: None,
+            reuse: HttpAliveReuseState::default(),
         }
     }
 }
@@ -54,7 +54,7 @@ impl HttpForwardContext for ProxyHttpForwardContext {
                 self.last_upstream.clone_from(upstream);
                 self.egress_notes.reset();
                 // use new tls session
-                let _old_connection = self.last_connection.take();
+                self.reuse.drop_saved();
             } else {
                 // old upstream and reuse tls session
             }
@@ -63,7 +63,7 @@ impl HttpForwardContext for ProxyHttpForwardContext {
             self.last_upstream.clone_from(upstream);
             self.egress_notes.reset();
             // drop old tls session
-            let _old_connection = self.last_connection.take();
+            self.reuse.drop_saved();
         } else if self.last_upstream.ne(upstream) {
             // new upstream, but not new peer
             self.last_upstream.clone_from(upstream);
@@ -79,15 +79,10 @@ impl HttpForwardContext for ProxyHttpForwardContext {
         &mut self,
         idle_expire: Duration,
     ) -> Option<(BoxHttpForwardConnection, ArcEscaper)> {
-        let (instant, eof_poller) = self.last_connection.take()?;
-        if instant.elapsed() < idle_expire {
-            eof_poller
-                .recv_conn()
-                .await
-                .map(|c| (c, self.escaper.clone()))
-        } else {
-            None
-        }
+        self.reuse
+            .get_alive(idle_expire)
+            .await
+            .map(|c| (c, self.escaper.clone()))
     }
 
     async fn make_new_http_connection(
@@ -98,6 +93,7 @@ impl HttpForwardContext for ProxyHttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError> {
         self.last_is_tls = false;
+        self.reuse.clear_inflight();
         self.escaper._update_audit_context(audit_ctx);
         let conn = self
             .escaper
@@ -114,6 +110,7 @@ impl HttpForwardContext for ProxyHttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError> {
         self.last_is_tls = true;
+        self.reuse.clear_inflight();
         self.escaper._update_audit_context(audit_ctx);
         let conn = self
             .escaper
@@ -127,9 +124,8 @@ impl HttpForwardContext for ProxyHttpForwardContext {
         Ok((conn, self.escaper.clone()))
     }
 
-    fn save_alive_connection(&mut self, c: BoxHttpForwardConnection) {
-        let eof_poller = HttpConnectionEofPoller::spawn(c);
-        self.last_connection = Some((Instant::now(), eof_poller));
+    fn save_alive_connection(&mut self, c: BoxHttpForwardConnection, ka: KeepAliveValue) {
+        self.reuse.save(c, ka);
     }
 
     fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes) {

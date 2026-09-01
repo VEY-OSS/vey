@@ -14,6 +14,7 @@ use http::header;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use vey_http::client::HttpForwardRemoteResponse;
+use vey_http::header::KeepAliveValue;
 use vey_http::server::HttpProxyClientRequest;
 use vey_http::{HttpBodyReader, HttpBodyType};
 use vey_icap_client::reqmod::h1::{
@@ -59,6 +60,7 @@ pub(crate) struct HttpProxyForwardTask<'a> {
     capability: HttpForwardCapability,
     is_https: bool,
     should_close: bool,
+    ups_keep_alive: KeepAliveValue,
     allow_continue: bool,
     send_error_response: bool,
     task_notes: ServerTaskNotes,
@@ -111,6 +113,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             capability,
             is_https,
             should_close: !req.inner.keep_alive(),
+            ups_keep_alive: KeepAliveValue::default(),
             allow_continue: req.inner.expect_100_continue(),
             send_error_response: true,
             task_notes,
@@ -723,7 +726,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             }
             let _ = clt_w.shutdown().await;
         } else if let Some(connection) = ups_s {
-            fwd_ctx.save_alive_connection(connection);
+            fwd_ctx.save_alive_connection(connection, self.ups_keep_alive);
         }
     }
 
@@ -1556,6 +1559,9 @@ impl<'a> HttpProxyForwardTask<'a> {
         }
         if !rsp_header.keep_alive() {
             self.should_close = true;
+            self.ups_keep_alive = KeepAliveValue::default();
+        } else {
+            self.ups_keep_alive = rsp_header.keep_alive_header();
         }
         self.http_notes.origin_status = rsp_header.code;
         self.http_notes.rsp_status = 0;

@@ -15,7 +15,7 @@ use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue, TransferEncodingValue};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
-use crate::header::{CONNECTION_NAME, ConnectionValue, TRANSFER_ENCODING_NAME};
+use crate::header::{CONNECTION_NAME, ConnectionValue, KeepAliveValue, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 pub struct HttpForwardRemoteResponse {
@@ -32,7 +32,6 @@ pub struct HttpForwardRemoteResponse {
     transfer_encoding: TransferEncodingValue,
     original_transfer_encoding_name: Option<[u8; 17]>,
     has_content_length: bool,
-    has_keep_alive: bool,
     www_negotiate_auth: bool,
     support_session_based_auth: bool,
 }
@@ -53,7 +52,6 @@ impl HttpForwardRemoteResponse {
             transfer_encoding: TransferEncodingValue::default(),
             original_transfer_encoding_name: None,
             has_content_length: false,
-            has_keep_alive: false,
             www_negotiate_auth: false,
             support_session_based_auth: false,
         }
@@ -76,7 +74,6 @@ impl HttpForwardRemoteResponse {
                 transfer_encoding: TransferEncodingValue::default(),
                 original_transfer_encoding_name: None,
                 has_content_length: true,
-                has_keep_alive: self.has_keep_alive,
                 www_negotiate_auth: self.www_negotiate_auth,
                 support_session_based_auth: self.support_session_based_auth,
             },
@@ -100,7 +97,6 @@ impl HttpForwardRemoteResponse {
                     .original_transfer_encoding_name
                     .or(Some(TRANSFER_ENCODING_NAME)),
                 has_content_length: false,
-                has_keep_alive: self.has_keep_alive,
                 www_negotiate_auth: self.www_negotiate_auth,
                 support_session_based_auth: self.support_session_based_auth,
             },
@@ -130,7 +126,6 @@ impl HttpForwardRemoteResponse {
             transfer_encoding: TransferEncodingValue::default(),
             original_transfer_encoding_name: None,
             has_content_length: true,
-            has_keep_alive: self.has_keep_alive,
             www_negotiate_auth: self.www_negotiate_auth,
             support_session_based_auth: self.support_session_based_auth,
         }
@@ -144,12 +139,13 @@ impl HttpForwardRemoteResponse {
         self.keep_alive
     }
 
+    #[inline]
+    pub fn keep_alive_header(&self) -> KeepAliveValue {
+        self.connection.keep_alive_header()
+    }
+
     pub fn set_no_keep_alive(&mut self) {
-        if self.has_keep_alive {
-            self.hop_by_hop_headers
-                .remove(HeaderName::from_static("keep-alive"));
-            self.has_keep_alive = false;
-        }
+        self.connection.clear_keep_alive_header();
         self.keep_alive = false;
     }
 
@@ -324,9 +320,9 @@ impl HttpForwardRemoteResponse {
                 return self.insert_hop_by_hop_header(name, &header);
             }
             "keep-alive" => {
-                // just pass
-                self.has_keep_alive = true;
-                return self.insert_hop_by_hop_header(name, &header);
+                self.connection
+                    .parse_keep_alive(header.name.as_bytes(), header.value.as_bytes());
+                return Ok(());
             }
             "transfer-encoding" => {
                 if self.original_transfer_encoding_name.is_none() {
@@ -409,7 +405,7 @@ impl HttpForwardRemoteResponse {
         );
 
         self.connection
-            .write_for_rsp(&self.original_connection_name, !self.keep_alive, buf);
+            .write_for_rsp(&self.original_connection_name, self.keep_alive, buf);
         buf.put_slice(b"\r\n");
     }
 
@@ -508,5 +504,50 @@ mod tests {
             Err(err) => panic!("unexpected error {err:?}"),
             Ok(_) => panic!("expected InvalidTransferEncoding"),
         }
+    }
+
+    #[tokio::test]
+    async fn keep_alive_header_is_parsed_and_serialized() {
+        let content = b"HTTP/1.0 200 OK\r\n\
+            Content-Length: 0\r\n\
+            Connection: Keep-Alive\r\n\
+            Keep-Alive: timeout=5, max=1000\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let method = Method::GET;
+        let rsp = HttpForwardRemoteResponse::parse(&mut buf_stream, &method, true, 4096)
+            .await
+            .unwrap();
+        assert!(rsp.keep_alive());
+        assert_eq!(
+            rsp.keep_alive_header().timeout(),
+            Some(std::time::Duration::from_secs(5))
+        );
+        assert_eq!(rsp.keep_alive_header().max(), Some(1000));
+        assert!(
+            rsp.end_to_end_headers
+                .get(HeaderName::from_static("keep-alive"))
+                .is_none()
+        );
+        assert!(
+            rsp.hop_by_hop_headers
+                .get(HeaderName::from_static("keep-alive"))
+                .is_none()
+        );
+        let serialized = String::from_utf8(rsp.serialize()).unwrap();
+        assert!(serialized.contains("Keep-Alive: timeout=5, max=1000\r\n"));
+
+        let content = b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let rsp = HttpForwardRemoteResponse::parse(&mut buf_stream, &method, true, 4096)
+            .await
+            .unwrap();
+        assert!(rsp.keep_alive());
+        assert!(rsp.keep_alive_header().is_empty());
+        let serialized = String::from_utf8(rsp.serialize())
+            .unwrap()
+            .to_ascii_lowercase();
+        assert!(!serialized.contains("keep-alive:"));
     }
 }

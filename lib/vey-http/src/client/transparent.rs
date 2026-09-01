@@ -15,7 +15,7 @@ use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, TransferEncodingValue};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
-use crate::header::{CONNECTION_NAME, ConnectionValue, TRANSFER_ENCODING_NAME};
+use crate::header::{CONNECTION_NAME, ConnectionValue, KeepAliveValue, TRANSFER_ENCODING_NAME};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 pub struct HttpTransparentResponse {
@@ -33,7 +33,6 @@ pub struct HttpTransparentResponse {
     transfer_encoding: TransferEncodingValue,
     original_transfer_encoding_name: Option<[u8; 17]>,
     has_content_length: bool,
-    has_keep_alive: bool,
 }
 
 impl HttpTransparentResponse {
@@ -53,7 +52,6 @@ impl HttpTransparentResponse {
             transfer_encoding: TransferEncodingValue::default(),
             original_transfer_encoding_name: None,
             has_content_length: false,
-            has_keep_alive: false,
         }
     }
 
@@ -75,7 +73,6 @@ impl HttpTransparentResponse {
                 transfer_encoding: TransferEncodingValue::default(),
                 original_transfer_encoding_name: None,
                 has_content_length: true,
-                has_keep_alive: self.has_keep_alive,
             },
             None => HttpTransparentResponse {
                 version: adapted.version,
@@ -98,7 +95,6 @@ impl HttpTransparentResponse {
                     .original_transfer_encoding_name
                     .or(Some(TRANSFER_ENCODING_NAME)),
                 has_content_length: false,
-                has_keep_alive: self.has_keep_alive,
             },
         }
     }
@@ -127,7 +123,6 @@ impl HttpTransparentResponse {
             transfer_encoding: TransferEncodingValue::default(),
             original_transfer_encoding_name: None,
             has_content_length: true,
-            has_keep_alive: self.has_keep_alive,
         }
     }
 
@@ -135,12 +130,13 @@ impl HttpTransparentResponse {
         self.keep_alive
     }
 
+    #[inline]
+    pub fn keep_alive_header(&self) -> KeepAliveValue {
+        self.connection.keep_alive_header()
+    }
+
     pub fn set_no_keep_alive(&mut self) {
-        if self.has_keep_alive {
-            self.hop_by_hop_headers
-                .remove(HeaderName::from_static("keep-alive"));
-            self.has_keep_alive = false;
-        }
+        self.connection.clear_keep_alive_header();
         self.keep_alive = false;
     }
 
@@ -297,17 +293,19 @@ impl HttpTransparentResponse {
             "connection" | "proxy-connection" => {
                 // proxy-connection is not standard, but at least curl use it
                 self.connection.parse(header.value.as_bytes());
-                self.original_connection_name = header
-                    .name
-                    .as_bytes()
-                    .try_into()
-                    .unwrap_or(CONNECTION_NAME);
+                self.original_connection_name =
+                    header.name.as_bytes().try_into().unwrap_or(CONNECTION_NAME);
                 return Ok(());
             }
             "upgrade" => {
                 let protocol = HttpUpgradeToken::from_str(header.value)?;
                 self.upgrade = Some(protocol);
                 return self.insert_hop_by_hop_header(name, &header);
+            }
+            "keep-alive" => {
+                self.connection
+                    .parse_keep_alive(header.name.as_bytes(), header.value.as_bytes());
+                return Ok(());
             }
             "transfer-encoding" => {
                 if self.original_transfer_encoding_name.is_none() {
@@ -376,11 +374,8 @@ impl HttpTransparentResponse {
                 .unwrap_or(&TRANSFER_ENCODING_NAME),
             &mut buf,
         );
-        self.connection.write_for_rsp(
-            &self.original_connection_name,
-            !self.keep_alive,
-            &mut buf,
-        );
+        self.connection
+            .write_for_rsp(&self.original_connection_name, self.keep_alive, &mut buf);
         buf.put_slice(b"\r\n");
         buf
     }
@@ -559,5 +554,23 @@ mod tests {
             Err(err) => panic!("unexpected error {err:?}"),
             Ok(_) => panic!("expected InvalidTransferEncoding"),
         }
+    }
+
+    #[tokio::test]
+    async fn keep_alive_header_is_parsed_and_serialized() {
+        let content = b"HTTP/1.0 200 OK\r\n\
+            Content-Length: 0\r\n\
+            Connection: Keep-Alive\r\n\
+            Keep-Alive: timeout=5, max=1000\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let method = Method::GET;
+        let (rsp, _) = HttpTransparentResponse::parse(&mut buf_stream, &method, true, 4096)
+            .await
+            .unwrap();
+        assert!(rsp.keep_alive());
+        assert_eq!(rsp.keep_alive_header().max(), Some(1000));
+        let serialized = String::from_utf8(rsp.serialize()).unwrap();
+        assert!(serialized.contains("Keep-Alive: timeout=5, max=1000\r\n"));
     }
 }

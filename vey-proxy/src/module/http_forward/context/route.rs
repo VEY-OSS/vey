@@ -6,15 +6,15 @@
 
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::Instant;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
 
+use vey_http::header::KeepAliveValue;
 use vey_types::net::{HttpForwardCapability, UpstreamAddr};
 
 use super::{
-    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller,
+    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpAliveReuseState,
     HttpForwardContext,
 };
 use crate::audit::AuditContext;
@@ -31,7 +31,7 @@ pub(crate) struct RouteHttpForwardContext {
     egress_notes: EgressNotes,
     last_upstream: UpstreamAddr,
     last_is_tls: bool,
-    last_connection: Option<(Instant, HttpConnectionEofPoller)>,
+    reuse: HttpAliveReuseState,
 }
 
 impl RouteHttpForwardContext {
@@ -45,7 +45,7 @@ impl RouteHttpForwardContext {
             egress_notes: EgressNotes::default(),
             last_upstream: UpstreamAddr::empty(),
             last_is_tls: false,
-            last_connection: None,
+            reuse: HttpAliveReuseState::default(),
         }
     }
 }
@@ -58,11 +58,8 @@ impl HttpForwardContext for RouteHttpForwardContext {
         upstream: &UpstreamAddr,
         is_tls: bool,
     ) -> HttpForwardCapability {
-        if let Some((started, eof_poller)) = self.last_connection.take() {
-            if self.last_is_tls == is_tls
-                && self.last_upstream.eq(upstream)
-                && !eof_poller.is_closed()
-            {
+        if let Some(saved) = self.reuse.take_last() {
+            if self.last_is_tls == is_tls && self.last_upstream.eq(upstream) && !saved.is_closed() {
                 let mut fwd_ctx = self
                     .final_escaper
                     .new_http_forward_context(self.final_escaper.clone());
@@ -72,10 +69,10 @@ impl HttpForwardContext for RouteHttpForwardContext {
                 // when resue saved alive connection, make sure we reconnect on the same escaper
                 self.fwd_ctx = Some(fwd_ctx);
                 self.run_local_update = false;
-                self.last_connection = Some((started, eof_poller));
+                self.reuse.restore_last(saved);
                 return capability;
             } else {
-                drop(eof_poller);
+                drop(saved);
             }
         }
 
@@ -111,15 +108,10 @@ impl HttpForwardContext for RouteHttpForwardContext {
         &mut self,
         idle_expire: Duration,
     ) -> Option<(BoxHttpForwardConnection, ArcEscaper)> {
-        let (instant, eof_poller) = self.last_connection.take()?;
-        if instant.elapsed() < idle_expire {
-            eof_poller
-                .recv_conn()
-                .await
-                .map(|c| (c, self.final_escaper.clone()))
-        } else {
-            None
-        }
+        self.reuse
+            .get_alive(idle_expire)
+            .await
+            .map(|c| (c, self.final_escaper.clone()))
     }
 
     async fn make_new_http_connection(
@@ -130,6 +122,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError> {
         self.last_is_tls = false;
+        self.reuse.clear_inflight();
         if self.run_local_update {
             self.escaper._update_audit_context(audit_ctx);
         }
@@ -154,6 +147,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError> {
         self.last_is_tls = true;
+        self.reuse.clear_inflight();
         if self.run_local_update {
             self.escaper._update_audit_context(audit_ctx);
         }
@@ -170,9 +164,8 @@ impl HttpForwardContext for RouteHttpForwardContext {
         Ok((conn, escaper))
     }
 
-    fn save_alive_connection(&mut self, c: BoxHttpForwardConnection) {
-        let eof_poller = HttpConnectionEofPoller::spawn(c);
-        self.last_connection = Some((Instant::now(), eof_poller));
+    fn save_alive_connection(&mut self, c: BoxHttpForwardConnection, ka: KeepAliveValue) {
+        self.reuse.save(c, ka);
     }
 
     fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes) {

@@ -7,7 +7,9 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use tokio::time::Instant;
 
+use vey_http::header::KeepAliveValue;
 use vey_types::net::{HttpForwardCapability, UpstreamAddr};
 
 use super::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller};
@@ -57,7 +59,7 @@ pub(crate) trait HttpForwardContext {
         task_stats: ArcHttpForwardTaskRemoteStats,
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError>;
-    fn save_alive_connection(&mut self, c: BoxHttpForwardConnection);
+    fn save_alive_connection(&mut self, c: BoxHttpForwardConnection, ka: KeepAliveValue);
     fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes);
 
     async fn get_prepared_alive_connection(
@@ -128,5 +130,150 @@ pub(crate) trait HttpForwardContext {
         }
 
         Ok(conn)
+    }
+}
+
+struct HttpAliveConnection {
+    saved_at: Instant,
+    poller: HttpConnectionEofPoller,
+    timeout: Option<Duration>,
+    remaining: Option<u64>,
+}
+
+impl HttpAliveConnection {
+    fn is_closed(&self) -> bool {
+        self.poller.is_closed()
+    }
+}
+
+#[derive(Default)]
+struct HttpAliveReuseState {
+    last: Option<HttpAliveConnection>,
+    inflight: Option<(Option<Duration>, Option<u64>)>,
+}
+
+impl HttpAliveReuseState {
+    fn drop_saved(&mut self) {
+        self.last = None;
+        self.inflight = None;
+    }
+
+    fn take_last(&mut self) -> Option<HttpAliveConnection> {
+        self.last.take()
+    }
+
+    fn restore_last(&mut self, conn: HttpAliveConnection) {
+        self.last = Some(conn);
+    }
+
+    fn clear_inflight(&mut self) {
+        self.inflight = None;
+    }
+
+    async fn get_alive(&mut self, idle_expire: Duration) -> Option<BoxHttpForwardConnection> {
+        let conn = match self.last.take() {
+            Some(conn) => conn,
+            None => {
+                self.inflight = None;
+                return None;
+            }
+        };
+        if conn.remaining == Some(0) {
+            return None;
+        }
+        let timeout = conn
+            .timeout
+            .map(|t| t.min(idle_expire))
+            .unwrap_or(idle_expire);
+        if conn.saved_at.elapsed() >= timeout {
+            return None;
+        }
+        let leftover = (conn.timeout, conn.remaining.map(|n| n.saturating_sub(1)));
+        let c = conn.poller.recv_conn().await?;
+        self.inflight = Some(leftover);
+        Some(c)
+    }
+
+    fn save(&mut self, c: BoxHttpForwardConnection, ka: KeepAliveValue) {
+        let leftover = self.inflight.take();
+        let timeout = ka.timeout().or(leftover.and_then(|(t, _)| t));
+        let remaining = ka.max().or(leftover.and_then(|(_, r)| r));
+        if remaining == Some(0) {
+            return;
+        }
+        self.last = Some(HttpAliveConnection {
+            saved_at: Instant::now(),
+            poller: HttpConnectionEofPoller::spawn(c),
+            timeout,
+            remaining,
+        });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn merge_keep_alive(
+        ka: KeepAliveValue,
+        leftover: Option<(Option<Duration>, Option<u64>)>,
+    ) -> (Option<Duration>, Option<u64>) {
+        (
+            ka.timeout().or(leftover.and_then(|(t, _)| t)),
+            ka.max().or(leftover.and_then(|(_, r)| r)),
+        )
+    }
+
+    fn parse_ka(s: &[u8]) -> KeepAliveValue {
+        let mut v = KeepAliveValue::default();
+        v.parse(s);
+        v
+    }
+
+    #[test]
+    fn timeout_is_min_of_header_and_idle_expire() {
+        let idle = Duration::from_secs(30);
+        assert_eq!(
+            parse_ka(b"timeout=5")
+                .timeout()
+                .map(|t| t.min(idle))
+                .unwrap_or(idle),
+            Duration::from_secs(5)
+        );
+        assert_eq!(
+            parse_ka(b"timeout=60")
+                .timeout()
+                .map(|t| t.min(idle))
+                .unwrap_or(idle),
+            idle
+        );
+        assert_eq!(
+            KeepAliveValue::default()
+                .timeout()
+                .map(|t| t.min(idle))
+                .unwrap_or(idle),
+            idle
+        );
+    }
+
+    #[test]
+    fn max_zero_is_not_saved() {
+        assert_eq!(merge_keep_alive(parse_ka(b"max=0"), None).1, Some(0));
+        assert_eq!(
+            merge_keep_alive(KeepAliveValue::default(), Some((None, Some(0)))).1,
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn new_max_overrides_decremented_leftover() {
+        assert_eq!(
+            merge_keep_alive(parse_ka(b"max=10"), Some((None, Some(3)))).1,
+            Some(10)
+        );
+        assert_eq!(
+            merge_keep_alive(KeepAliveValue::default(), Some((None, Some(3)))).1,
+            Some(3)
+        );
     }
 }

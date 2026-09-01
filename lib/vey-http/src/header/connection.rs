@@ -7,6 +7,8 @@
 use bytes::BufMut;
 use http::{HeaderName, Version};
 
+use super::keepalive::{KEEP_ALIVE_NAME, KeepAliveValue};
+
 pub const CONNECTION_NAME: [u8; 10] = *b"Connection";
 
 pub const fn connection_as_bytes(close: bool) -> &'static [u8] {
@@ -46,6 +48,8 @@ pub struct ConnectionValue {
     persistence: Option<ConnectionPersistence>,
     upgrade: bool,
     extra: Vec<HeaderName>,
+    keep_alive_name: Option<[u8; 10]>,
+    keepalive: KeepAliveValue,
 }
 
 impl ConnectionValue {
@@ -66,6 +70,16 @@ impl ConnectionValue {
     #[inline]
     pub fn upgrade(&self) -> bool {
         self.upgrade
+    }
+
+    #[inline]
+    pub fn keep_alive_header(&self) -> KeepAliveValue {
+        self.keepalive
+    }
+
+    pub fn clear_keep_alive_header(&mut self) {
+        self.keep_alive_name = None;
+        self.keepalive = KeepAliveValue::default();
     }
 
     pub fn parse(&mut self, buf: &[u8]) {
@@ -100,21 +114,33 @@ impl ConnectionValue {
         }
     }
 
-    pub fn write_for_rsp(&self, name: &[u8], close: bool, buf: &mut Vec<u8>) {
-        self.write_inner(name, close, None, buf);
+    pub fn parse_keep_alive(&mut self, name: &[u8], value: &[u8]) {
+        self.keep_alive_name = name.try_into().ok();
+        self.keepalive.parse(value);
     }
 
-    pub fn write_for_req(&self, name: &[u8], close: bool, te: Option<&[u8]>, buf: &mut Vec<u8>) {
-        self.write_inner(name, close, te, buf);
+    pub fn write_for_rsp(&self, name: &[u8], keep_alive: bool, buf: &mut Vec<u8>) {
+        self.write_inner(name, keep_alive, None, buf);
     }
 
-    fn write_inner(&self, name: &[u8], close: bool, te: Option<&[u8]>, buf: &mut Vec<u8>) {
+    pub fn write_for_req(
+        &self,
+        name: &[u8],
+        keep_alive: bool,
+        te: Option<&[u8]>,
+        buf: &mut Vec<u8>,
+    ) {
+        self.write_inner(name, keep_alive, te, buf);
+    }
+
+    fn write_inner(&self, name: &[u8], keep_alive: bool, te: Option<&[u8]>, buf: &mut Vec<u8>) {
+        let ka_name = self.keep_alive_name.as_ref().unwrap_or(&KEEP_ALIVE_NAME);
         buf.put_slice(name);
         buf.put_slice(b": ");
-        if close {
-            buf.put_slice(b"Close");
+        if keep_alive {
+            buf.put_slice(ka_name);
         } else {
-            buf.put_slice(b"Keep-Alive");
+            buf.put_slice(b"Close");
         }
         if let Some(te) = te {
             buf.put_slice(b", ");
@@ -128,6 +154,9 @@ impl ConnectionValue {
             buf.put_slice(h.as_str().as_bytes());
         }
         buf.put_slice(b"\r\n");
+        if keep_alive {
+            self.keepalive.write(ka_name, buf);
+        }
     }
 }
 
@@ -150,11 +179,11 @@ mod tests {
         assert!(v.upgrade());
 
         let mut buf = Vec::new();
-        v.write_for_rsp(&CONNECTION_NAME, false, &mut buf);
+        v.write_for_rsp(&CONNECTION_NAME, true, &mut buf);
         assert_eq!(buf, b"Connection: Keep-Alive, upgrade\r\n");
 
         buf.clear();
-        v.write_for_req(&CONNECTION_NAME, false, Some(b"TE"), &mut buf);
+        v.write_for_req(&CONNECTION_NAME, true, Some(b"TE"), &mut buf);
         assert_eq!(buf, b"Connection: Keep-Alive, TE, upgrade\r\n");
 
         v.parse(b"close, keep-alive, Foo");
@@ -167,7 +196,30 @@ mod tests {
         assert!(empty.keep_alive(Version::HTTP_11));
         assert!(!empty.keep_alive(Version::HTTP_10));
         buf.clear();
-        v.write_for_req(b"connection", true, Some(b"te"), &mut buf);
+        v.write_for_req(b"connection", false, Some(b"te"), &mut buf);
         assert_eq!(buf, b"connection: Close, te, upgrade, foo\r\n");
+    }
+
+    #[test]
+    fn write_emits_keep_alive_header_only_when_open() {
+        let mut v = ConnectionValue::default();
+        v.parse_keep_alive(&KEEP_ALIVE_NAME, b"timeout=5, max=10");
+
+        let mut buf = Vec::new();
+        v.write_for_rsp(&CONNECTION_NAME, true, &mut buf);
+        assert_eq!(
+            buf,
+            b"Connection: Keep-Alive\r\nKeep-Alive: timeout=5, max=10\r\n"
+        );
+
+        buf.clear();
+        v.write_for_rsp(&CONNECTION_NAME, false, &mut buf);
+        assert_eq!(buf, b"Connection: Close\r\n");
+
+        let mut v = ConnectionValue::default();
+        v.parse_keep_alive(b"keep-alive", b"timeout=5");
+        buf.clear();
+        v.write_for_rsp(&CONNECTION_NAME, true, &mut buf);
+        assert_eq!(buf, b"Connection: keep-alive\r\nkeep-alive: timeout=5\r\n");
     }
 }

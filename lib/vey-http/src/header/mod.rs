@@ -9,6 +9,9 @@ pub use auth::{proxy_authenticate_basic, proxy_authorization_basic, www_authenti
 mod connection;
 pub use connection::{CONNECTION_NAME, ConnectionValue, connection_as_bytes};
 
+mod keepalive;
+pub use keepalive::{KEEP_ALIVE_NAME, KeepAliveValue};
+
 mod content;
 pub use content::{content_length, content_range_overflowed, content_range_sized, content_type};
 
