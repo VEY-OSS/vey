@@ -13,5 +13,8 @@ pub(crate) use registry::{get_names, get_or_insert_default};
 mod group;
 pub(crate) use group::SiteGroup;
 
+mod stats;
+pub(crate) use stats::SiteStats;
+
 mod entry;
 pub(crate) use entry::Site;

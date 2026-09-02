@@ -20,7 +20,8 @@ use vey_io_ext::{
     StreamCopyError,
 };
 use vey_types::acl::AclAction;
-use vey_types::net::KeepAliveValue;
+use vey_types::limit::GaugeSemaphorePermit;
+use vey_types::net::{KeepAliveValue, TcpSockSpeedLimitConfig};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpExposeRequest};
 use super::{
@@ -59,6 +60,7 @@ pub(crate) struct HttpExposeForwardTask<'a> {
     max_idle_count: usize,
     started: bool,
     _alive_guard: Option<HttpForwardTaskAliveGuard>,
+    _site_req_alive_permit: Option<GaugeSemaphorePermit>,
 }
 
 impl Drop for HttpExposeForwardTask<'_> {
@@ -109,6 +111,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             max_idle_count,
             started: false,
             _alive_guard: None,
+            _site_req_alive_permit: None,
         }
     }
 
@@ -242,6 +245,8 @@ impl<'a> HttpExposeForwardTask<'a> {
     fn pre_start(&mut self) {
         self._alive_guard = Some(self.ctx.server_stats.add_forward_task());
 
+        self.site.stats().add_request();
+
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| {
                 s.req_total.add_http_forward(self.is_https);
@@ -259,6 +264,8 @@ impl<'a> HttpExposeForwardTask<'a> {
     }
 
     fn post_stop(&mut self) {
+        self.site.stats().dec_alive();
+
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| s.req_alive.del_http_forward(self.is_https));
 
@@ -266,6 +273,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 drop(user_req_alive_permit);
             }
         }
+        self._site_req_alive_permit.take();
     }
 
     async fn handle_user_upstream_acl_action<W>(
@@ -328,6 +336,18 @@ impl<'a> HttpExposeForwardTask<'a> {
         }
     }
 
+    fn clt_speed_limit(&self) -> Option<TcpSockSpeedLimitConfig> {
+        let server = self.ctx.server_config.tcp_sock_speed_limit;
+        let mut limit = self.site.tcp_sock_speed_limit().shrink_as_smaller(&server);
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            limit = user_ctx
+                .user_config()
+                .tcp_sock_speed_limit
+                .shrink_as_smaller(&limit);
+        }
+        if limit.eq(&server) { None } else { Some(limit) }
+    }
+
     fn setup_clt_limit_and_stats<CDR, CDW>(
         &mut self,
         clt_r: &mut Option<HttpClientReader<CDR>>,
@@ -343,7 +363,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             let mut wrapper_stats =
                 HttpsForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
 
-            let limit_config = if let Some(user_ctx) = self.task_notes.user_ctx() {
+            if let Some(user_ctx) = self.task_notes.user_ctx() {
                 let user_io_stats = user_ctx.fetch_traffic_stats(
                     self.ctx.server_config.name(),
                     self.ctx.server_stats.share_extra_tags(),
@@ -352,30 +372,15 @@ impl<'a> HttpExposeForwardTask<'a> {
                     s.io.https_forward.add_in_bytes(origin_header_size);
                 }
                 wrapper_stats.push_user_io_stats(user_io_stats);
-
-                let user_config = user_ctx.user_config();
-                if user_config
-                    .tcp_sock_speed_limit
-                    .eq(&self.ctx.server_config.tcp_sock_speed_limit)
-                {
-                    None
-                } else {
-                    let limit_config = user_config
-                        .tcp_sock_speed_limit
-                        .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
-                    Some(limit_config)
-                }
-            } else {
-                None
-            };
+            }
 
             let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
-            (clt_r_stats, clt_w_stats, limit_config)
+            (clt_r_stats, clt_w_stats, self.clt_speed_limit())
         } else {
             let mut wrapper_stats =
                 HttpForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
 
-            let limit_config = if let Some(user_ctx) = self.task_notes.user_ctx() {
+            if let Some(user_ctx) = self.task_notes.user_ctx() {
                 let user_io_stats = user_ctx.fetch_traffic_stats(
                     self.ctx.server_config.name(),
                     self.ctx.server_stats.share_extra_tags(),
@@ -384,25 +389,10 @@ impl<'a> HttpExposeForwardTask<'a> {
                     s.io.http_forward.add_in_bytes(origin_header_size);
                 }
                 wrapper_stats.push_user_io_stats(user_io_stats);
-
-                let user_config = user_ctx.user_config();
-                if user_config
-                    .tcp_sock_speed_limit
-                    .eq(&self.ctx.server_config.tcp_sock_speed_limit)
-                {
-                    None
-                } else {
-                    let limit_config = user_config
-                        .tcp_sock_speed_limit
-                        .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
-                    Some(limit_config)
-                }
-            } else {
-                None
-            };
+            }
 
             let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
-            (clt_r_stats, clt_w_stats, limit_config)
+            (clt_r_stats, clt_w_stats, self.clt_speed_limit())
         };
 
         clt_w.retain_global_limiter_by_group(GlobalLimitGroup::Server);
@@ -487,6 +477,22 @@ impl<'a> HttpExposeForwardTask<'a> {
                 .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts);
         } else {
             tcp_client_misc_opts = Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts);
+        }
+
+        if self.site.check_rate_limit().is_err() {
+            self.reply_too_many_requests(clt_w).await;
+            return Err(ServerTaskError::ForbiddenByRule(
+                ServerTaskForbiddenError::RateLimited,
+            ));
+        }
+        match self.site.acquire_request_semaphore() {
+            Ok(permit) => self._site_req_alive_permit = permit,
+            Err(_) => {
+                self.reply_too_many_requests(clt_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
+            }
         }
 
         // set client side socket options

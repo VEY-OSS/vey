@@ -143,7 +143,7 @@ impl HttpExposeServer {
         } else {
             None
         };
-        let hosts = build_hosts(&config.site_group, tls_rolling_ticketer.clone(), None)?;
+        let hosts = build_hosts(&config.site_group, tls_rolling_ticketer.clone())?;
 
         let server = HttpExposeServer::new(
             config,
@@ -172,11 +172,7 @@ impl HttpExposeServer {
             } else {
                 None
             };
-            let hosts = build_hosts(
-                &config.site_group,
-                tls_rolling_ticketer.clone(),
-                Some(&self.hosts.load()),
-            )?;
+            let hosts = build_hosts(&config.site_group, tls_rolling_ticketer.clone())?;
 
             let server = HttpExposeServer::new(
                 config,
@@ -396,24 +392,13 @@ fn host_from_client_hello<'a>(
 fn build_hosts(
     site_group: &NodeName,
     ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
-    old_hosts: Option<&HostMatch<Arc<HttpHost>>>,
 ) -> anyhow::Result<HostMatch<Arc<HttpHost>>> {
     let group = crate::site::get_or_insert_default(site_group);
-    let mut old = ahash::AHashMap::new();
-    if let Some(hosts) = old_hosts {
-        hosts.for_each_unique(|host| {
-            old.insert(host.site().id().clone(), Arc::clone(host));
-        });
-    }
     group.config().sites.try_build_arc(|cfg| {
         let site = group
             .get_site(cfg.id())
             .expect("site group is missing a built site");
-        if let Some(old_host) = old.get(site.id()) {
-            old_host.new_for_reload(site, ticketer.clone())
-        } else {
-            HttpHost::try_build(site, ticketer.clone())
-        }
+        HttpHost::try_build(site, ticketer.clone())
     })
 }
 
@@ -451,11 +436,7 @@ impl ServerInternal for HttpExposeServer {
         if self.config.site_group.is_empty() {
             return;
         }
-        match build_hosts(
-            &self.config.site_group,
-            self.tls_rolling_ticketer.clone(),
-            Some(&self.hosts.load()),
-        ) {
+        match build_hosts(&self.config.site_group, self.tls_rolling_ticketer.clone()) {
             Ok(hosts) => self.hosts.store(Arc::new(hosts)),
             Err(e) => debug!(
                 "failed to rebuild http_expose hosts from site group {}: {e:?}",

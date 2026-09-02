@@ -37,16 +37,6 @@ impl HttpHost {
         Ok(HttpHost { site, tls_server })
     }
 
-    #[allow(clippy::unused_self)]
-    pub(super) fn new_for_reload(
-        &self,
-        site: Arc<Site>,
-        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
-    ) -> anyhow::Result<Self> {
-        // rebuild tls_server; keep this host's stats / limiter when they are added
-        Self::try_build(site, ticketer)
-    }
-
     pub(crate) fn site(&self) -> &Arc<Site> {
         &self.site
     }

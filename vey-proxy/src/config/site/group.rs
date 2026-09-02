@@ -111,6 +111,32 @@ static_sites:
     }
 
     #[test]
+    fn parse_site_limits() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    tcp_sock_speed_limit: 10MB
+    request_rate_limit: 100
+    request_max_alive: 32
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert_ne!(site.tcp_sock_speed_limit, Default::default());
+        assert!(site.request_rate_limit.is_some());
+        assert_eq!(site.request_alive_max, Some(32));
+    }
+
+    #[test]
     fn reject_unknown_site_field() {
         let yaml = YamlLoader::load_from_str(
             r#"

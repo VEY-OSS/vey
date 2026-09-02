@@ -20,9 +20,10 @@ value may be an inline sequence or a directory of files; see
 If a server names a missing site group, ``vey-proxy`` falls back to an empty
 group. Requests then have no matching site.
 
-Reload a single group with ``vey-proxy-ctl reload-site-group <name>``. That
-rebuilds the host table on every online ``http_expose`` server that references
-the group. ``vey-proxy-ctl list site-group`` lists loaded group names.
+Reload a single group with ``vey-proxy-ctl reload-site-group <name>``. Sites
+keep their stats and limiters when the site ID is unchanged. Every online
+``http_expose`` server that references the group then rebuilds its host table.
+``vey-proxy-ctl list site-group`` lists loaded group names.
 
 .. versionadded:: 1.15.0
 

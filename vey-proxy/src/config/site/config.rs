@@ -7,8 +7,12 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
+use vey_types::limit::RateLimitQuota;
 use vey_types::metrics::NodeName;
-use vey_types::net::{Host, OpensslClientConfigBuilder, OpensslServerConfigBuilder, UpstreamAddr};
+use vey_types::net::{
+    Host, OpensslClientConfigBuilder, OpensslServerConfigBuilder, TcpSockSpeedLimitConfig,
+    UpstreamAddr,
+};
 use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -18,6 +22,9 @@ pub(crate) struct SiteConfig {
     pub(crate) tls_server_builder: Option<OpensslServerConfigBuilder>,
     pub(crate) tls_client_builder: Option<OpensslClientConfigBuilder>,
     pub(crate) tls_name: Host,
+    pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
+    pub(crate) request_rate_limit: Option<RateLimitQuota>,
+    pub(crate) request_alive_max: Option<usize>,
 }
 
 impl Default for SiteConfig {
@@ -28,6 +35,9 @@ impl Default for SiteConfig {
             tls_server_builder: None,
             tls_client_builder: None,
             tls_name: Host::empty(),
+            tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
+            request_rate_limit: None,
+            request_alive_max: None,
         }
     }
 }
@@ -88,6 +98,25 @@ impl YamlMapCallback for SiteConfig {
             "tls_name" => {
                 self.tls_name = vey_yaml::value::as_host(value)
                     .context(format!("invalid tls name value for key {key}"))?;
+                Ok(())
+            }
+            "tcp_sock_speed_limit" => {
+                self.tcp_sock_speed_limit = vey_yaml::value::as_tcp_sock_speed_limit(value)
+                    .context(format!(
+                        "invalid tcp socket speed limit value for key {key}"
+                    ))?;
+                Ok(())
+            }
+            "request_rate_limit" | "request_limit_quota" => {
+                let quota = vey_yaml::value::as_rate_limit_quota(value)
+                    .context(format!("invalid request quota value for key {key}"))?;
+                self.request_rate_limit = Some(quota);
+                Ok(())
+            }
+            "request_max_alive" | "request_alive_max" => {
+                let alive_max = vey_yaml::value::as_usize(value)
+                    .context(format!("invalid usize value for key {key}"))?;
+                self.request_alive_max = Some(alive_max);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {key}")),

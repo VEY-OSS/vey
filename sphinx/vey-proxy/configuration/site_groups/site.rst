@@ -25,8 +25,8 @@ id
 
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Site ID. It must be unique inside the site group. Reload reuses the server-side
-host runtime (stats, limiter) when this ID is unchanged.
+Site ID. It must be unique inside the site group. Reloading the site group
+reuses this site's runtime (stats, limiter) when the ID is unchanged.
 
 **alias**: ``name``
 
@@ -77,3 +77,37 @@ SNI and certificate name used to verify the upstream.
 If unset, the host part of ``upstream`` is used.
 
 **default**: not set
+
+.. _conf_site_tcp_sock_speed_limit:
+
+tcp_sock_speed_limit
+--------------------
+
+**optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
+
+Per-connection speed limit for this site. The effective limit is the smaller of
+this value, the ``http_expose`` server limit, and the visitor user limit.
+
+**default**: no extra limit
+
+.. _conf_site_request_rate_limit:
+
+request_rate_limit
+------------------
+
+**optional**, **type**: :external+values:ref:`rate limit quota <conf_value_rate_limit_quota>`
+
+Rate limit for requests to this site.
+
+**default**: no limit, **alias**: request_limit_quota
+
+.. _conf_site_request_max_alive:
+
+request_max_alive
+-----------------
+
+**optional**, **type**: usize, **alias**: request_alive_max
+
+Maximum number of concurrent requests for this site.
+
+**default**: no limit

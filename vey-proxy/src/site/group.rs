@@ -28,16 +28,34 @@ impl SiteGroup {
     }
 
     pub(super) fn new_with_config(config: SiteGroupConfig) -> anyhow::Result<Arc<Self>> {
+        Self::build(config, None)
+    }
+
+    pub(super) fn reload(&self, config: SiteGroupConfig) -> anyhow::Result<Arc<Self>> {
+        Self::build(config, Some(&self.sites))
+    }
+
+    fn build(
+        config: SiteGroupConfig,
+        old_sites: Option<&AHashMap<NodeName, Arc<Site>>>,
+    ) -> anyhow::Result<Arc<Self>> {
         let mut configs = Vec::new();
         config
             .sites
             .for_each_unique(|cfg| configs.push(Arc::clone(cfg)));
 
+        let group_name = config.name().clone();
         let mut sites = AHashMap::with_capacity(configs.len());
         for cfg in configs {
             let id = cfg.id().clone();
-            let site = Site::try_build(&cfg).context(format!("failed to build site {id}"))?;
-            if sites.insert(id.clone(), Arc::new(site)).is_some() {
+            let site = if let Some(old) = old_sites.and_then(|m| m.get(&id)) {
+                old.new_for_reload(&cfg)
+                    .context(format!("failed to reload site {id}"))?
+            } else {
+                Site::try_build(&group_name, &cfg).context(format!("failed to build site {id}"))?
+            };
+            let site = Arc::new(site);
+            if sites.insert(site.id().clone(), site).is_some() {
                 return Err(anyhow!("duplicate site id {id}"));
             }
         }
@@ -46,10 +64,6 @@ impl SiteGroup {
             config: Arc::new(config),
             sites,
         }))
-    }
-
-    pub(super) fn reload(&self, config: SiteGroupConfig) -> anyhow::Result<Arc<Self>> {
-        Self::new_with_config(config)
     }
 
     pub(super) fn clone_config(&self) -> SiteGroupConfig {
@@ -62,5 +76,46 @@ impl SiteGroup {
 
     pub(crate) fn get_site(&self, id: &NodeName) -> Option<Arc<Site>> {
         self.sites.get(id).cloned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use yaml_rust::YamlLoader;
+
+    use super::*;
+
+    fn parse_group(s: &str) -> SiteGroupConfig {
+        let yaml = YamlLoader::load_from_str(s).unwrap();
+        let yaml_rust::Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        SiteGroupConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn reload_reuses_site_stats() {
+        let config = parse_group(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    request_rate_limit: 100
+    request_max_alive: 32
+"#,
+        );
+        let group = SiteGroup::new_with_config(config.clone()).unwrap();
+        let id = NodeName::from_str("app").unwrap();
+        let site = group.get_site(&id).unwrap();
+        site.stats().add_request();
+
+        let reloaded = group.reload(config).unwrap();
+        let site2 = reloaded.get_site(&id).unwrap();
+        assert!(Arc::ptr_eq(site.stats(), site2.stats()));
+        assert_eq!(site2.stats().get_request_total(), 1);
     }
 }
