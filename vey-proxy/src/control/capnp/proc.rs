@@ -135,6 +135,19 @@ impl proc_control::Server for ProcControlImpl {
         Ok(())
     }
 
+    async fn list_site_group(
+        self: Rc<Self>,
+        _params: proc_control::ListSiteGroupParams,
+        mut results: proc_control::ListSiteGroupResults,
+    ) -> capnp::Result<()> {
+        let set = crate::site::get_names();
+        let mut builder = results.get().init_result(set.len() as u32);
+        for (i, name) in set.iter().enumerate() {
+            builder.set(i as u32, name.as_str());
+        }
+        Ok(())
+    }
+
     async fn reload_user_group(
         self: Rc<Self>,
         params: proc_control::ReloadUserGroupParams,
@@ -175,6 +188,17 @@ impl proc_control::Server for ProcControlImpl {
     ) -> capnp::Result<()> {
         let escaper = params.get()?.get_name()?.to_string()?;
         let r = crate::control::bridge::reload_escaper(escaper, None).await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
+    }
+
+    async fn reload_site_group(
+        self: Rc<Self>,
+        params: proc_control::ReloadSiteGroupParams,
+        mut results: proc_control::ReloadSiteGroupResults,
+    ) -> capnp::Result<()> {
+        let site_group = params.get()?.get_name()?.to_string()?;
+        let r = crate::control::bridge::reload_site_group(site_group, None).await;
         set_operation_result(results.get().init_result(), r);
         Ok(())
     }

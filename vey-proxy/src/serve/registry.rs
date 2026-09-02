@@ -201,6 +201,12 @@ pub(super) fn reload_only_user_group(name: &NodeName) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub(super) fn reload_only_site_group(name: &NodeName) -> anyhow::Result<()> {
+    let server = check_get_server(name)?;
+    server._update_site_group_in_place();
+    Ok(())
+}
+
 pub(super) fn reload_only_auditor(name: &NodeName) -> anyhow::Result<()> {
     let server = check_get_server(name)?;
     server._update_audit_handle_in_place()

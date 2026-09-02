@@ -6,7 +6,9 @@ http_rproxy
 This server provides an HTTP reverse proxy.
 
 This server terminates the client-side HTTP session locally and then forwards
-requests to configured upstream sites selected by the ``hosts`` match table.
+requests to configured upstream sites selected from the referenced
+``site_group``. The official type name is ``http_expose``; ``http_rproxy`` is
+still accepted as a deprecated alias.
 
 The following common keys are supported:
 
@@ -27,6 +29,7 @@ The following common keys are supported:
 * :ref:`flush_task_log_on_connected <conf_server_common_flush_task_log_on_connected>`
 * :ref:`task_log_flush_interval <conf_server_common_task_log_flush_interval>`
 * :ref:`extra_metrics_tags <conf_server_common_extra_metrics_tags>`
+* :ref:`site_group <config_server_http_rproxy_site_group>`
 
 The authentication schemes supported by this server depend on the type of the
 configured user group.
@@ -270,97 +273,20 @@ Timeout for receiving the complete TLS ClientHello message.
 
 **default**: 1s
 
-hosts
------
+.. _config_server_http_rproxy_site_group:
 
-**required**, **type**: :external+values:ref:`host matched object <conf_value_host_matched_object>` <:ref:`host <configuration_server_http_rproxy_host>`>, **alias**: sites
+site_group
+----------
 
-Host-matching rules that define which hosts this reverse proxy should handle.
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
-Example 1:
+Name of the :ref:`site group <configuration_site_group>` that provides Host /
+SNI matching and per-site upstream settings.
 
-.. code-block:: yaml
+Inline ``hosts`` / ``sites`` on this server are rejected. Put those rules in
+the site group's :ref:`static_sites <conf_site_group_static_sites>`.
 
-  hosts:
-    services:
-      upstream: www.example.net
-
-Example 2:
-
-.. code-block:: yaml
-
-  hosts:
-    - exact_match:
-        - www.example.net
-        - example.net
-      services:
-        upstream: www.example.net
-    - suffix_match: example.org
-      set_default: true
-      services:
-        upstream: www.example.org
+If the referenced group does not exist, an empty group is used and no site
+matches.
 
 **default**: not set
-
-.. _configuration_server_http_rproxy_host:
-
-Host
-^^^^
-
-Configuration for each local host handled by this server.
-
-tls_server
-""""""""""
-
-**optional**, **type**: :external+values:ref:`rustls server config <conf_value_rustls_server_config>`
-
-TLS server configuration for this local site.
-
-If not set, the :ref:`global tls server <configuration_server_http_rproxy_global_tls_server>` config will be used.
-
-**default**: not set
-
-upstream
-""""""""
-
-**required**, **type**: :external+values:ref:`upstream str <conf_value_upstream_str>`
-
-Target upstream address. The default port is ``80`` and may be omitted.
-
-tls_client
-""""""""""
-
-**optional**, **type**: :external+values:ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
-
-TLS parameters for the local client side when HTTPS to the upstream is needed.
-If set to an empty map, the default configuration is used.
-
-**default**: not set
-
-tls_name
-""""""""
-
-**optional**, **type**: :external+values:ref:`tls name <conf_value_tls_name>`
-
-TLS server name used to verify the upstream site's certificate.
-
-If not set, the host part of the upstream address will be used.
-
-**default**: not set
-
-Example
-"""""""
-
-.. code-block:: yaml
-
-   hosts:
-     - exact_match:
-         - www.example.net
-         - example.net
-       services:
-         upstream: app.example.net:8080
-     - suffix_match: example.org
-       set_default: true
-       services:
-         upstream: app.example.org:8080
-         tls_client: {}

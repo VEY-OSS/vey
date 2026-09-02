@@ -24,6 +24,7 @@ pub(crate) mod escaper;
 pub(crate) mod log;
 pub(crate) mod resolver;
 pub(crate) mod server;
+pub(crate) mod site;
 
 pub fn load(program_name: &str) -> anyhow::Result<&'static Path> {
     let config_file =
@@ -42,6 +43,7 @@ fn clear_all() {
     escaper::clear();
     audit::clear();
     auth::clear();
+    site::clear();
     server::clear();
     resolver::clear();
 }
@@ -74,6 +76,7 @@ fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
         "resolver" => resolver::load_all(v, conf_dir),
         "user" | "user_group" => auth::load_all(v, conf_dir),
         "auditor" => audit::load_all(v, conf_dir),
+        "site_group" => site::load_all(v, conf_dir),
         _ => Ok(()),
     })?;
     Ok(())
@@ -93,6 +96,7 @@ fn load_doc(map: &yaml::Hash, program_name: &str) -> anyhow::Result<()> {
         "resolver" => resolver::load_all(v, conf_dir),
         "user" | "user_group" => auth::load_all(v, conf_dir),
         "auditor" => audit::load_all(v, conf_dir),
+        "site_group" => site::load_all(v, conf_dir),
         _ => Err(anyhow!("invalid key {k} in main conf")),
     })?;
     Ok(())

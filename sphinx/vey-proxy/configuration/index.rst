@@ -21,6 +21,7 @@ object families:
 * ``escaper`` controls how outbound traffic leaves the daemon
 * ``resolver`` defines DNS resolution behavior
 * ``user_group`` defines authentication, identity, and policy
+* ``site_group`` is the Host / SNI table used by reverse-proxy servers
 * ``auditor`` adds inspection, interception, or adaptation logic
 
 Static process-level settings such as ``runtime``, ``worker``, ``log``, and
@@ -66,6 +67,10 @@ reusable objects.
      - Mix [#m]_
      - yes
      - User-group configuration, see :doc:`auth/index`
+   * - site_group
+     - Mix [#m]_
+     - yes
+     - Site-group configuration, see :doc:`site_groups/index`
    * - auditor
      - Mix [#m]_
      - yes
@@ -95,5 +100,6 @@ The top-level key ``user`` is accepted as an alias of ``user_group``.
    escapers/index
    auditors/index
    auth/index
+   site_groups/index
    servers/index
    values

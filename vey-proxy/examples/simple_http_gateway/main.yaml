@@ -9,16 +9,20 @@ controller:
     recv_timeout: 30
     send_timeout: 1
 
+site_group:
+  - name: default
+    static_sites:
+      - exact_match: www.xjtu.edu.cn
+        upstream: www.xjtu.edu.cn:80
+
 server:
   - name: test
     escaper: default
-    type: http_rproxy
+    type: http_expose
     listen:
       address: "[::]:10080"
     tcp_sock_speed_limit: 100M
-    hosts:
-      - exact_match: www.xjtu.edu.cn
-        upstream: www.xjtu.edu.cn:80
+    site_group: default
 
 resolver:
   - name: default

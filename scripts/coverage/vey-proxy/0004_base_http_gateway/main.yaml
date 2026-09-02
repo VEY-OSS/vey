@@ -18,14 +18,22 @@ escaper:
       default: allow
       allow: 127.0.0.0/8
 
-server:
-  - name: http
-    type: http_rproxy
-    listen: 127.0.0.1:8080
-    escaper: default
-    hosts:
+site_group:
+  - name: httpbin
+    static_sites:
       - exact_match: httpbin.local
         upstream: 127.0.0.1:80
+        tls_server:
+          cert_pairs:
+            certificate: ../httpbin.local.pem
+            private-key: ../httpbin.local-key.pem
+
+server:
+  - name: http
+    type: http_expose
+    listen: 127.0.0.1:8080
+    escaper: default
+    site_group: httpbin
     flush_task_log_on_created: true
     flush_task_log_on_connected: true
     task_log_flush_interval: 1s
@@ -39,7 +47,7 @@ server:
         certificate: ../httpbin.local.pem
         private-key: ../httpbin.local-key.pem
   - name: https
-    type: http_rproxy
+    type: http_expose
     listen: 127.0.0.1:9443
     escaper: default
     enable_tls_server: true
@@ -47,10 +55,4 @@ server:
       cert_pairs:
         certificate: ../httpbin.local.pem
         private-key: ../httpbin.local-key.pem
-    hosts:
-      - exact_match: httpbin.local
-        upstream: 127.0.0.1:80
-        tls_server:
-          cert_pairs:
-            certificate: ../httpbin.local.pem
-            private-key: ../httpbin.local-key.pem
+    site_group: httpbin

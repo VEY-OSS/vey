@@ -46,6 +46,9 @@ async fn reload_locked() -> anyhow::Result<()> {
     crate::audit::load_all()
         .await
         .context("failed to reload all auditors")?;
+    crate::site::load_all()
+        .await
+        .context("failed to reload all site groups")?;
     crate::serve::spawn_all()
         .await
         .context("failed to reload all servers")?;

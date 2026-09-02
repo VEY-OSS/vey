@@ -44,6 +44,7 @@ configuration types for:
 * escapers that decide how outbound traffic is forwarded
 * resolvers that control name resolution behavior
 * auth components that define users, groups, and auth sources
+* site groups that map Host / SNI names to reverse-proxy origins
 * logging, metrics, and shared value objects reused across the config tree
 
 Protocol Details

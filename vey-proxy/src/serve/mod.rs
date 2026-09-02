@@ -37,8 +37,8 @@ mod plain_tcp_port;
 mod plain_tls_port;
 mod usual_tls_port;
 
+mod http_expose;
 mod http_proxy;
-mod http_rproxy;
 mod sni_proxy;
 mod socks_proxy;
 mod tcp_stream;
@@ -69,7 +69,7 @@ mod ops;
 pub(crate) use ops::{
     force_quit_offline_server, force_quit_offline_servers, foreach_server, get_server, reload,
     stop_all, update_dependency_to_auditor, update_dependency_to_escaper,
-    update_dependency_to_user_group, wait_all_tasks,
+    update_dependency_to_site_group, update_dependency_to_user_group, wait_all_tasks,
 };
 pub use ops::{spawn_all, spawn_offline_clean};
 
@@ -111,6 +111,10 @@ trait ServerInternal: Server {
     fn _update_escaper_in_place(&self);
     fn _update_user_group_in_place(&self);
     fn _update_audit_handle_in_place(&self) -> anyhow::Result<()>;
+    fn _site_group(&self) -> &NodeName {
+        Default::default()
+    }
+    fn _update_site_group_in_place(&self) {}
 
     fn _reload_with_old_notifier(
         &self,

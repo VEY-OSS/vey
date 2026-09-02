@@ -21,6 +21,7 @@ interface ProcControl {
   reloadAuditor @16 (name :Text) -> (result: Types.OperationResult);
   reloadEscaper @4 (name :Text) -> (result :Types.OperationResult);
   reloadServer @5 (name :Text) -> (result :Types.OperationResult);
+  reloadSiteGroup @23 (name :Text) -> (result :Types.OperationResult);
 
   getUserGroup @6 (name: Text) -> (user_group :Types.FetchResult(UserGroup.UserGroupControl));
   getResolver @7 (name: Text) -> (resolver :Types.FetchResult(Resolver.ResolverControl));
@@ -32,6 +33,7 @@ interface ProcControl {
   listAuditor @17 () -> (result :List(Text));
   listEscaper @12 () -> (result :List(Text));
   listServer @13 () -> (result :List(Text));
+  listSiteGroup @24 () -> (result :List(Text));
 
   getTimeOffset @14 () -> (offset :Types.UtcOffset);
   setTimeOffset @15 (offset :Types.UtcOffset) -> (result :Types.OperationResult);

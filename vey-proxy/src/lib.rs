@@ -12,6 +12,7 @@ pub mod opts;
 pub mod resolve;
 pub mod serve;
 pub mod signal;
+pub mod site;
 pub mod stat;
 
 mod build;

@@ -10,6 +10,10 @@ for one user.
 Each site block says what should match, whether site-level metrics should be
 emitted, and which per-site overrides should apply once it matches.
 
+This is not a :ref:`site group <configuration_site_group>`. User sites are
+matched after the forward-proxy client is authenticated. Site groups are Host
+/ SNI tables used by reverse-proxy servers such as ``http_expose``.
+
 .. _conf_auth_user_site_id:
 
 id

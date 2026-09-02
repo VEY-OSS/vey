@@ -31,8 +31,8 @@ pub(crate) mod plain_tcp_port;
 pub(crate) mod plain_tls_port;
 pub(crate) mod usual_tls_port;
 
+pub(crate) mod http_expose;
 pub(crate) mod http_proxy;
-pub(crate) mod http_rproxy;
 pub(crate) mod sni_proxy;
 pub(crate) mod socks_proxy;
 pub(crate) mod tcp_stream;
@@ -167,7 +167,7 @@ pub(crate) enum AnyServerConfig {
     SniProxy(sni_proxy::SniProxyServerConfig),
     SocksProxy(socks_proxy::SocksProxyServerConfig),
     HttpProxy(http_proxy::HttpProxyServerConfig),
-    HttpRProxy(http_rproxy::HttpRProxyServerConfig),
+    HttpExpose(http_expose::HttpExposeServerConfig),
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
@@ -305,11 +305,10 @@ fn load_server(
                 .context("failed to load this HttpProxy server")?;
             Ok(AnyServerConfig::HttpProxy(server))
         }
-        "http_rproxy" | "httprproxy" | "http_reverse_proxy" | "httpreverseproxy"
-        | "http_gateway" | "httpgateway" => {
-            let server = http_rproxy::HttpRProxyServerConfig::parse(map, position)
-                .context("failed to load this HttpRProxy server")?;
-            Ok(AnyServerConfig::HttpRProxy(server))
+        "http_expose" | "httpexpose" => {
+            let server = http_expose::HttpExposeServerConfig::parse(map, position)
+                .context("failed to load this HttpExpose server")?;
+            Ok(AnyServerConfig::HttpExpose(server))
         }
         _ => Err(anyhow!("unsupported server type {}", server_type)),
     }

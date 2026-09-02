@@ -41,3 +41,4 @@ impl_reload!(reload_auditor, audit);
 impl_reload!(reload_resolver, resolve);
 impl_reload!(reload_escaper, escape);
 impl_reload!(reload_server, serve);
+impl_reload!(reload_site_group, site);

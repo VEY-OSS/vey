@@ -1,0 +1,29 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ */
+
+use std::sync::Arc;
+
+use vey_io_ext::{ArcLimitedReaderStats, LimitedReaderStats};
+
+use super::HttpExposeServerStats;
+
+pub(super) struct UntrustedCltReadWrapperStats {
+    server: Arc<HttpExposeServerStats>,
+}
+
+impl UntrustedCltReadWrapperStats {
+    pub(super) fn new_obj(server: &Arc<HttpExposeServerStats>) -> ArcLimitedReaderStats {
+        let stats = UntrustedCltReadWrapperStats {
+            server: Arc::clone(server),
+        };
+        Arc::new(stats)
+    }
+}
+
+impl LimitedReaderStats for UntrustedCltReadWrapperStats {
+    fn add_read_bytes(&self, size: usize) {
+        self.server.io_untrusted.add_in_bytes(size as u64);
+    }
+}

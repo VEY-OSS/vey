@@ -53,8 +53,8 @@
 ## Installation
 
 vey-proxy currently supports Linux only. Packaging is supported for distributions such as Debian and RHEL. After
-building a package by following the [Release and Packaging Steps](/doc/build_and_package.md), install it directly on
-the target system.
+building a package by following the [Release and Packaging Steps](/doc/build_and_package.md), install it directly on the
+target system.
 
 ## Basic Concepts
 
@@ -71,8 +71,8 @@ If you install from the native distribution package, the systemd templated servi
 template parameter is the process group name, and the entry configuration file is located at
 `/etc/vey-proxy/<daemon_group>/main.yml`.
 
-If you install without using a package, see [vey-proxy@.service](debian/vey-proxy@.service) and design your own
-service management workflow.
+If you install without using a package, see [vey-proxy@.service](debian/vey-proxy@.service) and design your own service
+management workflow.
 
 ### Hot Upgrades
 
@@ -95,18 +95,17 @@ vey-proxy uses a modular design. The main functional modules are:
 
 1. Server
 
-   Accepts and processes client requests. It can call into the Escaper, UserGroup, and Auditor modules.
-   A *Port* server can be chained in front of a non-port server.
+   Accepts and processes client requests. It can call into the Escaper, UserGroup, and Auditor modules. A *Port* server
+   can be chained in front of a non-port server.
 
 2. Escaper
 
-   Connects to and controls the target address. It can call into the Resolver module.
-   A *Route* escaper can be chained in front of other escapers.
+   Connects to and controls the target address. It can call into the Resolver module. A *Route* escaper can be chained
+   in front of other escapers.
 
 3. Resolver
 
-   Provides DNS resolution.
-   A *Failover* resolver can be chained in front of other resolvers.
+   Provides DNS resolution. A *Failover* resolver can be chained in front of other resolvers.
 
 4. UserGroup
 
@@ -144,8 +143,8 @@ stat:
   emit_interval: 200ms  # Emission interval
 ```
 
-Metric definitions are under [metrics](../sphinx/vey-proxy/metrics). Generating the Sphinx HTML documentation makes
-them easier to browse.
+Metric definitions are under [metrics](../sphinx/vey-proxy/metrics). Generating the Sphinx HTML documentation makes them
+easier to browse.
 
 ## Basic Usage
 
@@ -394,8 +393,8 @@ tcp_sock_speed_limit: 10M/s
 udp_sock_speed_limit: 10M/s
 ```
 
-For `server` and `user`, the limits apply to client-to-proxy connections. For `escaper`, they apply to
-proxy-to-target connections.
+For `server` and `user`, the limits apply to client-to-proxy connections. For `escaper`, they apply to proxy-to-target
+connections.
 
 ### Process-Wide Rate Limits
 
@@ -594,11 +593,9 @@ server:
 * TLCP to layer-7 HTTP
 
 ```yaml
-server:
-  - name: l7http
-    type: http_rproxy
-    listen: "[::1]:80"
-    hosts:
+site_group:
+  - name: local
+    static_sites:
       - set_default: true
         upstream: "127.0.0.1:443"
         tls_client:
@@ -606,16 +603,19 @@ server:
           ca_certificate: /path/to/ca.cert
           # You can also add mTLS settings here
         tls_name: target.host.domain # Used for peer verification; optional if upstream already uses a domain
+server:
+  - name: l7http
+    type: http_expose
+    listen: "[::1]:80"
+    site_group: local
 ```
 
 * TLCP to layer-7 HTTPS
 
 ```yaml
-server:
-  - name: l7http
-    type: http_rproxy
-    listen: "[::1]:443"
-    hosts:
+site_group:
+  - name: local
+    static_sites:
       - set_default: true
         upstream: "127.0.0.1:443"
         tls_client:
@@ -623,12 +623,17 @@ server:
           ca_certificate: /path/to/ca.cert
           # You can also add mTLS settings here
         tls_name: target.host.domain # Used for peer verification; optional if upstream already uses a domain
-        tls_server: # TLS configuration for this host
+        tls_server: # TLS configuration for this site
           cert_pairs:
             - certificate: /path/to/cert
               private_key: /path/to/key
+server:
+  - name: l7http
+    type: http_expose
+    listen: "[::1]:443"
+    site_group: local
     enable_tls_server: true
-    # global_tls_server can define the default TLS configuration for hosts that do not set tls_server
+    # global_tls_server can define the default TLS configuration for sites that do not set tls_server
 ```
 
 ### Multiplexing Multiple Protocols on One Port
@@ -755,20 +760,23 @@ Many applications expose HTTP APIs or metrics endpoints with only minimal built-
 be used to harden them:
 
 ```yaml
-server:
-  - name: plain
-    escaper: default
-    user-group: default                     # Enable user authentication
-    type: http_rproxy
-    listen:
-      address: "[::]:80"
-    no_early_error_reply: true              # Do not return errors until the request is validated; helps resist port scans
-    hosts:
+site_group:
+  - name: local
+    static_sites:
       - exact_match: service1.example.net   # Match this hostname
         upstream: 127.0.0.1:8081            # Forward all paths
       - exact_match: service2.example.net   # Match this hostname
         set_default: true                   # Use as the default site if no hostname matches
         upstream: 127.0.0.1:8082            # Forward all paths
+server:
+  - name: plain
+    escaper: default
+    user-group: default                     # Enable user authentication
+    type: http_expose
+    listen:
+      address: "[::]:80"
+    site_group: local
+    no_early_error_reply: true              # Do not return errors until the request is validated; helps resist port scans
     # You can enable TLS with tls_server, or add a separate TLS port through a fronting plain_tls_port
 ```
 
@@ -890,8 +898,8 @@ For the detailed configuration, see [examples/inspect_http_proxy](examples/inspe
 
 ### Task Idle Detection
 
-Every successful task can exit automatically after being idle for too long. Two settings control this behavior: the
-idle check interval and the allowed idle count. Both can be configured on the server:
+Every successful task can exit automatically after being idle for too long. Two settings control this behavior: the idle
+check interval and the allowed idle count. Both can be configured on the server:
 
 ```yaml
 - name: foo
@@ -1000,7 +1008,7 @@ Each node's proxy typically has the following roles:
       type: sni_proxy
       escaper: route
     - name: port80
-      type: http_rproxy
+      type: http_expose
       escaper: route
   ```
 

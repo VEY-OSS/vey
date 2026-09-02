@@ -26,8 +26,8 @@ use super::plain_tcp_port::PlainTcpPort;
 use super::plain_tls_port::PlainTlsPort;
 use super::usual_tls_port::UsualTlsPort;
 
+use super::http_expose::HttpExposeServer;
 use super::http_proxy::HttpProxyServer;
-use super::http_rproxy::HttpRProxyServer;
 use super::sni_proxy::SniProxyServer;
 use super::socks_proxy::SocksProxyServer;
 use super::tcp_stream::TcpStreamServer;
@@ -234,6 +234,30 @@ pub(crate) async fn update_dependency_to_user_group(user_group: &NodeName, statu
     }
 }
 
+pub(crate) async fn update_dependency_to_site_group(site_group: &NodeName, status: &str) {
+    let _guard = SERVER_OPS_LOCK.lock().await;
+
+    let mut names = Vec::<NodeName>::new();
+
+    registry::foreach_online(|name, server| {
+        if server._site_group().eq(site_group) {
+            names.push(name.clone());
+        }
+    });
+
+    if names.is_empty() {
+        return;
+    }
+
+    debug!("site group {site_group} changed({status}), will reload server(s) {names:?}");
+    for name in names.iter() {
+        debug!("server {name}: will reload as it's using site group {site_group}");
+        if let Err(e) = registry::reload_only_site_group(name) {
+            warn!("failed to reload server {name}: {e:?}");
+        }
+    }
+}
+
 pub(crate) async fn update_dependency_to_auditor(auditor: &NodeName, status: &str) {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
@@ -324,7 +348,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
         AnyServerConfig::SniProxy(c) => SniProxyServer::prepare_initial(c)?,
         AnyServerConfig::SocksProxy(c) => SocksProxyServer::prepare_initial(c)?,
         AnyServerConfig::HttpProxy(c) => HttpProxyServer::prepare_initial(c)?,
-        AnyServerConfig::HttpRProxy(c) => HttpRProxyServer::prepare_initial(c)?,
+        AnyServerConfig::HttpExpose(c) => HttpExposeServer::prepare_initial(c)?,
     };
     registry::add(name.clone(), server)?;
     update_dependency_to_server_unlocked(&name, "spawned");

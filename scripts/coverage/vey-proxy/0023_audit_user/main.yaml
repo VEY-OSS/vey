@@ -55,9 +55,19 @@ user-group:
             tls_client:
               ca-certificate: ../rootCA.pem
 
+site_group:
+  - name: httpbin
+    static_sites:
+      - exact_match: httpbin.local
+        upstream: 127.0.0.1:80
+        tls_server:
+          cert_pairs:
+            certificate: ../httpbin.local.pem
+            private-key: ../httpbin.local-key.pem
+
 server:
   - name: rss
-    type: http_rproxy
+    type: http_expose
     listen: 127.0.0.1:9443
     escaper: default
     enable_tls_server: true
@@ -65,13 +75,7 @@ server:
       cert_pairs:
         certificate: ../httpbin.local.pem
         private-key: ../httpbin.local-key.pem
-    hosts:
-      - exact_match: httpbin.local
-        upstream: 127.0.0.1:80
-        tls_server:
-          cert_pairs:
-            certificate: ../httpbin.local.pem
-            private-key: ../httpbin.local-key.pem
+    site_group: httpbin
   - name: http
     type: http_proxy
     escaper: default

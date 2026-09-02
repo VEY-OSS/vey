@@ -178,6 +178,9 @@ async fn load_and_spawn() -> anyhow::Result<()> {
     vey_proxy::audit::load_all()
         .await
         .context("failed to load all auditors")?;
+    vey_proxy::site::load_all()
+        .await
+        .context("failed to load all site groups")?;
     vey_proxy::serve::spawn_offline_clean();
     vey_proxy::serve::spawn_all()
         .await

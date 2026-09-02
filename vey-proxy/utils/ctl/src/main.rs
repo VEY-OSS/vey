@@ -34,6 +34,7 @@ fn build_cli_args() -> Command {
         .subcommand(proc::commands::reload_auditor())
         .subcommand(proc::commands::reload_escaper())
         .subcommand(proc::commands::reload_server())
+        .subcommand(proc::commands::reload_site_group())
         .subcommand(user_group::command())
         .subcommand(resolver::command())
         .subcommand(escaper::command())
@@ -80,6 +81,9 @@ async fn main() -> anyhow::Result<()> {
                 proc::COMMAND_RELOAD_AUDITOR => proc::reload_auditor(&proc_control, args).await,
                 proc::COMMAND_RELOAD_ESCAPER => proc::reload_escaper(&proc_control, args).await,
                 proc::COMMAND_RELOAD_SERVER => proc::reload_server(&proc_control, args).await,
+                proc::COMMAND_RELOAD_SITE_GROUP => {
+                    proc::reload_site_group(&proc_control, args).await
+                }
                 user_group::COMMAND => user_group::run(&proc_control, args).await,
                 resolver::COMMAND => resolver::run(&proc_control, args).await,
                 escaper::COMMAND => escaper::run(&proc_control, args).await,

@@ -32,12 +32,14 @@ const RESOURCE_VALUE_RESOLVER: &str = "resolver";
 const RESOURCE_VALUE_AUDITOR: &str = "auditor";
 const RESOURCE_VALUE_ESCAPER: &str = "escaper";
 const RESOURCE_VALUE_SERVER: &str = "server";
+const RESOURCE_VALUE_SITE_GROUP: &str = "site-group";
 
 pub const COMMAND_RELOAD_USER_GROUP: &str = "reload-user-group";
 pub const COMMAND_RELOAD_RESOLVER: &str = "reload-resolver";
 pub const COMMAND_RELOAD_AUDITOR: &str = "reload-auditor";
 pub const COMMAND_RELOAD_ESCAPER: &str = "reload-escaper";
 pub const COMMAND_RELOAD_SERVER: &str = "reload-server";
+pub const COMMAND_RELOAD_SITE_GROUP: &str = "reload-site-group";
 
 const SUBCOMMAND_ARG_NAME: &str = "name";
 
@@ -83,6 +85,7 @@ pub mod commands {
                     RESOURCE_VALUE_AUDITOR,
                     RESOURCE_VALUE_ESCAPER,
                     RESOURCE_VALUE_SERVER,
+                    RESOURCE_VALUE_SITE_GROUP,
                 ])
                 .ignore_case(true),
         )
@@ -110,6 +113,11 @@ pub mod commands {
 
     pub fn reload_server() -> Command {
         Command::new(COMMAND_RELOAD_SERVER)
+            .arg(Arg::new(SUBCOMMAND_ARG_NAME).required(true).num_args(1))
+    }
+
+    pub fn reload_site_group() -> Command {
+        Command::new(COMMAND_RELOAD_SITE_GROUP)
             .arg(Arg::new(SUBCOMMAND_ARG_NAME).required(true).num_args(1))
     }
 }
@@ -163,6 +171,7 @@ pub async fn list(client: &proc_control::Client, args: &ArgMatches) -> CommandRe
         RESOURCE_VALUE_AUDITOR => list_auditor(client).await,
         RESOURCE_VALUE_ESCAPER => list_escaper(client).await,
         RESOURCE_VALUE_SERVER => list_server(client).await,
+        RESOURCE_VALUE_SITE_GROUP => list_site_group(client).await,
         _ => unreachable!(),
     }
 }
@@ -193,6 +202,12 @@ async fn list_escaper(client: &proc_control::Client) -> CommandResult<()> {
 
 async fn list_server(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_server_request();
+    let rsp = req.send().promise.await?;
+    vey_ctl::print_result_list(rsp.get()?.get_result()?)
+}
+
+async fn list_site_group(client: &proc_control::Client) -> CommandResult<()> {
+    let req = client.list_site_group_request();
     let rsp = req.send().promise.await?;
     vey_ctl::print_result_list(rsp.get()?.get_result()?)
 }
@@ -238,6 +253,17 @@ pub async fn reload_escaper(client: &proc_control::Client, args: &ArgMatches) ->
 pub async fn reload_server(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(SUBCOMMAND_ARG_NAME).unwrap();
     let mut req = client.reload_server_request();
+    req.get().set_name(name);
+    let rsp = req.send().promise.await?;
+    parse_operation_result(rsp.get()?.get_result()?)
+}
+
+pub async fn reload_site_group(
+    client: &proc_control::Client,
+    args: &ArgMatches,
+) -> CommandResult<()> {
+    let name = args.get_one::<String>(SUBCOMMAND_ARG_NAME).unwrap();
+    let mut req = client.reload_site_group_request();
     req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)

@@ -34,17 +34,21 @@ user_group:
         request_rate_limit: 500
         request_max_alive: 10000
 
-server:
-  - name: http
-    type: http_rproxy
-    listen: 127.0.0.1:8080
-    escaper: default
-    hosts:
+site_group:
+  - name: httpbin
+    static_sites:
       - exact_match: httpbin.local
         upstream: 127.0.0.1:9443
         tls_client:
           ca_certificate: ../rootCA.pem
         tls_name: httpbin.local
+
+server:
+  - name: http
+    type: http_expose
+    listen: 127.0.0.1:8080
+    escaper: default
+    site_group: httpbin
   - name: tls8443
     type: tls_stream
     escaper: default

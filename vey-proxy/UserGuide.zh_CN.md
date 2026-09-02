@@ -51,8 +51,8 @@
 
 ## 如何安装
 
-目前只支持Linux系统，并对Debian、RHEL等发行版提供了打包安装支持，
-参考[发行&打包步骤](/doc/build_and_package.md)完成打包后直接在目标系统上安装即可。
+目前只支持Linux系统，并对Debian、RHEL等发行版提供了打包安装支持， 参考[发行&打包步骤](/doc/build_and_package.md)
+完成打包后直接在目标系统上安装即可。
 
 ## 基础概念
 
@@ -61,11 +61,11 @@
 单机可以部署多个vey-proxy服务，通过systemd实例服务进行管理，每个实例对应为为一个vey-proxy进程组（daemon_group），
 每个进程组都有一个unix socket文件进行本地RPC管理。
 
-每个服务有一个入口配置文件，yaml格式，后缀可更改，但需要保持所有引用的配置文件均具有相同的后缀。下文将使用*main.yml*
+每个服务有一个入口配置文件，yaml格式，后缀可更改，但需要保持所有引用的配置文件均具有相同的后缀。下文将使用 *main.yml*
 指代入口配置文件。
 
-使用发行版原生安装包安装的，已经安装了systemd参数化服务配置文件，参数就是进程组名称，
-对应的入口配置文件存放路径为`/etc/vey-proxy/<daemon_group>/main.yml`。
+使用发行版原生安装包安装的，已经安装了systemd参数化服务配置文件，参数就是进程组名称， 对应的入口配置文件存放路径为
+`/etc/vey-proxy/<daemon_group>/main.yml`。
 
 未使用安装包安装的，可以参考[vey-proxy@.service](debian/vey-proxy@.service)自行设计服务化使用方式。
 
@@ -88,18 +88,15 @@ vey-proxy采用模块化方式进行功能设计，主要包含以下功能模�
 
 1. 入口 | Server
 
-   负责接受客户端请求并进行处理，会调用 出口&用户&审计 模块的功能。
-   *Port*类型的入口可以放在非端口类型入口前面进行串联。
+   负责接受客户端请求并进行处理，会调用 出口&用户&审计 模块的功能。 *Port*类型的入口可以放在非端口类型入口前面进行串联。
 
 2. 出口 | Escaper
 
-   负责对目标地址进行连接及控制，会调用 解析 模块的功能。
-   *Route*类型的出口可放在其他出口前进行串联。
+   负责对目标地址进行连接及控制，会调用 解析 模块的功能。 *Route*类型的出口可放在其他出口前进行串联。
 
 3. 解析 | Resolver
 
-   提供域名解析功能。
-   *Failover*解析可以放在其他解析前面进行串联。
+   提供域名解析功能。 *Failover*解析可以放在其他解析前面进行串联。
 
 4. 用户组 | UserGroup
 
@@ -109,9 +106,9 @@ vey-proxy采用模块化方式进行功能设计，主要包含以下功能模�
 
    提供流量审计功能
 
-这些模块的配置可以跟*main.yml*写在一起，也可以使用独立的配置文件进行管理，后者可以进行独立的重载（reload）操作。
+这些模块的配置可以跟 *main.yml*写在一起，也可以使用独立的配置文件进行管理，后者可以进行独立的重载（reload）操作。
 
-除了以上模块的配置，包括线程/日志/监控等，均需要写在*main.yml*中。
+除了以上模块的配置，包括线程/日志/监控等，均需要写在 *main.yml*中。
 
 单一文件配置可参考[examples/inspect_http_proxy](examples/inspect_http_proxy)，
 拆分文件配置可参考[examples/hybrid_https_proxy](examples/hybrid_https_proxy)。
@@ -123,7 +120,7 @@ vey-proxy采用模块化方式进行功能设计，主要包含以下功能模�
 为方便接入各种监控解决方案，VEY项目统一使用[StatsD](https://www.datadoghq.com/blog/statsd/)作为监控打点输出协议，
 用户可以根据自己的实际情况选择合适的StatsD实现（例如[gostatsd](https://github.com/atlassian/gostatsd)），配置好然后接入自己的监控系统。
 
-vey-proxy的监控配置在主配置文件*main.yml*中进行配置，示例如下：
+vey-proxy的监控配置在主配置文件 *main.yml*中进行配置，示例如下：
 
 ```yaml
 stat:
@@ -319,7 +316,7 @@ resolver:
 
 ### 代理串联
 
-需要使用其他代理进行串联时，需要使用*Proxy*类型的出口，以ProxyHttps为例：
+需要使用其他代理进行串联时，需要使用 *Proxy*类型的出口，以ProxyHttps为例：
 
 ```yaml
 escaper:
@@ -578,11 +575,9 @@ server:
 * TLCP转7层HTTP
 
 ```yaml
-server:
-  - name: l7http
-    type: http_rproxy
-    listen: "[::1]:80"
-    hosts:
+site_group:
+  - name: local
+    static_sites:
       - set_default: true
         upstream: "127.0.0.1:443"
         tls_client:
@@ -590,16 +585,19 @@ server:
           ca_certificate: /path/to/ca.cert # CA证书路径
           # 可继续配置mTLS等参数
         tls_name: target.host.domain # 对方域名，用于验证对方身份（如果upstream url带域名，可省略）
+server:
+  - name: l7http
+    type: http_expose
+    listen: "[::1]:80"
+    site_group: local
 ```
 
 * TLCP转7层HTTPS
 
 ```yaml
-server:
-  - name: l7http
-    type: http_rproxy
-    listen: "[::1]:443"
-    hosts:
+site_group:
+  - name: local
+    static_sites:
       - set_default: true
         upstream: "127.0.0.1:443"
         tls_client:
@@ -607,12 +605,17 @@ server:
           ca_certificate: /path/to/ca.cert # CA证书路径
           # 可继续配置mTLS等参数
         tls_name: target.host.domain # 对方域名，用于验证对方身份（如果upstream url带域名，可省略）
-        tls_server: # 配置该host对应的tls服务配置
+        tls_server: # 配置该站对应的tls服务配置
           cert_pairs:
             - certificate: /path/to/cert
               private_key: /path/to/key
+server:
+  - name: l7http
+    type: http_expose
+    listen: "[::1]:443"
+    site_group: local
     enable_tls_server: true
-    # 可使用global_tls_server参数设置默认tls服务配置，对未设置tls_server参数的host生效
+    # 可使用global_tls_server参数设置默认tls服务配置，对未设置tls_server参数的site生效
 ```
 
 ### 多协议入口复用
@@ -738,20 +741,23 @@ transmute_udp_echo_ip:
 很多软件会暴露HTTP API或者metrics接口出去，他们本身的安全防护策略都比较简单，可以使用如下配置进行加固：
 
 ```yaml
-server:
-  - name: plain
-    escaper: default
-    user-group: default                     # 启用用户认证
-    type: http_rproxy
-    listen:
-      address: "[::]:80"
-    no_early_error_reply: true              # 请求确认合法前禁止错误返回，端口防扫描
-    hosts:
+site_group:
+  - name: local
+    static_sites:
       - exact_match: service1.example.net   # 匹配该域名
         upstream: 127.0.0.1:8081            # 路径/全部转发
       - exact_match: service2.example.net   # 匹配该域名
         set_default: true                   # 若域名没有匹配的，作为默认站点
         upstream: 127.0.0.1:8082            # 路径/全部转发
+server:
+  - name: plain
+    escaper: default
+    user-group: default                     # 启用用户认证
+    type: http_expose
+    listen:
+      address: "[::]:80"
+    site_group: local
+    no_early_error_reply: true              # 请求确认合法前禁止错误返回，端口防扫描
     # 可通过tls_server启用TLS,或通过前置plain_tls_port添加独立的TLS端口
 ```
 
@@ -888,7 +894,7 @@ auditor:
 
 默认配置，代理会使用所有CPU核，并进行跨核任务调度，有些场景下绑CPU核会提升性能，可以如下配置：
 
-在*main.yml*中配置worker：
+在 *main.yml*中配置worker：
 
 ```yaml
 worker:
@@ -975,7 +981,7 @@ flowchart LR
       type: sni_proxy
       escaper: route
     - name: port80
-      type: http_rproxy
+      type: http_expose
       escaper: route
   ```
 
@@ -1024,7 +1030,7 @@ flowchart LR
 
 ### 双出口容灾
 
-单IDC有多个POP点公网出口时，或其他类似对目标站点的访问具有至少2条**非本机**线路可供选择的情况下，
+单IDC有多个POP点公网出口时，或其他类似对目标站点的访问具有至少2条 **非本机**线路可供选择的情况下，
 如果希望在2条线路进行主备切换自动容灾，可做如下设计：
 
 拓扑图如下：
