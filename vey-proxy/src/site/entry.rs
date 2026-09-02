@@ -9,7 +9,7 @@ use std::sync::Arc;
 use anyhow::Context;
 
 use vey_types::metrics::NodeName;
-use vey_types::net::{Host, OpensslClientConfig, RustlsServerConfigBuilder, UpstreamAddr};
+use vey_types::net::{Host, OpensslClientConfig, OpensslServerConfigBuilder, UpstreamAddr};
 
 use crate::config::site::SiteConfig;
 
@@ -45,7 +45,7 @@ impl Site {
         &self.config.tls_name
     }
 
-    pub(crate) fn tls_server_builder(&self) -> Option<&RustlsServerConfigBuilder> {
+    pub(crate) fn tls_server_builder(&self) -> Option<&OpensslServerConfigBuilder> {
         self.config.tls_server_builder.as_ref()
     }
 

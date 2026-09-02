@@ -257,7 +257,7 @@ Requests to local sites without valid TLS server configuration are dropped.
 global_tls_server
 -----------------
 
-**optional**, **type**: :external+values:ref:`rustls server config <conf_value_rustls_server_config>`
+**optional**, **type**: :external+values:ref:`openssl server config <conf_value_openssl_server_config>`
 
 Global TLS server configuration used when the matched local site does not set
 its own TLS server configuration.

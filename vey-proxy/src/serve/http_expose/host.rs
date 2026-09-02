@@ -8,13 +8,13 @@ use std::sync::Arc;
 
 use anyhow::Context;
 
-use vey_types::net::{OpensslTicketKey, RollingTicketer, RustlsServerConfig};
+use vey_types::net::{AlpnProtocol, OpensslServerConfig, OpensslTicketKey, RollingTicketer};
 
 use crate::site::Site;
 
 pub(crate) struct HttpHost {
     site: Arc<Site>,
-    tls_server: Option<RustlsServerConfig>,
+    tls_server: Option<OpensslServerConfig>,
 }
 
 impl HttpHost {
@@ -24,7 +24,10 @@ impl HttpHost {
     ) -> anyhow::Result<Self> {
         let tls_server = if let Some(builder) = site.tls_server_builder() {
             let server = builder
-                .build_with_ticketer(ticketer)
+                .build_with_alpn_protocols(
+                    Some(vec![AlpnProtocol::Http11, AlpnProtocol::Http10]),
+                    ticketer,
+                )
                 .context("failed to build tls server")?;
             Some(server)
         } else {
@@ -48,7 +51,7 @@ impl HttpHost {
         &self.site
     }
 
-    pub(crate) fn tls_server(&self) -> Option<&RustlsServerConfig> {
+    pub(crate) fn tls_server(&self) -> Option<&OpensslServerConfig> {
         self.tls_server.as_ref()
     }
 }

@@ -44,7 +44,7 @@ Target upstream address. The default port is ``80`` and may be omitted.
 tls_server
 ----------
 
-**optional**, **type**: :external+values:ref:`rustls server config <conf_value_rustls_server_config>`
+**optional**, **type**: :external+values:ref:`openssl server config <conf_value_openssl_server_config>`
 
 TLS server configuration for this site.
 

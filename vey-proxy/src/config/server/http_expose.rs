@@ -18,7 +18,7 @@ use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
-    HttpForwardedHeaderType, HttpKeepAliveConfig, HttpServerId, RustlsServerConfigBuilder,
+    HttpForwardedHeaderType, HttpKeepAliveConfig, HttpServerId, OpensslServerConfigBuilder,
     TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
 };
 use vey_yaml::YamlDocPosition;
@@ -83,7 +83,7 @@ pub(crate) struct HttpExposeServerConfig {
     pub(crate) append_forwarded_for: HttpForwardedHeaderType,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) enable_tls_server: bool,
-    pub(crate) global_tls_server: Option<RustlsServerConfigBuilder>,
+    pub(crate) global_tls_server: Option<OpensslServerConfigBuilder>,
     pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) client_hello_recv_timeout: Duration,
 }
@@ -335,10 +335,11 @@ impl HttpExposeServerConfig {
             }
             "global_tls_server" => {
                 let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
-                let builder = vey_yaml::value::as_rustls_server_config_builder(v, Some(lookup_dir))
-                    .context(format!(
-                        "invalid tls server config builder value for key {k}"
-                    ))?;
+                let builder =
+                    vey_yaml::value::as_openssl_tls_server_config_builder(v, Some(lookup_dir))
+                        .context(format!(
+                            "invalid openssl tls server config builder value for key {k}"
+                        ))?;
                 self.global_tls_server = Some(builder);
                 Ok(())
             }

@@ -8,14 +8,14 @@ use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use vey_types::metrics::NodeName;
-use vey_types::net::{Host, OpensslClientConfigBuilder, RustlsServerConfigBuilder, UpstreamAddr};
+use vey_types::net::{Host, OpensslClientConfigBuilder, OpensslServerConfigBuilder, UpstreamAddr};
 use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct SiteConfig {
     id: NodeName,
     upstream: UpstreamAddr,
-    pub(crate) tls_server_builder: Option<RustlsServerConfigBuilder>,
+    pub(crate) tls_server_builder: Option<OpensslServerConfigBuilder>,
     pub(crate) tls_client_builder: Option<OpensslClientConfigBuilder>,
     pub(crate) tls_name: Host,
 }
@@ -66,9 +66,9 @@ impl YamlMapCallback for SiteConfig {
             "tls_server" => {
                 let lookup_dir = vey_daemon::config::get_lookup_dir(doc)?;
                 let builder =
-                    vey_yaml::value::as_rustls_server_config_builder(value, Some(lookup_dir))
+                    vey_yaml::value::as_openssl_tls_server_config_builder(value, Some(lookup_dir))
                         .context(format!(
-                            "invalid tls server config builder value for key {key}"
+                            "invalid openssl tls server config builder value for key {key}"
                         ))?;
                 self.tls_server_builder = Some(builder);
                 Ok(())

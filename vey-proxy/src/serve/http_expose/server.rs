@@ -5,34 +5,36 @@
  */
 
 use std::net::SocketAddr;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
 use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
+use bytes::BytesMut;
 use log::debug;
+use openssl::ssl::Ssl;
 #[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc};
-use tokio_rustls::LazyConfigAcceptor;
 use tokio_rustls::server::TlsStream;
 
+use vey_codec::tls::{
+    ClientHello, ExtensionType, HandshakeCoalescer, Record, RecordHeader, RecordParseError,
+};
 use vey_daemon::listen::{
     AcceptQuicServer, AcceptTcpServer, AcceptUdpServer, AcceptedUdpPacketReceiver,
     AcceptedUdpPacketSender, ListenStats, ListenTcpRuntime,
 };
 use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
-use vey_io_ext::{AsyncStream, IdleWheel};
-use vey_openssl::SslStream;
+use vey_io_ext::{AsyncStream, IdleWheel, OnceBufReader};
+use vey_openssl::{SslAcceptor, SslStream};
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;
 use vey_types::net::{
-    AlpnProtocol, OpensslTicketKey, RollingTicketer, RustlsServerConfig, RustlsServerConnectionExt,
-    UpstreamAddr,
+    AlpnProtocol, Host, OpensslServerConfig, OpensslTicketKey, RollingTicketer, TlsServerName,
 };
 use vey_types::route::HostMatch;
 
@@ -55,7 +57,7 @@ pub(crate) struct HttpExposeServer {
     server_stats: Arc<HttpExposeServerStats>,
     listen_stats: Arc<ListenStats>,
     tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
-    global_tls_server: Option<RustlsServerConfig>,
+    global_tls_server: Option<OpensslServerConfig>,
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
     task_logger: Option<Logger>,
@@ -248,6 +250,147 @@ impl HttpExposeServer {
         tokio::spawn(r_task.into_running());
         w_task.into_running(self.hosts.load_full()).await
     }
+
+    async fn run_tls_tcp_task(&self, mut stream: TcpStream, cc_info: ClientConnectionInfo) {
+        const TLS_MAX_CLIENT_HELLO_SIZE: u32 = 1 << 16;
+
+        let hosts = self.hosts.load();
+        let mut clt_r_buf = BytesMut::with_capacity(2048);
+        let host = match tokio::time::timeout(
+            self.config.client_hello_recv_timeout,
+            read_sni_host(
+                &mut stream,
+                &mut clt_r_buf,
+                TLS_MAX_CLIENT_HELLO_SIZE,
+                &hosts,
+            ),
+        )
+        .await
+        {
+            Ok(Ok(host)) => host,
+            Ok(Err(e)) => {
+                self.listen_stats.add_failed();
+                debug!(
+                    "{} - {} tls client hello error: {e:?}",
+                    cc_info.sock_local_addr(),
+                    cc_info.sock_peer_addr()
+                );
+                return;
+            }
+            Err(_) => {
+                self.listen_stats.add_timeout();
+                debug!(
+                    "{} - {} tls client hello timeout",
+                    cc_info.sock_local_addr(),
+                    cc_info.sock_peer_addr()
+                );
+                return;
+            }
+        };
+
+        let Some(tls_config) = host
+            .and_then(|h| h.tls_server())
+            .or(self.global_tls_server.as_ref())
+        else {
+            self.listen_stats.add_failed();
+            debug!(
+                "{} - {} tls error: no matched server config found",
+                cc_info.sock_local_addr(),
+                cc_info.sock_peer_addr()
+            );
+            return;
+        };
+
+        let Ok(ssl) = Ssl::new(&tls_config.ssl_context) else {
+            self.listen_stats.add_failed();
+            return;
+        };
+        let stream = OnceBufReader::new(stream, clt_r_buf);
+        let Ok(ssl_acceptor) = SslAcceptor::new(ssl, stream, tls_config.accept_timeout) else {
+            self.listen_stats.add_failed();
+            return;
+        };
+        match ssl_acceptor.accept().await {
+            Ok(ssl_stream) => {
+                if ssl_stream.ssl().session_reused() {
+                    cc_info.tcp_sock_try_quick_ack();
+                }
+                self.spawn_stream_task(ssl_stream, cc_info).await
+            }
+            Err(e) => {
+                self.listen_stats.add_failed();
+                debug!(
+                    "{} - {} tls error: {e:?}",
+                    cc_info.sock_local_addr(),
+                    cc_info.sock_peer_addr()
+                );
+            }
+        }
+    }
+}
+
+async fn read_sni_host<'a>(
+    clt_r: &mut TcpStream,
+    clt_r_buf: &mut BytesMut,
+    max_client_hello_size: u32,
+    hosts: &'a HostMatch<Arc<HttpHost>>,
+) -> anyhow::Result<Option<&'a Arc<HttpHost>>> {
+    let max_hello_size = max_client_hello_size as usize;
+    let max_buf_size = max_hello_size
+        .saturating_mul(RecordHeader::SIZE + 1)
+        .saturating_add(1 << 14);
+    let mut handshake_coalescer = HandshakeCoalescer::new(max_client_hello_size);
+    let mut record_offset = 0;
+    loop {
+        let mut record = match Record::parse(&clt_r_buf[record_offset..]) {
+            Ok(r) => r,
+            Err(RecordParseError::NeedMoreData(_)) => {
+                if clt_r_buf.len() >= max_buf_size {
+                    return Err(anyhow!("tls client hello message too large"));
+                }
+                match clt_r.read_buf(clt_r_buf).await {
+                    Ok(0) => return Err(anyhow!("connection closed by client")),
+                    Ok(_) => continue,
+                    Err(e) => return Err(anyhow!("client read error: {e}")),
+                }
+            }
+            Err(_) => return Err(anyhow!("invalid tls client hello request")),
+        };
+        record_offset += record.encoded_len();
+
+        match record.consume_handshake(&mut handshake_coalescer) {
+            Ok(Some(handshake_msg)) => {
+                let ch = handshake_msg
+                    .parse_client_hello()
+                    .map_err(|_| anyhow!("invalid tls client hello request"))?;
+                return Ok(host_from_client_hello(ch, hosts));
+            }
+            Ok(None) => match handshake_coalescer.parse_client_hello() {
+                Ok(Some(ch)) => return Ok(host_from_client_hello(ch, hosts)),
+                Ok(None) => {
+                    if !record.consume_done() {
+                        return Err(anyhow!("partial fragmented tls client hello request"));
+                    }
+                }
+                Err(_) => return Err(anyhow!("invalid fragmented tls client hello request")),
+            },
+            Err(_) => return Err(anyhow!("invalid tls client hello request")),
+        }
+    }
+}
+
+fn host_from_client_hello<'a>(
+    ch: ClientHello<'_>,
+    hosts: &'a HostMatch<Arc<HttpHost>>,
+) -> Option<&'a Arc<HttpHost>> {
+    match ch.get_ext(ExtensionType::ServerName) {
+        Ok(Some(data)) => match TlsServerName::from_extension_value(data) {
+            Ok(sni) => hosts.get(&Host::from(sni)),
+            Err(_) => hosts.get_default(),
+        },
+        Ok(None) => hosts.get_default(),
+        Err(_) => hosts.get_default(),
+    }
 }
 
 fn build_hosts(
@@ -392,87 +535,7 @@ impl AcceptTcpServer for HttpExposeServer {
         }
 
         if self.config.enable_tls_server {
-            let hosts = self.hosts.load();
-            let tls_acceptor = LazyConfigAcceptor::new(rustls::server::Acceptor::default(), stream);
-            match tokio::time::timeout(self.config.client_hello_recv_timeout, tls_acceptor).await {
-                Ok(Ok(start)) => {
-                    let ch = start.client_hello();
-                    let host = match ch.server_name() {
-                        Some(host) => match UpstreamAddr::from_str(host) {
-                            Ok(upstream) => hosts.get(upstream.host()),
-                            Err(_) => hosts.get_default(),
-                        },
-                        None => hosts.get_default(),
-                    };
-
-                    match host
-                        .and_then(|h| h.tls_server())
-                        .or(self.global_tls_server.as_ref())
-                    {
-                        Some(tls_config) => {
-                            match tokio::time::timeout(
-                                tls_config.accept_timeout,
-                                start.into_stream(Arc::clone(&tls_config.driver)),
-                            )
-                            .await
-                            {
-                                Ok(Ok(stream)) => {
-                                    if stream.get_ref().1.session_reused() {
-                                        // Quick ACK is needed with session resumption
-                                        cc_info.tcp_sock_try_quick_ack();
-                                    }
-                                    self.spawn_stream_task(stream, cc_info).await
-                                }
-                                Ok(Err(e)) => {
-                                    self.listen_stats.add_failed();
-                                    debug!(
-                                        "{} - {} tls error: {e:?}",
-                                        cc_info.sock_local_addr(),
-                                        cc_info.sock_peer_addr()
-                                    );
-                                    // TODO record tls failure and add some sec policy
-                                }
-                                Err(_) => {
-                                    self.listen_stats.add_timeout();
-                                    debug!(
-                                        "{} - {} tls timeout",
-                                        cc_info.sock_local_addr(),
-                                        cc_info.sock_peer_addr()
-                                    );
-                                    // TODO record tls failure and add some sec policy
-                                }
-                            }
-                        }
-                        None => {
-                            // No tls server config found
-                            self.listen_stats.add_failed();
-                            debug!(
-                                "{} - {} tls error: no matched server config found",
-                                cc_info.sock_local_addr(),
-                                cc_info.sock_peer_addr()
-                            );
-                        }
-                    }
-                }
-                Ok(Err(e)) => {
-                    self.listen_stats.add_failed();
-                    debug!(
-                        "{} - {} tls client hello error: {e:?}",
-                        cc_info.sock_local_addr(),
-                        cc_info.sock_peer_addr()
-                    );
-                    // TODO record tls failure and add some sec policy
-                }
-                Err(_) => {
-                    self.listen_stats.add_timeout();
-                    debug!(
-                        "{} - {} tls client hello timeout",
-                        cc_info.sock_local_addr(),
-                        cc_info.sock_peer_addr()
-                    );
-                    // TODO record tls failure and add some sec policy
-                }
-            }
+            self.run_tls_tcp_task(stream, cc_info).await;
         } else {
             self.spawn_stream_task(stream, cc_info).await;
         }
