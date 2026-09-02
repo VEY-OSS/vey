@@ -74,11 +74,13 @@ Example
    site_group:
      - name: local
        static_sites:
-         - exact_match:
+         - id: app
+           exact_match:
              - app.example.net
              - www.app.example.net
            upstream: 127.0.0.1:8080
-         - suffix_match: example.org
+         - id: example_org
+           suffix_match: example.org
            set_default: true
            upstream: 10.1.2.3:8080
            tls_client: {}

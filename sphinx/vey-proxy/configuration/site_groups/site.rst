@@ -18,6 +18,18 @@ origin selected by Host / SNI on a reverse-proxy server such as
 
 .. versionadded:: 1.15.0
 
+.. _conf_site_id:
+
+id
+--
+
+**required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
+
+Site ID. It must be unique inside the site group. Reload reuses the server-side
+host runtime (stats, limiter) when this ID is unchanged.
+
+**alias**: ``name``
+
 .. _conf_site_upstream:
 
 upstream

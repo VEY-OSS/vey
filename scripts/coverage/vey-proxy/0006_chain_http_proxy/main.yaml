@@ -48,7 +48,8 @@ escaper:
 site_group:
   - name: httpbin
     static_sites:
-      - exact_match: httpbin.local
+      - id: httpbin
+        exact_match: httpbin.local
         upstream: 127.0.0.1:80
         tls_server:
           cert_pairs:

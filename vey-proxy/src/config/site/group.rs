@@ -93,7 +93,8 @@ mod tests {
             r#"
 name: local
 static_sites:
-  - exact_match: app.internal
+  - id: app
+    exact_match: app.internal
     upstream: 127.0.0.1:8080
 "#,
         )
@@ -105,6 +106,7 @@ static_sites:
         assert_eq!(group.name().as_str(), "local");
         let host = Host::from_str("app.internal").unwrap();
         let site = group.sites.get(&host).unwrap();
+        assert_eq!(site.id().as_str(), "app");
         assert!(!site.upstream().is_empty());
     }
 
@@ -114,9 +116,27 @@ static_sites:
             r#"
 name: local
 static_sites:
-  - exact_match: app.internal
+  - id: app
+    exact_match: app.internal
     upstream: 127.0.0.1:8080
     dpi_protocol: http
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        assert!(SiteGroupConfig::parse(map, None).is_err());
+    }
+
+    #[test]
+    fn reject_missing_site_id() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - exact_match: app.internal
+    upstream: 127.0.0.1:8080
 "#,
         )
         .unwrap();

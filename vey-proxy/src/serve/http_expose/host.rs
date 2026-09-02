@@ -1,28 +1,28 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::sync::Arc;
 
 use anyhow::Context;
 
-use vey_types::net::{OpensslClientConfig, OpensslTicketKey, RollingTicketer, RustlsServerConfig};
+use vey_types::net::{OpensslTicketKey, RollingTicketer, RustlsServerConfig};
 
-use crate::config::site::SiteConfig;
+use crate::site::Site;
 
 pub(crate) struct HttpHost {
-    pub(super) config: Arc<SiteConfig>,
-    pub(super) tls_server: Option<RustlsServerConfig>,
-    pub(super) tls_client: Option<OpensslClientConfig>,
+    site: Arc<Site>,
+    tls_server: Option<RustlsServerConfig>,
 }
 
 impl HttpHost {
     pub(super) fn try_build(
-        config: &Arc<SiteConfig>,
+        site: Arc<Site>,
         ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     ) -> anyhow::Result<Self> {
-        let tls_server = if let Some(builder) = &config.tls_server_builder {
+        let tls_server = if let Some(builder) = site.tls_server_builder() {
             let server = builder
                 .build_with_ticketer(ticketer)
                 .context("failed to build tls server")?;
@@ -31,17 +31,24 @@ impl HttpHost {
             None
         };
 
-        let tls_client = if let Some(builder) = &config.tls_client_builder {
-            let client = builder.build().context("failed to build tls client")?;
-            Some(client)
-        } else {
-            None
-        };
+        Ok(HttpHost { site, tls_server })
+    }
 
-        Ok(HttpHost {
-            config: Arc::clone(config),
-            tls_server,
-            tls_client,
-        })
+    #[allow(clippy::unused_self)]
+    pub(super) fn new_for_reload(
+        &self,
+        site: Arc<Site>,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Self> {
+        // rebuild tls_server; keep this host's stats / limiter when they are added
+        Self::try_build(site, ticketer)
+    }
+
+    pub(crate) fn site(&self) -> &Arc<Site> {
+        &self.site
+    }
+
+    pub(crate) fn tls_server(&self) -> Option<&RustlsServerConfig> {
+        self.tls_server.as_ref()
     }
 }

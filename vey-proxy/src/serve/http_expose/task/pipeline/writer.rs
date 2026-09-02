@@ -25,8 +25,9 @@ use super::{
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
-use crate::serve::http_expose::host::HttpHost;
+use crate::serve::http_expose::HttpHost;
 use crate::serve::{ServerStats, ServerTaskNotes};
+use crate::site::Site;
 
 struct UserData {
     req_stats: Arc<UserRequestStats>,
@@ -193,7 +194,7 @@ where
                             match hosts.get(req.upstream.host()).cloned() {
                                 Some(host) => self.run(req, user_ctx, host).await,
                                 None => {
-                                    // close the connection if no host config found
+                                    // close the connection if no site found
                                     self.req_count.invalid += 1;
 
                                     if !self.ctx.server_config.no_early_error_reply
@@ -254,19 +255,16 @@ where
             user_ctx,
             req.time_accepted.elapsed(),
         );
+        let site = Arc::clone(host.site());
 
         if let Some(mut stream_w) = self.stream_writer.take() {
             // check in final escaper so we can use route escapers
             let _ = self
                 .forward_context
-                .check_in_final_escaper(
-                    &task_notes,
-                    host.config.upstream(),
-                    host.tls_client.is_some(),
-                )
+                .check_in_final_escaper(&task_notes, site.upstream(), site.tls_client().is_some())
                 .await;
 
-            match self.run_forward(&mut stream_w, req, host, task_notes).await {
+            match self.run_forward(&mut stream_w, req, site, task_notes).await {
                 LoopAction::Continue => {
                     self.reset_client_writer(stream_w);
                     LoopAction::Continue
@@ -381,7 +379,7 @@ where
         &mut self,
         clt_w: &mut HttpClientWriter<CDW>,
         mut req: HttpExposeRequest<CDR>,
-        host: Arc<HttpHost>,
+        site: Arc<Site>,
         task_notes: ServerTaskNotes,
     ) -> LoopAction {
         match req.body_reader.take() {
@@ -389,7 +387,7 @@ where
                 // we have a body, or we need to close the connection
                 // we may need to send stream_r back if we have a body
                 let mut forward_task =
-                    HttpExposeForwardTask::new(&self.ctx, &req, host, task_notes);
+                    HttpExposeForwardTask::new(&self.ctx, &req, site, task_notes);
                 let mut clt_r = Some(stream_r);
                 forward_task
                     .run(&mut clt_r, clt_w, &mut self.forward_context)
@@ -411,7 +409,7 @@ where
             None => {
                 // no body, and the connection is expected to keep alive from the client side
                 let mut forward_task =
-                    HttpExposeForwardTask::new(&self.ctx, &req, host, task_notes);
+                    HttpExposeForwardTask::new(&self.ctx, &req, site, task_notes);
                 let mut clt_r = None;
                 forward_task
                     .run::<CDR, CDW>(&mut clt_r, clt_w, &mut self.forward_context)

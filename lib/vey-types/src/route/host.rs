@@ -163,6 +163,35 @@ impl<T> HostMatch<Arc<T>> {
 
         Ok(dst)
     }
+
+    pub fn for_each_unique<F>(&self, mut f: F)
+    where
+        F: FnMut(&Arc<T>),
+    {
+        use std::collections::hash_map::Entry;
+
+        let mut seen = AHashMap::new();
+        let mut visit = |v: &Arc<T>| {
+            let k = Arc::as_ptr(v) as usize;
+            if let Entry::Vacant(e) = seen.entry(k) {
+                e.insert(());
+                f(v);
+            }
+        };
+
+        if let Some(ht) = &self.exact_domain {
+            ht.values().for_each(&mut visit);
+        }
+        if let Some(ht) = &self.exact_ip {
+            ht.values().for_each(&mut visit);
+        }
+        if let Some(trie) = &self.suffix_domain {
+            trie.values().for_each(&mut visit);
+        }
+        if let Some(default) = &self.default {
+            visit(default);
+        }
+    }
 }
 
 impl<T> HostMatch<Arc<T>>

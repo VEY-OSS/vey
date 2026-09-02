@@ -7,11 +7,13 @@
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
+use vey_types::metrics::NodeName;
 use vey_types::net::{Host, OpensslClientConfigBuilder, RustlsServerConfigBuilder, UpstreamAddr};
 use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct SiteConfig {
+    id: NodeName,
     upstream: UpstreamAddr,
     pub(crate) tls_server_builder: Option<RustlsServerConfigBuilder>,
     pub(crate) tls_client_builder: Option<OpensslClientConfigBuilder>,
@@ -21,6 +23,7 @@ pub(crate) struct SiteConfig {
 impl Default for SiteConfig {
     fn default() -> Self {
         SiteConfig {
+            id: NodeName::default(),
             upstream: UpstreamAddr::empty(),
             tls_server_builder: None,
             tls_client_builder: None,
@@ -30,6 +33,10 @@ impl Default for SiteConfig {
 }
 
 impl SiteConfig {
+    pub(crate) fn id(&self) -> &NodeName {
+        &self.id
+    }
+
     pub(crate) fn upstream(&self) -> &UpstreamAddr {
         &self.upstream
     }
@@ -47,6 +54,10 @@ impl YamlMapCallback for SiteConfig {
         doc: Option<&YamlDocPosition>,
     ) -> anyhow::Result<()> {
         match key {
+            "id" | "name" => {
+                self.id = vey_yaml::value::as_metric_node_name(value)?;
+                Ok(())
+            }
             "upstream" => {
                 self.upstream = vey_yaml::value::as_upstream_addr(value, 80)
                     .context(format!("invalid upstream addr value for key {key}"))?;
@@ -84,6 +95,9 @@ impl YamlMapCallback for SiteConfig {
     }
 
     fn check(&mut self) -> anyhow::Result<()> {
+        if self.id.is_empty() {
+            return Err(anyhow!("id is not set"));
+        }
         if self.upstream.is_empty() {
             return Err(anyhow!("upstream is empty"));
         }

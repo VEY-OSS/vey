@@ -596,7 +596,8 @@ server:
 site_group:
   - name: local
     static_sites:
-      - set_default: true
+      - id: origin
+        set_default: true
         upstream: "127.0.0.1:443"
         tls_client:
           protocol: tlcp
@@ -616,7 +617,8 @@ server:
 site_group:
   - name: local
     static_sites:
-      - set_default: true
+      - id: origin
+        set_default: true
         upstream: "127.0.0.1:443"
         tls_client:
           protocol: tlcp
@@ -763,9 +765,11 @@ be used to harden them:
 site_group:
   - name: local
     static_sites:
-      - exact_match: service1.example.net   # Match this hostname
+      - id: service1
+        exact_match: service1.example.net   # Match this hostname
         upstream: 127.0.0.1:8081            # Forward all paths
-      - exact_match: service2.example.net   # Match this hostname
+      - id: service2
+        exact_match: service2.example.net   # Match this hostname
         set_default: true                   # Use as the default site if no hostname matches
         upstream: 127.0.0.1:8082            # Forward all paths
 server:

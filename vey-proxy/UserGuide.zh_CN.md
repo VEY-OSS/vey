@@ -578,7 +578,8 @@ server:
 site_group:
   - name: local
     static_sites:
-      - set_default: true
+      - id: origin
+        set_default: true
         upstream: "127.0.0.1:443"
         tls_client:
           protocol: tlcp
@@ -598,7 +599,8 @@ server:
 site_group:
   - name: local
     static_sites:
-      - set_default: true
+      - id: origin
+        set_default: true
         upstream: "127.0.0.1:443"
         tls_client:
           protocol: tlcp
@@ -744,9 +746,11 @@ transmute_udp_echo_ip:
 site_group:
   - name: local
     static_sites:
-      - exact_match: service1.example.net   # 匹配该域名
+      - id: service1
+        exact_match: service1.example.net   # 匹配该域名
         upstream: 127.0.0.1:8081            # 路径/全部转发
-      - exact_match: service2.example.net   # 匹配该域名
+      - id: service2
+        exact_match: service2.example.net   # 匹配该域名
         set_default: true                   # 若域名没有匹配的，作为默认站点
         upstream: 127.0.0.1:8082            # 路径/全部转发
 server:

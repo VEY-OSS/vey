@@ -12,7 +12,8 @@ controller:
 site_group:
   - name: default
     static_sites:
-      - exact_match: www.xjtu.edu.cn
+      - id: xjtu
+        exact_match: www.xjtu.edu.cn
         upstream: www.xjtu.edu.cn:80
 
 server:

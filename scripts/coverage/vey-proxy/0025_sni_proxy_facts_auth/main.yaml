@@ -37,7 +37,8 @@ user_group:
 site_group:
   - name: httpbin
     static_sites:
-      - exact_match: httpbin.local
+      - id: httpbin
+        exact_match: httpbin.local
         upstream: 127.0.0.1:9443
         tls_client:
           ca_certificate: ../rootCA.pem

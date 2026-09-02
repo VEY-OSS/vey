@@ -12,4 +12,4 @@ mod server;
 pub(super) use server::HttpExposeServer;
 
 mod host;
-use host::HttpHost;
+pub(crate) use host::HttpHost;

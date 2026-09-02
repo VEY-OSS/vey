@@ -37,15 +37,15 @@ use crate::module::http_forward::{
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::http_expose::HttpForwardTaskAliveGuard;
-use crate::serve::http_expose::host::HttpHost;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
+use crate::site::Site;
 
 pub(crate) struct HttpExposeForwardTask<'a> {
     ctx: Arc<CommonTaskContext>,
-    host: Arc<HttpHost>,
+    site: Arc<Site>,
     req: &'a HttpProxyClientRequest,
     is_https: bool,
     should_close: bool,
@@ -74,7 +74,7 @@ impl<'a> HttpExposeForwardTask<'a> {
     pub(crate) fn new(
         ctx: &Arc<CommonTaskContext>,
         req: &'a HttpExposeRequest<impl AsyncRead>,
-        host: Arc<HttpHost>,
+        site: Arc<Site>,
         task_notes: ServerTaskNotes,
     ) -> Self {
         let uri_log_max_chars = task_notes
@@ -88,14 +88,14 @@ impl<'a> HttpExposeForwardTask<'a> {
             req.inner.uri.clone(),
             uri_log_max_chars,
         );
-        let is_https = host.tls_client.is_some();
+        let is_https = site.tls_client().is_some();
         let max_idle_count = task_notes
             .user_ctx()
             .and_then(|c| c.user().task_max_idle_count())
             .unwrap_or(ctx.server_config.task_idle_max_count);
         HttpExposeForwardTask {
             ctx: Arc::clone(ctx),
-            host,
+            site,
             req: &req.inner,
             is_https,
             should_close: !req.inner.keep_alive(),
@@ -208,7 +208,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             .map(|v| v.to_str());
         Some(TaskLogForHttpForward {
             logger,
-            upstream: self.host.config.upstream(),
+            upstream: self.site.upstream(),
             task_notes: &self.task_notes,
             http_notes: &self.http_notes,
             http_user_agent,
@@ -473,7 +473,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 }
             }
 
-            let action = user_ctx.check_upstream(self.host.config.upstream());
+            let action = user_ctx.check_upstream(self.site.upstream());
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
             if let Some(action) = user_ctx.check_http_user_agent(&self.req.end_to_end_headers) {
@@ -524,7 +524,7 @@ impl<'a> HttpExposeForwardTask<'a> {
 
             connection
                 .0
-                .prepare_new(&self.task_notes, self.host.config.upstream());
+                .prepare_new(&self.task_notes, self.site.upstream());
             self.mark_relaying();
 
             let r = self
@@ -618,7 +618,7 @@ impl<'a> HttpExposeForwardTask<'a> {
 
                 connection
                     .0
-                    .prepare_new(&self.task_notes, self.host.config.upstream());
+                    .prepare_new(&self.task_notes, self.site.upstream());
                 self.mark_relaying();
                 Ok(connection)
             }
@@ -636,13 +636,13 @@ impl<'a> HttpExposeForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let mut audit_ctx = AuditContext::default();
-        if let Some(tls_client) = &self.host.tls_client {
+        if let Some(tls_client) = self.site.tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
-                    upstream: self.host.config.upstream(),
+                    upstream: self.site.upstream(),
                 },
                 tls_config: tls_client,
-                tls_name: &self.host.config.tls_name,
+                tls_name: self.site.tls_name(),
             };
             fwd_ctx
                 .new_prepared_https_connection(
@@ -654,7 +654,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 .await
         } else {
             let task_conf = TcpConnectTaskConf {
-                upstream: self.host.config.upstream(),
+                upstream: self.site.upstream(),
             };
             fwd_ctx
                 .new_prepared_http_connection(
