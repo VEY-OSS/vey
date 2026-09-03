@@ -44,7 +44,7 @@ and attach the matching user as the site tenant for the request. That tenant
 supplies rate limits, idle limits, and egress overrides (connect, keepalive,
 path selection, resolve strategy) that are then constrained by this site.
 
-It is also exported as the ``tenant`` tag on :ref:`site metrics
+It is also exported as the ``user`` tag on :ref:`site metrics
 <metrics_site>`. When unset, that tag is ``-`` and the request has no tenant.
 
 If the name is set but ``tenant_user_group`` is unset, or the user is not

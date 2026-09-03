@@ -26,8 +26,9 @@ reverse-proxy server that references the group then rebuilds its host table.
 ``vey-proxy-ctl list site-group`` lists loaded group names.
 
 Site request and traffic counters are exported as :ref:`site metrics
-<metrics_site>`, with the group name, site ID, and optional
-:ref:`owner <conf_site_owner>` as tags.
+<metrics_site>`, with the group name, site ID, optional
+:ref:`owner <conf_site_owner>`, and optional
+:ref:`tenant_user_group <conf_site_group_tenant_user_group>` as tags.
 
 .. versionadded:: 1.15.0
 

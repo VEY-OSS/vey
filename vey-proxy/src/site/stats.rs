@@ -14,8 +14,8 @@ use vey_types::metrics::{MetricTagMap, NodeName};
 use crate::auth::{UserRequestStats, UserTrafficStats, UserType, UserUpstreamTrafficStats};
 use crate::stat::site::SiteMetricTags;
 
-/// Reported as the `tenant` tag value for sites without an owner.
-const NO_OWNER: ArcStr = arcstr::literal!("-");
+/// Reported as the tag value when a site metric identity field is unset.
+const EMPTY_TAG: ArcStr = arcstr::literal!("-");
 
 /// Per site counters behind the `site.*` metrics.
 ///
@@ -31,14 +31,19 @@ pub(crate) struct SiteStats {
 }
 
 impl SiteStats {
-    pub(super) fn new(site_group: &NodeName, site_id: &NodeName, owner: &NodeName) -> Self {
-        let owner = if owner.is_empty() {
-            NO_OWNER
-        } else {
-            ArcStr::from(owner.as_str())
-        };
+    pub(super) fn new(
+        site_group: &NodeName,
+        site_id: &NodeName,
+        owner: &NodeName,
+        tenant_user_group: &NodeName,
+    ) -> Self {
         SiteStats {
-            tags: SiteMetricTags::new(site_group, site_id, owner),
+            tags: SiteMetricTags::new(
+                site_group,
+                site_id,
+                tag_or_dash(owner),
+                tag_or_dash(tenant_user_group),
+            ),
             request: Mutex::new(HashMap::default()),
             client_io: Mutex::new(HashMap::default()),
             remote_io: Mutex::new(HashMap::default()),
@@ -136,5 +141,13 @@ impl SiteStats {
         }
 
         stats
+    }
+}
+
+fn tag_or_dash(name: &NodeName) -> ArcStr {
+    if name.is_empty() {
+        EMPTY_TAG
+    } else {
+        ArcStr::from(name.as_str())
     }
 }

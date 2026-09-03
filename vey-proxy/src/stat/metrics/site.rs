@@ -20,7 +20,8 @@ use crate::auth::{
 
 const TAG_KEY_SITE_GROUP: &str = "site_group";
 const TAG_KEY_SITE: &str = "site";
-const TAG_KEY_TENANT: &str = "tenant";
+const TAG_KEY_USER: &str = "user";
+const TAG_KEY_USER_GROUP: &str = "user_group";
 
 const REQUEST_STATS_NAMES: RequestStatsNamesRef<'static> = RequestStatsNamesRef {
     connection_total: "site.connection.total",
@@ -62,23 +63,25 @@ static SITE_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<UpstreamTrafficStat
 
 /// The site identity carried by every `site.*` metric.
 ///
-/// The counter types are shared with `user.*`, but their `user_group` / `user`
-/// fields are left empty for sites. The site tags are recorded here instead, so
-/// nothing about the site is ever reported through a user tag.
+/// The counter types are shared with `user.*`, but their identity fields are
+/// left empty for sites. The site tags are recorded here instead.
 #[derive(Clone)]
 pub(crate) struct SiteMetricTags {
     group: NodeName,
     id: NodeName,
     /// Site owner, already normalized to `-` when the site has none.
-    tenant: ArcStr,
+    user: ArcStr,
+    /// Site group's tenant_user_group, already normalized to `-` when unset.
+    user_group: ArcStr,
 }
 
 impl SiteMetricTags {
-    pub(crate) fn new(group: &NodeName, id: &NodeName, tenant: ArcStr) -> Self {
+    pub(crate) fn new(group: &NodeName, id: &NodeName, user: ArcStr, user_group: ArcStr) -> Self {
         SiteMetricTags {
             group: group.clone(),
             id: id.clone(),
-            tenant,
+            user,
+            user_group,
         }
     }
 
@@ -87,7 +90,8 @@ impl SiteMetricTags {
         let stat_id = buffer.format(stat_id.as_u64());
         tags.add_tag(TAG_KEY_SITE_GROUP, &self.group);
         tags.add_tag(TAG_KEY_SITE, &self.id);
-        tags.add_tag(TAG_KEY_TENANT, &self.tenant);
+        tags.add_tag(TAG_KEY_USER, &self.user);
+        tags.add_tag(TAG_KEY_USER_GROUP, &self.user_group);
         tags.add_tag(TAG_KEY_STAT_ID, stat_id);
     }
 }

@@ -59,8 +59,13 @@ impl SiteGroup {
                 old.new_for_reload(&cfg, Arc::clone(&tenant_user_group))
                     .context(format!("failed to reload site {id}"))?
             } else {
-                Site::try_build(&group_name, &cfg, Arc::clone(&tenant_user_group))
-                    .context(format!("failed to build site {id}"))?
+                Site::try_build(
+                    &group_name,
+                    &cfg,
+                    Arc::clone(&tenant_user_group),
+                    config.tenant_user_group(),
+                )
+                .context(format!("failed to build site {id}"))?
             };
             let site = Arc::new(site);
             if sites.insert(site.id().clone(), site).is_some() {

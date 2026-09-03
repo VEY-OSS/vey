@@ -26,10 +26,16 @@ The following tags are present on all site metrics:
 
   The :ref:`site ID <conf_site_id>`.
 
-* tenant
+* user
 
   The :ref:`owner <conf_site_owner>` configured on the site. ``-`` when the
   site has no owner. This is the configured name, not a lookup result.
+
+* user_group
+
+  The site group's :ref:`tenant_user_group <conf_site_group_tenant_user_group>`.
+  ``-`` when that key is unset. This is the configured name, not a lookup
+  result.
 
 Request
 =======

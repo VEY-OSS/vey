@@ -35,6 +35,7 @@ impl Site {
         site_group: &NodeName,
         config: &Arc<SiteConfig>,
         tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
+        tenant_user_group_name: &NodeName,
     ) -> anyhow::Result<Self> {
         let tls_client = build_tls_client(config)?;
         let request_rate_limit = config
@@ -45,7 +46,12 @@ impl Site {
         Ok(Site {
             config: Arc::clone(config),
             tls_client,
-            stats: Arc::new(SiteStats::new(site_group, config.id(), config.owner())),
+            stats: Arc::new(SiteStats::new(
+                site_group,
+                config.id(),
+                config.owner(),
+                tenant_user_group_name,
+            )),
             tenant_user_group,
             request_rate_limit,
             req_alive_sem,
