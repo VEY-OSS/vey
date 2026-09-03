@@ -16,7 +16,7 @@ use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::http_names;
 use vey_types::net::{
     AcceptTransferEncodingValue, ConnectionValue, Host, HttpAuth, HttpHeaderMap, HttpHeaderValue,
-    HttpUpgradeToken, KeepAliveValue, TransferEncodingValue, UpstreamAddr,
+    HttpKnownHeaderName, HttpUpgradeToken, KeepAliveValue, TransferEncodingValue, UpstreamAddr,
 };
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
@@ -31,7 +31,7 @@ pub struct HttpProxyClientRequest {
     pub auth_info: HttpAuth,
     /// the port may be 0
     pub host: Option<UpstreamAddr>,
-    original_connection_name: [u8; 10],
+    original_connection_name: HttpKnownHeaderName<http_names::CONNECTION>,
     connection: ConnectionValue,
     origin_header_size: usize,
     upgrade_token: Option<HttpUpgradeToken>,
@@ -42,8 +42,8 @@ pub struct HttpProxyClientRequest {
     expect_100_continue: bool,
     authorization_negotiate: bool,
     accept_transfer_encoding: AcceptTransferEncodingValue,
-    original_te_name: Option<[u8; 2]>,
-    original_transfer_encoding_name: Option<[u8; 17]>,
+    original_te_name: HttpKnownHeaderName<http_names::TE>,
+    original_transfer_encoding_name: HttpKnownHeaderName<http_names::TRANSFER_ENCODING>,
 }
 
 impl HttpProxyClientRequest {
@@ -56,7 +56,7 @@ impl HttpProxyClientRequest {
             hop_by_hop_headers: HttpHeaderMap::default(),
             auth_info: HttpAuth::None,
             host: None,
-            original_connection_name: http_names::CONNECTION_NAME,
+            original_connection_name: HttpKnownHeaderName::new(),
             connection: ConnectionValue::default(),
             origin_header_size: 0,
             upgrade_token: None,
@@ -67,8 +67,8 @@ impl HttpProxyClientRequest {
             expect_100_continue: false,
             authorization_negotiate: false,
             accept_transfer_encoding: AcceptTransferEncodingValue::default(),
-            original_te_name: None,
-            original_transfer_encoding_name: None,
+            original_te_name: HttpKnownHeaderName::new(),
+            original_transfer_encoding_name: HttpKnownHeaderName::new(),
         }
     }
 
@@ -95,7 +95,7 @@ impl HttpProxyClientRequest {
                 authorization_negotiate: self.authorization_negotiate,
                 accept_transfer_encoding: self.accept_transfer_encoding,
                 original_te_name: self.original_te_name,
-                original_transfer_encoding_name: None,
+                original_transfer_encoding_name: self.original_transfer_encoding_name.cleared(),
             },
             None => HttpProxyClientRequest {
                 version: adapted.version,
@@ -119,7 +119,7 @@ impl HttpProxyClientRequest {
                 original_te_name: self.original_te_name,
                 original_transfer_encoding_name: self
                     .original_transfer_encoding_name
-                    .or(Some(http_names::TRANSFER_ENCODING_NAME)),
+                    .received_or_default(),
             },
         }
     }
@@ -146,7 +146,7 @@ impl HttpProxyClientRequest {
             authorization_negotiate: self.authorization_negotiate,
             accept_transfer_encoding: self.accept_transfer_encoding,
             original_te_name: self.original_te_name,
-            original_transfer_encoding_name: None,
+            original_transfer_encoding_name: self.original_transfer_encoding_name.cleared(),
         }
     }
 
@@ -338,7 +338,7 @@ impl HttpProxyClientRequest {
     fn post_check_and_fix(&mut self) -> Result<(), HttpRequestParseError> {
         if self.connection.upgrade() {
             if self.has_content_length
-                || self.original_transfer_encoding_name.is_some()
+                || self.original_transfer_encoding_name.is_received()
                 || self.upgrade_token.is_none()
             {
                 return Err(HttpRequestParseError::InvalidUpgradeRequest);
@@ -348,7 +348,7 @@ impl HttpProxyClientRequest {
         }
 
         self.keep_alive = self.connection.keep_alive(self.version);
-        if self.original_transfer_encoding_name.is_some() && self.has_content_length {
+        if self.original_transfer_encoding_name.is_received() && self.has_content_length {
             self.keep_alive = false; // according to rfc9112 Section 6.1
         }
 
@@ -402,8 +402,7 @@ impl HttpProxyClientRequest {
         if self.connection.upgrade() && self.method != Method::GET {
             return Err(HttpRequestParseError::InvalidUpgradeRequest);
         }
-        self.original_connection_name =
-            http_names::copy(header.name.as_bytes(), http_names::CONNECTION_NAME);
+        self.original_connection_name.receive(header.name);
         Ok(())
     }
 
@@ -467,12 +466,7 @@ impl HttpProxyClientRequest {
                 self.accept_transfer_encoding
                     .parse(header.value.as_bytes())
                     .map_err(HttpRequestParseError::InvalidAcceptTransferEncoding)?;
-                if self.original_te_name.is_none() {
-                    self.original_te_name = Some(http_names::copy(
-                        header.name.as_bytes(),
-                        http_names::TE_NAME,
-                    ));
-                }
+                self.original_te_name.receive(header.name);
                 return Ok(());
             }
             "upgrade" => {
@@ -485,12 +479,7 @@ impl HttpProxyClientRequest {
                 return self.insert_hop_by_hop_header(name, &header);
             }
             "transfer-encoding" => {
-                if self.original_transfer_encoding_name.is_none() {
-                    self.original_transfer_encoding_name = Some(http_names::copy(
-                        header.name.as_bytes(),
-                        http_names::TRANSFER_ENCODING_NAME,
-                    ));
-                }
+                self.original_transfer_encoding_name.receive(header.name);
                 if self.has_content_length {
                     // delete content-length
                     self.end_to_end_headers.remove(header::CONTENT_LENGTH);
@@ -509,7 +498,7 @@ impl HttpProxyClientRequest {
                 return Ok(());
             }
             "content-length" => {
-                if self.original_transfer_encoding_name.is_some() {
+                if self.original_transfer_encoding_name.is_received() {
                     self.has_content_length = true;
                     return Ok(());
                 }
@@ -583,12 +572,7 @@ impl HttpProxyClientRequest {
 
     fn write_connection_header(&self, buf: &mut Vec<u8>) {
         let te = if self.accept_transfer_encoding.trailers() {
-            Some(
-                self.original_te_name
-                    .as_ref()
-                    .map(|n| n.as_slice())
-                    .unwrap_or(&http_names::TE_NAME),
-            )
+            Some(self.original_te_name.as_bytes())
         } else {
             None
         };
@@ -597,18 +581,10 @@ impl HttpProxyClientRequest {
     }
 
     fn write_te_header(&self, buf: &mut Vec<u8>) {
-        self.transfer_encoding.write_chunked(
-            self.original_transfer_encoding_name
-                .as_ref()
-                .unwrap_or(&http_names::TRANSFER_ENCODING_NAME),
-            buf,
-        );
-        self.accept_transfer_encoding.write_trailers(
-            self.original_te_name
-                .as_ref()
-                .unwrap_or(&http_names::TE_NAME),
-            buf,
-        );
+        self.transfer_encoding
+            .write_chunked(&self.original_transfer_encoding_name, buf);
+        self.accept_transfer_encoding
+            .write_trailers(&self.original_te_name, buf);
     }
 
     pub fn serialize_for_adapter(&self) -> Vec<u8> {

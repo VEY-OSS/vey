@@ -8,7 +8,7 @@ use std::fmt;
 use bytes::BufMut;
 use thiserror::Error;
 
-use super::HttpStructuredFieldParser;
+use super::HttpFieldParser;
 
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TransferCompressKind {
@@ -259,7 +259,7 @@ impl TransferEncodingValue {
     }
 
     pub fn parse(&mut self, buf: &[u8]) -> Result<(), InvalidTransferEncodingValue> {
-        for item in buf.as_item_list() {
+        for item in buf.as_generic_item_list() {
             if self.chunked {
                 return Err(InvalidTransferEncodingValue::InvalidChunkedPosition);
             }
@@ -347,7 +347,7 @@ impl AcceptTransferEncodingValue {
     }
 
     pub fn parse(&mut self, buf: &[u8]) -> Result<(), InvalidAcceptTransferEncodingValue> {
-        for item in buf.as_item_list() {
+        for item in buf.as_generic_item_list() {
             let q = if item.params().is_empty() {
                 TransferCodingQValue::ONE
             } else {

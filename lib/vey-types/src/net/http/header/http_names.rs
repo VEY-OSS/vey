@@ -3,25 +3,74 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-pub const CONNECTION_NAME: [u8; 10] = *b"Connection";
-pub const KEEP_ALIVE_NAME: [u8; 10] = *b"Keep-Alive";
-pub const TRANSFER_ENCODING_NAME: [u8; 17] = *b"Transfer-Encoding";
-pub const TE_NAME: [u8; 2] = *b"TE";
+use std::ops::Deref;
 
-#[inline]
-pub fn copy<const N: usize>(name: &[u8], default: [u8; N]) -> [u8; N] {
-    name.try_into().unwrap_or(default)
+use super::HttpKnownHeader;
+
+macro_rules! http_name {
+    ($name:ident = $value:literal) => {
+        #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+        #[allow(non_camel_case_types)]
+        pub struct $name;
+
+        impl $name {
+            pub const BYTES: [u8; $value.len()] = {
+                let src = $value.as_bytes();
+                let mut dst = [0u8; $value.len()];
+                let mut i = 0;
+                while i < $value.len() {
+                    dst[i] = src[i];
+                    i += 1;
+                }
+                dst
+            };
+        }
+
+        impl HttpKnownHeader for $name {
+            type Bytes = [u8; $value.len()];
+            const BYTES: Self::Bytes = $name::BYTES;
+
+            fn copy(name: impl AsRef<[u8]>) -> Self::Bytes {
+                name.as_ref().try_into().unwrap_or(Self::BYTES)
+            }
+
+            fn default_bytes() -> &'static [u8] {
+                &$name::BYTES
+            }
+        }
+
+        impl AsRef<[u8]> for $name {
+            #[inline]
+            fn as_ref(&self) -> &[u8] {
+                &Self::BYTES
+            }
+        }
+
+        impl Deref for $name {
+            type Target = [u8];
+
+            #[inline]
+            fn deref(&self) -> &[u8] {
+                &Self::BYTES
+            }
+        }
+    };
 }
+
+http_name!(CONNECTION = "Connection");
+http_name!(KEEP_ALIVE = "Keep-Alive");
+http_name!(TRANSFER_ENCODING = "Transfer-Encoding");
+http_name!(TE = "TE");
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn copy_infers_n_from_default() {
-        assert_eq!(copy(b"Keep-Alive", CONNECTION_NAME), *b"Keep-Alive");
-        assert_eq!(copy(b"Connection", CONNECTION_NAME), CONNECTION_NAME);
-        assert_eq!(copy(b"TE", TRANSFER_ENCODING_NAME), TRANSFER_ENCODING_NAME);
-        assert_eq!(copy(b"te", TE_NAME), *b"te");
+    fn copy_same_length_or_default() {
+        assert_eq!(&KEEP_ALIVE::copy("keep-alive"), b"keep-alive");
+        assert_eq!(CONNECTION::copy("Connection"), CONNECTION::BYTES);
+        assert_eq!(&TE::copy("te"), b"te");
+        assert_eq!(TRANSFER_ENCODING::copy("TE"), TRANSFER_ENCODING::BYTES);
     }
 }

@@ -10,7 +10,7 @@ use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::http_names;
-use vey_types::net::{HttpHeaderMap, HttpHeaderValue, TransferEncodingValue};
+use vey_types::net::{HttpHeaderMap, HttpHeaderValue, HttpKnownHeaderName, TransferEncodingValue};
 
 use super::{HttpUpgradeError, HttpUpgradeResponseError};
 use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
@@ -23,7 +23,7 @@ pub struct HttpUpgradeResponse {
     protocol: &'static str,
     content_length: u64,
     transfer_encoding: TransferEncodingValue,
-    original_transfer_encoding_name: Option<[u8; 17]>,
+    original_transfer_encoding_name: HttpKnownHeaderName<http_names::TRANSFER_ENCODING>,
     has_content_length: bool,
 }
 
@@ -36,7 +36,7 @@ impl HttpUpgradeResponse {
             protocol,
             content_length: 0,
             transfer_encoding: TransferEncodingValue::default(),
-            original_transfer_encoding_name: None,
+            original_transfer_encoding_name: HttpKnownHeaderName::new(),
             has_content_length: false,
         }
     }
@@ -176,12 +176,7 @@ impl HttpUpgradeResponse {
                 return Ok(());
             }
             "transfer-encoding" => {
-                if self.original_transfer_encoding_name.is_none() {
-                    self.original_transfer_encoding_name = Some(http_names::copy(
-                        header.name.as_bytes(),
-                        http_names::TRANSFER_ENCODING_NAME,
-                    ));
-                }
+                self.original_transfer_encoding_name.receive(header.name);
                 if self.has_content_length {
                     // delete content-length
                     self.content_length = 0;
@@ -192,7 +187,7 @@ impl HttpUpgradeResponse {
                     .map_err(HttpUpgradeResponseError::InvalidTransferEncoding)?;
             }
             "content-length" => {
-                if self.original_transfer_encoding_name.is_some() {
+                if self.original_transfer_encoding_name.is_received() {
                     // ignore content-length
                     return Ok(());
                 }

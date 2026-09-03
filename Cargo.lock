@@ -3922,6 +3922,7 @@ dependencies = [
  "indexmap",
  "ip_network",
  "ip_network_table",
+ "itoa",
  "kanal",
  "libc",
  "log",

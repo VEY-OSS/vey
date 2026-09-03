@@ -8,7 +8,7 @@ mod map;
 pub use map::HttpHeaderMap;
 
 mod name;
-pub use name::HttpOriginalHeaderName;
+pub use name::{HttpKnownHeader, HttpKnownHeaderName, HttpOriginalHeaderName};
 
 mod value;
 pub use value::HttpHeaderValue;
@@ -33,4 +33,14 @@ pub use connection::{ConnectionValue, KeepAliveValue};
 pub mod http_names;
 
 mod item_list;
-pub use item_list::{HttpStructuredFieldParser, ItemListIter, SfItem};
+use item_list::GenericItem;
+
+/// Parser for common HTTP header field values.
+trait HttpFieldParser {
+    /// Split a common comma-separated header value into [`GenericItem`]s.
+    ///
+    /// Members are split on `,`, then an optional param suffix on the first `;`.
+    /// OWS is trimmed and empty members are skipped. Quoted strings, escapes, and
+    /// inner lists are not recognized.
+    fn as_generic_item_list(&self) -> impl Iterator<Item = GenericItem<'_>>;
+}

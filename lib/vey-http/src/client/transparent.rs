@@ -14,8 +14,8 @@ use tokio::io::AsyncBufRead;
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::http_names;
 use vey_types::net::{
-    ConnectionValue, HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, KeepAliveValue,
-    TransferEncodingValue,
+    ConnectionValue, HttpHeaderMap, HttpHeaderValue, HttpKnownHeaderName, HttpUpgradeToken,
+    KeepAliveValue, TransferEncodingValue,
 };
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
@@ -27,14 +27,14 @@ pub struct HttpTransparentResponse {
     pub reason: String,
     pub end_to_end_headers: HttpHeaderMap,
     pub hop_by_hop_headers: HttpHeaderMap,
-    original_connection_name: [u8; 10],
+    original_connection_name: HttpKnownHeaderName<http_names::CONNECTION>,
     connection: ConnectionValue,
     origin_header_size: usize,
     keep_alive: bool,
     pub upgrade: Option<HttpUpgradeToken>,
     content_length: u64,
     transfer_encoding: TransferEncodingValue,
-    original_transfer_encoding_name: Option<[u8; 17]>,
+    original_transfer_encoding_name: HttpKnownHeaderName<http_names::TRANSFER_ENCODING>,
     has_content_length: bool,
 }
 
@@ -46,14 +46,14 @@ impl HttpTransparentResponse {
             reason,
             end_to_end_headers: HttpHeaderMap::default(),
             hop_by_hop_headers: HttpHeaderMap::default(),
-            original_connection_name: http_names::CONNECTION_NAME,
+            original_connection_name: HttpKnownHeaderName::new(),
             connection: ConnectionValue::default(),
             origin_header_size: 0,
             keep_alive: false,
             upgrade: None,
             content_length: 0,
             transfer_encoding: TransferEncodingValue::default(),
-            original_transfer_encoding_name: None,
+            original_transfer_encoding_name: HttpKnownHeaderName::new(),
             has_content_length: false,
         }
     }
@@ -74,7 +74,7 @@ impl HttpTransparentResponse {
                 upgrade: self.upgrade.clone(),
                 content_length,
                 transfer_encoding: TransferEncodingValue::default(),
-                original_transfer_encoding_name: None,
+                original_transfer_encoding_name: self.original_transfer_encoding_name.cleared(),
                 has_content_length: true,
             },
             None => HttpTransparentResponse {
@@ -96,7 +96,7 @@ impl HttpTransparentResponse {
                 },
                 original_transfer_encoding_name: self
                     .original_transfer_encoding_name
-                    .or(Some(http_names::TRANSFER_ENCODING_NAME)),
+                    .received_or_default(),
                 has_content_length: false,
             },
         }
@@ -124,7 +124,7 @@ impl HttpTransparentResponse {
             upgrade: self.upgrade.clone(),
             content_length: 0,
             transfer_encoding: TransferEncodingValue::default(),
-            original_transfer_encoding_name: None,
+            original_transfer_encoding_name: self.original_transfer_encoding_name.cleared(),
             has_content_length: true,
         }
     }
@@ -155,7 +155,7 @@ impl HttpTransparentResponse {
             None
         } else if self.transfer_encoding.chunked() {
             Some(HttpBodyType::Chunked)
-        } else if self.original_transfer_encoding_name.is_some() {
+        } else if self.original_transfer_encoding_name.is_received() {
             Some(HttpBodyType::ReadUntilEnd)
         } else if self.has_content_length {
             if self.content_length > 0 {
@@ -233,7 +233,7 @@ impl HttpTransparentResponse {
     /// do some necessary check and fix
     fn post_check_and_fix(&mut self, method: &Method, request_keep_alive: bool) {
         self.keep_alive = self.connection.keep_alive(self.version) && request_keep_alive;
-        if self.original_transfer_encoding_name.is_some() {
+        if self.original_transfer_encoding_name.is_received() {
             if self.has_content_length || !self.transfer_encoding.chunked() {
                 // TE+CL (rfc9112 §6.1) or non-chunked TE (length is the connection)
                 self.keep_alive = false;
@@ -296,8 +296,7 @@ impl HttpTransparentResponse {
             "connection" | "proxy-connection" => {
                 // proxy-connection is not standard, but at least curl use it
                 self.connection.parse(header.value.as_bytes());
-                self.original_connection_name =
-                    http_names::copy(header.name.as_bytes(), http_names::CONNECTION_NAME);
+                self.original_connection_name.receive(header.name);
                 return Ok(());
             }
             "upgrade" => {
@@ -311,12 +310,7 @@ impl HttpTransparentResponse {
                 return Ok(());
             }
             "transfer-encoding" => {
-                if self.original_transfer_encoding_name.is_none() {
-                    self.original_transfer_encoding_name = Some(http_names::copy(
-                        header.name.as_bytes(),
-                        http_names::TRANSFER_ENCODING_NAME,
-                    ));
-                }
+                self.original_transfer_encoding_name.receive(header.name);
                 if self.has_content_length {
                     // Content-Length must be ignored when Transfer-Encoding is present
                     // (RFC 7230 / RFC 9112). Drop the header; keep the flag so
@@ -331,7 +325,7 @@ impl HttpTransparentResponse {
                 return Ok(());
             }
             "content-length" => {
-                if self.original_transfer_encoding_name.is_some() {
+                if self.original_transfer_encoding_name.is_received() {
                     self.has_content_length = true;
                     return Ok(());
                 }
@@ -368,12 +362,8 @@ impl HttpTransparentResponse {
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
         self.hop_by_hop_headers
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
-        self.transfer_encoding.write(
-            self.original_transfer_encoding_name
-                .as_ref()
-                .unwrap_or(&http_names::TRANSFER_ENCODING_NAME),
-            &mut buf,
-        );
+        self.transfer_encoding
+            .write(&self.original_transfer_encoding_name, &mut buf);
         self.connection
             .write_for_rsp(&self.original_connection_name, self.keep_alive, &mut buf);
         buf.put_slice(b"\r\n");

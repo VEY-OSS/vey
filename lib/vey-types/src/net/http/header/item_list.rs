@@ -3,135 +3,79 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-/// RFC 9651 Item: bare-item in serialized form, plus raw `parameters`.
+use super::HttpFieldParser;
+
+/// A common header-list item: token (or `name=value`) plus optional raw params.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SfItem<'a> {
+pub(super) struct GenericItem<'a> {
     value: &'a [u8],
     params: &'a [u8],
 }
 
-impl<'a> SfItem<'a> {
+impl<'a> GenericItem<'a> {
     #[inline]
-    pub fn value(&self) -> &'a [u8] {
+    pub(super) fn value(&self) -> &'a [u8] {
         self.value
     }
 
     /// Raw `parameters` string without the first `;`. Empty if the item has none.
-    ///
-    /// A later `ParamIter` can walk this string; it is not parsed here.
     #[inline]
-    pub fn params(&self) -> &'a [u8] {
+    pub(super) fn params(&self) -> &'a [u8] {
         self.params
     }
 }
 
-/// Iterator over an RFC 9651 List that contains only Items (no Inner-list).
-///
-/// Splits on commas that are not inside a quoted string or inner list, discards
-/// OWS around separators, and skips empty members so existing header parsers
-/// keep accepting a trailing comma. Each member is split into a serialized
-/// item value and a raw params string at the first `;` outside quotes.
-pub struct ItemListIter<'a> {
+impl HttpFieldParser for [u8] {
+    #[inline]
+    fn as_generic_item_list(&self) -> impl Iterator<Item = GenericItem<'_>> {
+        GenericItemListIter { rest: self }
+    }
+}
+
+impl HttpFieldParser for str {
+    #[inline]
+    fn as_generic_item_list(&self) -> impl Iterator<Item = GenericItem<'_>> {
+        self.as_bytes().as_generic_item_list()
+    }
+}
+
+struct GenericItemListIter<'a> {
     rest: &'a [u8],
 }
 
-/// RFC 9651 Structured Fields parser for header field values.
-pub trait HttpStructuredFieldParser<'a> {
-    fn as_item_list(&self) -> ItemListIter<'a>;
-}
+impl<'a> Iterator for GenericItemListIter<'a> {
+    type Item = GenericItem<'a>;
 
-impl<'a> HttpStructuredFieldParser<'a> for &'a [u8] {
-    #[inline]
-    fn as_item_list(&self) -> ItemListIter<'a> {
-        ItemListIter { rest: self }
-    }
-}
-
-impl<'a> Iterator for ItemListIter<'a> {
-    type Item = SfItem<'a>;
-
-    fn next(&mut self) -> Option<SfItem<'a>> {
+    fn next(&mut self) -> Option<GenericItem<'a>> {
         loop {
-            self.rest = skip_ows(self.rest);
             if self.rest.is_empty() {
                 return None;
             }
-            let (member, rest) = split_member(self.rest);
+            let (member, rest) = match memchr::memchr(b',', self.rest) {
+                Some(i) => (&self.rest[..i], &self.rest[i + 1..]),
+                None => (self.rest, [].as_slice()),
+            };
             self.rest = rest;
-            let member = member.trim_ascii();
-            if member.is_empty() {
-                continue;
+            if let Some(item) = parse_member(member) {
+                return Some(item);
             }
-            let item = split_item(member);
-            if item.value.is_empty() {
-                continue;
-            }
-            return Some(item);
         }
     }
 }
 
-fn skip_ows(buf: &[u8]) -> &[u8] {
-    match buf.iter().position(|&b| b != b' ' && b != b'\t') {
-        Some(n) => &buf[n..],
-        None => &[],
+fn parse_member(member: &[u8]) -> Option<GenericItem<'_>> {
+    let member = member.trim_ascii();
+    if member.is_empty() {
+        return None;
     }
-}
-
-fn split_member(input: &[u8]) -> (&[u8], &[u8]) {
-    let mut in_string = false;
-    let mut escape = false;
-    let mut depth = 0u32;
-    for (i, &b) in input.iter().enumerate() {
-        if in_string {
-            if escape {
-                escape = false;
-            } else if b == b'\\' {
-                escape = true;
-            } else if b == b'"' {
-                in_string = false;
-            }
-            continue;
-        }
-        match b {
-            b'"' => in_string = true,
-            b'(' => depth += 1,
-            b')' => depth = depth.saturating_sub(1),
-            b',' if depth == 0 => return (&input[..i], &input[i + 1..]),
-            _ => {}
-        }
-    }
-    (input, &[])
-}
-
-fn split_item(member: &[u8]) -> SfItem<'_> {
-    let mut in_string = false;
-    let mut escape = false;
-    for (i, &b) in member.iter().enumerate() {
-        if in_string {
-            if escape {
-                escape = false;
-            } else if b == b'\\' {
-                escape = true;
-            } else if b == b'"' {
-                in_string = false;
-            }
-            continue;
-        }
-        match b {
-            b'"' => in_string = true,
-            b';' => {
-                return SfItem {
-                    value: member[..i].trim_ascii(),
-                    params: member[i + 1..].trim_ascii(),
-                };
-            }
-            _ => {}
-        }
-    }
-    SfItem {
-        value: member,
-        params: &[],
+    let (value, params) = match memchr::memchr(b';', member) {
+        Some(i) => (member[..i].trim_ascii(), member[i + 1..].trim_ascii()),
+        None => (member, [].as_slice()),
+    };
+    if value.is_empty() {
+        None
+    } else {
+        Some(GenericItem { value, params })
     }
 }
 
@@ -140,8 +84,7 @@ mod tests {
     use super::*;
 
     fn items(s: &str) -> Vec<(&[u8], &[u8])> {
-        s.as_bytes()
-            .as_item_list()
+        s.as_generic_item_list()
             .map(|i| (i.value(), i.params()))
             .collect()
     }
@@ -198,48 +141,6 @@ mod tests {
                 (b"timeout=5".as_slice(), b"".as_slice()),
                 (b"max=1000".as_slice(), b"".as_slice())
             ]
-        );
-    }
-
-    #[test]
-    fn quoted_string_and_inner_list() {
-        assert_eq!(
-            items(r#""a, b", token"#),
-            [
-                (br#""a, b""#.as_slice(), b"".as_slice()),
-                (b"token".as_slice(), b"".as_slice())
-            ]
-        );
-        assert_eq!(
-            items(r#"a, (b, c), d"#),
-            [
-                (b"a".as_slice(), b"".as_slice()),
-                (b"(b, c)".as_slice(), b"".as_slice()),
-                (b"d".as_slice(), b"".as_slice())
-            ]
-        );
-        assert_eq!(
-            items(r#""a, \"b", c"#),
-            [
-                (br#""a, \"b""#.as_slice(), b"".as_slice()),
-                (b"c".as_slice(), b"".as_slice())
-            ]
-        );
-        assert_eq!(
-            items(r#""a;b";q=1"#),
-            [(br#""a;b""#.as_slice(), b"q=1".as_slice())]
-        );
-    }
-
-    #[test]
-    fn unclosed_quote_or_inner_list_takes_the_rest() {
-        assert_eq!(
-            items(r#""a, b, c"#),
-            [(br#""a, b, c"#.as_slice(), b"".as_slice())]
-        );
-        assert_eq!(
-            items(r#"(a, b, c"#),
-            [(b"(a, b, c".as_slice(), b"".as_slice())]
         );
     }
 }

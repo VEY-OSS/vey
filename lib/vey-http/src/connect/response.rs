@@ -11,7 +11,7 @@ use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::http_names;
-use vey_types::net::{HttpHeaderMap, HttpHeaderValue, TransferEncodingValue};
+use vey_types::net::{HttpHeaderMap, HttpHeaderValue, HttpKnownHeaderName, TransferEncodingValue};
 
 use super::{HttpConnectError, HttpConnectResponseError};
 use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
@@ -23,7 +23,7 @@ pub struct HttpConnectResponse {
     pub headers: HttpHeaderMap,
     content_length: u64,
     transfer_encoding: TransferEncodingValue,
-    original_transfer_encoding_name: Option<[u8; 17]>,
+    original_transfer_encoding_name: HttpKnownHeaderName<http_names::TRANSFER_ENCODING>,
     has_content_length: bool,
 }
 
@@ -35,7 +35,7 @@ impl HttpConnectResponse {
             headers: HttpHeaderMap::default(),
             content_length: 0,
             transfer_encoding: TransferEncodingValue::default(),
-            original_transfer_encoding_name: None,
+            original_transfer_encoding_name: HttpKnownHeaderName::new(),
             has_content_length: false,
         }
     }
@@ -135,12 +135,7 @@ impl HttpConnectResponse {
         match name.as_str() {
             "connection" | "proxy-connection" => {}
             "transfer-encoding" => {
-                if self.original_transfer_encoding_name.is_none() {
-                    self.original_transfer_encoding_name = Some(http_names::copy(
-                        header.name.as_bytes(),
-                        http_names::TRANSFER_ENCODING_NAME,
-                    ));
-                }
+                self.original_transfer_encoding_name.receive(header.name);
                 if self.has_content_length {
                     // delete content-length
                     self.headers.remove(http::header::CONTENT_LENGTH);
@@ -152,7 +147,7 @@ impl HttpConnectResponse {
                     .map_err(HttpConnectResponseError::InvalidTransferEncoding)?;
             }
             "content-length" => {
-                if self.original_transfer_encoding_name.is_some() {
+                if self.original_transfer_encoding_name.is_received() {
                     // ignore content-length
                     return Ok(());
                 }
@@ -226,7 +221,7 @@ mod tests {
         assert!(response.headers.is_empty());
         assert_eq!(response.content_length, 0);
         assert!(!response.transfer_encoding.chunked());
-        assert!(response.original_transfer_encoding_name.is_none());
+        assert!(!response.original_transfer_encoding_name.is_received());
         assert!(!response.has_content_length);
     }
 
@@ -368,7 +363,7 @@ mod tests {
 
         let result = response.handle_header(header);
         assert!(result.is_ok());
-        assert!(response.original_transfer_encoding_name.is_some());
+        assert!(response.original_transfer_encoding_name.is_received());
         assert!(response.transfer_encoding.chunked());
 
         let mut response = HttpConnectResponse::new(200, "OK".to_string());
@@ -416,7 +411,7 @@ mod tests {
             value: "chunked",
         };
         assert!(response.handle_header(transfer_encoding_header).is_ok());
-        assert!(response.original_transfer_encoding_name.is_some());
+        assert!(response.original_transfer_encoding_name.is_received());
         assert!(response.transfer_encoding.chunked());
         assert_eq!(response.content_length, 0);
 
@@ -427,7 +422,7 @@ mod tests {
             value: "chunked",
         };
         assert!(response.handle_header(transfer_encoding_header).is_ok());
-        assert!(response.original_transfer_encoding_name.is_some());
+        assert!(response.original_transfer_encoding_name.is_received());
 
         let content_length_header = HttpHeaderLine {
             name: "content-length",
@@ -509,7 +504,7 @@ mod tests {
         let response = HttpConnectResponse::parse(&mut reader, 1024).await.unwrap();
         assert_eq!(response.code, 200);
         assert_eq!(response.reason, "OK");
-        assert!(response.original_transfer_encoding_name.is_some());
+        assert!(response.original_transfer_encoding_name.is_received());
         assert!(response.transfer_encoding.chunked());
         assert_eq!(response.content_length, 0);
     }

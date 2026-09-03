@@ -46,6 +46,7 @@ openssl = { workspace = true, optional = true }
 openssl-sys = { workspace = true, optional = true }
 lru = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
+itoa = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 kanal = { workspace = true, optional = true, features = ["std-mutex"] }
@@ -69,6 +70,6 @@ rustls-aws-lc = ["rustls", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
 rustls-aws-lc-fips = ["rustls", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]
 openssl = ["dep:openssl", "dep:openssl-sys", "dep:lru", "dep:bytes", "dep:ahash", "dep:brotli"]
 acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:regex", "dep:radix_trie"]
-http = ["dep:http", "dep:bytes", "dep:base64"]
+http = ["dep:http", "dep:bytes", "dep:base64", "dep:itoa"]
 route = ["resolve", "dep:ahash", "dep:radix_trie", "dep:indexmap"]
 async-log = ["dep:kanal", "dep:slog"]

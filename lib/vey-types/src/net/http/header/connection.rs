@@ -4,13 +4,13 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::io::Write;
 use std::time::Duration;
 
 use bytes::BufMut;
 use http::{HeaderName, Version};
 
-use super::HttpStructuredFieldParser;
+use super::HttpFieldParser;
+use super::HttpKnownHeaderName;
 use super::http_names;
 
 /// Parsed HTTP/1.0 `Keep-Alive` header (`timeout` / `max`).
@@ -37,7 +37,7 @@ impl KeepAliveValue {
     }
 
     pub fn parse(&mut self, buf: &[u8]) {
-        for item in buf.as_item_list() {
+        for item in buf.as_generic_item_list() {
             let param = item.value();
             let Some(eq) = memchr::memchr(b'=', param) else {
                 continue;
@@ -64,10 +64,11 @@ impl KeepAliveValue {
         }
         buf.put_slice(name);
         buf.put_slice(b": ");
+        let mut itoa_buf = itoa::Buffer::new();
         let mut first = true;
         if let Some(timeout) = self.timeout {
             buf.put_slice(b"timeout=");
-            let _ = write!(buf, "{timeout}");
+            buf.put_slice(itoa_buf.format(timeout).as_bytes());
             first = false;
         }
         if let Some(max) = self.max {
@@ -75,7 +76,7 @@ impl KeepAliveValue {
                 buf.put_slice(b", ");
             }
             buf.put_slice(b"max=");
-            let _ = write!(buf, "{max}");
+            buf.put_slice(itoa_buf.format(max).as_bytes());
         }
         buf.put_slice(b"\r\n");
     }
@@ -92,7 +93,7 @@ pub struct ConnectionValue {
     persistence: Option<ConnectionPersistence>,
     upgrade: bool,
     extra: Vec<HeaderName>,
-    keep_alive_name: Option<[u8; 10]>,
+    keep_alive_name: HttpKnownHeaderName<http_names::KEEP_ALIVE>,
     keepalive: KeepAliveValue,
 }
 
@@ -122,12 +123,12 @@ impl ConnectionValue {
     }
 
     pub fn clear_keep_alive_header(&mut self) {
-        self.keep_alive_name = None;
+        self.keep_alive_name.clear();
         self.keepalive = KeepAliveValue::default();
     }
 
     pub fn parse(&mut self, buf: &[u8]) {
-        for item in buf.as_item_list() {
+        for item in buf.as_generic_item_list() {
             let token = item.value();
             match token[0] {
                 b'K' | b'k' if token.eq_ignore_ascii_case(b"keep-alive") => {
@@ -155,7 +156,7 @@ impl ConnectionValue {
     }
 
     pub fn parse_keep_alive(&mut self, name: &[u8], value: &[u8]) {
-        self.keep_alive_name = Some(http_names::copy(name, http_names::KEEP_ALIVE_NAME));
+        self.keep_alive_name.receive(name);
         self.keepalive.parse(value);
     }
 
@@ -174,10 +175,7 @@ impl ConnectionValue {
     }
 
     fn write_inner(&self, name: &[u8], keep_alive: bool, te: Option<&[u8]>, buf: &mut Vec<u8>) {
-        let ka_name = self
-            .keep_alive_name
-            .as_ref()
-            .unwrap_or(&http_names::KEEP_ALIVE_NAME);
+        let ka_name = self.keep_alive_name.as_bytes();
         buf.put_slice(name);
         buf.put_slice(b": ");
         if keep_alive {
@@ -231,12 +229,12 @@ mod tests {
     #[test]
     fn write_omits_empty() {
         let mut buf = Vec::new();
-        KeepAliveValue::default().write(&http_names::KEEP_ALIVE_NAME, &mut buf);
+        KeepAliveValue::default().write(&http_names::KEEP_ALIVE, &mut buf);
         assert!(buf.is_empty());
 
         let mut v = KeepAliveValue::default();
         v.parse(b"timeout=5, max=10");
-        v.write(&http_names::KEEP_ALIVE_NAME, &mut buf);
+        v.write(&http_names::KEEP_ALIVE, &mut buf);
         assert_eq!(buf, b"Keep-Alive: timeout=5, max=10\r\n");
     }
 
@@ -249,11 +247,11 @@ mod tests {
         assert!(v.upgrade());
 
         let mut buf = Vec::new();
-        v.write_for_rsp(&http_names::CONNECTION_NAME, true, &mut buf);
+        v.write_for_rsp(&http_names::CONNECTION, true, &mut buf);
         assert_eq!(buf, b"Connection: Keep-Alive, upgrade\r\n");
 
         buf.clear();
-        v.write_for_req(&http_names::CONNECTION_NAME, true, Some(b"TE"), &mut buf);
+        v.write_for_req(&http_names::CONNECTION, true, Some(b"TE"), &mut buf);
         assert_eq!(buf, b"Connection: Keep-Alive, TE, upgrade\r\n");
 
         v.parse(b"close, keep-alive, Foo");
@@ -273,23 +271,23 @@ mod tests {
     #[test]
     fn write_emits_keep_alive_header_only_when_open() {
         let mut v = ConnectionValue::default();
-        v.parse_keep_alive(&http_names::KEEP_ALIVE_NAME, b"timeout=5, max=10");
+        v.parse_keep_alive(&http_names::KEEP_ALIVE, b"timeout=5, max=10");
 
         let mut buf = Vec::new();
-        v.write_for_rsp(&http_names::CONNECTION_NAME, true, &mut buf);
+        v.write_for_rsp(&http_names::CONNECTION, true, &mut buf);
         assert_eq!(
             buf,
             b"Connection: Keep-Alive\r\nKeep-Alive: timeout=5, max=10\r\n"
         );
 
         buf.clear();
-        v.write_for_rsp(&http_names::CONNECTION_NAME, false, &mut buf);
+        v.write_for_rsp(&http_names::CONNECTION, false, &mut buf);
         assert_eq!(buf, b"Connection: Close\r\n");
 
         let mut v = ConnectionValue::default();
         v.parse_keep_alive(b"keep-alive", b"timeout=5");
         buf.clear();
-        v.write_for_rsp(&http_names::CONNECTION_NAME, true, &mut buf);
+        v.write_for_rsp(&http_names::CONNECTION, true, &mut buf);
         assert_eq!(buf, b"Connection: keep-alive\r\nkeep-alive: timeout=5\r\n");
     }
 }

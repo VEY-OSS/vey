@@ -15,8 +15,8 @@ use tokio::io::AsyncBufRead;
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::http_names;
 use vey_types::net::{
-    AcceptTransferEncodingValue, ConnectionValue, HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken,
-    KeepAliveValue, TransferEncodingValue, UpstreamAddr,
+    AcceptTransferEncodingValue, ConnectionValue, HttpHeaderMap, HttpHeaderValue,
+    HttpKnownHeaderName, HttpUpgradeToken, KeepAliveValue, TransferEncodingValue, UpstreamAddr,
 };
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
@@ -31,7 +31,7 @@ pub struct HttpTransparentRequest {
     pub hop_by_hop_headers: HttpHeaderMap,
     /// the port may be 0
     pub host: Option<UpstreamAddr>,
-    original_connection_name: [u8; 10],
+    original_connection_name: HttpKnownHeaderName<http_names::CONNECTION>,
     connection: ConnectionValue,
     origin_header_size: usize,
     keep_alive: bool,
@@ -41,8 +41,8 @@ pub struct HttpTransparentRequest {
     has_content_length: bool,
     expect_100_continue: bool,
     accept_transfer_encoding: AcceptTransferEncodingValue,
-    original_te_name: Option<[u8; 2]>,
-    original_transfer_encoding_name: Option<[u8; 17]>,
+    original_te_name: HttpKnownHeaderName<http_names::TE>,
+    original_transfer_encoding_name: HttpKnownHeaderName<http_names::TRANSFER_ENCODING>,
 }
 
 impl HttpTransparentRequest {
@@ -55,7 +55,7 @@ impl HttpTransparentRequest {
             end_to_end_headers: HttpHeaderMap::default(),
             hop_by_hop_headers: HttpHeaderMap::default(),
             host: None,
-            original_connection_name: http_names::CONNECTION_NAME,
+            original_connection_name: HttpKnownHeaderName::new(),
             connection: ConnectionValue::default(),
             origin_header_size: 0,
             keep_alive: false,
@@ -65,8 +65,8 @@ impl HttpTransparentRequest {
             has_content_length: false,
             expect_100_continue: false,
             accept_transfer_encoding: AcceptTransferEncodingValue::default(),
-            original_te_name: None,
-            original_transfer_encoding_name: None,
+            original_te_name: HttpKnownHeaderName::new(),
+            original_transfer_encoding_name: HttpKnownHeaderName::new(),
         }
     }
 
@@ -92,7 +92,7 @@ impl HttpTransparentRequest {
                 expect_100_continue: self.expect_100_continue,
                 accept_transfer_encoding: self.accept_transfer_encoding,
                 original_te_name: self.original_te_name,
-                original_transfer_encoding_name: None,
+                original_transfer_encoding_name: self.original_transfer_encoding_name.cleared(),
             },
             None => HttpTransparentRequest {
                 version: adapted.version,
@@ -115,7 +115,7 @@ impl HttpTransparentRequest {
                 original_te_name: self.original_te_name,
                 original_transfer_encoding_name: self
                     .original_transfer_encoding_name
-                    .or(Some(http_names::TRANSFER_ENCODING_NAME)),
+                    .received_or_default(),
             },
         }
     }
@@ -141,7 +141,7 @@ impl HttpTransparentRequest {
             expect_100_continue: self.expect_100_continue,
             accept_transfer_encoding: self.accept_transfer_encoding,
             original_te_name: self.original_te_name,
-            original_transfer_encoding_name: None,
+            original_transfer_encoding_name: self.original_transfer_encoding_name.cleared(),
         }
     }
 
@@ -262,7 +262,7 @@ impl HttpTransparentRequest {
         }
 
         self.keep_alive = self.connection.keep_alive(self.version);
-        if self.original_transfer_encoding_name.is_some() && self.has_content_length {
+        if self.original_transfer_encoding_name.is_received() && self.has_content_length {
             self.keep_alive = false; // according to rfc9112 Section 6.1
         }
 
@@ -297,8 +297,7 @@ impl HttpTransparentRequest {
         header: &HttpHeaderLine,
     ) -> Result<(), HttpRequestParseError> {
         self.connection.parse(header.value.as_bytes());
-        self.original_connection_name =
-            http_names::copy(header.name.as_bytes(), http_names::CONNECTION_NAME);
+        self.original_connection_name.receive(header.name);
         Ok(())
     }
 
@@ -396,12 +395,7 @@ impl HttpTransparentRequest {
                 return self.insert_hop_by_hop_header(name, &header);
             }
             "transfer-encoding" => {
-                if self.original_transfer_encoding_name.is_none() {
-                    self.original_transfer_encoding_name = Some(http_names::copy(
-                        header.name.as_bytes(),
-                        http_names::TRANSFER_ENCODING_NAME,
-                    ));
-                }
+                self.original_transfer_encoding_name.receive(header.name);
                 if self.has_content_length {
                     // delete content-length
                     self.end_to_end_headers.remove(header::CONTENT_LENGTH);
@@ -420,7 +414,7 @@ impl HttpTransparentRequest {
                 return Ok(());
             }
             "content-length" => {
-                if self.original_transfer_encoding_name.is_some() {
+                if self.original_transfer_encoding_name.is_received() {
                     self.has_content_length = true;
                     return Ok(());
                 }
@@ -438,12 +432,7 @@ impl HttpTransparentRequest {
                 self.accept_transfer_encoding
                     .parse(header.value.as_bytes())
                     .map_err(HttpRequestParseError::InvalidAcceptTransferEncoding)?;
-                if self.original_te_name.is_none() {
-                    self.original_te_name = Some(http_names::copy(
-                        header.name.as_bytes(),
-                        http_names::TE_NAME,
-                    ));
-                }
+                self.original_te_name.receive(header.name);
                 return Ok(());
             }
             "proxy-authorization" => {
@@ -476,25 +465,12 @@ impl HttpTransparentRequest {
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
         self.hop_by_hop_headers
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
-        self.transfer_encoding.write_chunked(
-            self.original_transfer_encoding_name
-                .as_ref()
-                .unwrap_or(&http_names::TRANSFER_ENCODING_NAME),
-            &mut buf,
-        );
-        self.accept_transfer_encoding.write_trailers(
-            self.original_te_name
-                .as_ref()
-                .unwrap_or(&http_names::TE_NAME),
-            &mut buf,
-        );
+        self.transfer_encoding
+            .write_chunked(&self.original_transfer_encoding_name, &mut buf);
+        self.accept_transfer_encoding
+            .write_trailers(&self.original_te_name, &mut buf);
         let te = if self.accept_transfer_encoding.trailers() {
-            Some(
-                self.original_te_name
-                    .as_ref()
-                    .map(|n| n.as_slice())
-                    .unwrap_or(&http_names::TE_NAME),
-            )
+            Some(self.original_te_name.as_bytes())
         } else {
             None
         };
