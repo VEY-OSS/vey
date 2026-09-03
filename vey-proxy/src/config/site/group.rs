@@ -18,12 +18,17 @@ use super::SiteConfig;
 pub(crate) struct SiteGroupConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
+    tenant_user_group: NodeName,
     pub(crate) sites: HostMatch<Arc<SiteConfig>>,
 }
 
 impl SiteGroupConfig {
     pub(crate) fn name(&self) -> &NodeName {
         &self.name
+    }
+
+    pub(crate) fn tenant_user_group(&self) -> &NodeName {
+        &self.tenant_user_group
     }
 
     pub(crate) fn position(&self) -> Option<YamlDocPosition> {
@@ -34,6 +39,7 @@ impl SiteGroupConfig {
         SiteGroupConfig {
             name: name.clone(),
             position: None,
+            tenant_user_group: NodeName::default(),
             sites: HostMatch::default(),
         }
     }
@@ -42,6 +48,7 @@ impl SiteGroupConfig {
         SiteGroupConfig {
             name: NodeName::default(),
             position,
+            tenant_user_group: NodeName::default(),
             sites: HostMatch::default(),
         }
     }
@@ -60,6 +67,10 @@ impl SiteGroupConfig {
         match vey_yaml::key::normalize(k).as_str() {
             "name" => {
                 self.name = vey_yaml::value::as_metric_node_name(v)?;
+                Ok(())
+            }
+            "tenant_user_group" => {
+                self.tenant_user_group = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "static_sites" | "sites" => {
@@ -93,10 +104,15 @@ mod tests {
         let yaml = YamlLoader::load_from_str(
             r#"
 name: local
+tenant_user_group: customers
 static_sites:
   - id: app
     exact_match: app.internal
     upstream: 127.0.0.1:8080
+  - id: unowned
+    exact_match: other.internal
+    upstream: 127.0.0.1:8081
+    owner: team_a
 "#,
         )
         .unwrap();
@@ -105,10 +121,16 @@ static_sites:
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
         assert_eq!(group.name().as_str(), "local");
+        assert_eq!(group.tenant_user_group().as_str(), "customers");
         let host = Host::from_str("app.internal").unwrap();
         let site = group.sites.get(&host).unwrap();
         assert_eq!(site.id().as_str(), "app");
         assert!(!site.upstream().is_empty());
+        assert!(site.owner().is_empty());
+
+        let host = Host::from_str("other.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert_eq!(site.owner().as_str(), "team_a");
     }
 
     #[test]

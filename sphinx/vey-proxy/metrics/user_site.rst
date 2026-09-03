@@ -5,10 +5,12 @@ User Site Metrics
 #################
 
 User-site metrics describe application-layer activity for each explicit site
-defined under a user.
+defined under a user. They are distinct from :ref:`site metrics
+<metrics_site>`: ``user.site.*`` is keyed by the authenticated user plus a
+user-site ID, while ``site.*`` is keyed by a reverse-proxy origin.
 
-Metric names use the prefix ``user.<site_id>`` where *site_id* is the value of
-the :ref:`id <conf_auth_user_site_id>` configuration option.
+Metric names use the prefix ``user.site.<site_id>`` where *site_id* is the
+value of the :ref:`id <conf_auth_user_site_id>` configuration option.
 
 The following tags are present on all user-site metrics:
 
@@ -38,52 +40,52 @@ The following tags are set on metrics in this section:
 
 Any extra tags configured on the server are also included.
 
-The following tag is also set on ``user.<site_id>.connection.*`` metrics:
+The following tag is also set on ``user.site.<site_id>.connection.*`` metrics:
 
 * :ref:`connection <metrics_tag_connection>`
 
-The following tag is also set on ``user.<site_id>.request.*`` metrics:
+The following tag is also set on ``user.site.<site_id>.request.*`` metrics:
 
 * :ref:`request <metrics_tag_request>`
 
 The metric names are:
 
-* user.<site_id>.connection.total
+* user.site.<site_id>.connection.total
 
   **type**: count
 
   Number of client connections from the user for this site. Connections that
   fail during authentication are not counted.
 
-* user.<site_id>.request.total
+* user.site.<site_id>.request.total
 
   **type**: count
 
   Total requests received from the user for this site. This value may be
-  greater than ``user.<site_id>.connection.total`` because some protocols can
+  greater than ``user.site.<site_id>.connection.total`` because some protocols can
   reuse a connection for multiple requests.
 
-* user.<site_id>.request.alive
+* user.site.<site_id>.request.alive
 
   **type**: gauge
 
   Number of currently active requests for this site.
 
-* user.<site_id>.request.ready
+* user.site.<site_id>.request.ready
 
   **type**: count
 
   Total tasks for this site that reached the *ready* stage. The remote
   connection may be new or a reused keepalive connection.
 
-* user.<site_id>.request.reuse
+* user.site.<site_id>.request.reuse
 
   **type**: count
 
   Total attempts to reuse an existing remote keepalive connection.
   Reuse attempts may still fail.
 
-* user.<site_id>.request.renew
+* user.site.<site_id>.request.renew
 
   **type**: count
 
@@ -91,7 +93,7 @@ The metric names are:
   a recoverable reuse failure, a new connection is created and the request is
   retried.
 
-* user.<site_id>.l7.connection.alive
+* user.site.<site_id>.l7.connection.alive
 
   **type**: gauge
 
@@ -115,26 +117,26 @@ data and HTTPS-forward TLS overhead are not included.
 
 The metric names are:
 
-* user.<site_id>.traffic.in.bytes
+* user.site.<site_id>.traffic.in.bytes
 
   **type**: count
 
   Total bytes received from the client.
 
-* user.<site_id>.traffic.in.packets
+* user.site.<site_id>.traffic.in.packets
 
   **type**: count
 
   Total datagram packets received from the client.
   This metric is not available for stream-oriented transports.
 
-* user.<site_id>.traffic.out.bytes
+* user.site.<site_id>.traffic.out.bytes
 
   **type**: count
 
   Total bytes sent to the client.
 
-* user.<site_id>.traffic.out.packets
+* user.site.<site_id>.traffic.out.packets
 
   **type**: count
 
@@ -158,7 +160,7 @@ The following tag is also set:
 
 The metric names are:
 
-* user.<site_id>.task.ready.duration
+* user.site.<site_id>.task.ready.duration
 
   **type**: gauge
 
@@ -183,26 +185,26 @@ overhead is not included.
 
 The metric names are:
 
-* user.<site_id>.upstream.traffic.in.bytes
+* user.site.<site_id>.upstream.traffic.in.bytes
 
   **type**: count
 
   Total bytes received from the upstream side.
 
-* user.<site_id>.upstream.traffic.in.packets
+* user.site.<site_id>.upstream.traffic.in.packets
 
   **type**: count
 
   Total datagram packets received from the upstream side.
   This metric is not available for stream-oriented transports.
 
-* user.<site_id>.upstream.traffic.out.bytes
+* user.site.<site_id>.upstream.traffic.out.bytes
 
   **type**: count
 
   Total bytes sent to the upstream side.
 
-* user.<site_id>.upstream.traffic.out.packets
+* user.site.<site_id>.upstream.traffic.out.packets
 
   **type**: count
 

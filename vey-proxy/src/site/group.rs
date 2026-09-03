@@ -7,15 +7,18 @@ use std::sync::Arc;
 
 use ahash::AHashMap;
 use anyhow::{Context, anyhow};
+use arc_swap::ArcSwapOption;
 
 use vey_types::metrics::NodeName;
 
 use super::Site;
+use crate::auth::UserGroup;
 use crate::config::site::SiteGroupConfig;
 
 pub(crate) struct SiteGroup {
     config: Arc<SiteGroupConfig>,
     sites: AHashMap<NodeName, Arc<Site>>,
+    tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
 }
 
 impl SiteGroup {
@@ -24,6 +27,7 @@ impl SiteGroup {
         Arc::new(SiteGroup {
             config: Arc::new(config),
             sites: AHashMap::new(),
+            tenant_user_group: Arc::new(ArcSwapOption::from(None)),
         })
     }
 
@@ -45,14 +49,18 @@ impl SiteGroup {
             .for_each_unique(|cfg| configs.push(Arc::clone(cfg)));
 
         let group_name = config.name().clone();
+        let tenant_user_group = Arc::new(ArcSwapOption::from(load_tenant_user_group(
+            config.tenant_user_group(),
+        )));
         let mut sites = AHashMap::with_capacity(configs.len());
         for cfg in configs {
             let id = cfg.id().clone();
             let site = if let Some(old) = old_sites.and_then(|m| m.get(&id)) {
-                old.new_for_reload(&cfg)
+                old.new_for_reload(&cfg, Arc::clone(&tenant_user_group))
                     .context(format!("failed to reload site {id}"))?
             } else {
-                Site::try_build(&group_name, &cfg).context(format!("failed to build site {id}"))?
+                Site::try_build(&group_name, &cfg, Arc::clone(&tenant_user_group))
+                    .context(format!("failed to build site {id}"))?
             };
             let site = Arc::new(site);
             if sites.insert(site.id().clone(), site).is_some() {
@@ -63,6 +71,7 @@ impl SiteGroup {
         Ok(Arc::new(SiteGroup {
             config: Arc::new(config),
             sites,
+            tenant_user_group,
         }))
     }
 
@@ -76,6 +85,19 @@ impl SiteGroup {
 
     pub(crate) fn get_site(&self, id: &NodeName) -> Option<Arc<Site>> {
         self.sites.get(id).cloned()
+    }
+
+    pub(super) fn update_tenant_user_group_in_place(&self) {
+        self.tenant_user_group
+            .store(load_tenant_user_group(self.config.tenant_user_group()));
+    }
+}
+
+fn load_tenant_user_group(name: &NodeName) -> Option<Arc<UserGroup>> {
+    if name.is_empty() {
+        None
+    } else {
+        Some(Arc::new(crate::auth::get_or_insert_default(name)))
     }
 }
 

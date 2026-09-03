@@ -5,7 +5,7 @@
 
 mod ops;
 pub use ops::load_all;
-pub(crate) use ops::reload;
+pub(crate) use ops::{reload, update_dependency_to_user_group};
 
 mod registry;
 pub(crate) use registry::{get_names, get_or_insert_default};
@@ -15,6 +15,9 @@ pub(crate) use group::SiteGroup;
 
 mod entry;
 pub(crate) use entry::{Site, SiteHttpConnGuard};
+
+mod stats;
+pub(crate) use stats::SiteStats;
 
 mod egress;
 pub(crate) use egress::SiteEgress;

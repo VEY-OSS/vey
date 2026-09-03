@@ -8,7 +8,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
-use arcstr::ArcStr;
 
 use vey_types::limit::{
     GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimitQuota, RateLimiter,
@@ -18,13 +17,15 @@ use vey_types::net::{
     Host, OpensslClientConfig, OpensslServerConfigBuilder, TcpSockSpeedLimitConfig, UpstreamAddr,
 };
 
-use crate::auth::{UserRequestStats, UserSiteStats, UserType};
+use super::SiteStats;
+use crate::auth::{UserGroup, UserRequestStats};
 use crate::config::site::SiteConfig;
 
 pub(crate) struct Site {
     config: Arc<SiteConfig>,
     tls_client: Option<OpensslClientConfig>,
-    stats: Arc<UserSiteStats>,
+    stats: Arc<SiteStats>,
+    tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
     request_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
     req_alive_sem: Option<GaugeSemaphore>,
 }
@@ -33,6 +34,7 @@ impl Site {
     pub(super) fn try_build(
         site_group: &NodeName,
         config: &Arc<SiteConfig>,
+        tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
     ) -> anyhow::Result<Self> {
         let tls_client = build_tls_client(config)?;
         let request_rate_limit = config
@@ -43,17 +45,18 @@ impl Site {
         Ok(Site {
             config: Arc::clone(config),
             tls_client,
-            stats: Arc::new(UserSiteStats::new(
-                ArcStr::from(config.id().as_str()),
-                site_group,
-                config.id(),
-            )),
+            stats: Arc::new(SiteStats::new(site_group, config.id(), config.owner())),
+            tenant_user_group,
             request_rate_limit,
             req_alive_sem,
         })
     }
 
-    pub(super) fn new_for_reload(&self, config: &Arc<SiteConfig>) -> anyhow::Result<Self> {
+    pub(super) fn new_for_reload(
+        &self,
+        config: &Arc<SiteConfig>,
+        tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
+    ) -> anyhow::Result<Self> {
         let tls_client = build_tls_client(config)?;
         let request_rate_limit = reuse_or_new_rate_limiter(
             &self.request_rate_limit,
@@ -71,6 +74,7 @@ impl Site {
             config: Arc::clone(config),
             tls_client,
             stats: Arc::clone(&self.stats),
+            tenant_user_group,
             request_rate_limit,
             req_alive_sem,
         })
@@ -78,6 +82,14 @@ impl Site {
 
     pub(crate) fn id(&self) -> &NodeName {
         self.config.id()
+    }
+
+    pub(crate) fn owner(&self) -> &NodeName {
+        self.config.owner()
+    }
+
+    pub(crate) fn tenant_user_group(&self) -> Option<Arc<UserGroup>> {
+        self.tenant_user_group.load_full()
     }
 
     pub(crate) fn upstream(&self) -> &UpstreamAddr {
@@ -101,7 +113,7 @@ impl Site {
         &self.config
     }
 
-    pub(crate) fn stats(&self) -> &Arc<UserSiteStats> {
+    pub(crate) fn stats(&self) -> &Arc<SiteStats> {
         &self.stats
     }
 
@@ -136,9 +148,7 @@ impl Site {
         server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> SiteHttpConnGuard {
-        let stats = self
-            .stats
-            .fetch_request_stats(UserType::Anonymous, server, server_extra_tags);
+        let stats = self.stats.fetch_request_stats(server, server_extra_tags);
         stats.conn_total.add_http();
         stats.l7_conn_alive.inc_http();
         SiteHttpConnGuard { stats }

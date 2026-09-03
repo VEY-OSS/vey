@@ -22,6 +22,10 @@ use vey_yaml::{YamlDocPosition, YamlMapCallback};
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct SiteConfig {
     id: NodeName,
+    /// The tenant this site belongs to. Looked up in the site group's
+    /// `tenant_user_group` and attached as `SiteContext` tenant. Reported as
+    /// `-` in site metrics when unset.
+    owner: NodeName,
     upstream: UpstreamAddr,
     pub(crate) tls_server_builder: Option<OpensslServerConfigBuilder>,
     pub(crate) tls_client_builder: Option<OpensslClientConfigBuilder>,
@@ -43,6 +47,7 @@ impl Default for SiteConfig {
     fn default() -> Self {
         SiteConfig {
             id: NodeName::default(),
+            owner: NodeName::default(),
             upstream: UpstreamAddr::empty(),
             tls_server_builder: None,
             tls_client_builder: None,
@@ -67,6 +72,10 @@ impl SiteConfig {
         &self.id
     }
 
+    pub(crate) fn owner(&self) -> &NodeName {
+        &self.owner
+    }
+
     pub(crate) fn upstream(&self) -> &UpstreamAddr {
         &self.upstream
     }
@@ -86,6 +95,11 @@ impl YamlMapCallback for SiteConfig {
         match key {
             "id" | "name" => {
                 self.id = vey_yaml::value::as_metric_node_name(value)?;
+                Ok(())
+            }
+            "owner" | "tenant" => {
+                self.owner = vey_yaml::value::as_metric_node_name(value)
+                    .context(format!("invalid metric node name value for key {key}"))?;
                 Ok(())
             }
             "upstream" => {

@@ -51,7 +51,6 @@ impl SiteEgress {
         }
     }
 
-    #[allow(dead_code)] // http_guard host will pre-merge tenant at build
     pub(crate) fn shrink_with_tenant(&self, tenant: Option<&UserContext>) -> Self {
         let Some(tenant) = tenant else {
             return self.clone();

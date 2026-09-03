@@ -46,6 +46,7 @@ pub async fn load_all() -> anyhow::Result<()> {
             debug!("deleting user group {name}");
             registry::del(name);
             crate::serve::update_dependency_to_user_group(name, "deleted").await;
+            crate::site::update_dependency_to_user_group(name, "deleted").await;
             debug!("user group {name} deleted");
         }
     }
@@ -106,6 +107,7 @@ async fn reload_old_unlocked(
     let new_group = old_group.reload(new)?;
     registry::add(name.clone(), new_group);
     crate::serve::update_dependency_to_user_group(name, "reloaded").await;
+    crate::site::update_dependency_to_user_group(name, "reloaded").await;
     Ok(())
 }
 
@@ -114,5 +116,6 @@ async fn spawn_new_unlocked(config: AnyUserGroupConfig) -> anyhow::Result<()> {
     let group = UserGroup::new_with_config(config).await?;
     registry::add(name.clone(), group);
     crate::serve::update_dependency_to_user_group(&name, "spawned").await;
+    crate::site::update_dependency_to_user_group(&name, "spawned").await;
     Ok(())
 }

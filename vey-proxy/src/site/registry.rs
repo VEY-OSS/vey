@@ -21,6 +21,16 @@ pub(super) fn add(name: NodeName, group: Arc<SiteGroup>) {
     ht.insert(name, group);
 }
 
+pub(super) fn foreach<F>(mut f: F)
+where
+    F: FnMut(&NodeName, &Arc<SiteGroup>),
+{
+    let ht = RUNTIME_SITE_GROUP_REGISTRY.lock().unwrap();
+    for (name, group) in ht.iter() {
+        f(name, group);
+    }
+}
+
 pub(super) fn get(name: &NodeName) -> Option<Arc<SiteGroup>> {
     let ht = RUNTIME_SITE_GROUP_REGISTRY.lock().unwrap();
     ht.get(name).cloned()

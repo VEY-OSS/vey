@@ -113,3 +113,23 @@ async fn spawn_new_unlocked(config: SiteGroupConfig) -> anyhow::Result<()> {
     crate::serve::update_dependency_to_site_group(&name, "spawned").await;
     Ok(())
 }
+
+pub(crate) async fn update_dependency_to_user_group(user_group: &NodeName, status: &str) {
+    let _guard = SITE_GROUP_OPS_LOCK.lock().await;
+
+    let mut names = Vec::<NodeName>::new();
+    registry::foreach(|name, group| {
+        if group.config().tenant_user_group().eq(user_group) {
+            names.push(name.clone());
+            group.update_tenant_user_group_in_place();
+        }
+    });
+
+    if names.is_empty() {
+        return;
+    }
+
+    debug!(
+        "user group {user_group} changed({status}), updated tenant_user_group on site group(s) {names:?}"
+    );
+}

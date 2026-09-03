@@ -26,9 +26,31 @@ id
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 Site ID. It must be unique inside the site group. Reloading the site group
-reuses this site's runtime (stats, limiter) when the ID is unchanged.
+reuses this site's runtime (stats, limiter) when the ID is unchanged. The ID
+is exported as the ``site`` tag on :ref:`site metrics <metrics_site>`.
 
 **alias**: ``name``
+
+.. _conf_site_owner:
+
+owner
+-----
+
+**optional**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
+
+The tenant this site belongs to. Reverse-proxy servers look this name up in
+the site group's :ref:`tenant_user_group <conf_site_group_tenant_user_group>`
+and attach the matching user as the site tenant for the request. That tenant
+supplies rate limits, idle limits, and egress overrides (connect, keepalive,
+path selection, resolve strategy) that are then constrained by this site.
+
+It is also exported as the ``tenant`` tag on :ref:`site metrics
+<metrics_site>`. When unset, that tag is ``-`` and the request has no tenant.
+
+If the name is set but ``tenant_user_group`` is unset, or the user is not
+found in that group, the site is still served without a tenant.
+
+**default**: not set, **alias**: ``tenant``
 
 .. _conf_site_upstream:
 

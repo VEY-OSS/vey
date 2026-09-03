@@ -15,7 +15,7 @@ use vey_statsd_client::{StatsdClient, StatsdClientConfig};
 pub(crate) mod types;
 
 mod metrics;
-pub(crate) use metrics::user_site;
+pub(crate) use metrics::{site, user_site};
 
 static QUIT_STAT_THREAD: AtomicBool = AtomicBool::new(false);
 
@@ -43,12 +43,14 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
                 metrics::escaper::sync_stats();
                 metrics::resolver::sync_stats();
                 metrics::user::sync_stats();
+                metrics::site::sync_stats();
                 vey_daemon::log::metrics::sync_stats();
 
                 metrics::server::emit_stats(&mut client);
                 metrics::escaper::emit_stats(&mut client);
                 metrics::resolver::emit_stats(&mut client);
                 metrics::user::emit_stats(&mut client);
+                metrics::site::emit_stats(&mut client);
                 vey_daemon::runtime::metrics::emit_stats(&mut client);
                 vey_daemon::log::metrics::emit_stats(&mut client);
 

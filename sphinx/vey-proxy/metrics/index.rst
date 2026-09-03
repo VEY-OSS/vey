@@ -92,5 +92,6 @@ Metrics Types
    resolver
    user
    user_site
+   site
    logger
    runtime

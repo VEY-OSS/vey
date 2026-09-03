@@ -163,6 +163,16 @@ impl UserGroup {
         }
     }
 
+    pub(crate) fn get_named_user(&self, username: &str) -> Option<(Arc<User>, UserType)> {
+        match self {
+            UserGroup::Basic(v) => v.base().get_named_user(username),
+            UserGroup::Facts(v) => v.base().get_named_user(username),
+            UserGroup::Ldap(v) => v.base().get_named_user(username),
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => v.base().get_named_user(username),
+        }
+    }
+
     pub(crate) fn foreach_user<F>(&self, f: F)
     where
         F: FnMut(&str, &Arc<User>),
@@ -488,17 +498,20 @@ where
             .map(|user| (user.clone(), UserType::Anonymous))
     }
 
-    fn get_user(&self, username: &str) -> Option<(Arc<User>, UserType)> {
+    fn get_named_user(&self, username: &str) -> Option<(Arc<User>, UserType)> {
         if let Some(user) = self.static_users.get(username) {
             return Some((Arc::clone(user), UserType::Static));
         }
 
         let dynamic_users = self.dynamic_users.load();
-        if let Some(user) = dynamic_users.get(username) {
-            return Some((Arc::clone(user), UserType::Dynamic));
-        }
+        dynamic_users
+            .get(username)
+            .map(|user| (Arc::clone(user), UserType::Dynamic))
+    }
 
-        self.get_anonymous_user()
+    fn get_user(&self, username: &str) -> Option<(Arc<User>, UserType)> {
+        self.get_named_user(username)
+            .or_else(|| self.get_anonymous_user())
     }
 
     fn stop_fetch_job(&self) {

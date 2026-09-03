@@ -7,6 +7,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
+use arcstr::ArcStr;
 
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts};
@@ -14,7 +15,7 @@ use vey_types::resolve::ResolveStrategy;
 
 use super::{Site, SiteEgress};
 use crate::auth::{
-    UserContext, UserRequestStats, UserTrafficStats, UserType, UserUpstreamTrafficStats,
+    UserContext, UserGroup, UserRequestStats, UserTrafficStats, UserUpstreamTrafficStats,
 };
 use crate::escape::EgressPathSelection;
 
@@ -30,15 +31,24 @@ pub(crate) struct SiteContext {
 impl SiteContext {
     pub(crate) fn new(
         origin: Arc<Site>,
-        tenant: Option<UserContext>,
         egress: Arc<SiteEgress>,
         server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Self {
-        let origin_req_stats =
-            origin
-                .stats()
-                .fetch_request_stats(UserType::Anonymous, server, server_extra_tags);
+        let tenant_group = origin.tenant_user_group();
+        let tenant = lookup_tenant(
+            origin.owner(),
+            tenant_group.as_deref(),
+            server,
+            server_extra_tags,
+        );
+        let egress = match tenant.as_ref() {
+            Some(t) => Arc::new(egress.shrink_with_tenant(Some(t))),
+            None => egress,
+        };
+        let origin_req_stats = origin
+            .stats()
+            .fetch_request_stats(server, server_extra_tags);
         SiteContext {
             origin,
             tenant,
@@ -106,7 +116,7 @@ impl SiteContext {
     ) -> Arc<UserTrafficStats> {
         self.origin
             .stats()
-            .fetch_traffic_stats(UserType::Anonymous, server, server_extra_tags)
+            .fetch_traffic_stats(server, server_extra_tags)
     }
 
     pub(crate) fn fetch_upstream_traffic_stats(
@@ -114,11 +124,9 @@ impl SiteContext {
         escaper: &NodeName,
         escaper_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserUpstreamTrafficStats> {
-        self.origin.stats().fetch_upstream_traffic_stats(
-            UserType::Anonymous,
-            escaper,
-            escaper_extra_tags,
-        )
+        self.origin
+            .stats()
+            .fetch_upstream_traffic_stats(escaper, escaper_extra_tags)
     }
 
     pub(crate) fn check_rate_limit(&self) -> Result<(), ()> {
@@ -127,4 +135,23 @@ impl SiteContext {
         }
         self.origin.check_rate_limit()
     }
+}
+
+fn lookup_tenant(
+    owner: &NodeName,
+    tenant_group: Option<&UserGroup>,
+    server: &NodeName,
+    server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
+) -> Option<UserContext> {
+    if owner.is_empty() {
+        return None;
+    }
+    let (user, user_type) = tenant_group?.get_named_user(owner.as_str())?;
+    Some(UserContext::new(
+        Some(ArcStr::from(owner.as_str())),
+        user,
+        user_type,
+        server,
+        server_extra_tags,
+    ))
 }

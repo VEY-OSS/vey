@@ -11,6 +11,7 @@ pub(super) mod server;
 pub(super) mod user;
 use user::{RequestStatsNamesRef, TrafficStatsNamesRef, UserMetricExt};
 
+pub(crate) mod site;
 pub(crate) mod user_site;
 
 const TAG_KEY_ESCAPER: &str = "escaper";

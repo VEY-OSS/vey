@@ -207,7 +207,6 @@ where
                                 Some(host) => {
                                     let site_ctx = SiteContext::new(
                                         Arc::clone(host.site()),
-                                        None,
                                         Arc::clone(host.egress()),
                                         self.ctx.server_config.name(),
                                         self.ctx.server_stats.share_extra_tags(),

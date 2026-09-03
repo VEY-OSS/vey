@@ -22,8 +22,12 @@ group. Requests then have no matching site.
 
 Reload a single group with ``vey-proxy-ctl reload-site-group <name>``. Sites
 keep their stats and limiters when the site ID is unchanged. Every online
-``http_expose`` server that references the group then rebuilds its host table.
+reverse-proxy server that references the group then rebuilds its host table.
 ``vey-proxy-ctl list site-group`` lists loaded group names.
+
+Site request and traffic counters are exported as :ref:`site metrics
+<metrics_site>`, with the group name, site ID, and optional
+:ref:`owner <conf_site_owner>` as tags.
 
 .. versionadded:: 1.15.0
 
@@ -43,6 +47,21 @@ name
 **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 The site-group name. Servers reference it with ``site_group``.
+
+.. _conf_site_group_tenant_user_group:
+
+tenant_user_group
+-----------------
+
+**optional**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
+
+User group used to resolve each site's :ref:`owner <conf_site_owner>` into a
+tenant user. ``http_expose`` visitor authentication still uses the server
+``user_group`` and does not read this key.
+
+If unset, sites have no tenant even when ``owner`` is set.
+
+**default**: not set
 
 .. _conf_site_group_static_sites:
 
@@ -74,8 +93,10 @@ Example
 
    site_group:
      - name: local
+       tenant_user_group: customers
        static_sites:
          - id: app
+           owner: team_a
            exact_match:
              - app.example.net
              - www.app.example.net

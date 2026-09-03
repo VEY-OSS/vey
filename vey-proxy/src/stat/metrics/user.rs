@@ -307,12 +307,26 @@ pub(super) fn emit_user_request_stats<'a>(
         common_tags.add_static_tags(&server_extra_tags);
     }
 
+    emit_request_stats_with_tags(client, stats, snap, names, &common_tags);
+}
+
+/// Emit request counters under caller supplied tags.
+///
+/// Used by both `user.*` and `site.*`, which share the counter layout but not
+/// the tag set.
+pub(super) fn emit_request_stats_with_tags<'a>(
+    client: &'a mut StatsdClient,
+    stats: &'a UserRequestStats,
+    snap: &'a mut UserRequestSnapshot,
+    names: &'a RequestStatsNamesRef<'a>,
+    common_tags: &'a StatsdTagGroup,
+) {
     find_conn_stat(
         &stats.conn_total,
         &mut snap.conn_total,
         |value, conn_type| {
             client
-                .count_with_tags(names.connection_total, value, &common_tags)
+                .count_with_tags(names.connection_total, value, common_tags)
                 .with_tag(TAG_KEY_CONNECTION, conn_type)
                 .send();
         },
@@ -320,42 +334,42 @@ pub(super) fn emit_user_request_stats<'a>(
 
     find_l7conn_alive_stat(&stats.l7_conn_alive, |value, conn_type| {
         client
-            .gauge_with_tags(names.l7_connection_alive, value, &common_tags)
+            .gauge_with_tags(names.l7_connection_alive, value, common_tags)
             .with_tag(TAG_KEY_CONNECTION, conn_type)
             .send();
     });
 
     find_req_stat(&stats.req_total, &mut snap.req_total, |value, req_type| {
         client
-            .count_with_tags(names.request_total, value, &common_tags)
+            .count_with_tags(names.request_total, value, common_tags)
             .with_tag(TAG_KEY_REQUEST, req_type)
             .send();
     });
 
     find_req_alive_stat(&stats.req_alive, |value, req_type| {
         client
-            .gauge_with_tags(names.request_alive, value, &common_tags)
+            .gauge_with_tags(names.request_alive, value, common_tags)
             .with_tag(TAG_KEY_REQUEST, req_type)
             .send();
     });
 
     find_req_stat(&stats.req_ready, &mut snap.req_ready, |value, req_type| {
         client
-            .count_with_tags(names.request_ready, value, &common_tags)
+            .count_with_tags(names.request_ready, value, common_tags)
             .with_tag(TAG_KEY_REQUEST, req_type)
             .send();
     });
 
     find_keepalive_req_stat(&stats.req_reuse, &mut snap.req_reuse, |value, req_type| {
         client
-            .count_with_tags(names.request_reuse, value, &common_tags)
+            .count_with_tags(names.request_reuse, value, common_tags)
             .with_tag(TAG_KEY_REQUEST, req_type)
             .send();
     });
 
     find_keepalive_req_stat(&stats.req_renew, &mut snap.req_renew, |value, req_type| {
         client
-            .count_with_tags(names.request_renew, value, &common_tags)
+            .count_with_tags(names.request_renew, value, common_tags)
             .with_tag(TAG_KEY_REQUEST, req_type)
             .send();
     });
@@ -379,9 +393,20 @@ pub(super) fn emit_user_traffic_stats<'a>(
         common_tags.add_static_tags(&server_extra_tags);
     }
 
+    emit_traffic_stats_with_tags(client, stats, snap, names, &common_tags);
+}
+
+/// Emit client side traffic counters under caller supplied tags.
+pub(super) fn emit_traffic_stats_with_tags<'a>(
+    client: &'a mut StatsdClient,
+    stats: &'a UserTrafficStats,
+    snap: &'a mut UserTrafficSnapshot,
+    names: &'a TrafficStatsNamesRef<'a>,
+    common_tags: &'a StatsdTagGroup,
+) {
     find_io_stat(&stats.io, &mut snap.io, names, |key, value, req_type| {
         client
-            .count_with_tags(key, value, &common_tags)
+            .count_with_tags(key, value, common_tags)
             .with_tag(TAG_KEY_REQUEST, req_type)
             .send();
     });
@@ -405,9 +430,20 @@ pub(super) fn emit_user_upstream_traffic_stats<'a>(
         common_tags.add_static_tags(&escaper_extra_tags);
     }
 
+    emit_upstream_traffic_stats_with_tags(client, stats, snap, names, &common_tags);
+}
+
+/// Emit upstream traffic counters under caller supplied tags.
+pub(super) fn emit_upstream_traffic_stats_with_tags<'a>(
+    client: &'a mut StatsdClient,
+    stats: &'a UserUpstreamTrafficStats,
+    snap: &'a mut UserUpstreamTrafficSnapshot,
+    names: &'a TrafficStatsNamesRef<'a>,
+    common_tags: &'a StatsdTagGroup,
+) {
     find_ups_io_stat(&stats.io, &mut snap.io, names, |key, value, trans_type| {
         client
-            .count_with_tags(key, value, &common_tags)
+            .count_with_tags(key, value, common_tags)
             .with_tag(TAG_KEY_TRANSPORT, trans_type)
             .send();
     });
