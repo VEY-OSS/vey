@@ -21,13 +21,9 @@ impl ServerIdleChecker {
     pub(crate) fn new(
         idle_wheel: Arc<IdleWheel>,
         user: Option<Arc<User>>,
-        task_max_idle_count: usize,
+        max_idle_count: usize,
         server_quit_policy: Arc<ServerQuitPolicy>,
     ) -> Self {
-        let max_idle_count = user
-            .as_ref()
-            .and_then(|u| u.task_max_idle_count())
-            .unwrap_or(task_max_idle_count);
         ServerIdleChecker {
             idle_wheel,
             user,

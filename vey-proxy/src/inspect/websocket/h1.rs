@@ -111,7 +111,7 @@ impl<SC: ServerConfig> StreamTransitTask for H1WebsocketInterceptObject<SC> {
     }
 
     fn max_idle_count(&self) -> usize {
-        self.ctx.max_idle_count
+        self.ctx.max_idle_count()
     }
 
     fn log_client_shutdown(&self) {

@@ -91,10 +91,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             uri_log_max_chars,
         );
         let is_https = site.tls_client().is_some();
-        let max_idle_count = task_notes
-            .user_ctx()
-            .and_then(|c| c.user().task_max_idle_count())
-            .unwrap_or(ctx.server_config.task_idle_max_count);
+        let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
         HttpExposeForwardTask {
             ctx: Arc::clone(ctx),
             site,
@@ -245,14 +242,10 @@ impl<'a> HttpExposeForwardTask<'a> {
     fn pre_start(&mut self) {
         self._alive_guard = Some(self.ctx.server_stats.add_forward_task());
 
-        self.site.stats().add_request();
-
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.foreach_req_stats(|s| {
-                s.req_total.add_http_forward(self.is_https);
-                s.req_alive.add_http_forward(self.is_https);
-            });
-        }
+        self.task_notes.foreach_req_stats(|s| {
+            s.req_total.add_http_forward(self.is_https);
+            s.req_alive.add_http_forward(self.is_https);
+        });
 
         if self.ctx.server_config.flush_task_log_on_created
             && let Some(log_ctx) = self.get_log_context()
@@ -264,14 +257,11 @@ impl<'a> HttpExposeForwardTask<'a> {
     }
 
     fn post_stop(&mut self) {
-        self.site.stats().dec_alive();
+        self.task_notes
+            .foreach_req_stats(|s| s.req_alive.del_http_forward(self.is_https));
 
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.foreach_req_stats(|s| s.req_alive.del_http_forward(self.is_https));
-
-            if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
-                drop(user_req_alive_permit);
-            }
+        if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
+            drop(user_req_alive_permit);
         }
         self._site_req_alive_permit.take();
     }
@@ -363,16 +353,14 @@ impl<'a> HttpExposeForwardTask<'a> {
             let mut wrapper_stats =
                 HttpsForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
 
-            if let Some(user_ctx) = self.task_notes.user_ctx() {
-                let user_io_stats = user_ctx.fetch_traffic_stats(
-                    self.ctx.server_config.name(),
-                    self.ctx.server_stats.share_extra_tags(),
-                );
-                for s in &user_io_stats {
-                    s.io.https_forward.add_in_bytes(origin_header_size);
-                }
-                wrapper_stats.push_user_io_stats(user_io_stats);
+            let user_io_stats = self.task_notes.fetch_traffic_stats(
+                self.ctx.server_config.name(),
+                self.ctx.server_stats.share_extra_tags(),
+            );
+            for s in &user_io_stats {
+                s.io.https_forward.add_in_bytes(origin_header_size);
             }
+            wrapper_stats.push_user_io_stats(user_io_stats);
 
             let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
             (clt_r_stats, clt_w_stats, self.clt_speed_limit())
@@ -380,16 +368,14 @@ impl<'a> HttpExposeForwardTask<'a> {
             let mut wrapper_stats =
                 HttpForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
 
-            if let Some(user_ctx) = self.task_notes.user_ctx() {
-                let user_io_stats = user_ctx.fetch_traffic_stats(
-                    self.ctx.server_config.name(),
-                    self.ctx.server_stats.share_extra_tags(),
-                );
-                for s in &user_io_stats {
-                    s.io.http_forward.add_in_bytes(origin_header_size);
-                }
-                wrapper_stats.push_user_io_stats(user_io_stats);
+            let user_io_stats = self.task_notes.fetch_traffic_stats(
+                self.ctx.server_config.name(),
+                self.ctx.server_stats.share_extra_tags(),
+            );
+            for s in &user_io_stats {
+                s.io.http_forward.add_in_bytes(origin_header_size);
             }
+            wrapper_stats.push_user_io_stats(user_io_stats);
 
             let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
             (clt_r_stats, clt_w_stats, self.clt_speed_limit())
@@ -440,18 +426,33 @@ impl<'a> HttpExposeForwardTask<'a> {
         CDR: AsyncRead + Unpin,
         CDW: AsyncWrite + Unpin,
     {
-        let mut upstream_keepalive = self.ctx.server_config.http_forward_upstream_keepalive;
+        let upstream_keepalive = self.ctx.server_config.http_forward_upstream_keepalive;
         let tcp_client_misc_opts;
+
+        if self.task_notes.check_layered_rate_limit().is_err() {
+            self.reply_too_many_requests(clt_w).await;
+            return Err(ServerTaskError::ForbiddenByRule(
+                ServerTaskForbiddenError::RateLimited,
+            ));
+        }
+
+        let site_alive = self
+            .task_notes
+            .site_ctx()
+            .map(|ctx| ctx.origin().acquire_request_semaphore())
+            .unwrap_or_else(|| self.site.acquire_request_semaphore());
+        match site_alive {
+            Ok(permit) => self._site_req_alive_permit = permit,
+            Err(_) => {
+                self.reply_too_many_requests(clt_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
+            }
+        }
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
-
-            if user_ctx.check_rate_limit().is_err() {
-                self.reply_too_many_requests(clt_w).await;
-                return Err(ServerTaskError::ForbiddenByRule(
-                    ServerTaskForbiddenError::RateLimited,
-                ));
-            }
 
             match user_ctx.acquire_request_semaphore() {
                 Ok(permit) => self.task_notes.user_req_alive_permit = Some(permit),
@@ -470,29 +471,11 @@ impl<'a> HttpExposeForwardTask<'a> {
                 self.handle_user_ua_acl_action(action, clt_w).await?;
             }
 
-            upstream_keepalive =
-                upstream_keepalive.adjust_to(user_ctx.user_config().http_upstream_keepalive);
             tcp_client_misc_opts = user_ctx
                 .user_config()
                 .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts);
         } else {
             tcp_client_misc_opts = Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts);
-        }
-
-        if self.site.check_rate_limit().is_err() {
-            self.reply_too_many_requests(clt_w).await;
-            return Err(ServerTaskError::ForbiddenByRule(
-                ServerTaskForbiddenError::RateLimited,
-            ));
-        }
-        match self.site.acquire_request_semaphore() {
-            Ok(permit) => self._site_req_alive_permit = permit,
-            Err(_) => {
-                self.reply_too_many_requests(clt_w).await;
-                return Err(ServerTaskError::ForbiddenByRule(
-                    ServerTaskForbiddenError::FullyLoaded,
-                ));
-            }
         }
 
         // set client side socket options
@@ -518,9 +501,8 @@ impl<'a> HttpExposeForwardTask<'a> {
             self.http_notes.reused_connection = true;
             fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
             self.http_notes.retry_new_connection = false;
-            if let Some(user_ctx) = self.task_notes.user_ctx() {
-                user_ctx.foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
-            }
+            self.task_notes
+                .foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
 
             if self.ctx.server_config.flush_task_log_on_connected
                 && let Some(log_ctx) = self.get_log_context()
@@ -548,10 +530,8 @@ impl<'a> HttpExposeForwardTask<'a> {
                         }
                         self.task_stats.ups.reset();
                         // continue to make new connection
-                        if let Some(user_ctx) = self.task_notes.user_ctx() {
-                            user_ctx
-                                .foreach_req_stats(|s| s.req_renew.add_http_forward(self.is_https));
-                        }
+                        self.task_notes
+                            .foreach_req_stats(|s| s.req_renew.add_http_forward(self.is_https));
                     } else {
                         self.should_close = true;
                         if self.send_error_response {
@@ -675,9 +655,8 @@ impl<'a> HttpExposeForwardTask<'a> {
 
     fn mark_relaying(&mut self) {
         self.task_notes.mark_relaying();
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.foreach_req_stats(|s| s.req_ready.add_http_forward(self.is_https));
-        }
+        self.task_notes
+            .foreach_req_stats(|s| s.req_ready.add_http_forward(self.is_https));
     }
 
     async fn run_with_connection<CDR, CDW>(

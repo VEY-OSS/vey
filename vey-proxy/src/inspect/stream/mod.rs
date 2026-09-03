@@ -76,10 +76,7 @@ pub(crate) trait StreamTransitTask {
             })
             .unwrap_or_default();
         let mut idle_count = 0;
-        let max_idle_count = self
-            .user()
-            .and_then(|u| u.task_max_idle_count())
-            .unwrap_or(self.max_idle_count());
+        let max_idle_count = self.max_idle_count();
         loop {
             tokio::select! {
                 r = &mut clt_to_ups => {
@@ -337,7 +334,7 @@ impl<SC: ServerConfig> StreamTransitTask for UnknownStreamTransitTask<'_, SC> {
     }
 
     fn max_idle_count(&self) -> usize {
-        self.ctx.max_idle_count
+        self.ctx.max_idle_count()
     }
 
     fn log_client_shutdown(&self) {

@@ -70,14 +70,9 @@ pub(crate) trait HttpForwardContext {
     ) -> Option<BoxHttpForwardConnection> {
         let (mut connection, escaper) = self.get_alive_connection(idle_expire).await?;
 
-        let all_user_stats = task_notes
-            .user_ctx()
-            .map(|ctx| {
-                escaper
-                    .get_escape_stats()
-                    .map(|s| ctx.fetch_upstream_traffic_stats(s.name(), s.share_extra_tags()))
-                    .unwrap_or_default()
-            })
+        let all_user_stats = escaper
+            .get_escape_stats()
+            .map(|s| task_notes.fetch_upstream_traffic_stats(s.name(), s.share_extra_tags()))
             .unwrap_or_default();
         connection
             .0

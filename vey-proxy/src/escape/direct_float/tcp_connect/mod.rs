@@ -349,7 +349,13 @@ impl DirectFloatEscaper {
             misc_opts: Cow::Borrowed(&self.config.tcp_misc_opts),
         };
 
-        if let Some(user_ctx) = task_notes.user_ctx() {
+        if let Some(site_ctx) = task_notes.site_ctx() {
+            if let Some(limit) = site_ctx.tcp_connect() {
+                config.connect.limit_to(limit);
+            }
+            config.keepalive = config.keepalive.adjust_to(site_ctx.tcp_remote_keepalive());
+            config.misc_opts = site_ctx.tcp_remote_misc_opts(&self.config.tcp_misc_opts);
+        } else if let Some(user_ctx) = task_notes.user_ctx() {
             let user_config = user_ctx.user_config();
 
             if let Some(user_config) = &user_config.tcp_connect {
@@ -396,7 +402,12 @@ impl DirectFloatEscaper {
             misc_opts: Cow::Borrowed(&self.config.tcp_misc_opts),
         };
 
-        if let Some(user_ctx) = task_notes.user_ctx() {
+        if let Some(site_ctx) = task_notes.site_ctx() {
+            if let Some(limit) = site_ctx.tcp_connect() {
+                config.connect.limit_to(limit);
+            }
+            config.misc_opts = site_ctx.tcp_remote_misc_opts(&self.config.tcp_misc_opts);
+        } else if let Some(user_ctx) = task_notes.user_ctx() {
             if let Some(user_config) = &user_ctx.user_config().tcp_connect {
                 config.connect.limit_to(user_config);
             }

@@ -63,10 +63,7 @@ impl SocksProxyUdpConnectTask {
         notes: ServerTaskNotes,
         udp_client_addr: Option<SocketAddr>,
     ) -> Self {
-        let max_idle_count = notes
-            .user_ctx()
-            .and_then(|c| c.user().task_max_idle_count())
-            .unwrap_or(ctx.server_config.task_idle_max_count);
+        let max_idle_count = notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
         SocksProxyUdpConnectTask {
             ctx,
             upstream: None,

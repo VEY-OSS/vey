@@ -152,14 +152,14 @@ impl DirectFixedEscaper {
     }
 
     fn get_resolve_strategy(&self, task_notes: &ServerTaskNotes) -> ResolveStrategy {
-        if let Some(user_ctx) = task_notes.user_ctx() {
-            if let Some(rs) = user_ctx.resolve_strategy() {
-                self.config.resolve_strategy.adjust_to(rs)
-            } else {
-                self.config.resolve_strategy
-            }
+        let overlay = if let Some(site_ctx) = task_notes.site_ctx() {
+            site_ctx.resolve_strategy()
         } else {
-            self.config.resolve_strategy
+            task_notes.user_ctx().and_then(|ctx| ctx.resolve_strategy())
+        };
+        match overlay {
+            Some(rs) => self.config.resolve_strategy.adjust_to(rs),
+            None => self.config.resolve_strategy,
         }
     }
 
@@ -169,9 +169,7 @@ impl DirectFixedEscaper {
         strategy: ResolveStrategy,
         task_notes: &ServerTaskNotes,
     ) -> Result<HappyEyeballsResolveJob, ResolveError> {
-        if let Some(user_ctx) = task_notes.user_ctx()
-            && let Some(redirect) = user_ctx.user().resolve_redirection()
-        {
+        if let Some(redirect) = task_notes.resolve_redirection() {
             match redirect.query_value(&domain) {
                 Ok(Some(v)) => {
                     return HappyEyeballsResolveJob::new_redirected(
@@ -239,9 +237,7 @@ impl DirectFixedEscaper {
         match ups.host() {
             Host::Ip(ip) => Ok(SocketAddr::new(*ip, ups.port())),
             Host::Domain(domain) => {
-                if let Some(user_ctx) = task_notes.user_ctx()
-                    && let Some(redirect) = user_ctx.user().resolve_redirection()
-                {
+                if let Some(redirect) = task_notes.resolve_redirection() {
                     match redirect.query_first(domain, resolve_strategy.query) {
                         Ok(Some(v)) => {
                             return self
@@ -305,10 +301,7 @@ impl DirectFixedEscaper {
         &self,
         task_notes: &ServerTaskNotes,
     ) -> Vec<Arc<UserUpstreamTrafficStats>> {
-        task_notes
-            .user_ctx()
-            .map(|ctx| ctx.fetch_upstream_traffic_stats(self.name(), self.stats.share_extra_tags()))
-            .unwrap_or_default()
+        task_notes.fetch_upstream_traffic_stats(self.name(), self.stats.share_extra_tags())
     }
 }
 

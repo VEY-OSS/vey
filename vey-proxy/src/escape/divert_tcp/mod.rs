@@ -133,10 +133,7 @@ impl DivertTcpEscaper {
         &self,
         task_notes: &ServerTaskNotes,
     ) -> Vec<Arc<UserUpstreamTrafficStats>> {
-        task_notes
-            .user_ctx()
-            .map(|ctx| ctx.fetch_upstream_traffic_stats(self.name(), self.stats.share_extra_tags()))
-            .unwrap_or_default()
+        task_notes.fetch_upstream_traffic_stats(self.name(), self.stats.share_extra_tags())
     }
 
     fn encode_pp2_tlv(

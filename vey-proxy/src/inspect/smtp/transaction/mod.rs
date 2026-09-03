@@ -439,7 +439,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                 n = idle_interval.tick() => {
                     if clt_to_ups.is_idle() {
                         idle_count += n;
-                        if idle_count >= self.ctx.max_idle_count {
+                        if idle_count >= self.ctx.max_idle_count() {
                             return if clt_to_ups.no_cached_data() {
                                 Err(ServerTaskError::ClientAppTimeout("idle while reading BDAT data"))
                             } else {

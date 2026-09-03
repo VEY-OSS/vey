@@ -77,10 +77,7 @@ impl<'a> FtpOverHttpTask<'a> {
             &req.upstream,
             ctx.server_config.log_uri_max_chars,
         );
-        let max_idle_count = task_notes
-            .user_ctx()
-            .and_then(|c| c.user().task_max_idle_count())
-            .unwrap_or(ctx.server_config.task_idle_max_count);
+        let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
         FtpOverHttpTask {
             ctx: Arc::clone(ctx),
             req: &req.inner,

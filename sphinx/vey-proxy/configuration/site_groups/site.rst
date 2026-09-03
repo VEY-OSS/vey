@@ -111,3 +111,147 @@ request_max_alive
 Maximum number of concurrent requests for this site.
 
 **default**: no limit
+
+.. _conf_site_task_idle_max_count:
+
+task_idle_max_count
+-------------------
+
+**optional**, **type**: usize
+
+The task is closed once the idle check reports ``IDLE`` this many times.
+
+The effective count is the **minimum** of the values set on:
+
+* tenant user
+* this origin site
+* visitor user
+
+Layers that omit the key are skipped. The result overwrites the server
+:ref:`task_idle_max_count <conf_server_common_task_idle_max_count>`.
+If none of them set it, the server value is used.
+
+The idle-check interval can only be configured at the server level,
+see :ref:`server task_idle_check_interval <conf_server_common_task_idle_check_interval>`.
+
+**default**: not set
+
+.. _conf_site_tcp_connect:
+
+tcp_connect
+-----------
+
+**optional**, **type**: :external+values:ref:`tcp connect <conf_value_tcp_connect>`
+
+Origin-site TCP connect parameters. These apply to *direct* escapers and are
+further constrained by escaper-level settings.
+
+When a tenant user is present, the tenant value is limited to this site
+value. A visitor user does not change origin connect
+parameters.
+
+**default**: not set
+
+.. _conf_site_tcp_remote_keepalive:
+
+tcp_remote_keepalive
+--------------------
+
+**optional**, **type**: :external+values:ref:`tcp keepalive <conf_value_tcp_keepalive>`
+
+TCP keepalive for the remote TCP socket to this origin.
+
+When a tenant user is present, the tenant keepalive is adjusted to this
+site value. A visitor user does not change origin keepalive.
+
+**default**: no keepalive set
+
+.. _conf_site_tcp_remote_misc_opts:
+
+tcp_remote_misc_opts
+--------------------
+
+**optional**, **type**: :external+values:ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
+
+Miscellaneous TCP socket options for the remote TCP socket to this origin.
+
+When a tenant user is present, the tenant options are adjusted to this
+site value. A visitor user does not change origin socket options.
+
+**default**: not set
+
+.. _conf_site_udp_remote_misc_opts:
+
+udp_remote_misc_opts
+--------------------
+
+**optional**, **type**: :external+values:ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
+
+Miscellaneous UDP socket options for the remote UDP socket to this origin.
+
+When a tenant user is present, the tenant options are adjusted to this
+site value. A visitor user does not change origin socket options.
+
+**default**: not set
+
+.. _conf_site_resolve_strategy:
+
+resolve_strategy
+----------------
+
+**optional**, **type**: :external+values:ref:`resolve strategy <conf_value_resolve_strategy>`
+
+Custom resolve strategy for this origin, constrained by the strategy allowed
+by the escaper.
+
+If this site does not set it, the tenant user's strategy is used when
+present. Visitor users are not consulted for origin resolve.
+
+This site does not accept ``resolve_redirection``.
+
+**default**: no custom resolve strategy is set
+
+.. _conf_site_egress_path_id_map:
+
+egress_path_id_map
+------------------
+
+**optional**, **type**: :ref:`string id <proto_egress_path_selection_string_id>` egress path value map
+
+Per-escaper :ref:`string id <proto_egress_path_selection_string_id>` values for
+this origin. Each map key is the target escaper name.
+
+If this site does not set a path, the tenant user's
+:ref:`egress_path_id_map <config_user_egress_path_id_map>` is used when
+present. Visitor users are not consulted for origin path selection.
+
+Example:
+
+.. code-block:: yaml
+
+   egress_path_id_map:
+     direct-egress: hk-v4
+     proxy-pool: corp-exit-2
+
+.. _conf_site_egress_path_value_map:
+
+egress_path_value_map
+---------------------
+
+**optional**, **type**: :ref:`json value <proto_egress_path_selection_json_value>` egress path value map
+
+Per-escaper :ref:`json value <proto_egress_path_selection_json_value>` values
+for this origin. Each map key is the target escaper name.
+
+If this site does not set a path, the tenant user's
+:ref:`egress_path_value_map <config_user_egress_path_value_map>` is used when
+present.
+
+Example:
+
+.. code-block:: yaml
+
+   egress_path_value_map:
+     direct-float:
+       ip: 203.0.113.11
+       id: temp-egress

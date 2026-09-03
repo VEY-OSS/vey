@@ -126,7 +126,7 @@ impl<SC: ServerConfig> StreamTransitTask for H2InterceptObject<SC> {
     }
 
     fn max_idle_count(&self) -> usize {
-        self.ctx.max_idle_count
+        self.ctx.max_idle_count()
     }
 
     fn log_client_shutdown(&self) {
@@ -465,7 +465,7 @@ where
                     if self.stats.get_alive_task() <= 0 {
                         idle_count += n;
 
-                        if idle_count > self.ctx.max_idle_count {
+                        if idle_count > self.ctx.max_idle_count() {
                             let _ = ping_quit_sender.send(());
                             server_abrupt_shutdown(h2c_connection, Reason::NO_ERROR).await;
 

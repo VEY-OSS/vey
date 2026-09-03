@@ -102,7 +102,9 @@ impl DirectFixedEscaper {
             AddressFamily::Ipv6 => egress_notes.udp_relay_v6.bind = Some(bind),
         }
 
-        let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
+        let misc_opts = if let Some(site_ctx) = task_notes.site_ctx() {
+            site_ctx.udp_remote_misc_opts(&self.config.udp_misc_opts)
+        } else if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx
                 .user_config()
                 .udp_remote_misc_opts(&self.config.udp_misc_opts)

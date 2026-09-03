@@ -449,8 +449,12 @@ task_idle_max_count
 
 The task is closed once the idle check reports ``IDLE`` this many times.
 
-This will overwrite the one set at server side,
-see :ref:`server task_idle_max_count <conf_server_common_task_idle_max_count>`.
+This overwrites the server
+:ref:`task_idle_max_count <conf_server_common_task_idle_max_count>`.
+
+When a tenant user and/or origin site also set this key, the effective
+count is the minimum of those values and this user. Layers that omit
+the key are skipped.
 
 The idle-check interval can only be configured at the server level,
 see :ref:`server task_idle_check_interval <conf_server_common_task_idle_check_interval>`.
@@ -458,6 +462,9 @@ see :ref:`server task_idle_check_interval <conf_server_common_task_idle_check_in
 **default**: not set
 
 .. versionchanged:: 1.11.3 change default from 1 to not set
+.. versionchanged:: 1.15.0
+   also takes the minimum with tenant user and origin site when those
+   are set; the result still overwrites the server value
 
 socks_use_udp_associate
 -----------------------

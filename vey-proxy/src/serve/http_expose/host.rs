@@ -10,10 +10,11 @@ use anyhow::Context;
 
 use vey_types::net::{AlpnProtocol, OpensslServerConfig, OpensslTicketKey, RollingTicketer};
 
-use crate::site::Site;
+use crate::site::{Site, SiteEgress};
 
 pub(crate) struct HttpHost {
     site: Arc<Site>,
+    egress: Arc<SiteEgress>,
     tls_server: Option<OpensslServerConfig>,
 }
 
@@ -34,11 +35,21 @@ impl HttpHost {
             None
         };
 
-        Ok(HttpHost { site, tls_server })
+        let egress = Arc::new(SiteEgress::from_site_config(site.config()));
+        Ok(HttpHost {
+            site,
+            egress,
+            tls_server,
+        })
     }
 
     pub(crate) fn site(&self) -> &Arc<Site> {
         &self.site
+    }
+
+    #[inline]
+    pub(crate) fn egress(&self) -> &Arc<SiteEgress> {
+        &self.egress
     }
 
     pub(crate) fn tls_server(&self) -> Option<&OpensslServerConfig> {

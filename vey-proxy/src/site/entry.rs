@@ -7,22 +7,24 @@
 use std::sync::Arc;
 
 use anyhow::Context;
+use arc_swap::ArcSwapOption;
+use arcstr::ArcStr;
 
 use vey_types::limit::{
     GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimitQuota, RateLimiter,
 };
-use vey_types::metrics::NodeName;
+use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
     Host, OpensslClientConfig, OpensslServerConfigBuilder, TcpSockSpeedLimitConfig, UpstreamAddr,
 };
 
-use super::SiteStats;
+use crate::auth::{UserRequestStats, UserSiteStats, UserType};
 use crate::config::site::SiteConfig;
 
 pub(crate) struct Site {
     config: Arc<SiteConfig>,
     tls_client: Option<OpensslClientConfig>,
-    stats: Arc<SiteStats>,
+    stats: Arc<UserSiteStats>,
     request_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
     req_alive_sem: Option<GaugeSemaphore>,
 }
@@ -41,7 +43,11 @@ impl Site {
         Ok(Site {
             config: Arc::clone(config),
             tls_client,
-            stats: Arc::new(SiteStats::new(site_group, config.id())),
+            stats: Arc::new(UserSiteStats::new(
+                ArcStr::from(config.id().as_str()),
+                site_group,
+                config.id(),
+            )),
             request_rate_limit,
             req_alive_sem,
         })
@@ -90,12 +96,22 @@ impl Site {
         self.tls_client.as_ref()
     }
 
-    pub(crate) fn stats(&self) -> &Arc<SiteStats> {
+    #[inline]
+    pub(crate) fn config(&self) -> &Arc<SiteConfig> {
+        &self.config
+    }
+
+    pub(crate) fn stats(&self) -> &Arc<UserSiteStats> {
         &self.stats
     }
 
     pub(crate) fn tcp_sock_speed_limit(&self) -> &TcpSockSpeedLimitConfig {
         &self.config.tcp_sock_speed_limit
+    }
+
+    #[inline]
+    pub(crate) fn task_idle_max_count(&self) -> Option<usize> {
+        self.config.task_idle_max_count
     }
 
     pub(crate) fn check_rate_limit(&self) -> Result<(), ()> {
@@ -112,6 +128,31 @@ impl Site {
             .as_ref()
             .map(|sem| sem.try_acquire().map_err(|_| {}))
             .transpose()
+    }
+
+    /// Count one client HTTP connection against this site until the guard drops.
+    pub(crate) fn hold_http_conn(
+        &self,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
+    ) -> SiteHttpConnGuard {
+        let stats = self
+            .stats
+            .fetch_request_stats(UserType::Anonymous, server, server_extra_tags);
+        stats.conn_total.add_http();
+        stats.l7_conn_alive.inc_http();
+        SiteHttpConnGuard { stats }
+    }
+}
+
+/// Drops `l7_conn_alive` for the site HTTP connection counted by [`Site::hold_http_conn`].
+pub(crate) struct SiteHttpConnGuard {
+    stats: Arc<UserRequestStats>,
+}
+
+impl Drop for SiteHttpConnGuard {
+    fn drop(&mut self) {
+        self.stats.l7_conn_alive.dec_http();
     }
 }
 

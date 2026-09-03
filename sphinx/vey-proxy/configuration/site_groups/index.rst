@@ -86,6 +86,10 @@ Example
            upstream: 10.1.2.3:8080
            tls_client: {}
            tls_name: origin.example.org
+           task_idle_max_count: 3
+           tcp_connect:
+             max_retry: 2
+             each_timeout: 5s
 
    server:
      - name: local_in

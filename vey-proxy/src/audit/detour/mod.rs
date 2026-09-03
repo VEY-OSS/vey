@@ -94,10 +94,7 @@ impl StreamDetourClient {
     where
         SC: ServerConfig,
     {
-        let max_idle_count = task_notes
-            .user()
-            .and_then(|u| u.task_max_idle_count())
-            .unwrap_or(server_config.task_max_idle_count());
+        let max_idle_count = task_notes.max_idle_count();
         StreamDetourContext {
             server_config,
             server_quit_policy,

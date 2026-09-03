@@ -528,7 +528,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                 n = idle_interval.tick() => {
                     if clt_to_ups.is_idle() {
                         idle_count += n;
-                        if idle_count >= self.ctx.max_idle_count {
+                        if idle_count >= self.ctx.max_idle_count() {
                             return if clt_to_ups.no_cached_data() {
                                 Err(ServerTaskError::ClientAppTimeout("idle while reading request body"))
                             } else {
@@ -847,7 +847,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                 n = idle_interval.tick() => {
                     if ups_to_clt.is_idle() {
                         idle_count += n;
-                        if idle_count >= self.ctx.max_idle_count {
+                        if idle_count >= self.ctx.max_idle_count() {
                             return if ups_to_clt.no_cached_data() {
                                 Err(ServerTaskError::UpstreamAppTimeout("idle while reading response body"))
                             } else {

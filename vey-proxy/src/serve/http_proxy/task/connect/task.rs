@@ -568,7 +568,8 @@ impl StreamTransitTask for HttpProxyConnectTask {
     }
 
     fn max_idle_count(&self) -> usize {
-        self.ctx.server_config.task_idle_max_count
+        self.task_notes
+            .task_max_idle_count(self.ctx.server_config.task_idle_max_count)
     }
 
     fn log_client_shutdown(&self) {

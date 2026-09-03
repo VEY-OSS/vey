@@ -464,7 +464,7 @@ where
                     if req_body_transfer.is_idle() {
                         idle_count += n;
 
-                        if idle_count > self.ctx.max_idle_count {
+                        if idle_count > self.ctx.max_idle_count() {
                             return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
@@ -688,7 +688,7 @@ where
                         if rsp_body_transfer.is_idle() {
                             idle_count += n;
 
-                            if idle_count > self.ctx.max_idle_count {
+                            if idle_count > self.ctx.max_idle_count() {
                                 return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                             }
                         } else {

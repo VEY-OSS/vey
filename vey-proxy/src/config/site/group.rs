@@ -84,6 +84,7 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
+    use vey_types::metrics::NodeName;
     use vey_types::net::Host;
     use yaml_rust::YamlLoader;
 
@@ -122,6 +123,20 @@ static_sites:
     tcp_sock_speed_limit: 10MB
     request_rate_limit: 100
     request_max_alive: 32
+    task_idle_max_count: 3
+    resolve_strategy: ipv4first
+    tcp_connect:
+      max_retry: 2
+      each_timeout: 5s
+    tcp_remote_keepalive:
+      enable: true
+      idle_time: 60s
+    tcp_remote_misc_opts:
+      no_delay: true
+    udp_remote_misc_opts:
+      ttl: 64
+    egress_path_id_map:
+      default: path-a
 "#,
         )
         .unwrap();
@@ -134,6 +149,18 @@ static_sites:
         assert_ne!(site.tcp_sock_speed_limit, Default::default());
         assert!(site.request_rate_limit.is_some());
         assert_eq!(site.request_alive_max, Some(32));
+        assert_eq!(site.task_idle_max_count, Some(3));
+        assert!(site.resolve_strategy.is_some());
+        assert_eq!(site.tcp_connect.unwrap().max_tries(), 3);
+        assert!(site.tcp_remote_keepalive.is_enabled());
+        assert_eq!(site.tcp_remote_misc_opts.unwrap().no_delay, Some(true));
+        assert_eq!(site.udp_remote_misc_opts.unwrap().time_to_live, Some(64));
+        assert_eq!(
+            site.egress_path_id_map
+                .get(&NodeName::from_str("default").unwrap())
+                .map(String::as_str),
+            Some("path-a")
+        );
     }
 
     #[test]

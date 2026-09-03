@@ -424,7 +424,7 @@ where
                 n = idle_interval.tick() => {
                     if ups_to_clt.is_idle() {
                         idle_count += n;
-                        if idle_count >= self.ctx.max_idle_count {
+                        if idle_count >= self.ctx.max_idle_count() {
                             return if ups_to_clt.no_cached_data() {
                                 Err(ServerTaskError::UpstreamAppTimeout("idle while reading response body"))
                             } else {

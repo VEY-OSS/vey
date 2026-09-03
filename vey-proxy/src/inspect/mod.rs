@@ -70,6 +70,7 @@ pub(crate) struct StreamInspectTaskNotes {
     pub(crate) server_addr: SocketAddr,
     worker_id: Option<usize>,
     user_ctx: Option<StreamInspectUserContext>,
+    max_idle_count: usize,
 }
 
 impl StreamInspectTaskNotes {
@@ -87,10 +88,8 @@ impl StreamInspectTaskNotes {
     pub(crate) fn task_id(&self) -> &Uuid {
         &self.task_id
     }
-}
 
-impl From<&ServerTaskNotes> for StreamInspectTaskNotes {
-    fn from(task_notes: &ServerTaskNotes) -> Self {
+    fn from_task_notes(task_notes: &ServerTaskNotes, server_config: &impl ServerConfig) -> Self {
         StreamInspectTaskNotes {
             task_id: task_notes.id,
             client_addr: task_notes.client_addr(),
@@ -102,7 +101,13 @@ impl From<&ServerTaskNotes> for StreamInspectTaskNotes {
                 user_site: ctx.user_site().cloned(),
                 forbidden_stats: ctx.forbidden_stats().clone(),
             }),
+            max_idle_count: task_notes.task_max_idle_count(server_config.task_max_idle_count()),
         }
+    }
+
+    #[inline]
+    pub(crate) fn max_idle_count(&self) -> usize {
+        self.max_idle_count
     }
 }
 
@@ -130,8 +135,6 @@ pub(crate) struct StreamInspectContext<SC: ServerConfig> {
     task_notes: StreamInspectTaskNotes,
     connect_notes: StreamInspectConnectNotes,
     inspection_depth: usize,
-
-    max_idle_count: usize,
 }
 
 impl<SC: ServerConfig> Clone for StreamInspectContext<SC> {
@@ -145,7 +148,6 @@ impl<SC: ServerConfig> Clone for StreamInspectContext<SC> {
             task_notes: self.task_notes.clone(),
             connect_notes: self.connect_notes,
             inspection_depth: self.inspection_depth,
-            max_idle_count: self.max_idle_count,
         }
     }
 }
@@ -160,10 +162,8 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         task_notes: &ServerTaskNotes,
         egress_notes: &EgressNotes,
     ) -> Self {
-        let max_idle_count = task_notes
-            .user_ctx()
-            .and_then(|c| c.user().task_max_idle_count())
-            .unwrap_or(server_config.task_max_idle_count());
+        let task_notes =
+            StreamInspectTaskNotes::from_task_notes(task_notes, server_config.as_ref());
 
         StreamInspectContext {
             audit_handle,
@@ -171,10 +171,9 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
             server_stats,
             server_quit_policy,
             idle_wheel,
-            task_notes: StreamInspectTaskNotes::from(task_notes),
+            task_notes,
             connect_notes: StreamInspectConnectNotes::from(egress_notes),
             inspection_depth: 0,
-            max_idle_count,
         }
     }
 
@@ -228,7 +227,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         ServerIdleChecker::new(
             self.idle_wheel.clone(),
             self.user_cloned(),
-            self.max_idle_count,
+            self.max_idle_count(),
             self.server_quit_policy.clone(),
         )
     }
@@ -245,6 +244,11 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
             inspector.push_protocol(p);
         }
         inspector
+    }
+
+    #[inline]
+    pub(crate) fn max_idle_count(&self) -> usize {
+        self.task_notes.max_idle_count()
     }
 
     #[inline]

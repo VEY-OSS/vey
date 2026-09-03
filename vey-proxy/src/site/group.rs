@@ -111,11 +111,10 @@ static_sites:
         let group = SiteGroup::new_with_config(config.clone()).unwrap();
         let id = NodeName::from_str("app").unwrap();
         let site = group.get_site(&id).unwrap();
-        site.stats().add_request();
+        let stats = Arc::clone(site.stats());
 
         let reloaded = group.reload(config).unwrap();
         let site2 = reloaded.get_site(&id).unwrap();
-        assert!(Arc::ptr_eq(site.stats(), site2.stats()));
-        assert_eq!(site2.stats().get_request_total(), 1);
+        assert!(Arc::ptr_eq(&stats, site2.stats()));
     }
 }

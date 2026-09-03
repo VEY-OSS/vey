@@ -13,8 +13,11 @@ pub(crate) use registry::{get_names, get_or_insert_default};
 mod group;
 pub(crate) use group::SiteGroup;
 
-mod stats;
-pub(crate) use stats::SiteStats;
-
 mod entry;
-pub(crate) use entry::Site;
+pub(crate) use entry::{Site, SiteHttpConnGuard};
+
+mod egress;
+pub(crate) use egress::SiteEgress;
+
+mod context;
+pub(crate) use context::SiteContext;

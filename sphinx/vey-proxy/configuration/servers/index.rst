@@ -377,7 +377,9 @@ task_idle_max_count
 
 The task will be closed if the idle check return IDLE the times as this value.
 
-.. note:: The value set at user side will overwrite this.
+.. note:: A value set on tenant user, origin site, or visitor user
+   overwrites this. When more than one of those is set, the minimum
+   is used.
 
 **default**: 5
 

@@ -27,7 +27,7 @@ use crate::config::server::ServerConfig;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
 use crate::serve::http_expose::HttpHost;
 use crate::serve::{ServerStats, ServerTaskNotes};
-use crate::site::Site;
+use crate::site::{Site, SiteContext, SiteHttpConnGuard};
 
 struct UserData {
     req_stats: Arc<UserRequestStats>,
@@ -73,6 +73,7 @@ pub(crate) struct HttpExposePipelineWriterTask<CDR, CDW> {
     wrapper_stats: ArcLimitedWriterStats,
     pipeline_stats: Arc<HttpExposePipelineStats>,
     req_count: RequestCount,
+    origin_conn: Option<SiteHttpConnGuard>,
 }
 
 enum LoopAction {
@@ -112,7 +113,18 @@ where
             wrapper_stats: clt_w_stats,
             pipeline_stats: Arc::clone(pipeline_stats),
             req_count: RequestCount::default(),
+            origin_conn: None,
         }
+    }
+
+    fn note_origin_conn(&mut self, site: &Site) {
+        if self.origin_conn.is_some() {
+            return;
+        }
+        self.origin_conn = Some(site.hold_http_conn(
+            self.ctx.server_config.name(),
+            self.ctx.server_stats.share_extra_tags(),
+        ));
     }
 
     async fn do_auth(
@@ -192,7 +204,17 @@ where
                             self.req_count.consequent_auth_failed = 0;
 
                             match hosts.get(req.upstream.host()).cloned() {
-                                Some(host) => self.run(req, user_ctx, host).await,
+                                Some(host) => {
+                                    let site_ctx = SiteContext::new(
+                                        Arc::clone(host.site()),
+                                        None,
+                                        Arc::clone(host.egress()),
+                                        self.ctx.server_config.name(),
+                                        self.ctx.server_stats.share_extra_tags(),
+                                    );
+                                    self.note_origin_conn(host.site());
+                                    self.run(req, site_ctx, user_ctx, host).await
+                                }
                                 None => {
                                     // close the connection if no site found
                                     self.req_count.invalid += 1;
@@ -247,6 +269,7 @@ where
     async fn run(
         &mut self,
         req: HttpExposeRequest<CDR>,
+        site_ctx: SiteContext,
         user_ctx: Option<UserContext>,
         host: Arc<HttpHost>,
     ) -> LoopAction {
@@ -254,7 +277,8 @@ where
             self.ctx.cc_info.clone(),
             user_ctx,
             req.time_accepted.elapsed(),
-        );
+        )
+        .with_site_ctx(site_ctx);
         let site = Arc::clone(host.site());
 
         if let Some(mut stream_w) = self.stream_writer.take() {

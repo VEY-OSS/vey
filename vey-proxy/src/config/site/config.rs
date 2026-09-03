@@ -4,15 +4,19 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::collections::BTreeMap;
+use std::str::FromStr;
+
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use vey_types::limit::RateLimitQuota;
 use vey_types::metrics::NodeName;
 use vey_types::net::{
-    Host, OpensslClientConfigBuilder, OpensslServerConfigBuilder, TcpSockSpeedLimitConfig,
-    UpstreamAddr,
+    Host, OpensslClientConfigBuilder, OpensslServerConfigBuilder, TcpConnectConfig,
+    TcpKeepAliveConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig, UdpMiscSockOpts, UpstreamAddr,
 };
+use vey_types::resolve::ResolveStrategy;
 use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -25,6 +29,14 @@ pub(crate) struct SiteConfig {
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) request_rate_limit: Option<RateLimitQuota>,
     pub(crate) request_alive_max: Option<usize>,
+    pub(crate) task_idle_max_count: Option<usize>,
+    pub(crate) resolve_strategy: Option<ResolveStrategy>,
+    pub(crate) tcp_connect: Option<TcpConnectConfig>,
+    pub(crate) tcp_remote_keepalive: TcpKeepAliveConfig,
+    pub(crate) tcp_remote_misc_opts: Option<TcpMiscSockOpts>,
+    pub(crate) udp_remote_misc_opts: Option<UdpMiscSockOpts>,
+    pub(crate) egress_path_id_map: BTreeMap<NodeName, String>,
+    pub(crate) egress_path_value_map: BTreeMap<NodeName, serde_json::Value>,
 }
 
 impl Default for SiteConfig {
@@ -38,6 +50,14 @@ impl Default for SiteConfig {
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             request_rate_limit: None,
             request_alive_max: None,
+            task_idle_max_count: None,
+            resolve_strategy: None,
+            tcp_connect: None,
+            tcp_remote_keepalive: TcpKeepAliveConfig::default(),
+            tcp_remote_misc_opts: None,
+            udp_remote_misc_opts: None,
+            egress_path_id_map: BTreeMap::new(),
+            egress_path_value_map: BTreeMap::new(),
         }
     }
 }
@@ -117,6 +137,68 @@ impl YamlMapCallback for SiteConfig {
                 let alive_max = vey_yaml::value::as_usize(value)
                     .context(format!("invalid usize value for key {key}"))?;
                 self.request_alive_max = Some(alive_max);
+                Ok(())
+            }
+            "task_idle_max_count" => {
+                let count = vey_yaml::value::as_usize(value)
+                    .context(format!("invalid usize value for key {key}"))?;
+                self.task_idle_max_count = Some(count);
+                Ok(())
+            }
+            "resolve_strategy" => {
+                self.resolve_strategy = Some(
+                    vey_yaml::value::as_resolve_strategy(value)
+                        .context(format!("invalid resolve strategy value for key {key}"))?,
+                );
+                Ok(())
+            }
+            "tcp_connect" => {
+                self.tcp_connect = Some(
+                    vey_yaml::value::as_tcp_connect_config(value)
+                        .context(format!("invalid tcp connect config value for key {key}"))?,
+                );
+                Ok(())
+            }
+            "tcp_remote_keepalive" => {
+                self.tcp_remote_keepalive = vey_yaml::value::as_tcp_keepalive_config(value)
+                    .context(format!("invalid tcp keepalive config value for key {key}"))?;
+                Ok(())
+            }
+            "tcp_remote_misc_opts" => {
+                self.tcp_remote_misc_opts = Some(
+                    vey_yaml::value::as_tcp_misc_sock_opts(value)
+                        .context(format!("invalid tcp misc sock opts value for key {key}"))?,
+                );
+                Ok(())
+            }
+            "udp_remote_misc_opts" => {
+                self.udp_remote_misc_opts = Some(
+                    vey_yaml::value::as_udp_misc_sock_opts(value)
+                        .context(format!("invalid udp misc sock opts value for key {key}"))?,
+                );
+                Ok(())
+            }
+            "egress_path_id_map" => {
+                self.egress_path_id_map = vey_yaml::value::as_hashmap(
+                    value,
+                    vey_yaml::value::as_metric_node_name,
+                    vey_yaml::value::as_string,
+                )
+                .context(format!("invalid egress path id map value for key {key}"))?
+                .into_iter()
+                .collect();
+                Ok(())
+            }
+            "egress_path_value_map" => {
+                self.egress_path_value_map =
+                    vey_yaml::value::as_hashmap(value, vey_yaml::value::as_metric_node_name, |v| {
+                        let v = vey_yaml::value::as_string(v)?;
+                        serde_json::Value::from_str(&v)
+                            .map_err(|e| anyhow!("invalid json string: {e}"))
+                    })
+                    .context(format!("invalid egress path value map value for key {key}"))?
+                    .into_iter()
+                    .collect();
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {key}")),
