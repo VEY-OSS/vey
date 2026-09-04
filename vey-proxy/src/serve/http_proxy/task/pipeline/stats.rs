@@ -27,17 +27,23 @@ impl Default for HttpProxyPipelineStats {
 }
 
 impl HttpProxyPipelineStats {
-    pub(super) fn add_task(&self) {
+    #[must_use]
+    pub(super) fn add_task(self: &Arc<Self>) -> HttpProxyPipelineTaskGuard {
         self.total_task.fetch_add(1, Ordering::Relaxed);
         self.alive_task.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(super) fn del_task(&self) {
-        self.alive_task.fetch_sub(1, Ordering::Relaxed);
+        HttpProxyPipelineTaskGuard(Arc::clone(self))
     }
 
     pub(super) fn get_alive_task(&self) -> i32 {
         self.alive_task.load(Ordering::Relaxed)
+    }
+}
+
+pub(crate) struct HttpProxyPipelineTaskGuard(Arc<HttpProxyPipelineStats>);
+
+impl Drop for HttpProxyPipelineTaskGuard {
+    fn drop(&mut self) {
+        self.0.alive_task.fetch_sub(1, Ordering::Relaxed);
     }
 }
 

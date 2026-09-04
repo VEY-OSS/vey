@@ -19,8 +19,8 @@ use vey_types::route::HostMatch;
 
 use super::protocol::{HttpClientWriter, HttpExposeRequest};
 use super::{
-    CommonTaskContext, HttpExposeCltWrapperStats, HttpExposeForwardTask, HttpExposePipelineStats,
-    HttpExposeUntrustedTask,
+    CommonTaskContext, HttpExposeCltWrapperStats, HttpExposeForwardTask,
+    HttpExposePipelineTaskGuard, HttpExposeUntrustedTask,
 };
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
@@ -67,11 +67,12 @@ impl Default for RequestCount {
 pub(crate) struct HttpExposePipelineWriterTask<CDR, CDW> {
     ctx: Arc<CommonTaskContext>,
     user_group: Option<Arc<UserGroup>>,
-    task_queue: mpsc::Receiver<Result<HttpExposeRequest<CDR>, HttpProxyClientResponse>>,
+    task_queue: mpsc::Receiver<
+        Result<(HttpExposeRequest<CDR>, HttpExposePipelineTaskGuard), HttpProxyClientResponse>,
+    >,
     stream_writer: Option<HttpClientWriter<CDW>>,
     forward_context: BoxHttpForwardContext,
     wrapper_stats: ArcLimitedWriterStats,
-    pipeline_stats: Arc<HttpExposePipelineStats>,
     req_count: RequestCount,
     origin_conn: Option<SiteHttpConnGuard>,
 }
@@ -89,9 +90,10 @@ where
     pub(crate) fn new(
         ctx: &Arc<CommonTaskContext>,
         user_group: Option<Arc<UserGroup>>,
-        task_receiver: mpsc::Receiver<Result<HttpExposeRequest<CDR>, HttpProxyClientResponse>>,
+        task_receiver: mpsc::Receiver<
+            Result<(HttpExposeRequest<CDR>, HttpExposePipelineTaskGuard), HttpProxyClientResponse>,
+        >,
         write_half: CDW,
-        pipeline_stats: &Arc<HttpExposePipelineStats>,
     ) -> Self {
         let forward_context = ctx
             .escaper
@@ -111,7 +113,6 @@ where
             stream_writer: Some(clt_w),
             forward_context,
             wrapper_stats: clt_w_stats,
-            pipeline_stats: Arc::clone(pipeline_stats),
             req_count: RequestCount::default(),
             origin_conn: None,
         }
@@ -198,8 +199,8 @@ where
     pub(crate) async fn into_running(mut self, hosts: Arc<HostMatch<Arc<HttpHost>>>) {
         loop {
             let res = match self.task_queue.recv().await {
-                Some(Ok(req)) => {
-                    let res = match self.do_auth(&req).await {
+                Some(Ok((req, pipeline_task))) => {
+                    let action = match self.do_auth(&req).await {
                         Ok(user_ctx) => {
                             self.req_count.consequent_auth_failed = 0;
 
@@ -238,8 +239,8 @@ where
                             self.run_untrusted(req, e.blocked_delay()).await
                         }
                     };
-                    self.pipeline_stats.del_task();
-                    res
+                    drop(pipeline_task);
+                    action
                 }
                 Some(Err(mut rsp)) => {
                     // the response will always be `Connection: Close`

@@ -35,6 +35,7 @@ use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
+use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct HttpProxyConnectUdpTask {
     ctx: Arc<CommonTaskContext>,
@@ -384,12 +385,8 @@ impl HttpProxyConnectUdpTask {
     fn pre_start(&mut self) {
         self._alive_guard = Some(self.ctx.server_stats.add_http_connect_udp_task());
 
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.foreach_req_stats(|s| {
-                s.req_total.add_http_connect_udp();
-                s.req_alive.add_http_connect_udp();
-            });
-        }
+        self.task_notes
+            .hold_req_alive(RequestAliveKind::HttpConnectUdp);
 
         if self.ctx.server_config.flush_task_log_on_created
             && let Some(log_ctx) = self.get_log_context()
@@ -401,14 +398,8 @@ impl HttpProxyConnectUdpTask {
     }
 
     fn post_stop(&mut self) {
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.foreach_req_stats(|s| {
-                s.req_alive.del_http_connect_udp();
-            });
-
-            if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
-                drop(user_req_alive_permit);
-            }
+        if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
+            drop(user_req_alive_permit);
         }
     }
 

@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 
 pub(crate) struct H2ConcurrencyStats {
@@ -20,13 +21,11 @@ impl Default for H2ConcurrencyStats {
 }
 
 impl H2ConcurrencyStats {
-    pub(super) fn add_task(&self) {
+    #[must_use]
+    pub(super) fn add_task(self: &Arc<Self>) -> H2ConcurrencyTaskGuard {
         self.total_task.fetch_add(1, Ordering::Relaxed);
         self.alive_task.fetch_add(1, Ordering::Release);
-    }
-
-    pub(super) fn del_task(&self) {
-        self.alive_task.fetch_sub(1, Ordering::Release);
+        H2ConcurrencyTaskGuard(Arc::clone(self))
     }
 
     pub(super) fn get_total_task(&self) -> u64 {
@@ -35,5 +34,13 @@ impl H2ConcurrencyStats {
 
     pub(super) fn get_alive_task(&self) -> i32 {
         self.alive_task.load(Ordering::Acquire)
+    }
+}
+
+pub(crate) struct H2ConcurrencyTaskGuard(Arc<H2ConcurrencyStats>);
+
+impl Drop for H2ConcurrencyTaskGuard {
+    fn drop(&mut self) {
+        self.0.alive_task.fetch_sub(1, Ordering::Release);
     }
 }

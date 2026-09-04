@@ -21,7 +21,8 @@ use vey_types::net::{HttpAuth, HttpForwardCapability, HttpProxySubProtocol};
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{
     CommonTaskContext, FtpOverHttpTask, HttpProxyCltWrapperStats, HttpProxyConnectTask,
-    HttpProxyConnectUdpTask, HttpProxyForwardTask, HttpProxyPipelineStats, HttpProxyUntrustedTask,
+    HttpProxyConnectUdpTask, HttpProxyForwardTask, HttpProxyPipelineTaskGuard,
+    HttpProxyUntrustedTask,
 };
 use crate::audit::AuditContext;
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
@@ -69,11 +70,12 @@ pub(crate) struct HttpProxyPipelineWriterTask<CDR, CDW> {
     ctx: Arc<CommonTaskContext>,
     audit_ctx: AuditContext,
     user_group: Option<Arc<UserGroup>>,
-    task_queue: mpsc::Receiver<Result<HttpProxyRequest<CDR>, HttpProxyClientResponse>>,
+    task_queue: mpsc::Receiver<
+        Result<(HttpProxyRequest<CDR>, HttpProxyPipelineTaskGuard), HttpProxyClientResponse>,
+    >,
     stream_writer: Option<HttpClientWriter<CDW>>,
     forward_context: BoxHttpForwardContext,
     wrapper_stats: ArcLimitedWriterStats,
-    pipeline_stats: Arc<HttpProxyPipelineStats>,
     req_count: RequestCount,
 
     egress_path: Option<EgressPathSelection>,
@@ -93,9 +95,10 @@ where
         ctx: &Arc<CommonTaskContext>,
         audit_ctx: AuditContext,
         user_group: Option<Arc<UserGroup>>,
-        task_receiver: mpsc::Receiver<Result<HttpProxyRequest<CDR>, HttpProxyClientResponse>>,
+        task_receiver: mpsc::Receiver<
+            Result<(HttpProxyRequest<CDR>, HttpProxyPipelineTaskGuard), HttpProxyClientResponse>,
+        >,
         write_half: CDW,
-        pipeline_stats: &Arc<HttpProxyPipelineStats>,
     ) -> Self {
         let forward_context = ctx
             .escaper
@@ -116,7 +119,6 @@ where
             stream_writer: Some(clt_w),
             forward_context,
             wrapper_stats: clt_w_stats,
-            pipeline_stats: Arc::clone(pipeline_stats),
             req_count: RequestCount::default(),
             egress_path: None,
         }
@@ -217,8 +219,8 @@ where
     pub(crate) async fn into_running(mut self) {
         loop {
             let res = match self.task_queue.recv().await {
-                Some(Ok(req)) => {
-                    let res = match self.do_auth(&req).await {
+                Some(Ok((req, pipeline_task))) => {
+                    let action = match self.do_auth(&req).await {
                         Ok(user_ctx) => {
                             self.req_count.consequent_auth_failed = 0;
                             self.run(req, user_ctx).await
@@ -232,8 +234,8 @@ where
                             self.run_untrusted(req, e.blocked_delay()).await
                         }
                     };
-                    self.pipeline_stats.del_task();
-                    res
+                    drop(pipeline_task);
+                    action
                 }
                 Some(Err(mut rsp)) => {
                     // the response will always be `Connection: Close`

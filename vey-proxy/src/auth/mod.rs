@@ -24,9 +24,9 @@ pub(crate) use group::{FactsUserGroup, UserGroup};
 
 mod stats;
 pub(crate) use stats::{
-    UserForbiddenSnapshot, UserForbiddenStats, UserRequestSnapshot, UserRequestStats,
-    UserSiteDurationRecorder, UserSiteDurationStats, UserSiteStats, UserTrafficSnapshot,
-    UserTrafficStats, UserUpstreamTrafficSnapshot, UserUpstreamTrafficStats,
+    UserForbiddenSnapshot, UserForbiddenStats, UserRequestAliveGuard, UserRequestSnapshot,
+    UserRequestStats, UserSiteDurationRecorder, UserSiteDurationStats, UserSiteStats,
+    UserTrafficSnapshot, UserTrafficStats, UserUpstreamTrafficSnapshot, UserUpstreamTrafficStats,
 };
 
 mod source;

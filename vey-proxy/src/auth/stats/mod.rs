@@ -7,7 +7,7 @@ mod forbidden;
 pub(crate) use forbidden::{UserForbiddenSnapshot, UserForbiddenStats};
 
 mod request;
-pub(crate) use request::{UserRequestSnapshot, UserRequestStats};
+pub(crate) use request::{UserRequestAliveGuard, UserRequestSnapshot, UserRequestStats};
 
 mod traffic;
 pub(crate) use traffic::{

@@ -52,6 +52,7 @@ use crate::serve::{
     ServerIdleChecker, ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes,
     ServerTaskResult, ServerTaskStage,
 };
+use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct HttpProxyForwardTask<'a> {
     ctx: Arc<CommonTaskContext>,
@@ -282,12 +283,10 @@ impl<'a> HttpProxyForwardTask<'a> {
     fn pre_start(&mut self) {
         self._alive_guard = Some(self.ctx.server_stats.add_http_forward_task());
 
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.foreach_req_stats(|s| {
-                s.req_total.add_http_forward(self.is_https);
-                s.req_alive.add_http_forward(self.is_https);
+        self.task_notes
+            .hold_req_alive(RequestAliveKind::HttpForward {
+                is_https: self.is_https,
             });
-        }
 
         if self.ctx.server_config.flush_task_log_on_created
             && let Some(log_ctx) = self.get_log_context()
@@ -299,12 +298,8 @@ impl<'a> HttpProxyForwardTask<'a> {
     }
 
     fn post_stop(&mut self) {
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.foreach_req_stats(|s| s.req_alive.del_http_forward(self.is_https));
-
-            if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
-                drop(user_req_alive_permit);
-            }
+        if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
+            drop(user_req_alive_permit);
         }
     }
 

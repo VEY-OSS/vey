@@ -829,9 +829,9 @@ impl UserContext {
         &self.forbid_stats
     }
 
-    pub(crate) fn foreach_req_stats<F>(&self, update: F)
+    pub(crate) fn foreach_req_stats<F>(&self, mut update: F)
     where
-        F: Fn(&Arc<UserRequestStats>),
+        F: FnMut(&Arc<UserRequestStats>),
     {
         update(&self.req_stats);
         if let Some(s) = &self.site_req_stats {

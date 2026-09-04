@@ -14,7 +14,7 @@ use vey_types::stats::StatId;
 use crate::auth::UserType;
 use crate::stat::types::{
     ConnectionSnapshot, ConnectionStats, KeepaliveRequestSnapshot, KeepaliveRequestStats,
-    L7ConnectionAliveStats, RequestAliveStats, RequestSnapshot, RequestStats,
+    L7ConnectionAliveStats, RequestAliveKind, RequestAliveStats, RequestSnapshot, RequestStats,
 };
 
 pub(crate) struct UserRequestStats {
@@ -95,5 +95,37 @@ impl UserRequestStats {
     pub(crate) fn server_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         let guard = self.server_extra_tags.load();
         (*guard).as_ref().cloned()
+    }
+}
+
+/// Decrements `req_alive` for every held [`UserRequestStats`] when dropped.
+pub(crate) struct UserRequestAliveGuard {
+    stats: Vec<Arc<UserRequestStats>>,
+    kind: RequestAliveKind,
+}
+
+impl UserRequestAliveGuard {
+    pub(crate) fn hold(
+        kind: RequestAliveKind,
+        stats: impl IntoIterator<Item = Arc<UserRequestStats>>,
+    ) -> Self {
+        let stats: Vec<_> = stats.into_iter().collect();
+        for s in &stats {
+            kind.add_alive(&s.req_alive);
+        }
+        UserRequestAliveGuard { stats, kind }
+    }
+
+    pub(crate) fn add(&mut self, extra: Arc<UserRequestStats>) {
+        self.kind.add_alive(&extra.req_alive);
+        self.stats.push(extra);
+    }
+}
+
+impl Drop for UserRequestAliveGuard {
+    fn drop(&mut self) {
+        for s in &self.stats {
+            self.kind.del_alive(&s.req_alive);
+        }
     }
 }

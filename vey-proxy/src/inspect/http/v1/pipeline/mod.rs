@@ -13,7 +13,7 @@ use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 
 mod stats;
-pub(super) use stats::PipelineStats;
+pub(super) use stats::{PipelineStats, PipelineTaskGuard};
 
 mod request;
 pub(super) use request::{HttpRecvRequest, HttpRequest};

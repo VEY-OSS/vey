@@ -19,10 +19,14 @@ use vey_types::limit::GaugeSemaphorePermit;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::resolve::ResolveRedirection;
 
-use crate::auth::{UserContext, UserRequestStats, UserTrafficStats, UserUpstreamTrafficStats};
+use crate::auth::{
+    UserContext, UserRequestAliveGuard, UserRequestStats, UserTrafficStats,
+    UserUpstreamTrafficStats,
+};
 use crate::config::escaper::EgressUpstream;
 use crate::escape::EgressPathSelection;
 use crate::site::SiteContext;
+use crate::stat::types::RequestAliveKind;
 
 #[derive(Clone, Copy)]
 pub(crate) enum ServerTaskStage {
@@ -67,6 +71,7 @@ pub(crate) struct ServerTaskNotes {
     pub(crate) egress_path_selection: Option<EgressPathSelection>,
     /// the following fields should not be cloned
     pub(crate) user_req_alive_permit: Option<GaugeSemaphorePermit>,
+    _req_alive_guard: Option<UserRequestAliveGuard>,
 }
 
 impl ServerTaskNotes {
@@ -98,6 +103,7 @@ impl ServerTaskNotes {
             ready_time: Duration::default(),
             egress_path_selection,
             user_req_alive_permit: None,
+            _req_alive_guard: None,
         }
     }
 
@@ -150,15 +156,34 @@ impl ServerTaskNotes {
         user_ctx.and_then(|c| c.user().resolve_redirection())
     }
 
-    pub(crate) fn foreach_req_stats<F>(&self, update: F)
+    pub(crate) fn foreach_req_stats<F>(&self, mut update: F)
     where
-        F: Fn(&Arc<UserRequestStats>),
+        F: FnMut(&Arc<UserRequestStats>),
     {
         if let Some(site_ctx) = &self.site_ctx {
             update(site_ctx.origin_req_stats());
         }
         if let Some(user_ctx) = &self.user_ctx {
-            user_ctx.foreach_req_stats(&update);
+            user_ctx.foreach_req_stats(update);
+        }
+    }
+
+    /// Count `req_total` now and hold `req_alive` until this notes value is dropped.
+    pub(crate) fn hold_req_alive(&mut self, kind: RequestAliveKind) {
+        let mut stats = Vec::with_capacity(4);
+        self.foreach_req_stats(|s| {
+            kind.add_total(&s.req_total);
+            stats.push(Arc::clone(s));
+        });
+        if !stats.is_empty() {
+            self._req_alive_guard = Some(UserRequestAliveGuard::hold(kind, stats));
+        }
+    }
+
+    /// Add another stats layer to the alive guard (SOCKS UDP site after first packet).
+    pub(crate) fn extend_req_alive(&mut self, extra: Arc<UserRequestStats>) {
+        if let Some(guard) = &mut self._req_alive_guard {
+            guard.add(extra);
         }
     }
 

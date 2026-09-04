@@ -173,16 +173,16 @@ where
                     }
                     return Err(e.into());
                 }
-                HttpRecvRequest::RequestWithoutIo(r) => {
+                HttpRecvRequest::RequestWithoutIo(r, pipeline_task) => {
                     let mut forward_task = H1ForwardTask::new(self.ctx.clone(), &r, self.req_id);
                     // not ICAP in this case
                     forward_task.forward_without_body(&mut rsp_io).await;
-                    pipeline_stats.del_task();
+                    drop(pipeline_task);
                     if forward_task.should_close() {
                         req_acceptor.close();
                     }
                 }
-                HttpRecvRequest::RequestWithIO(r, mut req_io, io_sender) => {
+                HttpRecvRequest::RequestWithIO(r, mut req_io, io_sender, pipeline_task) => {
                     if r.inner.method == Method::CONNECT {
                         let mut connect_task = H1ConnectTask::new(self.ctx.clone(), r, self.req_id);
                         let r = if let Some(reqmod_client) =
@@ -193,16 +193,14 @@ where
                             connect_task.forward_original(&mut rsp_io).await
                         };
                         if let Some(upstream) = r {
-                            pipeline_stats.del_task();
-
+                            drop(pipeline_task);
                             let next_obj = connect_task.into_connect(req_io, rsp_io, upstream);
                             return Ok(Some(next_obj));
                         } else if connect_task.should_close() {
-                            pipeline_stats.del_task();
-
+                            drop(pipeline_task);
                             req_acceptor.close();
                         } else {
-                            pipeline_stats.del_task();
+                            drop(pipeline_task);
                             let _ = io_sender.send(req_io).await;
                         }
                     } else if r.inner.upgrade {
@@ -215,17 +213,15 @@ where
                             upgrade_task.forward_original(&mut rsp_io).await
                         };
                         if let Some((protocol, upstream)) = r {
-                            pipeline_stats.del_task();
-
+                            drop(pipeline_task);
                             let next_obj =
                                 upgrade_task.into_upgrade(req_io, rsp_io, protocol, upstream)?;
                             return Ok(Some(next_obj));
                         } else if upgrade_task.should_close() {
-                            pipeline_stats.del_task();
-
+                            drop(pipeline_task);
                             req_acceptor.close();
                         } else {
-                            pipeline_stats.del_task();
+                            drop(pipeline_task);
                             let _ = io_sender.send(req_io).await;
                         }
                     } else {
@@ -238,7 +234,7 @@ where
                         } else {
                             forward_task.forward_with_io(&mut req_io, &mut rsp_io).await;
                         }
-                        pipeline_stats.del_task();
+                        drop(pipeline_task);
                         if forward_task.should_close() {
                             req_acceptor.close();
                         } else {

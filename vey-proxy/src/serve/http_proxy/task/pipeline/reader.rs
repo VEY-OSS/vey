@@ -13,13 +13,17 @@ use tokio::sync::mpsc;
 use vey_io_ext::{GlobalLimitGroup, LimitedBufReadExt, LimitedBufReader, NilLimitedStats};
 
 use super::protocol::{HttpClientReader, HttpProxyRequest};
-use super::{CommonTaskContext, HttpProxyCltWrapperStats, HttpProxyPipelineStats};
+use super::{
+    CommonTaskContext, HttpProxyCltWrapperStats, HttpProxyPipelineStats, HttpProxyPipelineTaskGuard,
+};
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::ServerStats;
 
 pub(crate) struct HttpProxyPipelineReaderTask<CDR> {
     ctx: Arc<CommonTaskContext>,
-    task_queue: mpsc::Sender<Result<HttpProxyRequest<CDR>, HttpProxyClientResponse>>,
+    task_queue: mpsc::Sender<
+        Result<(HttpProxyRequest<CDR>, HttpProxyPipelineTaskGuard), HttpProxyClientResponse>,
+    >,
     stream_reader: Option<HttpClientReader<CDR>>,
     pipeline_stats: Arc<HttpProxyPipelineStats>,
 }
@@ -30,7 +34,9 @@ where
 {
     pub(crate) fn new(
         ctx: &Arc<CommonTaskContext>,
-        task_sender: mpsc::Sender<Result<HttpProxyRequest<CDR>, HttpProxyClientResponse>>,
+        task_sender: mpsc::Sender<
+            Result<(HttpProxyRequest<CDR>, HttpProxyPipelineTaskGuard), HttpProxyClientResponse>,
+        >,
         read_half: CDR,
         pipeline_stats: &Arc<HttpProxyPipelineStats>,
     ) -> Self {
@@ -124,13 +130,17 @@ where
                             req.inner.disable_keep_alive();
                         }
 
-                        if self.task_queue.send(Ok(req)).await.is_err() {
+                        if self
+                            .task_queue
+                            .send(Ok((req, self.pipeline_stats.add_task())))
+                            .await
+                            .is_err()
+                        {
                             trace!(
                                 "write end has closed for previous request while sending new request"
                             );
                             break;
                         }
-                        self.pipeline_stats.add_task();
 
                         if !server_is_online {
                             break;

@@ -240,7 +240,6 @@ impl HttpExposeServer {
             self.user_group.load_full(),
             task_receiver,
             clt_w,
-            &pipeline_stats,
         );
 
         tokio::spawn(r_task.into_running());

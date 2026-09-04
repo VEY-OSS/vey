@@ -14,7 +14,7 @@ use tokio::time::Instant;
 use vey_http::server::{HttpRequestParseError, HttpTransparentRequest};
 use vey_io_ext::LimitedBufReadExt;
 
-use super::{H1InterceptionError, HttpRequestIo, PipelineStats};
+use super::{H1InterceptionError, HttpRequestIo, PipelineStats, PipelineTaskGuard};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 
@@ -32,8 +32,9 @@ pub(crate) enum HttpRecvRequest<R: AsyncRead> {
         HttpRequest,
         HttpRequestIo<R>,
         mpsc::Sender<HttpRequestIo<R>>,
+        PipelineTaskGuard,
     ),
-    RequestWithoutIo(HttpRequest),
+    RequestWithoutIo(HttpRequest, PipelineTaskGuard),
 }
 
 pub(crate) struct HttpRequestAcceptor<R: AsyncRead> {
@@ -170,14 +171,18 @@ where
                                 },
                                 io,
                                 io_sender.clone(),
+                                self.stats.add_task(),
                             )
                         } else if req.pipeline_safe() {
                             self.io = Some(io);
-                            HttpRecvRequest::RequestWithoutIo(HttpRequest {
-                                inner: req,
-                                time_received,
-                                datetime_received,
-                            })
+                            HttpRecvRequest::RequestWithoutIo(
+                                HttpRequest {
+                                    inner: req,
+                                    time_received,
+                                    datetime_received,
+                                },
+                                self.stats.add_task(),
+                            )
                         } else {
                             HttpRecvRequest::RequestWithIO(
                                 HttpRequest {
@@ -187,11 +192,11 @@ where
                                 },
                                 io,
                                 io_sender.clone(),
+                                self.stats.add_task(),
                             )
                         };
 
                         let _ = self.send_request.send(recv_req).await;
-                        self.stats.add_task();
                     }
                     Ok(Err(e)) => {
                         let _ = self

@@ -430,12 +430,11 @@ where
                         Some(Ok((clt_req, clt_send_rsp))) => {
                             let h2s = h2s.clone();
                             let ctx = self.ctx.clone();
-                            let stats = self.stats.clone();
                             idle_count = 0;
-                            stats.add_task();
+                            let task_guard = self.stats.add_task();
                             tokio::spawn(async move {
                                 stream::transfer(clt_req, clt_send_rsp, h2s, ctx).await;
-                                stats.del_task();
+                                drop(task_guard);
                             });
                             continue;
                         }

@@ -146,6 +146,64 @@ impl KeepaliveRequestStats {
     }
 }
 
+/// Which `req_alive` / `req_total` counter a task should bump.
+#[derive(Clone, Copy)]
+pub(crate) enum RequestAliveKind {
+    TcpConnect,
+    UdpConnect,
+    HttpForward { is_https: bool },
+    HttpConnect,
+    HttpConnectUdp,
+    FtpOverHttp,
+    SocksTcpConnect,
+    SocksUdpConnect,
+    SocksUdpAssociate,
+}
+
+impl RequestAliveKind {
+    pub(crate) fn add_total(self, stats: &RequestStats) {
+        match self {
+            Self::TcpConnect => stats.add_tcp_connect(),
+            Self::UdpConnect => stats.add_udp_connect(),
+            Self::HttpForward { is_https } => stats.add_http_forward(is_https),
+            Self::HttpConnect => stats.add_http_connect(),
+            Self::HttpConnectUdp => stats.add_http_connect_udp(),
+            Self::FtpOverHttp => stats.add_ftp_over_http(),
+            Self::SocksTcpConnect => stats.add_socks_tcp_connect(),
+            Self::SocksUdpConnect => stats.add_socks_udp_connect(),
+            Self::SocksUdpAssociate => stats.add_socks_udp_associate(),
+        }
+    }
+
+    pub(crate) fn add_alive(self, stats: &RequestAliveStats) {
+        match self {
+            Self::TcpConnect => stats.add_tcp_connect(),
+            Self::UdpConnect => stats.add_udp_connect(),
+            Self::HttpForward { is_https } => stats.add_http_forward(is_https),
+            Self::HttpConnect => stats.add_http_connect(),
+            Self::HttpConnectUdp => stats.add_http_connect_udp(),
+            Self::FtpOverHttp => stats.add_ftp_over_http(),
+            Self::SocksTcpConnect => stats.add_socks_tcp_connect(),
+            Self::SocksUdpConnect => stats.add_socks_udp_connect(),
+            Self::SocksUdpAssociate => stats.add_socks_udp_associate(),
+        }
+    }
+
+    pub(crate) fn del_alive(self, stats: &RequestAliveStats) {
+        match self {
+            Self::TcpConnect => stats.del_tcp_connect(),
+            Self::UdpConnect => stats.del_udp_connect(),
+            Self::HttpForward { is_https } => stats.del_http_forward(is_https),
+            Self::HttpConnect => stats.del_http_connect(),
+            Self::HttpConnectUdp => stats.del_http_connect_udp(),
+            Self::FtpOverHttp => stats.del_ftp_over_http(),
+            Self::SocksTcpConnect => stats.del_socks_tcp_connect(),
+            Self::SocksUdpConnect => stats.del_socks_udp_connect(),
+            Self::SocksUdpAssociate => stats.del_socks_udp_associate(),
+        }
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct RequestAliveStats {
     tcp_connect: AtomicI32,
@@ -279,5 +337,24 @@ impl RequestAliveStats {
 
     pub(crate) fn socks_udp_associate(&self) -> i32 {
         self.socks_udp_associate.load(Ordering::Relaxed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_alive_kind_pairs_add_and_del() {
+        let total = RequestStats::default();
+        let alive = RequestAliveStats::default();
+        let kind = RequestAliveKind::HttpForward { is_https: true };
+        kind.add_total(&total);
+        kind.add_alive(&alive);
+        assert_eq!(total.https_forward(), 1);
+        assert_eq!(alive.https_forward(), 1);
+        kind.del_alive(&alive);
+        assert_eq!(alive.https_forward(), 0);
+        assert_eq!(total.https_forward(), 1);
     }
 }

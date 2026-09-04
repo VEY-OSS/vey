@@ -252,7 +252,6 @@ impl HttpProxyServer {
             self.user_group.load_full(),
             task_receiver,
             clt_w,
-            &pipeline_stats,
         );
 
         tokio::spawn(r_task.into_running());
@@ -280,7 +279,6 @@ impl HttpProxyServer {
             self.user_group.load_full(),
             task_receiver,
             send_stream,
-            &pipeline_stats,
         );
         tokio::spawn(w_task.into_running());
     }

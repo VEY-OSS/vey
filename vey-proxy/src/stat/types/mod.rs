@@ -8,8 +8,8 @@ pub(crate) use connection::{ConnectionSnapshot, ConnectionStats, L7ConnectionAli
 
 mod request;
 pub(crate) use request::{
-    KeepaliveRequestSnapshot, KeepaliveRequestStats, RequestAliveStats, RequestSnapshot,
-    RequestStats,
+    KeepaliveRequestSnapshot, KeepaliveRequestStats, RequestAliveKind, RequestAliveStats,
+    RequestSnapshot, RequestStats,
 };
 
 mod traffic;

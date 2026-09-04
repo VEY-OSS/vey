@@ -17,4 +17,4 @@ pub(crate) use writer::HttpProxyPipelineWriterTask;
 
 mod stats;
 use stats::HttpProxyCltWrapperStats;
-pub(crate) use stats::HttpProxyPipelineStats;
+pub(crate) use stats::{HttpProxyPipelineStats, HttpProxyPipelineTaskGuard};

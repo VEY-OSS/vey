@@ -16,4 +16,4 @@ pub(crate) use writer::HttpExposePipelineWriterTask;
 
 mod stats;
 use stats::HttpExposeCltWrapperStats;
-pub(crate) use stats::HttpExposePipelineStats;
+pub(crate) use stats::{HttpExposePipelineStats, HttpExposePipelineTaskGuard};
