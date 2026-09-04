@@ -391,6 +391,10 @@ impl StreamTransitTask for TlsProxyTask {
     }
 
     fn user(&self) -> Option<&User> {
+        None
+    }
+
+    fn tenant(&self) -> Option<&User> {
         self.task_notes
             .site_ctx()
             .and_then(|s| s.tenant())

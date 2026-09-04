@@ -5,6 +5,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
@@ -135,6 +136,10 @@ impl Site {
     #[inline]
     pub(crate) fn task_idle_max_count(&self) -> Option<usize> {
         self.config.task_idle_max_count
+    }
+
+    pub(crate) fn rsp_hdr_recv_timeout(&self) -> Option<Duration> {
+        self.config.http.rsp_hdr_recv_timeout
     }
 
     pub(crate) fn check_rate_limit(&self) -> Result<(), ()> {

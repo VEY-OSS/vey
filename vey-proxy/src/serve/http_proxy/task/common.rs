@@ -53,6 +53,7 @@ impl CommonTaskContext {
         ServerIdleChecker::new(
             self.idle_wheel.clone(),
             task_notes.user_ctx().map(|c| c.user().clone()),
+            None,
             task_notes.task_max_idle_count(self.server_config.task_idle_max_count),
             self.server_quit_policy.clone(),
         )

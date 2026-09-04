@@ -182,6 +182,41 @@ see :ref:`server task_idle_check_interval <conf_server_common_task_idle_check_in
 
 **default**: not set
 
+.. _conf_site_http:
+
+http
+----
+
+**optional**, **type**: map
+
+HTTP-only settings for this origin. ``http_expose`` / ``http_guard`` read this
+map. :ref:`tls_proxy <configuration_server_tls_proxy>` ignores it, except
+when an auditor intercepts HTTP after decrypt.
+
+The key may be omitted. Unset keys inside the map use their field defaults.
+
+**default**: empty map (all fields at default)
+
+.. _conf_site_http_rsp_header_recv_timeout:
+
+http.rsp_header_recv_timeout
+----------------------------
+
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
+
+Custom HTTP response-header receive timeout for this origin.
+
+This overwrites:
+
+* tenant user :ref:`http_rsp_header_recv_timeout <conf_user_http_rsp_header_recv_timeout>`
+* ``http_expose`` :ref:`rsp_header_recv_timeout <configuration_server_http_rproxy>`
+* auditor :ref:`h1 interception <conf_auditor_h1_interception>` / :ref:`h2 interception <conf_auditor_h2_interception>`
+
+Lookup is ``site.http`` then tenant, then the server / auditor default.
+A visitor user is not consulted when a site context is present.
+
+**default**: not set
+
 .. _conf_site_tcp_connect:
 
 tcp_connect

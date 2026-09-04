@@ -137,6 +137,10 @@ impl<SC: ServerConfig> StreamTransitTask for H1WebsocketInterceptObject<SC> {
     fn user(&self) -> Option<&User> {
         self.ctx.user()
     }
+
+    fn tenant(&self) -> Option<&User> {
+        self.ctx.tenant()
+    }
 }
 
 impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {

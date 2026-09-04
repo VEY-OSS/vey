@@ -19,6 +19,9 @@ pub(crate) use registry::{clear, get_all};
 mod config;
 pub(crate) use config::SiteConfig;
 
+mod http;
+pub(crate) use http::SiteHttpConfig;
+
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     let parser = HybridParser::new(conf_dir, vey_daemon::opts::config_file_extension());
     parser.foreach_map(v, |map, position| {

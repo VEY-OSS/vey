@@ -13,6 +13,7 @@ use crate::auth::User;
 pub(crate) struct ServerIdleChecker {
     pub(crate) idle_wheel: Arc<IdleWheel>,
     pub(crate) user: Option<Arc<User>>,
+    pub(crate) tenant: Option<Arc<User>>,
     pub(crate) max_idle_count: usize,
     pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
 }
@@ -21,12 +22,14 @@ impl ServerIdleChecker {
     pub(crate) fn new(
         idle_wheel: Arc<IdleWheel>,
         user: Option<Arc<User>>,
+        tenant: Option<Arc<User>>,
         max_idle_count: usize,
         server_quit_policy: Arc<ServerQuitPolicy>,
     ) -> Self {
         ServerIdleChecker {
             idle_wheel,
             user,
+            tenant,
             max_idle_count,
             server_quit_policy,
         }
@@ -43,8 +46,8 @@ impl IdleCheck for ServerIdleChecker {
     }
 
     fn check_force_quit(&self) -> Option<IdleForceQuitReason> {
-        if let Some(user) = &self.user
-            && user.is_blocked()
+        if self.user.as_ref().is_some_and(|u| u.is_blocked())
+            || self.tenant.as_ref().is_some_and(|t| t.is_blocked())
         {
             return Some(IdleForceQuitReason::UserBlocked);
         }

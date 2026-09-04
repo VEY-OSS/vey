@@ -5,6 +5,7 @@
 
 use std::borrow::Cow;
 use std::sync::Arc;
+use std::time::Duration;
 
 use arc_swap::ArcSwapOption;
 use arcstr::ArcStr;
@@ -70,6 +71,14 @@ impl SiteContext {
     #[inline]
     pub(crate) fn origin_req_stats(&self) -> &Arc<UserRequestStats> {
         &self.origin_req_stats
+    }
+
+    pub(crate) fn rsp_hdr_recv_timeout(&self) -> Option<Duration> {
+        self.origin.rsp_hdr_recv_timeout().or_else(|| {
+            self.tenant
+                .as_ref()
+                .and_then(|t| t.http_rsp_header_recv_timeout())
+        })
     }
 
     pub(crate) fn resolve_strategy(&self) -> Option<ResolveStrategy> {

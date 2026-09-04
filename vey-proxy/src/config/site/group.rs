@@ -208,6 +208,95 @@ static_sites:
     }
 
     #[test]
+    fn parse_site_http() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      rsp_header_recv_timeout: 8s
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert_eq!(
+            site.http.rsp_hdr_recv_timeout,
+            Some(std::time::Duration::from_secs(8))
+        );
+    }
+
+    #[test]
+    fn parse_empty_site_http() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http: {}
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert_eq!(site.http, Default::default());
+    }
+
+    #[test]
+    fn omit_site_http_uses_default() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert_eq!(site.http, Default::default());
+    }
+
+    #[test]
+    fn reject_unknown_site_http_field() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      bogus_field: 1
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        assert!(SiteGroupConfig::parse(map, None).is_err());
+    }
+
+    #[test]
     fn reject_unknown_site_field() {
         let yaml = YamlLoader::load_from_str(
             r#"

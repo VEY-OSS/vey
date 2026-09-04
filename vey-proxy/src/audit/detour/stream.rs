@@ -164,10 +164,9 @@ where
                     if clt_to_d.is_idle() && d_to_clt.is_idle() && ups_to_d.is_idle() && d_to_ups.is_idle() {
                         idle_count += n;
 
-                        if let Some(user) = self.task_notes.user()
-                            && user.is_blocked() {
-                                return Err(ServerTaskError::CanceledAsUserBlocked);
-                            }
+                        if self.task_notes.is_blocked() {
+                            return Err(ServerTaskError::CanceledAsUserBlocked);
+                        }
 
                         if idle_count >= self.max_idle_count {
                             return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
@@ -181,10 +180,9 @@ where
                         d_to_clt.reset_active();
                     }
 
-                    if let Some(user) = self.task_notes.user()
-                        && user.is_blocked() {
-                            return Err(ServerTaskError::CanceledAsUserBlocked);
-                        }
+                    if self.task_notes.is_blocked() {
+                        return Err(ServerTaskError::CanceledAsUserBlocked);
+                    }
 
                     if self.server_quit_policy.force_quit() {
                         let _ = force_quit_sender.try_send(());

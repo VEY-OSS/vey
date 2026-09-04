@@ -162,6 +162,10 @@ impl<SC: ServerConfig> StreamTransitTask for SmtpInterceptObject<SC> {
     fn user(&self) -> Option<&User> {
         self.ctx.user()
     }
+
+    fn tenant(&self) -> Option<&User> {
+        self.ctx.tenant()
+    }
 }
 
 impl<SC> SmtpInterceptObject<SC>

@@ -6,6 +6,7 @@
 
 use std::borrow::Cow;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use futures_util::FutureExt;
@@ -111,6 +112,13 @@ impl<'a> HttpExposeForwardTask<'a> {
             _alive_guard: None,
             _site_req_alive_permit: None,
         }
+    }
+
+    fn rsp_hdr_recv_timeout(&self) -> Duration {
+        self.task_notes
+            .site_ctx()
+            .and_then(|s| s.rsp_hdr_recv_timeout())
+            .unwrap_or(self.ctx.server_config.timeout.recv_rsp_header)
     }
 
     #[inline]
@@ -776,7 +784,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         self.http_notes.mark_req_no_body();
 
         let mut rsp_header = match tokio::time::timeout(
-            self.ctx.server_config.timeout.recv_rsp_header,
+            self.rsp_hdr_recv_timeout(),
             self.recv_final_response_header(ups_r, clt_w),
         )
         .await
@@ -836,7 +844,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         self.http_notes.mark_req_send_all();
 
         match tokio::time::timeout(
-            self.ctx.server_config.timeout.recv_rsp_header,
+            self.rsp_hdr_recv_timeout(),
             self.recv_final_response_header(ups_r, clt_w),
         )
         .await
@@ -1046,7 +1054,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             }
             None => {
                 match tokio::time::timeout(
-                    self.ctx.server_config.timeout.recv_rsp_header,
+                    self.rsp_hdr_recv_timeout(),
                     self.recv_final_response_header(ups_r, clt_w),
                 )
                 .await

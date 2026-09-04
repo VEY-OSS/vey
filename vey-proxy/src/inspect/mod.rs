@@ -22,11 +22,12 @@ use vey_io_ext::IdleWheel;
 use vey_types::net::{Host, OpensslClientConfig};
 
 use crate::audit::AuditHandle;
-use crate::auth::{User, UserForbiddenStats, UserSite};
+use crate::auth::{User, UserContext, UserForbiddenStats, UserSite};
 use crate::config::server::ServerConfig;
 use crate::escape::EgressNotes;
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::{ArcServerStats, ServerIdleChecker, ServerTaskNotes};
+use crate::site::SiteContext;
 
 mod error;
 pub(crate) use error::InterceptionError;
@@ -46,6 +47,7 @@ mod websocket;
 pub(crate) mod imap;
 pub(crate) mod smtp;
 
+/// SWG / expose visitor snapshot. `user_site` is the client's `explicit_sites` overlay.
 #[derive(Clone)]
 pub(super) struct StreamInspectUserContext {
     raw_user_name: Option<ArcStr>,
@@ -55,11 +57,75 @@ pub(super) struct StreamInspectUserContext {
 }
 
 impl StreamInspectUserContext {
+    fn from_user_context(ctx: &UserContext) -> Self {
+        StreamInspectUserContext {
+            raw_user_name: ctx.raw_user_name().cloned(),
+            user: ctx.user().clone(),
+            user_site: ctx.user_site().cloned(),
+            forbidden_stats: ctx.forbidden_stats().clone(),
+        }
+    }
+
     fn http_rsp_hdr_recv_timeout(&self) -> Option<Duration> {
         self.user_site
             .as_ref()
             .and_then(|site| site.http_rsp_hdr_recv_timeout())
             .or(self.user.http_rsp_hdr_recv_timeout())
+    }
+}
+
+/// Reverse-proxy origin snapshot. Tenant is the site owner; there is no `user_site`.
+#[derive(Clone)]
+pub(super) struct StreamInspectSiteContext {
+    tenant: Option<StreamInspectTenant>,
+    rsp_hdr_recv_timeout: Option<Duration>,
+}
+
+#[derive(Clone)]
+struct StreamInspectTenant {
+    raw_user_name: Option<ArcStr>,
+    user: Arc<User>,
+    forbidden_stats: Arc<UserForbiddenStats>,
+}
+
+impl StreamInspectSiteContext {
+    fn from_site_context(ctx: &SiteContext) -> Self {
+        StreamInspectSiteContext {
+            tenant: ctx.tenant().map(|t| StreamInspectTenant {
+                raw_user_name: t.raw_user_name().cloned(),
+                user: t.user().clone(),
+                forbidden_stats: t.forbidden_stats().clone(),
+            }),
+            rsp_hdr_recv_timeout: ctx.rsp_hdr_recv_timeout(),
+        }
+    }
+
+    fn tenant(&self) -> Option<&Arc<User>> {
+        self.tenant.as_ref().map(|t| &t.user)
+    }
+
+    fn raw_username(&self) -> Option<&ArcStr> {
+        self.tenant.as_ref().and_then(|t| t.raw_user_name.as_ref())
+    }
+
+    fn is_blocked(&self) -> bool {
+        self.tenant.as_ref().is_some_and(|t| t.user.is_blocked())
+    }
+
+    fn rsp_hdr_recv_timeout(&self) -> Option<Duration> {
+        self.rsp_hdr_recv_timeout
+    }
+
+    fn log_uri_max_chars(&self) -> Option<usize> {
+        self.tenant
+            .as_ref()
+            .and_then(|t| t.user.log_uri_max_chars())
+    }
+
+    fn add_proto_banned(&self) {
+        if let Some(t) = &self.tenant {
+            t.forbidden_stats.add_proto_banned();
+        }
     }
 }
 
@@ -70,6 +136,7 @@ pub(crate) struct StreamInspectTaskNotes {
     pub(crate) server_addr: SocketAddr,
     worker_id: Option<usize>,
     user_ctx: Option<StreamInspectUserContext>,
+    site_ctx: Option<StreamInspectSiteContext>,
     max_idle_count: usize,
 }
 
@@ -78,10 +145,21 @@ impl StreamInspectTaskNotes {
         self.user_ctx.as_ref().map(|ctx| &ctx.user)
     }
 
+    pub(crate) fn tenant(&self) -> Option<&Arc<User>> {
+        self.site_ctx.as_ref().and_then(|s| s.tenant())
+    }
+
+    pub(crate) fn is_blocked(&self) -> bool {
+        self.user().is_some_and(|u| u.is_blocked())
+            || self.site_ctx.as_ref().is_some_and(|s| s.is_blocked())
+    }
+
+    /// ICAP / detour client identity: visitor first, owner if no visitor.
     pub(crate) fn raw_username(&self) -> Option<&ArcStr> {
         self.user_ctx
             .as_ref()
             .and_then(|ctx| ctx.raw_user_name.as_ref())
+            .or_else(|| self.site_ctx.as_ref().and_then(|s| s.raw_username()))
     }
 
     #[inline]
@@ -96,15 +174,11 @@ impl StreamInspectTaskNotes {
             server_addr: task_notes.server_addr(),
             worker_id: task_notes.worker_id(),
             user_ctx: task_notes
+                .user_ctx()
+                .map(StreamInspectUserContext::from_user_context),
+            site_ctx: task_notes
                 .site_ctx()
-                .and_then(|s| s.tenant())
-                .or(task_notes.user_ctx())
-                .map(|ctx| StreamInspectUserContext {
-                    raw_user_name: ctx.raw_user_name().cloned(),
-                    user: ctx.user().clone(),
-                    user_site: ctx.user_site().cloned(),
-                    forbidden_stats: ctx.forbidden_stats().clone(),
-                }),
+                .map(StreamInspectSiteContext::from_site_context),
             max_idle_count: task_notes.task_max_idle_count(server_config.task_max_idle_count()),
         }
     }
@@ -186,13 +260,42 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         self.task_notes.user().map(|u| u.as_ref())
     }
 
+    #[inline]
+    fn tenant(&self) -> Option<&User> {
+        self.task_notes.tenant().map(|t| t.as_ref())
+    }
+
     fn user_cloned(&self) -> Option<Arc<User>> {
         self.task_notes.user().cloned()
+    }
+
+    fn tenant_cloned(&self) -> Option<Arc<User>> {
+        self.task_notes.tenant().cloned()
     }
 
     #[inline]
     fn raw_user_name(&self) -> Option<&ArcStr> {
         self.task_notes.raw_username()
+    }
+
+    /// DPI flags: site context uses tenant only; otherwise visitor user.
+    fn audit_proto_banned_if(&self, prohibit: impl Fn(&User) -> bool) -> bool {
+        if let Some(site) = &self.task_notes.site_ctx {
+            if let Some(tenant) = site.tenant()
+                && prohibit(tenant)
+            {
+                site.add_proto_banned();
+                return true;
+            }
+            return false;
+        }
+        if let Some(ctx) = &self.task_notes.user_ctx
+            && prohibit(&ctx.user)
+        {
+            ctx.forbidden_stats.add_proto_banned();
+            return true;
+        }
+        false
     }
 
     #[inline]
@@ -231,6 +334,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         ServerIdleChecker::new(
             self.idle_wheel.clone(),
             self.user_cloned(),
+            self.tenant_cloned(),
             self.max_idle_count(),
             self.server_quit_policy.clone(),
         )
@@ -280,9 +384,15 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
 
     fn log_uri_max_chars(&self) -> usize {
         self.task_notes
-            .user_ctx
+            .site_ctx
             .as_ref()
-            .and_then(|cx| cx.user.log_uri_max_chars())
+            .and_then(|s| s.log_uri_max_chars())
+            .or_else(|| {
+                self.task_notes
+                    .user_ctx
+                    .as_ref()
+                    .and_then(|cx| cx.user.log_uri_max_chars())
+            })
             .unwrap_or_else(|| self.audit_handle.log_uri_max_chars())
     }
 
@@ -291,12 +401,19 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         self.audit_handle.h1_interception()
     }
 
-    fn h1_rsp_hdr_recv_timeout(&self) -> Duration {
+    fn rsp_hdr_recv_timeout(&self, fallback: Duration) -> Duration {
+        if let Some(site) = &self.task_notes.site_ctx {
+            return site.rsp_hdr_recv_timeout().unwrap_or(fallback);
+        }
         self.task_notes
             .user_ctx
             .as_ref()
             .and_then(|ctx| ctx.http_rsp_hdr_recv_timeout())
-            .unwrap_or(self.h1_interception().rsp_head_recv_timeout)
+            .unwrap_or(fallback)
+    }
+
+    fn h1_rsp_hdr_recv_timeout(&self) -> Duration {
+        self.rsp_hdr_recv_timeout(self.h1_interception().rsp_head_recv_timeout)
     }
 
     #[inline]
@@ -313,11 +430,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     fn h2_rsp_hdr_recv_timeout(&self) -> Duration {
-        self.task_notes
-            .user_ctx
-            .as_ref()
-            .and_then(|ctx| ctx.http_rsp_hdr_recv_timeout())
-            .unwrap_or(self.h2_interception().rsp_head_recv_timeout)
+        self.rsp_hdr_recv_timeout(self.h2_interception().rsp_head_recv_timeout)
     }
 
     #[inline]
@@ -355,11 +468,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     fn belongs_to_blocked_user(&self) -> bool {
-        self.task_notes
-            .user_ctx
-            .as_ref()
-            .map(|cx| cx.user.is_blocked())
-            .unwrap_or(false)
+        self.task_notes.is_blocked()
     }
 }
 

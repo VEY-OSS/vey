@@ -20,6 +20,8 @@ use vey_types::net::{
 use vey_types::resolve::ResolveStrategy;
 use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
+use super::SiteHttpConfig;
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct SiteConfig {
     id: NodeName,
@@ -44,6 +46,7 @@ pub(crate) struct SiteConfig {
     pub(crate) udp_remote_misc_opts: Option<UdpMiscSockOpts>,
     pub(crate) egress_path_id_map: BTreeMap<NodeName, String>,
     pub(crate) egress_path_value_map: BTreeMap<NodeName, serde_json::Value>,
+    pub(crate) http: SiteHttpConfig,
 }
 
 impl Default for SiteConfig {
@@ -67,6 +70,7 @@ impl Default for SiteConfig {
             udp_remote_misc_opts: None,
             egress_path_id_map: BTreeMap::new(),
             egress_path_value_map: BTreeMap::new(),
+            http: SiteHttpConfig::default(),
         }
     }
 }
@@ -216,6 +220,10 @@ impl YamlMapCallback for SiteConfig {
                 .collect();
                 Ok(())
             }
+            "http" => self
+                .http
+                .parse_yaml(value)
+                .context(format!("invalid site http config value for key {key}")),
             "egress_path_value_map" => {
                 self.egress_path_value_map =
                     vey_yaml::value::as_hashmap(value, vey_yaml::value::as_metric_node_name, |v| {
