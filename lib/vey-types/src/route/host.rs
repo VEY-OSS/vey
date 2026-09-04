@@ -164,6 +164,70 @@ impl<T> HostMatch<Arc<T>> {
         Ok(dst)
     }
 
+    pub fn try_build_arc_filtered<R, E, F>(&self, try_build: F) -> Result<HostMatch<Arc<R>>, E>
+    where
+        F: Fn(&Arc<T>) -> Result<Option<R>, E>,
+    {
+        use std::collections::hash_map::Entry;
+
+        let mut dst = HostMatch::default();
+        let mut tmp_ht: AHashMap<usize, Option<Arc<R>>> = AHashMap::new();
+
+        let mut get_tmp = |v: &Arc<T>| -> Result<Option<Arc<R>>, E> {
+            let v_index = Arc::as_ptr(v) as usize;
+            match tmp_ht.entry(v_index) {
+                Entry::Occupied(oe) => Ok(oe.get().clone()),
+                Entry::Vacant(ve) => {
+                    let dv = try_build(v)?.map(Arc::new);
+                    ve.insert(dv.clone());
+                    Ok(dv)
+                }
+            }
+        };
+
+        if let Some(ht) = &self.exact_domain {
+            let mut dst_ht = AHashMap::with_capacity(ht.len());
+            for (k, v) in ht {
+                if let Some(dv) = get_tmp(v)? {
+                    dst_ht.insert(k.clone(), dv);
+                }
+            }
+            if !dst_ht.is_empty() {
+                dst.exact_domain = Some(dst_ht);
+            }
+        }
+
+        if let Some(ht) = &self.exact_ip {
+            let mut dst_ht = FxHashMap::with_capacity_and_hasher(ht.len(), FxBuildHasher);
+            for (k, v) in ht {
+                if let Some(dv) = get_tmp(v)? {
+                    dst_ht.insert(*k, dv);
+                }
+            }
+            if !dst_ht.is_empty() {
+                dst.exact_ip = Some(dst_ht);
+            }
+        }
+
+        if let Some(trie) = &self.suffix_domain {
+            let mut dst_trie = Trie::new();
+            for (prefix, v) in trie.iter() {
+                if let Some(dv) = get_tmp(v)? {
+                    dst_trie.insert(prefix.to_string(), dv);
+                }
+            }
+            if !dst_trie.is_empty() {
+                dst.suffix_domain = Some(dst_trie);
+            }
+        }
+
+        if let Some(default) = &self.default {
+            dst.default = get_tmp(default)?;
+        }
+
+        Ok(dst)
+    }
+
     pub fn for_each_unique<F>(&self, mut f: F)
     where
         F: FnMut(&Arc<T>),
@@ -404,6 +468,36 @@ mod tests {
         let b_val = hm_dst.get(&Host::Domain(literal_domain!("b.com"))).unwrap();
 
         assert!(Arc::ptr_eq(a_val, b_val));
+    }
+
+    #[test]
+    fn try_build_arc_filtered_skips_none() {
+        let mut hm = HostMatch::default();
+        hm.add_exact_domain(literal_domain!("keep.com"), Arc::new(Src(1)));
+        hm.add_exact_domain(literal_domain!("skip.com"), Arc::new(Src(-1)));
+        hm.set_default(Arc::new(Src(-2)));
+
+        let hm_dst = hm
+            .try_build_arc_filtered(|src| {
+                if src.0 < 0 {
+                    Ok::<_, ()>(None)
+                } else {
+                    Ok(Some(Dst(src.0)))
+                }
+            })
+            .unwrap();
+
+        assert!(
+            hm_dst
+                .get(&Host::Domain(literal_domain!("keep.com")))
+                .is_some()
+        );
+        assert!(
+            hm_dst
+                .get(&Host::Domain(literal_domain!("skip.com")))
+                .is_none()
+        );
+        assert!(hm_dst.get_default().is_none());
     }
 
     #[test]

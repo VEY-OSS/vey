@@ -9,6 +9,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
 
+use vey_dpi::MaybeProtocol;
 use vey_types::limit::{
     GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimitQuota, RateLimiter,
 };
@@ -104,6 +105,10 @@ impl Site {
 
     pub(crate) fn tls_name(&self) -> &Host {
         &self.config.tls_name
+    }
+
+    pub(crate) fn dpi_protocol(&self) -> Option<MaybeProtocol> {
+        self.config.dpi_protocol
     }
 
     pub(crate) fn tls_server_builder(&self) -> Option<&OpensslServerConfigBuilder> {

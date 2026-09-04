@@ -28,6 +28,7 @@ Servers
    udp_tproxy
    tcp_tproxy
    tls_stream
+   tls_proxy
    http_proxy
    socks_proxy
    http_rproxy

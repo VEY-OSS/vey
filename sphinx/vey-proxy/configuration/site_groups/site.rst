@@ -14,7 +14,7 @@ to the host-match wrapper; the keys below belong to the site itself.
 This is not a :ref:`user site <configuration_auth_user_site>`. User sites are
 per-user destination overrides on a forward-proxy user. A site here is an
 origin selected by Host / SNI on a reverse-proxy server such as
-``http_expose``.
+``http_expose`` or ``tls_proxy``.
 
 .. versionadded:: 1.15.0
 
@@ -70,8 +70,13 @@ tls_server
 
 TLS server configuration for this site.
 
-If unset, :ref:`global_tls_server <configuration_server_http_rproxy_global_tls_server>`
-on the ``http_expose`` server is used when TLS is enabled.
+``http_expose`` uses this when TLS is enabled; if unset,
+:ref:`global_tls_server <configuration_server_http_rproxy_global_tls_server>`
+on that server is used.
+
+:ref:`tls_proxy <configuration_server_tls_proxy>` requires this key. Sites
+without it are skipped by ``tls_proxy``; there is no server-level fallback
+certificate.
 
 **default**: not set
 
@@ -100,6 +105,24 @@ If unset, the host part of ``upstream`` is used.
 
 **default**: not set
 
+.. _conf_site_dpi_protocol:
+
+dpi_protocol
+------------
+
+**optional**, **type**: str
+
+Inner protocol after TLS termination, used as a DPI hint by
+:ref:`tls_proxy <configuration_server_tls_proxy>` when that server has an
+auditor. Recognised values are the same protocol names as protocol
+inspection (``http``, ``smtp``, ``imap``, …). This is the protocol
+**inside** TLS; do not set ``https``.
+
+``http_expose`` ignores this key. ``tls_proxy`` ignores it when no
+auditor is configured.
+
+**default**: not set, inspect from the port map and the first bytes
+
 .. _conf_site_tcp_sock_speed_limit:
 
 tcp_sock_speed_limit
@@ -108,7 +131,8 @@ tcp_sock_speed_limit
 **optional**, **type**: :external+values:ref:`tcp socket speed limit <conf_value_tcp_sock_speed_limit>`
 
 Per-connection speed limit for this site. The effective limit is the smaller of
-this value, the ``http_expose`` server limit, and the visitor user limit.
+this value, the reverse-proxy server limit, and any attached tenant or visitor
+user limit.
 
 **default**: no extra limit
 

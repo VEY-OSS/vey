@@ -95,12 +95,16 @@ impl StreamInspectTaskNotes {
             client_addr: task_notes.client_addr(),
             server_addr: task_notes.server_addr(),
             worker_id: task_notes.worker_id(),
-            user_ctx: task_notes.user_ctx().map(|ctx| StreamInspectUserContext {
-                raw_user_name: ctx.raw_user_name().cloned(),
-                user: ctx.user().clone(),
-                user_site: ctx.user_site().cloned(),
-                forbidden_stats: ctx.forbidden_stats().clone(),
-            }),
+            user_ctx: task_notes
+                .site_ctx()
+                .and_then(|s| s.tenant())
+                .or(task_notes.user_ctx())
+                .map(|ctx| StreamInspectUserContext {
+                    raw_user_name: ctx.raw_user_name().cloned(),
+                    user: ctx.user().clone(),
+                    user_site: ctx.user_site().cloned(),
+                    forbidden_stats: ctx.forbidden_stats().clone(),
+                }),
             max_idle_count: task_notes.task_max_idle_count(server_config.task_max_idle_count()),
         }
     }

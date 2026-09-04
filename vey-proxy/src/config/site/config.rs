@@ -10,6 +10,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
+use vey_dpi::MaybeProtocol;
 use vey_types::limit::RateLimitQuota;
 use vey_types::metrics::NodeName;
 use vey_types::net::{
@@ -30,6 +31,8 @@ pub(crate) struct SiteConfig {
     pub(crate) tls_server_builder: Option<OpensslServerConfigBuilder>,
     pub(crate) tls_client_builder: Option<OpensslClientConfigBuilder>,
     pub(crate) tls_name: Host,
+    /// Inner protocol after TLS termination. Used by `tls_proxy` DPI only.
+    pub(crate) dpi_protocol: Option<MaybeProtocol>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) request_rate_limit: Option<RateLimitQuota>,
     pub(crate) request_alive_max: Option<usize>,
@@ -52,6 +55,7 @@ impl Default for SiteConfig {
             tls_server_builder: None,
             tls_client_builder: None,
             tls_name: Host::empty(),
+            dpi_protocol: None,
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             request_rate_limit: None,
             request_alive_max: None,
@@ -132,6 +136,15 @@ impl YamlMapCallback for SiteConfig {
             "tls_name" => {
                 self.tls_name = vey_yaml::value::as_host(value)
                     .context(format!("invalid tls name value for key {key}"))?;
+                Ok(())
+            }
+            "dpi_protocol" => {
+                let protocol = vey_yaml::value::as_string(value)
+                    .context(format!("invalid protocol string value for key {key}"))?;
+                self.dpi_protocol = Some(
+                    MaybeProtocol::from_str(&protocol)
+                        .map_err(|_| anyhow!("unrecognised dpi_protocol {protocol}"))?,
+                );
                 Ok(())
             }
             "tcp_sock_speed_limit" => {

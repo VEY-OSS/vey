@@ -49,6 +49,7 @@ mod tcp_stream;
     target_os = "openbsd"
 ))]
 mod tcp_tproxy;
+mod tls_proxy;
 mod tls_stream;
 mod udp_stream;
 #[cfg(any(

@@ -134,6 +134,28 @@ static_sites:
     }
 
     #[test]
+    fn parse_dpi_protocol() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    dpi_protocol: http
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert_eq!(site.dpi_protocol, Some(vey_dpi::MaybeProtocol::Http));
+    }
+
+    #[test]
     fn parse_site_limits() {
         let yaml = YamlLoader::load_from_str(
             r#"
@@ -194,7 +216,7 @@ static_sites:
   - id: app
     exact_match: app.internal
     upstream: 127.0.0.1:8080
-    dpi_protocol: http
+    bogus_field: 1
 "#,
         )
         .unwrap();

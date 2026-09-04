@@ -43,6 +43,7 @@ pub(crate) mod tcp_stream;
     target_os = "openbsd",
 ))]
 pub(crate) mod tcp_tproxy;
+pub(crate) mod tls_proxy;
 pub(crate) mod tls_stream;
 pub(crate) mod udp_stream;
 #[cfg(any(
@@ -164,6 +165,7 @@ pub(crate) enum AnyServerConfig {
     ))]
     UdpTProxy(udp_tproxy::UdpTProxyServerConfig),
     TlsStream(tls_stream::TlsStreamServerConfig),
+    TlsProxy(tls_proxy::TlsProxyServerConfig),
     SniProxy(sni_proxy::SniProxyServerConfig),
     SocksProxy(socks_proxy::SocksProxyServerConfig),
     HttpProxy(http_proxy::HttpProxyServerConfig),
@@ -289,6 +291,11 @@ fn load_server(
             let server = tls_stream::TlsStreamServerConfig::parse(map, position)
                 .context("failed to load this TLsStream server")?;
             Ok(AnyServerConfig::TlsStream(server))
+        }
+        "tls_proxy" | "tlsproxy" => {
+            let server = tls_proxy::TlsProxyServerConfig::parse(map, position)
+                .context("failed to load this TlsProxy server")?;
+            Ok(AnyServerConfig::TlsProxy(server))
         }
         "sni_proxy" | "sniproxy" => {
             let server = sni_proxy::SniProxyServerConfig::parse(map, position)

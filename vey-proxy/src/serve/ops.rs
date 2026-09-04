@@ -38,6 +38,7 @@ use super::tcp_stream::TcpStreamServer;
     target_os = "openbsd"
 ))]
 use super::tcp_tproxy::TcpTProxyServer;
+use super::tls_proxy::TlsProxyServer;
 use super::tls_stream::TlsStreamServer;
 use super::udp_stream::UdpStreamServer;
 #[cfg(any(
@@ -345,6 +346,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
         ))]
         AnyServerConfig::UdpTProxy(c) => UdpTProxyServer::prepare_initial(c)?,
         AnyServerConfig::TlsStream(c) => TlsStreamServer::prepare_initial(c)?,
+        AnyServerConfig::TlsProxy(c) => TlsProxyServer::prepare_initial(c)?,
         AnyServerConfig::SniProxy(c) => SniProxyServer::prepare_initial(c)?,
         AnyServerConfig::SocksProxy(c) => SocksProxyServer::prepare_initial(c)?,
         AnyServerConfig::HttpProxy(c) => HttpProxyServer::prepare_initial(c)?,
