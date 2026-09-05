@@ -251,8 +251,9 @@ impl ServerCertBuilder {
     }
 
     pub fn valid_seconds(&self) -> anyhow::Result<i32> {
-        let t_now =
-            Asn1Time::days_from_now(0).map_err(|e| anyhow!("failed to get now datatime: {e}"))?;
+        // Match the jiff clock used to set NotAfter; OpenSSL time() can lag by 1s.
+        let t_now = asn1_time_from_timestamp(&timestamp_now_utc_zoned().timestamp())
+            .context("failed to get now datatime")?;
         let diff = t_now
             .diff(&self.not_after)
             .map_err(|e| anyhow!("failed to get time diff: {e}"))?;
@@ -382,10 +383,11 @@ mod tests {
         let mut builder = TlsServerCertBuilder::new_ec256().unwrap();
         builder.refresh_datetime().unwrap();
 
-        // NotAfter is set to 365 days from now
+        // NotAfter is set to 365 days from now. Allow a small window for
+        // sub-second truncation and time elapsing between the two reads.
         let seconds = builder.valid_seconds().unwrap();
         assert!(
-            (365 * 86400 - 60..=365 * 86400).contains(&seconds),
+            (365 * 86400 - 60..=365 * 86400 + 60).contains(&seconds),
             "unexpected valid seconds {seconds}"
         );
     }
