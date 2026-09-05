@@ -1,0 +1,46 @@
+---
+runtime:
+  thread_number: 2
+
+log: journal
+
+controller:
+  local:
+    recv_timeout: 30
+    send_timeout: 1
+
+site_group:
+  - name: default
+    static_sites:
+      - id: local
+        exact_match: localhost
+        upstream: 127.0.0.1:80
+        tls_server:
+          cert_pairs:
+            certificate: ../simple_http_proxy/cert.pem
+            private-key: ../simple_http_proxy/key.pem
+
+server:
+  - name: test
+    escaper: default
+    type: tls_proxy
+    listen:
+      address: "[::]:10443"
+    tcp_sock_speed_limit: 100M
+    site_group: default
+
+resolver:
+  - name: default
+    type: c-ares
+
+escaper:
+  - name: default
+    type: direct_fixed
+    no_ipv6: true
+    resolver: default
+    resolve_strategy: IPv4Only
+    tcp_sock_speed_limit: 80M
+    egress_network_filter:
+      default: allow
+      allow:
+        - 127.0.0.1

@@ -64,6 +64,10 @@ tenant user. ``http_expose`` visitor authentication still uses the server
 
 If unset, sites have no tenant even when ``owner`` is set.
 
+Owner lookup is by username only. Those users do not need a
+:ref:`token <conf_auth_user_token>`; omitting it forbids visitor login, which
+is the usual setup for tenant-only records.
+
 **default**: not set
 
 .. _conf_site_group_static_sites:

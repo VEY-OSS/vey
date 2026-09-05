@@ -1,0 +1,77 @@
+---
+
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.0/8
+
+auditor:
+  - name: default
+    protocol_inspection: { }
+
+user-group:
+  - name: tenants
+    static_users:
+      - name: t1
+        audit:
+          enable_protocol_inspection: true
+
+site_group:
+  - name: httpbin
+    tenant_user_group: tenants
+    static_sites:
+      - id: httpbin
+        exact_match: httpbin.local
+        owner: t1
+        upstream: 127.0.0.1:80
+        dpi_protocol: http
+        tls_server:
+          cert_pairs:
+            certificate: ../httpbin.local.pem
+            private-key: ../httpbin.local-key.pem
+      - id: httpbin_tls
+        exact_match: vey-proxy.local
+        owner: t1
+        upstream: 127.0.0.1:2443
+        tls_name: httpbin.local
+        dpi_protocol: http
+        tls_client:
+          ca_certificate: ../rootCA.pem
+        tls_server:
+          cert_pairs:
+            certificate: ../vey-proxy.local.pem
+            private-key: ../vey-proxy.local-key.pem
+
+server:
+  - name: tls
+    type: tls_proxy
+    listen: 127.0.0.1:8443
+    escaper: default
+    site_group: httpbin
+    flush_task_log_on_created: true
+    flush_task_log_on_connected: true
+    task_log_flush_interval: 1s
+    tcp_sock_speed_limit: 800K
+  - name: tls_inspect
+    type: tls_proxy
+    listen: 127.0.0.1:9443
+    escaper: default
+    auditor: default
+    site_group: httpbin
+    flush_task_log_on_created: true
+    flush_task_log_on_connected: true
+    task_log_flush_interval: 1s
+    tcp_sock_speed_limit: 800K
