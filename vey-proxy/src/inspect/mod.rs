@@ -74,7 +74,7 @@ impl StreamInspectUserContext {
     }
 }
 
-/// Reverse-proxy origin snapshot. Tenant is the site owner; there is no `user_site`.
+/// Reverse-proxy site snapshot. Tenant is the site owner; there is no `user_site`.
 #[derive(Clone)]
 pub(super) struct StreamInspectSiteContext {
     tenant: Option<StreamInspectTenant>,

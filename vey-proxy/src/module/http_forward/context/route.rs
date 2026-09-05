@@ -110,11 +110,11 @@ impl HttpForwardContext for RouteHttpForwardContext {
         self.reuse
             .get_alive(idle_expire)
             .await
-            .map(|(c, leftover)| {
+            .map(|(connection, keep_alive_leftover)| {
                 (
-                    c,
+                    connection,
                     HttpAliveReuseNotes {
-                        leftover,
+                        keep_alive_leftover,
                         escaper: self.final_escaper.clone(),
                     },
                 )
@@ -129,7 +129,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError> {
         self.last_is_tls = false;
-        self.reuse.clear_inflight();
+        self.reuse.clear_keep_alive_leftover();
         if self.run_local_update {
             self.escaper._update_audit_context(audit_ctx);
         }
@@ -154,7 +154,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError> {
         self.last_is_tls = true;
-        self.reuse.clear_inflight();
+        self.reuse.clear_keep_alive_leftover();
         if self.run_local_update {
             self.escaper._update_audit_context(audit_ctx);
         }
@@ -171,8 +171,12 @@ impl HttpForwardContext for RouteHttpForwardContext {
         Ok((conn, escaper))
     }
 
-    fn save_alive_connection(&mut self, c: BoxHttpForwardConnection, ka: KeepAliveValue) {
-        self.reuse.save(c, ka);
+    fn save_alive_connection(
+        &mut self,
+        connection: BoxHttpForwardConnection,
+        keep_alive: KeepAliveValue,
+    ) {
+        self.reuse.save(connection, keep_alive);
     }
 
     fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes) {

@@ -74,7 +74,7 @@ pub(crate) struct HttpExposePipelineWriterTask<CDR, CDW> {
     forward_context: BoxHttpForwardContext,
     wrapper_stats: ArcLimitedWriterStats,
     req_count: RequestCount,
-    origin_conn: Option<SiteHttpConnGuard>,
+    site_conn: Option<SiteHttpConnGuard>,
 }
 
 enum LoopAction {
@@ -114,15 +114,15 @@ where
             forward_context,
             wrapper_stats: clt_w_stats,
             req_count: RequestCount::default(),
-            origin_conn: None,
+            site_conn: None,
         }
     }
 
-    fn note_origin_conn(&mut self, site: &Site) {
-        if self.origin_conn.is_some() {
+    fn note_site_conn(&mut self, site: &Site) {
+        if self.site_conn.is_some() {
             return;
         }
-        self.origin_conn = Some(site.hold_http_conn(
+        self.site_conn = Some(site.hold_http_conn(
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),
         ));
@@ -212,7 +212,7 @@ where
                                         self.ctx.server_config.name(),
                                         self.ctx.server_stats.share_extra_tags(),
                                     );
-                                    self.note_origin_conn(host.site());
+                                    self.note_site_conn(host.site());
                                     self.run(req, site_ctx, user_ctx, host).await
                                 }
                                 None => {

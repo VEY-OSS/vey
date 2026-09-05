@@ -12,9 +12,9 @@ use crate::auth::UserContext;
 use crate::config::site::SiteConfig;
 use crate::escape::EgressPathSelection;
 
-/// Origin-site egress snapshot, filled when `Site` is built.
-/// Shrink fields are merged with TenantUser in `SiteContext`; lookup fields
-/// stay here and are searched OriginSite then TenantUser.
+/// Site egress snapshot, filled when `Site` is built.
+/// Shrink fields are merged with the tenant user in `SiteContext`; lookup fields
+/// stay here and are searched site then tenant.
 #[derive(Clone, Default)]
 pub(crate) struct SiteEgress {
     resolve_strategy: Option<ResolveStrategy>,

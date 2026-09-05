@@ -496,7 +496,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
         if let Some(mut connection) = self
-            .take_reused_origin_connection(fwd_ctx, upstream_keepalive.idle_expire())
+            .take_alive_origin_connection(fwd_ctx, upstream_keepalive.idle_expire())
             .await
         {
             self.task_notes.stage = ServerTaskStage::Connected;
@@ -563,7 +563,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         }
     }
 
-    async fn take_reused_origin_connection(
+    async fn take_alive_origin_connection(
         &mut self,
         fwd_ctx: &mut BoxHttpForwardContext,
         idle_expire: Duration,
@@ -573,9 +573,9 @@ impl<'a> HttpExposeForwardTask<'a> {
         } else {
             None
         };
-        if let Some((connection, leftover, escaper, notes)) = from_pool {
+        if let Some((connection, keep_alive_leftover, escaper, notes)) = from_pool {
             self.alive_reuse_notes = Some(HttpAliveReuseNotes {
-                leftover,
+                keep_alive_leftover,
                 escaper: escaper.clone(),
             });
             self.egress_notes = notes;
@@ -614,11 +614,11 @@ impl<'a> HttpExposeForwardTask<'a> {
             }
             let _ = clt_w.shutdown().await;
         } else if let Some(connection) = ups_s {
-            self.save_alive_origin(fwd_ctx, connection);
+            self.save_alive_origin_connection(fwd_ctx, connection);
         }
     }
 
-    fn save_alive_origin(
+    fn save_alive_origin_connection(
         &mut self,
         fwd_ctx: &mut BoxHttpForwardContext,
         connection: BoxHttpForwardConnection,
@@ -630,7 +630,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             pool.save(
                 connection,
                 self.ups_keep_alive,
-                Some(reuse_notes.leftover),
+                Some(reuse_notes.keep_alive_leftover),
                 self.is_https,
                 reuse_notes.escaper,
                 self.egress_notes.clone(),

@@ -33,14 +33,14 @@ pub(crate) type BoxHttpForwardContext = Box<dyn HttpForwardContext + Send>;
 
 #[derive(Clone)]
 pub(crate) struct HttpAliveReuseNotes {
-    pub leftover: KeepAliveValue,
+    pub keep_alive_leftover: KeepAliveValue,
     pub escaper: ArcEscaper,
 }
 
 impl HttpAliveReuseNotes {
     pub(crate) fn from_new(escaper: ArcEscaper) -> Self {
         HttpAliveReuseNotes {
-            leftover: KeepAliveValue::default(),
+            keep_alive_leftover: KeepAliveValue::default(),
             escaper,
         }
     }
@@ -73,7 +73,11 @@ pub(crate) trait HttpForwardContext {
         task_stats: ArcHttpForwardTaskRemoteStats,
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError>;
-    fn save_alive_connection(&mut self, c: BoxHttpForwardConnection, ka: KeepAliveValue);
+    fn save_alive_connection(
+        &mut self,
+        connection: BoxHttpForwardConnection,
+        keep_alive: KeepAliveValue,
+    );
     fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes);
 
     async fn get_prepared_alive_connection(
@@ -144,13 +148,13 @@ impl HttpAliveConnection {
 #[derive(Default)]
 struct HttpAliveReuseState {
     last: Option<HttpAliveConnection>,
-    inflight: Option<KeepAliveValue>,
+    keep_alive_leftover: Option<KeepAliveValue>,
 }
 
 impl HttpAliveReuseState {
     fn drop_saved(&mut self) {
         self.last = None;
-        self.inflight = None;
+        self.keep_alive_leftover = None;
     }
 
     fn take_last(&mut self) -> Option<HttpAliveConnection> {
@@ -161,8 +165,8 @@ impl HttpAliveReuseState {
         self.last = Some(conn);
     }
 
-    fn clear_inflight(&mut self) {
-        self.inflight = None;
+    fn clear_keep_alive_leftover(&mut self) {
+        self.keep_alive_leftover = None;
     }
 
     async fn get_alive(
@@ -172,7 +176,7 @@ impl HttpAliveReuseState {
         let conn = match self.last.take() {
             Some(conn) => conn,
             None => {
-                self.inflight = None;
+                self.keep_alive_leftover = None;
                 return None;
             }
         };
@@ -187,21 +191,21 @@ impl HttpAliveReuseState {
         if conn.saved_at.elapsed() >= timeout {
             return None;
         }
-        let leftover = conn.keep_alive.decrement_max();
-        let c = conn.poller.recv_conn().await?;
-        self.inflight = Some(leftover);
-        Some((c, leftover))
+        let keep_alive_leftover = conn.keep_alive.decrement_max();
+        let connection = conn.poller.recv_conn().await?;
+        self.keep_alive_leftover = Some(keep_alive_leftover);
+        Some((connection, keep_alive_leftover))
     }
 
-    fn save(&mut self, c: BoxHttpForwardConnection, ka: KeepAliveValue) {
-        let ka = ka.or_from(self.inflight.take().unwrap_or_default());
-        if ka.max() == Some(0) {
+    fn save(&mut self, connection: BoxHttpForwardConnection, keep_alive: KeepAliveValue) {
+        let keep_alive = keep_alive.or_from(self.keep_alive_leftover.take().unwrap_or_default());
+        if keep_alive.max() == Some(0) {
             return;
         }
         self.last = Some(HttpAliveConnection {
             saved_at: Instant::now(),
-            poller: HttpConnectionEofPoller::spawn(c),
-            keep_alive: ka,
+            poller: HttpConnectionEofPoller::spawn(connection),
+            keep_alive,
         });
     }
 }

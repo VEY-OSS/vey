@@ -49,32 +49,32 @@ impl SiteHttp1Pool {
         let idle_expire = idle_expire.min(self.config.idle_timeout());
         loop {
             let conn = self.pop_candidate(idle_expire, is_tls)?;
-            let leftover = conn.keep_alive.decrement_max();
+            let keep_alive_leftover = conn.keep_alive.decrement_max();
             let escaper = conn.escaper;
             let egress_notes = conn.egress_notes;
-            if let Some(c) = conn.poller.recv_conn().await {
-                return Some((c, leftover, escaper, egress_notes));
+            if let Some(connection) = conn.poller.recv_conn().await {
+                return Some((connection, keep_alive_leftover, escaper, egress_notes));
             }
         }
     }
 
     pub(crate) fn save(
         &self,
-        c: BoxHttpForwardConnection,
-        ka: KeepAliveValue,
-        leftover: Option<KeepAliveValue>,
+        connection: BoxHttpForwardConnection,
+        keep_alive: KeepAliveValue,
+        keep_alive_leftover: Option<KeepAliveValue>,
         is_tls: bool,
         escaper: ArcEscaper,
         egress_notes: EgressNotes,
     ) {
-        let keep_alive = ka.or_from(leftover.unwrap_or_default());
+        let keep_alive = keep_alive.or_from(keep_alive_leftover.unwrap_or_default());
         if keep_alive.max() == Some(0) {
             return;
         }
 
         let pooled = PooledHttp1Connection {
             saved_at: Instant::now(),
-            poller: HttpConnectionEofPoller::spawn(c),
+            poller: HttpConnectionEofPoller::spawn(connection),
             keep_alive,
             is_tls,
             escaper,
