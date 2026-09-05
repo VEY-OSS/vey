@@ -175,6 +175,33 @@ pub(crate) trait Escaper: EscaperInternal {
         None
     }
 
+    fn prepare_reused_http_forward_connection(
+        &self,
+        mut connection: BoxHttpForwardConnection,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcHttpForwardTaskRemoteStats,
+        is_tls: bool,
+    ) -> BoxHttpForwardConnection {
+        let all_user_stats = if let Some(escaper_stats) = self.get_escape_stats() {
+            if is_tls {
+                escaper_stats.add_https_forward_request_attempted();
+            } else {
+                escaper_stats.add_http_forward_request_attempted();
+            }
+            task_notes.fetch_upstream_traffic_stats(
+                escaper_stats.name(),
+                escaper_stats.share_extra_tags(),
+            )
+        } else {
+            Default::default()
+        };
+        connection
+            .0
+            .update_stats(&task_stats, all_user_stats.clone());
+        connection.1.update_stats(&task_stats, all_user_stats);
+        connection
+    }
+
     async fn publish(&self, data: &str) -> anyhow::Result<()>;
 
     async fn tcp_setup_connection(

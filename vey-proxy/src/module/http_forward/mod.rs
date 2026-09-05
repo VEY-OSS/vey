@@ -16,7 +16,7 @@ pub(crate) use connection::{
 };
 pub(crate) use context::{
     BoxHttpForwardContext, DirectHttpForwardContext, FailoverHttpForwardContext,
-    HttpForwardContext, ProxyHttpForwardContext, RouteHttpForwardContext,
+    HttpAliveReuseNotes, HttpForwardContext, ProxyHttpForwardContext, RouteHttpForwardContext,
 };
 pub(crate) use response::HttpProxyClientResponse;
 pub(crate) use stats::{

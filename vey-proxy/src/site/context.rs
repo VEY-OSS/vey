@@ -22,26 +22,26 @@ use crate::auth::{
 };
 use crate::escape::EgressPathSelection;
 
-/// Reverse-proxy task identity: required origin site, optional tenant user.
+/// Reverse-proxy task identity: required site, optional tenant user.
 #[derive(Clone)]
 pub(crate) struct SiteContext {
-    origin: Arc<Site>,
+    site: Arc<Site>,
     tenant: Option<UserContext>,
-    origin_req_stats: Arc<UserRequestStats>,
-    origin_forbid_stats: Arc<UserForbiddenStats>,
+    req_stats: Arc<UserRequestStats>,
+    forbid_stats: Arc<UserForbiddenStats>,
     egress: Arc<SiteEgress>,
 }
 
 impl SiteContext {
     pub(crate) fn new(
-        origin: Arc<Site>,
+        site: Arc<Site>,
         egress: Arc<SiteEgress>,
         server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Self {
-        let tenant_group = origin.tenant_user_group();
+        let tenant_group = site.tenant_user_group();
         let tenant = lookup_tenant(
-            origin.owner(),
+            site.owner(),
             tenant_group.as_deref(),
             server,
             server_extra_tags,
@@ -50,24 +50,22 @@ impl SiteContext {
             Some(t) => Arc::new(egress.shrink_with_tenant(Some(t))),
             None => egress,
         };
-        let origin_req_stats = origin
-            .stats()
-            .fetch_request_stats(server, server_extra_tags);
-        let origin_forbid_stats = origin
+        let req_stats = site.stats().fetch_request_stats(server, server_extra_tags);
+        let forbid_stats = site
             .stats()
             .fetch_forbidden_stats(server, server_extra_tags);
         SiteContext {
-            origin,
+            site,
             tenant,
-            origin_req_stats,
-            origin_forbid_stats,
+            req_stats,
+            forbid_stats,
             egress,
         }
     }
 
     #[inline]
-    pub(crate) fn origin(&self) -> &Arc<Site> {
-        &self.origin
+    pub(crate) fn site(&self) -> &Arc<Site> {
+        &self.site
     }
 
     #[inline]
@@ -76,12 +74,12 @@ impl SiteContext {
     }
 
     #[inline]
-    pub(crate) fn origin_req_stats(&self) -> &Arc<UserRequestStats> {
-        &self.origin_req_stats
+    pub(crate) fn req_stats(&self) -> &Arc<UserRequestStats> {
+        &self.req_stats
     }
 
     pub(crate) fn rsp_hdr_recv_timeout(&self) -> Option<Duration> {
-        self.origin.rsp_hdr_recv_timeout().or_else(|| {
+        self.site.rsp_hdr_recv_timeout().or_else(|| {
             self.tenant
                 .as_ref()
                 .and_then(|t| t.http_rsp_header_recv_timeout())
@@ -130,7 +128,7 @@ impl SiteContext {
         server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserTrafficStats> {
-        self.origin
+        self.site
             .stats()
             .fetch_traffic_stats(server, server_extra_tags)
     }
@@ -140,7 +138,7 @@ impl SiteContext {
         escaper: &NodeName,
         escaper_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserUpstreamTrafficStats> {
-        self.origin
+        self.site
             .stats()
             .fetch_upstream_traffic_stats(escaper, escaper_extra_tags)
     }
@@ -149,33 +147,31 @@ impl SiteContext {
         if let Some(tenant) = &self.tenant {
             tenant.check_rate_limit()?;
         }
-        self.origin.check_rate_limit(&self.origin_forbid_stats)
+        self.site.check_rate_limit(&self.forbid_stats)
     }
 
-    /// Tenant first, then origin. Each failure is counted on that principal.
+    /// Tenant first, then site. Each failure is counted on that principal.
     pub(crate) fn acquire_request_semaphores(&self) -> Result<SiteRequestPermits, ()> {
         let tenant = match &self.tenant {
             Some(t) => Some(t.acquire_request_semaphore()?),
             None => None,
         };
-        let origin = self
-            .origin
-            .acquire_request_semaphore(&self.origin_forbid_stats)?;
-        Ok(SiteRequestPermits { tenant, origin })
+        let site = self.site.acquire_request_semaphore(&self.forbid_stats)?;
+        Ok(SiteRequestPermits { tenant, site })
     }
 }
 
-/// Independent alive-request permits for the tenant user and the origin site.
+/// Independent alive-request permits for the tenant user and the site.
 #[derive(Default)]
 pub(crate) struct SiteRequestPermits {
     tenant: Option<GaugeSemaphorePermit>,
-    origin: Option<GaugeSemaphorePermit>,
+    site: Option<GaugeSemaphorePermit>,
 }
 
 impl SiteRequestPermits {
     pub(crate) fn release(&mut self) {
         self.tenant.take();
-        self.origin.take();
+        self.site.take();
     }
 }
 

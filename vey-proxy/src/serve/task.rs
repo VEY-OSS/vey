@@ -161,7 +161,7 @@ impl ServerTaskNotes {
         F: FnMut(&Arc<UserRequestStats>),
     {
         if let Some(site_ctx) = &self.site_ctx {
-            update(site_ctx.origin_req_stats());
+            update(site_ctx.req_stats());
         }
         if let Some(user_ctx) = &self.user_ctx {
             user_ctx.foreach_req_stats(update);
@@ -218,7 +218,7 @@ impl ServerTaskNotes {
     }
 
     /// Idle ticks allowed for this task.
-    /// Layers shrink with `min`: TenantUser → OriginSite → User.
+    /// Layers shrink with `min`: TenantUser → Site → User.
     /// Missing layers are skipped; none set falls back to `server_default`.
     pub(crate) fn task_max_idle_count(&self, server_default: usize) -> usize {
         layered_task_idle_count(
@@ -227,7 +227,7 @@ impl ServerTaskNotes {
                 .and_then(|s| s.tenant().and_then(|t| t.user().task_max_idle_count())),
             self.site_ctx
                 .as_ref()
-                .and_then(|s| s.origin().task_idle_max_count()),
+                .and_then(|s| s.site().task_idle_max_count()),
             self.user_ctx
                 .as_ref()
                 .and_then(|c| c.user().task_max_idle_count()),

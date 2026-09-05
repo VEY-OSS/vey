@@ -36,6 +36,24 @@ impl KeepAliveValue {
         self.timeout.is_none() && self.max.is_none()
     }
 
+    /// Fill unset `timeout` / `max` from `other`. Set fields on `self` win.
+    #[inline]
+    pub fn or_from(self, other: Self) -> Self {
+        KeepAliveValue {
+            timeout: self.timeout.or(other.timeout),
+            max: self.max.or(other.max),
+        }
+    }
+
+    /// One fewer remaining use after taking an idle connection.
+    #[inline]
+    pub fn decrement_max(self) -> Self {
+        KeepAliveValue {
+            timeout: self.timeout,
+            max: self.max.map(|n| n.saturating_sub(1)),
+        }
+    }
+
     pub fn parse(&mut self, buf: &[u8]) {
         for item in buf.as_generic_item_list() {
             let param = item.value();
@@ -224,6 +242,33 @@ mod tests {
         assert!(v.is_empty());
         v.parse(b"timeout=0");
         assert_eq!(v.timeout(), Some(Duration::ZERO));
+    }
+
+    #[test]
+    fn or_from_fills_unset_and_keeps_set() {
+        let mut header = KeepAliveValue::default();
+        header.parse(b"max=10");
+        let mut leftover = KeepAliveValue::default();
+        leftover.parse(b"timeout=5, max=3");
+        let merged = header.or_from(leftover);
+        assert_eq!(merged.timeout(), Some(Duration::from_secs(5)));
+        assert_eq!(merged.max(), Some(10));
+
+        let merged = KeepAliveValue::default().or_from(leftover);
+        assert_eq!(merged.timeout(), Some(Duration::from_secs(5)));
+        assert_eq!(merged.max(), Some(3));
+    }
+
+    #[test]
+    fn decrement_max_saturates_at_zero() {
+        let mut v = KeepAliveValue::default();
+        v.parse(b"timeout=5, max=1");
+        let v = v.decrement_max();
+        assert_eq!(v.timeout(), Some(Duration::from_secs(5)));
+        assert_eq!(v.max(), Some(0));
+        assert_eq!(v.decrement_max().max(), Some(0));
+
+        assert!(KeepAliveValue::default().decrement_max().is_empty());
     }
 
     #[test]

@@ -20,6 +20,7 @@ use vey_types::net::{
 };
 
 use super::SiteStats;
+use super::http1_pool::SiteHttp1Pool;
 use crate::auth::{UserForbiddenStats, UserGroup, UserRequestStats};
 use crate::config::site::SiteConfig;
 
@@ -30,6 +31,7 @@ pub(crate) struct Site {
     tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
     request_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
     req_alive_sem: Option<GaugeSemaphore>,
+    http1_pool: Option<Arc<SiteHttp1Pool>>,
 }
 
 impl Site {
@@ -57,6 +59,10 @@ impl Site {
             tenant_user_group,
             request_rate_limit,
             req_alive_sem,
+            http1_pool: config
+                .http
+                .h1_connection_pool
+                .map(|cfg| Arc::new(SiteHttp1Pool::new(cfg))),
         })
     }
 
@@ -77,6 +83,7 @@ impl Site {
                 .map(|sema| sema.new_updated(permits))
                 .unwrap_or_else(|| GaugeSemaphore::new(permits))
         });
+        let http1_pool = reuse_or_new_http1_pool(self, config);
 
         Ok(Site {
             config: Arc::clone(config),
@@ -85,6 +92,7 @@ impl Site {
             tenant_user_group,
             request_rate_limit,
             req_alive_sem,
+            http1_pool,
         })
     }
 
@@ -142,6 +150,10 @@ impl Site {
         self.config.http.rsp_hdr_recv_timeout
     }
 
+    pub(crate) fn http1_pool(&self) -> Option<&SiteHttp1Pool> {
+        self.http1_pool.as_deref()
+    }
+
     pub(crate) fn check_rate_limit(&self, forbid: &UserForbiddenStats) -> Result<(), ()> {
         if let Some(limit) = &self.request_rate_limit
             && limit.check().is_err()
@@ -197,6 +209,19 @@ fn build_tls_client(config: &SiteConfig) -> anyhow::Result<Option<OpensslClientC
     } else {
         Ok(None)
     }
+}
+
+fn reuse_or_new_http1_pool(old: &Site, config: &SiteConfig) -> Option<Arc<SiteHttp1Pool>> {
+    let pool_cfg = config.http.h1_connection_pool?;
+    if old.http1_pool.is_some()
+        && old.config.http.h1_connection_pool == Some(pool_cfg)
+        && old.config.upstream() == config.upstream()
+        && old.config.tls_client_builder == config.tls_client_builder
+        && old.config.tls_name == config.tls_name
+    {
+        return old.http1_pool.clone();
+    }
+    Some(Arc::new(SiteHttp1Pool::new(pool_cfg)))
 }
 
 fn reuse_or_new_rate_limiter(

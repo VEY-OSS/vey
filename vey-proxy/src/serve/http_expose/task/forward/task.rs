@@ -34,7 +34,7 @@ use crate::escape::EgressNotes;
 use crate::log::task::http_forward::TaskLogForHttpForward;
 use crate::module::http_forward::{
     BoxHttpForwardConnection, BoxHttpForwardContext, BoxHttpForwardReader, BoxHttpForwardWriter,
-    HttpForwardTaskNotes, HttpProxyClientResponse,
+    HttpAliveReuseNotes, HttpForwardTaskNotes, HttpProxyClientResponse,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::http_expose::HttpForwardTaskAliveGuard;
@@ -62,6 +62,7 @@ pub(crate) struct HttpExposeForwardTask<'a> {
     started: bool,
     _alive_guard: Option<HttpForwardTaskAliveGuard>,
     _site_req_alive_permits: SiteRequestPermits,
+    alive_reuse_notes: Option<HttpAliveReuseNotes>,
 }
 
 impl Drop for HttpExposeForwardTask<'_> {
@@ -110,6 +111,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             started: false,
             _alive_guard: None,
             _site_req_alive_permits: SiteRequestPermits::default(),
+            alive_reuse_notes: None,
         }
     }
 
@@ -493,18 +495,12 @@ impl<'a> HttpExposeForwardTask<'a> {
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
-        if let Some(mut connection) = fwd_ctx
-            .get_prepared_alive_connection(
-                &self.task_notes,
-                self.task_stats.clone(),
-                upstream_keepalive.idle_expire(),
-                self.is_https,
-            )
+        if let Some(mut connection) = self
+            .take_alive_origin_connection(fwd_ctx, upstream_keepalive.idle_expire())
             .await
         {
             self.task_notes.stage = ServerTaskStage::Connected;
             self.http_notes.reused_connection = true;
-            fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
             self.http_notes.retry_new_connection = false;
             self.task_notes
                 .foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
@@ -567,8 +563,46 @@ impl<'a> HttpExposeForwardTask<'a> {
         }
     }
 
+    async fn take_alive_origin_connection(
+        &mut self,
+        fwd_ctx: &mut BoxHttpForwardContext,
+        idle_expire: Duration,
+    ) -> Option<BoxHttpForwardConnection> {
+        let from_pool = if let Some(pool) = self.site.http1_pool() {
+            pool.get(idle_expire, self.is_https, self.task_notes.worker_id())
+                .await
+        } else {
+            None
+        };
+        if let Some((connection, keep_alive_leftover, escaper, notes)) = from_pool {
+            self.alive_reuse_notes = Some(HttpAliveReuseNotes {
+                keep_alive_leftover,
+                escaper: escaper.clone(),
+            });
+            self.egress_notes = notes;
+            return Some(escaper.prepare_reused_http_forward_connection(
+                connection,
+                &self.task_notes,
+                self.task_stats.clone(),
+                self.is_https,
+            ));
+        }
+
+        let (connection, reuse_notes) = fwd_ctx
+            .get_prepared_alive_connection(
+                &self.task_notes,
+                self.task_stats.clone(),
+                idle_expire,
+                self.is_https,
+            )
+            .await?;
+        self.alive_reuse_notes = Some(reuse_notes);
+        fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
+        Some(connection)
+    }
+
     async fn save_or_close<CDW>(
-        &self,
+        &mut self,
         fwd_ctx: &mut BoxHttpForwardContext,
         clt_w: &mut HttpClientWriter<CDW>,
         ups_s: Option<BoxHttpForwardConnection>,
@@ -581,6 +615,29 @@ impl<'a> HttpExposeForwardTask<'a> {
             }
             let _ = clt_w.shutdown().await;
         } else if let Some(connection) = ups_s {
+            self.save_alive_origin_connection(fwd_ctx, connection);
+        }
+    }
+
+    fn save_alive_origin_connection(
+        &mut self,
+        fwd_ctx: &mut BoxHttpForwardContext,
+        connection: BoxHttpForwardConnection,
+    ) {
+        if let Some(pool) = self.site.http1_pool() {
+            let Some(reuse_notes) = self.alive_reuse_notes.take() else {
+                return;
+            };
+            pool.save(
+                connection,
+                self.ups_keep_alive,
+                Some(reuse_notes.keep_alive_leftover),
+                self.is_https,
+                self.task_notes.worker_id(),
+                reuse_notes.escaper,
+                self.egress_notes.clone(),
+            );
+        } else {
             fwd_ctx.save_alive_connection(connection, self.ups_keep_alive);
         }
     }
@@ -595,9 +652,11 @@ impl<'a> HttpExposeForwardTask<'a> {
     {
         self.task_notes.stage = ServerTaskStage::Connecting;
         self.http_notes.reused_connection = false;
+        self.alive_reuse_notes = None;
 
         match self.make_new_connection(fwd_ctx).await {
-            Ok(mut connection) => {
+            Ok((mut connection, reuse_notes)) => {
+                self.alive_reuse_notes = Some(reuse_notes);
                 self.task_notes.stage = ServerTaskStage::Connected;
                 fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
 
@@ -625,7 +684,7 @@ impl<'a> HttpExposeForwardTask<'a> {
     async fn make_new_connection(
         &self,
         fwd_ctx: &mut BoxHttpForwardContext,
-    ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
+    ) -> Result<(BoxHttpForwardConnection, HttpAliveReuseNotes), TcpConnectError> {
         let mut audit_ctx = AuditContext::default();
         if let Some(tls_client) = self.site.tls_client() {
             let task_conf = TlsConnectTaskConf {

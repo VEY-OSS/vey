@@ -13,8 +13,8 @@ use async_trait::async_trait;
 use vey_types::net::{HttpForwardCapability, KeepAliveValue, UpstreamAddr};
 
 use super::{
-    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpAliveReuseState,
-    HttpForwardContext,
+    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpAliveReuseNotes,
+    HttpAliveReuseState, HttpForwardContext,
 };
 use crate::audit::AuditContext;
 use crate::escape::{ArcEscaper, EgressNotes};
@@ -106,11 +106,19 @@ impl HttpForwardContext for RouteHttpForwardContext {
     async fn get_alive_connection(
         &mut self,
         idle_expire: Duration,
-    ) -> Option<(BoxHttpForwardConnection, ArcEscaper)> {
+    ) -> Option<(BoxHttpForwardConnection, HttpAliveReuseNotes)> {
         self.reuse
             .get_alive(idle_expire)
             .await
-            .map(|c| (c, self.final_escaper.clone()))
+            .map(|(connection, keep_alive_leftover)| {
+                (
+                    connection,
+                    HttpAliveReuseNotes {
+                        keep_alive_leftover,
+                        escaper: self.final_escaper.clone(),
+                    },
+                )
+            })
     }
 
     async fn make_new_http_connection(
@@ -121,7 +129,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError> {
         self.last_is_tls = false;
-        self.reuse.clear_inflight();
+        self.reuse.clear_keep_alive_leftover();
         if self.run_local_update {
             self.escaper._update_audit_context(audit_ctx);
         }
@@ -146,7 +154,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
         audit_ctx: &mut AuditContext,
     ) -> Result<(BoxHttpForwardConnection, ArcEscaper), TcpConnectError> {
         self.last_is_tls = true;
-        self.reuse.clear_inflight();
+        self.reuse.clear_keep_alive_leftover();
         if self.run_local_update {
             self.escaper._update_audit_context(audit_ctx);
         }
@@ -163,8 +171,12 @@ impl HttpForwardContext for RouteHttpForwardContext {
         Ok((conn, escaper))
     }
 
-    fn save_alive_connection(&mut self, c: BoxHttpForwardConnection, ka: KeepAliveValue) {
-        self.reuse.save(c, ka);
+    fn save_alive_connection(
+        &mut self,
+        connection: BoxHttpForwardConnection,
+        keep_alive: KeepAliveValue,
+    ) {
+        self.reuse.save(connection, keep_alive);
     }
 
     fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes) {
