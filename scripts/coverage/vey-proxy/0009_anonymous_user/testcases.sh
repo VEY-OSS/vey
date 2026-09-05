@@ -45,3 +45,8 @@ test_socks5_proxy_dns
 
 SOCKS4_PROXY="socks4a://127.0.0.1:1080"
 test_socks4_proxy_http
+
+# http_expose (rss) with site H1 pool
+python3 "${PROJECT_DIR}/vey-proxy/ci/python3+curl/test_httpbin.py" -T https://httpbin.local:9443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
+curl -fsS -o /dev/null --cacert "${TEST_CA_CERT_FILE}" \
+	https://httpbin.local:9443/get https://httpbin.local:9443/headers
