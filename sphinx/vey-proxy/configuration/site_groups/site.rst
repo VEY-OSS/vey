@@ -361,9 +361,16 @@ h1_connection_pool
 HTTP/1 origin idle-connection pool for this site.
 
 When set, idle HTTP/1 origin connections return to this site's pool and
-are shared across client pipelines. The next request for the same site
-prefers a pooled idle connection before the per-pipeline forward-context
-slot. An empty map (``{}``) enables the pool with default limits.
+are shared across client pipelines **on the same worker**. Each unaided
+worker is a current-thread runtime: the pool keeps a separate idle lane
+per worker so get/save never block another worker, and the origin
+connection plus its EOF poller stay on the runtime that opened them.
+The next request for the same site on that worker prefers a pooled idle
+connection before the per-pipeline forward-context slot. An empty map
+(``{}``) enables the pool with default limits.
+
+``max_idle_count`` is the site-wide cap, split across workers
+(at least one idle slot per worker).
 
 When omitted, idle connections return to the forward context (one
 keepalive slot per client pipeline), which is the previous behaviour.

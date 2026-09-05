@@ -569,7 +569,8 @@ impl<'a> HttpExposeForwardTask<'a> {
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection> {
         let from_pool = if let Some(pool) = self.site.http1_pool() {
-            pool.get(idle_expire, self.is_https).await
+            pool.get(idle_expire, self.is_https, self.task_notes.worker_id())
+                .await
         } else {
             None
         };
@@ -632,6 +633,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 self.ups_keep_alive,
                 Some(reuse_notes.keep_alive_leftover),
                 self.is_https,
+                self.task_notes.worker_id(),
                 reuse_notes.escaper,
                 self.egress_notes.clone(),
             );
