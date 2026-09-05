@@ -11,8 +11,8 @@ use async_trait::async_trait;
 use vey_types::net::{HttpForwardCapability, KeepAliveValue, UpstreamAddr};
 
 use super::{
-    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpAliveReuseState,
-    HttpForwardContext,
+    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpAliveReuseNotes,
+    HttpAliveReuseState, HttpForwardContext,
 };
 use crate::audit::AuditContext;
 use crate::escape::{ArcEscaper, EgressNotes};
@@ -64,11 +64,19 @@ impl HttpForwardContext for DirectHttpForwardContext {
     async fn get_alive_connection(
         &mut self,
         idle_expire: Duration,
-    ) -> Option<(BoxHttpForwardConnection, ArcEscaper)> {
+    ) -> Option<(BoxHttpForwardConnection, HttpAliveReuseNotes)> {
         self.reuse
             .get_alive(idle_expire)
             .await
-            .map(|c| (c, self.escaper.clone()))
+            .map(|(c, leftover)| {
+                (
+                    c,
+                    HttpAliveReuseNotes {
+                        leftover,
+                        escaper: self.escaper.clone(),
+                    },
+                )
+            })
     }
 
     async fn make_new_http_connection(

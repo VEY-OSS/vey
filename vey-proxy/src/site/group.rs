@@ -143,5 +143,62 @@ static_sites:
         let reloaded = group.reload(config).unwrap();
         let site2 = reloaded.get_site(&id).unwrap();
         assert!(Arc::ptr_eq(&stats, site2.stats()));
+        assert!(site.http1_pool().is_none());
+        assert!(site2.http1_pool().is_none());
+    }
+
+    #[test]
+    fn reload_reuses_http1_pool_when_origin_unchanged() {
+        let config = parse_group(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h1_connection_pool: {}
+"#,
+        );
+        let group = SiteGroup::new_with_config(config.clone()).unwrap();
+        let id = NodeName::from_str("app").unwrap();
+        let site = group.get_site(&id).unwrap();
+        let pool = site.http1_pool().expect("http1 pool");
+        let pool_ptr = pool as *const _;
+
+        let reloaded = group.reload(config).unwrap();
+        let site2 = reloaded.get_site(&id).unwrap();
+        let pool2 = site2.http1_pool().expect("http1 pool after reload");
+        assert_eq!(pool_ptr, pool2 as *const _);
+    }
+
+    #[test]
+    fn reload_drops_http1_pool_when_disabled() {
+        let config = parse_group(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h1_connection_pool: {}
+"#,
+        );
+        let group = SiteGroup::new_with_config(config).unwrap();
+        let id = NodeName::from_str("app").unwrap();
+        assert!(group.get_site(&id).unwrap().http1_pool().is_some());
+
+        let disabled = parse_group(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+"#,
+        );
+        let reloaded = group.reload(disabled).unwrap();
+        assert!(reloaded.get_site(&id).unwrap().http1_pool().is_none());
     }
 }

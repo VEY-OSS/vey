@@ -10,7 +10,7 @@ use async_trait::async_trait;
 
 use vey_types::net::{HttpForwardCapability, KeepAliveValue, UpstreamAddr};
 
-use super::HttpAliveReuseState;
+use super::{HttpAliveReuseNotes, HttpAliveReuseState};
 use crate::audit::AuditContext;
 use crate::escape::{ArcEscaper, EgressNotes};
 use crate::module::http_forward::{
@@ -77,11 +77,19 @@ impl HttpForwardContext for ProxyHttpForwardContext {
     async fn get_alive_connection(
         &mut self,
         idle_expire: Duration,
-    ) -> Option<(BoxHttpForwardConnection, ArcEscaper)> {
+    ) -> Option<(BoxHttpForwardConnection, HttpAliveReuseNotes)> {
         self.reuse
             .get_alive(idle_expire)
             .await
-            .map(|c| (c, self.escaper.clone()))
+            .map(|(c, leftover)| {
+                (
+                    c,
+                    HttpAliveReuseNotes {
+                        leftover,
+                        escaper: self.escaper.clone(),
+                    },
+                )
+            })
     }
 
     async fn make_new_http_connection(

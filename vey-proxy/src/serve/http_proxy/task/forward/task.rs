@@ -630,7 +630,7 @@ impl<'a> HttpProxyForwardTask<'a> {
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
-        if let Some(mut connection) = fwd_ctx
+        if let Some((mut connection, _reuse_notes)) = fwd_ctx
             .get_prepared_alive_connection(
                 &self.task_notes,
                 self.task_stats.clone(),
@@ -787,6 +787,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                     &mut self.audit_ctx,
                 )
                 .await
+                .map(|(conn, _reuse_notes)| conn)
         } else {
             let task_conf = TcpConnectTaskConf {
                 upstream: &self.upstream,
@@ -799,6 +800,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                     &mut self.audit_ctx,
                 )
                 .await
+                .map(|(conn, _reuse_notes)| conn)
         }
     }
 

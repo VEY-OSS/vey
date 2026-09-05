@@ -31,6 +31,21 @@ pub(crate) use failover::FailoverHttpForwardContext;
 
 pub(crate) type BoxHttpForwardContext = Box<dyn HttpForwardContext + Send>;
 
+#[derive(Clone)]
+pub(crate) struct HttpAliveReuseNotes {
+    pub leftover: KeepAliveValue,
+    pub escaper: ArcEscaper,
+}
+
+impl HttpAliveReuseNotes {
+    pub(crate) fn from_new(escaper: ArcEscaper) -> Self {
+        HttpAliveReuseNotes {
+            leftover: KeepAliveValue::default(),
+            escaper,
+        }
+    }
+}
+
 #[async_trait]
 pub(crate) trait HttpForwardContext {
     async fn check_in_final_escaper(
@@ -43,7 +58,7 @@ pub(crate) trait HttpForwardContext {
     async fn get_alive_connection(
         &mut self,
         idle_expire: Duration,
-    ) -> Option<(BoxHttpForwardConnection, ArcEscaper)>;
+    ) -> Option<(BoxHttpForwardConnection, HttpAliveReuseNotes)>;
     async fn make_new_http_connection(
         &mut self,
         task_conf: &TcpConnectTaskConf<'_>,
@@ -67,27 +82,14 @@ pub(crate) trait HttpForwardContext {
         task_stats: ArcHttpForwardTaskRemoteStats,
         idle_expire: Duration,
         is_tls: bool,
-    ) -> Option<BoxHttpForwardConnection> {
-        let (mut connection, escaper) = self.get_alive_connection(idle_expire).await?;
-
-        let all_user_stats = escaper
-            .get_escape_stats()
-            .map(|s| task_notes.fetch_upstream_traffic_stats(s.name(), s.share_extra_tags()))
-            .unwrap_or_default();
-        connection
-            .0
-            .update_stats(&task_stats, all_user_stats.clone());
-        connection.1.update_stats(&task_stats, all_user_stats);
-
-        if let Some(escaper_stats) = escaper.get_escape_stats() {
-            if is_tls {
-                escaper_stats.add_https_forward_request_attempted();
-            } else {
-                escaper_stats.add_http_forward_request_attempted();
-            }
-        }
-
-        Some(connection)
+    ) -> Option<(BoxHttpForwardConnection, HttpAliveReuseNotes)> {
+        let (connection, reuse_notes) = self.get_alive_connection(idle_expire).await?;
+        Some((
+            reuse_notes
+                .escaper
+                .prepare_reused_http_forward_connection(connection, task_notes, task_stats, is_tls),
+            reuse_notes,
+        ))
     }
 
     async fn new_prepared_http_connection(
@@ -96,7 +98,7 @@ pub(crate) trait HttpForwardContext {
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         audit_ctx: &mut AuditContext,
-    ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
+    ) -> Result<(BoxHttpForwardConnection, HttpAliveReuseNotes), TcpConnectError> {
         let (conn, escaper) = self
             .make_new_http_connection(task_conf, task_notes, task_stats, audit_ctx)
             .await?;
@@ -105,7 +107,7 @@ pub(crate) trait HttpForwardContext {
             escaper_stats.add_http_forward_request_attempted();
         }
 
-        Ok(conn)
+        Ok((conn, HttpAliveReuseNotes::from_new(escaper)))
     }
 
     async fn new_prepared_https_connection(
@@ -114,7 +116,7 @@ pub(crate) trait HttpForwardContext {
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         audit_ctx: &mut AuditContext,
-    ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
+    ) -> Result<(BoxHttpForwardConnection, HttpAliveReuseNotes), TcpConnectError> {
         let (conn, escaper) = self
             .make_new_https_connection(task_conf, task_notes, task_stats, audit_ctx)
             .await?;
@@ -123,15 +125,14 @@ pub(crate) trait HttpForwardContext {
             escaper_stats.add_https_forward_request_attempted();
         }
 
-        Ok(conn)
+        Ok((conn, HttpAliveReuseNotes::from_new(escaper)))
     }
 }
 
 struct HttpAliveConnection {
     saved_at: Instant,
     poller: HttpConnectionEofPoller,
-    timeout: Option<Duration>,
-    remaining: Option<u64>,
+    keep_alive: KeepAliveValue,
 }
 
 impl HttpAliveConnection {
@@ -143,7 +144,7 @@ impl HttpAliveConnection {
 #[derive(Default)]
 struct HttpAliveReuseState {
     last: Option<HttpAliveConnection>,
-    inflight: Option<(Option<Duration>, Option<u64>)>,
+    inflight: Option<KeepAliveValue>,
 }
 
 impl HttpAliveReuseState {
@@ -164,7 +165,10 @@ impl HttpAliveReuseState {
         self.inflight = None;
     }
 
-    async fn get_alive(&mut self, idle_expire: Duration) -> Option<BoxHttpForwardConnection> {
+    async fn get_alive(
+        &mut self,
+        idle_expire: Duration,
+    ) -> Option<(BoxHttpForwardConnection, KeepAliveValue)> {
         let conn = match self.last.take() {
             Some(conn) => conn,
             None => {
@@ -172,34 +176,32 @@ impl HttpAliveReuseState {
                 return None;
             }
         };
-        if conn.remaining == Some(0) {
+        if conn.keep_alive.max() == Some(0) {
             return None;
         }
         let timeout = conn
-            .timeout
+            .keep_alive
+            .timeout()
             .map(|t| t.min(idle_expire))
             .unwrap_or(idle_expire);
         if conn.saved_at.elapsed() >= timeout {
             return None;
         }
-        let leftover = (conn.timeout, conn.remaining.map(|n| n.saturating_sub(1)));
+        let leftover = conn.keep_alive.decrement_max();
         let c = conn.poller.recv_conn().await?;
         self.inflight = Some(leftover);
-        Some(c)
+        Some((c, leftover))
     }
 
     fn save(&mut self, c: BoxHttpForwardConnection, ka: KeepAliveValue) {
-        let leftover = self.inflight.take();
-        let timeout = ka.timeout().or(leftover.and_then(|(t, _)| t));
-        let remaining = ka.max().or(leftover.and_then(|(_, r)| r));
-        if remaining == Some(0) {
+        let ka = ka.or_from(self.inflight.take().unwrap_or_default());
+        if ka.max() == Some(0) {
             return;
         }
         self.last = Some(HttpAliveConnection {
             saved_at: Instant::now(),
             poller: HttpConnectionEofPoller::spawn(c),
-            timeout,
-            remaining,
+            keep_alive: ka,
         });
     }
 }
@@ -207,16 +209,6 @@ impl HttpAliveReuseState {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn merge_keep_alive(
-        ka: KeepAliveValue,
-        leftover: Option<(Option<Duration>, Option<u64>)>,
-    ) -> (Option<Duration>, Option<u64>) {
-        (
-            ka.timeout().or(leftover.and_then(|(t, _)| t)),
-            ka.max().or(leftover.and_then(|(_, r)| r)),
-        )
-    }
 
     fn parse_ka(s: &[u8]) -> KeepAliveValue {
         let mut v = KeepAliveValue::default();
@@ -252,9 +244,12 @@ mod tests {
 
     #[test]
     fn max_zero_is_not_saved() {
-        assert_eq!(merge_keep_alive(parse_ka(b"max=0"), None).1, Some(0));
         assert_eq!(
-            merge_keep_alive(KeepAliveValue::default(), Some((None, Some(0)))).1,
+            parse_ka(b"max=0").or_from(KeepAliveValue::default()).max(),
+            Some(0)
+        );
+        assert_eq!(
+            KeepAliveValue::default().or_from(parse_ka(b"max=0")).max(),
             Some(0)
         );
     }
@@ -262,11 +257,11 @@ mod tests {
     #[test]
     fn new_max_overrides_decremented_leftover() {
         assert_eq!(
-            merge_keep_alive(parse_ka(b"max=10"), Some((None, Some(3)))).1,
+            parse_ka(b"max=10").or_from(parse_ka(b"max=3")).max(),
             Some(10)
         );
         assert_eq!(
-            merge_keep_alive(KeepAliveValue::default(), Some((None, Some(3)))).1,
+            KeepAliveValue::default().or_from(parse_ka(b"max=3")).max(),
             Some(3)
         );
     }
