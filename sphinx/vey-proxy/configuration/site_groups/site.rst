@@ -143,7 +143,9 @@ request_rate_limit
 
 **optional**, **type**: :external+values:ref:`rate limit quota <conf_value_rate_limit_quota>`
 
-Rate limit for requests to this site.
+Rate limit for requests to this site. Exceeded requests increment
+``site.forbidden.rate_limited``. Tenant and visitor rate limits increment
+their own ``user.forbidden.rate_limited`` counters instead.
 
 **default**: no limit, **alias**: request_limit_quota
 
@@ -154,7 +156,10 @@ request_max_alive
 
 **optional**, **type**: usize, **alias**: request_alive_max
 
-Maximum number of concurrent requests for this site.
+Maximum number of concurrent requests for this site. Exceeded requests
+increment ``site.forbidden.fully_loaded``. Tenant and visitor
+``request_max_alive`` limits increment their own ``user.forbidden.fully_loaded``
+counters instead.
 
 **default**: no limit
 

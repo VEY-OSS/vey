@@ -21,7 +21,6 @@ use vey_io_ext::{
     StreamCopyError,
 };
 use vey_types::acl::AclAction;
-use vey_types::limit::GaugeSemaphorePermit;
 use vey_types::net::{KeepAliveValue, TcpSockSpeedLimitConfig};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpExposeRequest};
@@ -43,7 +42,7 @@ use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
-use crate::site::Site;
+use crate::site::{Site, SiteRequestPermits};
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct HttpExposeForwardTask<'a> {
@@ -62,7 +61,7 @@ pub(crate) struct HttpExposeForwardTask<'a> {
     max_idle_count: usize,
     started: bool,
     _alive_guard: Option<HttpForwardTaskAliveGuard>,
-    _site_req_alive_permit: Option<GaugeSemaphorePermit>,
+    _site_req_alive_permits: SiteRequestPermits,
 }
 
 impl Drop for HttpExposeForwardTask<'_> {
@@ -110,7 +109,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             max_idle_count,
             started: false,
             _alive_guard: None,
-            _site_req_alive_permit: None,
+            _site_req_alive_permits: SiteRequestPermits::default(),
         }
     }
 
@@ -269,7 +268,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
             drop(user_req_alive_permit);
         }
-        self._site_req_alive_permit.take();
+        self._site_req_alive_permits.release();
     }
 
     async fn handle_user_upstream_acl_action<W>(
@@ -442,13 +441,13 @@ impl<'a> HttpExposeForwardTask<'a> {
             ));
         }
 
-        let site_alive = self
-            .task_notes
-            .site_ctx()
-            .map(|ctx| ctx.origin().acquire_request_semaphore())
-            .unwrap_or_else(|| self.site.acquire_request_semaphore());
-        match site_alive {
-            Ok(permit) => self._site_req_alive_permit = permit,
+        let Some(site_ctx) = self.task_notes.site_ctx() else {
+            let e = ServerTaskError::InternalServerError("no site context");
+            self.reply_task_err(&e, clt_w).await;
+            return Err(e);
+        };
+        match site_ctx.acquire_request_semaphores() {
+            Ok(permits) => self._site_req_alive_permits = permits,
             Err(_) => {
                 self.reply_too_many_requests(clt_w).await;
                 return Err(ServerTaskError::ForbiddenByRule(

@@ -20,7 +20,7 @@ use vey_types::net::{
 };
 
 use super::SiteStats;
-use crate::auth::{UserGroup, UserRequestStats};
+use crate::auth::{UserForbiddenStats, UserGroup, UserRequestStats};
 use crate::config::site::SiteConfig;
 
 pub(crate) struct Site {
@@ -142,19 +142,27 @@ impl Site {
         self.config.http.rsp_hdr_recv_timeout
     }
 
-    pub(crate) fn check_rate_limit(&self) -> Result<(), ()> {
+    pub(crate) fn check_rate_limit(&self, forbid: &UserForbiddenStats) -> Result<(), ()> {
         if let Some(limit) = &self.request_rate_limit
             && limit.check().is_err()
         {
+            forbid.add_rate_limited();
             return Err(());
         }
         Ok(())
     }
 
-    pub(crate) fn acquire_request_semaphore(&self) -> Result<Option<GaugeSemaphorePermit>, ()> {
+    pub(crate) fn acquire_request_semaphore(
+        &self,
+        forbid: &UserForbiddenStats,
+    ) -> Result<Option<GaugeSemaphorePermit>, ()> {
         self.req_alive_sem
             .as_ref()
-            .map(|sem| sem.try_acquire().map_err(|_| {}))
+            .map(|sem| {
+                sem.try_acquire().map_err(|_| {
+                    forbid.add_fully_loaded();
+                })
+            })
             .transpose()
     }
 

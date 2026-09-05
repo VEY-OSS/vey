@@ -59,6 +59,11 @@ The metric names are:
   Number of client connections from the user. Connections that fail during
   authentication are not counted.
 
+Forbidden counters for a user include both SWG / expose visitors and
+reverse-proxy site owners (tenants). Each increments only when that user's own
+rules reject the request. Origin-site rules use :ref:`site.forbidden.*
+<metrics_site>` instead.
+
 * user.forbidden.crypto_error
 
   **type**: count

@@ -106,6 +106,108 @@ The metric names are:
 
   Number of currently active layer-7 proxy connections for this site.
 
+Forbidden
+=========
+
+The following tags are set on metrics in this section:
+
+* server
+
+  The server name that received the request.
+
+Any extra tags configured on the server are also included.
+
+These counters increment only when an **origin-site** rule rejects the request.
+Tenant (owner) rules increment that owner's :ref:`user.forbidden.*
+<metrics_user>` counters. Visitor rules increment the visitor's
+``user.forbidden.*`` counters. A rejection is never counted on both a site
+counter and a user counter.
+
+The metric names are:
+
+* site.forbidden.crypto_error
+
+  **type**: count
+
+  Number of rejected requests caused by an internal crypto error attributed to
+  this site.
+
+* site.forbidden.auth_failed
+
+  **type**: count
+
+  Number of rejected requests caused by authentication failure attributed to
+  this site.
+
+* site.forbidden.user_expired
+
+  **type**: count
+
+  Number of rejected requests caused by an expired identity attributed to this
+  site.
+
+* site.forbidden.user_blocked
+
+  **type**: count
+
+  Number of rejected requests caused by a blocked identity attributed to this
+  site.
+
+* site.forbidden.fully_loaded
+
+  **type**: count
+
+  Number of requests rejected because the site
+  :ref:`request_max_alive <conf_site_request_max_alive>` limit was reached.
+
+* site.forbidden.rate_limited
+
+  **type**: count
+
+  Number of requests rejected because the site
+  :ref:`request_rate_limit <conf_site_request_rate_limit>` was exceeded.
+
+* site.forbidden.proto_banned
+
+  **type**: count
+
+  Number of requests rejected because a site-level protocol rule banned the
+  request. Tenant and visitor ``audit.prohibit_*`` rules increment
+  ``user.forbidden.proto_banned`` instead.
+
+* site.forbidden.src_blocked
+
+  **type**: count
+
+  Number of requests rejected because a site-level source ACL blocked the
+  client.
+
+* site.forbidden.dest_denied
+
+  **type**: count
+
+  Number of requests rejected because a site-level destination rule forbade the
+  upstream.
+
+* site.forbidden.ip_blocked
+
+  **type**: count
+
+  Number of requests rejected because a site-level resolved-IP rule blocked the
+  address.
+
+* site.forbidden.log_skipped
+
+  **type**: count
+
+  Number of requests for which logging was skipped by a site-level rule.
+
+* site.forbidden.ua_blocked
+
+  **type**: count
+
+  Number of layer-7 HTTP requests blocked by a site-level User-Agent rule.
+
 Traffic
 =======
 

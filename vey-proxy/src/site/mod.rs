@@ -23,4 +23,4 @@ mod egress;
 pub(crate) use egress::SiteEgress;
 
 mod context;
-pub(crate) use context::SiteContext;
+pub(crate) use context::{SiteContext, SiteRequestPermits};

@@ -12,7 +12,6 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use vey_daemon::server::ServerQuitPolicy;
 use vey_daemon::stat::task::TcpStreamTaskStats;
 use vey_io_ext::{AsyncStream, IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
-use vey_types::limit::GaugeSemaphorePermit;
 use vey_types::net::UpstreamAddr;
 
 use super::common::CommonTaskContext;
@@ -29,6 +28,7 @@ use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
+use crate::site::SiteRequestPermits;
 use crate::stat::types::RequestAliveKind;
 
 pub(super) struct TlsProxyTask {
@@ -41,8 +41,7 @@ pub(super) struct TlsProxyTask {
     audit_ctx: AuditContext,
     started: bool,
     _alive_guard: Option<TcpStreamServerAliveTaskGuard>,
-    _site_req_alive_permit: Option<GaugeSemaphorePermit>,
-    _tenant_req_alive_permit: Option<GaugeSemaphorePermit>,
+    _site_req_alive_permits: SiteRequestPermits,
 }
 
 impl Drop for TlsProxyTask {
@@ -72,8 +71,7 @@ impl TlsProxyTask {
             audit_ctx,
             started: false,
             _alive_guard: None,
-            _site_req_alive_permit: None,
-            _tenant_req_alive_permit: None,
+            _site_req_alive_permits: SiteRequestPermits::default(),
         }
     }
 
@@ -124,8 +122,7 @@ impl TlsProxyTask {
     }
 
     fn post_stop(&mut self) {
-        self._site_req_alive_permit.take();
-        self._tenant_req_alive_permit.take();
+        self._site_req_alive_permits.release();
     }
 
     async fn run<S>(&mut self, clt_stream: S) -> ServerTaskResult<()>
@@ -140,19 +137,11 @@ impl TlsProxyTask {
             ));
         }
 
-        if let Some(tenant) = self.task_notes.site_ctx().and_then(|s| s.tenant()) {
-            match tenant.acquire_request_semaphore() {
-                Ok(permit) => self._tenant_req_alive_permit = Some(permit),
-                Err(_) => {
-                    return Err(ServerTaskError::ForbiddenByRule(
-                        ServerTaskForbiddenError::FullyLoaded,
-                    ));
-                }
-            }
-        }
-
-        match self.host.site().acquire_request_semaphore() {
-            Ok(permit) => self._site_req_alive_permit = permit,
+        let Some(site_ctx) = self.task_notes.site_ctx() else {
+            return Err(ServerTaskError::InternalServerError("no site context"));
+        };
+        match site_ctx.acquire_request_semaphores() {
+            Ok(permits) => self._site_req_alive_permits = permits,
             Err(_) => {
                 return Err(ServerTaskError::ForbiddenByRule(
                     ServerTaskForbiddenError::FullyLoaded,

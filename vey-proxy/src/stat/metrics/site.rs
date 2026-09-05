@@ -12,10 +12,10 @@ use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::metrics::NodeName;
 use vey_types::stats::{GlobalStatsMap, StatId};
 
-use super::{RequestStatsNamesRef, TAG_KEY_ESCAPER, TrafficStatsNamesRef};
+use super::{ForbiddenStatsNamesRef, RequestStatsNamesRef, TAG_KEY_ESCAPER, TrafficStatsNamesRef};
 use crate::auth::{
-    UserRequestSnapshot, UserRequestStats, UserTrafficSnapshot, UserTrafficStats,
-    UserUpstreamTrafficSnapshot, UserUpstreamTrafficStats,
+    UserForbiddenSnapshot, UserForbiddenStats, UserRequestSnapshot, UserRequestStats,
+    UserTrafficSnapshot, UserTrafficStats, UserUpstreamTrafficSnapshot, UserUpstreamTrafficStats,
 };
 
 const TAG_KEY_SITE_GROUP: &str = "site_group";
@@ -47,7 +47,24 @@ const UPSTREAM_TRAFFIC_STATS_NAMES: TrafficStatsNamesRef<'static> = TrafficStats
     out_packets: "site.upstream.traffic.out.packets",
 };
 
+const FORBIDDEN_STATS_NAMES: ForbiddenStatsNamesRef<'static> = ForbiddenStatsNamesRef {
+    crypto_error: "site.forbidden.crypto_error",
+    auth_failed: "site.forbidden.auth_failed",
+    user_expired: "site.forbidden.user_expired",
+    user_blocked: "site.forbidden.user_blocked",
+    fully_loaded: "site.forbidden.fully_loaded",
+    rate_limited: "site.forbidden.rate_limited",
+    proto_banned: "site.forbidden.proto_banned",
+    src_blocked: "site.forbidden.src_blocked",
+    dest_denied: "site.forbidden.dest_denied",
+    ip_blocked: "site.forbidden.ip_blocked",
+    ua_blocked: "site.forbidden.ua_blocked",
+    log_skipped: "site.forbidden.log_skipped",
+};
+
 static STORE_REQUEST_STATS_MAP: Mutex<GlobalStatsMap<RequestStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static STORE_FORBIDDEN_STATS_MAP: Mutex<GlobalStatsMap<ForbiddenStatsValue>> =
     Mutex::new(GlobalStatsMap::new());
 static STORE_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<TrafficStatsValue>> =
     Mutex::new(GlobalStatsMap::new());
@@ -55,6 +72,8 @@ static STORE_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<UpstreamTrafficSta
     Mutex::new(GlobalStatsMap::new());
 
 static SITE_REQUEST_STATS_MAP: Mutex<GlobalStatsMap<RequestStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static SITE_FORBIDDEN_STATS_MAP: Mutex<GlobalStatsMap<ForbiddenStatsValue>> =
     Mutex::new(GlobalStatsMap::new());
 static SITE_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<TrafficStatsValue>> =
     Mutex::new(GlobalStatsMap::new());
@@ -102,6 +121,12 @@ struct RequestStatsValue {
     site: SiteMetricTags,
 }
 
+struct ForbiddenStatsValue {
+    stats: Arc<UserForbiddenStats>,
+    snap: UserForbiddenSnapshot,
+    site: SiteMetricTags,
+}
+
 struct TrafficStatsValue {
     stats: Arc<UserTrafficStats>,
     snap: UserTrafficSnapshot,
@@ -122,6 +147,17 @@ pub(crate) fn push_request_stats(stats: Arc<UserRequestStats>, site: &SiteMetric
         site: site.clone(),
     };
     let mut ht = STORE_REQUEST_STATS_MAP.lock().unwrap();
+    ht.insert(k, v);
+}
+
+pub(crate) fn push_forbidden_stats(stats: Arc<UserForbiddenStats>, site: &SiteMetricTags) {
+    let k = stats.stat_id();
+    let v = ForbiddenStatsValue {
+        stats,
+        snap: Default::default(),
+        site: site.clone(),
+    };
+    let mut ht = STORE_FORBIDDEN_STATS_MAP.lock().unwrap();
     ht.insert(k, v);
 }
 
@@ -154,6 +190,7 @@ pub(in crate::stat) fn sync_stats() {
     use vey_daemon::metrics::helper::move_ht;
 
     move_ht(&STORE_REQUEST_STATS_MAP, &SITE_REQUEST_STATS_MAP);
+    move_ht(&STORE_FORBIDDEN_STATS_MAP, &SITE_FORBIDDEN_STATS_MAP);
     move_ht(&STORE_TRAFFIC_STATS_MAP, &SITE_TRAFFIC_STATS_MAP);
     move_ht(
         &STORE_UPSTREAM_TRAFFIC_STATS_MAP,
@@ -181,6 +218,26 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
         Arc::strong_count(&v.stats) > 1
     });
     drop(req_stats_map);
+
+    let mut fbd_stats_map = SITE_FORBIDDEN_STATS_MAP.lock().unwrap();
+    fbd_stats_map.retain(|v| {
+        let mut common_tags = StatsdTagGroup::default();
+        v.site.add_to(&mut common_tags, v.stats.stat_id());
+        common_tags.add_tag(TAG_KEY_SERVER, v.stats.server());
+        if let Some(server_extra_tags) = v.stats.server_extra_tags() {
+            common_tags.add_static_tags(&server_extra_tags);
+        }
+        super::user::emit_forbidden_stats_with_tags(
+            client,
+            &v.stats,
+            &mut v.snap,
+            &FORBIDDEN_STATS_NAMES,
+            &common_tags,
+        );
+        // use Arc instead of Weak here, as we should emit the final metrics before drop it
+        Arc::strong_count(&v.stats) > 1
+    });
+    drop(fbd_stats_map);
 
     let mut io_stats_map = SITE_TRAFFIC_STATS_MAP.lock().unwrap();
     io_stats_map.retain(|v| {

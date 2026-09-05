@@ -9,7 +9,7 @@ pub(super) mod resolver;
 pub(super) mod server;
 
 pub(super) mod user;
-use user::{RequestStatsNamesRef, TrafficStatsNamesRef, UserMetricExt};
+use user::{ForbiddenStatsNamesRef, RequestStatsNamesRef, TrafficStatsNamesRef, UserMetricExt};
 
 pub(crate) mod site;
 pub(crate) mod user_site;

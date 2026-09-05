@@ -10,13 +10,15 @@ use std::time::Duration;
 use arc_swap::ArcSwapOption;
 use arcstr::ArcStr;
 
+use vey_types::limit::GaugeSemaphorePermit;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts};
 use vey_types::resolve::ResolveStrategy;
 
 use super::{Site, SiteEgress};
 use crate::auth::{
-    UserContext, UserGroup, UserRequestStats, UserTrafficStats, UserUpstreamTrafficStats,
+    UserContext, UserForbiddenStats, UserGroup, UserRequestStats, UserTrafficStats,
+    UserUpstreamTrafficStats,
 };
 use crate::escape::EgressPathSelection;
 
@@ -26,6 +28,7 @@ pub(crate) struct SiteContext {
     origin: Arc<Site>,
     tenant: Option<UserContext>,
     origin_req_stats: Arc<UserRequestStats>,
+    origin_forbid_stats: Arc<UserForbiddenStats>,
     egress: Arc<SiteEgress>,
 }
 
@@ -50,10 +53,14 @@ impl SiteContext {
         let origin_req_stats = origin
             .stats()
             .fetch_request_stats(server, server_extra_tags);
+        let origin_forbid_stats = origin
+            .stats()
+            .fetch_forbidden_stats(server, server_extra_tags);
         SiteContext {
             origin,
             tenant,
             origin_req_stats,
+            origin_forbid_stats,
             egress,
         }
     }
@@ -142,7 +149,33 @@ impl SiteContext {
         if let Some(tenant) = &self.tenant {
             tenant.check_rate_limit()?;
         }
-        self.origin.check_rate_limit()
+        self.origin.check_rate_limit(&self.origin_forbid_stats)
+    }
+
+    /// Tenant first, then origin. Each failure is counted on that principal.
+    pub(crate) fn acquire_request_semaphores(&self) -> Result<SiteRequestPermits, ()> {
+        let tenant = match &self.tenant {
+            Some(t) => Some(t.acquire_request_semaphore()?),
+            None => None,
+        };
+        let origin = self
+            .origin
+            .acquire_request_semaphore(&self.origin_forbid_stats)?;
+        Ok(SiteRequestPermits { tenant, origin })
+    }
+}
+
+/// Independent alive-request permits for the tenant user and the origin site.
+#[derive(Default)]
+pub(crate) struct SiteRequestPermits {
+    tenant: Option<GaugeSemaphorePermit>,
+    origin: Option<GaugeSemaphorePermit>,
+}
+
+impl SiteRequestPermits {
+    pub(crate) fn release(&mut self) {
+        self.tenant.take();
+        self.origin.take();
     }
 }
 

@@ -60,6 +60,21 @@ pub(super) struct TrafficStatsNamesRef<'a> {
     pub(super) out_packets: &'a str,
 }
 
+pub(super) struct ForbiddenStatsNamesRef<'a> {
+    pub(super) crypto_error: &'a str,
+    pub(super) auth_failed: &'a str,
+    pub(super) user_expired: &'a str,
+    pub(super) user_blocked: &'a str,
+    pub(super) fully_loaded: &'a str,
+    pub(super) rate_limited: &'a str,
+    pub(super) proto_banned: &'a str,
+    pub(super) src_blocked: &'a str,
+    pub(super) dest_denied: &'a str,
+    pub(super) ip_blocked: &'a str,
+    pub(super) ua_blocked: &'a str,
+    pub(super) log_skipped: &'a str,
+}
+
 const REQUEST_STATS_NAMES: RequestStatsNamesRef<'static> = RequestStatsNamesRef {
     connection_total: "user.connection.total",
     request_total: "user.request.total",
@@ -82,6 +97,21 @@ const UPSTREAM_TRAFFIC_STATS_NAMES: TrafficStatsNamesRef<'static> = TrafficStats
     in_packets: "user.upstream.traffic.in.packets",
     out_bytes: "user.upstream.traffic.out.bytes",
     out_packets: "user.upstream.traffic.out.packets",
+};
+
+const FORBIDDEN_STATS_NAMES: ForbiddenStatsNamesRef<'static> = ForbiddenStatsNamesRef {
+    crypto_error: METRIC_NAME_FORBIDDEN_CRYPTO_ERROR,
+    auth_failed: METRIC_NAME_FORBIDDEN_AUTH_FAILED,
+    user_expired: METRIC_NAME_FORBIDDEN_USER_EXPIRED,
+    user_blocked: METRIC_NAME_FORBIDDEN_USER_BLOCKED,
+    fully_loaded: METRIC_NAME_FORBIDDEN_FULLY_LOADED,
+    rate_limited: METRIC_NAME_FORBIDDEN_RATE_LIMITED,
+    proto_banned: METRIC_NAME_FORBIDDEN_PROTO_BANNED,
+    src_blocked: METRIC_NAME_FORBIDDEN_SRC_BLOCKED,
+    dest_denied: METRIC_NAME_FORBIDDEN_DEST_DENIED,
+    ip_blocked: METRIC_NAME_FORBIDDEN_IP_BLOCKED,
+    ua_blocked: METRIC_NAME_FORBIDDEN_UA_BLOCKED,
+    log_skipped: METRIC_NAME_FORBIDDEN_LOG_SKIPPED,
 };
 
 type ForbiddenStatsValue = (Arc<UserForbiddenStats>, UserForbiddenSnapshot);
@@ -260,33 +290,47 @@ fn emit_user_forbidden_stats(
         common_tags.add_static_tags(&server_extra_tags);
     }
 
+    emit_forbidden_stats_with_tags(client, stats, snap, &FORBIDDEN_STATS_NAMES, &common_tags);
+}
+
+/// Emit forbidden counters under caller supplied tags.
+///
+/// Used by both `user.*` and `site.*`, which share the counter layout but not
+/// the tag set. Each principal only increments these when its own rule rejects.
+pub(super) fn emit_forbidden_stats_with_tags<'a>(
+    client: &'a mut StatsdClient,
+    stats: &'a UserForbiddenStats,
+    snap: &'a mut UserForbiddenSnapshot,
+    names: &'a ForbiddenStatsNamesRef<'a>,
+    common_tags: &'a StatsdTagGroup,
+) {
     let stats = stats.snapshot();
 
     macro_rules! emit_forbid_stats_u64 {
-        ($id:ident, $name:expr) => {
+        ($id:ident) => {
             let new_value = stats.$id;
             if new_value != 0 || snap.$id != 0 {
                 let diff_value = new_value.wrapping_sub(snap.$id);
                 client
-                    .count_with_tags($name, diff_value, &common_tags)
+                    .count_with_tags(names.$id, diff_value, common_tags)
                     .send();
                 snap.$id = new_value;
             }
         };
     }
 
-    emit_forbid_stats_u64!(crypto_error, METRIC_NAME_FORBIDDEN_CRYPTO_ERROR);
-    emit_forbid_stats_u64!(auth_failed, METRIC_NAME_FORBIDDEN_AUTH_FAILED);
-    emit_forbid_stats_u64!(user_expired, METRIC_NAME_FORBIDDEN_USER_EXPIRED);
-    emit_forbid_stats_u64!(user_blocked, METRIC_NAME_FORBIDDEN_USER_BLOCKED);
-    emit_forbid_stats_u64!(fully_loaded, METRIC_NAME_FORBIDDEN_FULLY_LOADED);
-    emit_forbid_stats_u64!(rate_limited, METRIC_NAME_FORBIDDEN_RATE_LIMITED);
-    emit_forbid_stats_u64!(proto_banned, METRIC_NAME_FORBIDDEN_PROTO_BANNED);
-    emit_forbid_stats_u64!(src_blocked, METRIC_NAME_FORBIDDEN_SRC_BLOCKED);
-    emit_forbid_stats_u64!(dest_denied, METRIC_NAME_FORBIDDEN_DEST_DENIED);
-    emit_forbid_stats_u64!(ip_blocked, METRIC_NAME_FORBIDDEN_IP_BLOCKED);
-    emit_forbid_stats_u64!(ua_blocked, METRIC_NAME_FORBIDDEN_UA_BLOCKED);
-    emit_forbid_stats_u64!(log_skipped, METRIC_NAME_FORBIDDEN_LOG_SKIPPED);
+    emit_forbid_stats_u64!(crypto_error);
+    emit_forbid_stats_u64!(auth_failed);
+    emit_forbid_stats_u64!(user_expired);
+    emit_forbid_stats_u64!(user_blocked);
+    emit_forbid_stats_u64!(fully_loaded);
+    emit_forbid_stats_u64!(rate_limited);
+    emit_forbid_stats_u64!(proto_banned);
+    emit_forbid_stats_u64!(src_blocked);
+    emit_forbid_stats_u64!(dest_denied);
+    emit_forbid_stats_u64!(ip_blocked);
+    emit_forbid_stats_u64!(ua_blocked);
+    emit_forbid_stats_u64!(log_skipped);
 }
 
 pub(super) fn emit_user_request_stats<'a>(

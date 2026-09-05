@@ -11,7 +11,9 @@ use foldhash::HashMap;
 
 use vey_types::metrics::{MetricTagMap, NodeName};
 
-use crate::auth::{UserRequestStats, UserTrafficStats, UserType, UserUpstreamTrafficStats};
+use crate::auth::{
+    UserForbiddenStats, UserRequestStats, UserTrafficStats, UserType, UserUpstreamTrafficStats,
+};
 use crate::stat::site::SiteMetricTags;
 
 /// Reported as the tag value when a site metric identity field is unset.
@@ -25,6 +27,7 @@ const EMPTY_TAG: ArcStr = arcstr::literal!("-");
 /// is left empty; the site tags travel separately in [`SiteMetricTags`].
 pub(crate) struct SiteStats {
     tags: SiteMetricTags,
+    forbidden: Mutex<HashMap<NodeName, Arc<UserForbiddenStats>>>,
     request: Mutex<HashMap<NodeName, Arc<UserRequestStats>>>,
     client_io: Mutex<HashMap<NodeName, Arc<UserTrafficStats>>>,
     remote_io: Mutex<HashMap<NodeName, Arc<UserUpstreamTrafficStats>>>,
@@ -45,6 +48,7 @@ impl SiteStats {
                 tag_or_dash(tenant_user_group),
             ),
             request: Mutex::new(HashMap::default()),
+            forbidden: Mutex::new(HashMap::default()),
             client_io: Mutex::new(HashMap::default()),
             remote_io: Mutex::new(HashMap::default()),
         }
@@ -76,6 +80,37 @@ impl SiteStats {
 
         if let Some(stats) = new_stats {
             crate::stat::site::push_request_stats(stats, &self.tags);
+        }
+
+        stats
+    }
+
+    pub(crate) fn fetch_forbidden_stats(
+        &self,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
+    ) -> Arc<UserForbiddenStats> {
+        let mut new_stats = None;
+
+        let mut map = self.forbidden.lock().unwrap();
+        let stats = map
+            .entry(server.clone())
+            .or_insert_with(|| {
+                let stats = Arc::new(UserForbiddenStats::new(
+                    &NodeName::default(),
+                    ArcStr::default(),
+                    UserType::Anonymous,
+                    server,
+                    server_extra_tags,
+                ));
+                new_stats = Some(stats.clone());
+                stats
+            })
+            .clone();
+        drop(map);
+
+        if let Some(stats) = new_stats {
+            crate::stat::site::push_forbidden_stats(stats, &self.tags);
         }
 
         stats
