@@ -4,7 +4,7 @@
  */
 
 mod stats;
-use stats::{HttpForwardTaskAliveGuard, HttpGuardServerStats};
+pub(crate) use stats::{H2ForwardTaskAliveGuard, HttpForwardTaskAliveGuard, HttpGuardServerStats};
 
 mod task;
 

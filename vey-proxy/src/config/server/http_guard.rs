@@ -47,6 +47,187 @@ impl Default for HttpGuardServerTimeoutConfig {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct HttpGuardH1Config {
+    pub(crate) pipeline_size: NonZeroUsize,
+    pub(crate) pipeline_read_idle_timeout: Duration,
+    pub(crate) body_line_max_len: usize,
+    pub(crate) http_forward_upstream_keepalive: HttpKeepAliveConfig,
+}
+
+impl Default for HttpGuardH1Config {
+    fn default() -> Self {
+        HttpGuardH1Config {
+            pipeline_size: NonZeroUsize::new(10).unwrap(),
+            pipeline_read_idle_timeout: Duration::from_secs(300),
+            body_line_max_len: 8192,
+            http_forward_upstream_keepalive: Default::default(),
+        }
+    }
+}
+
+impl HttpGuardH1Config {
+    fn parse_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
+        let Yaml::Hash(map) = value else {
+            return Err(anyhow!("yaml value type for 'h1' should be 'map'"));
+        };
+        vey_yaml::foreach_kv(map, |k, v| self.set(k, v))
+    }
+
+    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
+        match vey_yaml::key::normalize(k).as_str() {
+            "pipeline_size" => {
+                self.pipeline_size = vey_yaml::value::as_nonzero_usize(v)
+                    .context(format!("invalid nonzero usize value for key {k}"))?;
+                Ok(())
+            }
+            "pipeline_read_idle_timeout" => {
+                self.pipeline_read_idle_timeout = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "body_line_max_length" => {
+                self.body_line_max_len = vey_yaml::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
+                Ok(())
+            }
+            "http_forward_upstream_keepalive" => {
+                self.http_forward_upstream_keepalive = vey_yaml::value::as_http_keepalive_config(v)
+                    .context(format!("invalid http keepalive config value for key {k}"))?;
+                Ok(())
+            }
+            _ => Err(anyhow!("invalid key {k}")),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct HttpGuardH2Config {
+    pub(crate) enable_h2c: bool,
+    pub(crate) max_header_list_size: u32,
+    pub(crate) max_concurrent_streams: u32,
+    stream_window_size: u32,
+    connection_window_size: u32,
+    max_frame_size: u32,
+    pub(crate) max_send_buffer_size: usize,
+    pub(crate) upstream_handshake_timeout: Duration,
+    pub(crate) upstream_stream_open_timeout: Duration,
+    pub(crate) client_handshake_timeout: Duration,
+    pub(crate) ping_interval: Duration,
+}
+
+impl Default for HttpGuardH2Config {
+    fn default() -> Self {
+        HttpGuardH2Config {
+            enable_h2c: false,
+            max_header_list_size: 64 * 1024,
+            max_concurrent_streams: 128,
+            stream_window_size: 1024 * 1024,
+            connection_window_size: 2 * 1024 * 1024,
+            max_frame_size: 256 * 1024,
+            max_send_buffer_size: 8 * 1024 * 1024,
+            upstream_handshake_timeout: Duration::from_secs(10),
+            upstream_stream_open_timeout: Duration::from_secs(10),
+            client_handshake_timeout: Duration::from_secs(4),
+            ping_interval: Duration::from_secs(60),
+        }
+    }
+}
+
+impl HttpGuardH2Config {
+    pub(crate) fn apply_to_server_builder(&self, builder: &mut h2::server::Builder) {
+        builder
+            .max_header_list_size(self.max_header_list_size)
+            .max_concurrent_streams(self.max_concurrent_streams)
+            .max_frame_size(self.max_frame_size)
+            .max_send_buffer_size(self.max_send_buffer_size)
+            .initial_window_size(self.stream_window_size)
+            .initial_connection_window_size(self.connection_window_size)
+            .enable_connect_protocol();
+    }
+
+    pub(crate) fn apply_to_client_builder(&self, builder: &mut h2::client::Builder) {
+        builder
+            .enable_push(false)
+            .max_header_list_size(self.max_header_list_size)
+            .max_concurrent_streams(0)
+            .max_frame_size(self.max_frame_size)
+            .max_send_buffer_size(self.max_send_buffer_size)
+            .initial_window_size(self.stream_window_size)
+            .initial_connection_window_size(self.connection_window_size);
+    }
+
+    fn parse_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
+        let Yaml::Hash(map) = value else {
+            return Err(anyhow!("yaml value type for 'h2' should be 'map'"));
+        };
+        vey_yaml::foreach_kv(map, |k, v| self.set(k, v))
+    }
+
+    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
+        match vey_yaml::key::normalize(k).as_str() {
+            "enable_h2c" | "h2c" => {
+                self.enable_h2c = vey_yaml::value::as_bool(v)
+                    .context(format!("invalid bool value for key {k}"))?;
+                Ok(())
+            }
+            "max_header_list_size" | "max_header_size" => {
+                self.max_header_list_size = vey_yaml::humanize::as_u32(v)
+                    .context(format!("invalid humanize u32 value for key {k}"))?;
+                Ok(())
+            }
+            "max_concurrent_streams" => {
+                self.max_concurrent_streams = vey_yaml::value::as_u32(v)?;
+                Ok(())
+            }
+            "max_frame_size" => {
+                let size = vey_yaml::humanize::as_u32(v)
+                    .context(format!("invalid humanize u32 value for key {k}"))?;
+                self.max_frame_size = size.clamp(1 << 14, (1 << 24) - 1);
+                Ok(())
+            }
+            "stream_window_size" => {
+                let size = vey_yaml::humanize::as_u32(v)
+                    .context(format!("invalid humanize u32 value for key {k}"))?;
+                self.stream_window_size = size.max(65536);
+                Ok(())
+            }
+            "connection_window_size" => {
+                let size = vey_yaml::humanize::as_u32(v)
+                    .context(format!("invalid humanize u32 value for key {k}"))?;
+                self.connection_window_size = size.max(65536);
+                Ok(())
+            }
+            "max_send_buffer_size" => {
+                self.max_send_buffer_size = vey_yaml::humanize::as_usize(v)
+                    .context(format!("invalid humanize usize value for key {k}"))?;
+                Ok(())
+            }
+            "upstream_handshake_timeout" => {
+                self.upstream_handshake_timeout = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "upstream_stream_open_timeout" => {
+                self.upstream_stream_open_timeout = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "client_handshake_timeout" => {
+                self.client_handshake_timeout = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "ping_interval" => {
+                self.ping_interval = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            _ => Err(anyhow!("invalid key {k}")),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct HttpGuardServerConfig {
     name: NodeName,
@@ -58,10 +239,7 @@ pub(crate) struct HttpGuardServerConfig {
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
-    pub(crate) server_id: Option<HttpServerId>,
-    pub(crate) no_proxy_status: bool,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
-    pub(crate) timeout: HttpGuardServerTimeoutConfig,
     pub(crate) task_idle_check_interval: Duration,
     pub(crate) task_idle_max_count: usize,
     pub(crate) flush_task_log_on_created: bool,
@@ -69,15 +247,16 @@ pub(crate) struct HttpGuardServerConfig {
     pub(crate) task_log_flush_interval: Option<Duration>,
     pub(crate) tcp_copy: StreamCopyConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
+    pub(crate) server_id: Option<HttpServerId>,
+    pub(crate) no_proxy_status: bool,
+    pub(crate) timeout: HttpGuardServerTimeoutConfig,
     pub(crate) req_hdr_max_size: usize,
     pub(crate) rsp_hdr_max_size: usize,
     pub(crate) log_uri_max_chars: usize,
-    pub(crate) pipeline_size: NonZeroUsize,
-    pub(crate) pipeline_read_idle_timeout: Duration,
     pub(crate) no_early_error_reply: bool,
-    pub(crate) body_line_max_len: usize,
-    pub(crate) http_forward_upstream_keepalive: HttpKeepAliveConfig,
     pub(crate) append_forwarded_for: HttpForwardedHeaderType,
+    pub(crate) h1: HttpGuardH1Config,
+    pub(crate) h2: HttpGuardH2Config,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) global_tls_server: Option<OpensslServerConfigBuilder>,
     pub(crate) tls_ticketer: Option<TlsTicketConfig>,
@@ -96,10 +275,7 @@ impl HttpGuardServerConfig {
             listen: None,
             listen_in_worker: false,
             ingress_net_filter: None,
-            server_id: None,
-            no_proxy_status: false,
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
-            timeout: HttpGuardServerTimeoutConfig::default(),
             task_idle_check_interval: IDLE_CHECK_DEFAULT_DURATION,
             task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
             flush_task_log_on_created: false,
@@ -107,15 +283,16 @@ impl HttpGuardServerConfig {
             task_log_flush_interval: None,
             tcp_copy: Default::default(),
             tcp_misc_opts: Default::default(),
+            server_id: None,
+            no_proxy_status: false,
+            timeout: HttpGuardServerTimeoutConfig::default(),
             req_hdr_max_size: 65536, // 64KiB
             rsp_hdr_max_size: 65536, // 64KiB
             log_uri_max_chars: 1024,
-            pipeline_size: NonZeroUsize::new(10).unwrap(),
-            pipeline_read_idle_timeout: Duration::from_secs(300),
             no_early_error_reply: false,
-            body_line_max_len: 8192,
-            http_forward_upstream_keepalive: Default::default(),
             append_forwarded_for: HttpForwardedHeaderType::default(),
+            h1: HttpGuardH1Config::default(),
+            h2: HttpGuardH2Config::default(),
             extra_metrics_tags: None,
             global_tls_server: None,
             tls_ticketer: None,
@@ -183,9 +360,10 @@ impl HttpGuardServerConfig {
                 Ok(())
             }
             "server_id" => {
-                let server_id = vey_yaml::value::as_http_server_id(v)
-                    .context(format!("invalid http server id value for key {k}"))?;
-                self.server_id = Some(server_id);
+                self.server_id = Some(
+                    vey_yaml::value::as_http_server_id(v)
+                        .context(format!("invalid http server id value for key {k}"))?,
+                );
                 Ok(())
             }
             "no_proxy_status" => {
@@ -193,6 +371,45 @@ impl HttpGuardServerConfig {
                     .context(format!("invalid bool value for key {k}"))?;
                 Ok(())
             }
+            "req_header_recv_timeout" => {
+                self.timeout.recv_req_header = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "rsp_header_recv_timeout" => {
+                self.timeout.recv_rsp_header = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "req_header_max_size" => {
+                self.req_hdr_max_size = vey_yaml::humanize::as_usize(v)
+                    .context(format!("invalid humanize usize value for key {k}"))?;
+                Ok(())
+            }
+            "rsp_header_max_size" => {
+                self.rsp_hdr_max_size = vey_yaml::humanize::as_usize(v)
+                    .context(format!("invalid humanize usize value for key {k}"))?;
+                Ok(())
+            }
+            "log_uri_max_chars" | "uri_log_max_chars" => {
+                self.log_uri_max_chars = vey_yaml::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
+                Ok(())
+            }
+            "no_early_error_reply" => {
+                self.no_early_error_reply = vey_yaml::value::as_bool(v)
+                    .context(format!("invalid bool value for key {k}"))?;
+                Ok(())
+            }
+            "append_forwarded_for" => {
+                self.append_forwarded_for = vey_yaml::value::as_http_forwarded_header_type(v)
+                    .context(format!(
+                        "invalid http forwarded header type value for key {k}"
+                    ))?;
+                Ok(())
+            }
+            "h1" => self.h1.parse_yaml(v),
+            "h2" => self.h2.parse_yaml(v),
             "tcp_sock_speed_limit" => {
                 self.tcp_sock_speed_limit = vey_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
@@ -245,63 +462,6 @@ impl HttpGuardServerConfig {
                 let interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 self.task_log_flush_interval = Some(interval);
-                Ok(())
-            }
-            "req_header_recv_timeout" => {
-                self.timeout.recv_req_header = vey_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                Ok(())
-            }
-            "rsp_header_recv_timeout" => {
-                self.timeout.recv_rsp_header = vey_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                Ok(())
-            }
-            "req_header_max_size" => {
-                self.req_hdr_max_size = vey_yaml::humanize::as_usize(v)
-                    .context(format!("invalid humanize usize value for key {k}"))?;
-                Ok(())
-            }
-            "rsp_header_max_size" => {
-                self.rsp_hdr_max_size = vey_yaml::humanize::as_usize(v)
-                    .context(format!("invalid humanize usize value for key {k}"))?;
-                Ok(())
-            }
-            "log_uri_max_chars" | "uri_log_max_chars" => {
-                self.log_uri_max_chars = vey_yaml::value::as_usize(v)
-                    .context(format!("invalid usize value for key {k}"))?;
-                Ok(())
-            }
-            "pipeline_size" => {
-                self.pipeline_size = vey_yaml::value::as_nonzero_usize(v)
-                    .context(format!("invalid nonzero usize value for key {k}"))?;
-                Ok(())
-            }
-            "pipeline_read_idle_timeout" => {
-                self.pipeline_read_idle_timeout = vey_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                Ok(())
-            }
-            "no_early_error_reply" => {
-                self.no_early_error_reply = vey_yaml::value::as_bool(v)
-                    .context(format!("invalid bool value for key {k}"))?;
-                Ok(())
-            }
-            "body_line_max_length" => {
-                self.body_line_max_len = vey_yaml::value::as_usize(v)
-                    .context(format!("invalid usize value for key {k}"))?;
-                Ok(())
-            }
-            "http_forward_upstream_keepalive" => {
-                self.http_forward_upstream_keepalive = vey_yaml::value::as_http_keepalive_config(v)
-                    .context(format!("invalid http keepalive config value for key {k}"))?;
-                Ok(())
-            }
-            "append_forwarded_for" => {
-                self.append_forwarded_for = vey_yaml::value::as_http_forwarded_header_type(v)
-                    .context(format!(
-                        "invalid http forwarded header type value for key {k}"
-                    ))?;
                 Ok(())
             }
             "global_tls_server" => {
@@ -466,6 +626,78 @@ listen: "[::]:8080"
 escaper: default
 site_group: saas
 user_group: visitors
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        assert!(HttpGuardServerConfig::parse(map, None).is_err());
+    }
+
+    #[test]
+    fn parse_http_h1_h2() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: http_in
+type: http_guard
+listen: "[::]:8080"
+escaper: default
+site_group: saas
+req_header_max_size: 32Ki
+append_forwarded_for: disable
+h1:
+  pipeline_size: 4
+h2:
+  enable_h2c: true
+  max_concurrent_streams: 32
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let server = HttpGuardServerConfig::parse(map, None).unwrap();
+        assert_eq!(server.req_hdr_max_size, 32 * 1024);
+        assert_eq!(
+            server.append_forwarded_for,
+            vey_types::net::HttpForwardedHeaderType::Disable
+        );
+        assert_eq!(server.h1.pipeline_size.get(), 4);
+        assert!(server.h2.enable_h2c);
+        assert_eq!(server.h2.max_concurrent_streams, 32);
+    }
+
+    #[test]
+    fn reject_legacy_top_level_http_keys() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: http_in
+type: http_guard
+listen: "[::]:8080"
+escaper: default
+site_group: saas
+pipeline_size: 4
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        assert!(HttpGuardServerConfig::parse(map, None).is_err());
+    }
+
+    #[test]
+    fn reject_nested_http_map() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: http_in
+type: http_guard
+listen: "[::]:8080"
+escaper: default
+site_group: saas
+http:
+  req_header_max_size: 32Ki
 "#,
         )
         .unwrap();

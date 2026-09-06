@@ -28,6 +28,7 @@ pub(crate) struct HttpGuardServerStats {
     pub forbidden: ServerForbiddenStats,
 
     task_http_forward: ServerPerTaskStats,
+    task_h2_forward: ServerPerTaskStats,
 
     pub io_http: TcpIoStats,
 }
@@ -42,6 +43,7 @@ impl HttpGuardServerStats {
             conn_total: AtomicU64::new(0),
             forbidden: Default::default(),
             task_http_forward: Default::default(),
+            task_h2_forward: Default::default(),
             io_http: Default::default(),
         }
     }
@@ -67,13 +69,26 @@ impl HttpGuardServerStats {
         self.task_http_forward.inc_alive_task();
         HttpForwardTaskAliveGuard(self.clone())
     }
+    pub(super) fn add_h2_forward_task(self: &Arc<Self>) -> H2ForwardTaskAliveGuard {
+        self.task_h2_forward.add_task();
+        self.task_h2_forward.inc_alive_task();
+        H2ForwardTaskAliveGuard(self.clone())
+    }
 }
 
-pub(super) struct HttpForwardTaskAliveGuard(Arc<HttpGuardServerStats>);
+pub(crate) struct HttpForwardTaskAliveGuard(Arc<HttpGuardServerStats>);
 
 impl Drop for HttpForwardTaskAliveGuard {
     fn drop(&mut self) {
         self.0.task_http_forward.dec_alive_task();
+    }
+}
+
+pub(crate) struct H2ForwardTaskAliveGuard(Arc<HttpGuardServerStats>);
+
+impl Drop for H2ForwardTaskAliveGuard {
+    fn drop(&mut self) {
+        self.0.task_h2_forward.dec_alive_task();
     }
 }
 
@@ -107,11 +122,11 @@ impl ServerStats for HttpGuardServerStats {
     }
 
     fn get_task_total(&self) -> u64 {
-        self.task_http_forward.get_task_total()
+        self.task_http_forward.get_task_total() + self.task_h2_forward.get_task_total()
     }
 
     fn get_alive_count(&self) -> i32 {
-        self.task_http_forward.get_alive_count()
+        self.task_http_forward.get_alive_count() + self.task_h2_forward.get_alive_count()
     }
 
     fn tcp_io_snapshot(&self) -> Option<TcpIoSnapshot> {

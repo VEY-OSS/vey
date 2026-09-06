@@ -440,7 +440,7 @@ impl<'a> HttpGuardForwardTask<'a> {
         CDR: AsyncRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
     {
-        let upstream_keepalive = self.ctx.server_config.http_forward_upstream_keepalive;
+        let upstream_keepalive = self.ctx.server_config.h1.http_forward_upstream_keepalive;
 
         if self.task_notes.check_layered_rate_limit().is_err() {
             self.reply_too_many_requests(clt_w).await;
@@ -584,14 +584,12 @@ impl<'a> HttpGuardForwardTask<'a> {
         };
         if let Some((connection, reuse_notes, egress_notes)) = from_pool {
             self.egress_notes = egress_notes;
-            let connection = reuse_notes
-                .escaper
-                .prepare_reused_http_forward_connection(
-                    connection,
-                    &self.task_notes,
-                    self.task_stats.clone(),
-                    self.is_https,
-                );
+            let connection = reuse_notes.escaper.prepare_reused_http_forward_connection(
+                connection,
+                &self.task_notes,
+                self.task_stats.clone(),
+                self.is_https,
+            );
             self.alive_reuse_notes = Some(reuse_notes);
             return Some(connection);
         }
@@ -761,7 +759,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             match reqmod
                 .h1_adapter(
                     self.ctx.server_config.tcp_copy,
-                    self.ctx.server_config.body_line_max_len,
+                    self.ctx.server_config.h1.body_line_max_len,
                     true,
                     self.ctx.idle_checker(&self.task_notes),
                 )
@@ -805,8 +803,11 @@ impl<'a> HttpGuardForwardTask<'a> {
                     ));
                 };
 
-                let mut clt_body_reader =
-                    HttpBodyReader::new(clt_r, body_type, self.ctx.server_config.body_line_max_len);
+                let mut clt_body_reader = HttpBodyReader::new(
+                    clt_r,
+                    body_type,
+                    self.ctx.server_config.h1.body_line_max_len,
+                );
 
                 if self.req.end_to_end_headers.contains_key(header::EXPECT) {
                     return self
@@ -1297,8 +1298,11 @@ impl<'a> HttpGuardForwardTask<'a> {
         W: AsyncWrite + Unpin,
     {
         let header_len = header.len() as u64;
-        let mut body_reader =
-            HttpBodyReader::new(ups_r, body_type, self.ctx.server_config.body_line_max_len);
+        let mut body_reader = HttpBodyReader::new(
+            ups_r,
+            body_type,
+            self.ctx.server_config.h1.body_line_max_len,
+        );
 
         let mut ups_to_clt = StreamCopy::with_data(
             &mut body_reader,

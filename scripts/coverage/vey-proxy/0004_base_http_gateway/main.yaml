@@ -25,7 +25,8 @@ site_group:
         exact_match: httpbin.local
         upstream: 127.0.0.1:80
         http:
-          h1_connection_pool: {}
+          h1:
+            connection_pool: {}
         tls_server:
           cert_pairs:
             certificate: ../httpbin.local.pem

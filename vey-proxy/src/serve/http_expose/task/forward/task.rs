@@ -576,14 +576,12 @@ impl<'a> HttpExposeForwardTask<'a> {
         };
         if let Some((connection, reuse_notes, egress_notes)) = from_pool {
             self.egress_notes = egress_notes;
-            let connection = reuse_notes
-                .escaper
-                .prepare_reused_http_forward_connection(
-                    connection,
-                    &self.task_notes,
-                    self.task_stats.clone(),
-                    self.is_https,
-                );
+            let connection = reuse_notes.escaper.prepare_reused_http_forward_connection(
+                connection,
+                &self.task_notes,
+                self.task_stats.clone(),
+                self.is_https,
+            );
             self.alive_reuse_notes = Some(reuse_notes);
             return Some(connection);
         }
