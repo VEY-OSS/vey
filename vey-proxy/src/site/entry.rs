@@ -21,17 +21,20 @@ use vey_types::net::{
 
 use super::SiteStats;
 use super::http1_pool::SiteHttp1Pool;
+use super::http2_pool::SiteHttp2Pool;
 use crate::auth::{UserForbiddenStats, UserGroup, UserRequestStats};
 use crate::config::site::SiteConfig;
 
 pub(crate) struct Site {
     config: Arc<SiteConfig>,
     tls_client: Option<OpensslClientConfig>,
+    tls_client_h2: Option<OpensslClientConfig>,
     stats: Arc<SiteStats>,
     tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
     request_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
     req_alive_sem: Option<GaugeSemaphore>,
     http1_pool: Option<Arc<SiteHttp1Pool>>,
+    http2_pool: Arc<SiteHttp2Pool>,
 }
 
 impl Site {
@@ -42,6 +45,7 @@ impl Site {
         tenant_user_group_name: &NodeName,
     ) -> anyhow::Result<Self> {
         let tls_client = build_tls_client(config)?;
+        let tls_client_h2 = build_tls_client_h2(config)?;
         let request_rate_limit = config
             .request_rate_limit
             .map(|quota| Arc::new(RateLimiter::new_global(quota)));
@@ -50,6 +54,7 @@ impl Site {
         Ok(Site {
             config: Arc::clone(config),
             tls_client,
+            tls_client_h2,
             stats: Arc::new(SiteStats::new(
                 site_group,
                 config.id(),
@@ -61,8 +66,10 @@ impl Site {
             req_alive_sem,
             http1_pool: config
                 .http
-                .h1_connection_pool
+                .h1
+                .connection_pool
                 .map(|cfg| Arc::new(SiteHttp1Pool::new(cfg))),
+            http2_pool: Arc::new(SiteHttp2Pool::new(config.http.h2.connection_pool)),
         })
     }
 
@@ -72,6 +79,7 @@ impl Site {
         tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
     ) -> anyhow::Result<Self> {
         let tls_client = build_tls_client(config)?;
+        let tls_client_h2 = build_tls_client_h2(config)?;
         let request_rate_limit = reuse_or_new_rate_limiter(
             &self.request_rate_limit,
             self.config.request_rate_limit,
@@ -84,15 +92,18 @@ impl Site {
                 .unwrap_or_else(|| GaugeSemaphore::new(permits))
         });
         let http1_pool = reuse_or_new_http1_pool(self, config);
+        let http2_pool = reuse_or_new_http2_pool(self, config);
 
         Ok(Site {
             config: Arc::clone(config),
             tls_client,
+            tls_client_h2,
             stats: Arc::clone(&self.stats),
             tenant_user_group,
             request_rate_limit,
             req_alive_sem,
             http1_pool,
+            http2_pool,
         })
     }
 
@@ -128,6 +139,10 @@ impl Site {
         self.tls_client.as_ref()
     }
 
+    pub(crate) fn tls_client_h2(&self) -> Option<&OpensslClientConfig> {
+        self.tls_client_h2.as_ref()
+    }
+
     #[inline]
     pub(crate) fn config(&self) -> &Arc<SiteConfig> {
         &self.config
@@ -152,6 +167,10 @@ impl Site {
 
     pub(crate) fn http1_pool(&self) -> Option<&SiteHttp1Pool> {
         self.http1_pool.as_deref()
+    }
+
+    pub(crate) fn http2_pool(&self) -> &SiteHttp2Pool {
+        &self.http2_pool
     }
 
     pub(crate) fn check_rate_limit(&self, forbid: &UserForbiddenStats) -> Result<(), ()> {
@@ -211,10 +230,23 @@ fn build_tls_client(config: &SiteConfig) -> anyhow::Result<Option<OpensslClientC
     }
 }
 
+fn build_tls_client_h2(config: &SiteConfig) -> anyhow::Result<Option<OpensslClientConfig>> {
+    use vey_types::net::AlpnProtocol;
+
+    if let Some(builder) = &config.tls_client_builder {
+        let client = builder
+            .build_with_alpn_protocols(Some(vec![AlpnProtocol::Http2]))
+            .context("failed to build h2 tls client")?;
+        Ok(Some(client))
+    } else {
+        Ok(None)
+    }
+}
+
 fn reuse_or_new_http1_pool(old: &Site, config: &SiteConfig) -> Option<Arc<SiteHttp1Pool>> {
-    let pool_cfg = config.http.h1_connection_pool?;
+    let pool_cfg = config.http.h1.connection_pool?;
     if old.http1_pool.is_some()
-        && old.config.http.h1_connection_pool == Some(pool_cfg)
+        && old.config.http.h1.connection_pool == Some(pool_cfg)
         && old.config.upstream() == config.upstream()
         && old.config.tls_client_builder == config.tls_client_builder
         && old.config.tls_name == config.tls_name
@@ -222,6 +254,17 @@ fn reuse_or_new_http1_pool(old: &Site, config: &SiteConfig) -> Option<Arc<SiteHt
         return old.http1_pool.clone();
     }
     Some(Arc::new(SiteHttp1Pool::new(pool_cfg)))
+}
+
+fn reuse_or_new_http2_pool(old: &Site, config: &SiteConfig) -> Arc<SiteHttp2Pool> {
+    if old.config.http.h2.connection_pool == config.http.h2.connection_pool
+        && old.config.upstream() == config.upstream()
+        && old.config.tls_client_builder == config.tls_client_builder
+        && old.config.tls_name == config.tls_name
+    {
+        return Arc::clone(&old.http2_pool);
+    }
+    Arc::new(SiteHttp2Pool::new(config.http.h2.connection_pool))
 }
 
 fn reuse_or_new_rate_limiter(

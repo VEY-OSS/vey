@@ -14,6 +14,7 @@ mod group;
 pub(crate) use group::SiteGroup;
 
 mod http1_pool;
+mod http2_pool;
 
 mod entry;
 pub(crate) use entry::{Site, SiteHttpConnGuard};

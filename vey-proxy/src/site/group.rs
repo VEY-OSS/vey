@@ -157,7 +157,8 @@ static_sites:
     exact_match: app.internal
     upstream: 127.0.0.1:8080
     http:
-      h1_connection_pool: {}
+      h1:
+        connection_pool: {}
 "#,
         );
         let group = SiteGroup::new_with_config(config.clone()).unwrap();
@@ -182,7 +183,8 @@ static_sites:
     exact_match: app.internal
     upstream: 127.0.0.1:8080
     http:
-      h1_connection_pool: {}
+      h1:
+        connection_pool: {}
 "#,
         );
         let group = SiteGroup::new_with_config(config).unwrap();

@@ -329,7 +329,10 @@ Example:
 
    http:
      rsp_header_recv_timeout: 8s
-     h1_connection_pool: {}
+     h1:
+       connection_pool: {}
+     h2:
+       connection_pool: {}
 
 .. _conf_site_http_rsp_header_recv_timeout:
 
@@ -351,10 +354,19 @@ A visitor user is not consulted when a site context is present.
 
 **default**: not set
 
+.. _conf_site_http_h1:
+
+h1
+^^
+
+**optional**, **type**: map
+
+HTTP/1-only settings for this origin.
+
 .. _conf_site_http_h1_connection_pool:
 
-h1_connection_pool
-^^^^^^^^^^^^^^^^^^
+connection_pool
+"""""""""""""""
 
 **optional**, **type**: :external+values:ref:`connection pool <conf_value_connection_pool_config>`
 
@@ -382,3 +394,29 @@ are created on demand, not warmed up.
 ``http_proxy`` (SWG) does not use this pool.
 
 **default**: not set
+
+.. _conf_site_http_h2:
+
+h2
+^^
+
+**optional**, **type**: map
+
+HTTP/2-only settings for this origin. Omitted ``h2`` still uses a default
+origin multiplex pool: HTTP/2 streams are not bound 1:1 to client connections.
+
+.. _conf_site_http_h2_connection_pool:
+
+connection_pool
+"""""""""""""""
+
+**optional**, **type**: :external+values:ref:`connection pool <conf_value_connection_pool_config>`
+
+HTTP/2 origin multiplex pool for this site. Checkout clones ``SendRequest``
+and does not bind a client connection to an origin connection.
+
+``max_idle_count`` is the site-wide cap, split across workers
+(at least one idle slot per worker). Only ``max_idle_count`` and
+``idle_timeout`` apply. ``min_idle_count`` and ``check_interval`` are ignored.
+
+**default**: default connection pool limits

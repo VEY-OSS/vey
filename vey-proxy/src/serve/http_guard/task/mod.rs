@@ -13,3 +13,6 @@ mod h1;
 pub(super) use h1::{
     HttpGuardPipelineReaderTask, HttpGuardPipelineStats, HttpGuardPipelineWriterTask,
 };
+
+mod h2;
+pub(super) use h2::HttpGuardH2ConnectionTask;

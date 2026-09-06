@@ -25,7 +25,11 @@ impl HttpHost {
         let tls_server = if let Some(builder) = site.tls_server_builder() {
             let server = builder
                 .build_with_alpn_protocols(
-                    Some(vec![AlpnProtocol::Http11, AlpnProtocol::Http10]),
+                    Some(vec![
+                        AlpnProtocol::Http2,
+                        AlpnProtocol::Http11,
+                        AlpnProtocol::Http10,
+                    ]),
                     ticketer,
                 )
                 .context("failed to build tls server")?;

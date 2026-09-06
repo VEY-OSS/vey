@@ -27,10 +27,10 @@ use vey_daemon::listen::{
     AcceptQuicServer, AcceptTcpServer, AcceptUdpServer, AcceptedUdpPacketReceiver,
     AcceptedUdpPacketSender, ListenStats, ListenTcpRuntime,
 };
+use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use vey_dpi::{
     MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspectionConfig, ProtocolInspector,
 };
-use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use vey_io_ext::{AsyncStream, IdleWheel, OnceBufReader};
 use vey_openssl::{SslAcceptor, SslStream};
 use vey_types::acl::{AclAction, AclNetworkRule};
@@ -41,8 +41,8 @@ use vey_types::net::{
 use vey_types::route::HostMatch;
 
 use super::task::{
-    CommonTaskContext, HttpGuardPipelineReaderTask, HttpGuardPipelineStats,
-    HttpGuardPipelineWriterTask,
+    CommonTaskContext, HttpGuardH2ConnectionTask, HttpGuardPipelineReaderTask,
+    HttpGuardPipelineStats, HttpGuardPipelineWriterTask,
 };
 use super::{HttpGuardServerStats, HttpHost};
 use crate::audit::AuditHandle;
@@ -89,7 +89,11 @@ impl HttpGuardServer {
             Some(builder) => {
                 let config = builder
                     .build_with_alpn_protocols(
-                        Some(vec![AlpnProtocol::Http11, AlpnProtocol::Http10]),
+                        Some(vec![
+                            AlpnProtocol::Http2,
+                            AlpnProtocol::Http11,
+                            AlpnProtocol::Http10,
+                        ]),
                         tls_rolling_ticketer.clone(),
                     )
                     .context("failed to build global tls server config")?;
@@ -229,7 +233,7 @@ impl HttpGuardServer {
         false
     }
 
-    async fn spawn_stream_task<T>(
+    async fn spawn_h1_task<T>(
         &self,
         stream: T,
         cc_info: ClientConnectionInfo,
@@ -241,7 +245,7 @@ impl HttpGuardServer {
     {
         let ctx = self.get_common_task_context(cc_info);
         let pipeline_stats = Arc::new(HttpGuardPipelineStats::default());
-        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size.get());
+        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.h1.pipeline_size.get());
 
         // NOTE tls underlying traffic is not counted in (server/task/user) stats
 
@@ -251,6 +255,38 @@ impl HttpGuardServer {
 
         tokio::spawn(r_task.into_running());
         w_task.into_running(hosts).await
+    }
+
+    async fn spawn_h2_task<T>(
+        &self,
+        stream: T,
+        cc_info: ClientConnectionInfo,
+        hosts: Arc<HostMatch<Arc<HttpHost>>>,
+    ) where
+        T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        let ctx = self.get_common_task_context(cc_info);
+        HttpGuardH2ConnectionTask::new(&ctx, stream, hosts)
+            .into_running()
+            .await
+    }
+
+    async fn spawn_http_task<T>(
+        &self,
+        stream: T,
+        cc_info: ClientConnectionInfo,
+        hosts: Arc<HostMatch<Arc<HttpHost>>>,
+        alpn: Option<AlpnProtocol>,
+    ) where
+        T: AsyncStream + AsyncRead + AsyncWrite + Unpin + Send + 'static,
+        T::R: AsyncRead + Send + Sync + Unpin + 'static,
+        T::W: AsyncWrite + Send + Sync + Unpin + 'static,
+    {
+        if matches!(alpn, Some(AlpnProtocol::Http2)) {
+            self.spawn_h2_task(stream, cc_info, hosts).await;
+        } else {
+            self.spawn_h1_task(stream, cc_info, hosts).await;
+        }
     }
 
     async fn run_tls_tcp_task(
@@ -321,7 +357,11 @@ impl HttpGuardServer {
                 if ssl_stream.ssl().session_reused() {
                     cc_info.tcp_sock_try_quick_ack();
                 }
-                self.spawn_stream_task(ssl_stream, cc_info, self.tls_hosts.load_full())
+                let alpn = ssl_stream
+                    .ssl()
+                    .selected_alpn_protocol()
+                    .and_then(AlpnProtocol::from_selected);
+                self.spawn_http_task(ssl_stream, cc_info, self.tls_hosts.load_full(), alpn)
                     .await
             }
             Err(e) => {
@@ -594,7 +634,21 @@ impl AcceptTcpServer for HttpGuardServer {
         match protocol {
             Protocol::Http1 => {
                 let stream = OnceBufReader::new(stream, clt_r_buf);
-                self.spawn_stream_task(stream, cc_info, self.http_hosts.load_full())
+                self.spawn_h1_task(stream, cc_info, self.http_hosts.load_full())
+                    .await;
+            }
+            Protocol::Http2 => {
+                if !self.config.h2.enable_h2c {
+                    self.listen_stats.add_failed();
+                    debug!(
+                        "{} - {} rejected h2c (disabled)",
+                        cc_info.sock_local_addr(),
+                        cc_info.sock_peer_addr()
+                    );
+                    return;
+                }
+                let stream = OnceBufReader::new(stream, clt_r_buf);
+                self.spawn_h2_task(stream, cc_info, self.http_hosts.load_full())
                     .await;
             }
             Protocol::TlsModern | Protocol::TlsTlcp | Protocol::TlsLegacy | Protocol::SslLegacy => {
@@ -668,7 +722,12 @@ impl Server for HttpGuardServer {
             return;
         }
 
-        self.spawn_stream_task(stream, cc_info, self.http_hosts.load_full())
+        let alpn = stream
+            .get_ref()
+            .1
+            .alpn_protocol()
+            .and_then(AlpnProtocol::from_selected);
+        self.spawn_http_task(stream, cc_info, self.http_hosts.load_full(), alpn)
             .await;
     }
 
@@ -679,7 +738,11 @@ impl Server for HttpGuardServer {
             return;
         }
 
-        self.spawn_stream_task(stream, cc_info, self.http_hosts.load_full())
+        let alpn = stream
+            .ssl()
+            .selected_alpn_protocol()
+            .and_then(AlpnProtocol::from_selected);
+        self.spawn_http_task(stream, cc_info, self.http_hosts.load_full(), alpn)
             .await;
     }
 }

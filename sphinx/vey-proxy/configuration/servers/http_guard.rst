@@ -4,28 +4,31 @@ http_guard
 ==========
 
 This server is the public-edge HTTP reverse proxy. Incoming TCP is inspected
-before any site lookup: only HTTP/1.x is accepted. TLS is detected
-automatically (including TLCP). HTTP/2 prefaces and other protocols are
-dropped.
+before any site lookup: HTTP/1.x is accepted, and HTTP/2 is accepted over TLS
+(ALPN ``h2``) or as plaintext H2C when enabled. TLS is detected automatically
+(including TLCP). Other protocols are dropped.
 
 TLS connections match SNI and later ``Host`` against sites that have
 ``tls_server``. Plaintext connections match ``Host`` against the HTTP host
 table. After a TLS handshake, ``Host`` still uses the TLS-capable table.
 
-It then forwards HTTP/1 requests to that site's origin. There is no visitor
-authentication; tenant identity comes from ``site.owner`` plus the group's
-``tenant_user_group``.
+It then forwards requests to that site's origin. HTTP/2 origin stays on
+HTTP/2 (no HTTP/1 fallback). There is no visitor authentication; tenant
+identity comes from ``site.owner`` plus the group's ``tenant_user_group``.
 
 This is the counterpart of :ref:`http_expose <configuration_server_http_rproxy>`
 (internal reverse proxy with optional visitor auth and no auditor).
 
-Phase 1 supports:
+It supports:
 
 * HTTP/1.0 and HTTP/1.1
-* WebSocket upgrades (``Upgrade: websocket``)
+* HTTP/2, including RFC 8441 WebSocket (extended ``CONNECT``)
+* HTTP/1 WebSocket upgrades (``Upgrade: websocket``)
+* optional H2C (plaintext HTTP/2), off by default
 * optional ICAP via :ref:`auditor <conf_server_common_auditor>` (REQMOD / RESPMOD)
 
-It does **not** support ``CONNECT``. HTTP/2 and HTTP/3 are not enabled yet.
+It does **not** support standard ``CONNECT`` (without ``:protocol``). HTTP/3
+is not enabled.
 
 The following common keys are supported:
 
@@ -141,8 +144,34 @@ owner.
 
 **default**: 1024
 
+no_early_error_reply
+--------------------
+
+**optional**, **type**: bool
+
+If set to ``true``, protocol-parse errors close the connection without writing
+an HTTP error response.
+
+**default**: false
+
+append_forwarded_for
+--------------------
+
+**optional**, **type**: :external+values:ref:`http forwarded header type <conf_value_http_forwarded_header_type>`
+
+How the client address is added to forwarded requests.
+
+**default**: disable
+
+h1
+--
+
+**optional**, **type**: map
+
+HTTP/1-only settings.
+
 pipeline_size
--------------
+^^^^^^^^^^^^^
 
 **optional**, **type**: :external+values:ref:`nonzero usize <conf_value_nonzero_usize>`
 
@@ -156,7 +185,7 @@ Pipeline depth for HTTP/1.0 and HTTP/1.1.
   reader for the rest of the connection.
 
 pipeline_read_idle_timeout
---------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
 
@@ -164,18 +193,8 @@ Idle timeout for client-side idle HTTP connections.
 
 **default**: 5min
 
-no_early_error_reply
---------------------
-
-**optional**, **type**: bool
-
-If set to ``true``, protocol-parse errors close the connection without writing
-an HTTP error response.
-
-**default**: false
-
 body_line_max_length
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 **optional**, **type**: int
 
@@ -185,24 +204,122 @@ chunk-size lines.
 **default**: 8192
 
 http_forward_upstream_keepalive
--------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **optional**, **type**: :external+values:ref:`http keepalive <conf_value_http_keepalive>`
 
 HTTP keepalive configuration at the server level. Site
-:ref:`h1_connection_pool <conf_site_http_h1_connection_pool>` still applies
+:ref:`h1 connection_pool <conf_site_http_h1_connection_pool>` still applies
 when configured.
 
 **default**: set with default value
 
-append_forwarded_for
---------------------
+h2
+--
 
-**optional**, **type**: :external+values:ref:`http forwarded header type <conf_value_http_forwarded_header_type>`
+**optional**, **type**: map
 
-How the client address is added to forwarded requests.
+HTTP/2-only settings.
 
-**default**: disable
+enable_h2c
+^^^^^^^^^^
+
+**optional**, **type**: bool
+
+Accept plaintext HTTP/2 (H2C) on the listen port. TLS clients still negotiate
+HTTP/2 via ALPN regardless of this key.
+
+**default**: false
+
+max_header_list_size
+^^^^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: :external+values:ref:`humanize u32 <conf_value_humanize_u32>`
+
+Maximum HTTP/2 header list size.
+
+**default**: 64KiB
+
+max_concurrent_streams
+^^^^^^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: u32
+
+Maximum concurrent streams initiated by the client.
+
+**default**: 128
+
+max_frame_size
+^^^^^^^^^^^^^^
+
+**optional**, **type**: :external+values:ref:`humanize u32 <conf_value_humanize_u32>`
+
+Maximum HTTP/2 frame size.
+
+**default**: 256KiB
+
+stream_window_size
+^^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: :external+values:ref:`humanize u32 <conf_value_humanize_u32>`
+
+Initial stream window size.
+
+**default**: 1MiB
+
+connection_window_size
+^^^^^^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: :external+values:ref:`humanize u32 <conf_value_humanize_u32>`
+
+Connection window size.
+
+**default**: 2MiB
+
+max_send_buffer_size
+^^^^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: :external+values:ref:`humanize usize <conf_value_humanize_usize>`
+
+Maximum send buffer size per stream.
+
+**default**: 8MiB
+
+upstream_handshake_timeout
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
+
+Timeout for the origin HTTP/2 handshake.
+
+**default**: 10s
+
+upstream_stream_open_timeout
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
+
+Timeout to open a stream on a pooled origin HTTP/2 connection.
+
+**default**: 10s
+
+client_handshake_timeout
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
+
+Timeout for the client HTTP/2 handshake.
+
+**default**: 4s
+
+ping_interval
+^^^^^^^^^^^^^
+
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
+
+Interval for origin HTTP/2 PING. ``0`` disables PING.
+
+**default**: 60s
 
 .. _configuration_server_http_guard_global_tls_server:
 

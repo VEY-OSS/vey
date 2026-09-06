@@ -25,9 +25,10 @@ site_group:
         exact_match: httpbin.local
         upstream: 127.0.0.1:9443
         http:
-          h1_connection_pool:
-            max_idle_count: 8
-            idle_timeout: 30s
+          h1:
+            connection_pool:
+              max_idle_count: 8
+              idle_timeout: 30s
         tls_client:
           ca_certificate: ../rootCA.pem
         tls_name: httpbin.local

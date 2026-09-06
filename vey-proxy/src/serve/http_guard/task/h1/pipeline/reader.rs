@@ -94,7 +94,7 @@ where
                 let quit_after_timeout = self.pipeline_stats.get_alive_task() <= 0;
 
                 match tokio::time::timeout(
-                    self.ctx.server_config.pipeline_read_idle_timeout,
+                    self.ctx.server_config.h1.pipeline_read_idle_timeout,
                     reader.fill_wait_data(),
                 )
                 .await
