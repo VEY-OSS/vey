@@ -246,7 +246,14 @@ impl ServerTaskNotes {
     }
 
     pub(crate) fn raw_user_name(&self) -> Option<&ArcStr> {
-        self.user_ctx.as_ref().and_then(|c| c.raw_user_name())
+        self.user_ctx
+            .as_ref()
+            .and_then(|c| c.raw_user_name())
+            .or_else(|| {
+                self.site_ctx
+                    .as_ref()
+                    .and_then(|s| s.tenant().and_then(|t| t.raw_user_name()))
+            })
     }
 
     pub(crate) fn egress_path_number_id(&self, escaper: &NodeName, length: usize) -> Option<usize> {
