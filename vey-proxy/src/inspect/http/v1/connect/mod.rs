@@ -206,6 +206,9 @@ where
                 if let Some(username) = self.ctx.raw_user_name() {
                     adapter.set_client_username(username.clone());
                 }
+                if let Some(username) = self.ctx.tenant_user_name() {
+                    adapter.set_tenant_username(username.clone());
+                }
                 let mut adaptation_state =
                     ReqmodAdaptationRunState::new(self.http_notes.receive_ins);
                 self.forward_with_adaptation(rsp_io, adapter, &mut adaptation_state)

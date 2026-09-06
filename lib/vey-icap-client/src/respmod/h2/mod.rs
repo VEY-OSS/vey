@@ -62,6 +62,7 @@ impl IcapRespmodClient {
             idle_checker,
             client_addr: None,
             client_username: None,
+            tenant_username: None,
             respond_shared_headers: None,
         })
     }
@@ -77,6 +78,7 @@ pub struct H2ResponseAdapter<I: IdleCheck> {
     idle_checker: I,
     client_addr: Option<SocketAddr>,
     client_username: Option<String>,
+    tenant_username: Option<String>,
     respond_shared_headers: Option<HttpHeaderMap>,
 }
 
@@ -135,6 +137,10 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
         self.client_username = Some(user.to_owned());
     }
 
+    pub fn set_tenant_username(&mut self, user: &str) {
+        self.tenant_username = Some(user.to_owned());
+    }
+
     pub fn set_respond_shared_headers(&mut self, shared_headers: Option<HttpHeaderMap>) {
         self.respond_shared_headers = shared_headers;
     }
@@ -146,6 +152,9 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
         }
         if let Some(user) = &self.client_username {
             crate::serialize::add_client_username(data, user);
+        }
+        if let Some(user) = &self.tenant_username {
+            crate::serialize::add_tenant_username(data, user);
         }
         if let Some(map) = &self.respond_shared_headers {
             crate::serialize::add_shared(data, map);

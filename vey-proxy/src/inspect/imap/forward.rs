@@ -194,6 +194,9 @@ where
         if let Some(username) = self.ctx.raw_user_name() {
             adapter.set_client_username(username.clone());
         }
+        if let Some(username) = self.ctx.tenant_user_name() {
+            adapter.set_tenant_username(username.clone());
+        }
 
         relay_buf.cmd_recv_buf.consume_line();
         let cached = relay_buf

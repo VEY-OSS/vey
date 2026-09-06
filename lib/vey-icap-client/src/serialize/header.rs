@@ -30,6 +30,13 @@ pub(crate) fn add_client_username(buf: &mut Vec<u8>, user: &str) {
     buf.put_slice(b"\r\n");
 }
 
+pub(crate) fn add_tenant_username(buf: &mut Vec<u8>, user: &str) {
+    buf.put_slice(b"X-Tenant-Username: ");
+    let url_encoded = Username::url_encode(user);
+    buf.put_slice(url_encoded.as_bytes());
+    buf.put_slice(b"\r\n");
+}
+
 pub(crate) fn add_shared(buf: &mut Vec<u8>, headers: &HttpHeaderMap) {
     headers.for_each(|name, value| {
         buf.put_slice(name.as_str().as_bytes());
@@ -79,6 +86,19 @@ mod tests {
         assert!(text.starts_with("X-Client-Username: "));
         assert!(text.contains("X-Authenticated-User: "));
         assert!(text.contains("user%40example") || text.contains("user@example"));
+        assert!(!text.contains("X-Tenant-Username:"));
+    }
+
+    #[test]
+    fn add_tenant_username_url_encodes_without_authenticated_user() {
+        let mut buf = Vec::new();
+        add_tenant_username(&mut buf, "owner@example");
+
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.starts_with("X-Tenant-Username: "));
+        assert!(text.contains("owner%40example") || text.contains("owner@example"));
+        assert!(!text.contains("X-Client-Username:"));
+        assert!(!text.contains("X-Authenticated-User:"));
     }
 
     #[test]

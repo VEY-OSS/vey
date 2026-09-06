@@ -24,13 +24,19 @@ information to the ICAP adapter:
 
 - X-Client-Username
 
-  The authenticated username, URL-encoded before being written into the ICAP
-  request header.
+  The authenticated visitor username, URL-encoded before being written into the
+  ICAP request header.
 
 - X-Authenticated-User
 
-  The authenticated username encoded in ICAP-compatible form as
+  The authenticated visitor username encoded in ICAP-compatible form as
   ``Local://<username>`` and then Base64 encoded.
+
+- X-Tenant-Username
+
+  The site owner username when the request is tied to a reverse-proxy site.
+  URL-encoded like ``X-Client-Username``. This header is independent of the
+  visitor identity headers above.
 
 Shared Response Headers
 -----------------------

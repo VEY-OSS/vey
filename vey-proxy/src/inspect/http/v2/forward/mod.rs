@@ -226,6 +226,9 @@ where
                     if let Some(username) = self.ctx.raw_user_name() {
                         adapter.set_client_username(username.clone());
                     }
+                    if let Some(username) = self.ctx.tenant_user_name() {
+                        adapter.set_tenant_username(username.clone());
+                    }
                     let r = self
                         .forward_with_adaptation(
                             ups_send_req,
@@ -584,6 +587,9 @@ where
                     adapter.set_client_addr(self.ctx.task_notes.client_addr);
                     if let Some(username) = self.ctx.raw_user_name() {
                         adapter.set_client_username(username);
+                    }
+                    if let Some(username) = self.ctx.tenant_user_name() {
+                        adapter.set_tenant_username(username);
                     }
                     adapter.set_respond_shared_headers(adaptation_respond_shared_headers);
                     let r = self

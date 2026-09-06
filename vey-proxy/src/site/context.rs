@@ -8,7 +8,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use arc_swap::ArcSwapOption;
-use arcstr::ArcStr;
 
 use vey_types::limit::GaugeSemaphorePermit;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -186,7 +185,7 @@ fn lookup_tenant(
     }
     let (user, user_type) = tenant_group?.get_named_user(owner.as_str())?;
     Some(UserContext::new(
-        Some(ArcStr::from(owner.as_str())),
+        None,
         user,
         user_type,
         server,

@@ -59,6 +59,11 @@ pub(crate) struct User {
 
 impl User {
     #[inline]
+    pub(crate) fn name(&self) -> &ArcStr {
+        &self.name
+    }
+
+    #[inline]
     pub(crate) fn task_max_idle_count(&self) -> Option<usize> {
         self.config.task_idle_max_count
     }

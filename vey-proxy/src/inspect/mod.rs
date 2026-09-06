@@ -83,7 +83,6 @@ pub(super) struct StreamInspectSiteContext {
 
 #[derive(Clone)]
 struct StreamInspectTenant {
-    raw_user_name: Option<ArcStr>,
     user: Arc<User>,
     forbidden_stats: Arc<UserForbiddenStats>,
 }
@@ -92,7 +91,6 @@ impl StreamInspectSiteContext {
     fn from_site_context(ctx: &SiteContext) -> Self {
         StreamInspectSiteContext {
             tenant: ctx.tenant().map(|t| StreamInspectTenant {
-                raw_user_name: t.raw_user_name().cloned(),
                 user: t.user().clone(),
                 forbidden_stats: t.forbidden_stats().clone(),
             }),
@@ -104,8 +102,8 @@ impl StreamInspectSiteContext {
         self.tenant.as_ref().map(|t| &t.user)
     }
 
-    fn raw_username(&self) -> Option<&ArcStr> {
-        self.tenant.as_ref().and_then(|t| t.raw_user_name.as_ref())
+    fn username(&self) -> Option<&ArcStr> {
+        self.tenant.as_ref().map(|t| t.user.name())
     }
 
     fn is_blocked(&self) -> bool {
@@ -154,12 +152,16 @@ impl StreamInspectTaskNotes {
             || self.site_ctx.as_ref().is_some_and(|s| s.is_blocked())
     }
 
-    /// ICAP / detour client identity: visitor first, owner if no visitor.
+    /// Visitor identity for ICAP `X-Client-Username`.
     pub(crate) fn raw_username(&self) -> Option<&ArcStr> {
         self.user_ctx
             .as_ref()
             .and_then(|ctx| ctx.raw_user_name.as_ref())
-            .or_else(|| self.site_ctx.as_ref().and_then(|s| s.raw_username()))
+    }
+
+    /// Site owner for ICAP `X-Tenant-Username`.
+    pub(crate) fn tenant_username(&self) -> Option<&ArcStr> {
+        self.site_ctx.as_ref().and_then(|s| s.username())
     }
 
     #[inline]
@@ -276,6 +278,11 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     #[inline]
     fn raw_user_name(&self) -> Option<&ArcStr> {
         self.task_notes.raw_username()
+    }
+
+    #[inline]
+    fn tenant_user_name(&self) -> Option<&ArcStr> {
+        self.task_notes.tenant_username()
     }
 
     /// DPI flags: site context uses tenant only; otherwise visitor user.

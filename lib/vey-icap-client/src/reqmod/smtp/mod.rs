@@ -40,6 +40,7 @@ impl IcapReqmodClient {
             idle_checker,
             client_addr: None,
             client_username: None,
+            tenant_username: None,
         })
     }
 }
@@ -52,6 +53,7 @@ pub struct SmtpMessageAdapter<I: IdleCheck> {
     idle_checker: I,
     client_addr: Option<SocketAddr>,
     client_username: Option<ArcStr>,
+    tenant_username: Option<ArcStr>,
 }
 
 impl<I: IdleCheck> SmtpMessageAdapter<I> {
@@ -61,6 +63,10 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
 
     pub fn set_client_username(&mut self, user: ArcStr) {
         self.client_username = Some(user);
+    }
+
+    pub fn set_tenant_username(&mut self, user: ArcStr) {
+        self.tenant_username = Some(user);
     }
 
     pub fn build_http_header(&self, mail_from: &MailParam, mail_to: &[RecipientParam]) -> Vec<u8> {
@@ -82,6 +88,9 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         }
         if let Some(user) = &self.client_username {
             crate::serialize::add_client_username(data, user);
+        }
+        if let Some(user) = &self.tenant_username {
+            crate::serialize::add_tenant_username(data, user);
         }
     }
 

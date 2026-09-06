@@ -184,6 +184,9 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
                     if let Some(username) = self.ctx.raw_user_name() {
                         adapter.set_client_username(username.clone());
                     }
+                    if let Some(username) = self.ctx.tenant_user_name() {
+                        adapter.set_tenant_username(username.clone());
+                    }
                     return self
                         .forward_with_adaptation(
                             ups_send_req,
