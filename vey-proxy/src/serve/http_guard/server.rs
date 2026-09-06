@@ -4,22 +4,20 @@
  */
 
 use std::net::SocketAddr;
-use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
-use bytes::BytesMut;
+use bytes::{Buf, BytesMut};
 use log::debug;
-use openssl::ssl::{NameType, Ssl};
+use openssl::ssl::Ssl;
 #[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::TcpStream;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 use tokio_rustls::server::TlsStream;
 
 use vey_codec::tls::{
@@ -29,37 +27,44 @@ use vey_daemon::listen::{
     AcceptQuicServer, AcceptTcpServer, AcceptUdpServer, AcceptedUdpPacketReceiver,
     AcceptedUdpPacketSender, ListenStats, ListenTcpRuntime,
 };
+use vey_dpi::{
+    MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspectionConfig, ProtocolInspector,
+};
 use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use vey_io_ext::{AsyncStream, IdleWheel, OnceBufReader};
 use vey_openssl::{SslAcceptor, SslStream};
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;
-use vey_types::net::{Host, OpensslTicketKey, RollingTicketer, TlsServerName};
+use vey_types::net::{
+    AlpnProtocol, Host, OpensslServerConfig, OpensslTicketKey, RollingTicketer, TlsServerName,
+};
 use vey_types::route::HostMatch;
 
-use super::common::CommonTaskContext;
-use super::host::TlsHost;
-use super::task::TlsProxyTask;
-use crate::audit::{AuditContext, AuditHandle};
-use crate::config::server::tls_proxy::TlsProxyServerConfig;
+use super::task::{
+    CommonTaskContext, HttpGuardPipelineReaderTask, HttpGuardPipelineStats,
+    HttpGuardPipelineWriterTask,
+};
+use super::{HttpGuardServerStats, HttpHost};
+use crate::audit::AuditHandle;
+use crate::config::server::http_guard::HttpGuardServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
-use crate::serve::tcp_stream::TcpStreamServerStats;
 use crate::serve::{
     ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
-    ServerRegistry, ServerStats, ServerTaskNotes, WrapArcServer,
+    ServerRegistry, ServerStats, WrapArcServer,
 };
-use crate::site::SiteContext;
 
-pub(crate) struct TlsProxyServer {
-    config: Arc<TlsProxyServerConfig>,
-    server_stats: Arc<TcpStreamServerStats>,
+pub(crate) struct HttpGuardServer {
+    config: Arc<HttpGuardServerConfig>,
+    server_stats: Arc<HttpGuardServerStats>,
     listen_stats: Arc<ListenStats>,
     tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    global_tls_server: Option<OpensslServerConfig>,
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
     task_logger: Option<Logger>,
-    hosts: ArcSwap<HostMatch<Arc<TlsHost>>>,
+    http_hosts: ArcSwap<HostMatch<Arc<HttpHost>>>,
+    tls_hosts: ArcSwap<HostMatch<Arc<HttpHost>>>,
 
     escaper: ArcSwap<ArcEscaper>,
     audit_handle: ArcSwapOption<AuditHandle>,
@@ -68,16 +73,30 @@ pub(crate) struct TlsProxyServer {
     reload_version: usize,
 }
 
-impl TlsProxyServer {
+impl HttpGuardServer {
     fn new(
-        config: Arc<TlsProxyServerConfig>,
-        server_stats: Arc<TcpStreamServerStats>,
+        config: Arc<HttpGuardServerConfig>,
+        server_stats: Arc<HttpGuardServerStats>,
         listen_stats: Arc<ListenStats>,
-        hosts: HostMatch<Arc<TlsHost>>,
+        http_hosts: HostMatch<Arc<HttpHost>>,
+        tls_hosts: HostMatch<Arc<HttpHost>>,
         tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> anyhow::Result<Self> {
         let reload_sender = ServerReloadCommand::new_sender();
+
+        let global_tls_server = match &config.global_tls_server {
+            Some(builder) => {
+                let config = builder
+                    .build_with_alpn_protocols(
+                        Some(vec![AlpnProtocol::Http11, AlpnProtocol::Http10]),
+                        tls_rolling_ticketer.clone(),
+                    )
+                    .context("failed to build global tls server config")?;
+                Some(config)
+            }
+            None => None,
+        };
 
         let ingress_net_filter = config
             .ingress_net_filter
@@ -87,33 +106,38 @@ impl TlsProxyServer {
         let task_logger = config.get_task_logger();
         let idle_wheel = IdleWheel::spawn(config.task_idle_check_interval);
 
+        // always update extra metrics tags
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
 
         let escaper = Arc::new(crate::escape::get_or_insert_default(config.escaper()));
         let audit_handle = config.get_audit_handle()?;
 
-        Ok(TlsProxyServer {
+        let server = HttpGuardServer {
             config,
             server_stats,
             listen_stats,
             tls_rolling_ticketer,
+            global_tls_server,
             ingress_net_filter,
             reload_sender,
             task_logger,
-            hosts: ArcSwap::from_pointee(hosts),
+            http_hosts: ArcSwap::from_pointee(http_hosts),
+            tls_hosts: ArcSwap::from_pointee(tls_hosts),
             escaper: ArcSwap::new(escaper),
             audit_handle: ArcSwapOption::new(audit_handle),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             idle_wheel,
             reload_version: version,
-        })
+        };
+
+        Ok(server)
     }
 
     pub(crate) fn prepare_initial(
-        config: TlsProxyServerConfig,
+        config: HttpGuardServerConfig,
     ) -> anyhow::Result<ArcServerInternal> {
         let config = Arc::new(config);
-        let server_stats = Arc::new(TcpStreamServerStats::new(config.name()));
+        let server_stats = Arc::new(HttpGuardServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
         let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
@@ -126,19 +150,20 @@ impl TlsProxyServer {
         };
         let hosts = build_hosts(&config.site_group, tls_rolling_ticketer.clone())?;
 
-        let server = TlsProxyServer::new(
+        let server = HttpGuardServer::new(
             config,
             server_stats,
             listen_stats,
-            hosts,
+            hosts.http,
+            hosts.tls,
             tls_rolling_ticketer,
             1,
         )?;
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<TlsProxyServer> {
-        if let AnyServerConfig::TlsProxy(config) = config {
+    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<HttpGuardServer> {
+        if let AnyServerConfig::HttpGuard(config) = config {
             let config = Arc::new(config);
             let server_stats = Arc::clone(&self.server_stats);
             let listen_stats = Arc::clone(&self.listen_stats);
@@ -155,11 +180,12 @@ impl TlsProxyServer {
             };
             let hosts = build_hosts(&config.site_group, tls_rolling_ticketer.clone())?;
 
-            let server = TlsProxyServer::new(
+            let server = HttpGuardServer::new(
                 config,
                 server_stats,
                 listen_stats,
-                hosts,
+                hosts.http,
+                hosts.tls,
                 tls_rolling_ticketer,
                 self.reload_version + 1,
             )?;
@@ -171,6 +197,19 @@ impl TlsProxyServer {
                 config.r#type()
             ))
         }
+    }
+
+    fn get_common_task_context(&self, cc_info: ClientConnectionInfo) -> Arc<CommonTaskContext> {
+        Arc::new(CommonTaskContext {
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            server_quit_policy: self.quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
+            escaper: self.escaper.load().as_ref().clone(),
+            cc_info,
+            task_logger: self.task_logger.clone(),
+            audit_handle: self.audit_handle.load_full(),
+        })
     }
 
     fn drop_early(&self, client_addr: SocketAddr) -> bool {
@@ -185,51 +224,44 @@ impl TlsProxyServer {
             }
         }
 
+        // TODO add cps limit
+
         false
     }
 
-    fn audit_context(&self) -> AuditContext {
-        AuditContext::new(self.audit_handle.load_full())
-    }
-
-    fn get_common_task_context(&self, cc_info: ClientConnectionInfo) -> CommonTaskContext {
-        CommonTaskContext {
-            server_config: self.config.clone(),
-            server_stats: self.server_stats.clone(),
-            server_quit_policy: self.quit_policy.clone(),
-            idle_wheel: self.idle_wheel.clone(),
-            escaper: self.escaper.load().as_ref().clone(),
-            cc_info,
-            task_logger: self.task_logger.clone(),
-        }
-    }
-
-    async fn run_task<S>(&self, stream: S, cc_info: ClientConnectionInfo, host: Arc<TlsHost>)
-    where
-        S: AsyncStream + 'static,
-        S::R: AsyncRead + Send + Sync + Unpin + 'static,
-        S::W: AsyncWrite + Send + Sync + Unpin + 'static,
+    async fn spawn_stream_task<T>(
+        &self,
+        stream: T,
+        cc_info: ClientConnectionInfo,
+        hosts: Arc<HostMatch<Arc<HttpHost>>>,
+    ) where
+        T: AsyncStream,
+        T::R: AsyncRead + Send + Sync + Unpin + 'static,
+        T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let site_ctx = SiteContext::new(
-            Arc::clone(host.site()),
-            Arc::clone(host.egress()),
-            self.config.name(),
-            self.server_stats.share_extra_tags(),
-        );
-        let task_notes =
-            ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO).with_site_ctx(site_ctx);
-
         let ctx = self.get_common_task_context(cc_info);
-        TlsProxyTask::new(ctx, host, self.audit_context(), task_notes)
-            .into_running(stream)
-            .await;
+        let pipeline_stats = Arc::new(HttpGuardPipelineStats::default());
+        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size.get());
+
+        // NOTE tls underlying traffic is not counted in (server/task/user) stats
+
+        let (clt_r, clt_w) = stream.into_split();
+        let r_task = HttpGuardPipelineReaderTask::new(&ctx, task_sender, clt_r, &pipeline_stats);
+        let w_task = HttpGuardPipelineWriterTask::new(&ctx, task_receiver, clt_w);
+
+        tokio::spawn(r_task.into_running());
+        w_task.into_running(hosts).await
     }
 
-    async fn run_tls_tcp_task(&self, mut stream: TcpStream, cc_info: ClientConnectionInfo) {
+    async fn run_tls_tcp_task(
+        &self,
+        mut stream: TcpStream,
+        mut clt_r_buf: BytesMut,
+        cc_info: ClientConnectionInfo,
+    ) {
         const TLS_MAX_CLIENT_HELLO_SIZE: u32 = 1 << 16;
 
-        let hosts = self.hosts.load();
-        let mut clt_r_buf = BytesMut::with_capacity(2048);
+        let hosts = self.tls_hosts.load();
         let host = match tokio::time::timeout(
             self.config.client_hello_recv_timeout,
             read_sni_host(
@@ -262,17 +294,19 @@ impl TlsProxyServer {
             }
         };
 
-        let Some(host) = host.cloned() else {
+        let Some(tls_config) = host
+            .and_then(|h| h.tls_server())
+            .or(self.global_tls_server.as_ref())
+        else {
             self.listen_stats.add_failed();
             debug!(
-                "{} - {} tls error: no matched site",
+                "{} - {} tls error: no matched server config found",
                 cc_info.sock_local_addr(),
                 cc_info.sock_peer_addr()
             );
             return;
         };
 
-        let tls_config = host.tls_server();
         let Ok(ssl) = Ssl::new(&tls_config.ssl_context) else {
             self.listen_stats.add_failed();
             return;
@@ -287,7 +321,8 @@ impl TlsProxyServer {
                 if ssl_stream.ssl().session_reused() {
                     cc_info.tcp_sock_try_quick_ack();
                 }
-                self.run_task(ssl_stream, cc_info, host).await
+                self.spawn_stream_task(ssl_stream, cc_info, self.tls_hosts.load_full())
+                    .await
             }
             Err(e) => {
                 self.listen_stats.add_failed();
@@ -299,15 +334,31 @@ impl TlsProxyServer {
             }
         }
     }
+}
 
-    fn match_sni_host(&self, sni: Option<&str>) -> Option<Arc<TlsHost>> {
-        let hosts = self.hosts.load();
-        match sni {
-            Some(name) => match Host::from_str(name) {
-                Ok(host) => hosts.get(&host).cloned(),
-                Err(_) => hosts.get_default().cloned(),
-            },
-            None => hosts.get_default().cloned(),
+async fn inspect_client_protocol(
+    clt_r: &mut TcpStream,
+    clt_r_buf: &mut BytesMut,
+    server_port: u16,
+    inspect_config: &ProtocolInspectionConfig,
+) -> anyhow::Result<Protocol> {
+    let inspect_buffer_size = inspect_config.data0_buffer_size();
+    let mut inspector = ProtocolInspector::default();
+    inspector.push_protocol(MaybeProtocol::Http);
+    inspector.push_protocol(MaybeProtocol::Ssl);
+    loop {
+        match inspector.check_client_initial_data(inspect_config, server_port, clt_r_buf.chunk()) {
+            Ok(protocol) => return Ok(protocol),
+            Err(ProtocolInspectError::NeedMoreData(_)) => {
+                if clt_r_buf.len() >= inspect_buffer_size {
+                    return Err(anyhow!("unable to detect client protocol"));
+                }
+                match clt_r.read_buf(clt_r_buf).await {
+                    Ok(0) => return Err(anyhow!("connection closed by client")),
+                    Ok(_) => {}
+                    Err(e) => return Err(anyhow!("client read error: {e}")),
+                }
+            }
         }
     }
 }
@@ -316,8 +367,8 @@ async fn read_sni_host<'a>(
     clt_r: &mut TcpStream,
     clt_r_buf: &mut BytesMut,
     max_client_hello_size: u32,
-    hosts: &'a HostMatch<Arc<TlsHost>>,
-) -> anyhow::Result<Option<&'a Arc<TlsHost>>> {
+    hosts: &'a HostMatch<Arc<HttpHost>>,
+) -> anyhow::Result<Option<&'a Arc<HttpHost>>> {
     let max_hello_size = max_client_hello_size as usize;
     let max_buf_size = max_hello_size
         .saturating_mul(RecordHeader::SIZE + 1)
@@ -364,8 +415,8 @@ async fn read_sni_host<'a>(
 
 fn host_from_client_hello<'a>(
     ch: ClientHello<'_>,
-    hosts: &'a HostMatch<Arc<TlsHost>>,
-) -> Option<&'a Arc<TlsHost>> {
+    hosts: &'a HostMatch<Arc<HttpHost>>,
+) -> Option<&'a Arc<HttpHost>> {
     match ch.get_ext(ExtensionType::ServerName) {
         Ok(Some(data)) => match TlsServerName::from_extension_value(data) {
             Ok(sni) => hosts.get(&Host::from(sni)),
@@ -379,19 +430,26 @@ fn host_from_client_hello<'a>(
 fn build_hosts(
     site_group: &NodeName,
     ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
-) -> anyhow::Result<HostMatch<Arc<TlsHost>>> {
+) -> anyhow::Result<HttpGuardHosts> {
     let group = crate::site::get_or_insert_default(site_group);
-    group.config().sites.try_build_arc_filtered(|cfg| {
+    let http = group.config().sites.try_build_arc(|cfg| {
         let site = group
             .get_site(cfg.id())
             .expect("site group is missing a built site");
-        TlsHost::try_build(site, ticketer.clone())
-    })
+        HttpHost::try_build(site, ticketer.clone())
+    })?;
+    let tls = http.filter_arc(|host| host.tls_server().is_some());
+    Ok(HttpGuardHosts { http, tls })
 }
 
-impl ServerInternal for TlsProxyServer {
+struct HttpGuardHosts {
+    http: HostMatch<Arc<HttpHost>>,
+    tls: HostMatch<Arc<HttpHost>>,
+}
+
+impl ServerInternal for HttpGuardServer {
     fn _clone_config(&self) -> AnyServerConfig {
-        AnyServerConfig::TlsProxy(self.config.as_ref().clone())
+        AnyServerConfig::HttpGuard(self.config.as_ref().clone())
     }
 
     fn _depend_on_server(&self, _name: &NodeName) -> bool {
@@ -421,7 +479,8 @@ impl ServerInternal for TlsProxyServer {
             return Ok(());
         }
         let hosts = build_hosts(&self.config.site_group, self.tls_rolling_ticketer.clone())?;
-        self.hosts.store(Arc::new(hosts));
+        self.http_hosts.store(Arc::new(hosts.http));
+        self.tls_hosts.store(Arc::new(hosts.tls));
         Ok(())
     }
 
@@ -471,7 +530,7 @@ impl ServerInternal for TlsProxyServer {
     }
 }
 
-impl BaseServer for TlsProxyServer {
+impl BaseServer for HttpGuardServer {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -489,26 +548,73 @@ impl BaseServer for TlsProxyServer {
 }
 
 #[async_trait]
-impl AcceptTcpServer for TlsProxyServer {
-    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
+impl AcceptTcpServer for HttpGuardServer {
+    async fn run_tcp_task(&self, mut stream: TcpStream, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
         if self.drop_early(client_addr) {
             return;
         }
 
-        self.run_tls_tcp_task(stream, cc_info).await;
+        let inspect_config = ProtocolInspectionConfig::default();
+        let inspect_buffer_size = inspect_config.data0_buffer_size();
+        let mut clt_r_buf = BytesMut::with_capacity(inspect_buffer_size);
+        let protocol = match tokio::time::timeout(
+            self.config.client_hello_recv_timeout,
+            inspect_client_protocol(
+                &mut stream,
+                &mut clt_r_buf,
+                cc_info.server_addr().port(),
+                &inspect_config,
+            ),
+        )
+        .await
+        {
+            Ok(Ok(protocol)) => protocol,
+            Ok(Err(e)) => {
+                self.listen_stats.add_failed();
+                debug!(
+                    "{} - {} client protocol error: {e:?}",
+                    cc_info.sock_local_addr(),
+                    cc_info.sock_peer_addr()
+                );
+                return;
+            }
+            Err(_) => {
+                self.listen_stats.add_timeout();
+                debug!(
+                    "{} - {} client protocol timeout",
+                    cc_info.sock_local_addr(),
+                    cc_info.sock_peer_addr()
+                );
+                return;
+            }
+        };
+
+        match protocol {
+            Protocol::Http1 => {
+                let stream = OnceBufReader::new(stream, clt_r_buf);
+                self.spawn_stream_task(stream, cc_info, self.http_hosts.load_full())
+                    .await;
+            }
+            Protocol::TlsModern | Protocol::TlsTlcp | Protocol::TlsLegacy | Protocol::SslLegacy => {
+                self.run_tls_tcp_task(stream, clt_r_buf, cc_info).await;
+            }
+            other => {
+                self.listen_stats.add_failed();
+                debug!(
+                    "{} - {} rejected client protocol {}",
+                    cc_info.sock_local_addr(),
+                    cc_info.sock_peer_addr(),
+                    other.as_str()
+                );
+            }
+        }
     }
 }
 
 #[async_trait]
-impl AcceptQuicServer for TlsProxyServer {
-    #[cfg(feature = "quic")]
-    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
-}
-
-#[async_trait]
-impl AcceptUdpServer for TlsProxyServer {
+impl AcceptUdpServer for HttpGuardServer {
     async fn run_udp_task(
         &self,
         _cc_info: ClientConnectionInfo,
@@ -519,7 +625,13 @@ impl AcceptUdpServer for TlsProxyServer {
 }
 
 #[async_trait]
-impl Server for TlsProxyServer {
+impl AcceptQuicServer for HttpGuardServer {
+    #[cfg(feature = "quic")]
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+}
+
+#[async_trait]
+impl Server for HttpGuardServer {
     fn escaper(&self) -> &NodeName {
         self.config.escaper()
     }
@@ -556,12 +668,8 @@ impl Server for TlsProxyServer {
             return;
         }
 
-        let sni = stream.get_ref().1.server_name();
-        let Some(host) = self.match_sni_host(sni) else {
-            self.listen_stats.add_failed();
-            return;
-        };
-        self.run_task(stream, cc_info, host).await;
+        self.spawn_stream_task(stream, cc_info, self.http_hosts.load_full())
+            .await;
     }
 
     async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
@@ -571,11 +679,7 @@ impl Server for TlsProxyServer {
             return;
         }
 
-        let sni = stream.ssl().servername(NameType::HOST_NAME);
-        let Some(host) = self.match_sni_host(sni) else {
-            self.listen_stats.add_failed();
-            return;
-        };
-        self.run_task(stream, cc_info, host).await;
+        self.spawn_stream_task(stream, cc_info, self.http_hosts.load_full())
+            .await;
     }
 }

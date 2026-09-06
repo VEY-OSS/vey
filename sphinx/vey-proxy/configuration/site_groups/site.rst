@@ -343,7 +343,7 @@ Custom HTTP response-header receive timeout for this origin.
 This overwrites:
 
 * tenant user :ref:`http_rsp_header_recv_timeout <conf_user_http_rsp_header_recv_timeout>`
-* ``http_expose`` :ref:`rsp_header_recv_timeout <configuration_server_http_rproxy>`
+* ``http_expose`` / ``http_guard`` :ref:`rsp_header_recv_timeout <configuration_server_http_rproxy>`
 * auditor :ref:`h1 interception <conf_auditor_h1_interception>` / :ref:`h2 interception <conf_auditor_h2_interception>`
 
 Lookup is ``site.http`` then tenant, then the server / auditor default.
