@@ -38,6 +38,7 @@ mod plain_tls_port;
 mod usual_tls_port;
 
 mod http_expose;
+mod http_guard;
 mod http_proxy;
 mod sni_proxy;
 mod socks_proxy;
@@ -115,7 +116,9 @@ trait ServerInternal: Server {
     fn _site_group(&self) -> &NodeName {
         Default::default()
     }
-    fn _update_site_group_in_place(&self) {}
+    fn _update_site_group_in_place(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 
     fn _reload_with_old_notifier(
         &self,

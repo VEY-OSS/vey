@@ -431,17 +431,13 @@ impl ServerInternal for HttpExposeServer {
         &self.config.site_group
     }
 
-    fn _update_site_group_in_place(&self) {
+    fn _update_site_group_in_place(&self) -> anyhow::Result<()> {
         if self.config.site_group.is_empty() {
-            return;
+            return Ok(());
         }
-        match build_hosts(&self.config.site_group, self.tls_rolling_ticketer.clone()) {
-            Ok(hosts) => self.hosts.store(Arc::new(hosts)),
-            Err(e) => debug!(
-                "failed to rebuild http_expose hosts from site group {}: {e:?}",
-                self.config.site_group
-            ),
-        }
+        let hosts = build_hosts(&self.config.site_group, self.tls_rolling_ticketer.clone())?;
+        self.hosts.store(Arc::new(hosts));
+        Ok(())
     }
 
     fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {

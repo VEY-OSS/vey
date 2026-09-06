@@ -100,6 +100,54 @@ impl<T> HostMatch<T> {
 }
 
 impl<T> HostMatch<Arc<T>> {
+    pub fn filter_arc<F>(&self, mut keep: F) -> HostMatch<Arc<T>>
+    where
+        F: FnMut(&Arc<T>) -> bool,
+    {
+        let mut dst = HostMatch::default();
+        if let Some(ht) = &self.exact_domain {
+            let mut dst_ht = AHashMap::with_capacity(ht.len());
+            for (k, v) in ht {
+                if keep(v) {
+                    dst_ht.insert(k.clone(), Arc::clone(v));
+                }
+            }
+            if !dst_ht.is_empty() {
+                dst.exact_domain = Some(dst_ht);
+            }
+        }
+        if let Some(ht) = &self.exact_ip {
+            let mut dst_ht = FxHashMap::with_capacity_and_hasher(ht.len(), FxBuildHasher);
+            for (k, v) in ht {
+                if keep(v) {
+                    dst_ht.insert(*k, Arc::clone(v));
+                }
+            }
+            if !dst_ht.is_empty() {
+                dst.exact_ip = Some(dst_ht);
+            }
+        }
+        if let Some(trie) = &self.suffix_domain {
+            let mut dst_trie = Trie::new();
+            for (prefix, v) in trie.iter() {
+                if keep(v) {
+                    dst_trie.insert(prefix.to_string(), Arc::clone(v));
+                }
+            }
+            if !dst_trie.is_empty() {
+                dst.suffix_domain = Some(dst_trie);
+            }
+        }
+        if let Some(v) = &self.default
+            && keep(v)
+        {
+            dst.default = Some(Arc::clone(v));
+        }
+        dst
+    }
+}
+
+impl<T> HostMatch<Arc<T>> {
     pub fn try_build_arc<R, E, F>(&self, try_build: F) -> Result<HostMatch<Arc<R>>, E>
     where
         F: Fn(&Arc<T>) -> Result<R, E>,
@@ -498,6 +546,30 @@ mod tests {
                 .is_none()
         );
         assert!(hm_dst.get_default().is_none());
+    }
+
+    #[test]
+    fn filter_arc_keeps_matching_arcs() {
+        let keep = Arc::new(Src(1));
+        let skip = Arc::new(Src(-1));
+        let mut hm = HostMatch::default();
+        hm.add_exact_domain(literal_domain!("keep.com"), Arc::clone(&keep));
+        hm.add_exact_domain(literal_domain!("skip.com"), Arc::clone(&skip));
+        hm.set_default(Arc::clone(&skip));
+
+        let filtered = hm.filter_arc(|v| v.0 > 0);
+        assert!(Arc::ptr_eq(
+            filtered
+                .get(&Host::Domain(literal_domain!("keep.com")))
+                .unwrap(),
+            &keep
+        ));
+        assert!(
+            filtered
+                .get(&Host::Domain(literal_domain!("skip.com")))
+                .is_none()
+        );
+        assert!(filtered.get_default().is_none());
     }
 
     #[test]

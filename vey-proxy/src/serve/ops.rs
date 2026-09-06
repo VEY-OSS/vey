@@ -27,6 +27,7 @@ use super::plain_tls_port::PlainTlsPort;
 use super::usual_tls_port::UsualTlsPort;
 
 use super::http_expose::HttpExposeServer;
+use super::http_guard::HttpGuardServer;
 use super::http_proxy::HttpProxyServer;
 use super::sni_proxy::SniProxyServer;
 use super::socks_proxy::SocksProxyServer;
@@ -351,6 +352,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
         AnyServerConfig::SocksProxy(c) => SocksProxyServer::prepare_initial(c)?,
         AnyServerConfig::HttpProxy(c) => HttpProxyServer::prepare_initial(c)?,
         AnyServerConfig::HttpExpose(c) => HttpExposeServer::prepare_initial(c)?,
+        AnyServerConfig::HttpGuard(c) => HttpGuardServer::prepare_initial(c)?,
     };
     registry::add(name.clone(), server)?;
     update_dependency_to_server_unlocked(&name, "spawned");
