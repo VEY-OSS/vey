@@ -54,6 +54,11 @@ impl KeepAliveValue {
         }
     }
 
+    #[inline]
+    pub fn decrement_max_mut(&mut self) {
+        *self = self.decrement_max();
+    }
+
     pub fn parse(&mut self, buf: &[u8]) {
         for item in buf.as_generic_item_list() {
             let param = item.value();
@@ -269,6 +274,11 @@ mod tests {
         assert_eq!(v.decrement_max().max(), Some(0));
 
         assert!(KeepAliveValue::default().decrement_max().is_empty());
+
+        let mut in_place = KeepAliveValue::default();
+        in_place.parse(b"max=1");
+        in_place.decrement_max_mut();
+        assert_eq!(in_place.max(), Some(0));
     }
 
     #[test]

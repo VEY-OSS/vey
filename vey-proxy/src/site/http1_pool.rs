@@ -9,10 +9,12 @@ use std::time::Duration;
 
 use tokio::time::Instant;
 
-use vey_types::net::{ConnectionPoolConfig, KeepAliveValue};
+use vey_types::net::ConnectionPoolConfig;
 
-use crate::escape::{ArcEscaper, EgressNotes};
-use crate::module::http_forward::{BoxHttpForwardConnection, HttpConnectionEofPoller};
+use crate::escape::EgressNotes;
+use crate::module::http_forward::{
+    BoxHttpForwardConnection, HttpAliveReuseNotes, HttpConnectionEofPoller,
+};
 
 /// Per-site HTTP/1 origin idle pool, sharded by worker.
 ///
@@ -32,9 +34,8 @@ struct IdleLane {
 struct PooledHttp1Connection {
     saved_at: Instant,
     poller: HttpConnectionEofPoller,
-    keep_alive: KeepAliveValue,
     is_tls: bool,
-    escaper: ArcEscaper,
+    reuse_notes: HttpAliveReuseNotes,
     egress_notes: EgressNotes,
 }
 
@@ -58,46 +59,37 @@ impl SiteHttp1Pool {
         idle_expire: Duration,
         is_tls: bool,
         worker_id: Option<usize>,
-    ) -> Option<(
-        BoxHttpForwardConnection,
-        KeepAliveValue,
-        ArcEscaper,
-        EgressNotes,
-    )> {
+    ) -> Option<(BoxHttpForwardConnection, HttpAliveReuseNotes, EgressNotes)> {
         let idle_expire = idle_expire.min(self.config.idle_timeout());
         let lane = self.lane(worker_id);
         loop {
-            let conn = lane.pop_candidate(idle_expire, is_tls)?;
-            let keep_alive_leftover = conn.keep_alive.decrement_max();
-            let escaper = conn.escaper;
+            let mut conn = lane.pop_candidate(idle_expire, is_tls)?;
+            conn.reuse_notes.keep_alive_leftover.decrement_max_mut();
+            let reuse_notes = conn.reuse_notes;
             let egress_notes = conn.egress_notes;
             if let Some(connection) = conn.poller.recv_conn().await {
-                return Some((connection, keep_alive_leftover, escaper, egress_notes));
+                return Some((connection, reuse_notes, egress_notes));
             }
         }
     }
 
     pub(crate) fn save(
         &self,
-        connection: BoxHttpForwardConnection,
-        keep_alive: KeepAliveValue,
-        keep_alive_leftover: Option<KeepAliveValue>,
-        is_tls: bool,
         worker_id: Option<usize>,
-        escaper: ArcEscaper,
+        is_tls: bool,
+        connection: BoxHttpForwardConnection,
+        reuse_notes: HttpAliveReuseNotes,
         egress_notes: EgressNotes,
     ) {
-        let keep_alive = keep_alive.or_from(keep_alive_leftover.unwrap_or_default());
-        if keep_alive.max() == Some(0) {
+        if reuse_notes.keep_alive_leftover.max() == Some(0) {
             return;
         }
 
         let pooled = PooledHttp1Connection {
             saved_at: Instant::now(),
             poller: HttpConnectionEofPoller::spawn(connection),
-            keep_alive,
             is_tls,
-            escaper,
+            reuse_notes,
             egress_notes,
         };
         self.lane(worker_id)
@@ -137,11 +129,11 @@ impl IdleLane {
 
 impl PooledHttp1Connection {
     fn is_expired(&self, idle_expire: Duration) -> bool {
-        if self.poller.is_closed() || self.keep_alive.max() == Some(0) {
+        let keep_alive = self.reuse_notes.keep_alive_leftover;
+        if self.poller.is_closed() || keep_alive.max() == Some(0) {
             return true;
         }
-        let timeout = self
-            .keep_alive
+        let timeout = keep_alive
             .timeout()
             .map(|t| t.min(idle_expire))
             .unwrap_or(idle_expire);

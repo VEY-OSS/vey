@@ -44,6 +44,11 @@ impl HttpAliveReuseNotes {
             escaper,
         }
     }
+
+    /// Overlay this response's Keep-Alive; unset timeout/max stay from leftover.
+    pub(crate) fn overlay_keep_alive(&mut self, keep_alive: KeepAliveValue) {
+        self.keep_alive_leftover = keep_alive.or_from(self.keep_alive_leftover);
+    }
 }
 
 #[async_trait]

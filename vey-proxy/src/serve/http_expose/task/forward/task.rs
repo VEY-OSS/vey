@@ -574,18 +574,18 @@ impl<'a> HttpExposeForwardTask<'a> {
         } else {
             None
         };
-        if let Some((connection, keep_alive_leftover, escaper, notes)) = from_pool {
-            self.alive_reuse_notes = Some(HttpAliveReuseNotes {
-                keep_alive_leftover,
-                escaper: escaper.clone(),
-            });
-            self.egress_notes = notes;
-            return Some(escaper.prepare_reused_http_forward_connection(
-                connection,
-                &self.task_notes,
-                self.task_stats.clone(),
-                self.is_https,
-            ));
+        if let Some((connection, reuse_notes, egress_notes)) = from_pool {
+            self.egress_notes = egress_notes;
+            let connection = reuse_notes
+                .escaper
+                .prepare_reused_http_forward_connection(
+                    connection,
+                    &self.task_notes,
+                    self.task_stats.clone(),
+                    self.is_https,
+                );
+            self.alive_reuse_notes = Some(reuse_notes);
+            return Some(connection);
         }
 
         let (connection, reuse_notes) = fwd_ctx
@@ -629,12 +629,10 @@ impl<'a> HttpExposeForwardTask<'a> {
                 return;
             };
             pool.save(
-                connection,
-                self.ups_keep_alive,
-                Some(reuse_notes.keep_alive_leftover),
-                self.is_https,
                 self.task_notes.worker_id(),
-                reuse_notes.escaper,
+                self.is_https,
+                connection,
+                reuse_notes,
                 self.egress_notes.clone(),
             );
         } else {
@@ -1216,6 +1214,9 @@ impl<'a> HttpExposeForwardTask<'a> {
             self.ups_keep_alive = KeepAliveValue::default();
         } else {
             self.ups_keep_alive = rsp_header.keep_alive_header();
+            if let Some(notes) = &mut self.alive_reuse_notes {
+                notes.overlay_keep_alive(self.ups_keep_alive);
+            }
         }
         self.send_error_response = false;
         self.http_notes.origin_status = rsp_header.code;
