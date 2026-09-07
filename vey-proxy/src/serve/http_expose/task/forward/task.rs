@@ -21,7 +21,7 @@ use vey_io_ext::{
     StreamCopyError,
 };
 use vey_types::acl::AclAction;
-use vey_types::net::{KeepAliveValue, TcpSockSpeedLimitConfig};
+use vey_types::net::{HttpKeepAliveConfig, KeepAliveValue, TcpSockSpeedLimitConfig};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpExposeRequest};
 use super::{
@@ -52,6 +52,7 @@ pub(crate) struct HttpExposeForwardTask<'a> {
     is_https: bool,
     should_close: bool,
     ups_keep_alive: KeepAliveValue,
+    upstream_keepalive: HttpKeepAliveConfig,
     allow_continue: bool,
     send_error_response: bool,
     task_notes: ServerTaskNotes,
@@ -94,6 +95,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         );
         let is_https = site.tls_client().is_some();
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
+        let upstream_keepalive = site.config().http.h1.upstream_keepalive;
         HttpExposeForwardTask {
             ctx: Arc::clone(ctx),
             site,
@@ -101,6 +103,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             is_https,
             should_close: !req.inner.keep_alive(),
             ups_keep_alive: KeepAliveValue::default(),
+            upstream_keepalive,
             allow_continue: req.inner.expect_100_continue(),
             send_error_response: true,
             task_notes,
@@ -433,7 +436,6 @@ impl<'a> HttpExposeForwardTask<'a> {
         CDR: AsyncRead + Unpin,
         CDW: AsyncWrite + Unpin,
     {
-        let upstream_keepalive = self.ctx.server_config.http_forward_upstream_keepalive;
         let tcp_client_misc_opts;
 
         if self.task_notes.check_layered_rate_limit().is_err() {
@@ -495,9 +497,10 @@ impl<'a> HttpExposeForwardTask<'a> {
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
-        if let Some(mut connection) = self
-            .take_alive_origin_connection(fwd_ctx, upstream_keepalive.idle_expire())
-            .await
+        if self.upstream_keepalive.is_enabled()
+            && let Some(mut connection) = self
+                .take_alive_origin_connection(fwd_ctx, self.upstream_keepalive.idle_expire())
+                .await
         {
             self.task_notes.stage = ServerTaskStage::Connected;
             self.http_notes.reused_connection = true;
@@ -622,6 +625,9 @@ impl<'a> HttpExposeForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
         connection: BoxHttpForwardConnection,
     ) {
+        if !self.upstream_keepalive.is_enabled() {
+            return;
+        }
         if let Some(pool) = self.site.http1_pool() {
             let Some(reuse_notes) = self.alive_reuse_notes.take() else {
                 return;

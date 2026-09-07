@@ -170,6 +170,9 @@ h1
 
 HTTP/1-only settings.
 
+Origin HTTP/1 keepalive is configured on the site
+(:ref:`http.h1.upstream_keepalive <conf_site_http_h1_upstream_keepalive>`).
+
 pipeline_size
 ^^^^^^^^^^^^^
 
@@ -202,17 +205,6 @@ Maximum line length for lines in the HTTP body, such as trailer fields and
 chunk-size lines.
 
 **default**: 8192
-
-http_forward_upstream_keepalive
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-**optional**, **type**: :external+values:ref:`http keepalive <conf_value_http_keepalive>`
-
-HTTP keepalive configuration at the server level. Site
-:ref:`h1 connection_pool <conf_site_http_h1_connection_pool>` still applies
-when configured.
-
-**default**: set with default value
 
 h2
 --
