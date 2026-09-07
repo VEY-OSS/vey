@@ -196,14 +196,10 @@ chunk-size lines.
 
 **default**: 8192
 
-http_forward_upstream_keepalive
--------------------------------
+.. note::
 
-**optional**, **type**: :external+values:ref:`http keepalive <conf_value_http_keepalive>`
-
-HTTP keepalive configuration at the server level.
-
-**default**: set with default value
+   Origin HTTP/1 keepalive is configured on the site
+   (:ref:`http.h1.upstream_keepalive <conf_site_http_h1_upstream_keepalive>`).
 
 untrusted_read_speed_limit
 --------------------------

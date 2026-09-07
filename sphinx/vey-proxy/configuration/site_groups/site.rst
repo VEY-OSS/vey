@@ -363,6 +363,27 @@ h1
 
 HTTP/1-only settings for this origin.
 
+.. _conf_site_http_h1_upstream_keepalive:
+
+upstream_keepalive
+""""""""""""""""""
+
+**optional**, **type**: :external+values:ref:`http keepalive <conf_value_http_keepalive>`
+
+Whether idle HTTP/1 origin connections for this site may be reused, and
+the maximum idle age when taking one from the site pool or the
+per-pipeline forward-context slot.
+
+When ``enable`` is false, idle origin connections are not saved and not
+reused. ``http_expose`` and ``http_guard`` both read this site setting;
+there is no server-level override.
+
+When a :ref:`connection pool <conf_site_http_h1_connection_pool>` is
+configured, checkout idle age is the minimum of this ``idle_expire`` and
+the pool ``idle_timeout``.
+
+**default**: enabled, idle expire 60s
+
 .. _conf_site_http_h1_connection_pool:
 
 connection_pool
@@ -386,6 +407,9 @@ connection before the per-pipeline forward-context slot. An empty map
 
 When omitted, idle connections return to the forward context (one
 keepalive slot per client pipeline), which is the previous behaviour.
+
+Checkout still honours this site's
+:ref:`upstream_keepalive <conf_site_http_h1_upstream_keepalive>`.
 
 Only ``max_idle_count`` and ``idle_timeout`` from the pool map apply.
 ``min_idle_count`` and ``check_interval`` are ignored: origin connections

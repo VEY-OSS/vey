@@ -232,6 +232,11 @@ static_sites:
             Some(std::time::Duration::from_secs(8))
         );
         assert_eq!(site.http.h1.connection_pool, None);
+        assert!(site.http.h1.upstream_keepalive.is_enabled());
+        assert_eq!(
+            site.http.h1.upstream_keepalive.idle_expire(),
+            std::time::Duration::from_secs(60)
+        );
     }
 
     #[test]
@@ -287,6 +292,36 @@ static_sites:
         let pool = site.http.h1.connection_pool.expect("h1 connection_pool");
         assert_eq!(pool.max_idle_count(), 16);
         assert_eq!(pool.idle_timeout(), std::time::Duration::from_secs(30));
+    }
+
+    #[test]
+    fn parse_site_http_h1_upstream_keepalive() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h1:
+        upstream_keepalive:
+          enable: false
+          idle_expire: 15s
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert!(!site.http.h1.upstream_keepalive.is_enabled());
+        assert_eq!(
+            site.http.h1.upstream_keepalive.idle_expire(),
+            std::time::Duration::ZERO
+        );
     }
 
     #[test]

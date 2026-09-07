@@ -8,13 +8,15 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use vey_types::net::ConnectionPoolConfig;
+use vey_types::net::{ConnectionPoolConfig, HttpKeepAliveConfig};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct SiteHttpH1Config {
     /// HTTP/1 origin idle pool. `None` returns idle connections to the
     /// per-pipeline forward context instead.
     pub(crate) connection_pool: Option<ConnectionPoolConfig>,
+    /// Reuse idle HTTP/1 origin connections. Enabled by default.
+    pub(crate) upstream_keepalive: HttpKeepAliveConfig,
 }
 
 impl SiteHttpH1Config {
@@ -30,6 +32,11 @@ impl SiteHttpH1Config {
                     vey_yaml::value::as_connection_pool_config(v)
                         .context(format!("invalid connection pool config for key {k}"))?,
                 );
+                Ok(())
+            }
+            "upstream_keepalive" => {
+                self.upstream_keepalive = vey_yaml::value::as_http_keepalive_config(v)
+                    .context(format!("invalid http keepalive config value for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

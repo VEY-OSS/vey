@@ -17,8 +17,8 @@ use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
-    HttpForwardedHeaderType, HttpKeepAliveConfig, HttpServerId, OpensslServerConfigBuilder,
-    TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
+    HttpForwardedHeaderType, HttpServerId, OpensslServerConfigBuilder, TcpListenConfig,
+    TcpMiscSockOpts, TcpSockSpeedLimitConfig,
 };
 use vey_yaml::YamlDocPosition;
 
@@ -52,7 +52,6 @@ pub(crate) struct HttpGuardH1Config {
     pub(crate) pipeline_size: NonZeroUsize,
     pub(crate) pipeline_read_idle_timeout: Duration,
     pub(crate) body_line_max_len: usize,
-    pub(crate) http_forward_upstream_keepalive: HttpKeepAliveConfig,
 }
 
 impl Default for HttpGuardH1Config {
@@ -61,7 +60,6 @@ impl Default for HttpGuardH1Config {
             pipeline_size: NonZeroUsize::new(10).unwrap(),
             pipeline_read_idle_timeout: Duration::from_secs(300),
             body_line_max_len: 8192,
-            http_forward_upstream_keepalive: Default::default(),
         }
     }
 }
@@ -89,11 +87,6 @@ impl HttpGuardH1Config {
             "body_line_max_length" => {
                 self.body_line_max_len = vey_yaml::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
-                Ok(())
-            }
-            "http_forward_upstream_keepalive" => {
-                self.http_forward_upstream_keepalive = vey_yaml::value::as_http_keepalive_config(v)
-                    .context(format!("invalid http keepalive config value for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
