@@ -65,7 +65,7 @@ impl H2ForwardTask {
         site: Arc<Site>,
         req: &Request<RecvStream>,
     ) -> Self {
-        let is_https = site.tls_client_h2().is_some();
+        let is_https = site.tls_client().is_some();
         let uri_log_max_chars = site_ctx
             .tenant()
             .and_then(|c| c.user_config().log_uri_max_chars)

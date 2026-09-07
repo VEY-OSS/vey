@@ -115,7 +115,7 @@ impl H2WebsocketTask {
         self._alive_guard = Some(self.ctx.server_stats.add_h2_forward_task());
         self.task_notes
             .hold_req_alive(RequestAliveKind::HttpForward {
-                is_https: self.site.tls_client_h2().is_some(),
+                is_https: self.site.tls_client().is_some(),
             });
         if self.ctx.server_config.flush_task_log_on_created
             && let Some(log) = self.log_ctx()

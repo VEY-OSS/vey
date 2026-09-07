@@ -13,6 +13,7 @@ use tokio::sync::oneshot;
 
 use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_daemon::stat::task::TcpStreamTaskStats;
+use vey_types::net::AlpnProtocol;
 
 use super::CommonTaskContext;
 use super::error::H2StreamTransferError;
@@ -34,7 +35,7 @@ pub(super) async fn checkout_or_connect(
     site: &Site,
     task_notes: &ServerTaskNotes,
 ) -> Result<OriginH2Sender, H2StreamTransferError> {
-    let is_tls = site.tls_client_h2().is_some();
+    let is_tls = site.tls_client().is_some();
     let open_timeout = ctx.server_config.h2.upstream_stream_open_timeout;
     if let Some((sender, egress_notes)) = site
         .http2_pool()
@@ -72,13 +73,14 @@ async fn connect_origin(
     let mut audit_ctx = AuditContext::new(ctx.audit_handle.clone());
     let task_stats: ArcTcpConnectionTaskRemoteStats = Arc::new(TcpStreamTaskStats::default());
 
-    let stream = if let Some(tls_client) = site.tls_client_h2() {
+    let stream = if let Some(tls_client) = site.tls_client() {
         let task_conf = TlsConnectTaskConf {
             tcp: TcpConnectTaskConf {
                 upstream: site.upstream(),
             },
             tls_config: tls_client,
             tls_name: site.tls_name(),
+            alpn_protocols: Some(&[AlpnProtocol::Http2]),
         };
         ctx.escaper
             .tls_setup_connection(
