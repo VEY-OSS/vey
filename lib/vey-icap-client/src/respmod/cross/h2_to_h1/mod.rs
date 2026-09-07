@@ -1,81 +1,35 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use arcstr::ArcStr;
-use http::Method;
-use tokio::io::{AsyncBufRead, AsyncWrite};
+use bytes::BufMut;
+use h2::RecvStream;
+use http::Response;
+use tokio::io::AsyncWrite;
 use tokio::time::Instant;
 
-use vey_http::HttpBodyType;
 use vey_http::client::HttpAdaptedResponse;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
 use vey_types::net::HttpHeaderMap;
 
-use super::IcapRespmodClient;
+use super::H2ToH1RespmodAdaptationError;
 use crate::reqmod::h1::HttpRequestForAdaptation;
+use crate::respmod::IcapRespmodClient;
 use crate::{IcapClientConnection, IcapServiceClient, IcapServiceOptions};
 
-mod error;
-pub use error::H1RespmodAdaptationError;
-
 mod bidirectional;
-use bidirectional::{BidirectionalRecvHttpResponse, BidirectionalRecvIcapResponse};
-
-mod recv_response;
-
-mod forward_body;
-mod forward_header;
+mod client;
+mod forward;
 mod preview;
 
-mod impl_trait;
+use bidirectional::{BidirectionalRecvHttpResponse, BidirectionalRecvIcapResponse};
 
-pub trait HttpResponseForAdaptation {
-    fn body_type(&self, method: &Method) -> Option<HttpBodyType>;
-    fn serialize_for_client(&self) -> Vec<u8>;
-    fn serialize_for_adapter(&self) -> Vec<u8>;
-    fn adapt_with_body(&self, other: HttpAdaptedResponse) -> Self;
-    fn adapt_without_body(&self, other: HttpAdaptedResponse) -> Self;
-    fn to_h2_response(&self) -> http::Response<()>;
-}
-
-#[expect(async_fn_in_trait)]
-pub trait HttpResponseClientWriter<H: HttpResponseForAdaptation>: AsyncWrite {
-    async fn send_response_header(&mut self, req: &H) -> io::Result<()>;
-}
-
-impl IcapRespmodClient {
-    pub async fn h1_adapter<I: IdleCheck>(
-        &self,
-        copy_config: StreamCopyConfig,
-        http_body_line_max_size: usize,
-        idle_checker: I,
-    ) -> anyhow::Result<HttpResponseAdapter<I>> {
-        let icap_client = self.inner.clone();
-        let (icap_connection, icap_options) = icap_client.fetch_connection().await?;
-        Ok(HttpResponseAdapter {
-            icap_client,
-            icap_connection,
-            icap_options,
-            copy_config,
-            http_body_line_max_size,
-            idle_checker,
-            client_addr: None,
-            client_username: None,
-            tenant_username: None,
-            respond_shared_headers: None,
-        })
-    }
-}
-
-pub struct HttpResponseAdapter<I: IdleCheck> {
+pub struct H2ToH1ResponseAdapter<I: IdleCheck> {
     icap_client: Arc<IcapServiceClient>,
     icap_connection: IcapClientConnection,
     icap_options: Arc<IcapServiceOptions>,
@@ -83,12 +37,12 @@ pub struct HttpResponseAdapter<I: IdleCheck> {
     http_body_line_max_size: usize,
     idle_checker: I,
     client_addr: Option<SocketAddr>,
-    client_username: Option<ArcStr>,
-    tenant_username: Option<ArcStr>,
+    client_username: Option<arcstr::ArcStr>,
+    tenant_username: Option<arcstr::ArcStr>,
     respond_shared_headers: Option<HttpHeaderMap>,
 }
 
-pub struct RespmodAdaptationRunState {
+pub struct H2ToH1RespmodRunState {
     task_create_instant: Instant,
     dur_ups_recv_header: Duration,
     pub dur_ups_recv_all: Option<Duration>,
@@ -99,9 +53,9 @@ pub struct RespmodAdaptationRunState {
     pub clt_write_finished: bool,
 }
 
-impl RespmodAdaptationRunState {
+impl H2ToH1RespmodRunState {
     pub fn new(task_create_instant: Instant, dur_ups_recv_header: Duration) -> Self {
-        RespmodAdaptationRunState {
+        H2ToH1RespmodRunState {
             task_create_instant,
             dur_ups_recv_header,
             dur_ups_recv_all: None,
@@ -142,16 +96,45 @@ impl RespmodAdaptationRunState {
     }
 }
 
-impl<I: IdleCheck> HttpResponseAdapter<I> {
+pub enum H2ToH1RespmodEndState {
+    OriginalTransferred,
+    AdaptedTransferred(HttpAdaptedResponse),
+}
+
+impl IcapRespmodClient {
+    pub async fn h2_to_h1_adapter<I: IdleCheck>(
+        &self,
+        copy_config: StreamCopyConfig,
+        http_body_line_max_size: usize,
+        idle_checker: I,
+    ) -> anyhow::Result<H2ToH1ResponseAdapter<I>> {
+        let icap_client = self.inner.clone();
+        let (icap_connection, icap_options) = icap_client.fetch_connection().await?;
+        Ok(H2ToH1ResponseAdapter {
+            icap_client,
+            icap_connection,
+            icap_options,
+            copy_config,
+            http_body_line_max_size,
+            idle_checker,
+            client_addr: None,
+            client_username: None,
+            tenant_username: None,
+            respond_shared_headers: None,
+        })
+    }
+}
+
+impl<I: IdleCheck> H2ToH1ResponseAdapter<I> {
     pub fn set_client_addr(&mut self, addr: SocketAddr) {
         self.client_addr = Some(addr);
     }
 
-    pub fn set_client_username(&mut self, user: ArcStr) {
+    pub fn set_client_username(&mut self, user: arcstr::ArcStr) {
         self.client_username = Some(user);
     }
 
-    pub fn set_tenant_username(&mut self, user: ArcStr) {
+    pub fn set_tenant_username(&mut self, user: arcstr::ArcStr) {
         self.tenant_username = Some(user);
     }
 
@@ -160,6 +143,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
     }
 
     fn push_extended_headers(&self, data: &mut Vec<u8>) {
+        data.put_slice(b"X-Transformed-From: HTTP/2.0\r\n");
         if let Some(addr) = self.client_addr {
             crate::serialize::add_client_addr(data, addr);
         }
@@ -181,52 +165,35 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         self.icap_options.preview_size.filter(|&n| n > 0)
     }
 
-    pub async fn xfer<R, H, UR, CW>(
+    pub async fn xfer<R, CW>(
         self,
-        state: &mut RespmodAdaptationRunState,
+        state: &mut H2ToH1RespmodRunState,
         http_request: &R,
-        http_response: &H,
-        ups_body_io: &mut UR,
+        http_response: Response<()>,
+        ups_body: RecvStream,
         clt_writer: &mut CW,
-    ) -> Result<RespmodAdaptationEndState<H>, H1RespmodAdaptationError>
+    ) -> Result<H2ToH1RespmodEndState, H2ToH1RespmodAdaptationError>
     where
         R: HttpRequestForAdaptation,
-        H: HttpResponseForAdaptation,
-        UR: AsyncBufRead + Unpin,
-        CW: HttpResponseClientWriter<H> + Unpin,
+        CW: AsyncWrite + Unpin,
     {
-        if let Some(body_type) = http_response.body_type(http_request.method()) {
-            if let Some(preview_size) = self.preview_size() {
-                self.xfer_with_preview(
-                    state,
-                    http_request,
-                    http_response,
-                    body_type,
-                    ups_body_io,
-                    clt_writer,
-                    preview_size,
-                )
-                .await
-            } else {
-                self.xfer_without_preview(
-                    state,
-                    http_request,
-                    http_response,
-                    body_type,
-                    ups_body_io,
-                    clt_writer,
-                )
-                .await
-            }
-        } else {
+        if ups_body.is_end_stream() {
             state.mark_ups_recv_no_body();
             self.xfer_without_body(state, http_request, http_response, clt_writer)
                 .await
+        } else if let Some(preview_size) = self.preview_size() {
+            self.xfer_with_preview(
+                state,
+                http_request,
+                http_response,
+                ups_body,
+                clt_writer,
+                preview_size,
+            )
+            .await
+        } else {
+            self.xfer_without_preview(state, http_request, http_response, ups_body, clt_writer)
+                .await
         }
     }
-}
-
-pub enum RespmodAdaptationEndState<H: HttpResponseForAdaptation> {
-    OriginalTransferred,
-    AdaptedTransferred(H),
 }

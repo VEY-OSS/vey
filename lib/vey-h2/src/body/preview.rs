@@ -57,6 +57,11 @@ impl H2PreviewData {
     }
 
     #[inline]
+    pub fn preview_buf(&self) -> &[u8] {
+        &self.buffer
+    }
+
+    #[inline]
     pub fn take_left(&mut self) -> Option<Bytes> {
         self.left.take()
     }

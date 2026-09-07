@@ -15,6 +15,7 @@ pub use payload::IcapRespmodResponsePayload;
 
 mod response;
 
+pub mod cross;
 pub mod h1;
 pub mod h2;
 

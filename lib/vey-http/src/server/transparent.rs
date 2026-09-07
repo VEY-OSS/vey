@@ -9,7 +9,7 @@ use std::io::Write;
 use std::str::FromStr;
 
 use bytes::{BufMut, Bytes, BytesMut};
-use http::{HeaderName, Method, Uri, Version, header};
+use http::{HeaderMap, HeaderName, Method, Request, Uri, Version, header};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
@@ -498,6 +498,22 @@ impl HttpTransparentRequest {
         buf.put_slice(b"\r\n");
         buf
     }
+
+    pub fn to_h2_request(&self) -> Request<()> {
+        let mut req = Request::new(());
+        *req.method_mut() = self.method.clone();
+        *req.uri_mut() = self.uri.clone();
+        *req.version_mut() = Version::HTTP_2;
+        *req.headers_mut() = HeaderMap::from(&self.end_to_end_headers);
+        for name in self.connection.extra_hop_by_hop() {
+            req.headers_mut().remove(name);
+        }
+        if self.accept_transfer_encoding.trailers() {
+            req.headers_mut()
+                .insert(header::TE, http::HeaderValue::from_static("trailers"));
+        }
+        req
+    }
 }
 
 enum HttpTransparentRequestAcceptState {
@@ -759,6 +775,11 @@ mod tests {
         assert!(request.hop_by_hop_headers.get(header::TE).is_none());
         let origin = String::from_utf8(request.serialize_for_origin()).unwrap();
         assert!(origin.contains("TE: trailers\r\n"));
+
+        let h2 = request.to_h2_request();
+        assert_eq!(h2.version(), Version::HTTP_2);
+        assert_eq!(h2.headers().get(header::TE).unwrap(), "trailers");
+        assert!(h2.headers().get(header::TRANSFER_ENCODING).is_none());
 
         let content = b"GET /x HTTP/1.1\r\nHost: example.com\r\nTE: deflate\r\n\r\n";
         let stream = tokio_test::io::Builder::new().read(content).build();

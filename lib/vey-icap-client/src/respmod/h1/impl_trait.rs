@@ -5,7 +5,7 @@
 
 use std::io;
 
-use http::Method;
+use http::{Method, Response};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use vey_http::HttpBodyType;
@@ -33,6 +33,10 @@ impl HttpResponseForAdaptation for HttpForwardRemoteResponse {
     fn adapt_without_body(&self, other: HttpAdaptedResponse) -> Self {
         self.adapt_without_body(other)
     }
+
+    fn to_h2_response(&self) -> Response<()> {
+        self.to_h2_response()
+    }
 }
 
 impl HttpResponseForAdaptation for HttpTransparentResponse {
@@ -54,6 +58,10 @@ impl HttpResponseForAdaptation for HttpTransparentResponse {
 
     fn adapt_without_body(&self, other: HttpAdaptedResponse) -> Self {
         self.adapt_without_body(other)
+    }
+
+    fn to_h2_response(&self) -> Response<()> {
+        self.to_h2_response()
     }
 }
 

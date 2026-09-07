@@ -47,6 +47,8 @@ pub trait HttpRequestForAdaptation {
     fn append_upgrade_header(&self, buf: &mut Vec<u8>);
     fn adapt_with_body(&self, other: HttpAdaptedRequest) -> Self;
     fn adapt_without_body(&self, other: HttpAdaptedRequest) -> Self;
+    fn expect_100_continue(&self) -> bool;
+    fn to_h2_request(&self) -> http::Request<()>;
 }
 
 #[expect(async_fn_in_trait)]
@@ -223,6 +225,18 @@ pub struct ReqmodRecvHttpResponseBody {
 }
 
 impl ReqmodRecvHttpResponseBody {
+    pub(crate) fn from_connection(
+        icap_client: Arc<IcapServiceClient>,
+        icap_keepalive: bool,
+        icap_connection: IcapClientConnection,
+    ) -> Self {
+        ReqmodRecvHttpResponseBody {
+            icap_client,
+            icap_keepalive,
+            icap_connection,
+        }
+    }
+
     pub fn body_reader(&mut self) -> HttpBodyReader<'_, impl AsyncBufRead + use<>> {
         HttpBodyReader::new_chunked(&mut self.icap_connection.reader, 1024)
     }

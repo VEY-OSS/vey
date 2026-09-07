@@ -8,7 +8,7 @@ use std::io::Write;
 use std::str::FromStr;
 
 use bytes::BufMut;
-use http::{HeaderName, Method, Version, header};
+use http::{HeaderMap, HeaderName, Method, Response, StatusCode, Version, header};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
@@ -412,6 +412,18 @@ impl HttpForwardRemoteResponse {
         buf.put_slice(b"\r\n");
         buf
     }
+
+    pub fn to_h2_response(&self) -> Response<()> {
+        let mut rsp = Response::new(());
+        *rsp.status_mut() =
+            StatusCode::from_u16(self.code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        *rsp.version_mut() = Version::HTTP_2;
+        *rsp.headers_mut() = HeaderMap::from(&self.end_to_end_headers);
+        for name in self.connection.extra_hop_by_hop() {
+            rsp.headers_mut().remove(name);
+        }
+        rsp
+    }
 }
 
 #[cfg(test)]
@@ -539,5 +551,29 @@ mod tests {
             .unwrap()
             .to_ascii_lowercase();
         assert!(!serialized.contains("keep-alive:"));
+    }
+
+    #[tokio::test]
+    async fn to_h2_response_keeps_end_to_end_headers_and_http2_version() {
+        let content = b"HTTP/1.1 200 OK\r\n\
+            Content-Type: text/plain\r\n\
+            Content-Length: 4\r\n\
+            X-Test: 1\r\n\
+            X-Session: abc\r\n\
+            Connection: keep-alive, x-session\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let method = Method::GET;
+        let rsp = HttpForwardRemoteResponse::parse(&mut buf_stream, &method, true, 4096)
+            .await
+            .unwrap();
+        let h2 = rsp.to_h2_response();
+        assert_eq!(h2.status(), StatusCode::OK);
+        assert_eq!(h2.version(), Version::HTTP_2);
+        assert_eq!(h2.headers().get("x-test").unwrap(), "1");
+        assert_eq!(h2.headers().get(header::CONTENT_LENGTH).unwrap(), "4");
+        assert!(h2.headers().get("x-session").is_none());
+        assert!(h2.headers().get(header::TRANSFER_ENCODING).is_none());
+        assert!(h2.headers().get(header::CONNECTION).is_none());
     }
 }

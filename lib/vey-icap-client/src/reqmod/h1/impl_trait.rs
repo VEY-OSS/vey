@@ -4,7 +4,7 @@
  */
 
 use bytes::BufMut;
-use http::{Method, header};
+use http::{Method, Request, header};
 
 use vey_http::HttpBodyType;
 use vey_http::server::{HttpProxyClientRequest, HttpTransparentRequest};
@@ -39,6 +39,14 @@ impl HttpRequestForAdaptation for HttpProxyClientRequest {
     fn adapt_without_body(&self, other: HttpAdaptedRequest) -> Self {
         self.adapt_without_body(other)
     }
+
+    fn expect_100_continue(&self) -> bool {
+        self.expect_100_continue()
+    }
+
+    fn to_h2_request(&self) -> Request<()> {
+        self.to_h2_request()
+    }
 }
 
 impl HttpRequestForAdaptation for HttpTransparentRequest {
@@ -68,5 +76,13 @@ impl HttpRequestForAdaptation for HttpTransparentRequest {
 
     fn adapt_without_body(&self, other: HttpAdaptedRequest) -> Self {
         self.adapt_without_body(other)
+    }
+
+    fn expect_100_continue(&self) -> bool {
+        self.expect_100_continue()
+    }
+
+    fn to_h2_request(&self) -> Request<()> {
+        self.to_h2_request()
     }
 }

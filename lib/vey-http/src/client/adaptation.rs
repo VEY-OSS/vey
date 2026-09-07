@@ -128,7 +128,7 @@ impl HttpAdaptedResponse {
 
         match name.as_str() {
             "connection" | "keep-alive" => {
-                // ignored hop-by-hop options
+                // ICAP encapsulated HTTP has no hop-by-hop headers
                 return Ok(());
             }
             "content-length" => {
@@ -137,7 +137,7 @@ impl HttpAdaptedResponse {
                 self.content_length = Some(content_length);
             }
             "transfer-encoding" => {
-                // this will always be chunked encoding
+                // ICAP body is always chunked
                 return Ok(());
             }
             _ => {}

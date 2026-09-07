@@ -178,6 +178,12 @@ impl ConnectionValue {
         }
     }
 
+    /// Names listed in `Connection` besides close / keep-alive / upgrade / TE.
+    #[inline]
+    pub fn extra_hop_by_hop(&self) -> &[HeaderName] {
+        &self.extra
+    }
+
     pub fn parse_keep_alive(&mut self, name: &[u8], value: &[u8]) {
         self.keep_alive_name.receive(name);
         self.keepalive.parse(value);
@@ -315,6 +321,7 @@ mod tests {
         v.parse(b"close");
         assert!(v.close(Version::HTTP_11));
         assert!(!v.keep_alive(Version::HTTP_11));
+        assert_eq!(v.extra_hop_by_hop(), &[HeaderName::from_static("foo")]);
         let empty = ConnectionValue::default();
         assert!(empty.keep_alive(Version::HTTP_11));
         assert!(!empty.keep_alive(Version::HTTP_10));

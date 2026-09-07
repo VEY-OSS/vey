@@ -218,6 +218,24 @@ pub struct ReqmodRecvHttpResponseBody {
 }
 
 impl ReqmodRecvHttpResponseBody {
+    pub(crate) fn from_connection(
+        icap_client: Arc<IcapServiceClient>,
+        icap_keepalive: bool,
+        icap_connection: IcapClientConnection,
+        copy_config: StreamCopyConfig,
+        http_body_line_max_size: usize,
+        http_trailer_max_size: usize,
+    ) -> Self {
+        ReqmodRecvHttpResponseBody {
+            icap_client,
+            icap_keepalive,
+            icap_connection,
+            copy_config,
+            http_body_line_max_size,
+            http_trailer_max_size,
+        }
+    }
+
     pub fn body_transfer<'a>(
         &'a mut self,
         send_stream: &'a mut SendStream<Bytes>,

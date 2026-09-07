@@ -9,7 +9,7 @@ use std::io::Write;
 use std::str::FromStr;
 
 use bytes::BufMut;
-use http::{HeaderName, Method, Uri, Version, header};
+use http::{HeaderMap, HeaderName, Method, Request, Uri, Version, header};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
@@ -601,6 +601,22 @@ impl HttpProxyClientRequest {
         buf.put_slice(b"\r\n");
         buf
     }
+
+    pub fn to_h2_request(&self) -> Request<()> {
+        let mut req = Request::new(());
+        *req.method_mut() = self.method.clone();
+        *req.uri_mut() = self.uri.clone();
+        *req.version_mut() = Version::HTTP_2;
+        *req.headers_mut() = HeaderMap::from(&self.end_to_end_headers);
+        for name in self.connection.extra_hop_by_hop() {
+            req.headers_mut().remove(name);
+        }
+        if self.accept_transfer_encoding.trailers() {
+            req.headers_mut()
+                .insert(header::TE, http::HeaderValue::from_static("trailers"));
+        }
+        req
+    }
 }
 
 #[cfg(test)]
@@ -885,5 +901,24 @@ mod tests {
             .unwrap()
             .to_ascii_lowercase();
         assert!(!origin.contains("keep-alive:"));
+    }
+
+    #[tokio::test]
+    async fn to_h2_request_keeps_end_to_end_headers_and_http2_version() {
+        let req = parse_req(
+            b"POST /upload HTTP/1.1\r\nHost: example.com\r\nContent-Length: 4\r\nX-Test: 1\r\nX-Session: abc\r\nConnection: close, x-session\r\nTE: trailers\r\n\r\n",
+        )
+        .await
+        .unwrap();
+        let h2 = req.to_h2_request();
+        assert_eq!(h2.method(), Method::POST);
+        assert_eq!(h2.uri(), "/upload");
+        assert_eq!(h2.version(), Version::HTTP_2);
+        assert_eq!(h2.headers().get("x-test").unwrap(), "1");
+        assert_eq!(h2.headers().get(header::CONTENT_LENGTH).unwrap(), "4");
+        assert!(h2.headers().get("x-session").is_none());
+        assert!(h2.headers().get(header::TRANSFER_ENCODING).is_none());
+        assert_eq!(h2.headers().get(header::TE).unwrap(), "trailers");
+        assert!(h2.headers().get(header::CONNECTION).is_none());
     }
 }
