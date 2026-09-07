@@ -203,6 +203,7 @@ impl TcpStreamTask {
                 },
                 tls_config: tls_client_config,
                 tls_name,
+                alpn_protocols: None,
             };
             self.ctx
                 .escaper

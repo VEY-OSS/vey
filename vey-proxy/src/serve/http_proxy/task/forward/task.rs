@@ -778,6 +778,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                 },
                 tls_config: tls_client,
                 tls_name,
+                alpn_protocols: None,
             };
             fwd_ctx
                 .new_prepared_https_connection(

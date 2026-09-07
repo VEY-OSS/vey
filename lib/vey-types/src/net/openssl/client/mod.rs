@@ -43,6 +43,15 @@ pub struct OpensslClientConfig {
 
 impl OpensslClientConfig {
     pub fn build_ssl(&self, tls_name: &Host, port: u16) -> anyhow::Result<Ssl> {
+        self.build_ssl_with_alpn(tls_name, port, &[])
+    }
+
+    pub fn build_ssl_with_alpn(
+        &self,
+        tls_name: &Host,
+        port: u16,
+        alpn_protocols: &[AlpnProtocol],
+    ) -> anyhow::Result<Ssl> {
         let mut ssl =
             Ssl::new(&self.ssl_context).map_err(|e| anyhow!("failed to get new Ssl state: {e}"))?;
         let verify_param = ssl.param_mut();
@@ -64,6 +73,10 @@ impl OpensslClientConfig {
         }
         if let Some(cache) = &self.session_cache {
             cache.find_and_set_cache(&mut ssl, tls_name, port)?;
+        }
+        if !alpn_protocols.is_empty() {
+            ssl.set_alpn_protos(&AlpnProtocol::encode_wired_list(alpn_protocols))
+                .map_err(|e| anyhow!("failed to set alpn protocols: {e}"))?;
         }
         Ok(ssl)
     }
@@ -553,16 +566,8 @@ impl OpensslClientConfigBuilder {
         let session_cache = self.session_cache.set_for_client(&mut ctx_builder)?;
 
         if let Some(protocols) = alpn_protocols {
-            let mut len: usize = 0;
-            protocols
-                .iter()
-                .for_each(|p| len += p.wired_identification_sequence().len());
-            let mut buf = Vec::with_capacity(len);
-            protocols
-                .iter()
-                .for_each(|p| buf.extend_from_slice(p.wired_identification_sequence()));
             ctx_builder
-                .set_alpn_protos(buf.as_slice())
+                .set_alpn_protos(&AlpnProtocol::encode_wired_list(&protocols))
                 .map_err(|e| anyhow!("failed to set alpn protocols: {e}"))?;
         }
 

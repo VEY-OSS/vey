@@ -28,7 +28,6 @@ use crate::config::site::SiteConfig;
 pub(crate) struct Site {
     config: Arc<SiteConfig>,
     tls_client: Option<OpensslClientConfig>,
-    tls_client_h2: Option<OpensslClientConfig>,
     stats: Arc<SiteStats>,
     tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
     request_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
@@ -45,7 +44,6 @@ impl Site {
         tenant_user_group_name: &NodeName,
     ) -> anyhow::Result<Self> {
         let tls_client = build_tls_client(config)?;
-        let tls_client_h2 = build_tls_client_h2(config)?;
         let request_rate_limit = config
             .request_rate_limit
             .map(|quota| Arc::new(RateLimiter::new_global(quota)));
@@ -54,7 +52,6 @@ impl Site {
         Ok(Site {
             config: Arc::clone(config),
             tls_client,
-            tls_client_h2,
             stats: Arc::new(SiteStats::new(
                 site_group,
                 config.id(),
@@ -79,7 +76,6 @@ impl Site {
         tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
     ) -> anyhow::Result<Self> {
         let tls_client = build_tls_client(config)?;
-        let tls_client_h2 = build_tls_client_h2(config)?;
         let request_rate_limit = reuse_or_new_rate_limiter(
             &self.request_rate_limit,
             self.config.request_rate_limit,
@@ -97,7 +93,6 @@ impl Site {
         Ok(Site {
             config: Arc::clone(config),
             tls_client,
-            tls_client_h2,
             stats: Arc::clone(&self.stats),
             tenant_user_group,
             request_rate_limit,
@@ -137,10 +132,6 @@ impl Site {
 
     pub(crate) fn tls_client(&self) -> Option<&OpensslClientConfig> {
         self.tls_client.as_ref()
-    }
-
-    pub(crate) fn tls_client_h2(&self) -> Option<&OpensslClientConfig> {
-        self.tls_client_h2.as_ref()
     }
 
     #[inline]
@@ -224,19 +215,6 @@ impl Drop for SiteHttpConnGuard {
 fn build_tls_client(config: &SiteConfig) -> anyhow::Result<Option<OpensslClientConfig>> {
     if let Some(builder) = &config.tls_client_builder {
         let client = builder.build().context("failed to build tls client")?;
-        Ok(Some(client))
-    } else {
-        Ok(None)
-    }
-}
-
-fn build_tls_client_h2(config: &SiteConfig) -> anyhow::Result<Option<OpensslClientConfig>> {
-    use vey_types::net::AlpnProtocol;
-
-    if let Some(builder) = &config.tls_client_builder {
-        let client = builder
-            .build_with_alpn_protocols(Some(vec![AlpnProtocol::Http2]))
-            .context("failed to build h2 tls client")?;
         Ok(Some(client))
     } else {
         Ok(None)
