@@ -145,6 +145,8 @@ static_sites:
         assert!(Arc::ptr_eq(&stats, site2.stats()));
         assert!(site.http1_pool().is_none());
         assert!(site2.http1_pool().is_none());
+        let h2_ptr = site.http2_pool() as *const _;
+        assert_eq!(h2_ptr, site2.http2_pool() as *const _);
     }
 
     #[test]
@@ -202,5 +204,68 @@ static_sites:
         );
         let reloaded = group.reload(disabled).unwrap();
         assert!(reloaded.get_site(&id).unwrap().http1_pool().is_none());
+    }
+
+    #[test]
+    fn reload_reuses_http2_pool_when_origin_unchanged() {
+        let config = parse_group(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h2:
+        connection_pool: {}
+"#,
+        );
+        let group = SiteGroup::new_with_config(config.clone()).unwrap();
+        let id = NodeName::from_str("app").unwrap();
+        let site = group.get_site(&id).unwrap();
+        let pool_ptr = site.http2_pool() as *const _;
+
+        let reloaded = group.reload(config).unwrap();
+        let site2 = reloaded.get_site(&id).unwrap();
+        assert_eq!(pool_ptr, site2.http2_pool() as *const _);
+    }
+
+    #[test]
+    fn reload_rebuilds_http2_pool_when_pool_config_changes() {
+        let config = parse_group(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h2:
+        connection_pool: {}
+"#,
+        );
+        let group = SiteGroup::new_with_config(config).unwrap();
+        let id = NodeName::from_str("app").unwrap();
+        let pool_ptr = group.get_site(&id).unwrap().http2_pool() as *const _;
+
+        let changed = parse_group(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h2:
+        connection_pool:
+          max_idle_count: 8
+          idle_timeout: 30s
+"#,
+        );
+        let reloaded = group.reload(changed).unwrap();
+        assert_ne!(
+            pool_ptr,
+            reloaded.get_site(&id).unwrap().http2_pool() as *const _
+        );
     }
 }

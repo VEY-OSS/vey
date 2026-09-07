@@ -34,6 +34,21 @@ site_group:
           cert_pairs:
             certificate: ../httpbin.local.pem
             private-key: ../httpbin.local-key.pem
+  - name: httpbin_h2
+    static_sites:
+      - id: httpbin-h2
+        exact_match: httpbin.local
+        upstream: 127.0.0.1:2443
+        tls_name: httpbin.local
+        tls_client:
+          ca_certificate: ../rootCA.pem
+        http:
+          h2:
+            connection_pool: {}
+        tls_server:
+          cert_pairs:
+            certificate: ../httpbin.local.pem
+            private-key: ../httpbin.local-key.pem
 
 server:
   - name: http
@@ -64,3 +79,13 @@ server:
         certificate: ../httpbin.local.pem
         private-key: ../httpbin.local-key.pem
     site_group: httpbin
+  - name: https_h2
+    type: http_guard
+    listen: 127.0.0.1:10443
+    escaper: default
+    auditor: icap_waf
+    global_tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    site_group: httpbin_h2
