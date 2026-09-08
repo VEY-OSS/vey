@@ -64,8 +64,22 @@ impl<S> LimitedStream<S> {
     where
         T: GlobalStreamLimit + Send + Sync + 'static,
     {
-        self.reader_state.add_global_limiter(read_limiter);
-        self.writer_state.add_global_limiter(write_limiter);
+        self.add_global_read_limiter(read_limiter);
+        self.add_global_write_limiter(write_limiter);
+    }
+
+    pub fn add_global_read_limiter<T>(&mut self, limiter: Arc<T>)
+    where
+        T: GlobalStreamLimit + Send + Sync + 'static,
+    {
+        self.reader_state.add_global_limiter(limiter);
+    }
+
+    pub fn add_global_write_limiter<T>(&mut self, limiter: Arc<T>)
+    where
+        T: GlobalStreamLimit + Send + Sync + 'static,
+    {
+        self.writer_state.add_global_limiter(limiter);
     }
 
     pub fn reset_stats<ST>(&mut self, stats: Arc<ST>)

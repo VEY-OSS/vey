@@ -22,7 +22,6 @@ use vey_types::acl::AclAction;
 use super::CommonTaskContext;
 use super::error::{H2StreamTransferError, h2_local_error_response};
 use super::origin;
-use super::stats::H2ForwardTaskStats;
 use crate::escape::EgressNotes;
 use crate::log::task::h2_forward::TaskLogForH2Forward;
 use crate::module::http_forward::HttpForwardTaskNotes;
@@ -38,7 +37,6 @@ pub(crate) struct H2WebsocketTask {
     task_notes: ServerTaskNotes,
     http_notes: HttpForwardTaskNotes,
     egress_notes: EgressNotes,
-    task_stats: Arc<H2ForwardTaskStats>,
     send_error_response: bool,
     started: bool,
     _alive_guard: Option<H2ForwardTaskAliveGuard>,
@@ -81,7 +79,6 @@ impl H2WebsocketTask {
             task_notes,
             http_notes,
             egress_notes: EgressNotes::default(),
-            task_stats: Arc::new(H2ForwardTaskStats::default()),
             send_error_response: false,
             started: false,
             _alive_guard: None,
@@ -100,10 +97,6 @@ impl H2WebsocketTask {
                 task_notes: &self.task_notes,
                 http_notes: &self.http_notes,
                 egress_notes: &self.egress_notes,
-                client_rd_bytes: self.task_stats.clt.read.get_bytes(),
-                client_wr_bytes: self.task_stats.clt.write.get_bytes(),
-                remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
-                remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
             })
     }
 
@@ -117,6 +110,8 @@ impl H2WebsocketTask {
             .hold_req_alive(RequestAliveKind::HttpForward {
                 is_https: self.site.tls_client().is_some(),
             });
+        // TODO: site request traffic (http_forward / https_forward) and task
+        // byte stats. Needs h2 header/trailer frame sizes plus DATA on this stream.
         if self.ctx.server_config.flush_task_log_on_created
             && let Some(log) = self.log_ctx()
         {
@@ -328,7 +323,9 @@ impl H2WebsocketTask {
                 let clt_w = clt_send_rsp
                     .send_response(rsp, false)
                     .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
-                H2BodyTransfer::new(body, clt_w, self.ctx.server_config.tcp_copy.yield_size())
+                let transfer =
+                    H2BodyTransfer::new(body, clt_w, self.ctx.server_config.tcp_copy.yield_size());
+                transfer
                     .await
                     .map_err(H2StreamTransferError::ResponseBodyTransferFailed)?;
             }

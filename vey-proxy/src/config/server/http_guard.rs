@@ -96,7 +96,6 @@ impl HttpGuardH1Config {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct HttpGuardH2Config {
-    pub(crate) enable_h2c: bool,
     pub(crate) max_header_list_size: u32,
     pub(crate) max_concurrent_streams: u32,
     stream_window_size: u32,
@@ -112,7 +111,6 @@ pub(crate) struct HttpGuardH2Config {
 impl Default for HttpGuardH2Config {
     fn default() -> Self {
         HttpGuardH2Config {
-            enable_h2c: false,
             max_header_list_size: 64 * 1024,
             max_concurrent_streams: 128,
             stream_window_size: 1024 * 1024,
@@ -159,11 +157,6 @@ impl HttpGuardH2Config {
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match vey_yaml::key::normalize(k).as_str() {
-            "enable_h2c" | "h2c" => {
-                self.enable_h2c = vey_yaml::value::as_bool(v)
-                    .context(format!("invalid bool value for key {k}"))?;
-                Ok(())
-            }
             "max_header_list_size" | "max_header_size" => {
                 self.max_header_list_size = vey_yaml::humanize::as_u32(v)
                     .context(format!("invalid humanize u32 value for key {k}"))?;
@@ -642,7 +635,6 @@ append_forwarded_for: disable
 h1:
   pipeline_size: 4
 h2:
-  enable_h2c: true
   max_concurrent_streams: 32
 "#,
         )
@@ -657,7 +649,6 @@ h2:
             vey_types::net::HttpForwardedHeaderType::Disable
         );
         assert_eq!(server.h1.pipeline_size.get(), 4);
-        assert!(server.h2.enable_h2c);
         assert_eq!(server.h2.max_concurrent_streams, 32);
     }
 

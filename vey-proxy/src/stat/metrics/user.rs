@@ -622,6 +622,7 @@ fn find_io_stat<'a, F>(
     emit_tcp_field!(tcp_connect, MetricUserRequestType::TcpConnect);
     emit_tcp_field!(http_forward, MetricUserRequestType::HttpForward);
     emit_tcp_field!(https_forward, MetricUserRequestType::HttpsForward);
+    emit_tcp_field!(h2_connection, MetricUserRequestType::H2Connection);
     emit_tcp_field!(http_connect, MetricUserRequestType::HttpConnect);
     emit_tcp_field!(ftp_over_http, MetricUserRequestType::FtpOverHttp);
     emit_tcp_field!(socks_tcp_connect, MetricUserRequestType::SocksTcpConnect);

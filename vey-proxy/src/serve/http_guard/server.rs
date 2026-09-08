@@ -293,6 +293,15 @@ impl HttpGuardServer {
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         if matches!(alpn, Some(AlpnProtocol::Http2)) {
+            if pinned_site.is_none() {
+                self.listen_stats.add_failed();
+                debug!(
+                    "{} - {} rejected h2 without matching tls sni site",
+                    cc_info.sock_local_addr(),
+                    cc_info.sock_peer_addr()
+                );
+                return;
+            }
             self.spawn_h2_task(stream, cc_info, hosts, pinned_site)
                 .await;
         } else {
@@ -656,18 +665,12 @@ impl AcceptTcpServer for HttpGuardServer {
                     .await;
             }
             Protocol::Http2 => {
-                if !self.config.h2.enable_h2c {
-                    self.listen_stats.add_failed();
-                    debug!(
-                        "{} - {} rejected h2c (disabled)",
-                        cc_info.sock_local_addr(),
-                        cc_info.sock_peer_addr()
-                    );
-                    return;
-                }
-                let stream = OnceBufReader::new(stream, clt_r_buf);
-                self.spawn_h2_task(stream, cc_info, self.http_hosts.load_full(), None)
-                    .await;
+                self.listen_stats.add_failed();
+                debug!(
+                    "{} - {} rejected h2c (plaintext http/2 is not supported)",
+                    cc_info.sock_local_addr(),
+                    cc_info.sock_peer_addr()
+                );
             }
             Protocol::TlsModern | Protocol::TlsTlcp | Protocol::TlsLegacy | Protocol::SslLegacy => {
                 self.run_tls_tcp_task(stream, clt_r_buf, cc_info).await;

@@ -23,7 +23,6 @@ use vey_types::acl::AclAction;
 use super::CommonTaskContext;
 use super::error::{H2StreamTransferError, h2_local_error_response};
 use super::origin;
-use super::stats::H2ForwardTaskStats;
 use crate::escape::EgressNotes;
 use crate::log::task::h2_forward::TaskLogForH2Forward;
 use crate::module::http_forward::HttpForwardTaskNotes;
@@ -39,7 +38,6 @@ pub(crate) struct H2ForwardTask {
     task_notes: ServerTaskNotes,
     http_notes: HttpForwardTaskNotes,
     egress_notes: EgressNotes,
-    task_stats: Arc<H2ForwardTaskStats>,
     send_error_response: bool,
     allow_continue: bool,
     is_https: bool,
@@ -86,7 +84,6 @@ impl H2ForwardTask {
             task_notes,
             http_notes,
             egress_notes: EgressNotes::default(),
-            task_stats: Arc::new(H2ForwardTaskStats::default()),
             send_error_response: false,
             allow_continue,
             is_https,
@@ -107,10 +104,6 @@ impl H2ForwardTask {
                 task_notes: &self.task_notes,
                 http_notes: &self.http_notes,
                 egress_notes: &self.egress_notes,
-                client_rd_bytes: self.task_stats.clt.read.get_bytes(),
-                client_wr_bytes: self.task_stats.clt.write.get_bytes(),
-                remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
-                remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
             })
     }
 
@@ -138,6 +131,8 @@ impl H2ForwardTask {
             .hold_req_alive(RequestAliveKind::HttpForward {
                 is_https: self.is_https,
             });
+        // TODO: site request traffic (http_forward / https_forward) and task
+        // byte stats. Needs h2 header/trailer frame sizes plus DATA on this stream.
         if self.ctx.server_config.flush_task_log_on_created
             && let Some(log) = self.log_ctx()
         {
