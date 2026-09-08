@@ -56,6 +56,19 @@ class TestHttpBin(unittest.TestCase):
         self.c.perform()
         self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
 
+    def test_sequential_get(self):
+        self.set_url_and_request_target('/get')
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+        self.assertEqual(self.c.getinfo(pycurl.NUM_CONNECTS), 1)
+
+        self.buffer.seek(0)
+        self.buffer.truncate()
+        self.set_url_and_request_target('/headers')
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+        self.assertEqual(self.c.getinfo(pycurl.NUM_CONNECTS), 0)
+
     def test_get_delay(self):
         self.set_url_and_request_target('/delay/1')
         self.c.perform()
