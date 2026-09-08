@@ -83,8 +83,14 @@ where
                             let site_conn = Arc::clone(&site_conn);
                             let task_guard = stats.add_task();
                             tokio::spawn(async move {
-                                stream::transfer(clt_req, clt_send_rsp, ctx, hosts, site_conn)
-                                    .await;
+                                stream::transfer(
+                                    clt_req,
+                                    clt_send_rsp,
+                                    ctx,
+                                    hosts,
+                                    site_conn,
+                                )
+                                .await;
                                 drop(task_guard);
                             });
                         }

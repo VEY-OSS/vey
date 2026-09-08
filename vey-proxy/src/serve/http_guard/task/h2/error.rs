@@ -25,6 +25,8 @@ pub(crate) enum H2StreamTransferError {
     InternalAdapterError(anyhow::Error),
     #[error("no matching site for Host")]
     SiteNotFound,
+    #[error("Host does not match TLS SNI site")]
+    MisdirectedRequest,
     #[error("failed to open origin connection: {0}")]
     OriginConnectFailed(anyhow::Error),
     #[error("failed to open upstream stream: {0}")]
@@ -63,6 +65,10 @@ impl H2StreamTransferError {
             H2StreamTransferError::InvalidHostHeader | H2StreamTransferError::SiteNotFound => {
                 Some((StatusCode::BAD_REQUEST, ProxyErrorType::HttpRequestError))
             }
+            H2StreamTransferError::MisdirectedRequest => Some((
+                StatusCode::MISDIRECTED_REQUEST,
+                ProxyErrorType::HttpRequestError,
+            )),
             H2StreamTransferError::OriginConnectFailed(_) => Some((
                 StatusCode::BAD_GATEWAY,
                 ProxyErrorType::ConnectionTerminated,

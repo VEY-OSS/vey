@@ -4,6 +4,7 @@
  */
 
 use std::net::SocketAddr;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
@@ -53,6 +54,7 @@ use crate::serve::{
     ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
     ServerRegistry, ServerStats, WrapArcServer,
 };
+use crate::site::Site;
 
 pub(crate) struct HttpGuardServer {
     config: Arc<HttpGuardServerConfig>,
@@ -203,7 +205,11 @@ impl HttpGuardServer {
         }
     }
 
-    fn get_common_task_context(&self, cc_info: ClientConnectionInfo) -> Arc<CommonTaskContext> {
+    fn get_common_task_context(
+        &self,
+        cc_info: ClientConnectionInfo,
+        pinned_site: Option<Arc<Site>>,
+    ) -> Arc<CommonTaskContext> {
         Arc::new(CommonTaskContext {
             server_config: self.config.clone(),
             server_stats: self.server_stats.clone(),
@@ -213,6 +219,7 @@ impl HttpGuardServer {
             cc_info,
             task_logger: self.task_logger.clone(),
             audit_handle: self.audit_handle.load_full(),
+            pinned_site,
         })
     }
 
@@ -238,12 +245,13 @@ impl HttpGuardServer {
         stream: T,
         cc_info: ClientConnectionInfo,
         hosts: Arc<HostMatch<Arc<HttpHost>>>,
+        pinned_site: Option<Arc<Site>>,
     ) where
         T: AsyncStream,
         T::R: AsyncRead + Send + Sync + Unpin + 'static,
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let ctx = self.get_common_task_context(cc_info);
+        let ctx = self.get_common_task_context(cc_info, pinned_site);
         let pipeline_stats = Arc::new(HttpGuardPipelineStats::default());
         let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.h1.pipeline_size.get());
 
@@ -262,10 +270,11 @@ impl HttpGuardServer {
         stream: T,
         cc_info: ClientConnectionInfo,
         hosts: Arc<HostMatch<Arc<HttpHost>>>,
+        pinned_site: Option<Arc<Site>>,
     ) where
         T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let ctx = self.get_common_task_context(cc_info);
+        let ctx = self.get_common_task_context(cc_info, pinned_site);
         HttpGuardH2ConnectionTask::new(&ctx, stream, hosts)
             .into_running()
             .await
@@ -277,15 +286,18 @@ impl HttpGuardServer {
         cc_info: ClientConnectionInfo,
         hosts: Arc<HostMatch<Arc<HttpHost>>>,
         alpn: Option<AlpnProtocol>,
+        pinned_site: Option<Arc<Site>>,
     ) where
         T: AsyncStream + AsyncRead + AsyncWrite + Unpin + Send + 'static,
         T::R: AsyncRead + Send + Sync + Unpin + 'static,
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         if matches!(alpn, Some(AlpnProtocol::Http2)) {
-            self.spawn_h2_task(stream, cc_info, hosts).await;
+            self.spawn_h2_task(stream, cc_info, hosts, pinned_site)
+                .await;
         } else {
-            self.spawn_h1_task(stream, cc_info, hosts).await;
+            self.spawn_h1_task(stream, cc_info, hosts, pinned_site)
+                .await;
         }
     }
 
@@ -361,8 +373,14 @@ impl HttpGuardServer {
                     .ssl()
                     .selected_alpn_protocol()
                     .and_then(AlpnProtocol::from_selected);
-                self.spawn_http_task(ssl_stream, cc_info, self.tls_hosts.load_full(), alpn)
-                    .await
+                self.spawn_http_task(
+                    ssl_stream,
+                    cc_info,
+                    self.tls_hosts.load_full(),
+                    alpn,
+                    host.map(|h| Arc::clone(h.site())),
+                )
+                .await
             }
             Err(e) => {
                 self.listen_stats.add_failed();
@@ -634,7 +652,7 @@ impl AcceptTcpServer for HttpGuardServer {
         match protocol {
             Protocol::Http1 => {
                 let stream = OnceBufReader::new(stream, clt_r_buf);
-                self.spawn_h1_task(stream, cc_info, self.http_hosts.load_full())
+                self.spawn_h1_task(stream, cc_info, self.http_hosts.load_full(), None)
                     .await;
             }
             Protocol::Http2 => {
@@ -648,7 +666,7 @@ impl AcceptTcpServer for HttpGuardServer {
                     return;
                 }
                 let stream = OnceBufReader::new(stream, clt_r_buf);
-                self.spawn_h2_task(stream, cc_info, self.http_hosts.load_full())
+                self.spawn_h2_task(stream, cc_info, self.http_hosts.load_full(), None)
                     .await;
             }
             Protocol::TlsModern | Protocol::TlsTlcp | Protocol::TlsLegacy | Protocol::SslLegacy => {
@@ -727,7 +745,13 @@ impl Server for HttpGuardServer {
             .1
             .alpn_protocol()
             .and_then(AlpnProtocol::from_selected);
-        self.spawn_http_task(stream, cc_info, self.http_hosts.load_full(), alpn)
+        let hosts = self.http_hosts.load_full();
+        let pinned_site = stream.get_ref().1.server_name().and_then(|sni| {
+            hosts
+                .get(&Host::from_str(sni).ok()?)
+                .map(|h| Arc::clone(h.site()))
+        });
+        self.spawn_http_task(stream, cc_info, hosts, alpn, pinned_site)
             .await;
     }
 
@@ -742,7 +766,16 @@ impl Server for HttpGuardServer {
             .ssl()
             .selected_alpn_protocol()
             .and_then(AlpnProtocol::from_selected);
-        self.spawn_http_task(stream, cc_info, self.http_hosts.load_full(), alpn)
+        let hosts = self.http_hosts.load_full();
+        let pinned_site = stream
+            .ssl()
+            .servername(openssl::ssl::NameType::HOST_NAME)
+            .and_then(|sni| {
+                hosts
+                    .get(&Host::from_str(sni).ok()?)
+                    .map(|h| Arc::clone(h.site()))
+            });
+        self.spawn_http_task(stream, cc_info, hosts, alpn, pinned_site)
             .await;
     }
 }
