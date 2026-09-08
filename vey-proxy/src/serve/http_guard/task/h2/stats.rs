@@ -6,9 +6,10 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 
-use vey_daemon::stat::task::TcpStreamConnectionStats;
+use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
-use crate::module::http_forward::HttpForwardTaskRemoteStats;
+use super::super::HttpGuardServerStats;
+use crate::auth::UserTrafficStats;
 
 pub(crate) struct H2ConcurrencyStats {
     total_task: AtomicU64,
@@ -45,18 +46,35 @@ impl Drop for H2ConcurrencyTaskGuard {
     }
 }
 
-#[derive(Default)]
-pub(crate) struct H2ForwardTaskStats {
-    pub(crate) clt: TcpStreamConnectionStats,
-    pub(crate) ups: TcpStreamConnectionStats,
+pub(crate) struct H2ConnectionCltWrapperStats {
+    server: Arc<HttpGuardServerStats>,
+    site_io_stats: Arc<UserTrafficStats>,
 }
 
-impl HttpForwardTaskRemoteStats for H2ForwardTaskStats {
-    fn add_read_bytes(&self, size: u64) {
-        self.ups.read.add_bytes(size);
+impl H2ConnectionCltWrapperStats {
+    pub(crate) fn new(
+        server: &Arc<HttpGuardServerStats>,
+        site_io_stats: Arc<UserTrafficStats>,
+    ) -> Arc<Self> {
+        Arc::new(H2ConnectionCltWrapperStats {
+            server: Arc::clone(server),
+            site_io_stats,
+        })
     }
+}
 
-    fn add_write_bytes(&self, size: u64) {
-        self.ups.write.add_bytes(size);
+impl LimitedReaderStats for H2ConnectionCltWrapperStats {
+    fn add_read_bytes(&self, size: usize) {
+        let size = size as u64;
+        self.server.io_http.add_in_bytes(size);
+        self.site_io_stats.io.h2_connection.add_in_bytes(size);
+    }
+}
+
+impl LimitedWriterStats for H2ConnectionCltWrapperStats {
+    fn add_write_bytes(&self, size: usize) {
+        let size = size as u64;
+        self.server.io_http.add_out_bytes(size);
+        self.site_io_stats.io.h2_connection.add_out_bytes(size);
     }
 }

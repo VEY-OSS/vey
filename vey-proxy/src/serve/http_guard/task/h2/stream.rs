@@ -4,7 +4,7 @@
  */
 
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use bytes::Bytes;
 use h2::RecvStream;
@@ -23,14 +23,13 @@ use crate::config::server::ServerConfig;
 use crate::module::http_header::ProxyErrorType;
 use crate::serve::ServerStats;
 use crate::serve::http_guard::HttpHost;
-use crate::site::{SiteContext, SiteHttpConnGuard};
+use crate::site::SiteContext;
 
 pub(super) async fn transfer(
     mut clt_req: Request<RecvStream>,
     mut clt_send_rsp: SendResponse<Bytes>,
     ctx: Arc<CommonTaskContext>,
     hosts: Arc<HostMatch<Arc<HttpHost>>>,
-    site_conn: Arc<Mutex<Option<SiteHttpConnGuard>>>,
 ) {
     append_forwarded(clt_req.headers_mut(), &ctx);
 
@@ -60,16 +59,6 @@ pub(super) async fn transfer(
             &H2StreamTransferError::MisdirectedRequest,
         );
         return;
-    }
-
-    {
-        let mut guard = site_conn.lock().unwrap();
-        if guard.is_none() {
-            *guard = Some(matched.site().hold_http_conn(
-                ctx.server_config.name(),
-                ctx.server_stats.share_extra_tags(),
-            ));
-        }
     }
 
     let site_ctx = SiteContext::new(

@@ -22,10 +22,6 @@ pub(crate) struct TaskLogForH2Forward<'a> {
     pub(crate) task_notes: &'a ServerTaskNotes,
     pub(crate) http_notes: &'a HttpForwardTaskNotes,
     pub(crate) egress_notes: &'a EgressNotes,
-    pub(crate) client_rd_bytes: u64,
-    pub(crate) client_wr_bytes: u64,
-    pub(crate) remote_rd_bytes: u64,
-    pub(crate) remote_wr_bytes: u64,
 }
 
 impl TaskLogForH2Forward<'_> {
@@ -73,10 +69,6 @@ impl TaskLogForH2Forward<'_> {
             "dur_req_send_all" => LtDuration(self.http_notes.dur_req_send_all),
             "dur_rsp_recv_hdr" => LtDuration(self.http_notes.dur_rsp_recv_hdr),
             "dur_rsp_recv_all" => LtDuration(self.http_notes.dur_rsp_recv_all),
-            "c_rd_bytes" => self.client_rd_bytes,
-            "c_wr_bytes" => self.client_wr_bytes,
-            "r_rd_bytes" => self.remote_rd_bytes,
-            "r_wr_bytes" => self.remote_wr_bytes,
         );
     }
 }

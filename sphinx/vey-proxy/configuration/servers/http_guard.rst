@@ -4,13 +4,15 @@ http_guard
 ==========
 
 This server is the public-edge HTTP reverse proxy. Incoming TCP is inspected
-before any site lookup: HTTP/1.x is accepted, and HTTP/2 is accepted over TLS
-(ALPN ``h2``) or as plaintext H2C when enabled. TLS is detected automatically
-(including TLCP). Other protocols are dropped.
+before any site lookup: HTTP/1.x is accepted, and HTTP/2 is accepted only over
+TLS with ALPN ``h2`` and a matching SNI site. TLS is detected automatically
+(including TLCP). Other protocols, including plaintext HTTP/2 (H2C), are dropped.
 
 TLS connections match SNI and later ``Host`` against sites that have
-``tls_server``. Plaintext connections match ``Host`` against the HTTP host
-table. After a TLS handshake, ``Host`` still uses the TLS-capable table.
+``tls_server``. HTTP/2 requires SNI to select the site used for connection
+rate and speed limits. Plaintext HTTP/1 connections match ``Host`` against the
+HTTP host table. After a TLS handshake, ``Host`` still uses the TLS-capable
+table.
 
 It then forwards requests to that site's origin. HTTP/2 origin stays on
 HTTP/2 (no HTTP/1 fallback). There is no visitor authentication; tenant
@@ -22,9 +24,9 @@ This is the counterpart of :ref:`http_expose <configuration_server_http_rproxy>`
 It supports:
 
 * HTTP/1.0 and HTTP/1.1
-* HTTP/2, including RFC 8441 WebSocket (extended ``CONNECT``)
+* HTTP/2 over TLS (ALPN ``h2``) with a matching SNI site, including RFC 8441
+  WebSocket (extended ``CONNECT``)
 * HTTP/1 WebSocket upgrades (``Upgrade: websocket``)
-* optional H2C (plaintext HTTP/2), off by default
 * optional ICAP via :ref:`auditor <conf_server_common_auditor>` (REQMOD / RESPMOD)
 
 It does **not** support standard ``CONNECT`` (without ``:protocol``). HTTP/3
@@ -211,17 +213,11 @@ h2
 
 **optional**, **type**: map
 
-HTTP/2-only settings.
+HTTP/2-only settings. HTTP/2 is TLS-only: the client must send SNI that
+matches a site. Connections without SNI, or whose SNI does not match a
+site, are not served as HTTP/2. Plaintext HTTP/2 (H2C) is not supported.
 
-enable_h2c
-^^^^^^^^^^
-
-**optional**, **type**: bool
-
-Accept plaintext HTTP/2 (H2C) on the listen port. TLS clients still negotiate
-HTTP/2 via ALPN regardless of this key.
-
-**default**: false
+Connection speed limits use the site selected by SNI.
 
 max_header_list_size
 ^^^^^^^^^^^^^^^^^^^^
