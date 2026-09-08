@@ -6,9 +6,10 @@
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
-use http::HeaderName;
+use bytes::Bytes;
+use http::{HeaderMap, HeaderName, HeaderValue};
 
-use crate::net::{HttpHeaderMap, HttpHeaderValue};
+use crate::net::{H1HeaderMap, H1HeaderValue};
 
 #[derive(Clone, Copy, Debug)]
 pub struct HttpStandardForwardedHeaderValue {
@@ -31,13 +32,10 @@ impl HttpForwardedHeaderValue {
         HttpForwardedHeaderValue::Standard(HttpStandardForwardedHeaderValue { for_addr, by_addr })
     }
 
-    pub fn append_to(&self, map: &mut HttpHeaderMap) {
+    fn name_and_value(&self) -> (HeaderName, String) {
         match self {
             HttpForwardedHeaderValue::Classic(ip) => {
-                let name = HeaderName::from_static("x-forwarded-for");
-                map.append(name, unsafe {
-                    HttpHeaderValue::from_string_unchecked(ip.to_string())
-                });
+                (HeaderName::from_static("x-forwarded-for"), ip.to_string())
             }
             HttpForwardedHeaderValue::Standard(HttpStandardForwardedHeaderValue {
                 for_addr,
@@ -57,11 +55,21 @@ impl HttpForwardedHeaderValue {
                         format!("for=\"{f}\"; by=\"{b}\"")
                     }
                 };
-                map.append(http::header::FORWARDED, unsafe {
-                    HttpHeaderValue::from_string_unchecked(s)
-                });
+                (http::header::FORWARDED, s)
             }
         }
+    }
+
+    pub fn append_to_h1(&self, map: &mut H1HeaderMap) {
+        let (name, value) = self.name_and_value();
+        map.append(name, unsafe { H1HeaderValue::from_string_unchecked(value) });
+    }
+
+    pub fn append_to_http(&self, map: &mut HeaderMap) {
+        let (name, value) = self.name_and_value();
+        map.append(name, unsafe {
+            HeaderValue::from_maybe_shared_unchecked(Bytes::from(value))
+        });
     }
 
     pub fn build_header_line(&self) -> String {
@@ -169,7 +177,7 @@ mod tests {
             panic!("Expected Standard variant");
         }
 
-        // append_to for all IP combinations
+        // append_to_h1 for all IP combinations
         let test_cases = vec![
             (
                 SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 8080),
@@ -206,18 +214,18 @@ mod tests {
         ];
 
         for (for_addr, by_addr, expected) in test_cases {
-            let mut map = HttpHeaderMap::default();
+            let mut map = H1HeaderMap::default();
             let standard_value = HttpForwardedHeaderValue::new_standard(for_addr, by_addr);
-            standard_value.append_to(&mut map);
+            standard_value.append_to_h1(&mut map);
 
             assert!(map.contains_key("forwarded"));
             let header_value = map.get("forwarded").unwrap();
             assert_eq!(header_value.to_str(), expected);
         }
 
-        let mut map = HttpHeaderMap::default();
+        let mut map = H1HeaderMap::default();
         let classic_value = HttpForwardedHeaderValue::new_classic(ipv4);
-        classic_value.append_to(&mut map);
+        classic_value.append_to_h1(&mut map);
 
         assert!(map.contains_key("x-forwarded-for"));
         let header_value = map.get("x-forwarded-for").unwrap();

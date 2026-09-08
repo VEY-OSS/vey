@@ -14,13 +14,12 @@ use h2::client::SendRequest;
 use h2::ext::Protocol;
 use h2::server::SendResponse;
 use h2::{RecvStream, SendStream};
-use http::{Extensions, Request, Response};
+use http::{Extensions, HeaderMap, Request, Response};
 use tokio::time::Instant;
 
 use vey_h2::{H2StreamFromChunkedTransfer, RequestExt};
 use vey_http::server::HttpAdaptedRequest;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
-use vey_types::net::HttpHeaderMap;
 
 use super::IcapReqmodClient;
 use crate::{IcapClientConnection, IcapClientReader, IcapServiceClient, IcapServiceOptions};
@@ -92,7 +91,7 @@ pub struct ReqmodAdaptationRunState {
     pub dur_ups_send_header: Option<Duration>,
     pub dur_ups_send_all: Option<Duration>,
     pub dur_ups_recv_header: Option<Duration>,
-    pub(crate) respond_shared_headers: Option<HttpHeaderMap>,
+    pub(crate) respond_shared_headers: Option<HeaderMap>,
 }
 
 impl ReqmodAdaptationRunState {
@@ -106,7 +105,7 @@ impl ReqmodAdaptationRunState {
         }
     }
 
-    pub fn take_respond_shared_headers(&mut self) -> Option<HttpHeaderMap> {
+    pub fn take_respond_shared_headers(&mut self) -> Option<HeaderMap> {
         self.respond_shared_headers.take()
     }
 

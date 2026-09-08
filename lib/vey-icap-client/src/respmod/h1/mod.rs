@@ -10,14 +10,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use arcstr::ArcStr;
-use http::Method;
+use http::{HeaderMap, Method};
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
 use vey_http::HttpBodyType;
 use vey_http::client::HttpAdaptedResponse;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
-use vey_types::net::HttpHeaderMap;
 
 use super::IcapRespmodClient;
 use crate::reqmod::h1::HttpRequestForAdaptation;
@@ -84,7 +83,7 @@ pub struct HttpResponseAdapter<I: IdleCheck> {
     client_addr: Option<SocketAddr>,
     client_username: Option<ArcStr>,
     tenant_username: Option<ArcStr>,
-    respond_shared_headers: Option<HttpHeaderMap>,
+    respond_shared_headers: Option<HeaderMap>,
 }
 
 pub struct RespmodAdaptationRunState {
@@ -154,7 +153,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         self.tenant_username = Some(user);
     }
 
-    pub fn set_respond_shared_headers(&mut self, shared_headers: Option<HttpHeaderMap>) {
+    pub fn set_respond_shared_headers(&mut self, shared_headers: Option<HeaderMap>) {
         self.respond_shared_headers = shared_headers;
     }
 

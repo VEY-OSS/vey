@@ -11,7 +11,7 @@ use bytes::Bytes;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{Reason, RecvStream, StreamId};
-use http::{Method, Request, Response, StatusCode, Uri, Version};
+use http::{HeaderMap, Method, Request, Response, StatusCode, Uri, Version};
 use jiff::Timestamp;
 use tokio::time::Instant;
 
@@ -27,7 +27,6 @@ use vey_icap_client::respmod::h2::{
     H2ResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
 use vey_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtHttpMethod, LtHttpUri, LtUuid};
-use vey_types::net::HttpHeaderMap;
 
 use super::{H2BodyTransfer, H2StreamTransferError};
 use crate::config::server::ServerConfig;
@@ -563,7 +562,7 @@ where
         ups_req: Request<()>,
         ups_rsp: Response<RecvStream>,
         clt_send_rsp: &mut SendResponse<Bytes>,
-        adaptation_respond_shared_headers: Option<HttpHeaderMap>,
+        adaptation_respond_shared_headers: Option<HeaderMap>,
     ) -> Result<(), H2StreamTransferError> {
         let (parts, ups_body) = ups_rsp.into_parts();
         let clt_rsp = Response::from_parts(parts, ());

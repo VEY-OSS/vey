@@ -105,25 +105,11 @@ fn append_forwarded(headers: &mut http::HeaderMap, ctx: &CommonTaskContext) {
     match ctx.server_config.append_forwarded_for {
         HttpForwardedHeaderType::Disable => {}
         HttpForwardedHeaderType::Classic => {
-            let v = HttpForwardedHeaderValue::new_classic(ctx.client_ip());
-            let mut map = vey_types::net::HttpHeaderMap::default();
-            v.append_to(&mut map);
-            merge_headers(headers, map);
+            HttpForwardedHeaderValue::new_classic(ctx.client_ip()).append_to_http(headers);
         }
         HttpForwardedHeaderType::Standard => {
-            let v = HttpForwardedHeaderValue::new_standard(ctx.client_addr(), ctx.server_addr());
-            let mut map = vey_types::net::HttpHeaderMap::default();
-            v.append_to(&mut map);
-            merge_headers(headers, map);
-        }
-    }
-}
-
-fn merge_headers(dst: &mut http::HeaderMap, src: vey_types::net::HttpHeaderMap) {
-    let src: http::HeaderMap = src.into();
-    for (name, value) in src {
-        if let Some(name) = name {
-            dst.append(name, value);
+            HttpForwardedHeaderValue::new_standard(ctx.client_addr(), ctx.server_addr())
+                .append_to_http(headers);
         }
     }
 }

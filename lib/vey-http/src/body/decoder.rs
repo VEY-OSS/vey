@@ -9,7 +9,7 @@ use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
 
-use vey_types::net::HttpHeaderMap;
+use vey_types::net::H1HeaderMap;
 
 use crate::{ChunkedDataDecodeReader, HttpBodyType, TrailerReadError, TrailerReader};
 
@@ -67,7 +67,7 @@ where
     pub async fn trailer(
         &mut self,
         max_size: usize,
-    ) -> Result<Option<HttpHeaderMap>, TrailerReadError> {
+    ) -> Result<Option<H1HeaderMap>, TrailerReadError> {
         if !self.read_data_done {
             return Err(TrailerReadError::ReadError(io::Error::other(
                 "data has not been read out yet",

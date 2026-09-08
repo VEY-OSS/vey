@@ -10,7 +10,7 @@ use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::http_names;
-use vey_types::net::{HttpHeaderMap, HttpHeaderValue, HttpKnownHeaderName, TransferEncodingValue};
+use vey_types::net::{H1HeaderMap, H1HeaderValue, HttpKnownHeaderName, TransferEncodingValue};
 
 use super::{HttpUpgradeError, HttpUpgradeResponseError};
 use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
@@ -19,7 +19,7 @@ use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, Ht
 pub struct HttpUpgradeResponse {
     pub code: u16,
     pub reason: String,
-    pub headers: HttpHeaderMap,
+    pub headers: H1HeaderMap,
     protocol: &'static str,
     content_length: u64,
     transfer_encoding: TransferEncodingValue,
@@ -32,7 +32,7 @@ impl HttpUpgradeResponse {
         HttpUpgradeResponse {
             code,
             reason,
-            headers: HttpHeaderMap::default(),
+            headers: H1HeaderMap::default(),
             protocol,
             content_length: 0,
             transfer_encoding: TransferEncodingValue::default(),
@@ -265,7 +265,7 @@ impl HttpUpgradeResponse {
                         "Capsule-Protocol",
                     ));
                 }
-                let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+                let value = H1HeaderValue::from_str(header.value).map_err(|_| {
                     HttpUpgradeResponseError::InvalidHeaderLine(
                         HttpLineParseError::InvalidHeaderValue,
                     )

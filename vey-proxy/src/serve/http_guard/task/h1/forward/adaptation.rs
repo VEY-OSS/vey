@@ -5,6 +5,7 @@
 
 use anyhow::anyhow;
 use futures_util::FutureExt;
+use http::HeaderMap;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use vey_http::client::HttpForwardRemoteResponse;
@@ -16,7 +17,7 @@ use vey_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
 use vey_io_ext::{LimitedBufReadExt, StreamCopy, StreamCopyError};
-use vey_types::net::{HttpHeaderMap, KeepAliveValue};
+use vey_types::net::KeepAliveValue;
 
 use super::super::protocol::{HttpClientReader, HttpClientWriter};
 use super::HttpGuardForwardTask;
@@ -213,7 +214,7 @@ impl HttpGuardForwardTask<'_> {
         clt_w: &mut W,
         ups_r: &mut R,
         rsp_header: &mut HttpForwardRemoteResponse,
-        adaptation_respond_shared_headers: Option<HttpHeaderMap>,
+        adaptation_respond_shared_headers: Option<HeaderMap>,
     ) -> ServerTaskResult<()>
     where
         R: AsyncBufRead + Send + Unpin,

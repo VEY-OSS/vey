@@ -26,13 +26,14 @@ pub(crate) struct TlsConnectTaskConf<'a> {
 
 impl TlsConnectTaskConf<'_> {
     pub(crate) fn build_ssl(&self) -> Result<Ssl, TcpConnectError> {
-        self.tls_config
-            .build_ssl_with_alpn(
-                self.tls_name,
-                self.tcp.upstream.port(),
-                self.alpn_protocols.unwrap_or(&[]),
-            )
-            .map_err(TcpConnectError::InternalTlsClientError)
+        let port = self.tcp.upstream.port();
+        let ssl = match self.alpn_protocols {
+            Some(alpn) => self
+                .tls_config
+                .build_ssl_with_alpn(self.tls_name, port, alpn),
+            None => self.tls_config.build_ssl(self.tls_name, port),
+        };
+        ssl.map_err(TcpConnectError::InternalTlsClientError)
     }
 
     pub(crate) fn handshake_timeout(&self) -> Duration {

@@ -9,7 +9,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use bytes::Bytes;
 use futures_util::FutureExt;
-use http::header;
+use http::{HeaderMap, header};
 use jiff::Timestamp;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
@@ -27,7 +27,6 @@ use vey_icap_client::respmod::h1::{
 };
 use vey_io_ext::{LimitedBufReadExt, LimitedWriteExt, StreamCopy, StreamCopyError};
 use vey_slog_types::{LtDateTime, LtDuration, LtHttpHeaderValue, LtHttpMethod, LtHttpUri, LtUuid};
-use vey_types::net::HttpHeaderMap;
 
 use super::{HttpRequest, HttpRequestIo, HttpResponseIo};
 use crate::config::server::ServerConfig;
@@ -663,7 +662,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         mut rsp: HttpTransparentResponse,
         rsp_head: Bytes,
         rsp_io: &mut HttpResponseIo<CW, UR, UW>,
-        adaptation_respond_shared_headers: Option<HttpHeaderMap>,
+        adaptation_respond_shared_headers: Option<HeaderMap>,
     ) -> ServerTaskResult<()>
     where
         UR: AsyncRead + Unpin,

@@ -10,12 +10,11 @@ use std::time::Duration;
 
 use bytes::{BufMut, Bytes};
 use h2::{RecvStream, SendStream};
-use http::{Request, Response};
+use http::{HeaderMap, Request, Response};
 use tokio::time::Instant;
 
 use vey_http::client::HttpAdaptedResponse;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
-use vey_types::net::HttpHeaderMap;
 
 use super::IcapRespmodClient;
 use crate::{IcapClientConnection, IcapServiceClient, IcapServiceOptions};
@@ -79,7 +78,7 @@ pub struct H2ResponseAdapter<I: IdleCheck> {
     client_addr: Option<SocketAddr>,
     client_username: Option<String>,
     tenant_username: Option<String>,
-    respond_shared_headers: Option<HttpHeaderMap>,
+    respond_shared_headers: Option<HeaderMap>,
 }
 
 pub struct RespmodAdaptationRunState {
@@ -141,7 +140,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
         self.tenant_username = Some(user.to_owned());
     }
 
-    pub fn set_respond_shared_headers(&mut self, shared_headers: Option<HttpHeaderMap>) {
+    pub fn set_respond_shared_headers(&mut self, shared_headers: Option<HeaderMap>) {
         self.respond_shared_headers = shared_headers;
     }
 

@@ -23,7 +23,7 @@ use vey_types::acl_set::AclDstHostRuleSet;
 use vey_types::auth::{FactsMatchValue, UserAuthError};
 use vey_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
 use vey_types::metrics::{MetricTagMap, NodeName};
-use vey_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
+use vey_types::net::{ProxyRequestType, UpstreamAddr};
 use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
@@ -658,13 +658,13 @@ impl User {
 
     fn check_http_user_agent(
         &self,
-        headers: &HttpHeaderMap,
+        user_agents: impl IntoIterator<Item = impl AsRef<str>>,
         forbid_stats: &Arc<UserForbiddenStats>,
     ) -> Option<AclAction> {
         if let Some(filter) = &self.config.http_user_agent_filter {
             let mut default_action = filter.missed_action();
-            for v in headers.get_all(http::header::USER_AGENT) {
-                if let (true, action) = filter.check(v.to_str()) {
+            for v in user_agents {
+                if let (true, action) = filter.check(v.as_ref()) {
                     if action.forbid_early() {
                         forbid_stats.add_ua_blocked();
                         return Some(action);
@@ -950,8 +950,12 @@ impl UserContext {
     }
 
     #[inline]
-    pub(crate) fn check_http_user_agent(&self, headers: &HttpHeaderMap) -> Option<AclAction> {
-        self.user.check_http_user_agent(headers, &self.forbid_stats)
+    pub(crate) fn check_http_user_agent(
+        &self,
+        user_agents: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Option<AclAction> {
+        self.user
+            .check_http_user_agent(user_agents, &self.forbid_stats)
     }
 
     #[inline]

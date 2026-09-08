@@ -9,7 +9,7 @@ use bytes::Bytes;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{Reason, RecvStream};
-use http::{Request, Response, StatusCode, Version, header};
+use http::{HeaderMap, Request, Response, StatusCode, Version, header};
 use tokio::time::Instant;
 
 use vey_h2::{H2BodyTransfer, H2ResponseHeaderReceiver, RequestExt};
@@ -19,7 +19,6 @@ use vey_icap_client::reqmod::h2::{
 };
 use vey_icap_client::respmod::h2::{RespmodAdaptationEndState, RespmodAdaptationRunState};
 use vey_types::acl::AclAction;
-use vey_types::net::HttpHeaderMap;
 
 use super::CommonTaskContext;
 use super::error::{H2StreamTransferError, h2_local_error_response};
@@ -216,24 +215,23 @@ impl H2ForwardTask {
                     return Err(H2StreamTransferError::InternalServerError("dest denied"));
                 }
             }
-            if let Some(ua) = clt_req.headers().get(header::USER_AGENT) {
-                let mut map = HttpHeaderMap::default();
-                map.append(header::USER_AGENT, unsafe {
-                    vey_types::net::HttpHeaderValue::from_buf_unchecked(ua.as_bytes().to_vec())
-                });
-                if let Some(action) = tenant.check_http_user_agent(&map)
-                    && matches!(action, AclAction::Forbid | AclAction::ForbidAndLog)
-                {
-                    if let Some(rsp) = h2_local_error_response(
-                        &self.ctx.server_config,
-                        StatusCode::FORBIDDEN,
-                        ProxyErrorType::HttpRequestDenied,
-                    ) {
-                        let _ = clt_send_rsp.send_response(rsp, true);
-                        self.http_notes.rsp_status = StatusCode::FORBIDDEN.as_u16();
-                    }
-                    return Err(H2StreamTransferError::InternalServerError("ua denied"));
+            if let Some(action) = tenant.check_http_user_agent(
+                clt_req
+                    .headers()
+                    .get_all(header::USER_AGENT)
+                    .iter()
+                    .filter_map(|v| v.to_str().ok()),
+            ) && matches!(action, AclAction::Forbid | AclAction::ForbidAndLog)
+            {
+                if let Some(rsp) = h2_local_error_response(
+                    &self.ctx.server_config,
+                    StatusCode::FORBIDDEN,
+                    ProxyErrorType::HttpRequestDenied,
+                ) {
+                    let _ = clt_send_rsp.send_response(rsp, true);
+                    self.http_notes.rsp_status = StatusCode::FORBIDDEN.as_u16();
                 }
+                return Err(H2StreamTransferError::InternalServerError("ua denied"));
             }
         }
 
@@ -504,7 +502,7 @@ impl H2ForwardTask {
         ups_req: Request<()>,
         ups_rsp: Response<RecvStream>,
         clt_send_rsp: &mut SendResponse<Bytes>,
-        adaptation_respond_shared_headers: Option<HttpHeaderMap>,
+        adaptation_respond_shared_headers: Option<HeaderMap>,
     ) -> Result<(), H2StreamTransferError> {
         let (parts, ups_body) = ups_rsp.into_parts();
         let clt_rsp = Response::from_parts(parts, ());

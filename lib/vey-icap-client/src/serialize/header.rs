@@ -9,9 +9,9 @@ use std::net::SocketAddr;
 
 use base64::prelude::*;
 use bytes::BufMut;
+use http::HeaderMap;
 
 use vey_types::auth::Username;
-use vey_types::net::HttpHeaderMap;
 
 pub(crate) fn add_client_addr(buf: &mut Vec<u8>, addr: SocketAddr) {
     let _ = write!(buf, "X-Client-IP: {}\r\n", addr.ip());
@@ -37,21 +37,20 @@ pub(crate) fn add_tenant_username(buf: &mut Vec<u8>, user: &str) {
     buf.put_slice(b"\r\n");
 }
 
-pub(crate) fn add_shared(buf: &mut Vec<u8>, headers: &HttpHeaderMap) {
-    headers.for_each(|name, value| {
+pub(crate) fn add_shared(buf: &mut Vec<u8>, headers: &HeaderMap) {
+    for (name, value) in headers {
         buf.put_slice(name.as_str().as_bytes());
         buf.put_slice(b": ");
         buf.put_slice(value.as_bytes());
         buf.put_slice(b"\r\n");
-    });
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use http::header::HeaderName;
+    use http::HeaderValue;
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-    use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
 
     #[test]
     fn add_client_addr_serializes_ip_and_port() {
@@ -103,10 +102,10 @@ mod tests {
 
     #[test]
     fn add_shared_copies_custom_headers() {
-        let mut headers = HttpHeaderMap::default();
+        let mut headers = HeaderMap::new();
         headers.append(
-            HeaderName::from_static("x-custom"),
-            HttpHeaderValue::from_static("alpha"),
+            http::HeaderName::from_static("x-custom"),
+            HeaderValue::from_static("alpha"),
         );
         let mut buf = Vec::new();
         add_shared(&mut buf, &headers);

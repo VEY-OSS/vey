@@ -476,7 +476,13 @@ impl<'a> HttpExposeForwardTask<'a> {
             let action = user_ctx.check_upstream(self.site.upstream());
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
-            if let Some(action) = user_ctx.check_http_user_agent(&self.req.end_to_end_headers) {
+            if let Some(action) = user_ctx.check_http_user_agent(
+                self.req
+                    .end_to_end_headers
+                    .get_all(header::USER_AGENT)
+                    .iter()
+                    .map(|v| v.to_str()),
+            ) {
                 self.handle_user_ua_acl_action(action, clt_w).await?;
             }
 

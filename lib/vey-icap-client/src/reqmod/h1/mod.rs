@@ -10,14 +10,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use arcstr::ArcStr;
-use http::Method;
+use http::{HeaderMap, Method};
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
 use vey_http::server::HttpAdaptedRequest;
 use vey_http::{HttpBodyReader, HttpBodyType};
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
-use vey_types::net::HttpHeaderMap;
 
 use super::IcapReqmodClient;
 use crate::{IcapClientConnection, IcapServiceClient, IcapServiceOptions};
@@ -98,7 +97,7 @@ pub struct ReqmodAdaptationRunState {
     pub dur_ups_send_all: Option<Duration>,
     pub clt_read_finished: bool,
     pub ups_write_finished: bool,
-    pub(crate) respond_shared_headers: Option<HttpHeaderMap>,
+    pub(crate) respond_shared_headers: Option<HeaderMap>,
 }
 
 impl ReqmodAdaptationRunState {
@@ -113,7 +112,7 @@ impl ReqmodAdaptationRunState {
         }
     }
 
-    pub fn take_respond_shared_headers(&mut self) -> Option<HttpHeaderMap> {
+    pub fn take_respond_shared_headers(&mut self) -> Option<HeaderMap> {
         self.respond_shared_headers.take()
     }
 

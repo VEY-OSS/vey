@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use futures_util::FutureExt;
-use http::header;
+use http::{HeaderMap, header};
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use vey_http::client::HttpForwardRemoteResponse;
@@ -28,9 +28,7 @@ use vey_io_ext::{
     StreamCopyError,
 };
 use vey_types::acl::AclAction;
-use vey_types::net::{
-    HttpForwardCapability, HttpHeaderMap, KeepAliveValue, ProxyRequestType, UpstreamAddr,
-};
+use vey_types::net::{HttpForwardCapability, KeepAliveValue, ProxyRequestType, UpstreamAddr};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{
@@ -591,7 +589,13 @@ impl<'a> HttpProxyForwardTask<'a> {
             self.handle_server_upstream_acl_action(action, clt_w)
                 .await?;
 
-            if let Some(action) = user_ctx.check_http_user_agent(&self.req.end_to_end_headers) {
+            if let Some(action) = user_ctx.check_http_user_agent(
+                self.req
+                    .end_to_end_headers
+                    .get_all(header::USER_AGENT)
+                    .iter()
+                    .map(|v| v.to_str()),
+            ) {
                 self.handle_user_ua_acl_action(action, clt_w).await?;
             }
 
@@ -1547,7 +1551,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         ups_r: &mut R,
         rsp_header: &mut HttpForwardRemoteResponse,
         audit_task: bool,
-        adaptation_respond_shared_headers: Option<HttpHeaderMap>,
+        adaptation_respond_shared_headers: Option<HeaderMap>,
     ) -> ServerTaskResult<()>
     where
         R: AsyncBufRead + Send + Unpin,

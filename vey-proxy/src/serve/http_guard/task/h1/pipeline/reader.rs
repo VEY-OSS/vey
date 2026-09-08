@@ -75,14 +75,14 @@ where
             HttpForwardedHeaderType::Disable => {}
             HttpForwardedHeaderType::Classic => {
                 let v = HttpForwardedHeaderValue::new_classic(self.ctx.client_ip());
-                v.append_to(&mut req.inner.end_to_end_headers);
+                v.append_to_h1(&mut req.inner.end_to_end_headers);
             }
             HttpForwardedHeaderType::Standard => {
                 let v = HttpForwardedHeaderValue::new_standard(
                     self.ctx.client_addr(),
                     self.ctx.server_addr(),
                 );
-                v.append_to(&mut req.inner.end_to_end_headers);
+                v.append_to_h1(&mut req.inner.end_to_end_headers);
             }
         }
     }
