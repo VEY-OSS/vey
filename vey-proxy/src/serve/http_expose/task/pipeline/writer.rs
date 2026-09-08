@@ -206,14 +206,34 @@ where
 
                             match hosts.get(req.upstream.host()).cloned() {
                                 Some(host) => {
-                                    let site_ctx = SiteContext::new(
-                                        Arc::clone(host.site()),
-                                        Arc::clone(host.egress()),
-                                        self.ctx.server_config.name(),
-                                        self.ctx.server_stats.share_extra_tags(),
-                                    );
-                                    self.note_site_conn(host.site());
-                                    self.run(req, site_ctx, user_ctx, host).await
+                                    if let Some(pinned) = &self.ctx.pinned_site
+                                        && !host.same_site(pinned)
+                                    {
+                                        self.req_count.invalid += 1;
+
+                                        if !self.ctx.server_config.no_early_error_reply
+                                            && let Some(stream_w) = &mut self.stream_writer
+                                        {
+                                            let mut rsp =
+                                                HttpProxyClientResponse::misdirected_request(
+                                                    req.inner.version,
+                                                );
+                                            self.ctx.apply_proxy_status_ident(&mut rsp);
+                                            let _ = rsp.reply_err_to_request(stream_w).await;
+                                        }
+
+                                        self.notify_reader_to_close();
+                                        LoopAction::Break
+                                    } else {
+                                        let site_ctx = SiteContext::new(
+                                            Arc::clone(host.site()),
+                                            Arc::clone(host.egress()),
+                                            self.ctx.server_config.name(),
+                                            self.ctx.server_stats.share_extra_tags(),
+                                        );
+                                        self.note_site_conn(host.site());
+                                        self.run(req, site_ctx, user_ctx, host).await
+                                    }
                                 }
                                 None => {
                                     // close the connection if no site found

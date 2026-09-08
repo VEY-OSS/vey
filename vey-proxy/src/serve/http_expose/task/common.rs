@@ -18,6 +18,7 @@ use super::{HttpExposeServerConfig, HttpExposeServerStats};
 use crate::escape::ArcEscaper;
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::ServerQuitPolicy;
+use crate::site::Site;
 
 #[derive(Clone)]
 pub(crate) struct CommonTaskContext {
@@ -28,6 +29,7 @@ pub(crate) struct CommonTaskContext {
     pub(crate) escaper: ArcEscaper,
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) task_logger: Option<Logger>,
+    pub(crate) pinned_site: Option<Arc<Site>>,
 }
 
 impl CommonTaskContext {

@@ -55,4 +55,8 @@ impl HttpHost {
     pub(crate) fn tls_server(&self) -> Option<&OpensslServerConfig> {
         self.tls_server.as_ref()
     }
+
+    pub(crate) fn same_site(&self, site: &Site) -> bool {
+        self.site.id() == site.id()
+    }
 }

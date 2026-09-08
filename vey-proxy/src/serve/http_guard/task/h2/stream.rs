@@ -51,6 +51,17 @@ pub(super) async fn transfer(
         return;
     };
 
+    if let Some(pinned) = &ctx.pinned_site
+        && !matched.same_site(pinned)
+    {
+        reply_err(
+            &ctx,
+            &mut clt_send_rsp,
+            &H2StreamTransferError::MisdirectedRequest,
+        );
+        return;
+    }
+
     {
         let mut guard = site_conn.lock().unwrap();
         if guard.is_none() {
