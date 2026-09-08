@@ -29,6 +29,12 @@ class TestHttpBin(unittest.TestCase):
         r = self.session.get(f"{target_site}/get")
         self.assertEqual(r.status_code, 200)
 
+    def test_sequential_get(self):
+        r = self.session.get(f"{target_site}/get")
+        self.assertEqual(r.status_code, 200)
+        r = self.session.get(f"{target_site}/headers")
+        self.assertEqual(r.status_code, 200)
+
     def test_basic_auth_get(self):
         r = self.session.get(f"{target_site}/basic-auth/name/pass")
         self.assertEqual(r.status_code, 401)
