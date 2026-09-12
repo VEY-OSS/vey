@@ -21,6 +21,9 @@ env:
   VCPKG_ROOT: C:\vcpkg
   WIN_FEATURES: rustls-ring,quic,c-ares
   AWS_LC_SYS_PREBUILT_NASM: 1
+  # Vendored OpenSSL/Tongsuo .obj files reference ossl_static.pdb, which rustc
+  # does not copy into target/*/deps. LNK4099 is noise (C debug info only).
+  CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C link-arg=/IGNORE:4099
 
 jobs:
   build-vendored-g1:

@@ -18,7 +18,9 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
+  # crt-static for MSVC static linking; IGNORE:4099 silences missing ossl_static.pdb
+  # from vendored OpenSSL/Tongsuo (C debug info only; rustc does not copy the PDB).
+  CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static -C link-arg=/IGNORE:4099
   VCPKG_ROOT: C:\vcpkg
   VCPKGRS_TRIPLET: x64-windows-static
   AWS_LC_SYS_PREBUILT_NASM: 1
