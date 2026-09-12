@@ -3111,6 +3111,7 @@ dependencies = [
  "http",
  "thiserror",
  "tokio",
+ "tokio-test",
  "vey-http",
  "vey-io-ext",
 ]

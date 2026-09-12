@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use http::{Method, Uri};
@@ -20,6 +21,10 @@ pub(crate) struct HttpForwardTaskNotes {
     pub(crate) dur_rsp_recv_hdr: Duration,
     pub(crate) dur_rsp_recv_all: Duration,
     pub(crate) retry_new_connection: bool,
+    pub(crate) clt_req_body_size: Option<u64>,
+    pub(crate) ups_req_body_size: Option<u64>,
+    pub(crate) ups_rsp_body_size: Option<u64>,
+    pub(crate) clt_rsp_body_size: Option<u64>,
 }
 
 impl HttpForwardTaskNotes {
@@ -44,6 +49,10 @@ impl HttpForwardTaskNotes {
             dur_rsp_recv_hdr: Duration::default(),
             dur_rsp_recv_all: Duration::default(),
             retry_new_connection: false,
+            clt_req_body_size: None,
+            ups_req_body_size: None,
+            ups_rsp_body_size: None,
+            clt_rsp_body_size: None,
         }
     }
 
@@ -53,6 +62,8 @@ impl HttpForwardTaskNotes {
 
     pub(crate) fn mark_req_no_body(&mut self) {
         self.dur_req_send_all = self.dur_req_send_hdr;
+        self.clt_req_body_size = Some(0);
+        self.ups_req_body_size = Some(0);
     }
 
     pub(crate) fn mark_req_send_all(&mut self) {
@@ -65,9 +76,31 @@ impl HttpForwardTaskNotes {
 
     pub(crate) fn mark_rsp_no_body(&mut self) {
         self.dur_rsp_recv_all = self.dur_rsp_recv_hdr;
+        self.ups_rsp_body_size = Some(0);
+        self.clt_rsp_body_size = Some(0);
     }
 
     pub(crate) fn mark_rsp_recv_all(&mut self) {
         self.dur_rsp_recv_all = self.create_ins.elapsed();
+    }
+
+    pub(crate) fn record_h1_req_body_progress(&mut self, read: u64, written: u64) {
+        self.clt_req_body_size = Some(read);
+        self.ups_req_body_size = Some(written);
+    }
+
+    pub(crate) fn record_h1_rsp_body_progress(&mut self, read: u64, written: u64) {
+        self.ups_rsp_body_size = Some(read);
+        self.clt_rsp_body_size = Some(written);
+    }
+
+    pub(crate) fn record_h2_req_body_progress(&mut self, received: u64, sent: u64) {
+        self.clt_req_body_size = Some(received);
+        self.ups_req_body_size = Some(sent);
+    }
+
+    pub(crate) fn record_h2_rsp_body_progress(&mut self, received: u64, sent: u64) {
+        self.ups_rsp_body_size = Some(received);
+        self.clt_rsp_body_size = Some(sent);
     }
 }

@@ -95,6 +95,8 @@ pub struct RespmodAdaptationRunState {
     pub ups_read_finished: bool,
     pub clt_write_started: bool,
     pub clt_write_finished: bool,
+    pub ups_rsp_body_size: Option<u64>,
+    pub clt_rsp_body_size: Option<u64>,
 }
 
 impl RespmodAdaptationRunState {
@@ -108,12 +110,15 @@ impl RespmodAdaptationRunState {
             ups_read_finished: false,
             clt_write_started: false,
             clt_write_finished: false,
+            ups_rsp_body_size: None,
+            clt_rsp_body_size: None,
         }
     }
 
     pub(crate) fn mark_ups_recv_no_body(&mut self) {
         self.dur_ups_recv_all = Some(self.dur_ups_recv_header);
         self.ups_read_finished = true;
+        self.ups_rsp_body_size = Some(0);
     }
 
     pub(crate) fn mark_ups_recv_all(&mut self) {
@@ -132,6 +137,7 @@ impl RespmodAdaptationRunState {
     pub(crate) fn mark_clt_send_no_body(&mut self) {
         self.dur_clt_send_all = self.dur_clt_send_header;
         self.clt_write_finished = true;
+        self.clt_rsp_body_size = Some(0);
     }
 
     pub(crate) fn mark_clt_send_all(&mut self) {

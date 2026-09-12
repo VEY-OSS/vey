@@ -19,6 +19,7 @@ pub struct H1BodyToChunkedTransfer<'a, R, W> {
     copy_config: StreamCopyConfig,
     state: ChunkedTransferState<'a, R, W>,
     total_write: u64,
+    body_size: u64,
     active: bool,
 }
 
@@ -78,6 +79,7 @@ where
             copy_config,
             state: ChunkedTransferState::Encode(encoder),
             total_write: 0,
+            body_size: 0,
             active: false,
         }
     }
@@ -106,6 +108,7 @@ where
             copy_config,
             state,
             total_write: 0,
+            body_size: 0,
             active: false,
         }
     }
@@ -123,6 +126,7 @@ where
             copy_config,
             state: ChunkedTransferState::Copy(copy),
             total_write: 0,
+            body_size: 0,
             active: false,
         }
     }
@@ -153,6 +157,7 @@ where
             copy_config,
             state,
             total_write: 0,
+            body_size: 0,
             active: false,
         }
     }
@@ -162,6 +167,17 @@ where
             self.state,
             ChunkedTransferState::FlushEnd(_) | ChunkedTransferState::End
         )
+    }
+
+    pub fn reader_finished(&self) -> bool {
+        match &self.state {
+            ChunkedTransferState::SendHead(send_head) => send_head.body_reader.finished(),
+            ChunkedTransferState::Copy(copy) => copy.reader().finished(),
+            ChunkedTransferState::Encode(encode) => encode.read_finished(),
+            ChunkedTransferState::SendNoTrailerEnd(_)
+            | ChunkedTransferState::FlushEnd(_)
+            | ChunkedTransferState::End => true,
+        }
     }
 
     pub fn is_idle(&self) -> bool {
@@ -184,6 +200,49 @@ where
             _ => {}
         }
         self.active = false;
+    }
+
+    pub fn add_copied(&mut self, n: u64) {
+        self.body_size += n;
+    }
+
+    pub fn body_size(&self) -> u64 {
+        self.body_size
+            + match &self.state {
+                ChunkedTransferState::SendHead(send_head) => send_head.body_reader.body_size(),
+                ChunkedTransferState::Copy(copy) => copy.reader().body_size(),
+                ChunkedTransferState::Encode(encode) => encode.body_size(),
+                ChunkedTransferState::SendNoTrailerEnd(_)
+                | ChunkedTransferState::FlushEnd(_)
+                | ChunkedTransferState::End => 0,
+            }
+    }
+
+    /// Decoded payload written so far.
+    ///
+    /// An already-chunked body is copied as on-wire bytes, so the decoded
+    /// payload is not counted as it is written. For that body type a lower
+    /// bound is returned instead: the payload read so far, less everything
+    /// still buffered between reader and writer, as all of it could be payload.
+    pub fn written_body_size(&self) -> u64 {
+        match &self.state {
+            ChunkedTransferState::SendHead(_) => self.body_size,
+            ChunkedTransferState::Copy(copy) => {
+                if matches!(self.body_type, HttpBodyType::Chunked) {
+                    self.body_size
+                        + copy
+                            .reader()
+                            .body_size()
+                            .saturating_sub(copy.cached_data_size())
+                } else {
+                    self.body_size + copy.copied_size()
+                }
+            }
+            ChunkedTransferState::Encode(encode) => self.body_size + encode.body_size(),
+            ChunkedTransferState::SendNoTrailerEnd(_)
+            | ChunkedTransferState::FlushEnd(_)
+            | ChunkedTransferState::End => self.body_size,
+        }
     }
 }
 
@@ -231,18 +290,18 @@ where
                     }
                     Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                 };
+                let old_state = std::mem::replace(&mut self.state, ChunkedTransferState::End);
+                let ChunkedTransferState::Copy(copy) = old_state else {
+                    unreachable!()
+                };
+                self.body_size += copy.reader().body_size();
                 if matches!(self.body_type, HttpBodyType::ContentLength(_)) {
-                    let old_state = std::mem::replace(&mut self.state, ChunkedTransferState::End);
-                    let ChunkedTransferState::Copy(copy) = old_state else {
-                        unreachable!()
-                    };
                     self.state = ChunkedTransferState::SendNoTrailerEnd(SendEnd {
                         offset: 0,
                         writer: copy.writer(),
                     });
                     self.poll(cx)
                 } else {
-                    self.state = ChunkedTransferState::End;
                     Poll::Ready(Ok(()))
                 }
             }
@@ -266,16 +325,18 @@ where
                 match encode.as_mut().poll(cx) {
                     Poll::Pending => {
                         self.active |= encode.is_active();
-                        Poll::Pending
+                        return Poll::Pending;
                     }
                     Poll::Ready(Ok(n)) => {
+                        let body_size = encode.body_size();
                         self.total_write += n;
                         self.active = true;
-                        self.state = ChunkedTransferState::End;
-                        Poll::Ready(Ok(()))
+                        self.body_size += body_size;
                     }
-                    Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
+                    Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                 }
+                self.state = ChunkedTransferState::End;
+                Poll::Ready(Ok(()))
             }
             ChunkedTransferState::FlushEnd(writer) => {
                 ready!(Pin::new(writer).poll_flush(cx)).map_err(StreamCopyError::WriteFailed)?;
@@ -290,6 +351,94 @@ where
 mod test {
     use super::*;
     use tokio::io::BufReader;
+
+    /// Never accepts a write, so read data stays in the copy buffer.
+    struct PendingWriter;
+
+    impl tokio::io::AsyncWrite for PendingWriter {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &[u8],
+        ) -> Poll<std::io::Result<usize>> {
+            Poll::Pending
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Pending
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Pending
+        }
+    }
+
+    /// Yields `data` once, then stays pending, so a transfer can be inspected
+    /// while it is still in flight.
+    struct ReadThenPending(Option<&'static [u8]>);
+
+    impl tokio::io::AsyncRead for ReadThenPending {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &mut tokio::io::ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            match self.0.take() {
+                Some(data) => {
+                    buf.put_slice(data);
+                    Poll::Ready(Ok(()))
+                }
+                None => Poll::Pending,
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn chunked_written_size_excludes_buffered_data() {
+        let mut buf_stream = BufReader::new(ReadThenPending(Some(b"5\r\ntest\n\r\n")));
+        let mut writer = PendingWriter;
+
+        let mut body_transfer = H1BodyToChunkedTransfer::new(
+            &mut buf_stream,
+            &mut writer,
+            HttpBodyType::Chunked,
+            1024,
+            Default::default(),
+        );
+
+        {
+            let mut task = tokio_test::task::spawn(&mut body_transfer);
+            assert!(task.poll().is_pending());
+        }
+
+        assert!(!body_transfer.finished());
+        assert_eq!(body_transfer.body_size(), 5);
+        // the on-wire copy does not count decoded payload as it is written, and
+        // nothing has left the buffer, so no payload can be claimed as written
+        assert_eq!(body_transfer.written_body_size(), 0);
+    }
+
+    #[tokio::test]
+    async fn fixed_length_written_size_tracks_progress() {
+        let mut buf_stream = BufReader::new(ReadThenPending(Some(b"test")));
+        let mut write_buf = Vec::new();
+
+        let mut body_transfer = H1BodyToChunkedTransfer::new(
+            &mut buf_stream,
+            &mut write_buf,
+            HttpBodyType::ContentLength(9),
+            1024,
+            Default::default(),
+        );
+
+        {
+            let mut task = tokio_test::task::spawn(&mut body_transfer);
+            assert!(task.poll().is_pending());
+        }
+
+        assert!(!body_transfer.finished());
+        assert_eq!(body_transfer.written_body_size(), 4);
+    }
 
     #[tokio::test]
     async fn single_to_end() {
@@ -310,6 +459,7 @@ mod test {
 
         (&mut body_transfer).await.unwrap();
         assert!(body_transfer.finished());
+        assert_eq!(body_transfer.body_size(), content.len() as u64);
 
         assert_eq!(&write_buf, exp_body);
     }
@@ -337,6 +487,10 @@ mod test {
 
         (&mut body_transfer).await.unwrap();
         assert!(body_transfer.finished());
+        assert_eq!(
+            body_transfer.body_size(),
+            (content1.len() + content2.len()) as u64
+        );
 
         assert_eq!(&write_buf, exp_body);
     }
@@ -360,6 +514,8 @@ mod test {
 
         (&mut body_transfer).await.unwrap();
         assert!(body_transfer.finished());
+        assert_eq!(body_transfer.body_size(), 9);
+        assert_eq!(body_transfer.written_body_size(), 9);
 
         assert_eq!(&write_buf, exp_body);
     }
@@ -387,6 +543,8 @@ mod test {
 
         (&mut body_transfer).await.unwrap();
         assert!(body_transfer.finished());
+        assert_eq!(body_transfer.body_size(), 16);
+        assert_eq!(body_transfer.written_body_size(), 16);
 
         assert_eq!(&write_buf, exp_body);
     }
@@ -410,6 +568,8 @@ mod test {
 
         (&mut body_transfer).await.unwrap();
         assert!(body_transfer.finished());
+        assert_eq!(body_transfer.body_size(), 9);
+        assert_eq!(body_transfer.written_body_size(), 9);
 
         assert_eq!(write_buf.len(), body_len);
         assert_eq!(&write_buf, &content[0..body_len]);
@@ -439,6 +599,8 @@ mod test {
 
         (&mut body_transfer).await.unwrap();
         assert!(body_transfer.finished());
+        assert_eq!(body_transfer.body_size(), 9);
+        assert_eq!(body_transfer.written_body_size(), 9);
 
         assert_eq!(&write_buf, exp_body);
     }
@@ -462,8 +624,30 @@ mod test {
 
         (&mut body_transfer).await.unwrap();
         assert!(body_transfer.finished());
+        assert_eq!(body_transfer.body_size(), 9);
+        assert_eq!(body_transfer.written_body_size(), 9);
 
         assert_eq!(write_buf.len(), body_len);
         assert_eq!(&write_buf, &content[0..body_len]);
+    }
+
+    #[tokio::test]
+    async fn empty_content_length() {
+        let stream = tokio_test::io::Builder::new().build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut write_buf = Vec::new();
+
+        let mut body_transfer = H1BodyToChunkedTransfer::new(
+            &mut buf_stream,
+            &mut write_buf,
+            HttpBodyType::ContentLength(0),
+            1024,
+            Default::default(),
+        );
+
+        (&mut body_transfer).await.unwrap();
+        assert!(body_transfer.finished());
+        assert_eq!(body_transfer.body_size(), 0);
+        assert_eq!(&write_buf, b"0\r\n\r\n");
     }
 }

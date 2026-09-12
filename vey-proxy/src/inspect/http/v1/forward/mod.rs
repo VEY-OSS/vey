@@ -56,6 +56,10 @@ macro_rules! intercept_log {
                 "dur_req_send_all" => LtDuration($obj.http_notes.dur_req_send_all),
                 "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
                 "dur_rsp_recv_all" => LtDuration($obj.http_notes.dur_rsp_recv_all),
+                "clt_req_body_size" => $obj.http_notes.clt_req_body_size,
+                "ups_req_body_size" => $obj.http_notes.ups_req_body_size,
+                "ups_rsp_body_size" => $obj.http_notes.ups_rsp_body_size,
+                "clt_rsp_body_size" => $obj.http_notes.clt_rsp_body_size,
             );
         }
     };
@@ -71,6 +75,10 @@ struct HttpForwardTaskNotes {
     dur_req_send_all: Duration,
     dur_rsp_recv_hdr: Duration,
     dur_rsp_recv_all: Duration,
+    clt_req_body_size: Option<u64>,
+    ups_req_body_size: Option<u64>,
+    ups_rsp_body_size: Option<u64>,
+    clt_rsp_body_size: Option<u64>,
 }
 
 impl HttpForwardTaskNotes {
@@ -86,6 +94,10 @@ impl HttpForwardTaskNotes {
             dur_req_send_all: Duration::default(),
             dur_rsp_recv_hdr: Duration::default(),
             dur_rsp_recv_all: Duration::default(),
+            clt_req_body_size: None,
+            ups_req_body_size: None,
+            ups_rsp_body_size: None,
+            clt_rsp_body_size: None,
         }
     }
 
@@ -95,6 +107,8 @@ impl HttpForwardTaskNotes {
 
     pub(crate) fn mark_req_no_body(&mut self) {
         self.dur_req_send_all = self.dur_req_send_hdr;
+        self.clt_req_body_size = Some(0);
+        self.ups_req_body_size = Some(0);
     }
 
     pub(crate) fn mark_req_send_all(&mut self) {
@@ -107,10 +121,22 @@ impl HttpForwardTaskNotes {
 
     pub(crate) fn mark_rsp_no_body(&mut self) {
         self.dur_rsp_recv_all = self.dur_rsp_recv_hdr;
+        self.ups_rsp_body_size = Some(0);
+        self.clt_rsp_body_size = Some(0);
     }
 
     pub(crate) fn mark_rsp_recv_all(&mut self) {
         self.dur_rsp_recv_all = self.receive_ins.elapsed();
+    }
+
+    fn record_h1_req_body_progress(&mut self, read: u64, written: u64) {
+        self.clt_req_body_size = Some(read);
+        self.ups_req_body_size = Some(written);
+    }
+
+    fn record_h1_rsp_body_progress(&mut self, read: u64, written: u64) {
+        self.ups_rsp_body_size = Some(read);
+        self.clt_rsp_body_size = Some(written);
     }
 }
 
@@ -243,6 +269,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         if let Some(dur) = adaptation_state.dur_ups_send_all {
             self.http_notes.dur_req_send_all = dur;
         }
+        self.http_notes.clt_req_body_size = adaptation_state.clt_req_body_size;
+        self.http_notes.ups_req_body_size = adaptation_state.ups_req_body_size;
         if !adaptation_state.clt_read_finished || !adaptation_state.ups_write_finished {
             self.should_close = true;
         }
@@ -409,19 +437,21 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
         if let Some(mut recv_body) = rsp_recv_body {
             let mut body_reader = recv_body.body_reader();
-            let copy_to_clt = StreamCopy::new(
+            let mut copy_to_clt = StreamCopy::new(
                 &mut body_reader,
                 clt_w,
                 &self.ctx.server_config.limited_copy_config(),
             );
-            copy_to_clt.await.map_err(|e| match e {
+            (&mut copy_to_clt).await.map_err(|e| match e {
                 StreamCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(anyhow!(
                     "read http error response from adapter failed: {e:?}"
                 )),
                 StreamCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             })?;
+            self.http_notes.clt_rsp_body_size = Some(copy_to_clt.reader().body_size());
             recv_body.save_connection().await;
         } else {
+            self.http_notes.clt_rsp_body_size = Some(0);
             clt_w
                 .flush()
                 .await
@@ -501,6 +531,21 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut idle_count = 0;
 
+        macro_rules! record_progress {
+            () => {{
+                let read = clt_to_ups.reader().body_size();
+                // a chunked body is copied as on-wire bytes, so the size sent
+                // upstream is a lower bound: the payload read, less everything
+                // still buffered, as all of it could be payload
+                let written = if clt_to_ups.reader().is_chunked() {
+                    read.saturating_sub(clt_to_ups.cached_data_size())
+                } else {
+                    clt_to_ups.copied_size()
+                };
+                self.http_notes.record_h1_req_body_progress(read, written)
+            }};
+        }
+
         loop {
             tokio::select! {
                 biased;
@@ -515,22 +560,39 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                                 break;
                             }
                         }
-                        Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
-                        Err(e) => return Err(ServerTaskError::UpstreamReadFailed(e)),
+                        Ok(false) => {
+                            record_progress!();
+                            return Err(ServerTaskError::ClosedByUpstream);
+                        }
+                        Err(e) => {
+                            record_progress!();
+                            return Err(ServerTaskError::UpstreamReadFailed(e));
+                        },
                     }
                 }
                 r = &mut clt_to_ups => {
-                    r.map_err(|e| match e {
-                        StreamCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
-                        StreamCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
-                    })?;
-                    self.http_notes.mark_req_send_all();
-                    break;
+                    match r {
+                        Ok(_) => {
+                            self.http_notes.mark_req_send_all();
+                            let n = clt_to_ups.reader().body_size();
+                            self.http_notes.clt_req_body_size = Some(n);
+                            self.http_notes.ups_req_body_size = Some(n);
+                            break;
+                        }
+                        Err(e) => {
+                            record_progress!();
+                            return Err(match e {
+                                StreamCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
+                                StreamCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
+                            });
+                        }
+                    }
                 }
                 n = idle_interval.tick() => {
                     if clt_to_ups.is_idle() {
                         idle_count += n;
                         if idle_count >= self.ctx.max_idle_count() {
+                            record_progress!();
                             return if clt_to_ups.no_cached_data() {
                                 Err(ServerTaskError::ClientAppTimeout("idle while reading request body"))
                             } else {
@@ -543,10 +605,12 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     }
 
                     if self.ctx.belongs_to_blocked_user() {
+                        record_progress!();
                         return Err(ServerTaskError::CanceledAsUserBlocked);
                     }
 
                     if self.ctx.server_force_quit() {
+                        record_progress!();
                         return Err(ServerTaskError::CanceledAsServerQuit)
                     }
                 }
@@ -710,6 +774,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     if let Some(dur) = adaptation_state.dur_ups_recv_all {
                         self.http_notes.dur_rsp_recv_all = dur;
                     }
+                    self.http_notes.ups_rsp_body_size = adaptation_state.ups_rsp_body_size;
+                    self.http_notes.clt_rsp_body_size = adaptation_state.clt_rsp_body_size;
                     self.send_error_response = !adaptation_state.clt_write_started;
                     return r;
                 }
@@ -815,6 +881,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         UR: AsyncBufRead + Unpin,
         CW: AsyncWrite + Unpin,
     {
+        let header_len = header.len() as u64;
         let mut body_reader = HttpBodyReader::new(
             ups_r,
             body_type,
@@ -831,6 +898,21 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut idle_count = 0;
 
+        macro_rules! record_progress {
+            () => {{
+                let read = ups_to_clt.reader().body_size();
+                // a chunked body is copied as on-wire bytes, so the size sent
+                // to the client is a lower bound: the payload read, less everything
+                // still buffered, as all of it could be payload
+                let written = if ups_to_clt.reader().is_chunked() {
+                    read.saturating_sub(ups_to_clt.cached_data_size())
+                } else {
+                    ups_to_clt.copied_size().saturating_sub(header_len)
+                };
+                self.http_notes.record_h1_rsp_body_progress(read, written)
+            }};
+        }
+
         loop {
             tokio::select! {
                 biased;
@@ -839,20 +921,33 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     return match r {
                         Ok(_) => {
                             self.http_notes.mark_rsp_recv_all();
+                            let n = ups_to_clt.reader().body_size();
+                            self.http_notes.ups_rsp_body_size = Some(n);
+                            self.http_notes.clt_rsp_body_size = Some(n);
                             // clt_w is already flushed
                             Ok(())
                         }
-                        Err(StreamCopyError::ReadFailed(e)) => {
-                            let _ = ups_to_clt.write_flush().await;
-                            Err(ServerTaskError::UpstreamReadFailed(e))
+                        Err(e) => {
+                            if matches!(&e, StreamCopyError::ReadFailed(_)) {
+                                let _ = ups_to_clt.write_flush().await;
+                            }
+                            record_progress!();
+                            Err(match e {
+                                StreamCopyError::ReadFailed(e) => {
+                                    ServerTaskError::UpstreamReadFailed(e)
+                                }
+                                StreamCopyError::WriteFailed(e) => {
+                                    ServerTaskError::ClientTcpWriteFailed(e)
+                                }
+                            })
                         }
-                        Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
                 }
                 n = idle_interval.tick() => {
                     if ups_to_clt.is_idle() {
                         idle_count += n;
                         if idle_count >= self.ctx.max_idle_count() {
+                            record_progress!();
                             return if ups_to_clt.no_cached_data() {
                                 Err(ServerTaskError::UpstreamAppTimeout("idle while reading response body"))
                             } else {
@@ -866,11 +961,13 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
                     if self.ctx.belongs_to_blocked_user() {
                         let _ = ups_to_clt.write_flush().await;
+                        record_progress!();
                         return Err(ServerTaskError::CanceledAsUserBlocked);
                     }
 
                     if self.ctx.server_force_quit() {
                         let _ = ups_to_clt.write_flush().await;
+                        record_progress!();
                         return Err(ServerTaskError::CanceledAsServerQuit)
                     }
                 }

@@ -77,6 +77,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendHeadFailed)?;
         state.mark_ups_send_header();
 
+        let preview_received = preview_data.received() as u64;
         // no reserve of capacity, let the driver buffer it
         preview_data
             .h2_unbounded_send_all(&mut ups_send_stream)
@@ -136,9 +137,18 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     match r {
                         Ok(_) => {
                             state.mark_ups_send_all();
+                            let n = preview_received + body_transfer.copied_size();
+                            state.clt_req_body_size = Some(n);
+                            state.ups_req_body_size = Some(n);
                             break;
                         }
-                        Err(e) => return Err(convert_transfer_error(e)),
+                        Err(e) => {
+                            state.clt_req_body_size =
+                                Some(preview_received + body_transfer.received_size());
+                            state.ups_req_body_size =
+                                Some(preview_received + body_transfer.copied_size());
+                            return Err(convert_transfer_error(e));
+                        }
                     }
                 }
                 n = idle_interval.tick() => {
@@ -147,6 +157,10 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
+                            state.clt_req_body_size =
+                                Some(preview_received + body_transfer.received_size());
+                            state.ups_req_body_size =
+                                Some(preview_received + body_transfer.copied_size());
                             return if body_transfer.no_cached_data() {
                                 Err(H2ReqmodAdaptationError::HttpClientReadIdle)
                             } else {
@@ -160,6 +174,10 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     }
 
                     if let Some(reason) = self.idle_checker.check_force_quit() {
+                        state.clt_req_body_size =
+                            Some(preview_received + body_transfer.received_size());
+                        state.ups_req_body_size =
+                            Some(preview_received + body_transfer.copied_size());
                         return Err(H2ReqmodAdaptationError::IdleForceQuit(reason));
                     }
                 }
@@ -291,6 +309,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                                 return if let Some(body) = ups_recv_rsp.take_body() {
                                     let (headers, _) = final_rsp.into_parts();
                                     if body_transfer.finished() {
+                                        state.ups_req_body_size = Some(body_transfer.copied_size());
                                         self.icap_connection.mark_reader_finished();
                                         if icap_rsp.keep_alive {
                                             self.icap_client.save_connection(self.icap_connection);
@@ -312,16 +331,30 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     match r {
                         Ok(_) => {
                             state.mark_ups_send_all();
+                            state.ups_req_body_size = Some(body_transfer.copied_size());
                             self.icap_connection.mark_reader_finished();
                             if icap_rsp.keep_alive {
                                 self.icap_client.save_connection(self.icap_connection);
                             }
                             break;
                         }
-                        Err(H2StreamFromChunkedTransferError::ReadError(e)) => return Err(H2ReqmodAdaptationError::IcapServerReadFailed(e)),
-                        Err(H2StreamFromChunkedTransferError::SendDataFailed(e)) => return Err(H2ReqmodAdaptationError::HttpUpstreamSendDataFailed(e)),
-                        Err(H2StreamFromChunkedTransferError::SendTrailerFailed(e)) => return Err(H2ReqmodAdaptationError::HttpUpstreamSendTrailedFailed(e)),
-                        Err(H2StreamFromChunkedTransferError::SenderNotInSendState) => return Err(H2ReqmodAdaptationError::HttpUpstreamNotInSendState),
+                        Err(e) => {
+                            state.ups_req_body_size = Some(body_transfer.copied_size());
+                            return Err(match e {
+                                H2StreamFromChunkedTransferError::ReadError(e) => {
+                                    H2ReqmodAdaptationError::IcapServerReadFailed(e)
+                                }
+                                H2StreamFromChunkedTransferError::SendDataFailed(e) => {
+                                    H2ReqmodAdaptationError::HttpUpstreamSendDataFailed(e)
+                                }
+                                H2StreamFromChunkedTransferError::SendTrailerFailed(e) => {
+                                    H2ReqmodAdaptationError::HttpUpstreamSendTrailedFailed(e)
+                                }
+                                H2StreamFromChunkedTransferError::SenderNotInSendState => {
+                                    H2ReqmodAdaptationError::HttpUpstreamNotInSendState
+                                }
+                            });
+                        }
                     }
                 }
                 n = idle_interval.tick() => {
@@ -330,6 +363,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
+                            state.ups_req_body_size = Some(body_transfer.copied_size());
                             return if body_transfer.no_cached_data() {
                                 Err(H2ReqmodAdaptationError::HttpClientReadIdle)
                             } else {
@@ -343,6 +377,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     }
 
                     if let Some(reason) = self.idle_checker.check_force_quit() {
+                        state.ups_req_body_size = Some(body_transfer.copied_size());
                         return Err(H2ReqmodAdaptationError::IdleForceQuit(reason));
                     }
                 }

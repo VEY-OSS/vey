@@ -274,14 +274,14 @@ impl H2WebsocketTask {
             let mut clt_send_stream = clt_send_rsp
                 .send_response(response, false)
                 .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
-            recv_body
-                .body_transfer(&mut clt_send_stream)
-                .await
-                .map_err(|e| {
-                    H2StreamTransferError::InternalAdapterError(anyhow::anyhow!("{e:?}"))
-                })?;
+            let mut body_transfer = recv_body.body_transfer(&mut clt_send_stream);
+            (&mut body_transfer).await.map_err(|e| {
+                H2StreamTransferError::InternalAdapterError(anyhow::anyhow!("{e:?}"))
+            })?;
+            self.http_notes.clt_rsp_body_size = Some(body_transfer.copied_size());
             recv_body.save_connection().await;
         } else {
+            self.http_notes.clt_rsp_body_size = Some(0);
             clt_send_rsp
                 .send_response(response, true)
                 .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;

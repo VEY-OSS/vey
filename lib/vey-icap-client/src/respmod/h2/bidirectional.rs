@@ -30,6 +30,7 @@ pub(super) struct BidirectionalRecvIcapResponse<'a, I: IdleCheck> {
 impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
     pub(super) async fn transfer_and_recv(
         self,
+        state: &mut RespmodAdaptationRunState,
         mut body_transfer: &mut H2StreamToChunkedTransfer<'_, IcapClientWriter>,
     ) -> Result<RespmodResponse, H2RespmodAdaptationError> {
         let mut idle_interval = self.idle_checker.interval_timer();
@@ -41,17 +42,41 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
 
                 r = &mut body_transfer => {
                     return match r {
-                        Ok(_) => self.recv_icap_response().await,
-                        Err(H2StreamToChunkedTransferError::WriteError(e)) => Err(H2RespmodAdaptationError::IcapServerWriteFailed(e)),
-                        Err(H2StreamToChunkedTransferError::RecvDataFailed(e)) => Err(H2RespmodAdaptationError::HttpUpstreamRecvDataFailed(e)),
-                        Err(H2StreamToChunkedTransferError::RecvTrailerFailed(e)) => Err(H2RespmodAdaptationError::HttpUpstreamRecvTrailerFailed(e)),
+                        Ok(_) => {
+                            state.mark_ups_recv_all();
+                            state.ups_rsp_body_size = Some(body_transfer.copied_size());
+                            self.recv_icap_response().await
+                        }
+                        Err(e) => {
+                            state.ups_rsp_body_size = Some(body_transfer.received_size());
+                            if body_transfer.recv_finished() {
+                                state.mark_ups_recv_all();
+                            }
+                            match e {
+                                H2StreamToChunkedTransferError::WriteError(e) => {
+                                    Err(H2RespmodAdaptationError::IcapServerWriteFailed(e))
+                                }
+                                H2StreamToChunkedTransferError::RecvDataFailed(e) => {
+                                    Err(H2RespmodAdaptationError::HttpUpstreamRecvDataFailed(e))
+                                }
+                                H2StreamToChunkedTransferError::RecvTrailerFailed(e) => {
+                                    Err(H2RespmodAdaptationError::HttpUpstreamRecvTrailerFailed(e))
+                                }
+                            }
+                        }
                     };
                 }
                 r = self.icap_reader.fill_wait_data() => {
                     return match r {
                         Ok(true) => self.recv_icap_response().await,
-                        Ok(false) => Err(H2RespmodAdaptationError::IcapServerConnectionClosed),
-                        Err(e) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
+                        Ok(false) => {
+                            state.ups_rsp_body_size = Some(body_transfer.received_size());
+                            Err(H2RespmodAdaptationError::IcapServerConnectionClosed)
+                        }
+                        Err(e) => {
+                            state.ups_rsp_body_size = Some(body_transfer.received_size());
+                            Err(H2RespmodAdaptationError::IcapServerReadFailed(e))
+                        }
                     };
                 }
                 n = idle_interval.tick() => {
@@ -60,6 +85,7 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
+                            state.ups_rsp_body_size = Some(body_transfer.received_size());
                             return if body_transfer.no_cached_data() {
                                 Err(H2RespmodAdaptationError::HttpUpstreamReadIdle)
                             } else {
@@ -73,6 +99,7 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
                     }
 
                     if let Some(reason) = self.idle_checker.check_force_quit() {
+                        state.ups_rsp_body_size = Some(body_transfer.received_size());
                         return Err(H2RespmodAdaptationError::IdleForceQuit(reason));
                     }
                 }
@@ -151,34 +178,61 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                 r = &mut ups_body_transfer => {
                     return match r {
                         Ok(_) => {
-                            match adp_body_transfer.await {
+                            state.mark_ups_recv_all();
+                            state.ups_rsp_body_size = Some(ups_body_transfer.copied_size());
+                            match (&mut adp_body_transfer).await {
                                 Ok(_) => {
                                     state.mark_clt_send_all();
+                                    state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
                                     self.icap_read_finished = true;
                                     Ok(RespmodAdaptationEndState::AdaptedTransferred(http_rsp))
                                 }
-                                Err(H2StreamFromChunkedTransferError::ReadError(e)) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
-                                Err(H2StreamFromChunkedTransferError::SendDataFailed(e)) => Err(H2RespmodAdaptationError::HttpClientSendDataFailed(e)),
-                                Err(H2StreamFromChunkedTransferError::SendTrailerFailed(e)) => Err(H2RespmodAdaptationError::HttpClientSendTrailerFailed(e)),
-                                Err(H2StreamFromChunkedTransferError::SenderNotInSendState) => Err(H2RespmodAdaptationError::HttpClientNotInSendState),
+                                Err(e) => {
+                                    state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
+                                    match e {
+                                        H2StreamFromChunkedTransferError::ReadError(e) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
+                                        H2StreamFromChunkedTransferError::SendDataFailed(e) => Err(H2RespmodAdaptationError::HttpClientSendDataFailed(e)),
+                                        H2StreamFromChunkedTransferError::SendTrailerFailed(e) => Err(H2RespmodAdaptationError::HttpClientSendTrailerFailed(e)),
+                                        H2StreamFromChunkedTransferError::SenderNotInSendState => Err(H2RespmodAdaptationError::HttpClientNotInSendState),
+                                    }
+                                }
                             }
                         }
-                        Err(H2StreamToChunkedTransferError::WriteError(e)) => Err(H2RespmodAdaptationError::IcapServerWriteFailed(e)),
-                        Err(H2StreamToChunkedTransferError::RecvDataFailed(e)) => Err(H2RespmodAdaptationError::HttpUpstreamRecvDataFailed(e)),
-                        Err(H2StreamToChunkedTransferError::RecvTrailerFailed(e)) => Err(H2RespmodAdaptationError::HttpUpstreamRecvTrailerFailed(e)),
+                        Err(e) => {
+                            state.ups_rsp_body_size = Some(ups_body_transfer.received_size());
+                            if ups_body_transfer.recv_finished() {
+                                state.mark_ups_recv_all();
+                            }
+                            state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
+                            match e {
+                                H2StreamToChunkedTransferError::WriteError(e) => Err(H2RespmodAdaptationError::IcapServerWriteFailed(e)),
+                                H2StreamToChunkedTransferError::RecvDataFailed(e) => Err(H2RespmodAdaptationError::HttpUpstreamRecvDataFailed(e)),
+                                H2StreamToChunkedTransferError::RecvTrailerFailed(e) => Err(H2RespmodAdaptationError::HttpUpstreamRecvTrailerFailed(e)),
+                            }
+                        }
                     };
                 }
                 r = &mut adp_body_transfer => {
                     return match r {
                         Ok(_) => {
                             state.mark_clt_send_all();
+                            state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
+                            if ups_body_transfer.finished() {
+                                state.ups_rsp_body_size = Some(ups_body_transfer.copied_size());
+                            }
                             self.icap_read_finished = true;
                             Ok(RespmodAdaptationEndState::AdaptedTransferred(http_rsp))
                         }
-                        Err(H2StreamFromChunkedTransferError::ReadError(e)) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
-                        Err(H2StreamFromChunkedTransferError::SendDataFailed(e)) => Err(H2RespmodAdaptationError::HttpClientSendDataFailed(e)),
-                        Err(H2StreamFromChunkedTransferError::SendTrailerFailed(e)) => Err(H2RespmodAdaptationError::HttpClientSendTrailerFailed(e)),
-                        Err(H2StreamFromChunkedTransferError::SenderNotInSendState) => Err(H2RespmodAdaptationError::HttpClientNotInSendState),
+                        Err(e) => {
+                            state.ups_rsp_body_size = Some(ups_body_transfer.received_size());
+                            state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
+                            match e {
+                                H2StreamFromChunkedTransferError::ReadError(e) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
+                                H2StreamFromChunkedTransferError::SendDataFailed(e) => Err(H2RespmodAdaptationError::HttpClientSendDataFailed(e)),
+                                H2StreamFromChunkedTransferError::SendTrailerFailed(e) => Err(H2RespmodAdaptationError::HttpClientSendTrailerFailed(e)),
+                                H2StreamFromChunkedTransferError::SenderNotInSendState => Err(H2RespmodAdaptationError::HttpClientNotInSendState),
+                            }
+                        }
                     };
                 }
                 n = idle_interval.tick() => {
@@ -187,6 +241,8 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
+                            state.ups_rsp_body_size = Some(ups_body_transfer.received_size());
+                            state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
                             return if ups_body_transfer.is_idle() {
                                 if ups_body_transfer.no_cached_data() {
                                     Err(H2RespmodAdaptationError::HttpUpstreamReadIdle)
@@ -207,6 +263,8 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                     }
 
                     if let Some(reason) = self.idle_checker.check_force_quit() {
+                        state.ups_rsp_body_size = Some(ups_body_transfer.received_size());
+                        state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
                         return Err(H2RespmodAdaptationError::IdleForceQuit(reason));
                     }
                 }
