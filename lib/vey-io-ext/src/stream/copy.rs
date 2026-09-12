@@ -310,6 +310,11 @@ where
     }
 
     #[inline]
+    pub fn reader(&self) -> &R {
+        self.reader
+    }
+
+    #[inline]
     pub fn no_cached_data(&self) -> bool {
         self.buf.r_off == self.buf.w_off
     }
@@ -420,6 +425,11 @@ where
 
     pub fn writer(self) -> &'a mut W {
         self.writer
+    }
+
+    #[inline]
+    pub fn reader(&self) -> &R {
+        &self.reader
     }
 }
 

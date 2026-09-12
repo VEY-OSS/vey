@@ -19,6 +19,7 @@ struct ChunkedEncodeTransferInternal {
     static_header: Vec<u8>,
     static_offset: usize,
     total_write: u64,
+    copied: u64,
     read_finished: bool,
     active: bool,
 }
@@ -33,6 +34,7 @@ impl ChunkedEncodeTransferInternal {
             static_header: Vec::with_capacity(16),
             static_offset: 0,
             total_write: 0,
+            copied: 0,
             read_finished: false,
             active: false,
         }
@@ -114,6 +116,7 @@ impl ChunkedEncodeTransferInternal {
                 self.active = true;
                 self.left_chunk_size -= nw;
                 self.total_write += nw as u64;
+                self.copied += nw as u64;
             }
             self.this_chunk_size = 0;
 
@@ -179,6 +182,11 @@ impl<'a, R, W> StreamToChunkedTransfer<'a, R, W> {
         self.internal.finished()
     }
 
+    #[inline]
+    pub fn read_finished(&self) -> bool {
+        self.internal.read_finished
+    }
+
     pub fn is_idle(&self) -> bool {
         self.internal.is_idle()
     }
@@ -193,6 +201,11 @@ impl<'a, R, W> StreamToChunkedTransfer<'a, R, W> {
 
     pub fn no_cached_data(&self) -> bool {
         self.internal.no_cached_data()
+    }
+
+    #[inline]
+    pub fn body_size(&self) -> u64 {
+        self.internal.copied
     }
 }
 
@@ -234,6 +247,7 @@ mod test {
 
         let nw = (&mut chunked_encoder).await.unwrap();
         assert_eq!(nw, body_len as u64);
+        assert_eq!(chunked_encoder.body_size(), 9);
         assert!(chunked_encoder.finished());
 
         assert_eq!(&write_buf, b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\n");
@@ -260,6 +274,7 @@ mod test {
 
         let nw = (&mut chunked_encoder).await.unwrap();
         assert_eq!(nw, body_len as u64);
+        assert_eq!(chunked_encoder.body_size(), 9);
         assert!(chunked_encoder.finished());
 
         assert_eq!(&write_buf, b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n");
@@ -279,6 +294,7 @@ mod test {
 
         let nw = (&mut chunked_encoder).await.unwrap();
         assert_eq!(nw, body_len as u64);
+        assert_eq!(chunked_encoder.body_size(), 0);
         assert!(chunked_encoder.finished());
 
         assert_eq!(&write_buf, b"0\r\n\r\n");
@@ -301,6 +317,7 @@ mod test {
 
         let nw = (&mut chunked_encoder).await.unwrap();
         assert_eq!(nw, body_len as u64);
+        assert_eq!(chunked_encoder.body_size(), 0);
         assert!(chunked_encoder.finished());
 
         assert_eq!(&write_buf, b"0\r\n");

@@ -61,6 +61,11 @@ impl H2PreviewData {
         self.left.take()
     }
 
+    #[inline]
+    pub fn received(&self) -> usize {
+        self.received
+    }
+
     pub async fn recv_all<I: IdleCheck>(
         &mut self,
         clt_body: &mut RecvStream,
@@ -305,6 +310,7 @@ mod tests {
         preview.left = Some(Bytes::from_static(b"efgh"));
 
         assert_eq!(preview.preview_size(), 4);
+        assert_eq!(preview.received(), 8);
         assert_eq!(preview.take_left().unwrap(), Bytes::from_static(b"efgh"));
         assert!(preview.take_left().is_none());
     }

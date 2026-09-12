@@ -60,6 +60,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 if clt_body_reader.finished() {
                     if preview_buf.is_empty() {
                         state.clt_read_finished = true;
+                        state.clt_req_body_size = Some(0);
                         return self
                             .xfer_without_body(state, http_request, ups_writer)
                             .await;
@@ -150,16 +151,18 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                         self.copy_config,
                     ),
                 };
+                body_transfer.add_copied(preview_buf.len() as u64);
                 let bidirectional_transfer = BidirectionalRecvIcapResponse {
                     icap_client: &self.icap_client,
                     icap_reader: &mut self.icap_connection.reader,
                     idle_checker: &self.idle_checker,
                 };
                 let rsp = bidirectional_transfer
-                    .transfer_and_recv(&mut body_transfer)
+                    .transfer_and_recv(state, &mut body_transfer)
                     .await?;
                 if body_transfer.finished() {
                     state.clt_read_finished = true;
+                    state.clt_req_body_size = Some(body_transfer.body_size());
                 }
 
                 match rsp.code {
@@ -231,6 +234,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                                 .await?;
                             if body_transfer.finished() {
                                 state.clt_read_finished = true;
+                                state.clt_req_body_size = Some(body_transfer.body_size());
                                 self.icap_connection.mark_writer_finished();
                                 if bidirectional_transfer.icap_read_finished {
                                     self.icap_connection.mark_reader_finished();
@@ -277,6 +281,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 match clt_body_type {
                     HttpBodyType::ReadUntilEnd | HttpBodyType::ContentLength(_) => {
                         self.send_original_plain_body_to_upstream(
+                            state,
                             rsp,
                             clt_body_type,
                             clt_body_io,
@@ -287,6 +292,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     }
                     HttpBodyType::Chunked => {
                         self.send_original_chunked_body_to_upstream(
+                            state,
                             rsp,
                             clt_body_io,
                             ups_writer,
@@ -448,6 +454,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
 
     async fn send_original_plain_body_to_upstream<CR, UW>(
         self,
+        state: &mut ReqmodAdaptationRunState,
         icap_rsp: ReqmodResponse,
         clt_body_type: HttpBodyType,
         clt_body_io: &mut CR,
@@ -462,6 +469,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             self.icap_client.save_connection(self.icap_connection);
         }
 
+        let preview_len = preview_buf.len() as u64;
         ups_writer
             .write_all(&preview_buf)
             .await
@@ -480,9 +488,21 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
 
                 r = &mut body_copy => {
                     return match r {
-                        Ok(_) => Ok(()),
+                        Ok(_) => {
+                            let n = preview_len + body_copy.reader().body_size();
+                            state.clt_req_body_size = Some(n);
+                            state.ups_req_body_size = Some(n);
+                            Ok(())
+                        }
                         Err(StreamCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::HttpClientReadFailed(e)),
-                        Err(StreamCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => {
+                            if body_copy.reader().finished() {
+                                state.clt_read_finished = true;
+                                state.clt_req_body_size =
+                                    Some(preview_len + body_copy.reader().body_size());
+                            }
+                            Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e))
+                        }
                     };
                 }
                 n = idle_interval.tick() => {
@@ -513,6 +533,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
 
     async fn send_original_chunked_body_to_upstream<CR, UW>(
         self,
+        state: &mut ReqmodAdaptationRunState,
         icap_rsp: ReqmodResponse,
         clt_body_io: &mut CR,
         ups_writer: &mut UW,
@@ -544,6 +565,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             self.http_body_line_max_size,
             self.copy_config,
         );
+        chunked_transfer.add_copied(preview_buf.len() as u64);
 
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
@@ -554,9 +576,20 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
 
                 r = &mut chunked_transfer => {
                     return match r {
-                        Ok(_) => Ok(()),
+                        Ok(_) => {
+                            let n = chunked_transfer.body_size();
+                            state.clt_req_body_size = Some(n);
+                            state.ups_req_body_size = Some(n);
+                            Ok(())
+                        }
                         Err(StreamCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::HttpClientReadFailed(e)),
-                        Err(StreamCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => {
+                            if chunked_transfer.reader_finished() {
+                                state.clt_read_finished = true;
+                                state.clt_req_body_size = Some(chunked_transfer.body_size());
+                            }
+                            Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e))
+                        }
                     };
                 }
                 n = idle_interval.tick() => {

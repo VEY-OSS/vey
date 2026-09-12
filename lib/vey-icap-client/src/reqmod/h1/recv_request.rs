@@ -149,7 +149,8 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 Self::send_request_body(&self.idle_checker, &mut body_copy).await?;
 
                 state.mark_ups_send_all();
-                let copied = body_copy.copied_size();
+                state.ups_req_body_size = Some(body_reader.body_size());
+                let copied = body_reader.body_size();
 
                 if body_reader.trailer(128).await.is_ok() {
                     self.icap_connection.mark_reader_finished();
@@ -175,6 +176,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 Self::send_request_body(&self.idle_checker, &mut body_copy).await?;
 
                 state.mark_ups_send_all();
+                state.ups_req_body_size = Some(body_reader.body_size());
 
                 self.icap_connection.mark_reader_finished();
                 if icap_rsp.keep_alive {

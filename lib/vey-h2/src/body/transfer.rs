@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::pin::Pin;
@@ -18,6 +19,7 @@ pub struct H2BodyTransfer {
     send_chunk: Option<Bytes>,
     handle_trailers: bool,
     active: bool,
+    copied: u64,
 }
 
 impl H2BodyTransfer {
@@ -29,7 +31,28 @@ impl H2BodyTransfer {
             send_chunk: None,
             handle_trailers: false,
             active: false,
+            copied: 0,
         }
+    }
+
+    #[inline]
+    pub fn copied_size(&self) -> u64 {
+        self.copied
+    }
+
+    #[inline]
+    pub fn recv_ended(&self) -> bool {
+        self.recv_stream.is_end_stream()
+    }
+
+    #[inline]
+    pub fn received_size(&self) -> u64 {
+        self.copied
+            + self
+                .send_chunk
+                .as_ref()
+                .map(|c| c.len() as u64)
+                .unwrap_or(0)
     }
 
     #[inline]
@@ -82,14 +105,16 @@ impl H2BodyTransfer {
                     Poll::Ready(Some(Ok(n))) => {
                         self.active = true;
                         let to_send = chunk.split_to(n);
+                        let ns = to_send.len();
                         self.send_stream
                             .send_data(to_send, false)
                             .map_err(H2StreamBodyTransferError::SendDataFailed)?;
+                        self.copied += ns as u64;
                         if !chunk.is_empty() {
                             self.send_chunk = Some(chunk);
                         }
 
-                        copy_this_round += n;
+                        copy_this_round += ns;
                         if copy_this_round >= self.yield_size {
                             cx.waker().wake_by_ref();
                             return Poll::Pending;

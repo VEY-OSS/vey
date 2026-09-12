@@ -333,7 +333,7 @@ impl H2ForwardTask {
         adaptation_state: &mut ReqmodAdaptationRunState,
     ) -> Result<(), H2StreamTransferError> {
         let orig_req = ups_req.clone_header();
-        match icap_adapter
+        let end_state = icap_adapter
             .xfer(
                 adaptation_state,
                 ups_req,
@@ -341,8 +341,10 @@ impl H2ForwardTask {
                 ups_send_req,
                 clt_send_rsp,
             )
-            .await
-        {
+            .await;
+        self.http_notes.clt_req_body_size = adaptation_state.clt_req_body_size;
+        self.http_notes.ups_req_body_size = adaptation_state.ups_req_body_size;
+        match end_state {
             Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp))
             | Ok(ReqmodAdaptationEndState::AdaptedTransferred(_, ups_rsp)) => {
                 self.send_response(
@@ -379,16 +381,16 @@ impl H2ForwardTask {
                 .send_response(response, false)
                 .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
             self.http_notes.rsp_status = rsp_status;
-            recv_body
-                .body_transfer(&mut clt_send_stream)
-                .await
-                .map_err(|e| {
-                    H2StreamTransferError::InternalAdapterError(anyhow::anyhow!(
-                        "adapter error body: {e:?}"
-                    ))
-                })?;
+            let mut body_transfer = recv_body.body_transfer(&mut clt_send_stream);
+            (&mut body_transfer).await.map_err(|e| {
+                H2StreamTransferError::InternalAdapterError(anyhow::anyhow!(
+                    "adapter error body: {e:?}"
+                ))
+            })?;
+            self.http_notes.clt_rsp_body_size = Some(body_transfer.copied_size());
             recv_body.save_connection().await;
         } else {
+            self.http_notes.clt_rsp_body_size = Some(0);
             clt_send_rsp
                 .send_response(response, true)
                 .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
@@ -428,6 +430,9 @@ impl H2ForwardTask {
                     r = &mut req_body_transfer => {
                         r.map_err(H2StreamTransferError::RequestBodyTransferFailed)?;
                         self.http_notes.mark_req_send_all();
+                        let n = req_body_transfer.copied_size();
+                        self.http_notes.clt_req_body_size = Some(n);
+                        self.http_notes.ups_req_body_size = Some(n);
                         break;
                     }
                     n = idle_interval.tick() => {
@@ -541,7 +546,7 @@ impl H2ForwardTask {
                         adapter.set_tenant_username(username);
                     }
                     adapter.set_respond_shared_headers(adaptation_respond_shared_headers);
-                    match adapter
+                    let r = adapter
                         .xfer(
                             &mut adaptation_state,
                             &ups_req,
@@ -549,8 +554,10 @@ impl H2ForwardTask {
                             ups_body,
                             clt_send_rsp,
                         )
-                        .await
-                    {
+                        .await;
+                    self.http_notes.ups_rsp_body_size = adaptation_state.ups_rsp_body_size;
+                    self.http_notes.clt_rsp_body_size = adaptation_state.clt_rsp_body_size;
+                    match r {
                         Ok(RespmodAdaptationEndState::OriginalTransferred)
                         | Ok(RespmodAdaptationEndState::AdaptedTransferred(_)) => {
                             self.http_notes.rsp_status = self.http_notes.origin_status;
@@ -594,6 +601,9 @@ impl H2ForwardTask {
                 r = &mut rsp_body_transfer => {
                     r.map_err(H2StreamTransferError::ResponseBodyTransferFailed)?;
                     self.http_notes.mark_rsp_recv_all();
+                    let n = rsp_body_transfer.copied_size();
+                    self.http_notes.ups_rsp_body_size = Some(n);
+                    self.http_notes.clt_rsp_body_size = Some(n);
                     return Ok(());
                 }
                 n = idle_interval.tick() => {

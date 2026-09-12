@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::io;
@@ -104,6 +105,7 @@ pub struct H2StreamFromChunkedTransfer<'a, R> {
     state: TransferState<'a, R>,
     trailer_max_size: usize,
     active: bool,
+    copied: u64,
 }
 
 impl<'a, R> H2StreamFromChunkedTransfer<'a, R> {
@@ -120,11 +122,19 @@ impl<'a, R> H2StreamFromChunkedTransfer<'a, R> {
             state: TransferState::Data(encode),
             trailer_max_size,
             active: false,
+            copied: 0,
         }
     }
 
     pub fn finished(&self) -> bool {
         matches!(self.state, TransferState::End)
+    }
+
+    pub fn copied_size(&self) -> u64 {
+        match &self.state {
+            TransferState::Data(encode) => encode.copied_size(),
+            _ => self.copied,
+        }
     }
 
     #[inline]
@@ -204,6 +214,7 @@ where
                     unreachable!()
                 };
 
+                self.copied = encode.copied_size();
                 let (reader, send_stream) = encode.into_io();
                 // read trailer (maybe empty) and send
                 self.state = TransferState::Trailer(TrailerTransfer::new(

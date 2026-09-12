@@ -83,6 +83,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             .map_err(H2RespmodAdaptationError::HttpClientSendHeadFailed)?;
         state.mark_clt_send_header();
 
+        let preview_received = preview_data.received() as u64;
         // no reserve of capacity, let the driver buffer it
         preview_data
             .h2_unbounded_send_all(&mut clt_send_stream)
@@ -121,9 +122,18 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                     return match r {
                         Ok(_) => {
                             state.mark_clt_send_all();
+                            let n = preview_received + body_transfer.copied_size();
+                            state.ups_rsp_body_size = Some(n);
+                            state.clt_rsp_body_size = Some(n);
                             Ok(RespmodAdaptationEndState::OriginalTransferred)
                         }
-                        Err(e) => Err(convert_transfer_error(e)),
+                        Err(e) => {
+                            if body_transfer.recv_ended() {
+                                state.ups_rsp_body_size =
+                                    Some(preview_received + body_transfer.received_size());
+                            }
+                            Err(convert_transfer_error(e))
+                        }
                     };
                 }
                 n = idle_interval.tick() => {
@@ -221,6 +231,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                     return match r {
                         Ok(_) => {
                             state.mark_clt_send_all();
+                            state.clt_rsp_body_size = Some(body_transfer.copied_size());
                             self.icap_connection.mark_reader_finished();
                             if icap_rsp.keep_alive {
                                 self.icap_client.save_connection(self.icap_connection);

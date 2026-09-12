@@ -91,6 +91,8 @@ pub struct ReqmodAdaptationRunState {
     pub dur_ups_send_header: Option<Duration>,
     pub dur_ups_send_all: Option<Duration>,
     pub dur_ups_recv_header: Option<Duration>,
+    pub clt_req_body_size: Option<u64>,
+    pub ups_req_body_size: Option<u64>,
     pub(crate) respond_shared_headers: Option<HeaderMap>,
 }
 
@@ -101,6 +103,8 @@ impl ReqmodAdaptationRunState {
             dur_ups_send_header: None,
             dur_ups_send_all: None,
             dur_ups_recv_header: None,
+            clt_req_body_size: None,
+            ups_req_body_size: None,
             respond_shared_headers: None,
         }
     }
@@ -115,6 +119,7 @@ impl ReqmodAdaptationRunState {
 
     pub(crate) fn mark_ups_send_no_body(&mut self) {
         self.dur_ups_send_all = self.dur_ups_send_header;
+        self.ups_req_body_size = Some(0);
     }
 
     pub(crate) fn mark_ups_send_all(&mut self) {
@@ -176,6 +181,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
         self.allow_continue = http_request.expect_100_continue();
         if clt_body.is_end_stream() {
+            state.clt_req_body_size = Some(0);
             self.xfer_without_body(state, http_request, ups_send_req, clt_send_rsp)
                 .await
         } else if let Some(preview_size) = self.preview_size() {

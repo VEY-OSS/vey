@@ -796,6 +796,8 @@ impl<'a> HttpGuardForwardTask<'a> {
                     if let Some(dur) = adaptation_state.dur_ups_send_all {
                         self.http_notes.dur_req_send_all = dur;
                     }
+                    self.http_notes.clt_req_body_size = adaptation_state.clt_req_body_size;
+                    self.http_notes.ups_req_body_size = adaptation_state.ups_req_body_size;
                     return r;
                 }
                 Err(e) => {
@@ -844,6 +846,7 @@ impl<'a> HttpGuardForwardTask<'a> {
                 fast_read_buf.truncate(nr);
 
                 if clt_body_reader.finished() {
+                    self.http_notes.clt_req_body_size = Some(clt_body_reader.body_size());
                     return self
                         .run_with_all_body(fwd_ctx, fast_read_buf, clt_w, ups_c)
                         .await;
@@ -970,6 +973,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
         self.http_notes.mark_req_send_hdr();
         self.http_notes.mark_req_send_all();
+        self.http_notes.ups_req_body_size = Some(body.len() as u64);
 
         match tokio::time::timeout(
             self.rsp_hdr_recv_timeout(),
@@ -1121,6 +1125,9 @@ impl<'a> HttpGuardForwardTask<'a> {
                         StreamCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
                     })?;
                     self.http_notes.mark_req_send_all();
+                    let n = clt_to_ups.reader().body_size();
+                    self.http_notes.clt_req_body_size = Some(n);
+                    self.http_notes.ups_req_body_size = Some(n);
                     break;
                 }
                 _ = log_interval.tick() => {
@@ -1334,6 +1341,9 @@ impl<'a> HttpGuardForwardTask<'a> {
                     return match r {
                         Ok(_) => {
                             self.http_notes.mark_rsp_recv_all();
+                            let n = ups_to_clt.reader().body_size();
+                            self.http_notes.ups_rsp_body_size = Some(n);
+                            self.http_notes.clt_rsp_body_size = Some(n);
                             // clt_w is already flushed
                             Ok(())
                         }

@@ -56,6 +56,10 @@ macro_rules! intercept_log {
                 "dur_req_send_all" => LtDuration($obj.http_notes.dur_req_send_all),
                 "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
                 "dur_rsp_recv_all" => LtDuration($obj.http_notes.dur_rsp_recv_all),
+                "clt_req_body_size" => $obj.http_notes.clt_req_body_size,
+                "ups_req_body_size" => $obj.http_notes.ups_req_body_size,
+                "ups_rsp_body_size" => $obj.http_notes.ups_rsp_body_size,
+                "clt_rsp_body_size" => $obj.http_notes.clt_rsp_body_size,
             );
         }
     };
@@ -71,6 +75,10 @@ struct HttpForwardTaskNotes {
     dur_req_send_all: Duration,
     dur_rsp_recv_hdr: Duration,
     dur_rsp_recv_all: Duration,
+    clt_req_body_size: Option<u64>,
+    ups_req_body_size: Option<u64>,
+    ups_rsp_body_size: Option<u64>,
+    clt_rsp_body_size: Option<u64>,
 }
 
 impl HttpForwardTaskNotes {
@@ -86,6 +94,10 @@ impl HttpForwardTaskNotes {
             dur_req_send_all: Duration::default(),
             dur_rsp_recv_hdr: Duration::default(),
             dur_rsp_recv_all: Duration::default(),
+            clt_req_body_size: None,
+            ups_req_body_size: None,
+            ups_rsp_body_size: None,
+            clt_rsp_body_size: None,
         }
     }
 
@@ -95,6 +107,8 @@ impl HttpForwardTaskNotes {
 
     pub(crate) fn mark_req_no_body(&mut self) {
         self.dur_req_send_all = self.dur_req_send_hdr;
+        self.clt_req_body_size = Some(0);
+        self.ups_req_body_size = Some(0);
     }
 
     pub(crate) fn mark_req_send_all(&mut self) {
@@ -107,6 +121,8 @@ impl HttpForwardTaskNotes {
 
     pub(crate) fn mark_rsp_no_body(&mut self) {
         self.dur_rsp_recv_all = self.dur_rsp_recv_hdr;
+        self.ups_rsp_body_size = Some(0);
+        self.clt_rsp_body_size = Some(0);
     }
 
     pub(crate) fn mark_rsp_recv_all(&mut self) {
@@ -243,6 +259,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         if let Some(dur) = adaptation_state.dur_ups_send_all {
             self.http_notes.dur_req_send_all = dur;
         }
+        self.http_notes.clt_req_body_size = adaptation_state.clt_req_body_size;
+        self.http_notes.ups_req_body_size = adaptation_state.ups_req_body_size;
         if !adaptation_state.clt_read_finished || !adaptation_state.ups_write_finished {
             self.should_close = true;
         }
@@ -409,19 +427,21 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
         if let Some(mut recv_body) = rsp_recv_body {
             let mut body_reader = recv_body.body_reader();
-            let copy_to_clt = StreamCopy::new(
+            let mut copy_to_clt = StreamCopy::new(
                 &mut body_reader,
                 clt_w,
                 &self.ctx.server_config.limited_copy_config(),
             );
-            copy_to_clt.await.map_err(|e| match e {
+            (&mut copy_to_clt).await.map_err(|e| match e {
                 StreamCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(anyhow!(
                     "read http error response from adapter failed: {e:?}"
                 )),
                 StreamCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             })?;
+            self.http_notes.clt_rsp_body_size = Some(copy_to_clt.reader().body_size());
             recv_body.save_connection().await;
         } else {
+            self.http_notes.clt_rsp_body_size = Some(0);
             clt_w
                 .flush()
                 .await
@@ -525,6 +545,9 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                         StreamCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
                     })?;
                     self.http_notes.mark_req_send_all();
+                    let n = clt_to_ups.reader().body_size();
+                    self.http_notes.clt_req_body_size = Some(n);
+                    self.http_notes.ups_req_body_size = Some(n);
                     break;
                 }
                 n = idle_interval.tick() => {
@@ -710,6 +733,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     if let Some(dur) = adaptation_state.dur_ups_recv_all {
                         self.http_notes.dur_rsp_recv_all = dur;
                     }
+                    self.http_notes.ups_rsp_body_size = adaptation_state.ups_rsp_body_size;
+                    self.http_notes.clt_rsp_body_size = adaptation_state.clt_rsp_body_size;
                     self.send_error_response = !adaptation_state.clt_write_started;
                     return r;
                 }
@@ -839,6 +864,9 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     return match r {
                         Ok(_) => {
                             self.http_notes.mark_rsp_recv_all();
+                            let n = ups_to_clt.reader().body_size();
+                            self.http_notes.ups_rsp_body_size = Some(n);
+                            self.http_notes.clt_rsp_body_size = Some(n);
                             // clt_w is already flushed
                             Ok(())
                         }

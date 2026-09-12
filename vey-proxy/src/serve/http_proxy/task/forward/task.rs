@@ -873,6 +873,8 @@ impl<'a> HttpProxyForwardTask<'a> {
                     if let Some(dur) = adaptation_state.dur_ups_send_all {
                         self.http_notes.dur_req_send_all = dur;
                     }
+                    self.http_notes.clt_req_body_size = adaptation_state.clt_req_body_size;
+                    self.http_notes.ups_req_body_size = adaptation_state.ups_req_body_size;
                     return r;
                 }
                 Err(e) => {
@@ -1063,16 +1065,18 @@ impl<'a> HttpProxyForwardTask<'a> {
 
         if let Some(mut recv_body) = rsp_recv_body {
             let mut body_reader = recv_body.body_reader();
-            let copy_to_clt =
+            let mut copy_to_clt =
                 StreamCopy::new(&mut body_reader, clt_w, &self.ctx.server_config.tcp_copy);
-            copy_to_clt.await.map_err(|e| match e {
+            (&mut copy_to_clt).await.map_err(|e| match e {
                 StreamCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(anyhow!(
                     "read http error response from adapter failed: {e:?}"
                 )),
                 StreamCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             })?;
+            self.http_notes.clt_rsp_body_size = Some(copy_to_clt.reader().body_size());
             recv_body.save_connection().await;
         } else {
+            self.http_notes.clt_rsp_body_size = Some(0);
             clt_w
                 .flush()
                 .await
@@ -1127,6 +1131,7 @@ impl<'a> HttpProxyForwardTask<'a> {
 
                 fast_read_buf.truncate(nr);
                 if clt_body_reader.finished() {
+                    self.http_notes.clt_req_body_size = Some(clt_body_reader.body_size());
                     return self
                         .run_with_all_body(fwd_ctx, fast_read_buf, clt_w, ups_c)
                         .await;
@@ -1246,6 +1251,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
         self.http_notes.mark_req_send_hdr();
         self.http_notes.mark_req_send_all();
+        self.http_notes.ups_req_body_size = Some(body.len() as u64);
 
         match tokio::time::timeout(
             self.rsp_hdr_recv_timeout(),
@@ -1396,6 +1402,9 @@ impl<'a> HttpProxyForwardTask<'a> {
                         StreamCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
                     })?;
                     self.http_notes.mark_req_send_all();
+                    let n = clt_to_ups.reader().body_size();
+                    self.http_notes.clt_req_body_size = Some(n);
+                    self.http_notes.ups_req_body_size = Some(n);
                     break;
                 }
                 _ = log_interval.tick() => {
@@ -1610,6 +1619,8 @@ impl<'a> HttpProxyForwardTask<'a> {
                     if let Some(dur) = adaptation_state.dur_ups_recv_all {
                         self.http_notes.dur_rsp_recv_all = dur;
                     }
+                    self.http_notes.ups_rsp_body_size = adaptation_state.ups_rsp_body_size;
+                    self.http_notes.clt_rsp_body_size = adaptation_state.clt_rsp_body_size;
                     self.send_error_response = !adaptation_state.clt_write_started;
                     return r;
                 }
@@ -1725,6 +1736,9 @@ impl<'a> HttpProxyForwardTask<'a> {
                     return match r {
                         Ok(_) => {
                             self.http_notes.mark_rsp_recv_all();
+                            let n = ups_to_clt.reader().body_size();
+                            self.http_notes.ups_rsp_body_size = Some(n);
+                            self.http_notes.clt_rsp_body_size = Some(n);
                             // clt_w is already flushed
                             Ok(())
                         }
