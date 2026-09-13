@@ -79,7 +79,7 @@ impl H2WebsocketTask {
             task_notes,
             http_notes,
             egress_notes: EgressNotes::default(),
-            send_error_response: false,
+            send_error_response: true,
             started: false,
             _alive_guard: None,
             _site_req_alive_permits: SiteRequestPermits::default(),
@@ -195,7 +195,6 @@ impl H2WebsocketTask {
             }
         };
 
-        self.send_error_response = true;
         let (parts, clt_r) = clt_req.into_parts();
         let ups_req = Request::from_parts(parts, ());
 

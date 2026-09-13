@@ -84,7 +84,7 @@ impl H2ForwardTask {
             task_notes,
             http_notes,
             egress_notes: EgressNotes::default(),
-            send_error_response: false,
+            send_error_response: true,
             allow_continue,
             is_https,
             started: false,
@@ -253,7 +253,6 @@ impl H2ForwardTask {
             }
         };
 
-        self.send_error_response = true;
         let (parts, clt_body) = clt_req.into_parts();
         let ups_req = Request::from_parts(parts, ());
 
