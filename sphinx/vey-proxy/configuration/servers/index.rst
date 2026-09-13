@@ -32,6 +32,7 @@ Servers
    http_proxy
    socks_proxy
    http_rproxy
+   http_guard
    sni_proxy
    plain_tcp_port
    plain_tls_port

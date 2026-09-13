@@ -233,16 +233,18 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                         self.copy_config,
                     ),
                 };
+                body_transfer.add_copied(preview_buf.len() as u64);
                 let bidirectional_transfer = BidirectionalRecvIcapResponse {
                     icap_client: &self.icap_client,
                     icap_reader: &mut self.icap_connection.reader,
                     idle_checker: &self.idle_checker,
                 };
                 let rsp = bidirectional_transfer
-                    .transfer_and_recv(&mut body_transfer)
+                    .transfer_and_recv(state, &mut body_transfer)
                     .await?;
                 if body_transfer.finished() {
                     state.mark_ups_recv_all();
+                    state.ups_rsp_body_size = Some(body_transfer.body_size());
                 }
 
                 match rsp.code {
@@ -314,6 +316,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                                 .await?;
                             if body_transfer.finished() {
                                 state.mark_ups_recv_all();
+                                state.ups_rsp_body_size = Some(body_transfer.body_size());
                                 self.icap_connection.mark_writer_finished();
                                 if bidirectional_transfer.icap_read_finished {
                                     self.icap_connection.mark_reader_finished();
@@ -343,6 +346,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                 match ups_body_type {
                     HttpBodyType::ReadUntilEnd | HttpBodyType::ContentLength(_) => {
                         self.send_original_plain_body_to_client(
+                            state,
                             rsp,
                             ups_body_type,
                             ups_body_io,
@@ -353,6 +357,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                     }
                     HttpBodyType::Chunked => {
                         self.send_original_chunked_body_to_client(
+                            state,
                             rsp,
                             ups_body_io,
                             clt_writer,
@@ -570,6 +575,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
 
     async fn send_original_plain_body_to_client<CR, UW>(
         self,
+        state: &mut RespmodAdaptationRunState,
         icap_rsp: RespmodResponse,
         ups_body_type: HttpBodyType,
         ups_body_io: &mut CR,
@@ -584,14 +590,15 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             self.icap_client.save_connection(self.icap_connection);
         }
 
+        let preview_len = preview_buf.len() as u64;
         clt_writer
             .write_all(&preview_buf)
             .await
             .map_err(H1RespmodAdaptationError::HttpClientWriteFailed)?;
 
-        let mut clt_body_reader =
+        let mut ups_body_reader =
             HttpBodyReader::new(ups_body_io, ups_body_type, self.http_body_line_max_size);
-        let mut body_copy = StreamCopy::new(&mut clt_body_reader, clt_writer, &self.copy_config);
+        let mut body_copy = StreamCopy::new(&mut ups_body_reader, clt_writer, &self.copy_config);
 
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
@@ -602,9 +609,21 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
 
                 r = &mut body_copy => {
                     return match r {
-                        Ok(_) => Ok(()),
+                        Ok(_) => {
+                            let n = preview_len + body_copy.reader().body_size();
+                            state.ups_rsp_body_size = Some(n);
+                            state.clt_rsp_body_size = Some(n);
+                            Ok(())
+                        }
                         Err(StreamCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::HttpUpstreamReadFailed(e)),
-                        Err(StreamCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => {
+                            if body_copy.reader().finished() {
+                                state.mark_ups_recv_all();
+                                state.ups_rsp_body_size =
+                                    Some(preview_len + body_copy.reader().body_size());
+                            }
+                            Err(H1RespmodAdaptationError::HttpClientWriteFailed(e))
+                        }
                     };
                 }
                 n = idle_interval.tick() => {
@@ -635,6 +654,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
 
     async fn send_original_chunked_body_to_client<CR, UW>(
         self,
+        state: &mut RespmodAdaptationRunState,
         icap_rsp: RespmodResponse,
         ups_body_io: &mut CR,
         clt_writer: &mut UW,
@@ -666,6 +686,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             self.http_body_line_max_size,
             self.copy_config,
         );
+        chunked_transfer.add_copied(preview_buf.len() as u64);
 
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
@@ -676,9 +697,20 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
 
                 r = &mut chunked_transfer => {
                     return match r {
-                        Ok(_) => Ok(()),
+                        Ok(_) => {
+                            let n = chunked_transfer.body_size();
+                            state.ups_rsp_body_size = Some(n);
+                            state.clt_rsp_body_size = Some(n);
+                            Ok(())
+                        }
                         Err(StreamCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::HttpUpstreamReadFailed(e)),
-                        Err(StreamCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => {
+                            if chunked_transfer.reader_finished() {
+                                state.mark_ups_recv_all();
+                                state.ups_rsp_body_size = Some(chunked_transfer.body_size());
+                            }
+                            Err(H1RespmodAdaptationError::HttpClientWriteFailed(e))
+                        }
                     };
                 }
                 n = idle_interval.tick() => {

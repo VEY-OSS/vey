@@ -15,3 +15,7 @@ http.workspace = true
 tokio = { workspace = true, features = ["macros", "time"] }
 vey-http.workspace = true
 vey-io-ext.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "io-util"] }
+tokio-test.workspace = true

@@ -27,6 +27,7 @@ pub(super) struct BidirectionalRecvIcapResponse<'a, I: IdleCheck> {
 impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
     pub(super) async fn transfer_and_recv<UR>(
         self,
+        state: &mut RespmodAdaptationRunState,
         mut body_transfer: &mut H1BodyToChunkedTransfer<'_, UR, IcapClientWriter>,
     ) -> Result<RespmodResponse, H1RespmodAdaptationError>
     where
@@ -41,9 +42,19 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
 
                 r = &mut body_transfer => {
                     return match r {
-                        Ok(_) => self.recv_icap_response().await,
+                        Ok(_) => {
+                            state.mark_ups_recv_all();
+                            state.ups_rsp_body_size = Some(body_transfer.body_size());
+                            self.recv_icap_response().await
+                        }
                         Err(StreamCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::HttpUpstreamReadFailed(e)),
-                        Err(StreamCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::IcapServerWriteFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => {
+                            if body_transfer.reader_finished() {
+                                state.mark_ups_recv_all();
+                                state.ups_rsp_body_size = Some(body_transfer.body_size());
+                            }
+                            Err(H1RespmodAdaptationError::IcapServerWriteFailed(e))
+                        }
                     };
                 }
                 r = self.icap_reader.fill_wait_data() => {
@@ -131,11 +142,15 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                     HttpBodyDecodeReader::new_chunked(icap_reader, self.http_body_line_max_size);
                 let mut clt_body_transfer =
                     StreamCopy::new(&mut clt_body_reader, clt_writer, &self.copy_config);
-                self.do_transfer(ups_body_transfer, &mut clt_body_transfer)
+                self.do_transfer(state, ups_body_transfer, &mut clt_body_transfer)
                     .await?;
 
                 state.mark_clt_send_all();
-                let copied = clt_body_transfer.copied_size();
+                if ups_body_transfer.finished() {
+                    state.ups_rsp_body_size = Some(ups_body_transfer.body_size());
+                }
+                state.clt_rsp_body_size = Some(clt_body_reader.body_size());
+                let copied = clt_body_reader.body_size();
                 if clt_body_reader.trailer(128).await.is_ok() {
                     self.icap_read_finished = true;
                 }
@@ -152,10 +167,14 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                     HttpBodyReader::new_chunked(icap_reader, self.http_body_line_max_size);
                 let mut clt_body_transfer =
                     StreamCopy::new(&mut clt_body_reader, clt_writer, &self.copy_config);
-                self.do_transfer(ups_body_transfer, &mut clt_body_transfer)
+                self.do_transfer(state, ups_body_transfer, &mut clt_body_transfer)
                     .await?;
 
                 state.mark_clt_send_all();
+                if ups_body_transfer.finished() {
+                    state.ups_rsp_body_size = Some(ups_body_transfer.body_size());
+                }
+                state.clt_rsp_body_size = Some(clt_body_transfer.reader().body_size());
                 self.icap_read_finished = clt_body_transfer.finished();
 
                 Ok(RespmodAdaptationEndState::AdaptedTransferred(final_rsp))
@@ -165,6 +184,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
 
     async fn do_transfer<UR, IR, CW>(
         &self,
+        state: &mut RespmodAdaptationRunState,
         mut ups_body_transfer: &mut H1BodyToChunkedTransfer<'_, UR, IcapClientWriter>,
         mut clt_body_transfer: &mut StreamCopy<'_, IR, CW>,
     ) -> Result<(), H1RespmodAdaptationError>
@@ -181,6 +201,8 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                 r = &mut ups_body_transfer => {
                     return match r {
                         Ok(_) => {
+                            state.mark_ups_recv_all();
+                            state.ups_rsp_body_size = Some(ups_body_transfer.body_size());
                             match clt_body_transfer.await {
                                 Ok(_) => Ok(()),
                                 Err(StreamCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::IcapServerReadFailed(e)),
@@ -188,14 +210,32 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                             }
                         }
                         Err(StreamCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::HttpUpstreamReadFailed(e)),
-                        Err(StreamCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::IcapServerWriteFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => {
+                            if ups_body_transfer.reader_finished() {
+                                state.mark_ups_recv_all();
+                                state.ups_rsp_body_size = Some(ups_body_transfer.body_size());
+                            }
+                            Err(H1RespmodAdaptationError::IcapServerWriteFailed(e))
+                        }
                     };
                 }
                 r = &mut clt_body_transfer => {
                     return match r {
                         Ok(_) => Ok(()),
-                        Err(StreamCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::IcapServerReadFailed(e)),
-                        Err(StreamCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => {
+                            if ups_body_transfer.reader_finished() {
+                                state.mark_ups_recv_all();
+                                state.ups_rsp_body_size = Some(ups_body_transfer.body_size());
+                            }
+                            Err(H1RespmodAdaptationError::IcapServerReadFailed(e))
+                        }
+                        Err(StreamCopyError::WriteFailed(e)) => {
+                            if ups_body_transfer.reader_finished() {
+                                state.mark_ups_recv_all();
+                                state.ups_rsp_body_size = Some(ups_body_transfer.body_size());
+                            }
+                            Err(H1RespmodAdaptationError::HttpClientWriteFailed(e))
+                        }
                     };
                 }
                 n = idle_interval.tick() => {

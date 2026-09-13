@@ -96,6 +96,18 @@ impl AlpnProtocol {
             _ => None,
         }
     }
+
+    pub fn encode_wired_list(protocols: &[Self]) -> Vec<u8> {
+        let cap = protocols
+            .iter()
+            .map(|p| p.wired_identification_sequence().len())
+            .sum();
+        let mut buf = Vec::with_capacity(cap);
+        for p in protocols {
+            buf.extend_from_slice(p.wired_identification_sequence());
+        }
+        buf
+    }
 }
 
 #[derive(Debug, Error)]
@@ -256,6 +268,11 @@ mod tests {
             AlpnProtocol::DnsOverQuic.wired_identification_sequence(),
             b"\x03doq"
         );
+        assert_eq!(
+            AlpnProtocol::encode_wired_list(&[AlpnProtocol::Http2, AlpnProtocol::Http11]),
+            b"\x02h2\x08http/1.1"
+        );
+        assert!(AlpnProtocol::encode_wired_list(&[]).is_empty());
     }
 
     #[test]

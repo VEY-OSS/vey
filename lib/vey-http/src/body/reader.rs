@@ -157,6 +157,11 @@ where
         self.finished
     }
 
+    #[inline]
+    pub fn body_size(&self) -> u64 {
+        self.read_content_length
+    }
+
     fn update_next_read_size(&mut self) {
         const MAX_USIZE: usize = usize::MAX;
         debug_assert_eq!(self.next_read_size, 0);
@@ -572,6 +577,7 @@ mod tests {
         assert_eq!(&buf[0..len], content);
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, 0);
+        assert_eq!(body_reader.body_size(), content.len() as u64);
         assert!(body_reader.finished());
     }
 
@@ -596,6 +602,10 @@ mod tests {
         assert_eq!(&buf[0..len], content2);
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, 0);
+        assert_eq!(
+            body_reader.body_size(),
+            (content1.len() + content2.len()) as u64
+        );
         assert!(body_reader.finished());
     }
 
@@ -617,6 +627,7 @@ mod tests {
         assert_eq!(&buf[0..len], &content[0..len]);
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, 0);
+        assert_eq!(body_reader.body_size(), body_len as u64);
         assert!(body_reader.finished());
     }
 
@@ -645,6 +656,7 @@ mod tests {
         assert_eq!(&buf[0..len], &content2[0..len]);
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, 0);
+        assert_eq!(body_reader.body_size(), body_len as u64);
         assert!(body_reader.finished());
     }
 
@@ -660,6 +672,7 @@ mod tests {
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, body_len);
         assert_eq!(&buf[0..len], &content[0..len]);
+        assert_eq!(body_reader.body_size(), 0);
         assert!(body_reader.finished());
     }
 
@@ -675,6 +688,7 @@ mod tests {
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, body_len);
         assert_eq!(&buf[0..len], &content[0..len]);
+        assert_eq!(body_reader.body_size(), 9);
         assert!(body_reader.finished());
     }
 
@@ -698,6 +712,7 @@ mod tests {
             &buf[content1.len()..body_len],
             &content2[0..body_len - content1.len()]
         );
+        assert_eq!(body_reader.body_size(), 9);
         assert!(body_reader.finished());
     }
 
@@ -728,6 +743,7 @@ mod tests {
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, 30);
         assert_eq!(&buf[..len], b"bbbccccccccccdddddddddd\r\n0\r\n\r\n");
+        assert_eq!(body_reader.body_size(), 41);
         assert!(body_reader.finished());
     }
 
@@ -743,6 +759,7 @@ mod tests {
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, body_len);
         assert_eq!(&buf[0..len], &content[0..len]);
+        assert_eq!(body_reader.body_size(), 9);
         //let len = body_reader.read(&mut buf).await.unwrap();
         //assert_eq!(len, 0);
         assert!(body_reader.finished());
@@ -759,6 +776,7 @@ mod tests {
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, 8);
         assert_eq!(&buf[..len], b"A: B\r\n\r\n");
+        assert_eq!(body_reader.body_size(), 0);
         assert!(body_reader.finished);
     }
 
@@ -773,6 +791,7 @@ mod tests {
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, 2);
         assert_eq!(&buf[..len], b"\r\n");
+        assert_eq!(body_reader.body_size(), 0);
         assert!(body_reader.finished);
     }
 
@@ -799,6 +818,7 @@ mod tests {
             }
         }
         assert_eq!(out.as_slice(), b"\r\n");
+        assert_eq!(body_reader.body_size(), 0);
         assert!(body_reader.finished());
     }
 
@@ -825,6 +845,7 @@ mod tests {
             }
         }
         assert_eq!(out.as_slice(), b"A: B\r\n\r\n");
+        assert_eq!(body_reader.body_size(), 0);
         assert!(body_reader.finished());
     }
 
@@ -850,6 +871,7 @@ mod tests {
             }
         }
         assert_eq!(out.as_slice(), b"5\r\ntest\n\r\n0\r\nA: B\r\n\r\n");
+        assert_eq!(body_reader.body_size(), 5);
         assert!(body_reader.finished());
     }
 }

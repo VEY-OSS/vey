@@ -13,7 +13,7 @@ use http::HeaderName;
 use jiff::Timestamp;
 
 use vey_datetime::DateTimeFormatExt;
-use vey_types::net::{EgressInfo, HttpHeaderMap, HttpHeaderValue, HttpServerId};
+use vey_types::net::{EgressInfo, H1HeaderMap, H1HeaderValue, HttpServerId};
 
 // chained final info header
 const UPSTREAM_ID: &str = "X-VEY-Upstream-ID";
@@ -73,7 +73,7 @@ pub(crate) fn remote_connection_info(
 }
 
 pub(crate) fn set_remote_connection_info(
-    headers: &mut HttpHeaderMap,
+    headers: &mut H1HeaderMap,
     server_id: &HttpServerId,
     bind: Option<IpAddr>,
     local: Option<SocketAddr>,
@@ -82,7 +82,7 @@ pub(crate) fn set_remote_connection_info(
 ) {
     TL_BUF.with_borrow_mut(|buf| {
         set_value_for_remote_connection_info(buf, server_id, bind, local, remote, expire);
-        let mut value = unsafe { HttpHeaderValue::from_buf_unchecked(buf.clone()) };
+        let mut value = unsafe { H1HeaderValue::from_buf_unchecked(buf.clone()) };
         value.set_original_name(REMOTE_CONNECTION_INFO);
         headers.append(HeaderName::from_static(REMOTE_CONNECTION_INFO_LOWER), value);
         buf.clear();
@@ -117,20 +117,20 @@ pub(crate) fn dynamic_egress_info(server_id: &HttpServerId, egress: &EgressInfo)
 }
 
 pub(crate) fn set_dynamic_egress_info(
-    headers: &mut HttpHeaderMap,
+    headers: &mut H1HeaderMap,
     server_id: &HttpServerId,
     egress: &EgressInfo,
 ) {
     TL_BUF.with_borrow_mut(|buf| {
         set_value_for_dynamic_egress_info(buf, server_id, egress);
-        let mut value = unsafe { HttpHeaderValue::from_buf_unchecked(buf.clone()) };
+        let mut value = unsafe { H1HeaderValue::from_buf_unchecked(buf.clone()) };
         value.set_original_name(DYNAMIC_EGRESS_INFO);
         headers.append(HeaderName::from_static(DYNAMIC_EGRESS_INFO_LOWER), value);
         buf.clear()
     })
 }
 
-pub(crate) fn set_upstream_id(headers: &mut HttpHeaderMap, id: &HttpServerId) {
+pub(crate) fn set_upstream_id(headers: &mut H1HeaderMap, id: &HttpServerId) {
     if !headers.contains_key(HeaderName::from_static(UPSTREAM_ID_LOWER)) {
         let mut value = id.to_header_value();
         value.set_original_name(UPSTREAM_ID);
@@ -143,9 +143,9 @@ pub(crate) fn upstream_addr(addr: SocketAddr) -> String {
     format!("{UPSTREAM_ADDR}: {addr}\r\n")
 }
 
-pub(crate) fn set_upstream_addr(headers: &mut HttpHeaderMap, addr: SocketAddr) {
+pub(crate) fn set_upstream_addr(headers: &mut H1HeaderMap, addr: SocketAddr) {
     if !headers.contains_key(HeaderName::from_static(UPSTREAM_ADDR_LOWER)) {
-        let mut value = unsafe { HttpHeaderValue::from_string_unchecked(addr.to_string()) };
+        let mut value = unsafe { H1HeaderValue::from_string_unchecked(addr.to_string()) };
         value.set_original_name(UPSTREAM_ADDR);
         headers.append(HeaderName::from_static(UPSTREAM_ADDR_LOWER), value);
     }
@@ -156,9 +156,9 @@ pub(crate) fn outgoing_ip(ip: IpAddr) -> String {
     format!("{OUTGOING_IP}: {ip}\r\n")
 }
 
-pub(crate) fn set_outgoing_ip(headers: &mut HttpHeaderMap, addr: SocketAddr) {
+pub(crate) fn set_outgoing_ip(headers: &mut H1HeaderMap, addr: SocketAddr) {
     if !headers.contains_key(HeaderName::from_static(OUTGOING_IP_LOWER)) {
-        let mut value = unsafe { HttpHeaderValue::from_string_unchecked(addr.ip().to_string()) };
+        let mut value = unsafe { H1HeaderValue::from_string_unchecked(addr.ip().to_string()) };
         value.set_original_name(OUTGOING_IP);
         headers.append(HeaderName::from_static(OUTGOING_IP_LOWER), value);
     }

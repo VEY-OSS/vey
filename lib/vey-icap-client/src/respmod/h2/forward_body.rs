@@ -73,6 +73,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             .icap_write_all_as_chunked(icap_w)
             .await
             .map_err(H2RespmodAdaptationError::IcapServerWriteFailed)?;
+        state.ups_rsp_body_size = Some(preview_data.received() as u64);
         self.recv_send_trailer(ups_body).await?;
         self.icap_connection.mark_writer_finished();
         state.mark_ups_recv_all();
@@ -216,10 +217,11 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             idle_checker: &self.idle_checker,
         };
         let rsp = bidirectional_transfer
-            .transfer_and_recv(&mut body_transfer)
+            .transfer_and_recv(state, &mut body_transfer)
             .await?;
         if body_transfer.finished() {
             state.mark_ups_recv_all();
+            state.ups_rsp_body_size = Some(body_transfer.copied_size());
         }
 
         match rsp.payload {
@@ -270,6 +272,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                     let icap_read_finished = bidirectional_transfer.icap_read_finished;
                     if body_transfer.finished() {
                         state.mark_ups_recv_all();
+                        state.ups_rsp_body_size = Some(body_transfer.copied_size());
                         self.icap_connection.mark_writer_finished();
                         if icap_read_finished {
                             self.icap_connection.mark_reader_finished();

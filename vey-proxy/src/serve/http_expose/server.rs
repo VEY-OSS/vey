@@ -5,6 +5,7 @@
  */
 
 use std::net::SocketAddr;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
@@ -51,6 +52,7 @@ use crate::serve::{
     ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
     ServerRegistry, ServerStats, WrapArcServer,
 };
+use crate::site::Site;
 
 pub(crate) struct HttpExposeServer {
     config: Arc<HttpExposeServerConfig>,
@@ -192,7 +194,11 @@ impl HttpExposeServer {
         }
     }
 
-    fn get_common_task_context(&self, cc_info: ClientConnectionInfo) -> Arc<CommonTaskContext> {
+    fn get_common_task_context(
+        &self,
+        cc_info: ClientConnectionInfo,
+        pinned_site: Option<Arc<Site>>,
+    ) -> Arc<CommonTaskContext> {
         Arc::new(CommonTaskContext {
             server_config: self.config.clone(),
             server_stats: self.server_stats.clone(),
@@ -201,6 +207,7 @@ impl HttpExposeServer {
             escaper: self.escaper.load().as_ref().clone(),
             cc_info,
             task_logger: self.task_logger.clone(),
+            pinned_site,
         })
     }
 
@@ -221,13 +228,17 @@ impl HttpExposeServer {
         false
     }
 
-    async fn spawn_stream_task<T>(&self, stream: T, cc_info: ClientConnectionInfo)
-    where
+    async fn spawn_stream_task<T>(
+        &self,
+        stream: T,
+        cc_info: ClientConnectionInfo,
+        pinned_site: Option<Arc<Site>>,
+    ) where
         T: AsyncStream,
         T::R: AsyncRead + Send + Sync + Unpin + 'static,
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let ctx = self.get_common_task_context(cc_info);
+        let ctx = self.get_common_task_context(cc_info, pinned_site);
         let pipeline_stats = Arc::new(HttpExposePipelineStats::default());
         let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size.get());
 
@@ -310,7 +321,8 @@ impl HttpExposeServer {
                 if ssl_stream.ssl().session_reused() {
                     cc_info.tcp_sock_try_quick_ack();
                 }
-                self.spawn_stream_task(ssl_stream, cc_info).await
+                self.spawn_stream_task(ssl_stream, cc_info, host.map(|h| Arc::clone(h.site())))
+                    .await
             }
             Err(e) => {
                 self.listen_stats.add_failed();
@@ -431,17 +443,13 @@ impl ServerInternal for HttpExposeServer {
         &self.config.site_group
     }
 
-    fn _update_site_group_in_place(&self) {
+    fn _update_site_group_in_place(&self) -> anyhow::Result<()> {
         if self.config.site_group.is_empty() {
-            return;
+            return Ok(());
         }
-        match build_hosts(&self.config.site_group, self.tls_rolling_ticketer.clone()) {
-            Ok(hosts) => self.hosts.store(Arc::new(hosts)),
-            Err(e) => debug!(
-                "failed to rebuild http_expose hosts from site group {}: {e:?}",
-                self.config.site_group
-            ),
-        }
+        let hosts = build_hosts(&self.config.site_group, self.tls_rolling_ticketer.clone())?;
+        self.hosts.store(Arc::new(hosts));
+        Ok(())
     }
 
     fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {
@@ -517,7 +525,7 @@ impl AcceptTcpServer for HttpExposeServer {
         if self.config.enable_tls_server {
             self.run_tls_tcp_task(stream, cc_info).await;
         } else {
-            self.spawn_stream_task(stream, cc_info).await;
+            self.spawn_stream_task(stream, cc_info, None).await;
         }
     }
 }
@@ -577,7 +585,13 @@ impl Server for HttpExposeServer {
             return;
         }
 
-        self.spawn_stream_task(stream, cc_info).await;
+        let hosts = self.hosts.load_full();
+        let pinned_site = stream.get_ref().1.server_name().and_then(|sni| {
+            hosts
+                .get(&Host::from_str(sni).ok()?)
+                .map(|h| Arc::clone(h.site()))
+        });
+        self.spawn_stream_task(stream, cc_info, pinned_site).await;
     }
 
     async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
@@ -587,6 +601,15 @@ impl Server for HttpExposeServer {
             return;
         }
 
-        self.spawn_stream_task(stream, cc_info).await;
+        let hosts = self.hosts.load_full();
+        let pinned_site = stream
+            .ssl()
+            .servername(openssl::ssl::NameType::HOST_NAME)
+            .and_then(|sni| {
+                hosts
+                    .get(&Host::from_str(sni).ok()?)
+                    .map(|h| Arc::clone(h.site()))
+            });
+        self.spawn_stream_task(stream, cc_info, pinned_site).await;
     }
 }

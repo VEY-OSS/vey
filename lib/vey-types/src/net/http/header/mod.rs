@@ -5,13 +5,13 @@
  */
 
 mod map;
-pub use map::HttpHeaderMap;
+pub use map::H1HeaderMap;
 
 mod name;
 pub use name::{HttpKnownHeader, HttpKnownHeaderName, HttpOriginalHeaderName};
 
 mod value;
-pub use value::HttpHeaderValue;
+pub use value::H1HeaderValue;
 
 mod server_id;
 pub use server_id::HttpServerId;

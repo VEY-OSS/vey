@@ -30,6 +30,7 @@ struct H2BodyEncodeTransferInternal {
     yield_size: usize,
     chunk: Option<Bytes>,
     active: bool,
+    copied: u64,
 }
 
 impl H2BodyEncodeTransferInternal {
@@ -39,7 +40,13 @@ impl H2BodyEncodeTransferInternal {
             yield_size: copy_config.yield_size(),
             chunk: None,
             active: false,
+            copied: 0,
         }
+    }
+
+    #[inline]
+    fn copied_size(&self) -> u64 {
+        self.copied
     }
 
     #[inline]
@@ -77,14 +84,16 @@ impl H2BodyEncodeTransferInternal {
                     Poll::Ready(Some(Ok(n))) => {
                         self.active = true;
                         let to_send = chunk.split_to(n);
+                        let ns = to_send.len();
                         send_stream
                             .send_data(to_send, false)
                             .map_err(H2StreamBodyEncodeTransferError::SendDataFailed)?;
+                        self.copied += ns as u64;
                         if chunk.has_remaining() {
                             self.chunk = Some(chunk);
                         }
 
-                        copy_this_round += n;
+                        copy_this_round += ns;
                         if copy_this_round >= self.yield_size {
                             cx.waker().wake_by_ref();
                             return Poll::Pending;
@@ -164,6 +173,11 @@ impl<'a, R> H2BodyEncodeTransfer<'a, R> {
         self.internal.no_cached_data()
     }
 
+    #[inline]
+    pub fn copied_size(&self) -> u64 {
+        self.internal.copied_size()
+    }
+
     pub fn into_io(self) -> (&'a mut R, &'a mut SendStream<Bytes>) {
         (self.reader, self.send_stream)
     }
@@ -218,6 +232,11 @@ impl<'a, R> ROwnedH2BodyEncodeTransfer<'a, R> {
 
     pub fn no_cached_data(&self) -> bool {
         self.internal.no_cached_data()
+    }
+
+    #[inline]
+    pub fn copied_size(&self) -> u64 {
+        self.internal.copied_size()
     }
 
     pub fn into_io(self) -> (R, &'a mut SendStream<Bytes>) {

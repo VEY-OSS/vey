@@ -329,7 +329,10 @@ Example:
 
    http:
      rsp_header_recv_timeout: 8s
-     h1_connection_pool: {}
+     h1:
+       connection_pool: {}
+     h2:
+       connection_pool: {}
 
 .. _conf_site_http_rsp_header_recv_timeout:
 
@@ -343,7 +346,7 @@ Custom HTTP response-header receive timeout for this origin.
 This overwrites:
 
 * tenant user :ref:`http_rsp_header_recv_timeout <conf_user_http_rsp_header_recv_timeout>`
-* ``http_expose`` :ref:`rsp_header_recv_timeout <configuration_server_http_rproxy>`
+* ``http_expose`` / ``http_guard`` :ref:`rsp_header_recv_timeout <configuration_server_http_rproxy>`
 * auditor :ref:`h1 interception <conf_auditor_h1_interception>` / :ref:`h2 interception <conf_auditor_h2_interception>`
 
 Lookup is ``site.http`` then tenant, then the server / auditor default.
@@ -351,10 +354,40 @@ A visitor user is not consulted when a site context is present.
 
 **default**: not set
 
+.. _conf_site_http_h1:
+
+h1
+^^
+
+**optional**, **type**: map
+
+HTTP/1-only settings for this origin.
+
+.. _conf_site_http_h1_upstream_keepalive:
+
+upstream_keepalive
+""""""""""""""""""
+
+**optional**, **type**: :external+values:ref:`http keepalive <conf_value_http_keepalive>`
+
+Whether idle HTTP/1 origin connections for this site may be reused, and
+the maximum idle age when taking one from the site pool or the
+per-pipeline forward-context slot.
+
+When ``enable`` is false, idle origin connections are not saved and not
+reused. ``http_expose`` and ``http_guard`` both read this site setting;
+there is no server-level override.
+
+When a :ref:`connection pool <conf_site_http_h1_connection_pool>` is
+configured, checkout idle age is the minimum of this ``idle_expire`` and
+the pool ``idle_timeout``.
+
+**default**: enabled, idle expire 60s
+
 .. _conf_site_http_h1_connection_pool:
 
-h1_connection_pool
-^^^^^^^^^^^^^^^^^^
+connection_pool
+"""""""""""""""
 
 **optional**, **type**: :external+values:ref:`connection pool <conf_value_connection_pool_config>`
 
@@ -375,6 +408,9 @@ connection before the per-pipeline forward-context slot. An empty map
 When omitted, idle connections return to the forward context (one
 keepalive slot per client pipeline), which is the previous behaviour.
 
+Checkout still honours this site's
+:ref:`upstream_keepalive <conf_site_http_h1_upstream_keepalive>`.
+
 Only ``max_idle_count`` and ``idle_timeout`` from the pool map apply.
 ``min_idle_count`` and ``check_interval`` are ignored: origin connections
 are created on demand, not warmed up.
@@ -382,3 +418,29 @@ are created on demand, not warmed up.
 ``http_proxy`` (SWG) does not use this pool.
 
 **default**: not set
+
+.. _conf_site_http_h2:
+
+h2
+^^
+
+**optional**, **type**: map
+
+HTTP/2-only settings for this origin. Omitted ``h2`` still uses a default
+origin multiplex pool: HTTP/2 streams are not bound 1:1 to client connections.
+
+.. _conf_site_http_h2_connection_pool:
+
+connection_pool
+"""""""""""""""
+
+**optional**, **type**: :external+values:ref:`connection pool <conf_value_connection_pool_config>`
+
+HTTP/2 origin multiplex pool for this site. Checkout clones ``SendRequest``
+and does not bind a client connection to an origin connection.
+
+``max_idle_count`` is the site-wide cap, split across workers
+(at least one idle slot per worker). Only ``max_idle_count`` and
+``idle_timeout`` apply. ``min_idle_count`` and ``check_interval`` are ignored.
+
+**default**: default connection pool limits

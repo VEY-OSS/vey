@@ -21,7 +21,7 @@ use vey_io_ext::{
     StreamCopyError,
 };
 use vey_types::acl::AclAction;
-use vey_types::net::{KeepAliveValue, TcpSockSpeedLimitConfig};
+use vey_types::net::{HttpKeepAliveConfig, KeepAliveValue, TcpSockSpeedLimitConfig};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpExposeRequest};
 use super::{
@@ -52,6 +52,7 @@ pub(crate) struct HttpExposeForwardTask<'a> {
     is_https: bool,
     should_close: bool,
     ups_keep_alive: KeepAliveValue,
+    upstream_keepalive: HttpKeepAliveConfig,
     allow_continue: bool,
     send_error_response: bool,
     task_notes: ServerTaskNotes,
@@ -94,6 +95,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         );
         let is_https = site.tls_client().is_some();
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
+        let upstream_keepalive = site.config().http.h1.upstream_keepalive;
         HttpExposeForwardTask {
             ctx: Arc::clone(ctx),
             site,
@@ -101,6 +103,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             is_https,
             should_close: !req.inner.keep_alive(),
             ups_keep_alive: KeepAliveValue::default(),
+            upstream_keepalive,
             allow_continue: req.inner.expect_100_continue(),
             send_error_response: true,
             task_notes,
@@ -433,7 +436,6 @@ impl<'a> HttpExposeForwardTask<'a> {
         CDR: AsyncRead + Unpin,
         CDW: AsyncWrite + Unpin,
     {
-        let upstream_keepalive = self.ctx.server_config.http_forward_upstream_keepalive;
         let tcp_client_misc_opts;
 
         if self.task_notes.check_layered_rate_limit().is_err() {
@@ -474,7 +476,13 @@ impl<'a> HttpExposeForwardTask<'a> {
             let action = user_ctx.check_upstream(self.site.upstream());
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
-            if let Some(action) = user_ctx.check_http_user_agent(&self.req.end_to_end_headers) {
+            if let Some(action) = user_ctx.check_http_user_agent(
+                self.req
+                    .end_to_end_headers
+                    .get_all(header::USER_AGENT)
+                    .iter()
+                    .map(|v| v.to_str()),
+            ) {
                 self.handle_user_ua_acl_action(action, clt_w).await?;
             }
 
@@ -495,9 +503,10 @@ impl<'a> HttpExposeForwardTask<'a> {
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
-        if let Some(mut connection) = self
-            .take_alive_origin_connection(fwd_ctx, upstream_keepalive.idle_expire())
-            .await
+        if self.upstream_keepalive.is_enabled()
+            && let Some(mut connection) = self
+                .take_alive_origin_connection(fwd_ctx, self.upstream_keepalive.idle_expire())
+                .await
         {
             self.task_notes.stage = ServerTaskStage::Connected;
             self.http_notes.reused_connection = true;
@@ -576,14 +585,12 @@ impl<'a> HttpExposeForwardTask<'a> {
         };
         if let Some((connection, reuse_notes, egress_notes)) = from_pool {
             self.egress_notes = egress_notes;
-            let connection = reuse_notes
-                .escaper
-                .prepare_reused_http_forward_connection(
-                    connection,
-                    &self.task_notes,
-                    self.task_stats.clone(),
-                    self.is_https,
-                );
+            let connection = reuse_notes.escaper.prepare_reused_http_forward_connection(
+                connection,
+                &self.task_notes,
+                self.task_stats.clone(),
+                self.is_https,
+            );
             self.alive_reuse_notes = Some(reuse_notes);
             return Some(connection);
         }
@@ -624,6 +631,9 @@ impl<'a> HttpExposeForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
         connection: BoxHttpForwardConnection,
     ) {
+        if !self.upstream_keepalive.is_enabled() {
+            return;
+        }
         if let Some(pool) = self.site.http1_pool() {
             let Some(reuse_notes) = self.alive_reuse_notes.take() else {
                 return;
@@ -691,6 +701,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 },
                 tls_config: tls_client,
                 tls_name: self.site.tls_name(),
+                alpn_protocols: None,
             };
             fwd_ctx
                 .new_prepared_https_connection(
@@ -779,6 +790,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 fast_read_buf.truncate(nr);
 
                 if clt_body_reader.finished() {
+                    self.http_notes.clt_req_body_size = Some(clt_body_reader.body_size());
                     return self
                         .run_with_all_body(fwd_ctx, fast_read_buf, clt_w, ups_c)
                         .await;
@@ -898,6 +910,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
         self.http_notes.mark_req_send_hdr();
         self.http_notes.mark_req_send_all();
+        self.http_notes.ups_req_body_size = Some(body.len() as u64);
 
         match tokio::time::timeout(
             self.rsp_hdr_recv_timeout(),
@@ -1048,6 +1061,9 @@ impl<'a> HttpExposeForwardTask<'a> {
                         StreamCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
                     })?;
                     self.http_notes.mark_req_send_all();
+                    let n = clt_to_ups.reader().body_size();
+                    self.http_notes.clt_req_body_size = Some(n);
+                    self.http_notes.ups_req_body_size = Some(n);
                     break;
                 }
                 _ = log_interval.tick() => {
@@ -1267,6 +1283,9 @@ impl<'a> HttpExposeForwardTask<'a> {
                     return match r {
                         Ok(_) => {
                             self.http_notes.mark_rsp_recv_all();
+                            let n = ups_to_clt.reader().body_size();
+                            self.http_notes.ups_rsp_body_size = Some(n);
+                            self.http_notes.clt_rsp_body_size = Some(n);
                             // clt_w is already flushed
                             Ok(())
                         }

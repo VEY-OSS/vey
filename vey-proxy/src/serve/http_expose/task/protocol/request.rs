@@ -12,7 +12,7 @@ use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use vey_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
-use vey_types::net::{HttpHeaderValue, HttpServerId, UpstreamAddr};
+use vey_types::net::{H1HeaderValue, HttpServerId, UpstreamAddr};
 
 use super::HttpClientReader;
 
@@ -87,7 +87,7 @@ where
         }
         // append VIA
         let via_value = format!("HTTP/{:?} {}", req.version, this_pseudonym);
-        let v = unsafe { HttpHeaderValue::from_string_unchecked(via_value) };
+        let v = unsafe { H1HeaderValue::from_string_unchecked(via_value) };
         req.end_to_end_headers.append(http::header::VIA, v);
 
         let req = HttpExposeRequest {

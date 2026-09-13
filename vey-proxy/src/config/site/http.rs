@@ -8,14 +8,71 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use vey_types::net::ConnectionPoolConfig;
+use vey_types::net::{ConnectionPoolConfig, HttpKeepAliveConfig};
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SiteHttpH1Config {
+    /// HTTP/1 origin idle pool. `None` returns idle connections to the
+    /// per-pipeline forward context instead.
+    pub(crate) connection_pool: Option<ConnectionPoolConfig>,
+    /// Reuse idle HTTP/1 origin connections. Enabled by default.
+    pub(crate) upstream_keepalive: HttpKeepAliveConfig,
+}
+
+impl SiteHttpH1Config {
+    fn parse_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
+        let Yaml::Hash(map) = value else {
+            return Err(anyhow!(
+                "yaml value type for 'site http h1' should be 'map'"
+            ));
+        };
+        vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
+            "connection_pool" => {
+                self.connection_pool = Some(
+                    vey_yaml::value::as_connection_pool_config(v)
+                        .context(format!("invalid connection pool config for key {k}"))?,
+                );
+                Ok(())
+            }
+            "upstream_keepalive" => {
+                self.upstream_keepalive = vey_yaml::value::as_http_keepalive_config(v)
+                    .context(format!("invalid http keepalive config value for key {k}"))?;
+                Ok(())
+            }
+            _ => Err(anyhow!("invalid key {k}")),
+        })
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SiteHttpH2Config {
+    /// HTTP/2 origin multiplex pool. Always on: H2 streams are not bound 1:1.
+    pub(crate) connection_pool: ConnectionPoolConfig,
+}
+
+impl SiteHttpH2Config {
+    fn parse_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
+        let Yaml::Hash(map) = value else {
+            return Err(anyhow!(
+                "yaml value type for 'site http h2' should be 'map'"
+            ));
+        };
+        vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
+            "connection_pool" => {
+                self.connection_pool = vey_yaml::value::as_connection_pool_config(v)
+                    .context(format!("invalid connection pool config for key {k}"))?;
+                Ok(())
+            }
+            _ => Err(anyhow!("invalid key {k}")),
+        })
+    }
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct SiteHttpConfig {
     pub(crate) rsp_hdr_recv_timeout: Option<Duration>,
-    /// HTTP/1 origin idle pool. `None` returns idle connections to the
-    /// per-pipeline forward context instead.
-    pub(crate) h1_connection_pool: Option<ConnectionPoolConfig>,
+    pub(crate) h1: SiteHttpH1Config,
+    pub(crate) h2: SiteHttpH2Config,
 }
 
 impl SiteHttpConfig {
@@ -34,12 +91,8 @@ impl SiteHttpConfig {
                 self.rsp_hdr_recv_timeout = Some(timeout);
                 Ok(())
             }
-            "h1_connection_pool" => {
-                let pool = vey_yaml::value::as_connection_pool_config(v)
-                    .context(format!("invalid connection pool config for key {k}"))?;
-                self.h1_connection_pool = Some(pool);
-                Ok(())
-            }
+            "h1" => self.h1.parse_yaml(v),
+            "h2" => self.h2.parse_yaml(v),
             _ => Err(anyhow!("invalid key {k}")),
         }
     }

@@ -5,7 +5,8 @@ Site Group
 **********
 
 A site group is a named Host / SNI lookup table. Reverse-proxy servers such as
-:ref:`http_expose <configuration_server_http_rproxy>` and
+:ref:`http_expose <configuration_server_http_rproxy>`,
+:ref:`http_guard <configuration_server_http_guard>` and
 :ref:`tls_proxy <configuration_server_tls_proxy>` match the request host
 or SNI against the group, then take the site's upstream and TLS settings.
 
@@ -59,8 +60,8 @@ tenant_user_group
 
 User group used to resolve each site's :ref:`owner <conf_site_owner>` into a
 tenant user. ``http_expose`` visitor authentication still uses the server
-``user_group`` and does not read this key. ``tls_proxy`` has no visitor
-``user_group``; owner lookup still uses this key.
+``user_group`` and does not read this key. ``http_guard`` and ``tls_proxy``
+have no visitor ``user_group``; owner lookup uses this key.
 
 If unset, sites have no tenant even when ``owner`` is set.
 

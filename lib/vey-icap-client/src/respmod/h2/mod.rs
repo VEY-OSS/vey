@@ -10,12 +10,11 @@ use std::time::Duration;
 
 use bytes::{BufMut, Bytes};
 use h2::{RecvStream, SendStream};
-use http::{Request, Response};
+use http::{HeaderMap, Request, Response};
 use tokio::time::Instant;
 
 use vey_http::client::HttpAdaptedResponse;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
-use vey_types::net::HttpHeaderMap;
 
 use super::IcapRespmodClient;
 use crate::{IcapClientConnection, IcapServiceClient, IcapServiceOptions};
@@ -79,7 +78,7 @@ pub struct H2ResponseAdapter<I: IdleCheck> {
     client_addr: Option<SocketAddr>,
     client_username: Option<String>,
     tenant_username: Option<String>,
-    respond_shared_headers: Option<HttpHeaderMap>,
+    respond_shared_headers: Option<HeaderMap>,
 }
 
 pub struct RespmodAdaptationRunState {
@@ -89,6 +88,8 @@ pub struct RespmodAdaptationRunState {
     pub dur_clt_send_header: Option<Duration>,
     pub dur_clt_send_all: Option<Duration>,
     pub clt_write_started: bool,
+    pub ups_rsp_body_size: Option<u64>,
+    pub clt_rsp_body_size: Option<u64>,
 }
 
 impl RespmodAdaptationRunState {
@@ -100,11 +101,14 @@ impl RespmodAdaptationRunState {
             dur_clt_send_header: None,
             dur_clt_send_all: None,
             clt_write_started: false,
+            ups_rsp_body_size: None,
+            clt_rsp_body_size: None,
         }
     }
 
     pub(crate) fn mark_ups_recv_no_body(&mut self) {
         self.dur_ups_recv_all = Some(self.dur_ups_recv_header);
+        self.ups_rsp_body_size = Some(0);
     }
 
     pub(crate) fn mark_ups_recv_all(&mut self) {
@@ -121,6 +125,7 @@ impl RespmodAdaptationRunState {
 
     pub(crate) fn mark_clt_send_no_body(&mut self) {
         self.dur_clt_send_all = self.dur_clt_send_header;
+        self.clt_rsp_body_size = Some(0);
     }
 
     pub(crate) fn mark_clt_send_all(&mut self) {
@@ -141,7 +146,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
         self.tenant_username = Some(user.to_owned());
     }
 
-    pub fn set_respond_shared_headers(&mut self, shared_headers: Option<HttpHeaderMap>) {
+    pub fn set_respond_shared_headers(&mut self, shared_headers: Option<HeaderMap>) {
         self.respond_shared_headers = shared_headers;
     }
 

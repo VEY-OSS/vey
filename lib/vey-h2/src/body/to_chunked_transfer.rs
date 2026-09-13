@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::io::{self, Write};
@@ -36,6 +37,7 @@ struct ChunkedEncodeTransferInternal {
     static_header: Vec<u8>,
     static_offset: usize,
     total_write: u64,
+    copied: u64,
     read_data_finished: bool,
     active: bool,
     trailer_bytes: Vec<u8>,
@@ -52,6 +54,7 @@ impl ChunkedEncodeTransferInternal {
             static_header: Vec::with_capacity(16),
             static_offset: 0,
             total_write: 0,
+            copied: 0,
             read_data_finished: false,
             active: false,
             trailer_bytes: Vec::new(),
@@ -70,6 +73,7 @@ impl ChunkedEncodeTransferInternal {
             static_header,
             static_offset: 0,
             total_write: 0,
+            copied: 0,
             read_data_finished: false,
             active: false,
             trailer_bytes: Vec::new(),
@@ -86,6 +90,7 @@ impl ChunkedEncodeTransferInternal {
             static_header: Vec::new(),
             static_offset: 0,
             total_write: 0,
+            copied: 0,
             read_data_finished: true,
             active: false,
             trailer_bytes: Vec::new(),
@@ -246,6 +251,7 @@ impl ChunkedEncodeTransferInternal {
                     Poll::Ready(Ok(nw)) => {
                         let left_chunk = chunk.split_off(nw);
                         self.total_write += nw as u64;
+                        self.copied += nw as u64;
                         copy_this_round += nw;
                         self.active = true;
                         if left_chunk.is_empty() {
@@ -332,6 +338,11 @@ impl<'a, W> H2StreamToChunkedTransfer<'a, W> {
         self.internal.finished()
     }
 
+    #[inline]
+    pub fn recv_finished(&self) -> bool {
+        self.internal.read_data_finished
+    }
+
     pub fn is_idle(&self) -> bool {
         self.internal.is_idle()
     }
@@ -346,6 +357,15 @@ impl<'a, W> H2StreamToChunkedTransfer<'a, W> {
 
     pub fn no_cached_data(&self) -> bool {
         self.internal.no_cached_data()
+    }
+
+    #[inline]
+    pub fn copied_size(&self) -> u64 {
+        self.internal.copied
+    }
+
+    pub fn add_copied(&mut self, n: u64) {
+        self.internal.copied += n;
     }
 }
 

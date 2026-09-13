@@ -14,13 +14,13 @@ use tokio::io::AsyncBufRead;
 use vey_http::client::HttpResponseParseError;
 use vey_http::{HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 use vey_io_ext::LimitedBufReadExt;
-use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
+use vey_types::net::{H1HeaderMap, H1HeaderValue};
 
 pub struct HttpAdapterErrorResponse {
     pub version: Version,
     pub status: StatusCode,
     pub reason: String,
-    pub headers: HttpHeaderMap,
+    pub headers: H1HeaderMap,
 }
 
 impl HttpAdapterErrorResponse {
@@ -29,14 +29,14 @@ impl HttpAdapterErrorResponse {
             version,
             status,
             reason,
-            headers: HttpHeaderMap::default(),
+            headers: H1HeaderMap::default(),
         }
     }
 
     pub(crate) fn set_chunked_encoding(&mut self) {
         self.headers.insert(
             http::header::TRANSFER_ENCODING,
-            HttpHeaderValue::from_static("chunked"),
+            H1HeaderValue::from_static("chunked"),
         );
     }
 
@@ -137,7 +137,7 @@ impl HttpAdapterErrorResponse {
             _ => {}
         }
 
-        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let mut value = H1HeaderValue::from_str(header.value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         value.set_original_name(header.name);

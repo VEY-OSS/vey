@@ -6,31 +6,31 @@
 use http::header::{AsHeaderName, Drain, GetAll};
 use http::{HeaderMap, HeaderName};
 
-use super::HttpHeaderValue;
+use super::H1HeaderValue;
 
 #[derive(Debug, Default, Clone)]
-pub struct HttpHeaderMap {
-    inner: HeaderMap<HttpHeaderValue>,
+pub struct H1HeaderMap {
+    inner: HeaderMap<H1HeaderValue>,
 }
 
-impl HttpHeaderMap {
+impl H1HeaderMap {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
     #[inline]
-    pub fn insert(&mut self, name: HeaderName, value: HttpHeaderValue) -> Option<HttpHeaderValue> {
+    pub fn insert(&mut self, name: HeaderName, value: H1HeaderValue) -> Option<H1HeaderValue> {
         self.inner.insert(name, value)
     }
 
     #[inline]
-    pub fn append(&mut self, name: HeaderName, value: HttpHeaderValue) {
+    pub fn append(&mut self, name: HeaderName, value: H1HeaderValue) {
         self.inner.append(name, value);
     }
 
     #[inline]
-    pub fn remove<K: AsHeaderName>(&mut self, name: K) -> Option<HttpHeaderValue> {
+    pub fn remove<K: AsHeaderName>(&mut self, name: K) -> Option<H1HeaderValue> {
         self.inner.remove(name)
     }
 
@@ -40,36 +40,36 @@ impl HttpHeaderMap {
     }
 
     #[inline]
-    pub fn get<K: AsHeaderName>(&self, name: K) -> Option<&HttpHeaderValue> {
+    pub fn get<K: AsHeaderName>(&self, name: K) -> Option<&H1HeaderValue> {
         self.inner.get(name)
     }
 
     #[inline]
-    pub fn get_mut<K: AsHeaderName>(&mut self, name: K) -> Option<&mut HttpHeaderValue> {
+    pub fn get_mut<K: AsHeaderName>(&mut self, name: K) -> Option<&mut H1HeaderValue> {
         self.inner.get_mut(name)
     }
 
     #[inline]
-    pub fn get_all<K: AsHeaderName>(&self, name: K) -> GetAll<'_, HttpHeaderValue> {
+    pub fn get_all<K: AsHeaderName>(&self, name: K) -> GetAll<'_, H1HeaderValue> {
         self.inner.get_all(name)
     }
 
     pub fn for_each<F>(&self, mut call: F)
     where
-        F: FnMut(&HeaderName, &HttpHeaderValue),
+        F: FnMut(&HeaderName, &H1HeaderValue),
     {
         self.inner
             .iter()
             .for_each(|(name, value)| call(name, value));
     }
 
-    pub fn drain(&mut self) -> Drain<'_, HttpHeaderValue> {
+    pub fn drain(&mut self) -> Drain<'_, H1HeaderValue> {
         self.inner.drain()
     }
 }
 
-impl From<HttpHeaderMap> for HeaderMap {
-    fn from(mut value: HttpHeaderMap) -> Self {
+impl From<H1HeaderMap> for HeaderMap {
+    fn from(mut value: H1HeaderMap) -> Self {
         let mut new_map = HeaderMap::with_capacity(value.inner.capacity());
 
         let mut last_name: Option<HeaderName> = None;
@@ -91,8 +91,8 @@ impl From<HttpHeaderMap> for HeaderMap {
     }
 }
 
-impl From<&HttpHeaderMap> for HeaderMap {
-    fn from(value: &HttpHeaderMap) -> Self {
+impl From<&H1HeaderMap> for HeaderMap {
+    fn from(value: &H1HeaderMap) -> Self {
         let mut new_map = HeaderMap::with_capacity(value.inner.capacity());
         value.for_each(|name, value| {
             new_map.append(name, value.inner().clone());
@@ -109,12 +109,12 @@ mod tests {
     #[test]
     fn http_header_map_operations() {
         // creation and is_empty
-        let mut map = HttpHeaderMap::default();
+        let mut map = H1HeaderMap::default();
         assert!(map.is_empty());
 
         // insert, contains_key, get, and is_empty after insertion
         let name1 = HeaderName::from_static("content-type");
-        let value1 = HttpHeaderValue::from_static("text/plain");
+        let value1 = H1HeaderValue::from_static("text/plain");
         assert!(!map.contains_key(&name1));
         assert!(map.insert(name1.clone(), value1.clone()).is_none());
         assert!(map.contains_key(&name1));
@@ -122,7 +122,7 @@ mod tests {
         assert_eq!(map.get(&name1).unwrap().to_str(), "text/plain");
 
         // replacing a value
-        let value2 = HttpHeaderValue::from_static("application/json");
+        let value2 = H1HeaderValue::from_static("application/json");
         let old_value = map.insert(name1.clone(), value2).unwrap();
         assert_eq!(old_value.to_str(), "text/plain");
         assert_eq!(map.get(&name1).unwrap().to_str(), "application/json");
@@ -134,8 +134,8 @@ mod tests {
 
         // append and get_all
         let name2 = HeaderName::from_static("set-cookie");
-        let cookie1 = HttpHeaderValue::from_static("cookie1=value1");
-        let cookie2 = HttpHeaderValue::from_static("cookie2=value2");
+        let cookie1 = H1HeaderValue::from_static("cookie1=value1");
+        let cookie2 = H1HeaderValue::from_static("cookie2=value2");
         map.append(name2.clone(), cookie1);
         map.append(name2.clone(), cookie2);
         let all_cookies: Vec<_> = map.get_all(&name2).iter().map(|v| v.to_str()).collect();
@@ -171,20 +171,20 @@ mod tests {
         assert_eq!(drained_items.len(), 2); // two set-cookie values
         assert!(drained_map.is_empty());
 
-        // From<&HttpHeaderMap> for HeaderMap
-        let mut map_for_ref_conv = HttpHeaderMap::default();
+        // From<&H1HeaderMap> for HeaderMap
+        let mut map_for_ref_conv = H1HeaderMap::default();
         map_for_ref_conv.insert(
             HeaderName::from_static("x-ref"),
-            HttpHeaderValue::from_static("ref-value"),
+            H1HeaderValue::from_static("ref-value"),
         );
         let header_map_from_ref: HeaderMap = (&map_for_ref_conv).into();
         assert_eq!(header_map_from_ref.get("x-ref").unwrap(), "ref-value");
 
-        // From<HttpHeaderMap> for HeaderMap
-        let mut map_for_owned_conv = HttpHeaderMap::default();
+        // From<H1HeaderMap> for HeaderMap
+        let mut map_for_owned_conv = H1HeaderMap::default();
         map_for_owned_conv.insert(
             HeaderName::from_static("x-owned"),
-            HttpHeaderValue::from_static("owned-value"),
+            H1HeaderValue::from_static("owned-value"),
         );
         let header_map_from_owned: HeaderMap = map_for_owned_conv.into();
         assert_eq!(header_map_from_owned.get("x-owned").unwrap(), "owned-value");

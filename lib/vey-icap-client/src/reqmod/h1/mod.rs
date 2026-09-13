@@ -10,14 +10,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use arcstr::ArcStr;
-use http::Method;
+use http::{HeaderMap, Method};
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
 use vey_http::server::HttpAdaptedRequest;
 use vey_http::{HttpBodyReader, HttpBodyType};
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
-use vey_types::net::HttpHeaderMap;
 
 use super::IcapReqmodClient;
 use crate::{IcapClientConnection, IcapServiceClient, IcapServiceOptions};
@@ -98,7 +97,9 @@ pub struct ReqmodAdaptationRunState {
     pub dur_ups_send_all: Option<Duration>,
     pub clt_read_finished: bool,
     pub ups_write_finished: bool,
-    pub(crate) respond_shared_headers: Option<HttpHeaderMap>,
+    pub clt_req_body_size: Option<u64>,
+    pub ups_req_body_size: Option<u64>,
+    pub(crate) respond_shared_headers: Option<HeaderMap>,
 }
 
 impl ReqmodAdaptationRunState {
@@ -109,11 +110,13 @@ impl ReqmodAdaptationRunState {
             dur_ups_send_all: None,
             clt_read_finished: false,
             ups_write_finished: false,
+            clt_req_body_size: None,
+            ups_req_body_size: None,
             respond_shared_headers: None,
         }
     }
 
-    pub fn take_respond_shared_headers(&mut self) -> Option<HttpHeaderMap> {
+    pub fn take_respond_shared_headers(&mut self) -> Option<HeaderMap> {
         self.respond_shared_headers.take()
     }
 
@@ -124,6 +127,7 @@ impl ReqmodAdaptationRunState {
     pub(crate) fn mark_ups_send_no_body(&mut self) {
         self.dur_ups_send_all = self.dur_ups_send_header;
         self.ups_write_finished = true;
+        self.ups_req_body_size = Some(0);
     }
 
     pub(crate) fn mark_ups_send_all(&mut self) {
@@ -198,6 +202,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             }
         } else {
             state.clt_read_finished = true;
+            state.clt_req_body_size = Some(0);
             self.xfer_without_body(state, http_request, ups_writer)
                 .await
         }

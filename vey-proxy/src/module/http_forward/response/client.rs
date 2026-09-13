@@ -165,6 +165,12 @@ impl HttpProxyClientResponse {
     }
 
     #[inline]
+    pub(crate) fn misdirected_request(version: Version) -> Self {
+        HttpProxyClientResponse::from_standard(StatusCode::MISDIRECTED_REQUEST, version, true)
+            .with_proxy_error(ProxyErrorType::HttpRequestError)
+    }
+
+    #[inline]
     pub(crate) fn bad_gateway(version: Version) -> Self {
         HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, true)
             .with_proxy_error(ProxyErrorType::HttpProtocolError)

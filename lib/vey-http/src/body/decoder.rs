@@ -9,7 +9,7 @@ use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
 
-use vey_types::net::HttpHeaderMap;
+use vey_types::net::H1HeaderMap;
 
 use crate::{ChunkedDataDecodeReader, HttpBodyType, TrailerReadError, TrailerReader};
 
@@ -67,7 +67,7 @@ where
     pub async fn trailer(
         &mut self,
         max_size: usize,
-    ) -> Result<Option<HttpHeaderMap>, TrailerReadError> {
+    ) -> Result<Option<H1HeaderMap>, TrailerReadError> {
         if !self.read_data_done {
             return Err(TrailerReadError::ReadError(io::Error::other(
                 "data has not been read out yet",
@@ -95,6 +95,11 @@ where
 
     pub fn finished(&self) -> bool {
         self.finished
+    }
+
+    #[inline]
+    pub fn body_size(&self) -> u64 {
+        self.total_read
     }
 }
 
@@ -184,6 +189,7 @@ mod tests {
         assert_eq!(&buf[0..len], content);
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, 0);
+        assert_eq!(body_reader.body_size(), content.len() as u64);
         assert!(body_reader.finished());
     }
 
@@ -207,6 +213,10 @@ mod tests {
         assert_eq!(&buf[0..len], content2);
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, 0);
+        assert_eq!(
+            body_reader.body_size(),
+            (content1.len() + content2.len()) as u64
+        );
         assert!(body_reader.finished());
     }
 
@@ -225,6 +235,7 @@ mod tests {
         assert_eq!(&buf[0..len], &content[0..len]);
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, 0);
+        assert_eq!(body_reader.body_size(), body_len as u64);
         assert!(body_reader.finished());
     }
 
@@ -250,6 +261,7 @@ mod tests {
         assert_eq!(&buf[0..len], &content2[0..len]);
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, 0);
+        assert_eq!(body_reader.body_size(), body_len as u64);
         assert!(body_reader.finished());
     }
 
@@ -264,9 +276,11 @@ mod tests {
         let mut buf = Vec::with_capacity(32);
         tokio::io::copy(&mut body_reader, &mut buf).await.unwrap();
         assert_eq!(buf.len(), body_len);
+        assert_eq!(body_reader.body_size(), 0);
         assert!(!body_reader.finished());
         let header = body_reader.trailer(1024).await.unwrap();
         assert!(header.is_none());
+        assert_eq!(body_reader.body_size(), 0);
         assert!(body_reader.finished());
     }
 
@@ -282,9 +296,11 @@ mod tests {
         tokio::io::copy(&mut body_reader, &mut buf).await.unwrap();
         assert_eq!(buf.len(), body_len);
         assert_eq!(&buf, b"test\nbody");
+        assert_eq!(body_reader.body_size(), body_len as u64);
         assert!(!body_reader.finished());
         let header = body_reader.trailer(1024).await.unwrap();
         assert!(header.is_none());
+        assert_eq!(body_reader.body_size(), body_len as u64);
         assert!(body_reader.finished());
     }
 
@@ -304,9 +320,11 @@ mod tests {
         tokio::io::copy(&mut body_reader, &mut buf).await.unwrap();
         assert_eq!(buf.len(), body_len);
         assert_eq!(&buf, b"test\nbody");
+        assert_eq!(body_reader.body_size(), body_len as u64);
         assert!(!body_reader.finished());
         let header = body_reader.trailer(1024).await.unwrap();
         assert!(header.is_none());
+        assert_eq!(body_reader.body_size(), body_len as u64);
         assert!(body_reader.finished());
     }
 
@@ -335,10 +353,12 @@ mod tests {
         let len = body_reader.read(&mut buf).await.unwrap();
         assert_eq!(len, 9);
         assert_eq!(&buf[..len], b"ddddddddd");
+        assert_eq!(body_reader.body_size(), 41);
         assert!(!body_reader.finished());
 
         let header = body_reader.trailer(1024).await.unwrap();
         assert!(header.is_none());
+        assert_eq!(body_reader.body_size(), 41);
         assert!(body_reader.finished());
     }
 
@@ -354,9 +374,11 @@ mod tests {
         tokio::io::copy(&mut body_reader, &mut buf).await.unwrap();
         assert_eq!(buf.len(), body_len);
         assert_eq!(&buf, b"test\nbody");
+        assert_eq!(body_reader.body_size(), body_len as u64);
         assert!(!body_reader.finished());
         let header = body_reader.trailer(1024).await.unwrap();
         assert!(header.is_some());
+        assert_eq!(body_reader.body_size(), body_len as u64);
         assert!(body_reader.finished());
 
         let headers = header.unwrap();

@@ -15,8 +15,8 @@ use tokio::io::AsyncBufRead;
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::http_names;
 use vey_types::net::{
-    AcceptTransferEncodingValue, ConnectionValue, HttpHeaderMap, HttpHeaderValue,
-    HttpKnownHeaderName, HttpUpgradeToken, KeepAliveValue, TransferEncodingValue, UpstreamAddr,
+    AcceptTransferEncodingValue, ConnectionValue, H1HeaderMap, H1HeaderValue, HttpKnownHeaderName,
+    HttpUpgradeToken, KeepAliveValue, TransferEncodingValue, UpstreamAddr,
 };
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
@@ -27,8 +27,8 @@ pub struct HttpTransparentRequest {
     pub version: Version,
     pub uri: Uri,
     steal_forwarded_for: bool,
-    pub end_to_end_headers: HttpHeaderMap,
-    pub hop_by_hop_headers: HttpHeaderMap,
+    pub end_to_end_headers: H1HeaderMap,
+    pub hop_by_hop_headers: H1HeaderMap,
     /// the port may be 0
     pub host: Option<UpstreamAddr>,
     original_connection_name: HttpKnownHeaderName<http_names::CONNECTION>,
@@ -52,8 +52,8 @@ impl HttpTransparentRequest {
             method,
             uri,
             steal_forwarded_for: false,
-            end_to_end_headers: HttpHeaderMap::default(),
-            hop_by_hop_headers: HttpHeaderMap::default(),
+            end_to_end_headers: H1HeaderMap::default(),
+            hop_by_hop_headers: H1HeaderMap::default(),
             host: None,
             original_connection_name: HttpKnownHeaderName::new(),
             connection: ConnectionValue::default(),
@@ -306,7 +306,7 @@ impl HttpTransparentRequest {
         name: HeaderName,
         header: &HttpHeaderLine,
     ) -> Result<(), HttpRequestParseError> {
-        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let mut value = H1HeaderValue::from_str(header.value).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         value.set_original_name(header.name);
@@ -336,7 +336,7 @@ impl HttpTransparentRequest {
                 }
                 if retain(self, &protocol) {
                     let mut new_value =
-                        unsafe { HttpHeaderValue::from_string_unchecked(s.to_owned()) };
+                        unsafe { H1HeaderValue::from_string_unchecked(s.to_owned()) };
                     if let Some(name) = header.original_name() {
                         new_value.set_original_name(name);
                     }
@@ -359,7 +359,7 @@ impl HttpTransparentRequest {
         name: HeaderName,
         header: &HttpHeaderLine,
     ) -> Result<(), HttpRequestParseError> {
-        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let mut value = H1HeaderValue::from_str(header.value).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         value.set_original_name(header.name);
