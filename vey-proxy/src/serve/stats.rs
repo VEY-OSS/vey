@@ -74,7 +74,7 @@ impl ServerForbiddenStats {
     }
 
     pub(crate) fn add_invalid_param(&self) {
-        self.user_blocked.fetch_add(1, Ordering::Relaxed);
+        self.invalid_param.fetch_add(1, Ordering::Relaxed);
     }
 
     pub(crate) fn snapshot(&self) -> ServerForbiddenSnapshot {
@@ -112,5 +112,19 @@ impl ServerPerTaskStats {
 
     pub(super) fn get_alive_count(&self) -> i32 {
         self.alive_count.load(Ordering::Relaxed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_param_increments_its_own_counter() {
+        let stats = ServerForbiddenStats::default();
+        stats.add_invalid_param();
+        let snap = stats.snapshot();
+        assert_eq!(snap.invalid_param, 1);
+        assert_eq!(snap.user_blocked, 0);
     }
 }
