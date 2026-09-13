@@ -20,8 +20,7 @@ use vey_types::net::{
 };
 
 use super::SiteStats;
-use super::http1_pool::SiteHttp1Pool;
-use super::http2_pool::SiteHttp2Pool;
+use super::pool::{SiteHttp1Pool, SiteHttp2Pool};
 use crate::auth::{UserForbiddenStats, UserGroup, UserRequestStats};
 use crate::config::site::SiteConfig;
 

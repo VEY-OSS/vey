@@ -11,8 +11,10 @@ use bytes::Bytes;
 use h2::client::SendRequest;
 use tokio::time::Instant;
 
+use vey_types::metrics::NodeName;
 use vey_types::net::ConnectionPoolConfig;
 
+use super::{lane_index, origin_matches};
 use crate::escape::EgressNotes;
 
 /// Per-site HTTP/2 origin pool, sharded by worker.
@@ -32,6 +34,7 @@ struct H2Lane {
 struct PooledH2Connection {
     sender: SendRequest<Bytes>,
     is_tls: bool,
+    escaper: NodeName,
     last_used: Instant,
     closed: Arc<AtomicBool>,
     egress_notes: EgressNotes,
@@ -54,13 +57,14 @@ impl SiteHttp2Pool {
 
     pub(crate) async fn checkout(
         &self,
-        is_tls: bool,
         worker_id: Option<usize>,
+        is_tls: bool,
+        escaper: &NodeName,
         open_timeout: Duration,
     ) -> Option<(SendRequest<Bytes>, EgressNotes)> {
         let lane = self.lane(worker_id);
         let idle_timeout = self.config.idle_timeout();
-        let candidates = lane.snapshot(is_tls, idle_timeout);
+        let candidates = lane.snapshot(is_tls, escaper, idle_timeout);
         if candidates.is_empty() {
             return None;
         }
@@ -71,7 +75,7 @@ impl SiteHttp2Pool {
             }
             match tokio::time::timeout(open_timeout, conn.sender.clone().ready()).await {
                 Ok(Ok(ready)) => {
-                    lane.touch(conn.sender.clone(), is_tls);
+                    lane.touch(conn.sender.clone(), is_tls, escaper);
                     return Some((ready, conn.egress_notes.clone()));
                 }
                 Ok(Err(_)) => continue,
@@ -86,7 +90,7 @@ impl SiteHttp2Pool {
             && let Ok(Ok(ready)) =
                 tokio::time::timeout(open_timeout, conn.sender.clone().ready()).await
         {
-            lane.touch(conn.sender.clone(), is_tls);
+            lane.touch(conn.sender.clone(), is_tls, escaper);
             return Some((ready, conn.egress_notes.clone()));
         }
         None
@@ -96,6 +100,7 @@ impl SiteHttp2Pool {
         &self,
         worker_id: Option<usize>,
         is_tls: bool,
+        escaper: NodeName,
         sender: SendRequest<Bytes>,
         closed: Arc<AtomicBool>,
         egress_notes: EgressNotes,
@@ -104,6 +109,7 @@ impl SiteHttp2Pool {
             PooledH2Connection {
                 sender,
                 is_tls,
+                escaper,
                 last_used: Instant::now(),
                 closed,
                 egress_notes,
@@ -119,14 +125,23 @@ impl SiteHttp2Pool {
 }
 
 impl H2Lane {
-    fn snapshot(&self, is_tls: bool, idle_timeout: Duration) -> Vec<PooledH2Connection> {
+    fn snapshot(
+        &self,
+        is_tls: bool,
+        escaper: &NodeName,
+        idle_timeout: Duration,
+    ) -> Vec<PooledH2Connection> {
         let mut idle = self.conns.lock().unwrap();
         prune_idle(&mut idle, idle_timeout);
         idle.iter()
-            .filter(|c| c.is_tls == is_tls && !c.closed.load(Ordering::Acquire))
+            .filter(|c| {
+                origin_matches(c.is_tls, &c.escaper, is_tls, escaper)
+                    && !c.closed.load(Ordering::Acquire)
+            })
             .map(|c| PooledH2Connection {
                 sender: c.sender.clone(),
                 is_tls: c.is_tls,
+                escaper: c.escaper.clone(),
                 last_used: c.last_used,
                 closed: Arc::clone(&c.closed),
                 egress_notes: c.egress_notes.clone(),
@@ -134,12 +149,11 @@ impl H2Lane {
             .collect()
     }
 
-    fn touch(&self, sender: SendRequest<Bytes>, is_tls: bool) {
+    fn touch(&self, sender: SendRequest<Bytes>, is_tls: bool, escaper: &NodeName) {
         let mut idle = self.conns.lock().unwrap();
-        if let Some(conn) = idle
-            .iter_mut()
-            .find(|c| c.is_tls == is_tls && senders_same(&c.sender, &sender))
-        {
+        if let Some(conn) = idle.iter_mut().find(|c| {
+            origin_matches(c.is_tls, &c.escaper, is_tls, escaper) && senders_same(&c.sender, &sender)
+        }) {
             conn.last_used = Instant::now();
         }
     }
@@ -161,26 +175,6 @@ fn senders_same(a: &SendRequest<Bytes>, b: &SendRequest<Bytes>) -> bool {
     true
 }
 
-fn lane_index(worker_id: Option<usize>, lane_count: usize) -> usize {
-    match worker_id {
-        Some(id) if id < lane_count => id,
-        _ => 0,
-    }
-}
-
 fn prune_idle(idle: &mut Vec<PooledH2Connection>, idle_timeout: Duration) {
     idle.retain(|c| !c.closed.load(Ordering::Acquire) && c.last_used.elapsed() < idle_timeout);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn lane_stays_on_worker_id() {
-        assert_eq!(lane_index(Some(0), 4), 0);
-        assert_eq!(lane_index(Some(3), 4), 3);
-        assert_eq!(lane_index(Some(4), 4), 0);
-        assert_eq!(lane_index(None, 4), 0);
-    }
 }

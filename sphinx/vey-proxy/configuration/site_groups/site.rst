@@ -407,8 +407,11 @@ worker is a current-thread runtime: the pool keeps a separate idle lane
 per worker so get/save never block another worker, and the origin
 connection plus its EOF poller stay on the runtime that opened them.
 The next request for the same site on that worker prefers a pooled idle
-connection before the per-pipeline forward-context slot. An empty map
-(``{}``) enables the pool with default limits.
+connection before the per-pipeline forward-context slot, if TLS and the
+server's configured escaper match. Servers that share a site group and
+the same escaper can reuse each other's idle connections; different
+escapers do not mix. An empty map (``{}``) enables the pool with default
+limits.
 
 ``max_idle_count`` is the site-wide cap, split across workers
 (at least one idle slot per worker).
@@ -449,7 +452,8 @@ connection_pool
 **optional**, **type**: :external+values:ref:`connection pool <conf_value_connection_pool_config>`
 
 HTTP/2 origin multiplex pool for this site. Checkout clones ``SendRequest``
-and does not bind a client connection to an origin connection.
+and does not bind a client connection to an origin connection. Selection
+matches the HTTP/1 pool: same worker, TLS, and server-configured escaper.
 
 ``max_idle_count`` is the site-wide cap, split across workers
 (at least one idle slot per worker). Only ``max_idle_count`` and

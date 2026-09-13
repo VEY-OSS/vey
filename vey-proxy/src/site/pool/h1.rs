@@ -9,8 +9,10 @@ use std::time::Duration;
 
 use tokio::time::Instant;
 
+use vey_types::metrics::NodeName;
 use vey_types::net::ConnectionPoolConfig;
 
+use super::{lane_index, origin_matches};
 use crate::escape::EgressNotes;
 use crate::module::http_forward::{
     BoxHttpForwardConnection, HttpAliveReuseNotes, HttpConnectionEofPoller,
@@ -35,6 +37,7 @@ struct PooledHttp1Connection {
     saved_at: Instant,
     poller: HttpConnectionEofPoller,
     is_tls: bool,
+    escaper: NodeName,
     reuse_notes: HttpAliveReuseNotes,
     egress_notes: EgressNotes,
 }
@@ -56,14 +59,15 @@ impl SiteHttp1Pool {
 
     pub(crate) async fn get(
         &self,
-        idle_expire: Duration,
-        is_tls: bool,
         worker_id: Option<usize>,
+        is_tls: bool,
+        escaper: &NodeName,
+        idle_expire: Duration,
     ) -> Option<(BoxHttpForwardConnection, HttpAliveReuseNotes, EgressNotes)> {
         let idle_expire = idle_expire.min(self.config.idle_timeout());
         let lane = self.lane(worker_id);
         loop {
-            let mut conn = lane.pop_candidate(idle_expire, is_tls)?;
+            let mut conn = lane.pop_candidate(idle_expire, is_tls, escaper)?;
             conn.reuse_notes.keep_alive_leftover.decrement_max_mut();
             let reuse_notes = conn.reuse_notes;
             let egress_notes = conn.egress_notes;
@@ -77,6 +81,7 @@ impl SiteHttp1Pool {
         &self,
         worker_id: Option<usize>,
         is_tls: bool,
+        escaper: NodeName,
         connection: BoxHttpForwardConnection,
         reuse_notes: HttpAliveReuseNotes,
         egress_notes: EgressNotes,
@@ -89,6 +94,7 @@ impl SiteHttp1Pool {
             saved_at: Instant::now(),
             poller: HttpConnectionEofPoller::spawn(connection),
             is_tls,
+            escaper,
             reuse_notes,
             egress_notes,
         };
@@ -102,16 +108,18 @@ impl SiteHttp1Pool {
 }
 
 impl IdleLane {
-    fn pop_candidate(&self, idle_expire: Duration, is_tls: bool) -> Option<PooledHttp1Connection> {
+    fn pop_candidate(
+        &self,
+        idle_expire: Duration,
+        is_tls: bool,
+        escaper: &NodeName,
+    ) -> Option<PooledHttp1Connection> {
         let mut idle = self.conns.lock().unwrap();
         prune_idle(&mut idle, idle_expire);
-        loop {
-            let conn = idle.pop_back()?;
-            if conn.is_tls != is_tls || conn.is_expired(idle_expire) {
-                continue;
-            }
-            return Some(conn);
-        }
+        let pos = idle.iter().rposition(|c| {
+            origin_matches(c.is_tls, &c.escaper, is_tls, escaper) && !c.is_expired(idle_expire)
+        })?;
+        idle.remove(pos)
     }
 
     fn push(&self, pooled: PooledHttp1Connection, lane_max_idle: usize, idle_timeout: Duration) {
@@ -141,13 +149,6 @@ impl PooledHttp1Connection {
     }
 }
 
-fn lane_index(worker_id: Option<usize>, lane_count: usize) -> usize {
-    match worker_id {
-        Some(id) if id < lane_count => id,
-        _ => 0,
-    }
-}
-
 fn prune_idle(idle: &mut VecDeque<PooledHttp1Connection>, idle_expire: Duration) {
     while idle.back().is_some_and(|c| c.is_expired(idle_expire)) {
         idle.pop_back();
@@ -159,17 +160,6 @@ fn prune_idle(idle: &mut VecDeque<PooledHttp1Connection>, idle_expire: Duration)
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn lane_stays_on_worker_id() {
-        assert_eq!(lane_index(Some(0), 4), 0);
-        assert_eq!(lane_index(Some(3), 4), 3);
-        assert_eq!(lane_index(Some(4), 4), 0);
-        assert_eq!(lane_index(None, 4), 0);
-        assert_eq!(lane_index(None, 1), 0);
-    }
-
     #[test]
     fn lane_max_idle_splits_site_cap() {
         assert_eq!(16usize.div_ceil(8).max(1), 2);

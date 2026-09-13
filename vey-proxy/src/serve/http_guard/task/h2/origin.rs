@@ -39,7 +39,12 @@ pub(super) async fn checkout_or_connect(
     let open_timeout = ctx.server_config.h2.upstream_stream_open_timeout;
     if let Some((sender, egress_notes)) = site
         .http2_pool()
-        .checkout(is_tls, task_notes.worker_id(), open_timeout)
+        .checkout(
+            task_notes.worker_id(),
+            is_tls,
+            ctx.escaper.name(),
+            open_timeout,
+        )
         .await
     {
         return Ok(OriginH2Sender {
@@ -53,6 +58,7 @@ pub(super) async fn checkout_or_connect(
     site.http2_pool().insert(
         task_notes.worker_id(),
         is_tls,
+        ctx.escaper.name().clone(),
         sender.clone(),
         Arc::clone(&closed),
         egress_notes.clone(),

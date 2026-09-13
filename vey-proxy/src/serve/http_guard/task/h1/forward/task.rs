@@ -585,8 +585,13 @@ impl<'a> HttpGuardForwardTask<'a> {
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection> {
         let from_pool = if let Some(pool) = self.site.http1_pool() {
-            pool.get(idle_expire, self.is_https, self.task_notes.worker_id())
-                .await
+            pool.get(
+                self.task_notes.worker_id(),
+                self.is_https,
+                self.ctx.escaper.name(),
+                idle_expire,
+            )
+            .await
         } else {
             None
         };
@@ -648,6 +653,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             pool.save(
                 self.task_notes.worker_id(),
                 self.is_https,
+                self.ctx.escaper.name().clone(),
                 connection,
                 reuse_notes,
                 self.egress_notes.clone(),
