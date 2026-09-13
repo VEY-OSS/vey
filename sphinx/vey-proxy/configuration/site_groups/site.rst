@@ -14,7 +14,7 @@ to the host-match wrapper; the keys below belong to the site itself.
 This is not a :ref:`user site <configuration_auth_user_site>`. User sites are
 per-user destination overrides on a forward-proxy user. A site here is an
 origin selected by Host / SNI on a reverse-proxy server such as
-``http_expose`` or ``tls_proxy``.
+``http_expose``, ``http_guard``, or ``tls_proxy``.
 
 .. versionadded:: 1.15.0
 
@@ -70,9 +70,11 @@ tls_server
 
 TLS server configuration for this site.
 
-``http_expose`` uses this when TLS is enabled; if unset,
-:ref:`global_tls_server <configuration_server_http_rproxy_global_tls_server>`
-on that server is used.
+``http_expose`` and ``http_guard`` use this when TLS is enabled; if unset,
+:ref:`global_tls_server <configuration_server_http_expose_global_tls_server>`
+on ``http_expose`` or
+:ref:`global_tls_server <configuration_server_http_guard_global_tls_server>`
+on ``http_guard`` is used.
 
 :ref:`tls_proxy <configuration_server_tls_proxy>` requires this key. Sites
 without it are skipped by ``tls_proxy``; there is no server-level fallback
@@ -118,7 +120,7 @@ auditor. Recognised values are the same protocol names as protocol
 inspection (``http``, ``smtp``, ``imap``, …). This is the protocol
 **inside** TLS; do not set ``https``.
 
-``http_expose`` ignores this key. ``tls_proxy`` ignores it when no
+``http_expose`` / ``http_guard`` ignore this key. ``tls_proxy`` ignores it when no
 auditor is configured.
 
 **default**: not set, inspect from the port map and the first bytes
@@ -346,7 +348,7 @@ Custom HTTP response-header receive timeout for this origin.
 This overwrites:
 
 * tenant user :ref:`http_rsp_header_recv_timeout <conf_user_http_rsp_header_recv_timeout>`
-* ``http_expose`` / ``http_guard`` :ref:`rsp_header_recv_timeout <configuration_server_http_rproxy>`
+* ``http_expose`` / ``http_guard`` :ref:`rsp_header_recv_timeout <configuration_server_http_expose>`
 * auditor :ref:`h1 interception <conf_auditor_h1_interception>` / :ref:`h2 interception <conf_auditor_h2_interception>`
 
 Lookup is ``site.http`` then tenant, then the server / auditor default.
@@ -362,6 +364,8 @@ h1
 **optional**, **type**: map
 
 HTTP/1-only settings for this origin.
+
+.. versionadded:: 1.15.0
 
 .. _conf_site_http_h1_upstream_keepalive:
 
@@ -383,6 +387,10 @@ configured, checkout idle age is the minimum of this ``idle_expire`` and
 the pool ``idle_timeout``.
 
 **default**: enabled, idle expire 60s
+
+.. versionchanged:: 1.15.0
+   replaces ``http_expose`` server ``http_forward_upstream_keepalive``;
+   that key is now rejected
 
 .. _conf_site_http_h1_connection_pool:
 
@@ -419,6 +427,10 @@ are created on demand, not warmed up.
 
 **default**: not set
 
+.. versionchanged:: 1.15.0
+   moved from ``http.h1_connection_pool`` to ``http.h1.connection_pool``;
+   the old key is rejected
+
 .. _conf_site_http_h2:
 
 h2
@@ -444,3 +456,5 @@ and does not bind a client connection to an origin connection.
 ``idle_timeout`` apply. ``min_idle_count`` and ``check_interval`` are ignored.
 
 **default**: default connection pool limits
+
+.. versionadded:: 1.15.0

@@ -12,7 +12,8 @@ emitted, and which per-site overrides should apply once it matches.
 
 This is not a :ref:`site group <configuration_site_group>`. User sites are
 matched after the forward-proxy client is authenticated. Site groups are Host
-/ SNI tables used by reverse-proxy servers such as ``http_expose``.
+/ SNI tables used by reverse-proxy servers such as ``http_expose`` and
+``http_guard``.
 
 .. _conf_auth_user_site_id:
 

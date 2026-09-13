@@ -9,7 +9,7 @@ TCP stream to that site's upstream.
 
 Unlike :ref:`tls_stream <configuration_server_tls_stream>`, certificates and
 upstreams live on the site, not on this server. Unlike
-:ref:`http_expose <configuration_server_http_rproxy>`, this server does not
+:ref:`http_expose <configuration_server_http_expose>`, this server does not
 parse HTTP; it only copies bytes after the handshake.
 
 There is no visitor ``user_group``. Tenant identity comes from

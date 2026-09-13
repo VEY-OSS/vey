@@ -10,15 +10,17 @@ TLS with ALPN ``h2`` and a matching SNI site. TLS is detected automatically
 
 TLS connections match SNI and later ``Host`` against sites that have
 ``tls_server``. HTTP/2 requires SNI to select the site used for connection
-rate and speed limits. Plaintext HTTP/1 connections match ``Host`` against the
-HTTP host table. After a TLS handshake, ``Host`` still uses the TLS-capable
-table.
+rate and speed limits. That SNI site is pinned for the rest of the
+connection: a later ``Host`` that maps to a different site is answered with
+``421 Misdirected Request`` and the connection is closed. Plaintext HTTP/1
+connections match ``Host`` against the HTTP host table. After a TLS
+handshake, ``Host`` still uses the TLS-capable table.
 
 It then forwards requests to that site's origin. HTTP/2 origin stays on
 HTTP/2 (no HTTP/1 fallback). There is no visitor authentication; tenant
 identity comes from ``site.owner`` plus the group's ``tenant_user_group``.
 
-This is the counterpart of :ref:`http_expose <configuration_server_http_rproxy>`
+This is the counterpart of :ref:`http_expose <configuration_server_http_expose>`
 (internal reverse proxy with optional visitor auth and no auditor).
 
 It supports:
@@ -29,8 +31,13 @@ It supports:
 * HTTP/1 WebSocket upgrades (``Upgrade: websocket``)
 * optional ICAP via :ref:`auditor <conf_server_common_auditor>` (REQMOD / RESPMOD)
 
+HTTP/1 tasks log as :ref:`HttpForward <log_task_http_forward>`. HTTP/2 streams
+log as :ref:`H2Forward <log_task_h2_forward>` (``H2Websocket`` for RFC 8441).
+
 It does **not** support standard ``CONNECT`` (without ``:protocol``). HTTP/3
 is not enabled.
+
+.. versionadded:: 1.15.0
 
 The following common keys are supported:
 
@@ -134,6 +141,8 @@ Maximum response-header size.
 
 **default**: 64KiB
 
+.. _config_server_http_guard_log_uri_max_chars:
+
 log_uri_max_chars
 -----------------
 
@@ -163,7 +172,11 @@ append_forwarded_for
 
 How the client address is added to forwarded requests.
 
-**default**: disable
+There is no ``steal_forwarded_for`` on this server: inbound ``Forwarded`` /
+``X-Forwarded-For`` values are kept, and the observed client address is
+appended (classic / standard) or not added (disable).
+
+**default**: classic, which means *X-Forwarded-\** headers will be appended
 
 h1
 --
@@ -217,7 +230,12 @@ HTTP/2-only settings. HTTP/2 is TLS-only: the client must send SNI that
 matches a site. Connections without SNI, or whose SNI does not match a
 site, are not served as HTTP/2. Plaintext HTTP/2 (H2C) is not supported.
 
-Connection speed limits use the site selected by SNI.
+Connection speed limits use the smaller of this server, the SNI site, and
+the site tenant (``tcp_sock_speed_limit`` plus tenant
+``tcp_all_upload_speed_limit`` / ``tcp_all_download_speed_limit``).
+Origin HTTP/2 stays on HTTP/2 (no HTTP/1 fallback); the site
+:ref:`http.h2.connection_pool <conf_site_http_h2_connection_pool>` is
+always used.
 
 max_header_list_size
 ^^^^^^^^^^^^^^^^^^^^
@@ -317,7 +335,8 @@ global_tls_server
 **optional**, **type**: :external+values:ref:`openssl server config <conf_value_openssl_server_config>`
 
 Global TLS server configuration used when the matched site does not set
-its own TLS server configuration.
+its own TLS server configuration. See site
+:ref:`tls_server <conf_site_tls_server>`.
 
 **default**: not set
 

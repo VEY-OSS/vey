@@ -8,8 +8,8 @@ All fields documented for :ref:`TcpConnect <log_task_tcp_connect>` task logs
 also apply to ``HttpForward`` task logs.
 
 The following keys are specific to ``HttpForward`` task logs. The four decoded
-body-size keys below are also present on ``H2Forward`` task logs and intercept
-``HttpForward`` / ``H2StreamForward`` logs.
+body-size keys below are also present on :ref:`H2Forward <log_task_h2_forward>`
+task logs and intercept ``HttpForward`` / ``H2StreamForward`` logs.
 
 pipeline_wait
 -------------

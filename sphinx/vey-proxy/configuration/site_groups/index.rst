@@ -5,7 +5,7 @@ Site Group
 **********
 
 A site group is a named Host / SNI lookup table. Reverse-proxy servers such as
-:ref:`http_expose <configuration_server_http_rproxy>`,
+:ref:`http_expose <configuration_server_http_expose>`,
 :ref:`http_guard <configuration_server_http_guard>` and
 :ref:`tls_proxy <configuration_server_tls_proxy>` match the request host
 or SNI against the group, then take the site's upstream and TLS settings.

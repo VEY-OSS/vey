@@ -61,6 +61,9 @@ The following tags are common to all metrics:
   - socks_udp_connect
   - socks_udp_associate
 
+.. versionadded:: 1.15.0
+   ``h2_connection`` (HTTP/2 origin connections on ``http_guard``)
+
 .. _metrics_tag_quantile:
 
 * quantile

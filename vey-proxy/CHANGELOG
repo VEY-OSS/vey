@@ -3,7 +3,10 @@ CHANGELOG
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.15.0:
+ - Feature: add ``http_guard`` public-edge HTTP reverse proxy (HTTP/1 and HTTP/2 over TLS with SNI; no visitor auth, tenant from ``site.owner``; optional ICAP; H2 origin stays H2; ``H2Forward`` / ``H2Websocket`` task logs)
+ - Compatibility: reverse-proxy type ``http_rproxy`` is renamed to ``http_expose`` (``http_rproxy`` still accepted as a deprecated alias)
  - Feature: HTTP/H2 forward and intercept logs record decoded body sizes (`clt_req_body_size`, `ups_req_body_size`, `ups_rsp_body_size`, `clt_rsp_body_size`; `0` if no body; on failure, the size completed on that hop so far, a lower bound for an unfinished HTTP/1.1 chunked write, which excludes still-buffered data)
+ - Feature: site / user traffic metrics include request type ``h2_connection``
  - Compatibility: HTTP ``Keep-Alive`` is parsed as ``timeout``/``max``; upstream connection reuse honors those limits (min with configured idle expire; ``max=0`` is not reused), and keep-alive serialization writes the header
  - Compatibility: HTTP ``Connection`` is parsed as a token list; keep-alive is decided after all headers from the HTTP version and merged tokens (HTTP/1.0 defaults to close; ``keep-alive`` can enable it; request and response must both agree; TE+CL still forces close)
  - BUG FIX: Transfer-Encoding is strictly checked; request compress transfer codings are rejected (501) and ``TE`` is parsed then reduced to ``trailers``
