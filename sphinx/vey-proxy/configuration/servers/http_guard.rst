@@ -12,9 +12,12 @@ TLS connections match SNI and later ``Host`` against sites that have
 ``tls_server``. HTTP/2 requires SNI to select the site used for connection
 rate and speed limits. That SNI site is pinned for the rest of the
 connection: a later ``Host`` that maps to a different site is answered with
-``421 Misdirected Request`` and the connection is closed. Plaintext HTTP/1
-connections match ``Host`` against the HTTP host table. After a TLS
-handshake, ``Host`` still uses the TLS-capable table.
+``421 Misdirected Request`` and the connection is closed. HTTP/2 also
+rejects a ``Host`` that does not match ``:authority`` (after scheme-based
+normalization, RFC 9113) with ``409 Conflict``, the same status HTTP/1 uses
+for unmatched ``Host`` and request-target. Plaintext HTTP/1 connections
+match ``Host`` against the HTTP host table. After a TLS handshake, ``Host``
+still uses the TLS-capable table.
 
 It then forwards requests to that site's origin. HTTP/2 origin stays on
 HTTP/2 (no HTTP/1 fallback). There is no visitor authentication; tenant

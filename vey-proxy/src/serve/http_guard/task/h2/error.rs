@@ -37,6 +37,8 @@ pub(crate) enum H2StreamTransferError {
     RequestHeadSendFailed(h2::Error),
     #[error("invalid Host header")]
     InvalidHostHeader,
+    #[error("Host does not match :authority")]
+    UnmatchedHostAndAuthority,
     #[error("failed to recv response head: {0}")]
     ResponseHeadRecvFailed(h2::Error),
     #[error("timeout to recv response head")]
@@ -64,6 +66,9 @@ impl H2StreamTransferError {
         match self {
             H2StreamTransferError::InvalidHostHeader | H2StreamTransferError::SiteNotFound => {
                 Some((StatusCode::BAD_REQUEST, ProxyErrorType::HttpRequestError))
+            }
+            H2StreamTransferError::UnmatchedHostAndAuthority => {
+                Some((StatusCode::CONFLICT, ProxyErrorType::HttpRequestError))
             }
             H2StreamTransferError::MisdirectedRequest => Some((
                 StatusCode::MISDIRECTED_REQUEST,

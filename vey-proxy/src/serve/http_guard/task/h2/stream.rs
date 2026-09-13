@@ -12,7 +12,9 @@ use h2::ext::Protocol;
 use h2::server::SendResponse;
 use http::{Method, Request, StatusCode, header};
 
-use vey_types::net::{Host, HttpForwardedHeaderType, HttpForwardedHeaderValue, HttpUpgradeToken};
+use vey_types::net::{
+    Host, HttpForwardedHeaderType, HttpForwardedHeaderValue, HttpUpgradeToken, UpstreamAddr,
+};
 use vey_types::route::HostMatch;
 
 use super::CommonTaskContext;
@@ -84,17 +86,65 @@ pub(super) async fn transfer(
     task.forward(clt_req, clt_send_rsp).await;
 }
 
-fn request_host(req: &Request<RecvStream>) -> Result<Host, H2StreamTransferError> {
-    if let Some(auth) = req.uri().authority() {
-        return Host::from_str(auth.host()).map_err(|_| H2StreamTransferError::InvalidHostHeader);
+fn request_host<B>(req: &Request<B>) -> Result<Host, H2StreamTransferError> {
+    let authority = match req.uri().authority() {
+        Some(auth) => {
+            let host = Host::from_str(auth.host())
+                .map_err(|_| H2StreamTransferError::InvalidHostHeader)?;
+            Some((host, auth.port_u16()))
+        }
+        None => None,
+    };
+    let host_header = match req.headers().get(header::HOST) {
+        Some(value) => {
+            let s = std::str::from_utf8(value.as_bytes())
+                .map_err(|_| H2StreamTransferError::InvalidHostHeader)?;
+            Some(UpstreamAddr::from_str(s).map_err(|_| H2StreamTransferError::InvalidHostHeader)?)
+        }
+        None => None,
+    };
+
+    if let (Some((auth_host, auth_port)), Some(hdr)) = (&authority, &host_header)
+        && !host_matches_authority(auth_host, *auth_port, hdr, req.uri().scheme_str())
+    {
+        return Err(H2StreamTransferError::UnmatchedHostAndAuthority);
     }
-    if let Some(value) = req.headers().get(header::HOST) {
-        let s = std::str::from_utf8(value.as_bytes())
-            .map_err(|_| H2StreamTransferError::InvalidHostHeader)?;
-        let host = s.rsplit_once(':').map(|(h, _)| h).unwrap_or(s);
-        return Host::from_str(host).map_err(|_| H2StreamTransferError::InvalidHostHeader);
+
+    if let Some((host, _)) = authority {
+        return Ok(host);
+    }
+    if let Some(addr) = host_header {
+        return Ok(addr.host().clone());
     }
     Err(H2StreamTransferError::InvalidHostHeader)
+}
+
+fn host_matches_authority(
+    auth_host: &Host,
+    auth_port: Option<u16>,
+    hdr: &UpstreamAddr,
+    scheme: Option<&str>,
+) -> bool {
+    if auth_host != hdr.host() {
+        return false;
+    }
+    let default = match scheme {
+        Some("http") => Some(80),
+        Some("https") => Some(443),
+        _ => None,
+    };
+    normalize_port(auth_port, default) == normalize_port(nonzero_port(hdr.port()), default)
+}
+
+fn nonzero_port(port: u16) -> Option<u16> {
+    if port == 0 { None } else { Some(port) }
+}
+
+fn normalize_port(port: Option<u16>, default: Option<u16>) -> Option<u16> {
+    match port {
+        Some(p) if default == Some(p) => None,
+        other => other,
+    }
 }
 
 fn append_forwarded(headers: &mut http::HeaderMap, ctx: &CommonTaskContext) {
@@ -131,5 +181,55 @@ fn reply_status(
         h2_local_error_response(&ctx.server_config, status, ProxyErrorType::HttpRequestError)
     {
         let _ = clt_send_rsp.send_response(rsp, true);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http::Request;
+
+    fn host(uri: &str, host: Option<&str>) -> Result<Host, H2StreamTransferError> {
+        let mut b = Request::builder().uri(uri);
+        if let Some(h) = host {
+            b = b.header(header::HOST, h);
+        }
+        request_host(&b.body(()).unwrap())
+    }
+
+    #[test]
+    fn request_host_uses_authority_when_present() {
+        assert_eq!(
+            host("https://a.example/x", None).unwrap(),
+            Host::from_str("a.example").unwrap()
+        );
+        assert_eq!(
+            host("https://a.example/x", Some("a.example")).unwrap(),
+            Host::from_str("a.example").unwrap()
+        );
+        assert_eq!(
+            host("https://a.example/x", Some("A.EXAMPLE:443")).unwrap(),
+            Host::from_str("a.example").unwrap()
+        );
+        assert_eq!(
+            host("/x", Some("a.example:8443")).unwrap(),
+            Host::from_str("a.example").unwrap()
+        );
+    }
+
+    #[test]
+    fn request_host_rejects_unmatched_host_header() {
+        assert!(matches!(
+            host("https://a.example/x", Some("b.example")),
+            Err(H2StreamTransferError::UnmatchedHostAndAuthority)
+        ));
+        assert!(matches!(
+            host("https://a.example/x", Some("a.example:8443")),
+            Err(H2StreamTransferError::UnmatchedHostAndAuthority)
+        ));
+        assert!(matches!(
+            host("/x", None),
+            Err(H2StreamTransferError::InvalidHostHeader)
+        ));
     }
 }
