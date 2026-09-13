@@ -19,11 +19,8 @@ use super::CommonTaskContext;
 use super::error::{H2StreamTransferError, h2_local_error_response};
 use super::forward::H2ForwardTask;
 use super::websocket::H2WebsocketTask;
-use crate::config::server::ServerConfig;
 use crate::module::http_header::ProxyErrorType;
-use crate::serve::ServerStats;
 use crate::serve::http_guard::HttpHost;
-use crate::site::SiteContext;
 
 pub(super) async fn transfer(
     mut clt_req: Request<RecvStream>,
@@ -50,8 +47,8 @@ pub(super) async fn transfer(
         return;
     };
 
-    if let Some(pinned) = &ctx.pinned_site
-        && !matched.same_site(pinned)
+    if let Some(pinned) = &ctx.pinned_host
+        && !matched.same_site(pinned.site())
     {
         reply_err(
             &ctx,
@@ -61,12 +58,11 @@ pub(super) async fn transfer(
         return;
     }
 
-    let site_ctx = SiteContext::new(
-        Arc::clone(matched.site()),
-        Arc::clone(matched.egress()),
-        ctx.server_config.name(),
-        ctx.server_stats.share_extra_tags(),
-    );
+    let site_ctx = ctx
+        .site_ctx
+        .clone()
+        .expect("h2 connection has pinned site context");
+    let site = Arc::clone(site_ctx.site());
 
     if clt_req.method().eq(&Method::CONNECT) {
         if let Some(protocol) = clt_req.extensions().get::<Protocol>() {
@@ -76,7 +72,7 @@ pub(super) async fn transfer(
                 reply_status(&ctx, &mut clt_send_rsp, StatusCode::NOT_IMPLEMENTED);
                 return;
             }
-            let task = H2WebsocketTask::new(ctx, site_ctx, Arc::clone(matched.site()), &clt_req);
+            let task = H2WebsocketTask::new(ctx, site_ctx, site, &clt_req);
             task.run(clt_req, clt_send_rsp).await;
         } else {
             reply_status(&ctx, &mut clt_send_rsp, StatusCode::NOT_IMPLEMENTED);
@@ -84,7 +80,7 @@ pub(super) async fn transfer(
         return;
     }
 
-    let task = H2ForwardTask::new(ctx, site_ctx, Arc::clone(matched.site()), &clt_req);
+    let task = H2ForwardTask::new(ctx, site_ctx, site, &clt_req);
     task.forward(clt_req, clt_send_rsp).await;
 }
 

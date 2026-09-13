@@ -23,7 +23,7 @@ use vey_types::acl_set::AclDstHostRuleSet;
 use vey_types::auth::{FactsMatchValue, UserAuthError};
 use vey_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
 use vey_types::metrics::{MetricTagMap, NodeName};
-use vey_types::net::{ProxyRequestType, TcpSockSpeedLimitConfig, UpstreamAddr};
+use vey_types::net::{ProxyRequestType, UpstreamAddr};
 use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
@@ -694,11 +694,6 @@ impl User {
 
     pub(crate) fn log_uri_max_chars(&self) -> Option<usize> {
         self.config.log_uri_max_chars
-    }
-
-    #[inline]
-    pub(crate) fn tcp_sock_speed_limit(&self) -> &TcpSockSpeedLimitConfig {
-        &self.config.tcp_sock_speed_limit
     }
 
     #[inline]

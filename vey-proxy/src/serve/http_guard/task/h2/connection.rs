@@ -15,11 +15,9 @@ use vey_types::route::HostMatch;
 use super::CommonTaskContext;
 use super::stats::{H2ConcurrencyStats, H2ConnectionCltWrapperStats};
 use super::stream;
-use crate::auth::User;
 use crate::config::server::ServerConfig;
 use crate::serve::ServerStats;
 use crate::serve::http_guard::HttpHost;
-use crate::site::Site;
 
 pub(crate) struct HttpGuardH2ConnectionTask<S> {
     ctx: Arc<CommonTaskContext>,
@@ -54,11 +52,14 @@ where
     }
 
     async fn run(&mut self) -> anyhow::Result<()> {
-        let site = self
-            .ctx
-            .pinned_site
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("h2 requires a matching tls sni site"))?;
+        let site = Arc::clone(
+            self.ctx
+                .pinned_host
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("h2 requires a matching tls sni site"))?
+                .site(),
+        );
+        let tenant = self.ctx.site_ctx.as_ref().and_then(|c| c.tenant()).cloned();
         let _site_conn = site.hold_http_conn(
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),
@@ -69,9 +70,11 @@ where
         let mut limit = site
             .tcp_sock_speed_limit()
             .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
-        let tenant = tenant_user(site);
-        if let Some(user) = &tenant {
-            limit = user.tcp_sock_speed_limit().shrink_as_smaller(&limit);
+        if let Some(tenant) = &tenant {
+            limit = tenant
+                .user_config()
+                .tcp_sock_speed_limit
+                .shrink_as_smaller(&limit);
         }
         let site_io_stats = site.stats().fetch_traffic_stats(
             self.ctx.server_config.name(),
@@ -84,7 +87,8 @@ where
             limit.max_south,
             H2ConnectionCltWrapperStats::new(&self.ctx.server_stats, site_io_stats),
         );
-        if let Some(user) = &tenant {
+        if let Some(tenant) = &tenant {
+            let user = tenant.user();
             if let Some(limiter) = user.tcp_all_upload_speed_limit() {
                 stream.add_global_read_limiter(limiter.clone());
             }
@@ -161,14 +165,4 @@ where
             }
         }
     }
-}
-
-fn tenant_user(site: &Site) -> Option<Arc<User>> {
-    let owner = site.owner();
-    if owner.is_empty() {
-        return None;
-    }
-    site.tenant_user_group()?
-        .get_named_user(owner.as_str())
-        .map(|(user, _)| user)
 }

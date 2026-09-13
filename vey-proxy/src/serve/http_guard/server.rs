@@ -54,7 +54,7 @@ use crate::serve::{
     ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
     ServerRegistry, ServerStats, WrapArcServer,
 };
-use crate::site::Site;
+use crate::site::SiteContext;
 
 pub(crate) struct HttpGuardServer {
     config: Arc<HttpGuardServerConfig>,
@@ -208,8 +208,16 @@ impl HttpGuardServer {
     fn get_common_task_context(
         &self,
         cc_info: ClientConnectionInfo,
-        pinned_site: Option<Arc<Site>>,
+        pinned_host: Option<Arc<HttpHost>>,
     ) -> Arc<CommonTaskContext> {
+        let site_ctx = pinned_host.as_ref().map(|host| {
+            SiteContext::new(
+                Arc::clone(host.site()),
+                Arc::clone(host.egress()),
+                self.config.name(),
+                self.server_stats.share_extra_tags(),
+            )
+        });
         Arc::new(CommonTaskContext {
             server_config: self.config.clone(),
             server_stats: self.server_stats.clone(),
@@ -219,7 +227,8 @@ impl HttpGuardServer {
             cc_info,
             task_logger: self.task_logger.clone(),
             audit_handle: self.audit_handle.load_full(),
-            pinned_site,
+            pinned_host,
+            site_ctx,
         })
     }
 
@@ -245,13 +254,13 @@ impl HttpGuardServer {
         stream: T,
         cc_info: ClientConnectionInfo,
         hosts: Arc<HostMatch<Arc<HttpHost>>>,
-        pinned_site: Option<Arc<Site>>,
+        pinned_host: Option<Arc<HttpHost>>,
     ) where
         T: AsyncStream,
         T::R: AsyncRead + Send + Sync + Unpin + 'static,
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let ctx = self.get_common_task_context(cc_info, pinned_site);
+        let ctx = self.get_common_task_context(cc_info, pinned_host);
         let pipeline_stats = Arc::new(HttpGuardPipelineStats::default());
         let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.h1.pipeline_size.get());
 
@@ -270,11 +279,11 @@ impl HttpGuardServer {
         stream: T,
         cc_info: ClientConnectionInfo,
         hosts: Arc<HostMatch<Arc<HttpHost>>>,
-        pinned_site: Option<Arc<Site>>,
+        pinned_host: Option<Arc<HttpHost>>,
     ) where
         T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let ctx = self.get_common_task_context(cc_info, pinned_site);
+        let ctx = self.get_common_task_context(cc_info, pinned_host);
         HttpGuardH2ConnectionTask::new(&ctx, stream, hosts)
             .into_running()
             .await
@@ -286,14 +295,14 @@ impl HttpGuardServer {
         cc_info: ClientConnectionInfo,
         hosts: Arc<HostMatch<Arc<HttpHost>>>,
         alpn: Option<AlpnProtocol>,
-        pinned_site: Option<Arc<Site>>,
+        pinned_host: Option<Arc<HttpHost>>,
     ) where
         T: AsyncStream + AsyncRead + AsyncWrite + Unpin + Send + 'static,
         T::R: AsyncRead + Send + Sync + Unpin + 'static,
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         if matches!(alpn, Some(AlpnProtocol::Http2)) {
-            if pinned_site.is_none() {
+            if pinned_host.is_none() {
                 self.listen_stats.add_failed();
                 debug!(
                     "{} - {} rejected h2 without matching tls sni site",
@@ -302,10 +311,10 @@ impl HttpGuardServer {
                 );
                 return;
             }
-            self.spawn_h2_task(stream, cc_info, hosts, pinned_site)
+            self.spawn_h2_task(stream, cc_info, hosts, pinned_host)
                 .await;
         } else {
-            self.spawn_h1_task(stream, cc_info, hosts, pinned_site)
+            self.spawn_h1_task(stream, cc_info, hosts, pinned_host)
                 .await;
         }
     }
@@ -387,7 +396,7 @@ impl HttpGuardServer {
                     cc_info,
                     self.tls_hosts.load_full(),
                     alpn,
-                    host.map(|h| Arc::clone(h.site())),
+                    host.cloned(),
                 )
                 .await
             }
@@ -749,12 +758,12 @@ impl Server for HttpGuardServer {
             .alpn_protocol()
             .and_then(AlpnProtocol::from_selected);
         let hosts = self.http_hosts.load_full();
-        let pinned_site = stream.get_ref().1.server_name().and_then(|sni| {
-            hosts
-                .get(&Host::from_str(sni).ok()?)
-                .map(|h| Arc::clone(h.site()))
-        });
-        self.spawn_http_task(stream, cc_info, hosts, alpn, pinned_site)
+        let pinned_host = stream
+            .get_ref()
+            .1
+            .server_name()
+            .and_then(|sni| hosts.get(&Host::from_str(sni).ok()?).cloned());
+        self.spawn_http_task(stream, cc_info, hosts, alpn, pinned_host)
             .await;
     }
 
@@ -770,15 +779,11 @@ impl Server for HttpGuardServer {
             .selected_alpn_protocol()
             .and_then(AlpnProtocol::from_selected);
         let hosts = self.http_hosts.load_full();
-        let pinned_site = stream
+        let pinned_host = stream
             .ssl()
             .servername(openssl::ssl::NameType::HOST_NAME)
-            .and_then(|sni| {
-                hosts
-                    .get(&Host::from_str(sni).ok()?)
-                    .map(|h| Arc::clone(h.site()))
-            });
-        self.spawn_http_task(stream, cc_info, hosts, alpn, pinned_site)
+            .and_then(|sni| hosts.get(&Host::from_str(sni).ok()?).cloned());
+        self.spawn_http_task(stream, cc_info, hosts, alpn, pinned_host)
             .await;
     }
 }
