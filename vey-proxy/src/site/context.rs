@@ -77,6 +77,12 @@ impl SiteContext {
         &self.req_stats
     }
 
+    pub(crate) fn log_uri_max_chars(&self) -> Option<usize> {
+        self.tenant
+            .as_ref()
+            .and_then(|t| t.user().log_uri_max_chars())
+    }
+
     pub(crate) fn rsp_hdr_recv_timeout(&self) -> Option<Duration> {
         self.site.rsp_hdr_recv_timeout().or_else(|| {
             self.tenant

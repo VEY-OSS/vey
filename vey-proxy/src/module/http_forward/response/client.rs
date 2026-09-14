@@ -151,7 +151,6 @@ impl HttpProxyClientResponse {
             .with_proxy_error(ProxyErrorType::HttpRequestError)
     }
 
-    #[allow(unused)]
     #[inline]
     pub(crate) fn unimplemented(version: Version) -> Self {
         HttpProxyClientResponse::from_standard(StatusCode::NOT_IMPLEMENTED, version, true)

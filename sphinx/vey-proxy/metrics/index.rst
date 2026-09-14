@@ -54,6 +54,7 @@ The following tags are common to all metrics:
   - udp_connect
   - http_forward
   - https_forward
+  - websocket
   - h2_connection
   - http_connect
   - http_connect_udp
@@ -62,7 +63,9 @@ The following tags are common to all metrics:
   - socks_udp_associate
 
 .. versionadded:: 1.15.0
-   ``h2_connection`` (HTTP/2 origin connections on ``http_guard``)
+   ``h2_connection`` (HTTP/2 client connections on ``http_guard``);
+   ``websocket`` (HTTP/1 WebSocket Upgrade on ``http_guard``; HTTP/2 WebSocket
+   request counters also use this tag, with traffic on ``h2_connection``)
 
 .. _metrics_tag_quantile:
 

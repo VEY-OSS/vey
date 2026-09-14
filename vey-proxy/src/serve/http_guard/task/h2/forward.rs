@@ -64,8 +64,7 @@ impl H2ForwardTask {
     ) -> Self {
         let is_https = site.tls_client().is_some();
         let uri_log_max_chars = site_ctx
-            .tenant()
-            .and_then(|c| c.user_config().log_uri_max_chars)
+            .log_uri_max_chars()
             .unwrap_or(ctx.server_config.log_uri_max_chars);
         let now = Instant::now();
         let http_notes = HttpForwardTaskNotes::new(
@@ -99,7 +98,6 @@ impl H2ForwardTask {
             .as_ref()
             .map(|logger| TaskLogForH2Forward {
                 logger,
-                task_type: "H2Forward",
                 upstream: self.site.upstream(),
                 task_notes: &self.task_notes,
                 http_notes: &self.http_notes,

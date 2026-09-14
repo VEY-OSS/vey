@@ -4,12 +4,13 @@
 H2 Forward
 **********
 
-``H2Forward`` and ``H2Websocket`` task logs are emitted by
-:ref:`http_guard <configuration_server_http_guard>` for HTTP/2 streams.
-Each client stream is one task. ``H2Websocket`` is the RFC 8441
-extended-``CONNECT`` WebSocket case; the keys are the same.
+``H2Forward`` task logs are emitted by
+:ref:`http_guard <configuration_server_http_guard>` for ordinary HTTP/2
+streams (one client stream per task). ``CONNECT`` is not this type:
+``:protocol = websocket`` is a :ref:`Websocket <log_task_websocket>` task;
+any other ``CONNECT`` is rejected.
 
-``task_type`` is ``H2Forward`` or ``H2Websocket``.
+``task_type`` is ``H2Forward``.
 
 These logs emit:
 

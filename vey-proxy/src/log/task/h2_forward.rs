@@ -17,7 +17,6 @@ use crate::serve::ServerTaskNotes;
 
 pub(crate) struct TaskLogForH2Forward<'a> {
     pub(crate) logger: &'a Logger,
-    pub(crate) task_type: &'static str,
     pub(crate) upstream: &'a UpstreamAddr,
     pub(crate) task_notes: &'a ServerTaskNotes,
     pub(crate) http_notes: &'a HttpForwardTaskNotes,
@@ -27,7 +26,7 @@ pub(crate) struct TaskLogForH2Forward<'a> {
 impl TaskLogForH2Forward<'_> {
     pub(crate) fn log_created(&self) {
         slog::info!(self.logger, "";
-            "task_type" => self.task_type,
+            "task_type" => "H2Forward",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Created.as_str(),
             "stage" => self.task_notes.stage.brief(),
@@ -44,7 +43,7 @@ impl TaskLogForH2Forward<'_> {
 
     pub(crate) fn log(&self, err: &str) {
         slog::info!(self.logger, "{err}";
-            "task_type" => self.task_type,
+            "task_type" => "H2Forward",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Finished.as_str(),
             "stage" => self.task_notes.stage.brief(),

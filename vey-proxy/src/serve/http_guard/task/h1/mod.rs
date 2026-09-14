@@ -9,8 +9,10 @@ mod protocol;
 
 mod forward;
 mod pipeline;
+mod websocket;
 
 use forward::HttpGuardForwardTask;
 pub(crate) use pipeline::{
     HttpGuardPipelineReaderTask, HttpGuardPipelineStats, HttpGuardPipelineWriterTask,
 };
+use websocket::HttpGuardWebsocketTask;

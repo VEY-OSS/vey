@@ -14,6 +14,7 @@ pub(crate) mod http_forward;
 pub(crate) mod tcp_connect;
 pub(crate) mod udp_associate;
 pub(crate) mod udp_connect;
+pub(crate) mod websocket;
 
 use super::shared::SharedLoggerType;
 

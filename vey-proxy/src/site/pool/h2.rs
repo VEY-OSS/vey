@@ -152,7 +152,8 @@ impl H2Lane {
     fn touch(&self, sender: SendRequest<Bytes>, is_tls: bool, escaper: &NodeName) {
         let mut idle = self.conns.lock().unwrap();
         if let Some(conn) = idle.iter_mut().find(|c| {
-            origin_matches(c.is_tls, &c.escaper, is_tls, escaper) && senders_same(&c.sender, &sender)
+            origin_matches(c.is_tls, &c.escaper, is_tls, escaper)
+                && senders_same(&c.sender, &sender)
         }) {
             conn.last_used = Instant::now();
         }

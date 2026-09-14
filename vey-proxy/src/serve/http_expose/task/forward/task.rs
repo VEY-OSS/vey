@@ -83,8 +83,13 @@ impl<'a> HttpExposeForwardTask<'a> {
         task_notes: ServerTaskNotes,
     ) -> Self {
         let uri_log_max_chars = task_notes
-            .user_ctx()
-            .and_then(|c| c.user_config().log_uri_max_chars)
+            .site_ctx()
+            .and_then(|s| s.log_uri_max_chars())
+            .or_else(|| {
+                task_notes
+                    .user_ctx()
+                    .and_then(|c| c.user().log_uri_max_chars())
+            })
             .unwrap_or(ctx.server_config.log_uri_max_chars);
         let http_notes = HttpForwardTaskNotes::new(
             req.time_received,

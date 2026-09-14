@@ -9,11 +9,13 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 
 use vey_io_ext::{ArcLimitedWriterStats, LimitedWriter};
+use vey_types::net::HttpUpgradeToken;
 use vey_types::route::HostMatch;
 
 use super::protocol::{HttpClientWriter, HttpGuardRequest};
 use super::{
     CommonTaskContext, HttpGuardCltWrapperStats, HttpGuardForwardTask, HttpGuardPipelineTaskGuard,
+    HttpGuardWebsocketTask,
 };
 use crate::config::server::ServerConfig;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
@@ -155,7 +157,7 @@ where
 
     async fn run(
         &mut self,
-        req: HttpGuardRequest<CDR>,
+        mut req: HttpGuardRequest<CDR>,
         site_ctx: SiteContext,
         host: Arc<HttpHost>,
     ) -> LoopAction {
@@ -165,17 +167,48 @@ where
         let site = Arc::clone(host.site());
 
         if let Some(mut stream_w) = self.stream_writer.take() {
-            let _ = self
-                .forward_context
-                .check_in_final_escaper(&task_notes, site.upstream(), site.tls_client().is_some())
-                .await;
-
-            match self.run_forward(&mut stream_w, req, site, task_notes).await {
-                LoopAction::Continue => {
-                    self.reset_client_writer(stream_w);
-                    LoopAction::Continue
+            match req.inner.upgrade_token() {
+                Some(HttpUpgradeToken::Websocket) => {
+                    let Some(mut stream_r) = req.body_reader.take() else {
+                        unreachable!()
+                    };
+                    let mut ws_task =
+                        HttpGuardWebsocketTask::new(&self.ctx, &req, site, task_notes);
+                    let upgrade = ws_task
+                        .handshake(&req.inner, &mut stream_r, &mut stream_w)
+                        .await;
+                    let _ = req.stream_sender.try_send(None);
+                    if let Some((ups_c, rsp)) = upgrade {
+                        ws_task.into_running(stream_r, stream_w, ups_c, rsp).await;
+                    }
+                    LoopAction::Break
                 }
-                LoopAction::Break => LoopAction::Break,
+                Some(_) => {
+                    if !self.ctx.server_config.no_early_error_reply {
+                        let mut rsp = HttpProxyClientResponse::unimplemented(req.inner.version);
+                        self.ctx.apply_proxy_status_ident(&mut rsp);
+                        let _ = rsp.reply_err_to_request(&mut stream_w).await;
+                    }
+                    let _ = req.stream_sender.try_send(None);
+                    LoopAction::Break
+                }
+                None => {
+                    let _ = self
+                        .forward_context
+                        .check_in_final_escaper(
+                            &task_notes,
+                            site.upstream(),
+                            site.tls_client().is_some(),
+                        )
+                        .await;
+                    match self.run_forward(&mut stream_w, req, site, task_notes).await {
+                        LoopAction::Continue => {
+                            self.reset_client_writer(stream_w);
+                            LoopAction::Continue
+                        }
+                        LoopAction::Break => LoopAction::Break,
+                    }
+                }
             }
         } else {
             unreachable!()

@@ -8,5 +8,5 @@ use super::HttpGuardServerStats;
 mod task;
 mod wrapper;
 
-pub(super) use task::HttpForwardTaskStats;
-pub(super) use wrapper::{HttpForwardTaskCltWrapperStats, HttpsForwardTaskCltWrapperStats};
+pub(crate) use task::HttpForwardTaskStats;
+pub(crate) use wrapper::{HttpForwardTaskCltWrapperStats, HttpsForwardTaskCltWrapperStats};

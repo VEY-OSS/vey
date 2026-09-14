@@ -17,8 +17,8 @@ use vey_http::server::HttpProxyClientRequest;
 use vey_http::{HttpBodyReader, HttpBodyType};
 use vey_icap_client::reqmod::h1::ReqmodAdaptationRunState;
 use vey_io_ext::{
-    GlobalLimitGroup, IdleInterval, LimitedBufReadExt, LimitedReadExt, LimitedWriteExt, StreamCopy,
-    StreamCopyConfig, StreamCopyError,
+    GlobalLimitGroup, LimitedBufReadExt, LimitedReadExt, LimitedWriteExt, StreamCopy,
+    StreamCopyError,
 };
 use vey_types::acl::AclAction;
 use vey_types::net::{HttpKeepAliveConfig, KeepAliveValue, TcpSockSpeedLimitConfig};
@@ -29,10 +29,8 @@ use super::{
     HttpsForwardTaskCltWrapperStats,
 };
 use crate::audit::AuditContext;
-use crate::auth::User;
 use crate::config::server::ServerConfig;
 use crate::escape::EgressNotes;
-use crate::inspect::stream::StreamTransitTask;
 use crate::log::task::http_forward::TaskLogForHttpForward;
 use crate::module::http_forward::{
     BoxHttpForwardConnection, BoxHttpForwardContext, BoxHttpForwardReader, BoxHttpForwardWriter,
@@ -41,8 +39,8 @@ use crate::module::http_forward::{
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::http_guard::HttpForwardTaskAliveGuard;
 use crate::serve::{
-    ServerQuitPolicy, ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes,
-    ServerTaskResult, ServerTaskStage,
+    ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
+    ServerTaskStage,
 };
 use crate::site::{Site, SiteRequestPermits};
 use crate::stat::types::RequestAliveKind;
@@ -89,8 +87,8 @@ impl<'a> HttpGuardForwardTask<'a> {
         task_notes: ServerTaskNotes,
     ) -> Self {
         let uri_log_max_chars = task_notes
-            .user_ctx()
-            .and_then(|c| c.user_config().log_uri_max_chars)
+            .site_ctx()
+            .and_then(|s| s.log_uri_max_chars())
             .unwrap_or(ctx.server_config.log_uri_max_chars);
         let http_notes = HttpForwardTaskNotes::new(
             req.time_received,
@@ -886,18 +884,16 @@ impl<'a> HttpGuardForwardTask<'a> {
                     }
                 }
             }
-            None => self.run_without_body(clt_r, clt_w, ups_c).await,
+            None => self.run_without_body(clt_w, ups_c).await,
         }
     }
 
-    async fn run_without_body<CDR, CDW>(
+    async fn run_without_body<CDW>(
         &mut self,
-        clt_r: &mut Option<HttpClientReader<CDR>>,
         clt_w: &mut HttpClientWriter<CDW>,
         mut ups_c: BoxHttpForwardConnection,
     ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
     where
-        CDR: AsyncRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
     {
         let ups_w = &mut ups_c.0;
@@ -948,10 +944,6 @@ impl<'a> HttpGuardForwardTask<'a> {
         self.update_response_header(&mut rsp_header);
         self.send_response(clt_w, ups_r, &mut rsp_header, None)
             .await?;
-
-        if self.should_relay_websocket() {
-            return self.relay_websocket(clt_r, clt_w, ups_c).await;
-        }
 
         self.task_notes.stage = ServerTaskStage::Finished;
         Ok(Some(ups_c))
@@ -1492,79 +1484,5 @@ impl<'a> HttpGuardForwardTask<'a> {
             .write_all_flush(buf.as_ref())
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)
-    }
-
-    fn should_relay_websocket(&self) -> bool {
-        self.http_notes.origin_status == 101
-            && matches!(
-                self.req.upgrade_token(),
-                Some(vey_types::net::HttpUpgradeToken::Websocket)
-            )
-    }
-
-    async fn relay_websocket<CDR, CDW>(
-        &mut self,
-        clt_r: &mut Option<HttpClientReader<CDR>>,
-        clt_w: &mut HttpClientWriter<CDW>,
-        ups_c: BoxHttpForwardConnection,
-    ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
-    where
-        CDR: AsyncRead + Unpin,
-        CDW: AsyncWrite + Unpin,
-    {
-        self.should_close = true;
-        self.http_notes.rsp_status = 101;
-        let Some(clt_r) = clt_r.take() else {
-            return Err(ServerTaskError::InternalServerError(
-                "websocket upgrade requires the client reader",
-            ));
-        };
-        let r = self
-            .transit_transparent(clt_r, clt_w, ups_c.1, ups_c.0)
-            .await;
-        self.task_notes.stage = ServerTaskStage::Finished;
-        r.map(|()| None)
-    }
-}
-
-impl StreamTransitTask for HttpGuardForwardTask<'_> {
-    fn copy_config(&self) -> StreamCopyConfig {
-        self.ctx.server_config.tcp_copy
-    }
-
-    fn idle_check_interval(&self) -> IdleInterval {
-        self.ctx.idle_wheel.register()
-    }
-
-    fn max_idle_count(&self) -> usize {
-        self.max_idle_count
-    }
-
-    fn log_client_shutdown(&self) {}
-
-    fn log_upstream_shutdown(&self) {}
-
-    fn log_periodic(&self) {
-        if let Some(log_ctx) = self.get_log_context() {
-            log_ctx.log_periodic();
-        }
-    }
-
-    fn log_flush_interval(&self) -> Option<Duration> {
-        self.ctx.log_flush_interval()
-    }
-
-    fn quit_policy(&self) -> &ServerQuitPolicy {
-        self.ctx.server_quit_policy.as_ref()
-    }
-
-    fn user(&self) -> Option<&User> {
-        None
-    }
-
-    fn tenant(&self) -> Option<&User> {
-        self.task_notes
-            .site_ctx()
-            .and_then(|s| s.tenant().map(|t| t.user().as_ref()))
     }
 }

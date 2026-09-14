@@ -30,15 +30,18 @@ It supports:
 
 * HTTP/1.0 and HTTP/1.1
 * HTTP/2 over TLS (ALPN ``h2``) with a matching SNI site, including RFC 8441
-  WebSocket (extended ``CONNECT``)
+  WebSocket (extended ``CONNECT`` with ``:protocol = websocket``)
 * HTTP/1 WebSocket upgrades (``Upgrade: websocket``)
 * optional ICAP via :ref:`auditor <conf_server_common_auditor>` (REQMOD / RESPMOD)
 
 HTTP/1 tasks log as :ref:`HttpForward <log_task_http_forward>`. HTTP/2 streams
-log as :ref:`H2Forward <log_task_h2_forward>` (``H2Websocket`` for RFC 8441).
+log as :ref:`H2Forward <log_task_h2_forward>`. HTTP/1 ``Upgrade: websocket``
+and HTTP/2 ``CONNECT`` with ``:protocol = websocket`` both log as
+:ref:`Websocket <log_task_websocket>`.
 
-It does **not** support standard ``CONNECT`` (without ``:protocol``). HTTP/3
-is not enabled.
+Standard ``CONNECT`` (no ``:protocol``) and extended ``CONNECT`` with any
+other ``:protocol`` are rejected; they are not Websocket or H2Forward tasks.
+HTTP/3 is not enabled.
 
 .. versionadded:: 1.15.0
 

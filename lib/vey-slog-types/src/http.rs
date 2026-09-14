@@ -7,7 +7,7 @@
 use std::fmt;
 
 use h2::StreamId;
-use http::{HeaderValue, Method, Uri};
+use http::{HeaderValue, Method, Uri, Version};
 use slog::{Key, Record, Serializer, Value};
 
 pub struct LtHttpMethod<'a>(pub &'a Method);
@@ -20,6 +20,27 @@ impl Value for LtHttpMethod<'_> {
         serializer: &mut dyn Serializer,
     ) -> slog::Result {
         serializer.emit_str(key, self.0.as_str())
+    }
+}
+
+pub struct LtHttpVersion(pub Version);
+
+impl Value for LtHttpVersion {
+    fn serialize(
+        &self,
+        _record: &Record,
+        key: slog::Key,
+        serializer: &mut dyn Serializer,
+    ) -> slog::Result {
+        let s = match self.0 {
+            Version::HTTP_09 => "HTTP/0.9",
+            Version::HTTP_10 => "HTTP/1.0",
+            Version::HTTP_11 => "HTTP/1.1",
+            Version::HTTP_2 => "HTTP/2.0",
+            Version::HTTP_3 => "HTTP/3.0",
+            _ => "<unknown>",
+        };
+        serializer.emit_str(key, s)
     }
 }
 

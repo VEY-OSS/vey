@@ -153,10 +153,6 @@ impl HttpGuardForwardTask<'_> {
         )
         .await?;
 
-        if self.should_relay_websocket() {
-            return self.relay_websocket(clt_r, clt_w, ups_c).await;
-        }
-
         self.task_notes.stage = ServerTaskStage::Finished;
         if close_remote {
             let _ = ups_w.shutdown().await;
