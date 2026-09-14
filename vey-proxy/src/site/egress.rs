@@ -8,7 +8,7 @@ use std::borrow::Cow;
 use vey_types::net::{TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts};
 use vey_types::resolve::ResolveStrategy;
 
-use crate::auth::UserContext;
+use crate::auth::User;
 use crate::config::site::SiteConfig;
 use crate::escape::EgressPathSelection;
 
@@ -51,11 +51,11 @@ impl SiteEgress {
         }
     }
 
-    pub(crate) fn shrink_with_tenant(&self, tenant: Option<&UserContext>) -> Self {
+    pub(crate) fn shrink_with_tenant(&self, tenant: Option<&User>) -> Self {
         let Some(tenant) = tenant else {
             return self.clone();
         };
-        let cfg = tenant.user_config();
+        let cfg = tenant.config();
 
         let tcp_connect = match (cfg.tcp_connect.as_ref(), self.tcp_connect.as_ref()) {
             (Some(tenant), Some(site)) => {

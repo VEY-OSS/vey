@@ -16,7 +16,7 @@ use vey_types::resolve::ResolveStrategy;
 
 use super::{Site, SiteEgress};
 use crate::auth::{
-    UserContext, UserForbiddenStats, UserGroup, UserRequestStats, UserTrafficStats,
+    TenantContext, User, UserForbiddenStats, UserRequestStats, UserTrafficStats,
     UserUpstreamTrafficStats,
 };
 use crate::escape::EgressPathSelection;
@@ -25,7 +25,7 @@ use crate::escape::EgressPathSelection;
 #[derive(Clone)]
 pub(crate) struct SiteContext {
     site: Arc<Site>,
-    tenant: Option<UserContext>,
+    tenant: Option<TenantContext>,
     req_stats: Arc<UserRequestStats>,
     forbid_stats: Arc<UserForbiddenStats>,
     egress: Arc<SiteEgress>,
@@ -38,27 +38,29 @@ impl SiteContext {
         server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Self {
-        let tenant_group = site.tenant_user_group();
-        let tenant = lookup_tenant(
-            site.owner(),
-            tenant_group.as_deref(),
-            server,
-            server_extra_tags,
-        );
-        let egress = match tenant.as_ref() {
-            Some(t) => Arc::new(egress.shrink_with_tenant(Some(t))),
-            None => egress,
-        };
         let req_stats = site.stats().fetch_request_stats(server, server_extra_tags);
         let forbid_stats = site
             .stats()
             .fetch_forbidden_stats(server, server_extra_tags);
-        SiteContext {
-            site,
-            tenant,
-            req_stats,
-            forbid_stats,
-            egress,
+
+        if let Some(group) = site.tenant_user_group()
+            && let Some(tenant) = group.lookup_tenant(site.owner(), server, server_extra_tags) {
+            let egress = egress.shrink_with_tenant(Some(tenant.user().as_ref()));
+            SiteContext {
+                site,
+                tenant: Some(tenant),
+                req_stats,
+                forbid_stats,
+                egress: Arc::new(egress),
+            }
+        } else {
+            SiteContext {
+                site,
+                tenant: None,
+                req_stats,
+                forbid_stats,
+                egress,
+            }
         }
     }
 
@@ -68,8 +70,13 @@ impl SiteContext {
     }
 
     #[inline]
-    pub(crate) fn tenant(&self) -> Option<&UserContext> {
+    pub(crate) fn tenant_ctx(&self) -> Option<&TenantContext> {
         self.tenant.as_ref()
+    }
+
+    #[inline]
+    pub(crate) fn tenant_user(&self) -> Option<&Arc<User>> {
+        self.tenant_ctx().map(|t| t.user())
     }
 
     #[inline]
@@ -78,30 +85,25 @@ impl SiteContext {
     }
 
     pub(crate) fn log_uri_max_chars(&self) -> Option<usize> {
-        self.tenant
-            .as_ref()
-            .and_then(|t| t.user().log_uri_max_chars())
+        self.tenant_user().and_then(|u| u.log_uri_max_chars())
     }
 
     pub(crate) fn rsp_hdr_recv_timeout(&self) -> Option<Duration> {
         self.site.rsp_hdr_recv_timeout().or_else(|| {
-            self.tenant
-                .as_ref()
-                .and_then(|t| t.http_rsp_header_recv_timeout())
+            self.tenant_user().and_then(|u| u.http_rsp_hdr_recv_timeout())
         })
     }
 
     pub(crate) fn resolve_strategy(&self) -> Option<ResolveStrategy> {
-        self.egress
-            .resolve_strategy()
-            .or_else(|| self.tenant.as_ref().and_then(|t| t.resolve_strategy()))
+        self.egress.resolve_strategy().or_else(|| {
+            self.tenant_user().and_then(|u| u.config().resolve_strategy)
+        })
     }
 
     pub(crate) fn path_selection(&self) -> Option<&EgressPathSelection> {
         self.egress.path_selection().or_else(|| {
-            self.tenant
-                .as_ref()
-                .and_then(|t| t.user_config().egress_path_selection.as_ref())
+            self.tenant_user()
+                .and_then(|u| u.config().egress_path_selection.as_ref())
         })
     }
 
@@ -178,23 +180,4 @@ impl SiteRequestPermits {
         self.tenant.take();
         self.site.take();
     }
-}
-
-fn lookup_tenant(
-    owner: &NodeName,
-    tenant_group: Option<&UserGroup>,
-    server: &NodeName,
-    server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
-) -> Option<UserContext> {
-    if owner.is_empty() {
-        return None;
-    }
-    let (user, user_type) = tenant_group?.get_named_user(owner.as_str())?;
-    Some(UserContext::new(
-        None,
-        user,
-        user_type,
-        server,
-        server_extra_tags,
-    ))
 }

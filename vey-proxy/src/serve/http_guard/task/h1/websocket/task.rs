@@ -257,7 +257,7 @@ impl HttpGuardWebsocketTask {
             }
         }
 
-        let tenant = self.task_notes.site_ctx().and_then(|s| s.tenant()).cloned();
+        let tenant = self.task_notes.tenant_ctx().cloned();
         let mut audit_task = false;
         let tcp_client_misc_opts = if let Some(tenant) = &tenant {
             match tenant.check_upstream(self.site.upstream()) {
@@ -287,8 +287,8 @@ impl HttpGuardWebsocketTask {
             }
             if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
                 audit_task = tenant
-                    .user_config()
-                    .audit
+                    .user()
+                    .audit()
                     .do_task_audit()
                     .unwrap_or_else(|| audit_handle.do_task_audit());
             }
@@ -324,9 +324,9 @@ impl HttpGuardWebsocketTask {
     fn clt_speed_limit(&self) -> Option<TcpSockSpeedLimitConfig> {
         let server = self.ctx.server_config.tcp_sock_speed_limit;
         let mut limit = self.site.tcp_sock_speed_limit().shrink_as_smaller(&server);
-        if let Some(tenant) = self.task_notes.site_ctx().and_then(|s| s.tenant()) {
-            limit = tenant
-                .user_config()
+        if let Some(user) = self.task_notes.tenant_user() {
+            limit = user
+                .config()
                 .tcp_sock_speed_limit
                 .shrink_as_smaller(&limit);
         }
@@ -366,8 +366,7 @@ impl HttpGuardWebsocketTask {
                 br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
                 clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
             }
-            if let Some(tenant) = self.task_notes.site_ctx().and_then(|s| s.tenant()) {
-                let user = tenant.user();
+            if let Some(user) = self.task_notes.tenant_user() {
                 if let Some(limiter) = user.tcp_all_upload_speed_limit() {
                     limiter.try_consume(origin_header_size);
                     br.add_global_limiter(limiter.clone());
@@ -774,8 +773,6 @@ impl StreamTransitTask for HttpGuardWebsocketTask {
     }
 
     fn tenant(&self) -> Option<&User> {
-        self.task_notes
-            .site_ctx()
-            .and_then(|s| s.tenant().map(|t| t.user().as_ref()))
+        self.task_notes.tenant_user().map(|u| u.as_ref())
     }
 }

@@ -59,7 +59,7 @@ where
                 .ok_or_else(|| anyhow::anyhow!("h2 requires a matching tls sni site"))?
                 .site(),
         );
-        let tenant = self.ctx.site_ctx.as_ref().and_then(|c| c.tenant()).cloned();
+        let tenant_user = self.ctx.site_ctx.as_ref().and_then(|c| c.tenant_user()).cloned();
         let _site_conn = site.hold_http_conn(
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),
@@ -70,9 +70,9 @@ where
         let mut limit = site
             .tcp_sock_speed_limit()
             .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
-        if let Some(tenant) = &tenant {
-            limit = tenant
-                .user_config()
+        if let Some(user) = &tenant_user {
+            limit = user
+                .config()
                 .tcp_sock_speed_limit
                 .shrink_as_smaller(&limit);
         }
@@ -87,8 +87,7 @@ where
             limit.max_south,
             H2ConnectionCltWrapperStats::new(&self.ctx.server_stats, site_io_stats),
         );
-        if let Some(tenant) = &tenant {
-            let user = tenant.user();
+        if let Some(user) = &tenant_user {
             if let Some(limiter) = user.tcp_all_upload_speed_limit() {
                 stream.add_global_read_limiter(limiter.clone());
             }

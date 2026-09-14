@@ -154,7 +154,7 @@ impl H2WebsocketTask {
             }
         }
 
-        if let Some(tenant) = self.task_notes.site_ctx().and_then(|s| s.tenant()) {
+        if let Some(tenant) = self.task_notes.tenant_ctx() {
             match tenant.check_upstream(self.site.upstream()) {
                 AclAction::Permit | AclAction::PermitAndLog => {}
                 AclAction::Forbid | AclAction::ForbidAndLog => {
@@ -196,9 +196,8 @@ impl H2WebsocketTask {
 
         let audit_task = self
             .task_notes
-            .site_ctx()
-            .and_then(|s| s.tenant())
-            .and_then(|t| t.user_config().audit.do_task_audit())
+            .tenant_user()
+            .and_then(|u| u.audit().do_task_audit())
             .unwrap_or_else(|| {
                 self.ctx
                     .audit_handle
@@ -454,9 +453,8 @@ impl H2WebsocketTask {
                         return Err(H2StreamTransferError::CanceledAsServerQuit);
                     }
                     if self.task_notes
-                        .site_ctx()
-                        .and_then(|s| s.tenant())
-                        .is_some_and(|t| t.user().is_blocked())
+                        .tenant_user()
+                        .is_some_and(|u| u.is_blocked())
                     {
                         return Err(H2StreamTransferError::CanceledAsUserBlocked);
                     }

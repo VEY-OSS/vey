@@ -64,6 +64,11 @@ impl User {
     }
 
     #[inline]
+    pub(crate) fn config(&self) -> &UserConfig {
+        &self.config
+    }
+
+    #[inline]
     pub(crate) fn task_max_idle_count(&self) -> Option<usize> {
         self.config.task_idle_max_count
     }
@@ -714,6 +719,70 @@ impl User {
     #[inline]
     pub(crate) fn udp_all_download_speed_limit(&self) -> Option<&Arc<GlobalDatagramLimiter>> {
         self.udp_all_download_speed_limit.as_ref()
+    }
+}
+
+/// Reverse-proxy site owner: the tenant user and its forbidden stats for the
+/// current server. Unlike [`UserContext`], there is no visitor name, UserSite
+/// overlay, or request/traffic stats.
+#[derive(Clone)]
+pub(crate) struct TenantContext {
+    user: Arc<User>,
+    forbid_stats: Arc<UserForbiddenStats>,
+}
+
+impl TenantContext {
+    pub(crate) fn new(
+        user: Arc<User>,
+        user_type: UserType,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
+    ) -> Self {
+        let forbid_stats = user.fetch_forbidden_stats(user_type, server, server_extra_tags);
+        TenantContext { user, forbid_stats }
+    }
+
+    #[inline]
+    pub(crate) fn user(&self) -> &Arc<User> {
+        &self.user
+    }
+
+    #[inline]
+    pub(crate) fn user_name(&self) -> &ArcStr {
+        self.user.name()
+    }
+
+    #[inline]
+    pub(crate) fn user_config(&self) -> &UserConfig {
+        &self.user.config
+    }
+
+    #[inline]
+    pub(crate) fn forbidden_stats(&self) -> &Arc<UserForbiddenStats> {
+        &self.forbid_stats
+    }
+
+    #[inline]
+    pub(crate) fn check_rate_limit(&self) -> Result<(), ()> {
+        self.user.check_rate_limit(false, &self.forbid_stats)
+    }
+
+    #[inline]
+    pub(crate) fn acquire_request_semaphore(&self) -> Result<GaugeSemaphorePermit, ()> {
+        self.user.acquire_request_semaphore(&self.forbid_stats)
+    }
+
+    #[inline]
+    pub(crate) fn check_upstream(&self, upstream: &UpstreamAddr) -> AclAction {
+        self.user.check_upstream(upstream, &self.forbid_stats)
+    }
+
+    pub(crate) fn check_http_user_agent(
+        &self,
+        user_agents: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Option<AclAction> {
+        self.user
+            .check_http_user_agent(user_agents, &self.forbid_stats)
     }
 }
 

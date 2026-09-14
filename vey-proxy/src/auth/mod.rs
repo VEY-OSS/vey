@@ -17,7 +17,7 @@ pub(crate) use site::UserSite;
 use site::UserSites;
 
 mod user;
-pub(crate) use user::{User, UserContext};
+pub(crate) use user::{TenantContext, User, UserContext};
 
 mod group;
 pub(crate) use group::{FactsUserGroup, UserGroup};

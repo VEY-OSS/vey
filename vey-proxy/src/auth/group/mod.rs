@@ -19,7 +19,7 @@ use uuid::Uuid;
 use vey_types::auth::{Password, UserAuthError};
 use vey_types::metrics::{MetricTagMap, NodeName};
 
-use super::{User, UserContext, UserType, source};
+use super::{TenantContext, User, UserContext, UserType, source};
 use crate::config::auth::{AnyUserGroupConfig, UserConfig, UserGroupConfig};
 
 mod basic;
@@ -171,6 +171,19 @@ impl UserGroup {
             #[cfg(feature = "python")]
             UserGroup::PythonBasic(v) => v.base().get_named_user(username),
         }
+    }
+
+    pub(crate) fn lookup_tenant(
+        &self,
+        name: &NodeName,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
+    ) -> Option<TenantContext> {
+        if name.is_empty() {
+            return None;
+        }
+        let (user, user_type) = self.get_named_user(name.as_str())?;
+        Some(TenantContext::new(user, user_type, server, server_extra_tags))
     }
 
     pub(crate) fn foreach_user<F>(&self, f: F)
