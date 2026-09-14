@@ -16,7 +16,8 @@ use vey_icap_client::reqmod::h1::{
 use vey_io_ext::{StreamCopy, StreamCopyError};
 
 use super::super::protocol::HttpClientWriter;
-use super::{HttpGuardWebsocketTask, WebsocketOriginConnection};
+use super::HttpGuardWebsocketTask;
+use crate::module::tcp_connect::TcpConnection;
 use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 
 impl HttpGuardWebsocketTask {
@@ -24,9 +25,9 @@ impl HttpGuardWebsocketTask {
         &mut self,
         req: &HttpProxyClientRequest,
         clt_w: &mut HttpClientWriter<CDW>,
-        ups_c: WebsocketOriginConnection,
+        ups_c: TcpConnection,
         reqmod: &IcapReqmodClient,
-    ) -> ServerTaskResult<Option<(WebsocketOriginConnection, HttpForwardRemoteResponse)>>
+    ) -> ServerTaskResult<Option<(TcpConnection, HttpForwardRemoteResponse)>>
     where
         CDW: AsyncWrite + Unpin,
     {
@@ -54,7 +55,7 @@ impl HttpGuardWebsocketTask {
             }
             Err(e) => {
                 if reqmod.bypass() {
-                    self.send_request(req, clt_w, ups_c).await
+                    self.handshake_origin(req, clt_w, ups_c).await
                 } else {
                     Err(ServerTaskError::InternalAdapterError(e))
                 }
@@ -66,19 +67,19 @@ impl HttpGuardWebsocketTask {
         &mut self,
         req: &HttpProxyClientRequest,
         clt_w: &mut HttpClientWriter<CDW>,
-        ups_c: WebsocketOriginConnection,
+        ups_c: TcpConnection,
         icap_adapter: HttpRequestAdapter<ServerIdleChecker>,
         adaptation_state: &mut ReqmodAdaptationRunState,
-    ) -> ServerTaskResult<Option<(WebsocketOriginConnection, HttpForwardRemoteResponse)>>
+    ) -> ServerTaskResult<Option<(TcpConnection, HttpForwardRemoteResponse)>>
     where
         CDW: AsyncWrite + Unpin,
     {
         match icap_adapter.xfer_connect(adaptation_state, req).await {
             Ok(ReqmodAdaptationMidState::OriginalRequest) => {
-                self.send_request(req, clt_w, ups_c).await
+                self.handshake_origin(req, clt_w, ups_c).await
             }
             Ok(ReqmodAdaptationMidState::AdaptedRequest(final_req)) => {
-                self.send_request(&final_req, clt_w, ups_c).await
+                self.handshake_origin(&final_req, clt_w, ups_c).await
             }
             Ok(ReqmodAdaptationMidState::HttpErrResponse(rsp, rsp_body)) => {
                 self.send_adaptation_error_response(clt_w, rsp, rsp_body)

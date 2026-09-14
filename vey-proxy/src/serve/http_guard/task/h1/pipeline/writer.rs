@@ -174,11 +174,11 @@ where
                     };
                     let mut ws_task =
                         HttpGuardWebsocketTask::new(&self.ctx, &req, site, task_notes);
-                    let upgrade = ws_task
-                        .handshake(&req.inner, &mut stream_r, &mut stream_w)
+                    let connected = ws_task
+                        .connect_to_origin(&req.inner, &mut stream_r, &mut stream_w)
                         .await;
                     let _ = req.stream_sender.try_send(None);
-                    if let Some((ups_c, rsp)) = upgrade {
+                    if let Some((ups_c, rsp)) = connected {
                         ws_task.into_running(stream_r, stream_w, ups_c, rsp).await;
                     }
                     LoopAction::Break

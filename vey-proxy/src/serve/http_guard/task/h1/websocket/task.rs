@@ -7,6 +7,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;
 
+use bytes::Bytes;
 use http::header;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 
@@ -16,8 +17,8 @@ use vey_http::client::HttpForwardRemoteResponse;
 use vey_http::server::HttpProxyClientRequest;
 use vey_http::{HttpBodyReader, HttpBodyType};
 use vey_io_ext::{
-    FlexBufReader, GlobalLimitGroup, IdleInterval, LimitedWriteExt, StreamCopy, StreamCopyConfig,
-    StreamCopyError,
+    FlexBufReader, GlobalLimitGroup, IdleInterval, LimitedWriteExt, OnceBufReader, StreamCopy,
+    StreamCopyConfig, StreamCopyError,
 };
 use vey_types::acl::AclAction;
 use vey_types::net::TcpSockSpeedLimitConfig;
@@ -48,10 +49,6 @@ use super::stats::WebSocketTaskCltWrapperStats;
 #[path = "adaptation.rs"]
 mod adaptation;
 
-type WebsocketOriginReader = FlexBufReader<Box<dyn AsyncRead + Unpin + Send + Sync>>;
-type WebsocketOriginWriter = Box<dyn AsyncWrite + Unpin + Send + Sync>;
-type WebsocketOriginConnection = (WebsocketOriginWriter, WebsocketOriginReader);
-
 pub(crate) struct HttpGuardWebsocketTask {
     ctx: Arc<CommonTaskContext>,
     site: Arc<Site>,
@@ -60,6 +57,7 @@ pub(crate) struct HttpGuardWebsocketTask {
     egress_notes: EgressNotes,
     task_stats: Arc<WebSocketTaskStats>,
     max_idle_count: usize,
+    ups_r_leftover: Option<Bytes>,
     send_error_response: bool,
     started: bool,
     _alive_guard: Option<HttpForwardTaskAliveGuard>,
@@ -97,6 +95,7 @@ impl HttpGuardWebsocketTask {
             egress_notes: EgressNotes::default(),
             task_stats: Arc::new(WebSocketTaskStats::default()),
             max_idle_count,
+            ups_r_leftover: None,
             send_error_response: true,
             started: false,
             _alive_guard: None,
@@ -104,25 +103,25 @@ impl HttpGuardWebsocketTask {
         }
     }
 
-    pub(crate) async fn handshake<CDR, CDW>(
+    pub(crate) async fn connect_to_origin<CDR, CDW>(
         &mut self,
         req: &HttpProxyClientRequest,
         clt_r: &mut HttpClientReader<CDR>,
         clt_w: &mut HttpClientWriter<CDW>,
-    ) -> Option<(WebsocketOriginConnection, HttpForwardRemoteResponse)>
+    ) -> Option<(TcpConnection, HttpForwardRemoteResponse)>
     where
         CDR: AsyncRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
     {
         self.pre_start();
-        match self.do_handshake(req, clt_r, clt_w).await {
-            Ok(upgrade) => {
-                if upgrade.is_none()
+        match self.do_connect(req, clt_r, clt_w).await {
+            Ok(connected) => {
+                if connected.is_none()
                     && let Some(log_ctx) = self.get_log_context()
                 {
                     log_ctx.log(&ServerTaskError::Finished);
                 }
-                upgrade
+                connected
             }
             Err(e) => {
                 if self.send_error_response {
@@ -140,7 +139,7 @@ impl HttpGuardWebsocketTask {
         mut self,
         clt_r: HttpClientReader<CDR>,
         clt_w: HttpClientWriter<CDW>,
-        ups_c: WebsocketOriginConnection,
+        ups_c: TcpConnection,
         rsp: HttpForwardRemoteResponse,
     ) where
         CDR: AsyncRead + Send + Unpin,
@@ -205,7 +204,7 @@ impl HttpGuardWebsocketTask {
         &mut self,
         clt_r: HttpClientReader<CDR>,
         mut clt_w: HttpClientWriter<CDW>,
-        ups_c: WebsocketOriginConnection,
+        (ups_r, ups_w): TcpConnection,
         rsp: HttpForwardRemoteResponse,
     ) -> ServerTaskResult<()>
     where
@@ -220,16 +219,26 @@ impl HttpGuardWebsocketTask {
         self.task_notes
             .foreach_req_stats(|s| s.req_ready.add_websocket());
 
-        let (ups_w, ups_r) = ups_c;
-        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
+        match self.ups_r_leftover.take() {
+            None => self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await,
+            Some(leftover) => {
+                self.transit_transparent(
+                    clt_r,
+                    clt_w,
+                    OnceBufReader::with_bytes(ups_r, leftover),
+                    ups_w,
+                )
+                .await
+            }
+        }
     }
 
-    async fn do_handshake<CDR, CDW>(
+    async fn do_connect<CDR, CDW>(
         &mut self,
         req: &HttpProxyClientRequest,
         clt_r: &mut HttpClientReader<CDR>,
         clt_w: &mut HttpClientWriter<CDW>,
-    ) -> ServerTaskResult<Option<(WebsocketOriginConnection, HttpForwardRemoteResponse)>>
+    ) -> ServerTaskResult<Option<(TcpConnection, HttpForwardRemoteResponse)>>
     where
         CDR: AsyncRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
@@ -310,14 +319,14 @@ impl HttpGuardWebsocketTask {
 
         self.setup_clt_limit_and_stats(req, Some(clt_r), clt_w);
 
-        let connection = self.get_new_connection(clt_w).await?;
+        let ups_c = self.get_new_connection(clt_w).await?;
         if audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.clone()
             && let Some(reqmod) = audit_handle.icap_reqmod_client()
         {
-            return self.run_icap(req, clt_w, connection, reqmod).await;
+            return self.run_icap(req, clt_w, ups_c, reqmod).await;
         }
-        self.send_request(req, clt_w, connection).await
+        self.handshake_origin(req, clt_w, ups_c).await
     }
 
     fn clt_speed_limit(&self) -> Option<TcpSockSpeedLimitConfig> {
@@ -382,14 +391,14 @@ impl HttpGuardWebsocketTask {
     async fn get_new_connection<CDW>(
         &mut self,
         clt_w: &mut HttpClientWriter<CDW>,
-    ) -> ServerTaskResult<WebsocketOriginConnection>
+    ) -> ServerTaskResult<TcpConnection>
     where
         CDW: AsyncWrite + Unpin,
     {
         self.task_notes.stage = ServerTaskStage::Connecting;
 
         match self.make_new_connection().await {
-            Ok((ups_r, ups_w)) => {
+            Ok(ups_c) => {
                 self.task_notes.stage = ServerTaskStage::Connected;
 
                 if self.ctx.server_config.flush_task_log_on_connected
@@ -398,7 +407,7 @@ impl HttpGuardWebsocketTask {
                     log_ctx.log_connected();
                 }
 
-                Ok((ups_w, FlexBufReader::new(ups_r)))
+                Ok(ups_c)
             }
             Err(e) => {
                 self.reply_connect_err(&e, clt_w).await;
@@ -446,19 +455,16 @@ impl HttpGuardWebsocketTask {
         }
     }
 
-    async fn send_request<CDW>(
+    async fn handshake_origin<CDW>(
         &mut self,
         req: &HttpProxyClientRequest,
         clt_w: &mut HttpClientWriter<CDW>,
-        mut ups_c: WebsocketOriginConnection,
-    ) -> ServerTaskResult<Option<(WebsocketOriginConnection, HttpForwardRemoteResponse)>>
+        (ups_r, mut ups_w): TcpConnection,
+    ) -> ServerTaskResult<Option<(TcpConnection, HttpForwardRemoteResponse)>>
     where
         CDW: AsyncWrite + Unpin,
     {
-        let ups_w = &mut ups_c.0;
-        let ups_r = &mut ups_c.1;
-
-        send_req_header_to_origin(ups_w, req, None)
+        send_req_header_to_origin(&mut ups_w, req, None)
             .await
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
         ups_w
@@ -466,97 +472,60 @@ impl HttpGuardWebsocketTask {
             .await
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
 
+        let mut ups_r = FlexBufReader::new(ups_r);
         let rsp_header = match tokio::time::timeout(
             self.rsp_hdr_recv_timeout(),
-            self.recv_final_response_header(req, ups_r, clt_w),
+            HttpForwardRemoteResponse::parse(
+                &mut ups_r,
+                &req.method,
+                req.keep_alive(),
+                self.ctx.server_config.rsp_hdr_max_size,
+            ),
         )
         .await
         {
             Ok(Ok(rsp_header)) => rsp_header,
-            Ok(Err(e)) => return Err(e),
+            Ok(Err(e)) => return Err(ServerTaskError::from(e)),
             Err(_) => {
                 return Err(ServerTaskError::UpstreamAppTimeout(
                     "timeout to receive response header",
                 ));
             }
         };
-        self.finish_origin_response(req, clt_w, ups_c, rsp_header)
+        self.handle_origin_response(req, clt_w, ups_r, ups_w, rsp_header)
             .await
     }
 
-    async fn finish_origin_response<CDW>(
+    async fn handle_origin_response<CDW>(
         &mut self,
         req: &HttpProxyClientRequest,
         clt_w: &mut HttpClientWriter<CDW>,
-        mut ups_c: WebsocketOriginConnection,
+        mut ups_r: FlexBufReader<Box<dyn AsyncRead + Unpin + Send + Sync>>,
+        mut ups_w: Box<dyn AsyncWrite + Unpin + Send + Sync>,
         mut rsp_header: HttpForwardRemoteResponse,
-    ) -> ServerTaskResult<Option<(WebsocketOriginConnection, HttpForwardRemoteResponse)>>
+    ) -> ServerTaskResult<Option<(TcpConnection, HttpForwardRemoteResponse)>>
     where
         CDW: AsyncWrite + Unpin,
     {
         rsp_header.set_no_keep_alive();
+        self.ws_notes.rsp_status = rsp_header.code;
         self.ws_notes.origin_status = rsp_header.code;
-        if rsp_header.code == 101 {
-            self.ws_notes.rsp_status = 101;
-            return Ok(Some((ups_c, rsp_header)));
-        }
-
-        self.send_response_without_adaptation(req, clt_w, &mut ups_c.1, &rsp_header)
-            .await?;
-        let _ = ups_c.0.shutdown().await;
-        Ok(None)
-    }
-
-    async fn recv_final_response_header<W>(
-        &mut self,
-        req: &HttpProxyClientRequest,
-        ups_r: &mut WebsocketOriginReader,
-        clt_w: &mut W,
-    ) -> ServerTaskResult<HttpForwardRemoteResponse>
-    where
-        W: AsyncWrite + Unpin,
-    {
-        loop {
-            let hdr = self.recv_response_header(req, ups_r).await?;
-            if let Some(final_hdr) = self.check_out_final_response(hdr, clt_w).await? {
-                return Ok(final_hdr);
+        match rsp_header.code {
+            101 => {
+                let (leftover, ups_r) = ups_r.into_parts();
+                self.ups_r_leftover = (!leftover.is_empty()).then_some(leftover);
+                Ok(Some(((ups_r, ups_w), rsp_header)))
             }
-        }
-    }
-
-    async fn check_out_final_response<W>(
-        &mut self,
-        hdr: HttpForwardRemoteResponse,
-        clt_w: &mut W,
-    ) -> ServerTaskResult<Option<HttpForwardRemoteResponse>>
-    where
-        W: AsyncWrite + Unpin,
-    {
-        match hdr.code {
-            100 | 103 => {
-                self.send_response_header(clt_w, &hdr).await?;
+            100..=199 => Err(ServerTaskError::InvalidUpstreamProtocol(
+                "unexpected informational response",
+            )),
+            _ => {
+                self.send_response_without_adaptation(req, clt_w, &mut ups_r, &rsp_header)
+                    .await?;
+                let _ = ups_w.shutdown().await;
                 Ok(None)
             }
-            _ => Ok(Some(hdr)),
         }
-    }
-
-    async fn recv_response_header(
-        &mut self,
-        req: &HttpProxyClientRequest,
-        ups_r: &mut WebsocketOriginReader,
-    ) -> ServerTaskResult<HttpForwardRemoteResponse> {
-        let rsp = HttpForwardRemoteResponse::parse(
-            ups_r,
-            &req.method,
-            req.keep_alive(),
-            self.ctx.server_config.rsp_hdr_max_size,
-        )
-        .await
-        .map_err(ServerTaskError::from)?;
-        self.ws_notes.rsp_status = rsp.code;
-        self.ws_notes.origin_status = rsp.code;
-        Ok(rsp)
     }
 
     async fn send_response_header<W>(
