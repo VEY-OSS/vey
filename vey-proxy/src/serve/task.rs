@@ -159,9 +159,7 @@ impl ServerTaskNotes {
 
     pub(crate) fn resolve_redirection(&self) -> Option<&ResolveRedirection> {
         if let Some(site_ctx) = &self.site_ctx {
-            site_ctx
-                .tenant_user()
-                .and_then(|u| u.resolve_redirection())
+            site_ctx.tenant_user().and_then(|u| u.resolve_redirection())
         } else {
             self.user_ctx
                 .as_ref()

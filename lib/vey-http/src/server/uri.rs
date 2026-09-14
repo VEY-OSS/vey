@@ -26,6 +26,13 @@ pub trait UriExt {
         default_port: u16,
     ) -> Result<Option<UpstreamAddr>, HttpRequestParseError>;
 
+    /// Reverse-proxy H1 request-target: origin-form, or absolute-form with
+    /// ``http`` / ``https`` only. ``https`` is not HttpsForward and does not
+    /// imply a TLS client connection.
+    fn get_optional_http_https_upstream(
+        &self,
+    ) -> Result<Option<UpstreamAddr>, HttpRequestParseError>;
+
     fn get_connect_udp_upstream(&self) -> Result<UpstreamAddr, HttpRequestParseError>;
 }
 
@@ -78,6 +85,21 @@ impl UriExt for Uri {
                     .map_err(|_| HttpRequestParseError::InvalidRequestTarget)?;
                 Ok(Some(upstream))
             }
+            None => Ok(None),
+        }
+    }
+
+    fn get_optional_http_https_upstream(
+        &self,
+    ) -> Result<Option<UpstreamAddr>, HttpRequestParseError> {
+        match self.scheme() {
+            Some(scheme) if scheme.eq(&http::uri::Scheme::HTTP) => {
+                self.get_optional_upstream_with_default_port(80)
+            }
+            Some(scheme) if scheme.eq(&http::uri::Scheme::HTTPS) => {
+                self.get_optional_upstream_with_default_port(443)
+            }
+            Some(_) => Err(HttpRequestParseError::UnsupportedScheme),
             None => Ok(None),
         }
     }
@@ -236,6 +258,39 @@ mod tests {
         let result = uri.get_optional_upstream_with_default_port(80).unwrap();
 
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn get_optional_http_https_upstream() {
+        let uri = Uri::from_static("http://example.com/path");
+        let upstream = uri.get_optional_http_https_upstream().unwrap().unwrap();
+        assert_eq!(upstream.host_str(), "example.com");
+        assert_eq!(upstream.port(), 80);
+
+        let uri = Uri::from_static("https://example.com:8443/path");
+        let upstream = uri.get_optional_http_https_upstream().unwrap().unwrap();
+        assert_eq!(upstream.host_str(), "example.com");
+        assert_eq!(upstream.port(), 8443);
+
+        let uri = Uri::from_static("https://example.com/path");
+        let upstream = uri.get_optional_http_https_upstream().unwrap().unwrap();
+        assert_eq!(upstream.host_str(), "example.com");
+        assert_eq!(upstream.port(), 443);
+
+        let uri = Uri::from_static("/path");
+        assert!(uri.get_optional_http_https_upstream().unwrap().is_none());
+
+        let uri = Uri::from_static("ftp://example.com/path");
+        assert!(matches!(
+            uri.get_optional_http_https_upstream().unwrap_err(),
+            HttpRequestParseError::UnsupportedScheme
+        ));
+
+        let uri = Uri::from_static("ws://example.com/path");
+        assert!(matches!(
+            uri.get_optional_http_https_upstream().unwrap_err(),
+            HttpRequestParseError::UnsupportedScheme
+        ));
     }
 
     #[test]

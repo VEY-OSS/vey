@@ -40,7 +40,6 @@ pub(crate) struct H2ForwardTask {
     egress_notes: EgressNotes,
     send_error_response: bool,
     allow_continue: bool,
-    is_https: bool,
     started: bool,
     _alive_guard: Option<H2ForwardTaskAliveGuard>,
     _site_req_alive_permits: SiteRequestPermits,
@@ -62,7 +61,6 @@ impl H2ForwardTask {
         site: Arc<Site>,
         req: &Request<RecvStream>,
     ) -> Self {
-        let is_https = site.tls_client().is_some();
         let uri_log_max_chars = site_ctx
             .log_uri_max_chars()
             .unwrap_or(ctx.server_config.log_uri_max_chars);
@@ -85,7 +83,6 @@ impl H2ForwardTask {
             egress_notes: EgressNotes::default(),
             send_error_response: true,
             allow_continue,
-            is_https,
             started: false,
             _alive_guard: None,
             _site_req_alive_permits: SiteRequestPermits::default(),
@@ -126,10 +123,8 @@ impl H2ForwardTask {
     fn pre_start(&mut self) {
         self._alive_guard = Some(self.ctx.server_stats.add_h2_forward_task());
         self.task_notes
-            .hold_req_alive(RequestAliveKind::HttpForward {
-                is_https: self.is_https,
-            });
-        // TODO: site request traffic (http_forward / https_forward) and task
+            .hold_req_alive(RequestAliveKind::HttpForward { is_https: false });
+        // TODO: site request traffic (http_forward) and task
         // byte stats. Needs h2 header/trailer frame sizes plus DATA on this stream.
         if self.ctx.server_config.flush_task_log_on_created
             && let Some(log) = self.log_ctx()

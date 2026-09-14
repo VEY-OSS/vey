@@ -24,10 +24,7 @@ use vey_types::acl::AclAction;
 use vey_types::net::{HttpKeepAliveConfig, KeepAliveValue, TcpSockSpeedLimitConfig};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpGuardRequest};
-use super::{
-    CommonTaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats,
-    HttpsForwardTaskCltWrapperStats,
-};
+use super::{CommonTaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats};
 use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::escape::EgressNotes;
@@ -52,7 +49,7 @@ pub(crate) struct HttpGuardForwardTask<'a> {
     ctx: Arc<CommonTaskContext>,
     site: Arc<Site>,
     req: &'a HttpProxyClientRequest,
-    is_https: bool,
+    origin_tls: bool,
     should_close: bool,
     ups_keep_alive: KeepAliveValue,
     upstream_keepalive: HttpKeepAliveConfig,
@@ -97,14 +94,14 @@ impl<'a> HttpGuardForwardTask<'a> {
             req.inner.uri.clone(),
             uri_log_max_chars,
         );
-        let is_https = site.tls_client().is_some();
+        let origin_tls = site.tls_client().is_some();
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
         let upstream_keepalive = site.config().http.h1.upstream_keepalive;
         HttpGuardForwardTask {
             ctx: Arc::clone(ctx),
             site,
             req: &req.inner,
-            is_https,
+            origin_tls,
             should_close: !req.inner.keep_alive(),
             ups_keep_alive: KeepAliveValue::default(),
             upstream_keepalive,
@@ -261,9 +258,7 @@ impl<'a> HttpGuardForwardTask<'a> {
         self._alive_guard = Some(self.ctx.server_stats.add_forward_task());
 
         self.task_notes
-            .hold_req_alive(RequestAliveKind::HttpForward {
-                is_https: self.is_https,
-            });
+            .hold_req_alive(RequestAliveKind::HttpForward { is_https: false });
 
         if self.ctx.server_config.flush_task_log_on_created
             && let Some(log_ctx) = self.get_log_context()
@@ -345,10 +340,7 @@ impl<'a> HttpGuardForwardTask<'a> {
         let server = self.ctx.server_config.tcp_sock_speed_limit;
         let mut limit = self.site.tcp_sock_speed_limit().shrink_as_smaller(&server);
         if let Some(user) = self.task_notes.tenant_user() {
-            limit = user
-                .config()
-                .tcp_sock_speed_limit
-                .shrink_as_smaller(&limit);
+            limit = user.config().tcp_sock_speed_limit.shrink_as_smaller(&limit);
         }
         if limit.eq(&server) { None } else { Some(limit) }
     }
@@ -364,37 +356,20 @@ impl<'a> HttpGuardForwardTask<'a> {
         let origin_header_size = self.req.origin_header_size() as u64;
         self.task_stats.clt.read.add_bytes(origin_header_size);
 
-        let (clt_r_stats, clt_w_stats, limit_config) = if self.is_https {
-            let mut wrapper_stats =
-                HttpsForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
+        let mut wrapper_stats =
+            HttpForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
 
-            let user_io_stats = self.task_notes.fetch_traffic_stats(
-                self.ctx.server_config.name(),
-                self.ctx.server_stats.share_extra_tags(),
-            );
-            for s in &user_io_stats {
-                s.io.https_forward.add_in_bytes(origin_header_size);
-            }
-            wrapper_stats.push_user_io_stats(user_io_stats);
+        let user_io_stats = self.task_notes.fetch_traffic_stats(
+            self.ctx.server_config.name(),
+            self.ctx.server_stats.share_extra_tags(),
+        );
+        for s in &user_io_stats {
+            s.io.http_forward.add_in_bytes(origin_header_size);
+        }
+        wrapper_stats.push_user_io_stats(user_io_stats);
 
-            let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
-            (clt_r_stats, clt_w_stats, self.clt_speed_limit())
-        } else {
-            let mut wrapper_stats =
-                HttpForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
-
-            let user_io_stats = self.task_notes.fetch_traffic_stats(
-                self.ctx.server_config.name(),
-                self.ctx.server_stats.share_extra_tags(),
-            );
-            for s in &user_io_stats {
-                s.io.http_forward.add_in_bytes(origin_header_size);
-            }
-            wrapper_stats.push_user_io_stats(user_io_stats);
-
-            let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
-            (clt_r_stats, clt_w_stats, self.clt_speed_limit())
-        };
+        let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
+        let limit_config = self.clt_speed_limit();
 
         clt_w.retain_global_limiter_by_group(GlobalLimitGroup::Server);
         if let Some(br) = clt_r {
@@ -515,7 +490,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             self.http_notes.reused_connection = true;
             self.http_notes.retry_new_connection = false;
             self.task_notes
-                .foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
+                .foreach_req_stats(|s| s.req_reuse.add_http_forward(false));
 
             if self.ctx.server_config.flush_task_log_on_connected
                 && let Some(log_ctx) = self.get_log_context()
@@ -544,7 +519,7 @@ impl<'a> HttpGuardForwardTask<'a> {
                         self.task_stats.ups.reset();
                         // continue to make new connection
                         self.task_notes
-                            .foreach_req_stats(|s| s.req_renew.add_http_forward(self.is_https));
+                            .foreach_req_stats(|s| s.req_renew.add_http_forward(false));
                     } else {
                         self.should_close = true;
                         if self.send_error_response {
@@ -583,7 +558,7 @@ impl<'a> HttpGuardForwardTask<'a> {
         let from_pool = if let Some(pool) = self.site.http1_pool() {
             pool.get(
                 self.task_notes.worker_id(),
-                self.is_https,
+                self.origin_tls,
                 self.ctx.escaper.name(),
                 idle_expire,
             )
@@ -597,7 +572,7 @@ impl<'a> HttpGuardForwardTask<'a> {
                 connection,
                 &self.task_notes,
                 self.task_stats.clone(),
-                self.is_https,
+                self.origin_tls,
             );
             self.alive_reuse_notes = Some(reuse_notes);
             return Some(connection);
@@ -608,7 +583,7 @@ impl<'a> HttpGuardForwardTask<'a> {
                 &self.task_notes,
                 self.task_stats.clone(),
                 idle_expire,
-                self.is_https,
+                self.origin_tls,
             )
             .await?;
         self.alive_reuse_notes = Some(reuse_notes);
@@ -648,7 +623,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             };
             pool.save(
                 self.task_notes.worker_id(),
-                self.is_https,
+                self.origin_tls,
                 self.ctx.escaper.name().clone(),
                 connection,
                 reuse_notes,
@@ -738,7 +713,7 @@ impl<'a> HttpGuardForwardTask<'a> {
     fn mark_relaying(&mut self) {
         self.task_notes.mark_relaying();
         self.task_notes
-            .foreach_req_stats(|s| s.req_ready.add_http_forward(self.is_https));
+            .foreach_req_stats(|s| s.req_ready.add_http_forward(false));
     }
 
     async fn run_with_connection<CDR, CDW>(

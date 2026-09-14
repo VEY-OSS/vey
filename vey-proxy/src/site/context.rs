@@ -44,7 +44,8 @@ impl SiteContext {
             .fetch_forbidden_stats(server, server_extra_tags);
 
         if let Some(group) = site.tenant_user_group()
-            && let Some(tenant) = group.lookup_tenant(site.owner(), server, server_extra_tags) {
+            && let Some(tenant) = group.lookup_tenant(site.owner(), server, server_extra_tags)
+        {
             let egress = egress.shrink_with_tenant(Some(tenant.user().as_ref()));
             SiteContext {
                 site,
@@ -90,14 +91,15 @@ impl SiteContext {
 
     pub(crate) fn rsp_hdr_recv_timeout(&self) -> Option<Duration> {
         self.site.rsp_hdr_recv_timeout().or_else(|| {
-            self.tenant_user().and_then(|u| u.http_rsp_hdr_recv_timeout())
+            self.tenant_user()
+                .and_then(|u| u.http_rsp_hdr_recv_timeout())
         })
     }
 
     pub(crate) fn resolve_strategy(&self) -> Option<ResolveStrategy> {
-        self.egress.resolve_strategy().or_else(|| {
-            self.tenant_user().and_then(|u| u.config().resolve_strategy)
-        })
+        self.egress
+            .resolve_strategy()
+            .or_else(|| self.tenant_user().and_then(|u| u.config().resolve_strategy))
     }
 
     pub(crate) fn path_selection(&self) -> Option<&EgressPathSelection> {

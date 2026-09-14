@@ -19,12 +19,21 @@ for unmatched ``Host`` and request-target. Plaintext HTTP/1 connections
 match ``Host`` against the HTTP host table. After a TLS handshake, ``Host``
 still uses the TLS-capable table.
 
-It then forwards requests to that site's origin. HTTP/2 origin stays on
-HTTP/2 (no HTTP/1 fallback). There is no visitor authentication; tenant
-identity comes from ``site.owner`` plus the group's ``tenant_user_group``.
+It then forwards requests to that site's origin. Whether the origin hop uses
+TLS is decided by site :ref:`tls_client <conf_site_tls_client>`. The forward
+task type is always ``HttpForward`` (or ``H2Forward`` / ``Websocket``); it is
+not ``HttpsForward``, which is the ``http_proxy`` ``https://`` request type.
+HTTP/2 origin stays on HTTP/2 (no HTTP/1 fallback). There is no visitor
+authentication; tenant identity comes from ``site.owner`` plus the group's
+``tenant_user_group``.
 
 This is the counterpart of :ref:`http_expose <configuration_server_http_expose>`
 (internal reverse proxy with optional visitor auth and no auditor).
+
+HTTP/1 request-target may be origin-form, or an absolute-form whose scheme is
+``http`` or ``https``. Other schemes are rejected. An ``https://`` request-target
+is still :ref:`HttpForward <log_task_http_forward>` and does not require the
+client connection to be TLS.
 
 It supports:
 

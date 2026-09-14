@@ -92,6 +92,11 @@ tls_client
 TLS parameters used when connecting to the upstream over HTTPS.
 An empty map enables the default client configuration.
 
+This only selects the origin transport. ``http_expose`` and ``http_guard``
+still log and count the request as ``HttpForward`` / ``http_forward``;
+``HttpsForward`` / ``https_forward`` is the ``http_proxy`` ``https://``
+forward type.
+
 **default**: not set, which means plaintext HTTP to the upstream
 
 .. _conf_site_tls_name:

@@ -13,8 +13,8 @@ use http::{Request, Response, StatusCode, Version};
 
 use vey_h2::H2BodyTransfer;
 use vey_icap_client::reqmod::h2::{
-    H2RequestAdapter, HttpAdapterErrorResponse, ReqmodAdaptationMidState,
-    ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
+    H2RequestAdapter, HttpAdapterErrorResponse, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
+    ReqmodRecvHttpResponseBody,
 };
 use vey_types::acl::AclAction;
 
@@ -102,8 +102,7 @@ impl H2WebsocketTask {
         mut clt_send_rsp: SendResponse<Bytes>,
     ) {
         self._alive_guard = Some(self.ctx.server_stats.add_h2_forward_task());
-        self.task_notes
-            .hold_req_alive(RequestAliveKind::Websocket);
+        self.task_notes.hold_req_alive(RequestAliveKind::Websocket);
         if self.ctx.server_config.flush_task_log_on_created
             && let Some(log) = self.log_ctx()
         {

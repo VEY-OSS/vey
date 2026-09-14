@@ -9,4 +9,4 @@ mod task;
 mod wrapper;
 
 pub(crate) use task::HttpForwardTaskStats;
-pub(crate) use wrapper::{HttpForwardTaskCltWrapperStats, HttpsForwardTaskCltWrapperStats};
+pub(crate) use wrapper::HttpForwardTaskCltWrapperStats;

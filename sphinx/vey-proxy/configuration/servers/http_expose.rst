@@ -5,7 +5,10 @@ http_expose
 
 This server is the internal HTTP reverse proxy. It terminates the client-side
 HTTP session locally and then forwards requests to configured upstream sites
-selected from the referenced ``site_group``.
+selected from the referenced ``site_group``. Whether the origin hop uses TLS
+is decided by site :ref:`tls_client <conf_site_tls_client>`. The forward task
+type is always ``HttpForward``; it is not ``HttpsForward``, which is the
+``http_proxy`` ``https://`` request type.
 
 It supports optional visitor authentication and HTTP/1 only. ``auditor`` is
 rejected. The public-edge counterpart is
@@ -18,6 +21,11 @@ TLS SNI is used only to pick a certificate. Request routing always uses
 ``Host``. Unlike :ref:`http_guard <configuration_server_http_guard>`, this
 server does not pin the TLS site or reject a mismatched ``Host`` with
 ``421``.
+
+HTTP/1 request-target may be origin-form, or an absolute-form whose scheme is
+``http`` or ``https``. Other schemes are rejected. An ``https://`` request-target
+is still :ref:`HttpForward <log_task_http_forward>` and does not require the
+client connection to be TLS.
 
 .. versionchanged:: 1.15.0
    type renamed from ``http_rproxy`` (still accepted as a deprecated alias);

@@ -183,7 +183,12 @@ impl UserGroup {
             return None;
         }
         let (user, user_type) = self.get_named_user(name.as_str())?;
-        Some(TenantContext::new(user, user_type, server, server_extra_tags))
+        Some(TenantContext::new(
+            user,
+            user_type,
+            server,
+            server_extra_tags,
+        ))
     }
 
     pub(crate) fn foreach_user<F>(&self, f: F)

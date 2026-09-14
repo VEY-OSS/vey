@@ -62,6 +62,10 @@ The following tags are common to all metrics:
   - socks_udp_connect
   - socks_udp_associate
 
+  ``https_forward`` is ``http_proxy`` forwarding of ``https://`` URLs. Origin
+  TLS on ``http_expose`` / ``http_guard`` (site ``tls_client``) stays
+  ``http_forward``.
+
 .. versionadded:: 1.15.0
    ``h2_connection`` (HTTP/2 client connections on ``http_guard``);
    ``websocket`` (HTTP/1 WebSocket Upgrade on ``http_guard``; HTTP/2 WebSocket

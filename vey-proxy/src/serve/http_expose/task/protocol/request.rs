@@ -57,7 +57,7 @@ where
         }
 
         let upstream = if let Some(mut host) = req.host.clone() {
-            if let Some(u) = get_upstream_from_uri(&req.uri)? {
+            if let Some(u) = req.uri.get_optional_http_https_upstream()? {
                 if !host.host_eq(&u) {
                     return Err(HttpRequestParseError::UnmatchedHostAndAuthority);
                 }
@@ -106,18 +106,5 @@ where
 
         // reader should be sent by default
         Ok((req, true))
-    }
-}
-
-fn get_upstream_from_uri(uri: &http::Uri) -> Result<Option<UpstreamAddr>, HttpRequestParseError> {
-    match uri.scheme() {
-        Some(scheme) => {
-            if scheme.eq(&http::uri::Scheme::HTTP) {
-                uri.get_optional_upstream_with_default_port(80)
-            } else {
-                Err(HttpRequestParseError::UnsupportedScheme)
-            }
-        }
-        None => Ok(None),
     }
 }

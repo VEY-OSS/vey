@@ -174,8 +174,7 @@ impl HttpGuardWebsocketTask {
 
     fn pre_start(&mut self) {
         self._alive_guard = Some(self.ctx.server_stats.add_forward_task());
-        self.task_notes
-            .hold_req_alive(RequestAliveKind::Websocket);
+        self.task_notes.hold_req_alive(RequestAliveKind::Websocket);
         if self.ctx.server_config.flush_task_log_on_created
             && let Some(log_ctx) = self.get_log_context()
         {
@@ -325,10 +324,7 @@ impl HttpGuardWebsocketTask {
         let server = self.ctx.server_config.tcp_sock_speed_limit;
         let mut limit = self.site.tcp_sock_speed_limit().shrink_as_smaller(&server);
         if let Some(user) = self.task_notes.tenant_user() {
-            limit = user
-                .config()
-                .tcp_sock_speed_limit
-                .shrink_as_smaller(&limit);
+            limit = user.config().tcp_sock_speed_limit.shrink_as_smaller(&limit);
         }
         if limit.eq(&server) { None } else { Some(limit) }
     }

@@ -149,13 +149,12 @@ impl TlsProxyTask {
             }
         }
 
-        let tcp_client_misc_opts =
-            if let Some(user) = self.task_notes.tenant_user() {
-                user.config()
-                    .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
-            } else {
-                Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts)
-            };
+        let tcp_client_misc_opts = if let Some(user) = self.task_notes.tenant_user() {
+            user.config()
+                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
+        } else {
+            Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts)
+        };
 
         self.ctx
             .cc_info

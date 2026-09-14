@@ -59,7 +59,12 @@ where
                 .ok_or_else(|| anyhow::anyhow!("h2 requires a matching tls sni site"))?
                 .site(),
         );
-        let tenant_user = self.ctx.site_ctx.as_ref().and_then(|c| c.tenant_user()).cloned();
+        let tenant_user = self
+            .ctx
+            .site_ctx
+            .as_ref()
+            .and_then(|c| c.tenant_user())
+            .cloned();
         let _site_conn = site.hold_http_conn(
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),
@@ -71,10 +76,7 @@ where
             .tcp_sock_speed_limit()
             .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
         if let Some(user) = &tenant_user {
-            limit = user
-                .config()
-                .tcp_sock_speed_limit
-                .shrink_as_smaller(&limit);
+            limit = user.config().tcp_sock_speed_limit.shrink_as_smaller(&limit);
         }
         let site_io_stats = site.stats().fetch_traffic_stats(
             self.ctx.server_config.name(),

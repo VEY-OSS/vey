@@ -135,7 +135,9 @@ impl StreamInspectTaskNotes {
     }
 
     pub(crate) fn tenant(&self) -> Option<&Arc<User>> {
-        self.site_ctx.as_ref().and_then(|s| s.tenant_ctx().map(|t| t.user()))
+        self.site_ctx
+            .as_ref()
+            .and_then(|s| s.tenant_ctx().map(|t| t.user()))
     }
 
     pub(crate) fn is_blocked(&self) -> bool {

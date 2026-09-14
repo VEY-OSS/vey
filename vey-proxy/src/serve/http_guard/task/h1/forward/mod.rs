@@ -9,6 +9,4 @@ mod task;
 pub(super) use task::HttpGuardForwardTask;
 
 mod stats;
-pub(super) use stats::{
-    HttpForwardTaskCltWrapperStats, HttpForwardTaskStats, HttpsForwardTaskCltWrapperStats,
-};
+pub(super) use stats::{HttpForwardTaskCltWrapperStats, HttpForwardTaskStats};
