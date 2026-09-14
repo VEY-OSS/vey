@@ -30,44 +30,49 @@ pub(super) struct OriginH2Sender {
     pub(crate) egress_notes: EgressNotes,
 }
 
-pub(super) async fn checkout_or_connect(
-    ctx: &CommonTaskContext,
-    site: &Site,
-    task_notes: &ServerTaskNotes,
-) -> Result<OriginH2Sender, H2StreamTransferError> {
-    let is_tls = site.tls_client().is_some();
-    let open_timeout = ctx.server_config.h2.upstream_stream_open_timeout;
-    if let Some((sender, egress_notes)) = site
-        .http2_pool()
-        .checkout(
+pub(super) trait OriginH2Checkout {
+    fn ctx(&self) -> &CommonTaskContext;
+    fn site(&self) -> &Site;
+    fn task_notes(&self) -> &ServerTaskNotes;
+
+    async fn checkout_or_connect(&self) -> Result<OriginH2Sender, H2StreamTransferError> {
+        let ctx = self.ctx();
+        let site = self.site();
+        let task_notes = self.task_notes();
+        let is_tls = site.tls_client().is_some();
+        let open_timeout = ctx.server_config.h2.upstream_stream_open_timeout;
+        if let Some((sender, egress_notes)) = site
+            .http2_pool()
+            .checkout(
+                task_notes.worker_id(),
+                is_tls,
+                ctx.escaper.name(),
+                open_timeout,
+            )
+            .await
+        {
+            return Ok(OriginH2Sender {
+                sender,
+                reused: true,
+                egress_notes,
+            });
+        }
+
+        let (sender, closed, egress_notes) = connect_origin(ctx, site, task_notes).await?;
+        site.http2_pool().insert(
             task_notes.worker_id(),
             is_tls,
-            ctx.escaper.name(),
-            open_timeout,
-        )
-        .await
-    {
-        return Ok(OriginH2Sender {
+            ctx.escaper.name().clone(),
+            sender.clone(),
+            Arc::clone(&closed),
+            egress_notes.clone(),
+        );
+        Ok(OriginH2Sender {
             sender,
-            reused: true,
+            reused: false,
             egress_notes,
-        });
+        })
     }
-
-    let (sender, closed, egress_notes) = connect_origin(ctx, site, task_notes).await?;
-    site.http2_pool().insert(
-        task_notes.worker_id(),
-        is_tls,
-        ctx.escaper.name().clone(),
-        sender.clone(),
-        Arc::clone(&closed),
-        egress_notes.clone(),
-    );
-    Ok(OriginH2Sender {
-        sender,
-        reused: false,
-        egress_notes,
-    })
 }
 
 async fn connect_origin(

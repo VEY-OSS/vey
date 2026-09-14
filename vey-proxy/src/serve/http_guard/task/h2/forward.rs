@@ -22,7 +22,7 @@ use vey_types::acl::AclAction;
 
 use super::CommonTaskContext;
 use super::error::{H2StreamTransferError, h2_local_error_response};
-use super::origin;
+use super::origin::OriginH2Checkout;
 use crate::escape::EgressNotes;
 use crate::log::task::h2_forward::TaskLogForH2Forward;
 use crate::module::http_forward::HttpForwardTaskNotes;
@@ -222,7 +222,7 @@ impl H2ForwardTask {
             }
         }
 
-        let origin = origin::checkout_or_connect(&self.ctx, &self.site, &self.task_notes).await?;
+        let origin = self.checkout_or_connect().await?;
         self.http_notes.reused_connection = origin.reused;
         self.egress_notes = origin.egress_notes;
         self.task_notes.stage = ServerTaskStage::Connected;
@@ -654,5 +654,19 @@ impl H2ForwardTask {
                 }
             }
         }
+    }
+}
+
+impl OriginH2Checkout for H2ForwardTask {
+    fn ctx(&self) -> &CommonTaskContext {
+        &self.ctx
+    }
+
+    fn site(&self) -> &Site {
+        &self.site
+    }
+
+    fn task_notes(&self) -> &ServerTaskNotes {
+        &self.task_notes
     }
 }

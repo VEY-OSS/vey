@@ -11,7 +11,7 @@ use h2::server::SendResponse;
 use h2::{Reason, RecvStream, SendStream};
 use http::{Request, Response, StatusCode, Version};
 
-use vey_h2::H2BodyTransfer;
+use vey_h2::{H2BodyTransfer, H2ResponseHeaderReceiver};
 use vey_icap_client::reqmod::h2::{
     H2RequestAdapter, HttpAdapterErrorResponse, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
@@ -20,7 +20,7 @@ use vey_types::acl::AclAction;
 
 use super::CommonTaskContext;
 use super::error::{H2StreamTransferError, h2_local_error_response};
-use super::origin;
+use super::origin::OriginH2Checkout;
 use crate::escape::EgressNotes;
 use crate::log::task::websocket::TaskLogForWebSocket;
 use crate::module::http_header::ProxyErrorType;
@@ -163,7 +163,7 @@ impl H2WebsocketTask {
             }
         }
 
-        let origin = origin::checkout_or_connect(&self.ctx, &self.site, &self.task_notes).await?;
+        let origin = self.checkout_or_connect().await?;
         self.egress_notes = origin.egress_notes;
         self.task_notes.stage = ServerTaskStage::Connected;
         if self.ctx.server_config.flush_task_log_on_connected
@@ -336,19 +336,26 @@ impl H2WebsocketTask {
             .send_request(ups_req, false)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
 
-        let ups_rsp = tokio::time::timeout(
+        let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_response_fut);
+        let rsp = tokio::time::timeout(
             self.ctx.server_config.timeout.recv_rsp_header,
-            ups_response_fut,
+            ups_recv_rsp.recv_header(),
         )
         .await
         .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)?
         .map_err(H2StreamTransferError::ResponseHeadRecvFailed)?;
-        self.ws_notes.origin_status = ups_rsp.status().as_u16();
+        self.ws_notes.origin_status = rsp.status().as_u16();
+        if rsp.status().is_informational() {
+            return Err(H2StreamTransferError::UnsupportedInformationalResponse(
+                rsp.status(),
+            ));
+        }
+        let body = ups_recv_rsp.take_body().ok_or(
+            H2StreamTransferError::UnsupportedInformationalResponse(rsp.status()),
+        )?;
         self.send_error_response = false;
 
-        if !ups_rsp.status().is_success() {
-            let (parts, body) = ups_rsp.into_parts();
-            let rsp = Response::from_parts(parts, ());
+        if !rsp.status().is_success() {
             if body.is_end_stream() {
                 clt_send_rsp
                     .send_response(rsp, true)
@@ -370,9 +377,7 @@ impl H2WebsocketTask {
             return Ok(());
         }
 
-        let (parts, ups_r) = ups_rsp.into_parts();
-        let rsp = Response::from_parts(parts, ());
-        if ups_r.is_end_stream() {
+        if body.is_end_stream() {
             clt_send_rsp
                 .send_response(rsp, true)
                 .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
@@ -386,7 +391,7 @@ impl H2WebsocketTask {
         self.task_notes.mark_relaying();
         self.task_notes
             .foreach_req_stats(|s| s.req_ready.add_websocket());
-        self.relay_streams(clt_r, clt_w, ups_r, ups_w).await
+        self.relay_streams(clt_r, clt_w, body, ups_w).await
     }
 
     async fn relay_streams(
@@ -466,6 +471,20 @@ impl H2WebsocketTask {
                 }
             }
         }
+    }
+}
+
+impl OriginH2Checkout for H2WebsocketTask {
+    fn ctx(&self) -> &CommonTaskContext {
+        &self.ctx
+    }
+
+    fn site(&self) -> &Site {
+        &self.site
+    }
+
+    fn task_notes(&self) -> &ServerTaskNotes {
+        &self.task_notes
     }
 }
 
