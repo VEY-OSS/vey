@@ -22,6 +22,8 @@ do
 	esac
 done
 
+export CURL_TEST_H2 CURL_TEST_H3
+
 # start vey-dcgen
 "${PROJECT_DIR}"/target/debug/vey-dcgen -c "${RUN_DIR}"/vey-dcgen.yaml -G port2999 &
 DCGEN_PID=$!
