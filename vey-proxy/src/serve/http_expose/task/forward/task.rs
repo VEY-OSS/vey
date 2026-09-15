@@ -39,14 +39,13 @@ use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
-use crate::site::{Site, SiteRequestPermits};
+use crate::site::{Site, SiteContext, SiteRequestPermits};
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct HttpExposeForwardTask<'a> {
     ctx: Arc<CommonTaskContext>,
-    site: Arc<Site>,
+    site_ctx: SiteContext,
     req: &'a HttpProxyClientRequest,
-    origin_tls: bool,
     should_close: bool,
     ups_keep_alive: KeepAliveValue,
     upstream_keepalive: HttpKeepAliveConfig,
@@ -76,12 +75,11 @@ impl<'a> HttpExposeForwardTask<'a> {
     pub(crate) fn new(
         ctx: &Arc<CommonTaskContext>,
         req: &'a HttpExposeRequest<impl AsyncRead>,
-        site: Arc<Site>,
+        site_ctx: SiteContext,
         task_notes: ServerTaskNotes,
     ) -> Self {
-        let uri_log_max_chars = task_notes
-            .site_ctx()
-            .and_then(|s| s.log_uri_max_chars())
+        let uri_log_max_chars = site_ctx
+            .log_uri_max_chars()
             .or_else(|| {
                 task_notes
                     .user_ctx()
@@ -95,14 +93,12 @@ impl<'a> HttpExposeForwardTask<'a> {
             req.inner.uri.clone(),
             uri_log_max_chars,
         );
-        let origin_tls = site.tls_client().is_some();
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
-        let upstream_keepalive = site.config().http.h1.upstream_keepalive;
+        let upstream_keepalive = site_ctx.site().config().http.h1.upstream_keepalive;
         HttpExposeForwardTask {
             ctx: Arc::clone(ctx),
-            site,
+            site_ctx,
             req: &req.inner,
-            origin_tls,
             should_close: !req.inner.keep_alive(),
             ups_keep_alive: KeepAliveValue::default(),
             upstream_keepalive,
@@ -120,10 +116,17 @@ impl<'a> HttpExposeForwardTask<'a> {
         }
     }
 
+    fn site(&self) -> &Site {
+        self.site_ctx.site()
+    }
+
+    fn origin_tls(&self) -> bool {
+        self.site().tls_client().is_some()
+    }
+
     fn rsp_hdr_recv_timeout(&self) -> Duration {
-        self.task_notes
-            .site_ctx()
-            .and_then(|s| s.rsp_hdr_recv_timeout())
+        self.site_ctx
+            .rsp_hdr_recv_timeout()
             .unwrap_or(self.ctx.server_config.timeout.recv_rsp_header)
     }
 
@@ -223,7 +226,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             .map(|v| v.to_str());
         Some(TaskLogForHttpForward {
             logger,
-            upstream: self.site.upstream(),
+            upstream: self.site().upstream(),
             task_notes: &self.task_notes,
             http_notes: &self.http_notes,
             http_user_agent,
@@ -338,7 +341,10 @@ impl<'a> HttpExposeForwardTask<'a> {
 
     fn clt_speed_limit(&self) -> Option<TcpSockSpeedLimitConfig> {
         let server = self.ctx.server_config.tcp_sock_speed_limit;
-        let mut limit = self.site.tcp_sock_speed_limit().shrink_as_smaller(&server);
+        let mut limit = self
+            .site_ctx
+            .tcp_sock_speed_limit()
+            .shrink_as_smaller(&server);
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             limit = user_ctx
                 .user_config()
@@ -428,12 +434,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             ));
         }
 
-        let Some(site_ctx) = self.task_notes.site_ctx() else {
-            let e = ServerTaskError::InternalServerError("no site context");
-            self.reply_task_err(&e, clt_w).await;
-            return Err(e);
-        };
-        match site_ctx.acquire_request_semaphores() {
+        match self.site_ctx.acquire_request_semaphores() {
             Ok(permits) => self._site_req_alive_permits = permits,
             Err(_) => {
                 self.reply_too_many_requests(clt_w).await;
@@ -456,7 +457,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 }
             }
 
-            let action = user_ctx.check_upstream(self.site.upstream());
+            let action = user_ctx.check_upstream(self.site().upstream());
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
             if let Some(action) = user_ctx.check_http_user_agent(
@@ -505,7 +506,7 @@ impl<'a> HttpExposeForwardTask<'a> {
 
             connection
                 .0
-                .prepare_new(&self.task_notes, self.site.upstream());
+                .prepare_new(&self.task_notes, self.site().upstream());
             self.mark_relaying();
 
             let r = self
@@ -560,7 +561,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection> {
-        let from_pool = if let Some(pool) = self.site.http1_pool() {
+        let from_pool = if let Some(pool) = self.site_ctx.site().http1_pool() {
             pool.get(
                 self.task_notes.worker_id(),
                 self.ctx.escaper.name(),
@@ -576,7 +577,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 connection,
                 &self.task_notes,
                 self.task_stats.clone(),
-                self.origin_tls,
+                self.origin_tls(),
             );
             self.alive_reuse_notes = Some(reuse_notes);
             return Some(connection);
@@ -587,7 +588,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 &self.task_notes,
                 self.task_stats.clone(),
                 idle_expire,
-                self.origin_tls,
+                self.origin_tls(),
             )
             .await?;
         self.alive_reuse_notes = Some(reuse_notes);
@@ -621,7 +622,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         if !self.upstream_keepalive.is_enabled() {
             return;
         }
-        if let Some(pool) = self.site.http1_pool() {
+        if let Some(pool) = self.site_ctx.site().http1_pool() {
             let Some(reuse_notes) = self.alive_reuse_notes.take() else {
                 return;
             };
@@ -663,7 +664,7 @@ impl<'a> HttpExposeForwardTask<'a> {
 
                 connection
                     .0
-                    .prepare_new(&self.task_notes, self.site.upstream());
+                    .prepare_new(&self.task_notes, self.site().upstream());
                 self.mark_relaying();
                 Ok(connection)
             }
@@ -681,13 +682,13 @@ impl<'a> HttpExposeForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
     ) -> Result<(BoxHttpForwardConnection, HttpAliveReuseNotes), TcpConnectError> {
         let mut audit_ctx = AuditContext::default();
-        if let Some(tls_client) = self.site.tls_client() {
+        if let Some(tls_client) = self.site().tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
-                    upstream: self.site.upstream(),
+                    upstream: self.site().upstream(),
                 },
                 tls_config: tls_client,
-                tls_name: self.site.tls_name(),
+                tls_name: self.site().tls_name(),
                 alpn_protocols: None,
             };
             fwd_ctx
@@ -700,7 +701,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 .await
         } else {
             let task_conf = TcpConnectTaskConf {
-                upstream: self.site.upstream(),
+                upstream: self.site().upstream(),
             };
             fwd_ctx
                 .new_prepared_http_connection(

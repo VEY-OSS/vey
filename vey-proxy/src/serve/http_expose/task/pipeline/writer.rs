@@ -200,45 +200,7 @@ where
         loop {
             let res = match self.task_queue.recv().await {
                 Some(Ok((req, pipeline_task))) => {
-                    let action = match self.do_auth(&req).await {
-                        Ok(user_ctx) => {
-                            self.req_count.consequent_auth_failed = 0;
-
-                            match hosts.get(req.upstream.host()).cloned() {
-                                Some(host) => {
-                                    let site_ctx = SiteContext::new(
-                                        Arc::clone(host.site()),
-                                        Arc::clone(host.egress()),
-                                        self.ctx.server_config.name(),
-                                        self.ctx.server_stats.share_extra_tags(),
-                                    );
-                                    self.note_site_conn(host.site());
-                                    self.run(req, site_ctx, user_ctx, host).await
-                                }
-                                None => {
-                                    // close the connection if no site found
-                                    self.req_count.invalid += 1;
-
-                                    if !self.ctx.server_config.no_early_error_reply
-                                        && let Some(stream_w) = &mut self.stream_writer
-                                    {
-                                        let mut rsp =
-                                            HttpProxyClientResponse::bad_request(req.inner.version);
-                                        self.ctx.apply_proxy_status_ident(&mut rsp);
-                                        let _ = rsp.reply_err_to_request(stream_w).await;
-                                    }
-
-                                    self.notify_reader_to_close();
-                                    LoopAction::Break
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            self.req_count.consequent_auth_failed += 1;
-                            self.req_count.auth_failed += 1;
-                            self.run_untrusted(req, e.blocked_delay()).await
-                        }
-                    };
+                    let action = self.check_run(req, &hosts).await;
                     drop(pipeline_task);
                     action
                 }
@@ -266,48 +228,97 @@ where
         }
     }
 
+    async fn check_run(
+        &mut self,
+        req: HttpExposeRequest<CDR>,
+        hosts: &HostMatch<Arc<HttpHost>>,
+    ) -> LoopAction {
+        match self.do_auth(&req).await {
+            Ok(user_ctx) => {
+                self.req_count.consequent_auth_failed = 0;
+
+                match hosts.get(req.upstream.host()).cloned() {
+                    Some(host) => {
+                        let site_ctx = SiteContext::new(
+                            Arc::clone(host.site()),
+                            Arc::clone(host.egress()),
+                            self.ctx.server_config.name(),
+                            self.ctx.server_stats.share_extra_tags(),
+                        );
+                        self.note_site_conn(host.site());
+                        self.run(req, site_ctx, user_ctx).await
+                    }
+                    None => {
+                        // close the connection if no site found
+                        self.req_count.invalid += 1;
+
+                        if !self.ctx.server_config.no_early_error_reply
+                            && let Some(stream_w) = &mut self.stream_writer
+                        {
+                            let mut rsp = HttpProxyClientResponse::bad_request(req.inner.version);
+                            self.ctx.apply_proxy_status_ident(&mut rsp);
+                            let _ = rsp.reply_err_to_request(stream_w).await;
+                        }
+
+                        self.notify_reader_to_close();
+                        LoopAction::Break
+                    }
+                }
+            }
+            Err(e) => {
+                self.req_count.consequent_auth_failed += 1;
+                self.req_count.auth_failed += 1;
+                self.run_untrusted(req, e.blocked_delay()).await
+            }
+        }
+    }
+
     async fn run(
         &mut self,
         req: HttpExposeRequest<CDR>,
         site_ctx: SiteContext,
         user_ctx: Option<UserContext>,
-        host: Arc<HttpHost>,
     ) -> LoopAction {
-        let site = Arc::clone(host.site());
-
-        if let Some(mut stream_w) = self.stream_writer.take() {
-            if site_ctx.tenant_user_blocked() {
-                if !self.ctx.server_config.no_early_error_reply {
-                    let mut rsp = HttpProxyClientResponse::forbidden(req.inner.version);
-                    self.ctx.apply_proxy_status_ident(&mut rsp);
-                    let _ = rsp.reply_err_to_request(&mut stream_w).await;
-                }
-                self.notify_reader_to_close();
-                return LoopAction::Break;
-            }
-
-            let task_notes = ServerTaskNotes::new(
-                self.ctx.cc_info.clone(),
-                user_ctx,
-                req.time_accepted.elapsed(),
-            )
-            .with_site_ctx(site_ctx);
-
-            // check in final escaper so we can use route escapers
-            let _ = self
-                .forward_context
-                .check_in_final_escaper(&task_notes, site.upstream(), site.tls_client().is_some())
-                .await;
-
-            match self.run_forward(&mut stream_w, req, site, task_notes).await {
-                LoopAction::Continue => {
-                    self.reset_client_writer(stream_w);
-                    LoopAction::Continue
-                }
-                LoopAction::Break => LoopAction::Break,
-            }
-        } else {
+        let Some(mut stream_w) = self.stream_writer.take() else {
             unreachable!()
+        };
+
+        if site_ctx.tenant_user_blocked() {
+            if !self.ctx.server_config.no_early_error_reply {
+                let mut rsp = HttpProxyClientResponse::forbidden(req.inner.version);
+                self.ctx.apply_proxy_status_ident(&mut rsp);
+                let _ = rsp.reply_err_to_request(&mut stream_w).await;
+            }
+            self.notify_reader_to_close();
+            return LoopAction::Break;
+        }
+
+        let task_notes = ServerTaskNotes::new(
+            self.ctx.cc_info.clone(),
+            user_ctx,
+            req.time_accepted.elapsed(),
+        )
+        .with_site_ctx(site_ctx.clone());
+
+        // check in final escaper so we can use route escapers
+        let _ = self
+            .forward_context
+            .check_in_final_escaper(
+                &task_notes,
+                site_ctx.site().upstream(),
+                site_ctx.site().tls_client().is_some(),
+            )
+            .await;
+
+        match self
+            .run_forward(&mut stream_w, req, site_ctx, task_notes)
+            .await
+        {
+            LoopAction::Continue => {
+                self.reset_client_writer(stream_w);
+                LoopAction::Continue
+            }
+            LoopAction::Break => LoopAction::Break,
         }
     }
 
@@ -414,7 +425,7 @@ where
         &mut self,
         clt_w: &mut HttpClientWriter<CDW>,
         mut req: HttpExposeRequest<CDR>,
-        site: Arc<Site>,
+        site_ctx: SiteContext,
         task_notes: ServerTaskNotes,
     ) -> LoopAction {
         match req.body_reader.take() {
@@ -422,7 +433,7 @@ where
                 // we have a body, or we need to close the connection
                 // we may need to send stream_r back if we have a body
                 let mut forward_task =
-                    HttpExposeForwardTask::new(&self.ctx, &req, site, task_notes);
+                    HttpExposeForwardTask::new(&self.ctx, &req, site_ctx, task_notes);
                 let mut clt_r = Some(stream_r);
                 forward_task
                     .run(&mut clt_r, clt_w, &mut self.forward_context)
@@ -444,7 +455,7 @@ where
             None => {
                 // no body, and the connection is expected to keep alive from the client side
                 let mut forward_task =
-                    HttpExposeForwardTask::new(&self.ctx, &req, site, task_notes);
+                    HttpExposeForwardTask::new(&self.ctx, &req, site_ctx, task_notes);
                 let mut clt_r = None;
                 forward_task
                     .run::<CDR, CDW>(&mut clt_r, clt_w, &mut self.forward_context)
