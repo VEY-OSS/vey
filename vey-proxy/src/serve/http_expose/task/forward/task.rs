@@ -563,7 +563,6 @@ impl<'a> HttpExposeForwardTask<'a> {
         let from_pool = if let Some(pool) = self.site.http1_pool() {
             pool.get(
                 self.task_notes.worker_id(),
-                self.origin_tls,
                 self.ctx.escaper.name(),
                 idle_expire,
             )
@@ -628,7 +627,6 @@ impl<'a> HttpExposeForwardTask<'a> {
             };
             pool.save(
                 self.task_notes.worker_id(),
-                self.origin_tls,
                 self.ctx.escaper.name().clone(),
                 connection,
                 reuse_notes,

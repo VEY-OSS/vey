@@ -117,16 +117,10 @@ impl H2TaskContext {
         task_notes: &ServerTaskNotes,
     ) -> Result<OriginH2Sender, H2StreamTransferError> {
         let site = self.site_ctx.site();
-        let is_tls = site.tls_client().is_some();
         let open_timeout = self.server_config.h2.upstream_stream_open_timeout;
         if let Some((sender, egress_notes)) = site
             .http2_pool()
-            .checkout(
-                task_notes.worker_id(),
-                is_tls,
-                self.escaper.name(),
-                open_timeout,
-            )
+            .checkout(task_notes.worker_id(), self.escaper.name(), open_timeout)
             .await
         {
             return Ok(OriginH2Sender {
@@ -139,7 +133,6 @@ impl H2TaskContext {
         let (sender, closed, egress_notes) = self.connect_origin(task_notes).await?;
         site.http2_pool().insert(
             task_notes.worker_id(),
-            is_tls,
             self.escaper.name().clone(),
             sender.clone(),
             Arc::clone(&closed),

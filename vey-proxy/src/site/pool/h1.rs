@@ -12,7 +12,7 @@ use tokio::time::Instant;
 use vey_types::metrics::NodeName;
 use vey_types::net::ConnectionPoolConfig;
 
-use super::{lane_index, origin_matches};
+use super::lane_index;
 use crate::escape::EgressNotes;
 use crate::module::http_forward::{
     BoxHttpForwardConnection, HttpAliveReuseNotes, HttpConnectionEofPoller,
@@ -36,7 +36,6 @@ struct IdleLane {
 struct PooledHttp1Connection {
     saved_at: Instant,
     poller: HttpConnectionEofPoller,
-    is_tls: bool,
     escaper: NodeName,
     reuse_notes: HttpAliveReuseNotes,
     egress_notes: EgressNotes,
@@ -60,14 +59,13 @@ impl SiteHttp1Pool {
     pub(crate) async fn get(
         &self,
         worker_id: Option<usize>,
-        is_tls: bool,
         escaper: &NodeName,
         idle_expire: Duration,
     ) -> Option<(BoxHttpForwardConnection, HttpAliveReuseNotes, EgressNotes)> {
         let idle_expire = idle_expire.min(self.config.idle_timeout());
         let lane = self.lane(worker_id);
         loop {
-            let mut conn = lane.pop_candidate(idle_expire, is_tls, escaper)?;
+            let mut conn = lane.pop_candidate(idle_expire, escaper)?;
             conn.reuse_notes.keep_alive_leftover.decrement_max_mut();
             let reuse_notes = conn.reuse_notes;
             let egress_notes = conn.egress_notes;
@@ -80,7 +78,6 @@ impl SiteHttp1Pool {
     pub(crate) fn save(
         &self,
         worker_id: Option<usize>,
-        is_tls: bool,
         escaper: NodeName,
         connection: BoxHttpForwardConnection,
         reuse_notes: HttpAliveReuseNotes,
@@ -93,7 +90,6 @@ impl SiteHttp1Pool {
         let pooled = PooledHttp1Connection {
             saved_at: Instant::now(),
             poller: HttpConnectionEofPoller::spawn(connection),
-            is_tls,
             escaper,
             reuse_notes,
             egress_notes,
@@ -111,14 +107,13 @@ impl IdleLane {
     fn pop_candidate(
         &self,
         idle_expire: Duration,
-        is_tls: bool,
         escaper: &NodeName,
     ) -> Option<PooledHttp1Connection> {
         let mut idle = self.conns.lock().unwrap();
         prune_idle(&mut idle, idle_expire);
-        let pos = idle.iter().rposition(|c| {
-            origin_matches(c.is_tls, &c.escaper, is_tls, escaper) && !c.is_expired(idle_expire)
-        })?;
+        let pos = idle
+            .iter()
+            .rposition(|c| &c.escaper == escaper && !c.is_expired(idle_expire))?;
         idle.remove(pos)
     }
 

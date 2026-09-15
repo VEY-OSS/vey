@@ -49,7 +49,6 @@ pub(crate) struct HttpGuardForwardTask<'a> {
     ctx: Arc<H1TaskContext>,
     site_ctx: SiteContext,
     req: &'a HttpProxyClientRequest,
-    origin_tls: bool,
     should_close: bool,
     ups_keep_alive: KeepAliveValue,
     allow_continue: bool,
@@ -92,13 +91,11 @@ impl<'a> HttpGuardForwardTask<'a> {
             req.inner.uri.clone(),
             uri_log_max_chars,
         );
-        let origin_tls = site_ctx.site().tls_client().is_some();
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
         HttpGuardForwardTask {
             ctx: Arc::clone(ctx),
             site_ctx,
             req: &req.inner,
-            origin_tls,
             should_close: !req.inner.keep_alive(),
             ups_keep_alive: KeepAliveValue::default(),
             allow_continue: req.inner.expect_100_continue(),
@@ -118,6 +115,10 @@ impl<'a> HttpGuardForwardTask<'a> {
 
     fn site(&self) -> &Site {
         self.site_ctx.site()
+    }
+
+    fn origin_tls(&self) -> bool {
+        self.site().tls_client().is_some()
     }
 
     fn rsp_hdr_recv_timeout(&self) -> Duration {
@@ -550,10 +551,10 @@ impl<'a> HttpGuardForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection> {
+        let origin_tls = self.origin_tls();
         let from_pool = if let Some(pool) = self.site_ctx.site().http1_pool() {
             pool.get(
                 self.task_notes.worker_id(),
-                self.origin_tls,
                 self.ctx.escaper.name(),
                 idle_expire,
             )
@@ -567,7 +568,7 @@ impl<'a> HttpGuardForwardTask<'a> {
                 connection,
                 &self.task_notes,
                 self.task_stats.clone(),
-                self.origin_tls,
+                origin_tls,
             );
             self.alive_reuse_notes = Some(reuse_notes);
             return Some(connection);
@@ -578,7 +579,7 @@ impl<'a> HttpGuardForwardTask<'a> {
                 &self.task_notes,
                 self.task_stats.clone(),
                 idle_expire,
-                self.origin_tls,
+                origin_tls,
             )
             .await?;
         self.alive_reuse_notes = Some(reuse_notes);
@@ -626,7 +627,6 @@ impl<'a> HttpGuardForwardTask<'a> {
             };
             pool.save(
                 self.task_notes.worker_id(),
-                self.origin_tls,
                 self.ctx.escaper.name().clone(),
                 connection,
                 reuse_notes,
