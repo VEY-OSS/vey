@@ -1,0 +1,91 @@
+---
+
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.0/8
+
+auditor:
+  - name: icap_waf
+
+site_group:
+  - name: httpbin
+    static_sites:
+      - id: httpbin
+        exact_match: httpbin.local
+        upstream: 127.0.0.1:80
+        http:
+          h1:
+            connection_pool: {}
+        tls_server:
+          cert_pairs:
+            certificate: ../httpbin.local.pem
+            private-key: ../httpbin.local-key.pem
+  - name: httpbin_h2
+    static_sites:
+      - id: httpbin-h2
+        exact_match: httpbin.local
+        upstream: 127.0.0.1:2443
+        tls_name: httpbin.local
+        tls_client:
+          ca_certificate: ../rootCA.pem
+        http:
+          h2:
+            connection_pool: {}
+        tls_server:
+          cert_pairs:
+            certificate: ../httpbin.local.pem
+            private-key: ../httpbin.local-key.pem
+
+server:
+  - name: http
+    type: http_guard
+    listen: 127.0.0.1:8080
+    escaper: default
+    site_group: httpbin
+    auditor: icap_waf
+    flush_task_log_on_created: true
+    flush_task_log_on_connected: true
+    task_log_flush_interval: 1s
+    tcp_sock_speed_limit: 900K
+  - name: tls
+    type: plain_tls_port
+    listen: 127.0.0.1:8443
+    server: http
+    tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+  - name: https
+    type: http_guard
+    listen: 127.0.0.1:9443
+    escaper: default
+    auditor: icap_waf
+    global_tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    site_group: httpbin
+  - name: https_h2
+    type: http_guard
+    listen: 127.0.0.1:10443
+    escaper: default
+    auditor: icap_waf
+    global_tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    site_group: httpbin_h2

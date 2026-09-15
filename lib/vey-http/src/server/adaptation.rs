@@ -10,7 +10,7 @@ use http::{HeaderName, Method, Uri, Version};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
-use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
+use vey_types::net::{H1HeaderMap, H1HeaderValue};
 
 use super::HttpRequestParseError;
 use crate::{HttpHeaderLine, HttpLineParseError, HttpMethodLine};
@@ -20,7 +20,7 @@ pub struct HttpAdaptedRequest {
     pub method: Method,
     pub uri: Uri,
     pub version: Version,
-    pub headers: HttpHeaderMap,
+    pub headers: H1HeaderMap,
     pub content_length: Option<u64>,
 }
 
@@ -30,7 +30,7 @@ impl HttpAdaptedRequest {
             method,
             uri,
             version,
-            headers: HttpHeaderMap::default(),
+            headers: H1HeaderMap::default(),
             content_length: None,
         }
     }
@@ -153,7 +153,7 @@ impl HttpAdaptedRequest {
             _ => {}
         }
 
-        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let mut value = H1HeaderValue::from_str(header.value).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         value.set_original_name(header.name);

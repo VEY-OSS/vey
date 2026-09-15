@@ -21,13 +21,10 @@ use vey_io_ext::{
     StreamCopyError,
 };
 use vey_types::acl::AclAction;
-use vey_types::net::{KeepAliveValue, TcpSockSpeedLimitConfig};
+use vey_types::net::{HttpKeepAliveConfig, KeepAliveValue, TcpSockSpeedLimitConfig};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpExposeRequest};
-use super::{
-    CommonTaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats,
-    HttpsForwardTaskCltWrapperStats,
-};
+use super::{CommonTaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats};
 use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::escape::EgressNotes;
@@ -42,16 +39,16 @@ use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
-use crate::site::{Site, SiteRequestPermits};
+use crate::site::{Site, SiteContext, SiteRequestPermits};
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct HttpExposeForwardTask<'a> {
     ctx: Arc<CommonTaskContext>,
-    site: Arc<Site>,
+    site_ctx: SiteContext,
     req: &'a HttpProxyClientRequest,
-    is_https: bool,
     should_close: bool,
     ups_keep_alive: KeepAliveValue,
+    upstream_keepalive: HttpKeepAliveConfig,
     allow_continue: bool,
     send_error_response: bool,
     task_notes: ServerTaskNotes,
@@ -78,12 +75,16 @@ impl<'a> HttpExposeForwardTask<'a> {
     pub(crate) fn new(
         ctx: &Arc<CommonTaskContext>,
         req: &'a HttpExposeRequest<impl AsyncRead>,
-        site: Arc<Site>,
+        site_ctx: SiteContext,
         task_notes: ServerTaskNotes,
     ) -> Self {
-        let uri_log_max_chars = task_notes
-            .user_ctx()
-            .and_then(|c| c.user_config().log_uri_max_chars)
+        let uri_log_max_chars = site_ctx
+            .log_uri_max_chars()
+            .or_else(|| {
+                task_notes
+                    .user_ctx()
+                    .and_then(|c| c.user().log_uri_max_chars())
+            })
             .unwrap_or(ctx.server_config.log_uri_max_chars);
         let http_notes = HttpForwardTaskNotes::new(
             req.time_received,
@@ -92,15 +93,15 @@ impl<'a> HttpExposeForwardTask<'a> {
             req.inner.uri.clone(),
             uri_log_max_chars,
         );
-        let is_https = site.tls_client().is_some();
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
+        let upstream_keepalive = site_ctx.site().config().http.h1.upstream_keepalive;
         HttpExposeForwardTask {
             ctx: Arc::clone(ctx),
-            site,
+            site_ctx,
             req: &req.inner,
-            is_https,
             should_close: !req.inner.keep_alive(),
             ups_keep_alive: KeepAliveValue::default(),
+            upstream_keepalive,
             allow_continue: req.inner.expect_100_continue(),
             send_error_response: true,
             task_notes,
@@ -115,10 +116,17 @@ impl<'a> HttpExposeForwardTask<'a> {
         }
     }
 
+    fn site(&self) -> &Site {
+        self.site_ctx.site()
+    }
+
+    fn origin_tls(&self) -> bool {
+        self.site().tls_client().is_some()
+    }
+
     fn rsp_hdr_recv_timeout(&self) -> Duration {
-        self.task_notes
-            .site_ctx()
-            .and_then(|s| s.rsp_hdr_recv_timeout())
+        self.site_ctx
+            .rsp_hdr_recv_timeout()
             .unwrap_or(self.ctx.server_config.timeout.recv_rsp_header)
     }
 
@@ -218,7 +226,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             .map(|v| v.to_str());
         Some(TaskLogForHttpForward {
             logger,
-            upstream: self.site.upstream(),
+            upstream: self.site().upstream(),
             task_notes: &self.task_notes,
             http_notes: &self.http_notes,
             http_user_agent,
@@ -253,9 +261,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         self._alive_guard = Some(self.ctx.server_stats.add_forward_task());
 
         self.task_notes
-            .hold_req_alive(RequestAliveKind::HttpForward {
-                is_https: self.is_https,
-            });
+            .hold_req_alive(RequestAliveKind::HttpForward { is_https: false });
 
         if self.ctx.server_config.flush_task_log_on_created
             && let Some(log_ctx) = self.get_log_context()
@@ -335,7 +341,10 @@ impl<'a> HttpExposeForwardTask<'a> {
 
     fn clt_speed_limit(&self) -> Option<TcpSockSpeedLimitConfig> {
         let server = self.ctx.server_config.tcp_sock_speed_limit;
-        let mut limit = self.site.tcp_sock_speed_limit().shrink_as_smaller(&server);
+        let mut limit = self
+            .site_ctx
+            .tcp_sock_speed_limit()
+            .shrink_as_smaller(&server);
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             limit = user_ctx
                 .user_config()
@@ -356,37 +365,20 @@ impl<'a> HttpExposeForwardTask<'a> {
         let origin_header_size = self.req.origin_header_size() as u64;
         self.task_stats.clt.read.add_bytes(origin_header_size);
 
-        let (clt_r_stats, clt_w_stats, limit_config) = if self.is_https {
-            let mut wrapper_stats =
-                HttpsForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
+        let mut wrapper_stats =
+            HttpForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
 
-            let user_io_stats = self.task_notes.fetch_traffic_stats(
-                self.ctx.server_config.name(),
-                self.ctx.server_stats.share_extra_tags(),
-            );
-            for s in &user_io_stats {
-                s.io.https_forward.add_in_bytes(origin_header_size);
-            }
-            wrapper_stats.push_user_io_stats(user_io_stats);
+        let user_io_stats = self.task_notes.fetch_traffic_stats(
+            self.ctx.server_config.name(),
+            self.ctx.server_stats.share_extra_tags(),
+        );
+        for s in &user_io_stats {
+            s.io.http_forward.add_in_bytes(origin_header_size);
+        }
+        wrapper_stats.push_user_io_stats(user_io_stats);
 
-            let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
-            (clt_r_stats, clt_w_stats, self.clt_speed_limit())
-        } else {
-            let mut wrapper_stats =
-                HttpForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
-
-            let user_io_stats = self.task_notes.fetch_traffic_stats(
-                self.ctx.server_config.name(),
-                self.ctx.server_stats.share_extra_tags(),
-            );
-            for s in &user_io_stats {
-                s.io.http_forward.add_in_bytes(origin_header_size);
-            }
-            wrapper_stats.push_user_io_stats(user_io_stats);
-
-            let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
-            (clt_r_stats, clt_w_stats, self.clt_speed_limit())
-        };
+        let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
+        let limit_config = self.clt_speed_limit();
 
         clt_w.retain_global_limiter_by_group(GlobalLimitGroup::Server);
         if let Some(br) = clt_r {
@@ -433,7 +425,6 @@ impl<'a> HttpExposeForwardTask<'a> {
         CDR: AsyncRead + Unpin,
         CDW: AsyncWrite + Unpin,
     {
-        let upstream_keepalive = self.ctx.server_config.http_forward_upstream_keepalive;
         let tcp_client_misc_opts;
 
         if self.task_notes.check_layered_rate_limit().is_err() {
@@ -443,12 +434,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             ));
         }
 
-        let Some(site_ctx) = self.task_notes.site_ctx() else {
-            let e = ServerTaskError::InternalServerError("no site context");
-            self.reply_task_err(&e, clt_w).await;
-            return Err(e);
-        };
-        match site_ctx.acquire_request_semaphores() {
+        match self.site_ctx.acquire_request_semaphores() {
             Ok(permits) => self._site_req_alive_permits = permits,
             Err(_) => {
                 self.reply_too_many_requests(clt_w).await;
@@ -471,10 +457,16 @@ impl<'a> HttpExposeForwardTask<'a> {
                 }
             }
 
-            let action = user_ctx.check_upstream(self.site.upstream());
+            let action = user_ctx.check_upstream(self.site().upstream());
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
-            if let Some(action) = user_ctx.check_http_user_agent(&self.req.end_to_end_headers) {
+            if let Some(action) = user_ctx.check_http_user_agent(
+                self.req
+                    .end_to_end_headers
+                    .get_all(header::USER_AGENT)
+                    .iter()
+                    .map(|v| v.to_str()),
+            ) {
                 self.handle_user_ua_acl_action(action, clt_w).await?;
             }
 
@@ -495,15 +487,16 @@ impl<'a> HttpExposeForwardTask<'a> {
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
-        if let Some(mut connection) = self
-            .take_alive_origin_connection(fwd_ctx, upstream_keepalive.idle_expire())
-            .await
+        if self.upstream_keepalive.is_enabled()
+            && let Some(mut connection) = self
+                .take_alive_origin_connection(fwd_ctx, self.upstream_keepalive.idle_expire())
+                .await
         {
             self.task_notes.stage = ServerTaskStage::Connected;
             self.http_notes.reused_connection = true;
             self.http_notes.retry_new_connection = false;
             self.task_notes
-                .foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
+                .foreach_req_stats(|s| s.req_reuse.add_http_forward(false));
 
             if self.ctx.server_config.flush_task_log_on_connected
                 && let Some(log_ctx) = self.get_log_context()
@@ -513,7 +506,7 @@ impl<'a> HttpExposeForwardTask<'a> {
 
             connection
                 .0
-                .prepare_new(&self.task_notes, self.site.upstream());
+                .prepare_new(&self.task_notes, self.site().upstream());
             self.mark_relaying();
 
             let r = self
@@ -532,7 +525,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                         self.task_stats.ups.reset();
                         // continue to make new connection
                         self.task_notes
-                            .foreach_req_stats(|s| s.req_renew.add_http_forward(self.is_https));
+                            .foreach_req_stats(|s| s.req_renew.add_http_forward(false));
                     } else {
                         self.should_close = true;
                         if self.send_error_response {
@@ -568,22 +561,24 @@ impl<'a> HttpExposeForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection> {
-        let from_pool = if let Some(pool) = self.site.http1_pool() {
-            pool.get(idle_expire, self.is_https, self.task_notes.worker_id())
-                .await
+        let from_pool = if let Some(pool) = self.site_ctx.site().http1_pool() {
+            pool.get(
+                self.task_notes.worker_id(),
+                self.ctx.escaper.name(),
+                idle_expire,
+            )
+            .await
         } else {
             None
         };
         if let Some((connection, reuse_notes, egress_notes)) = from_pool {
             self.egress_notes = egress_notes;
-            let connection = reuse_notes
-                .escaper
-                .prepare_reused_http_forward_connection(
-                    connection,
-                    &self.task_notes,
-                    self.task_stats.clone(),
-                    self.is_https,
-                );
+            let connection = reuse_notes.escaper.prepare_reused_http_forward_connection(
+                connection,
+                &self.task_notes,
+                self.task_stats.clone(),
+                self.origin_tls(),
+            );
             self.alive_reuse_notes = Some(reuse_notes);
             return Some(connection);
         }
@@ -593,7 +588,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 &self.task_notes,
                 self.task_stats.clone(),
                 idle_expire,
-                self.is_https,
+                self.origin_tls(),
             )
             .await?;
         self.alive_reuse_notes = Some(reuse_notes);
@@ -624,13 +619,16 @@ impl<'a> HttpExposeForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
         connection: BoxHttpForwardConnection,
     ) {
-        if let Some(pool) = self.site.http1_pool() {
+        if !self.upstream_keepalive.is_enabled() {
+            return;
+        }
+        if let Some(pool) = self.site_ctx.site().http1_pool() {
             let Some(reuse_notes) = self.alive_reuse_notes.take() else {
                 return;
             };
             pool.save(
                 self.task_notes.worker_id(),
-                self.is_https,
+                self.ctx.escaper.name().clone(),
                 connection,
                 reuse_notes,
                 self.egress_notes.clone(),
@@ -666,7 +664,7 @@ impl<'a> HttpExposeForwardTask<'a> {
 
                 connection
                     .0
-                    .prepare_new(&self.task_notes, self.site.upstream());
+                    .prepare_new(&self.task_notes, self.site().upstream());
                 self.mark_relaying();
                 Ok(connection)
             }
@@ -684,13 +682,14 @@ impl<'a> HttpExposeForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
     ) -> Result<(BoxHttpForwardConnection, HttpAliveReuseNotes), TcpConnectError> {
         let mut audit_ctx = AuditContext::default();
-        if let Some(tls_client) = self.site.tls_client() {
+        if let Some(tls_client) = self.site().tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
-                    upstream: self.site.upstream(),
+                    upstream: self.site().upstream(),
                 },
                 tls_config: tls_client,
-                tls_name: self.site.tls_name(),
+                tls_name: self.site().tls_name(),
+                alpn_protocols: None,
             };
             fwd_ctx
                 .new_prepared_https_connection(
@@ -702,7 +701,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 .await
         } else {
             let task_conf = TcpConnectTaskConf {
-                upstream: self.site.upstream(),
+                upstream: self.site().upstream(),
             };
             fwd_ctx
                 .new_prepared_http_connection(
@@ -718,7 +717,7 @@ impl<'a> HttpExposeForwardTask<'a> {
     fn mark_relaying(&mut self) {
         self.task_notes.mark_relaying();
         self.task_notes
-            .foreach_req_stats(|s| s.req_ready.add_http_forward(self.is_https));
+            .foreach_req_stats(|s| s.req_ready.add_http_forward(false));
     }
 
     async fn run_with_connection<CDR, CDW>(
@@ -779,6 +778,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 fast_read_buf.truncate(nr);
 
                 if clt_body_reader.finished() {
+                    self.http_notes.clt_req_body_size = Some(clt_body_reader.body_size());
                     return self
                         .run_with_all_body(fwd_ctx, fast_read_buf, clt_w, ups_c)
                         .await;
@@ -898,6 +898,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
         self.http_notes.mark_req_send_hdr();
         self.http_notes.mark_req_send_all();
+        self.http_notes.ups_req_body_size = Some(body.len() as u64);
 
         match tokio::time::timeout(
             self.rsp_hdr_recv_timeout(),
@@ -1014,6 +1015,21 @@ impl<'a> HttpExposeForwardTask<'a> {
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
+
+        macro_rules! record_progress {
+            () => {{
+                let read = clt_to_ups.reader().body_size();
+                // a chunked body is copied as on-wire bytes, so the size sent
+                // upstream is a lower bound: the payload read, less everything
+                // still buffered, as all of it could be payload
+                let written = if clt_to_ups.reader().is_chunked() {
+                    read.saturating_sub(clt_to_ups.cached_data_size())
+                } else {
+                    clt_to_ups.copied_size()
+                };
+                self.http_notes.record_h1_req_body_progress(read, written)
+            }};
+        }
         loop {
             tokio::select! {
                 biased;
@@ -1032,23 +1048,35 @@ impl<'a> HttpExposeForwardTask<'a> {
                              if clt_to_ups.read_size() == 0 {
                                 self.http_notes.retry_new_connection = true;
                             }
+                            record_progress!();
                             return Err(ServerTaskError::ClosedByUpstream);
                         },
                         Err(e) => {
                             if clt_to_ups.read_size() == 0 {
                                 self.http_notes.retry_new_connection = true;
                             }
+                            record_progress!();
                             return Err(ServerTaskError::UpstreamReadFailed(e));
                         },
                     }
                 }
                 r = &mut clt_to_ups => {
-                    r.map_err(|e| match e {
-                        StreamCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
-                        StreamCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
-                    })?;
-                    self.http_notes.mark_req_send_all();
-                    break;
+                    match r {
+                        Ok(_) => {
+                            self.http_notes.mark_req_send_all();
+                            let n = clt_to_ups.reader().body_size();
+                            self.http_notes.clt_req_body_size = Some(n);
+                            self.http_notes.ups_req_body_size = Some(n);
+                            break;
+                        }
+                        Err(e) => {
+                            record_progress!();
+                            return Err(match e {
+                                StreamCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
+                                StreamCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
+                            });
+                        }
+                    }
                 }
                 _ = log_interval.tick() => {
                     if let Some(log_ctx) = self.get_log_context() {
@@ -1062,11 +1090,13 @@ impl<'a> HttpExposeForwardTask<'a> {
                         if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();
                             if user.is_blocked() {
+                                record_progress!();
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
                         }
 
                         if idle_count >= self.max_idle_count {
+                            record_progress!();
                             return if clt_to_ups.no_cached_data() {
                                 Err(ServerTaskError::ClientAppTimeout("idle while reading request body"))
                             } else {
@@ -1081,10 +1111,12 @@ impl<'a> HttpExposeForwardTask<'a> {
 
                     if let Some(user_ctx) = self.task_notes.user_ctx()
                         && user_ctx.user().is_blocked() {
+                            record_progress!();
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
 
                     if self.ctx.server_quit_policy.force_quit() {
+                        record_progress!();
                         return Err(ServerTaskError::CanceledAsServerQuit)
                     }
                 }
@@ -1259,6 +1291,21 @@ impl<'a> HttpExposeForwardTask<'a> {
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
+
+        macro_rules! record_progress {
+            () => {{
+                let read = ups_to_clt.reader().body_size();
+                // a chunked body is copied as on-wire bytes, so the size sent
+                // to the client is a lower bound: the payload read, less everything
+                // still buffered, as all of it could be payload
+                let written = if ups_to_clt.reader().is_chunked() {
+                    read.saturating_sub(ups_to_clt.cached_data_size())
+                } else {
+                    ups_to_clt.copied_size().saturating_sub(header_len)
+                };
+                self.http_notes.record_h1_rsp_body_progress(read, written)
+            }};
+        }
         loop {
             tokio::select! {
                 biased;
@@ -1267,16 +1314,28 @@ impl<'a> HttpExposeForwardTask<'a> {
                     return match r {
                         Ok(_) => {
                             self.http_notes.mark_rsp_recv_all();
+                            let n = ups_to_clt.reader().body_size();
+                            self.http_notes.ups_rsp_body_size = Some(n);
+                            self.http_notes.clt_rsp_body_size = Some(n);
                             // clt_w is already flushed
                             Ok(())
                         }
-                        Err(StreamCopyError::ReadFailed(e)) => {
-                            if ups_to_clt.copied_size() < header_len {
+                        Err(e) => {
+                            if matches!(&e, StreamCopyError::ReadFailed(_))
+                                && ups_to_clt.copied_size() < header_len
+                            {
                                 let _ = ups_to_clt.write_flush().await; // flush rsp header to client
                             }
-                            Err(ServerTaskError::UpstreamReadFailed(e))
+                            record_progress!();
+                            Err(match e {
+                                StreamCopyError::ReadFailed(e) => {
+                                    ServerTaskError::UpstreamReadFailed(e)
+                                }
+                                StreamCopyError::WriteFailed(e) => {
+                                    ServerTaskError::ClientTcpWriteFailed(e)
+                                }
+                            })
                         }
-                        Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
                 }
                 _ = log_interval.tick() => {
@@ -1294,11 +1353,13 @@ impl<'a> HttpExposeForwardTask<'a> {
                                 if ups_to_clt.copied_size() < header_len {
                                     let _ = ups_to_clt.write_flush().await; // flush rsp header to client
                                 }
+                                record_progress!();
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
                         }
 
                         if idle_count >= self.max_idle_count {
+                            record_progress!();
                             return if ups_to_clt.no_cached_data() {
                                 Err(ServerTaskError::UpstreamAppTimeout("idle while reading response body"))
                             } else {
@@ -1316,6 +1377,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                             if ups_to_clt.copied_size() < header_len {
                                 let _ = ups_to_clt.write_flush().await; // flush rsp header to client
                             }
+                            record_progress!();
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
 
@@ -1323,6 +1385,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                         if ups_to_clt.copied_size() < header_len {
                             let _ = ups_to_clt.write_flush().await; // flush rsp header to client
                         }
+                        record_progress!();
                         return Err(ServerTaskError::CanceledAsServerQuit)
                     }
                 }

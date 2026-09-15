@@ -177,6 +177,8 @@ Sub Types
 
    tcp_connect
    http_forward
+   h2_forward
+   websocket
    ftp_over_http
    udp_associate
    udp_connect

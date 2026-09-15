@@ -20,7 +20,7 @@ use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::resolve::ResolveRedirection;
 
 use crate::auth::{
-    UserContext, UserRequestAliveGuard, UserRequestStats, UserTrafficStats,
+    TenantContext, User, UserContext, UserRequestAliveGuard, UserRequestStats, UserTrafficStats,
     UserUpstreamTrafficStats,
 };
 use crate::config::escaper::EgressUpstream;
@@ -147,13 +147,24 @@ impl ServerTaskNotes {
         self.site_ctx.as_ref()
     }
 
+    #[inline]
+    pub(crate) fn tenant_ctx(&self) -> Option<&TenantContext> {
+        self.site_ctx.as_ref().and_then(|s| s.tenant_ctx())
+    }
+
+    #[inline]
+    pub(crate) fn tenant_user(&self) -> Option<&Arc<User>> {
+        self.tenant_ctx().map(|t| t.user())
+    }
+
     pub(crate) fn resolve_redirection(&self) -> Option<&ResolveRedirection> {
-        let user_ctx = if let Some(site_ctx) = &self.site_ctx {
-            site_ctx.tenant()
+        if let Some(site_ctx) = &self.site_ctx {
+            site_ctx.tenant_user().and_then(|u| u.resolve_redirection())
         } else {
-            self.user_ctx.as_ref()
-        };
-        user_ctx.and_then(|c| c.user().resolve_redirection())
+            self.user_ctx
+                .as_ref()
+                .and_then(|c| c.user().resolve_redirection())
+        }
     }
 
     pub(crate) fn foreach_req_stats<F>(&self, mut update: F)
@@ -218,13 +229,11 @@ impl ServerTaskNotes {
     }
 
     /// Idle ticks allowed for this task.
-    /// Layers shrink with `min`: TenantUser → Site → User.
+    /// Layers shrink with `min`: TenantContext → Site → User.
     /// Missing layers are skipped; none set falls back to `server_default`.
     pub(crate) fn task_max_idle_count(&self, server_default: usize) -> usize {
         layered_task_idle_count(
-            self.site_ctx
-                .as_ref()
-                .and_then(|s| s.tenant().and_then(|t| t.user().task_max_idle_count())),
+            self.tenant_user().and_then(|u| u.task_max_idle_count()),
             self.site_ctx
                 .as_ref()
                 .and_then(|s| s.site().task_idle_max_count()),
@@ -250,9 +259,7 @@ impl ServerTaskNotes {
     }
 
     pub(crate) fn tenant_user_name(&self) -> Option<&ArcStr> {
-        self.site_ctx
-            .as_ref()
-            .and_then(|s| s.tenant().map(|t| t.user_name()))
+        self.tenant_user().map(|u| u.name())
     }
 
     pub(crate) fn egress_path_number_id(&self, escaper: &NodeName, length: usize) -> Option<usize> {

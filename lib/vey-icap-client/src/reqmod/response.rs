@@ -7,11 +7,10 @@
 use std::collections::BTreeSet;
 use std::str::FromStr;
 
-use http::HeaderName;
+use http::{HeaderMap, HeaderName, HeaderValue};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
-use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use super::{IcapReqmodParseError, IcapReqmodResponsePayload};
 use crate::parse::{HeaderLine, IcapLineParseError, StatusLine};
@@ -21,7 +20,7 @@ pub(crate) struct ReqmodResponse {
     pub(crate) reason: String,
     pub(crate) keep_alive: bool,
     pub(crate) payload: IcapReqmodResponsePayload,
-    shared_headers: HttpHeaderMap,
+    shared_headers: HeaderMap,
 }
 
 impl ReqmodResponse {
@@ -31,11 +30,11 @@ impl ReqmodResponse {
             reason,
             keep_alive: true,
             payload: IcapReqmodResponsePayload::NoPayload,
-            shared_headers: HttpHeaderMap::default(),
+            shared_headers: HeaderMap::new(),
         }
     }
 
-    pub(crate) fn take_shared_headers(&mut self) -> HttpHeaderMap {
+    pub(crate) fn take_shared_headers(&mut self) -> HeaderMap {
         std::mem::take(&mut self.shared_headers)
     }
 
@@ -142,7 +141,7 @@ impl ReqmodResponse {
                             IcapLineParseError::InvalidHeaderName,
                         )
                     })?;
-                    let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+                    let value = HeaderValue::from_str(header.value).map_err(|_| {
                         IcapReqmodParseError::InvalidHeaderLine(
                             IcapLineParseError::InvalidHeaderValue,
                         )

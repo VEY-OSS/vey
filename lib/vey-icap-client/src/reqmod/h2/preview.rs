@@ -96,6 +96,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
 
         match rsp.code {
             100 => {
+                let preview_hdr = preview_data.preview_size() as u64;
                 let mut body_transfer = if let Some(left_data) = preview_data.take_left() {
                     H2StreamToChunkedTransfer::with_chunk(
                         &mut clt_body,
@@ -110,6 +111,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                         self.copy_config.yield_size(),
                     )
                 };
+                body_transfer.add_copied(preview_hdr);
 
                 let bidirectional_transfer = BidirectionalRecvIcapResponse {
                     icap_client: &self.icap_client,
@@ -117,8 +119,11 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     idle_checker: &self.idle_checker,
                 };
                 let rsp = bidirectional_transfer
-                    .transfer_and_recv(&mut body_transfer)
+                    .transfer_and_recv(state, &mut body_transfer)
                     .await?;
+                if body_transfer.finished() {
+                    state.clt_req_body_size = Some(body_transfer.copied_size());
+                }
 
                 match rsp.code {
                     204 | 206 => {

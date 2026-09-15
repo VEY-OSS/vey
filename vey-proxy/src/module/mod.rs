@@ -11,3 +11,4 @@ pub(crate) mod http_header;
 pub(crate) mod tcp_connect;
 pub(crate) mod udp_connect;
 pub(crate) mod udp_relay;
+pub(crate) mod websocket;

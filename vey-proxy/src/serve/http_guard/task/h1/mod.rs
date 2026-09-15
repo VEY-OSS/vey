@@ -1,0 +1,21 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
+ */
+
+use super::HttpGuardServerStats;
+
+mod context;
+pub(crate) use context::H1TaskContext;
+
+mod protocol;
+
+mod forward;
+mod pipeline;
+mod websocket;
+
+use forward::HttpGuardForwardTask;
+pub(crate) use pipeline::{
+    HttpGuardPipelineReaderTask, HttpGuardPipelineStats, HttpGuardPipelineWriterTask,
+};
+use websocket::HttpGuardWebsocketTask;

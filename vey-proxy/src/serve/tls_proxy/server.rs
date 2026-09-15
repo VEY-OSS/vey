@@ -216,6 +216,9 @@ impl TlsProxyServer {
             self.config.name(),
             self.server_stats.share_extra_tags(),
         );
+        if site_ctx.tenant_user_blocked() {
+            return;
+        }
         let task_notes =
             ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO).with_site_ctx(site_ctx);
 
@@ -416,17 +419,13 @@ impl ServerInternal for TlsProxyServer {
         &self.config.site_group
     }
 
-    fn _update_site_group_in_place(&self) {
+    fn _update_site_group_in_place(&self) -> anyhow::Result<()> {
         if self.config.site_group.is_empty() {
-            return;
+            return Ok(());
         }
-        match build_hosts(&self.config.site_group, self.tls_rolling_ticketer.clone()) {
-            Ok(hosts) => self.hosts.store(Arc::new(hosts)),
-            Err(e) => debug!(
-                "failed to rebuild tls_proxy hosts from site group {}: {e:?}",
-                self.config.site_group
-            ),
-        }
+        let hosts = build_hosts(&self.config.site_group, self.tls_rolling_ticketer.clone())?;
+        self.hosts.store(Arc::new(hosts));
+        Ok(())
     }
 
     fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {

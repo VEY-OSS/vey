@@ -23,7 +23,7 @@ use vey_types::acl_set::AclDstHostRuleSet;
 use vey_types::auth::{FactsMatchValue, UserAuthError};
 use vey_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
 use vey_types::metrics::{MetricTagMap, NodeName};
-use vey_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
+use vey_types::net::{ProxyRequestType, UpstreamAddr};
 use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
@@ -61,6 +61,11 @@ impl User {
     #[inline]
     pub(crate) fn name(&self) -> &ArcStr {
         &self.name
+    }
+
+    #[inline]
+    pub(crate) fn config(&self) -> &UserConfig {
+        &self.config
     }
 
     #[inline]
@@ -658,13 +663,13 @@ impl User {
 
     fn check_http_user_agent(
         &self,
-        headers: &HttpHeaderMap,
+        user_agents: impl IntoIterator<Item = impl AsRef<str>>,
         forbid_stats: &Arc<UserForbiddenStats>,
     ) -> Option<AclAction> {
         if let Some(filter) = &self.config.http_user_agent_filter {
             let mut default_action = filter.missed_action();
-            for v in headers.get_all(http::header::USER_AGENT) {
-                if let (true, action) = filter.check(v.to_str()) {
+            for v in user_agents {
+                if let (true, action) = filter.check(v.as_ref()) {
                     if action.forbid_early() {
                         forbid_stats.add_ua_blocked();
                         return Some(action);
@@ -714,6 +719,70 @@ impl User {
     #[inline]
     pub(crate) fn udp_all_download_speed_limit(&self) -> Option<&Arc<GlobalDatagramLimiter>> {
         self.udp_all_download_speed_limit.as_ref()
+    }
+}
+
+/// Reverse-proxy site owner: the tenant user and its forbidden stats for the
+/// current server. Unlike [`UserContext`], there is no visitor name, UserSite
+/// overlay, or request/traffic stats.
+#[derive(Clone)]
+pub(crate) struct TenantContext {
+    user: Arc<User>,
+    forbid_stats: Arc<UserForbiddenStats>,
+}
+
+impl TenantContext {
+    pub(crate) fn new(
+        user: Arc<User>,
+        user_type: UserType,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
+    ) -> Self {
+        let forbid_stats = user.fetch_forbidden_stats(user_type, server, server_extra_tags);
+        TenantContext { user, forbid_stats }
+    }
+
+    #[inline]
+    pub(crate) fn user(&self) -> &Arc<User> {
+        &self.user
+    }
+
+    #[inline]
+    pub(crate) fn user_name(&self) -> &ArcStr {
+        self.user.name()
+    }
+
+    #[inline]
+    pub(crate) fn user_config(&self) -> &UserConfig {
+        &self.user.config
+    }
+
+    #[inline]
+    pub(crate) fn forbidden_stats(&self) -> &Arc<UserForbiddenStats> {
+        &self.forbid_stats
+    }
+
+    #[inline]
+    pub(crate) fn check_rate_limit(&self) -> Result<(), ()> {
+        self.user.check_rate_limit(false, &self.forbid_stats)
+    }
+
+    #[inline]
+    pub(crate) fn acquire_request_semaphore(&self) -> Result<GaugeSemaphorePermit, ()> {
+        self.user.acquire_request_semaphore(&self.forbid_stats)
+    }
+
+    #[inline]
+    pub(crate) fn check_upstream(&self, upstream: &UpstreamAddr) -> AclAction {
+        self.user.check_upstream(upstream, &self.forbid_stats)
+    }
+
+    pub(crate) fn check_http_user_agent(
+        &self,
+        user_agents: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Option<AclAction> {
+        self.user
+            .check_http_user_agent(user_agents, &self.forbid_stats)
     }
 }
 
@@ -950,8 +1019,12 @@ impl UserContext {
     }
 
     #[inline]
-    pub(crate) fn check_http_user_agent(&self, headers: &HttpHeaderMap) -> Option<AclAction> {
-        self.user.check_http_user_agent(headers, &self.forbid_stats)
+    pub(crate) fn check_http_user_agent(
+        &self,
+        user_agents: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Option<AclAction> {
+        self.user
+            .check_http_user_agent(user_agents, &self.forbid_stats)
     }
 
     #[inline]

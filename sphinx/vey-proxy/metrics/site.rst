@@ -153,6 +153,11 @@ The metric names are:
   Number of rejected requests caused by a blocked identity attributed to this
   site.
 
+  A blocked tenant is counted on that user's
+  :ref:`user.forbidden.user_blocked <metrics_user>` when a new request is
+  rejected at site entry. In-flight requests for that site are not
+  cancelled.
+
 * site.forbidden.fully_loaded
 
   **type**: count

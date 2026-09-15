@@ -7,7 +7,7 @@
 use std::str::FromStr;
 
 use crate::error::FoundInvalidChar;
-use crate::net::HttpHeaderValue;
+use crate::net::H1HeaderValue;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HttpServerId(String);
@@ -23,8 +23,8 @@ impl HttpServerId {
         self.0.as_bytes()
     }
 
-    pub fn to_header_value(&self) -> HttpHeaderValue {
-        unsafe { HttpHeaderValue::from_string_unchecked(self.0.clone()) }
+    pub fn to_header_value(&self) -> H1HeaderValue {
+        unsafe { H1HeaderValue::from_string_unchecked(self.0.clone()) }
     }
 }
 

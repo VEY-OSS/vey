@@ -11,7 +11,7 @@ use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::http_names;
-use vey_types::net::{HttpHeaderMap, HttpHeaderValue, HttpKnownHeaderName, TransferEncodingValue};
+use vey_types::net::{H1HeaderMap, H1HeaderValue, HttpKnownHeaderName, TransferEncodingValue};
 
 use super::{HttpConnectError, HttpConnectResponseError};
 use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
@@ -20,7 +20,7 @@ use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, Ht
 pub struct HttpConnectResponse {
     pub code: u16,
     pub reason: String,
-    pub headers: HttpHeaderMap,
+    pub headers: H1HeaderMap,
     content_length: u64,
     transfer_encoding: TransferEncodingValue,
     original_transfer_encoding_name: HttpKnownHeaderName<http_names::TRANSFER_ENCODING>,
@@ -32,7 +32,7 @@ impl HttpConnectResponse {
         HttpConnectResponse {
             code,
             reason,
-            headers: HttpHeaderMap::default(),
+            headers: H1HeaderMap::default(),
             content_length: 0,
             transfer_encoding: TransferEncodingValue::default(),
             original_transfer_encoding_name: HttpKnownHeaderName::new(),
@@ -164,7 +164,7 @@ impl HttpConnectResponse {
             _ => {}
         }
 
-        let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let value = H1HeaderValue::from_str(header.value).map_err(|_| {
             HttpConnectResponseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         self.headers.append(name, value);

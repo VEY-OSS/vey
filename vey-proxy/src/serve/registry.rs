@@ -203,8 +203,7 @@ pub(super) fn reload_only_user_group(name: &NodeName) -> anyhow::Result<()> {
 
 pub(super) fn reload_only_site_group(name: &NodeName) -> anyhow::Result<()> {
     let server = check_get_server(name)?;
-    server._update_site_group_in_place();
-    Ok(())
+    server._update_site_group_in_place()
 }
 
 pub(super) fn reload_only_auditor(name: &NodeName) -> anyhow::Result<()> {

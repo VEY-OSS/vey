@@ -12,6 +12,7 @@ pub(crate) struct RequestStats {
     udp_connect: AtomicU64,
     http_forward: AtomicU64,
     https_forward: AtomicU64,
+    websocket: AtomicU64,
     http_connect: AtomicU64,
     http_connect_udp: AtomicU64,
     ftp_over_http: AtomicU64,
@@ -26,6 +27,7 @@ pub(crate) struct RequestSnapshot {
     pub(crate) udp_connect: u64,
     pub(crate) http_forward: u64,
     pub(crate) https_forward: u64,
+    pub(crate) websocket: u64,
     pub(crate) http_connect: u64,
     pub(crate) http_connect_udp: u64,
     pub(crate) ftp_over_http: u64,
@@ -65,6 +67,14 @@ impl RequestStats {
 
     pub(crate) fn https_forward(&self) -> u64 {
         self.https_forward.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn add_websocket(&self) {
+        self.websocket.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn websocket(&self) -> u64 {
+        self.websocket.load(Ordering::Relaxed)
     }
 
     pub(crate) fn add_http_connect(&self) {
@@ -152,6 +162,7 @@ pub(crate) enum RequestAliveKind {
     TcpConnect,
     UdpConnect,
     HttpForward { is_https: bool },
+    Websocket,
     HttpConnect,
     HttpConnectUdp,
     FtpOverHttp,
@@ -166,6 +177,7 @@ impl RequestAliveKind {
             Self::TcpConnect => stats.add_tcp_connect(),
             Self::UdpConnect => stats.add_udp_connect(),
             Self::HttpForward { is_https } => stats.add_http_forward(is_https),
+            Self::Websocket => stats.add_websocket(),
             Self::HttpConnect => stats.add_http_connect(),
             Self::HttpConnectUdp => stats.add_http_connect_udp(),
             Self::FtpOverHttp => stats.add_ftp_over_http(),
@@ -180,6 +192,7 @@ impl RequestAliveKind {
             Self::TcpConnect => stats.add_tcp_connect(),
             Self::UdpConnect => stats.add_udp_connect(),
             Self::HttpForward { is_https } => stats.add_http_forward(is_https),
+            Self::Websocket => stats.add_websocket(),
             Self::HttpConnect => stats.add_http_connect(),
             Self::HttpConnectUdp => stats.add_http_connect_udp(),
             Self::FtpOverHttp => stats.add_ftp_over_http(),
@@ -194,6 +207,7 @@ impl RequestAliveKind {
             Self::TcpConnect => stats.del_tcp_connect(),
             Self::UdpConnect => stats.del_udp_connect(),
             Self::HttpForward { is_https } => stats.del_http_forward(is_https),
+            Self::Websocket => stats.del_websocket(),
             Self::HttpConnect => stats.del_http_connect(),
             Self::HttpConnectUdp => stats.del_http_connect_udp(),
             Self::FtpOverHttp => stats.del_ftp_over_http(),
@@ -210,6 +224,7 @@ pub(crate) struct RequestAliveStats {
     udp_connect: AtomicI32,
     http_forward: AtomicI32,
     https_forward: AtomicI32,
+    websocket: AtomicI32,
     http_connect: AtomicI32,
     http_connect_udp: AtomicI32,
     ftp_over_http: AtomicI32,
@@ -265,6 +280,18 @@ impl RequestAliveStats {
 
     pub(crate) fn https_forward(&self) -> i32 {
         self.https_forward.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn add_websocket(&self) {
+        self.websocket.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn del_websocket(&self) {
+        self.websocket.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn websocket(&self) -> i32 {
+        self.websocket.load(Ordering::Relaxed)
     }
 
     pub(crate) fn add_http_connect(&self) {
@@ -356,5 +383,19 @@ mod tests {
         kind.del_alive(&alive);
         assert_eq!(alive.https_forward(), 0);
         assert_eq!(total.https_forward(), 1);
+    }
+
+    #[test]
+    fn request_alive_kind_websocket() {
+        let total = RequestStats::default();
+        let alive = RequestAliveStats::default();
+        let kind = RequestAliveKind::Websocket;
+        kind.add_total(&total);
+        kind.add_alive(&alive);
+        assert_eq!(total.websocket(), 1);
+        assert_eq!(alive.websocket(), 1);
+        kind.del_alive(&alive);
+        assert_eq!(alive.websocket(), 0);
+        assert_eq!(total.websocket(), 1);
     }
 }

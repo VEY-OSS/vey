@@ -149,14 +149,12 @@ impl TlsProxyTask {
             }
         }
 
-        let tcp_client_misc_opts =
-            if let Some(tenant) = self.task_notes.site_ctx().and_then(|s| s.tenant()) {
-                tenant
-                    .user_config()
-                    .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
-            } else {
-                Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts)
-            };
+        let tcp_client_misc_opts = if let Some(user) = self.task_notes.tenant_user() {
+            user.config()
+                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
+        } else {
+            Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts)
+        };
 
         self.ctx
             .cc_info
@@ -173,6 +171,7 @@ impl TlsProxyTask {
                 },
                 tls_config: tls_client_config,
                 tls_name: self.host.site().tls_name(),
+                alpn_protocols: None,
             };
             self.ctx
                 .escaper
@@ -239,12 +238,11 @@ impl TlsProxyTask {
         if let Some(audit_handle) = self.audit_ctx.check_take_handle() {
             let audit_task = self
                 .task_notes
-                .site_ctx()
-                .and_then(|s| s.tenant())
-                .map(|ctx| {
-                    let user_config = &ctx.user_config().audit;
-                    user_config.enable_protocol_inspection
-                        && user_config
+                .tenant_user()
+                .map(|user| {
+                    let audit = user.audit();
+                    audit.enable_protocol_inspection
+                        && audit
                             .do_task_audit()
                             .unwrap_or_else(|| audit_handle.do_task_audit())
                 })
@@ -304,9 +302,9 @@ impl TlsProxyTask {
             .site()
             .tcp_sock_speed_limit()
             .shrink_as_smaller(&limit_config);
-        if let Some(tenant) = self.task_notes.site_ctx().and_then(|s| s.tenant()) {
-            limit_config = tenant
-                .user_config()
+        if let Some(user) = self.task_notes.tenant_user() {
+            limit_config = user
+                .config()
                 .tcp_sock_speed_limit
                 .shrink_as_smaller(&limit_config);
         }
@@ -325,8 +323,7 @@ impl TlsProxyTask {
             wrapper_stats,
         );
 
-        if let Some(tenant) = self.task_notes.site_ctx().and_then(|s| s.tenant()) {
-            let user = tenant.user();
+        if let Some(user) = self.task_notes.tenant_user() {
             if let Some(limiter) = user.tcp_all_upload_speed_limit() {
                 clt_r.add_global_limiter(limiter.clone());
             }
@@ -381,12 +378,5 @@ impl StreamTransitTask for TlsProxyTask {
 
     fn user(&self) -> Option<&User> {
         None
-    }
-
-    fn tenant(&self) -> Option<&User> {
-        self.task_notes
-            .site_ctx()
-            .and_then(|s| s.tenant())
-            .map(|ctx| ctx.user().as_ref())
     }
 }

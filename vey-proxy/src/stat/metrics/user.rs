@@ -538,6 +538,7 @@ where
     emit_field!(udp_connect, MetricUserRequestType::UdpConnect);
     emit_field!(http_forward, MetricUserRequestType::HttpForward);
     emit_field!(https_forward, MetricUserRequestType::HttpsForward);
+    emit_field!(websocket, MetricUserRequestType::Websocket);
     emit_field!(http_connect, MetricUserRequestType::HttpConnect);
     emit_field!(http_connect_udp, MetricUserRequestType::HttpConnectUdp);
     emit_field!(ftp_over_http, MetricUserRequestType::FtpOverHttp);
@@ -557,6 +558,7 @@ where
     emit(stats.udp_connect(), MetricUserRequestType::UdpConnect);
     emit(stats.http_forward(), MetricUserRequestType::HttpForward);
     emit(stats.https_forward(), MetricUserRequestType::HttpsForward);
+    emit(stats.websocket(), MetricUserRequestType::Websocket);
     emit(stats.http_connect(), MetricUserRequestType::HttpConnect);
     emit(
         stats.http_connect_udp(),
@@ -622,6 +624,8 @@ fn find_io_stat<'a, F>(
     emit_tcp_field!(tcp_connect, MetricUserRequestType::TcpConnect);
     emit_tcp_field!(http_forward, MetricUserRequestType::HttpForward);
     emit_tcp_field!(https_forward, MetricUserRequestType::HttpsForward);
+    emit_tcp_field!(websocket, MetricUserRequestType::Websocket);
+    emit_tcp_field!(h2_connection, MetricUserRequestType::H2Connection);
     emit_tcp_field!(http_connect, MetricUserRequestType::HttpConnect);
     emit_tcp_field!(ftp_over_http, MetricUserRequestType::FtpOverHttp);
     emit_tcp_field!(socks_tcp_connect, MetricUserRequestType::SocksTcpConnect);

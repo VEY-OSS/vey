@@ -1,19 +1,43 @@
-.. _configuration_server_http_rproxy:
+.. _configuration_server_http_expose:
 
-http_rproxy
+http_expose
 ===========
 
-This server provides an HTTP reverse proxy.
+This server is the internal HTTP reverse proxy. It terminates the client-side
+HTTP session locally and then forwards requests to configured upstream sites
+selected from the referenced ``site_group``. Whether the origin hop uses TLS
+is decided by site :ref:`tls_client <conf_site_tls_client>`. The forward task
+type is always ``HttpForward``; it is not ``HttpsForward``, which is the
+``http_proxy`` ``https://`` request type.
 
-This server terminates the client-side HTTP session locally and then forwards
-requests to configured upstream sites selected from the referenced
-``site_group``. The official type name is ``http_expose``; ``http_rproxy`` is
-still accepted as a deprecated alias.
+It supports optional visitor authentication and HTTP/1 only. ``auditor`` is
+rejected. The public-edge counterpart is
+:ref:`http_guard <configuration_server_http_guard>` (no visitor auth,
+optional ICAP, HTTP/2 over TLS).
+
+A blocked visitor still cancels the current request. A blocked tenant is
+rejected only at site entry for new requests; see
+:ref:`block_and_delay <conf_auth_user_block_and_delay>`.
+
+``type: http_rproxy`` is still accepted as a deprecated alias.
+
+TLS SNI is used only to pick a certificate. Request routing always uses
+``Host``. Unlike :ref:`http_guard <configuration_server_http_guard>`, this
+server does not pin the TLS site or reject a mismatched ``Host`` with
+``421``.
+
+HTTP/1 request-target may be origin-form, or an absolute-form whose scheme is
+``http`` or ``https``. Other schemes are rejected. An ``https://`` request-target
+is still :ref:`HttpForward <log_task_http_forward>` and does not require the
+client connection to be TLS.
+
+.. versionchanged:: 1.15.0
+   type renamed from ``http_rproxy`` (still accepted as a deprecated alias);
+   origin keepalive moved to the site (``http.h1.upstream_keepalive``)
 
 The following common keys are supported:
 
 * :ref:`escaper <conf_server_common_escaper>`
-* :ref:`auditor <conf_server_common_auditor>`
 * :ref:`user_group <conf_server_common_user_group>`
 * :ref:`shared_logger <conf_server_common_shared_logger>`
 * :ref:`listen_in_worker <conf_server_common_listen_in_worker>`
@@ -29,7 +53,7 @@ The following common keys are supported:
 * :ref:`flush_task_log_on_connected <conf_server_common_flush_task_log_on_connected>`
 * :ref:`task_log_flush_interval <conf_server_common_task_log_flush_interval>`
 * :ref:`extra_metrics_tags <conf_server_common_extra_metrics_tags>`
-* :ref:`site_group <config_server_http_rproxy_site_group>`
+* :ref:`site_group <config_server_http_expose_site_group>`
 
 The authentication schemes supported by this server depend on the type of the
 configured user group.
@@ -55,7 +79,7 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 
 .. versionadded:: 1.7.20 change listen config to be optional
 
-.. _config_server_http_rproxy_server_id:
+.. _config_server_http_expose_server_id:
 
 server_id
 ---------
@@ -75,7 +99,7 @@ See :ref:`protocol_client_proxy_status`.
 
 **default**: not set
 
-.. _config_server_http_rproxy_no_proxy_status:
+.. _config_server_http_expose_no_proxy_status:
 
 no_proxy_status
 ---------------
@@ -141,7 +165,7 @@ Maximum response-header size.
 
 **default**: 64KiB
 
-.. _config_server_http_rproxy_log_uri_max_chars:
+.. _config_server_http_expose_log_uri_max_chars:
 
 log_uri_max_chars
 -----------------
@@ -196,14 +220,11 @@ chunk-size lines.
 
 **default**: 8192
 
-http_forward_upstream_keepalive
--------------------------------
+.. note::
 
-**optional**, **type**: :external+values:ref:`http keepalive <conf_value_http_keepalive>`
-
-HTTP keepalive configuration at the server level.
-
-**default**: set with default value
+   Origin HTTP/1 keepalive is configured on the site
+   (:ref:`http.h1.upstream_keepalive <conf_site_http_h1_upstream_keepalive>`).
+   The former server key ``http_forward_upstream_keepalive`` is rejected.
 
 untrusted_read_speed_limit
 --------------------------
@@ -252,7 +273,7 @@ Requests to local sites without valid TLS server configuration are dropped.
 
 **default**: false
 
-.. _configuration_server_http_rproxy_global_tls_server:
+.. _configuration_server_http_expose_global_tls_server:
 
 global_tls_server
 -----------------
@@ -273,7 +294,7 @@ Timeout for receiving the complete TLS ClientHello message.
 
 **default**: 1s
 
-.. _config_server_http_rproxy_site_group:
+.. _config_server_http_expose_site_group:
 
 site_group
 ----------

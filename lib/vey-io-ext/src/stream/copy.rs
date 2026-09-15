@@ -310,8 +310,19 @@ where
     }
 
     #[inline]
+    pub fn reader(&self) -> &R {
+        self.reader
+    }
+
+    /// Bytes held in the buffer that have been read but not yet written out.
+    #[inline]
+    pub fn cached_data_size(&self) -> u64 {
+        (self.buf.r_off - self.buf.w_off) as u64
+    }
+
+    #[inline]
     pub fn no_cached_data(&self) -> bool {
-        self.buf.r_off == self.buf.w_off
+        self.cached_data_size() == 0
     }
 
     #[inline]
@@ -384,9 +395,15 @@ where
         }
     }
 
+    /// Bytes held in the buffer that have been read but not yet written out.
+    #[inline]
+    pub fn cached_data_size(&self) -> u64 {
+        (self.buf.r_off - self.buf.w_off) as u64
+    }
+
     #[inline]
     pub fn no_cached_data(&self) -> bool {
-        self.buf.r_off == self.buf.w_off
+        self.cached_data_size() == 0
     }
 
     #[inline]
@@ -420,6 +437,11 @@ where
 
     pub fn writer(self) -> &'a mut W {
         self.writer
+    }
+
+    #[inline]
+    pub fn reader(&self) -> &R {
+        &self.reader
     }
 }
 

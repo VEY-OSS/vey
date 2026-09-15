@@ -29,7 +29,7 @@ pub use socket::LtBindAddr;
 #[cfg(feature = "http")]
 mod http;
 #[cfg(feature = "http")]
-pub use self::http::{LtH2StreamId, LtHttpHeaderValue, LtHttpMethod, LtHttpUri};
+pub use self::http::{LtH2StreamId, LtHttpHeaderValue, LtHttpMethod, LtHttpUri, LtHttpVersion};
 
 #[cfg(feature = "openssl")]
 mod openssl;

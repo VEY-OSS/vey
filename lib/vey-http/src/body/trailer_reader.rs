@@ -12,7 +12,7 @@ use http::HeaderName;
 use thiserror::Error;
 use tokio::io::AsyncBufRead;
 
-use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
+use vey_types::net::{H1HeaderMap, H1HeaderValue};
 
 use crate::{HttpHeaderLine, HttpLineParseError};
 
@@ -31,7 +31,7 @@ pub enum TrailerReadError {
 struct TrailerReaderInternal {
     trailer_max_size: usize,
     cached_line: Vec<u8>,
-    headers: HttpHeaderMap,
+    headers: H1HeaderMap,
     header_size: usize,
     active: bool,
 }
@@ -41,7 +41,7 @@ impl TrailerReaderInternal {
         TrailerReaderInternal {
             trailer_max_size,
             cached_line: Vec::with_capacity(32),
-            headers: HttpHeaderMap::default(),
+            headers: H1HeaderMap::default(),
             header_size: 0,
             active: false,
         }
@@ -60,7 +60,7 @@ impl TrailerReaderInternal {
         &mut self,
         cx: &mut Context<'_>,
         mut reader: Pin<&mut R>,
-    ) -> Poll<Result<HttpHeaderMap, TrailerReadError>>
+    ) -> Poll<Result<H1HeaderMap, TrailerReadError>>
     where
         R: AsyncBufRead + Unpin,
     {
@@ -99,7 +99,7 @@ impl TrailerReaderInternal {
             let name = HeaderName::from_str(header.name).map_err(|_| {
                 TrailerReadError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderName)
             })?;
-            let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+            let value = H1HeaderValue::from_str(header.value).map_err(|_| {
                 TrailerReadError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
             })?;
             self.cached_line.clear();
@@ -135,7 +135,7 @@ impl<R> Future for TrailerReader<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {
-    type Output = Result<HttpHeaderMap, TrailerReadError>;
+    type Output = Result<H1HeaderMap, TrailerReadError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;

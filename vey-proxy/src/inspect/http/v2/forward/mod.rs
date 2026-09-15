@@ -11,7 +11,7 @@ use bytes::Bytes;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{Reason, RecvStream, StreamId};
-use http::{Method, Request, Response, StatusCode, Uri, Version};
+use http::{HeaderMap, Method, Request, Response, StatusCode, Uri, Version};
 use jiff::Timestamp;
 use tokio::time::Instant;
 
@@ -27,7 +27,6 @@ use vey_icap_client::respmod::h2::{
     H2ResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
 use vey_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtHttpMethod, LtHttpUri, LtUuid};
-use vey_types::net::HttpHeaderMap;
 
 use super::{H2BodyTransfer, H2StreamTransferError};
 use crate::config::server::ServerConfig;
@@ -53,6 +52,10 @@ macro_rules! intercept_log {
                 "dur_req_send_all" => LtDuration($obj.http_notes.dur_req_send_all),
                 "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
                 "dur_rsp_recv_all" => LtDuration($obj.http_notes.dur_rsp_recv_all),
+                "clt_req_body_size" => $obj.http_notes.clt_req_body_size,
+                "ups_req_body_size" => $obj.http_notes.ups_req_body_size,
+                "ups_rsp_body_size" => $obj.http_notes.ups_rsp_body_size,
+                "clt_rsp_body_size" => $obj.http_notes.clt_rsp_body_size,
             );
         }
     };
@@ -70,6 +73,10 @@ struct HttpForwardTaskNotes {
     dur_req_send_all: Duration,
     dur_rsp_recv_hdr: Duration,
     dur_rsp_recv_all: Duration,
+    clt_req_body_size: Option<u64>,
+    ups_req_body_size: Option<u64>,
+    ups_rsp_body_size: Option<u64>,
+    clt_rsp_body_size: Option<u64>,
 }
 
 impl HttpForwardTaskNotes {
@@ -86,6 +93,10 @@ impl HttpForwardTaskNotes {
             dur_req_send_all: Duration::default(),
             dur_rsp_recv_hdr: Duration::default(),
             dur_rsp_recv_all: Duration::default(),
+            clt_req_body_size: None,
+            ups_req_body_size: None,
+            ups_rsp_body_size: None,
+            clt_rsp_body_size: None,
         }
     }
 
@@ -99,6 +110,8 @@ impl HttpForwardTaskNotes {
 
     pub(crate) fn mark_req_no_body(&mut self) {
         self.dur_req_send_all = self.dur_req_send_hdr;
+        self.clt_req_body_size = Some(0);
+        self.ups_req_body_size = Some(0);
     }
 
     pub(crate) fn mark_req_send_all(&mut self) {
@@ -111,10 +124,22 @@ impl HttpForwardTaskNotes {
 
     pub(crate) fn mark_rsp_no_body(&mut self) {
         self.dur_rsp_recv_all = self.dur_rsp_recv_hdr;
+        self.ups_rsp_body_size = Some(0);
+        self.clt_rsp_body_size = Some(0);
     }
 
     pub(crate) fn mark_rsp_recv_all(&mut self) {
         self.dur_rsp_recv_all = self.started_ins.elapsed();
+    }
+
+    fn record_h2_req_body_progress(&mut self, received: u64, sent: u64) {
+        self.clt_req_body_size = Some(received);
+        self.ups_req_body_size = Some(sent);
+    }
+
+    fn record_h2_rsp_body_progress(&mut self, received: u64, sent: u64) {
+        self.ups_rsp_body_size = Some(received);
+        self.clt_rsp_body_size = Some(sent);
     }
 }
 
@@ -248,6 +273,8 @@ where
                     if let Some(dur) = adaptation_state.dur_ups_recv_header {
                         self.http_notes.dur_rsp_recv_hdr = dur;
                     }
+                    self.http_notes.clt_req_body_size = adaptation_state.clt_req_body_size;
+                    self.http_notes.ups_req_body_size = adaptation_state.ups_req_body_size;
                     return r;
                 }
                 Err(e) => {
@@ -330,8 +357,8 @@ where
                 .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
             self.http_notes.rsp_status = rsp_status;
 
-            let body_transfer = recv_body.body_transfer(&mut clt_send_stream);
-            body_transfer.await.map_err(|e| match e {
+            let mut body_transfer = recv_body.body_transfer(&mut clt_send_stream);
+            (&mut body_transfer).await.map_err(|e| match e {
                 H2StreamFromChunkedTransferError::ReadError(e) => {
                     H2StreamTransferError::InternalAdapterError(anyhow!(
                         "read http error response from adapter failed: {e:?}"
@@ -353,9 +380,11 @@ where
                     )
                 }
             })?;
+            self.http_notes.clt_rsp_body_size = Some(body_transfer.copied_size());
 
             recv_body.save_connection().await;
         } else {
+            self.http_notes.clt_rsp_body_size = Some(0);
             clt_send_rsp
                 .send_response(response, true)
                 .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
@@ -435,6 +464,15 @@ where
         let mut ups_rsp: Option<Response<RecvStream>> = None;
         let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_rsp_fut);
 
+        macro_rules! record_progress {
+            () => {
+                self.http_notes.record_h2_req_body_progress(
+                    req_body_transfer.received_size(),
+                    req_body_transfer.copied_size(),
+                )
+            };
+        }
+
         loop {
             tokio::select! {
                 biased;
@@ -443,9 +481,13 @@ where
                     match r {
                         Ok(_) => {
                             self.http_notes.mark_req_send_all();
+                            let n = req_body_transfer.copied_size();
+                            self.http_notes.clt_req_body_size = Some(n);
+                            self.http_notes.ups_req_body_size = Some(n);
                             break;
                         }
                         Err(e) => {
+                            record_progress!();
                             return Err(H2StreamTransferError::RequestBodyTransferFailed(e));
                         }
                     }
@@ -459,6 +501,7 @@ where
                             }
                         }
                         Err(e) => {
+                            record_progress!();
                             return Err(H2StreamTransferError::ResponseHeadRecvFailed(e));
                         }
                     }
@@ -468,6 +511,7 @@ where
                         idle_count += n;
 
                         if idle_count > self.ctx.max_idle_count() {
+                            record_progress!();
                             return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
@@ -477,10 +521,12 @@ where
                     }
 
                     if self.ctx.belongs_to_blocked_user() {
+                        record_progress!();
                         return Err(H2StreamTransferError::CanceledAsUserBlocked);
                     }
 
                     if self.ctx.server_force_quit() {
+                        record_progress!();
                         return Err(H2StreamTransferError::CanceledAsServerQuit)
                     }
                 }
@@ -563,7 +609,7 @@ where
         ups_req: Request<()>,
         ups_rsp: Response<RecvStream>,
         clt_send_rsp: &mut SendResponse<Bytes>,
-        adaptation_respond_shared_headers: Option<HttpHeaderMap>,
+        adaptation_respond_shared_headers: Option<HeaderMap>,
     ) -> Result<(), H2StreamTransferError> {
         let (parts, ups_body) = ups_rsp.into_parts();
         let clt_rsp = Response::from_parts(parts, ());
@@ -605,6 +651,8 @@ where
                     if let Some(dur) = adaptation_state.dur_ups_recv_all {
                         self.http_notes.dur_rsp_recv_all = dur;
                     }
+                    self.http_notes.ups_rsp_body_size = adaptation_state.ups_rsp_body_size;
+                    self.http_notes.clt_rsp_body_size = adaptation_state.clt_rsp_body_size;
                     if adaptation_state.clt_write_started {
                         self.send_error_response = false;
                     }
@@ -677,6 +725,15 @@ where
             let mut idle_interval = self.ctx.idle_wheel.register();
             let mut idle_count = 0;
 
+            macro_rules! record_progress {
+                () => {
+                    self.http_notes.record_h2_rsp_body_progress(
+                        rsp_body_transfer.received_size(),
+                        rsp_body_transfer.copied_size(),
+                    )
+                };
+            }
+
             loop {
                 tokio::select! {
                     biased;
@@ -685,9 +742,15 @@ where
                         match r {
                             Ok(_) => {
                                 self.http_notes.mark_rsp_recv_all();
+                                let n = rsp_body_transfer.copied_size();
+                                self.http_notes.ups_rsp_body_size = Some(n);
+                                self.http_notes.clt_rsp_body_size = Some(n);
                                 break;
                             },
-                            Err(e) => return Err(H2StreamTransferError::ResponseBodyTransferFailed(e)),
+                            Err(e) => {
+                                record_progress!();
+                                return Err(H2StreamTransferError::ResponseBodyTransferFailed(e));
+                            }
                         }
                     }
                     n = idle_interval.tick() => {
@@ -695,6 +758,7 @@ where
                             idle_count += n;
 
                             if idle_count > self.ctx.max_idle_count() {
+                                record_progress!();
                                 return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                             }
                         } else {
@@ -704,10 +768,12 @@ where
                         }
 
                         if self.ctx.belongs_to_blocked_user() {
+                            record_progress!();
                             return Err(H2StreamTransferError::CanceledAsUserBlocked);
                         }
 
                         if self.ctx.server_force_quit() {
+                            record_progress!();
                             return Err(H2StreamTransferError::CanceledAsServerQuit)
                         }
                     }

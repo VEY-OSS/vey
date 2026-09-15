@@ -7,15 +7,15 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use bytes::BufMut;
 use openssl::ex_data::Index;
 use openssl::ssl::{
-    SslAcceptor, SslAcceptorBuilder, SslContext, SslOptions, SslSessionCacheMode, SslVerifyMode,
-    TicketKeyStatus,
+    AlpnError, SslAcceptor, SslAcceptorBuilder, SslContext, SslOptions, SslSessionCacheMode,
+    SslVerifyMode, TicketKeyStatus,
 };
 use openssl::stack::Stack;
 use openssl::x509::X509;
 use openssl::x509::store::X509StoreBuilder;
+use smallvec::SmallVec;
 
 use super::{OpensslCertificatePair, OpensslTlcpCertificatePair};
 use crate::net::{AlpnProtocol, RollingTicketer};
@@ -294,16 +294,11 @@ impl OpensslServerConfigBuilder {
         // ssl_builder.set_mode() // TODO do we need it?
         // ssl_builder.set_options() // TODO do we need it?
 
-        if let Some(protocols) = alpn_protocols {
-            let mut buf = Vec::with_capacity(32);
-            protocols.iter().for_each(|p| {
-                buf.put_slice(p.wired_identification_sequence());
-            });
-            if !buf.is_empty() {
-                ssl_builder
-                    .set_alpn_protos(buf.as_slice())
-                    .map_err(|e| anyhow!("failed to set alpn protocols: {e}"))?;
-            }
+        if let Some(protocols) = alpn_protocols
+            && !protocols.is_empty()
+        {
+            ssl_builder
+                .set_alpn_select_callback(move |_ssl, client| select_alpn(&protocols, client));
         }
 
         let ssl_acceptor = ssl_builder.build();
@@ -328,6 +323,36 @@ impl OpensslServerConfigBuilder {
     }
 }
 
+/// Parse the client's length-prefixed ALPN list into `AlpnProtocol`s and pick
+/// the first server protocol that the client also offered. The returned slice
+/// is a subslice of `client`.
+fn select_alpn<'a>(server: &[AlpnProtocol], client: &'a [u8]) -> Result<&'a [u8], AlpnError> {
+    let mut offered: SmallVec<[_; 4]> = SmallVec::new();
+    let mut off = 0;
+    while off < client.len() {
+        let len = client[off] as usize;
+        if len == 0 {
+            return Err(AlpnError::ALERT_FATAL);
+        }
+        let end = match off.checked_add(1 + len) {
+            Some(end) if end <= client.len() => end,
+            _ => return Err(AlpnError::ALERT_FATAL),
+        };
+        let name = &client[off + 1..end];
+        if let Some(proto) = AlpnProtocol::from_selected(name) {
+            offered.push((proto, name));
+        }
+        off = end;
+    }
+
+    for want in server {
+        if let Some((_, name)) = offered.iter().find(|(got, _)| got == want) {
+            return Ok(*name);
+        }
+    }
+    Err(AlpnError::NOACK)
+}
+
 fn set_ticket_key_callback(
     builder: &mut SslAcceptorBuilder,
     ticket_key_index: Index<SslContext, Arc<RollingTicketer<OpensslTicketKey>>>,
@@ -346,4 +371,96 @@ fn set_ticket_key_callback(
             }
         })
         .map_err(|e| anyhow!("failed to set ticket key callback: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::net::openssl::OpensslCertificatePair;
+    use openssl::asn1::Asn1Time;
+    use openssl::hash::MessageDigest;
+    use openssl::pkey::PKey;
+    use openssl::rsa::Rsa;
+    use openssl::ssl::{Ssl, SslConnector, SslMethod, SslStream, SslVerifyMode};
+    use openssl::x509::{X509, X509NameBuilder};
+    use std::io::{Read, Write};
+    use std::net::{TcpListener, TcpStream};
+    use std::sync::mpsc;
+    use std::thread;
+
+    fn test_cert_pair() -> OpensslCertificatePair {
+        let pkey = PKey::from_rsa(Rsa::generate(2048).unwrap()).unwrap();
+        let mut name = X509NameBuilder::new().unwrap();
+        name.append_entry_by_text("CN", "localhost").unwrap();
+        let name = name.build();
+        let mut cert = X509::builder().unwrap();
+        cert.set_version(2).unwrap();
+        cert.set_subject_name(&name).unwrap();
+        cert.set_issuer_name(&name).unwrap();
+        cert.set_pubkey(&pkey).unwrap();
+        cert.set_not_before(Asn1Time::days_from_now(0).unwrap().as_ref())
+            .unwrap();
+        cert.set_not_after(Asn1Time::days_from_now(1).unwrap().as_ref())
+            .unwrap();
+        cert.sign(&pkey, MessageDigest::sha256()).unwrap();
+        let mut pair = OpensslCertificatePair::default();
+        pair.set_certificates(vec![cert.build()]).unwrap();
+        pair.set_private_key(pkey).unwrap();
+        pair
+    }
+
+    fn handshake_alpn(server_alpn: Option<Vec<AlpnProtocol>>) -> Option<Vec<u8>> {
+        let mut builder = OpensslServerConfigBuilder::empty();
+        builder.push_cert_pair(test_cert_pair()).unwrap();
+        let server = builder
+            .build_with_alpn_protocols(server_alpn, None)
+            .unwrap();
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            let (sock, _) = listener.accept().unwrap();
+            let ssl = Ssl::new(&server.ssl_context).unwrap();
+            let mut stream = SslStream::new(ssl, sock).unwrap();
+            stream.accept().unwrap();
+            let selected = stream.ssl().selected_alpn_protocol().map(|p| p.to_vec());
+            let _ = stream.write_all(b"ok");
+            tx.send(selected).unwrap();
+        });
+
+        let mut connector = SslConnector::builder(SslMethod::tls()).unwrap();
+        connector.set_verify(SslVerifyMode::NONE);
+        connector
+            .set_alpn_protos(AlpnProtocol::Http2.wired_identification_sequence())
+            .unwrap();
+        let stream = TcpStream::connect(addr).unwrap();
+        let mut stream = connector.build().connect("localhost", stream).unwrap();
+        let mut buf = [0; 2];
+        let _ = stream.read(&mut buf);
+        rx.recv().unwrap()
+    }
+
+    #[test]
+    fn select_alpn_prefers_server_order() {
+        let server = [AlpnProtocol::Http2, AlpnProtocol::Http11];
+        let client = AlpnProtocol::encode_wired_list(&[AlpnProtocol::Http11, AlpnProtocol::Http2]);
+        assert_eq!(select_alpn(&server, &client).unwrap(), b"h2");
+    }
+
+    #[test]
+    fn select_alpn_falls_back_to_http11() {
+        let server = [AlpnProtocol::Http2, AlpnProtocol::Http11];
+        let client = AlpnProtocol::encode_wired_list(&[AlpnProtocol::Http11]);
+        assert_eq!(select_alpn(&server, &client).unwrap(), b"http/1.1");
+        assert!(select_alpn(&server, b"").is_err());
+        assert!(select_alpn(&server, &[0]).is_err());
+        assert!(select_alpn(&server, &[3, b'h', b'2']).is_err());
+    }
+
+    #[test]
+    fn openssl_server_alpn_selects_h2_when_client_offers_h2() {
+        let selected = handshake_alpn(Some(vec![AlpnProtocol::Http2, AlpnProtocol::Http11]));
+        assert_eq!(selected.as_deref(), Some(&b"h2"[..]));
+    }
 }

@@ -14,7 +14,7 @@ to the host-match wrapper; the keys below belong to the site itself.
 This is not a :ref:`user site <configuration_auth_user_site>`. User sites are
 per-user destination overrides on a forward-proxy user. A site here is an
 origin selected by Host / SNI on a reverse-proxy server such as
-``http_expose`` or ``tls_proxy``.
+``http_expose``, ``http_guard``, or ``tls_proxy``.
 
 .. versionadded:: 1.15.0
 
@@ -50,6 +50,11 @@ It is also exported as the ``user`` tag on :ref:`site metrics
 If the name is set but ``tenant_user_group`` is unset, or the user is not
 found in that group, the site is still served without a tenant.
 
+If that tenant is later :ref:`blocked <conf_auth_user_block_and_delay>`,
+new requests that resolve this site are forbidden at site entry. Requests
+already in flight are not cancelled. This is unlike a blocked visitor,
+which still terminates the current task.
+
 **default**: not set, **alias**: ``tenant``
 
 .. _conf_site_upstream:
@@ -70,9 +75,12 @@ tls_server
 
 TLS server configuration for this site.
 
-``http_expose`` uses this when TLS is enabled; if unset,
-:ref:`global_tls_server <configuration_server_http_rproxy_global_tls_server>`
-on that server is used.
+``http_expose`` and ``http_guard`` use this when TLS is enabled; if unset,
+:ref:`global_tls_server <configuration_server_http_expose_global_tls_server>`
+on ``http_expose`` or
+:ref:`global_tls_server <configuration_server_http_guard_global_tls_server>`
+on ``http_guard`` is used. On ``http_guard``, that fallback certificate
+is HTTP/1 only; HTTP/2 requires this per-site key.
 
 :ref:`tls_proxy <configuration_server_tls_proxy>` requires this key. Sites
 without it are skipped by ``tls_proxy``; there is no server-level fallback
@@ -89,6 +97,11 @@ tls_client
 
 TLS parameters used when connecting to the upstream over HTTPS.
 An empty map enables the default client configuration.
+
+This only selects the origin transport. ``http_expose`` and ``http_guard``
+still log and count the request as ``HttpForward`` / ``http_forward``;
+``HttpsForward`` / ``https_forward`` is the ``http_proxy`` ``https://``
+forward type.
 
 **default**: not set, which means plaintext HTTP to the upstream
 
@@ -118,7 +131,7 @@ auditor. Recognised values are the same protocol names as protocol
 inspection (``http``, ``smtp``, ``imap``, …). This is the protocol
 **inside** TLS; do not set ``https``.
 
-``http_expose`` ignores this key. ``tls_proxy`` ignores it when no
+``http_expose`` / ``http_guard`` ignore this key. ``tls_proxy`` ignores it when no
 auditor is configured.
 
 **default**: not set, inspect from the port map and the first bytes
@@ -184,6 +197,10 @@ If none of them set it, the server value is used.
 
 The idle-check interval can only be configured at the server level,
 see :ref:`server task_idle_check_interval <conf_server_common_task_idle_check_interval>`.
+
+Idle checks do not cancel a blocked tenant. New requests for that site are
+rejected at site entry instead; see
+:ref:`block_and_delay <conf_auth_user_block_and_delay>`.
 
 **default**: not set
 
@@ -329,7 +346,10 @@ Example:
 
    http:
      rsp_header_recv_timeout: 8s
-     h1_connection_pool: {}
+     h1:
+       connection_pool: {}
+     h2:
+       connection_pool: {}
 
 .. _conf_site_http_rsp_header_recv_timeout:
 
@@ -343,7 +363,7 @@ Custom HTTP response-header receive timeout for this origin.
 This overwrites:
 
 * tenant user :ref:`http_rsp_header_recv_timeout <conf_user_http_rsp_header_recv_timeout>`
-* ``http_expose`` :ref:`rsp_header_recv_timeout <configuration_server_http_rproxy>`
+* ``http_expose`` / ``http_guard`` :ref:`rsp_header_recv_timeout <configuration_server_http_expose>`
 * auditor :ref:`h1 interception <conf_auditor_h1_interception>` / :ref:`h2 interception <conf_auditor_h2_interception>`
 
 Lookup is ``site.http`` then tenant, then the server / auditor default.
@@ -351,10 +371,46 @@ A visitor user is not consulted when a site context is present.
 
 **default**: not set
 
+.. _conf_site_http_h1:
+
+h1
+^^
+
+**optional**, **type**: map
+
+HTTP/1-only settings for this origin.
+
+.. versionadded:: 1.15.0
+
+.. _conf_site_http_h1_upstream_keepalive:
+
+upstream_keepalive
+""""""""""""""""""
+
+**optional**, **type**: :external+values:ref:`http keepalive <conf_value_http_keepalive>`
+
+Whether idle HTTP/1 origin connections for this site may be reused, and
+the maximum idle age when taking one from the site pool or the
+per-pipeline forward-context slot.
+
+When ``enable`` is false, idle origin connections are not saved and not
+reused. ``http_expose`` and ``http_guard`` both read this site setting;
+there is no server-level override.
+
+When a :ref:`connection pool <conf_site_http_h1_connection_pool>` is
+configured, checkout idle age is the minimum of this ``idle_expire`` and
+the pool ``idle_timeout``.
+
+**default**: enabled, idle expire 60s
+
+.. versionchanged:: 1.15.0
+   replaces ``http_expose`` server ``http_forward_upstream_keepalive``;
+   that key is now rejected
+
 .. _conf_site_http_h1_connection_pool:
 
-h1_connection_pool
-^^^^^^^^^^^^^^^^^^
+connection_pool
+"""""""""""""""
 
 **optional**, **type**: :external+values:ref:`connection pool <conf_value_connection_pool_config>`
 
@@ -366,14 +422,20 @@ worker is a current-thread runtime: the pool keeps a separate idle lane
 per worker so get/save never block another worker, and the origin
 connection plus its EOF poller stay on the runtime that opened them.
 The next request for the same site on that worker prefers a pooled idle
-connection before the per-pipeline forward-context slot. An empty map
-(``{}``) enables the pool with default limits.
+connection before the per-pipeline forward-context slot, if the
+server's configured escaper matches. Servers that share a site group and
+the same escaper can reuse each other's idle connections; different
+escapers do not mix. An empty map (``{}``) enables the pool with default
+limits.
 
 ``max_idle_count`` is the site-wide cap, split across workers
 (at least one idle slot per worker).
 
 When omitted, idle connections return to the forward context (one
 keepalive slot per client pipeline), which is the previous behaviour.
+
+Checkout still honours this site's
+:ref:`upstream_keepalive <conf_site_http_h1_upstream_keepalive>`.
 
 Only ``max_idle_count`` and ``idle_timeout`` from the pool map apply.
 ``min_idle_count`` and ``check_interval`` are ignored: origin connections
@@ -382,3 +444,36 @@ are created on demand, not warmed up.
 ``http_proxy`` (SWG) does not use this pool.
 
 **default**: not set
+
+.. versionchanged:: 1.15.0
+   moved from ``http.h1_connection_pool`` to ``http.h1.connection_pool``;
+   the old key is rejected
+
+.. _conf_site_http_h2:
+
+h2
+^^
+
+**optional**, **type**: map
+
+HTTP/2-only settings for this origin. Omitted ``h2`` still uses a default
+origin multiplex pool: HTTP/2 streams are not bound 1:1 to client connections.
+
+.. _conf_site_http_h2_connection_pool:
+
+connection_pool
+"""""""""""""""
+
+**optional**, **type**: :external+values:ref:`connection pool <conf_value_connection_pool_config>`
+
+HTTP/2 origin multiplex pool for this site. Checkout clones ``SendRequest``
+and does not bind a client connection to an origin connection. Selection
+matches the HTTP/1 pool: same worker and server-configured escaper.
+
+``max_idle_count`` is the site-wide cap, split across workers
+(at least one idle slot per worker). Only ``max_idle_count`` and
+``idle_timeout`` apply. ``min_idle_count`` and ``check_interval`` are ignored.
+
+**default**: default connection pool limits
+
+.. versionadded:: 1.15.0

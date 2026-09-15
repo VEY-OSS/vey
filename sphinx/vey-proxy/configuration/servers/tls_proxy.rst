@@ -9,12 +9,15 @@ TCP stream to that site's upstream.
 
 Unlike :ref:`tls_stream <configuration_server_tls_stream>`, certificates and
 upstreams live on the site, not on this server. Unlike
-:ref:`http_expose <configuration_server_http_rproxy>`, this server does not
+:ref:`http_expose <configuration_server_http_expose>`, this server does not
 parse HTTP; it only copies bytes after the handshake.
 
 There is no visitor ``user_group``. Tenant identity comes from
 ``site.owner`` and the site group's
 :ref:`tenant_user_group <conf_site_group_tenant_user_group>`.
+A blocked tenant is rejected when a new connection is accepted for that
+site; an already-running copy is not cancelled. See
+:ref:`block_and_delay <conf_auth_user_block_and_delay>`.
 
 Sites without :ref:`tls_server <conf_site_tls_server>` are skipped. This
 server has no fallback certificate and no default upstream.

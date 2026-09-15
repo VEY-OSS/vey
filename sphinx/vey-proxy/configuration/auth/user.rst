@@ -87,6 +87,8 @@ by
 
 **default**: not set
 
+.. _conf_auth_user_block_and_delay:
+
 block_and_delay
 ---------------
 
@@ -94,7 +96,17 @@ block_and_delay
 
 Blocks the user and delays the error response by the configured duration.
 
-The response code for blocked user will be forbidden instead of auth failed.
+The response code for a blocked user is forbidden instead of auth failed.
+
+Visitor users (SWG / ``http_proxy`` clients, ``http_expose`` visitors, and
+other servers with a visitor ``user_group``) are checked at authentication
+and again while the task is running. If the visitor is blocked after the
+request has started, idle checks and copy loops cancel that in-flight task.
+
+Tenant users (site :ref:`owner <conf_site_owner>` on reverse-proxy servers)
+are different. A blocked tenant is rejected only when a new request enters
+with a site context. An already-running request is not cancelled; it runs
+to completion. Later requests for sites owned by that tenant are forbidden.
 
 **default**: not set
 
@@ -458,6 +470,9 @@ the key are skipped.
 
 The idle-check interval can only be configured at the server level,
 see :ref:`server task_idle_check_interval <conf_server_common_task_idle_check_interval>`.
+
+Idle checks also cancel a blocked visitor. A blocked tenant is not
+cancelled this way; see :ref:`block_and_delay <conf_auth_user_block_and_delay>`.
 
 **default**: not set
 

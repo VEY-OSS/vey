@@ -18,8 +18,8 @@ use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
-    HttpForwardedHeaderType, HttpKeepAliveConfig, HttpServerId, OpensslServerConfigBuilder,
-    TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
+    HttpForwardedHeaderType, HttpServerId, OpensslServerConfigBuilder, TcpListenConfig,
+    TcpMiscSockOpts, TcpSockSpeedLimitConfig,
 };
 use vey_yaml::YamlDocPosition;
 
@@ -78,7 +78,6 @@ pub(crate) struct HttpExposeServerConfig {
     pub(crate) pipeline_read_idle_timeout: Duration,
     pub(crate) no_early_error_reply: bool,
     pub(crate) body_line_max_len: usize,
-    pub(crate) http_forward_upstream_keepalive: HttpKeepAliveConfig,
     pub(crate) untrusted_read_limit: Option<TcpSockSpeedLimitConfig>,
     pub(crate) append_forwarded_for: HttpForwardedHeaderType,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
@@ -119,7 +118,6 @@ impl HttpExposeServerConfig {
             pipeline_read_idle_timeout: Duration::from_secs(300),
             no_early_error_reply: false,
             body_line_max_len: 8192,
-            http_forward_upstream_keepalive: Default::default(),
             untrusted_read_limit: None,
             append_forwarded_for: HttpForwardedHeaderType::default(),
             extra_metrics_tags: None,
@@ -302,11 +300,6 @@ impl HttpExposeServerConfig {
             "body_line_max_length" => {
                 self.body_line_max_len = vey_yaml::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
-                Ok(())
-            }
-            "http_forward_upstream_keepalive" => {
-                self.http_forward_upstream_keepalive = vey_yaml::value::as_http_keepalive_config(v)
-                    .context(format!("invalid http keepalive config value for key {k}"))?;
                 Ok(())
             }
             "untrusted_read_speed_limit" => {

@@ -22,7 +22,7 @@ use vey_io_ext::IdleWheel;
 use vey_types::net::{Host, OpensslClientConfig};
 
 use crate::audit::AuditHandle;
-use crate::auth::{User, UserContext, UserForbiddenStats, UserSite};
+use crate::auth::{TenantContext, User, UserContext, UserForbiddenStats, UserSite};
 use crate::config::server::ServerConfig;
 use crate::escape::EgressNotes;
 use crate::module::http_forward::HttpProxyClientResponse;
@@ -77,37 +77,24 @@ impl StreamInspectUserContext {
 /// Reverse-proxy site snapshot. Tenant is the site owner; there is no `user_site`.
 #[derive(Clone)]
 pub(super) struct StreamInspectSiteContext {
-    tenant: Option<StreamInspectTenant>,
+    tenant: Option<TenantContext>,
     rsp_hdr_recv_timeout: Option<Duration>,
-}
-
-#[derive(Clone)]
-struct StreamInspectTenant {
-    user: Arc<User>,
-    forbidden_stats: Arc<UserForbiddenStats>,
 }
 
 impl StreamInspectSiteContext {
     fn from_site_context(ctx: &SiteContext) -> Self {
         StreamInspectSiteContext {
-            tenant: ctx.tenant().map(|t| StreamInspectTenant {
-                user: t.user().clone(),
-                forbidden_stats: t.forbidden_stats().clone(),
-            }),
+            tenant: ctx.tenant_ctx().cloned(),
             rsp_hdr_recv_timeout: ctx.rsp_hdr_recv_timeout(),
         }
     }
 
-    fn tenant(&self) -> Option<&Arc<User>> {
-        self.tenant.as_ref().map(|t| &t.user)
+    fn tenant_ctx(&self) -> Option<&TenantContext> {
+        self.tenant.as_ref()
     }
 
     fn username(&self) -> Option<&ArcStr> {
-        self.tenant.as_ref().map(|t| t.user.name())
-    }
-
-    fn is_blocked(&self) -> bool {
-        self.tenant.as_ref().is_some_and(|t| t.user.is_blocked())
+        self.tenant.as_ref().map(|t| t.user_name())
     }
 
     fn rsp_hdr_recv_timeout(&self) -> Option<Duration> {
@@ -117,12 +104,12 @@ impl StreamInspectSiteContext {
     fn log_uri_max_chars(&self) -> Option<usize> {
         self.tenant
             .as_ref()
-            .and_then(|t| t.user.log_uri_max_chars())
+            .and_then(|t| t.user().log_uri_max_chars())
     }
 
     fn add_proto_banned(&self) {
         if let Some(t) = &self.tenant {
-            t.forbidden_stats.add_proto_banned();
+            t.forbidden_stats().add_proto_banned();
         }
     }
 }
@@ -143,13 +130,8 @@ impl StreamInspectTaskNotes {
         self.user_ctx.as_ref().map(|ctx| &ctx.user)
     }
 
-    pub(crate) fn tenant(&self) -> Option<&Arc<User>> {
-        self.site_ctx.as_ref().and_then(|s| s.tenant())
-    }
-
     pub(crate) fn is_blocked(&self) -> bool {
         self.user().is_some_and(|u| u.is_blocked())
-            || self.site_ctx.as_ref().is_some_and(|s| s.is_blocked())
     }
 
     /// Visitor identity for ICAP `X-Client-Username`.
@@ -262,17 +244,8 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         self.task_notes.user().map(|u| u.as_ref())
     }
 
-    #[inline]
-    fn tenant(&self) -> Option<&User> {
-        self.task_notes.tenant().map(|t| t.as_ref())
-    }
-
     fn user_cloned(&self) -> Option<Arc<User>> {
         self.task_notes.user().cloned()
-    }
-
-    fn tenant_cloned(&self) -> Option<Arc<User>> {
-        self.task_notes.tenant().cloned()
     }
 
     #[inline]
@@ -288,8 +261,8 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     /// DPI flags: site context uses tenant only; otherwise visitor user.
     fn audit_proto_banned_if(&self, prohibit: impl Fn(&User) -> bool) -> bool {
         if let Some(site) = &self.task_notes.site_ctx {
-            if let Some(tenant) = site.tenant()
-                && prohibit(tenant)
+            if let Some(tenant) = site.tenant_ctx()
+                && prohibit(tenant.user())
             {
                 site.add_proto_banned();
                 return true;
@@ -341,7 +314,6 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         ServerIdleChecker::new(
             self.idle_wheel.clone(),
             self.user_cloned(),
-            self.tenant_cloned(),
             self.max_idle_count(),
             self.server_quit_policy.clone(),
         )

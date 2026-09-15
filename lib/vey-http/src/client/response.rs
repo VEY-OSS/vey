@@ -14,7 +14,7 @@ use tokio::io::AsyncBufRead;
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::http_names;
 use vey_types::net::{
-    ConnectionValue, HttpHeaderMap, HttpHeaderValue, HttpKnownHeaderName, KeepAliveValue,
+    ConnectionValue, H1HeaderMap, H1HeaderValue, HttpKnownHeaderName, KeepAliveValue,
     TransferEncodingValue,
 };
 
@@ -25,8 +25,8 @@ pub struct HttpForwardRemoteResponse {
     pub version: Version,
     pub code: u16,
     pub reason: String,
-    pub end_to_end_headers: HttpHeaderMap,
-    pub hop_by_hop_headers: HttpHeaderMap,
+    pub end_to_end_headers: H1HeaderMap,
+    pub hop_by_hop_headers: H1HeaderMap,
     original_connection_name: HttpKnownHeaderName<http_names::CONNECTION>,
     connection: ConnectionValue,
     origin_header_size: usize,
@@ -45,8 +45,8 @@ impl HttpForwardRemoteResponse {
             version,
             code,
             reason,
-            end_to_end_headers: HttpHeaderMap::default(),
-            hop_by_hop_headers: HttpHeaderMap::default(),
+            end_to_end_headers: H1HeaderMap::default(),
+            hop_by_hop_headers: H1HeaderMap::default(),
             original_connection_name: HttpKnownHeaderName::new(),
             connection: ConnectionValue::default(),
             origin_header_size: 0,
@@ -113,7 +113,7 @@ impl HttpForwardRemoteResponse {
             v.set_static_value("0");
             end_to_end_headers.insert(header::CONTENT_LENGTH, v);
         } else {
-            end_to_end_headers.insert(header::CONTENT_LENGTH, HttpHeaderValue::from_static("0"));
+            end_to_end_headers.insert(header::CONTENT_LENGTH, H1HeaderValue::from_static("0"));
         }
         HttpForwardRemoteResponse {
             version: adapted.version,
@@ -294,7 +294,7 @@ impl HttpForwardRemoteResponse {
         name: HeaderName,
         header: &HttpHeaderLine,
     ) -> Result<(), HttpResponseParseError> {
-        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let mut value = H1HeaderValue::from_str(header.value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         value.set_original_name(header.name);
@@ -302,7 +302,7 @@ impl HttpForwardRemoteResponse {
         Ok(())
     }
 
-    pub fn append_trailer_header(&mut self, name: HeaderName, value: HttpHeaderValue) {
+    pub fn append_trailer_header(&mut self, name: HeaderName, value: H1HeaderValue) {
         self.end_to_end_headers.append(name, value);
     }
 
@@ -366,7 +366,7 @@ impl HttpForwardRemoteResponse {
             _ => {}
         }
 
-        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let mut value = H1HeaderValue::from_str(header.value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         value.set_original_name(header.name);

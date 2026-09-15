@@ -76,6 +76,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             .await
             .map_err(H1RespmodAdaptationError::IcapServerWriteFailed)?;
         self.icap_connection.mark_writer_finished();
+        state.ups_rsp_body_size = Some(ups_body.len() as u64);
 
         self.handle_small_body_response(state, http_response, clt_writer)
             .await
@@ -131,6 +132,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         self.recv_send_trailer(&mut trailer_reader).await?;
 
         state.mark_ups_recv_all();
+        state.ups_rsp_body_size = Some(ups_body.len() as u64);
         self.icap_connection.mark_writer_finished();
 
         self.handle_small_body_response(state, http_response, clt_writer)
@@ -293,10 +295,11 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             idle_checker: &self.idle_checker,
         };
         let rsp = bidirectional_transfer
-            .transfer_and_recv(&mut body_transfer)
+            .transfer_and_recv(state, &mut body_transfer)
             .await?;
         if body_transfer.finished() {
             state.mark_ups_recv_all();
+            state.ups_rsp_body_size = Some(body_transfer.body_size());
         }
 
         match rsp.code {
@@ -367,6 +370,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                         .await?;
                     if body_transfer.finished() {
                         state.mark_ups_recv_all();
+                        state.ups_rsp_body_size = Some(body_transfer.body_size());
                         self.icap_connection.mark_writer_finished();
                         if bidirectional_transfer.icap_read_finished {
                             self.icap_connection.mark_reader_finished();

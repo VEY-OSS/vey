@@ -15,7 +15,7 @@ use tokio::io::AsyncBufRead;
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::http_names;
 use vey_types::net::{
-    AcceptTransferEncodingValue, ConnectionValue, Host, HttpAuth, HttpHeaderMap, HttpHeaderValue,
+    AcceptTransferEncodingValue, ConnectionValue, H1HeaderMap, H1HeaderValue, Host, HttpAuth,
     HttpKnownHeaderName, HttpUpgradeToken, KeepAliveValue, TransferEncodingValue, UpstreamAddr,
 };
 
@@ -26,8 +26,8 @@ pub struct HttpProxyClientRequest {
     pub version: Version,
     pub method: Method,
     pub uri: Uri,
-    pub end_to_end_headers: HttpHeaderMap,
-    pub hop_by_hop_headers: HttpHeaderMap,
+    pub end_to_end_headers: H1HeaderMap,
+    pub hop_by_hop_headers: H1HeaderMap,
     pub auth_info: HttpAuth,
     /// the port may be 0
     pub host: Option<UpstreamAddr>,
@@ -52,8 +52,8 @@ impl HttpProxyClientRequest {
             version,
             method,
             uri,
-            end_to_end_headers: HttpHeaderMap::default(),
-            hop_by_hop_headers: HttpHeaderMap::default(),
+            end_to_end_headers: H1HeaderMap::default(),
+            hop_by_hop_headers: H1HeaderMap::default(),
             auth_info: HttpAuth::None,
             host: None,
             original_connection_name: HttpKnownHeaderName::new(),
@@ -244,7 +244,7 @@ impl HttpProxyClientRequest {
     }
 
     pub fn set_host(&mut self, host: &UpstreamAddr) {
-        let mut new_v = unsafe { HttpHeaderValue::from_string_unchecked(host.to_string()) };
+        let mut new_v = unsafe { H1HeaderValue::from_string_unchecked(host.to_string()) };
         if let Some(old_v) = self.end_to_end_headers.remove(header::HOST)
             && let Some(name) = old_v.original_name()
         {
@@ -411,7 +411,7 @@ impl HttpProxyClientRequest {
         name: HeaderName,
         header: &HttpHeaderLine,
     ) -> Result<(), HttpRequestParseError> {
-        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let mut value = H1HeaderValue::from_str(header.value).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         value.set_original_name(header.name);
@@ -424,7 +424,7 @@ impl HttpProxyClientRequest {
         name: HeaderName,
         header: &HttpHeaderLine,
     ) -> Result<(), HttpRequestParseError> {
-        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let mut value = H1HeaderValue::from_str(header.value).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         value.set_original_name(header.name);

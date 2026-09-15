@@ -60,6 +60,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             .icap_write_all_as_chunked(icap_w)
             .await
             .map_err(H2ReqmodAdaptationError::IcapServerWriteFailed)?;
+        state.clt_req_body_size = Some(preview_data.received() as u64);
         self.recv_send_trailer(clt_body).await?;
         self.icap_connection.mark_writer_finished();
 
@@ -207,8 +208,11 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             idle_checker: &self.idle_checker,
         };
         let mut rsp = bidirectional_transfer
-            .transfer_and_recv(&mut body_transfer)
+            .transfer_and_recv(state, &mut body_transfer)
             .await?;
+        if body_transfer.finished() {
+            state.clt_req_body_size = Some(body_transfer.copied_size());
+        }
         let shared_headers = rsp.take_shared_headers();
         if !shared_headers.is_empty() {
             state.respond_shared_headers = Some(shared_headers);

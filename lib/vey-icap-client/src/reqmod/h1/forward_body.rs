@@ -65,6 +65,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             .await
             .map_err(H1ReqmodAdaptationError::IcapServerWriteFailed)?;
         self.icap_connection.mark_writer_finished();
+        state.clt_req_body_size = Some(clt_body.len() as u64);
 
         self.handle_small_body_response(state, http_request, ups_writer)
             .await
@@ -114,6 +115,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         self.recv_send_trailer(&mut trailer_reader).await?;
 
         state.clt_read_finished = true;
+        state.clt_req_body_size = Some(clt_body.len() as u64);
         self.icap_connection.mark_writer_finished();
 
         self.handle_small_body_response(state, http_request, ups_writer)
@@ -281,7 +283,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             idle_checker: &self.idle_checker,
         };
         let mut rsp = bidirectional_transfer
-            .transfer_and_recv(&mut body_transfer)
+            .transfer_and_recv(state, &mut body_transfer)
             .await?;
         let shared_headers = rsp.take_shared_headers();
         if !shared_headers.is_empty() {
@@ -289,6 +291,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         }
         if body_transfer.finished() {
             state.clt_read_finished = true;
+            state.clt_req_body_size = Some(body_transfer.body_size());
         }
 
         match rsp.code {
@@ -360,6 +363,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                         .await?;
                     if body_transfer.finished() {
                         state.clt_read_finished = true;
+                        state.clt_req_body_size = Some(body_transfer.body_size());
                         self.icap_connection.mark_writer_finished();
                         if bidirectional_transfer.icap_read_finished {
                             self.icap_connection.mark_reader_finished();

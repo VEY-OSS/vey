@@ -90,8 +90,12 @@ rules reject the request. Origin-site rules use :ref:`site.forbidden.*
 
   **type**: count
 
-  Number of rejected requests caused by the user being blocked while the
-  request was being handled.
+  Number of rejected requests caused by the user being blocked.
+
+  For a visitor this includes authentication-time denials and in-flight
+  tasks cancelled after the user was blocked. For a tenant this counts new
+  requests rejected at site entry; an already-running request is not
+  cancelled. See :ref:`block_and_delay <conf_auth_user_block_and_delay>`.
 
 * user.forbidden.fully_loaded
 

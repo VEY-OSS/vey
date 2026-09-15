@@ -12,7 +12,7 @@ use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use vey_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
-use vey_types::net::{HttpHeaderValue, HttpServerId, UpstreamAddr};
+use vey_types::net::{H1HeaderValue, HttpServerId, UpstreamAddr};
 
 use super::HttpClientReader;
 
@@ -57,7 +57,7 @@ where
         }
 
         let upstream = if let Some(mut host) = req.host.clone() {
-            if let Some(u) = get_upstream_from_uri(&req.uri)? {
+            if let Some(u) = req.uri.get_optional_http_https_upstream()? {
                 if !host.host_eq(&u) {
                     return Err(HttpRequestParseError::UnmatchedHostAndAuthority);
                 }
@@ -87,7 +87,7 @@ where
         }
         // append VIA
         let via_value = format!("HTTP/{:?} {}", req.version, this_pseudonym);
-        let v = unsafe { HttpHeaderValue::from_string_unchecked(via_value) };
+        let v = unsafe { H1HeaderValue::from_string_unchecked(via_value) };
         req.end_to_end_headers.append(http::header::VIA, v);
 
         let req = HttpExposeRequest {
@@ -106,18 +106,5 @@ where
 
         // reader should be sent by default
         Ok((req, true))
-    }
-}
-
-fn get_upstream_from_uri(uri: &http::Uri) -> Result<Option<UpstreamAddr>, HttpRequestParseError> {
-    match uri.scheme() {
-        Some(scheme) => {
-            if scheme.eq(&http::uri::Scheme::HTTP) {
-                uri.get_optional_upstream_with_default_port(80)
-            } else {
-                Err(HttpRequestParseError::UnsupportedScheme)
-            }
-        }
-        None => Ok(None),
     }
 }

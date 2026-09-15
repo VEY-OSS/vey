@@ -1,0 +1,502 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
+ */
+
+use std::sync::Arc;
+
+use bytes::Bytes;
+use h2::client::SendRequest;
+use h2::server::SendResponse;
+use h2::{Reason, RecvStream, SendStream, StreamId};
+use http::{Request, Response, StatusCode, Version};
+
+use vey_h2::{H2BodyTransfer, H2ResponseHeaderReceiver};
+use vey_icap_client::reqmod::h2::{
+    H2RequestAdapter, HttpAdapterErrorResponse, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
+    ReqmodRecvHttpResponseBody,
+};
+use vey_types::acl::AclAction;
+
+use super::H2TaskContext;
+use super::error::H2StreamTransferError;
+use crate::escape::EgressNotes;
+use crate::log::task::websocket::TaskLogForWebSocket;
+use crate::module::http_header::ProxyErrorType;
+use crate::module::websocket::{WebSocketTaskNotes, WebSocketTaskStats};
+use crate::serve::http_guard::H2ForwardTaskAliveGuard;
+use crate::serve::{ServerTaskNotes, ServerTaskStage};
+use crate::site::SiteRequestPermits;
+use crate::stat::types::RequestAliveKind;
+
+pub(crate) struct H2WebsocketTask {
+    ctx: Arc<H2TaskContext>,
+    clt_stream_id: StreamId,
+    ups_stream_id: Option<StreamId>,
+    task_notes: ServerTaskNotes,
+    ws_notes: WebSocketTaskNotes,
+    egress_notes: EgressNotes,
+    task_stats: Arc<WebSocketTaskStats>,
+    send_error_response: bool,
+    started: bool,
+    _alive_guard: Option<H2ForwardTaskAliveGuard>,
+    _site_req_alive_permits: SiteRequestPermits,
+}
+
+impl Drop for H2WebsocketTask {
+    fn drop(&mut self) {
+        if self.started {
+            self._site_req_alive_permits.release();
+            self.started = false;
+        }
+    }
+}
+
+impl H2WebsocketTask {
+    pub(crate) fn new(
+        ctx: Arc<H2TaskContext>,
+        clt_stream_id: StreamId,
+        req: &Request<RecvStream>,
+    ) -> Self {
+        let uri_log_max_chars = ctx
+            .site_ctx
+            .log_uri_max_chars()
+            .unwrap_or(ctx.server_config.log_uri_max_chars);
+        let ws_notes = WebSocketTaskNotes::new(req.version(), req.uri().clone(), uri_log_max_chars);
+        let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Default::default())
+            .with_site_ctx(ctx.site_ctx.clone());
+        H2WebsocketTask {
+            ctx,
+            clt_stream_id,
+            ups_stream_id: None,
+            task_notes,
+            ws_notes,
+            egress_notes: EgressNotes::default(),
+            task_stats: Arc::new(WebSocketTaskStats::default()),
+            send_error_response: true,
+            started: false,
+            _alive_guard: None,
+            _site_req_alive_permits: SiteRequestPermits::default(),
+        }
+    }
+
+    fn log_ctx(&self) -> Option<TaskLogForWebSocket<'_>> {
+        self.ctx
+            .task_logger
+            .as_ref()
+            .map(|logger| TaskLogForWebSocket {
+                logger,
+                upstream: self.ctx.site_ctx.site().upstream(),
+                task_notes: &self.task_notes,
+                ws_notes: &self.ws_notes,
+                egress_notes: &self.egress_notes,
+                client_rd_bytes: self.task_stats.clt.read.get_bytes(),
+                client_wr_bytes: self.task_stats.clt.write.get_bytes(),
+                remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
+                remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
+                clt_stream_id: Some(&self.clt_stream_id),
+                ups_stream_id: self.ups_stream_id.as_ref(),
+            })
+    }
+
+    pub(crate) async fn run(
+        mut self,
+        clt_req: Request<RecvStream>,
+        mut clt_send_rsp: SendResponse<Bytes>,
+    ) {
+        self._alive_guard = Some(self.ctx.server_stats.add_h2_forward_task());
+        self.task_notes.hold_req_alive(RequestAliveKind::Websocket);
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log) = self.log_ctx()
+        {
+            log.log_created();
+        }
+        self.started = true;
+
+        match self.do_run(clt_req, &mut clt_send_rsp).await {
+            Ok(()) => {
+                if let Some(log) = self.log_ctx() {
+                    log.log_h2("finished");
+                }
+            }
+            Err(e) => {
+                self.reply_task_err(&mut clt_send_rsp, &e);
+                if let Some(log) = self.log_ctx() {
+                    log.log_h2(&e.to_string());
+                }
+            }
+        }
+    }
+
+    async fn do_run(
+        &mut self,
+        clt_req: Request<RecvStream>,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<(), H2StreamTransferError> {
+        if self.task_notes.check_layered_rate_limit().is_err() {
+            self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
+            return Err(H2StreamTransferError::InternalServerError("rate limited"));
+        }
+        match self.ctx.site_ctx.acquire_request_semaphores() {
+            Ok(permits) => self._site_req_alive_permits = permits,
+            Err(_) => {
+                self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
+                return Err(H2StreamTransferError::InternalServerError("fully loaded"));
+            }
+        }
+
+        if let Some(tenant) = self.task_notes.tenant_ctx() {
+            match tenant.check_upstream(self.ctx.site_ctx.site().upstream()) {
+                AclAction::Permit | AclAction::PermitAndLog => {}
+                AclAction::Forbid | AclAction::ForbidAndLog => {
+                    self.reply_denied(clt_send_rsp, StatusCode::FORBIDDEN);
+                    return Err(H2StreamTransferError::InternalServerError("dest denied"));
+                }
+            }
+        }
+
+        let origin = self.ctx.checkout_or_connect(&self.task_notes).await?;
+        self.egress_notes = origin.egress_notes;
+        self.task_notes.stage = ServerTaskStage::Connected;
+        if self.ctx.server_config.flush_task_log_on_connected
+            && let Some(log) = self.log_ctx()
+        {
+            log.log_connected();
+        }
+
+        let ups_send_req = match tokio::time::timeout(
+            self.ctx.server_config.h2.upstream_stream_open_timeout,
+            origin.sender.ready(),
+        )
+        .await
+        {
+            Ok(Ok(d)) => d,
+            Ok(Err(e)) => {
+                let reason = e.reason().unwrap_or(Reason::REFUSED_STREAM);
+                clt_send_rsp.send_reset(reason);
+                return Err(H2StreamTransferError::UpstreamStreamOpenFailed(e));
+            }
+            Err(_) => {
+                clt_send_rsp.send_reset(Reason::REFUSED_STREAM);
+                return Err(H2StreamTransferError::UpstreamStreamOpenTimeout);
+            }
+        };
+
+        let (parts, clt_r) = clt_req.into_parts();
+        let ups_req = Request::from_parts(parts, ());
+
+        let audit_task = self
+            .task_notes
+            .tenant_user()
+            .and_then(|u| u.audit().do_task_audit())
+            .unwrap_or_else(|| {
+                self.ctx
+                    .audit_handle
+                    .as_ref()
+                    .is_some_and(|h| h.do_task_audit())
+            });
+
+        if audit_task
+            && let Some(audit_handle) = self.ctx.audit_handle.as_ref()
+            && let Some(reqmod) = audit_handle.icap_reqmod_client()
+        {
+            match reqmod
+                .h2_adapter(
+                    self.ctx.server_config.tcp_copy,
+                    self.ctx.server_config.h1.body_line_max_len,
+                    self.ctx.server_config.h2.max_header_list_size as usize,
+                    self.ctx.server_config.timeout.recv_rsp_header,
+                    true,
+                    self.ctx.idle_checker(&self.task_notes),
+                )
+                .await
+            {
+                Ok(mut adapter) => {
+                    let mut adaptation_state =
+                        ReqmodAdaptationRunState::new(self.task_notes.task_created_instant());
+                    adapter.set_client_addr(self.task_notes.client_addr());
+                    if let Some(username) = self.task_notes.raw_user_name() {
+                        adapter.set_client_username(username.clone());
+                    }
+                    if let Some(username) = self.task_notes.tenant_user_name() {
+                        adapter.set_tenant_username(username.clone());
+                    }
+                    return self
+                        .forward_with_adaptation(
+                            ups_send_req,
+                            ups_req,
+                            clt_r,
+                            clt_send_rsp,
+                            adapter,
+                            &mut adaptation_state,
+                        )
+                        .await;
+                }
+                Err(e) => {
+                    if !reqmod.bypass() {
+                        return Err(H2StreamTransferError::InternalAdapterError(e));
+                    }
+                }
+            }
+        }
+
+        self.send_connect(ups_send_req, ups_req, clt_r, clt_send_rsp)
+            .await
+    }
+
+    fn reply_local_error(
+        &mut self,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        status: StatusCode,
+        error: ProxyErrorType,
+    ) {
+        if let Some(status) = self.ctx.reply_local_error(clt_send_rsp, status, error) {
+            self.ws_notes.rsp_status = status;
+            self.send_error_response = false;
+        }
+    }
+
+    fn reply_task_err(
+        &mut self,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        e: &H2StreamTransferError,
+    ) {
+        if self.send_error_response
+            && let Some((status, error)) = e.status_and_error()
+        {
+            self.reply_local_error(clt_send_rsp, status, error);
+        }
+    }
+
+    fn reply_denied(&mut self, clt_send_rsp: &mut SendResponse<Bytes>, status: StatusCode) {
+        if self.send_error_response {
+            self.reply_local_error(clt_send_rsp, status, ProxyErrorType::HttpRequestDenied);
+        }
+    }
+
+    async fn forward_with_adaptation(
+        &mut self,
+        ups_send_req: SendRequest<Bytes>,
+        ups_req: Request<()>,
+        clt_r: RecvStream,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        icap_adapter: H2RequestAdapter<crate::serve::ServerIdleChecker>,
+        adaptation_state: &mut ReqmodAdaptationRunState,
+    ) -> Result<(), H2StreamTransferError> {
+        match icap_adapter.xfer_connect(adaptation_state, ups_req).await {
+            Ok(ReqmodAdaptationMidState::OriginalRequest(orig_req)) => {
+                self.send_connect(ups_send_req, orig_req, clt_r, clt_send_rsp)
+                    .await
+            }
+            Ok(ReqmodAdaptationMidState::AdaptedRequest(_, final_req)) => {
+                self.send_connect(ups_send_req, final_req, clt_r, clt_send_rsp)
+                    .await
+            }
+            Ok(ReqmodAdaptationMidState::HttpErrResponse(err_rsp, recv_body)) => {
+                self.send_adaptation_error_response(clt_send_rsp, err_rsp, recv_body)
+                    .await
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    async fn send_adaptation_error_response(
+        &mut self,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        rsp: HttpAdapterErrorResponse,
+        rsp_recv_body: Option<ReqmodRecvHttpResponseBody>,
+    ) -> Result<(), H2StreamTransferError> {
+        let mut parts = Response::new(()).into_parts().0;
+        parts.version = Version::HTTP_2;
+        parts.status = rsp.status;
+        parts.headers = rsp.headers.into();
+        let response = Response::from_parts(parts, ());
+        self.send_error_response = false;
+        self.ws_notes.rsp_status = response.status().as_u16();
+        if let Some(mut recv_body) = rsp_recv_body {
+            let mut clt_send_stream = clt_send_rsp
+                .send_response(response, false)
+                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            let mut body_transfer = recv_body.body_transfer(&mut clt_send_stream);
+            (&mut body_transfer).await.map_err(|e| {
+                H2StreamTransferError::InternalAdapterError(anyhow::anyhow!(
+                    "read http error response from adapter failed: {e:?}"
+                ))
+            })?;
+            self.task_stats
+                .clt
+                .write
+                .add_bytes(body_transfer.copied_size());
+            recv_body.save_connection().await;
+        } else {
+            clt_send_rsp
+                .send_response(response, true)
+                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+        }
+        Ok(())
+    }
+
+    async fn send_connect(
+        &mut self,
+        mut ups_send_req: SendRequest<Bytes>,
+        ups_req: Request<()>,
+        clt_r: RecvStream,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<(), H2StreamTransferError> {
+        let (ups_response_fut, ups_w) = ups_send_req
+            .send_request(ups_req, false)
+            .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
+        self.ups_stream_id = Some(ups_response_fut.stream_id());
+
+        let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_response_fut);
+        let rsp = tokio::time::timeout(
+            self.ctx.server_config.timeout.recv_rsp_header,
+            ups_recv_rsp.recv_header(),
+        )
+        .await
+        .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)?
+        .map_err(H2StreamTransferError::ResponseHeadRecvFailed)?;
+        self.ws_notes.origin_status = rsp.status().as_u16();
+        if rsp.status().is_informational() {
+            return Err(H2StreamTransferError::UnsupportedInformationalResponse(
+                rsp.status(),
+            ));
+        }
+        let body = ups_recv_rsp.take_body().ok_or(
+            H2StreamTransferError::UnsupportedInformationalResponse(rsp.status()),
+        )?;
+        self.send_error_response = false;
+
+        if !rsp.status().is_success() {
+            if body.is_end_stream() {
+                clt_send_rsp
+                    .send_response(rsp, true)
+                    .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            } else {
+                let clt_w = clt_send_rsp
+                    .send_response(rsp, false)
+                    .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+                let mut transfer =
+                    H2BodyTransfer::new(body, clt_w, self.ctx.server_config.tcp_copy.yield_size());
+                (&mut transfer)
+                    .await
+                    .map_err(H2StreamTransferError::ResponseBodyTransferFailed)?;
+                let n = transfer.copied_size();
+                self.task_stats.ups.read.add_bytes(n);
+                self.task_stats.clt.write.add_bytes(n);
+            }
+            self.ws_notes.rsp_status = self.ws_notes.origin_status;
+            return Ok(());
+        }
+
+        if body.is_end_stream() {
+            clt_send_rsp
+                .send_response(rsp, true)
+                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            self.ws_notes.rsp_status = self.ws_notes.origin_status;
+            return Ok(());
+        }
+        let clt_w = clt_send_rsp
+            .send_response(rsp, false)
+            .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+        self.ws_notes.rsp_status = self.ws_notes.origin_status;
+        self.task_notes.mark_relaying();
+        self.task_notes
+            .foreach_req_stats(|s| s.req_ready.add_websocket());
+        self.relay_streams(clt_r, clt_w, body, ups_w).await
+    }
+
+    async fn relay_streams(
+        &self,
+        clt_r: RecvStream,
+        clt_w: SendStream<Bytes>,
+        ups_r: RecvStream,
+        ups_w: SendStream<Bytes>,
+    ) -> Result<(), H2StreamTransferError> {
+        let yield_size = self.ctx.server_config.tcp_copy.yield_size();
+        let mut c2u = H2BodyTransfer::new(clt_r, ups_w, yield_size);
+        let mut u2c = H2BodyTransfer::new(ups_r, clt_w, yield_size);
+        let mut idle_interval = self.ctx.idle_wheel.register();
+        let mut log_interval = self.ctx.get_log_interval();
+        let mut idle_count = 0;
+        let mut c2u_done = false;
+        let mut u2c_done = false;
+        let mut last_c2u = 0u64;
+        let mut last_u2c = 0u64;
+        loop {
+            tokio::select! {
+                biased;
+                r = &mut c2u, if !c2u_done => {
+                    add_copy_delta(&self.task_stats, c2u.copied_size(), u2c.copied_size(), &mut last_c2u, &mut last_u2c);
+                    r.map_err(H2StreamTransferError::RequestBodyTransferFailed)?;
+                    c2u_done = true;
+                    if !u2c_done
+                        && let Some(log) = self.log_ctx()
+                    {
+                        log.log_client_shutdown();
+                    }
+                    if u2c_done {
+                        return Ok(());
+                    }
+                }
+                r = &mut u2c, if !u2c_done => {
+                    add_copy_delta(&self.task_stats, c2u.copied_size(), u2c.copied_size(), &mut last_c2u, &mut last_u2c);
+                    r.map_err(H2StreamTransferError::ResponseBodyTransferFailed)?;
+                    u2c_done = true;
+                    if !c2u_done
+                        && let Some(log) = self.log_ctx()
+                    {
+                        log.log_upstream_shutdown();
+                    }
+                    if c2u_done {
+                        return Ok(());
+                    }
+                }
+                n = idle_interval.tick() => {
+                    add_copy_delta(&self.task_stats, c2u.copied_size(), u2c.copied_size(), &mut last_c2u, &mut last_u2c);
+                    let idle = (c2u_done || c2u.is_idle()) && (u2c_done || u2c.is_idle());
+                    if idle {
+                        idle_count += n;
+                        if idle_count > self.task_notes.task_max_idle_count(self.ctx.server_config.task_idle_max_count) {
+                            return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
+                        }
+                    } else {
+                        idle_count = 0;
+                        c2u.reset_active();
+                        u2c.reset_active();
+                    }
+                    if self.ctx.server_quit_policy.force_quit() {
+                        return Err(H2StreamTransferError::CanceledAsServerQuit);
+                    }
+                }
+                _ = log_interval.tick() => {
+                    add_copy_delta(&self.task_stats, c2u.copied_size(), u2c.copied_size(), &mut last_c2u, &mut last_u2c);
+                    if let Some(log) = self.log_ctx() {
+                        log.log_periodic();
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn add_copy_delta(
+    stats: &WebSocketTaskStats,
+    c2u: u64,
+    u2c: u64,
+    last_c2u: &mut u64,
+    last_u2c: &mut u64,
+) {
+    if c2u > *last_c2u {
+        let d = c2u - *last_c2u;
+        stats.clt.read.add_bytes(d);
+        stats.ups.write.add_bytes(d);
+        *last_c2u = c2u;
+    }
+    if u2c > *last_u2c {
+        let d = u2c - *last_u2c;
+        stats.ups.read.add_bytes(d);
+        stats.clt.write.add_bytes(d);
+        *last_u2c = u2c;
+    }
+}

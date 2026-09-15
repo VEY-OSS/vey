@@ -10,7 +10,7 @@ use http::{HeaderName, StatusCode, Version};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
-use vey_types::net::{HttpHeaderMap, HttpHeaderValue};
+use vey_types::net::{H1HeaderMap, H1HeaderValue};
 
 use super::HttpResponseParseError;
 use crate::{HttpHeaderLine, HttpLineParseError, HttpStatusLine};
@@ -20,7 +20,7 @@ pub struct HttpAdaptedResponse {
     pub version: Version,
     pub status: StatusCode,
     pub reason: String,
-    pub headers: HttpHeaderMap,
+    pub headers: H1HeaderMap,
     pub content_length: Option<u64>,
 }
 
@@ -30,7 +30,7 @@ impl HttpAdaptedResponse {
             version,
             status,
             reason,
-            headers: HttpHeaderMap::default(),
+            headers: H1HeaderMap::default(),
             content_length: None,
         }
     }
@@ -143,7 +143,7 @@ impl HttpAdaptedResponse {
             _ => {}
         }
 
-        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let mut value = H1HeaderValue::from_str(header.value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         value.set_original_name(header.name);

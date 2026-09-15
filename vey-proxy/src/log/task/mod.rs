@@ -9,10 +9,12 @@ use slog::Logger;
 use vey_types::metrics::NodeName;
 
 pub(crate) mod ftp_over_http;
+pub(crate) mod h2_forward;
 pub(crate) mod http_forward;
 pub(crate) mod tcp_connect;
 pub(crate) mod udp_associate;
 pub(crate) mod udp_connect;
+pub(crate) mod websocket;
 
 use super::shared::SharedLoggerType;
 

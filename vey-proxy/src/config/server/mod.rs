@@ -32,6 +32,7 @@ pub(crate) mod plain_tls_port;
 pub(crate) mod usual_tls_port;
 
 pub(crate) mod http_expose;
+pub(crate) mod http_guard;
 pub(crate) mod http_proxy;
 pub(crate) mod sni_proxy;
 pub(crate) mod socks_proxy;
@@ -170,6 +171,7 @@ pub(crate) enum AnyServerConfig {
     SocksProxy(socks_proxy::SocksProxyServerConfig),
     HttpProxy(http_proxy::HttpProxyServerConfig),
     HttpExpose(http_expose::HttpExposeServerConfig),
+    HttpGuard(http_guard::HttpGuardServerConfig),
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
@@ -316,6 +318,11 @@ fn load_server(
             let server = http_expose::HttpExposeServerConfig::parse(map, position)
                 .context("failed to load this HttpExpose server")?;
             Ok(AnyServerConfig::HttpExpose(server))
+        }
+        "http_guard" | "httpguard" => {
+            let server = http_guard::HttpGuardServerConfig::parse(map, position)
+                .context("failed to load this HttpGuard server")?;
+            Ok(AnyServerConfig::HttpGuard(server))
         }
         _ => Err(anyhow!("unsupported server type {}", server_type)),
     }

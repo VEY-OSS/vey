@@ -28,3 +28,6 @@ pub use from_chunked_transfer::{H2StreamFromChunkedTransfer, H2StreamFromChunked
 
 mod preview;
 pub use preview::{H2PreviewData, H2PreviewError};
+
+#[cfg(test)]
+mod body_size;

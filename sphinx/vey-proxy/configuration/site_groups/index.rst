@@ -5,7 +5,8 @@ Site Group
 **********
 
 A site group is a named Host / SNI lookup table. Reverse-proxy servers such as
-:ref:`http_expose <configuration_server_http_rproxy>` and
+:ref:`http_expose <configuration_server_http_expose>`,
+:ref:`http_guard <configuration_server_http_guard>` and
 :ref:`tls_proxy <configuration_server_tls_proxy>` match the request host
 or SNI against the group, then take the site's upstream and TLS settings.
 
@@ -59,14 +60,18 @@ tenant_user_group
 
 User group used to resolve each site's :ref:`owner <conf_site_owner>` into a
 tenant user. ``http_expose`` visitor authentication still uses the server
-``user_group`` and does not read this key. ``tls_proxy`` has no visitor
-``user_group``; owner lookup still uses this key.
+``user_group`` and does not read this key. ``http_guard`` and ``tls_proxy``
+have no visitor ``user_group``; owner lookup uses this key.
 
 If unset, sites have no tenant even when ``owner`` is set.
 
 Owner lookup is by username only. Those users do not need a
 :ref:`token <conf_auth_user_token>`; omitting it forbids visitor login, which
 is the usual setup for tenant-only records.
+
+:ref:`block_and_delay <conf_auth_user_block_and_delay>` on a tenant rejects
+new requests at site entry and does not abort an already-running request.
+The same key on a visitor still cancels the current task.
 
 **default**: not set
 
@@ -87,6 +92,8 @@ cannot appear on two sites in the same group.
 
 Lookup uses the HTTP ``Host`` header and, when TLS is enabled, the ClientHello
 SNI. Matching is exact host, then suffix, then the group default.
+:ref:`http_guard <configuration_server_http_guard>` does not use the group
+default: unmatched names are rejected locally.
 
 A site with no match rule and ``set_default: false`` is unused unless it is
 the only site in the value, in which case it becomes the default.

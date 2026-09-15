@@ -136,10 +136,14 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                 );
                 let mut body_copy =
                     StreamCopy::new(&mut body_reader, clt_writer, &self.copy_config);
-                Self::send_response_body(&self.idle_checker, &mut body_copy).await?;
+                if let Err(e) = Self::send_response_body(&self.idle_checker, &mut body_copy).await {
+                    state.clt_rsp_body_size = Some(body_copy.copied_size());
+                    return Err(e);
+                }
 
                 state.mark_clt_send_all();
-                let copied = body_copy.copied_size();
+                state.clt_rsp_body_size = Some(body_reader.body_size());
+                let copied = body_reader.body_size();
 
                 if body_reader.trailer(128).await.is_ok() {
                     self.icap_connection.mark_reader_finished();
@@ -162,9 +166,21 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                 );
                 let mut body_copy =
                     StreamCopy::new(&mut body_reader, clt_writer, &self.copy_config);
-                Self::send_response_body(&self.idle_checker, &mut body_copy).await?;
+                if let Err(e) = Self::send_response_body(&self.idle_checker, &mut body_copy).await {
+                    // the chunked body is copied as on-wire bytes, so the size
+                    // sent to the client is a lower bound: the payload read, less
+                    // everything still buffered, as all of it could be payload
+                    state.clt_rsp_body_size = Some(
+                        body_copy
+                            .reader()
+                            .body_size()
+                            .saturating_sub(body_copy.cached_data_size()),
+                    );
+                    return Err(e);
+                }
 
                 state.mark_clt_send_all();
+                state.clt_rsp_body_size = Some(body_reader.body_size());
                 self.icap_connection.mark_reader_finished();
                 if icap_rsp.keep_alive {
                     self.icap_client.save_connection(self.icap_connection);
@@ -192,8 +208,16 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                 r = &mut body_copy => {
                     return match r {
                         Ok(_) => Ok(()),
-                        Err(StreamCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::IcapServerReadFailed(e)),
-                        Err(StreamCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
+                        Err(e) => {
+                            match e {
+                                StreamCopyError::ReadFailed(e) => {
+                                    Err(H1RespmodAdaptationError::IcapServerReadFailed(e))
+                                }
+                                StreamCopyError::WriteFailed(e) => {
+                                    Err(H1RespmodAdaptationError::HttpClientWriteFailed(e))
+                                }
+                            }
+                        }
                     };
                 }
                 n = idle_interval.tick() => {

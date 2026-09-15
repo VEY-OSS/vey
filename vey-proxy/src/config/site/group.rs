@@ -231,7 +231,16 @@ static_sites:
             site.http.rsp_hdr_recv_timeout,
             Some(std::time::Duration::from_secs(8))
         );
-        assert_eq!(site.http.h1_connection_pool, None);
+        assert_eq!(site.http.h1.connection_pool, None);
+        assert!(site.http.h1.upstream_keepalive.is_enabled());
+        assert_eq!(
+            site.http.h1.upstream_keepalive.idle_expire(),
+            std::time::Duration::from_secs(60)
+        );
+        assert_eq!(
+            site.http.h2.connection_pool,
+            vey_types::net::ConnectionPoolConfig::default()
+        );
     }
 
     #[test]
@@ -244,7 +253,8 @@ static_sites:
     exact_match: app.internal
     upstream: 127.0.0.1:8080
     http:
-      h1_connection_pool: {}
+      h1:
+        connection_pool: {}
 "#,
         )
         .unwrap();
@@ -255,7 +265,7 @@ static_sites:
         let host = Host::from_str("app.internal").unwrap();
         let site = group.sites.get(&host).unwrap();
         assert_eq!(
-            site.http.h1_connection_pool,
+            site.http.h1.connection_pool,
             Some(vey_types::net::ConnectionPoolConfig::default())
         );
     }
@@ -270,9 +280,10 @@ static_sites:
     exact_match: app.internal
     upstream: 127.0.0.1:8080
     http:
-      h1_connection_pool:
-        max_idle_count: 16
-        idle_timeout: 30s
+      h1:
+        connection_pool:
+          max_idle_count: 16
+          idle_timeout: 30s
 "#,
         )
         .unwrap();
@@ -282,9 +293,172 @@ static_sites:
         let group = SiteGroupConfig::parse(map, None).unwrap();
         let host = Host::from_str("app.internal").unwrap();
         let site = group.sites.get(&host).unwrap();
-        let pool = site.http.h1_connection_pool.expect("h1_connection_pool");
+        let pool = site.http.h1.connection_pool.expect("h1 connection_pool");
         assert_eq!(pool.max_idle_count(), 16);
         assert_eq!(pool.idle_timeout(), std::time::Duration::from_secs(30));
+    }
+
+    #[test]
+    fn parse_site_http_h1_upstream_keepalive() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h1:
+        upstream_keepalive:
+          enable: false
+          idle_expire: 15s
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert!(!site.http.h1.upstream_keepalive.is_enabled());
+        assert_eq!(
+            site.http.h1.upstream_keepalive.idle_expire(),
+            std::time::Duration::ZERO
+        );
+    }
+
+    #[test]
+    fn parse_site_http_h1_nested_connection_pool() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h1:
+        connection_pool:
+          max_idle_count: 8
+      h2:
+        connection_pool:
+          max_idle_count: 4
+          idle_timeout: 20s
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        let h1_pool = site.http.h1.connection_pool.expect("h1 connection_pool");
+        assert_eq!(h1_pool.max_idle_count(), 8);
+        assert_eq!(site.http.h2.connection_pool.max_idle_count(), 4);
+        assert_eq!(
+            site.http.h2.connection_pool.idle_timeout(),
+            std::time::Duration::from_secs(20)
+        );
+    }
+
+    #[test]
+    fn parse_site_http_h2_connection_pool_empty() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h2:
+        connection_pool: {}
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert_eq!(
+            site.http.h2.connection_pool,
+            vey_types::net::ConnectionPoolConfig::default()
+        );
+        assert_eq!(site.http.h1.connection_pool, None);
+    }
+
+    #[test]
+    fn parse_site_http_h2_connection_pool_map() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h2:
+        connection_pool:
+          max_idle_count: 16
+          idle_timeout: 30s
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        let pool = site.http.h2.connection_pool;
+        assert_eq!(pool.max_idle_count(), 16);
+        assert_eq!(pool.idle_timeout(), std::time::Duration::from_secs(30));
+    }
+
+    #[test]
+    fn reject_invalid_site_http_h2_connection_pool() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h2:
+        connection_pool: sticky
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        assert!(SiteGroupConfig::parse(map, None).is_err());
+    }
+
+    #[test]
+    fn reject_unknown_site_http_h2_field() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h2:
+        bogus_field: 1
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        assert!(SiteGroupConfig::parse(map, None).is_err());
     }
 
     #[test]
@@ -297,7 +471,28 @@ static_sites:
     exact_match: app.internal
     upstream: 127.0.0.1:8080
     http:
-      h1_connection_pool: sticky
+      h1:
+        connection_pool: sticky
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        assert!(SiteGroupConfig::parse(map, None).is_err());
+    }
+
+    #[test]
+    fn reject_legacy_site_http_h1_connection_pool_key() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h1_connection_pool: {}
 "#,
         )
         .unwrap();
