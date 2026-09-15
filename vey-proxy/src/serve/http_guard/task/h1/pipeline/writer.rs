@@ -86,7 +86,7 @@ where
         loop {
             let res = match self.task_queue.recv().await {
                 Some(Ok((req, pipeline_task))) => {
-                    let action = match hosts.get(req.upstream.host()).cloned() {
+                    let action = match hosts.get_matched(req.upstream.host()).cloned() {
                         Some(host) => {
                             if let Some(pinned) = &self.ctx.pinned_host
                                 && !host.same_site(pinned.site())

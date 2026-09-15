@@ -9,10 +9,12 @@ TLS with ALPN ``h2`` and a matching SNI site. TLS is detected automatically
 (including TLCP). Other protocols, including plaintext HTTP/2 (H2C), are dropped.
 
 TLS connections match SNI and later ``Host`` against sites that have
-``tls_server``. HTTP/2 requires SNI to select the site used for connection
-rate and speed limits. That SNI site is pinned for the rest of the
-connection: a later ``Host`` that maps to a different site is answered with
-``421 Misdirected Request`` and the connection is closed. HTTP/2 also
+``tls_server``. Matching is exact host then suffix; the site group's
+``set_default`` site is not used. An unmatched name is rejected here and is
+not forwarded to another origin. HTTP/2 requires SNI to select the site used
+for connection rate and speed limits. That SNI site is pinned for the rest
+of the connection: a later ``Host`` that maps to a different site is answered
+with ``421 Misdirected Request`` and the connection is closed. HTTP/2 also
 rejects a ``Host`` that does not match ``:authority`` (after scheme-based
 normalization, RFC 9113) with ``409 Conflict``, the same status HTTP/1 uses
 for unmatched ``Host`` and request-target. Plaintext HTTP/1 connections
@@ -242,8 +244,14 @@ h2
 **optional**, **type**: map
 
 HTTP/2-only settings. HTTP/2 is TLS-only: the client must send SNI that
-matches a site. Connections without SNI, or whose SNI does not match a
-site, are not served as HTTP/2. Plaintext HTTP/2 (H2C) is not supported.
+matches a site by exact or suffix rule. Connections without SNI, or whose
+SNI does not match a site, are not served as HTTP/2. The site group's
+``set_default`` site is not used. Plaintext HTTP/2 (H2C) is not supported.
+
+HTTP/2 is offered only by a site's own
+:ref:`tls_server <conf_site_tls_server>` (ALPN includes ``h2``).
+:ref:`global_tls_server <configuration_server_http_guard_global_tls_server>`
+is HTTP/1 only.
 
 Connection speed limits use the smaller of this server, the SNI site, and
 the site tenant (``tcp_sock_speed_limit`` plus tenant
@@ -349,10 +357,12 @@ global_tls_server
 
 **optional**, **type**: :external+values:ref:`openssl server config <conf_value_openssl_server_config>`
 
-Global TLS server configuration used when the matched site does not set
-its own TLS server configuration. This default certificate is **HTTP/1
-only** (ALPN ``http/1.1`` / ``http/1.0``). HTTP/2 requires the site's own
-:ref:`tls_server <conf_site_tls_server>`.
+Global TLS server configuration used when there is no exact/suffix SNI
+match, or when the matched site does not set its own TLS server
+configuration. This certificate is **HTTP/1 only** (ALPN ``http/1.1`` /
+``http/1.0``). HTTP/2 requires the site's own
+:ref:`tls_server <conf_site_tls_server>`. The site group's ``set_default``
+site is not used as a fallback certificate.
 
 See site :ref:`tls_server <conf_site_tls_server>`.
 
@@ -376,6 +386,9 @@ site_group
 
 Name of the :ref:`site group <configuration_site_group>` that provides Host /
 SNI matching and per-site upstream settings.
+
+Matching is exact host then suffix. ``set_default`` is ignored: an unmatched
+name is rejected locally and is not forwarded to a default origin.
 
 If the referenced group does not exist, an empty group is used and no site
 matches.

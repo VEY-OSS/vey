@@ -88,6 +88,8 @@ cannot appear on two sites in the same group.
 
 Lookup uses the HTTP ``Host`` header and, when TLS is enabled, the ClientHello
 SNI. Matching is exact host, then suffix, then the group default.
+:ref:`http_guard <configuration_server_http_guard>` does not use the group
+default: unmatched names are rejected locally.
 
 A site with no match rule and ``set_default: false`` is unused unless it is
 the only site in the value, in which case it becomes the default.

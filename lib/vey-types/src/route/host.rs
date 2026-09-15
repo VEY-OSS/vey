@@ -59,31 +59,23 @@ impl<T> HostMatch<T> {
         self.default.replace(v)
     }
 
-    pub fn get(&self, host: &Host) -> Option<&T> {
+    /// Exact IP / exact domain / suffix domain, without the default site.
+    pub fn get_matched(&self, host: &Host) -> Option<&T> {
         match host {
-            Host::Ip(ip) => {
-                if let Some(ht) = &self.exact_ip
-                    && let Some(v) = ht.get(ip)
-                {
-                    return Some(v);
-                }
-            }
+            Host::Ip(ip) => self.exact_ip.as_ref()?.get(ip),
             Host::Domain(domain) => {
-                if let Some(ht) = &self.exact_domain
-                    && let Some(v) = ht.get(domain)
-                {
+                if let Some(v) = self.exact_domain.as_ref().and_then(|ht| ht.get(domain)) {
                     return Some(v);
                 }
-
-                if let Some(trie) = &self.suffix_domain {
-                    let reversed = domain.to_reversed();
-                    if let Some(v) = trie.get_ancestor_value(&reversed) {
-                        return Some(v);
-                    }
-                }
+                self.suffix_domain
+                    .as_ref()
+                    .and_then(|trie| trie.get_ancestor_value(&domain.to_reversed()))
             }
         }
-        self.default.as_ref()
+    }
+
+    pub fn get(&self, host: &Host) -> Option<&T> {
+        self.get_matched(host).or(self.default.as_ref())
     }
 
     #[inline]
@@ -468,6 +460,19 @@ mod tests {
         assert_eq!(
             hm.get(&Host::Ip(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)))),
             Some(&4)
+        );
+
+        assert_eq!(
+            hm.get_matched(&Host::Domain(literal_domain!("example.com"))),
+            Some(&1)
+        );
+        assert_eq!(
+            hm.get_matched(&Host::Domain(literal_domain!("unknown.com"))),
+            None
+        );
+        assert_eq!(
+            hm.get_matched(&Host::Ip(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)))),
+            None
         );
     }
 

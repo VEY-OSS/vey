@@ -52,19 +52,8 @@ where
     }
 
     async fn run(&mut self) -> anyhow::Result<()> {
-        let site = Arc::clone(
-            self.ctx
-                .pinned_host
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("h2 requires a matching tls sni site"))?
-                .site(),
-        );
-        let tenant_user = self
-            .ctx
-            .site_ctx
-            .as_ref()
-            .and_then(|c| c.tenant_user())
-            .cloned();
+        let site = Arc::clone(self.ctx.site_ctx.site());
+        let tenant_user = self.ctx.site_ctx.tenant_user().cloned();
         let _site_conn = site.hold_http_conn(
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),

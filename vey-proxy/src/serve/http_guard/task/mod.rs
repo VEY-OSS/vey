@@ -7,7 +7,7 @@ use super::HttpGuardServerStats;
 use crate::config::server::http_guard::HttpGuardServerConfig;
 
 mod common;
-pub(super) use common::CommonTaskContext;
+pub(super) use common::{CommonTaskContext, H1CommonTaskContext, H2CommonTaskContext};
 
 mod h1;
 pub(super) use h1::{

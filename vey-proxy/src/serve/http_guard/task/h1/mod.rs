@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use super::{CommonTaskContext, HttpGuardServerStats};
+use super::{H1CommonTaskContext as CommonTaskContext, HttpGuardServerStats};
 
 mod protocol;
 

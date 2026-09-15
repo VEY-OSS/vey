@@ -42,8 +42,8 @@ use vey_types::net::{
 use vey_types::route::HostMatch;
 
 use super::task::{
-    CommonTaskContext, HttpGuardH2ConnectionTask, HttpGuardPipelineReaderTask,
-    HttpGuardPipelineStats, HttpGuardPipelineWriterTask,
+    CommonTaskContext, H1CommonTaskContext, H2CommonTaskContext, HttpGuardH2ConnectionTask,
+    HttpGuardPipelineReaderTask, HttpGuardPipelineStats, HttpGuardPipelineWriterTask,
 };
 use super::{HttpGuardServerStats, HttpHost};
 use crate::audit::AuditHandle;
@@ -209,20 +209,8 @@ impl HttpGuardServer {
         }
     }
 
-    fn get_common_task_context(
-        &self,
-        cc_info: ClientConnectionInfo,
-        pinned_host: Option<Arc<HttpHost>>,
-    ) -> Arc<CommonTaskContext> {
-        let site_ctx = pinned_host.as_ref().map(|host| {
-            SiteContext::new(
-                Arc::clone(host.site()),
-                Arc::clone(host.egress()),
-                self.config.name(),
-                self.server_stats.share_extra_tags(),
-            )
-        });
-        Arc::new(CommonTaskContext {
+    fn common_task_context(&self, cc_info: ClientConnectionInfo) -> CommonTaskContext {
+        CommonTaskContext {
             server_config: self.config.clone(),
             server_stats: self.server_stats.clone(),
             server_quit_policy: self.quit_policy.clone(),
@@ -231,7 +219,42 @@ impl HttpGuardServer {
             cc_info,
             task_logger: self.task_logger.clone(),
             audit_handle: self.audit_handle.load_full(),
+        }
+    }
+
+    fn get_h1_task_context(
+        &self,
+        cc_info: ClientConnectionInfo,
+        pinned_host: Option<Arc<HttpHost>>,
+    ) -> Arc<H1CommonTaskContext> {
+        let site_ctx = pinned_host.as_ref().map(|host| {
+            SiteContext::new(
+                Arc::clone(host.site()),
+                Arc::clone(host.egress()),
+                self.config.name(),
+                self.server_stats.share_extra_tags(),
+            )
+        });
+        Arc::new(H1CommonTaskContext {
+            common: self.common_task_context(cc_info),
             pinned_host,
+            site_ctx,
+        })
+    }
+
+    fn get_h2_task_context(
+        &self,
+        cc_info: ClientConnectionInfo,
+        pinned_host: Arc<HttpHost>,
+    ) -> Arc<H2CommonTaskContext> {
+        let site_ctx = SiteContext::new(
+            Arc::clone(pinned_host.site()),
+            Arc::clone(pinned_host.egress()),
+            self.config.name(),
+            self.server_stats.share_extra_tags(),
+        );
+        Arc::new(H2CommonTaskContext {
+            common: self.common_task_context(cc_info),
             site_ctx,
         })
     }
@@ -264,7 +287,7 @@ impl HttpGuardServer {
         T::R: AsyncRead + Send + Sync + Unpin + 'static,
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let ctx = self.get_common_task_context(cc_info, pinned_host);
+        let ctx = self.get_h1_task_context(cc_info, pinned_host);
         let pipeline_stats = Arc::new(HttpGuardPipelineStats::default());
         let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.h1.pipeline_size.get());
 
@@ -283,11 +306,11 @@ impl HttpGuardServer {
         stream: T,
         cc_info: ClientConnectionInfo,
         hosts: Arc<HostMatch<Arc<HttpHost>>>,
-        pinned_host: Option<Arc<HttpHost>>,
+        pinned_host: Arc<HttpHost>,
     ) where
         T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let ctx = self.get_common_task_context(cc_info, pinned_host);
+        let ctx = self.get_h2_task_context(cc_info, pinned_host);
         HttpGuardH2ConnectionTask::new(&ctx, stream, hosts)
             .into_running()
             .await
@@ -306,18 +329,15 @@ impl HttpGuardServer {
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         if matches!(alpn, Some(AlpnProtocol::Http2)) {
-            if !pinned_host
-                .as_ref()
-                .is_some_and(|host| host.tls_server().is_some())
-            {
+            let Some(pinned_host) = pinned_host.filter(|host| host.tls_server().is_some()) else {
                 self.listen_stats.add_failed();
                 debug!(
-                    "{} - {} rejected h2 without a site tls_server",
+                    "{} - {} rejected h2 without a matching sni site tls_server",
                     cc_info.sock_local_addr(),
                     cc_info.sock_peer_addr()
                 );
                 return;
-            }
+            };
             self.spawn_h2_task(stream, cc_info, hosts, pinned_host)
                 .await;
         } else {
@@ -335,7 +355,7 @@ impl HttpGuardServer {
         const TLS_MAX_CLIENT_HELLO_SIZE: u32 = 1 << 16;
 
         let hosts = self.tls_hosts.load();
-        let host = match tokio::time::timeout(
+        let pinned_host = match tokio::time::timeout(
             self.config.client_hello_recv_timeout,
             read_sni_host(
                 &mut stream,
@@ -367,7 +387,7 @@ impl HttpGuardServer {
             }
         };
 
-        let Some(tls_config) = host
+        let Some(tls_config) = pinned_host
             .and_then(|h| h.tls_server())
             .or(self.global_tls_server.as_ref())
         else {
@@ -403,7 +423,7 @@ impl HttpGuardServer {
                     cc_info,
                     self.http_hosts.load_full(),
                     alpn,
-                    host.cloned(),
+                    pinned_host.cloned(),
                 )
                 .await
             }
@@ -502,11 +522,10 @@ fn host_from_client_hello<'a>(
 ) -> Option<&'a Arc<HttpHost>> {
     match ch.get_ext(ExtensionType::ServerName) {
         Ok(Some(data)) => match TlsServerName::from_extension_value(data) {
-            Ok(sni) => hosts.get(&Host::from(sni)),
-            Err(_) => hosts.get_default(),
+            Ok(sni) => hosts.get_matched(&Host::from(sni)),
+            Err(_) => None,
         },
-        Ok(None) => hosts.get_default(),
-        Err(_) => hosts.get_default(),
+        Ok(None) | Err(_) => None,
     }
 }
 
@@ -778,7 +797,7 @@ impl Server for HttpGuardServer {
             .get_ref()
             .1
             .server_name()
-            .and_then(|sni| hosts.get(&Host::from_str(sni).ok()?).cloned());
+            .and_then(|sni| hosts.get_matched(&Host::from_str(sni).ok()?).cloned());
         self.spawn_http_task(stream, cc_info, hosts, alpn, pinned_host)
             .await;
     }
@@ -798,7 +817,7 @@ impl Server for HttpGuardServer {
         let pinned_host = stream
             .ssl()
             .servername(openssl::ssl::NameType::HOST_NAME)
-            .and_then(|sni| hosts.get(&Host::from_str(sni).ok()?).cloned());
+            .and_then(|sni| hosts.get_matched(&Host::from_str(sni).ok()?).cloned());
         self.spawn_http_task(stream, cc_info, hosts, alpn, pinned_host)
             .await;
     }

@@ -40,7 +40,7 @@ pub(super) async fn transfer(
         }
     };
 
-    let Some(matched) = hosts.get(&host).cloned() else {
+    let Some(matched) = hosts.get_matched(&host).cloned() else {
         reply_err(
             &ctx,
             &mut clt_send_rsp,
@@ -49,9 +49,7 @@ pub(super) async fn transfer(
         return;
     };
 
-    if let Some(pinned) = &ctx.pinned_host
-        && !matched.same_site(pinned.site())
-    {
+    if !matched.same_site(ctx.site_ctx.site()) {
         reply_err(
             &ctx,
             &mut clt_send_rsp,
@@ -60,11 +58,7 @@ pub(super) async fn transfer(
         return;
     }
 
-    let site_ctx = ctx
-        .site_ctx
-        .clone()
-        .expect("h2 connection has pinned site context");
-    let site = Arc::clone(site_ctx.site());
+    let site = Arc::clone(ctx.site_ctx.site());
 
     if clt_req.method().eq(&Method::CONNECT) {
         if let Some(protocol) = clt_req.extensions().get::<Protocol>() {
@@ -74,7 +68,7 @@ pub(super) async fn transfer(
                 reply_status(&ctx, &mut clt_send_rsp, StatusCode::NOT_IMPLEMENTED);
                 return;
             }
-            let task = H2WebsocketTask::new(ctx, site_ctx, site, &clt_req);
+            let task = H2WebsocketTask::new(ctx, site, &clt_req);
             task.run(clt_req, clt_send_rsp).await;
         } else {
             reply_status(&ctx, &mut clt_send_rsp, StatusCode::NOT_IMPLEMENTED);
@@ -82,7 +76,7 @@ pub(super) async fn transfer(
         return;
     }
 
-    let task = H2ForwardTask::new(ctx, site_ctx, site, &clt_req);
+    let task = H2ForwardTask::new(ctx, site, &clt_req);
     task.forward(clt_req, clt_send_rsp).await;
 }
 

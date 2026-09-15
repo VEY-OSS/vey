@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use super::CommonTaskContext;
+use super::H2CommonTaskContext as CommonTaskContext;
 
 mod connection;
 mod error;

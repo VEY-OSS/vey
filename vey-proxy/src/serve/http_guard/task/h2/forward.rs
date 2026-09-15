@@ -29,7 +29,7 @@ use crate::module::http_forward::HttpForwardTaskNotes;
 use crate::module::http_header::ProxyErrorType;
 use crate::serve::http_guard::H2ForwardTaskAliveGuard;
 use crate::serve::{ServerTaskNotes, ServerTaskStage};
-use crate::site::{Site, SiteContext, SiteRequestPermits};
+use crate::site::{Site, SiteRequestPermits};
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct H2ForwardTask {
@@ -57,11 +57,11 @@ impl Drop for H2ForwardTask {
 impl H2ForwardTask {
     pub(crate) fn new(
         ctx: Arc<CommonTaskContext>,
-        site_ctx: SiteContext,
         site: Arc<Site>,
         req: &Request<RecvStream>,
     ) -> Self {
-        let uri_log_max_chars = site_ctx
+        let uri_log_max_chars = ctx
+            .site_ctx
             .log_uri_max_chars()
             .unwrap_or(ctx.server_config.log_uri_max_chars);
         let now = Instant::now();
@@ -73,7 +73,7 @@ impl H2ForwardTask {
             uri_log_max_chars,
         );
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Default::default())
-            .with_site_ctx(site_ctx);
+            .with_site_ctx(ctx.site_ctx.clone());
         let allow_continue = req.expect_100_continue();
         H2ForwardTask {
             ctx,
@@ -167,12 +167,7 @@ impl H2ForwardTask {
             }
             return Err(H2StreamTransferError::InternalServerError("rate limited"));
         }
-        match self
-            .task_notes
-            .site_ctx()
-            .expect("site context")
-            .acquire_request_semaphores()
-        {
+        match self.ctx.site_ctx.acquire_request_semaphores() {
             Ok(permits) => self._site_req_alive_permits = permits,
             Err(_) => {
                 if let Some(rsp) = h2_local_error_response(
@@ -307,9 +302,9 @@ impl H2ForwardTask {
     }
 
     fn rsp_hdr_timeout(&self) -> std::time::Duration {
-        self.task_notes
-            .site_ctx()
-            .and_then(|s| s.rsp_hdr_recv_timeout())
+        self.ctx
+            .site_ctx
+            .rsp_hdr_recv_timeout()
             .unwrap_or(self.ctx.server_config.timeout.recv_rsp_header)
     }
 
