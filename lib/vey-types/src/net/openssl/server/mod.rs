@@ -294,11 +294,11 @@ impl OpensslServerConfigBuilder {
         // ssl_builder.set_mode() // TODO do we need it?
         // ssl_builder.set_options() // TODO do we need it?
 
-        if let Some(protocols) = alpn_protocols {
-            if !protocols.is_empty() {
-                ssl_builder
-                    .set_alpn_select_callback(move |_ssl, client| select_alpn(&protocols, client));
-            }
+        if let Some(protocols) = alpn_protocols
+            && !protocols.is_empty()
+        {
+            ssl_builder
+                .set_alpn_select_callback(move |_ssl, client| select_alpn(&protocols, client));
         }
 
         let ssl_acceptor = ssl_builder.build();

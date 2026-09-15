@@ -164,7 +164,7 @@ where
         }
     }
 
-    async fn run(&mut self, mut req: HttpGuardRequest<CDR>, site_ctx: SiteContext) -> LoopAction {
+    async fn run(&mut self, req: HttpGuardRequest<CDR>, site_ctx: SiteContext) -> LoopAction {
         let Some(mut stream_w) = self.stream_writer.take() else {
             unreachable!()
         };
@@ -175,18 +175,8 @@ where
 
         match req.inner.upgrade_token() {
             Some(HttpUpgradeToken::Websocket) => {
-                let Some(mut stream_r) = req.body_reader.take() else {
-                    unreachable!()
-                };
-                let mut ws_task =
-                    HttpGuardWebsocketTask::new(&self.ctx, &req, site_ctx, task_notes);
-                let connected = ws_task
-                    .connect_to_origin(&req.inner, &mut stream_r, &mut stream_w)
+                self.run_websocket(stream_w, req, site_ctx, task_notes)
                     .await;
-                let _ = req.stream_sender.try_send(None);
-                if let Some((ups_c, rsp)) = connected {
-                    ws_task.into_running(stream_r, stream_w, ups_c, rsp).await;
-                }
                 LoopAction::Break
             }
             Some(_) => {
@@ -227,6 +217,26 @@ where
         let limit_config = &self.ctx.server_config.tcp_sock_speed_limit;
         stream_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
         self.stream_writer = Some(stream_w);
+    }
+
+    async fn run_websocket(
+        &mut self,
+        mut clt_w: HttpClientWriter<CDW>,
+        mut req: HttpGuardRequest<CDR>,
+        site_ctx: SiteContext,
+        task_notes: ServerTaskNotes,
+    ) {
+        let Some(mut clt_r) = req.body_reader.take() else {
+            unreachable!()
+        };
+        let mut ws_task = HttpGuardWebsocketTask::new(&self.ctx, &req, site_ctx, task_notes);
+        let connected = ws_task
+            .connect_to_origin(&req.inner, &mut clt_r, &mut clt_w)
+            .await;
+        let _ = req.stream_sender.try_send(None);
+        if let Some((ups_c, rsp)) = connected {
+            ws_task.into_running(clt_r, clt_w, ups_c, rsp).await;
+        }
     }
 
     async fn run_forward(

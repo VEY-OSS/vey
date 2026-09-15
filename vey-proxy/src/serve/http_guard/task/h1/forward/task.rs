@@ -1391,14 +1391,12 @@ impl<'a> HttpGuardForwardTask<'a> {
                     if ups_to_clt.is_idle() {
                         idle_count += n;
 
-                        if let Some(user) = self.task_notes.tenant_user() {
-                            if user.is_blocked() {
-                                if ups_to_clt.copied_size() < header_len {
-                                    let _ = ups_to_clt.write_flush().await; // flush rsp header to client
-                                }
-                                record_progress!();
-                                return Err(ServerTaskError::CanceledAsUserBlocked);
+                        if let Some(user) = self.task_notes.tenant_user() && user.is_blocked() {
+                            if ups_to_clt.copied_size() < header_len {
+                                let _ = ups_to_clt.write_flush().await; // flush rsp header to client
                             }
+                            record_progress!();
+                            return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
 
                         if idle_count >= self.max_idle_count {

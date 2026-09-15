@@ -477,7 +477,7 @@ impl HttpGuardWebsocketTask {
             HttpForwardRemoteResponse::parse(
                 &mut ups_r,
                 &req.method,
-                req.keep_alive(),
+                false,
                 self.ctx.server_config.rsp_hdr_max_size,
             ),
         )
