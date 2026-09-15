@@ -4,7 +4,7 @@
  */
 
 use super::{
-    CommonTaskContext, HttpGuardForwardTask, HttpGuardServerStats, HttpGuardWebsocketTask, protocol,
+    H1TaskContext, HttpGuardForwardTask, HttpGuardServerStats, HttpGuardWebsocketTask, protocol,
 };
 
 mod reader;

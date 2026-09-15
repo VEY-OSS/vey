@@ -6,7 +6,7 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
-use http::{Response, StatusCode, Version};
+use http::StatusCode;
 use thiserror::Error;
 
 use vey_h2::H2StreamBodyTransferError;
@@ -14,8 +14,7 @@ use vey_icap_client::reqmod::h2::H2ReqmodAdaptationError;
 use vey_icap_client::respmod::h2::H2RespmodAdaptationError;
 use vey_io_ext::IdleForceQuitReason;
 
-use crate::config::server::http_guard::HttpGuardServerConfig;
-use crate::module::http_header::{self, ProxyErrorType};
+use crate::module::http_header::ProxyErrorType;
 
 #[derive(Debug, Error)]
 pub(crate) enum H2StreamTransferError {
@@ -23,10 +22,6 @@ pub(crate) enum H2StreamTransferError {
     InternalServerError(&'static str),
     #[error("internal adapter error: {0}")]
     InternalAdapterError(anyhow::Error),
-    #[error("no matching site for Host")]
-    SiteNotFound,
-    #[error("Host does not match TLS SNI site")]
-    MisdirectedRequest,
     #[error("failed to open origin connection: {0}")]
     OriginConnectFailed(anyhow::Error),
     #[error("failed to open upstream stream: {0}")]
@@ -35,10 +30,6 @@ pub(crate) enum H2StreamTransferError {
     UpstreamStreamOpenTimeout,
     #[error("failed to send request head: {0}")]
     RequestHeadSendFailed(h2::Error),
-    #[error("invalid Host header")]
-    InvalidHostHeader,
-    #[error("Host does not match :authority")]
-    UnmatchedHostAndAuthority,
     #[error("failed to recv response head: {0}")]
     ResponseHeadRecvFailed(h2::Error),
     #[error("timeout to recv response head")]
@@ -64,16 +55,6 @@ pub(crate) enum H2StreamTransferError {
 impl H2StreamTransferError {
     pub(super) fn status_and_error(&self) -> Option<(StatusCode, ProxyErrorType)> {
         match self {
-            H2StreamTransferError::InvalidHostHeader | H2StreamTransferError::SiteNotFound => {
-                Some((StatusCode::BAD_REQUEST, ProxyErrorType::HttpRequestError))
-            }
-            H2StreamTransferError::UnmatchedHostAndAuthority => {
-                Some((StatusCode::CONFLICT, ProxyErrorType::HttpRequestError))
-            }
-            H2StreamTransferError::MisdirectedRequest => Some((
-                StatusCode::MISDIRECTED_REQUEST,
-                ProxyErrorType::HttpRequestError,
-            )),
             H2StreamTransferError::OriginConnectFailed(_) => Some((
                 StatusCode::BAD_GATEWAY,
                 ProxyErrorType::ConnectionTerminated,
@@ -99,34 +80,6 @@ impl H2StreamTransferError {
             _ => None,
         }
     }
-}
-
-pub(super) fn h2_local_error_response(
-    config: &HttpGuardServerConfig,
-    status: StatusCode,
-    error: ProxyErrorType,
-) -> Option<Response<()>> {
-    if config.no_proxy_status {
-        return Response::builder()
-            .status(status)
-            .version(Version::HTTP_2)
-            .body(())
-            .ok();
-    }
-    let ident = config
-        .server_id
-        .as_ref()
-        .map(|s| s.as_str())
-        .unwrap_or(http_header::DEFAULT_PROXY_STATUS_IDENT);
-    Response::builder()
-        .status(status)
-        .version(Version::HTTP_2)
-        .header(
-            "proxy-status",
-            http_header::proxy_status_value(ident, error),
-        )
-        .body(())
-        .ok()
 }
 
 impl From<H2ReqmodAdaptationError> for H2StreamTransferError {

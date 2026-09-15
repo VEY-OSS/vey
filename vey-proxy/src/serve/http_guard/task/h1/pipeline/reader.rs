@@ -14,13 +14,13 @@ use vey_types::net::{HttpForwardedHeaderType, HttpForwardedHeaderValue};
 
 use super::protocol::{HttpClientReader, HttpGuardRequest};
 use super::{
-    CommonTaskContext, HttpGuardCltWrapperStats, HttpGuardPipelineStats, HttpGuardPipelineTaskGuard,
+    H1TaskContext, HttpGuardCltWrapperStats, HttpGuardPipelineStats, HttpGuardPipelineTaskGuard,
 };
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::ServerStats;
 
 pub(crate) struct HttpGuardPipelineReaderTask<CDR> {
-    ctx: Arc<CommonTaskContext>,
+    ctx: Arc<H1TaskContext>,
     task_queue: mpsc::Sender<
         Result<(HttpGuardRequest<CDR>, HttpGuardPipelineTaskGuard), HttpProxyClientResponse>,
     >,
@@ -33,7 +33,7 @@ where
     CDR: AsyncRead + Send + Unpin + 'static,
 {
     pub(crate) fn new(
-        ctx: &Arc<CommonTaskContext>,
+        ctx: &Arc<H1TaskContext>,
         task_sender: mpsc::Sender<
             Result<(HttpGuardRequest<CDR>, HttpGuardPipelineTaskGuard), HttpProxyClientResponse>,
         >,

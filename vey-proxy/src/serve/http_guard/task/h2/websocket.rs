@@ -8,7 +8,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
-use h2::{Reason, RecvStream, SendStream};
+use h2::{Reason, RecvStream, SendStream, StreamId};
 use http::{Request, Response, StatusCode, Version};
 
 use vey_h2::{H2BodyTransfer, H2ResponseHeaderReceiver};
@@ -18,21 +18,21 @@ use vey_icap_client::reqmod::h2::{
 };
 use vey_types::acl::AclAction;
 
-use super::CommonTaskContext;
-use super::error::{H2StreamTransferError, h2_local_error_response};
-use super::origin::OriginH2Checkout;
+use super::H2TaskContext;
+use super::error::H2StreamTransferError;
 use crate::escape::EgressNotes;
 use crate::log::task::websocket::TaskLogForWebSocket;
 use crate::module::http_header::ProxyErrorType;
 use crate::module::websocket::{WebSocketTaskNotes, WebSocketTaskStats};
 use crate::serve::http_guard::H2ForwardTaskAliveGuard;
 use crate::serve::{ServerTaskNotes, ServerTaskStage};
-use crate::site::{Site, SiteRequestPermits};
+use crate::site::SiteRequestPermits;
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct H2WebsocketTask {
-    ctx: Arc<CommonTaskContext>,
-    site: Arc<Site>,
+    ctx: Arc<H2TaskContext>,
+    clt_stream_id: StreamId,
+    ups_stream_id: Option<StreamId>,
     task_notes: ServerTaskNotes,
     ws_notes: WebSocketTaskNotes,
     egress_notes: EgressNotes,
@@ -54,8 +54,8 @@ impl Drop for H2WebsocketTask {
 
 impl H2WebsocketTask {
     pub(crate) fn new(
-        ctx: Arc<CommonTaskContext>,
-        site: Arc<Site>,
+        ctx: Arc<H2TaskContext>,
+        clt_stream_id: StreamId,
         req: &Request<RecvStream>,
     ) -> Self {
         let uri_log_max_chars = ctx
@@ -67,7 +67,8 @@ impl H2WebsocketTask {
             .with_site_ctx(ctx.site_ctx.clone());
         H2WebsocketTask {
             ctx,
-            site,
+            clt_stream_id,
+            ups_stream_id: None,
             task_notes,
             ws_notes,
             egress_notes: EgressNotes::default(),
@@ -85,7 +86,7 @@ impl H2WebsocketTask {
             .as_ref()
             .map(|logger| TaskLogForWebSocket {
                 logger,
-                upstream: self.site.upstream(),
+                upstream: self.ctx.site_ctx.site().upstream(),
                 task_notes: &self.task_notes,
                 ws_notes: &self.ws_notes,
                 egress_notes: &self.egress_notes,
@@ -93,6 +94,8 @@ impl H2WebsocketTask {
                 client_wr_bytes: self.task_stats.clt.write.get_bytes(),
                 remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
                 remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
+                clt_stream_id: Some(&self.clt_stream_id),
+                ups_stream_id: self.ups_stream_id.as_ref(),
             })
     }
 
@@ -117,13 +120,7 @@ impl H2WebsocketTask {
                 }
             }
             Err(e) => {
-                if self.send_error_response
-                    && let Some((status, error)) = e.status_and_error()
-                    && let Some(rsp) =
-                        h2_local_error_response(&self.ctx.server_config, status, error)
-                {
-                    let _ = clt_send_rsp.send_response(rsp, true);
-                }
+                self.reply_task_err(&mut clt_send_rsp, &e);
                 if let Some(log) = self.log_ctx() {
                     log.log_h2(&e.to_string());
                 }
@@ -149,7 +146,7 @@ impl H2WebsocketTask {
         }
 
         if let Some(tenant) = self.task_notes.tenant_ctx() {
-            match tenant.check_upstream(self.site.upstream()) {
+            match tenant.check_upstream(self.ctx.site_ctx.site().upstream()) {
                 AclAction::Permit | AclAction::PermitAndLog => {}
                 AclAction::Forbid | AclAction::ForbidAndLog => {
                     self.reply_denied(clt_send_rsp, StatusCode::FORBIDDEN);
@@ -158,7 +155,7 @@ impl H2WebsocketTask {
             }
         }
 
-        let origin = self.checkout_or_connect().await?;
+        let origin = self.ctx.checkout_or_connect(&self.task_notes).await?;
         self.egress_notes = origin.egress_notes;
         self.task_notes.stage = ServerTaskStage::Connected;
         if self.ctx.server_config.flush_task_log_on_connected
@@ -247,14 +244,33 @@ impl H2WebsocketTask {
             .await
     }
 
+    fn reply_local_error(
+        &mut self,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        status: StatusCode,
+        error: ProxyErrorType,
+    ) {
+        if let Some(status) = self.ctx.reply_local_error(clt_send_rsp, status, error) {
+            self.ws_notes.rsp_status = status;
+            self.send_error_response = false;
+        }
+    }
+
+    fn reply_task_err(
+        &mut self,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        e: &H2StreamTransferError,
+    ) {
+        if self.send_error_response
+            && let Some((status, error)) = e.status_and_error()
+        {
+            self.reply_local_error(clt_send_rsp, status, error);
+        }
+    }
+
     fn reply_denied(&mut self, clt_send_rsp: &mut SendResponse<Bytes>, status: StatusCode) {
-        if let Some(rsp) = h2_local_error_response(
-            &self.ctx.server_config,
-            status,
-            ProxyErrorType::HttpRequestDenied,
-        ) {
-            let _ = clt_send_rsp.send_response(rsp, true);
-            self.ws_notes.rsp_status = status.as_u16();
+        if self.send_error_response {
+            self.reply_local_error(clt_send_rsp, status, ProxyErrorType::HttpRequestDenied);
         }
     }
 
@@ -330,6 +346,7 @@ impl H2WebsocketTask {
         let (ups_response_fut, ups_w) = ups_send_req
             .send_request(ups_req, false)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
+        self.ups_stream_id = Some(ups_response_fut.stream_id());
 
         let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_response_fut);
         let rsp = tokio::time::timeout(
@@ -466,20 +483,6 @@ impl H2WebsocketTask {
                 }
             }
         }
-    }
-}
-
-impl OriginH2Checkout for H2WebsocketTask {
-    fn ctx(&self) -> &CommonTaskContext {
-        &self.ctx
-    }
-
-    fn site(&self) -> &Site {
-        &self.site
-    }
-
-    fn task_notes(&self) -> &ServerTaskNotes {
-        &self.task_notes
     }
 }
 

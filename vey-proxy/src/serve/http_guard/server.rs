@@ -42,7 +42,7 @@ use vey_types::net::{
 use vey_types::route::HostMatch;
 
 use super::task::{
-    CommonTaskContext, H1CommonTaskContext, H2CommonTaskContext, HttpGuardH2ConnectionTask,
+    CommonTaskContext, H1TaskContext, H2TaskContext, HttpGuardH2ConnectionTask,
     HttpGuardPipelineReaderTask, HttpGuardPipelineStats, HttpGuardPipelineWriterTask,
 };
 use super::{HttpGuardServerStats, HttpHost};
@@ -226,7 +226,7 @@ impl HttpGuardServer {
         &self,
         cc_info: ClientConnectionInfo,
         pinned_host: Option<Arc<HttpHost>>,
-    ) -> Arc<H1CommonTaskContext> {
+    ) -> Arc<H1TaskContext> {
         let site_ctx = pinned_host.as_ref().map(|host| {
             SiteContext::new(
                 Arc::clone(host.site()),
@@ -235,7 +235,7 @@ impl HttpGuardServer {
                 self.server_stats.share_extra_tags(),
             )
         });
-        Arc::new(H1CommonTaskContext {
+        Arc::new(H1TaskContext {
             common: self.common_task_context(cc_info),
             pinned_host,
             site_ctx,
@@ -246,14 +246,14 @@ impl HttpGuardServer {
         &self,
         cc_info: ClientConnectionInfo,
         pinned_host: Arc<HttpHost>,
-    ) -> Arc<H2CommonTaskContext> {
+    ) -> Arc<H2TaskContext> {
         let site_ctx = SiteContext::new(
             Arc::clone(pinned_host.site()),
             Arc::clone(pinned_host.egress()),
             self.config.name(),
             self.server_stats.share_extra_tags(),
         );
-        Arc::new(H2CommonTaskContext {
+        Arc::new(H2TaskContext {
             common: self.common_task_context(cc_info),
             site_ctx,
         })

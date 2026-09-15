@@ -7,12 +7,12 @@ use super::HttpGuardServerStats;
 use crate::config::server::http_guard::HttpGuardServerConfig;
 
 mod common;
-pub(super) use common::{CommonTaskContext, H1CommonTaskContext, H2CommonTaskContext};
+pub(super) use common::CommonTaskContext;
 
 mod h1;
 pub(super) use h1::{
-    HttpGuardPipelineReaderTask, HttpGuardPipelineStats, HttpGuardPipelineWriterTask,
+    H1TaskContext, HttpGuardPipelineReaderTask, HttpGuardPipelineStats, HttpGuardPipelineWriterTask,
 };
 
 mod h2;
-pub(super) use h2::HttpGuardH2ConnectionTask;
+pub(super) use h2::{H2TaskContext, HttpGuardH2ConnectionTask};

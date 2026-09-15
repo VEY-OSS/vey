@@ -23,7 +23,7 @@ use vey_io_ext::{
 use vey_types::acl::AclAction;
 use vey_types::net::TcpSockSpeedLimitConfig;
 
-use super::CommonTaskContext;
+use super::H1TaskContext;
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpGuardRequest};
 use crate::audit::AuditContext;
 use crate::auth::User;
@@ -50,7 +50,7 @@ use super::stats::WebSocketTaskCltWrapperStats;
 mod adaptation;
 
 pub(crate) struct HttpGuardWebsocketTask {
-    ctx: Arc<CommonTaskContext>,
+    ctx: Arc<H1TaskContext>,
     site: Arc<Site>,
     task_notes: ServerTaskNotes,
     ws_notes: WebSocketTaskNotes,
@@ -75,7 +75,7 @@ impl Drop for HttpGuardWebsocketTask {
 
 impl HttpGuardWebsocketTask {
     pub(crate) fn new(
-        ctx: &Arc<CommonTaskContext>,
+        ctx: &Arc<H1TaskContext>,
         req: &HttpGuardRequest<impl AsyncRead>,
         site: Arc<Site>,
         task_notes: ServerTaskNotes,
@@ -168,6 +168,8 @@ impl HttpGuardWebsocketTask {
             client_wr_bytes: self.task_stats.clt.write.get_bytes(),
             remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
             remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
+            clt_stream_id: None,
+            ups_stream_id: None,
         })
     }
 

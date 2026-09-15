@@ -4,7 +4,6 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
-use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -21,9 +20,7 @@ use crate::audit::AuditHandle;
 use crate::escape::{ArcEscaper, EgressNotes};
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::module::http_header;
-use crate::serve::http_guard::HttpHost;
 use crate::serve::{ServerIdleChecker, ServerQuitPolicy, ServerTaskNotes};
-use crate::site::SiteContext;
 
 #[derive(Clone)]
 pub(crate) struct CommonTaskContext {
@@ -35,35 +32,6 @@ pub(crate) struct CommonTaskContext {
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) task_logger: Option<Logger>,
     pub(crate) audit_handle: Option<Arc<AuditHandle>>,
-}
-
-#[derive(Clone)]
-pub(crate) struct H1CommonTaskContext {
-    pub(crate) common: CommonTaskContext,
-    pub(crate) pinned_host: Option<Arc<HttpHost>>,
-    pub(crate) site_ctx: Option<SiteContext>,
-}
-
-#[derive(Clone)]
-pub(crate) struct H2CommonTaskContext {
-    pub(crate) common: CommonTaskContext,
-    pub(crate) site_ctx: SiteContext,
-}
-
-impl Deref for H1CommonTaskContext {
-    type Target = CommonTaskContext;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
-}
-
-impl Deref for H2CommonTaskContext {
-    type Target = CommonTaskContext;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
 }
 
 impl CommonTaskContext {

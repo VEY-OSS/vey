@@ -14,7 +14,7 @@ use vey_types::route::HostMatch;
 
 use super::protocol::{HttpClientWriter, HttpGuardRequest};
 use super::{
-    CommonTaskContext, HttpGuardCltWrapperStats, HttpGuardForwardTask, HttpGuardPipelineTaskGuard,
+    H1TaskContext, HttpGuardCltWrapperStats, HttpGuardForwardTask, HttpGuardPipelineTaskGuard,
     HttpGuardWebsocketTask,
 };
 use crate::config::server::ServerConfig;
@@ -24,7 +24,7 @@ use crate::serve::{ServerStats, ServerTaskNotes};
 use crate::site::{Site, SiteContext, SiteHttpConnGuard};
 
 pub(crate) struct HttpGuardPipelineWriterTask<CDR, CDW> {
-    ctx: Arc<CommonTaskContext>,
+    ctx: Arc<H1TaskContext>,
     task_queue: mpsc::Receiver<
         Result<(HttpGuardRequest<CDR>, HttpGuardPipelineTaskGuard), HttpProxyClientResponse>,
     >,
@@ -45,7 +45,7 @@ where
     CDW: AsyncWrite + Send + Sync + Unpin + 'static,
 {
     pub(crate) fn new(
-        ctx: &Arc<CommonTaskContext>,
+        ctx: &Arc<H1TaskContext>,
         task_receiver: mpsc::Receiver<
             Result<(HttpGuardRequest<CDR>, HttpGuardPipelineTaskGuard), HttpProxyClientResponse>,
         >,

@@ -24,7 +24,7 @@ use vey_types::acl::AclAction;
 use vey_types::net::{HttpKeepAliveConfig, KeepAliveValue, TcpSockSpeedLimitConfig};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpGuardRequest};
-use super::{CommonTaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats};
+use super::{H1TaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats};
 use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::escape::EgressNotes;
@@ -46,7 +46,7 @@ use crate::stat::types::RequestAliveKind;
 mod adaptation;
 
 pub(crate) struct HttpGuardForwardTask<'a> {
-    ctx: Arc<CommonTaskContext>,
+    ctx: Arc<H1TaskContext>,
     site: Arc<Site>,
     req: &'a HttpProxyClientRequest,
     origin_tls: bool,
@@ -78,7 +78,7 @@ impl Drop for HttpGuardForwardTask<'_> {
 
 impl<'a> HttpGuardForwardTask<'a> {
     pub(crate) fn new(
-        ctx: &Arc<CommonTaskContext>,
+        ctx: &Arc<H1TaskContext>,
         req: &'a HttpGuardRequest<impl AsyncRead>,
         site: Arc<Site>,
         task_notes: ServerTaskNotes,

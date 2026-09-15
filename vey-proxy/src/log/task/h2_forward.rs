@@ -4,9 +4,11 @@
  */
 
 use slog::Logger;
+use h2::StreamId;
 
 use vey_slog_types::{
-    LtDateTime, LtDuration, LtHttpMethod, LtHttpUri, LtIpAddr, LtUpstreamAddr, LtUserName, LtUuid,
+    LtDateTime, LtDuration, LtH2StreamId, LtHttpMethod, LtHttpUri, LtIpAddr, LtUpstreamAddr,
+    LtUserName, LtUuid,
 };
 use vey_types::net::UpstreamAddr;
 
@@ -21,6 +23,8 @@ pub(crate) struct TaskLogForH2Forward<'a> {
     pub(crate) task_notes: &'a ServerTaskNotes,
     pub(crate) http_notes: &'a HttpForwardTaskNotes,
     pub(crate) egress_notes: &'a EgressNotes,
+    pub(crate) clt_stream_id: &'a StreamId,
+    pub(crate) ups_stream_id: Option<&'a StreamId>,
 }
 
 impl TaskLogForH2Forward<'_> {
@@ -34,6 +38,8 @@ impl TaskLogForH2Forward<'_> {
             "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
+            "clt_stream" => LtH2StreamId(self.clt_stream_id),
+            "ups_stream" => self.ups_stream_id.map(LtH2StreamId),
             "upstream" => LtUpstreamAddr(self.upstream),
             "method" => LtHttpMethod(&self.http_notes.method),
             "uri" => LtHttpUri::new(&self.http_notes.uri, self.http_notes.uri_log_max_chars),
@@ -51,6 +57,8 @@ impl TaskLogForH2Forward<'_> {
             "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
+            "clt_stream" => LtH2StreamId(self.clt_stream_id),
+            "ups_stream" => self.ups_stream_id.map(LtH2StreamId),
             "upstream" => LtUpstreamAddr(self.upstream),
             "escaper" => self.egress_notes.escaper.as_str(),
             "next_bind_ip" => self.egress_notes.bind.ip().map(LtIpAddr),

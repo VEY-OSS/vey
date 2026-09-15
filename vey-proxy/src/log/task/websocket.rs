@@ -5,8 +5,10 @@
 
 use slog::Logger;
 
+use h2::StreamId;
 use vey_slog_types::{
-    LtDateTime, LtDuration, LtHttpUri, LtHttpVersion, LtIpAddr, LtUpstreamAddr, LtUserName, LtUuid,
+    LtDateTime, LtDuration, LtH2StreamId, LtHttpUri, LtHttpVersion, LtIpAddr, LtUpstreamAddr,
+    LtUserName, LtUuid,
 };
 use vey_types::net::UpstreamAddr;
 
@@ -27,6 +29,8 @@ pub(crate) struct TaskLogForWebSocket<'a> {
     pub(crate) client_wr_bytes: u64,
     pub(crate) remote_rd_bytes: u64,
     pub(crate) remote_wr_bytes: u64,
+    pub(crate) clt_stream_id: Option<&'a StreamId>,
+    pub(crate) ups_stream_id: Option<&'a StreamId>,
 }
 
 impl TaskLogForWebSocket<'_> {
@@ -50,6 +54,8 @@ impl TaskLogForWebSocket<'_> {
             "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
+            "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
+            "ups_stream" => self.ups_stream_id.map(LtH2StreamId),
             "upstream" => LtUpstreamAddr(self.upstream),
             "version" => LtHttpVersion(self.ws_notes.version),
             "uri" => LtHttpUri::new(&self.ws_notes.uri, self.ws_notes.uri_log_max_chars),
@@ -71,6 +77,8 @@ impl TaskLogForWebSocket<'_> {
             "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
+            "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
+            "ups_stream" => self.ups_stream_id.map(LtH2StreamId),
             "upstream" => LtUpstreamAddr(self.upstream),
             "escaper" => self.egress_notes.escaper.as_str(),
             "next_bind_ip" => self.egress_notes.bind.ip().map(LtIpAddr),
@@ -100,6 +108,8 @@ impl TaskLogForWebSocket<'_> {
             "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
+            "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
+            "ups_stream" => self.ups_stream_id.map(LtH2StreamId),
             "upstream" => LtUpstreamAddr(self.upstream),
             "escaper" => self.egress_notes.escaper.as_str(),
             "next_bind_ip" => self.egress_notes.bind.ip().map(LtIpAddr),
@@ -132,6 +142,8 @@ impl TaskLogForWebSocket<'_> {
             "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
+            "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
+            "ups_stream" => self.ups_stream_id.map(LtH2StreamId),
             "upstream" => LtUpstreamAddr(self.upstream),
             "escaper" => self.egress_notes.escaper.as_str(),
             "next_bound_addr" => self.egress_notes.tcp.local,
@@ -173,6 +185,8 @@ impl TaskLogForWebSocket<'_> {
             "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
+            "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
+            "ups_stream" => self.ups_stream_id.map(LtH2StreamId),
             "upstream" => LtUpstreamAddr(self.upstream),
             "escaper" => self.egress_notes.escaper.as_str(),
             "next_bind_ip" => self.egress_notes.bind.ip().map(LtIpAddr),
@@ -210,6 +224,8 @@ impl TaskLogForWebSocket<'_> {
             "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
+            "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
+            "ups_stream" => self.ups_stream_id.map(LtH2StreamId),
             "upstream" => LtUpstreamAddr(self.upstream),
             "escaper" => self.egress_notes.escaper.as_str(),
             "next_bind_ip" => self.egress_notes.bind.ip().map(LtIpAddr),

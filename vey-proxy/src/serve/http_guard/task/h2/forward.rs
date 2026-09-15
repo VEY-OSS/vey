@@ -8,7 +8,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
-use h2::{Reason, RecvStream};
+use h2::{Reason, RecvStream, StreamId};
 use http::{HeaderMap, Request, Response, StatusCode, Version, header};
 use tokio::time::Instant;
 
@@ -20,21 +20,21 @@ use vey_icap_client::reqmod::h2::{
 use vey_icap_client::respmod::h2::{RespmodAdaptationEndState, RespmodAdaptationRunState};
 use vey_types::acl::AclAction;
 
-use super::CommonTaskContext;
-use super::error::{H2StreamTransferError, h2_local_error_response};
-use super::origin::OriginH2Checkout;
+use super::H2TaskContext;
+use super::error::H2StreamTransferError;
 use crate::escape::EgressNotes;
 use crate::log::task::h2_forward::TaskLogForH2Forward;
 use crate::module::http_forward::HttpForwardTaskNotes;
 use crate::module::http_header::ProxyErrorType;
 use crate::serve::http_guard::H2ForwardTaskAliveGuard;
 use crate::serve::{ServerTaskNotes, ServerTaskStage};
-use crate::site::{Site, SiteRequestPermits};
+use crate::site::SiteRequestPermits;
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct H2ForwardTask {
-    ctx: Arc<CommonTaskContext>,
-    site: Arc<Site>,
+    ctx: Arc<H2TaskContext>,
+    clt_stream_id: StreamId,
+    ups_stream_id: Option<StreamId>,
     task_notes: ServerTaskNotes,
     http_notes: HttpForwardTaskNotes,
     egress_notes: EgressNotes,
@@ -56,8 +56,8 @@ impl Drop for H2ForwardTask {
 
 impl H2ForwardTask {
     pub(crate) fn new(
-        ctx: Arc<CommonTaskContext>,
-        site: Arc<Site>,
+        ctx: Arc<H2TaskContext>,
+        clt_stream_id: StreamId,
         req: &Request<RecvStream>,
     ) -> Self {
         let uri_log_max_chars = ctx
@@ -77,7 +77,8 @@ impl H2ForwardTask {
         let allow_continue = req.expect_100_continue();
         H2ForwardTask {
             ctx,
-            site,
+            clt_stream_id,
+            ups_stream_id: None,
             task_notes,
             http_notes,
             egress_notes: EgressNotes::default(),
@@ -95,10 +96,12 @@ impl H2ForwardTask {
             .as_ref()
             .map(|logger| TaskLogForH2Forward {
                 logger,
-                upstream: self.site.upstream(),
+                upstream: self.ctx.site_ctx.site().upstream(),
                 task_notes: &self.task_notes,
                 http_notes: &self.http_notes,
                 egress_notes: &self.egress_notes,
+                clt_stream_id: &self.clt_stream_id,
+                ups_stream_id: self.ups_stream_id.as_ref(),
             })
     }
 
@@ -109,9 +112,7 @@ impl H2ForwardTask {
     ) {
         self.pre_start();
         if let Err(e) = self.do_forward(clt_req, &mut clt_send_rsp).await {
-            if self.send_error_response {
-                self.reply_err(&mut clt_send_rsp, &e);
-            }
+            self.reply_task_err(&mut clt_send_rsp, &e);
             if let Some(log) = self.log_ctx() {
                 log.log(&e.to_string());
             }
@@ -134,14 +135,33 @@ impl H2ForwardTask {
         self.started = true;
     }
 
-    fn reply_err(&mut self, clt_send_rsp: &mut SendResponse<Bytes>, e: &H2StreamTransferError) {
-        if let Some((status, error)) = e.status_and_error()
-            && let Some(rsp) = h2_local_error_response(&self.ctx.server_config, status, error)
+    fn reply_local_error(
+        &mut self,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        status: StatusCode,
+        error: ProxyErrorType,
+    ) {
+        if let Some(rsp_status) = self.ctx.reply_local_error(clt_send_rsp, status, error) {
+            self.http_notes.rsp_status = rsp_status;
+            self.send_error_response = false;
+        }
+    }
+
+    fn reply_task_err(
+        &mut self,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        e: &H2StreamTransferError,
+    ) {
+        if self.send_error_response
+            && let Some((status, error)) = e.status_and_error()
         {
-            let rsp_status = rsp.status().as_u16();
-            if clt_send_rsp.send_response(rsp, true).is_ok() {
-                self.http_notes.rsp_status = rsp_status;
-            }
+            self.reply_local_error(clt_send_rsp, status, error);
+        }
+    }
+
+    fn reply_denied(&mut self, clt_send_rsp: &mut SendResponse<Bytes>, status: StatusCode) {
+        if self.send_error_response {
+            self.reply_local_error(clt_send_rsp, status, ProxyErrorType::HttpRequestDenied);
         }
     }
 
@@ -157,43 +177,22 @@ impl H2ForwardTask {
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
         if self.task_notes.check_layered_rate_limit().is_err() {
-            if let Some(rsp) = h2_local_error_response(
-                &self.ctx.server_config,
-                StatusCode::TOO_MANY_REQUESTS,
-                ProxyErrorType::HttpRequestDenied,
-            ) {
-                let _ = clt_send_rsp.send_response(rsp, true);
-                self.http_notes.rsp_status = StatusCode::TOO_MANY_REQUESTS.as_u16();
-            }
+            self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
             return Err(H2StreamTransferError::InternalServerError("rate limited"));
         }
         match self.ctx.site_ctx.acquire_request_semaphores() {
             Ok(permits) => self._site_req_alive_permits = permits,
             Err(_) => {
-                if let Some(rsp) = h2_local_error_response(
-                    &self.ctx.server_config,
-                    StatusCode::TOO_MANY_REQUESTS,
-                    ProxyErrorType::HttpRequestDenied,
-                ) {
-                    let _ = clt_send_rsp.send_response(rsp, true);
-                    self.http_notes.rsp_status = StatusCode::TOO_MANY_REQUESTS.as_u16();
-                }
+                self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
                 return Err(H2StreamTransferError::InternalServerError("fully loaded"));
             }
         }
 
         if let Some(tenant) = self.task_notes.tenant_ctx() {
-            match tenant.check_upstream(self.site.upstream()) {
+            match tenant.check_upstream(self.ctx.site_ctx.site().upstream()) {
                 AclAction::Permit | AclAction::PermitAndLog => {}
                 AclAction::Forbid | AclAction::ForbidAndLog => {
-                    if let Some(rsp) = h2_local_error_response(
-                        &self.ctx.server_config,
-                        StatusCode::FORBIDDEN,
-                        ProxyErrorType::HttpRequestDenied,
-                    ) {
-                        let _ = clt_send_rsp.send_response(rsp, true);
-                        self.http_notes.rsp_status = StatusCode::FORBIDDEN.as_u16();
-                    }
+                    self.reply_denied(clt_send_rsp, StatusCode::FORBIDDEN);
                     return Err(H2StreamTransferError::InternalServerError("dest denied"));
                 }
             }
@@ -205,19 +204,12 @@ impl H2ForwardTask {
                     .filter_map(|v| v.to_str().ok()),
             ) && matches!(action, AclAction::Forbid | AclAction::ForbidAndLog)
             {
-                if let Some(rsp) = h2_local_error_response(
-                    &self.ctx.server_config,
-                    StatusCode::FORBIDDEN,
-                    ProxyErrorType::HttpRequestDenied,
-                ) {
-                    let _ = clt_send_rsp.send_response(rsp, true);
-                    self.http_notes.rsp_status = StatusCode::FORBIDDEN.as_u16();
-                }
+                self.reply_denied(clt_send_rsp, StatusCode::FORBIDDEN);
                 return Err(H2StreamTransferError::InternalServerError("ua denied"));
             }
         }
 
-        let origin = self.checkout_or_connect().await?;
+        let origin = self.ctx.checkout_or_connect(&self.task_notes).await?;
         self.http_notes.reused_connection = origin.reused;
         self.egress_notes = origin.egress_notes;
         self.task_notes.stage = ServerTaskStage::Connected;
@@ -396,6 +388,7 @@ impl H2ForwardTask {
         let (ups_rsp_fut, ups_send_stream) = ups_send_req
             .send_request(ups_req, end_stream)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
+        self.ups_stream_id = Some(ups_rsp_fut.stream_id());
         self.http_notes.mark_req_send_hdr();
         if end_stream {
             self.http_notes.mark_req_no_body();
@@ -649,19 +642,5 @@ impl H2ForwardTask {
                 }
             }
         }
-    }
-}
-
-impl OriginH2Checkout for H2ForwardTask {
-    fn ctx(&self) -> &CommonTaskContext {
-        &self.ctx
-    }
-
-    fn site(&self) -> &Site {
-        &self.site
-    }
-
-    fn task_notes(&self) -> &ServerTaskNotes {
-        &self.task_notes
     }
 }

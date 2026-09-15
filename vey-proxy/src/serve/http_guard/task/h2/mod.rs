@@ -3,12 +3,12 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use super::H2CommonTaskContext as CommonTaskContext;
+mod context;
+pub(crate) use context::H2TaskContext;
 
 mod connection;
 mod error;
 mod forward;
-mod origin;
 mod ping;
 mod stats;
 mod stream;

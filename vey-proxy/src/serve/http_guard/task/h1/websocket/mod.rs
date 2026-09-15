@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use super::{CommonTaskContext, protocol};
+use super::{H1TaskContext, protocol};
 
 mod stats;
 

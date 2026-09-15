@@ -12,7 +12,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use vey_io_ext::LimitedStream;
 use vey_types::route::HostMatch;
 
-use super::CommonTaskContext;
+use super::H2TaskContext;
 use super::stats::{H2ConcurrencyStats, H2ConnectionCltWrapperStats};
 use super::stream;
 use crate::config::server::ServerConfig;
@@ -20,7 +20,7 @@ use crate::serve::ServerStats;
 use crate::serve::http_guard::HttpHost;
 
 pub(crate) struct HttpGuardH2ConnectionTask<S> {
-    ctx: Arc<CommonTaskContext>,
+    ctx: Arc<H2TaskContext>,
     stream: Option<S>,
     hosts: Arc<HostMatch<Arc<HttpHost>>>,
 }
@@ -30,7 +30,7 @@ where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     pub(crate) fn new(
-        ctx: &Arc<CommonTaskContext>,
+        ctx: &Arc<H2TaskContext>,
         stream: S,
         hosts: Arc<HostMatch<Arc<HttpHost>>>,
     ) -> Self {
