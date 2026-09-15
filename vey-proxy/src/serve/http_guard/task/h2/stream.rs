@@ -84,6 +84,15 @@ pub(super) async fn transfer(
         return;
     }
 
+    if ctx.site_ctx.tenant_user_blocked() {
+        ctx.reply_early_error(
+            &mut clt_send_rsp,
+            StatusCode::FORBIDDEN,
+            ProxyErrorType::HttpRequestDenied,
+        );
+        return;
+    }
+
     if clt_req.method().eq(&Method::CONNECT) {
         if let Some(protocol) = clt_req.extensions().get::<Protocol>() {
             let token = HttpUpgradeToken::from_str(protocol.as_str())

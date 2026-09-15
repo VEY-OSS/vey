@@ -97,10 +97,6 @@ impl StreamInspectSiteContext {
         self.tenant.as_ref().map(|t| t.user_name())
     }
 
-    fn is_blocked(&self) -> bool {
-        self.tenant.as_ref().is_some_and(|t| t.user().is_blocked())
-    }
-
     fn rsp_hdr_recv_timeout(&self) -> Option<Duration> {
         self.rsp_hdr_recv_timeout
     }
@@ -134,15 +130,8 @@ impl StreamInspectTaskNotes {
         self.user_ctx.as_ref().map(|ctx| &ctx.user)
     }
 
-    pub(crate) fn tenant(&self) -> Option<&Arc<User>> {
-        self.site_ctx
-            .as_ref()
-            .and_then(|s| s.tenant_ctx().map(|t| t.user()))
-    }
-
     pub(crate) fn is_blocked(&self) -> bool {
         self.user().is_some_and(|u| u.is_blocked())
-            || self.site_ctx.as_ref().is_some_and(|s| s.is_blocked())
     }
 
     /// Visitor identity for ICAP `X-Client-Username`.
@@ -255,17 +244,8 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         self.task_notes.user().map(|u| u.as_ref())
     }
 
-    #[inline]
-    fn tenant(&self) -> Option<&User> {
-        self.task_notes.tenant().map(|t| t.as_ref())
-    }
-
     fn user_cloned(&self) -> Option<Arc<User>> {
         self.task_notes.user().cloned()
-    }
-
-    fn tenant_cloned(&self) -> Option<Arc<User>> {
-        self.task_notes.tenant().cloned()
     }
 
     #[inline]
@@ -334,7 +314,6 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         ServerIdleChecker::new(
             self.idle_wheel.clone(),
             self.user_cloned(),
-            self.tenant_cloned(),
             self.max_idle_count(),
             self.server_quit_policy.clone(),
         )

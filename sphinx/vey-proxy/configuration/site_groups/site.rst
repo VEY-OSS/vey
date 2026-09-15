@@ -50,6 +50,11 @@ It is also exported as the ``user`` tag on :ref:`site metrics
 If the name is set but ``tenant_user_group`` is unset, or the user is not
 found in that group, the site is still served without a tenant.
 
+If that tenant is later :ref:`blocked <conf_auth_user_block_and_delay>`,
+new requests that resolve this site are forbidden at site entry. Requests
+already in flight are not cancelled. This is unlike a blocked visitor,
+which still terminates the current task.
+
 **default**: not set, **alias**: ``tenant``
 
 .. _conf_site_upstream:
@@ -192,6 +197,10 @@ If none of them set it, the server value is used.
 
 The idle-check interval can only be configured at the server level,
 see :ref:`server task_idle_check_interval <conf_server_common_task_idle_check_interval>`.
+
+Idle checks do not cancel a blocked tenant. New requests for that site are
+rejected at site entry instead; see
+:ref:`block_and_delay <conf_auth_user_block_and_delay>`.
 
 **default**: not set
 

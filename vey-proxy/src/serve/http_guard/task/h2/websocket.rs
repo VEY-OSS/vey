@@ -468,12 +468,6 @@ impl H2WebsocketTask {
                     if self.ctx.server_quit_policy.force_quit() {
                         return Err(H2StreamTransferError::CanceledAsServerQuit);
                     }
-                    if self.task_notes
-                        .tenant_user()
-                        .is_some_and(|u| u.is_blocked())
-                    {
-                        return Err(H2StreamTransferError::CanceledAsUserBlocked);
-                    }
                 }
                 _ = log_interval.tick() => {
                     add_copy_delta(&self.task_stats, c2u.copied_size(), u2c.copied_size(), &mut last_c2u, &mut last_u2c);

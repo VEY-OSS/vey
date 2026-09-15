@@ -216,6 +216,9 @@ impl TlsProxyServer {
             self.config.name(),
             self.server_stats.share_extra_tags(),
         );
+        if site_ctx.tenant_user_blocked() {
+            return;
+        }
         let task_notes =
             ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO).with_site_ctx(site_ctx);
 

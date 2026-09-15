@@ -379,8 +379,4 @@ impl StreamTransitTask for TlsProxyTask {
     fn user(&self) -> Option<&User> {
         None
     }
-
-    fn tenant(&self) -> Option<&User> {
-        self.task_notes.tenant_user().map(|u| u.as_ref())
-    }
 }

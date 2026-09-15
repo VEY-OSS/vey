@@ -15,6 +15,9 @@ parse HTTP; it only copies bytes after the handshake.
 There is no visitor ``user_group``. Tenant identity comes from
 ``site.owner`` and the site group's
 :ref:`tenant_user_group <conf_site_group_tenant_user_group>`.
+A blocked tenant is rejected when a new connection is accepted for that
+site; an already-running copy is not cancelled. See
+:ref:`block_and_delay <conf_auth_user_block_and_delay>`.
 
 Sites without :ref:`tls_server <conf_site_tls_server>` are skipped. This
 server has no fallback certificate and no default upstream.

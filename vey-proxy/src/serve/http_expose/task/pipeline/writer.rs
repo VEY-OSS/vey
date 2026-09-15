@@ -273,15 +273,26 @@ where
         user_ctx: Option<UserContext>,
         host: Arc<HttpHost>,
     ) -> LoopAction {
-        let task_notes = ServerTaskNotes::new(
-            self.ctx.cc_info.clone(),
-            user_ctx,
-            req.time_accepted.elapsed(),
-        )
-        .with_site_ctx(site_ctx);
         let site = Arc::clone(host.site());
 
         if let Some(mut stream_w) = self.stream_writer.take() {
+            if site_ctx.tenant_user_blocked() {
+                if !self.ctx.server_config.no_early_error_reply {
+                    let mut rsp = HttpProxyClientResponse::forbidden(req.inner.version);
+                    self.ctx.apply_proxy_status_ident(&mut rsp);
+                    let _ = rsp.reply_err_to_request(&mut stream_w).await;
+                }
+                self.notify_reader_to_close();
+                return LoopAction::Break;
+            }
+
+            let task_notes = ServerTaskNotes::new(
+                self.ctx.cc_info.clone(),
+                user_ctx,
+                req.time_accepted.elapsed(),
+            )
+            .with_site_ctx(site_ctx);
+
             // check in final escaper so we can use route escapers
             let _ = self
                 .forward_context

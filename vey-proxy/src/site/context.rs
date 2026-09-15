@@ -82,6 +82,18 @@ impl SiteContext {
         self.tenant_ctx().map(|t| t.user())
     }
 
+    pub(crate) fn tenant_user_blocked(&self) -> bool {
+        let Some(tenant) = &self.tenant else {
+            return false;
+        };
+        if tenant.user().is_blocked() {
+            tenant.forbidden_stats().add_user_blocked();
+            true
+        } else {
+            false
+        }
+    }
+
     #[inline]
     pub(crate) fn req_stats(&self) -> &Arc<UserRequestStats> {
         &self.req_stats

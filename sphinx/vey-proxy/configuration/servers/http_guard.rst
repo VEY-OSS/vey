@@ -27,7 +27,10 @@ task type is always ``HttpForward`` (or ``H2Forward`` / ``Websocket``); it is
 not ``HttpsForward``, which is the ``http_proxy`` ``https://`` request type.
 HTTP/2 origin stays on HTTP/2 (no HTTP/1 fallback). There is no visitor
 authentication; tenant identity comes from ``site.owner`` plus the group's
-``tenant_user_group``.
+``tenant_user_group``. A blocked tenant is rejected when a new request is
+accepted for that site; the current request is not cancelled if the tenant
+is blocked after it has already started. See
+:ref:`block_and_delay <conf_auth_user_block_and_delay>`.
 
 This is the counterpart of :ref:`http_expose <configuration_server_http_expose>`
 (internal reverse proxy with optional visitor auth and no auditor).

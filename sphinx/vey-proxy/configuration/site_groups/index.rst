@@ -69,6 +69,10 @@ Owner lookup is by username only. Those users do not need a
 :ref:`token <conf_auth_user_token>`; omitting it forbids visitor login, which
 is the usual setup for tenant-only records.
 
+:ref:`block_and_delay <conf_auth_user_block_and_delay>` on a tenant rejects
+new requests at site entry and does not abort an already-running request.
+The same key on a visitor still cancels the current task.
+
 **default**: not set
 
 .. _conf_site_group_static_sites:

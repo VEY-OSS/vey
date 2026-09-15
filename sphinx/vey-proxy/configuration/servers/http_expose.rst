@@ -15,6 +15,10 @@ rejected. The public-edge counterpart is
 :ref:`http_guard <configuration_server_http_guard>` (no visitor auth,
 optional ICAP, HTTP/2 over TLS).
 
+A blocked visitor still cancels the current request. A blocked tenant is
+rejected only at site entry for new requests; see
+:ref:`block_and_delay <conf_auth_user_block_and_delay>`.
+
 ``type: http_rproxy`` is still accepted as a deprecated alias.
 
 TLS SNI is used only to pick a certificate. Request routing always uses

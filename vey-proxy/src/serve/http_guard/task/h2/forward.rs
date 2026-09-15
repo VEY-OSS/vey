@@ -165,12 +165,6 @@ impl H2ForwardTask {
         }
     }
 
-    fn tenant_blocked(&self) -> bool {
-        self.task_notes
-            .tenant_user()
-            .is_some_and(|u| u.is_blocked())
-    }
-
     async fn do_forward(
         &mut self,
         clt_req: Request<RecvStream>,
@@ -441,10 +435,6 @@ impl H2ForwardTask {
                             idle_count = 0;
                             req_body_transfer.reset_active();
                         }
-                        if self.tenant_blocked() {
-                            record_progress!();
-                            return Err(H2StreamTransferError::CanceledAsUserBlocked);
-                        }
                         if self.ctx.server_quit_policy.force_quit() {
                             record_progress!();
                             return Err(H2StreamTransferError::CanceledAsServerQuit);
@@ -630,10 +620,6 @@ impl H2ForwardTask {
                     } else {
                         idle_count = 0;
                         rsp_body_transfer.reset_active();
-                    }
-                    if self.tenant_blocked() {
-                        record_progress!();
-                        return Err(H2StreamTransferError::CanceledAsUserBlocked);
                     }
                     if self.ctx.server_quit_policy.force_quit() {
                         record_progress!();

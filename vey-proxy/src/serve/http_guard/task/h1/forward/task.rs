@@ -1137,14 +1137,6 @@ impl<'a> HttpGuardForwardTask<'a> {
                     if clt_to_ups.is_idle() {
                         idle_count += n;
 
-                        if let Some(user_ctx) = self.task_notes.user_ctx() {
-                            let user = user_ctx.user();
-                            if user.is_blocked() {
-                                record_progress!();
-                                return Err(ServerTaskError::CanceledAsUserBlocked);
-                            }
-                        }
-
                         if idle_count >= self.max_idle_count {
                             record_progress!();
                             return if clt_to_ups.no_cached_data() {
@@ -1158,12 +1150,6 @@ impl<'a> HttpGuardForwardTask<'a> {
 
                         clt_to_ups.reset_active();
                     }
-
-                    if let Some(user_ctx) = self.task_notes.user_ctx()
-                        && user_ctx.user().is_blocked() {
-                            record_progress!();
-                            return Err(ServerTaskError::CanceledAsUserBlocked);
-                        }
 
                     if self.ctx.server_quit_policy.force_quit() {
                         record_progress!();
@@ -1391,14 +1377,6 @@ impl<'a> HttpGuardForwardTask<'a> {
                     if ups_to_clt.is_idle() {
                         idle_count += n;
 
-                        if let Some(user) = self.task_notes.tenant_user() && user.is_blocked() {
-                            if ups_to_clt.copied_size() < header_len {
-                                let _ = ups_to_clt.write_flush().await; // flush rsp header to client
-                            }
-                            record_progress!();
-                            return Err(ServerTaskError::CanceledAsUserBlocked);
-                        }
-
                         if idle_count >= self.max_idle_count {
                             record_progress!();
                             return if ups_to_clt.no_cached_data() {
@@ -1412,15 +1390,6 @@ impl<'a> HttpGuardForwardTask<'a> {
 
                         ups_to_clt.reset_active();
                     }
-
-                    if let Some(user) = self.task_notes.tenant_user()
-                        && user.is_blocked() {
-                            if ups_to_clt.copied_size() < header_len {
-                                let _ = ups_to_clt.write_flush().await; // flush rsp header to client
-                            }
-                            record_progress!();
-                            return Err(ServerTaskError::CanceledAsUserBlocked);
-                        }
 
                     if self.ctx.server_quit_policy.force_quit() {
                         if ups_to_clt.copied_size() < header_len {
