@@ -350,8 +350,11 @@ global_tls_server
 **optional**, **type**: :external+values:ref:`openssl server config <conf_value_openssl_server_config>`
 
 Global TLS server configuration used when the matched site does not set
-its own TLS server configuration. See site
+its own TLS server configuration. This default certificate is **HTTP/1
+only** (ALPN ``http/1.1`` / ``http/1.0``). HTTP/2 requires the site's own
 :ref:`tls_server <conf_site_tls_server>`.
+
+See site :ref:`tls_server <conf_site_tls_server>`.
 
 **default**: not set
 

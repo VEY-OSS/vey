@@ -74,7 +74,8 @@ TLS server configuration for this site.
 :ref:`global_tls_server <configuration_server_http_expose_global_tls_server>`
 on ``http_expose`` or
 :ref:`global_tls_server <configuration_server_http_guard_global_tls_server>`
-on ``http_guard`` is used.
+on ``http_guard`` is used. On ``http_guard``, that fallback certificate
+is HTTP/1 only; HTTP/2 requires this per-site key.
 
 :ref:`tls_proxy <configuration_server_tls_proxy>` requires this key. Sites
 without it are skipped by ``tls_proxy``; there is no server-level fallback

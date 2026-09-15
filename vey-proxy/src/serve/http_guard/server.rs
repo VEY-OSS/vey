@@ -91,11 +91,7 @@ impl HttpGuardServer {
             Some(builder) => {
                 let config = builder
                     .build_with_alpn_protocols(
-                        Some(vec![
-                            AlpnProtocol::Http2,
-                            AlpnProtocol::Http11,
-                            AlpnProtocol::Http10,
-                        ]),
+                        Some(vec![AlpnProtocol::Http11, AlpnProtocol::Http10]),
                         tls_rolling_ticketer.clone(),
                     )
                     .context("failed to build global tls server config")?;
@@ -154,7 +150,11 @@ impl HttpGuardServer {
         } else {
             None
         };
-        let hosts = build_hosts(&config.site_group, tls_rolling_ticketer.clone())?;
+        let hosts = build_hosts(
+            &config.site_group,
+            tls_rolling_ticketer.clone(),
+            config.global_tls_server.is_some(),
+        )?;
 
         let server = HttpGuardServer::new(
             config,
@@ -184,7 +184,11 @@ impl HttpGuardServer {
             } else {
                 None
             };
-            let hosts = build_hosts(&config.site_group, tls_rolling_ticketer.clone())?;
+            let hosts = build_hosts(
+                &config.site_group,
+                tls_rolling_ticketer.clone(),
+                config.global_tls_server.is_some(),
+            )?;
 
             let server = HttpGuardServer::new(
                 config,
@@ -302,10 +306,13 @@ impl HttpGuardServer {
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         if matches!(alpn, Some(AlpnProtocol::Http2)) {
-            if pinned_host.is_none() {
+            if !pinned_host
+                .as_ref()
+                .is_some_and(|host| host.tls_server().is_some())
+            {
                 self.listen_stats.add_failed();
                 debug!(
-                    "{} - {} rejected h2 without matching tls sni site",
+                    "{} - {} rejected h2 without a site tls_server",
                     cc_info.sock_local_addr(),
                     cc_info.sock_peer_addr()
                 );
@@ -394,7 +401,7 @@ impl HttpGuardServer {
                 self.spawn_http_task(
                     ssl_stream,
                     cc_info,
-                    self.tls_hosts.load_full(),
+                    self.http_hosts.load_full(),
                     alpn,
                     host.cloned(),
                 )
@@ -506,6 +513,7 @@ fn host_from_client_hello<'a>(
 fn build_hosts(
     site_group: &NodeName,
     ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    global_tls: bool,
 ) -> anyhow::Result<HttpGuardHosts> {
     let group = crate::site::get_or_insert_default(site_group);
     let http = group.config().sites.try_build_arc(|cfg| {
@@ -514,7 +522,11 @@ fn build_hosts(
             .expect("site group is missing a built site");
         HttpHost::try_build(site, ticketer.clone())
     })?;
-    let tls = http.filter_arc(|host| host.tls_server().is_some());
+    let tls = if global_tls {
+        http.clone()
+    } else {
+        http.filter_arc(|host| host.tls_server().is_some())
+    };
     Ok(HttpGuardHosts { http, tls })
 }
 
@@ -554,7 +566,11 @@ impl ServerInternal for HttpGuardServer {
         if self.config.site_group.is_empty() {
             return Ok(());
         }
-        let hosts = build_hosts(&self.config.site_group, self.tls_rolling_ticketer.clone())?;
+        let hosts = build_hosts(
+            &self.config.site_group,
+            self.tls_rolling_ticketer.clone(),
+            self.config.global_tls_server.is_some(),
+        )?;
         self.http_hosts.store(Arc::new(hosts.http));
         self.tls_hosts.store(Arc::new(hosts.tls));
         Ok(())
