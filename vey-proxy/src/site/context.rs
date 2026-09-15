@@ -11,7 +11,9 @@ use arc_swap::ArcSwapOption;
 
 use vey_types::limit::GaugeSemaphorePermit;
 use vey_types::metrics::{MetricTagMap, NodeName};
-use vey_types::net::{TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts};
+use vey_types::net::{
+    TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig, UdpMiscSockOpts,
+};
 use vey_types::resolve::ResolveStrategy;
 
 use super::{Site, SiteEgress};
@@ -94,6 +96,16 @@ impl SiteContext {
             self.tenant_user()
                 .and_then(|u| u.http_rsp_hdr_recv_timeout())
         })
+    }
+
+    pub(crate) fn tcp_sock_speed_limit(&self) -> TcpSockSpeedLimitConfig {
+        match self.tenant_user() {
+            Some(user) => self
+                .site
+                .tcp_sock_speed_limit()
+                .shrink_as_smaller(&user.config().tcp_sock_speed_limit),
+            None => self.site.tcp_sock_speed_limit(),
+        }
     }
 
     pub(crate) fn resolve_strategy(&self) -> Option<ResolveStrategy> {

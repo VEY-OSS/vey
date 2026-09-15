@@ -237,7 +237,6 @@ impl HttpGuardServer {
         });
         Arc::new(H1TaskContext {
             common: self.common_task_context(cc_info),
-            pinned_host,
             site_ctx,
         })
     }

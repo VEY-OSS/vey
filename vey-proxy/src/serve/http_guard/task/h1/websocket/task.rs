@@ -41,7 +41,7 @@ use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
-use crate::site::{Site, SiteRequestPermits};
+use crate::site::{Site, SiteContext, SiteRequestPermits};
 use crate::stat::types::RequestAliveKind;
 
 use super::stats::WebSocketTaskCltWrapperStats;
@@ -51,7 +51,7 @@ mod adaptation;
 
 pub(crate) struct HttpGuardWebsocketTask {
     ctx: Arc<H1TaskContext>,
-    site: Arc<Site>,
+    site_ctx: SiteContext,
     task_notes: ServerTaskNotes,
     ws_notes: WebSocketTaskNotes,
     egress_notes: EgressNotes,
@@ -77,19 +77,18 @@ impl HttpGuardWebsocketTask {
     pub(crate) fn new(
         ctx: &Arc<H1TaskContext>,
         req: &HttpGuardRequest<impl AsyncRead>,
-        site: Arc<Site>,
+        site_ctx: SiteContext,
         task_notes: ServerTaskNotes,
     ) -> Self {
-        let uri_log_max_chars = task_notes
-            .site_ctx()
-            .and_then(|s| s.log_uri_max_chars())
+        let uri_log_max_chars = site_ctx
+            .log_uri_max_chars()
             .unwrap_or(ctx.server_config.log_uri_max_chars);
         let ws_notes =
             WebSocketTaskNotes::new(req.inner.version, req.inner.uri.clone(), uri_log_max_chars);
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
         HttpGuardWebsocketTask {
             ctx: Arc::clone(ctx),
-            site,
+            site_ctx,
             task_notes,
             ws_notes,
             egress_notes: EgressNotes::default(),
@@ -160,7 +159,7 @@ impl HttpGuardWebsocketTask {
         };
         Some(TaskLogForWebSocket {
             logger,
-            upstream: self.site.upstream(),
+            upstream: self.site().upstream(),
             task_notes: &self.task_notes,
             ws_notes: &self.ws_notes,
             egress_notes: &self.egress_notes,
@@ -195,10 +194,13 @@ impl HttpGuardWebsocketTask {
         self.ctx.apply_proxy_status_ident(rsp);
     }
 
+    fn site(&self) -> &Site {
+        self.site_ctx.site()
+    }
+
     fn rsp_hdr_recv_timeout(&self) -> Duration {
-        self.task_notes
-            .site_ctx()
-            .and_then(|s| s.rsp_hdr_recv_timeout())
+        self.site_ctx
+            .rsp_hdr_recv_timeout()
             .unwrap_or(self.ctx.server_config.timeout.recv_rsp_header)
     }
 
@@ -252,12 +254,7 @@ impl HttpGuardWebsocketTask {
             ));
         }
 
-        let Some(site_ctx) = self.task_notes.site_ctx() else {
-            let e = ServerTaskError::InternalServerError("no site context");
-            self.reply_task_err(req, &e, clt_w).await;
-            return Err(e);
-        };
-        match site_ctx.acquire_request_semaphores() {
+        match self.site_ctx.acquire_request_semaphores() {
             Ok(permits) => self._site_req_alive_permits = permits,
             Err(_) => {
                 self.reply_too_many_requests(clt_w).await;
@@ -270,7 +267,7 @@ impl HttpGuardWebsocketTask {
         let tenant = self.task_notes.tenant_ctx().cloned();
         let mut audit_task = false;
         let tcp_client_misc_opts = if let Some(tenant) = &tenant {
-            match tenant.check_upstream(self.site.upstream()) {
+            match tenant.check_upstream(self.site().upstream()) {
                 AclAction::Permit | AclAction::PermitAndLog => {}
                 AclAction::Forbid | AclAction::ForbidAndLog => {
                     self.reply_forbidden(clt_w).await;
@@ -333,10 +330,10 @@ impl HttpGuardWebsocketTask {
 
     fn clt_speed_limit(&self) -> Option<TcpSockSpeedLimitConfig> {
         let server = self.ctx.server_config.tcp_sock_speed_limit;
-        let mut limit = self.site.tcp_sock_speed_limit().shrink_as_smaller(&server);
-        if let Some(user) = self.task_notes.tenant_user() {
-            limit = user.config().tcp_sock_speed_limit.shrink_as_smaller(&limit);
-        }
+        let limit = self
+            .site_ctx
+            .tcp_sock_speed_limit()
+            .shrink_as_smaller(&server);
         if limit.eq(&server) { None } else { Some(limit) }
     }
 
@@ -421,13 +418,13 @@ impl HttpGuardWebsocketTask {
     async fn make_new_connection(&mut self) -> Result<TcpConnection, TcpConnectError> {
         let mut audit_ctx = AuditContext::new(self.ctx.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = self.task_stats.clone();
-        if let Some(tls_client) = self.site.tls_client() {
+        if let Some(tls_client) = self.site_ctx.site().tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
-                    upstream: self.site.upstream(),
+                    upstream: self.site_ctx.site().upstream(),
                 },
                 tls_config: tls_client,
-                tls_name: self.site.tls_name(),
+                tls_name: self.site_ctx.site().tls_name(),
                 alpn_protocols: None,
             };
             self.ctx
@@ -442,7 +439,7 @@ impl HttpGuardWebsocketTask {
                 .await
         } else {
             let task_conf = TcpConnectTaskConf {
-                upstream: self.site.upstream(),
+                upstream: self.site_ctx.site().upstream(),
             };
             self.ctx
                 .escaper

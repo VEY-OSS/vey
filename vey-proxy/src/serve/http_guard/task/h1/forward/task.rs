@@ -21,7 +21,7 @@ use vey_io_ext::{
     StreamCopyError,
 };
 use vey_types::acl::AclAction;
-use vey_types::net::{HttpKeepAliveConfig, KeepAliveValue, TcpSockSpeedLimitConfig};
+use vey_types::net::{KeepAliveValue, TcpSockSpeedLimitConfig};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpGuardRequest};
 use super::{H1TaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats};
@@ -39,7 +39,7 @@ use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
-use crate::site::{Site, SiteRequestPermits};
+use crate::site::{Site, SiteContext, SiteRequestPermits};
 use crate::stat::types::RequestAliveKind;
 
 #[path = "adaptation.rs"]
@@ -47,12 +47,11 @@ mod adaptation;
 
 pub(crate) struct HttpGuardForwardTask<'a> {
     ctx: Arc<H1TaskContext>,
-    site: Arc<Site>,
+    site_ctx: SiteContext,
     req: &'a HttpProxyClientRequest,
     origin_tls: bool,
     should_close: bool,
     ups_keep_alive: KeepAliveValue,
-    upstream_keepalive: HttpKeepAliveConfig,
     allow_continue: bool,
     send_error_response: bool,
     task_notes: ServerTaskNotes,
@@ -80,12 +79,11 @@ impl<'a> HttpGuardForwardTask<'a> {
     pub(crate) fn new(
         ctx: &Arc<H1TaskContext>,
         req: &'a HttpGuardRequest<impl AsyncRead>,
-        site: Arc<Site>,
+        site_ctx: SiteContext,
         task_notes: ServerTaskNotes,
     ) -> Self {
-        let uri_log_max_chars = task_notes
-            .site_ctx()
-            .and_then(|s| s.log_uri_max_chars())
+        let uri_log_max_chars = site_ctx
+            .log_uri_max_chars()
             .unwrap_or(ctx.server_config.log_uri_max_chars);
         let http_notes = HttpForwardTaskNotes::new(
             req.time_received,
@@ -94,17 +92,15 @@ impl<'a> HttpGuardForwardTask<'a> {
             req.inner.uri.clone(),
             uri_log_max_chars,
         );
-        let origin_tls = site.tls_client().is_some();
+        let origin_tls = site_ctx.site().tls_client().is_some();
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
-        let upstream_keepalive = site.config().http.h1.upstream_keepalive;
         HttpGuardForwardTask {
             ctx: Arc::clone(ctx),
-            site,
+            site_ctx,
             req: &req.inner,
             origin_tls,
             should_close: !req.inner.keep_alive(),
             ups_keep_alive: KeepAliveValue::default(),
-            upstream_keepalive,
             allow_continue: req.inner.expect_100_continue(),
             send_error_response: true,
             task_notes,
@@ -120,10 +116,13 @@ impl<'a> HttpGuardForwardTask<'a> {
         }
     }
 
+    fn site(&self) -> &Site {
+        self.site_ctx.site()
+    }
+
     fn rsp_hdr_recv_timeout(&self) -> Duration {
-        self.task_notes
-            .site_ctx()
-            .and_then(|s| s.rsp_hdr_recv_timeout())
+        self.site_ctx
+            .rsp_hdr_recv_timeout()
             .unwrap_or(self.ctx.server_config.timeout.recv_rsp_header)
     }
 
@@ -223,7 +222,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             .map(|v| v.to_str());
         Some(TaskLogForHttpForward {
             logger,
-            upstream: self.site.upstream(),
+            upstream: self.site().upstream(),
             task_notes: &self.task_notes,
             http_notes: &self.http_notes,
             http_user_agent,
@@ -338,10 +337,10 @@ impl<'a> HttpGuardForwardTask<'a> {
 
     fn clt_speed_limit(&self) -> Option<TcpSockSpeedLimitConfig> {
         let server = self.ctx.server_config.tcp_sock_speed_limit;
-        let mut limit = self.site.tcp_sock_speed_limit().shrink_as_smaller(&server);
-        if let Some(user) = self.task_notes.tenant_user() {
-            limit = user.config().tcp_sock_speed_limit.shrink_as_smaller(&limit);
-        }
+        let limit = self
+            .site_ctx
+            .tcp_sock_speed_limit()
+            .shrink_as_smaller(&server);
         if limit.eq(&server) { None } else { Some(limit) }
     }
 
@@ -421,12 +420,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             ));
         }
 
-        let Some(site_ctx) = self.task_notes.site_ctx() else {
-            let e = ServerTaskError::InternalServerError("no site context");
-            self.reply_task_err(&e, clt_w).await;
-            return Err(e);
-        };
-        match site_ctx.acquire_request_semaphores() {
+        match self.site_ctx.acquire_request_semaphores() {
             Ok(permits) => self._site_req_alive_permits = permits,
             Err(_) => {
                 self.reply_too_many_requests(clt_w).await;
@@ -439,7 +433,7 @@ impl<'a> HttpGuardForwardTask<'a> {
         let tenant = self.task_notes.tenant_ctx().cloned();
         let mut audit_task = false;
         let tcp_client_misc_opts = if let Some(tenant) = &tenant {
-            let action = tenant.check_upstream(self.site.upstream());
+            let action = tenant.check_upstream(self.site().upstream());
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
             if let Some(action) = tenant.check_http_user_agent(
@@ -481,9 +475,10 @@ impl<'a> HttpGuardForwardTask<'a> {
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
-        if self.upstream_keepalive.is_enabled()
+        let keepalive = self.site().config().http.h1.upstream_keepalive;
+        if keepalive.is_enabled()
             && let Some(mut connection) = self
-                .take_alive_origin_connection(fwd_ctx, self.upstream_keepalive.idle_expire())
+                .take_alive_origin_connection(fwd_ctx, keepalive.idle_expire())
                 .await
         {
             self.task_notes.stage = ServerTaskStage::Connected;
@@ -500,7 +495,7 @@ impl<'a> HttpGuardForwardTask<'a> {
 
             connection
                 .0
-                .prepare_new(&self.task_notes, self.site.upstream());
+                .prepare_new(&self.task_notes, self.site().upstream());
             self.mark_relaying();
 
             let r = self
@@ -555,7 +550,7 @@ impl<'a> HttpGuardForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection> {
-        let from_pool = if let Some(pool) = self.site.http1_pool() {
+        let from_pool = if let Some(pool) = self.site_ctx.site().http1_pool() {
             pool.get(
                 self.task_notes.worker_id(),
                 self.origin_tls,
@@ -614,10 +609,18 @@ impl<'a> HttpGuardForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
         connection: BoxHttpForwardConnection,
     ) {
-        if !self.upstream_keepalive.is_enabled() {
+        if !self
+            .site_ctx
+            .site()
+            .config()
+            .http
+            .h1
+            .upstream_keepalive
+            .is_enabled()
+        {
             return;
         }
-        if let Some(pool) = self.site.http1_pool() {
+        if let Some(pool) = self.site_ctx.site().http1_pool() {
             let Some(reuse_notes) = self.alive_reuse_notes.take() else {
                 return;
             };
@@ -660,7 +663,7 @@ impl<'a> HttpGuardForwardTask<'a> {
 
                 connection
                     .0
-                    .prepare_new(&self.task_notes, self.site.upstream());
+                    .prepare_new(&self.task_notes, self.site().upstream());
                 self.mark_relaying();
                 Ok(connection)
             }
@@ -678,13 +681,13 @@ impl<'a> HttpGuardForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
     ) -> Result<(BoxHttpForwardConnection, HttpAliveReuseNotes), TcpConnectError> {
         let mut audit_ctx = AuditContext::new(self.ctx.audit_handle.clone());
-        if let Some(tls_client) = self.site.tls_client() {
+        if let Some(tls_client) = self.site().tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
-                    upstream: self.site.upstream(),
+                    upstream: self.site().upstream(),
                 },
                 tls_config: tls_client,
-                tls_name: self.site.tls_name(),
+                tls_name: self.site().tls_name(),
                 alpn_protocols: None,
             };
             fwd_ctx
@@ -697,7 +700,7 @@ impl<'a> HttpGuardForwardTask<'a> {
                 .await
         } else {
             let task_conf = TcpConnectTaskConf {
-                upstream: self.site.upstream(),
+                upstream: self.site().upstream(),
             };
             fwd_ctx
                 .new_prepared_http_connection(

@@ -3,8 +3,8 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use slog::Logger;
 use h2::StreamId;
+use slog::Logger;
 
 use vey_slog_types::{
     LtDateTime, LtDuration, LtH2StreamId, LtHttpMethod, LtHttpUri, LtIpAddr, LtUpstreamAddr,

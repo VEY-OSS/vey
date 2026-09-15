@@ -142,8 +142,8 @@ impl Site {
         &self.stats
     }
 
-    pub(crate) fn tcp_sock_speed_limit(&self) -> &TcpSockSpeedLimitConfig {
-        &self.config.tcp_sock_speed_limit
+    pub(crate) fn tcp_sock_speed_limit(&self) -> TcpSockSpeedLimitConfig {
+        self.config.tcp_sock_speed_limit
     }
 
     #[inline]

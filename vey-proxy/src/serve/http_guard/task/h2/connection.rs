@@ -60,13 +60,11 @@ where
         );
 
         let stream = self.stream.take().unwrap();
-        // Socket speed limit for this h2 connection: server ∩ SNI site ∩ tenant.
-        let mut limit = site
+        let limit = self
+            .ctx
+            .site_ctx
             .tcp_sock_speed_limit()
             .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
-        if let Some(user) = &tenant_user {
-            limit = user.config().tcp_sock_speed_limit.shrink_as_smaller(&limit);
-        }
         let site_io_stats = site.stats().fetch_traffic_stats(
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),

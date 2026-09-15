@@ -86,50 +86,7 @@ where
         loop {
             let res = match self.task_queue.recv().await {
                 Some(Ok((req, pipeline_task))) => {
-                    let action = match hosts.get_matched(req.upstream.host()).cloned() {
-                        Some(host) => {
-                            if let Some(pinned) = &self.ctx.pinned_host
-                                && !host.same_site(pinned.site())
-                            {
-                                if !self.ctx.server_config.no_early_error_reply
-                                    && let Some(stream_w) = &mut self.stream_writer
-                                {
-                                    let mut rsp = HttpProxyClientResponse::misdirected_request(
-                                        req.inner.version,
-                                    );
-                                    self.ctx.apply_proxy_status_ident(&mut rsp);
-                                    let _ = rsp.reply_err_to_request(stream_w).await;
-                                }
-
-                                self.notify_reader_to_close();
-                                LoopAction::Break
-                            } else {
-                                let site_ctx = self.ctx.site_ctx.clone().unwrap_or_else(|| {
-                                    SiteContext::new(
-                                        Arc::clone(host.site()),
-                                        Arc::clone(host.egress()),
-                                        self.ctx.server_config.name(),
-                                        self.ctx.server_stats.share_extra_tags(),
-                                    )
-                                });
-                                self.note_site_conn(host.site());
-                                self.run(req, site_ctx, host).await
-                            }
-                        }
-                        None => {
-                            if !self.ctx.server_config.no_early_error_reply
-                                && let Some(stream_w) = &mut self.stream_writer
-                            {
-                                let mut rsp =
-                                    HttpProxyClientResponse::bad_request(req.inner.version);
-                                self.ctx.apply_proxy_status_ident(&mut rsp);
-                                let _ = rsp.reply_err_to_request(stream_w).await;
-                            }
-
-                            self.notify_reader_to_close();
-                            LoopAction::Break
-                        }
-                    };
+                    let action = self.check_run(req, &hosts).await;
                     drop(pipeline_task);
                     action
                 }
@@ -155,63 +112,113 @@ where
         }
     }
 
-    async fn run(
+    async fn check_run(
         &mut self,
-        mut req: HttpGuardRequest<CDR>,
-        site_ctx: SiteContext,
-        host: Arc<HttpHost>,
+        req: HttpGuardRequest<CDR>,
+        hosts: &HostMatch<Arc<HttpHost>>,
     ) -> LoopAction {
-        let task_notes =
-            ServerTaskNotes::new(self.ctx.cc_info.clone(), None, req.time_accepted.elapsed())
-                .with_site_ctx(site_ctx);
-        let site = Arc::clone(host.site());
+        match hosts.get_matched(req.upstream.host()) {
+            Some(host) => match &self.ctx.site_ctx {
+                Some(pinned) => {
+                    if !host.same_site(pinned.site()) {
+                        if !self.ctx.server_config.no_early_error_reply
+                            && let Some(stream_w) = &mut self.stream_writer
+                        {
+                            let mut rsp =
+                                HttpProxyClientResponse::misdirected_request(req.inner.version);
+                            self.ctx.apply_proxy_status_ident(&mut rsp);
+                            let _ = rsp.reply_err_to_request(stream_w).await;
+                        }
 
-        if let Some(mut stream_w) = self.stream_writer.take() {
-            match req.inner.upgrade_token() {
-                Some(HttpUpgradeToken::Websocket) => {
-                    let Some(mut stream_r) = req.body_reader.take() else {
-                        unreachable!()
-                    };
-                    let mut ws_task =
-                        HttpGuardWebsocketTask::new(&self.ctx, &req, site, task_notes);
-                    let connected = ws_task
-                        .connect_to_origin(&req.inner, &mut stream_r, &mut stream_w)
-                        .await;
-                    let _ = req.stream_sender.try_send(None);
-                    if let Some((ups_c, rsp)) = connected {
-                        ws_task.into_running(stream_r, stream_w, ups_c, rsp).await;
+                        self.notify_reader_to_close();
+                        LoopAction::Break
+                    } else {
+                        let site_ctx = pinned.clone();
+                        self.note_site_conn(host.site());
+                        self.run(req, site_ctx).await
                     }
-                    LoopAction::Break
-                }
-                Some(_) => {
-                    if !self.ctx.server_config.no_early_error_reply {
-                        let mut rsp = HttpProxyClientResponse::unimplemented(req.inner.version);
-                        self.ctx.apply_proxy_status_ident(&mut rsp);
-                        let _ = rsp.reply_err_to_request(&mut stream_w).await;
-                    }
-                    let _ = req.stream_sender.try_send(None);
-                    LoopAction::Break
                 }
                 None => {
-                    let _ = self
-                        .forward_context
-                        .check_in_final_escaper(
-                            &task_notes,
-                            site.upstream(),
-                            site.tls_client().is_some(),
-                        )
-                        .await;
-                    match self.run_forward(&mut stream_w, req, site, task_notes).await {
-                        LoopAction::Continue => {
-                            self.reset_client_writer(stream_w);
-                            LoopAction::Continue
-                        }
-                        LoopAction::Break => LoopAction::Break,
+                    let site_ctx = SiteContext::new(
+                        Arc::clone(host.site()),
+                        Arc::clone(host.egress()),
+                        self.ctx.server_config.name(),
+                        self.ctx.server_stats.share_extra_tags(),
+                    );
+                    self.note_site_conn(host.site());
+                    self.run(req, site_ctx).await
+                }
+            },
+            None => {
+                if !self.ctx.server_config.no_early_error_reply
+                    && let Some(stream_w) = &mut self.stream_writer
+                {
+                    let mut rsp = HttpProxyClientResponse::bad_request(req.inner.version);
+                    self.ctx.apply_proxy_status_ident(&mut rsp);
+                    let _ = rsp.reply_err_to_request(stream_w).await;
+                }
+
+                self.notify_reader_to_close();
+                LoopAction::Break
+            }
+        }
+    }
+
+    async fn run(&mut self, mut req: HttpGuardRequest<CDR>, site_ctx: SiteContext) -> LoopAction {
+        let Some(mut stream_w) = self.stream_writer.take() else {
+            unreachable!()
+        };
+
+        let task_notes =
+            ServerTaskNotes::new(self.ctx.cc_info.clone(), None, req.time_accepted.elapsed())
+                .with_site_ctx(site_ctx.clone());
+
+        match req.inner.upgrade_token() {
+            Some(HttpUpgradeToken::Websocket) => {
+                let Some(mut stream_r) = req.body_reader.take() else {
+                    unreachable!()
+                };
+                let mut ws_task =
+                    HttpGuardWebsocketTask::new(&self.ctx, &req, site_ctx, task_notes);
+                let connected = ws_task
+                    .connect_to_origin(&req.inner, &mut stream_r, &mut stream_w)
+                    .await;
+                let _ = req.stream_sender.try_send(None);
+                if let Some((ups_c, rsp)) = connected {
+                    ws_task.into_running(stream_r, stream_w, ups_c, rsp).await;
+                }
+                LoopAction::Break
+            }
+            Some(_) => {
+                if !self.ctx.server_config.no_early_error_reply {
+                    let mut rsp = HttpProxyClientResponse::unimplemented(req.inner.version);
+                    self.ctx.apply_proxy_status_ident(&mut rsp);
+                    let _ = rsp.reply_err_to_request(&mut stream_w).await;
+                }
+                let _ = req.stream_sender.try_send(None);
+                LoopAction::Break
+            }
+            None => {
+                let site = site_ctx.site();
+                let _ = self
+                    .forward_context
+                    .check_in_final_escaper(
+                        &task_notes,
+                        site.upstream(),
+                        site.tls_client().is_some(),
+                    )
+                    .await;
+                match self
+                    .run_forward(&mut stream_w, req, site_ctx, task_notes)
+                    .await
+                {
+                    LoopAction::Continue => {
+                        self.reset_client_writer(stream_w);
+                        LoopAction::Continue
                     }
+                    LoopAction::Break => LoopAction::Break,
                 }
             }
-        } else {
-            unreachable!()
         }
     }
 
@@ -226,12 +233,13 @@ where
         &mut self,
         clt_w: &mut HttpClientWriter<CDW>,
         mut req: HttpGuardRequest<CDR>,
-        site: Arc<Site>,
+        site_ctx: SiteContext,
         task_notes: ServerTaskNotes,
     ) -> LoopAction {
         match req.body_reader.take() {
             Some(stream_r) => {
-                let mut forward_task = HttpGuardForwardTask::new(&self.ctx, &req, site, task_notes);
+                let mut forward_task =
+                    HttpGuardForwardTask::new(&self.ctx, &req, site_ctx, task_notes);
                 let mut clt_r = Some(stream_r);
                 forward_task
                     .run(&mut clt_r, clt_w, &mut self.forward_context)
@@ -246,7 +254,8 @@ where
                 }
             }
             None => {
-                let mut forward_task = HttpGuardForwardTask::new(&self.ctx, &req, site, task_notes);
+                let mut forward_task =
+                    HttpGuardForwardTask::new(&self.ctx, &req, site_ctx, task_notes);
                 let mut clt_r = None;
                 forward_task
                     .run::<CDR, CDW>(&mut clt_r, clt_w, &mut self.forward_context)
