@@ -713,75 +713,72 @@ impl<'a> HttpExposeForwardTask<'a> {
             };
         }
 
-        match self.req.body_type() {
-            Some(body_type) => {
-                let Some(clt_r) = clt_r else {
-                    return Err(ServerTaskError::InternalServerError(
-                        "http body is expected but no body reader supplied",
-                    ));
-                };
+        let Some(body_type) = self.req.body_type() else {
+            return self.run_without_body(clt_w, ups_c).await;
+        };
+        let Some(clt_r) = clt_r else {
+            return Err(ServerTaskError::InternalServerError(
+                "http body is expected but no body reader supplied",
+            ));
+        };
 
-                let mut clt_body_reader =
-                    HttpBodyReader::new(clt_r, body_type, self.ctx.server_config.body_line_max_len);
+        let mut clt_body_reader =
+            HttpBodyReader::new(clt_r, body_type, self.ctx.server_config.body_line_max_len);
 
-                if self.req.end_to_end_headers.contains_key(header::EXPECT) {
-                    return self
-                        .run_with_body(None, &mut clt_body_reader, clt_w, ups_c)
-                        .await;
-                }
+        if self.req.end_to_end_headers.contains_key(header::EXPECT) {
+            return self
+                .run_with_body(None, &mut clt_body_reader, clt_w, ups_c)
+                .await;
+        }
 
-                // SAFETY: only `[..nr]` is kept after read_all_now fills it.
-                let n = self.ctx.server_config.tcp_copy.buffer_size();
-                let mut fast_read_buf =
-                    Vec::from(unsafe { Box::<[u8]>::new_uninit_slice(n).assume_init() });
-                let nr = clt_body_reader
-                    .read_all_now(&mut fast_read_buf)
-                    .await
-                    .map_err(ServerTaskError::ClientTcpReadFailed)?
-                    .ok_or(ServerTaskError::ClosedByClient)?;
-                if nr == 0 {
-                    return self
-                        .run_with_body(None, &mut clt_body_reader, clt_w, ups_c)
-                        .await;
-                }
-                fast_read_buf.truncate(nr);
+        // SAFETY: only `[..nr]` is kept after read_all_now fills it.
+        let n = self.ctx.server_config.tcp_copy.buffer_size();
+        let mut fast_read_buf =
+            Vec::from(unsafe { Box::<[u8]>::new_uninit_slice(n).assume_init() });
+        let nr = clt_body_reader
+            .read_all_now(&mut fast_read_buf)
+            .await
+            .map_err(ServerTaskError::ClientTcpReadFailed)?
+            .ok_or(ServerTaskError::ClosedByClient)?;
+        if nr == 0 {
+            drop(fast_read_buf);
+            return self
+                .run_with_body(None, &mut clt_body_reader, clt_w, ups_c)
+                .await;
+        }
+        fast_read_buf.truncate(nr);
 
-                if clt_body_reader.finished() {
-                    self.http_notes.clt_req_body_size = Some(clt_body_reader.body_size());
-                    return self
-                        .run_with_all_body(fwd_ctx, fast_read_buf, clt_w, ups_c)
-                        .await;
-                }
+        if clt_body_reader.finished() {
+            self.http_notes.clt_req_body_size = Some(clt_body_reader.body_size());
+            return self
+                .run_with_all_body(fwd_ctx, fast_read_buf, clt_w, ups_c)
+                .await;
+        }
 
-                loop {
-                    match self
-                        .run_with_body(
-                            Some(fast_read_buf.clone()),
-                            &mut clt_body_reader,
-                            clt_w,
-                            ups_c,
-                        )
-                        .await
-                    {
-                        Ok(r) => return Ok(r),
-                        Err(e) => {
-                            if self.http_notes.reused_connection
-                                && self.http_notes.retry_new_connection
-                            {
-                                if let Some(log_ctx) = self.get_log_context() {
-                                    log_ctx.log(&e);
-                                }
-                                self.task_stats.ups.reset();
-                                ups_c = self.get_new_connection(fwd_ctx, clt_w).await?;
-                            } else {
-                                self.http_notes.retry_new_connection = false;
-                                return Err(e);
-                            }
+        loop {
+            match self
+                .run_with_body(
+                    Some(fast_read_buf.clone()),
+                    &mut clt_body_reader,
+                    clt_w,
+                    ups_c,
+                )
+                .await
+            {
+                Ok(r) => return Ok(r),
+                Err(e) => {
+                    if self.http_notes.reused_connection && self.http_notes.retry_new_connection {
+                        if let Some(log_ctx) = self.get_log_context() {
+                            log_ctx.log(&e);
                         }
+                        self.task_stats.ups.reset();
+                        ups_c = self.get_new_connection(fwd_ctx, clt_w).await?;
+                    } else {
+                        self.http_notes.retry_new_connection = false;
+                        return Err(e);
                     }
                 }
             }
-            None => self.run_without_body(clt_w, ups_c).await,
         }
     }
 
