@@ -37,17 +37,7 @@ pub(super) struct TProxyStreamTask {
     task_notes: ServerTaskNotes,
     task_stats: Arc<UdpConnectTaskStats>,
     max_idle_count: usize,
-    started: bool,
     _alive_guard: Option<UdpStreamServerAliveTaskGuard>,
-}
-
-impl Drop for TProxyStreamTask {
-    fn drop(&mut self) {
-        if self.started {
-            self.post_stop();
-            self.started = false;
-        }
-    }
 }
 
 impl TProxyStreamTask {
@@ -64,7 +54,6 @@ impl TProxyStreamTask {
             task_notes,
             task_stats: Arc::new(UdpConnectTaskStats::default()),
             max_idle_count,
-            started: false,
             _alive_guard: None,
         }
     }
@@ -118,14 +107,6 @@ impl TProxyStreamTask {
         {
             log_ctx.log_created();
         }
-
-        self.started = true;
-    }
-
-    fn post_stop(&mut self) {
-        if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
-            drop(user_req_alive_permit);
-        }
     }
 
     fn handle_user_upstream_acl_action(&self, action: AclAction) -> ServerTaskResult<()> {
@@ -164,13 +145,10 @@ impl TProxyStreamTask {
                 ));
             }
 
-            match user_ctx.acquire_request_semaphore() {
-                Ok(permit) => self.task_notes.user_req_alive_permit = Some(permit),
-                Err(_) => {
-                    return Err(ServerTaskError::ForbiddenByRule(
-                        ServerTaskForbiddenError::FullyLoaded,
-                    ));
-                }
+            if self.task_notes.acquire_user_request_semaphore().is_err() {
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
             }
 
             let action = user_ctx.check_upstream(&self.upstream);

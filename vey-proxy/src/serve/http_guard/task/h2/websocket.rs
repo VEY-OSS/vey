@@ -26,7 +26,6 @@ use crate::module::http_header::ProxyErrorType;
 use crate::module::websocket::{WebSocketTaskNotes, WebSocketTaskStats};
 use crate::serve::http_guard::H2ForwardTaskAliveGuard;
 use crate::serve::{ServerTaskNotes, ServerTaskStage};
-use crate::site::SiteRequestPermits;
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct H2WebsocketTask {
@@ -38,18 +37,7 @@ pub(crate) struct H2WebsocketTask {
     egress_notes: EgressNotes,
     task_stats: Arc<WebSocketTaskStats>,
     send_error_response: bool,
-    started: bool,
     _alive_guard: Option<H2ForwardTaskAliveGuard>,
-    _site_req_alive_permits: SiteRequestPermits,
-}
-
-impl Drop for H2WebsocketTask {
-    fn drop(&mut self) {
-        if self.started {
-            self._site_req_alive_permits.release();
-            self.started = false;
-        }
-    }
 }
 
 impl H2WebsocketTask {
@@ -74,9 +62,7 @@ impl H2WebsocketTask {
             egress_notes: EgressNotes::default(),
             task_stats: Arc::new(WebSocketTaskStats::default()),
             send_error_response: true,
-            started: false,
             _alive_guard: None,
-            _site_req_alive_permits: SiteRequestPermits::default(),
         }
     }
 
@@ -111,7 +97,6 @@ impl H2WebsocketTask {
         {
             log.log_created();
         }
-        self.started = true;
 
         match self.do_run(clt_req, &mut clt_send_rsp).await {
             Ok(()) => {
@@ -137,12 +122,9 @@ impl H2WebsocketTask {
             self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
             return Err(H2StreamTransferError::InternalServerError("rate limited"));
         }
-        match self.ctx.site_ctx.acquire_request_semaphores() {
-            Ok(permits) => self._site_req_alive_permits = permits,
-            Err(_) => {
-                self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
-                return Err(H2StreamTransferError::InternalServerError("fully loaded"));
-            }
+        if self.task_notes.acquire_site_request_semaphores().is_err() {
+            self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
+            return Err(H2StreamTransferError::InternalServerError("fully loaded"));
         }
 
         if let Some(tenant) = self.task_notes.tenant_ctx() {

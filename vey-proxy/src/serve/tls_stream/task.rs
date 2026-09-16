@@ -40,17 +40,7 @@ pub(super) struct TlsStreamTask {
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
     audit_ctx: AuditContext,
-    started: bool,
     _alive_guard: Option<TcpStreamServerAliveTaskGuard>,
-}
-
-impl Drop for TlsStreamTask {
-    fn drop(&mut self) {
-        if self.started {
-            self.post_stop();
-            self.started = false;
-        }
-    }
 }
 
 impl TlsStreamTask {
@@ -67,7 +57,6 @@ impl TlsStreamTask {
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
-            started: false,
             _alive_guard: None,
         }
     }
@@ -109,14 +98,6 @@ impl TlsStreamTask {
         {
             log_ctx.log_created();
         }
-
-        self.started = true;
-    }
-
-    fn post_stop(&mut self) {
-        if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
-            drop(user_req_alive_permit);
-        }
     }
 
     async fn handle_user_upstream_acl_action(&mut self, action: AclAction) -> ServerTaskResult<()> {
@@ -153,13 +134,10 @@ impl TlsStreamTask {
                 ));
             }
 
-            match user_ctx.acquire_request_semaphore() {
-                Ok(permit) => self.task_notes.user_req_alive_permit = Some(permit),
-                Err(_) => {
-                    return Err(ServerTaskError::ForbiddenByRule(
-                        ServerTaskForbiddenError::FullyLoaded,
-                    ));
-                }
+            if self.task_notes.acquire_user_request_semaphore().is_err() {
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
             }
 
             let action = user_ctx.check_upstream(&self.upstream);

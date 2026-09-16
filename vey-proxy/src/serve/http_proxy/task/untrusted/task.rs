@@ -22,17 +22,7 @@ pub(crate) struct HttpProxyUntrustedTask<'a> {
     ctx: Arc<CommonTaskContext>,
     req: &'a HttpProxyClientRequest,
     should_close: bool,
-    started: bool,
     _alive_guard: Option<HttpUntrustedTaskAliveGuard>,
-}
-
-impl Drop for HttpProxyUntrustedTask<'_> {
-    fn drop(&mut self) {
-        if self.started {
-            self.post_stop();
-            self.started = false;
-        }
-    }
 }
 
 impl<'a> HttpProxyUntrustedTask<'a> {
@@ -44,18 +34,13 @@ impl<'a> HttpProxyUntrustedTask<'a> {
             ctx: Arc::clone(ctx),
             req: &req.inner,
             should_close: !req.inner.keep_alive(),
-            started: false,
             _alive_guard: None,
         }
     }
 
     fn pre_start(&mut self) {
         self._alive_guard = Some(self.ctx.server_stats.add_http_untrusted_task());
-
-        self.started = true;
     }
-
-    fn post_stop(&self) {}
 
     #[inline]
     pub(crate) fn should_close(&self) -> bool {

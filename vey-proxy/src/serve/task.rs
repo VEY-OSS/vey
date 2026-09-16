@@ -25,7 +25,7 @@ use crate::auth::{
 };
 use crate::config::escaper::EgressUpstream;
 use crate::escape::EgressPathSelection;
-use crate::site::SiteContext;
+use crate::site::{SiteContext, SiteRequestPermits};
 use crate::stat::types::RequestAliveKind;
 
 #[derive(Clone, Copy)]
@@ -55,9 +55,9 @@ impl ServerTaskStage {
     }
 }
 
-/// server task notes is bounded to a single client connection.
-/// it can be reset if the connection is consisted of many tasks.
-/// Do not share this struct between different client connections.
+/// Per-task notes. `cc_info` is copied from the client connection; one
+/// keep-alive connection may create many notes (one per request / stream).
+/// Do not share a notes value across connections or tasks.
 pub(crate) struct ServerTaskNotes {
     cc_info: ClientConnectionInfo,
     pub(crate) stage: ServerTaskStage,
@@ -69,8 +69,9 @@ pub(crate) struct ServerTaskNotes {
     pub(crate) wait_time: Duration,
     pub(crate) ready_time: Duration,
     pub(crate) egress_path_selection: Option<EgressPathSelection>,
-    /// the following fields should not be cloned
-    pub(crate) user_req_alive_permit: Option<GaugeSemaphorePermit>,
+    /// RAII: released when this notes is dropped
+    _user_req_alive_permit: Option<GaugeSemaphorePermit>,
+    _site_req_alive_permits: SiteRequestPermits,
     _req_alive_guard: Option<UserRequestAliveGuard>,
 }
 
@@ -102,7 +103,8 @@ impl ServerTaskNotes {
             wait_time,
             ready_time: Duration::default(),
             egress_path_selection,
-            user_req_alive_permit: None,
+            _user_req_alive_permit: None,
+            _site_req_alive_permits: SiteRequestPermits::default(),
             _req_alive_guard: None,
         }
     }
@@ -251,6 +253,24 @@ impl ServerTaskNotes {
         if let Some(user_ctx) = &self.user_ctx {
             user_ctx.check_rate_limit()?;
         }
+        Ok(())
+    }
+
+    /// Tenant then site. No-op when this notes has no site.
+    pub(crate) fn acquire_site_request_semaphores(&mut self) -> Result<(), ()> {
+        let Some(site_ctx) = &self.site_ctx else {
+            return Ok(());
+        };
+        self._site_req_alive_permits = site_ctx.acquire_request_semaphores()?;
+        Ok(())
+    }
+
+    /// No-op when this notes has no user.
+    pub(crate) fn acquire_user_request_semaphore(&mut self) -> Result<(), ()> {
+        let Some(user_ctx) = &self.user_ctx else {
+            return Ok(());
+        };
+        self._user_req_alive_permit = Some(user_ctx.acquire_request_semaphore()?);
         Ok(())
     }
 

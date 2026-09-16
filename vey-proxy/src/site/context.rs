@@ -190,20 +190,16 @@ impl SiteContext {
             None => None,
         };
         let site = self.site.acquire_request_semaphore(&self.forbid_stats)?;
-        Ok(SiteRequestPermits { tenant, site })
+        Ok(SiteRequestPermits {
+            _tenant: tenant,
+            _site: site,
+        })
     }
 }
 
 /// Independent alive-request permits for the tenant user and the site.
 #[derive(Default)]
 pub(crate) struct SiteRequestPermits {
-    tenant: Option<GaugeSemaphorePermit>,
-    site: Option<GaugeSemaphorePermit>,
-}
-
-impl SiteRequestPermits {
-    pub(crate) fn release(&mut self) {
-        self.tenant.take();
-        self.site.take();
-    }
+    _tenant: Option<GaugeSemaphorePermit>,
+    _site: Option<GaugeSemaphorePermit>,
 }

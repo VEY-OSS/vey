@@ -16,7 +16,8 @@ use vey_types::limit::{
 };
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
-    Host, OpensslClientConfig, OpensslServerConfigBuilder, TcpSockSpeedLimitConfig, UpstreamAddr,
+    Host, HttpKeepAliveConfig, OpensslClientConfig, OpensslServerConfigBuilder,
+    TcpSockSpeedLimitConfig, UpstreamAddr,
 };
 
 use super::SiteStats;
@@ -153,6 +154,11 @@ impl Site {
 
     pub(crate) fn rsp_hdr_recv_timeout(&self) -> Option<Duration> {
         self.config.http.rsp_hdr_recv_timeout
+    }
+
+    #[inline]
+    pub(crate) fn h1_keepalive_config(&self) -> HttpKeepAliveConfig {
+        self.config.http.h1.upstream_keepalive
     }
 
     pub(crate) fn http1_pool(&self) -> Option<&SiteHttp1Pool> {

@@ -44,17 +44,7 @@ pub(crate) struct HttpProxyConnectTask {
     task_stats: Arc<TcpStreamTaskStats>,
     audit_ctx: AuditContext,
     http_version: Version,
-    started: bool,
     _alive_guard: Option<HttpConnectTaskAliveGuard>,
-}
-
-impl Drop for HttpProxyConnectTask {
-    fn drop(&mut self) {
-        if self.started {
-            self.post_stop();
-            self.started = false;
-        }
-    }
 }
 
 impl HttpProxyConnectTask {
@@ -74,7 +64,6 @@ impl HttpProxyConnectTask {
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
             http_version: req.inner.version,
-            started: false,
             _alive_guard: None,
         }
     }
@@ -278,14 +267,11 @@ impl HttpProxyConnectTask {
                 ));
             }
 
-            match user_ctx.acquire_request_semaphore() {
-                Ok(permit) => self.task_notes.user_req_alive_permit = Some(permit),
-                Err(_) => {
-                    self.reply_too_many_requests(clt_w).await;
-                    return Err(ServerTaskError::ForbiddenByRule(
-                        ServerTaskForbiddenError::FullyLoaded,
-                    ));
-                }
+            if self.task_notes.acquire_user_request_semaphore().is_err() {
+                self.reply_too_many_requests(clt_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
             }
 
             let action = user_ctx.check_proxy_request(ProxyRequestType::HttpConnect);
@@ -362,14 +348,6 @@ impl HttpProxyConnectTask {
             && let Some(log_ctx) = self.get_log_context()
         {
             log_ctx.log_created();
-        }
-
-        self.started = true;
-    }
-
-    fn post_stop(&mut self) {
-        if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
-            drop(user_req_alive_permit);
         }
     }
 

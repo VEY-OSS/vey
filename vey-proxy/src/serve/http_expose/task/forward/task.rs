@@ -21,7 +21,7 @@ use vey_io_ext::{
     StreamCopyError,
 };
 use vey_types::acl::AclAction;
-use vey_types::net::{HttpKeepAliveConfig, KeepAliveValue, TcpSockSpeedLimitConfig};
+use vey_types::net::{KeepAliveValue, TcpSockSpeedLimitConfig};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpExposeRequest};
 use super::{CommonTaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats};
@@ -39,7 +39,7 @@ use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
-use crate::site::{Site, SiteContext, SiteRequestPermits};
+use crate::site::{Site, SiteContext};
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct HttpExposeForwardTask<'a> {
@@ -48,7 +48,6 @@ pub(crate) struct HttpExposeForwardTask<'a> {
     req: &'a HttpProxyClientRequest,
     should_close: bool,
     ups_keep_alive: KeepAliveValue,
-    upstream_keepalive: HttpKeepAliveConfig,
     allow_continue: bool,
     send_error_response: bool,
     task_notes: ServerTaskNotes,
@@ -56,19 +55,8 @@ pub(crate) struct HttpExposeForwardTask<'a> {
     egress_notes: EgressNotes,
     task_stats: Arc<HttpForwardTaskStats>,
     max_idle_count: usize,
-    started: bool,
     _alive_guard: Option<HttpForwardTaskAliveGuard>,
-    _site_req_alive_permits: SiteRequestPermits,
     alive_reuse_notes: Option<HttpAliveReuseNotes>,
-}
-
-impl Drop for HttpExposeForwardTask<'_> {
-    fn drop(&mut self) {
-        if self.started {
-            self.post_stop();
-            self.started = false;
-        }
-    }
 }
 
 impl<'a> HttpExposeForwardTask<'a> {
@@ -94,14 +82,12 @@ impl<'a> HttpExposeForwardTask<'a> {
             uri_log_max_chars,
         );
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
-        let upstream_keepalive = site_ctx.site().config().http.h1.upstream_keepalive;
         HttpExposeForwardTask {
             ctx: Arc::clone(ctx),
             site_ctx,
             req: &req.inner,
             should_close: !req.inner.keep_alive(),
             ups_keep_alive: KeepAliveValue::default(),
-            upstream_keepalive,
             allow_continue: req.inner.expect_100_continue(),
             send_error_response: true,
             task_notes,
@@ -109,9 +95,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             egress_notes: EgressNotes::default(),
             task_stats: Arc::new(HttpForwardTaskStats::default()),
             max_idle_count,
-            started: false,
             _alive_guard: None,
-            _site_req_alive_permits: SiteRequestPermits::default(),
             alive_reuse_notes: None,
         }
     }
@@ -268,15 +252,6 @@ impl<'a> HttpExposeForwardTask<'a> {
         {
             log_ctx.log_created();
         }
-
-        self.started = true;
-    }
-
-    fn post_stop(&mut self) {
-        if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
-            drop(user_req_alive_permit);
-        }
-        self._site_req_alive_permits.release();
     }
 
     async fn handle_user_upstream_acl_action<W>(
@@ -434,27 +409,21 @@ impl<'a> HttpExposeForwardTask<'a> {
             ));
         }
 
-        match self.site_ctx.acquire_request_semaphores() {
-            Ok(permits) => self._site_req_alive_permits = permits,
-            Err(_) => {
-                self.reply_too_many_requests(clt_w).await;
-                return Err(ServerTaskError::ForbiddenByRule(
-                    ServerTaskForbiddenError::FullyLoaded,
-                ));
-            }
+        if self.task_notes.acquire_site_request_semaphores().is_err() {
+            self.reply_too_many_requests(clt_w).await;
+            return Err(ServerTaskError::ForbiddenByRule(
+                ServerTaskForbiddenError::FullyLoaded,
+            ));
         }
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
 
-            match user_ctx.acquire_request_semaphore() {
-                Ok(permit) => self.task_notes.user_req_alive_permit = Some(permit),
-                Err(_) => {
-                    self.reply_too_many_requests(clt_w).await;
-                    return Err(ServerTaskError::ForbiddenByRule(
-                        ServerTaskForbiddenError::FullyLoaded,
-                    ));
-                }
+            if self.task_notes.acquire_user_request_semaphore().is_err() {
+                self.reply_too_many_requests(clt_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
             }
 
             let action = user_ctx.check_upstream(self.site().upstream());
@@ -487,9 +456,10 @@ impl<'a> HttpExposeForwardTask<'a> {
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
-        if self.upstream_keepalive.is_enabled()
+        let keepalive = self.site().h1_keepalive_config();
+        if keepalive.is_enabled()
             && let Some(mut connection) = self
-                .take_alive_origin_connection(fwd_ctx, self.upstream_keepalive.idle_expire())
+                .take_alive_origin_connection(fwd_ctx, keepalive.idle_expire())
                 .await
         {
             self.task_notes.stage = ServerTaskStage::Connected;
@@ -618,7 +588,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
         connection: BoxHttpForwardConnection,
     ) {
-        if !self.upstream_keepalive.is_enabled() {
+        if !self.site().h1_keepalive_config().is_enabled() {
             return;
         }
         if let Some(pool) = self.site_ctx.site().http1_pool() {

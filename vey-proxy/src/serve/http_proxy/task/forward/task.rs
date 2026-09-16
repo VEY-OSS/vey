@@ -68,17 +68,7 @@ pub(crate) struct HttpProxyForwardTask<'a> {
     egress_notes: EgressNotes,
     task_stats: Arc<HttpForwardTaskStats>,
     max_idle_count: usize,
-    started: bool,
     _alive_guard: Option<HttpForwardTaskAliveGuard>,
-}
-
-impl Drop for HttpProxyForwardTask<'_> {
-    fn drop(&mut self) {
-        if self.started {
-            self.post_stop();
-            self.started = false;
-        }
-    }
 }
 
 impl<'a> HttpProxyForwardTask<'a> {
@@ -118,7 +108,6 @@ impl<'a> HttpProxyForwardTask<'a> {
             egress_notes: EgressNotes::default(),
             task_stats: Arc::new(HttpForwardTaskStats::default()),
             max_idle_count,
-            started: false,
             _alive_guard: None,
         }
     }
@@ -290,14 +279,6 @@ impl<'a> HttpProxyForwardTask<'a> {
             && let Some(log_ctx) = self.get_log_context()
         {
             log_ctx.log_created();
-        }
-
-        self.started = true;
-    }
-
-    fn post_stop(&mut self) {
-        if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
-            drop(user_req_alive_permit);
         }
     }
 
@@ -563,14 +544,11 @@ impl<'a> HttpProxyForwardTask<'a> {
                 ));
             }
 
-            match user_ctx.acquire_request_semaphore() {
-                Ok(permit) => self.task_notes.user_req_alive_permit = Some(permit),
-                Err(_) => {
-                    self.reply_too_many_requests(clt_w).await;
-                    return Err(ServerTaskError::ForbiddenByRule(
-                        ServerTaskForbiddenError::FullyLoaded,
-                    ));
-                }
+            if self.task_notes.acquire_user_request_semaphore().is_err() {
+                self.reply_too_many_requests(clt_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
             }
 
             let request_type = if self.is_https {

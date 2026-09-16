@@ -28,7 +28,6 @@ use crate::module::http_forward::HttpForwardTaskNotes;
 use crate::module::http_header::ProxyErrorType;
 use crate::serve::http_guard::H2ForwardTaskAliveGuard;
 use crate::serve::{ServerTaskNotes, ServerTaskStage};
-use crate::site::SiteRequestPermits;
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct H2ForwardTask {
@@ -40,18 +39,7 @@ pub(crate) struct H2ForwardTask {
     egress_notes: EgressNotes,
     send_error_response: bool,
     allow_continue: bool,
-    started: bool,
     _alive_guard: Option<H2ForwardTaskAliveGuard>,
-    _site_req_alive_permits: SiteRequestPermits,
-}
-
-impl Drop for H2ForwardTask {
-    fn drop(&mut self) {
-        if self.started {
-            self._site_req_alive_permits.release();
-            self.started = false;
-        }
-    }
 }
 
 impl H2ForwardTask {
@@ -84,9 +72,7 @@ impl H2ForwardTask {
             egress_notes: EgressNotes::default(),
             send_error_response: true,
             allow_continue,
-            started: false,
             _alive_guard: None,
-            _site_req_alive_permits: SiteRequestPermits::default(),
         }
     }
 
@@ -132,7 +118,6 @@ impl H2ForwardTask {
         {
             log.log_created();
         }
-        self.started = true;
     }
 
     fn reply_local_error(
@@ -174,12 +159,9 @@ impl H2ForwardTask {
             self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
             return Err(H2StreamTransferError::InternalServerError("rate limited"));
         }
-        match self.ctx.site_ctx.acquire_request_semaphores() {
-            Ok(permits) => self._site_req_alive_permits = permits,
-            Err(_) => {
-                self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
-                return Err(H2StreamTransferError::InternalServerError("fully loaded"));
-            }
+        if self.task_notes.acquire_site_request_semaphores().is_err() {
+            self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
+            return Err(H2StreamTransferError::InternalServerError("fully loaded"));
         }
 
         if let Some(tenant) = self.task_notes.tenant_ctx() {

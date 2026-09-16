@@ -46,16 +46,7 @@ pub(crate) struct SocksProxyUdpConnectTask {
     udp_listen_addr: Option<SocketAddr>,
     udp_client_addr: Option<SocketAddr>,
     max_idle_count: usize,
-    started: bool,
     _alive_guard: Option<UdpConnectTaskAliveGuard>,
-}
-
-impl Drop for SocksProxyUdpConnectTask {
-    fn drop(&mut self) {
-        if self.started {
-            self.post_stop();
-        }
-    }
 }
 
 impl SocksProxyUdpConnectTask {
@@ -74,7 +65,6 @@ impl SocksProxyUdpConnectTask {
             udp_listen_addr: None,
             udp_client_addr,
             max_idle_count,
-            started: false,
             _alive_guard: None,
         }
     }
@@ -130,14 +120,6 @@ impl SocksProxyUdpConnectTask {
             && let Some(log_ctx) = self.get_log_context()
         {
             log_ctx.log_created();
-        }
-
-        self.started = true;
-    }
-
-    fn post_stop(&mut self) {
-        if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
-            drop(user_req_alive_permit);
         }
     }
 
@@ -246,14 +228,11 @@ impl SocksProxyUdpConnectTask {
                 ));
             }
 
-            match user_ctx.acquire_request_semaphore() {
-                Ok(permit) => self.task_notes.user_req_alive_permit = Some(permit),
-                Err(_) => {
-                    self.reply_forbidden(&mut clt_tcp_w).await;
-                    return Err(ServerTaskError::ForbiddenByRule(
-                        ServerTaskForbiddenError::FullyLoaded,
-                    ));
-                }
+            if self.task_notes.acquire_user_request_semaphore().is_err() {
+                self.reply_forbidden(&mut clt_tcp_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
             }
 
             let action = user_ctx.check_proxy_request(ProxyRequestType::SocksUdpAssociate);

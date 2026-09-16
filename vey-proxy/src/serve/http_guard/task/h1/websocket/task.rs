@@ -41,7 +41,7 @@ use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
-use crate::site::{Site, SiteContext, SiteRequestPermits};
+use crate::site::{Site, SiteContext};
 use crate::stat::types::RequestAliveKind;
 
 use super::stats::WebSocketTaskCltWrapperStats;
@@ -59,18 +59,7 @@ pub(crate) struct HttpGuardWebsocketTask {
     max_idle_count: usize,
     ups_r_leftover: Option<Bytes>,
     send_error_response: bool,
-    started: bool,
     _alive_guard: Option<HttpForwardTaskAliveGuard>,
-    _site_req_alive_permits: SiteRequestPermits,
-}
-
-impl Drop for HttpGuardWebsocketTask {
-    fn drop(&mut self) {
-        if self.started {
-            self.post_stop();
-            self.started = false;
-        }
-    }
 }
 
 impl HttpGuardWebsocketTask {
@@ -96,9 +85,7 @@ impl HttpGuardWebsocketTask {
             max_idle_count,
             ups_r_leftover: None,
             send_error_response: true,
-            started: false,
             _alive_guard: None,
-            _site_req_alive_permits: SiteRequestPermits::default(),
         }
     }
 
@@ -180,14 +167,6 @@ impl HttpGuardWebsocketTask {
         {
             log_ctx.log_created();
         }
-        self.started = true;
-    }
-
-    fn post_stop(&mut self) {
-        if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
-            drop(user_req_alive_permit);
-        }
-        self._site_req_alive_permits.release();
     }
 
     fn enable_custom_header_for_local_reply(&self, rsp: &mut HttpProxyClientResponse) {
@@ -254,14 +233,11 @@ impl HttpGuardWebsocketTask {
             ));
         }
 
-        match self.site_ctx.acquire_request_semaphores() {
-            Ok(permits) => self._site_req_alive_permits = permits,
-            Err(_) => {
-                self.reply_too_many_requests(clt_w).await;
-                return Err(ServerTaskError::ForbiddenByRule(
-                    ServerTaskForbiddenError::FullyLoaded,
-                ));
-            }
+        if self.task_notes.acquire_site_request_semaphores().is_err() {
+            self.reply_too_many_requests(clt_w).await;
+            return Err(ServerTaskError::ForbiddenByRule(
+                ServerTaskForbiddenError::FullyLoaded,
+            ));
         }
 
         let tenant = self.task_notes.tenant_ctx().cloned();

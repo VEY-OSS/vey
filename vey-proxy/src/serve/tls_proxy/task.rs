@@ -28,7 +28,6 @@ use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
-use crate::site::SiteRequestPermits;
 use crate::stat::types::RequestAliveKind;
 
 pub(super) struct TlsProxyTask {
@@ -39,18 +38,7 @@ pub(super) struct TlsProxyTask {
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
     audit_ctx: AuditContext,
-    started: bool,
     _alive_guard: Option<TcpStreamServerAliveTaskGuard>,
-    _site_req_alive_permits: SiteRequestPermits,
-}
-
-impl Drop for TlsProxyTask {
-    fn drop(&mut self) {
-        if self.started {
-            self.post_stop();
-            self.started = false;
-        }
-    }
 }
 
 impl TlsProxyTask {
@@ -69,9 +57,7 @@ impl TlsProxyTask {
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
-            started: false,
             _alive_guard: None,
-            _site_req_alive_permits: SiteRequestPermits::default(),
         }
     }
 
@@ -117,12 +103,6 @@ impl TlsProxyTask {
         {
             log_ctx.log_created();
         }
-
-        self.started = true;
-    }
-
-    fn post_stop(&mut self) {
-        self._site_req_alive_permits.release();
     }
 
     async fn run<S>(&mut self, clt_stream: S) -> ServerTaskResult<()>
@@ -137,16 +117,13 @@ impl TlsProxyTask {
             ));
         }
 
-        let Some(site_ctx) = self.task_notes.site_ctx() else {
+        if self.task_notes.site_ctx().is_none() {
             return Err(ServerTaskError::InternalServerError("no site context"));
-        };
-        match site_ctx.acquire_request_semaphores() {
-            Ok(permits) => self._site_req_alive_permits = permits,
-            Err(_) => {
-                return Err(ServerTaskError::ForbiddenByRule(
-                    ServerTaskForbiddenError::FullyLoaded,
-                ));
-            }
+        }
+        if self.task_notes.acquire_site_request_semaphores().is_err() {
+            return Err(ServerTaskError::ForbiddenByRule(
+                ServerTaskForbiddenError::FullyLoaded,
+            ));
         }
 
         let tcp_client_misc_opts = if let Some(user) = self.task_notes.tenant_user() {
