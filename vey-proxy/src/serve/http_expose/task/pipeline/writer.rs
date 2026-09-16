@@ -237,7 +237,7 @@ where
             Ok(user_ctx) => {
                 self.req_count.consequent_auth_failed = 0;
 
-                match hosts.get(req.upstream.host()).cloned() {
+                match hosts.get(req.upstream.host()) {
                     Some(host) => {
                         let site_ctx = SiteContext::new(
                             Arc::clone(host.site()),

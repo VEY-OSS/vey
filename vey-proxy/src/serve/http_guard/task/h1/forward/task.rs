@@ -551,40 +551,37 @@ impl<'a> HttpGuardForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection> {
-        let origin_tls = self.origin_tls();
-        let from_pool = if let Some(pool) = self.site_ctx.site().http1_pool() {
-            pool.get(
-                self.task_notes.worker_id(),
-                self.ctx.escaper.name(),
-                idle_expire,
-            )
-            .await
-        } else {
-            None
-        };
-        if let Some((connection, reuse_notes, egress_notes)) = from_pool {
+        if let Some(pool) = self.site_ctx.site().http1_pool() {
+            let (connection, reuse_notes, egress_notes) = pool
+                .get(
+                    self.task_notes.worker_id(),
+                    self.ctx.escaper.name(),
+                    idle_expire,
+                )
+                .await?;
+
             self.egress_notes = egress_notes;
             let connection = reuse_notes.escaper.prepare_reused_http_forward_connection(
                 connection,
                 &self.task_notes,
                 self.task_stats.clone(),
-                origin_tls,
+                self.origin_tls(),
             );
             self.alive_reuse_notes = Some(reuse_notes);
-            return Some(connection);
+            Some(connection)
+        } else {
+            let (connection, reuse_notes) = fwd_ctx
+                .get_prepared_alive_connection(
+                    &self.task_notes,
+                    self.task_stats.clone(),
+                    idle_expire,
+                    self.origin_tls(),
+                )
+                .await?;
+            self.alive_reuse_notes = Some(reuse_notes);
+            fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
+            Some(connection)
         }
-
-        let (connection, reuse_notes) = fwd_ctx
-            .get_prepared_alive_connection(
-                &self.task_notes,
-                self.task_stats.clone(),
-                idle_expire,
-                origin_tls,
-            )
-            .await?;
-        self.alive_reuse_notes = Some(reuse_notes);
-        fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
-        Some(connection)
     }
 
     async fn save_or_close<CDW>(
