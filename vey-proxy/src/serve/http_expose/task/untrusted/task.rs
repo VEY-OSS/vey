@@ -14,14 +14,19 @@ use vey_io_ext::{StreamCopy, StreamCopyError};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpExposeRequest};
 use super::{CommonTaskContext, UntrustedCltReadWrapperStats};
+use crate::config::server::ServerConfig;
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::http_expose::HttpUntrustedTaskAliveGuard;
-use crate::serve::{ServerTaskError, ServerTaskResult};
+use crate::serve::{ServerStats, ServerTaskError, ServerTaskNotes, ServerTaskResult};
+use crate::site::SiteContext;
 
 pub(crate) struct HttpExposeUntrustedTask<'a> {
     ctx: Arc<CommonTaskContext>,
+    site_ctx: SiteContext,
     req: &'a HttpProxyClientRequest,
     should_close: bool,
+    task_notes: ServerTaskNotes,
+    max_idle_count: usize,
     _alive_guard: Option<HttpUntrustedTaskAliveGuard>,
 }
 
@@ -29,11 +34,19 @@ impl<'a> HttpExposeUntrustedTask<'a> {
     pub(crate) fn new(
         ctx: &Arc<CommonTaskContext>,
         req: &'a HttpExposeRequest<impl AsyncRead>,
+        site_ctx: SiteContext,
     ) -> Self {
+        let task_notes =
+            ServerTaskNotes::new(ctx.cc_info.clone(), None, req.time_accepted.elapsed())
+                .with_site_ctx(site_ctx.clone());
+        let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
         HttpExposeUntrustedTask {
             ctx: Arc::clone(ctx),
+            site_ctx,
             req: &req.inner,
             should_close: !req.inner.keep_alive(),
+            task_notes,
+            max_idle_count,
             _alive_guard: None,
         }
     }
@@ -55,6 +68,23 @@ impl<'a> HttpExposeUntrustedTask<'a> {
         CDR: AsyncRead + Unpin,
         CDW: AsyncWrite + Unpin,
     {
+        if self.task_notes.check_layered_rate_limit().is_err()
+            || self.task_notes.acquire_site_request_semaphores().is_err()
+        {
+            self.should_close = true;
+            self.reply_too_many_requests(clt_w).await;
+            return;
+        }
+
+        let site_io = self.site_ctx.fetch_traffic_stats(
+            self.ctx.server_config.name(),
+            self.ctx.server_stats.share_extra_tags(),
+        );
+        site_io
+            .io
+            .http_forward
+            .add_in_bytes(self.req.origin_header_size() as u64);
+
         if self.req.body_type().is_none() {
             self.reply_auth_error(clt_w).await;
         } else if let Some(br) = clt_r {
@@ -68,8 +98,13 @@ impl<'a> HttpExposeUntrustedTask<'a> {
             if !self.should_close
                 && let Some(limit_config) = &self.ctx.server_config.untrusted_read_limit
             {
-                br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
-                let buffer_stats = UntrustedCltReadWrapperStats::new_obj(&self.ctx.server_stats);
+                let limit = self
+                    .site_ctx
+                    .tcp_sock_speed_limit()
+                    .shrink_as_smaller(limit_config);
+                br.reset_local_limit(limit.shift_millis, limit.max_north);
+                let buffer_stats =
+                    UntrustedCltReadWrapperStats::new_obj(&self.ctx.server_stats, site_io);
                 br.reset_buffer_stats(buffer_stats);
 
                 self.pre_start();
@@ -79,6 +114,17 @@ impl<'a> HttpExposeUntrustedTask<'a> {
             }
         } else {
             // should be impossible
+            self.should_close = true;
+        }
+    }
+
+    async fn reply_too_many_requests<CDW>(&mut self, clt_w: &mut HttpClientWriter<CDW>)
+    where
+        CDW: AsyncWrite + Unpin,
+    {
+        let mut rsp = HttpProxyClientResponse::too_many_requests(self.req.version);
+        self.ctx.apply_proxy_status_ident(&mut rsp);
+        if rsp.reply_err_to_request(clt_w).await.is_err() {
             self.should_close = true;
         }
     }
@@ -131,7 +177,7 @@ impl<'a> HttpExposeUntrustedTask<'a> {
                     if clt_to_sink.is_idle() {
                         idle_count += n;
 
-                        if idle_count >= self.ctx.server_config.task_idle_max_count {
+                        if idle_count >= self.max_idle_count {
                             return if clt_to_sink.no_cached_data() {
                                 Err(ServerTaskError::ClientAppTimeout("idle while reading request body"))
                             } else {

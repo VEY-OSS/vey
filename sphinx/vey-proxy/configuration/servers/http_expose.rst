@@ -234,6 +234,14 @@ untrusted_read_speed_limit
 Enables untrusted reading of request bodies that do not yet have authentication
 information, and sets the corresponding read-rate limit.
 
+The request Host is matched to a site before visitor authentication. Untrusted
+drain is also limited by that site's (and tenant's)
+:ref:`tcp_sock_speed_limit <conf_site_tcp_sock_speed_limit>`,
+:ref:`request_rate_limit <conf_site_request_rate_limit>`,
+:ref:`request_max_alive <conf_site_request_max_alive>`, and
+:ref:`task_idle_max_count <conf_site_task_idle_max_count>`. A blocked tenant
+forbids the request at site entry and does not drain.
+
 Use this if you need compatibility with buggy Java HTTP clients that do not
 handle ``407`` responses promptly.
 

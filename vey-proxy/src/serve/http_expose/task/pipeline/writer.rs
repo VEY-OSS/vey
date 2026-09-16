@@ -233,42 +233,53 @@ where
         req: HttpExposeRequest<CDR>,
         hosts: &HostMatch<Arc<HttpHost>>,
     ) -> LoopAction {
+        let Some(host) = hosts.get(req.upstream.host()) else {
+            self.req_count.invalid += 1;
+
+            if !self.ctx.server_config.no_early_error_reply
+                && let Some(stream_w) = &mut self.stream_writer
+            {
+                let mut rsp = HttpProxyClientResponse::bad_request(req.inner.version);
+                self.ctx.apply_proxy_status_ident(&mut rsp);
+                let _ = rsp.reply_err_to_request(stream_w).await;
+            }
+
+            self.notify_reader_to_close();
+            return LoopAction::Break;
+        };
+
+        let site_ctx = SiteContext::new(
+            Arc::clone(host.site()),
+            Arc::clone(host.egress()),
+            self.ctx.server_config.name(),
+            self.ctx.server_stats.share_extra_tags(),
+        );
+        self.note_site_conn(host.site());
+
+        if let Some(delay) = site_ctx.tenant_user_blocked_delay() {
+            if !delay.is_zero() {
+                tokio::time::sleep(delay).await;
+            }
+            if !self.ctx.server_config.no_early_error_reply
+                && let Some(stream_w) = &mut self.stream_writer
+            {
+                let mut rsp = HttpProxyClientResponse::forbidden(req.inner.version);
+                self.ctx.apply_proxy_status_ident(&mut rsp);
+                let _ = rsp.reply_err_to_request(stream_w).await;
+            }
+            self.notify_reader_to_close();
+            return LoopAction::Break;
+        }
+
         match self.do_auth(&req).await {
             Ok(user_ctx) => {
                 self.req_count.consequent_auth_failed = 0;
-
-                match hosts.get(req.upstream.host()) {
-                    Some(host) => {
-                        let site_ctx = SiteContext::new(
-                            Arc::clone(host.site()),
-                            Arc::clone(host.egress()),
-                            self.ctx.server_config.name(),
-                            self.ctx.server_stats.share_extra_tags(),
-                        );
-                        self.note_site_conn(host.site());
-                        self.run(req, site_ctx, user_ctx).await
-                    }
-                    None => {
-                        // close the connection if no site found
-                        self.req_count.invalid += 1;
-
-                        if !self.ctx.server_config.no_early_error_reply
-                            && let Some(stream_w) = &mut self.stream_writer
-                        {
-                            let mut rsp = HttpProxyClientResponse::bad_request(req.inner.version);
-                            self.ctx.apply_proxy_status_ident(&mut rsp);
-                            let _ = rsp.reply_err_to_request(stream_w).await;
-                        }
-
-                        self.notify_reader_to_close();
-                        LoopAction::Break
-                    }
-                }
+                self.run(req, site_ctx, user_ctx).await
             }
             Err(e) => {
                 self.req_count.consequent_auth_failed += 1;
                 self.req_count.auth_failed += 1;
-                self.run_untrusted(req, e.blocked_delay()).await
+                self.run_untrusted(req, site_ctx, e.blocked_delay()).await
             }
         }
     }
@@ -282,19 +293,6 @@ where
         let Some(mut stream_w) = self.stream_writer.take() else {
             unreachable!()
         };
-
-        if let Some(delay) = site_ctx.tenant_user_blocked_delay() {
-            if !delay.is_zero() {
-                tokio::time::sleep(delay).await;
-            }
-            if !self.ctx.server_config.no_early_error_reply {
-                let mut rsp = HttpProxyClientResponse::forbidden(req.inner.version);
-                self.ctx.apply_proxy_status_ident(&mut rsp);
-                let _ = rsp.reply_err_to_request(&mut stream_w).await;
-            }
-            self.notify_reader_to_close();
-            return LoopAction::Break;
-        }
 
         let task_notes = ServerTaskNotes::new(
             self.ctx.cc_info.clone(),
@@ -335,6 +333,7 @@ where
     async fn run_untrusted(
         &mut self,
         mut req: HttpExposeRequest<CDR>,
+        site_ctx: SiteContext,
         blocked_delay: Option<Duration>,
     ) -> LoopAction {
         if self.ctx.server_config.no_early_error_reply {
@@ -385,7 +384,8 @@ where
 
             match req.body_reader.take() {
                 Some(stream_r) => {
-                    let mut untrusted_task = HttpExposeUntrustedTask::new(&self.ctx, &req);
+                    let mut untrusted_task =
+                        HttpExposeUntrustedTask::new(&self.ctx, &req, site_ctx);
                     let mut clt_r = Some(stream_r);
                     untrusted_task.run(&mut clt_r, clt_w).await;
                     if untrusted_task.should_close() {
@@ -403,7 +403,8 @@ where
                     }
                 }
                 None => {
-                    let mut untrusted_task = HttpExposeUntrustedTask::new(&self.ctx, &req);
+                    let mut untrusted_task =
+                        HttpExposeUntrustedTask::new(&self.ctx, &req, site_ctx);
                     let mut clt_r = None;
                     untrusted_task.run::<CDR, CDW>(&mut clt_r, clt_w).await;
                     if untrusted_task.should_close() {
