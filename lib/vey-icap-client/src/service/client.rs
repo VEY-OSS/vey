@@ -5,80 +5,46 @@
 
 use std::sync::Arc;
 
-use anyhow::anyhow;
-use tokio::sync::oneshot;
-
 use super::{
-    IcapClientConnection, IcapConnector, IcapServiceClientCommand, IcapServiceConfig,
-    IcapServicePool,
+    IcapClientConnection, IcapConnectionPool, IcapConnector, IcapServiceConfig, PoolMaintainer,
 };
-use crate::options::{IcapOptionsRequest, IcapServiceOptions};
+
+use crate::options::IcapServiceOptions;
 
 pub struct IcapServiceClient {
     pub(crate) config: Arc<IcapServiceConfig>,
     pub(crate) partial_request_header: Vec<u8>,
-    cmd_sender: kanal::AsyncSender<IcapServiceClientCommand>,
-    conn_creator: Arc<IcapConnector>,
+    conn_pool: Arc<IcapConnectionPool>,
 }
 
 impl IcapServiceClient {
     pub fn new(config: Arc<IcapServiceConfig>) -> anyhow::Result<Self> {
-        let (cmd_sender, cmd_receiver) = kanal::unbounded_async();
-        let conn_creator = IcapConnector::new(config.clone())?;
-        let conn_creator = Arc::new(conn_creator);
-        let pool = IcapServicePool::new(config.clone(), cmd_receiver, conn_creator.clone());
-        tokio::spawn(pool.into_running());
+        let connector = Arc::new(IcapConnector::new(config.clone())?);
+        let conn_pool = Arc::new(IcapConnectionPool::new(config.clone(), connector));
+        let check_interval = config.connection_pool.check_interval();
+
+        let maintainer = PoolMaintainer::new(Arc::downgrade(&conn_pool), check_interval);
+
+        tokio::spawn(maintainer.into_running());
+
         let partial_request_header = config.build_request_header();
         Ok(IcapServiceClient {
             config,
             partial_request_header,
-            cmd_sender,
-            conn_creator,
+            conn_pool,
         })
-    }
-
-    async fn fetch_from_pool(&self) -> Option<(IcapClientConnection, Arc<IcapServiceOptions>)> {
-        let (rsp_sender, rsp_receiver) = oneshot::channel();
-        let cmd = IcapServiceClientCommand::FetchConnection(rsp_sender);
-        if self.cmd_sender.send(cmd).await.is_ok() {
-            rsp_receiver.await.ok()
-        } else {
-            None
-        }
     }
 
     pub async fn fetch_connection(
         &self,
     ) -> anyhow::Result<(IcapClientConnection, Arc<IcapServiceOptions>)> {
-        if let Some(conn) = self.fetch_from_pool().await {
-            return Ok(conn);
-        }
-
-        let mut conn = self
-            .conn_creator
-            .create()
-            .await
-            .map_err(|e| anyhow!("create new connection failed: {e:?}"))?;
-        let options_req = IcapOptionsRequest::new(self.config.as_ref());
-
+        let mut conn = self.conn_pool.get().await?;
+        let options = self.conn_pool.get_options();
         conn.mark_io_inuse();
-        let options = options_req
-            .get_options(&mut conn, self.config.icap_max_header_size)
-            .await
-            .map_err(|e| anyhow!("failed to get icap service options: {e}"))?;
-
-        conn.mark_io_inuse();
-        Ok((conn, Arc::new(options)))
+        Ok((conn, options))
     }
 
     pub fn save_connection(&self, conn: IcapClientConnection) {
-        if conn.reusable() {
-            let pool_sender = self.cmd_sender.clone();
-            tokio::spawn(async move {
-                let _ = pool_sender
-                    .send(IcapServiceClientCommand::SaveConnection(conn))
-                    .await;
-            });
-        }
+        self.conn_pool.try_put(conn);
     }
 }

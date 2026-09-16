@@ -4,21 +4,20 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use futures_util::poll;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Duration;
+use std::task::Poll;
 
 use anyhow::Context;
 use tokio::io::{AsyncRead, AsyncWrite, BufReader};
-use tokio::sync::oneshot;
 use tokio_rustls::TlsConnector;
 
 use vey_io_ext::{AsyncStream, LimitedBufReadExt};
 use vey_types::net::{Host, RustlsClientConfig};
 
 use super::IcapServiceConfig;
-use crate::IcapServiceOptions;
 
 pub type IcapClientWriter = Box<dyn AsyncWrite + Send + Sync + Unpin>;
 pub type IcapClientReader = BufReader<Box<dyn AsyncRead + Send + Sync + Unpin>>;
@@ -32,7 +31,7 @@ pub struct IcapClientConnection {
 }
 
 impl IcapClientConnection {
-    fn new<R, W>(reader: R, writer: W) -> Self
+    pub(super) fn new<R, W>(reader: R, writer: W) -> Self
     where
         R: AsyncRead + Send + Sync + Unpin + 'static,
         W: AsyncWrite + Send + Sync + Unpin + 'static,
@@ -50,6 +49,14 @@ impl IcapClientConnection {
         self.reused_connection
     }
 
+    pub(super) fn mark_reused(&mut self) {
+        self.reused_connection = true
+    }
+
+    pub(super) fn reusable(&self) -> bool {
+        self.reader_clean && self.writer_clean
+    }
+
     pub fn mark_reader_finished(&mut self) {
         self.reader_clean = true;
     }
@@ -63,8 +70,8 @@ impl IcapClientConnection {
         self.writer_clean = false;
     }
 
-    pub(super) fn reusable(&self) -> bool {
-        self.reader_clean && self.writer_clean
+    pub(super) async fn probe_idle(&mut self) -> bool {
+        matches!(poll!(self.reader.fill_wait_data()), Poll::Pending)
     }
 }
 
@@ -146,59 +153,55 @@ impl IcapConnector {
     }
 }
 
-pub(super) struct IcapConnectionPollRequest {
-    client_sender: oneshot::Sender<(IcapClientConnection, Arc<IcapServiceOptions>)>,
-    options: Arc<IcapServiceOptions>,
-}
+#[allow(unused_imports)]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::AsyncWriteExt;
 
-impl IcapConnectionPollRequest {
-    pub(super) fn new(
-        client_sender: oneshot::Sender<(IcapClientConnection, Arc<IcapServiceOptions>)>,
-        options: Arc<IcapServiceOptions>,
-    ) -> Self {
-        IcapConnectionPollRequest {
-            client_sender,
-            options,
-        }
-    }
-}
+    #[tokio::test]
+    async fn probe_detects_closed_idle_connection() {
+        let (client, server) = tokio::io::duplex(1024);
 
-pub(super) struct IcapConnectionEofPoller {
-    conn: IcapClientConnection,
-    req_receiver: kanal::AsyncReceiver<IcapConnectionPollRequest>,
-}
+        let (reader, writer) = tokio::io::split(client);
 
-impl IcapConnectionEofPoller {
-    pub(super) fn new(
-        conn: IcapClientConnection,
-        req_receiver: &kanal::AsyncReceiver<IcapConnectionPollRequest>,
-    ) -> Option<Self> {
-        if conn.reusable() {
-            Some(IcapConnectionEofPoller {
-                conn,
-                req_receiver: req_receiver.clone(),
-            })
-        } else {
-            None
-        }
+        let mut conn = IcapClientConnection {
+            reader: BufReader::new(Box::new(reader)),
+            writer: Box::new(writer),
+            reader_clean: true,
+            writer_clean: true,
+            reused_connection: false,
+        };
+
+        // Idle live connection: nothing readable.
+        assert!(conn.probe_idle().await);
+
+        // Simulate ICAP server closing its side.
+        drop(server);
+
+        tokio::task::yield_now().await;
+
+        // EOF should now be observable.
+        assert!(!conn.probe_idle().await);
     }
 
-    pub(super) async fn into_running(mut self, idle_timeout: Duration) {
-        let idle_sleep = tokio::time::sleep(idle_timeout);
+    #[tokio::test]
+    async fn probe_rejects_unexpected_data() {
+        let (client, mut server) = tokio::io::duplex(1024);
+        let (reader, writer) = tokio::io::split(client);
 
-        tokio::select! {
-            _ = self.conn.reader.fill_wait_data() => {}
-            _ = idle_sleep => {}
-            r = self.req_receiver.recv() => {
-                if let Ok(req) = r {
-                    let IcapConnectionPollRequest {
-                        client_sender,
-                        options,
-                    } = req;
-                    self.conn.reused_connection = true;
-                    let _ = client_sender.send((self.conn, options));
-                }
-            }
-        }
+        let mut conn = IcapClientConnection {
+            reader: BufReader::new(Box::new(reader)),
+            writer: Box::new(writer),
+            reader_clean: true,
+            writer_clean: true,
+            reused_connection: false,
+        };
+
+        server.write_all(b"garbage").await.unwrap();
+
+        tokio::task::yield_now().await;
+
+        assert!(!conn.probe_idle().await);
     }
 }
