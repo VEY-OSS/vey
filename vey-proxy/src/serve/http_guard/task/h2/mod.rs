@@ -6,12 +6,12 @@
 mod context;
 pub(crate) use context::H2TaskContext;
 
-mod connection;
 mod error;
-mod forward;
 mod ping;
-mod stats;
 mod stream;
+
+mod connection;
+mod forward;
 mod websocket;
 
 pub(crate) use connection::HttpGuardH2ConnectionTask;

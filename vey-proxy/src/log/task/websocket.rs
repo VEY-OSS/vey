@@ -3,9 +3,10 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use slog::Logger;
-
 use h2::StreamId;
+use slog::Logger;
+use uuid::Uuid;
+
 use vey_slog_types::{
     LtDateTime, LtDuration, LtH2StreamId, LtHttpUri, LtHttpVersion, LtIpAddr, LtUpstreamAddr,
     LtUserName, LtUuid,
@@ -31,6 +32,7 @@ pub(crate) struct TaskLogForWebSocket<'a> {
     pub(crate) remote_wr_bytes: u64,
     pub(crate) clt_stream_id: Option<&'a StreamId>,
     pub(crate) ups_stream_id: Option<&'a StreamId>,
+    pub(crate) connection_id: Option<&'a Uuid>,
 }
 
 impl TaskLogForWebSocket<'_> {
@@ -48,10 +50,13 @@ impl TaskLogForWebSocket<'_> {
         slog::info!(self.logger, "";
             "task_type" => TASK_TYPE,
             "task_id" => LtUuid(&self.task_notes.id),
+            "connection_id" => self.connection_id.map(LtUuid),
             "task_event" => TaskEvent::Created.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name().map(LtUserName),
+            "tenant" => self.task_notes.tenant_user_name().map(LtUserName),
+            "site" => self.task_notes.site_id().map(|s| s.as_str()),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
@@ -71,10 +76,13 @@ impl TaskLogForWebSocket<'_> {
         slog::info!(self.logger, "";
             "task_type" => TASK_TYPE,
             "task_id" => LtUuid(&self.task_notes.id),
+            "connection_id" => self.connection_id.map(LtUuid),
             "task_event" => TaskEvent::Connected.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name().map(LtUserName),
+            "tenant" => self.task_notes.tenant_user_name().map(LtUserName),
+            "site" => self.task_notes.site_id().map(|s| s.as_str()),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
@@ -102,10 +110,13 @@ impl TaskLogForWebSocket<'_> {
         slog::info!(self.logger, "";
             "task_type" => TASK_TYPE,
             "task_id" => LtUuid(&self.task_notes.id),
+            "connection_id" => self.connection_id.map(LtUuid),
             "task_event" => TaskEvent::Periodic.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name().map(LtUserName),
+            "tenant" => self.task_notes.tenant_user_name().map(LtUserName),
+            "site" => self.task_notes.site_id().map(|s| s.as_str()),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
@@ -136,10 +147,13 @@ impl TaskLogForWebSocket<'_> {
         slog::info!(self.logger, "";
             "task_type" => TASK_TYPE,
             "task_id" => LtUuid(&self.task_notes.id),
+            "connection_id" => self.connection_id.map(LtUuid),
             "task_event" => task_event.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name().map(LtUserName),
+            "tenant" => self.task_notes.tenant_user_name().map(LtUserName),
+            "site" => self.task_notes.site_id().map(|s| s.as_str()),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
@@ -179,10 +193,13 @@ impl TaskLogForWebSocket<'_> {
         slog::info!(self.logger, "{}", e;
             "task_type" => TASK_TYPE,
             "task_id" => LtUuid(&self.task_notes.id),
+            "connection_id" => self.connection_id.map(LtUuid),
             "task_event" => TaskEvent::Finished.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name().map(LtUserName),
+            "tenant" => self.task_notes.tenant_user_name().map(LtUserName),
+            "site" => self.task_notes.site_id().map(|s| s.as_str()),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
@@ -218,10 +235,13 @@ impl TaskLogForWebSocket<'_> {
         slog::info!(self.logger, "{err}";
             "task_type" => TASK_TYPE,
             "task_id" => LtUuid(&self.task_notes.id),
+            "connection_id" => self.connection_id.map(LtUuid),
             "task_event" => TaskEvent::Finished.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name().map(LtUserName),
+            "tenant" => self.task_notes.tenant_user_name().map(LtUserName),
+            "site" => self.task_notes.site_id().map(|s| s.as_str()),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
@@ -231,6 +251,9 @@ impl TaskLogForWebSocket<'_> {
             "next_bind_ip" => self.egress_notes.bind.ip().map(LtIpAddr),
             "next_bound_addr" => self.egress_notes.tcp.local,
             "next_peer_addr" => self.egress_notes.tcp.peer,
+            "next_expire" => self.egress_notes.expire.as_ref().map(LtDateTime),
+            "tcp_connect_tries" => self.egress_notes.tries,
+            "tcp_connect_spend" => LtDuration(self.egress_notes.duration),
             "version" => LtHttpVersion(self.ws_notes.version),
             "uri" => LtHttpUri::new(&self.ws_notes.uri, self.ws_notes.uri_log_max_chars),
             "rsp_status" => self.ws_notes.rsp_status,

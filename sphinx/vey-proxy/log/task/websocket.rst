@@ -14,9 +14,12 @@ extended ``CONNECT`` with ``:protocol = websocket``. Both use ``task_type``
 not this task type.
 
 The tunnel keys follow :ref:`TcpConnect <log_task_tcp_connect>` (including
-TCP copy counters, ``Periodic``, ``ClientShutdown``, and
-``UpstreamShutdown``). The handshake also records ``version``, ``uri``,
-``rsp_status``, and ``origin_status``.
+TCP copy counters, origin connection keys, ``Periodic``, ``ClientShutdown``,
+and ``UpstreamShutdown``). The handshake also records ``version``, ``uri``,
+``rsp_status``, and ``origin_status``. HTTP/2 websocket ``Finished`` records
+include the same origin TCP keys (``escaper``, ``next_bind_ip``,
+``next_bound_addr``, ``next_peer_addr``, ``next_expire``,
+``tcp_connect_tries``, ``tcp_connect_spend``).
 
 HttpForward-only keys are not present: ``pipeline_wait``, ``user_agent``,
 ``reuse_connection``, hop durations, or decoded body sizes.
@@ -34,6 +37,19 @@ These logs emit:
 * ``Finished``, when the task ends
 
 Shared task-log keys from :ref:`log_task` still apply.
+``user`` is the visitor username when visitor authentication is enabled.
+``site`` is the site id. ``tenant`` is the site owner username when the
+site has an :ref:`owner <conf_site_owner>`.
+
+connection_id
+-------------
+
+**optional**, **type**: uuid in simple string format
+
+The parent HTTP/2 connection id. Present on HTTP/2 RFC 8441 websocket
+tasks; equal to ``task_id`` / ``connection_id`` on the
+:ref:`H2Connection <log_task_h2_connection>` record. Omitted for HTTP/1
+``Upgrade: websocket`` tasks.
 
 .. versionadded:: 1.15.0
 

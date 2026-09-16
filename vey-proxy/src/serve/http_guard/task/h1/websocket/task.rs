@@ -159,6 +159,7 @@ impl HttpGuardWebsocketTask {
             remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
             clt_stream_id: None,
             ups_stream_id: None,
+            connection_id: None,
         })
     }
 

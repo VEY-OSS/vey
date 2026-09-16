@@ -24,15 +24,28 @@ They do **not** emit ``Connected``, ``Periodic``, ``ClientShutdown``, or
 
 Shared task-log keys from :ref:`log_task` still apply
 (``server_type``, ``server_name``, ``task_id``, ``stage``, ``start_at``,
-``wait_time``, ``ready_time``, ``total_time``). ``user`` is the site tenant
-username when the site has an :ref:`owner <conf_site_owner>`.
+``wait_time``, ``ready_time``, ``total_time``). ``user`` is the visitor
+username when visitor authentication is enabled. ``site`` is the site id.
+``tenant`` is the site owner username when the site has an
+:ref:`owner <conf_site_owner>`.
+
+connection_id
+-------------
+
+**required**, **type**: uuid in simple string format
+
+The parent HTTP/2 connection id. Equal to ``task_id`` /
+``connection_id`` on the :ref:`H2Connection <log_task_h2_connection>`
+record for this stream.
 
 Compared with :ref:`HttpForward <log_task_http_forward>`, these logs do not
-include ``pipeline_wait``, ``user_agent``, ``next_expire``,
-``tcp_connect_tries``, ``tcp_connect_spend``, or the TCP copy counters
+include ``pipeline_wait``, ``user_agent``, or the TCP copy counters
 (``c_rd_bytes``, ``c_wr_bytes``, ``r_rd_bytes``, ``r_wr_bytes``).
 Connection-level HTTP/2 I/O is counted on the ``h2_connection`` metrics
-request type instead.
+request type instead. Origin TCP connection keys follow
+:ref:`TcpConnect <log_task_tcp_connect>` (``escaper``, ``next_bind_ip``,
+``next_bound_addr``, ``next_peer_addr``, ``next_expire``,
+``tcp_connect_tries``, ``tcp_connect_spend``).
 
 .. versionadded:: 1.15.0
 
@@ -96,6 +109,36 @@ next proxy peer.
 
 Present only on ``Finished`` records after the next peer address has been
 selected.
+
+next_expire
+-----------
+
+**optional**, **type**: rfc3339 timestamp string with microseconds
+
+The expected expiration time of the next peer.
+
+Present only on ``Finished`` records when the next escaper is dynamic and a
+remote peer has already been selected.
+
+tcp_connect_tries
+-----------------
+
+**optional**, **type**: int
+
+Number of connection attempts made to the origin. ``0`` when this stream
+reused a pooled origin HTTP/2 connection.
+
+Present only on ``Finished`` records.
+
+tcp_connect_spend
+-----------------
+
+**optional**, **type**: time duration string
+
+Total time spent attempting to connect to the origin, including retries.
+``0`` when this stream reused a pooled origin HTTP/2 connection.
+
+Present only on ``Finished`` records.
 
 reuse_connection
 ----------------

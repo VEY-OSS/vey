@@ -20,8 +20,7 @@ use vey_icap_client::reqmod::h2::{
 use vey_icap_client::respmod::h2::{RespmodAdaptationEndState, RespmodAdaptationRunState};
 use vey_types::acl::AclAction;
 
-use super::H2TaskContext;
-use super::error::H2StreamTransferError;
+use super::{H2StreamTransferError, H2TaskContext};
 use crate::escape::EgressNotes;
 use crate::log::task::h2_forward::TaskLogForH2Forward;
 use crate::module::http_forward::HttpForwardTaskNotes;
@@ -88,6 +87,7 @@ impl H2ForwardTask {
                 egress_notes: &self.egress_notes,
                 clt_stream_id: &self.clt_stream_id,
                 ups_stream_id: self.ups_stream_id.as_ref(),
+                connection_id: &self.ctx.connection_id,
             })
     }
 

@@ -4,7 +4,14 @@
 Tcp Connect
 ***********
 
-The following keys are available in ``TcpConnect`` task logs:
+The following keys are available in ``TcpConnect`` task logs.
+
+On :ref:`tls_proxy <configuration_server_tls_proxy>`, these logs also include
+``site`` (site id) and ``tenant`` (site owner username when the site has an
+:ref:`owner <conf_site_owner>`). ``user`` remains the visitor username when
+visitor authentication is enabled. Forward-proxy ``TcpConnect`` tasks (HTTP
+``CONNECT``, SOCKS TCP, ``tcp_stream``, and similar) omit ``site`` and
+``tenant``.
 
 server_addr
 -----------

@@ -252,9 +252,11 @@ impl HttpGuardServer {
             self.config.name(),
             self.server_stats.share_extra_tags(),
         );
+        let started = jiff::Timestamp::now();
         Arc::new(H2TaskContext {
             common: self.common_task_context(cc_info),
             site_ctx,
+            connection_id: vey_daemon::server::task::generate_uuid(&started),
         })
     }
 

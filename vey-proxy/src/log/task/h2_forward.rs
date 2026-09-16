@@ -5,6 +5,7 @@
 
 use h2::StreamId;
 use slog::Logger;
+use uuid::Uuid;
 
 use vey_slog_types::{
     LtDateTime, LtDuration, LtH2StreamId, LtHttpMethod, LtHttpUri, LtIpAddr, LtUpstreamAddr,
@@ -25,6 +26,7 @@ pub(crate) struct TaskLogForH2Forward<'a> {
     pub(crate) egress_notes: &'a EgressNotes,
     pub(crate) clt_stream_id: &'a StreamId,
     pub(crate) ups_stream_id: Option<&'a StreamId>,
+    pub(crate) connection_id: &'a Uuid,
 }
 
 impl TaskLogForH2Forward<'_> {
@@ -32,10 +34,13 @@ impl TaskLogForH2Forward<'_> {
         slog::info!(self.logger, "";
             "task_type" => "H2Forward",
             "task_id" => LtUuid(&self.task_notes.id),
+            "connection_id" => LtUuid(self.connection_id),
             "task_event" => TaskEvent::Created.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name().map(LtUserName),
+            "tenant" => self.task_notes.tenant_user_name().map(LtUserName),
+            "site" => self.task_notes.site_id().map(|s| s.as_str()),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "clt_stream" => LtH2StreamId(self.clt_stream_id),
@@ -51,10 +56,13 @@ impl TaskLogForH2Forward<'_> {
         slog::info!(self.logger, "{err}";
             "task_type" => "H2Forward",
             "task_id" => LtUuid(&self.task_notes.id),
+            "connection_id" => LtUuid(self.connection_id),
             "task_event" => TaskEvent::Finished.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name().map(LtUserName),
+            "tenant" => self.task_notes.tenant_user_name().map(LtUserName),
+            "site" => self.task_notes.site_id().map(|s| s.as_str()),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "clt_stream" => LtH2StreamId(self.clt_stream_id),
@@ -64,6 +72,9 @@ impl TaskLogForH2Forward<'_> {
             "next_bind_ip" => self.egress_notes.bind.ip().map(LtIpAddr),
             "next_bound_addr" => self.egress_notes.tcp.local,
             "next_peer_addr" => self.egress_notes.tcp.peer,
+            "next_expire" => self.egress_notes.expire.as_ref().map(LtDateTime),
+            "tcp_connect_tries" => self.egress_notes.tries,
+            "tcp_connect_spend" => LtDuration(self.egress_notes.duration),
             "reuse_connection" => self.http_notes.reused_connection,
             "method" => LtHttpMethod(&self.http_notes.method),
             "uri" => LtHttpUri::new(&self.http_notes.uri, self.http_notes.uri_log_max_chars),

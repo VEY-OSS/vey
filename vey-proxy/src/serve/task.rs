@@ -282,6 +282,10 @@ impl ServerTaskNotes {
         self.tenant_user().map(|u| u.name())
     }
 
+    pub(crate) fn site_id(&self) -> Option<&NodeName> {
+        self.site_ctx.as_ref().map(|s| s.site().id())
+    }
+
     pub(crate) fn egress_path_number_id(&self, escaper: &NodeName, length: usize) -> Option<usize> {
         if let Some(site_ctx) = &self.site_ctx {
             if let Some(p) = site_ctx.path_selection()

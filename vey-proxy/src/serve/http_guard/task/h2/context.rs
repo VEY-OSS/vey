@@ -13,6 +13,7 @@ use h2::client::SendRequest;
 use h2::server::SendResponse;
 use http::{Response, StatusCode, Version};
 use tokio::sync::oneshot;
+use uuid::Uuid;
 
 use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_daemon::stat::task::TcpStreamTaskStats;
@@ -32,6 +33,7 @@ use crate::site::SiteContext;
 pub(crate) struct H2TaskContext {
     pub(crate) common: CommonTaskContext,
     pub(crate) site_ctx: SiteContext,
+    pub(crate) connection_id: Uuid,
 }
 
 impl Deref for H2TaskContext {

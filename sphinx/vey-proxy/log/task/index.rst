@@ -122,7 +122,8 @@ user
 
 **optional**, **type**: string
 
-The username. Present only when user authentication is enabled on the server.
+The visitor username. Present only when user authentication is enabled on
+the server.
 
 escaper
 -------
@@ -177,6 +178,7 @@ Sub Types
 
    tcp_connect
    http_forward
+   h2_connection
    h2_forward
    websocket
    ftp_over_http

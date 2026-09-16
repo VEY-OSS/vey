@@ -48,10 +48,13 @@ It supports:
 * HTTP/1 WebSocket upgrades (``Upgrade: websocket``)
 * optional ICAP via :ref:`auditor <conf_server_common_auditor>` (REQMOD / RESPMOD)
 
-HTTP/1 tasks log as :ref:`HttpForward <log_task_http_forward>`. HTTP/2 streams
-log as :ref:`H2Forward <log_task_h2_forward>`. HTTP/1 ``Upgrade: websocket``
+HTTP/1 tasks log as :ref:`HttpForward <log_task_http_forward>`. Each HTTP/2
+client connection logs as :ref:`H2Connection <log_task_h2_connection>`.
+HTTP/2 streams log as :ref:`H2Forward <log_task_h2_forward>` and include
+``connection_id`` pointing at that connection. HTTP/1 ``Upgrade: websocket``
 and HTTP/2 ``CONNECT`` with ``:protocol = websocket`` both log as
-:ref:`Websocket <log_task_websocket>`.
+:ref:`Websocket <log_task_websocket>`; HTTP/2 websocket tasks also include
+``connection_id``.
 
 Standard ``CONNECT`` (no ``:protocol``) and extended ``CONNECT`` with any
 other ``:protocol`` are rejected; they are not Websocket or H2Forward tasks.

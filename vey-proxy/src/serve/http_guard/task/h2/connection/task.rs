@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use h2::Reason;
+use jiff::Timestamp;
 use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
@@ -13,16 +14,20 @@ use vey_io_ext::LimitedStream;
 use vey_types::route::HostMatch;
 
 use super::H2TaskContext;
-use super::stats::{H2ConcurrencyStats, H2ConnectionCltWrapperStats};
-use super::stream;
+use super::stats::{H2ConcurrencyStats, H2ConnectionCltWrapperStats, H2ConnectionTaskStats};
 use crate::config::server::ServerConfig;
-use crate::serve::ServerStats;
+use crate::log::task::h2_connection::TaskLogForH2Connection;
 use crate::serve::http_guard::HttpHost;
+use crate::serve::{ServerStats, ServerTaskNotes};
 
 pub(crate) struct HttpGuardH2ConnectionTask<S> {
     ctx: Arc<H2TaskContext>,
     stream: Option<S>,
     hosts: Arc<HostMatch<Arc<HttpHost>>>,
+    task_notes: ServerTaskNotes,
+    task_stats: Arc<H2ConnectionTaskStats>,
+    concurrency: Arc<H2ConcurrencyStats>,
+    first_stream_at: Option<Timestamp>,
 }
 
 impl<S> HttpGuardH2ConnectionTask<S>
@@ -34,20 +39,58 @@ where
         stream: S,
         hosts: Arc<HostMatch<Arc<HttpHost>>>,
     ) -> Self {
+        let mut task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Default::default())
+            .with_site_ctx(ctx.site_ctx.clone());
+        task_notes.id = ctx.connection_id;
         HttpGuardH2ConnectionTask {
             ctx: Arc::clone(ctx),
             stream: Some(stream),
             hosts,
+            task_notes,
+            task_stats: Arc::new(H2ConnectionTaskStats::default()),
+            concurrency: Arc::new(H2ConcurrencyStats::default()),
+            first_stream_at: None,
         }
     }
 
+    fn log_ctx(&self) -> Option<TaskLogForH2Connection<'_>> {
+        self.ctx
+            .task_logger
+            .as_ref()
+            .map(|logger| TaskLogForH2Connection {
+                logger,
+                task_notes: &self.task_notes,
+                connection_id: &self.ctx.connection_id,
+                stream_total: self.concurrency.get_total_task(),
+                stream_alive: self.concurrency.get_alive_task(),
+                first_stream_at: self.first_stream_at.as_ref(),
+                client_rd_bytes: self.task_stats.clt.read.get_bytes(),
+                client_wr_bytes: self.task_stats.clt.write.get_bytes(),
+            })
+    }
+
     pub(crate) async fn into_running(mut self) {
-        if let Err(e) = self.run().await {
-            debug!(
-                "{} - {} h2 connection error: {e}",
-                self.ctx.client_addr(),
-                self.ctx.server_addr()
-            );
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log) = self.log_ctx()
+        {
+            log.log_created();
+        }
+        match self.run().await {
+            Ok(()) => {
+                if let Some(log) = self.log_ctx() {
+                    log.log("finished");
+                }
+            }
+            Err(e) => {
+                debug!(
+                    "{} - {} h2 connection error: {e}",
+                    self.ctx.client_addr(),
+                    self.ctx.server_addr()
+                );
+                if let Some(log) = self.log_ctx() {
+                    log.log(&e.to_string());
+                }
+            }
         }
     }
 
@@ -74,7 +117,11 @@ where
             limit.shift_millis,
             limit.max_north,
             limit.max_south,
-            H2ConnectionCltWrapperStats::new(&self.ctx.server_stats, site_io_stats),
+            H2ConnectionCltWrapperStats::new(
+                &self.ctx.server_stats,
+                site_io_stats,
+                &self.task_stats,
+            ),
         );
         if let Some(user) = &tenant_user {
             if let Some(limiter) = user.tcp_all_upload_speed_limit() {
@@ -99,9 +146,12 @@ where
         .map_err(|_| anyhow::anyhow!("client h2 handshake timeout"))?
         .map_err(|e| anyhow::anyhow!("client h2 handshake: {e}"))?;
 
-        let stats = Arc::new(H2ConcurrencyStats::default());
         let mut idle_interval = self.ctx.idle_wheel.register();
+        let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
+        let idle_max = self
+            .task_notes
+            .task_max_idle_count(self.ctx.server_config.task_idle_max_count);
 
         loop {
             tokio::select! {
@@ -111,11 +161,15 @@ where
                     match clt_r {
                         Some(Ok((clt_req, clt_send_rsp))) => {
                             idle_count = 0;
+                            if self.first_stream_at.is_none() {
+                                self.first_stream_at = Some(Timestamp::now());
+                            }
                             let ctx = Arc::clone(&self.ctx);
                             let hosts = Arc::clone(&self.hosts);
-                            let task_guard = stats.add_task();
+                            let task_guard = self.concurrency.add_task();
                             tokio::spawn(async move {
-                                stream::transfer(clt_req, clt_send_rsp, ctx, hosts).await;
+                                super::super::stream::transfer(clt_req, clt_send_rsp, ctx, hosts)
+                                    .await;
                                 drop(task_guard);
                             });
                         }
@@ -134,9 +188,9 @@ where
                     }
                 }
                 n = idle_interval.tick() => {
-                    if stats.get_alive_task() <= 0 {
+                    if self.concurrency.get_alive_task() <= 0 {
                         idle_count += n;
-                        if idle_count > self.ctx.server_config.task_idle_max_count {
+                        if idle_count > idle_max {
                             h2c.abrupt_shutdown(Reason::NO_ERROR);
                             let _ = std::future::poll_fn(|cx| h2c.poll_closed(cx)).await;
                             return Ok(());
@@ -148,6 +202,11 @@ where
                         h2c.graceful_shutdown();
                         let _ = std::future::poll_fn(|cx| h2c.poll_closed(cx)).await;
                         return Ok(());
+                    }
+                }
+                _ = log_interval.tick() => {
+                    if let Some(log) = self.log_ctx() {
+                        log.log_periodic();
                     }
                 }
             }

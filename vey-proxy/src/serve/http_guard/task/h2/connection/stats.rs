@@ -6,10 +6,11 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 
+use vey_daemon::stat::task::TcpStreamConnectionStats;
 use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
-use super::super::HttpGuardServerStats;
 use crate::auth::UserTrafficStats;
+use crate::serve::http_guard::HttpGuardServerStats;
 
 pub(crate) struct H2ConcurrencyStats {
     total_task: AtomicU64,
@@ -33,6 +34,10 @@ impl H2ConcurrencyStats {
         H2ConcurrencyTaskGuard(Arc::clone(self))
     }
 
+    pub(super) fn get_total_task(&self) -> u64 {
+        self.total_task.load(Ordering::Relaxed)
+    }
+
     pub(super) fn get_alive_task(&self) -> i32 {
         self.alive_task.load(Ordering::Acquire)
     }
@@ -46,19 +51,27 @@ impl Drop for H2ConcurrencyTaskGuard {
     }
 }
 
+#[derive(Default)]
+pub(crate) struct H2ConnectionTaskStats {
+    pub(crate) clt: TcpStreamConnectionStats,
+}
+
 pub(crate) struct H2ConnectionCltWrapperStats {
     server: Arc<HttpGuardServerStats>,
     site_io_stats: Arc<UserTrafficStats>,
+    task: Arc<H2ConnectionTaskStats>,
 }
 
 impl H2ConnectionCltWrapperStats {
     pub(crate) fn new(
         server: &Arc<HttpGuardServerStats>,
         site_io_stats: Arc<UserTrafficStats>,
+        task: &Arc<H2ConnectionTaskStats>,
     ) -> Arc<Self> {
         Arc::new(H2ConnectionCltWrapperStats {
             server: Arc::clone(server),
             site_io_stats,
+            task: Arc::clone(task),
         })
     }
 }
@@ -66,6 +79,7 @@ impl H2ConnectionCltWrapperStats {
 impl LimitedReaderStats for H2ConnectionCltWrapperStats {
     fn add_read_bytes(&self, size: usize) {
         let size = size as u64;
+        self.task.clt.read.add_bytes(size);
         self.server.io_http.add_in_bytes(size);
         self.site_io_stats.io.h2_connection.add_in_bytes(size);
     }
@@ -74,6 +88,7 @@ impl LimitedReaderStats for H2ConnectionCltWrapperStats {
 impl LimitedWriterStats for H2ConnectionCltWrapperStats {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
+        self.task.clt.write.add_bytes(size);
         self.server.io_http.add_out_bytes(size);
         self.site_io_stats.io.h2_connection.add_out_bytes(size);
     }

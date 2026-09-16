@@ -7,6 +7,12 @@ Http Forward
 All fields documented for :ref:`TcpConnect <log_task_tcp_connect>` task logs
 also apply to ``HttpForward`` task logs.
 
+On :ref:`http_guard <configuration_server_http_guard>` and
+:ref:`http_expose <configuration_server_http_expose>`, these logs also
+include ``site`` (site id) and ``tenant`` (site owner username when the site
+has an :ref:`owner <conf_site_owner>`). ``user`` remains the visitor username
+when visitor authentication is enabled.
+
 The following keys are specific to ``HttpForward`` task logs. The four decoded
 body-size keys below are also present on :ref:`H2Forward <log_task_h2_forward>`
 task logs and intercept ``HttpForward`` / ``H2StreamForward`` logs.

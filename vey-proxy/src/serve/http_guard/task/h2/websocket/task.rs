@@ -18,8 +18,7 @@ use vey_icap_client::reqmod::h2::{
 };
 use vey_types::acl::AclAction;
 
-use super::H2TaskContext;
-use super::error::H2StreamTransferError;
+use super::{H2StreamTransferError, H2TaskContext};
 use crate::escape::EgressNotes;
 use crate::log::task::websocket::TaskLogForWebSocket;
 use crate::module::http_header::ProxyErrorType;
@@ -82,6 +81,7 @@ impl H2WebsocketTask {
                 remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
                 clt_stream_id: Some(&self.clt_stream_id),
                 ups_stream_id: self.ups_stream_id.as_ref(),
+                connection_id: Some(&self.ctx.connection_id),
             })
     }
 
