@@ -1,15 +1,19 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
+ */
+
 use std::collections::VecDeque;
 use std::io;
-use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex, Weak};
+use std::time::{Duration, Instant};
 
-use log::warn;
 use arc_swap::ArcSwap;
-
+use log::warn;
 use tokio::time::{Interval, MissedTickBehavior};
 
 use super::{IcapClientConnection, IcapConnector, IcapServiceConfig};
-
 use crate::options::{IcapOptionsRequest, IcapServiceOptions};
 
 #[cfg(test)]

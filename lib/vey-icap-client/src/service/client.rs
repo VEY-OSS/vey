@@ -8,7 +8,6 @@ use std::sync::Arc;
 use super::{
     IcapClientConnection, IcapConnectionPool, IcapConnector, IcapServiceConfig, PoolMaintainer,
 };
-
 use crate::options::IcapServiceOptions;
 
 pub struct IcapServiceClient {
