@@ -374,6 +374,11 @@ impl User {
     }
 
     #[inline]
+    pub(crate) fn block_and_delay(&self) -> Option<Duration> {
+        self.config.block_and_delay
+    }
+
+    #[inline]
     fn is_expired(&self) -> bool {
         self.is_expired.load(Ordering::Relaxed)
     }
@@ -449,7 +454,7 @@ impl User {
             forbid_stats.add_user_expired();
             return Err(UserAuthError::ExpiredUser);
         }
-        if let Some(duration) = self.config.block_and_delay {
+        if let Some(duration) = self.block_and_delay() {
             forbid_stats.add_user_blocked();
             return Err(UserAuthError::BlockedUser(duration));
         }

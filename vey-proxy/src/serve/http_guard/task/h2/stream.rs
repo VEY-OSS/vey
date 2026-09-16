@@ -84,7 +84,10 @@ pub(super) async fn transfer(
         return;
     }
 
-    if ctx.site_ctx.tenant_user_blocked() {
+    if let Some(delay) = ctx.site_ctx.tenant_user_blocked_delay() {
+        if !delay.is_zero() {
+            tokio::time::sleep(delay).await;
+        }
         ctx.reply_early_error(
             &mut clt_send_rsp,
             StatusCode::FORBIDDEN,

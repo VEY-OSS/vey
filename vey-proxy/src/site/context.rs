@@ -82,16 +82,12 @@ impl SiteContext {
         self.tenant_ctx().map(|t| t.user())
     }
 
-    pub(crate) fn tenant_user_blocked(&self) -> bool {
-        let Some(tenant) = &self.tenant else {
-            return false;
-        };
-        if tenant.user().is_blocked() {
-            tenant.forbidden_stats().add_user_blocked();
-            true
-        } else {
-            false
-        }
+    /// If the tenant user is blocked, count it and return the configured reply delay.
+    pub(crate) fn tenant_user_blocked_delay(&self) -> Option<Duration> {
+        let tenant = self.tenant.as_ref()?;
+        let delay = tenant.user().block_and_delay()?;
+        tenant.forbidden_stats().add_user_blocked();
+        Some(delay)
     }
 
     #[inline]

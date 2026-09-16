@@ -283,7 +283,10 @@ where
             unreachable!()
         };
 
-        if site_ctx.tenant_user_blocked() {
+        if let Some(delay) = site_ctx.tenant_user_blocked_delay() {
+            if !delay.is_zero() {
+                tokio::time::sleep(delay).await;
+            }
             if !self.ctx.server_config.no_early_error_reply {
                 let mut rsp = HttpProxyClientResponse::forbidden(req.inner.version);
                 self.ctx.apply_proxy_status_ident(&mut rsp);
