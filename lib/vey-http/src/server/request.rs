@@ -166,6 +166,11 @@ impl HttpProxyClientRequest {
     }
 
     #[inline]
+    pub fn authorization_negotiate(&self) -> bool {
+        self.authorization_negotiate
+    }
+
+    #[inline]
     pub fn keep_alive_header(&self) -> KeepAliveValue {
         self.connection.keep_alive_header()
     }
@@ -182,7 +187,7 @@ impl HttpProxyClientRequest {
 
     pub fn body_type(&self) -> Option<HttpBodyType> {
         if self.authorization_negotiate {
-            // See rfc4559. HTTP Body is only allowed after Negotiate auth success
+            // RFC 4559: body is only allowed after Negotiate/NTLM auth success
             None
         } else {
             self.check_body_type()
@@ -200,7 +205,7 @@ impl HttpProxyClientRequest {
 
     pub fn pipeline_safe(&self) -> bool {
         if self.authorization_negotiate {
-            // pipeline is not needed for Negotiate auth request
+            // pipeline is not needed for Negotiate/NTLM auth request
             return false;
         }
         if matches!(
@@ -515,7 +520,7 @@ impl HttpProxyClientRequest {
             "expect" if header.value == "100-continue" => {
                 self.expect_100_continue = true;
             }
-            "authorization" if header.value.trim_ascii_start().starts_with("Negotiate") => {
+            "authorization" if crate::header::is_session_based_auth(header.value) => {
                 self.authorization_negotiate = true;
             }
             _ => {}

@@ -64,6 +64,7 @@ pub(crate) struct HttpGuardForwardTask<'a> {
     audit_task: bool,
     _alive_guard: Option<HttpForwardTaskAliveGuard>,
     alive_reuse_notes: Option<HttpAliveReuseNotes>,
+    origin_session_auth: bool,
 }
 
 impl<'a> HttpGuardForwardTask<'a> {
@@ -72,6 +73,7 @@ impl<'a> HttpGuardForwardTask<'a> {
         req: &'a HttpGuardRequest<impl AsyncRead>,
         site_ctx: SiteContext,
         task_notes: ServerTaskNotes,
+        origin_session_auth: bool,
     ) -> Self {
         let uri_log_max_chars = site_ctx
             .log_uri_max_chars()
@@ -100,6 +102,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             audit_task: false,
             _alive_guard: None,
             alive_reuse_notes: None,
+            origin_session_auth,
         }
     }
 
@@ -120,6 +123,11 @@ impl<'a> HttpGuardForwardTask<'a> {
     #[inline]
     pub(crate) fn should_close(&self) -> bool {
         self.should_close
+    }
+
+    #[inline]
+    pub(crate) fn origin_session_auth(&self) -> bool {
+        self.origin_session_auth
     }
 
     fn enable_custom_header_for_local_reply(&self, rsp: &mut HttpProxyClientResponse) {
@@ -529,7 +537,9 @@ impl<'a> HttpGuardForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection> {
-        if let Some(pool) = self.site_ctx.site().http1_pool() {
+        if self.origin_session_auth {
+            self.take_alive_from_fwd_ctx(fwd_ctx, idle_expire).await
+        } else if let Some(pool) = self.site_ctx.site().http1_pool() {
             let (connection, reuse_notes, egress_notes) = pool
                 .get(
                     self.task_notes.worker_id(),
@@ -548,18 +558,26 @@ impl<'a> HttpGuardForwardTask<'a> {
             self.alive_reuse_notes = Some(reuse_notes);
             Some(connection)
         } else {
-            let (connection, reuse_notes) = fwd_ctx
-                .get_prepared_alive_connection(
-                    &self.task_notes,
-                    self.task_stats.clone(),
-                    idle_expire,
-                    self.origin_tls(),
-                )
-                .await?;
-            self.alive_reuse_notes = Some(reuse_notes);
-            fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
-            Some(connection)
+            self.take_alive_from_fwd_ctx(fwd_ctx, idle_expire).await
         }
+    }
+
+    async fn take_alive_from_fwd_ctx(
+        &mut self,
+        fwd_ctx: &mut BoxHttpForwardContext,
+        idle_expire: Duration,
+    ) -> Option<BoxHttpForwardConnection> {
+        let (connection, reuse_notes) = fwd_ctx
+            .get_prepared_alive_connection(
+                &self.task_notes,
+                self.task_stats.clone(),
+                idle_expire,
+                self.origin_tls(),
+            )
+            .await?;
+        self.alive_reuse_notes = Some(reuse_notes);
+        fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
+        Some(connection)
     }
 
     async fn save_or_close<CDW>(
@@ -585,6 +603,10 @@ impl<'a> HttpGuardForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
         connection: BoxHttpForwardConnection,
     ) {
+        if self.origin_session_auth {
+            fwd_ctx.save_alive_connection(connection, self.ups_keep_alive);
+            return;
+        }
         if !self.site().h1_keepalive_config().is_enabled() {
             return;
         }
@@ -1689,9 +1711,13 @@ impl<'a> HttpGuardForwardTask<'a> {
         }
     }
 
-    fn update_response_header(&self, rsp: &mut HttpForwardRemoteResponse) {
+    fn update_response_header(&mut self, rsp: &mut HttpForwardRemoteResponse) {
         if self.should_close {
             rsp.set_no_keep_alive();
+        }
+
+        if rsp.www_negotiate_auth() {
+            self.origin_session_auth = true;
         }
 
         if let Some(_server_id) = &self.ctx.server_config.server_id {
