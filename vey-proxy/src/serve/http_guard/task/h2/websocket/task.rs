@@ -22,7 +22,7 @@ use super::{H2StreamTransferError, H2TaskContext};
 use crate::escape::EgressNotes;
 use crate::log::task::websocket::TaskLogForWebSocket;
 use crate::module::http_header::ProxyErrorType;
-use crate::module::websocket::{WebSocketTaskNotes, WebSocketTaskStats};
+use crate::module::websocket::WebSocketTaskNotes;
 use crate::serve::http_guard::H2ForwardTaskAliveGuard;
 use crate::serve::{ServerTaskNotes, ServerTaskStage};
 use crate::stat::types::RequestAliveKind;
@@ -34,7 +34,10 @@ pub(crate) struct H2WebsocketTask {
     task_notes: ServerTaskNotes,
     ws_notes: WebSocketTaskNotes,
     egress_notes: EgressNotes,
-    task_stats: Arc<WebSocketTaskStats>,
+    clt_rd_bytes: u64,
+    clt_wr_bytes: u64,
+    ups_rd_bytes: u64,
+    ups_wr_bytes: u64,
     send_error_response: bool,
     _alive_guard: Option<H2ForwardTaskAliveGuard>,
 }
@@ -59,7 +62,10 @@ impl H2WebsocketTask {
             task_notes,
             ws_notes,
             egress_notes: EgressNotes::default(),
-            task_stats: Arc::new(WebSocketTaskStats::default()),
+            clt_rd_bytes: 0,
+            clt_wr_bytes: 0,
+            ups_rd_bytes: 0,
+            ups_wr_bytes: 0,
             send_error_response: true,
             _alive_guard: None,
         }
@@ -79,10 +85,10 @@ impl H2WebsocketTask {
                 task_notes: &self.task_notes,
                 ws_notes: &self.ws_notes,
                 egress_notes: &self.egress_notes,
-                client_rd_bytes: self.task_stats.clt.read.get_bytes(),
-                client_wr_bytes: self.task_stats.clt.write.get_bytes(),
-                remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
-                remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
+                client_rd_bytes: self.clt_rd_bytes,
+                client_wr_bytes: self.clt_wr_bytes,
+                remote_rd_bytes: self.ups_rd_bytes,
+                remote_wr_bytes: self.ups_wr_bytes,
                 clt_stream_id: Some(&self.clt_stream_id),
                 ups_stream_id: self.ups_stream_id.as_ref(),
                 connection_id: Some(&self.ctx.connection_id),
@@ -309,10 +315,7 @@ impl H2WebsocketTask {
                     "read http error response from adapter failed: {e:?}"
                 ))
             })?;
-            self.task_stats
-                .clt
-                .write
-                .add_bytes(body_transfer.copied_size());
+            self.clt_wr_bytes = body_transfer.copied_size();
             recv_body.save_connection().await;
         } else {
             clt_send_rsp
@@ -367,9 +370,8 @@ impl H2WebsocketTask {
                 (&mut transfer)
                     .await
                     .map_err(H2StreamTransferError::ResponseBodyTransferFailed)?;
-                let n = transfer.copied_size();
-                self.task_stats.ups.read.add_bytes(n);
-                self.task_stats.clt.write.add_bytes(n);
+                self.ups_rd_bytes = transfer.received_size();
+                self.clt_wr_bytes = transfer.copied_size();
             }
             self.ws_notes.rsp_status = self.ws_notes.origin_status;
             return Ok(());
@@ -393,7 +395,7 @@ impl H2WebsocketTask {
     }
 
     async fn relay_streams(
-        &self,
+        &mut self,
         clt_r: RecvStream,
         clt_w: SendStream<Bytes>,
         ups_r: RecvStream,
@@ -407,13 +409,11 @@ impl H2WebsocketTask {
         let mut idle_count = 0;
         let mut c2u_done = false;
         let mut u2c_done = false;
-        let mut last_c2u = 0u64;
-        let mut last_u2c = 0u64;
         loop {
             tokio::select! {
                 biased;
                 r = &mut c2u, if !c2u_done => {
-                    add_copy_delta(&self.task_stats, c2u.copied_size(), u2c.copied_size(), &mut last_c2u, &mut last_u2c);
+                    self.note_relay_copy(&c2u, &u2c);
                     r.map_err(H2StreamTransferError::RequestBodyTransferFailed)?;
                     c2u_done = true;
                     if !u2c_done
@@ -426,7 +426,7 @@ impl H2WebsocketTask {
                     }
                 }
                 r = &mut u2c, if !u2c_done => {
-                    add_copy_delta(&self.task_stats, c2u.copied_size(), u2c.copied_size(), &mut last_c2u, &mut last_u2c);
+                    self.note_relay_copy(&c2u, &u2c);
                     r.map_err(H2StreamTransferError::ResponseBodyTransferFailed)?;
                     u2c_done = true;
                     if !c2u_done
@@ -439,7 +439,7 @@ impl H2WebsocketTask {
                     }
                 }
                 n = idle_interval.tick() => {
-                    add_copy_delta(&self.task_stats, c2u.copied_size(), u2c.copied_size(), &mut last_c2u, &mut last_u2c);
+                    self.note_relay_copy(&c2u, &u2c);
                     let idle = (c2u_done || c2u.is_idle()) && (u2c_done || u2c.is_idle());
                     if idle {
                         idle_count += n;
@@ -456,7 +456,7 @@ impl H2WebsocketTask {
                     }
                 }
                 _ = log_interval.tick() => {
-                    add_copy_delta(&self.task_stats, c2u.copied_size(), u2c.copied_size(), &mut last_c2u, &mut last_u2c);
+                    self.note_relay_copy(&c2u, &u2c);
                     if let Some(log) = self.log_ctx() {
                         log.log_periodic();
                     }
@@ -464,25 +464,11 @@ impl H2WebsocketTask {
             }
         }
     }
-}
 
-fn add_copy_delta(
-    stats: &WebSocketTaskStats,
-    c2u: u64,
-    u2c: u64,
-    last_c2u: &mut u64,
-    last_u2c: &mut u64,
-) {
-    if c2u > *last_c2u {
-        let d = c2u - *last_c2u;
-        stats.clt.read.add_bytes(d);
-        stats.ups.write.add_bytes(d);
-        *last_c2u = c2u;
-    }
-    if u2c > *last_u2c {
-        let d = u2c - *last_u2c;
-        stats.ups.read.add_bytes(d);
-        stats.clt.write.add_bytes(d);
-        *last_u2c = u2c;
+    fn note_relay_copy(&mut self, c2u: &H2BodyTransfer, u2c: &H2BodyTransfer) {
+        self.clt_rd_bytes = c2u.received_size();
+        self.ups_wr_bytes = c2u.copied_size();
+        self.ups_rd_bytes = u2c.received_size();
+        self.clt_wr_bytes = u2c.copied_size();
     }
 }
