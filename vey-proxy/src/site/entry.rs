@@ -122,6 +122,10 @@ impl Site {
         &self.config.tls_name
     }
 
+    pub(crate) fn covers_host(&self, host: &Host) -> bool {
+        self.config.covers_host(host)
+    }
+
     pub(crate) fn dpi_protocol(&self) -> Option<MaybeProtocol> {
         self.config.dpi_protocol
     }

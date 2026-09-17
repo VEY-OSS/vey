@@ -18,6 +18,7 @@ use vey_types::net::{
     TcpKeepAliveConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig, UdpMiscSockOpts, UpstreamAddr,
 };
 use vey_types::resolve::ResolveStrategy;
+use vey_types::route::HostMatch;
 use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
 use super::SiteHttpConfig;
@@ -47,6 +48,7 @@ pub(crate) struct SiteConfig {
     pub(crate) egress_path_id_map: BTreeMap<NodeName, String>,
     pub(crate) egress_path_value_map: BTreeMap<NodeName, serde_json::Value>,
     pub(crate) http: SiteHttpConfig,
+    host_rules: HostMatch<()>,
 }
 
 impl Default for SiteConfig {
@@ -71,6 +73,7 @@ impl Default for SiteConfig {
             egress_path_id_map: BTreeMap::new(),
             egress_path_value_map: BTreeMap::new(),
             http: SiteHttpConfig::default(),
+            host_rules: HostMatch::default(),
         }
     }
 }
@@ -86,6 +89,14 @@ impl SiteConfig {
 
     pub(crate) fn upstream(&self) -> &UpstreamAddr {
         &self.upstream
+    }
+
+    pub(crate) fn covers_host(&self, host: &Host) -> bool {
+        self.host_rules.get(host).is_some()
+    }
+
+    pub(crate) fn save_host_rules(&mut self, host_rules: HostMatch<()>) {
+        self.host_rules = host_rules;
     }
 }
 

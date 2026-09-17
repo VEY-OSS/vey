@@ -74,8 +74,12 @@ impl SiteGroupConfig {
                 Ok(())
             }
             "static_sites" | "sites" => {
-                self.sites = vey_yaml::value::as_host_matched_obj(v, self.position.as_ref())
-                    .context(format!("invalid host matched site value for key {k}"))?;
+                self.sites = vey_yaml::value::as_host_matched_obj_with(
+                    v,
+                    self.position.as_ref(),
+                    SiteConfig::save_host_rules,
+                )
+                .context(format!("invalid host matched site value for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -131,6 +135,44 @@ static_sites:
         let host = Host::from_str("other.internal").unwrap();
         let site = group.sites.get(&host).unwrap();
         assert_eq!(site.owner().as_str(), "team_a");
+    }
+
+    #[test]
+    fn site_covers_host_from_own_match_rules() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: exact-http
+    exact_match: a.example.com
+    upstream: 127.0.0.1:8080
+  - id: suffix-https
+    suffix_match: example.com
+    upstream: 127.0.0.1:8081
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+
+        let exact_host = Host::from_str("a.example.com").unwrap();
+        let sni_host = Host::from_str("www.example.com").unwrap();
+        let sibling = Host::from_str("b.example.com").unwrap();
+        let other = Host::from_str("other.com").unwrap();
+
+        let exact = group.sites.get_matched(&exact_host).unwrap();
+        assert_eq!(exact.id().as_str(), "exact-http");
+        assert!(exact.covers_host(&exact_host));
+        assert!(!exact.covers_host(&sni_host));
+
+        let suffix = group.sites.get_matched(&sni_host).unwrap();
+        assert_eq!(suffix.id().as_str(), "suffix-https");
+        assert!(suffix.covers_host(&sni_host));
+        assert!(suffix.covers_host(&sibling));
+        assert!(suffix.covers_host(&exact_host));
+        assert!(!suffix.covers_host(&other));
     }
 
     #[test]
