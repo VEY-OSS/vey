@@ -3546,6 +3546,7 @@ dependencies = [
  "rustls",
  "serde_json",
  "slog",
+ "smallvec",
  "snmalloc-rs",
  "thiserror",
  "tokio",

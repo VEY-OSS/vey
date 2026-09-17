@@ -3,16 +3,16 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::Arc;
+use smallvec::SmallVec;
 
 use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
-use crate::auth::UserUpstreamTrafficStats;
+use crate::auth::UserUpstreamTrafficStatsList;
 
 #[derive(Clone)]
 pub(crate) struct TcpConnectRemoteWrapperStats {
-    all: Vec<ArcTcpConnectionTaskRemoteStats>,
+    all: SmallVec<[ArcTcpConnectionTaskRemoteStats; 4]>,
 }
 
 impl TcpConnectRemoteWrapperStats {
@@ -20,13 +20,13 @@ impl TcpConnectRemoteWrapperStats {
         escaper: ArcTcpConnectionTaskRemoteStats,
         task: ArcTcpConnectionTaskRemoteStats,
     ) -> Self {
-        let mut all = Vec::with_capacity(4);
+        let mut all = SmallVec::new();
         all.push(task);
         all.push(escaper);
         TcpConnectRemoteWrapperStats { all }
     }
 
-    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
+    pub(crate) fn push_user_io_stats(&mut self, all: UserUpstreamTrafficStatsList) {
         for s in all {
             self.all.push(s);
         }

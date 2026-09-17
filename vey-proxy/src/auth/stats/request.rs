@@ -11,6 +11,7 @@ use arcstr::ArcStr;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::stats::StatId;
 
+use super::UserRequestStatsList;
 use crate::auth::UserType;
 use crate::stat::types::{
     ConnectionSnapshot, ConnectionStats, KeepaliveRequestSnapshot, KeepaliveRequestStats,
@@ -100,7 +101,7 @@ impl UserRequestStats {
 
 /// Decrements `req_alive` for every held [`UserRequestStats`] when dropped.
 pub(crate) struct UserRequestAliveGuard {
-    stats: Vec<Arc<UserRequestStats>>,
+    stats: UserRequestStatsList,
     kind: RequestAliveKind,
 }
 
@@ -109,7 +110,7 @@ impl UserRequestAliveGuard {
         kind: RequestAliveKind,
         stats: impl IntoIterator<Item = Arc<UserRequestStats>>,
     ) -> Self {
-        let stats: Vec<_> = stats.into_iter().collect();
+        let stats: UserRequestStatsList = stats.into_iter().collect();
         for s in &stats {
             kind.add_alive(&s.req_alive);
         }

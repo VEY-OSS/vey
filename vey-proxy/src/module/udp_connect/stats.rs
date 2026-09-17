@@ -4,16 +4,16 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::sync::Arc;
+use smallvec::SmallVec;
 
 use vey_daemon::stat::remote::ArcUdpConnectTaskRemoteStats;
 use vey_io_ext::{LimitedRecvStats, LimitedSendStats};
 
-use crate::auth::UserUpstreamTrafficStats;
+use crate::auth::UserUpstreamTrafficStatsList;
 
 #[derive(Clone)]
 pub(crate) struct UdpConnectRemoteWrapperStats {
-    all: Vec<ArcUdpConnectTaskRemoteStats>,
+    all: SmallVec<[ArcUdpConnectTaskRemoteStats; 4]>,
 }
 
 impl UdpConnectRemoteWrapperStats {
@@ -21,19 +21,19 @@ impl UdpConnectRemoteWrapperStats {
         escaper: ArcUdpConnectTaskRemoteStats,
         task: ArcUdpConnectTaskRemoteStats,
     ) -> Self {
-        let mut all = Vec::with_capacity(4);
+        let mut all = SmallVec::new();
         all.push(task);
         all.push(escaper);
         UdpConnectRemoteWrapperStats { all }
     }
 
     pub(crate) fn new_layered(task: ArcUdpConnectTaskRemoteStats) -> Self {
-        let mut all = Vec::with_capacity(3);
+        let mut all = SmallVec::new();
         all.push(task);
         UdpConnectRemoteWrapperStats { all }
     }
 
-    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
+    pub(crate) fn push_user_io_stats(&mut self, all: UserUpstreamTrafficStatsList) {
         for s in all {
             self.all.push(s as ArcUdpConnectTaskRemoteStats);
         }

@@ -6,9 +6,11 @@
 
 use std::sync::Arc;
 
+use smallvec::SmallVec;
+
 use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
-use crate::auth::UserUpstreamTrafficStats;
+use crate::auth::{UserUpstreamTrafficStats, UserUpstreamTrafficStatsList};
 
 /// task related stats used at escaper side
 pub(crate) trait FtpTaskRemoteControlStats {
@@ -48,7 +50,7 @@ impl FtpTaskRemoteTransferStats for UserUpstreamTrafficStats {
 
 #[derive(Clone)]
 pub(crate) struct FtpControlRemoteWrapperStats {
-    all: Vec<ArcFtpTaskRemoteControlStats>,
+    all: SmallVec<[ArcFtpTaskRemoteControlStats; 4]>,
 }
 
 impl FtpControlRemoteWrapperStats {
@@ -56,13 +58,13 @@ impl FtpControlRemoteWrapperStats {
         escaper: ArcFtpTaskRemoteControlStats,
         task: ArcFtpTaskRemoteControlStats,
     ) -> Self {
-        let mut all = Vec::with_capacity(4);
+        let mut all = SmallVec::new();
         all.push(task);
         all.push(escaper);
         FtpControlRemoteWrapperStats { all }
     }
 
-    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
+    pub(crate) fn push_user_io_stats(&mut self, all: UserUpstreamTrafficStatsList) {
         for s in all {
             self.all.push(s);
         }
@@ -87,7 +89,7 @@ impl LimitedWriterStats for FtpControlRemoteWrapperStats {
 
 #[derive(Clone)]
 pub(crate) struct FtpTransferRemoteWrapperStats {
-    all: Vec<ArcFtpTaskRemoteTransferStats>,
+    all: SmallVec<[ArcFtpTaskRemoteTransferStats; 4]>,
 }
 
 impl FtpTransferRemoteWrapperStats {
@@ -95,13 +97,13 @@ impl FtpTransferRemoteWrapperStats {
         escaper: ArcFtpTaskRemoteTransferStats,
         task: ArcFtpTaskRemoteTransferStats,
     ) -> Self {
-        let mut all = Vec::with_capacity(4);
+        let mut all = SmallVec::new();
         all.push(task);
         all.push(escaper);
         FtpTransferRemoteWrapperStats { all }
     }
 
-    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
+    pub(crate) fn push_user_io_stats(&mut self, all: UserUpstreamTrafficStatsList) {
         for s in all {
             self.all.push(s);
         }

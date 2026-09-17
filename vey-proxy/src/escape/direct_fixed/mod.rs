@@ -29,7 +29,7 @@ use super::{
     EscaperStats,
 };
 use crate::audit::AuditContext;
-use crate::auth::UserUpstreamTrafficStats;
+use crate::auth::UserUpstreamTrafficStatsList;
 use crate::config::escaper::direct_fixed::DirectFixedEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
@@ -300,7 +300,7 @@ impl DirectFixedEscaper {
     fn fetch_user_upstream_io_stats(
         &self,
         task_notes: &ServerTaskNotes,
-    ) -> Vec<Arc<UserUpstreamTrafficStats>> {
+    ) -> UserUpstreamTrafficStatsList {
         task_notes.fetch_upstream_traffic_stats(self.name(), self.stats.share_extra_tags())
     }
 }

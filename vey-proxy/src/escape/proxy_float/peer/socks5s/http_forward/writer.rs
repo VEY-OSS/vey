@@ -18,7 +18,7 @@ use vey_io_ext::LimitedWriter;
 use vey_types::net::UpstreamAddr;
 
 use super::ProxyFloatSocks5PeerSharedConfig;
-use crate::auth::UserUpstreamTrafficStats;
+use crate::auth::UserUpstreamTrafficStatsList;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
     send_req_header_to_origin,
@@ -79,7 +79,7 @@ where
     fn update_stats(
         &mut self,
         task_stats: &ArcHttpForwardTaskRemoteStats,
-        user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
+        user_stats: UserUpstreamTrafficStatsList,
     ) {
         let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
         wrapper_stats.push_user_io_stats(user_stats);

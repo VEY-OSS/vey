@@ -20,8 +20,8 @@ use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::resolve::ResolveRedirection;
 
 use crate::auth::{
-    TenantContext, User, UserContext, UserRequestAliveGuard, UserRequestStats, UserTrafficStats,
-    UserUpstreamTrafficStats,
+    TenantContext, User, UserContext, UserRequestAliveGuard, UserRequestStats,
+    UserRequestStatsList, UserTrafficStatsList, UserUpstreamTrafficStatsList,
 };
 use crate::config::escaper::EgressUpstream;
 use crate::escape::EgressPathSelection;
@@ -183,7 +183,7 @@ impl ServerTaskNotes {
 
     /// Count `req_total` now and hold `req_alive` until this notes value is dropped.
     pub(crate) fn hold_req_alive(&mut self, kind: RequestAliveKind) {
-        let mut stats = Vec::with_capacity(4);
+        let mut stats = UserRequestStatsList::new();
         self.foreach_req_stats(|s| {
             kind.add_total(&s.req_total);
             stats.push(Arc::clone(s));
@@ -204,8 +204,8 @@ impl ServerTaskNotes {
         &self,
         server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
-    ) -> Vec<Arc<UserTrafficStats>> {
-        let mut all_stats = Vec::with_capacity(4);
+    ) -> UserTrafficStatsList {
+        let mut all_stats = UserTrafficStatsList::new();
         if let Some(site_ctx) = &self.site_ctx {
             all_stats.push(site_ctx.fetch_traffic_stats(server, server_extra_tags));
         }
@@ -219,8 +219,8 @@ impl ServerTaskNotes {
         &self,
         escaper: &NodeName,
         escaper_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
-    ) -> Vec<Arc<UserUpstreamTrafficStats>> {
-        let mut all_stats = Vec::with_capacity(4);
+    ) -> UserUpstreamTrafficStatsList {
+        let mut all_stats = UserUpstreamTrafficStatsList::new();
         if let Some(site_ctx) = &self.site_ctx {
             all_stats.push(site_ctx.fetch_upstream_traffic_stats(escaper, escaper_extra_tags));
         }

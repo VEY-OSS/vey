@@ -18,7 +18,7 @@ use vey_io_ext::LimitedWriter;
 use vey_types::net::UpstreamAddr;
 
 use super::{ProxyFloatEscaperStats, ProxyFloatHttpPeerSharedConfig};
-use crate::auth::UserUpstreamTrafficStats;
+use crate::auth::UserUpstreamTrafficStatsList;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats,
     HttpForwardTaskRemoteWrapperStats, HttpForwardWrite, send_req_header_to_origin,
@@ -91,7 +91,7 @@ where
     fn update_stats(
         &mut self,
         task_stats: &ArcHttpForwardTaskRemoteStats,
-        user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
+        user_stats: UserUpstreamTrafficStatsList,
     ) {
         if let Some(escaper_stats) = &self.escaper_stats {
             let mut wrapper_stats =
@@ -188,7 +188,7 @@ where
     fn update_stats(
         &mut self,
         task_stats: &ArcHttpForwardTaskRemoteStats,
-        user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
+        user_stats: UserUpstreamTrafficStatsList,
     ) {
         if let Some(escaper_stats) = &self.escaper_stats {
             let mut wrapper_stats =

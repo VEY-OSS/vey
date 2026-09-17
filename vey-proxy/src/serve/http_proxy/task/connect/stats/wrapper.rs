@@ -5,11 +5,13 @@
 
 use std::sync::Arc;
 
+use smallvec::SmallVec;
+
 use vey_daemon::stat::task::TcpStreamTaskStats;
 use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
 use super::HttpProxyServerStats;
-use crate::auth::UserTrafficStats;
+use crate::auth::{UserTrafficStats, UserTrafficStatsList};
 
 trait TcpConnectTaskCltStatsWrapper {
     fn add_read_bytes(&self, size: u64);
@@ -32,7 +34,7 @@ impl TcpConnectTaskCltStatsWrapper for UserTrafficStats {
 pub(crate) struct TcpConnectTaskCltWrapperStats {
     server: Arc<HttpProxyServerStats>,
     task: Arc<TcpStreamTaskStats>,
-    others: Vec<ArcTcpConnectTaskCltStatsWrapper>,
+    others: SmallVec<[ArcTcpConnectTaskCltStatsWrapper; 4]>,
 }
 
 impl TcpConnectTaskCltWrapperStats {
@@ -40,11 +42,11 @@ impl TcpConnectTaskCltWrapperStats {
         TcpConnectTaskCltWrapperStats {
             server: Arc::clone(server),
             task: Arc::clone(task),
-            others: Vec::with_capacity(2),
+            others: SmallVec::new(),
         }
     }
 
-    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserTrafficStats>>) {
+    pub(crate) fn push_user_io_stats(&mut self, all: UserTrafficStatsList) {
         for s in all {
             self.others.push(s);
         }
