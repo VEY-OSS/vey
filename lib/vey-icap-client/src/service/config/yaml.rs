@@ -75,6 +75,12 @@ impl IcapServiceConfig {
                 config.disable_preview = vey_yaml::value::as_bool(v)?;
                 Ok(())
             }
+            "options_timeout" => {
+                let time = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                config.set_options_read_timeout(time);
+                Ok(())
+            }
             "preview_data_read_timeout" => {
                 let time = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;

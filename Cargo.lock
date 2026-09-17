@@ -3173,14 +3173,17 @@ name = "vey-icap-client"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "arc-swap",
  "arcstr",
  "atoi",
  "base64",
  "bytes",
+ "futures-util",
  "h2",
  "http",
  "itoa",
  "kanal",
+ "log",
  "memchr",
  "rustls-pki-types",
  "thiserror",

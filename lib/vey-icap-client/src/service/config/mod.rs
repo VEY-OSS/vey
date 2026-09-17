@@ -41,6 +41,7 @@ pub struct IcapServiceConfig {
     pub(crate) icap_206_enable: bool,
     pub(crate) icap_max_header_size: usize,
     pub(crate) disable_preview: bool,
+    pub(crate) options_timeout: Duration,
     pub(crate) preview_data_read_timeout: Duration,
     pub(crate) respond_shared_names: BTreeSet<String>,
     pub(crate) bypass: bool,
@@ -87,6 +88,7 @@ impl IcapServiceConfig {
             icap_206_enable: false,
             icap_max_header_size: 8192,
             disable_preview: false,
+            options_timeout: Duration::from_secs(1),
             preview_data_read_timeout: Duration::from_secs(4),
             respond_shared_names: BTreeSet::new(),
             bypass: false,
@@ -111,6 +113,10 @@ impl IcapServiceConfig {
 
     pub fn set_icap_max_header_size(&mut self, max_size: usize) {
         self.icap_max_header_size = max_size;
+    }
+
+    pub fn set_options_read_timeout(&mut self, time: Duration) {
+        self.options_timeout = time;
     }
 
     pub fn set_preview_data_read_timeout(&mut self, time: Duration) {

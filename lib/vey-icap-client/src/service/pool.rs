@@ -1,209 +1,174 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::collections::VecDeque;
+use std::io;
+use std::sync::{Arc, Mutex, Weak};
+use std::time::{Duration, Instant};
 
-use tokio::sync::{mpsc, oneshot};
-use tokio::time::Interval;
+use arc_swap::ArcSwap;
+use log::warn;
+use tokio::time::{Interval, MissedTickBehavior};
 
-use super::{
-    IcapClientConnection, IcapConnectionEofPoller, IcapConnectionPollRequest, IcapConnector,
-    IcapServiceConfig,
-};
+use super::{IcapClientConnection, IcapConnector, IcapServiceConfig};
 use crate::options::{IcapOptionsRequest, IcapServiceOptions};
 
-const POOL_CMD_CHANNEL_SIZE: usize = 16;
+#[cfg(test)]
+mod tests;
 
-pub(super) enum IcapServiceClientCommand {
-    FetchConnection(oneshot::Sender<(IcapClientConnection, Arc<IcapServiceOptions>)>),
-    SaveConnection(IcapClientConnection),
+#[cfg(test)]
+mod bench;
+
+struct IdleIcapConnection {
+    conn: IcapClientConnection,
+    idle_since: Instant,
 }
 
-enum IcapServicePoolCommand {
-    UpdateOptions(IcapServiceOptions),
-    SaveConnection(IcapClientConnection),
-    CreateConnection,
-}
-
-pub(super) struct IcapServicePool {
+pub(super) struct IcapConnectionPool {
     config: Arc<IcapServiceConfig>,
-    options: Arc<IcapServiceOptions>,
+    options: ArcSwap<IcapServiceOptions>,
+    idle_pool: Mutex<VecDeque<IdleIcapConnection>>,
     connector: Arc<IcapConnector>,
-    check_interval: Interval,
-    client_cmd_receiver: kanal::AsyncReceiver<IcapServiceClientCommand>,
-    pool_cmd_sender: mpsc::Sender<IcapServicePoolCommand>,
-    pool_cmd_receiver: mpsc::Receiver<IcapServicePoolCommand>,
-    conn_req_sender: kanal::AsyncSender<IcapConnectionPollRequest>,
-    conn_req_receiver: kanal::AsyncReceiver<IcapConnectionPollRequest>,
-    idle_conn_count: Arc<AtomicUsize>,
 }
 
-impl IcapServicePool {
-    pub(super) fn new(
-        config: Arc<IcapServiceConfig>,
-        client_cmd_receiver: kanal::AsyncReceiver<IcapServiceClientCommand>,
-        connector: Arc<IcapConnector>,
-    ) -> Self {
-        let options = Arc::new(IcapServiceOptions::new_expired(config.method));
-        let check_interval = tokio::time::interval(config.connection_pool.check_interval());
-        let (pool_cmd_sender, pool_cmd_receiver) = mpsc::channel(POOL_CMD_CHANNEL_SIZE);
-        let (conn_req_sender, conn_req_receiver) =
-            kanal::bounded_async(config.connection_pool.max_idle_count());
-        IcapServicePool {
+impl IcapConnectionPool {
+    pub(super) fn new(config: Arc<IcapServiceConfig>, connector: Arc<IcapConnector>) -> Self {
+        let idle_pool = Mutex::new(VecDeque::with_capacity(
+            config.connection_pool.min_idle_count(),
+        ));
+
+        let options = ArcSwap::new(Arc::new(IcapServiceOptions::new_expired(config.method)));
+
+        IcapConnectionPool {
             config,
             options,
+            idle_pool,
             connector,
-            check_interval,
-            client_cmd_receiver,
-            pool_cmd_sender,
-            pool_cmd_receiver,
-            conn_req_sender,
-            conn_req_receiver,
-            idle_conn_count: Arc::new(AtomicUsize::new(0)),
         }
     }
 
-    fn idle_conn_count(&self) -> usize {
-        self.idle_conn_count.load(Ordering::Relaxed)
+    pub fn try_put(&self, conn: IcapClientConnection) -> bool {
+        if !conn.reusable() {
+            return false;
+        }
+        let mut idle = self.idle_pool.lock().unwrap();
+        if idle.len() >= self.config.connection_pool.max_idle_count() {
+            return false;
+        }
+        idle.push_back(IdleIcapConnection {
+            conn,
+            idle_since: Instant::now(),
+        });
+        true
+    }
+
+    fn take(&self) -> Option<IcapClientConnection> {
+        self.idle_pool.lock().unwrap().pop_back().map(|i| i.conn)
+    }
+
+    pub async fn get(&self) -> io::Result<IcapClientConnection> {
+        while let Some(mut conn) = self.take() {
+            if !conn.probe_idle().await {
+                continue;
+            }
+            conn.mark_reused();
+            return Ok(conn);
+        }
+        self.connector.create().await
+    }
+
+    fn expire(&self) -> usize {
+        let now = Instant::now();
+        let idle_timeout = self.config.connection_pool.idle_timeout();
+
+        let mut expired = Vec::new();
+        {
+            let mut pool = self.idle_pool.lock().unwrap();
+            while let Some(conn) =
+                pool.pop_front_if(|c| now.duration_since(c.idle_since) >= idle_timeout)
+            {
+                expired.push(conn);
+            }
+        }
+        expired.len()
+    }
+
+    async fn refill(&self) {
+        let pool_size = self.idle_pool.lock().unwrap().len();
+        let min_idle = self.config.connection_pool.min_idle_count();
+        for _ in 0..min_idle.saturating_sub(pool_size) {
+            match self.connector.create().await {
+                Ok(conn) => {
+                    if !self.try_put(conn) {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    warn!("failed to refill ICAP connection pool: {e}");
+                    break;
+                }
+            }
+        }
+    }
+
+    pub fn get_options(&self) -> Arc<IcapServiceOptions> {
+        self.options.load_full()
+    }
+
+    async fn check_options(&self) {
+        if !self.options.load().expired() {
+            return;
+        }
+
+        if let Ok(mut conn) = self.get().await {
+            conn.mark_io_inuse();
+            let req = IcapOptionsRequest::new(&self.config);
+            let fut = req.get_options(&mut conn, self.config.icap_max_header_size);
+            let result = tokio::time::timeout(self.config.options_timeout, fut).await;
+            match result {
+                Ok(Ok(options)) => {
+                    self.options.store(Arc::new(options));
+                    self.try_put(conn);
+                }
+                Ok(Err(e)) => warn!("icap options request failed: {e}"),
+                Err(_) => warn!(
+                    "icap options request timed out after {:?}",
+                    self.config.options_timeout
+                ),
+            }
+        }
+    }
+}
+
+pub(super) struct PoolMaintainer {
+    pool: Weak<IcapConnectionPool>,
+    check_interval: Interval,
+}
+
+impl PoolMaintainer {
+    pub(super) fn new(pool: Weak<IcapConnectionPool>, period: Duration) -> Self {
+        let mut check_interval = tokio::time::interval(period);
+        check_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        PoolMaintainer {
+            pool,
+            check_interval,
+        }
     }
 
     pub(super) async fn into_running(mut self) {
         loop {
-            tokio::select! {
-                biased;
+            self.check_interval.tick().await;
 
-                _ = self.check_interval.tick() => {
-                    self.check();
-                }
-                r = self.client_cmd_receiver.recv() => {
-                    match r {
-                        Ok(cmd) => self.handle_client_cmd(cmd),
-                        Err(_) => break,
-                    }
-                }
-                r = self.pool_cmd_receiver.recv() => {
-                    match r {
-                        Some(cmd) => self.handle_pool_cmd(cmd),
-                        None => unreachable!(),
-                    }
-                }
-            }
+            let Some(pool) = self.pool.upgrade() else {
+                return;
+            };
+
+            pool.expire();
+            pool.check_options().await;
+            pool.refill().await;
         }
-    }
-
-    fn check(&mut self) {
-        if self.options.expired() {
-            let pool_sender = self.pool_cmd_sender.clone();
-            let conn_creator = self.connector.clone();
-            let config = self.config.clone();
-            tokio::spawn(async move {
-                if let Ok(mut conn) = conn_creator.create().await {
-                    conn.mark_io_inuse();
-                    let req = IcapOptionsRequest::new(config.as_ref());
-                    if let Ok(options) = req
-                        .get_options(&mut conn, config.icap_max_header_size)
-                        .await
-                        && pool_sender
-                            .send(IcapServicePoolCommand::UpdateOptions(options))
-                            .await
-                            .is_ok()
-                    {
-                        let _ = pool_sender
-                            .send(IcapServicePoolCommand::SaveConnection(conn))
-                            .await;
-                    }
-                }
-            });
-        }
-
-        let current_idle_count = self.idle_conn_count();
-        let min_idle_count = self.config.connection_pool.min_idle_count();
-        if current_idle_count < min_idle_count {
-            for _i in current_idle_count..min_idle_count {
-                self.do_create();
-            }
-        }
-    }
-
-    fn handle_client_cmd(&mut self, cmd: IcapServiceClientCommand) {
-        match cmd {
-            IcapServiceClientCommand::FetchConnection(sender) => {
-                if self.idle_conn_count() > 0 {
-                    // there maybe race condition, so we have fallback at client side
-                    let req_sender = self.conn_req_sender.clone();
-                    let options = self.options.clone();
-                    tokio::spawn(async move {
-                        let _ = req_sender
-                            .send(IcapConnectionPollRequest::new(sender, options))
-                            .await;
-                    });
-                } else {
-                    let conn_creator = self.connector.clone();
-                    let options = self.options.clone();
-                    tokio::spawn(async move {
-                        if let Ok(conn) = conn_creator.create().await {
-                            let _ = sender.send((conn, options));
-                        }
-                    });
-                }
-            }
-            IcapServiceClientCommand::SaveConnection(conn) => {
-                if self.idle_conn_count() <= self.config.connection_pool.max_idle_count() {
-                    self.save_connection(conn);
-                }
-            }
-        }
-    }
-
-    fn handle_pool_cmd(&mut self, cmd: IcapServicePoolCommand) {
-        match cmd {
-            IcapServicePoolCommand::SaveConnection(conn) => self.save_connection(conn),
-            IcapServicePoolCommand::UpdateOptions(options) => self.options = Arc::new(options),
-            IcapServicePoolCommand::CreateConnection => self.create(),
-        }
-    }
-
-    fn create(&mut self) {
-        let max_idle_count = self.config.connection_pool.max_idle_count();
-        if self.idle_conn_count() < max_idle_count {
-            self.do_create()
-        }
-    }
-
-    fn do_create(&mut self) {
-        let pool_sender = self.pool_cmd_sender.clone();
-        let conn_creator = self.connector.clone();
-        tokio::spawn(async move {
-            if let Ok(conn) = conn_creator.create().await {
-                let _ = pool_sender
-                    .send(IcapServicePoolCommand::SaveConnection(conn))
-                    .await;
-            }
-        });
-    }
-
-    fn save_connection(&mut self, conn: IcapClientConnection) {
-        let Some(eof_poller) = IcapConnectionEofPoller::new(conn, &self.conn_req_receiver) else {
-            return;
-        };
-
-        let idle_count = self.idle_conn_count.clone();
-        let min_idle_count = self.config.connection_pool.min_idle_count();
-
-        idle_count.fetch_add(1, Ordering::Relaxed);
-
-        let idle_timeout = self.config.connection_pool.idle_timeout();
-        let pool_sender = self.pool_cmd_sender.clone();
-        tokio::spawn(async move {
-            eof_poller.into_running(idle_timeout).await;
-            if idle_count.fetch_sub(1, Ordering::Relaxed) < min_idle_count {
-                let _ = pool_sender
-                    .send(IcapServicePoolCommand::CreateConnection)
-                    .await;
-            }
-        });
     }
 }

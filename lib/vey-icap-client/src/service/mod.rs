@@ -8,14 +8,14 @@ mod config;
 pub use config::IcapServiceConfig;
 
 mod connection;
+use connection::IcapConnector;
 pub(super) use connection::{IcapClientConnection, IcapClientReader, IcapClientWriter};
-use connection::{IcapConnectionEofPoller, IcapConnectionPollRequest, IcapConnector};
 
 mod client;
 pub use client::IcapServiceClient;
 
 mod pool;
-use pool::{IcapServiceClientCommand, IcapServicePool};
+use pool::{IcapConnectionPool, PoolMaintainer};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IcapMethod {

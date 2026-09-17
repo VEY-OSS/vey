@@ -152,6 +152,15 @@ Example:
 
   **default**: 4s
 
+* options_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Timeout used when reading ICAP options response data from the ICAP server.
+
+  **default**: 1s
+   - ``vey-proxy``: available since ``1.14.3``
+
 * respond_shared_names
 
   **optional**, **type**: :ref:`http header name <conf_value_http_header_name>` or seq of this
