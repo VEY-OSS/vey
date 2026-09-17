@@ -14,12 +14,17 @@ use vey_types::route::HostMatch;
 
 use crate::{YamlDocPosition, YamlMapCallback};
 
-fn add_host_matched_value<T: YamlMapCallback>(
+fn add_host_matched_value<T, F>(
     obj: &mut HostMatch<Arc<T>>,
     value: &Yaml,
     mut target: T,
     doc: Option<&YamlDocPosition>,
-) -> anyhow::Result<()> {
+    save_host_rules: F,
+) -> anyhow::Result<()>
+where
+    T: YamlMapCallback,
+    F: FnOnce(&mut T, HostMatch<()>),
+{
     let type_name = target.type_name();
 
     if let Yaml::Hash(map) = value {
@@ -73,17 +78,34 @@ fn add_host_matched_value<T: YamlMapCallback>(
                 .context(format!("failed to parse {type_name} value for key {k}")),
         })?;
 
+        let mut host_rules = HostMatch::default();
+        let mut auto_default = true;
+        for ip in &exact_ip_vs {
+            host_rules.add_exact_ip(*ip, ());
+            auto_default = false;
+        }
+        for domain in &exact_domain_vs {
+            host_rules.add_exact_domain(domain.clone(), ());
+            auto_default = false;
+        }
+        for domain in &suffix_domain_vs {
+            host_rules.add_suffix_domain(domain, ());
+            auto_default = false;
+        }
+        if set_default || auto_default {
+            host_rules.set_default(());
+        }
+        save_host_rules(&mut target, host_rules);
+
         target
             .check()
             .context(format!("{type_name} final check failed"))?;
 
         let t = Arc::new(target);
-        let mut auto_default = true;
         for ip in exact_ip_vs {
             if obj.add_exact_ip(ip, Arc::clone(&t)).is_some() {
                 return Err(anyhow!("duplicate {type_name} value for host ip {ip}"));
             }
-            auto_default = false;
         }
         for domain in &exact_domain_vs {
             if obj
@@ -94,7 +116,6 @@ fn add_host_matched_value<T: YamlMapCallback>(
                     "duplicate {type_name} value for host domain {domain}"
                 ));
             }
-            auto_default = false;
         }
         for domain in &suffix_domain_vs {
             if obj.add_suffix_domain(domain, Arc::clone(&t)).is_some() {
@@ -102,7 +123,6 @@ fn add_host_matched_value<T: YamlMapCallback>(
                     "duplicate {type_name} value for suffix domain {domain}"
                 ));
             }
-            auto_default = false;
         }
         if (set_default || auto_default) && obj.set_default(t).is_some() {
             return Err(anyhow!("a default {type_name} value has already been set"));
@@ -123,20 +143,32 @@ pub fn as_host_matched_obj<T>(
 where
     T: Default + YamlMapCallback,
 {
+    as_host_matched_obj_with(value, doc, |_, _| {})
+}
+
+pub fn as_host_matched_obj_with<T, F>(
+    value: &Yaml,
+    doc: Option<&YamlDocPosition>,
+    mut save_host_rules: F,
+) -> anyhow::Result<HostMatch<Arc<T>>>
+where
+    T: Default + YamlMapCallback,
+    F: FnMut(&mut T, HostMatch<()>),
+{
     let mut obj = HostMatch::<Arc<T>>::default();
 
     if let Yaml::Array(seq) = value {
         for (i, v) in seq.iter().enumerate() {
             let target = T::default();
             let type_name = target.type_name();
-            add_host_matched_value(&mut obj, v, target, doc).context(format!(
-                "invalid host matched {type_name} value for element #{i}"
-            ))?;
+            add_host_matched_value(&mut obj, v, target, doc, &mut save_host_rules).context(
+                format!("invalid host matched {type_name} value for element #{i}"),
+            )?;
         }
     } else {
         let target = T::default();
         let type_name = target.type_name();
-        add_host_matched_value(&mut obj, value, target, doc)
+        add_host_matched_value(&mut obj, value, target, doc, save_host_rules)
             .context(format!("invalid host matched {type_name} value"))?;
     }
 

@@ -306,13 +306,12 @@ impl HttpGuardServer {
         &self,
         stream: T,
         cc_info: ClientConnectionInfo,
-        hosts: Arc<HostMatch<Arc<HttpHost>>>,
         pinned_host: Arc<HttpHost>,
     ) where
         T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
         let ctx = self.get_h2_task_context(cc_info, pinned_host);
-        HttpGuardH2ConnectionTask::new(&ctx, stream, hosts)
+        HttpGuardH2ConnectionTask::new(&ctx, stream)
             .into_running()
             .await
     }
@@ -339,8 +338,7 @@ impl HttpGuardServer {
                 );
                 return;
             };
-            self.spawn_h2_task(stream, cc_info, hosts, pinned_host)
-                .await;
+            self.spawn_h2_task(stream, cc_info, pinned_host).await;
         } else {
             self.spawn_h1_task(stream, cc_info, hosts, pinned_host)
                 .await;
@@ -793,14 +791,20 @@ impl Server for HttpGuardServer {
             .1
             .alpn_protocol()
             .and_then(AlpnProtocol::from_selected);
-        let hosts = self.http_hosts.load_full();
+        let hosts = self.tls_hosts.load_full();
         let pinned_host = stream
             .get_ref()
             .1
             .server_name()
             .and_then(|sni| hosts.get_matched(&Host::from_str(sni).ok()?).cloned());
-        self.spawn_http_task(stream, cc_info, hosts, alpn, pinned_host)
-            .await;
+        self.spawn_http_task(
+            stream,
+            cc_info,
+            self.http_hosts.load_full(),
+            alpn,
+            pinned_host,
+        )
+        .await;
     }
 
     async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
@@ -814,12 +818,18 @@ impl Server for HttpGuardServer {
             .ssl()
             .selected_alpn_protocol()
             .and_then(AlpnProtocol::from_selected);
-        let hosts = self.http_hosts.load_full();
+        let hosts = self.tls_hosts.load_full();
         let pinned_host = stream
             .ssl()
             .servername(openssl::ssl::NameType::HOST_NAME)
             .and_then(|sni| hosts.get_matched(&Host::from_str(sni).ok()?).cloned());
-        self.spawn_http_task(stream, cc_info, hosts, alpn, pinned_host)
-            .await;
+        self.spawn_http_task(
+            stream,
+            cc_info,
+            self.http_hosts.load_full(),
+            alpn,
+            pinned_host,
+        )
+        .await;
     }
 }

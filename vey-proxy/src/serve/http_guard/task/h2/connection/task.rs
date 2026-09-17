@@ -11,7 +11,6 @@ use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use vey_io_ext::LimitedStream;
-use vey_types::route::HostMatch;
 
 use super::{
     H2ConcurrencyStats, H2ConnectionCltWrapperStats, H2ConnectionTaskStats, H2StreamTask,
@@ -19,13 +18,11 @@ use super::{
 };
 use crate::config::server::ServerConfig;
 use crate::log::task::h2_connection::TaskLogForH2Connection;
-use crate::serve::http_guard::HttpHost;
 use crate::serve::{ServerStats, ServerTaskNotes};
 
 pub(crate) struct HttpGuardH2ConnectionTask<S> {
     ctx: Arc<H2TaskContext>,
     stream: Option<S>,
-    hosts: Arc<HostMatch<Arc<HttpHost>>>,
     task_notes: ServerTaskNotes,
     task_stats: Arc<H2ConnectionTaskStats>,
     concurrency: Arc<H2ConcurrencyStats>,
@@ -36,18 +33,13 @@ impl<S> HttpGuardH2ConnectionTask<S>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
-    pub(crate) fn new(
-        ctx: &Arc<H2TaskContext>,
-        stream: S,
-        hosts: Arc<HostMatch<Arc<HttpHost>>>,
-    ) -> Self {
+    pub(crate) fn new(ctx: &Arc<H2TaskContext>, stream: S) -> Self {
         let mut task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Default::default())
             .with_site_ctx(ctx.site_ctx.clone());
         task_notes.id = ctx.connection_id;
         HttpGuardH2ConnectionTask {
             ctx: Arc::clone(ctx),
             stream: Some(stream),
-            hosts,
             task_notes,
             task_stats: Arc::new(H2ConnectionTaskStats::default()),
             concurrency: Arc::new(H2ConcurrencyStats::default()),
@@ -167,12 +159,11 @@ where
                                 self.first_stream_at = Some(Timestamp::now());
                             }
                             let ctx = Arc::clone(&self.ctx);
-                            let hosts = Arc::clone(&self.hosts);
                             let task_guard = self.concurrency.add_task();
                             let clt_stream_id = clt_send_rsp.stream_id();
                             tokio::spawn(async move {
                                 H2StreamTask::new(ctx, clt_stream_id)
-                                    .run(clt_req, clt_send_rsp, hosts)
+                                    .run(clt_req, clt_send_rsp)
                                     .await;
                                 drop(task_guard);
                             });

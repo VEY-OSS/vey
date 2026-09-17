@@ -15,13 +15,11 @@ use uuid::Uuid;
 
 use vey_http::server::UriExt;
 use vey_types::net::{HttpUpgradeToken, UpstreamAddr};
-use vey_types::route::HostMatch;
 
 use super::{H2ForwardTask, H2TaskContext, H2WebsocketTask};
 use crate::log::task::h2_stream::TaskLogForH2Stream;
 use crate::module::http_header::ProxyErrorType;
 use crate::serve::ServerTaskNotes;
-use crate::serve::http_guard::HttpHost;
 
 enum StreamOutcome {
     Forward(H2ForwardTask),
@@ -32,7 +30,6 @@ enum H2StreamError {
     InvalidRequestTarget,
     InvalidHostHeader,
     HostMismatch,
-    UnmatchedHost,
     MisdirectedRequest,
     TenantBlocked,
     UnsupportedConnect,
@@ -44,7 +41,6 @@ impl H2StreamError {
             Self::InvalidRequestTarget => "invalid request target",
             Self::InvalidHostHeader => "invalid host header",
             Self::HostMismatch => "host mismatch",
-            Self::UnmatchedHost => "unmatched host",
             Self::MisdirectedRequest => "misdirected request",
             Self::TenantBlocked => "tenant blocked",
             Self::UnsupportedConnect => "unsupported connect",
@@ -53,9 +49,7 @@ impl H2StreamError {
 
     fn status(&self) -> StatusCode {
         match self {
-            Self::InvalidRequestTarget | Self::InvalidHostHeader | Self::UnmatchedHost => {
-                StatusCode::BAD_REQUEST
-            }
+            Self::InvalidRequestTarget | Self::InvalidHostHeader => StatusCode::BAD_REQUEST,
             Self::HostMismatch => StatusCode::CONFLICT,
             Self::MisdirectedRequest => StatusCode::MISDIRECTED_REQUEST,
             Self::TenantBlocked => StatusCode::FORBIDDEN,
@@ -116,9 +110,8 @@ impl H2StreamTask {
         self,
         mut clt_req: Request<RecvStream>,
         mut clt_send_rsp: SendResponse<Bytes>,
-        hosts: Arc<HostMatch<Arc<HttpHost>>>,
     ) {
-        match self.dispatch(&mut clt_req, &hosts).await {
+        match self.dispatch(&mut clt_req).await {
             Ok(StreamOutcome::Forward(task)) => {
                 self.log("H2Forward", Some(task.task_id()), Some("H2Forward"), None);
                 task.forward(clt_req, clt_send_rsp).await;
@@ -138,7 +131,6 @@ impl H2StreamTask {
     async fn dispatch(
         &self,
         clt_req: &mut Request<RecvStream>,
-        hosts: &HostMatch<Arc<HttpHost>>,
     ) -> Result<StreamOutcome, H2StreamError> {
         let Some(upstream) = clt_req
             .uri()
@@ -163,11 +155,7 @@ impl H2StreamTask {
             }
         }
 
-        let Some(matched) = hosts.get_matched(upstream.host()).cloned() else {
-            return Err(H2StreamError::UnmatchedHost);
-        };
-
-        if !matched.same_site(self.ctx.site_ctx.site()) {
+        if !self.ctx.site_ctx.site().covers_host(upstream.host()) {
             return Err(H2StreamError::MisdirectedRequest);
         }
 

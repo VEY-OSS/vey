@@ -4,7 +4,7 @@
  */
 
 mod host;
-pub use host::as_host_matched_obj;
+pub use host::{as_host_matched_obj, as_host_matched_obj_with};
 
 mod uri_path;
 pub use uri_path::as_url_path_matched_obj;

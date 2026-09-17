@@ -119,38 +119,33 @@ where
         req: HttpGuardRequest<CDR>,
         hosts: &HostMatch<Arc<HttpHost>>,
     ) -> LoopAction {
-        match hosts.get_matched(req.upstream.host()) {
-            Some(host) => match &self.ctx.site_ctx {
-                Some(pinned) => {
-                    if !host.same_site(pinned.site()) {
-                        if !self.ctx.server_config.no_early_error_reply
-                            && let Some(stream_w) = &mut self.stream_writer
-                        {
-                            let mut rsp =
-                                HttpProxyClientResponse::misdirected_request(req.inner.version);
-                            self.ctx.apply_proxy_status_ident(&mut rsp);
-                            let _ = rsp.reply_err_to_request(stream_w).await;
-                        }
+        if let Some(pinned) = self.ctx.site_ctx.clone() {
+            if pinned.site().covers_host(req.upstream.host()) {
+                self.note_site_conn(pinned.site());
+                return self.run(req, pinned).await;
+            }
+            if !self.ctx.server_config.no_early_error_reply
+                && let Some(stream_w) = &mut self.stream_writer
+            {
+                let mut rsp = HttpProxyClientResponse::misdirected_request(req.inner.version);
+                self.ctx.apply_proxy_status_ident(&mut rsp);
+                let _ = rsp.reply_err_to_request(stream_w).await;
+            }
+            self.notify_reader_to_close();
+            return LoopAction::Break;
+        }
 
-                        self.notify_reader_to_close();
-                        LoopAction::Break
-                    } else {
-                        let site_ctx = pinned.clone();
-                        self.note_site_conn(host.site());
-                        self.run(req, site_ctx).await
-                    }
-                }
-                None => {
-                    let site_ctx = SiteContext::new(
-                        Arc::clone(host.site()),
-                        Arc::clone(host.egress()),
-                        self.ctx.server_config.name(),
-                        self.ctx.server_stats.share_extra_tags(),
-                    );
-                    self.note_site_conn(host.site());
-                    self.run(req, site_ctx).await
-                }
-            },
+        match hosts.get_matched(req.upstream.host()) {
+            Some(host) => {
+                let site_ctx = SiteContext::new(
+                    Arc::clone(host.site()),
+                    Arc::clone(host.egress()),
+                    self.ctx.server_config.name(),
+                    self.ctx.server_stats.share_extra_tags(),
+                );
+                self.note_site_conn(host.site());
+                self.run(req, site_ctx).await
+            }
             None => {
                 if !self.ctx.server_config.no_early_error_reply
                     && let Some(stream_w) = &mut self.stream_writer
