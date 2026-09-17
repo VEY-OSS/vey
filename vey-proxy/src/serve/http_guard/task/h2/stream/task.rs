@@ -14,7 +14,7 @@ use http::{Method, Request, StatusCode, header};
 use uuid::Uuid;
 
 use vey_http::server::UriExt;
-use vey_types::net::{HttpUpgradeToken, UpstreamAddr};
+use vey_types::net::{HttpUpgradeToken, UpstreamAddr, ViaValue};
 
 use super::{H2ForwardTask, H2TaskContext, H2WebsocketTask};
 use crate::log::task::h2_stream::TaskLogForH2Stream;
@@ -31,6 +31,7 @@ enum H2StreamError {
     InvalidHostHeader,
     HostMismatch,
     MisdirectedRequest,
+    LoopDetected,
     TenantBlocked,
     UnsupportedConnect,
 }
@@ -42,6 +43,7 @@ impl H2StreamError {
             Self::InvalidHostHeader => "invalid host header",
             Self::HostMismatch => "host mismatch",
             Self::MisdirectedRequest => "misdirected request",
+            Self::LoopDetected => "loop detected",
             Self::TenantBlocked => "tenant blocked",
             Self::UnsupportedConnect => "unsupported connect",
         }
@@ -52,6 +54,7 @@ impl H2StreamError {
             Self::InvalidRequestTarget | Self::InvalidHostHeader => StatusCode::BAD_REQUEST,
             Self::HostMismatch => StatusCode::CONFLICT,
             Self::MisdirectedRequest => StatusCode::MISDIRECTED_REQUEST,
+            Self::LoopDetected => StatusCode::LOOP_DETECTED,
             Self::TenantBlocked => StatusCode::FORBIDDEN,
             Self::UnsupportedConnect => StatusCode::NOT_IMPLEMENTED,
         }
@@ -60,6 +63,7 @@ impl H2StreamError {
     fn proxy_error(&self) -> ProxyErrorType {
         match self {
             Self::TenantBlocked => ProxyErrorType::HttpRequestDenied,
+            Self::LoopDetected => ProxyErrorType::ProxyLoopDetected,
             _ => ProxyErrorType::HttpRequestError,
         }
     }
@@ -158,6 +162,16 @@ impl H2StreamTask {
         if !self.ctx.site_ctx.site().covers_host(upstream.host()) {
             return Err(H2StreamError::MisdirectedRequest);
         }
+
+        let via = ViaValue::for_hop(
+            clt_req.version(),
+            self.ctx.server_config.server_id.as_ref(),
+            upstream.host_str(),
+        );
+        if via.seen_in_http(clt_req.headers()) {
+            return Err(H2StreamError::LoopDetected);
+        }
+        via.append_to_http(clt_req.headers_mut());
 
         if let Some(delay) = self.ctx.site_ctx.tenant_user_blocked_delay() {
             if !delay.is_zero() {

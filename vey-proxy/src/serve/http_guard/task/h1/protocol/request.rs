@@ -3,15 +3,13 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::borrow::Cow;
-
 use http::Version;
 use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use vey_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
-use vey_types::net::{H1HeaderValue, HttpServerId, HttpUpgradeToken, UpstreamAddr};
+use vey_types::net::{HttpServerId, HttpUpgradeToken, UpstreamAddr, ViaValue};
 
 use super::HttpClientReader;
 
@@ -72,24 +70,11 @@ where
         };
 
         // check VIA
-        let this_pseudonym = server_id
-            .map(|id| Cow::Borrowed(id.as_str()))
-            .unwrap_or_else(|| upstream.host_str());
-        for h in req.end_to_end_headers.get_all(http::header::VIA) {
-            if let Some(pseudonym) = h
-                .as_bytes()
-                .splitn(3, |c| c.is_ascii_whitespace())
-                .filter(|s| !s.is_empty())
-                .nth(1)
-                && pseudonym.eq(this_pseudonym.as_bytes())
-            {
-                return Err(HttpRequestParseError::LoopDetected);
-            }
+        let via = ViaValue::for_hop(req.version, server_id, upstream.host_str());
+        if via.seen_in_h1(&req.end_to_end_headers) {
+            return Err(HttpRequestParseError::LoopDetected);
         }
-        // append VIA
-        let via_value = format!("HTTP/{:?} {}", req.version, this_pseudonym);
-        let v = unsafe { H1HeaderValue::from_string_unchecked(via_value) };
-        req.end_to_end_headers.append(http::header::VIA, v);
+        via.append_to_h1(&mut req.end_to_end_headers);
 
         let req = HttpGuardRequest {
             inner: req,

@@ -21,6 +21,9 @@ pub use forwarded::{
     HttpForwardedHeaderType, HttpForwardedHeaderValue, HttpStandardForwardedHeaderValue,
 };
 
+mod via;
+pub use via::ViaValue;
+
 mod transfer;
 pub use transfer::{
     AcceptTransferEncodingValue, InvalidAcceptTransferEncodingValue, InvalidTransferEncodingValue,
