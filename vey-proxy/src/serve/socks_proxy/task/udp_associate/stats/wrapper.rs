@@ -5,10 +5,12 @@
 
 use std::sync::Arc;
 
+use smallvec::SmallVec;
+
 use vey_io_ext::{LimitedRecvStats, LimitedSendStats};
 
 use super::{SocksProxyServerStats, UdpAssociateTaskStats};
-use crate::auth::UserTrafficStats;
+use crate::auth::{UserTrafficStats, UserTrafficStatsList};
 
 trait UdpAssociateTaskCltStatsWrapper {
     fn add_recv_bytes(&self, size: u64);
@@ -49,7 +51,7 @@ impl UdpAssociateTaskCltStatsWrapper for UserTrafficStats {
 pub(crate) struct UdpAssociateTaskCltWrapperStats {
     server: Arc<SocksProxyServerStats>,
     task: Arc<UdpAssociateTaskStats>,
-    others: Vec<ArcUdpAssociateTaskCltStatsWrapper>,
+    others: SmallVec<[ArcUdpAssociateTaskCltStatsWrapper; 4]>,
 }
 
 impl UdpAssociateTaskCltWrapperStats {
@@ -60,11 +62,11 @@ impl UdpAssociateTaskCltWrapperStats {
         UdpAssociateTaskCltWrapperStats {
             server: Arc::clone(server),
             task: Arc::clone(task),
-            others: Vec::with_capacity(2),
+            others: SmallVec::new(),
         }
     }
 
-    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserTrafficStats>>) {
+    pub(crate) fn push_user_io_stats(&mut self, all: UserTrafficStatsList) {
         for s in all {
             self.others.push(s);
         }

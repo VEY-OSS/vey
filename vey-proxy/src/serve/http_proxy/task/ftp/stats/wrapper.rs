@@ -5,10 +5,12 @@
 
 use std::sync::Arc;
 
+use smallvec::SmallVec;
+
 use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
 use super::{FtpOverHttpTaskStats, HttpProxyServerStats};
-use crate::auth::UserTrafficStats;
+use crate::auth::{UserTrafficStats, UserTrafficStatsList};
 
 trait FtpOverHttpTaskCltStatsWrapper {
     fn add_read_bytes(&self, size: u64);
@@ -31,7 +33,7 @@ impl FtpOverHttpTaskCltStatsWrapper for UserTrafficStats {
 pub(crate) struct FtpOverHttpTaskCltWrapperStats {
     server: Arc<HttpProxyServerStats>,
     task: Arc<FtpOverHttpTaskStats>,
-    others: Vec<ArcFtpOverHttpTaskCltStatsWrapper>,
+    others: SmallVec<[ArcFtpOverHttpTaskCltStatsWrapper; 4]>,
 }
 
 impl FtpOverHttpTaskCltWrapperStats {
@@ -42,11 +44,11 @@ impl FtpOverHttpTaskCltWrapperStats {
         FtpOverHttpTaskCltWrapperStats {
             server: Arc::clone(server),
             task: Arc::clone(task),
-            others: Vec::with_capacity(2),
+            others: SmallVec::new(),
         }
     }
 
-    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserTrafficStats>>) {
+    pub(crate) fn push_user_io_stats(&mut self, all: UserTrafficStatsList) {
         for s in all {
             self.others.push(s);
         }

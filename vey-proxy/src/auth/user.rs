@@ -28,7 +28,8 @@ use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
     UserForbiddenStats, UserRequestStats, UserSite, UserSiteDurationRecorder, UserSiteStats,
-    UserSites, UserTrafficStats, UserType, UserUpstreamTrafficStats,
+    UserSites, UserTrafficStats, UserTrafficStatsList, UserType, UserUpstreamTrafficStats,
+    UserUpstreamTrafficStatsList,
 };
 use crate::config::auth::{UserAuditConfig, UserConfig};
 
@@ -932,8 +933,8 @@ impl UserContext {
         &self,
         server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
-    ) -> Vec<Arc<UserTrafficStats>> {
-        let mut all_stats = Vec::with_capacity(2);
+    ) -> UserTrafficStatsList {
+        let mut all_stats = UserTrafficStatsList::new();
 
         all_stats.push(
             self.user
@@ -951,8 +952,8 @@ impl UserContext {
         &self,
         escaper: &NodeName,
         escaper_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
-    ) -> Vec<Arc<UserUpstreamTrafficStats>> {
-        let mut all_stats = Vec::with_capacity(2);
+    ) -> UserUpstreamTrafficStatsList {
+        let mut all_stats = UserUpstreamTrafficStatsList::new();
 
         all_stats.push(self.user.fetch_upstream_traffic_stats(
             self.user_type,

@@ -5,10 +5,12 @@
 
 use std::sync::Arc;
 
+use smallvec::SmallVec;
+
 use vey_daemon::stat::task::UdpConnectTaskStats;
 use vey_io_ext::{LimitedReaderStats, LimitedRecvStats, LimitedSendStats, LimitedWriterStats};
 
-use crate::auth::UserTrafficStats;
+use crate::auth::{UserTrafficStats, UserTrafficStatsList};
 
 use super::HttpProxyServerStats;
 
@@ -71,18 +73,18 @@ impl ConnectUdpTaskCltStatsWrapper for UserTrafficStats {
 #[derive(Clone)]
 pub(crate) struct HttpConnectUdpTaskCltWrapperStats {
     task: Arc<UdpConnectTaskStats>,
-    others: Vec<ArcConnectUdpTaskCltStatsWrapper>,
+    others: SmallVec<[ArcConnectUdpTaskCltStatsWrapper; 4]>,
 }
 
 impl HttpConnectUdpTaskCltWrapperStats {
     pub(crate) fn new(task: &Arc<UdpConnectTaskStats>) -> Self {
         HttpConnectUdpTaskCltWrapperStats {
             task: Arc::clone(task),
-            others: Vec::with_capacity(2),
+            others: SmallVec::new(),
         }
     }
 
-    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserTrafficStats>>) {
+    pub(crate) fn push_user_io_stats(&mut self, all: UserTrafficStatsList) {
         for s in all {
             self.others.push(s);
         }

@@ -5,12 +5,14 @@
 
 use std::sync::Arc;
 
+use smallvec::SmallVec;
+
 use vey_io_ext::{
     ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
 };
 
 use super::{HttpExposeServerStats, HttpForwardTaskStats};
-use crate::auth::UserTrafficStats;
+use crate::auth::{UserTrafficStats, UserTrafficStatsList};
 
 trait HttpForwardTaskCltStatsWrapper {
     fn add_http_read_bytes(&self, size: u64);
@@ -33,7 +35,7 @@ impl HttpForwardTaskCltStatsWrapper for UserTrafficStats {
 pub(crate) struct HttpForwardTaskCltWrapperStats {
     server: Arc<HttpExposeServerStats>,
     task: Arc<HttpForwardTaskStats>,
-    others: Vec<ArcHttpForwardTaskCltStatsWrapper>,
+    others: SmallVec<[ArcHttpForwardTaskCltStatsWrapper; 4]>,
 }
 
 impl HttpForwardTaskCltWrapperStats {
@@ -44,11 +46,11 @@ impl HttpForwardTaskCltWrapperStats {
         HttpForwardTaskCltWrapperStats {
             server: Arc::clone(server),
             task: Arc::clone(task),
-            others: Vec::with_capacity(2),
+            others: SmallVec::new(),
         }
     }
 
-    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserTrafficStats>>) {
+    pub(crate) fn push_user_io_stats(&mut self, all: UserTrafficStatsList) {
         for s in all {
             self.others.push(s);
         }

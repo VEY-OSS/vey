@@ -5,7 +5,6 @@
 
 use std::io::{self, IoSlice};
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
@@ -18,7 +17,7 @@ use vey_icap_client::reqmod::h1::HttpRequestUpstreamWriter;
 use vey_types::net::UpstreamAddr;
 
 use super::{ArcHttpForwardTaskRemoteStats, HttpForwardTaskNotes};
-use crate::auth::UserUpstreamTrafficStats;
+use crate::auth::UserUpstreamTrafficStatsList;
 use crate::serve::ServerTaskNotes;
 
 mod writer;
@@ -37,7 +36,7 @@ pub(crate) trait HttpForwardWrite: AsyncWrite {
     fn update_stats(
         &mut self,
         task_stats: &ArcHttpForwardTaskRemoteStats,
-        user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
+        user_stats: UserUpstreamTrafficStatsList,
     );
 
     async fn send_request_header(
@@ -52,7 +51,7 @@ pub(crate) trait HttpForwardRead: AsyncBufRead {
     fn update_stats(
         &mut self,
         task_stats: &ArcHttpForwardTaskRemoteStats,
-        user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
+        user_stats: UserUpstreamTrafficStatsList,
     );
 
     async fn recv_response_header(

@@ -5,9 +5,11 @@
 
 use std::sync::Arc;
 
+use smallvec::SmallVec;
+
 use vey_io_ext::{LimitedRecvStats, LimitedSendStats};
 
-use crate::auth::UserUpstreamTrafficStats;
+use crate::auth::{UserUpstreamTrafficStats, UserUpstreamTrafficStatsList};
 
 /// task related stats used at escaper side
 pub(crate) trait UdpRelayTaskRemoteStats {
@@ -47,7 +49,7 @@ impl UdpRelayTaskRemoteStats for UserUpstreamTrafficStats {
 
 #[derive(Clone)]
 pub(crate) struct UdpRelayRemoteWrapperStats {
-    all: Vec<ArcUdpRelayTaskRemoteStats>,
+    all: SmallVec<[ArcUdpRelayTaskRemoteStats; 4]>,
 }
 
 impl UdpRelayRemoteWrapperStats {
@@ -55,13 +57,13 @@ impl UdpRelayRemoteWrapperStats {
         escaper: ArcUdpRelayTaskRemoteStats,
         task: ArcUdpRelayTaskRemoteStats,
     ) -> Self {
-        let mut all = Vec::with_capacity(4);
+        let mut all = SmallVec::new();
         all.push(task);
         all.push(escaper);
         UdpRelayRemoteWrapperStats { all }
     }
 
-    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
+    pub(crate) fn push_user_io_stats(&mut self, all: UserUpstreamTrafficStatsList) {
         for s in all {
             self.all.push(s as ArcUdpRelayTaskRemoteStats);
         }

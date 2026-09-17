@@ -17,7 +17,7 @@ use vey_io_ext::LimitedWriter;
 use vey_types::net::UpstreamAddr;
 
 use super::DirectFloatBindIp;
-use crate::auth::UserUpstreamTrafficStats;
+use crate::auth::UserUpstreamTrafficStatsList;
 use crate::escape::direct_fixed::DirectFixedEscaperStats;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats,
@@ -85,7 +85,7 @@ where
     fn update_stats(
         &mut self,
         task_stats: &ArcHttpForwardTaskRemoteStats,
-        user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
+        user_stats: UserUpstreamTrafficStatsList,
     ) {
         if let Some(escaper_stats) = &self.escaper_stats {
             let mut wrapper_stats =

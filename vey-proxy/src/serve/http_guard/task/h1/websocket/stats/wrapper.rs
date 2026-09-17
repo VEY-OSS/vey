@@ -5,11 +5,13 @@
 
 use std::sync::Arc;
 
+use smallvec::SmallVec;
+
 use vey_io_ext::{
     ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
 };
 
-use crate::auth::UserTrafficStats;
+use crate::auth::{UserTrafficStats, UserTrafficStatsList};
 use crate::module::websocket::WebSocketTaskStats;
 use crate::serve::http_guard::HttpGuardServerStats;
 
@@ -34,7 +36,7 @@ impl WebSocketTaskCltStatsWrapper for UserTrafficStats {
 pub(crate) struct WebSocketTaskCltWrapperStats {
     server: Arc<HttpGuardServerStats>,
     task: Arc<WebSocketTaskStats>,
-    others: Vec<ArcWebSocketTaskCltStatsWrapper>,
+    others: SmallVec<[ArcWebSocketTaskCltStatsWrapper; 4]>,
 }
 
 impl WebSocketTaskCltWrapperStats {
@@ -42,11 +44,11 @@ impl WebSocketTaskCltWrapperStats {
         WebSocketTaskCltWrapperStats {
             server: Arc::clone(server),
             task: Arc::clone(task),
-            others: Vec::with_capacity(2),
+            others: SmallVec::new(),
         }
     }
 
-    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserTrafficStats>>) {
+    pub(crate) fn push_user_io_stats(&mut self, all: UserTrafficStatsList) {
         for s in all {
             self.others.push(s);
         }

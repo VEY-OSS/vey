@@ -34,6 +34,7 @@ jiff.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
+smallvec.workspace = true
 percent-encoding.workspace = true
 url.workspace = true
 http.workspace = true

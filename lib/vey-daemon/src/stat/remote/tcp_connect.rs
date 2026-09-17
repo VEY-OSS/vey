@@ -5,6 +5,8 @@
 
 use std::sync::Arc;
 
+use smallvec::SmallVec;
+
 use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
 /// task related stats used at escaper side
@@ -18,18 +20,18 @@ pub type ArcTcpConnectionTaskRemoteStats = Arc<dyn TcpConnectionTaskRemoteStats 
 #[derive(Clone)]
 pub struct TcpConnectionTaskRemoteStatsWrapper {
     task: ArcTcpConnectionTaskRemoteStats,
-    others: Vec<ArcTcpConnectionTaskRemoteStats>,
+    others: SmallVec<[ArcTcpConnectionTaskRemoteStats; 4]>,
 }
 
 impl TcpConnectionTaskRemoteStatsWrapper {
     pub fn new(task: ArcTcpConnectionTaskRemoteStats) -> Self {
         TcpConnectionTaskRemoteStatsWrapper {
             task,
-            others: Vec::with_capacity(2),
+            others: SmallVec::new(),
         }
     }
 
-    pub fn push_other_stats<T>(&mut self, all: Vec<Arc<T>>)
+    pub fn push_other_stats<T>(&mut self, all: impl IntoIterator<Item = Arc<T>>)
     where
         T: TcpConnectionTaskRemoteStats + Send + Sync + 'static,
     {
