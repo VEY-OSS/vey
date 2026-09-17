@@ -9,9 +9,10 @@ Websocket
 
 HTTP/1 uses ``Upgrade: websocket`` and a ``101 Switching Protocols``
 response, then copies bytes until the connection ends. HTTP/2 uses RFC 8441
-extended ``CONNECT`` with ``:protocol = websocket``. Both use ``task_type``
-``Websocket``. Other ``CONNECT`` or ``Upgrade`` tokens are rejected and are
-not this task type.
+extended ``CONNECT`` with ``:protocol = websocket``; that stream is first
+classified by an :ref:`H2Stream <log_task_h2_stream>` task. Both use
+``task_type`` ``Websocket``. Other ``CONNECT`` or ``Upgrade`` tokens are
+rejected and are not this task type.
 
 The tunnel keys follow :ref:`TcpConnect <log_task_tcp_connect>` (including
 TCP copy counters, origin connection keys, ``Periodic``, ``ClientShutdown``,

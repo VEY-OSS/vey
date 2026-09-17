@@ -6,7 +6,8 @@ H2 Forward
 
 ``H2Forward`` task logs are emitted by
 :ref:`http_guard <configuration_server_http_guard>` for ordinary HTTP/2
-streams (one client stream per task). ``CONNECT`` is not this type:
+streams (one client stream per task). Each such stream is first classified
+by an :ref:`H2Stream <log_task_h2_stream>` task. ``CONNECT`` is not this type:
 ``:protocol = websocket`` is a :ref:`Websocket <log_task_websocket>` task;
 any other ``CONNECT`` is rejected.
 

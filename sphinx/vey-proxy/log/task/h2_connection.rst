@@ -7,9 +7,11 @@ H2 Connection
 ``H2Connection`` task logs are emitted by
 :ref:`http_guard <configuration_server_http_guard>` for the client HTTP/2
 connection that accepts streams. Each such connection has one
-``H2Connection`` task. Streams on that connection log as
-:ref:`H2Forward <log_task_h2_forward>` or :ref:`Websocket <log_task_websocket>`
-and carry the same ``connection_id`` as this task's ``task_id``.
+``H2Connection`` task. Each accepted stream first logs as
+:ref:`H2Stream <log_task_h2_stream>`, which either records a dispatch error
+or the :ref:`H2Forward <log_task_h2_forward>` / :ref:`Websocket <log_task_websocket>`
+task it created. Those child tasks carry the same ``connection_id`` as this
+task's ``task_id``.
 
 ``task_type`` is ``H2Connection``.
 
@@ -58,8 +60,10 @@ connection_id
 
 **required**, **type**: uuid in simple string format
 
-The HTTP/2 connection id. Equal to ``task_id`` on this record. Stream tasks
-on this connection log the same value.
+The HTTP/2 connection id. Equal to ``task_id`` on this record. ``H2Stream``
+tasks and the spawned :ref:`H2Forward <log_task_h2_forward>` /
+:ref:`Websocket <log_task_websocket>` tasks on this connection log the same
+value.
 
 first_stream_at
 ---------------
@@ -76,8 +80,8 @@ stream_total
 
 **optional**, **type**: int
 
-Number of client streams accepted on this connection (H2Forward and
-Websocket).
+Number of client streams accepted on this connection (each becomes an
+:ref:`H2Stream <log_task_h2_stream>` task).
 
 Present on ``Periodic`` and ``Finished`` records.
 

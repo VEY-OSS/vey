@@ -179,6 +179,7 @@ Sub Types
    tcp_connect
    http_forward
    h2_connection
+   h2_stream
    h2_forward
    websocket
    ftp_over_http

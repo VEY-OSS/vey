@@ -75,6 +75,10 @@ impl H2ForwardTask {
         }
     }
 
+    pub(crate) fn task_id(&self) -> &uuid::Uuid {
+        &self.task_notes.id
+    }
+
     fn log_ctx(&self) -> Option<TaskLogForH2Forward<'_>> {
         self.ctx
             .task_logger

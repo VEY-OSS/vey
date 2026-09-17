@@ -3,9 +3,10 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use super::H2TaskContext;
+use super::{H2StreamTask, H2TaskContext};
 
 mod stats;
-mod task;
+use stats::{H2ConcurrencyStats, H2ConnectionCltWrapperStats, H2ConnectionTaskStats};
 
+mod task;
 pub(crate) use task::HttpGuardH2ConnectionTask;

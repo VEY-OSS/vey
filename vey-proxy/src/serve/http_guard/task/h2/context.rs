@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::anyhow;
 use bytes::Bytes;
+use h2::Ping;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use http::{Response, StatusCode, Version};
@@ -19,9 +20,7 @@ use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_daemon::stat::task::TcpStreamTaskStats;
 use vey_types::net::{AlpnProtocol, HttpForwardedHeaderType, HttpForwardedHeaderValue};
 
-use super::super::CommonTaskContext;
-use super::error::H2StreamTransferError;
-use super::ping;
+use super::{CommonTaskContext, H2StreamTransferError};
 use crate::audit::AuditContext;
 use crate::escape::EgressNotes;
 use crate::module::http_header::{self, ProxyErrorType};
@@ -210,23 +209,60 @@ impl H2TaskContext {
         })?;
 
         let closed = Arc::new(AtomicBool::new(false));
-        let (ping_quit_tx, ping_quit_rx) = oneshot::channel();
-        let ping_interval = self.server_config.h2.ping_interval;
-        if !ping_interval.is_zero()
-            && let Some(ping) = connection.ping_pong()
-        {
-            ping::spawn_ping(ping, ping_interval, ping_quit_rx);
-        } else {
-            drop(ping_quit_rx);
-        }
+        let (ping_quit_tx, ping_fail_rx) = self.spawn_origin_ping(&mut connection, &closed);
 
         let closed_flag = Arc::clone(&closed);
         tokio::spawn(async move {
-            let _ = connection.await;
+            if let Some(ping_fail_rx) = ping_fail_rx {
+                tokio::select! {
+                    _ = connection => {
+                        let _ = ping_quit_tx.send(());
+                    }
+                    _ = ping_fail_rx => {}
+                }
+            } else {
+                let _ = connection.await;
+                let _ = ping_quit_tx.send(());
+            }
             closed_flag.store(true, Ordering::Release);
-            let _ = ping_quit_tx.send(());
         });
 
         Ok((sender, closed, egress_notes))
+    }
+
+    fn spawn_origin_ping<T, B>(
+        &self,
+        connection: &mut h2::client::Connection<T, B>,
+        closed: &Arc<AtomicBool>,
+    ) -> (oneshot::Sender<()>, Option<oneshot::Receiver<()>>)
+    where
+        T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+        B: bytes::Buf,
+    {
+        let (ping_quit_tx, mut ping_quit_rx) = oneshot::channel();
+        let ping_interval = self.server_config.h2.ping_interval;
+        if !ping_interval.is_zero()
+            && let Some(mut ping) = connection.ping_pong()
+        {
+            let closed = Arc::clone(closed);
+            let (ping_fail_tx, ping_fail_rx) = oneshot::channel();
+            tokio::spawn(async move {
+                let mut ticker = tokio::time::interval(ping_interval);
+                loop {
+                    tokio::select! {
+                        _ = &mut ping_quit_rx => break,
+                        _ = ticker.tick() => {
+                            if ping.ping(Ping::opaque()).await.is_err() {
+                                closed.store(true, Ordering::Release);
+                                let _ = ping_fail_tx.send(());
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+            return (ping_quit_tx, Some(ping_fail_rx));
+        }
+        (ping_quit_tx, None)
     }
 }

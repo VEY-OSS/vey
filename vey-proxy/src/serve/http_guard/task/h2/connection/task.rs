@@ -13,8 +13,10 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use vey_io_ext::LimitedStream;
 use vey_types::route::HostMatch;
 
-use super::H2TaskContext;
-use super::stats::{H2ConcurrencyStats, H2ConnectionCltWrapperStats, H2ConnectionTaskStats};
+use super::{
+    H2ConcurrencyStats, H2ConnectionCltWrapperStats, H2ConnectionTaskStats, H2StreamTask,
+    H2TaskContext,
+};
 use crate::config::server::ServerConfig;
 use crate::log::task::h2_connection::TaskLogForH2Connection;
 use crate::serve::http_guard::HttpHost;
@@ -167,8 +169,10 @@ where
                             let ctx = Arc::clone(&self.ctx);
                             let hosts = Arc::clone(&self.hosts);
                             let task_guard = self.concurrency.add_task();
+                            let clt_stream_id = clt_send_rsp.stream_id();
                             tokio::spawn(async move {
-                                super::super::stream::transfer(clt_req, clt_send_rsp, ctx, hosts)
+                                H2StreamTask::new(ctx, clt_stream_id)
+                                    .run(clt_req, clt_send_rsp, hosts)
                                     .await;
                                 drop(task_guard);
                             });

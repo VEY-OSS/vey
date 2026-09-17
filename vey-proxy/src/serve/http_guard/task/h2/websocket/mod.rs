@@ -3,8 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use super::H2TaskContext;
-use super::error::H2StreamTransferError;
+use super::{H2StreamTransferError, H2TaskContext};
 
 mod task;
 pub(super) use task::H2WebsocketTask;

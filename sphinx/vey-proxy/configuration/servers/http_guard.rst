@@ -50,9 +50,11 @@ It supports:
 
 HTTP/1 tasks log as :ref:`HttpForward <log_task_http_forward>`. Each HTTP/2
 client connection logs as :ref:`H2Connection <log_task_h2_connection>`.
-HTTP/2 streams log as :ref:`H2Forward <log_task_h2_forward>` and include
-``connection_id`` pointing at that connection. HTTP/1 ``Upgrade: websocket``
-and HTTP/2 ``CONNECT`` with ``:protocol = websocket`` both log as
+Each accepted HTTP/2 stream first logs as :ref:`H2Stream <log_task_h2_stream>`
+(a dispatch error, or the child task it created). Ordinary streams then log
+as :ref:`H2Forward <log_task_h2_forward>` and include ``connection_id``
+pointing at that connection. HTTP/1 ``Upgrade: websocket`` and HTTP/2
+``CONNECT`` with ``:protocol = websocket`` both log as
 :ref:`Websocket <log_task_websocket>`; HTTP/2 websocket tasks also include
 ``connection_id``.
 
