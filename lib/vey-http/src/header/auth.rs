@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use base64::prelude::*;
@@ -24,6 +25,12 @@ pub fn proxy_authenticate_basic(realm: &str) -> String {
 
 pub fn www_authenticate_basic(realm: &str) -> String {
     format!("WWW-Authenticate: Basic realm=\"{realm}\"\r\n")
+}
+
+/// Connection-based HTTP auth schemes (RFC 4559): `Negotiate` and `NTLM`.
+pub fn is_session_based_auth(value: &str) -> bool {
+    let v = value.trim_ascii_start();
+    v.starts_with("Negotiate") || v.starts_with("NTLM")
 }
 
 #[cfg(test)]
@@ -66,6 +73,16 @@ mod tests {
         let special_realm = "realm with spaces@!";
         let expected_special = format!("Proxy-Authenticate: Basic realm=\"{}\"\r\n", special_realm);
         assert_eq!(proxy_authenticate_basic(special_realm), expected_special);
+    }
+
+    #[test]
+    fn t_is_session_based_auth() {
+        assert!(is_session_based_auth("Negotiate"));
+        assert!(is_session_based_auth("Negotiate abc"));
+        assert!(is_session_based_auth("  NTLM"));
+        assert!(is_session_based_auth("NTLM TlRMTVNTUA=="));
+        assert!(!is_session_based_auth("Basic abc"));
+        assert!(!is_session_based_auth("Digest abc"));
     }
 
     #[test]

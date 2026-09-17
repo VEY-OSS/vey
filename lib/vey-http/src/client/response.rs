@@ -354,7 +354,7 @@ impl HttpForwardRemoteResponse {
                 self.has_content_length = true;
                 self.content_length = content_length;
             }
-            "www-authenticate" if header.value.trim_ascii_start().starts_with("Negotiate") => {
+            "www-authenticate" if crate::header::is_session_based_auth(header.value) => {
                 self.www_negotiate_auth = true;
             }
             "proxy-support" => {

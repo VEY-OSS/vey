@@ -32,6 +32,7 @@ pub(crate) struct HttpGuardPipelineWriterTask<CDR, CDW> {
     forward_context: BoxHttpForwardContext,
     wrapper_stats: ArcLimitedWriterStats,
     site_conn: Option<SiteHttpConnGuard>,
+    origin_session_auth: bool,
 }
 
 enum LoopAction {
@@ -69,6 +70,7 @@ where
             forward_context,
             wrapper_stats: clt_w_stats,
             site_conn: None,
+            origin_session_auth: false,
         }
     }
 
@@ -259,14 +261,21 @@ where
         site_ctx: SiteContext,
         task_notes: ServerTaskNotes,
     ) -> LoopAction {
+        self.origin_session_auth |= req.inner.authorization_negotiate();
         match req.body_reader.take() {
             Some(stream_r) => {
-                let mut forward_task =
-                    HttpGuardForwardTask::new(&self.ctx, &req, site_ctx, task_notes);
+                let mut forward_task = HttpGuardForwardTask::new(
+                    &self.ctx,
+                    &req,
+                    site_ctx,
+                    task_notes,
+                    self.origin_session_auth,
+                );
                 let mut clt_r = Some(stream_r);
                 forward_task
                     .run(&mut clt_r, clt_w, &mut self.forward_context)
                     .await;
+                self.origin_session_auth |= forward_task.origin_session_auth();
                 if forward_task.should_close() {
                     let _ = req.stream_sender.try_send(None);
                     LoopAction::Break
@@ -277,12 +286,18 @@ where
                 }
             }
             None => {
-                let mut forward_task =
-                    HttpGuardForwardTask::new(&self.ctx, &req, site_ctx, task_notes);
+                let mut forward_task = HttpGuardForwardTask::new(
+                    &self.ctx,
+                    &req,
+                    site_ctx,
+                    task_notes,
+                    self.origin_session_auth,
+                );
                 let mut clt_r = None;
                 forward_task
                     .run::<CDR, CDW>(&mut clt_r, clt_w, &mut self.forward_context)
                     .await;
+                self.origin_session_auth |= forward_task.origin_session_auth();
                 if forward_task.should_close() {
                     self.notify_reader_to_close();
                     LoopAction::Break
