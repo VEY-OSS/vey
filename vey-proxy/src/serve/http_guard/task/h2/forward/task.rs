@@ -60,7 +60,7 @@ impl H2ForwardTask {
             uri_log_max_chars,
         );
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Default::default())
-            .with_site_ctx(ctx.site_ctx.clone());
+            .with_site_ctx(ctx.site_ctx_for_request());
         let allow_continue = req.expect_100_continue();
         H2ForwardTask {
             ctx,

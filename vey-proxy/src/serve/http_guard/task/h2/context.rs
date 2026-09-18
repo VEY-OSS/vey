@@ -30,11 +30,11 @@ use crate::module::tcp_connect::{TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 use crate::site::SiteContext;
 
-#[derive(Clone)]
 pub(crate) struct H2TaskContext {
     pub(crate) common: CommonTaskContext,
     pub(crate) site_ctx: SiteContext,
     pub(crate) connection_id: Uuid,
+    tenant_conn_counted: AtomicBool,
 }
 
 impl Deref for H2TaskContext {
@@ -52,6 +52,27 @@ pub(super) struct OriginH2Sender {
 }
 
 impl H2TaskContext {
+    pub(crate) fn new(
+        common: CommonTaskContext,
+        site_ctx: SiteContext,
+        connection_id: Uuid,
+    ) -> Self {
+        H2TaskContext {
+            common,
+            site_ctx,
+            connection_id,
+            tenant_conn_counted: AtomicBool::new(false),
+        }
+    }
+
+    pub(crate) fn site_ctx_for_request(&self) -> SiteContext {
+        let mut site_ctx = self.site_ctx.clone();
+        if self.tenant_conn_counted.swap(true, Ordering::Relaxed) {
+            site_ctx.mark_reused_client_connection();
+        }
+        site_ctx
+    }
+
     pub(super) fn append_forwarded(&self, req: &mut Request<RecvStream>) {
         let ty = self.site_ctx.site().forwarded_header_type();
         if matches!(ty, HttpForwardedHeaderType::Disable) {

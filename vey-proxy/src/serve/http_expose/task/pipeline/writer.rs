@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 use arcstr::ArcStr;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
@@ -74,6 +74,7 @@ pub(crate) struct HttpExposePipelineWriterTask<CDR, CDW> {
     forward_context: BoxHttpForwardContext,
     req_count: RequestCount,
     site_conn: Option<SiteHttpConnGuard>,
+    seen_tenants: AHashSet<ArcStr>,
 }
 
 enum LoopAction {
@@ -112,6 +113,7 @@ where
             forward_context,
             req_count: RequestCount::default(),
             site_conn: None,
+            seen_tenants: AHashSet::new(),
         }
     }
 
@@ -123,6 +125,17 @@ where
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),
         ));
+    }
+
+    fn mark_tenant_conn(&mut self, site_ctx: &mut SiteContext) {
+        let Some(tenant_ctx) = site_ctx.tenant_ctx_mut() else {
+            return;
+        };
+        if self.seen_tenants.contains(tenant_ctx.user_name()) {
+            tenant_ctx.mark_reused_client_connection();
+        } else {
+            self.seen_tenants.insert(tenant_ctx.user_name().clone());
+        }
     }
 
     async fn do_auth(
@@ -245,13 +258,14 @@ where
             return LoopAction::Break;
         };
 
-        let site_ctx = SiteContext::new(
+        let mut site_ctx = SiteContext::new(
             Arc::clone(host.site()),
             Arc::clone(host.egress()),
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),
         );
         self.note_site_conn(host.site());
+        self.mark_tenant_conn(&mut site_ctx);
         self.attach_site_io(&site_ctx, &req);
 
         if let Some(delay) = site_ctx.tenant_user_blocked_delay() {
