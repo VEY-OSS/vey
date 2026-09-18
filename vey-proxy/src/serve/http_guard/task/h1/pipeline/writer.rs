@@ -5,6 +5,8 @@
 
 use std::sync::Arc;
 
+use ahash::AHashSet;
+use arcstr::ArcStr;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 
@@ -33,6 +35,7 @@ pub(crate) struct HttpGuardPipelineWriterTask<CDR, CDW> {
     wrapper_stats: ArcLimitedWriterStats,
     site_conn: Option<SiteHttpConnGuard>,
     origin_session_auth: bool,
+    seen_tenants: AHashSet<ArcStr>,
 }
 
 enum LoopAction {
@@ -72,6 +75,7 @@ where
             wrapper_stats: clt_w_stats,
             site_conn: None,
             origin_session_auth: false,
+            seen_tenants: AHashSet::new(),
         }
     }
 
@@ -83,6 +87,17 @@ where
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),
         ));
+    }
+
+    fn mark_tenant_conn(&mut self, site_ctx: &mut SiteContext) {
+        let Some(tenant_ctx) = site_ctx.tenant_ctx_mut() else {
+            return;
+        };
+        if self.seen_tenants.contains(tenant_ctx.user_name()) {
+            tenant_ctx.mark_reused_client_connection();
+        } else {
+            self.seen_tenants.insert(tenant_ctx.user_name().clone());
+        }
     }
 
     pub(crate) async fn into_running(mut self, hosts: Arc<HostMatch<Arc<HttpHost>>>) {
@@ -162,7 +177,12 @@ where
         }
     }
 
-    async fn run(&mut self, mut req: HttpGuardRequest<CDR>, site_ctx: SiteContext) -> LoopAction {
+    async fn run(
+        &mut self,
+        mut req: HttpGuardRequest<CDR>,
+        mut site_ctx: SiteContext,
+    ) -> LoopAction {
+        self.mark_tenant_conn(&mut site_ctx);
         req.apply_forwarded(
             site_ctx.site().forwarded_header_type(),
             site_ctx.site().trusts_forwarded_from(self.ctx.client_ip()),

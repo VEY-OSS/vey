@@ -260,11 +260,11 @@ impl HttpGuardServer {
             self.server_stats.share_extra_tags(),
         );
         let started = jiff::Timestamp::now();
-        Arc::new(H2TaskContext {
-            common: self.common_task_context(cc_info, ForwardedProto::Https),
+        Arc::new(H2TaskContext::new(
+            self.common_task_context(cc_info, ForwardedProto::Https),
             site_ctx,
-            connection_id: vey_daemon::server::task::generate_uuid(&started),
-        })
+            vey_daemon::server::task::generate_uuid(&started),
+        ))
     }
 
     fn drop_early(&self, client_addr: SocketAddr) -> bool {

@@ -735,6 +735,7 @@ impl User {
 pub(crate) struct TenantContext {
     user: Arc<User>,
     forbid_stats: Arc<UserForbiddenStats>,
+    reused_client_connection: bool,
 }
 
 impl TenantContext {
@@ -745,7 +746,15 @@ impl TenantContext {
         server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Self {
         let forbid_stats = user.fetch_forbidden_stats(user_type, server, server_extra_tags);
-        TenantContext { user, forbid_stats }
+        TenantContext {
+            user,
+            forbid_stats,
+            reused_client_connection: false,
+        }
+    }
+
+    pub(crate) fn mark_reused_client_connection(&mut self) {
+        self.reused_client_connection = true;
     }
 
     #[inline]
@@ -770,7 +779,8 @@ impl TenantContext {
 
     #[inline]
     pub(crate) fn check_rate_limit(&self) -> Result<(), ()> {
-        self.user.check_rate_limit(false, &self.forbid_stats)
+        self.user
+            .check_rate_limit(self.reused_client_connection, &self.forbid_stats)
     }
 
     #[inline]

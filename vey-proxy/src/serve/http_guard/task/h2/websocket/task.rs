@@ -54,7 +54,7 @@ impl H2WebsocketTask {
             .unwrap_or(ctx.server_config.log_uri_max_chars);
         let ws_notes = WebSocketTaskNotes::new(req.version(), req.uri().clone(), uri_log_max_chars);
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Default::default())
-            .with_site_ctx(ctx.site_ctx.clone());
+            .with_site_ctx(ctx.site_ctx_for_request());
         H2WebsocketTask {
             ctx,
             clt_stream_id,

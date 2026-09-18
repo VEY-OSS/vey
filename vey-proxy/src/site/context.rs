@@ -78,6 +78,11 @@ impl SiteContext {
     }
 
     #[inline]
+    pub(crate) fn tenant_ctx_mut(&mut self) -> Option<&mut TenantContext> {
+        self.tenant.as_mut()
+    }
+
+    #[inline]
     pub(crate) fn tenant_user(&self) -> Option<&Arc<User>> {
         self.tenant_ctx().map(|t| t.user())
     }
@@ -170,6 +175,12 @@ impl SiteContext {
         self.site
             .stats()
             .fetch_upstream_traffic_stats(escaper, escaper_extra_tags)
+    }
+
+    pub(crate) fn mark_reused_client_connection(&mut self) {
+        if let Some(tenant) = &mut self.tenant {
+            tenant.mark_reused_client_connection();
+        }
     }
 
     pub(crate) fn check_rate_limit(&self) -> Result<(), ()> {
