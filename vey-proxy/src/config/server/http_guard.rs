@@ -17,8 +17,8 @@ use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
-    HttpForwardedHeaderType, HttpServerId, OpensslServerConfigBuilder, TcpListenConfig,
-    TcpMiscSockOpts, TcpSockSpeedLimitConfig,
+    HttpServerId, OpensslServerConfigBuilder, TcpListenConfig, TcpMiscSockOpts,
+    TcpSockSpeedLimitConfig,
 };
 use vey_yaml::YamlDocPosition;
 
@@ -240,7 +240,6 @@ pub(crate) struct HttpGuardServerConfig {
     pub(crate) rsp_hdr_max_size: usize,
     pub(crate) log_uri_max_chars: usize,
     pub(crate) no_early_error_reply: bool,
-    pub(crate) append_forwarded_for: HttpForwardedHeaderType,
     pub(crate) h1: HttpGuardH1Config,
     pub(crate) h2: HttpGuardH2Config,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
@@ -276,7 +275,6 @@ impl HttpGuardServerConfig {
             rsp_hdr_max_size: 65536, // 64KiB
             log_uri_max_chars: 1024,
             no_early_error_reply: false,
-            append_forwarded_for: HttpForwardedHeaderType::default(),
             h1: HttpGuardH1Config::default(),
             h2: HttpGuardH2Config::default(),
             extra_metrics_tags: None,
@@ -385,13 +383,6 @@ impl HttpGuardServerConfig {
             "no_early_error_reply" => {
                 self.no_early_error_reply = vey_yaml::value::as_bool(v)
                     .context(format!("invalid bool value for key {k}"))?;
-                Ok(())
-            }
-            "append_forwarded_for" => {
-                self.append_forwarded_for = vey_yaml::value::as_http_forwarded_header_type(v)
-                    .context(format!(
-                        "invalid http forwarded header type value for key {k}"
-                    ))?;
                 Ok(())
             }
             "h1" => self.h1.parse_yaml(v),
@@ -631,7 +622,6 @@ listen: "[::]:8080"
 escaper: default
 site_group: saas
 req_header_max_size: 32Ki
-append_forwarded_for: disable
 h1:
   pipeline_size: 4
 h2:
@@ -644,10 +634,6 @@ h2:
         };
         let server = HttpGuardServerConfig::parse(map, None).unwrap();
         assert_eq!(server.req_hdr_max_size, 32 * 1024);
-        assert_eq!(
-            server.append_forwarded_for,
-            vey_types::net::HttpForwardedHeaderType::Disable
-        );
         assert_eq!(server.h1.pipeline_size.get(), 4);
         assert_eq!(server.h2.max_concurrent_streams, 32);
     }

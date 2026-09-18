@@ -6,9 +6,11 @@
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
+use ip_network::IpNetwork;
+use ip_network_table::IpNetworkTable;
 use yaml_rust::Yaml;
 
-use vey_types::net::{ConnectionPoolConfig, HttpKeepAliveConfig};
+use vey_types::net::{ConnectionPoolConfig, HttpForwardedHeaderType, HttpKeepAliveConfig};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct SiteHttpH1Config {
@@ -71,6 +73,11 @@ impl SiteHttpH2Config {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct SiteHttpConfig {
     pub(crate) rsp_hdr_recv_timeout: Option<Duration>,
+    /// How originating-client identity is written on origin requests.
+    pub(crate) forwarded_header_type: HttpForwardedHeaderType,
+    /// Immediate client addresses allowed to keep inbound `Forwarded` / `X-Forwarded-*`.
+    /// Empty / unset means inbound forwarded headers are discarded.
+    pub(crate) forwarded_trusted_from: Vec<IpNetwork>,
     pub(crate) h1: SiteHttpH1Config,
     pub(crate) h2: SiteHttpH2Config,
 }
@@ -91,9 +98,35 @@ impl SiteHttpConfig {
                 self.rsp_hdr_recv_timeout = Some(timeout);
                 Ok(())
             }
+            "forwarded_header_type" => {
+                self.forwarded_header_type = vey_yaml::value::as_http_forwarded_header_type(v)
+                    .context(format!(
+                        "invalid http forwarded header type value for key {k}"
+                    ))?;
+                Ok(())
+            }
+            "forwarded_trusted_from" | "x_forwarded_for_trusted" => {
+                self.forwarded_trusted_from =
+                    vey_yaml::value::as_list(v, vey_yaml::value::as_ip_network).context(
+                        format!("invalid forwarded trusted-from network list for key {k}"),
+                    )?;
+                Ok(())
+            }
             "h1" => self.h1.parse_yaml(v),
             "h2" => self.h2.parse_yaml(v),
             _ => Err(anyhow!("invalid key {k}")),
         }
+    }
+
+    pub(crate) fn check(&mut self) {
+        self.forwarded_trusted_from.sort_unstable();
+    }
+
+    pub(crate) fn build_forwarded_trusted_from_table(&self) -> IpNetworkTable<()> {
+        let mut table = IpNetworkTable::new();
+        for net in &self.forwarded_trusted_from {
+            table.insert(*net, ());
+        }
+        table
     }
 }

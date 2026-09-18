@@ -161,7 +161,15 @@ where
         }
     }
 
-    async fn run(&mut self, req: HttpGuardRequest<CDR>, site_ctx: SiteContext) -> LoopAction {
+    async fn run(&mut self, mut req: HttpGuardRequest<CDR>, site_ctx: SiteContext) -> LoopAction {
+        req.apply_forwarded(
+            site_ctx.site().forwarded_header_type(),
+            site_ctx.site().trusts_forwarded_from(self.ctx.client_ip()),
+            self.ctx.client_addr(),
+            self.ctx.server_addr(),
+            self.ctx.forwarded_proto,
+        );
+
         let Some(mut stream_w) = self.stream_writer.take() else {
             unreachable!()
         };

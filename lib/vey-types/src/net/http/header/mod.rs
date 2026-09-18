@@ -17,9 +17,7 @@ mod server_id;
 pub use server_id::HttpServerId;
 
 mod forwarded;
-pub use forwarded::{
-    HttpForwardedHeaderType, HttpForwardedHeaderValue, HttpStandardForwardedHeaderValue,
-};
+pub use forwarded::{ForwardedProto, ForwardedValue, HttpForwardedHeaderType};
 
 mod via;
 pub use via::ViaValue;

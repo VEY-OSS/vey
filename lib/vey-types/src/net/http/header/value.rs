@@ -5,6 +5,8 @@
  */
 
 use std::fmt;
+use std::io::Write;
+use std::net::IpAddr;
 use std::str::FromStr;
 
 use bytes::{BufMut, Bytes};
@@ -12,6 +14,7 @@ use http::header::InvalidHeaderValue;
 use http::{HeaderName, HeaderValue};
 
 use super::HttpOriginalHeaderName;
+use crate::net::Host;
 
 #[derive(Debug, Clone)]
 pub struct H1HeaderValue {
@@ -35,9 +38,9 @@ impl H1HeaderValue {
     /// # Safety
     ///
     /// The caller should make sure the buf is valid
-    pub unsafe fn from_buf_unchecked(buf: Vec<u8>) -> Self {
+    pub unsafe fn from_buf_unchecked(buf: impl Into<Bytes>) -> Self {
         H1HeaderValue {
-            inner: unsafe { HeaderValue::from_maybe_shared_unchecked(Bytes::from(buf)) },
+            inner: unsafe { HeaderValue::from_maybe_shared_unchecked(buf.into()) },
             original_name: None,
         }
     }
@@ -121,6 +124,63 @@ impl AsRef<HeaderValue> for H1HeaderValue {
 impl fmt::Display for H1HeaderValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.to_str())
+    }
+}
+
+pub(super) struct HeaderValueParam;
+
+impl HeaderValueParam {
+    pub(super) fn serialize_node(buf: &mut Vec<u8>, ip: IpAddr, port: u16) {
+        match ip {
+            IpAddr::V4(ip) => {
+                if port != 0 {
+                    buf.reserve("\"255.255.255.255:65535\"".len());
+                    buf.push(b'"');
+                    let _ = write!(buf, "{ip}:{port}");
+                    buf.push(b'"');
+                } else {
+                    buf.reserve("255.255.255.255".len());
+                    let _ = write!(buf, "{ip}");
+                }
+            }
+            IpAddr::V6(ip) => {
+                if port != 0 {
+                    buf.reserve("\"[ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]:65535\"".len());
+                    buf.push(b'"');
+                    buf.push(b'[');
+                    let _ = write!(buf, "{ip}");
+                    buf.push(b']');
+                    buf.push(b':');
+                    let _ = write!(buf, "{port}");
+                    buf.push(b'"');
+                } else {
+                    buf.reserve("\"[ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]\"".len());
+                    buf.push(b'"');
+                    buf.push(b'[');
+                    let _ = write!(buf, "{ip}");
+                    buf.push(b']');
+                    buf.push(b'"');
+                }
+            }
+        }
+    }
+
+    pub(super) fn serialize_host(buf: &mut Vec<u8>, host: &Host) {
+        match host {
+            Host::Domain(d) => buf.extend_from_slice(d.as_bytes()),
+            Host::Ip(IpAddr::V4(ip)) => {
+                buf.reserve("255.255.255.255".len());
+                let _ = write!(buf, "{ip}");
+            }
+            Host::Ip(IpAddr::V6(ip)) => {
+                buf.reserve("\"[ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]\"".len());
+                buf.push(b'"');
+                buf.push(b'[');
+                let _ = write!(buf, "{ip}");
+                buf.push(b']');
+                buf.push(b'"');
+            }
+        }
     }
 }
 

@@ -286,10 +286,18 @@ where
 
     async fn run(
         &mut self,
-        req: HttpExposeRequest<CDR>,
+        mut req: HttpExposeRequest<CDR>,
         site_ctx: SiteContext,
         user_ctx: Option<UserContext>,
     ) -> LoopAction {
+        req.apply_forwarded(
+            site_ctx.site().forwarded_header_type(),
+            site_ctx.site().trusts_forwarded_from(self.ctx.client_ip()),
+            self.ctx.client_addr(),
+            self.ctx.server_addr(),
+            self.ctx.forwarded_proto,
+        );
+
         let Some(mut stream_w) = self.stream_writer.take() else {
             unreachable!()
         };

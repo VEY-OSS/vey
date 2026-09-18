@@ -37,7 +37,8 @@ use vey_openssl::{SslAcceptor, SslStream};
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;
 use vey_types::net::{
-    AlpnProtocol, Host, OpensslServerConfig, OpensslTicketKey, RollingTicketer, TlsServerName,
+    AlpnProtocol, ForwardedProto, Host, OpensslServerConfig, OpensslTicketKey, RollingTicketer,
+    TlsServerName,
 };
 use vey_types::route::HostMatch;
 
@@ -209,7 +210,11 @@ impl HttpGuardServer {
         }
     }
 
-    fn common_task_context(&self, cc_info: ClientConnectionInfo) -> CommonTaskContext {
+    fn common_task_context(
+        &self,
+        cc_info: ClientConnectionInfo,
+        forwarded_proto: ForwardedProto,
+    ) -> CommonTaskContext {
         CommonTaskContext {
             server_config: self.config.clone(),
             server_stats: self.server_stats.clone(),
@@ -217,6 +222,7 @@ impl HttpGuardServer {
             idle_wheel: self.idle_wheel.clone(),
             escaper: self.escaper.load().as_ref().clone(),
             cc_info,
+            forwarded_proto,
             task_logger: self.task_logger.clone(),
             audit_handle: self.audit_handle.load_full(),
         }
@@ -226,6 +232,7 @@ impl HttpGuardServer {
         &self,
         cc_info: ClientConnectionInfo,
         pinned_host: Option<Arc<HttpHost>>,
+        https: bool,
     ) -> Arc<H1TaskContext> {
         let site_ctx = pinned_host.as_ref().map(|host| {
             SiteContext::new(
@@ -236,7 +243,7 @@ impl HttpGuardServer {
             )
         });
         Arc::new(H1TaskContext {
-            common: self.common_task_context(cc_info),
+            common: self.common_task_context(cc_info, ForwardedProto::from_https(https)),
             site_ctx,
         })
     }
@@ -254,7 +261,7 @@ impl HttpGuardServer {
         );
         let started = jiff::Timestamp::now();
         Arc::new(H2TaskContext {
-            common: self.common_task_context(cc_info),
+            common: self.common_task_context(cc_info, ForwardedProto::Https),
             site_ctx,
             connection_id: vey_daemon::server::task::generate_uuid(&started),
         })
@@ -283,12 +290,13 @@ impl HttpGuardServer {
         cc_info: ClientConnectionInfo,
         hosts: Arc<HostMatch<Arc<HttpHost>>>,
         pinned_host: Option<Arc<HttpHost>>,
+        https: bool,
     ) where
         T: AsyncStream,
         T::R: AsyncRead + Send + Sync + Unpin + 'static,
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let ctx = self.get_h1_task_context(cc_info, pinned_host);
+        let ctx = self.get_h1_task_context(cc_info, pinned_host, https);
         let pipeline_stats = Arc::new(HttpGuardPipelineStats::default());
         let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.h1.pipeline_size.get());
 
@@ -340,7 +348,7 @@ impl HttpGuardServer {
             };
             self.spawn_h2_task(stream, cc_info, pinned_host).await;
         } else {
-            self.spawn_h1_task(stream, cc_info, hosts, pinned_host)
+            self.spawn_h1_task(stream, cc_info, hosts, pinned_host, true)
                 .await;
         }
     }
@@ -704,7 +712,7 @@ impl AcceptTcpServer for HttpGuardServer {
         match protocol {
             Protocol::Http1 => {
                 let stream = OnceBufReader::new(stream, clt_r_buf);
-                self.spawn_h1_task(stream, cc_info, self.http_hosts.load_full(), None)
+                self.spawn_h1_task(stream, cc_info, self.http_hosts.load_full(), None, false)
                     .await;
             }
             Protocol::Http2 => {
