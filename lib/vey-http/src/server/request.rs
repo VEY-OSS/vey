@@ -277,11 +277,11 @@ impl HttpProxyClientRequest {
         reader: &mut R,
         max_header_size: usize,
         version: &mut Version,
-        parse_more_header: F,
+        mut parse_more_header: F,
     ) -> Result<Self, HttpRequestParseError>
     where
         R: AsyncBufRead + Unpin,
-        F: Fn(&mut Self, HeaderName, &HttpHeaderLine) -> Result<(), HttpRequestParseError>,
+        F: FnMut(&mut Self, HeaderName, &HttpHeaderLine) -> Result<(), HttpRequestParseError>,
     {
         let mut line_buf = Vec::<u8>::with_capacity(1024);
         let mut header_size: usize = 0;
@@ -331,7 +331,7 @@ impl HttpProxyClientRequest {
                 break;
             }
 
-            req.parse_header_line(line_buf.as_ref(), &parse_more_header)?;
+            req.parse_header_line(line_buf.as_ref(), &mut parse_more_header)?;
         }
         req.origin_header_size = header_size;
 
@@ -383,10 +383,10 @@ impl HttpProxyClientRequest {
     fn parse_header_line<F>(
         &mut self,
         line_buf: &[u8],
-        parse_more_header: &F,
+        parse_more_header: &mut F,
     ) -> Result<(), HttpRequestParseError>
     where
-        F: Fn(&mut Self, HeaderName, &HttpHeaderLine) -> Result<(), HttpRequestParseError>,
+        F: FnMut(&mut Self, HeaderName, &HttpHeaderLine) -> Result<(), HttpRequestParseError>,
     {
         let header =
             HttpHeaderLine::parse(line_buf).map_err(HttpRequestParseError::InvalidHeaderLine)?;
@@ -440,10 +440,10 @@ impl HttpProxyClientRequest {
     fn handle_header<F>(
         &mut self,
         header: HttpHeaderLine,
-        parse_more_header: &F,
+        parse_more_header: &mut F,
     ) -> Result<(), HttpRequestParseError>
     where
-        F: Fn(&mut Self, HeaderName, &HttpHeaderLine) -> Result<(), HttpRequestParseError>,
+        F: FnMut(&mut Self, HeaderName, &HttpHeaderLine) -> Result<(), HttpRequestParseError>,
     {
         let name = HeaderName::from_str(header.name).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderName)

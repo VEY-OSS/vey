@@ -34,7 +34,8 @@ use vey_openssl::{SslAcceptor, SslStream};
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;
 use vey_types::net::{
-    AlpnProtocol, Host, OpensslServerConfig, OpensslTicketKey, RollingTicketer, TlsServerName,
+    AlpnProtocol, ForwardedProto, Host, OpensslServerConfig, OpensslTicketKey, RollingTicketer,
+    TlsServerName,
 };
 use vey_types::route::HostMatch;
 
@@ -192,7 +193,11 @@ impl HttpExposeServer {
         }
     }
 
-    fn get_common_task_context(&self, cc_info: ClientConnectionInfo) -> Arc<CommonTaskContext> {
+    fn get_common_task_context(
+        &self,
+        cc_info: ClientConnectionInfo,
+        forwarded_proto: ForwardedProto,
+    ) -> Arc<CommonTaskContext> {
         Arc::new(CommonTaskContext {
             server_config: self.config.clone(),
             server_stats: self.server_stats.clone(),
@@ -200,6 +205,7 @@ impl HttpExposeServer {
             idle_wheel: self.idle_wheel.clone(),
             escaper: self.escaper.load().as_ref().clone(),
             cc_info,
+            forwarded_proto,
             task_logger: self.task_logger.clone(),
         })
     }
@@ -221,13 +227,13 @@ impl HttpExposeServer {
         false
     }
 
-    async fn spawn_stream_task<T>(&self, stream: T, cc_info: ClientConnectionInfo)
+    async fn spawn_stream_task<T>(&self, stream: T, cc_info: ClientConnectionInfo, https: bool)
     where
         T: AsyncStream,
         T::R: AsyncRead + Send + Sync + Unpin + 'static,
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let ctx = self.get_common_task_context(cc_info);
+        let ctx = self.get_common_task_context(cc_info, ForwardedProto::from_https(https));
         let pipeline_stats = Arc::new(HttpExposePipelineStats::default());
         let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size.get());
 
@@ -310,7 +316,7 @@ impl HttpExposeServer {
                 if ssl_stream.ssl().session_reused() {
                     cc_info.tcp_sock_try_quick_ack();
                 }
-                self.spawn_stream_task(ssl_stream, cc_info).await
+                self.spawn_stream_task(ssl_stream, cc_info, true).await
             }
             Err(e) => {
                 self.listen_stats.add_failed();
@@ -513,7 +519,7 @@ impl AcceptTcpServer for HttpExposeServer {
         if self.config.enable_tls_server {
             self.run_tls_tcp_task(stream, cc_info).await;
         } else {
-            self.spawn_stream_task(stream, cc_info).await;
+            self.spawn_stream_task(stream, cc_info, false).await;
         }
     }
 }
@@ -573,7 +579,7 @@ impl Server for HttpExposeServer {
             return;
         }
 
-        self.spawn_stream_task(stream, cc_info).await;
+        self.spawn_stream_task(stream, cc_info, true).await;
     }
 
     async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
@@ -583,6 +589,6 @@ impl Server for HttpExposeServer {
             return;
         }
 
-        self.spawn_stream_task(stream, cc_info).await;
+        self.spawn_stream_task(stream, cc_info, true).await;
     }
 }

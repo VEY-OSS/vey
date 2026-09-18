@@ -12,6 +12,7 @@ use tokio::time::Instant;
 
 use vey_daemon::server::ClientConnectionInfo;
 use vey_io_ext::{IdleWheel, OptionalInterval};
+use vey_types::net::ForwardedProto;
 
 use vey_icap_client::reqmod::h1::HttpAdapterErrorResponse;
 
@@ -30,6 +31,7 @@ pub(crate) struct CommonTaskContext {
     pub(crate) idle_wheel: Arc<IdleWheel>,
     pub(crate) escaper: ArcEscaper,
     pub(crate) cc_info: ClientConnectionInfo,
+    pub(crate) forwarded_proto: ForwardedProto,
     pub(crate) task_logger: Option<Logger>,
     pub(crate) audit_handle: Option<Arc<AuditHandle>>,
 }

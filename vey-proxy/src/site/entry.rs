@@ -4,11 +4,13 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
+use ip_network_table::IpNetworkTable;
 
 use vey_dpi::MaybeProtocol;
 use vey_types::limit::{
@@ -16,8 +18,8 @@ use vey_types::limit::{
 };
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
-    Host, HttpKeepAliveConfig, OpensslClientConfig, OpensslServerConfigBuilder,
-    TcpSockSpeedLimitConfig, UpstreamAddr,
+    Host, HttpForwardedHeaderType, HttpKeepAliveConfig, OpensslClientConfig,
+    OpensslServerConfigBuilder, TcpSockSpeedLimitConfig, UpstreamAddr,
 };
 
 use super::SiteStats;
@@ -34,6 +36,7 @@ pub(crate) struct Site {
     req_alive_sem: Option<GaugeSemaphore>,
     http1_pool: Option<Arc<SiteHttp1Pool>>,
     http2_pool: Arc<SiteHttp2Pool>,
+    forwarded_trusted_from: IpNetworkTable<()>,
 }
 
 impl Site {
@@ -67,6 +70,7 @@ impl Site {
                 .connection_pool
                 .map(|cfg| Arc::new(SiteHttp1Pool::new(cfg))),
             http2_pool: Arc::new(SiteHttp2Pool::new(config.http.h2.connection_pool)),
+            forwarded_trusted_from: config.http.build_forwarded_trusted_from_table(),
         })
     }
 
@@ -99,6 +103,7 @@ impl Site {
             req_alive_sem,
             http1_pool,
             http2_pool,
+            forwarded_trusted_from: config.http.build_forwarded_trusted_from_table(),
         })
     }
 
@@ -171,6 +176,15 @@ impl Site {
 
     pub(crate) fn http2_pool(&self) -> &SiteHttp2Pool {
         &self.http2_pool
+    }
+
+    pub(crate) fn trusts_forwarded_from(&self, ip: IpAddr) -> bool {
+        self.forwarded_trusted_from.longest_match(ip).is_some()
+    }
+
+    #[inline]
+    pub(crate) fn forwarded_header_type(&self) -> HttpForwardedHeaderType {
+        self.config.http.forwarded_header_type
     }
 
     pub(crate) fn check_rate_limit(&self, forbid: &UserForbiddenStats) -> Result<(), ()> {

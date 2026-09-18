@@ -4,6 +4,8 @@ Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.15.0:
  - Feature: add ``http_guard`` public-edge HTTP reverse proxy (HTTP/1 and HTTP/2 over TLS with SNI; no visitor auth, tenant from ``site.owner``; optional ICAP; H2 origin stays H2; ``H2Forward`` / ``Websocket`` task logs)
+ - Compatibility: ``http_expose`` / ``http_guard`` ``append_forwarded_for`` moved to site ``http.forwarded_header_type`` (default classic; ``disable`` neither strips nor inserts)
+ - Feature: site ``http.forwarded_trusted_from`` CIDR list of immediate clients allowed to keep inbound headers of that type; others are stripped before this hop is appended
  - Compatibility: reverse-proxy type ``http_rproxy`` is renamed to ``http_expose`` (``http_rproxy`` still accepted as a deprecated alias)
  - Feature: HTTP/H2 forward and intercept logs record decoded body sizes (`clt_req_body_size`, `ups_req_body_size`, `ups_rsp_body_size`, `clt_rsp_body_size`; `0` if no body; on failure, the size completed on that hop so far, a lower bound for an unfinished HTTP/1.1 chunked write, which excludes still-buffered data)
  - Feature: site / user traffic metrics include request type ``h2_connection``

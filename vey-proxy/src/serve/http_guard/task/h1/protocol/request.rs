@@ -3,13 +3,18 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::net::SocketAddr;
+
 use http::Version;
 use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use vey_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
-use vey_types::net::{HttpServerId, HttpUpgradeToken, UpstreamAddr, ViaValue};
+use vey_types::net::{
+    ForwardedProto, ForwardedValue, HttpForwardedHeaderType, HttpServerId, HttpUpgradeToken,
+    UpstreamAddr, ViaValue,
+};
 
 use super::HttpClientReader;
 
@@ -37,10 +42,10 @@ where
 
         let mut req =
             HttpProxyClientRequest::parse(reader, max_header_size, version, |req, name, header| {
-                if name.as_str() == "authorization" {
-                    return req.parse_header_authorization(header.value);
+                match name.as_str() {
+                    "authorization" => return req.parse_header_authorization(header.value),
+                    _ => req.append_parsed_header(name, header)?,
                 }
-                req.append_parsed_header(name, header)?;
                 Ok(())
             })
             .await?;
@@ -87,5 +92,23 @@ where
 
         let send_reader = !req.inner.pipeline_safe() || req.inner.upgrade_token().is_some();
         Ok((req, send_reader))
+    }
+
+    pub(crate) fn apply_forwarded(
+        &mut self,
+        ty: HttpForwardedHeaderType,
+        trusted: bool,
+        client: SocketAddr,
+        server: SocketAddr,
+        proto: ForwardedProto,
+    ) {
+        if matches!(ty, HttpForwardedHeaderType::Disable) {
+            return;
+        }
+        if !trusted {
+            ForwardedValue::strip_h1(&mut self.inner.end_to_end_headers, ty);
+        }
+        ForwardedValue::from_client(client, proto, self.inner.host.as_ref().unwrap().host())
+            .append_to_h1(&mut self.inner.end_to_end_headers, ty, server);
     }
 }

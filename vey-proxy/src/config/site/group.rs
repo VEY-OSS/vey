@@ -283,6 +283,68 @@ static_sites:
             site.http.h2.connection_pool,
             vey_types::net::ConnectionPoolConfig::default()
         );
+        assert!(site.http.forwarded_trusted_from.is_empty());
+        assert_eq!(
+            site.http.forwarded_header_type,
+            vey_types::net::HttpForwardedHeaderType::Classic
+        );
+    }
+
+    #[test]
+    fn parse_site_http_forwarded_header_type() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      forwarded_header_type: standard
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert_eq!(
+            site.http.forwarded_header_type,
+            vey_types::net::HttpForwardedHeaderType::Standard
+        );
+    }
+
+    #[test]
+    fn parse_site_http_forwarded_trusted_from() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      forwarded_trusted_from:
+        - 192.168.1.1
+        - 10.0.0.0/8
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert_eq!(
+            site.http.forwarded_trusted_from,
+            vec![
+                ip_network::IpNetwork::from_str("10.0.0.0/8").unwrap(),
+                ip_network::IpNetwork::from_str("192.168.1.1/32").unwrap(),
+            ]
+        );
     }
 
     #[test]

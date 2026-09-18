@@ -346,6 +346,9 @@ Example:
 
    http:
      rsp_header_recv_timeout: 8s
+     forwarded_header_type: classic
+     forwarded_trusted_from:
+       - 10.0.0.0/8
      h1:
        connection_pool: {}
      h2:
@@ -370,6 +373,53 @@ Lookup is ``site.http`` then tenant, then the server / auditor default.
 A visitor user is not consulted when a site context is present.
 
 **default**: not set
+
+.. _conf_site_http_forwarded_header_type:
+
+forwarded_header_type
+^^^^^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: :external+values:ref:`http forwarded header type <conf_value_http_forwarded_header_type>`
+
+How originating-client identity is written on origin requests.
+
+``http_expose`` / ``http_guard`` append this hop from ``cc_info``
+(and this hop's scheme / Host). The inbound headers of this type
+(``X-Forwarded-*`` or ``Forwarded``) are left in place only when
+``cc_info.client_ip`` (PROXY protocol peer when that listen is enabled)
+is in :ref:`forwarded_trusted_from <conf_site_http_forwarded_trusted_from>`;
+otherwise they are dropped before this hop is appended. The other form
+is left unchanged. ``disable`` neither drops inbound headers nor appends
+this hop.
+
+**default**: classic, which means *X-Forwarded-\** headers will be appended
+
+.. versionadded:: 1.15.0
+
+.. _conf_site_http_forwarded_trusted_from:
+
+forwarded_trusted_from
+^^^^^^^^^^^^^^^^^^^^^^
+
+**optional**, **type**: list of :external+values:ref:`ip network str <conf_value_ip_network_str>`
+
+Immediate client addresses allowed to keep inbound ``Forwarded`` /
+``X-Forwarded-*`` headers.
+
+When ``cc_info.client_ip`` (PROXY protocol peer when that listen is
+enabled) matches this list, inbound headers of the configured
+:ref:`forwarded_header_type <conf_site_http_forwarded_header_type>` are
+kept and this hop is appended. Otherwise that form is dropped and this
+hop is appended. The other form is not touched. ``disable`` does not
+consult this list.
+
+Alias: ``x_forwarded_for_trusted``.
+
+This list is not used as a request ACL.
+
+**default**: empty (inbound forwarded headers are discarded)
+
+.. versionadded:: 1.15.0
 
 .. _conf_site_http_h1:
 

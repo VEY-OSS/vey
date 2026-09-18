@@ -261,6 +261,7 @@ impl YamlMapCallback for SiteConfig {
         if self.tls_name.is_empty() {
             self.upstream.host().clone_into(&mut self.tls_name);
         }
+        self.http.check();
         Ok(())
     }
 }

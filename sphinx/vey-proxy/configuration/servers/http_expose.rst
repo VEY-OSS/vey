@@ -254,22 +254,6 @@ untrusted_read_limit
 
 .. versionchanged:: 1.11.8 deprecated, use untrusted_read_speed_limit instead
 
-append_forwarded_for
---------------------
-
-**optional**, **type**: :external+values:ref:`http forwarded header type <conf_value_http_forwarded_header_type>`
-
-Controls whether the corresponding forwarding headers are appended to requests
-sent to the next proxy.
-
-If you want to remove existing forwarded headers first, see
-:ref:`steal_forwarded_for <config_server_http_proxy_steal_forwarded_for>` in
-``http_proxy``.
-
-See the doc of supported escapers for detailed protocol info.
-
-**default**: classic, which means *X-Forwarded-\** headers will be appended
-
 enable_tls_server
 -----------------
 

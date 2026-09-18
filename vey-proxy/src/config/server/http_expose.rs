@@ -18,8 +18,8 @@ use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
-    HttpForwardedHeaderType, HttpServerId, OpensslServerConfigBuilder, TcpListenConfig,
-    TcpMiscSockOpts, TcpSockSpeedLimitConfig,
+    HttpServerId, OpensslServerConfigBuilder, TcpListenConfig, TcpMiscSockOpts,
+    TcpSockSpeedLimitConfig,
 };
 use vey_yaml::YamlDocPosition;
 
@@ -79,7 +79,6 @@ pub(crate) struct HttpExposeServerConfig {
     pub(crate) no_early_error_reply: bool,
     pub(crate) body_line_max_len: usize,
     pub(crate) untrusted_read_limit: Option<TcpSockSpeedLimitConfig>,
-    pub(crate) append_forwarded_for: HttpForwardedHeaderType,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) enable_tls_server: bool,
     pub(crate) global_tls_server: Option<OpensslServerConfigBuilder>,
@@ -119,7 +118,6 @@ impl HttpExposeServerConfig {
             no_early_error_reply: false,
             body_line_max_len: 8192,
             untrusted_read_limit: None,
-            append_forwarded_for: HttpForwardedHeaderType::default(),
             extra_metrics_tags: None,
             enable_tls_server: false,
             global_tls_server: None,
@@ -313,13 +311,6 @@ impl HttpExposeServerConfig {
                     "deprecated config key '{k}', please use 'untrusted_read_speed_limit' instead"
                 );
                 self.set("untrusted_read_speed_limit", v)
-            }
-            "append_forwarded_for" => {
-                self.append_forwarded_for = vey_yaml::value::as_http_forwarded_header_type(v)
-                    .context(format!(
-                        "invalid http forwarded header type value for key {k}"
-                    ))?;
-                Ok(())
             }
             "enable_tls_server" => {
                 self.enable_tls_server = vey_yaml::value::as_bool(v)

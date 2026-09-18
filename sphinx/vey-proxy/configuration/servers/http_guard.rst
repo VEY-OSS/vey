@@ -190,19 +190,6 @@ an HTTP error response.
 
 **default**: false
 
-append_forwarded_for
---------------------
-
-**optional**, **type**: :external+values:ref:`http forwarded header type <conf_value_http_forwarded_header_type>`
-
-How the client address is added to forwarded requests.
-
-There is no ``steal_forwarded_for`` on this server: inbound ``Forwarded`` /
-``X-Forwarded-For`` values are kept, and the observed client address is
-appended (classic / standard) or not added (disable).
-
-**default**: classic, which means *X-Forwarded-\** headers will be appended
-
 h1
 --
 

@@ -188,7 +188,7 @@ impl H2StreamTask {
                 if !matches!(token, HttpUpgradeToken::Websocket) {
                     return Err(H2StreamError::UnsupportedConnect);
                 }
-                self.ctx.append_forwarded(clt_req.headers_mut());
+                self.ctx.append_forwarded(clt_req);
                 return Ok(StreamOutcome::Websocket(H2WebsocketTask::new(
                     Arc::clone(&self.ctx),
                     self.clt_stream_id,
@@ -198,7 +198,7 @@ impl H2StreamTask {
             return Err(H2StreamError::UnsupportedConnect);
         }
 
-        self.ctx.append_forwarded(clt_req.headers_mut());
+        self.ctx.append_forwarded(clt_req);
         Ok(StreamOutcome::Forward(H2ForwardTask::new(
             Arc::clone(&self.ctx),
             self.clt_stream_id,

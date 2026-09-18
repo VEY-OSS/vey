@@ -10,7 +10,6 @@ use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 
 use vey_io_ext::{GlobalLimitGroup, LimitedBufReadExt, LimitedBufReader, NilLimitedStats};
-use vey_types::net::{HttpForwardedHeaderType, HttpForwardedHeaderValue};
 
 use super::protocol::{HttpClientReader, HttpGuardRequest};
 use super::{
@@ -70,23 +69,6 @@ where
         }
     }
 
-    fn append_forwarded(&self, req: &mut HttpGuardRequest<CDR>) {
-        match self.ctx.server_config.append_forwarded_for {
-            HttpForwardedHeaderType::Disable => {}
-            HttpForwardedHeaderType::Classic => {
-                let v = HttpForwardedHeaderValue::new_classic(self.ctx.client_ip());
-                v.append_to_h1(&mut req.inner.end_to_end_headers);
-            }
-            HttpForwardedHeaderType::Standard => {
-                let v = HttpForwardedHeaderValue::new_standard(
-                    self.ctx.client_addr(),
-                    self.ctx.server_addr(),
-                );
-                v.append_to_h1(&mut req.inner.end_to_end_headers);
-            }
-        }
-    }
-
     async fn run(&mut self) {
         let (stream_sender, mut stream_receiver) = mpsc::channel(1);
         loop {
@@ -133,8 +115,6 @@ where
                 .await
                 {
                     Ok(Ok((mut req, send_reader))) => {
-                        self.append_forwarded(&mut req);
-
                         if send_reader {
                             req.body_reader = Some(reader);
                         } else {
