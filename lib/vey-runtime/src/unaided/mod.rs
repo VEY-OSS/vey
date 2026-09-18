@@ -99,7 +99,7 @@ impl UnaidedRuntimeConfig {
         use anyhow::Context;
 
         let mut found_env_config = false;
-        for i in 0..self.thread_number_total.get() / self.thread_number_per_rt.get() {
+        for i in 0..self.thread_number_total.get() / self.thread_number_per_rt {
             let var_name = format!("WORKER_{i}_CPU_LIST");
             if let Some(os_s) = std::env::var_os(&var_name) {
                 let Some(s) = os_s.to_str() else {

@@ -350,7 +350,7 @@ where
             .http_forward
             .add_in_bytes(req.inner.origin_header_size() as u64);
         if let Some(stream_w) = &mut self.stream_writer {
-            stream_w.reset_stats(HttpExposeCltWriteWrapperStats::new(
+            stream_w.reset_stats(HttpExposeCltWriteWrapperStats::new_object(
                 &self.ctx.server_stats,
                 site_io,
             ));
