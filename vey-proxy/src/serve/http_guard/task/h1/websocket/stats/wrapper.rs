@@ -64,6 +64,7 @@ impl LimitedReaderStats for WebSocketTaskCltWrapperStats {
     fn add_read_bytes(&self, size: usize) {
         let size = size as u64;
         self.task.clt.read.add_bytes(size);
+        self.server.io_http.add_in_bytes(size);
         self.others.iter().for_each(|s| s.add_read_bytes(size));
     }
 }

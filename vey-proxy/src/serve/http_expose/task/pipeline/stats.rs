@@ -6,11 +6,10 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 
-use vey_io_ext::{
-    ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
-};
+use vey_io_ext::{ArcLimitedWriterStats, LimitedWriterStats};
 
 use super::HttpExposeServerStats;
+use crate::auth::UserTrafficStats;
 
 pub(crate) struct HttpExposePipelineStats {
     total_task: AtomicU64,
@@ -47,37 +46,27 @@ impl Drop for HttpExposePipelineTaskGuard {
     }
 }
 
-#[derive(Clone)]
-pub(crate) struct HttpExposeCltWrapperStats {
+pub(crate) struct HttpExposeCltWriteWrapperStats {
     server: Arc<HttpExposeServerStats>,
+    site_io: Arc<UserTrafficStats>,
 }
 
-impl HttpExposeCltWrapperStats {
-    pub(crate) fn new_for_reader(server: &Arc<HttpExposeServerStats>) -> ArcLimitedReaderStats {
-        let s = HttpExposeCltWrapperStats {
+impl HttpExposeCltWriteWrapperStats {
+    pub(crate) fn new(
+        server: &Arc<HttpExposeServerStats>,
+        site_io: Arc<UserTrafficStats>,
+    ) -> ArcLimitedWriterStats {
+        Arc::new(HttpExposeCltWriteWrapperStats {
             server: Arc::clone(server),
-        };
-        Arc::new(s)
-    }
-
-    pub(crate) fn new_for_writer(server: &Arc<HttpExposeServerStats>) -> ArcLimitedWriterStats {
-        let s = HttpExposeCltWrapperStats {
-            server: Arc::clone(server),
-        };
-        Arc::new(s)
+            site_io,
+        })
     }
 }
 
-impl LimitedReaderStats for HttpExposeCltWrapperStats {
-    fn add_read_bytes(&self, size: usize) {
-        let size = size as u64;
-        self.server.io_http.add_in_bytes(size);
-    }
-}
-
-impl LimitedWriterStats for HttpExposeCltWrapperStats {
+impl LimitedWriterStats for HttpExposeCltWriteWrapperStats {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
         self.server.io_http.add_out_bytes(size);
+        self.site_io.io.http_forward.add_out_bytes(size);
     }
 }

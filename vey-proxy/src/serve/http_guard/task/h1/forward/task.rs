@@ -345,24 +345,25 @@ impl<'a> HttpGuardForwardTask<'a> {
         let origin_header_size = self.req.origin_header_size() as u64;
         self.task_stats.clt.read.add_bytes(origin_header_size);
 
-        let mut wrapper_stats =
-            HttpForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
-
         let user_io_stats = self.task_notes.fetch_traffic_stats(
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),
         );
-        for s in &user_io_stats {
-            s.io.http_forward.add_in_bytes(origin_header_size);
-        }
-        wrapper_stats.push_user_io_stats(user_io_stats);
 
-        let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
+        let mut clt_w_stats =
+            HttpForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
+        clt_w_stats.push_user_io_stats(user_io_stats.clone());
+        let clt_w_stats = Arc::new(clt_w_stats);
         let limit_config = self.clt_speed_limit();
 
         clt_w.retain_global_limiter_by_group(GlobalLimitGroup::Server);
         if let Some(br) = clt_r {
-            br.reset_buffer_stats(clt_r_stats);
+            let mut clt_r_stats =
+                HttpForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
+            if self.ctx.site_ctx.is_none() {
+                clt_r_stats.push_user_io_stats(user_io_stats);
+            }
+            br.reset_buffer_stats(Arc::new(clt_r_stats));
             clt_w.reset_stats(clt_w_stats);
             if let Some(limit_config) = &limit_config {
                 br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);

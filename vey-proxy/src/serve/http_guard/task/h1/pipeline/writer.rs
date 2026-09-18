@@ -55,7 +55,8 @@ where
         let forward_context = ctx
             .escaper
             .new_http_forward_context(Arc::clone(&ctx.escaper));
-        let clt_w_stats = HttpGuardCltWrapperStats::new_for_writer(&ctx.server_stats);
+        let clt_w_stats =
+            HttpGuardCltWrapperStats::new_for_writer(&ctx.server_stats, ctx.pinned_site_io());
         let limit_config = &ctx.server_config.tcp_sock_speed_limit;
         let clt_w = LimitedWriter::local_limited(
             write_half,
@@ -173,6 +174,9 @@ where
         let Some(mut stream_w) = self.stream_writer.take() else {
             unreachable!()
         };
+        if self.ctx.site_ctx.is_none() {
+            self.attach_unpinned_site_io(&site_ctx, &req, &mut stream_w);
+        }
 
         if let Some(delay) = site_ctx.tenant_user_blocked_delay() {
             if !delay.is_zero() {
@@ -228,6 +232,23 @@ where
                 }
             }
         }
+    }
+
+    fn attach_unpinned_site_io(
+        &self,
+        site_ctx: &SiteContext,
+        req: &HttpGuardRequest<CDR>,
+        stream_w: &mut HttpClientWriter<CDW>,
+    ) {
+        let site_io = self.ctx.site_io(site_ctx);
+        site_io
+            .io
+            .http_forward
+            .add_in_bytes(req.inner.origin_header_size() as u64);
+        stream_w.reset_stats(HttpGuardCltWrapperStats::new_for_writer(
+            &self.ctx.server_stats,
+            Some(site_io),
+        ));
     }
 
     fn reset_client_writer(&mut self, mut stream_w: HttpClientWriter<CDW>) {

@@ -39,7 +39,8 @@ where
         read_half: CDR,
         pipeline_stats: &Arc<HttpGuardPipelineStats>,
     ) -> Self {
-        let clt_r_stats = HttpGuardCltWrapperStats::new_for_reader(&ctx.server_stats);
+        let clt_r_stats =
+            HttpGuardCltWrapperStats::new_for_reader(&ctx.server_stats, ctx.pinned_site_io());
         let limit_config = &ctx.server_config.tcp_sock_speed_limit;
         let clt_r = LimitedBufReader::new(
             read_half,

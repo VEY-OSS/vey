@@ -11,6 +11,7 @@ use vey_io_ext::{
 };
 
 use super::HttpGuardServerStats;
+use crate::auth::UserTrafficStats;
 
 pub(crate) struct HttpGuardPipelineStats {
     total_task: AtomicU64,
@@ -50,21 +51,28 @@ impl Drop for HttpGuardPipelineTaskGuard {
 #[derive(Clone)]
 pub(crate) struct HttpGuardCltWrapperStats {
     server: Arc<HttpGuardServerStats>,
+    site_io: Option<Arc<UserTrafficStats>>,
 }
 
 impl HttpGuardCltWrapperStats {
-    pub(crate) fn new_for_reader(server: &Arc<HttpGuardServerStats>) -> ArcLimitedReaderStats {
-        let s = HttpGuardCltWrapperStats {
+    pub(crate) fn new_for_reader(
+        server: &Arc<HttpGuardServerStats>,
+        site_io: Option<Arc<UserTrafficStats>>,
+    ) -> ArcLimitedReaderStats {
+        Arc::new(HttpGuardCltWrapperStats {
             server: Arc::clone(server),
-        };
-        Arc::new(s)
+            site_io,
+        })
     }
 
-    pub(crate) fn new_for_writer(server: &Arc<HttpGuardServerStats>) -> ArcLimitedWriterStats {
-        let s = HttpGuardCltWrapperStats {
+    pub(crate) fn new_for_writer(
+        server: &Arc<HttpGuardServerStats>,
+        site_io: Option<Arc<UserTrafficStats>>,
+    ) -> ArcLimitedWriterStats {
+        Arc::new(HttpGuardCltWrapperStats {
             server: Arc::clone(server),
-        };
-        Arc::new(s)
+            site_io,
+        })
     }
 }
 
@@ -72,6 +80,9 @@ impl LimitedReaderStats for HttpGuardCltWrapperStats {
     fn add_read_bytes(&self, size: usize) {
         let size = size as u64;
         self.server.io_http.add_in_bytes(size);
+        if let Some(site_io) = &self.site_io {
+            site_io.io.http_forward.add_in_bytes(size);
+        }
     }
 }
 
@@ -79,5 +90,8 @@ impl LimitedWriterStats for HttpGuardCltWrapperStats {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
         self.server.io_http.add_out_bytes(size);
+        if let Some(site_io) = &self.site_io {
+            site_io.io.http_forward.add_out_bytes(size);
+        }
     }
 }

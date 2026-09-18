@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::net::SocketAddr;
@@ -9,6 +10,7 @@ use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
+use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::stats::{StatId, TcpIoSnapshot, TcpIoStats};
 
@@ -77,6 +79,18 @@ impl HttpExposeServerStats {
         self.task_http_untrusted.add_task();
         self.task_http_untrusted.inc_alive_task();
         HttpUntrustedTaskAliveGuard(self.clone())
+    }
+}
+
+impl LimitedReaderStats for HttpExposeServerStats {
+    fn add_read_bytes(&self, size: usize) {
+        self.io_http.add_in_bytes(size as u64);
+    }
+}
+
+impl LimitedWriterStats for HttpExposeServerStats {
+    fn add_write_bytes(&self, size: usize) {
+        self.io_http.add_out_bytes(size as u64);
     }
 }
 

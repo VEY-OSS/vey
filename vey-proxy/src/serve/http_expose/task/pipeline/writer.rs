@@ -12,14 +12,14 @@ use arcstr::ArcStr;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 
-use vey_io_ext::{ArcLimitedWriterStats, LimitedWriter};
+use vey_io_ext::LimitedWriter;
 use vey_types::auth::UserAuthError;
 use vey_types::net::HttpAuth;
 use vey_types::route::HostMatch;
 
 use super::protocol::{HttpClientWriter, HttpExposeRequest};
 use super::{
-    CommonTaskContext, HttpExposeCltWrapperStats, HttpExposeForwardTask,
+    CommonTaskContext, HttpExposeCltWriteWrapperStats, HttpExposeForwardTask,
     HttpExposePipelineTaskGuard, HttpExposeUntrustedTask,
 };
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
@@ -72,7 +72,6 @@ pub(crate) struct HttpExposePipelineWriterTask<CDR, CDW> {
     >,
     stream_writer: Option<HttpClientWriter<CDW>>,
     forward_context: BoxHttpForwardContext,
-    wrapper_stats: ArcLimitedWriterStats,
     req_count: RequestCount,
     site_conn: Option<SiteHttpConnGuard>,
 }
@@ -98,13 +97,12 @@ where
         let forward_context = ctx
             .escaper
             .new_http_forward_context(Arc::clone(&ctx.escaper));
-        let clt_w_stats = HttpExposeCltWrapperStats::new_for_writer(&ctx.server_stats);
         let limit_config = &ctx.server_config.tcp_sock_speed_limit;
         let clt_w = LimitedWriter::local_limited(
             write_half,
             limit_config.shift_millis,
             limit_config.max_south,
-            Arc::clone(&clt_w_stats),
+            ctx.server_stats.clone(),
         );
         HttpExposePipelineWriterTask {
             ctx: Arc::clone(ctx),
@@ -112,7 +110,6 @@ where
             task_queue: task_receiver,
             stream_writer: Some(clt_w),
             forward_context,
-            wrapper_stats: clt_w_stats,
             req_count: RequestCount::default(),
             site_conn: None,
         }
@@ -255,6 +252,7 @@ where
             self.ctx.server_stats.share_extra_tags(),
         );
         self.note_site_conn(host.site());
+        self.attach_site_io(&site_ctx, &req);
 
         if let Some(delay) = site_ctx.tenant_user_blocked_delay() {
             if !delay.is_zero() {
@@ -331,8 +329,22 @@ where
         }
     }
 
+    fn attach_site_io(&mut self, site_ctx: &SiteContext, req: &HttpExposeRequest<CDR>) {
+        let site_io = self.ctx.site_io(site_ctx);
+        site_io
+            .io
+            .http_forward
+            .add_in_bytes(req.inner.origin_header_size() as u64);
+        if let Some(stream_w) = &mut self.stream_writer {
+            stream_w.reset_stats(HttpExposeCltWriteWrapperStats::new(
+                &self.ctx.server_stats,
+                site_io,
+            ));
+        }
+    }
+
     fn reset_client_writer(&mut self, mut stream_w: HttpClientWriter<CDW>) {
-        stream_w.reset_stats(Arc::clone(&self.wrapper_stats));
+        stream_w.reset_stats(self.ctx.server_stats.clone());
         let limit_config = &self.ctx.server_config.tcp_sock_speed_limit;
         stream_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
         self.stream_writer = Some(stream_w);

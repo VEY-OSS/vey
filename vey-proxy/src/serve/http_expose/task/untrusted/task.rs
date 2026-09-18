@@ -80,10 +80,6 @@ impl<'a> HttpExposeUntrustedTask<'a> {
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),
         );
-        site_io
-            .io
-            .http_forward
-            .add_in_bytes(self.req.origin_header_size() as u64);
 
         if self.req.body_type().is_none() {
             self.reply_auth_error(clt_w).await;

@@ -7,9 +7,7 @@ use std::sync::Arc;
 
 use smallvec::SmallVec;
 
-use vey_io_ext::{
-    ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
-};
+use vey_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
 use super::{HttpForwardTaskStats, HttpGuardServerStats};
 use crate::auth::{UserTrafficStats, UserTrafficStatsList};
@@ -54,11 +52,6 @@ impl HttpForwardTaskCltWrapperStats {
         for s in all {
             self.others.push(s);
         }
-    }
-
-    pub(crate) fn split(self) -> (ArcLimitedReaderStats, ArcLimitedWriterStats) {
-        let s = Arc::new(self);
-        (s.clone(), s)
     }
 }
 

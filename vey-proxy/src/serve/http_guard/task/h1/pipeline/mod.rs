@@ -14,5 +14,5 @@ pub(crate) use reader::HttpGuardPipelineReaderTask;
 pub(crate) use writer::HttpGuardPipelineWriterTask;
 
 mod stats;
-use stats::HttpGuardCltWrapperStats;
+pub(super) use stats::HttpGuardCltWrapperStats;
 pub(crate) use stats::{HttpGuardPipelineStats, HttpGuardPipelineTaskGuard};
