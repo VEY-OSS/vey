@@ -52,7 +52,7 @@ pub(crate) struct HttpExposeCltWriteWrapperStats {
 }
 
 impl HttpExposeCltWriteWrapperStats {
-    pub(crate) fn new(
+    pub(crate) fn new_object(
         server: &Arc<HttpExposeServerStats>,
         site_io: Arc<UserTrafficStats>,
     ) -> ArcLimitedWriterStats {

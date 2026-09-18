@@ -378,10 +378,10 @@ impl HttpGuardWebsocketTask {
             limit.max_north,
             clt_r_stats,
         );
-        if let Some(user) = self.task_notes.tenant_user() {
-            if let Some(limiter) = user.tcp_all_upload_speed_limit() {
-                clt_r.add_global_limiter(limiter.clone());
-            }
+        if let Some(user) = self.task_notes.tenant_user()
+            && let Some(limiter) = user.tcp_all_upload_speed_limit()
+        {
+            clt_r.add_global_limiter(limiter.clone());
         }
         clt_w.reset_stats(clt_w_stats);
         clt_r
