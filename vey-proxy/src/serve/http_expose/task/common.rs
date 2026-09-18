@@ -16,9 +16,12 @@ use vey_io_ext::{IdleWheel, OptionalInterval};
 use vey_types::net::ForwardedProto;
 
 use super::{HttpExposeServerConfig, HttpExposeServerStats};
+use crate::auth::UserTrafficStats;
+use crate::config::server::ServerConfig;
 use crate::escape::ArcEscaper;
 use crate::module::http_forward::HttpProxyClientResponse;
-use crate::serve::ServerQuitPolicy;
+use crate::serve::{ServerQuitPolicy, ServerStats};
+use crate::site::SiteContext;
 
 #[derive(Clone)]
 pub(crate) struct CommonTaskContext {
@@ -53,6 +56,13 @@ impl CommonTaskContext {
             self.server_config.no_proxy_status,
             self.server_config.server_id.as_ref(),
         );
+    }
+
+    pub(crate) fn site_io(&self, site_ctx: &SiteContext) -> Arc<UserTrafficStats> {
+        site_ctx.fetch_traffic_stats(
+            self.server_config.name(),
+            self.server_stats.share_extra_tags(),
+        )
     }
 
     pub(super) fn log_flush_interval(&self) -> Option<Duration> {

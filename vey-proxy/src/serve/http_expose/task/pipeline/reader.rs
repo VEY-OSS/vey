@@ -13,10 +13,7 @@ use tokio::sync::mpsc;
 use vey_io_ext::{GlobalLimitGroup, LimitedBufReadExt, LimitedBufReader, NilLimitedStats};
 
 use super::protocol::{HttpClientReader, HttpExposeRequest};
-use super::{
-    CommonTaskContext, HttpExposeCltWrapperStats, HttpExposePipelineStats,
-    HttpExposePipelineTaskGuard,
-};
+use super::{CommonTaskContext, HttpExposePipelineStats, HttpExposePipelineTaskGuard};
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::ServerStats;
 
@@ -41,13 +38,12 @@ where
         read_half: CDR,
         pipeline_stats: &Arc<HttpExposePipelineStats>,
     ) -> Self {
-        let clt_r_stats = HttpExposeCltWrapperStats::new_for_reader(&ctx.server_stats);
         let limit_config = &ctx.server_config.tcp_sock_speed_limit;
         let clt_r = LimitedBufReader::new(
             read_half,
             limit_config.shift_millis,
             limit_config.max_north,
-            clt_r_stats,
+            ctx.server_stats.clone(),
             Arc::new(NilLimitedStats::default()),
         );
         HttpExposePipelineReaderTask {

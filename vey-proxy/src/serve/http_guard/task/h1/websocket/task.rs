@@ -23,8 +23,8 @@ use vey_icap_client::reqmod::h1::{
     ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
 use vey_io_ext::{
-    FlexBufReader, GlobalLimitGroup, IdleInterval, LimitedWriteExt, OnceBufReader, StreamCopy,
-    StreamCopyConfig, StreamCopyError,
+    FlexBufReader, GlobalLimitGroup, IdleInterval, LimitedReader, LimitedWriteExt, OnceBufReader,
+    StreamCopy, StreamCopyConfig, StreamCopyError,
 };
 use vey_types::acl::AclAction;
 use vey_types::net::TcpSockSpeedLimitConfig;
@@ -206,6 +206,8 @@ impl HttpGuardWebsocketTask {
         self.task_notes
             .foreach_req_stats(|s| s.req_ready.add_websocket());
 
+        let clt_r = self.attach_websocket_relay_io(clt_r, &mut clt_w);
+
         match self.ups_r_leftover.take() {
             None => self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await,
             Some(leftover) => {
@@ -329,23 +331,9 @@ impl HttpGuardWebsocketTask {
         let origin_header_size = req.origin_header_size() as u64;
         self.task_stats.clt.read.add_bytes(origin_header_size);
 
-        let mut wrapper_stats =
-            WebSocketTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
-        let user_io_stats = self.task_notes.fetch_traffic_stats(
-            self.ctx.server_config.name(),
-            self.ctx.server_stats.share_extra_tags(),
-        );
-        for s in &user_io_stats {
-            s.io.websocket.add_in_bytes(origin_header_size);
-        }
-        wrapper_stats.push_user_io_stats(user_io_stats);
-        let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
         let limit_config = self.clt_speed_limit();
-
         clt_w.retain_global_limiter_by_group(GlobalLimitGroup::Server);
         if let Some(br) = clt_r {
-            br.reset_buffer_stats(clt_r_stats);
-            clt_w.reset_stats(clt_w_stats);
             if let Some(limit_config) = &limit_config {
                 br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
                 clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
@@ -359,12 +347,44 @@ impl HttpGuardWebsocketTask {
                     clt_w.add_global_limiter(limiter.clone());
                 }
             }
-        } else {
-            clt_w.reset_stats(clt_w_stats);
-            if let Some(limit_config) = &limit_config {
-                clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
+        } else if let Some(limit_config) = &limit_config {
+            clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
+        }
+    }
+
+    fn attach_websocket_relay_io<CDR, CDW>(
+        &self,
+        clt_r: HttpClientReader<CDR>,
+        clt_w: &mut HttpClientWriter<CDW>,
+    ) -> LimitedReader<CDR>
+    where
+        CDR: AsyncRead + Unpin,
+        CDW: AsyncWrite + Unpin,
+    {
+        let mut wrapper_stats =
+            WebSocketTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
+        wrapper_stats.push_user_io_stats(self.task_notes.fetch_traffic_stats(
+            self.ctx.server_config.name(),
+            self.ctx.server_stats.share_extra_tags(),
+        ));
+        let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
+        let limit = self
+            .site_ctx
+            .tcp_sock_speed_limit()
+            .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
+        let mut clt_r = LimitedReader::local_limited(
+            clt_r.into_inner(),
+            limit.shift_millis,
+            limit.max_north,
+            clt_r_stats,
+        );
+        if let Some(user) = self.task_notes.tenant_user() {
+            if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                clt_r.add_global_limiter(limiter.clone());
             }
         }
+        clt_w.reset_stats(clt_w_stats);
+        clt_r
     }
 
     async fn get_new_connection<CDW>(

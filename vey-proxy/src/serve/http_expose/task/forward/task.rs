@@ -26,6 +26,7 @@ use vey_types::net::{KeepAliveValue, TcpSockSpeedLimitConfig};
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpExposeRequest};
 use super::{CommonTaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats};
 use crate::audit::AuditContext;
+use crate::auth::UserTrafficStatsList;
 use crate::config::server::ServerConfig;
 use crate::escape::EgressNotes;
 use crate::log::task::http_forward::TaskLogForHttpForward;
@@ -340,16 +341,20 @@ impl<'a> HttpExposeForwardTask<'a> {
         let origin_header_size = self.req.origin_header_size() as u64;
         self.task_stats.clt.read.add_bytes(origin_header_size);
 
+        let mut user_io_stats = UserTrafficStatsList::new();
+        user_io_stats.push(self.ctx.site_io(&self.site_ctx));
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            let extra = user_ctx.fetch_traffic_stats(
+                self.ctx.server_config.name(),
+                self.ctx.server_stats.share_extra_tags(),
+            );
+            for s in &extra {
+                s.io.http_forward.add_in_bytes(origin_header_size);
+            }
+            user_io_stats.extend(extra);
+        }
         let mut wrapper_stats =
             HttpForwardTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
-
-        let user_io_stats = self.task_notes.fetch_traffic_stats(
-            self.ctx.server_config.name(),
-            self.ctx.server_stats.share_extra_tags(),
-        );
-        for s in &user_io_stats {
-            s.io.http_forward.add_in_bytes(origin_header_size);
-        }
         wrapper_stats.push_user_io_stats(user_io_stats);
 
         let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
