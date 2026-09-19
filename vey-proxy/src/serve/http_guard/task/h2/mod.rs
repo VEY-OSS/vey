@@ -6,7 +6,7 @@
 use super::CommonTaskContext;
 
 mod context;
-pub(crate) use context::H2TaskContext;
+pub(crate) use context::{H2TaskContext, OriginConnection, OriginH1Sender, OriginH2Sender};
 
 mod error;
 use error::H2StreamTransferError;

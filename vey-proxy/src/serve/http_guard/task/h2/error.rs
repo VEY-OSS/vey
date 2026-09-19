@@ -3,14 +3,22 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::io;
 use std::time::Duration;
 
 use anyhow::anyhow;
 use http::StatusCode;
 use thiserror::Error;
 
-use vey_h2::H2StreamBodyTransferError;
+use vey_h2::{
+    H2StreamBodyEncodeTransferError, H2StreamBodyTransferError, H2StreamFromChunkedTransferError,
+    H2StreamToChunkedTransferError,
+};
+use vey_http::client::HttpResponseParseError;
+use vey_http::server::HttpRequestParseError;
 use vey_icap_client::reqmod::h2::H2ReqmodAdaptationError;
+use vey_icap_client::reqmod::h2_to_h1::H2ToH1ReqmodAdaptationError;
+use vey_icap_client::respmod::h1_to_h2::H1ToH2RespmodAdaptationError;
 use vey_icap_client::respmod::h2::H2RespmodAdaptationError;
 use vey_io_ext::IdleForceQuitReason;
 
@@ -30,6 +38,16 @@ pub(crate) enum H2StreamTransferError {
     UpstreamStreamOpenTimeout,
     #[error("failed to send request head: {0}")]
     RequestHeadSendFailed(h2::Error),
+    #[error("failed to write request to origin: {0:?}")]
+    OriginWriteFailed(io::Error),
+    #[error("failed to read from origin: {0:?}")]
+    OriginReadFailed(io::Error),
+    #[error("origin closed while sending request")]
+    OriginClosed,
+    #[error("failed to parse origin response: {0}")]
+    OriginResponseParseFailed(HttpResponseParseError),
+    #[error("invalid converted request: {0}")]
+    InvalidConvertedRequest(HttpRequestParseError),
     #[error("failed to recv response head: {0}")]
     ResponseHeadRecvFailed(h2::Error),
     #[error("timeout to recv response head")]
@@ -61,7 +79,10 @@ impl H2StreamTransferError {
             )),
             H2StreamTransferError::UpstreamStreamOpenFailed(_)
             | H2StreamTransferError::UpstreamStreamOpenTimeout => None,
-            H2StreamTransferError::RequestHeadSendFailed(_) => Some((
+            H2StreamTransferError::RequestHeadSendFailed(_)
+            | H2StreamTransferError::OriginWriteFailed(_)
+            | H2StreamTransferError::OriginReadFailed(_)
+            | H2StreamTransferError::OriginClosed => Some((
                 StatusCode::BAD_GATEWAY,
                 ProxyErrorType::ConnectionTerminated,
             )),
@@ -74,7 +95,9 @@ impl H2StreamTransferError {
                 ProxyErrorType::HttpResponseTimeout,
             )),
             H2StreamTransferError::InvalidContinueResponse
-            | H2StreamTransferError::UnsupportedInformationalResponse(_) => {
+            | H2StreamTransferError::UnsupportedInformationalResponse(_)
+            | H2StreamTransferError::OriginResponseParseFailed(_)
+            | H2StreamTransferError::InvalidConvertedRequest(_) => {
                 Some((StatusCode::BAD_GATEWAY, ProxyErrorType::HttpProtocolError))
             }
             _ => None,
@@ -169,6 +192,139 @@ impl From<H2RespmodAdaptationError> for H2StreamTransferError {
                 IdleForceQuitReason::ServerQuit => H2StreamTransferError::CanceledAsServerQuit,
             },
             e => H2StreamTransferError::InternalAdapterError(anyhow!("respmod: {e}")),
+        }
+    }
+}
+
+impl From<H2ToH1ReqmodAdaptationError> for H2StreamTransferError {
+    fn from(e: H2ToH1ReqmodAdaptationError) -> Self {
+        match e {
+            H2ToH1ReqmodAdaptationError::HttpClientRecvDataFailed(e) => {
+                H2StreamTransferError::RequestBodyTransferFailed(
+                    H2StreamBodyTransferError::RecvDataFailed(e),
+                )
+            }
+            H2ToH1ReqmodAdaptationError::HttpClientRecvTrailerFailed(e) => {
+                H2StreamTransferError::RequestBodyTransferFailed(
+                    H2StreamBodyTransferError::RecvTrailersFailed(e),
+                )
+            }
+            H2ToH1ReqmodAdaptationError::HttpUpstreamWriteFailed(e) => {
+                H2StreamTransferError::OriginWriteFailed(e)
+            }
+            H2ToH1ReqmodAdaptationError::IdleForceQuit(reason) => match reason {
+                IdleForceQuitReason::UserBlocked => H2StreamTransferError::CanceledAsUserBlocked,
+                IdleForceQuitReason::ServerQuit => H2StreamTransferError::CanceledAsServerQuit,
+            },
+            e => H2StreamTransferError::InternalAdapterError(anyhow!("reqmod h2-to-h1: {e}")),
+        }
+    }
+}
+
+impl From<H1ToH2RespmodAdaptationError> for H2StreamTransferError {
+    fn from(e: H1ToH2RespmodAdaptationError) -> Self {
+        match e {
+            H1ToH2RespmodAdaptationError::InternalServerError(s) => {
+                H2StreamTransferError::InternalServerError(s)
+            }
+            H1ToH2RespmodAdaptationError::HttpUpstreamReadFailed(e) => {
+                H2StreamTransferError::OriginReadFailed(e)
+            }
+            H1ToH2RespmodAdaptationError::HttpClientSendHeadFailed(e) => {
+                H2StreamTransferError::ResponseHeadSendFailed(e)
+            }
+            H1ToH2RespmodAdaptationError::HttpClientSendDataFailed(e) => {
+                H2StreamTransferError::ResponseBodyTransferFailed(
+                    H2StreamBodyTransferError::SendDataFailed(e),
+                )
+            }
+            H1ToH2RespmodAdaptationError::HttpClientSendTrailerFailed(e) => {
+                H2StreamTransferError::ResponseBodyTransferFailed(
+                    H2StreamBodyTransferError::SendTrailersFailed(e),
+                )
+            }
+            H1ToH2RespmodAdaptationError::IdleForceQuit(reason) => match reason {
+                IdleForceQuitReason::UserBlocked => H2StreamTransferError::CanceledAsUserBlocked,
+                IdleForceQuitReason::ServerQuit => H2StreamTransferError::CanceledAsServerQuit,
+            },
+            e => H2StreamTransferError::InternalAdapterError(anyhow!("respmod h1-to-h2: {e}")),
+        }
+    }
+}
+
+impl From<HttpRequestParseError> for H2StreamTransferError {
+    fn from(e: HttpRequestParseError) -> Self {
+        H2StreamTransferError::InvalidConvertedRequest(e)
+    }
+}
+
+impl From<HttpResponseParseError> for H2StreamTransferError {
+    fn from(e: HttpResponseParseError) -> Self {
+        H2StreamTransferError::OriginResponseParseFailed(e)
+    }
+}
+
+impl From<H2StreamToChunkedTransferError> for H2StreamTransferError {
+    fn from(e: H2StreamToChunkedTransferError) -> Self {
+        match e {
+            H2StreamToChunkedTransferError::WriteError(e) => {
+                H2StreamTransferError::OriginWriteFailed(e)
+            }
+            H2StreamToChunkedTransferError::RecvDataFailed(e) => {
+                H2StreamTransferError::RequestBodyTransferFailed(
+                    H2StreamBodyTransferError::RecvDataFailed(e),
+                )
+            }
+            H2StreamToChunkedTransferError::RecvTrailerFailed(e) => {
+                H2StreamTransferError::RequestBodyTransferFailed(
+                    H2StreamBodyTransferError::RecvTrailersFailed(e),
+                )
+            }
+        }
+    }
+}
+
+impl From<H2StreamBodyEncodeTransferError> for H2StreamTransferError {
+    fn from(e: H2StreamBodyEncodeTransferError) -> Self {
+        match e {
+            H2StreamBodyEncodeTransferError::ReadError(e) => {
+                H2StreamTransferError::OriginReadFailed(e)
+            }
+            H2StreamBodyEncodeTransferError::SendDataFailed(e) => {
+                H2StreamTransferError::ResponseBodyTransferFailed(
+                    H2StreamBodyTransferError::SendDataFailed(e),
+                )
+            }
+            H2StreamBodyEncodeTransferError::SenderNotInSendState => {
+                H2StreamTransferError::ResponseBodyTransferFailed(
+                    H2StreamBodyTransferError::SenderNotInSendState,
+                )
+            }
+        }
+    }
+}
+
+impl From<H2StreamFromChunkedTransferError> for H2StreamTransferError {
+    fn from(e: H2StreamFromChunkedTransferError) -> Self {
+        match e {
+            H2StreamFromChunkedTransferError::ReadError(e) => {
+                H2StreamTransferError::OriginReadFailed(e)
+            }
+            H2StreamFromChunkedTransferError::SendDataFailed(e) => {
+                H2StreamTransferError::ResponseBodyTransferFailed(
+                    H2StreamBodyTransferError::SendDataFailed(e),
+                )
+            }
+            H2StreamFromChunkedTransferError::SendTrailerFailed(e) => {
+                H2StreamTransferError::ResponseBodyTransferFailed(
+                    H2StreamBodyTransferError::SendTrailersFailed(e),
+                )
+            }
+            H2StreamFromChunkedTransferError::SenderNotInSendState => {
+                H2StreamTransferError::ResponseBodyTransferFailed(
+                    H2StreamBodyTransferError::SenderNotInSendState,
+                )
+            }
         }
     }
 }

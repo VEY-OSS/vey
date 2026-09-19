@@ -19,6 +19,14 @@ pub(crate) trait HttpForwardTaskRemoteStats {
 
 pub(crate) type ArcHttpForwardTaskRemoteStats = Arc<dyn HttpForwardTaskRemoteStats + Send + Sync>;
 
+#[derive(Default)]
+pub(crate) struct NilHttpForwardTaskRemoteStats;
+
+impl HttpForwardTaskRemoteStats for NilHttpForwardTaskRemoteStats {
+    fn add_read_bytes(&self, _size: u64) {}
+    fn add_write_bytes(&self, _size: u64) {}
+}
+
 impl HttpForwardTaskRemoteStats for UserUpstreamTrafficStats {
     fn add_read_bytes(&self, size: u64) {
         self.io.tcp.add_in_bytes(size);

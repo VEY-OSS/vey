@@ -4,6 +4,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use bytes::Bytes;
 use h2::client::SendRequest;
@@ -20,7 +21,7 @@ use vey_icap_client::reqmod::h2::{
 use vey_icap_client::respmod::h2::{RespmodAdaptationEndState, RespmodAdaptationRunState};
 use vey_types::acl::AclAction;
 
-use super::{H2StreamTransferError, H2TaskContext};
+use super::{H2StreamTransferError, H2TaskContext, OriginConnection, OriginH2Sender};
 use crate::escape::EgressNotes;
 use crate::log::task::h2_forward::TaskLogForH2Forward;
 use crate::module::http_forward::HttpForwardTaskNotes;
@@ -30,14 +31,14 @@ use crate::serve::{ServerTaskNotes, ServerTaskStage};
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct H2ForwardTask {
-    ctx: Arc<H2TaskContext>,
-    clt_stream_id: StreamId,
-    ups_stream_id: Option<StreamId>,
-    task_notes: ServerTaskNotes,
-    http_notes: HttpForwardTaskNotes,
-    egress_notes: EgressNotes,
-    send_error_response: bool,
-    allow_continue: bool,
+    pub(super) ctx: Arc<H2TaskContext>,
+    pub(super) clt_stream_id: StreamId,
+    pub(super) ups_stream_id: Option<StreamId>,
+    pub(super) task_notes: ServerTaskNotes,
+    pub(super) http_notes: HttpForwardTaskNotes,
+    pub(super) egress_notes: EgressNotes,
+    pub(super) send_error_response: bool,
+    pub(super) allow_continue: bool,
     _alive_guard: Option<H2ForwardTaskAliveGuard>,
 }
 
@@ -190,6 +191,22 @@ impl H2ForwardTask {
         }
 
         let origin = self.ctx.checkout_or_connect(&self.task_notes).await?;
+        match origin {
+            OriginConnection::H2(origin) => {
+                self.forward_h2_origin(origin, clt_req, clt_send_rsp).await
+            }
+            OriginConnection::H1(origin) => {
+                self.forward_h1_origin(origin, clt_req, clt_send_rsp).await
+            }
+        }
+    }
+
+    async fn forward_h2_origin(
+        &mut self,
+        origin: OriginH2Sender,
+        clt_req: Request<RecvStream>,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<(), H2StreamTransferError> {
         self.http_notes.reused_connection = origin.reused;
         self.egress_notes = origin.egress_notes;
         self.task_notes.stage = ServerTaskStage::Connected;
@@ -273,7 +290,7 @@ impl H2ForwardTask {
             .await
     }
 
-    fn rsp_hdr_timeout(&self) -> std::time::Duration {
+    pub(super) fn rsp_hdr_timeout(&self) -> Duration {
         self.ctx
             .site_ctx
             .rsp_hdr_recv_timeout()
@@ -320,7 +337,7 @@ impl H2ForwardTask {
         }
     }
 
-    async fn send_adaptation_error_response(
+    pub(super) async fn send_adaptation_error_response(
         &mut self,
         clt_send_rsp: &mut SendResponse<Bytes>,
         rsp: HttpAdapterErrorResponse,
