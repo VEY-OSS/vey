@@ -18,6 +18,32 @@ escaper:
       default: allow
       allow: 127.0.0.0/8
 
+auditor:
+  - name: icap_waf
+    icap_reqmod_service:
+      url: icap://127.0.0.1:1344/echo
+      pool:
+        max_idle_count: 50
+        min_idle_count: 0
+    icap_respmod_service:
+      url: icap://127.0.0.1:1344/echo
+      pool:
+        max_idle_count: 50
+        min_idle_count: 0
+  - name: icap_waf_nopreview
+    icap_reqmod_service:
+      url: icap://127.0.0.1:1344/echo
+      no_preview: true
+      pool:
+        max_idle_count: 50
+        min_idle_count: 0
+    icap_respmod_service:
+      url: icap://127.0.0.1:1344/echo
+      no_preview: true
+      pool:
+        max_idle_count: 50
+        min_idle_count: 0
+
 site_group:
   - name: httpbin
     static_sites:
@@ -68,6 +94,7 @@ server:
     listen: 127.0.0.1:8080
     escaper: default
     site_group: httpbin
+    auditor: icap_waf
     flush_task_log_on_created: true
     flush_task_log_on_connected: true
     task_log_flush_interval: 1s
@@ -84,6 +111,17 @@ server:
     type: http_guard
     listen: 127.0.0.1:9443
     escaper: default
+    auditor: icap_waf
+    global_tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    site_group: httpbin
+  - name: https_h1_nopreview
+    type: http_guard
+    listen: 127.0.0.1:9543
+    escaper: default
+    auditor: icap_waf_nopreview
     global_tls_server:
       cert_pairs:
         certificate: ../httpbin.local.pem
@@ -93,6 +131,17 @@ server:
     type: http_guard
     listen: 127.0.0.1:10443
     escaper: default
+    auditor: icap_waf
+    global_tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    site_group: httpbin_h2
+  - name: https_h2_nopreview
+    type: http_guard
+    listen: 127.0.0.1:10543
+    escaper: default
+    auditor: icap_waf_nopreview
     global_tls_server:
       cert_pairs:
         certificate: ../httpbin.local.pem
@@ -102,6 +151,17 @@ server:
     type: http_guard
     listen: 127.0.0.1:11443
     escaper: default
+    auditor: icap_waf
+    global_tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    site_group: httpbin_h2_h1
+  - name: https_h2_h1_nopreview
+    type: http_guard
+    listen: 127.0.0.1:12443
+    escaper: default
+    auditor: icap_waf_nopreview
     global_tls_server:
       cert_pairs:
         certificate: ../httpbin.local.pem
