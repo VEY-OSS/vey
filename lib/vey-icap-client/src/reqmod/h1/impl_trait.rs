@@ -7,7 +7,7 @@ use bytes::BufMut;
 use http::{Method, header};
 
 use vey_http::HttpBodyType;
-use vey_http::server::{HttpProxyClientRequest, HttpTransparentRequest};
+use vey_http::server::{HttpConvertedRequest, HttpProxyClientRequest, HttpTransparentRequest};
 
 use super::{HttpAdaptedRequest, HttpRequestForAdaptation};
 
@@ -31,6 +31,30 @@ impl HttpRequestForAdaptation for HttpProxyClientRequest {
             buf.put_slice(b"\r\n");
         }
     }
+
+    fn adapt_with_body(&self, other: HttpAdaptedRequest) -> Self {
+        self.adapt_with_body(other)
+    }
+
+    fn adapt_without_body(&self, other: HttpAdaptedRequest) -> Self {
+        self.adapt_without_body(other)
+    }
+}
+
+impl HttpRequestForAdaptation for HttpConvertedRequest {
+    fn method(&self) -> &Method {
+        &self.method
+    }
+
+    fn body_type(&self) -> Option<HttpBodyType> {
+        self.body_type()
+    }
+
+    fn serialize_for_adapter(&self) -> Vec<u8> {
+        self.serialize_for_adapter()
+    }
+
+    fn append_upgrade_header(&self, _buf: &mut Vec<u8>) {}
 
     fn adapt_with_body(&self, other: HttpAdaptedRequest) -> Self {
         self.adapt_with_body(other)

@@ -9,6 +9,9 @@ pub use error::HttpRequestParseError;
 mod request;
 pub use request::HttpProxyClientRequest;
 
+mod converted;
+pub use converted::HttpConvertedRequest;
+
 mod transparent;
 pub use transparent::{HttpTransparentRequest, HttpTransparentRequestAcceptor};
 

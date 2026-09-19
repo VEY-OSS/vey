@@ -17,6 +17,7 @@ mod response;
 
 pub mod h1;
 pub mod h2;
+pub mod h2_to_h1;
 
 pub mod mail;
 

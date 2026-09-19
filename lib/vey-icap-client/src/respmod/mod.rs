@@ -16,6 +16,7 @@ pub use payload::IcapRespmodResponsePayload;
 mod response;
 
 pub mod h1;
+pub mod h1_to_h2;
 pub mod h2;
 
 #[derive(Clone)]
