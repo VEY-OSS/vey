@@ -224,6 +224,26 @@ impl H2PreviewData {
         Ok(())
     }
 
+    /// Write the preview buffer as a single HTTP/1.1 chunk, without a
+    /// terminating zero-chunk. Used when more DATA still follows.
+    pub async fn write_as_chunk<W>(&self, writer: &mut W) -> io::Result<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        if self.buffer.is_empty() {
+            return Ok(());
+        }
+        let header = format!("{:x}\r\n", self.buffer.len());
+        writer
+            .write_all_vectored([
+                IoSlice::new(header.as_bytes()),
+                IoSlice::new(&self.buffer),
+                IoSlice::new(b"\r\n"),
+            ])
+            .await?;
+        Ok(())
+    }
+
     pub async fn icap_write_all_as_chunked<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: AsyncWrite + Unpin,
@@ -300,6 +320,25 @@ mod tests {
         let mut out = Vec::new();
         preview.icap_write_all_as_chunked(&mut out).await.unwrap();
         assert_eq!(out, b"0\r\n");
+    }
+
+    #[tokio::test]
+    async fn write_as_chunk_omits_terminating_zero() {
+        let mut preview = H2PreviewData::new(1024);
+        preview.buffer.extend_from_slice(b"hello");
+        preview.received = preview.buffer.len();
+
+        let mut out = Vec::new();
+        preview.write_as_chunk(&mut out).await.unwrap();
+        assert_eq!(out, b"5\r\nhello\r\n");
+    }
+
+    #[tokio::test]
+    async fn write_as_chunk_skips_empty_buffer() {
+        let preview = H2PreviewData::new(1024);
+        let mut out = Vec::new();
+        preview.write_as_chunk(&mut out).await.unwrap();
+        assert!(out.is_empty());
     }
 
     #[test]

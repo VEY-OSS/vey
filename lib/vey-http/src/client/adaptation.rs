@@ -6,11 +6,11 @@
 
 use std::str::FromStr;
 
-use http::{HeaderName, StatusCode, Version};
+use http::{HeaderMap, HeaderName, Response, StatusCode, Version};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
-use vey_types::net::{H1HeaderMap, H1HeaderValue};
+use vey_types::net::{ConnectionValue, H1HeaderMap, H1HeaderValue};
 
 use super::HttpResponseParseError;
 use crate::{HttpHeaderLine, HttpLineParseError, HttpStatusLine};
@@ -22,6 +22,7 @@ pub struct HttpAdaptedResponse {
     pub reason: String,
     pub headers: H1HeaderMap,
     pub content_length: Option<u64>,
+    connection: ConnectionValue,
 }
 
 impl HttpAdaptedResponse {
@@ -32,7 +33,25 @@ impl HttpAdaptedResponse {
             reason,
             headers: H1HeaderMap::default(),
             content_length: None,
+            connection: ConnectionValue::default(),
         }
+    }
+
+    /// Convert this adapted H1 response into an H2 response head.
+    ///
+    /// Adapted headers already dropped hop-by-hop `Transfer-Encoding` /
+    /// `Connection`. Headers named on `Connection` are also removed.
+    /// `Content-Length` is kept when the adapter announced a fixed body.
+    pub fn to_h2_response(&self) -> Response<()> {
+        let mut rsp = Response::new(());
+        *rsp.version_mut() = Version::HTTP_2;
+        *rsp.status_mut() = self.status;
+        let mut headers = HeaderMap::from(&self.headers);
+        for name in self.connection.extra_headers() {
+            headers.remove(name);
+        }
+        *rsp.headers_mut() = headers;
+        rsp
     }
 
     pub async fn parse<R>(
@@ -127,7 +146,11 @@ impl HttpAdaptedResponse {
         })?;
 
         match name.as_str() {
-            "connection" | "keep-alive" => {
+            "connection" => {
+                self.connection.parse(header.value.as_bytes());
+                return Ok(());
+            }
+            "keep-alive" => {
                 // ignored hop-by-hop options
                 return Ok(());
             }
@@ -319,5 +342,35 @@ mod tests {
         let rsp = HttpAdaptedResponse::parse(&mut reader, 1024).await.unwrap();
 
         assert!(!rsp.headers.contains_key("transfer-encoding"));
+    }
+
+    #[tokio::test]
+    async fn to_h2_response_sets_http2_and_keeps_end_to_end_headers() {
+        let data = b"HTTP/1.1 204 No Content\r\nX-Test: yes\r\nContent-Length: 0\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let rsp = HttpAdaptedResponse::parse(&mut reader, 4096).await.unwrap();
+        let h2 = rsp.to_h2_response();
+        assert_eq!(h2.version(), Version::HTTP_2);
+        assert_eq!(h2.status(), StatusCode::NO_CONTENT);
+        assert_eq!(h2.headers().get("x-test").unwrap(), "yes");
+        assert_eq!(h2.headers().get("content-length").unwrap(), "0");
+        assert!(h2.headers().get("transfer-encoding").is_none());
+        assert!(h2.headers().get("connection").is_none());
+    }
+
+    #[tokio::test]
+    async fn to_h2_response_drops_headers_listed_on_connection() {
+        let data = b"HTTP/1.1 200 OK\r\n\
+            Content-Length: 0\r\n\
+            X-A: 1\r\n\
+            X-Conn-Token: secret\r\n\
+            Connection: keep-alive, x-conn-token\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let rsp = HttpAdaptedResponse::parse(&mut reader, 4096).await.unwrap();
+        assert_eq!(rsp.headers.get("x-conn-token").unwrap().to_str(), "secret");
+        let h2 = rsp.to_h2_response();
+        assert_eq!(h2.headers().get("x-a").unwrap(), "1");
+        assert!(h2.headers().get("x-conn-token").is_none());
+        assert!(h2.headers().get("connection").is_none());
     }
 }

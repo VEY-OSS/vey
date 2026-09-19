@@ -1,0 +1,293 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
+ */
+
+use std::sync::Arc;
+
+use anyhow::anyhow;
+use tokio::io::{AsyncRead, AsyncWrite};
+
+use vey_h2::H2StreamToChunkedTransfer;
+use vey_http::server::HttpAdaptedRequest;
+use vey_http::{HttpBodyDecodeReader, HttpBodyReader};
+use vey_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopy, StreamCopyConfig, StreamCopyError};
+
+use super::{
+    H2ToH1ReqmodAdaptationError, HttpRequestForAdaptation, HttpRequestUpstreamWriter,
+    ReqmodAdaptationEndState, ReqmodAdaptationRunState,
+};
+use crate::reqmod::response::ReqmodResponse;
+use crate::{IcapClientReader, IcapClientWriter, IcapServiceClient};
+
+pub(super) struct BidirectionalRecvIcapResponse<'a, I: IdleCheck> {
+    pub(super) icap_client: &'a Arc<IcapServiceClient>,
+    pub(super) icap_reader: &'a mut IcapClientReader,
+    pub(super) idle_checker: &'a I,
+}
+
+impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
+    pub(super) async fn transfer_and_recv(
+        self,
+        state: &mut ReqmodAdaptationRunState,
+        mut body_transfer: &mut H2StreamToChunkedTransfer<'_, IcapClientWriter>,
+    ) -> Result<ReqmodResponse, H2ToH1ReqmodAdaptationError> {
+        let mut idle_interval = self.idle_checker.interval_timer();
+        let mut idle_count = 0;
+
+        loop {
+            tokio::select! {
+                biased;
+                r = &mut body_transfer => {
+                    return match r {
+                        Ok(_) => {
+                            state.clt_read_finished = true;
+                            state.clt_req_body_size = Some(body_transfer.copied_size());
+                            self.recv_icap_response().await
+                        }
+                        Err(e) => {
+                            record_clt_body_progress(state, body_transfer);
+                            Err(H2ToH1ReqmodAdaptationError::clt_to_icap(e))
+                        }
+                    };
+                }
+                r = self.icap_reader.fill_wait_data() => {
+                    return match r {
+                        Ok(true) => self.recv_icap_response().await,
+                        Ok(false) => {
+                            record_clt_body_progress(state, body_transfer);
+                            Err(H2ToH1ReqmodAdaptationError::IcapServerConnectionClosed)
+                        }
+                        Err(e) => {
+                            record_clt_body_progress(state, body_transfer);
+                            Err(H2ToH1ReqmodAdaptationError::IcapServerReadFailed(e))
+                        }
+                    };
+                }
+                n = idle_interval.tick() => {
+                    if body_transfer.is_idle() {
+                        idle_count += n;
+                        if self.idle_checker.check_quit(idle_count) {
+                            record_clt_body_progress(state, body_transfer);
+                            return if body_transfer.no_cached_data() {
+                                Err(H2ToH1ReqmodAdaptationError::HttpClientReadIdle)
+                            } else {
+                                Err(H2ToH1ReqmodAdaptationError::IcapServerWriteIdle)
+                            };
+                        }
+                    } else {
+                        idle_count = 0;
+                        body_transfer.reset_active();
+                    }
+                    if let Some(reason) = self.idle_checker.check_force_quit() {
+                        record_clt_body_progress(state, body_transfer);
+                        return Err(H2ToH1ReqmodAdaptationError::IdleForceQuit(reason));
+                    }
+                }
+            }
+        }
+    }
+
+    async fn recv_icap_response(self) -> Result<ReqmodResponse, H2ToH1ReqmodAdaptationError> {
+        let rsp = ReqmodResponse::parse(
+            self.icap_reader,
+            self.icap_client.config.icap_max_header_size,
+            &self.icap_client.config.respond_shared_names,
+        )
+        .await?;
+        Ok(rsp)
+    }
+}
+
+pub(super) struct BidirectionalRecvHttpRequest<'a, I: IdleCheck> {
+    pub(super) copy_config: StreamCopyConfig,
+    pub(super) http_body_line_max_size: usize,
+    pub(super) http_req_add_no_via_header: bool,
+    pub(super) idle_checker: &'a I,
+    pub(super) http_header_size: usize,
+    pub(super) icap_read_finished: bool,
+}
+
+impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
+    pub(super) async fn transfer<H, UW>(
+        &mut self,
+        state: &mut ReqmodAdaptationRunState,
+        clt_body_transfer: &mut H2StreamToChunkedTransfer<'_, IcapClientWriter>,
+        orig_http_request: &H,
+        icap_reader: &mut IcapClientReader,
+        ups_writer: &mut UW,
+    ) -> Result<ReqmodAdaptationEndState<H>, H2ToH1ReqmodAdaptationError>
+    where
+        H: HttpRequestForAdaptation,
+        UW: HttpRequestUpstreamWriter<H> + Unpin,
+    {
+        let http_req = HttpAdaptedRequest::parse(
+            icap_reader,
+            self.http_header_size,
+            self.http_req_add_no_via_header,
+        )
+        .await?;
+        let body_content_length = http_req.content_length;
+
+        let final_req = orig_http_request.adapt_with_body(http_req);
+        ups_writer
+            .send_request_header(&final_req)
+            .await
+            .map_err(H2ToH1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
+        state.mark_ups_send_header();
+
+        match body_content_length {
+            Some(0) => Err(H2ToH1ReqmodAdaptationError::InvalidHttpBodyFromIcapServer(
+                anyhow!("Content-Length is 0 but the ICAP server response contains http-body"),
+            )),
+            Some(expected) => {
+                let mut ups_body_reader =
+                    HttpBodyDecodeReader::new_chunked(icap_reader, self.http_body_line_max_size);
+                let mut ups_body_transfer =
+                    StreamCopy::new(&mut ups_body_reader, ups_writer, &self.copy_config);
+                if let Err(e) = self
+                    .do_transfer(state, clt_body_transfer, &mut ups_body_transfer)
+                    .await
+                {
+                    state.ups_req_body_size = Some(ups_body_transfer.copied_size());
+                    return Err(e);
+                }
+                state.mark_ups_send_all();
+                if clt_body_transfer.finished() {
+                    state.clt_req_body_size = Some(clt_body_transfer.copied_size());
+                }
+                state.ups_req_body_size = Some(ups_body_reader.body_size());
+                let copied = ups_body_reader.body_size();
+                if ups_body_reader.trailer(128).await.is_ok() {
+                    self.icap_read_finished = true;
+                }
+                if copied != expected {
+                    return Err(H2ToH1ReqmodAdaptationError::InvalidHttpBodyFromIcapServer(
+                        anyhow!("Content-Length is {expected} but decoded length is {copied}"),
+                    ));
+                }
+                Ok(ReqmodAdaptationEndState::AdaptedTransferred(final_req))
+            }
+            None => {
+                let mut ups_body_reader =
+                    HttpBodyReader::new_chunked(icap_reader, self.http_body_line_max_size);
+                let mut ups_body_transfer =
+                    StreamCopy::new(&mut ups_body_reader, ups_writer, &self.copy_config);
+                if let Err(e) = self
+                    .do_transfer(state, clt_body_transfer, &mut ups_body_transfer)
+                    .await
+                {
+                    state.ups_req_body_size = Some(
+                        ups_body_transfer
+                            .reader()
+                            .body_size()
+                            .saturating_sub(ups_body_transfer.cached_data_size()),
+                    );
+                    return Err(e);
+                }
+                state.mark_ups_send_all();
+                if clt_body_transfer.finished() {
+                    state.clt_req_body_size = Some(clt_body_transfer.copied_size());
+                }
+                state.ups_req_body_size = Some(ups_body_transfer.reader().body_size());
+                self.icap_read_finished = ups_body_transfer.finished();
+                Ok(ReqmodAdaptationEndState::AdaptedTransferred(final_req))
+            }
+        }
+    }
+
+    async fn do_transfer<IR, UW>(
+        &self,
+        state: &mut ReqmodAdaptationRunState,
+        mut clt_body_transfer: &mut H2StreamToChunkedTransfer<'_, IcapClientWriter>,
+        mut ups_body_transfer: &mut StreamCopy<'_, IR, UW>,
+    ) -> Result<(), H2ToH1ReqmodAdaptationError>
+    where
+        IR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        let mut idle_interval = self.idle_checker.interval_timer();
+        let mut idle_count = 0;
+        loop {
+            tokio::select! {
+                r = &mut clt_body_transfer => {
+                    return match r {
+                        Ok(_) => {
+                            state.clt_read_finished = true;
+                            state.clt_req_body_size = Some(clt_body_transfer.copied_size());
+                            match (&mut ups_body_transfer).await {
+                                Ok(_) => Ok(()),
+                                Err(StreamCopyError::ReadFailed(e)) => {
+                                    Err(H2ToH1ReqmodAdaptationError::IcapServerReadFailed(e))
+                                }
+                                Err(StreamCopyError::WriteFailed(e)) => {
+                                    Err(H2ToH1ReqmodAdaptationError::HttpUpstreamWriteFailed(e))
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            record_clt_body_progress(state, clt_body_transfer);
+                            Err(H2ToH1ReqmodAdaptationError::clt_to_icap(e))
+                        }
+                    };
+                }
+                r = &mut ups_body_transfer => {
+                    return match r {
+                        Ok(_) => {
+                            if clt_body_transfer.finished() {
+                                state.clt_req_body_size = Some(clt_body_transfer.copied_size());
+                            }
+                            Ok(())
+                        }
+                        Err(e) => {
+                            record_clt_body_progress(state, clt_body_transfer);
+                            match e {
+                                StreamCopyError::ReadFailed(e) => {
+                                    Err(H2ToH1ReqmodAdaptationError::IcapServerReadFailed(e))
+                                }
+                                StreamCopyError::WriteFailed(e) => {
+                                    Err(H2ToH1ReqmodAdaptationError::HttpUpstreamWriteFailed(e))
+                                }
+                            }
+                        }
+                    };
+                }
+                n = idle_interval.tick() => {
+                    if clt_body_transfer.is_idle() && ups_body_transfer.is_idle() {
+                        idle_count += n;
+                        if self.idle_checker.check_quit(idle_count) {
+                            record_clt_body_progress(state, clt_body_transfer);
+                            return if !clt_body_transfer.finished() && clt_body_transfer.no_cached_data() {
+                                Err(H2ToH1ReqmodAdaptationError::HttpClientReadIdle)
+                            } else if ups_body_transfer.no_cached_data() {
+                                Err(H2ToH1ReqmodAdaptationError::IcapServerReadIdle)
+                            } else if clt_body_transfer.no_cached_data() {
+                                Err(H2ToH1ReqmodAdaptationError::IcapServerWriteIdle)
+                            } else {
+                                Err(H2ToH1ReqmodAdaptationError::HttpUpstreamWriteIdle)
+                            };
+                        }
+                    } else {
+                        idle_count = 0;
+                        clt_body_transfer.reset_active();
+                        ups_body_transfer.reset_active();
+                    }
+                    if let Some(reason) = self.idle_checker.check_force_quit() {
+                        record_clt_body_progress(state, clt_body_transfer);
+                        return Err(H2ToH1ReqmodAdaptationError::IdleForceQuit(reason));
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn record_clt_body_progress(
+    state: &mut ReqmodAdaptationRunState,
+    body_transfer: &H2StreamToChunkedTransfer<'_, IcapClientWriter>,
+) {
+    state.clt_req_body_size = Some(body_transfer.received_size());
+    if body_transfer.recv_finished() {
+        state.clt_read_finished = true;
+    }
+}
