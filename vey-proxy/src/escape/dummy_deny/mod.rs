@@ -13,7 +13,10 @@ use vey_daemon::stat::remote::{ArcTcpConnectionTaskRemoteStats, ArcUdpConnectTas
 use vey_types::metrics::NodeName;
 use vey_types::net::UpstreamAddr;
 
-use super::{ArcEscaper, ArcEscaperStats, EgressNotes, Escaper, EscaperInternal, EscaperRegistry};
+use super::{
+    ArcEscaper, ArcEscaperStats, EgressNotes, Escaper, EscaperInternal, EscaperRegistry,
+    TlsConnectResult,
+};
 use crate::audit::AuditContext;
 use crate::config::escaper::dummy_deny::DummyDenyEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -107,6 +110,18 @@ impl Escaper for DummyDenyEscaper {
         _task_stats: ArcTcpConnectionTaskRemoteStats,
         _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
+        self.stats.interface.add_tls_connect_attempted();
+        egress_notes.escaper.clone_from(&self.config.name);
+        Err(TcpConnectError::MethodUnavailable)
+    }
+
+    async fn tls_connect(
+        &self,
+        _task_conf: &TlsConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        _task_notes: &ServerTaskNotes,
+        _audit_ctx: &mut AuditContext,
+    ) -> TlsConnectResult {
         self.stats.interface.add_tls_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)

@@ -12,7 +12,7 @@ use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 
 use super::RouteFailoverEscaper;
 use crate::audit::AuditContext;
-use crate::escape::{ArcEscaper, EgressNotes};
+use crate::escape::{ArcEscaper, EgressNotes, TlsConnectResult};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
@@ -49,6 +49,45 @@ impl TlsConnectFailoverContext {
                 &mut self.audit_ctx,
             )
             .await;
+        self
+    }
+}
+
+struct TlsRawConnectFailoverContext {
+    egress_notes: EgressNotes,
+    audit_ctx: AuditContext,
+    connect_result: TlsConnectResult,
+}
+
+impl TlsRawConnectFailoverContext {
+    fn new(audit_ctx: &AuditContext) -> Self {
+        TlsRawConnectFailoverContext {
+            egress_notes: EgressNotes::default(),
+            audit_ctx: audit_ctx.clone(),
+            connect_result: Err(TcpConnectError::EscaperNotUsable(anyhow!(
+                "tls connect not called yet"
+            ))),
+        }
+    }
+
+    async fn run(
+        mut self,
+        escaper: &ArcEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
+        task_notes: &ServerTaskNotes,
+    ) -> Self {
+        self.connect_result = match escaper
+            .tls_connect(
+                task_conf,
+                &mut self.egress_notes,
+                task_notes,
+                &mut self.audit_ctx,
+            )
+            .await
+        {
+            Ok((stream, leaf)) => Ok((stream, leaf.or(Some(escaper.clone())))),
+            Err(e) => Err(e),
+        };
         self
     }
 }
@@ -106,6 +145,76 @@ impl RouteFailoverEscaper {
         let standby_context = TlsConnectFailoverContext::new(audit_ctx);
         let standby_task =
             pin!(standby_context.run(&self.standby_node, task_conf, task_notes, task_stats));
+
+        let (ctx, left) = futures_util::future::select(primary_task, standby_task)
+            .await
+            .into_inner();
+        match ctx.connect_result {
+            Ok(c) => {
+                self.stats.add_request_passed();
+                *audit_ctx = ctx.audit_ctx;
+                *egress_notes = ctx.egress_notes;
+                Ok(c)
+            }
+            Err(_e) => {
+                let ctx = left.await;
+                match ctx.connect_result {
+                    Ok(c) => {
+                        self.stats.add_request_passed();
+                        *audit_ctx = ctx.audit_ctx;
+                        *egress_notes = ctx.egress_notes;
+                        Ok(c)
+                    }
+                    Err(e) => {
+                        self.stats.add_request_failed();
+                        *audit_ctx = ctx.audit_ctx;
+                        *egress_notes = ctx.egress_notes;
+                        Err(e)
+                    }
+                }
+            }
+        }
+    }
+
+    pub(super) async fn tls_connect_with_failover(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        audit_ctx: &mut AuditContext,
+    ) -> TlsConnectResult {
+        let primary_context = TlsRawConnectFailoverContext::new(audit_ctx);
+        let mut primary_task = pin!(primary_context.run(&self.primary_node, task_conf, task_notes));
+
+        if let Ok(ctx) = tokio::time::timeout(self.config.fallback_delay, &mut primary_task).await {
+            return match ctx.connect_result {
+                Ok(c) => {
+                    self.stats.add_request_passed();
+                    *audit_ctx = ctx.audit_ctx;
+                    *egress_notes = ctx.egress_notes;
+                    Ok(c)
+                }
+                Err(_e) => {
+                    match self
+                        .standby_node
+                        .tls_connect(task_conf, egress_notes, task_notes, audit_ctx)
+                        .await
+                    {
+                        Ok((stream, leaf)) => {
+                            self.stats.add_request_passed();
+                            Ok((stream, leaf.or(Some(self.standby_node.clone()))))
+                        }
+                        Err(e) => {
+                            self.stats.add_request_failed();
+                            Err(e)
+                        }
+                    }
+                }
+            };
+        }
+
+        let standby_context = TlsRawConnectFailoverContext::new(audit_ctx);
+        let standby_task = pin!(standby_context.run(&self.standby_node, task_conf, task_notes));
 
         let (ctx, left) = futures_util::future::select(primary_task, standby_task)
             .await

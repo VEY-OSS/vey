@@ -200,6 +200,17 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
         .await
     }
 
+    async fn tls_connect(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> TcpConnectResult {
+        self.http_connect_tls_connect(escaper, task_conf, egress_notes, task_notes)
+            .await
+    }
+
     async fn new_http_forward_connection(
         &self,
         escaper: &ProxyFloatEscaper,

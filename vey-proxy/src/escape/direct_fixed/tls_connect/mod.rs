@@ -102,6 +102,7 @@ impl DirectFixedEscaper {
             )
             .await?;
 
+        egress_notes.record_selected_alpn(tls_stream.ssl());
         let (ups_r, ups_w) = tls_stream.into_split();
 
         // add task and user stats
@@ -112,6 +113,25 @@ impl DirectFixedEscaper {
         let ups_r = LimitedReader::new(ups_r, wrapper_stats.clone());
         let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
+        Ok((Box::new(ups_r), Box::new(ups_w)))
+    }
+
+    pub(super) async fn tls_connect(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> TcpConnectResult {
+        let tls_stream = self
+            .tls_connect_to(
+                task_conf,
+                egress_notes,
+                task_notes,
+                TlsApplication::TcpStream,
+            )
+            .await?;
+        egress_notes.record_selected_alpn(tls_stream.ssl());
+        let (ups_r, ups_w) = tls_stream.into_split();
         Ok((Box::new(ups_r), Box::new(ups_w)))
     }
 }

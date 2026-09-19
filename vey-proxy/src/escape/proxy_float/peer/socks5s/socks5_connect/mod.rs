@@ -208,4 +208,19 @@ impl ProxyFloatSocks5sPeer {
             .new_tls_connection_over_tunnel(ups_s, task_conf, egress_notes, task_notes, task_stats)
             .await
     }
+
+    pub(super) async fn socks5_tls_connect(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> TcpConnectResult {
+        let ups_s = self
+            .timed_socks5_connect_tcp_connect_to(escaper, &task_conf.tcp, egress_notes, task_notes)
+            .await?;
+        escaper
+            .tls_connect_over_tunnel_split(ups_s, task_conf, egress_notes, task_notes)
+            .await
+    }
 }

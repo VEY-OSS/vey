@@ -26,7 +26,7 @@ use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
     ArcEscaper, ArcEscaperStats, EgressNotes, Escaper, EscaperInternal, EscaperRegistry,
-    EscaperStats,
+    EscaperStats, TlsConnectResult,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStatsList;
@@ -345,6 +345,20 @@ impl Escaper for DirectFixedEscaper {
         egress_notes.escaper.clone_from(&self.config.name);
         self.tls_new_connection(task_conf, egress_notes, task_notes, task_stats)
             .await
+    }
+
+    async fn tls_connect(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        _audit_ctx: &mut AuditContext,
+    ) -> TlsConnectResult {
+        self.stats.interface.add_tls_connect_attempted();
+        egress_notes.escaper.clone_from(&self.config.name);
+        DirectFixedEscaper::tls_connect(self, task_conf, egress_notes, task_notes)
+            .await
+            .map(|stream| (stream, None))
     }
 
     async fn udp_setup_connection(

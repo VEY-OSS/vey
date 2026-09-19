@@ -16,6 +16,7 @@ use vey_types::net::UpstreamAddr;
 
 use super::{
     ArcEscaper, EgressNotes, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats,
+    TlsConnectResult,
 };
 use crate::audit::AuditContext;
 use crate::config::escaper::trick_float::TrickFloatEscaperConfig;
@@ -162,6 +163,29 @@ impl Escaper for TrickFloatEscaper {
                         audit_ctx,
                     )
                     .await
+            }
+            Err(e) => {
+                self.stats.add_request_failed();
+                Err(TcpConnectError::EscaperNotUsable(e))
+            }
+        }
+    }
+
+    async fn tls_connect(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        audit_ctx: &mut AuditContext,
+    ) -> TlsConnectResult {
+        egress_notes.escaper.clone_from(&self.config.name);
+        match self.random_next() {
+            Ok(escaper) => {
+                self.stats.add_request_passed();
+                let (stream, leaf) = escaper
+                    .tls_connect(task_conf, egress_notes, task_notes, audit_ctx)
+                    .await?;
+                Ok((stream, leaf.or(Some(escaper))))
             }
             Err(e) => {
                 self.stats.add_request_failed();

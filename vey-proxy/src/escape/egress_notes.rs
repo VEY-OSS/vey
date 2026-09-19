@@ -7,10 +7,11 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use jiff::Timestamp;
+use openssl::ssl::SslRef;
 
 use vey_socket::BindAddr;
 use vey_types::metrics::NodeName;
-use vey_types::net::{EgressInfo, UpstreamAddr};
+use vey_types::net::{AlpnProtocol, EgressInfo, UpstreamAddr};
 
 /// This contains the final chained info about the client request
 #[derive(Debug, Clone, Default, Copy)]
@@ -53,11 +54,18 @@ pub(crate) struct EgressNotes {
     pub(crate) final_addr: FinalAddressNotes,
     pub(crate) duration: Duration,
     pub(crate) override_peer: Option<UpstreamAddr>,
+    pub(crate) selected_alpn: Option<AlpnProtocol>,
 }
 
 impl EgressNotes {
     pub(crate) fn reset(&mut self) {
         *self = Default::default();
+    }
+
+    pub(crate) fn record_selected_alpn(&mut self, ssl: &SslRef) {
+        self.selected_alpn = ssl
+            .selected_alpn_protocol()
+            .and_then(AlpnProtocol::from_selected);
     }
 
     pub(crate) fn tcp_connect_peer_addr(&self) -> Option<SocketAddr> {

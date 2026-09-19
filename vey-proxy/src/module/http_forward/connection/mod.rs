@@ -9,10 +9,10 @@ use std::task::{Context, Poll};
 
 use async_trait::async_trait;
 use http::Method;
-use tokio::io::{AsyncBufRead, AsyncWrite};
+use tokio::io::{AsyncBufRead, AsyncWrite, AsyncWriteExt};
 
 use vey_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
-use vey_http::server::HttpProxyClientRequest;
+use vey_http::server::{HttpConvertedRequest, HttpProxyClientRequest};
 use vey_icap_client::reqmod::h1::HttpRequestUpstreamWriter;
 use vey_types::net::UpstreamAddr;
 
@@ -25,6 +25,9 @@ pub(crate) use writer::{send_req_header_to_origin, send_req_header_via_proxy};
 
 mod eof_poller;
 pub(crate) use eof_poller::HttpConnectionEofPoller;
+
+mod tls;
+pub(crate) use tls::{TlsHttpForwardReader, TlsHttpForwardWriter};
 
 pub(crate) type BoxHttpForwardWriter = Box<dyn HttpForwardWrite + Send + Unpin>;
 pub(crate) type BoxHttpForwardReader = Box<dyn HttpForwardRead + Send + Unpin>;
@@ -100,5 +103,11 @@ impl AsyncWrite for HttpForwardWriterForAdaptation<'_> {
 impl HttpRequestUpstreamWriter<HttpProxyClientRequest> for HttpForwardWriterForAdaptation<'_> {
     async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()> {
         self.inner.send_request_header(req, None).await
+    }
+}
+
+impl HttpRequestUpstreamWriter<HttpConvertedRequest> for HttpForwardWriterForAdaptation<'_> {
+    async fn send_request_header(&mut self, req: &HttpConvertedRequest) -> io::Result<()> {
+        self.inner.write_all(&req.serialize_for_origin()).await
     }
 }

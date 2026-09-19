@@ -105,6 +105,14 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult;
 
+    async fn tls_connect(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> TcpConnectResult;
+
     async fn new_http_forward_connection(
         &self,
         escaper: &ProxyFloatEscaper,

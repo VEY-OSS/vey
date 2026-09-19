@@ -161,4 +161,24 @@ impl ProxyFloatHttpsPeer {
             )
             .await
     }
+
+    pub(super) async fn http_connect_tls_connect(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> TcpConnectResult {
+        let buf_stream = self
+            .timed_http_connect_tcp_connect_to(escaper, &task_conf.tcp, egress_notes, task_notes)
+            .await?;
+        escaper
+            .tls_connect_over_tunnel_split(
+                buf_stream.into_inner(),
+                task_conf,
+                egress_notes,
+                task_notes,
+            )
+            .await
+    }
 }

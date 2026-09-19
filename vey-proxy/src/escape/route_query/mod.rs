@@ -16,6 +16,7 @@ use vey_types::net::UpstreamAddr;
 
 use super::{
     ArcEscaper, EgressNotes, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats,
+    TlsConnectResult,
 };
 use crate::audit::AuditContext;
 use crate::config::escaper::route_query::RouteQueryEscaperConfig;
@@ -169,6 +170,22 @@ impl Escaper for RouteQueryEscaper {
         escaper
             .tls_setup_connection(task_conf, egress_notes, task_notes, task_stats, audit_ctx)
             .await
+    }
+
+    async fn tls_connect(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        audit_ctx: &mut AuditContext,
+    ) -> TlsConnectResult {
+        egress_notes.escaper.clone_from(&self.config.name);
+        let escaper = self.select_next(task_notes, task_conf.tcp.upstream).await;
+        self.stats.add_request_passed();
+        let (stream, leaf) = escaper
+            .tls_connect(task_conf, egress_notes, task_notes, audit_ctx)
+            .await?;
+        Ok((stream, leaf.or(Some(escaper))))
     }
 
     async fn udp_setup_connection(
