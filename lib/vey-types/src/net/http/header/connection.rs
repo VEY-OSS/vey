@@ -140,6 +140,12 @@ impl ConnectionValue {
         self.upgrade
     }
 
+    /// Header names listed on `Connection` besides keep-alive / close / upgrade / TE.
+    #[inline]
+    pub fn extra_headers(&self) -> &[HeaderName] {
+        &self.extra
+    }
+
     #[inline]
     pub fn keep_alive_header(&self) -> KeepAliveValue {
         self.keepalive
@@ -312,6 +318,7 @@ mod tests {
         v.parse(b"close, keep-alive, Foo");
         assert!(v.keep_alive(Version::HTTP_11));
         assert!(!v.close(Version::HTTP_11));
+        assert_eq!(v.extra_headers(), &[HeaderName::from_static("foo")]);
         v.parse(b"close");
         assert!(v.close(Version::HTTP_11));
         assert!(!v.keep_alive(Version::HTTP_11));

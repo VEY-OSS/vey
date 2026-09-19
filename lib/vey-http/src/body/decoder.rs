@@ -64,6 +64,16 @@ where
         ))
     }
 
+    pub fn new_chunked_after_preview(
+        stream: &'a mut R,
+        body_line_max_size: usize,
+        left_chunk_size: u64,
+    ) -> Self {
+        HttpBodyDecodeReader::with_state(HttpBodyDecodeState::Chunked(
+            ChunkedDataDecodeReader::resume(stream, body_line_max_size, left_chunk_size),
+        ))
+    }
+
     pub async fn trailer(
         &mut self,
         max_size: usize,
@@ -384,5 +394,23 @@ mod tests {
         let headers = header.unwrap();
         let v = headers.get("a").unwrap();
         assert_eq!(v.as_bytes(), b"B");
+    }
+
+    #[tokio::test]
+    async fn read_chunked_after_preview_mid_chunk() {
+        // Preview already consumed "te" of the first chunk ("test\n").
+        let content = b"st\n\r\n4\r\nbody\r\n0\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader =
+            HttpBodyDecodeReader::new_chunked_after_preview(&mut buf_stream, 1024, 3);
+
+        let mut buf = Vec::new();
+        tokio::io::copy(&mut body_reader, &mut buf).await.unwrap();
+        assert_eq!(&buf, b"st\nbody");
+        assert_eq!(body_reader.body_size(), 7);
+        let header = body_reader.trailer(1024).await.unwrap();
+        assert!(header.is_none());
+        assert!(body_reader.finished());
     }
 }

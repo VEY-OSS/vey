@@ -219,6 +219,17 @@ impl<'a, R> ChunkedDataDecodeReader<'a, R> {
         }
     }
 
+    /// Continue decoding after a preview read stopped mid-chunk.
+    ///
+    /// `left_chunk_size` is the remaining payload of the current chunk
+    /// (`0` means the reader is at a chunk boundary).
+    pub fn resume(reader: &'a mut R, body_line_max_size: usize, left_chunk_size: u64) -> Self {
+        let mut internal = ChunkedDataDecodeReaderInternal::new(body_line_max_size);
+        internal.left_chunk_size = left_chunk_size;
+        internal.this_chunk_size = left_chunk_size;
+        ChunkedDataDecodeReader { reader, internal }
+    }
+
     #[inline]
     pub fn into_reader(self) -> &'a mut R {
         self.reader
@@ -303,5 +314,31 @@ mod test {
         assert_eq!(len, body_len);
         assert_eq!(&buf[0..len], b"test\nbody");
         assert!(body_deocder.finished());
+    }
+
+    #[tokio::test]
+    async fn resume_mid_chunk_then_next_chunks() {
+        let content = b"st\n\r\n4\r\nbody\r\n0\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut decoder = ChunkedDataDecodeReader::resume(&mut buf_stream, 1024, 3);
+
+        let mut buf = [0u8; 32];
+        let len = decoder.read(&mut buf).await.unwrap();
+        assert_eq!(&buf[..len], b"st\nbody");
+        assert!(decoder.finished());
+    }
+
+    #[tokio::test]
+    async fn resume_at_chunk_boundary() {
+        let content = b"4\r\nbody\r\n0\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut decoder = ChunkedDataDecodeReader::resume(&mut buf_stream, 1024, 0);
+
+        let mut buf = [0u8; 32];
+        let len = decoder.read(&mut buf).await.unwrap();
+        assert_eq!(&buf[..len], b"body");
+        assert!(decoder.finished());
     }
 }

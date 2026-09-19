@@ -8,7 +8,7 @@ use std::io::Write;
 use std::str::FromStr;
 
 use bytes::BufMut;
-use http::{HeaderName, Method, Version, header};
+use http::{HeaderMap, HeaderName, Method, Response, StatusCode, Version, header};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
@@ -184,6 +184,26 @@ impl HttpForwardRemoteResponse {
         } else {
             Some(HttpBodyType::ReadUntilEnd)
         }
+    }
+
+    /// Convert this H1 origin response into an H2 response head.
+    ///
+    /// Hop-by-hop headers (`Connection`, `Transfer-Encoding`, `Keep-Alive`, …)
+    /// are not in `end_to_end_headers` and are dropped. Headers named on
+    /// `Connection` are also removed. `Content-Length` is kept for fixed-size
+    /// bodies; chunked H1 bodies become H2 DATA plus optional trailers (no
+    /// `Content-Length`).
+    pub fn to_h2_response(&self) -> Response<()> {
+        let mut rsp = Response::new(());
+        *rsp.version_mut() = Version::HTTP_2;
+        *rsp.status_mut() =
+            StatusCode::from_u16(self.code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        let mut headers = HeaderMap::from(&self.end_to_end_headers);
+        for name in self.connection.extra_headers() {
+            headers.remove(name);
+        }
+        *rsp.headers_mut() = headers;
+        rsp
     }
 
     pub async fn parse<R>(
@@ -539,5 +559,69 @@ mod tests {
             .unwrap()
             .to_ascii_lowercase();
         assert!(!serialized.contains("keep-alive:"));
+    }
+
+    #[tokio::test]
+    async fn to_h2_response_keeps_content_length_and_drops_hop_by_hop() {
+        let content = b"HTTP/1.1 200 OK\r\n\
+            Content-Length: 4\r\n\
+            X-A: 1\r\n\
+            Connection: keep-alive\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let rsp = HttpForwardRemoteResponse::parse(&mut buf_stream, &Method::GET, true, 4096)
+            .await
+            .unwrap();
+        let h2 = rsp.to_h2_response();
+        assert_eq!(h2.version(), Version::HTTP_2);
+        assert_eq!(h2.status(), http::StatusCode::OK);
+        assert_eq!(h2.headers().get("x-a").unwrap(), "1");
+        assert_eq!(h2.headers().get("content-length").unwrap(), "4");
+        assert!(h2.headers().get("connection").is_none());
+        assert!(h2.headers().get("transfer-encoding").is_none());
+    }
+
+    #[tokio::test]
+    async fn to_h2_response_drops_headers_listed_on_connection() {
+        let content = b"HTTP/1.1 200 OK\r\n\
+            Content-Length: 0\r\n\
+            X-A: 1\r\n\
+            X-Conn-Token: secret\r\n\
+            Connection: keep-alive, x-conn-token\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let rsp = HttpForwardRemoteResponse::parse(&mut buf_stream, &Method::GET, true, 4096)
+            .await
+            .unwrap();
+        assert_eq!(
+            rsp.end_to_end_headers
+                .get("x-conn-token")
+                .unwrap()
+                .as_bytes(),
+            b"secret"
+        );
+        let h2 = rsp.to_h2_response();
+        assert_eq!(h2.headers().get("x-a").unwrap(), "1");
+        assert!(h2.headers().get("x-conn-token").is_none());
+        assert!(h2.headers().get("connection").is_none());
+    }
+
+    #[tokio::test]
+    async fn to_h2_response_chunked_drops_transfer_encoding() {
+        let content = b"HTTP/1.1 200 OK\r\n\
+            Transfer-Encoding: chunked\r\n\
+            X-A: 1\r\n\
+            Connection: keep-alive\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let rsp = HttpForwardRemoteResponse::parse(&mut buf_stream, &Method::GET, true, 4096)
+            .await
+            .unwrap();
+        let h2 = rsp.to_h2_response();
+        assert_eq!(h2.version(), Version::HTTP_2);
+        assert_eq!(h2.headers().get("x-a").unwrap(), "1");
+        assert!(h2.headers().get("content-length").is_none());
+        assert!(h2.headers().get("transfer-encoding").is_none());
+        assert!(h2.headers().get("connection").is_none());
     }
 }
