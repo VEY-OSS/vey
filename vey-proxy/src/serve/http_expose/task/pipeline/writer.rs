@@ -268,19 +268,35 @@ where
         self.mark_tenant_conn(&mut site_ctx);
         self.attach_site_io(&site_ctx, &req);
 
-        if let Some(delay) = site_ctx.tenant_user_blocked_delay() {
-            if !delay.is_zero() {
-                tokio::time::sleep(delay).await;
+        if let Some(tenant) = site_ctx.tenant_ctx() {
+            if tenant.is_expired() {
+                self.req_count.invalid += 1;
+
+                if !self.ctx.server_config.no_early_error_reply
+                    && let Some(stream_w) = &mut self.stream_writer
+                {
+                    let mut rsp = HttpProxyClientResponse::bad_request(req.inner.version);
+                    self.ctx.apply_proxy_status_ident(&mut rsp);
+                    let _ = rsp.reply_err_to_request(stream_w).await;
+                }
+
+                self.notify_reader_to_close();
+                return LoopAction::Break;
             }
-            if !self.ctx.server_config.no_early_error_reply
-                && let Some(stream_w) = &mut self.stream_writer
-            {
-                let mut rsp = HttpProxyClientResponse::forbidden(req.inner.version);
-                self.ctx.apply_proxy_status_ident(&mut rsp);
-                let _ = rsp.reply_err_to_request(stream_w).await;
+            if let Some(delay) = tenant.blocked_delay() {
+                if !delay.is_zero() {
+                    tokio::time::sleep(delay).await;
+                }
+                if !self.ctx.server_config.no_early_error_reply
+                    && let Some(stream_w) = &mut self.stream_writer
+                {
+                    let mut rsp = HttpProxyClientResponse::forbidden(req.inner.version);
+                    self.ctx.apply_proxy_status_ident(&mut rsp);
+                    let _ = rsp.reply_err_to_request(stream_w).await;
+                }
+                self.notify_reader_to_close();
+                return LoopAction::Break;
             }
-            self.notify_reader_to_close();
-            return LoopAction::Break;
         }
 
         match self.do_auth(&req).await {

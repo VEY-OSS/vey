@@ -777,6 +777,20 @@ impl TenantContext {
         &self.forbid_stats
     }
 
+    pub(crate) fn is_expired(&self) -> bool {
+        if !self.user.is_expired() {
+            return false;
+        }
+        self.forbid_stats.add_user_expired();
+        true
+    }
+
+    pub(crate) fn blocked_delay(&self) -> Option<Duration> {
+        let delay = self.user.block_and_delay()?;
+        self.forbid_stats.add_user_blocked();
+        Some(delay)
+    }
+
     #[inline]
     pub(crate) fn check_rate_limit(&self) -> Result<(), ()> {
         self.user

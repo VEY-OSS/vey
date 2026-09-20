@@ -216,11 +216,16 @@ impl TlsProxyServer {
             self.config.name(),
             self.server_stats.share_extra_tags(),
         );
-        if let Some(delay) = site_ctx.tenant_user_blocked_delay() {
-            if !delay.is_zero() {
-                tokio::time::sleep(delay).await;
+        if let Some(tenant) = site_ctx.tenant_ctx() {
+            if tenant.is_expired() {
+                return;
             }
-            return;
+            if let Some(delay) = tenant.blocked_delay() {
+                if !delay.is_zero() {
+                    tokio::time::sleep(delay).await;
+                }
+                return;
+            }
         }
         let task_notes =
             ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO).with_site_ctx(site_ctx);

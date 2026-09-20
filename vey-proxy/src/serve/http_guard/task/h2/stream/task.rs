@@ -181,11 +181,16 @@ impl H2StreamTask {
         }
         via.append_to_http(clt_req.headers_mut());
 
-        if let Some(delay) = self.ctx.site_ctx.tenant_user_blocked_delay() {
-            if !delay.is_zero() {
-                tokio::time::sleep(delay).await;
+        if let Some(tenant) = self.ctx.site_ctx.tenant_ctx() {
+            if tenant.is_expired() {
+                return Err(H2StreamError::MisdirectedRequest);
             }
-            return Err(H2StreamError::TenantBlocked);
+            if let Some(delay) = tenant.blocked_delay() {
+                if !delay.is_zero() {
+                    tokio::time::sleep(delay).await;
+                }
+                return Err(H2StreamError::TenantBlocked);
+            }
         }
 
         if clt_req.authorization_negotiate() {
