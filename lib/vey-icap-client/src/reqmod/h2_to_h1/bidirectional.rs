@@ -257,12 +257,14 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                         idle_count += n;
                         if self.idle_checker.check_quit(idle_count) {
                             record_clt_body_progress(state, clt_body_transfer);
-                            return if !clt_body_transfer.finished() && clt_body_transfer.no_cached_data() {
-                                Err(H2ToH1ReqmodAdaptationError::HttpClientReadIdle)
+                            return if !clt_body_transfer.finished() {
+                                if clt_body_transfer.no_cached_data() {
+                                    Err(H2ToH1ReqmodAdaptationError::HttpClientReadIdle)
+                                } else {
+                                    Err(H2ToH1ReqmodAdaptationError::IcapServerWriteIdle)
+                                }
                             } else if ups_body_transfer.no_cached_data() {
                                 Err(H2ToH1ReqmodAdaptationError::IcapServerReadIdle)
-                            } else if clt_body_transfer.no_cached_data() {
-                                Err(H2ToH1ReqmodAdaptationError::IcapServerWriteIdle)
                             } else {
                                 Err(H2ToH1ReqmodAdaptationError::HttpUpstreamWriteIdle)
                             };

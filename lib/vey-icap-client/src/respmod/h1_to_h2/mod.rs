@@ -38,6 +38,7 @@ impl IcapRespmodClient {
         copy_config: StreamCopyConfig,
         http_body_line_max_size: usize,
         http_trailer_max_size: usize,
+        http_trailer_recv_timeout: Duration,
         idle_checker: I,
     ) -> anyhow::Result<H1ToH2ResponseAdapter<I>> {
         let icap_client = self.inner.clone();
@@ -49,6 +50,7 @@ impl IcapRespmodClient {
             copy_config,
             http_body_line_max_size,
             http_trailer_max_size,
+            http_trailer_recv_timeout,
             idle_checker,
             client_addr: None,
             client_username: None,
@@ -65,6 +67,7 @@ pub struct H1ToH2ResponseAdapter<I: IdleCheck> {
     copy_config: StreamCopyConfig,
     http_body_line_max_size: usize,
     http_trailer_max_size: usize,
+    http_trailer_recv_timeout: Duration,
     idle_checker: I,
     client_addr: Option<SocketAddr>,
     client_username: Option<String>,

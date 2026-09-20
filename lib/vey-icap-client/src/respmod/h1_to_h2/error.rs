@@ -30,6 +30,8 @@ pub enum H1ToH2RespmodAdaptationError {
     IcapServerErrorResponse(IcapErrorReason, u16, String),
     #[error("read from http upstream failed: {0:?}")]
     HttpUpstreamReadFailed(io::Error),
+    #[error("timeout while reading trailer from http upstream")]
+    HttpUpstreamReadTrailerTimeout,
     #[error("send head to http client failed: {0}")]
     HttpClientSendHeadFailed(h2::Error),
     #[error("client not in send state")]

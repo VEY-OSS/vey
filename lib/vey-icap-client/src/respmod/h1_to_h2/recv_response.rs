@@ -3,6 +3,8 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::time::Duration;
+
 use bytes::Bytes;
 use h2::SendStream;
 use http::Response;
@@ -108,6 +110,7 @@ impl<I: IdleCheck> H1ToH2ResponseAdapter<I> {
                     &self.idle_checker,
                     &self.copy_config,
                     self.http_trailer_max_size,
+                    self.http_trailer_recv_timeout,
                     state,
                     &mut body_reader,
                     &mut clt_send_stream,
@@ -122,6 +125,7 @@ impl<I: IdleCheck> H1ToH2ResponseAdapter<I> {
                     &self.idle_checker,
                     &self.copy_config,
                     self.http_trailer_max_size,
+                    self.http_trailer_recv_timeout,
                     state,
                     &mut body_reader,
                     &mut clt_send_stream,
@@ -136,6 +140,7 @@ impl<I: IdleCheck> H1ToH2ResponseAdapter<I> {
                     &self.idle_checker,
                     &self.copy_config,
                     self.http_trailer_max_size,
+                    self.http_trailer_recv_timeout,
                     state,
                     &mut body_reader,
                     &mut clt_send_stream,
@@ -152,6 +157,7 @@ impl<I: IdleCheck> H1ToH2ResponseAdapter<I> {
         idle_checker: &I,
         copy_config: &StreamCopyConfig,
         http_trailer_max_size: usize,
+        http_trailer_recv_timeout: Duration,
         state: &mut RespmodAdaptationRunState,
         body_reader: &mut HttpBodyDecodeReader<'_, R>,
         clt_send_stream: &mut SendStream<Bytes>,
@@ -211,25 +217,33 @@ impl<I: IdleCheck> H1ToH2ResponseAdapter<I> {
         drop(body_transfer);
 
         if send_trailers {
-            // the upstream body is fully read only after the trailer section
-            match body_reader.trailer(http_trailer_max_size).await {
-                Ok(Some(headers)) => {
+            match tokio::time::timeout(
+                http_trailer_recv_timeout,
+                body_reader.trailer(http_trailer_max_size),
+            )
+            .await
+            {
+                Ok(Ok(Some(headers))) => {
                     state.mark_ups_recv_all();
                     clt_send_stream
                         .send_trailers(headers.into())
                         .map_err(H1ToH2RespmodAdaptationError::HttpClientSendTrailerFailed)?;
                 }
-                Ok(None) => {
+                Ok(Ok(None)) => {
                     state.mark_ups_recv_all();
                     clt_send_stream
                         .send_data(Bytes::new(), true)
                         .map_err(H1ToH2RespmodAdaptationError::HttpClientSendDataFailed)?;
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     state.clt_rsp_body_size = Some(copied);
                     return Err(H1ToH2RespmodAdaptationError::HttpUpstreamReadFailed(
                         std::io::Error::other(e),
                     ));
+                }
+                Err(_) => {
+                    state.clt_rsp_body_size = Some(copied);
+                    return Err(H1ToH2RespmodAdaptationError::HttpUpstreamReadTrailerTimeout);
                 }
             }
         } else {
