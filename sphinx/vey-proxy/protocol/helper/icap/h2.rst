@@ -18,7 +18,14 @@ The following protocol-specific headers are added to the ICAP request headers:
 
 - X-Transformed-From
 
-  The value is **HTTP/2.0**.
+  The value is **HTTP/2.0**. Added when the original client request or origin
+  response is HTTP/2 and is serialized as HTTP/1.1 for the ICAP server.
+
+- X-Transformed-To
+
+  Added when ``http_guard`` converts between HTTP/2 and HTTP/1.1 at the origin
+  edge. ``REQMOD`` H2-to-H1 uses **HTTP/1.1**; ``RESPMOD`` H1-to-H2 uses
+  **HTTP/2.0** and does not set ``X-Transformed-From``.
 
 - X-HTTP-Upgrade
 

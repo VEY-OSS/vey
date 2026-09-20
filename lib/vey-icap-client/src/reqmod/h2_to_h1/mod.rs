@@ -136,6 +136,7 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
 
     fn push_extended_headers(&self, data: &mut Vec<u8>) {
         data.put_slice(b"X-Transformed-From: HTTP/2.0\r\n");
+        data.put_slice(b"X-Transformed-To: HTTP/1.1\r\n");
         if let Some(addr) = self.client_addr {
             crate::serialize::add_client_addr(data, addr);
         }
