@@ -49,7 +49,7 @@ impl H2ForwardTask {
         let orig_req = Request::from_parts(parts, ());
         let converted = HttpConvertedRequest::from_request(&orig_req, !clt_body.is_end_stream())?;
 
-        let keep_alive = if self.should_audit()
+        let keep_alive = if self.audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.as_ref()
             && let Some(reqmod) = audit_handle.icap_reqmod_client()
         {
@@ -405,7 +405,7 @@ impl H2ForwardTask {
         let body_type = rsp_header.body_type(&self.http_notes.method);
         let clt_rsp = rsp_header.to_h2_response();
 
-        if self.should_audit()
+        if self.audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.as_ref()
             && let Some(respmod) = audit_handle.icap_respmod_client()
         {
@@ -642,17 +642,5 @@ impl H2ForwardTask {
             origin.reuse_notes,
             origin.egress_notes,
         );
-    }
-
-    fn should_audit(&self) -> bool {
-        self.task_notes
-            .tenant_user()
-            .and_then(|u| u.audit().do_task_audit())
-            .unwrap_or_else(|| {
-                self.ctx
-                    .audit_handle
-                    .as_ref()
-                    .is_some_and(|h| h.do_task_audit())
-            })
     }
 }

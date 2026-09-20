@@ -39,6 +39,7 @@ pub(crate) struct H2ForwardTask {
     pub(super) egress_notes: EgressNotes,
     pub(super) send_error_response: bool,
     pub(super) allow_continue: bool,
+    pub(super) audit_task: bool,
     _alive_guard: Option<H2ForwardTaskAliveGuard>,
 }
 
@@ -72,6 +73,7 @@ impl H2ForwardTask {
             egress_notes: EgressNotes::default(),
             send_error_response: true,
             allow_continue,
+            audit_task: false,
             _alive_guard: None,
         }
     }
@@ -155,6 +157,18 @@ impl H2ForwardTask {
         }
     }
 
+    fn should_audit(&self) -> bool {
+        self.task_notes
+            .tenant_user()
+            .and_then(|u| u.audit().do_task_audit())
+            .unwrap_or_else(|| {
+                self.ctx
+                    .audit_handle
+                    .as_ref()
+                    .is_some_and(|h| h.do_task_audit())
+            })
+    }
+
     async fn do_forward(
         &mut self,
         clt_req: Request<RecvStream>,
@@ -189,6 +203,8 @@ impl H2ForwardTask {
                 return Err(H2StreamTransferError::InternalServerError("ua denied"));
             }
         }
+
+        self.audit_task = self.should_audit();
 
         let origin = self.ctx.checkout_or_connect(&self.task_notes).await?;
         match origin {
@@ -232,18 +248,7 @@ impl H2ForwardTask {
         let (parts, clt_body) = clt_req.into_parts();
         let ups_req = Request::from_parts(parts, ());
 
-        let audit_task = self
-            .task_notes
-            .tenant_user()
-            .and_then(|u| u.audit().do_task_audit())
-            .unwrap_or_else(|| {
-                self.ctx
-                    .audit_handle
-                    .as_ref()
-                    .is_some_and(|h| h.do_task_audit())
-            });
-
-        if audit_task
+        if self.audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.as_ref()
             && let Some(reqmod) = audit_handle.icap_reqmod_client()
         {
@@ -499,18 +504,7 @@ impl H2ForwardTask {
         let clt_rsp = Response::from_parts(parts, ());
         self.http_notes.origin_status = clt_rsp.status().as_u16();
 
-        let audit_task = self
-            .task_notes
-            .tenant_user()
-            .and_then(|u| u.audit().do_task_audit())
-            .unwrap_or_else(|| {
-                self.ctx
-                    .audit_handle
-                    .as_ref()
-                    .is_some_and(|h| h.do_task_audit())
-            });
-
-        if audit_task
+        if self.audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.as_ref()
             && let Some(respmod) = audit_handle.icap_respmod_client()
         {
