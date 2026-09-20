@@ -9,10 +9,11 @@ use std::sync::Arc;
 use bytes::Bytes;
 use h2::ext::Protocol;
 use h2::server::SendResponse;
-use h2::{RecvStream, StreamId};
+use h2::{Reason, RecvStream, StreamId};
 use http::{Method, Request, StatusCode, header};
 use uuid::Uuid;
 
+use vey_h2::RequestExt;
 use vey_http::server::UriExt;
 use vey_types::net::{HttpUpgradeToken, UpstreamAddr, ViaValue};
 
@@ -34,6 +35,7 @@ enum H2StreamError {
     LoopDetected,
     TenantBlocked,
     UnsupportedConnect,
+    Http11Required,
 }
 
 impl H2StreamError {
@@ -46,6 +48,7 @@ impl H2StreamError {
             Self::LoopDetected => "loop detected",
             Self::TenantBlocked => "tenant blocked",
             Self::UnsupportedConnect => "unsupported connect",
+            Self::Http11Required => "HTTP/1.1 required",
         }
     }
 
@@ -57,6 +60,7 @@ impl H2StreamError {
             Self::LoopDetected => StatusCode::LOOP_DETECTED,
             Self::TenantBlocked => StatusCode::FORBIDDEN,
             Self::UnsupportedConnect => StatusCode::NOT_IMPLEMENTED,
+            Self::Http11Required => StatusCode::HTTP_VERSION_NOT_SUPPORTED,
         }
     }
 
@@ -124,6 +128,10 @@ impl H2StreamTask {
                 self.log("Websocket", Some(task.task_id()), Some("Websocket"), None);
                 task.run(clt_req, clt_send_rsp).await;
             }
+            Err(e @ H2StreamError::Http11Required) => {
+                clt_send_rsp.send_reset(Reason::HTTP_1_1_REQUIRED);
+                self.log(e.as_str(), None, None, None);
+            }
             Err(e) => {
                 self.ctx
                     .reply_early_error(&mut clt_send_rsp, e.status(), e.proxy_error());
@@ -178,6 +186,10 @@ impl H2StreamTask {
                 tokio::time::sleep(delay).await;
             }
             return Err(H2StreamError::TenantBlocked);
+        }
+
+        if clt_req.authorization_negotiate() {
+            return Err(H2StreamError::Http11Required);
         }
 
         if clt_req.method().eq(&Method::CONNECT) {

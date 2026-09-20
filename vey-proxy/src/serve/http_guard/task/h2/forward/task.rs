@@ -206,7 +206,11 @@ impl H2ForwardTask {
 
         self.audit_task = self.should_audit();
 
-        let origin = self.ctx.checkout_or_connect(&self.task_notes).await?;
+        let origin = if clt_req.maybe_grpc() {
+            OriginConnection::H2(self.ctx.checkout_or_connect_h2(&self.task_notes).await?)
+        } else {
+            self.ctx.checkout_or_connect(&self.task_notes).await?
+        };
         match origin {
             OriginConnection::H2(origin) => {
                 self.forward_h2_origin(origin, clt_req, clt_send_rsp).await
