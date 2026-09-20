@@ -8,9 +8,11 @@ use yaml_rust::Yaml;
 
 use vey_types::net::ConnectionPoolConfig;
 
-pub fn as_connection_pool_config(value: &Yaml) -> anyhow::Result<ConnectionPoolConfig> {
+pub fn update_connection_pool_config(
+    config: &mut ConnectionPoolConfig,
+    value: &Yaml,
+) -> anyhow::Result<()> {
     if let Yaml::Hash(map) = value {
-        let mut config = ConnectionPoolConfig::default();
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "check_interval" => {
                 let interval = crate::humanize::as_duration(v)
@@ -35,13 +37,18 @@ pub fn as_connection_pool_config(value: &Yaml) -> anyhow::Result<ConnectionPoolC
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
-        })?;
-        Ok(config)
+        })
     } else {
         Err(anyhow!(
             "yaml value type for 'icap connection pool' should be 'map'"
         ))
     }
+}
+
+pub fn as_connection_pool_config(value: &Yaml) -> anyhow::Result<ConnectionPoolConfig> {
+    let mut config = ConnectionPoolConfig::default();
+    update_connection_pool_config(&mut config, value)?;
+    Ok(config)
 }
 
 #[cfg(test)]

@@ -80,7 +80,7 @@ impl IcapServiceConfig {
             upstream,
             tls_client,
             tls_name,
-            connection_pool: ConnectionPoolConfig::default(),
+            connection_pool: ConnectionPoolConfig::new(1024, 0),
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
             tcp_connect_timeout: Duration::from_secs(1),
             #[cfg(unix)]
@@ -215,6 +215,7 @@ mod tests {
         let mut config = IcapServiceConfig::new(IcapMethod::Reqmod, url).unwrap();
         assert!(config.tls_client.is_none());
         assert_eq!(config.upstream.port(), 1344);
+        assert_eq!(config.connection_pool.min_idle_count(), 0);
         assert_eq!(config.tcp_connect_timeout, Duration::from_secs(1));
         config.user_agent = Some("vey-test/1.0".to_string());
 

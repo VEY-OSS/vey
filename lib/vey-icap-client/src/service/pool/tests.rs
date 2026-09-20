@@ -11,6 +11,7 @@ use url::Url;
 
 use std::sync::Arc;
 
+use crate::IcapServiceOptions;
 use crate::service::{IcapClientConnection, IcapConnector, IcapServiceConfig};
 
 use super::{IcapConnectionPool, IdleIcapConnection};
@@ -42,7 +43,9 @@ pub(super) fn test_icap_config(
 }
 
 fn make_dummy_pool(min: usize, max: usize) -> IcapConnectionPool {
-    let addr: SocketAddr = "127.0.0.1:1344".parse().unwrap();
+    // Unreachable so maintainer create()/OPTIONS cannot succeed and
+    // accidentally grow the pool in tests that only seed dummy connections.
+    let addr: SocketAddr = "127.0.0.1:1".parse().unwrap();
     let config = Arc::new(test_icap_config(addr, min, max, Duration::from_secs(5)));
 
     let connector = Arc::new(IcapConnector::new(Arc::clone(&config)).unwrap());
@@ -148,4 +151,48 @@ fn expire_removes_old_connections() {
     assert_eq!(expired, 1);
 
     assert_eq!(pool.idle_pool.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn check_options_does_not_steal_idle_connections() {
+    let pool = make_dummy_pool(0, 2);
+    let (conn, _server) = dummy_connection();
+    assert!(pool.try_put(conn));
+    assert_eq!(pool.idle_pool.lock().unwrap().len(), 1);
+
+    pool.check_options().await;
+
+    assert_eq!(pool.idle_pool.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn refill_create_error_keeps_existing_idle() {
+    let pool = make_dummy_pool(2, 4);
+    let (conn, _server) = dummy_connection();
+    assert!(pool.try_put(conn));
+    assert_eq!(pool.idle_pool.lock().unwrap().len(), 1);
+
+    pool.refill().await;
+
+    assert_eq!(pool.idle_pool.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn get_reuses_idle_connection() {
+    let pool = make_dummy_pool(0, 2);
+    pool.options
+        .store(Arc::new(IcapServiceOptions::new(crate::IcapMethod::Reqmod)));
+    let (conn, _server) = dummy_connection();
+    assert!(pool.try_put(conn));
+
+    let got = pool.get().await.unwrap();
+    assert!(got.is_reused());
+    assert_eq!(pool.idle_pool.lock().unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn get_miss_fails_when_icap_unreachable() {
+    let pool = make_dummy_pool(0, 2);
+    assert!(pool.get().await.is_err());
+    assert_eq!(pool.idle_pool.lock().unwrap().len(), 0);
 }

@@ -29,7 +29,7 @@ pub struct IcapServiceOptions {
 }
 
 impl IcapServiceOptions {
-    fn new(method: IcapMethod) -> Self {
+    pub(crate) fn new(method: IcapMethod) -> Self {
         IcapServiceOptions {
             method,
             server: None,

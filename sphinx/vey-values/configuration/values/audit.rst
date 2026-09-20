@@ -107,9 +107,11 @@ If the value is a map, the following keys are supported:
 
   **optional**, **type**: :ref:`connection pool <conf_value_connection_pool_config>`
 
-  Connection-pool configuration.
+  Connection-pool configuration. Unlike the generic connection-pool default,
+  ICAP uses ``min_idle_count`` ``0`` unless explicitly set: idle connections
+  are filled by reused ICAP sessions, not by pre-connect.
 
-  **default**: set with default value
+  **default**: max idle 1024, min idle 0
 
 * icap_max_header_size
 

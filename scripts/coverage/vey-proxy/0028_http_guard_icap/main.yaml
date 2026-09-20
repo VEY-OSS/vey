@@ -24,25 +24,21 @@ auditor:
       url: icap://127.0.0.1:1344/echo
       pool:
         max_idle_count: 50
-        min_idle_count: 0
     icap_respmod_service:
       url: icap://127.0.0.1:1344/echo
       pool:
         max_idle_count: 50
-        min_idle_count: 0
   - name: icap_waf_nopreview
     icap_reqmod_service:
       url: icap://127.0.0.1:1344/echo
       no_preview: true
       pool:
         max_idle_count: 50
-        min_idle_count: 0
     icap_respmod_service:
       url: icap://127.0.0.1:1344/echo
       no_preview: true
       pool:
         max_idle_count: 50
-        min_idle_count: 0
 
 site_group:
   - name: httpbin

@@ -74,10 +74,27 @@ impl IcapConnectionPool {
             if !conn.probe_idle().await {
                 continue;
             }
+            if self.options.load().expired() {
+                match self.handshake(conn).await {
+                    Ok(mut conn) => {
+                        conn.mark_reused();
+                        return Ok(conn);
+                    }
+                    Err(e) => {
+                        warn!("icap OPTIONS on idle connection failed: {e}");
+                        continue;
+                    }
+                }
+            }
             conn.mark_reused();
             return Ok(conn);
         }
-        self.connector.create().await
+        let conn = self.connector.create().await?;
+        if self.options.load().expired() {
+            self.handshake(conn).await
+        } else {
+            Ok(conn)
+        }
     }
 
     fn expire(&self) -> usize {
@@ -94,6 +111,30 @@ impl IcapConnectionPool {
             }
         }
         expired.len()
+    }
+
+    async fn handshake(&self, mut conn: IcapClientConnection) -> io::Result<IcapClientConnection> {
+        conn.mark_io_inuse();
+        let req = IcapOptionsRequest::new(&self.config);
+        let fut = req.get_options(&mut conn, self.config.icap_max_header_size);
+        match tokio::time::timeout(self.config.options_timeout, fut).await {
+            Ok(Ok(options)) => {
+                self.options.store(Arc::new(options));
+                Ok(conn)
+            }
+            Ok(Err(e)) => {
+                warn!("icap options request failed: {e}");
+                Err(io::Error::other(e))
+            }
+            Err(_) => {
+                let msg = format!(
+                    "icap options request timed out after {:?}",
+                    self.config.options_timeout
+                );
+                warn!("{msg}");
+                Err(io::Error::new(io::ErrorKind::TimedOut, msg))
+            }
+        }
     }
 
     async fn refill(&self) {
@@ -123,22 +164,15 @@ impl IcapConnectionPool {
             return;
         }
 
-        if let Ok(mut conn) = self.get().await {
-            conn.mark_io_inuse();
-            let req = IcapOptionsRequest::new(&self.config);
-            let fut = req.get_options(&mut conn, self.config.icap_max_header_size);
-            let result = tokio::time::timeout(self.config.options_timeout, fut).await;
-            match result {
-                Ok(Ok(options)) => {
-                    self.options.store(Arc::new(options));
+        // OPTIONS uses a dedicated connection so a timeout or handshake
+        // failure cannot steal idle connections from get().
+        match self.connector.create().await {
+            Ok(conn) => {
+                if let Ok(conn) = self.handshake(conn).await {
                     self.try_put(conn);
                 }
-                Ok(Err(e)) => warn!("icap options request failed: {e}"),
-                Err(_) => warn!(
-                    "icap options request timed out after {:?}",
-                    self.config.options_timeout
-                ),
             }
+            Err(e) => warn!("icap options connect failed: {e}"),
         }
     }
 }

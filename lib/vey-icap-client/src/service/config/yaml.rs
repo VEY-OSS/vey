@@ -61,7 +61,7 @@ impl IcapServiceConfig {
                 Ok(())
             }
             "icap_connection_pool" | "connection_pool" | "pool" => {
-                config.connection_pool = vey_yaml::value::as_connection_pool_config(v)
+                vey_yaml::value::update_connection_pool_config(&mut config.connection_pool, v)
                     .context(format!("invalid connection pool config value for key {k}"))?;
                 Ok(())
             }
@@ -246,6 +246,7 @@ mod tests {
         );
         assert_eq!(config.tcp_keepalive.probe_count(), Some(3));
         assert_eq!(config.connection_pool.max_idle_count(), 10);
+        assert_eq!(config.connection_pool.min_idle_count(), 0);
         assert_eq!(
             config.connection_pool.idle_timeout(),
             std::time::Duration::from_secs(30)

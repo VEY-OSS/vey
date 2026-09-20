@@ -20,7 +20,7 @@ mod haproxy;
 pub use haproxy::as_proxy_protocol_version;
 
 mod pool;
-pub use pool::as_connection_pool_config;
+pub use pool::{as_connection_pool_config, update_connection_pool_config};
 
 mod port;
 pub use port::{as_port_range, as_ports};
