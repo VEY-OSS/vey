@@ -56,19 +56,31 @@ impl<I: IdleCheck> H1ToH2ResponseAdapter<I> {
         let icap_header =
             self.build_forward_all_request(http_req_header.len(), http_rsp_header.len());
 
-        let chunk_start = format!("{:x}\r\n", ups_body.len());
         let icap_w = &mut self.icap_connection.writer;
-        icap_w
-            .write_all_vectored([
-                IoSlice::new(&icap_header),
-                IoSlice::new(&http_req_header),
-                IoSlice::new(&http_rsp_header),
-                IoSlice::new(chunk_start.as_bytes()),
-                IoSlice::new(&ups_body),
-                IoSlice::new(b"\r\n0\r\n\r\n"),
-            ])
-            .await
-            .map_err(H1ToH2RespmodAdaptationError::IcapServerWriteFailed)?;
+        if ups_body.is_empty() {
+            icap_w
+                .write_all_vectored([
+                    IoSlice::new(&icap_header),
+                    IoSlice::new(&http_req_header),
+                    IoSlice::new(&http_rsp_header),
+                    IoSlice::new(b"0\r\n\r\n"),
+                ])
+                .await
+                .map_err(H1ToH2RespmodAdaptationError::IcapServerWriteFailed)?;
+        } else {
+            let chunk_start = format!("{:x}\r\n", ups_body.len());
+            icap_w
+                .write_all_vectored([
+                    IoSlice::new(&icap_header),
+                    IoSlice::new(&http_req_header),
+                    IoSlice::new(&http_rsp_header),
+                    IoSlice::new(chunk_start.as_bytes()),
+                    IoSlice::new(&ups_body),
+                    IoSlice::new(b"\r\n0\r\n\r\n"),
+                ])
+                .await
+                .map_err(H1ToH2RespmodAdaptationError::IcapServerWriteFailed)?;
+        }
         icap_w
             .flush()
             .await
