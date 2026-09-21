@@ -39,7 +39,7 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
         mut self,
         state: &mut ReqmodAdaptationRunState,
         http_request: &H,
-        mut clt_body: RecvStream,
+        clt_body: &mut RecvStream,
         ups_writer: &mut UW,
         max_preview_size: usize,
     ) -> Result<ReqmodAdaptationEndState<H>, H2ToH1ReqmodAdaptationError>
@@ -48,9 +48,7 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
         UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
         let mut preview_data = H2PreviewData::new(max_preview_size);
-        preview_data
-            .recv_all(&mut clt_body, &self.idle_checker)
-            .await?;
+        preview_data.recv_all(clt_body, &self.idle_checker).await?;
 
         if preview_data.end_of_data() {
             return self
@@ -92,14 +90,14 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
                 let preview_hdr = preview_data.preview_size() as u64;
                 let mut body_transfer = if let Some(left_data) = preview_data.take_left() {
                     H2StreamToChunkedTransfer::with_chunk(
-                        &mut clt_body,
+                        clt_body,
                         &mut self.icap_connection.writer,
                         self.copy_config.yield_size(),
                         left_data,
                     )
                 } else {
                     H2StreamToChunkedTransfer::new(
-                        &mut clt_body,
+                        clt_body,
                         &mut self.icap_connection.writer,
                         self.copy_config.yield_size(),
                     )

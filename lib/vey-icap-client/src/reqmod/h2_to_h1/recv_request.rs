@@ -79,7 +79,7 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
         icap_rsp: ReqmodResponse,
         http_request: &H,
         mut preview_data: H2PreviewData,
-        mut clt_body: h2::RecvStream,
+        clt_body: &mut h2::RecvStream,
         ups_writer: &mut UW,
     ) -> Result<ReqmodAdaptationEndState<H>, H2ToH1ReqmodAdaptationError>
     where
@@ -104,13 +104,13 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
 
         let mut body_transfer = if let Some(left) = preview_data.take_left() {
             H2StreamToChunkedTransfer::with_chunk(
-                &mut clt_body,
+                clt_body,
                 ups_writer,
                 self.copy_config.yield_size(),
                 left,
             )
         } else {
-            H2StreamToChunkedTransfer::new(&mut clt_body, ups_writer, self.copy_config.yield_size())
+            H2StreamToChunkedTransfer::new(clt_body, ups_writer, self.copy_config.yield_size())
         };
         body_transfer.add_copied(preview_size);
 

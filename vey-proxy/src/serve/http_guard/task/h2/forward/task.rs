@@ -82,7 +82,7 @@ impl H2ForwardTask {
         &self.task_notes.id
     }
 
-    fn log_ctx(&self) -> Option<TaskLogForH2Forward<'_>> {
+    pub(super) fn log_ctx(&self) -> Option<TaskLogForH2Forward<'_>> {
         self.ctx
             .task_logger
             .as_ref()

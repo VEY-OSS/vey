@@ -159,7 +159,7 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
         self,
         state: &mut ReqmodAdaptationRunState,
         http_request: &H,
-        clt_body: RecvStream,
+        clt_body: &mut RecvStream,
         ups_writer: &mut UW,
     ) -> Result<ReqmodAdaptationEndState<H>, H2ToH1ReqmodAdaptationError>
     where

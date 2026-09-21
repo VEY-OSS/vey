@@ -38,7 +38,7 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
         state: &mut ReqmodAdaptationRunState,
         http_request: &H,
         preview_data: H2PreviewData,
-        clt_body: RecvStream,
+        clt_body: &mut RecvStream,
         ups_writer: &mut UW,
     ) -> Result<ReqmodAdaptationEndState<H>, H2ToH1ReqmodAdaptationError>
     where
@@ -69,14 +69,12 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
 
     async fn recv_send_trailer(
         &mut self,
-        mut clt_body: RecvStream,
+        clt_body: &mut RecvStream,
     ) -> Result<(), H2ToH1ReqmodAdaptationError> {
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
-        let mut trailer_transfer = H2StreamToChunkedTransfer::without_data(
-            &mut clt_body,
-            &mut self.icap_connection.writer,
-        );
+        let mut trailer_transfer =
+            H2StreamToChunkedTransfer::without_data(clt_body, &mut self.icap_connection.writer);
         loop {
             tokio::select! {
                 biased;
@@ -186,7 +184,7 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
         mut self,
         state: &mut ReqmodAdaptationRunState,
         http_request: &H,
-        mut clt_body: RecvStream,
+        clt_body: &mut RecvStream,
         ups_writer: &mut UW,
     ) -> Result<ReqmodAdaptationEndState<H>, H2ToH1ReqmodAdaptationError>
     where
@@ -203,7 +201,7 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
             .map_err(H2ToH1ReqmodAdaptationError::IcapServerWriteFailed)?;
 
         let mut body_transfer = H2StreamToChunkedTransfer::new(
-            &mut clt_body,
+            clt_body,
             &mut self.icap_connection.writer,
             self.copy_config.yield_size(),
         );

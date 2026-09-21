@@ -3,32 +3,43 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::sync::Arc;
+
+use anyhow::anyhow;
 use bytes::Bytes;
+use futures_util::FutureExt;
 use h2::server::SendResponse;
 use h2::{RecvStream, SendStream};
-use http::Request;
+use http::{HeaderMap, Request, Response};
+use tokio::io::AsyncWriteExt;
 use tokio::time::Instant;
 
 use vey_h2::{
     H2BodyEncodeTransfer, H2StreamBodyTransferError, H2StreamFromChunkedTransfer,
     H2StreamToChunkedTransfer,
 };
-use vey_http::client::HttpForwardRemoteResponse;
+use vey_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
 use vey_http::server::HttpConvertedRequest;
 use vey_http::{HttpBodyDecodeReader, HttpBodyType};
 use vey_icap_client::reqmod::h1::HttpRequestUpstreamWriter;
 use vey_icap_client::reqmod::h2_to_h1::{
     H2ToH1RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
 };
-use vey_icap_client::respmod::h1_to_h2::{RespmodAdaptationEndState, RespmodAdaptationRunState};
+use vey_icap_client::respmod::h1_to_h2::{
+    H1ToH2ResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
+};
 use vey_io_ext::LimitedBufReadExt;
 
 use super::task::H2ForwardTask;
 use super::{H2StreamTransferError, OriginH1Sender};
+use crate::audit::AuditContext;
+use crate::escape::EgressNotes;
 use crate::module::http_forward::{
-    BoxHttpForwardConnection, BoxHttpForwardReader, HttpForwardWriterForAdaptation,
+    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardReader,
+    HttpForwardWriterForAdaptation, NilHttpForwardTaskRemoteStats,
 };
-use crate::serve::ServerTaskStage;
+use crate::module::tcp_connect::{TcpConnectTaskConf, TlsConnectTaskConf};
+use crate::serve::{ServerIdleChecker, ServerTaskStage};
 
 impl H2ForwardTask {
     pub(super) async fn forward_h1_origin(
@@ -37,19 +48,58 @@ impl H2ForwardTask {
         clt_req: Request<RecvStream>,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
-        self.http_notes.reused_connection = origin.reused;
-        self.egress_notes = origin.egress_notes.clone();
-        self.task_notes.stage = ServerTaskStage::Connected;
-        origin
-            .connection
-            .0
-            .prepare_new(&self.task_notes, self.ctx.site_ctx.site().upstream());
-
-        let (parts, clt_body) = clt_req.into_parts();
+        let (parts, mut clt_body) = clt_req.into_parts();
         let orig_req = Request::from_parts(parts, ());
         let converted = HttpConvertedRequest::from_request(&orig_req, !clt_body.is_end_stream())?;
+        let no_body = clt_body.is_end_stream();
 
-        let keep_alive = if self.audit_task
+        self.prepare_h1_origin(&mut origin);
+        let keep_alive = match self
+            .run_with_h1_connection(
+                &mut origin,
+                &orig_req,
+                &converted,
+                &mut clt_body,
+                clt_send_rsp,
+                no_body,
+            )
+            .await
+        {
+            Ok(keep_alive) => keep_alive,
+            Err(e) => {
+                origin = self.reconnect_after_stale_h1(e).await?;
+                self.prepare_h1_origin(&mut origin);
+                self.run_with_h1_connection(
+                    &mut origin,
+                    &orig_req,
+                    &converted,
+                    &mut clt_body,
+                    clt_send_rsp,
+                    no_body,
+                )
+                .await?
+            }
+        };
+        if keep_alive {
+            self.save_h1_origin(origin);
+        }
+        Ok(())
+    }
+
+    async fn run_with_h1_connection(
+        &mut self,
+        origin: &mut OriginH1Sender,
+        orig_req: &Request<()>,
+        converted: &HttpConvertedRequest,
+        clt_body: &mut RecvStream,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        no_body: bool,
+    ) -> Result<bool, H2StreamTransferError> {
+        if let Some(e) = self.poll_idle_h1_origin(origin) {
+            return Err(e);
+        }
+
+        if self.audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.as_ref()
             && let Some(reqmod) = audit_handle.icap_reqmod_client()
         {
@@ -72,55 +122,140 @@ impl H2ForwardTask {
                         adapter.set_tenant_username(username.clone());
                     }
                     self.forward_h1_with_adaptation(
-                        &mut origin,
+                        origin,
                         orig_req,
                         converted,
                         clt_body,
                         clt_send_rsp,
                         adapter,
+                        no_body,
                     )
-                    .await?
+                    .await
                 }
                 Err(e) => {
                     if !reqmod.bypass() {
                         return Err(H2StreamTransferError::InternalAdapterError(e));
                     }
                     self.forward_h1_without_adaptation(
-                        &mut origin,
+                        origin,
                         orig_req,
                         converted,
                         clt_body,
                         clt_send_rsp,
                     )
-                    .await?
+                    .await
                 }
             }
         } else {
-            self.forward_h1_without_adaptation(
-                &mut origin,
-                orig_req,
-                converted,
-                clt_body,
-                clt_send_rsp,
-            )
-            .await?
-        };
-
-        if keep_alive {
-            self.save_h1_origin(origin);
+            self.forward_h1_without_adaptation(origin, orig_req, converted, clt_body, clt_send_rsp)
+                .await
         }
-        Ok(())
+    }
+
+    fn prepare_h1_origin(&mut self, origin: &mut OriginH1Sender) {
+        self.http_notes.reused_connection = origin.reused;
+        self.http_notes.retry_new_connection = false;
+        self.egress_notes = origin.egress_notes.clone();
+        self.task_notes.stage = ServerTaskStage::Connected;
+        origin
+            .connection
+            .0
+            .prepare_new(&self.task_notes, self.ctx.site_ctx.site().upstream());
+    }
+
+    fn poll_idle_h1_origin(
+        &mut self,
+        origin: &mut OriginH1Sender,
+    ) -> Option<H2StreamTransferError> {
+        if !origin.reused {
+            return None;
+        }
+        let r = origin.connection.1.fill_wait_data().now_or_never()?;
+        self.http_notes.retry_new_connection = true;
+        Some(match r {
+            Ok(true) => H2StreamTransferError::InternalServerError(
+                "unexpected data found when polling idle origin connection",
+            ),
+            Ok(false) => H2StreamTransferError::OriginClosed,
+            Err(e) => H2StreamTransferError::OriginReadFailed(e),
+        })
+    }
+
+    async fn reconnect_after_stale_h1(
+        &mut self,
+        e: H2StreamTransferError,
+    ) -> Result<OriginH1Sender, H2StreamTransferError> {
+        if !(self.http_notes.reused_connection && self.http_notes.retry_new_connection) {
+            return Err(e);
+        }
+        if let Some(log) = self.log_ctx() {
+            log.log(&e.to_string());
+        }
+        self.http_notes.retry_new_connection = false;
+        self.connect_origin_h1().await
+    }
+
+    async fn connect_origin_h1(&mut self) -> Result<OriginH1Sender, H2StreamTransferError> {
+        let mut fwd_ctx = self
+            .ctx
+            .escaper
+            .new_http_forward_context(Arc::clone(&self.ctx.escaper));
+        let mut audit_ctx = AuditContext::new(self.ctx.audit_handle.clone());
+        let task_stats: ArcHttpForwardTaskRemoteStats = Arc::new(NilHttpForwardTaskRemoteStats);
+        let site = self.ctx.site_ctx.site();
+        let (connection, reuse_notes) = if let Some(tls_client) = site.tls_client() {
+            let task_conf = TlsConnectTaskConf {
+                tcp: TcpConnectTaskConf {
+                    upstream: site.upstream(),
+                },
+                tls_config: tls_client,
+                tls_name: site.tls_name(),
+                alpn_protocols: None,
+            };
+            fwd_ctx
+                .new_prepared_https_connection(
+                    &task_conf,
+                    &self.task_notes,
+                    task_stats,
+                    &mut audit_ctx,
+                )
+                .await
+        } else {
+            let task_conf = TcpConnectTaskConf {
+                upstream: site.upstream(),
+            };
+            fwd_ctx
+                .new_prepared_http_connection(
+                    &task_conf,
+                    &self.task_notes,
+                    task_stats,
+                    &mut audit_ctx,
+                )
+                .await
+        }
+        .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
+
+        let mut egress_notes = EgressNotes::default();
+        fwd_ctx.fetch_egress_notes(&mut egress_notes);
+        Ok(OriginH1Sender {
+            connection,
+            reused: false,
+            reuse_notes,
+            egress_notes,
+        })
     }
 
     async fn forward_h1_with_adaptation(
         &mut self,
         origin: &mut OriginH1Sender,
-        orig_req: Request<()>,
-        converted: HttpConvertedRequest,
-        clt_body: RecvStream,
+        orig_req: &Request<()>,
+        converted: &HttpConvertedRequest,
+        clt_body: &mut RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
         adapter: H2ToH1RequestAdapter<crate::serve::ServerIdleChecker>,
+        no_body: bool,
     ) -> Result<bool, H2StreamTransferError> {
+        self.http_notes.retry_new_connection = no_body;
         let mut adaptation_state = ReqmodAdaptationRunState::new(Instant::now());
         let mut rsp_header = None;
         let icap_error = {
@@ -130,7 +265,7 @@ impl H2ForwardTask {
                 HttpForwardWriterForAdaptation::new(ups_w, origin.egress_notes.expire_at);
             let adaptation_fut = adapter.xfer(
                 &mut adaptation_state,
-                &converted,
+                converted,
                 clt_body,
                 &mut ups_w_adaptation,
             );
@@ -151,8 +286,18 @@ impl H2ForwardTask {
                                     break;
                                 }
                             }
-                            Ok(false) => return Err(H2StreamTransferError::OriginClosed),
-                            Err(e) => return Err(H2StreamTransferError::OriginReadFailed(e)),
+                            Ok(false) => {
+                                if no_body {
+                                    self.http_notes.retry_new_connection = true;
+                                }
+                                return Err(H2StreamTransferError::OriginClosed);
+                            }
+                            Err(e) => {
+                                if no_body {
+                                    self.http_notes.retry_new_connection = true;
+                                }
+                                return Err(H2StreamTransferError::OriginReadFailed(e));
+                            }
                         }
                     }
                     r = &mut adaptation_fut => {
@@ -160,10 +305,22 @@ impl H2ForwardTask {
                             Ok(ReqmodAdaptationEndState::OriginalTransferred)
                             | Ok(ReqmodAdaptationEndState::AdaptedTransferred(_)) => break,
                             Ok(ReqmodAdaptationEndState::HttpErrResponse(err_rsp, recv_body)) => {
+                                self.http_notes.retry_new_connection = false;
                                 icap_error = Some((err_rsp, recv_body));
                                 break;
                             }
-                            Err(e) => return Err(e.into()),
+                            Err(e) => {
+                                let err = H2StreamTransferError::from(e);
+                                if no_body {
+                                    self.http_notes.retry_new_connection = matches!(
+                                        err,
+                                        H2StreamTransferError::OriginWriteFailed(_)
+                                            | H2StreamTransferError::OriginClosed
+                                            | H2StreamTransferError::OriginReadFailed(_)
+                                    );
+                                }
+                                return Err(err);
+                            }
                         }
                     }
                 }
@@ -185,9 +342,19 @@ impl H2ForwardTask {
             self.http_notes.dur_req_send_all = d;
         }
 
-        let mut rsp_header = self
+        let mut rsp_header = match self
             .recv_final_h1_response(&mut origin.connection, clt_send_rsp, rsp_header)
-            .await?;
+            .await
+        {
+            Ok(header) => {
+                self.http_notes.retry_new_connection = false;
+                header
+            }
+            Err(e) => {
+                self.retain_retry_on_recv_error(&e);
+                return Err(e);
+            }
+        };
         let keep_alive = rsp_header.keep_alive()
             && adaptation_state.clt_read_finished
             && adaptation_state.ups_write_finished
@@ -213,29 +380,35 @@ impl H2ForwardTask {
     async fn forward_h1_without_adaptation(
         &mut self,
         origin: &mut OriginH1Sender,
-        orig_req: Request<()>,
-        converted: HttpConvertedRequest,
-        mut clt_body: RecvStream,
+        orig_req: &Request<()>,
+        converted: &HttpConvertedRequest,
+        clt_body: &mut RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<bool, H2StreamTransferError> {
         let mut rsp_header = None;
+        self.http_notes.retry_new_connection = true;
         let (clt_read_finished, ups_write_finished) = {
             let ups_w = &mut origin.connection.0;
             let ups_r = &mut origin.connection.1;
             let mut ups_w_adaptation =
                 HttpForwardWriterForAdaptation::new(ups_w, origin.egress_notes.expire_at);
             ups_w_adaptation
-                .send_request_header(&converted)
+                .send_request_header(converted)
                 .await
                 .map_err(H2StreamTransferError::OriginWriteFailed)?;
             self.http_notes.mark_req_send_hdr();
 
             if clt_body.is_end_stream() {
+                ups_w_adaptation
+                    .flush()
+                    .await
+                    .map_err(H2StreamTransferError::OriginWriteFailed)?;
                 self.http_notes.mark_req_no_body();
                 (true, true)
             } else {
+                self.http_notes.retry_new_connection = false;
                 let mut body_transfer = H2StreamToChunkedTransfer::new(
-                    &mut clt_body,
+                    clt_body,
                     ups_w,
                     self.ctx.server_config.tcp_copy.yield_size(),
                 );
@@ -256,13 +429,13 @@ impl H2ForwardTask {
                                     }
                                 }
                                 Ok(false) => {
-                                    if body_transfer.copied_size() == 0 {
+                                    if body_transfer.received_size() == 0 {
                                         self.http_notes.retry_new_connection = true;
                                     }
                                     return Err(H2StreamTransferError::OriginClosed);
                                 }
                                 Err(e) => {
-                                    if body_transfer.copied_size() == 0 {
+                                    if body_transfer.received_size() == 0 {
                                         self.http_notes.retry_new_connection = true;
                                     }
                                     return Err(H2StreamTransferError::OriginReadFailed(e));
@@ -306,9 +479,19 @@ impl H2ForwardTask {
             }
         };
 
-        let mut rsp_header = self
+        let mut rsp_header = match self
             .recv_final_h1_response(&mut origin.connection, clt_send_rsp, rsp_header)
-            .await?;
+            .await
+        {
+            Ok(header) => {
+                self.http_notes.retry_new_connection = false;
+                header
+            }
+            Err(e) => {
+                self.retain_retry_on_recv_error(&e);
+                return Err(e);
+            }
+        };
         let keep_alive = rsp_header.keep_alive()
             && clt_read_finished
             && ups_write_finished
@@ -329,6 +512,20 @@ impl H2ForwardTask {
             )
             .await?;
         Ok(keep_alive && ups_read_finished)
+    }
+
+    fn retain_retry_on_recv_error(&mut self, e: &H2StreamTransferError) {
+        if !self.http_notes.retry_new_connection {
+            return;
+        }
+        self.http_notes.retry_new_connection = matches!(
+            e,
+            H2StreamTransferError::OriginClosed
+                | H2StreamTransferError::OriginReadFailed(_)
+                | H2StreamTransferError::OriginResponseParseFailed(
+                    HttpResponseParseError::RemoteClosed | HttpResponseParseError::IoFailed(_)
+                )
+        );
     }
 
     async fn recv_final_h1_response(
@@ -398,11 +595,11 @@ impl H2ForwardTask {
 
     async fn send_h1_origin_response(
         &mut self,
-        orig_req: Request<()>,
+        orig_req: &Request<()>,
         rsp_header: &mut HttpForwardRemoteResponse,
         ups_r: &mut BoxHttpForwardReader,
         clt_send_rsp: &mut SendResponse<Bytes>,
-        adaptation_respond_shared_headers: Option<http::HeaderMap>,
+        adaptation_respond_shared_headers: Option<HeaderMap>,
     ) -> Result<bool, H2StreamTransferError> {
         let body_type = rsp_header.body_type(&self.http_notes.method);
         let clt_rsp = rsp_header.to_h2_response();
@@ -434,27 +631,17 @@ impl H2ForwardTask {
                         adapter.set_tenant_username(username);
                     }
                     adapter.set_respond_shared_headers(adaptation_respond_shared_headers);
-                    let r = adapter
-                        .xfer(
-                            &mut adaptation_state,
-                            &orig_req,
+                    return self
+                        .send_response_with_adaptation(
+                            orig_req,
                             clt_rsp,
                             body_type,
                             ups_r,
                             clt_send_rsp,
+                            adapter,
+                            &mut adaptation_state,
                         )
                         .await;
-                    self.http_notes.ups_rsp_body_size = adaptation_state.ups_rsp_body_size;
-                    self.http_notes.clt_rsp_body_size = adaptation_state.clt_rsp_body_size;
-                    match r {
-                        Ok(RespmodAdaptationEndState::OriginalTransferred)
-                        | Ok(RespmodAdaptationEndState::AdaptedTransferred(_)) => {
-                            self.http_notes.rsp_status = self.http_notes.origin_status;
-                            self.send_error_response = false;
-                            return Ok(adaptation_state.ups_read_finished);
-                        }
-                        Err(e) => return Err(e.into()),
-                    }
                 }
                 Err(e) => {
                     if !respmod.bypass() {
@@ -464,6 +651,50 @@ impl H2ForwardTask {
             }
         }
 
+        self.send_response_without_adaptation(clt_rsp, body_type, ups_r, clt_send_rsp)
+            .await
+    }
+
+    async fn send_response_with_adaptation(
+        &mut self,
+        orig_req: &Request<()>,
+        clt_rsp: Response<()>,
+        body_type: Option<HttpBodyType>,
+        ups_r: &mut BoxHttpForwardReader,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        adapter: H1ToH2ResponseAdapter<ServerIdleChecker>,
+        adaptation_state: &mut RespmodAdaptationRunState,
+    ) -> Result<bool, H2StreamTransferError> {
+        let r = adapter
+            .xfer(
+                adaptation_state,
+                orig_req,
+                clt_rsp,
+                body_type,
+                ups_r,
+                clt_send_rsp,
+            )
+            .await;
+        self.http_notes.ups_rsp_body_size = adaptation_state.ups_rsp_body_size;
+        self.http_notes.clt_rsp_body_size = adaptation_state.clt_rsp_body_size;
+        match r {
+            Ok(RespmodAdaptationEndState::OriginalTransferred)
+            | Ok(RespmodAdaptationEndState::AdaptedTransferred(_)) => {
+                self.http_notes.rsp_status = self.http_notes.origin_status;
+                self.send_error_response = false;
+                Ok(adaptation_state.ups_read_finished)
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    async fn send_response_without_adaptation(
+        &mut self,
+        clt_rsp: Response<()>,
+        body_type: Option<HttpBodyType>,
+        ups_r: &mut BoxHttpForwardReader,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<bool, H2StreamTransferError> {
         self.send_error_response = false;
         match body_type {
             None => {
@@ -479,14 +710,14 @@ impl H2ForwardTask {
                     .send_response(clt_rsp, false)
                     .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
                 self.http_notes.rsp_status = self.http_notes.origin_status;
-                self.send_h1_origin_body(ups_r, &mut clt_send_stream, body_type)
+                self.send_response_body(ups_r, &mut clt_send_stream, body_type)
                     .await?;
                 Ok(true)
             }
         }
     }
 
-    async fn send_h1_origin_body(
+    async fn send_response_body(
         &mut self,
         ups_r: &mut BoxHttpForwardReader,
         clt_send_stream: &mut SendStream<Bytes>,

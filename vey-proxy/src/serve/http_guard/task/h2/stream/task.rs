@@ -33,6 +33,7 @@ enum H2StreamError {
     HostMismatch,
     MisdirectedRequest,
     LoopDetected,
+    TenantExpired,
     TenantBlocked,
     UnsupportedConnect,
     Http11Required,
@@ -46,6 +47,7 @@ impl H2StreamError {
             Self::HostMismatch => "host mismatch",
             Self::MisdirectedRequest => "misdirected request",
             Self::LoopDetected => "loop detected",
+            Self::TenantExpired => "tenant expired",
             Self::TenantBlocked => "tenant blocked",
             Self::UnsupportedConnect => "unsupported connect",
             Self::Http11Required => "HTTP/1.1 required",
@@ -54,7 +56,9 @@ impl H2StreamError {
 
     fn status(&self) -> StatusCode {
         match self {
-            Self::InvalidRequestTarget | Self::InvalidHostHeader => StatusCode::BAD_REQUEST,
+            Self::InvalidRequestTarget | Self::InvalidHostHeader | Self::TenantExpired => {
+                StatusCode::BAD_REQUEST
+            }
             Self::HostMismatch => StatusCode::CONFLICT,
             Self::MisdirectedRequest => StatusCode::MISDIRECTED_REQUEST,
             Self::LoopDetected => StatusCode::LOOP_DETECTED,
@@ -182,8 +186,9 @@ impl H2StreamTask {
         via.append_to_http(clt_req.headers_mut());
 
         if let Some(tenant) = self.ctx.site_ctx.tenant_ctx() {
+            // Same as H1: expired tenant is a missing site and gets 400.
             if tenant.is_expired() {
-                return Err(H2StreamError::MisdirectedRequest);
+                return Err(H2StreamError::TenantExpired);
             }
             if let Some(delay) = tenant.blocked_delay() {
                 if !delay.is_zero() {
