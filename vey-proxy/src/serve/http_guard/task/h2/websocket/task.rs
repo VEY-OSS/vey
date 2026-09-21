@@ -43,11 +43,7 @@ pub(crate) struct H2WebsocketTask {
 }
 
 impl H2WebsocketTask {
-    pub(crate) fn new(
-        ctx: Arc<H2TaskContext>,
-        clt_stream_id: StreamId,
-        req: &Request<RecvStream>,
-    ) -> Self {
+    pub(crate) fn new(ctx: Arc<H2TaskContext>, clt_stream_id: StreamId, req: &Request<()>) -> Self {
         let uri_log_max_chars = ctx
             .site_ctx
             .log_uri_max_chars()
@@ -97,7 +93,8 @@ impl H2WebsocketTask {
 
     pub(crate) async fn run(
         mut self,
-        clt_req: Request<RecvStream>,
+        req: Request<()>,
+        clt_body: RecvStream,
         mut clt_send_rsp: SendResponse<Bytes>,
     ) {
         self._alive_guard = Some(self.ctx.server_stats.add_h2_forward_task());
@@ -108,7 +105,7 @@ impl H2WebsocketTask {
             log.log_created();
         }
 
-        match self.do_run(clt_req, &mut clt_send_rsp).await {
+        match self.do_run(req, clt_body, &mut clt_send_rsp).await {
             Ok(()) => {
                 if let Some(log) = self.log_ctx() {
                     log.log_h2("finished");
@@ -125,7 +122,8 @@ impl H2WebsocketTask {
 
     async fn do_run(
         &mut self,
-        clt_req: Request<RecvStream>,
+        req: Request<()>,
+        clt_r: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
         if self.task_notes.check_layered_rate_limit().is_err() {
@@ -174,9 +172,6 @@ impl H2WebsocketTask {
             }
         };
 
-        let (parts, clt_r) = clt_req.into_parts();
-        let ups_req = Request::from_parts(parts, ());
-
         let audit_task = self
             .task_notes
             .tenant_user()
@@ -216,7 +211,7 @@ impl H2WebsocketTask {
                     return self
                         .forward_with_adaptation(
                             ups_send_req,
-                            ups_req,
+                            req,
                             clt_r,
                             clt_send_rsp,
                             adapter,
@@ -232,7 +227,7 @@ impl H2WebsocketTask {
             }
         }
 
-        self.send_connect(ups_send_req, ups_req, clt_r, clt_send_rsp)
+        self.send_connect(ups_send_req, req, clt_r, clt_send_rsp)
             .await
     }
 

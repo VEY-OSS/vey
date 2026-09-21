@@ -4,23 +4,22 @@
  */
 
 use std::ops::Deref;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::anyhow;
 use bytes::Bytes;
 use h2::Ping;
-use h2::RecvStream;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
-use http::{Request, Response, StatusCode, Version, header};
+use http::{Request, Response, StatusCode, Version};
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_daemon::stat::task::TcpStreamTaskStats;
-use vey_types::net::{AlpnProtocol, ForwardedValue, Host, HttpForwardedHeaderType, UpstreamAddr};
+use vey_h2::RequestExt;
+use vey_types::net::{AlpnProtocol, ForwardedValue, HttpForwardedHeaderType};
 
 use super::{CommonTaskContext, H2StreamTransferError};
 use crate::audit::AuditContext;
@@ -93,12 +92,12 @@ impl H2TaskContext {
         site_ctx
     }
 
-    pub(super) fn append_forwarded(&self, req: &mut Request<RecvStream>) {
+    pub(super) fn append_forwarded<B>(&self, req: &mut Request<B>) {
         let ty = self.site_ctx.site().forwarded_header_type();
         if matches!(ty, HttpForwardedHeaderType::Disable) {
             return;
         }
-        let host = host_from_request(req);
+        let host = req.host();
         if !self.site_ctx.site().trusts_forwarded_from(self.client_ip()) {
             ForwardedValue::strip_http(req.headers_mut(), ty);
         }
@@ -419,17 +418,4 @@ impl H2TaskContext {
         }
         (ping_quit_tx, None)
     }
-}
-
-fn host_from_request(req: &Request<RecvStream>) -> Host {
-    if let Some(value) = req.headers().get(header::HOST)
-        && let Ok(s) = std::str::from_utf8(value.as_bytes())
-        && let Ok(addr) = UpstreamAddr::from_str(s)
-    {
-        return addr.host().clone();
-    }
-    req.uri()
-        .host()
-        .and_then(|h| Host::from_str(h).ok())
-        .unwrap_or_else(Host::empty)
 }

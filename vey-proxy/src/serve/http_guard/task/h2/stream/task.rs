@@ -23,8 +23,8 @@ use crate::module::http_header::ProxyErrorType;
 use crate::serve::ServerTaskNotes;
 
 enum StreamOutcome {
-    Forward(H2ForwardTask),
-    Websocket(H2WebsocketTask),
+    Forward,
+    Websocket,
 }
 
 enum H2StreamError {
@@ -120,17 +120,21 @@ impl H2StreamTask {
 
     pub(crate) async fn run(
         self,
-        mut clt_req: Request<RecvStream>,
+        clt_req: Request<RecvStream>,
         mut clt_send_rsp: SendResponse<Bytes>,
     ) {
-        match self.dispatch(&mut clt_req).await {
-            Ok(StreamOutcome::Forward(task)) => {
+        let (parts, clt_body) = clt_req.into_parts();
+        let mut req = Request::from_parts(parts, ());
+        match self.dispatch(&mut req).await {
+            Ok(StreamOutcome::Forward) => {
+                let task = H2ForwardTask::new(Arc::clone(&self.ctx), self.clt_stream_id, req);
                 self.log("H2Forward", Some(task.task_id()), Some("H2Forward"), None);
-                task.forward(clt_req, clt_send_rsp).await;
+                task.forward(clt_body, clt_send_rsp).await;
             }
-            Ok(StreamOutcome::Websocket(task)) => {
+            Ok(StreamOutcome::Websocket) => {
+                let task = H2WebsocketTask::new(Arc::clone(&self.ctx), self.clt_stream_id, &req);
                 self.log("Websocket", Some(task.task_id()), Some("Websocket"), None);
-                task.run(clt_req, clt_send_rsp).await;
+                task.run(req, clt_body, clt_send_rsp).await;
             }
             Err(e @ H2StreamError::Http11Required) => {
                 clt_send_rsp.send_reset(Reason::HTTP_1_1_REQUIRED);
@@ -144,10 +148,7 @@ impl H2StreamTask {
         }
     }
 
-    async fn dispatch(
-        &self,
-        clt_req: &mut Request<RecvStream>,
-    ) -> Result<StreamOutcome, H2StreamError> {
+    async fn dispatch(&self, clt_req: &mut Request<()>) -> Result<StreamOutcome, H2StreamError> {
         let Some(upstream) = clt_req
             .uri()
             .get_optional_http_https_upstream()
@@ -211,20 +212,12 @@ impl H2StreamTask {
                     return Err(H2StreamError::UnsupportedConnect);
                 }
                 self.ctx.append_forwarded(clt_req);
-                return Ok(StreamOutcome::Websocket(H2WebsocketTask::new(
-                    Arc::clone(&self.ctx),
-                    self.clt_stream_id,
-                    clt_req,
-                )));
+                return Ok(StreamOutcome::Websocket);
             }
             return Err(H2StreamError::UnsupportedConnect);
         }
 
         self.ctx.append_forwarded(clt_req);
-        Ok(StreamOutcome::Forward(H2ForwardTask::new(
-            Arc::clone(&self.ctx),
-            self.clt_stream_id,
-            clt_req,
-        )))
+        Ok(StreamOutcome::Forward)
     }
 }

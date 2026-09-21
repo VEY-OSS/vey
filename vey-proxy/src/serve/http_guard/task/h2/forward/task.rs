@@ -32,6 +32,7 @@ use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct H2ForwardTask {
     pub(super) ctx: Arc<H2TaskContext>,
+    pub(super) req: Request<()>,
     pub(super) clt_stream_id: StreamId,
     pub(super) ups_stream_id: Option<StreamId>,
     pub(super) task_notes: ServerTaskNotes,
@@ -44,11 +45,7 @@ pub(crate) struct H2ForwardTask {
 }
 
 impl H2ForwardTask {
-    pub(crate) fn new(
-        ctx: Arc<H2TaskContext>,
-        clt_stream_id: StreamId,
-        req: &Request<RecvStream>,
-    ) -> Self {
+    pub(crate) fn new(ctx: Arc<H2TaskContext>, clt_stream_id: StreamId, req: Request<()>) -> Self {
         let uri_log_max_chars = ctx
             .site_ctx
             .log_uri_max_chars()
@@ -66,6 +63,7 @@ impl H2ForwardTask {
         let allow_continue = req.expect_100_continue();
         H2ForwardTask {
             ctx,
+            req,
             clt_stream_id,
             ups_stream_id: None,
             task_notes,
@@ -100,11 +98,11 @@ impl H2ForwardTask {
 
     pub(crate) async fn forward(
         mut self,
-        clt_req: Request<RecvStream>,
+        clt_body: RecvStream,
         mut clt_send_rsp: SendResponse<Bytes>,
     ) {
         self.pre_start();
-        if let Err(e) = self.do_forward(clt_req, &mut clt_send_rsp).await {
+        if let Err(e) = self.do_forward(clt_body, &mut clt_send_rsp).await {
             self.reply_task_err(&mut clt_send_rsp, &e);
             if let Some(log) = self.log_ctx() {
                 log.log(&e.to_string());
@@ -171,7 +169,7 @@ impl H2ForwardTask {
 
     async fn do_forward(
         &mut self,
-        clt_req: Request<RecvStream>,
+        clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
         if self.task_notes.check_layered_rate_limit().is_err() {
@@ -192,7 +190,7 @@ impl H2ForwardTask {
                 }
             }
             if let Some(action) = tenant.check_http_user_agent(
-                clt_req
+                self.req
                     .headers()
                     .get_all(header::USER_AGENT)
                     .iter()
@@ -206,17 +204,17 @@ impl H2ForwardTask {
 
         self.audit_task = self.should_audit();
 
-        let origin = if clt_req.maybe_grpc() {
+        let origin = if self.req.maybe_grpc() {
             OriginConnection::H2(self.ctx.checkout_or_connect_h2(&self.task_notes).await?)
         } else {
             self.ctx.checkout_or_connect(&self.task_notes).await?
         };
         match origin {
             OriginConnection::H2(origin) => {
-                self.forward_h2_origin(origin, clt_req, clt_send_rsp).await
+                self.forward_h2_origin(origin, clt_body, clt_send_rsp).await
             }
             OriginConnection::H1(origin) => {
-                self.forward_h1_origin(origin, clt_req, clt_send_rsp).await
+                self.forward_h1_origin(origin, clt_body, clt_send_rsp).await
             }
         }
     }
@@ -224,7 +222,7 @@ impl H2ForwardTask {
     async fn forward_h2_origin(
         &mut self,
         origin: OriginH2Sender,
-        clt_req: Request<RecvStream>,
+        clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
         self.http_notes.reused_connection = origin.reused;
@@ -248,9 +246,6 @@ impl H2ForwardTask {
                 return Err(H2StreamTransferError::UpstreamStreamOpenTimeout);
             }
         };
-
-        let (parts, clt_body) = clt_req.into_parts();
-        let ups_req = Request::from_parts(parts, ());
 
         if self.audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.as_ref()
@@ -279,7 +274,6 @@ impl H2ForwardTask {
                     return self
                         .forward_with_adaptation(
                             ups_send_req,
-                            ups_req,
                             clt_body,
                             clt_send_rsp,
                             adapter,
@@ -295,7 +289,7 @@ impl H2ForwardTask {
             }
         }
 
-        self.forward_without_adaptation(ups_send_req, ups_req, clt_body, clt_send_rsp)
+        self.forward_without_adaptation(ups_send_req, clt_body, clt_send_rsp)
             .await
     }
 
@@ -309,17 +303,15 @@ impl H2ForwardTask {
     async fn forward_with_adaptation(
         &mut self,
         ups_send_req: SendRequest<Bytes>,
-        ups_req: Request<()>,
         clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
         icap_adapter: H2RequestAdapter<crate::serve::ServerIdleChecker>,
         adaptation_state: &mut ReqmodAdaptationRunState,
     ) -> Result<(), H2StreamTransferError> {
-        let orig_req = ups_req.clone_header();
         let end_state = icap_adapter
             .xfer(
                 adaptation_state,
-                ups_req,
+                self.req.clone_header(),
                 clt_body,
                 ups_send_req,
                 clt_send_rsp,
@@ -331,7 +323,6 @@ impl H2ForwardTask {
             Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp))
             | Ok(ReqmodAdaptationEndState::AdaptedTransferred(_, ups_rsp)) => {
                 self.send_response(
-                    orig_req,
                     ups_rsp,
                     clt_send_rsp,
                     adaptation_state.take_respond_shared_headers(),
@@ -385,14 +376,12 @@ impl H2ForwardTask {
     async fn forward_without_adaptation(
         &mut self,
         mut ups_send_req: SendRequest<Bytes>,
-        ups_req: Request<()>,
         clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
-        let orig_req = ups_req.clone_header();
         let end_stream = clt_body.is_end_stream();
         let (ups_rsp_fut, ups_send_stream) = ups_send_req
-            .send_request(ups_req, end_stream)
+            .send_request(self.req.clone_header(), end_stream)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
         self.ups_stream_id = Some(ups_rsp_fut.stream_id());
         self.http_notes.mark_req_send_hdr();
@@ -493,13 +482,11 @@ impl H2ForwardTask {
         .await
         .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)??;
 
-        self.send_response(orig_req, ups_rsp, clt_send_rsp, None)
-            .await
+        self.send_response(ups_rsp, clt_send_rsp, None).await
     }
 
     async fn send_response(
         &mut self,
-        ups_req: Request<()>,
         ups_rsp: Response<RecvStream>,
         clt_send_rsp: &mut SendResponse<Bytes>,
         adaptation_respond_shared_headers: Option<HeaderMap>,
@@ -537,7 +524,7 @@ impl H2ForwardTask {
                     let r = adapter
                         .xfer(
                             &mut adaptation_state,
-                            &ups_req,
+                            &self.req,
                             clt_rsp,
                             ups_body,
                             clt_send_rsp,

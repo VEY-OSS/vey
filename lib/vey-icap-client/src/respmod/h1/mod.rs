@@ -14,8 +14,8 @@ use http::{HeaderMap, Method};
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
-use vey_http::client::HttpAdaptedResponse;
 use vey_http::HttpBodyType;
+use vey_http::client::HttpAdaptedResponse;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
 
 use super::IcapRespmodClient;

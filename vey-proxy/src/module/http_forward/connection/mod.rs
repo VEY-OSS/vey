@@ -78,10 +78,10 @@ impl<'a> HttpForwardWriterForAdaptation<'a> {
     }
 
     fn check_expire(&self) -> io::Result<()> {
-        if let Some(expire) = self.expire_at {
-            if expire.saturating_duration_since(Instant::now()).is_zero() {
-                return Err(io::Error::other("connection has expired"));
-            }
+        if let Some(expire) = self.expire_at
+            && expire.saturating_duration_since(Instant::now()).is_zero()
+        {
+            return Err(io::Error::other("connection has expired"));
         }
         Ok(())
     }

@@ -156,7 +156,11 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                 state.mark_ups_send_all();
                 state.ups_req_body_size = Some(ups_body_reader.body_size());
                 let copied = ups_body_reader.body_size();
-                if ups_body_reader.trailer(self.http_trailer_max_size).await.is_ok() {
+                if ups_body_reader
+                    .trailer(self.http_trailer_max_size)
+                    .await
+                    .is_ok()
+                {
                     self.icap_read_finished = true;
                 }
                 if copied != expected {

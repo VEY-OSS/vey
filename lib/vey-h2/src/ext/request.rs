@@ -5,12 +5,14 @@
  */
 
 use std::io::Write;
+use std::str::FromStr;
 
 use bytes::BufMut;
 use http::uri::Authority;
 use http::{HeaderMap, Method, Request, Uri, header};
 
 use vey_http::server::HttpAdaptedRequest;
+use vey_types::net::{Host, UpstreamAddr};
 
 pub trait RequestExt {
     fn serialize_for_adapter(&self) -> Vec<u8>;
@@ -19,6 +21,7 @@ pub trait RequestExt {
     fn expect_100_continue(&self) -> bool;
     fn authorization_negotiate(&self) -> bool;
     fn maybe_grpc(&self) -> bool;
+    fn host(&self) -> Host;
 }
 
 impl<T> RequestExt for Request<T> {
@@ -118,6 +121,19 @@ impl<T> RequestExt for Request<T> {
             .get(header::CONTENT_TYPE)
             .and_then(|v| v.to_str().ok())
             .is_some_and(maybe_grpc_content_type)
+    }
+
+    fn host(&self) -> Host {
+        if let Some(value) = self.headers().get(header::HOST)
+            && let Ok(s) = std::str::from_utf8(value.as_bytes())
+            && let Ok(addr) = UpstreamAddr::from_str(s)
+        {
+            return addr.host().clone();
+        }
+        self.uri()
+            .host()
+            .and_then(|h| Host::from_str(h).ok())
+            .unwrap_or_else(Host::empty)
     }
 }
 
@@ -252,6 +268,25 @@ mod tests {
             .body(())
             .unwrap();
         assert!(!req.maybe_grpc());
+    }
+
+    #[test]
+    fn host_prefers_host_header_then_uri() {
+        let req = Request::builder()
+            .uri("https://uri.example/x")
+            .header(header::HOST, "header.example:8080")
+            .body(())
+            .unwrap();
+        assert_eq!(req.host(), Host::from_str("header.example").unwrap());
+
+        let req = Request::builder()
+            .uri("https://uri.example/x")
+            .body(())
+            .unwrap();
+        assert_eq!(req.host(), Host::from_str("uri.example").unwrap());
+
+        let req = Request::builder().uri("/x").body(()).unwrap();
+        assert!(req.host().is_empty());
     }
 
     #[test]

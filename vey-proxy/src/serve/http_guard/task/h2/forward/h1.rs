@@ -10,7 +10,7 @@ use bytes::Bytes;
 use futures_util::FutureExt;
 use h2::server::SendResponse;
 use h2::{RecvStream, SendStream};
-use http::{HeaderMap, Request, Response};
+use http::{HeaderMap, Response};
 use tokio::io::AsyncWriteExt;
 use tokio::time::Instant;
 
@@ -45,19 +45,16 @@ impl H2ForwardTask {
     pub(super) async fn forward_h1_origin(
         &mut self,
         mut origin: OriginH1Sender,
-        clt_req: Request<RecvStream>,
+        mut clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
-        let (parts, mut clt_body) = clt_req.into_parts();
-        let orig_req = Request::from_parts(parts, ());
-        let converted = HttpConvertedRequest::from_request(&orig_req, !clt_body.is_end_stream())?;
+        let converted = HttpConvertedRequest::from_request(&self.req, !clt_body.is_end_stream())?;
         let no_body = clt_body.is_end_stream();
 
         self.prepare_h1_origin(&mut origin);
         let keep_alive = match self
             .run_with_h1_connection(
                 &mut origin,
-                &orig_req,
                 &converted,
                 &mut clt_body,
                 clt_send_rsp,
@@ -71,7 +68,6 @@ impl H2ForwardTask {
                 self.prepare_h1_origin(&mut origin);
                 self.run_with_h1_connection(
                     &mut origin,
-                    &orig_req,
                     &converted,
                     &mut clt_body,
                     clt_send_rsp,
@@ -89,7 +85,6 @@ impl H2ForwardTask {
     async fn run_with_h1_connection(
         &mut self,
         origin: &mut OriginH1Sender,
-        orig_req: &Request<()>,
         converted: &HttpConvertedRequest,
         clt_body: &mut RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
@@ -123,7 +118,6 @@ impl H2ForwardTask {
                     }
                     self.forward_h1_with_adaptation(
                         origin,
-                        orig_req,
                         converted,
                         clt_body,
                         clt_send_rsp,
@@ -136,18 +130,12 @@ impl H2ForwardTask {
                     if !reqmod.bypass() {
                         return Err(H2StreamTransferError::InternalAdapterError(e));
                     }
-                    self.forward_h1_without_adaptation(
-                        origin,
-                        orig_req,
-                        converted,
-                        clt_body,
-                        clt_send_rsp,
-                    )
-                    .await
+                    self.forward_h1_without_adaptation(origin, converted, clt_body, clt_send_rsp)
+                        .await
                 }
             }
         } else {
-            self.forward_h1_without_adaptation(origin, orig_req, converted, clt_body, clt_send_rsp)
+            self.forward_h1_without_adaptation(origin, converted, clt_body, clt_send_rsp)
                 .await
         }
     }
@@ -248,11 +236,10 @@ impl H2ForwardTask {
     async fn forward_h1_with_adaptation(
         &mut self,
         origin: &mut OriginH1Sender,
-        orig_req: &Request<()>,
         converted: &HttpConvertedRequest,
         clt_body: &mut RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
-        adapter: H2ToH1RequestAdapter<crate::serve::ServerIdleChecker>,
+        adapter: H2ToH1RequestAdapter<ServerIdleChecker>,
         no_body: bool,
     ) -> Result<bool, H2StreamTransferError> {
         self.http_notes.retry_new_connection = no_body;
@@ -366,7 +353,6 @@ impl H2ForwardTask {
 
         let ups_read_finished = self
             .send_h1_origin_response(
-                orig_req,
                 &mut rsp_header,
                 &mut origin.connection.1,
                 clt_send_rsp,
@@ -379,7 +365,6 @@ impl H2ForwardTask {
     async fn forward_h1_without_adaptation(
         &mut self,
         origin: &mut OriginH1Sender,
-        orig_req: &Request<()>,
         converted: &HttpConvertedRequest,
         clt_body: &mut RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
@@ -503,7 +488,6 @@ impl H2ForwardTask {
 
         let ups_read_finished = self
             .send_h1_origin_response(
-                orig_req,
                 &mut rsp_header,
                 &mut origin.connection.1,
                 clt_send_rsp,
@@ -594,7 +578,6 @@ impl H2ForwardTask {
 
     async fn send_h1_origin_response(
         &mut self,
-        orig_req: &Request<()>,
         rsp_header: &mut HttpForwardRemoteResponse,
         ups_r: &mut BoxHttpForwardReader,
         clt_send_rsp: &mut SendResponse<Bytes>,
@@ -632,7 +615,6 @@ impl H2ForwardTask {
                     adapter.set_respond_shared_headers(adaptation_respond_shared_headers);
                     return self
                         .send_response_with_adaptation(
-                            orig_req,
                             clt_rsp,
                             body_type,
                             ups_r,
@@ -656,7 +638,6 @@ impl H2ForwardTask {
 
     async fn send_response_with_adaptation(
         &mut self,
-        orig_req: &Request<()>,
         clt_rsp: Response<()>,
         body_type: Option<HttpBodyType>,
         ups_r: &mut BoxHttpForwardReader,
@@ -667,7 +648,7 @@ impl H2ForwardTask {
         let r = adapter
             .xfer(
                 adaptation_state,
-                orig_req,
+                &self.req,
                 clt_rsp,
                 body_type,
                 ups_r,
