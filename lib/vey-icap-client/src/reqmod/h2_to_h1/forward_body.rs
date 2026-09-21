@@ -61,7 +61,6 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
         state.clt_req_body_size = Some(preview_data.received() as u64);
         self.recv_send_trailer(clt_body).await?;
         self.icap_connection.mark_writer_finished();
-        state.clt_read_finished = true;
 
         self.handle_small_body_response(state, http_request, ups_writer)
             .await
@@ -214,7 +213,6 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
             .transfer_and_recv(state, &mut body_transfer)
             .await?;
         if body_transfer.finished() {
-            state.clt_read_finished = true;
             state.clt_req_body_size = Some(body_transfer.copied_size());
         }
         let shared_headers = rsp.take_shared_headers();
@@ -291,7 +289,6 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
                         .await?;
                     let icap_read_finished = bidirectional_transfer.icap_read_finished;
                     if body_transfer.finished() {
-                        state.clt_read_finished = true;
                         state.clt_req_body_size = Some(body_transfer.copied_size());
                         self.icap_connection.mark_writer_finished();
                         if icap_read_finished {

@@ -164,6 +164,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
 
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
+        let mut clt_transfer_done = false;
 
         loop {
             tokio::select! {
@@ -184,7 +185,9 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                                     let ups_rsp = Response::from_parts(headers, body);
                                     Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
                                 } else {
-                                    state.clt_req_body_size = Some(clt_body_transfer.received_size());
+                                    if !clt_transfer_done {
+                                        state.clt_req_body_size = Some(clt_body_transfer.received_size());
+                                    }
                                     state.ups_req_body_size = Some(ups_body_transfer.copied_size());
                                     Err(H2ReqmodAdaptationError::UnsupportedInformationalResponse(
                                         final_rsp.status(),
@@ -193,52 +196,38 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                             }
                         }
                         Err(e) => {
-                            state.clt_req_body_size = Some(clt_body_transfer.received_size());
+                            if !clt_transfer_done {
+                                state.clt_req_body_size = Some(clt_body_transfer.received_size());
+                            }
                             state.ups_req_body_size = Some(ups_body_transfer.copied_size());
                             return Err(H2ReqmodAdaptationError::HttpUpstreamRecvResponseFailed(e));
                         }
                     }
                 }
-                r = &mut clt_body_transfer => {
-                    return match r {
+                r = &mut clt_body_transfer, if !clt_transfer_done => {
+                    match r {
                         Ok(_) => {
                             state.clt_req_body_size = Some(clt_body_transfer.copied_size());
-                            match (&mut ups_body_transfer).await {
-                                Ok(_) => {
-                                    state.mark_ups_send_all();
-                                    state.ups_req_body_size = Some(ups_body_transfer.copied_size());
-                                    self.icap_read_finished = true;
-                                    let ups_rsp = recv_ups_response_head_after_transfer(&mut ups_recv_rsp, clt_send_rsp, allow_continue, self.http_rsp_head_recv_timeout).await?;
-                                    Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
-                                }
-                                Err(e) => {
-                                    state.ups_req_body_size = Some(ups_body_transfer.copied_size());
-                                    match e {
-                                        H2StreamFromChunkedTransferError::ReadError(e) => Err(H2ReqmodAdaptationError::IcapServerReadFailed(e)),
-                                        H2StreamFromChunkedTransferError::SendDataFailed(e) => Err(H2ReqmodAdaptationError::HttpUpstreamSendDataFailed(e)),
-                                        H2StreamFromChunkedTransferError::SendTrailerFailed(e) => Err(H2ReqmodAdaptationError::HttpUpstreamSendHeadFailed(e)),
-                                        H2StreamFromChunkedTransferError::SenderNotInSendState => Err(H2ReqmodAdaptationError::HttpUpstreamNotInSendState),
-                                    }
-                                }
-                            }
+                            clt_transfer_done = true;
+                            idle_count = 0;
                         }
                         Err(e) => {
                             state.clt_req_body_size = Some(clt_body_transfer.received_size());
                             state.ups_req_body_size = Some(ups_body_transfer.copied_size());
-                            match e {
+                            return match e {
                                 H2StreamToChunkedTransferError::WriteError(e) => Err(H2ReqmodAdaptationError::IcapServerWriteFailed(e)),
                                 H2StreamToChunkedTransferError::RecvDataFailed(e) => Err(H2ReqmodAdaptationError::HttpClientRecvDataFailed(e)),
                                 H2StreamToChunkedTransferError::RecvTrailerFailed(e) => Err(H2ReqmodAdaptationError::HttpClientRecvTrailerFailed(e)),
-                            }
+                            };
                         }
-                    };
+                    }
                 }
                 r = &mut ups_body_transfer => {
                     return match r {
                         Ok(_) => {
                             state.mark_ups_send_all();
                             state.ups_req_body_size = Some(ups_body_transfer.copied_size());
-                            if clt_body_transfer.finished() {
+                            if !clt_transfer_done && clt_body_transfer.finished() {
                                 state.clt_req_body_size = Some(clt_body_transfer.copied_size());
                             }
                             self.icap_read_finished = true;
@@ -246,7 +235,9 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
                         }
                         Err(e) => {
-                            state.clt_req_body_size = Some(clt_body_transfer.received_size());
+                            if !clt_transfer_done {
+                                state.clt_req_body_size = Some(clt_body_transfer.received_size());
+                            }
                             state.ups_req_body_size = Some(ups_body_transfer.copied_size());
                             match e {
                                 H2StreamFromChunkedTransferError::ReadError(e) => Err(H2ReqmodAdaptationError::IcapServerReadFailed(e)),
@@ -258,14 +249,21 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                     };
                 }
                 n = idle_interval.tick() => {
-                    if clt_body_transfer.is_idle() && ups_body_transfer.is_idle() {
+                    let copy_idle = if clt_transfer_done {
+                        ups_body_transfer.is_idle()
+                    } else {
+                        clt_body_transfer.is_idle() && ups_body_transfer.is_idle()
+                    };
+                    if copy_idle {
                         idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
-                            state.clt_req_body_size = Some(clt_body_transfer.received_size());
+                            if !clt_transfer_done {
+                                state.clt_req_body_size = Some(clt_body_transfer.received_size());
+                            }
                             state.ups_req_body_size = Some(ups_body_transfer.copied_size());
-                            return if clt_body_transfer.is_idle() {
+                            return if !clt_transfer_done {
                                 if clt_body_transfer.no_cached_data() {
                                     Err(H2ReqmodAdaptationError::HttpClientReadIdle)
                                 } else {
@@ -280,12 +278,16 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                     } else {
                         idle_count = 0;
 
-                        clt_body_transfer.reset_active();
+                        if !clt_transfer_done {
+                            clt_body_transfer.reset_active();
+                        }
                         ups_body_transfer.reset_active();
                     }
 
                     if let Some(reason) = self.idle_checker.check_force_quit() {
-                        state.clt_req_body_size = Some(clt_body_transfer.received_size());
+                        if !clt_transfer_done {
+                            state.clt_req_body_size = Some(clt_body_transfer.received_size());
+                        }
                         state.ups_req_body_size = Some(ups_body_transfer.copied_size());
                         return Err(H2ReqmodAdaptationError::IdleForceQuit(reason));
                     }

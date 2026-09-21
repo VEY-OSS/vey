@@ -176,27 +176,11 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
         loop {
             tokio::select! {
                 r = &mut ups_body_transfer => {
-                    return match r {
+                    match r {
                         Ok(_) => {
                             state.mark_ups_recv_all();
                             state.ups_rsp_body_size = Some(ups_body_transfer.copied_size());
-                            match (&mut adp_body_transfer).await {
-                                Ok(_) => {
-                                    state.mark_clt_send_all();
-                                    state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
-                                    self.icap_read_finished = true;
-                                    Ok(RespmodAdaptationEndState::AdaptedTransferred(http_rsp))
-                                }
-                                Err(e) => {
-                                    state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
-                                    match e {
-                                        H2StreamFromChunkedTransferError::ReadError(e) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
-                                        H2StreamFromChunkedTransferError::SendDataFailed(e) => Err(H2RespmodAdaptationError::HttpClientSendDataFailed(e)),
-                                        H2StreamFromChunkedTransferError::SendTrailerFailed(e) => Err(H2RespmodAdaptationError::HttpClientSendTrailerFailed(e)),
-                                        H2StreamFromChunkedTransferError::SenderNotInSendState => Err(H2RespmodAdaptationError::HttpClientNotInSendState),
-                                    }
-                                }
-                            }
+                            break;
                         }
                         Err(e) => {
                             state.ups_rsp_body_size = Some(ups_body_transfer.received_size());
@@ -204,13 +188,13 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                                 state.mark_ups_recv_all();
                             }
                             state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
-                            match e {
+                            return match e {
                                 H2StreamToChunkedTransferError::WriteError(e) => Err(H2RespmodAdaptationError::IcapServerWriteFailed(e)),
                                 H2StreamToChunkedTransferError::RecvDataFailed(e) => Err(H2RespmodAdaptationError::HttpUpstreamRecvDataFailed(e)),
                                 H2StreamToChunkedTransferError::RecvTrailerFailed(e) => Err(H2RespmodAdaptationError::HttpUpstreamRecvTrailerFailed(e)),
-                            }
+                            };
                         }
-                    };
+                    }
                 }
                 r = &mut adp_body_transfer => {
                     return match r {
@@ -243,16 +227,10 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                         if quit {
                             state.ups_rsp_body_size = Some(ups_body_transfer.received_size());
                             state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
-                            return if ups_body_transfer.is_idle() {
-                                if ups_body_transfer.no_cached_data() {
-                                    Err(H2RespmodAdaptationError::HttpUpstreamReadIdle)
-                                } else {
-                                    Err(H2RespmodAdaptationError::IcapServerWriteIdle)
-                                }
-                            } else if adp_body_transfer.no_cached_data() {
-                                Err(H2RespmodAdaptationError::IcapServerReadIdle)
+                            return if ups_body_transfer.no_cached_data() {
+                                Err(H2RespmodAdaptationError::HttpUpstreamReadIdle)
                             } else {
-                                Err(H2RespmodAdaptationError::HttpClientWriteIdle)
+                                Err(H2RespmodAdaptationError::IcapServerWriteIdle)
                             };
                         }
                     } else {
@@ -264,6 +242,55 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
 
                     if let Some(reason) = self.idle_checker.check_force_quit() {
                         state.ups_rsp_body_size = Some(ups_body_transfer.received_size());
+                        state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
+                        return Err(H2RespmodAdaptationError::IdleForceQuit(reason));
+                    }
+                }
+            }
+        }
+
+        idle_count = 0;
+        loop {
+            tokio::select! {
+                r = &mut adp_body_transfer => {
+                    return match r {
+                        Ok(_) => {
+                            state.mark_clt_send_all();
+                            state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
+                            self.icap_read_finished = true;
+                            Ok(RespmodAdaptationEndState::AdaptedTransferred(http_rsp))
+                        }
+                        Err(e) => {
+                            state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
+                            match e {
+                                H2StreamFromChunkedTransferError::ReadError(e) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
+                                H2StreamFromChunkedTransferError::SendDataFailed(e) => Err(H2RespmodAdaptationError::HttpClientSendDataFailed(e)),
+                                H2StreamFromChunkedTransferError::SendTrailerFailed(e) => Err(H2RespmodAdaptationError::HttpClientSendTrailerFailed(e)),
+                                H2StreamFromChunkedTransferError::SenderNotInSendState => Err(H2RespmodAdaptationError::HttpClientNotInSendState),
+                            }
+                        }
+                    };
+                }
+                n = idle_interval.tick() => {
+                    if adp_body_transfer.is_idle() {
+                        idle_count += n;
+
+                        let quit = self.idle_checker.check_quit(idle_count);
+                        if quit {
+                            state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
+                            return if adp_body_transfer.no_cached_data() {
+                                Err(H2RespmodAdaptationError::IcapServerReadIdle)
+                            } else {
+                                Err(H2RespmodAdaptationError::HttpClientWriteIdle)
+                            };
+                        }
+                    } else {
+                        idle_count = 0;
+
+                        adp_body_transfer.reset_active();
+                    }
+
+                    if let Some(reason) = self.idle_checker.check_force_quit() {
                         state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
                         return Err(H2RespmodAdaptationError::IdleForceQuit(reason));
                     }

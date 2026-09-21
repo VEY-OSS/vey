@@ -146,31 +146,22 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
         loop {
             tokio::select! {
                 r = &mut clt_msg_transfer => {
-                    return match r {
+                    match r {
                         Ok(_) => {
                             clt_msg_transfer
                                 .writer()
                                 .write_all_flush(b"\r\n0\r\n\r\n")
                                 .await
                                 .map_err(ImapAdaptationError::IcapServerWriteFailed)?;
-                            match ups_msg_transfer.await {
-                                Ok(copied) => {
-                                    state.mark_ups_send_all();
-                                    if ups_body_reader.trailer(128).await.is_ok() {
-                                        self.icap_read_finished = true;
-                                    }
-                                    if copied != self.imap_message_size {
-                                        return Err(ImapAdaptationError::MessageSizeNotMatch);
-                                    }
-                                    Ok(ReqmodAdaptationEndState::AdaptedTransferred)
-                                }
-                                Err(StreamCopyError::ReadFailed(e)) => Err(ImapAdaptationError::IcapServerReadFailed(e)),
-                                Err(StreamCopyError::WriteFailed(e)) => Err(ImapAdaptationError::ImapUpstreamWriteFailed(e)),
-                            }
+                            break;
                         }
-                        Err(StreamCopyError::ReadFailed(e)) => Err(ImapAdaptationError::ImapClientReadFailed(e)),
-                        Err(StreamCopyError::WriteFailed(e)) => Err(ImapAdaptationError::IcapServerWriteFailed(e)),
-                    };
+                        Err(StreamCopyError::ReadFailed(e)) => {
+                            return Err(ImapAdaptationError::ImapClientReadFailed(e))
+                        }
+                        Err(StreamCopyError::WriteFailed(e)) => {
+                            return Err(ImapAdaptationError::IcapServerWriteFailed(e))
+                        }
+                    }
                 }
                 r = &mut ups_msg_transfer => {
                     return match r {
@@ -194,13 +185,52 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
-                            return if clt_msg_transfer.is_idle() {
-                                if clt_msg_transfer.no_cached_data() {
-                                    Err(ImapAdaptationError::ImapClientReadIdle)
-                                } else {
-                                    Err(ImapAdaptationError::IcapServerWriteIdle)
-                                }
-                            } else if ups_msg_transfer.no_cached_data() {
+                            return if clt_msg_transfer.no_cached_data() {
+                                Err(ImapAdaptationError::ImapClientReadIdle)
+                            } else {
+                                Err(ImapAdaptationError::IcapServerWriteIdle)
+                            };
+                        }
+                    } else {
+                        idle_count = 0;
+
+                        clt_msg_transfer.reset_active();
+                        ups_msg_transfer.reset_active();
+                    }
+
+                    if let Some(reason) = self.idle_checker.check_force_quit() {
+                        return Err(ImapAdaptationError::IdleForceQuit(reason));
+                    }
+                }
+            }
+        }
+
+        idle_count = 0;
+        loop {
+            tokio::select! {
+                r = &mut ups_msg_transfer => {
+                    return match r {
+                        Ok(copied) => {
+                            state.mark_ups_send_all();
+                            if ups_body_reader.trailer(128).await.is_ok() {
+                                self.icap_read_finished = true;
+                            }
+                            if copied != self.imap_message_size {
+                                return Err(ImapAdaptationError::MessageSizeNotMatch);
+                            }
+                            Ok(ReqmodAdaptationEndState::AdaptedTransferred)
+                        }
+                        Err(StreamCopyError::ReadFailed(e)) => Err(ImapAdaptationError::IcapServerReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(ImapAdaptationError::ImapUpstreamWriteFailed(e)),
+                    };
+                }
+                _ = idle_interval.tick() => {
+                    if ups_msg_transfer.is_idle() {
+                        idle_count += 1;
+
+                        let quit = self.idle_checker.check_quit(idle_count);
+                        if quit {
+                            return if ups_msg_transfer.no_cached_data() {
                                 Err(ImapAdaptationError::IcapServerReadIdle)
                             } else {
                                 Err(ImapAdaptationError::ImapUpstreamWriteIdle)
@@ -209,7 +239,6 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                     } else {
                         idle_count = 0;
 
-                        clt_msg_transfer.reset_active();
                         ups_msg_transfer.reset_active();
                     }
 

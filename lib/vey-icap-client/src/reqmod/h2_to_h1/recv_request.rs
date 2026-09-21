@@ -123,7 +123,6 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
                     return match r {
                         Ok(_) => {
                             state.mark_ups_send_all();
-                            state.clt_read_finished = true;
                             let n = body_transfer.copied_size();
                             state.clt_req_body_size = Some(n);
                             state.ups_req_body_size = Some(n);

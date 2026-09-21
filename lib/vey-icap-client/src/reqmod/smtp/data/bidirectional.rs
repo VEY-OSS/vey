@@ -139,23 +139,15 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
         loop {
             tokio::select! {
                 r = &mut clt_msg_transfer => {
-                    return match r {
-                        Ok(_) => {
-                            match ups_msg_transfer.await {
-                                Ok(_) => {
-                                    state.mark_ups_send_all();
-                                    if ups_body_reader.trailer(128).await.is_ok() {
-                                        self.icap_read_finished = true;
-                                    }
-                                    Ok(ReqmodAdaptationEndState::AdaptedTransferred)
-                                }
-                                Err(StreamCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
-                                Err(StreamCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
-                            }
+                    match r {
+                        Ok(_) => break,
+                        Err(StreamCopyError::ReadFailed(e)) => {
+                            return Err(SmtpAdaptationError::SmtpClientReadFailed(e))
                         }
-                        Err(StreamCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::SmtpClientReadFailed(e)),
-                        Err(StreamCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::IcapServerWriteFailed(e)),
-                    };
+                        Err(StreamCopyError::WriteFailed(e)) => {
+                            return Err(SmtpAdaptationError::IcapServerWriteFailed(e))
+                        }
+                    }
                 }
                 r = &mut ups_msg_transfer => {
                     return match r {
@@ -176,13 +168,49 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
-                            return if clt_msg_transfer.is_idle() {
-                                if clt_msg_transfer.no_cached_data() {
-                                    Err(SmtpAdaptationError::SmtpClientReadIdle)
-                                } else {
-                                    Err(SmtpAdaptationError::IcapServerWriteIdle)
-                                }
-                            } else if ups_msg_transfer.no_cached_data() {
+                            return if clt_msg_transfer.no_cached_data() {
+                                Err(SmtpAdaptationError::SmtpClientReadIdle)
+                            } else {
+                                Err(SmtpAdaptationError::IcapServerWriteIdle)
+                            };
+                        }
+                    } else {
+                        idle_count = 0;
+
+                        clt_msg_transfer.reset_active();
+                        ups_msg_transfer.reset_active();
+                    }
+
+                    if let Some(reason) = self.idle_checker.check_force_quit() {
+                        return Err(SmtpAdaptationError::IdleForceQuit(reason));
+                    }
+                }
+            }
+        }
+
+        idle_count = 0;
+        loop {
+            tokio::select! {
+                r = &mut ups_msg_transfer => {
+                    return match r {
+                        Ok(_) => {
+                            state.mark_ups_send_all();
+                            if ups_body_reader.trailer(128).await.is_ok() {
+                                self.icap_read_finished = true;
+                            }
+                            Ok(ReqmodAdaptationEndState::AdaptedTransferred)
+                        }
+                        Err(StreamCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
+                    };
+                }
+                n = idle_interval.tick() => {
+                    if ups_msg_transfer.is_idle() {
+                        idle_count += n;
+
+                        let quit = self.idle_checker.check_quit(idle_count);
+                        if quit {
+                            return if ups_msg_transfer.no_cached_data() {
                                 Err(SmtpAdaptationError::IcapServerReadIdle)
                             } else {
                                 Err(SmtpAdaptationError::SmtpUpstreamWriteIdle)
@@ -191,7 +219,6 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                     } else {
                         idle_count = 0;
 
-                        clt_msg_transfer.reset_active();
                         ups_msg_transfer.reset_active();
                     }
 

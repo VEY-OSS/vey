@@ -15,11 +15,11 @@ use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
 use vey_http::server::HttpAdaptedRequest;
-use vey_http::{HttpBodyReader, HttpBodyType};
+use vey_http::{H1BodyToChunkedTransfer, HttpBodyReader, HttpBodyType};
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
 
 use super::IcapReqmodClient;
-use crate::{IcapClientConnection, IcapServiceClient, IcapServiceOptions};
+use crate::{IcapClientConnection, IcapClientWriter, IcapServiceClient, IcapServiceOptions};
 
 mod error;
 pub use error::H1ReqmodAdaptationError;
@@ -133,6 +133,18 @@ impl ReqmodAdaptationRunState {
     pub(crate) fn mark_ups_send_all(&mut self) {
         self.dur_ups_send_all = Some(self.task_create_instant.elapsed());
         self.ups_write_finished = true;
+    }
+
+    pub(crate) fn record_clt_body_progress<CR>(
+        &mut self,
+        body_transfer: &H1BodyToChunkedTransfer<'_, CR, IcapClientWriter>,
+    ) where
+        CR: AsyncBufRead + Unpin,
+    {
+        self.clt_req_body_size = Some(body_transfer.body_size());
+        if body_transfer.reader_finished() {
+            self.clt_read_finished = true;
+        }
     }
 }
 

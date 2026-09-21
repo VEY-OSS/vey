@@ -356,7 +356,6 @@ impl H2ForwardTask {
             }
         };
         let keep_alive = rsp_header.keep_alive()
-            && adaptation_state.clt_read_finished
             && adaptation_state.ups_write_finished
             && !rsp_header.www_negotiate_auth();
         if keep_alive {

@@ -13,6 +13,7 @@ use h2::RecvStream;
 use http::HeaderMap;
 use tokio::time::Instant;
 
+use vey_h2::H2StreamToChunkedTransfer;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
 
 use super::IcapReqmodClient;
@@ -20,7 +21,7 @@ use crate::reqmod::h1::{
     HttpAdapterErrorResponse, HttpRequestForAdaptation, HttpRequestUpstreamWriter,
 };
 use crate::reqmod::h2::ReqmodRecvHttpResponseBody;
-use crate::{IcapClientConnection, IcapServiceClient, IcapServiceOptions};
+use crate::{IcapClientConnection, IcapClientWriter, IcapServiceClient, IcapServiceOptions};
 
 mod error;
 pub use error::H2ToH1ReqmodAdaptationError;
@@ -80,7 +81,6 @@ pub struct ReqmodAdaptationRunState {
     task_create_instant: Instant,
     pub dur_ups_send_header: Option<Duration>,
     pub dur_ups_send_all: Option<Duration>,
-    pub clt_read_finished: bool,
     pub ups_write_finished: bool,
     pub clt_req_body_size: Option<u64>,
     pub ups_req_body_size: Option<u64>,
@@ -93,7 +93,6 @@ impl ReqmodAdaptationRunState {
             task_create_instant,
             dur_ups_send_header: None,
             dur_ups_send_all: None,
-            clt_read_finished: false,
             ups_write_finished: false,
             clt_req_body_size: None,
             ups_req_body_size: None,
@@ -118,6 +117,17 @@ impl ReqmodAdaptationRunState {
     pub(crate) fn mark_ups_send_all(&mut self) {
         self.dur_ups_send_all = Some(self.task_create_instant.elapsed());
         self.ups_write_finished = true;
+    }
+
+    pub(crate) fn record_clt_body_progress(
+        &mut self,
+        body_transfer: &H2StreamToChunkedTransfer<'_, IcapClientWriter>,
+    ) {
+        self.clt_req_body_size = Some(if body_transfer.finished() {
+            body_transfer.copied_size()
+        } else {
+            body_transfer.received_size()
+        });
     }
 }
 
@@ -167,7 +177,6 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
         UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
         if clt_body.is_end_stream() {
-            state.clt_read_finished = true;
             state.clt_req_body_size = Some(0);
             self.xfer_without_body(state, http_request, ups_writer)
                 .await
