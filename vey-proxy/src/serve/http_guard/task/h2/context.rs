@@ -30,7 +30,7 @@ use crate::module::http_forward::{
 };
 use crate::module::http_header::{self, ProxyErrorType};
 use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnection, TlsConnectTaskConf};
-use crate::serve::ServerTaskNotes;
+use crate::serve::{ServerTaskNotes, ServerTaskStage};
 use crate::site::SiteContext;
 
 pub(crate) struct H2TaskContext {
@@ -157,7 +157,7 @@ impl H2TaskContext {
 
     pub(super) async fn checkout_or_connect(
         &self,
-        task_notes: &ServerTaskNotes,
+        task_notes: &mut ServerTaskNotes,
     ) -> Result<OriginConnection, H2StreamTransferError> {
         if let Some(origin) = self.checkout_h2(task_notes).await {
             return Ok(OriginConnection::H2(origin));
@@ -165,16 +165,18 @@ impl H2TaskContext {
         if let Some(origin) = self.checkout_h1(task_notes).await {
             return Ok(OriginConnection::H1(origin));
         }
+        task_notes.stage = ServerTaskStage::Connecting;
         self.connect_origin(task_notes).await
     }
 
     pub(super) async fn checkout_or_connect_h2(
         &self,
-        task_notes: &ServerTaskNotes,
+        task_notes: &mut ServerTaskNotes,
     ) -> Result<OriginH2Sender, H2StreamTransferError> {
         if let Some(origin) = self.checkout_h2(task_notes).await {
             return Ok(origin);
         }
+        task_notes.stage = ServerTaskStage::Connecting;
         self.connect_origin_h2(task_notes).await
     }
 

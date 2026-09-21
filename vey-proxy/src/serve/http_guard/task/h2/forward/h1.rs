@@ -94,6 +94,8 @@ impl H2ForwardTask {
             return Err(e);
         }
 
+        self.mark_relaying();
+
         if self.audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.as_ref()
             && let Some(reqmod) = audit_handle.icap_reqmod_client()
@@ -184,6 +186,7 @@ impl H2ForwardTask {
     }
 
     async fn connect_origin_h1(&mut self) -> Result<OriginH1Sender, H2StreamTransferError> {
+        self.task_notes.stage = ServerTaskStage::Connecting;
         let mut fwd_ctx = self
             .ctx
             .escaper

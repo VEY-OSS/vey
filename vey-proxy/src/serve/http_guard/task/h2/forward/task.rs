@@ -205,18 +205,32 @@ impl H2ForwardTask {
         self.audit_task = self.should_audit();
 
         let origin = if self.req.maybe_grpc() {
-            OriginConnection::H2(self.ctx.checkout_or_connect_h2(&self.task_notes).await?)
+            OriginConnection::H2(
+                self.ctx
+                    .checkout_or_connect_h2(&mut self.task_notes)
+                    .await?,
+            )
         } else {
-            self.ctx.checkout_or_connect(&self.task_notes).await?
+            self.ctx.checkout_or_connect(&mut self.task_notes).await?
         };
         match origin {
             OriginConnection::H2(origin) => {
-                self.forward_h2_origin(origin, clt_body, clt_send_rsp).await
+                self.forward_h2_origin(origin, clt_body, clt_send_rsp)
+                    .await?;
             }
             OriginConnection::H1(origin) => {
-                self.forward_h1_origin(origin, clt_body, clt_send_rsp).await
+                self.forward_h1_origin(origin, clt_body, clt_send_rsp)
+                    .await?;
             }
         }
+        self.task_notes.stage = ServerTaskStage::Finished;
+        Ok(())
+    }
+
+    pub(super) fn mark_relaying(&mut self) {
+        self.task_notes.mark_relaying();
+        self.task_notes
+            .foreach_req_stats(|s| s.req_ready.add_http_forward(false));
     }
 
     async fn forward_h2_origin(
@@ -246,6 +260,8 @@ impl H2ForwardTask {
                 return Err(H2StreamTransferError::UpstreamStreamOpenTimeout);
             }
         };
+
+        self.mark_relaying();
 
         if self.audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.as_ref()

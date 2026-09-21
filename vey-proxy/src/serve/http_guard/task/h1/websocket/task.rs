@@ -198,6 +198,12 @@ impl HttpGuardWebsocketTask {
         CDR: AsyncRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
     {
+        if self.ctx.server_config.flush_task_log_on_connected
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_connected();
+        }
+
         self.task_notes.stage = ServerTaskStage::Replying;
         self.send_response_header(&mut clt_w, &rsp).await?;
         self.send_error_response = false;
@@ -399,13 +405,6 @@ impl HttpGuardWebsocketTask {
         match self.make_new_connection().await {
             Ok(ups_c) => {
                 self.task_notes.stage = ServerTaskStage::Connected;
-
-                if self.ctx.server_config.flush_task_log_on_connected
-                    && let Some(log_ctx) = self.get_log_context()
-                {
-                    log_ctx.log_connected();
-                }
-
                 Ok(ups_c)
             }
             Err(e) => {

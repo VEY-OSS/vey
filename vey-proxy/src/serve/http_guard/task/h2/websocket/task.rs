@@ -145,7 +145,10 @@ impl H2WebsocketTask {
             }
         }
 
-        let origin = self.ctx.checkout_or_connect_h2(&self.task_notes).await?;
+        let origin = self
+            .ctx
+            .checkout_or_connect_h2(&mut self.task_notes)
+            .await?;
         self.egress_notes = origin.egress_notes;
         self.task_notes.stage = ServerTaskStage::Connected;
         if self.ctx.server_config.flush_task_log_on_connected
@@ -372,6 +375,7 @@ impl H2WebsocketTask {
             return Ok(());
         }
 
+        self.task_notes.stage = ServerTaskStage::Replying;
         if body.is_end_stream() {
             clt_send_rsp
                 .send_response(rsp, true)
