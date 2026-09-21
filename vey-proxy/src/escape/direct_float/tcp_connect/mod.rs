@@ -90,7 +90,7 @@ impl DirectFloatEscaper {
                 .map_err(UnderlyingTcpConnectError::EscaperNotUsable)?
         };
         egress_notes.bind = BindAddr::Ip(bind.ip);
-        egress_notes.expire = bind.expire_datetime;
+        egress_notes.set_expire(bind.expire_datetime, bind.expire_instant);
         egress_notes.egress = Some(bind.egress_info.clone());
 
         let sock = vey_socket::tcp::new_socket_to(
@@ -255,7 +255,7 @@ impl DirectFloatEscaper {
                                 let bind = r.2;
                                 egress_notes.tcp.peer = Some(peer_addr);
                                 egress_notes.bind = BindAddr::Ip(bind.ip);
-                                egress_notes.expire = bind.expire_datetime;
+                                egress_notes.set_expire(bind.expire_datetime, bind.expire_instant);
                                 egress_notes.egress = Some(bind.egress_info.clone());
                                 match r.0 {
                                     Ok(ups_stream) => {

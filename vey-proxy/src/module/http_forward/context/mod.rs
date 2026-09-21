@@ -45,6 +45,17 @@ impl HttpAliveReuseNotes {
         }
     }
 
+    pub(crate) fn from_alive(escaper: ArcEscaper, keep_alive_leftover: KeepAliveValue) -> Self {
+        HttpAliveReuseNotes {
+            keep_alive_leftover,
+            escaper,
+        }
+    }
+
+    pub(crate) fn is_exhausted(&self) -> bool {
+        self.keep_alive_leftover.is_exhausted()
+    }
+
     /// Overlay this response's Keep-Alive; unset timeout/max stay from leftover.
     pub(crate) fn overlay_keep_alive(&mut self, keep_alive: KeepAliveValue) {
         self.keep_alive_leftover = keep_alive.or_from(self.keep_alive_leftover);
@@ -82,6 +93,7 @@ pub(crate) trait HttpForwardContext {
         &mut self,
         connection: BoxHttpForwardConnection,
         keep_alive: KeepAliveValue,
+        idle_expire: Duration,
     );
     fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes);
 
@@ -139,9 +151,8 @@ pub(crate) trait HttpForwardContext {
 }
 
 struct HttpAliveConnection {
-    saved_at: Instant,
     poller: HttpConnectionEofPoller,
-    keep_alive: KeepAliveValue,
+    last_used: Instant,
 }
 
 impl HttpAliveConnection {
@@ -153,13 +164,14 @@ impl HttpAliveConnection {
 #[derive(Default)]
 struct HttpAliveReuseState {
     last: Option<HttpAliveConnection>,
-    keep_alive_leftover: Option<KeepAliveValue>,
+    keep_alive_leftover: KeepAliveValue,
+    expire_at: Option<Instant>,
 }
 
 impl HttpAliveReuseState {
     fn drop_saved(&mut self) {
         self.last = None;
-        self.keep_alive_leftover = None;
+        self.clear_keep_alive_leftover();
     }
 
     fn take_last(&mut self) -> Option<HttpAliveConnection> {
@@ -171,7 +183,24 @@ impl HttpAliveReuseState {
     }
 
     fn clear_keep_alive_leftover(&mut self) {
-        self.keep_alive_leftover = None;
+        self.keep_alive_leftover = KeepAliveValue::default();
+        self.expire_at = None;
+    }
+
+    fn overlay_keep_alive(&mut self, keep_alive: KeepAliveValue) {
+        self.keep_alive_leftover = keep_alive.or_from(self.keep_alive_leftover);
+    }
+
+    fn cap_expire(&mut self, expire: Option<Instant>) {
+        self.expire_at = match (self.expire_at, expire) {
+            (Some(x), Some(y)) => Some(x.min(y)),
+            (a, b) => a.or(b),
+        };
+    }
+
+    fn is_expired(&self) -> bool {
+        self.expire_at
+            .is_some_and(|d| d.saturating_duration_since(Instant::now()).is_zero())
     }
 
     async fn get_alive(
@@ -181,36 +210,38 @@ impl HttpAliveReuseState {
         let conn = match self.last.take() {
             Some(conn) => conn,
             None => {
-                self.keep_alive_leftover = None;
+                self.clear_keep_alive_leftover();
                 return None;
             }
         };
-        if conn.keep_alive.max() == Some(0) {
+        if self.keep_alive_leftover.is_exhausted()
+            || conn.last_used.elapsed() >= idle_expire
+            || self.is_expired()
+        {
+            self.clear_keep_alive_leftover();
             return None;
         }
-        let timeout = conn
-            .keep_alive
-            .timeout()
-            .map(|t| t.min(idle_expire))
-            .unwrap_or(idle_expire);
-        if conn.saved_at.elapsed() >= timeout {
-            return None;
-        }
-        let keep_alive_leftover = conn.keep_alive.decrement_max();
+        self.keep_alive_leftover.decrement_max_mut();
+        let keep_alive_leftover = self.keep_alive_leftover;
         let connection = conn.poller.recv_conn().await?;
-        self.keep_alive_leftover = Some(keep_alive_leftover);
         Some((connection, keep_alive_leftover))
     }
 
-    fn save(&mut self, connection: BoxHttpForwardConnection, keep_alive: KeepAliveValue) {
-        let keep_alive = keep_alive.or_from(self.keep_alive_leftover.take().unwrap_or_default());
-        if keep_alive.max() == Some(0) {
+    fn save(
+        &mut self,
+        connection: BoxHttpForwardConnection,
+        keep_alive: KeepAliveValue,
+        expire: Option<Instant>,
+        idle_expire: Duration,
+    ) {
+        self.overlay_keep_alive(keep_alive);
+        self.cap_expire(expire);
+        if self.keep_alive_leftover.is_exhausted() || idle_expire.is_zero() || self.is_expired() {
             return;
         }
         self.last = Some(HttpAliveConnection {
-            saved_at: Instant::now(),
             poller: HttpConnectionEofPoller::spawn(connection),
-            keep_alive,
+            last_used: Instant::now(),
         });
     }
 }

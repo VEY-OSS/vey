@@ -126,7 +126,8 @@ impl H2ForwardTask {
         let icap_error = {
             let ups_w = &mut origin.connection.0;
             let ups_r = &mut origin.connection.1;
-            let mut ups_w_adaptation = HttpForwardWriterForAdaptation { inner: ups_w };
+            let mut ups_w_adaptation =
+                HttpForwardWriterForAdaptation::new(ups_w, origin.egress_notes.expire_at);
             let adaptation_fut = adapter.xfer(
                 &mut adaptation_state,
                 &converted,
@@ -221,7 +222,8 @@ impl H2ForwardTask {
         let (clt_read_finished, ups_write_finished) = {
             let ups_w = &mut origin.connection.0;
             let ups_r = &mut origin.connection.1;
-            let mut ups_w_adaptation = HttpForwardWriterForAdaptation { inner: ups_w };
+            let mut ups_w_adaptation =
+                HttpForwardWriterForAdaptation::new(ups_w, origin.egress_notes.expire_at);
             ups_w_adaptation
                 .send_request_header(&converted)
                 .await

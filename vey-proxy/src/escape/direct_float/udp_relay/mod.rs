@@ -108,12 +108,12 @@ impl DirectFloatEscaper {
         match family {
             AddressFamily::Ipv4 => {
                 egress_notes.egress = Some(bind.egress_info);
-                egress_notes.expire = bind.expire_datetime;
+                egress_notes.set_expire(bind.expire_datetime, bind.expire_instant);
                 egress_notes.udp_relay_v4.bind = Some(bind_addr);
             }
             AddressFamily::Ipv6 => {
                 egress_notes.egress = Some(bind.egress_info);
-                egress_notes.expire = bind.expire_datetime;
+                egress_notes.set_expire(bind.expire_datetime, bind.expire_instant);
                 egress_notes.udp_relay_v6.bind = Some(bind_addr);
             }
         }

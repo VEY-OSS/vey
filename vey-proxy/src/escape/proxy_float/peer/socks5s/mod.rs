@@ -258,7 +258,7 @@ impl NextProxyPeer for ProxyFloatSocks5sPeer {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        egress_notes.expire = self.expire_datetime();
+        egress_notes.set_expire(self.expire_datetime(), self.expire_instant());
         self.new_udp_connection(escaper, task_conf, egress_notes, task_notes, task_stats)
             .await
     }
@@ -270,7 +270,7 @@ impl NextProxyPeer for ProxyFloatSocks5sPeer {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> UdpConnectResult {
-        egress_notes.expire = self.expire_datetime();
+        egress_notes.set_expire(self.expire_datetime(), self.expire_instant());
         self.nested_udp_connect(escaper, task_conf, egress_notes, task_notes)
             .await
     }
@@ -283,7 +283,7 @@ impl NextProxyPeer for ProxyFloatSocks5sPeer {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        egress_notes.expire = self.expire_datetime();
+        egress_notes.set_expire(self.expire_datetime(), self.expire_instant());
         self.udp_setup_relay(escaper, task_conf, egress_notes, task_notes, task_stats)
             .await
     }

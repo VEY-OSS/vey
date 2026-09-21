@@ -542,11 +542,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             self.take_alive_from_fwd_ctx(fwd_ctx, idle_expire).await
         } else if let Some(pool) = self.site_ctx.site().http1_pool() {
             let (connection, reuse_notes, egress_notes) = pool
-                .get(
-                    self.task_notes.worker_id(),
-                    self.ctx.escaper.name(),
-                    idle_expire,
-                )
+                .get(self.task_notes.worker_id(), self.ctx.escaper.name())
                 .await?;
 
             self.egress_notes = egress_notes;
@@ -605,7 +601,11 @@ impl<'a> HttpGuardForwardTask<'a> {
         connection: BoxHttpForwardConnection,
     ) {
         if self.origin_session_auth {
-            fwd_ctx.save_alive_connection(connection, self.ups_keep_alive);
+            fwd_ctx.save_alive_connection(
+                connection,
+                self.ups_keep_alive,
+                self.site().h1_keepalive_config().idle_expire(),
+            );
             return;
         }
         if !self.site().h1_keepalive_config().is_enabled() {
@@ -623,7 +623,11 @@ impl<'a> HttpGuardForwardTask<'a> {
                 self.egress_notes.clone(),
             );
         } else {
-            fwd_ctx.save_alive_connection(connection, self.ups_keep_alive);
+            fwd_ctx.save_alive_connection(
+                connection,
+                self.ups_keep_alive,
+                self.site().h1_keepalive_config().idle_expire(),
+            );
         }
     }
 
@@ -800,7 +804,8 @@ impl<'a> HttpGuardForwardTask<'a> {
         let ups_w = &mut ups_c.0;
         let ups_r = &mut ups_c.1;
 
-        let mut ups_w_adaptation = HttpForwardWriterForAdaptation { inner: ups_w };
+        let mut ups_w_adaptation =
+            HttpForwardWriterForAdaptation::new(ups_w, self.egress_notes.expire_at);
         let mut adaptation_fut = icap_adapter
             .xfer(
                 adaptation_state,

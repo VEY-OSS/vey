@@ -79,7 +79,7 @@ impl ProxyFloatEscaper {
         )))]
         let bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
         egress_notes.bind = bind;
-        egress_notes.expire = peer.expire_datetime();
+        egress_notes.set_expire(peer.expire_datetime(), peer.expire_instant());
         egress_notes.egress = Some(peer.egress_info());
         egress_notes.tries = 1;
         let instant_now = Instant::now();

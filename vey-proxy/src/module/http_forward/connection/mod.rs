@@ -10,6 +10,7 @@ use std::task::{Context, Poll};
 use async_trait::async_trait;
 use http::Method;
 use tokio::io::{AsyncBufRead, AsyncWrite, AsyncWriteExt};
+use tokio::time::Instant;
 
 use vey_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
 use vey_http::server::{HttpConvertedRequest, HttpProxyClientRequest};
@@ -67,7 +68,23 @@ pub(crate) trait HttpForwardRead: AsyncBufRead {
 }
 
 pub(crate) struct HttpForwardWriterForAdaptation<'a> {
-    pub(crate) inner: &'a mut BoxHttpForwardWriter,
+    inner: &'a mut BoxHttpForwardWriter,
+    expire_at: Option<Instant>,
+}
+
+impl<'a> HttpForwardWriterForAdaptation<'a> {
+    pub(crate) fn new(inner: &'a mut BoxHttpForwardWriter, expire_at: Option<Instant>) -> Self {
+        HttpForwardWriterForAdaptation { inner, expire_at }
+    }
+
+    fn check_expire(&self) -> io::Result<()> {
+        if let Some(expire) = self.expire_at {
+            if expire.saturating_duration_since(Instant::now()).is_zero() {
+                return Err(io::Error::other("connection has expired"));
+            }
+        }
+        Ok(())
+    }
 }
 
 impl AsyncWrite for HttpForwardWriterForAdaptation<'_> {
@@ -102,12 +119,14 @@ impl AsyncWrite for HttpForwardWriterForAdaptation<'_> {
 
 impl HttpRequestUpstreamWriter<HttpProxyClientRequest> for HttpForwardWriterForAdaptation<'_> {
     async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()> {
+        self.check_expire()?;
         self.inner.send_request_header(req, None).await
     }
 }
 
 impl HttpRequestUpstreamWriter<HttpConvertedRequest> for HttpForwardWriterForAdaptation<'_> {
     async fn send_request_header(&mut self, req: &HttpConvertedRequest) -> io::Result<()> {
+        self.check_expire()?;
         self.inner.write_all(&req.serialize_for_origin()).await
     }
 }

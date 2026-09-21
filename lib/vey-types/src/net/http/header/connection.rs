@@ -32,6 +32,11 @@ impl KeepAliveValue {
     }
 
     #[inline]
+    pub fn is_exhausted(&self) -> bool {
+        self.max == Some(0)
+    }
+
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.timeout.is_none() && self.max.is_none()
     }

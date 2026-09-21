@@ -113,10 +113,10 @@ impl HttpForwardContext for RouteHttpForwardContext {
             .map(|(connection, keep_alive_leftover)| {
                 (
                     connection,
-                    HttpAliveReuseNotes {
+                    HttpAliveReuseNotes::from_alive(
+                        self.final_escaper.clone(),
                         keep_alive_leftover,
-                        escaper: self.final_escaper.clone(),
-                    },
+                    ),
                 )
             })
     }
@@ -175,8 +175,14 @@ impl HttpForwardContext for RouteHttpForwardContext {
         &mut self,
         connection: BoxHttpForwardConnection,
         keep_alive: KeepAliveValue,
+        idle_expire: Duration,
     ) {
-        self.reuse.save(connection, keep_alive);
+        self.reuse.save(
+            connection,
+            keep_alive,
+            self.egress_notes.expire_at,
+            idle_expire,
+        );
     }
 
     fn fetch_egress_notes(&self, egress_notes: &mut EgressNotes) {

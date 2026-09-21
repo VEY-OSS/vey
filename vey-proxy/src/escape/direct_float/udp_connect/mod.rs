@@ -78,7 +78,7 @@ impl DirectFloatEscaper {
             .select_bind(family, task_notes)
             .map_err(UdpConnectError::EscaperNotUsable)?;
         egress_notes.bind = BindAddr::Ip(bind.ip);
-        egress_notes.expire = bind.expire_datetime;
+        egress_notes.set_expire(bind.expire_datetime, bind.expire_instant);
         egress_notes.egress = Some(bind.egress_info);
 
         let misc_opts = if let Some(site_ctx) = task_notes.site_ctx() {

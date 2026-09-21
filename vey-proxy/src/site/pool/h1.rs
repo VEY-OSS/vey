@@ -34,11 +34,11 @@ struct IdleLane {
 }
 
 struct PooledHttp1Connection {
-    saved_at: Instant,
     poller: HttpConnectionEofPoller,
     escaper: NodeName,
     reuse_notes: HttpAliveReuseNotes,
     egress_notes: EgressNotes,
+    last_used: Instant,
 }
 
 impl SiteHttp1Pool {
@@ -60,12 +60,11 @@ impl SiteHttp1Pool {
         &self,
         worker_id: Option<usize>,
         escaper: &NodeName,
-        idle_expire: Duration,
     ) -> Option<(BoxHttpForwardConnection, HttpAliveReuseNotes, EgressNotes)> {
-        let idle_expire = idle_expire.min(self.config.idle_timeout());
         let lane = self.lane(worker_id);
+        let idle_timeout = self.config.idle_timeout();
         loop {
-            let mut conn = lane.pop_candidate(idle_expire, escaper)?;
+            let mut conn = lane.pop_candidate(escaper, idle_timeout)?;
             conn.reuse_notes.keep_alive_leftover.decrement_max_mut();
             let reuse_notes = conn.reuse_notes;
             let egress_notes = conn.egress_notes;
@@ -83,19 +82,20 @@ impl SiteHttp1Pool {
         reuse_notes: HttpAliveReuseNotes,
         egress_notes: EgressNotes,
     ) {
-        if reuse_notes.keep_alive_leftover.max() == Some(0) {
+        let idle_timeout = self.config.idle_timeout();
+        if reuse_notes.is_exhausted() || idle_timeout.is_zero() || egress_notes.is_expired() {
             return;
         }
 
         let pooled = PooledHttp1Connection {
-            saved_at: Instant::now(),
             poller: HttpConnectionEofPoller::spawn(connection),
             escaper,
             reuse_notes,
             egress_notes,
+            last_used: Instant::now(),
         };
         self.lane(worker_id)
-            .push(pooled, self.lane_max_idle, self.config.idle_timeout());
+            .push(pooled, self.lane_max_idle, idle_timeout);
     }
 
     fn lane(&self, worker_id: Option<usize>) -> &IdleLane {
@@ -106,14 +106,14 @@ impl SiteHttp1Pool {
 impl IdleLane {
     fn pop_candidate(
         &self,
-        idle_expire: Duration,
         escaper: &NodeName,
+        idle_timeout: Duration,
     ) -> Option<PooledHttp1Connection> {
         let mut idle = self.conns.lock().unwrap();
-        prune_idle(&mut idle, idle_expire);
+        prune_idle(&mut idle, idle_timeout);
         let pos = idle
             .iter()
-            .rposition(|c| &c.escaper == escaper && !c.is_expired(idle_expire))?;
+            .rposition(|c| &c.escaper == escaper && !c.is_expired(idle_timeout))?;
         idle.remove(pos)
     }
 
@@ -131,24 +131,19 @@ impl IdleLane {
 }
 
 impl PooledHttp1Connection {
-    fn is_expired(&self, idle_expire: Duration) -> bool {
-        let keep_alive = self.reuse_notes.keep_alive_leftover;
-        if self.poller.is_closed() || keep_alive.max() == Some(0) {
-            return true;
-        }
-        let timeout = keep_alive
-            .timeout()
-            .map(|t| t.min(idle_expire))
-            .unwrap_or(idle_expire);
-        self.saved_at.elapsed() >= timeout
+    fn is_expired(&self, idle_timeout: Duration) -> bool {
+        self.poller.is_closed()
+            || self.reuse_notes.is_exhausted()
+            || self.egress_notes.is_expired()
+            || self.last_used.elapsed() >= idle_timeout
     }
 }
 
-fn prune_idle(idle: &mut VecDeque<PooledHttp1Connection>, idle_expire: Duration) {
-    while idle.back().is_some_and(|c| c.is_expired(idle_expire)) {
+fn prune_idle(idle: &mut VecDeque<PooledHttp1Connection>, idle_timeout: Duration) {
+    while idle.back().is_some_and(|c| c.is_expired(idle_timeout)) {
         idle.pop_back();
     }
-    while idle.front().is_some_and(|c| c.is_expired(idle_expire)) {
+    while idle.front().is_some_and(|c| c.is_expired(idle_timeout)) {
         idle.pop_front();
     }
 }

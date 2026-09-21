@@ -202,11 +202,7 @@ impl H2TaskContext {
         }
         let pool = site.http1_pool()?;
         let (connection, reuse_notes, egress_notes) = pool
-            .get(
-                task_notes.worker_id(),
-                self.escaper.name(),
-                keepalive.idle_expire(),
-            )
+            .get(task_notes.worker_id(), self.escaper.name())
             .await?;
         let task_stats: ArcHttpForwardTaskRemoteStats = Arc::new(NilHttpForwardTaskRemoteStats);
         let connection = reuse_notes.escaper.prepare_reused_http_forward_connection(

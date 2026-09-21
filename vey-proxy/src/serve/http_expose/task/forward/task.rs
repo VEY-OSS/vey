@@ -538,11 +538,7 @@ impl<'a> HttpExposeForwardTask<'a> {
     ) -> Option<BoxHttpForwardConnection> {
         if let Some(pool) = self.site_ctx.site().http1_pool() {
             let (connection, reuse_notes, egress_notes) = pool
-                .get(
-                    self.task_notes.worker_id(),
-                    self.ctx.escaper.name(),
-                    idle_expire,
-                )
+                .get(self.task_notes.worker_id(), self.ctx.escaper.name())
                 .await?;
 
             self.egress_notes = egress_notes;
@@ -608,7 +604,11 @@ impl<'a> HttpExposeForwardTask<'a> {
                 self.egress_notes.clone(),
             );
         } else {
-            fwd_ctx.save_alive_connection(connection, self.ups_keep_alive);
+            fwd_ctx.save_alive_connection(
+                connection,
+                self.ups_keep_alive,
+                self.site().h1_keepalive_config().idle_expire(),
+            );
         }
     }
 

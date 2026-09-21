@@ -28,7 +28,7 @@ pub(crate) struct DirectFloatBindIp {
     id: Option<String>,
     pub(crate) ip: IpAddr,
     pub(crate) expire_datetime: Option<Timestamp>,
-    expire_instant: Option<Instant>,
+    pub(crate) expire_instant: Option<Instant>,
     pub(crate) egress_info: EgressInfo,
 }
 

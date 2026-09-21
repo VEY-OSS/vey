@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use jiff::Timestamp;
 use openssl::ssl::SslRef;
+use tokio::time::Instant;
 
 use vey_socket::BindAddr;
 use vey_types::metrics::NodeName;
@@ -45,6 +46,7 @@ pub(crate) struct EgressNotes {
     pub(crate) bind: BindAddr,
     pub(crate) tries: usize,
     pub(crate) expire: Option<Timestamp>,
+    pub(crate) expire_at: Option<Instant>,
     pub(crate) egress: Option<EgressInfo>,
     pub(crate) socket_type: Option<EgressSocketType>,
     pub(crate) tcp: ConnectNotes,
@@ -60,6 +62,16 @@ pub(crate) struct EgressNotes {
 impl EgressNotes {
     pub(crate) fn reset(&mut self) {
         *self = Default::default();
+    }
+
+    pub(crate) fn set_expire(&mut self, datetime: Option<Timestamp>, instant: Option<Instant>) {
+        self.expire = datetime;
+        self.expire_at = instant;
+    }
+
+    pub(crate) fn is_expired(&self) -> bool {
+        self.expire_at
+            .is_some_and(|d| d.saturating_duration_since(Instant::now()).is_zero())
     }
 
     pub(crate) fn record_selected_alpn(&mut self, ssl: &SslRef) {

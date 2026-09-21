@@ -125,7 +125,11 @@ impl H2Lane {
         let mut idle = self.conns.lock().unwrap();
         prune_idle(&mut idle, idle_timeout);
         idle.iter()
-            .filter(|c| &c.escaper == escaper && !c.closed.load(Ordering::Acquire))
+            .filter(|c| {
+                &c.escaper == escaper
+                    && !c.closed.load(Ordering::Acquire)
+                    && !c.egress_notes.is_expired()
+            })
             .map(|c| PooledH2Connection {
                 sender: c.sender.clone(),
                 escaper: c.escaper.clone(),
@@ -164,5 +168,9 @@ fn senders_same(a: &SendRequest<Bytes>, b: &SendRequest<Bytes>) -> bool {
 }
 
 fn prune_idle(idle: &mut Vec<PooledH2Connection>, idle_timeout: Duration) {
-    idle.retain(|c| !c.closed.load(Ordering::Acquire) && c.last_used.elapsed() < idle_timeout);
+    idle.retain(|c| {
+        !c.closed.load(Ordering::Acquire)
+            && c.last_used.elapsed() < idle_timeout
+            && !c.egress_notes.is_expired()
+    });
 }

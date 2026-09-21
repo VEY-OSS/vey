@@ -701,7 +701,14 @@ impl<'a> HttpProxyForwardTask<'a> {
             }
             let _ = clt_w.shutdown().await;
         } else if let Some(connection) = ups_s {
-            fwd_ctx.save_alive_connection(connection, self.ups_keep_alive);
+            fwd_ctx.save_alive_connection(
+                connection,
+                self.ups_keep_alive,
+                self.ctx
+                    .server_config
+                    .http_forward_upstream_keepalive
+                    .idle_expire(),
+            );
         }
     }
 
@@ -892,7 +899,8 @@ impl<'a> HttpProxyForwardTask<'a> {
         let ups_w = &mut ups_c.0;
         let ups_r = &mut ups_c.1;
 
-        let mut ups_w_adaptation = HttpForwardWriterForAdaptation { inner: ups_w };
+        let mut ups_w_adaptation =
+            HttpForwardWriterForAdaptation::new(ups_w, self.egress_notes.expire_at);
         let mut adaptation_fut = icap_adapter
             .xfer(
                 adaptation_state,
