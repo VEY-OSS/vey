@@ -17,7 +17,7 @@ use h2::{RecvStream, SendStream};
 use http::{Extensions, HeaderMap, Request, Response};
 use tokio::time::Instant;
 
-use vey_h2::{H2StreamFromChunkedTransfer, RequestExt};
+use vey_h2::{H2BodyTransfer, H2StreamFromChunkedTransfer, H2StreamToChunkedTransfer, RequestExt};
 use vey_http::server::HttpAdaptedRequest;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
 
@@ -128,6 +128,26 @@ impl ReqmodAdaptationRunState {
 
     pub(crate) fn mark_ups_recv_header(&mut self) {
         self.dur_ups_recv_header = Some(self.task_create_instant.elapsed());
+    }
+
+    pub(crate) fn record_clt_body_progress<W>(
+        &mut self,
+        body_transfer: &H2StreamToChunkedTransfer<'_, W>,
+    ) {
+        self.clt_req_body_size = Some(if body_transfer.finished() {
+            body_transfer.copied_size()
+        } else {
+            body_transfer.received_size()
+        });
+    }
+
+    pub(crate) fn record_h2_body_progress(
+        &mut self,
+        preview_received: u64,
+        body_transfer: &H2BodyTransfer,
+    ) {
+        self.clt_req_body_size = Some(preview_received + body_transfer.received_size());
+        self.ups_req_body_size = Some(preview_received + body_transfer.copied_size());
     }
 }
 

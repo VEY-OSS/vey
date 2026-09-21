@@ -273,6 +273,7 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
                     let mut bidirectional_transfer = BidirectionalRecvHttpRequest {
                         copy_config: self.copy_config,
                         http_body_line_max_size: self.http_body_line_max_size,
+                        http_trailer_max_size: self.http_trailer_max_size,
                         http_req_add_no_via_header: self.http_req_add_no_via_header,
                         idle_checker: &self.idle_checker,
                         http_header_size: header_size,

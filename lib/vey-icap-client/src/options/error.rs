@@ -25,8 +25,6 @@ pub(crate) enum IcapOptionsParseError {
     MethodNotMatch,
     #[error("no ISTag set")]
     NoServiceTagSet,
-    #[error("unsupported body")]
-    UnsupportedBody(String),
     #[error("invalid value for header {0}")]
     InvalidHeaderValue(&'static str),
     #[error("io failed: {0:?}")]

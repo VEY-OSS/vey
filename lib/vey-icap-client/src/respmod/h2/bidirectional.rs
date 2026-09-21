@@ -201,8 +201,13 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                         Ok(_) => {
                             state.mark_clt_send_all();
                             state.clt_rsp_body_size = Some(adp_body_transfer.copied_size());
-                            if ups_body_transfer.finished() {
-                                state.ups_rsp_body_size = Some(ups_body_transfer.copied_size());
+                            state.ups_rsp_body_size = Some(if ups_body_transfer.finished() {
+                                ups_body_transfer.copied_size()
+                            } else {
+                                ups_body_transfer.received_size()
+                            });
+                            if ups_body_transfer.recv_finished() {
+                                state.mark_ups_recv_all();
                             }
                             self.icap_read_finished = true;
                             Ok(RespmodAdaptationEndState::AdaptedTransferred(http_rsp))

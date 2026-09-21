@@ -164,7 +164,10 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
         let r = self
             .do_transfer(ups_body_transfer, &mut clt_body_transfer)
             .await;
-        state.record_ups_body_progress(ups_body_transfer);
+        state.ups_rsp_body_size = Some(ups_body_transfer.body_size());
+        if ups_body_transfer.reader_finished() {
+            state.mark_ups_recv_all();
+        }
         if let Err(e) = r {
             state.clt_rsp_body_size = Some(clt_body_transfer.copied_size());
             return Err(e);

@@ -173,22 +173,17 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                         Ok(ups_rsp) => {
                             if let Some(final_rsp) = check_out_final_response(ups_rsp, clt_send_rsp, &mut allow_continue)? {
                                 state.mark_ups_recv_header();
+                                state.record_clt_body_progress(clt_body_transfer);
+                                state.ups_req_body_size = Some(ups_body_transfer.copied_size());
                                 return if let Some(body) = ups_recv_rsp.take_body() {
                                     let (headers, _) = final_rsp.into_parts();
-                                    if clt_body_transfer.finished() {
-                                        state.clt_req_body_size = Some(clt_body_transfer.copied_size());
-                                    }
                                     if ups_body_transfer.finished() {
-                                        state.ups_req_body_size = Some(ups_body_transfer.copied_size());
+                                        state.mark_ups_send_all();
                                         self.icap_read_finished = true;
                                     }
                                     let ups_rsp = Response::from_parts(headers, body);
                                     Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
                                 } else {
-                                    if !clt_transfer_done {
-                                        state.clt_req_body_size = Some(clt_body_transfer.received_size());
-                                    }
-                                    state.ups_req_body_size = Some(ups_body_transfer.copied_size());
                                     Err(H2ReqmodAdaptationError::UnsupportedInformationalResponse(
                                         final_rsp.status(),
                                     ))

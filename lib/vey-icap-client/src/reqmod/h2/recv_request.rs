@@ -119,6 +119,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                         Ok(ups_rsp) => {
                             if let Some(final_rsp) = check_out_final_response(ups_rsp, clt_send_rsp, &mut self.allow_continue)? {
                                 state.mark_ups_recv_header();
+                                state.record_h2_body_progress(preview_received, &body_transfer);
                                 return if let Some(body) = ups_recv_rsp.take_body() {
                                     let (headers, _) = final_rsp.into_parts();
                                     let ups_rsp = Response::from_parts(headers, body);
@@ -306,10 +307,11 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                         Ok(ups_rsp) => {
                             if let Some(final_rsp) = check_out_final_response(ups_rsp, clt_send_rsp, &mut self.allow_continue)? {
                                 state.mark_ups_recv_header();
+                                state.ups_req_body_size = Some(body_transfer.copied_size());
                                 return if let Some(body) = ups_recv_rsp.take_body() {
                                     let (headers, _) = final_rsp.into_parts();
                                     if body_transfer.finished() {
-                                        state.ups_req_body_size = Some(body_transfer.copied_size());
+                                        state.mark_ups_send_all();
                                         self.icap_connection.mark_reader_finished();
                                         if icap_rsp.keep_alive {
                                             self.icap_client.save_connection(self.icap_connection);
