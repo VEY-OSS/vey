@@ -281,15 +281,6 @@ impl YamlMapCallback for SiteConfig {
         if self.upstream.is_empty() {
             return Err(anyhow!("upstream is empty"));
         }
-        if self.tls_name.is_empty() {
-            match self
-                .upstream
-                .tls_name_host(self.tls_client_builder.is_some())?
-            {
-                Some(host) => self.tls_name = host,
-                None => {}
-            }
-        }
         self.http.check();
         Ok(())
     }

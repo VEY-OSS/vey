@@ -55,30 +55,6 @@ impl SiteUpstreamConfig {
         self.peers = parsed.peers;
     }
 
-    /// Host copied into `tls_name` when that key is omitted.
-    ///
-    /// Multiple IP peers have no single host. A literal IP is not a usable SNI
-    /// name when a TLS client is configured.
-    pub(crate) fn tls_name_host(&self, tls_client: bool) -> anyhow::Result<Option<Host>> {
-        if let Some(addr) = &self.single {
-            if tls_client && matches!(addr.host(), Host::Ip(_)) {
-                return Err(anyhow!(
-                    "tls_name is required when tls_client is set and upstream is an IP address"
-                ));
-            }
-            return Ok(Some(addr.host().clone()));
-        }
-        if self.peers.is_empty() {
-            return Ok(None);
-        }
-        if tls_client {
-            return Err(anyhow!(
-                "tls_name is required when tls_client is set and upstream is a list of IP addresses"
-            ));
-        }
-        Ok(None)
-    }
-
     pub(crate) fn parse(value: &Yaml) -> anyhow::Result<Self> {
         match value {
             Yaml::String(_) => {
@@ -129,42 +105,5 @@ impl SiteUpstreamConfig {
                 "upstream must be an address string or a list of ip:port"
             )),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn parse(yaml: &str) -> SiteUpstreamConfig {
-        let docs = yaml_rust::YamlLoader::load_from_str(yaml).unwrap();
-        SiteUpstreamConfig::parse(&docs[0]).unwrap()
-    }
-
-    #[test]
-    fn tls_name_host_rejects_ip_when_tls_client_is_set() {
-        let single = parse("10.0.0.1:8080");
-        let err = single.tls_name_host(true).unwrap_err();
-        assert!(err.to_string().contains("tls_name"), "{err}");
-        assert_eq!(
-            single.tls_name_host(false).unwrap().unwrap().to_string(),
-            "10.0.0.1"
-        );
-
-        let peers = parse(
-            r#"
-- 10.0.0.1:8080
-- 10.0.0.2:8080
-"#,
-        );
-        let err = peers.tls_name_host(true).unwrap_err();
-        assert!(err.to_string().contains("tls_name"), "{err}");
-        assert!(peers.tls_name_host(false).unwrap().is_none());
-
-        let domain = parse("origin.example");
-        assert_eq!(
-            domain.tls_name_host(true).unwrap().unwrap().to_string(),
-            "origin.example"
-        );
     }
 }

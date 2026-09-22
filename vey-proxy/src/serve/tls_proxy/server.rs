@@ -204,8 +204,13 @@ impl TlsProxyServer {
         }
     }
 
-    async fn run_task<S>(&self, stream: S, cc_info: ClientConnectionInfo, host: Arc<TlsHost>)
-    where
+    async fn run_task<S>(
+        &self,
+        stream: S,
+        cc_info: ClientConnectionInfo,
+        host: Arc<TlsHost>,
+        request_host: Host,
+    ) where
         S: AsyncStream + 'static,
         S::R: AsyncRead + Send + Sync + Unpin + 'static,
         S::W: AsyncWrite + Send + Sync + Unpin + 'static,
@@ -231,7 +236,7 @@ impl TlsProxyServer {
             ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO).with_site_ctx(site_ctx);
 
         let ctx = self.get_common_task_context(cc_info);
-        TlsProxyTask::new(ctx, host, self.audit_context(), task_notes)
+        TlsProxyTask::new(ctx, host, request_host, self.audit_context(), task_notes)
             .into_running(stream)
             .await;
     }
@@ -273,7 +278,7 @@ impl TlsProxyServer {
             }
         };
 
-        let Some(host) = host.cloned() else {
+        let Some((host, request_host)) = host.map(|(host, name)| (Arc::clone(host), name)) else {
             self.listen_stats.add_failed();
             debug!(
                 "{} - {} tls error: no matched site",
@@ -298,7 +303,7 @@ impl TlsProxyServer {
                 if ssl_stream.ssl().session_reused() {
                     cc_info.tcp_sock_try_quick_ack();
                 }
-                self.run_task(ssl_stream, cc_info, host).await
+                self.run_task(ssl_stream, cc_info, host, request_host).await
             }
             Err(e) => {
                 self.listen_stats.add_failed();
@@ -323,12 +328,17 @@ impl TlsProxyServer {
     }
 }
 
+fn host_from_sni(sni: Option<&str>) -> Host {
+    sni.and_then(|name| Host::from_str(name).ok())
+        .unwrap_or_else(Host::empty)
+}
+
 async fn read_sni_host<'a>(
     clt_r: &mut TcpStream,
     clt_r_buf: &mut BytesMut,
     max_client_hello_size: u32,
     hosts: &'a HostMatch<Arc<TlsHost>>,
-) -> anyhow::Result<Option<&'a Arc<TlsHost>>> {
+) -> anyhow::Result<Option<(&'a Arc<TlsHost>, Host)>> {
     let max_hello_size = max_client_hello_size as usize;
     let max_buf_size = max_hello_size
         .saturating_mul(RecordHeader::SIZE + 1)
@@ -376,14 +386,16 @@ async fn read_sni_host<'a>(
 fn host_from_client_hello<'a>(
     ch: ClientHello<'_>,
     hosts: &'a HostMatch<Arc<TlsHost>>,
-) -> Option<&'a Arc<TlsHost>> {
+) -> Option<(&'a Arc<TlsHost>, Host)> {
     match ch.get_ext(ExtensionType::ServerName) {
         Ok(Some(data)) => match TlsServerName::from_extension_value(data) {
-            Ok(sni) => hosts.get(&Host::from(sni)),
-            Err(_) => hosts.get_default(),
+            Ok(sni) => {
+                let name = Host::from(sni);
+                hosts.get(&name).map(|host| (host, name))
+            }
+            Err(_) => hosts.get_default().map(|host| (host, Host::empty())),
         },
-        Ok(None) => hosts.get_default(),
-        Err(_) => hosts.get_default(),
+        Ok(None) | Err(_) => hosts.get_default().map(|host| (host, Host::empty())),
     }
 }
 
@@ -569,7 +581,8 @@ impl Server for TlsProxyServer {
             self.listen_stats.add_failed();
             return;
         };
-        self.run_task(stream, cc_info, host).await;
+        let request_host = host_from_sni(sni);
+        self.run_task(stream, cc_info, host, request_host).await;
     }
 
     async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
@@ -584,6 +597,7 @@ impl Server for TlsProxyServer {
             self.listen_stats.add_failed();
             return;
         };
-        self.run_task(stream, cc_info, host).await;
+        let request_host = host_from_sni(sni);
+        self.run_task(stream, cc_info, host, request_host).await;
     }
 }

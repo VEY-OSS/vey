@@ -177,10 +177,8 @@ tls_name
 
 SNI and certificate name used to verify the upstream.
 
-If unset and ``upstream`` is a single domain, that domain is used. If
-``tls_client`` is set and ``upstream`` is an IP address or a list of IP
-addresses, ``tls_name`` is required. A list of IP addresses without
-``tls_client`` leaves this empty.
+If unset, the Host from the client request is used. ``tls_proxy`` uses the
+client SNI. The upstream address is not used as the name.
 
 **default**: not set
 

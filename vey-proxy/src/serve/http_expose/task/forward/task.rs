@@ -669,7 +669,13 @@ impl<'a> HttpExposeForwardTask<'a> {
                     upstream: &self.upstream,
                 },
                 tls_config: tls_client,
-                tls_name: self.site().tls_name(),
+                tls_name: self.site().tls_name_or(
+                    self.req
+                        .host
+                        .as_ref()
+                        .map(|addr| addr.host())
+                        .unwrap_or_else(|| self.site().tls_name()),
+                ),
                 alpn_protocols: None,
             };
             fwd_ctx

@@ -12,7 +12,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use vey_daemon::server::ServerQuitPolicy;
 use vey_daemon::stat::task::TcpStreamTaskStats;
 use vey_io_ext::{AsyncStream, IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
-use vey_types::net::UpstreamAddr;
+use vey_types::net::{Host, UpstreamAddr};
 
 use super::common::CommonTaskContext;
 use super::host::TlsHost;
@@ -33,6 +33,7 @@ use crate::stat::types::RequestAliveKind;
 pub(super) struct TlsProxyTask {
     ctx: CommonTaskContext,
     host: Arc<TlsHost>,
+    request_host: Host,
     upstream: UpstreamAddr,
     egress_notes: EgressNotes,
     task_notes: ServerTaskNotes,
@@ -45,6 +46,7 @@ impl TlsProxyTask {
     pub(super) fn new(
         ctx: CommonTaskContext,
         host: Arc<TlsHost>,
+        request_host: Host,
         audit_ctx: AuditContext,
         task_notes: ServerTaskNotes,
     ) -> Self {
@@ -55,6 +57,7 @@ impl TlsProxyTask {
         TlsProxyTask {
             ctx,
             host,
+            request_host,
             upstream,
             egress_notes: EgressNotes::default(),
             task_notes,
@@ -155,7 +158,7 @@ impl TlsProxyTask {
                     upstream: &self.upstream,
                 },
                 tls_config: tls_client_config,
-                tls_name: self.host.site().tls_name(),
+                tls_name: self.host.site().tls_name_or(&self.request_host),
                 alpn_protocols: None,
             };
             self.ctx

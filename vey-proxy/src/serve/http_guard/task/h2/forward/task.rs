@@ -209,13 +209,17 @@ impl H2ForwardTask {
         self.audit_task = self.should_audit();
 
         let origin = if self.req.maybe_grpc() {
+            let request_host = self.req.host();
             OriginConnection::H2(
                 self.ctx
-                    .checkout_or_connect_h2(&mut self.task_notes)
+                    .checkout_or_connect_h2(&mut self.task_notes, &request_host)
                     .await?,
             )
         } else {
-            self.ctx.checkout_or_connect(&mut self.task_notes).await?
+            let request_host = self.req.host();
+            self.ctx
+                .checkout_or_connect(&mut self.task_notes, &request_host)
+                .await?
         };
         match origin {
             OriginConnection::H2(origin) => {

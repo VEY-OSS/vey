@@ -305,7 +305,7 @@ impl HttpGuardWebsocketTask {
 
         self.setup_clt_limit_and_stats(req, Some(clt_r), clt_w);
 
-        let ups_c = self.get_new_connection(clt_w).await?;
+        let ups_c = self.get_new_connection(req, clt_w).await?;
         if audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.clone()
             && let Some(reqmod) = audit_handle.icap_reqmod_client()
@@ -394,6 +394,7 @@ impl HttpGuardWebsocketTask {
 
     async fn get_new_connection<CDW>(
         &mut self,
+        req: &HttpProxyClientRequest,
         clt_w: &mut HttpClientWriter<CDW>,
     ) -> ServerTaskResult<TcpConnection>
     where
@@ -401,7 +402,7 @@ impl HttpGuardWebsocketTask {
     {
         self.task_notes.stage = ServerTaskStage::Connecting;
 
-        match self.make_new_connection().await {
+        match self.make_new_connection(req).await {
             Ok(ups_c) => {
                 self.task_notes.stage = ServerTaskStage::Connected;
                 Ok(ups_c)
@@ -413,7 +414,10 @@ impl HttpGuardWebsocketTask {
         }
     }
 
-    async fn make_new_connection(&mut self) -> Result<TcpConnection, TcpConnectError> {
+    async fn make_new_connection(
+        &mut self,
+        req: &HttpProxyClientRequest,
+    ) -> Result<TcpConnection, TcpConnectError> {
         self.task_notes
             .site_upstream()
             .map_err(|_| TcpConnectError::InternalServerError("failed to select site upstream"))?;
@@ -425,7 +429,12 @@ impl HttpGuardWebsocketTask {
                     upstream: &self.upstream,
                 },
                 tls_config: tls_client,
-                tls_name: self.site_ctx.site().tls_name(),
+                tls_name: self.site_ctx.site().tls_name_or(
+                    req.host
+                        .as_ref()
+                        .map(|addr| addr.host())
+                        .unwrap_or_else(|| self.site_ctx.site().tls_name()),
+                ),
                 alpn_protocols: None,
             };
             self.ctx

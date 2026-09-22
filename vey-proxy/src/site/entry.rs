@@ -165,6 +165,16 @@ impl Site {
         &self.config.tls_name
     }
 
+    /// Configured SNI name, or the request host when `tls_name` is unset.
+    pub(crate) fn tls_name_or<'a>(&'a self, request_host: &'a Host) -> &'a Host {
+        let configured = self.tls_name();
+        if configured.is_empty() {
+            request_host
+        } else {
+            configured
+        }
+    }
+
     pub(crate) fn covers_host(&self, host: &Host) -> bool {
         self.config.covers_host(host)
     }

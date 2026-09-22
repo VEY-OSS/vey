@@ -16,7 +16,7 @@ use tokio::time::Instant;
 
 use vey_h2::{
     H2BodyEncodeTransfer, H2StreamBodyTransferError, H2StreamFromChunkedTransfer,
-    H2StreamToChunkedTransfer,
+    H2StreamToChunkedTransfer, RequestExt,
 };
 use vey_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
 use vey_http::server::HttpConvertedRequest;
@@ -192,6 +192,7 @@ impl H2ForwardTask {
         let mut audit_ctx = AuditContext::new(self.ctx.audit_handle.clone());
         let task_stats: ArcHttpForwardTaskRemoteStats = Arc::new(NilHttpForwardTaskRemoteStats);
         let site = self.ctx.site_ctx.site();
+        let request_host = self.req.host();
         let upstream = self
             .task_notes
             .site_upstream()
@@ -200,7 +201,7 @@ impl H2ForwardTask {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf { upstream },
                 tls_config: tls_client,
-                tls_name: site.tls_name(),
+                tls_name: site.tls_name_or(&request_host),
                 alpn_protocols: None,
             };
             fwd_ctx

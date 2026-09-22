@@ -19,7 +19,7 @@ use uuid::Uuid;
 use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_daemon::stat::task::TcpStreamTaskStats;
 use vey_h2::RequestExt;
-use vey_types::net::{AlpnProtocol, ForwardedValue, HttpForwardedHeaderType};
+use vey_types::net::{AlpnProtocol, ForwardedValue, Host, HttpForwardedHeaderType};
 
 use super::{CommonTaskContext, H2StreamTransferError};
 use crate::audit::AuditContext;
@@ -158,6 +158,7 @@ impl H2TaskContext {
     pub(super) async fn checkout_or_connect(
         &self,
         task_notes: &mut ServerTaskNotes,
+        request_host: &Host,
     ) -> Result<OriginConnection, H2StreamTransferError> {
         if let Some(origin) = self.checkout_h2(task_notes).await {
             return Ok(OriginConnection::H2(origin));
@@ -166,18 +167,19 @@ impl H2TaskContext {
             return Ok(OriginConnection::H1(origin));
         }
         task_notes.stage = ServerTaskStage::Connecting;
-        self.connect_origin(task_notes).await
+        self.connect_origin(task_notes, request_host).await
     }
 
     pub(super) async fn checkout_or_connect_h2(
         &self,
         task_notes: &mut ServerTaskNotes,
+        request_host: &Host,
     ) -> Result<OriginH2Sender, H2StreamTransferError> {
         if let Some(origin) = self.checkout_h2(task_notes).await {
             return Ok(origin);
         }
         task_notes.stage = ServerTaskStage::Connecting;
-        self.connect_origin_h2(task_notes).await
+        self.connect_origin_h2(task_notes, request_host).await
     }
 
     async fn checkout_h2(&self, task_notes: &ServerTaskNotes) -> Option<OriginH2Sender> {
@@ -230,6 +232,7 @@ impl H2TaskContext {
     async fn connect_origin(
         &self,
         task_notes: &ServerTaskNotes,
+        request_host: &Host,
     ) -> Result<OriginConnection, H2StreamTransferError> {
         let site = self.site_ctx.site();
         let upstream = task_notes
@@ -243,7 +246,7 @@ impl H2TaskContext {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf { upstream: upstream },
                 tls_config: tls_client,
-                tls_name: site.tls_name(),
+                tls_name: site.tls_name_or(request_host),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2_H1),
             };
             let (stream, leaf) = self
@@ -278,6 +281,7 @@ impl H2TaskContext {
     async fn connect_origin_h2(
         &self,
         task_notes: &ServerTaskNotes,
+        request_host: &Host,
     ) -> Result<OriginH2Sender, H2StreamTransferError> {
         let site = self.site_ctx.site();
         let upstream = task_notes
@@ -291,7 +295,7 @@ impl H2TaskContext {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf { upstream: upstream },
                 tls_config: tls_client,
-                tls_name: site.tls_name(),
+                tls_name: site.tls_name_or(request_host),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2),
             };
             self.escaper

@@ -11,7 +11,7 @@ use h2::server::SendResponse;
 use h2::{Reason, RecvStream, SendStream, StreamId};
 use http::{Request, Response, StatusCode, Version};
 
-use vey_h2::{H2BodyTransfer, H2ResponseHeaderReceiver};
+use vey_h2::{H2BodyTransfer, H2ResponseHeaderReceiver, RequestExt};
 use vey_icap_client::reqmod::h2::{
     H2RequestAdapter, HttpAdapterErrorResponse, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
@@ -149,9 +149,10 @@ impl H2WebsocketTask {
             }
         }
 
+        let request_host = req.host();
         let origin = self
             .ctx
-            .checkout_or_connect_h2(&mut self.task_notes)
+            .checkout_or_connect_h2(&mut self.task_notes, &request_host)
             .await?;
         self.egress_notes = origin.egress_notes;
         self.task_notes.stage = ServerTaskStage::Connected;
