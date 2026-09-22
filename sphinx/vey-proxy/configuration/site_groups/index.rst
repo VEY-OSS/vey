@@ -27,6 +27,9 @@ keep their stats and limiters when the site ID is unchanged. Every online
 reverse-proxy server that references the group then rebuilds its host table.
 Groups that :ref:`import <conf_site_group_import>` this group are rebuilt too.
 ``vey-proxy-ctl list site-group`` lists loaded group names.
+``vey-proxy-ctl site-upstream`` and
+``vey-proxy-ctl set-site-upstream-weight`` read and change the runtime
+weights of a site whose upstream is a list of IP addresses.
 
 Site request and traffic counters are exported as :ref:`site metrics
 <metrics_site>`, with the group name, site ID, optional

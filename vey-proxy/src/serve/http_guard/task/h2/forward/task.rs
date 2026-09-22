@@ -20,6 +20,7 @@ use vey_icap_client::reqmod::h2::{
 };
 use vey_icap_client::respmod::h2::{RespmodAdaptationEndState, RespmodAdaptationRunState};
 use vey_types::acl::AclAction;
+use vey_types::net::UpstreamAddr;
 
 use super::{H2StreamTransferError, H2TaskContext, OriginConnection, OriginH2Sender};
 use crate::escape::EgressNotes;
@@ -41,6 +42,7 @@ pub(crate) struct H2ForwardTask {
     pub(super) send_error_response: bool,
     pub(super) allow_continue: bool,
     pub(super) audit_task: bool,
+    pub(super) upstream: UpstreamAddr,
     _alive_guard: Option<H2ForwardTaskAliveGuard>,
 }
 
@@ -60,6 +62,7 @@ impl H2ForwardTask {
         );
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Default::default())
             .with_site_ctx(ctx.site_ctx_for_request());
+        let upstream = task_notes.site_upstream_addr().clone();
         let allow_continue = req.expect_100_continue();
         H2ForwardTask {
             ctx,
@@ -72,6 +75,7 @@ impl H2ForwardTask {
             send_error_response: true,
             allow_continue,
             audit_task: false,
+            upstream,
             _alive_guard: None,
         }
     }
@@ -86,7 +90,7 @@ impl H2ForwardTask {
             .as_ref()
             .map(|logger| TaskLogForH2Forward {
                 logger,
-                upstream: self.ctx.site_ctx.site().upstream(),
+                upstream: &self.upstream,
                 task_notes: &self.task_notes,
                 http_notes: &self.http_notes,
                 egress_notes: &self.egress_notes,
@@ -182,7 +186,7 @@ impl H2ForwardTask {
         }
 
         if let Some(tenant) = self.task_notes.tenant_ctx() {
-            match tenant.check_upstream(self.ctx.site_ctx.site().upstream()) {
+            match tenant.check_upstream(&self.upstream) {
                 AclAction::Permit | AclAction::PermitAndLog => {}
                 AclAction::Forbid | AclAction::ForbidAndLog => {
                     self.reply_denied(clt_send_rsp, StatusCode::FORBIDDEN);

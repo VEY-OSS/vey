@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -34,6 +35,7 @@ struct H2Lane {
 struct PooledH2Connection {
     sender: SendRequest<Bytes>,
     escaper: NodeName,
+    peer: Option<SocketAddr>,
     last_used: Instant,
     closed: Arc<AtomicBool>,
     egress_notes: EgressNotes,
@@ -58,11 +60,12 @@ impl SiteHttp2Pool {
         &self,
         worker_id: Option<usize>,
         escaper: &NodeName,
+        peer: Option<SocketAddr>,
         open_timeout: Duration,
     ) -> Option<(SendRequest<Bytes>, EgressNotes)> {
         let lane = self.lane(worker_id);
         let idle_timeout = self.config.idle_timeout();
-        let candidates = lane.snapshot(escaper, idle_timeout);
+        let candidates = lane.snapshot(escaper, peer, idle_timeout);
         if candidates.is_empty() {
             return None;
         }
@@ -73,7 +76,7 @@ impl SiteHttp2Pool {
             }
             match tokio::time::timeout(open_timeout, conn.sender.clone().ready()).await {
                 Ok(Ok(ready)) => {
-                    lane.touch(conn.sender.clone(), escaper);
+                    lane.touch(conn.sender.clone(), escaper, peer);
                     return Some((ready, conn.egress_notes.clone()));
                 }
                 Ok(Err(_)) => continue,
@@ -88,7 +91,7 @@ impl SiteHttp2Pool {
             && let Ok(Ok(ready)) =
                 tokio::time::timeout(open_timeout, conn.sender.clone().ready()).await
         {
-            lane.touch(conn.sender.clone(), escaper);
+            lane.touch(conn.sender.clone(), escaper, peer);
             return Some((ready, conn.egress_notes.clone()));
         }
         None
@@ -98,6 +101,7 @@ impl SiteHttp2Pool {
         &self,
         worker_id: Option<usize>,
         escaper: NodeName,
+        peer: Option<SocketAddr>,
         sender: SendRequest<Bytes>,
         closed: Arc<AtomicBool>,
         egress_notes: EgressNotes,
@@ -106,6 +110,7 @@ impl SiteHttp2Pool {
             PooledH2Connection {
                 sender,
                 escaper,
+                peer,
                 last_used: Instant::now(),
                 closed,
                 egress_notes,
@@ -121,18 +126,25 @@ impl SiteHttp2Pool {
 }
 
 impl H2Lane {
-    fn snapshot(&self, escaper: &NodeName, idle_timeout: Duration) -> Vec<PooledH2Connection> {
+    fn snapshot(
+        &self,
+        escaper: &NodeName,
+        peer: Option<SocketAddr>,
+        idle_timeout: Duration,
+    ) -> Vec<PooledH2Connection> {
         let mut idle = self.conns.lock().unwrap();
         prune_idle(&mut idle, idle_timeout);
         idle.iter()
             .filter(|c| {
                 &c.escaper == escaper
+                    && c.peer == peer
                     && !c.closed.load(Ordering::Acquire)
                     && !c.egress_notes.is_expired()
             })
             .map(|c| PooledH2Connection {
                 sender: c.sender.clone(),
                 escaper: c.escaper.clone(),
+                peer: c.peer,
                 last_used: c.last_used,
                 closed: Arc::clone(&c.closed),
                 egress_notes: c.egress_notes.clone(),
@@ -140,11 +152,11 @@ impl H2Lane {
             .collect()
     }
 
-    fn touch(&self, sender: SendRequest<Bytes>, escaper: &NodeName) {
+    fn touch(&self, sender: SendRequest<Bytes>, escaper: &NodeName, peer: Option<SocketAddr>) {
         let mut idle = self.conns.lock().unwrap();
         if let Some(conn) = idle
             .iter_mut()
-            .find(|c| &c.escaper == escaper && senders_same(&c.sender, &sender))
+            .find(|c| &c.escaper == escaper && c.peer == peer && senders_same(&c.sender, &sender))
         {
             conn.last_used = Instant::now();
         }

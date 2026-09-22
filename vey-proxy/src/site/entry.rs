@@ -24,6 +24,7 @@ use vey_types::net::{
 
 use super::SiteStats;
 use super::pool::{SiteHttp1Pool, SiteHttp2Pool};
+use super::upstream::{SiteUpstream, UpstreamPeerStatus};
 use crate::auth::{UserForbiddenStats, UserGroup, UserRequestStats};
 use crate::config::site::SiteConfig;
 
@@ -36,6 +37,7 @@ pub(crate) struct Site {
     req_alive_sem: Option<GaugeSemaphore>,
     http1_pool: Option<Arc<SiteHttp1Pool>>,
     http2_pool: Arc<SiteHttp2Pool>,
+    upstream: SiteUpstream,
     forwarded_trusted_from: IpNetworkTable<()>,
 }
 
@@ -74,6 +76,7 @@ impl Site {
                 .connection_pool
                 .map(|cfg| Arc::new(SiteHttp1Pool::new(cfg))),
             http2_pool: Arc::new(SiteHttp2Pool::new(config.http.h2.connection_pool)),
+            upstream: SiteUpstream::from_config(config.upstream()),
             forwarded_trusted_from: config.http.build_forwarded_trusted_from_table(),
         })
     }
@@ -107,6 +110,7 @@ impl Site {
             req_alive_sem,
             http1_pool,
             http2_pool,
+            upstream: SiteUpstream::new_for_reload(&self.upstream, config.upstream()),
             forwarded_trusted_from: config.http.build_forwarded_trusted_from_table(),
         })
     }
@@ -141,8 +145,20 @@ impl Site {
         self.tenant_user_group.load_full()
     }
 
-    pub(crate) fn upstream(&self) -> &UpstreamAddr {
-        self.config.upstream()
+    pub(crate) fn select_upstream(&self, client_ip: IpAddr) -> anyhow::Result<UpstreamAddr> {
+        self.upstream.select(client_ip)
+    }
+
+    pub(crate) fn list_upstream_peers(&self) -> anyhow::Result<Vec<UpstreamPeerStatus>> {
+        self.upstream.list_peers()
+    }
+
+    pub(crate) fn set_upstream_weight(
+        &self,
+        addr: std::net::SocketAddr,
+        weight: f64,
+    ) -> anyhow::Result<()> {
+        self.upstream.set_weight(addr, weight)
     }
 
     pub(crate) fn tls_name(&self) -> &Host {

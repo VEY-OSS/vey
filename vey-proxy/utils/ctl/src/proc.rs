@@ -12,6 +12,7 @@ use vey_proxy_proto::escaper_capnp::escaper_control;
 use vey_proxy_proto::proc_capnp::proc_control;
 use vey_proxy_proto::resolver_capnp::resolver_control;
 use vey_proxy_proto::server_capnp::server_control;
+use vey_proxy_proto::site_group_capnp::site_group_control;
 use vey_proxy_proto::user_group_capnp::user_group_control;
 
 use crate::common::{parse_fetch_result, parse_operation_result};
@@ -307,4 +308,14 @@ pub(crate) async fn get_server(
     req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_fetch_result(rsp.get()?.get_server()?)
+}
+
+pub(crate) async fn get_site_group(
+    client: &proc_control::Client,
+    name: &str,
+) -> CommandResult<site_group_control::Client> {
+    let mut req = client.get_site_group_request();
+    req.get().set_name(name);
+    let rsp = req.send().promise.await?;
+    parse_fetch_result(rsp.get()?.get_site_group()?)
 }

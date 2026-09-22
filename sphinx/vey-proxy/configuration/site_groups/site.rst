@@ -4,7 +4,8 @@
 Site
 ****
 
-A site is one origin: one upstream and optional ingress / egress TLS.
+A site is one origin and optional ingress / egress TLS. The origin is one
+address, or a weighted list of IP addresses.
 
 Sites live in a :ref:`site group <configuration_site_group>` under
 :ref:`static_sites <conf_site_group_static_sites>`. Match keys
@@ -77,9 +78,56 @@ A site with no tags cannot be imported.
 upstream
 --------
 
-**required**, **type**: :external+values:ref:`upstream str <conf_value_upstream_str>`
+**required**, **type**: :external+values:ref:`upstream str <conf_value_upstream_str>` | seq
 
-Target upstream address. The default port is ``80`` and may be omitted.
+Target upstream. A string is one domain or IP address. The default port is
+``80`` and may be omitted.
+
+A sequence is a weighted list of IP sockets. Each element is an
+:external+values:ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`
+whose host must be an IP address and whose port is required. Domain names,
+duplicate sockets, and a non-finite or negative weight are rejected. Weight
+``0`` is accepted and that address is not selected.
+
+One address ignores ``upstream_pick_policy``. Each request, or each new origin
+connection, selects once. HTTP/1 and HTTP/2 keepalive pools are kept per
+socket, so a later request is not sent on a connection that was opened to a
+different address.
+
+Example:
+
+.. code-block:: yaml
+
+   upstream:
+     - 10.0.0.1:8080
+     - addr: 10.0.0.2:8080
+       weight: 2
+
+.. _conf_site_upstream_pick_policy:
+
+upstream_pick_policy
+--------------------
+
+**optional**, **type**: :external+values:ref:`selective pick policy <conf_value_selective_pick_policy>`
+
+Policy used when ``upstream`` is a list of IP addresses.
+
+``serial`` selects the current heaviest address. ``round_robin`` spreads
+picks through a smooth cycle. ``ketama``, ``rendezvous``, and ``jump_hash``
+hash the client IP only. ``jump_hash`` does not use the weight magnitude;
+a weight of ``0`` or less still drops that address. If every weight is ``0``
+or less, selection fails.
+
+``vey-proxy-ctl site-upstream <group> <site-id>`` lists each address with its
+config weight and current weight. ``vey-proxy-ctl set-site-upstream-weight
+<group> <site-id> <ip:port> <weight>`` changes the current weight and rebuilds
+the pick table. Existing connections stay on the address they already use.
+The new weight is not written back to the configuration file. A reload keeps
+the current weight for addresses that are still configured. A process restart
+returns to the configured weights. These commands apply to the site group that
+is serving the site. An imported copy has its own weights.
+
+**default**: round_robin
 
 .. _conf_site_tls_server:
 
@@ -129,7 +177,10 @@ tls_name
 
 SNI and certificate name used to verify the upstream.
 
-If unset, the host part of ``upstream`` is used.
+If unset and ``upstream`` is a single domain, that domain is used. If
+``tls_client`` is set and ``upstream`` is an IP address or a list of IP
+addresses, ``tls_name`` is required. A list of IP addresses without
+``tls_client`` leaves this empty.
 
 **default**: not set
 

@@ -338,11 +338,12 @@ where
         .with_site_ctx(site_ctx.clone());
 
         // check in final escaper so we can use route escapers
+        let upstream = task_notes.site_upstream_addr().clone();
         let _ = self
             .forward_context
             .check_in_final_escaper(
                 &task_notes,
-                site_ctx.site().upstream(),
+                &upstream,
                 site_ctx.site().tls_client().is_some(),
             )
             .await;

@@ -17,6 +17,7 @@ mod proc;
 mod escaper;
 mod resolver;
 mod server;
+mod site_group;
 mod user_group;
 
 fn build_cli_args() -> Command {
@@ -35,6 +36,8 @@ fn build_cli_args() -> Command {
         .subcommand(proc::commands::reload_escaper())
         .subcommand(proc::commands::reload_server())
         .subcommand(proc::commands::reload_site_group())
+        .subcommand(site_group::list_command())
+        .subcommand(site_group::set_weight_command())
         .subcommand(user_group::command())
         .subcommand(resolver::command())
         .subcommand(escaper::command())
@@ -84,6 +87,8 @@ async fn main() -> anyhow::Result<()> {
                 proc::COMMAND_RELOAD_SITE_GROUP => {
                     proc::reload_site_group(&proc_control, args).await
                 }
+                site_group::COMMAND_LIST => site_group::list(&proc_control, args).await,
+                site_group::COMMAND_SET_WEIGHT => site_group::set_weight(&proc_control, args).await,
                 user_group::COMMAND => user_group::run(&proc_control, args).await,
                 resolver::COMMAND => resolver::run(&proc_control, args).await,
                 escaper::COMMAND => escaper::run(&proc_control, args).await,

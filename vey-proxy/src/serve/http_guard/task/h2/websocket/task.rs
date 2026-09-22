@@ -17,6 +17,7 @@ use vey_icap_client::reqmod::h2::{
     ReqmodRecvHttpResponseBody,
 };
 use vey_types::acl::AclAction;
+use vey_types::net::UpstreamAddr;
 
 use super::{H2StreamTransferError, H2TaskContext};
 use crate::escape::EgressNotes;
@@ -39,6 +40,7 @@ pub(crate) struct H2WebsocketTask {
     ups_rd_bytes: u64,
     ups_wr_bytes: u64,
     send_error_response: bool,
+    upstream: UpstreamAddr,
     _alive_guard: Option<H2ForwardTaskAliveGuard>,
 }
 
@@ -51,6 +53,7 @@ impl H2WebsocketTask {
         let ws_notes = WebSocketTaskNotes::new(req.version(), req.uri().clone(), uri_log_max_chars);
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Default::default())
             .with_site_ctx(ctx.site_ctx_for_request());
+        let upstream = task_notes.site_upstream_addr().clone();
         H2WebsocketTask {
             ctx,
             clt_stream_id,
@@ -63,6 +66,7 @@ impl H2WebsocketTask {
             ups_rd_bytes: 0,
             ups_wr_bytes: 0,
             send_error_response: true,
+            upstream,
             _alive_guard: None,
         }
     }
@@ -77,7 +81,7 @@ impl H2WebsocketTask {
             .as_ref()
             .map(|logger| TaskLogForWebSocket {
                 logger,
-                upstream: self.ctx.site_ctx.site().upstream(),
+                upstream: &self.upstream,
                 task_notes: &self.task_notes,
                 ws_notes: &self.ws_notes,
                 egress_notes: &self.egress_notes,
@@ -136,7 +140,7 @@ impl H2WebsocketTask {
         }
 
         if let Some(tenant) = self.task_notes.tenant_ctx() {
-            match tenant.check_upstream(self.ctx.site_ctx.site().upstream()) {
+            match tenant.check_upstream(&self.upstream) {
                 AclAction::Permit | AclAction::PermitAndLog => {}
                 AclAction::Forbid | AclAction::ForbidAndLog => {
                     self.reply_denied(clt_send_rsp, StatusCode::FORBIDDEN);

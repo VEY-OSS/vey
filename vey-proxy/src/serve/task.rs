@@ -5,7 +5,7 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use arc_swap::ArcSwapOption;
@@ -17,6 +17,7 @@ use uuid::Uuid;
 use vey_daemon::server::ClientConnectionInfo;
 use vey_types::limit::GaugeSemaphorePermit;
 use vey_types::metrics::{MetricTagMap, NodeName};
+use vey_types::net::UpstreamAddr;
 use vey_types::resolve::ResolveRedirection;
 
 use crate::auth::{
@@ -25,7 +26,7 @@ use crate::auth::{
 };
 use crate::config::escaper::EgressUpstream;
 use crate::escape::EgressPathSelection;
-use crate::site::{SiteContext, SiteRequestPermits};
+use crate::site::{SiteContext, SiteRequestPermits, upstream_pool_peer};
 use crate::stat::types::RequestAliveKind;
 
 #[derive(Clone, Copy)]
@@ -73,6 +74,7 @@ pub(crate) struct ServerTaskNotes {
     _user_req_alive_permit: Option<GaugeSemaphorePermit>,
     _site_req_alive_permits: SiteRequestPermits,
     _req_alive_guard: Option<UserRequestAliveGuard>,
+    origin: OnceLock<CachedUpstream>,
 }
 
 impl ServerTaskNotes {
@@ -106,6 +108,7 @@ impl ServerTaskNotes {
             _user_req_alive_permit: None,
             _site_req_alive_permits: SiteRequestPermits::default(),
             _req_alive_guard: None,
+            origin: OnceLock::new(),
         }
     }
 
@@ -122,6 +125,42 @@ impl ServerTaskNotes {
     #[inline]
     pub(crate) fn client_ip(&self) -> IpAddr {
         self.cc_info.client_ip()
+    }
+
+    /// Upstream chosen for this task. The first call selects; later calls reuse it.
+    pub(crate) fn site_upstream(&self) -> anyhow::Result<&UpstreamAddr> {
+        let cached = self.cached_upstream();
+        if let Some(error) = &cached.error {
+            Err(anyhow::anyhow!("{error}"))
+        } else {
+            Ok(&cached.addr)
+        }
+    }
+
+    pub(crate) fn site_upstream_addr(&self) -> &UpstreamAddr {
+        &self.cached_upstream().addr
+    }
+
+    pub(crate) fn site_upstream_peer(&self) -> Option<SocketAddr> {
+        self.site_upstream().ok().and_then(upstream_pool_peer)
+    }
+
+    fn cached_upstream(&self) -> &CachedUpstream {
+        let ip = self.client_ip();
+        let site = self.site_ctx.as_ref().map(|ctx| Arc::clone(ctx.site()));
+        self.origin.get_or_init(|| match site {
+            Some(site) => match site.select_upstream(ip) {
+                Ok(addr) => CachedUpstream { addr, error: None },
+                Err(e) => CachedUpstream {
+                    addr: UpstreamAddr::empty(),
+                    error: Some(e.to_string()),
+                },
+            },
+            None => CachedUpstream {
+                addr: UpstreamAddr::empty(),
+                error: Some("no site context".to_string()),
+            },
+        })
     }
 
     #[inline]
@@ -387,6 +426,11 @@ impl ServerTaskNotes {
             user_ctx.record_task_ready(self.ready_time);
         }
     }
+}
+
+struct CachedUpstream {
+    addr: UpstreamAddr,
+    error: Option<String>,
 }
 
 fn layered_task_idle_count(

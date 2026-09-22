@@ -243,13 +243,10 @@ where
             }
             None => {
                 let site = site_ctx.site();
+                let upstream = task_notes.site_upstream_addr().clone();
                 let _ = self
                     .forward_context
-                    .check_in_final_escaper(
-                        &task_notes,
-                        site.upstream(),
-                        site.tls_client().is_some(),
-                    )
+                    .check_in_final_escaper(&task_notes, &upstream, site.tls_client().is_some())
                     .await;
                 match self
                     .run_forward(&mut stream_w, req, site_ctx, task_notes)

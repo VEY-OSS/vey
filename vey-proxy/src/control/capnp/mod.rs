@@ -12,6 +12,7 @@ mod proc;
 mod escaper;
 mod resolver;
 mod server;
+mod site_group;
 mod user_group;
 
 pub fn stop_working_thread() {

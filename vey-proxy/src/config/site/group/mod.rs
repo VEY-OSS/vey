@@ -178,6 +178,71 @@ static_sites:
     }
 
     #[test]
+    fn parse_multi_ip_upstream() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream_pick_policy: ketama
+    upstream:
+      - 10.0.0.1:8080
+      - addr: 10.0.0.2:8080
+        weight: 2
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert!(site.upstream().single().is_none());
+        assert_eq!(site.upstream().peers().len(), 2);
+        assert_eq!(
+            site.upstream().pick_policy(),
+            vey_types::collection::SelectivePickPolicy::Ketama
+        );
+        assert!(site.tls_name.is_empty());
+    }
+
+    #[test]
+    fn reject_domain_and_duplicate_upstream() {
+        let domain = r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream:
+      - example.com:80
+"#;
+        let yaml = YamlLoader::load_from_str(domain).unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let err = SiteGroupConfig::parse(map, None).unwrap_err();
+        assert!(format!("{err:#}").contains("ip:port"), "{err:#}");
+
+        let duplicate = r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream:
+      - 10.0.0.1:8080
+      - 10.0.0.1:8080
+"#;
+        let yaml = YamlLoader::load_from_str(duplicate).unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let err = SiteGroupConfig::parse(map, None).unwrap_err();
+        assert!(format!("{err:#}").contains("duplicate"), "{err:#}");
+    }
+
+    #[test]
     fn parse_site_tags() {
         let yaml = YamlLoader::load_from_str(
             r#"

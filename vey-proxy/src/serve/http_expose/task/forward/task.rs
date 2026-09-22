@@ -21,7 +21,7 @@ use vey_io_ext::{
     StreamCopyError,
 };
 use vey_types::acl::AclAction;
-use vey_types::net::{KeepAliveValue, TcpSockSpeedLimitConfig};
+use vey_types::net::{KeepAliveValue, TcpSockSpeedLimitConfig, UpstreamAddr};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpExposeRequest};
 use super::{CommonTaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats};
@@ -58,6 +58,7 @@ pub(crate) struct HttpExposeForwardTask<'a> {
     max_idle_count: usize,
     _alive_guard: Option<HttpForwardTaskAliveGuard>,
     alive_reuse_notes: Option<HttpAliveReuseNotes>,
+    upstream: UpstreamAddr,
 }
 
 impl<'a> HttpExposeForwardTask<'a> {
@@ -83,6 +84,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             uri_log_max_chars,
         );
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
+        let upstream = task_notes.site_upstream_addr().clone();
         HttpExposeForwardTask {
             ctx: Arc::clone(ctx),
             site_ctx,
@@ -98,6 +100,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             max_idle_count,
             _alive_guard: None,
             alive_reuse_notes: None,
+            upstream,
         }
     }
 
@@ -211,7 +214,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             .map(|v| v.to_str());
         Some(TaskLogForHttpForward {
             logger,
-            upstream: self.site().upstream(),
+            upstream: &self.upstream,
             task_notes: &self.task_notes,
             http_notes: &self.http_notes,
             http_user_agent,
@@ -431,7 +434,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 ));
             }
 
-            let action = user_ctx.check_upstream(self.site().upstream());
+            let action = user_ctx.check_upstream(&self.upstream);
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
             if let Some(action) = user_ctx.check_http_user_agent(
@@ -479,9 +482,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 log_ctx.log_connected();
             }
 
-            connection
-                .0
-                .prepare_new(&self.task_notes, self.site().upstream());
+            connection.0.prepare_new(&self.task_notes, &self.upstream);
             self.mark_relaying();
 
             let r = self
@@ -538,7 +539,11 @@ impl<'a> HttpExposeForwardTask<'a> {
     ) -> Option<BoxHttpForwardConnection> {
         if let Some(pool) = self.site_ctx.site().http1_pool() {
             let (connection, reuse_notes, egress_notes) = pool
-                .get(self.task_notes.worker_id(), self.ctx.escaper.name())
+                .get(
+                    self.task_notes.worker_id(),
+                    self.ctx.escaper.name(),
+                    crate::site::upstream_pool_peer(&self.upstream),
+                )
                 .await?;
 
             self.egress_notes = egress_notes;
@@ -599,6 +604,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             pool.save(
                 self.task_notes.worker_id(),
                 self.ctx.escaper.name().clone(),
+                crate::site::upstream_pool_peer(&self.upstream),
                 connection,
                 reuse_notes,
                 self.egress_notes.clone(),
@@ -636,9 +642,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                     log_ctx.log_connected();
                 }
 
-                connection
-                    .0
-                    .prepare_new(&self.task_notes, self.site().upstream());
+                connection.0.prepare_new(&self.task_notes, &self.upstream);
                 self.mark_relaying();
                 Ok(connection)
             }
@@ -655,11 +659,14 @@ impl<'a> HttpExposeForwardTask<'a> {
         &self,
         fwd_ctx: &mut BoxHttpForwardContext,
     ) -> Result<(BoxHttpForwardConnection, HttpAliveReuseNotes), TcpConnectError> {
+        self.task_notes
+            .site_upstream()
+            .map_err(|_| TcpConnectError::InternalServerError("failed to select site upstream"))?;
         let mut audit_ctx = AuditContext::default();
         if let Some(tls_client) = self.site().tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
-                    upstream: self.site().upstream(),
+                    upstream: &self.upstream,
                 },
                 tls_config: tls_client,
                 tls_name: self.site().tls_name(),
@@ -675,7 +682,7 @@ impl<'a> HttpExposeForwardTask<'a> {
                 .await
         } else {
             let task_conf = TcpConnectTaskConf {
-                upstream: self.site().upstream(),
+                upstream: &self.upstream,
             };
             fwd_ctx
                 .new_prepared_http_connection(

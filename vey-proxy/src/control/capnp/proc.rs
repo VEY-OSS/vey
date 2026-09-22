@@ -13,6 +13,7 @@ use vey_proxy_proto::escaper_capnp::escaper_control;
 use vey_proxy_proto::proc_capnp::proc_control;
 use vey_proxy_proto::resolver_capnp::resolver_control;
 use vey_proxy_proto::server_capnp::server_control;
+use vey_proxy_proto::site_group_capnp::site_group_control;
 use vey_proxy_proto::types_capnp::fetch_result;
 use vey_proxy_proto::user_group_capnp::user_group_control;
 
@@ -259,6 +260,18 @@ impl proc_control::Server for ProcControlImpl {
         set_fetch_result::<server_control::Owned>(
             results.get().init_server(),
             super::server::ServerControlImpl::new_client(server),
+        )
+    }
+
+    async fn get_site_group(
+        self: Rc<Self>,
+        params: proc_control::GetSiteGroupParams,
+        mut results: proc_control::GetSiteGroupResults,
+    ) -> capnp::Result<()> {
+        let site_group = params.get()?.get_name()?.to_str()?;
+        set_fetch_result::<site_group_control::Owned>(
+            results.get().init_site_group(),
+            super::site_group::SiteGroupControlImpl::new_client(site_group),
         )
     }
 

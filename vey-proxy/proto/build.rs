@@ -26,6 +26,7 @@ fn main() {
             .file("schema/resolver.capnp")
             .file("schema/escaper.capnp")
             .file("schema/server.capnp")
+            .file("schema/site_group.capnp")
             .run()
             .unwrap();
     }

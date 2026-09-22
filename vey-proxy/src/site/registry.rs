@@ -31,7 +31,7 @@ where
     }
 }
 
-pub(super) fn get(name: &NodeName) -> Option<Arc<SiteGroup>> {
+pub(crate) fn get(name: &NodeName) -> Option<Arc<SiteGroup>> {
     let ht = RUNTIME_SITE_GROUP_REGISTRY.lock().unwrap();
     ht.get(name).cloned()
 }

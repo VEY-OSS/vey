@@ -128,6 +128,10 @@ impl SiteGroup {
         &self.sites_by_host
     }
 
+    pub(crate) fn site(&self, id: &NodeName) -> Option<Arc<Site>> {
+        self.sites_by_id.get(id).cloned()
+    }
+
     pub(super) fn iter_sites(&self) -> impl Iterator<Item = &Arc<Site>> {
         self.sites_by_id.values()
     }
@@ -496,25 +500,12 @@ static_sites:
             &source_site
         ));
 
-        assert_eq!(
-            reloaded
-                .sites_by_id
-                .get(&public_id)
-                .unwrap()
-                .upstream()
-                .port(),
-            8080
-        );
-        assert_eq!(
-            reloaded
-                .sites_by_id
-                .get(&public_id)
-                .unwrap()
-                .upstream()
-                .host()
-                .to_string(),
-            "10.0.0.1"
-        );
+        let site = reloaded.sites_by_id.get(&public_id).unwrap();
+        let upstream = site
+            .select_upstream(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST))
+            .unwrap();
+        assert_eq!(upstream.port(), 8080);
+        assert_eq!(upstream.host().to_string(), "10.0.0.1");
         assert!(
             reloaded
                 .sites_by_id

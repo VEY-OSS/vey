@@ -48,7 +48,10 @@ impl TlsProxyTask {
         audit_ctx: AuditContext,
         task_notes: ServerTaskNotes,
     ) -> Self {
-        let upstream = host.site().upstream().clone();
+        let upstream = host
+            .site()
+            .select_upstream(task_notes.client_ip())
+            .unwrap_or_else(|_| UpstreamAddr::empty());
         TlsProxyTask {
             ctx,
             host,
@@ -141,6 +144,11 @@ impl TlsProxyTask {
             })?;
 
         self.task_notes.stage = ServerTaskStage::Connecting;
+        if self.upstream.is_empty() {
+            return Err(ServerTaskError::InternalServerError(
+                "failed to select site upstream",
+            ));
+        }
         let (ups_r, ups_w) = if let Some(tls_client_config) = self.host.site().tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {

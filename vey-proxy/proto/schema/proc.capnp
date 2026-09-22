@@ -6,6 +6,7 @@ using UserGroup = import "user_group.capnp";
 using Resolver = import "resolver.capnp";
 using Escaper = import "escaper.capnp";
 using Server = import "server.capnp";
+using SiteGroup = import "site_group.capnp";
 
 interface ProcControl {
   #
@@ -27,6 +28,7 @@ interface ProcControl {
   getResolver @7 (name: Text) -> (resolver :Types.FetchResult(Resolver.ResolverControl));
   getEscaper @8 (name: Text) -> (escaper :Types.FetchResult(Escaper.EscaperControl));
   getServer @9 (name: Text) -> (server :Types.FetchResult(Server.ServerControl));
+  getSiteGroup @25 (name: Text) -> (siteGroup :Types.FetchResult(SiteGroup.SiteGroupControl));
 
   listUserGroup @10 () -> (result :List(Text));
   listResolver @11 () -> (result :List(Text));

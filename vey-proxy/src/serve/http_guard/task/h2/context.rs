@@ -182,11 +182,17 @@ impl H2TaskContext {
 
     async fn checkout_h2(&self, task_notes: &ServerTaskNotes) -> Option<OriginH2Sender> {
         let open_timeout = self.server_config.h2.upstream_stream_open_timeout;
+        let peer = task_notes.site_upstream_peer();
         let (sender, egress_notes) = self
             .site_ctx
             .site()
             .http2_pool()
-            .checkout(task_notes.worker_id(), self.escaper.name(), open_timeout)
+            .checkout(
+                task_notes.worker_id(),
+                self.escaper.name(),
+                peer,
+                open_timeout,
+            )
             .await?;
         Some(OriginH2Sender {
             sender,
@@ -202,8 +208,9 @@ impl H2TaskContext {
             return None;
         }
         let pool = site.http1_pool()?;
+        let peer = task_notes.site_upstream_peer();
         let (connection, reuse_notes, egress_notes) = pool
-            .get(task_notes.worker_id(), self.escaper.name())
+            .get(task_notes.worker_id(), self.escaper.name(), peer)
             .await?;
         let task_stats: ArcHttpForwardTaskRemoteStats = Arc::new(NilHttpForwardTaskRemoteStats);
         let connection = reuse_notes.escaper.prepare_reused_http_forward_connection(
@@ -225,15 +232,16 @@ impl H2TaskContext {
         task_notes: &ServerTaskNotes,
     ) -> Result<OriginConnection, H2StreamTransferError> {
         let site = self.site_ctx.site();
+        let upstream = task_notes
+            .site_upstream()
+            .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
         let mut egress_notes = EgressNotes::default();
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = Arc::new(TcpStreamTaskStats::default());
 
         let stream = if let Some(tls_client) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
-                tcp: TcpConnectTaskConf {
-                    upstream: site.upstream(),
-                },
+                tcp: TcpConnectTaskConf { upstream: upstream },
                 tls_config: tls_client,
                 tls_name: site.tls_name(),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2_H1),
@@ -272,15 +280,16 @@ impl H2TaskContext {
         task_notes: &ServerTaskNotes,
     ) -> Result<OriginH2Sender, H2StreamTransferError> {
         let site = self.site_ctx.site();
+        let upstream = task_notes
+            .site_upstream()
+            .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
         let mut egress_notes = EgressNotes::default();
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = Arc::new(TcpStreamTaskStats::default());
 
         let stream = if let Some(tls_client) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
-                tcp: TcpConnectTaskConf {
-                    upstream: site.upstream(),
-                },
+                tcp: TcpConnectTaskConf { upstream: upstream },
                 tls_config: tls_client,
                 tls_name: site.tls_name(),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2),
@@ -312,7 +321,9 @@ impl H2TaskContext {
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> Result<TcpConnection, H2StreamTransferError> {
         let task_conf = TcpConnectTaskConf {
-            upstream: self.site_ctx.site().upstream(),
+            upstream: task_notes
+                .site_upstream()
+                .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?,
         };
         self.escaper
             .tcp_setup_connection(&task_conf, egress_notes, task_notes, task_stats, audit_ctx)
@@ -330,6 +341,7 @@ impl H2TaskContext {
         self.site_ctx.site().http2_pool().insert(
             task_notes.worker_id(),
             self.escaper.name().clone(),
+            task_notes.site_upstream_peer(),
             sender.clone(),
             Arc::clone(&closed),
             egress_notes.clone(),

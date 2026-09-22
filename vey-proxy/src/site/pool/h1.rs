@@ -4,6 +4,7 @@
  */
 
 use std::collections::VecDeque;
+use std::net::SocketAddr;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -36,6 +37,7 @@ struct IdleLane {
 struct PooledHttp1Connection {
     poller: HttpConnectionEofPoller,
     escaper: NodeName,
+    peer: Option<SocketAddr>,
     reuse_notes: HttpAliveReuseNotes,
     egress_notes: EgressNotes,
     last_used: Instant,
@@ -60,11 +62,12 @@ impl SiteHttp1Pool {
         &self,
         worker_id: Option<usize>,
         escaper: &NodeName,
+        peer: Option<SocketAddr>,
     ) -> Option<(BoxHttpForwardConnection, HttpAliveReuseNotes, EgressNotes)> {
         let lane = self.lane(worker_id);
         let idle_timeout = self.config.idle_timeout();
         loop {
-            let mut conn = lane.pop_candidate(escaper, idle_timeout)?;
+            let mut conn = lane.pop_candidate(escaper, peer, idle_timeout)?;
             conn.reuse_notes.keep_alive_leftover.decrement_max_mut();
             let reuse_notes = conn.reuse_notes;
             let egress_notes = conn.egress_notes;
@@ -78,6 +81,7 @@ impl SiteHttp1Pool {
         &self,
         worker_id: Option<usize>,
         escaper: NodeName,
+        peer: Option<SocketAddr>,
         connection: BoxHttpForwardConnection,
         reuse_notes: HttpAliveReuseNotes,
         egress_notes: EgressNotes,
@@ -90,6 +94,7 @@ impl SiteHttp1Pool {
         let pooled = PooledHttp1Connection {
             poller: HttpConnectionEofPoller::spawn(connection),
             escaper,
+            peer,
             reuse_notes,
             egress_notes,
             last_used: Instant::now(),
@@ -107,13 +112,14 @@ impl IdleLane {
     fn pop_candidate(
         &self,
         escaper: &NodeName,
+        peer: Option<SocketAddr>,
         idle_timeout: Duration,
     ) -> Option<PooledHttp1Connection> {
         let mut idle = self.conns.lock().unwrap();
         prune_idle(&mut idle, idle_timeout);
-        let pos = idle
-            .iter()
-            .rposition(|c| &c.escaper == escaper && !c.is_expired(idle_timeout))?;
+        let pos = idle.iter().rposition(|c| {
+            &c.escaper == escaper && c.peer == peer && !c.is_expired(idle_timeout)
+        })?;
         idle.remove(pos)
     }
 

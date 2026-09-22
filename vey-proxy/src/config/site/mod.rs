@@ -21,6 +21,9 @@ pub(crate) use registry::clear;
 mod config;
 pub(crate) use config::SiteConfig;
 
+mod upstream;
+pub(crate) use upstream::SiteUpstreamConfig;
+
 mod http;
 pub(crate) use http::SiteHttpConfig;
 

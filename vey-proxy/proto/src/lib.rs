@@ -36,3 +36,10 @@ pub mod escaper_capnp {
 pub mod server_capnp {
     include!(concat!(env!("VEY_CAPNP_GENERATE_DIR"), "/server_capnp.rs"));
 }
+
+pub mod site_group_capnp {
+    include!(concat!(
+        env!("VEY_CAPNP_GENERATE_DIR"),
+        "/site_group_capnp.rs"
+    ));
+}

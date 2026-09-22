@@ -15,13 +15,13 @@ use vey_types::limit::RateLimitQuota;
 use vey_types::metrics::NodeName;
 use vey_types::net::{
     Host, OpensslClientConfigBuilder, OpensslServerConfigBuilder, TcpConnectConfig,
-    TcpKeepAliveConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig, UdpMiscSockOpts, UpstreamAddr,
+    TcpKeepAliveConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig, UdpMiscSockOpts,
 };
 use vey_types::resolve::ResolveStrategy;
 use vey_types::route::HostMatch;
 use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
-use super::SiteHttpConfig;
+use super::{SiteHttpConfig, SiteUpstreamConfig};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct SiteConfig {
@@ -32,7 +32,7 @@ pub(crate) struct SiteConfig {
     owner: NodeName,
     /// Labels used by other site groups to import this site.
     pub(super) tags: BTreeSet<NodeName>,
-    upstream: UpstreamAddr,
+    upstream: SiteUpstreamConfig,
     pub(crate) tls_server_builder: Option<OpensslServerConfigBuilder>,
     pub(crate) tls_client_builder: Option<OpensslClientConfigBuilder>,
     pub(crate) tls_name: Host,
@@ -59,7 +59,7 @@ impl Default for SiteConfig {
             id: NodeName::default(),
             owner: NodeName::default(),
             tags: BTreeSet::new(),
-            upstream: UpstreamAddr::empty(),
+            upstream: SiteUpstreamConfig::default(),
             tls_server_builder: None,
             tls_client_builder: None,
             tls_name: Host::empty(),
@@ -98,7 +98,7 @@ impl SiteConfig {
         &self.host_rules
     }
 
-    pub(crate) fn upstream(&self) -> &UpstreamAddr {
+    pub(crate) fn upstream(&self) -> &SiteUpstreamConfig {
         &self.upstream
     }
 
@@ -139,8 +139,14 @@ impl YamlMapCallback for SiteConfig {
                 Ok(())
             }
             "upstream" => {
-                self.upstream = vey_yaml::value::as_upstream_addr(value, 80)
-                    .context(format!("invalid upstream addr value for key {key}"))?;
+                let parsed = SiteUpstreamConfig::parse(value)
+                    .context(format!("invalid upstream value for key {key}"))?;
+                self.upstream.set_targets(parsed);
+                Ok(())
+            }
+            "upstream_pick_policy" => {
+                self.upstream
+                    .set_pick_policy(vey_yaml::value::as_selective_pick_policy(value)?);
                 Ok(())
             }
             "tls_server" => {
@@ -276,7 +282,13 @@ impl YamlMapCallback for SiteConfig {
             return Err(anyhow!("upstream is empty"));
         }
         if self.tls_name.is_empty() {
-            self.upstream.host().clone_into(&mut self.tls_name);
+            match self
+                .upstream
+                .tls_name_host(self.tls_client_builder.is_some())?
+            {
+                Some(host) => self.tls_name = host,
+                None => {}
+            }
         }
         self.http.check();
         Ok(())

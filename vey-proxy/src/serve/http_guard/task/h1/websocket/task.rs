@@ -27,7 +27,7 @@ use vey_io_ext::{
     StreamCopy, StreamCopyConfig, StreamCopyError,
 };
 use vey_types::acl::AclAction;
-use vey_types::net::TcpSockSpeedLimitConfig;
+use vey_types::net::{TcpSockSpeedLimitConfig, UpstreamAddr};
 
 use super::H1TaskContext;
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpGuardRequest};
@@ -47,7 +47,7 @@ use crate::serve::{
     ServerIdleChecker, ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes,
     ServerTaskResult, ServerTaskStage,
 };
-use crate::site::{Site, SiteContext};
+use crate::site::SiteContext;
 use crate::stat::types::RequestAliveKind;
 
 use super::stats::WebSocketTaskCltWrapperStats;
@@ -63,6 +63,7 @@ pub(crate) struct HttpGuardWebsocketTask {
     ups_r_leftover: Option<Bytes>,
     send_error_response: bool,
     _alive_guard: Option<HttpForwardTaskAliveGuard>,
+    upstream: UpstreamAddr,
 }
 
 impl HttpGuardWebsocketTask {
@@ -78,6 +79,7 @@ impl HttpGuardWebsocketTask {
         let ws_notes =
             WebSocketTaskNotes::new(req.inner.version, req.inner.uri.clone(), uri_log_max_chars);
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
+        let upstream = task_notes.site_upstream_addr().clone();
         HttpGuardWebsocketTask {
             ctx: Arc::clone(ctx),
             site_ctx,
@@ -89,6 +91,7 @@ impl HttpGuardWebsocketTask {
             ups_r_leftover: None,
             send_error_response: true,
             _alive_guard: None,
+            upstream,
         }
     }
 
@@ -149,7 +152,7 @@ impl HttpGuardWebsocketTask {
         };
         Some(TaskLogForWebSocket {
             logger,
-            upstream: self.site().upstream(),
+            upstream: &self.upstream,
             task_notes: &self.task_notes,
             ws_notes: &self.ws_notes,
             egress_notes: &self.egress_notes,
@@ -175,10 +178,6 @@ impl HttpGuardWebsocketTask {
 
     fn enable_custom_header_for_local_reply(&self, rsp: &mut HttpProxyClientResponse) {
         self.ctx.apply_proxy_status_ident(rsp);
-    }
-
-    fn site(&self) -> &Site {
-        self.site_ctx.site()
     }
 
     fn rsp_hdr_recv_timeout(&self) -> Duration {
@@ -255,7 +254,7 @@ impl HttpGuardWebsocketTask {
         let tenant = self.task_notes.tenant_ctx().cloned();
         let mut audit_task = false;
         let tcp_client_misc_opts = if let Some(tenant) = &tenant {
-            match tenant.check_upstream(self.site().upstream()) {
+            match tenant.check_upstream(&self.upstream) {
                 AclAction::Permit | AclAction::PermitAndLog => {}
                 AclAction::Forbid | AclAction::ForbidAndLog => {
                     self.reply_forbidden(clt_w).await;
@@ -415,12 +414,15 @@ impl HttpGuardWebsocketTask {
     }
 
     async fn make_new_connection(&mut self) -> Result<TcpConnection, TcpConnectError> {
+        self.task_notes
+            .site_upstream()
+            .map_err(|_| TcpConnectError::InternalServerError("failed to select site upstream"))?;
         let mut audit_ctx = AuditContext::new(self.ctx.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = self.task_stats.clone();
         if let Some(tls_client) = self.site_ctx.site().tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
-                    upstream: self.site_ctx.site().upstream(),
+                    upstream: &self.upstream,
                 },
                 tls_config: tls_client,
                 tls_name: self.site_ctx.site().tls_name(),
@@ -438,7 +440,7 @@ impl HttpGuardWebsocketTask {
                 .await
         } else {
             let task_conf = TcpConnectTaskConf {
-                upstream: self.site_ctx.site().upstream(),
+                upstream: &self.upstream,
             };
             self.ctx
                 .escaper
