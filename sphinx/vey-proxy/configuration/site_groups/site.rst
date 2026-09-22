@@ -39,10 +39,12 @@ owner
 **optional**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
 
 The tenant this site belongs to. Reverse-proxy servers look this name up in
-the site group's :ref:`tenant_user_group <conf_site_group_tenant_user_group>`
-and attach the matching user as the site tenant for the request. That tenant
-supplies rate limits, idle limits, and egress overrides (connect, keepalive,
-path selection, resolve strategy) that are then constrained by this site.
+the :ref:`tenant_user_group <conf_site_group_tenant_user_group>` of the site
+group that owns the site (the source group when this site is
+:ref:`imported <conf_site_group_import>`) and attach the matching user as
+the site tenant for the request. That tenant supplies rate limits, idle
+limits, and egress overrides (connect, keepalive, path selection, resolve
+strategy) that are then constrained by this site.
 
 It is also exported as the ``user`` tag on :ref:`site metrics
 <metrics_site>`. When unset, that tag is ``-`` and the request has no tenant.
@@ -56,6 +58,19 @@ already in flight are not cancelled. This is unlike a blocked visitor,
 which still terminates the current task.
 
 **default**: not set, **alias**: ``tenant``
+
+.. _conf_site_tags:
+
+tags
+----
+
+**optional**, **type**: list of :external+values:ref:`metric node name <conf_value_metric_node_name>`, **alias**: tag
+
+Labels on this site. Other site groups can
+:ref:`import <conf_site_group_import>` it by listing any of these values.
+A site with no tags cannot be imported.
+
+**default**: empty
 
 .. _conf_site_upstream:
 

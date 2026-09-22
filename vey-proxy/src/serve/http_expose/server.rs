@@ -399,12 +399,9 @@ fn build_hosts(
     ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
 ) -> anyhow::Result<HostMatch<Arc<HttpHost>>> {
     let group = crate::site::get_or_insert_default(site_group);
-    group.config().sites.try_build_arc(|cfg| {
-        let site = group
-            .get_site(cfg.id())
-            .expect("site group is missing a built site");
-        HttpHost::try_build(site, ticketer.clone())
-    })
+    group
+        .sites_by_host()
+        .try_build_arc(|site| HttpHost::try_build(Arc::clone(site), ticketer.clone()))
 }
 
 impl ServerInternal for HttpExposeServer {

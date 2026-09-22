@@ -25,6 +25,7 @@ group. Requests then have no matching site.
 Reload a single group with ``vey-proxy-ctl reload-site-group <name>``. Sites
 keep their stats and limiters when the site ID is unchanged. Every online
 reverse-proxy server that references the group then rebuilds its host table.
+Groups that :ref:`import <conf_site_group_import>` this group are rebuilt too.
 ``vey-proxy-ctl list site-group`` lists loaded group names.
 
 Site request and traffic counters are exported as :ref:`site metrics
@@ -100,19 +101,64 @@ the only site in the value, in which case it becomes the default.
 
 **default**: empty
 
+.. _conf_site_group_import:
+
+import
+------
+
+**optional**, **type**: list of map, **alias**: imports
+
+Pull sites from other site groups into this one. Each item names a
+dependency and the tags to match:
+
+* ``site_group`` / ``name``: the site group to import from.
+  **required**, **type**: :external+values:ref:`metric node name <conf_value_metric_node_name>`
+* ``tags`` / ``tag``: tags that a site in that group must have.
+  A site is imported when **any** listed tag matches.
+  **required**, **type**: list of :external+values:ref:`metric node name <conf_value_metric_node_name>`
+
+Build walks local :ref:`static_sites <conf_site_group_static_sites>` first,
+then each import in order. Imported sites keep the
+:ref:`tenant_user_group <conf_site_group_tenant_user_group>` of the group
+they belong to (including when that site was itself imported). Host rules
+and site IDs must stay unique after the merge.
+
+The named group must exist in the configuration. A group cannot import
+itself, and the same group cannot appear twice in this list. Import
+cycles are rejected. ``vey-proxy-ctl reload-site-group`` of a source
+group also rebuilds every group that imports it, transitively.
+
+**default**: empty
+
 Example
 =======
 
 .. code-block:: yaml
 
    site_group:
+     - name: shared
+       tenant_user_group: customers
+       static_sites:
+         - id: public_app
+           tags:
+             - public
+             - cdn
+           owner: team_a
+           exact_match: app.example.net
+           upstream: 127.0.0.1:8080
+         - id: private_app
+           tags: private
+           exact_match: internal.example.net
+           upstream: 127.0.0.1:8081
      - name: local
        tenant_user_group: customers
+       import:
+         - site_group: shared
+           tags: public
        static_sites:
          - id: app
            owner: team_a
            exact_match:
-             - app.example.net
              - www.app.example.net
            upstream: 127.0.0.1:8080
          - id: example_org

@@ -392,12 +392,9 @@ fn build_hosts(
     ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
 ) -> anyhow::Result<HostMatch<Arc<TlsHost>>> {
     let group = crate::site::get_or_insert_default(site_group);
-    group.config().sites.try_build_arc_filtered(|cfg| {
-        let site = group
-            .get_site(cfg.id())
-            .expect("site group is missing a built site");
-        TlsHost::try_build(site, ticketer.clone())
-    })
+    group
+        .sites_by_host()
+        .try_build_arc_filtered(|site| TlsHost::try_build(Arc::clone(site), ticketer.clone()))
 }
 
 impl ServerInternal for TlsProxyServer {

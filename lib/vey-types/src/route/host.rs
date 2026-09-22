@@ -89,6 +89,45 @@ impl<T> HostMatch<T> {
             && self.suffix_domain.is_none()
             && self.default.is_none()
     }
+
+    /// Copy every host key from `rules` into `self`, pointing at clones of `value`.
+    ///
+    /// Suffix keys are copied as stored (reversed) so they are not reversed twice.
+    pub fn try_add_from_rules(&mut self, rules: &HostMatch<()>, value: T) -> Result<(), String>
+    where
+        T: Clone,
+    {
+        if let Some(ht) = &rules.exact_domain {
+            for domain in ht.keys() {
+                if self
+                    .add_exact_domain(domain.clone(), value.clone())
+                    .is_some()
+                {
+                    return Err(format!("duplicate exact domain {domain}"));
+                }
+            }
+        }
+        if let Some(ht) = &rules.exact_ip {
+            for ip in ht.keys() {
+                if self.add_exact_ip(*ip, value.clone()).is_some() {
+                    return Err(format!("duplicate exact ip {ip}"));
+                }
+            }
+        }
+        if let Some(trie) = &rules.suffix_domain {
+            let dst = self.suffix_domain.get_or_insert_with(Trie::new);
+            for (prefix, _) in trie.iter() {
+                if dst.get(prefix).is_some() {
+                    return Err(format!("duplicate suffix domain {prefix}"));
+                }
+                dst.insert(prefix.to_string(), value.clone());
+            }
+        }
+        if rules.default.is_some() && self.set_default(value).is_some() {
+            return Err("a default value has already been set".to_string());
+        }
+        Ok(())
+    }
 }
 
 impl<T> HostMatch<Arc<T>> {
@@ -613,5 +652,38 @@ mod tests {
             hm_dst.get(&Host::Domain(literal_domain!("unknown.com"))),
             Some(&Arc::from("mapped_default"))
         );
+    }
+
+    #[test]
+    fn try_add_from_rules_copies_keys() {
+        let mut rules = HostMatch::default();
+        rules.add_exact_domain(literal_domain!("a.com"), ());
+        rules.add_exact_ip(IpAddr::V4(Ipv4Addr::LOCALHOST), ());
+        rules.add_suffix_domain(&literal_domain!("b.com"), ());
+        rules.set_default(());
+
+        let mut dst = HostMatch::default();
+        dst.try_add_from_rules(&rules, 7).unwrap();
+
+        assert_eq!(dst.get(&Host::Domain(literal_domain!("a.com"))), Some(&7));
+        assert_eq!(
+            dst.get(&Host::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST))),
+            Some(&7)
+        );
+        assert_eq!(dst.get(&Host::Domain(literal_domain!("x.b.com"))), Some(&7));
+        assert_eq!(
+            dst.get(&Host::Domain(literal_domain!("other.com"))),
+            Some(&7)
+        );
+    }
+
+    #[test]
+    fn try_add_from_rules_rejects_duplicate_exact_domain() {
+        let mut rules = HostMatch::default();
+        rules.add_exact_domain(literal_domain!("a.com"), ());
+
+        let mut dst = HostMatch::default();
+        dst.add_exact_domain(literal_domain!("a.com"), 1);
+        assert!(dst.try_add_from_rules(&rules, 2).is_err());
     }
 }

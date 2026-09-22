@@ -6,7 +6,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use anyhow::anyhow;
 use foldhash::fast::FixedState;
 
 use vey_types::metrics::NodeName;
@@ -22,29 +21,24 @@ pub(crate) fn clear() {
     ht.clear();
 }
 
-pub(super) fn add(group: SiteGroupConfig, replace: bool) -> anyhow::Result<()> {
+pub(super) fn add(group: SiteGroupConfig) -> Option<SiteGroupConfig> {
     let name = group.name().clone();
     let group = Arc::new(group);
     let mut ht = INITIAL_SITE_GROUP_CONFIG_REGISTRY.lock().unwrap();
-    if let Some(old) = ht.insert(name, group) {
-        if replace {
-            Ok(())
-        } else {
-            Err(anyhow!(
-                "site group with the same name {} is already existed",
-                old.name()
-            ))
-        }
-    } else {
-        Ok(())
-    }
+    ht.insert(name, group).map(|old| old.as_ref().clone())
 }
 
-pub(crate) fn get_all() -> Vec<Arc<SiteGroupConfig>> {
-    let mut vec = Vec::new();
+pub(super) fn del(name: &NodeName) {
+    let mut ht = INITIAL_SITE_GROUP_CONFIG_REGISTRY.lock().unwrap();
+    ht.remove(name);
+}
+
+pub(super) fn get(name: &NodeName) -> Option<Arc<SiteGroupConfig>> {
     let ht = INITIAL_SITE_GROUP_CONFIG_REGISTRY.lock().unwrap();
-    for v in ht.values() {
-        vec.push(Arc::clone(v));
-    }
-    vec
+    ht.get(name).cloned()
+}
+
+pub(super) fn get_all_names() -> Vec<NodeName> {
+    let ht = INITIAL_SITE_GROUP_CONFIG_REGISTRY.lock().unwrap();
+    ht.keys().cloned().collect()
 }

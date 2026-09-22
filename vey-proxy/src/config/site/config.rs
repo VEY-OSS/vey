@@ -4,7 +4,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
@@ -30,6 +30,8 @@ pub(crate) struct SiteConfig {
     /// `tenant_user_group` and attached as `SiteContext` tenant. Reported as
     /// `-` in site metrics when unset.
     owner: NodeName,
+    /// Labels used by other site groups to import this site.
+    pub(super) tags: BTreeSet<NodeName>,
     upstream: UpstreamAddr,
     pub(crate) tls_server_builder: Option<OpensslServerConfigBuilder>,
     pub(crate) tls_client_builder: Option<OpensslClientConfigBuilder>,
@@ -56,6 +58,7 @@ impl Default for SiteConfig {
         SiteConfig {
             id: NodeName::default(),
             owner: NodeName::default(),
+            tags: BTreeSet::new(),
             upstream: UpstreamAddr::empty(),
             tls_server_builder: None,
             tls_client_builder: None,
@@ -85,6 +88,14 @@ impl SiteConfig {
 
     pub(crate) fn owner(&self) -> &NodeName {
         &self.owner
+    }
+
+    pub(crate) fn matches_any_tag(&self, tags: &BTreeSet<NodeName>) -> bool {
+        !self.tags.is_disjoint(tags)
+    }
+
+    pub(crate) fn host_rules(&self) -> &HostMatch<()> {
+        &self.host_rules
     }
 
     pub(crate) fn upstream(&self) -> &UpstreamAddr {
@@ -119,6 +130,12 @@ impl YamlMapCallback for SiteConfig {
             "owner" | "tenant" => {
                 self.owner = vey_yaml::value::as_metric_node_name(value)
                     .context(format!("invalid metric node name value for key {key}"))?;
+                Ok(())
+            }
+            "tag" | "tags" => {
+                let tags = vey_yaml::value::as_list(value, vey_yaml::value::as_metric_node_name)
+                    .context(format!("invalid metric node name list for key {key}"))?;
+                self.tags = tags.into_iter().collect();
                 Ok(())
             }
             "upstream" => {

@@ -56,6 +56,16 @@ impl UserGroup {
         }
     }
 
+    pub(crate) fn name(&self) -> &NodeName {
+        match self {
+            UserGroup::Basic(v) => v.base().name(),
+            UserGroup::Facts(v) => v.base().name(),
+            UserGroup::Ldap(v) => v.base().name(),
+            #[cfg(feature = "python")]
+            UserGroup::PythonBasic(v) => v.base().name(),
+        }
+    }
+
     pub(super) fn clone_config(&self) -> AnyUserGroupConfig {
         match self {
             UserGroup::Basic(v) => {
@@ -321,6 +331,10 @@ where
 {
     fn r#type(&self) -> &'static str {
         self.config.r#type()
+    }
+
+    fn name(&self) -> &NodeName {
+        self.config.basic_config().name()
     }
 
     fn new_without_users(config: T) -> Self {

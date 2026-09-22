@@ -54,6 +54,10 @@ impl SiteStats {
         }
     }
 
+    pub(super) fn site_group(&self) -> &NodeName {
+        self.tags.site_group()
+    }
+
     pub(crate) fn fetch_request_stats(
         &self,
         server: &NodeName,

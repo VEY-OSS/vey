@@ -104,6 +104,10 @@ impl SiteMetricTags {
         }
     }
 
+    pub(crate) fn site_group(&self) -> &NodeName {
+        &self.group
+    }
+
     fn add_to(&self, tags: &mut StatsdTagGroup, stat_id: StatId) {
         let mut buffer = itoa::Buffer::new();
         let stat_id = buffer.format(stat_id.as_u64());

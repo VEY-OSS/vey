@@ -542,12 +542,9 @@ fn build_hosts(
     global_tls: bool,
 ) -> anyhow::Result<HttpGuardHosts> {
     let group = crate::site::get_or_insert_default(site_group);
-    let http = group.config().sites.try_build_arc(|cfg| {
-        let site = group
-            .get_site(cfg.id())
-            .expect("site group is missing a built site");
-        HttpHost::try_build(site, ticketer.clone())
-    })?;
+    let http = group
+        .sites_by_host()
+        .try_build_arc(|site| HttpHost::try_build(Arc::clone(site), ticketer.clone()))?;
     let tls = if global_tls {
         http.clone()
     } else {

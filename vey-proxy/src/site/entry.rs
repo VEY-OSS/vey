@@ -44,13 +44,17 @@ impl Site {
         site_group: &NodeName,
         config: &Arc<SiteConfig>,
         tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
-        tenant_user_group_name: &NodeName,
     ) -> anyhow::Result<Self> {
         let tls_client = build_tls_client(config)?;
         let request_rate_limit = config
             .request_rate_limit
             .map(|quota| Arc::new(RateLimiter::new_global(quota)));
         let req_alive_sem = config.request_alive_max.map(GaugeSemaphore::new);
+        let tenant_user_group_name = tenant_user_group
+            .load()
+            .as_ref()
+            .map(|g| g.name().clone())
+            .unwrap_or_default();
 
         Ok(Site {
             config: Arc::clone(config),
@@ -59,7 +63,7 @@ impl Site {
                 site_group,
                 config.id(),
                 config.owner(),
-                tenant_user_group_name,
+                &tenant_user_group_name,
             )),
             tenant_user_group,
             request_rate_limit,
@@ -115,6 +119,24 @@ impl Site {
         self.config.owner()
     }
 
+    pub(super) fn refresh_tenant_user_group(
+        &self,
+        name: &NodeName,
+        group: Option<Arc<UserGroup>>,
+    ) -> bool {
+        if self
+            .tenant_user_group
+            .load()
+            .as_ref()
+            .is_some_and(|current| current.name().eq(name))
+        {
+            self.tenant_user_group.store(group);
+            true
+        } else {
+            false
+        }
+    }
+
     pub(crate) fn tenant_user_group(&self) -> Option<Arc<UserGroup>> {
         self.tenant_user_group.load_full()
     }
@@ -150,6 +172,10 @@ impl Site {
 
     pub(crate) fn stats(&self) -> &Arc<SiteStats> {
         &self.stats
+    }
+
+    pub(super) fn site_group(&self) -> &NodeName {
+        self.stats.site_group()
     }
 
     pub(crate) fn tcp_sock_speed_limit(&self) -> TcpSockSpeedLimitConfig {

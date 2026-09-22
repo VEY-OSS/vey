@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
@@ -14,11 +15,15 @@ use vey_yaml::YamlDocPosition;
 
 use super::SiteConfig;
 
+mod import;
+use import::SiteGroupImportConfig;
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct SiteGroupConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     tenant_user_group: NodeName,
+    imports: Vec<SiteGroupImportConfig>,
     pub(crate) sites: HostMatch<Arc<SiteConfig>>,
 }
 
@@ -31,6 +36,21 @@ impl SiteGroupConfig {
         &self.tenant_user_group
     }
 
+    pub(crate) fn imports(&self) -> &[SiteGroupImportConfig] {
+        &self.imports
+    }
+
+    pub(crate) fn dependent_site_group(&self) -> Option<BTreeSet<NodeName>> {
+        if self.imports.is_empty() {
+            return None;
+        }
+        let mut set = BTreeSet::new();
+        for import in &self.imports {
+            set.insert(import.site_group().clone());
+        }
+        Some(set)
+    }
+
     pub(crate) fn position(&self) -> Option<YamlDocPosition> {
         self.position.clone()
     }
@@ -40,6 +60,7 @@ impl SiteGroupConfig {
             name: name.clone(),
             position: None,
             tenant_user_group: NodeName::default(),
+            imports: Vec::new(),
             sites: HostMatch::default(),
         }
     }
@@ -49,6 +70,7 @@ impl SiteGroupConfig {
             name: NodeName::default(),
             position,
             tenant_user_group: NodeName::default(),
+            imports: Vec::new(),
             sites: HostMatch::default(),
         }
     }
@@ -73,6 +95,11 @@ impl SiteGroupConfig {
                 self.tenant_user_group = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
+            "import" | "imports" => {
+                self.imports = vey_yaml::value::as_list(v, SiteGroupImportConfig::parse)
+                    .context(format!("invalid site group import list for key {k}"))?;
+                Ok(())
+            }
             "static_sites" | "sites" => {
                 self.sites = vey_yaml::value::as_host_matched_obj_with(
                     v,
@@ -89,6 +116,18 @@ impl SiteGroupConfig {
     fn check(&self) -> anyhow::Result<()> {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
+        }
+        let mut seen = BTreeSet::new();
+        for import in &self.imports {
+            if import.site_group().eq(&self.name) {
+                return Err(anyhow!("site group {} cannot import itself", self.name));
+            }
+            if !seen.insert(import.site_group().clone()) {
+                return Err(anyhow!(
+                    "duplicate import of site group {}",
+                    import.site_group()
+                ));
+            }
         }
         Ok(())
     }
@@ -135,6 +174,141 @@ static_sites:
         let host = Host::from_str("other.internal").unwrap();
         let site = group.sites.get(&host).unwrap();
         assert_eq!(site.owner().as_str(), "team_a");
+        assert!(site.tags.is_empty());
+    }
+
+    #[test]
+    fn parse_site_tags() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    tags:
+      - public
+      - edge
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert!(site.tags.contains(&NodeName::from_str("public").unwrap()));
+        assert!(site.tags.contains(&NodeName::from_str("edge").unwrap()));
+        assert!(
+            site.matches_any_tag(
+                &[NodeName::from_str("public").unwrap()]
+                    .into_iter()
+                    .collect()
+            )
+        );
+        assert!(
+            !site.matches_any_tag(
+                &[NodeName::from_str("private").unwrap()]
+                    .into_iter()
+                    .collect()
+            )
+        );
+    }
+
+    #[test]
+    fn parse_import() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: edge
+import:
+  - site_group: shared
+    tags:
+      - public
+      - cdn
+  - name: extra
+    tag: edge
+static_sites:
+  - id: local
+    exact_match: local.internal
+    upstream: 127.0.0.1:9000
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        assert_eq!(group.imports().len(), 2);
+        assert_eq!(group.imports()[0].site_group().as_str(), "shared");
+        assert_eq!(group.imports()[0].tags().len(), 2);
+        assert!(
+            group.imports()[0]
+                .tags()
+                .contains(&NodeName::from_str("public").unwrap())
+        );
+        assert_eq!(group.imports()[1].site_group().as_str(), "extra");
+        assert!(
+            group.imports()[1]
+                .tags()
+                .contains(&NodeName::from_str("edge").unwrap())
+        );
+        let deps = group.dependent_site_group().unwrap();
+        assert!(deps.contains(&NodeName::from_str("shared").unwrap()));
+        assert!(deps.contains(&NodeName::from_str("extra").unwrap()));
+        assert!(!deps.contains(&NodeName::from_str("missing").unwrap()));
+    }
+
+    #[test]
+    fn reject_self_import() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+import:
+  - site_group: local
+    tags: public
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        assert!(SiteGroupConfig::parse(map, None).is_err());
+    }
+
+    #[test]
+    fn reject_duplicate_import() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+import:
+  - site_group: shared
+    tags: public
+  - site_group: shared
+    tags: edge
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        assert!(SiteGroupConfig::parse(map, None).is_err());
+    }
+
+    #[test]
+    fn reject_import_without_tags() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+import:
+  - site_group: shared
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        assert!(SiteGroupConfig::parse(map, None).is_err());
     }
 
     #[test]

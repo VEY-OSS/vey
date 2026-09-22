@@ -33,9 +33,10 @@ The following tags are present on all site metrics:
 
 * user_group
 
-  The site group's :ref:`tenant_user_group <conf_site_group_tenant_user_group>`.
-  ``-`` when that key is unset. This is the configured name, not a lookup
-  result.
+  The :ref:`tenant_user_group <conf_site_group_tenant_user_group>` of the
+  site group that owns the site. For a site imported into another group,
+  this is still the source group's value. ``-`` when that key is unset.
+  This is the configured name, not a lookup result.
 
 Request
 =======
