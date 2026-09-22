@@ -182,7 +182,16 @@ normalizes separators such as ``-`` and ``_``:
 
 * round_robin | rr
 
+  Nodes are selected in turn.
+
   For nodes with the same weights, the order is kept as in the config.
+
+  When weights differ, selection is smooth weighted round-robin. Each node is
+  chosen in proportion to its effective weight, and higher weights are spread
+  through the cycle instead of being taken in a row. The effective weight is
+  the ``u32`` conversion described in
+  :ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`.
+  Non-positive or non-finite weights are not selected.
 
 * ketama
 

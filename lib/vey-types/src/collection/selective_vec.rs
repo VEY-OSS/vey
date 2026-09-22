@@ -113,14 +113,133 @@ impl<T: SelectiveItem> SelectiveVecBuilder<T> {
         });
 
         let ketama_ring = ketama_ring_create(&nodes);
+        let rr_seq = if weighted {
+            swrr_seq(&nodes)
+        } else {
+            Vec::new()
+        };
 
         Some(SelectiveVec {
             weighted,
             inner: nodes,
             rr_id: atomic::AtomicUsize::new(0),
+            rr_seq,
             ketama_ring,
         })
     }
+}
+
+fn gcd_u64(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 {
+        let r = a % b;
+        a = b;
+        b = r;
+    }
+    a
+}
+
+/// One nginx smooth weighted round-robin step over fixed integer weights.
+fn swrr_step(current: &mut [i64], weight: &[i64], total: i64) -> usize {
+    let mut best = 0;
+    let mut best_weight = i64::MIN;
+    for (i, w) in weight.iter().copied().enumerate() {
+        if w <= 0 {
+            continue;
+        }
+        current[i] = current[i].saturating_add(w);
+        if current[i] > best_weight {
+            best_weight = current[i];
+            best = i;
+        }
+    }
+    current[best] = current[best].saturating_sub(total);
+    best
+}
+
+/// Smooth weighted round-robin index cycle.
+///
+/// Weights are fixed at build time, so the sequence repeats and can be walked
+/// with an atomic cursor. Weights are reduced by their gcd first. A cycle longer
+/// than 65536 (or the peer count, whichever is larger) is scaled down with the
+/// largest-remainder method.
+fn swrr_seq<T: SelectiveItem>(nodes: &[T]) -> Vec<usize> {
+    let mut weight: Vec<u64> = nodes
+        .iter()
+        .map(|node| u64::from(node.weight_u32()))
+        .collect();
+    let mut g = 0u64;
+    for w in weight.iter().copied() {
+        if w == 0 {
+            continue;
+        }
+        g = if g == 0 { w } else { gcd_u64(g, w) };
+    }
+    if g == 0 {
+        return Vec::new();
+    }
+    if g > 1 {
+        for w in &mut weight {
+            *w /= g;
+        }
+    }
+    fit_rr_cycle(&mut weight);
+
+    let total: u64 = weight.iter().copied().sum();
+    let Ok(total_i) = i64::try_from(total) else {
+        return Vec::new();
+    };
+    if total_i == 0 {
+        return Vec::new();
+    }
+    let weight_i: Vec<i64> = weight.iter().copied().map(|w| w as i64).collect();
+    let mut current = vec![0i64; weight_i.len()];
+    let mut seq = Vec::with_capacity(total as usize);
+    for _ in 0..total {
+        seq.push(swrr_step(&mut current, &weight_i, total_i));
+    }
+    seq
+}
+
+fn fit_rr_cycle(weight: &mut [u64]) {
+    const MAX_RR_CYCLE: u64 = 65536;
+    let sum: u64 = weight.iter().copied().sum();
+    let peers = weight.iter().filter(|w| **w > 0).count() as u64;
+    let cap = MAX_RR_CYCLE.max(peers);
+    if sum <= cap || sum == 0 {
+        return;
+    }
+
+    let mut fitted = vec![0u64; weight.len()];
+    let mut used = 0u64;
+    for (i, w) in weight.iter().copied().enumerate() {
+        fitted[i] = w.saturating_mul(cap) / sum;
+        used = used.saturating_add(fitted[i]);
+    }
+    let mut rem = cap.saturating_sub(used);
+    let mut order: Vec<usize> = (0..weight.len()).collect();
+    order.sort_by(|&a, &b| {
+        let fa = weight[a].saturating_mul(cap) % sum;
+        let fb = weight[b].saturating_mul(cap) % sum;
+        fb.cmp(&fa)
+    });
+    while rem > 0 {
+        let mut progressed = false;
+        for i in order.iter().copied() {
+            if rem == 0 {
+                break;
+            }
+            if weight[i] == 0 {
+                continue;
+            }
+            fitted[i] = fitted[i].saturating_add(1);
+            rem -= 1;
+            progressed = true;
+        }
+        if !progressed {
+            break;
+        }
+    }
+    weight.copy_from_slice(&fitted);
 }
 
 fn ketama_ring_create<T: SelectiveItem>(nodes: &[T]) -> Vec<(usize, u32)> {
@@ -166,6 +285,8 @@ pub struct SelectiveVec<T: SelectiveItem> {
     weighted: bool,
     inner: Vec<T>,
     rr_id: atomic::AtomicUsize,
+    /// Smooth weighted round-robin index cycle. Empty when peers are unweighted.
+    rr_seq: Vec<usize>,
     ketama_ring: Vec<(usize, u32)>,
 }
 
@@ -181,6 +302,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             weighted: false,
             inner,
             rr_id: Default::default(),
+            rr_seq: Vec::new(),
             ketama_ring: Vec::new(),
         }
     }
@@ -252,13 +374,26 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             0 => panic_on_empty!(),
             1 => &self.inner[0],
             len => {
+                let cycle = if self.weighted {
+                    self.rr_seq.len()
+                } else {
+                    len
+                };
+                if cycle == 0 {
+                    return &self.inner[0];
+                }
                 let id =
                     self.rr_id
                         .update(atomic::Ordering::AcqRel, atomic::Ordering::Acquire, |id| {
                             let next = id + 1;
-                            if next >= len { 0 } else { next }
+                            if next >= cycle { 0 } else { next }
                         });
-                self.inner.get(id).unwrap_or(&self.inner[0])
+                let idx = if self.weighted {
+                    self.rr_seq.get(id).copied().unwrap_or(0)
+                } else {
+                    id
+                };
+                self.inner.get(idx).unwrap_or(&self.inner[0])
             }
         }
     }
@@ -268,6 +403,28 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             0 => panic_on_empty!(),
             1 => vec![&self.inner[0]],
             len => {
+                if self.weighted {
+                    let n = n.min(len);
+                    let seq_len = self.rr_seq.len();
+                    if n == 0 {
+                        return Vec::new();
+                    }
+                    if seq_len == 0 {
+                        return vec![&self.inner[0]; n];
+                    }
+                    let start = self.rr_id.update(
+                        atomic::Ordering::AcqRel,
+                        atomic::Ordering::Acquire,
+                        |id| (id + n) % seq_len,
+                    );
+                    let mut r = Vec::with_capacity(n);
+                    for i in 0..n {
+                        let seq_i = (start + i) % seq_len;
+                        let idx = self.rr_seq.get(seq_i).copied().unwrap_or(0);
+                        r.push(&self.inner[idx]);
+                    }
+                    return r;
+                }
                 let n = n.min(len);
                 let next_end = |id: usize| {
                     let mut end = id + n;
@@ -582,6 +739,8 @@ mod tests {
 
         assert!(node2.eq(vec.pick_serial()));
         assert!(node2.eq(vec.pick_round_robin()));
+        assert!(node1.eq(vec.pick_round_robin()));
+        assert!(node2.eq(vec.pick_round_robin()));
 
         /*
         let mut see1 = 0usize;
@@ -815,8 +974,8 @@ mod tests {
 
         let r = vec.pick_round_robin_n(2);
         assert_eq!(r.len(), 2);
-        assert!(r[0].eq(&node1));
-        assert!(r[1].eq(&node3));
+        assert!(r[0].eq(&node3));
+        assert!(r[1].eq(&node1));
 
         /*
         let mut see1 = 0usize;
@@ -849,6 +1008,51 @@ mod tests {
         assert!(r1[0].ne(r1[1]));
         assert!(r1[0].eq(r2[0]));
         assert!(r1[1].eq(r2[1]));
+    }
+
+    #[test]
+    fn round_robin_smooth_weighted_cycle() {
+        let node1 = Node {
+            name: "node1".to_string(),
+            weight: 1f64,
+        };
+        let node2 = Node {
+            name: "node2".to_string(),
+            weight: 2f64,
+        };
+        let node3 = Node {
+            name: "node3".to_string(),
+            weight: 3f64,
+        };
+        let zero = Node {
+            name: "zero".to_string(),
+            weight: 0.0,
+        };
+
+        let mut builder = SelectiveVecBuilder::with_capacity(4);
+        builder.insert(node1.clone());
+        builder.insert(zero);
+        builder.insert(node2.clone());
+        builder.insert(node3.clone());
+        let vec = builder.build().unwrap();
+
+        let mut names = Vec::new();
+        for _ in 0..6 {
+            names.push(vec.pick_round_robin().name.clone());
+        }
+        assert_eq!(
+            names,
+            ["node3", "node2", "node3", "node1", "node2", "node3"]
+        );
+
+        let mut names = Vec::new();
+        for _ in 0..6 {
+            names.push(vec.pick_round_robin().name.clone());
+        }
+        assert_eq!(
+            names,
+            ["node3", "node2", "node3", "node1", "node2", "node3"]
+        );
     }
 
     #[test]
