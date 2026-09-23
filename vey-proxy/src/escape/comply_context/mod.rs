@@ -68,17 +68,11 @@ impl ComplyContextEscaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: ComplyContextEscaperConfig,
         stats: Arc<RouteEscaperStats>,
         registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::ComplyContext(config) = config {
-            ComplyContextEscaper::new_obj(config, stats, |name| {
-                registry.get_or_insert_default(name)
-            })
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        ComplyContextEscaper::new_obj(config, stats, |name| registry.get_or_insert_default(name))
     }
 }
 
@@ -217,6 +211,9 @@ impl EscaperInternal for ComplyContextEscaper {
         config: AnyEscaperConfig,
         registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::ComplyContext(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         ComplyContextEscaper::prepare_reload(config, stats, registry)
     }

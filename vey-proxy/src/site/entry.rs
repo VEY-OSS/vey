@@ -24,7 +24,7 @@ use vey_types::net::{
 
 use super::SiteStats;
 use super::pool::{SiteHttp1Pool, SiteHttp2Pool};
-use super::upstream::{SiteUpstream, UpstreamPeerStatus};
+use super::upstream::{SiteUpstream, UpstreamPeerHealthStatus, UpstreamPeerStatus};
 use crate::auth::{UserForbiddenStats, UserGroup, UserRequestStats};
 use crate::config::site::SiteConfig;
 
@@ -76,7 +76,7 @@ impl Site {
                 .connection_pool
                 .map(|cfg| Arc::new(SiteHttp1Pool::new(cfg))),
             http2_pool: Arc::new(SiteHttp2Pool::new(config.http.h2.connection_pool)),
-            upstream: SiteUpstream::from_config(config.upstream()),
+            upstream: SiteUpstream::from_config(config.upstream(), config.peer_health_check()),
             forwarded_trusted_from: config.http.build_forwarded_trusted_from_table(),
         })
     }
@@ -110,7 +110,11 @@ impl Site {
             req_alive_sem,
             http1_pool,
             http2_pool,
-            upstream: SiteUpstream::new_for_reload(&self.upstream, config.upstream()),
+            upstream: SiteUpstream::new_for_reload(
+                &self.upstream,
+                config.upstream(),
+                config.peer_health_check(),
+            ),
             forwarded_trusted_from: config.http.build_forwarded_trusted_from_table(),
         })
     }
@@ -153,12 +157,23 @@ impl Site {
         self.upstream.list_peers()
     }
 
+    pub(crate) fn list_upstream_health_status(
+        &self,
+    ) -> anyhow::Result<Vec<UpstreamPeerHealthStatus>> {
+        self.upstream.list_peer_health_status()
+    }
+
     pub(crate) fn set_upstream_weight(
         &self,
         addr: std::net::SocketAddr,
         weight: f64,
     ) -> anyhow::Result<()> {
         self.upstream.set_weight(addr, weight)
+    }
+
+    pub(crate) fn record_peer_connect_result(&self, upstream: &UpstreamAddr, connected: bool) {
+        self.upstream
+            .record_peer_connect_result(upstream, connected);
     }
 
     pub(crate) fn tls_name(&self) -> &Host {

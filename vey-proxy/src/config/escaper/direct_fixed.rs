@@ -29,7 +29,10 @@ use vey_types::net::{
 use vey_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 use vey_yaml::YamlDocPosition;
 
-use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig};
+use super::{
+    AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig,
+    PeerHealthCheckConfig,
+};
 
 const ESCAPER_CONFIG_TYPE: &str = "DirectFixed";
 
@@ -74,6 +77,7 @@ pub(crate) struct DirectFixedEscaperConfig {
     pub(crate) egress_net_filter: AclNetworkRuleBuilder,
     pub(crate) general: GeneralEscaperConfig,
     pub(crate) happy_eyeballs: HappyEyeballsConfig,
+    pub(crate) peer_health_check: Option<PeerHealthCheckConfig>,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
@@ -123,6 +127,7 @@ impl DirectFixedEscaperConfig {
             egress_net_filter: AclNetworkRuleBuilder::new_egress(AclAction::Permit),
             general: Default::default(),
             happy_eyeballs: Default::default(),
+            peer_health_check: None,
             tcp_keepalive: Default::default(),
             tcp_misc_opts: Default::default(),
             udp_misc_opts: Default::default(),
@@ -293,6 +298,12 @@ impl DirectFixedEscaperConfig {
                     .context(format!("invalid happy eyeballs config value for key {k}"))?;
                 Ok(())
             }
+            "peer_health_check" => {
+                self.peer_health_check = Some(PeerHealthCheckConfig::parse(v).context(format!(
+                    "invalid peer health check config value for key {k}"
+                ))?);
+                Ok(())
+            }
             "use_proxy_protocol" => {
                 let version = vey_yaml::value::as_proxy_protocol_version(v)
                     .context(format!("invalid ProxyProtocolVersion value for key {k}"))?;
@@ -348,6 +359,20 @@ impl DirectFixedEscaperConfig {
             IpAddr::V6(_) => self.bind6.push(ip),
         }
         Ok(())
+    }
+
+    pub(crate) fn same_bind(&self, new: &Self) -> bool {
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "illumos",
+            target_os = "solaris"
+        ))]
+        if self.bind_interface != new.bind_interface {
+            return false;
+        }
+        self.bind4 == new.bind4 && self.bind6 == new.bind6
     }
 }
 

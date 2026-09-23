@@ -26,7 +26,7 @@ use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
     ArcEscaper, ArcEscaperStats, EgressNotes, Escaper, EscaperInternal, EscaperRegistry,
-    EscaperStats, TlsConnectResult,
+    EscaperStats, PeerHealthTable, TlsConnectResult,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStatsList;
@@ -61,6 +61,7 @@ pub(crate) mod udp_relay;
 pub(super) struct DirectFixedEscaper {
     config: Arc<DirectFixedEscaperConfig>,
     stats: Arc<DirectFixedEscaperStats>,
+    peer_health_table: Option<Arc<PeerHealthTable>>,
     resolver_handle: ArcIntegratedResolverHandle,
     egress_net_filter: Arc<AclNetworkRule>,
     resolve_redirection: Option<ResolveRedirection>,
@@ -71,6 +72,7 @@ impl DirectFixedEscaper {
     fn new_obj(
         config: DirectFixedEscaperConfig,
         stats: Arc<DirectFixedEscaperStats>,
+        peer_health_table: Option<Arc<PeerHealthTable>>,
     ) -> anyhow::Result<ArcEscaper> {
         let resolver_handle = crate::resolve::get_handle(config.resolver())?;
         let egress_net_filter = Arc::new(config.egress_net_filter.build());
@@ -87,6 +89,7 @@ impl DirectFixedEscaper {
         let escaper = DirectFixedEscaper {
             config: Arc::new(config),
             stats,
+            peer_health_table,
             resolver_handle,
             egress_net_filter,
             resolve_redirection,
@@ -98,18 +101,16 @@ impl DirectFixedEscaper {
 
     pub(super) fn prepare_initial(config: DirectFixedEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(DirectFixedEscaperStats::new(config.name()));
-        DirectFixedEscaper::new_obj(config, stats)
+        let peer_health_table = config.peer_health_check.map(PeerHealthTable::new);
+        DirectFixedEscaper::new_obj(config, stats, peer_health_table)
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: DirectFixedEscaperConfig,
         stats: Arc<DirectFixedEscaperStats>,
+        peer_health_table: Option<Arc<PeerHealthTable>>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::DirectFixed(config) = config {
-            DirectFixedEscaper::new_obj(config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        DirectFixedEscaper::new_obj(config, stats, peer_health_table)
     }
 
     fn get_bind_random(&self, family: AddressFamily, task_notes: &ServerTaskNotes) -> BindAddr {
@@ -175,6 +176,7 @@ impl DirectFixedEscaper {
                     return HappyEyeballsResolveJob::new_redirected(
                         strategy,
                         &self.resolver_handle,
+                        domain,
                         v,
                     );
                 }
@@ -191,6 +193,7 @@ impl DirectFixedEscaper {
                     return HappyEyeballsResolveJob::new_redirected(
                         strategy,
                         &self.resolver_handle,
+                        domain,
                         v,
                     );
                 }
@@ -425,8 +428,17 @@ impl EscaperInternal for DirectFixedEscaper {
         config: AnyEscaperConfig,
         _registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::DirectFixed(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
-        DirectFixedEscaper::prepare_reload(config, stats)
+        let peer_health_table = match &self.peer_health_table {
+            Some(table) => {
+                table.on_reload(self.config.same_bind(&config), config.peer_health_check)
+            }
+            None => config.peer_health_check.map(PeerHealthTable::new),
+        };
+        DirectFixedEscaper::prepare_reload(config, stats, peer_health_table)
     }
 
     fn _local_http_forward_capability(&self) -> HttpForwardCapability {

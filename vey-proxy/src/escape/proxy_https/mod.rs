@@ -23,7 +23,7 @@ use vey_types::resolve::ResolveStrategy;
 
 use super::{
     ArcEscaper, ArcEscaperStats, EgressNotes, Escaper, EscaperExt, EscaperInternal,
-    EscaperRegistry, EscaperStats, TlsConnectResult,
+    EscaperRegistry, EscaperStats, PeerHealthTable, TlsConnectResult,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStatsList;
@@ -57,6 +57,7 @@ mod tls_handshake;
 pub(super) struct ProxyHttpsEscaper {
     config: Arc<ProxyHttpsEscaperConfig>,
     stats: Arc<ProxyHttpsEscaperStats>,
+    peer_health_table: Option<Arc<PeerHealthTable>>,
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     tls_config: OpensslClientConfig,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
@@ -67,6 +68,7 @@ impl ProxyHttpsEscaper {
     fn new_obj(
         config: ProxyHttpsEscaperConfig,
         stats: Arc<ProxyHttpsEscaperStats>,
+        peer_health_table: Option<Arc<PeerHealthTable>>,
     ) -> anyhow::Result<ArcEscaper> {
         let mut nodes_builder = SelectiveVecBuilder::new();
         for node in &config.proxy_nodes {
@@ -95,6 +97,7 @@ impl ProxyHttpsEscaper {
         let escaper = ProxyHttpsEscaper {
             config: Arc::new(config),
             stats,
+            peer_health_table,
             proxy_nodes,
             tls_config,
             resolver_handle,
@@ -105,18 +108,16 @@ impl ProxyHttpsEscaper {
 
     pub(super) fn prepare_initial(config: ProxyHttpsEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(ProxyHttpsEscaperStats::new(config.name()));
-        ProxyHttpsEscaper::new_obj(config, stats)
+        let peer_health_table = config.peer_health_check.map(PeerHealthTable::new);
+        ProxyHttpsEscaper::new_obj(config, stats, peer_health_table)
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: ProxyHttpsEscaperConfig,
         stats: Arc<ProxyHttpsEscaperStats>,
+        peer_health_table: Option<Arc<PeerHealthTable>>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::ProxyHttps(config) = config {
-            ProxyHttpsEscaper::new_obj(config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        ProxyHttpsEscaper::new_obj(config, stats, peer_health_table)
     }
 
     fn get_next_proxy(&self, task_notes: &ServerTaskNotes, target_host: &Host) -> &UpstreamAddr {
@@ -140,13 +141,21 @@ impl ProxyHttpsEscaper {
     async fn resolve_consistent(
         &self,
         domain: DomainName,
+        port: u16,
         key: &str,
-    ) -> Result<IpAddr, ResolveError> {
+    ) -> Result<(IpAddr, DomainName), ResolveError> {
         let mut happy_job = self.resolve_happy(domain)?;
         let addrs = happy_job
             .get_r1_or_first_done(self.config.happy_eyeballs.resolution_delay())
             .await?;
-        ResolveStrategy::pick_jump(addrs, key).ok_or(ResolveError::EmptyResult)
+        let addrs = match &self.peer_health_table {
+            Some(table) => table
+                .get(happy_job.domain())
+                .skip_recent_failures(port, addrs),
+            None => addrs,
+        };
+        let ip = ResolveStrategy::pick_jump(addrs, key).ok_or(ResolveError::EmptyResult)?;
+        Ok((ip, happy_job.domain().clone()))
     }
 
     fn fetch_user_upstream_io_stats(
@@ -278,8 +287,17 @@ impl EscaperInternal for ProxyHttpsEscaper {
         config: AnyEscaperConfig,
         _registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::ProxyHttps(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
-        ProxyHttpsEscaper::prepare_reload(config, stats)
+        let peer_health_table = match &self.peer_health_table {
+            Some(table) => {
+                table.on_reload(self.config.same_bind(&config), config.peer_health_check)
+            }
+            None => config.peer_health_check.map(PeerHealthTable::new),
+        };
+        ProxyHttpsEscaper::prepare_reload(config, stats, peer_health_table)
     }
 
     #[inline]

@@ -404,10 +404,16 @@ impl HttpGuardWebsocketTask {
 
         match self.make_new_connection(req).await {
             Ok(ups_c) => {
+                self.site_ctx
+                    .site()
+                    .record_peer_connect_result(&self.upstream, true);
                 self.task_notes.stage = ServerTaskStage::Connected;
                 Ok(ups_c)
             }
             Err(e) => {
+                self.site_ctx
+                    .site()
+                    .record_peer_connect_result(&self.upstream, false);
                 self.reply_connect_err(&e, clt_w).await;
                 Err(e.into())
             }

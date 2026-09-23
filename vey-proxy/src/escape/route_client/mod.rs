@@ -101,15 +101,11 @@ impl RouteClientEscaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: RouteClientEscaperConfig,
         stats: Arc<RouteEscaperStats>,
         registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::RouteClient(config) = config {
-            RouteClientEscaper::new_obj(config, stats, |name| registry.get_or_insert_default(name))
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        RouteClientEscaper::new_obj(config, stats, |name| registry.get_or_insert_default(name))
     }
 
     fn select_next(&self, ip: IpAddr) -> ArcEscaper {
@@ -259,6 +255,9 @@ impl EscaperInternal for RouteClientEscaper {
         config: AnyEscaperConfig,
         registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::RouteClient(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         RouteClientEscaper::prepare_reload(config, stats, registry)
     }

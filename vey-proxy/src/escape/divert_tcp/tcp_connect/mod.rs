@@ -162,6 +162,13 @@ impl DivertTcpEscaper {
                 max_tries_each_family,
             )
             .await?;
+        let peer_health = self
+            .peer_health_table
+            .as_ref()
+            .map(|table| table.get(resolver_job.domain()));
+        if let Some(peer_health) = &peer_health {
+            peer_health.reorder(peer_port, &mut ips);
+        }
 
         let mut c_set = JoinSet::new();
 
@@ -236,6 +243,9 @@ impl DivertTcpEscaper {
                                         self.stats.tcp.connect.add_established();
                                         egress_notes.tcp.local = Some(local_addr);
                                         // the chained outgoing addr is not detected at here
+                                        if let Some(peer_health) = &peer_health {
+                                            peer_health.clear_failure(peer_addr);
+                                        }
                                         return Ok(ups_stream);
                                     }
                                     Err(e) => {
@@ -247,7 +257,9 @@ impl DivertTcpEscaper {
                                             }
                                             .log(logger, &e);
                                         }
-                                        // TODO tell resolver to remove addr
+                                        if let Some(peer_health) = &peer_health {
+                                            peer_health.record_failure(peer_addr);
+                                        }
                                         returned_err = e;
                                         spawn_new_connection = true;
                                     }
@@ -272,7 +284,10 @@ impl DivertTcpEscaper {
                     }
                     r = resolver_job.get_r2_or_never(max_tries_each_family) => {
                         resolver_r2_done = true;
-                        if let Ok(ips2) = r {
+                        if let Ok(mut ips2) = r {
+                            if let Some(peer_health) = &peer_health {
+                                peer_health.reorder(peer_port, &mut ips2);
+                            }
                             self.merge_ip_list(egress_notes.tries, &mut ips, ips2);
                         }
                     }

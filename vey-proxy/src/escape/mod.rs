@@ -38,6 +38,10 @@ use crate::serve::ServerTaskNotes;
 
 mod registry;
 use registry::EscaperRegistry;
+
+mod peer_health;
+pub(crate) use peer_health::PeerHealth;
+use peer_health::PeerHealthTable;
 pub(crate) use registry::{foreach as foreach_escaper, get_names, get_or_insert_default};
 
 mod stats;

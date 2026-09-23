@@ -180,56 +180,55 @@ impl H2WebsocketTask {
             }
         };
 
-        let audit_task = self
-            .task_notes
-            .tenant_user()
-            .and_then(|u| u.audit().do_task_audit())
-            .unwrap_or_else(|| {
-                self.ctx
-                    .audit_handle
-                    .as_ref()
-                    .is_some_and(|h| h.do_task_audit())
-            });
+        if let Some(audit_handle) = &self.ctx.audit_handle {
+            let audit_task = self
+                .task_notes
+                .tenant_user()
+                .and_then(|u| u.audit().do_task_audit())
+                .unwrap_or_else(|| {
+                    self.ctx
+                        .audit_handle
+                        .as_ref()
+                        .is_some_and(|h| h.do_task_audit())
+                });
 
-        if audit_task
-            && let Some(audit_handle) = self.ctx.audit_handle.as_ref()
-            && let Some(reqmod) = audit_handle.icap_reqmod_client()
-        {
-            match reqmod
-                .h2_adapter(
-                    self.ctx.server_config.tcp_copy,
-                    self.ctx.server_config.h1.body_line_max_len,
-                    self.ctx.server_config.h2.max_header_list_size as usize,
-                    self.ctx.server_config.timeout.recv_rsp_header,
-                    true,
-                    self.ctx.idle_checker(&self.task_notes),
-                )
-                .await
-            {
-                Ok(mut adapter) => {
-                    let mut adaptation_state =
-                        ReqmodAdaptationRunState::new(self.task_notes.task_created_instant());
-                    adapter.set_client_addr(self.task_notes.client_addr());
-                    if let Some(username) = self.task_notes.raw_user_name() {
-                        adapter.set_client_username(username.clone());
+            if audit_task && let Some(reqmod) = audit_handle.icap_reqmod_client() {
+                match reqmod
+                    .h2_adapter(
+                        self.ctx.server_config.tcp_copy,
+                        self.ctx.server_config.h1.body_line_max_len,
+                        self.ctx.server_config.h2.max_header_list_size as usize,
+                        self.ctx.server_config.timeout.recv_rsp_header,
+                        true,
+                        self.ctx.idle_checker(&self.task_notes),
+                    )
+                    .await
+                {
+                    Ok(mut adapter) => {
+                        let mut adaptation_state =
+                            ReqmodAdaptationRunState::new(self.task_notes.task_created_instant());
+                        adapter.set_client_addr(self.task_notes.client_addr());
+                        if let Some(username) = self.task_notes.raw_user_name() {
+                            adapter.set_client_username(username.clone());
+                        }
+                        if let Some(username) = self.task_notes.tenant_user_name() {
+                            adapter.set_tenant_username(username.clone());
+                        }
+                        return self
+                            .forward_with_adaptation(
+                                ups_send_req,
+                                req,
+                                clt_r,
+                                clt_send_rsp,
+                                adapter,
+                                &mut adaptation_state,
+                            )
+                            .await;
                     }
-                    if let Some(username) = self.task_notes.tenant_user_name() {
-                        adapter.set_tenant_username(username.clone());
-                    }
-                    return self
-                        .forward_with_adaptation(
-                            ups_send_req,
-                            req,
-                            clt_r,
-                            clt_send_rsp,
-                            adapter,
-                            &mut adaptation_state,
-                        )
-                        .await;
-                }
-                Err(e) => {
-                    if !reqmod.bypass() {
-                        return Err(H2StreamTransferError::InternalAdapterError(e));
+                    Err(e) => {
+                        if !reqmod.bypass() {
+                            return Err(H2StreamTransferError::InternalAdapterError(e));
+                        }
                     }
                 }
             }

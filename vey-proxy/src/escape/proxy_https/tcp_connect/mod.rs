@@ -13,7 +13,7 @@ use tokio::time::Instant;
 
 use vey_io_ext::LimitedStream;
 use vey_socket::BindAddr;
-use vey_types::net::{ConnectError, Host, ProxyProtocolEncoder, UpstreamAddr};
+use vey_types::net::{ConnectError, DomainName, Host, ProxyProtocolEncoder, UpstreamAddr};
 
 use super::ProxyHttpsEscaper;
 use crate::escape::{EgressNotes, EgressSocketType};
@@ -144,6 +144,37 @@ impl ProxyHttpsEscaper {
         }
     }
 
+    async fn fixed_try_connect_with_health(
+        &self,
+        peer: SocketAddr,
+        domain: &DomainName,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> Result<TcpStream, UnderlyingTcpConnectError> {
+        let peer_health = self
+            .peer_health_table
+            .as_ref()
+            .map(|table| table.get(domain));
+        match self
+            .fixed_try_connect(peer, task_conf, egress_notes, task_notes)
+            .await
+        {
+            Ok(stream) => {
+                if let Some(peer_health) = &peer_health {
+                    peer_health.clear_failure(peer);
+                }
+                Ok(stream)
+            }
+            Err(e) => {
+                if let Some(peer_health) = &peer_health {
+                    peer_health.record_failure(peer);
+                }
+                Err(e)
+            }
+        }
+    }
+
     fn merge_ip_list(&self, tried: usize, ips: &mut Vec<IpAddr>, new: Vec<IpAddr>) {
         self.config.happy_eyeballs.merge_list(tried, ips, new);
     }
@@ -163,6 +194,13 @@ impl ProxyHttpsEscaper {
                 max_tries_each_family,
             )
             .await?;
+        let peer_health = self
+            .peer_health_table
+            .as_ref()
+            .map(|table| table.get(resolver_job.domain()));
+        if let Some(peer_health) = &peer_health {
+            peer_health.reorder(peer_port, &mut ips);
+        }
 
         let mut c_set = JoinSet::new();
 
@@ -238,6 +276,9 @@ impl ProxyHttpsEscaper {
                                         self.stats.tcp.connect.add_established();
                                         egress_notes.tcp.local = Some(local_addr);
                                         // the chained outgoing addr is not detected at here
+                                        if let Some(peer_health) = &peer_health {
+                                            peer_health.clear_failure(peer_addr);
+                                        }
                                         return Ok(ups_stream);
                                     }
                                     Err(e) => {
@@ -249,7 +290,9 @@ impl ProxyHttpsEscaper {
                                             }
                                             .log(logger, &e);
                                         }
-                                        // TODO tell resolver to remove addr
+                                        if let Some(peer_health) = &peer_health {
+                                            peer_health.record_failure(peer_addr);
+                                        }
                                         returned_err = e;
                                         spawn_new_connection = true;
                                     }
@@ -274,7 +317,10 @@ impl ProxyHttpsEscaper {
                     }
                     r = resolver_job.get_r2_or_never(max_tries_each_family) => {
                         resolver_r2_done = true;
-                        if let Ok(ips2) = r {
+                        if let Ok(mut ips2) = r {
+                            if let Some(peer_health) = &peer_health {
+                                peer_health.reorder(peer_port, &mut ips2);
+                            }
                             self.merge_ip_list(egress_notes.tries, &mut ips, ips2);
                         }
                     }
@@ -328,12 +374,13 @@ impl ProxyHttpsEscaper {
                 if !ups.resolve_sticky_key.is_empty()
                     && let Host::Domain(domain) = addr.host()
                 {
-                    let ip = self
-                        .resolve_consistent(domain.clone(), &ups.resolve_sticky_key)
+                    let (ip, resolved_domain) = self
+                        .resolve_consistent(domain.clone(), addr.port(), &ups.resolve_sticky_key)
                         .await?;
                     let stream = self
-                        .fixed_try_connect(
+                        .fixed_try_connect_with_health(
                             SocketAddr::new(ip, addr.port()),
+                            &resolved_domain,
                             task_conf,
                             egress_notes,
                             task_notes,

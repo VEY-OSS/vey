@@ -20,7 +20,7 @@ use vey_types::resolve::ResolveStrategy;
 
 use super::{
     ArcEscaper, ArcEscaperStats, EgressNotes, Escaper, EscaperExt, EscaperInternal,
-    EscaperRegistry, EscaperStats, TlsConnectResult,
+    EscaperRegistry, EscaperStats, PeerHealthTable, TlsConnectResult,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStatsList;
@@ -54,6 +54,7 @@ pub(crate) mod udp_relay;
 pub(super) struct ProxySocks5Escaper {
     config: Arc<ProxySocks5EscaperConfig>,
     stats: Arc<ProxySocks5EscaperStats>,
+    peer_health_table: Option<Arc<PeerHealthTable>>,
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
     escape_logger: Option<Logger>,
@@ -63,6 +64,7 @@ impl ProxySocks5Escaper {
     fn new_obj(
         config: ProxySocks5EscaperConfig,
         stats: Arc<ProxySocks5EscaperStats>,
+        peer_health_table: Option<Arc<PeerHealthTable>>,
     ) -> anyhow::Result<ArcEscaper> {
         let mut nodes_builder = SelectiveVecBuilder::new();
         for node in &config.proxy_nodes {
@@ -86,6 +88,7 @@ impl ProxySocks5Escaper {
         let escaper = ProxySocks5Escaper {
             config: Arc::new(config),
             stats,
+            peer_health_table,
             proxy_nodes,
             resolver_handle,
             escape_logger,
@@ -96,18 +99,16 @@ impl ProxySocks5Escaper {
 
     pub(super) fn prepare_initial(config: ProxySocks5EscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(ProxySocks5EscaperStats::new(config.name()));
-        ProxySocks5Escaper::new_obj(config, stats)
+        let peer_health_table = config.peer_health_check.map(PeerHealthTable::new);
+        ProxySocks5Escaper::new_obj(config, stats, peer_health_table)
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: ProxySocks5EscaperConfig,
         stats: Arc<ProxySocks5EscaperStats>,
+        peer_health_table: Option<Arc<PeerHealthTable>>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::ProxySocks5(config) = config {
-            ProxySocks5Escaper::new_obj(config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        ProxySocks5Escaper::new_obj(config, stats, peer_health_table)
     }
 
     fn get_next_proxy(&self, task_notes: &ServerTaskNotes, target_host: &Host) -> &UpstreamAddr {
@@ -131,13 +132,21 @@ impl ProxySocks5Escaper {
     async fn resolve_consistent(
         &self,
         domain: DomainName,
+        port: u16,
         key: &str,
-    ) -> Result<IpAddr, ResolveError> {
+    ) -> Result<(IpAddr, DomainName), ResolveError> {
         let mut happy_job = self.resolve_happy(domain)?;
         let addrs = happy_job
             .get_r1_or_first_done(self.config.happy_eyeballs.resolution_delay())
             .await?;
-        ResolveStrategy::pick_jump(addrs, key).ok_or(ResolveError::EmptyResult)
+        let addrs = match &self.peer_health_table {
+            Some(table) => table
+                .get(happy_job.domain())
+                .skip_recent_failures(port, addrs),
+            None => addrs,
+        };
+        let ip = ResolveStrategy::pick_jump(addrs, key).ok_or(ResolveError::EmptyResult)?;
+        Ok((ip, happy_job.domain().clone()))
     }
 
     fn fetch_user_upstream_io_stats(
@@ -270,8 +279,17 @@ impl EscaperInternal for ProxySocks5Escaper {
         config: AnyEscaperConfig,
         _registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::ProxySocks5(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
-        ProxySocks5Escaper::prepare_reload(config, stats)
+        let peer_health_table = match &self.peer_health_table {
+            Some(table) => {
+                table.on_reload(self.config.same_bind(&config), config.peer_health_check)
+            }
+            None => config.peer_health_check.map(PeerHealthTable::new),
+        };
+        ProxySocks5Escaper::prepare_reload(config, stats, peer_health_table)
     }
 
     fn _local_http_forward_capability(&self) -> HttpForwardCapability {

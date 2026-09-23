@@ -25,7 +25,7 @@ use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
     ArcEscaper, ArcEscaperStats, EgressNotes, Escaper, EscaperInternal, EscaperRegistry,
-    EscaperStats, TlsConnectResult,
+    EscaperStats, PeerHealthTable, TlsConnectResult,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStatsList;
@@ -60,6 +60,7 @@ mod udp_relay;
 pub(super) struct DirectFloatEscaper {
     config: Arc<DirectFloatEscaperConfig>,
     stats: Arc<DirectFixedEscaperStats>,
+    peer_health_table: Option<Arc<PeerHealthTable>>,
     resolver_handle: ArcIntegratedResolverHandle,
     egress_net_filter: Arc<AclNetworkRule>,
     resolve_redirection: Option<ResolveRedirection>,
@@ -74,6 +75,7 @@ impl DirectFloatEscaper {
         stats: Arc<DirectFixedEscaperStats>,
         bind_v4: ArcSwap<BindSet>,
         bind_v6: ArcSwap<BindSet>,
+        peer_health_table: Option<Arc<PeerHealthTable>>,
     ) -> anyhow::Result<ArcEscaper> {
         let resolver_handle = crate::resolve::get_handle(config.resolver())?;
         let egress_net_filter = Arc::new(config.egress_net_filter.build());
@@ -92,6 +94,7 @@ impl DirectFloatEscaper {
         let escaper = DirectFloatEscaper {
             config,
             stats,
+            peer_health_table,
             resolver_handle,
             egress_net_filter,
             resolve_redirection,
@@ -126,26 +129,31 @@ impl DirectFloatEscaper {
             });
 
         let stats = Arc::new(DirectFixedEscaperStats::new(config.name()));
+        let peer_health_table = config.peer_health_check.map(PeerHealthTable::new);
 
         DirectFloatEscaper::new_obj(
             config,
             stats,
             ArcSwap::from_pointee(bind_set_v4),
             ArcSwap::from_pointee(bind_set_v6),
+            peer_health_table,
         )
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: DirectFloatEscaperConfig,
         stats: Arc<DirectFixedEscaperStats>,
         bind_v4: Arc<BindSet>,
         bind_v6: Arc<BindSet>,
+        peer_health_table: Option<Arc<PeerHealthTable>>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::DirectFloat(config) = config {
-            DirectFloatEscaper::new_obj(config, stats, ArcSwap::new(bind_v4), ArcSwap::new(bind_v6))
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        DirectFloatEscaper::new_obj(
+            config,
+            stats,
+            ArcSwap::new(bind_v4),
+            ArcSwap::new(bind_v6),
+            peer_health_table,
+        )
     }
 
     fn parse_dyn_bind_ip(&self, value: &serde_json::Value) -> anyhow::Result<DirectFloatBindIp> {
@@ -243,6 +251,7 @@ impl DirectFloatEscaper {
                     return HappyEyeballsResolveJob::new_redirected(
                         strategy,
                         &self.resolver_handle,
+                        domain,
                         v,
                     );
                 }
@@ -257,6 +266,7 @@ impl DirectFloatEscaper {
                     return HappyEyeballsResolveJob::new_redirected(
                         strategy,
                         &self.resolver_handle,
+                        domain,
                         v,
                     );
                 }
@@ -461,11 +471,19 @@ impl EscaperInternal for DirectFloatEscaper {
         config: AnyEscaperConfig,
         _registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::DirectFloat(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         let bind_v4 = self.bind_v4.load_full();
         let bind_v6 = self.bind_v6.load_full();
+        // Bind sets are transferred as-is, so the source addresses stay with this table.
+        let peer_health_table = match &self.peer_health_table {
+            Some(table) => table.on_reload(true, config.peer_health_check),
+            None => config.peer_health_check.map(PeerHealthTable::new),
+        };
 
-        DirectFloatEscaper::prepare_reload(config, stats, bind_v4, bind_v6)
+        DirectFloatEscaper::prepare_reload(config, stats, bind_v4, bind_v6, peer_health_table)
     }
 
     fn _local_http_forward_capability(&self) -> HttpForwardCapability {

@@ -152,7 +152,7 @@ impl TlsProxyTask {
                 "failed to select site upstream",
             ));
         }
-        let (ups_r, ups_w) = if let Some(tls_client_config) = self.host.site().tls_client() {
+        let connected = if let Some(tls_client_config) = self.host.site().tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
                     upstream: &self.upstream,
@@ -170,7 +170,7 @@ impl TlsProxyTask {
                     self.task_stats.clone(),
                     &mut self.audit_ctx,
                 )
-                .await?
+                .await
         } else {
             let task_conf = TcpConnectTaskConf {
                 upstream: &self.upstream,
@@ -184,8 +184,12 @@ impl TlsProxyTask {
                     self.task_stats.clone(),
                     &mut self.audit_ctx,
                 )
-                .await?
+                .await
         };
+        self.host
+            .site()
+            .record_peer_connect_result(&self.upstream, connected.is_ok());
+        let (ups_r, ups_w) = connected?;
 
         self.task_notes.stage = ServerTaskStage::Connected;
         self.run_connected(clt_stream, ups_r, ups_w).await
