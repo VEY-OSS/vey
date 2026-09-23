@@ -89,17 +89,13 @@ impl RouteQueryEscaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: RouteQueryEscaperConfig,
         stats: Arc<RouteEscaperStats>,
         registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::RouteQuery(config) = config {
-            RouteQueryEscaper::new_obj(Arc::new(config), stats, |name| {
-                registry.get_or_insert_default(name)
-            })
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        RouteQueryEscaper::new_obj(Arc::new(config), stats, |name| {
+            registry.get_or_insert_default(name)
+        })
     }
 
     async fn select_query(
@@ -256,6 +252,9 @@ impl EscaperInternal for RouteQueryEscaper {
         config: AnyEscaperConfig,
         registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::RouteQuery(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         RouteQueryEscaper::prepare_reload(config, stats, registry)
     }

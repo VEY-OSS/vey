@@ -241,6 +241,13 @@ impl DirectFixedEscaper {
             )
             .await?;
         let port = task_conf.upstream.port();
+        let peer_health = self
+            .peer_health_table
+            .as_ref()
+            .map(|table| table.get(resolver_job.domain()));
+        if let Some(peer_health) = &peer_health {
+            peer_health.reorder(port, &mut ips);
+        }
 
         let mut c_set = JoinSet::new();
 
@@ -317,6 +324,9 @@ impl DirectFixedEscaper {
                                         egress_notes.tcp.local = Some(local_addr);
                                         egress_notes.final_addr.target_addr = Some(peer_addr);
                                         egress_notes.final_addr.outgoing_addr = Some(local_addr);
+                                        if let Some(peer_health) = &peer_health {
+                                            peer_health.clear_failure(peer_addr);
+                                        }
                                         return Ok(ups_stream);
                                     }
                                     Err(e) => {
@@ -328,7 +338,9 @@ impl DirectFixedEscaper {
                                             }
                                             .log(logger, &e);
                                         }
-                                        // TODO tell resolver to remove addr
+                                        if let Some(peer_health) = &peer_health {
+                                            peer_health.record_failure(peer_addr);
+                                        }
                                         returned_err = e;
                                         spawn_new_connection = true;
                                     }
@@ -353,7 +365,10 @@ impl DirectFixedEscaper {
                     }
                     r = resolver_job.get_r2_or_never(max_tries_each_family) => {
                         resolver_r2_done = true;
-                        if let Ok(ips2) = r {
+                        if let Ok(mut ips2) = r {
+                            if let Some(peer_health) = &peer_health {
+                                peer_health.reorder(port, &mut ips2);
+                            }
                             self.merge_ip_list(egress_notes.tries, &mut ips, ips2);
                         }
                     }

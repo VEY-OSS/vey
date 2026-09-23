@@ -147,15 +147,11 @@ impl RouteGeoIpEscaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: RouteGeoIpEscaperConfig,
         stats: Arc<RouteEscaperStats>,
         registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::RouteGeoIp(config) = config {
-            RouteGeoIpEscaper::new_obj(config, stats, |name| registry.get_or_insert_default(name))
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        RouteGeoIpEscaper::new_obj(config, stats, |name| registry.get_or_insert_default(name))
     }
 
     async fn get_upstream_ip(&self, ups: &Host) -> Result<IpAddr, ResolveError> {
@@ -366,6 +362,9 @@ impl EscaperInternal for RouteGeoIpEscaper {
         config: AnyEscaperConfig,
         registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::RouteGeoIp(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         RouteGeoIpEscaper::prepare_reload(config, stats, registry)
     }

@@ -30,7 +30,10 @@ use vey_types::net::{
 use vey_types::resolve::{QueryStrategy, ResolveStrategy};
 use vey_yaml::YamlDocPosition;
 
-use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig};
+use super::{
+    AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig,
+    PeerHealthCheckConfig,
+};
 
 const ESCAPER_CONFIG_TYPE: &str = "ProxyHttp";
 
@@ -59,6 +62,7 @@ pub(crate) struct ProxyHttpEscaperConfig {
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) general: GeneralEscaperConfig,
     pub(crate) happy_eyeballs: HappyEyeballsConfig,
+    pub(crate) peer_health_check: Option<PeerHealthCheckConfig>,
     pub(crate) http_forward_capability: HttpForwardCapability,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
@@ -96,6 +100,7 @@ impl ProxyHttpEscaperConfig {
             resolve_strategy: Default::default(),
             general: Default::default(),
             happy_eyeballs: Default::default(),
+            peer_health_check: None,
             http_forward_capability: Default::default(),
             tcp_keepalive: Default::default(),
             tcp_misc_opts: Default::default(),
@@ -234,6 +239,13 @@ impl ProxyHttpEscaperConfig {
                     .context(format!("invalid happy eyeballs config value for key {k}"))?;
                 Ok(())
             }
+            "peer_health_check" => {
+                self.peer_health_check = Some(
+                    PeerHealthCheckConfig::parse(v)
+                        .context(format!("invalid peer health check config value for key {k}"))?,
+                );
+                Ok(())
+            }
             "http_connect_rsp_header_max_size" => {
                 self.http_connect_rsp_hdr_max_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
@@ -332,6 +344,20 @@ impl ProxyHttpEscaperConfig {
         }
 
         Ok(())
+    }
+
+    pub(crate) fn same_bind(&self, new: &Self) -> bool {
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "illumos",
+            target_os = "solaris"
+        ))]
+        if self.bind_interface != new.bind_interface {
+            return false;
+        }
+        self.bind_v4 == new.bind_v4 && self.bind_v6 == new.bind_v6
     }
 }
 

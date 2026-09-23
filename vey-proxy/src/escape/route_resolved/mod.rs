@@ -98,17 +98,11 @@ impl RouteResolvedEscaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: RouteResolvedEscaperConfig,
         stats: Arc<RouteEscaperStats>,
         registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::RouteResolved(config) = config {
-            RouteResolvedEscaper::new_obj(config, stats, |name| {
-                registry.get_or_insert_default(name)
-            })
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        RouteResolvedEscaper::new_obj(config, stats, |name| registry.get_or_insert_default(name))
     }
 
     async fn get_upstream_ip(&self, ups: &Host) -> Result<IpAddr, ResolveError> {
@@ -287,6 +281,9 @@ impl EscaperInternal for RouteResolvedEscaper {
         config: AnyEscaperConfig,
         registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::RouteResolved(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         RouteResolvedEscaper::prepare_reload(config, stats, registry)
     }

@@ -20,7 +20,7 @@ use vey_types::resolve::ResolveStrategy;
 
 use super::{
     ArcEscaper, ArcEscaperStats, EgressNotes, Escaper, EscaperExt, EscaperInternal,
-    EscaperRegistry, EscaperStats, TlsConnectResult,
+    EscaperRegistry, EscaperStats, PeerHealthTable, TlsConnectResult,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStatsList;
@@ -55,6 +55,7 @@ pub(crate) use http_connect_udp::{ProxyHttpConnectUdpRecv, ProxyHttpConnectUdpSe
 pub(super) struct ProxyHttpEscaper {
     config: Arc<ProxyHttpEscaperConfig>,
     stats: Arc<ProxyHttpEscaperStats>,
+    peer_health_table: Option<Arc<PeerHealthTable>>,
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
     escape_logger: Option<Logger>,
@@ -64,6 +65,7 @@ impl ProxyHttpEscaper {
     fn new_obj(
         config: ProxyHttpEscaperConfig,
         stats: Arc<ProxyHttpEscaperStats>,
+        peer_health_table: Option<Arc<PeerHealthTable>>,
     ) -> anyhow::Result<ArcEscaper> {
         let mut nodes_builder = SelectiveVecBuilder::new();
         for node in &config.proxy_nodes {
@@ -87,6 +89,7 @@ impl ProxyHttpEscaper {
         let escaper = ProxyHttpEscaper {
             config: Arc::new(config),
             stats,
+            peer_health_table,
             proxy_nodes,
             resolver_handle,
             escape_logger,
@@ -97,18 +100,16 @@ impl ProxyHttpEscaper {
 
     pub(super) fn prepare_initial(config: ProxyHttpEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(ProxyHttpEscaperStats::new(config.name()));
-        ProxyHttpEscaper::new_obj(config, stats)
+        let peer_health_table = config.peer_health_check.map(PeerHealthTable::new);
+        ProxyHttpEscaper::new_obj(config, stats, peer_health_table)
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: ProxyHttpEscaperConfig,
         stats: Arc<ProxyHttpEscaperStats>,
+        peer_health_table: Option<Arc<PeerHealthTable>>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::ProxyHttp(config) = config {
-            ProxyHttpEscaper::new_obj(config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        ProxyHttpEscaper::new_obj(config, stats, peer_health_table)
     }
 
     fn get_next_proxy(&self, task_notes: &ServerTaskNotes, target_host: &Host) -> &UpstreamAddr {
@@ -132,13 +133,21 @@ impl ProxyHttpEscaper {
     async fn resolve_consistent(
         &self,
         domain: DomainName,
+        port: u16,
         key: &str,
-    ) -> Result<IpAddr, ResolveError> {
+    ) -> Result<(IpAddr, DomainName), ResolveError> {
         let mut happy_job = self.resolve_happy(domain)?;
         let addrs = happy_job
             .get_r1_or_first_done(self.config.happy_eyeballs.resolution_delay())
             .await?;
-        ResolveStrategy::pick_jump(addrs, key).ok_or(ResolveError::EmptyResult)
+        let addrs = match &self.peer_health_table {
+            Some(table) => table
+                .get(happy_job.domain())
+                .skip_recent_failures(port, addrs),
+            None => addrs,
+        };
+        let ip = ResolveStrategy::pick_jump(addrs, key).ok_or(ResolveError::EmptyResult)?;
+        Ok((ip, happy_job.domain().clone()))
     }
 
     fn fetch_user_upstream_io_stats(
@@ -270,8 +279,17 @@ impl EscaperInternal for ProxyHttpEscaper {
         config: AnyEscaperConfig,
         _registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::ProxyHttp(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
-        ProxyHttpEscaper::prepare_reload(config, stats)
+        let peer_health_table = match &self.peer_health_table {
+            Some(table) => {
+                table.on_reload(self.config.same_bind(&config), config.peer_health_check)
+            }
+            None => config.peer_health_check.map(PeerHealthTable::new),
+        };
+        ProxyHttpEscaper::prepare_reload(config, stats, peer_health_table)
     }
 
     #[inline]

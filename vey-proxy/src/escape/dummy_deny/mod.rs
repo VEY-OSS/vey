@@ -64,14 +64,10 @@ impl DummyDenyEscaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: DummyDenyEscaperConfig,
         stats: Arc<DummyDenyEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::DummyDeny(config) = config {
-            Ok(DummyDenyEscaper::new_obj(config, stats))
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        Ok(DummyDenyEscaper::new_obj(config, stats))
     }
 }
 
@@ -185,6 +181,9 @@ impl EscaperInternal for DummyDenyEscaper {
         config: AnyEscaperConfig,
         _registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::DummyDeny(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         DummyDenyEscaper::prepare_reload(config, stats)
     }

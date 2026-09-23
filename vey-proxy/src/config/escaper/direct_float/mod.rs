@@ -20,7 +20,10 @@ use vey_types::net::{
 use vey_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 use vey_yaml::YamlDocPosition;
 
-use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig};
+use super::{
+    AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEscaperConfig,
+    PeerHealthCheckConfig,
+};
 
 mod bind;
 pub(crate) use bind::{BindSet, DirectFloatBindIp};
@@ -42,6 +45,7 @@ pub(crate) struct DirectFloatEscaperConfig {
     pub(crate) egress_net_filter: AclNetworkRuleBuilder,
     pub(crate) general: GeneralEscaperConfig,
     pub(crate) happy_eyeballs: HappyEyeballsConfig,
+    pub(crate) peer_health_check: Option<PeerHealthCheckConfig>,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
@@ -65,6 +69,7 @@ impl DirectFloatEscaperConfig {
             egress_net_filter: AclNetworkRuleBuilder::new_egress(AclAction::Permit),
             general: Default::default(),
             happy_eyeballs: Default::default(),
+            peer_health_check: None,
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
             tcp_misc_opts: Default::default(),
             udp_misc_opts: Default::default(),
@@ -170,6 +175,13 @@ impl DirectFloatEscaperConfig {
             "happy_eyeballs" => {
                 self.happy_eyeballs = vey_yaml::value::as_happy_eyeballs_config(v)
                     .context(format!("invalid happy eyeballs config value for key {k}"))?;
+                Ok(())
+            }
+            "peer_health_check" => {
+                self.peer_health_check = Some(
+                    PeerHealthCheckConfig::parse(v)
+                        .context(format!("invalid peer health check config value for key {k}"))?,
+                );
                 Ok(())
             }
             "tcp_keepalive" => {

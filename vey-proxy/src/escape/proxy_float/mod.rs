@@ -109,15 +109,11 @@ impl ProxyFloatEscaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: ProxyFloatEscaperConfig,
         stats: Arc<ProxyFloatEscaperStats>,
         peers: Arc<PeerSet>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::ProxyFloat(config) = config {
-            ProxyFloatEscaper::new_obj(config, stats, ArcSwap::new(peers))
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        ProxyFloatEscaper::new_obj(config, stats, ArcSwap::new(peers))
     }
 
     fn fetch_user_upstream_io_stats(
@@ -290,6 +286,9 @@ impl EscaperInternal for ProxyFloatEscaper {
         config: AnyEscaperConfig,
         _registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::ProxyFloat(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         // copy the old peers, they may be a little outdated at this stage
         // as we haven't stopped the old job

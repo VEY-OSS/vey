@@ -78,17 +78,11 @@ impl RouteFailoverEscaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: RouteFailoverEscaperConfig,
         stats: Arc<RouteEscaperStats>,
         registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::RouteFailover(config) = config {
-            RouteFailoverEscaper::new_obj(config, stats, |name| {
-                registry.get_or_insert_default(name)
-            })
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        RouteFailoverEscaper::new_obj(config, stats, |name| registry.get_or_insert_default(name))
     }
 }
 
@@ -222,6 +216,9 @@ impl EscaperInternal for RouteFailoverEscaper {
         config: AnyEscaperConfig,
         registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::RouteFailover(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         RouteFailoverEscaper::prepare_reload(config, stats, registry)
     }
