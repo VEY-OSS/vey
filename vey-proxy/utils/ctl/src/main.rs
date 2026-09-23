@@ -37,6 +37,7 @@ fn build_cli_args() -> Command {
         .subcommand(proc::commands::reload_server())
         .subcommand(proc::commands::reload_site_group())
         .subcommand(site_group::list_command())
+        .subcommand(site_group::list_health_command())
         .subcommand(site_group::set_weight_command())
         .subcommand(user_group::command())
         .subcommand(resolver::command())
@@ -88,6 +89,9 @@ async fn main() -> anyhow::Result<()> {
                     proc::reload_site_group(&proc_control, args).await
                 }
                 site_group::COMMAND_LIST => site_group::list(&proc_control, args).await,
+                site_group::COMMAND_LIST_HEALTH => {
+                    site_group::list_health(&proc_control, args).await
+                }
                 site_group::COMMAND_SET_WEIGHT => site_group::set_weight(&proc_control, args).await,
                 user_group::COMMAND => user_group::run(&proc_control, args).await,
                 resolver::COMMAND => resolver::run(&proc_control, args).await,

@@ -206,6 +206,34 @@ static_sites:
             vey_types::collection::SelectivePickPolicy::Ketama
         );
         assert!(site.tls_name.is_empty());
+        assert!(site.peer_health_check().is_none());
+    }
+
+    #[test]
+    fn parse_peer_health_check() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    peer_health_check:
+      max_fails: 3
+      fail_timeout: 20s
+    upstream:
+      - 10.0.0.1:8080
+      - 10.0.0.2:8080
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let check = group.sites.get(&host).unwrap().peer_health_check().unwrap();
+        assert_eq!(check.max_fails, 3);
+        assert_eq!(check.fail_timeout, std::time::Duration::from_secs(20));
     }
 
     #[test]

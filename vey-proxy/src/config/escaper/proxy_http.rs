@@ -240,10 +240,9 @@ impl ProxyHttpEscaperConfig {
                 Ok(())
             }
             "peer_health_check" => {
-                self.peer_health_check = Some(
-                    PeerHealthCheckConfig::parse(v)
-                        .context(format!("invalid peer health check config value for key {k}"))?,
-                );
+                self.peer_health_check = Some(PeerHealthCheckConfig::parse(v).context(format!(
+                    "invalid peer health check config value for key {k}"
+                ))?);
                 Ok(())
             }
             "http_connect_rsp_header_max_size" => {

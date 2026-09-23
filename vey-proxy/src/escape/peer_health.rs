@@ -12,23 +12,36 @@ use vey_types::net::DomainName;
 
 use crate::config::escaper::PeerHealthCheckConfig;
 
+#[derive(Clone)]
 struct Failure {
     count: u32,
     until: Instant,
 }
 
 /// Failures for one domain. Each domain has its own lock.
-pub(super) struct PeerHealth {
+pub(crate) struct PeerHealth {
     strategy: PeerHealthCheckConfig,
     inner: Mutex<HashMap<SocketAddr, Failure>>,
 }
 
 impl PeerHealth {
-    fn new(strategy: PeerHealthCheckConfig) -> Arc<Self> {
+    pub(crate) fn new(strategy: PeerHealthCheckConfig) -> Arc<Self> {
         Arc::new(PeerHealth {
             strategy,
             inner: Mutex::new(HashMap::new()),
         })
+    }
+
+    /// New table with `strategy`, keeping the current failure records.
+    pub(crate) fn rebuild(self: &Arc<Self>, strategy: PeerHealthCheckConfig) -> Arc<Self> {
+        if self.strategy == strategy {
+            Arc::clone(self)
+        } else {
+            Arc::new(PeerHealth {
+                strategy,
+                inner: Mutex::new(self.inner.lock().unwrap().clone()),
+            })
+        }
     }
 
     /// Move addresses this escaper recently failed to connect to where `pop()` tries them last.
@@ -37,36 +50,49 @@ impl PeerHealth {
         if ips.len() < 2 {
             return;
         }
+        let max_fails = self.strategy().max_fails;
         let now = Instant::now();
         let mut inner = self.inner.lock().unwrap();
         let unhealthy: Vec<bool> = ips
             .iter()
-            .map(|ip| self.is_unhealthy(&mut inner, SocketAddr::new(*ip, port), now))
+            .map(|ip| self.is_unhealthy(&mut inner, SocketAddr::new(*ip, port), now, max_fails))
             .collect();
         drop(inner);
         partition_unhealthy_first(ips, &unhealthy);
     }
 
-    pub(super) fn clear_failure(&self, peer: SocketAddr) {
-        self.inner.lock().unwrap().remove(&peer);
+    /// Remove a failure record.
+    /// Returns whether the peer left the unavailable set, so the pick table should be rebuilt.
+    pub(crate) fn clear_failure(&self, peer: SocketAddr) -> bool {
+        let max_fails = self.strategy().max_fails;
+        let now = Instant::now();
+        match self.inner.lock().unwrap().remove(&peer) {
+            Some(failure) => failure.until > now && failure.count >= max_fails,
+            None => false,
+        }
     }
 
-    pub(super) fn record_failure(&self, peer: SocketAddr) {
+    /// Record one failed connect.
+    /// Returns whether the peer entered or left the unavailable set.
+    pub(crate) fn record_failure(&self, peer: SocketAddr) -> bool {
+        let strategy = self.strategy();
         let now = Instant::now();
         let mut inner = self.inner.lock().unwrap();
         let entry = inner.entry(peer).or_insert(Failure {
             count: 0,
             until: now,
         });
+        let was_unavailable = entry.until > now && entry.count >= strategy.max_fails;
         if entry.until <= now {
             entry.count = 1;
-            entry.until = now + self.strategy.fail_timeout;
+            entry.until = now + strategy.fail_timeout;
         } else {
             entry.count = entry.count.saturating_add(1);
-            if entry.count >= self.strategy.max_fails {
-                entry.until = now + self.strategy.fail_timeout;
+            if entry.count >= strategy.max_fails {
+                entry.until = now + strategy.fail_timeout;
             }
         }
+        was_unavailable != (entry.count >= strategy.max_fails)
     }
 
     /// Drop addresses that recently failed. If every address failed, keep the full list.
@@ -74,17 +100,65 @@ impl PeerHealth {
         if ips.len() < 2 {
             return ips;
         }
+        let max_fails = self.strategy().max_fails;
         let now = Instant::now();
         let mut inner = self.inner.lock().unwrap();
         let healthy: Vec<IpAddr> = ips
             .iter()
             .copied()
-            .filter(|ip| !self.is_unhealthy(&mut inner, SocketAddr::new(*ip, port), now))
+            .filter(|ip| !self.is_unhealthy(&mut inner, SocketAddr::new(*ip, port), now, max_fails))
             .collect();
-        if healthy.is_empty() {
-            ips
-        } else {
-            healthy
+        if healthy.is_empty() { ips } else { healthy }
+    }
+
+    pub(crate) fn unavailable(&self, peer: SocketAddr) -> bool {
+        let max_fails = self.strategy().max_fails;
+        let now = Instant::now();
+        let mut inner = self.inner.lock().unwrap();
+        self.is_unhealthy(&mut inner, peer, now, max_fails)
+    }
+
+    pub(crate) fn strategy(&self) -> PeerHealthCheckConfig {
+        self.strategy
+    }
+
+    /// Drop expired records. Returns whether an unavailable peer was removed.
+    pub(crate) fn sweep_expired(&self) -> bool {
+        let max_fails = self.strategy().max_fails;
+        let now = Instant::now();
+        let mut inner = self.inner.lock().unwrap();
+        let mut removed_unavailable = false;
+        inner.retain(|_, failure| {
+            if failure.until > now {
+                true
+            } else {
+                if failure.count >= max_fails {
+                    removed_unavailable = true;
+                }
+                false
+            }
+        });
+        removed_unavailable
+    }
+
+    pub(crate) fn failure_status(&self, peer: SocketAddr) -> (u32, bool, Option<Duration>) {
+        let max_fails = self.strategy().max_fails;
+        let now = Instant::now();
+        let mut inner = self.inner.lock().unwrap();
+        match inner
+            .get(&peer)
+            .map(|failure| (failure.count, failure.until))
+        {
+            Some((count, until)) if until > now => {
+                let unavailable = count >= max_fails;
+                let recover_in = unavailable.then(|| until.saturating_duration_since(now));
+                (count, unavailable, recover_in)
+            }
+            Some(_) => {
+                inner.remove(&peer);
+                (0, false, None)
+            }
+            None => (0, false, None),
         }
     }
 
@@ -93,12 +167,13 @@ impl PeerHealth {
         inner: &mut HashMap<SocketAddr, Failure>,
         peer: SocketAddr,
         now: Instant,
+        max_fails: u32,
     ) -> bool {
         match inner
             .get(&peer)
             .map(|failure| (failure.count, failure.until))
         {
-            Some((count, until)) if until > now && count >= self.strategy.max_fails => true,
+            Some((count, until)) if until > now && count >= max_fails => true,
             Some((_, until)) if until <= now => {
                 inner.remove(&peer);
                 false
@@ -122,7 +197,9 @@ impl PeerHealthTable {
         })
     }
 
-    /// Keep this table when the escaper still binds the same addresses and uses the same strategy.
+    /// Keep recorded failures when the bind addresses stay the same.
+    /// A strategy change rebuilds each domain table and copies its records.
+    /// A new bind starts empty.
     pub(super) fn on_reload(
         self: &Arc<Self>,
         same_bind: bool,
@@ -131,11 +208,21 @@ impl PeerHealthTable {
         let Some(strategy) = strategy else {
             return None;
         };
-        if same_bind && self.strategy == strategy {
-            Some(Arc::clone(self))
-        } else {
-            Some(Self::new(strategy))
+        if !same_bind {
+            return Some(Self::new(strategy));
         }
+        if self.strategy == strategy {
+            return Some(Arc::clone(self));
+        }
+        let domains = self.domains.lock().unwrap();
+        let rebuilt = domains
+            .iter()
+            .map(|(domain, health)| (domain.clone(), health.rebuild(strategy)))
+            .collect();
+        Some(Arc::new(PeerHealthTable {
+            strategy,
+            domains: Mutex::new(rebuilt),
+        }))
     }
 
     pub(super) fn get(&self, domain: &DomainName) -> Arc<PeerHealth> {
@@ -255,11 +342,13 @@ mod tests {
         let mut ips = vec![ip(1), ip(2)];
         upstream(&health, "proxy.example").reorder(443, &mut ips);
         assert_eq!(ips, vec![ip(1), ip(2)]);
-        assert!(upstream(&health, "proxy.example")
-            .inner
-            .lock()
-            .unwrap()
-            .is_empty());
+        assert!(
+            upstream(&health, "proxy.example")
+                .inner
+                .lock()
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
@@ -280,6 +369,20 @@ mod tests {
         assert_eq!(ips, vec![ip(2), ip(1)]);
 
         assert!(health.on_reload(true, None).is_none());
+
+        let changed = health
+            .on_reload(
+                true,
+                Some(PeerHealthCheckConfig {
+                    max_fails: 3,
+                    fail_timeout: Duration::from_secs(30),
+                }),
+            )
+            .unwrap();
+        assert!(!Arc::ptr_eq(&health, &changed));
+        let mut ips = vec![ip(2), ip(1)];
+        upstream(&changed, "proxy.example").reorder(443, &mut ips);
+        assert_eq!(ips, vec![ip(2), ip(1)]);
     }
 
     #[test]
@@ -290,16 +393,23 @@ mod tests {
         });
         let peer_health = upstream(&health, "proxy.example");
         let peer = SocketAddr::new(ip(2), 443);
-        peer_health.record_failure(peer);
-        peer_health.record_failure(peer);
+        assert!(!peer_health.record_failure(peer));
+        assert!(!peer_health.record_failure(peer));
 
         let mut ips = vec![ip(1), ip(2)];
         peer_health.reorder(443, &mut ips);
         assert_eq!(ips, vec![ip(1), ip(2)]);
 
-        peer_health.record_failure(peer);
+        assert!(peer_health.record_failure(peer));
         let mut ips = vec![ip(1), ip(2)];
         peer_health.reorder(443, &mut ips);
         assert_eq!(ips, vec![ip(2), ip(1)]);
+
+        assert!(!peer_health.record_failure(peer));
+        assert!(peer_health.clear_failure(peer));
+        assert!(!peer_health.clear_failure(peer));
+        let mut ips = vec![ip(1), ip(2)];
+        peer_health.reorder(443, &mut ips);
+        assert_eq!(ips, vec![ip(1), ip(2)]);
     }
 }

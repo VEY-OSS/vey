@@ -129,6 +129,49 @@ is serving the site. An imported copy has its own weights.
 
 **default**: round_robin
 
+.. _conf_site_peer_health_check:
+
+peer_health_check
+-----------------
+
+**optional**, **type**: map
+
+Passive health check for a weighted upstream IP list, using the same
+``max_fails`` / ``fail_timeout`` rules as
+:ref:`escaper peer health check <conf_escaper_common_peer_health_check>`.
+
+If this key is not set, every positive-weight address stays eligible.
+
+The check applies only when ``upstream`` is a list of IP sockets. A single
+address string is unchanged. Addresses that reached ``max_fails`` inside one
+``fail_timeout`` window are left out of the next pick. If every positive-weight
+address is unavailable, the full list is used. A successful new connection to
+that socket clears its record. Reused keepalive connections are not recorded.
+Removing this key drops the recorded failures on reload. Changing
+``max_fails`` or ``fail_timeout`` keeps those records and applies the new
+limits. Runtime weights are left alone.
+
+``vey-proxy-ctl site-upstream-health <group> <site-id>`` lists each address
+with its failure count, whether it is currently unavailable, and the
+remaining milliseconds until it can be selected again. The last column is
+``-`` while the address is available. The command applies to the site group
+that is serving the site, and only when this key is set on a weighted IP
+list.
+
+.. versionadded:: 1.15.0
+
+* max_fails
+
+  **optional**, **type**: u32
+
+  **default**: 1, **min**: 1
+
+* fail_timeout
+
+  **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
+
+  **default**: 10s
+
 .. _conf_site_tls_server:
 
 tls_server

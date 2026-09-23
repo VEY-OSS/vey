@@ -22,6 +22,7 @@ use vey_types::route::HostMatch;
 use vey_yaml::{YamlDocPosition, YamlMapCallback};
 
 use super::{SiteHttpConfig, SiteUpstreamConfig};
+use crate::config::escaper::PeerHealthCheckConfig;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct SiteConfig {
@@ -33,6 +34,7 @@ pub(crate) struct SiteConfig {
     /// Labels used by other site groups to import this site.
     pub(super) tags: BTreeSet<NodeName>,
     upstream: SiteUpstreamConfig,
+    peer_health_check: Option<PeerHealthCheckConfig>,
     pub(crate) tls_server_builder: Option<OpensslServerConfigBuilder>,
     pub(crate) tls_client_builder: Option<OpensslClientConfigBuilder>,
     pub(crate) tls_name: Host,
@@ -60,6 +62,7 @@ impl Default for SiteConfig {
             owner: NodeName::default(),
             tags: BTreeSet::new(),
             upstream: SiteUpstreamConfig::default(),
+            peer_health_check: None,
             tls_server_builder: None,
             tls_client_builder: None,
             tls_name: Host::empty(),
@@ -100,6 +103,10 @@ impl SiteConfig {
 
     pub(crate) fn upstream(&self) -> &SiteUpstreamConfig {
         &self.upstream
+    }
+
+    pub(crate) fn peer_health_check(&self) -> Option<PeerHealthCheckConfig> {
+        self.peer_health_check
     }
 
     pub(crate) fn covers_host(&self, host: &Host) -> bool {
@@ -147,6 +154,12 @@ impl YamlMapCallback for SiteConfig {
             "upstream_pick_policy" => {
                 self.upstream
                     .set_pick_policy(vey_yaml::value::as_selective_pick_policy(value)?);
+                Ok(())
+            }
+            "peer_health_check" => {
+                self.peer_health_check = Some(PeerHealthCheckConfig::parse(value).context(
+                    format!("invalid peer health check config value for key {key}"),
+                )?);
                 Ok(())
             }
             "tls_server" => {
