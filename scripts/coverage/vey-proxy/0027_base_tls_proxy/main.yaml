@@ -37,7 +37,7 @@ site_group:
         exact_match: httpbin.local
         owner: t1
         upstream: 127.0.0.1:80
-        dpi_protocol: http
+        tls_inner_protocol: http
         tls_server:
           cert_pairs:
             certificate: ../httpbin.local.pem
@@ -47,7 +47,7 @@ site_group:
         owner: t1
         upstream: 127.0.0.1:2443
         tls_name: httpbin.local
-        dpi_protocol: http
+        tls_inner_protocol: http
         tls_client:
           ca_certificate: ../rootCA.pem
         tls_server:

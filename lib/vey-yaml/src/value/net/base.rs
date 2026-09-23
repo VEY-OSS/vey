@@ -49,7 +49,11 @@ pub fn as_env_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
 
 pub fn as_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
     if let Yaml::String(s) = value {
-        SocketAddr::from_str(s).map_err(|e| anyhow!("invalid socket address: {e}"))
+        let addr = SocketAddr::from_str(s).map_err(|e| anyhow!("invalid socket address: {e}"))?;
+        if addr.port() == 0 {
+            return Err(anyhow!("socket address port should be non-zero"));
+        }
+        Ok(addr)
     } else {
         Err(anyhow!(
             "yaml value type for 'SocketAddr' should be 'string'"
@@ -70,6 +74,9 @@ pub fn as_weighted_sockaddr(value: &Yaml) -> anyhow::Result<WeightedValue<Socket
             if let Ok(v) = crate::hash::get_required(map, KEY_WEIGHT) {
                 let weight = crate::value::as_f64(v)
                     .context(format!("invalid f64 value for key {KEY_WEIGHT}"))?;
+                if !weight.is_finite() || weight < 0.0 {
+                    return Err(anyhow!("invalid weight value {weight}"));
+                }
                 Ok(WeightedValue::<SocketAddr>::with_weight(addr, weight))
             } else {
                 Ok(WeightedValue::new(addr))

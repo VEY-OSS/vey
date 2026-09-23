@@ -253,7 +253,7 @@ impl TlsProxyTask {
                     ups_w,
                     ctx,
                     self.upstream.clone(),
-                    self.host.site().dpi_protocol(),
+                    self.host.site().tls_inner_protocol(),
                 )
                 .await;
             }

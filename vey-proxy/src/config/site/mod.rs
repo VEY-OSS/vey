@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use yaml_rust::Yaml;
 
 use vey_daemon::config::TopoMap;
 use vey_yaml::{HybridParser, YamlDocPosition};
@@ -30,7 +30,7 @@ pub(crate) use http::SiteHttpConfig;
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     let parser = HybridParser::new(conf_dir, vey_daemon::opts::config_file_extension());
     parser.foreach_map(v, |map, position| {
-        let group = load_site_group(map, position)?;
+        let group = SiteGroupConfig::parse(map, position)?;
         if let Some(old_group) = registry::add(group) {
             Err(anyhow!(
                 "site group with name {} already exists",
@@ -47,7 +47,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<SiteGroupConfig> {
     let doc = vey_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
-        let group = load_site_group(&map, Some(position.clone()))?;
+        let group = SiteGroupConfig::parse(&map, Some(position.clone()))?;
         let old_group = registry::add(group.clone());
         if let Err(e) = build_topology_map() {
             // rollback
@@ -64,13 +64,6 @@ pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<Sit
     } else {
         Err(anyhow!("yaml doc {position} is not a map"))
     }
-}
-
-fn load_site_group(
-    map: &yaml::Hash,
-    position: Option<YamlDocPosition>,
-) -> anyhow::Result<SiteGroupConfig> {
-    SiteGroupConfig::parse(map, position)
 }
 
 fn build_topology_map() -> anyhow::Result<TopoMap> {

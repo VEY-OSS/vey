@@ -29,7 +29,7 @@ The following common keys are supported:
 
   Optional. When unset, the inner stream is copied without protocol
   inspection. When set, the inner stream is inspected
-  (``dpi_protocol`` on the site is used as a hint). HTTP discovered by
+  (:ref:`tls_inner_protocol <conf_site_tls_inner_protocol>` on the site is used as a hint). HTTP discovered by
   inspection can continue through that auditor's ICAP services.
 
 * :ref:`shared_logger <conf_server_common_shared_logger>`

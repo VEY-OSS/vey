@@ -179,8 +179,8 @@ impl Site {
         self.config.covers_host(host)
     }
 
-    pub(crate) fn dpi_protocol(&self) -> Option<MaybeProtocol> {
-        self.config.dpi_protocol
+    pub(crate) fn tls_inner_protocol(&self) -> Option<MaybeProtocol> {
+        self.config.tls_inner_protocol
     }
 
     pub(crate) fn tls_server_builder(&self) -> Option<&OpensslServerConfigBuilder> {

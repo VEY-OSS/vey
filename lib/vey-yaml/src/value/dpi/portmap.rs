@@ -10,7 +10,17 @@ use yaml_rust::{Yaml, yaml};
 
 use vey_dpi::{MaybeProtocol, ProtocolPortMap};
 
-fn as_maybe_protocol(value: &Yaml) -> anyhow::Result<Vec<MaybeProtocol>> {
+pub fn as_maybe_protocol(value: &Yaml) -> anyhow::Result<MaybeProtocol> {
+    if let Yaml::String(s) = value {
+        MaybeProtocol::from_str(s).map_err(|_| anyhow!("unrecognised protocol {s}"))
+    } else {
+        Err(anyhow!(
+            "the yaml value type of MaybeProtocol should be 'protocol string'"
+        ))
+    }
+}
+
+fn as_maybe_protocol_list(value: &Yaml) -> anyhow::Result<Vec<MaybeProtocol>> {
     let mut r = Vec::new();
 
     match value {
@@ -20,15 +30,9 @@ fn as_maybe_protocol(value: &Yaml) -> anyhow::Result<Vec<MaybeProtocol>> {
         }
         Yaml::Array(seq) => {
             for (i, v) in seq.iter().enumerate() {
-                if let Yaml::String(s) = v {
-                    let p = MaybeProtocol::from_str(s)
-                        .map_err(|_| anyhow!("#{i}: unrecognised protocol {s}"))?;
-                    r.push(p);
-                } else {
-                    return Err(anyhow!(
-                        "the yaml value type for #{i} should be 'protocol string'"
-                    ));
-                }
+                let p = as_maybe_protocol(v)
+                    .context(format!("invalid maybe protocol value for #{i}"))?;
+                r.push(p);
             }
         }
         _ => return Err(anyhow!("invalid yaml value type")),
@@ -41,7 +45,7 @@ fn update_by_map_value(portmap: &mut ProtocolPortMap, map: &yaml::Hash) -> anyho
     for (port, protocol) in map.iter() {
         let port = crate::value::as_u16(port)
             .context("the root map key should be valid u16 port value")?;
-        let protocols = as_maybe_protocol(protocol)
+        let protocols = as_maybe_protocol_list(protocol)
             .context("the root map value should be valid protocol string(s) value")?;
         portmap.insert_batch(port, &protocols);
     }
@@ -56,7 +60,7 @@ fn update_by_seq_value(portmap: &mut ProtocolPortMap, seq: &yaml::Array) -> anyh
             let port =
                 crate::value::as_u16(port).context("invalid u16 port value for key 'port'")?;
             let protocol = crate::hash_get_required(map, "protocol")?;
-            let protocols = as_maybe_protocol(protocol)
+            let protocols = as_maybe_protocol_list(protocol)
                 .context("invalid protocol string(s) value for key 'protocol'")?;
             portmap.insert_batch(port, &protocols);
         } else {

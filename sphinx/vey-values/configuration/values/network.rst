@@ -22,6 +22,7 @@ String in ``<ip>[:<port>]`` format. The port may be omitted when a default port
 is available in the surrounding context.
 
 Only literal IP addresses are allowed. Domain names are rejected here.
+A port of ``0`` is rejected.
 
 .. _conf_value_static_sockaddr_str:
 
@@ -173,6 +174,7 @@ The map consists of two fields:
   Weight assigned to this socket address.
   When used internally, it may be converted to the smallest ``u32`` greater
   than or equal to the ``f64`` value.
+  A non-finite or negative weight is rejected. Weight ``0`` is accepted.
 
   **default**: 1.0
 

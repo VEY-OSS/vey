@@ -10,7 +10,7 @@ use yaml_rust::Yaml;
 
 use vey_types::metrics::NodeName;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct SiteGroupImportConfig {
     site_group: NodeName,
     tags: BTreeSet<NodeName>,
@@ -30,28 +30,35 @@ impl SiteGroupImportConfig {
             return Err(anyhow!("site group import value should be a map"));
         };
 
-        let mut site_group = NodeName::default();
-        let mut tags = BTreeSet::new();
-        vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
+        let mut config = SiteGroupImportConfig::default();
+        vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        config.check()?;
+        Ok(config)
+    }
+
+    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
+        match vey_yaml::key::normalize(k).as_str() {
             "site_group" | "name" => {
-                site_group = vey_yaml::value::as_metric_node_name(v)?;
+                self.site_group = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "tag" | "tags" => {
                 let list = vey_yaml::value::as_list(v, vey_yaml::value::as_metric_node_name)
                     .context(format!("invalid metric node name list for key {k}"))?;
-                tags = list.into_iter().collect();
+                self.tags.extend(list);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
-        })?;
+        }
+    }
 
-        if site_group.is_empty() {
+    fn check(&self) -> anyhow::Result<()> {
+        if self.site_group.is_empty() {
             return Err(anyhow!("site_group is not set"));
         }
-        if tags.is_empty() {
-            return Err(anyhow!("no tags set"));
+        if self.tags.is_empty() {
+            return Err(anyhow!("tags is not set"));
         }
-        Ok(SiteGroupImportConfig { site_group, tags })
+        Ok(())
     }
 }

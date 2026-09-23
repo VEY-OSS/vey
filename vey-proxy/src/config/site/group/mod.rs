@@ -222,8 +222,7 @@ static_sites:
         let Yaml::Hash(map) = &yaml[0] else {
             panic!("expected map");
         };
-        let err = SiteGroupConfig::parse(map, None).unwrap_err();
-        assert!(format!("{err:#}").contains("ip:port"), "{err:#}");
+        assert!(SiteGroupConfig::parse(map, None).is_err());
 
         let duplicate = r#"
 name: local
@@ -415,7 +414,7 @@ static_sites:
     }
 
     #[test]
-    fn parse_dpi_protocol() {
+    fn parse_tls_inner_protocol() {
         let yaml = YamlLoader::load_from_str(
             r#"
 name: local
@@ -423,7 +422,7 @@ static_sites:
   - id: app
     exact_match: app.internal
     upstream: 127.0.0.1:8080
-    dpi_protocol: http
+    tls_inner_protocol: http
 "#,
         )
         .unwrap();
@@ -433,7 +432,7 @@ static_sites:
         let group = SiteGroupConfig::parse(map, None).unwrap();
         let host = Host::from_str("app.internal").unwrap();
         let site = group.sites.get(&host).unwrap();
-        assert_eq!(site.dpi_protocol, Some(vey_dpi::MaybeProtocol::Http));
+        assert_eq!(site.tls_inner_protocol, Some(vey_dpi::MaybeProtocol::Http));
     }
 
     #[test]

@@ -30,10 +30,9 @@ impl SiteHttpH1Config {
         };
         vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
             "connection_pool" => {
-                self.connection_pool = Some(
-                    vey_yaml::value::as_connection_pool_config(v)
-                        .context(format!("invalid connection pool config for key {k}"))?,
-                );
+                let pool = vey_yaml::value::as_connection_pool_config(v)
+                    .context(format!("invalid connection pool config for key {k}"))?;
+                self.connection_pool = Some(pool);
                 Ok(())
             }
             "upstream_keepalive" => {

@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use yaml_rust::Yaml;
 
 use vey_types::collection::{SelectivePickPolicy, WeightedValue};
-use vey_types::net::{Host, UpstreamAddr};
+use vey_types::net::UpstreamAddr;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct SiteUpstreamConfig {
@@ -66,34 +66,15 @@ impl SiteUpstreamConfig {
                 })
             }
             Yaml::Array(_) => {
-                let weighted = vey_yaml::value::as_list(value, |v| {
-                    vey_yaml::value::as_weighted_upstream_addr(v, 0)
-                })?;
-                if weighted.is_empty() {
-                    return Err(anyhow!("upstream list is empty"));
+                let peers = vey_yaml::value::as_list(value, vey_yaml::value::as_weighted_sockaddr)?;
+                if peers.is_empty() {
+                    return Err(anyhow!("upstream peer address list is empty"));
                 }
-                let mut peers = Vec::with_capacity(weighted.len());
                 let mut seen = BTreeSet::new();
-                for item in weighted {
-                    let addr = item.inner();
-                    let Host::Ip(ip) = addr.host() else {
-                        return Err(anyhow!(
-                            "upstream list entries must be ip:port, got {}",
-                            addr.host()
-                        ));
-                    };
-                    if addr.port() == 0 {
-                        return Err(anyhow!("upstream list entries must include a port"));
+                for item in &peers {
+                    if !seen.insert(*item.inner()) {
+                        return Err(anyhow!("duplicate upstream peer address {}", item.inner()));
                     }
-                    let socket = SocketAddr::new(*ip, addr.port());
-                    if !seen.insert(socket) {
-                        return Err(anyhow!("duplicate upstream address {socket}"));
-                    }
-                    let weight = item.weight();
-                    if !weight.is_finite() || weight < 0.0 {
-                        return Err(anyhow!("upstream weight for {socket} must be >= 0"));
-                    }
-                    peers.push(WeightedValue::with_weight(socket, weight));
                 }
                 Ok(SiteUpstreamConfig {
                     single: None,
@@ -102,7 +83,7 @@ impl SiteUpstreamConfig {
                 })
             }
             _ => Err(anyhow!(
-                "upstream must be an address string or a list of ip:port"
+                "upstream must be an address string or a list of weighted socket address"
             )),
         }
     }

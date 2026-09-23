@@ -83,11 +83,10 @@ upstream
 Target upstream. A string is one domain or IP address. The default port is
 ``80`` and may be omitted.
 
-A sequence is a weighted list of IP sockets. Each element is an
-:external+values:ref:`weighted upstream addr <conf_value_weighted_upstream_addr>`
-whose host must be an IP address and whose port is required. Domain names,
-duplicate sockets, and a non-finite or negative weight are rejected. Weight
-``0`` is accepted and that address is not selected.
+A sequence is a weighted list of IP sockets. Each element is a
+:external+values:ref:`weighted sockaddr <conf_value_weighted_sockaddr>`.
+Domain names, port ``0``, duplicate sockets, and a non-finite or negative
+weight are rejected. Weight ``0`` is accepted and that address is not selected.
 
 One address ignores ``upstream_pick_policy``. Each request, or each new origin
 connection, selects once. HTTP/1 and HTTP/2 keepalive pools are kept per
@@ -182,18 +181,16 @@ client SNI. The upstream address is not used as the name.
 
 **default**: not set
 
-.. _conf_site_dpi_protocol:
+.. _conf_site_tls_inner_protocol:
 
-dpi_protocol
-------------
+tls_inner_protocol
+------------------
 
-**optional**, **type**: str
+**optional**, **type**: :external+values:ref:`maybe protocol <conf_value_dpi_maybe_protocol>`
 
 Inner protocol after TLS termination, used as a DPI hint by
 :ref:`tls_proxy <configuration_server_tls_proxy>` when that server has an
-auditor. Recognised values are the same protocol names as protocol
-inspection (``http``, ``smtp``, ``imap``, …). This is the protocol
-**inside** TLS; do not set ``https``.
+auditor. This is the protocol **inside** TLS; do not set ``https``.
 
 ``http_expose`` / ``http_guard`` ignore this key. ``tls_proxy`` ignores it when no
 auditor is configured.

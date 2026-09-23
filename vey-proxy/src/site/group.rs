@@ -71,7 +71,7 @@ impl SiteGroup {
             };
             let site = Arc::new(site);
             sites_by_host
-                .try_add_from_rules(site.config().host_rules(), Arc::clone(&site))
+                .try_add_from_rules(site.config().host_match_rules(), Arc::clone(&site))
                 .map_err(|e| anyhow!("host match conflict for site {id}: {e}"))?;
             if sites_by_id.insert(id.clone(), site).is_some() {
                 return Err(anyhow!("duplicate site id {id}"));
@@ -99,7 +99,7 @@ impl SiteGroup {
                     ));
                 }
                 sites_by_host
-                    .try_add_from_rules(site.config().host_rules(), Arc::clone(site))
+                    .try_add_from_rules(site.config().host_match_rules(), Arc::clone(site))
                     .map_err(|e| anyhow!("host match conflict for site {id}: {e}"))?;
                 sites_by_id.insert(id, Arc::clone(site));
             }

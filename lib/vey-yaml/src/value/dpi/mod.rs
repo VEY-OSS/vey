@@ -10,7 +10,7 @@ mod inspect;
 pub use inspect::as_protocol_inspection_config;
 
 mod portmap;
-pub use portmap::update_protocol_portmap;
+pub use portmap::{as_maybe_protocol, update_protocol_portmap};
 
 mod http;
 pub use self::http::{as_h1_interception_config, as_h2_interception_config};

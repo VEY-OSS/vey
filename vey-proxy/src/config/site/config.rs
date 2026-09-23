@@ -37,7 +37,7 @@ pub(crate) struct SiteConfig {
     pub(crate) tls_client_builder: Option<OpensslClientConfigBuilder>,
     pub(crate) tls_name: Host,
     /// Inner protocol after TLS termination. Used by `tls_proxy` DPI only.
-    pub(crate) dpi_protocol: Option<MaybeProtocol>,
+    pub(crate) tls_inner_protocol: Option<MaybeProtocol>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) request_rate_limit: Option<RateLimitQuota>,
     pub(crate) request_alive_max: Option<usize>,
@@ -50,7 +50,7 @@ pub(crate) struct SiteConfig {
     pub(crate) egress_path_id_map: BTreeMap<NodeName, String>,
     pub(crate) egress_path_value_map: BTreeMap<NodeName, serde_json::Value>,
     pub(crate) http: SiteHttpConfig,
-    host_rules: HostMatch<()>,
+    host_match_rules: HostMatch<()>,
 }
 
 impl Default for SiteConfig {
@@ -63,7 +63,7 @@ impl Default for SiteConfig {
             tls_server_builder: None,
             tls_client_builder: None,
             tls_name: Host::empty(),
-            dpi_protocol: None,
+            tls_inner_protocol: None,
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             request_rate_limit: None,
             request_alive_max: None,
@@ -76,7 +76,7 @@ impl Default for SiteConfig {
             egress_path_id_map: BTreeMap::new(),
             egress_path_value_map: BTreeMap::new(),
             http: SiteHttpConfig::default(),
-            host_rules: HostMatch::default(),
+            host_match_rules: HostMatch::default(),
         }
     }
 }
@@ -94,8 +94,8 @@ impl SiteConfig {
         !self.tags.is_disjoint(tags)
     }
 
-    pub(crate) fn host_rules(&self) -> &HostMatch<()> {
-        &self.host_rules
+    pub(crate) fn host_match_rules(&self) -> &HostMatch<()> {
+        &self.host_match_rules
     }
 
     pub(crate) fn upstream(&self) -> &SiteUpstreamConfig {
@@ -103,11 +103,11 @@ impl SiteConfig {
     }
 
     pub(crate) fn covers_host(&self, host: &Host) -> bool {
-        self.host_rules.get(host).is_some()
+        self.host_match_rules.get(host).is_some()
     }
 
     pub(crate) fn save_host_rules(&mut self, host_rules: HostMatch<()>) {
-        self.host_rules = host_rules;
+        self.host_match_rules = host_rules;
     }
 }
 
@@ -145,8 +145,8 @@ impl YamlMapCallback for SiteConfig {
                 Ok(())
             }
             "upstream_pick_policy" => {
-                self.upstream
-                    .set_pick_policy(vey_yaml::value::as_selective_pick_policy(value)?);
+                let pick_policy = vey_yaml::value::as_selective_pick_policy(value)?;
+                self.upstream.set_pick_policy(pick_policy);
                 Ok(())
             }
             "tls_server" => {
@@ -176,13 +176,10 @@ impl YamlMapCallback for SiteConfig {
                     .context(format!("invalid tls name value for key {key}"))?;
                 Ok(())
             }
-            "dpi_protocol" => {
-                let protocol = vey_yaml::value::as_string(value)
-                    .context(format!("invalid protocol string value for key {key}"))?;
-                self.dpi_protocol = Some(
-                    MaybeProtocol::from_str(&protocol)
-                        .map_err(|_| anyhow!("unrecognised dpi_protocol {protocol}"))?,
-                );
+            "tls_inner_protocol" => {
+                let protocol = vey_yaml::value::as_maybe_protocol(value)
+                    .context(format!("invalid maybe protocol string value for key {key}"))?;
+                self.tls_inner_protocol = Some(protocol);
                 Ok(())
             }
             "tcp_sock_speed_limit" => {
@@ -211,17 +208,15 @@ impl YamlMapCallback for SiteConfig {
                 Ok(())
             }
             "resolve_strategy" => {
-                self.resolve_strategy = Some(
-                    vey_yaml::value::as_resolve_strategy(value)
-                        .context(format!("invalid resolve strategy value for key {key}"))?,
-                );
+                let strategy = vey_yaml::value::as_resolve_strategy(value)
+                    .context(format!("invalid resolve strategy value for key {key}"))?;
+                self.resolve_strategy = Some(strategy);
                 Ok(())
             }
             "tcp_connect" => {
-                self.tcp_connect = Some(
-                    vey_yaml::value::as_tcp_connect_config(value)
-                        .context(format!("invalid tcp connect config value for key {key}"))?,
-                );
+                let config = vey_yaml::value::as_tcp_connect_config(value)
+                    .context(format!("invalid tcp connect config value for key {key}"))?;
+                self.tcp_connect = Some(config);
                 Ok(())
             }
             "tcp_remote_keepalive" => {
@@ -230,46 +225,42 @@ impl YamlMapCallback for SiteConfig {
                 Ok(())
             }
             "tcp_remote_misc_opts" => {
-                self.tcp_remote_misc_opts = Some(
-                    vey_yaml::value::as_tcp_misc_sock_opts(value)
-                        .context(format!("invalid tcp misc sock opts value for key {key}"))?,
-                );
+                let opts = vey_yaml::value::as_tcp_misc_sock_opts(value)
+                    .context(format!("invalid tcp misc sock opts value for key {key}"))?;
+                self.tcp_remote_misc_opts = Some(opts);
                 Ok(())
             }
             "udp_remote_misc_opts" => {
-                self.udp_remote_misc_opts = Some(
-                    vey_yaml::value::as_udp_misc_sock_opts(value)
-                        .context(format!("invalid udp misc sock opts value for key {key}"))?,
-                );
+                let opts = vey_yaml::value::as_udp_misc_sock_opts(value)
+                    .context(format!("invalid udp misc sock opts value for key {key}"))?;
+                self.udp_remote_misc_opts = Some(opts);
                 Ok(())
             }
             "egress_path_id_map" => {
-                self.egress_path_id_map = vey_yaml::value::as_hashmap(
+                let id_map = vey_yaml::value::as_hashmap(
                     value,
                     vey_yaml::value::as_metric_node_name,
                     vey_yaml::value::as_string,
                 )
-                .context(format!("invalid egress path id map value for key {key}"))?
-                .into_iter()
-                .collect();
+                .context(format!("invalid egress path id map value for key {key}"))?;
+                self.egress_path_id_map.extend(id_map);
+                Ok(())
+            }
+            "egress_path_value_map" => {
+                let value_map =
+                    vey_yaml::value::as_hashmap(value, vey_yaml::value::as_metric_node_name, |v| {
+                        let v = vey_yaml::value::as_string(v)?;
+                        serde_json::Value::from_str(&v)
+                            .map_err(|e| anyhow!("invalid json string: {e}"))
+                    })
+                    .context(format!("invalid egress path value map value for key {key}"))?;
+                self.egress_path_value_map.extend(value_map);
                 Ok(())
             }
             "http" => self
                 .http
                 .parse_yaml(value)
                 .context(format!("invalid site http config value for key {key}")),
-            "egress_path_value_map" => {
-                self.egress_path_value_map =
-                    vey_yaml::value::as_hashmap(value, vey_yaml::value::as_metric_node_name, |v| {
-                        let v = vey_yaml::value::as_string(v)?;
-                        serde_json::Value::from_str(&v)
-                            .map_err(|e| anyhow!("invalid json string: {e}"))
-                    })
-                    .context(format!("invalid egress path value map value for key {key}"))?
-                    .into_iter()
-                    .collect();
-                Ok(())
-            }
             _ => Err(anyhow!("invalid key {key}")),
         }
     }
