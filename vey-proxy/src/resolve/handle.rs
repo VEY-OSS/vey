@@ -79,6 +79,7 @@ impl LoggedResolveJob for ErrorResolveJob {
 }
 
 pub(crate) struct HappyEyeballsResolveJob {
+    domain: DomainName,
     r1: Option<Vec<IpAddr>>,
     r2: Option<Vec<IpAddr>>,
     h1: BoxLoggedResolveJob,
@@ -90,15 +91,25 @@ pub(crate) struct HappyEyeballsResolveJob {
 }
 
 impl HappyEyeballsResolveJob {
+    pub(crate) fn domain(&self) -> &DomainName {
+        &self.domain
+    }
+
     pub(crate) fn new_redirected(
         s: ResolveStrategy,
         h: &ArcIntegratedResolverHandle,
+        domain: DomainName,
         v: ResolveRedirectionValue,
     ) -> Result<Self, ResolveError> {
         match v {
-            ResolveRedirectionValue::Domain(d) => Self::new_dyn(s, h, d),
+            ResolveRedirectionValue::Domain(d) => {
+                let mut job = Self::new_dyn(s, h, d)?;
+                job.domain = domain;
+                Ok(job)
+            }
             ResolveRedirectionValue::Ip((ip4, ip6)) => {
                 let mut job = HappyEyeballsResolveJob {
+                    domain,
                     r1: None,
                     r2: None,
                     h1: Box::new(NeverResolveJob {}),
@@ -146,11 +157,13 @@ impl HappyEyeballsResolveJob {
         h: &ArcIntegratedResolverHandle,
         domain: DomainName,
     ) -> Result<Self, ResolveError> {
+        let stored = domain.clone();
         match s.query {
             QueryStrategy::Ipv4Only => {
                 let h1 = h.query_v4(domain)?;
                 let h2 = Box::new(NeverResolveJob {});
                 Ok(HappyEyeballsResolveJob {
+                    domain: stored,
                     r1: None,
                     r2: None,
                     h1,
@@ -165,6 +178,7 @@ impl HappyEyeballsResolveJob {
                 let h1 = h.query_v4(domain.clone())?;
                 let h2 = h.query_v6(domain)?;
                 Ok(HappyEyeballsResolveJob {
+                    domain: stored,
                     r1: None,
                     r2: None,
                     h1,
@@ -179,6 +193,7 @@ impl HappyEyeballsResolveJob {
                 let h1 = h.query_v6(domain)?;
                 let h2 = Box::new(NeverResolveJob {});
                 Ok(HappyEyeballsResolveJob {
+                    domain: stored,
                     r1: None,
                     r2: None,
                     h1,
@@ -193,6 +208,7 @@ impl HappyEyeballsResolveJob {
                 let h1 = h.query_v6(domain.clone())?;
                 let h2 = h.query_v4(domain)?;
                 Ok(HappyEyeballsResolveJob {
+                    domain: stored,
                     r1: None,
                     r2: None,
                     h1,
