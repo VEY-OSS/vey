@@ -244,7 +244,7 @@ impl H2TaskContext {
 
         let stream = if let Some(tls_client) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
-                tcp: TcpConnectTaskConf { upstream: upstream },
+                tcp: TcpConnectTaskConf { upstream },
                 tls_config: tls_client,
                 tls_name: site.tls_name_or(request_host),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2_H1),
@@ -293,7 +293,7 @@ impl H2TaskContext {
 
         let stream = if let Some(tls_client) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
-                tcp: TcpConnectTaskConf { upstream: upstream },
+                tcp: TcpConnectTaskConf { upstream },
                 tls_config: tls_client,
                 tls_name: site.tls_name_or(request_host),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2),
@@ -324,11 +324,10 @@ impl H2TaskContext {
         audit_ctx: &mut AuditContext,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> Result<TcpConnection, H2StreamTransferError> {
-        let task_conf = TcpConnectTaskConf {
-            upstream: task_notes
-                .site_upstream()
-                .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?,
-        };
+        let upstream = task_notes
+            .site_upstream()
+            .map_err(H2StreamTransferError::OriginConnectFailed)?;
+        let task_conf = TcpConnectTaskConf { upstream };
         self.escaper
             .tcp_setup_connection(&task_conf, egress_notes, task_notes, task_stats, audit_ctx)
             .await
