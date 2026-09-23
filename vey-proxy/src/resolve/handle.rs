@@ -95,6 +95,10 @@ impl HappyEyeballsResolveJob {
         &self.domain
     }
 
+    pub(crate) fn into_domain(self) -> DomainName {
+        self.domain
+    }
+
     pub(crate) fn new_redirected(
         s: ResolveStrategy,
         h: &ArcIntegratedResolverHandle,
