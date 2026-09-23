@@ -10,9 +10,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use anyhow::anyhow;
 use bytes::Bytes;
 use h2::Ping;
-use h2::client::SendRequest;
+use h2::client::{Connection, SendRequest};
 use h2::server::SendResponse;
 use http::{Request, Response, StatusCode, Version};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
@@ -237,17 +238,14 @@ impl H2TaskContext {
         let site = self.site_ctx.site();
         let upstream = task_notes
             .site_upstream()
-            .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?
-            .clone();
+            .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
         let mut egress_notes = EgressNotes::default();
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = Arc::new(TcpStreamTaskStats::default());
 
         let stream = if let Some(tls_client) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
-                tcp: TcpConnectTaskConf {
-                    upstream: &upstream,
-                },
+                tcp: TcpConnectTaskConf { upstream },
                 tls_config: tls_client,
                 tls_name: site.tls_name_or(request_host),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2_H1),
@@ -256,7 +254,7 @@ impl H2TaskContext {
                 .escaper
                 .tls_connect(&task_conf, &mut egress_notes, task_notes, &mut audit_ctx)
                 .await;
-            site.record_peer_connect_result(&upstream, connected.is_ok());
+            site.record_peer_connect_result(upstream, connected.is_ok());
             let (stream, leaf) = connected
                 .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
             let wrap_escaper = leaf.unwrap_or_else(|| self.escaper.clone());
@@ -276,17 +274,20 @@ impl H2TaskContext {
             let connected = self
                 .setup_origin_tcp(task_notes, &mut egress_notes, &mut audit_ctx, task_stats)
                 .await;
-            site.record_peer_connect_result(&upstream, connected.is_ok());
+            site.record_peer_connect_result(upstream, connected.is_ok());
             connected?
         };
 
-        let origin = self
+        match self
             .finish_h2_origin(stream, egress_notes, task_notes)
-            .await;
-        if origin.is_err() {
-            site.record_peer_connect_result(&upstream, false);
+            .await
+        {
+            Ok(r) => Ok(OriginConnection::H2(r)),
+            Err(e) => {
+                site.record_peer_connect_result(upstream, false);
+                Err(e)
+            }
         }
-        Ok(OriginConnection::H2(origin?))
     }
 
     async fn connect_origin_h2(
@@ -297,17 +298,14 @@ impl H2TaskContext {
         let site = self.site_ctx.site();
         let upstream = task_notes
             .site_upstream()
-            .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?
-            .clone();
+            .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
         let mut egress_notes = EgressNotes::default();
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = Arc::new(TcpStreamTaskStats::default());
 
         let connected = if let Some(tls_client) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
-                tcp: TcpConnectTaskConf {
-                    upstream: &upstream,
-                },
+                tcp: TcpConnectTaskConf { upstream },
                 tls_config: tls_client,
                 tls_name: site.tls_name_or(request_host),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2),
@@ -326,15 +324,24 @@ impl H2TaskContext {
             self.setup_origin_tcp(task_notes, &mut egress_notes, &mut audit_ctx, task_stats)
                 .await
         };
-        site.record_peer_connect_result(&upstream, connected.is_ok());
-        let stream = connected?;
-        let origin = self
+
+        let stream = match connected {
+            Ok(r) => r,
+            Err(e) => {
+                site.record_peer_connect_result(upstream, false);
+                return Err(e);
+            }
+        };
+        match self
             .finish_h2_origin(stream, egress_notes, task_notes)
-            .await;
-        if origin.is_err() {
-            site.record_peer_connect_result(&upstream, false);
+            .await
+        {
+            Ok(r) => Ok(r),
+            Err(e) => {
+                site.record_peer_connect_result(upstream, false);
+                Err(e)
+            }
         }
-        origin
     }
 
     async fn setup_origin_tcp(
@@ -422,11 +429,11 @@ impl H2TaskContext {
 
     fn spawn_origin_ping<T, B>(
         &self,
-        connection: &mut h2::client::Connection<T, B>,
+        connection: &mut Connection<T, B>,
         closed: &Arc<AtomicBool>,
     ) -> (oneshot::Sender<()>, Option<oneshot::Receiver<()>>)
     where
-        T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+        T: AsyncRead + AsyncWrite + Unpin,
         B: bytes::Buf,
     {
         let (ping_quit_tx, mut ping_quit_rx) = oneshot::channel();
