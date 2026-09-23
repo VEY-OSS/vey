@@ -20,7 +20,7 @@ use vey_types::net::{
     OpensslServerConfigBuilder, TcpSockSpeedLimitConfig, UpstreamAddr,
 };
 
-use super::upstream::{SiteUpstream, UpstreamPeerStatus};
+use super::upstream::{SiteUpstream, UpstreamPeerHealthStatus, UpstreamPeerStatus};
 use super::{SiteHttp1Pool, SiteHttp2Pool, SiteStats};
 use crate::auth::{UserForbiddenStats, UserGroup, UserRequestStats};
 use crate::config::site::SiteConfig;
@@ -91,7 +91,7 @@ impl Site {
             config.upstream(),
             is_tls,
         ));
-        let upstream = SiteUpstream::new(config.upstream());
+        let upstream = SiteUpstream::new(config.upstream(), config.peer_health_check());
 
         let mut new =
             Self::new_minimal(config, stats, tenant_user_group, h1_pool, h2_pool, upstream)?;
@@ -125,7 +125,9 @@ impl Site {
         let h2_pool =
             self.h2_pool
                 .new_or_reload(config.http.h2.connection_pool, config.upstream(), is_tls);
-        let upstream = self.upstream.reload(config.upstream());
+        let upstream = self
+            .upstream
+            .reload(config.upstream(), config.peer_health_check());
 
         let stats = if self
             .stats
@@ -204,12 +206,23 @@ impl Site {
         self.upstream.list_peers()
     }
 
+    pub(crate) fn list_upstream_health_status(
+        &self,
+    ) -> anyhow::Result<Vec<UpstreamPeerHealthStatus>> {
+        self.upstream.list_peer_health_status()
+    }
+
     pub(crate) fn set_upstream_weight(
         &self,
         addr: std::net::SocketAddr,
         weight: f64,
     ) -> anyhow::Result<()> {
         self.upstream.set_weight(addr, weight)
+    }
+
+    pub(crate) fn record_peer_connect_result(&self, upstream: &UpstreamAddr, connected: bool) {
+        self.upstream
+            .record_peer_connect_result(upstream, connected);
     }
 
     pub(crate) fn tls_name(&self) -> &Host {

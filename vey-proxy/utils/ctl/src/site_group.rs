@@ -12,6 +12,7 @@ use clap::{Arg, ArgMatches, Command, value_parser};
 use vey_ctl::{CommandError, CommandResult};
 
 use vey_proxy_proto::proc_capnp::proc_control;
+use vey_proxy_proto::site_group_capnp::list_upstream_health_result;
 use vey_proxy_proto::site_group_capnp::list_upstream_result;
 use vey_proxy_proto::site_group_capnp::site_group_control;
 
@@ -19,6 +20,7 @@ use crate::common::parse_operation_result;
 
 pub const COMMAND_LIST: &str = "site-upstream";
 pub const COMMAND_SET_WEIGHT: &str = "set-site-upstream-weight";
+pub const COMMAND_LIST_HEALTH: &str = "site-upstream-health";
 
 const ARG_GROUP: &str = "group";
 const ARG_SITE: &str = "site";
@@ -28,6 +30,13 @@ const ARG_WEIGHT: &str = "weight";
 pub fn list_command() -> Command {
     Command::new(COMMAND_LIST)
         .about("List weighted upstream addresses for a site")
+        .arg(Arg::new(ARG_GROUP).value_name("GROUP").required(true))
+        .arg(Arg::new(ARG_SITE).value_name("SITE-ID").required(true))
+}
+
+pub fn list_health_command() -> Command {
+    Command::new(COMMAND_LIST_HEALTH)
+        .about("List peer health for a site weighted upstream")
         .arg(Arg::new(ARG_GROUP).value_name("GROUP").required(true))
         .arg(Arg::new(ARG_SITE).value_name("SITE-ID").required(true))
 }
@@ -51,6 +60,13 @@ pub async fn list(client: &proc_control::Client, args: &ArgMatches) -> CommandRe
     let site = args.get_one::<String>(ARG_SITE).unwrap();
     let site_group = super::proc::get_site_group(client, group).await?;
     list_upstream(&site_group, site).await
+}
+
+pub async fn list_health(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
+    let group = args.get_one::<String>(ARG_GROUP).unwrap();
+    let site = args.get_one::<String>(ARG_SITE).unwrap();
+    let site_group = super::proc::get_site_group(client, group).await?;
+    list_upstream_health(&site_group, site).await
 }
 
 pub async fn set_weight(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
@@ -94,6 +110,45 @@ async fn list_upstream(client: &site_group_control::Client, site: &str) -> Comma
             Ok(())
         }
         list_upstream_result::Which::Err(err) => {
+            let e = err?;
+            Err(CommandError::api_error(e.get_code(), e.get_reason()?))
+        }
+    }
+}
+
+async fn list_upstream_health(
+    client: &site_group_control::Client,
+    site: &str,
+) -> CommandResult<()> {
+    let mut req = client.list_upstream_health_request();
+    req.get().set_site_id(site);
+    let rsp = req.send().promise.await?;
+    let result = rsp.get()?.get_result()?;
+    match result
+        .which()
+        .map_err(|e| anyhow!("invalid list upstream health result: {e}"))?
+    {
+        list_upstream_health_result::Which::Peers(peers) => {
+            println!("addr\tfails\tunavailable\trecover_in_ms");
+            for peer in peers? {
+                let addr = peer
+                    .get_addr()?
+                    .to_str()
+                    .map_err(|e| anyhow!("invalid upstream address: {e}"))?;
+                let recover_in_ms = if peer.get_unavailable() {
+                    peer.get_recover_in_ms().to_string()
+                } else {
+                    "-".to_string()
+                };
+                println!(
+                    "{addr}\t{}\t{}\t{recover_in_ms}",
+                    peer.get_fails(),
+                    peer.get_unavailable()
+                );
+            }
+            Ok(())
+        }
+        list_upstream_health_result::Which::Err(err) => {
             let e = err?;
             Err(CommandError::api_error(e.get_code(), e.get_reason()?))
         }
