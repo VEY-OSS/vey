@@ -239,6 +239,7 @@ impl DirectFloatEscaper {
                     return HappyEyeballsResolveJob::new_redirected(
                         strategy,
                         &self.resolver_handle,
+                        domain,
                         v,
                     );
                 }
@@ -253,6 +254,7 @@ impl DirectFloatEscaper {
                     return HappyEyeballsResolveJob::new_redirected(
                         strategy,
                         &self.resolver_handle,
+                        domain,
                         v,
                     );
                 }

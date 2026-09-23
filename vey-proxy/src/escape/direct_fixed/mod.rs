@@ -171,6 +171,7 @@ impl DirectFixedEscaper {
                     return HappyEyeballsResolveJob::new_redirected(
                         strategy,
                         &self.resolver_handle,
+                        domain,
                         v,
                     );
                 }
@@ -187,6 +188,7 @@ impl DirectFixedEscaper {
                     return HappyEyeballsResolveJob::new_redirected(
                         strategy,
                         &self.resolver_handle,
+                        domain,
                         v,
                     );
                 }
