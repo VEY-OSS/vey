@@ -10,7 +10,6 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use vey_io_ext::StreamCopyConfig;
@@ -206,10 +205,6 @@ impl HttpExposeServerConfig {
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
             }
-            "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
-                warn!("deprecated config key '{k}', please use 'tcp_sock_speed_limit' instead");
-                self.set("tcp_sock_speed_limit", v)
-            }
             "tcp_copy_buffer_size" => {
                 let buffer_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
@@ -226,10 +221,6 @@ impl HttpExposeServerConfig {
                 self.tcp_misc_opts = vey_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
                 Ok(())
-            }
-            "task_idle_check_duration" => {
-                warn!("deprecated config key '{k}', please use 'task_idle_check_interval' instead");
-                self.set("task_idle_check_interval", v)
             }
             "task_idle_check_interval" => {
                 self.task_idle_check_interval = vey_yaml::humanize::as_duration(v)
@@ -305,12 +296,6 @@ impl HttpExposeServerConfig {
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 self.untrusted_read_limit = Some(limit);
                 Ok(())
-            }
-            "untrusted_read_limit" => {
-                warn!(
-                    "deprecated config key '{k}', please use 'untrusted_read_speed_limit' instead"
-                );
-                self.set("untrusted_read_speed_limit", v)
             }
             "enable_tls_server" => {
                 self.enable_tls_server = vey_yaml::value::as_bool(v)

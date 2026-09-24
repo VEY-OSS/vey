@@ -361,11 +361,7 @@ impl H2TaskContext {
         stream: TcpConnection,
     ) -> Result<(SendRequest<Bytes>, Arc<AtomicBool>), H2StreamTransferError> {
         let (ups_r, ups_w) = stream;
-        let mut client_builder = h2::client::Builder::new();
-        self.server_config
-            .h2
-            .apply_to_client_builder(&mut client_builder);
-
+        let client_builder = self.server_config.h2.build_client();
         let (sender, mut connection) = tokio::time::timeout(
             self.server_config.h2.upstream_handshake_timeout,
             client_builder.handshake(tokio::io::join(ups_r, ups_w)),

@@ -3,13 +3,11 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use vey_io_ext::StreamCopyConfig;
@@ -21,6 +19,12 @@ use vey_types::net::{
     TcpSockSpeedLimitConfig,
 };
 use vey_yaml::YamlDocPosition;
+
+mod h1;
+pub(crate) use h1::HttpGuardH1Config;
+
+mod h2;
+pub(crate) use h2::HttpGuardH2Config;
 
 use super::{
     AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
@@ -43,173 +47,6 @@ impl Default for HttpGuardServerTimeoutConfig {
         HttpGuardServerTimeoutConfig {
             recv_req_header: Duration::from_secs(30),
             recv_rsp_header: Duration::from_secs(60),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct HttpGuardH1Config {
-    pub(crate) pipeline_size: NonZeroUsize,
-    pub(crate) pipeline_read_idle_timeout: Duration,
-    pub(crate) body_line_max_len: usize,
-}
-
-impl Default for HttpGuardH1Config {
-    fn default() -> Self {
-        HttpGuardH1Config {
-            pipeline_size: NonZeroUsize::new(10).unwrap(),
-            pipeline_read_idle_timeout: Duration::from_secs(300),
-            body_line_max_len: 8192,
-        }
-    }
-}
-
-impl HttpGuardH1Config {
-    fn parse_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
-        let Yaml::Hash(map) = value else {
-            return Err(anyhow!("yaml value type for 'h1' should be 'map'"));
-        };
-        vey_yaml::foreach_kv(map, |k, v| self.set(k, v))
-    }
-
-    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match vey_yaml::key::normalize(k).as_str() {
-            "pipeline_size" => {
-                self.pipeline_size = vey_yaml::value::as_nonzero_usize(v)
-                    .context(format!("invalid nonzero usize value for key {k}"))?;
-                Ok(())
-            }
-            "pipeline_read_idle_timeout" => {
-                self.pipeline_read_idle_timeout = vey_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                Ok(())
-            }
-            "body_line_max_length" => {
-                self.body_line_max_len = vey_yaml::value::as_usize(v)
-                    .context(format!("invalid usize value for key {k}"))?;
-                Ok(())
-            }
-            _ => Err(anyhow!("invalid key {k}")),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct HttpGuardH2Config {
-    pub(crate) max_header_list_size: u32,
-    pub(crate) max_concurrent_streams: u32,
-    stream_window_size: u32,
-    connection_window_size: u32,
-    max_frame_size: u32,
-    pub(crate) max_send_buffer_size: usize,
-    pub(crate) upstream_handshake_timeout: Duration,
-    pub(crate) upstream_stream_open_timeout: Duration,
-    pub(crate) client_handshake_timeout: Duration,
-    pub(crate) ping_interval: Duration,
-}
-
-impl Default for HttpGuardH2Config {
-    fn default() -> Self {
-        HttpGuardH2Config {
-            max_header_list_size: 64 * 1024,
-            max_concurrent_streams: 128,
-            stream_window_size: 1024 * 1024,
-            connection_window_size: 2 * 1024 * 1024,
-            max_frame_size: 256 * 1024,
-            max_send_buffer_size: 8 * 1024 * 1024,
-            upstream_handshake_timeout: Duration::from_secs(10),
-            upstream_stream_open_timeout: Duration::from_secs(10),
-            client_handshake_timeout: Duration::from_secs(4),
-            ping_interval: Duration::from_secs(60),
-        }
-    }
-}
-
-impl HttpGuardH2Config {
-    pub(crate) fn apply_to_server_builder(&self, builder: &mut h2::server::Builder) {
-        builder
-            .max_header_list_size(self.max_header_list_size)
-            .max_concurrent_streams(self.max_concurrent_streams)
-            .max_frame_size(self.max_frame_size)
-            .max_send_buffer_size(self.max_send_buffer_size)
-            .initial_window_size(self.stream_window_size)
-            .initial_connection_window_size(self.connection_window_size)
-            .enable_connect_protocol();
-    }
-
-    pub(crate) fn apply_to_client_builder(&self, builder: &mut h2::client::Builder) {
-        builder
-            .enable_push(false)
-            .max_header_list_size(self.max_header_list_size)
-            .max_concurrent_streams(0)
-            .max_frame_size(self.max_frame_size)
-            .max_send_buffer_size(self.max_send_buffer_size)
-            .initial_window_size(self.stream_window_size)
-            .initial_connection_window_size(self.connection_window_size);
-    }
-
-    fn parse_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
-        let Yaml::Hash(map) = value else {
-            return Err(anyhow!("yaml value type for 'h2' should be 'map'"));
-        };
-        vey_yaml::foreach_kv(map, |k, v| self.set(k, v))
-    }
-
-    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match vey_yaml::key::normalize(k).as_str() {
-            "max_header_list_size" | "max_header_size" => {
-                self.max_header_list_size = vey_yaml::humanize::as_u32(v)
-                    .context(format!("invalid humanize u32 value for key {k}"))?;
-                Ok(())
-            }
-            "max_concurrent_streams" => {
-                self.max_concurrent_streams = vey_yaml::value::as_u32(v)?;
-                Ok(())
-            }
-            "max_frame_size" => {
-                let size = vey_yaml::humanize::as_u32(v)
-                    .context(format!("invalid humanize u32 value for key {k}"))?;
-                self.max_frame_size = size.clamp(1 << 14, (1 << 24) - 1);
-                Ok(())
-            }
-            "stream_window_size" => {
-                let size = vey_yaml::humanize::as_u32(v)
-                    .context(format!("invalid humanize u32 value for key {k}"))?;
-                self.stream_window_size = size.max(65536);
-                Ok(())
-            }
-            "connection_window_size" => {
-                let size = vey_yaml::humanize::as_u32(v)
-                    .context(format!("invalid humanize u32 value for key {k}"))?;
-                self.connection_window_size = size.max(65536);
-                Ok(())
-            }
-            "max_send_buffer_size" => {
-                self.max_send_buffer_size = vey_yaml::humanize::as_usize(v)
-                    .context(format!("invalid humanize usize value for key {k}"))?;
-                Ok(())
-            }
-            "upstream_handshake_timeout" => {
-                self.upstream_handshake_timeout = vey_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                Ok(())
-            }
-            "upstream_stream_open_timeout" => {
-                self.upstream_stream_open_timeout = vey_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                Ok(())
-            }
-            "client_handshake_timeout" => {
-                self.client_handshake_timeout = vey_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                Ok(())
-            }
-            "ping_interval" => {
-                self.ping_interval = vey_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                Ok(())
-            }
-            _ => Err(anyhow!("invalid key {k}")),
         }
     }
 }
@@ -344,10 +181,9 @@ impl HttpGuardServerConfig {
                 Ok(())
             }
             "server_id" => {
-                self.server_id = Some(
-                    vey_yaml::value::as_http_server_id(v)
-                        .context(format!("invalid http server id value for key {k}"))?,
-                );
+                let id = vey_yaml::value::as_http_server_id(v)
+                    .context(format!("invalid http server id value for key {k}"))?;
+                self.server_id = Some(id);
                 Ok(())
             }
             "no_proxy_status" => {
@@ -392,10 +228,6 @@ impl HttpGuardServerConfig {
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
             }
-            "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
-                warn!("deprecated config key '{k}', please use 'tcp_sock_speed_limit' instead");
-                self.set("tcp_sock_speed_limit", v)
-            }
             "tcp_copy_buffer_size" => {
                 let buffer_size = vey_yaml::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;
@@ -412,10 +244,6 @@ impl HttpGuardServerConfig {
                 self.tcp_misc_opts = vey_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
                 Ok(())
-            }
-            "task_idle_check_duration" => {
-                warn!("deprecated config key '{k}', please use 'task_idle_check_interval' instead");
-                self.set("task_idle_check_interval", v)
             }
             "task_idle_check_interval" => {
                 self.task_idle_check_interval = vey_yaml::humanize::as_duration(v)

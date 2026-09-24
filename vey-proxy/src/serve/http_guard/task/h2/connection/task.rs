@@ -126,12 +126,7 @@ where
             }
         }
 
-        let mut server_builder = h2::server::Builder::new();
-        self.ctx
-            .server_config
-            .h2
-            .apply_to_server_builder(&mut server_builder);
-
+        let server_builder = self.ctx.server_config.h2.build_server();
         let mut h2c = tokio::time::timeout(
             self.ctx.server_config.h2.client_handshake_timeout,
             server_builder.handshake(stream),
