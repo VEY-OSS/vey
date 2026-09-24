@@ -117,17 +117,27 @@ impl SiteGroupConfig {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
         }
-        let mut seen = BTreeSet::new();
+        let mut seen_imports = BTreeSet::new();
         for import in &self.imports {
             if import.site_group().eq(&self.name) {
                 return Err(anyhow!("site group {} cannot import itself", self.name));
             }
-            if !seen.insert(import.site_group().clone()) {
+            if !seen_imports.insert(import.site_group().clone()) {
                 return Err(anyhow!(
                     "duplicate import of site group {}",
                     import.site_group()
                 ));
             }
+        }
+        let mut seen_ids = BTreeSet::new();
+        let mut duplicate_id = None;
+        self.sites.for_each_unique(|site| {
+            if duplicate_id.is_none() && !seen_ids.insert(site.id().clone()) {
+                duplicate_id = Some(site.id().clone());
+            }
+        });
+        if let Some(id) = duplicate_id {
+            return Err(anyhow!("duplicate site id {id}"));
         }
         Ok(())
     }
@@ -338,6 +348,31 @@ import:
             panic!("expected map");
         };
         assert!(SiteGroupConfig::parse(map, None).is_err());
+    }
+
+    #[test]
+    fn reject_duplicate_static_site_id() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: a.internal
+    upstream: 127.0.0.1:8080
+  - id: app
+    exact_match: b.internal
+    upstream: 127.0.0.1:8081
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let err = SiteGroupConfig::parse(map, None).unwrap_err();
+        assert!(
+            format!("{err:#}").contains("duplicate site id app"),
+            "{err:#}"
+        );
     }
 
     #[test]

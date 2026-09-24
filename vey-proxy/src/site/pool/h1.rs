@@ -14,7 +14,7 @@ use tokio::time::{Instant, MissedTickBehavior};
 use vey_types::metrics::NodeName;
 use vey_types::net::ConnectionPoolConfig;
 
-use super::{lane_index, IsolationKey};
+use super::{IsolationKey, lane_index};
 use crate::escape::EgressNotes;
 use crate::module::http_forward::{
     BoxHttpForwardConnection, HttpAliveReuseNotes, HttpConnectionEofPoller,

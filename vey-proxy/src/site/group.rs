@@ -25,59 +25,81 @@ pub(crate) struct SiteGroup {
 }
 
 impl SiteGroup {
-    pub(super) fn new_no_config(name: &NodeName) -> Arc<Self> {
-        let config = SiteGroupConfig::empty(name);
-        Arc::new(SiteGroup {
+    fn new(config: SiteGroupConfig) -> Self {
+        let name = config.tenant_user_group();
+        let tenant_user_group = Arc::new(ArcSwapOption::from(if name.is_empty() {
+            None
+        } else {
+            Some(Arc::new(crate::auth::get_or_insert_default(name)))
+        }));
+        SiteGroup {
             config: Arc::new(config),
             sites_by_id: AHashMap::new(),
             sites_by_host: HostMatch::default(),
-            tenant_user_group: Arc::new(ArcSwapOption::from(None)),
-        })
+            tenant_user_group,
+        }
+    }
+
+    pub(super) fn new_no_config(name: &NodeName) -> Arc<Self> {
+        Arc::new(Self::new(SiteGroupConfig::empty(name)))
     }
 
     pub(super) fn new_with_config(config: SiteGroupConfig) -> anyhow::Result<Arc<Self>> {
-        Self::build(config, None)
+        let mut group = Self::new(config);
+        group.build_static_sites()?;
+        group.import_external_sites()?;
+        Ok(Arc::new(group))
     }
 
     pub(super) fn reload(&self, config: SiteGroupConfig) -> anyhow::Result<Arc<Self>> {
-        Self::build(config, Some(&self.sites_by_id))
+        let mut group = Self::new(config);
+        group.reload_static_sites(self)?;
+        group.import_external_sites()?;
+        Ok(Arc::new(group))
     }
 
-    fn build(
-        config: SiteGroupConfig,
-        old_sites: Option<&AHashMap<NodeName, Arc<Site>>>,
-    ) -> anyhow::Result<Arc<Self>> {
-        let group_name = config.name().clone();
-        let tenant_user_group = Arc::new(ArcSwapOption::from(load_tenant_user_group(
-            config.tenant_user_group(),
-        )));
-        let mut sites_by_id = AHashMap::new();
-        let mut sites_by_host = HostMatch::default();
+    fn build_static_sites(&mut self) -> anyhow::Result<()> {
+        let config = Arc::clone(&self.config);
+        let group_name = config.name();
+        let tenant_user_group = Arc::clone(&self.tenant_user_group);
+        let sites_by_host = config.sites.try_build_arc(|site_config| {
+            let id = site_config.id();
+            Site::try_build(group_name, site_config, Arc::clone(&tenant_user_group))
+                .context(format!("failed to build site {id}"))
+        })?;
+        self.add_sites(sites_by_host);
+        Ok(())
+    }
 
-        let mut static_sites = Vec::new();
-        config.sites.for_each_unique(|cfg| {
-            static_sites.push(Arc::clone(cfg));
-        });
-        for site_config in static_sites {
-            let id = site_config.id().clone();
-            let site = if let Some(old) = old_sites.and_then(|m| m.get(&id))
-                && old.site_group() == &group_name
+    fn reload_static_sites(&mut self, old: &SiteGroup) -> anyhow::Result<()> {
+        let config = Arc::clone(&self.config);
+        let group_name = config.name();
+        let tenant_user_group = Arc::clone(&self.tenant_user_group);
+        let sites_by_host = config.sites.try_build_arc(|site_config| {
+            let id = site_config.id();
+            if let Some(prev) = old.sites_by_id.get(id)
+                && prev.site_group() == group_name
             {
-                old.new_for_reload(&site_config, Arc::clone(&tenant_user_group))
-                    .context(format!("failed to reload site {id}"))?
+                prev.new_for_reload(site_config, Arc::clone(&tenant_user_group))
+                    .context(format!("failed to reload site {id}"))
             } else {
-                Site::try_build(&group_name, &site_config, Arc::clone(&tenant_user_group))
-                    .context(format!("failed to build site {id}"))?
-            };
-            let site = Arc::new(site);
-            sites_by_host
-                .try_add_from_rules(site.config().host_match_rules(), Arc::clone(&site))
-                .map_err(|e| anyhow!("host match conflict for site {id}: {e}"))?;
-            if sites_by_id.insert(id.clone(), site).is_some() {
-                return Err(anyhow!("duplicate site id {id}"));
+                Site::try_build(group_name, site_config, Arc::clone(&tenant_user_group))
+                    .context(format!("failed to build site {id}"))
             }
-        }
+        })?;
+        self.add_sites(sites_by_host);
+        Ok(())
+    }
 
+    fn add_sites(&mut self, sites_by_host: HostMatch<Arc<Site>>) {
+        sites_by_host.for_each_unique(|site| {
+            self.sites_by_id.insert(site.id().clone(), Arc::clone(site));
+        });
+        self.sites_by_host = sites_by_host;
+    }
+
+    fn import_external_sites(&mut self) -> anyhow::Result<()> {
+        let config = Arc::clone(&self.config);
         for import in config.imports() {
             let Some(source) = super::registry::get(import.site_group()) else {
                 debug!(
@@ -92,25 +114,19 @@ impl SiteGroup {
                     continue;
                 }
                 let id = site.id().clone();
-                if sites_by_id.contains_key(&id) {
+                if self.sites_by_id.contains_key(&id) {
                     return Err(anyhow!(
                         "duplicate site id {id} imported from {}",
                         import.site_group()
                     ));
                 }
-                sites_by_host
+                self.sites_by_host
                     .try_add_from_rules(site.config().host_match_rules(), Arc::clone(site))
                     .map_err(|e| anyhow!("host match conflict for site {id}: {e}"))?;
-                sites_by_id.insert(id, Arc::clone(site));
+                self.sites_by_id.insert(id, Arc::clone(site));
             }
         }
-
-        Ok(Arc::new(SiteGroup {
-            config: Arc::new(config),
-            sites_by_id,
-            sites_by_host,
-            tenant_user_group,
-        }))
+        Ok(())
     }
 
     pub(super) fn clone_config(&self) -> SiteGroupConfig {
@@ -137,7 +153,11 @@ impl SiteGroup {
     }
 
     pub(super) fn update_tenant_user_group_in_place(&self, user_group: &NodeName) -> bool {
-        let group = load_tenant_user_group(user_group);
+        let group = if user_group.is_empty() {
+            None
+        } else {
+            Some(Arc::new(crate::auth::get_or_insert_default(user_group)))
+        };
         let mut updated = false;
         if self.config.tenant_user_group().eq(user_group) {
             self.tenant_user_group.store(group.clone());
@@ -149,14 +169,6 @@ impl SiteGroup {
             }
         }
         updated
-    }
-}
-
-fn load_tenant_user_group(name: &NodeName) -> Option<Arc<UserGroup>> {
-    if name.is_empty() {
-        None
-    } else {
-        Some(Arc::new(crate::auth::get_or_insert_default(name)))
     }
 }
 

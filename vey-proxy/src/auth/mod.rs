@@ -8,7 +8,7 @@ pub use ops::load_all;
 pub(crate) use ops::reload;
 
 mod registry;
-pub(crate) use registry::{get_all_groups, get_names, get_or_insert_default};
+pub(crate) use registry::{get, get_all_groups, get_names, get_or_insert_default};
 
 mod cache;
 
