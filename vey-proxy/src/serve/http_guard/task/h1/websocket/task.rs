@@ -254,15 +254,6 @@ impl HttpGuardWebsocketTask {
         let tenant = self.task_notes.tenant_ctx().cloned();
         let mut audit_task = false;
         let tcp_client_misc_opts = if let Some(tenant) = &tenant {
-            match tenant.check_upstream(&self.upstream) {
-                AclAction::Permit | AclAction::PermitAndLog => {}
-                AclAction::Forbid | AclAction::ForbidAndLog => {
-                    self.reply_forbidden(clt_w).await;
-                    return Err(ServerTaskError::ForbiddenByRule(
-                        ServerTaskForbiddenError::DestDenied,
-                    ));
-                }
-            }
             if let Some(action) = tenant.check_http_user_agent(
                 req.end_to_end_headers
                     .get_all(header::USER_AGENT)

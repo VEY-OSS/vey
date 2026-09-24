@@ -19,7 +19,6 @@ pub(crate) struct HttpGuardH2Config {
     pub(crate) upstream_handshake_timeout: Duration,
     pub(crate) upstream_stream_open_timeout: Duration,
     pub(crate) client_handshake_timeout: Duration,
-    pub(crate) ping_interval: Duration,
 }
 
 impl Default for HttpGuardH2Config {
@@ -34,7 +33,6 @@ impl Default for HttpGuardH2Config {
             upstream_handshake_timeout: Duration::from_secs(10),
             upstream_stream_open_timeout: Duration::from_secs(10),
             client_handshake_timeout: Duration::from_secs(4),
-            ping_interval: Duration::from_secs(60),
         }
     }
 }
@@ -119,11 +117,6 @@ impl HttpGuardH2Config {
             }
             "client_handshake_timeout" => {
                 self.client_handshake_timeout = vey_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                Ok(())
-            }
-            "ping_interval" => {
-                self.ping_interval = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

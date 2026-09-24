@@ -143,7 +143,7 @@ dst_host_filter_set
 **optional**, **type**: :external+values:ref:`dst host acl rule set <conf_value_dst_host_acl_rule_set>`
 
 Destination-host filter for each request. It does not apply to UDP ASSOCIATE
-tasks.
+tasks or to ``http_guard``.
 
 **default**: not set
 
@@ -153,7 +153,7 @@ dst_port_filter
 **optional**, **type**: :external+values:ref:`exact port acl rule <conf_value_exact_port_acl_rule>`
 
 Destination-port filter for each request. It does not apply to UDP ASSOCIATE
-tasks.
+tasks or to ``http_guard``.
 
 **default**: not set
 

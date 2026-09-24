@@ -22,9 +22,8 @@ use vey_types::net::{
     OpensslServerConfigBuilder, TcpSockSpeedLimitConfig, UpstreamAddr,
 };
 
-use super::SiteStats;
-use super::pool::{SiteHttp1Pool, SiteHttp2Pool};
 use super::upstream::{SiteUpstream, UpstreamPeerStatus};
+use super::{SiteHttp1Pool, SiteHttp2Pool, SiteStats};
 use crate::auth::{UserForbiddenStats, UserGroup, UserRequestStats};
 use crate::config::site::SiteConfig;
 

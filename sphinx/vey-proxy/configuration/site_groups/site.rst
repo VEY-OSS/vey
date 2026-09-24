@@ -533,14 +533,15 @@ worker is a current-thread runtime: the pool keeps a separate idle lane
 per worker so get/save never block another worker, and the origin
 connection plus its EOF poller stay on the runtime that opened them.
 The next request for the same site on that worker prefers a pooled idle
-connection before the per-pipeline forward-context slot, if the
-server's configured escaper matches. Servers that share a site group and
-the same escaper can reuse each other's idle connections; different
-escapers do not mix. An empty map (``{}``) enables the pool with default
-limits.
+connection before the per-pipeline forward-context slot when the
+server's configured escaper and the upstream socket match. A domain
+upstream shares one socket bucket. Each address in a weighted IP list
+has its own. Servers that share a site group can reuse idle connections
+for the same escaper and socket. An empty map (``{}``) enables the pool
+with default limits.
 
-``max_idle_count`` is the site-wide cap, split across workers
-(at least one idle slot per worker).
+``max_idle_count`` is split across workers (at least one idle slot per
+worker). That limit applies separately to each escaper and upstream socket.
 
 When omitted, idle connections return to the forward context (one
 keepalive slot per client pipeline), which is the previous behaviour.
@@ -548,9 +549,11 @@ keepalive slot per client pipeline), which is the previous behaviour.
 Checkout still honours this site's
 :ref:`upstream_keepalive <conf_site_http_h1_upstream_keepalive>`.
 
-Only ``max_idle_count`` and ``idle_timeout`` from the pool map apply.
-``min_idle_count`` and ``check_interval`` are ignored: origin connections
-are created on demand, not warmed up.
+``max_idle_count``, ``idle_timeout``, and ``check_interval`` apply.
+``min_idle_count`` is ignored: origin connections are created on demand,
+not warmed up. Each escaper and upstream socket sweeps out expired idle
+connections every ``check_interval``, so they close while that bucket is
+idle. ``check_interval`` of ``0`` disables the sweep.
 
 ``http_proxy`` (SWG) does not use this pool.
 
@@ -577,14 +580,50 @@ connection_pool
 
 **optional**, **type**: :external+values:ref:`connection pool <conf_value_connection_pool_config>`
 
-HTTP/2 origin multiplex pool for this site. Checkout clones ``SendRequest``
-and does not bind a client connection to an origin connection. Selection
-matches the HTTP/1 pool: same worker and server-configured escaper.
+HTTP/2 origin multiplex pool for this site. Checkout takes a connection
+out and calls ready. A ready connection goes back to the front of the pool
+and is handed to the request, so the next checkout uses another connection.
+A connection that is not ready is closed. Selection matches the HTTP/1
+pool: same worker, server-configured escaper, and upstream socket.
 
-``max_idle_count`` is the site-wide cap, split across workers
-(at least one idle slot per worker). Only ``max_idle_count`` and
-``idle_timeout`` apply. ``min_idle_count`` and ``check_interval`` are ignored.
+``max_idle_count`` is split across workers (at least one idle slot per
+worker). That limit applies separately to each escaper and upstream socket.
+``idle_timeout`` and ``check_interval`` apply the same way as the HTTP/1
+pool. Each bucket sweeps out expired connections every ``check_interval``,
+so they close while that bucket is idle. ``min_idle_count`` is ignored.
+``check_interval`` of ``0`` disables the sweep.
 
 **default**: default connection pool limits
+
+.. versionadded:: 1.15.0
+
+.. _conf_site_http_h2_ping_interval:
+
+ping_interval
+"""""""""""""
+
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
+
+Interval for origin HTTP/2 PING on ``http_guard``. ``0`` disables PING.
+
+A PING that fails, or whose ACK does not arrive within
+:ref:`ping_timeout <conf_site_http_h2_ping_timeout>`, closes the origin
+connection. The pool will not check that connection out again.
+
+**default**: 60s
+
+.. versionchanged:: 1.15.0
+   moved from ``http_guard`` ``h2.ping_interval``; that key is now rejected
+
+.. _conf_site_http_h2_ping_timeout:
+
+ping_timeout
+""""""""""""
+
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
+
+Time to wait for each origin HTTP/2 PING ACK on ``http_guard``.
+
+**default**: 1s
 
 .. versionadded:: 1.15.0

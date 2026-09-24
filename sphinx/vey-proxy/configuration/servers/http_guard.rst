@@ -253,7 +253,9 @@ the site tenant (``tcp_sock_speed_limit`` plus tenant
 ``tcp_all_upload_speed_limit`` / ``tcp_all_download_speed_limit``).
 Origin HTTP/2 stays on HTTP/2 (no HTTP/1 fallback); the site
 :ref:`http.h2.connection_pool <conf_site_http_h2_connection_pool>` is
-always used.
+always used. Origin PING uses the site
+:ref:`ping_interval <conf_site_http_h2_ping_interval>` and
+:ref:`ping_timeout <conf_site_http_h2_ping_timeout>`.
 
 max_header_list_size
 ^^^^^^^^^^^^^^^^^^^^
@@ -335,15 +337,6 @@ client_handshake_timeout
 Timeout for the client HTTP/2 handshake.
 
 **default**: 4s
-
-ping_interval
-^^^^^^^^^^^^^
-
-**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
-
-Interval for origin HTTP/2 PING. ``0`` disables PING.
-
-**default**: 60s
 
 .. _configuration_server_http_guard_global_tls_server:
 

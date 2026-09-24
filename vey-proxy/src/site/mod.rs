@@ -14,6 +14,8 @@ mod group;
 pub(crate) use group::SiteGroup;
 
 mod pool;
+pub(crate) use pool::H2ConnectionState;
+use pool::{SiteHttp1Pool, SiteHttp2Pool};
 
 mod entry;
 pub(crate) use entry::{Site, SiteHttpConnGuard};

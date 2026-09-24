@@ -186,13 +186,6 @@ impl H2ForwardTask {
         }
 
         if let Some(tenant) = self.task_notes.tenant_ctx() {
-            match tenant.check_upstream(&self.upstream) {
-                AclAction::Permit | AclAction::PermitAndLog => {}
-                AclAction::Forbid | AclAction::ForbidAndLog => {
-                    self.reply_denied(clt_send_rsp, StatusCode::FORBIDDEN);
-                    return Err(H2StreamTransferError::InternalServerError("dest denied"));
-                }
-            }
             if let Some(action) = tenant.check_http_user_agent(
                 self.req
                     .headers()

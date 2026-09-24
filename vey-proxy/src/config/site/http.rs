@@ -45,10 +45,22 @@ impl SiteHttpH1Config {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SiteHttpH2Config {
     /// HTTP/2 origin multiplex pool. Always on: H2 streams are not bound 1:1.
     pub(crate) connection_pool: ConnectionPoolConfig,
+    pub(crate) ping_interval: Duration,
+    pub(crate) ping_timeout: Duration,
+}
+
+impl Default for SiteHttpH2Config {
+    fn default() -> Self {
+        Self {
+            connection_pool: ConnectionPoolConfig::default(),
+            ping_interval: Duration::from_secs(60),
+            ping_timeout: Duration::from_secs(1),
+        }
+    }
 }
 
 impl SiteHttpH2Config {
@@ -62,6 +74,16 @@ impl SiteHttpH2Config {
             "connection_pool" => {
                 self.connection_pool = vey_yaml::value::as_connection_pool_config(v)
                     .context(format!("invalid connection pool config for key {k}"))?;
+                Ok(())
+            }
+            "ping_interval" => {
+                self.ping_interval = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "ping_timeout" => {
+                self.ping_timeout = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

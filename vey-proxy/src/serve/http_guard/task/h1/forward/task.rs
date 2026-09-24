@@ -268,36 +268,6 @@ impl<'a> HttpGuardForwardTask<'a> {
         }
     }
 
-    async fn handle_user_upstream_acl_action<W>(
-        &mut self,
-        action: AclAction,
-        clt_w: &mut W,
-    ) -> ServerTaskResult<()>
-    where
-        W: AsyncWrite + Unpin,
-    {
-        let forbid = match action {
-            AclAction::Permit => false,
-            AclAction::PermitAndLog => {
-                // TODO log permit
-                false
-            }
-            AclAction::Forbid => true,
-            AclAction::ForbidAndLog => {
-                // TODO log forbid
-                true
-            }
-        };
-        if forbid {
-            self.reply_forbidden(clt_w).await;
-            Err(ServerTaskError::ForbiddenByRule(
-                ServerTaskForbiddenError::DestDenied,
-            ))
-        } else {
-            Ok(())
-        }
-    }
-
     async fn handle_user_ua_acl_action<W>(
         &mut self,
         action: AclAction,
@@ -424,9 +394,6 @@ impl<'a> HttpGuardForwardTask<'a> {
         let tenant = self.task_notes.tenant_ctx().cloned();
         let mut audit_task = false;
         let tcp_client_misc_opts = if let Some(tenant) = &tenant {
-            let action = tenant.check_upstream(&self.upstream);
-            self.handle_user_upstream_acl_action(action, clt_w).await?;
-
             if let Some(action) = tenant.check_http_user_agent(
                 self.req
                     .end_to_end_headers

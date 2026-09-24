@@ -16,7 +16,6 @@ use vey_icap_client::reqmod::h2::{
     H2RequestAdapter, HttpAdapterErrorResponse, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
 };
-use vey_types::acl::AclAction;
 use vey_types::net::UpstreamAddr;
 
 use super::{H2StreamTransferError, H2TaskContext};
@@ -137,16 +136,6 @@ impl H2WebsocketTask {
         if self.task_notes.acquire_site_request_semaphores().is_err() {
             self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
             return Err(H2StreamTransferError::InternalServerError("fully loaded"));
-        }
-
-        if let Some(tenant) = self.task_notes.tenant_ctx() {
-            match tenant.check_upstream(&self.upstream) {
-                AclAction::Permit | AclAction::PermitAndLog => {}
-                AclAction::Forbid | AclAction::ForbidAndLog => {
-                    self.reply_denied(clt_send_rsp, StatusCode::FORBIDDEN);
-                    return Err(H2StreamTransferError::InternalServerError("dest denied"));
-                }
-            }
         }
 
         let request_host = req.host();

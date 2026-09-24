@@ -802,11 +802,6 @@ impl TenantContext {
         self.user.acquire_request_semaphore(&self.forbid_stats)
     }
 
-    #[inline]
-    pub(crate) fn check_upstream(&self, upstream: &UpstreamAddr) -> AclAction {
-        self.user.check_upstream(upstream, &self.forbid_stats)
-    }
-
     pub(crate) fn check_http_user_agent(
         &self,
         user_agents: impl IntoIterator<Item = impl AsRef<str>>,

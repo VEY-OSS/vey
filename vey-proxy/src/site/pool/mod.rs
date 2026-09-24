@@ -3,11 +3,21 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-mod h1;
-mod h2;
+use std::net::SocketAddr;
 
+use vey_types::metrics::NodeName;
+
+mod h1;
 pub(crate) use h1::SiteHttp1Pool;
-pub(crate) use h2::SiteHttp2Pool;
+
+mod h2;
+pub(crate) use h2::{H2ConnectionState, SiteHttp2Pool};
+
+#[derive(Hash, Eq, PartialEq)]
+struct IsolationKey {
+    escaper: NodeName,
+    peer_addr: Option<SocketAddr>,
+}
 
 /// Pick the unaided-worker lane. Out-of-range and missing ids use lane 0.
 fn lane_index(worker_id: Option<usize>, lane_count: usize) -> usize {
