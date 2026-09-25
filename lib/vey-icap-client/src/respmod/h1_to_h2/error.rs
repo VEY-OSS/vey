@@ -30,8 +30,6 @@ pub enum H1ToH2RespmodAdaptationError {
     IcapServerErrorResponse(IcapErrorReason, u16, String),
     #[error("read from http upstream failed: {0:?}")]
     HttpUpstreamReadFailed(io::Error),
-    #[error("timeout while reading trailer from http upstream")]
-    HttpUpstreamReadTrailerTimeout,
     #[error("send head to http client failed: {0}")]
     HttpClientSendHeadFailed(h2::Error),
     #[error("client not in send state")]
@@ -56,6 +54,27 @@ pub enum H1ToH2RespmodAdaptationError {
     NotImplemented(&'static str),
 }
 
+impl H1ToH2RespmodAdaptationError {
+    /// The upstream chunked body is being sent to the http client directly.
+    pub(super) fn ups_to_clt(e: H2StreamFromChunkedTransferError) -> Self {
+        match e {
+            H2StreamFromChunkedTransferError::ReadError(e) => {
+                H1ToH2RespmodAdaptationError::HttpUpstreamReadFailed(e)
+            }
+            H2StreamFromChunkedTransferError::SendDataFailed(e) => {
+                H1ToH2RespmodAdaptationError::HttpClientSendDataFailed(e)
+            }
+            H2StreamFromChunkedTransferError::SendTrailerFailed(e) => {
+                H1ToH2RespmodAdaptationError::HttpClientSendTrailerFailed(e)
+            }
+            H2StreamFromChunkedTransferError::SenderNotInSendState => {
+                H1ToH2RespmodAdaptationError::HttpClientNotInSendState
+            }
+        }
+    }
+}
+
+/// The adapted chunked body is being read from the ICAP server.
 impl From<H2StreamFromChunkedTransferError> for H1ToH2RespmodAdaptationError {
     fn from(e: H2StreamFromChunkedTransferError) -> Self {
         match e {

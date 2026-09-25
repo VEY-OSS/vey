@@ -230,12 +230,6 @@ impl From<H1ToH2RespmodAdaptationError> for H2StreamTransferError {
             H1ToH2RespmodAdaptationError::HttpUpstreamReadFailed(e) => {
                 H2StreamTransferError::OriginReadFailed(e)
             }
-            H1ToH2RespmodAdaptationError::HttpUpstreamReadTrailerTimeout => {
-                H2StreamTransferError::OriginReadFailed(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "timeout to read HTTP body trailer",
-                ))
-            }
             H1ToH2RespmodAdaptationError::HttpClientSendHeadFailed(e) => {
                 H2StreamTransferError::ResponseHeadSendFailed(e)
             }

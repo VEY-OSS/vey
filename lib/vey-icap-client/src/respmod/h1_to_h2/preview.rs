@@ -317,18 +317,14 @@ impl<I: IdleCheck> H1ToH2ResponseAdapter<I> {
                 if rsp.payload == IcapRespmodResponsePayload::NoPayload {
                     self.icap_connection.mark_reader_finished();
                 }
-                let left = match ups_body_type {
-                    HttpBodyType::Chunked => Some(left_chunk_size),
-                    _ => None,
-                };
                 self.handle_original_http_response_with_body(
                     state,
                     rsp,
                     http_response,
                     ups_body_type,
                     ups_body_io,
-                    Some(preview_buf),
-                    left,
+                    preview_buf,
+                    left_chunk_size,
                     clt_send_response,
                 )
                 .await

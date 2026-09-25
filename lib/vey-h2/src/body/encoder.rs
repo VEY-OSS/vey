@@ -50,6 +50,11 @@ impl H2BodyEncodeTransferInternal {
     }
 
     #[inline]
+    fn received_size(&self) -> u64 {
+        self.copied + self.chunk.as_ref().map(|c| c.len() as u64).unwrap_or(0)
+    }
+
+    #[inline]
     fn is_idle(&self) -> bool {
         !self.active
     }
@@ -178,6 +183,11 @@ impl<'a, R> H2BodyEncodeTransfer<'a, R> {
         self.internal.copied_size()
     }
 
+    #[inline]
+    pub fn received_size(&self) -> u64 {
+        self.internal.received_size()
+    }
+
     pub fn into_io(self) -> (&'a mut R, &'a mut SendStream<Bytes>) {
         (self.reader, self.send_stream)
     }
@@ -237,6 +247,11 @@ impl<'a, R> ROwnedH2BodyEncodeTransfer<'a, R> {
     #[inline]
     pub fn copied_size(&self) -> u64 {
         self.internal.copied_size()
+    }
+
+    #[inline]
+    pub fn received_size(&self) -> u64 {
+        self.internal.received_size()
     }
 
     pub fn into_io(self) -> (R, &'a mut SendStream<Bytes>) {

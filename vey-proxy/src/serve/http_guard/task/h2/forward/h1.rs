@@ -597,7 +597,6 @@ impl H2ForwardTask {
                     self.ctx.server_config.tcp_copy,
                     self.ctx.server_config.h1.body_line_max_len,
                     self.ctx.server_config.h2.max_header_list_size as usize,
-                    self.rsp_hdr_timeout(),
                     self.ctx.idle_checker(&self.task_notes),
                 )
                 .await

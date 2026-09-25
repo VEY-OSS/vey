@@ -117,6 +117,31 @@ impl<'a, R> H2StreamFromChunkedTransfer<'a, R> {
         trailer_max_size: usize,
     ) -> Self {
         let decoder = ChunkedDataDecodeReader::new(reader, body_line_max_size);
+        Self::with_decoder(decoder, send_stream, copy_config, trailer_max_size)
+    }
+
+    /// Continue the transfer after a preview read stopped mid-chunk.
+    ///
+    /// `left_chunk_size` is the remaining payload of the current chunk
+    /// (`0` means the reader is at a chunk boundary).
+    pub fn resume(
+        reader: &'a mut R,
+        send_stream: &'a mut SendStream<Bytes>,
+        copy_config: &StreamCopyConfig,
+        body_line_max_size: usize,
+        trailer_max_size: usize,
+        left_chunk_size: u64,
+    ) -> Self {
+        let decoder = ChunkedDataDecodeReader::resume(reader, body_line_max_size, left_chunk_size);
+        Self::with_decoder(decoder, send_stream, copy_config, trailer_max_size)
+    }
+
+    fn with_decoder(
+        decoder: ChunkedDataDecodeReader<'a, R>,
+        send_stream: &'a mut SendStream<Bytes>,
+        copy_config: &StreamCopyConfig,
+        trailer_max_size: usize,
+    ) -> Self {
         let encode = ROwnedH2BodyEncodeTransfer::new(decoder, send_stream, copy_config);
         H2StreamFromChunkedTransfer {
             state: TransferState::Data(encode),
@@ -133,6 +158,13 @@ impl<'a, R> H2StreamFromChunkedTransfer<'a, R> {
     pub fn copied_size(&self) -> u64 {
         match &self.state {
             TransferState::Data(encode) => encode.copied_size(),
+            _ => self.copied,
+        }
+    }
+
+    pub fn received_size(&self) -> u64 {
+        match &self.state {
+            TransferState::Data(encode) => encode.received_size(),
             _ => self.copied,
         }
     }
