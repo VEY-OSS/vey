@@ -185,18 +185,18 @@ impl H2ForwardTask {
             return Err(H2StreamTransferError::InternalServerError("fully loaded"));
         }
 
-        if let Some(tenant) = self.task_notes.tenant_ctx() {
-            if let Some(action) = tenant.check_http_user_agent(
+        if let Some(tenant) = self.task_notes.tenant_ctx()
+            && let Some(action) = tenant.check_http_user_agent(
                 self.req
                     .headers()
                     .get_all(header::USER_AGENT)
                     .iter()
                     .filter_map(|v| v.to_str().ok()),
-            ) && matches!(action, AclAction::Forbid | AclAction::ForbidAndLog)
-            {
-                self.reply_denied(clt_send_rsp, StatusCode::FORBIDDEN);
-                return Err(H2StreamTransferError::InternalServerError("ua denied"));
-            }
+            )
+            && matches!(action, AclAction::Forbid | AclAction::ForbidAndLog)
+        {
+            self.reply_denied(clt_send_rsp, StatusCode::FORBIDDEN);
+            return Err(H2StreamTransferError::InternalServerError("ua denied"));
         }
 
         self.audit_task = self.should_audit();

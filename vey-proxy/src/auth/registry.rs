@@ -41,7 +41,7 @@ pub(super) fn add(name: NodeName, group: UserGroup) {
     }
 }
 
-pub(crate) fn get(name: &NodeName) -> Option<UserGroup> {
+pub(super) fn get(name: &NodeName) -> Option<UserGroup> {
     if name.is_empty() {
         return None;
     }

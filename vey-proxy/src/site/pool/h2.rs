@@ -122,9 +122,7 @@ impl SiteHttp2Pool {
         let inner_pool = self.lookup_inner_pool(worker_id, escaper, peer)?;
         let idle_timeout = self.config.idle_timeout();
         loop {
-            let Some(mut conn) = inner_pool.pop_idle(idle_timeout) else {
-                return None;
-            };
+            let mut conn = inner_pool.pop_idle(idle_timeout)?;
             match tokio::time::timeout(open_timeout, conn.sender.clone().ready()).await {
                 Ok(Ok(_)) => {
                     conn.last_used = Instant::now();
