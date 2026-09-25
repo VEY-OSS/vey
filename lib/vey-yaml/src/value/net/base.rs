@@ -344,11 +344,11 @@ mod tests {
         assert_eq!(result.weight(), 1.0);
 
         let mut map = yaml_rust::yaml::Hash::new();
-        map.insert(yaml_str!("addr"), yaml_str!("0.0.0.0:0"));
+        map.insert(yaml_str!("addr"), yaml_str!("10.0.0.2:8080"));
         map.insert(yaml_str!("weight"), Yaml::Real("0.0".into()));
         let yaml = Yaml::Hash(map);
         let result = as_weighted_sockaddr(&yaml).unwrap();
-        assert_eq!(*result.inner(), "0.0.0.0:0".parse().unwrap());
+        assert_eq!(*result.inner(), "10.0.0.2:8080".parse().unwrap());
         assert_eq!(result.weight(), 0.0);
     }
 
@@ -369,6 +369,9 @@ mod tests {
         assert!(as_weighted_sockaddr(&yaml).is_err());
 
         let yaml = Yaml::Integer(12345);
+        assert!(as_weighted_sockaddr(&yaml).is_err());
+
+        let yaml = yaml_str!("0.0.0.0:0");
         assert!(as_weighted_sockaddr(&yaml).is_err());
     }
 
