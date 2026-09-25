@@ -149,6 +149,23 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                     state.ups_rsp_body_size = Some(body_transfer.copied_size());
                 }
 
+                match rsp.code {
+                    204 | 206 => {
+                        return Err(H2RespmodAdaptationError::IcapServerErrorResponse(
+                            IcapErrorReason::InvalidResponseAfterContinue,
+                            rsp.code,
+                            rsp.reason,
+                        ));
+                    }
+                    n if (200..300).contains(&n) => {}
+                    _ => {
+                        return Err(H2RespmodAdaptationError::IcapServerErrorResponse(
+                            IcapErrorReason::UnknownResponseAfterContinue,
+                            rsp.code,
+                            rsp.reason,
+                        ));
+                    }
+                }
                 match rsp.payload {
                     IcapRespmodResponsePayload::NoPayload => {
                         if body_transfer.finished() {
@@ -231,7 +248,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                 )
                 .await
             }
-            206 => Err(H2RespmodAdaptationError::NotImplemented("ICAP-REQMOD-206")),
+            206 => Err(H2RespmodAdaptationError::NotImplemented("ICAP-RESPMOD-206")),
             n if (200..300).contains(&n) => {
                 // FIXME we should stop send the pending HTTP body to ICAP server?
                 self.icap_connection.mark_writer_finished();

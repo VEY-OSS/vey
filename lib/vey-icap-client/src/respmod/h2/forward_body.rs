@@ -224,6 +224,23 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             state.ups_rsp_body_size = Some(body_transfer.copied_size());
         }
 
+        match rsp.code {
+            204 | 206 => {
+                return Err(H2RespmodAdaptationError::IcapServerErrorResponse(
+                    IcapErrorReason::InvalidResponse,
+                    rsp.code,
+                    rsp.reason,
+                ));
+            }
+            n if (200..300).contains(&n) => {}
+            _ => {
+                return Err(H2RespmodAdaptationError::IcapServerErrorResponse(
+                    IcapErrorReason::UnknownResponse,
+                    rsp.code,
+                    rsp.reason,
+                ));
+            }
+        }
         match rsp.payload {
             IcapRespmodResponsePayload::NoPayload => {
                 if body_transfer.finished() {

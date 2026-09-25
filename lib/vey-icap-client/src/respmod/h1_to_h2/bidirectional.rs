@@ -17,7 +17,6 @@ use super::{
     H1ToH2RespmodAdaptationError, H2SendResponseToClient, RespmodAdaptationEndState,
     RespmodAdaptationRunState,
 };
-use crate::reason::IcapErrorReason;
 use crate::respmod::response::RespmodResponse;
 use crate::{IcapClientReader, IcapClientWriter, IcapServiceClient};
 
@@ -107,20 +106,7 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
             self.icap_client.config.icap_max_header_size,
         )
         .await?;
-
-        match rsp.code {
-            204 | 206 => Err(H1ToH2RespmodAdaptationError::IcapServerErrorResponse(
-                IcapErrorReason::InvalidResponseAfterContinue,
-                rsp.code,
-                rsp.reason,
-            )),
-            n if (200..300).contains(&n) => Ok(rsp),
-            _ => Err(H1ToH2RespmodAdaptationError::IcapServerErrorResponse(
-                IcapErrorReason::UnknownResponseAfterContinue,
-                rsp.code,
-                rsp.reason,
-            )),
-        }
+        Ok(rsp)
     }
 }
 

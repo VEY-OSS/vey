@@ -373,7 +373,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
 
                 Ok(RespmodAdaptationEndState::OriginalTransferred)
             }
-            206 => Err(H1RespmodAdaptationError::NotImplemented("ICAP-REQMOD-206")),
+            206 => Err(H1RespmodAdaptationError::NotImplemented("ICAP-RESPMOD-206")),
             n if (200..300).contains(&n) => {
                 // FIXME we should stop send the pending HTTP body to ICAP server?
                 self.icap_connection.mark_writer_finished();

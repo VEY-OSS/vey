@@ -119,7 +119,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             _ => {
                 if rsp.payload == IcapRespmodResponsePayload::NoPayload {
                     self.icap_connection.mark_reader_finished();
-                    if rsp.keep_alive && rsp.payload == IcapRespmodResponsePayload::NoPayload {
+                    if rsp.keep_alive {
                         self.icap_client.save_connection(self.icap_connection);
                     }
                 }
