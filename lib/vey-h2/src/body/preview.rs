@@ -92,6 +92,10 @@ impl H2PreviewData {
                         continue;
                     }
                     is_active = true;
+                    clt_body
+                        .flow_control()
+                        .release_capacity(data.len())
+                        .map_err(H2PreviewError::ReadDataFailed)?;
 
                     self.received += data.len();
                     match self.received.checked_sub(self.max_size) {
@@ -142,6 +146,10 @@ impl H2PreviewData {
         match tokio::time::timeout(timeout, clt_body.data()).await {
             Ok(Some(Ok(mut data))) => {
                 if !data.is_empty() {
+                    clt_body
+                        .flow_control()
+                        .release_capacity(data.len())
+                        .map_err(H2PreviewError::ReadDataFailed)?;
                     self.received += data.len();
                     match data.len().checked_sub(self.max_size) {
                         Some(0) => {
@@ -184,6 +192,10 @@ impl H2PreviewData {
                     if data.is_empty() {
                         continue;
                     }
+                    clt_body
+                        .flow_control()
+                        .release_capacity(data.len())
+                        .map_err(H2PreviewError::ReadDataFailed)?;
 
                     self.received += data.len();
                     match self.received.checked_sub(self.max_size) {
