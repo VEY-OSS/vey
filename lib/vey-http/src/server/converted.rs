@@ -29,7 +29,6 @@ pub struct HttpConvertedRequest {
     chunked: bool,
     trailers: bool,
     expect_100_continue: bool,
-    authorization_negotiate: bool,
 }
 
 impl HttpConvertedRequest {
@@ -47,7 +46,6 @@ impl HttpConvertedRequest {
         let mut host = None;
         let mut trailers = false;
         let mut expect_100_continue = false;
-        let mut authorization_negotiate = false;
 
         for (name, value) in req.headers() {
             match name.as_str() {
@@ -75,17 +73,8 @@ impl HttpConvertedRequest {
                             .map_err(|_| HttpRequestParseError::InvalidHost)?,
                     );
                 }
-                "expect" => {
-                    if value.as_bytes().eq_ignore_ascii_case(b"100-continue") {
-                        expect_100_continue = true;
-                    }
-                }
-                "authorization" => {
-                    if let Ok(s) = value.to_str()
-                        && crate::header::is_session_based_auth(s)
-                    {
-                        authorization_negotiate = true;
-                    }
+                "expect" if value.as_bytes().eq_ignore_ascii_case(b"100-continue") => {
+                    expect_100_continue = true;
                 }
                 _ => {}
             }
@@ -115,7 +104,6 @@ impl HttpConvertedRequest {
             chunked: has_body,
             trailers,
             expect_100_continue,
-            authorization_negotiate,
         })
     }
 
@@ -130,7 +118,6 @@ impl HttpConvertedRequest {
             chunked,
             trailers: self.trailers,
             expect_100_continue: self.expect_100_continue,
-            authorization_negotiate: self.authorization_negotiate,
         }
     }
 
@@ -144,7 +131,6 @@ impl HttpConvertedRequest {
             chunked: false,
             trailers: false,
             expect_100_continue: self.expect_100_continue,
-            authorization_negotiate: self.authorization_negotiate,
         }
     }
 
@@ -158,14 +144,10 @@ impl HttpConvertedRequest {
         self.expect_100_continue
     }
 
+    /// The body presence is decided by the HTTP/2 or HTTP/3 stream,
+    /// so session based auth does not suppress it as in HTTP/1.
     pub fn body_type(&self) -> Option<HttpBodyType> {
-        if self.authorization_negotiate {
-            None
-        } else if self.chunked {
-            Some(HttpBodyType::Chunked)
-        } else {
-            None
-        }
+        self.chunked.then_some(HttpBodyType::Chunked)
     }
 
     pub fn serialize_for_origin(&self) -> Vec<u8> {
@@ -263,6 +245,22 @@ mod tests {
         assert!(origin.contains("connection: keep-alive\r\n"));
         assert!(!origin.contains("content-length"));
         assert!(origin.contains("content-type: text/plain\r\n"));
+    }
+
+    #[test]
+    fn from_request_with_body_and_negotiate_auth_is_chunked() {
+        let req = Request::builder()
+            .method("POST")
+            .uri("https://example.com/upload")
+            .version(Version::HTTP_2)
+            .header("authorization", "Negotiate YIIB")
+            .body(())
+            .unwrap();
+        let converted = HttpConvertedRequest::from_request(&req, true).unwrap();
+        assert_eq!(converted.body_type(), Some(HttpBodyType::Chunked));
+
+        let converted = HttpConvertedRequest::from_request(&req, false).unwrap();
+        assert_eq!(converted.body_type(), None);
     }
 
     #[test]

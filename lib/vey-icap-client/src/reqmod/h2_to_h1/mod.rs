@@ -176,6 +176,10 @@ impl<I: IdleCheck> H2ToH1RequestAdapter<I> {
         H: HttpRequestForAdaptation,
         UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
+        debug_assert_eq!(
+            http_request.body_type().is_some(),
+            !clt_body.is_end_stream()
+        );
         if clt_body.is_end_stream() {
             state.clt_req_body_size = Some(0);
             self.xfer_without_body(state, http_request, ups_writer)
