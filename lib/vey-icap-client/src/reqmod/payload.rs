@@ -4,9 +4,8 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use atoi::FromRadix10;
-
 use super::IcapReqmodParseError;
+use crate::parse::encapsulated::parse_offset;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub(crate) enum IcapReqmodResponsePayload {
@@ -48,13 +47,9 @@ impl IcapReqmodResponsePayload {
                         .ok_or(IcapReqmodParseError::UnsupportedBody(
                             "invalid body byte-offsets pair",
                         ))?;
-                let (hdr_len, offset) = u32::from_radix_10(value.as_bytes());
-                if offset != value.len() {
-                    return Err(IcapReqmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets value",
-                    ));
-                }
-                let hdr_len = hdr_len as usize;
+                let hdr_len = parse_offset(value).filter(|n| *n > 0).ok_or(
+                    IcapReqmodParseError::UnsupportedBody("invalid body byte-offsets value"),
+                )?;
                 match name.to_lowercase().as_str() {
                     "req-body" => Ok(IcapReqmodResponsePayload::HttpRequestWithBody(hdr_len)),
                     "null-body" => Ok(IcapReqmodResponsePayload::HttpRequestWithoutBody(hdr_len)),
@@ -76,13 +71,9 @@ impl IcapReqmodResponsePayload {
                         .ok_or(IcapReqmodParseError::UnsupportedBody(
                             "invalid body byte-offsets pair",
                         ))?;
-                let (hdr_len, offset) = u32::from_radix_10(value.as_bytes());
-                if offset != value.len() {
-                    return Err(IcapReqmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets value",
-                    ));
-                }
-                let hdr_len = hdr_len as usize;
+                let hdr_len = parse_offset(value).filter(|n| *n > 0).ok_or(
+                    IcapReqmodParseError::UnsupportedBody("invalid body byte-offsets value"),
+                )?;
                 match name.to_lowercase().as_str() {
                     "res-body" => Ok(IcapReqmodResponsePayload::HttpResponseWithBody(hdr_len)),
                     "null-body" => Ok(IcapReqmodResponsePayload::HttpResponseWithoutBody(hdr_len)),
@@ -179,6 +170,18 @@ mod tests {
     fn rejects_invalid_body_offset() {
         assert!(matches!(
             IcapReqmodResponsePayload::parse("req-hdr=0, req-body=abc"),
+            Err(IcapReqmodParseError::UnsupportedBody(_))
+        ));
+        assert!(matches!(
+            IcapReqmodResponsePayload::parse("req-hdr=0, req-body="),
+            Err(IcapReqmodParseError::UnsupportedBody(_))
+        ));
+        assert!(matches!(
+            IcapReqmodResponsePayload::parse("req-hdr=0, req-body=0"),
+            Err(IcapReqmodParseError::UnsupportedBody(_))
+        ));
+        assert!(matches!(
+            IcapReqmodResponsePayload::parse("res-hdr=0, res-body=99999999999999999999999"),
             Err(IcapReqmodParseError::UnsupportedBody(_))
         ));
     }

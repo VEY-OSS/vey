@@ -95,6 +95,18 @@ impl ReqmodResponse {
             rsp.parse_header_line(&line_buf, shared_names)?;
         }
 
+        match rsp.payload {
+            IcapReqmodResponsePayload::NoPayload => {}
+            IcapReqmodResponsePayload::HttpRequestWithBody(hdr_len)
+            | IcapReqmodResponsePayload::HttpRequestWithoutBody(hdr_len)
+            | IcapReqmodResponsePayload::HttpResponseWithBody(hdr_len)
+            | IcapReqmodResponsePayload::HttpResponseWithoutBody(hdr_len) => {
+                if hdr_len > max_header_size {
+                    return Err(IcapReqmodParseError::TooLargeHeader(max_header_size));
+                }
+            }
+        }
+
         Ok(rsp)
     }
 

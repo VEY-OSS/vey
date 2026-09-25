@@ -11,3 +11,5 @@ pub(crate) use header_line::HeaderLine;
 
 mod status_line;
 pub(crate) use status_line::StatusLine;
+
+pub(crate) mod encapsulated;

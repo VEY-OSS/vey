@@ -9,13 +9,14 @@ use tokio::io::AsyncBufRead;
 use vey_io_ext::LimitedBufReadExt;
 
 use super::{IcapRespmodParseError, IcapRespmodResponsePayload};
-use crate::parse::{HeaderLine, StatusLine};
+use crate::parse::{HeaderLine, StatusLine, encapsulated};
 
 pub(crate) struct RespmodResponse {
     pub(crate) code: u16,
     pub(crate) reason: String,
     pub(crate) keep_alive: bool,
     pub(crate) payload: IcapRespmodResponsePayload,
+    http_req_hdr_len: usize,
 }
 
 impl RespmodResponse {
@@ -25,6 +26,7 @@ impl RespmodResponse {
             reason,
             keep_alive: true,
             payload: IcapRespmodResponsePayload::NoPayload,
+            http_req_hdr_len: 0,
         }
     }
 
@@ -84,6 +86,19 @@ impl RespmodResponse {
             rsp.parse_header_line(&line_buf)?;
         }
 
+        match rsp.payload {
+            IcapRespmodResponsePayload::NoPayload => {}
+            IcapRespmodResponsePayload::HttpResponseWithBody(hdr_len)
+            | IcapRespmodResponsePayload::HttpResponseWithoutBody(hdr_len) => {
+                if hdr_len > max_header_size || rsp.http_req_hdr_len > max_header_size {
+                    return Err(IcapRespmodParseError::TooLargeHeader(max_header_size));
+                }
+                if rsp.http_req_hdr_len > 0 {
+                    encapsulated::skip_bytes(reader, rsp.http_req_hdr_len).await?;
+                }
+            }
+        }
+
         Ok(rsp)
     }
 
@@ -118,7 +133,10 @@ impl RespmodResponse {
                     }
                 }
             }
-            "encapsulated" => self.payload = IcapRespmodResponsePayload::parse(header.value)?,
+            "encapsulated" => {
+                (self.payload, self.http_req_hdr_len) =
+                    IcapRespmodResponsePayload::parse(header.value)?;
+            }
             _ => {}
         }
 
@@ -158,6 +176,34 @@ Encapsulated: res-hdr=0, res-body=100\r\n\
             rsp.payload,
             IcapRespmodResponsePayload::HttpResponseWithBody(100)
         );
+    }
+
+    #[tokio::test]
+    async fn parse_skips_http_request_header() {
+        let data = b"ICAP/1.0 200 OK\r\n\
+Encapsulated: req-hdr=0, res-hdr=18, res-body=37\r\n\
+\r\n\
+GET / HTTP/1.1\r\n\r\n\
+HTTP/1.1 200 OK\r\n\r\n";
+        let mut reader = Cursor::new(&data[..]);
+        let rsp = RespmodResponse::parse(&mut reader, 8192).await.unwrap();
+        assert_eq!(
+            rsp.payload,
+            IcapRespmodResponsePayload::HttpResponseWithBody(19)
+        );
+        let pos = reader.position() as usize;
+        assert!(data[pos..].starts_with(b"HTTP/1.1 200 OK\r\n"));
+    }
+
+    #[tokio::test]
+    async fn parse_rejects_too_large_encapsulated_header() {
+        let data = b"ICAP/1.0 200 OK\r\nEncapsulated: res-hdr=0, res-body=100000\r\n\r\n";
+        let mut reader = Cursor::new(&data[..]);
+        match RespmodResponse::parse(&mut reader, 8192).await {
+            Err(IcapRespmodParseError::TooLargeHeader(8192)) => {}
+            Err(e) => panic!("unexpected error: {e}"),
+            Ok(_) => panic!("expected TooLargeHeader"),
+        }
     }
 
     #[tokio::test]
