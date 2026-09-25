@@ -26,7 +26,7 @@ use crate::auth::{
 };
 use crate::config::escaper::EgressUpstream;
 use crate::escape::EgressPathSelection;
-use crate::site::{SiteContext, SiteRequestPermits, upstream_pool_peer};
+use crate::site::{SiteContext, SiteRequestPermits};
 use crate::stat::types::RequestAliveKind;
 
 #[derive(Clone, Copy)]
@@ -142,7 +142,9 @@ impl ServerTaskNotes {
     }
 
     pub(crate) fn site_upstream_peer(&self) -> Option<SocketAddr> {
-        self.site_upstream().ok().and_then(upstream_pool_peer)
+        self.site_upstream()
+            .ok()
+            .and_then(UpstreamAddr::socket_addr)
     }
 
     fn cached_upstream(&self) -> &CachedUpstream {

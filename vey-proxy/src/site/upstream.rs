@@ -13,14 +13,12 @@ use arc_swap::ArcSwapOption;
 use vey_types::collection::{
     SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder, WeightedValue,
 };
-use vey_types::net::{Host, UpstreamAddr};
+use vey_types::net::UpstreamAddr;
 
 use crate::config::site::SiteUpstreamConfig;
 
 pub(crate) struct SiteUpstream {
-    single: Option<UpstreamAddr>,
-    peers: Vec<WeightedValue<SocketAddr>>,
-    policy: SelectivePickPolicy,
+    config: SiteUpstreamConfig,
     /// Runtime weight for each configured peer. Missing entries use the config weight.
     runtime_weight: Mutex<HashMap<SocketAddr, f64>>,
     pick: ArcSwapOption<SelectiveVec<WeightedValue<SocketAddr>>>,
@@ -35,9 +33,7 @@ pub(crate) struct UpstreamPeerStatus {
 impl SiteUpstream {
     pub(super) fn from_config(config: &SiteUpstreamConfig) -> Self {
         let upstream = SiteUpstream {
-            single: config.single().cloned(),
-            peers: config.peers().to_vec(),
-            policy: config.pick_policy(),
+            config: config.clone(),
             runtime_weight: Mutex::new(HashMap::new()),
             pick: ArcSwapOption::empty(),
         };
@@ -47,7 +43,7 @@ impl SiteUpstream {
 
     pub(super) fn new_for_reload(old: &SiteUpstream, config: &SiteUpstreamConfig) -> Self {
         let upstream = SiteUpstream::from_config(config);
-        if upstream.single.is_some() || upstream.peers.is_empty() {
+        if upstream.config.single().is_some() || upstream.config.peers().is_empty() {
             return upstream;
         }
         let old_weights = old.runtime_weight.lock().unwrap();
@@ -56,7 +52,7 @@ impl SiteUpstream {
         }
         {
             let mut weights = upstream.runtime_weight.lock().unwrap();
-            for peer in &upstream.peers {
+            for peer in upstream.config.peers() {
                 let addr = *peer.inner();
                 if let Some(weight) = old_weights.get(&addr) {
                     weights.insert(addr, *weight);
@@ -68,13 +64,13 @@ impl SiteUpstream {
     }
 
     pub(super) fn select(&self, client_ip: IpAddr) -> anyhow::Result<UpstreamAddr> {
-        if let Some(addr) = &self.single {
+        if let Some(addr) = self.config.single() {
             return Ok(addr.clone());
         }
         let Some(nodes) = self.pick.load_full() else {
             return Err(anyhow!("no upstream address with a positive weight"));
         };
-        let picked = match self.policy {
+        let picked = match self.config.pick_policy() {
             SelectivePickPolicy::Random => nodes.pick_random(),
             SelectivePickPolicy::Serial => nodes.pick_serial(),
             SelectivePickPolicy::RoundRobin => nodes.pick_round_robin(),
@@ -86,14 +82,13 @@ impl SiteUpstream {
     }
 
     pub(super) fn list_peers(&self) -> anyhow::Result<Vec<UpstreamPeerStatus>> {
-        if self.single.is_some() || self.peers.is_empty() {
-            return Err(anyhow!(
-                "site upstream is a single address, not a weighted IP list"
-            ));
+        if self.config.peers().is_empty() {
+            return Err(anyhow!("site upstream has no peers defined"));
         }
         let weights = self.runtime_weight.lock().unwrap();
         Ok(self
-            .peers
+            .config
+            .peers()
             .iter()
             .map(|peer| {
                 let addr = *peer.inner();
@@ -107,15 +102,13 @@ impl SiteUpstream {
     }
 
     pub(super) fn set_weight(&self, addr: SocketAddr, weight: f64) -> anyhow::Result<()> {
-        if self.single.is_some() || self.peers.is_empty() {
-            return Err(anyhow!(
-                "site upstream is a single address, not a weighted IP list"
-            ));
+        if self.config.peers().is_empty() {
+            return Err(anyhow!("site upstream has no peers defined"));
         }
         if !weight.is_finite() || weight < 0.0 {
             return Err(anyhow!("weight must be a finite number >= 0"));
         }
-        if !self.peers.iter().any(|peer| *peer.inner() == addr) {
+        if !self.config.peers().iter().any(|peer| *peer.inner() == addr) {
             return Err(anyhow!("upstream address {addr} is not configured"));
         }
         self.runtime_weight.lock().unwrap().insert(addr, weight);
@@ -124,13 +117,13 @@ impl SiteUpstream {
     }
 
     fn rebuild(&self) {
-        if self.peers.is_empty() {
+        if self.config.peers().is_empty() {
             self.pick.store(None);
             return;
         }
         let weights = self.runtime_weight.lock().unwrap();
         let mut builder = SelectiveVecBuilder::new();
-        for peer in &self.peers {
+        for peer in self.config.peers() {
             let addr = *peer.inner();
             let weight = weights.get(&addr).copied().unwrap_or(peer.weight());
             if weight.is_finite() && weight > 0.0 {
@@ -139,13 +132,6 @@ impl SiteUpstream {
         }
         drop(weights);
         self.pick.store(builder.build().map(std::sync::Arc::new));
-    }
-}
-
-pub(crate) fn upstream_pool_peer(addr: &UpstreamAddr) -> Option<SocketAddr> {
-    match addr.host() {
-        Host::Ip(ip) => Some(SocketAddr::new(*ip, addr.port())),
-        Host::Domain(_) => None,
     }
 }
 
