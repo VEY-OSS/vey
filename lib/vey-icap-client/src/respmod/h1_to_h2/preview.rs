@@ -456,16 +456,49 @@ impl<I: IdleCheck> H1ToH2ResponseAdapter<I> {
         R: AsyncBufRead + Unpin,
     {
         let mut buf = vec![0u8; max_size];
-        let mut read_offset;
-        match tokio::time::timeout(timeout, reader.read(&mut buf)).await {
-            Ok(Ok(n)) => read_offset = n,
-            Ok(Err(e)) => return Err(H1ToH2RespmodAdaptationError::HttpUpstreamReadFailed(e)),
-            Err(_) => return Ok(None),
-        }
-
-        let mut pin_reader = Pin::new(reader);
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
+
+        // skipping preview is only possible if no chunked encoding bytes have been consumed
+        let at_chunk_boundary = |reader: &ChunkedDataDecodeReader<'_, R>| {
+            reader.pending_cancel_safe() && reader.left_chunk_size() == Some(0)
+        };
+        let preview_timeout = tokio::time::sleep(timeout);
+        tokio::pin!(preview_timeout);
+        let mut timed_out = false;
+        let mut read_offset = loop {
+            tokio::select! {
+                biased;
+
+                r = reader.read(&mut buf) => {
+                    match r {
+                        Ok(n) => break n,
+                        Err(e) => return Err(H1ToH2RespmodAdaptationError::HttpUpstreamReadFailed(e)),
+                    }
+                }
+                _ = &mut preview_timeout, if !timed_out => {
+                    if at_chunk_boundary(reader) {
+                        return Ok(None);
+                    }
+                    timed_out = true;
+                }
+                n = idle_interval.tick() => {
+                    if timed_out && at_chunk_boundary(reader) {
+                        return Ok(None);
+                    }
+                    idle_count += n;
+                    if self.idle_checker.check_quit(idle_count) {
+                        return Err(H1ToH2RespmodAdaptationError::HttpUpstreamReadIdle);
+                    }
+                    if let Some(reason) = self.idle_checker.check_force_quit() {
+                        return Err(H1ToH2RespmodAdaptationError::IdleForceQuit(reason));
+                    }
+                }
+            }
+        };
+
+        let mut pin_reader = Pin::new(reader);
+        idle_count = 0;
         let mut is_active = false;
 
         while read_offset < max_size {
