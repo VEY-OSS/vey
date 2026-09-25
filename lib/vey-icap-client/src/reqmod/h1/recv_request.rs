@@ -155,7 +155,11 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 state.ups_req_body_size = Some(body_reader.body_size());
                 let copied = body_reader.body_size();
 
-                if body_reader.trailer(128).await.is_ok() {
+                if body_reader
+                    .trailer(self.http_trailer_max_size)
+                    .await
+                    .is_ok()
+                {
                     self.icap_connection.mark_reader_finished();
                     if icap_rsp.keep_alive {
                         self.icap_client.save_connection(self.icap_connection);

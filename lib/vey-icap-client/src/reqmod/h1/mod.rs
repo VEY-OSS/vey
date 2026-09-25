@@ -58,6 +58,7 @@ impl IcapReqmodClient {
         &self,
         copy_config: StreamCopyConfig,
         http_body_line_max_size: usize,
+        http_trailer_max_size: usize,
         http_req_add_no_via_header: bool,
         idle_checker: I,
     ) -> anyhow::Result<HttpRequestAdapter<I>> {
@@ -69,6 +70,7 @@ impl IcapReqmodClient {
             icap_options,
             copy_config,
             http_body_line_max_size,
+            http_trailer_max_size,
             http_req_add_no_via_header,
             idle_checker,
             client_addr: None,
@@ -84,6 +86,7 @@ pub struct HttpRequestAdapter<I: IdleCheck> {
     icap_options: Arc<IcapServiceOptions>,
     copy_config: StreamCopyConfig,
     http_body_line_max_size: usize,
+    http_trailer_max_size: usize,
     http_req_add_no_via_header: bool,
     idle_checker: I,
     client_addr: Option<SocketAddr>,

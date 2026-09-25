@@ -346,6 +346,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 } else {
                     let mut bidirectional_transfer = BidirectionalRecvHttpRequest {
                         http_body_line_max_size: self.http_body_line_max_size,
+                        http_trailer_max_size: self.http_trailer_max_size,
                         http_req_add_no_via_header: self.http_req_add_no_via_header,
                         copy_config: self.copy_config,
                         idle_checker: &self.idle_checker,

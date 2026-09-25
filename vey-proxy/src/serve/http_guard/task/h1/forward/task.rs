@@ -726,6 +726,7 @@ impl<'a> HttpGuardForwardTask<'a> {
                 .h1_adapter(
                     self.ctx.server_config.tcp_copy,
                     self.ctx.server_config.h1.body_line_max_len,
+                    self.ctx.server_config.req_hdr_max_size,
                     true,
                     self.ctx.idle_checker(&self.task_notes),
                 )

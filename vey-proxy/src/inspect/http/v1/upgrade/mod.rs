@@ -268,6 +268,7 @@ where
             .h1_adapter(
                 self.ctx.server_config.limited_copy_config(),
                 self.ctx.h1_interception().body_line_max_len,
+                self.ctx.h1_interception().req_head_max_size,
                 true,
                 self.ctx.idle_checker(),
             )
