@@ -97,6 +97,7 @@ impl H2PreviewData {
                     match self.received.checked_sub(self.max_size) {
                         Some(0) => {
                             self.buffer.extend_from_slice(&data);
+                            self.end_of_data = clt_body.is_end_stream();
                             return Ok(());
                         }
                         Some(left) => {
@@ -145,6 +146,7 @@ impl H2PreviewData {
                     match data.len().checked_sub(self.max_size) {
                         Some(0) => {
                             self.buffer.extend_from_slice(&data);
+                            self.end_of_data = clt_body.is_end_stream();
                             return Ok(());
                         }
                         Some(left) => {
@@ -187,6 +189,7 @@ impl H2PreviewData {
                     match self.received.checked_sub(self.max_size) {
                         Some(0) => {
                             self.buffer.extend_from_slice(&data);
+                            self.end_of_data = clt_body.is_end_stream();
                             return Ok(());
                         }
                         Some(left) => {
