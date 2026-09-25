@@ -346,7 +346,7 @@ where
         let (mut parts, _) = response.into_parts();
         parts.version = Version::HTTP_2;
         parts.status = rsp.status;
-        parts.headers = rsp.headers.into();
+        parts.headers = rsp.to_h2_headers();
         let response = Response::from_parts(parts, ());
 
         self.send_error_response = false;

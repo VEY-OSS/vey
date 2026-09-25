@@ -39,19 +39,26 @@ impl HttpAdaptedResponse {
 
     /// Convert this adapted H1 response into an H2 response head.
     ///
-    /// Adapted headers already dropped hop-by-hop `Transfer-Encoding` /
-    /// `Connection`. Headers named on `Connection` are also removed.
-    /// `Content-Length` is kept when the adapter announced a fixed body.
+    /// See [`Self::to_h2_headers`] for the headers.
     pub fn to_h2_response(&self) -> Response<()> {
         let mut rsp = Response::new(());
         *rsp.version_mut() = Version::HTTP_2;
         *rsp.status_mut() = self.status;
+        *rsp.headers_mut() = self.to_h2_headers();
+        rsp
+    }
+
+    /// Get the adapted headers for an H2 response.
+    ///
+    /// Connection-specific headers and headers named on `Connection` are removed.
+    /// `Content-Length` is kept when the adapter announced a fixed body.
+    pub fn to_h2_headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::from(&self.headers);
         for name in self.connection.extra_headers() {
             headers.remove(name);
         }
-        *rsp.headers_mut() = headers;
-        rsp
+        crate::header::remove_h2_connection_specific_headers(&mut headers);
+        headers
     }
 
     pub async fn parse<R>(
@@ -372,5 +379,19 @@ mod tests {
         assert_eq!(h2.headers().get("x-a").unwrap(), "1");
         assert!(h2.headers().get("x-conn-token").is_none());
         assert!(h2.headers().get("connection").is_none());
+    }
+
+    #[tokio::test]
+    async fn to_h2_headers_drops_connection_specific_headers() {
+        let data = b"HTTP/1.1 200 OK\r\n\
+            X-A: 1\r\n\
+            Upgrade: websocket\r\n\
+            Proxy-Connection: keep-alive\r\n\
+            TE: gzip\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let rsp = HttpAdaptedResponse::parse(&mut reader, 4096).await.unwrap();
+        let headers = rsp.to_h2_headers();
+        assert_eq!(headers.len(), 1);
+        assert_eq!(headers.get("x-a").unwrap(), "1");
     }
 }

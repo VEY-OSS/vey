@@ -293,7 +293,7 @@ impl H2WebsocketTask {
         let mut parts = Response::new(()).into_parts().0;
         parts.version = Version::HTTP_2;
         parts.status = rsp.status;
-        parts.headers = rsp.headers.into();
+        parts.headers = rsp.to_h2_headers();
         let response = Response::from_parts(parts, ());
         self.send_error_response = false;
         self.ws_notes.rsp_status = response.status().as_u16();

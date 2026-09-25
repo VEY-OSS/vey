@@ -59,6 +59,7 @@ impl<T> RequestExt for Request<T> {
 
     fn adapt_to(self, other: &HttpAdaptedRequest) -> Self {
         let mut headers = HeaderMap::from(&other.headers);
+        vey_http::header::remove_h2_connection_specific_headers(&mut headers);
         // add hop-by-hop headers
         if let Some(v) = self.headers().get(header::TE) {
             headers.insert(header::TE, v.into());
@@ -342,5 +343,28 @@ mod tests {
         assert_eq!(adapted_req.uri().path(), "/new");
         assert_eq!(adapted_req.uri().scheme().unwrap().as_str(), "https");
         assert_eq!(adapted_req.headers().get(header::TE).unwrap(), "trailers");
+    }
+
+    #[tokio::test]
+    async fn adapt_to_drops_connection_specific_headers() {
+        use tokio::io::BufReader;
+        use vey_http::server::HttpAdaptedRequest;
+
+        let mut reader = BufReader::new(
+            &b"GET /new HTTP/1.1\r\nX-New: 1\r\nUpgrade: h2c\r\nProxy-Connection: close\r\n\r\n"[..],
+        );
+        let adapted = HttpAdaptedRequest::parse(&mut reader, 4096, false)
+            .await
+            .unwrap();
+
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("https://old.example/path")
+            .body(())
+            .unwrap();
+
+        let adapted_req = req.adapt_to(&adapted);
+        assert_eq!(adapted_req.headers().len(), 1);
+        assert_eq!(adapted_req.headers().get("X-New").unwrap(), "1");
     }
 }

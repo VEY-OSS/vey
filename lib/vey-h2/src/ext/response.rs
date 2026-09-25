@@ -7,7 +7,7 @@
 use std::io::Write;
 
 use bytes::BufMut;
-use http::{HeaderMap, Response};
+use http::Response;
 
 use vey_http::client::HttpAdaptedResponse;
 
@@ -41,7 +41,7 @@ impl<T> ResponseExt for Response<T> {
         let (mut parts, body) = self.into_parts();
         // keep old version
         parts.status = other.status;
-        parts.headers = HeaderMap::from(&other.headers);
+        parts.headers = other.to_h2_headers();
         Response::from_parts(parts, body)
     }
 }
@@ -95,5 +95,21 @@ mod tests {
         let adapted_rsp = rsp.adapt_to(&adapted);
         assert_eq!(adapted_rsp.status(), StatusCode::NO_CONTENT);
         assert!(adapted_rsp.headers().get("X-Old").is_none());
+    }
+
+    #[tokio::test]
+    async fn adapt_to_drops_connection_specific_headers() {
+        use tokio::io::BufReader;
+        use vey_http::client::HttpAdaptedResponse;
+
+        let mut reader = BufReader::new(
+            &b"HTTP/1.1 200 OK\r\nX-New: 1\r\nUpgrade: h2c\r\nProxy-Connection: close\r\n\r\n"[..],
+        );
+        let adapted = HttpAdaptedResponse::parse(&mut reader, 4096).await.unwrap();
+
+        let rsp = Response::builder().status(StatusCode::OK).body(()).unwrap();
+        let adapted_rsp = rsp.adapt_to(&adapted);
+        assert_eq!(adapted_rsp.headers().len(), 1);
+        assert_eq!(adapted_rsp.headers().get("X-New").unwrap(), "1");
     }
 }
