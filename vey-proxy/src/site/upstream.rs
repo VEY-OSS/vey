@@ -31,7 +31,7 @@ pub(crate) struct UpstreamPeerStatus {
 }
 
 impl SiteUpstream {
-    pub(super) fn from_config(config: &SiteUpstreamConfig) -> Self {
+    pub(super) fn new(config: &SiteUpstreamConfig) -> Self {
         let upstream = SiteUpstream {
             config: config.clone(),
             runtime_weight: Mutex::new(HashMap::new()),
@@ -41,16 +41,15 @@ impl SiteUpstream {
         upstream
     }
 
-    pub(super) fn new_for_reload(old: &SiteUpstream, config: &SiteUpstreamConfig) -> Self {
-        let upstream = SiteUpstream::from_config(config);
+    pub(super) fn reload(&self, config: &SiteUpstreamConfig) -> Self {
+        let upstream = SiteUpstream::new(config);
         if upstream.config.single().is_some() || upstream.config.peers().is_empty() {
             return upstream;
         }
-        let old_weights = old.runtime_weight.lock().unwrap();
+        let old_weights = self.runtime_weight.lock().unwrap();
         if old_weights.is_empty() {
-            return upstream;
-        }
-        {
+            upstream
+        } else {
             let mut weights = upstream.runtime_weight.lock().unwrap();
             for peer in upstream.config.peers() {
                 let addr = *peer.inner();
@@ -58,9 +57,10 @@ impl SiteUpstream {
                     weights.insert(addr, *weight);
                 }
             }
+            drop(weights);
+            upstream.rebuild();
+            upstream
         }
-        upstream.rebuild();
-        upstream
     }
 
     pub(super) fn select(&self, client_ip: IpAddr) -> anyhow::Result<UpstreamAddr> {
@@ -158,7 +158,7 @@ mod tests {
   weight: 2
 "#,
         );
-        let upstream = SiteUpstream::from_config(&config);
+        let upstream = SiteUpstream::new(&config);
         let ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
         let mut picked = Vec::new();
         for _ in 0..3 {
@@ -175,13 +175,13 @@ mod tests {
 - 10.0.0.2:8080
 "#,
         );
-        let upstream = SiteUpstream::from_config(&config);
+        let upstream = SiteUpstream::new(&config);
         let addr = SocketAddr::from_str("10.0.0.1:8080").unwrap();
         upstream.set_weight(addr, 0.0).unwrap();
         let ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
         assert_eq!(upstream.select(ip).unwrap().to_string(), "10.0.0.2:8080");
 
-        let reloaded = SiteUpstream::new_for_reload(&upstream, &config);
+        let reloaded = upstream.reload(&config);
         assert_eq!(reloaded.select(ip).unwrap().to_string(), "10.0.0.2:8080");
         let peers = reloaded.list_peers().unwrap();
         let kept = peers.iter().find(|peer| peer.addr == addr).unwrap();
@@ -196,7 +196,7 @@ mod tests {
 - 10.0.0.1:8080
 "#,
         );
-        let upstream = SiteUpstream::from_config(&config);
+        let upstream = SiteUpstream::new(&config);
         upstream
             .set_weight(SocketAddr::from_str("10.0.0.1:8080").unwrap(), 0.0)
             .unwrap();

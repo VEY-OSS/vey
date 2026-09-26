@@ -16,9 +16,6 @@ use crate::auth::{
 };
 use crate::stat::site::SiteMetricTags;
 
-/// Reported as the tag value when a site metric identity field is unset.
-const EMPTY_TAG: ArcStr = arcstr::literal!("-");
-
 /// Per site counters behind the `site.*` metrics.
 ///
 /// This mirrors [`UserSiteStats`](crate::auth::UserSiteStats) and reuses the same
@@ -35,18 +32,13 @@ pub(crate) struct SiteStats {
 
 impl SiteStats {
     pub(super) fn new(
-        site_group: &NodeName,
-        site_id: &NodeName,
-        owner: &NodeName,
-        tenant_user_group: &NodeName,
+        site_group: NodeName,
+        site_id: NodeName,
+        tenant_user: NodeName,
+        tenant_user_group: NodeName,
     ) -> Self {
         SiteStats {
-            tags: SiteMetricTags::new(
-                site_group,
-                site_id,
-                tag_or_dash(owner),
-                tag_or_dash(tenant_user_group),
-            ),
+            tags: SiteMetricTags::new(site_group, site_id, tenant_user, tenant_user_group),
             request: Mutex::new(HashMap::default()),
             forbidden: Mutex::new(HashMap::default()),
             client_io: Mutex::new(HashMap::default()),
@@ -56,6 +48,15 @@ impl SiteStats {
 
     pub(super) fn site_group(&self) -> &NodeName {
         self.tags.site_group()
+    }
+
+    pub(super) fn same_tenant(
+        &self,
+        tenant_user_name: &NodeName,
+        tenant_user_group_name: &NodeName,
+    ) -> bool {
+        self.tags.tenant_user() == tenant_user_name
+            && self.tags.tenant_user_group() == tenant_user_group_name
     }
 
     pub(crate) fn fetch_request_stats(
@@ -180,13 +181,5 @@ impl SiteStats {
         }
 
         stats
-    }
-}
-
-fn tag_or_dash(name: &NodeName) -> ArcStr {
-    if name.is_empty() {
-        EMPTY_TAG
-    } else {
-        ArcStr::from(name.as_str())
     }
 }

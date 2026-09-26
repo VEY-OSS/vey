@@ -64,8 +64,13 @@ impl SiteGroup {
         let tenant_user_group = Arc::clone(&self.tenant_user_group);
         let sites_by_host = config.sites.try_build_arc(|site_config| {
             let id = site_config.id();
-            Site::try_build(group_name, site_config, Arc::clone(&tenant_user_group))
-                .context(format!("failed to build site {id}"))
+            Site::new(
+                group_name,
+                site_config.clone(),
+                self.config.tenant_user_group(),
+                Arc::clone(&tenant_user_group),
+            )
+            .context(format!("failed to build site {id}"))
         })?;
         self.add_sites(sites_by_host);
         Ok(())
@@ -80,11 +85,20 @@ impl SiteGroup {
             if let Some(prev) = old.sites_by_id.get(id)
                 && prev.site_group() == group_name
             {
-                prev.new_for_reload(site_config, Arc::clone(&tenant_user_group))
-                    .context(format!("failed to reload site {id}"))
+                prev.reload(
+                    site_config.clone(),
+                    self.config.tenant_user_group(),
+                    Arc::clone(&tenant_user_group),
+                )
+                .context(format!("failed to reload site {id}"))
             } else {
-                Site::try_build(group_name, site_config, Arc::clone(&tenant_user_group))
-                    .context(format!("failed to build site {id}"))
+                Site::new(
+                    group_name,
+                    site_config.clone(),
+                    self.config.tenant_user_group(),
+                    Arc::clone(&tenant_user_group),
+                )
+                .context(format!("failed to build site {id}"))
             }
         })?;
         self.add_sites(sites_by_host);
