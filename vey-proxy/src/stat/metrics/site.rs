@@ -5,8 +5,6 @@
 
 use std::sync::{Arc, Mutex};
 
-use arcstr::ArcStr;
-
 use vey_daemon::metrics::{TAG_KEY_SERVER, TAG_KEY_STAT_ID};
 use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::metrics::NodeName;
@@ -80,6 +78,9 @@ static SITE_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<TrafficStatsValue>> =
 static SITE_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<UpstreamTrafficStatsValue>> =
     Mutex::new(GlobalStatsMap::new());
 
+/// Reported as the tag value when a site metric identity field is unset.
+const EMPTY_TAG: &str = "-";
+
 /// The site identity carried by every `site.*` metric.
 ///
 /// The counter types are shared with `user.*`, but their identity fields are
@@ -88,19 +89,22 @@ static SITE_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<UpstreamTrafficStat
 pub(crate) struct SiteMetricTags {
     group: NodeName,
     id: NodeName,
-    /// Site owner, already normalized to `-` when the site has none.
-    user: ArcStr,
-    /// Site group's tenant_user_group, already normalized to `-` when unset.
-    user_group: ArcStr,
+    tenant_user: NodeName,
+    tenant_user_group: NodeName,
 }
 
 impl SiteMetricTags {
-    pub(crate) fn new(group: &NodeName, id: &NodeName, user: ArcStr, user_group: ArcStr) -> Self {
+    pub(crate) fn new(
+        group: NodeName,
+        id: NodeName,
+        tenant_user: NodeName,
+        tenant_user_group: NodeName,
+    ) -> Self {
         SiteMetricTags {
-            group: group.clone(),
-            id: id.clone(),
-            user,
-            user_group,
+            group,
+            id,
+            tenant_user,
+            tenant_user_group,
         }
     }
 
@@ -108,13 +112,29 @@ impl SiteMetricTags {
         &self.group
     }
 
+    pub(crate) fn tenant_user(&self) -> &NodeName {
+        &self.tenant_user
+    }
+
+    pub(crate) fn tenant_user_group(&self) -> &NodeName {
+        &self.tenant_user_group
+    }
+
     fn add_to(&self, tags: &mut StatsdTagGroup, stat_id: StatId) {
         let mut buffer = itoa::Buffer::new();
         let stat_id = buffer.format(stat_id.as_u64());
         tags.add_tag(TAG_KEY_SITE_GROUP, &self.group);
         tags.add_tag(TAG_KEY_SITE, &self.id);
-        tags.add_tag(TAG_KEY_USER, &self.user);
-        tags.add_tag(TAG_KEY_USER_GROUP, &self.user_group);
+        if self.tenant_user.is_empty() {
+            tags.add_tag(TAG_KEY_USER, EMPTY_TAG);
+        } else {
+            tags.add_tag(TAG_KEY_USER, &self.tenant_user);
+        }
+        if self.tenant_user_group.is_empty() {
+            tags.add_tag(TAG_KEY_USER_GROUP, EMPTY_TAG);
+        } else {
+            tags.add_tag(TAG_KEY_USER_GROUP, &self.tenant_user_group);
+        }
         tags.add_tag(TAG_KEY_STAT_ID, stat_id);
     }
 }

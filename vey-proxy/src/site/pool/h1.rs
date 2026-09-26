@@ -12,9 +12,10 @@ use ahash::AHashMap;
 use tokio::time::{Instant, MissedTickBehavior};
 
 use vey_types::metrics::NodeName;
-use vey_types::net::ConnectionPoolConfig;
+use vey_types::net::{ConnectionPoolConfig, UpstreamAddr};
 
 use super::{IsolationKey, lane_index};
+use crate::config::site::SiteUpstreamConfig;
 use crate::escape::EgressNotes;
 use crate::module::http_forward::{
     BoxHttpForwardConnection, HttpAliveReuseNotes, HttpConnectionEofPoller,
@@ -28,6 +29,8 @@ use crate::module::http_forward::{
 /// Inside a lane, connections are split by escaper and peer.
 pub(crate) struct SiteHttp1Pool {
     config: ConnectionPoolConfig,
+    upstream: Option<UpstreamAddr>,
+    is_tls: bool,
     lane_max_idle: usize,
     lanes: Box<[H1Lane]>,
 }
@@ -49,14 +52,35 @@ struct InnerPool {
 }
 
 impl SiteHttp1Pool {
-    pub(crate) fn new(config: ConnectionPoolConfig) -> Self {
+    pub(crate) fn new(
+        config: ConnectionPoolConfig,
+        upstream: &SiteUpstreamConfig,
+        is_tls: bool,
+    ) -> Self {
         let lane_count = vey_daemon::runtime::worker::worker_count().max(1);
         let lane_max_idle = config.max_idle_count().div_ceil(lane_count).max(1);
         SiteHttp1Pool {
             config,
+            upstream: upstream.single().cloned(),
+            is_tls,
             lane_max_idle,
             lanes: (0..lane_count).map(|_| H1Lane::default()).collect(),
         }
+    }
+
+    pub(crate) fn new_or_reload(
+        self: &Arc<Self>,
+        config: ConnectionPoolConfig,
+        upstream: &SiteUpstreamConfig,
+        is_tls: bool,
+    ) -> Arc<Self> {
+        if self.config == config
+            && self.upstream.as_ref() == upstream.single()
+            && self.is_tls == is_tls
+        {
+            return self.clone();
+        }
+        Arc::new(Self::new(config, upstream, is_tls))
     }
 
     pub(crate) async fn get(
