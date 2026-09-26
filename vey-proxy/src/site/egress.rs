@@ -26,7 +26,7 @@ pub(crate) struct SiteEgress {
 }
 
 impl SiteEgress {
-    pub(crate) fn from_site_config(config: &SiteConfig) -> Self {
+    pub(crate) fn new(config: &SiteConfig) -> Self {
         let egress_path_selection =
             if config.egress_path_id_map.is_empty() && config.egress_path_value_map.is_empty() {
                 None

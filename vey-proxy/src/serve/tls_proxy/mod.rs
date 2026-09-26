@@ -4,8 +4,10 @@
  */
 
 mod common;
+
 mod host;
-mod server;
+
 mod task;
 
+mod server;
 pub(super) use server::TlsProxyServer;

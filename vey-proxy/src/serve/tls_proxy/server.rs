@@ -38,7 +38,7 @@ use vey_types::net::{Host, OpensslTicketKey, RollingTicketer, TlsServerName};
 use vey_types::route::HostMatch;
 
 use super::common::CommonTaskContext;
-use super::host::TlsHost;
+use super::host::TlsProxyHost;
 use super::task::TlsProxyTask;
 use crate::audit::{AuditContext, AuditHandle};
 use crate::config::server::tls_proxy::TlsProxyServerConfig;
@@ -59,7 +59,7 @@ pub(crate) struct TlsProxyServer {
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
     task_logger: Option<Logger>,
-    hosts: ArcSwap<HostMatch<Arc<TlsHost>>>,
+    hosts: ArcSwap<HostMatch<Arc<TlsProxyHost>>>,
 
     escaper: ArcSwap<ArcEscaper>,
     audit_handle: ArcSwapOption<AuditHandle>,
@@ -73,10 +73,14 @@ impl TlsProxyServer {
         config: Arc<TlsProxyServerConfig>,
         server_stats: Arc<TcpStreamServerStats>,
         listen_stats: Arc<ListenStats>,
-        hosts: HostMatch<Arc<TlsHost>>,
         tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> anyhow::Result<Self> {
+        let group = crate::site::get_or_insert_default(&config.site_group);
+        let hosts = group.sites_by_host().try_build_arc_filtered(|site| {
+            TlsProxyHost::try_build(Arc::clone(site), tls_rolling_ticketer.clone())
+        })?;
+
         let reload_sender = ServerReloadCommand::new_sender();
 
         let ingress_net_filter = config
@@ -124,53 +128,36 @@ impl TlsProxyServer {
         } else {
             None
         };
-        let hosts = build_hosts(&config.site_group, tls_rolling_ticketer.clone())?;
+
+        let server =
+            TlsProxyServer::new(config, server_stats, listen_stats, tls_rolling_ticketer, 1)?;
+        Ok(Arc::new(server))
+    }
+
+    fn prepare_reload(&self, config: TlsProxyServerConfig) -> anyhow::Result<TlsProxyServer> {
+        let config = Arc::new(config);
+        let server_stats = Arc::clone(&self.server_stats);
+        let listen_stats = Arc::clone(&self.listen_stats);
+
+        let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+            self.tls_rolling_ticketer.clone()
+        } else if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
 
         let server = TlsProxyServer::new(
             config,
             server_stats,
             listen_stats,
-            hosts,
             tls_rolling_ticketer,
-            1,
+            self.reload_version + 1,
         )?;
-        Ok(Arc::new(server))
-    }
-
-    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<TlsProxyServer> {
-        if let AnyServerConfig::TlsProxy(config) = config {
-            let config = Arc::new(config);
-            let server_stats = Arc::clone(&self.server_stats);
-            let listen_stats = Arc::clone(&self.listen_stats);
-
-            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
-                self.tls_rolling_ticketer.clone()
-            } else if let Some(c) = &config.tls_ticketer {
-                let ticketer = c
-                    .build_and_spawn_updater()
-                    .context("failed to create tls rolling ticketer")?;
-                Some(ticketer)
-            } else {
-                None
-            };
-            let hosts = build_hosts(&config.site_group, tls_rolling_ticketer.clone())?;
-
-            let server = TlsProxyServer::new(
-                config,
-                server_stats,
-                listen_stats,
-                hosts,
-                tls_rolling_ticketer,
-                self.reload_version + 1,
-            )?;
-            Ok(server)
-        } else {
-            Err(anyhow!(
-                "config type mismatch: expect {}, actual {}",
-                self.config.r#type(),
-                config.r#type()
-            ))
-        }
+        Ok(server)
     }
 
     fn drop_early(&self, client_addr: SocketAddr) -> bool {
@@ -204,11 +191,11 @@ impl TlsProxyServer {
         }
     }
 
-    async fn run_task<S>(
+    async fn run_relay_task<S>(
         &self,
         stream: S,
         cc_info: ClientConnectionInfo,
-        host: Arc<TlsHost>,
+        host: Arc<TlsProxyHost>,
         request_host: Host,
     ) where
         S: AsyncStream + 'static,
@@ -303,7 +290,8 @@ impl TlsProxyServer {
                 if ssl_stream.ssl().session_reused() {
                     cc_info.tcp_sock_try_quick_ack();
                 }
-                self.run_task(ssl_stream, cc_info, host, request_host).await
+                self.run_relay_task(ssl_stream, cc_info, host, request_host)
+                    .await
             }
             Err(e) => {
                 self.listen_stats.add_failed();
@@ -316,29 +304,18 @@ impl TlsProxyServer {
         }
     }
 
-    fn match_sni_host(&self, sni: Option<&str>) -> Option<Arc<TlsHost>> {
+    fn get_proxy_host(&self, sni_host: &Host) -> Option<Arc<TlsProxyHost>> {
         let hosts = self.hosts.load();
-        match sni {
-            Some(name) => match Host::from_str(name) {
-                Ok(host) => hosts.get(&host).cloned(),
-                Err(_) => hosts.get_default().cloned(),
-            },
-            None => hosts.get_default().cloned(),
-        }
+        hosts.get(sni_host).cloned()
     }
-}
-
-fn host_from_sni(sni: Option<&str>) -> Host {
-    sni.and_then(|name| Host::from_str(name).ok())
-        .unwrap_or_else(Host::empty)
 }
 
 async fn read_sni_host<'a>(
     clt_r: &mut TcpStream,
     clt_r_buf: &mut BytesMut,
     max_client_hello_size: u32,
-    hosts: &'a HostMatch<Arc<TlsHost>>,
-) -> anyhow::Result<Option<(&'a Arc<TlsHost>, Host)>> {
+    hosts: &'a HostMatch<Arc<TlsProxyHost>>,
+) -> anyhow::Result<Option<(&'a Arc<TlsProxyHost>, Host)>> {
     let max_hello_size = max_client_hello_size as usize;
     let max_buf_size = max_hello_size
         .saturating_mul(RecordHeader::SIZE + 1)
@@ -385,8 +362,8 @@ async fn read_sni_host<'a>(
 
 fn host_from_client_hello<'a>(
     ch: ClientHello<'_>,
-    hosts: &'a HostMatch<Arc<TlsHost>>,
-) -> Option<(&'a Arc<TlsHost>, Host)> {
+    hosts: &'a HostMatch<Arc<TlsProxyHost>>,
+) -> Option<(&'a Arc<TlsProxyHost>, Host)> {
     match ch.get_ext(ExtensionType::ServerName) {
         Ok(Some(data)) => match TlsServerName::from_extension_value(data) {
             Ok(sni) => {
@@ -397,16 +374,6 @@ fn host_from_client_hello<'a>(
         },
         Ok(None) | Err(_) => hosts.get_default().map(|host| (host, Host::empty())),
     }
-}
-
-fn build_hosts(
-    site_group: &NodeName,
-    ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
-) -> anyhow::Result<HostMatch<Arc<TlsHost>>> {
-    let group = crate::site::get_or_insert_default(site_group);
-    group
-        .sites_by_host()
-        .try_build_arc_filtered(|site| TlsHost::try_build(Arc::clone(site), ticketer.clone()))
 }
 
 impl ServerInternal for TlsProxyServer {
@@ -437,10 +404,10 @@ impl ServerInternal for TlsProxyServer {
     }
 
     fn _update_site_group_in_place(&self) -> anyhow::Result<()> {
-        if self.config.site_group.is_empty() {
-            return Ok(());
-        }
-        let hosts = build_hosts(&self.config.site_group, self.tls_rolling_ticketer.clone())?;
+        let group = crate::site::get_or_insert_default(&self.config.site_group);
+        let hosts = group.sites_by_host().try_build_arc_filtered(|site| {
+            TlsProxyHost::try_build(Arc::clone(site), self.tls_rolling_ticketer.clone())
+        })?;
         self.hosts.store(Arc::new(hosts));
         Ok(())
     }
@@ -456,9 +423,17 @@ impl ServerInternal for TlsProxyServer {
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let mut server = self.prepare_reload(config)?;
-        server.reload_sender = self.reload_sender.clone();
-        Ok(Arc::new(server))
+        if let AnyServerConfig::TlsProxy(config) = config {
+            let mut server = self.prepare_reload(config)?;
+            server.reload_sender = self.reload_sender.clone();
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _reload_with_new_notifier(
@@ -466,8 +441,16 @@ impl ServerInternal for TlsProxyServer {
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let server = self.prepare_reload(config)?;
-        Ok(Arc::new(server))
+        if let AnyServerConfig::TlsProxy(config) = config {
+            let server = self.prepare_reload(config)?;
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
@@ -576,13 +559,19 @@ impl Server for TlsProxyServer {
             return;
         }
 
-        let sni = stream.get_ref().1.server_name();
-        let Some(host) = self.match_sni_host(sni) else {
+        let Some(sni_raw) = stream.get_ref().1.server_name() else {
             self.listen_stats.add_failed();
             return;
         };
-        let request_host = host_from_sni(sni);
-        self.run_task(stream, cc_info, host, request_host).await;
+        let Ok(sni_host) = Host::from_str(sni_raw) else {
+            self.listen_stats.add_failed();
+            return;
+        };
+        let Some(host) = self.get_proxy_host(&sni_host) else {
+            self.listen_stats.add_failed();
+            return;
+        };
+        self.run_relay_task(stream, cc_info, host, sni_host).await;
     }
 
     async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
@@ -592,12 +581,16 @@ impl Server for TlsProxyServer {
             return;
         }
 
-        let sni = stream.ssl().servername(NameType::HOST_NAME);
-        let Some(host) = self.match_sni_host(sni) else {
+        let Some(sni_raw) = stream.ssl().servername(NameType::HOST_NAME) else {
+            return;
+        };
+        let Ok(sni_host) = Host::from_str(sni_raw) else {
+            return;
+        };
+        let Some(host) = self.get_proxy_host(&sni_host) else {
             self.listen_stats.add_failed();
             return;
         };
-        let request_host = host_from_sni(sni);
-        self.run_task(stream, cc_info, host, request_host).await;
+        self.run_relay_task(stream, cc_info, host, sni_host).await;
     }
 }

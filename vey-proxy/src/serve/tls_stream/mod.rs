@@ -4,7 +4,8 @@
  */
 
 mod common;
-mod server;
+
 mod task;
 
+mod server;
 pub(crate) use server::TlsStreamServer;

@@ -11,13 +11,13 @@ use vey_types::net::{OpensslServerConfig, OpensslTicketKey, RollingTicketer};
 
 use crate::site::{Site, SiteEgress};
 
-pub(crate) struct TlsHost {
+pub(crate) struct TlsProxyHost {
     site: Arc<Site>,
     egress: Arc<SiteEgress>,
     tls_server: OpensslServerConfig,
 }
 
-impl TlsHost {
+impl TlsProxyHost {
     pub(super) fn try_build(
         site: Arc<Site>,
         ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
@@ -29,8 +29,8 @@ impl TlsHost {
             .build_with_alpn_protocols(None, ticketer)
             .context("failed to build tls server")?;
 
-        let egress = Arc::new(SiteEgress::from_site_config(site.config()));
-        Ok(Some(TlsHost {
+        let egress = Arc::new(SiteEgress::new(site.config()));
+        Ok(Some(TlsProxyHost {
             site,
             egress,
             tls_server,

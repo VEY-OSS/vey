@@ -35,7 +35,7 @@ impl HttpHost {
             None
         };
 
-        let egress = Arc::new(SiteEgress::from_site_config(site.config()));
+        let egress = Arc::new(SiteEgress::new(site.config()));
         Ok(HttpHost {
             site,
             egress,

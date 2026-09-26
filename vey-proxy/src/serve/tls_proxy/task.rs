@@ -15,7 +15,7 @@ use vey_io_ext::{AsyncStream, IdleInterval, LimitedReader, LimitedWriter, Stream
 use vey_types::net::{Host, UpstreamAddr};
 
 use super::common::CommonTaskContext;
-use super::host::TlsHost;
+use super::host::TlsProxyHost;
 use crate::audit::AuditContext;
 use crate::auth::User;
 use crate::config::server::ServerConfig;
@@ -32,7 +32,7 @@ use crate::stat::types::RequestAliveKind;
 
 pub(super) struct TlsProxyTask {
     ctx: CommonTaskContext,
-    host: Arc<TlsHost>,
+    host: Arc<TlsProxyHost>,
     request_host: Host,
     upstream: UpstreamAddr,
     egress_notes: EgressNotes,
@@ -45,7 +45,7 @@ pub(super) struct TlsProxyTask {
 impl TlsProxyTask {
     pub(super) fn new(
         ctx: CommonTaskContext,
-        host: Arc<TlsHost>,
+        host: Arc<TlsProxyHost>,
         request_host: Host,
         audit_ctx: AuditContext,
         task_notes: ServerTaskNotes,
