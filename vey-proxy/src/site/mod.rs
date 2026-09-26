@@ -21,7 +21,6 @@ mod entry;
 pub(crate) use entry::{Site, SiteHttpConnGuard};
 
 mod upstream;
-pub(crate) use upstream::upstream_pool_peer;
 
 mod stats;
 pub(crate) use stats::SiteStats;

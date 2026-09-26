@@ -74,6 +74,14 @@ impl UpstreamAddr {
         self.port
     }
 
+    #[inline]
+    pub fn socket_addr(&self) -> Option<SocketAddr> {
+        match self.host {
+            Host::Ip(ip) => Some(SocketAddr::new(ip, self.port)),
+            Host::Domain(_) => None,
+        }
+    }
+
     pub fn set_port(&mut self, port: u16) {
         self.port = port;
     }
@@ -141,10 +149,7 @@ impl TryFrom<&UpstreamAddr> for SocketAddr {
     type Error = ();
 
     fn try_from(value: &UpstreamAddr) -> Result<Self, Self::Error> {
-        match &value.host {
-            Host::Domain(_) => Err(()),
-            Host::Ip(ip) => Ok(SocketAddr::new(*ip, value.port)),
-        }
+        value.socket_addr().ok_or(())
     }
 }
 

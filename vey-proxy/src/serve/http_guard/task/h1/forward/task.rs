@@ -513,7 +513,7 @@ impl<'a> HttpGuardForwardTask<'a> {
                 .get(
                     self.task_notes.worker_id(),
                     self.ctx.escaper.name(),
-                    crate::site::upstream_pool_peer(&self.upstream),
+                    self.upstream.socket_addr(),
                 )
                 .await?;
 
@@ -590,7 +590,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             pool.save(
                 self.task_notes.worker_id(),
                 self.ctx.escaper.name().clone(),
-                crate::site::upstream_pool_peer(&self.upstream),
+                self.upstream.socket_addr(),
                 connection,
                 reuse_notes,
                 self.egress_notes.clone(),

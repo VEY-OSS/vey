@@ -13,9 +13,7 @@ use arc_swap::ArcSwapOption;
 use ip_network_table::IpNetworkTable;
 
 use vey_dpi::MaybeProtocol;
-use vey_types::limit::{
-    GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimitQuota, RateLimiter,
-};
+use vey_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
     Host, HttpForwardedHeaderType, HttpKeepAliveConfig, OpensslClientConfig,
@@ -32,86 +30,136 @@ pub(crate) struct Site {
     tls_client: Option<OpensslClientConfig>,
     stats: Arc<SiteStats>,
     tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
-    request_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
+    request_rate_limit: Option<Arc<RateLimiter<Arc<GlobalRateLimitState>>>>,
     req_alive_sem: Option<GaugeSemaphore>,
-    http1_pool: Option<Arc<SiteHttp1Pool>>,
-    http2_pool: Arc<SiteHttp2Pool>,
+    h1_pool: Option<Arc<SiteHttp1Pool>>,
+    h2_pool: Arc<SiteHttp2Pool>,
     upstream: SiteUpstream,
     forwarded_trusted_from: IpNetworkTable<()>,
 }
 
 impl Site {
-    pub(super) fn try_build(
-        site_group: &NodeName,
-        config: &Arc<SiteConfig>,
+    fn new_minimal(
+        config: Arc<SiteConfig>,
+        stats: Arc<SiteStats>,
         tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
+        h1_pool: Option<Arc<SiteHttp1Pool>>,
+        h2_pool: Arc<SiteHttp2Pool>,
+        upstream: SiteUpstream,
     ) -> anyhow::Result<Self> {
-        let tls_client = build_tls_client(config)?;
-        let request_rate_limit = config
-            .request_rate_limit
-            .map(|quota| Arc::new(RateLimiter::new_global(quota)));
-        let req_alive_sem = config.request_alive_max.map(GaugeSemaphore::new);
-        let tenant_user_group_name = tenant_user_group
-            .load()
-            .as_ref()
-            .map(|g| g.name().clone())
-            .unwrap_or_default();
+        let tls_client = match &config.tls_client_builder {
+            Some(builder) => Some(builder.build().context("failed to build TLS client")?),
+            None => None,
+        };
+        let forwarded_trusted_from = config.http.build_forwarded_trusted_from_table();
 
         Ok(Site {
-            config: Arc::clone(config),
+            config,
             tls_client,
-            stats: Arc::new(SiteStats::new(
-                site_group,
-                config.id(),
-                config.owner(),
-                &tenant_user_group_name,
-            )),
+            stats,
             tenant_user_group,
-            request_rate_limit,
-            req_alive_sem,
-            http1_pool: config
-                .http
-                .h1
-                .connection_pool
-                .map(|cfg| Arc::new(SiteHttp1Pool::new(cfg))),
-            http2_pool: Arc::new(SiteHttp2Pool::new(config.http.h2.connection_pool)),
-            upstream: SiteUpstream::from_config(config.upstream()),
-            forwarded_trusted_from: config.http.build_forwarded_trusted_from_table(),
+            request_rate_limit: None,
+            req_alive_sem: None,
+            h1_pool,
+            h2_pool,
+            upstream,
+            forwarded_trusted_from,
         })
     }
 
-    pub(super) fn new_for_reload(
-        &self,
-        config: &Arc<SiteConfig>,
+    pub(super) fn new(
+        site_group: &NodeName,
+        config: Arc<SiteConfig>,
+        tenant_user_group_name: &NodeName,
         tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
     ) -> anyhow::Result<Self> {
-        let tls_client = build_tls_client(config)?;
-        let request_rate_limit = reuse_or_new_rate_limiter(
-            &self.request_rate_limit,
-            self.config.request_rate_limit,
-            config.request_rate_limit,
-        );
-        let req_alive_sem = config.request_alive_max.map(|permits| {
-            self.req_alive_sem
-                .as_ref()
-                .map(|sema| sema.new_updated(permits))
-                .unwrap_or_else(|| GaugeSemaphore::new(permits))
-        });
-        let http1_pool = reuse_or_new_http1_pool(self, config);
-        let http2_pool = reuse_or_new_http2_pool(self, config);
+        let stats = Arc::new(SiteStats::new(
+            site_group.clone(),
+            config.id().clone(),
+            config.owner().clone(),
+            tenant_user_group_name.clone(),
+        ));
 
-        Ok(Site {
-            config: Arc::clone(config),
-            tls_client,
-            stats: Arc::clone(&self.stats),
-            tenant_user_group,
-            request_rate_limit,
-            req_alive_sem,
-            http1_pool,
-            http2_pool,
-            upstream: SiteUpstream::new_for_reload(&self.upstream, config.upstream()),
-            forwarded_trusted_from: config.http.build_forwarded_trusted_from_table(),
-        })
+        let is_tls = config.tls_client_builder.is_some();
+        let h1_pool = config
+            .http
+            .h1
+            .connection_pool
+            .map(|cfg| Arc::new(SiteHttp1Pool::new(cfg, config.upstream(), is_tls)));
+        let h2_pool = Arc::new(SiteHttp2Pool::new(
+            config.http.h2.connection_pool,
+            config.upstream(),
+            is_tls,
+        ));
+        let upstream = SiteUpstream::new(config.upstream());
+
+        let mut new =
+            Self::new_minimal(config, stats, tenant_user_group, h1_pool, h2_pool, upstream)?;
+
+        if let Some(cfg) = new.config.request_rate_limit {
+            let limiter = RateLimiter::new_global_reloadable(cfg);
+            new.request_rate_limit = Some(Arc::new(limiter));
+        }
+        if let Some(max_alive) = new.config.request_alive_max {
+            new.req_alive_sem = Some(GaugeSemaphore::new(max_alive));
+        }
+
+        Ok(new)
+    }
+
+    pub(super) fn reload(
+        &self,
+        config: Arc<SiteConfig>,
+        tenant_user_group_name: &NodeName,
+        tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
+    ) -> anyhow::Result<Self> {
+        let is_tls = config.tls_client_builder.is_some();
+        let h1_pool = config
+            .http
+            .h1
+            .connection_pool
+            .map(|cfg| match &self.h1_pool {
+                Some(pool) => pool.new_or_reload(cfg, config.upstream(), is_tls),
+                None => Arc::new(SiteHttp1Pool::new(cfg, config.upstream(), is_tls)),
+            });
+        let h2_pool =
+            self.h2_pool
+                .new_or_reload(config.http.h2.connection_pool, config.upstream(), is_tls);
+        let upstream = self.upstream.reload(&config.upstream());
+
+        let stats = if self
+            .stats
+            .same_tenant(config.owner(), tenant_user_group_name)
+        {
+            self.stats.clone()
+        } else {
+            Arc::new(SiteStats::new(
+                self.site_group().clone(),
+                config.id().clone(),
+                config.owner().clone(),
+                tenant_user_group_name.clone(),
+            ))
+        };
+
+        let mut new =
+            Self::new_minimal(config, stats, tenant_user_group, h1_pool, h2_pool, upstream)?;
+
+        if let Some(cfg) = new.config.request_rate_limit {
+            let limiter = match &self.request_rate_limit {
+                Some(old) => old.reload(cfg),
+                None => RateLimiter::new_global_reloadable(cfg),
+            };
+            new.request_rate_limit = Some(Arc::new(limiter));
+        }
+        if let Some(max_alive) = new.config.request_alive_max {
+            let sema = match &self.req_alive_sem {
+                Some(old) => old.new_updated(max_alive),
+                None => GaugeSemaphore::new(max_alive),
+            };
+            new.req_alive_sem = Some(sema);
+        }
+
+        Ok(new)
     }
 
     pub(crate) fn id(&self) -> &NodeName {
@@ -222,11 +270,11 @@ impl Site {
     }
 
     pub(crate) fn http1_pool(&self) -> Option<&SiteHttp1Pool> {
-        self.http1_pool.as_deref()
+        self.h1_pool.as_deref()
     }
 
     pub(crate) fn http2_pool(&self) -> &SiteHttp2Pool {
-        &self.http2_pool
+        &self.h2_pool
     }
 
     pub(crate) fn trusts_forwarded_from(&self, ip: IpAddr) -> bool {
@@ -283,57 +331,5 @@ pub(crate) struct SiteHttpConnGuard {
 impl Drop for SiteHttpConnGuard {
     fn drop(&mut self) {
         self.stats.l7_conn_alive.dec_http();
-    }
-}
-
-fn build_tls_client(config: &SiteConfig) -> anyhow::Result<Option<OpensslClientConfig>> {
-    if let Some(builder) = &config.tls_client_builder {
-        let client = builder.build().context("failed to build tls client")?;
-        Ok(Some(client))
-    } else {
-        Ok(None)
-    }
-}
-
-fn reuse_or_new_http1_pool(old: &Site, config: &SiteConfig) -> Option<Arc<SiteHttp1Pool>> {
-    let pool_cfg = config.http.h1.connection_pool?;
-    if old.http1_pool.is_some()
-        && old.config.http.h1.connection_pool == Some(pool_cfg)
-        && old.config.upstream() == config.upstream()
-        && old.config.tls_client_builder == config.tls_client_builder
-        && old.config.tls_name == config.tls_name
-    {
-        return old.http1_pool.clone();
-    }
-    Some(Arc::new(SiteHttp1Pool::new(pool_cfg)))
-}
-
-fn reuse_or_new_http2_pool(old: &Site, config: &SiteConfig) -> Arc<SiteHttp2Pool> {
-    if old.config.http.h2.connection_pool == config.http.h2.connection_pool
-        && old.config.upstream() == config.upstream()
-        && old.config.tls_client_builder == config.tls_client_builder
-        && old.config.tls_name == config.tls_name
-    {
-        return Arc::clone(&old.http2_pool);
-    }
-    Arc::new(SiteHttp2Pool::new(config.http.h2.connection_pool))
-}
-
-fn reuse_or_new_rate_limiter(
-    old_limiter: &Option<Arc<RateLimiter<GlobalRateLimitState>>>,
-    old_quota: Option<RateLimitQuota>,
-    new_quota: Option<RateLimitQuota>,
-) -> Option<Arc<RateLimiter<GlobalRateLimitState>>> {
-    match new_quota {
-        Some(quota) => {
-            if let (Some(old_limiter), Some(old_quota)) = (old_limiter, old_quota)
-                && quota.eq(&old_quota)
-            {
-                Some(Arc::clone(old_limiter))
-            } else {
-                Some(Arc::new(RateLimiter::new_global(quota)))
-            }
-        }
-        None => None,
     }
 }
