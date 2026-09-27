@@ -3,10 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-mod host;
-pub(crate) use host::TlsProxyHost;
+use super::CommonTaskContext;
 
 mod task;
-
-mod server;
-pub(super) use server::TlsProxyServer;
+pub(crate) use task::TlsRelayTask;

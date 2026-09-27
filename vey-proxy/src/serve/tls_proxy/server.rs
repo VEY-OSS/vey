@@ -11,35 +11,29 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
-use bytes::BytesMut;
-use log::debug;
-use openssl::ssl::{NameType, Ssl};
+use openssl::ssl::NameType;
 #[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
-use vey_codec::tls::{
-    ClientHello, ExtensionType, HandshakeCoalescer, Record, RecordHeader, RecordParseError,
-};
 use vey_daemon::listen::{
     AcceptQuicServer, AcceptTcpServer, AcceptUdpServer, AcceptedUdpPacketReceiver,
     AcceptedUdpPacketSender, ListenStats, ListenTcpRuntime,
 };
 use vey_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
-use vey_io_ext::{AsyncStream, IdleWheel, OnceBufReader};
-use vey_openssl::{SslAcceptor, SslStream};
+use vey_io_ext::{AsyncStream, IdleWheel};
+use vey_openssl::SslStream;
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;
-use vey_types::net::{Host, OpensslTicketKey, RollingTicketer, TlsServerName};
+use vey_types::net::{Host, OpensslTicketKey, RollingTicketer};
 use vey_types::route::HostMatch;
 
-use super::common::CommonTaskContext;
 use super::host::TlsProxyHost;
-use super::task::TlsProxyTask;
+use super::task::{CommonTaskContext, TlsAcceptTask, TlsRelayTask};
 use crate::audit::{AuditContext, AuditHandle};
 use crate::config::server::tls_proxy::TlsProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -191,188 +185,33 @@ impl TlsProxyServer {
         }
     }
 
-    async fn run_relay_task<S>(
-        &self,
-        stream: S,
-        cc_info: ClientConnectionInfo,
-        host: Arc<TlsProxyHost>,
-        request_host: Host,
-    ) where
+    async fn run_relay_task<S>(&self, stream: S, cc_info: ClientConnectionInfo, sni_host: Host)
+    where
         S: AsyncStream + 'static,
         S::R: AsyncRead + Send + Sync + Unpin + 'static,
         S::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
+        let Some(host) = self.get_proxy_host(&sni_host) else {
+            self.server_stats.forbidden.add_dest_denied();
+            return;
+        };
         let site_ctx = SiteContext::new(
             Arc::clone(host.site()),
             Arc::clone(host.egress()),
             self.config.name(),
             self.server_stats.share_extra_tags(),
         );
-        if let Some(tenant) = site_ctx.tenant_ctx() {
-            if tenant.is_expired() {
-                return;
-            }
-            if let Some(delay) = tenant.blocked_delay() {
-                if !delay.is_zero() {
-                    tokio::time::sleep(delay).await;
-                }
-                return;
-            }
-        }
         let task_notes =
             ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO).with_site_ctx(site_ctx);
-
         let ctx = self.get_common_task_context(cc_info);
-        TlsProxyTask::new(ctx, host, request_host, self.audit_context(), task_notes)
-            .into_running(stream)
+        TlsRelayTask::new(ctx, host, sni_host, self.audit_context(), task_notes)
+            .into_running_from_tls(stream)
             .await;
-    }
-
-    async fn run_tls_tcp_task(&self, mut stream: TcpStream, cc_info: ClientConnectionInfo) {
-        const TLS_MAX_CLIENT_HELLO_SIZE: u32 = 1 << 16;
-
-        let hosts = self.hosts.load();
-        let mut clt_r_buf = BytesMut::with_capacity(2048);
-        let host = match tokio::time::timeout(
-            self.config.client_hello_recv_timeout,
-            read_sni_host(
-                &mut stream,
-                &mut clt_r_buf,
-                TLS_MAX_CLIENT_HELLO_SIZE,
-                &hosts,
-            ),
-        )
-        .await
-        {
-            Ok(Ok(host)) => host,
-            Ok(Err(e)) => {
-                self.listen_stats.add_failed();
-                debug!(
-                    "{} - {} tls client hello error: {e:?}",
-                    cc_info.sock_local_addr(),
-                    cc_info.sock_peer_addr()
-                );
-                return;
-            }
-            Err(_) => {
-                self.listen_stats.add_timeout();
-                debug!(
-                    "{} - {} tls client hello timeout",
-                    cc_info.sock_local_addr(),
-                    cc_info.sock_peer_addr()
-                );
-                return;
-            }
-        };
-
-        let Some((host, request_host)) = host.map(|(host, name)| (Arc::clone(host), name)) else {
-            self.listen_stats.add_failed();
-            debug!(
-                "{} - {} tls error: no matched site",
-                cc_info.sock_local_addr(),
-                cc_info.sock_peer_addr()
-            );
-            return;
-        };
-
-        let tls_config = host.tls_server();
-        let Ok(ssl) = Ssl::new(&tls_config.ssl_context) else {
-            self.listen_stats.add_failed();
-            return;
-        };
-        let stream = OnceBufReader::new(stream, clt_r_buf);
-        let Ok(ssl_acceptor) = SslAcceptor::new(ssl, stream, tls_config.accept_timeout) else {
-            self.listen_stats.add_failed();
-            return;
-        };
-        match ssl_acceptor.accept().await {
-            Ok(ssl_stream) => {
-                if ssl_stream.ssl().session_reused() {
-                    cc_info.tcp_sock_try_quick_ack();
-                }
-                self.run_relay_task(ssl_stream, cc_info, host, request_host)
-                    .await
-            }
-            Err(e) => {
-                self.listen_stats.add_failed();
-                debug!(
-                    "{} - {} tls error: {e:?}",
-                    cc_info.sock_local_addr(),
-                    cc_info.sock_peer_addr()
-                );
-            }
-        }
     }
 
     fn get_proxy_host(&self, sni_host: &Host) -> Option<Arc<TlsProxyHost>> {
         let hosts = self.hosts.load();
         hosts.get(sni_host).cloned()
-    }
-}
-
-async fn read_sni_host<'a>(
-    clt_r: &mut TcpStream,
-    clt_r_buf: &mut BytesMut,
-    max_client_hello_size: u32,
-    hosts: &'a HostMatch<Arc<TlsProxyHost>>,
-) -> anyhow::Result<Option<(&'a Arc<TlsProxyHost>, Host)>> {
-    let max_hello_size = max_client_hello_size as usize;
-    let max_buf_size = max_hello_size
-        .saturating_mul(RecordHeader::SIZE + 1)
-        .saturating_add(1 << 14);
-    let mut handshake_coalescer = HandshakeCoalescer::new(max_client_hello_size);
-    let mut record_offset = 0;
-    loop {
-        let mut record = match Record::parse(&clt_r_buf[record_offset..]) {
-            Ok(r) => r,
-            Err(RecordParseError::NeedMoreData(_)) => {
-                if clt_r_buf.len() >= max_buf_size {
-                    return Err(anyhow!("tls client hello message too large"));
-                }
-                match clt_r.read_buf(clt_r_buf).await {
-                    Ok(0) => return Err(anyhow!("connection closed by client")),
-                    Ok(_) => continue,
-                    Err(e) => return Err(anyhow!("client read error: {e}")),
-                }
-            }
-            Err(_) => return Err(anyhow!("invalid tls client hello request")),
-        };
-        record_offset += record.encoded_len();
-
-        match record.consume_handshake(&mut handshake_coalescer) {
-            Ok(Some(handshake_msg)) => {
-                let ch = handshake_msg
-                    .parse_client_hello()
-                    .map_err(|_| anyhow!("invalid tls client hello request"))?;
-                return Ok(host_from_client_hello(ch, hosts));
-            }
-            Ok(None) => match handshake_coalescer.parse_client_hello() {
-                Ok(Some(ch)) => return Ok(host_from_client_hello(ch, hosts)),
-                Ok(None) => {
-                    if !record.consume_done() {
-                        return Err(anyhow!("partial fragmented tls client hello request"));
-                    }
-                }
-                Err(_) => return Err(anyhow!("invalid fragmented tls client hello request")),
-            },
-            Err(_) => return Err(anyhow!("invalid tls client hello request")),
-        }
-    }
-}
-
-fn host_from_client_hello<'a>(
-    ch: ClientHello<'_>,
-    hosts: &'a HostMatch<Arc<TlsProxyHost>>,
-) -> Option<(&'a Arc<TlsProxyHost>, Host)> {
-    match ch.get_ext(ExtensionType::ServerName) {
-        Ok(Some(data)) => match TlsServerName::from_extension_value(data) {
-            Ok(sni) => {
-                let name = Host::from(sni);
-                hosts.get(&name).map(|host| (host, name))
-            }
-            Err(_) => hosts.get_default().map(|host| (host, Host::empty())),
-        },
-        Ok(None) | Err(_) => hosts.get_default().map(|host| (host, Host::empty())),
     }
 }
 
@@ -500,7 +339,10 @@ impl AcceptTcpServer for TlsProxyServer {
             return;
         }
 
-        self.run_tls_tcp_task(stream, cc_info).await;
+        let ctx = self.get_common_task_context(cc_info);
+        TlsAcceptTask::new(ctx, self.hosts.load_full(), self.audit_context())
+            .into_running(stream)
+            .await;
     }
 }
 
@@ -560,18 +402,14 @@ impl Server for TlsProxyServer {
         }
 
         let Some(sni_raw) = stream.get_ref().1.server_name() else {
-            self.listen_stats.add_failed();
+            self.server_stats.forbidden.add_dest_denied();
             return;
         };
         let Ok(sni_host) = Host::from_str(sni_raw) else {
-            self.listen_stats.add_failed();
+            self.server_stats.forbidden.add_dest_denied();
             return;
         };
-        let Some(host) = self.get_proxy_host(&sni_host) else {
-            self.listen_stats.add_failed();
-            return;
-        };
-        self.run_relay_task(stream, cc_info, host, sni_host).await;
+        self.run_relay_task(stream, cc_info, sni_host).await;
     }
 
     async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
@@ -582,15 +420,13 @@ impl Server for TlsProxyServer {
         }
 
         let Some(sni_raw) = stream.ssl().servername(NameType::HOST_NAME) else {
+            self.server_stats.forbidden.add_dest_denied();
             return;
         };
         let Ok(sni_host) = Host::from_str(sni_raw) else {
+            self.server_stats.forbidden.add_dest_denied();
             return;
         };
-        let Some(host) = self.get_proxy_host(&sni_host) else {
-            self.listen_stats.add_failed();
-            return;
-        };
-        self.run_relay_task(stream, cc_info, host, sni_host).await;
+        self.run_relay_task(stream, cc_info, sni_host).await;
     }
 }

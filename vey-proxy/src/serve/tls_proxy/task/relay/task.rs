@@ -14,8 +14,7 @@ use vey_daemon::stat::task::TcpStreamTaskStats;
 use vey_io_ext::{AsyncStream, IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
 use vey_types::net::{Host, UpstreamAddr};
 
-use super::common::CommonTaskContext;
-use super::host::TlsProxyHost;
+use super::CommonTaskContext;
 use crate::audit::AuditContext;
 use crate::auth::User;
 use crate::config::server::ServerConfig;
@@ -24,16 +23,17 @@ use crate::inspect::{StreamInspectContext, StreamTransitTask};
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
 use crate::module::tcp_connect::{TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::tcp_stream::{TcpStreamServerAliveTaskGuard, TcpStreamTaskCltWrapperStats};
+use crate::serve::tls_proxy::host::TlsProxyHost;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
 use crate::stat::types::RequestAliveKind;
 
-pub(super) struct TlsProxyTask {
+pub(crate) struct TlsRelayTask {
     ctx: CommonTaskContext,
     host: Arc<TlsProxyHost>,
-    request_host: Host,
+    req_host: Host,
     upstream: UpstreamAddr,
     egress_notes: EgressNotes,
     task_notes: ServerTaskNotes,
@@ -42,11 +42,11 @@ pub(super) struct TlsProxyTask {
     _alive_guard: Option<TcpStreamServerAliveTaskGuard>,
 }
 
-impl TlsProxyTask {
-    pub(super) fn new(
+impl TlsRelayTask {
+    pub(crate) fn new(
         ctx: CommonTaskContext,
         host: Arc<TlsProxyHost>,
-        request_host: Host,
+        req_host: Host,
         audit_ctx: AuditContext,
         task_notes: ServerTaskNotes,
     ) -> Self {
@@ -54,10 +54,10 @@ impl TlsProxyTask {
             .site()
             .select_upstream(task_notes.client_ip())
             .unwrap_or_else(|_| UpstreamAddr::empty());
-        TlsProxyTask {
+        TlsRelayTask {
             ctx,
             host,
-            request_host,
+            req_host,
             upstream,
             egress_notes: EgressNotes::default(),
             task_notes,
@@ -83,7 +83,28 @@ impl TlsProxyTask {
             })
     }
 
-    pub(super) async fn into_running<S>(mut self, stream: S)
+    pub(crate) fn tenant_ctx(&self) -> Option<&crate::auth::TenantContext> {
+        self.task_notes.tenant_ctx()
+    }
+
+    /// TLS ingress. Tenant expiry and block delay are checked before the relay starts.
+    pub(crate) async fn into_running_from_tls<S>(mut self, stream: S)
+    where
+        S: AsyncStream + 'static,
+        S::R: AsyncRead + Send + Sync + Unpin + 'static,
+        S::W: AsyncWrite + Send + Sync + Unpin + 'static,
+    {
+        self.pre_start();
+        let e = match self.run_from_tls(stream).await {
+            Ok(_) => ServerTaskError::Finished,
+            Err(e) => e,
+        };
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log(e);
+        }
+    }
+
+    pub(crate) async fn into_running<S>(mut self, stream: S)
     where
         S: AsyncStream + 'static,
         S::R: AsyncRead + Send + Sync + Unpin + 'static,
@@ -109,6 +130,31 @@ impl TlsProxyTask {
         {
             log_ctx.log_created();
         }
+    }
+
+    async fn run_from_tls<S>(&mut self, stream: S) -> ServerTaskResult<()>
+    where
+        S: AsyncStream + 'static,
+        S::R: AsyncRead + Send + Sync + Unpin + 'static,
+        S::W: AsyncWrite + Send + Sync + Unpin + 'static,
+    {
+        if let Some(tenant) = self.tenant_ctx() {
+            if tenant.is_expired() {
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::UserBlocked,
+                ));
+            }
+            if let Some(delay) = tenant.blocked_delay() {
+                if !delay.is_zero() {
+                    tokio::time::sleep(delay).await;
+                }
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::UserBlocked,
+                ));
+            }
+        }
+
+        self.run(stream).await
     }
 
     async fn run<S>(&mut self, clt_stream: S) -> ServerTaskResult<()>
@@ -158,7 +204,7 @@ impl TlsProxyTask {
                     upstream: &self.upstream,
                 },
                 tls_config: tls_client_config,
-                tls_name: self.host.site().tls_name_or(&self.request_host),
+                tls_name: self.host.site().tls_name_or(&self.req_host),
                 alpn_protocols: None,
             };
             self.ctx
@@ -324,7 +370,7 @@ impl TlsProxyTask {
     }
 }
 
-impl StreamTransitTask for TlsProxyTask {
+impl StreamTransitTask for TlsRelayTask {
     fn copy_config(&self) -> StreamCopyConfig {
         self.ctx.server_config.tcp_copy
     }
