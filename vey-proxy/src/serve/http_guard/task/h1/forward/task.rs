@@ -37,7 +37,8 @@ use crate::escape::EgressNotes;
 use crate::log::task::http_forward::TaskLogForHttpForward;
 use crate::module::http_forward::{
     BoxHttpForwardConnection, BoxHttpForwardContext, BoxHttpForwardReader, BoxHttpForwardWriter,
-    HttpAliveReuseNotes, HttpForwardTaskNotes, HttpProxyClientResponse,
+    HttpAliveReuseNotes, HttpForwardTaskNotes, HttpForwardWriterForAdaptation,
+    HttpProxyClientResponse,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::http_guard::HttpForwardTaskAliveGuard;
@@ -675,13 +676,10 @@ impl<'a> HttpGuardForwardTask<'a> {
                     upstream: &self.upstream,
                 },
                 tls_config: tls_client,
-                tls_name: self.site().tls_name_or(
-                    self.req
-                        .host
-                        .as_ref()
-                        .map(|addr| addr.host())
-                        .unwrap_or_else(|| self.site().tls_name()),
-                ),
+                tls_name: match self.req.host.as_ref() {
+                    Some(addr) => self.site().tls_name_or(addr.host()),
+                    None => self.site().tls_name(),
+                },
                 alpn_protocols: None,
             };
             fwd_ctx
@@ -755,9 +753,6 @@ impl<'a> HttpGuardForwardTask<'a> {
                     let mut adaptation_state =
                         ReqmodAdaptationRunState::new(self.task_notes.task_created_instant());
                     adapter.set_client_addr(self.ctx.client_addr());
-                    if let Some(name) = self.task_notes.raw_user_name() {
-                        adapter.set_client_username(name.clone());
-                    }
                     if let Some(name) = self.task_notes.tenant_user_name() {
                         adapter.set_tenant_username(name.clone());
                     }
@@ -799,8 +794,6 @@ impl<'a> HttpGuardForwardTask<'a> {
         CDR: AsyncRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
     {
-        use crate::module::http_forward::HttpForwardWriterForAdaptation;
-
         let ups_w = &mut ups_c.0;
         let ups_r = &mut ups_c.1;
 
@@ -1029,7 +1022,7 @@ impl<'a> HttpGuardForwardTask<'a> {
         loop {
             match self
                 .run_with_body(
-                    Some(fast_read_buf.clone()),
+                    Some(fast_read_buf.as_ref()),
                     &mut clt_body_reader,
                     clt_w,
                     ups_c,
@@ -1215,7 +1208,7 @@ impl<'a> HttpGuardForwardTask<'a> {
 
     async fn run_with_body<R, CDW>(
         &mut self,
-        fast_read_buf: Option<Vec<u8>>,
+        fast_read_buf: Option<&[u8]>,
         clt_body_reader: &mut HttpBodyReader<'_, R>,
         clt_w: &mut HttpClientWriter<CDW>,
         mut ups_c: BoxHttpForwardConnection,
@@ -1244,7 +1237,7 @@ impl<'a> HttpGuardForwardTask<'a> {
                 clt_body_reader,
                 ups_w,
                 &self.ctx.server_config.tcp_copy,
-                buf,
+                buf.into(),
             ),
             None => StreamCopy::new(clt_body_reader, ups_w, &self.ctx.server_config.tcp_copy),
         };

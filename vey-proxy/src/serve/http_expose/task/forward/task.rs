@@ -694,13 +694,10 @@ impl<'a> HttpExposeForwardTask<'a> {
                     upstream: &self.upstream,
                 },
                 tls_config: tls_client,
-                tls_name: self.site().tls_name_or(
-                    self.req
-                        .host
-                        .as_ref()
-                        .map(|addr| addr.host())
-                        .unwrap_or_else(|| self.site().tls_name()),
-                ),
+                tls_name: match self.req.host.as_ref() {
+                    Some(addr) => self.site().tls_name_or(addr.host()),
+                    None => self.site().tls_name(),
+                },
                 alpn_protocols: None,
             };
             fwd_ctx

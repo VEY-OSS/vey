@@ -23,11 +23,11 @@ use vey_icap_client::reqmod::h1::{
     ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
 use vey_io_ext::{
-    FlexBufReader, GlobalLimitGroup, IdleInterval, LimitedReader, LimitedWriteExt, OnceBufReader,
-    StreamCopy, StreamCopyConfig, StreamCopyError,
+    FlexBufReader, IdleInterval, LimitedReader, LimitedWriteExt, OnceBufReader, StreamCopy,
+    StreamCopyConfig, StreamCopyError,
 };
 use vey_types::acl::AclAction;
-use vey_types::net::{TcpSockSpeedLimitConfig, UpstreamAddr};
+use vey_types::net::UpstreamAddr;
 
 use super::H1TaskContext;
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpGuardRequest};
@@ -94,18 +94,16 @@ impl HttpGuardWebsocketTask {
         }
     }
 
-    pub(crate) async fn connect_to_origin<CDR, CDW>(
+    pub(crate) async fn connect_to_origin<CDW>(
         &mut self,
         req: &HttpProxyClientRequest,
-        clt_r: &mut HttpClientReader<CDR>,
         clt_w: &mut HttpClientWriter<CDW>,
     ) -> Option<(TcpConnection, HttpForwardRemoteResponse)>
     where
-        CDR: AsyncRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
     {
         self.pre_start();
-        match self.do_connect(req, clt_r, clt_w).await {
+        match self.do_connect(req, clt_w).await {
             Ok(connected) => {
                 if connected.is_none()
                     && let Some(log_ctx) = self.get_log_context()
@@ -210,7 +208,7 @@ impl HttpGuardWebsocketTask {
         self.task_notes
             .foreach_req_stats(|s| s.req_ready.add_websocket());
 
-        let clt_r = self.attach_websocket_relay_io(clt_r, &mut clt_w);
+        let (clt_r, clt_w) = self.attach_websocket_relay_io(clt_r, clt_w);
 
         match self.ups_r_leftover.take() {
             None => self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await,
@@ -226,14 +224,12 @@ impl HttpGuardWebsocketTask {
         }
     }
 
-    async fn do_connect<CDR, CDW>(
+    async fn do_connect<CDW>(
         &mut self,
         req: &HttpProxyClientRequest,
-        clt_r: &mut HttpClientReader<CDR>,
         clt_w: &mut HttpClientWriter<CDW>,
     ) -> ServerTaskResult<Option<(TcpConnection, HttpForwardRemoteResponse)>>
     where
-        CDR: AsyncRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
     {
         if self.task_notes.check_layered_rate_limit().is_err() {
@@ -293,8 +289,6 @@ impl HttpGuardWebsocketTask {
                 ServerTaskError::InternalServerError("failed to set client socket options")
             })?;
 
-        self.setup_clt_limit_and_stats(req, Some(clt_r), clt_w);
-
         let ups_c = self.get_new_connection(req, clt_w).await?;
         if audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.clone()
@@ -305,81 +299,60 @@ impl HttpGuardWebsocketTask {
         self.handshake_origin(req, clt_w, ups_c).await
     }
 
-    fn clt_speed_limit(&self) -> Option<TcpSockSpeedLimitConfig> {
-        let server = self.ctx.server_config.tcp_sock_speed_limit;
-        let limit = self
-            .site_ctx
-            .tcp_sock_speed_limit()
-            .shrink_as_smaller(&server);
-        if limit.eq(&server) { None } else { Some(limit) }
-    }
-
-    fn setup_clt_limit_and_stats<CDR, CDW>(
-        &mut self,
-        req: &HttpProxyClientRequest,
-        clt_r: Option<&mut HttpClientReader<CDR>>,
-        clt_w: &mut HttpClientWriter<CDW>,
-    ) where
-        CDR: AsyncRead + Unpin,
-        CDW: AsyncWrite + Unpin,
-    {
-        let origin_header_size = req.origin_header_size() as u64;
-        self.task_stats.clt.read.add_bytes(origin_header_size);
-
-        let limit_config = self.clt_speed_limit();
-        clt_w.retain_global_limiter_by_group(GlobalLimitGroup::Server);
-        if let Some(br) = clt_r {
-            if let Some(limit_config) = &limit_config {
-                br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
-                clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
-            }
-            if let Some(user) = self.task_notes.tenant_user() {
-                if let Some(limiter) = user.tcp_all_upload_speed_limit() {
-                    limiter.try_consume(origin_header_size);
-                    br.add_global_limiter(limiter.clone());
-                }
-                if let Some(limiter) = user.tcp_all_download_speed_limit() {
-                    clt_w.add_global_limiter(limiter.clone());
-                }
-            }
-        } else if let Some(limit_config) = &limit_config {
-            clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
-        }
-    }
-
     fn attach_websocket_relay_io<CDR, CDW>(
         &self,
         clt_r: HttpClientReader<CDR>,
-        clt_w: &mut HttpClientWriter<CDW>,
-    ) -> LimitedReader<CDR>
+        clt_w: HttpClientWriter<CDW>,
+    ) -> (OnceBufReader<LimitedReader<CDR>>, HttpClientWriter<CDW>)
     where
         CDR: AsyncRead + Unpin,
         CDW: AsyncWrite + Unpin,
     {
+        let (leftover, clt_r) = clt_r.into_parts();
         let mut wrapper_stats =
             WebSocketTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
-        wrapper_stats.push_user_io_stats(self.task_notes.fetch_traffic_stats(
+        let user_io = self.task_notes.fetch_traffic_stats(
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),
-        ));
+        );
+        let buffered = leftover.len() as u64;
+        if buffered > 0 {
+            // Already counted on the pipeline reader, including server.io_http.
+            // Pinned sites also counted it as http_forward. Only the task, and
+            // an unpinned site, still need the websocket bucket.
+            self.task_stats.clt.read.add_bytes(buffered);
+            if self.ctx.site_ctx.is_none() {
+                for stats in &user_io {
+                    stats.io.websocket.add_in_bytes(buffered);
+                }
+            }
+        }
+        wrapper_stats.push_user_io_stats(user_io);
         let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
         let limit = self
             .site_ctx
             .tcp_sock_speed_limit()
             .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
-        let mut clt_r = LimitedReader::local_limited(
-            clt_r.into_inner(),
+        let mut clt_r =
+            LimitedReader::local_limited(clt_r, limit.shift_millis, limit.max_north, clt_r_stats);
+        let mut clt_w = HttpClientWriter::local_limited(
+            clt_w.into_inner(),
             limit.shift_millis,
-            limit.max_north,
-            clt_r_stats,
+            limit.max_south,
+            clt_w_stats,
         );
-        if let Some(user) = self.task_notes.tenant_user()
-            && let Some(limiter) = user.tcp_all_upload_speed_limit()
-        {
-            clt_r.add_global_limiter(limiter.clone());
+        if let Some(user) = self.task_notes.tenant_user() {
+            if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                if buffered > 0 {
+                    limiter.try_consume(buffered);
+                }
+                clt_r.add_global_limiter(limiter.clone());
+            }
+            if let Some(limiter) = user.tcp_all_download_speed_limit() {
+                clt_w.add_global_limiter(limiter.clone());
+            }
         }
-        clt_w.reset_stats(clt_w_stats);
-        clt_r
+        (OnceBufReader::with_bytes(clt_r, leftover), clt_w)
     }
 
     async fn get_new_connection<CDW>(
@@ -421,12 +394,10 @@ impl HttpGuardWebsocketTask {
                     upstream: &self.upstream,
                 },
                 tls_config: tls_client,
-                tls_name: self.site_ctx.site().tls_name_or(
-                    req.host
-                        .as_ref()
-                        .map(|addr| addr.host())
-                        .unwrap_or_else(|| self.site_ctx.site().tls_name()),
-                ),
+                tls_name: match req.host.as_ref() {
+                    Some(addr) => self.site_ctx.site().tls_name_or(addr.host()),
+                    None => self.site_ctx.site().tls_name(),
+                },
                 alpn_protocols: None,
             };
             self.ctx
@@ -756,6 +727,7 @@ impl HttpGuardWebsocketTask {
     where
         W: AsyncWrite + Unpin,
     {
+        self.send_error_response = false;
         let mut rsp = HttpProxyClientResponse::too_many_requests(self.ws_notes.version);
         self.enable_custom_header_for_local_reply(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
@@ -767,6 +739,7 @@ impl HttpGuardWebsocketTask {
     where
         W: AsyncWrite + Unpin,
     {
+        self.send_error_response = false;
         let mut rsp = HttpProxyClientResponse::forbidden(self.ws_notes.version);
         self.enable_custom_header_for_local_reply(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
@@ -778,6 +751,7 @@ impl HttpGuardWebsocketTask {
     where
         W: AsyncWrite + Unpin,
     {
+        self.send_error_response = false;
         let mut rsp =
             HttpProxyClientResponse::from_tcp_connect_error(e, self.ws_notes.version, true);
         self.enable_custom_header_for_local_reply(&mut rsp);

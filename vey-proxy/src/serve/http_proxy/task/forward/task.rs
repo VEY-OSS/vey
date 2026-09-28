@@ -1130,7 +1130,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         loop {
             match self
                 .run_with_body(
-                    Some(fast_read_buf.clone()),
+                    Some(fast_read_buf.as_ref()),
                     &mut clt_body_reader,
                     clt_w,
                     ups_c,
@@ -1314,7 +1314,7 @@ impl<'a> HttpProxyForwardTask<'a> {
 
     async fn run_with_body<R, CDW>(
         &mut self,
-        fast_read_buf: Option<Vec<u8>>,
+        fast_read_buf: Option<&[u8]>,
         clt_body_reader: &mut HttpBodyReader<'_, R>,
         clt_w: &mut HttpClientWriter<CDW>,
         mut ups_c: BoxHttpForwardConnection,
@@ -1343,7 +1343,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                 clt_body_reader,
                 ups_w,
                 &self.ctx.server_config.tcp_copy,
-                buf,
+                buf.into(),
             ),
             None => StreamCopy::new(clt_body_reader, ups_w, &self.ctx.server_config.tcp_copy),
         };

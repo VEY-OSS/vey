@@ -11,6 +11,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 
+use bytes::{Buf, Bytes};
 use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, ReadBuf};
 
@@ -141,8 +142,30 @@ where
         self.inner.retain_global_limiter_by_group(group);
     }
 
+    /// Consumes this reader, returning the underlying reader.
+    ///
+    /// Leftover data in the internal buffer is dropped.
     pub fn into_inner(self) -> R {
         self.inner.into_inner()
+    }
+
+    /// Splits off unread buffered bytes and the underlying reader.
+    pub fn into_parts(self) -> (Bytes, R) {
+        let inner = self.inner.into_inner();
+        if self.pos < self.cap {
+            // SAFETY: `buf[..cap]` was filled by `ReadBuf::uninit`; spare
+            // capacity beyond `cap` stays unused.
+            let vec = unsafe {
+                let capacity = self.buf.len();
+                let ptr = Box::into_raw(self.buf) as *mut u8;
+                Vec::from_raw_parts(ptr, self.cap, capacity)
+            };
+            let mut bytes = Bytes::from(vec);
+            bytes.advance(self.pos);
+            (bytes, inner)
+        } else {
+            (Bytes::new(), inner)
+        }
     }
 
     fn get_pin_mut(self: Pin<&mut Self>) -> Pin<&mut LimitedReader<R>> {
@@ -248,5 +271,34 @@ where
             },
             w,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use tokio::io::AsyncReadExt;
+
+    use super::*;
+    use crate::NilLimitedStats;
+
+    #[tokio::test]
+    async fn into_parts_keeps_unread_buffer() {
+        let inner = &b"hello-world"[..];
+        let mut reader = LimitedBufReader::new_unlimited(
+            inner,
+            Arc::new(NilLimitedStats::default()),
+            Arc::new(NilLimitedStats::default()),
+        );
+        let mut got = [0; 5];
+        reader.read_exact(&mut got).await.unwrap();
+        assert_eq!(&got, b"hello");
+
+        let (buf, mut inner) = reader.into_parts();
+        assert_eq!(&buf[..], b"-world");
+        let mut rest = Vec::new();
+        inner.read_to_end(&mut rest).await.unwrap();
+        assert!(rest.is_empty());
     }
 }

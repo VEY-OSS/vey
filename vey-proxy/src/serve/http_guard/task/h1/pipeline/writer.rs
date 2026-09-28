@@ -287,13 +287,11 @@ where
         site_ctx: SiteContext,
         task_notes: ServerTaskNotes,
     ) {
-        let Some(mut clt_r) = req.body_reader.take() else {
+        let Some(clt_r) = req.body_reader.take() else {
             unreachable!()
         };
         let mut ws_task = HttpGuardWebsocketTask::new(&self.ctx, &req, site_ctx, task_notes);
-        let connected = ws_task
-            .connect_to_origin(&req.inner, &mut clt_r, &mut clt_w)
-            .await;
+        let connected = ws_task.connect_to_origin(&req.inner, &mut clt_w).await;
         let _ = req.stream_sender.try_send(None);
         if let Some((ups_c, rsp)) = connected {
             ws_task.into_running(clt_r, clt_w, ups_c, rsp).await;
