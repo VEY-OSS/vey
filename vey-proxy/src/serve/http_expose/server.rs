@@ -43,7 +43,7 @@ use super::task::{
     CommonTaskContext, HttpExposePipelineReaderTask, HttpExposePipelineStats,
     HttpExposePipelineWriterTask,
 };
-use super::{HttpExposeServerStats, HttpHost};
+use super::{HttpExposeHost, HttpExposeServerStats};
 use crate::auth::UserGroup;
 use crate::config::server::http_expose::HttpExposeServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -62,7 +62,7 @@ pub(crate) struct HttpExposeServer {
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
     task_logger: Option<Logger>,
-    hosts: ArcSwap<HostMatch<Arc<HttpHost>>>,
+    hosts: ArcSwap<HostMatch<Arc<HttpExposeHost>>>,
 
     escaper: ArcSwap<ArcEscaper>,
     user_group: ArcSwapOption<UserGroup>,
@@ -76,10 +76,14 @@ impl HttpExposeServer {
         config: Arc<HttpExposeServerConfig>,
         server_stats: Arc<HttpExposeServerStats>,
         listen_stats: Arc<ListenStats>,
-        hosts: HostMatch<Arc<HttpHost>>,
         tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> anyhow::Result<Self> {
+        let group = crate::site::get_or_insert_default(&config.site_group);
+        let hosts = group.sites_by_host().try_build_arc(|site| {
+            HttpExposeHost::try_build(Arc::clone(site), tls_rolling_ticketer.clone())
+        })?;
+
         let reload_sender = ServerReloadCommand::new_sender();
 
         let global_tls_server = match &config.global_tls_server {
@@ -144,53 +148,36 @@ impl HttpExposeServer {
         } else {
             None
         };
-        let hosts = build_hosts(&config.site_group, tls_rolling_ticketer.clone())?;
+
+        let server =
+            HttpExposeServer::new(config, server_stats, listen_stats, tls_rolling_ticketer, 1)?;
+        Ok(Arc::new(server))
+    }
+
+    fn prepare_reload(&self, config: HttpExposeServerConfig) -> anyhow::Result<HttpExposeServer> {
+        let config = Arc::new(config);
+        let server_stats = Arc::clone(&self.server_stats);
+        let listen_stats = Arc::clone(&self.listen_stats);
+
+        let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+            self.tls_rolling_ticketer.clone()
+        } else if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
 
         let server = HttpExposeServer::new(
             config,
             server_stats,
             listen_stats,
-            hosts,
             tls_rolling_ticketer,
-            1,
+            self.reload_version + 1,
         )?;
-        Ok(Arc::new(server))
-    }
-
-    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<HttpExposeServer> {
-        if let AnyServerConfig::HttpExpose(config) = config {
-            let config = Arc::new(config);
-            let server_stats = Arc::clone(&self.server_stats);
-            let listen_stats = Arc::clone(&self.listen_stats);
-
-            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
-                self.tls_rolling_ticketer.clone()
-            } else if let Some(c) = &config.tls_ticketer {
-                let ticketer = c
-                    .build_and_spawn_updater()
-                    .context("failed to create tls rolling ticketer")?;
-                Some(ticketer)
-            } else {
-                None
-            };
-            let hosts = build_hosts(&config.site_group, tls_rolling_ticketer.clone())?;
-
-            let server = HttpExposeServer::new(
-                config,
-                server_stats,
-                listen_stats,
-                hosts,
-                tls_rolling_ticketer,
-                self.reload_version + 1,
-            )?;
-            Ok(server)
-        } else {
-            Err(anyhow!(
-                "config type mismatch: expect {}, actual {}",
-                self.config.r#type(),
-                config.r#type()
-            ))
-        }
+        Ok(server)
     }
 
     fn get_common_task_context(
@@ -255,16 +242,10 @@ impl HttpExposeServer {
     async fn run_tls_tcp_task(&self, mut stream: TcpStream, cc_info: ClientConnectionInfo) {
         const TLS_MAX_CLIENT_HELLO_SIZE: u32 = 1 << 16;
 
-        let hosts = self.hosts.load();
         let mut clt_r_buf = BytesMut::with_capacity(2048);
         let host = match tokio::time::timeout(
             self.config.client_hello_recv_timeout,
-            read_sni_host(
-                &mut stream,
-                &mut clt_r_buf,
-                TLS_MAX_CLIENT_HELLO_SIZE,
-                &hosts,
-            ),
+            self.read_sni_host(&mut stream, &mut clt_r_buf, TLS_MAX_CLIENT_HELLO_SIZE),
         )
         .await
         {
@@ -290,6 +271,7 @@ impl HttpExposeServer {
         };
 
         let Some(tls_config) = host
+            .as_ref()
             .and_then(|h| h.tls_server())
             .or(self.global_tls_server.as_ref())
         else {
@@ -328,80 +310,71 @@ impl HttpExposeServer {
             }
         }
     }
-}
 
-async fn read_sni_host<'a>(
-    clt_r: &mut TcpStream,
-    clt_r_buf: &mut BytesMut,
-    max_client_hello_size: u32,
-    hosts: &'a HostMatch<Arc<HttpHost>>,
-) -> anyhow::Result<Option<&'a Arc<HttpHost>>> {
-    let max_hello_size = max_client_hello_size as usize;
-    let max_buf_size = max_hello_size
-        .saturating_mul(RecordHeader::SIZE + 1)
-        .saturating_add(1 << 14);
-    let mut handshake_coalescer = HandshakeCoalescer::new(max_client_hello_size);
-    let mut record_offset = 0;
-    loop {
-        let mut record = match Record::parse(&clt_r_buf[record_offset..]) {
-            Ok(r) => r,
-            Err(RecordParseError::NeedMoreData(_)) => {
-                if clt_r_buf.len() >= max_buf_size {
-                    return Err(anyhow!("tls client hello message too large"));
-                }
-                match clt_r.read_buf(clt_r_buf).await {
-                    Ok(0) => return Err(anyhow!("connection closed by client")),
-                    Ok(_) => continue,
-                    Err(e) => return Err(anyhow!("client read error: {e}")),
-                }
-            }
-            Err(_) => return Err(anyhow!("invalid tls client hello request")),
-        };
-        record_offset += record.encoded_len();
-
-        match record.consume_handshake(&mut handshake_coalescer) {
-            Ok(Some(handshake_msg)) => {
-                let ch = handshake_msg
-                    .parse_client_hello()
-                    .map_err(|_| anyhow!("invalid tls client hello request"))?;
-                return Ok(host_from_client_hello(ch, hosts));
-            }
-            Ok(None) => match handshake_coalescer.parse_client_hello() {
-                Ok(Some(ch)) => return Ok(host_from_client_hello(ch, hosts)),
-                Ok(None) => {
-                    if !record.consume_done() {
-                        return Err(anyhow!("partial fragmented tls client hello request"));
+    async fn read_sni_host(
+        &self,
+        clt_r: &mut TcpStream,
+        clt_r_buf: &mut BytesMut,
+        max_client_hello_size: u32,
+    ) -> anyhow::Result<Option<Arc<HttpExposeHost>>> {
+        let max_hello_size = max_client_hello_size as usize;
+        let max_buf_size = max_hello_size
+            .saturating_mul(RecordHeader::SIZE + 1)
+            .saturating_add(1 << 14);
+        let mut handshake_coalescer = HandshakeCoalescer::new(max_client_hello_size);
+        let mut record_offset = 0;
+        loop {
+            let mut record = match Record::parse(&clt_r_buf[record_offset..]) {
+                Ok(r) => r,
+                Err(RecordParseError::NeedMoreData(_)) => {
+                    if clt_r_buf.len() >= max_buf_size {
+                        return Err(anyhow!("tls client hello message too large"));
+                    }
+                    match clt_r.read_buf(clt_r_buf).await {
+                        Ok(0) => return Err(anyhow!("connection closed by client")),
+                        Ok(_) => continue,
+                        Err(e) => return Err(anyhow!("client read error: {e}")),
                     }
                 }
-                Err(_) => return Err(anyhow!("invalid fragmented tls client hello request")),
-            },
-            Err(_) => return Err(anyhow!("invalid tls client hello request")),
+                Err(_) => return Err(anyhow!("invalid tls client hello request")),
+            };
+            record_offset += record.encoded_len();
+
+            match record.consume_handshake(&mut handshake_coalescer) {
+                Ok(Some(handshake_msg)) => {
+                    let ch = handshake_msg
+                        .parse_client_hello()
+                        .map_err(|_| anyhow!("invalid tls client hello request"))?;
+                    return self.host_from_client_hello(ch);
+                }
+                Ok(None) => match handshake_coalescer.parse_client_hello() {
+                    Ok(Some(ch)) => return self.host_from_client_hello(ch),
+                    Ok(None) => {
+                        if !record.consume_done() {
+                            return Err(anyhow!("partial fragmented tls client hello request"));
+                        }
+                    }
+                    Err(_) => return Err(anyhow!("invalid fragmented tls client hello request")),
+                },
+                Err(_) => return Err(anyhow!("invalid tls client hello request")),
+            }
         }
     }
-}
 
-fn host_from_client_hello<'a>(
-    ch: ClientHello<'_>,
-    hosts: &'a HostMatch<Arc<HttpHost>>,
-) -> Option<&'a Arc<HttpHost>> {
-    match ch.get_ext(ExtensionType::ServerName) {
-        Ok(Some(data)) => match TlsServerName::from_extension_value(data) {
-            Ok(sni) => hosts.get(&Host::from(sni)),
-            Err(_) => hosts.get_default(),
-        },
-        Ok(None) => hosts.get_default(),
-        Err(_) => hosts.get_default(),
+    fn host_from_client_hello(
+        &self,
+        ch: ClientHello<'_>,
+    ) -> anyhow::Result<Option<Arc<HttpExposeHost>>> {
+        let hosts = self.hosts.load();
+        match ch.get_ext(ExtensionType::ServerName) {
+            Ok(Some(data)) => match TlsServerName::from_extension_value(data) {
+                Ok(sni) => Ok(hosts.get(&Host::from(sni)).cloned()),
+                Err(e) => Err(anyhow!("invalid server name extension value: {e}")),
+            },
+            Ok(None) => Ok(hosts.get_default().cloned()),
+            Err(e) => Err(anyhow!("error getting server name tls extension: {e}")),
+        }
     }
-}
-
-fn build_hosts(
-    site_group: &NodeName,
-    ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
-) -> anyhow::Result<HostMatch<Arc<HttpHost>>> {
-    let group = crate::site::get_or_insert_default(site_group);
-    group
-        .sites_by_host()
-        .try_build_arc(|site| HttpHost::try_build(Arc::clone(site), ticketer.clone()))
 }
 
 impl ServerInternal for HttpExposeServer {
@@ -435,10 +408,10 @@ impl ServerInternal for HttpExposeServer {
     }
 
     fn _update_site_group_in_place(&self) -> anyhow::Result<()> {
-        if self.config.site_group.is_empty() {
-            return Ok(());
-        }
-        let hosts = build_hosts(&self.config.site_group, self.tls_rolling_ticketer.clone())?;
+        let group = crate::site::get_or_insert_default(&self.config.site_group);
+        let hosts = group.sites_by_host().try_build_arc(|site| {
+            HttpExposeHost::try_build(Arc::clone(site), self.tls_rolling_ticketer.clone())
+        })?;
         self.hosts.store(Arc::new(hosts));
         Ok(())
     }
@@ -452,9 +425,17 @@ impl ServerInternal for HttpExposeServer {
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let mut server = self.prepare_reload(config)?;
-        server.reload_sender = self.reload_sender.clone();
-        Ok(Arc::new(server))
+        if let AnyServerConfig::HttpExpose(config) = config {
+            let mut server = self.prepare_reload(config)?;
+            server.reload_sender = self.reload_sender.clone();
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _reload_with_new_notifier(
@@ -462,8 +443,16 @@ impl ServerInternal for HttpExposeServer {
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let server = self.prepare_reload(config)?;
-        Ok(Arc::new(server))
+        if let AnyServerConfig::HttpExpose(config) = config {
+            let server = self.prepare_reload(config)?;
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {

@@ -7,10 +7,10 @@
 mod stats;
 use stats::{HttpExposeServerStats, HttpForwardTaskAliveGuard, HttpUntrustedTaskAliveGuard};
 
+mod host;
+use host::HttpExposeHost;
+
 mod task;
 
 mod server;
 pub(super) use server::HttpExposeServer;
-
-mod host;
-pub(crate) use host::HttpHost;

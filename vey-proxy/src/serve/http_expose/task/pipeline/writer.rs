@@ -25,7 +25,7 @@ use super::{
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
-use crate::serve::http_expose::HttpHost;
+use crate::serve::http_expose::HttpExposeHost;
 use crate::serve::{ServerStats, ServerTaskNotes};
 use crate::site::{Site, SiteContext, SiteHttpConnGuard};
 
@@ -206,7 +206,7 @@ where
         }
     }
 
-    pub(crate) async fn into_running(mut self, hosts: Arc<HostMatch<Arc<HttpHost>>>) {
+    pub(crate) async fn into_running(mut self, hosts: Arc<HostMatch<Arc<HttpExposeHost>>>) {
         loop {
             let res = match self.task_queue.recv().await {
                 Some(Ok((req, pipeline_task))) => {
@@ -241,7 +241,7 @@ where
     async fn check_run(
         &mut self,
         req: HttpExposeRequest<CDR>,
-        hosts: &HostMatch<Arc<HttpHost>>,
+        hosts: &HostMatch<Arc<HttpExposeHost>>,
     ) -> LoopAction {
         let Some(host) = hosts.get(req.upstream.host()) else {
             self.req_count.invalid += 1;
@@ -338,12 +338,12 @@ where
         .with_site_ctx(site_ctx.clone());
 
         // check in final escaper so we can use route escapers
-        let upstream = task_notes.site_upstream_addr().clone();
+        let upstream = task_notes.site_upstream_addr();
         let _ = self
             .forward_context
             .check_in_final_escaper(
                 &task_notes,
-                &upstream,
+                upstream,
                 site_ctx.site().tls_client().is_some(),
             )
             .await;
