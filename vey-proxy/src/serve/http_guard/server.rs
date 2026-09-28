@@ -46,7 +46,7 @@ use super::task::{
     CommonTaskContext, H1TaskContext, H2TaskContext, HttpGuardH2ConnectionTask,
     HttpGuardPipelineReaderTask, HttpGuardPipelineStats, HttpGuardPipelineWriterTask,
 };
-use super::{HttpGuardServerStats, HttpHost};
+use super::{HttpGuardHost, HttpGuardServerStats};
 use crate::audit::AuditHandle;
 use crate::config::server::http_guard::HttpGuardServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -66,8 +66,8 @@ pub(crate) struct HttpGuardServer {
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
     task_logger: Option<Logger>,
-    http_hosts: ArcSwap<HostMatch<Arc<HttpHost>>>,
-    tls_hosts: ArcSwap<HostMatch<Arc<HttpHost>>>,
+    http_hosts: ArcSwap<HostMatch<Arc<HttpGuardHost>>>,
+    tls_hosts: ArcSwap<HostMatch<Arc<HttpGuardHost>>>,
 
     escaper: ArcSwap<ArcEscaper>,
     audit_handle: ArcSwapOption<AuditHandle>,
@@ -81,11 +81,15 @@ impl HttpGuardServer {
         config: Arc<HttpGuardServerConfig>,
         server_stats: Arc<HttpGuardServerStats>,
         listen_stats: Arc<ListenStats>,
-        http_hosts: HostMatch<Arc<HttpHost>>,
-        tls_hosts: HostMatch<Arc<HttpHost>>,
         tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> anyhow::Result<Self> {
+        let group = crate::site::get_or_insert_default(&config.site_group);
+        let http_hosts = group.sites_by_host().try_build_arc(|site| {
+            HttpGuardHost::try_build(Arc::clone(site), tls_rolling_ticketer.clone())
+        })?;
+        let tls_hosts = http_hosts.filter_arc(|host| host.tls_server().is_some());
+
         let reload_sender = ServerReloadCommand::new_sender();
 
         let global_tls_server = match &config.global_tls_server {
@@ -151,63 +155,36 @@ impl HttpGuardServer {
         } else {
             None
         };
-        let hosts = build_hosts(
-            &config.site_group,
-            tls_rolling_ticketer.clone(),
-            config.global_tls_server.is_some(),
-        )?;
+
+        let server =
+            HttpGuardServer::new(config, server_stats, listen_stats, tls_rolling_ticketer, 1)?;
+        Ok(Arc::new(server))
+    }
+
+    fn prepare_reload(&self, config: HttpGuardServerConfig) -> anyhow::Result<HttpGuardServer> {
+        let config = Arc::new(config);
+        let server_stats = Arc::clone(&self.server_stats);
+        let listen_stats = Arc::clone(&self.listen_stats);
+
+        let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+            self.tls_rolling_ticketer.clone()
+        } else if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
 
         let server = HttpGuardServer::new(
             config,
             server_stats,
             listen_stats,
-            hosts.http,
-            hosts.tls,
             tls_rolling_ticketer,
-            1,
+            self.reload_version + 1,
         )?;
-        Ok(Arc::new(server))
-    }
-
-    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<HttpGuardServer> {
-        if let AnyServerConfig::HttpGuard(config) = config {
-            let config = Arc::new(config);
-            let server_stats = Arc::clone(&self.server_stats);
-            let listen_stats = Arc::clone(&self.listen_stats);
-
-            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
-                self.tls_rolling_ticketer.clone()
-            } else if let Some(c) = &config.tls_ticketer {
-                let ticketer = c
-                    .build_and_spawn_updater()
-                    .context("failed to create tls rolling ticketer")?;
-                Some(ticketer)
-            } else {
-                None
-            };
-            let hosts = build_hosts(
-                &config.site_group,
-                tls_rolling_ticketer.clone(),
-                config.global_tls_server.is_some(),
-            )?;
-
-            let server = HttpGuardServer::new(
-                config,
-                server_stats,
-                listen_stats,
-                hosts.http,
-                hosts.tls,
-                tls_rolling_ticketer,
-                self.reload_version + 1,
-            )?;
-            Ok(server)
-        } else {
-            Err(anyhow!(
-                "config type mismatch: expect {}, actual {}",
-                self.config.r#type(),
-                config.r#type()
-            ))
-        }
+        Ok(server)
     }
 
     fn common_task_context(
@@ -231,7 +208,7 @@ impl HttpGuardServer {
     fn get_h1_task_context(
         &self,
         cc_info: ClientConnectionInfo,
-        pinned_host: Option<Arc<HttpHost>>,
+        pinned_host: Option<Arc<HttpGuardHost>>,
         https: bool,
     ) -> Arc<H1TaskContext> {
         let site_ctx = pinned_host.as_ref().map(|host| {
@@ -251,7 +228,7 @@ impl HttpGuardServer {
     fn get_h2_task_context(
         &self,
         cc_info: ClientConnectionInfo,
-        pinned_host: Arc<HttpHost>,
+        pinned_host: Arc<HttpGuardHost>,
     ) -> Arc<H2TaskContext> {
         let site_ctx = SiteContext::new(
             Arc::clone(pinned_host.site()),
@@ -288,8 +265,8 @@ impl HttpGuardServer {
         &self,
         stream: T,
         cc_info: ClientConnectionInfo,
-        hosts: Arc<HostMatch<Arc<HttpHost>>>,
-        pinned_host: Option<Arc<HttpHost>>,
+        hosts: Arc<HostMatch<Arc<HttpGuardHost>>>,
+        pinned_host: Option<Arc<HttpGuardHost>>,
         https: bool,
     ) where
         T: AsyncStream,
@@ -314,7 +291,7 @@ impl HttpGuardServer {
         &self,
         stream: T,
         cc_info: ClientConnectionInfo,
-        pinned_host: Arc<HttpHost>,
+        pinned_host: Arc<HttpGuardHost>,
     ) where
         T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
@@ -328,16 +305,16 @@ impl HttpGuardServer {
         &self,
         stream: T,
         cc_info: ClientConnectionInfo,
-        hosts: Arc<HostMatch<Arc<HttpHost>>>,
+        hosts: Arc<HostMatch<Arc<HttpGuardHost>>>,
         alpn: Option<AlpnProtocol>,
-        pinned_host: Option<Arc<HttpHost>>,
+        pinned_host: Option<Arc<HttpGuardHost>>,
     ) where
         T: AsyncStream + AsyncRead + AsyncWrite + Unpin + Send + 'static,
         T::R: AsyncRead + Send + Sync + Unpin + 'static,
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         if matches!(alpn, Some(AlpnProtocol::Http2)) {
-            let Some(pinned_host) = pinned_host.filter(|host| host.tls_server().is_some()) else {
+            let Some(pinned_host) = pinned_host else {
                 self.listen_stats.add_failed();
                 debug!(
                     "{} - {} rejected h2 without a matching sni site tls_server",
@@ -361,15 +338,9 @@ impl HttpGuardServer {
     ) {
         const TLS_MAX_CLIENT_HELLO_SIZE: u32 = 1 << 16;
 
-        let hosts = self.tls_hosts.load();
         let pinned_host = match tokio::time::timeout(
             self.config.client_hello_recv_timeout,
-            read_sni_host(
-                &mut stream,
-                &mut clt_r_buf,
-                TLS_MAX_CLIENT_HELLO_SIZE,
-                &hosts,
-            ),
+            self.read_sni_host(&mut stream, &mut clt_r_buf, TLS_MAX_CLIENT_HELLO_SIZE),
         )
         .await
         {
@@ -395,6 +366,7 @@ impl HttpGuardServer {
         };
 
         let Some(tls_config) = pinned_host
+            .as_ref()
             .and_then(|h| h.tls_server())
             .or(self.global_tls_server.as_ref())
         else {
@@ -430,7 +402,7 @@ impl HttpGuardServer {
                     cc_info,
                     self.http_hosts.load_full(),
                     alpn,
-                    pinned_host.cloned(),
+                    pinned_host,
                 )
                 .await
             }
@@ -442,6 +414,78 @@ impl HttpGuardServer {
                     cc_info.sock_peer_addr()
                 );
             }
+        }
+    }
+
+    async fn read_sni_host(
+        &self,
+        clt_r: &mut TcpStream,
+        clt_r_buf: &mut BytesMut,
+        max_client_hello_size: u32,
+    ) -> anyhow::Result<Option<Arc<HttpGuardHost>>> {
+        let max_hello_size = max_client_hello_size as usize;
+        let max_buf_size = max_hello_size
+            .saturating_mul(RecordHeader::SIZE + 1)
+            .saturating_add(1 << 14);
+        let mut handshake_coalescer = HandshakeCoalescer::new(max_client_hello_size);
+        let mut record_offset = 0;
+        loop {
+            let mut record = match Record::parse(&clt_r_buf[record_offset..]) {
+                Ok(r) => r,
+                Err(RecordParseError::NeedMoreData(_)) => {
+                    if clt_r_buf.len() >= max_buf_size {
+                        return Err(anyhow!("tls client hello message too large"));
+                    }
+                    match clt_r.read_buf(clt_r_buf).await {
+                        Ok(0) => return Err(anyhow!("connection closed by client")),
+                        Ok(_) => continue,
+                        Err(e) => return Err(anyhow!("client read error: {e}")),
+                    }
+                }
+                Err(_) => return Err(anyhow!("invalid tls client hello request")),
+            };
+            record_offset += record.encoded_len();
+
+            match record.consume_handshake(&mut handshake_coalescer) {
+                Ok(Some(handshake_msg)) => {
+                    let ch = handshake_msg
+                        .parse_client_hello()
+                        .map_err(|_| anyhow!("invalid tls client hello request"))?;
+                    return self.host_from_client_hello(ch);
+                }
+                Ok(None) => match handshake_coalescer.parse_client_hello() {
+                    Ok(Some(ch)) => return self.host_from_client_hello(ch),
+                    Ok(None) => {
+                        if !record.consume_done() {
+                            return Err(anyhow!("partial fragmented tls client hello request"));
+                        }
+                    }
+                    Err(_) => return Err(anyhow!("invalid fragmented tls client hello request")),
+                },
+                Err(_) => return Err(anyhow!("invalid tls client hello request")),
+            }
+        }
+    }
+
+    fn host_from_client_hello(
+        &self,
+        ch: ClientHello<'_>,
+    ) -> anyhow::Result<Option<Arc<HttpGuardHost>>> {
+        match ch.get_ext(ExtensionType::ServerName) {
+            Ok(Some(data)) => match TlsServerName::from_extension_value(data) {
+                Ok(sni) => {
+                    let hosts = if self.config.global_tls_server.is_some() {
+                        self.http_hosts.load()
+                    } else {
+                        self.tls_hosts.load()
+                    };
+                    // TODO require a matched sni
+                    Ok(hosts.get_matched(&Host::from(sni)).cloned())
+                }
+                Err(e) => Err(anyhow!("invalid server name extension value: {e}")),
+            },
+            Ok(None) => Ok(None),
+            Err(e) => Err(anyhow!("error getting server name tls extension: {e}")),
         }
     }
 }
@@ -473,91 +517,6 @@ async fn inspect_client_protocol(
     }
 }
 
-async fn read_sni_host<'a>(
-    clt_r: &mut TcpStream,
-    clt_r_buf: &mut BytesMut,
-    max_client_hello_size: u32,
-    hosts: &'a HostMatch<Arc<HttpHost>>,
-) -> anyhow::Result<Option<&'a Arc<HttpHost>>> {
-    let max_hello_size = max_client_hello_size as usize;
-    let max_buf_size = max_hello_size
-        .saturating_mul(RecordHeader::SIZE + 1)
-        .saturating_add(1 << 14);
-    let mut handshake_coalescer = HandshakeCoalescer::new(max_client_hello_size);
-    let mut record_offset = 0;
-    loop {
-        let mut record = match Record::parse(&clt_r_buf[record_offset..]) {
-            Ok(r) => r,
-            Err(RecordParseError::NeedMoreData(_)) => {
-                if clt_r_buf.len() >= max_buf_size {
-                    return Err(anyhow!("tls client hello message too large"));
-                }
-                match clt_r.read_buf(clt_r_buf).await {
-                    Ok(0) => return Err(anyhow!("connection closed by client")),
-                    Ok(_) => continue,
-                    Err(e) => return Err(anyhow!("client read error: {e}")),
-                }
-            }
-            Err(_) => return Err(anyhow!("invalid tls client hello request")),
-        };
-        record_offset += record.encoded_len();
-
-        match record.consume_handshake(&mut handshake_coalescer) {
-            Ok(Some(handshake_msg)) => {
-                let ch = handshake_msg
-                    .parse_client_hello()
-                    .map_err(|_| anyhow!("invalid tls client hello request"))?;
-                return Ok(host_from_client_hello(ch, hosts));
-            }
-            Ok(None) => match handshake_coalescer.parse_client_hello() {
-                Ok(Some(ch)) => return Ok(host_from_client_hello(ch, hosts)),
-                Ok(None) => {
-                    if !record.consume_done() {
-                        return Err(anyhow!("partial fragmented tls client hello request"));
-                    }
-                }
-                Err(_) => return Err(anyhow!("invalid fragmented tls client hello request")),
-            },
-            Err(_) => return Err(anyhow!("invalid tls client hello request")),
-        }
-    }
-}
-
-fn host_from_client_hello<'a>(
-    ch: ClientHello<'_>,
-    hosts: &'a HostMatch<Arc<HttpHost>>,
-) -> Option<&'a Arc<HttpHost>> {
-    match ch.get_ext(ExtensionType::ServerName) {
-        Ok(Some(data)) => match TlsServerName::from_extension_value(data) {
-            Ok(sni) => hosts.get_matched(&Host::from(sni)),
-            Err(_) => None,
-        },
-        Ok(None) | Err(_) => None,
-    }
-}
-
-fn build_hosts(
-    site_group: &NodeName,
-    ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
-    global_tls: bool,
-) -> anyhow::Result<HttpGuardHosts> {
-    let group = crate::site::get_or_insert_default(site_group);
-    let http = group
-        .sites_by_host()
-        .try_build_arc(|site| HttpHost::try_build(Arc::clone(site), ticketer.clone()))?;
-    let tls = if global_tls {
-        http.clone()
-    } else {
-        http.filter_arc(|host| host.tls_server().is_some())
-    };
-    Ok(HttpGuardHosts { http, tls })
-}
-
-struct HttpGuardHosts {
-    http: HostMatch<Arc<HttpHost>>,
-    tls: HostMatch<Arc<HttpHost>>,
-}
-
 impl ServerInternal for HttpGuardServer {
     fn _clone_config(&self) -> AnyServerConfig {
         AnyServerConfig::HttpGuard(self.config.as_ref().clone())
@@ -586,16 +545,14 @@ impl ServerInternal for HttpGuardServer {
     }
 
     fn _update_site_group_in_place(&self) -> anyhow::Result<()> {
-        if self.config.site_group.is_empty() {
-            return Ok(());
-        }
-        let hosts = build_hosts(
-            &self.config.site_group,
-            self.tls_rolling_ticketer.clone(),
-            self.config.global_tls_server.is_some(),
-        )?;
-        self.http_hosts.store(Arc::new(hosts.http));
-        self.tls_hosts.store(Arc::new(hosts.tls));
+        let group = crate::site::get_or_insert_default(&self.config.site_group);
+        let http_hosts = group.sites_by_host().try_build_arc(|site| {
+            HttpGuardHost::try_build(Arc::clone(site), self.tls_rolling_ticketer.clone())
+        })?;
+        let tls_hosts = http_hosts.filter_arc(|host| host.tls_server().is_some());
+
+        self.http_hosts.store(Arc::new(http_hosts));
+        self.tls_hosts.store(Arc::new(tls_hosts));
         Ok(())
     }
 
@@ -610,9 +567,17 @@ impl ServerInternal for HttpGuardServer {
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let mut server = self.prepare_reload(config)?;
-        server.reload_sender = self.reload_sender.clone();
-        Ok(Arc::new(server))
+        if let AnyServerConfig::HttpGuard(config) = config {
+            let mut server = self.prepare_reload(config)?;
+            server.reload_sender = self.reload_sender.clone();
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _reload_with_new_notifier(
@@ -620,8 +585,16 @@ impl ServerInternal for HttpGuardServer {
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let server = self.prepare_reload(config)?;
-        Ok(Arc::new(server))
+        if let AnyServerConfig::HttpGuard(config) = config {
+            let server = self.prepare_reload(config)?;
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
@@ -796,20 +769,15 @@ impl Server for HttpGuardServer {
             .1
             .alpn_protocol()
             .and_then(AlpnProtocol::from_selected);
-        let hosts = self.tls_hosts.load_full();
+        // site tls server config is not used, we just load all http sites
+        let hosts = self.http_hosts.load_full();
         let pinned_host = stream
             .get_ref()
             .1
             .server_name()
             .and_then(|sni| hosts.get_matched(&Host::from_str(sni).ok()?).cloned());
-        self.spawn_http_task(
-            stream,
-            cc_info,
-            self.http_hosts.load_full(),
-            alpn,
-            pinned_host,
-        )
-        .await;
+        self.spawn_http_task(stream, cc_info, hosts, alpn, pinned_host)
+            .await;
     }
 
     async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
@@ -823,18 +791,13 @@ impl Server for HttpGuardServer {
             .ssl()
             .selected_alpn_protocol()
             .and_then(AlpnProtocol::from_selected);
-        let hosts = self.tls_hosts.load_full();
+        // site tls server config is not used, we just load all http sites
+        let hosts = self.http_hosts.load_full();
         let pinned_host = stream
             .ssl()
             .servername(openssl::ssl::NameType::HOST_NAME)
             .and_then(|sni| hosts.get_matched(&Host::from_str(sni).ok()?).cloned());
-        self.spawn_http_task(
-            stream,
-            cc_info,
-            self.http_hosts.load_full(),
-            alpn,
-            pinned_host,
-        )
-        .await;
+        self.spawn_http_task(stream, cc_info, hosts, alpn, pinned_host)
+            .await;
     }
 }

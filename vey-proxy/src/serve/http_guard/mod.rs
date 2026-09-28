@@ -12,4 +12,4 @@ mod server;
 pub(super) use server::HttpGuardServer;
 
 mod host;
-pub(crate) use host::HttpHost;
+pub(crate) use host::HttpGuardHost;

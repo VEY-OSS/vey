@@ -21,7 +21,7 @@ use super::{
 };
 use crate::config::server::ServerConfig;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
-use crate::serve::http_guard::HttpHost;
+use crate::serve::http_guard::HttpGuardHost;
 use crate::serve::{ServerStats, ServerTaskNotes};
 use crate::site::{Site, SiteContext, SiteHttpConnGuard};
 
@@ -100,7 +100,7 @@ where
         }
     }
 
-    pub(crate) async fn into_running(mut self, hosts: Arc<HostMatch<Arc<HttpHost>>>) {
+    pub(crate) async fn into_running(mut self, hosts: Arc<HostMatch<Arc<HttpGuardHost>>>) {
         loop {
             let res = match self.task_queue.recv().await {
                 Some(Ok((req, pipeline_task))) => {
@@ -133,7 +133,7 @@ where
     async fn check_run(
         &mut self,
         req: HttpGuardRequest<CDR>,
-        hosts: &HostMatch<Arc<HttpHost>>,
+        hosts: &HostMatch<Arc<HttpGuardHost>>,
     ) -> LoopAction {
         if let Some(pinned) = self.ctx.site_ctx.clone() {
             if pinned.site().covers_host(req.upstream.host()) {

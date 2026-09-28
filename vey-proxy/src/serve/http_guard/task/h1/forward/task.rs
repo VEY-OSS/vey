@@ -390,9 +390,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             ));
         }
 
-        let tenant = self.task_notes.tenant_ctx().cloned();
-        let mut audit_task = false;
-        let tcp_client_misc_opts = if let Some(tenant) = &tenant {
+        let tcp_client_misc_opts = if let Some(tenant) = self.task_notes.tenant_ctx().cloned() {
             if let Some(action) = tenant.check_http_user_agent(
                 self.req
                     .end_to_end_headers
@@ -404,7 +402,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             }
 
             if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
-                audit_task = tenant
+                self.audit_task = tenant
                     .user()
                     .audit()
                     .do_task_audit()
@@ -416,11 +414,10 @@ impl<'a> HttpGuardForwardTask<'a> {
                 .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
         } else {
             if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
-                audit_task = audit_handle.do_task_audit();
+                self.audit_task = audit_handle.do_task_audit();
             }
             Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts)
         };
-        self.audit_task = audit_task;
 
         // set client side socket options
         self.ctx
@@ -456,7 +453,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             self.mark_relaying();
 
             let r = self
-                .run_with_connection(fwd_ctx, clt_r, clt_w, connection, audit_task)
+                .run_with_connection(fwd_ctx, clt_r, clt_w, connection)
                 .await;
             match r {
                 Ok(ups_s) => {
@@ -485,7 +482,7 @@ impl<'a> HttpGuardForwardTask<'a> {
 
         let connection = self.get_new_connection(fwd_ctx, clt_w).await?;
         match self
-            .run_with_connection(fwd_ctx, clt_r, clt_w, connection, audit_task)
+            .run_with_connection(fwd_ctx, clt_r, clt_w, connection)
             .await
         {
             Ok(ups_s) => {
@@ -722,7 +719,6 @@ impl<'a> HttpGuardForwardTask<'a> {
         clt_r: &mut Option<HttpClientReader<CDR>>,
         clt_w: &mut HttpClientWriter<CDW>,
         mut ups_c: BoxHttpForwardConnection,
-        audit_task: bool,
     ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
     where
         CDR: AsyncRead + Send + Unpin,
@@ -741,7 +737,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             };
         }
 
-        if audit_task
+        if self.audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.as_ref()
             && let Some(reqmod) = audit_handle.icap_reqmod_client()
         {
