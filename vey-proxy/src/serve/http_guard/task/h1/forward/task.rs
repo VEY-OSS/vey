@@ -87,7 +87,6 @@ impl<'a> HttpGuardForwardTask<'a> {
             uri_log_max_chars,
         );
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
-        let upstream = task_notes.site_upstream_addr().clone();
         HttpGuardForwardTask {
             ctx: Arc::clone(ctx),
             site_ctx,
@@ -105,7 +104,7 @@ impl<'a> HttpGuardForwardTask<'a> {
             _alive_guard: None,
             alive_reuse_notes: None,
             origin_session_auth,
-            upstream,
+            upstream: UpstreamAddr::empty(),
         }
     }
 
@@ -433,6 +432,8 @@ impl<'a> HttpGuardForwardTask<'a> {
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
+        self.prepare_upstream(fwd_ctx, clt_w).await?;
+
         let keepalive = self.site().h1_keepalive_config();
         if keepalive.is_enabled()
             && let Some(mut connection) = self
@@ -641,13 +642,35 @@ impl<'a> HttpGuardForwardTask<'a> {
         }
     }
 
+    async fn prepare_upstream<CDW>(
+        &mut self,
+        fwd_ctx: &mut BoxHttpForwardContext,
+        clt_w: &mut HttpClientWriter<CDW>,
+    ) -> ServerTaskResult<()>
+    where
+        CDW: AsyncWrite + Unpin,
+    {
+        let upstream = match self.site().select_upstream(self.ctx.client_ip()) {
+            Ok(upstream) => upstream,
+            Err(_) => {
+                let e = TcpConnectError::InternalServerError("failed to select site upstream");
+                self.reply_connect_err(&e, clt_w).await;
+                return Err(e.into());
+            }
+        };
+        self.upstream = upstream;
+
+        // check in final escaper so we can use route escapers
+        let _ = fwd_ctx
+            .check_in_final_escaper(&self.task_notes, &self.upstream, self.origin_tls())
+            .await;
+        Ok(())
+    }
+
     async fn make_new_connection(
         &self,
         fwd_ctx: &mut BoxHttpForwardContext,
     ) -> Result<(BoxHttpForwardConnection, HttpAliveReuseNotes), TcpConnectError> {
-        self.task_notes
-            .site_upstream()
-            .map_err(|_| TcpConnectError::InternalServerError("failed to select site upstream"))?;
         let mut audit_ctx = AuditContext::new(self.ctx.audit_handle.clone());
         if let Some(tls_client) = self.site().tls_client() {
             let task_conf = TlsConnectTaskConf {

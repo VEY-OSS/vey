@@ -62,7 +62,6 @@ impl H2ForwardTask {
         );
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Default::default())
             .with_site_ctx(ctx.site_ctx_for_request());
-        let upstream = task_notes.site_upstream_addr().clone();
         let allow_continue = req.expect_100_continue();
         H2ForwardTask {
             ctx,
@@ -75,7 +74,7 @@ impl H2ForwardTask {
             send_error_response: true,
             allow_continue,
             audit_task: false,
-            upstream,
+            upstream: UpstreamAddr::empty(),
             _alive_guard: None,
         }
     }
@@ -200,18 +199,19 @@ impl H2ForwardTask {
         }
 
         self.audit_task = self.should_audit();
+        self.prepare_upstream()?;
 
         let origin = if self.req.maybe_grpc() {
             let request_host = self.req.host();
             OriginConnection::H2(
                 self.ctx
-                    .checkout_or_connect_h2(&mut self.task_notes, &request_host)
+                    .checkout_or_connect_h2(&mut self.task_notes, &self.upstream, &request_host)
                     .await?,
             )
         } else {
             let request_host = self.req.host();
             self.ctx
-                .checkout_or_connect(&mut self.task_notes, &request_host)
+                .checkout_or_connect(&mut self.task_notes, &self.upstream, &request_host)
                 .await?
         };
         match origin {
@@ -225,6 +225,16 @@ impl H2ForwardTask {
             }
         }
         self.task_notes.stage = ServerTaskStage::Finished;
+        Ok(())
+    }
+
+    fn prepare_upstream(&mut self) -> Result<(), H2StreamTransferError> {
+        self.upstream = self
+            .ctx
+            .site_ctx
+            .site()
+            .select_upstream(self.ctx.client_ip())
+            .map_err(H2StreamTransferError::OriginConnectFailed)?;
         Ok(())
     }
 

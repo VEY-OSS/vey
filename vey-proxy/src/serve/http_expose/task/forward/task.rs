@@ -84,7 +84,6 @@ impl<'a> HttpExposeForwardTask<'a> {
             uri_log_max_chars,
         );
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
-        let upstream = task_notes.site_upstream_addr().clone();
         HttpExposeForwardTask {
             ctx: Arc::clone(ctx),
             site_ctx,
@@ -100,7 +99,7 @@ impl<'a> HttpExposeForwardTask<'a> {
             max_idle_count,
             _alive_guard: None,
             alive_reuse_notes: None,
-            upstream,
+            upstream: UpstreamAddr::empty(),
         }
     }
 
@@ -243,6 +242,36 @@ impl<'a> HttpExposeForwardTask<'a> {
         if let Some(log_ctx) = self.get_log_context() {
             log_ctx.log(&e);
         }
+    }
+
+    async fn prepare_upstream<CDW>(
+        &mut self,
+        fwd_ctx: &mut BoxHttpForwardContext,
+        clt_w: &mut HttpClientWriter<CDW>,
+    ) -> ServerTaskResult<()>
+    where
+        CDW: AsyncWrite + Unpin,
+    {
+        let upstream = match self.site().select_upstream(self.ctx.client_ip()) {
+            Ok(upstream) => upstream,
+            Err(_) => {
+                let e = TcpConnectError::InternalServerError("failed to select site upstream");
+                self.reply_connect_err(&e, clt_w).await;
+                return Err(e.into());
+            }
+        };
+        self.upstream = upstream;
+
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            let action = user_ctx.check_upstream(&self.upstream);
+            self.handle_user_upstream_acl_action(action, clt_w).await?;
+        }
+
+        // check in final escaper so we can use route escapers
+        let _ = fwd_ctx
+            .check_in_final_escaper(&self.task_notes, &self.upstream, self.origin_tls())
+            .await;
+        Ok(())
     }
 
     fn pre_start(&mut self) {
@@ -434,9 +463,6 @@ impl<'a> HttpExposeForwardTask<'a> {
                 ));
             }
 
-            let action = user_ctx.check_upstream(&self.upstream);
-            self.handle_user_upstream_acl_action(action, clt_w).await?;
-
             if let Some(action) = user_ctx.check_http_user_agent(
                 self.req
                     .end_to_end_headers
@@ -463,6 +489,8 @@ impl<'a> HttpExposeForwardTask<'a> {
             })?;
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
+
+        self.prepare_upstream(fwd_ctx, clt_w).await?;
 
         let keepalive = self.site().h1_keepalive_config();
         if keepalive.is_enabled()
@@ -659,9 +687,6 @@ impl<'a> HttpExposeForwardTask<'a> {
         &self,
         fwd_ctx: &mut BoxHttpForwardContext,
     ) -> Result<(BoxHttpForwardConnection, HttpAliveReuseNotes), TcpConnectError> {
-        self.task_notes
-            .site_upstream()
-            .map_err(|_| TcpConnectError::InternalServerError("failed to select site upstream"))?;
         let mut audit_ctx = AuditContext::default();
         if let Some(tls_client) = self.site().tls_client() {
             let task_conf = TlsConnectTaskConf {

@@ -337,17 +337,6 @@ where
         )
         .with_site_ctx(site_ctx.clone());
 
-        // check in final escaper so we can use route escapers
-        let upstream = task_notes.site_upstream_addr();
-        let _ = self
-            .forward_context
-            .check_in_final_escaper(
-                &task_notes,
-                upstream,
-                site_ctx.site().tls_client().is_some(),
-            )
-            .await;
-
         match self
             .run_forward(&mut stream_w, req, site_ctx, task_notes)
             .await

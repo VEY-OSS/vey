@@ -147,8 +147,10 @@ impl H2ForwardTask {
         self.http_notes.retry_new_connection = false;
         self.egress_notes = origin.egress_notes.clone();
         self.task_notes.stage = ServerTaskStage::Connected;
-        let upstream = self.task_notes.site_upstream_addr().clone();
-        origin.connection.0.prepare_new(&self.task_notes, &upstream);
+        origin
+            .connection
+            .0
+            .prepare_new(&self.task_notes, &self.upstream);
     }
 
     fn poll_idle_h1_origin(
@@ -193,13 +195,18 @@ impl H2ForwardTask {
         let task_stats: ArcHttpForwardTaskRemoteStats = Arc::new(NilHttpForwardTaskRemoteStats);
         let site = self.ctx.site_ctx.site();
         let request_host = self.req.host();
-        let upstream = self
-            .task_notes
-            .site_upstream()
-            .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
+        let _ = fwd_ctx
+            .check_in_final_escaper(
+                &self.task_notes,
+                &self.upstream,
+                site.tls_client().is_some(),
+            )
+            .await;
         let (connection, reuse_notes) = if let Some(tls_client) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
-                tcp: TcpConnectTaskConf { upstream },
+                tcp: TcpConnectTaskConf {
+                    upstream: &self.upstream,
+                },
                 tls_config: tls_client,
                 tls_name: site.tls_name_or(&request_host),
                 alpn_protocols: None,
@@ -213,7 +220,9 @@ impl H2ForwardTask {
                 )
                 .await
         } else {
-            let task_conf = TcpConnectTaskConf { upstream };
+            let task_conf = TcpConnectTaskConf {
+                upstream: &self.upstream,
+            };
             fwd_ctx
                 .new_prepared_http_connection(
                     &task_conf,
@@ -852,7 +861,7 @@ impl H2ForwardTask {
         pool.save(
             self.task_notes.worker_id(),
             self.ctx.escaper.name().clone(),
-            self.task_notes.site_upstream_peer(),
+            self.upstream.socket_addr(),
             origin.connection,
             origin.reuse_notes,
             origin.egress_notes,

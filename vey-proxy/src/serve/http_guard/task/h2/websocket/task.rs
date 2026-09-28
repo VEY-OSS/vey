@@ -52,7 +52,6 @@ impl H2WebsocketTask {
         let ws_notes = WebSocketTaskNotes::new(req.version(), req.uri().clone(), uri_log_max_chars);
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Default::default())
             .with_site_ctx(ctx.site_ctx_for_request());
-        let upstream = task_notes.site_upstream_addr().clone();
         H2WebsocketTask {
             ctx,
             clt_stream_id,
@@ -65,7 +64,7 @@ impl H2WebsocketTask {
             ups_rd_bytes: 0,
             ups_wr_bytes: 0,
             send_error_response: true,
-            upstream,
+            upstream: UpstreamAddr::empty(),
             _alive_guard: None,
         }
     }
@@ -138,10 +137,16 @@ impl H2WebsocketTask {
             return Err(H2StreamTransferError::InternalServerError("fully loaded"));
         }
 
+        self.upstream = self
+            .ctx
+            .site_ctx
+            .site()
+            .select_upstream(self.ctx.client_ip())
+            .map_err(H2StreamTransferError::OriginConnectFailed)?;
         let request_host = req.host();
         let origin = self
             .ctx
-            .checkout_or_connect_h2(&mut self.task_notes, &request_host)
+            .checkout_or_connect_h2(&mut self.task_notes, &self.upstream, &request_host)
             .await?;
         self.egress_notes = origin.egress_notes;
         self.task_notes.stage = ServerTaskStage::Connected;

@@ -19,7 +19,7 @@ use uuid::Uuid;
 use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_daemon::stat::task::TcpStreamTaskStats;
 use vey_h2::RequestExt;
-use vey_types::net::{AlpnProtocol, ForwardedValue, Host, HttpForwardedHeaderType};
+use vey_types::net::{AlpnProtocol, ForwardedValue, Host, HttpForwardedHeaderType, UpstreamAddr};
 
 use super::{CommonTaskContext, H2StreamTransferError};
 use crate::audit::AuditContext;
@@ -158,33 +158,40 @@ impl H2TaskContext {
     pub(super) async fn checkout_or_connect(
         &self,
         task_notes: &mut ServerTaskNotes,
+        upstream: &UpstreamAddr,
         request_host: &Host,
     ) -> Result<OriginConnection, H2StreamTransferError> {
-        if let Some(origin) = self.checkout_h2(task_notes).await {
+        if let Some(origin) = self.checkout_h2(task_notes, upstream).await {
             return Ok(OriginConnection::H2(origin));
         }
-        if let Some(origin) = self.checkout_h1(task_notes).await {
+        if let Some(origin) = self.checkout_h1(task_notes, upstream).await {
             return Ok(OriginConnection::H1(origin));
         }
         task_notes.stage = ServerTaskStage::Connecting;
-        self.connect_origin(task_notes, request_host).await
+        self.connect_origin(task_notes, upstream, request_host)
+            .await
     }
 
     pub(super) async fn checkout_or_connect_h2(
         &self,
         task_notes: &mut ServerTaskNotes,
+        upstream: &UpstreamAddr,
         request_host: &Host,
     ) -> Result<OriginH2Sender, H2StreamTransferError> {
-        if let Some(origin) = self.checkout_h2(task_notes).await {
+        if let Some(origin) = self.checkout_h2(task_notes, upstream).await {
             return Ok(origin);
         }
         task_notes.stage = ServerTaskStage::Connecting;
-        self.connect_origin_h2(task_notes, request_host).await
+        self.connect_origin_h2(task_notes, upstream, request_host)
+            .await
     }
 
-    async fn checkout_h2(&self, task_notes: &ServerTaskNotes) -> Option<OriginH2Sender> {
+    async fn checkout_h2(
+        &self,
+        task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
+    ) -> Option<OriginH2Sender> {
         let open_timeout = self.server_config.h2.upstream_stream_open_timeout;
-        let peer = task_notes.site_upstream_peer();
         let (sender, egress_notes) = self
             .site_ctx
             .site()
@@ -192,7 +199,7 @@ impl H2TaskContext {
             .checkout(
                 task_notes.worker_id(),
                 self.escaper.name(),
-                peer,
+                upstream.socket_addr(),
                 open_timeout,
             )
             .await?;
@@ -203,16 +210,23 @@ impl H2TaskContext {
         })
     }
 
-    async fn checkout_h1(&self, task_notes: &ServerTaskNotes) -> Option<OriginH1Sender> {
+    async fn checkout_h1(
+        &self,
+        task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
+    ) -> Option<OriginH1Sender> {
         let site = self.site_ctx.site();
         let keepalive = site.h1_keepalive_config();
         if !keepalive.is_enabled() {
             return None;
         }
         let pool = site.http1_pool()?;
-        let peer = task_notes.site_upstream_peer();
         let (connection, reuse_notes, egress_notes) = pool
-            .get(task_notes.worker_id(), self.escaper.name(), peer)
+            .get(
+                task_notes.worker_id(),
+                self.escaper.name(),
+                upstream.socket_addr(),
+            )
             .await?;
         let task_stats: ArcHttpForwardTaskRemoteStats = Arc::new(NilHttpForwardTaskRemoteStats);
         let connection = reuse_notes.escaper.prepare_reused_http_forward_connection(
@@ -232,12 +246,10 @@ impl H2TaskContext {
     async fn connect_origin(
         &self,
         task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
         request_host: &Host,
     ) -> Result<OriginConnection, H2StreamTransferError> {
         let site = self.site_ctx.site();
-        let upstream = task_notes
-            .site_upstream()
-            .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
         let mut egress_notes = EgressNotes::default();
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = Arc::new(TcpStreamTaskStats::default());
@@ -268,12 +280,18 @@ impl H2TaskContext {
             }
             wrap_escaper.tls_connection_with_task_stats(stream, task_notes, task_stats)
         } else {
-            self.setup_origin_tcp(task_notes, &mut egress_notes, &mut audit_ctx, task_stats)
-                .await?
+            self.setup_origin_tcp(
+                task_notes,
+                upstream,
+                &mut egress_notes,
+                &mut audit_ctx,
+                task_stats,
+            )
+            .await?
         };
 
         Ok(OriginConnection::H2(
-            self.finish_h2_origin(stream, egress_notes, task_notes)
+            self.finish_h2_origin(stream, egress_notes, task_notes, upstream)
                 .await?,
         ))
     }
@@ -281,12 +299,10 @@ impl H2TaskContext {
     async fn connect_origin_h2(
         &self,
         task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
         request_host: &Host,
     ) -> Result<OriginH2Sender, H2StreamTransferError> {
         let site = self.site_ctx.site();
-        let upstream = task_notes
-            .site_upstream()
-            .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
         let mut egress_notes = EgressNotes::default();
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = Arc::new(TcpStreamTaskStats::default());
@@ -309,24 +325,28 @@ impl H2TaskContext {
                 .await
                 .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?
         } else {
-            self.setup_origin_tcp(task_notes, &mut egress_notes, &mut audit_ctx, task_stats)
-                .await?
+            self.setup_origin_tcp(
+                task_notes,
+                upstream,
+                &mut egress_notes,
+                &mut audit_ctx,
+                task_stats,
+            )
+            .await?
         };
 
-        self.finish_h2_origin(stream, egress_notes, task_notes)
+        self.finish_h2_origin(stream, egress_notes, task_notes, upstream)
             .await
     }
 
     async fn setup_origin_tcp(
         &self,
         task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
         egress_notes: &mut EgressNotes,
         audit_ctx: &mut AuditContext,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> Result<TcpConnection, H2StreamTransferError> {
-        let upstream = task_notes
-            .site_upstream()
-            .map_err(H2StreamTransferError::OriginConnectFailed)?;
         let task_conf = TcpConnectTaskConf { upstream };
         self.escaper
             .tcp_setup_connection(&task_conf, egress_notes, task_notes, task_stats, audit_ctx)
@@ -339,12 +359,13 @@ impl H2TaskContext {
         stream: TcpConnection,
         egress_notes: EgressNotes,
         task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
     ) -> Result<OriginH2Sender, H2StreamTransferError> {
         let (sender, conn_state) = self.handshake_h2(stream).await?;
         self.site_ctx.site().http2_pool().insert(
             task_notes.worker_id(),
             self.escaper.name().clone(),
-            task_notes.site_upstream_peer(),
+            upstream.socket_addr(),
             sender.clone(),
             conn_state,
             egress_notes.clone(),

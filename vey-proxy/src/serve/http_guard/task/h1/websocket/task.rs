@@ -79,7 +79,6 @@ impl HttpGuardWebsocketTask {
         let ws_notes =
             WebSocketTaskNotes::new(req.inner.version, req.inner.uri.clone(), uri_log_max_chars);
         let max_idle_count = task_notes.task_max_idle_count(ctx.server_config.task_idle_max_count);
-        let upstream = task_notes.site_upstream_addr().clone();
         HttpGuardWebsocketTask {
             ctx: Arc::clone(ctx),
             site_ctx,
@@ -91,7 +90,7 @@ impl HttpGuardWebsocketTask {
             ups_r_leftover: None,
             send_error_response: true,
             _alive_guard: None,
-            upstream,
+            upstream: UpstreamAddr::empty(),
         }
     }
 
@@ -409,8 +408,10 @@ impl HttpGuardWebsocketTask {
         &mut self,
         req: &HttpProxyClientRequest,
     ) -> Result<TcpConnection, TcpConnectError> {
-        self.task_notes
-            .site_upstream()
+        self.upstream = self
+            .site_ctx
+            .site()
+            .select_upstream(self.ctx.client_ip())
             .map_err(|_| TcpConnectError::InternalServerError("failed to select site upstream"))?;
         let mut audit_ctx = AuditContext::new(self.ctx.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = self.task_stats.clone();
