@@ -10,7 +10,9 @@ use std::time::Duration;
 
 use async_recursion::async_recursion;
 use bytes::Bytes;
-use h2::{Reason, server::Connection};
+use h2::Reason;
+use h2::client::SendRequest;
+use h2::server::{Connection, SendResponse};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::oneshot;
 
@@ -493,6 +495,33 @@ where
                         h2c_connection.graceful_shutdown();
                     }
                 }
+            }
+        }
+    }
+}
+
+impl<SC: ServerConfig> StreamInspectContext<SC> {
+    /// `ready` before `send_request` does not wait for MAX_CONCURRENT_STREAMS;
+    /// only `poll_ready` on the same handle after `send_request` does.
+    async fn wait_h2_ups_stream_open(
+        &self,
+        ups_send_req: &mut SendRequest<Bytes>,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<(), H2StreamTransferError> {
+        match tokio::time::timeout(
+            self.h2_interception().upstream_stream_open_timeout,
+            poll_fn(|cx| ups_send_req.poll_ready(cx)),
+        )
+        .await
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => {
+                clt_send_rsp.send_reset(e.reason().unwrap_or(Reason::REFUSED_STREAM));
+                Err(H2StreamTransferError::UpstreamStreamOpenFailed(e))
+            }
+            Err(_) => {
+                clt_send_rsp.send_reset(Reason::REFUSED_STREAM);
+                Err(H2StreamTransferError::UpstreamStreamOpenTimeout)
             }
         }
     }

@@ -422,6 +422,10 @@ where
             .send_request(ups_req, true)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?; // do not send REFUSED_STREAM, use the default rst in h2
         self.ups_stream_id = Some(ups_rsp_fut.stream_id());
+        self.ctx
+            .wait_h2_ups_stream_open(&mut ups_send_req, clt_send_rsp)
+            .await?;
+        self.http_notes.mark_stream_ready();
         self.http_notes.mark_req_send_hdr();
         self.http_notes.mark_req_no_body();
 
@@ -450,6 +454,10 @@ where
             .send_request(ups_req, false)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?; // do not send REFUSED_STREAM, use the default rst in h2
         self.ups_stream_id = Some(ups_rsp_fut.stream_id());
+        self.ctx
+            .wait_h2_ups_stream_open(&mut ups_send_req, clt_send_rsp)
+            .await?;
+        self.http_notes.mark_stream_ready();
         self.http_notes.mark_req_send_hdr();
 
         let mut req_body_transfer = H2BodyTransfer::new(

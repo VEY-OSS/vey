@@ -310,6 +310,10 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
             .send_request(ups_req, false)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
         self.ups_stream_id = Some(ups_response_fut.stream_id());
+        self.ctx
+            .wait_h2_ups_stream_open(&mut ups_send_req, clt_send_rsp)
+            .await?;
+        self.http_notes.mark_stream_ready();
         self.http_notes.mark_req_send_hdr();
 
         match tokio::time::timeout(self.ctx.h2_rsp_hdr_recv_timeout(), ups_response_fut).await {
