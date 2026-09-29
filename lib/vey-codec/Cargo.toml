@@ -10,7 +10,6 @@ thiserror.workspace = true
 smallvec = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
 vey-std-ext.workspace = true
-vey-types = { workspace = true }
 
 [features]
 default = []
@@ -23,3 +22,4 @@ quic = ["tls", "dep:openssl", "dep:smallvec"]
 
 [dev-dependencies]
 hex-literal.workspace = true
+vey-types = { workspace = true }
