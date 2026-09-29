@@ -358,24 +358,7 @@ impl H2WebsocketTask {
         self.send_error_response = false;
 
         if !rsp.status().is_success() {
-            if body.is_end_stream() {
-                clt_send_rsp
-                    .send_response(rsp, true)
-                    .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
-            } else {
-                let clt_w = clt_send_rsp
-                    .send_response(rsp, false)
-                    .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
-                let mut transfer =
-                    H2BodyTransfer::new(body, clt_w, self.ctx.server_config.tcp_copy.yield_size());
-                (&mut transfer)
-                    .await
-                    .map_err(H2StreamTransferError::ResponseBodyTransferFailed)?;
-                self.ups_rd_bytes = transfer.received_size();
-                self.clt_wr_bytes = transfer.copied_size();
-            }
-            self.ws_notes.rsp_status = self.ws_notes.origin_status;
-            return Ok(());
+            return self.send_err_response(rsp, body, clt_send_rsp).await;
         }
 
         self.task_notes.stage = ServerTaskStage::Replying;
@@ -394,6 +377,64 @@ impl H2WebsocketTask {
         self.task_notes
             .foreach_req_stats(|s| s.req_ready.add_websocket());
         self.relay_streams(clt_r, clt_w, body, ups_w).await
+    }
+
+    async fn send_err_response(
+        &mut self,
+        rsp: Response<()>,
+        ups_r: RecvStream,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<(), H2StreamTransferError> {
+        if ups_r.is_end_stream() {
+            clt_send_rsp
+                .send_response(rsp, true)
+                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            self.ws_notes.rsp_status = self.ws_notes.origin_status;
+            return Ok(());
+        }
+
+        let clt_w = clt_send_rsp
+            .send_response(rsp, false)
+            .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+        self.ws_notes.rsp_status = self.ws_notes.origin_status;
+
+        let mut rsp_body_transfer =
+            H2BodyTransfer::new(ups_r, clt_w, self.ctx.server_config.tcp_copy.yield_size());
+        let mut idle_interval = self.ctx.idle_wheel.register();
+        let mut idle_count = 0;
+
+        macro_rules! record_progress {
+            () => {
+                self.ups_rd_bytes = rsp_body_transfer.received_size();
+                self.clt_wr_bytes = rsp_body_transfer.copied_size();
+            };
+        }
+
+        loop {
+            tokio::select! {
+                biased;
+                r = &mut rsp_body_transfer => {
+                    record_progress!();
+                    return r.map_err(H2StreamTransferError::ResponseBodyTransferFailed);
+                }
+                n = idle_interval.tick() => {
+                    if rsp_body_transfer.is_idle() {
+                        idle_count += n;
+                        if idle_count > self.task_notes.task_max_idle_count(self.ctx.server_config.task_idle_max_count) {
+                            record_progress!();
+                            return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
+                        }
+                    } else {
+                        idle_count = 0;
+                        rsp_body_transfer.reset_active();
+                    }
+                    if self.ctx.server_quit_policy.force_quit() {
+                        record_progress!();
+                        return Err(H2StreamTransferError::CanceledAsServerQuit);
+                    }
+                }
+            }
+        }
     }
 
     async fn relay_streams(
