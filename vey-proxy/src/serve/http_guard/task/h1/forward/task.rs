@@ -76,6 +76,7 @@ impl<'a> HttpGuardForwardTask<'a> {
         site_ctx: SiteContext,
         task_notes: ServerTaskNotes,
         origin_session_auth: bool,
+        sticky_upstream: Option<UpstreamAddr>,
     ) -> Self {
         let uri_log_max_chars = site_ctx
             .log_uri_max_chars()
@@ -105,8 +106,12 @@ impl<'a> HttpGuardForwardTask<'a> {
             _alive_guard: None,
             alive_reuse_notes: None,
             origin_session_auth,
-            upstream: UpstreamAddr::empty(),
+            upstream: sticky_upstream.unwrap_or_else(UpstreamAddr::empty),
         }
+    }
+
+    pub(crate) fn selected_upstream(&self) -> &UpstreamAddr {
+        &self.upstream
     }
 
     fn site(&self) -> &Site {
@@ -648,15 +653,16 @@ impl<'a> HttpGuardForwardTask<'a> {
     where
         CDW: AsyncWrite + Unpin,
     {
-        let upstream = match self.site().select_upstream(self.ctx.client_ip()) {
-            Ok(upstream) => upstream,
-            Err(_) => {
-                let e = TcpConnectError::InternalServerError("failed to select site upstream");
-                self.reply_connect_err(&e, clt_w).await;
-                return Err(e.into());
-            }
-        };
-        self.upstream = upstream;
+        if self.upstream.is_empty() || !self.site().accepts_upstream(&self.upstream) {
+            self.upstream = match self.site().select_upstream(self.ctx.client_ip()) {
+                Ok(upstream) => upstream,
+                Err(_) => {
+                    let e = TcpConnectError::InternalServerError("failed to select site upstream");
+                    self.reply_connect_err(&e, clt_w).await;
+                    return Err(e.into());
+                }
+            };
+        }
 
         // check in final escaper so we can use route escapers
         let _ = fwd_ctx

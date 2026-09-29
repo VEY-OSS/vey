@@ -64,6 +64,41 @@ impl SiteUpstream {
     }
 
     pub(super) fn select(&self, client_ip: IpAddr) -> anyhow::Result<UpstreamAddr> {
+        self.select_keeping(client_ip, None)
+    }
+
+    /// Reuse `previous` when it is still a configured upstream for this site.
+    pub(super) fn select_keeping(
+        &self,
+        client_ip: IpAddr,
+        previous: Option<&UpstreamAddr>,
+    ) -> anyhow::Result<UpstreamAddr> {
+        if let Some(previous) = previous
+            && self.accepts(previous)
+        {
+            return Ok(previous.clone());
+        }
+        self.select_new(client_ip)
+    }
+
+    pub(super) fn accepts(&self, addr: &UpstreamAddr) -> bool {
+        if let Some(single) = self.config.single() {
+            return single == addr;
+        }
+        let Some(peer) = addr.socket_addr() else {
+            return false;
+        };
+        let weights = self.runtime_weight.lock().unwrap();
+        self.config.peers().iter().any(|configured| {
+            if *configured.inner() != peer {
+                return false;
+            }
+            let weight = weights.get(&peer).copied().unwrap_or(configured.weight());
+            weight.is_finite() && weight > 0.0
+        })
+    }
+
+    fn select_new(&self, client_ip: IpAddr) -> anyhow::Result<UpstreamAddr> {
         if let Some(addr) = self.config.single() {
             return Ok(addr.clone());
         }
@@ -165,6 +200,25 @@ mod tests {
             picked.push(upstream.select(ip).unwrap().to_string());
         }
         assert_eq!(picked, ["10.0.0.2:8080", "10.0.0.1:8080", "10.0.0.2:8080"]);
+    }
+
+    #[test]
+    fn kept_peer_stays_until_its_weight_drops() {
+        let config = parse(
+            r#"
+- 10.0.0.1:8080
+- addr: 10.0.0.2:8080
+  weight: 2
+"#,
+        );
+        let upstream = SiteUpstream::new(&config);
+        let ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        let first = upstream.select(ip).unwrap();
+        assert_eq!(upstream.select_keeping(ip, Some(&first)).unwrap(), first);
+        upstream
+            .set_weight(first.socket_addr().unwrap(), 0.0)
+            .unwrap();
+        assert_ne!(upstream.select_keeping(ip, Some(&first)).unwrap(), first);
     }
 
     #[test]

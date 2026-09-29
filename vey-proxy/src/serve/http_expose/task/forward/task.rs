@@ -67,6 +67,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         req: &'a HttpExposeRequest<impl AsyncRead>,
         site_ctx: SiteContext,
         task_notes: ServerTaskNotes,
+        sticky_upstream: Option<UpstreamAddr>,
     ) -> Self {
         let uri_log_max_chars = site_ctx
             .log_uri_max_chars()
@@ -99,8 +100,12 @@ impl<'a> HttpExposeForwardTask<'a> {
             max_idle_count,
             _alive_guard: None,
             alive_reuse_notes: None,
-            upstream: UpstreamAddr::empty(),
+            upstream: sticky_upstream.unwrap_or_else(UpstreamAddr::empty),
         }
+    }
+
+    pub(crate) fn selected_upstream(&self) -> &UpstreamAddr {
+        &self.upstream
     }
 
     fn site(&self) -> &Site {
@@ -252,15 +257,16 @@ impl<'a> HttpExposeForwardTask<'a> {
     where
         CDW: AsyncWrite + Unpin,
     {
-        let upstream = match self.site().select_upstream(self.ctx.client_ip()) {
-            Ok(upstream) => upstream,
-            Err(_) => {
-                let e = TcpConnectError::InternalServerError("failed to select site upstream");
-                self.reply_connect_err(&e, clt_w).await;
-                return Err(e.into());
-            }
-        };
-        self.upstream = upstream;
+        if self.upstream.is_empty() || !self.site().accepts_upstream(&self.upstream) {
+            self.upstream = match self.site().select_upstream(self.ctx.client_ip()) {
+                Ok(upstream) => upstream,
+                Err(_) => {
+                    let e = TcpConnectError::InternalServerError("failed to select site upstream");
+                    self.reply_connect_err(&e, clt_w).await;
+                    return Err(e.into());
+                }
+            };
+        }
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let action = user_ctx.check_upstream(&self.upstream);

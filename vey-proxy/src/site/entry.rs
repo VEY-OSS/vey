@@ -196,6 +196,10 @@ impl Site {
         self.upstream.select(client_ip)
     }
 
+    pub(crate) fn accepts_upstream(&self, addr: &UpstreamAddr) -> bool {
+        self.upstream.accepts(addr)
+    }
+
     pub(crate) fn list_upstream_peers(&self) -> anyhow::Result<Vec<UpstreamPeerStatus>> {
         self.upstream.list_peers()
     }

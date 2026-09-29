@@ -72,6 +72,7 @@ impl HttpGuardWebsocketTask {
         req: &HttpGuardRequest<impl AsyncRead>,
         site_ctx: SiteContext,
         task_notes: ServerTaskNotes,
+        sticky_upstream: Option<UpstreamAddr>,
     ) -> Self {
         let uri_log_max_chars = site_ctx
             .log_uri_max_chars()
@@ -90,7 +91,7 @@ impl HttpGuardWebsocketTask {
             ups_r_leftover: None,
             send_error_response: true,
             _alive_guard: None,
-            upstream: UpstreamAddr::empty(),
+            upstream: sticky_upstream.unwrap_or_else(UpstreamAddr::empty),
         }
     }
 
@@ -381,11 +382,17 @@ impl HttpGuardWebsocketTask {
         &mut self,
         req: &HttpProxyClientRequest,
     ) -> Result<TcpConnection, TcpConnectError> {
-        self.upstream = self
-            .site_ctx
-            .site()
-            .select_upstream(self.ctx.client_ip())
-            .map_err(|_| TcpConnectError::InternalServerError("failed to select site upstream"))?;
+        let refresh =
+            self.upstream.is_empty() || !self.site_ctx.site().accepts_upstream(&self.upstream);
+        if refresh {
+            self.upstream = self
+                .site_ctx
+                .site()
+                .select_upstream(self.ctx.client_ip())
+                .map_err(|_| {
+                    TcpConnectError::InternalServerError("failed to select site upstream")
+                })?;
+        }
         let mut audit_ctx = AuditContext::new(self.ctx.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = self.task_stats.clone();
         if let Some(tls_client) = self.site_ctx.site().tls_client() {

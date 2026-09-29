@@ -5,13 +5,14 @@
 
 use std::sync::Arc;
 
-use ahash::AHashSet;
+use ahash::{AHashMap, AHashSet};
 use arcstr::ArcStr;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 
 use vey_io_ext::{ArcLimitedWriterStats, LimitedWriter};
-use vey_types::net::HttpUpgradeToken;
+use vey_types::metrics::NodeName;
+use vey_types::net::{HttpUpgradeToken, UpstreamAddr};
 use vey_types::route::HostMatch;
 
 use super::protocol::{HttpClientWriter, HttpGuardRequest};
@@ -36,6 +37,7 @@ pub(crate) struct HttpGuardPipelineWriterTask<CDR, CDW> {
     site_conn: Option<SiteHttpConnGuard>,
     origin_session_auth: bool,
     seen_tenants: AHashSet<ArcStr>,
+    site_upstreams: AHashMap<NodeName, UpstreamAddr>,
 }
 
 enum LoopAction {
@@ -76,7 +78,36 @@ where
             site_conn: None,
             origin_session_auth: false,
             seen_tenants: AHashSet::new(),
+            site_upstreams: AHashMap::new(),
         }
+    }
+
+    fn sticky_upstream(&self, site_ctx: &SiteContext) -> Option<UpstreamAddr> {
+        self.site_upstreams.get(site_ctx.site().id()).cloned()
+    }
+
+    fn new_forward_task<'b>(
+        &self,
+        req: &'b HttpGuardRequest<CDR>,
+        site_ctx: SiteContext,
+        task_notes: ServerTaskNotes,
+    ) -> HttpGuardForwardTask<'b> {
+        let sticky = self.sticky_upstream(&site_ctx);
+        HttpGuardForwardTask::new(
+            &self.ctx,
+            req,
+            site_ctx,
+            task_notes,
+            self.origin_session_auth,
+            sticky,
+        )
+    }
+
+    fn remember_site_upstream(&mut self, site_id: NodeName, upstream: &UpstreamAddr) {
+        if upstream.is_empty() {
+            return;
+        }
+        self.site_upstreams.insert(site_id, upstream.clone());
     }
 
     fn note_site_conn(&mut self, site: &Site) {
@@ -290,7 +321,9 @@ where
         let Some(clt_r) = req.body_reader.take() else {
             unreachable!()
         };
-        let mut ws_task = HttpGuardWebsocketTask::new(&self.ctx, &req, site_ctx, task_notes);
+        let sticky = self.sticky_upstream(&site_ctx);
+        let mut ws_task =
+            HttpGuardWebsocketTask::new(&self.ctx, &req, site_ctx, task_notes, sticky);
         let connected = ws_task.connect_to_origin(&req.inner, &mut clt_w).await;
         let _ = req.stream_sender.try_send(None);
         if let Some((ups_c, rsp)) = connected {
@@ -308,17 +341,13 @@ where
         self.origin_session_auth |= req.inner.authorization_negotiate();
         match req.body_reader.take() {
             Some(stream_r) => {
-                let mut forward_task = HttpGuardForwardTask::new(
-                    &self.ctx,
-                    &req,
-                    site_ctx,
-                    task_notes,
-                    self.origin_session_auth,
-                );
+                let site_id = site_ctx.site().id().clone();
+                let mut forward_task = self.new_forward_task(&req, site_ctx, task_notes);
                 let mut clt_r = Some(stream_r);
                 forward_task
                     .run(&mut clt_r, clt_w, &mut self.forward_context)
                     .await;
+                self.remember_site_upstream(site_id, forward_task.selected_upstream());
                 self.origin_session_auth |= forward_task.origin_session_auth();
                 if forward_task.should_close() {
                     let _ = req.stream_sender.try_send(None);
@@ -330,17 +359,13 @@ where
                 }
             }
             None => {
-                let mut forward_task = HttpGuardForwardTask::new(
-                    &self.ctx,
-                    &req,
-                    site_ctx,
-                    task_notes,
-                    self.origin_session_auth,
-                );
+                let site_id = site_ctx.site().id().clone();
+                let mut forward_task = self.new_forward_task(&req, site_ctx, task_notes);
                 let mut clt_r = None;
                 forward_task
                     .run::<CDR, CDW>(&mut clt_r, clt_w, &mut self.forward_context)
                     .await;
+                self.remember_site_upstream(site_id, forward_task.selected_upstream());
                 self.origin_session_auth |= forward_task.origin_session_auth();
                 if forward_task.should_close() {
                     self.notify_reader_to_close();

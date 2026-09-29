@@ -14,7 +14,8 @@ use tokio::sync::mpsc;
 
 use vey_io_ext::LimitedWriter;
 use vey_types::auth::UserAuthError;
-use vey_types::net::HttpAuth;
+use vey_types::metrics::NodeName;
+use vey_types::net::{HttpAuth, UpstreamAddr};
 use vey_types::route::HostMatch;
 
 use super::protocol::{HttpClientWriter, HttpExposeRequest};
@@ -75,6 +76,7 @@ pub(crate) struct HttpExposePipelineWriterTask<CDR, CDW> {
     req_count: RequestCount,
     site_conn: Option<SiteHttpConnGuard>,
     seen_tenants: AHashSet<ArcStr>,
+    site_upstreams: AHashMap<NodeName, UpstreamAddr>,
 }
 
 enum LoopAction {
@@ -114,7 +116,25 @@ where
             req_count: RequestCount::default(),
             site_conn: None,
             seen_tenants: AHashSet::new(),
+            site_upstreams: AHashMap::new(),
         }
+    }
+
+    fn new_forward_task<'b>(
+        &self,
+        req: &'b HttpExposeRequest<CDR>,
+        site_ctx: SiteContext,
+        task_notes: ServerTaskNotes,
+    ) -> HttpExposeForwardTask<'b> {
+        let sticky = self.site_upstreams.get(site_ctx.site().id()).cloned();
+        HttpExposeForwardTask::new(&self.ctx, req, site_ctx, task_notes, sticky)
+    }
+
+    fn remember_site_upstream(&mut self, site_id: NodeName, upstream: &UpstreamAddr) {
+        if upstream.is_empty() {
+            return;
+        }
+        self.site_upstreams.insert(site_id, upstream.clone());
     }
 
     fn note_site_conn(&mut self, site: &Site) {
@@ -476,12 +496,13 @@ where
             Some(stream_r) => {
                 // we have a body, or we need to close the connection
                 // we may need to send stream_r back if we have a body
-                let mut forward_task =
-                    HttpExposeForwardTask::new(&self.ctx, &req, site_ctx, task_notes);
+                let site_id = site_ctx.site().id().clone();
+                let mut forward_task = self.new_forward_task(&req, site_ctx, task_notes);
                 let mut clt_r = Some(stream_r);
                 forward_task
                     .run(&mut clt_r, clt_w, &mut self.forward_context)
                     .await;
+                self.remember_site_upstream(site_id, forward_task.selected_upstream());
                 if forward_task.should_close() {
                     // close read end
                     let _ = req.stream_sender.try_send(None);
@@ -498,12 +519,13 @@ where
             }
             None => {
                 // no body, and the connection is expected to keep alive from the client side
-                let mut forward_task =
-                    HttpExposeForwardTask::new(&self.ctx, &req, site_ctx, task_notes);
+                let site_id = site_ctx.site().id().clone();
+                let mut forward_task = self.new_forward_task(&req, site_ctx, task_notes);
                 let mut clt_r = None;
                 forward_task
                     .run::<CDR, CDW>(&mut clt_r, clt_w, &mut self.forward_context)
                     .await;
+                self.remember_site_upstream(site_id, forward_task.selected_upstream());
                 if forward_task.should_close() {
                     // i.e. ups_s io error may cause response data to be corrupted
                     self.notify_reader_to_close();
