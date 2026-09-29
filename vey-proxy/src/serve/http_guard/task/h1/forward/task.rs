@@ -1430,9 +1430,15 @@ impl<'a> HttpGuardForwardTask<'a> {
                     return Err(ServerTaskError::invalid_upstream_100_continue_response());
                 }
             }
-            103 => {
-                // HTTP Early Hints
+            102 | 103 => {
+                // HTTP Processing / Early Hints
                 self.send_response_header(clt_w, &hdr).await?;
+            }
+            // 101 is only valid for upgrade requests, which are not handled here.
+            101 | 104..200 => {
+                return Err(ServerTaskError::InvalidUpstreamProtocol(
+                    "unexpected informational response",
+                ));
             }
             _ => {
                 return Ok(Some(hdr));

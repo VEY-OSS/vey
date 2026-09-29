@@ -1543,8 +1543,8 @@ impl<'a> HttpProxyForwardTask<'a> {
                     return Err(ServerTaskError::invalid_upstream_100_continue_response());
                 }
             }
-            103 => {
-                // HTTP Early Hints
+            102 | 103 => {
+                // HTTP Processing / Early Hints
                 self.send_response_header(clt_w, &hdr).await?;
             }
             _ => return Ok(Some(hdr)),

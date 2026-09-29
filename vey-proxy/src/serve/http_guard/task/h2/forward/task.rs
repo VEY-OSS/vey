@@ -580,10 +580,15 @@ impl H2ForwardTask {
                     return Err(H2StreamTransferError::InvalidContinueResponse);
                 }
             }
-            StatusCode::EARLY_HINTS => {
+            StatusCode::PROCESSING | StatusCode::EARLY_HINTS => {
                 clt_send_rsp
                     .send_informational(rsp)
                     .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            }
+            status if status.is_informational() => {
+                return Err(H2StreamTransferError::UnsupportedInformationalResponse(
+                    status,
+                ));
             }
             status => {
                 self.http_notes.mark_rsp_recv_hdr();

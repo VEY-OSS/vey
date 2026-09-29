@@ -454,7 +454,7 @@ pub(super) fn check_out_final_response(
                 return Err(H2ReqmodAdaptationError::InvalidUpstreamContinueResponse);
             }
         }
-        StatusCode::EARLY_HINTS => {
+        StatusCode::PROCESSING | StatusCode::EARLY_HINTS => {
             clt_send_rsp
                 .send_informational(rsp)
                 .map_err(H2ReqmodAdaptationError::HttpClientSendResponseFailed)?;

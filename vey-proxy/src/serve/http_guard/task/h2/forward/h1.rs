@@ -591,10 +591,16 @@ impl H2ForwardTask {
                     return Err(H2StreamTransferError::InvalidContinueResponse);
                 }
             }
-            103 => {
+            102 | 103 => {
                 clt_send_rsp
                     .send_informational(hdr.to_h2_response())
                     .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            }
+            // 101 is not allowed in HTTP/2, and other 1xx are unknown here.
+            101 | 104..200 => {
+                return Err(H2StreamTransferError::UnsupportedInformationalResponse(
+                    hdr.to_h2_response().status(),
+                ));
             }
             _ => return Ok(Some(hdr)),
         }
