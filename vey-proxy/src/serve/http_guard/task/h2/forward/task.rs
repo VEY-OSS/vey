@@ -389,114 +389,193 @@ impl H2ForwardTask {
 
     async fn forward_without_adaptation(
         &mut self,
-        mut ups_send_req: SendRequest<Bytes>,
+        ups_send_req: SendRequest<Bytes>,
         clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
-        let end_stream = clt_body.is_end_stream();
-        let (ups_rsp_fut, ups_send_stream) = ups_send_req
-            .send_request(self.req.clone_header(), end_stream)
+        if clt_body.is_end_stream() {
+            self.forward_without_body(ups_send_req, clt_send_rsp).await
+        } else {
+            self.forward_with_body(ups_send_req, clt_body, clt_send_rsp)
+                .await
+        }
+    }
+
+    async fn forward_without_body(
+        &mut self,
+        mut ups_send_req: SendRequest<Bytes>,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<(), H2StreamTransferError> {
+        let (ups_rsp_fut, _) = ups_send_req
+            .send_request(self.req.clone_header(), true)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
         self.ups_stream_id = Some(ups_rsp_fut.stream_id());
         self.http_notes.mark_req_send_hdr();
-        if end_stream {
-            self.http_notes.mark_req_no_body();
-        }
-
-        if !end_stream {
-            let mut req_body_transfer = H2BodyTransfer::new(
-                clt_body,
-                ups_send_stream,
-                self.ctx.server_config.tcp_copy.yield_size(),
-            );
-            let mut idle_interval = self.ctx.idle_wheel.register();
-            let mut idle_count = 0;
-
-            macro_rules! record_progress {
-                () => {
-                    self.http_notes.record_h2_req_body_progress(
-                        req_body_transfer.received_size(),
-                        req_body_transfer.copied_size(),
-                    )
-                };
-            }
-
-            loop {
-                tokio::select! {
-                    biased;
-                    r = &mut req_body_transfer => {
-                        match r {
-                            Ok(_) => {
-                                self.http_notes.mark_req_send_all();
-                                let n = req_body_transfer.copied_size();
-                                self.http_notes.clt_req_body_size = Some(n);
-                                self.http_notes.ups_req_body_size = Some(n);
-                                break;
-                            }
-                            Err(e) => {
-                                record_progress!();
-                                return Err(H2StreamTransferError::RequestBodyTransferFailed(e));
-                            }
-                        }
-                    }
-                    n = idle_interval.tick() => {
-                        if req_body_transfer.is_idle() {
-                            idle_count += n;
-                            if idle_count > self.task_notes.task_max_idle_count(self.ctx.server_config.task_idle_max_count) {
-                                record_progress!();
-                                return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
-                            }
-                        } else {
-                            idle_count = 0;
-                            req_body_transfer.reset_active();
-                        }
-                        if self.ctx.server_quit_policy.force_quit() {
-                            record_progress!();
-                            return Err(H2StreamTransferError::CanceledAsServerQuit);
-                        }
-                    }
-                }
-            }
-        }
+        self.http_notes.mark_req_no_body();
 
         let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_rsp_fut);
-        let ups_rsp = tokio::time::timeout(self.ctx.rsp_hdr_timeout(), async {
-            loop {
-                let rsp = ups_recv_rsp
-                    .recv_header()
-                    .await
-                    .map_err(H2StreamTransferError::ResponseHeadRecvFailed)?;
-                match rsp.status() {
-                    StatusCode::CONTINUE => {
-                        if self.allow_continue {
-                            clt_send_rsp
-                                .send_informational(rsp)
-                                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
-                            self.allow_continue = false;
-                        } else {
-                            return Err(H2StreamTransferError::InvalidContinueResponse);
-                        }
-                    }
-                    StatusCode::EARLY_HINTS => {
-                        clt_send_rsp
-                            .send_informational(rsp)
-                            .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
-                    }
-                    _ => {
-                        self.http_notes.mark_rsp_recv_hdr();
-                        let body = ups_recv_rsp.take_body().ok_or(
-                            H2StreamTransferError::UnsupportedInformationalResponse(rsp.status()),
-                        )?;
-                        let (headers, _) = rsp.into_parts();
-                        return Ok(Response::from_parts(headers, body));
-                    }
-                }
-            }
-        })
+        let ups_rsp = tokio::time::timeout(
+            self.ctx.rsp_hdr_timeout(),
+            self.recv_final_response(&mut ups_recv_rsp, clt_send_rsp),
+        )
         .await
         .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)??;
 
         self.send_response(ups_rsp, clt_send_rsp, None).await
+    }
+
+    async fn forward_with_body(
+        &mut self,
+        mut ups_send_req: SendRequest<Bytes>,
+        clt_body: RecvStream,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<(), H2StreamTransferError> {
+        let (ups_rsp_fut, ups_send_stream) = ups_send_req
+            .send_request(self.req.clone_header(), false)
+            .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
+        self.ups_stream_id = Some(ups_rsp_fut.stream_id());
+        self.http_notes.mark_req_send_hdr();
+
+        let mut req_body_transfer = H2BodyTransfer::new(
+            clt_body,
+            ups_send_stream,
+            self.ctx.server_config.tcp_copy.yield_size(),
+        );
+
+        let mut idle_interval = self.ctx.idle_wheel.register();
+        let mut idle_count = 0;
+
+        let mut ups_rsp: Option<Response<RecvStream>> = None;
+        let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_rsp_fut);
+
+        macro_rules! record_progress {
+            () => {
+                self.http_notes.record_h2_req_body_progress(
+                    req_body_transfer.received_size(),
+                    req_body_transfer.copied_size(),
+                )
+            };
+        }
+
+        loop {
+            tokio::select! {
+                biased;
+
+                r = &mut req_body_transfer => {
+                    match r {
+                        Ok(_) => {
+                            self.http_notes.mark_req_send_all();
+                            let n = req_body_transfer.copied_size();
+                            self.http_notes.clt_req_body_size = Some(n);
+                            self.http_notes.ups_req_body_size = Some(n);
+                            break;
+                        }
+                        Err(e) => {
+                            record_progress!();
+                            return Err(H2StreamTransferError::RequestBodyTransferFailed(e));
+                        }
+                    }
+                }
+                r = ups_recv_rsp.recv_header() => {
+                    match r {
+                        Ok(rsp) => {
+                            if let Some(final_rsp) = self.check_out_final_response(rsp, clt_send_rsp, &mut ups_recv_rsp)? {
+                                ups_rsp = Some(final_rsp);
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            record_progress!();
+                            return Err(H2StreamTransferError::ResponseHeadRecvFailed(e));
+                        }
+                    }
+                }
+                n = idle_interval.tick() => {
+                    if req_body_transfer.is_idle() {
+                        idle_count += n;
+                        if idle_count > self.task_notes.task_max_idle_count(self.ctx.server_config.task_idle_max_count) {
+                            record_progress!();
+                            return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
+                        }
+                    } else {
+                        idle_count = 0;
+                        req_body_transfer.reset_active();
+                    }
+                    if self.ctx.server_quit_policy.force_quit() {
+                        record_progress!();
+                        return Err(H2StreamTransferError::CanceledAsServerQuit);
+                    }
+                }
+            }
+        }
+
+        if let Some(ups_rsp) = ups_rsp {
+            self.send_response(ups_rsp, clt_send_rsp, None).await
+        } else {
+            let ups_rsp = tokio::time::timeout(
+                self.ctx.rsp_hdr_timeout(),
+                self.recv_final_response(&mut ups_recv_rsp, clt_send_rsp),
+            )
+            .await
+            .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)??;
+
+            self.send_response(ups_rsp, clt_send_rsp, None).await
+        }
+    }
+
+    async fn recv_final_response(
+        &mut self,
+        ups_recv_rsp: &mut H2ResponseHeaderReceiver,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<Response<RecvStream>, H2StreamTransferError> {
+        loop {
+            let rsp = ups_recv_rsp
+                .recv_header()
+                .await
+                .map_err(H2StreamTransferError::ResponseHeadRecvFailed)?;
+            if let Some(final_rsp) =
+                self.check_out_final_response(rsp, clt_send_rsp, ups_recv_rsp)?
+            {
+                return Ok(final_rsp);
+            }
+        }
+    }
+
+    fn check_out_final_response(
+        &mut self,
+        rsp: Response<()>,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        ups_recv_rsp: &mut H2ResponseHeaderReceiver,
+    ) -> Result<Option<Response<RecvStream>>, H2StreamTransferError> {
+        match rsp.status() {
+            StatusCode::CONTINUE => {
+                if self.allow_continue {
+                    clt_send_rsp
+                        .send_informational(rsp)
+                        .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+                    self.allow_continue = false;
+                } else {
+                    return Err(H2StreamTransferError::InvalidContinueResponse);
+                }
+            }
+            StatusCode::EARLY_HINTS => {
+                clt_send_rsp
+                    .send_informational(rsp)
+                    .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            }
+            status => {
+                self.http_notes.mark_rsp_recv_hdr();
+                return if let Some(body) = ups_recv_rsp.take_body() {
+                    let (headers, _) = rsp.into_parts();
+                    Ok(Some(Response::from_parts(headers, body)))
+                } else {
+                    Err(H2StreamTransferError::UnsupportedInformationalResponse(
+                        status,
+                    ))
+                };
+            }
+        }
+        Ok(None)
     }
 
     async fn send_response(
