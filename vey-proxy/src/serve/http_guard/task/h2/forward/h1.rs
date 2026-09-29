@@ -276,7 +276,7 @@ impl H2ForwardTask {
                     r = ups_r.fill_wait_data() => {
                         match r {
                             Ok(true) => {
-                                let hdr = self.recv_h1_response_header(ups_r).await?;
+                                let hdr = self.recv_h1_response_header_in_time(ups_r).await?;
                                 if let Some(final_hdr) =
                                     self.check_out_h1_informational(hdr, clt_send_rsp)?
                                 {
@@ -415,7 +415,7 @@ impl H2ForwardTask {
                         r = ups_r.fill_wait_data() => {
                             match r {
                                 Ok(true) => {
-                                    let hdr = self.recv_h1_response_header(ups_r).await?;
+                                    let hdr = self.recv_h1_response_header_in_time(ups_r).await?;
                                     if let Some(final_hdr) =
                                         self.check_out_h1_informational(hdr, clt_send_rsp)?
                                     {
@@ -544,6 +544,20 @@ impl H2ForwardTask {
         self.http_notes.mark_rsp_recv_hdr();
         self.http_notes.origin_status = rsp.code;
         Ok(rsp)
+    }
+
+    /// For headers that start arriving while the request body is still being
+    /// sent: the select loop polls nothing else until the header completes.
+    async fn recv_h1_response_header_in_time(
+        &mut self,
+        ups_r: &mut BoxHttpForwardReader,
+    ) -> Result<HttpForwardRemoteResponse, H2StreamTransferError> {
+        tokio::time::timeout(
+            self.ctx.rsp_hdr_timeout(),
+            self.recv_h1_response_header(ups_r),
+        )
+        .await
+        .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)?
     }
 
     async fn recv_h1_response_header(

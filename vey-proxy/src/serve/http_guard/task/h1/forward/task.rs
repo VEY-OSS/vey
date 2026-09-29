@@ -825,7 +825,7 @@ impl<'a> HttpGuardForwardTask<'a> {
                 r = ups_r.fill_wait_data() => {
                     match r {
                         Ok(true) => {
-                            let hdr = self.recv_response_header(ups_r).await?;
+                            let hdr = self.recv_response_header_in_time(ups_r).await?;
                             if let Some(final_hdr) = self.check_out_final_response(hdr, clt_w).await? {
                                 rsp_header = Some(final_hdr);
                                 break;
@@ -1276,7 +1276,7 @@ impl<'a> HttpGuardForwardTask<'a> {
                     match r {
                         Ok(true) => {
                             // we got some data from upstream
-                            let hdr = self.recv_response_header(ups_r).await?;
+                            let hdr = self.recv_response_header_in_time(ups_r).await?;
                             if let Some(final_hdr) = self.check_out_final_response(hdr, clt_w).await? {
                                 rsp_header = Some(final_hdr);
                                 break;
@@ -1439,6 +1439,20 @@ impl<'a> HttpGuardForwardTask<'a> {
             }
         }
         Ok(None)
+    }
+
+    /// For headers that start arriving while the request body is still being
+    /// sent: the select loop polls nothing else until the header completes.
+    async fn recv_response_header_in_time(
+        &mut self,
+        ups_r: &mut BoxHttpForwardReader,
+    ) -> ServerTaskResult<HttpForwardRemoteResponse> {
+        tokio::time::timeout(
+            self.rsp_hdr_recv_timeout(),
+            self.recv_response_header(ups_r),
+        )
+        .await
+        .map_err(|_| ServerTaskError::UpstreamAppTimeout("timeout to receive response header"))?
     }
 
     async fn recv_response_header(

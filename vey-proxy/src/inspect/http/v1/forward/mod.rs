@@ -351,7 +351,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     match r {
                         Ok(true) => {
                             // we got some data from upstream
-                            let (hdr, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
+                            let (hdr, bytes) = self.recv_response_header_in_time(&mut rsp_io.ups_r).await?;
                             if let Some(v) = self.check_out_final_response(hdr, bytes, &mut rsp_io.clt_w).await? {
                                 rsp_head = Some(v);
                                 break;
@@ -555,7 +555,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     match r {
                         Ok(true) => {
                             // we got some data from upstream
-                            let (hdr, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
+                            let (hdr, bytes) = self.recv_response_header_in_time(&mut rsp_io.ups_r).await?;
                             if let Some(v) = self.check_out_final_response(hdr, bytes, &mut rsp_io.clt_w).await? {
                                 rsp_head = Some(v);
                                 break;
@@ -653,6 +653,23 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             .await?;
 
         Ok(())
+    }
+
+    /// For headers that start arriving while the request body is still being
+    /// sent: the select loop polls nothing else until the header completes.
+    async fn recv_response_header_in_time<UR>(
+        &mut self,
+        ups_r: &mut UR,
+    ) -> ServerTaskResult<(HttpTransparentResponse, Bytes)>
+    where
+        UR: AsyncBufRead + Unpin,
+    {
+        tokio::time::timeout(
+            self.ctx.h1_rsp_hdr_recv_timeout(),
+            self.recv_response_header(ups_r),
+        )
+        .await
+        .map_err(|_| ServerTaskError::UpstreamAppTimeout("timeout to receive response header"))?
     }
 
     async fn recv_response_header<UR>(
