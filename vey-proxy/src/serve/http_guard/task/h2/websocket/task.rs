@@ -6,7 +6,6 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{RecvStream, SendStream, StreamId};
 use http::{Request, Response, StatusCode, Version, header};
@@ -17,9 +16,9 @@ use vey_icap_client::reqmod::h2::{
     ReqmodRecvHttpResponseBody,
 };
 use vey_types::acl::AclAction;
-use vey_types::net::UpstreamAddr;
+use vey_types::net::{Host, UpstreamAddr};
 
-use super::{H2StreamTransferError, H2TaskContext};
+use super::{H2StreamTransferError, H2TaskContext, OriginH2Sender};
 use crate::escape::EgressNotes;
 use crate::log::task::websocket::TaskLogForWebSocket;
 use crate::module::http_header::ProxyErrorType;
@@ -161,25 +160,6 @@ impl H2WebsocketTask {
             .ctx
             .checkout_or_connect_h2(&mut self.task_notes, &self.upstream, &request_host)
             .await?;
-        let origin = match self
-            .ctx
-            .ready_h2_sender(&mut self.task_notes, &self.upstream, &request_host, origin)
-            .await
-        {
-            Ok(origin) => origin,
-            Err(e) => {
-                H2TaskContext::reset_unopened_stream(clt_send_rsp, &e);
-                return Err(e);
-            }
-        };
-        self.egress_notes = origin.egress_notes;
-        self.task_notes.stage = ServerTaskStage::Connected;
-        if self.ctx.server_config.flush_task_log_on_connected
-            && let Some(log) = self.log_ctx()
-        {
-            log.log_connected();
-        }
-        let ups_send_req = origin.sender;
 
         let audit_task = self
             .task_notes
@@ -219,7 +199,8 @@ impl H2WebsocketTask {
                     }
                     return self
                         .forward_with_adaptation(
-                            ups_send_req,
+                            origin,
+                            &request_host,
                             req,
                             clt_r,
                             clt_send_rsp,
@@ -236,7 +217,7 @@ impl H2WebsocketTask {
             }
         }
 
-        self.send_connect(ups_send_req, req, clt_r, clt_send_rsp)
+        self.send_connect(origin, &request_host, req, clt_r, clt_send_rsp)
             .await
     }
 
@@ -270,9 +251,11 @@ impl H2WebsocketTask {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn forward_with_adaptation(
         &mut self,
-        ups_send_req: SendRequest<Bytes>,
+        origin: OriginH2Sender,
+        request_host: &Host,
         ups_req: Request<()>,
         clt_r: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
@@ -281,11 +264,11 @@ impl H2WebsocketTask {
     ) -> Result<(), H2StreamTransferError> {
         match icap_adapter.xfer_connect(adaptation_state, ups_req).await {
             Ok(ReqmodAdaptationMidState::OriginalRequest(orig_req)) => {
-                self.send_connect(ups_send_req, orig_req, clt_r, clt_send_rsp)
+                self.send_connect(origin, request_host, orig_req, clt_r, clt_send_rsp)
                     .await
             }
             Ok(ReqmodAdaptationMidState::AdaptedRequest(_, final_req)) => {
-                self.send_connect(ups_send_req, final_req, clt_r, clt_send_rsp)
+                self.send_connect(origin, request_host, final_req, clt_r, clt_send_rsp)
                     .await
             }
             Ok(ReqmodAdaptationMidState::HttpErrResponse(err_rsp, recv_body)) => {
@@ -331,17 +314,41 @@ impl H2WebsocketTask {
 
     async fn send_connect(
         &mut self,
-        mut ups_send_req: SendRequest<Bytes>,
+        origin: OriginH2Sender,
+        request_host: &Host,
         ups_req: Request<()>,
         clt_r: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
-        let (ups_response_fut, ups_w) = ups_send_req
-            .send_request(ups_req, false)
-            .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
-        self.ups_stream_id = Some(ups_response_fut.stream_id());
+        let opened = match self
+            .ctx
+            .open_h2_stream(
+                &mut self.task_notes,
+                &self.upstream,
+                request_host,
+                origin,
+                &ups_req,
+                false,
+            )
+            .await
+        {
+            Ok(opened) => opened,
+            Err(e) => {
+                H2TaskContext::reset_unopened_stream(clt_send_rsp, &e);
+                return Err(e);
+            }
+        };
+        self.egress_notes = opened.egress_notes;
+        self.task_notes.stage = ServerTaskStage::Connected;
+        if self.ctx.server_config.flush_task_log_on_connected
+            && let Some(log) = self.log_ctx()
+        {
+            log.log_connected();
+        }
+        self.ups_stream_id = Some(opened.rsp_fut.stream_id());
+        let ups_w = opened.send_stream;
 
-        let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_response_fut);
+        let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(opened.rsp_fut);
         let rsp = tokio::time::timeout(self.ctx.rsp_hdr_timeout(), ups_recv_rsp.recv_header())
             .await
             .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)?

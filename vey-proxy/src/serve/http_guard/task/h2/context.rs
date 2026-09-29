@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::future::poll_fn;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,9 +11,10 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use bytes::Bytes;
-use h2::client::SendRequest;
+use h2::client::{ResponseFuture, SendRequest};
+use h2::ext::Protocol;
 use h2::server::SendResponse;
-use h2::{Ping, PingPong, Reason};
+use h2::{Ping, PingPong, Reason, SendStream};
 use http::{Request, Response, StatusCode, Version};
 use tokio::sync::oneshot;
 use uuid::Uuid;
@@ -60,6 +62,13 @@ pub(crate) enum OriginConnection {
 
 pub(crate) struct OriginH2Sender {
     pub(crate) sender: SendRequest<Bytes>,
+    pub(crate) reused: bool,
+    pub(crate) egress_notes: EgressNotes,
+}
+
+pub(crate) struct OpenedH2Stream {
+    pub(crate) rsp_fut: ResponseFuture,
+    pub(crate) send_stream: SendStream<Bytes>,
     pub(crate) reused: bool,
     pub(crate) egress_notes: EgressNotes,
 }
@@ -227,6 +236,70 @@ impl H2TaskContext {
             Ok(Ok(sender)) => Ok(OriginH2Sender {
                 sender,
                 reused: false,
+                egress_notes,
+            }),
+            Ok(Err(e)) => Err(H2StreamTransferError::UpstreamStreamOpenFailed(e)),
+            Err(_) => Err(H2StreamTransferError::UpstreamStreamOpenTimeout),
+        }
+    }
+
+    /// Send the request head and wait until the stream is really opened.
+    ///
+    /// `ready` on a fresh `SendRequest` clone does not wait for
+    /// MAX_CONCURRENT_STREAMS; only `poll_ready` after `send_request` on the
+    /// same handle does. A pooled connection that fails or stays full is
+    /// replaced by a new one, which is safe as no request body is sent yet.
+    pub(super) async fn open_h2_stream(
+        &self,
+        task_notes: &mut ServerTaskNotes,
+        upstream: &UpstreamAddr,
+        request_host: &Host,
+        origin: OriginH2Sender,
+        req: &Request<()>,
+        end_of_stream: bool,
+    ) -> Result<OpenedH2Stream, H2StreamTransferError> {
+        let reused = origin.reused;
+        match self.try_open_h2_stream(origin, req, end_of_stream).await {
+            Ok(opened) => return Ok(opened),
+            Err(_) if reused => {}
+            Err(e) => return Err(e),
+        }
+
+        task_notes.stage = ServerTaskStage::Connecting;
+        let origin = self
+            .connect_origin_h2(task_notes, upstream, request_host)
+            .await?;
+        self.try_open_h2_stream(origin, req, end_of_stream).await
+    }
+
+    async fn try_open_h2_stream(
+        &self,
+        origin: OriginH2Sender,
+        req: &Request<()>,
+        end_of_stream: bool,
+    ) -> Result<OpenedH2Stream, H2StreamTransferError> {
+        let OriginH2Sender {
+            mut sender,
+            reused,
+            egress_notes,
+        } = origin;
+        let mut ups_req = req.clone_header();
+        if let Some(protocol) = req.extensions().get::<Protocol>() {
+            ups_req.extensions_mut().insert(protocol.clone());
+        }
+        let (rsp_fut, send_stream) = sender
+            .send_request(ups_req, end_of_stream)
+            .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
+        match tokio::time::timeout(
+            self.server_config.h2.upstream_stream_open_timeout,
+            poll_fn(|cx| sender.poll_ready(cx)),
+        )
+        .await
+        {
+            Ok(Ok(())) => Ok(OpenedH2Stream {
+                rsp_fut,
+                send_stream,
+                reused,
                 egress_notes,
             }),
             Ok(Err(e)) => Err(H2StreamTransferError::UpstreamStreamOpenFailed(e)),

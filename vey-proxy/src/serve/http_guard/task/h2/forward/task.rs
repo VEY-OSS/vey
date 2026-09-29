@@ -6,9 +6,9 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use h2::client::SendRequest;
+use h2::client::{ResponseFuture, SendRequest};
 use h2::server::SendResponse;
-use h2::{RecvStream, StreamId};
+use h2::{RecvStream, SendStream, StreamId};
 use http::{HeaderMap, Request, Response, StatusCode, Version, header};
 use tokio::time::Instant;
 
@@ -249,25 +249,6 @@ impl H2ForwardTask {
         clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
-        let request_host = self.req.host();
-        let origin = match self
-            .ctx
-            .ready_h2_sender(&mut self.task_notes, &self.upstream, &request_host, origin)
-            .await
-        {
-            Ok(origin) => origin,
-            Err(e) => {
-                H2TaskContext::reset_unopened_stream(clt_send_rsp, &e);
-                return Err(e);
-            }
-        };
-        self.http_notes.reused_connection = origin.reused;
-        self.egress_notes = origin.egress_notes;
-        self.task_notes.stage = ServerTaskStage::Connected;
-        let ups_send_req = origin.sender;
-
-        self.mark_relaying();
-
         if self.audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.as_ref()
             && let Some(reqmod) = audit_handle.icap_reqmod_client()
@@ -292,9 +273,28 @@ impl H2ForwardTask {
                     if let Some(username) = self.task_notes.tenant_user_name() {
                         adapter.set_tenant_username(username.clone());
                     }
+                    // The adapter sends the request head itself.
+                    let request_host = self.req.host();
+                    let origin = match self
+                        .ctx
+                        .ready_h2_sender(
+                            &mut self.task_notes,
+                            &self.upstream,
+                            &request_host,
+                            origin,
+                        )
+                        .await
+                    {
+                        Ok(origin) => origin,
+                        Err(e) => {
+                            H2TaskContext::reset_unopened_stream(clt_send_rsp, &e);
+                            return Err(e);
+                        }
+                    };
+                    self.set_h2_origin_connected(origin.reused, origin.egress_notes);
                     return self
                         .forward_with_adaptation(
-                            ups_send_req,
+                            origin.sender,
                             clt_body,
                             clt_send_rsp,
                             adapter,
@@ -310,8 +310,15 @@ impl H2ForwardTask {
             }
         }
 
-        self.forward_without_adaptation(ups_send_req, clt_body, clt_send_rsp)
+        self.forward_without_adaptation(origin, clt_body, clt_send_rsp)
             .await
+    }
+
+    fn set_h2_origin_connected(&mut self, reused: bool, egress_notes: EgressNotes) {
+        self.http_notes.reused_connection = reused;
+        self.egress_notes = egress_notes;
+        self.task_notes.stage = ServerTaskStage::Connected;
+        self.mark_relaying();
     }
 
     async fn forward_with_adaptation(
@@ -389,28 +396,48 @@ impl H2ForwardTask {
 
     async fn forward_without_adaptation(
         &mut self,
-        ups_send_req: SendRequest<Bytes>,
+        origin: OriginH2Sender,
         clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
-        if clt_body.is_end_stream() {
-            self.forward_without_body(ups_send_req, clt_send_rsp).await
+        let end_stream = clt_body.is_end_stream();
+        let request_host = self.req.host();
+        let opened = match self
+            .ctx
+            .open_h2_stream(
+                &mut self.task_notes,
+                &self.upstream,
+                &request_host,
+                origin,
+                &self.req,
+                end_stream,
+            )
+            .await
+        {
+            Ok(opened) => opened,
+            Err(e) => {
+                H2TaskContext::reset_unopened_stream(clt_send_rsp, &e);
+                return Err(e);
+            }
+        };
+        self.set_h2_origin_connected(opened.reused, opened.egress_notes);
+        self.ups_stream_id = Some(opened.rsp_fut.stream_id());
+        self.http_notes.mark_req_send_hdr();
+
+        if end_stream {
+            self.forward_without_body(opened.rsp_fut, clt_send_rsp)
+                .await
         } else {
-            self.forward_with_body(ups_send_req, clt_body, clt_send_rsp)
+            self.forward_with_body(opened.rsp_fut, opened.send_stream, clt_body, clt_send_rsp)
                 .await
         }
     }
 
     async fn forward_without_body(
         &mut self,
-        mut ups_send_req: SendRequest<Bytes>,
+        ups_rsp_fut: ResponseFuture,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
-        let (ups_rsp_fut, _) = ups_send_req
-            .send_request(self.req.clone_header(), true)
-            .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
-        self.ups_stream_id = Some(ups_rsp_fut.stream_id());
-        self.http_notes.mark_req_send_hdr();
         self.http_notes.mark_req_no_body();
 
         let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_rsp_fut);
@@ -426,16 +453,11 @@ impl H2ForwardTask {
 
     async fn forward_with_body(
         &mut self,
-        mut ups_send_req: SendRequest<Bytes>,
+        ups_rsp_fut: ResponseFuture,
+        ups_send_stream: SendStream<Bytes>,
         clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
-        let (ups_rsp_fut, ups_send_stream) = ups_send_req
-            .send_request(self.req.clone_header(), false)
-            .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
-        self.ups_stream_id = Some(ups_rsp_fut.stream_id());
-        self.http_notes.mark_req_send_hdr();
-
         let mut req_body_transfer = H2BodyTransfer::new(
             clt_body,
             ups_send_stream,
