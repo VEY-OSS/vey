@@ -17,7 +17,7 @@ use vey_h2::RequestExt;
 use vey_http::server::UriExt;
 use vey_types::net::{HttpUpgradeToken, UpstreamAddr, ViaValue};
 
-use super::{H2ForwardTask, H2TaskContext, H2WebsocketTask};
+use super::{H2ConcurrencyTaskGuard, H2ForwardTask, H2TaskContext, H2WebsocketTask};
 use crate::log::task::h2_stream::TaskLogForH2Stream;
 use crate::module::http_header::ProxyErrorType;
 use crate::serve::ServerTaskNotes;
@@ -81,16 +81,22 @@ pub(crate) struct H2StreamTask {
     ctx: Arc<H2TaskContext>,
     clt_stream_id: StreamId,
     task_notes: ServerTaskNotes,
+    _concurrency_guard: H2ConcurrencyTaskGuard,
 }
 
 impl H2StreamTask {
-    pub(crate) fn new(ctx: Arc<H2TaskContext>, clt_stream_id: StreamId) -> Self {
+    pub(crate) fn new(
+        ctx: Arc<H2TaskContext>,
+        clt_stream_id: StreamId,
+        concurrency_guard: H2ConcurrencyTaskGuard,
+    ) -> Self {
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Default::default())
             .with_site_ctx(ctx.site_ctx.clone());
         H2StreamTask {
             ctx,
             clt_stream_id,
             task_notes,
+            _concurrency_guard: concurrency_guard,
         }
     }
 

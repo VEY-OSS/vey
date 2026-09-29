@@ -6,6 +6,7 @@
 use super::{H2StreamTask, H2TaskContext};
 
 mod stats;
+pub(super) use stats::H2ConcurrencyTaskGuard;
 use stats::{H2ConcurrencyStats, H2ConnectionCltWrapperStats, H2ConnectionTaskStats};
 
 mod task;

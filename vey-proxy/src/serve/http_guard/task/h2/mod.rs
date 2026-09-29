@@ -12,6 +12,7 @@ mod error;
 use error::H2StreamTransferError;
 
 mod connection;
+use connection::H2ConcurrencyTaskGuard;
 pub(crate) use connection::HttpGuardH2ConnectionTask;
 
 mod forward;

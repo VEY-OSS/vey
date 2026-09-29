@@ -5,9 +5,11 @@
 
 use std::sync::Arc;
 
-use h2::Reason;
+use bytes::Bytes;
+use h2::server::SendResponse;
+use h2::{Reason, RecvStream};
+use http::Request;
 use jiff::Timestamp;
-use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use vey_io_ext::LimitedStream;
@@ -19,6 +21,9 @@ use super::{
 use crate::config::server::ServerConfig;
 use crate::log::task::h2_connection::TaskLogForH2Connection;
 use crate::serve::{ServerStats, ServerTaskNotes};
+use crate::site::SiteHttpConnGuard;
+
+type ClientH2Conn<S> = h2::server::Connection<LimitedStream<S>, Bytes>;
 
 pub(crate) struct HttpGuardH2ConnectionTask<S> {
     ctx: Arc<H2TaskContext>,
@@ -27,6 +32,7 @@ pub(crate) struct HttpGuardH2ConnectionTask<S> {
     task_stats: Arc<H2ConnectionTaskStats>,
     concurrency: Arc<H2ConcurrencyStats>,
     first_stream_at: Option<Timestamp>,
+    _site_conn: Option<SiteHttpConnGuard>,
 }
 
 impl<S> HttpGuardH2ConnectionTask<S>
@@ -44,6 +50,7 @@ where
             task_stats: Arc::new(H2ConnectionTaskStats::default()),
             concurrency: Arc::new(H2ConcurrencyStats::default()),
             first_stream_at: None,
+            _site_conn: None,
         }
     }
 
@@ -64,11 +71,7 @@ where
     }
 
     pub(crate) async fn into_running(mut self) {
-        if self.ctx.server_config.flush_task_log_on_created
-            && let Some(log) = self.log_ctx()
-        {
-            log.log_created();
-        }
+        self.pre_start();
         match self.run().await {
             Ok(()) => {
                 if let Some(log) = self.log_ctx() {
@@ -76,11 +79,6 @@ where
                 }
             }
             Err(e) => {
-                debug!(
-                    "{} - {} h2 connection error: {e}",
-                    self.ctx.client_addr(),
-                    self.ctx.server_addr()
-                );
                 if let Some(log) = self.log_ctx() {
                     log.log(&e.to_string());
                 }
@@ -88,21 +86,31 @@ where
         }
     }
 
-    async fn run(&mut self) -> anyhow::Result<()> {
-        let site = Arc::clone(self.ctx.site_ctx.site());
-        let tenant_user = self.ctx.site_ctx.tenant_user().cloned();
-        let _site_conn = site.hold_http_conn(
+    fn pre_start(&mut self) {
+        self._site_conn = Some(self.ctx.site_ctx.site().hold_http_conn(
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),
-        );
+        ));
+    }
 
+    async fn run(&mut self) -> anyhow::Result<()> {
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log) = self.log_ctx()
+        {
+            log.log_created();
+        }
+        let mut h2c = self.handshake().await?;
+        self.serve(&mut h2c).await
+    }
+
+    async fn handshake(&mut self) -> anyhow::Result<ClientH2Conn<S>> {
         let stream = self.stream.take().unwrap();
         let limit = self
             .ctx
             .site_ctx
             .tcp_sock_speed_limit()
             .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
-        let site_io_stats = site.stats().fetch_traffic_stats(
+        let site_io_stats = self.ctx.site_ctx.site().stats().fetch_traffic_stats(
             self.ctx.server_config.name(),
             self.ctx.server_stats.share_extra_tags(),
         );
@@ -117,7 +125,7 @@ where
                 &self.task_stats,
             ),
         );
-        if let Some(user) = &tenant_user {
+        if let Some(user) = self.ctx.site_ctx.tenant_user() {
             if let Some(limiter) = user.tcp_all_upload_speed_limit() {
                 stream.add_global_read_limiter(limiter.clone());
             }
@@ -127,14 +135,16 @@ where
         }
 
         let server_builder = self.ctx.server_config.h2.build_server();
-        let mut h2c = tokio::time::timeout(
+        tokio::time::timeout(
             self.ctx.server_config.h2.client_handshake_timeout,
             server_builder.handshake(stream),
         )
         .await
         .map_err(|_| anyhow::anyhow!("client h2 handshake timeout"))?
-        .map_err(|e| anyhow::anyhow!("client h2 handshake: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("client h2 handshake: {e}"))
+    }
 
+    async fn serve(&mut self, h2c: &mut ClientH2Conn<S>) -> anyhow::Result<()> {
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
@@ -153,26 +163,19 @@ where
                             if self.first_stream_at.is_none() {
                                 self.first_stream_at = Some(Timestamp::now());
                             }
-                            let ctx = Arc::clone(&self.ctx);
-                            let task_guard = self.concurrency.add_task();
-                            let clt_stream_id = clt_send_rsp.stream_id();
-                            tokio::spawn(async move {
-                                H2StreamTask::new(ctx, clt_stream_id)
-                                    .run(clt_req, clt_send_rsp)
-                                    .await;
-                                drop(task_guard);
-                            });
+                            self.spawn_stream(clt_req, clt_send_rsp);
                         }
                         Some(Err(e)) => {
                             if let Some(io) = e.get_io()
                                 && io.kind() == std::io::ErrorKind::NotConnected
                             {
+                                Self::wait_closed(h2c).await;
                                 return Ok(());
                             }
                             return Err(anyhow::anyhow!("client h2 closed: {e}"));
                         }
                         None => {
-                            let _ = std::future::poll_fn(|cx| h2c.poll_closed(cx)).await;
+                            Self::wait_closed(h2c).await;
                             return Ok(());
                         }
                     }
@@ -182,7 +185,7 @@ where
                         idle_count += n;
                         if idle_count > idle_max {
                             h2c.abrupt_shutdown(Reason::NO_ERROR);
-                            let _ = std::future::poll_fn(|cx| h2c.poll_closed(cx)).await;
+                            Self::wait_closed(h2c).await;
                             return Ok(());
                         }
                     } else {
@@ -190,7 +193,7 @@ where
                     }
                     if self.ctx.server_quit_policy.force_quit() {
                         h2c.graceful_shutdown();
-                        let _ = std::future::poll_fn(|cx| h2c.poll_closed(cx)).await;
+                        Self::wait_closed(h2c).await;
                         return Ok(());
                     }
                 }
@@ -201,5 +204,20 @@ where
                 }
             }
         }
+    }
+
+    fn spawn_stream(&self, clt_req: Request<RecvStream>, clt_send_rsp: SendResponse<Bytes>) {
+        let concurrency_guard = self.concurrency.add_task();
+        let ctx = Arc::clone(&self.ctx);
+        let clt_stream_id = clt_send_rsp.stream_id();
+        tokio::spawn(async move {
+            H2StreamTask::new(ctx, clt_stream_id, concurrency_guard)
+                .run(clt_req, clt_send_rsp)
+                .await;
+        });
+    }
+
+    async fn wait_closed(h2c: &mut ClientH2Conn<S>) {
+        let _ = std::future::poll_fn(|cx| h2c.poll_closed(cx)).await;
     }
 }
