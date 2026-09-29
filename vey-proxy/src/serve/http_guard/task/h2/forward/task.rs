@@ -4,12 +4,11 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use bytes::Bytes;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
-use h2::{Reason, RecvStream, StreamId};
+use h2::{RecvStream, StreamId};
 use http::{HeaderMap, Request, Response, StatusCode, Version, header};
 use tokio::time::Instant;
 
@@ -250,27 +249,22 @@ impl H2ForwardTask {
         clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
+        let request_host = self.req.host();
+        let origin = match self
+            .ctx
+            .ready_h2_sender(&mut self.task_notes, &self.upstream, &request_host, origin)
+            .await
+        {
+            Ok(origin) => origin,
+            Err(e) => {
+                H2TaskContext::reset_unopened_stream(clt_send_rsp, &e);
+                return Err(e);
+            }
+        };
         self.http_notes.reused_connection = origin.reused;
         self.egress_notes = origin.egress_notes;
         self.task_notes.stage = ServerTaskStage::Connected;
-
-        let ups_send_req = match tokio::time::timeout(
-            self.ctx.server_config.h2.upstream_stream_open_timeout,
-            origin.sender.ready(),
-        )
-        .await
-        {
-            Ok(Ok(d)) => d,
-            Ok(Err(e)) => {
-                let reason = e.reason().unwrap_or(Reason::REFUSED_STREAM);
-                clt_send_rsp.send_reset(reason);
-                return Err(H2StreamTransferError::UpstreamStreamOpenFailed(e));
-            }
-            Err(_) => {
-                clt_send_rsp.send_reset(Reason::REFUSED_STREAM);
-                return Err(H2StreamTransferError::UpstreamStreamOpenTimeout);
-            }
-        };
+        let ups_send_req = origin.sender;
 
         self.mark_relaying();
 
@@ -283,7 +277,7 @@ impl H2ForwardTask {
                     self.ctx.server_config.tcp_copy,
                     self.ctx.server_config.h1.body_line_max_len,
                     self.ctx.server_config.h2.max_header_list_size as usize,
-                    self.rsp_hdr_timeout(),
+                    self.ctx.rsp_hdr_timeout(),
                     true,
                     self.ctx.idle_checker(&self.task_notes),
                 )
@@ -318,13 +312,6 @@ impl H2ForwardTask {
 
         self.forward_without_adaptation(ups_send_req, clt_body, clt_send_rsp)
             .await
-    }
-
-    pub(super) fn rsp_hdr_timeout(&self) -> Duration {
-        self.ctx
-            .site_ctx
-            .rsp_hdr_recv_timeout()
-            .unwrap_or(self.ctx.server_config.timeout.recv_rsp_header)
     }
 
     async fn forward_with_adaptation(
@@ -473,7 +460,7 @@ impl H2ForwardTask {
         }
 
         let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_rsp_fut);
-        let ups_rsp = tokio::time::timeout(self.rsp_hdr_timeout(), async {
+        let ups_rsp = tokio::time::timeout(self.ctx.rsp_hdr_timeout(), async {
             loop {
                 let rsp = ups_recv_rsp
                     .recv_header()

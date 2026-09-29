@@ -530,7 +530,7 @@ impl H2ForwardTask {
     ) -> Result<HttpForwardRemoteResponse, H2StreamTransferError> {
         let rsp = match rsp_header {
             Some(header) => header,
-            None => tokio::time::timeout(self.rsp_hdr_timeout(), async {
+            None => tokio::time::timeout(self.ctx.rsp_hdr_timeout(), async {
                 loop {
                     let hdr = self.recv_h1_response_header(&mut ups_c.1).await?;
                     if let Some(final_hdr) = self.check_out_h1_informational(hdr, clt_send_rsp)? {

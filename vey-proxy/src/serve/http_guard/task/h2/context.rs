@@ -6,12 +6,13 @@
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use anyhow::anyhow;
 use bytes::Bytes;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
-use h2::{Ping, PingPong};
+use h2::{Ping, PingPong, Reason};
 use http::{Request, Response, StatusCode, Version};
 use tokio::sync::oneshot;
 use uuid::Uuid;
@@ -90,6 +91,12 @@ impl H2TaskContext {
             site_ctx.mark_reused_client_connection();
         }
         site_ctx
+    }
+
+    pub(super) fn rsp_hdr_timeout(&self) -> Duration {
+        self.site_ctx
+            .rsp_hdr_recv_timeout()
+            .unwrap_or(self.server_config.timeout.recv_rsp_header)
     }
 
     pub(super) fn append_forwarded<B>(&self, req: &mut Request<B>) {
@@ -184,6 +191,61 @@ impl H2TaskContext {
         task_notes.stage = ServerTaskStage::Connecting;
         self.connect_origin_h2(task_notes, upstream, request_host)
             .await
+    }
+
+    /// `ready` on a pooled sender can still fail after checkout. Open a new
+    /// connection to the same upstream instead of failing the client stream.
+    pub(super) async fn ready_h2_sender(
+        &self,
+        task_notes: &mut ServerTaskNotes,
+        upstream: &UpstreamAddr,
+        request_host: &Host,
+        origin: OriginH2Sender,
+    ) -> Result<OriginH2Sender, H2StreamTransferError> {
+        let open_timeout = self.server_config.h2.upstream_stream_open_timeout;
+        let reused = origin.reused;
+        let egress_notes = origin.egress_notes;
+        match tokio::time::timeout(open_timeout, origin.sender.ready()).await {
+            Ok(Ok(sender)) => {
+                return Ok(OriginH2Sender {
+                    sender,
+                    reused,
+                    egress_notes,
+                });
+            }
+            Ok(Err(_)) | Err(_) if reused => {}
+            Ok(Err(e)) => return Err(H2StreamTransferError::UpstreamStreamOpenFailed(e)),
+            Err(_) => return Err(H2StreamTransferError::UpstreamStreamOpenTimeout),
+        }
+
+        task_notes.stage = ServerTaskStage::Connecting;
+        let origin = self
+            .connect_origin_h2(task_notes, upstream, request_host)
+            .await?;
+        let egress_notes = origin.egress_notes;
+        match tokio::time::timeout(open_timeout, origin.sender.ready()).await {
+            Ok(Ok(sender)) => Ok(OriginH2Sender {
+                sender,
+                reused: false,
+                egress_notes,
+            }),
+            Ok(Err(e)) => Err(H2StreamTransferError::UpstreamStreamOpenFailed(e)),
+            Err(_) => Err(H2StreamTransferError::UpstreamStreamOpenTimeout),
+        }
+    }
+
+    pub(super) fn reset_unopened_stream(
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        err: &H2StreamTransferError,
+    ) {
+        let reason = match err {
+            H2StreamTransferError::UpstreamStreamOpenFailed(e) => {
+                e.reason().unwrap_or(Reason::REFUSED_STREAM)
+            }
+            H2StreamTransferError::UpstreamStreamOpenTimeout => Reason::REFUSED_STREAM,
+            _ => return,
+        };
+        clt_send_rsp.send_reset(reason);
     }
 
     async fn checkout_h2(

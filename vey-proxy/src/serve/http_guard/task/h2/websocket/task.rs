@@ -8,14 +8,15 @@ use std::sync::Arc;
 use bytes::Bytes;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
-use h2::{Reason, RecvStream, SendStream, StreamId};
-use http::{Request, Response, StatusCode, Version};
+use h2::{RecvStream, SendStream, StreamId};
+use http::{Request, Response, StatusCode, Version, header};
 
 use vey_h2::{H2BodyTransfer, H2ResponseHeaderReceiver, RequestExt};
 use vey_icap_client::reqmod::h2::{
     H2RequestAdapter, HttpAdapterErrorResponse, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
 };
+use vey_types::acl::AclAction;
 use vey_types::net::UpstreamAddr;
 
 use super::{H2StreamTransferError, H2TaskContext};
@@ -136,6 +137,18 @@ impl H2WebsocketTask {
             self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
             return Err(H2StreamTransferError::InternalServerError("fully loaded"));
         }
+        if let Some(tenant) = self.task_notes.tenant_ctx()
+            && let Some(action) = tenant.check_http_user_agent(
+                req.headers()
+                    .get_all(header::USER_AGENT)
+                    .iter()
+                    .filter_map(|v| v.to_str().ok()),
+            )
+            && matches!(action, AclAction::Forbid | AclAction::ForbidAndLog)
+        {
+            self.reply_denied(clt_send_rsp, StatusCode::FORBIDDEN);
+            return Err(H2StreamTransferError::InternalServerError("ua denied"));
+        }
 
         self.upstream = self
             .ctx
@@ -148,6 +161,17 @@ impl H2WebsocketTask {
             .ctx
             .checkout_or_connect_h2(&mut self.task_notes, &self.upstream, &request_host)
             .await?;
+        let origin = match self
+            .ctx
+            .ready_h2_sender(&mut self.task_notes, &self.upstream, &request_host, origin)
+            .await
+        {
+            Ok(origin) => origin,
+            Err(e) => {
+                H2TaskContext::reset_unopened_stream(clt_send_rsp, &e);
+                return Err(e);
+            }
+        };
         self.egress_notes = origin.egress_notes;
         self.task_notes.stage = ServerTaskStage::Connected;
         if self.ctx.server_config.flush_task_log_on_connected
@@ -155,24 +179,7 @@ impl H2WebsocketTask {
         {
             log.log_connected();
         }
-
-        let ups_send_req = match tokio::time::timeout(
-            self.ctx.server_config.h2.upstream_stream_open_timeout,
-            origin.sender.ready(),
-        )
-        .await
-        {
-            Ok(Ok(d)) => d,
-            Ok(Err(e)) => {
-                let reason = e.reason().unwrap_or(Reason::REFUSED_STREAM);
-                clt_send_rsp.send_reset(reason);
-                return Err(H2StreamTransferError::UpstreamStreamOpenFailed(e));
-            }
-            Err(_) => {
-                clt_send_rsp.send_reset(Reason::REFUSED_STREAM);
-                return Err(H2StreamTransferError::UpstreamStreamOpenTimeout);
-            }
-        };
+        let ups_send_req = origin.sender;
 
         let audit_task = self
             .task_notes
@@ -194,7 +201,7 @@ impl H2WebsocketTask {
                     self.ctx.server_config.tcp_copy,
                     self.ctx.server_config.h1.body_line_max_len,
                     self.ctx.server_config.h2.max_header_list_size as usize,
-                    self.ctx.server_config.timeout.recv_rsp_header,
+                    self.ctx.rsp_hdr_timeout(),
                     true,
                     self.ctx.idle_checker(&self.task_notes),
                 )
@@ -335,13 +342,10 @@ impl H2WebsocketTask {
         self.ups_stream_id = Some(ups_response_fut.stream_id());
 
         let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_response_fut);
-        let rsp = tokio::time::timeout(
-            self.ctx.server_config.timeout.recv_rsp_header,
-            ups_recv_rsp.recv_header(),
-        )
-        .await
-        .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)?
-        .map_err(H2StreamTransferError::ResponseHeadRecvFailed)?;
+        let rsp = tokio::time::timeout(self.ctx.rsp_hdr_timeout(), ups_recv_rsp.recv_header())
+            .await
+            .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)?
+            .map_err(H2StreamTransferError::ResponseHeadRecvFailed)?;
         self.ws_notes.origin_status = rsp.status().as_u16();
         if rsp.status().is_informational() {
             return Err(H2StreamTransferError::UnsupportedInformationalResponse(
