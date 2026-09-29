@@ -3218,6 +3218,7 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "quinn",
+ "quinn-udp",
  "slog",
  "smallvec",
  "thiserror",

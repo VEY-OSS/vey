@@ -21,6 +21,7 @@ ahash.workspace = true
 smallvec.workspace = true
 arc-swap.workspace = true
 quinn = { workspace = true, optional = true }
+quinn-udp = { workspace = true, optional = true }
 slog = { workspace = true, optional = true }
 vey-io-sys.workspace = true
 vey-socket.workspace = true
@@ -39,4 +40,4 @@ log = ["dep:slog"]
 resolver = ["dep:vey-resolver"]
 openssl = ["dep:vey-openssl"]
 rustls = ["dep:tokio-rustls"]
-quic = ["dep:quinn"]
+quic = ["dep:quinn", "dep:quinn-udp"]
