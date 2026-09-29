@@ -184,16 +184,14 @@ where
                     if self.concurrency.get_alive_task() <= 0 {
                         idle_count += n;
                         if idle_count > idle_max {
-                            h2c.abrupt_shutdown(Reason::NO_ERROR);
-                            Self::wait_closed(h2c).await;
+                            Self::abrupt_shutdown(h2c, Reason::NO_ERROR).await;
                             return Ok(());
                         }
                     } else {
                         idle_count = 0;
                     }
                     if self.ctx.server_quit_policy.force_quit() {
-                        h2c.graceful_shutdown();
-                        Self::wait_closed(h2c).await;
+                        Self::graceful_shutdown(h2c).await;
                         return Ok(());
                     }
                 }
@@ -215,6 +213,28 @@ where
                 .run(clt_req, clt_send_rsp)
                 .await;
         });
+    }
+
+    async fn graceful_shutdown(h2c: &mut ClientH2Conn<S>) {
+        h2c.graceful_shutdown();
+        Self::refuse_until_closed(h2c).await;
+    }
+
+    async fn abrupt_shutdown(h2c: &mut ClientH2Conn<S>, reason: Reason) {
+        h2c.abrupt_shutdown(reason);
+        Self::refuse_until_closed(h2c).await;
+    }
+
+    async fn refuse_until_closed(h2c: &mut ClientH2Conn<S>) {
+        while let Some(r) = h2c.accept().await {
+            match r {
+                Ok((_req, mut send_rsp)) => {
+                    send_rsp.send_reset(Reason::REFUSED_STREAM);
+                }
+                Err(_) => return,
+            }
+        }
+        Self::wait_closed(h2c).await;
     }
 
     async fn wait_closed(h2c: &mut ClientH2Conn<S>) {
