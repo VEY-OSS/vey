@@ -265,7 +265,8 @@ impl H2ForwardTask {
                 .await
             {
                 Ok(mut adapter) => {
-                    let mut adaptation_state = ReqmodAdaptationRunState::new(Instant::now());
+                    let mut adaptation_state =
+                        ReqmodAdaptationRunState::new(self.task_notes.task_created_instant());
                     adapter.set_client_addr(self.task_notes.client_addr());
                     if let Some(username) = self.task_notes.raw_user_name() {
                         adapter.set_client_username(username.clone());
@@ -338,6 +339,15 @@ impl H2ForwardTask {
                 clt_send_rsp,
             )
             .await;
+        if let Some(dur) = adaptation_state.dur_ups_send_header {
+            self.http_notes.dur_req_send_hdr = dur;
+        }
+        if let Some(dur) = adaptation_state.dur_ups_send_all {
+            self.http_notes.dur_req_send_all = dur;
+        }
+        if let Some(dur) = adaptation_state.dur_ups_recv_header {
+            self.http_notes.dur_rsp_recv_hdr = dur;
+        }
         self.http_notes.clt_req_body_size = adaptation_state.clt_req_body_size;
         self.http_notes.ups_req_body_size = adaptation_state.ups_req_body_size;
         match end_state {
@@ -630,7 +640,7 @@ impl H2ForwardTask {
             {
                 Ok(mut adapter) => {
                     let mut adaptation_state = RespmodAdaptationRunState::new(
-                        Instant::now(),
+                        self.task_notes.task_created_instant(),
                         self.http_notes.dur_rsp_recv_hdr,
                     );
                     adapter.set_client_addr(self.task_notes.client_addr());
@@ -650,6 +660,9 @@ impl H2ForwardTask {
                             clt_send_rsp,
                         )
                         .await;
+                    if let Some(dur) = adaptation_state.dur_ups_recv_all {
+                        self.http_notes.dur_rsp_recv_all = dur;
+                    }
                     self.http_notes.ups_rsp_body_size = adaptation_state.ups_rsp_body_size;
                     self.http_notes.clt_rsp_body_size = adaptation_state.clt_rsp_body_size;
                     match r {
