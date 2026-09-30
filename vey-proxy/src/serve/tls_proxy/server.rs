@@ -201,12 +201,18 @@ impl TlsProxyServer {
             self.config.name(),
             self.server_stats.share_extra_tags(),
         );
-        let task_notes =
-            ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO).with_site_ctx(site_ctx);
+        let task_notes = ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO);
         let ctx = self.get_common_task_context(cc_info);
-        TlsRelayTask::new(ctx, host, sni_host, self.audit_context(), task_notes)
-            .into_running_from_tls(stream)
-            .await;
+        TlsRelayTask::new(
+            ctx,
+            host,
+            sni_host,
+            self.audit_context(),
+            task_notes,
+            site_ctx,
+        )
+        .into_running_from_tls(stream)
+        .await;
     }
 
     fn get_proxy_host(&self, sni_host: &Host) -> Option<Arc<TlsProxyHost>> {

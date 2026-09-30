@@ -28,6 +28,7 @@ use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
+use crate::site::SiteContext;
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct TlsRelayTask {
@@ -36,6 +37,7 @@ pub(crate) struct TlsRelayTask {
     req_host: Host,
     upstream: UpstreamAddr,
     egress_notes: EgressNotes,
+    site_ctx: SiteContext,
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
     audit_ctx: AuditContext,
@@ -49,17 +51,20 @@ impl TlsRelayTask {
         req_host: Host,
         audit_ctx: AuditContext,
         task_notes: ServerTaskNotes,
+        site_ctx: SiteContext,
     ) -> Self {
         let upstream = host
             .site()
             .select_upstream(task_notes.client_ip())
             .unwrap_or_else(|_| UpstreamAddr::empty());
+        let task_notes = task_notes.with_site_ctx(site_ctx.clone());
         TlsRelayTask {
             ctx,
             host,
             req_host,
             upstream,
             egress_notes: EgressNotes::default(),
+            site_ctx,
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
@@ -81,10 +86,6 @@ impl TlsRelayTask {
                 remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
                 remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
             })
-    }
-
-    pub(crate) fn tenant_ctx(&self) -> Option<&crate::auth::TenantContext> {
-        self.task_notes.tenant_ctx()
     }
 
     /// TLS ingress. Tenant expiry and block delay are checked before the relay starts.
@@ -138,7 +139,7 @@ impl TlsRelayTask {
         S::R: AsyncRead + Send + Sync + Unpin + 'static,
         S::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        if let Some(tenant) = self.tenant_ctx() {
+        if let Some(tenant) = self.site_ctx.tenant_ctx() {
             if tenant.is_expired() {
                 return Err(ServerTaskError::ForbiddenByRule(
                     ServerTaskForbiddenError::UserBlocked,
@@ -163,31 +164,26 @@ impl TlsRelayTask {
         S::R: AsyncRead + Send + Sync + Unpin + 'static,
         S::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let tcp_client_misc_opts = if let Some(site_ctx) = self.task_notes.site_ctx() {
-            if site_ctx.check_rate_limit().is_err() {
-                return Err(ServerTaskError::ForbiddenByRule(
-                    ServerTaskForbiddenError::RateLimited,
-                ));
-            }
-            let site_ctx = site_ctx.clone();
-            if self
-                .task_notes
-                .acquire_site_request_semaphores(&site_ctx)
-                .is_err()
-            {
-                return Err(ServerTaskError::ForbiddenByRule(
-                    ServerTaskForbiddenError::FullyLoaded,
-                ));
-            }
-            if let Some(tenant) = site_ctx.tenant_ctx() {
-                tenant
-                    .user_config()
-                    .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
-            } else {
-                Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts)
-            }
+        if self.site_ctx.check_rate_limit().is_err() {
+            return Err(ServerTaskError::ForbiddenByRule(
+                ServerTaskForbiddenError::RateLimited,
+            ));
+        }
+        if self
+            .task_notes
+            .acquire_site_request_semaphores(&self.site_ctx)
+            .is_err()
+        {
+            return Err(ServerTaskError::ForbiddenByRule(
+                ServerTaskForbiddenError::FullyLoaded,
+            ));
+        }
+        let tcp_client_misc_opts = if let Some(tenant) = self.site_ctx.tenant_ctx() {
+            tenant
+                .user_config()
+                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
         } else {
-            return Err(ServerTaskError::InternalServerError("no site context"));
+            Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts)
         };
 
         self.ctx
@@ -276,7 +272,7 @@ impl TlsRelayTask {
 
         if let Some(audit_handle) = self.audit_ctx.check_take_handle() {
             let audit_task = self
-                .task_notes
+                .site_ctx
                 .tenant_user()
                 .map(|user| {
                     let audit = user.audit();
@@ -341,7 +337,7 @@ impl TlsRelayTask {
             .site()
             .tcp_sock_speed_limit()
             .shrink_as_smaller(&limit_config);
-        if let Some(user) = self.task_notes.tenant_user() {
+        if let Some(user) = self.site_ctx.tenant_user() {
             limit_config = user
                 .config()
                 .tcp_sock_speed_limit
@@ -362,7 +358,7 @@ impl TlsRelayTask {
             wrapper_stats,
         );
 
-        if let Some(user) = self.task_notes.tenant_user() {
+        if let Some(user) = self.site_ctx.tenant_user() {
             if let Some(limiter) = user.tcp_all_upload_speed_limit() {
                 clt_r.add_global_limiter(limiter.clone());
             }

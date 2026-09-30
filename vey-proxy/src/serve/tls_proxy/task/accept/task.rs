@@ -4,7 +4,6 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::anyhow;
 use bytes::BytesMut;
@@ -12,6 +11,7 @@ use log::debug;
 use openssl::ssl::Ssl;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
+use tokio::time::Instant;
 
 use vey_codec::tls::{
     ClientHello, ExtensionType, HandshakeCoalescer, Record, RecordHeader, RecordParseError,
@@ -36,6 +36,7 @@ pub(crate) struct TlsAcceptTask {
     ctx: CommonTaskContext,
     hosts: Arc<HostMatch<Arc<TlsProxyHost>>>,
     audit_ctx: AuditContext,
+    time_accepted: Instant,
 }
 
 impl TlsAcceptTask {
@@ -48,6 +49,7 @@ impl TlsAcceptTask {
             ctx,
             hosts,
             audit_ctx,
+            time_accepted: Instant::now(),
         }
     }
 
@@ -113,11 +115,18 @@ impl TlsAcceptTask {
         }
 
         let ssl_stream = self.accept_tls(host, stream, clt_r_buf).await?;
-        let task_notes = ServerTaskNotes::new(self.ctx.cc_info.clone(), None, Duration::ZERO)
-            .with_site_ctx(site_ctx);
-        TlsRelayTask::new(self.ctx, host.clone(), req_host, self.audit_ctx, task_notes)
-            .into_running(ssl_stream)
-            .await;
+        let task_notes =
+            ServerTaskNotes::new(self.ctx.cc_info.clone(), None, self.time_accepted.elapsed());
+        TlsRelayTask::new(
+            self.ctx,
+            host.clone(),
+            req_host,
+            self.audit_ctx,
+            task_notes,
+            site_ctx,
+        )
+        .into_running(ssl_stream)
+        .await;
         Ok(())
     }
 
