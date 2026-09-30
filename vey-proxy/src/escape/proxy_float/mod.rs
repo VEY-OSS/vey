@@ -19,7 +19,7 @@ use vey_types::net::{OpensslClientConfig, UpstreamAddr};
 
 use super::{
     ArcEscaper, ArcEscaperStats, EgressNotes, Escaper, EscaperInternal, EscaperRegistry,
-    EscaperStats, TlsConnectResult,
+    EscaperStats, TlsHttpConnection,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStatsList;
@@ -206,21 +206,42 @@ impl Escaper for ProxyFloatEscaper {
             .await
     }
 
-    async fn tls_connect(
+    async fn tls_setup_http_connection(
         &self,
+        escaper: ArcEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         _audit_ctx: &mut AuditContext,
-    ) -> TlsConnectResult {
-        self.stats.interface.add_tls_connect_attempted();
+    ) -> Result<TlsHttpConnection, TcpConnectError> {
         egress_notes.escaper.clone_from(&self.config.name);
-        let peer = self
-            .select_peer(task_notes)
-            .map_err(TcpConnectError::EscaperNotUsable)?;
-        peer.tls_connect(self, task_conf, egress_notes, task_notes)
+        let peer = match self.select_peer(task_notes) {
+            Ok(peer) => peer,
+            Err(e) => {
+                self.stats.interface.add_tls_connect_attempted();
+                return Err(TcpConnectError::EscaperNotUsable(e));
+            }
+        };
+        match peer
+            .open_tls_http_connection(self, escaper, task_conf, egress_notes, task_notes)
             .await
-            .map(|stream| (stream, None))
+        {
+            Ok(TlsHttpConnection::H2(stream)) => {
+                self.stats.interface.add_tcp_connect_attempted();
+                Ok(TlsHttpConnection::H2(stream))
+            }
+            Ok(conn) => {
+                self.stats
+                    .interface
+                    .add_https_forward_connection_attempted();
+                self.stats.interface.add_https_forward_request_attempted();
+                Ok(conn)
+            }
+            Err(e) => {
+                self.stats.interface.add_tls_connect_attempted();
+                Err(e)
+            }
+        }
     }
 
     async fn udp_setup_connection(

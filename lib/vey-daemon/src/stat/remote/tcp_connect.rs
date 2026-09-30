@@ -18,18 +18,16 @@ pub trait TcpConnectionTaskRemoteStats {
 
 pub type ArcTcpConnectionTaskRemoteStats = Arc<dyn TcpConnectionTaskRemoteStats + Send + Sync>;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct TcpConnectionTaskRemoteStatsWrapper {
-    task: ArcTcpConnectionTaskRemoteStats,
-    others: SmallVec<[ArcTcpConnectionTaskRemoteStats; 4]>,
+    all: SmallVec<[ArcTcpConnectionTaskRemoteStats; 4]>,
 }
 
 impl TcpConnectionTaskRemoteStatsWrapper {
     pub fn new(task: ArcTcpConnectionTaskRemoteStats) -> Self {
-        TcpConnectionTaskRemoteStatsWrapper {
-            task,
-            others: SmallVec::new(),
-        }
+        let mut all = SmallVec::new();
+        all.push(task);
+        TcpConnectionTaskRemoteStatsWrapper { all }
     }
 
     pub fn push_other_stats<T>(&mut self, all: impl IntoIterator<Item = Arc<T>>)
@@ -37,7 +35,7 @@ impl TcpConnectionTaskRemoteStatsWrapper {
         T: TcpConnectionTaskRemoteStats + Send + Sync + 'static,
     {
         for s in all {
-            self.others.push(s);
+            self.all.push(s);
         }
     }
 }
@@ -45,18 +43,14 @@ impl TcpConnectionTaskRemoteStatsWrapper {
 impl LimitedReaderStats for TcpConnectionTaskRemoteStatsWrapper {
     fn add_read_bytes(&self, size: usize) {
         let size = size as u64;
-        self.task.add_read_bytes(size);
-        self.others
-            .iter()
-            .for_each(|stats| stats.add_read_bytes(size));
+        self.all.iter().for_each(|stats| stats.add_read_bytes(size));
     }
 }
 
 impl LimitedWriterStats for TcpConnectionTaskRemoteStatsWrapper {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
-        self.task.add_write_bytes(size);
-        self.others
+        self.all
             .iter()
             .for_each(|stats| stats.add_write_bytes(size));
     }

@@ -5,6 +5,7 @@
  */
 
 use std::pin::pin;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 
@@ -12,7 +13,7 @@ use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 
 use super::RouteFailoverEscaper;
 use crate::audit::AuditContext;
-use crate::escape::{ArcEscaper, EgressNotes, TlsConnectResult};
+use crate::escape::{ArcEscaper, EgressNotes, TlsHttpConnection};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
@@ -53,19 +54,19 @@ impl TlsConnectFailoverContext {
     }
 }
 
-struct TlsRawConnectFailoverContext {
+struct TlsHttpFailoverContext {
     egress_notes: EgressNotes,
     audit_ctx: AuditContext,
-    connect_result: TlsConnectResult,
+    connect_result: Result<TlsHttpConnection, TcpConnectError>,
 }
 
-impl TlsRawConnectFailoverContext {
+impl TlsHttpFailoverContext {
     fn new(audit_ctx: &AuditContext) -> Self {
-        TlsRawConnectFailoverContext {
+        TlsHttpFailoverContext {
             egress_notes: EgressNotes::default(),
             audit_ctx: audit_ctx.clone(),
             connect_result: Err(TcpConnectError::EscaperNotUsable(anyhow!(
-                "tls connect not called yet"
+                "tls http connection not called yet"
             ))),
         }
     }
@@ -76,18 +77,15 @@ impl TlsRawConnectFailoverContext {
         task_conf: &TlsConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
     ) -> Self {
-        self.connect_result = match escaper
-            .tls_connect(
+        self.connect_result = escaper
+            .tls_setup_http_connection(
+                Arc::clone(escaper),
                 task_conf,
                 &mut self.egress_notes,
                 task_notes,
                 &mut self.audit_ctx,
             )
-            .await
-        {
-            Ok((stream, leaf)) => Ok((stream, leaf.or(Some(escaper.clone())))),
-            Err(e) => Err(e),
-        };
+            .await;
         self
     }
 }
@@ -176,15 +174,16 @@ impl RouteFailoverEscaper {
         }
     }
 
-    pub(super) async fn tls_connect_with_failover(
+    pub(super) async fn tls_setup_http_connection_with_failover(
         &self,
         task_conf: &TlsConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         audit_ctx: &mut AuditContext,
-    ) -> TlsConnectResult {
-        let primary_context = TlsRawConnectFailoverContext::new(audit_ctx);
-        let mut primary_task = pin!(primary_context.run(&self.primary_node, task_conf, task_notes));
+    ) -> Result<TlsHttpConnection, TcpConnectError> {
+        let primary_context = TlsHttpFailoverContext::new(audit_ctx);
+        let mut primary_task =
+            pin!(primary_context.run(&self.primary_node, task_conf, task_notes,));
 
         if let Ok(ctx) = tokio::time::timeout(self.config.fallback_delay, &mut primary_task).await {
             return match ctx.connect_result {
@@ -197,12 +196,18 @@ impl RouteFailoverEscaper {
                 Err(_e) => {
                     match self
                         .standby_node
-                        .tls_connect(task_conf, egress_notes, task_notes, audit_ctx)
+                        .tls_setup_http_connection(
+                            Arc::clone(&self.standby_node),
+                            task_conf,
+                            egress_notes,
+                            task_notes,
+                            audit_ctx,
+                        )
                         .await
                     {
-                        Ok((stream, leaf)) => {
+                        Ok(c) => {
                             self.stats.add_request_passed();
-                            Ok((stream, leaf.or(Some(self.standby_node.clone()))))
+                            Ok(c)
                         }
                         Err(e) => {
                             self.stats.add_request_failed();
@@ -213,8 +218,8 @@ impl RouteFailoverEscaper {
             };
         }
 
-        let standby_context = TlsRawConnectFailoverContext::new(audit_ctx);
-        let standby_task = pin!(standby_context.run(&self.standby_node, task_conf, task_notes));
+        let standby_context = TlsHttpFailoverContext::new(audit_ctx);
+        let standby_task = pin!(standby_context.run(&self.standby_node, task_conf, task_notes,));
 
         let (ctx, left) = futures_util::future::select(primary_task, standby_task)
             .await

@@ -19,7 +19,7 @@ use vey_daemon::stat::remote::{ArcTcpConnectionTaskRemoteStats, ArcUdpConnectTas
 use vey_types::net::{EgressInfo, TcpSockSpeedLimitConfig};
 
 use super::{ProxyFloatEscaper, ProxyFloatEscaperConfig, ProxyFloatEscaperStats};
-use crate::escape::EgressNotes;
+use crate::escape::{ArcEscaper, EgressNotes, TlsHttpConnection};
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
@@ -105,13 +105,14 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult;
 
-    async fn tls_connect(
+    async fn open_tls_http_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        escaper_arc: ArcEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> TcpConnectResult;
+    ) -> Result<TlsHttpConnection, TcpConnectError>;
 
     async fn new_http_forward_connection(
         &self,

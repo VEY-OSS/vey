@@ -15,7 +15,7 @@ use vey_types::net::UpstreamAddr;
 
 use super::{
     ArcEscaper, ArcEscaperStats, EgressNotes, Escaper, EscaperInternal, EscaperRegistry,
-    TlsConnectResult,
+    TlsHttpConnection,
 };
 use crate::audit::AuditContext;
 use crate::config::escaper::dummy_deny::DummyDenyEscaperConfig;
@@ -115,13 +115,14 @@ impl Escaper for DummyDenyEscaper {
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn tls_connect(
+    async fn tls_setup_http_connection(
         &self,
+        _escaper: ArcEscaper,
         _task_conf: &TlsConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         _task_notes: &ServerTaskNotes,
         _audit_ctx: &mut AuditContext,
-    ) -> TlsConnectResult {
+    ) -> Result<TlsHttpConnection, TcpConnectError> {
         self.stats.interface.add_tls_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)

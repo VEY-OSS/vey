@@ -26,7 +26,7 @@ use vey_types::net::{AlpnProtocol, ForwardedValue, Host, HttpForwardedHeaderType
 
 use super::{CommonTaskContext, H2StreamTransferError};
 use crate::audit::AuditContext;
-use crate::escape::EgressNotes;
+use crate::escape::{EgressNotes, TlsHttpConnection};
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpAliveReuseNotes,
     NilHttpForwardTaskRemoteStats,
@@ -387,7 +387,6 @@ impl H2TaskContext {
         let site = self.site_ctx.site();
         let mut egress_notes = EgressNotes::default();
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
-        let task_stats: ArcTcpConnectionTaskRemoteStats = Arc::new(TcpStreamTaskStats::default());
 
         let stream = if let Some(tls_client) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
@@ -396,25 +395,31 @@ impl H2TaskContext {
                 tls_name: site.tls_name_or(request_host),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2_H1),
             };
-            let (stream, leaf) = self
+            match self
                 .escaper
-                .tls_connect(&task_conf, &mut egress_notes, task_notes, &mut audit_ctx)
+                .tls_setup_http_connection(
+                    Arc::clone(&self.escaper),
+                    &task_conf,
+                    &mut egress_notes,
+                    task_notes,
+                    &mut audit_ctx,
+                )
                 .await
-                .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
-            let wrap_escaper = leaf.unwrap_or_else(|| self.escaper.clone());
-            if egress_notes.selected_alpn != Some(AlpnProtocol::Http2) {
-                let h1_stats: ArcHttpForwardTaskRemoteStats =
-                    Arc::new(NilHttpForwardTaskRemoteStats);
-                return Ok(OriginConnection::H1(OriginH1Sender {
-                    connection: wrap_escaper
-                        .http_forward_from_tls_connection(stream, task_notes, h1_stats),
-                    reused: false,
-                    reuse_notes: HttpAliveReuseNotes::from_new(wrap_escaper),
-                    egress_notes,
-                }));
+                .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?
+            {
+                TlsHttpConnection::H1(connection, escaper) => {
+                    return Ok(OriginConnection::H1(OriginH1Sender {
+                        connection,
+                        reused: false,
+                        reuse_notes: HttpAliveReuseNotes::from_new(escaper),
+                        egress_notes,
+                    }));
+                }
+                TlsHttpConnection::H2(stream) => stream,
             }
-            wrap_escaper.tls_connection_with_task_stats(stream, task_notes, task_stats)
         } else {
+            let task_stats: ArcTcpConnectionTaskRemoteStats =
+                Arc::new(TcpStreamTaskStats::default());
             self.setup_origin_tcp(
                 task_notes,
                 upstream,

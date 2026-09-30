@@ -9,17 +9,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use vey_daemon::stat::remote::{
-    ArcTcpConnectionTaskRemoteStats, ArcUdpConnectTaskRemoteStats,
-    TcpConnectionTaskRemoteStatsWrapper,
-};
-use vey_io_ext::{LimitedReader, LimitedWriter};
+use vey_daemon::stat::remote::{ArcTcpConnectionTaskRemoteStats, ArcUdpConnectTaskRemoteStats};
 use vey_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
 use vey_types::metrics::NodeName;
 use vey_types::net::{Host, HttpForwardCapability, UpstreamAddr};
 
 use crate::audit::AuditContext;
-use crate::auth::UserUpstreamTrafficStatsList;
 use crate::config::escaper::AnyEscaperConfig;
 use crate::module::ftp_over_http::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
@@ -27,7 +22,6 @@ use crate::module::ftp_over_http::{
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
-    HttpForwardTaskRemoteWrapperStats, TlsHttpForwardReader, TlsHttpForwardWriter,
 };
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnection, TlsConnectTaskConf,
@@ -208,64 +202,6 @@ pub(crate) trait Escaper: EscaperInternal {
         connection
     }
 
-    fn fetch_user_upstream_io_stats(
-        &self,
-        task_notes: &ServerTaskNotes,
-    ) -> UserUpstreamTrafficStatsList {
-        match self.get_escape_stats() {
-            Some(stats) => {
-                task_notes.fetch_upstream_traffic_stats(self.name(), stats.share_extra_tags())
-            }
-            None => Default::default(),
-        }
-    }
-
-    /// Attach task + user stats on a stream from [`Self::tls_connect`].
-    ///
-    /// Use after ALPN selects HTTP/2. Escaper IO stays on the TCP layer.
-    fn tls_connection_with_task_stats(
-        &self,
-        stream: TcpConnection,
-        task_notes: &ServerTaskNotes,
-        task_stats: ArcTcpConnectionTaskRemoteStats,
-    ) -> TcpConnection {
-        let mut wrapper_stats = TcpConnectionTaskRemoteStatsWrapper::new(task_stats);
-        wrapper_stats.push_other_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let wrapper_stats = Arc::new(wrapper_stats);
-        let (ups_r, ups_w) = stream;
-        (
-            Box::new(LimitedReader::new(ups_r, wrapper_stats.clone())),
-            Box::new(LimitedWriter::new(ups_w, wrapper_stats)),
-        )
-    }
-
-    /// Wrap a stream from [`Self::tls_connect`] as one HTTP/1 origin request.
-    ///
-    /// Use after ALPN selects HTTP/1.1 (or no h2). Stats match
-    /// `https_forward_new_connection`: task + user on TLS plaintext, no
-    /// escaper IO on this layer. Then [`Self::prepare_reused_http_forward_connection`]
-    /// so the first request is counted the same as a pooled H1 checkout.
-    fn http_forward_from_tls_connection(
-        &self,
-        stream: TcpConnection,
-        task_notes: &ServerTaskNotes,
-        task_stats: ArcHttpForwardTaskRemoteStats,
-    ) -> BoxHttpForwardConnection {
-        let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(&task_stats));
-        wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let wrapper_stats = Arc::new(wrapper_stats);
-        let (ups_r, ups_w) = stream;
-        self.prepare_reused_http_forward_connection(
-            (
-                Box::new(TlsHttpForwardWriter::new(ups_w, wrapper_stats.clone())),
-                Box::new(TlsHttpForwardReader::new(ups_r, wrapper_stats)),
-            ),
-            task_notes,
-            task_stats,
-            true,
-        )
-    }
-
     async fn publish(&self, data: &str) -> anyhow::Result<()>;
 
     async fn tcp_setup_connection(
@@ -292,22 +228,20 @@ pub(crate) trait Escaper: EscaperInternal {
         audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult;
 
-    /// TLS connect when the application protocol is chosen after ALPN.
+    /// TLS handshake, then HTTP/2 or HTTP/1 from the selected ALPN.
     ///
-    /// Handshake only: escaper IO on TCP, no task/user wrap yet. Selected ALPN
-    /// is stored on [`EgressNotes::selected_alpn`]. Returns the raw stream and
-    /// the leaf that connected (`None` from a leaf — the caller already holds
-    /// it). A route fills `Some(next)` where it selects the next hop, if that
-    /// hop returned `None`. Upgrade on that escaper with
-    /// [`Self::tls_connection_with_task_stats`] (h2) or
-    /// [`Self::http_forward_from_tls_connection`] (http/1.1).
-    async fn tls_connect(
+    /// `escaper` is the `Arc` of this escaper. A route passes the next hop's
+    /// `Arc` when it delegates. HTTP/2 counts as `tcp_connect_attempted`.
+    /// HTTP/1 counts as an HTTPS forward connection and request, and carries
+    /// the leaf that connected. A failed handshake counts as `tls_connect_attempted`.
+    async fn tls_setup_http_connection(
         &self,
+        escaper: ArcEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
         audit_ctx: &mut AuditContext,
-    ) -> TlsConnectResult;
+    ) -> Result<TlsHttpConnection, TcpConnectError>;
 
     async fn udp_setup_connection(
         &self,
@@ -337,8 +271,16 @@ pub(crate) trait Escaper: EscaperInternal {
 
 pub(crate) type ArcEscaper = Arc<dyn Escaper + Send + Sync>;
 
-/// Raw TLS connect: stream plus the leaf that connected, when a route selected one.
-pub(crate) type TlsConnectResult = Result<(TcpConnection, Option<ArcEscaper>), TcpConnectError>;
+/// HTTP connection produced by [`Escaper::tls_setup_http_connection`].
+pub(crate) enum TlsHttpConnection {
+    /// HTTP/2 over the negotiated TLS session. Interface count is `tcp_connect`.
+    H2(TcpConnection),
+    /// HTTP/1 over the negotiated TLS session. Interface count is HTTPS forward.
+    ///
+    /// The escaper is the leaf that connected, so a later keepalive checkout
+    /// counts on that leaf.
+    H1(BoxHttpForwardConnection, ArcEscaper),
+}
 
 pub(crate) trait EscaperExt: Escaper {
     fn select_consistent<'a, 'b, T>(

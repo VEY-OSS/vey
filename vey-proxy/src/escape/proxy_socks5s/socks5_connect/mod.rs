@@ -242,23 +242,4 @@ impl ProxySocks5sEscaper {
 
         Ok((Box::new(ups_r), Box::new(ups_w)))
     }
-
-    pub(super) async fn socks5_tls_connect(
-        &self,
-        task_conf: &TlsConnectTaskConf<'_>,
-        egress_notes: &mut EgressNotes,
-        task_notes: &ServerTaskNotes,
-    ) -> TcpConnectResult {
-        let tls_stream = self
-            .socks5_connect_tls_connect_to(
-                task_conf,
-                egress_notes,
-                task_notes,
-                TlsApplication::TcpStream,
-            )
-            .await?;
-        egress_notes.record_selected_alpn(tls_stream.ssl());
-        let (ups_r, ups_w) = tls_stream.into_split();
-        Ok((Box::new(ups_r), Box::new(ups_w)))
-    }
 }

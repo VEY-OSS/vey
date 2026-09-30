@@ -28,9 +28,6 @@ pub(crate) use writer::{send_req_header_to_origin, send_req_header_via_proxy};
 mod eof_poller;
 pub(crate) use eof_poller::HttpConnectionEofPoller;
 
-mod tls;
-pub(crate) use tls::{TlsHttpForwardReader, TlsHttpForwardWriter};
-
 pub(crate) type BoxHttpForwardWriter = Box<dyn HttpForwardWrite + Send + Unpin>;
 pub(crate) type BoxHttpForwardReader = Box<dyn HttpForwardRead + Send + Unpin>;
 pub(crate) type BoxHttpForwardConnection = (BoxHttpForwardWriter, BoxHttpForwardReader);

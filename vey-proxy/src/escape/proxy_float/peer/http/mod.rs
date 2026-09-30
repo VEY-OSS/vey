@@ -21,7 +21,7 @@ use super::{
     ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEscaper,
     ProxyFloatEscaperStats,
 };
-use crate::escape::EgressNotes;
+use crate::escape::{ArcEscaper, EgressNotes, TlsHttpConnection};
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
@@ -222,14 +222,15 @@ impl NextProxyPeer for ProxyFloatHttpPeer {
         .await
     }
 
-    async fn tls_connect(
+    async fn open_tls_http_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        escaper_arc: ArcEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> TcpConnectResult {
-        self.http_connect_tls_connect(escaper, task_conf, egress_notes, task_notes)
+    ) -> Result<TlsHttpConnection, TcpConnectError> {
+        self.open_tls_http_connection(escaper, escaper_arc, task_conf, egress_notes, task_notes)
             .await
     }
 

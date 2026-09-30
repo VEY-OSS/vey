@@ -38,7 +38,7 @@ impl HttpForwardTaskRemoteStats for UserUpstreamTrafficStats {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct HttpForwardTaskRemoteWrapperStats {
     all: SmallVec<[ArcHttpForwardTaskRemoteStats; 4]>,
 }

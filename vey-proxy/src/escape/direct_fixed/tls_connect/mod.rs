@@ -12,12 +12,17 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use vey_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
-use vey_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
+use vey_io_ext::{
+    AsyncStream, LimitedBufReader, LimitedReader, LimitedStream, LimitedWriter, NilLimitedStats,
+};
 use vey_openssl::{SslConnector, SslStream};
+use vey_types::net::AlpnProtocol;
 
-use super::DirectFixedEscaper;
-use crate::escape::EgressNotes;
+use super::http_forward::{DirectHttpForwardReader, DirectHttpForwardWriter};
+use super::{DirectFixedEscaper, DirectFixedEscaperStats};
+use crate::escape::{ArcEscaper, EgressNotes, TlsHttpConnection};
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
+use crate::module::http_forward::HttpForwardTaskRemoteWrapperStats;
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TlsConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
@@ -116,12 +121,13 @@ impl DirectFixedEscaper {
         Ok((Box::new(ups_r), Box::new(ups_w)))
     }
 
-    pub(super) async fn tls_connect(
+    pub(super) async fn open_tls_http_connection(
         &self,
+        escaper: ArcEscaper,
         task_conf: &TlsConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> TcpConnectResult {
+    ) -> Result<TlsHttpConnection, TcpConnectError> {
         let tls_stream = self
             .tls_connect_to(
                 task_conf,
@@ -132,6 +138,33 @@ impl DirectFixedEscaper {
             .await?;
         egress_notes.record_selected_alpn(tls_stream.ssl());
         let (ups_r, ups_w) = tls_stream.into_split();
-        Ok((Box::new(ups_r), Box::new(ups_w)))
+        if egress_notes.selected_alpn == Some(AlpnProtocol::Http2) {
+            let mut wrapper_stats = TcpConnectionTaskRemoteStatsWrapper::default();
+            wrapper_stats.push_other_stats(self.fetch_user_upstream_io_stats(task_notes));
+            let wrapper_stats = Arc::new(wrapper_stats);
+            Ok(TlsHttpConnection::H2((
+                Box::new(LimitedReader::new(ups_r, wrapper_stats.clone())),
+                Box::new(LimitedWriter::new(ups_w, wrapper_stats)),
+            )))
+        } else {
+            let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::default();
+            wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
+            let wrapper_stats = Arc::new(wrapper_stats);
+            let ups_r = LimitedBufReader::new_unlimited(
+                ups_r,
+                Arc::new(NilLimitedStats::default()),
+                wrapper_stats.clone(),
+            );
+            let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
+            Ok(TlsHttpConnection::H1(
+                (
+                    Box::new(DirectHttpForwardWriter::<_, DirectFixedEscaperStats>::new(
+                        ups_w, None,
+                    )),
+                    Box::new(DirectHttpForwardReader::new(ups_r)),
+                ),
+                escaper,
+            ))
+        }
     }
 }
