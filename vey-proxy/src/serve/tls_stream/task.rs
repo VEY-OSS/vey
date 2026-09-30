@@ -126,15 +126,17 @@ impl TlsStreamTask {
         let tcp_client_misc_opts;
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
-            let user_ctx = user_ctx.clone();
-
             if user_ctx.check_rate_limit().is_err() {
                 return Err(ServerTaskError::ForbiddenByRule(
                     ServerTaskForbiddenError::RateLimited,
                 ));
             }
-
-            if self.task_notes.acquire_user_request_semaphore().is_err() {
+            let user_ctx = user_ctx.clone();
+            if self
+                .task_notes
+                .acquire_user_request_semaphore(&user_ctx)
+                .is_err()
+            {
                 return Err(ServerTaskError::ForbiddenByRule(
                     ServerTaskForbiddenError::FullyLoaded,
                 ));

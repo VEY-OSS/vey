@@ -9,7 +9,6 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use bytes::Bytes;
-use http::header;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use vey_daemon::server::ServerQuitPolicy;
@@ -26,7 +25,6 @@ use vey_io_ext::{
     FlexBufReader, IdleInterval, LimitedReader, LimitedWriteExt, OnceBufReader, StreamCopy,
     StreamCopyConfig, StreamCopyError,
 };
-use vey_types::acl::AclAction;
 use vey_types::net::UpstreamAddr;
 
 use super::H1TaskContext;
@@ -233,49 +231,43 @@ impl HttpGuardWebsocketTask {
     where
         CDW: AsyncWrite + Send + Unpin,
     {
-        if self.task_notes.check_layered_rate_limit().is_err() {
-            self.reply_too_many_requests(clt_w).await;
-            return Err(ServerTaskError::ForbiddenByRule(
-                ServerTaskForbiddenError::RateLimited,
-            ));
-        }
-
-        if self.task_notes.acquire_site_request_semaphores().is_err() {
-            self.reply_too_many_requests(clt_w).await;
-            return Err(ServerTaskError::ForbiddenByRule(
-                ServerTaskForbiddenError::FullyLoaded,
-            ));
-        }
-
-        let tenant = self.task_notes.tenant_ctx().cloned();
         let mut audit_task = false;
-        let tcp_client_misc_opts = if let Some(tenant) = &tenant {
-            if let Some(action) = tenant.check_http_user_agent(
-                req.end_to_end_headers
-                    .get_all(header::USER_AGENT)
-                    .iter()
-                    .map(|v| v.to_str()),
-            ) {
-                match action {
-                    AclAction::Permit | AclAction::PermitAndLog => {}
-                    AclAction::Forbid | AclAction::ForbidAndLog => {
-                        self.reply_forbidden(clt_w).await;
-                        return Err(ServerTaskError::ForbiddenByRule(
-                            ServerTaskForbiddenError::UaBlocked,
-                        ));
-                    }
+        let tcp_client_misc_opts = if let Some(site_ctx) = self.task_notes.site_ctx() {
+            if site_ctx.check_rate_limit().is_err() {
+                self.reply_too_many_requests(clt_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::RateLimited,
+                ));
+            }
+            let site_ctx = site_ctx.clone();
+            if self
+                .task_notes
+                .acquire_site_request_semaphores(&site_ctx)
+                .is_err()
+            {
+                self.reply_too_many_requests(clt_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
+            }
+
+            if let Some(tenant) = site_ctx.tenant_ctx() {
+                if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
+                    audit_task = tenant
+                        .user()
+                        .audit()
+                        .do_task_audit()
+                        .unwrap_or_else(|| audit_handle.do_task_audit());
                 }
+                tenant
+                    .user_config()
+                    .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
+            } else {
+                if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
+                    audit_task = audit_handle.do_task_audit();
+                }
+                Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts)
             }
-            if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
-                audit_task = tenant
-                    .user()
-                    .audit()
-                    .do_task_audit()
-                    .unwrap_or_else(|| audit_handle.do_task_audit());
-            }
-            tenant
-                .user_config()
-                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
         } else {
             if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
                 audit_task = audit_handle.do_task_audit();
@@ -736,18 +728,6 @@ impl HttpGuardWebsocketTask {
     {
         self.send_error_response = false;
         let mut rsp = HttpProxyClientResponse::too_many_requests(self.ws_notes.version);
-        self.enable_custom_header_for_local_reply(&mut rsp);
-        if rsp.reply_err_to_request(clt_w).await.is_ok() {
-            self.ws_notes.rsp_status = rsp.status();
-        }
-    }
-
-    async fn reply_forbidden<W>(&mut self, clt_w: &mut W)
-    where
-        W: AsyncWrite + Unpin,
-    {
-        self.send_error_response = false;
-        let mut rsp = HttpProxyClientResponse::forbidden(self.ws_notes.version);
         self.enable_custom_header_for_local_reply(&mut rsp);
         if rsp.reply_err_to_request(clt_w).await.is_ok() {
             self.ws_notes.rsp_status = rsp.status();

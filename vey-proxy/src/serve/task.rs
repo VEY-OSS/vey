@@ -246,30 +246,20 @@ impl ServerTaskNotes {
         )
     }
 
-    pub(crate) fn check_layered_rate_limit(&self) -> Result<(), ()> {
-        if let Some(site_ctx) = &self.site_ctx {
-            site_ctx.check_rate_limit()?;
-        }
-        if let Some(user_ctx) = &self.user_ctx {
-            user_ctx.check_rate_limit()?;
-        }
-        Ok(())
-    }
-
-    /// Tenant then site. No-op when this notes has no site.
-    pub(crate) fn acquire_site_request_semaphores(&mut self) -> Result<(), ()> {
-        let Some(site_ctx) = &self.site_ctx else {
-            return Ok(());
-        };
+    /// Tenant then site. `site_ctx` is the context the caller already resolved.
+    pub(crate) fn acquire_site_request_semaphores(
+        &mut self,
+        site_ctx: &SiteContext,
+    ) -> Result<(), ()> {
         self._site_req_alive_permits = site_ctx.acquire_request_semaphores()?;
         Ok(())
     }
 
-    /// No-op when this notes has no user.
-    pub(crate) fn acquire_user_request_semaphore(&mut self) -> Result<(), ()> {
-        let Some(user_ctx) = &self.user_ctx else {
-            return Ok(());
-        };
+    /// `user_ctx` is the context the caller already resolved.
+    pub(crate) fn acquire_user_request_semaphore(
+        &mut self,
+        user_ctx: &UserContext,
+    ) -> Result<(), ()> {
         self._user_req_alive_permit = Some(user_ctx.acquire_request_semaphore()?);
         Ok(())
     }

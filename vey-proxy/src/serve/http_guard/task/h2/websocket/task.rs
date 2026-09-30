@@ -8,14 +8,13 @@ use std::sync::Arc;
 use bytes::Bytes;
 use h2::server::SendResponse;
 use h2::{RecvStream, SendStream, StreamId};
-use http::{Request, Response, StatusCode, Version, header};
+use http::{Request, Response, StatusCode, Version};
 
 use vey_h2::{H2BodyTransfer, H2ResponseHeaderReceiver, RequestExt};
 use vey_icap_client::reqmod::h2::{
     H2RequestAdapter, HttpAdapterErrorResponse, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
 };
-use vey_types::acl::AclAction;
 use vey_types::net::{Host, UpstreamAddr};
 
 use super::{H2StreamTransferError, H2TaskContext, OriginH2Sender};
@@ -128,27 +127,35 @@ impl H2WebsocketTask {
         clt_r: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<(), H2StreamTransferError> {
-        if self.task_notes.check_layered_rate_limit().is_err() {
-            self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
-            return Err(H2StreamTransferError::InternalServerError("rate limited"));
+        let mut audit_task = false;
+        if let Some(site_ctx) = self.task_notes.site_ctx() {
+            if site_ctx.check_rate_limit().is_err() {
+                self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
+                return Err(H2StreamTransferError::InternalServerError("rate limited"));
+            }
+            let site_ctx = site_ctx.clone();
+            if self
+                .task_notes
+                .acquire_site_request_semaphores(&site_ctx)
+                .is_err()
+            {
+                self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
+                return Err(H2StreamTransferError::InternalServerError("fully loaded"));
+            }
+            if let Some(tenant) = site_ctx.tenant_ctx() {
+                if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
+                    audit_task = tenant
+                        .user()
+                        .audit()
+                        .do_task_audit()
+                        .unwrap_or_else(|| audit_handle.do_task_audit());
+                }
+            } else if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
+                audit_task = audit_handle.do_task_audit();
+            }
+        } else if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
+            audit_task = audit_handle.do_task_audit();
         }
-        if self.task_notes.acquire_site_request_semaphores().is_err() {
-            self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
-            return Err(H2StreamTransferError::InternalServerError("fully loaded"));
-        }
-        if let Some(tenant) = self.task_notes.tenant_ctx()
-            && let Some(action) = tenant.check_http_user_agent(
-                req.headers()
-                    .get_all(header::USER_AGENT)
-                    .iter()
-                    .filter_map(|v| v.to_str().ok()),
-            )
-            && matches!(action, AclAction::Forbid | AclAction::ForbidAndLog)
-        {
-            self.reply_denied(clt_send_rsp, StatusCode::FORBIDDEN);
-            return Err(H2StreamTransferError::InternalServerError("ua denied"));
-        }
-
         self.upstream = self
             .ctx
             .site_ctx
@@ -160,17 +167,6 @@ impl H2WebsocketTask {
             .ctx
             .checkout_or_connect_h2(&mut self.task_notes, &self.upstream, &request_host)
             .await?;
-
-        let audit_task = self
-            .task_notes
-            .tenant_user()
-            .and_then(|u| u.audit().do_task_audit())
-            .unwrap_or_else(|| {
-                self.ctx
-                    .audit_handle
-                    .as_ref()
-                    .is_some_and(|h| h.do_task_audit())
-            });
 
         if audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.as_ref()

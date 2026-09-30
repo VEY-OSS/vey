@@ -26,7 +26,6 @@ use vey_io_ext::{
     GlobalLimitGroup, LimitedBufReadExt, LimitedReadExt, LimitedWriteExt, StreamCopy,
     StreamCopyError,
 };
-use vey_types::acl::AclAction;
 use vey_types::net::{KeepAliveValue, TcpSockSpeedLimitConfig, UpstreamAddr};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpGuardRequest};
@@ -154,18 +153,6 @@ impl<'a> HttpGuardForwardTask<'a> {
         self.should_close = true;
     }
 
-    async fn reply_forbidden<W>(&mut self, clt_w: &mut W)
-    where
-        W: AsyncWrite + Unpin,
-    {
-        let mut rsp = HttpProxyClientResponse::forbidden(self.req.version);
-        self.enable_custom_header_for_local_reply(&mut rsp);
-        if rsp.reply_err_to_request(clt_w).await.is_ok() {
-            self.http_notes.rsp_status = rsp.status();
-        }
-        self.should_close = true;
-    }
-
     async fn reply_connect_err<W>(&mut self, e: &TcpConnectError, clt_w: &mut W)
     where
         W: AsyncWrite + Unpin,
@@ -273,36 +260,6 @@ impl<'a> HttpGuardForwardTask<'a> {
         }
     }
 
-    async fn handle_user_ua_acl_action<W>(
-        &mut self,
-        action: AclAction,
-        clt_w: &mut W,
-    ) -> ServerTaskResult<()>
-    where
-        W: AsyncWrite + Unpin,
-    {
-        let forbid = match action {
-            AclAction::Permit => false,
-            AclAction::PermitAndLog => {
-                // TODO log permit
-                false
-            }
-            AclAction::Forbid => true,
-            AclAction::ForbidAndLog => {
-                // TODO log forbid
-                true
-            }
-        };
-        if forbid {
-            self.reply_forbidden(clt_w).await;
-            Err(ServerTaskError::ForbiddenByRule(
-                ServerTaskForbiddenError::UaBlocked,
-            ))
-        } else {
-            Ok(())
-        }
-    }
-
     fn clt_speed_limit(&self) -> Option<TcpSockSpeedLimitConfig> {
         let server = self.ctx.server_config.tcp_sock_speed_limit;
         let limit = self
@@ -382,42 +339,42 @@ impl<'a> HttpGuardForwardTask<'a> {
         CDR: AsyncRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
     {
-        if self.task_notes.check_layered_rate_limit().is_err() {
-            self.reply_too_many_requests(clt_w).await;
-            return Err(ServerTaskError::ForbiddenByRule(
-                ServerTaskForbiddenError::RateLimited,
-            ));
-        }
-
-        if self.task_notes.acquire_site_request_semaphores().is_err() {
-            self.reply_too_many_requests(clt_w).await;
-            return Err(ServerTaskError::ForbiddenByRule(
-                ServerTaskForbiddenError::FullyLoaded,
-            ));
-        }
-
-        let tcp_client_misc_opts = if let Some(tenant) = self.task_notes.tenant_ctx().cloned() {
-            if let Some(action) = tenant.check_http_user_agent(
-                self.req
-                    .end_to_end_headers
-                    .get_all(header::USER_AGENT)
-                    .iter()
-                    .map(|v| v.to_str()),
-            ) {
-                self.handle_user_ua_acl_action(action, clt_w).await?;
+        let tcp_client_misc_opts = if let Some(site_ctx) = self.task_notes.site_ctx() {
+            if site_ctx.check_rate_limit().is_err() {
+                self.reply_too_many_requests(clt_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::RateLimited,
+                ));
+            }
+            let site_ctx = site_ctx.clone();
+            if self
+                .task_notes
+                .acquire_site_request_semaphores(&site_ctx)
+                .is_err()
+            {
+                self.reply_too_many_requests(clt_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
             }
 
-            if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
-                self.audit_task = tenant
-                    .user()
-                    .audit()
-                    .do_task_audit()
-                    .unwrap_or_else(|| audit_handle.do_task_audit());
+            if let Some(tenant) = site_ctx.tenant_ctx() {
+                if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
+                    self.audit_task = tenant
+                        .user()
+                        .audit()
+                        .do_task_audit()
+                        .unwrap_or_else(|| audit_handle.do_task_audit());
+                }
+                tenant
+                    .user_config()
+                    .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
+            } else {
+                if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
+                    self.audit_task = audit_handle.do_task_audit();
+                }
+                Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts)
             }
-
-            tenant
-                .user_config()
-                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
         } else {
             if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
                 self.audit_task = audit_handle.do_task_audit();

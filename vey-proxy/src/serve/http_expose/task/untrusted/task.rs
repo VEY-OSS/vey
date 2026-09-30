@@ -68,12 +68,22 @@ impl<'a> HttpExposeUntrustedTask<'a> {
         CDR: AsyncRead + Unpin,
         CDW: AsyncWrite + Unpin,
     {
-        if self.task_notes.check_layered_rate_limit().is_err()
-            || self.task_notes.acquire_site_request_semaphores().is_err()
-        {
-            self.should_close = true;
-            self.reply_too_many_requests(clt_w).await;
-            return;
+        if let Some(site_ctx) = self.task_notes.site_ctx() {
+            if site_ctx.check_rate_limit().is_err() {
+                self.should_close = true;
+                self.reply_too_many_requests(clt_w).await;
+                return;
+            }
+            let site_ctx = site_ctx.clone();
+            if self
+                .task_notes
+                .acquire_site_request_semaphores(&site_ctx)
+                .is_err()
+            {
+                self.should_close = true;
+                self.reply_too_many_requests(clt_w).await;
+                return;
+            }
         }
 
         let site_io = self.site_ctx.fetch_traffic_stats(

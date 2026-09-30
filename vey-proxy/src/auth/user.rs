@@ -801,14 +801,6 @@ impl TenantContext {
     pub(crate) fn acquire_request_semaphore(&self) -> Result<GaugeSemaphorePermit, ()> {
         self.user.acquire_request_semaphore(&self.forbid_stats)
     }
-
-    pub(crate) fn check_http_user_agent(
-        &self,
-        user_agents: impl IntoIterator<Item = impl AsRef<str>>,
-    ) -> Option<AclAction> {
-        self.user
-            .check_http_user_agent(user_agents, &self.forbid_stats)
-    }
 }
 
 #[derive(Clone)]

@@ -163,26 +163,31 @@ impl TlsRelayTask {
         S::R: AsyncRead + Send + Sync + Unpin + 'static,
         S::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        if self.task_notes.check_layered_rate_limit().is_err() {
-            return Err(ServerTaskError::ForbiddenByRule(
-                ServerTaskForbiddenError::RateLimited,
-            ));
-        }
-
-        if self.task_notes.site_ctx().is_none() {
-            return Err(ServerTaskError::InternalServerError("no site context"));
-        }
-        if self.task_notes.acquire_site_request_semaphores().is_err() {
-            return Err(ServerTaskError::ForbiddenByRule(
-                ServerTaskForbiddenError::FullyLoaded,
-            ));
-        }
-
-        let tcp_client_misc_opts = if let Some(user) = self.task_notes.tenant_user() {
-            user.config()
-                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
+        let tcp_client_misc_opts = if let Some(site_ctx) = self.task_notes.site_ctx() {
+            if site_ctx.check_rate_limit().is_err() {
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::RateLimited,
+                ));
+            }
+            let site_ctx = site_ctx.clone();
+            if self
+                .task_notes
+                .acquire_site_request_semaphores(&site_ctx)
+                .is_err()
+            {
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
+            }
+            if let Some(tenant) = site_ctx.tenant_ctx() {
+                tenant
+                    .user_config()
+                    .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
+            } else {
+                Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts)
+            }
         } else {
-            Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts)
+            return Err(ServerTaskError::InternalServerError("no site context"));
         };
 
         self.ctx

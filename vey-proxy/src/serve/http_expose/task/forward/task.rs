@@ -443,26 +443,19 @@ impl<'a> HttpExposeForwardTask<'a> {
         CDR: AsyncRead + Unpin,
         CDW: AsyncWrite + Unpin,
     {
-        let tcp_client_misc_opts;
-
-        if self.task_notes.check_layered_rate_limit().is_err() {
-            self.reply_too_many_requests(clt_w).await;
-            return Err(ServerTaskError::ForbiddenByRule(
-                ServerTaskForbiddenError::RateLimited,
-            ));
-        }
-
-        if self.task_notes.acquire_site_request_semaphores().is_err() {
-            self.reply_too_many_requests(clt_w).await;
-            return Err(ServerTaskError::ForbiddenByRule(
-                ServerTaskForbiddenError::FullyLoaded,
-            ));
-        }
-
         if let Some(user_ctx) = self.task_notes.user_ctx() {
+            if user_ctx.check_rate_limit().is_err() {
+                self.reply_too_many_requests(clt_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::RateLimited,
+                ));
+            }
             let user_ctx = user_ctx.clone();
-
-            if self.task_notes.acquire_user_request_semaphore().is_err() {
+            if self
+                .task_notes
+                .acquire_user_request_semaphore(&user_ctx)
+                .is_err()
+            {
                 self.reply_too_many_requests(clt_w).await;
                 return Err(ServerTaskError::ForbiddenByRule(
                     ServerTaskForbiddenError::FullyLoaded,
@@ -478,13 +471,40 @@ impl<'a> HttpExposeForwardTask<'a> {
             ) {
                 self.handle_user_ua_acl_action(action, clt_w).await?;
             }
-
-            tcp_client_misc_opts = user_ctx
-                .user_config()
-                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts);
-        } else {
-            tcp_client_misc_opts = Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts);
         }
+        if let Some(site_ctx) = self.task_notes.site_ctx() {
+            if site_ctx.check_rate_limit().is_err() {
+                self.reply_too_many_requests(clt_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::RateLimited,
+                ));
+            }
+            let site_ctx = site_ctx.clone();
+            if self
+                .task_notes
+                .acquire_site_request_semaphores(&site_ctx)
+                .is_err()
+            {
+                self.reply_too_many_requests(clt_w).await;
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
+            }
+        }
+
+        let tcp_client_misc_opts = if let Some(user_ctx) = self.task_notes.user_ctx() {
+            user_ctx
+                .user_config()
+                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
+        } else if let Some(site_ctx) = self.task_notes.site_ctx()
+            && let Some(tenant) = site_ctx.tenant_ctx()
+        {
+            tenant
+                .user_config()
+                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts)
+        } else {
+            Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts)
+        };
 
         // set client side socket options
         self.ctx
