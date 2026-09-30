@@ -52,7 +52,10 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
                 }
                 r = self.icap_reader.fill_wait_data() => {
                     return match r {
-                        Ok(true) => self.recv_icap_response().await,
+                        Ok(true) => {
+                            state.record_clt_body_progress(body_transfer);
+                            self.recv_icap_response().await
+                        }
                         Ok(false) => {
                             state.record_clt_body_progress(body_transfer);
                             Err(H2ToH1ReqmodAdaptationError::IcapServerConnectionClosed)

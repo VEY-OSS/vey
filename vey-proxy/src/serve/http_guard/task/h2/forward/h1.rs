@@ -409,6 +409,12 @@ impl H2ForwardTask {
                 );
                 let mut idle_interval = self.ctx.idle_wheel.register();
                 let mut idle_count = 0;
+                macro_rules! record_req_body {
+                    () => {
+                        self.http_notes.clt_req_body_size = Some(body_transfer.received_size());
+                        self.http_notes.ups_req_body_size = Some(body_transfer.copied_size());
+                    };
+                }
                 loop {
                     tokio::select! {
                         biased;
@@ -419,6 +425,7 @@ impl H2ForwardTask {
                                     if let Some(final_hdr) =
                                         self.check_out_h1_informational(hdr, clt_send_rsp)?
                                     {
+                                        record_req_body!();
                                         rsp_header = Some(final_hdr);
                                         break (body_transfer.recv_finished(), body_transfer.finished());
                                     }
@@ -427,12 +434,14 @@ impl H2ForwardTask {
                                     if body_transfer.received_size() == 0 {
                                         self.http_notes.retry_new_connection = true;
                                     }
+                                    record_req_body!();
                                     return Err(H2StreamTransferError::OriginClosed);
                                 }
                                 Err(e) => {
                                     if body_transfer.received_size() == 0 {
                                         self.http_notes.retry_new_connection = true;
                                     }
+                                    record_req_body!();
                                     return Err(H2StreamTransferError::OriginReadFailed(e));
                                 }
                             }
@@ -445,7 +454,10 @@ impl H2ForwardTask {
                                     self.http_notes.ups_req_body_size = Some(n);
                                     break (true, true);
                                 }
-                                Err(e) => return Err(e.into()),
+                                Err(e) => {
+                                    record_req_body!();
+                                    return Err(e.into());
+                                }
                             }
                         }
                         n = idle_interval.tick() => {
@@ -456,6 +468,7 @@ impl H2ForwardTask {
                                         self.ctx.server_config.task_idle_max_count,
                                     )
                                 {
+                                    record_req_body!();
                                     return Err(H2StreamTransferError::Idle(
                                         idle_interval.period(),
                                         idle_count,
@@ -466,6 +479,7 @@ impl H2ForwardTask {
                                 body_transfer.reset_active();
                             }
                             if self.ctx.server_quit_policy.force_quit() {
+                                record_req_body!();
                                 return Err(H2StreamTransferError::CanceledAsServerQuit);
                             }
                         }
@@ -755,7 +769,7 @@ impl H2ForwardTask {
                                 Ok(_) => break,
                                 Err(e) => {
                                     self.http_notes.ups_rsp_body_size =
-                                        Some(body_transfer.copied_size());
+                                        Some(body_transfer.received_size());
                                     self.http_notes.clt_rsp_body_size =
                                         Some(body_transfer.copied_size());
                                     return Err(e.into());
@@ -771,7 +785,7 @@ impl H2ForwardTask {
                                     )
                                 {
                                     self.http_notes.ups_rsp_body_size =
-                                        Some(body_transfer.copied_size());
+                                        Some(body_transfer.received_size());
                                     self.http_notes.clt_rsp_body_size =
                                         Some(body_transfer.copied_size());
                                     return Err(H2StreamTransferError::Idle(
@@ -785,7 +799,7 @@ impl H2ForwardTask {
                             }
                             if self.ctx.server_quit_policy.force_quit() {
                                 self.http_notes.ups_rsp_body_size =
-                                    Some(body_transfer.copied_size());
+                                    Some(body_transfer.received_size());
                                 self.http_notes.clt_rsp_body_size =
                                     Some(body_transfer.copied_size());
                                 return Err(H2StreamTransferError::CanceledAsServerQuit);
@@ -820,7 +834,7 @@ impl H2ForwardTask {
                                 Ok(_) => break,
                                 Err(e) => {
                                     self.http_notes.ups_rsp_body_size =
-                                        Some(body_transfer.copied_size());
+                                        Some(body_transfer.received_size());
                                     self.http_notes.clt_rsp_body_size =
                                         Some(body_transfer.copied_size());
                                     return Err(e.into());
@@ -836,7 +850,7 @@ impl H2ForwardTask {
                                     )
                                 {
                                     self.http_notes.ups_rsp_body_size =
-                                        Some(body_transfer.copied_size());
+                                        Some(body_transfer.received_size());
                                     self.http_notes.clt_rsp_body_size =
                                         Some(body_transfer.copied_size());
                                     return Err(H2StreamTransferError::Idle(
@@ -850,7 +864,7 @@ impl H2ForwardTask {
                             }
                             if self.ctx.server_quit_policy.force_quit() {
                                 self.http_notes.ups_rsp_body_size =
-                                    Some(body_transfer.copied_size());
+                                    Some(body_transfer.received_size());
                                 self.http_notes.clt_rsp_body_size =
                                     Some(body_transfer.copied_size());
                                 return Err(H2StreamTransferError::CanceledAsServerQuit);

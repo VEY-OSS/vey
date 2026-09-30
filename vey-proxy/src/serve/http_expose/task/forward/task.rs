@@ -910,7 +910,12 @@ impl<'a> HttpExposeForwardTask<'a> {
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
         self.http_notes.mark_req_send_hdr();
         self.http_notes.mark_req_send_all();
-        self.http_notes.ups_req_body_size = Some(body.len() as u64);
+        // Chunked bodies are buffered on the wire, while clt_req_body_size is the
+        // decoded payload. A fully read body was already counted that way.
+        self.http_notes.ups_req_body_size = self
+            .http_notes
+            .clt_req_body_size
+            .or(Some(body.len() as u64));
 
         match tokio::time::timeout(
             self.rsp_hdr_recv_timeout(),
@@ -1140,6 +1145,7 @@ impl<'a> HttpExposeForwardTask<'a> {
         let copy_done = clt_to_ups.finished();
         let mut rsp_header = match rsp_header {
             Some(header) => {
+                record_progress!();
                 if !clt_body_reader.finished() {
                     // not all client data read in, drop the client connection
                     self.should_close = true;

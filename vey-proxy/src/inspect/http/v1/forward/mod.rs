@@ -443,12 +443,15 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                 clt_w,
                 &self.ctx.server_config.limited_copy_config(),
             );
-            (&mut copy_to_clt).await.map_err(|e| match e {
-                StreamCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(anyhow!(
-                    "read http error response from adapter failed: {e:?}"
-                )),
-                StreamCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
-            })?;
+            if let Err(e) = (&mut copy_to_clt).await {
+                self.http_notes.clt_rsp_body_size = Some(copy_to_clt.reader().body_size());
+                return Err(match e {
+                    StreamCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(
+                        anyhow!("read http error response from adapter failed: {e:?}"),
+                    ),
+                    StreamCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
+                });
+            }
             self.http_notes.clt_rsp_body_size = Some(copy_to_clt.reader().body_size());
             recv_body.save_connection().await;
         } else {
@@ -621,6 +624,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         let copy_done = clt_to_ups.finished();
         let rsp_head = match rsp_head {
             Some(header) => {
+                record_progress!();
                 if !clt_body_reader.finished() {
                     // not all client data read in, drop the client connection
                     self.should_close = true;

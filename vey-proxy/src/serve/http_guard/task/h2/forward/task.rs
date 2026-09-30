@@ -512,6 +512,7 @@ impl H2ForwardTask {
                     match r {
                         Ok(rsp) => {
                             if let Some(final_rsp) = self.check_out_final_response(rsp, clt_send_rsp, &mut ups_recv_rsp)? {
+                                record_progress!();
                                 ups_rsp = Some(final_rsp);
                                 break;
                             }

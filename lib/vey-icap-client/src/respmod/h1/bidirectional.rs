@@ -66,7 +66,10 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
                 }
                 r = self.icap_reader.fill_wait_data() => {
                     return match r {
-                        Ok(true) => self.recv_icap_response().await,
+                        Ok(true) => {
+                            state.ups_rsp_body_size = Some(body_transfer.body_size());
+                            self.recv_icap_response().await
+                        }
                         Ok(false) => {
                             state.ups_rsp_body_size = Some(body_transfer.body_size());
                             Err(H1RespmodAdaptationError::IcapServerConnectionClosed)

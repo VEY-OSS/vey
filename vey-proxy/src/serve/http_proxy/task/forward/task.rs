@@ -1054,12 +1054,15 @@ impl<'a> HttpProxyForwardTask<'a> {
             let mut body_reader = recv_body.body_reader();
             let mut copy_to_clt =
                 StreamCopy::new(&mut body_reader, clt_w, &self.ctx.server_config.tcp_copy);
-            (&mut copy_to_clt).await.map_err(|e| match e {
-                StreamCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(anyhow!(
-                    "read http error response from adapter failed: {e:?}"
-                )),
-                StreamCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
-            })?;
+            if let Err(e) = (&mut copy_to_clt).await {
+                self.http_notes.clt_rsp_body_size = Some(copy_to_clt.reader().body_size());
+                return Err(match e {
+                    StreamCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(
+                        anyhow!("read http error response from adapter failed: {e:?}"),
+                    ),
+                    StreamCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
+                });
+            }
             self.http_notes.clt_rsp_body_size = Some(copy_to_clt.reader().body_size());
             recv_body.save_connection().await;
         } else {
@@ -1236,7 +1239,12 @@ impl<'a> HttpProxyForwardTask<'a> {
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
         self.http_notes.mark_req_send_hdr();
         self.http_notes.mark_req_send_all();
-        self.http_notes.ups_req_body_size = Some(body.len() as u64);
+        // Chunked bodies are buffered on the wire, while clt_req_body_size is the
+        // decoded payload. A fully read body was already counted that way.
+        self.http_notes.ups_req_body_size = self
+            .http_notes
+            .clt_req_body_size
+            .or(Some(body.len() as u64));
 
         match tokio::time::timeout(
             self.rsp_hdr_recv_timeout(),
@@ -1466,6 +1474,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         let copy_done = clt_to_ups.finished();
         let mut rsp_header = match rsp_header {
             Some(header) => {
+                record_progress!();
                 if !clt_body_reader.finished() {
                     // not all client data read in, drop the client connection
                     self.should_close = true;
