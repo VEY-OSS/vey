@@ -6,7 +6,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-mimalloc-sys = { package = "vey-mimalloc-sys", version = "0.2" }
+mimalloc-sys = { package = "vey-mimalloc-sys", version = "0.3" }
 
 [features]
 vendored = ["mimalloc-sys/vendored"]

@@ -212,7 +212,7 @@ version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03367707e92796b190a4207d4d39b0a4271d574503d2969c2b0cfbf5c87658ee"
 dependencies = [
- "bindgen",
+ "bindgen 0.72.1",
  "cc",
  "cmake",
  "dunce",
@@ -238,7 +238,7 @@ version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9bff6c3b54fad79a2e60b8102caf565819711497c1f5f092f49508e2f5c31b27"
 dependencies = [
- "bindgen",
+ "bindgen 0.72.1",
  "cc",
  "cmake",
  "dunce",
@@ -270,6 +270,23 @@ dependencies = [
  "rustc-hash",
  "shlex 1.3.0",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "bindgen"
+version = "0.73.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "787ef8ef523575546b106a58213d6e6b06198a05c2f757258c68a74273670cfa"
+dependencies = [
+ "bitflags 2.13.2",
+ "cexpr",
+ "clang-sys",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "rustc-hash",
+ "shlex 2.0.1",
+ "syn 3.0.6",
 ]
 
 [[package]]
@@ -341,11 +358,11 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2608130"
+version = "0.1.2609290"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9b9fa61a948e4af0332dcd5205c23de8e61c1e130d15595bb6d1ef7b4b27bf8"
+checksum = "e8c3b948a5ef0c94240b296573f99555185a7d445c2900c45b0ed2b9c926a4c7"
 dependencies = [
- "bindgen",
+ "bindgen 0.73.2",
  "cc",
  "cmake",
 ]
@@ -1905,9 +1922,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.18"
+version = "0.11.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9746dbde176634f4f2f1faf2404e30a31b2bc1e9cafb5329c95d8177a18c9fc"
+checksum = "0e750cca55fe4f0439a15d0bb529da9651e79993e8e72c61a899a36d462befbe"
 dependencies = [
  "aws-lc-rs",
  "bytes",
@@ -1928,9 +1945,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.5.15"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35a133f956daabe89a61a685c2649f13d82d5aa4bd5d12d1277e1072a21c0694"
+checksum = "af66907df18639dcf4db56ca65490cabc4b27a97dbadd96f2926cca73298f016"
 dependencies = [
  "cfg_aliases",
  "libc",
@@ -2672,9 +2689,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.17.37"
+version = "0.17.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58c6d786906bd1c7f8a7ae259e705a3a0ebaef900d2480f6d63e036985f34ff4"
+checksum = "b9fd639d85e053a5bcb9cb862912504e31f611c1dea3ea126382e837d1c4e7be"
 dependencies = [
  "bitflags 2.13.2",
  "cfg-if",
@@ -2686,13 +2703,13 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.17.37"
+version = "0.17.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f37d3c28529e714c26294dd47e2aabca8de14dc55d9e96e8dbb166d8b6dde1c6"
+checksum = "2e51db8ef92205506efe717352b5e80d1a8adea3fe2c3203ead7b33cec03a681"
 dependencies = [
  "aws-lc-fips-sys",
  "aws-lc-sys",
- "bindgen",
+ "bindgen 0.73.2",
  "bssl-cmake-sys",
  "cc",
  "libc",
@@ -3294,11 +3311,11 @@ dependencies = [
 
 [[package]]
 name = "vey-jemalloc-sys"
-version = "0.1.4"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c5ce504856b155758a22655eba0bfc53e557e75c35e6c6208c1bb5e34d6c1b6"
+checksum = "e294e1c107420f0342318124e67ec813ad4f0bc91464b0b779cd81ee02a0c894"
 dependencies = [
- "bindgen",
+ "bindgen 0.73.2",
  "pkg-config",
  "vcpkg",
 ]
@@ -3434,11 +3451,11 @@ dependencies = [
 
 [[package]]
 name = "vey-mimalloc-sys"
-version = "0.2.7+3.4.3"
+version = "0.3.0+3.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ba7fe4eb17bbbc6543dde51507e6fb675e45beb77bde4ed6651b98692aebc5f"
+checksum = "786163b2fcb1f1b7b13d0feb0b3f2bad304792e8eb148accf875f74316a74042"
 dependencies = [
- "bindgen",
+ "bindgen 0.73.2",
  "cmake",
  "pkg-config",
  "vcpkg",
@@ -4275,9 +4292,9 @@ dependencies = [
 
 [[package]]
 name = "yoke-derive"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33811428bee40dbceb6d545e95754741d17a6aef9a4849f0fd62e2ba4f412a78"
+checksum = "ec8ebde2db3681e8c9980cc27822030e68752690ddfa9473e739aeb4dbde6d71"
 dependencies = [
  "proc-macro2",
  "quote",
