@@ -106,22 +106,14 @@ impl UdpTProxyServer {
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<Self> {
-        if let AnyServerConfig::UdpTProxy(config) = config {
-            let config = Arc::new(config);
-            let server_stats = Arc::clone(&self.server_stats);
-            let listen_stats = Arc::clone(&self.listen_stats);
+    fn prepare_reload(&self, config: UdpTProxyServerConfig) -> anyhow::Result<Self> {
+        let config = Arc::new(config);
+        let server_stats = Arc::clone(&self.server_stats);
+        let listen_stats = Arc::clone(&self.listen_stats);
 
-            let server =
-                UdpTProxyServer::new(config, server_stats, listen_stats, self.reload_version + 1)?;
-            Ok(server)
-        } else {
-            Err(anyhow!(
-                "config type mismatch: expect {}, actual {}",
-                self.config.r#type(),
-                config.r#type()
-            ))
-        }
+        let server =
+            UdpTProxyServer::new(config, server_stats, listen_stats, self.reload_version + 1)?;
+        Ok(server)
     }
 
     fn drop_early(&self, client_addr: SocketAddr) -> bool {
@@ -280,9 +272,17 @@ impl ServerInternal for UdpTProxyServer {
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let mut server = self.prepare_reload(config)?;
-        server.reload_sender = self.reload_sender.clone();
-        Ok(Arc::new(server))
+        if let AnyServerConfig::UdpTProxy(config) = config {
+            let mut server = self.prepare_reload(config)?;
+            server.reload_sender = self.reload_sender.clone();
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _reload_with_new_notifier(
@@ -290,8 +290,16 @@ impl ServerInternal for UdpTProxyServer {
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let server = self.prepare_reload(config)?;
-        Ok(Arc::new(server))
+        if let AnyServerConfig::UdpTProxy(config) = config {
+            let server = self.prepare_reload(config)?;
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {

@@ -85,22 +85,14 @@ impl PlainTcpPort {
 
     fn prepare_reload(
         &self,
-        config: AnyServerConfig,
+        config: PlainTcpPortConfig,
         registry: &mut ServerRegistry,
     ) -> anyhow::Result<PlainTcpPort> {
-        if let AnyServerConfig::PlainTcpPort(config) = config {
-            let listen_stats = Arc::clone(&self.listen_stats);
+        let listen_stats = Arc::clone(&self.listen_stats);
 
-            PlainTcpPort::new(config, listen_stats, self.reload_version + 1, |name| {
-                registry.get_or_insert_default(name)
-            })
-        } else {
-            Err(anyhow!(
-                "config type mismatch: expect {}, actual {}",
-                self.config.r#type(),
-                config.r#type()
-            ))
-        }
+        PlainTcpPort::new(config, listen_stats, self.reload_version + 1, |name| {
+            registry.get_or_insert_default(name)
+        })
     }
 
     fn drop_early(&self, client_addr: SocketAddr) -> bool {
@@ -183,9 +175,17 @@ impl ServerInternal for PlainTcpPort {
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let mut server = self.prepare_reload(config, registry)?;
-        server.reload_sender = self.reload_sender.clone();
-        Ok(Arc::new(server))
+        if let AnyServerConfig::PlainTcpPort(config) = config {
+            let mut server = self.prepare_reload(config, registry)?;
+            server.reload_sender = self.reload_sender.clone();
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _reload_with_new_notifier(
@@ -193,8 +193,16 @@ impl ServerInternal for PlainTcpPort {
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let server = self.prepare_reload(config, registry)?;
-        Ok(Arc::new(server))
+        if let AnyServerConfig::PlainTcpPort(config) = config {
+            let server = self.prepare_reload(config, registry)?;
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {

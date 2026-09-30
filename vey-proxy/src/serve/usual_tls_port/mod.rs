@@ -116,37 +116,29 @@ impl UsualTlsPort {
 
     fn prepare_reload(
         &self,
-        config: AnyServerConfig,
+        config: UsualTlsPortConfig,
         registry: &mut ServerRegistry,
     ) -> anyhow::Result<UsualTlsPort> {
-        if let AnyServerConfig::UsualTlsPort(config) = config {
-            let listen_stats = Arc::clone(&self.listen_stats);
+        let listen_stats = Arc::clone(&self.listen_stats);
 
-            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
-                self.tls_rolling_ticketer.clone()
-            } else if let Some(c) = &config.tls_ticketer {
-                let ticketer = c
-                    .build_and_spawn_updater()
-                    .context("failed to create tls rolling ticketer")?;
-                Some(ticketer)
-            } else {
-                None
-            };
-
-            UsualTlsPort::new(
-                config,
-                listen_stats,
-                tls_rolling_ticketer,
-                self.reload_version + 1,
-                |name| registry.get_or_insert_default(name),
-            )
+        let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+            self.tls_rolling_ticketer.clone()
+        } else if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
         } else {
-            Err(anyhow!(
-                "config type mismatch: expect {}, actual {}",
-                self.config.r#type(),
-                config.r#type()
-            ))
-        }
+            None
+        };
+
+        UsualTlsPort::new(
+            config,
+            listen_stats,
+            tls_rolling_ticketer,
+            self.reload_version + 1,
+            |name| registry.get_or_insert_default(name),
+        )
     }
 
     fn drop_early(&self, client_addr: SocketAddr) -> bool {
@@ -257,9 +249,17 @@ impl ServerInternal for UsualTlsPort {
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let mut server = self.prepare_reload(config, registry)?;
-        server.reload_sender = self.reload_sender.clone();
-        Ok(Arc::new(server))
+        if let AnyServerConfig::UsualTlsPort(config) = config {
+            let mut server = self.prepare_reload(config, registry)?;
+            server.reload_sender = self.reload_sender.clone();
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _reload_with_new_notifier(
@@ -267,8 +267,16 @@ impl ServerInternal for UsualTlsPort {
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let server = self.prepare_reload(config, registry)?;
-        Ok(Arc::new(server))
+        if let AnyServerConfig::UsualTlsPort(config) = config {
+            let server = self.prepare_reload(config, registry)?;
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {

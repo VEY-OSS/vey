@@ -89,23 +89,15 @@ impl IntelliProxy {
 
     fn prepare_reload(
         &self,
-        config: AnyServerConfig,
+        config: IntelliProxyConfig,
         registry: &mut ServerRegistry,
     ) -> anyhow::Result<IntelliProxy> {
-        if let AnyServerConfig::IntelliProxy(config) = config {
-            let listen_stats = Arc::clone(&self.listen_stats);
+        let listen_stats = Arc::clone(&self.listen_stats);
 
-            let server = IntelliProxy::new(config, listen_stats, self.reload_version + 1, |name| {
-                registry.get_or_insert_default(name)
-            });
-            Ok(server)
-        } else {
-            Err(anyhow!(
-                "config type mismatch: expect {}, actual {}",
-                self.config.r#type(),
-                config.r#type()
-            ))
-        }
+        let server = IntelliProxy::new(config, listen_stats, self.reload_version + 1, |name| {
+            registry.get_or_insert_default(name)
+        });
+        Ok(server)
     }
 
     fn drop_early(&self, client_addr: SocketAddr) -> bool {
@@ -217,9 +209,17 @@ impl ServerInternal for IntelliProxy {
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let mut server = self.prepare_reload(config, registry)?;
-        server.reload_sender = self.reload_sender.clone();
-        Ok(Arc::new(server))
+        if let AnyServerConfig::IntelliProxy(config) = config {
+            let mut server = self.prepare_reload(config, registry)?;
+            server.reload_sender = self.reload_sender.clone();
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _reload_with_new_notifier(
@@ -227,8 +227,16 @@ impl ServerInternal for IntelliProxy {
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let server = self.prepare_reload(config, registry)?;
-        Ok(Arc::new(server))
+        if let AnyServerConfig::IntelliProxy(config) = config {
+            let server = self.prepare_reload(config, registry)?;
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {

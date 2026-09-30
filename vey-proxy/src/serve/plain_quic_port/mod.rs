@@ -117,39 +117,30 @@ impl PlainQuicPort {
 
     fn prepare_reload(
         &self,
-        config: AnyServerConfig,
+        config: PlainQuicPortConfig,
         registry: &mut ServerRegistry,
     ) -> anyhow::Result<PlainQuicPort> {
-        if let AnyServerConfig::PlainQuicPort(config) = config {
-            let listen_stats = Arc::clone(&self.listen_stats);
+        let listen_stats = Arc::clone(&self.listen_stats);
 
-            let this_config = self.config.load();
-            let tls_rolling_ticketer = if this_config.tls_ticketer.eq(&config.tls_ticketer) {
-                self.tls_rolling_ticketer.clone()
-            } else if let Some(c) = &config.tls_ticketer {
-                let ticketer = c
-                    .build_and_spawn_updater()
-                    .context("failed to create tls rolling ticketer")?;
-                Some(ticketer)
-            } else {
-                None
-            };
-
-            PlainQuicPort::new(
-                Arc::new(config),
-                listen_stats,
-                tls_rolling_ticketer,
-                self.reload_version + 1,
-                |name| registry.get_or_insert_default(name),
-            )
+        let this_config = self.config.load();
+        let tls_rolling_ticketer = if this_config.tls_ticketer.eq(&config.tls_ticketer) {
+            self.tls_rolling_ticketer.clone()
+        } else if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
         } else {
-            let cur_config = self.config.load();
-            Err(anyhow!(
-                "config type mismatch: expect {}, actual {}",
-                cur_config.r#type(),
-                config.r#type()
-            ))
-        }
+            None
+        };
+
+        PlainQuicPort::new(
+            Arc::new(config),
+            listen_stats,
+            tls_rolling_ticketer,
+            self.reload_version + 1,
+            |name| registry.get_or_insert_default(name),
+        )
     }
 
     fn update_runtime_in_place(&self, config: ListenQuicInPlaceConfig) -> anyhow::Result<()> {
@@ -235,9 +226,18 @@ impl ServerInternal for PlainQuicPort {
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let mut server = self.prepare_reload(config, registry)?;
-        server.reload_sender = self.reload_sender.clone();
-        Ok(Arc::new(server))
+        if let AnyServerConfig::PlainQuicPort(config) = config {
+            let mut server = self.prepare_reload(config, registry)?;
+            server.reload_sender = self.reload_sender.clone();
+            Ok(Arc::new(server))
+        } else {
+            let cur_config = self.config.load();
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                cur_config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _reload_with_new_notifier(
@@ -245,8 +245,17 @@ impl ServerInternal for PlainQuicPort {
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let server = self.prepare_reload(config, registry)?;
-        Ok(Arc::new(server))
+        if let AnyServerConfig::PlainQuicPort(config) = config {
+            let server = self.prepare_reload(config, registry)?;
+            Ok(Arc::new(server))
+        } else {
+            let cur_config = self.config.load();
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                cur_config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {

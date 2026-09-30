@@ -163,38 +163,30 @@ impl HttpProxyServer {
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<HttpProxyServer> {
-        if let AnyServerConfig::HttpProxy(config) = config {
-            let config = Arc::new(config);
-            let server_stats = Arc::clone(&self.server_stats);
-            let listen_stats = Arc::clone(&self.listen_stats);
+    fn prepare_reload(&self, config: HttpProxyServerConfig) -> anyhow::Result<HttpProxyServer> {
+        let config = Arc::new(config);
+        let server_stats = Arc::clone(&self.server_stats);
+        let listen_stats = Arc::clone(&self.listen_stats);
 
-            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
-                self.tls_rolling_ticketer.clone()
-            } else if let Some(c) = &config.tls_ticketer {
-                let ticketer = c
-                    .build_and_spawn_updater()
-                    .context("failed to create tls rolling ticketer")?;
-                Some(ticketer)
-            } else {
-                None
-            };
-
-            let server = HttpProxyServer::new(
-                config,
-                server_stats,
-                listen_stats,
-                tls_rolling_ticketer,
-                self.reload_version + 1,
-            )?;
-            Ok(server)
+        let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+            self.tls_rolling_ticketer.clone()
+        } else if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
         } else {
-            Err(anyhow!(
-                "config type mismatch: expect {}, actual {}",
-                self.config.r#type(),
-                config.r#type()
-            ))
-        }
+            None
+        };
+
+        let server = HttpProxyServer::new(
+            config,
+            server_stats,
+            listen_stats,
+            tls_rolling_ticketer,
+            self.reload_version + 1,
+        )?;
+        Ok(server)
     }
 
     fn get_common_task_context(&self, cc_info: ClientConnectionInfo) -> Arc<CommonTaskContext> {
@@ -321,9 +313,17 @@ impl ServerInternal for HttpProxyServer {
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let mut server = self.prepare_reload(config)?;
-        server.reload_sender = self.reload_sender.clone();
-        Ok(Arc::new(server))
+        if let AnyServerConfig::HttpProxy(config) = config {
+            let mut server = self.prepare_reload(config)?;
+            server.reload_sender = self.reload_sender.clone();
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _reload_with_new_notifier(
@@ -331,8 +331,16 @@ impl ServerInternal for HttpProxyServer {
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
     ) -> anyhow::Result<ArcServerInternal> {
-        let server = self.prepare_reload(config)?;
-        Ok(Arc::new(server))
+        if let AnyServerConfig::HttpProxy(config) = config {
+            let server = self.prepare_reload(config)?;
+            Ok(Arc::new(server))
+        } else {
+            Err(anyhow!(
+                "config type mismatch: expect {}, actual {}",
+                self.config.r#type(),
+                config.r#type()
+            ))
+        }
     }
 
     fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
