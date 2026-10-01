@@ -141,6 +141,8 @@ pub(super) struct HickoryClientJob {
 }
 
 impl HickoryClientJob {
+    // `async_recursion` emits `#[must_use]` with no message; the boxed future is already `must_use`.
+    #[allow(clippy::double_must_use)]
     #[async_recursion]
     async fn run(
         mut self,
