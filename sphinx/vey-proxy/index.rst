@@ -4,8 +4,9 @@ vey-proxy Documentation
 ``vey-proxy`` is a programmable proxy server that combines multiple server
 entry points, flexible egress routing, pluggable authentication, and detailed
 observability. It supports direct forwarding, upstream proxy chaining,
-transparent proxy deployments, protocol-aware helper services, and a large set
-of runtime metrics and structured logs.
+transparent proxy deployments, HTTP and TLS reverse proxying through site
+groups, protocol-aware helper services, and a large set of runtime metrics
+and structured logs.
 
 This documentation is organized by operational concern so you can move quickly
 from high-level understanding to concrete configuration details:

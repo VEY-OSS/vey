@@ -10,7 +10,7 @@
 ## About
 
 The VEY project is designed for building enterprise-oriented general-purpose proxy solutions, including but not limited
-to forward proxies, reverse proxies (WIP), load balancers (TBD), and NAT traversal services (WIP).
+to forward proxies, HTTP and TLS reverse proxies, load balancers (TBD), and NAT traversal services (WIP).
 
 This project is a fork of [the G3 project](https://github.com/bytedance/g3) by its creator.
 
@@ -32,7 +32,7 @@ In addition to the application directories, the repository also includes several
 
 A feature-rich general-purpose proxy daemon. It centers on forward-proxy
 workloads, while also supporting transparent proxying, TCP and TLS stream
-proxying, selective reverse-proxy features, traffic inspection, and
+proxying, HTTP and TLS reverse proxying, traffic inspection, and
 policy-driven request handling.
 
 #### Feature highlights
@@ -40,12 +40,13 @@ policy-driven request handling.
 - High-performance async Rust implementation
 - HTTP/1 and SOCKS5 forward proxy support, plus SNI proxy and TCP/UDP TPROXY
 - Proxy chaining and multiple egress-route selection methods, including custom selection agents
-- TCP/UDP/TLS stream proxying and basic HTTP reverse-proxy support
+- TCP/UDP/TLS stream proxying
+- HTTP and TLS reverse proxying through site groups: HTTP/1, HTTP/2 over TLS, WebSocket, and per-site origins and limits
 - TLS based on OpenSSL, BoringSSL, AWS-LC, AWS-LC-FIPS, Tongsuo, or rustls
 - TLS interception, decrypted-traffic export, and HTTP/1, HTTP/2, IMAP, and SMTP inspection
 - ICAP integration for common application-layer inspection workflows
 - Rich authentication, ACL, rate-limit, and per-user policy controls
-- Detailed metrics and logging for ingress, egress, user, and user-site dimensions
+- Detailed metrics and logging for ingress, egress, user, user-site, and reverse-proxy site dimensions
 - Graceful reload plus flexible load-balancing and failover behavior
 
 [README](vey-proxy/README.md) | [User Guide](vey-proxy/UserGuide.en_US.md) |

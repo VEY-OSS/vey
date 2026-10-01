@@ -9,7 +9,7 @@
 
 ## 关于
 
-VEY（Versatile Edge Way）是一个面向企业场景的通用代理解决方案项目，可用于构建正向代理、反向代理（开发中）、
+VEY（Versatile Edge Way）是一个面向企业场景的通用代理解决方案项目，可用于构建正向代理、HTTP/TLS 反向代理、
 负载均衡（待定）、NAT 穿透（开发中）等能力。
 
 本项目由 [G3 项目](https://github.com/bytedance/g3) 原作者 fork 并发起。
@@ -28,7 +28,7 @@ VEY 项目由多个应用组成，每个应用都有独立的子目录，用于�
 
 ### vey-proxy
 
-高功能的通用代理守护进程。它以正向代理为核心，同时支持透明代理、TCP/TLS 流代理、选择性反向代理、
+高功能的通用代理守护进程。它以正向代理为核心，同时支持透明代理、TCP/TLS 流代理、HTTP/TLS 反向代理、
 流量检测以及基于策略的请求处理。
 
 #### 主要特性
@@ -36,12 +36,13 @@ VEY 项目由多个应用组成，每个应用都有独立的子目录，用于�
 - 基于 Async Rust 的高性能实现
 - 支持 HTTP/1、SOCKS5 正向代理，以及 SNI Proxy 与 TCP/UDP TPROXY
 - 支持代理串联与多种出口选路方式，也可接入自定义选路 Agent
-- 支持 TCP/UDP/TLS 流代理与基础 HTTP 反向代理
+- 支持 TCP/UDP/TLS 流代理
+- 支持基于站点组的 HTTP / TLS 反向代理：HTTP/1、TLS 上的 HTTP/2、WebSocket，以及按站点配置源站与限额
 - TLS 支持 OpenSSL、BoringSSL、AWS-LC、AWS-LC-FIPS、Tongsuo 与 rustls
 - 支持 TLS 拦截、解密流量导出，以及 HTTP/1、HTTP/2、IMAP、SMTP 检测
 - 支持面向常见应用层检测流程的 ICAP 集成
 - 提供灵活的认证、ACL、限速限流与按用户细化的策略控制
-- 提供覆盖入口、出口、用户、用户站点等维度的详细指标与日志
+- 提供覆盖入口、出口、用户、用户站点、反向代理站点等维度的详细指标与日志
 - 支持优雅重载，以及灵活的负载均衡与故障切换策略
 
 [详细介绍](vey-proxy/README.md) | [用户指南](vey-proxy/UserGuide.zh_CN.md) |

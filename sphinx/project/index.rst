@@ -24,7 +24,8 @@ Follow the links below for the documentation of each application:
 * `vey-proxy`_
 
   A feature-rich general-purpose proxy daemon with forward proxy, transparent
-  proxy, stream proxy, inspection, and policy-control capabilities.
+  proxy, stream proxy, HTTP and TLS reverse proxy, inspection, and
+  policy-control capabilities.
 
 * `vey-statsd`_
 

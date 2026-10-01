@@ -3,8 +3,8 @@
 # VEY Proxy
 
 `vey-proxy` is a programmable general-purpose proxy server. It supports controlled outbound access,
-protocol-aware traffic handling, transparent proxy deployments, stream proxying, selective reverse proxying,
-and proxy chaining. It combines multiple ingress server types, flexible egress routing, pluggable
+protocol-aware traffic handling, transparent proxy deployments, stream proxying, HTTP and TLS reverse
+proxying, and proxy chaining. It combines multiple ingress server types, flexible egress routing, pluggable
 authentication, DNS control, auditing, structured logging, and metrics export in one service.
 
 It can be used as:
@@ -12,7 +12,7 @@ It can be used as:
 - a forward proxy for HTTP(S), SOCKS, and mixed client environments
 - a transparent proxy for policy enforcement and selective interception
 - a stream proxy for TCP and TLS services
-- a basic reverse proxy for HTTP services
+- a reverse proxy for HTTP services and TLS streams, with a per-site origin
 - an egress gateway that chooses upstream routes dynamically
 
 The project is designed around composable modules. Servers accept client traffic, escapers decide how outbound
@@ -39,6 +39,11 @@ inspection or interception where needed.
 
 - `auditor`
   Adds protocol inspection, interception, traffic export, and adaptation workflows.
+
+- `site group`
+  Holds the Host and SNI table used by reverse-proxy servers. Each site stores the origin, certificates,
+  limits, and HTTP origin settings. This is separate from the per-user destination overrides on a
+  forward-proxy user.
 
 This separation makes it practical to combine a small set of reusable components into very different deployment
 patterns without rewriting the whole configuration.
@@ -100,6 +105,8 @@ module model fits together in real YAML rather than reading option-by-option ref
 - Enforce user-level policy with ACLs, bandwidth limits, concurrency controls, and site-specific overrides.
 - Inspect, adapt, or export selected traffic for compliance and troubleshooting workflows.
 - Expose stream-based internal services with TCP or TLS proxy frontends.
+- Publish HTTP or TLS services through a reverse-proxy frontend, with per-site certificates, origin selection,
+  and tenant limits.
 
 ## Operational Highlights
 
@@ -107,8 +114,8 @@ module model fits together in real YAML rather than reading option-by-option ref
 - Hot-reload-oriented deployment model with systemd-friendly service management
 - Fine-grained routing based on client address, target host, resolved IP, GeoIP attributes, or external route queries
 - Support for direct egress, static proxy chaining, and dynamic proxy discovery
-- User and site policy controls for ACLs, quotas, rate limits, speed limits, and expiration
-- Structured logs and StatsD-compatible metrics for downstream observability pipelines
+- User, user-site, and reverse-proxy site policy controls for ACLs, quotas, rate limits, speed limits, and expiration
+- Structured logs and StatsD-compatible metrics, including reverse-proxy site metrics, for downstream observability pipelines
 - Multiple TLS stacks and optional TLCP support for deployments that need them
 
 ## Getting Started
@@ -174,11 +181,51 @@ Common capabilities include:
 
 #### Reverse Proxy Servers
 
-- HTTP(S) Reverse Proxy
-    - TLS / mTLS
-    - Basic user authentication
-    - Port hiding
-    - Host-based routing
+Reverse-proxy servers pick an origin from a `site_group` by Host or SNI. A site holds one upstream address
+or a weighted list of IP addresses, ingress and egress TLS, request limits, and HTTP origin settings.
+`vey-proxy-ctl reload-site-group` reloads one group. Site stats and limiters stay when the site ID is unchanged.
+Runtime upstream weights can be read and changed with `site-upstream` and `set-site-upstream-weight`.
+
+Shared site capabilities:
+
+- Exact host match and suffix match. `http_expose` can also use a group default site
+- Import sites from another group by tag
+- Upstream selection: round-robin, serial, rendezvous, ketama, or jump hash
+- Origin TLS / mTLS, including TLCP
+- Per-site speed, request rate, concurrency, and idle limits
+- Tenant identity from `site.owner`, with tenant limits and egress overrides constrained by the site
+- `X-Forwarded-*` or `Forwarded`, kept from the previous hop only for listed client addresses
+- HTTP/1 origin keepalive and a per-worker idle pool
+- HTTP/2 origin multiplex pool
+- Site metrics, separate from forward-proxy user-site metrics
+
+Servers:
+
+- HTTP Expose (`http_expose`)
+    - Internal HTTP/1 reverse proxy
+    - Optional visitor authentication (Basic)
+    - Host selects the site; TLS SNI selects the certificate only
+    - Unmatched hosts can fall through to the group default site
+    - Optional suppression of early protocol-error replies
+    - `http_rproxy` remains a deprecated alias
+    - No auditor
+
+- HTTP Guard (`http_guard`)
+    - Public-edge HTTP reverse proxy
+    - HTTP/1.0 and HTTP/1.1, including WebSocket upgrade
+    - HTTP/2 over TLS when ALPN is `h2` and SNI matches a site, including RFC 8441 WebSocket
+    - TLS and TLCP detected on the same listener; plaintext HTTP/2 is dropped
+    - SNI is pinned for the HTTP/2 connection; a later Host for another site is rejected
+    - Unmatched names are rejected locally and are not sent to a default origin
+    - No visitor authentication; the tenant comes from `site.owner`
+    - Optional ICAP (REQMOD / RESPMOD)
+    - gRPC and HTTP/3 are not supported
+
+- TLS Proxy (`tls_proxy`)
+    - TLS termination selected by SNI, then a byte copy to the site upstream
+    - Per-site certificate and upstream; sites without `tls_server` are skipped
+    - Optional inspection of the inner stream, with ICAP when the auditor finds HTTP
+    - No visitor authentication; the tenant comes from `site.owner`
 
 #### Streaming Servers
 
@@ -349,6 +396,9 @@ Routing escapers choose the actual upstream escaper based on routing rules.
 
 #### User Site Features
 
+These settings apply after a forward-proxy user is authenticated. They are not the sites inside a reverse-proxy
+site group.
+
 You can also define site-specific settings for each user:
 
 - Match by exact IP, exact domain, wildcard domain, or subnet
@@ -388,6 +438,7 @@ You can also define site-specific settings for each user:
     - Escaper-level metrics
     - User-level metrics
     - User-site metrics
+    - Reverse-proxy site metrics
     - Resolver metrics
     - Runtime metrics
     - Log metrics
