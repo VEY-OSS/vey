@@ -11,19 +11,11 @@ use arc_swap::ArcSwapOption;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::stats::{StatId, TcpIoSnapshot, TcpIoStats, UdpIoSnapshot, UdpIoStats};
 
-pub(crate) trait EscaperInternalStats {
-    fn add_http_forward_request_attempted(&self);
-    fn add_https_forward_request_attempted(&self);
-}
-
-pub(crate) trait EscaperStats: EscaperInternalStats {
+pub(crate) trait EscaperStats {
     fn name(&self) -> &NodeName;
     fn stat_id(&self) -> StatId;
     fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>>;
     fn share_extra_tags(&self) -> &Arc<ArcSwapOption<MetricTagMap>>;
-
-    /// count for tasks
-    fn get_task_total(&self) -> u64;
 
     /// count for attempted established connections
     fn connection_attempted(&self) -> u64;
@@ -71,87 +63,6 @@ impl EscaperForbiddenStats {
         EscaperForbiddenSnapshot {
             ip_blocked: self.ip_blocked.load(Ordering::Relaxed),
         }
-    }
-}
-
-#[derive(Default)]
-pub(crate) struct EscaperInterfaceStats {
-    tcp_connect_attempted: AtomicU64,
-    tls_connect_attempted: AtomicU64,
-    udp_connect_attempted: AtomicU64,
-    udp_relay_session_attempted: AtomicU64,
-    http_forward_request_attempted: AtomicU64,
-    https_forward_request_attempted: AtomicU64,
-    ftp_over_http_request_attempted: AtomicU64,
-    // for http forward keepalive
-    http_forward_connection_attempted: AtomicU64,
-    https_forward_connection_attempted: AtomicU64,
-    // for ftp connections
-    ftp_control_connection_attempted: AtomicU64,
-    ftp_transfer_connection_attempted: AtomicU64,
-}
-
-impl EscaperInterfaceStats {
-    pub(crate) fn add_tcp_connect_attempted(&self) {
-        self.tcp_connect_attempted.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn add_tls_connect_attempted(&self) {
-        self.tls_connect_attempted.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn add_udp_connect_attempted(&self) {
-        self.udp_connect_attempted.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn add_udp_relay_session_attempted(&self) {
-        self.udp_relay_session_attempted
-            .fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn add_http_forward_request_attempted(&self) {
-        self.http_forward_request_attempted
-            .fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn add_https_forward_request_attempted(&self) {
-        self.https_forward_request_attempted
-            .fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn add_ftp_over_http_request_attempted(&self) {
-        self.ftp_over_http_request_attempted
-            .fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn add_http_forward_connection_attempted(&self) {
-        self.http_forward_connection_attempted
-            .fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn add_https_forward_connection_attempted(&self) {
-        self.https_forward_connection_attempted
-            .fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn add_ftp_control_connection_attempted(&self) {
-        self.ftp_control_connection_attempted
-            .fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn add_ftp_transfer_connection_attempted(&self) {
-        self.ftp_transfer_connection_attempted
-            .fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn get_task_total(&self) -> u64 {
-        self.tcp_connect_attempted.load(Ordering::Relaxed)
-            + self.tls_connect_attempted.load(Ordering::Relaxed)
-            + self.udp_connect_attempted.load(Ordering::Relaxed)
-            + self.udp_relay_session_attempted.load(Ordering::Relaxed)
-            + self.http_forward_request_attempted.load(Ordering::Relaxed)
-            + self.https_forward_request_attempted.load(Ordering::Relaxed)
-            + self.ftp_over_http_request_attempted.load(Ordering::Relaxed)
     }
 }
 

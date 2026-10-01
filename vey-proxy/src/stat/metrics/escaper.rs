@@ -18,7 +18,6 @@ use crate::escape::{
     RouteEscaperSnapshot, RouteEscaperStats,
 };
 
-const METRIC_NAME_ESCAPER_TASK_TOTAL: &str = "escaper.task.total";
 const METRIC_NAME_ESCAPER_CONN_ATTEMPT: &str = "escaper.connection.attempt";
 const METRIC_NAME_ESCAPER_CONN_ESTABLISH: &str = "escaper.connection.establish";
 const METRIC_NAME_ESCAPER_TCP_CONNECT_ATTEMPT: &str = "escaper.tcp.connect.attempt";
@@ -62,7 +61,6 @@ impl EscaperMetricExt for StatsdTagGroup {
 
 #[derive(Default)]
 struct EscaperSnapshot {
-    task_total: u64,
     conn_attempt: u64,
     conn_establish: u64,
     tcp_connect: EscaperTcpConnectSnapshot,
@@ -120,13 +118,6 @@ fn emit_escaper_stats(
     if let Some(tags) = stats.load_extra_tags() {
         common_tags.add_static_tags(&tags);
     }
-
-    let new_value = stats.get_task_total();
-    let diff_value = new_value.wrapping_sub(snap.task_total);
-    client
-        .count_with_tags(METRIC_NAME_ESCAPER_TASK_TOTAL, diff_value, &common_tags)
-        .send();
-    snap.task_total = new_value;
 
     let new_value = stats.connection_attempted();
     let diff_value = new_value.wrapping_sub(snap.conn_attempt);

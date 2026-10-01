@@ -364,12 +364,9 @@ impl H2TaskContext {
             )
             .await?;
         let task_stats: ArcHttpForwardTaskRemoteStats = Arc::new(NilHttpForwardTaskRemoteStats);
-        let connection = reuse_notes.escaper.prepare_reused_http_forward_connection(
-            connection,
-            task_notes,
-            task_stats,
-            site.tls_client().is_some(),
-        );
+        let connection = reuse_notes
+            .escaper
+            .prepare_reused_http_forward_connection(connection, task_notes, task_stats);
         Some(OriginH1Sender {
             connection,
             reused: true,

@@ -327,7 +327,6 @@ impl Escaper for DirectFixedEscaper {
         task_stats: ArcTcpConnectionTaskRemoteStats,
         _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
-        self.stats.interface.add_tcp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         self.tcp_new_connection(task_conf, egress_notes, task_notes, task_stats)
             .await
@@ -341,7 +340,6 @@ impl Escaper for DirectFixedEscaper {
         task_stats: ArcTcpConnectionTaskRemoteStats,
         _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
-        self.stats.interface.add_tls_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         self.tls_new_connection(task_conf, egress_notes, task_notes, task_stats)
             .await
@@ -356,26 +354,8 @@ impl Escaper for DirectFixedEscaper {
         _audit_ctx: &mut AuditContext,
     ) -> Result<TlsHttpConnection, TcpConnectError> {
         egress_notes.escaper.clone_from(&self.config.name);
-        match self
-            .open_tls_http_connection(escaper, task_conf, egress_notes, task_notes)
+        self.open_tls_http_connection(escaper, task_conf, egress_notes, task_notes)
             .await
-        {
-            Ok(TlsHttpConnection::H2(stream)) => {
-                self.stats.interface.add_tcp_connect_attempted();
-                Ok(TlsHttpConnection::H2(stream))
-            }
-            Ok(conn) => {
-                self.stats
-                    .interface
-                    .add_https_forward_connection_attempted();
-                self.stats.interface.add_https_forward_request_attempted();
-                Ok(conn)
-            }
-            Err(e) => {
-                self.stats.interface.add_tls_connect_attempted();
-                Err(e)
-            }
-        }
     }
 
     async fn udp_setup_connection(
@@ -385,7 +365,6 @@ impl Escaper for DirectFixedEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        self.stats.interface.add_udp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         self.new_udp_connection(task_conf, egress_notes, task_notes, task_stats)
             .await
@@ -398,7 +377,6 @@ impl Escaper for DirectFixedEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        self.stats.interface.add_udp_relay_session_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         self.udp_setup_relay(task_conf, egress_notes, task_notes, task_stats)
             .await
@@ -459,7 +437,6 @@ impl EscaperInternal for DirectFixedEscaper {
         task_notes: &ServerTaskNotes,
         _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
-        self.stats.interface.add_tcp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         self.nested_tcp_connect(task_conf, egress_notes, task_notes)
             .await
@@ -471,7 +448,6 @@ impl EscaperInternal for DirectFixedEscaper {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> UdpConnectResult {
-        self.stats.interface.add_udp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         self.nested_udp_connect(task_conf, egress_notes, task_notes)
             .await
@@ -484,7 +460,6 @@ impl EscaperInternal for DirectFixedEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.stats.interface.add_http_forward_connection_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         self.http_forward_new_connection(task_conf, egress_notes, task_notes, task_stats)
             .await
@@ -497,9 +472,6 @@ impl EscaperInternal for DirectFixedEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.stats
-            .interface
-            .add_https_forward_connection_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         self.https_forward_new_connection(task_conf, egress_notes, task_notes, task_stats)
             .await
@@ -512,8 +484,6 @@ impl EscaperInternal for DirectFixedEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
-        self.stats.interface.add_ftp_over_http_request_attempted();
-        self.stats.interface.add_ftp_control_connection_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         self.new_ftp_control_connection(task_conf, egress_notes, task_notes, task_stats)
             .await
@@ -528,7 +498,6 @@ impl EscaperInternal for DirectFixedEscaper {
         task_stats: ArcFtpTaskRemoteTransferStats,
         ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
-        self.stats.interface.add_ftp_transfer_connection_attempted();
         transfer_egress_notes.escaper.clone_from(&self.config.name);
 
         self.new_ftp_transfer_connection(

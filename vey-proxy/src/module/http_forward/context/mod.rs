@@ -102,13 +102,12 @@ pub(crate) trait HttpForwardContext {
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         idle_expire: Duration,
-        is_tls: bool,
     ) -> Option<(BoxHttpForwardConnection, HttpAliveReuseNotes)> {
         let (connection, reuse_notes) = self.get_alive_connection(idle_expire).await?;
         Some((
             reuse_notes
                 .escaper
-                .prepare_reused_http_forward_connection(connection, task_notes, task_stats, is_tls),
+                .prepare_reused_http_forward_connection(connection, task_notes, task_stats),
             reuse_notes,
         ))
     }
@@ -124,10 +123,6 @@ pub(crate) trait HttpForwardContext {
             .make_new_http_connection(task_conf, task_notes, task_stats, audit_ctx)
             .await?;
 
-        if let Some(escaper_stats) = escaper.get_escape_stats() {
-            escaper_stats.add_http_forward_request_attempted();
-        }
-
         Ok((conn, HttpAliveReuseNotes::from_new(escaper)))
     }
 
@@ -141,10 +136,6 @@ pub(crate) trait HttpForwardContext {
         let (conn, escaper) = self
             .make_new_https_connection(task_conf, task_notes, task_stats, audit_ctx)
             .await?;
-
-        if let Some(escaper_stats) = escaper.get_escape_stats() {
-            escaper_stats.add_https_forward_request_attempted();
-        }
 
         Ok((conn, HttpAliveReuseNotes::from_new(escaper)))
     }

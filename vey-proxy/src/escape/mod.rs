@@ -36,9 +36,9 @@ pub(crate) use registry::{foreach as foreach_escaper, get_names, get_or_insert_d
 
 mod stats;
 pub(crate) use stats::{
-    ArcEscaperStats, EscaperForbiddenSnapshot, EscaperForbiddenStats, EscaperInterfaceStats,
-    EscaperInternalStats, EscaperStats, EscaperTcpConnectSnapshot, EscaperTcpStats,
-    EscaperTlsSnapshot, EscaperTlsStats, EscaperUdpStats, RouteEscaperSnapshot, RouteEscaperStats,
+    ArcEscaperStats, EscaperForbiddenSnapshot, EscaperForbiddenStats, EscaperStats,
+    EscaperTcpConnectSnapshot, EscaperTcpStats, EscaperTlsSnapshot, EscaperTlsStats,
+    EscaperUdpStats, RouteEscaperSnapshot, RouteEscaperStats,
 };
 
 mod egress_path;
@@ -180,14 +180,8 @@ pub(crate) trait Escaper: EscaperInternal {
         mut connection: BoxHttpForwardConnection,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        is_tls: bool,
     ) -> BoxHttpForwardConnection {
         let all_user_stats = if let Some(escaper_stats) = self.get_escape_stats() {
-            if is_tls {
-                escaper_stats.add_https_forward_request_attempted();
-            } else {
-                escaper_stats.add_http_forward_request_attempted();
-            }
             task_notes.fetch_upstream_traffic_stats(
                 escaper_stats.name(),
                 escaper_stats.share_extra_tags(),
@@ -231,9 +225,7 @@ pub(crate) trait Escaper: EscaperInternal {
     /// TLS handshake, then HTTP/2 or HTTP/1 from the selected ALPN.
     ///
     /// `escaper` is the `Arc` of this escaper. A route passes the next hop's
-    /// `Arc` when it delegates. HTTP/2 counts as `tcp_connect_attempted`.
-    /// HTTP/1 counts as an HTTPS forward connection and request, and carries
-    /// the leaf that connected. A failed handshake counts as `tls_connect_attempted`.
+    /// `Arc` when it delegates. HTTP/1 carries the leaf that connected.
     async fn tls_setup_http_connection(
         &self,
         escaper: ArcEscaper,

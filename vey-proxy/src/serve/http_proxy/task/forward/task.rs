@@ -619,7 +619,6 @@ impl<'a> HttpProxyForwardTask<'a> {
                 &self.task_notes,
                 self.task_stats.clone(),
                 upstream_keepalive.idle_expire(),
-                self.is_https,
             )
             .await
         {

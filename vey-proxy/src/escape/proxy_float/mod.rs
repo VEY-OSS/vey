@@ -180,7 +180,6 @@ impl Escaper for ProxyFloatEscaper {
         task_stats: ArcTcpConnectionTaskRemoteStats,
         _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
-        self.stats.interface.add_tcp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         let peer = self
             .select_peer(task_notes)
@@ -197,7 +196,6 @@ impl Escaper for ProxyFloatEscaper {
         task_stats: ArcTcpConnectionTaskRemoteStats,
         _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
-        self.stats.interface.add_tls_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         let peer = self
             .select_peer(task_notes)
@@ -215,33 +213,11 @@ impl Escaper for ProxyFloatEscaper {
         _audit_ctx: &mut AuditContext,
     ) -> Result<TlsHttpConnection, TcpConnectError> {
         egress_notes.escaper.clone_from(&self.config.name);
-        let peer = match self.select_peer(task_notes) {
-            Ok(peer) => peer,
-            Err(e) => {
-                self.stats.interface.add_tls_connect_attempted();
-                return Err(TcpConnectError::EscaperNotUsable(e));
-            }
-        };
-        match peer
-            .open_tls_http_connection(self, escaper, task_conf, egress_notes, task_notes)
+        let peer = self
+            .select_peer(task_notes)
+            .map_err(TcpConnectError::EscaperNotUsable)?;
+        peer.open_tls_http_connection(self, escaper, task_conf, egress_notes, task_notes)
             .await
-        {
-            Ok(TlsHttpConnection::H2(stream)) => {
-                self.stats.interface.add_tcp_connect_attempted();
-                Ok(TlsHttpConnection::H2(stream))
-            }
-            Ok(conn) => {
-                self.stats
-                    .interface
-                    .add_https_forward_connection_attempted();
-                self.stats.interface.add_https_forward_request_attempted();
-                Ok(conn)
-            }
-            Err(e) => {
-                self.stats.interface.add_tls_connect_attempted();
-                Err(e)
-            }
-        }
     }
 
     async fn udp_setup_connection(
@@ -251,7 +227,6 @@ impl Escaper for ProxyFloatEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        self.stats.interface.add_udp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         let peer = self
             .select_peer(task_notes)
@@ -267,7 +242,6 @@ impl Escaper for ProxyFloatEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        self.stats.interface.add_udp_relay_session_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         let peer = self
             .select_peer(task_notes)
@@ -331,7 +305,6 @@ impl EscaperInternal for ProxyFloatEscaper {
         task_notes: &ServerTaskNotes,
         _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
-        self.stats.interface.add_tcp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         let peer = self
             .select_peer(task_notes)
@@ -346,7 +319,6 @@ impl EscaperInternal for ProxyFloatEscaper {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> UdpConnectResult {
-        self.stats.interface.add_udp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         let peer = self
             .select_peer(task_notes)
@@ -362,7 +334,6 @@ impl EscaperInternal for ProxyFloatEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.stats.interface.add_http_forward_connection_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         let peer = self
             .select_peer(task_notes)
@@ -378,9 +349,6 @@ impl EscaperInternal for ProxyFloatEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.stats
-            .interface
-            .add_https_forward_connection_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         let peer = self
             .select_peer(task_notes)
@@ -396,8 +364,6 @@ impl EscaperInternal for ProxyFloatEscaper {
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
-        self.stats.interface.add_ftp_over_http_request_attempted();
-        self.stats.interface.add_ftp_control_connection_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
@@ -411,7 +377,6 @@ impl EscaperInternal for ProxyFloatEscaper {
         _task_stats: ArcFtpTaskRemoteTransferStats,
         _ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
-        self.stats.interface.add_ftp_transfer_connection_attempted();
         transfer_egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }

@@ -97,7 +97,6 @@ impl Escaper for DummyDenyEscaper {
         _task_stats: ArcTcpConnectionTaskRemoteStats,
         _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
-        self.stats.interface.add_tcp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
@@ -110,7 +109,6 @@ impl Escaper for DummyDenyEscaper {
         _task_stats: ArcTcpConnectionTaskRemoteStats,
         _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
-        self.stats.interface.add_tls_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
@@ -123,7 +121,6 @@ impl Escaper for DummyDenyEscaper {
         _task_notes: &ServerTaskNotes,
         _audit_ctx: &mut AuditContext,
     ) -> Result<TlsHttpConnection, TcpConnectError> {
-        self.stats.interface.add_tls_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
@@ -135,7 +132,6 @@ impl Escaper for DummyDenyEscaper {
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        self.stats.interface.add_udp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(UdpConnectError::MethodUnavailable)
     }
@@ -147,7 +143,6 @@ impl Escaper for DummyDenyEscaper {
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        self.stats.interface.add_udp_relay_session_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(UdpConnectError::MethodUnavailable)
     }
@@ -197,7 +192,6 @@ impl EscaperInternal for DummyDenyEscaper {
         _task_notes: &ServerTaskNotes,
         _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
-        self.stats.interface.add_tcp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
@@ -208,7 +202,6 @@ impl EscaperInternal for DummyDenyEscaper {
         egress_notes: &mut EgressNotes,
         _task_notes: &ServerTaskNotes,
     ) -> UdpConnectResult {
-        self.stats.interface.add_udp_connect_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(UdpConnectError::MethodUnavailable)
     }
@@ -220,7 +213,6 @@ impl EscaperInternal for DummyDenyEscaper {
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.stats.interface.add_http_forward_connection_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
@@ -232,9 +224,6 @@ impl EscaperInternal for DummyDenyEscaper {
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.stats
-            .interface
-            .add_https_forward_connection_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
@@ -246,8 +235,6 @@ impl EscaperInternal for DummyDenyEscaper {
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
-        self.stats.interface.add_ftp_over_http_request_attempted();
-        self.stats.interface.add_ftp_control_connection_attempted();
         egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
@@ -261,7 +248,6 @@ impl EscaperInternal for DummyDenyEscaper {
         _task_stats: ArcFtpTaskRemoteTransferStats,
         _ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
-        self.stats.interface.add_ftp_transfer_connection_attempted();
         transfer_egress_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }

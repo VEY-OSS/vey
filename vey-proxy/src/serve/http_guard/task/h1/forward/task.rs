@@ -483,7 +483,6 @@ impl<'a> HttpGuardForwardTask<'a> {
                 connection,
                 &self.task_notes,
                 self.task_stats.clone(),
-                self.origin_tls(),
             );
             self.alive_reuse_notes = Some(reuse_notes);
             Some(connection)
@@ -498,12 +497,7 @@ impl<'a> HttpGuardForwardTask<'a> {
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection> {
         let (connection, reuse_notes) = fwd_ctx
-            .get_prepared_alive_connection(
-                &self.task_notes,
-                self.task_stats.clone(),
-                idle_expire,
-                self.origin_tls(),
-            )
+            .get_prepared_alive_connection(&self.task_notes, self.task_stats.clone(), idle_expire)
             .await?;
         self.alive_reuse_notes = Some(reuse_notes);
         fwd_ctx.fetch_egress_notes(&mut self.egress_notes);

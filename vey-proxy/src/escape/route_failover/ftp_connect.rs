@@ -87,16 +87,13 @@ impl FtpConnectFailoverContext {
             .await;
         let null_stats = Arc::new(NullStats {});
         // try connect
-        match ftp_ctx
+        let control_connection = ftp_ctx
             .new_control_connection(task_conf, task_notes, null_stats)
-            .await
-        {
-            Ok(c) => Ok(FailoverFtpConnectContext {
-                control_connection: Some(c),
-                inner: ftp_ctx,
-            }),
-            Err(e) => Err(e),
-        }
+            .await?;
+        Ok(FailoverFtpConnectContext {
+            control_connection: Some(control_connection),
+            inner: ftp_ctx,
+        })
     }
 }
 

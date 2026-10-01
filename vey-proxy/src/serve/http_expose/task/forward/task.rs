@@ -605,7 +605,6 @@ impl<'a> HttpExposeForwardTask<'a> {
                 connection,
                 &self.task_notes,
                 self.task_stats.clone(),
-                self.origin_tls(),
             );
             self.alive_reuse_notes = Some(reuse_notes);
             Some(connection)
@@ -615,7 +614,6 @@ impl<'a> HttpExposeForwardTask<'a> {
                     &self.task_notes,
                     self.task_stats.clone(),
                     idle_expire,
-                    self.origin_tls(),
                 )
                 .await?;
 

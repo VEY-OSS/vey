@@ -13,8 +13,7 @@ use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::stats::{StatId, TcpIoSnapshot};
 
 use crate::escape::{
-    EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpConnectSnapshot,
-    EscaperTcpStats, EscaperTlsSnapshot, EscaperTlsStats,
+    EscaperStats, EscaperTcpConnectSnapshot, EscaperTcpStats, EscaperTlsSnapshot, EscaperTlsStats,
 };
 use crate::module::http_forward::HttpForwardTaskRemoteStats;
 
@@ -22,7 +21,6 @@ pub(crate) struct ProxyHttpsEscaperStats {
     name: NodeName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<MetricTagMap>>,
-    pub(crate) interface: EscaperInterfaceStats,
     pub(crate) tcp: EscaperTcpStats,
     pub(crate) tls: EscaperTlsStats,
 }
@@ -33,7 +31,6 @@ impl ProxyHttpsEscaperStats {
             name: name.clone(),
             id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
-            interface: EscaperInterfaceStats::default(),
             tcp: EscaperTcpStats::default(),
             tls: EscaperTlsStats::default(),
         }
@@ -41,18 +38,6 @@ impl ProxyHttpsEscaperStats {
 
     pub(crate) fn set_extra_tags(&self, tags: Option<Arc<MetricTagMap>>) {
         self.extra_metrics_tags.store(tags);
-    }
-}
-
-impl EscaperInternalStats for ProxyHttpsEscaperStats {
-    #[inline]
-    fn add_http_forward_request_attempted(&self) {
-        self.interface.add_http_forward_request_attempted();
-    }
-
-    #[inline]
-    fn add_https_forward_request_attempted(&self) {
-        self.interface.add_https_forward_request_attempted();
     }
 }
 
@@ -71,10 +56,6 @@ impl EscaperStats for ProxyHttpsEscaperStats {
 
     fn share_extra_tags(&self) -> &Arc<ArcSwapOption<MetricTagMap>> {
         &self.extra_metrics_tags
-    }
-
-    fn get_task_total(&self) -> u64 {
-        self.interface.get_task_total()
     }
 
     fn connection_attempted(&self) -> u64 {

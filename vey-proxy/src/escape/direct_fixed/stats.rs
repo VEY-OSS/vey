@@ -14,8 +14,8 @@ use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::escape::{
-    EscaperForbiddenSnapshot, EscaperForbiddenStats, EscaperInterfaceStats, EscaperInternalStats,
-    EscaperStats, EscaperTcpConnectSnapshot, EscaperTcpStats, EscaperUdpStats,
+    EscaperForbiddenSnapshot, EscaperForbiddenStats, EscaperStats, EscaperTcpConnectSnapshot,
+    EscaperTcpStats, EscaperUdpStats,
 };
 use crate::module::ftp_over_http::{FtpTaskRemoteControlStats, FtpTaskRemoteTransferStats};
 use crate::module::http_forward::HttpForwardTaskRemoteStats;
@@ -26,7 +26,6 @@ pub(crate) struct DirectFixedEscaperStats {
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<MetricTagMap>>,
     pub(crate) forbidden: EscaperForbiddenStats,
-    pub(crate) interface: EscaperInterfaceStats,
     pub(crate) udp: EscaperUdpStats,
     pub(crate) tcp: EscaperTcpStats,
 }
@@ -38,7 +37,6 @@ impl DirectFixedEscaperStats {
             id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             forbidden: Default::default(),
-            interface: Default::default(),
             udp: Default::default(),
             tcp: Default::default(),
         }
@@ -46,18 +44,6 @@ impl DirectFixedEscaperStats {
 
     pub(crate) fn set_extra_tags(&self, tags: Option<Arc<MetricTagMap>>) {
         self.extra_metrics_tags.store(tags);
-    }
-}
-
-impl EscaperInternalStats for DirectFixedEscaperStats {
-    #[inline]
-    fn add_http_forward_request_attempted(&self) {
-        self.interface.add_http_forward_request_attempted();
-    }
-
-    #[inline]
-    fn add_https_forward_request_attempted(&self) {
-        self.interface.add_https_forward_request_attempted();
     }
 }
 
@@ -76,10 +62,6 @@ impl EscaperStats for DirectFixedEscaperStats {
 
     fn share_extra_tags(&self) -> &Arc<ArcSwapOption<MetricTagMap>> {
         &self.extra_metrics_tags
-    }
-
-    fn get_task_total(&self) -> u64 {
-        self.interface.get_task_total()
     }
 
     fn connection_attempted(&self) -> u64 {
