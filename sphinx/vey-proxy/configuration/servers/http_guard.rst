@@ -25,7 +25,8 @@ It then forwards requests to that site's origin. Whether the origin hop uses
 TLS is decided by site :ref:`tls_client <conf_site_tls_client>`. The forward
 task type is always ``HttpForward`` (or ``H2Forward`` / ``Websocket``); it is
 not ``HttpsForward``, which is the ``http_proxy`` ``https://`` request type.
-HTTP/2 origin stays on HTTP/2 (no HTTP/1 fallback). There is no visitor
+An ordinary HTTP/2 stream may use an HTTP/1 or HTTP/2 origin. RFC 8441
+WebSocket stays on origin HTTP/2. gRPC is not supported. There is no visitor
 authentication; tenant identity comes from ``site.owner`` plus the group's
 ``tenant_user_group``. A blocked tenant is rejected when a new request is
 accepted for that site; the current request is not cancelled if the tenant
@@ -251,11 +252,26 @@ is HTTP/1 only.
 Connection speed limits use the smaller of this server, the SNI site, and
 the site tenant (``tcp_sock_speed_limit`` plus tenant
 ``tcp_all_upload_speed_limit`` / ``tcp_all_download_speed_limit``).
-Origin HTTP/2 stays on HTTP/2 (no HTTP/1 fallback); the site
-:ref:`http.h2.connection_pool <conf_site_http_h2_connection_pool>` is
-always used. Origin PING uses the site
+
+An ordinary stream checks out a pooled origin HTTP/2 connection, then a
+pooled origin HTTP/1 connection, then opens a new one. A TLS origin offers
+ALPN ``h2`` and ``http/1.1``. The negotiated protocol selects the hop, and
+an HTTP/1 origin carries that stream as HTTP/1.1. A plaintext origin is
+HTTP/2. The site
+:ref:`http.h2.connection_pool <conf_site_http_h2_connection_pool>` holds
+origin HTTP/2 connections. Origin PING uses the site
 :ref:`ping_interval <conf_site_http_h2_ping_interval>` and
 :ref:`ping_timeout <conf_site_http_h2_ping_timeout>`.
+
+RFC 8441 WebSocket uses origin HTTP/2 only (ALPN ``h2``, or plaintext HTTP/2).
+
+The request body is copied while origin response headers are read, with or
+without ICAP REQMOD. A final response header ends the remaining upload, and
+that response is forwarded. If the request body finishes first, the final
+response is read afterward. Informational ``100``, ``102``, and ``103``
+responses leave the upload running. A ``Content-Type: application/grpc``
+request uses this same forward, so the request body stops at the final
+response header.
 
 max_header_list_size
 ^^^^^^^^^^^^^^^^^^^^

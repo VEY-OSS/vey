@@ -191,19 +191,11 @@ impl H2ForwardTask {
         }
         self.prepare_upstream()?;
 
-        let origin = if self.req.maybe_grpc() {
-            let request_host = self.req.host();
-            OriginConnection::H2(
-                self.ctx
-                    .checkout_or_connect_h2(&mut self.task_notes, &self.upstream, &request_host)
-                    .await?,
-            )
-        } else {
-            let request_host = self.req.host();
-            self.ctx
-                .checkout_or_connect(&mut self.task_notes, &self.upstream, &request_host)
-                .await?
-        };
+        let request_host = self.req.host();
+        let origin = self
+            .ctx
+            .checkout_or_connect(&mut self.task_notes, &self.upstream, &request_host)
+            .await?;
         match origin {
             OriginConnection::H2(origin) => {
                 self.forward_h2_origin(origin, clt_body, clt_send_rsp)
