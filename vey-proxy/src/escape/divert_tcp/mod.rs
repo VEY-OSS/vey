@@ -101,14 +101,10 @@ impl DivertTcpEscaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: DivertTcpEscaperConfig,
         stats: Arc<DivertTcpEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::DivertTcp(config) = config {
-            DivertTcpEscaper::new_obj(config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        DivertTcpEscaper::new_obj(config, stats)
     }
 
     fn get_next_proxy(&self, task_notes: &ServerTaskNotes, target_host: &Host) -> &UpstreamAddr {
@@ -291,6 +287,9 @@ impl EscaperInternal for DivertTcpEscaper {
         config: AnyEscaperConfig,
         _registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::DivertTcp(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         DivertTcpEscaper::prepare_reload(config, stats)
     }

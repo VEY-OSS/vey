@@ -136,16 +136,12 @@ impl DirectFloatEscaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: DirectFloatEscaperConfig,
         stats: Arc<DirectFixedEscaperStats>,
         bind_v4: Arc<BindSet>,
         bind_v6: Arc<BindSet>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::DirectFloat(config) = config {
-            DirectFloatEscaper::new_obj(config, stats, ArcSwap::new(bind_v4), ArcSwap::new(bind_v6))
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        DirectFloatEscaper::new_obj(config, stats, ArcSwap::new(bind_v4), ArcSwap::new(bind_v6))
     }
 
     fn parse_dyn_bind_ip(&self, value: &serde_json::Value) -> anyhow::Result<DirectFloatBindIp> {
@@ -456,6 +452,9 @@ impl EscaperInternal for DirectFloatEscaper {
         config: AnyEscaperConfig,
         _registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::DirectFloat(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         let bind_v4 = self.bind_v4.load_full();
         let bind_v6 = self.bind_v6.load_full();

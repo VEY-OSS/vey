@@ -109,14 +109,10 @@ impl ProxyHttpsEscaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: ProxyHttpsEscaperConfig,
         stats: Arc<ProxyHttpsEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::ProxyHttps(config) = config {
-            ProxyHttpsEscaper::new_obj(config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        ProxyHttpsEscaper::new_obj(config, stats)
     }
 
     fn get_next_proxy(&self, task_notes: &ServerTaskNotes, target_host: &Host) -> &UpstreamAddr {
@@ -273,6 +269,9 @@ impl EscaperInternal for ProxyHttpsEscaper {
         config: AnyEscaperConfig,
         _registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::ProxyHttps(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         ProxyHttpsEscaper::prepare_reload(config, stats)
     }

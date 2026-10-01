@@ -100,14 +100,10 @@ impl ProxySocks5Escaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: ProxySocks5EscaperConfig,
         stats: Arc<ProxySocks5EscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::ProxySocks5(config) = config {
-            ProxySocks5Escaper::new_obj(config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        ProxySocks5Escaper::new_obj(config, stats)
     }
 
     fn get_next_proxy(&self, task_notes: &ServerTaskNotes, target_host: &Host) -> &UpstreamAddr {
@@ -265,6 +261,9 @@ impl EscaperInternal for ProxySocks5Escaper {
         config: AnyEscaperConfig,
         _registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::ProxySocks5(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         ProxySocks5Escaper::prepare_reload(config, stats)
     }

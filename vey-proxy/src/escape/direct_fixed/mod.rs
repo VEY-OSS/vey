@@ -102,14 +102,10 @@ impl DirectFixedEscaper {
     }
 
     fn prepare_reload(
-        config: AnyEscaperConfig,
+        config: DirectFixedEscaperConfig,
         stats: Arc<DirectFixedEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::DirectFixed(config) = config {
-            DirectFixedEscaper::new_obj(config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+        DirectFixedEscaper::new_obj(config, stats)
     }
 
     fn get_bind_random(&self, family: AddressFamily, task_notes: &ServerTaskNotes) -> BindAddr {
@@ -420,6 +416,9 @@ impl EscaperInternal for DirectFixedEscaper {
         config: AnyEscaperConfig,
         _registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
+        let AnyEscaperConfig::DirectFixed(config) = config else {
+            return Err(anyhow!("invalid escaper config type"));
+        };
         let stats = Arc::clone(&self.stats);
         DirectFixedEscaper::prepare_reload(config, stats)
     }
