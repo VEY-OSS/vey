@@ -201,7 +201,7 @@ impl H2ForwardTask {
                 site.tls_client().is_some(),
             )
             .await;
-        let (connection, reuse_notes) = if let Some(tls_client) = site.tls_client() {
+        let connected = if let Some(tls_client) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf {
                     upstream: &self.upstream,
@@ -230,8 +230,10 @@ impl H2ForwardTask {
                     &mut audit_ctx,
                 )
                 .await
-        }
-        .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
+        };
+        site.record_peer_connect_result(&self.upstream, connected.is_ok());
+        let (connection, reuse_notes) =
+            connected.map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
 
         let mut egress_notes = EgressNotes::default();
         fwd_ctx.fetch_egress_notes(&mut egress_notes);

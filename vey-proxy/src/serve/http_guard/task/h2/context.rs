@@ -392,7 +392,7 @@ impl H2TaskContext {
                 tls_name: site.tls_name_or(request_host),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2_H1),
             };
-            match self
+            let connected = self
                 .escaper
                 .tls_setup_http_connection(
                     Arc::clone(&self.escaper),
@@ -401,7 +401,9 @@ impl H2TaskContext {
                     task_notes,
                     &mut audit_ctx,
                 )
-                .await
+                .await;
+            site.record_peer_connect_result(upstream, connected.is_ok());
+            match connected
                 .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?
             {
                 TlsHttpConnection::H1(connection, escaper) => {
@@ -417,20 +419,29 @@ impl H2TaskContext {
         } else {
             let task_stats: ArcTcpConnectionTaskRemoteStats =
                 Arc::new(TcpStreamTaskStats::default());
-            self.setup_origin_tcp(
-                task_notes,
-                upstream,
-                &mut egress_notes,
-                &mut audit_ctx,
-                task_stats,
-            )
-            .await?
+            let connected = self
+                .setup_origin_tcp(
+                    task_notes,
+                    upstream,
+                    &mut egress_notes,
+                    &mut audit_ctx,
+                    task_stats,
+                )
+                .await;
+            site.record_peer_connect_result(upstream, connected.is_ok());
+            connected?
         };
 
-        Ok(OriginConnection::H2(
-            self.finish_h2_origin(stream, egress_notes, task_notes, upstream)
-                .await?,
-        ))
+        match self
+            .finish_h2_origin(stream, egress_notes, task_notes, upstream)
+            .await
+        {
+            Ok(origin) => Ok(OriginConnection::H2(origin)),
+            Err(e) => {
+                site.record_peer_connect_result(upstream, false);
+                Err(e)
+            }
+        }
     }
 
     async fn connect_origin_h2(
@@ -444,7 +455,7 @@ impl H2TaskContext {
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = Arc::new(TcpStreamTaskStats::default());
 
-        let stream = if let Some(tls_client) = site.tls_client() {
+        let connected = if let Some(tls_client) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf { upstream },
                 tls_config: tls_client,
@@ -460,7 +471,7 @@ impl H2TaskContext {
                     &mut audit_ctx,
                 )
                 .await
-                .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?
+                .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))
         } else {
             self.setup_origin_tcp(
                 task_notes,
@@ -469,11 +480,20 @@ impl H2TaskContext {
                 &mut audit_ctx,
                 task_stats,
             )
-            .await?
-        };
-
-        self.finish_h2_origin(stream, egress_notes, task_notes, upstream)
             .await
+        };
+        site.record_peer_connect_result(upstream, connected.is_ok());
+        let stream = connected?;
+        match self
+            .finish_h2_origin(stream, egress_notes, task_notes, upstream)
+            .await
+        {
+            Ok(origin) => Ok(origin),
+            Err(e) => {
+                site.record_peer_connect_result(upstream, false);
+                Err(e)
+            }
+        }
     }
 
     async fn setup_origin_tcp(

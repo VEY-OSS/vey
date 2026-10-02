@@ -30,6 +30,8 @@ Groups that :ref:`import <conf_site_group_import>` this group are rebuilt too.
 ``vey-proxy-ctl site-upstream`` and
 ``vey-proxy-ctl set-site-upstream-weight`` read and change the runtime
 weights of a site whose upstream is a list of IP addresses.
+``vey-proxy-ctl site-upstream-health`` lists the passive health record
+for each of those addresses.
 
 Site request and traffic counters are exported as :ref:`site metrics
 <metrics_site>`, with the group name, site ID, optional

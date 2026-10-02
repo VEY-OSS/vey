@@ -235,6 +235,52 @@ Happy Eyeballs configuration.
 
 **default**: default HappyEyeballs config
 
+.. _conf_escaper_common_peer_health_check:
+
+peer_health_check
+-----------------
+
+**optional**, **type**: map
+
+Passive health check for recently failed peer addresses, in the same shape as
+nginx ``max_fails`` / ``fail_timeout``.
+
+If this key is not set, health checking is disabled.
+
+The check applies to TCP connect only, and only to addresses resolved from a
+domain name. Literal IP addresses are not recorded.
+
+* *direct* escapers record the upstream domain.
+* *proxy* and *divert_tcp* escapers record their own proxy domain, not the
+  client target.
+
+Within one ``fail_timeout`` window, ``max_fails`` unsuccessful connect attempts
+mark that address unavailable for another ``fail_timeout``. A successful
+connect clears the record. Unavailable addresses are tried last. Sticky
+selection drops them unless every candidate has failed.
+
+.. versionadded:: 1.15.0
+
+The map has the following fields:
+
+* max_fails
+
+  **optional**, **type**: u32
+
+  Number of unsuccessful attempts inside one ``fail_timeout`` window before the
+  address is treated as unavailable.
+
+  **default**: 1, **min**: 1
+
+* fail_timeout
+
+  **optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
+
+  The window in which failures are counted, and the time an unavailable address
+  stays unavailable.
+
+  **default**: 10s
+
 .. _conf_escaper_common_tcp_misc_opts:
 
 tcp_misc_opts
