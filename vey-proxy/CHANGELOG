@@ -3,18 +3,15 @@ CHANGELOG
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.15.0:
- - Feature: add ``http_guard`` public-edge HTTP reverse proxy (HTTP/1 and HTTP/2 over TLS with SNI; no visitor auth, tenant from ``site.owner``; optional ICAP; H2 origin stays H2; ``H2Forward`` / ``Websocket`` task logs)
- - Compatibility: ``http_expose`` / ``http_guard`` ``append_forwarded_for`` moved to site ``http.forwarded_header_type`` (default classic; ``disable`` neither strips nor inserts)
- - Feature: site ``http.forwarded_trusted_from`` CIDR list of immediate clients allowed to keep inbound headers of that type; others are stripped before this hop is appended
- - Compatibility: reverse-proxy type ``http_rproxy`` is renamed to ``http_expose`` (``http_rproxy`` still accepted as a deprecated alias)
- - Feature: HTTP/H2 forward and intercept logs record decoded body sizes (`clt_req_body_size`, `ups_req_body_size`, `ups_rsp_body_size`, `clt_rsp_body_size`; `0` if no body; on failure, the size completed on that hop so far, a lower bound for an unfinished HTTP/1.1 chunked write, which excludes still-buffered data)
- - Feature: site / user traffic metrics include request type ``h2_connection``
+ - BUG FIX: HTTP/1 response headers that start arriving while the request body is still being sent honor the response-header timeout
+ - BUG FIX: an idle HTTP connection and an adaptation send honor the escaper expiry
+ - BUG FIX: a route escaper remembers the upstream it chose, so the next request can reuse that connection
+ - BUG FIX: ICAP RESPMOD accepts an ``Encapsulated`` value that starts with ``req-hdr``. A preview 206 is reported as ``ICAP-RESPMOD-206``. Adapted HTTP/2 messages drop connection-specific headers
+ - BUG FIX: an ICAP OPTIONS response consumes its ``opt-body``, so the connection can be reused
+ - BUG FIX: Fluentd ``retry_queue_len`` is read from YAML
+ - BUG FIX: QUIC Initial packets with a Source Connection ID longer than 20 bytes are rejected
  - BUG FIX: ``server.forbidden.invalid_param`` increments its own counter instead of ``user_blocked``
- - Compatibility: HTTP ``Keep-Alive`` is parsed as ``timeout``/``max``; upstream connection reuse honors those limits (min with configured idle expire; ``max=0`` is not reused), and keep-alive serialization writes the header
- - Compatibility: HTTP ``Connection`` is parsed as a token list; keep-alive is decided after all headers from the HTTP version and merged tokens (HTTP/1.0 defaults to close; ``keep-alive`` can enable it; request and response must both agree; TE+CL still forces close)
  - BUG FIX: Transfer-Encoding is strictly checked; request compress transfer codings are rejected (501) and ``TE`` is parsed then reduced to ``trailers``
- - Feature: locally generated HTTP error responses include RFC 9209 ``Proxy-Status`` (``error=`` only; ident is ``server_id`` or ``vey-proxy``; disable with ``no_proxy_status``)
- - Feature: auditor ``server_id`` is used as the ``Proxy-Status`` ident on intercept-generated HTTP errors
  - BUG FIX: SMTP interception answers out-of-sequence commands locally without forwarding them upstream
  - BUG FIX: IMAP interception matches CAPABILITY names and greeting response codes case-insensitively
  - BUG FIX: IMAP interception logs use `ImapConnection` instead of `SmtpConnection`
@@ -22,6 +19,18 @@ v1.15.0:
  - BUG FIX: SOCKS5 UDP ASSOCIATE batch receive applies destination ACL to every datagram, so a later forbidden target is rejected
  - BUG FIX: IMAP interception enters the authenticated state after a successful LOGIN, so SELECT/FETCH are forwarded instead of rejected as BAD
  - BUG FIX: LDAP and Python password auth apply local `expire_datetime` and `block_and_delay` like Basic
+ - Feature: add ``site_group`` for reverse-proxy Host/SNI lookup, per-site origin, and tenant limits
+ - Feature: add ``http_guard`` public-edge HTTP reverse proxy
+ - Feature: add ``tls_proxy`` TLS reverse proxy
+ - Feature: HTTP/H2 forward and intercept logs record decoded body sizes
+ - Feature: locally generated HTTP error responses include RFC 9209 ``Proxy-Status``
+ - Feature: snmalloc builds export allocator memory stats
+ - Compatibility: ``http_expose`` is renamed from ``http_rproxy`` (``http_rproxy`` is still accepted). Origins move to ``site_group``. Ingress TLS uses OpenSSL instead of Rustls
+ - Compatibility: ``http_expose`` ``http_forward_upstream_keepalive`` moved to site ``http.h1.upstream_keepalive``. ``append_forwarded_for`` moved to site ``http.forwarded_header_type``
+ - Compatibility: HTTP ``Keep-Alive`` is parsed as ``timeout``/``max``; upstream reuse honors those limits (``max=0`` is not reused)
+ - Compatibility: HTTP ``Connection`` is parsed as a token list; keep-alive follows the HTTP version and the merged tokens (HTTP/1.0 defaults to close; ``TE`` with ``Content-Length`` still forces close)
+ - Compatibility: ``task_idle_max_count`` is the minimum of the user, tenant, and origin site
+ - Compatibility: bump MSRV to 1.95.0
 
 v1.14.0:
  - Start of the 1.14 LTS branch
