@@ -79,6 +79,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
             }
         }
 
+        self.last_upstream.clone_from(upstream);
         self.escaper._update_egress_path(task_notes);
         self.run_local_update = true;
         if let Some(next_escaper) = self
