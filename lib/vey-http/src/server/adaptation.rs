@@ -22,6 +22,7 @@ pub struct HttpAdaptedRequest {
     pub version: Version,
     pub headers: HttpHeaderMap,
     pub content_length: Option<u64>,
+    connection_options: Vec<HeaderName>,
 }
 
 impl HttpAdaptedRequest {
@@ -32,7 +33,20 @@ impl HttpAdaptedRequest {
             version,
             headers: HttpHeaderMap::default(),
             content_length: None,
+            connection_options: Vec::new(),
         }
+    }
+
+    /// Headers for an H2 request.
+    ///
+    /// Connection-specific headers and headers named on `Connection` are removed.
+    pub fn to_h2_headers(&self) -> http::HeaderMap {
+        let mut headers = http::HeaderMap::from(&self.headers);
+        for name in &self.connection_options {
+            headers.remove(name);
+        }
+        crate::header::remove_h2_connection_specific_headers(&mut headers);
+        headers
     }
 
     pub async fn parse<R>(
@@ -134,7 +148,14 @@ impl HttpAdaptedRequest {
         })?;
 
         match name.as_str() {
-            "connection" | "keep-alive" | "te" => {
+            "connection" => {
+                crate::header::append_connection_option_names(
+                    &mut self.connection_options,
+                    header.value,
+                );
+                return Ok(());
+            }
+            "keep-alive" | "te" => {
                 // ignored hop-by-hop options
                 return Ok(());
             }

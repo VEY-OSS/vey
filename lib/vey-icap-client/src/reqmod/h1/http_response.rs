@@ -8,7 +8,7 @@ use std::io::Write;
 use std::str::FromStr;
 
 use bytes::BufMut;
-use http::{HeaderName, StatusCode, Version};
+use http::{HeaderMap, HeaderName, StatusCode, Version};
 use tokio::io::AsyncBufRead;
 
 use vey_http::client::HttpResponseParseError;
@@ -21,6 +21,7 @@ pub struct HttpAdapterErrorResponse {
     pub status: StatusCode,
     pub reason: String,
     pub headers: HttpHeaderMap,
+    connection_options: Vec<HeaderName>,
 }
 
 impl HttpAdapterErrorResponse {
@@ -30,7 +31,20 @@ impl HttpAdapterErrorResponse {
             status,
             reason,
             headers: HttpHeaderMap::default(),
+            connection_options: Vec::new(),
         }
+    }
+
+    /// Get the headers for an H2 response.
+    ///
+    /// Connection-specific headers and headers named on `Connection` are removed.
+    pub fn to_h2_headers(&self) -> HeaderMap {
+        let mut headers = HeaderMap::from(&self.headers);
+        for name in &self.connection_options {
+            headers.remove(name);
+        }
+        vey_http::header::remove_h2_connection_specific_headers(&mut headers);
+        headers
     }
 
     pub(crate) fn set_chunked_encoding(&mut self) {
@@ -132,7 +146,14 @@ impl HttpAdapterErrorResponse {
         })?;
 
         match name.as_str() {
-            "connection" | "keep-alive" => return Ok(()),
+            "connection" => {
+                vey_http::header::append_connection_option_names(
+                    &mut self.connection_options,
+                    header.value,
+                );
+                return Ok(());
+            }
+            "keep-alive" => return Ok(()),
             "transfer-encoding" | "content-length" => return Ok(()),
             _ => {}
         }
@@ -162,5 +183,28 @@ impl HttpAdapterErrorResponse {
         buf.put_slice(connection_value);
         buf.put_slice(b"\r\n");
         buf
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::BufReader;
+
+    #[tokio::test]
+    async fn to_h2_headers_drops_connection_specific_headers() {
+        let data = b"HTTP/1.1 403 Forbidden\r\n\
+            X-A: 1\r\n\
+            X-Conn-Token: secret\r\n\
+            Upgrade: websocket\r\n\
+            Proxy-Connection: keep-alive\r\n\
+            Connection: close, x-conn-token\r\n\r\n";
+        let mut reader = BufReader::new(&data[..]);
+        let rsp = HttpAdapterErrorResponse::parse(&mut reader, 4096)
+            .await
+            .unwrap();
+        let headers = rsp.to_h2_headers();
+        assert_eq!(headers.len(), 1);
+        assert_eq!(headers.get("x-a").unwrap(), "1");
     }
 }

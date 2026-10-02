@@ -6,7 +6,7 @@
 
 use std::str::FromStr;
 
-use http::{HeaderName, StatusCode, Version};
+use http::{HeaderMap, HeaderName, StatusCode, Version};
 use tokio::io::AsyncBufRead;
 
 use vey_io_ext::LimitedBufReadExt;
@@ -22,6 +22,7 @@ pub struct HttpAdaptedResponse {
     pub reason: String,
     pub headers: HttpHeaderMap,
     pub content_length: Option<u64>,
+    connection_options: Vec<HeaderName>,
 }
 
 impl HttpAdaptedResponse {
@@ -32,7 +33,21 @@ impl HttpAdaptedResponse {
             reason,
             headers: HttpHeaderMap::default(),
             content_length: None,
+            connection_options: Vec::new(),
         }
+    }
+
+    /// Headers for an H2 response.
+    ///
+    /// Connection-specific headers and headers named on `Connection` are removed.
+    /// `Content-Length` is kept when the adapter announced a fixed body.
+    pub fn to_h2_headers(&self) -> HeaderMap {
+        let mut headers = HeaderMap::from(&self.headers);
+        for name in &self.connection_options {
+            headers.remove(name);
+        }
+        crate::header::remove_h2_connection_specific_headers(&mut headers);
+        headers
     }
 
     pub async fn parse<R>(
@@ -127,7 +142,14 @@ impl HttpAdaptedResponse {
         })?;
 
         match name.as_str() {
-            "connection" | "keep-alive" => {
+            "connection" => {
+                crate::header::append_connection_option_names(
+                    &mut self.connection_options,
+                    header.value,
+                );
+                return Ok(());
+            }
+            "keep-alive" => {
                 // ignored hop-by-hop options
                 return Ok(());
             }
