@@ -7,6 +7,11 @@ v1.14.3:
  - BUG FIX: QUIC Initial packets with a Source Connection ID longer than 20 bytes are rejected
  - BUG FIX: ``server.forbidden.invalid_param`` increments its own counter instead of ``user_blocked``
  - BUG FIX: a route escaper remembers the upstream it chose, so the next request can reuse that connection
+ - BUG FIX: HTTP/1 response headers that arrive while the request body is still being sent use the response-header timeout
+ - BUG FIX: ICAP RESPMOD preview 206 is reported as ``ICAP-RESPMOD-206``, and a non-preview error is not described as after 100-continue
+ - BUG FIX: ICAP RESPMOD accepts an Encapsulated header that starts with ``req-hdr`` and skips that request header
+ - BUG FIX: ICAP OPTIONS consumes an ``opt-body`` so the next message on that connection can be parsed
+ - BUG FIX: connection-specific headers are removed from ICAP-adapted HTTP/2 messages
 
 v1.14.2:
  - BUG FIX: update h2 to fix errors
