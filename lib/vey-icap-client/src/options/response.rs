@@ -10,6 +10,7 @@ use std::time::Duration;
 use tokio::io::AsyncBufRead;
 use tokio::time::Instant;
 
+use vey_http::HttpBodyReader;
 use vey_io_ext::LimitedBufReadExt;
 
 use super::IcapOptionsParseError;
@@ -26,6 +27,7 @@ pub struct IcapServiceOptions {
     pub(crate) support_204: bool,
     pub(crate) support_206: bool,
     pub(crate) preview_size: Option<usize>,
+    has_opt_body: bool,
 }
 
 impl IcapServiceOptions {
@@ -40,6 +42,7 @@ impl IcapServiceOptions {
             support_204: false,
             support_206: false,
             preview_size: None,
+            has_opt_body: false,
         }
     }
 
@@ -54,6 +57,7 @@ impl IcapServiceOptions {
             support_204: false,
             support_206: false,
             preview_size: None,
+            has_opt_body: false,
         }
     }
 
@@ -125,7 +129,24 @@ impl IcapServiceOptions {
         }
         options.check()?;
 
+        if options.has_opt_body {
+            Self::consume_opt_body(reader).await?;
+        }
+
         Ok(options)
+    }
+
+    async fn consume_opt_body<R>(reader: &mut R) -> Result<(), IcapOptionsParseError>
+    where
+        R: AsyncBufRead + Unpin,
+    {
+        const BODY_LINE_MAX_LEN: usize = 1024;
+        let mut body_reader = HttpBodyReader::new_chunked(reader, BODY_LINE_MAX_LEN);
+        tokio::io::copy(&mut body_reader, &mut tokio::io::sink()).await?;
+        if !body_reader.finished() {
+            return Err(IcapOptionsParseError::RemoteClosed);
+        }
+        Ok(())
     }
 
     fn check(&self) -> Result<(), IcapOptionsParseError> {
@@ -163,22 +184,40 @@ impl IcapServiceOptions {
             "service" => self.server = Some(header.value.to_owned()),
             "istag" => self.service_tag = header.value.to_owned(),
             "encapsulated" => {
+                let mut saw_null_body = false;
+                let mut saw_opt_body = false;
                 for p in header.value.split(',') {
-                    let Some((name, _value)) = p.trim().split_once('=') else {
+                    let Some((name, value)) = p.trim().split_once('=') else {
                         return Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated"));
                     };
                     match name.to_lowercase().as_str() {
-                        "null-body" => {}
-                        "opt-body" => {}
-                        _ => return Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated")),
+                        "null-body" => {
+                            if saw_null_body || saw_opt_body {
+                                return Err(IcapOptionsParseError::InvalidHeaderValue(
+                                    "Encapsulated",
+                                ));
+                            }
+                            saw_null_body = true;
+                        }
+                        "opt-body" => {
+                            if saw_null_body || saw_opt_body || value != "0" {
+                                return Err(IcapOptionsParseError::InvalidHeaderValue(
+                                    "Encapsulated",
+                                ));
+                            }
+                            saw_opt_body = true;
+                        }
+                        _ => {
+                            return Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated"));
+                        }
                     }
                 }
+                if !saw_null_body && !saw_opt_body {
+                    return Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated"));
+                }
+                self.has_opt_body = saw_opt_body;
             }
-            "opt-body-type" => {
-                return Err(IcapOptionsParseError::UnsupportedBody(
-                    header.value.to_owned(),
-                ));
-            }
+            "opt-body-type" => {}
             "max-connections" => {
                 let max_connections = usize::from_str(header.value)
                     .map_err(|_| IcapOptionsParseError::InvalidHeaderValue("Max-Connections"))?;
@@ -265,11 +304,39 @@ mod tests {
     }
 
     #[test]
-    fn parse_header_encapsulated_accepts_null_and_opt_body() {
+    fn parse_header_encapsulated_accepts_null_body() {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
         options
-            .parse_header_line(b"Encapsulated: null-body=0, opt-body=42\r\n")
+            .parse_header_line(b"Encapsulated: null-body=0\r\n")
             .unwrap();
+        assert!(!options.has_opt_body);
+    }
+
+    #[test]
+    fn parse_header_encapsulated_accepts_opt_body() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        options
+            .parse_header_line(b"Encapsulated: opt-body=0\r\n")
+            .unwrap();
+        assert!(options.has_opt_body);
+    }
+
+    #[test]
+    fn parse_header_encapsulated_rejects_opt_body_nonzero_offset() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        assert!(matches!(
+            options.parse_header_line(b"Encapsulated: opt-body=42\r\n"),
+            Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated"))
+        ));
+    }
+
+    #[test]
+    fn parse_header_encapsulated_rejects_null_and_opt_body() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        assert!(matches!(
+            options.parse_header_line(b"Encapsulated: null-body=0, opt-body=0\r\n"),
+            Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated"))
+        ));
     }
 
     #[test]
@@ -339,12 +406,11 @@ mod tests {
     }
 
     #[test]
-    fn parse_header_opt_body_type_unsupported() {
+    fn parse_header_opt_body_type_ignored() {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
-        assert!(matches!(
-            options.parse_header_line(b"Opt-body-type: text/html\r\n"),
-            Err(IcapOptionsParseError::UnsupportedBody(_))
-        ));
+        options
+            .parse_header_line(b"Opt-body-type: text/html\r\n")
+            .unwrap();
     }
 
     #[test]
@@ -397,5 +463,29 @@ Methods: REQMOD\r\n\
             Err(e) => panic!("unexpected error: {e}"),
             Ok(_) => panic!("expected NoServiceTagSet"),
         }
+    }
+
+    #[tokio::test]
+    async fn parse_full_options_consumes_opt_body() {
+        use std::io::Cursor;
+        use tokio::io::AsyncReadExt;
+
+        let data = b"ICAP/1.0 200 OK\r\n\
+Methods: REQMOD\r\n\
+ISTag: \"tag-1\"\r\n\
+Encapsulated: opt-body=0\r\n\
+Opt-body-type: text/html\r\n\
+\r\n\
+4\r\ntest\r\n0\r\n\r\nNEXT";
+        let mut reader = Cursor::new(&data[..]);
+        let options = IcapServiceOptions::parse(&mut reader, IcapMethod::Reqmod, 8192)
+            .await
+            .unwrap();
+        assert_eq!(options.service_tag, "\"tag-1\"");
+        assert!(options.has_opt_body);
+
+        let mut leftover = Vec::new();
+        reader.read_to_end(&mut leftover).await.unwrap();
+        assert_eq!(leftover, b"NEXT");
     }
 }
