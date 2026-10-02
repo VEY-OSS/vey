@@ -2,6 +2,12 @@ CHANGELOG
 
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
+v1.14.3:
+ - BUG FIX: Fluentd ``retry_queue_len`` is read from YAML
+ - BUG FIX: QUIC Initial packets with a Source Connection ID longer than 20 bytes are rejected
+ - BUG FIX: ``server.forbidden.invalid_param`` increments its own counter instead of ``user_blocked``
+ - BUG FIX: a route escaper remembers the upstream it chose, so the next request can reuse that connection
+
 v1.14.2:
  - BUG FIX: update h2 to fix errors
 
