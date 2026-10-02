@@ -184,7 +184,7 @@ Common capabilities include:
 Reverse-proxy servers pick an origin from a `site_group` by Host or SNI. A site holds one upstream address
 or a weighted list of IP addresses, ingress and egress TLS, request limits, and HTTP origin settings.
 `vey-proxy-ctl reload-site-group` reloads one group. Site stats and limiters stay when the site ID is unchanged.
-Runtime upstream weights can be read and changed with `site-upstream` and `set-site-upstream-weight`.
+Runtime upstream weights can be read and changed with `site-group <group> list-upstream` and `site-group <group> set-upstream-weight`.
 
 Shared site capabilities:
 

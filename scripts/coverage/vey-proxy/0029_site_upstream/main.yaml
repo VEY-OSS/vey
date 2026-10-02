@@ -1,0 +1,42 @@
+---
+
+log: stdout
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.0/8
+
+site_group:
+  - name: weighted
+    static_sites:
+      - id: app
+        exact_match: httpbin.local
+        upstream:
+          - addr: 127.0.0.1:18080
+            weight: 1
+          - addr: 127.0.0.1:18081
+            weight: 2
+  - name: single
+    static_sites:
+      - id: single
+        exact_match: single.local
+        upstream: 127.0.0.1:80
+
+server:
+  - name: http
+    type: http_expose
+    listen: 127.0.0.1:8080
+    escaper: default
+    site_group: weighted
