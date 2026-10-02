@@ -302,7 +302,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         match rsp.code {
             204 | 206 => {
                 return Err(H1RespmodAdaptationError::IcapServerErrorResponse(
-                    IcapErrorReason::InvalidResponseAfterContinue,
+                    IcapErrorReason::InvalidResponse,
                     rsp.code,
                     rsp.reason,
                 ));
@@ -310,7 +310,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             n if (200..300).contains(&n) => {}
             _ => {
                 return Err(H1RespmodAdaptationError::IcapServerErrorResponse(
-                    IcapErrorReason::UnknownResponseAfterContinue,
+                    IcapErrorReason::UnknownResponse,
                     rsp.code,
                     rsp.reason,
                 ));
