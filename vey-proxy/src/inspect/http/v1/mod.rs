@@ -115,8 +115,6 @@ where
         }
     }
 
-    // `async_recursion` emits `#[must_use]` with no message; the boxed future is already `must_use`.
-    #[allow(clippy::double_must_use)]
     #[async_recursion]
     async fn do_intercept(&mut self) -> Result<Option<StreamInspection<SC>>, H1InterceptionError> {
         let H1InterceptIo {
