@@ -45,7 +45,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // enter daemon mode after config loaded
-    #[cfg(unix)]
+    #[cfg(all(unix, not(target_os = "macos")))]
     vey_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
     let _workers_guard =

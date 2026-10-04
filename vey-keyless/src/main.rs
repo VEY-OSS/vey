@@ -66,7 +66,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // enter daemon mode after config loaded
-    #[cfg(unix)]
+    #[cfg(all(unix, not(target_os = "macos")))]
     vey_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
     let stat_join = if let Some(stat_config) = vey_daemon::stat::config::get_global_stat_config() {

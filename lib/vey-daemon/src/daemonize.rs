@@ -21,7 +21,6 @@ pub fn check_enter(args: &DaemonArgs) -> anyhow::Result<()> {
 }
 
 fn enter(args: &DaemonArgs) -> anyhow::Result<()> {
-    #[allow(deprecated)] // daemon() deprecated on macOS but still usable
     unsafe {
         let r = libc::daemon(0, 0);
         if r != 0 {

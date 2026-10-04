@@ -14,7 +14,7 @@ pub mod server;
 pub mod signal;
 pub mod stat;
 
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "macos")))]
 pub mod daemonize;
 
 #[cfg(feature = "register")]

@@ -58,7 +58,7 @@ impl DaemonArgs {
 
     fn enable_daemon_mode(&mut self) {
         cfg_if::cfg_if! {
-            if #[cfg(unix)] {
+            if #[cfg(all(unix, not(target_os = "macos")))] {
                 self.daemon_mode = true;
             } else {
                 self.daemon_mode = false;
