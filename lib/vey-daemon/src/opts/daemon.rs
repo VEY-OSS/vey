@@ -51,7 +51,7 @@ impl DaemonArgs {
     }
 
     fn enable_daemon_mode(&mut self) {
-        self.daemon_mode = cfg!(unix);
+        self.daemon_mode = cfg!(all(unix, not(target_os = "macos")));
     }
 
     pub fn need_daemon_controller(&self) -> bool {
