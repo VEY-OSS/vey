@@ -51,6 +51,9 @@ impl TaskLogForUdpConnect<'_> {
             "user" => self.task_notes.raw_user_name().map(LtUserName),
             "tcp_server_addr" => self.tcp_server_addr,
             "tcp_client_addr" => self.tcp_client_addr,
+            "udp_listen_addr" => self.udp_listen_addr,
+            "udp_client_addr" => self.udp_client_addr,
+            "upstream" => self.upstream.map(LtUpstreamAddr),
             "wait_time" => LtDuration(self.task_notes.wait_time),
         )
     }
