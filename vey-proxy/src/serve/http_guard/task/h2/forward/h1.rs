@@ -101,6 +101,7 @@ impl H2ForwardTask {
         {
             match reqmod
                 .h2_to_h1_adapter(
+                    self.task_notes.worker_id(),
                     self.ctx.server_config.tcp_copy,
                     self.ctx.server_config.h1.body_line_max_len,
                     self.ctx.server_config.h2.max_header_list_size as usize,
@@ -637,6 +638,7 @@ impl H2ForwardTask {
         {
             match respmod
                 .h1_to_h2_adapter(
+                    self.task_notes.worker_id(),
                     self.ctx.server_config.tcp_copy,
                     self.ctx.server_config.h1.body_line_max_len,
                     self.ctx.server_config.h2.max_header_list_size as usize,

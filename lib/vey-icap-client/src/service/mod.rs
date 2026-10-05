@@ -15,7 +15,7 @@ mod client;
 pub use client::IcapServiceClient;
 
 mod pool;
-use pool::{IcapConnectionPool, PoolMaintainer};
+use pool::IcapConnectionPool;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IcapMethod {

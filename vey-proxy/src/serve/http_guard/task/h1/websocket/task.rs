@@ -438,6 +438,7 @@ impl HttpGuardWebsocketTask {
     {
         match reqmod
             .h1_adapter(
+                self.task_notes.worker_id(),
                 self.ctx.server_config.tcp_copy,
                 self.ctx.server_config.h1.body_line_max_len,
                 self.ctx.server_config.req_hdr_max_size,

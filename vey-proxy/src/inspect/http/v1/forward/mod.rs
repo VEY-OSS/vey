@@ -229,6 +229,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
     {
         let adapter = match reqmod_client
             .h1_adapter(
+                self.ctx.worker_id(),
                 self.ctx.server_config.limited_copy_config(),
                 self.ctx.h1_interception().body_line_max_len,
                 self.ctx.h1_interception().req_head_max_size,
@@ -768,6 +769,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         if let Some(respmod) = self.ctx.audit_handle.icap_respmod_client() {
             match respmod
                 .h1_adapter(
+                    self.ctx.worker_id(),
                     self.ctx.server_config.limited_copy_config(),
                     self.ctx.h1_interception().body_line_max_len,
                     self.ctx.idle_checker(),

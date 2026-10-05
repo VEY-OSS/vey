@@ -300,6 +300,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         if let Some(client) = self.ctx.audit_handle.icap_reqmod_client() {
             match client
                 .smtp_message_adaptor(
+                    self.ctx.worker_id(),
                     self.ctx.server_config.limited_copy_config(),
                     self.ctx.idle_checker(),
                 )

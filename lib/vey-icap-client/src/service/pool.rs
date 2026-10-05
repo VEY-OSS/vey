@@ -6,6 +6,7 @@
 
 use std::collections::VecDeque;
 use std::io;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
 
@@ -27,35 +28,102 @@ struct IdleIcapConnection {
     idle_since: Instant,
 }
 
+struct IcapLane {
+    idle: Mutex<VecDeque<IdleIcapConnection>>,
+    maintainer_started: AtomicBool,
+}
+
+/// ICAP idle pool, sharded by unaided worker.
+///
+/// Unaided workers are current-thread runtimes. A process-wide mutex would park
+/// another worker's OS thread, and a socket opened on one runtime cannot be
+/// polled on another. Each worker only touches its own lane. The lane
+/// maintainer is spawned on that worker, so refill and idle expiry stay there.
 pub(super) struct IcapConnectionPool {
     config: Arc<IcapServiceConfig>,
     options: ArcSwap<IcapServiceOptions>,
-    idle_pool: Mutex<VecDeque<IdleIcapConnection>>,
+    lanes: Box<[IcapLane]>,
+    lane_max_idle: usize,
+    lane_min_idle: usize,
     connector: Arc<IcapConnector>,
 }
 
+/// Out-of-range and missing ids share lane 0.
+fn lane_index(worker_id: Option<usize>, lane_count: usize) -> usize {
+    match worker_id {
+        Some(id) if id < lane_count => id,
+        _ => 0,
+    }
+}
+
+/// Split a process-wide idle cap across lanes. Zero stays zero so a disabled
+/// pool does not start holding connections. A positive cap is at least one per
+/// lane, so every worker can reuse a connection.
+fn per_lane(total: usize, lane_count: usize) -> usize {
+    if total == 0 {
+        0
+    } else {
+        total.div_ceil(lane_count).max(1)
+    }
+}
+
 impl IcapConnectionPool {
-    pub(super) fn new(config: Arc<IcapServiceConfig>, connector: Arc<IcapConnector>) -> Self {
-        let idle_pool = Mutex::new(VecDeque::with_capacity(
-            config.connection_pool.min_idle_count(),
-        ));
+    pub(super) fn new(
+        config: Arc<IcapServiceConfig>,
+        connector: Arc<IcapConnector>,
+        lane_count: usize,
+    ) -> Self {
+        let lane_count = lane_count.max(1);
+        let lane_min_idle = per_lane(config.connection_pool.min_idle_count(), lane_count);
+        let lane_max_idle = per_lane(config.connection_pool.max_idle_count(), lane_count);
+        let lanes = (0..lane_count)
+            .map(|_| IcapLane {
+                idle: Mutex::new(VecDeque::with_capacity(lane_min_idle)),
+                maintainer_started: AtomicBool::new(false),
+            })
+            .collect();
 
         let options = ArcSwap::new(Arc::new(IcapServiceOptions::new_expired(config.method)));
 
         IcapConnectionPool {
             config,
             options,
-            idle_pool,
+            lanes,
+            lane_max_idle,
+            lane_min_idle,
             connector,
         }
+    }
+
+    /// Start this lane's maintainer on the current runtime. Call this from the
+    /// worker that owns the lane, so refill and idle expiry stay there.
+    pub(super) fn ensure_lane(self: &Arc<Self>, lane: usize) {
+        let period = self.config.connection_pool.check_interval();
+        if period.is_zero() {
+            return;
+        }
+        let lane = lane.min(self.lanes.len() - 1);
+        if self.lanes[lane]
+            .maintainer_started
+            .swap(true, Ordering::AcqRel)
+        {
+            return;
+        }
+        let maintainer = PoolMaintainer::new(Arc::downgrade(self), lane, period);
+        tokio::spawn(maintainer.into_running());
+    }
+
+    pub(super) fn ensure_worker(self: &Arc<Self>, worker_id: Option<usize>) {
+        self.ensure_lane(lane_index(worker_id, self.lanes.len()));
     }
 
     pub fn try_put(&self, conn: IcapClientConnection) -> bool {
         if !conn.reusable() {
             return false;
         }
-        let mut idle = self.idle_pool.lock().unwrap();
-        if idle.len() >= self.config.connection_pool.max_idle_count() {
+        let lane = conn.lane().min(self.lanes.len() - 1);
+        let mut idle = self.lanes[lane].idle.lock().unwrap();
+        if idle.len() >= self.lane_max_idle {
             return false;
         }
         idle.push_back(IdleIcapConnection {
@@ -65,12 +133,18 @@ impl IcapConnectionPool {
         true
     }
 
-    fn take(&self) -> Option<IcapClientConnection> {
-        self.idle_pool.lock().unwrap().pop_back().map(|i| i.conn)
+    fn take(&self, lane: usize) -> Option<IcapClientConnection> {
+        self.lanes[lane]
+            .idle
+            .lock()
+            .unwrap()
+            .pop_back()
+            .map(|i| i.conn)
     }
 
-    pub async fn get(&self) -> io::Result<IcapClientConnection> {
-        while let Some(mut conn) = self.take() {
+    pub async fn get(&self, worker_id: Option<usize>) -> io::Result<IcapClientConnection> {
+        let lane = lane_index(worker_id, self.lanes.len());
+        while let Some(mut conn) = self.take(lane) {
             if !conn.probe_idle().await {
                 continue;
             }
@@ -89,7 +163,8 @@ impl IcapConnectionPool {
             conn.mark_reused();
             return Ok(conn);
         }
-        let conn = self.connector.create().await?;
+        let mut conn = self.connector.create().await?;
+        conn.set_lane(lane);
         if self.options.load().expired() {
             self.handshake(conn).await
         } else {
@@ -97,13 +172,13 @@ impl IcapConnectionPool {
         }
     }
 
-    fn expire(&self) -> usize {
+    fn expire(&self, lane: usize) -> usize {
         let now = Instant::now();
         let idle_timeout = self.config.connection_pool.idle_timeout();
 
         let mut expired = Vec::new();
         {
-            let mut pool = self.idle_pool.lock().unwrap();
+            let mut pool = self.lanes[lane].idle.lock().unwrap();
             while let Some(conn) =
                 pool.pop_front_if(|c| now.duration_since(c.idle_since) >= idle_timeout)
             {
@@ -137,12 +212,12 @@ impl IcapConnectionPool {
         }
     }
 
-    async fn refill(&self) {
-        let pool_size = self.idle_pool.lock().unwrap().len();
-        let min_idle = self.config.connection_pool.min_idle_count();
-        for _ in 0..min_idle.saturating_sub(pool_size) {
+    async fn refill(&self, lane: usize) {
+        let pool_size = self.lanes[lane].idle.lock().unwrap().len();
+        for _ in 0..self.lane_min_idle.saturating_sub(pool_size) {
             match self.connector.create().await {
-                Ok(conn) => {
+                Ok(mut conn) => {
+                    conn.set_lane(lane);
                     if !self.try_put(conn) {
                         break;
                     }
@@ -159,7 +234,7 @@ impl IcapConnectionPool {
         self.options.load_full()
     }
 
-    async fn check_options(&self) {
+    async fn check_options(&self, lane: usize) {
         if !self.options.load().expired() {
             return;
         }
@@ -167,7 +242,8 @@ impl IcapConnectionPool {
         // OPTIONS uses a dedicated connection so a timeout or handshake
         // failure cannot steal idle connections from get().
         match self.connector.create().await {
-            Ok(conn) => {
+            Ok(mut conn) => {
+                conn.set_lane(lane);
                 if let Ok(conn) = self.handshake(conn).await {
                     self.try_put(conn);
                 }
@@ -179,15 +255,17 @@ impl IcapConnectionPool {
 
 pub(super) struct PoolMaintainer {
     pool: Weak<IcapConnectionPool>,
+    lane: usize,
     check_interval: Interval,
 }
 
 impl PoolMaintainer {
-    pub(super) fn new(pool: Weak<IcapConnectionPool>, period: Duration) -> Self {
+    pub(super) fn new(pool: Weak<IcapConnectionPool>, lane: usize, period: Duration) -> Self {
         let mut check_interval = tokio::time::interval(period);
         check_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         PoolMaintainer {
             pool,
+            lane,
             check_interval,
         }
     }
@@ -200,9 +278,9 @@ impl PoolMaintainer {
                 return;
             };
 
-            pool.expire();
-            pool.check_options().await;
-            pool.refill().await;
+            pool.expire(self.lane);
+            pool.check_options(self.lane).await;
+            pool.refill(self.lane).await;
         }
     }
 }

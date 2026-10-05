@@ -29,11 +29,12 @@ mod data;
 impl IcapReqmodClient {
     pub async fn smtp_message_adaptor<I: IdleCheck>(
         &self,
+        worker_id: Option<usize>,
         copy_config: StreamCopyConfig,
         idle_checker: I,
     ) -> anyhow::Result<SmtpMessageAdapter<I>> {
         let icap_client = self.inner.clone();
-        let (icap_connection, _icap_options) = icap_client.fetch_connection().await?;
+        let (icap_connection, _icap_options) = icap_client.fetch_connection(worker_id).await?;
         Ok(SmtpMessageAdapter {
             icap_client,
             icap_connection,

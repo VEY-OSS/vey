@@ -44,13 +44,14 @@ pub trait H2SendResponseToClient {
 impl IcapRespmodClient {
     pub async fn h2_adapter<I: IdleCheck>(
         &self,
+        worker_id: Option<usize>,
         copy_config: StreamCopyConfig,
         http_body_line_max_size: usize,
         http_trailer_max_size: usize,
         idle_checker: I,
     ) -> anyhow::Result<H2ResponseAdapter<I>> {
         let icap_client = self.inner.clone();
-        let (icap_connection, icap_options) = icap_client.fetch_connection().await?;
+        let (icap_connection, icap_options) = icap_client.fetch_connection(worker_id).await?;
         Ok(H2ResponseAdapter {
             icap_client,
             icap_connection,

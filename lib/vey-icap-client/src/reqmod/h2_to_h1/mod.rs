@@ -39,6 +39,7 @@ mod preview;
 impl IcapReqmodClient {
     pub async fn h2_to_h1_adapter<I: IdleCheck>(
         &self,
+        worker_id: Option<usize>,
         copy_config: StreamCopyConfig,
         http_body_line_max_size: usize,
         http_trailer_max_size: usize,
@@ -46,7 +47,7 @@ impl IcapReqmodClient {
         idle_checker: I,
     ) -> anyhow::Result<H2ToH1RequestAdapter<I>> {
         let icap_client = self.inner.clone();
-        let (icap_connection, icap_options) = icap_client.fetch_connection().await?;
+        let (icap_connection, icap_options) = icap_client.fetch_connection(worker_id).await?;
         Ok(H2ToH1RequestAdapter {
             icap_client,
             icap_connection,

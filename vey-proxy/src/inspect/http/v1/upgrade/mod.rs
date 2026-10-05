@@ -266,6 +266,7 @@ where
         self.check_blocked(&mut rsp_io.clt_w).await?;
         match reqmod_client
             .h1_adapter(
+                self.ctx.worker_id(),
                 self.ctx.server_config.limited_copy_config(),
                 self.ctx.h1_interception().body_line_max_len,
                 self.ctx.h1_interception().req_head_max_size,

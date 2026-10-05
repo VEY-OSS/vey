@@ -27,12 +27,13 @@ mod append;
 impl IcapReqmodClient {
     pub async fn imap_message_adaptor<I: IdleCheck>(
         &self,
+        worker_id: Option<usize>,
         copy_config: StreamCopyConfig,
         idle_checker: I,
         literal_size: u64,
     ) -> anyhow::Result<ImapMessageAdapter<I>> {
         let icap_client = self.inner.clone();
-        let (icap_connection, icap_options) = icap_client.fetch_connection().await?;
+        let (icap_connection, icap_options) = icap_client.fetch_connection(worker_id).await?;
         Ok(ImapMessageAdapter {
             icap_client,
             icap_connection,

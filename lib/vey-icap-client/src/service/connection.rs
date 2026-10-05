@@ -28,6 +28,7 @@ pub struct IcapClientConnection {
     reader_clean: bool,
     writer_clean: bool,
     reused_connection: bool,
+    lane: usize,
 }
 
 impl IcapClientConnection {
@@ -42,7 +43,16 @@ impl IcapClientConnection {
             reader_clean: true,
             writer_clean: true,
             reused_connection: false,
+            lane: 0,
         }
+    }
+
+    pub(super) fn set_lane(&mut self, lane: usize) {
+        self.lane = lane;
+    }
+
+    pub(super) fn lane(&self) -> usize {
+        self.lane
     }
 
     pub fn is_reused(&self) -> bool {
@@ -171,6 +181,7 @@ mod tests {
             reader_clean: true,
             writer_clean: true,
             reused_connection: false,
+            lane: 0,
         };
 
         // Idle live connection: nothing readable.
@@ -196,6 +207,7 @@ mod tests {
             reader_clean: true,
             writer_clean: true,
             reused_connection: false,
+            lane: 0,
         };
 
         server.write_all(b"garbage").await.unwrap();

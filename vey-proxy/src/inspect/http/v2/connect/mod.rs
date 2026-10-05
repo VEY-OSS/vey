@@ -168,6 +168,7 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
         if let Some(reqmod) = self.ctx.audit_handle.icap_reqmod_client() {
             match reqmod
                 .h2_adapter(
+                    self.ctx.worker_id(),
                     self.ctx.server_config.limited_copy_config(),
                     self.ctx.h1_interception().body_line_max_len,
                     self.ctx.h2_interception().max_header_list_size as usize,

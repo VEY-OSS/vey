@@ -114,14 +114,17 @@ impl Auditor {
     }
 
     fn set_agent_clients(&mut self) -> anyhow::Result<()> {
+        let workers = vey_daemon::runtime::worker::worker_count().max(1);
         if let Some(c) = self.config.icap_reqmod_service.clone() {
             self.icap_reqmod_service = Some(Arc::new(
-                IcapServiceClient::new(c).context("failed to create ICAP REQMOD client")?,
+                IcapServiceClient::with_worker_count(c, workers)
+                    .context("failed to create ICAP REQMOD client")?,
             ));
         }
         if let Some(c) = self.config.icap_respmod_service.clone() {
             self.icap_respmod_service = Some(Arc::new(
-                IcapServiceClient::new(c).context("failed to create ICAP RESPMOD client")?,
+                IcapServiceClient::with_worker_count(c, workers)
+                    .context("failed to create ICAP RESPMOD client")?,
             ));
         }
         #[cfg(feature = "quic")]

@@ -83,6 +83,7 @@ where
         {
             match client
                 .imap_message_adaptor(
+                    self.ctx.worker_id(),
                     self.ctx.server_config.limited_copy_config(),
                     self.ctx.idle_checker(),
                     literal_size,

@@ -284,6 +284,11 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
+    pub(crate) fn worker_id(&self) -> Option<usize> {
+        self.task_notes.worker_id
+    }
+
+    #[inline]
     fn server_force_quit(&self) -> bool {
         self.server_quit_policy.force_quit()
     }

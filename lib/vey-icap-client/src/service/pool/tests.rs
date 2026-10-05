@@ -50,7 +50,14 @@ fn make_dummy_pool(min: usize, max: usize) -> IcapConnectionPool {
 
     let connector = Arc::new(IcapConnector::new(Arc::clone(&config)).unwrap());
 
-    IcapConnectionPool::new(config, connector)
+    IcapConnectionPool::new(config, connector, 1)
+}
+
+fn make_lane_pool(min: usize, max: usize, lanes: usize) -> IcapConnectionPool {
+    let addr: SocketAddr = "127.0.0.1:1".parse().unwrap();
+    let config = Arc::new(test_icap_config(addr, min, max, Duration::from_secs(5)));
+    let connector = Arc::new(IcapConnector::new(Arc::clone(&config)).unwrap());
+    IcapConnectionPool::new(config, connector, lanes)
 }
 
 #[test]
@@ -62,7 +69,7 @@ fn try_put_accepts_clean_connection() {
 
     assert!(pool.try_put(conn));
 
-    assert_eq!(pool.idle_pool.lock().unwrap().len(), 1);
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 1);
 }
 
 #[test]
@@ -75,7 +82,7 @@ fn try_put_rejects_dirty_connection() {
     assert!(!conn.reusable());
     assert!(!pool.try_put(conn));
 
-    assert_eq!(pool.idle_pool.lock().unwrap().len(), 0);
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 0);
 }
 
 #[test]
@@ -93,7 +100,7 @@ fn try_put_respects_max_idle() {
     // Pool is full.
     assert!(!pool.try_put(conn3));
 
-    assert_eq!(pool.idle_pool.lock().unwrap().len(), 2);
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 2);
 }
 
 #[tokio::test]
@@ -111,7 +118,7 @@ async fn take_uses_lifo_order() {
     server2.write_all(b"B").await.unwrap();
 
     // conn2 was inserted last, so it should come out first.
-    let mut conn = pool.take().unwrap();
+    let mut conn = pool.take(0).unwrap();
 
     let mut buf = [0u8; 1];
     conn.reader.read_exact(&mut buf).await.unwrap();
@@ -131,7 +138,7 @@ fn expire_removes_old_connections() {
     let now = Instant::now();
 
     {
-        let mut idle = pool.idle_pool.lock().unwrap();
+        let mut idle = pool.lanes[0].idle.lock().unwrap();
 
         idle.push_back(IdleIcapConnection {
             conn: old_conn,
@@ -144,13 +151,13 @@ fn expire_removes_old_connections() {
         });
     }
 
-    assert_eq!(pool.idle_pool.lock().unwrap().len(), 2);
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 2);
 
-    let expired = pool.expire();
+    let expired = pool.expire(0);
 
     assert_eq!(expired, 1);
 
-    assert_eq!(pool.idle_pool.lock().unwrap().len(), 1);
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -158,11 +165,11 @@ async fn check_options_does_not_steal_idle_connections() {
     let pool = make_dummy_pool(0, 2);
     let (conn, _server) = dummy_connection();
     assert!(pool.try_put(conn));
-    assert_eq!(pool.idle_pool.lock().unwrap().len(), 1);
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 1);
 
-    pool.check_options().await;
+    pool.check_options(0).await;
 
-    assert_eq!(pool.idle_pool.lock().unwrap().len(), 1);
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -170,11 +177,11 @@ async fn refill_create_error_keeps_existing_idle() {
     let pool = make_dummy_pool(2, 4);
     let (conn, _server) = dummy_connection();
     assert!(pool.try_put(conn));
-    assert_eq!(pool.idle_pool.lock().unwrap().len(), 1);
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 1);
 
-    pool.refill().await;
+    pool.refill(0).await;
 
-    assert_eq!(pool.idle_pool.lock().unwrap().len(), 1);
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -185,14 +192,46 @@ async fn get_reuses_idle_connection() {
     let (conn, _server) = dummy_connection();
     assert!(pool.try_put(conn));
 
-    let got = pool.get().await.unwrap();
+    let got = pool.get(None).await.unwrap();
     assert!(got.is_reused());
-    assert_eq!(pool.idle_pool.lock().unwrap().len(), 0);
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 0);
 }
 
 #[tokio::test]
 async fn get_miss_fails_when_icap_unreachable() {
     let pool = make_dummy_pool(0, 2);
-    assert!(pool.get().await.is_err());
-    assert_eq!(pool.idle_pool.lock().unwrap().len(), 0);
+    assert!(pool.get(None).await.is_err());
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 0);
+}
+
+#[test]
+fn idle_connections_stay_on_their_worker_lane() {
+    let pool = make_lane_pool(0, 2, 2);
+    let (mut conn0, _server0) = dummy_connection();
+    let (mut conn1, _server1) = dummy_connection();
+    conn0.set_lane(0);
+    conn1.set_lane(1);
+
+    assert!(pool.try_put(conn0));
+    assert!(pool.try_put(conn1));
+
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 1);
+    assert_eq!(pool.lanes[1].idle.lock().unwrap().len(), 1);
+    assert_eq!(pool.lane_max_idle, 1);
+}
+
+#[tokio::test]
+async fn get_does_not_borrow_another_workers_connection() {
+    let pool = make_lane_pool(0, 4, 2);
+    pool.options
+        .store(Arc::new(IcapServiceOptions::new(crate::IcapMethod::Reqmod)));
+    let (conn, _server) = dummy_connection();
+    assert!(pool.try_put(conn));
+
+    assert!(pool.get(Some(1)).await.is_err());
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), 1);
+
+    let got = pool.get(Some(0)).await.unwrap();
+    assert!(got.is_reused());
+    assert_eq!(got.lane(), 0);
 }

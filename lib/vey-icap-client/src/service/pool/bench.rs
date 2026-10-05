@@ -47,7 +47,7 @@ async fn benchmark_get_during_refill() {
         assert!(pool.try_put(conn));
     }
 
-    assert_eq!(pool.idle_pool.lock().unwrap().len(), PREFILL);
+    assert_eq!(pool.lanes[0].idle.lock().unwrap().len(), PREFILL);
 
     let start_barrier = Arc::new(tokio::sync::Barrier::new(GET_COUNT + 2));
     let release_barrier = Arc::new(tokio::sync::Barrier::new(GET_COUNT + 1));
@@ -60,7 +60,7 @@ async fn benchmark_get_during_refill() {
 
         let start = Instant::now();
 
-        refill_pool.refill().await;
+        refill_pool.refill(0).await;
 
         start.elapsed()
     });
@@ -80,7 +80,7 @@ async fn benchmark_get_during_refill() {
 
             let start = Instant::now();
 
-            let conn = pool.get().await.unwrap();
+            let conn = pool.get(None).await.unwrap();
 
             let latency = start.elapsed();
 
@@ -119,7 +119,7 @@ async fn benchmark_get_during_refill() {
 
     let total_connections = accepted.load(Ordering::Relaxed);
     let rejected_returns = rejected_returns.load(Ordering::Relaxed);
-    let final_idle = pool.idle_pool.lock().unwrap().len();
+    let final_idle = pool.lanes[0].idle.lock().unwrap().len();
 
     println!("foreground gets:       {GET_COUNT}");
     println!("get p50:               {p50:?}");
@@ -142,5 +142,5 @@ fn percentile(samples: &[Duration], p: f64) -> Duration {
 fn make_test_pool(service_config: IcapServiceConfig) -> IcapConnectionPool {
     let config = Arc::new(service_config);
     let connector = Arc::new(IcapConnector::new(Arc::clone(&config)).unwrap());
-    IcapConnectionPool::new(config, connector)
+    IcapConnectionPool::new(config, connector, 1)
 }
