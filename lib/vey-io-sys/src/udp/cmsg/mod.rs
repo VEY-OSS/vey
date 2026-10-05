@@ -5,7 +5,7 @@
  */
 
 use std::io;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 
 #[cfg(unix)]
@@ -19,6 +19,9 @@ pub trait RecvAncillaryData {
     fn set_recv_interface(&mut self, id: u32);
     fn set_recv_dst_addr(&mut self, addr: IpAddr);
     fn set_timestamp(&mut self, ts: Duration);
+
+    /// Full original destination from `IP_ORIGDSTADDR` / `IPV6_ORIGDSTADDR`.
+    fn set_recv_orig_dst_addr(&mut self, _addr: SocketAddr) {}
 }
 
 pub struct RecvAncillaryBuffer {

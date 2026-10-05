@@ -143,6 +143,8 @@ pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     if config.transparent() {
         crate::sockopt::set_transparent(&socket, family)?;
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+        crate::sockopt::set_recv_origdstaddr(&socket, family)?;
     }
     let bind_addr = SockAddr::from(addr);
     socket.bind(&bind_addr)?;

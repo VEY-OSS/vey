@@ -7,6 +7,8 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use super::{RecvAncillaryBuffer, RecvAncillaryData};
+#[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
+use crate::RawSocketAddr;
 
 const fn cmsg_len(length: usize) -> usize {
     unsafe { libc::CMSG_LEN(length as _) as usize }
@@ -119,6 +121,16 @@ impl RecvAncillaryBuffer {
                         };
                         data.set_recv_interface(dl_addr.sdl_index as u32);
                     }
+                    #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
+                    libc::IP_ORIGDSTADDR => {
+                        let Some(addr) = RawSocketAddr::from_bytes(payload) else {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "invalid IP_ORIGDSTADDR",
+                            ));
+                        };
+                        data.set_recv_orig_dst_addr(addr);
+                    }
                     #[cfg(any(
                         target_os = "freebsd",
                         target_os = "openbsd",
@@ -158,6 +170,16 @@ impl RecvAncillaryBuffer {
                         let ip6 = Ipv6Addr::from(pktinfo.ipi6_addr.s6_addr);
                         data.set_recv_dst_addr(IpAddr::V6(ip6));
                     }
+                    #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
+                    libc::IPV6_ORIGDSTADDR => {
+                        let Some(addr) = RawSocketAddr::from_bytes(payload) else {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "invalid IPV6_ORIGDSTADDR",
+                            ));
+                        };
+                        data.set_recv_orig_dst_addr(addr);
+                    }
                     _ => {}
                 },
                 _ => {}
@@ -165,5 +187,101 @@ impl RecvAncillaryBuffer {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(all(
+    test,
+    any(target_os = "linux", target_os = "android", target_os = "freebsd")
+))]
+mod tests {
+    use std::io::IoSliceMut;
+    use std::mem::size_of;
+    use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+    use std::os::fd::AsRawFd;
+
+    use super::RecvAncillaryBuffer;
+    use crate::RawSocketAddr;
+    use crate::udp::RecvMsgHdr;
+
+    fn cmsg_buf(level: libc::c_int, cmsg_type: libc::c_int, payload: &[u8]) -> Vec<u8> {
+        let msg_len = unsafe { libc::CMSG_LEN(payload.len() as _) as usize };
+        let space = unsafe { libc::CMSG_SPACE(payload.len() as _) as usize };
+        let mut buf = vec![0u8; space];
+        unsafe {
+            let hdr = buf.as_mut_ptr().cast::<libc::cmsghdr>();
+            (*hdr).cmsg_len = msg_len as _;
+            (*hdr).cmsg_level = level;
+            (*hdr).cmsg_type = cmsg_type;
+        }
+        let data_off = unsafe { libc::CMSG_LEN(0) as usize };
+        buf[data_off..data_off + payload.len()].copy_from_slice(payload);
+        buf
+    }
+
+    fn sockaddr_bytes(addr: SocketAddr) -> Vec<u8> {
+        RawSocketAddr::from(addr).as_bytes().to_vec()
+    }
+
+    fn parse_dst(buf: &[u8], listen: SocketAddr) -> SocketAddr {
+        let mut payload = [0u8; 8];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut payload)]);
+        RecvAncillaryBuffer::parse_buf(buf, &mut hdr).unwrap();
+        hdr.dst_addr(listen)
+    }
+
+    #[test]
+    fn origdstaddr_keeps_port_distinct_from_listen_port() {
+        let orig = SocketAddr::from((Ipv4Addr::new(1, 2, 3, 4), 53));
+        let listen = SocketAddr::from((Ipv4Addr::LOCALHOST, 8123));
+        let buf = cmsg_buf(
+            libc::IPPROTO_IP,
+            libc::IP_ORIGDSTADDR,
+            &sockaddr_bytes(orig),
+        );
+        assert_eq!(parse_dst(&buf, listen), orig);
+    }
+
+    #[test]
+    fn ipv6_origdstaddr_keeps_full_address() {
+        let orig = SocketAddr::from((Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1), 443));
+        let listen = SocketAddr::from((Ipv6Addr::LOCALHOST, 8123));
+        let buf = cmsg_buf(
+            libc::IPPROTO_IPV6,
+            libc::IPV6_ORIGDSTADDR,
+            &sockaddr_bytes(orig),
+        );
+        assert_eq!(parse_dst(&buf, listen), orig);
+    }
+
+    #[test]
+    fn recvmsg_reports_original_ipv4_destination() {
+        let listener = std::net::UdpSocket::bind("0.0.0.0:0").unwrap();
+        let enable = 1 as libc::c_int;
+        let rc = unsafe {
+            libc::setsockopt(
+                listener.as_raw_fd(),
+                libc::IPPROTO_IP,
+                libc::IP_RECVORIGDSTADDR,
+                std::ptr::from_ref(&enable).cast(),
+                size_of::<libc::c_int>() as _,
+            )
+        };
+        assert_eq!(rc, 0, "{}", std::io::Error::last_os_error());
+
+        let bound = listener.local_addr().unwrap();
+        let target = SocketAddr::from((Ipv4Addr::LOCALHOST, bound.port()));
+        let client = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        client.send_to(b"ping", target).unwrap();
+
+        let mut bytes = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut bytes)]);
+        let mut control = RecvAncillaryBuffer::new();
+        let mut msg = unsafe { hdr.to_msghdr(&mut control) };
+        let n = crate::udp::recvmsg(&listener, &mut msg).unwrap();
+        hdr.n_recv = n;
+        control.parse(msg.msg_controllen as _, &mut hdr).unwrap();
+
+        assert_eq!(hdr.dst_addr(bound), target);
     }
 }

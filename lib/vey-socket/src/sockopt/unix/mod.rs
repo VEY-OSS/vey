@@ -167,6 +167,36 @@ pub(crate) fn set_recv_pktinfo_v4<T: AsRawFd>(fd: &T, enable: bool) -> io::Resul
     }
 }
 
+/// Ask the kernel to return the pre-NAT destination, including the original port.
+///
+/// `IP_TRANSPARENT` sockets bound to a specific address do not get that address from
+/// `IP_PKTINFO`. TPROXY leaves it in `IP_ORIGDSTADDR` / `IPV6_ORIGDSTADDR`.
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+pub(crate) fn set_recv_origdstaddr<T: AsRawFd>(fd: &T, family: AddressFamily) -> io::Result<()> {
+    let enable = 1 as c_int;
+    unsafe {
+        match family {
+            AddressFamily::Ipv4 => {
+                setsockopt(
+                    fd.as_raw_fd(),
+                    libc::IPPROTO_IP,
+                    libc::IP_RECVORIGDSTADDR,
+                    enable,
+                )?;
+            }
+            AddressFamily::Ipv6 => {
+                setsockopt(
+                    fd.as_raw_fd(),
+                    libc::IPPROTO_IPV6,
+                    libc::IPV6_RECVORIGDSTADDR,
+                    enable,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "dragonfly"))]
 pub(crate) fn set_recv_pktinfo_v4<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
     unsafe {

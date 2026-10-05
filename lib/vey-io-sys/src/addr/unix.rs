@@ -29,6 +29,30 @@ impl RawSocketAddr {
         (self.buf.as_mut_ptr() as _, size)
     }
 
+    #[cfg(test)]
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        let len = match self.sa_family() {
+            libc::AF_INET => size_of::<sockaddr_in>(),
+            libc::AF_INET6 => size_of::<sockaddr_in6>(),
+            _ => self.buf.len(),
+        };
+        &self.buf[..len]
+    }
+
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Option<SocketAddr> {
+        if bytes.len() < size_of::<libc::sa_family_t>() {
+            return None;
+        }
+        let mut raw = RawSocketAddr::default();
+        let n = bytes.len().min(raw.buf.len());
+        raw.buf[..n].copy_from_slice(&bytes[..n]);
+        match raw.sa_family() {
+            libc::AF_INET if n >= size_of::<sockaddr_in>() => raw.to_std(),
+            libc::AF_INET6 if n >= size_of::<sockaddr_in6>() => raw.to_std(),
+            _ => None,
+        }
+    }
+
     pub(crate) fn to_std(&self) -> Option<SocketAddr> {
         match self.sa_family() {
             libc::AF_INET => {

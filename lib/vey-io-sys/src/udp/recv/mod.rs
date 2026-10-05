@@ -47,6 +47,7 @@ pub struct RecvMsgHdr<'a, const C: usize> {
     pub n_recv: usize,
     c_addr: UnsafeCell<RawSocketAddr>,
     dst_ip: Option<IpAddr>,
+    orig_dst: Option<SocketAddr>,
     interface_id: Option<u32>,
 }
 
@@ -59,6 +60,10 @@ impl<const C: usize> RecvAncillaryData for RecvMsgHdr<'_, C> {
         self.dst_ip = Some(addr);
     }
 
+    fn set_recv_orig_dst_addr(&mut self, addr: SocketAddr) {
+        self.orig_dst = Some(addr);
+    }
+
     fn set_timestamp(&mut self, _ts: Duration) {}
 }
 
@@ -69,6 +74,7 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
             n_recv: 0,
             c_addr: UnsafeCell::new(RawSocketAddr::default()),
             dst_ip: None,
+            orig_dst: None,
             interface_id: None,
         }
     }
@@ -80,10 +86,13 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
 
     #[inline]
     pub fn dst_ip(&self) -> Option<IpAddr> {
-        self.dst_ip
+        self.orig_dst.map(|addr| addr.ip()).or(self.dst_ip)
     }
 
     pub fn dst_addr(&self, local_addr: SocketAddr) -> SocketAddr {
+        if let Some(addr) = self.orig_dst {
+            return addr;
+        }
         self.dst_ip
             .map(|ip| SocketAddr::new(ip, local_addr.port()))
             .unwrap_or(local_addr)
