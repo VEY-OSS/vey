@@ -14,7 +14,7 @@ struct {
 	__type(key, __u32);
 	__type(value, struct socket_id);
 	// BPF_F_RDONLY makes the userspace mmap read-only; BPF programs can still write.
-	__uint(map_flags, BPF_F_NO_COMMON_LRU | BPF_F_RDONLY);
+	__uint(map_flags, BPF_F_RDONLY);
 } udp_conn_track SEC(".maps");
 
 struct {
