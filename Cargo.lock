@@ -3282,11 +3282,11 @@ dependencies = [
 
 [[package]]
 name = "vey-jemalloc-sys"
-version = "0.1.4"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c5ce504856b155758a22655eba0bfc53e557e75c35e6c6208c1bb5e34d6c1b6"
+checksum = "e294e1c107420f0342318124e67ec813ad4f0bc91464b0b779cd81ee02a0c894"
 dependencies = [
- "bindgen 0.72.1",
+ "bindgen 0.73.2",
  "pkg-config",
  "vcpkg",
 ]
@@ -3423,11 +3423,11 @@ dependencies = [
 
 [[package]]
 name = "vey-mimalloc-sys"
-version = "0.2.7+3.4.3"
+version = "0.3.0+3.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ba7fe4eb17bbbc6543dde51507e6fb675e45beb77bde4ed6651b98692aebc5f"
+checksum = "786163b2fcb1f1b7b13d0feb0b3f2bad304792e8eb148accf875f74316a74042"
 dependencies = [
- "bindgen 0.72.1",
+ "bindgen 0.73.2",
  "cmake",
  "pkg-config",
  "vcpkg",
