@@ -5,8 +5,9 @@
 
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::{mem, ptr};
 
-use super::{RecvAncillaryBuffer, RecvAncillaryData};
+use super::{RecvAncillaryBuffer, RecvAncillaryData, SendAncillaryBuffer};
 #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
 use crate::RawSocketAddr;
 
@@ -187,6 +188,96 @@ impl RecvAncillaryBuffer {
         }
 
         Ok(())
+    }
+}
+
+impl SendAncillaryBuffer {
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "solaris",
+        target_os = "illumos",
+    ))]
+    pub(super) fn encode_v4(&mut self, ip: Ipv4Addr) -> Option<()> {
+        let mut info = unsafe { mem::zeroed::<libc::in_pktinfo>() };
+        info.ipi_spec_dst.s_addr = u32::from(ip).to_be();
+        self.write(
+            libc::IPPROTO_IP,
+            libc::IP_PKTINFO,
+            ptr::from_ref(&info).cast(),
+            size_of::<libc::in_pktinfo>(),
+        )
+    }
+
+    #[cfg(any(
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "netbsd",
+        target_os = "openbsd",
+    ))]
+    pub(super) fn encode_v4(&mut self, ip: Ipv4Addr) -> Option<()> {
+        let mut addr = unsafe { mem::zeroed::<libc::in_addr>() };
+        addr.s_addr = u32::from(ip).to_be();
+        self.write(
+            libc::IPPROTO_IP,
+            libc::IP_SENDSRCADDR,
+            ptr::from_ref(&addr).cast(),
+            size_of::<libc::in_addr>(),
+        )
+    }
+
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "solaris",
+        target_os = "illumos",
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "netbsd",
+        target_os = "openbsd",
+    )))]
+    pub(super) fn encode_v4(&mut self, ip: Ipv4Addr) -> Option<()> {
+        let _ = ip;
+        None
+    }
+
+    pub(super) fn encode_v6(&mut self, ip: Ipv6Addr) -> Option<()> {
+        let mut info = unsafe { mem::zeroed::<libc::in6_pktinfo>() };
+        info.ipi6_addr.s6_addr = ip.octets();
+        self.write(
+            libc::IPPROTO_IPV6,
+            libc::IPV6_PKTINFO,
+            ptr::from_ref(&info).cast(),
+            size_of::<libc::in6_pktinfo>(),
+        )
+    }
+
+    fn write(
+        &mut self,
+        level: libc::c_int,
+        cmsg_type: libc::c_int,
+        data: *const u8,
+        data_len: usize,
+    ) -> Option<()> {
+        let space = cmsg_space(data_len);
+        let msg_len = cmsg_len(data_len);
+        let offset = self.len;
+        let end = offset.checked_add(space)?;
+        if end > self.buf.len() {
+            return None;
+        }
+        self.buf[offset..end].fill(0);
+        unsafe {
+            let hdr = self.buf.as_mut_ptr().add(offset).cast::<libc::cmsghdr>();
+            (*hdr).cmsg_len = msg_len as _;
+            (*hdr).cmsg_level = level;
+            (*hdr).cmsg_type = cmsg_type;
+            ptr::copy_nonoverlapping(data, libc::CMSG_DATA(hdr), data_len);
+        }
+        self.len = end;
+        Some(())
     }
 }
 

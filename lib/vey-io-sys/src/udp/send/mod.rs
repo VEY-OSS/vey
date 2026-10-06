@@ -7,6 +7,7 @@ use std::cell::UnsafeCell;
 use std::io::IoSlice;
 use std::net::SocketAddr;
 
+use super::cmsg::SendAncillaryBuffer;
 use crate::RawSocketAddr;
 
 #[cfg(unix)]
@@ -43,6 +44,7 @@ pub use buf::with_sendmsg_x_buf;
 pub struct SendMsgHdr<'a, const C: usize> {
     pub iov: [IoSlice<'a>; C],
     c_addr: Option<UnsafeCell<RawSocketAddr>>,
+    ancillary: Option<SendAncillaryBuffer>,
     pub n_send: usize,
 }
 
@@ -52,8 +54,14 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
         SendMsgHdr {
             iov,
             c_addr,
+            ancillary: None,
             n_send: 0,
         }
+    }
+
+    /// Bind an ancillary buffer, creating an empty one when absent.
+    pub fn bind_ancillary(&mut self) -> &mut SendAncillaryBuffer {
+        self.ancillary.get_or_insert_with(SendAncillaryBuffer::new)
     }
 }
 

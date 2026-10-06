@@ -24,15 +24,22 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
                 None => (ptr::null_mut(), 0),
             };
 
+            let control = match &self.ancillary {
+                Some(ancillary) if !ancillary.is_empty() => WinSock::WSABUF {
+                    len: ancillary.len() as _,
+                    buf: ancillary.as_ptr(),
+                },
+                _ => WinSock::WSABUF {
+                    len: 0,
+                    buf: ptr::null_mut(),
+                },
+            };
             WinSock::WSAMSG {
                 name,
                 namelen,
                 lpBuffers: self.iov.as_ptr() as _,
                 dwBufferCount: C as _,
-                Control: WinSock::WSABUF {
-                    len: 0,
-                    buf: ptr::null_mut(),
-                },
+                Control: control,
                 dwFlags: 0,
             }
         }

@@ -8,7 +8,7 @@ use std::{io, mem};
 
 use windows_sys::Win32::Networking::WinSock;
 
-use super::{RecvAncillaryBuffer, RecvAncillaryData};
+use super::{RecvAncillaryBuffer, RecvAncillaryData, SendAncillaryBuffer};
 
 const fn cmsg_align(len: usize) -> usize {
     (len + mem::align_of::<usize>() - 1) & !(mem::align_of::<usize>() - 1)
@@ -105,5 +105,56 @@ impl RecvAncillaryBuffer {
         }
 
         Ok(())
+    }
+}
+
+impl SendAncillaryBuffer {
+    pub(super) fn encode_v4(&mut self, ip: Ipv4Addr) -> Option<()> {
+        let mut info = unsafe { mem::zeroed::<WinSock::IN_PKTINFO>() };
+        unsafe { info.ipi_addr.S_un.S_addr = u32::from(ip).to_be() };
+        self.write(
+            WinSock::IPPROTO_IP,
+            WinSock::IP_PKTINFO,
+            std::ptr::from_ref(&info).cast(),
+            size_of::<WinSock::IN_PKTINFO>(),
+        )
+    }
+
+    pub(super) fn encode_v6(&mut self, ip: Ipv6Addr) -> Option<()> {
+        let mut info = unsafe { mem::zeroed::<WinSock::IN6_PKTINFO>() };
+        unsafe { info.ipi6_addr.u.Byte = ip.octets() };
+        self.write(
+            WinSock::IPPROTO_IPV6,
+            WinSock::IPV6_PKTINFO,
+            std::ptr::from_ref(&info).cast(),
+            size_of::<WinSock::IN6_PKTINFO>(),
+        )
+    }
+
+    fn write(
+        &mut self,
+        level: i32,
+        cmsg_type: i32,
+        data: *const u8,
+        data_len: usize,
+    ) -> Option<()> {
+        let space = cmsg_space(data_len);
+        let msg_len = cmsg_len(data_len);
+        let offset = self.len;
+        let end = offset.checked_add(space)?;
+        if end > self.buf.len() {
+            return None;
+        }
+        self.buf[offset..end].fill(0);
+        unsafe {
+            let hdr = self.buf.as_mut_ptr().add(offset).cast::<WinSock::CMSGHDR>();
+            (*hdr).cmsg_len = msg_len;
+            (*hdr).cmsg_level = level;
+            (*hdr).cmsg_type = cmsg_type;
+            let data_off = cmsg_len(0);
+            std::ptr::copy_nonoverlapping(data, hdr.cast::<u8>().add(data_off), data_len);
+        }
+        self.len = end;
+        Some(())
     }
 }

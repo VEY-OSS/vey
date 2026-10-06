@@ -4,8 +4,8 @@
  */
 
 mod cmsg;
-pub use cmsg::RecvAncillaryBuffer;
 use cmsg::RecvAncillaryData;
+pub use cmsg::{RecvAncillaryBuffer, SendAncillaryBuffer};
 
 mod recv;
 pub use recv::*;

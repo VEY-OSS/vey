@@ -157,6 +157,18 @@ impl UdpListenConfig {
         self.non_reloadable.transparent
     }
 
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+    #[inline]
+    pub fn reply_src_addr(&self) -> bool {
+        self.transparent() || self.address().ip().is_unspecified()
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd")))]
+    #[inline]
+    pub fn reply_src_addr(&self) -> bool {
+        self.address().ip().is_unspecified()
+    }
+
     #[inline]
     pub fn instance(&self) -> usize {
         self.non_reloadable.instance.max(self.non_reloadable.scale)

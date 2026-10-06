@@ -27,6 +27,12 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
             h.msg_namelen = c_addr_len as _;
             h.msg_iov = self.iov.as_ptr() as _;
             h.msg_iovlen = C as _;
+            if let Some(ancillary) = &self.ancillary
+                && !ancillary.is_empty()
+            {
+                h.msg_control = ancillary.as_ptr().cast();
+                h.msg_controllen = ancillary.len() as _;
+            }
             h
         }
     }
@@ -62,6 +68,31 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
             // See https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/socket_private.h
             h
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::IoSlice;
+    use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
+
+    use crate::udp::{SendMsgHdr, UdpSocketExt};
+
+    #[test]
+    fn sendmsg_accepts_local_ipv4_source() {
+        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let addr = socket.local_addr().unwrap();
+        let payload = b"src-cmsg";
+        let mut hdr = SendMsgHdr::new([IoSlice::new(payload)], Some(addr));
+        let ancillary = hdr.bind_ancillary();
+        ancillary.push_src_ip(Ipv4Addr::LOCALHOST.into());
+        ancillary.finalize().unwrap();
+        socket.sendmsg(&hdr).unwrap();
+
+        let mut buf = [0u8; 16];
+        let (n, peer) = socket.recv_from(&mut buf).unwrap();
+        assert_eq!(&buf[..n], payload);
+        assert_eq!(peer, SocketAddr::from((Ipv4Addr::LOCALHOST, addr.port())));
     }
 }
 

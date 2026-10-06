@@ -303,9 +303,20 @@ struct PacketRecvSender {
     socket: Arc<UdpSocket>,
     event_receiver: mpsc::Receiver<Event>,
     global_event_sender: mpsc::Sender<Event>,
+    set_src_addr: bool,
 }
 
 impl PacketRecvSender {
+    fn reply_hdr<'a>(&self, data: &'a [u8], key: ClientConnectionKey) -> SendMsgHdr<'a, 1> {
+        let mut hdr = SendMsgHdr::new([IoSlice::new(data)], Some(key.sock_peer_addr));
+        if self.set_src_addr {
+            let ancillary = hdr.bind_ancillary();
+            ancillary.push_src_ip(key.sock_local_addr.ip());
+            let _ = ancillary.finalize();
+        }
+        hdr
+    }
+
     async fn run_to_end(mut self) {
         let mut event_recv_buf: Vec<Event> = Vec::with_capacity(EVENT_RECV_BATCH_SIZE);
 
@@ -333,7 +344,7 @@ impl PacketRecvSender {
         for event in events.drain(..) {
             let global_event = if let Event::Packet(key, data) = event {
                 match poll_fn(|cx| {
-                    let hdr = SendMsgHdr::new([IoSlice::new(&data)], Some(key.sock_peer_addr));
+                    let hdr = self.reply_hdr(&data, key);
                     self.socket.poll_sendmsg(cx, &hdr)
                 })
                 .await
@@ -375,10 +386,7 @@ impl PacketRecvSender {
             let consumed = match poll_fn(|cx| {
                 let mut headers: SmallVec<[SendMsgHdr<1>; EVENT_RECV_BATCH_SIZE]> = SmallVec::new();
                 for (key, data) in &data_events {
-                    headers.push(SendMsgHdr::new(
-                        [IoSlice::new(data)],
-                        Some(key.sock_peer_addr),
-                    ))
+                    headers.push(self.reply_hdr(data, *key))
                 }
                 self.socket.poll_batch_sendmsg(cx, &mut headers)
             })
@@ -412,7 +420,7 @@ struct RuntimeState {
 }
 
 impl RuntimeState {
-    fn new(socket: UdpSocket, send_queue_size: usize) -> Self {
+    fn new(socket: UdpSocket, send_queue_size: usize, set_src_addr: bool) -> Self {
         let socket = Arc::new(socket);
         let (global_event_sender, global_event_receiver) = mpsc::channel(send_queue_size);
         let (event_sender, event_receiver) = mpsc::channel(send_queue_size);
@@ -420,6 +428,7 @@ impl RuntimeState {
             socket: socket.clone(),
             event_receiver,
             global_event_sender,
+            set_src_addr,
         };
         tokio::spawn(packet_recv_sender.run_to_end());
         RuntimeState {
@@ -720,7 +729,9 @@ where
         let raw_socket = RawSocket::from(&socket);
         let mut ct_table =
             LruCache::with_hasher(self.conn_track.max_sessions(), FixedState::with_seed(0));
-        let mut rt_state = RuntimeState::new(socket, self.conn_track.send_queue_size());
+        let set_src_addr = self.listen_config.reply_src_addr();
+        let mut rt_state =
+            RuntimeState::new(socket, self.conn_track.send_queue_size(), set_src_addr);
 
         let mut event_recv_buf: Vec<Event> = Vec::with_capacity(EVENT_RECV_BATCH_SIZE);
 
