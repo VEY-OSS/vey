@@ -39,6 +39,7 @@ impl RawSocketAddr {
         &self.buf[..len]
     }
 
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
     pub(crate) fn from_bytes(bytes: &[u8]) -> Option<SocketAddr> {
         if bytes.len() < size_of::<libc::sa_family_t>() {
             return None;
