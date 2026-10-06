@@ -298,10 +298,13 @@ server:
     listen: "127.0.0.1:1234"
   - name: transparent_udp
     escaper: default
-    auditor: default  # Needed for protocol inspection, TLS interception, and similar features
     type: udp_tproxy
-    listen: "127.0.0.1:1234"
+    listen: "127.0.0.1:53" # Must be the original destination port
 ```
+
+UDP replies use that listen port as the source port and the original destination IP as the source IP.
+Redirect each destination port to a `udp_tproxy` server listening on the same port. One server covers every
+destination address on that port.
 
 The required system configuration depends on the operating system:
 

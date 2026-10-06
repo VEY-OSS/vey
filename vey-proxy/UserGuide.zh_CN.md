@@ -285,10 +285,11 @@ server:
     listen: "127.0.0.1:1234"
   - name: transparent_udp
     escaper: default
-    auditor: default  # 如果需要进行协议识别及TLS劫持等
     type: udp_tproxy
-    listen: "127.0.0.1:1234"
+    listen: "127.0.0.1:53" # 必须是原始目的端口
 ```
+
+UDP 回包的源端口是监听端口，源地址是原始目的地址。每个目的端口单独配置一个 `udp_tproxy`，防火墙把报文转到这个相同的端口。同一端口上的各个目的地址可以共用这一条监听。
 
 需要使用的系统配置取决于系统类型：
 

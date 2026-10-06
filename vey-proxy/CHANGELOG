@@ -2,6 +2,9 @@ CHANGELOG
 
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
+v1.15.1:
+ - BUG FIX: UDP replies from a transparent or unspecified listener use the received destination as the source IP
+
 v1.15.0:
  - BUG FIX: HTTP/1 response headers that start arriving while the request body is still being sent honor the response-header timeout
  - BUG FIX: an idle HTTP connection and an adaptation send honor the escaper expiry

@@ -47,10 +47,26 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 
 On Linux, FreeBSD and OpenBSD, the listener is always switched into transparent
 mode. There is no separate ``listen_transparent`` key for this server type.
+Replies leave from this socket: the source port is the bound port, and the
+source IP is the original destination IP.
 
-On DragonFly BSD no such option is needed: ``ipfw fwd`` keeps the original
-destination address, which is read from the received control message, so a
-listener bound to a local address works as is.
+.. versionchanged:: 1.15.1 set the reply source IP from the original destination, and from the received destination when the listen address is unspecified
+
+The firewall must deliver each packet to that same port. One ``udp_tproxy``
+server covers one destination port and any number of destination addresses.
+For example, DNS intercepted at port 53 listens on ``127.0.0.1:53`` (or
+``[::]:53``), and the TPROXY, ``ipfw fwd``, or ``divert-to`` rule sends the
+packet to port 53.
+
+A listener bound to ``0.0.0.0`` or ``::`` sets the reply source IP to the
+destination address of the received packet. On a host with several addresses,
+the reply then uses the address the client sent to.
+
+On DragonFly BSD the listener is not switched into transparent mode.
+``ipfw fwd`` keeps the original destination address, which is read from the
+received control message. The reply source IP is the bound address. Bind to
+an unspecified address when every original destination is a local address of
+this host; the reply source IP is then the destination of the received packet.
 
 **default**: not set
 
