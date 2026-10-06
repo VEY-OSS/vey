@@ -71,31 +71,6 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::io::IoSlice;
-    use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
-
-    use crate::udp::{SendMsgHdr, UdpSocketExt};
-
-    #[test]
-    fn sendmsg_accepts_local_ipv4_source() {
-        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
-        let addr = socket.local_addr().unwrap();
-        let payload = b"src-cmsg";
-        let mut hdr = SendMsgHdr::new([IoSlice::new(payload)], Some(addr));
-        let ancillary = hdr.bind_ancillary();
-        ancillary.push_src_ip(Ipv4Addr::LOCALHOST.into());
-        ancillary.finalize().unwrap();
-        socket.sendmsg(&hdr).unwrap();
-
-        let mut buf = [0u8; 16];
-        let (n, peer) = socket.recv_from(&mut buf).unwrap();
-        assert_eq!(&buf[..n], payload);
-        assert_eq!(peer, SocketAddr::from((Ipv4Addr::LOCALHOST, addr.port())));
-    }
-}
-
 pub fn sendmsg<T: AsRawFd>(fd: &T, msghdr: &mut libc::msghdr) -> io::Result<usize> {
     let r = unsafe { libc::sendmsg(fd.as_raw_fd(), ptr::from_mut(msghdr), libc::MSG_NOSIGNAL) };
     if r < 0 {
@@ -139,5 +114,30 @@ pub fn sendmsg_x<T: AsRawFd>(fd: &T, msgvec: &mut [crate::ffi::msghdr_x]) -> io:
         Err(io::Error::last_os_error())
     } else {
         Ok(r as usize)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::IoSlice;
+    use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
+
+    use crate::udp::{SendMsgHdr, UdpSocketExt};
+
+    #[test]
+    fn sendmsg_accepts_local_ipv4_source() {
+        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let addr = socket.local_addr().unwrap();
+        let payload = b"src-cmsg";
+        let mut hdr = SendMsgHdr::new([IoSlice::new(payload)], Some(addr));
+        let ancillary = hdr.bind_ancillary();
+        ancillary.push_src_ip(Ipv4Addr::LOCALHOST.into());
+        ancillary.finalize().unwrap();
+        socket.sendmsg(&hdr).unwrap();
+
+        let mut buf = [0u8; 16];
+        let (n, peer) = socket.recv_from(&mut buf).unwrap();
+        assert_eq!(&buf[..n], payload);
+        assert_eq!(peer, SocketAddr::from((Ipv4Addr::LOCALHOST, addr.port())));
     }
 }

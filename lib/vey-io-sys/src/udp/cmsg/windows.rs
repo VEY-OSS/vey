@@ -111,7 +111,7 @@ impl RecvAncillaryBuffer {
 impl SendAncillaryBuffer {
     pub(super) fn encode_v4(&mut self, ip: Ipv4Addr) -> Option<()> {
         let mut info = unsafe { mem::zeroed::<WinSock::IN_PKTINFO>() };
-        unsafe { info.ipi_addr.S_un.S_addr = u32::from(ip).to_be() };
+        info.ipi_addr.S_un.S_addr = u32::from(ip).to_be();
         self.write(
             WinSock::IPPROTO_IP,
             WinSock::IP_PKTINFO,
@@ -122,7 +122,7 @@ impl SendAncillaryBuffer {
 
     pub(super) fn encode_v6(&mut self, ip: Ipv6Addr) -> Option<()> {
         let mut info = unsafe { mem::zeroed::<WinSock::IN6_PKTINFO>() };
-        unsafe { info.ipi6_addr.u.Byte = ip.octets() };
+        info.ipi6_addr.u.Byte = ip.octets();
         self.write(
             WinSock::IPPROTO_IPV6,
             WinSock::IPV6_PKTINFO,
