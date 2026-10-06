@@ -29,7 +29,10 @@ impl RawSocketAddr {
         (self.buf.as_mut_ptr() as _, size)
     }
 
-    #[cfg(test)]
+    #[cfg(all(
+        test,
+        any(target_os = "linux", target_os = "android", target_os = "freebsd")
+    ))]
     pub(crate) fn as_bytes(&self) -> &[u8] {
         let len = match self.sa_family() {
             libc::AF_INET => size_of::<sockaddr_in>(),
