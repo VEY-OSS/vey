@@ -8,12 +8,12 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
 use bytes::Bytes;
-use http::{HeaderMap, HeaderName, HeaderValue};
+use http::HeaderName;
 
 use super::value::HeaderValueParam;
-use crate::net::{H1HeaderMap, H1HeaderValue, Host};
+use crate::net::Host;
 
-const X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
+pub(super) const X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
 const X_FORWARDED_HOST: HeaderName = HeaderName::from_static("x-forwarded-host");
 const X_FORWARDED_PROTO: HeaderName = HeaderName::from_static("x-forwarded-proto");
 const X_FORWARDED_PORT: HeaderName = HeaderName::from_static("x-forwarded-port");
@@ -36,6 +36,24 @@ impl FromStr for HttpForwardedHeaderType {
             "classic" | "enable" => Ok(HttpForwardedHeaderType::Classic),
             "standard" | "rfc7239" => Ok(HttpForwardedHeaderType::Standard),
             _ => Err(()),
+        }
+    }
+}
+
+impl HttpForwardedHeaderType {
+    pub(super) fn for_each_header(self, mut call: impl FnMut(HeaderName)) {
+        match self {
+            HttpForwardedHeaderType::Classic => {
+                call(X_FORWARDED_FOR);
+                call(X_FORWARDED_PROTO);
+                call(X_FORWARDED_HOST);
+                call(X_FORWARDED_PORT);
+                call(X_FORWARDED_BY);
+            }
+            HttpForwardedHeaderType::Standard => {
+                call(http::header::FORWARDED);
+            }
+            HttpForwardedHeaderType::Disable => {}
         }
     }
 }
@@ -70,75 +88,47 @@ pub struct ForwardedValue {
     port: u16,
     proto: Option<ForwardedProto>,
     host: Host,
+    by: Option<SocketAddr>,
 }
 
 impl ForwardedValue {
-    pub fn from_client(client: SocketAddr, proto: ForwardedProto, host: &Host) -> Self {
+    pub fn from_client(client: SocketAddr, proto: ForwardedProto, host: Host) -> Self {
         ForwardedValue {
             ip: client.ip(),
             port: client.port(),
             proto: Some(proto),
-            host: host.clone(),
+            host,
+            by: None,
         }
     }
 
-    pub fn strip_h1(map: &mut H1HeaderMap, ty: HttpForwardedHeaderType) {
-        strip(ty, |name| {
-            map.remove(name);
-        });
+    pub fn with_by(mut self, by: SocketAddr) -> Self {
+        self.by = Some(by);
+        self
     }
 
-    pub fn strip_http(map: &mut HeaderMap, ty: HttpForwardedHeaderType) {
-        strip(ty, |name| {
-            map.remove(name);
-        });
-    }
-
-    pub fn append_to_h1(&self, map: &mut H1HeaderMap, ty: HttpForwardedHeaderType, by: SocketAddr) {
-        match ty {
-            HttpForwardedHeaderType::Disable => {}
-            HttpForwardedHeaderType::Classic => self.write_classic(|n, v| {
-                map.append(n, unsafe { H1HeaderValue::from_buf_unchecked(v) });
-            }),
-            HttpForwardedHeaderType::Standard => {
-                map.append(http::header::FORWARDED, unsafe {
-                    H1HeaderValue::from_buf_unchecked(self.standard_field(by))
-                });
-            }
-        }
-    }
-
-    pub fn append_to_http(&self, map: &mut HeaderMap, ty: HttpForwardedHeaderType, by: SocketAddr) {
-        match ty {
-            HttpForwardedHeaderType::Disable => {}
-            HttpForwardedHeaderType::Classic => self.write_classic(|n, v| {
-                map.append(n, unsafe { HeaderValue::from_maybe_shared_unchecked(v) });
-            }),
-            HttpForwardedHeaderType::Standard => {
-                map.append(http::header::FORWARDED, unsafe {
-                    HeaderValue::from_maybe_shared_unchecked(Bytes::from(self.standard_field(by)))
-                });
-            }
-        }
-    }
-
-    fn write_classic(&self, mut append: impl FnMut(HeaderName, Bytes)) {
-        append(X_FORWARDED_FOR, Bytes::from(self.ip.to_string()));
+    pub(super) fn for_each_classic(&self, mut call: impl FnMut(HeaderName, Bytes)) {
+        call(X_FORWARDED_FOR, Bytes::from(self.ip.to_string()));
         if let Some(proto) = self.proto {
-            append(X_FORWARDED_PROTO, Bytes::from_static(proto.as_bytes()));
+            call(X_FORWARDED_PROTO, Bytes::from_static(proto.as_bytes()));
         }
-        append(X_FORWARDED_HOST, Bytes::from(self.host.to_string()));
+        call(X_FORWARDED_HOST, Bytes::from(self.host.to_string()));
         if self.port != 0 {
-            append(X_FORWARDED_PORT, Bytes::from(self.port.to_string()));
+            call(X_FORWARDED_PORT, Bytes::from(self.port.to_string()));
+        }
+        if let Some(by) = self.by {
+            call(X_FORWARDED_BY, Bytes::from(by.to_string()));
         }
     }
 
-    fn standard_field(&self, by: SocketAddr) -> Vec<u8> {
+    pub(super) fn standard_field(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(64);
         buf.extend_from_slice(b"for=");
         HeaderValueParam::serialize_node(&mut buf, self.ip, self.port);
-        buf.extend_from_slice(b"; by=");
-        HeaderValueParam::serialize_node(&mut buf, by.ip(), by.port());
+        if let Some(by) = self.by {
+            buf.extend_from_slice(b"; by=");
+            HeaderValueParam::serialize_node(&mut buf, by.ip(), by.port());
+        }
         if let Some(proto) = self.proto {
             buf.extend_from_slice(b"; proto=");
             buf.extend_from_slice(proto.as_bytes());
@@ -149,26 +139,13 @@ impl ForwardedValue {
     }
 }
 
-fn strip(ty: HttpForwardedHeaderType, mut remove: impl FnMut(HeaderName)) {
-    match ty {
-        HttpForwardedHeaderType::Classic => {
-            remove(X_FORWARDED_FOR);
-            remove(X_FORWARDED_PROTO);
-            remove(X_FORWARDED_HOST);
-            remove(X_FORWARDED_PORT);
-            remove(X_FORWARDED_BY);
-        }
-        HttpForwardedHeaderType::Standard => {
-            remove(http::header::FORWARDED);
-        }
-        HttpForwardedHeaderType::Disable => {}
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use http::{HeaderMap, HeaderValue};
+
+    use super::super::HeaderMapExt;
     use crate::net::Host;
 
     #[test]
@@ -252,19 +229,19 @@ mod tests {
         map
     }
 
-    fn this_hop() -> (ForwardedValue, SocketAddr) {
+    fn this_hop() -> ForwardedValue {
         let client = "192.0.2.50:1234".parse().unwrap();
         let host = Host::from_str("app.example").unwrap();
-        let v = ForwardedValue::from_client(client, ForwardedProto::Http, &host);
-        (v, "10.0.0.2:80".parse().unwrap())
+        ForwardedValue::from_client(client, ForwardedProto::Http, host)
+            .with_by("10.0.0.2:80".parse().unwrap())
     }
 
     #[test]
     fn untrusted_strips_inbound_then_appends_this_hop() {
         let mut map = forwarded_map();
-        let (v, by) = this_hop();
-        ForwardedValue::strip_http(&mut map, HttpForwardedHeaderType::Classic);
-        v.append_to_http(&mut map, HttpForwardedHeaderType::Classic, by);
+        let v = this_hop();
+        map.strip_forwarded(HttpForwardedHeaderType::Classic);
+        map.append_forwarded(&v, HttpForwardedHeaderType::Classic);
         let xff: Vec<_> = map
             .get_all("x-forwarded-for")
             .iter()
@@ -278,12 +255,12 @@ mod tests {
             map.get(http::header::FORWARDED).unwrap(),
             "for=192.0.2.8; proto=https; host=app.example"
         );
-        assert!(!map.contains_key("x-forwarded-by"));
+        assert_eq!(map.get("x-forwarded-by").unwrap(), "10.0.0.2:80");
         assert_eq!(map.get("host").unwrap(), "keep.example");
 
         let mut map = forwarded_map();
-        ForwardedValue::strip_http(&mut map, HttpForwardedHeaderType::Standard);
-        v.append_to_http(&mut map, HttpForwardedHeaderType::Standard, by);
+        map.strip_forwarded(HttpForwardedHeaderType::Standard);
+        map.append_forwarded(&v, HttpForwardedHeaderType::Standard);
         assert_eq!(
             map.get(http::header::FORWARDED).unwrap().as_bytes(),
             br#"for="192.0.2.50:1234"; by="10.0.0.2:80"; proto=http; host=app.example"#
@@ -295,9 +272,9 @@ mod tests {
     #[test]
     fn disable_neither_strips_nor_appends() {
         let mut map = forwarded_map();
-        let (v, by) = this_hop();
-        ForwardedValue::strip_http(&mut map, HttpForwardedHeaderType::Disable);
-        v.append_to_http(&mut map, HttpForwardedHeaderType::Disable, by);
+        let v = this_hop();
+        map.strip_forwarded(HttpForwardedHeaderType::Disable);
+        map.append_forwarded(&v, HttpForwardedHeaderType::Disable);
         assert_eq!(map.get("x-forwarded-for").unwrap(), "203.0.113.9");
         assert_eq!(
             map.get(http::header::FORWARDED).unwrap(),
@@ -313,8 +290,8 @@ mod tests {
     #[test]
     fn trusted_keeps_inbound_then_appends_this_hop() {
         let mut map = forwarded_map();
-        let (v, by) = this_hop();
-        v.append_to_http(&mut map, HttpForwardedHeaderType::Classic, by);
+        let v = this_hop();
+        map.append_forwarded(&v, HttpForwardedHeaderType::Classic);
         let xff: Vec<_> = map
             .get_all("x-forwarded-for")
             .iter()
@@ -328,7 +305,12 @@ mod tests {
         );
         assert!(map.get_all("x-forwarded-proto").iter().any(|v| v == "http"));
         assert!(map.contains_key(http::header::FORWARDED));
-        assert_eq!(map.get("x-forwarded-by").unwrap(), "10.0.0.9");
+        let xfb: Vec<_> = map
+            .get_all("x-forwarded-by")
+            .iter()
+            .map(|v| v.to_str().unwrap())
+            .collect();
+        assert_eq!(xfb, ["10.0.0.9", "10.0.0.2:80"]);
         assert_eq!(map.get("host").unwrap(), "keep.example");
     }
 
@@ -336,13 +318,10 @@ mod tests {
     fn standard_ipv6_is_quoted_and_bracketed() {
         let client = "[2001:db8::1]:443".parse().unwrap();
         let host = Host::from_str("2001:db8::8").unwrap();
-        let v = ForwardedValue::from_client(client, ForwardedProto::Https, &host);
+        let v = ForwardedValue::from_client(client, ForwardedProto::Https, host)
+            .with_by("[2001:db8::2]:8080".parse().unwrap());
         let mut map = HeaderMap::new();
-        v.append_to_http(
-            &mut map,
-            HttpForwardedHeaderType::Standard,
-            "[2001:db8::2]:8080".parse().unwrap(),
-        );
+        map.append_forwarded(&v, HttpForwardedHeaderType::Standard);
         assert_eq!(
             map.get(http::header::FORWARDED).unwrap().as_bytes(),
             br#"for="[2001:db8::1]:443"; by="[2001:db8::2]:8080"; proto=https; host="[2001:db8::8]""#

@@ -16,6 +16,9 @@ pub use value::H1HeaderValue;
 mod server_id;
 pub use server_id::HttpServerId;
 
+mod ext;
+pub use ext::HeaderMapExt;
+
 mod forwarded;
 pub use forwarded::{ForwardedProto, ForwardedValue, HttpForwardedHeaderType};
 

@@ -13,7 +13,7 @@ use h2::ext::Protocol;
 use h2::server::SendResponse;
 use http::{Method, Request};
 
-use vey_types::net::HttpUpgradeToken;
+use vey_types::net::{HeaderMapExt, HttpUpgradeToken};
 
 use super::{H2ConnectTask, H2ExtendedConnectTask, H2ForwardTask};
 use crate::config::server::ServerConfig;
@@ -28,8 +28,7 @@ pub(super) async fn transfer<SC>(
     SC: ServerConfig + Send + Sync + 'static,
 {
     if ctx.h1_interception().steal_forwarded_for {
-        clt_req.headers_mut().remove(http::header::FORWARDED);
-        clt_req.headers_mut().remove("x-forwarded-for");
+        clt_req.headers_mut().steal_forwarded_for();
     }
     let clt_stream_id = clt_send_rsp.stream_id();
     if clt_req.method().eq(&Method::CONNECT) {

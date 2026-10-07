@@ -22,7 +22,9 @@ use uuid::Uuid;
 use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use vey_daemon::stat::task::TcpStreamTaskStats;
 use vey_h2::RequestExt;
-use vey_types::net::{AlpnProtocol, ForwardedValue, Host, HttpForwardedHeaderType, UpstreamAddr};
+use vey_types::net::{
+    AlpnProtocol, ForwardedValue, HeaderMapExt, Host, HttpForwardedHeaderType, UpstreamAddr,
+};
 
 use super::{CommonTaskContext, H2StreamTransferError};
 use crate::audit::AuditContext;
@@ -115,10 +117,11 @@ impl H2TaskContext {
         }
         let host = req.host();
         if !self.site_ctx.site().trusts_forwarded_from(self.client_ip()) {
-            ForwardedValue::strip_http(req.headers_mut(), ty);
+            req.headers_mut().strip_forwarded(ty);
         }
-        ForwardedValue::from_client(self.client_addr(), self.forwarded_proto, &host)
-            .append_to_http(req.headers_mut(), ty, self.server_addr());
+        let forwarded = ForwardedValue::from_client(self.client_addr(), self.forwarded_proto, host)
+            .with_by(self.server_addr());
+        req.headers_mut().append_forwarded(&forwarded, ty);
     }
 
     pub(super) fn local_error_response(

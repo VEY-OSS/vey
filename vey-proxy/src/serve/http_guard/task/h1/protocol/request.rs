@@ -12,8 +12,8 @@ use tokio::time::Instant;
 
 use vey_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
 use vey_types::net::{
-    ForwardedProto, ForwardedValue, HttpForwardedHeaderType, HttpServerId, HttpUpgradeToken,
-    UpstreamAddr, ViaValue,
+    ForwardedProto, ForwardedValue, HeaderMapExt, HttpForwardedHeaderType, HttpServerId,
+    HttpUpgradeToken, UpstreamAddr, ViaValue,
 };
 
 use super::HttpClientReader;
@@ -106,9 +106,12 @@ where
             return;
         }
         if !trusted {
-            ForwardedValue::strip_h1(&mut self.inner.end_to_end_headers, ty);
+            self.inner.end_to_end_headers.strip_forwarded(ty);
         }
-        ForwardedValue::from_client(client, proto, self.inner.host.as_ref().unwrap().host())
-            .append_to_h1(&mut self.inner.end_to_end_headers, ty, server);
+        let forwarded = ForwardedValue::from_client(client, proto, self.upstream.host().clone())
+            .with_by(server);
+        self.inner
+            .end_to_end_headers
+            .append_forwarded(&forwarded, ty);
     }
 }
