@@ -627,3 +627,24 @@ Time to wait for each origin HTTP/2 PING ACK on ``http_guard``.
 **default**: 1s
 
 .. versionadded:: 1.15.0
+
+.. _conf_site_http_h2_force_upstream:
+
+force_upstream
+""""""""""""""
+
+**optional**, **type**: bool
+
+Force HTTP/2 when an ``http_guard`` HTTP/2 task connects to this origin.
+
+A TLS origin offers ALPN ``h2`` only. A plaintext origin uses HTTP/2
+cleartext (h2c). Idle HTTP/1 origin connections are not checked out.
+
+When false, a TLS origin offers ALPN ``h2`` then ``http/1.1``, and a
+plaintext origin uses HTTP/1.1.
+
+RFC 8441 WebSocket always uses origin HTTP/2, with or without this key.
+
+**default**: false
+
+.. versionadded:: 1.15.0

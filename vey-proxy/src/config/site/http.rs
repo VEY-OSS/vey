@@ -51,6 +51,9 @@ pub(crate) struct SiteHttpH2Config {
     pub(crate) connection_pool: ConnectionPoolConfig,
     pub(crate) ping_interval: Duration,
     pub(crate) ping_timeout: Duration,
+    /// HTTP/2 client tasks speak only HTTP/2 to this origin.
+    /// Plaintext origins use h2c. When false, TLS negotiates and plaintext is HTTP/1.1.
+    pub(crate) force_upstream: bool,
 }
 
 impl Default for SiteHttpH2Config {
@@ -59,6 +62,7 @@ impl Default for SiteHttpH2Config {
             connection_pool: ConnectionPoolConfig::default(),
             ping_interval: Duration::from_secs(60),
             ping_timeout: Duration::from_secs(1),
+            force_upstream: false,
         }
     }
 }
@@ -84,6 +88,11 @@ impl SiteHttpH2Config {
             "ping_timeout" => {
                 self.ping_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "force_upstream" => {
+                self.force_upstream = vey_yaml::value::as_bool(v)
+                    .context(format!("invalid bool value for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

@@ -818,6 +818,30 @@ static_sites:
     }
 
     #[test]
+    fn parse_site_http_h2_force_upstream() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+name: local
+static_sites:
+  - id: app
+    exact_match: app.internal
+    upstream: 127.0.0.1:8080
+    http:
+      h2:
+        force_upstream: true
+"#,
+        )
+        .unwrap();
+        let Yaml::Hash(map) = &yaml[0] else {
+            panic!("expected map");
+        };
+        let group = SiteGroupConfig::parse(map, None).unwrap();
+        let host = Host::from_str("app.internal").unwrap();
+        let site = group.sites.get(&host).unwrap();
+        assert!(site.http.h2.force_upstream);
+    }
+
+    #[test]
     fn reject_unknown_site_http_h2_field() {
         let yaml = YamlLoader::load_from_str(
             r#"

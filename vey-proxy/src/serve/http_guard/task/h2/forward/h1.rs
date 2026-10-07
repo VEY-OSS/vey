@@ -3,8 +3,6 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::sync::Arc;
-
 use anyhow::anyhow;
 use bytes::Bytes;
 use futures_util::FutureExt;
@@ -28,13 +26,9 @@ use vey_io_ext::LimitedBufReadExt;
 
 use super::OriginH1Sender;
 use super::task::H2ForwardTask;
-use crate::audit::AuditContext;
-use crate::escape::EgressNotes;
 use crate::module::http_forward::{
-    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardReader,
-    HttpForwardWriterForAdaptation, NilHttpForwardTaskRemoteStats,
+    BoxHttpForwardConnection, BoxHttpForwardReader, HttpForwardWriterForAdaptation,
 };
-use crate::module::tcp_connect::{TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::{ServerIdleChecker, ServerTaskStage};
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
@@ -179,64 +173,10 @@ impl H2ForwardTask {
             log.log(&e);
         }
         self.http_notes.retry_new_connection = false;
-        self.connect_origin_h1().await
-    }
-
-    async fn connect_origin_h1(&mut self) -> ServerTaskResult<OriginH1Sender> {
         self.task_notes.stage = ServerTaskStage::Connecting;
-        let mut fwd_ctx = self
-            .ctx
-            .escaper
-            .new_http_forward_context(Arc::clone(&self.ctx.escaper));
-        let mut audit_ctx = AuditContext::new(self.ctx.audit_handle.clone());
-        let task_stats: ArcHttpForwardTaskRemoteStats = Arc::new(NilHttpForwardTaskRemoteStats);
-        let site = self.ctx.site_ctx.site();
-        let _ = fwd_ctx
-            .check_in_final_escaper(
-                &self.task_notes,
-                &self.upstream,
-                site.tls_client().is_some(),
-            )
-            .await;
-        let (connection, reuse_notes) = if let Some(tls_client) = site.tls_client() {
-            let task_conf = TlsConnectTaskConf {
-                tcp: TcpConnectTaskConf {
-                    upstream: &self.upstream,
-                },
-                tls_config: tls_client,
-                tls_name: site.tls_name_or(&self.req_host),
-                alpn_protocols: None,
-            };
-            fwd_ctx
-                .new_prepared_https_connection(
-                    &task_conf,
-                    &self.task_notes,
-                    task_stats,
-                    &mut audit_ctx,
-                )
-                .await?
-        } else {
-            let task_conf = TcpConnectTaskConf {
-                upstream: &self.upstream,
-            };
-            fwd_ctx
-                .new_prepared_http_connection(
-                    &task_conf,
-                    &self.task_notes,
-                    task_stats,
-                    &mut audit_ctx,
-                )
-                .await?
-        };
-
-        let mut egress_notes = EgressNotes::default();
-        fwd_ctx.fetch_egress_notes(&mut egress_notes);
-        Ok(OriginH1Sender {
-            connection,
-            reused: false,
-            reuse_notes,
-            egress_notes,
-        })
+        self.ctx
+            .connect_origin_h1(&self.task_notes, &self.upstream, &self.req_host)
+            .await
     }
 
     async fn forward_h1_with_adaptation(

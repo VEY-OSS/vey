@@ -13,7 +13,7 @@ done
 
 if [ "${CURL_TEST_H2}" = "yes" ]
 then
-	for port in 10443 11443
+	for port in 9443 10443 11443
 	do
 		python3 "${PROJECT_DIR}/vey-proxy/ci/python3+curl/test_httpbin_h2.py" --no-auth \
 			-T "https://httpbin.local:${port}" --ca-cert "${TEST_CA_CERT_FILE}"

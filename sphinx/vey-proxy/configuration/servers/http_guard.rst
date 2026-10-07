@@ -256,8 +256,11 @@ the site tenant (``tcp_sock_speed_limit`` plus tenant
 An ordinary stream checks out a pooled origin HTTP/2 connection, then a
 pooled origin HTTP/1 connection, then opens a new one. A TLS origin offers
 ALPN ``h2`` and ``http/1.1``. The negotiated protocol selects the hop, and
-an HTTP/1 origin carries that stream as HTTP/1.1. A plaintext origin is
-HTTP/2. The site
+an HTTP/1 origin carries that stream as HTTP/1.1. A plaintext origin uses
+HTTP/1.1. Site
+:ref:`http.h2.force_upstream <conf_site_http_h2_force_upstream>` skips the
+HTTP/1 checkout and speaks only HTTP/2: TLS offers ALPN ``h2``, and a
+plaintext origin uses h2c. The site
 :ref:`http.h2.connection_pool <conf_site_http_h2_connection_pool>` holds
 origin HTTP/2 connections. Origin PING uses the site
 :ref:`ping_interval <conf_site_http_h2_ping_interval>` and

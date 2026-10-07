@@ -54,7 +54,9 @@ impl Deref for H2TaskContext {
     }
 }
 
-// WebSocket origin is H2-only. Normal H2 clients offer both and upgrade by ALPN.
+// WebSocket origin is HTTP/2 only (TLS ALPN h2, or plaintext h2c).
+// An ordinary stream negotiates: TLS offers h2 then http/1.1, plaintext is HTTP/1.1.
+// `http.h2.force_upstream` keeps that stream on HTTP/2, so plaintext is h2c.
 const ORIGIN_TLS_ALPN_H2: &[AlpnProtocol] = &[AlpnProtocol::Http2];
 const ORIGIN_TLS_ALPN_H2_H1: &[AlpnProtocol] = &[AlpnProtocol::Http2, AlpnProtocol::Http11];
 
@@ -181,6 +183,13 @@ impl H2TaskContext {
         req_host: &Host,
     ) -> ServerTaskResult<OriginConnection> {
         if let Some(origin) = self.checkout_h2(task_notes, upstream).await {
+            return Ok(OriginConnection::H2(origin));
+        }
+        if self.site_ctx.site().config().http.h2.force_upstream {
+            task_notes.stage = ServerTaskStage::Connecting;
+            let origin = self
+                .connect_origin_h2(task_notes, upstream, req_host)
+                .await?;
             return Ok(OriginConnection::H2(origin));
         }
         if let Some(origin) = self.checkout_h1(task_notes, upstream).await {
@@ -402,6 +411,48 @@ impl H2TaskContext {
         })
     }
 
+    pub(super) async fn connect_origin_h1(
+        &self,
+        task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
+        req_host: &Host,
+    ) -> ServerTaskResult<OriginH1Sender> {
+        let mut fwd_ctx = self
+            .escaper
+            .new_http_forward_context(Arc::clone(&self.escaper));
+        let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
+        let task_stats: ArcHttpForwardTaskRemoteStats = Arc::new(NilHttpForwardTaskRemoteStats);
+        let site = self.site_ctx.site();
+        let _ = fwd_ctx
+            .check_in_final_escaper(task_notes, upstream, site.tls_client().is_some())
+            .await;
+        let (connection, reuse_notes) = if let Some(tls_client) = site.tls_client() {
+            let task_conf = TlsConnectTaskConf {
+                tcp: TcpConnectTaskConf { upstream },
+                tls_config: tls_client,
+                tls_name: site.tls_name_or(req_host),
+                alpn_protocols: None,
+            };
+            fwd_ctx
+                .new_prepared_https_connection(&task_conf, task_notes, task_stats, &mut audit_ctx)
+                .await?
+        } else {
+            let task_conf = TcpConnectTaskConf { upstream };
+            fwd_ctx
+                .new_prepared_http_connection(&task_conf, task_notes, task_stats, &mut audit_ctx)
+                .await?
+        };
+
+        let mut egress_notes = EgressNotes::default();
+        fwd_ctx.fetch_egress_notes(&mut egress_notes);
+        Ok(OriginH1Sender {
+            connection,
+            reused: false,
+            reuse_notes,
+            egress_notes,
+        })
+    }
+
     async fn connect_origin(
         &self,
         task_notes: &ServerTaskNotes,
@@ -409,56 +460,50 @@ impl H2TaskContext {
         req_host: &Host,
     ) -> ServerTaskResult<OriginConnection> {
         let site = self.site_ctx.site();
-        let mut egress_notes = EgressNotes::default();
-        let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
-
-        let ups_c = if let Some(tls_config) = site.tls_client() {
-            let task_conf = TlsConnectTaskConf {
-                tcp: TcpConnectTaskConf { upstream },
-                tls_config,
-                tls_name: site.tls_name_or(req_host),
-                alpn_protocols: Some(ORIGIN_TLS_ALPN_H2_H1),
-            };
-            match self
-                .escaper
-                .tls_setup_http_connection(
-                    Arc::clone(&self.escaper),
-                    &task_conf,
-                    &mut egress_notes,
-                    task_notes,
-                    &mut audit_ctx,
-                )
-                .await?
-            {
-                TlsHttpConnection::H1(connection, escaper) => {
-                    return Ok(OriginConnection::H1(OriginH1Sender {
-                        connection,
-                        reused: false,
-                        reuse_notes: HttpAliveReuseNotes::from_new(escaper),
-                        egress_notes,
-                    }));
+        match site.tls_client() {
+            Some(tls_config) => {
+                let mut egress_notes = EgressNotes::default();
+                let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
+                let task_conf = TlsConnectTaskConf {
+                    tcp: TcpConnectTaskConf { upstream },
+                    tls_config,
+                    tls_name: site.tls_name_or(req_host),
+                    alpn_protocols: Some(ORIGIN_TLS_ALPN_H2_H1),
+                };
+                match self
+                    .escaper
+                    .tls_setup_http_connection(
+                        Arc::clone(&self.escaper),
+                        &task_conf,
+                        &mut egress_notes,
+                        task_notes,
+                        &mut audit_ctx,
+                    )
+                    .await?
+                {
+                    TlsHttpConnection::H1(connection, escaper) => {
+                        Ok(OriginConnection::H1(OriginH1Sender {
+                            connection,
+                            reused: false,
+                            reuse_notes: HttpAliveReuseNotes::from_new(escaper),
+                            egress_notes,
+                        }))
+                    }
+                    TlsHttpConnection::H2(ups_c) => {
+                        let h2_sender = self
+                            .finish_h2_origin(ups_c, egress_notes, task_notes, upstream)
+                            .await?;
+                        Ok(OriginConnection::H2(h2_sender))
+                    }
                 }
-                TlsHttpConnection::H2(connection) => connection,
             }
-        } else {
-            let task_stats: ArcTcpConnectionTaskRemoteStats =
-                Arc::new(TcpStreamTaskStats::default());
-            let task_conf = TcpConnectTaskConf { upstream };
-            self.escaper
-                .tcp_setup_connection(
-                    &task_conf,
-                    &mut egress_notes,
-                    task_notes,
-                    task_stats,
-                    &mut audit_ctx,
-                )
-                .await?
-        };
-
-        let h2_sender = self
-            .finish_h2_origin(ups_c, egress_notes, task_notes, upstream)
-            .await?;
-        Ok(OriginConnection::H2(h2_sender))
+            None => {
+                let origin = self
+                    .connect_origin_h1(task_notes, upstream, req_host)
+                    .await?;
+                Ok(OriginConnection::H1(origin))
+            }
+        }
     }
 
     async fn connect_origin_h2(
