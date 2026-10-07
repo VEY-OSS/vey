@@ -17,8 +17,6 @@ per-user destination overrides on a forward-proxy user. A site here is an
 origin selected by Host / SNI on a reverse-proxy server such as
 ``http_expose``, ``http_guard``, or ``tls_proxy``.
 
-.. versionadded:: 1.15.0
-
 .. _conf_site_id:
 
 id
@@ -455,8 +453,6 @@ this hop.
 
 **default**: classic, which means *X-Forwarded-\** headers will be appended
 
-.. versionadded:: 1.15.0
-
 .. _conf_site_http_forwarded_trusted_from:
 
 forwarded_trusted_from
@@ -480,8 +476,6 @@ This list is not used as a request ACL.
 
 **default**: empty (inbound forwarded headers are discarded)
 
-.. versionadded:: 1.15.0
-
 .. _conf_site_http_h1:
 
 h1
@@ -490,8 +484,6 @@ h1
 **optional**, **type**: map
 
 HTTP/1-only settings for this origin.
-
-.. versionadded:: 1.15.0
 
 .. _conf_site_http_h1_upstream_keepalive:
 
@@ -513,10 +505,6 @@ configured, checkout idle age is the minimum of this ``idle_expire`` and
 the pool ``idle_timeout``.
 
 **default**: enabled, idle expire 60s
-
-.. versionchanged:: 1.15.0
-   replaces ``http_expose`` server ``http_forward_upstream_keepalive``;
-   that key is now rejected
 
 .. _conf_site_http_h1_connection_pool:
 
@@ -559,10 +547,6 @@ idle. ``check_interval`` of ``0`` disables the sweep.
 
 **default**: not set
 
-.. versionchanged:: 1.15.0
-   moved from ``http.h1_connection_pool`` to ``http.h1.connection_pool``;
-   the old key is rejected
-
 .. _conf_site_http_h2:
 
 h2
@@ -595,8 +579,6 @@ so they close while that bucket is idle. ``min_idle_count`` is ignored.
 
 **default**: default connection pool limits
 
-.. versionadded:: 1.15.0
-
 .. _conf_site_http_h2_ping_interval:
 
 ping_interval
@@ -612,9 +594,6 @@ connection. The pool will not check that connection out again.
 
 **default**: 60s
 
-.. versionchanged:: 1.15.0
-   moved from ``http_guard`` ``h2.ping_interval``; that key is now rejected
-
 .. _conf_site_http_h2_ping_timeout:
 
 ping_timeout
@@ -625,8 +604,6 @@ ping_timeout
 Time to wait for each origin HTTP/2 PING ACK on ``http_guard``.
 
 **default**: 1s
-
-.. versionadded:: 1.15.0
 
 .. _conf_site_http_h2_force_upstream:
 
@@ -647,4 +624,4 @@ RFC 8441 WebSocket always uses origin HTTP/2, with or without this key.
 
 **default**: false
 
-.. versionadded:: 1.15.0
+.. versionadded:: 1.15.1

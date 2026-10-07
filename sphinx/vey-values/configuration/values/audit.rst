@@ -129,16 +129,6 @@ If the value is a map, the following keys are supported:
 
   **default**: false
 
-Example:
-
-.. code-block:: yaml
-
-   icap_reqmod_service:
-     url: icaps://icap.example.net/reqmod
-     tls_name: icap.example.net
-     preview_data_read_timeout: 2s
-     bypass: true
-
   .. availability::
 
 
@@ -161,7 +151,10 @@ Example:
   Timeout used when reading ICAP options response data from the ICAP server.
 
   **default**: 1s
-   - ``vey-proxy``: available since ``1.14.3``
+
+  .. availability::
+
+    - ``vey-proxy``: available since ``1.14.3``
 
 * respond_shared_names
 
@@ -182,6 +175,16 @@ Example:
   server cannot be reached.
 
   **default**: false
+
+Example:
+
+.. code-block:: yaml
+
+   icap_reqmod_service:
+     url: icaps://icap.example.net/reqmod
+     tls_name: icap.example.net
+     preview_data_read_timeout: 2s
+     bypass: true
 
 .. _conf_value_audit_stream_detour_service_config:
 
