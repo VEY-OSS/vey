@@ -18,7 +18,7 @@ use vey_icap_client::reqmod::h2::{
     ReqmodRecvHttpResponseBody,
 };
 use vey_icap_client::respmod::h2::{RespmodAdaptationEndState, RespmodAdaptationRunState};
-use vey_types::net::UpstreamAddr;
+use vey_types::net::{HeaderMapExt, Host, UpstreamAddr};
 
 use super::{H2TaskContext, OriginConnection, OriginH2Sender};
 use crate::escape::EgressNotes;
@@ -43,11 +43,17 @@ pub(crate) struct H2ForwardTask {
     pub(super) allow_continue: bool,
     pub(super) audit_task: bool,
     pub(super) upstream: UpstreamAddr,
+    pub(super) req_host: Host,
     _alive_guard: Option<H2ForwardTaskAliveGuard>,
 }
 
 impl H2ForwardTask {
-    pub(crate) fn new(ctx: Arc<H2TaskContext>, clt_stream_id: StreamId, req: Request<()>) -> Self {
+    pub(crate) fn new(
+        ctx: Arc<H2TaskContext>,
+        clt_stream_id: StreamId,
+        req: Request<()>,
+        req_host: Host,
+    ) -> Self {
         let uri_log_max_chars = ctx
             .site_ctx
             .log_uri_max_chars()
@@ -62,7 +68,7 @@ impl H2ForwardTask {
         );
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Default::default())
             .with_site_ctx(ctx.site_ctx_for_request());
-        let allow_continue = req.expect_100_continue();
+        let allow_continue = req.headers().expect_100_continue();
         H2ForwardTask {
             ctx,
             req,
@@ -75,6 +81,7 @@ impl H2ForwardTask {
             allow_continue,
             audit_task: false,
             upstream: UpstreamAddr::empty(),
+            req_host,
             _alive_guard: None,
         }
     }
@@ -193,10 +200,9 @@ impl H2ForwardTask {
         }
         self.prepare_upstream()?;
 
-        let request_host = self.req.host();
         let origin = self
             .ctx
-            .checkout_or_connect(&mut self.task_notes, &self.upstream, &request_host)
+            .checkout_or_connect(&mut self.task_notes, &self.upstream, &self.req_host)
             .await?;
         match origin {
             OriginConnection::H2(origin) => {
@@ -260,13 +266,12 @@ impl H2ForwardTask {
                         adapter.set_tenant_username(username.clone());
                     }
                     // The adapter sends the request head itself.
-                    let request_host = self.req.host();
                     let origin = match self
                         .ctx
                         .ready_h2_sender(
                             &mut self.task_notes,
                             &self.upstream,
-                            &request_host,
+                            &self.req_host,
                             origin,
                         )
                         .await
@@ -398,13 +403,12 @@ impl H2ForwardTask {
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> ServerTaskResult<()> {
         let end_stream = clt_body.is_end_stream();
-        let request_host = self.req.host();
         let opened = match self
             .ctx
             .open_h2_stream(
                 &mut self.task_notes,
                 &self.upstream,
-                &request_host,
+                &self.req_host,
                 origin,
                 &self.req,
                 end_stream,

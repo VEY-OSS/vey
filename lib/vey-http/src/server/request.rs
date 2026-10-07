@@ -15,8 +15,9 @@ use tokio::io::AsyncBufRead;
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::http_names;
 use vey_types::net::{
-    AcceptTransferEncodingValue, ConnectionValue, H1HeaderMap, H1HeaderValue, Host, HttpAuth,
-    HttpKnownHeaderName, HttpUpgradeToken, KeepAliveValue, TransferEncodingValue, UpstreamAddr,
+    AcceptTransferEncodingValue, AuthorizationValueParser, ConnectionValue, H1HeaderMap,
+    H1HeaderValue, Host, HttpAuth, HttpKnownHeaderName, HttpUpgradeToken, KeepAliveValue,
+    TransferEncodingValue, UpstreamAddr,
 };
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
@@ -394,7 +395,10 @@ impl HttpProxyClientRequest {
     }
 
     pub fn parse_header_authorization(&mut self, value: &str) -> Result<(), HttpRequestParseError> {
-        self.auth_info = HttpAuth::from_authorization(value)
+        let Some(parsed) = AuthorizationValueParser::parse(value.as_bytes()) else {
+            return Err(HttpRequestParseError::UnsupportedAuthorization);
+        };
+        self.auth_info = HttpAuth::from_authorization(&parsed)
             .map_err(|_| HttpRequestParseError::UnsupportedAuthorization)?;
         Ok(())
     }
@@ -520,7 +524,10 @@ impl HttpProxyClientRequest {
             "expect" if header.value == "100-continue" => {
                 self.expect_100_continue = true;
             }
-            "authorization" if crate::header::is_session_based_auth(header.value) => {
+            "authorization"
+                if AuthorizationValueParser::parse(header.value.as_bytes())
+                    .is_some_and(|auth| auth.is_session_based()) =>
+            {
                 self.authorization_negotiate = true;
             }
             _ => {}

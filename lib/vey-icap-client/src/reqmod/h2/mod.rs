@@ -17,9 +17,10 @@ use h2::{RecvStream, SendStream};
 use http::{Extensions, HeaderMap, Request, Response};
 use tokio::time::Instant;
 
-use vey_h2::{H2BodyTransfer, H2StreamFromChunkedTransfer, H2StreamToChunkedTransfer, RequestExt};
+use vey_h2::{H2BodyTransfer, H2StreamFromChunkedTransfer, H2StreamToChunkedTransfer};
 use vey_http::server::HttpAdaptedRequest;
 use vey_io_ext::{IdleCheck, StreamCopyConfig};
+use vey_types::net::HeaderMapExt;
 
 use super::IcapReqmodClient;
 use crate::{IcapClientConnection, IcapClientReader, IcapServiceClient, IcapServiceOptions};
@@ -199,7 +200,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         ups_send_req: SendRequest<Bytes>,
         clt_send_rsp: &mut SendResponse<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
-        self.allow_continue = http_request.expect_100_continue();
+        self.allow_continue = http_request.headers().expect_100_continue();
         if clt_body.is_end_stream() {
             state.clt_req_body_size = Some(0);
             self.xfer_without_body(state, http_request, ups_send_req, clt_send_rsp)

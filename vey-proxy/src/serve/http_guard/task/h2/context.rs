@@ -111,12 +111,11 @@ impl H2TaskContext {
             .unwrap_or(self.server_config.timeout.recv_rsp_header)
     }
 
-    pub(super) fn append_forwarded<B>(&self, req: &mut Request<B>) {
+    pub(super) fn append_forwarded<B>(&self, req: &mut Request<B>, host: Host) {
         let ty = self.site_ctx.site().forwarded_header_type();
         if matches!(ty, HttpForwardedHeaderType::Disable) {
             return;
         }
-        let host = req.host();
         if !self.site_ctx.site().trusts_forwarded_from(self.client_ip()) {
             req.headers_mut().strip_forwarded(ty);
         }
@@ -179,7 +178,7 @@ impl H2TaskContext {
         &self,
         task_notes: &mut ServerTaskNotes,
         upstream: &UpstreamAddr,
-        request_host: &Host,
+        req_host: &Host,
     ) -> ServerTaskResult<OriginConnection> {
         if let Some(origin) = self.checkout_h2(task_notes, upstream).await {
             return Ok(OriginConnection::H2(origin));
@@ -188,22 +187,20 @@ impl H2TaskContext {
             return Ok(OriginConnection::H1(origin));
         }
         task_notes.stage = ServerTaskStage::Connecting;
-        self.connect_origin(task_notes, upstream, request_host)
-            .await
+        self.connect_origin(task_notes, upstream, req_host).await
     }
 
     pub(super) async fn checkout_or_connect_h2(
         &self,
         task_notes: &mut ServerTaskNotes,
         upstream: &UpstreamAddr,
-        request_host: &Host,
+        req_host: &Host,
     ) -> ServerTaskResult<OriginH2Sender> {
         if let Some(origin) = self.checkout_h2(task_notes, upstream).await {
             return Ok(origin);
         }
         task_notes.stage = ServerTaskStage::Connecting;
-        self.connect_origin_h2(task_notes, upstream, request_host)
-            .await
+        self.connect_origin_h2(task_notes, upstream, req_host).await
     }
 
     /// `ready` on a pooled sender can still fail after checkout. Open a new
@@ -212,7 +209,7 @@ impl H2TaskContext {
         &self,
         task_notes: &mut ServerTaskNotes,
         upstream: &UpstreamAddr,
-        request_host: &Host,
+        req_host: &Host,
         origin: OriginH2Sender,
     ) -> ServerTaskResult<OriginH2Sender> {
         let open_timeout = self.server_config.h2.upstream_stream_open_timeout;
@@ -226,22 +223,25 @@ impl H2TaskContext {
                     egress_notes,
                 });
             }
-            Ok(Err(_)) | Err(_) if reused => {}
             Ok(Err(e)) => {
-                return Err(ServerTaskError::H2(
-                    ServerTaskH2Error::UpstreamStreamOpenFailed(e),
-                ));
+                if !reused {
+                    return Err(ServerTaskError::H2(
+                        ServerTaskH2Error::UpstreamStreamOpenFailed(e),
+                    ));
+                }
             }
             Err(_) => {
-                return Err(ServerTaskError::H2(
-                    ServerTaskH2Error::UpstreamStreamOpenTimeout,
-                ));
+                if !reused {
+                    return Err(ServerTaskError::H2(
+                        ServerTaskH2Error::UpstreamStreamOpenTimeout,
+                    ));
+                }
             }
         }
 
         task_notes.stage = ServerTaskStage::Connecting;
         let origin = self
-            .connect_origin_h2(task_notes, upstream, request_host)
+            .connect_origin_h2(task_notes, upstream, req_host)
             .await?;
         let egress_notes = origin.egress_notes;
         match tokio::time::timeout(open_timeout, origin.sender.ready()).await {
@@ -269,7 +269,7 @@ impl H2TaskContext {
         &self,
         task_notes: &mut ServerTaskNotes,
         upstream: &UpstreamAddr,
-        request_host: &Host,
+        req_host: &Host,
         origin: OriginH2Sender,
         req: &Request<()>,
         end_of_stream: bool,
@@ -283,7 +283,7 @@ impl H2TaskContext {
 
         task_notes.stage = ServerTaskStage::Connecting;
         let origin = self
-            .connect_origin_h2(task_notes, upstream, request_host)
+            .connect_origin_h2(task_notes, upstream, req_host)
             .await?;
         self.try_open_h2_stream(origin, req, end_of_stream).await
     }
@@ -299,6 +299,9 @@ impl H2TaskContext {
             reused,
             egress_notes,
         } = origin;
+        // clone_header drops extensions. The client request also carries this
+        // connection's StreamId; only Protocol must be forwarded, as the
+        // upstream :protocol pseudo-header.
         let mut ups_req = req.clone_header();
         if let Some(protocol) = req.extensions().get::<Protocol>() {
             ups_req.extensions_mut().insert(protocol.clone());
@@ -403,17 +406,17 @@ impl H2TaskContext {
         &self,
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
-        request_host: &Host,
+        req_host: &Host,
     ) -> ServerTaskResult<OriginConnection> {
         let site = self.site_ctx.site();
         let mut egress_notes = EgressNotes::default();
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
 
-        let stream = if let Some(tls_client) = site.tls_client() {
+        let ups_c = if let Some(tls_config) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf { upstream },
-                tls_config: tls_client,
-                tls_name: site.tls_name_or(request_host),
+                tls_config,
+                tls_name: site.tls_name_or(req_host),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2_H1),
             };
             match self
@@ -435,43 +438,45 @@ impl H2TaskContext {
                         egress_notes,
                     }));
                 }
-                TlsHttpConnection::H2(stream) => stream,
+                TlsHttpConnection::H2(connection) => connection,
             }
         } else {
             let task_stats: ArcTcpConnectionTaskRemoteStats =
                 Arc::new(TcpStreamTaskStats::default());
-            self.setup_origin_tcp(
-                task_notes,
-                upstream,
-                &mut egress_notes,
-                &mut audit_ctx,
-                task_stats,
-            )
-            .await?
+            let task_conf = TcpConnectTaskConf { upstream };
+            self.escaper
+                .tcp_setup_connection(
+                    &task_conf,
+                    &mut egress_notes,
+                    task_notes,
+                    task_stats,
+                    &mut audit_ctx,
+                )
+                .await?
         };
 
-        Ok(OriginConnection::H2(
-            self.finish_h2_origin(stream, egress_notes, task_notes, upstream)
-                .await?,
-        ))
+        let h2_sender = self
+            .finish_h2_origin(ups_c, egress_notes, task_notes, upstream)
+            .await?;
+        Ok(OriginConnection::H2(h2_sender))
     }
 
     async fn connect_origin_h2(
         &self,
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
-        request_host: &Host,
+        req_host: &Host,
     ) -> ServerTaskResult<OriginH2Sender> {
         let site = self.site_ctx.site();
         let mut egress_notes = EgressNotes::default();
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = Arc::new(TcpStreamTaskStats::default());
 
-        let stream = if let Some(tls_client) = site.tls_client() {
+        let ups_c = if let Some(tls_config) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf { upstream },
-                tls_config: tls_client,
-                tls_name: site.tls_name_or(request_host),
+                tls_config,
+                tls_name: site.tls_name_or(req_host),
                 alpn_protocols: Some(ORIGIN_TLS_ALPN_H2),
             };
             self.escaper
@@ -484,43 +489,30 @@ impl H2TaskContext {
                 )
                 .await?
         } else {
-            self.setup_origin_tcp(
-                task_notes,
-                upstream,
-                &mut egress_notes,
-                &mut audit_ctx,
-                task_stats,
-            )
-            .await?
+            let task_conf = TcpConnectTaskConf { upstream };
+            self.escaper
+                .tcp_setup_connection(
+                    &task_conf,
+                    &mut egress_notes,
+                    task_notes,
+                    task_stats,
+                    &mut audit_ctx,
+                )
+                .await?
         };
 
-        self.finish_h2_origin(stream, egress_notes, task_notes, upstream)
+        self.finish_h2_origin(ups_c, egress_notes, task_notes, upstream)
             .await
-    }
-
-    async fn setup_origin_tcp(
-        &self,
-        task_notes: &ServerTaskNotes,
-        upstream: &UpstreamAddr,
-        egress_notes: &mut EgressNotes,
-        audit_ctx: &mut AuditContext,
-        task_stats: ArcTcpConnectionTaskRemoteStats,
-    ) -> ServerTaskResult<TcpConnection> {
-        let task_conf = TcpConnectTaskConf { upstream };
-        Ok(self
-            .escaper
-            .tcp_setup_connection(&task_conf, egress_notes, task_notes, task_stats, audit_ctx)
-            .await?)
     }
 
     async fn finish_h2_origin(
         &self,
-        stream: TcpConnection,
+        ups_c: TcpConnection,
         egress_notes: EgressNotes,
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
     ) -> ServerTaskResult<OriginH2Sender> {
-        let (sender, conn_state) = self.handshake_h2(stream).await?;
+        let (sender, conn_state) = self.handshake_h2(ups_c).await?;
         self.site_ctx.site().http2_pool().insert(
             task_notes.worker_id(),
             self.escaper.name().clone(),
@@ -538,9 +530,9 @@ impl H2TaskContext {
 
     async fn handshake_h2(
         &self,
-        stream: TcpConnection,
+        ups_c: TcpConnection,
     ) -> ServerTaskResult<(SendRequest<Bytes>, Arc<H2ConnectionState>)> {
-        let (ups_r, ups_w) = stream;
+        let (ups_r, ups_w) = ups_c;
         let client_builder = self.server_config.h2.build_client();
         let (sender, mut connection) = tokio::time::timeout(
             self.server_config.h2.upstream_handshake_timeout,

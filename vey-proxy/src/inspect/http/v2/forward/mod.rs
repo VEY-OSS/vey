@@ -27,6 +27,7 @@ use vey_icap_client::respmod::h2::{
     H2ResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
 use vey_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtHttpMethod, LtHttpUri, LtUuid};
+use vey_types::net::HeaderMapExt;
 
 use super::{H2BodyTransfer, H2StreamTransferError};
 use crate::config::server::ServerConfig;
@@ -162,7 +163,7 @@ where
         req: &Request<RecvStream>,
     ) -> Self {
         let http_notes = HttpForwardTaskNotes::new(req.method().clone(), req.uri().clone());
-        let allow_continue = req.expect_100_continue();
+        let allow_continue = req.headers().expect_100_continue();
         H2ForwardTask {
             ctx,
             clt_stream_id,

@@ -14,8 +14,8 @@ use tokio::io::AsyncBufRead;
 use vey_io_ext::LimitedBufReadExt;
 use vey_types::net::http_names;
 use vey_types::net::{
-    ConnectionValue, H1HeaderMap, H1HeaderValue, HttpKnownHeaderName, KeepAliveValue,
-    TransferEncodingValue,
+    AuthorizationValueParser, ConnectionValue, H1HeaderMap, H1HeaderValue, HttpKnownHeaderName,
+    KeepAliveValue, TransferEncodingValue,
 };
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
@@ -374,7 +374,10 @@ impl HttpForwardRemoteResponse {
                 self.has_content_length = true;
                 self.content_length = content_length;
             }
-            "www-authenticate" if crate::header::is_session_based_auth(header.value) => {
+            "www-authenticate"
+                if AuthorizationValueParser::parse(header.value.as_bytes())
+                    .is_some_and(|auth| auth.is_session_based()) =>
+            {
                 self.www_negotiate_auth = true;
             }
             "proxy-support" => {

@@ -7,7 +7,7 @@ use bytes::Bytes;
 use http::{HeaderMap, HeaderValue};
 
 use super::forwarded::{ForwardedValue, HttpForwardedHeaderType, X_FORWARDED_FOR};
-use super::{H1HeaderMap, H1HeaderValue};
+use super::{AuthorizationValueParser, H1HeaderMap, H1HeaderValue};
 
 pub trait HeaderMapExt {
     fn strip_forwarded(&mut self, ty: HttpForwardedHeaderType);
@@ -16,6 +16,9 @@ pub trait HeaderMapExt {
     ///
     /// Drops the client-supplied client address and does not append this hop.
     fn steal_forwarded_for(&mut self);
+    fn expect_100_continue(&self) -> bool;
+    fn authorization_negotiate(&self) -> bool;
+    fn maybe_grpc(&self) -> bool;
 }
 
 impl HeaderMapExt for HeaderMap {
@@ -42,6 +45,25 @@ impl HeaderMapExt for HeaderMap {
     fn steal_forwarded_for(&mut self) {
         self.remove(http::header::FORWARDED);
         self.remove(X_FORWARDED_FOR);
+    }
+
+    fn expect_100_continue(&self) -> bool {
+        self.get_all(http::header::EXPECT)
+            .iter()
+            .any(|v| v.as_bytes() == b"100-continue")
+    }
+
+    fn authorization_negotiate(&self) -> bool {
+        self.get_all(http::header::AUTHORIZATION).iter().any(|v| {
+            AuthorizationValueParser::parse(v.as_bytes())
+                .is_some_and(|auth| auth.is_session_based())
+        })
+    }
+
+    fn maybe_grpc(&self) -> bool {
+        self.get(http::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(maybe_grpc_content_type)
     }
 }
 
@@ -70,6 +92,33 @@ impl HeaderMapExt for H1HeaderMap {
         self.remove(http::header::FORWARDED);
         self.remove(X_FORWARDED_FOR);
     }
+
+    fn expect_100_continue(&self) -> bool {
+        self.get_all(http::header::EXPECT)
+            .iter()
+            .any(|v| v.as_bytes() == b"100-continue")
+    }
+
+    fn authorization_negotiate(&self) -> bool {
+        self.get_all(http::header::AUTHORIZATION).iter().any(|v| {
+            AuthorizationValueParser::parse(v.as_bytes())
+                .is_some_and(|auth| auth.is_session_based())
+        })
+    }
+
+    fn maybe_grpc(&self) -> bool {
+        self.get(http::header::CONTENT_TYPE)
+            .is_some_and(|v| maybe_grpc_content_type(v.to_str()))
+    }
+}
+
+fn maybe_grpc_content_type(value: &str) -> bool {
+    const PREFIX: &[u8] = b"application/grpc";
+    let v = value.trim_ascii_start().as_bytes();
+    if v.len() < PREFIX.len() || !v[..PREFIX.len()].eq_ignore_ascii_case(PREFIX) {
+        return false;
+    }
+    matches!(v.get(PREFIX.len()), None | Some(b'+' | b';' | b' ' | b'\t'))
 }
 
 #[cfg(test)]
@@ -121,5 +170,98 @@ mod tests {
             map.get(http::header::HOST).unwrap().to_str(),
             "keep.example"
         );
+    }
+
+    #[test]
+    fn expect_100_continue_detects_header() {
+        let mut map = HeaderMap::new();
+        map.append(
+            http::header::EXPECT,
+            HeaderValue::from_static("100-continue"),
+        );
+        assert!(map.expect_100_continue());
+
+        let mut map = HeaderMap::new();
+        map.append(http::header::EXPECT, HeaderValue::from_static("other"));
+        assert!(!map.expect_100_continue());
+
+        let mut map = H1HeaderMap::default();
+        map.append(
+            http::header::EXPECT,
+            H1HeaderValue::from_static("100-continue"),
+        );
+        assert!(map.expect_100_continue());
+    }
+
+    #[test]
+    fn authorization_negotiate_detects_session_auth() {
+        let mut map = HeaderMap::new();
+        map.append(
+            http::header::AUTHORIZATION,
+            HeaderValue::from_static("Negotiate abc"),
+        );
+        assert!(map.authorization_negotiate());
+
+        let mut map = HeaderMap::new();
+        map.append(
+            http::header::AUTHORIZATION,
+            HeaderValue::from_static("NTLM TlRMTVNTUA=="),
+        );
+        assert!(map.authorization_negotiate());
+
+        let mut map = HeaderMap::new();
+        map.append(
+            http::header::AUTHORIZATION,
+            HeaderValue::from_static("Basic abc"),
+        );
+        assert!(!map.authorization_negotiate());
+
+        let mut map = H1HeaderMap::default();
+        map.append(
+            http::header::AUTHORIZATION,
+            H1HeaderValue::from_static("Negotiate abc"),
+        );
+        assert!(map.authorization_negotiate());
+    }
+
+    #[test]
+    fn maybe_grpc_detects_content_type() {
+        let mut map = HeaderMap::new();
+        map.insert(
+            http::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/grpc"),
+        );
+        assert!(map.maybe_grpc());
+
+        map.insert(
+            http::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/grpc+proto"),
+        );
+        assert!(map.maybe_grpc());
+
+        map.insert(
+            http::header::CONTENT_TYPE,
+            HeaderValue::from_static("APPLICATION/GRPC; charset=utf-8"),
+        );
+        assert!(map.maybe_grpc());
+
+        map.insert(
+            http::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/grpc-web+proto"),
+        );
+        assert!(!map.maybe_grpc());
+
+        map.insert(
+            http::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
+        assert!(!map.maybe_grpc());
+
+        let mut map = H1HeaderMap::default();
+        map.insert(
+            http::header::CONTENT_TYPE,
+            H1HeaderValue::from_static("application/grpc+proto"),
+        );
+        assert!(map.maybe_grpc());
     }
 }

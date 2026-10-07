@@ -10,7 +10,7 @@ use h2::server::SendResponse;
 use h2::{RecvStream, SendStream, StreamId};
 use http::{Request, Response, StatusCode, Version};
 
-use vey_h2::{H2BodyTransfer, H2ResponseHeaderReceiver, RequestExt};
+use vey_h2::{H2BodyTransfer, H2ResponseHeaderReceiver};
 use vey_icap_client::reqmod::h2::{
     H2RequestAdapter, HttpAdapterErrorResponse, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
@@ -41,11 +41,17 @@ pub(crate) struct H2WebsocketTask {
     ups_wr_bytes: u64,
     send_error_response: bool,
     upstream: UpstreamAddr,
+    req_host: Host,
     _alive_guard: Option<H2ForwardTaskAliveGuard>,
 }
 
 impl H2WebsocketTask {
-    pub(crate) fn new(ctx: Arc<H2TaskContext>, clt_stream_id: StreamId, req: &Request<()>) -> Self {
+    pub(crate) fn new(
+        ctx: Arc<H2TaskContext>,
+        clt_stream_id: StreamId,
+        req: &Request<()>,
+        req_host: Host,
+    ) -> Self {
         let uri_log_max_chars = ctx
             .site_ctx
             .log_uri_max_chars()
@@ -66,6 +72,7 @@ impl H2WebsocketTask {
             ups_wr_bytes: 0,
             send_error_response: true,
             upstream: UpstreamAddr::empty(),
+            req_host,
             _alive_guard: None,
         }
     }
@@ -168,10 +175,10 @@ impl H2WebsocketTask {
             .site()
             .select_upstream(self.ctx.client_ip())
             .map_err(|_| ServerTaskError::InternalServerError("failed to select site upstream"))?;
-        let request_host = req.host();
+        let req_host = self.req_host.clone();
         let origin = self
             .ctx
-            .checkout_or_connect_h2(&mut self.task_notes, &self.upstream, &request_host)
+            .checkout_or_connect_h2(&mut self.task_notes, &self.upstream, &req_host)
             .await?;
 
         if audit_task
@@ -202,7 +209,7 @@ impl H2WebsocketTask {
                     return self
                         .forward_with_adaptation(
                             origin,
-                            &request_host,
+                            &req_host,
                             req,
                             clt_r,
                             clt_send_rsp,
@@ -219,7 +226,7 @@ impl H2WebsocketTask {
             }
         }
 
-        self.send_connect(origin, &request_host, req, clt_r, clt_send_rsp)
+        self.send_connect(origin, &req_host, req, clt_r, clt_send_rsp)
             .await
     }
 
@@ -253,7 +260,7 @@ impl H2WebsocketTask {
     async fn forward_with_adaptation(
         &mut self,
         origin: OriginH2Sender,
-        request_host: &Host,
+        req_host: &Host,
         ups_req: Request<()>,
         clt_r: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
@@ -262,11 +269,11 @@ impl H2WebsocketTask {
     ) -> ServerTaskResult<()> {
         match icap_adapter.xfer_connect(adaptation_state, ups_req).await {
             Ok(ReqmodAdaptationMidState::OriginalRequest(orig_req)) => {
-                self.send_connect(origin, request_host, orig_req, clt_r, clt_send_rsp)
+                self.send_connect(origin, req_host, orig_req, clt_r, clt_send_rsp)
                     .await
             }
             Ok(ReqmodAdaptationMidState::AdaptedRequest(_, final_req)) => {
-                self.send_connect(origin, request_host, final_req, clt_r, clt_send_rsp)
+                self.send_connect(origin, req_host, final_req, clt_r, clt_send_rsp)
                     .await
             }
             Ok(ReqmodAdaptationMidState::HttpErrResponse(err_rsp, recv_body)) => {
@@ -317,7 +324,7 @@ impl H2WebsocketTask {
     async fn send_connect(
         &mut self,
         origin: OriginH2Sender,
-        request_host: &Host,
+        req_host: &Host,
         ups_req: Request<()>,
         clt_r: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
@@ -327,7 +334,7 @@ impl H2WebsocketTask {
             .open_h2_stream(
                 &mut self.task_notes,
                 &self.upstream,
-                request_host,
+                req_host,
                 origin,
                 &ups_req,
                 false,

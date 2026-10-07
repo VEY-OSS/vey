@@ -13,9 +13,7 @@ use h2::{RecvStream, SendStream};
 use http::{HeaderMap, Response};
 use tokio::io::AsyncWriteExt;
 
-use vey_h2::{
-    H2BodyEncodeTransfer, H2StreamFromChunkedTransfer, H2StreamToChunkedTransfer, RequestExt,
-};
+use vey_h2::{H2BodyEncodeTransfer, H2StreamFromChunkedTransfer, H2StreamToChunkedTransfer};
 use vey_http::client::HttpForwardRemoteResponse;
 use vey_http::server::HttpConvertedRequest;
 use vey_http::{HttpBodyDecodeReader, HttpBodyType};
@@ -193,7 +191,6 @@ impl H2ForwardTask {
         let mut audit_ctx = AuditContext::new(self.ctx.audit_handle.clone());
         let task_stats: ArcHttpForwardTaskRemoteStats = Arc::new(NilHttpForwardTaskRemoteStats);
         let site = self.ctx.site_ctx.site();
-        let request_host = self.req.host();
         let _ = fwd_ctx
             .check_in_final_escaper(
                 &self.task_notes,
@@ -207,7 +204,7 @@ impl H2ForwardTask {
                     upstream: &self.upstream,
                 },
                 tls_config: tls_client,
-                tls_name: site.tls_name_or(&request_host),
+                tls_name: site.tls_name_or(&self.req_host),
                 alpn_protocols: None,
             };
             fwd_ctx

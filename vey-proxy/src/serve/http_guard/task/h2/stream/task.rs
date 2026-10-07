@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use vey_h2::RequestExt;
 use vey_http::server::UriExt;
-use vey_types::net::{HttpUpgradeToken, UpstreamAddr, ViaValue};
+use vey_types::net::{HeaderMapExt, Host, HttpUpgradeToken, UpstreamAddr, ViaValue};
 
 use super::{H2ConcurrencyTaskGuard, H2ForwardTask, H2TaskContext, H2WebsocketTask};
 use crate::log::task::h2_stream::TaskLogForH2Stream;
@@ -23,8 +23,8 @@ use crate::module::http_header::ProxyErrorType;
 use crate::serve::ServerTaskNotes;
 
 enum StreamOutcome {
-    Forward,
-    Websocket,
+    Forward(Host),
+    Websocket(Host),
 }
 
 enum H2StreamError {
@@ -132,13 +132,15 @@ impl H2StreamTask {
         let (parts, clt_body) = clt_req.into_parts();
         let mut req = Request::from_parts(parts, ());
         match self.dispatch(&mut req).await {
-            Ok(StreamOutcome::Forward) => {
-                let task = H2ForwardTask::new(Arc::clone(&self.ctx), self.clt_stream_id, req);
+            Ok(StreamOutcome::Forward(req_host)) => {
+                let task =
+                    H2ForwardTask::new(Arc::clone(&self.ctx), self.clt_stream_id, req, req_host);
                 self.log("H2Forward", Some(task.task_id()), Some("H2Forward"), None);
                 task.forward(clt_body, clt_send_rsp).await;
             }
-            Ok(StreamOutcome::Websocket) => {
-                let task = H2WebsocketTask::new(Arc::clone(&self.ctx), self.clt_stream_id, &req);
+            Ok(StreamOutcome::Websocket(req_host)) => {
+                let task =
+                    H2WebsocketTask::new(Arc::clone(&self.ctx), self.clt_stream_id, &req, req_host);
                 self.log("Websocket", Some(task.task_id()), Some("Websocket"), None);
                 task.run(req, clt_body, clt_send_rsp).await;
             }
@@ -155,6 +157,9 @@ impl H2StreamTask {
     }
 
     async fn dispatch(&self, clt_req: &mut Request<()>) -> Result<StreamOutcome, H2StreamError> {
+        let Some(req_host) = clt_req.host() else {
+            return Err(H2StreamError::InvalidHostHeader);
+        };
         let Some(upstream) = clt_req
             .uri()
             .get_optional_http_https_upstream()
@@ -205,7 +210,7 @@ impl H2StreamTask {
             }
         }
 
-        if clt_req.authorization_negotiate() {
+        if clt_req.headers().authorization_negotiate() {
             return Err(H2StreamError::Http11Required);
         }
 
@@ -217,13 +222,13 @@ impl H2StreamTask {
                 if !matches!(token, HttpUpgradeToken::Websocket) {
                     return Err(H2StreamError::UnsupportedConnect);
                 }
-                self.ctx.append_forwarded(clt_req);
-                return Ok(StreamOutcome::Websocket);
+                self.ctx.append_forwarded(clt_req, req_host.clone());
+                return Ok(StreamOutcome::Websocket(req_host));
             }
             return Err(H2StreamError::UnsupportedConnect);
         }
 
-        self.ctx.append_forwarded(clt_req);
-        Ok(StreamOutcome::Forward)
+        self.ctx.append_forwarded(clt_req, req_host.clone());
+        Ok(StreamOutcome::Forward(req_host))
     }
 }

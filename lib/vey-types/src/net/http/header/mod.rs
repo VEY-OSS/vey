@@ -4,6 +4,9 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+mod auth;
+pub use auth::{AuthorizationScheme, AuthorizationValueParser};
+
 mod map;
 pub use map::H1HeaderMap;
 

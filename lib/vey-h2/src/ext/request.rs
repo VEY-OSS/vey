@@ -18,10 +18,7 @@ pub trait RequestExt {
     fn serialize_for_adapter(&self) -> Vec<u8>;
     fn adapt_to(self, other: &HttpAdaptedRequest) -> Self;
     fn clone_header(&self) -> Request<()>;
-    fn expect_100_continue(&self) -> bool;
-    fn authorization_negotiate(&self) -> bool;
-    fn maybe_grpc(&self) -> bool;
-    fn host(&self) -> Host;
+    fn host(&self) -> Option<Host>;
 }
 
 impl<T> RequestExt for Request<T> {
@@ -99,52 +96,19 @@ impl<T> RequestExt for Request<T> {
         Request::from_parts(parts, ())
     }
 
-    fn expect_100_continue(&self) -> bool {
-        for v in self.headers().get_all(header::EXPECT) {
-            if v.as_bytes() == b"100-continue" {
-                return true;
-            }
+    fn host(&self) -> Option<Host> {
+        // :authority is carried on the URI. Host is only a fallback when that is absent.
+        if let Some(host) = self.uri().host().and_then(|h| Host::from_str(h).ok()) {
+            return Some(host);
         }
-
-        false
-    }
-
-    fn authorization_negotiate(&self) -> bool {
-        self.headers()
-            .get_all(header::AUTHORIZATION)
-            .iter()
-            .filter_map(|v| v.to_str().ok())
-            .any(vey_http::header::is_session_based_auth)
-    }
-
-    fn maybe_grpc(&self) -> bool {
-        self.headers()
-            .get(header::CONTENT_TYPE)
-            .and_then(|v| v.to_str().ok())
-            .is_some_and(maybe_grpc_content_type)
-    }
-
-    fn host(&self) -> Host {
         if let Some(value) = self.headers().get(header::HOST)
             && let Ok(s) = std::str::from_utf8(value.as_bytes())
             && let Ok(addr) = UpstreamAddr::from_str(s)
         {
-            return addr.host().clone();
+            return Some(addr.host().clone());
         }
-        self.uri()
-            .host()
-            .and_then(|h| Host::from_str(h).ok())
-            .unwrap_or_else(Host::empty)
+        None
     }
-}
-
-fn maybe_grpc_content_type(value: &str) -> bool {
-    const PREFIX: &[u8] = b"application/grpc";
-    let v = value.trim_ascii_start().as_bytes();
-    if v.len() < PREFIX.len() || !v[..PREFIX.len()].eq_ignore_ascii_case(PREFIX) {
-        return false;
-    }
-    matches!(v.get(PREFIX.len()), None | Some(b'+' | b';' | b' ' | b'\t'))
 }
 
 #[cfg(test)]
@@ -203,91 +167,32 @@ mod tests {
     }
 
     #[test]
-    fn expect_100_continue_detects_header() {
-        let req = Request::builder()
-            .header(header::EXPECT, "100-continue")
-            .body(())
-            .unwrap();
-        assert!(req.expect_100_continue());
-
-        let req = Request::builder()
-            .header(header::EXPECT, "other")
-            .body(())
-            .unwrap();
-        assert!(!req.expect_100_continue());
-    }
-
-    #[test]
-    fn authorization_negotiate_detects_session_auth() {
-        let req = Request::builder()
-            .header(header::AUTHORIZATION, "Negotiate abc")
-            .body(())
-            .unwrap();
-        assert!(req.authorization_negotiate());
-
-        let req = Request::builder()
-            .header(header::AUTHORIZATION, "NTLM TlRMTVNTUA==")
-            .body(())
-            .unwrap();
-        assert!(req.authorization_negotiate());
-
-        let req = Request::builder()
-            .header(header::AUTHORIZATION, "Basic abc")
-            .body(())
-            .unwrap();
-        assert!(!req.authorization_negotiate());
-    }
-
-    #[test]
-    fn maybe_grpc_detects_content_type() {
-        let req = Request::builder()
-            .header(header::CONTENT_TYPE, "application/grpc")
-            .body(())
-            .unwrap();
-        assert!(req.maybe_grpc());
-
-        let req = Request::builder()
-            .header(header::CONTENT_TYPE, "application/grpc+proto")
-            .body(())
-            .unwrap();
-        assert!(req.maybe_grpc());
-
-        let req = Request::builder()
-            .header(header::CONTENT_TYPE, "APPLICATION/GRPC; charset=utf-8")
-            .body(())
-            .unwrap();
-        assert!(req.maybe_grpc());
-
-        let req = Request::builder()
-            .header(header::CONTENT_TYPE, "application/grpc-web+proto")
-            .body(())
-            .unwrap();
-        assert!(!req.maybe_grpc());
-
-        let req = Request::builder()
-            .header(header::CONTENT_TYPE, "application/json")
-            .body(())
-            .unwrap();
-        assert!(!req.maybe_grpc());
-    }
-
-    #[test]
-    fn host_prefers_host_header_then_uri() {
+    fn host_prefers_uri_authority_then_host_header() {
         let req = Request::builder()
             .uri("https://uri.example/x")
             .header(header::HOST, "header.example:8080")
             .body(())
             .unwrap();
-        assert_eq!(req.host(), Host::from_str("header.example").unwrap());
+        assert_eq!(req.host().unwrap(), Host::from_str("uri.example").unwrap());
 
         let req = Request::builder()
             .uri("https://uri.example/x")
             .body(())
             .unwrap();
-        assert_eq!(req.host(), Host::from_str("uri.example").unwrap());
+        assert_eq!(req.host().unwrap(), Host::from_str("uri.example").unwrap());
+
+        let req = Request::builder()
+            .uri("/x")
+            .header(header::HOST, "header.example:8080")
+            .body(())
+            .unwrap();
+        assert_eq!(
+            req.host().unwrap(),
+            Host::from_str("header.example").unwrap()
+        );
 
         let req = Request::builder().uri("/x").body(()).unwrap();
-        assert!(req.host().is_empty());
+        assert_eq!(req.host(), None);
     }
 
     #[test]

@@ -9,7 +9,7 @@ use std::str::FromStr;
 use url::Url;
 
 use crate::auth::{AuthParseError, Password, Username};
-use crate::net::H1HeaderValue;
+use crate::net::{AuthorizationScheme, AuthorizationValueParser, H1HeaderValue};
 
 mod basic;
 pub use basic::HttpBasicAuth;
@@ -20,16 +20,17 @@ pub enum HttpAuth {
 }
 
 impl HttpAuth {
-    pub fn from_authorization(value: &str) -> Result<Self, AuthParseError> {
-        match memchr::memchr(b' ', value.as_bytes()) {
-            Some(i) => match value[0..i].to_ascii_lowercase().as_str() {
-                "basic" => {
-                    let basic = HttpBasicAuth::from_str(&value[i + 1..])?;
-                    Ok(HttpAuth::Basic(basic))
-                }
-                _ => Ok(HttpAuth::None),
-            },
-            None => Err(AuthParseError::UnsupportedAuthType),
+    pub fn from_authorization(
+        parsed: &AuthorizationValueParser<'_>,
+    ) -> Result<Self, AuthParseError> {
+        match parsed.scheme() {
+            AuthorizationScheme::Basic => {
+                let content = std::str::from_utf8(parsed.content())
+                    .map_err(|_| AuthParseError::InvalidUtf8Encoding)?;
+                let basic = HttpBasicAuth::from_str(content)?;
+                Ok(HttpAuth::Basic(basic))
+            }
+            _ => Ok(HttpAuth::None),
         }
     }
 }
@@ -38,9 +39,10 @@ impl TryFrom<&H1HeaderValue> for HttpAuth {
     type Error = AuthParseError;
 
     fn try_from(value: &H1HeaderValue) -> Result<Self, Self::Error> {
-        let value = std::str::from_utf8(value.as_bytes())
-            .map_err(|_| AuthParseError::InvalidUtf8Encoding)?;
-        HttpAuth::from_authorization(value)
+        let Some(parsed) = AuthorizationValueParser::parse(value.as_bytes()) else {
+            return Err(AuthParseError::UnsupportedAuthType);
+        };
+        HttpAuth::from_authorization(&parsed)
     }
 }
 
@@ -72,10 +74,15 @@ impl TryFrom<&Url> for HttpAuth {
 mod tests {
     use super::*;
 
+    fn from_header(value: &str) -> Result<HttpAuth, AuthParseError> {
+        let parsed = AuthorizationValueParser::parse(value.as_bytes())
+            .ok_or(AuthParseError::UnsupportedAuthType)?;
+        HttpAuth::from_authorization(&parsed)
+    }
+
     #[test]
     fn parse_ok() -> Result<(), ()> {
-        let value = "Basic cm9vdDp0b29y";
-        let info = HttpAuth::from_authorization(value).unwrap();
+        let info = from_header("Basic cm9vdDp0b29y").unwrap();
         if let HttpAuth::Basic(HttpBasicAuth {
             username, password, ..
         }) = info
@@ -90,8 +97,13 @@ mod tests {
 
     #[test]
     fn parse_scheme_only() {
-        let value = "Basic ";
-        let result = HttpAuth::from_authorization(value);
+        let result = from_header("Basic ");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn non_basic_scheme_is_none() {
+        let info = from_header("Negotiate abc").unwrap();
+        assert!(matches!(info, HttpAuth::None));
     }
 }
