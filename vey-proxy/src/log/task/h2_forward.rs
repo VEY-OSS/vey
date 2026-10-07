@@ -16,7 +16,7 @@ use vey_types::net::UpstreamAddr;
 use super::TaskEvent;
 use crate::escape::EgressNotes;
 use crate::module::http_forward::HttpForwardTaskNotes;
-use crate::serve::ServerTaskNotes;
+use crate::serve::{ServerTaskError, ServerTaskNotes};
 
 pub(crate) struct TaskLogForH2Forward<'a> {
     pub(crate) logger: &'a Logger,
@@ -52,8 +52,8 @@ impl TaskLogForH2Forward<'_> {
         );
     }
 
-    pub(crate) fn log(&self, err: &str) {
-        slog::info!(self.logger, "{err}";
+    pub(crate) fn log(&self, e: &ServerTaskError) {
+        slog::info!(self.logger, "{e}";
             "task_type" => "H2Forward",
             "task_id" => LtUuid(&self.task_notes.id),
             "connection_id" => LtUuid(self.connection_id),
@@ -75,6 +75,7 @@ impl TaskLogForH2Forward<'_> {
             "next_expire" => self.egress_notes.expire.as_ref().map(LtDateTime),
             "tcp_connect_tries" => self.egress_notes.tries,
             "tcp_connect_spend" => LtDuration(self.egress_notes.duration),
+            "reason" => e.brief(),
             "reuse_connection" => self.http_notes.reused_connection,
             "method" => LtHttpMethod(&self.http_notes.method),
             "uri" => LtHttpUri::new(&self.http_notes.uri, self.http_notes.uri_log_max_chars),

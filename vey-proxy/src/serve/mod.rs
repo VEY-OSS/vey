@@ -62,7 +62,9 @@ mod udp_stream;
 mod udp_tproxy;
 
 mod error;
-pub(crate) use error::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
+pub(crate) use error::{
+    ServerTaskError, ServerTaskForbiddenError, ServerTaskH2Error, ServerTaskResult,
+};
 
 mod task;
 pub(crate) use task::{ServerTaskNotes, ServerTaskStage};

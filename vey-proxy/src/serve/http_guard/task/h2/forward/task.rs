@@ -20,13 +20,15 @@ use vey_icap_client::reqmod::h2::{
 use vey_icap_client::respmod::h2::{RespmodAdaptationEndState, RespmodAdaptationRunState};
 use vey_types::net::UpstreamAddr;
 
-use super::{H2StreamTransferError, H2TaskContext, OriginConnection, OriginH2Sender};
+use super::{H2TaskContext, OriginConnection, OriginH2Sender};
 use crate::escape::EgressNotes;
 use crate::log::task::h2_forward::TaskLogForH2Forward;
 use crate::module::http_forward::HttpForwardTaskNotes;
 use crate::module::http_header::ProxyErrorType;
 use crate::serve::http_guard::H2ForwardTaskAliveGuard;
-use crate::serve::{ServerTaskNotes, ServerTaskStage};
+use crate::serve::{
+    ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult, ServerTaskStage,
+};
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct H2ForwardTask {
@@ -106,10 +108,10 @@ impl H2ForwardTask {
         if let Err(e) = self.do_forward(clt_body, &mut clt_send_rsp).await {
             self.reply_task_err(&mut clt_send_rsp, &e);
             if let Some(log) = self.log_ctx() {
-                log.log(&e.to_string());
+                log.log(&e);
             }
         } else if let Some(log) = self.log_ctx() {
-            log.log("finished");
+            log.log(&ServerTaskError::Finished);
         }
     }
 
@@ -138,13 +140,9 @@ impl H2ForwardTask {
         }
     }
 
-    fn reply_task_err(
-        &mut self,
-        clt_send_rsp: &mut SendResponse<Bytes>,
-        e: &H2StreamTransferError,
-    ) {
+    fn reply_task_err(&mut self, clt_send_rsp: &mut SendResponse<Bytes>, e: &ServerTaskError) {
         if self.send_error_response
-            && let Some((status, error)) = e.status_and_error()
+            && let Some((status, error)) = e.reply_status()
         {
             self.reply_local_error(clt_send_rsp, status, error);
         }
@@ -160,11 +158,13 @@ impl H2ForwardTask {
         &mut self,
         clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         if let Some(site_ctx) = self.task_notes.site_ctx() {
             if site_ctx.check_rate_limit().is_err() {
                 self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
-                return Err(H2StreamTransferError::InternalServerError("rate limited"));
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::RateLimited,
+                ));
             }
             let site_ctx = site_ctx.clone();
             if self
@@ -173,7 +173,9 @@ impl H2ForwardTask {
                 .is_err()
             {
                 self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
-                return Err(H2StreamTransferError::InternalServerError("fully loaded"));
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
             }
             if let Some(tenant) = site_ctx.tenant_ctx() {
                 if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
@@ -210,13 +212,13 @@ impl H2ForwardTask {
         Ok(())
     }
 
-    fn prepare_upstream(&mut self) -> Result<(), H2StreamTransferError> {
+    fn prepare_upstream(&mut self) -> ServerTaskResult<()> {
         self.upstream = self
             .ctx
             .site_ctx
             .site()
             .select_upstream(self.ctx.client_ip())
-            .map_err(H2StreamTransferError::OriginConnectFailed)?;
+            .map_err(|_| ServerTaskError::InternalServerError("failed to select site upstream"))?;
         Ok(())
     }
 
@@ -231,7 +233,7 @@ impl H2ForwardTask {
         origin: OriginH2Sender,
         clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         if self.audit_task
             && let Some(audit_handle) = self.ctx.audit_handle.as_ref()
             && let Some(reqmod) = audit_handle.icap_reqmod_client()
@@ -288,7 +290,7 @@ impl H2ForwardTask {
                 }
                 Err(e) => {
                     if !reqmod.bypass() {
-                        return Err(H2StreamTransferError::InternalAdapterError(e));
+                        return Err(ServerTaskError::InternalAdapterError(e));
                     }
                 }
             }
@@ -312,7 +314,7 @@ impl H2ForwardTask {
         clt_send_rsp: &mut SendResponse<Bytes>,
         icap_adapter: H2RequestAdapter<crate::serve::ServerIdleChecker>,
         adaptation_state: &mut ReqmodAdaptationRunState,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         let end_state = icap_adapter
             .xfer(
                 adaptation_state,
@@ -356,7 +358,7 @@ impl H2ForwardTask {
         clt_send_rsp: &mut SendResponse<Bytes>,
         rsp: HttpAdapterErrorResponse,
         rsp_recv_body: Option<ReqmodRecvHttpResponseBody>,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         let mut parts = Response::new(()).into_parts().0;
         parts.version = Version::HTTP_2;
         parts.status = rsp.status;
@@ -365,23 +367,25 @@ impl H2ForwardTask {
         self.send_error_response = false;
         let rsp_status = response.status().as_u16();
         if let Some(mut recv_body) = rsp_recv_body {
-            let mut clt_send_stream = clt_send_rsp
-                .send_response(response, false)
-                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            let mut clt_send_stream = clt_send_rsp.send_response(response, false).map_err(|e| {
+                ServerTaskError::ClientAppError(anyhow::anyhow!(
+                    "send h2 response to client failed: {e}"
+                ))
+            })?;
             self.http_notes.rsp_status = rsp_status;
             let mut body_transfer = recv_body.body_transfer(&mut clt_send_stream);
             (&mut body_transfer).await.map_err(|e| {
-                H2StreamTransferError::InternalAdapterError(anyhow::anyhow!(
-                    "adapter error body: {e:?}"
-                ))
+                ServerTaskError::InternalAdapterError(anyhow::anyhow!("adapter error body: {e:?}"))
             })?;
             self.http_notes.clt_rsp_body_size = Some(body_transfer.copied_size());
             recv_body.save_connection().await;
         } else {
             self.http_notes.clt_rsp_body_size = Some(0);
-            clt_send_rsp
-                .send_response(response, true)
-                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            clt_send_rsp.send_response(response, true).map_err(|e| {
+                ServerTaskError::ClientAppError(anyhow::anyhow!(
+                    "send h2 response to client failed: {e}"
+                ))
+            })?;
             self.http_notes.rsp_status = rsp_status;
         }
         Ok(())
@@ -392,7 +396,7 @@ impl H2ForwardTask {
         origin: OriginH2Sender,
         clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         let end_stream = clt_body.is_end_stream();
         let request_host = self.req.host();
         let opened = match self
@@ -430,7 +434,7 @@ impl H2ForwardTask {
         &mut self,
         ups_rsp_fut: ResponseFuture,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         self.http_notes.mark_req_no_body();
 
         let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(ups_rsp_fut);
@@ -439,7 +443,7 @@ impl H2ForwardTask {
             self.recv_final_response(&mut ups_recv_rsp, clt_send_rsp),
         )
         .await
-        .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)??;
+        .map_err(|_| ServerTaskError::UpstreamAppTimeout("timeout to recv response head"))??;
 
         self.send_response(ups_rsp, clt_send_rsp, None).await
     }
@@ -450,7 +454,7 @@ impl H2ForwardTask {
         ups_send_stream: SendStream<Bytes>,
         clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         let mut req_body_transfer = H2BodyTransfer::new(
             clt_body,
             ups_send_stream,
@@ -487,7 +491,7 @@ impl H2ForwardTask {
                         }
                         Err(e) => {
                             record_progress!();
-                            return Err(H2StreamTransferError::RequestBodyTransferFailed(e));
+                            return Err(ServerTaskError::request_h2_body_error(e));
                         }
                     }
                 }
@@ -502,7 +506,7 @@ impl H2ForwardTask {
                         }
                         Err(e) => {
                             record_progress!();
-                            return Err(H2StreamTransferError::ResponseHeadRecvFailed(e));
+                            return Err(ServerTaskError::UpstreamAppError(anyhow::anyhow!("recv h2 response from upstream failed: {e}")));
                         }
                     }
                 }
@@ -511,7 +515,7 @@ impl H2ForwardTask {
                         idle_count += n;
                         if idle_count > self.task_notes.task_max_idle_count(self.ctx.server_config.task_idle_max_count) {
                             record_progress!();
-                            return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;
@@ -519,7 +523,7 @@ impl H2ForwardTask {
                     }
                     if self.ctx.server_quit_policy.force_quit() {
                         record_progress!();
-                        return Err(H2StreamTransferError::CanceledAsServerQuit);
+                        return Err(ServerTaskError::CanceledAsServerQuit);
                     }
                 }
             }
@@ -533,7 +537,7 @@ impl H2ForwardTask {
                 self.recv_final_response(&mut ups_recv_rsp, clt_send_rsp),
             )
             .await
-            .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)??;
+            .map_err(|_| ServerTaskError::UpstreamAppTimeout("timeout to recv response head"))??;
 
             self.send_response(ups_rsp, clt_send_rsp, None).await
         }
@@ -543,12 +547,13 @@ impl H2ForwardTask {
         &mut self,
         ups_recv_rsp: &mut H2ResponseHeaderReceiver,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<Response<RecvStream>, H2StreamTransferError> {
+    ) -> ServerTaskResult<Response<RecvStream>> {
         loop {
-            let rsp = ups_recv_rsp
-                .recv_header()
-                .await
-                .map_err(H2StreamTransferError::ResponseHeadRecvFailed)?;
+            let rsp = ups_recv_rsp.recv_header().await.map_err(|e| {
+                ServerTaskError::UpstreamAppError(anyhow::anyhow!(
+                    "recv h2 response from upstream failed: {e}"
+                ))
+            })?;
             if let Some(final_rsp) =
                 self.check_out_final_response(rsp, clt_send_rsp, ups_recv_rsp)?
             {
@@ -562,27 +567,31 @@ impl H2ForwardTask {
         rsp: Response<()>,
         clt_send_rsp: &mut SendResponse<Bytes>,
         ups_recv_rsp: &mut H2ResponseHeaderReceiver,
-    ) -> Result<Option<Response<RecvStream>>, H2StreamTransferError> {
+    ) -> ServerTaskResult<Option<Response<RecvStream>>> {
         match rsp.status() {
             StatusCode::CONTINUE => {
                 if self.allow_continue {
-                    clt_send_rsp
-                        .send_informational(rsp)
-                        .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+                    clt_send_rsp.send_informational(rsp).map_err(|e| {
+                        ServerTaskError::ClientAppError(anyhow::anyhow!(
+                            "send h2 informational response to client failed: {e}"
+                        ))
+                    })?;
                     self.allow_continue = false;
                 } else {
-                    return Err(H2StreamTransferError::InvalidContinueResponse);
+                    return Err(ServerTaskError::invalid_upstream_100_continue_response());
                 }
             }
             StatusCode::PROCESSING | StatusCode::EARLY_HINTS => {
-                clt_send_rsp
-                    .send_informational(rsp)
-                    .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+                clt_send_rsp.send_informational(rsp).map_err(|e| {
+                    ServerTaskError::ClientAppError(anyhow::anyhow!(
+                        "send h2 informational response to client failed: {e}"
+                    ))
+                })?;
             }
             status if status.is_informational() => {
-                return Err(H2StreamTransferError::UnsupportedInformationalResponse(
-                    status,
-                ));
+                return Err(ServerTaskError::UpstreamAppError(anyhow::anyhow!(
+                    "unsupported h2 informational response {status}"
+                )));
             }
             status => {
                 self.http_notes.mark_rsp_recv_hdr();
@@ -590,9 +599,9 @@ impl H2ForwardTask {
                     let (headers, _) = rsp.into_parts();
                     Ok(Some(Response::from_parts(headers, body)))
                 } else {
-                    Err(H2StreamTransferError::UnsupportedInformationalResponse(
-                        status,
-                    ))
+                    Err(ServerTaskError::UpstreamAppError(anyhow::anyhow!(
+                        "unsupported h2 informational response {status}"
+                    )))
                 };
             }
         }
@@ -604,7 +613,7 @@ impl H2ForwardTask {
         ups_rsp: Response<RecvStream>,
         clt_send_rsp: &mut SendResponse<Bytes>,
         adaptation_respond_shared_headers: Option<HeaderMap>,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         let (parts, ups_body) = ups_rsp.into_parts();
         let clt_rsp = Response::from_parts(parts, ());
         self.http_notes.origin_status = clt_rsp.status().as_u16();
@@ -660,7 +669,7 @@ impl H2ForwardTask {
                 }
                 Err(e) => {
                     if !respmod.bypass() {
-                        return Err(H2StreamTransferError::InternalAdapterError(e));
+                        return Err(ServerTaskError::InternalAdapterError(e));
                     }
                 }
             }
@@ -669,16 +678,20 @@ impl H2ForwardTask {
         self.send_error_response = false;
         if ups_body.is_end_stream() {
             self.http_notes.mark_rsp_no_body();
-            clt_send_rsp
-                .send_response(clt_rsp, true)
-                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            clt_send_rsp.send_response(clt_rsp, true).map_err(|e| {
+                ServerTaskError::ClientAppError(anyhow::anyhow!(
+                    "send h2 response to client failed: {e}"
+                ))
+            })?;
             self.http_notes.rsp_status = self.http_notes.origin_status;
             return Ok(());
         }
 
-        let clt_send_stream = clt_send_rsp
-            .send_response(clt_rsp, false)
-            .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+        let clt_send_stream = clt_send_rsp.send_response(clt_rsp, false).map_err(|e| {
+            ServerTaskError::ClientAppError(anyhow::anyhow!(
+                "send h2 response to client failed: {e}"
+            ))
+        })?;
         self.http_notes.rsp_status = self.http_notes.origin_status;
         let mut rsp_body_transfer = H2BodyTransfer::new(
             ups_body,
@@ -711,7 +724,7 @@ impl H2ForwardTask {
                         }
                         Err(e) => {
                             record_progress!();
-                            return Err(H2StreamTransferError::ResponseBodyTransferFailed(e));
+                            return Err(ServerTaskError::response_h2_body_error(e));
                         }
                     }
                 }
@@ -720,7 +733,7 @@ impl H2ForwardTask {
                         idle_count += n;
                         if idle_count > self.task_notes.task_max_idle_count(self.ctx.server_config.task_idle_max_count) {
                             record_progress!();
-                            return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;
@@ -728,7 +741,7 @@ impl H2ForwardTask {
                     }
                     if self.ctx.server_quit_policy.force_quit() {
                         record_progress!();
-                        return Err(H2StreamTransferError::CanceledAsServerQuit);
+                        return Err(ServerTaskError::CanceledAsServerQuit);
                     }
                 }
             }

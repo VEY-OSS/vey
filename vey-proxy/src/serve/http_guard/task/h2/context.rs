@@ -9,7 +9,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use anyhow::anyhow;
 use bytes::Bytes;
 use h2::client::{ResponseFuture, SendRequest};
 use h2::ext::Protocol;
@@ -26,7 +25,7 @@ use vey_types::net::{
     AlpnProtocol, ForwardedValue, HeaderMapExt, Host, HttpForwardedHeaderType, UpstreamAddr,
 };
 
-use super::{CommonTaskContext, H2StreamTransferError};
+use super::CommonTaskContext;
 use crate::audit::AuditContext;
 use crate::escape::{EgressNotes, TlsHttpConnection};
 use crate::module::http_forward::{
@@ -35,7 +34,9 @@ use crate::module::http_forward::{
 };
 use crate::module::http_header::{self, ProxyErrorType};
 use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnection, TlsConnectTaskConf};
-use crate::serve::{ServerTaskNotes, ServerTaskStage};
+use crate::serve::{
+    ServerTaskError, ServerTaskH2Error, ServerTaskNotes, ServerTaskResult, ServerTaskStage,
+};
 use crate::site::{H2ConnectionState, SiteContext};
 
 pub(crate) struct H2TaskContext {
@@ -179,7 +180,7 @@ impl H2TaskContext {
         task_notes: &mut ServerTaskNotes,
         upstream: &UpstreamAddr,
         request_host: &Host,
-    ) -> Result<OriginConnection, H2StreamTransferError> {
+    ) -> ServerTaskResult<OriginConnection> {
         if let Some(origin) = self.checkout_h2(task_notes, upstream).await {
             return Ok(OriginConnection::H2(origin));
         }
@@ -196,7 +197,7 @@ impl H2TaskContext {
         task_notes: &mut ServerTaskNotes,
         upstream: &UpstreamAddr,
         request_host: &Host,
-    ) -> Result<OriginH2Sender, H2StreamTransferError> {
+    ) -> ServerTaskResult<OriginH2Sender> {
         if let Some(origin) = self.checkout_h2(task_notes, upstream).await {
             return Ok(origin);
         }
@@ -213,7 +214,7 @@ impl H2TaskContext {
         upstream: &UpstreamAddr,
         request_host: &Host,
         origin: OriginH2Sender,
-    ) -> Result<OriginH2Sender, H2StreamTransferError> {
+    ) -> ServerTaskResult<OriginH2Sender> {
         let open_timeout = self.server_config.h2.upstream_stream_open_timeout;
         let reused = origin.reused;
         let egress_notes = origin.egress_notes;
@@ -226,8 +227,16 @@ impl H2TaskContext {
                 });
             }
             Ok(Err(_)) | Err(_) if reused => {}
-            Ok(Err(e)) => return Err(H2StreamTransferError::UpstreamStreamOpenFailed(e)),
-            Err(_) => return Err(H2StreamTransferError::UpstreamStreamOpenTimeout),
+            Ok(Err(e)) => {
+                return Err(ServerTaskError::H2(
+                    ServerTaskH2Error::UpstreamStreamOpenFailed(e),
+                ));
+            }
+            Err(_) => {
+                return Err(ServerTaskError::H2(
+                    ServerTaskH2Error::UpstreamStreamOpenTimeout,
+                ));
+            }
         }
 
         task_notes.stage = ServerTaskStage::Connecting;
@@ -241,8 +250,12 @@ impl H2TaskContext {
                 reused: false,
                 egress_notes,
             }),
-            Ok(Err(e)) => Err(H2StreamTransferError::UpstreamStreamOpenFailed(e)),
-            Err(_) => Err(H2StreamTransferError::UpstreamStreamOpenTimeout),
+            Ok(Err(e)) => Err(ServerTaskError::H2(
+                ServerTaskH2Error::UpstreamStreamOpenFailed(e),
+            )),
+            Err(_) => Err(ServerTaskError::H2(
+                ServerTaskH2Error::UpstreamStreamOpenTimeout,
+            )),
         }
     }
 
@@ -260,7 +273,7 @@ impl H2TaskContext {
         origin: OriginH2Sender,
         req: &Request<()>,
         end_of_stream: bool,
-    ) -> Result<OpenedH2Stream, H2StreamTransferError> {
+    ) -> ServerTaskResult<OpenedH2Stream> {
         let reused = origin.reused;
         match self.try_open_h2_stream(origin, req, end_of_stream).await {
             Ok(opened) => return Ok(opened),
@@ -280,7 +293,7 @@ impl H2TaskContext {
         origin: OriginH2Sender,
         req: &Request<()>,
         end_of_stream: bool,
-    ) -> Result<OpenedH2Stream, H2StreamTransferError> {
+    ) -> ServerTaskResult<OpenedH2Stream> {
         let OriginH2Sender {
             mut sender,
             reused,
@@ -290,9 +303,11 @@ impl H2TaskContext {
         if let Some(protocol) = req.extensions().get::<Protocol>() {
             ups_req.extensions_mut().insert(protocol.clone());
         }
-        let (rsp_fut, send_stream) = sender
-            .send_request(ups_req, end_of_stream)
-            .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
+        let (rsp_fut, send_stream) = sender.send_request(ups_req, end_of_stream).map_err(|e| {
+            ServerTaskError::UpstreamAppError(anyhow::anyhow!(
+                "send h2 request to upstream failed: {e}"
+            ))
+        })?;
         match tokio::time::timeout(
             self.server_config.h2.upstream_stream_open_timeout,
             poll_fn(|cx| sender.poll_ready(cx)),
@@ -305,20 +320,26 @@ impl H2TaskContext {
                 reused,
                 egress_notes,
             }),
-            Ok(Err(e)) => Err(H2StreamTransferError::UpstreamStreamOpenFailed(e)),
-            Err(_) => Err(H2StreamTransferError::UpstreamStreamOpenTimeout),
+            Ok(Err(e)) => Err(ServerTaskError::H2(
+                ServerTaskH2Error::UpstreamStreamOpenFailed(e),
+            )),
+            Err(_) => Err(ServerTaskError::H2(
+                ServerTaskH2Error::UpstreamStreamOpenTimeout,
+            )),
         }
     }
 
     pub(super) fn reset_unopened_stream(
         clt_send_rsp: &mut SendResponse<Bytes>,
-        err: &H2StreamTransferError,
+        err: &ServerTaskError,
     ) {
         let reason = match err {
-            H2StreamTransferError::UpstreamStreamOpenFailed(e) => {
+            ServerTaskError::H2(ServerTaskH2Error::UpstreamStreamOpenFailed(e)) => {
                 e.reason().unwrap_or(Reason::REFUSED_STREAM)
             }
-            H2StreamTransferError::UpstreamStreamOpenTimeout => Reason::REFUSED_STREAM,
+            ServerTaskError::H2(ServerTaskH2Error::UpstreamStreamOpenTimeout) => {
+                Reason::REFUSED_STREAM
+            }
             _ => return,
         };
         clt_send_rsp.send_reset(reason);
@@ -383,7 +404,7 @@ impl H2TaskContext {
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
         request_host: &Host,
-    ) -> Result<OriginConnection, H2StreamTransferError> {
+    ) -> ServerTaskResult<OriginConnection> {
         let site = self.site_ctx.site();
         let mut egress_notes = EgressNotes::default();
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
@@ -404,8 +425,7 @@ impl H2TaskContext {
                     task_notes,
                     &mut audit_ctx,
                 )
-                .await
-                .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?
+                .await?
             {
                 TlsHttpConnection::H1(connection, escaper) => {
                     return Ok(OriginConnection::H1(OriginH1Sender {
@@ -441,7 +461,7 @@ impl H2TaskContext {
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
         request_host: &Host,
-    ) -> Result<OriginH2Sender, H2StreamTransferError> {
+    ) -> ServerTaskResult<OriginH2Sender> {
         let site = self.site_ctx.site();
         let mut egress_notes = EgressNotes::default();
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
@@ -462,8 +482,7 @@ impl H2TaskContext {
                     task_stats,
                     &mut audit_ctx,
                 )
-                .await
-                .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?
+                .await?
         } else {
             self.setup_origin_tcp(
                 task_notes,
@@ -486,12 +505,12 @@ impl H2TaskContext {
         egress_notes: &mut EgressNotes,
         audit_ctx: &mut AuditContext,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-    ) -> Result<TcpConnection, H2StreamTransferError> {
+    ) -> ServerTaskResult<TcpConnection> {
         let task_conf = TcpConnectTaskConf { upstream };
-        self.escaper
+        Ok(self
+            .escaper
             .tcp_setup_connection(&task_conf, egress_notes, task_notes, task_stats, audit_ctx)
-            .await
-            .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))
+            .await?)
     }
 
     async fn finish_h2_origin(
@@ -500,7 +519,7 @@ impl H2TaskContext {
         egress_notes: EgressNotes,
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
-    ) -> Result<OriginH2Sender, H2StreamTransferError> {
+    ) -> ServerTaskResult<OriginH2Sender> {
         let (sender, conn_state) = self.handshake_h2(stream).await?;
         self.site_ctx.site().http2_pool().insert(
             task_notes.worker_id(),
@@ -520,7 +539,7 @@ impl H2TaskContext {
     async fn handshake_h2(
         &self,
         stream: TcpConnection,
-    ) -> Result<(SendRequest<Bytes>, Arc<H2ConnectionState>), H2StreamTransferError> {
+    ) -> ServerTaskResult<(SendRequest<Bytes>, Arc<H2ConnectionState>)> {
         let (ups_r, ups_w) = stream;
         let client_builder = self.server_config.h2.build_client();
         let (sender, mut connection) = tokio::time::timeout(
@@ -528,11 +547,9 @@ impl H2TaskContext {
             client_builder.handshake(tokio::io::join(ups_r, ups_w)),
         )
         .await
-        .map_err(|_| {
-            H2StreamTransferError::OriginConnectFailed(anyhow!("upstream h2 handshake timeout"))
-        })?
+        .map_err(|_| ServerTaskError::UpstreamAppTimeout("upstream h2 handshake timeout"))?
         .map_err(|e| {
-            H2StreamTransferError::OriginConnectFailed(anyhow!("upstream h2 handshake: {e}"))
+            ServerTaskError::UpstreamAppError(anyhow::anyhow!("upstream h2 handshake failed: {e}"))
         })?;
 
         let conn_state = Arc::new(H2ConnectionState::new());

@@ -17,13 +17,15 @@ use vey_icap_client::reqmod::h2::{
 };
 use vey_types::net::{Host, UpstreamAddr};
 
-use super::{H2StreamTransferError, H2TaskContext, OriginH2Sender};
+use super::{H2TaskContext, OriginH2Sender};
 use crate::escape::EgressNotes;
 use crate::log::task::websocket::TaskLogForWebSocket;
 use crate::module::http_header::ProxyErrorType;
 use crate::module::websocket::WebSocketTaskNotes;
 use crate::serve::http_guard::H2ForwardTaskAliveGuard;
-use crate::serve::{ServerTaskNotes, ServerTaskStage};
+use crate::serve::{
+    ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult, ServerTaskStage,
+};
 use crate::stat::types::RequestAliveKind;
 
 pub(crate) struct H2WebsocketTask {
@@ -109,13 +111,13 @@ impl H2WebsocketTask {
         match self.do_run(req, clt_body, &mut clt_send_rsp).await {
             Ok(()) => {
                 if let Some(log) = self.log_ctx() {
-                    log.log_h2("finished");
+                    log.log(&ServerTaskError::Finished);
                 }
             }
             Err(e) => {
                 self.reply_task_err(&mut clt_send_rsp, &e);
                 if let Some(log) = self.log_ctx() {
-                    log.log_h2(&e.to_string());
+                    log.log(&e);
                 }
             }
         }
@@ -126,12 +128,14 @@ impl H2WebsocketTask {
         req: Request<()>,
         clt_r: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         let mut audit_task = false;
         if let Some(site_ctx) = self.task_notes.site_ctx() {
             if site_ctx.check_rate_limit().is_err() {
                 self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
-                return Err(H2StreamTransferError::InternalServerError("rate limited"));
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::RateLimited,
+                ));
             }
             let site_ctx = site_ctx.clone();
             if self
@@ -140,7 +144,9 @@ impl H2WebsocketTask {
                 .is_err()
             {
                 self.reply_denied(clt_send_rsp, StatusCode::TOO_MANY_REQUESTS);
-                return Err(H2StreamTransferError::InternalServerError("fully loaded"));
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::FullyLoaded,
+                ));
             }
             if let Some(tenant) = site_ctx.tenant_ctx() {
                 if let Some(audit_handle) = self.ctx.audit_handle.as_ref() {
@@ -161,7 +167,7 @@ impl H2WebsocketTask {
             .site_ctx
             .site()
             .select_upstream(self.ctx.client_ip())
-            .map_err(H2StreamTransferError::OriginConnectFailed)?;
+            .map_err(|_| ServerTaskError::InternalServerError("failed to select site upstream"))?;
         let request_host = req.host();
         let origin = self
             .ctx
@@ -207,7 +213,7 @@ impl H2WebsocketTask {
                 }
                 Err(e) => {
                     if !reqmod.bypass() {
-                        return Err(H2StreamTransferError::InternalAdapterError(e));
+                        return Err(ServerTaskError::InternalAdapterError(e));
                     }
                 }
             }
@@ -229,13 +235,9 @@ impl H2WebsocketTask {
         }
     }
 
-    fn reply_task_err(
-        &mut self,
-        clt_send_rsp: &mut SendResponse<Bytes>,
-        e: &H2StreamTransferError,
-    ) {
+    fn reply_task_err(&mut self, clt_send_rsp: &mut SendResponse<Bytes>, e: &ServerTaskError) {
         if self.send_error_response
-            && let Some((status, error)) = e.status_and_error()
+            && let Some((status, error)) = e.reply_status()
         {
             self.reply_local_error(clt_send_rsp, status, error);
         }
@@ -257,7 +259,7 @@ impl H2WebsocketTask {
         clt_send_rsp: &mut SendResponse<Bytes>,
         icap_adapter: H2RequestAdapter<crate::serve::ServerIdleChecker>,
         adaptation_state: &mut ReqmodAdaptationRunState,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         match icap_adapter.xfer_connect(adaptation_state, ups_req).await {
             Ok(ReqmodAdaptationMidState::OriginalRequest(orig_req)) => {
                 self.send_connect(origin, request_host, orig_req, clt_r, clt_send_rsp)
@@ -280,7 +282,7 @@ impl H2WebsocketTask {
         clt_send_rsp: &mut SendResponse<Bytes>,
         rsp: HttpAdapterErrorResponse,
         rsp_recv_body: Option<ReqmodRecvHttpResponseBody>,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         let mut parts = Response::new(()).into_parts().0;
         parts.version = Version::HTTP_2;
         parts.status = rsp.status;
@@ -289,21 +291,25 @@ impl H2WebsocketTask {
         self.send_error_response = false;
         self.ws_notes.rsp_status = response.status().as_u16();
         if let Some(mut recv_body) = rsp_recv_body {
-            let mut clt_send_stream = clt_send_rsp
-                .send_response(response, false)
-                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            let mut clt_send_stream = clt_send_rsp.send_response(response, false).map_err(|e| {
+                ServerTaskError::ClientAppError(anyhow::anyhow!(
+                    "send h2 response to client failed: {e}"
+                ))
+            })?;
             let mut body_transfer = recv_body.body_transfer(&mut clt_send_stream);
             (&mut body_transfer).await.map_err(|e| {
-                H2StreamTransferError::InternalAdapterError(anyhow::anyhow!(
+                ServerTaskError::InternalAdapterError(anyhow::anyhow!(
                     "read http error response from adapter failed: {e:?}"
                 ))
             })?;
             self.clt_wr_bytes = body_transfer.copied_size();
             recv_body.save_connection().await;
         } else {
-            clt_send_rsp
-                .send_response(response, true)
-                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            clt_send_rsp.send_response(response, true).map_err(|e| {
+                ServerTaskError::ClientAppError(anyhow::anyhow!(
+                    "send h2 response to client failed: {e}"
+                ))
+            })?;
         }
         Ok(())
     }
@@ -315,7 +321,7 @@ impl H2WebsocketTask {
         ups_req: Request<()>,
         clt_r: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         let opened = match self
             .ctx
             .open_h2_stream(
@@ -347,17 +353,25 @@ impl H2WebsocketTask {
         let mut ups_recv_rsp = H2ResponseHeaderReceiver::new(opened.rsp_fut);
         let rsp = tokio::time::timeout(self.ctx.rsp_hdr_timeout(), ups_recv_rsp.recv_header())
             .await
-            .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)?
-            .map_err(H2StreamTransferError::ResponseHeadRecvFailed)?;
+            .map_err(|_| ServerTaskError::UpstreamAppTimeout("timeout to recv response head"))?
+            .map_err(|e| {
+                ServerTaskError::UpstreamAppError(anyhow::anyhow!(
+                    "recv h2 response from upstream failed: {e}"
+                ))
+            })?;
         self.ws_notes.origin_status = rsp.status().as_u16();
         if rsp.status().is_informational() {
-            return Err(H2StreamTransferError::UnsupportedInformationalResponse(
-                rsp.status(),
-            ));
+            return Err(ServerTaskError::UpstreamAppError(anyhow::anyhow!(
+                "unsupported h2 informational response {}",
+                rsp.status()
+            )));
         }
-        let body = ups_recv_rsp.take_body().ok_or(
-            H2StreamTransferError::UnsupportedInformationalResponse(rsp.status()),
-        )?;
+        let body = ups_recv_rsp.take_body().ok_or_else(|| {
+            ServerTaskError::UpstreamAppError(anyhow::anyhow!(
+                "unsupported h2 informational response {}",
+                rsp.status()
+            ))
+        })?;
         self.send_error_response = false;
 
         if !rsp.status().is_success() {
@@ -366,15 +380,19 @@ impl H2WebsocketTask {
 
         self.task_notes.stage = ServerTaskStage::Replying;
         if body.is_end_stream() {
-            clt_send_rsp
-                .send_response(rsp, true)
-                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            clt_send_rsp.send_response(rsp, true).map_err(|e| {
+                ServerTaskError::ClientAppError(anyhow::anyhow!(
+                    "send h2 response to client failed: {e}"
+                ))
+            })?;
             self.ws_notes.rsp_status = self.ws_notes.origin_status;
             return Ok(());
         }
-        let clt_w = clt_send_rsp
-            .send_response(rsp, false)
-            .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+        let clt_w = clt_send_rsp.send_response(rsp, false).map_err(|e| {
+            ServerTaskError::ClientAppError(anyhow::anyhow!(
+                "send h2 response to client failed: {e}"
+            ))
+        })?;
         self.ws_notes.rsp_status = self.ws_notes.origin_status;
         self.task_notes.mark_relaying();
         self.task_notes
@@ -387,18 +405,22 @@ impl H2WebsocketTask {
         rsp: Response<()>,
         ups_r: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         if ups_r.is_end_stream() {
-            clt_send_rsp
-                .send_response(rsp, true)
-                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            clt_send_rsp.send_response(rsp, true).map_err(|e| {
+                ServerTaskError::ClientAppError(anyhow::anyhow!(
+                    "send h2 response to client failed: {e}"
+                ))
+            })?;
             self.ws_notes.rsp_status = self.ws_notes.origin_status;
             return Ok(());
         }
 
-        let clt_w = clt_send_rsp
-            .send_response(rsp, false)
-            .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+        let clt_w = clt_send_rsp.send_response(rsp, false).map_err(|e| {
+            ServerTaskError::ClientAppError(anyhow::anyhow!(
+                "send h2 response to client failed: {e}"
+            ))
+        })?;
         self.ws_notes.rsp_status = self.ws_notes.origin_status;
 
         let mut rsp_body_transfer =
@@ -418,14 +440,14 @@ impl H2WebsocketTask {
                 biased;
                 r = &mut rsp_body_transfer => {
                     record_progress!();
-                    return r.map_err(H2StreamTransferError::ResponseBodyTransferFailed);
+                    return r.map_err(ServerTaskError::response_h2_body_error);
                 }
                 n = idle_interval.tick() => {
                     if rsp_body_transfer.is_idle() {
                         idle_count += n;
                         if idle_count > self.task_notes.task_max_idle_count(self.ctx.server_config.task_idle_max_count) {
                             record_progress!();
-                            return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;
@@ -433,7 +455,7 @@ impl H2WebsocketTask {
                     }
                     if self.ctx.server_quit_policy.force_quit() {
                         record_progress!();
-                        return Err(H2StreamTransferError::CanceledAsServerQuit);
+                        return Err(ServerTaskError::CanceledAsServerQuit);
                     }
                 }
             }
@@ -446,7 +468,7 @@ impl H2WebsocketTask {
         clt_w: SendStream<Bytes>,
         ups_r: RecvStream,
         ups_w: SendStream<Bytes>,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         let yield_size = self.ctx.server_config.tcp_copy.yield_size();
         let mut c2u = H2BodyTransfer::new(clt_r, ups_w, yield_size);
         let mut u2c = H2BodyTransfer::new(ups_r, clt_w, yield_size);
@@ -460,7 +482,7 @@ impl H2WebsocketTask {
                 biased;
                 r = &mut c2u, if !c2u_done => {
                     self.note_relay_copy(&c2u, &u2c);
-                    r.map_err(H2StreamTransferError::RequestBodyTransferFailed)?;
+                    r.map_err(ServerTaskError::request_h2_body_error)?;
                     c2u_done = true;
                     if !u2c_done
                         && let Some(log) = self.log_ctx()
@@ -473,7 +495,7 @@ impl H2WebsocketTask {
                 }
                 r = &mut u2c, if !u2c_done => {
                     self.note_relay_copy(&c2u, &u2c);
-                    r.map_err(H2StreamTransferError::ResponseBodyTransferFailed)?;
+                    r.map_err(ServerTaskError::response_h2_body_error)?;
                     u2c_done = true;
                     if !c2u_done
                         && let Some(log) = self.log_ctx()
@@ -490,7 +512,7 @@ impl H2WebsocketTask {
                     if idle {
                         idle_count += n;
                         if idle_count > self.task_notes.task_max_idle_count(self.ctx.server_config.task_idle_max_count) {
-                            return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;
@@ -498,7 +520,7 @@ impl H2WebsocketTask {
                         u2c.reset_active();
                     }
                     if self.ctx.server_quit_policy.force_quit() {
-                        return Err(H2StreamTransferError::CanceledAsServerQuit);
+                        return Err(ServerTaskError::CanceledAsServerQuit);
                     }
                 }
                 _ = log_interval.tick() => {

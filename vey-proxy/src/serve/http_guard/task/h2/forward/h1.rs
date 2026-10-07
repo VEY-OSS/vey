@@ -14,10 +14,9 @@ use http::{HeaderMap, Response};
 use tokio::io::AsyncWriteExt;
 
 use vey_h2::{
-    H2BodyEncodeTransfer, H2StreamBodyTransferError, H2StreamFromChunkedTransfer,
-    H2StreamToChunkedTransfer, RequestExt,
+    H2BodyEncodeTransfer, H2StreamFromChunkedTransfer, H2StreamToChunkedTransfer, RequestExt,
 };
-use vey_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
+use vey_http::client::HttpForwardRemoteResponse;
 use vey_http::server::HttpConvertedRequest;
 use vey_http::{HttpBodyDecodeReader, HttpBodyType};
 use vey_icap_client::reqmod::h1::HttpRequestUpstreamWriter;
@@ -29,8 +28,8 @@ use vey_icap_client::respmod::h1_to_h2::{
 };
 use vey_io_ext::LimitedBufReadExt;
 
+use super::OriginH1Sender;
 use super::task::H2ForwardTask;
-use super::{H2StreamTransferError, OriginH1Sender};
 use crate::audit::AuditContext;
 use crate::escape::EgressNotes;
 use crate::module::http_forward::{
@@ -39,6 +38,7 @@ use crate::module::http_forward::{
 };
 use crate::module::tcp_connect::{TcpConnectTaskConf, TlsConnectTaskConf};
 use crate::serve::{ServerIdleChecker, ServerTaskStage};
+use crate::serve::{ServerTaskError, ServerTaskResult};
 
 impl H2ForwardTask {
     pub(super) async fn forward_h1_origin(
@@ -46,8 +46,11 @@ impl H2ForwardTask {
         mut origin: OriginH1Sender,
         mut clt_body: RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<(), H2StreamTransferError> {
-        let converted = HttpConvertedRequest::from_request(&self.req, !clt_body.is_end_stream())?;
+    ) -> ServerTaskResult<()> {
+        let converted = HttpConvertedRequest::from_request(&self.req, !clt_body.is_end_stream())
+            .map_err(|e| {
+                ServerTaskError::InternalAdapterError(anyhow!("invalid converted request: {e}"))
+            })?;
         let no_body = clt_body.is_end_stream();
 
         self.prepare_h1_origin(&mut origin);
@@ -88,7 +91,7 @@ impl H2ForwardTask {
         clt_body: &mut RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
         no_body: bool,
-    ) -> Result<bool, H2StreamTransferError> {
+    ) -> ServerTaskResult<bool> {
         if let Some(e) = self.poll_idle_h1_origin(origin) {
             return Err(e);
         }
@@ -129,7 +132,7 @@ impl H2ForwardTask {
                 }
                 Err(e) => {
                     if !reqmod.bypass() {
-                        return Err(H2StreamTransferError::InternalAdapterError(e));
+                        return Err(ServerTaskError::InternalAdapterError(e));
                     }
                     self.forward_h1_without_adaptation(origin, converted, clt_body, clt_send_rsp)
                         .await
@@ -152,39 +155,36 @@ impl H2ForwardTask {
             .prepare_new(&self.task_notes, &self.upstream);
     }
 
-    fn poll_idle_h1_origin(
-        &mut self,
-        origin: &mut OriginH1Sender,
-    ) -> Option<H2StreamTransferError> {
+    fn poll_idle_h1_origin(&mut self, origin: &mut OriginH1Sender) -> Option<ServerTaskError> {
         if !origin.reused {
             return None;
         }
         let r = origin.connection.1.fill_wait_data().now_or_never()?;
         self.http_notes.retry_new_connection = true;
         Some(match r {
-            Ok(true) => H2StreamTransferError::InternalServerError(
+            Ok(true) => ServerTaskError::InternalServerError(
                 "unexpected data found when polling idle origin connection",
             ),
-            Ok(false) => H2StreamTransferError::OriginClosed,
-            Err(e) => H2StreamTransferError::OriginReadFailed(e),
+            Ok(false) => ServerTaskError::ClosedByUpstream,
+            Err(e) => ServerTaskError::UpstreamReadFailed(e),
         })
     }
 
     async fn reconnect_after_stale_h1(
         &mut self,
-        e: H2StreamTransferError,
-    ) -> Result<OriginH1Sender, H2StreamTransferError> {
+        e: ServerTaskError,
+    ) -> ServerTaskResult<OriginH1Sender> {
         if !(self.http_notes.reused_connection && self.http_notes.retry_new_connection) {
             return Err(e);
         }
         if let Some(log) = self.log_ctx() {
-            log.log(&e.to_string());
+            log.log(&e);
         }
         self.http_notes.retry_new_connection = false;
         self.connect_origin_h1().await
     }
 
-    async fn connect_origin_h1(&mut self) -> Result<OriginH1Sender, H2StreamTransferError> {
+    async fn connect_origin_h1(&mut self) -> ServerTaskResult<OriginH1Sender> {
         self.task_notes.stage = ServerTaskStage::Connecting;
         let mut fwd_ctx = self
             .ctx
@@ -217,7 +217,7 @@ impl H2ForwardTask {
                     task_stats,
                     &mut audit_ctx,
                 )
-                .await
+                .await?
         } else {
             let task_conf = TcpConnectTaskConf {
                 upstream: &self.upstream,
@@ -229,9 +229,8 @@ impl H2ForwardTask {
                     task_stats,
                     &mut audit_ctx,
                 )
-                .await
-        }
-        .map_err(|e| H2StreamTransferError::OriginConnectFailed(anyhow!("{e}")))?;
+                .await?
+        };
 
         let mut egress_notes = EgressNotes::default();
         fwd_ctx.fetch_egress_notes(&mut egress_notes);
@@ -251,7 +250,7 @@ impl H2ForwardTask {
         clt_send_rsp: &mut SendResponse<Bytes>,
         adapter: H2ToH1RequestAdapter<ServerIdleChecker>,
         no_body: bool,
-    ) -> Result<bool, H2StreamTransferError> {
+    ) -> ServerTaskResult<bool> {
         self.http_notes.retry_new_connection = no_body;
         let mut adaptation_state =
             ReqmodAdaptationRunState::new(self.task_notes.task_created_instant());
@@ -288,13 +287,13 @@ impl H2ForwardTask {
                                 if no_body {
                                     self.http_notes.retry_new_connection = true;
                                 }
-                                return Err(H2StreamTransferError::OriginClosed);
+                                return Err(ServerTaskError::ClosedByUpstream);
                             }
                             Err(e) => {
                                 if no_body {
                                     self.http_notes.retry_new_connection = true;
                                 }
-                                return Err(H2StreamTransferError::OriginReadFailed(e));
+                                return Err(ServerTaskError::UpstreamReadFailed(e));
                             }
                         }
                     }
@@ -308,13 +307,13 @@ impl H2ForwardTask {
                                 break;
                             }
                             Err(e) => {
-                                let err = H2StreamTransferError::from(e);
+                                let err = ServerTaskError::from(e);
                                 if no_body {
                                     self.http_notes.retry_new_connection = matches!(
                                         err,
-                                        H2StreamTransferError::OriginWriteFailed(_)
-                                            | H2StreamTransferError::OriginClosed
-                                            | H2StreamTransferError::OriginReadFailed(_)
+                                        ServerTaskError::UpstreamWriteFailed(_)
+                                            | ServerTaskError::ClosedByUpstream
+                                            | ServerTaskError::UpstreamReadFailed(_)
                                     );
                                 }
                                 return Err(err);
@@ -379,7 +378,7 @@ impl H2ForwardTask {
         converted: &HttpConvertedRequest,
         clt_body: &mut RecvStream,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<bool, H2StreamTransferError> {
+    ) -> ServerTaskResult<bool> {
         let mut rsp_header = None;
         self.http_notes.retry_new_connection = true;
         let (clt_read_finished, ups_write_finished) = {
@@ -390,14 +389,14 @@ impl H2ForwardTask {
             ups_w_adaptation
                 .send_request_header(converted)
                 .await
-                .map_err(H2StreamTransferError::OriginWriteFailed)?;
+                .map_err(ServerTaskError::UpstreamWriteFailed)?;
             self.http_notes.mark_req_send_hdr();
 
             if clt_body.is_end_stream() {
                 ups_w_adaptation
                     .flush()
                     .await
-                    .map_err(H2StreamTransferError::OriginWriteFailed)?;
+                    .map_err(ServerTaskError::UpstreamWriteFailed)?;
                 self.http_notes.mark_req_no_body();
                 (true, true)
             } else {
@@ -435,14 +434,14 @@ impl H2ForwardTask {
                                         self.http_notes.retry_new_connection = true;
                                     }
                                     record_req_body!();
-                                    return Err(H2StreamTransferError::OriginClosed);
+                                    return Err(ServerTaskError::ClosedByUpstream);
                                 }
                                 Err(e) => {
                                     if body_transfer.received_size() == 0 {
                                         self.http_notes.retry_new_connection = true;
                                     }
                                     record_req_body!();
-                                    return Err(H2StreamTransferError::OriginReadFailed(e));
+                                    return Err(ServerTaskError::UpstreamReadFailed(e));
                                 }
                             }
                         }
@@ -456,7 +455,7 @@ impl H2ForwardTask {
                                 }
                                 Err(e) => {
                                     record_req_body!();
-                                    return Err(e.into());
+                                    return Err(ServerTaskError::request_h2_to_chunked_error(e));
                                 }
                             }
                         }
@@ -469,7 +468,7 @@ impl H2ForwardTask {
                                     )
                                 {
                                     record_req_body!();
-                                    return Err(H2StreamTransferError::Idle(
+                                    return Err(ServerTaskError::Idle(
                                         idle_interval.period(),
                                         idle_count,
                                     ));
@@ -480,7 +479,7 @@ impl H2ForwardTask {
                             }
                             if self.ctx.server_quit_policy.force_quit() {
                                 record_req_body!();
-                                return Err(H2StreamTransferError::CanceledAsServerQuit);
+                                return Err(ServerTaskError::CanceledAsServerQuit);
                             }
                         }
                     }
@@ -522,17 +521,13 @@ impl H2ForwardTask {
         Ok(keep_alive && ups_read_finished)
     }
 
-    fn retain_retry_on_recv_error(&mut self, e: &H2StreamTransferError) {
+    fn retain_retry_on_recv_error(&mut self, e: &ServerTaskError) {
         if !self.http_notes.retry_new_connection {
             return;
         }
         self.http_notes.retry_new_connection = matches!(
             e,
-            H2StreamTransferError::OriginClosed
-                | H2StreamTransferError::OriginReadFailed(_)
-                | H2StreamTransferError::OriginResponseParseFailed(
-                    HttpResponseParseError::RemoteClosed | HttpResponseParseError::IoFailed(_)
-                )
+            ServerTaskError::ClosedByUpstream | ServerTaskError::UpstreamReadFailed(_)
         );
     }
 
@@ -541,19 +536,19 @@ impl H2ForwardTask {
         ups_c: &mut BoxHttpForwardConnection,
         clt_send_rsp: &mut SendResponse<Bytes>,
         rsp_header: Option<HttpForwardRemoteResponse>,
-    ) -> Result<HttpForwardRemoteResponse, H2StreamTransferError> {
+    ) -> ServerTaskResult<HttpForwardRemoteResponse> {
         let rsp = match rsp_header {
             Some(header) => header,
             None => tokio::time::timeout(self.ctx.rsp_hdr_timeout(), async {
                 loop {
                     let hdr = self.recv_h1_response_header(&mut ups_c.1).await?;
                     if let Some(final_hdr) = self.check_out_h1_informational(hdr, clt_send_rsp)? {
-                        return Ok::<_, H2StreamTransferError>(final_hdr);
+                        return Ok::<_, ServerTaskError>(final_hdr);
                     }
                 }
             })
             .await
-            .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)??,
+            .map_err(|_| ServerTaskError::UpstreamAppTimeout("timeout to recv response head"))??,
         };
         self.http_notes.mark_rsp_recv_hdr();
         self.http_notes.origin_status = rsp.code;
@@ -565,19 +560,19 @@ impl H2ForwardTask {
     async fn recv_h1_response_header_in_time(
         &mut self,
         ups_r: &mut BoxHttpForwardReader,
-    ) -> Result<HttpForwardRemoteResponse, H2StreamTransferError> {
+    ) -> ServerTaskResult<HttpForwardRemoteResponse> {
         tokio::time::timeout(
             self.ctx.rsp_hdr_timeout(),
             self.recv_h1_response_header(ups_r),
         )
         .await
-        .map_err(|_| H2StreamTransferError::ResponseHeadRecvTimeout)?
+        .map_err(|_| ServerTaskError::UpstreamAppTimeout("timeout to recv response head"))?
     }
 
     async fn recv_h1_response_header(
         &mut self,
         ups_r: &mut BoxHttpForwardReader,
-    ) -> Result<HttpForwardRemoteResponse, H2StreamTransferError> {
+    ) -> ServerTaskResult<HttpForwardRemoteResponse> {
         let method = self.http_notes.method.clone();
         Ok(ups_r
             .recv_response_header(
@@ -593,28 +588,37 @@ impl H2ForwardTask {
         &mut self,
         hdr: HttpForwardRemoteResponse,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<Option<HttpForwardRemoteResponse>, H2StreamTransferError> {
+    ) -> ServerTaskResult<Option<HttpForwardRemoteResponse>> {
         match hdr.code {
             100 => {
                 if self.allow_continue {
                     clt_send_rsp
                         .send_informational(hdr.to_h2_response())
-                        .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+                        .map_err(|e| {
+                            ServerTaskError::ClientAppError(anyhow!(
+                                "send h2 informational response to client failed: {e}"
+                            ))
+                        })?;
                     self.allow_continue = false;
                 } else {
-                    return Err(H2StreamTransferError::InvalidContinueResponse);
+                    return Err(ServerTaskError::invalid_upstream_100_continue_response());
                 }
             }
             102 | 103 => {
                 clt_send_rsp
                     .send_informational(hdr.to_h2_response())
-                    .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+                    .map_err(|e| {
+                        ServerTaskError::ClientAppError(anyhow!(
+                            "send h2 informational response to client failed: {e}"
+                        ))
+                    })?;
             }
             // 101 is not allowed in HTTP/2, and other 1xx are unknown here.
             101 | 104..200 => {
-                return Err(H2StreamTransferError::UnsupportedInformationalResponse(
-                    hdr.to_h2_response().status(),
-                ));
+                return Err(ServerTaskError::UpstreamAppError(anyhow!(
+                    "unsupported h2 informational response {}",
+                    hdr.to_h2_response().status()
+                )));
             }
             _ => return Ok(Some(hdr)),
         }
@@ -627,7 +631,7 @@ impl H2ForwardTask {
         ups_r: &mut BoxHttpForwardReader,
         clt_send_rsp: &mut SendResponse<Bytes>,
         adaptation_respond_shared_headers: Option<HeaderMap>,
-    ) -> Result<bool, H2StreamTransferError> {
+    ) -> ServerTaskResult<bool> {
         let body_type = rsp_header.body_type(&self.http_notes.method);
         let clt_rsp = rsp_header.to_h2_response();
 
@@ -670,7 +674,7 @@ impl H2ForwardTask {
                 }
                 Err(e) => {
                     if !respmod.bypass() {
-                        return Err(H2StreamTransferError::InternalAdapterError(e));
+                        return Err(ServerTaskError::InternalAdapterError(e));
                     }
                 }
             }
@@ -688,7 +692,7 @@ impl H2ForwardTask {
         clt_send_rsp: &mut SendResponse<Bytes>,
         adapter: H1ToH2ResponseAdapter<ServerIdleChecker>,
         adaptation_state: &mut RespmodAdaptationRunState,
-    ) -> Result<bool, H2StreamTransferError> {
+    ) -> ServerTaskResult<bool> {
         let r = adapter
             .xfer(
                 adaptation_state,
@@ -721,21 +725,26 @@ impl H2ForwardTask {
         body_type: Option<HttpBodyType>,
         ups_r: &mut BoxHttpForwardReader,
         clt_send_rsp: &mut SendResponse<Bytes>,
-    ) -> Result<bool, H2StreamTransferError> {
+    ) -> ServerTaskResult<bool> {
         self.send_error_response = false;
         match body_type {
             None => {
                 self.http_notes.mark_rsp_no_body();
-                clt_send_rsp
-                    .send_response(clt_rsp, true)
-                    .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+                clt_send_rsp.send_response(clt_rsp, true).map_err(|e| {
+                    ServerTaskError::ClientAppError(anyhow!(
+                        "send h2 response to client failed: {e}"
+                    ))
+                })?;
                 self.http_notes.rsp_status = self.http_notes.origin_status;
                 Ok(true)
             }
             Some(body_type) => {
-                let mut clt_send_stream = clt_send_rsp
-                    .send_response(clt_rsp, false)
-                    .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+                let mut clt_send_stream =
+                    clt_send_rsp.send_response(clt_rsp, false).map_err(|e| {
+                        ServerTaskError::ClientAppError(anyhow!(
+                            "send h2 response to client failed: {e}"
+                        ))
+                    })?;
                 self.http_notes.rsp_status = self.http_notes.origin_status;
                 self.send_response_body(ups_r, &mut clt_send_stream, body_type)
                     .await?;
@@ -749,7 +758,7 @@ impl H2ForwardTask {
         ups_r: &mut BoxHttpForwardReader,
         clt_send_stream: &mut SendStream<Bytes>,
         body_type: HttpBodyType,
-    ) -> Result<(), H2StreamTransferError> {
+    ) -> ServerTaskResult<()> {
         match body_type {
             HttpBodyType::Chunked => {
                 let mut body_transfer = H2StreamFromChunkedTransfer::new(
@@ -772,7 +781,7 @@ impl H2ForwardTask {
                                         Some(body_transfer.received_size());
                                     self.http_notes.clt_rsp_body_size =
                                         Some(body_transfer.copied_size());
-                                    return Err(e.into());
+                                    return Err(ServerTaskError::response_chunked_to_h2_error(e));
                                 }
                             }
                         }
@@ -788,7 +797,7 @@ impl H2ForwardTask {
                                         Some(body_transfer.received_size());
                                     self.http_notes.clt_rsp_body_size =
                                         Some(body_transfer.copied_size());
-                                    return Err(H2StreamTransferError::Idle(
+                                    return Err(ServerTaskError::Idle(
                                         idle_interval.period(),
                                         idle_count,
                                     ));
@@ -802,7 +811,7 @@ impl H2ForwardTask {
                                     Some(body_transfer.received_size());
                                 self.http_notes.clt_rsp_body_size =
                                     Some(body_transfer.copied_size());
-                                return Err(H2StreamTransferError::CanceledAsServerQuit);
+                                return Err(ServerTaskError::CanceledAsServerQuit);
                             }
                         }
                     }
@@ -837,7 +846,7 @@ impl H2ForwardTask {
                                         Some(body_transfer.received_size());
                                     self.http_notes.clt_rsp_body_size =
                                         Some(body_transfer.copied_size());
-                                    return Err(e.into());
+                                    return Err(ServerTaskError::response_h2_encode_error(e));
                                 }
                             }
                         }
@@ -853,7 +862,7 @@ impl H2ForwardTask {
                                         Some(body_transfer.received_size());
                                     self.http_notes.clt_rsp_body_size =
                                         Some(body_transfer.copied_size());
-                                    return Err(H2StreamTransferError::Idle(
+                                    return Err(ServerTaskError::Idle(
                                         idle_interval.period(),
                                         idle_count,
                                     ));
@@ -867,7 +876,7 @@ impl H2ForwardTask {
                                     Some(body_transfer.received_size());
                                 self.http_notes.clt_rsp_body_size =
                                     Some(body_transfer.copied_size());
-                                return Err(H2StreamTransferError::CanceledAsServerQuit);
+                                return Err(ServerTaskError::CanceledAsServerQuit);
                             }
                         }
                     }
@@ -876,9 +885,7 @@ impl H2ForwardTask {
                 drop(body_transfer);
                 self.http_notes.mark_rsp_recv_all();
                 clt_send_stream.send_data(Bytes::new(), true).map_err(|e| {
-                    H2StreamTransferError::ResponseBodyTransferFailed(
-                        H2StreamBodyTransferError::SendDataFailed(e),
-                    )
+                    ServerTaskError::ClientAppError(anyhow!("send h2 data to client failed: {e}"))
                 })?;
                 self.http_notes.ups_rsp_body_size = Some(n);
                 self.http_notes.clt_rsp_body_size = Some(n);

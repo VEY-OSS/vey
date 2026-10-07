@@ -458,11 +458,7 @@ where
                     self.ws_notes = Some(ws_notes);
                 }
                 HttpUpgradeToken::ConnectUdp => {
-                    let upstream = self
-                        .req
-                        .uri
-                        .get_connect_udp_upstream()
-                        .map_err(ServerTaskError::from)?;
+                    let upstream = self.req.uri.get_connect_udp_upstream()?;
                     return Ok(Some((upgrade_protocol, upstream)));
                 }
                 _ => {}

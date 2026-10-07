@@ -369,11 +369,7 @@ where
         self.http_notes.rsp_status = self.http_notes.origin_status;
 
         if rsp.code >= 200 && rsp.code < 300 {
-            let upstream = self
-                .req
-                .uri
-                .get_upstream_with_default_port(443)
-                .map_err(ServerTaskError::from)?;
+            let upstream = self.req.uri.get_upstream_with_default_port(443)?;
             Ok(Some(upstream))
         } else if let Some(body_type) = rsp.body_type(&self.req.method) {
             self.send_response_body(rsp_io, body_type).await?;

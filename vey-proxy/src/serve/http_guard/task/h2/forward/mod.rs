@@ -3,9 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use super::{
-    H2StreamTransferError, H2TaskContext, OriginConnection, OriginH1Sender, OriginH2Sender,
-};
+use super::{H2TaskContext, OriginConnection, OriginH1Sender, OriginH2Sender};
 
 mod h1;
 mod task;

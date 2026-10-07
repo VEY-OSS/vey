@@ -226,45 +226,4 @@ impl TaskLogForWebSocket<'_> {
             "r_wr_bytes" => self.remote_wr_bytes,
         )
     }
-
-    pub(crate) fn log_h2(&self, err: &str) {
-        if self.skip_log() {
-            return;
-        }
-
-        slog::info!(self.logger, "{err}";
-            "task_type" => TASK_TYPE,
-            "task_id" => LtUuid(&self.task_notes.id),
-            "connection_id" => self.connection_id.map(LtUuid),
-            "task_event" => TaskEvent::Finished.as_str(),
-            "stage" => self.task_notes.stage.brief(),
-            "start_at" => LtDateTime(&self.task_notes.start_at),
-            "user" => self.task_notes.raw_user_name().map(LtUserName),
-            "tenant" => self.task_notes.tenant_user_name().map(LtUserName),
-            "site" => self.task_notes.site_id().map(|s| s.as_str()),
-            "server_addr" => self.task_notes.server_addr(),
-            "client_addr" => self.task_notes.client_addr(),
-            "clt_stream" => self.clt_stream_id.map(LtH2StreamId),
-            "ups_stream" => self.ups_stream_id.map(LtH2StreamId),
-            "upstream" => LtUpstreamAddr(self.upstream),
-            "escaper" => self.egress_notes.escaper.as_str(),
-            "next_bind_ip" => self.egress_notes.bind.ip().map(LtIpAddr),
-            "next_bound_addr" => self.egress_notes.tcp.local,
-            "next_peer_addr" => self.egress_notes.tcp.peer,
-            "next_expire" => self.egress_notes.expire.as_ref().map(LtDateTime),
-            "tcp_connect_tries" => self.egress_notes.tries,
-            "tcp_connect_spend" => LtDuration(self.egress_notes.duration),
-            "version" => LtHttpVersion(self.ws_notes.version),
-            "uri" => LtHttpUri::new(&self.ws_notes.uri, self.ws_notes.uri_log_max_chars),
-            "rsp_status" => self.ws_notes.rsp_status,
-            "origin_status" => self.ws_notes.origin_status,
-            "wait_time" => LtDuration(self.task_notes.wait_time),
-            "ready_time" => LtDuration(self.task_notes.ready_time),
-            "total_time" => LtDuration(self.task_notes.time_elapsed()),
-            "c_rd_bytes" => self.client_rd_bytes,
-            "c_wr_bytes" => self.client_wr_bytes,
-            "r_rd_bytes" => self.remote_rd_bytes,
-            "r_wr_bytes" => self.remote_wr_bytes,
-        );
-    }
 }

@@ -20,7 +20,7 @@ use vey_types::net::{ConnectError, HttpServerId};
 use crate::module::http_header::{self, ProxyErrorType};
 use crate::module::tcp_connect::TcpConnectError;
 use crate::module::udp_connect::UdpConnectError;
-use crate::serve::ServerTaskError;
+use crate::serve::{ServerTaskError, ServerTaskH2Error};
 
 struct CustomStatusCode {}
 
@@ -59,6 +59,14 @@ impl HttpProxyClientResponse {
 
     pub(crate) fn status(&self) -> u16 {
         self.status.as_u16()
+    }
+
+    pub(crate) fn status_code(&self) -> StatusCode {
+        self.status
+    }
+
+    pub(crate) fn proxy_error(&self) -> Option<ProxyErrorType> {
+        self.proxy_error
     }
 
     pub(crate) fn from_standard(status: StatusCode, version: Version, close: bool) -> Self {
@@ -573,6 +581,10 @@ impl HttpProxyClientResponse {
                 HttpProxyClientResponse::from_standard(StatusCode::GATEWAY_TIMEOUT, version, true)
                     .with_proxy_error(ProxyErrorType::HttpResponseTimeout)
             }
+            ServerTaskError::H2(
+                ServerTaskH2Error::UpstreamStreamOpenFailed(_)
+                | ServerTaskH2Error::UpstreamStreamOpenTimeout,
+            ) => return None,
             ServerTaskError::ClientAppTimeout(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::REQUEST_TIMEOUT, version, true)
                     .with_proxy_error(ProxyErrorType::HttpRequestError)
