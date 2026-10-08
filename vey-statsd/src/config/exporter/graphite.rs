@@ -4,7 +4,6 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
@@ -19,43 +18,6 @@ use crate::types::MetricName;
 
 const EXPORTER_CONFIG_TYPE: &str = "Graphite";
 
-/// Which aggregate counter field Graphite plaintext export should send.
-///
-/// Graphite accepts a single numeric value per line, so callers choose either
-/// the lifetime total (`sum`) or the current emit-interval delta (`diff`).
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub(crate) enum GraphiteCounterValue {
-    /// Lifetime cumulative counter (historical default).
-    #[default]
-    Sum,
-    /// Count accumulated only in the current emit interval.
-    Diff,
-}
-
-impl FromStr for GraphiteCounterValue {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "sum" => Ok(Self::Sum),
-            "diff" => Ok(Self::Diff),
-            _ => Err(anyhow!("invalid graphite counter value: {s}")),
-        }
-    }
-}
-
-impl GraphiteCounterValue {
-    pub(crate) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
-        if let Yaml::String(s) = value {
-            Self::from_str(s)
-        } else {
-            Err(anyhow!(
-                "yaml value type for graphite counter_value should be string"
-            ))
-        }
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct GraphiteExporterConfig {
     name: NodeName,
@@ -64,7 +26,6 @@ pub(crate) struct GraphiteExporterConfig {
     pub(crate) stream_export: StreamExportConfig,
     pub(crate) prefix: Option<MetricName>,
     pub(crate) global_tags: MetricTagMap,
-    pub(crate) counter_value: GraphiteCounterValue,
 }
 
 impl GraphiteExporterConfig {
@@ -76,7 +37,6 @@ impl GraphiteExporterConfig {
             stream_export: StreamExportConfig::new(2003),
             prefix: None,
             global_tags: MetricTagMap::default(),
-            counter_value: GraphiteCounterValue::default(),
         }
     }
 
@@ -113,11 +73,6 @@ impl GraphiteExporterConfig {
             "global_tags" => {
                 self.global_tags = vey_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
-                Ok(())
-            }
-            "counter_value" => {
-                self.counter_value = GraphiteCounterValue::parse_yaml(v)
-                    .context(format!("invalid value for key {k}"))?;
                 Ok(())
             }
             _ => self.stream_export.set_by_yaml_kv(k, v),
@@ -161,24 +116,6 @@ mod tests {
     use yaml_rust::YamlLoader;
 
     #[test]
-    fn parse_counter_value() {
-        assert_eq!(
-            GraphiteCounterValue::from_str("sum").unwrap(),
-            GraphiteCounterValue::Sum
-        );
-        assert_eq!(
-            GraphiteCounterValue::from_str("DIFF").unwrap(),
-            GraphiteCounterValue::Diff
-        );
-        assert!(GraphiteCounterValue::from_str("rate").is_err());
-        assert_eq!(
-            GraphiteCounterValue::parse_yaml(&Yaml::String("diff".into())).unwrap(),
-            GraphiteCounterValue::Diff
-        );
-        assert!(GraphiteCounterValue::parse_yaml(&Yaml::Boolean(true)).is_err());
-    }
-
-    #[test]
     fn parse_exporter_config() {
         let docs = YamlLoader::load_from_str(
             r#"
@@ -187,14 +124,12 @@ server: 127.0.0.1
 port: 2003
 emit_interval: 5s
 prefix: app.metrics
-counter_value: diff
 "#,
         )
         .unwrap();
         let cfg = GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).unwrap();
         assert_eq!(cfg.name().as_str(), "g1");
         assert_eq!(cfg.emit_interval, Duration::from_secs(5));
-        assert_eq!(cfg.counter_value, GraphiteCounterValue::Diff);
         assert_eq!(
             cfg.prefix.as_ref().unwrap().display('.').to_string(),
             "app.metrics"

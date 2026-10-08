@@ -1,6 +1,7 @@
 
-v0.2.1:
- - Compatibility: bump MSRV to 1.94.0
+v0.3.0:
+ - Breaking: graphite exporter always writes the cumulative counter sum and no longer accepts `counter_value`
+ - Compatibility: bump MSRV to 1.95.0
 
 v0.2.0:
  - BUG FIX: scale statsd counters by `1/sample_rate` when `|@rate` is present so sampled metrics are not under-counted (gauges stay absolute)

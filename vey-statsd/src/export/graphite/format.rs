@@ -15,7 +15,7 @@ use tokio::sync::mpsc;
 
 use vey_types::metrics::MetricTagMap;
 
-use crate::config::exporter::graphite::{GraphiteCounterValue, GraphiteExporterConfig};
+use crate::config::exporter::graphite::GraphiteExporterConfig;
 use crate::runtime::export::{AggregateExport, CounterStoreValue, GaugeStoreValue, StreamExport};
 use crate::types::{MetricName, MetricValue};
 
@@ -23,7 +23,6 @@ pub(super) struct GraphitePlaintextAggregateExport {
     emit_interval: Duration,
     prefix: Option<MetricName>,
     global_tags: MetricTagMap,
-    counter_value: GraphiteCounterValue,
     data_sender: mpsc::UnboundedSender<Vec<u8>>,
 
     buf: Vec<u8>,
@@ -38,7 +37,6 @@ impl GraphitePlaintextAggregateExport {
             emit_interval: config.emit_interval,
             prefix: config.prefix.clone(),
             global_tags: config.global_tags.clone(),
-            counter_value: config.counter_value,
             data_sender,
             buf: Vec::with_capacity(2048),
         }
@@ -97,11 +95,7 @@ impl AggregateExport for GraphitePlaintextAggregateExport {
         self.buf.clear();
         let now = Timestamp::now();
         for (tags, v) in values {
-            let value = match self.counter_value {
-                GraphiteCounterValue::Sum => &v.sum,
-                GraphiteCounterValue::Diff => &v.diff,
-            };
-            self.serialize(&now, name, tags, value);
+            self.serialize(&now, name, tags, &v.sum);
         }
         let _ = self.data_sender.send(self.buf.clone());
     }
@@ -166,7 +160,7 @@ global_tags:
     }
 
     #[test]
-    fn emit_counter_uses_sum_or_diff() {
+    fn emit_counter_writes_sum() {
         let name = MetricName::parse("c").unwrap();
         let tags = Arc::new(MetricTagMap::default());
         let mut values = AHashMap::new();
@@ -179,27 +173,21 @@ global_tags:
             },
         );
 
-        let (mut sum_export, mut sum_rx) = export(
+        let (mut export, mut rx) = export(
             r#"
 name: g1
 server: 127.0.0.1
-counter_value: sum
+emit_interval: 10s
 "#,
         );
-        sum_export.emit_counter(&name, &values);
-        let buf = sum_rx.try_recv().unwrap();
-        assert!(std::str::from_utf8(&buf).unwrap().contains(" 100 "));
-
-        let (mut diff_export, mut diff_rx) = export(
-            r#"
-name: g1
-server: 127.0.0.1
-counter_value: diff
-"#,
-        );
-        diff_export.emit_counter(&name, &values);
-        let buf = diff_rx.try_recv().unwrap();
-        assert!(std::str::from_utf8(&buf).unwrap().contains(" 7 "));
+        export.emit_counter(&name, &values);
+        let buf = rx.try_recv().unwrap();
+        let text = std::str::from_utf8(&buf).unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].starts_with("c 100 "));
+        assert!(!text.contains(".rate"));
+        assert!(!text.contains(".count"));
     }
 
     #[test]

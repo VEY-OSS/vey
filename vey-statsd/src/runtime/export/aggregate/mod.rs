@@ -289,4 +289,50 @@ mod tests {
         let gauge = &runtime.gauge.get(&name).unwrap().inner[&tag_map];
         assert_eq!(gauge.value, MetricValue::Unsigned(9));
     }
+
+    #[test]
+    fn zero_increment_stays_for_its_window_then_drops() {
+        let (_tx, rx) = mpsc::unbounded_channel();
+        let exporter = TestExporter {
+            counters: AHashMap::default(),
+        };
+        let mut runtime = AggregateExportRuntime::new(exporter, rx);
+        let name = Arc::new(MetricName::parse("c").unwrap());
+        let tag_map = Arc::new(MetricTagMap::default());
+
+        runtime.add_record(MetricRecord {
+            name: name.clone(),
+            tag_map: tag_map.clone(),
+            r#type: MetricType::Counter,
+            value: MetricValue::Unsigned(0),
+        });
+        runtime.retain();
+
+        let counter_entry = &runtime.counter.get(&name).unwrap().inner[&tag_map];
+        assert_eq!(counter_entry.diff, MetricValue::Unsigned(0));
+
+        runtime.retain();
+        assert!(runtime.counter.get(&name).is_none());
+    }
+
+    #[test]
+    fn idle_counter_is_dropped_by_default() {
+        let (_tx, rx) = mpsc::unbounded_channel();
+        let exporter = TestExporter {
+            counters: AHashMap::default(),
+        };
+        let mut runtime = AggregateExportRuntime::new(exporter, rx);
+        let name = Arc::new(MetricName::parse("c").unwrap());
+        let tag_map = Arc::new(MetricTagMap::default());
+
+        runtime.add_record(MetricRecord {
+            name: name.clone(),
+            tag_map,
+            r#type: MetricType::Counter,
+            value: MetricValue::Unsigned(4),
+        });
+        runtime.retain();
+        runtime.retain();
+        assert!(runtime.counter.get(&name).is_none());
+    }
 }

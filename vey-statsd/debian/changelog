@@ -1,5 +1,5 @@
-vey-statsd (0.2.0-1) UNRELEASED; urgency=medium
+vey-statsd (0.3.0-1) UNRELEASED; urgency=medium
 
   * New upstream release.
 
- -- VEY-OSS Developers <developers@vey.oss>  Sun, 26 Jul 2026 22:30:18 +0800
+ -- VEY-OSS Developers <developers@vey.oss>  Thu, 08 Oct 2026 11:49:10 +0800

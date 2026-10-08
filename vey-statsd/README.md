@@ -11,7 +11,7 @@ them to different downstream backends.
 
 At a high level, `vey-statsd` lets you:
 
-- accept StatsD-compatible metrics over UDP
+- accept StatsD-compatible metrics over UDP, or a Unix datagram socket
 - process them through importers, collectors, and exporters
 - aggregate or rewrite metrics before export
 - forward metrics to multiple storage or observability systems
@@ -94,7 +94,7 @@ The configuration reference covers:
 - statsd
 
   Receives StatsD metrics and forwards them to collectors.
-  Only UDP is currently supported.
+  UDP (`statsd` / `statsd_udp`) and, on Unix, a datagram socket (`statsd_unix`).
 
 ### Collectors
 
@@ -112,20 +112,24 @@ The configuration reference covers:
 
 ### Exporters
 
-| Exporter    | Introduction                                          | Aggregate | Global prefix and tags | 
-|-------------|-------------------------------------------------------|-----------|------------------------|
-| console     | Log all metrics to stdout                             | no        | no                     |
-| discard     | Discard all metrics                                   | no        | no                     |
-| memory      | Store all metrics values in memory                    | no        | no                     |
-| graphite    | Emit to graphite by using the plaintext protocol      | yes       | yes                    | 
-| opentsdb    | Emit to OpenTSDB by using the /api/put API            | yes       | yes                    |
-| influxdb_v2 | Emit to InfluxDB v2 by using the /api/v2/write API    | yes       | yes                    |
-| influxdb_v3 | Emit to InfluxDB v3 by using the /api/v3/write_lp API | yes       | yes                    |
+| Exporter    | What is sent                                                                 | Backends                                              | Aggregate | Global prefix and tags |
+|-------------|------------------------------------------------------------------------------|-------------------------------------------------------|-----------|------------------------|
+| console     | Log all metrics to stdout                                                    | local stdout                                          | no        | no                     |
+| discard     | Discard all metrics                                                          | none                                                  | no        | no                     |
+| memory      | Store all metric values in memory                                            | in-process                                            | no        | no                     |
+| graphite    | Graphite plaintext. A counter is its cumulative sum                          | Graphite, VictoriaMetrics                                 | yes       | yes                    |
+| opentsdb    | OpenTSDB `/api/put`. A counter value is its cumulative sum                   | OpenTSDB, VictoriaMetrics                             | yes       | yes                    |
+| influxdb_v2 | Line protocol via `/api/v2/write`. Counter fields are `count` (sum), `diff`, and `rate` | InfluxDB 2 and 3, VictoriaMetrics, QuestDB, OpenGemini | yes | yes |
+| influxdb_v3 | Line protocol via `/api/v3/write_lp`, with the same counter fields           | InfluxDB 3 over cleartext HTTP                        | yes       | yes                    |
+
+The configuration reference lists the listen port, the query for each backend,
+and the paths this exporter does not send. GreptimeDB and TDengine use a
+prefixed write URL.
 
 ## Typical Use Cases
 
-- Collect application metrics over StatsD and forward them to OpenTSDB,
-  InfluxDB, or Graphite.
+- Collect application metrics over StatsD and forward them to Graphite,
+  VictoriaMetrics, InfluxDB, QuestDB, OpenGemini, or OpenTSDB.
 - Normalize names and tags before sending data downstream.
 - Aggregate gauges or counters into a lower-cardinality stream.
 - Run a lightweight metrics bridge for VEY services that already emit StatsD.

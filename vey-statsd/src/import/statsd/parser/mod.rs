@@ -52,16 +52,17 @@ impl<'a> StatsdRecordVisitor<'a> {
         }
 
         let left = &self.buf[self.offset..];
-        match memchr::memchr(b'\n', left) {
+        let line = match memchr::memchr(b'\n', left) {
             Some(p) => {
                 self.offset += p + 1;
-                Some(&left[..p])
+                &left[..p]
             }
             None => {
                 self.offset = self.buf.len();
-                Some(left)
+                left
             }
-        }
+        };
+        Some(line.trim_ascii())
     }
 }
 
@@ -108,6 +109,38 @@ mod tests {
         assert_eq!(r2.r#type, MetricType::Gauge);
         assert_eq!(r2.value, MetricValue::Unsigned(333));
 
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn crlf_lines() {
+        let mut iter = StatsdRecordVisitor::new(b"gorets:1|c\r\ngaugor:333|g\r\n");
+        let r1 = iter.next().unwrap().unwrap();
+        assert_eq!(r1.r#type, MetricType::Counter);
+        assert_eq!(r1.value, MetricValue::Unsigned(1));
+
+        let r2 = iter.next().unwrap().unwrap();
+        assert_eq!(r2.r#type, MetricType::Gauge);
+        assert_eq!(r2.value, MetricValue::Unsigned(333));
+
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn trims_ascii_whitespace_around_line() {
+        let mut iter = StatsdRecordVisitor::new(b" \tgorets:1|c \r\n");
+        let r = iter.next().unwrap().unwrap();
+        assert_eq!(r.r#type, MetricType::Counter);
+        assert_eq!(r.value, MetricValue::Unsigned(1));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn trailing_cr_without_newline() {
+        let mut iter = StatsdRecordVisitor::new(b"a:1|c\r");
+        let r = iter.next().unwrap().unwrap();
+        assert_eq!(r.r#type, MetricType::Counter);
+        assert_eq!(r.value, MetricValue::Unsigned(1));
         assert!(iter.next().is_none());
     }
 

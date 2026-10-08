@@ -3,7 +3,7 @@
 %define build_profile release-lto
 
 Name:           vey-statsd
-Version:        0.2.0
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        StatsD Server
 
@@ -43,5 +43,5 @@ install -m 644 -D %{name}/debian/vey-statsd@.service %{buildroot}/lib/systemd/sy
 %license LICENSE-FOREIGN
 
 %changelog
-* Sun Jul 26 2026 VEY-OSS Developers <developers@vey.oss> - 0.2.0-1
+* Thu Oct 08 2026 VEY-OSS Developers <developers@vey.oss> - 0.3.0-1
 - New upstream release
