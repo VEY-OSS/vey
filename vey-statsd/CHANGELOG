@@ -1,6 +1,7 @@
 
 v0.3.0:
  - Breaking: graphite exporter always writes the cumulative counter sum and no longer accepts `counter_value`
+ - Feature: prometheus_push exporter pushes cumulative counters and gauges with Prometheus remote write 1.0
  - Compatibility: bump MSRV to 1.95.0
 
 v0.2.0:

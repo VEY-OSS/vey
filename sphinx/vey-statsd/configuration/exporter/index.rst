@@ -23,6 +23,7 @@ Exporters
    influxdb_v3
    memory
    opentsdb
+   prometheus_push
 
 Common Keys
 ===========

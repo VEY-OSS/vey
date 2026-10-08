@@ -21,6 +21,7 @@ pub(crate) mod graphite;
 pub(crate) mod influxdb;
 pub(crate) mod memory;
 pub(crate) mod opentsdb;
+pub(crate) mod prometheus_push;
 
 const CONFIG_KEY_EXPORTER_TYPE: &str = "type";
 const CONFIG_KEY_EXPORTER_NAME: &str = "name";
@@ -50,6 +51,7 @@ pub(crate) enum AnyExporterConfig {
     Memory(memory::MemoryExporterConfig),
     Graphite(graphite::GraphiteExporterConfig),
     Opentsdb(opentsdb::OpentsdbExporterConfig),
+    Prometheus(prometheus_push::PrometheusPushExporterConfig),
     InfluxdbV2(influxdb::InfluxdbV2ExporterConfig),
     InfluxdbV3(influxdb::InfluxdbV3ExporterConfig),
 }
@@ -111,6 +113,11 @@ fn load_exporter(
             let exporter = opentsdb::OpentsdbExporterConfig::parse(map, position)
                 .context("failed to load this OpenTSDB exporter")?;
             Ok(AnyExporterConfig::Opentsdb(exporter))
+        }
+        "prometheus_push" => {
+            let exporter = prometheus_push::PrometheusPushExporterConfig::parse(map, position)
+                .context("failed to load this Prometheus push exporter")?;
+            Ok(AnyExporterConfig::Prometheus(exporter))
         }
         "influxdb_v2" => {
             let exporter = influxdb::InfluxdbV2ExporterConfig::parse(map, position)

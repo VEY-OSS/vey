@@ -147,6 +147,9 @@ async fn spawn_new_unlocked(config: AnyExporterConfig) -> anyhow::Result<()> {
         AnyExporterConfig::Opentsdb(config) => {
             super::opentsdb::OpentsdbExporter::prepare_initial(config)?
         }
+        AnyExporterConfig::Prometheus(config) => {
+            super::prometheus_push::PrometheusPushExporter::prepare_initial(config)?
+        }
         AnyExporterConfig::InfluxdbV2(config) => {
             super::influxdb::InfluxdbV2Exporter::prepare_initial(config)?
         }

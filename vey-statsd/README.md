@@ -119,6 +119,7 @@ The configuration reference covers:
 | memory      | Store all metric values in memory                                            | in-process                                            | no        | no                     |
 | graphite    | Graphite plaintext. A counter is its cumulative sum                          | Graphite, VictoriaMetrics                                 | yes       | yes                    |
 | opentsdb    | OpenTSDB `/api/put`. A counter value is its cumulative sum                   | OpenTSDB, VictoriaMetrics                             | yes       | yes                    |
+| prometheus_push | Prometheus remote write 1.0. A counter is its cumulative sum             | Prometheus, VictoriaMetrics, Mimir, Cortex            | yes       | yes                    |
 | influxdb_v2 | Line protocol via `/api/v2/write`. Counter fields are `count` (sum), `diff`, and `rate` | InfluxDB 2 and 3, VictoriaMetrics, QuestDB, OpenGemini | yes | yes |
 | influxdb_v3 | Line protocol via `/api/v3/write_lp`, with the same counter fields           | InfluxDB 3 over cleartext HTTP                        | yes       | yes                    |
 
@@ -129,7 +130,7 @@ prefixed write URL.
 ## Typical Use Cases
 
 - Collect application metrics over StatsD and forward them to Graphite,
-  VictoriaMetrics, InfluxDB, QuestDB, OpenGemini, or OpenTSDB.
+  VictoriaMetrics, Prometheus, InfluxDB, QuestDB, OpenGemini, or OpenTSDB.
 - Normalize names and tags before sending data downstream.
 - Aggregate gauges or counters into a lower-cardinality stream.
 - Run a lightweight metrics bridge for VEY services that already emit StatsD.

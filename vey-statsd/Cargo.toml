@@ -27,6 +27,7 @@ capnp.workspace = true
 capnp-rpc.workspace = true
 http.workspace = true
 serde_json.workspace = true
+snap.workspace = true
 snmalloc = { workspace = true, optional = true }
 vey-daemon.workspace = true
 vey-http.workspace = true

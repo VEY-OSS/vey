@@ -26,6 +26,7 @@ mod graphite;
 mod influxdb;
 mod memory;
 mod opentsdb;
+mod prometheus_push;
 
 pub(crate) trait Exporter {
     fn name(&self) -> &NodeName;
