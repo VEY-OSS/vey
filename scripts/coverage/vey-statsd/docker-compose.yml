@@ -33,14 +33,17 @@ services:
       - "127.0.0.1:9090:9090"
     restart: always
 
-  # OpenTSDB /api/put. VictoriaMetrics serves that write API and can be queried.
+  # OpenTSDB :4242, Influx line protocol and Prometheus remote write on :8428,
+  # Graphite plaintext on :2003.
   victoriametrics:
     image: victoriametrics/victoria-metrics:latest
     container_name: vey-statsd-victoriametrics
     command:
       - "-httpListenAddr=:8428"
       - "-opentsdbHTTPListenAddr=:4242"
+      - "-graphiteListenAddr=:2003"
     ports:
       - "127.0.0.1:8428:8428"
       - "127.0.0.1:4242:4242"
+      - "127.0.0.1:20031:2003"
     restart: always

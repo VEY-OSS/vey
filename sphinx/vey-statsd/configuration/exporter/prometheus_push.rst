@@ -100,10 +100,14 @@ Prometheus
 
 Prometheus accepts remote write when it is started with ``--web.enable-remote-write-receiver``. The receiver is ``/api/v1/write`` on the Prometheus port. Port 9090 matches this exporter's default.
 
+Keep ``idle_timeout`` shorter than ``--web.read-timeout`` (default 5m). That option closes an idle HTTP connection.
+
 VictoriaMetrics
 ^^^^^^^^^^^^^^^
 
 VictoriaMetrics accepts remote write on its HTTP listener. Single-node uses port 8428. Set ``port`` to match. The path stays ``/api/v1/write``. See the `VictoriaMetrics Prometheus remote write integration`_.
+
+Keep ``idle_timeout`` shorter than ``-http.idleConnTimeout`` (default 1m). That option closes an idle HTTP connection.
 
 .. _VictoriaMetrics Prometheus remote write integration: https://docs.victoriametrics.com/victoriametrics/integrations/prometheus/
 

@@ -25,6 +25,7 @@ pub(crate) struct HttpExportConfig {
     port: u16,
     resolve_retry_wait: Duration,
     connect_retry_wait: Duration,
+    pub(crate) idle_timeout: Duration,
     pub(super) rsp_head_max_size: usize,
     pub(super) body_line_max_len: usize,
 
@@ -44,6 +45,7 @@ impl HttpExportConfig {
             port,
             resolve_retry_wait: Duration::from_secs(30),
             connect_retry_wait: Duration::from_secs(10),
+            idle_timeout: Duration::from_secs(45),
             rsp_head_max_size: 8192,
             body_line_max_len: 512,
             peer_s: String::new(),
@@ -57,6 +59,9 @@ impl HttpExportConfig {
         }
 
         self.exporter = exporter;
+        if self.idle_timeout.is_zero() {
+            return Err(anyhow!("idle_timeout must be greater than 0"));
+        }
         let peer = UpstreamAddr::new(self.host.clone(), self.port);
         self.peer_s = peer.to_string();
         Ok(())
@@ -79,6 +84,11 @@ impl HttpExportConfig {
             }
             "connect_retry_wait" => {
                 self.connect_retry_wait = vey_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "idle_timeout" => {
+                self.idle_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

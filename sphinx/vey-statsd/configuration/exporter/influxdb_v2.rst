@@ -111,6 +111,8 @@ InfluxDB
 
 InfluxDB 2 serves the `v2 write API`_ on port 8086. Set ``port`` to match. The ``bucket`` key is the bucket name.
 
+Keep ``idle_timeout`` shorter than ``--http-idle-timeout`` (default 3m). That option closes an idle HTTP connection.
+
 .. _v2 write API: https://docs.influxdata.com/influxdb/v2/write-data/developer-tools/api/
 
 ``rate`` is already events per second. ``diff`` is the count for that ``emit_interval``. ``count`` is the running total. ``derivative`` on ``count`` goes down when the sum starts again.
@@ -158,6 +160,8 @@ VictoriaMetrics
 ^^^^^^^^^^^^^^^
 
 VictoriaMetrics accepts this write on ``/api/v2/write``. Point ``server`` and ``port`` at the HTTP listener. Single-node uses port 8428, and vmagent uses port 8429. See the `VictoriaMetrics InfluxDB integration`_.
+
+Keep ``idle_timeout`` shorter than ``-http.idleConnTimeout`` (default 1m). That option closes an idle HTTP connection.
 
 .. _VictoriaMetrics InfluxDB integration: https://docs.victoriametrics.com/victoriametrics/integrations/influxdb/
 

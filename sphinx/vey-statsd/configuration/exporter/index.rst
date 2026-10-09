@@ -150,6 +150,17 @@ Wait time before retrying after a connection failure.
 
 **default**: 10s
 
+idle_timeout
+^^^^^^^^^^^^
+
+**optional**, **type**: :external+values:ref:`humanize duration <conf_value_humanize_duration>`
+
+Close the HTTP connection after it sits this long without a request. The next batch opens a new connection and writes as soon as that connection is accepted.
+
+Keep this above ``emit_interval`` and shorter than the peer's idle timeout. If the peer closes first, that batch is dropped.
+
+**default**: 45s
+
 rsp_header_max_size
 ^^^^^^^^^^^^^^^^^^^
 

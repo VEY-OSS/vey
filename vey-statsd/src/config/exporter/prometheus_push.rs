@@ -173,6 +173,7 @@ prefix: app.metrics
         let cfg = PrometheusPushExporterConfig::parse(docs[0].as_hash().unwrap(), None).unwrap();
         assert_eq!(cfg.name().as_str(), "p1");
         assert_eq!(cfg.emit_interval, Duration::from_secs(5));
+        assert_eq!(cfg.http_export.idle_timeout, Duration::from_secs(45));
         assert_eq!(cfg.max_samples, 100);
         assert_eq!(cfg.build_api_path().unwrap().as_str(), "/api/v1/write");
         assert_eq!(cfg.bearer_token, "secret");
@@ -194,5 +195,19 @@ path: api/v1/push
         )
         .unwrap();
         assert!(PrometheusPushExporterConfig::parse(docs[0].as_hash().unwrap(), None).is_err());
+    }
+
+    #[test]
+    fn idle_timeout_uses_configured_value() {
+        let docs = YamlLoader::load_from_str(
+            r#"
+name: p1
+server: 127.0.0.1
+idle_timeout: 30s
+"#,
+        )
+        .unwrap();
+        let cfg = PrometheusPushExporterConfig::parse(docs[0].as_hash().unwrap(), None).unwrap();
+        assert_eq!(cfg.http_export.idle_timeout, Duration::from_secs(30));
     }
 }

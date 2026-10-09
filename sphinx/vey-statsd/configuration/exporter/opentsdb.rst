@@ -99,6 +99,8 @@ VictoriaMetrics
 
 Point ``server`` and ``port`` at VictoriaMetrics' OpenTSDB HTTP listener. That listener is off unless the process is started with ``-opentsdbHTTPListenAddr``. ``:4242`` matches this exporter's default port. See the `VictoriaMetrics OpenTSDB integration`_.
 
+Keep ``idle_timeout`` shorter than ``-http.idleConnTimeout`` (default 1m). That option closes an idle HTTP connection.
+
 .. _VictoriaMetrics OpenTSDB integration: https://docs.victoriametrics.com/victoriametrics/integrations/opentsdb/
 
 The metric name and tags are stored as written. Set a distinct ``global_tags`` value per sender, such as ``host``, so each machine stays on its own series.

@@ -18,6 +18,7 @@ wait4x -t 3m tcp 127.0.0.1:2003
 wait4x -t 3m http http://127.0.0.1:9090/-/ready --expect-status-code 200
 wait4x -t 3m http http://127.0.0.1:8428/health --expect-status-code 200
 wait4x -t 3m tcp 127.0.0.1:4242
+wait4x -t 3m tcp 127.0.0.1:20031
 
 create_influx_db()
 {

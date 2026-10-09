@@ -78,6 +78,14 @@ impl<T: HttpExport> HttpExportRuntime<T> {
 
     pub(crate) async fn into_running(mut self) {
         loop {
+            if self.recv_handled >= self.recv_buf.len() {
+                self.recv_buf.clear();
+                self.recv_handled = 0;
+                let n = self.receiver.recv_many(&mut self.recv_buf, BATCH_SIZE).await;
+                if n == 0 {
+                    break;
+                }
+            }
             match self.config.connect().await {
                 Ok(stream) => self.run_with_stream(stream).await,
                 Err(wait) => self.drop_wait(wait).await,
@@ -111,6 +119,9 @@ impl<T: HttpExport> HttpExportRuntime<T> {
         let mut buf_reader = BufReader::new(reader);
 
         let mut read_buf = [0u8; BATCH_SIZE];
+        let period = self.config.idle_timeout;
+        let idle = tokio::time::sleep(period);
+        tokio::pin!(idle);
 
         loop {
             if self.recv_handled < self.recv_buf.len() {
@@ -121,6 +132,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
                     );
                     break;
                 }
+                idle.as_mut().reset(tokio::time::Instant::now() + period);
                 if self.close_connection {
                     break;
                 }
@@ -149,6 +161,10 @@ impl<T: HttpExport> HttpExportRuntime<T> {
                         self.quit = true;
                         break;
                     }
+                }
+                _ = &mut idle => {
+                    debug!("exporter {}: idle timeout, closing connection", self.config.exporter);
+                    break;
                 }
             }
         }
@@ -249,5 +265,132 @@ impl<T: HttpExport> HttpExportRuntime<T> {
         }
 
         Ok(rsp)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::Ipv4Addr;
+
+    use http::HeaderMap;
+    use http::uri::PathAndQuery;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use tokio::sync::mpsc;
+
+    use vey_types::metrics::NodeName;
+    use vey_types::net::Host;
+
+    use super::*;
+
+    struct PutExport {
+        path: PathAndQuery,
+        headers: HeaderMap,
+    }
+
+    impl HttpExport for PutExport {
+        type BodyPiece = &'static str;
+
+        fn api_path(&self) -> &PathAndQuery {
+            &self.path
+        }
+
+        fn static_headers(&self) -> &HeaderMap {
+            &self.headers
+        }
+
+        fn fill_body(&mut self, pieces: &[&'static str], body_buf: &mut Vec<u8>) -> usize {
+            body_buf.extend_from_slice(pieces[0].as_bytes());
+            1
+        }
+
+        fn check_response(
+            &self,
+            rsp: HttpForwardRemoteResponse,
+            _body: &[u8],
+        ) -> anyhow::Result<()> {
+            if rsp.code == 204 {
+                Ok(())
+            } else {
+                Err(anyhow!("status {}", rsp.code))
+            }
+        }
+    }
+
+    fn runtime() -> HttpExportRuntime<PutExport> {
+        let (_tx, rx) = mpsc::unbounded_channel();
+        HttpExportRuntime::new(
+            HttpExportConfig::new(4242),
+            PutExport {
+                path: PathAndQuery::from_static("/api/put"),
+                headers: HeaderMap::new(),
+            },
+            rx,
+        )
+    }
+
+    #[tokio::test]
+    async fn idle_timeout_closes_without_request() {
+        let mut rt = runtime();
+        rt.config.idle_timeout = Duration::from_millis(50);
+        let (client, mut server) = tokio::io::duplex(64);
+        let (reader, writer) = tokio::io::split(client);
+        let run = tokio::spawn(async move {
+            rt.run_with_stream(tokio::io::join(reader, writer)).await;
+        });
+
+        let mut buf = [0u8; 8];
+        let n = tokio::time::timeout(Duration::from_secs(2), server.read(&mut buf))
+            .await
+            .expect("idle close")
+            .unwrap();
+        assert_eq!(n, 0);
+
+        tokio::time::timeout(Duration::from_secs(1), run)
+            .await
+            .unwrap()
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn connects_when_a_batch_is_ready() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (tx, rx) = mpsc::unbounded_channel();
+        let mut config = HttpExportConfig::with_server(Host::localhost_v4(), port);
+        config.check(NodeName::default()).unwrap();
+        let rt = HttpExportRuntime::new(
+            config,
+            PutExport {
+                path: PathAndQuery::from_static("/api/put"),
+                headers: HeaderMap::new(),
+            },
+            rx,
+        );
+        let run = tokio::spawn(async move { rt.into_running().await });
+
+        let early = tokio::time::timeout(Duration::from_millis(200), listener.accept()).await;
+        assert!(early.is_err(), "connected before a batch was ready");
+
+        tx.send("point").unwrap();
+        let (mut sock, _) = tokio::time::timeout(Duration::from_secs(2), listener.accept())
+            .await
+            .expect("accept")
+            .unwrap();
+        let mut buf = [0u8; 128];
+        let n = tokio::time::timeout(Duration::from_secs(2), sock.read(&mut buf))
+            .await
+            .expect("request")
+            .unwrap();
+        assert!(buf[..n].starts_with(b"POST /api/put "));
+        sock.write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n")
+            .await
+            .unwrap();
+
+        drop(tx);
+        tokio::time::timeout(Duration::from_secs(2), run)
+            .await
+            .expect("runtime exit")
+            .unwrap();
     }
 }
