@@ -14,4 +14,33 @@ services:
     container_name: vey-statsd-graphite
     ports:
       - "127.0.0.1:2003:2003"
+      - "127.0.0.1:8088:80"
+    volumes:
+      - ./graphite/storage-schemas.conf:/opt/graphite/conf/storage-schemas.conf:ro
+      - ./graphite/storage-aggregation.conf:/opt/graphite/conf/storage-aggregation.conf:ro
+    restart: always
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: vey-statsd-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-remote-write-receiver"
+    ports:
+      - "127.0.0.1:9090:9090"
+    restart: always
+
+  # OpenTSDB /api/put. VictoriaMetrics serves that write API and can be queried.
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: vey-statsd-victoriametrics
+    command:
+      - "-httpListenAddr=:8428"
+      - "-opentsdbHTTPListenAddr=:4242"
+    ports:
+      - "127.0.0.1:8428:8428"
+      - "127.0.0.1:4242:4242"
     restart: always
