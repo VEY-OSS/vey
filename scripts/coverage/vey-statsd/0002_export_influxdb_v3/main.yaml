@@ -22,5 +22,5 @@ exporter:
     server: 127.0.0.1
     port: 8181
     database: statsdv3
-    emit_interval: 1s
+    emit_interval: 5s
     prefix: vey.example

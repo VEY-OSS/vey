@@ -21,5 +21,5 @@ exporter:
     type: opentsdb
     server: 127.0.0.1
     port: 4242
-    emit_interval: 1s
+    emit_interval: 5s
     prefix: vey.example

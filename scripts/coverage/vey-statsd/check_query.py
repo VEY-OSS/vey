@@ -7,19 +7,22 @@ Phase 1 is one datagram, so every line shares one emit window:
   batch_g is 1 then 9 then 2.5 and must be stored as one point, 2.5.
   span_c is 10+1 and span_g is 5. idle_c is 6.
 
-Phase 2 starts only after phase 1 is visible, and lands in the next exporter
-window while the counter is still live:
+Phase 2 is sent as soon as span_c's first point is visible. The exporter keeps
+a series until the next tick, so the follow-up has to arrive inside that
+window. Exporter emit_interval is 5s, and the gate polls span_c alone, so a
+slow query does not consume the whole window.
   span_c += 2, so the series is 11 then 13.
   span_g becomes 5 then 8.
   Both points must remain. A single 13 means the first window was lost or the
-  two windows were merged.
+  two windows were merged. A second count of 2 means the series was dropped
+  before the follow-up arrived and the sum restarted.
 
 Phase 3 waits out an idle exporter interval, then sends idle_c=1.
   The stored series is 6 then 1. The sum restarts. The first point stays.
 
-InfluxDB also checks count, diff, and rate. Exporter emit_interval is 1s, so
-rate equals diff. Graphite keeps the dotted name plus ;host=web. Prometheus
-joins the name with _. OpenTSDB keeps the dotted name and the host tag.
+InfluxDB also checks count, diff, and rate. rate is diff / emit_interval.
+Graphite keeps the dotted name plus ;host=web. Prometheus joins the name with
+_. OpenTSDB keeps the dotted name and the host tag.
 """
 
 import json
@@ -34,7 +37,7 @@ import urllib.request
 
 HOST = "web"
 PREFIX = "vey.example"
-EMIT_SECONDS = 1.0
+EMIT_SECONDS = 5.0
 COUNTERS = ("solo_c", "batch_c", "span_c", "idle_c")
 GAUGES = ("solo_g", "batch_g", "span_g")
 METRICS = COUNTERS + GAUGES
@@ -59,25 +62,28 @@ PHASE2 = [
 ]
 PHASE3 = ["idle_c:1|c|#host:web"]
 
-# (count, diff, rate) for counters. rate == diff because emit_interval is 1s.
-# Gauge lists are the stored values.
+def ctr(count, diff):
+    return (count, diff, diff / EMIT_SECONDS)
+
+
+# (count, diff, rate) for counters. Gauge lists are the stored values.
 EXPECT_PHASE1 = {
-    "solo_c": [(4, 4, 4)],
+    "solo_c": [ctr(4, 4)],
     "solo_g": [2.5],
-    "batch_c": [(7, 7, 7)],
+    "batch_c": [ctr(7, 7)],
     "batch_g": [2.5],
-    "span_c": [(11, 11, 11)],
+    "span_c": [ctr(11, 11)],
     "span_g": [5],
-    "idle_c": [(6, 6, 6)],
+    "idle_c": [ctr(6, 6)],
 }
 EXPECT_PHASE2 = {
     **EXPECT_PHASE1,
-    "span_c": [(11, 11, 11), (13, 2, 2)],
+    "span_c": [ctr(11, 11), ctr(13, 2)],
     "span_g": [5, 8],
 }
 EXPECT_PHASE3 = {
     **EXPECT_PHASE2,
-    "idle_c": [(6, 6, 6), (1, 1, 1)],
+    "idle_c": [ctr(6, 6), ctr(1, 1)],
 }
 
 
@@ -259,7 +265,7 @@ def influx_sql(name, gauge):
     )
 
 
-def fetch_influx(db):
+def fetch_influx(db, names=None):
     token = os.environ["INFLUXDB3_AUTH_TOKEN"]
     headers = {
         "Authorization": f"Bearer {token}",
@@ -267,7 +273,7 @@ def fetch_influx(db):
     }
     found = {}
     bodies = []
-    for name in METRICS:
+    for name in names or METRICS:
         gauge = name in GAUGES
         payload = json.dumps(
             {"db": db, "q": influx_sql(name, gauge), "format": "json"}
@@ -281,12 +287,12 @@ def fetch_influx(db):
     return found, "\n".join(bodies)
 
 
-def fetch(kind, db):
+def fetch(kind, db, names=None):
     if kind == "graphite":
         raw = http_get(graphite_url())
         return parse_graphite(raw), raw
     if kind == "influx":
-        return fetch_influx(db)
+        return fetch_influx(db, names)
     if kind == "prometheus":
         names = "|".join(f"vey_example_{name}" for name in METRICS)
         query = urllib.parse.urlencode(
@@ -350,13 +356,13 @@ def matches(found, kind, expected):
     return True
 
 
-def wait_for(kind, db, expected, timeout):
+def wait_for(kind, db, expected, timeout, names=None):
     deadline = time.time() + timeout
     last = ""
     found = {}
     while time.time() < deadline:
         try:
-            found, last = fetch(kind, db)
+            found, last = fetch(kind, db, names)
         except (json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError):
             found = {}
         if matches(found, kind, expected):
@@ -376,18 +382,18 @@ def main():
     if kind == "influx" and not db:
         sys.exit("influx check needs a database name")
 
-    timeout = 45 if kind == "graphite" else 25
+    timeout = 60 if kind == "graphite" else 40
     wait_listen()
 
     send(PHASE1)
-    wait_for(kind, db, EXPECT_PHASE1, timeout)
-    print(f"ok {kind} single-point and same-window aggregate")
-
+    # One series, so the follow-up is sent while the exporter still holds it.
+    wait_for(kind, db, {"span_c": [ctr(11, 11)]}, timeout, names=["span_c"])
     send(PHASE2)
     wait_for(kind, db, EXPECT_PHASE2, timeout)
+    print(f"ok {kind} single-point and same-window aggregate")
     print(f"ok {kind} cross-window aggregate")
 
-    time.sleep(3)
+    time.sleep(EMIT_SECONDS + 1)
     send(PHASE3)
     wait_for(kind, db, EXPECT_PHASE3, timeout)
     print(f"ok {kind} idle sum restart")
