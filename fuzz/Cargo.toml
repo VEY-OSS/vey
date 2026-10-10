@@ -1,0 +1,101 @@
+[package]
+name = "vey-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "Apache-2.0"
+rust-version = "1.95.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+tokio = { version = "1.51.0", features = ["io-util", "rt"] }
+vey-codec = { path = "../lib/vey-codec", features = ["ber", "ldap", "thrift", "tls"] }
+vey-http = { path = "../lib/vey-http" }
+vey-imap-proto = { path = "../lib/vey-imap-proto" }
+vey-smtp-proto = { path = "../lib/vey-smtp-proto" }
+vey-socks = { path = "../lib/vey-socks" }
+vey-types = { path = "../lib/vey-types", features = ["http"] }
+
+[[bin]]
+name = "http_h1"
+path = "fuzz_targets/http_h1.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tls_record"
+path = "fuzz_targets/tls_record.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "imap_command"
+path = "fuzz_targets/imap_command.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "smtp_command"
+path = "fuzz_targets/smtp_command.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ber"
+path = "fuzz_targets/ber.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ldap"
+path = "fuzz_targets/ldap.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "thrift"
+path = "fuzz_targets/thrift.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "imap_response"
+path = "fuzz_targets/imap_response.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "smtp_response"
+path = "fuzz_targets/smtp_response.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "socks"
+path = "fuzz_targets/socks.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "http_header"
+path = "fuzz_targets/http_header.rs"
+test = false
+doc = false
+bench = false
+
+# Separate workspace so `cargo fuzz` does not build the rest of the VEY workspace.
+[workspace]
+members = ["."]
