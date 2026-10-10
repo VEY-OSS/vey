@@ -1,0 +1,5 @@
+# Default config shipped in the container image.
+# country.csv is a placeholder. Mount a real VEY country database over it.
+# See docker/README.md.
+geoip_db:
+  country: country.csv

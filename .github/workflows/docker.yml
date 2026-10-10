@@ -1,0 +1,108 @@
+name: Docker
+permissions:
+  contents: read
+  packages: write
+
+on:
+  push:
+    tags:
+      - 'vey-proxy-v*'
+      - 'vey-dcgen-v*'
+      - 'vey-iploc-v*'
+      - 'vey-statsd-v*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Select images
+    runs-on: ubuntu-26.04
+    outputs:
+      owner: ${{ steps.meta.outputs.owner }}
+      app: ${{ steps.meta.outputs.app }}
+      version: ${{ steps.meta.outputs.version }}
+      images: ${{ steps.meta.outputs.images }}
+    steps:
+      - name: Parse tag
+        id: meta
+        run: |
+          set -eu
+          tag="${GITHUB_REF_NAME}"
+          app="${tag%-v*}"
+          version="${tag#"${app}-v"}"
+          owner="$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          case "${app}" in
+            vey-proxy)
+              images='[{"file":"vey-proxy/docker/debian.Dockerfile","variant":"debian"},{"file":"vey-proxy/docker/alpine.Dockerfile","variant":"alpine"}]'
+              ;;
+            vey-statsd)
+              images='[{"file":"vey-statsd/docker/debian.Dockerfile","variant":"debian"},{"file":"vey-statsd/docker/alpine.Dockerfile","variant":"alpine"}]'
+              ;;
+            vey-dcgen)
+              images='[{"file":"vey-dcgen/docker/debian.Dockerfile","variant":"debian"},{"file":"vey-dcgen/docker/alpine.Dockerfile","variant":"alpine"}]'
+              ;;
+            vey-iploc)
+              images='[{"file":"vey-iploc/docker/debian.Dockerfile","variant":"debian"},{"file":"vey-iploc/docker/alpine.Dockerfile","variant":"alpine"}]'
+              ;;
+            *)
+              echo "no Dockerfile for tag ${tag}" >&2
+              exit 1
+              ;;
+          esac
+          echo "owner=${owner}" >> "${GITHUB_OUTPUT}"
+          echo "app=${app}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "images=${images}" >> "${GITHUB_OUTPUT}"
+
+  push:
+    name: ${{ matrix.image.variant }}
+    needs: plan
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJson(needs.plan.outputs.images) }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+      - name: Image tags
+        id: tags
+        run: |
+          set -eu
+          image="ghcr.io/${{ needs.plan.outputs.owner }}/${{ needs.plan.outputs.app }}"
+          version="${{ needs.plan.outputs.version }}"
+          variant="${{ matrix.image.variant }}"
+          echo "image=${image}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "tags<<EOF"
+            if [ "${variant}" = "debian" ]; then
+              echo "${image}:${version}"
+              echo "${image}:${version}-debian"
+            else
+              echo "${image}:${version}-${variant}"
+            fi
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.image.file }}
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.plan.outputs.version }}
+          cache-from: type=gha,scope=${{ needs.plan.outputs.app }}-${{ matrix.image.variant }}
+          cache-to: type=gha,scope=${{ needs.plan.outputs.app }}-${{ matrix.image.variant }},mode=max

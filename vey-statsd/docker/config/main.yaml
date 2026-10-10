@@ -1,0 +1,20 @@
+# Default config shipped in the container image.
+# Accepts StatsD on every interface and prints aggregates to stdout.
+# See docker/README.md.
+importer:
+  - name: statsd
+    type: statsd_udp
+    collector: aggregate
+    listen: 0.0.0.0:8125
+
+collector:
+  - name: aggregate
+    type: aggregate
+    emit_interval: 10s
+    join_tags:
+      - stat_id
+    exporter: console
+
+exporter:
+  - name: console
+    type: console

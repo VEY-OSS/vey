@@ -61,6 +61,7 @@ cargo build --profile release-lto -p vey-statsd -p vey-statsd-ctl
 
 If you want to build binary packages or container images, see
 [Build and Package](../doc/build_and_package.md).
+How to run the published images is described in [docker/README.md](docker/README.md).
 
 The main binaries are:
 

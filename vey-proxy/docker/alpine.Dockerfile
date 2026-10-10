@@ -12,5 +12,7 @@ RUN apk add --no-cache libgcc c-ares
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /usr/src/vey/target/release-lto/vey-proxy /usr/bin/vey-proxy
 COPY --from=builder /usr/src/vey/target/release-lto/vey-proxy-ctl /usr/bin/vey-proxy-ctl
+COPY vey-proxy/docker/config/main.yaml /etc/vey-proxy/main.yaml
+EXPOSE 8080 1080
 ENTRYPOINT ["/usr/bin/vey-proxy"]
-CMD ["-Vvv"]
+CMD ["-c", "/etc/vey-proxy/", "-G", "default", "-v"]

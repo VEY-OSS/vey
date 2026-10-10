@@ -1,0 +1,26 @@
+# Default config shipped in the container image.
+# It is an open proxy: do not publish these ports onto an untrusted network
+# until authentication is configured. See docker/README.md.
+log: stdout
+
+server:
+  - name: http
+    type: http_proxy
+    escaper: default
+    listen: 0.0.0.0:8080
+  - name: socks
+    type: socks_proxy
+    escaper: default
+    listen: 0.0.0.0:1080
+
+resolver:
+  - name: default
+    type: c-ares
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    # Container networks often have no working IPv6 route.
+    no_ipv6: true
+    resolve_strategy: IPv4Only

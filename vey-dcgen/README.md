@@ -27,6 +27,7 @@ cargo build --profile release-lto -p vey-dcgen
 To support SM2 certificates, you need to use *Tongsuo* by adding `--features vendored-tongsuo`.
 
 See [Build and Package](../doc/build_and_package.md) if you want to build binary packages or docker images.
+How to run the published images is described in [docker/README.md](docker/README.md).
 
 ## How to run
 

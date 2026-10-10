@@ -92,7 +92,7 @@ For testing purpose, we have built and uploaded some packages to
 
 # Docker Image
 
-You can find Dockerfile(s) under the *docker* folder of each application. The build command will be like
+You can find Dockerfile(s) under the *docker* folder of each application. Each of those folders also has a README that describes the published GHCR tags and the config the image starts with. The build command will be like
 
 ```shell
 # run this in the source root dir

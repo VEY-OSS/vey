@@ -22,5 +22,7 @@ COPY --from=lua /usr/local/lib/luarocks /usr/local/lib/luarocks
 COPY --from=builder /usr/src/vey/target/release-lto/vey-proxy /usr/bin/
 COPY --from=builder /usr/src/vey/target/release-lto/vey-proxy-ctl /usr/bin/
 COPY --from=builder /usr/src/vey/target/release-lto/vey-proxy-lua /usr/bin/
+COPY vey-proxy/docker/config/main.yaml /etc/vey-proxy/main.yaml
+EXPOSE 8080 1080
 ENTRYPOINT ["/usr/bin/vey-proxy"]
-CMD ["-Vvv"]
+CMD ["-c", "/etc/vey-proxy/", "-G", "default", "-v"]

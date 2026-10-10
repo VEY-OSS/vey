@@ -1,0 +1,6 @@
+# Default config shipped in the container image.
+# The entrypoint creates ca.crt and ca.key on first start when they are absent.
+# See docker/README.md.
+backend:
+  ca_certificate: /var/lib/vey-dcgen/ca.crt
+  ca_private_key: /var/lib/vey-dcgen/ca.key

@@ -20,6 +20,9 @@ To build release binaries:
 cargo build --profile release-lto -p vey-iploc
 ```
 
+See [Build and Package](../doc/build_and_package.md) if you want to build binary packages or docker images.
+How to run the published images is described in [docker/README.md](docker/README.md).
+
 ## How to run
 
 ### Example
