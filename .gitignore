@@ -5,6 +5,8 @@
 
 # Cargo
 /target/
+/fuzz/target/
+/fuzz/artifacts/
 
 # generated bundled license
 LICENSE-BUNDLED
