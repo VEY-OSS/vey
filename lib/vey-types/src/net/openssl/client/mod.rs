@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use log::warn;
-#[cfg(any(awslc, boringssl, tongsuo))]
+#[cfg(any(awslc, boringssl, all(tongsuo, not(tongsuo850))))]
 use openssl::ssl::CertCompressionAlgorithm;
 #[cfg(not(any(awslc, boringssl, libressl)))]
 use openssl::ssl::SslCtValidationMode;
@@ -524,7 +524,7 @@ impl OpensslClientConfigBuilder {
             ctx_builder.set_permute_extensions(true);
         }
 
-        #[cfg(any(awslc, boringssl, tongsuo))]
+        #[cfg(any(awslc, boringssl, all(tongsuo, not(tongsuo850))))]
         ctx_builder
             .add_cert_decompression_alg(CertCompressionAlgorithm::BROTLI, |in_buf, out_buf| {
                 use std::io::Read;

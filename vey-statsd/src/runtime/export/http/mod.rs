@@ -81,7 +81,10 @@ impl<T: HttpExport> HttpExportRuntime<T> {
             if self.recv_handled >= self.recv_buf.len() {
                 self.recv_buf.clear();
                 self.recv_handled = 0;
-                let n = self.receiver.recv_many(&mut self.recv_buf, BATCH_SIZE).await;
+                let n = self
+                    .receiver
+                    .recv_many(&mut self.recv_buf, BATCH_SIZE)
+                    .await;
                 if n == 0 {
                     break;
                 }

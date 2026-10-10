@@ -119,9 +119,42 @@ where
             TlsInterceptionError::UpstreamHandshakeFailed(anyhow!("upstream handshake error: {e}"))
         })?;
 
-        let upstream_cert = ups_tls_stream.ssl().peer_certificate().ok_or_else(|| {
-            TlsInterceptionError::NoFakeCertGenerated(anyhow!("failed to get upstream certificate"))
-        })?;
+        let upstream_sign_cert = cfg_select! {
+            tongsuo850 => {
+                ups_tls_stream
+                    .ssl()
+                    .ntls_peer_sign_certificate()
+                    .ok_or_else(|| {
+                        TlsInterceptionError::NoFakeCertGenerated(anyhow!(
+                            "failed to get upstream sign certificate"
+                        ))
+                    })?
+                    .to_owned()
+            }
+            _ => {
+                ups_tls_stream.ssl().peer_certificate().ok_or_else(|| {
+                    TlsInterceptionError::NoFakeCertGenerated(anyhow!("failed to get upstream certificate"))
+                })?
+            }
+        };
+        let upstream_enc_cert = cfg_select! {
+            tongsuo850 => {
+                ups_tls_stream
+                    .ssl()
+                    .ntls_peer_enc_certificate()
+                    .ok_or_else(|| {
+                        TlsInterceptionError::NoFakeCertGenerated(anyhow!(
+                            "failed to get upstream enc certificate"
+                        ))
+                    })?
+                    .to_owned()
+            }
+            _ => {
+                ups_tls_stream.ssl().peer_certificate().ok_or_else(|| {
+                    TlsInterceptionError::NoFakeCertGenerated(anyhow!("failed to get upstream certificate"))
+                })?
+            }
+        };
         self.server_verify_result = Some(ups_tls_stream.ssl().verify_result());
 
         let sign_pre_fetch_pair = sign_pre_fetch_handle.await.map_err(|e| {
@@ -138,7 +171,7 @@ where
                     TlsServiceType::Http,
                     TlsCertUsage::TlcpServerSignature,
                     cert_host.clone(),
-                    upstream_cert.clone(),
+                    upstream_sign_cert,
                 )
                 .await
                 .ok_or_else(|| {
@@ -162,7 +195,7 @@ where
                     TlsServiceType::Http,
                     TlsCertUsage::TlcpServerEncryption,
                     cert_host,
-                    upstream_cert,
+                    upstream_enc_cert,
                 )
                 .await
                 .ok_or_else(|| {

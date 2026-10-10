@@ -174,8 +174,8 @@ quinn = { version = "0.11", default-features = false, features = ["runtime-tokio
 quinn-proto = { version = "0.11", default-features = false }
 quinn-udp = { version = "0.5.9", default-features = false, features = ["fast-apple-datapath"] }
 #
-openssl = { package = "variant-ssl", version = "0.17.30" }
-openssl-sys = { package = "variant-ssl-sys", version = "0.17.30" }
+openssl = { package = "variant-ssl", version = "0.18.0" }
+openssl-sys = { package = "variant-ssl-sys", version = "0.18.0" }
 openssl-probe = "0.2"
 #
 kanal = { version = "0.1.1", default-features = false }

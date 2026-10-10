@@ -275,7 +275,7 @@ impl OpensslInterceptionClientConfigBuilder {
         Ok(())
     }
 
-    #[cfg(any(awslc, boringssl, tongsuo))]
+    #[cfg(any(awslc, boringssl, all(tongsuo, not(tongsuo850))))]
     fn build_set_cert_compression(
         &self,
         ctx_builder: &mut SslContextBuilder,
@@ -411,7 +411,7 @@ impl OpensslInterceptionClientConfigBuilder {
                 .map_err(|e| anyhow!("failed to enable SCT: {e}"))?;
         }
 
-        #[cfg(tongsuo)]
+        #[cfg(all(tongsuo, not(tongsuo850)))]
         self.build_set_cert_compression(&mut ctx_builder)?;
 
         self.build_set_verify_cert_store(&mut ctx_builder)?;
@@ -452,6 +452,7 @@ impl OpensslInterceptionClientConfigBuilder {
                 .map_err(|e| anyhow!("failed to enable SCT: {e}"))?;
         }
 
+        #[cfg(not(tongsuo850))]
         self.build_set_cert_compression(&mut ctx_builder)?;
 
         self.build_set_verify_cert_store(&mut ctx_builder)?;

@@ -45,7 +45,7 @@ impl fmt::Display for DumpX509Cert<'_> {
             .map(|san_stack| san_stack.iter().map(|gn| format!("{:?}", gn)).join(", "))
             .unwrap_or_default();
 
-        let key_usage = self.crt.key_usage().unwrap_or_default();
+        let key_usage = self.crt.key_usage();
 
         f.write_fmt(format_args!(
             "X509 Certificate:\n\
@@ -58,7 +58,7 @@ impl fmt::Display for DumpX509Cert<'_> {
                  │   └─ NotAfter:  {}\n\
                  ├─ Signature Algorithm: {}\n\
                  ├─ Public Key: {:?} ({} bits)\n\
-                 ├─ Key Usage: {}\n\
+                 ├─ Key Usage: {:?}\n\
                  └─ Subject Alt Names: {}\n",
             serial,
             self.crt.subject_name(),
