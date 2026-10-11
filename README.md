@@ -57,7 +57,8 @@ policy-driven request handling.
 A StatsD-compatible metrics ingestion, aggregation, and forwarding service. It
 can receive metrics from application daemons, normalize or aggregate them
 through a modular pipeline, and export the results to downstream systems such
-as Graphite, OpenTSDB, or InfluxDB.
+as Graphite, OpenTSDB, Prometheus, InfluxDB, VictoriaMetrics, QuestDB, or
+OpenGemini.
 
 [README](vey-statsd/README.md) | [Reference Doc](https://vey.readthedocs.io/projects/statsd/en/latest/)
 

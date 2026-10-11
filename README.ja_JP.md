@@ -54,7 +54,7 @@ TCP / TLS ストリームプロキシ、HTTP / TLS リバースプロキシ、�
 ### vey-statsd
 
 StatsD 互換のメトリクス受信・集約・転送サービスです。アプリケーションから送られたメトリクスを取り込み、
-パイプライン上で正規化や集約を行い、Graphite / OpenTSDB / InfluxDB などの下流システムへ出力できます。
+パイプライン上で正規化や集約を行い、Graphite、OpenTSDB、Prometheus、InfluxDB、VictoriaMetrics、QuestDB、OpenGemini などの下流システムへ出力できます。
 
 [README](vey-statsd/README.md) | [リファレンスドキュメント](https://vey.readthedocs.io/projects/statsd/en/latest/)
 

@@ -51,7 +51,7 @@ VEY 项目由多个应用组成，每个应用都有独立的子目录，用于�
 ### vey-statsd
 
 兼容 StatsD 的指标接入、聚合与转发服务。它可以接收应用发来的指标数据，在模块化流水线中完成规范化或聚合，再输出到
-Graphite、OpenTSDB、InfluxDB 等下游系统。
+Graphite、OpenTSDB、Prometheus、InfluxDB、VictoriaMetrics、QuestDB、OpenGemini 等下游系统。
 
 [详细介绍](vey-statsd/README.md) | [参考文档](https://vey.readthedocs.io/projects/statsd/en/latest/)
 

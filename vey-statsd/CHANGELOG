@@ -2,6 +2,13 @@
 v0.3.0:
  - Breaking: graphite exporter always writes the cumulative counter sum and no longer accepts `counter_value`
  - Feature: prometheus_push exporter pushes cumulative counters and gauges with Prometheus remote write 1.0
+ - Feature: HTTP exporters (`opentsdb`, `influxdb_v2`, `influxdb_v3`, `prometheus_push`) close the connection after `idle_timeout` (default 45s); the next batch opens a new connection
+ - Feature: optional snmalloc global allocator at compile time; `--version -v` reports `snmalloc`
+ - Feature: publish Debian and Alpine container images that listen on `0.0.0.0:8125` and print aggregated metrics to stdout
+ - Feature: deb, rpm, and container image builds accept an optional Rust PGO profile
+ - Compatibility: default deb/rpm package builds use secure-snmalloc
+ - Compatibility: macOS stays in the foreground after libc removed `daemon()`
+ - Compatibility: replace chrono with jiff for timestamps
  - Compatibility: bump MSRV to 1.95.0
 
 v0.2.0:
