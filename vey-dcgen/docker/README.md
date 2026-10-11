@@ -8,7 +8,7 @@ Release tags `vey-dcgen-v*` publish these images to GHCR:
 | `ghcr.io/vey-oss/vey-dcgen:<version>-debian` | `debian.Dockerfile` |
 | `ghcr.io/vey-oss/vey-dcgen:<version>-alpine` | `alpine.Dockerfile` |
 
-Debian is the default tag. The Alpine image links OpenSSL from the base image; the Debian image vendors it. Both images include `vey-mkcert`, which the entrypoint uses to create a CA.
+Debian is the default tag. Each published tag is a manifest list for linux/amd64 and linux/arm64. The Alpine image links OpenSSL from the base image; the Debian image vendors it. Both images include `vey-mkcert`, which the entrypoint uses to create a CA.
 
 ## Default config
 

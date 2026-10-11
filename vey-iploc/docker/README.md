@@ -8,7 +8,7 @@ Release tags `vey-iploc-v*` publish these images to GHCR:
 | `ghcr.io/vey-oss/vey-iploc:<version>-debian` | `debian.Dockerfile` |
 | `ghcr.io/vey-oss/vey-iploc:<version>-alpine` | `alpine.Dockerfile` |
 
-Debian is the default tag.
+Debian is the default tag. Each published tag is a manifest list for linux/amd64 and linux/arm64.
 
 ## Default config
 

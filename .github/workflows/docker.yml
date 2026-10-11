@@ -2,6 +2,7 @@ name: Docker
 permissions:
   contents: read
   packages: write
+  actions: write
 
 on:
   push:
@@ -56,35 +57,24 @@ jobs:
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "images=${images}" >> "${GITHUB_OUTPUT}"
 
-  push:
-    name: ${{ matrix.image.variant }}
+  build:
+    name: ${{ matrix.image.variant }} (${{ matrix.platform.name }})
     needs: plan
-    runs-on: ubuntu-26.04
+    runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
       matrix:
         image: ${{ fromJson(needs.plan.outputs.images) }}
+        platform:
+          - name: amd64
+            runner: ubuntu-26.04
+            os: linux/amd64
+          - name: arm64
+            runner: ubuntu-26.04-arm
+            os: linux/arm64
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
-      - name: Image tags
-        id: tags
-        run: |
-          set -eu
-          image="ghcr.io/${{ needs.plan.outputs.owner }}/${{ needs.plan.outputs.app }}"
-          version="${{ needs.plan.outputs.version }}"
-          variant="${{ matrix.image.variant }}"
-          echo "image=${image}" >> "${GITHUB_OUTPUT}"
-          {
-            echo "tags<<EOF"
-            if [ "${variant}" = "debian" ]; then
-              echo "${image}:${version}"
-              echo "${image}:${version}-debian"
-            else
-              echo "${image}:${version}-${variant}"
-            fi
-            echo "EOF"
-          } >> "${GITHUB_OUTPUT}"
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -93,16 +83,78 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Build and push
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.image.file }}
-          push: true
-          tags: ${{ steps.tags.outputs.tags }}
+          platforms: ${{ matrix.platform.os }}
+          provenance: false
+          sbom: false
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ needs.plan.outputs.version }}
-          cache-from: type=gha,scope=${{ needs.plan.outputs.app }}-${{ matrix.image.variant }}
-          cache-to: type=gha,scope=${{ needs.plan.outputs.app }}-${{ matrix.image.variant }},mode=max
+          outputs: type=image,name=ghcr.io/${{ needs.plan.outputs.owner }}/${{ needs.plan.outputs.app }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ needs.plan.outputs.app }}-${{ matrix.image.variant }}-${{ matrix.platform.name }}
+          cache-to: type=gha,scope=${{ needs.plan.outputs.app }}-${{ matrix.image.variant }}-${{ matrix.platform.name }},mode=max
+      - name: Export digest
+        run: |
+          set -eu
+          mkdir -p "${RUNNER_TEMP}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${RUNNER_TEMP}/digests/${digest#sha256:}"
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ needs.plan.outputs.app }}-${{ matrix.image.variant }}-${{ matrix.platform.name }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: ${{ matrix.image.variant }} manifest
+    needs: [plan, build]
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJson(needs.plan.outputs.images) }}
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-${{ needs.plan.outputs.app }}-${{ matrix.image.variant }}-*
+          merge-multiple: true
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Create manifest list
+        run: |
+          set -eu
+          image="ghcr.io/${{ needs.plan.outputs.owner }}/${{ needs.plan.outputs.app }}"
+          version="${{ needs.plan.outputs.version }}"
+          variant="${{ matrix.image.variant }}"
+          tags=()
+          if [ "${variant}" = "debian" ]; then
+            tags+=(-t "${image}:${version}" -t "${image}:${version}-debian")
+          else
+            tags+=(-t "${image}:${version}-${variant}")
+          fi
+          digests=()
+          for digest in "${RUNNER_TEMP}/digests"/*; do
+            digests+=("${image}@sha256:$(basename "${digest}")")
+          done
+          if [ "${#digests[@]}" -ne 2 ]; then
+            echo "expected amd64 and arm64 digests, found ${#digests[@]}" >&2
+            exit 1
+          fi
+          docker buildx imagetools create "${tags[@]}" "${digests[@]}"
+          docker buildx imagetools inspect "${tags[1]}"

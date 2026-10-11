@@ -7,7 +7,7 @@ ENV CXX=clang++
 ARG VEY_PGO_PROFILE
 ENV VEY_PGO_PROFILE=${VEY_PGO_PROFILE}
 RUN scripts/package/cargo_with_pgo.sh build --profile release-lto \
- --no-default-features --features vendored-boringssl,rustls-ring,quic,vendored-c-ares \
+ --no-default-features --features secure-snmalloc,vendored-boringssl,rustls-ring,quic,vendored-c-ares \
  -p vey-proxy -p vey-proxy-ctl -p vey-proxy-ftp
 
 FROM debian:trixie-slim

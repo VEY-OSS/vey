@@ -8,7 +8,7 @@ Release tags `vey-proxy-v*` publish these images to GHCR:
 | `ghcr.io/vey-oss/vey-proxy:<version>-debian` | `debian.Dockerfile` |
 | `ghcr.io/vey-oss/vey-proxy:<version>-alpine` | `alpine.Dockerfile` |
 
-Debian is the default tag. The Alpine image is smaller and links c-ares from the base image. The Debian image also contains `vey-proxy-ftp`. `lua.alpine.Dockerfile` is not published by CI; build it locally when you need `vey-proxy-lua`.
+Debian is the default tag. Each published tag is a manifest list for linux/amd64 and linux/arm64. The Alpine image is smaller, vendors BoringSSL, and links c-ares from the base image. The Debian image also contains `vey-proxy-ftp`. `lua.alpine.Dockerfile` is not published by CI; build it locally when you need `vey-proxy-lua`.
 
 ## Default config
 

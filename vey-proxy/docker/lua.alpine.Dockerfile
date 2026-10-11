@@ -5,17 +5,23 @@ RUN luarocks install lua-cjson
 FROM rust:alpine3.22 AS builder
 WORKDIR /usr/src/vey
 COPY . .
-RUN apk add --no-cache musl-dev cmake capnproto-dev openssl-dev c-ares-dev lua5.4-dev pkgconfig
+RUN apk add --no-cache musl-dev linux-headers libc++-dev libc++-static llvm-libunwind-static \
+    clang lld clang-libclang cmake make capnproto-dev c-ares-dev lua5.4-dev pkgconfig
 ENV PKG_CONFIG_PATH=/usr/lib/pkgconfig
-ENV RUSTFLAGS="-Ctarget-feature=-crt-static"
+ENV CC=clang
+ENV CXX=clang++
+ENV CXXSTDLIB=c++
+ENV CXXFLAGS=-stdlib=libc++
+# Same linker setup as the musl-clang-libcxx static build, without crt-static.
+ENV RUSTFLAGS="-Ctarget-feature=-crt-static -Clinker=clang -Clink-arg=-fuse-ld=lld -Clink-arg=-lc++abi"
 ARG VEY_PGO_PROFILE
 ENV VEY_PGO_PROFILE=${VEY_PGO_PROFILE}
 RUN scripts/package/cargo_with_pgo.sh build --profile release-lto \
-  --no-default-features --features rustls-ring,quic,c-ares,lua54 \
+  --no-default-features --features secure-vendored-mimalloc,vendored-boringssl,rustls-ring,quic,c-ares,lua54 \
   -p vey-proxy -p vey-proxy-ctl -p vey-proxy-lua
 
 FROM alpine:3.22
-RUN apk add --no-cache ca-certificates libgcc c-ares lua5.4-libs
+RUN apk add --no-cache ca-certificates libgcc libc++ c-ares lua5.4-libs
 COPY --from=lua /usr/local/bin/lua /usr/local/bin/
 COPY --from=lua /usr/local/bin/luarocks /usr/local/bin/
 COPY --from=lua /usr/local/lib/lua /usr/local/lib/

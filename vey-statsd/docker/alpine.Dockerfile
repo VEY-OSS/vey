@@ -1,11 +1,11 @@
 FROM rust:alpine AS builder
 WORKDIR /usr/src/vey
 COPY . .
-RUN apk add --no-cache musl-dev cmake capnproto-dev g++ linux-headers make
+RUN apk add --no-cache musl-dev cmake capnproto-dev clang make
 ENV RUSTFLAGS="-Ctarget-feature=-crt-static"
 ARG VEY_PGO_PROFILE
 ENV VEY_PGO_PROFILE=${VEY_PGO_PROFILE}
-RUN scripts/package/cargo_with_pgo.sh build --profile release-lto --features secure-snmalloc \
+RUN scripts/package/cargo_with_pgo.sh build --profile release-lto --features secure-vendored-mimalloc \
     -p vey-statsd -p vey-statsd-ctl
 
 FROM alpine:latest

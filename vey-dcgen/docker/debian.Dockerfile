@@ -1,9 +1,11 @@
 FROM rust:trixie AS builder
 WORKDIR /usr/src/vey
 COPY . .
+RUN apt-get update && apt-get install -y cmake g++ \
+    && rm -rf /var/lib/apt/lists/*
 ARG VEY_PGO_PROFILE
 ENV VEY_PGO_PROFILE=${VEY_PGO_PROFILE}
-RUN scripts/package/cargo_with_pgo.sh build --profile release-lto --features vendored-openssl -p vey-dcgen -p vey-mkcert
+RUN scripts/package/cargo_with_pgo.sh build --profile release-lto --features secure-snmalloc,vendored-openssl -p vey-dcgen -p vey-mkcert
 
 FROM debian:trixie-slim
 COPY --from=builder /usr/src/vey/target/release-lto/vey-dcgen /usr/bin/vey-dcgen
