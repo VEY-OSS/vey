@@ -16,6 +16,9 @@ fi
 
 cd "${PROJECT_DIR}"
 
+. "${PROJECT_DIR}/scripts/package/pgo_profile_env.sh"
+pgo_profile_env "${PROJECT_DIR}"
+
 echo "Generate license files for bundled crates"
 cargo metadata --format-version 1 | scripts/release/bundle_license.py > LICENSE-BUNDLED
 

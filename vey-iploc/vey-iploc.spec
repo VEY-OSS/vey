@@ -24,7 +24,8 @@ IP Locate Service
 %build
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
-cargo build --frozen --offline --profile %{build_profile} --features secure-snmalloc --package vey-iploc
+%{?vey_pgo_profile:export VEY_PGO_PROFILE="%{vey_pgo_profile}"}
+scripts/package/cargo_with_pgo.sh build --frozen --offline --profile %{build_profile} --features secure-snmalloc --package vey-iploc
 
 
 %install

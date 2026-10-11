@@ -24,7 +24,7 @@ all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk
 
 cargo test -p vey-mkcert
 
-cd "${SCRIPTS_DIR}/vey-mkcert"
+cd "${PROJECT_DIR}/scripts/testcases/vey-mkcert"
 . ./run.sh
 cd -
 

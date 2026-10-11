@@ -19,7 +19,8 @@ override_dh_auto_clean:
 
 override_dh_auto_build:
 	VEY_PACKAGE_VERSION=$(DEB_VERSION) \
-	  cargo build --frozen --profile $(BUILD_PROFILE) \
+	VEY_PGO_PROFILE='$(VEY_PGO_PROFILE)' \
+	  scripts/package/cargo_with_pgo.sh build --frozen --profile $(BUILD_PROFILE) \
 	    --no-default-features --features secure-snmalloc,$(EBPF_FEATURE),$(LUA_FEATURE),python,rustls-ring,quic,$(CARES_FEATURE) \
 	    --package vey-proxy --package vey-proxy-ctl --package vey-proxy-lua --package vey-proxy-ftp
 

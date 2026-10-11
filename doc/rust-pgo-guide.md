@@ -1,298 +1,83 @@
-# VEY Project Rust PGO User Guide
+# Rust Profile-Guided Optimization
 
-## Overview
+Profile-guided optimization (PGO) compiles the Rust code twice. The first build is instrumented and run on a workload. The second build reads the merged profile and lays out the hot paths for that workload. Vendored C libraries such as OpenSSL and c-ares are not part of this profile.
 
-Profile-Guided Optimization (PGO) is a compiler optimization technique that uses runtime performance data to guide the
-compiler in generating more efficient code. This guide explains how to use Rust PGO in the VEY project.
+The package that benefits is `vey-proxy`. `vey-mkcert` is a short-lived certificate tool and is not worth a profile.
 
-## Prerequisites
+Merging the raw profiles uses `cargo profdata` from `cargo-binutils`, the same tool the coverage scripts use. Setup is in [Development Environment Setup](dev-setup.md).
 
-### System Requirements
+## Generate a profile
 
-- Rust toolchain (latest stable recommended)
-- `cargo-binutils` (installed via `cargo install cargo-binutils`)
-- Sufficient memory and storage space
+Run the component script. It builds an instrumented binary, runs that component's `scripts/testcases/<component>/run.sh`, and writes one `.profdata` file. Keep that file and point `VEY_PGO_PROFILE` at it when you build.
 
-### Environment Verification
-
-```bash
-# Check Rust version
-rustc --version
-
-# Check if cargo profdata is available
-cargo profdata --help
+```shell
+./scripts/pgo/vey-proxy.sh
 ```
 
-If cargo-binutils is missing, install it:
+The file is `scripts/pgo/profile/vey-proxy.profdata`. Set `VEY_PGO_OUT` to write it somewhere else:
 
-```bash
-cargo install cargo-binutils
+```shell
+VEY_PGO_OUT=/tmp/vey-proxy.profdata ./scripts/pgo/vey-proxy.sh
 ```
 
-## Usage
+The instrumented build uses the `release-lto` profile and `target/pgo-generate`, so it matches packaged binaries and does not reuse objects from a normal `target/` build. Helper binaries are built into `target/debug` and are not part of the profile.
 
-### Basic Usage
+`vey-proxy` runs every scenario under `scripts/testcases/vey-proxy/`, including HTTP, SOCKS, TLS, FTP, and auth. The same scripts exist for the other daemons that already have testcases:
 
-The simplest way to use PGO is to run with default configuration:
-
-```bash
-cd vey
-./scripts/pgo/example_run.sh
+```shell
+./scripts/pgo/vey-statsd.sh
+./scripts/pgo/vey-keyless.sh
+./scripts/pgo/vey-dcgen.sh
+./scripts/pgo/vey-iploc.sh
 ```
 
-### Custom Component Selection
+`vey-dcgen` and `vey-iploc` reuse the proxy scenarios, with that daemon as the instrumented process. `vey-gateway` has no scenarios.
 
-Select specific components for optimization:
+The proxy and statsd cases need Docker, `jq`, and the Python modules `pycurl` and `requests`. `scripts/coverage/vey-proxy.sh` rebuilds with coverage instrumentation (`-C instrument-coverage`); use `scripts/pgo/vey-proxy.sh` for a profile.
 
-```bash
-# Optimize a single component
-./scripts/pgo/example_run.sh --components vey-mkcert
+Generate the profile with the same `rustc` you will use for the optimized build. A profile from another compiler is rejected or ignored.
 
-# Optimize multiple components
-./scripts/pgo/example_run.sh --components vey-mkcert,vey-keyless,vey-dcgen
+CI checks profile selection and runs one compiler round-trip (`vey-mkcert`: instrument, merge, build with the profile). The component scripts above are the workloads used for a real profile.
 
-# Optimize all available components
-./scripts/pgo/example_run.sh --all
+## Use the profile when packaging
+
+The profile is a compile-time input. It is not installed into the package.
+
+Deb, rpm, and Docker image builds call `scripts/package/cargo_with_pgo.sh`. That script adds `-Cprofile-use` only when a profile is present:
+
+- `VEY_PGO_PROFILE` points at a `.profdata` file (absolute, or relative to the repository root), or
+- `scripts/pgo/profile/<package>.profdata` is in the source tree for a package named in that `cargo build -p` / `--package` command
+
+Each component has its own default file. A `vey-proxy` package build uses `scripts/pgo/profile/vey-proxy.profdata`; `vey-statsd` uses `scripts/pgo/profile/vey-statsd.profdata`. If one `cargo` command lists several packages, the first listed package that has a profile file is used. `VEY_PGO_PROFILE` wins over those files. With neither, the build is unchanged.
+
+```shell
+VEY_PGO_PROFILE=/tmp/vey-proxy.profdata ./scripts/build_deb_from_git.sh vey-proxy
+VEY_PGO_PROFILE=/tmp/vey-proxy.profdata ./scripts/build_rpm_from_git.sh vey-proxy
 ```
 
-### Performance Benchmarking
+The same variable applies to `build_deb_from_tar.sh` and `build_rpm_from_tar.sh`. Those scripts turn the path into an absolute path and pass it into the package build. An rpm build receives it as `vey_pgo_profile`; a deb build receives it as `VEY_PGO_PROFILE`.
 
-Run performance benchmarks after optimization to verify effectiveness:
+`docker build` does not see the host environment, and a profile outside the build context is not in the image. `scripts/package/docker_build.sh` reads `VEY_PGO_PROFILE`, stages that file into the context when it lives outside the tree, and forwards every other argument to `docker build`:
 
-```bash
-# Optimize and automatically run benchmarks
-./scripts/pgo/example_run.sh --components vey-mkcert --benchmark
-
-# Or run benchmarks separately
-./scripts/pgo/example_run.sh --benchmark
+```shell
+VEY_PGO_PROFILE=/tmp/vey-proxy.profdata \
+  ./scripts/package/docker_build.sh \
+  -f vey-proxy/docker/debian.Dockerfile . -t vey-proxy:pgo
 ```
 
-## PGO Workflow
+Leaving `scripts/pgo/profile/vey-proxy.profdata` in the build context is enough for the `vey-proxy` image. The same pattern applies to the other components. Pass another file with a build arg:
 
-### 1. Instrumentation Build
-
-The script builds binaries with the `-Cprofile-generate` flag (the script internally uses a variable `PGO_DATA_DIR`
-whose default is `/tmp/pgo-data`):
-
-```bash
-RUSTFLAGS="-Cprofile-generate=/tmp/pgo-data" cargo build --release -p <component>
+```shell
+docker build \
+  --build-arg VEY_PGO_PROFILE=scripts/pgo/profile/vey-proxy.profdata \
+  -f vey-proxy/docker/debian.Dockerfile . -t vey-proxy:pgo
 ```
 
-### 2. Profile Data Collection
+A local optimized build without the package scripts:
 
-Run instrumented binaries with comprehensive workloads to collect runtime data:
-
-```bash
-# For vey-mkcert
-target/release/vey-mkcert --version
-target/release/vey-mkcert --help
-target/release/vey-mkcert --root --common-name "VEY Test CA" --rsa 2048 --output-cert rootCA-rsa.crt --output-key rootCA-rsa.key
-target/release/vey-mkcert --intermediate --common-name "VEY Intermediate CA" --rsa 2048 --output-cert intermediateCA-rsa.crt --output-key intermediateCA-rsa.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key
-target/release/vey-mkcert --tls-server --host "www.example.com" --host "*.example.net" --rsa 2048 --output-cert tls-server-rsa.crt --output-key tls-server-rsa.key --ca-cert rootCA-rsa.crt --ca-key rootCA-rsa.key
-
-# For other components - basic functionality testing
-target/release/vey-proxy --version
-target/release/vey-proxy --help
+```shell
+RUSTFLAGS="$(scripts/package/pgo_rustflags.sh -p vey-proxy)" \
+  cargo build --profile release-lto -p vey-proxy
 ```
 
-### 3. Profile Data Merging
-
-Use `cargo profdata` to merge collected profile data:
-
-```bash
-cargo profdata -- merge -o /tmp/pgo-data/merged.profdata /tmp/pgo-data/*.profraw
-```
-
-### 4. Optimized Build
-
-Rebuild using merged profile data:
-
-```bash
-RUSTFLAGS="-Cprofile-use=/tmp/pgo-data/merged.profdata" cargo build --release -p <component>
-```
-
-## Output Information
-
-### Successful Output Example
-
-```text
-[INFO] Starting Rust PGO optimization process...
-[INFO] Project directory: /home/user/vey
-[INFO] PGO scripts directory: ./scripts/pgo
-[INFO] Using specified components: vey-mkcert
-[INFO] Checking Rust PGO prerequisites...
-[INFO] Prerequisites check passed
-[INFO] Cleaning previous builds and profile data...
-     Removed 1054 files, 312.4MiB total
-[INFO] Building instrumented binaries for profile generation...
-[INFO] Generating PGO profiles...
-[INFO] Profile files found: 42
-[INFO] Building optimized binaries using profile data...
-[INFO] PGO optimization completed successfully!
-```
-
-### Optimized Binary Locations
-
-- Optimized binaries: `target/release/`
-- Profile data: `/tmp/pgo-data/`
-
-## Performance Verification
-
-### Automatic Benchmarking
-
-Use the `--benchmark` option to automatically compare performance before and after optimization:
-
-```bash
-./scripts/pgo/example_run.sh --components vey-mkcert --benchmark
-```
-
-**Note**: The script will automatically use `hyperfine` if available for more precise measurements, otherwise it falls
-back to the basic `time` command. For best results, install `hyperfine`:
-
-```bash
-cargo install hyperfine
-```
-
-Example output with `time`:
-
-```text
-=== Baseline Performance (without PGO) ===
-Testing vey-mkcert operations...
-real    0m0.152s
-
-=== PGO-Optimized Performance ===  
-Testing PGO-optimized vey-mkcert operations...
-real    0m0.135s
-```
-
-Example output with `hyperfine`:
-
-```text
-=== PGO-Optimized Performance ===
-Comparing baseline vs PGO-optimized vey-mkcert...
-Benchmark 1: /tmp/vey-mkcert-baseline --version
-  Time (mean ± σ):       4.0 ms ±   1.2 ms    [User: 2.1 ms, System: 1.9 ms]
-  Range (min … max):     2.8 ms …   8.1 ms    15 runs
-
-Benchmark 2: target/release/vey-mkcert --version  
-  Time (mean ± σ):       3.6 ms ±   1.1 ms    [User: 1.8 ms, System: 1.8 ms]
-  Range (min … max):     2.5 ms …   6.9 ms    15 runs
-
-Summary
-  target/release/vey-mkcert --version ran 1.11 ± 0.38 times faster than /tmp/vey-mkcert-baseline --version
-```
-
-### Manual Verification
-
-For more precise measurements, `hyperfine` is recommended. You can install it via `cargo install hyperfine`.
-
-```bash
-# Install hyperfine if you haven't already
-cargo install hyperfine
-
-# Create a baseline build first
-cargo build --release --bin vey-mkcert
-
-# Save the baseline binary
-mv target/release/vey-mkcert /tmp/vey-mkcert-baseline
-
-# Run PGO optimization
-./scripts/pgo/example_run.sh --components vey-mkcert
-
-# Compare baseline vs PGO-optimized version
-hyperfine --shell=none --warmup 3 --runs 10 '/tmp/vey-mkcert-baseline --version' 'target/release/vey-mkcert --version'
-```
-
-This provides a statistically robust comparison of the performance before and after PGO.
-
-## Known Limitations
-
-### Current Workload Coverage
-
-At present, only `vey-mkcert` has a meaningful workload wired into the PGO example script. Other components are invoked
-only with trivial `--help/--version` commands, which do NOT produce representative execution profiles and therefore will
-not yield noticeable performance improvements yet. Future work can extend realistic workloads (or reuse coverage scripts
-after dependency isolation) for additional components.
-
-### Memory Usage
-
-- `vey-proxy` component requires substantial memory during PGO build
-- If memory is insufficient, avoid selecting `vey-proxy` or use default components
-
-### Disk Space
-
-- Profile data may consume several hundred MB of space
-- Ensure `/tmp/pgo-data` has sufficient space
-
-## Troubleshooting
-
-### Common Issues
-
-**Issue**: `cargo profdata` not found
-
-**Solution**: Install cargo-binutils
-
-```bash
-cargo install cargo-binutils
-```
-
-**Issue**: Out of memory error
-
-**Solution**: Reduce concurrent builds or select fewer components
-
-```bash
-# Select only lightweight components
-./scripts/pgo/example_run.sh --components vey-mkcert,vey-dcgen,vey-bench
-```
-
-**Issue**: Profile data not generated
-
-**Solution**: Check permissions and disk space
-
-```bash
-# Check /tmp permissions
-ls -la /tmp/pgo-data/
-
-# Clean and retry
-rm -rf /tmp/pgo-data
-```
-
-**Issue**: Build terminated with SIGKILL (exit code 137)
-
-**Solution**: This usually indicates memory exhaustion during build
-
-```bash
-# Use fewer components or avoid memory-intensive ones
-./scripts/pgo/example_run.sh --components vey-mkcert,vey-dcgen,vey-bench
-
-# Or increase system memory/swap space
-```
-
-## Best Practices
-
-### Component Selection Strategy
-
-1. **Development Testing**: Use default components (`vey-mkcert`)
-2. **Lightweight Optimization**: Select a few key components (`vey-mkcert,vey-dcgen,vey-bench`)
-3. **Full Optimization**: Use `--all` on high-spec machines (note: may require substantial memory for `vey-proxy`)
-
-### Performance Testing Recommendations
-
-1. Always compare before/after in the same environment
-2. Run multiple tests and take averages
-3. Focus on real-world usage scenario metrics
-4. Use `hyperfine` for statistically robust comparisons
-
-### Automation Integration
-
-PGO can be integrated into CI/CD pipelines:
-
-```bash
-# Use PGO in release builds
-./scripts/pgo/example_run.sh --components vey-mkcert,vey-dcgen
-cp target/release/* ./release-artifacts/
-```
-
-## More Information
-
-- For issues, please check project Issues or submit a new Issue
+Functions the profile never saw are compiled as usual.

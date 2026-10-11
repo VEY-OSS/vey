@@ -19,7 +19,7 @@ all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk
 
 cargo test -p vey-statsd -p vey-statsd-ctl
 
-RUN_DIR="${SCRIPTS_DIR}/vey-statsd"
+RUN_DIR="${PROJECT_DIR}/scripts/testcases/vey-statsd"
 . "${RUN_DIR}/run.sh"
 
 # get all profraw files generated in each test

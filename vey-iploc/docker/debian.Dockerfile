@@ -1,7 +1,9 @@
 FROM rust:trixie AS builder
 WORKDIR /usr/src/vey
 COPY . .
-RUN cargo build --profile release-lto -p vey-iploc
+ARG VEY_PGO_PROFILE
+ENV VEY_PGO_PROFILE=${VEY_PGO_PROFILE}
+RUN scripts/package/cargo_with_pgo.sh build --profile release-lto -p vey-iploc
 
 FROM debian:trixie-slim
 COPY --from=builder /usr/src/vey/target/release-lto/vey-iploc /usr/bin/vey-iploc

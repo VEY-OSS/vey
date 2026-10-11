@@ -5,7 +5,7 @@ KEYS_DIR="${RUN_DIR}/keyless/keys"
 mkdir -p "${KEYS_DIR}"
 cp "${TEST_EC_KEY_FILE}" "${KEYS_DIR}/ec.key"
 
-"${PROJECT_DIR}"/target/debug/vey-keyless -c "${RUN_DIR}/keyless/main.yaml" -G "${TEST_NAME}-keyless" &
+"${BIN_DIR}"/vey-keyless -c "${RUN_DIR}/keyless/main.yaml" -G "${TEST_NAME}-keyless" &
 KEYLESS_PID=$!
 sleep 2
 
@@ -25,6 +25,6 @@ assert_json_null "${JSON_FILE}" .tls
 assert_hist_snapshot "${JSON_FILE}" .histograms.conn_used_times
 assert_json_null "${JSON_FILE}" .histograms.durations_ns.connect
 
-"${PROJECT_DIR}"/target/debug/vey-keyless-ctl -G "${TEST_NAME}-keyless" -p $KEYLESS_PID offline
+"${BIN_DIR}"/vey-keyless-ctl -G "${TEST_NAME}-keyless" -p $KEYLESS_PID offline
 wait $KEYLESS_PID
 rm -rf "${KEYS_DIR}"

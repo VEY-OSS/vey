@@ -3,7 +3,9 @@ WORKDIR /usr/src/vey
 COPY . .
 RUN apk add --no-cache musl-dev cmake capnproto-dev g++ linux-headers make
 ENV RUSTFLAGS="-Ctarget-feature=-crt-static"
-RUN cargo build --profile release-lto --features secure-snmalloc \
+ARG VEY_PGO_PROFILE
+ENV VEY_PGO_PROFILE=${VEY_PGO_PROFILE}
+RUN scripts/package/cargo_with_pgo.sh build --profile release-lto --features secure-snmalloc \
     -p vey-statsd -p vey-statsd-ctl
 
 FROM alpine:latest

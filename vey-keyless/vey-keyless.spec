@@ -25,7 +25,8 @@ Keyless Server
 %build
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features secure-snmalloc,openssl-async-job --package vey-keyless --package vey-keyless-ctl
+%{?vey_pgo_profile:export VEY_PGO_PROFILE="%{vey_pgo_profile}"}
+scripts/package/cargo_with_pgo.sh build --frozen --offline --profile %{build_profile} --no-default-features --features secure-snmalloc,openssl-async-job --package vey-keyless --package vey-keyless-ctl
 
 
 %install

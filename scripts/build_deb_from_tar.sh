@@ -45,6 +45,9 @@ shift $((OPTIND - 1))
 
 cd "${PROJECT_DIR}"
 
+. "${PROJECT_DIR}/scripts/package/pgo_profile_env.sh"
+pgo_profile_env "${PROJECT_DIR}"
+
 CODENAME=$(lsb_release -c -s)
 
 echo "Finalize debian/changelog"

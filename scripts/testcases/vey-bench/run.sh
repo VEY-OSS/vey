@@ -1,18 +1,22 @@
+# Binaries default to a coverage build. PGO points BIN_DIR at a directory
+# that contains the instrumented daemon and the other helpers.
+BIN_DIR=${BIN_DIR:-${PROJECT_DIR}/target/debug}
+
 # generate resource files
 "${RUN_DIR}"/mkcert.sh
 
 # start docker compose services (httpbin, influxdb, graphite, nginx)
-docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-bench/docker-compose.yml up -d
+docker compose -f "${PROJECT_DIR}"/scripts/testcases/vey-bench/docker-compose.yml up -d
 
 # start vey-proxy
-"${PROJECT_DIR}"/target/debug/vey-proxy -c "${RUN_DIR}"/vey-proxy.yaml -G "${TEST_NAME}" &
+"${BIN_DIR}"/vey-proxy -c "${RUN_DIR}"/vey-proxy.yaml -G "${TEST_NAME}" &
 PROXY_PID=$!
 
 # start vey-statsd
 wait4x http http://127.0.0.1:8181
 [ -n "${INFLUX_TOKEN}" ] || INFLUX_TOKEN=$(curl -X POST http://127.0.0.1:8181/api/v3/configure/token/admin | jq ".token" -r)
 export INFLUX_TOKEN
-"${PROJECT_DIR}"/target/debug/vey-statsd -c "${RUN_DIR}"/vey-statsd.yaml -G ${TEST_NAME} &
+"${BIN_DIR}"/vey-statsd -c "${RUN_DIR}"/vey-statsd.yaml -G ${TEST_NAME} &
 STATSD_PID=$!
 
 # run vey-bench integration tests
@@ -25,14 +29,14 @@ export TEST_ED25519_KEY_FILE="${RUN_DIR}/rootCA-ED25519-key.pem"
 
 vey_bench()
 {
-	"${PROJECT_DIR}"/target/debug/vey-bench --no-progress-bar --log-error 1 "$@"
+	"${BIN_DIR}"/vey-bench --no-progress-bar --log-error 1 "$@"
 }
 
 . "${RUN_DIR}"/json_assert.sh
 
 set -x
 
-"${PROJECT_DIR}"/target/debug/vey-bench version
+"${BIN_DIR}"/vey-bench version
 
 . "${RUN_DIR}"/target_dns.sh
 . "${RUN_DIR}"/target_h1.sh
@@ -47,11 +51,11 @@ set -x
 
 set +x
 
-"${PROJECT_DIR}"/target/debug/vey-proxy-ctl -G "${TEST_NAME}" -p $PROXY_PID offline
+"${BIN_DIR}"/vey-proxy-ctl -G "${TEST_NAME}" -p $PROXY_PID offline
 
 kill -INT $STATSD_PID
 
 # cleanup
 
 rm -rf "${JSON_OUT_DIR}"
-docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-bench/docker-compose.yml down
+docker compose -f "${PROJECT_DIR}"/scripts/testcases/vey-bench/docker-compose.yml down

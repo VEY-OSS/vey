@@ -1,20 +1,24 @@
+# Binaries default to a coverage build. PGO points BIN_DIR at a directory
+# that contains the instrumented daemon and the other helpers.
+BIN_DIR=${BIN_DIR:-${PROJECT_DIR}/target/debug}
+
 # generate resource files
 "${RUN_DIR}"/mkcert.sh
 
 # start vey-statsd
-"${PROJECT_DIR}"/target/debug/vey-statsd -c "${RUN_DIR}"/vey-statsd.yaml -G ${TEST_NAME} &
+"${BIN_DIR}"/vey-statsd -c "${RUN_DIR}"/vey-statsd.yaml -G ${TEST_NAME} &
 STATSD_PID=$!
 
 # run vey-keyless integration tests
 
 vey_keyless_ctl()
 {
-	"${PROJECT_DIR}"/target/debug/vey-keyless-ctl -G ${TEST_NAME} -p $KEYSERVER_PID "$@"
+	"${BIN_DIR}"/vey-keyless-ctl -G ${TEST_NAME} -p $KEYSERVER_PID "$@"
 }
 
 vey_bench()
 {
-	"${PROJECT_DIR}"/target/debug/vey-bench --no-progress-bar --log-error 1 "$@"
+	"${BIN_DIR}"/vey-bench --no-progress-bar --log-error 1 "$@"
 }
 
 test_rsa()
@@ -64,14 +68,14 @@ test_ed25519()
 
 set -x
 
-"${PROJECT_DIR}"/target/debug/vey-keyless -Vvv
+"${BIN_DIR}"/vey-keyless -Vvv
 
 for dir in $(ls "${PROJECT_DIR}"/vey-keyless/examples)
 do
 	example_dir="${PROJECT_DIR}/vey-keyless/examples/${dir}"
 	[ -d "${example_dir}" ] || continue
 
-	"${PROJECT_DIR}"/target/debug/vey-keyless -c "${example_dir}" -t
+	"${BIN_DIR}"/vey-keyless -c "${example_dir}" -t
 done
 
 for dir in $(find "${RUN_DIR}/" -type d | sort)
@@ -81,7 +85,7 @@ do
 	echo "=== ${dir}"
 	date
 
-	if ! "${PROJECT_DIR}"/target/debug/vey-keyless -c "${dir}/main.yaml" -t; then
+	if ! "${BIN_DIR}"/vey-keyless -c "${dir}/main.yaml" -t; then
 		echo "skip ${dir}: config not accepted by this build"
 		continue
 	fi
@@ -92,7 +96,7 @@ do
 		. "${dir}/conf.sh"
 	fi
 
-	"${PROJECT_DIR}"/target/debug/vey-keyless -c "${dir}/main.yaml" -G ${TEST_NAME} &
+	"${BIN_DIR}"/vey-keyless -c "${dir}/main.yaml" -G ${TEST_NAME} &
 	KEYSERVER_PID=$!
 
 	sleep 2

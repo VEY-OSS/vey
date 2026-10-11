@@ -27,7 +27,8 @@ Multi-Target Benchmark tool
 %build
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features secure-snmalloc,rustls-ring,quic --package vey-bench
+%{?vey_pgo_profile:export VEY_PGO_PROFILE="%{vey_pgo_profile}"}
+scripts/package/cargo_with_pgo.sh build --frozen --offline --profile %{build_profile} --no-default-features --features secure-snmalloc,rustls-ring,quic --package vey-bench
 
 
 %install

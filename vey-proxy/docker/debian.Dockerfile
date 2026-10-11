@@ -4,7 +4,9 @@ COPY . .
 RUN apt-get update && apt-get install -y clang libclang-dev cmake capnproto
 ENV CC=clang
 ENV CXX=clang++
-RUN cargo build --profile release-lto \
+ARG VEY_PGO_PROFILE
+ENV VEY_PGO_PROFILE=${VEY_PGO_PROFILE}
+RUN scripts/package/cargo_with_pgo.sh build --profile release-lto \
  --no-default-features --features vendored-boringssl,rustls-ring,quic,vendored-c-ares \
  -p vey-proxy -p vey-proxy-ctl -p vey-proxy-ftp
 

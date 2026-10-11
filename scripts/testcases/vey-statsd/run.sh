@@ -1,12 +1,16 @@
+# Binaries default to a coverage build. PGO points BIN_DIR at a directory
+# that contains the instrumented daemon and the other helpers.
+BIN_DIR=${BIN_DIR:-${PROJECT_DIR}/target/debug}
+
 cleanup_compose()
 {
-	docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-statsd/docker-compose.yml down
+	docker compose -f "${PROJECT_DIR}"/scripts/testcases/vey-statsd/docker-compose.yml down
 }
 
-trap 'cleanup_compose; clear_profiles' EXIT
+trap 'cleanup_compose; command -v clear_profiles >/dev/null 2>&1 && clear_profiles; [ -n "${PGO_BIN_DIR:-}" ] && rm -rf "${PGO_BIN_DIR}"; [ -n "${PGO_RAW_DIR:-}" ] && rm -rf "${PGO_RAW_DIR}"' EXIT
 
 # start docker compose services (influxdb, graphite, prometheus, victoriametrics)
-docker compose -f "${PROJECT_DIR}"/scripts/coverage/vey-statsd/docker-compose.yml up -d
+docker compose -f "${PROJECT_DIR}"/scripts/testcases/vey-statsd/docker-compose.yml up -d
 
 # get influxdb auth token
 wait4x -t 3m http http://127.0.0.1:8181
@@ -45,19 +49,19 @@ create_influx_db statsdv2
 
 vey_statsd_ctl()
 {
-	"${PROJECT_DIR}"/target/debug/vey-statsd-ctl -G ${TEST_NAME} -p $STATSD_PID "$@"
+	"${BIN_DIR}"/vey-statsd-ctl -G ${TEST_NAME} -p $STATSD_PID "$@"
 }
 
 set -x
 
-"${PROJECT_DIR}"/target/debug/vey-statsd -Vvv
+"${BIN_DIR}"/vey-statsd -Vvv
 
 for dir in $(ls "${PROJECT_DIR}/vey-statsd/examples")
 do
 	example_dir="${PROJECT_DIR}/vey-statsd/examples/${dir}"
 	[ -d "${example_dir}" ] || continue
 
-	"${PROJECT_DIR}"/target/debug/vey-statsd -c "${example_dir}" -t
+	"${BIN_DIR}"/vey-statsd -c "${example_dir}" -t
 done
 
 for dir in $(find "${RUN_DIR}/" -type d | sort)
@@ -66,7 +70,7 @@ do
 
 	echo "=== ${dir}"
 
-	"${PROJECT_DIR}"/target/debug/vey-statsd -c "${dir}/main.yaml" -G ${TEST_NAME} &
+	"${BIN_DIR}"/vey-statsd -c "${dir}/main.yaml" -G ${TEST_NAME} &
 	STATSD_PID=$!
 
 	sleep 2

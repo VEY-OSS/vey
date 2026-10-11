@@ -11,6 +11,7 @@ Build, Package and Deploy
 - [Build Options](#build-options)
     + [Static Linking](#static-linking)
     + [OpenSSL Variants](#build-with-different-openssl-variants)
+    + [Profile-Guided Optimization](#profile-guided-optimization)
 
 # Linux Distribution Package
 
@@ -111,3 +112,7 @@ See [Static Linking](static-linking.md).
 ## Build with different OpenSSL variants
 
 See [OpenSSL Variants](openssl-variants.md).
+
+## Profile-Guided Optimization
+
+Package builds can optionally consume a Rust PGO profile. Generate one with `./scripts/pgo/vey-proxy.sh` (see [Rust PGO](rust-pgo-guide.md)). The default file for that component is `scripts/pgo/profile/vey-proxy.profdata`; other components use `scripts/pgo/profile/<package>.profdata`. A package build uses the file for the package it is building. Set `VEY_PGO_PROFILE` to use a different file. For Docker, `scripts/package/docker_build.sh` forwards that variable into the image build. With no profile, those builds are unchanged. The profile is not installed on the target system.

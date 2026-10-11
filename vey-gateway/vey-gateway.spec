@@ -26,8 +26,9 @@ Generic Gateway
 %build
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
+%{?vey_pgo_profile:export VEY_PGO_PROFILE="%{vey_pgo_profile}"}
 EBPF_FEATURE=$(sh scripts/package/detect_ebpf_feature.sh)
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features secure-snmalloc,$EBPF_FEATURE,rustls-ring,quic --package vey-gateway --package vey-gateway-ctl
+scripts/package/cargo_with_pgo.sh build --frozen --offline --profile %{build_profile} --no-default-features --features secure-snmalloc,$EBPF_FEATURE,rustls-ring,quic --package vey-gateway --package vey-gateway-ctl
 
 
 %install

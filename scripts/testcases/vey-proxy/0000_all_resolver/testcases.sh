@@ -6,7 +6,7 @@ resolver_query_verify()
 	domain=$2
 	expect=$3
 
-	result=$("${PROJECT_DIR}"/target/debug/vey-proxy-ctl -G ${TEST_NAME} -p $PROXY_PID resolver ${resolver} query ${domain})
+	result=$("${BIN_DIR}"/vey-proxy-ctl -G ${TEST_NAME} -p $PROXY_PID resolver ${resolver} query ${domain})
 	if [ $expect != $result ]
 	then
 		echo "domain ${domain} resolved on resolver ${resolver} is ${result}, but ${expect} is expected"

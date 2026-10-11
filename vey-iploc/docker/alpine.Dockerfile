@@ -3,7 +3,9 @@ WORKDIR /usr/src/vey
 COPY . .
 RUN apk add --no-cache musl-dev
 ENV RUSTFLAGS="-Ctarget-feature=-crt-static"
-RUN cargo build --profile release-lto -p vey-iploc
+ARG VEY_PGO_PROFILE
+ENV VEY_PGO_PROFILE=${VEY_PGO_PROFILE}
+RUN scripts/package/cargo_with_pgo.sh build --profile release-lto -p vey-iploc
 
 FROM alpine:latest
 RUN apk add --no-cache libgcc

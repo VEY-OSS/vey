@@ -1,0 +1,129 @@
+name: PGO
+permissions: { }
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/pgo.yml'
+      - 'scripts/pgo/**'
+      - 'scripts/package/**'
+      - 'scripts/testcases/**'
+      - '**/debian/rules'
+      - '**/*.spec'
+      - '**/docker/**'
+    branches:
+      - 'main'
+      - 'lts/**'
+  pull_request:
+    paths:
+      - '.github/workflows/pgo.yml'
+      - 'scripts/pgo/**'
+      - 'scripts/package/**'
+      - 'scripts/testcases/**'
+      - '**/debian/rules'
+      - '**/*.spec'
+      - '**/docker/**'
+    branches:
+      - 'main'
+      - 'lts/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  profile-selection:
+    name: Profile selection
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+      - name: Check shell scripts
+        run: |
+          set -eu
+          find scripts/pgo scripts/package -name '*.sh' -print0 | xargs -0 sh -n
+      - name: Check per-package default profiles
+        run: |
+          set -eu
+          dir=scripts/pgo/profile
+          proxy="${dir}/vey-proxy.profdata"
+          statsd="${dir}/vey-statsd.profdata"
+          printf 'p\n' > "${proxy}"
+          printf 's\n' > "${statsd}"
+          cleanup() { rm -f "${proxy}" "${statsd}"; }
+          trap cleanup EXIT
+
+          flags=$(sh scripts/package/pgo_rustflags.sh build --package vey-proxy --package vey-proxy-ctl)
+          case "${flags}" in
+            *-Cprofile-use=*/scripts/pgo/profile/vey-proxy.profdata) ;;
+            *) echo "expected vey-proxy profile, got: ${flags}" >&2; exit 1 ;;
+          esac
+
+          flags=$(sh scripts/package/pgo_rustflags.sh build -p vey-statsd -p vey-statsd-ctl)
+          case "${flags}" in
+            *-Cprofile-use=*/scripts/pgo/profile/vey-statsd.profdata) ;;
+            *) echo "expected vey-statsd profile, got: ${flags}" >&2; exit 1 ;;
+          esac
+
+          flags=$(sh scripts/package/pgo_rustflags.sh build --package vey-mkcert)
+          if [ -n "${flags}" ]; then
+            echo "vey-mkcert has no default profile, got: ${flags}" >&2
+            exit 1
+          fi
+
+          flags=$(VEY_PGO_PROFILE="${statsd}" sh scripts/package/pgo_rustflags.sh build -p vey-proxy)
+          case "${flags}" in
+            *-Cprofile-use=*/scripts/pgo/profile/vey-statsd.profdata) ;;
+            *) echo "VEY_PGO_PROFILE should win, got: ${flags}" >&2; exit 1 ;;
+          esac
+
+          if VEY_PGO_PROFILE=/tmp/missing-pgo.profdata sh scripts/package/pgo_rustflags.sh build -p vey-proxy; then
+            echo "missing VEY_PGO_PROFILE should fail" >&2
+            exit 1
+          fi
+
+  roundtrip:
+    name: Instrument and use
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          toolchain: stable
+          components: llvm-tools
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install pkg-config libssl-dev
+      - name: Install binutils
+        run: cargo install cargo-binutils@0.3.6
+      - name: Instrumented build
+        env:
+          CARGO_TARGET_DIR: target/pgo-ci
+          RUSTFLAGS: -Cprofile-generate=${{ github.workspace }}/target/pgo-raw
+        run: |
+          set -eu
+          mkdir -p target/pgo-raw
+          cargo build -p vey-mkcert
+          rm -f target/pgo-raw/*.profraw
+      - name: Run instrumented binary
+        env:
+          LLVM_PROFILE_FILE: ${{ github.workspace }}/target/pgo-raw/pgo-%p-%m.profraw
+        run: ./target/pgo-ci/debug/vey-mkcert --version
+      - name: Merge profile
+        run: |
+          set -eu
+          cargo profdata -- merge -o /tmp/vey-mkcert.profdata target/pgo-raw/pgo-*.profraw
+          test -s /tmp/vey-mkcert.profdata
+      - name: Build with the profile
+        env:
+          VEY_PGO_PROFILE: /tmp/vey-mkcert.profdata
+        run: scripts/package/cargo_with_pgo.sh build -p vey-mkcert

@@ -16,6 +16,9 @@ fi
 
 cd "${PROJECT_DIR}"
 
+. "${PROJECT_DIR}/scripts/package/pgo_profile_env.sh"
+pgo_profile_env "${PROJECT_DIR}"
+
 echo "Generate license files for bundled crates"
 cargo metadata --format-version 1 | scripts/release/bundle_license.py > LICENSE-BUNDLED
 
@@ -61,4 +64,10 @@ fi
 
 export RUSTFLAGS="--remap-path-prefix ${HOME}=~"
 
-rpmbuild -bb --build-in-place "${SPEC_FILE}"
+if [ -n "${VEY_PGO_PROFILE:-}" ]; then
+	rpmbuild -bb --build-in-place \
+		--define "vey_pgo_profile ${VEY_PGO_PROFILE}" \
+		"${SPEC_FILE}"
+else
+	rpmbuild -bb --build-in-place "${SPEC_FILE}"
+fi

@@ -25,7 +25,8 @@ Tool to make certificates
 %build
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --package vey-mkcert
+%{?vey_pgo_profile:export VEY_PGO_PROFILE="%{vey_pgo_profile}"}
+scripts/package/cargo_with_pgo.sh build --frozen --offline --profile %{build_profile} --no-default-features --package vey-mkcert
 
 
 %install

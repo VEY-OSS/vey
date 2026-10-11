@@ -16,7 +16,8 @@ override_dh_auto_clean:
 
 override_dh_auto_build:
 	VEY_PACKAGE_VERSION=$(DEB_VERSION) \
-	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
+	VEY_PGO_PROFILE='$(VEY_PGO_PROFILE)' \
+	  scripts/package/cargo_with_pgo.sh build --frozen --offline --profile $(BUILD_PROFILE) \
 	    --no-default-features --features secure-snmalloc,openssl-async-job \
 	    --package vey-keyless --package vey-keyless-ctl
 

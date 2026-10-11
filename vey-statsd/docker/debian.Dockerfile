@@ -3,7 +3,9 @@ WORKDIR /usr/src/vey
 COPY . .
 RUN apt-get update && apt-get install -y capnproto cmake g++ \
     && rm -rf /var/lib/apt/lists/*
-RUN cargo build --profile release-lto --features secure-snmalloc \
+ARG VEY_PGO_PROFILE
+ENV VEY_PGO_PROFILE=${VEY_PGO_PROFILE}
+RUN scripts/package/cargo_with_pgo.sh build --profile release-lto --features secure-snmalloc \
     -p vey-statsd -p vey-statsd-ctl
 
 FROM debian:trixie-slim

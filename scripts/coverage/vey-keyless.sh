@@ -26,7 +26,7 @@ all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk
 
 cargo test --features "${FEATURES}" -p vey-keyless -p vey-keyless-ctl
 
-RUN_DIR="${SCRIPTS_DIR}/vey-keyless"
+RUN_DIR="${PROJECT_DIR}/scripts/testcases/vey-keyless"
 . "${RUN_DIR}/run.sh"
 
 # get all profraw files generated in each test

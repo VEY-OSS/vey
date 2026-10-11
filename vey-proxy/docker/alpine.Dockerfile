@@ -3,7 +3,9 @@ WORKDIR /usr/src/vey
 COPY . .
 RUN apk add --no-cache musl-dev cmake capnproto-dev openssl-dev c-ares-dev
 ENV RUSTFLAGS="-Ctarget-feature=-crt-static"
-RUN cargo build --profile release-lto \
+ARG VEY_PGO_PROFILE
+ENV VEY_PGO_PROFILE=${VEY_PGO_PROFILE}
+RUN scripts/package/cargo_with_pgo.sh build --profile release-lto \
  --no-default-features --features rustls-ring,quic,c-ares \
  -p vey-proxy -p vey-proxy-ctl
 
