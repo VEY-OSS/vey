@@ -286,7 +286,7 @@ impl OpensslInterceptionClientConfigBuilder {
             .add_cert_decompression_alg(CertCompressionAlgorithm::BROTLI, |in_buf, out_buf| {
                 use std::io::Read;
 
-                let mut decompressor = brotli::Decompressor::new(in_buf, 4096);
+                let mut decompressor = brotli_decompressor::Decompressor::new(in_buf, 4096);
                 if decompressor.read_exact(out_buf).is_err() {
                     return 0;
                 }

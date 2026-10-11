@@ -7,7 +7,7 @@
 // Certificate decompression references `brotli` only on AWS-LC, BoringSSL, and Tongsuo.
 // On other OpenSSL backends this keeps the dependency used for `cargo::unused_dependencies`.
 #[cfg(not(any(awslc, boringssl, tongsuo)))]
-use brotli as _;
+use brotli_decompressor as _;
 
 mod client;
 pub use client::{

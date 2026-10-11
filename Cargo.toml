@@ -203,7 +203,7 @@ rmp-serde = "1"
 rmp = "0.8"
 rmpv = "1.0"
 #
-brotli = { version = "9.0", default-features = false }
+brotli-decompressor = { version = "6.1.0", default-features = false }
 snap = "1.1"
 # zlib-rs = { version = "0.6.3", default-features = false }
 #
