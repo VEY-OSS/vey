@@ -44,5 +44,5 @@ install -m 644 -D %{name}/debian/vey-statsd@.service %{buildroot}/lib/systemd/sy
 %license LICENSE-FOREIGN
 
 %changelog
-* Thu Oct 08 2026 VEY-OSS Developers <developers@vey.oss> - 0.3.0-1
+* Sun Oct 11 2026 VEY-OSS Developers <developers@vey.oss> - 0.3.0-1
 - New upstream release
