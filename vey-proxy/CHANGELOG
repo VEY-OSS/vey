@@ -3,7 +3,19 @@ CHANGELOG
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.15.1:
+ - BUG FIX: a transparent UDP listener forwards to the original destination instead of the listen address
  - BUG FIX: UDP replies from a transparent or unspecified listener use the received destination as the source IP
+ - Feature: ``H2Forward`` failure logs include ``reason``
+ - Feature: ``UdpConnect`` creation logs include ``udp_listen_addr``, ``udp_client_addr``, and ``upstream``
+ - Feature: site ``http.h2.force_upstream`` keeps an ``http_guard`` HTTP/2 task on origin HTTP/2 (ALPN ``h2`` only, or h2c for a plaintext origin)
+ - Feature: published Debian and Alpine images (linux/amd64 and linux/arm64) listen with HTTP on ``8080`` and SOCKS5 on ``1080``; Alpine uses mimalloc
+ - Feature: deb, rpm, and container image builds accept an optional Rust PGO profile
+ - Optimization: eBPF UDP connection tracking uses one shared LRU instead of a per-CPU LRU
+ - Compatibility: classic mode appends ``X-Forwarded-By`` for this hop; previously only standard ``Forwarded`` set ``by``
+ - Compatibility: an ``http_guard`` HTTP/2 stream takes the request host from ``:authority`` and is rejected when that host is missing
+ - Compatibility: a plaintext ``http_guard`` origin uses HTTP/1.1 unless ``http.h2.force_upstream`` is set
+ - Compatibility: TLCP interception built with Tongsuo 8.5.0 uses the upstream sign certificate and encryption certificate separately
+ - Compatibility: macOS stays in the foreground after libc removed ``daemon()``
 
 v1.15.0:
  - BUG FIX: HTTP/1 response headers that start arriving while the request body is still being sent honor the response-header timeout
