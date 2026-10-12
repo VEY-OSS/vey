@@ -485,10 +485,27 @@ mod tests {
             RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)]),
             RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg2)]),
         ];
-        let count = poll_fn(|cx| s_sock.poll_batch_recvmsg(cx, &mut hdr_v))
-            .await
-            .unwrap();
-        assert_eq!(count, 2);
+        #[cfg(not(target_os = "macos"))]
+        {
+            let count = poll_fn(|cx| s_sock.poll_batch_recvmsg(cx, &mut hdr_v))
+                .await
+                .unwrap();
+            assert_eq!(count, 2);
+        }
+        // `recvmsg_x` returns only datagrams already in the socket buffer. Loopback
+        // delivery of a `sendmsg_x` batch can make the second datagram readable
+        // after the first call, so collect until both have arrived.
+        #[cfg(target_os = "macos")]
+        {
+            let mut got = 0;
+            while got < hdr_v.len() {
+                let count = poll_fn(|cx| s_sock.poll_batch_recvmsg(cx, &mut hdr_v[got..]))
+                    .await
+                    .unwrap();
+                assert!(count > 0);
+                got += count;
+            }
+        }
         assert_eq!(hdr_v[0].n_recv, msg_1.len());
         assert_eq!(hdr_v[0].src_addr(), Some(c_addr));
         assert_eq!(hdr_v[1].n_recv, msg_2.len());
