@@ -85,7 +85,10 @@ impl PlainQuicPort {
         let tls_server = config
             .tls_server
             .build_quic_with_ticketer(tls_rolling_ticketer.clone())?;
-        Ok(quinn::ServerConfig::with_crypto(tls_server.driver))
+        Ok(quinn::ServerConfig::new(
+            tls_server.driver,
+            Arc::new(vey_rustls_provider::HandshakeTokenKey::new()),
+        ))
     }
 
     pub(crate) fn prepare_initial(

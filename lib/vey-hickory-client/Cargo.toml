@@ -20,11 +20,12 @@ tokio = { workspace = true, features = ["net", "time"] }
 rustls.workspace = true
 rustls-pki-types.workspace = true
 tokio-rustls.workspace = true
-quinn = { workspace = true, optional = true, features = ["rustls"] }
+quinn = { workspace = true, optional = true }
+vey-rustls-provider = { workspace = true, optional = true }
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
 vey-socket.workspace = true
 
 [features]
 default = []
-quic = ["dep:quinn", "dep:h3", "dep:h3-quinn"]
+quic = ["dep:quinn", "dep:h3", "dep:h3-quinn", "dep:vey-rustls-provider", "vey-rustls-provider/quic"]

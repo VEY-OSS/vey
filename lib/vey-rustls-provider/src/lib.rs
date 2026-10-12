@@ -5,6 +5,14 @@
 
 use anyhow::anyhow;
 
+#[cfg(feature = "quic")]
+mod quic;
+#[cfg(feature = "quic")]
+pub use quic::{
+    HandshakeData, HandshakeTokenKey, NoInitialCipherSuite, QuicClientConfig, QuicServerConfig,
+    ResetKey,
+};
+
 const PROVIDER_NAME: Option<&str> = option_env!("VEY_RUSTLS_PROVIDER");
 
 pub fn install_default() -> anyhow::Result<()> {

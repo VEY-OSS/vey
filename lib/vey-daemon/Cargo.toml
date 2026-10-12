@@ -30,11 +30,12 @@ tokio = { workspace = true, features = ["net", "io-util", "signal", "macros"] }
 tokio-util = { workspace = true, features = ["compat"] }
 http = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
-quinn = { workspace = true, optional = true, features = ["runtime-tokio", "ring"] }
+quinn = { workspace = true, optional = true, features = ["runtime-tokio"] }
 quinn-proto = { workspace = true, optional = true }
 snmalloc = { workspace = true, optional = true }
 vey-compat.workspace = true
 vey-types = { workspace = true, features = ["async-log", "acl-rule"] }
+vey-rustls-provider = { workspace = true, optional = true }
 vey-stdlog.workspace = true
 vey-syslog = { workspace = true, features = ["yaml"] }
 vey-fluentd = { workspace = true, optional = true, features = ["yaml"] }
@@ -67,5 +68,5 @@ snmalloc = ["dep:snmalloc"]
 ebpf = ["dep:vey-reuseport"]
 event-log = ["dep:vey-fluentd"]
 register = ["vey-yaml/http", "dep:http", "dep:serde_json", "dep:vey-http"]
-quic = ["dep:quinn", "dep:quinn-proto", "vey-types/quinn"]
+quic = ["dep:quinn", "dep:quinn-proto", "vey-types/quinn", "dep:vey-rustls-provider", "vey-rustls-provider/quic"]
 openssl-async-job = ["vey-runtime/openssl-async-job"]

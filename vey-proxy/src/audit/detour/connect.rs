@@ -59,8 +59,13 @@ impl StreamDetourConnector {
             .connect(peer)
             .map_err(|e| anyhow!("failed to connect local udp socket to {peer}: {e}"))?;
 
-        let endpoint = Endpoint::new(Default::default(), None, socket, Arc::new(TokioRuntime))
-            .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))?;
+        let endpoint = Endpoint::new(
+            quinn::EndpointConfig::new(Arc::new(vey_rustls_provider::ResetKey::new())),
+            None,
+            socket,
+            Arc::new(TokioRuntime),
+        )
+        .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))?;
 
         let mut client_config = ClientConfig::new(self.tls_client.driver.clone());
         client_config.transport_config(self.quic_transport.clone());

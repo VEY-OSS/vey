@@ -40,6 +40,7 @@ rustls = { workspace = true, optional = true }
 rustls-pki-types = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true }
 quinn-proto = { workspace = true, optional = true }
+vey-rustls-provider = { workspace = true, optional = true }
 webpki-roots = { version = "1.0", optional = true }
 rustls-native-certs = { version = "0.8", optional = true }
 openssl = { workspace = true, optional = true }
@@ -63,11 +64,11 @@ quic = []
 auth-crypt = ["dep:openssl", "dep:blake3", "dep:hex"]
 auth-facts = ["dep:ip_network"]
 resolve = ["dep:ahash", "dep:radix_trie", "dep:fastrand"]
-quinn = ["dep:quinn", "dep:quinn-proto", "quic"]
+quinn = ["dep:quinn", "dep:quinn-proto", "quic", "dep:vey-rustls-provider", "vey-rustls-provider/quic"]
 rustls = ["dep:rustls", "dep:rustls-pki-types", "dep:webpki-roots", "dep:rustls-native-certs", "dep:lru", "dep:ahash"]
-rustls-ring = ["rustls", "rustls/ring", "quinn?/rustls-ring"]
-rustls-aws-lc = ["rustls", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
-rustls-aws-lc-fips = ["rustls", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]
+rustls-ring = ["rustls", "rustls/ring", "vey-rustls-provider?/rustls-ring"]
+rustls-aws-lc = ["rustls", "rustls/aws-lc-rs", "vey-rustls-provider?/rustls-aws-lc"]
+rustls-aws-lc-fips = ["rustls", "rustls/fips", "vey-rustls-provider?/rustls-aws-lc-fips"]
 openssl = ["dep:openssl", "dep:openssl-sys", "dep:lru", "dep:bytes", "dep:ahash", "dep:brotli-decompressor"]
 acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:regex", "dep:radix_trie"]
 http = ["dep:http", "dep:bytes", "dep:base64", "dep:itoa"]

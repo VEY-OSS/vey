@@ -120,7 +120,8 @@ where
             let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
             let listen_addr = socket.local_addr()?;
 
-            let mut endpoint_config = EndpointConfig::default();
+            let mut endpoint_config =
+                EndpointConfig::new(Arc::new(vey_rustls_provider::ResetKey::new()));
             if let Some(payload_size) = self.endpoint_config.udp_payload_size()
                 && let Err(e) = endpoint_config.max_udp_payload_size(payload_size)
             {

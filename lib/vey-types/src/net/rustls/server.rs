@@ -7,11 +7,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-#[cfg(feature = "quinn")]
-use quinn::crypto::rustls::QuicServerConfig;
 use rustls::server::{ProducesTickets, WebPkiClientVerifier};
 use rustls::{RootCertStore, ServerConfig};
 use rustls_pki_types::CertificateDer;
+#[cfg(feature = "quinn")]
+use vey_rustls_provider::QuicServerConfig;
 
 use super::{
     MultipleCertResolver, RustlsCertificatePair, RustlsNoSessionTicketer, RustlsServerConfigExt,

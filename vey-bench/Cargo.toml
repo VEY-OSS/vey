@@ -22,7 +22,7 @@ url.workspace = true
 h2.workspace = true
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
-quinn = { workspace = true, optional = true, features = ["rustls"] }
+quinn = { workspace = true, optional = true }
 bytes.workspace = true
 futures-util.workspace = true
 atomic-waker.workspace = true
@@ -72,10 +72,10 @@ vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]
 snmalloc = ["dep:snmalloc"]
 secure-snmalloc = ["snmalloc", "snmalloc?/check"]
-quic = ["vey-types/quic", "vey-socks/quic", "vey-io-ext/quic", "vey-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
-rustls-ring = ["vey-rustls-provider/rustls-ring", "vey-types/rustls-ring", "quinn?/rustls-ring"]
-rustls-aws-lc = ["vey-rustls-provider/rustls-aws-lc", "vey-types/rustls-aws-lc", "quinn?/rustls-aws-lc-rs"]
-rustls-aws-lc-fips = ["vey-rustls-provider/rustls-aws-lc-fips", "vey-types/rustls-aws-lc-fips", "quinn?/rustls-aws-lc-rs-fips"]
+quic = ["vey-types/quic", "vey-socks/quic", "vey-io-ext/quic", "vey-hickory-client/quic", "vey-rustls-provider/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
+rustls-ring = ["vey-rustls-provider/rustls-ring", "vey-types/rustls-ring"]
+rustls-aws-lc = ["vey-rustls-provider/rustls-aws-lc", "vey-types/rustls-aws-lc"]
+rustls-aws-lc-fips = ["vey-rustls-provider/rustls-aws-lc-fips", "vey-types/rustls-aws-lc-fips"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe"]
 vendored-boringssl = ["openssl/boringssl", "openssl-probe"]

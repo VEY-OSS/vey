@@ -12,10 +12,10 @@ use bytes::Bytes;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use h3::client::SendRequest;
 use h3_quinn::{OpenStreams, VarInt};
-use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{ClientConfig, Endpoint, TokioRuntime, TransportConfig};
 use rustls_pki_types::ServerName;
 use url::Url;
+use vey_rustls_provider::QuicClientConfig;
 
 use vey_io_ext::LimitedTokioRuntime;
 use vey_socks::v5::Socks5UdpTokioRuntime;
@@ -133,8 +133,13 @@ impl H3ConnectArgs {
                 limit.max_south_bytes,
                 stats.clone(),
             );
-            Endpoint::new(Default::default(), None, socket, Arc::new(runtime))
-                .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))
+            Endpoint::new(
+                quinn::EndpointConfig::new(Arc::new(vey_rustls_provider::ResetKey::new())),
+                None,
+                socket,
+                Arc::new(runtime),
+            )
+            .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))
         } else {
             let socket = self.socket.udp_std_socket_to(quic_peer)?;
             socket
@@ -151,8 +156,13 @@ impl H3ConnectArgs {
                 limit.max_south_bytes,
                 stats.clone(),
             );
-            Endpoint::new(Default::default(), None, socket, Arc::new(runtime))
-                .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))
+            Endpoint::new(
+                quinn::EndpointConfig::new(Arc::new(vey_rustls_provider::ResetKey::new())),
+                None,
+                socket,
+                Arc::new(runtime),
+            )
+            .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))
         }
     }
 
