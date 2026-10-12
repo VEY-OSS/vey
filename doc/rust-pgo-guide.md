@@ -37,7 +37,7 @@ The proxy and statsd cases need Docker, `jq`, and the Python modules `pycurl` an
 
 Generate the profile with the same `rustc` you will use for the optimized build. A profile from another compiler is rejected or ignored.
 
-CI checks profile selection and runs one compiler round-trip (`vey-mkcert`: instrument, merge, build with the profile). The component scripts above are the workloads used for a real profile.
+CI checks profile selection and runs one compiler round-trip (`vey-mkcert`: instrument, merge, build with the profile). A release tag (`vey-proxy-v*`, `vey-statsd-v*`, `vey-keyless-v*`, `vey-dcgen-v*`, `vey-iploc-v*`) runs that component's script on the tagged commit and uploads `scripts/pgo/profile/<component>.profdata` as the `pgo-<component>-<version>` artifact. The component scripts above are the workloads used for a real profile.
 
 ## Use the profile when packaging
 
