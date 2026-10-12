@@ -8,10 +8,7 @@ use anyhow::anyhow;
 #[cfg(feature = "quic")]
 mod quic;
 #[cfg(feature = "quic")]
-pub use quic::{
-    HandshakeData, HandshakeTokenKey, NoInitialCipherSuite, QuicClientConfig, QuicServerConfig,
-    ResetKey,
-};
+pub use quic::{HandshakeTokenKey, ResetKey};
 
 const PROVIDER_NAME: Option<&str> = option_env!("VEY_RUSTLS_PROVIDER");
 

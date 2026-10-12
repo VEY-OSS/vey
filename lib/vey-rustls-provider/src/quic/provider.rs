@@ -90,32 +90,6 @@ impl AeadKey for TokenAead {
     }
 }
 
-const RETRY_INTEGRITY_KEY_DRAFT: [u8; 16] = [
-    0xcc, 0xce, 0x18, 0x7e, 0xd0, 0x9a, 0x09, 0xd0, 0x57, 0x28, 0x15, 0x5a, 0x6c, 0xb9, 0x6b, 0xe1,
-];
-const RETRY_INTEGRITY_NONCE_DRAFT: [u8; 12] = [
-    0xe5, 0x49, 0x30, 0xf9, 0x7f, 0x21, 0x36, 0xf0, 0x53, 0x0a, 0x8c, 0x1c,
-];
-
-const RETRY_INTEGRITY_KEY_V1: [u8; 16] = [
-    0xbe, 0x0c, 0x69, 0x0b, 0x9f, 0x66, 0x57, 0x5a, 0x1d, 0x76, 0x6b, 0x54, 0xe3, 0x68, 0xc8, 0x4e,
-];
-const RETRY_INTEGRITY_NONCE_V1: [u8; 12] = [
-    0x46, 0x15, 0x99, 0xd3, 0x5d, 0x63, 0x2b, 0xf2, 0x23, 0x98, 0x25, 0xbb,
-];
-
-pub(super) fn retry_key(version: rustls::quic::Version) -> ([u8; 12], [u8; 16]) {
-    match version {
-        rustls::quic::Version::V1 => (RETRY_INTEGRITY_NONCE_V1, RETRY_INTEGRITY_KEY_V1),
-        rustls::quic::Version::V1Draft => (RETRY_INTEGRITY_NONCE_DRAFT, RETRY_INTEGRITY_KEY_DRAFT),
-        _ => unreachable!(),
-    }
-}
-
-pub(super) fn aes_128_gcm(key: &[u8; 16]) -> aead::LessSafeKey {
-    aead::LessSafeKey::new(aead::UnboundKey::new(&aead::AES_128_GCM, key).expect("AES-128-GCM"))
-}
-
 #[cfg(test)]
 mod tests {
     use quinn::crypto::HandshakeTokenKey as _;
@@ -139,27 +113,5 @@ mod tests {
         key.seal(&mut sealed, b"aad").unwrap();
         let opened = key.open(&mut sealed, b"aad").unwrap();
         assert_eq!(opened, b"token");
-    }
-
-    #[test]
-    fn retry_tag_roundtrip() {
-        let version = rustls::quic::Version::V1;
-        let (nonce, key) = retry_key(version);
-        let key = aes_128_gcm(&key);
-        let aad = b"retry-pseudo-packet";
-        let tag = key
-            .seal_in_place_separate_tag(
-                aead::Nonce::assume_unique_for_key(nonce),
-                aead::Aad::from(aad),
-                &mut [],
-            )
-            .unwrap();
-        let mut payload = tag.as_ref().to_vec();
-        key.open_in_place(
-            aead::Nonce::assume_unique_for_key(nonce),
-            aead::Aad::from(aad),
-            &mut payload,
-        )
-        .unwrap();
     }
 }

@@ -1901,6 +1901,7 @@ dependencies = [
  "quinn-proto",
  "quinn-udp",
  "rustc-hash",
+ "rustls",
  "socket2",
  "thiserror",
  "tokio",
@@ -1914,6 +1915,7 @@ version = "0.11.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e750cca55fe4f0439a15d0bb529da9651e79993e8e72c61a899a36d462befbe"
 dependencies = [
+ "aws-lc-rs",
  "bytes",
  "getrandom 0.4.3",
  "lru-slab",
@@ -1921,6 +1923,7 @@ dependencies = [
  "rand_pcg",
  "ring",
  "rustc-hash",
+ "rustls",
  "rustls-pki-types",
  "slab",
  "thiserror",
@@ -3739,9 +3742,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "aws-lc-rs",
- "bytes",
  "quinn",
- "quinn-proto",
  "rand",
  "ring",
  "rustls",
@@ -3999,7 +4000,6 @@ dependencies = [
  "url",
  "variant-ssl",
  "variant-ssl-sys",
- "vey-rustls-provider",
  "vey-std-ext",
  "webpki-roots",
  "zeroize",

@@ -7,9 +7,10 @@
 use std::sync::Arc;
 
 use hickory_net::NetError;
+use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{Connection, Endpoint, EndpointConfig, TokioRuntime};
 use rustls::ClientConfig;
-use vey_rustls_provider::{QuicClientConfig, ResetKey};
+use vey_rustls_provider::ResetKey;
 
 use vey_socket::UdpConnectInfo;
 

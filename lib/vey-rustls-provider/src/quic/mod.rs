@@ -16,12 +16,6 @@ compile_error!("quic crypto requires rustls-ring, rustls-aws-lc, or rustls-aws-l
     feature = "rustls-aws-lc-fips"
 ))]
 mod provider;
-#[cfg(any(
-    feature = "rustls-ring",
-    feature = "rustls-aws-lc",
-    feature = "rustls-aws-lc-fips"
-))]
-mod session;
 
 #[cfg(any(
     feature = "rustls-ring",
@@ -29,9 +23,3 @@ mod session;
     feature = "rustls-aws-lc-fips"
 ))]
 pub use provider::{HandshakeTokenKey, ResetKey};
-#[cfg(any(
-    feature = "rustls-ring",
-    feature = "rustls-aws-lc",
-    feature = "rustls-aws-lc-fips"
-))]
-pub use session::{HandshakeData, NoInitialCipherSuite, QuicClientConfig, QuicServerConfig};

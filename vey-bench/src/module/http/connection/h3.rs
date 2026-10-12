@@ -12,10 +12,10 @@ use bytes::Bytes;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use h3::client::SendRequest;
 use h3_quinn::{OpenStreams, VarInt};
+use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{ClientConfig, Endpoint, TokioRuntime, TransportConfig};
 use rustls_pki_types::ServerName;
 use url::Url;
-use vey_rustls_provider::QuicClientConfig;
 
 use vey_io_ext::LimitedTokioRuntime;
 use vey_socks::v5::Socks5UdpTokioRuntime;

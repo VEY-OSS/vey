@@ -9,14 +9,12 @@ rust-version.workspace = true
 anyhow.workspace = true
 rustls.workspace = true
 aws-lc-rs = { workspace = true, optional = true }
-bytes = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true }
-quinn-proto = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 ring = { workspace = true, optional = true }
 
 [features]
-quic = ["dep:quinn", "dep:quinn-proto", "dep:bytes", "dep:rand"]
+quic = ["dep:quinn", "dep:rand"]
 rustls-ring = ["rustls/ring", "dep:ring"]
 rustls-aws-lc = ["rustls/aws-lc-rs", "dep:aws-lc-rs", "aws-lc-rs/alloc"]
 rustls-aws-lc-fips = ["rustls/fips", "dep:aws-lc-rs", "aws-lc-rs/alloc", "aws-lc-rs/fips"]

@@ -7,11 +7,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
+#[cfg(feature = "quinn")]
+use quinn::crypto::rustls::QuicClientConfig;
 use rustls::client::Resumption;
 use rustls::{ClientConfig, RootCertStore};
 use rustls_pki_types::CertificateDer;
-#[cfg(feature = "quinn")]
-use vey_rustls_provider::QuicClientConfig;
 
 use super::RustlsCertificatePair;
 use crate::net::tls::AlpnProtocol;
