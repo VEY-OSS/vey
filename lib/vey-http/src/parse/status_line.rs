@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
-use atoi::FromRadix10;
+use atoi::FromRadix10Checked;
 
 use super::HttpLineParseError;
 
@@ -33,7 +33,10 @@ impl<'a> HttpStatusLine<'a> {
         };
 
         let left = &buf[p + 1..];
-        let (code, len) = u16::from_radix_10(left);
+        let (code, len) = u16::from_radix_10_checked(left);
+        let Some(code) = code else {
+            return Err(HttpLineParseError::InvalidStatusCode);
+        };
         if len < 3 {
             return Err(HttpLineParseError::InvalidStatusCode);
         }

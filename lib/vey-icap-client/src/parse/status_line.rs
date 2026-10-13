@@ -4,7 +4,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use atoi::FromRadix10;
+use atoi::FromRadix10Checked;
 
 use super::IcapLineParseError;
 
@@ -26,7 +26,10 @@ impl<'a> StatusLine<'a> {
         }
 
         let left = &buf[PREFIX.len()..];
-        let (code, len) = u16::from_radix_10(left);
+        let (code, len) = u16::from_radix_10_checked(left);
+        let Some(code) = code else {
+            return Err(IcapLineParseError::InvalidStatusCode);
+        };
         if len != 3 || !(100..600).contains(&code) {
             return Err(IcapLineParseError::InvalidStatusCode);
         }
