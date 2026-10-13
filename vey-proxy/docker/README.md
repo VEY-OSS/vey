@@ -1,6 +1,6 @@
 # vey-proxy container image
 
-Release tags `vey-proxy-v*` publish these images to GHCR:
+Release tags `vey-proxy-v*` publish these images to GHCR. Tags and digests are listed on the [GitHub Packages page](https://github.com/VEY-OSS/vey/pkgs/container/vey-proxy).
 
 | Tag | Dockerfile |
 | --- | --- |

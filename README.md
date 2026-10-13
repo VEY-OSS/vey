@@ -129,6 +129,15 @@ See [Standards](doc/standards.md).
 
 Prebuilt packages are available on [cloudsmith](https://cloudsmith.io/~vey-oss/repos/).
 
+Container images for linux/amd64 and linux/arm64 are published to GHCR. `<version>` is the application release version, such as `1.15.1`. Debian is the default tag. `:<version>-debian` and `:<version>-alpine` select the base image.
+
+| Application | Image | GitHub Packages |
+| --- | --- | --- |
+| [vey-proxy](vey-proxy/docker/README.md) | `ghcr.io/vey-oss/vey-proxy:<version>` | [vey-proxy](https://github.com/VEY-OSS/vey/pkgs/container/vey-proxy) |
+| [vey-statsd](vey-statsd/docker/README.md) | `ghcr.io/vey-oss/vey-statsd:<version>` | [vey-statsd](https://github.com/VEY-OSS/vey/pkgs/container/vey-statsd) |
+| [vey-dcgen](vey-dcgen/docker/README.md) | `ghcr.io/vey-oss/vey-dcgen:<version>` | [vey-dcgen](https://github.com/VEY-OSS/vey/pkgs/container/vey-dcgen) |
+| [vey-iploc](vey-iploc/docker/README.md) | `ghcr.io/vey-oss/vey-iploc:<version>` | [vey-iploc](https://github.com/VEY-OSS/vey/pkgs/container/vey-iploc) |
+
 That said, building packages yourself is still recommended. See [Build and Package](doc/build_and_package.md) for
 details.
 

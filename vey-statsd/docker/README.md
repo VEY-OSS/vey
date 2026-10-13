@@ -1,6 +1,6 @@
 # vey-statsd container image
 
-Release tags `vey-statsd-v*` publish these images to GHCR:
+Release tags `vey-statsd-v*` publish these images to GHCR. Tags and digests are listed on the [GitHub Packages page](https://github.com/VEY-OSS/vey/pkgs/container/vey-statsd).
 
 | Tag | Dockerfile |
 | --- | --- |

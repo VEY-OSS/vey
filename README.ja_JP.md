@@ -122,6 +122,15 @@ Cloudflare Keyless SSL プロトコルのサーバー実装です。TLS エッ�
 
 ビルド済みパッケージは [cloudsmith](https://cloudsmith.io/~vey-oss/repos/) から入手できます。
 
+linux/amd64 と linux/arm64 のコンテナイメージは GHCR で公開しています。`<version>` はそのアプリケーションのリリースバージョンです（例: `1.15.1`）。デフォルトタグは Debian です。`:<version>-debian` と `:<version>-alpine` でベースイメージを選べます。
+
+| アプリケーション | イメージ | GitHub Packages |
+| --- | --- | --- |
+| [vey-proxy](vey-proxy/docker/README.md) | `ghcr.io/vey-oss/vey-proxy:<version>` | [vey-proxy](https://github.com/VEY-OSS/vey/pkgs/container/vey-proxy) |
+| [vey-statsd](vey-statsd/docker/README.md) | `ghcr.io/vey-oss/vey-statsd:<version>` | [vey-statsd](https://github.com/VEY-OSS/vey/pkgs/container/vey-statsd) |
+| [vey-dcgen](vey-dcgen/docker/README.md) | `ghcr.io/vey-oss/vey-dcgen:<version>` | [vey-dcgen](https://github.com/VEY-OSS/vey/pkgs/container/vey-dcgen) |
+| [vey-iploc](vey-iploc/docker/README.md) | `ghcr.io/vey-oss/vey-iploc:<version>` | [vey-iploc](https://github.com/VEY-OSS/vey/pkgs/container/vey-iploc) |
+
 ただし、可能であればパッケージは自前でビルドすることを推奨します。詳細は
 [Build and Package](doc/build_and_package.md) を参照してください。
 
