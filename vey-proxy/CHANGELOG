@@ -2,6 +2,9 @@ CHANGELOG
 
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
+v1.15.2:
+ - BUG FIX: reject too large HTTP and ICAP status code
+
 v1.15.1:
  - BUG FIX: a transparent UDP listener forwards to the original destination instead of the listen address
  - BUG FIX: UDP replies from a transparent or unspecified listener use the received destination as the source IP
