@@ -161,7 +161,7 @@ fn try_enable_event_fd(instance: CpaInstanceHandle, instance_id: u16) -> Option<
 }
 
 async fn poll_loop_epoll(instance_addr: usize, fd: RawFd, stop: Arc<AtomicBool>) {
-    let async_fd = match AsyncFd::with_interest(fd, Interest::READABLE) {
+    let async_fd = match unsafe { AsyncFd::register_with_interest(fd, Interest::READABLE) } {
         Ok(f) => f,
         Err(e) => {
             // Validated in `try_new`; should not happen.
