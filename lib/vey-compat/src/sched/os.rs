@@ -10,7 +10,8 @@ pub struct CpuAffinityImpl {}
 
 impl CpuAffinityImpl {
     pub const fn max_cpu_id(&self) -> usize {
-        size_of::<u64>()
+        // Affinity is unsupported, so every ID reaches add_id's Unsupported error.
+        usize::MAX
     }
 
     pub fn add_id(&mut self, _id: usize) -> io::Result<()> {
