@@ -10,10 +10,7 @@ use yaml_rust::Yaml;
 
 pub fn as_usize(v: &Yaml) -> anyhow::Result<usize> {
     match v {
-        Yaml::String(value) => {
-            let v = value.parse::<Bytes>()?;
-            Ok(v.size())
-        }
+        Yaml::String(value) => parse_bytes(value),
         Yaml::Integer(value) => Ok(usize::try_from(*value)?),
         _ => Err(anyhow!(
             "yaml value type for humanize usize should be 'string' or 'integer'"
@@ -23,10 +20,7 @@ pub fn as_usize(v: &Yaml) -> anyhow::Result<usize> {
 
 pub fn as_u64(v: &Yaml) -> anyhow::Result<u64> {
     match v {
-        Yaml::String(value) => {
-            let v = value.parse::<Bytes<u64>>()?;
-            Ok(v.size())
-        }
+        Yaml::String(value) => parse_bytes(value),
         Yaml::Integer(value) => Ok(u64::try_from(*value)?),
         _ => Err(anyhow!(
             "yaml value type for humanize u64 should be 'string' or 'integer'"
@@ -36,10 +30,7 @@ pub fn as_u64(v: &Yaml) -> anyhow::Result<u64> {
 
 pub fn as_u32(v: &Yaml) -> anyhow::Result<u32> {
     match v {
-        Yaml::String(value) => {
-            let v = value.parse::<Bytes<u32>>()?;
-            Ok(v.size())
-        }
+        Yaml::String(value) => parse_bytes(value),
         Yaml::Integer(value) => Ok(u32::try_from(*value)?),
         _ => Err(anyhow!(
             "yaml value type for humanize u32 should be 'string' or 'integer'"
@@ -49,15 +40,22 @@ pub fn as_u32(v: &Yaml) -> anyhow::Result<u32> {
 
 pub fn as_u16(v: &Yaml) -> anyhow::Result<u16> {
     match v {
-        Yaml::String(value) => {
-            let v = value.parse::<Bytes<u16>>()?;
-            Ok(v.size())
-        }
+        Yaml::String(value) => parse_bytes(value),
         Yaml::Integer(value) => Ok(u16::try_from(*value)?),
         _ => Err(anyhow!(
             "yaml value type for humanize u16 should be 'string' or 'integer'"
         )),
     }
+}
+
+/// Sizes are ASCII (`1KiB`). humanize-rs 0.1.5 splits on a char count and panics
+/// when that index falls inside a multibyte character.
+fn parse_bytes<T: humanize_rs::num::Int>(s: &str) -> anyhow::Result<T> {
+    if !s.is_ascii() {
+        return Err(anyhow!("invalid size value {s}"));
+    }
+    let size: Bytes<T> = s.parse()?;
+    Ok(size.size())
 }
 
 #[cfg(test)]
@@ -155,5 +153,17 @@ mod tests {
 
         let v = Yaml::Null;
         assert!(as_u16(&v).is_err());
+    }
+
+    #[test]
+    fn non_ascii_string_is_err() {
+        // Non-ASCII is rejected before parse. `1·K`, `100°C`, and `１K` used to panic.
+        for input in ["1·K", "100°C", "１K", "·1K", "1Ｋ", "1\u{00A0}KiB"] {
+            let v = Yaml::String(input.to_string());
+            assert!(as_usize(&v).is_err(), "{input}");
+            assert!(as_u64(&v).is_err(), "{input}");
+            assert!(as_u32(&v).is_err(), "{input}");
+            assert!(as_u16(&v).is_err(), "{input}");
+        }
     }
 }

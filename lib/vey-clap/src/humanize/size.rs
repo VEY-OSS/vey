@@ -12,13 +12,17 @@ use humanize_rs::bytes::Bytes;
 
 pub fn get_usize(args: &ArgMatches, id: &str) -> anyhow::Result<Option<usize>> {
     if let Some(v) = args.get_one::<String>(id) {
-        if let Ok(b) = v.parse::<Bytes>() {
-            Ok(Some(b.size()))
-        } else if let Ok(size) = usize::from_str(v) {
-            Ok(Some(size))
-        } else {
-            Err(anyhow!("invalid {id} value {v}"))
+        // humanize-rs splits on a char count and panics inside a multibyte character.
+        // A non-ASCII string is not a usize either.
+        if v.is_ascii() {
+            if let Ok(b) = v.parse::<Bytes>() {
+                return Ok(Some(b.size()));
+            }
+            if let Ok(size) = usize::from_str(v) {
+                return Ok(Some(size));
+            }
         }
+        Err(anyhow!("invalid {id} value {v}"))
     } else {
         Ok(None)
     }
@@ -93,16 +97,23 @@ mod tests {
 
     #[test]
     fn get_usize_invalid() {
-        // Invalid inputs
-        let cases = vec![
-            "abc", "1.2.3", // invalid number
-            "-5",    // negative not allowed
+        // Non-ASCII is rejected before parse. `1·K`, `100°C`, and `１K` used to panic.
+        let cases = [
+            "abc",
+            "1.2.3",
+            "-5",
             "123a",
+            "1·K",
+            "100°C",
+            "１K",
+            "·1K",
+            "1Ｋ",
+            "1\u{00A0}KiB",
         ];
 
         for input in cases {
             let args = create_args(Some(input));
-            assert!(get_usize(&args, "size").is_err());
+            assert!(get_usize(&args, "size").is_err(), "{input}");
         }
     }
 }
