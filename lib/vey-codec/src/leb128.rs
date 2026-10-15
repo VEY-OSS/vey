@@ -11,6 +11,8 @@ pub enum Leb128DecodeError {
     NeedMoreData,
     #[error("no ending byte found")]
     NoEndFound,
+    #[error("value overflows")]
+    Overflow,
 }
 
 pub struct Leb128<T> {
@@ -49,14 +51,19 @@ impl Leb128<u32> {
         let left = &data[1..];
         for (i, b) in left.iter().enumerate() {
             let bv = *b & 0x7f;
-            value |= (bv as u32) << total_bits;
             if (*b & 0x80) == 0 {
-                // 5 * 7 = 32, so no need to check bits for the last byte
+                // The fifth byte is shifted by 28, so only 4 payload bits fit in a u32.
+                let room = 32 - total_bits;
+                if (bv as u32) >> room != 0 {
+                    return Err(Leb128DecodeError::Overflow);
+                }
+                value |= (bv as u32) << total_bits;
                 return Ok(Leb128 {
                     value,
                     encoded_len: i + 2,
                 });
             } else {
+                value |= (bv as u32) << total_bits;
                 total_bits += 7;
                 if total_bits > 32 {
                     return Err(Leb128DecodeError::NoEndFound);
@@ -134,5 +141,23 @@ mod tests {
             Leb128::<u32>::decode(&[0x80, 0x80, 0x80, 0x80, 0x80, 0x01]),
             Err(Leb128DecodeError::NoEndFound)
         ));
+        // Canonical u32::MAX uses only the low 4 bits of the fifth byte.
+        let v = Leb128::<u32>::decode(&[0xFF, 0xFF, 0xFF, 0xFF, 0x0F]).unwrap();
+        assert_eq!(v.value(), u32::MAX);
+        assert_eq!(v.encoded_len(), 5);
+        // High bits of that byte are past bit 31 and must not be truncated away.
+        for data in [
+            [0xFF, 0xFF, 0xFF, 0xFF, 0x1F],
+            [0xFF, 0xFF, 0xFF, 0xFF, 0x10],
+            [0xFF, 0xFF, 0xFF, 0xFF, 0x7F],
+        ] {
+            assert!(
+                matches!(
+                    Leb128::<u32>::decode(&data),
+                    Err(Leb128DecodeError::Overflow)
+                ),
+                "{data:02X?}"
+            );
+        }
     }
 }
