@@ -151,7 +151,10 @@ impl AsyncEnginePoller {
     fn poll_ready_by_fds(&mut self, ssl: &SslRef, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let (add, del) = ssl.get_changed_fds().map_err(io::Error::other)?;
         for fd in add {
-            let async_fd = AsyncFd::with_interest(fd, Interest::READABLE)?;
+            // SAFETY: OpenSSL just reported `fd` via SSL_get_changed_async_fds.
+            // It stays open until the matching delete drops this `AsyncFd`, and
+            // `RawFd::as_raw_fd` returns that same value.
+            let async_fd = unsafe { AsyncFd::register_with_interest(fd, Interest::READABLE) }?;
             self.tracked_fds.push(async_fd);
         }
         for fd in del {
