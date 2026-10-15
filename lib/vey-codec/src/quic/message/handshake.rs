@@ -64,6 +64,48 @@ impl HandshakeCoalescer {
         self.expected_length > 0 && self.expected_length == self.unfilled_offset
     }
 
+    fn advance_unfilled(&mut self, end: usize) {
+        if end <= self.unfilled_offset {
+            return;
+        }
+        self.unfilled_offset = end;
+        self.fragment_set.retain(|fragment| {
+            if fragment.offset > self.unfilled_offset {
+                true
+            } else {
+                let fragment_end = fragment.offset + fragment.length;
+                if fragment_end > self.unfilled_offset {
+                    self.unfilled_offset = fragment_end;
+                }
+                false
+            }
+        });
+    }
+
+    fn capture_header(&mut self) -> Result<(), FrameParseError> {
+        if self.expected_length > 0 {
+            return Ok(());
+        }
+        let Some(header) = HandshakeHeader::try_parse(&self.buf[..self.unfilled_offset]) else {
+            return Ok(());
+        };
+        if header.msg_length > self.max_message_size {
+            // use the same size limit as TLS record
+            return Err(FrameParseError::MalformedFrame(
+                "too large message length for TLS handshake",
+            ));
+        }
+        let msg_len = header.encoded_len();
+        self.expected_length = msg_len;
+        self.header = Some(header);
+        // A CRYPTO frame may continue into the next handshake message.
+        if self.unfilled_offset > msg_len {
+            self.unfilled_offset = msg_len;
+        }
+        self.buf.resize(msg_len, 0);
+        Ok(())
+    }
+
     /// Parse this message as a ClientHello message
     pub fn parse_client_hello(&self) -> Result<Option<ClientHello<'_>>, ClientHelloParseError> {
         let Some(hdr) = &self.header else {
@@ -83,96 +125,55 @@ impl HandshakeCoalescer {
 
 impl FrameConsume for HandshakeCoalescer {
     fn recv_crypto(&mut self, frame: &CryptoFrame<'_>) -> Result<(), FrameParseError> {
-        if frame.stream_offset <= self.unfilled_offset {
-            let frame_stream_end = frame.stream_offset + frame.data.len();
-            if self.expected_length > 0 && frame_stream_end > self.expected_length {
-                // invalid frames
-                return Err(FrameParseError::MalformedFrame(
-                    "more data than expected in crypto frame",
+        if self.expected_length > 0 && frame.stream_offset > self.expected_length {
+            // invalid frames
+            return Err(FrameParseError::MalformedFrame(
+                "too big stream offset value in crypto frame",
+            ));
+        }
+
+        // Keep only bytes that belong to this handshake message. A frame may
+        // continue into the next message; those bytes are left with the caller.
+        let take = if self.expected_length > 0 {
+            frame
+                .data
+                .len()
+                .min(self.expected_length - frame.stream_offset)
+        } else {
+            frame.data.len()
+        };
+        if take == 0 {
+            if self.expected_length == 0 && frame.stream_offset > self.unfilled_offset {
+                return Err(FrameParseError::OutOfOrderFrame(
+                    "handshake header missing when receiving from crypto frame",
                 ));
             }
+            return Ok(());
+        }
 
-            if self.buf.len() > frame_stream_end {
-                // write part of the buf
-                let dst = &mut self.buf[frame.stream_offset..frame_stream_end];
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        frame.data.as_ptr(),
-                        dst.as_mut_ptr(),
-                        frame.data.len(),
-                    );
-                }
-
-                if frame_stream_end > self.unfilled_offset {
-                    // the fragment data has already been written
-                    self.unfilled_offset = frame_stream_end;
-
-                    self.fragment_set.retain(|fragment| {
-                        if fragment.offset > self.unfilled_offset {
-                            true
-                        } else {
-                            let fragment_end = fragment.offset + fragment.length;
-                            if fragment_end > self.unfilled_offset {
-                                // the fragment data has already been written
-                                self.unfilled_offset = fragment_end;
-                            }
-                            false
-                        }
-                    });
-                }
+        let offset = frame.stream_offset;
+        let data = &frame.data[..take];
+        let end = offset + take;
+        if offset <= self.unfilled_offset {
+            if self.buf.len() > end {
+                self.buf[offset..end].copy_from_slice(data);
             } else {
-                // extend the buf with new data
-                self.buf.resize(frame.stream_offset, 0);
-                self.buf.extend_from_slice(frame.data);
-                self.unfilled_offset = self.buf.len();
+                self.buf.resize(offset, 0);
+                self.buf.extend_from_slice(data);
             }
-
-            if self.expected_length == 0
-                && let Some(header) = HandshakeHeader::try_parse(&self.buf[..self.unfilled_offset])
-            {
-                if header.msg_length > self.max_message_size {
-                    // use the same size limit as TLS record
-                    return Err(FrameParseError::MalformedFrame(
-                        "too large message length for TLS handshake",
-                    ));
-                }
-                self.expected_length = header.msg_length as usize + HandshakeHeader::SIZE;
-                self.header = Some(header);
-                self.buf.resize(self.expected_length, 0);
-            }
-
-            Ok(())
+            self.advance_unfilled(end);
+            self.capture_header()
         } else if self.expected_length == 0 {
             // drop all other frames if we don't know the real length
             Err(FrameParseError::OutOfOrderFrame(
                 "handshake header missing when receiving from crypto frame",
             ))
-        } else if frame.stream_offset > self.expected_length {
-            // invalid frames
-            Err(FrameParseError::MalformedFrame(
-                "too big stream offset value in crypto frame",
-            ))
         } else {
-            let frame_stream_end = frame.stream_offset + frame.data.len();
-            if frame_stream_end > self.expected_length {
-                // invalid frames
-                return Err(FrameParseError::MalformedFrame(
-                    "more data than expected in crypto frame",
-                ));
-            }
-            let dst = &mut self.buf[frame.stream_offset..frame_stream_end];
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    frame.data.as_ptr(),
-                    dst.as_mut_ptr(),
-                    frame.data.len(),
-                );
-            }
+            self.buf[offset..end].copy_from_slice(data);
             self.fragment_set.insert(Fragment {
-                offset: frame.stream_offset,
-                length: frame.data.len(),
+                offset,
+                length: take,
             });
-
             Ok(())
         }
     }
@@ -271,5 +272,55 @@ mod tests {
         consumer.recv_crypto(&frame1).unwrap();
         assert!(!consumer.finished());
         assert!(consumer.recv_crypto(&frame2).is_err());
+    }
+
+    #[test]
+    fn frame_extending_past_message_finishes() {
+        // Handshake message is 6 bytes; the CRYPTO frame continues past it.
+        let message = [0x16, 0x00, 0x00, 0x02, 0xAA, 0xBB];
+        let mut frame = message.to_vec();
+        frame.push(0xFF);
+
+        let mut consumer = HandshakeCoalescer::default();
+        consumer.recv_crypto(&CryptoFrame::new(0, &frame)).unwrap();
+        assert!(consumer.finished());
+        assert_eq!(consumer.buf, message);
+    }
+
+    #[test]
+    fn frame_crossing_message_end_keeps_prefix() {
+        let message = [0x16, 0x00, 0x00, 0x02, 0xAA, 0xBB];
+        let mut consumer = HandshakeCoalescer::default();
+        consumer
+            .recv_crypto(&CryptoFrame::new(0, &message[..4]))
+            .unwrap();
+        assert!(!consumer.finished());
+
+        // Starts at the unfilled offset and includes one byte of the next message.
+        consumer
+            .recv_crypto(&CryptoFrame::new(4, &[0xAA, 0xBB, 0xFF]))
+            .unwrap();
+        assert!(consumer.finished());
+        assert_eq!(consumer.buf, message);
+    }
+
+    #[test]
+    fn out_of_order_frame_crossing_message_end_is_stored() {
+        let message = [0x16, 0x00, 0x00, 0x02, 0xAA, 0xBB];
+        let mut consumer = HandshakeCoalescer::default();
+        consumer
+            .recv_crypto(&CryptoFrame::new(0, &message[..4]))
+            .unwrap();
+
+        // Starts inside the message, past the contiguous prefix, and crosses the end.
+        consumer
+            .recv_crypto(&CryptoFrame::new(5, &[0xBB, 0xFF]))
+            .unwrap();
+        assert!(!consumer.finished());
+        assert_eq!(consumer.buf[5], 0xBB);
+
+        consumer.recv_crypto(&CryptoFrame::new(4, &[0xAA])).unwrap();
+        assert!(consumer.finished());
+        assert_eq!(consumer.buf, message);
     }
 }
