@@ -8,10 +8,8 @@ use std::io;
 use std::str::FromStr;
 
 #[cfg_attr(any(target_os = "linux", target_os = "android"), path = "linux.rs")]
-#[cfg_attr(
-    any(target_os = "freebsd", target_os = "dragonfly"),
-    path = "freebsd.rs"
-)]
+#[cfg_attr(target_os = "freebsd", path = "freebsd.rs")]
+#[cfg_attr(target_os = "dragonfly", path = "dragonfly.rs")]
 #[cfg_attr(target_os = "netbsd", path = "netbsd.rs")]
 #[cfg_attr(windows, path = "windows.rs")]
 mod os;
