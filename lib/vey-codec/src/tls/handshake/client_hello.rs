@@ -43,12 +43,12 @@ impl<'a> ClientHello<'a> {
                 handshake_header.msg_type,
             ));
         }
-        let expected_data_len = handshake_header.msg_length as usize + HandshakeHeader::SIZE;
-        if expected_data_len > data.len() {
+        let encoded_len = handshake_header.encoded_len();
+        if encoded_len > data.len() {
             return Err(ClientHelloParseError::InvalidMessageLength);
         }
 
-        Self::parse_msg_data(&data[HandshakeHeader::SIZE..])
+        Self::parse_msg_data(&data[HandshakeHeader::SIZE..encoded_len])
     }
 
     /// Parse a ClientHello message without the Handshake message header
@@ -239,5 +239,25 @@ mod tests {
 
         let handshake_msg = HandshakeMessage::try_parse_fragment(data).unwrap();
         assert!(handshake_msg.parse_client_hello().is_err());
+    }
+
+    #[test]
+    fn trailing_handshake_message_is_ignored() {
+        // Body: version, random, empty session id, one cipher suite, null compression.
+        let mut message = vec![0x01, 0x00, 0x00, 0x29, 0x03, 0x03];
+        message.extend(std::iter::repeat_n(0x11, 32));
+        message.extend_from_slice(&[0x00, 0x00, 0x02, 0x13, 0x01, 0x01, 0x00]);
+        assert_eq!(message.len(), 45);
+
+        let header = HandshakeHeader {
+            msg_type: HandshakeType::ClientHello as u8,
+            msg_length: 0x29,
+        };
+        let mut with_next = message.clone();
+        with_next.extend_from_slice(&[0x02, 0x00, 0x00, 0x00]);
+
+        let ch = ClientHello::parse_fragment(header, &with_next).unwrap();
+        assert_eq!(ch.cipher_suites, &[0x13, 0x01]);
+        assert!(ch.extensions.is_none());
     }
 }
