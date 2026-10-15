@@ -1,4 +1,9 @@
 
+v0.3.1:
+ - BUG FIX: a non-ASCII size string in config is rejected instead of panicking
+ - BUG FIX: the Windows hostname sent to syslog no longer includes a trailing NUL
+ - Compatibility: DragonFly worker `sched_affinity` applies to the calling thread
+
 v0.3.0:
  - Breaking: graphite exporter always writes the cumulative counter sum and no longer accepts `counter_value`
  - Feature: prometheus_push exporter pushes cumulative counters and gauges with Prometheus remote write 1.0

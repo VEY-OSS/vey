@@ -1,5 +1,8 @@
 
 v0.4.1:
+ - BUG FIX: a non-ASCII size string in worker or statsd config is rejected instead of panicking
+ - BUG FIX: the Windows hostname sent to syslog no longer includes a trailing NUL
+ - Compatibility: DragonFly worker `sched_affinity` applies to the calling thread
  - Compatibility: bump MSRV to 1.94.0
 
 v0.4.0:

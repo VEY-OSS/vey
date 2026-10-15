@@ -1,5 +1,7 @@
 
 v0.9.9:
+ - BUG FIX: a non-ASCII byte size on the command line is rejected instead of panicking
+ - BUG FIX: a thrift compact varint that overflows a u32 is rejected instead of being truncated
  - Compatibility: bump MSRV to 1.94.0
  - Compatibility: `-r` / `--rate-limit` paces burst to about 1ms of traffic so load generation does not dump a full period of requests
  - Feature: h1/h2/h3 targets support the HTTP `QUERY` method (RFC 10008), including `--payload`

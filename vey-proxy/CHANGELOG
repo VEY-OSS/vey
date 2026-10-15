@@ -3,6 +3,10 @@ CHANGELOG
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.15.2:
+ - BUG FIX: a non-ASCII size string in YAML or JSON config is rejected instead of panicking
+ - BUG FIX: a ClientHello whose handshake header arrives in pieces no longer consumes the next handshake message
+ - BUG FIX: the Windows hostname sent to syslog and Fluentd no longer includes a trailing NUL
+ - Compatibility: DragonFly worker ``sched_affinity`` applies to the calling thread
  - BUG FIX: reject too large HTTP and ICAP status code
 
 v1.15.1:
