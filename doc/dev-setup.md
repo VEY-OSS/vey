@@ -303,7 +303,7 @@ pkg install pkg-config
 openssl >= 1.1.1
 c-ares >= 1.18.0
 lua >= 5.4 or LuaJIT
-python3 >= 3.8
+python3 >= 3.9
 ```
 
 Lua support is disabled unless you explicitly enable a Lua feature such as `lua54`, `lua55`, or `luajit`.
