@@ -19,13 +19,17 @@ pub fn hostname() -> OsString {
     }
 
     let mut buffer = vec![0u16; size as usize];
-    unsafe {
+    let r = unsafe {
         SystemInformation::GetComputerNameExW(
             SystemInformation::ComputerNamePhysicalDnsHostname,
             buffer.as_mut_ptr(),
             &mut size,
-        );
+        )
+    };
+    // On success, size is the number of wchar units copied, excluding the terminating NUL.
+    let len = size as usize;
+    if r == 0 || len > buffer.len() {
+        return OsString::new();
     }
-
-    OsString::from_wide(&buffer)
+    OsString::from_wide(&buffer[..len])
 }
