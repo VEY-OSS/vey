@@ -68,7 +68,10 @@ impl<T: SyncOperation> SyncOperation for TokioAsyncOperation<T> {
 
 impl<T: SyncOperation> AsyncOperation for TokioAsyncOperation<T> {
     fn track_raw_fd(&mut self, fd: RawFd) -> io::Result<()> {
-        let async_fd = AsyncFd::with_interest(fd, Interest::READABLE)?;
+        // SAFETY: OpenSSL just reported `fd` as an added async wait descriptor.
+        // It stays open until `untrack_raw_fd` drops this `AsyncFd`, and
+        // `RawFd::as_raw_fd` returns that same value.
+        let async_fd = unsafe { AsyncFd::register_with_interest(fd, Interest::READABLE) }?;
         self.tracked_fds.push(async_fd);
         Ok(())
     }
