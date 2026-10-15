@@ -40,8 +40,10 @@ impl HandshakeHeader {
         })
     }
 
-    /// Get the capacity needed to hold the encoded Handshake message
-    pub fn encoded_cap(&self) -> usize {
+    /// Wire length of this handshake message, header plus body.
+    ///
+    /// `msg_length` is only the body. This adds [`Self::SIZE`].
+    pub fn encoded_len(&self) -> usize {
         Self::SIZE + self.msg_length as usize
     }
 }
@@ -55,11 +57,11 @@ impl<'a> HandshakeMessage<'a> {
     /// Try to parse a full Handshake message from a fragment of data
     pub fn try_parse_fragment(data: &'a [u8]) -> Option<Self> {
         let header = HandshakeHeader::try_parse(data)?;
-        let cap = header.encoded_cap();
-        if cap <= data.len() {
+        let encoded_len = header.encoded_len();
+        if encoded_len <= data.len() {
             Some(HandshakeMessage {
                 header,
-                msg_data: &data[..cap],
+                msg_data: &data[..encoded_len],
             })
         } else {
             None
@@ -112,15 +114,15 @@ impl HandshakeCoalescer {
                 if hdr.msg_length > self.max_message_size {
                     return Err(HandshakeCoalesceError::TooLargeMessageSize(hdr.msg_length));
                 }
-                let cap = hdr.encoded_cap();
+                let encoded_len = hdr.encoded_len();
                 self.header = Some(hdr);
-                if cap >= data.len() {
-                    self.buf.reserve(cap);
+                if encoded_len >= data.len() {
+                    self.buf.reserve(encoded_len);
                     self.buf.extend_from_slice(data);
                     Ok(data.len())
                 } else {
-                    self.buf.extend_from_slice(&data[..cap]);
-                    Ok(cap)
+                    self.buf.extend_from_slice(&data[..encoded_len]);
+                    Ok(encoded_len)
                 }
             }
             None => {
@@ -137,7 +139,7 @@ impl HandshakeCoalescer {
 
         match &self.header {
             Some(hdr) => {
-                let needed = hdr.encoded_cap() - self.buf.len();
+                let needed = hdr.encoded_len() - self.buf.len();
                 if needed >= data.len() {
                     self.buf.extend_from_slice(data);
                     Ok(data.len())
@@ -155,14 +157,14 @@ impl HandshakeCoalescer {
                                 hdr.msg_length,
                             ));
                         }
-                        let cap = hdr.encoded_cap();
+                        let encoded_len = hdr.encoded_len();
                         self.header = Some(hdr);
-                        if cap > self.buf.len() {
-                            self.buf.reserve(cap - self.buf.len());
+                        if encoded_len > self.buf.len() {
+                            self.buf.reserve(encoded_len - self.buf.len());
                             Ok(data.len())
                         } else {
-                            self.buf.resize(cap, 0);
-                            let consumed = data.len() - (self.buf.len() - cap);
+                            let consumed = data.len() - (self.buf.len() - encoded_len);
+                            self.buf.truncate(encoded_len);
                             Ok(consumed)
                         }
                     }
@@ -184,11 +186,44 @@ impl HandshakeCoalescer {
         if hdr.msg_type != HandshakeType::ClientHello as u8 {
             return Err(ClientHelloParseError::InvalidMessageType(hdr.msg_type));
         }
-        if hdr.encoded_cap() == self.buf.len() {
+        if hdr.encoded_len() == self.buf.len() {
             let ch = ClientHello::parse_msg_data(&self.buf[HandshakeHeader::SIZE..])?;
             Ok(Some(ch))
         } else {
             Ok(None)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn partial_header_does_not_consume_next_message() {
+        // Handshake header is 4 bytes. The first fragment leaves it incomplete.
+        let mut coalescer = HandshakeCoalescer::default();
+        let message = [0x16, 0x00, 0x00, 0x02, 0xAB, 0xCD];
+        assert_eq!(coalescer.coalesce_fragment(&message[..2]).unwrap(), 2);
+        assert!(coalescer.header.is_none());
+
+        // Completing fragment also carries the start of the next handshake message.
+        let data = [&message[2..], &[0x01, 0x00]].concat();
+        assert_eq!(coalescer.coalesce_fragment(&data).unwrap(), 4);
+        assert_eq!(coalescer.buf, message);
+
+        // The following message stays with the caller.
+        assert_eq!(coalescer.coalesce_fragment(&data[4..]).unwrap(), 0);
+        assert_eq!(coalescer.buf, message);
+    }
+
+    #[test]
+    fn partial_header_exact_message_consumes_remainder() {
+        let mut coalescer = HandshakeCoalescer::default();
+        assert_eq!(coalescer.coalesce_fragment(&[0x00]).unwrap(), 1);
+
+        let rest = [0x00, 0x00, 0x00];
+        assert_eq!(coalescer.coalesce_fragment(&rest).unwrap(), rest.len());
+        assert_eq!(coalescer.buf, [0x00, 0x00, 0x00, 0x00]);
     }
 }
