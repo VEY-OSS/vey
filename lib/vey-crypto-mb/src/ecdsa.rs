@@ -64,12 +64,17 @@ impl<'a, const N: usize> EcdsaSlot<'a, N> {
         ec.group().order(&mut order, &mut ctx).ok()?;
         let reg = ec.private_key();
 
-        let mut msg = [0u8; N];
-        if digest.len() >= N {
-            msg.copy_from_slice(&digest[..N]);
-        } else {
-            msg[N - digest.len()..].copy_from_slice(digest);
+        // Keyless payloads are already hash-sized. crypto_mb still requires
+        // `0 < msg < order` and does not reduce, so a full-length digest can
+        // be rejected (P-256 SHA-256 of 32×0xFF, or an all-zero digest).
+        // Reduce modulo the order. Zero is not representable here; callers
+        // such as keyless fall back to OpenSSL.
+        let scalar = digest_reduced_mod_order(digest, &order)?;
+        if bn_is_zero(&scalar) {
+            return None;
         }
+        let mut msg = [0u8; N];
+        copy_be_fixed(&scalar, &mut msg)?;
 
         let eph = priv_rand_range(&order)?;
         Some(EcdsaSlot {
@@ -167,6 +172,94 @@ pub fn sign_mb8<const N: usize>(slots: &mut [EcdsaSlot<'_, N>]) -> [MbStatus; BA
         *sts = ffi::mbx_get_sts(status, i);
     }
     statuses
+}
+
+/// OpenSSL's ECDSA integer: the leftmost `ceil(order_bits / 8)` bytes, with
+/// leftover high bits shifted off when the order length is not a multiple of
+/// 8, then reduced modulo the order.
+fn digest_reduced_mod_order(digest: &[u8], order: &BigNumRef) -> Option<BigNum> {
+    let order_bits = order.num_bits();
+    if order_bits <= 0 {
+        return None;
+    }
+    let order_bits_u = order_bits as usize;
+    let mut len = digest.len();
+    if len.saturating_mul(8) > order_bits_u {
+        len = order_bits_u.div_ceil(8);
+    }
+    let mut m = BigNum::from_slice(&digest[..len]).ok()?;
+    if len.saturating_mul(8) > order_bits_u {
+        let mut shifted = BigNum::new().ok()?;
+        shifted.rshift(&m, 8 - (order_bits & 7)).ok()?;
+        m = shifted;
+    }
+    let mut reduced = BigNum::new().ok()?;
+    let mut ctx = BigNumContext::new().ok()?;
+    reduced.nnmod(&m, order, &mut ctx).ok()?;
+    Some(reduced)
+}
+
+fn copy_be_fixed(bn: &BigNumRef, out: &mut [u8]) -> Option<()> {
+    let bytes = bn.to_vec_padded(out.len() as i32).ok()?;
+    out.copy_from_slice(&bytes);
+    Some(())
+}
+
+fn bn_is_zero(bn: &BigNumRef) -> bool {
+    unsafe { openssl_ffi::BN_is_zero(bn.as_ptr()) == 1 }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cmp::Ordering;
+
+    use super::*;
+
+    fn assert_reduced(order: &[u8], digest: &[u8], expected: &[u8]) {
+        let order = BigNum::from_slice(order).unwrap();
+        let reduced = digest_reduced_mod_order(digest, &order).unwrap();
+        assert_eq!(reduced.ucmp(&order), Ordering::Less);
+        assert_eq!(
+            reduced.to_vec_padded(expected.len() as i32).unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn p256_digest_above_order_reduces() {
+        // (2^256 - 1) mod n
+        let order = [
+            0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xbc, 0xe6, 0xfa, 0xad, 0xa7, 0x17, 0x9e, 0x84, 0xf3, 0xb9, 0xca, 0xc2,
+            0xfc, 0x63, 0x25, 0x51,
+        ];
+        let expected = [
+            0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x43, 0x19, 0x05, 0x52, 0x58, 0xe8, 0x61, 0x7b, 0x0c, 0x46, 0x35, 0x3d,
+            0x03, 0x9c, 0xda, 0xae,
+        ];
+        assert_reduced(&order, &[0xff; 32], &expected);
+        assert_reduced(&order, &[0u8; 32], &[0u8; 32]);
+    }
+
+    #[test]
+    fn p521_digest_shifts_then_reduces() {
+        // 66 * 0xFF is 528 bits. OpenSSL keeps the top 521 (>> 7), then mod n.
+        let order = [
+            0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xfa, 0x51, 0x86, 0x87, 0x83, 0xbf, 0x2f, 0x96, 0x6b,
+            0x7f, 0xcc, 0x01, 0x48, 0xf7, 0x09, 0xa5, 0xd0, 0x3b, 0xb5, 0xc9, 0xb8, 0x89, 0x9c,
+            0x47, 0xae, 0xbb, 0x6f, 0xb7, 0x1e, 0x91, 0x38, 0x64, 0x09,
+        ];
+        let mut expected = [0u8; 66];
+        expected[33..].copy_from_slice(&[
+            0x05, 0xae, 0x79, 0x78, 0x7c, 0x40, 0xd0, 0x69, 0x94, 0x80, 0x33, 0xfe, 0xb7, 0x08,
+            0xf6, 0x5a, 0x2f, 0xc4, 0x4a, 0x36, 0x47, 0x76, 0x63, 0xb8, 0x51, 0x44, 0x90, 0x48,
+            0xe1, 0x6e, 0xc7, 0x9b, 0xf6,
+        ]);
+        assert_reduced(&order, &[0xff; 66], &expected);
+    }
 }
 
 fn priv_rand_range(order: &BigNumRef) -> Option<BigNum> {
