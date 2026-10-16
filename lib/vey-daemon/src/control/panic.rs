@@ -62,53 +62,11 @@ pub fn set_hook(args: &DaemonArgs) {
 fn do_panic_quit(monitored: bool) {
     use rustix::process::Signal;
 
-    let parent = rustix::process::getppid();
-    let plan = plan_panic_quit(monitored, parent.is_some());
-    // `getppid` is `Some` for every process that has a parent. Notifying that
-    // parent must not skip this process's own shutdown.
-    if plan.signal_parent
-        && let Some(pid) = parent
-    {
+    if monitored && let Some(pid) = rustix::process::getppid() {
         let _ = rustix::process::kill_process(pid, Signal::HUP);
+        return;
     }
-    if plan.force_shutdown {
-        crate::control::quit::trigger_force_shutdown();
-    }
-}
-
-struct PanicQuitPlan {
-    signal_parent: bool,
-    force_shutdown: bool,
-}
-
-fn plan_panic_quit(monitored: bool, has_parent: bool) -> PanicQuitPlan {
-    PanicQuitPlan {
-        signal_parent: monitored && has_parent,
-        force_shutdown: true,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::plan_panic_quit;
-
-    #[test]
-    fn monitored_panic_notifies_parent_and_still_shuts_down() {
-        let plan = plan_panic_quit(true, true);
-        assert!(plan.signal_parent);
-        assert!(plan.force_shutdown);
-    }
-
-    #[test]
-    fn panic_without_a_parent_only_shuts_down() {
-        let plan = plan_panic_quit(true, false);
-        assert!(!plan.signal_parent);
-        assert!(plan.force_shutdown);
-
-        let plan = plan_panic_quit(false, true);
-        assert!(!plan.signal_parent);
-        assert!(plan.force_shutdown);
-    }
+    crate::control::quit::trigger_force_shutdown();
 }
 
 #[cfg(windows)]
