@@ -16,6 +16,10 @@ pub trait DateTimeParseExt: Sized {
     fn parse_rfc3339(s: &str) -> Result<Self, Error>;
 
     /// Parse an FTP FACTS / RFC3659 timestamp (`YYYYMMDDHHMMSS[.fraction]`) as UTC.
+    ///
+    /// A second field of `60` is a leap second. It is rejected: this timestamp
+    /// type cannot represent that instant, and folding it to `59` would be a
+    /// different time.
     fn parse_rfc3659(s: &str) -> Result<Self, Error>;
 }
 
@@ -27,10 +31,24 @@ impl DateTimeParseExt for Timestamp {
 
     #[inline]
     fn parse_rfc3659(s: &str) -> Result<Self, Error> {
+        if rfc3659_second_is_leap(s) {
+            return Err(Error::from_args(format_args!(
+                "RFC 3659 leap second is not representable"
+            )));
+        }
         let tm = strtime::parse("%Y%m%d%H%M%S%.f", s)?;
         let dt = tm.to_datetime()?;
         TimeZone::UTC.to_timestamp(dt)
     }
+}
+
+/// Seconds occupy digits 13–14 of `YYYYMMDDHHMMSS`. `60` marks a leap second.
+fn rfc3659_second_is_leap(s: &str) -> bool {
+    let bytes = s.as_bytes();
+    bytes.len() >= 14
+        && bytes[..14].iter().all(u8::is_ascii_digit)
+        && bytes[12] == b'6'
+        && bytes[13] == b'0'
 }
 
 #[cfg(test)]
@@ -80,5 +98,18 @@ mod tests {
         assert!(Timestamp::parse_rfc3659("2021").is_err());
         assert!(Timestamp::parse_rfc3659("not-a-timestamp").is_err());
         assert!(Timestamp::parse_rfc3659("20211301102030").is_err());
+        assert!(Timestamp::parse_rfc3659("20211201102060").is_err());
+        assert!(Timestamp::parse_rfc3659("20211201235960").is_err());
+        assert!(Timestamp::parse_rfc3659("20211201102060.123").is_err());
+        assert!(Timestamp::parse_rfc3659("20211201102061").is_err());
+    }
+
+    #[test]
+    fn parse_rfc3659_second_59() {
+        let ts = Timestamp::parse_rfc3659("20211201102059").unwrap();
+        assert_eq!(
+            ts,
+            Timestamp::parse_rfc3339("2021-12-01T10:20:59Z").unwrap()
+        );
     }
 }
