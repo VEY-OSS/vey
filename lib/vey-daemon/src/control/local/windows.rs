@@ -11,16 +11,16 @@ use tokio::sync::oneshot;
 
 pub(super) struct LocalControllerImpl {
     pipe_name: String,
-    server: NamedPipeServer,
+    server: Option<NamedPipeServer>,
 }
 
 impl LocalControllerImpl {
     fn create(pipe_name: String) -> anyhow::Result<Self> {
-        let server = ServerOptions::new()
-            .first_pipe_instance(true)
-            .max_instances(2)
-            .create(&pipe_name)?;
-        Ok(LocalControllerImpl { pipe_name, server })
+        let server = pipe_server_options(true).create(&pipe_name)?;
+        Ok(LocalControllerImpl {
+            pipe_name,
+            server: Some(server),
+        })
     }
 
     pub(super) fn listen_path(&self) -> String {
@@ -56,37 +56,72 @@ impl LocalControllerImpl {
         mut quit_receiver: oneshot::Receiver<oneshot::Sender<Self>>,
     ) {
         loop {
-            tokio::select! {
-                biased;
+            let pipe_name = self.pipe_name.clone();
+            let mut quit_sender = None;
+            let accepted = {
+                let Some(server) = self.server.as_mut() else {
+                    break;
+                };
+                tokio::select! {
+                    biased;
 
-                r = self.server.connect() => {
-                    match r {
-                         Ok(_) => {
-                            debug!("new ctl local control client");
-                            match ServerOptions::new().create(&self.pipe_name) {
-                                Ok(new_server) => {
-                                    let server = std::mem::replace(&mut self.server, new_server);
-                                    let (r, w) = tokio::io::split(server);
-                                    super::ctl_handle(r, w);
-                                }
-                                Err(e) => {
-                                    warn!("failed to re-open controller pipe {}: {e}", self.pipe_name);
-                                    break;
-                                }
+                    r = server.connect() => {
+                        match r {
+                            Ok(()) => true,
+                            Err(e) => {
+                                warn!("controller {pipe_name} accept: {e}");
+                                false
                             }
                         }
-                        Err(e) => {
-                            warn!("controller {} accept: {e}", self.pipe_name);
-                        }
+                    }
+                    r = &mut quit_receiver => {
+                        quit_sender = r.ok();
+                        false
                     }
                 }
-                r = &mut quit_receiver => {
-                    if let Ok(v) = r {
-                        let _ = v.send(self);
-                    }
+            };
+            if let Some(quit_sender) = quit_sender {
+                let _ = quit_sender.send(self);
+                break;
+            }
+            if !accepted {
+                continue;
+            }
+
+            debug!("new ctl local control client");
+            let Some(connected) = self.server.take() else {
+                break;
+            };
+            // Open the next instance before handing off `connected`. Every
+            // instance uses the same unlimited cap: a live client plus the
+            // replacement listener does not fit in `max_instances(2)`, and a
+            // mismatched cap fails `CreateNamedPipe`.
+            match pipe_server_options(false).create(&self.pipe_name) {
+                Ok(new_server) => {
+                    self.server = Some(new_server);
+                    let (r, w) = tokio::io::split(connected);
+                    super::ctl_handle(r, w);
+                }
+                Err(e) => {
+                    warn!(
+                        "failed to re-open controller pipe {}: {e}",
+                        self.pipe_name
+                    );
+                    let (r, w) = tokio::io::split(connected);
+                    super::ctl_handle(r, w);
                     break;
                 }
             }
         }
     }
+}
+
+/// `first` is only for the initial instance. Later instances must not set
+/// `FILE_FLAG_FIRST_PIPE_INSTANCE`, and must not change `nMaxInstances`.
+/// Leaving the cap at Tokio's unlimited default lets a connection stay open
+/// while the next listener is created.
+fn pipe_server_options(first: bool) -> ServerOptions {
+    let mut opts = ServerOptions::new();
+    opts.first_pipe_instance(first);
+    opts
 }
