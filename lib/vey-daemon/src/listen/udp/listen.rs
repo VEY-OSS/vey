@@ -812,8 +812,7 @@ where
         if self.listen_config.socket_buffer() != config.socket_buffer() {
             match raw_socket.set_buf_opts(config.socket_buffer()) {
                 Ok(_) => {
-                    self.listen_config
-                        .set_socket_buffer(config.socket_buffer());
+                    self.listen_config.set_socket_buffer(config.socket_buffer());
                 }
                 Err(e) => {
                     warn!(
