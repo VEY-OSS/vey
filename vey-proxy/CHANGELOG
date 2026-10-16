@@ -3,6 +3,15 @@ CHANGELOG
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.15.2:
+ - BUG FIX: an empty daemon group uses ``_.sock`` as the control socket
+ - BUG FIX: on Windows, another control client can connect while one connection is still open
+ - BUG FIX: a relative pid file is created in the working directory from before daemonizing, and the lock is held until the process exits
+ - BUG FIX: ``--panic-quit`` in monitored mode still shuts the process down after notifying the parent
+ - BUG FIX: reloading a UDP or QUIC listener keeps the new socket buffer size
+ - BUG FIX: protocol inspection recognizes the WebDAV method ``UPDATEREDIRECTREF``
+ - BUG FIX: an NNTP greeting that arrives before its newline is still recognized, and an NNSP greeting is reported as NNSP
+ - BUG FIX: an MQTT CONNECT whose remaining length is 128 or larger is recognized
+ - BUG FIX: OpenSSL async engine file descriptors are registered with the I/O-safe AsyncFd API
  - BUG FIX: a non-ASCII size string in YAML or JSON config is rejected instead of panicking
  - BUG FIX: a ClientHello whose handshake header arrives in pieces no longer consumes the next handshake message
  - BUG FIX: the Windows hostname sent to syslog and Fluentd no longer includes a trailing NUL

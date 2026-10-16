@@ -1,5 +1,6 @@
 
 v0.9.9:
+ - BUG FIX: OpenSSL async engine file descriptors are registered with the I/O-safe AsyncFd API
  - BUG FIX: a non-ASCII byte size on the command line is rejected instead of panicking
  - BUG FIX: a thrift compact varint that overflows a u32 is rejected instead of being truncated
  - Compatibility: bump MSRV to 1.94.0
