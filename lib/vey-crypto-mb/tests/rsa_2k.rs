@@ -9,9 +9,7 @@ use openssl::hash::MessageDigest;
 use openssl::nid::Nid;
 use openssl::rsa::Padding;
 
-use vey_crypto_mb::{
-    RSA_2K_LEN, RsaSlot, add_pkcs1_sign_padding, add_pss_sign_padding, private_crt_mb8, status_ok,
-};
+use vey_crypto_mb::{RSA_2K_LEN, RsaSlot, private_crt_mb8, status_ok};
 
 const BITS: i32 = 2048;
 
@@ -141,15 +139,12 @@ fn rsa_2k_private_decrypt() {
 fn rsa_2k_pkcs1_padding_roundtrip_openssl() {
     let key = common::gen_rsa(BITS as u32);
     let rsa = key.rsa().unwrap();
-    let mut em = [0u8; RSA_2K_LEN];
-    assert!(add_pkcs1_sign_padding(
-        Nid::SHA256,
-        &common::SHA256_DIGEST,
-        &mut em
-    ));
+    let slot = RsaSlot::<RSA_2K_LEN>::prepare_pkcs1_sign(&key, Nid::SHA256, &common::SHA256_DIGEST)
+        .expect("pad");
     let mut sig = [0u8; RSA_2K_LEN];
     assert_eq!(
-        rsa.private_encrypt(&em, &mut sig, Padding::NONE).unwrap(),
+        rsa.private_encrypt(slot.input(), &mut sig, Padding::NONE)
+            .unwrap(),
         RSA_2K_LEN
     );
     common::verify_rsa_pkcs1(&key, MessageDigest::sha256(), &sig, &common::SHA256_DIGEST);
@@ -158,31 +153,16 @@ fn rsa_2k_pkcs1_padding_roundtrip_openssl() {
 #[test]
 fn rsa_2k_pss_padding_rejects_wrong_digest_len() {
     let key = common::gen_rsa(BITS as u32);
-    let rsa = key.rsa().unwrap();
-    let mut em = [0u8; RSA_2K_LEN];
 
-    assert!(!add_pss_sign_padding(&rsa, Nid::SHA256, &[0u8; 1], &mut em));
-    assert!(!add_pss_sign_padding(
-        &rsa,
-        Nid::SHA256,
-        &common::SHA256_DIGEST[..31],
-        &mut em
-    ));
+    assert!(RsaSlot::<RSA_2K_LEN>::prepare_pss_sign(&key, Nid::SHA256, &[0u8; 1]).is_none());
+    assert!(
+        RsaSlot::<RSA_2K_LEN>::prepare_pss_sign(&key, Nid::SHA256, &common::SHA256_DIGEST[..31])
+            .is_none()
+    );
     let mut long = [0u8; 33];
     long[..32].copy_from_slice(&common::SHA256_DIGEST);
-    assert!(!add_pss_sign_padding(&rsa, Nid::SHA256, &long, &mut em));
-    assert!(!add_pss_sign_padding(
-        &rsa,
-        Nid::SHA256,
-        &common::SHA256_DIGEST,
-        &mut [0u8; 1]
-    ));
-    assert!(RsaSlot::<RSA_2K_LEN>::prepare_pss_sign(&key, Nid::SHA256, &[0u8; 1]).is_none());
-
-    assert!(add_pss_sign_padding(
-        &rsa,
-        Nid::SHA256,
-        &common::SHA256_DIGEST,
-        &mut em
-    ));
+    assert!(RsaSlot::<RSA_2K_LEN>::prepare_pss_sign(&key, Nid::SHA256, &long).is_none());
+    assert!(
+        RsaSlot::<RSA_2K_LEN>::prepare_pss_sign(&key, Nid::SHA256, &common::SHA256_DIGEST).is_some()
+    );
 }

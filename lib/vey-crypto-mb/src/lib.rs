@@ -23,8 +23,8 @@ pub use ed25519::{
 };
 pub use rsa::{
     MAX_RSA_LEN as RSA_MAX_LEN, PreparedKind as RsaPreparedKind, RSA_2K_LEN, RSA_3K_LEN,
-    RSA_4K_LEN, Rsa2kSlot, Rsa3kSlot, Rsa4kSlot, RsaSlot, add_pkcs1_sign_padding,
-    add_pss_sign_padding, has_crt_params, private_crt_mb8, rsa_from_pkey,
+    RSA_4K_LEN, Rsa2kSlot, Rsa3kSlot, Rsa4kSlot, RsaSlot, has_crt_params, private_crt_mb8,
+    rsa_from_pkey,
 };
 
 pub const BATCH_SIZE: usize = ffi::BATCH_SIZE;

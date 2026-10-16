@@ -90,7 +90,7 @@ impl<'a, const N: usize> RsaSlot<'a, N> {
 
     pub fn prepare_pkcs1_sign(key: &'a PKeyRef<Private>, nid: Nid, digest: &[u8]) -> Option<Self> {
         let mut slot = Self::from_pkey(key, PreparedKind::Sign)?;
-        if !add_pkcs1_sign_padding(nid, digest, &mut slot.input) {
+        if !slot.add_pkcs1_sign_padding(nid, digest) {
             return None;
         }
         Some(slot)
@@ -98,10 +98,77 @@ impl<'a, const N: usize> RsaSlot<'a, N> {
 
     pub fn prepare_pss_sign(key: &'a PKeyRef<Private>, nid: Nid, digest: &[u8]) -> Option<Self> {
         let mut slot = Self::from_pkey(key, PreparedKind::Sign)?;
-        if !add_pss_sign_padding(slot.key, nid, digest, &mut slot.input) {
+        if !slot.add_pss_sign_padding(nid, digest) {
             return None;
         }
         Some(slot)
+    }
+
+    /// Prepared CRT input: padded message for sign, ciphertext for decrypt.
+    pub fn input(&self) -> &[u8; N] {
+        &self.input
+    }
+
+    fn add_pkcs1_sign_padding(&mut self, nid: Nid, digest: &[u8]) -> bool {
+        let tlen = N as c_int;
+        let rc = if nid == Nid::MD5_SHA1 {
+            if digest.len() != 36 {
+                return false;
+            }
+            unsafe {
+                openssl_ffi::RSA_padding_add_PKCS1_type_1(
+                    self.input.as_mut_ptr(),
+                    tlen,
+                    digest.as_ptr(),
+                    digest.len() as c_int,
+                )
+            }
+        } else {
+            let Some(prefix) = digestinfo_prefix(nid) else {
+                return false;
+            };
+            // Largest DigestInfo is SHA-512 prefix (19) + digest (64).
+            let mut encoded = [0u8; 96];
+            let encoded_len = prefix.len() + digest.len();
+            if encoded_len > encoded.len() {
+                return false;
+            }
+            encoded[..prefix.len()].copy_from_slice(prefix);
+            encoded[prefix.len()..encoded_len].copy_from_slice(digest);
+            unsafe {
+                openssl_ffi::RSA_padding_add_PKCS1_type_1(
+                    self.input.as_mut_ptr(),
+                    tlen,
+                    encoded.as_ptr(),
+                    encoded_len as c_int,
+                )
+            }
+        };
+        rc == 1
+    }
+
+    fn add_pss_sign_padding(&mut self, nid: Nid, digest: &[u8]) -> bool {
+        let Some(md) = MessageDigest::from_nid(nid) else {
+            return false;
+        };
+        // `RSA_padding_add_PKCS1_PSS_mgf1` reads `mHash` for `EVP_MD_size` bytes and
+        // writes `RSA_size` bytes into `EM`. It does not consult the slice lengths.
+        // A short digest at the end of a page is a SIGSEGV; on mapped memory the
+        // call still returns success. The slot buffer is already `RSA_size` bytes.
+        if digest.len() != md.size() || self.key.size() as usize != N {
+            return false;
+        }
+        let rc = unsafe {
+            openssl_ffi::RSA_padding_add_PKCS1_PSS_mgf1(
+                self.key.as_ptr(),
+                self.input.as_mut_ptr(),
+                digest.as_ptr(),
+                md.as_ptr(),
+                md.as_ptr(),
+                -1,
+            )
+        };
+        rc == 1
     }
 
     pub const fn key_len(&self) -> usize {
@@ -233,68 +300,6 @@ fn crt_params(
         rsa.dmq1()?.as_ptr(),
         rsa.iqmp()?.as_ptr(),
     ))
-}
-
-pub fn add_pkcs1_sign_padding(nid: Nid, digest: &[u8], em: &mut [u8]) -> bool {
-    let tlen = em.len() as c_int;
-    let rc = if nid == Nid::MD5_SHA1 {
-        if digest.len() != 36 {
-            return false;
-        }
-        unsafe {
-            openssl_ffi::RSA_padding_add_PKCS1_type_1(
-                em.as_mut_ptr(),
-                tlen,
-                digest.as_ptr(),
-                digest.len() as c_int,
-            )
-        }
-    } else {
-        let Some(prefix) = digestinfo_prefix(nid) else {
-            return false;
-        };
-        // Largest DigestInfo is SHA-512 prefix (19) + digest (64).
-        let mut encoded = [0u8; 96];
-        let encoded_len = prefix.len() + digest.len();
-        if encoded_len > encoded.len() {
-            return false;
-        }
-        encoded[..prefix.len()].copy_from_slice(prefix);
-        encoded[prefix.len()..encoded_len].copy_from_slice(digest);
-        unsafe {
-            openssl_ffi::RSA_padding_add_PKCS1_type_1(
-                em.as_mut_ptr(),
-                tlen,
-                encoded.as_ptr(),
-                encoded_len as c_int,
-            )
-        }
-    };
-    rc == 1
-}
-
-pub fn add_pss_sign_padding(rsa: &RsaRef<Private>, nid: Nid, digest: &[u8], em: &mut [u8]) -> bool {
-    let Some(md) = MessageDigest::from_nid(nid) else {
-        return false;
-    };
-    // `RSA_padding_add_PKCS1_PSS_mgf1` reads `mHash` for `EVP_MD_size` bytes and
-    // writes `RSA_size` bytes into `EM`. It does not consult the slice lengths.
-    // A short digest at the end of a page is a SIGSEGV; on mapped memory the
-    // call still returns success.
-    if digest.len() != md.size() || em.len() != rsa.size() as usize {
-        return false;
-    }
-    let rc = unsafe {
-        openssl_ffi::RSA_padding_add_PKCS1_PSS_mgf1(
-            rsa.as_ptr(),
-            em.as_mut_ptr(),
-            digest.as_ptr(),
-            md.as_ptr(),
-            md.as_ptr(),
-            -1,
-        )
-    };
-    rc == 1
 }
 
 /// DER prefix of the `DigestInfo` value `T` for EMSA-PKCS1-v1_5.
