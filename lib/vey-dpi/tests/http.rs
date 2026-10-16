@@ -124,6 +124,7 @@ fn special_methods() {
         "MERGE",
         "MKACTIVITY",
         "MKREDIRECTREF",
+        "UPDATEREDIRECTREF",
     ];
 
     for method in methods {
