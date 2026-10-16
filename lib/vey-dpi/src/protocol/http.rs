@@ -197,7 +197,7 @@ impl ProtocolInspectState {
                 check_method!(b"UNCHECKOUT ");
                 check_method!(b"UNLINK ");
                 check_method!(b"UPDATE ");
-                check_method!(b"UNDATEREDIRECTREF ");
+                check_method!(b"UPDATEREDIRECTREF ");
             }
             b'V' => {
                 // 0x56
