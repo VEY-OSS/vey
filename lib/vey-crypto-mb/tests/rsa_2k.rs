@@ -163,6 +163,7 @@ fn rsa_2k_pss_padding_rejects_wrong_digest_len() {
     long[..32].copy_from_slice(&common::SHA256_DIGEST);
     assert!(RsaSlot::<RSA_2K_LEN>::prepare_pss_sign(&key, Nid::SHA256, &long).is_none());
     assert!(
-        RsaSlot::<RSA_2K_LEN>::prepare_pss_sign(&key, Nid::SHA256, &common::SHA256_DIGEST).is_some()
+        RsaSlot::<RSA_2K_LEN>::prepare_pss_sign(&key, Nid::SHA256, &common::SHA256_DIGEST)
+            .is_some()
     );
 }

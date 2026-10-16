@@ -103,10 +103,7 @@ impl LocalControllerImpl {
                     super::ctl_handle(r, w);
                 }
                 Err(e) => {
-                    warn!(
-                        "failed to re-open controller pipe {}: {e}",
-                        self.pipe_name
-                    );
+                    warn!("failed to re-open controller pipe {}: {e}", self.pipe_name);
                     let (r, w) = tokio::io::split(connected);
                     super::ctl_handle(r, w);
                     break;
