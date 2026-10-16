@@ -83,11 +83,7 @@ impl LocalControllerImpl {
     }
 
     pub(super) fn create_daemon(_daemon_name: &str, daemon_group: &str) -> anyhow::Result<Self> {
-        let socket_name = if daemon_group.is_empty() {
-            String::from("_.sock")
-        } else {
-            format!("{daemon_group}.sock")
-        };
+        let socket_name = daemon_socket_name(daemon_group);
         let mut listen_path = crate::opts::control_dir();
         listen_path.push(Path::new(&socket_name));
         match listen_path.symlink_metadata() {
@@ -129,7 +125,7 @@ impl LocalControllerImpl {
         _daemon_name: &str,
         daemon_group: &str,
     ) -> anyhow::Result<impl AsyncRead + AsyncWrite + use<>> {
-        let socket_name = format!("{daemon_group}.sock");
+        let socket_name = daemon_socket_name(daemon_group);
         let mut socket_path = crate::opts::control_dir();
         socket_path.push(Path::new(&socket_name));
 
@@ -219,6 +215,14 @@ impl Drop for LocalControllerImpl {
                 );
             }
         }
+    }
+}
+
+fn daemon_socket_name(daemon_group: &str) -> String {
+    if daemon_group.is_empty() {
+        String::from("_.sock")
+    } else {
+        format!("{daemon_group}.sock")
     }
 }
 
