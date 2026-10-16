@@ -50,6 +50,14 @@ fn check_mqtt_client_connect_request_invalid_first_byte() {
 }
 
 #[test]
+fn check_mqtt_client_connect_request_remaining_len_128() {
+    // 128 is encoded as 0x80 0x01. The protocol name follows those two bytes.
+    let data = b"\x10\x80\x01\x00\x04MQTT\x04\x00\x00";
+    let p = check_mqtt_data(data).expect("CONNECT with remaining length 128 should be detected");
+    assert_eq!(p, Protocol::Mqtt);
+}
+
+#[test]
 fn check_mqtt_client_connect_request_insufficient_remaining_len() {
     // Remaining length too small (9 bytes, needs 10)
     let data = b"\x10\x09\x00\x04MQTT\x04\x00\x00\x00\x00";
