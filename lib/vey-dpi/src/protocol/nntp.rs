@@ -33,8 +33,7 @@ impl ProtocolInspectState {
 
         // exclude impossible protocols
         self.exclude_other(MaybeProtocol::Ssh);
-        self.exclude_other(MaybeProtocol::Nntp);
-        self.exclude_other(MaybeProtocol::Nnsp);
+        self.exclude_other(MaybeProtocol::Pop3);
         self.exclude_other(MaybeProtocol::Imap);
         self.exclude_other(MaybeProtocol::Nats);
         self.exclude_other(MaybeProtocol::BitTorrent);
@@ -62,6 +61,6 @@ impl ProtocolInspectState {
             return Ok(None);
         }
 
-        Ok(Some(Protocol::Nntp))
+        Ok(Some(self.news_protocol()))
     }
 }
