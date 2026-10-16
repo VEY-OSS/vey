@@ -84,6 +84,52 @@ fn missing_line_feed() {
     assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
 }
 
+#[test]
+fn prefix_without_line_feed_still_matches_when_the_line_arrives() {
+    let mut inspector = ProtocolInspector::default();
+    inspector.push_protocol(MaybeProtocol::Nntp);
+    let config = ProtocolInspectionConfig::default();
+
+    let partial = b"200 Server ready\r";
+    let result = inspector.check_server_initial_data(&config, 119, partial);
+    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+
+    let protocol = inspector
+        .check_server_initial_data(&config, 119, b"200 Server ready\r\n")
+        .unwrap();
+    assert_eq!(protocol, Protocol::Nntp);
+}
+
+#[test]
+fn nnsp_prefix_without_line_feed_still_matches_when_the_line_arrives() {
+    let mut inspector = ProtocolInspector::default();
+    inspector.push_protocol(MaybeProtocol::Nnsp);
+    let config = ProtocolInspectionConfig::default();
+
+    let partial = b"200 Server ready\r";
+    let result = inspector.check_server_initial_data(&config, 433, partial);
+    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+
+    let protocol = inspector
+        .check_server_initial_data(&config, 433, b"200 Server ready\r\n")
+        .unwrap();
+    assert_eq!(protocol, Protocol::Nnsp);
+}
+
+#[test]
+fn port433_greeting_is_nnsp() {
+    let mut inspector = ProtocolInspector::default();
+    let config = ProtocolInspectionConfig::default();
+    let protocol = inspector
+        .check_server_initial_data(
+            &config,
+            433,
+            b"200 news.example InterNetNews server ready\r\n",
+        )
+        .unwrap();
+    assert_eq!(protocol, Protocol::Nnsp);
+}
+
 // Test protocol exclusion
 #[test]
 fn excludes_protocols_after_checks() {

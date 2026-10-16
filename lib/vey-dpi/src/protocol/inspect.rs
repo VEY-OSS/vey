@@ -61,6 +61,13 @@ impl ProtocolInspectState {
         }
     }
 
+    pub(crate) fn news_protocol(&self) -> Protocol {
+        match self.current {
+            Some(MaybeProtocol::Nnsp) => Protocol::Nnsp,
+            _ => Protocol::Nntp,
+        }
+    }
+
     #[inline]
     fn take_current(&mut self) -> Option<MaybeProtocol> {
         self.current.take()
