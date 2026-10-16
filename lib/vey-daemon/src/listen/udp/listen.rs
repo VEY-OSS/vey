@@ -813,7 +813,7 @@ where
             match raw_socket.set_buf_opts(config.socket_buffer()) {
                 Ok(_) => {
                     self.listen_config
-                        .set_socket_misc_opts(config.socket_misc_opts());
+                        .set_socket_buffer(config.socket_buffer());
                 }
                 Err(e) => {
                     warn!(
