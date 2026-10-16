@@ -277,6 +277,13 @@ pub fn add_pss_sign_padding(rsa: &RsaRef<Private>, nid: Nid, digest: &[u8], em: 
     let Some(md) = MessageDigest::from_nid(nid) else {
         return false;
     };
+    // `RSA_padding_add_PKCS1_PSS_mgf1` reads `mHash` for `EVP_MD_size` bytes and
+    // writes `RSA_size` bytes into `EM`. It does not consult the slice lengths.
+    // A short digest at the end of a page is a SIGSEGV; on mapped memory the
+    // call still returns success.
+    if digest.len() != md.size() || em.len() != rsa.size() as usize {
+        return false;
+    }
     let rc = unsafe {
         openssl_ffi::RSA_padding_add_PKCS1_PSS_mgf1(
             rsa.as_ptr(),
