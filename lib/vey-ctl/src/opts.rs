@@ -110,11 +110,7 @@ impl DaemonCtlArgs {
                 PathBuf::from(DEFAULT_TMP_CONTROL_DIR)
             }
         });
-        let socket_path = if self.pid != 0 {
-            control_dir.join(format!("{}_{}.sock", self.daemon_group, self.pid))
-        } else {
-            control_dir.join(format!("{}.sock", self.daemon_group))
-        };
+        let socket_path = control_dir.join(control_socket_name(&self.daemon_group, self.pid));
 
         let mut stream = tokio::net::UnixStream::connect(&socket_path)
             .await
@@ -159,6 +155,20 @@ impl DaemonCtlArgs {
             .await
             .map_err(|e| anyhow!("enter capnp mod failed: {e:?}"))?;
         Ok(())
+    }
+}
+
+/// Socket file name shared with the daemon listener.
+///
+/// An empty group is `_.sock`. The daemon's `create_daemon` uses that name;
+/// `{group}.sock` would be `.sock`, which the listener never creates.
+fn control_socket_name(daemon_group: &str, pid: usize) -> String {
+    if pid != 0 {
+        format!("{daemon_group}_{pid}.sock")
+    } else if daemon_group.is_empty() {
+        String::from("_.sock")
+    } else {
+        format!("{daemon_group}.sock")
     }
 }
 
@@ -244,6 +254,14 @@ mod tests {
         let mut args = DaemonCtlArgs::parse_clap(&matches);
         assert!(args.generate_shell_completion(|| Command::new("vey-ctl-test")));
         assert!(!args.generate_shell_completion(|| Command::new("vey-ctl-test")));
+    }
+
+    #[test]
+    fn empty_daemon_group_uses_underscore_socket() {
+        assert_eq!(control_socket_name("", 0), "_.sock");
+        assert_eq!(control_socket_name("workers", 0), "workers.sock");
+        assert_eq!(control_socket_name("", 7), "_7.sock");
+        assert_eq!(control_socket_name("workers", 7), "workers_7.sock");
     }
 
     #[test]
