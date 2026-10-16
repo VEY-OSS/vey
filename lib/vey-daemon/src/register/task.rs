@@ -68,15 +68,7 @@ impl RegisterTask {
     }
 
     pub async fn ping_until_end(&mut self) -> anyhow::Result<()> {
-        let header = format!(
-            "GET {} HTTP/1.1\r\n\
-             Host: {}\r\n\
-             Content-Length: 0\r\n\
-             Connection: Keep-Alive\r\n
-             \r\n",
-            self.config.ping_path,
-            self.config.upstream.host()
-        );
+        let header = self.config.ping_request_header();
 
         let mut interval = tokio::time::interval(self.config.ping_interval);
         loop {

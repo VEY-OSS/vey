@@ -47,6 +47,18 @@ impl RegisterConfig {
         self.retry_interval
     }
 
+    pub(crate) fn ping_request_header(&self) -> String {
+        format!(
+            "GET {} HTTP/1.1\r\n\
+             Host: {}\r\n\
+             Content-Length: 0\r\n\
+             Connection: Keep-Alive\r\n\
+             \r\n",
+            self.ping_path,
+            self.upstream.host()
+        )
+    }
+
     pub(crate) fn parse(&mut self, v: &Yaml) -> anyhow::Result<()> {
         match v {
             Yaml::Hash(map) => self.parse_map(map),
@@ -252,6 +264,30 @@ mod tests {
             "#
         );
         assert!(config.parse(&yaml).is_err());
+    }
+
+    #[test]
+    fn ping_header_terminates_after_keep_alive() {
+        let mut config = RegisterConfig::default();
+        let yaml = yaml_doc!(
+            r#"
+                upstream: "example.test:80"
+                ping_path: "/ping"
+            "#
+        );
+        config.parse(&yaml).unwrap();
+
+        let header = config.ping_request_header();
+        assert_eq!(
+            header,
+            "GET /ping HTTP/1.1\r\n\
+             Host: example.test\r\n\
+             Content-Length: 0\r\n\
+             Connection: Keep-Alive\r\n\
+             \r\n"
+        );
+        assert!(header.ends_with("\r\n\r\n"));
+        assert!(!header.contains("\n "));
     }
 
     #[test]
