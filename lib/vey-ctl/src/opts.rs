@@ -162,6 +162,7 @@ impl DaemonCtlArgs {
 ///
 /// An empty group is `_.sock`. The daemon's `create_daemon` uses that name;
 /// `{group}.sock` would be `.sock`, which the listener never creates.
+#[cfg(unix)]
 fn control_socket_name(daemon_group: &str, pid: usize) -> String {
     if pid != 0 {
         format!("{daemon_group}_{pid}.sock")
@@ -256,6 +257,7 @@ mod tests {
         assert!(!args.generate_shell_completion(|| Command::new("vey-ctl-test")));
     }
 
+    #[cfg(unix)]
     #[test]
     fn empty_daemon_group_uses_underscore_socket() {
         assert_eq!(control_socket_name("", 0), "_.sock");
