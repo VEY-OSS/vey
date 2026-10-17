@@ -157,7 +157,13 @@ impl FluentdClientConfig {
                 .map_err(|e| anyhow!("failed to create TLS connector: {e}"))?;
 
             match tokio::time::timeout(tls_client.handshake_timeout, tls_connect.connect()).await {
-                Ok(Ok(stream)) => Ok(FluentdConnection::Tls(stream)),
+                Ok(Ok(stream)) => {
+                    let tls_stream = self
+                        .handshake(stream)
+                        .await
+                        .context("fluentd handshake failed")?;
+                    Ok(FluentdConnection::Tls(tls_stream))
+                }
                 Ok(Err(e)) => Err(anyhow!("failed to tls connect to peer: {e}")),
                 Err(_) => Err(anyhow!("tls connect to peer timedout")),
             }

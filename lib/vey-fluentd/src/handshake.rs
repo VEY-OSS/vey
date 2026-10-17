@@ -98,7 +98,7 @@ pub(super) fn parse_helo(buf: &[u8]) -> anyhow::Result<HeloMsgRef<'_>> {
                     .map_err(|e| anyhow!("invalid 'bool' value for {key} option: {e:?}"))?;
                 msg.keepalive = keepalive;
             }
-            _ => {}
+            _ => return Err(anyhow!("unknown HELO option {key}")),
         }
     }
 
