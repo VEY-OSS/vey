@@ -199,30 +199,20 @@ where
             .limited_read_until(b'\n', self.config.max_line_len, buf)
             .await
             .map_err(FtpRawResponseError::ReadFailed)?;
-        match len {
-            0 => Err(FtpRawResponseError::ConnectionClosed),
-            1..=4 => {
-                // at least <code>\n
-                match std::str::from_utf8(buf) {
-                    Ok(rsp) => {
-                        crate::log_rsp!(rsp.trim_end());
-                        Err(FtpRawResponseError::InvalidLineFormat)
-                    }
-                    Err(_) => Err(FtpRawResponseError::LineIsNotUtf8),
-                }
-            }
-            _ => {
-                let rsp = std::str::from_utf8(buf)
-                    .map_err(|_| FtpRawResponseError::LineIsNotUtf8)?
-                    .trim_end();
-                crate::log_rsp!(rsp);
-
-                if !found {
-                    Err(FtpRawResponseError::LineTooLong)
-                } else {
-                    Ok(rsp)
-                }
-            }
+        if len == 0 {
+            return Err(FtpRawResponseError::ConnectionClosed);
+        }
+        let rsp = std::str::from_utf8(buf)
+            .map_err(|_| FtpRawResponseError::LineIsNotUtf8)?
+            .trim_end_matches('\n')
+            .trim_end_matches('\r');
+        crate::log_rsp!(rsp);
+        if !found {
+            Err(FtpRawResponseError::LineTooLong)
+        } else if rsp.len() < 4 {
+            Err(FtpRawResponseError::InvalidLineFormat)
+        } else {
+            Ok(rsp)
         }
     }
 
@@ -237,30 +227,20 @@ where
             .limited_read_until(b'\n', self.config.max_line_len, buf)
             .await
             .map_err(FtpRawResponseError::ReadFailed)?;
-        match len {
-            0 => Err(FtpRawResponseError::ConnectionClosed),
-            1 => {
-                // at least "\n"
-                match std::str::from_utf8(buf) {
-                    Ok(rsp) => {
-                        crate::log_rsp!(rsp.trim_end());
-                        Err(FtpRawResponseError::InvalidLineFormat)
-                    }
-                    Err(_) => Err(FtpRawResponseError::LineIsNotUtf8),
-                }
-            }
-            _ => {
-                let rsp = std::str::from_utf8(buf)
-                    .map_err(|_| FtpRawResponseError::LineIsNotUtf8)?
-                    .trim_end();
-                crate::log_rsp!(rsp);
-
-                if !found {
-                    Err(FtpRawResponseError::LineTooLong)
-                } else {
-                    Ok(rsp)
-                }
-            }
+        if len == 0 {
+            return Err(FtpRawResponseError::ConnectionClosed);
+        }
+        let rsp = std::str::from_utf8(buf)
+            .map_err(|_| FtpRawResponseError::LineIsNotUtf8)?
+            .trim_end_matches('\n')
+            .trim_end_matches('\r');
+        crate::log_rsp!(rsp);
+        if !found {
+            Err(FtpRawResponseError::LineTooLong)
+        } else if rsp.len() < 1 {
+            Err(FtpRawResponseError::InvalidLineFormat)
+        } else {
+            Ok(rsp)
         }
     }
 
