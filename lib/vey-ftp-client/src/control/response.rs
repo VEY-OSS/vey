@@ -237,7 +237,7 @@ where
         crate::log_rsp!(rsp);
         if !found {
             Err(FtpRawResponseError::LineTooLong)
-        } else if rsp.len() < 1 {
+        } else if rsp.is_empty() {
             Err(FtpRawResponseError::InvalidLineFormat)
         } else {
             Ok(rsp)
