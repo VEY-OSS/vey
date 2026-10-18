@@ -12,7 +12,8 @@ cd "${SCRIPT_DIR}"
 cat << EOF > ../../../lib/vey-geoip-types/src/country/iso_generated.rs
 /*
  * SPDX-License-Identifier: Apache-2.0
- * Copyright 2023 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2023 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 ///
@@ -36,7 +37,7 @@ const ALL_ALPHA3_CODES: &[&str] = &[
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha3.awk)
 ];
 
-const ALPHA2_FAST_MAP: &[IsoCountryCode] = &[
+const ALPHA2_FAST_MAP: &[Option<IsoCountryCode>] = &[
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2_map.awk)
 ];
 
@@ -60,7 +61,7 @@ impl IsoCountryCode {
     }
 
     pub fn variant_count() -> usize {
-        Self::$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_variant_count.awk) as usize
+        Self::$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_variant_count.awk) as usize + 1
     }
 
     pub fn continent(&self) -> ContinentCode {
@@ -85,7 +86,7 @@ impl FromStr for IsoCountryCode {
                 let s = s.to_uppercase();
                 let s = s.as_bytes();
                 let id = ((s[0] - b'A') as usize) * 26 + ((s[1] - b'A') as usize);
-                Ok(ALPHA2_FAST_MAP[id])
+                ALPHA2_FAST_MAP.get(id).ok_or(())?.ok_or(())
             }
             3 => match s.to_uppercase().as_str() {
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_from_alpha3_str.awk)

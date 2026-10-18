@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 ///
@@ -777,683 +778,683 @@ const ALL_ALPHA3_CODES: &[&str] = &[
     "ANT", /* Netherlands Antilles */
 ];
 
-const ALPHA2_FAST_MAP: &[IsoCountryCode] = &[
-    IsoCountryCode::AN, // 0
-    IsoCountryCode::AN, // 1
-    IsoCountryCode::AN, // 2
-    IsoCountryCode::AD, // 3 - AD
-    IsoCountryCode::AE, // 4 - AE
-    IsoCountryCode::AF, // 5 - AF
-    IsoCountryCode::AG, // 6 - AG
-    IsoCountryCode::AN, // 7
-    IsoCountryCode::AI, // 8 - AI
-    IsoCountryCode::AN, // 9
-    IsoCountryCode::AN, // 10
-    IsoCountryCode::AL, // 11 - AL
-    IsoCountryCode::AM, // 12 - AM
-    IsoCountryCode::AN, // 13 - AN
-    IsoCountryCode::AO, // 14 - AO
-    IsoCountryCode::AN, // 15
-    IsoCountryCode::AQ, // 16 - AQ
-    IsoCountryCode::AR, // 17 - AR
-    IsoCountryCode::AS, // 18 - AS
-    IsoCountryCode::AT, // 19 - AT
-    IsoCountryCode::AU, // 20 - AU
-    IsoCountryCode::AN, // 21
-    IsoCountryCode::AW, // 22 - AW
-    IsoCountryCode::AX, // 23 - AX
-    IsoCountryCode::AN, // 24
-    IsoCountryCode::AZ, // 25 - AZ
-    IsoCountryCode::BA, // 26 - BA
-    IsoCountryCode::BB, // 27 - BB
-    IsoCountryCode::AN, // 28
-    IsoCountryCode::BD, // 29 - BD
-    IsoCountryCode::BE, // 30 - BE
-    IsoCountryCode::BF, // 31 - BF
-    IsoCountryCode::BG, // 32 - BG
-    IsoCountryCode::BH, // 33 - BH
-    IsoCountryCode::BI, // 34 - BI
-    IsoCountryCode::BJ, // 35 - BJ
-    IsoCountryCode::AN, // 36
-    IsoCountryCode::BL, // 37 - BL
-    IsoCountryCode::BM, // 38 - BM
-    IsoCountryCode::BN, // 39 - BN
-    IsoCountryCode::BO, // 40 - BO
-    IsoCountryCode::AN, // 41
-    IsoCountryCode::BQ, // 42 - BQ
-    IsoCountryCode::BR, // 43 - BR
-    IsoCountryCode::BS, // 44 - BS
-    IsoCountryCode::BT, // 45 - BT
-    IsoCountryCode::AN, // 46
-    IsoCountryCode::BV, // 47 - BV
-    IsoCountryCode::BW, // 48 - BW
-    IsoCountryCode::AN, // 49
-    IsoCountryCode::BY, // 50 - BY
-    IsoCountryCode::BZ, // 51 - BZ
-    IsoCountryCode::CA, // 52 - CA
-    IsoCountryCode::AN, // 53
-    IsoCountryCode::CC, // 54 - CC
-    IsoCountryCode::CD, // 55 - CD
-    IsoCountryCode::AN, // 56
-    IsoCountryCode::CF, // 57 - CF
-    IsoCountryCode::CG, // 58 - CG
-    IsoCountryCode::CH, // 59 - CH
-    IsoCountryCode::CI, // 60 - CI
-    IsoCountryCode::AN, // 61
-    IsoCountryCode::CK, // 62 - CK
-    IsoCountryCode::CL, // 63 - CL
-    IsoCountryCode::CM, // 64 - CM
-    IsoCountryCode::CN, // 65 - CN
-    IsoCountryCode::CO, // 66 - CO
-    IsoCountryCode::AN, // 67
-    IsoCountryCode::AN, // 68
-    IsoCountryCode::CR, // 69 - CR
-    IsoCountryCode::CS, // 70 - CS
-    IsoCountryCode::AN, // 71
-    IsoCountryCode::CU, // 72 - CU
-    IsoCountryCode::CV, // 73 - CV
-    IsoCountryCode::CW, // 74 - CW
-    IsoCountryCode::CX, // 75 - CX
-    IsoCountryCode::CY, // 76 - CY
-    IsoCountryCode::CZ, // 77 - CZ
-    IsoCountryCode::AN, // 78
-    IsoCountryCode::AN, // 79
-    IsoCountryCode::AN, // 80
-    IsoCountryCode::AN, // 81
-    IsoCountryCode::DE, // 82 - DE
-    IsoCountryCode::AN, // 83
-    IsoCountryCode::AN, // 84
-    IsoCountryCode::AN, // 85
-    IsoCountryCode::AN, // 86
-    IsoCountryCode::DJ, // 87 - DJ
-    IsoCountryCode::DK, // 88 - DK
-    IsoCountryCode::AN, // 89
-    IsoCountryCode::DM, // 90 - DM
-    IsoCountryCode::AN, // 91
-    IsoCountryCode::DO, // 92 - DO
-    IsoCountryCode::AN, // 93
-    IsoCountryCode::AN, // 94
-    IsoCountryCode::AN, // 95
-    IsoCountryCode::AN, // 96
-    IsoCountryCode::AN, // 97
-    IsoCountryCode::AN, // 98
-    IsoCountryCode::AN, // 99
-    IsoCountryCode::AN, // 100
-    IsoCountryCode::AN, // 101
-    IsoCountryCode::AN, // 102
-    IsoCountryCode::DZ, // 103 - DZ
-    IsoCountryCode::AN, // 104
-    IsoCountryCode::AN, // 105
-    IsoCountryCode::EC, // 106 - EC
-    IsoCountryCode::AN, // 107
-    IsoCountryCode::EE, // 108 - EE
-    IsoCountryCode::AN, // 109
-    IsoCountryCode::EG, // 110 - EG
-    IsoCountryCode::EH, // 111 - EH
-    IsoCountryCode::AN, // 112
-    IsoCountryCode::AN, // 113
-    IsoCountryCode::AN, // 114
-    IsoCountryCode::AN, // 115
-    IsoCountryCode::AN, // 116
-    IsoCountryCode::AN, // 117
-    IsoCountryCode::AN, // 118
-    IsoCountryCode::AN, // 119
-    IsoCountryCode::AN, // 120
-    IsoCountryCode::ER, // 121 - ER
-    IsoCountryCode::ES, // 122 - ES
-    IsoCountryCode::ET, // 123 - ET
-    IsoCountryCode::AN, // 124
-    IsoCountryCode::AN, // 125
-    IsoCountryCode::AN, // 126
-    IsoCountryCode::AN, // 127
-    IsoCountryCode::AN, // 128
-    IsoCountryCode::AN, // 129
-    IsoCountryCode::AN, // 130
-    IsoCountryCode::AN, // 131
-    IsoCountryCode::AN, // 132
-    IsoCountryCode::AN, // 133
-    IsoCountryCode::AN, // 134
-    IsoCountryCode::AN, // 135
-    IsoCountryCode::AN, // 136
-    IsoCountryCode::AN, // 137
-    IsoCountryCode::FI, // 138 - FI
-    IsoCountryCode::FJ, // 139 - FJ
-    IsoCountryCode::FK, // 140 - FK
-    IsoCountryCode::AN, // 141
-    IsoCountryCode::FM, // 142 - FM
-    IsoCountryCode::AN, // 143
-    IsoCountryCode::FO, // 144 - FO
-    IsoCountryCode::AN, // 145
-    IsoCountryCode::AN, // 146
-    IsoCountryCode::FR, // 147 - FR
-    IsoCountryCode::AN, // 148
-    IsoCountryCode::AN, // 149
-    IsoCountryCode::AN, // 150
-    IsoCountryCode::AN, // 151
-    IsoCountryCode::AN, // 152
-    IsoCountryCode::AN, // 153
-    IsoCountryCode::AN, // 154
-    IsoCountryCode::AN, // 155
-    IsoCountryCode::GA, // 156 - GA
-    IsoCountryCode::GB, // 157 - GB
-    IsoCountryCode::AN, // 158
-    IsoCountryCode::GD, // 159 - GD
-    IsoCountryCode::GE, // 160 - GE
-    IsoCountryCode::GF, // 161 - GF
-    IsoCountryCode::GG, // 162 - GG
-    IsoCountryCode::GH, // 163 - GH
-    IsoCountryCode::GI, // 164 - GI
-    IsoCountryCode::AN, // 165
-    IsoCountryCode::AN, // 166
-    IsoCountryCode::GL, // 167 - GL
-    IsoCountryCode::GM, // 168 - GM
-    IsoCountryCode::GN, // 169 - GN
-    IsoCountryCode::AN, // 170
-    IsoCountryCode::GP, // 171 - GP
-    IsoCountryCode::GQ, // 172 - GQ
-    IsoCountryCode::GR, // 173 - GR
-    IsoCountryCode::GS, // 174 - GS
-    IsoCountryCode::GT, // 175 - GT
-    IsoCountryCode::GU, // 176 - GU
-    IsoCountryCode::AN, // 177
-    IsoCountryCode::GW, // 178 - GW
-    IsoCountryCode::AN, // 179
-    IsoCountryCode::GY, // 180 - GY
-    IsoCountryCode::AN, // 181
-    IsoCountryCode::AN, // 182
-    IsoCountryCode::AN, // 183
-    IsoCountryCode::AN, // 184
-    IsoCountryCode::AN, // 185
-    IsoCountryCode::AN, // 186
-    IsoCountryCode::AN, // 187
-    IsoCountryCode::AN, // 188
-    IsoCountryCode::AN, // 189
-    IsoCountryCode::AN, // 190
-    IsoCountryCode::AN, // 191
-    IsoCountryCode::HK, // 192 - HK
-    IsoCountryCode::AN, // 193
-    IsoCountryCode::HM, // 194 - HM
-    IsoCountryCode::HN, // 195 - HN
-    IsoCountryCode::AN, // 196
-    IsoCountryCode::AN, // 197
-    IsoCountryCode::AN, // 198
-    IsoCountryCode::HR, // 199 - HR
-    IsoCountryCode::AN, // 200
-    IsoCountryCode::HT, // 201 - HT
-    IsoCountryCode::HU, // 202 - HU
-    IsoCountryCode::AN, // 203
-    IsoCountryCode::AN, // 204
-    IsoCountryCode::AN, // 205
-    IsoCountryCode::AN, // 206
-    IsoCountryCode::AN, // 207
-    IsoCountryCode::AN, // 208
-    IsoCountryCode::AN, // 209
-    IsoCountryCode::AN, // 210
-    IsoCountryCode::ID, // 211 - ID
-    IsoCountryCode::IE, // 212 - IE
-    IsoCountryCode::AN, // 213
-    IsoCountryCode::AN, // 214
-    IsoCountryCode::AN, // 215
-    IsoCountryCode::AN, // 216
-    IsoCountryCode::AN, // 217
-    IsoCountryCode::AN, // 218
-    IsoCountryCode::IL, // 219 - IL
-    IsoCountryCode::IM, // 220 - IM
-    IsoCountryCode::IN, // 221 - IN
-    IsoCountryCode::IO, // 222 - IO
-    IsoCountryCode::AN, // 223
-    IsoCountryCode::IQ, // 224 - IQ
-    IsoCountryCode::IR, // 225 - IR
-    IsoCountryCode::IS, // 226 - IS
-    IsoCountryCode::IT, // 227 - IT
-    IsoCountryCode::AN, // 228
-    IsoCountryCode::AN, // 229
-    IsoCountryCode::AN, // 230
-    IsoCountryCode::AN, // 231
-    IsoCountryCode::AN, // 232
-    IsoCountryCode::AN, // 233
-    IsoCountryCode::AN, // 234
-    IsoCountryCode::AN, // 235
-    IsoCountryCode::AN, // 236
-    IsoCountryCode::AN, // 237
-    IsoCountryCode::JE, // 238 - JE
-    IsoCountryCode::AN, // 239
-    IsoCountryCode::AN, // 240
-    IsoCountryCode::AN, // 241
-    IsoCountryCode::AN, // 242
-    IsoCountryCode::AN, // 243
-    IsoCountryCode::AN, // 244
-    IsoCountryCode::AN, // 245
-    IsoCountryCode::JM, // 246 - JM
-    IsoCountryCode::AN, // 247
-    IsoCountryCode::JO, // 248 - JO
-    IsoCountryCode::JP, // 249 - JP
-    IsoCountryCode::AN, // 250
-    IsoCountryCode::AN, // 251
-    IsoCountryCode::AN, // 252
-    IsoCountryCode::AN, // 253
-    IsoCountryCode::AN, // 254
-    IsoCountryCode::AN, // 255
-    IsoCountryCode::AN, // 256
-    IsoCountryCode::AN, // 257
-    IsoCountryCode::AN, // 258
-    IsoCountryCode::AN, // 259
-    IsoCountryCode::AN, // 260
-    IsoCountryCode::AN, // 261
-    IsoCountryCode::AN, // 262
-    IsoCountryCode::AN, // 263
-    IsoCountryCode::KE, // 264 - KE
-    IsoCountryCode::AN, // 265
-    IsoCountryCode::KG, // 266 - KG
-    IsoCountryCode::KH, // 267 - KH
-    IsoCountryCode::KI, // 268 - KI
-    IsoCountryCode::AN, // 269
-    IsoCountryCode::AN, // 270
-    IsoCountryCode::AN, // 271
-    IsoCountryCode::KM, // 272 - KM
-    IsoCountryCode::KN, // 273 - KN
-    IsoCountryCode::AN, // 274
-    IsoCountryCode::KP, // 275 - KP
-    IsoCountryCode::AN, // 276
-    IsoCountryCode::KR, // 277 - KR
-    IsoCountryCode::AN, // 278
-    IsoCountryCode::AN, // 279
-    IsoCountryCode::AN, // 280
-    IsoCountryCode::AN, // 281
-    IsoCountryCode::KW, // 282 - KW
-    IsoCountryCode::AN, // 283
-    IsoCountryCode::KY, // 284 - KY
-    IsoCountryCode::KZ, // 285 - KZ
-    IsoCountryCode::LA, // 286 - LA
-    IsoCountryCode::LB, // 287 - LB
-    IsoCountryCode::LC, // 288 - LC
-    IsoCountryCode::AN, // 289
-    IsoCountryCode::AN, // 290
-    IsoCountryCode::AN, // 291
-    IsoCountryCode::AN, // 292
-    IsoCountryCode::AN, // 293
-    IsoCountryCode::LI, // 294 - LI
-    IsoCountryCode::AN, // 295
-    IsoCountryCode::LK, // 296 - LK
-    IsoCountryCode::AN, // 297
-    IsoCountryCode::AN, // 298
-    IsoCountryCode::AN, // 299
-    IsoCountryCode::AN, // 300
-    IsoCountryCode::AN, // 301
-    IsoCountryCode::AN, // 302
-    IsoCountryCode::LR, // 303 - LR
-    IsoCountryCode::LS, // 304 - LS
-    IsoCountryCode::LT, // 305 - LT
-    IsoCountryCode::LU, // 306 - LU
-    IsoCountryCode::LV, // 307 - LV
-    IsoCountryCode::AN, // 308
-    IsoCountryCode::AN, // 309
-    IsoCountryCode::LY, // 310 - LY
-    IsoCountryCode::AN, // 311
-    IsoCountryCode::MA, // 312 - MA
-    IsoCountryCode::AN, // 313
-    IsoCountryCode::MC, // 314 - MC
-    IsoCountryCode::MD, // 315 - MD
-    IsoCountryCode::ME, // 316 - ME
-    IsoCountryCode::MF, // 317 - MF
-    IsoCountryCode::MG, // 318 - MG
-    IsoCountryCode::MH, // 319 - MH
-    IsoCountryCode::AN, // 320
-    IsoCountryCode::AN, // 321
-    IsoCountryCode::MK, // 322 - MK
-    IsoCountryCode::ML, // 323 - ML
-    IsoCountryCode::MM, // 324 - MM
-    IsoCountryCode::MN, // 325 - MN
-    IsoCountryCode::MO, // 326 - MO
-    IsoCountryCode::MP, // 327 - MP
-    IsoCountryCode::MQ, // 328 - MQ
-    IsoCountryCode::MR, // 329 - MR
-    IsoCountryCode::MS, // 330 - MS
-    IsoCountryCode::MT, // 331 - MT
-    IsoCountryCode::MU, // 332 - MU
-    IsoCountryCode::MV, // 333 - MV
-    IsoCountryCode::MW, // 334 - MW
-    IsoCountryCode::MX, // 335 - MX
-    IsoCountryCode::MY, // 336 - MY
-    IsoCountryCode::MZ, // 337 - MZ
-    IsoCountryCode::NA, // 338 - NA
-    IsoCountryCode::AN, // 339
-    IsoCountryCode::NC, // 340 - NC
-    IsoCountryCode::AN, // 341
-    IsoCountryCode::NE, // 342 - NE
-    IsoCountryCode::NF, // 343 - NF
-    IsoCountryCode::NG, // 344 - NG
-    IsoCountryCode::AN, // 345
-    IsoCountryCode::NI, // 346 - NI
-    IsoCountryCode::AN, // 347
-    IsoCountryCode::AN, // 348
-    IsoCountryCode::NL, // 349 - NL
-    IsoCountryCode::AN, // 350
-    IsoCountryCode::AN, // 351
-    IsoCountryCode::NO, // 352 - NO
-    IsoCountryCode::NP, // 353 - NP
-    IsoCountryCode::AN, // 354
-    IsoCountryCode::NR, // 355 - NR
-    IsoCountryCode::AN, // 356
-    IsoCountryCode::AN, // 357
-    IsoCountryCode::NU, // 358 - NU
-    IsoCountryCode::AN, // 359
-    IsoCountryCode::AN, // 360
-    IsoCountryCode::AN, // 361
-    IsoCountryCode::AN, // 362
-    IsoCountryCode::NZ, // 363 - NZ
-    IsoCountryCode::AN, // 364
-    IsoCountryCode::AN, // 365
-    IsoCountryCode::AN, // 366
-    IsoCountryCode::AN, // 367
-    IsoCountryCode::AN, // 368
-    IsoCountryCode::AN, // 369
-    IsoCountryCode::AN, // 370
-    IsoCountryCode::AN, // 371
-    IsoCountryCode::AN, // 372
-    IsoCountryCode::AN, // 373
-    IsoCountryCode::AN, // 374
-    IsoCountryCode::AN, // 375
-    IsoCountryCode::OM, // 376 - OM
-    IsoCountryCode::AN, // 377
-    IsoCountryCode::AN, // 378
-    IsoCountryCode::AN, // 379
-    IsoCountryCode::AN, // 380
-    IsoCountryCode::AN, // 381
-    IsoCountryCode::AN, // 382
-    IsoCountryCode::AN, // 383
-    IsoCountryCode::AN, // 384
-    IsoCountryCode::AN, // 385
-    IsoCountryCode::AN, // 386
-    IsoCountryCode::AN, // 387
-    IsoCountryCode::AN, // 388
-    IsoCountryCode::AN, // 389
-    IsoCountryCode::PA, // 390 - PA
-    IsoCountryCode::AN, // 391
-    IsoCountryCode::AN, // 392
-    IsoCountryCode::AN, // 393
-    IsoCountryCode::PE, // 394 - PE
-    IsoCountryCode::PF, // 395 - PF
-    IsoCountryCode::PG, // 396 - PG
-    IsoCountryCode::PH, // 397 - PH
-    IsoCountryCode::AN, // 398
-    IsoCountryCode::AN, // 399
-    IsoCountryCode::PK, // 400 - PK
-    IsoCountryCode::PL, // 401 - PL
-    IsoCountryCode::PM, // 402 - PM
-    IsoCountryCode::PN, // 403 - PN
-    IsoCountryCode::AN, // 404
-    IsoCountryCode::AN, // 405
-    IsoCountryCode::AN, // 406
-    IsoCountryCode::PR, // 407 - PR
-    IsoCountryCode::PS, // 408 - PS
-    IsoCountryCode::PT, // 409 - PT
-    IsoCountryCode::AN, // 410
-    IsoCountryCode::AN, // 411
-    IsoCountryCode::PW, // 412 - PW
-    IsoCountryCode::AN, // 413
-    IsoCountryCode::PY, // 414 - PY
-    IsoCountryCode::AN, // 415
-    IsoCountryCode::QA, // 416 - QA
-    IsoCountryCode::AN, // 417
-    IsoCountryCode::AN, // 418
-    IsoCountryCode::AN, // 419
-    IsoCountryCode::AN, // 420
-    IsoCountryCode::AN, // 421
-    IsoCountryCode::AN, // 422
-    IsoCountryCode::AN, // 423
-    IsoCountryCode::AN, // 424
-    IsoCountryCode::AN, // 425
-    IsoCountryCode::AN, // 426
-    IsoCountryCode::AN, // 427
-    IsoCountryCode::AN, // 428
-    IsoCountryCode::AN, // 429
-    IsoCountryCode::AN, // 430
-    IsoCountryCode::AN, // 431
-    IsoCountryCode::AN, // 432
-    IsoCountryCode::AN, // 433
-    IsoCountryCode::AN, // 434
-    IsoCountryCode::AN, // 435
-    IsoCountryCode::AN, // 436
-    IsoCountryCode::AN, // 437
-    IsoCountryCode::AN, // 438
-    IsoCountryCode::AN, // 439
-    IsoCountryCode::AN, // 440
-    IsoCountryCode::AN, // 441
-    IsoCountryCode::AN, // 442
-    IsoCountryCode::AN, // 443
-    IsoCountryCode::AN, // 444
-    IsoCountryCode::AN, // 445
-    IsoCountryCode::RE, // 446 - RE
-    IsoCountryCode::AN, // 447
-    IsoCountryCode::AN, // 448
-    IsoCountryCode::AN, // 449
-    IsoCountryCode::AN, // 450
-    IsoCountryCode::AN, // 451
-    IsoCountryCode::AN, // 452
-    IsoCountryCode::AN, // 453
-    IsoCountryCode::AN, // 454
-    IsoCountryCode::AN, // 455
-    IsoCountryCode::RO, // 456 - RO
-    IsoCountryCode::AN, // 457
-    IsoCountryCode::AN, // 458
-    IsoCountryCode::AN, // 459
-    IsoCountryCode::RS, // 460 - RS
-    IsoCountryCode::AN, // 461
-    IsoCountryCode::RU, // 462 - RU
-    IsoCountryCode::AN, // 463
-    IsoCountryCode::RW, // 464 - RW
-    IsoCountryCode::AN, // 465
-    IsoCountryCode::AN, // 466
-    IsoCountryCode::AN, // 467
-    IsoCountryCode::SA, // 468 - SA
-    IsoCountryCode::SB, // 469 - SB
-    IsoCountryCode::SC, // 470 - SC
-    IsoCountryCode::SD, // 471 - SD
-    IsoCountryCode::SE, // 472 - SE
-    IsoCountryCode::AN, // 473
-    IsoCountryCode::SG, // 474 - SG
-    IsoCountryCode::SH, // 475 - SH
-    IsoCountryCode::SI, // 476 - SI
-    IsoCountryCode::SJ, // 477 - SJ
-    IsoCountryCode::SK, // 478 - SK
-    IsoCountryCode::SL, // 479 - SL
-    IsoCountryCode::SM, // 480 - SM
-    IsoCountryCode::SN, // 481 - SN
-    IsoCountryCode::SO, // 482 - SO
-    IsoCountryCode::AN, // 483
-    IsoCountryCode::AN, // 484
-    IsoCountryCode::SR, // 485 - SR
-    IsoCountryCode::SS, // 486 - SS
-    IsoCountryCode::ST, // 487 - ST
-    IsoCountryCode::AN, // 488
-    IsoCountryCode::SV, // 489 - SV
-    IsoCountryCode::AN, // 490
-    IsoCountryCode::SX, // 491 - SX
-    IsoCountryCode::SY, // 492 - SY
-    IsoCountryCode::SZ, // 493 - SZ
-    IsoCountryCode::AN, // 494
-    IsoCountryCode::AN, // 495
-    IsoCountryCode::TC, // 496 - TC
-    IsoCountryCode::TD, // 497 - TD
-    IsoCountryCode::AN, // 498
-    IsoCountryCode::TF, // 499 - TF
-    IsoCountryCode::TG, // 500 - TG
-    IsoCountryCode::TH, // 501 - TH
-    IsoCountryCode::AN, // 502
-    IsoCountryCode::TJ, // 503 - TJ
-    IsoCountryCode::TK, // 504 - TK
-    IsoCountryCode::TL, // 505 - TL
-    IsoCountryCode::TM, // 506 - TM
-    IsoCountryCode::TN, // 507 - TN
-    IsoCountryCode::TO, // 508 - TO
-    IsoCountryCode::AN, // 509
-    IsoCountryCode::AN, // 510
-    IsoCountryCode::TR, // 511 - TR
-    IsoCountryCode::AN, // 512
-    IsoCountryCode::TT, // 513 - TT
-    IsoCountryCode::AN, // 514
-    IsoCountryCode::TV, // 515 - TV
-    IsoCountryCode::TW, // 516 - TW
-    IsoCountryCode::AN, // 517
-    IsoCountryCode::AN, // 518
-    IsoCountryCode::TZ, // 519 - TZ
-    IsoCountryCode::UA, // 520 - UA
-    IsoCountryCode::AN, // 521
-    IsoCountryCode::AN, // 522
-    IsoCountryCode::AN, // 523
-    IsoCountryCode::AN, // 524
-    IsoCountryCode::AN, // 525
-    IsoCountryCode::UG, // 526 - UG
-    IsoCountryCode::AN, // 527
-    IsoCountryCode::AN, // 528
-    IsoCountryCode::AN, // 529
-    IsoCountryCode::AN, // 530
-    IsoCountryCode::AN, // 531
-    IsoCountryCode::UM, // 532 - UM
-    IsoCountryCode::AN, // 533
-    IsoCountryCode::AN, // 534
-    IsoCountryCode::AN, // 535
-    IsoCountryCode::AN, // 536
-    IsoCountryCode::AN, // 537
-    IsoCountryCode::US, // 538 - US
-    IsoCountryCode::AN, // 539
-    IsoCountryCode::AN, // 540
-    IsoCountryCode::AN, // 541
-    IsoCountryCode::AN, // 542
-    IsoCountryCode::AN, // 543
-    IsoCountryCode::UY, // 544 - UY
-    IsoCountryCode::UZ, // 545 - UZ
-    IsoCountryCode::VA, // 546 - VA
-    IsoCountryCode::AN, // 547
-    IsoCountryCode::VC, // 548 - VC
-    IsoCountryCode::AN, // 549
-    IsoCountryCode::VE, // 550 - VE
-    IsoCountryCode::AN, // 551
-    IsoCountryCode::VG, // 552 - VG
-    IsoCountryCode::AN, // 553
-    IsoCountryCode::VI, // 554 - VI
-    IsoCountryCode::AN, // 555
-    IsoCountryCode::AN, // 556
-    IsoCountryCode::AN, // 557
-    IsoCountryCode::AN, // 558
-    IsoCountryCode::VN, // 559 - VN
-    IsoCountryCode::AN, // 560
-    IsoCountryCode::AN, // 561
-    IsoCountryCode::AN, // 562
-    IsoCountryCode::AN, // 563
-    IsoCountryCode::AN, // 564
-    IsoCountryCode::AN, // 565
-    IsoCountryCode::VU, // 566 - VU
-    IsoCountryCode::AN, // 567
-    IsoCountryCode::AN, // 568
-    IsoCountryCode::AN, // 569
-    IsoCountryCode::AN, // 570
-    IsoCountryCode::AN, // 571
-    IsoCountryCode::AN, // 572
-    IsoCountryCode::AN, // 573
-    IsoCountryCode::AN, // 574
-    IsoCountryCode::AN, // 575
-    IsoCountryCode::AN, // 576
-    IsoCountryCode::WF, // 577 - WF
-    IsoCountryCode::AN, // 578
-    IsoCountryCode::AN, // 579
-    IsoCountryCode::AN, // 580
-    IsoCountryCode::AN, // 581
-    IsoCountryCode::AN, // 582
-    IsoCountryCode::AN, // 583
-    IsoCountryCode::AN, // 584
-    IsoCountryCode::AN, // 585
-    IsoCountryCode::AN, // 586
-    IsoCountryCode::AN, // 587
-    IsoCountryCode::AN, // 588
-    IsoCountryCode::AN, // 589
-    IsoCountryCode::WS, // 590 - WS
-    IsoCountryCode::AN, // 591
-    IsoCountryCode::AN, // 592
-    IsoCountryCode::AN, // 593
-    IsoCountryCode::AN, // 594
-    IsoCountryCode::AN, // 595
-    IsoCountryCode::AN, // 596
-    IsoCountryCode::AN, // 597
-    IsoCountryCode::AN, // 598
-    IsoCountryCode::AN, // 599
-    IsoCountryCode::AN, // 600
-    IsoCountryCode::AN, // 601
-    IsoCountryCode::AN, // 602
-    IsoCountryCode::AN, // 603
-    IsoCountryCode::AN, // 604
-    IsoCountryCode::AN, // 605
-    IsoCountryCode::AN, // 606
-    IsoCountryCode::AN, // 607
-    IsoCountryCode::XK, // 608 - XK
-    IsoCountryCode::AN, // 609
-    IsoCountryCode::AN, // 610
-    IsoCountryCode::AN, // 611
-    IsoCountryCode::AN, // 612
-    IsoCountryCode::AN, // 613
-    IsoCountryCode::AN, // 614
-    IsoCountryCode::AN, // 615
-    IsoCountryCode::AN, // 616
-    IsoCountryCode::AN, // 617
-    IsoCountryCode::AN, // 618
-    IsoCountryCode::AN, // 619
-    IsoCountryCode::AN, // 620
-    IsoCountryCode::AN, // 621
-    IsoCountryCode::AN, // 622
-    IsoCountryCode::AN, // 623
-    IsoCountryCode::AN, // 624
-    IsoCountryCode::AN, // 625
-    IsoCountryCode::AN, // 626
-    IsoCountryCode::AN, // 627
-    IsoCountryCode::YE, // 628 - YE
-    IsoCountryCode::AN, // 629
-    IsoCountryCode::AN, // 630
-    IsoCountryCode::AN, // 631
-    IsoCountryCode::AN, // 632
-    IsoCountryCode::AN, // 633
-    IsoCountryCode::AN, // 634
-    IsoCountryCode::AN, // 635
-    IsoCountryCode::AN, // 636
-    IsoCountryCode::AN, // 637
-    IsoCountryCode::AN, // 638
-    IsoCountryCode::AN, // 639
-    IsoCountryCode::AN, // 640
-    IsoCountryCode::AN, // 641
-    IsoCountryCode::AN, // 642
-    IsoCountryCode::YT, // 643 - YT
-    IsoCountryCode::AN, // 644
-    IsoCountryCode::AN, // 645
-    IsoCountryCode::AN, // 646
-    IsoCountryCode::AN, // 647
-    IsoCountryCode::AN, // 648
-    IsoCountryCode::AN, // 649
-    IsoCountryCode::ZA, // 650 - ZA
-    IsoCountryCode::AN, // 651
-    IsoCountryCode::AN, // 652
-    IsoCountryCode::AN, // 653
-    IsoCountryCode::AN, // 654
-    IsoCountryCode::AN, // 655
-    IsoCountryCode::AN, // 656
-    IsoCountryCode::AN, // 657
-    IsoCountryCode::AN, // 658
-    IsoCountryCode::AN, // 659
-    IsoCountryCode::AN, // 660
-    IsoCountryCode::AN, // 661
-    IsoCountryCode::ZM, // 662 - ZM
-    IsoCountryCode::AN, // 663
-    IsoCountryCode::AN, // 664
-    IsoCountryCode::AN, // 665
-    IsoCountryCode::AN, // 666
-    IsoCountryCode::AN, // 667
-    IsoCountryCode::AN, // 668
-    IsoCountryCode::AN, // 669
-    IsoCountryCode::AN, // 670
-    IsoCountryCode::AN, // 671
-    IsoCountryCode::ZW, // 672 - ZW
-    IsoCountryCode::AN, // 673
-    IsoCountryCode::AN, // 674
-    IsoCountryCode::AN, // 675
+const ALPHA2_FAST_MAP: &[Option<IsoCountryCode>] = &[
+    None,                     // 0
+    None,                     // 1
+    None,                     // 2
+    Some(IsoCountryCode::AD), // 3 - AD
+    Some(IsoCountryCode::AE), // 4 - AE
+    Some(IsoCountryCode::AF), // 5 - AF
+    Some(IsoCountryCode::AG), // 6 - AG
+    None,                     // 7
+    Some(IsoCountryCode::AI), // 8 - AI
+    None,                     // 9
+    None,                     // 10
+    Some(IsoCountryCode::AL), // 11 - AL
+    Some(IsoCountryCode::AM), // 12 - AM
+    Some(IsoCountryCode::AN), // 13 - AN
+    Some(IsoCountryCode::AO), // 14 - AO
+    None,                     // 15
+    Some(IsoCountryCode::AQ), // 16 - AQ
+    Some(IsoCountryCode::AR), // 17 - AR
+    Some(IsoCountryCode::AS), // 18 - AS
+    Some(IsoCountryCode::AT), // 19 - AT
+    Some(IsoCountryCode::AU), // 20 - AU
+    None,                     // 21
+    Some(IsoCountryCode::AW), // 22 - AW
+    Some(IsoCountryCode::AX), // 23 - AX
+    None,                     // 24
+    Some(IsoCountryCode::AZ), // 25 - AZ
+    Some(IsoCountryCode::BA), // 26 - BA
+    Some(IsoCountryCode::BB), // 27 - BB
+    None,                     // 28
+    Some(IsoCountryCode::BD), // 29 - BD
+    Some(IsoCountryCode::BE), // 30 - BE
+    Some(IsoCountryCode::BF), // 31 - BF
+    Some(IsoCountryCode::BG), // 32 - BG
+    Some(IsoCountryCode::BH), // 33 - BH
+    Some(IsoCountryCode::BI), // 34 - BI
+    Some(IsoCountryCode::BJ), // 35 - BJ
+    None,                     // 36
+    Some(IsoCountryCode::BL), // 37 - BL
+    Some(IsoCountryCode::BM), // 38 - BM
+    Some(IsoCountryCode::BN), // 39 - BN
+    Some(IsoCountryCode::BO), // 40 - BO
+    None,                     // 41
+    Some(IsoCountryCode::BQ), // 42 - BQ
+    Some(IsoCountryCode::BR), // 43 - BR
+    Some(IsoCountryCode::BS), // 44 - BS
+    Some(IsoCountryCode::BT), // 45 - BT
+    None,                     // 46
+    Some(IsoCountryCode::BV), // 47 - BV
+    Some(IsoCountryCode::BW), // 48 - BW
+    None,                     // 49
+    Some(IsoCountryCode::BY), // 50 - BY
+    Some(IsoCountryCode::BZ), // 51 - BZ
+    Some(IsoCountryCode::CA), // 52 - CA
+    None,                     // 53
+    Some(IsoCountryCode::CC), // 54 - CC
+    Some(IsoCountryCode::CD), // 55 - CD
+    None,                     // 56
+    Some(IsoCountryCode::CF), // 57 - CF
+    Some(IsoCountryCode::CG), // 58 - CG
+    Some(IsoCountryCode::CH), // 59 - CH
+    Some(IsoCountryCode::CI), // 60 - CI
+    None,                     // 61
+    Some(IsoCountryCode::CK), // 62 - CK
+    Some(IsoCountryCode::CL), // 63 - CL
+    Some(IsoCountryCode::CM), // 64 - CM
+    Some(IsoCountryCode::CN), // 65 - CN
+    Some(IsoCountryCode::CO), // 66 - CO
+    None,                     // 67
+    None,                     // 68
+    Some(IsoCountryCode::CR), // 69 - CR
+    Some(IsoCountryCode::CS), // 70 - CS
+    None,                     // 71
+    Some(IsoCountryCode::CU), // 72 - CU
+    Some(IsoCountryCode::CV), // 73 - CV
+    Some(IsoCountryCode::CW), // 74 - CW
+    Some(IsoCountryCode::CX), // 75 - CX
+    Some(IsoCountryCode::CY), // 76 - CY
+    Some(IsoCountryCode::CZ), // 77 - CZ
+    None,                     // 78
+    None,                     // 79
+    None,                     // 80
+    None,                     // 81
+    Some(IsoCountryCode::DE), // 82 - DE
+    None,                     // 83
+    None,                     // 84
+    None,                     // 85
+    None,                     // 86
+    Some(IsoCountryCode::DJ), // 87 - DJ
+    Some(IsoCountryCode::DK), // 88 - DK
+    None,                     // 89
+    Some(IsoCountryCode::DM), // 90 - DM
+    None,                     // 91
+    Some(IsoCountryCode::DO), // 92 - DO
+    None,                     // 93
+    None,                     // 94
+    None,                     // 95
+    None,                     // 96
+    None,                     // 97
+    None,                     // 98
+    None,                     // 99
+    None,                     // 100
+    None,                     // 101
+    None,                     // 102
+    Some(IsoCountryCode::DZ), // 103 - DZ
+    None,                     // 104
+    None,                     // 105
+    Some(IsoCountryCode::EC), // 106 - EC
+    None,                     // 107
+    Some(IsoCountryCode::EE), // 108 - EE
+    None,                     // 109
+    Some(IsoCountryCode::EG), // 110 - EG
+    Some(IsoCountryCode::EH), // 111 - EH
+    None,                     // 112
+    None,                     // 113
+    None,                     // 114
+    None,                     // 115
+    None,                     // 116
+    None,                     // 117
+    None,                     // 118
+    None,                     // 119
+    None,                     // 120
+    Some(IsoCountryCode::ER), // 121 - ER
+    Some(IsoCountryCode::ES), // 122 - ES
+    Some(IsoCountryCode::ET), // 123 - ET
+    None,                     // 124
+    None,                     // 125
+    None,                     // 126
+    None,                     // 127
+    None,                     // 128
+    None,                     // 129
+    None,                     // 130
+    None,                     // 131
+    None,                     // 132
+    None,                     // 133
+    None,                     // 134
+    None,                     // 135
+    None,                     // 136
+    None,                     // 137
+    Some(IsoCountryCode::FI), // 138 - FI
+    Some(IsoCountryCode::FJ), // 139 - FJ
+    Some(IsoCountryCode::FK), // 140 - FK
+    None,                     // 141
+    Some(IsoCountryCode::FM), // 142 - FM
+    None,                     // 143
+    Some(IsoCountryCode::FO), // 144 - FO
+    None,                     // 145
+    None,                     // 146
+    Some(IsoCountryCode::FR), // 147 - FR
+    None,                     // 148
+    None,                     // 149
+    None,                     // 150
+    None,                     // 151
+    None,                     // 152
+    None,                     // 153
+    None,                     // 154
+    None,                     // 155
+    Some(IsoCountryCode::GA), // 156 - GA
+    Some(IsoCountryCode::GB), // 157 - GB
+    None,                     // 158
+    Some(IsoCountryCode::GD), // 159 - GD
+    Some(IsoCountryCode::GE), // 160 - GE
+    Some(IsoCountryCode::GF), // 161 - GF
+    Some(IsoCountryCode::GG), // 162 - GG
+    Some(IsoCountryCode::GH), // 163 - GH
+    Some(IsoCountryCode::GI), // 164 - GI
+    None,                     // 165
+    None,                     // 166
+    Some(IsoCountryCode::GL), // 167 - GL
+    Some(IsoCountryCode::GM), // 168 - GM
+    Some(IsoCountryCode::GN), // 169 - GN
+    None,                     // 170
+    Some(IsoCountryCode::GP), // 171 - GP
+    Some(IsoCountryCode::GQ), // 172 - GQ
+    Some(IsoCountryCode::GR), // 173 - GR
+    Some(IsoCountryCode::GS), // 174 - GS
+    Some(IsoCountryCode::GT), // 175 - GT
+    Some(IsoCountryCode::GU), // 176 - GU
+    None,                     // 177
+    Some(IsoCountryCode::GW), // 178 - GW
+    None,                     // 179
+    Some(IsoCountryCode::GY), // 180 - GY
+    None,                     // 181
+    None,                     // 182
+    None,                     // 183
+    None,                     // 184
+    None,                     // 185
+    None,                     // 186
+    None,                     // 187
+    None,                     // 188
+    None,                     // 189
+    None,                     // 190
+    None,                     // 191
+    Some(IsoCountryCode::HK), // 192 - HK
+    None,                     // 193
+    Some(IsoCountryCode::HM), // 194 - HM
+    Some(IsoCountryCode::HN), // 195 - HN
+    None,                     // 196
+    None,                     // 197
+    None,                     // 198
+    Some(IsoCountryCode::HR), // 199 - HR
+    None,                     // 200
+    Some(IsoCountryCode::HT), // 201 - HT
+    Some(IsoCountryCode::HU), // 202 - HU
+    None,                     // 203
+    None,                     // 204
+    None,                     // 205
+    None,                     // 206
+    None,                     // 207
+    None,                     // 208
+    None,                     // 209
+    None,                     // 210
+    Some(IsoCountryCode::ID), // 211 - ID
+    Some(IsoCountryCode::IE), // 212 - IE
+    None,                     // 213
+    None,                     // 214
+    None,                     // 215
+    None,                     // 216
+    None,                     // 217
+    None,                     // 218
+    Some(IsoCountryCode::IL), // 219 - IL
+    Some(IsoCountryCode::IM), // 220 - IM
+    Some(IsoCountryCode::IN), // 221 - IN
+    Some(IsoCountryCode::IO), // 222 - IO
+    None,                     // 223
+    Some(IsoCountryCode::IQ), // 224 - IQ
+    Some(IsoCountryCode::IR), // 225 - IR
+    Some(IsoCountryCode::IS), // 226 - IS
+    Some(IsoCountryCode::IT), // 227 - IT
+    None,                     // 228
+    None,                     // 229
+    None,                     // 230
+    None,                     // 231
+    None,                     // 232
+    None,                     // 233
+    None,                     // 234
+    None,                     // 235
+    None,                     // 236
+    None,                     // 237
+    Some(IsoCountryCode::JE), // 238 - JE
+    None,                     // 239
+    None,                     // 240
+    None,                     // 241
+    None,                     // 242
+    None,                     // 243
+    None,                     // 244
+    None,                     // 245
+    Some(IsoCountryCode::JM), // 246 - JM
+    None,                     // 247
+    Some(IsoCountryCode::JO), // 248 - JO
+    Some(IsoCountryCode::JP), // 249 - JP
+    None,                     // 250
+    None,                     // 251
+    None,                     // 252
+    None,                     // 253
+    None,                     // 254
+    None,                     // 255
+    None,                     // 256
+    None,                     // 257
+    None,                     // 258
+    None,                     // 259
+    None,                     // 260
+    None,                     // 261
+    None,                     // 262
+    None,                     // 263
+    Some(IsoCountryCode::KE), // 264 - KE
+    None,                     // 265
+    Some(IsoCountryCode::KG), // 266 - KG
+    Some(IsoCountryCode::KH), // 267 - KH
+    Some(IsoCountryCode::KI), // 268 - KI
+    None,                     // 269
+    None,                     // 270
+    None,                     // 271
+    Some(IsoCountryCode::KM), // 272 - KM
+    Some(IsoCountryCode::KN), // 273 - KN
+    None,                     // 274
+    Some(IsoCountryCode::KP), // 275 - KP
+    None,                     // 276
+    Some(IsoCountryCode::KR), // 277 - KR
+    None,                     // 278
+    None,                     // 279
+    None,                     // 280
+    None,                     // 281
+    Some(IsoCountryCode::KW), // 282 - KW
+    None,                     // 283
+    Some(IsoCountryCode::KY), // 284 - KY
+    Some(IsoCountryCode::KZ), // 285 - KZ
+    Some(IsoCountryCode::LA), // 286 - LA
+    Some(IsoCountryCode::LB), // 287 - LB
+    Some(IsoCountryCode::LC), // 288 - LC
+    None,                     // 289
+    None,                     // 290
+    None,                     // 291
+    None,                     // 292
+    None,                     // 293
+    Some(IsoCountryCode::LI), // 294 - LI
+    None,                     // 295
+    Some(IsoCountryCode::LK), // 296 - LK
+    None,                     // 297
+    None,                     // 298
+    None,                     // 299
+    None,                     // 300
+    None,                     // 301
+    None,                     // 302
+    Some(IsoCountryCode::LR), // 303 - LR
+    Some(IsoCountryCode::LS), // 304 - LS
+    Some(IsoCountryCode::LT), // 305 - LT
+    Some(IsoCountryCode::LU), // 306 - LU
+    Some(IsoCountryCode::LV), // 307 - LV
+    None,                     // 308
+    None,                     // 309
+    Some(IsoCountryCode::LY), // 310 - LY
+    None,                     // 311
+    Some(IsoCountryCode::MA), // 312 - MA
+    None,                     // 313
+    Some(IsoCountryCode::MC), // 314 - MC
+    Some(IsoCountryCode::MD), // 315 - MD
+    Some(IsoCountryCode::ME), // 316 - ME
+    Some(IsoCountryCode::MF), // 317 - MF
+    Some(IsoCountryCode::MG), // 318 - MG
+    Some(IsoCountryCode::MH), // 319 - MH
+    None,                     // 320
+    None,                     // 321
+    Some(IsoCountryCode::MK), // 322 - MK
+    Some(IsoCountryCode::ML), // 323 - ML
+    Some(IsoCountryCode::MM), // 324 - MM
+    Some(IsoCountryCode::MN), // 325 - MN
+    Some(IsoCountryCode::MO), // 326 - MO
+    Some(IsoCountryCode::MP), // 327 - MP
+    Some(IsoCountryCode::MQ), // 328 - MQ
+    Some(IsoCountryCode::MR), // 329 - MR
+    Some(IsoCountryCode::MS), // 330 - MS
+    Some(IsoCountryCode::MT), // 331 - MT
+    Some(IsoCountryCode::MU), // 332 - MU
+    Some(IsoCountryCode::MV), // 333 - MV
+    Some(IsoCountryCode::MW), // 334 - MW
+    Some(IsoCountryCode::MX), // 335 - MX
+    Some(IsoCountryCode::MY), // 336 - MY
+    Some(IsoCountryCode::MZ), // 337 - MZ
+    Some(IsoCountryCode::NA), // 338 - NA
+    None,                     // 339
+    Some(IsoCountryCode::NC), // 340 - NC
+    None,                     // 341
+    Some(IsoCountryCode::NE), // 342 - NE
+    Some(IsoCountryCode::NF), // 343 - NF
+    Some(IsoCountryCode::NG), // 344 - NG
+    None,                     // 345
+    Some(IsoCountryCode::NI), // 346 - NI
+    None,                     // 347
+    None,                     // 348
+    Some(IsoCountryCode::NL), // 349 - NL
+    None,                     // 350
+    None,                     // 351
+    Some(IsoCountryCode::NO), // 352 - NO
+    Some(IsoCountryCode::NP), // 353 - NP
+    None,                     // 354
+    Some(IsoCountryCode::NR), // 355 - NR
+    None,                     // 356
+    None,                     // 357
+    Some(IsoCountryCode::NU), // 358 - NU
+    None,                     // 359
+    None,                     // 360
+    None,                     // 361
+    None,                     // 362
+    Some(IsoCountryCode::NZ), // 363 - NZ
+    None,                     // 364
+    None,                     // 365
+    None,                     // 366
+    None,                     // 367
+    None,                     // 368
+    None,                     // 369
+    None,                     // 370
+    None,                     // 371
+    None,                     // 372
+    None,                     // 373
+    None,                     // 374
+    None,                     // 375
+    Some(IsoCountryCode::OM), // 376 - OM
+    None,                     // 377
+    None,                     // 378
+    None,                     // 379
+    None,                     // 380
+    None,                     // 381
+    None,                     // 382
+    None,                     // 383
+    None,                     // 384
+    None,                     // 385
+    None,                     // 386
+    None,                     // 387
+    None,                     // 388
+    None,                     // 389
+    Some(IsoCountryCode::PA), // 390 - PA
+    None,                     // 391
+    None,                     // 392
+    None,                     // 393
+    Some(IsoCountryCode::PE), // 394 - PE
+    Some(IsoCountryCode::PF), // 395 - PF
+    Some(IsoCountryCode::PG), // 396 - PG
+    Some(IsoCountryCode::PH), // 397 - PH
+    None,                     // 398
+    None,                     // 399
+    Some(IsoCountryCode::PK), // 400 - PK
+    Some(IsoCountryCode::PL), // 401 - PL
+    Some(IsoCountryCode::PM), // 402 - PM
+    Some(IsoCountryCode::PN), // 403 - PN
+    None,                     // 404
+    None,                     // 405
+    None,                     // 406
+    Some(IsoCountryCode::PR), // 407 - PR
+    Some(IsoCountryCode::PS), // 408 - PS
+    Some(IsoCountryCode::PT), // 409 - PT
+    None,                     // 410
+    None,                     // 411
+    Some(IsoCountryCode::PW), // 412 - PW
+    None,                     // 413
+    Some(IsoCountryCode::PY), // 414 - PY
+    None,                     // 415
+    Some(IsoCountryCode::QA), // 416 - QA
+    None,                     // 417
+    None,                     // 418
+    None,                     // 419
+    None,                     // 420
+    None,                     // 421
+    None,                     // 422
+    None,                     // 423
+    None,                     // 424
+    None,                     // 425
+    None,                     // 426
+    None,                     // 427
+    None,                     // 428
+    None,                     // 429
+    None,                     // 430
+    None,                     // 431
+    None,                     // 432
+    None,                     // 433
+    None,                     // 434
+    None,                     // 435
+    None,                     // 436
+    None,                     // 437
+    None,                     // 438
+    None,                     // 439
+    None,                     // 440
+    None,                     // 441
+    None,                     // 442
+    None,                     // 443
+    None,                     // 444
+    None,                     // 445
+    Some(IsoCountryCode::RE), // 446 - RE
+    None,                     // 447
+    None,                     // 448
+    None,                     // 449
+    None,                     // 450
+    None,                     // 451
+    None,                     // 452
+    None,                     // 453
+    None,                     // 454
+    None,                     // 455
+    Some(IsoCountryCode::RO), // 456 - RO
+    None,                     // 457
+    None,                     // 458
+    None,                     // 459
+    Some(IsoCountryCode::RS), // 460 - RS
+    None,                     // 461
+    Some(IsoCountryCode::RU), // 462 - RU
+    None,                     // 463
+    Some(IsoCountryCode::RW), // 464 - RW
+    None,                     // 465
+    None,                     // 466
+    None,                     // 467
+    Some(IsoCountryCode::SA), // 468 - SA
+    Some(IsoCountryCode::SB), // 469 - SB
+    Some(IsoCountryCode::SC), // 470 - SC
+    Some(IsoCountryCode::SD), // 471 - SD
+    Some(IsoCountryCode::SE), // 472 - SE
+    None,                     // 473
+    Some(IsoCountryCode::SG), // 474 - SG
+    Some(IsoCountryCode::SH), // 475 - SH
+    Some(IsoCountryCode::SI), // 476 - SI
+    Some(IsoCountryCode::SJ), // 477 - SJ
+    Some(IsoCountryCode::SK), // 478 - SK
+    Some(IsoCountryCode::SL), // 479 - SL
+    Some(IsoCountryCode::SM), // 480 - SM
+    Some(IsoCountryCode::SN), // 481 - SN
+    Some(IsoCountryCode::SO), // 482 - SO
+    None,                     // 483
+    None,                     // 484
+    Some(IsoCountryCode::SR), // 485 - SR
+    Some(IsoCountryCode::SS), // 486 - SS
+    Some(IsoCountryCode::ST), // 487 - ST
+    None,                     // 488
+    Some(IsoCountryCode::SV), // 489 - SV
+    None,                     // 490
+    Some(IsoCountryCode::SX), // 491 - SX
+    Some(IsoCountryCode::SY), // 492 - SY
+    Some(IsoCountryCode::SZ), // 493 - SZ
+    None,                     // 494
+    None,                     // 495
+    Some(IsoCountryCode::TC), // 496 - TC
+    Some(IsoCountryCode::TD), // 497 - TD
+    None,                     // 498
+    Some(IsoCountryCode::TF), // 499 - TF
+    Some(IsoCountryCode::TG), // 500 - TG
+    Some(IsoCountryCode::TH), // 501 - TH
+    None,                     // 502
+    Some(IsoCountryCode::TJ), // 503 - TJ
+    Some(IsoCountryCode::TK), // 504 - TK
+    Some(IsoCountryCode::TL), // 505 - TL
+    Some(IsoCountryCode::TM), // 506 - TM
+    Some(IsoCountryCode::TN), // 507 - TN
+    Some(IsoCountryCode::TO), // 508 - TO
+    None,                     // 509
+    None,                     // 510
+    Some(IsoCountryCode::TR), // 511 - TR
+    None,                     // 512
+    Some(IsoCountryCode::TT), // 513 - TT
+    None,                     // 514
+    Some(IsoCountryCode::TV), // 515 - TV
+    Some(IsoCountryCode::TW), // 516 - TW
+    None,                     // 517
+    None,                     // 518
+    Some(IsoCountryCode::TZ), // 519 - TZ
+    Some(IsoCountryCode::UA), // 520 - UA
+    None,                     // 521
+    None,                     // 522
+    None,                     // 523
+    None,                     // 524
+    None,                     // 525
+    Some(IsoCountryCode::UG), // 526 - UG
+    None,                     // 527
+    None,                     // 528
+    None,                     // 529
+    None,                     // 530
+    None,                     // 531
+    Some(IsoCountryCode::UM), // 532 - UM
+    None,                     // 533
+    None,                     // 534
+    None,                     // 535
+    None,                     // 536
+    None,                     // 537
+    Some(IsoCountryCode::US), // 538 - US
+    None,                     // 539
+    None,                     // 540
+    None,                     // 541
+    None,                     // 542
+    None,                     // 543
+    Some(IsoCountryCode::UY), // 544 - UY
+    Some(IsoCountryCode::UZ), // 545 - UZ
+    Some(IsoCountryCode::VA), // 546 - VA
+    None,                     // 547
+    Some(IsoCountryCode::VC), // 548 - VC
+    None,                     // 549
+    Some(IsoCountryCode::VE), // 550 - VE
+    None,                     // 551
+    Some(IsoCountryCode::VG), // 552 - VG
+    None,                     // 553
+    Some(IsoCountryCode::VI), // 554 - VI
+    None,                     // 555
+    None,                     // 556
+    None,                     // 557
+    None,                     // 558
+    Some(IsoCountryCode::VN), // 559 - VN
+    None,                     // 560
+    None,                     // 561
+    None,                     // 562
+    None,                     // 563
+    None,                     // 564
+    None,                     // 565
+    Some(IsoCountryCode::VU), // 566 - VU
+    None,                     // 567
+    None,                     // 568
+    None,                     // 569
+    None,                     // 570
+    None,                     // 571
+    None,                     // 572
+    None,                     // 573
+    None,                     // 574
+    None,                     // 575
+    None,                     // 576
+    Some(IsoCountryCode::WF), // 577 - WF
+    None,                     // 578
+    None,                     // 579
+    None,                     // 580
+    None,                     // 581
+    None,                     // 582
+    None,                     // 583
+    None,                     // 584
+    None,                     // 585
+    None,                     // 586
+    None,                     // 587
+    None,                     // 588
+    None,                     // 589
+    Some(IsoCountryCode::WS), // 590 - WS
+    None,                     // 591
+    None,                     // 592
+    None,                     // 593
+    None,                     // 594
+    None,                     // 595
+    None,                     // 596
+    None,                     // 597
+    None,                     // 598
+    None,                     // 599
+    None,                     // 600
+    None,                     // 601
+    None,                     // 602
+    None,                     // 603
+    None,                     // 604
+    None,                     // 605
+    None,                     // 606
+    None,                     // 607
+    Some(IsoCountryCode::XK), // 608 - XK
+    None,                     // 609
+    None,                     // 610
+    None,                     // 611
+    None,                     // 612
+    None,                     // 613
+    None,                     // 614
+    None,                     // 615
+    None,                     // 616
+    None,                     // 617
+    None,                     // 618
+    None,                     // 619
+    None,                     // 620
+    None,                     // 621
+    None,                     // 622
+    None,                     // 623
+    None,                     // 624
+    None,                     // 625
+    None,                     // 626
+    None,                     // 627
+    Some(IsoCountryCode::YE), // 628 - YE
+    None,                     // 629
+    None,                     // 630
+    None,                     // 631
+    None,                     // 632
+    None,                     // 633
+    None,                     // 634
+    None,                     // 635
+    None,                     // 636
+    None,                     // 637
+    None,                     // 638
+    None,                     // 639
+    None,                     // 640
+    None,                     // 641
+    None,                     // 642
+    Some(IsoCountryCode::YT), // 643 - YT
+    None,                     // 644
+    None,                     // 645
+    None,                     // 646
+    None,                     // 647
+    None,                     // 648
+    None,                     // 649
+    Some(IsoCountryCode::ZA), // 650 - ZA
+    None,                     // 651
+    None,                     // 652
+    None,                     // 653
+    None,                     // 654
+    None,                     // 655
+    None,                     // 656
+    None,                     // 657
+    None,                     // 658
+    None,                     // 659
+    None,                     // 660
+    None,                     // 661
+    Some(IsoCountryCode::ZM), // 662 - ZM
+    None,                     // 663
+    None,                     // 664
+    None,                     // 665
+    None,                     // 666
+    None,                     // 667
+    None,                     // 668
+    None,                     // 669
+    None,                     // 670
+    None,                     // 671
+    Some(IsoCountryCode::ZW), // 672 - ZW
+    None,                     // 673
+    None,                     // 674
+    None,                     // 675
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -1727,7 +1728,7 @@ impl IsoCountryCode {
     }
 
     pub fn variant_count() -> usize {
-        Self::AN as usize
+        Self::AN as usize + 1
     }
 
     pub fn continent(&self) -> ContinentCode {
@@ -2003,7 +2004,7 @@ impl FromStr for IsoCountryCode {
                 let s = s.to_uppercase();
                 let s = s.as_bytes();
                 let id = ((s[0] - b'A') as usize) * 26 + ((s[1] - b'A') as usize);
-                Ok(ALPHA2_FAST_MAP[id])
+                ALPHA2_FAST_MAP.get(id).ok_or(())?.ok_or(())
             }
             3 => match s.to_uppercase().as_str() {
                 "AND" => Ok(IsoCountryCode::AD),

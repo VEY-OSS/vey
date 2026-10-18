@@ -44,9 +44,9 @@ END {
             c = CHARS[i]""CHARS[j];
             id = (i * 26) + j;
             if (c in CODE_MAP) {
-                print "    "CODE_MAP[c]", // "id" - "c;
+                print "    Some("CODE_MAP[c]"), // "id" - "c;
             } else {
-                print "    "CODE_MAP[LAST_CODE]", // "id
+                print "    None,                     // "id
             }
         }
     }

@@ -22,7 +22,7 @@ use crate::{GeoIpAsnRecord, GeoIpCountryRecord};
 pub fn load_country(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpCountryRecord>> {
     if let Some(ext) = file.extension() {
         match ext.to_str() {
-            Some("gz") => {
+            Some("gz") | Some("GZ") => {
                 let f = File::open(file)
                     .map_err(|e| anyhow!("failed to open gzip file {}: {e}", file.display()))?;
                 let f = GzDecoder::new(BufReader::new(f));
@@ -44,14 +44,14 @@ fn load_country_from_csv<R: io::Read>(
     let reader = BufReader::new(stream);
     for (i, line) in reader.split(b'\n').enumerate() {
         let line = line.map_err(|e| anyhow!("failed to read line #{i}: {e}"))?;
-
+        let line = line.trim_ascii();
         if line.is_empty() {
             continue;
         }
         if line[0] == b'#' {
             continue;
         }
-        let line = std::str::from_utf8(&line).map_err(|e| anyhow!("invalid line #{i}: {e}"))?;
+        let line = std::str::from_utf8(line).map_err(|e| anyhow!("invalid line #{i}: {e}"))?;
         let Some((n, c)) = line.split_once(',') else {
             continue;
         };
@@ -63,8 +63,8 @@ fn load_country_from_csv<R: io::Read>(
             .map_err(|e| anyhow!("invalid network address in line #{i}: {e}"))?;
         let mask =
             u8::from_str(p).map_err(|e| anyhow!("invalid network mask in line #{i}: {e}"))?;
-        let network =
-            IpNetwork::new(addr, mask).map_err(|e| anyhow!("invalid network in line #{i}: {e}"))?;
+        let network = IpNetwork::new_truncate(addr, mask)
+            .map_err(|e| anyhow!("invalid network in line #{i}: {e}"))?;
         let country = IsoCountryCode::from_str(c)
             .map_err(|_| anyhow!("invalid country code {c} in line #{i}"))?;
 
@@ -103,14 +103,14 @@ fn load_asn_from_csv<R: io::Read>(stream: R) -> anyhow::Result<IpNetworkTable<Ge
     let reader = BufReader::new(stream);
     for (i, line) in reader.split(b'\n').enumerate() {
         let line = line.map_err(|e| anyhow!("failed to read line #{i}: {e}"))?;
-
+        let line = line.trim_ascii();
         if line.is_empty() {
             continue;
         }
         if line[0] == b'#' {
             continue;
         }
-        let line = std::str::from_utf8(&line).map_err(|e| anyhow!("invalid line #{i}: {e}"))?;
+        let line = std::str::from_utf8(line).map_err(|e| anyhow!("invalid line #{i}: {e}"))?;
         let Some((n, a)) = line.split_once(',') else {
             continue;
         };
@@ -122,8 +122,8 @@ fn load_asn_from_csv<R: io::Read>(stream: R) -> anyhow::Result<IpNetworkTable<Ge
             .map_err(|e| anyhow!("invalid network address in line #{i}: {e}"))?;
         let mask =
             u8::from_str(p).map_err(|e| anyhow!("invalid network mask in line #{i}: {e}"))?;
-        let network =
-            IpNetwork::new(addr, mask).map_err(|e| anyhow!("invalid network in line #{i}: {e}"))?;
+        let network = IpNetwork::new_truncate(addr, mask)
+            .map_err(|e| anyhow!("invalid network in line #{i}: {e}"))?;
         let asn = u32::from_str(a).map_err(|_| anyhow!("invalid as number {a} in line #{i}"))?;
 
         table.insert(
