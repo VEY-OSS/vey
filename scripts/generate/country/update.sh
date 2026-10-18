@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn iso_country_code_variant_count() {
-        assert_eq!(IsoCountryCode::variant_count(), IsoCountryCode::$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_test_variant_count.awk) as usize);
+        assert_eq!(IsoCountryCode::variant_count(), IsoCountryCode::$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_test_variant_count.awk) as usize + 1);
     }
 
     #[test]

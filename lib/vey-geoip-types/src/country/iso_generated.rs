@@ -2314,7 +2314,7 @@ mod tests {
 
     #[test]
     fn iso_country_code_variant_count() {
-        assert_eq!(IsoCountryCode::variant_count(), IsoCountryCode::AN as usize);
+        assert_eq!(IsoCountryCode::variant_count(), IsoCountryCode::AN as usize + 1);
     }
 
     #[test]
