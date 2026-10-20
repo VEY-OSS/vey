@@ -380,9 +380,9 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "c-ares"
-version = "13.0.0"
+version = "13.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b50c9a86feeb81d0909aad58a076506fc02f0683be9a84f03e57769d41d61b3a"
+checksum = "99ed9c8a40e79803519984d9b9ee2202acf948f66917eeefcc5fc537a58c51ff"
 dependencies = [
  "bitflags 2.13.2",
  "c-ares-sys",
@@ -392,9 +392,9 @@ dependencies = [
 
 [[package]]
 name = "c-ares-resolver"
-version = "12.0.0"
+version = "12.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c74fe349b00edfc396c5908ef0fd20d6b1799995f4b7fb2d98e23a02c19c3a4"
+checksum = "1ad7e9c1737a1eecc788af91f084c859df3e597fcd08d22c0eca1d7b3438fc50"
 dependencies = [
  "c-ares",
  "c-ares-sys",
@@ -405,9 +405,9 @@ dependencies = [
 
 [[package]]
 name = "c-ares-sys"
-version = "12.0.2"
+version = "13.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a645fe7c840558c583408158244920fa0257b360f94b45cecfacd66a7d569f3"
+checksum = "9c99f6bad6b5a6230a4e8a40eb51766946ff5c78166a6376d4f7b0f2c0e14fd1"
 dependencies = [
  "c-types",
  "cc",
@@ -460,9 +460,9 @@ dependencies = [
 
 [[package]]
 name = "capnp-rpc"
-version = "0.27.0"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01c95bfe8fb2c366b5f54c8be5e9679bd36ec5e1df59e94f95fdd4af697aca13"
+checksum = "fe88941ca04ec396b38ce5304fe9e40257ac7373e84b2a4fc6c2edd0b58fd56f"
 dependencies = [
  "capnp",
  "capnp-futures",
@@ -661,9 +661,9 @@ dependencies = [
 
 [[package]]
 name = "crc32fast"
-version = "1.5.2"
+version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01a7799fd6b852db0e61728dde9a204c423b44d689dbd432522543614b490e78"
+checksum = "0ba106e844045ddc02c20768ac4b0b7cb45f2cc2ecbd833ac9f5dacb183c2055"
 dependencies = [
  "cfg-if",
 ]
@@ -2148,9 +2148,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.15"
+version = "0.103.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
+checksum = "4443b1b6d39d7c663139942cc4558262562d2c84123bb6282ef177009ca8b281"
 dependencies = [
  "aws-lc-rs",
  "ring",
@@ -2323,9 +2323,9 @@ checksum = "5b3dc8af474f516a851ff4bd12db780f948b9250ad37211e4eec0bccea54e01b"
 
 [[package]]
 name = "smol_str"
-version = "0.3.6"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4aaa7368fcf4852a4c2dd92df0cace6a71f2091ca0a23391ce7f3a31833f1523"
+checksum = "eeb7109d23f319619d4cc0de5464613c8b7b1a09db2774a58101459cf6be2f10"
 
 [[package]]
 name = "snap"
