@@ -11,8 +11,9 @@ use anyhow::{Context, anyhow};
 use constant_time_eq::constant_time_eq_64;
 use openssl::md::Md;
 use openssl::md_ctx::MdCtx;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
+use vey_io_ext::LimitedReadExt;
 use vey_openssl::SslConnector;
 use vey_socket::BindAddr;
 use vey_types::net::{Host, OpensslClientConfig, OpensslClientConfigBuilder, TcpKeepAliveConfig};
@@ -184,11 +185,12 @@ impl FluentdClientConfig {
             return Ok(connection);
         }
 
-        let mut helo_buf = Vec::with_capacity(1024); // TODO config
+        let mut helo_buf = vec![0u8; 1024]; // TODO config
         let helo_len = connection
-            .read_buf(&mut helo_buf)
+            .read_all_now(&mut helo_buf)
             .await
-            .map_err(|e| anyhow!("failed to read helo msg: {e:?}"))?;
+            .map_err(|e| anyhow!("failed to read helo msg: {e:?}"))?
+            .ok_or_else(|| anyhow!("connection closed while reading helo msg"))?;
         let helo = super::handshake::parse_helo(&helo_buf[0..helo_len])
             .context("failed to parse helo msg")?;
 
@@ -208,11 +210,12 @@ impl FluentdClientConfig {
             .await
             .map_err(|e| anyhow!("failed to flush ping msg: {e:?}"))?;
 
-        let mut pong_buf = Vec::with_capacity(1024); // TODO config
+        let mut pong_buf = vec![0u8; 1024]; // TODO config
         let pong_len = connection
-            .read_buf(&mut pong_buf)
+            .read_all_now(&mut pong_buf)
             .await
-            .map_err(|e| anyhow!("failed to read pong msg: {e:?}"))?;
+            .map_err(|e| anyhow!("failed to read pong msg: {e:?}"))?
+            .ok_or_else(|| anyhow!("connection closed while reading pong msg"))?;
         let pong = super::handshake::parse_pong(&pong_buf[0..pong_len])
             .context("failed to parse pong msg")?;
 

@@ -151,6 +151,7 @@ impl AsyncIoThread {
                 Err(_) => {
                     // drop directly on write timeout
                     self.stats.drop.add_peer_unreachable();
+                    return Err(anyhow!("write timeout"));
                 }
             }
         }
@@ -172,6 +173,7 @@ impl AsyncIoThread {
                                 Err(_) => {
                                     // drop directly on write timeout
                                     self.stats.drop.add_peer_unreachable();
+                                    return Err(anyhow!("write timeout"));
                                 }
                             }
                         }

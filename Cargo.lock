@@ -2959,6 +2959,7 @@ dependencies = [
  "tokio",
  "variant-ssl",
  "vey-compat",
+ "vey-io-ext",
  "vey-openssl",
  "vey-socket",
  "vey-types",
