@@ -123,6 +123,8 @@ impl From<FtpTransferSetupError> for FtpFileStoreStartError {
 
 #[derive(Debug, Error)]
 pub enum FtpFileListError {
+    #[error("read error on control channel: {0}")]
+    ControlReadError(#[from] FtpRawResponseError),
     #[error("server reported error: {0}")]
     ServerReportedError(#[from] FtpTransferServerError),
     #[error("timeout to wait end reply")]

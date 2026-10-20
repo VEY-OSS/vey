@@ -72,11 +72,9 @@ where
     async fn send_all(&mut self) -> io::Result<()> {
         crate::log_cmd!(&self.cmd_line);
         self.cmd_line.push_str("\r\n");
-        self.stream
-            .write_all_flush(self.cmd_line.as_bytes())
-            .await?;
+        let r = self.stream.write_all_flush(self.cmd_line.as_bytes()).await;
         self.cmd_line.clear();
-        Ok(())
+        r
     }
 
     pub(super) async fn send_cmd(&mut self, cmd: FtpCommand) -> io::Result<()> {

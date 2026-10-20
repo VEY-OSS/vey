@@ -361,10 +361,13 @@ where
                     return Err(e.into());
                 }
             }
-            r = self.control.wait_list() => {
+            r = self.control.wait_read_ready() => {
                 if let Err(e) = r {
-                    return Err(FtpFileListError::ServerReportedError(e));
+                    return Err(FtpFileListError::ControlReadError(e));
                 }
+                tokio::time::timeout(self.config.transfer.end_wait_timeout, self.control.wait_list())
+                    .await
+                    .map_err(|_| FtpFileListError::TimeoutToWaitEndReply)??;
                 tokio::time::timeout(self.config.transfer.end_wait_timeout, transfer_fut)
                     .await
                     .map_err(|_| FtpFileListError::TimeoutToWaitDataEof)??;
