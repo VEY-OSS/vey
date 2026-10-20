@@ -22,6 +22,7 @@ hex.workspace = true
 log.workspace = true
 yaml-rust = { workspace = true, optional = true }
 vey-compat.workspace = true
+vey-io-ext.workspace = true
 vey-socket.workspace = true
 vey-openssl.workspace = true
 vey-types = { workspace = true, features = ["async-log", "openssl"] }
