@@ -187,10 +187,9 @@ impl FluentdClientConfig {
 
         let mut helo_buf = vec![0u8; 1024]; // TODO config
         let helo_len = connection
-            .read_all_now(&mut helo_buf)
+            .read_all_once(&mut helo_buf)
             .await
-            .map_err(|e| anyhow!("failed to read helo msg: {e:?}"))?
-            .ok_or_else(|| anyhow!("connection closed while reading helo msg"))?;
+            .map_err(|e| anyhow!("failed to read helo msg: {e:?}"))?;
         let helo = super::handshake::parse_helo(&helo_buf[0..helo_len])
             .context("failed to parse helo msg")?;
 
@@ -212,10 +211,9 @@ impl FluentdClientConfig {
 
         let mut pong_buf = vec![0u8; 1024]; // TODO config
         let pong_len = connection
-            .read_all_now(&mut pong_buf)
+            .read_all_once(&mut pong_buf)
             .await
-            .map_err(|e| anyhow!("failed to read pong msg: {e:?}"))?
-            .ok_or_else(|| anyhow!("connection closed while reading pong msg"))?;
+            .map_err(|e| anyhow!("failed to read pong msg: {e:?}"))?;
         let pong = super::handshake::parse_pong(&pong_buf[0..pong_len])
             .context("failed to parse pong msg")?;
 
