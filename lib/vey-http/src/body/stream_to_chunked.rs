@@ -4,7 +4,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::io::Write;
+use std::io::{self, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
 
@@ -89,6 +89,12 @@ impl ChunkedEncodeTransferInternal {
                         .poll_write(cx, &self.static_header[self.static_offset..])
                 )
                 .map_err(StreamCopyError::WriteFailed)?;
+                if nw == 0 {
+                    return Poll::Ready(Err(StreamCopyError::WriteFailed(io::Error::new(
+                        io::ErrorKind::WriteZero,
+                        "zero byte written out",
+                    ))));
+                }
                 self.active = true;
                 self.static_offset += nw;
                 self.total_write += nw as u64;
@@ -112,6 +118,12 @@ impl ChunkedEncodeTransferInternal {
                         .poll_write(cx, &data[..self.left_chunk_size])
                 )
                 .map_err(StreamCopyError::WriteFailed)?;
+                if nw == 0 {
+                    return Poll::Ready(Err(StreamCopyError::WriteFailed(io::Error::new(
+                        io::ErrorKind::WriteZero,
+                        "zero byte written out",
+                    ))));
+                }
                 reader.as_mut().consume(nw);
                 copy_this_round += nw;
                 self.active = true;

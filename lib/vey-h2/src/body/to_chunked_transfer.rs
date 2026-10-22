@@ -237,6 +237,11 @@ impl ChunkedEncodeTransferInternal {
                         .poll_write(cx, &self.static_header[self.static_offset..])
                 )
                 .map_err(H2StreamToChunkedTransferError::WriteError)?;
+                if nw == 0 {
+                    return Poll::Ready(Err(H2StreamToChunkedTransferError::WriteError(
+                        io::Error::new(io::ErrorKind::WriteZero, "zero byte written out"),
+                    )));
+                }
                 self.active = true;
                 self.static_offset += nw;
                 self.total_write += nw as u64;
@@ -248,6 +253,12 @@ impl ChunkedEncodeTransferInternal {
 
             while let Some(mut chunk) = self.chunk.take() {
                 match writer.as_mut().poll_write(cx, &chunk) {
+                    Poll::Ready(Ok(0)) => {
+                        self.chunk = Some(chunk);
+                        return Poll::Ready(Err(H2StreamToChunkedTransferError::WriteError(
+                            io::Error::new(io::ErrorKind::WriteZero, "zero byte written out"),
+                        )));
+                    }
                     Poll::Ready(Ok(nw)) => {
                         let left_chunk = chunk.split_off(nw);
                         self.total_write += nw as u64;
