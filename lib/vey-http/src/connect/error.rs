@@ -20,6 +20,8 @@ pub enum HttpConnectResponseError {
     InvalidStatusLine(HttpLineParseError),
     #[error("invalid header line: {0}")]
     InvalidHeaderLine(HttpLineParseError),
+    #[error("unexpected transfer encoding")]
+    UnexpectedTransferEncoding,
     #[error("invalid transfer-encoding value: {0}")]
     InvalidTransferEncoding(InvalidTransferEncodingValue),
     #[error("invalid content length")]

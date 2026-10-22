@@ -17,9 +17,10 @@ use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, Ht
 
 #[derive(Debug)]
 pub struct HttpUpgradeResponse {
-    pub code: u16,
-    pub reason: String,
-    pub headers: H1HeaderMap,
+    code: u16,
+    is_success: bool,
+    reason: String,
+    headers: H1HeaderMap,
     protocol: &'static str,
     content_length: u64,
     transfer_encoding: TransferEncodingValue,
@@ -31,6 +32,7 @@ impl HttpUpgradeResponse {
     fn new(code: u16, reason: String, protocol: &'static str) -> Self {
         HttpUpgradeResponse {
             code,
+            is_success: code == 101,
             reason,
             headers: H1HeaderMap::default(),
             protocol,
@@ -42,7 +44,9 @@ impl HttpUpgradeResponse {
     }
 
     fn body_type(&self) -> Option<HttpBodyType> {
-        if self.transfer_encoding.chunked() {
+        if self.is_success {
+            None
+        } else if self.transfer_encoding.chunked() {
             Some(HttpBodyType::Chunked)
         } else if self.content_length > 0 {
             Some(HttpBodyType::ContentLength(self.content_length))
@@ -176,6 +180,10 @@ impl HttpUpgradeResponse {
                 return Ok(());
             }
             "transfer-encoding" => {
+                if self.is_success {
+                    return Err(HttpUpgradeResponseError::UnexpectedTransferEncoding);
+                }
+
                 self.original_transfer_encoding_name.receive(header.name);
                 if self.has_content_length {
                     // delete content-length
@@ -195,6 +203,9 @@ impl HttpUpgradeResponse {
                 let content_length = u64::from_str(header.value)
                     .map_err(|_| HttpUpgradeResponseError::InvalidContentLength)?;
 
+                if self.is_success && content_length != 0 {
+                    return Err(HttpUpgradeResponseError::InvalidContentLength);
+                }
                 if self.has_content_length && self.content_length != content_length {
                     return Err(HttpUpgradeResponseError::InvalidContentLength);
                 }
@@ -208,7 +219,7 @@ impl HttpUpgradeResponse {
     }
 
     fn detect_error(&self) -> Result<(), HttpUpgradeError> {
-        if self.code == 101 {
+        if self.is_success {
             Ok(())
         } else if self.code == 504 || self.code == 522 || self.code == 524 {
             // Peer tells us it times out

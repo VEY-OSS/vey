@@ -23,6 +23,8 @@ pub enum HttpUpgradeResponseError {
     UnsupportedHeaderValue(&'static str),
     #[error("upgrade token not match")]
     UpgradeTokenNotMatch,
+    #[error("unexpected transfer encoding")]
+    UnexpectedTransferEncoding,
     #[error("invalid transfer-encoding value: {0}")]
     InvalidTransferEncoding(InvalidTransferEncodingValue),
     #[error("invalid content length")]
