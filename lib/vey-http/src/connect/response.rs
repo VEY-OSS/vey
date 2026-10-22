@@ -32,7 +32,7 @@ impl HttpConnectResponse {
     fn new(code: u16, reason: String) -> Self {
         HttpConnectResponse {
             code,
-            is_success: code >= 200 && code < 300,
+            is_success: (200..300).contains(&code),
             reason,
             headers: H1HeaderMap::default(),
             content_length: 0,
