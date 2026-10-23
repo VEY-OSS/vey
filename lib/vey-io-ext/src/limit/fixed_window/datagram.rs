@@ -67,7 +67,7 @@ impl LocalDatagramLimiter {
         }
 
         // always allow the first packet to pass
-        if self.max_bytes > 0 && self.cur_bytes > 0 && self.cur_bytes + buf_size >= self.max_bytes {
+        if self.max_bytes > 0 && self.cur_bytes > 0 && self.cur_bytes + buf_size > self.max_bytes {
             return DatagramLimitAction::DelayFor(self.window.delay(cur_millis));
         }
         // the real advance size should be set via set_advance_size() method by caller
