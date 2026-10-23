@@ -134,7 +134,9 @@ impl<K: Hash + Eq, R: Send + Sync> EffectiveCacheRuntime<K, R> {
             loop {
                 match self.rsp_receiver.poll_recv(cx) {
                     Poll::Pending => break,
-                    Poll::Ready(None) => unreachable!(), // unreachable as we have kept a sender
+                    Poll::Ready(None) => {
+                        return Poll::Ready(Err(io::Error::other("query runtime quit")));
+                    }
                     Poll::Ready(Some((k, r))) => self.handle_rsp(k, Arc::new(r)),
                 }
             }
