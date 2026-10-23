@@ -67,8 +67,11 @@ fn send_memfd_payload(sock: &UnixDatagram, data: &[u8]) -> anyhow::Result<()> {
         .map_err(|e| anyhow!("failed to write to memfd: {e}"))?;
 
     // Seal the memfd, so that journald knows it can safely mmap/read it.
-    fcntl_add_seals(mem_file.as_fd(), SealFlags::all())
-        .map_err(|e| anyhow!("unable to seal memfd: {e}"))?;
+    fcntl_add_seals(
+        mem_file.as_fd(),
+        SealFlags::SEAL | SealFlags::SHRINK | SealFlags::GROW | SealFlags::WRITE,
+    )
+    .map_err(|e| anyhow!("unable to seal memfd: {e}"))?;
 
     let fds = &[mem_file.as_fd()];
     let mut space = [MaybeUninit::uninit(); cmsg_space!(ScmRights(1))];
