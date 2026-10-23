@@ -164,10 +164,13 @@ pub fn as_rustls_client_config_builder(value: &Value) -> anyhow::Result<RustlsCl
             }
         }
 
-        if let Ok(cert_pair) = cert_pair_builder.build()
-            && builder.set_cert_pair(cert_pair).is_some()
-        {
-            return Err(anyhow!("found duplicate client certificate config"));
+        if !cert_pair_builder.is_empty() {
+            let cert_pair = cert_pair_builder
+                .build()
+                .context("invalid legacy cert pair config")?;
+            if builder.set_cert_pair(cert_pair).is_some() {
+                return Err(anyhow!("found duplicate client certificate config"));
+            }
         }
 
         builder.check()?;
@@ -187,7 +190,7 @@ pub fn as_rustls_server_config_builder(value: &Value) -> anyhow::Result<RustlsSe
         for (k, v) in map {
             match crate::key::normalize(k).as_str() {
                 "cert_pairs" => {
-                    if let Value::Array(seq) = value {
+                    if let Value::Array(seq) = v {
                         for (i, v) in seq.iter().enumerate() {
                             let pair = as_rustls_certificate_pair(v)
                                 .context(format!("invalid rustls cert pair value for {k}#{i}"))?;
@@ -245,7 +248,10 @@ pub fn as_rustls_server_config_builder(value: &Value) -> anyhow::Result<RustlsSe
             }
         }
 
-        if let Ok(cert_pair) = cert_pair_builder.build() {
+        if !cert_pair_builder.is_empty() {
+            let cert_pair = cert_pair_builder
+                .build()
+                .context("invalid legacy cert pair config")?;
             builder.push_cert_pair(cert_pair);
         }
 

@@ -21,6 +21,10 @@ impl RustlsCertificatePairBuilder {
         self.key = Some(key);
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.certs.is_empty() && self.key.is_none()
+    }
+
     pub fn build(self) -> anyhow::Result<RustlsCertificatePair> {
         if self.certs.is_empty() {
             return Err(anyhow!("no certificate set"));
