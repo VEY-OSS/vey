@@ -200,10 +200,13 @@ pub fn as_rustls_client_config_builder(
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 
-        if let Ok(cert_pair) = cert_pair_builder.build()
-            && builder.set_cert_pair(cert_pair).is_some()
-        {
-            return Err(anyhow!("found duplicate client certificate config"));
+        if !cert_pair_builder.is_empty() {
+            let cert_pair = cert_pair_builder
+                .build()
+                .context("invalid legacy cert pair config")?;
+            if builder.set_cert_pair(cert_pair).is_some() {
+                return Err(anyhow!("found duplicate client certificate config"));
+            }
         }
 
         builder.check()?;
@@ -287,7 +290,10 @@ pub fn as_rustls_server_config_builder(
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 
-        if let Ok(cert_pair) = cert_pair_builder.build() {
+        if !cert_pair_builder.is_empty() {
+            let cert_pair = cert_pair_builder
+                .build()
+                .context("invalid legacy cert pair config")?;
             builder.push_cert_pair(cert_pair);
         }
 
