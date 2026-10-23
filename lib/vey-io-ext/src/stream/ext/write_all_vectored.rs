@@ -61,6 +61,9 @@ fn write_all_vectored_internal<W: AsyncWrite + ?Sized, const N: usize>(
         let w_bufs = &w_bufs[0..w_index];
 
         let mut nw = ready!(writer.as_mut().poll_write_vectored(cx, w_bufs))?;
+        if nw == 0 {
+            return Poll::Ready(Err(io::Error::new(io::ErrorKind::WriteZero, "write zero")));
+        }
         *total_offset += nw as u64;
         for v in w_bufs {
             match v.len().cmp(&nw) {

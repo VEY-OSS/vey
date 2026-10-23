@@ -81,6 +81,7 @@ impl SendAncillaryBuffer {
     }
 }
 
+#[repr(C, align(8))]
 pub struct RecvAncillaryBuffer {
     buf: [u8; CMSG_RECV_BUFFER_SIZE],
 }

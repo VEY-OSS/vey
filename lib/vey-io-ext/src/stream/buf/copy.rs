@@ -82,6 +82,12 @@ where
                     }
                     let i = ready!(Pin::new(&mut self.writer).poll_write(cx, buf))
                         .map_err(StreamCopyError::WriteFailed)?;
+                    if i == 0 {
+                        return Poll::Ready(Err(StreamCopyError::WriteFailed(io::Error::new(
+                            io::ErrorKind::WriteZero,
+                            "write zero",
+                        ))));
+                    }
                     self.need_flush = true;
                     self.active = true;
                     self.buf_size -= i;
