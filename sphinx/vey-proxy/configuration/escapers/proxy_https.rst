@@ -29,6 +29,7 @@ The following common keys are supported:
 * :ref:`no_ipv6 <conf_escaper_common_no_ipv6>`
 * :ref:`tcp_connect <conf_escaper_common_tcp_connect>`
 * :ref:`happy eyeballs <conf_escaper_common_happy_eyeballs>`
+* :ref:`peer health check <conf_escaper_common_peer_health_check>`
 * :ref:`tcp_misc_opts <conf_escaper_common_tcp_misc_opts>`
 * :ref:`pass_proxy_userid <conf_escaper_common_pass_proxy_userid>`
 * :ref:`peer negotiation timeout <conf_escaper_common_peer_negotiation_timeout>`
