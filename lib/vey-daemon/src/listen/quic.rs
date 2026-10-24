@@ -537,3 +537,87 @@ where
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+    use crate::listen::ListenStats;
+    use crate::server::{BaseServer, ClientConnectionInfo, ReloadServer};
+    use vey_types::metrics::NodeName;
+    use vey_types::net::{SocketBufferConfig, UdpListenConfig, UdpMiscSockOpts};
+
+    #[derive(Clone)]
+    struct DummyServer {
+        name: NodeName,
+        version: usize,
+    }
+
+    impl BaseServer for DummyServer {
+        fn name(&self) -> &NodeName {
+            &self.name
+        }
+
+        fn r#type(&self) -> &'static str {
+            "test-quic"
+        }
+
+        fn version(&self) -> usize {
+            self.version
+        }
+    }
+
+    impl ReloadServer for DummyServer {
+        fn reload(&self) -> Self {
+            let mut reloaded = self.clone();
+            reloaded.version += 1;
+            reloaded
+        }
+    }
+
+    #[async_trait]
+    impl AcceptQuicServer for DummyServer {
+        async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+    }
+
+    #[test]
+    fn buffer_update_records_socket_buffer() {
+        let listen_addr = "127.0.0.1:9".parse().unwrap();
+        let socket = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        let raw = RawSocket::from(&socket);
+
+        let mut kept_misc = UdpMiscSockOpts::default();
+        kept_misc.time_to_live = Some(64);
+        let mut listen_config = UdpListenConfig::new(listen_addr);
+        listen_config.set_socket_misc_opts(kept_misc);
+
+        let mut next = listen_config.clone();
+        let buffer = SocketBufferConfig::new(8 * 1024);
+        next.set_socket_buffer(buffer);
+
+        let mut instance = ListenQuicRuntimeInstance {
+            server: DummyServer {
+                name: NodeName::new_static("quic"),
+                version: 1,
+            },
+            server_type: "test-quic",
+            server_version: 1,
+            worker_id: None,
+            listen_config,
+            listen_stats: Arc::new(ListenStats::new(&NodeName::new_static("quic"))),
+            listen_addr,
+            listen_in_worker: false,
+            instance_id: 0,
+            ingress_net_filter: None,
+            accept_timeout: Duration::from_secs(1),
+            #[cfg(feature = "ebpf")]
+            _bpf_guard: None,
+            _alive_guard: None,
+        };
+
+        instance.update_socket_opts(&raw, next);
+        assert_eq!(instance.listen_config.socket_buffer(), buffer);
+        assert_eq!(instance.listen_config.socket_misc_opts(), kept_misc);
+    }
+}

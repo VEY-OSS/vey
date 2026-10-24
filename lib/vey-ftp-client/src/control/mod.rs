@@ -710,5 +710,10 @@ mod tests {
         pump_reply(&mut server, "22\r\n").await;
         let err = channel.read_raw_response().await.unwrap_err();
         assert!(matches!(err, FtpRawResponseError::InvalidLineFormat));
+
+        // `220\r\n` is 5 bytes on the wire and 3 after the line ending is removed.
+        pump_reply(&mut server, "220\r\n").await;
+        let err = channel.read_raw_response().await.unwrap_err();
+        assert!(matches!(err, FtpRawResponseError::InvalidLineFormat));
     }
 }

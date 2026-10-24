@@ -217,4 +217,43 @@ mod tests {
         assert_eq!(nw, 10);
         assert_eq!(writer.buf.as_slice(), b"1121231234");
     }
+
+    struct ZeroWriter;
+
+    impl AsyncWrite for ZeroWriter {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &[u8],
+        ) -> Poll<Result<usize, Error>> {
+            Poll::Ready(Ok(0))
+        }
+
+        fn poll_write_vectored(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _bufs: &[IoSlice<'_>],
+        ) -> Poll<Result<usize, Error>> {
+            Poll::Ready(Ok(0))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Error>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    #[tokio::test]
+    async fn write_zero_is_an_error() {
+        let mut writer = ZeroWriter;
+        let fut = WriteAllVectored::new(&mut writer, [IoSlice::new(b"ab")]);
+        let err = tokio::time::timeout(std::time::Duration::from_secs(1), fut)
+            .await
+            .expect("write zero must not spin")
+            .unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::WriteZero);
+    }
 }

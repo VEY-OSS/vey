@@ -1402,4 +1402,73 @@ mod tests {
 
         harness.shutdown().await;
     }
+
+    #[test]
+    fn buffer_update_records_socket_buffer() {
+        use vey_types::net::{SocketBufferConfig, UdpMiscSockOpts};
+
+        let listen_addr: SocketAddr = "127.0.0.1:9".parse().unwrap();
+        let socket = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        let raw = RawSocket::from(&socket);
+
+        let mut kept_misc = UdpMiscSockOpts::default();
+        kept_misc.time_to_live = Some(64);
+        let mut listen_config = UdpListenConfig::new(listen_addr);
+        listen_config.set_socket_misc_opts(kept_misc);
+
+        let mut next = listen_config.clone();
+        let buffer = SocketBufferConfig::new(8 * 1024);
+        next.set_socket_buffer(buffer);
+
+        let (session_starts, _) = mpsc::unbounded_channel();
+        let (packets, _) = mpsc::unbounded_channel();
+        let mut instance = ListenUdpRuntimeInstance {
+            server: TestServer {
+                name: NodeName::new_static("udp"),
+                version: 1,
+                next_session_id: Arc::new(AtomicUsize::new(0)),
+                session_starts,
+                packets,
+                close_after_first_packet: false,
+            },
+            server_type: "test-udp",
+            server_version: 1,
+            worker_id: None,
+            conn_track: UdpConnectionTrackConfig::default(),
+            packet_max_size: 1400,
+            listen_config,
+            listen_stats: Arc::new(ListenStats::new(&NodeName::new_static("udp"))),
+            listen_addr,
+            listen_in_worker: false,
+            instance_id: 0,
+            ingress_net_filter: None,
+            #[cfg(feature = "ebpf")]
+            _bpf_guard: None,
+            _alive_guard: None,
+            #[cfg(not(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd",
+                target_os = "macos",
+                target_os = "solaris",
+            )))]
+            packet_buf: Vec::new(),
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd",
+                target_os = "macos",
+                target_os = "solaris",
+            ))]
+            packets_buf: Vec::new(),
+        };
+
+        instance.update_socket_opts(&raw, next);
+        assert_eq!(instance.listen_config.socket_buffer(), buffer);
+        assert_eq!(instance.listen_config.socket_misc_opts(), kept_misc);
+    }
 }

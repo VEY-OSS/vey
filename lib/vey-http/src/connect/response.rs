@@ -221,7 +221,7 @@ impl HttpConnectResponse {
 mod tests {
     use super::*;
     use http::header;
-    use tokio::io::BufReader;
+    use tokio::io::{AsyncReadExt, BufReader};
     use tokio_test::io::Builder;
 
     #[test]
@@ -239,7 +239,9 @@ mod tests {
     #[test]
     fn body_type() {
         // No body type
-        let response = HttpConnectResponse::new(200, "OK".to_string());
+        let mut response = HttpConnectResponse::new(200, "OK".to_string());
+        response.content_length = 6;
+        response.has_content_length = true;
         assert!(response.body_type().is_none());
 
         let mut response = HttpConnectResponse::new(403, "Forbidden".to_string());
@@ -617,5 +619,35 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(err, HttpConnectError::PeerTimeout(504)));
+    }
+
+    #[tokio::test]
+    async fn recv_success_keeps_bytes_after_headers() {
+        let response_data = b"HTTP/1.1 200 Connection Established\r\n\r\nTUNNEL";
+        let stream = Builder::new().read(response_data).build();
+        let mut reader = BufReader::new(stream);
+
+        let response = HttpConnectResponse::recv(&mut reader, 1024).await.unwrap();
+        assert_eq!(response.code, 200);
+
+        let mut rest = Vec::new();
+        reader.read_to_end(&mut rest).await.unwrap();
+        assert_eq!(rest, b"TUNNEL");
+    }
+
+    #[tokio::test]
+    async fn recv_success_rejects_nonzero_content_length() {
+        let response_data =
+            b"HTTP/1.1 200 Connection Established\r\nContent-Length: 6\r\n\r\nTUNNEL";
+        let stream = Builder::new().read(response_data).build();
+        let mut reader = BufReader::new(stream);
+
+        let err = HttpConnectResponse::recv(&mut reader, 1024)
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            HttpConnectError::InvalidResponse(HttpConnectResponseError::InvalidContentLength)
+        ));
     }
 }

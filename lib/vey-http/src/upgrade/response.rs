@@ -288,3 +288,59 @@ impl HttpUpgradeResponse {
         .await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, BufReader};
+    use tokio_test::io::Builder;
+
+    #[test]
+    fn success_body_type_ignores_content_length() {
+        let mut response =
+            HttpUpgradeResponse::new(101, "Switching Protocols".to_string(), "connect-udp");
+        response.content_length = 6;
+        response.has_content_length = true;
+        assert!(response.body_type().is_none());
+    }
+
+    #[tokio::test]
+    async fn recv_success_keeps_bytes_after_headers() {
+        let response_data = b"HTTP/1.1 101 Switching Protocols\r\n\
+            Connection: upgrade\r\n\
+            Upgrade: connect-udp\r\n\
+            \r\n\
+            TUNNEL";
+        let stream = Builder::new().read(response_data).build();
+        let mut reader = BufReader::new(stream);
+
+        let response = HttpUpgradeResponse::recv_for_connect_udp(&mut reader, 1024)
+            .await
+            .unwrap();
+        assert_eq!(response.code, 101);
+
+        let mut rest = Vec::new();
+        reader.read_to_end(&mut rest).await.unwrap();
+        assert_eq!(rest, b"TUNNEL");
+    }
+
+    #[tokio::test]
+    async fn recv_success_rejects_nonzero_content_length() {
+        let response_data = b"HTTP/1.1 101 Switching Protocols\r\n\
+            Connection: upgrade\r\n\
+            Upgrade: connect-udp\r\n\
+            Content-Length: 6\r\n\
+            \r\n\
+            TUNNEL";
+        let stream = Builder::new().read(response_data).build();
+        let mut reader = BufReader::new(stream);
+
+        let err = HttpUpgradeResponse::recv_for_connect_udp(&mut reader, 1024)
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            HttpUpgradeError::InvalidResponse(HttpUpgradeResponseError::InvalidContentLength)
+        ));
+    }
+}

@@ -331,6 +331,41 @@ mod tests {
     }
 
     #[test]
+    fn load_csv_strips_crlf() {
+        let ip: IpAddr = "192.168.1.1".parse().unwrap();
+
+        let country = load_country_from_csv(&b"192.168.1.0/24,US\r\n"[..]).unwrap();
+        assert_eq!(
+            country.longest_match(ip).unwrap().1.country,
+            IsoCountryCode::US
+        );
+
+        let asn = load_asn_from_csv(&b"192.168.1.0/24,64512\r\n"[..]).unwrap();
+        assert_eq!(asn.longest_match(ip).unwrap().1.number, 64512);
+    }
+
+    #[test]
+    fn load_csv_truncates_host_bits() {
+        let ip: IpAddr = "192.168.1.1".parse().unwrap();
+
+        let country = load_country_from_csv(&b"192.168.1.1/24,US\n"[..]).unwrap();
+        let (network, record) = country.longest_match(ip).unwrap();
+        assert_eq!(
+            network.network_address(),
+            "192.168.1.0".parse::<IpAddr>().unwrap()
+        );
+        assert_eq!(record.country, IsoCountryCode::US);
+
+        let asn = load_asn_from_csv(&b"192.168.1.1/24,64512\n"[..]).unwrap();
+        let (network, record) = asn.longest_match(ip).unwrap();
+        assert_eq!(
+            network.network_address(),
+            "192.168.1.0".parse::<IpAddr>().unwrap()
+        );
+        assert_eq!(record.number, 64512);
+    }
+
+    #[test]
     fn load_country_ipv6_longest_match() {
         let csv = "2001:db8::/32,US\n2001:db8:1::/48,CN\n";
         let table = load_country_from_csv(csv.as_bytes()).unwrap();

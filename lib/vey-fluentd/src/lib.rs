@@ -208,8 +208,72 @@ impl AsyncIoThread {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use std::pin::Pin;
+    use std::sync::{Arc, Mutex};
+    use std::task::{Context, Poll};
+    use std::time::Duration;
+    use tokio::io::ReadBuf;
     use vey_types::log::LogStats;
+
+    /// Writes one byte, then accepts only a later message that is not the rest of `AAA`.
+    struct PartialThenNext {
+        written: Arc<Mutex<Vec<u8>>>,
+        stalled: bool,
+    }
+
+    impl AsyncRead for PartialThenNext {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &mut ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            Poll::Pending
+        }
+    }
+
+    impl AsyncWrite for PartialThenNext {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<std::io::Result<usize>> {
+            let this = self.get_mut();
+            if buf == b"BB" {
+                this.written.lock().unwrap().extend_from_slice(buf);
+                return Poll::Ready(Ok(buf.len()));
+            }
+            if this.stalled || buf.is_empty() {
+                return Poll::Pending;
+            }
+            let n = 1.min(buf.len());
+            this.written.lock().unwrap().extend_from_slice(&buf[..n]);
+            this.stalled = true;
+            Poll::Ready(Ok(n))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    fn stalled_thread(retry: Vec<Vec<u8>>) -> (AsyncIoThread, kanal::Sender<Vec<u8>>) {
+        let mut cfg = FluentdClientConfig::default();
+        cfg.set_write_timeout(Duration::from_millis(30));
+        cfg.set_flush_interval(Duration::from_secs(60));
+        cfg.set_retry_queue_len(4);
+        let (sender, receiver) = kanal::bounded::<Vec<u8>>(4);
+        let thread = AsyncIoThread {
+            config: Arc::new(cfg),
+            receiver: receiver.clone_async(),
+            stats: Arc::new(LogStats::default()),
+            retry_queue: retry.into(),
+        };
+        (thread, sender)
+    }
 
     #[test]
     fn push_to_retry_keeps_and_drops_overflow() {
@@ -232,5 +296,38 @@ mod tests {
         assert_eq!(thread.retry_queue.len(), 2);
         assert_eq!(thread.retry_queue[0], vec![2]);
         assert_eq!(thread.retry_queue[1], vec![3]);
+    }
+
+    #[tokio::test]
+    async fn retry_write_timeout_does_not_append_the_next_message() {
+        let (mut thread, sender) = stalled_thread(vec![b"AAA".to_vec()]);
+        sender.send(b"BB".to_vec()).unwrap();
+        drop(sender);
+        let written = Arc::new(Mutex::new(Vec::new()));
+        let connection = PartialThenNext {
+            written: Arc::clone(&written),
+            stalled: false,
+        };
+
+        let err = thread.run_with_connection(connection).await.unwrap_err();
+        assert!(err.to_string().contains("write timeout"));
+        assert_eq!(written.lock().unwrap().as_slice(), b"A");
+    }
+
+    #[tokio::test]
+    async fn live_write_timeout_does_not_append_the_next_message() {
+        let (mut thread, sender) = stalled_thread(Vec::new());
+        sender.send(b"AAA".to_vec()).unwrap();
+        sender.send(b"BB".to_vec()).unwrap();
+        drop(sender);
+        let written = Arc::new(Mutex::new(Vec::new()));
+        let connection = PartialThenNext {
+            written: Arc::clone(&written),
+            stalled: false,
+        };
+
+        let err = thread.run_with_connection(connection).await.unwrap_err();
+        assert!(err.to_string().contains("write timeout"));
+        assert_eq!(written.lock().unwrap().as_slice(), b"A");
     }
 }

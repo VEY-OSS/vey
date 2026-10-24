@@ -454,6 +454,16 @@ mod tests {
     }
 
     #[test]
+    fn client_certificate_without_key_is_an_error() {
+        let value = json!({ "certificate": TEST_CERT1_PEM });
+        let err = as_rustls_client_config_builder(&value).unwrap_err();
+        assert!(
+            err.to_string().contains("invalid legacy cert pair config"),
+            "{err:#}"
+        );
+    }
+
+    #[test]
     fn as_rustls_server_config_builder_ok() {
         // Full config
         let value = json!({
@@ -508,5 +518,41 @@ mod tests {
         // Invalid value type
         let value = json!("invalid");
         assert!(as_rustls_server_config_builder(&value).is_err());
+    }
+
+    #[test]
+    fn cert_pairs_array_is_parsed() {
+        let value = json!({
+            "cert_pairs": [
+                {
+                    "certificate": TEST_CERT1_PEM,
+                    "private_key": TEST_KEY1_PEM
+                },
+                {
+                    "certificate": TEST_CERT2_PEM,
+                    "private_key": TEST_KEY1_PEM
+                }
+            ]
+        });
+        let builder = as_rustls_server_config_builder(&value).unwrap();
+
+        let mut expected = RustlsServerConfigBuilder::empty();
+        for cert in [TEST_CERT1_PEM, TEST_CERT2_PEM] {
+            let mut pair_builder = RustlsCertificatePairBuilder::default();
+            pair_builder.set_certs(as_rustls_certificates(&json!(cert)).unwrap());
+            pair_builder.set_key(as_rustls_private_key(&json!(TEST_KEY1_PEM)).unwrap());
+            expected.push_cert_pair(pair_builder.build().unwrap());
+        }
+        assert_eq!(builder, expected);
+    }
+
+    #[test]
+    fn server_certificate_without_key_is_an_error() {
+        let value = json!({ "certificate": TEST_CERT1_PEM });
+        let err = as_rustls_server_config_builder(&value).unwrap_err();
+        assert!(
+            err.to_string().contains("invalid legacy cert pair config"),
+            "{err:#}"
+        );
     }
 }

@@ -88,3 +88,20 @@ fn send_memfd_payload(sock: &UnixDatagram, data: &[u8]) -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn memfd_payload_seals_without_all_bits() {
+        let sock = UnixDatagram::unbound().unwrap();
+        match send_memfd_payload(&sock, b"MESSAGE=oversized\n") {
+            Ok(()) => {}
+            Err(err) => {
+                let msg = format!("{err:#}");
+                assert!(msg.contains("sendmsg failed"), "{msg}");
+            }
+        }
+    }
+}

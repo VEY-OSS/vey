@@ -182,4 +182,24 @@ mod tests {
             DatagramLimitAction::DelayFor(_)
         ));
     }
+
+    #[test]
+    fn check_packet_allows_exact_remaining_bytes() {
+        let mut limiter = LocalDatagramLimiter::new(10, 0, 1000);
+        limiter.reset(10, 0, 1000, 1000);
+        limiter.set_advance(1, 400);
+
+        assert!(matches!(
+            limiter.check_packet(1000, 600),
+            DatagramLimitAction::Advance(1)
+        ));
+        assert!(matches!(
+            limiter.check_packets(1000, &[600]),
+            DatagramLimitAction::Advance(1)
+        ));
+        assert!(matches!(
+            limiter.check_packet(1000, 601),
+            DatagramLimitAction::DelayFor(_)
+        ));
+    }
 }

@@ -478,3 +478,222 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+    use std::net::Ipv4Addr;
+    use std::pin::Pin;
+    use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+    use std::sync::{Arc, Mutex};
+    use std::task::{Context, Poll, Waker};
+    use std::time::Duration;
+
+    use async_trait::async_trait;
+    use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+    use tokio::sync::Notify;
+    use tokio::time::timeout;
+
+    use super::*;
+    use crate::transfer::FtpTransferType;
+    use crate::{FtpControlChannel, FtpServerFeature};
+
+    struct IdleProvider;
+
+    #[async_trait]
+    impl FtpConnectionProvider<ScriptIo, io::Error, ()> for IdleProvider {
+        async fn new_control_connection(
+            &mut self,
+            _upstream: &vey_types::net::UpstreamAddr,
+            _user_data: &(),
+        ) -> Result<ScriptIo, io::Error> {
+            unreachable!("control connection is installed directly");
+        }
+
+        async fn new_data_connection(
+            &mut self,
+            _server_addr: &vey_types::net::UpstreamAddr,
+            _user_data: &(),
+        ) -> Result<ScriptIo, io::Error> {
+            unreachable!("data connection is installed directly");
+        }
+    }
+
+    struct ScriptState {
+        control_phase: AtomicU8,
+        release_rest: AtomicBool,
+        release_data: AtomicBool,
+        data_sent: AtomicBool,
+        control_waker: Mutex<Option<Waker>>,
+        data_waker: Mutex<Option<Waker>>,
+        advanced: Notify,
+    }
+
+    struct ScriptIo {
+        control: bool,
+        state: Arc<ScriptState>,
+    }
+
+    impl AsyncRead for ScriptIo {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            if self.control {
+                poll_control(&self.state, cx, buf)
+            } else {
+                poll_data(&self.state, cx, buf)
+            }
+        }
+    }
+
+    impl AsyncWrite for ScriptIo {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(buf.len()))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    fn poll_control(
+        state: &ScriptState,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        if state.release_rest.load(Ordering::Acquire)
+            && state.control_phase.load(Ordering::Acquire) < 3
+        {
+            buf.put_slice(b"6 Transfer complete.\r\n");
+            state.control_phase.store(3, Ordering::Release);
+            return Poll::Ready(Ok(()));
+        }
+
+        match state.control_phase.load(Ordering::Acquire) {
+            0 => {
+                buf.put_slice(b"22");
+                state.control_phase.store(1, Ordering::Release);
+                state.advanced.notify_waiters();
+                Poll::Ready(Ok(()))
+            }
+            1 | 2 => {
+                state.control_phase.store(2, Ordering::Release);
+                *state.control_waker.lock().unwrap() = Some(cx.waker().clone());
+                state.advanced.notify_waiters();
+                Poll::Pending
+            }
+            _ => Poll::Ready(Ok(())),
+        }
+    }
+
+    fn poll_data(
+        state: &ScriptState,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        if !state.release_data.load(Ordering::Acquire) {
+            *state.data_waker.lock().unwrap() = Some(cx.waker().clone());
+            return Poll::Pending;
+        }
+        if state.data_sent.swap(true, Ordering::AcqRel) {
+            return Poll::Ready(Ok(()));
+        }
+        buf.put_slice(b"-rw file\r\n");
+        Poll::Ready(Ok(()))
+    }
+
+    struct CollectLines(Vec<String>);
+
+    impl FtpLineDataReceiver for CollectLines {
+        async fn recv_line(&mut self, line: &str) {
+            self.0.push(line.to_owned());
+        }
+
+        fn should_return_early(&self) -> bool {
+            false
+        }
+    }
+
+    #[tokio::test]
+    async fn list_receive_keeps_split_control_reply() {
+        let state = Arc::new(ScriptState {
+            control_phase: AtomicU8::new(0),
+            release_rest: AtomicBool::new(false),
+            release_data: AtomicBool::new(false),
+            data_sent: AtomicBool::new(false),
+            control_waker: Mutex::new(None),
+            data_waker: Mutex::new(None),
+            advanced: Notify::new(),
+        });
+        let mut config = FtpClientConfig::default();
+        config.transfer.end_wait_timeout = Duration::from_secs(2);
+        config.transfer.set_list_all_timeout(Duration::from_secs(2));
+        let config = Arc::new(config);
+        let mut client = FtpClient {
+            server: vey_types::net::UpstreamAddr::from_ip_and_port(Ipv4Addr::LOCALHOST.into(), 21),
+            conn_provider: IdleProvider,
+            config: Arc::clone(&config),
+            control: FtpControlChannel::new(
+                ScriptIo {
+                    control: true,
+                    state: Arc::clone(&state),
+                },
+                config.control,
+            ),
+            server_feature: FtpServerFeature::default(),
+            transfer_type: FtpTransferType::Ascii,
+            _phantom_e: Default::default(),
+            _phantom_ud: Default::default(),
+        };
+        let data = ScriptIo {
+            control: false,
+            state: Arc::clone(&state),
+        };
+        let mut lines = CollectLines(Vec::new());
+
+        let listed = timeout(Duration::from_secs(2), async {
+            {
+                let receive = client.list_directory_detailed_receive(data, &mut lines);
+                tokio::pin!(receive);
+                let mut released = false;
+                loop {
+                    let notified = state.advanced.notified();
+                    if !released && state.control_phase.load(Ordering::Acquire) >= 2 {
+                        // The listing finishes while the control reply is still split after `22`.
+                        // Those two bytes stay in the reader and must be part of `226 ...`.
+                        state.release_data.store(true, Ordering::Release);
+                        if let Some(waker) = state.data_waker.lock().unwrap().take() {
+                            waker.wake();
+                        }
+                        state.release_rest.store(true, Ordering::Release);
+                        if let Some(waker) = state.control_waker.lock().unwrap().take() {
+                            waker.wake();
+                        }
+                        released = true;
+                    }
+                    tokio::select! {
+                        result = &mut receive => {
+                            result.unwrap();
+                            break;
+                        }
+                        _ = notified, if !released => {}
+                    }
+                }
+            }
+            lines.0
+        })
+        .await
+        .expect("split control reply was not reassembled");
+        assert_eq!(listed, ["-rw file\r\n"]);
+    }
+}

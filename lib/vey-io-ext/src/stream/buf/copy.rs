@@ -176,3 +176,63 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+    use std::time::Duration;
+
+    struct ZeroWriter;
+
+    impl AsyncWrite for ZeroWriter {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(0))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    fn assert_write_zero(err: StreamCopyError) {
+        match err {
+            StreamCopyError::WriteFailed(err) => assert_eq!(err.kind(), io::ErrorKind::WriteZero),
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn write_zero_stops_the_copy() {
+        let mut reader = std::io::Cursor::new(&b"abc"[..]);
+        let mut writer = ZeroWriter;
+        let copy = BufReadCopy::new(&mut reader, &mut writer, &StreamCopyConfig::default());
+        let err = tokio::time::timeout(Duration::from_secs(1), copy)
+            .await
+            .expect("write zero must not spin")
+            .unwrap_err();
+        assert_write_zero(err);
+    }
+
+    #[tokio::test]
+    async fn write_zero_stops_poll_write_cache() {
+        let mut reader = std::io::Cursor::new(&b"abc"[..]);
+        let mut writer = ZeroWriter;
+        let mut copy = BufReadCopy::new(&mut reader, &mut writer, &StreamCopyConfig::default());
+        copy.buf_size = 1;
+        let err = tokio::time::timeout(Duration::from_secs(1), copy.write_flush())
+            .await
+            .expect("write zero must not spin")
+            .unwrap_err();
+        assert_write_zero(err);
+    }
+}

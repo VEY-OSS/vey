@@ -2594,6 +2594,7 @@ mod tests {
             )
         }
 
+        assert!(IsoCountryCode::from_str("XX").is_err());
         assert!(IsoCountryCode::from_str("XXX").is_err());
         assert!(IsoCountryCode::from_str("ZZZ").is_err());
         assert!(IsoCountryCode::from_str("ABC").is_err());
