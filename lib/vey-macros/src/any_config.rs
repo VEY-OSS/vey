@@ -42,7 +42,7 @@ pub(super) fn derive(input: DeriveInput) -> TokenStream {
         .map(|v| {
             let attrs = &v.attrs;
             quote! {
-                #( #attrs ),*
+                #( #attrs )*
             }
         })
         .collect::<Vec<_>>();
@@ -66,8 +66,12 @@ pub(super) fn derive(input: DeriveInput) -> TokenStream {
             continue;
         };
 
-        let Ok(mut v) = syn::parse2::<Method>(list.tokens.clone()) else {
-            continue;
+        let mut v = match syn::parse2::<Method>(list.tokens.clone()) {
+            Ok(v) => v,
+            Err(err) => {
+                fn_expands.extend(err.to_compile_error());
+                continue;
+            }
         };
 
         let fn_name = v.name;
@@ -125,11 +129,33 @@ pub(super) fn derive(input: DeriveInput) -> TokenStream {
         fn_expands.extend(expanded);
     }
 
-    let name = input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let name = &input.ident;
     quote! {
-        impl #name {
+        impl #impl_generics #name #ty_generics #where_clause {
             #( #fn_expands )*
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    #[test]
+    fn invalid_def_fn_is_a_compile_error() {
+        let input: DeriveInput = parse_quote! {
+            #[def_fn(name str)]
+            enum Config {
+                A(u8),
+            }
+        };
+        let expanded = derive(input).to_string();
+        assert!(
+            expanded.contains("compile_error"),
+            "invalid def_fn was dropped: {expanded}"
+        );
     }
 }
 

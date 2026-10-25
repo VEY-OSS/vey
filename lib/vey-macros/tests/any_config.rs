@@ -62,6 +62,43 @@ fn test_any() {
     assert!(!any_config.same_as(&any_config2));
 }
 
+#[derive(AnyConfig)]
+#[def_fn(name, &str)]
+enum AttributedConfig {
+    #[cfg(all())]
+    #[allow(dead_code)]
+    Only(ConfigA),
+}
+
+#[test]
+fn test_variant_attributes() {
+    let config = AttributedConfig::Only(ConfigA {});
+    assert_eq!(config.name(), "A");
+}
+
+struct ConfigT<T> {
+    value: T,
+}
+
+impl<T> ConfigT<T> {
+    fn name(&self) -> &str {
+        let _ = &self.value;
+        "T"
+    }
+}
+
+#[derive(AnyConfig)]
+#[def_fn(name, &str)]
+enum GenericCfg<T> {
+    Wrapped(ConfigT<T>),
+}
+
+#[test]
+fn test_generic_enum() {
+    let config = GenericCfg::Wrapped(ConfigT { value: 1u8 });
+    assert_eq!(config.name(), "T");
+}
+
 #[test]
 fn test_async_run() {
     let rt = tokio::runtime::Builder::new_current_thread()
