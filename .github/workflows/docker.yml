@@ -25,6 +25,7 @@ jobs:
       app: ${{ steps.meta.outputs.app }}
       version: ${{ steps.meta.outputs.version }}
       images: ${{ steps.meta.outputs.images }}
+      description: ${{ steps.meta.outputs.description }}
     steps:
       - name: Parse tag
         id: meta
@@ -37,15 +38,19 @@ jobs:
           case "${app}" in
             vey-proxy)
               images='[{"file":"vey-proxy/docker/debian.Dockerfile","variant":"debian"},{"file":"vey-proxy/docker/alpine.Dockerfile","variant":"alpine"}]'
+              description='HTTP and SOCKS proxy with transparent, stream, and reverse-proxy servers. The default image listens on 8080 and 1080.'
               ;;
             vey-statsd)
               images='[{"file":"vey-statsd/docker/debian.Dockerfile","variant":"debian"},{"file":"vey-statsd/docker/alpine.Dockerfile","variant":"alpine"}]'
+              description='StatsD ingestion and export. The default image listens on UDP 8125 and prints aggregated metrics to stdout.'
               ;;
             vey-dcgen)
               images='[{"file":"vey-dcgen/docker/debian.Dockerfile","variant":"debian"},{"file":"vey-dcgen/docker/alpine.Dockerfile","variant":"alpine"}]'
+              description='Dynamic certificate generator for vey-proxy TLS interception. The default image listens on UDP 2999 and creates a root CA on first start.'
               ;;
             vey-iploc)
               images='[{"file":"vey-iploc/docker/debian.Dockerfile","variant":"debian"},{"file":"vey-iploc/docker/alpine.Dockerfile","variant":"alpine"}]'
+              description='IP geolocation lookup for vey-proxy. The default image listens on UDP 2888. Replace the placeholder country database before using it for routing.'
               ;;
             *)
               echo "no Dockerfile for tag ${tag}" >&2
@@ -56,6 +61,7 @@ jobs:
           echo "app=${app}" >> "${GITHUB_OUTPUT}"
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "images=${images}" >> "${GITHUB_OUTPUT}"
+          echo "description=${description}" >> "${GITHUB_OUTPUT}"
 
   build:
     name: ${{ matrix.image.variant }} (${{ matrix.platform.name }})
@@ -93,9 +99,15 @@ jobs:
           provenance: false
           sbom: false
           labels: |
+            org.opencontainers.image.title=${{ needs.plan.outputs.app }}
+            org.opencontainers.image.description=${{ needs.plan.outputs.description }}
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/blob/${{ github.sha }}/${{ needs.plan.outputs.app }}/docker/README.md
             org.opencontainers.image.version=${{ needs.plan.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.vendor=VEY-OSS
           outputs: type=image,name=ghcr.io/${{ needs.plan.outputs.owner }}/${{ needs.plan.outputs.app }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ needs.plan.outputs.app }}-${{ matrix.image.variant }}-${{ matrix.platform.name }}
           cache-to: type=gha,scope=${{ needs.plan.outputs.app }}-${{ matrix.image.variant }}-${{ matrix.platform.name }},mode=max
@@ -156,5 +168,17 @@ jobs:
             echo "expected amd64 and arm64 digests, found ${#digests[@]}" >&2
             exit 1
           fi
-          docker buildx imagetools create "${tags[@]}" "${digests[@]}"
+          repo="https://github.com/${GITHUB_REPOSITORY}"
+          docs="${repo}/blob/${GITHUB_SHA}/${{ needs.plan.outputs.app }}/docker/README.md"
+          docker buildx imagetools create \
+            --annotation "index:org.opencontainers.image.title=${{ needs.plan.outputs.app }}" \
+            --annotation "index:org.opencontainers.image.description=${{ needs.plan.outputs.description }}" \
+            --annotation "index:org.opencontainers.image.url=${repo}" \
+            --annotation "index:org.opencontainers.image.source=${repo}" \
+            --annotation "index:org.opencontainers.image.documentation=${docs}" \
+            --annotation "index:org.opencontainers.image.version=${version}" \
+            --annotation "index:org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --annotation "index:org.opencontainers.image.licenses=Apache-2.0" \
+            --annotation "index:org.opencontainers.image.vendor=VEY-OSS" \
+            "${tags[@]}" "${digests[@]}"
           docker buildx imagetools inspect "${tags[1]}"
