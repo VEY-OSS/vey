@@ -261,6 +261,14 @@ where
                     let buf = &send_head.head.as_bytes()[send_head.offset..];
                     let nw = ready!(Pin::new(&mut send_head.writer).poll_write(cx, buf))
                         .map_err(StreamCopyError::WriteFailed)?;
+                    if nw == 0 {
+                        return Poll::Ready(Err(StreamCopyError::WriteFailed(
+                            std::io::Error::new(
+                                std::io::ErrorKind::WriteZero,
+                                "zero byte written out",
+                            ),
+                        )));
+                    }
                     send_head.offset += nw;
                 }
                 self.total_write += send_head.offset as u64;
@@ -311,6 +319,14 @@ where
                     let buf = &NO_TRAILER_END_BUFFER[send_end.offset..];
                     let nw = ready!(Pin::new(&mut send_end.writer).poll_write(cx, buf))
                         .map_err(StreamCopyError::WriteFailed)?;
+                    if nw == 0 {
+                        return Poll::Ready(Err(StreamCopyError::WriteFailed(
+                            std::io::Error::new(
+                                std::io::ErrorKind::WriteZero,
+                                "zero byte written out",
+                            ),
+                        )));
+                    }
                     send_end.offset += nw;
                 }
                 let old_state = std::mem::replace(&mut self.state, ChunkedTransferState::End);
@@ -392,6 +408,62 @@ mod test {
                 None => Poll::Pending,
             }
         }
+    }
+
+    struct WriteZeroWriter;
+
+    impl tokio::io::AsyncWrite for WriteZeroWriter {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &[u8],
+        ) -> Poll<std::io::Result<usize>> {
+            Poll::Ready(Ok(0))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    #[tokio::test]
+    async fn write_zero_stops_chunk_head() {
+        let mut reader = BufReader::new(ReadThenPending(None));
+        let mut writer = WriteZeroWriter;
+        let mut transfer = H1BodyToChunkedTransfer::new_fixed_length(
+            &mut reader,
+            &mut writer,
+            4,
+            StreamCopyConfig::default(),
+        );
+
+        let err = (&mut transfer).await.unwrap_err();
+        let StreamCopyError::WriteFailed(err) = err else {
+            panic!("expected write failure, got {err}");
+        };
+        assert_eq!(err.kind(), std::io::ErrorKind::WriteZero);
+    }
+
+    #[tokio::test]
+    async fn write_zero_stops_chunk_end() {
+        let mut reader = BufReader::new(ReadThenPending(None));
+        let mut writer = WriteZeroWriter;
+        let mut transfer = H1BodyToChunkedTransfer::new_fixed_length(
+            &mut reader,
+            &mut writer,
+            0,
+            StreamCopyConfig::default(),
+        );
+
+        let err = (&mut transfer).await.unwrap_err();
+        let StreamCopyError::WriteFailed(err) = err else {
+            panic!("expected write failure, got {err}");
+        };
+        assert_eq!(err.kind(), std::io::ErrorKind::WriteZero);
     }
 
     #[tokio::test]

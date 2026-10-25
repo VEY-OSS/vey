@@ -145,6 +145,11 @@ impl ChunkedEncodeTransferInternal {
                         .poll_write(cx, &self.trailer_bytes[self.trailer_offset..])
                 )
                 .map_err(H2StreamToChunkedTransferError::WriteError)?;
+                if nw == 0 {
+                    return Poll::Ready(Err(H2StreamToChunkedTransferError::WriteError(
+                        io::Error::new(io::ErrorKind::WriteZero, "zero byte written out"),
+                    )));
+                }
                 self.active = true;
                 self.trailer_offset += nw;
                 self.total_write += nw as u64;
@@ -403,5 +408,71 @@ where
 
         me.internal
             .poll_transfer(cx, me.recv_stream, Pin::new(&mut me.writer))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+
+    use super::*;
+
+    struct WriteZeroWriter;
+
+    impl AsyncWrite for WriteZeroWriter {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(0))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    #[tokio::test]
+    async fn trailer_write_zero_is_an_error() {
+        let (client_io, server_io) = tokio::io::duplex(64 * 1024);
+        let ((mut send_request, conn), mut server) = tokio::join!(
+            async { h2::client::handshake(client_io).await.unwrap() },
+            async { h2::server::handshake(server_io).await.unwrap() },
+        );
+        tokio::spawn(async move {
+            conn.await.unwrap();
+        });
+
+        let (accepted_tx, accepted_rx) = tokio::sync::oneshot::channel();
+        tokio::spawn(async move {
+            let (request, mut respond) = server.accept().await.unwrap().unwrap();
+            respond
+                .send_response(http::Response::new(()), true)
+                .unwrap();
+            let _ = accepted_tx.send(request.into_body());
+            while server.accept().await.is_some() {}
+        });
+
+        let request = http::Request::builder()
+            .uri("http://example.com/")
+            .body(())
+            .unwrap();
+        let (response, _send) = send_request.send_request(request, true).unwrap();
+        let mut body = accepted_rx.await.unwrap();
+        response.await.unwrap();
+
+        let mut writer = WriteZeroWriter;
+        let mut transfer = H2StreamToChunkedTransfer::without_data(&mut body, &mut writer);
+        let err = (&mut transfer).await.unwrap_err();
+        let H2StreamToChunkedTransferError::WriteError(err) = err else {
+            panic!("expected write failure, got {err}");
+        };
+        assert_eq!(err.kind(), io::ErrorKind::WriteZero);
     }
 }
