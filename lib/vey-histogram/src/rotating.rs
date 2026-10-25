@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::sync::Arc;
@@ -94,6 +95,12 @@ where
                 tokio::select! {
                     biased;
 
+                    _ = rotate_interval.tick() => {
+                        if !self.inner.is_empty() {
+                            stats.update(&self.inner);
+                            self.inner.reset();
+                        }
+                    }
                     n = self.receiver.recv_many(&mut buf, BATCH_SIZE) => {
                         if n == 0 {
                             break;
@@ -102,12 +109,6 @@ where
                             let _ = self.inner.record(v.as_u64());
                         }
                         buf.clear();
-                    }
-                    _ = rotate_interval.tick() => {
-                        if !self.inner.is_empty() {
-                            stats.update(&self.inner);
-                            self.inner.reset();
-                        }
                     }
                 }
             }

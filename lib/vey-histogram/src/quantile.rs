@@ -114,7 +114,7 @@ impl PartialOrd for Quantile {
 
 impl Ord for Quantile {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.v.total_cmp(&other.v)
+        self.v.partial_cmp(&other.v).unwrap_or(Ordering::Equal)
     }
 }
 
@@ -147,5 +147,18 @@ mod tests {
         let quantile = Quantile::from_str("0.999").unwrap();
         assert_eq!(quantile.value(), 0.999);
         assert_eq!(quantile.as_str(), "0.999");
+    }
+
+    #[test]
+    fn zero_and_negative_zero_compare_equal() {
+        let positive = Quantile::try_from(0.0).unwrap();
+        let negative = Quantile::try_from(-0.0).unwrap();
+        assert_eq!(positive, negative);
+        assert_eq!(positive.cmp(&negative), Ordering::Equal);
+
+        let mut quantiles = std::collections::BTreeSet::new();
+        quantiles.insert(positive);
+        quantiles.insert(negative);
+        assert_eq!(quantiles.len(), 1);
     }
 }
