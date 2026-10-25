@@ -6,6 +6,7 @@
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use hdrhistogram::Histogram;
@@ -75,4 +76,44 @@ fn rotating_histogram_recorder() {
     let (_hist, recorder) = RotatingHistogram::<u64>::new(Duration::from_secs(1));
     recorder.record(7u64).unwrap();
     recorder.record(9u64).unwrap();
+}
+
+#[tokio::test]
+async fn rotating_histogram_rotates_while_backlogged() {
+    let (hist, recorder) = RotatingHistogram::<u64>::new(Duration::from_millis(20));
+    let stats = Arc::new(HistogramStats::new());
+    let running = Arc::new(AtomicBool::new(true));
+
+    let producer_running = Arc::clone(&running);
+    let producer = std::thread::spawn(move || {
+        while producer_running.load(Ordering::Relaxed) {
+            if recorder.record(42u64).is_err() {
+                break;
+            }
+        }
+    });
+    hist.spawn_refresh(Arc::clone(&stats), None);
+
+    let updated = tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            let mut rotated = false;
+            stats.foreach_stat(|_, name, value| {
+                if name == "max" && value > 0.0 {
+                    rotated = true;
+                }
+            });
+            if rotated {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await;
+
+    running.store(false, Ordering::Relaxed);
+    producer.join().unwrap();
+    assert!(
+        updated.is_ok(),
+        "stats were not rotated while samples were queued"
+    );
 }
