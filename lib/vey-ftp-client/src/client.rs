@@ -478,3 +478,451 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::VecDeque;
+    use std::io;
+    use std::net::Ipv4Addr;
+    use std::pin::Pin;
+    use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+    use std::sync::{Arc, Mutex};
+    use std::task::{Context, Poll, Waker};
+    use std::time::Duration;
+
+    use async_trait::async_trait;
+    use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+    use tokio::sync::Notify;
+    use tokio::time::timeout;
+
+    use super::*;
+    use crate::transfer::FtpTransferType;
+    use crate::{FtpControlChannel, FtpServerFeature};
+
+    struct IdleProvider;
+
+    #[async_trait]
+    impl FtpConnectionProvider<ScriptIo, io::Error, ()> for IdleProvider {
+        async fn new_control_connection(
+            &mut self,
+            _upstream: &vey_types::net::UpstreamAddr,
+            _user_data: &(),
+        ) -> Result<ScriptIo, io::Error> {
+            unreachable!("control connection is installed directly");
+        }
+
+        async fn new_data_connection(
+            &mut self,
+            _server_addr: &vey_types::net::UpstreamAddr,
+            _user_data: &(),
+        ) -> Result<ScriptIo, io::Error> {
+            unreachable!("data connection is installed directly");
+        }
+    }
+
+    struct ScriptState {
+        control_phase: AtomicU8,
+        release_rest: AtomicBool,
+        release_data: AtomicBool,
+        data_sent: AtomicBool,
+        control_waker: Mutex<Option<Waker>>,
+        data_waker: Mutex<Option<Waker>>,
+        advanced: Notify,
+    }
+
+    struct ScriptIo {
+        control: bool,
+        state: Arc<ScriptState>,
+    }
+
+    impl AsyncRead for ScriptIo {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            if self.control {
+                poll_control(&self.state, cx, buf)
+            } else {
+                poll_data(&self.state, cx, buf)
+            }
+        }
+    }
+
+    impl AsyncWrite for ScriptIo {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(buf.len()))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    fn poll_control(
+        state: &ScriptState,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        if state.release_rest.load(Ordering::Acquire)
+            && state.control_phase.load(Ordering::Acquire) < 3
+        {
+            buf.put_slice(b"6 Transfer complete.\r\n");
+            state.control_phase.store(3, Ordering::Release);
+            return Poll::Ready(Ok(()));
+        }
+
+        match state.control_phase.load(Ordering::Acquire) {
+            0 => {
+                buf.put_slice(b"22");
+                state.control_phase.store(1, Ordering::Release);
+                state.advanced.notify_waiters();
+                Poll::Ready(Ok(()))
+            }
+            1 | 2 => {
+                state.control_phase.store(2, Ordering::Release);
+                *state.control_waker.lock().unwrap() = Some(cx.waker().clone());
+                state.advanced.notify_waiters();
+                Poll::Pending
+            }
+            _ => Poll::Ready(Ok(())),
+        }
+    }
+
+    fn poll_data(
+        state: &ScriptState,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        if !state.release_data.load(Ordering::Acquire) {
+            *state.data_waker.lock().unwrap() = Some(cx.waker().clone());
+            return Poll::Pending;
+        }
+        if state.data_sent.swap(true, Ordering::AcqRel) {
+            return Poll::Ready(Ok(()));
+        }
+        buf.put_slice(b"-rw file\r\n");
+        Poll::Ready(Ok(()))
+    }
+
+    struct CollectLines(Vec<String>);
+
+    impl FtpLineDataReceiver for CollectLines {
+        async fn recv_line(&mut self, line: &str) {
+            self.0.push(line.to_owned());
+        }
+
+        fn should_return_early(&self) -> bool {
+            false
+        }
+    }
+
+    #[tokio::test]
+    async fn list_receive_keeps_split_control_reply() {
+        let state = Arc::new(ScriptState {
+            control_phase: AtomicU8::new(0),
+            release_rest: AtomicBool::new(false),
+            release_data: AtomicBool::new(false),
+            data_sent: AtomicBool::new(false),
+            control_waker: Mutex::new(None),
+            data_waker: Mutex::new(None),
+            advanced: Notify::new(),
+        });
+        let mut config = FtpClientConfig::default();
+        config.transfer.end_wait_timeout = Duration::from_secs(2);
+        config.transfer.set_list_all_timeout(Duration::from_secs(2));
+        let config = Arc::new(config);
+        let mut client = FtpClient {
+            server: vey_types::net::UpstreamAddr::from_ip_and_port(Ipv4Addr::LOCALHOST.into(), 21),
+            conn_provider: IdleProvider,
+            config: Arc::clone(&config),
+            control: FtpControlChannel::new(
+                ScriptIo {
+                    control: true,
+                    state: Arc::clone(&state),
+                },
+                config.control,
+            ),
+            server_feature: FtpServerFeature::default(),
+            transfer_type: FtpTransferType::Ascii,
+            _phantom_e: Default::default(),
+            _phantom_ud: Default::default(),
+        };
+        let data = ScriptIo {
+            control: false,
+            state: Arc::clone(&state),
+        };
+        let mut lines = CollectLines(Vec::new());
+
+        let listed = timeout(Duration::from_secs(2), async {
+            {
+                let receive = client.list_directory_detailed_receive(data, &mut lines);
+                tokio::pin!(receive);
+                let mut released = false;
+                loop {
+                    let notified = state.advanced.notified();
+                    if !released && state.control_phase.load(Ordering::Acquire) >= 2 {
+                        // The listing finishes while the control reply is still split after `22`.
+                        // Those two bytes stay in the reader and must be part of `226 ...`.
+                        state.release_data.store(true, Ordering::Release);
+                        if let Some(waker) = state.data_waker.lock().unwrap().take() {
+                            waker.wake();
+                        }
+                        state.release_rest.store(true, Ordering::Release);
+                        if let Some(waker) = state.control_waker.lock().unwrap().take() {
+                            waker.wake();
+                        }
+                        released = true;
+                    }
+                    tokio::select! {
+                        result = &mut receive => {
+                            result.unwrap();
+                            break;
+                        }
+                        _ = notified, if !released => {}
+                    }
+                }
+            }
+            lines.0
+        })
+        .await
+        .expect("split control reply was not reassembled");
+        assert_eq!(listed, ["-rw file\r\n"]);
+    }
+
+    #[derive(Debug)]
+    struct ScriptedControl {
+        writes: Arc<Mutex<Vec<Vec<u8>>>>,
+        reads: Mutex<VecDeque<Vec<u8>>>,
+        fail_write: bool,
+    }
+
+    impl AsyncRead for ScriptedControl {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            let Some(next) = self.reads.lock().unwrap().pop_front() else {
+                return Poll::Pending;
+            };
+            buf.put_slice(&next);
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl AsyncWrite for ScriptedControl {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            self.writes.lock().unwrap().push(buf.to_vec());
+            if self.fail_write {
+                Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::BrokenPipe,
+                    "control write failed",
+                )))
+            } else {
+                Poll::Ready(Ok(buf.len()))
+            }
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    struct ProbeProvider {
+        data_attempts: Arc<AtomicU8>,
+    }
+
+    #[async_trait]
+    impl FtpConnectionProvider<ScriptedControl, io::Error, ()> for ProbeProvider {
+        async fn new_control_connection(
+            &mut self,
+            _upstream: &vey_types::net::UpstreamAddr,
+            _user_data: &(),
+        ) -> Result<ScriptedControl, io::Error> {
+            unreachable!("control connection is installed directly");
+        }
+
+        async fn new_data_connection(
+            &mut self,
+            _server_addr: &vey_types::net::UpstreamAddr,
+            _user_data: &(),
+        ) -> Result<ScriptedControl, io::Error> {
+            self.data_attempts.fetch_add(1, Ordering::AcqRel);
+            Err(io::Error::other("data connect failed"))
+        }
+    }
+
+    async fn probe_passive_fallback(
+        replies: &[&[u8]],
+        fail_write: bool,
+        command_timeout: Duration,
+        spsv: bool,
+    ) -> (FtpFileRetrieveStartError, Vec<Vec<u8>>, u8) {
+        let writes = Arc::new(Mutex::new(Vec::new()));
+        let data_attempts = Arc::new(AtomicU8::new(0));
+        let mut config = FtpClientConfig::default();
+        config.control.command_timeout = command_timeout;
+        let config = Arc::new(config);
+        let mut server_feature = FtpServerFeature::default();
+        server_feature.parse_and_set("EPSV");
+        if spsv {
+            server_feature.parse_and_set("SPSV");
+        }
+        let mut client = FtpClient {
+            server: vey_types::net::UpstreamAddr::from_ip_and_port(Ipv4Addr::LOCALHOST.into(), 21),
+            conn_provider: ProbeProvider {
+                data_attempts: Arc::clone(&data_attempts),
+            },
+            config: Arc::clone(&config),
+            control: FtpControlChannel::new(
+                ScriptedControl {
+                    writes: Arc::clone(&writes),
+                    reads: Mutex::new(replies.iter().map(|line| line.to_vec()).collect()),
+                    fail_write,
+                },
+                config.control,
+            ),
+            server_feature,
+            transfer_type: FtpTransferType::Ascii,
+            _phantom_e: Default::default(),
+            _phantom_ud: Default::default(),
+        };
+
+        let err = timeout(
+            Duration::from_secs(2),
+            client.list_directory_detailed_start("", &()),
+        )
+        .await
+        .expect("passive fallback did not finish")
+        .expect_err("transfer setup must fail");
+        (
+            err,
+            writes.lock().unwrap().clone(),
+            data_attempts.load(Ordering::Acquire),
+        )
+    }
+
+    #[tokio::test]
+    async fn send_failure_does_not_try_the_next_passive_mode() {
+        let (err, writes, data_attempts) =
+            probe_passive_fallback(&[], true, Duration::from_secs(2), true).await;
+        assert!(matches!(
+            err,
+            FtpFileRetrieveStartError::TransferSetupFailed(FtpTransferSetupError::RawCommandError(
+                FtpCommandError::SendFailed(_)
+            ))
+        ));
+        assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
+        assert_eq!(data_attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn reply_timeout_does_not_try_the_next_passive_mode() {
+        let (err, writes, data_attempts) =
+            probe_passive_fallback(&[], false, Duration::from_millis(50), true).await;
+        assert!(matches!(
+            err,
+            FtpFileRetrieveStartError::TransferSetupFailed(FtpTransferSetupError::RawCommandError(
+                FtpCommandError::RecvFailed(
+                    crate::error::FtpRawResponseError::ReadResponseTimedOut(_)
+                )
+            ))
+        ));
+        assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
+        assert_eq!(data_attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn not_logged_in_does_not_try_the_next_passive_mode() {
+        let (err, writes, data_attempts) = probe_passive_fallback(
+            &[b"530 Not logged in.\r\n"],
+            false,
+            Duration::from_secs(2),
+            true,
+        )
+        .await;
+        assert!(matches!(
+            err,
+            FtpFileRetrieveStartError::TransferSetupFailed(FtpTransferSetupError::RawCommandError(
+                FtpCommandError::NotLoggedIn
+            ))
+        ));
+        assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
+        assert_eq!(data_attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn bad_sequence_does_not_try_the_next_passive_mode() {
+        let (err, writes, data_attempts) = probe_passive_fallback(
+            &[b"503 Bad sequence of commands.\r\n"],
+            false,
+            Duration::from_secs(2),
+            true,
+        )
+        .await;
+        assert!(matches!(
+            err,
+            FtpFileRetrieveStartError::TransferSetupFailed(FtpTransferSetupError::RawCommandError(
+                FtpCommandError::BadCommandSequence(_)
+            ))
+        ));
+        assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
+        assert_eq!(data_attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn service_not_available_does_not_try_the_next_passive_mode() {
+        let (err, writes, data_attempts) = probe_passive_fallback(
+            &[b"421 Service not available.\r\n"],
+            false,
+            Duration::from_secs(2),
+            true,
+        )
+        .await;
+        assert!(matches!(
+            err,
+            FtpFileRetrieveStartError::ServiceNotAvailable
+        ));
+        assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
+        assert_eq!(data_attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn command_not_implemented_tries_the_next_passive_mode() {
+        let (err, writes, data_attempts) = probe_passive_fallback(
+            &[
+                b"522 Network protocol not supported.\r\n",
+                b"227 Entering Passive Mode (127,0,0,1,0,21).\r\n",
+            ],
+            false,
+            Duration::from_secs(2),
+            false,
+        )
+        .await;
+        assert!(matches!(
+            err,
+            FtpFileRetrieveStartError::TransferSetupFailed(
+                FtpTransferSetupError::NeedActiveDataTransfer
+            )
+        ));
+        assert_eq!(writes, [b"EPSV\r\n".to_vec(), b"PASV\r\n".to_vec()]);
+        assert_eq!(data_attempts, 1);
+    }
+}
