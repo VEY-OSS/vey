@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn continent_code_variant_count() {
-        assert_eq!(ContinentCode::variant_count(), 6);
+        assert_eq!(ContinentCode::variant_count(), 7);
     }
 
     #[test]
