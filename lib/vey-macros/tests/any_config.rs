@@ -65,7 +65,7 @@ fn test_any() {
 #[derive(AnyConfig)]
 #[def_fn(name, &str)]
 enum AttributedConfig {
-    #[cfg(all())]
+    #[allow(unused)]
     #[allow(dead_code)]
     Only(ConfigA),
 }

@@ -138,27 +138,6 @@ pub(super) fn derive(input: DeriveInput) -> TokenStream {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use syn::parse_quote;
-
-    #[test]
-    fn invalid_def_fn_is_a_compile_error() {
-        let input: DeriveInput = parse_quote! {
-            #[def_fn(name str)]
-            enum Config {
-                A(u8),
-            }
-        };
-        let expanded = derive(input).to_string();
-        assert!(
-            expanded.contains("compile_error"),
-            "invalid def_fn was dropped: {expanded}"
-        );
-    }
-}
-
 fn derive_fn(fn_name: &Ident, arm_attrs: &[TokenStream], arm_idents: &[&Ident]) -> TokenStream {
     quote! {
         pub(crate) fn #fn_name(&self) {
@@ -262,5 +241,26 @@ fn derive_async_fn_p_r(
                 )*
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    #[test]
+    fn invalid_def_fn_is_a_compile_error() {
+        let input: DeriveInput = parse_quote! {
+            #[def_fn(name str)]
+            enum Config {
+                A(u8),
+            }
+        };
+        let expanded = derive(input).to_string();
+        assert!(
+            expanded.contains("compile_error"),
+            "invalid def_fn was dropped: {expanded}"
+        );
     }
 }
