@@ -83,7 +83,7 @@ fn load_country_from_csv<R: io::Read>(
 pub fn load_asn(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpAsnRecord>> {
     if let Some(ext) = file.extension() {
         match ext.to_str() {
-            Some("gz") => {
+            Some("gz") | Some("GZ") => {
                 let f = File::open(file)
                     .map_err(|e| anyhow!("failed to open gzip file {}: {e}", file.display()))?;
                 let f = GzDecoder::new(BufReader::new(f));
@@ -302,6 +302,19 @@ mod tests {
         let result = load_asn(file.path()).unwrap();
 
         assert!(!result.is_empty());
+        let ip: IpAddr = "192.168.1.1".parse().unwrap();
+        assert!(result.longest_match(ip).is_some());
+    }
+
+    #[test]
+    fn load_asn_from_uppercase_gzip_extension() {
+        let mut file = NamedTempFile::with_suffix(".GZ").unwrap();
+        let mut encoder = GzEncoder::new(&mut file, Compression::default());
+        encoder.write_all(valid_asn_csv().as_bytes()).unwrap();
+        encoder.finish().unwrap();
+        file.flush().unwrap();
+
+        let result = load_asn(file.path()).unwrap();
         let ip: IpAddr = "192.168.1.1".parse().unwrap();
         assert!(result.longest_match(ip).is_some());
     }

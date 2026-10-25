@@ -2003,6 +2003,9 @@ impl FromStr for IsoCountryCode {
             2 => {
                 let s = s.to_uppercase();
                 let s = s.as_bytes();
+                if !s[0].is_ascii_uppercase() || !s[1].is_ascii_uppercase() {
+                    return Err(());
+                }
                 let id = ((s[0] - b'A') as usize) * 26 + ((s[1] - b'A') as usize);
                 ALPHA2_FAST_MAP.get(id).ok_or(())?.ok_or(())
             }
@@ -2591,6 +2594,9 @@ mod tests {
             )
         }
 
+        assert!(IsoCountryCode::from_str("XX").is_err());
+        assert!(IsoCountryCode::from_str("1A").is_err());
+        assert!(IsoCountryCode::from_str("A1").is_err());
         assert!(IsoCountryCode::from_str("XXX").is_err());
         assert!(IsoCountryCode::from_str("ZZZ").is_err());
         assert!(IsoCountryCode::from_str("ABC").is_err());
