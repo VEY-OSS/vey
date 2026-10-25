@@ -23,6 +23,8 @@ pub enum HttpUpgradeResponseError {
     UpgradeTokenNotMatch,
     #[error("invalid chunked transfer-encoding")]
     InvalidChunkedTransferEncoding,
+    #[error("unexpected transfer encoding")]
+    UnexpectedTransferEncoding,
     #[error("invalid content length")]
     InvalidContentLength,
 }

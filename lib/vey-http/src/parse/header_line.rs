@@ -19,6 +19,9 @@ impl<'a> HttpHeaderLine<'a> {
         };
 
         let name = line[0..p].trim();
+        if name.is_empty() {
+            return Err(HttpLineParseError::InvalidHeaderName);
+        }
         let value = line[p + 1..].trim();
 
         Ok(HttpHeaderLine { name, value })
@@ -55,5 +58,9 @@ mod tests {
         let no_colon = b"name value";
         let err = HttpHeaderLine::parse(no_colon).unwrap_err();
         assert!(matches!(err, HttpLineParseError::NoDelimiterFound(':')));
+
+        let empty_name = b": value";
+        let err = HttpHeaderLine::parse(empty_name).unwrap_err();
+        assert!(matches!(err, HttpLineParseError::InvalidHeaderName));
     }
 }

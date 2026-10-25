@@ -17,6 +17,7 @@ use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, Ht
 #[derive(Debug)]
 pub struct HttpUpgradeResponse {
     pub code: u16,
+    is_success: bool,
     pub reason: String,
     pub headers: HttpHeaderMap,
     protocol: &'static str,
@@ -30,6 +31,7 @@ impl HttpUpgradeResponse {
     fn new(code: u16, reason: String, protocol: &'static str) -> Self {
         HttpUpgradeResponse {
             code,
+            is_success: code == 101,
             reason,
             headers: HttpHeaderMap::default(),
             protocol,
@@ -41,7 +43,9 @@ impl HttpUpgradeResponse {
     }
 
     fn body_type(&self) -> Option<HttpBodyType> {
-        if self.chunked_transfer {
+        if self.is_success {
+            None
+        } else if self.chunked_transfer {
             Some(HttpBodyType::Chunked)
         } else if self.content_length > 0 {
             Some(HttpBodyType::ContentLength(self.content_length))
@@ -175,6 +179,9 @@ impl HttpUpgradeResponse {
                 return Ok(());
             }
             "transfer-encoding" => {
+                if self.is_success {
+                    return Err(HttpUpgradeResponseError::UnexpectedTransferEncoding);
+                }
                 self.has_transfer_encoding = true;
                 if self.has_content_length {
                     // delete content-length
@@ -197,6 +204,9 @@ impl HttpUpgradeResponse {
                 let content_length = u64::from_str(header.value)
                     .map_err(|_| HttpUpgradeResponseError::InvalidContentLength)?;
 
+                if self.is_success && content_length != 0 {
+                    return Err(HttpUpgradeResponseError::InvalidContentLength);
+                }
                 if self.has_content_length && self.content_length != content_length {
                     return Err(HttpUpgradeResponseError::InvalidContentLength);
                 }
@@ -210,7 +220,7 @@ impl HttpUpgradeResponse {
     }
 
     fn detect_error(&self) -> Result<(), HttpUpgradeError> {
-        if self.code == 101 {
+        if self.is_success {
             Ok(())
         } else if self.code == 504 || self.code == 522 || self.code == 524 {
             // Peer tells us it times out

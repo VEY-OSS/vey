@@ -18,6 +18,7 @@ use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, Ht
 #[derive(Debug)]
 pub struct HttpConnectResponse {
     pub code: u16,
+    is_success: bool,
     pub reason: String,
     pub headers: HttpHeaderMap,
     content_length: u64,
@@ -30,6 +31,7 @@ impl HttpConnectResponse {
     fn new(code: u16, reason: String) -> Self {
         HttpConnectResponse {
             code,
+            is_success: code >= 200 && code < 300,
             reason,
             headers: HttpHeaderMap::default(),
             content_length: 0,
@@ -40,7 +42,9 @@ impl HttpConnectResponse {
     }
 
     fn body_type(&self) -> Option<HttpBodyType> {
-        if self.chunked_transfer {
+        if self.is_success {
+            None
+        } else if self.chunked_transfer {
             Some(HttpBodyType::Chunked)
         } else if self.content_length > 0 {
             Some(HttpBodyType::ContentLength(self.content_length))
@@ -134,6 +138,9 @@ impl HttpConnectResponse {
         match name.as_str() {
             "connection" | "proxy-connection" => {}
             "transfer-encoding" => {
+                if self.is_success {
+                    return Err(HttpConnectResponseError::UnexpectedTransferEncoding);
+                }
                 self.has_transfer_encoding = true;
                 if self.has_content_length {
                     // delete content-length
@@ -157,6 +164,9 @@ impl HttpConnectResponse {
                 let content_length = u64::from_str(header.value)
                     .map_err(|_| HttpConnectResponseError::InvalidContentLength)?;
 
+                if self.is_success && content_length != 0 {
+                    return Err(HttpConnectResponseError::InvalidContentLength);
+                }
                 if self.has_content_length && self.content_length != content_length {
                     return Err(HttpConnectResponseError::InvalidContentLength);
                 }
@@ -174,7 +184,7 @@ impl HttpConnectResponse {
     }
 
     fn detect_error(&self) -> Result<(), HttpConnectError> {
-        if self.code >= 200 && self.code < 300 {
+        if self.is_success {
             Ok(())
         } else if self.code == 504 || self.code == 522 || self.code == 524 {
             // Peer tells us it times out
@@ -229,10 +239,14 @@ mod tests {
 
     #[test]
     fn body_type() {
-        // No body type
+        // A successful response has no body.
         let mut response = HttpConnectResponse::new(200, "OK".to_string());
         assert!(response.body_type().is_none());
+        response.content_length = 100;
+        response.chunked_transfer = true;
+        assert!(response.body_type().is_none());
 
+        let mut response = HttpConnectResponse::new(403, "Forbidden".to_string());
         // Content length body type
         response.content_length = 100;
         response.has_content_length = true;
@@ -290,8 +304,7 @@ mod tests {
         // Valid header lines
         let cases = vec![
             b"Content-Type: application/json\r\n".as_ref(),
-            b"Content-Length: 100\r\n".as_ref(),
-            b"Transfer-Encoding: chunked\r\n".as_ref(),
+            b"Content-Length: 0\r\n".as_ref(),
             b"Connection: keep-alive\r\n".as_ref(),
             b"  Accept  :  */*  \r\n".as_ref(),
         ];
@@ -308,6 +321,8 @@ mod tests {
 
         // Invalid header lines
         let cases = vec![
+            b"Content-Length: 100\r\n".as_ref(),
+            b"Transfer-Encoding: chunked\r\n".as_ref(),
             b"Invalid Header Without Colon\r\n".as_ref(),
             b"Content-Type application/json\r\n".as_ref(), // Missing colon
             b"Name\xFF: Value\r\n".as_ref(),               // Invalid UTF-8
@@ -322,8 +337,13 @@ mod tests {
     #[test]
     fn handle_header_content_length() {
         let mut response = HttpConnectResponse::new(200, "OK".to_string());
+        let header = HttpHeaderLine {
+            name: "content-length",
+            value: "100",
+        };
+        assert!(response.handle_header(header).is_err());
 
-        // Content-length header
+        let mut response = HttpConnectResponse::new(403, "Forbidden".to_string());
         let header = HttpHeaderLine {
             name: "content-length",
             value: "100",
@@ -356,8 +376,13 @@ mod tests {
     #[test]
     fn handle_header_transfer_encoding() {
         let mut response = HttpConnectResponse::new(200, "OK".to_string());
+        let header = HttpHeaderLine {
+            name: "transfer-encoding",
+            value: "chunked",
+        };
+        assert!(response.handle_header(header).is_err());
 
-        // Transfer-encoding: chunked
+        let mut response = HttpConnectResponse::new(403, "Forbidden".to_string());
         let header = HttpHeaderLine {
             name: "transfer-encoding",
             value: "chunked",
@@ -368,7 +393,7 @@ mod tests {
         assert!(response.has_transfer_encoding);
         assert!(response.chunked_transfer);
 
-        // Invalid transfer-encoding with chunked in middle
+        let mut response = HttpConnectResponse::new(403, "Forbidden".to_string());
         let header2 = HttpHeaderLine {
             name: "transfer-encoding",
             value: "gzip, chunked, deflate",
@@ -377,7 +402,7 @@ mod tests {
         let result = response.handle_header(header2);
         assert!(result.is_err());
 
-        // Transfer-encoding with chunked at end
+        let mut response = HttpConnectResponse::new(403, "Forbidden".to_string());
         let header3 = HttpHeaderLine {
             name: "transfer-encoding",
             value: "gzip, deflate, chunked",
@@ -391,7 +416,7 @@ mod tests {
     #[test]
     fn handle_header_conflict() {
         // Add content-length then transfer-encoding
-        let mut response = HttpConnectResponse::new(200, "OK".to_string());
+        let mut response = HttpConnectResponse::new(403, "Forbidden".to_string());
         let content_length_header = HttpHeaderLine {
             name: "content-length",
             value: "100",
@@ -410,7 +435,7 @@ mod tests {
         assert_eq!(response.content_length, 0);
 
         // Add transfer-encoding then content-length
-        let mut response = HttpConnectResponse::new(200, "OK".to_string());
+        let mut response = HttpConnectResponse::new(403, "Forbidden".to_string());
         let transfer_encoding_header = HttpHeaderLine {
             name: "transfer-encoding",
             value: "chunked",
@@ -474,7 +499,7 @@ mod tests {
     #[tokio::test]
     async fn parse_successful_response() {
         let response_data =
-            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n";
+            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 0\r\n\r\n";
         let stream = Builder::new().read(response_data).build();
         let mut reader = BufReader::new(stream);
 
@@ -485,19 +510,19 @@ mod tests {
             response.headers.get(header::CONTENT_TYPE).unwrap().to_str(),
             "application/json"
         );
-        assert_eq!(response.content_length, 100);
+        assert_eq!(response.content_length, 0);
         assert!(response.has_content_length);
     }
 
     #[tokio::test]
     async fn parse_chunked_response() {
-        let response_data = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n";
+        let response_data = b"HTTP/1.1 403 Forbidden\r\nTransfer-Encoding: chunked\r\n\r\n";
         let stream = Builder::new().read(response_data).build();
         let mut reader = BufReader::new(stream);
 
         let response = HttpConnectResponse::parse(&mut reader, 1024).await.unwrap();
-        assert_eq!(response.code, 200);
-        assert_eq!(response.reason, "OK");
+        assert_eq!(response.code, 403);
+        assert_eq!(response.reason, "Forbidden");
         assert!(response.has_transfer_encoding);
         assert!(response.chunked_transfer);
         assert_eq!(response.content_length, 0);
@@ -554,7 +579,8 @@ mod tests {
 
     #[tokio::test]
     async fn recv_successful() {
-        let response_data = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 12\r\n\r\nHello World!";
+        let response_data =
+            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\nHello World!";
         let stream = Builder::new().read(response_data).build();
         let mut reader = BufReader::new(stream);
 
@@ -585,9 +611,10 @@ mod tests {
         let stream = Builder::new().read(response_data).build();
         let mut reader = BufReader::new(stream);
 
-        let response = HttpConnectResponse::recv(&mut reader, 1024).await.unwrap();
-        assert_eq!(response.code, 200);
-        assert_eq!(response.reason, "OK");
+        let err = HttpConnectResponse::recv(&mut reader, 1024)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, HttpConnectError::InvalidResponse(_)));
     }
 
     #[tokio::test]
@@ -611,6 +638,6 @@ mod tests {
         let err = HttpConnectResponse::recv(&mut reader, 1024)
             .await
             .unwrap_err();
-        assert!(matches!(err, HttpConnectError::ReadFailed(_)));
+        assert!(matches!(err, HttpConnectError::InvalidResponse(_)));
     }
 }
