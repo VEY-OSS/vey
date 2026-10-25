@@ -3,20 +3,37 @@ CHANGELOG
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.15.2:
- - BUG FIX: an empty daemon group uses ``_.sock`` as the control socket
- - BUG FIX: on Windows, another control client can connect while one connection is still open
- - BUG FIX: a relative pid file is created in the working directory from before daemonizing, and the lock is held until the process exits
- - BUG FIX: ``--panic-quit`` in monitored mode still shuts the process down after notifying the parent
- - BUG FIX: reloading a UDP or QUIC listener keeps the new socket buffer size
- - BUG FIX: protocol inspection recognizes the WebDAV method ``UPDATEREDIRECTREF``
- - BUG FIX: an NNTP greeting that arrives before its newline is still recognized, and an NNSP greeting is reported as NNSP
- - BUG FIX: an MQTT CONNECT whose remaining length is 128 or larger is recognized
- - BUG FIX: OpenSSL async engine file descriptors are registered with the I/O-safe AsyncFd API
- - BUG FIX: a non-ASCII size string in YAML or JSON config is rejected instead of panicking
+ - BUG FIX: a buffered stream copy or vectored write stops when the writer returns no bytes
+ - BUG FIX: a cache lookup returns an error if the query runtime has quit, instead of panicking
  - BUG FIX: a ClientHello whose handshake header arrives in pieces no longer consumes the next handshake message
- - BUG FIX: the Windows hostname sent to syslog and Fluentd no longer includes a trailing NUL
- - Compatibility: DragonFly worker ``sched_affinity`` applies to the calling thread
+ - BUG FIX: a country code that is not two letters is rejected instead of panicking
+ - BUG FIX: a Fluentd handshake reports a closed connection instead of parsing a short HELO or PONG
+ - BUG FIX: a large Linux journald record can be sealed and sent
+ - BUG FIX: a non-ASCII size string in YAML or JSON config is rejected instead of panicking
+ - BUG FIX: a relative pid file is created in the working directory from before daemonizing, and the lock is held until the process exits
+ - BUG FIX: a rotating histogram still publishes while samples keep arriving, and ``0.0`` and ``-0.0`` count as one quantile
+ - BUG FIX: a successful HTTP CONNECT or ``101`` Upgrade response is rejected when it carries a message body
+ - BUG FIX: a TLS Fluentd client finishes the forward handshake after TLS, and an unknown HELO option is rejected
+ - BUG FIX: a UDP datagram that fills the byte window exactly is allowed through
+ - BUG FIX: an empty daemon group uses ``_.sock`` as the control socket
+ - BUG FIX: an FTP LIST waits until the control connection is readable before reading the closing reply
+ - BUG FIX: an HTTP or HTTP/2 chunked transfer stops when a write returns no bytes
+ - BUG FIX: an incomplete legacy rustls certificate pair fails config load instead of being ignored
+ - BUG FIX: an issued certificate cannot start before its issuer, and its ``pathlen`` cannot exceed what the issuer allows
+ - BUG FIX: an MQTT CONNECT whose remaining length is 128 or larger is recognized
+ - BUG FIX: an NNTP greeting that arrives before its newline is still recognized, and an NNSP greeting is reported as NNSP
+ - BUG FIX: certificate times outside 1950-2049 use GeneralizedTime, and a timestamp offset that includes seconds is written in UTC
+ - BUG FIX: FTP control replies drop only the CR/LF ending, so trailing spaces in the text stay
+ - BUG FIX: FTP stops the next passive mode after the control connection fails, rejects a command parameter that contains a line break, and accepts a blank FEAT end line
+ - BUG FIX: on Windows, another control client can connect while one connection is still open
+ - BUG FIX: OpenSSL async engine file descriptors are registered with the I/O-safe AsyncFd API
+ - BUG FIX: protocol inspection recognizes the WebDAV method ``UPDATEREDIRECTREF``
  - BUG FIX: reject too large HTTP and ICAP status code
+ - BUG FIX: reloading a UDP or QUIC listener keeps the new socket buffer size
+ - BUG FIX: the Windows hostname sent to syslog and Fluentd no longer includes a trailing NUL
+ - BUG FIX: UDP receive ancillary data is aligned so control messages can be parsed
+ - Compatibility: DragonFly worker ``sched_affinity`` applies to the calling thread
+ - Compatibility: published container images set OCI labels so GHCR can describe them
 
 v1.15.1:
  - BUG FIX: a transparent UDP listener forwards to the original destination instead of the listen address

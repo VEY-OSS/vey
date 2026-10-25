@@ -1,3 +1,7 @@
 
+v0.1.1:
+ - BUG FIX: an issued certificate cannot start before its issuer, and its `pathlen` cannot exceed what the issuer allows
+ - BUG FIX: certificate times outside 1950-2049 use GeneralizedTime
+
 v0.1.0:
  - Initial release

@@ -1,11 +1,16 @@
 
 v0.9.9:
- - BUG FIX: OpenSSL async engine file descriptors are registered with the I/O-safe AsyncFd API
+ - BUG FIX: a buffered stream copy or vectored write stops when the writer returns no bytes
  - BUG FIX: a non-ASCII byte size on the command line is rejected instead of panicking
+ - BUG FIX: a rotating histogram still publishes while samples keep arriving, and `0.0` and `-0.0` count as one quantile
  - BUG FIX: a thrift compact varint that overflows a u32 is rejected instead of being truncated
- - Compatibility: bump MSRV to 1.94.0
- - Compatibility: `-r` / `--rate-limit` paces burst to about 1ms of traffic so load generation does not dump a full period of requests
+ - BUG FIX: an HTTP chunked write stops when the writer returns no bytes
+ - BUG FIX: an issued certificate cannot start before its issuer, and its `pathlen` cannot exceed what the issuer allows
+ - BUG FIX: certificate times outside 1950-2049 use GeneralizedTime
+ - BUG FIX: OpenSSL async engine file descriptors are registered with the I/O-safe AsyncFd API
  - Feature: h1/h2/h3 targets support the HTTP `QUERY` method (RFC 10008), including `--payload`
+ - Compatibility: `-r` / `--rate-limit` paces burst to about 1ms of traffic so load generation does not dump a full period of requests
+ - Compatibility: bump MSRV to 1.94.0
 
 v0.9.8:
  - BUG FIX: SOCKS4 proxy replies parse the bound port correctly again (broken SOCKS4 via proxy no longer fails handshake)
