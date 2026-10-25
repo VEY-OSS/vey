@@ -116,7 +116,7 @@ impl IntermediateCertBuilder {
             .set_serial_number(&self.serial)
             .map_err(|e| anyhow!("failed to set serial number: {e}"))?;
 
-        let not_before = if ca_cert.not_before() > self.not_after {
+        let not_before = if ca_cert.not_before() > self.not_before {
             ca_cert.not_before()
         } else {
             &self.not_before
@@ -147,7 +147,7 @@ impl IntermediateCertBuilder {
                     "no more intermediate ca cert is allowed by the specified ca cert"
                 ));
             }
-            path_len = path_len.max(len - 1);
+            path_len = path_len.min(len - 1);
         }
         let basic_constraints = BasicConstraints::new()
             .critical()

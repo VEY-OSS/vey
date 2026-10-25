@@ -308,7 +308,7 @@ impl ServerCertBuilder {
             .set_serial_number(&self.serial)
             .map_err(|e| anyhow!("failed to set serial number: {e}"))?;
 
-        let not_before = if ca_cert.not_before() > self.not_after {
+        let not_before = if ca_cert.not_before() > self.not_before {
             ca_cert.not_before()
         } else {
             &self.not_before
