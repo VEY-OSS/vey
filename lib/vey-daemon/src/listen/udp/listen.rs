@@ -1411,8 +1411,10 @@ mod tests {
         let socket = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
         let raw = RawSocket::from(&socket);
 
-        let mut kept_misc = UdpMiscSockOpts::default();
-        kept_misc.time_to_live = Some(64);
+        let kept_misc = UdpMiscSockOpts {
+            time_to_live: Some(64),
+            ..UdpMiscSockOpts::default()
+        };
         let mut listen_config = UdpListenConfig::new(listen_addr);
         listen_config.set_socket_misc_opts(kept_misc);
 
