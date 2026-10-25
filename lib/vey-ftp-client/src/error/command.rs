@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::io;
@@ -26,6 +27,8 @@ pub enum FtpCommandError {
     CommandNotImplemented(FtpCommand),
     #[error("parameter is not implemented for command {0}")]
     ParameterNotImplemented(FtpCommand),
+    #[error("parameter of command {0} contains a line break")]
+    InvalidParameter(FtpCommand),
     #[error("unexpected reply code ({0} -> {1})")]
     UnexpectedReplyCode(FtpCommand, u16),
     #[error("invalid reply {1} syntax to command {0}")]
@@ -34,4 +37,18 @@ pub enum FtpCommandError {
     BadCommandSequence(FtpCommand),
     #[error("pre transfer failed for command {0} with reply code {1}")]
     PreTransferFailed(FtpCommand, u16),
+}
+
+impl FtpCommandError {
+    /// The command exchange finished, and only this passive mode was rejected.
+    pub(crate) fn confined_to_passive_mode(&self) -> bool {
+        matches!(
+            self,
+            FtpCommandError::RejectedCommandSyntax(_)
+                | FtpCommandError::CommandNotImplemented(_)
+                | FtpCommandError::ParameterNotImplemented(_)
+                | FtpCommandError::UnexpectedReplyCode(_, _)
+                | FtpCommandError::InvalidReplySyntax(_, _)
+        )
+    }
 }

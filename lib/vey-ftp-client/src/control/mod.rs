@@ -27,6 +27,14 @@ mod response;
 mod command;
 pub(crate) use command::FtpCommand;
 
+fn reject_parameter_line_break(cmd: FtpCommand, param: &str) -> Result<(), FtpCommandError> {
+    if param.contains(['\r', '\n']) {
+        Err(FtpCommandError::InvalidParameter(cmd))
+    } else {
+        Ok(())
+    }
+}
+
 pub(crate) struct FtpControlChannel<T>
 where
     T: AsyncRead + AsyncWrite,
@@ -61,6 +69,7 @@ where
         identifier: &str,
     ) -> Result<T, FtpCommandError> {
         let cmd = FtpCommand::SPDT;
+        reject_parameter_line_break(cmd, identifier)?;
         self.send_cmd1(cmd, identifier)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -104,6 +113,9 @@ where
             211 => {
                 if let Some(lines) = reply.lines() {
                     for line in &lines[1..] {
+                        if line.is_empty() {
+                            continue;
+                        }
                         if line.as_bytes()[0] != b' ' {
                             break;
                         }
@@ -139,6 +151,7 @@ where
     ) -> Result<FtpAuthStatus, FtpCommandError> {
         let cmd = FtpCommand::USER;
         let username = name.map(|u| u.as_original()).unwrap_or("anonymous");
+        reject_parameter_line_break(cmd, username)?;
         self.send_cmd1(cmd, username)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -161,6 +174,7 @@ where
     ) -> Result<FtpAuthStatus, FtpCommandError> {
         let cmd = FtpCommand::PASS;
         let password = pass.map(|p| p.as_original()).unwrap_or("xxx");
+        reject_parameter_line_break(cmd, password)?;
         self.send_cmd1(FtpCommand::PASS, password)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -194,6 +208,7 @@ where
 
     pub(crate) async fn delete_file(&mut self, path: &str) -> Result<(), FtpFileStatError> {
         let cmd = FtpCommand::DELE;
+        reject_parameter_line_break(cmd, path)?;
         self.send_cmd1(cmd, path)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -216,6 +231,7 @@ where
 
     pub(crate) async fn remove_dir(&mut self, path: &str) -> Result<(), FtpFileStatError> {
         let cmd = FtpCommand::RMD;
+        reject_parameter_line_break(cmd, path)?;
         self.send_cmd1(cmd, path)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -240,6 +256,7 @@ where
         path: &str,
     ) -> Result<Option<FtpFileFacts>, FtpCommandError> {
         let cmd = FtpCommand::MLST;
+        reject_parameter_line_break(cmd, path)?;
         self.send_cmd1(cmd, path)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -277,6 +294,7 @@ where
         }
 
         let cmd = FtpCommand::SIZE;
+        reject_parameter_line_break(cmd, path)?;
         self.send_cmd1(cmd, path)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -306,6 +324,7 @@ where
         path: &str,
     ) -> Result<Option<Timestamp>, FtpCommandError> {
         let cmd = FtpCommand::MDTM;
+        reject_parameter_line_break(cmd, path)?;
         self.send_cmd1(cmd, path)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -340,6 +359,7 @@ where
         match reply.code() {
             500 | 501 => Err(FtpCommandError::RejectedCommandSyntax(cmd)),
             502 => Err(FtpCommandError::CommandNotImplemented(cmd)),
+            503 => Err(FtpCommandError::BadCommandSequence(cmd)),
             530 => Err(FtpCommandError::NotLoggedIn),
             227 => match reply.parse_pasv_227_reply() {
                 Some(addr) => Ok(addr),
@@ -359,6 +379,7 @@ where
         let reply = self.timed_read_raw_response("request epsv port").await?;
         match reply.code() {
             500 | 501 => Err(FtpCommandError::RejectedCommandSyntax(cmd)),
+            503 => Err(FtpCommandError::BadCommandSequence(cmd)),
             522 => Err(FtpCommandError::CommandNotImplemented(cmd)),
             530 => Err(FtpCommandError::NotLoggedIn),
             229 => match reply.parse_epsv_229_reply() {
@@ -381,12 +402,14 @@ where
             .await?;
         match reply.code() {
             500 | 501 => Err(FtpCommandError::RejectedCommandSyntax(cmd)),
+            503 => Err(FtpCommandError::BadCommandSequence(cmd)),
             522 => Err(FtpCommandError::CommandNotImplemented(cmd)),
             530 => Err(FtpCommandError::NotLoggedIn),
             227 => match reply.parse_spsv_227_reply() {
                 Some(identifier) => Ok(identifier),
                 None => Err(FtpCommandError::InvalidReplySyntax(cmd, 227)),
             },
+            421 => Err(FtpCommandError::ServiceNotAvailable),
             n => Err(FtpCommandError::UnexpectedReplyCode(cmd, n)),
         }
     }
@@ -465,6 +488,7 @@ where
         path: &str,
     ) -> Result<FtpFilePreTransferStatus, FtpCommandError> {
         let cmd = FtpCommand::LIST;
+        reject_parameter_line_break(cmd, path)?;
         self.send_pre_transfer_cmd1(cmd, path)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -473,6 +497,7 @@ where
 
     pub(crate) async fn start_list(&mut self, path: &str) -> Result<(), FtpFileRetrieveStartError> {
         let cmd = FtpCommand::LIST;
+        reject_parameter_line_break(cmd, path)?;
         self.send_cmd1(cmd, path)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -528,6 +553,7 @@ where
         path: &str,
     ) -> Result<FtpFilePreTransferStatus, FtpCommandError> {
         let cmd = FtpCommand::RETR;
+        reject_parameter_line_break(cmd, path)?;
         self.send_pre_transfer_cmd1(cmd, path)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -539,6 +565,7 @@ where
         path: &str,
     ) -> Result<(), FtpFileRetrieveStartError> {
         let cmd = FtpCommand::RETR;
+        reject_parameter_line_break(cmd, path)?;
         self.send_cmd1(cmd, path)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -578,6 +605,7 @@ where
         path: &str,
     ) -> Result<FtpFilePreTransferStatus, FtpCommandError> {
         let cmd = FtpCommand::STOR;
+        reject_parameter_line_break(cmd, path)?;
         self.send_pre_transfer_cmd1(cmd, path)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -586,6 +614,7 @@ where
 
     pub(crate) async fn start_store(&mut self, path: &str) -> Result<(), FtpFileStoreStartError> {
         let cmd = FtpCommand::STOR;
+        reject_parameter_line_break(cmd, path)?;
         self.send_cmd1(cmd, path)
             .await
             .map_err(FtpCommandError::SendFailed)?;
@@ -688,6 +717,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn check_server_feature_accepts_blank_feat_end_line() {
+        let (client, mut server) = duplex(1024);
+        let mut channel = FtpControlChannel::new(client, FtpControlConfig::default());
+
+        let reader = tokio::spawn(async move {
+            let mut buf = vec![0u8; 64];
+            let n = server.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"FEAT\r\n");
+            server
+                .write_all(b"211-Features:\r\n UTF8\r\n211 \r\n")
+                .await
+                .unwrap();
+            server
+        });
+
+        let feat = channel.check_server_feature().await.unwrap();
+        assert!(feat.support_utf8_path());
+        assert!(!feat.support_file_size());
+        reader.await.unwrap();
+    }
+
+    #[tokio::test]
     async fn read_raw_response_single_and_multiline() {
         let (client, mut server) = duplex(1024);
         let mut channel = FtpControlChannel::new(client, FtpControlConfig::default());
@@ -715,5 +766,97 @@ mod tests {
         pump_reply(&mut server, "220\r\n").await;
         let err = channel.read_raw_response().await.unwrap_err();
         assert!(matches!(err, FtpRawResponseError::InvalidLineFormat));
+    }
+
+    fn assert_invalid_parameter(err: FtpCommandError, command: &str) {
+        match err {
+            FtpCommandError::InvalidParameter(cmd) => assert_eq!(cmd.to_string(), command),
+            other => panic!("expected InvalidParameter, got {other}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn command_entries_reject_parameter_line_breaks() {
+        use std::time::Duration;
+
+        use tokio::time::timeout;
+        use vey_types::auth::Password;
+
+        let (client, mut server) = duplex(64);
+        let mut channel = FtpControlChannel::new(client, FtpControlConfig::default());
+        let password = Password::from_original("secret\r\nQUIT").unwrap();
+
+        let err = match channel.send_password(Some(&password)).await {
+            Ok(_) => panic!("password with a line break was accepted"),
+            Err(err) => err,
+        };
+        assert_invalid_parameter(err, "PASS");
+
+        let err = channel.delete_file("a\r\nDELE /x").await.unwrap_err();
+        let FtpFileStatError::RawCommandError(err) = err else {
+            panic!("expected raw command error, got {err}");
+        };
+        assert_invalid_parameter(err, "DELE");
+
+        let err = channel.remove_dir("dir\n").await.unwrap_err();
+        let FtpFileStatError::RawCommandError(err) = err else {
+            panic!("expected raw command error, got {err}");
+        };
+        assert_invalid_parameter(err, "RMD");
+
+        let err = match channel.request_mlst("a\rfile").await {
+            Ok(_) => panic!("MLST path with a line break was accepted"),
+            Err(err) => err,
+        };
+        assert_invalid_parameter(err, "MLST");
+
+        let err = channel.request_size("\n").await.unwrap_err();
+        assert_invalid_parameter(err, "SIZE");
+
+        let err = channel.request_mtime("file\r\n").await.unwrap_err();
+        assert_invalid_parameter(err, "MDTM");
+
+        let err = channel.pre_list("a\n").await.unwrap_err();
+        assert_invalid_parameter(err, "LIST");
+
+        let err = channel.start_list("a\r").await.unwrap_err();
+        let FtpFileRetrieveStartError::CommandError(err) = err else {
+            panic!("expected command error, got {err}");
+        };
+        assert_invalid_parameter(err, "LIST");
+
+        let err = channel.pre_retrieve("a\r\n").await.unwrap_err();
+        assert_invalid_parameter(err, "RETR");
+
+        let err = channel.start_retrieve("a\n").await.unwrap_err();
+        let FtpFileRetrieveStartError::CommandError(err) = err else {
+            panic!("expected command error, got {err}");
+        };
+        assert_invalid_parameter(err, "RETR");
+
+        let err = channel.pre_store("a\r").await.unwrap_err();
+        assert_invalid_parameter(err, "STOR");
+
+        let err = channel.start_store("a\n").await.unwrap_err();
+        let FtpFileStoreStartError::CommandError(err) = err else {
+            panic!("expected command error, got {err}");
+        };
+        assert_invalid_parameter(err, "STOR");
+
+        let read = timeout(Duration::from_millis(50), server.read(&mut [0u8; 8])).await;
+        assert!(read.is_err(), "a rejected parameter was written");
+
+        let (client, mut server) = duplex(64);
+        let channel = FtpControlChannel::new(client, FtpControlConfig::default());
+        let err = match channel.into_transfer_stream("id\r\nSPDT").await {
+            Ok(_) => panic!("SPDT identifier with a line break was accepted"),
+            Err(err) => err,
+        };
+        assert_invalid_parameter(err, "SPDT");
+        let n = timeout(Duration::from_millis(50), server.read(&mut [0u8; 8]))
+            .await
+            .expect("control connection was not dropped")
+            .unwrap();
+        assert_eq!(n, 0, "a rejected SPDT identifier was written");
     }
 }

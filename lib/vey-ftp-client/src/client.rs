@@ -481,6 +481,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::collections::VecDeque;
     use std::io;
     use std::net::Ipv4Addr;
     use std::pin::Pin;
@@ -695,5 +696,233 @@ mod tests {
         .await
         .expect("split control reply was not reassembled");
         assert_eq!(listed, ["-rw file\r\n"]);
+    }
+
+    #[derive(Debug)]
+    struct ScriptedControl {
+        writes: Arc<Mutex<Vec<Vec<u8>>>>,
+        reads: Mutex<VecDeque<Vec<u8>>>,
+        fail_write: bool,
+    }
+
+    impl AsyncRead for ScriptedControl {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            let Some(next) = self.reads.lock().unwrap().pop_front() else {
+                return Poll::Pending;
+            };
+            buf.put_slice(&next);
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl AsyncWrite for ScriptedControl {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            self.writes.lock().unwrap().push(buf.to_vec());
+            if self.fail_write {
+                Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::BrokenPipe,
+                    "control write failed",
+                )))
+            } else {
+                Poll::Ready(Ok(buf.len()))
+            }
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    struct ProbeProvider {
+        data_attempts: Arc<AtomicU8>,
+    }
+
+    #[async_trait]
+    impl FtpConnectionProvider<ScriptedControl, io::Error, ()> for ProbeProvider {
+        async fn new_control_connection(
+            &mut self,
+            _upstream: &vey_types::net::UpstreamAddr,
+            _user_data: &(),
+        ) -> Result<ScriptedControl, io::Error> {
+            unreachable!("control connection is installed directly");
+        }
+
+        async fn new_data_connection(
+            &mut self,
+            _server_addr: &vey_types::net::UpstreamAddr,
+            _user_data: &(),
+        ) -> Result<ScriptedControl, io::Error> {
+            self.data_attempts.fetch_add(1, Ordering::AcqRel);
+            Err(io::Error::other("data connect failed"))
+        }
+    }
+
+    async fn probe_passive_fallback(
+        replies: &[&[u8]],
+        fail_write: bool,
+        command_timeout: Duration,
+        spsv: bool,
+    ) -> (FtpFileRetrieveStartError, Vec<Vec<u8>>, u8) {
+        let writes = Arc::new(Mutex::new(Vec::new()));
+        let data_attempts = Arc::new(AtomicU8::new(0));
+        let mut config = FtpClientConfig::default();
+        config.control.command_timeout = command_timeout;
+        let config = Arc::new(config);
+        let mut server_feature = FtpServerFeature::default();
+        server_feature.parse_and_set("EPSV");
+        if spsv {
+            server_feature.parse_and_set("SPSV");
+        }
+        let mut client = FtpClient {
+            server: vey_types::net::UpstreamAddr::from_ip_and_port(Ipv4Addr::LOCALHOST.into(), 21),
+            conn_provider: ProbeProvider {
+                data_attempts: Arc::clone(&data_attempts),
+            },
+            config: Arc::clone(&config),
+            control: FtpControlChannel::new(
+                ScriptedControl {
+                    writes: Arc::clone(&writes),
+                    reads: Mutex::new(replies.iter().map(|line| line.to_vec()).collect()),
+                    fail_write,
+                },
+                config.control,
+            ),
+            server_feature,
+            transfer_type: FtpTransferType::Ascii,
+            _phantom_e: Default::default(),
+            _phantom_ud: Default::default(),
+        };
+
+        let err = timeout(
+            Duration::from_secs(2),
+            client.list_directory_detailed_start("", &()),
+        )
+        .await
+        .expect("passive fallback did not finish")
+        .expect_err("transfer setup must fail");
+        (
+            err,
+            writes.lock().unwrap().clone(),
+            data_attempts.load(Ordering::Acquire),
+        )
+    }
+
+    #[tokio::test]
+    async fn send_failure_does_not_try_the_next_passive_mode() {
+        let (err, writes, data_attempts) =
+            probe_passive_fallback(&[], true, Duration::from_secs(2), true).await;
+        assert!(matches!(
+            err,
+            FtpFileRetrieveStartError::TransferSetupFailed(FtpTransferSetupError::RawCommandError(
+                FtpCommandError::SendFailed(_)
+            ))
+        ));
+        assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
+        assert_eq!(data_attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn reply_timeout_does_not_try_the_next_passive_mode() {
+        let (err, writes, data_attempts) =
+            probe_passive_fallback(&[], false, Duration::from_millis(50), true).await;
+        assert!(matches!(
+            err,
+            FtpFileRetrieveStartError::TransferSetupFailed(FtpTransferSetupError::RawCommandError(
+                FtpCommandError::RecvFailed(
+                    crate::error::FtpRawResponseError::ReadResponseTimedOut(_)
+                )
+            ))
+        ));
+        assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
+        assert_eq!(data_attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn not_logged_in_does_not_try_the_next_passive_mode() {
+        let (err, writes, data_attempts) = probe_passive_fallback(
+            &[b"530 Not logged in.\r\n"],
+            false,
+            Duration::from_secs(2),
+            true,
+        )
+        .await;
+        assert!(matches!(
+            err,
+            FtpFileRetrieveStartError::TransferSetupFailed(FtpTransferSetupError::RawCommandError(
+                FtpCommandError::NotLoggedIn
+            ))
+        ));
+        assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
+        assert_eq!(data_attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn bad_sequence_does_not_try_the_next_passive_mode() {
+        let (err, writes, data_attempts) = probe_passive_fallback(
+            &[b"503 Bad sequence of commands.\r\n"],
+            false,
+            Duration::from_secs(2),
+            true,
+        )
+        .await;
+        assert!(matches!(
+            err,
+            FtpFileRetrieveStartError::TransferSetupFailed(FtpTransferSetupError::RawCommandError(
+                FtpCommandError::BadCommandSequence(_)
+            ))
+        ));
+        assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
+        assert_eq!(data_attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn service_not_available_does_not_try_the_next_passive_mode() {
+        let (err, writes, data_attempts) = probe_passive_fallback(
+            &[b"421 Service not available.\r\n"],
+            false,
+            Duration::from_secs(2),
+            true,
+        )
+        .await;
+        assert!(matches!(
+            err,
+            FtpFileRetrieveStartError::ServiceNotAvailable
+        ));
+        assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
+        assert_eq!(data_attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn command_not_implemented_tries_the_next_passive_mode() {
+        let (err, writes, data_attempts) = probe_passive_fallback(
+            &[
+                b"522 Network protocol not supported.\r\n",
+                b"227 Entering Passive Mode (127,0,0,1,0,21).\r\n",
+            ],
+            false,
+            Duration::from_secs(2),
+            false,
+        )
+        .await;
+        assert!(matches!(
+            err,
+            FtpFileRetrieveStartError::TransferSetupFailed(
+                FtpTransferSetupError::NeedActiveDataTransfer
+            )
+        ));
+        assert_eq!(writes, [b"EPSV\r\n".to_vec(), b"PASV\r\n".to_vec()]);
+        assert_eq!(data_attempts, 1);
     }
 }
