@@ -16,6 +16,8 @@ use std::io::{self, IoSliceMut};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+#[cfg(feature = "ebpf")]
+use anyhow::anyhow;
 use log::{info, warn};
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
@@ -24,6 +26,12 @@ use tokio::task::JoinHandle;
 
 use vey_io_ext::UdpSocketExt;
 use vey_io_sys::udp::RecvMsgHdr;
+#[cfg(feature = "ebpf")]
+use vey_reuseport::udp::{UdpSocketSelectGuard, UdpSocketSelector};
+#[cfg(feature = "ebpf")]
+use vey_socket::RawSocket;
+#[cfg(feature = "ebpf")]
+use vey_types::net::UdpConnectionTrackConfig;
 use vey_types::net::UdpListenConfig;
 
 use crate::server::{BaseServer, ReloadServer, ServerReloadCommand};
@@ -77,7 +85,11 @@ pub struct RespondUdpTask {
 }
 
 /// Receives one request datagram at a time and hands the caller a [`UdpResponder`].
-#[derive(Clone)]
+///
+/// On Linux with the `ebpf` feature, `run_all_instances` attaches the reuseport
+/// selector used for a lossless upgrade. The new process steers new clients to
+/// itself. Clients already stuck to a live socket stay there until that socket
+/// leaves the map, and the kernel then hands the same packet to a live socket.
 pub struct RespondUdpRuntime<S> {
     server: S,
     server_type: &'static str,
@@ -85,6 +97,8 @@ pub struct RespondUdpRuntime<S> {
     worker_id: Option<usize>,
     listen_config: UdpListenConfig,
     instance_id: usize,
+    #[cfg(feature = "ebpf")]
+    _bpf_guard: Option<UdpSocketSelectGuard>,
 }
 
 impl<S> RespondUdpRuntime<S>
@@ -101,6 +115,21 @@ where
             worker_id: None,
             listen_config,
             instance_id: 0,
+            #[cfg(feature = "ebpf")]
+            _bpf_guard: None,
+        }
+    }
+
+    fn instance(&self, instance_id: usize) -> Self {
+        RespondUdpRuntime {
+            server: self.server.clone(),
+            server_type: self.server_type,
+            server_version: self.server_version,
+            worker_id: None,
+            listen_config: self.listen_config.clone(),
+            instance_id,
+            #[cfg(feature = "ebpf")]
+            _bpf_guard: None,
         }
     }
 
@@ -198,7 +227,53 @@ where
             }
         }
 
+        #[cfg(feature = "ebpf")]
+        self.drain_after_reuseport_detach(&responder, listen_addr, &mut buf)
+            .await;
+
         self.post_stop();
+    }
+
+    /// Drop this process out of the reuseport map, then read datagrams already
+    /// queued on the socket so closing the fd does not discard them.
+    #[cfg(feature = "ebpf")]
+    async fn drain_after_reuseport_detach(
+        &mut self,
+        responder: &UdpResponder,
+        listen_addr: SocketAddr,
+        buf: &mut [u8],
+    ) {
+        if self._bpf_guard.is_none() {
+            return;
+        }
+        drop(self._bpf_guard.take());
+
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(200);
+        loop {
+            let left = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if left.is_zero() {
+                break;
+            }
+            tokio::select! {
+                _ = tokio::time::sleep(left) => break,
+                r = recv_packet(&responder.socket, listen_addr, buf) => {
+                    match r {
+                        Ok((len, client_addr, server_addr)) => {
+                            self.server
+                                .handle_udp_request(
+                                    &buf[..len],
+                                    client_addr,
+                                    server_addr,
+                                    responder,
+                                    self.worker_id,
+                                )
+                                .await;
+                        }
+                        Err(_) => break,
+                    }
+                }
+            }
+        }
     }
 
     fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
@@ -241,8 +316,13 @@ where
     /// exist. Each task has its own socket; reply on the [`UdpResponder`]
     /// delivered to that task so the response leaves the socket that received
     /// the request.
+    ///
+    /// When reuseport eBPF is enabled, every socket joins the shared selector
+    /// before the program is attached. A newer process that attaches the same
+    /// address replaces the program and receives new clients. This process
+    /// leaves the selector on `QuitRuntime`.
     pub fn run_all_instances(
-        &self,
+        &mut self,
         listen_in_worker: bool,
         server_reload_sender: &broadcast::Sender<ServerReloadCommand<()>>,
     ) -> anyhow::Result<Vec<RespondUdpTask>> {
@@ -254,13 +334,49 @@ where
             }
         }
 
+        #[cfg(feature = "ebpf")]
+        let mut socket_selector = None;
+        #[cfg(feature = "ebpf")]
+        if self
+            .listen_config
+            .use_ebpf(rustix::process::getuid().as_raw())
+        {
+            match UdpSocketSelector::new(
+                rustix::process::getpid().as_raw_pid(),
+                self.server.version() as u16,
+                self.listen_config.address(),
+                UdpConnectionTrackConfig::default().ebpf_conn_track_size(),
+            ) {
+                Ok(selector) => socket_selector = Some(selector),
+                Err(e) => {
+                    if self.listen_config.fail_on_ebpf_error() {
+                        return Err(anyhow!(
+                            "UDP {} ebpf reuseport socket selector create failed: {e}",
+                            self.listen_config.address()
+                        ));
+                    }
+                    warn!(
+                        "reuseport ebpf on UDP socket {} disabled due to create error {e}",
+                        self.listen_config.address()
+                    );
+                }
+            }
+        }
+
         let mut tasks = Vec::with_capacity(instance_count);
         for i in 0..instance_count {
-            let mut runtime = self.clone();
-            runtime.instance_id = i;
-
             let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
             let listen_addr = socket.local_addr()?;
+
+            #[cfg(feature = "ebpf")]
+            let mut runtime = self.instance(i);
+            #[cfg(not(feature = "ebpf"))]
+            let runtime = self.instance(i);
+            #[cfg(feature = "ebpf")]
+            if let Some(selector) = &mut socket_selector {
+                let guard = selector.add_socket(RawSocket::from(&socket));
+                runtime._bpf_guard = Some(guard);
+            }
             let handle = runtime.into_running(
                 socket,
                 listen_addr,
@@ -272,6 +388,32 @@ where
                 handle,
             });
         }
+
+        #[cfg(feature = "ebpf")]
+        if let Some(mut selector) = socket_selector {
+            if let Err(e) = selector.load_and_attach() {
+                if self.listen_config.fail_on_ebpf_error() {
+                    return Err(anyhow!(
+                        "UDP {} ebpf reuseport socket selector attach failed: {e}",
+                        self.listen_config.address()
+                    ));
+                }
+                warn!(
+                    "reuseport ebpf on UDP socket {} disabled due to attach error {e}",
+                    self.listen_config.address()
+                );
+            }
+            let mut server_reload_receiver = server_reload_sender.subscribe();
+            tokio::spawn(async move {
+                while let Ok(cmd) = server_reload_receiver.recv().await {
+                    if matches!(cmd, ServerReloadCommand::QuitRuntime) {
+                        break;
+                    }
+                }
+                selector.unregister_proc();
+            });
+        }
+
         Ok(tasks)
     }
 }
@@ -365,7 +507,7 @@ mod tests {
             reply_to: reply_to.clone(),
         };
         let listen = UdpListenConfig::new("127.0.0.1:0".parse().unwrap());
-        let runtime = RespondUdpRuntime::new(server, listen);
+        let mut runtime = RespondUdpRuntime::new(server, listen);
         let reload = ServerReloadCommand::new_sender();
         let mut tasks = runtime.run_all_instances(false, &reload).unwrap();
         let task = tasks.pop().unwrap();

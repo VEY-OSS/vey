@@ -30,7 +30,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
     }
 
     let reload_sender = ServerReloadCommand::new_sender();
-    let runtime = RespondUdpRuntime::new(
+    let mut runtime = RespondUdpRuntime::new(
         Frontend::new(frontend_stats),
         proc_args.listen_config().clone(),
     );

@@ -110,7 +110,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
 
     let reload_sender = ServerReloadCommand::new_sender();
     let tasks = {
-        let runtime = RespondUdpRuntime::new(frontend, proc_args.listen_config().clone());
+        let mut runtime = RespondUdpRuntime::new(frontend, proc_args.listen_config().clone());
         runtime.run_all_instances(false, &reload_sender)?
     };
 
