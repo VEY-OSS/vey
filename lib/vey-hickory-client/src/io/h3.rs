@@ -176,7 +176,7 @@ async fn h3_send_recv(
         .await
         .map_err(|e| format!("h3 recv_data error: {e}"))?
     {
-        rsp.push_body(partial_bytes);
+        rsp.push_body(partial_bytes)?;
         if rsp.body_end() {
             break;
         }
