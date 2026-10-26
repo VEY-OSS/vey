@@ -22,7 +22,7 @@ The image starts `vey-proxy -c /etc/vey-proxy/ -G default -v` with [`config/main
 
 There is no authentication and no egress filter. Treat this as a starting point. Do not publish `8080` or `1080` onto an untrusted network until you add a user group.
 
-The control socket is `/tmp/vey/default.sock`.
+The control socket is `/run/vey-proxy/default.sock`.
 
 ## Run
 

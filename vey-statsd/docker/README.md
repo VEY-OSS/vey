@@ -20,7 +20,7 @@ The image starts `vey-statsd -c /etc/vey-statsd/ -G default -v` with [`config/ma
 
 The example configs under `examples/` listen on `127.0.0.1` or a Unix socket. Those addresses are not reachable from another container, so they are not what this image starts with.
 
-The control socket is `/tmp/vey/default.sock`.
+The control socket is `/run/vey-statsd/default.sock`.
 
 ## Run
 

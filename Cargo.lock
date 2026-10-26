@@ -2832,6 +2832,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
+ "vey-compat",
 ]
 
 [[package]]

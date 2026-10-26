@@ -13,9 +13,6 @@ use clap::{Arg, ArgMatches, Command, ValueHint, value_parser};
 use clap_complete::Shell;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
-#[cfg(unix)]
-const DEFAULT_TMP_CONTROL_DIR: &str = "/tmp/vey";
-
 const GLOBAL_ARG_COMPLETION: &str = "completion";
 const GLOBAL_ARG_CONTROL_DIR: &str = "control-dir";
 const GLOBAL_ARG_GROUP: &str = "daemon-group";
@@ -96,21 +93,20 @@ impl DaemonCtlArgs {
     }
 
     #[cfg(unix)]
+    fn control_directory(&self, daemon_name: &str) -> PathBuf {
+        self.control_dir
+            .clone()
+            .unwrap_or_else(|| vey_compat::default_control_dir(daemon_name))
+    }
+
+    #[cfg(unix)]
     async fn connect_to_daemon(
         &self,
         daemon_name: &str,
     ) -> anyhow::Result<impl AsyncRead + AsyncWrite + use<>> {
-        let control_dir = self.control_dir.clone().unwrap_or_else(|| {
-            let mut sys_ctl_dir = PathBuf::from("/run");
-            sys_ctl_dir.push(daemon_name);
-
-            if sys_ctl_dir.is_dir() {
-                sys_ctl_dir
-            } else {
-                PathBuf::from(DEFAULT_TMP_CONTROL_DIR)
-            }
-        });
-        let socket_path = control_dir.join(control_socket_name(&self.daemon_group, self.pid));
+        let socket_path = self
+            .control_directory(daemon_name)
+            .join(control_socket_name(&self.daemon_group, self.pid));
 
         let mut stream = tokio::net::UnixStream::connect(&socket_path)
             .await
@@ -255,6 +251,34 @@ mod tests {
         let mut args = DaemonCtlArgs::parse_clap(&matches);
         assert!(args.generate_shell_completion(|| Command::new("vey-ctl-test")));
         assert!(!args.generate_shell_completion(|| Command::new("vey-ctl-test")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unset_control_dir_matches_the_daemon_default() {
+        let cmd = ctl_command();
+        let matches = cmd
+            .try_get_matches_from(["vey-ctl-test", "-G", "main"])
+            .unwrap();
+        let args = DaemonCtlArgs::parse_clap(&matches);
+        assert_eq!(
+            args.control_directory("vey-proxy"),
+            vey_compat::default_control_dir("vey-proxy")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn control_dir_flag_overrides_the_default() {
+        let cmd = ctl_command();
+        let matches = cmd
+            .try_get_matches_from(["vey-ctl-test", "-G", "main", "--control-dir", "/tmp/custom"])
+            .unwrap();
+        let args = DaemonCtlArgs::parse_clap(&matches);
+        assert_eq!(
+            args.control_directory("vey-proxy"),
+            PathBuf::from("/tmp/custom")
+        );
     }
 
     #[cfg(unix)]

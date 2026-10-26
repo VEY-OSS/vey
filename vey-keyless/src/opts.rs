@@ -97,7 +97,6 @@ fn build_cli_args() -> Command {
                 .value_name("CONTROL DIR")
                 .value_hint(ValueHint::DirPath)
                 .value_parser(value_parser!(PathBuf))
-                .default_value(vey_daemon::opts::DEFAULT_CONTROL_DIR)
                 .short('C')
                 .long("control-dir"),
         )
@@ -142,10 +141,12 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         return Err(anyhow!("no config file given"));
     }
     #[cfg(unix)]
-    if let Some(control_dir) = args.get_one::<PathBuf>(ARGS_CONTROL_DIR) {
-        vey_daemon::opts::validate_and_set_control_dir(control_dir)
-            .context(format!("invalid control dir: {}", control_dir.display()))?;
-    }
+    vey_daemon::opts::validate_and_set_control_dir(
+        crate::build::PKG_NAME,
+        args.get_one::<PathBuf>(ARGS_CONTROL_DIR)
+            .map(PathBuf::as_path),
+    )
+    .context("invalid control dir")?;
     if let Some(group_name) = args.get_one::<String>(ARGS_GROUP_NAME) {
         DAEMON_GROUP
             .set(group_name.clone())

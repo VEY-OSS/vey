@@ -164,8 +164,10 @@ query to use on each backend.
 
 ## Operations
 
-`vey-statsd-ctl` talks to the local control socket. The default directory is
-`/tmp/vey`, and the socket name is the daemon group (`-G`, default `default`).
+`vey-statsd-ctl` talks to the local control socket. Root on Linux uses
+`/run/vey-statsd`, root on other systems uses `/var/run/vey-statsd`, and
+another Linux user uses `/run/user/<uid>/vey-statsd`. The socket name is the
+daemon group (`-G`, default `default`).
 
 ```shell
 vey-statsd-ctl -G default version
