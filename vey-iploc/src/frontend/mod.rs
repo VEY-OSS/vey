@@ -4,87 +4,32 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::net::IpAddr;
+use std::future::Future;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use log::warn;
-use tokio::sync::broadcast;
 
+use vey_daemon::listen::{RespondUdpServer, UdpResponder};
+use vey_daemon::server::{BaseServer, ReloadServer};
 use vey_geoip_types::{IpLocation, IpLocationBuilder};
 use vey_ip_locate::{Request, Response};
-use vey_types::net::UdpListenConfig;
+use vey_types::metrics::NodeName;
 
 mod stats;
 pub(crate) use stats::FrontendStats;
 
-mod udp_dgram;
-use udp_dgram::UdpDgramFrontend;
-
+#[derive(Clone)]
 pub(super) struct Frontend {
-    io: UdpDgramFrontend,
+    name: NodeName,
     stats: Arc<FrontendStats>,
 }
 
 impl Frontend {
-    pub(super) fn new(
-        listen_config: &UdpListenConfig,
-        stats: Arc<FrontendStats>,
-    ) -> anyhow::Result<Self> {
-        let io = UdpDgramFrontend::new(listen_config)?;
-        Ok(Frontend { io, stats })
-    }
-
-    pub(super) async fn run(
-        self,
-        mut quit_receiver: broadcast::Receiver<()>,
-    ) -> anyhow::Result<()> {
-        let mut recv_buf = [0u8; 1024];
-
-        loop {
-            tokio::select! {
-                biased;
-
-                r = self.io.recv_req(&mut recv_buf) => {
-                    match r {
-                        Ok((len, addr)) => {
-                            self.stats.add_request_total();
-
-                            let req = match Request::parse_req(&recv_buf[..len]) {
-                                Ok(req) => req,
-                                Err(e) => {
-                                    self.stats.add_request_invalid();
-                                    warn!("invalid request: {e:?}");
-                                    continue;
-                                }
-                            };
-                            let Some(ip) = req.ip() else {
-                                self.stats.add_request_invalid();
-                                continue;
-                            };
-
-                            let Some(location) = self.fetch(ip) else {
-                                continue;
-                            };
-
-                            match Response::encode_new(ip, location, 300) {
-                                Ok(buf) => {
-                                    self.stats.add_response_total();
-                                    if self.io.send_rsp(&buf, addr).await.is_err() {
-                                        self.stats.add_response_fail();
-                                    }
-                                }
-                                Err(e) => {
-                                    warn!("failed to encode response for ip {ip}: {e}");
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            warn!("failed to recv req: {e}");
-                        }
-                    }
-                }
-                _ = quit_receiver.recv() => return Ok(()),
-            }
+    pub(super) fn new(stats: Arc<FrontendStats>) -> Self {
+        Frontend {
+            name: NodeName::new_static("iploc"),
+            stats,
         }
     }
 
@@ -113,5 +58,70 @@ impl Frontend {
         }
 
         builder.build().ok()
+    }
+}
+
+impl BaseServer for Frontend {
+    fn name(&self) -> &NodeName {
+        &self.name
+    }
+
+    fn r#type(&self) -> &'static str {
+        "iploc"
+    }
+
+    fn version(&self) -> usize {
+        1
+    }
+}
+
+impl ReloadServer for Frontend {
+    fn reload(&self) -> Self {
+        self.clone()
+    }
+}
+
+impl RespondUdpServer for Frontend {
+    fn handle_udp_request<'a>(
+        &'a self,
+        packet: &'a [u8],
+        client_addr: SocketAddr,
+        server_addr: SocketAddr,
+        responder: &'a UdpResponder,
+        worker_id: Option<usize>,
+    ) -> impl Future<Output = ()> + Send + 'a {
+        async move {
+            let _ = (server_addr, worker_id);
+            self.stats.add_request_total();
+
+            let req = match Request::parse_req(packet) {
+                Ok(req) => req,
+                Err(e) => {
+                    self.stats.add_request_invalid();
+                    warn!("invalid request from {client_addr}: {e:?}");
+                    return;
+                }
+            };
+            let Some(ip) = req.ip() else {
+                self.stats.add_request_invalid();
+                return;
+            };
+
+            let Some(location) = self.fetch(ip) else {
+                return;
+            };
+
+            match Response::encode_new(ip, location, 300) {
+                Ok(buf) => {
+                    self.stats.add_response_total();
+                    if responder.send_to(&buf, client_addr).await.is_err() {
+                        self.stats.add_response_fail();
+                    }
+                }
+                Err(e) => {
+                    warn!("failed to encode response for ip {ip}: {e}");
+                }
+            }
+        }
     }
 }

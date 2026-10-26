@@ -7,10 +7,13 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
+use log::{debug, warn};
 use tokio::runtime::Handle;
 use tokio::time::Instant;
 
 use vey_cert_agent::Request;
+use vey_daemon::listen::{RespondUdpRuntime, UdpResponder};
+use vey_daemon::server::ServerReloadCommand;
 use vey_std_ext::time::DurationExt;
 
 pub mod config;
@@ -31,6 +34,7 @@ use frontend::{Frontend, FrontendStats, GeneratedData};
 struct BackendRequest {
     user_req: Request,
     peer: SocketAddr,
+    responder: UdpResponder,
     recv_time: Instant,
 }
 
@@ -38,6 +42,7 @@ struct BackendResponse {
     user_req: Request,
     generated: GeneratedData,
     peer: SocketAddr,
+    responder: UdpResponder,
     recv_time: Instant,
 }
 
@@ -47,6 +52,7 @@ impl BackendRequest {
             user_req: self.user_req,
             generated,
             peer: self.peer,
+            responder: self.responder,
             recv_time: self.recv_time,
         }
     }
@@ -79,10 +85,12 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
             .context("failed to build backend for main runtime")?;
         backend.spawn(&Handle::current(), 0, req_receiver, rsp_sender);
     } else {
+        drop(req_receiver);
         drop(rsp_sender);
     }
 
-    let frontend = Frontend::new(proc_args.listen_config(), duration_recorder, rsp_receiver)?;
+    let frontend_stats = Arc::new(FrontendStats::default());
+    let frontend = Frontend::new(frontend_stats.clone(), req_sender);
 
     if let Some(stats_config) = vey_daemon::stat::config::get_global_stat_config() {
         stat::spawn_working_thread(
@@ -93,5 +101,30 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
         )?;
     }
 
-    frontend.run(req_sender).await
+    let rsp_stats = frontend_stats;
+    let rsp_task = tokio::spawn(async move {
+        while let Ok(rsp) = rsp_receiver.recv().await {
+            frontend::send_response(&rsp_stats, &duration_recorder, rsp).await;
+        }
+    });
+
+    let reload_sender = ServerReloadCommand::new_sender();
+    let tasks = {
+        let runtime = RespondUdpRuntime::new(frontend, proc_args.listen_config().clone());
+        runtime.run_all_instances(false, &reload_sender)?
+    };
+
+    if let Err(e) = tokio::signal::ctrl_c().await {
+        warn!("failed to recv Ctrl-C signal: {e}");
+    }
+    debug!("received Ctrl-C signal, start shutdown now");
+    let _ = reload_sender.send(ServerReloadCommand::QuitRuntime);
+    for task in tasks {
+        if let Err(e) = task.handle.await {
+            warn!("dcgen respond task ended with error: {e}");
+        }
+    }
+    let _ = rsp_task.await;
+    debug!("all requests served, quit now");
+    Ok(())
 }
