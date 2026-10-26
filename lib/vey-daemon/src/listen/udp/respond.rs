@@ -7,14 +7,16 @@
 //!
 //! [`ReceiveUdpRuntime`] only delivers inbound packets. This runtime is for a
 //! protocol whose request and response each fit in a single datagram.
-//! [`UdpResponder::send_to`] names the destination client address, so the
-//! reply can leave immediately or later from another task, and it can be
-//! aimed at a different socket than the one that sent the request.
+//! [`UdpResponder`] sends through [`SendMsgHdr`](vey_io_sys::udp::SendMsgHdr).
+//! Each header names its own client address, and platforms with `sendmmsg`
+//! can hand a whole batch to [`UdpResponder::poll_batch_sendmsg`], the same
+//! way `ListenUdpRuntime` replies.
 
 use std::future::Future;
-use std::io::{self, IoSliceMut};
+use std::io::{self, IoSlice, IoSliceMut};
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 
 #[cfg(feature = "ebpf")]
 use anyhow::anyhow;
@@ -25,7 +27,7 @@ use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 
 use vey_io_ext::UdpSocketExt;
-use vey_io_sys::udp::RecvMsgHdr;
+use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 #[cfg(feature = "ebpf")]
 use vey_reuseport::udp::{UdpSocketSelectGuard, UdpSocketSelector};
 #[cfg(feature = "ebpf")]
@@ -36,22 +38,51 @@ use vey_types::net::UdpListenConfig;
 
 use crate::server::{BaseServer, ReloadServer, ServerReloadCommand};
 
-/// Sends one response datagram to an explicit client address.
+/// Sends response datagrams. Each [`SendMsgHdr`] names its own client address.
 ///
 /// Cloning is cheap. Hold a clone next to the request when the response is
-/// produced somewhere else; pass that request's client address to [`send_to`](Self::send_to).
+/// produced somewhere else. [`poll_batch_sendmsg`](Self::poll_batch_sendmsg)
+/// submits several of those headers in one `sendmmsg`, as `ListenUdpRuntime` does.
 #[derive(Clone)]
 pub struct UdpResponder {
     socket: Arc<UdpSocket>,
 }
 
 impl UdpResponder {
+    pub fn poll_sendmsg<const C: usize>(
+        &self,
+        cx: &mut Context<'_>,
+        hdr: &SendMsgHdr<'_, C>,
+    ) -> Poll<io::Result<usize>> {
+        self.socket.poll_sendmsg(cx, hdr)
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    ))]
+    pub fn poll_batch_sendmsg<const C: usize>(
+        &self,
+        cx: &mut Context<'_>,
+        msgs: &mut [SendMsgHdr<'_, C>],
+    ) -> Poll<io::Result<usize>> {
+        self.socket.poll_batch_sendmsg(cx, msgs)
+    }
+
     /// Send `packet` to `client_addr`.
     ///
     /// `client_addr` is the destination. It is not remembered from the last
-    /// receive.
+    /// receive. The header is built inside the poll so this future stays `Send`.
     pub async fn send_to(&self, packet: &[u8], client_addr: SocketAddr) -> io::Result<()> {
-        let n = self.socket.send_to(packet, client_addr).await?;
+        let n = std::future::poll_fn(|cx| {
+            let hdr = SendMsgHdr::new([IoSlice::new(packet)], Some(client_addr));
+            self.poll_sendmsg(cx, &hdr)
+        })
+        .await?;
         if n != packet.len() {
             return Err(io::Error::other(format!(
                 "not all data written, only {n}/{}",
@@ -572,5 +603,48 @@ mod tests {
             .await
             .expect("runtime did not stop")
             .unwrap();
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    ))]
+    #[tokio::test]
+    async fn batch_send_names_each_client() {
+        use std::future::poll_fn;
+
+        let socket = TokioUdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let from = socket.local_addr().unwrap();
+        let responder = UdpResponder {
+            socket: Arc::new(socket),
+        };
+        let one = TokioUdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let two = TokioUdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let first = b"one";
+        let second = b"two";
+        let mut msgs = [
+            SendMsgHdr::new([IoSlice::new(first)], Some(one.local_addr().unwrap())),
+            SendMsgHdr::new([IoSlice::new(second)], Some(two.local_addr().unwrap())),
+        ];
+
+        let mut sent = 0;
+        while sent < msgs.len() {
+            let n = poll_fn(|cx| responder.poll_batch_sendmsg(cx, &mut msgs[sent..]))
+                .await
+                .unwrap();
+            assert!(n > 0);
+            sent += n;
+        }
+
+        let (body, peer) = recv_from(&one).await;
+        assert_eq!(body, b"one");
+        assert_eq!(peer, from);
+        let (body, peer) = recv_from(&two).await;
+        assert_eq!(body, b"two");
+        assert_eq!(peer, from);
     }
 }
