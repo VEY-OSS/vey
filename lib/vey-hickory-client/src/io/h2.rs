@@ -184,12 +184,80 @@ async fn h2_send_recv(
 
     while let Some(partial_bytes) = recv_stream.data().await {
         let partial_bytes = partial_bytes.map_err(|e| format!("bad http request: {e}"))?;
+        let received = partial_bytes.len();
+        // Data taken from the stream stays charged to the connection window until released.
+        recv_stream
+            .flow_control()
+            .release_capacity(received)
+            .map_err(|e| format!("h2 release capacity error: {e}"))?;
 
-        rsp.push_body(partial_bytes);
+        rsp.push_body(partial_bytes)?;
         if rsp.body_end() {
             break;
         }
     }
 
     rsp.into_dns_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use bytes::Bytes;
+    use http::{Response, Version, header};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn body_larger_than_the_window_is_received() {
+        let (client_io, server_io) = tokio::io::duplex(64 * 1024);
+        let mut client_builder = h2::client::Builder::new();
+        client_builder.initial_window_size(8);
+        client_builder.initial_connection_window_size(8);
+
+        let ((send_request, client_conn), mut server) = tokio::join!(
+            async { client_builder.handshake(client_io).await.unwrap() },
+            async { h2::server::handshake(server_io).await.unwrap() },
+        );
+        tokio::spawn(async move {
+            let _ = client_conn.await;
+        });
+        tokio::spawn(async move {
+            let (request, mut respond) = server.accept().await.unwrap().unwrap();
+            let mut body = request.into_body();
+            while let Some(chunk) = body.data().await {
+                let chunk = chunk.unwrap();
+                let received = chunk.len();
+                body.flow_control().release_capacity(received).unwrap();
+            }
+
+            let dns = Bytes::from_static(&[
+                0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            ]);
+            let response = Response::builder()
+                .header(header::CONTENT_TYPE, "application/dns-message")
+                .header(header::CONTENT_LENGTH, dns.len())
+                .body(())
+                .unwrap();
+            let mut send = respond.send_response(response, false).unwrap();
+            send.send_data(dns, true).unwrap();
+            while server.accept().await.is_some() {}
+        });
+
+        let request_builder =
+            Arc::new(HttpDnsRequestBuilder::new(Version::HTTP_2, "dns.example").unwrap());
+        let result = tokio::time::timeout(
+            Duration::from_millis(500),
+            h2_send_recv(
+                send_request,
+                Bytes::from_static(&[0u8; 12]),
+                request_builder,
+            ),
+        )
+        .await;
+        assert!(result.is_ok(), "flow control stalled the response body");
+        result.unwrap().expect("dns response");
+    }
 }

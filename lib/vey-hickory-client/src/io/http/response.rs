@@ -11,6 +11,9 @@ use hickory_net::NetError;
 use hickory_proto::op::DnsResponse;
 use http::{Response, header};
 
+/// Upper bound from the allocation comment: a response body must not grow past this.
+const MAX_RESPONSE_BODY: usize = 4096;
+
 pub struct HttpDnsResponse {
     rsp: Response<()>,
     content_length: Option<usize>,
@@ -40,12 +43,16 @@ impl HttpDnsResponse {
         } else {
             None
         };
+        if let Some(len) = content_length
+            && len > MAX_RESPONSE_BODY
+        {
+            return Err(NetError::Msg(format!(
+                "Content-Length {len} exceeds the {MAX_RESPONSE_BODY} byte limit"
+            )));
+        }
 
-        // TODO: what is a good max here?
-        // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
-        // just a little protection from malicious actors.
         let response_bytes =
-            BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4096));
+            BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, MAX_RESPONSE_BODY));
 
         Ok(HttpDnsResponse {
             rsp,
@@ -54,8 +61,19 @@ impl HttpDnsResponse {
         })
     }
 
-    pub fn push_body<T: Buf>(&mut self, buf: T) {
+    pub fn push_body<T: Buf>(&mut self, buf: T) -> Result<(), NetError> {
+        let limit = self
+            .content_length
+            .unwrap_or(MAX_RESPONSE_BODY)
+            .min(MAX_RESPONSE_BODY);
+        let next = self.body.len().saturating_add(buf.remaining());
+        if next > limit {
+            return Err(NetError::Msg(format!(
+                "response body of {next} bytes exceeds the {limit} byte limit"
+            )));
+        }
         self.body.put(buf);
+        Ok(())
     }
 
     pub fn body_end(&self) -> bool {
@@ -137,10 +155,10 @@ mod tests {
         let mut rsp = HttpDnsResponse::new(dns_response(headers)).unwrap();
         assert!(!rsp.body_end());
 
-        rsp.push_body(&b"abc"[..]);
+        rsp.push_body(&b"abc"[..]).unwrap();
         assert!(!rsp.body_end());
 
-        rsp.push_body(&b"def"[..]);
+        rsp.push_body(&b"def"[..]).unwrap();
         assert!(rsp.body_end());
     }
 
@@ -149,7 +167,7 @@ mod tests {
         let mut headers = http::HeaderMap::new();
         headers.insert(header::CONTENT_LENGTH, http::HeaderValue::from_static("4"));
         let mut rsp = HttpDnsResponse::new(dns_response(headers)).unwrap();
-        rsp.push_body(&b"abc"[..]);
+        rsp.push_body(&b"abc"[..]).unwrap();
 
         match rsp.into_dns_response() {
             Err(e) => assert!(e.to_string().contains("expected byte length: 4, got: 3")),
@@ -181,7 +199,7 @@ mod tests {
         rsp.headers_mut()
             .insert(header::CONTENT_LENGTH, http::HeaderValue::from_static("5"));
         let mut http_rsp = HttpDnsResponse::new(rsp).unwrap();
-        http_rsp.push_body(&b"error"[..]);
+        http_rsp.push_body(&b"error"[..]).unwrap();
 
         match http_rsp.into_dns_response() {
             Err(e) => assert!(e.to_string().contains("http unsuccessful code: 502")),
@@ -193,5 +211,39 @@ mod tests {
     fn body_end_without_content_length_never_true() {
         let rsp = HttpDnsResponse::new(dns_response(http::HeaderMap::new())).unwrap();
         assert!(!rsp.body_end());
+    }
+
+    #[test]
+    fn new_rejects_content_length_above_the_body_cap() {
+        let mut headers = http::HeaderMap::new();
+        headers.insert(
+            header::CONTENT_LENGTH,
+            http::HeaderValue::from_static("10000000"),
+        );
+        match HttpDnsResponse::new(dns_response(headers)) {
+            Err(e) => assert!(e.to_string().contains("4096")),
+            Ok(_) => panic!("expected body cap error"),
+        }
+    }
+
+    #[test]
+    fn push_body_stops_at_the_cap_without_content_length() {
+        let mut rsp = HttpDnsResponse::new(dns_response(http::HeaderMap::new())).unwrap();
+        rsp.push_body(&[0u8; 4096][..]).unwrap();
+        match rsp.push_body(&b"x"[..]) {
+            Err(e) => assert!(e.to_string().contains("4096")),
+            Ok(_) => panic!("expected body cap error"),
+        }
+    }
+
+    #[test]
+    fn push_body_stops_at_content_length() {
+        let mut headers = http::HeaderMap::new();
+        headers.insert(header::CONTENT_LENGTH, http::HeaderValue::from_static("4"));
+        let mut rsp = HttpDnsResponse::new(dns_response(headers)).unwrap();
+        match rsp.push_body(&b"abcde"[..]) {
+            Err(e) => assert!(e.to_string().contains("exceeds the 4 byte limit")),
+            Ok(_) => panic!("expected content-length cap error"),
+        }
     }
 }
