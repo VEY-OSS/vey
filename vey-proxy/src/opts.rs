@@ -20,7 +20,6 @@ const ARGS_VERIFY_PANIC: &str = "verify-panic";
 const ARGS_DEP_GRAPH: &str = "dep-graph";
 const ARGS_GROUP_NAME: &str = "group-name";
 const ARGS_CONFIG_FILE: &str = "config-file";
-const ARGS_CONTROL_DIR: &str = "control-dir";
 
 const DEP_GRAPH_GRAPHVIZ: &str = "graphviz";
 const DEP_GRAPH_MERMAID: &str = "mermaid";
@@ -96,16 +95,6 @@ fn build_cli_args() -> Command {
                 .long("group-name"),
         )
         .arg(
-            Arg::new(ARGS_CONTROL_DIR)
-                .help("Control socket directory")
-                .num_args(1)
-                .value_name("CONTROL DIR")
-                .value_hint(ValueHint::DirPath)
-                .value_parser(value_parser!(PathBuf))
-                .short('C')
-                .long("control-dir"),
-        )
-        .arg(
             Arg::new(ARGS_CONFIG_FILE)
                 .help("Config file path")
                 .num_args(1)
@@ -133,7 +122,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     }
 
     let mut proc_args = ProcArgs::new(String::from(bin_name));
-    proc_args.daemon_config.parse_clap(&args)?;
+    proc_args.daemon_config.parse_clap(&args, bin_name)?;
 
     if args.get_flag(ARGS_VERSION) {
         crate::build::print_version(proc_args.daemon_config.verbose_level);
@@ -164,13 +153,6 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     } else {
         return Err(anyhow!("no config file given"));
     }
-    #[cfg(unix)]
-    vey_daemon::opts::validate_and_set_control_dir(
-        crate::build::PKG_NAME,
-        args.get_one::<PathBuf>(ARGS_CONTROL_DIR)
-            .map(PathBuf::as_path),
-    )
-    .context("invalid control dir")?;
     if let Some(group_name) = args.get_one::<String>(ARGS_GROUP_NAME) {
         DAEMON_GROUP
             .set(group_name.clone())

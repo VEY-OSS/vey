@@ -85,7 +85,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         .unwrap_or_else(|| args_parser.get_name());
 
     let mut proc_args = ProcArgs::new(String::from(bin_name));
-    proc_args.daemon_config.parse_clap(&args)?;
+    proc_args.daemon_config.parse_clap(&args, bin_name)?;
 
     if args.get_flag(GLOBAL_ARG_VERSION) {
         crate::build::print_version(proc_args.daemon_config.verbose_level);

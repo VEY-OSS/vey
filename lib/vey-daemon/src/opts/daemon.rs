@@ -6,6 +6,7 @@
 
 use std::path::PathBuf;
 
+use anyhow::Context;
 use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 
 const ARGS_VERBOSE: &str = "verbose";
@@ -13,6 +14,7 @@ const ARGS_DAEMON: &str = "daemon";
 const ARGS_SYSTEMD: &str = "systemd";
 const ARGS_MONITORED: &str = "monitored";
 const ARGS_PID_FILE: &str = "pid-file";
+const ARGS_CONTROL_DIR: &str = "control-dir";
 const ARGS_TEST_CONFIG: &str = "test-config";
 const ARGS_PANIC_QUIT: &str = "panic-quit";
 
@@ -58,7 +60,7 @@ impl DaemonArgs {
         self.daemon_mode || self.with_systemd || self.monitored
     }
 
-    pub fn parse_clap(&mut self, args: &ArgMatches) -> anyhow::Result<()> {
+    pub fn parse_clap(&mut self, args: &ArgMatches, app_name: &str) -> anyhow::Result<()> {
         if let Some(verbose_level) = args.get_one::<u8>(ARGS_VERBOSE) {
             self.verbose_level = *verbose_level;
         }
@@ -80,6 +82,21 @@ impl DaemonArgs {
         if args.get_flag(ARGS_PANIC_QUIT) {
             self.panic_quit = true;
         }
+        self.set_control_dir(app_name, args)
+    }
+
+    #[cfg(unix)]
+    fn set_control_dir(&mut self, app_name: &str, args: &ArgMatches) -> anyhow::Result<()> {
+        super::validate_and_set_control_dir(
+            app_name,
+            args.get_one::<PathBuf>(ARGS_CONTROL_DIR)
+                .map(PathBuf::as_path),
+        )
+        .context("invalid control dir")
+    }
+
+    #[cfg(not(unix))]
+    fn set_control_dir(&mut self, _app_name: &str, _args: &ArgMatches) -> anyhow::Result<()> {
         Ok(())
     }
 }
@@ -125,6 +142,16 @@ impl DaemonArgsExt for Command {
                 .value_parser(value_parser!(PathBuf))
                 .short('p')
                 .long(ARGS_PID_FILE),
+        )
+        .arg(
+            Arg::new(ARGS_CONTROL_DIR)
+                .help("Control socket directory")
+                .num_args(1)
+                .value_name("CONTROL DIR")
+                .value_hint(ValueHint::DirPath)
+                .value_parser(value_parser!(PathBuf))
+                .short('C')
+                .long(ARGS_CONTROL_DIR),
         )
         .arg(
             Arg::new(ARGS_TEST_CONFIG)
