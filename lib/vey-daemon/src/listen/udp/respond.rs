@@ -98,6 +98,8 @@ pub struct RespondUdpRuntime<S> {
     listen_config: UdpListenConfig,
     instance_id: usize,
     #[cfg(feature = "ebpf")]
+    socket_selector: Option<UdpSocketSelector>,
+    #[cfg(feature = "ebpf")]
     _bpf_guard: Option<UdpSocketSelectGuard>,
 }
 
@@ -116,6 +118,8 @@ where
             listen_config,
             instance_id: 0,
             #[cfg(feature = "ebpf")]
+            socket_selector: None,
+            #[cfg(feature = "ebpf")]
             _bpf_guard: None,
         }
     }
@@ -128,6 +132,8 @@ where
             worker_id: None,
             listen_config: self.listen_config.clone(),
             instance_id,
+            #[cfg(feature = "ebpf")]
+            socket_selector: None,
             #[cfg(feature = "ebpf")]
             _bpf_guard: None,
         }
@@ -310,22 +316,7 @@ where
         })
     }
 
-    /// Bind one socket per instance and run a responder task on each.
-    ///
-    /// `listen_in_worker` places one instance on every worker when workers
-    /// exist. Each task has its own socket; reply on the [`UdpResponder`]
-    /// delivered to that task so the response leaves the socket that received
-    /// the request.
-    ///
-    /// When reuseport eBPF is enabled, every socket joins the shared selector
-    /// before the program is attached. A newer process that attaches the same
-    /// address replaces the program and receives new clients. This process
-    /// leaves the selector on `QuitRuntime`.
-    pub fn run_all_instances(
-        &mut self,
-        listen_in_worker: bool,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand<()>>,
-    ) -> anyhow::Result<Vec<RespondUdpTask>> {
+    fn instance_count(&self, listen_in_worker: bool) -> usize {
         let mut instance_count = self.listen_config.instance();
         if listen_in_worker {
             let worker_count = crate::runtime::worker::worker_count();
@@ -333,10 +324,59 @@ where
                 instance_count = worker_count;
             }
         }
+        instance_count
+    }
 
-        #[cfg(feature = "ebpf")]
-        let mut socket_selector = None;
-        #[cfg(feature = "ebpf")]
+    /// Bind one socket per instance and run a responder task on each.
+    ///
+    /// `listen_in_worker` places one instance on every worker when workers
+    /// exist. Each task has its own socket; reply on the [`UdpResponder`]
+    /// delivered to that task so the response leaves the socket that received
+    /// the request.
+    #[cfg(not(feature = "ebpf"))]
+    pub fn run_all_instances(
+        &mut self,
+        listen_in_worker: bool,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand<()>>,
+    ) -> anyhow::Result<Vec<RespondUdpTask>> {
+        let instance_count = self.instance_count(listen_in_worker);
+        let mut tasks = Vec::with_capacity(instance_count);
+        for i in 0..instance_count {
+            let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
+            let listen_addr = socket.local_addr()?;
+            let runtime = self.instance(i);
+            let handle = runtime.into_running(
+                socket,
+                listen_addr,
+                listen_in_worker,
+                server_reload_sender.subscribe(),
+            );
+            tasks.push(RespondUdpTask {
+                local_addr: listen_addr,
+                handle,
+            });
+        }
+        Ok(tasks)
+    }
+
+    /// Bind one socket per instance and run a responder task on each.
+    ///
+    /// `listen_in_worker` places one instance on every worker when workers
+    /// exist. Each task has its own socket; reply on the [`UdpResponder`]
+    /// delivered to that task so the response leaves the socket that received
+    /// the request.
+    ///
+    /// Every socket joins the reuseport selector before the program is attached.
+    /// A newer process that attaches the same address receives new clients.
+    /// This process leaves the selector on `QuitRuntime`.
+    #[cfg(feature = "ebpf")]
+    pub fn run_all_instances(
+        &mut self,
+        listen_in_worker: bool,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand<()>>,
+    ) -> anyhow::Result<Vec<RespondUdpTask>> {
+        let instance_count = self.instance_count(listen_in_worker);
+
         if self
             .listen_config
             .use_ebpf(rustix::process::getuid().as_raw())
@@ -347,7 +387,9 @@ where
                 self.listen_config.address(),
                 UdpConnectionTrackConfig::default().ebpf_conn_track_size(),
             ) {
-                Ok(selector) => socket_selector = Some(selector),
+                Ok(selector) => {
+                    self.socket_selector = Some(selector);
+                }
                 Err(e) => {
                     if self.listen_config.fail_on_ebpf_error() {
                         return Err(anyhow!(
@@ -368,12 +410,8 @@ where
             let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
             let listen_addr = socket.local_addr()?;
 
-            #[cfg(feature = "ebpf")]
             let mut runtime = self.instance(i);
-            #[cfg(not(feature = "ebpf"))]
-            let runtime = self.instance(i);
-            #[cfg(feature = "ebpf")]
-            if let Some(selector) = &mut socket_selector {
+            if let Some(selector) = &mut self.socket_selector {
                 let guard = selector.add_socket(RawSocket::from(&socket));
                 runtime._bpf_guard = Some(guard);
             }
@@ -389,8 +427,7 @@ where
             });
         }
 
-        #[cfg(feature = "ebpf")]
-        if let Some(mut selector) = socket_selector {
+        if let Some(mut selector) = self.socket_selector.take() {
             if let Err(e) = selector.load_and_attach() {
                 if self.listen_config.fail_on_ebpf_error() {
                     return Err(anyhow!(
