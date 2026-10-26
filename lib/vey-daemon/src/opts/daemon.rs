@@ -6,6 +6,7 @@
 
 use std::path::PathBuf;
 
+#[cfg(unix)]
 use anyhow::Context;
 use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 
