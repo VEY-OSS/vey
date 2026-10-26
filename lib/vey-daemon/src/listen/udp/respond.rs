@@ -11,7 +11,7 @@
 //! task collects those replies and submits them with `sendmmsg`, the same way
 //! `ListenUdpRuntime` batches `SendMsgHdr`s.
 
-use std::future::Future;
+use std::future::{Future, poll_fn};
 use std::io::{self, IoSlice, IoSliceMut};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -19,6 +19,7 @@ use std::sync::Arc;
 #[cfg(feature = "ebpf")]
 use anyhow::anyhow;
 use log::{info, warn};
+use smallvec::SmallVec;
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -508,68 +509,11 @@ async fn run_replies(socket: Arc<UdpSocket>, mut rx: mpsc::Receiver<PendingReply
     }
 }
 
-async fn flush_replies(socket: &UdpSocket, queued: &mut Vec<PendingReply>) {
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-        target_os = "solaris",
-    ))]
-    {
-        flush_replies_batch(socket, queued).await;
-    }
-    #[cfg(not(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-        target_os = "solaris",
-    )))]
-    {
-        flush_replies_one(socket, queued).await;
-    }
-}
-
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-    target_os = "solaris",
-))]
-async fn flush_replies_batch(socket: &UdpSocket, queued: &mut Vec<PendingReply>) {
-    while !queued.is_empty() {
-        let outcome = std::future::poll_fn(|cx| {
-            let mut headers = Vec::with_capacity(queued.len());
-            for reply in queued.iter() {
-                headers.push(SendMsgHdr::new(
-                    [IoSlice::new(reply.packet.as_slice())],
-                    Some(reply.client_addr),
-                ));
-            }
-            socket.poll_batch_sendmsg(cx, &mut headers)
-        })
-        .await;
-
-        let written = match outcome {
-            Ok(n) if n > 0 => n,
-            Ok(_) => {
-                finish_reply(queued.remove(0), Err(empty_batch_send()));
-                continue;
-            }
-            Err(e) => {
-                finish_reply(queued.remove(0), Err(e));
-                continue;
-            }
-        };
-        for reply in queued.drain(0..written) {
-            finish_reply(reply, Ok(()));
-        }
-    }
+fn reply_hdr(reply: &PendingReply) -> SendMsgHdr<'_, 1> {
+    SendMsgHdr::new(
+        [IoSlice::new(reply.packet.as_slice())],
+        Some(reply.client_addr),
+    )
 }
 
 #[cfg(not(any(
@@ -580,30 +524,19 @@ async fn flush_replies_batch(socket: &UdpSocket, queued: &mut Vec<PendingReply>)
     target_os = "openbsd",
     target_os = "solaris",
 )))]
-async fn flush_replies_one(socket: &UdpSocket, queued: &mut Vec<PendingReply>) {
+async fn flush_replies(socket: &UdpSocket, queued: &mut Vec<PendingReply>) {
     for reply in queued.drain(..) {
-        let outcome = std::future::poll_fn(|cx| {
-            let hdr = SendMsgHdr::new(
-                [IoSlice::new(reply.packet.as_slice())],
-                Some(reply.client_addr),
-            );
+        let result = match poll_fn(|cx| {
+            let hdr = reply_hdr(&reply);
             socket.poll_sendmsg(cx, &hdr)
         })
-        .await;
-        let result = match outcome {
-            Ok(n) if n == reply.packet.len() => Ok(()),
-            Ok(n) => Err(io::Error::other(format!(
-                "not all data written, only {n}/{}",
-                reply.packet.len()
-            ))),
+        .await
+        {
+            Ok(_) => Ok(()),
             Err(e) => Err(e),
         };
         finish_reply(reply, result);
     }
-}
-
-fn finish_reply(reply: PendingReply, result: io::Result<()>) {
-    let _ = reply.done.send(result);
 }
 
 #[cfg(any(
@@ -614,8 +547,36 @@ fn finish_reply(reply: PendingReply, result: io::Result<()>) {
     target_os = "openbsd",
     target_os = "solaris",
 ))]
-fn empty_batch_send() -> io::Error {
-    io::Error::other("empty batch send")
+async fn flush_replies(socket: &UdpSocket, queued: &mut Vec<PendingReply>) {
+    while !queued.is_empty() {
+        let consumed = match poll_fn(|cx| {
+            let mut headers: SmallVec<[SendMsgHdr<1>; REPLY_BATCH]> = SmallVec::new();
+            for reply in queued.iter() {
+                headers.push(reply_hdr(reply));
+            }
+            socket.poll_batch_sendmsg(cx, &mut headers)
+        })
+        .await
+        {
+            Ok(n) => n,
+            Err(e) => {
+                if queued.first().is_some() {
+                    let reply = queued.remove(0);
+                    finish_reply(reply, Err(e));
+                } else {
+                    break;
+                }
+                continue;
+            }
+        };
+        for reply in queued.drain(0..consumed) {
+            finish_reply(reply, Ok(()));
+        }
+    }
+}
+
+fn finish_reply(reply: PendingReply, result: io::Result<()>) {
+    let _ = reply.done.send(result);
 }
 
 async fn recv_packet(
@@ -625,7 +586,7 @@ async fn recv_packet(
 ) -> io::Result<(usize, SocketAddr, SocketAddr)> {
     let mut hdr = RecvMsgHdr::new([IoSliceMut::new(buf)]);
 
-    std::future::poll_fn(|cx| socket.poll_recvmsg(cx, &mut hdr)).await?;
+    poll_fn(|cx| socket.poll_recvmsg(cx, &mut hdr)).await?;
 
     let client_addr = hdr
         .src_addr()
