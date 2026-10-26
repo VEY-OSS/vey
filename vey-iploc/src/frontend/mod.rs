@@ -87,7 +87,7 @@ impl RespondUdpServer for Frontend {
         packet: &'a [u8],
         client_addr: SocketAddr,
         server_addr: SocketAddr,
-        responder: &'a UdpResponder,
+        responder: UdpResponder,
         worker_id: Option<usize>,
     ) -> impl Future<Output = ()> + Send + 'a {
         async move {
@@ -114,7 +114,7 @@ impl RespondUdpServer for Frontend {
             match Response::encode_new(ip, location, 300) {
                 Ok(buf) => {
                     self.stats.add_response_total();
-                    if responder.send_to(&buf, client_addr).await.is_err() {
+                    if responder.send(&buf).await.is_err() {
                         self.stats.add_response_fail();
                     }
                 }

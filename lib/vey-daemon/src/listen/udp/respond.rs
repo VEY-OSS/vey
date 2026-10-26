@@ -7,23 +7,21 @@
 //!
 //! [`ReceiveUdpRuntime`] only delivers inbound packets. This runtime is for a
 //! protocol whose request and response each fit in a single datagram.
-//! [`UdpResponder`] sends through [`SendMsgHdr`](vey_io_sys::udp::SendMsgHdr).
-//! Each header names its own client address, and platforms with `sendmmsg`
-//! can hand a whole batch to [`UdpResponder::poll_batch_sendmsg`], the same
-//! way `ListenUdpRuntime` replies.
+//! [`UdpResponder`] is that one reply: it already names its client. The socket
+//! task collects those replies and submits them with `sendmmsg`, the same way
+//! `ListenUdpRuntime` batches `SendMsgHdr`s.
 
 use std::future::Future;
 use std::io::{self, IoSlice, IoSliceMut};
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::task::{Context, Poll};
 
 #[cfg(feature = "ebpf")]
 use anyhow::anyhow;
 use log::{info, warn};
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::task::JoinHandle;
 
 use vey_io_ext::UdpSocketExt;
@@ -38,73 +36,67 @@ use vey_types::net::UdpListenConfig;
 
 use crate::server::{BaseServer, ReloadServer, ServerReloadCommand};
 
-/// Sends response datagrams. Each [`SendMsgHdr`] names its own client address.
+const REPLY_QUEUE: usize = 512;
+const REPLY_BATCH: usize = 16;
+
+struct PendingReply {
+    client_addr: SocketAddr,
+    packet: Vec<u8>,
+    done: oneshot::Sender<io::Result<()>>,
+}
+
+/// One response to one client.
 ///
-/// Cloning is cheap. Hold a clone next to the request when the response is
-/// produced somewhere else. [`poll_batch_sendmsg`](Self::poll_batch_sendmsg)
-/// submits several of those headers in one `sendmmsg`, as `ListenUdpRuntime` does.
+/// The socket task batches every reply queued on this listen socket. This
+/// value only carries the destination for its own packet.
 #[derive(Clone)]
 pub struct UdpResponder {
-    socket: Arc<UdpSocket>,
+    client_addr: SocketAddr,
+    tx: mpsc::Sender<PendingReply>,
 }
 
 impl UdpResponder {
-    pub fn poll_sendmsg<const C: usize>(
-        &self,
-        cx: &mut Context<'_>,
-        hdr: &SendMsgHdr<'_, C>,
-    ) -> Poll<io::Result<usize>> {
-        self.socket.poll_sendmsg(cx, hdr)
+    pub fn client_addr(&self) -> SocketAddr {
+        self.client_addr
     }
 
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-        target_os = "solaris",
-    ))]
-    pub fn poll_batch_sendmsg<const C: usize>(
-        &self,
-        cx: &mut Context<'_>,
-        msgs: &mut [SendMsgHdr<'_, C>],
-    ) -> Poll<io::Result<usize>> {
-        self.socket.poll_batch_sendmsg(cx, msgs)
-    }
-
-    /// Send `packet` to `client_addr`.
-    ///
-    /// `client_addr` is the destination. It is not remembered from the last
-    /// receive. The header is built inside the poll so this future stays `Send`.
-    pub async fn send_to(&self, packet: &[u8], client_addr: SocketAddr) -> io::Result<()> {
-        let n = std::future::poll_fn(|cx| {
-            let hdr = SendMsgHdr::new([IoSlice::new(packet)], Some(client_addr));
-            self.poll_sendmsg(cx, &hdr)
-        })
-        .await?;
-        if n != packet.len() {
-            return Err(io::Error::other(format!(
-                "not all data written, only {n}/{}",
-                packet.len()
-            )));
+    /// Same listen socket, different destination.
+    pub fn to(&self, client_addr: SocketAddr) -> Self {
+        UdpResponder {
+            client_addr,
+            tx: self.tx.clone(),
         }
-        Ok(())
+    }
+
+    /// Queue this one packet and wait until the socket task has written it.
+    pub async fn send(&self, packet: &[u8]) -> io::Result<()> {
+        let (done, result) = oneshot::channel();
+        self.tx
+            .send(PendingReply {
+                client_addr: self.client_addr,
+                packet: packet.to_vec(),
+                done,
+            })
+            .await
+            .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "responder closed"))?;
+        result
+            .await
+            .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "responder closed"))?
     }
 }
 
 /// Handles one request datagram.
 ///
-/// The runtime does not send a response. Call [`UdpResponder::send_to`] with
-/// the client address that should receive it. `client_addr` is the source of
-/// this packet; use it as the destination for a direct reply.
+/// The runtime does not write the response itself. [`UdpResponder::send`]
+/// queues the one packet for `responder`'s client. The socket task batches
+/// those queued packets.
 pub trait RespondUdpServer: BaseServer {
     fn handle_udp_request<'a>(
         &'a self,
         packet: &'a [u8],
         client_addr: SocketAddr,
         server_addr: SocketAddr,
-        responder: &'a UdpResponder,
+        responder: UdpResponder,
         worker_id: Option<usize>,
     ) -> impl Future<Output = ()> + Send + 'a;
 }
@@ -208,9 +200,9 @@ where
     ) {
         use broadcast::error::RecvError;
 
-        let responder = UdpResponder {
-            socket: Arc::new(socket),
-        };
+        let socket = Arc::new(socket);
+        let (reply_tx, reply_rx) = mpsc::channel(REPLY_QUEUE);
+        let reply_task = tokio::spawn(run_replies(Arc::clone(&socket), reply_rx));
         let mut buf = [0u8; u16::MAX as usize];
         loop {
             // Recv and quit are polled together. A busy socket must not hide shutdown.
@@ -242,15 +234,19 @@ where
                     self.pre_stop();
                     break;
                 }
-                r = recv_packet(&responder.socket, listen_addr, &mut buf) => {
+                r = recv_packet(&socket, listen_addr, &mut buf) => {
                     match r {
                         Ok((len, client_addr, server_addr)) => {
+                            let responder = UdpResponder {
+                                client_addr,
+                                tx: reply_tx.clone(),
+                            };
                             self.server
                                 .handle_udp_request(
                                     &buf[..len],
                                     client_addr,
                                     server_addr,
-                                    &responder,
+                                    responder,
                                     self.worker_id,
                                 )
                                 .await;
@@ -265,8 +261,18 @@ where
         }
 
         #[cfg(feature = "ebpf")]
-        self.drain_after_reuseport_detach(&responder, listen_addr, &mut buf)
+        self.drain_after_reuseport_detach(&socket, &reply_tx, listen_addr, &mut buf)
             .await;
+
+        drop(reply_tx);
+        if let Err(e) = reply_task.await {
+            warn!(
+                "SRT[{}_v{}#{}] reply task ended with error: {e}",
+                self.server.name(),
+                self.server_version,
+                self.instance_id
+            );
+        }
 
         self.post_stop();
     }
@@ -276,7 +282,8 @@ where
     #[cfg(feature = "ebpf")]
     async fn drain_after_reuseport_detach(
         &mut self,
-        responder: &UdpResponder,
+        socket: &UdpSocket,
+        reply_tx: &mpsc::Sender<PendingReply>,
         listen_addr: SocketAddr,
         buf: &mut [u8],
     ) {
@@ -293,9 +300,13 @@ where
             }
             tokio::select! {
                 _ = tokio::time::sleep(left) => break,
-                r = recv_packet(&responder.socket, listen_addr, buf) => {
+                r = recv_packet(socket, listen_addr, buf) => {
                     match r {
                         Ok((len, client_addr, server_addr)) => {
+                            let responder = UdpResponder {
+                                client_addr,
+                                tx: reply_tx.clone(),
+                            };
                             self.server
                                 .handle_udp_request(
                                     &buf[..len],
@@ -486,6 +497,127 @@ where
     }
 }
 
+async fn run_replies(socket: Arc<UdpSocket>, mut rx: mpsc::Receiver<PendingReply>) {
+    let mut queued = Vec::with_capacity(REPLY_BATCH);
+    loop {
+        let n = rx.recv_many(&mut queued, REPLY_BATCH).await;
+        if n == 0 {
+            break;
+        }
+        flush_replies(&socket, &mut queued).await;
+    }
+}
+
+async fn flush_replies(socket: &UdpSocket, queued: &mut Vec<PendingReply>) {
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    ))]
+    {
+        flush_replies_batch(socket, queued).await;
+    }
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    )))]
+    {
+        flush_replies_one(socket, queued).await;
+    }
+}
+
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "solaris",
+))]
+async fn flush_replies_batch(socket: &UdpSocket, queued: &mut Vec<PendingReply>) {
+    while !queued.is_empty() {
+        let outcome = std::future::poll_fn(|cx| {
+            let mut headers = Vec::with_capacity(queued.len());
+            for reply in queued.iter() {
+                headers.push(SendMsgHdr::new(
+                    [IoSlice::new(reply.packet.as_slice())],
+                    Some(reply.client_addr),
+                ));
+            }
+            socket.poll_batch_sendmsg(cx, &mut headers)
+        })
+        .await;
+
+        let written = match outcome {
+            Ok(n) if n > 0 => n,
+            Ok(_) => {
+                finish_reply(queued.remove(0), Err(empty_batch_send()));
+                continue;
+            }
+            Err(e) => {
+                finish_reply(queued.remove(0), Err(e));
+                continue;
+            }
+        };
+        for reply in queued.drain(0..written) {
+            finish_reply(reply, Ok(()));
+        }
+    }
+}
+
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "solaris",
+)))]
+async fn flush_replies_one(socket: &UdpSocket, queued: &mut Vec<PendingReply>) {
+    for reply in queued.drain(..) {
+        let outcome = std::future::poll_fn(|cx| {
+            let hdr = SendMsgHdr::new(
+                [IoSlice::new(reply.packet.as_slice())],
+                Some(reply.client_addr),
+            );
+            socket.poll_sendmsg(cx, &hdr)
+        })
+        .await;
+        let result = match outcome {
+            Ok(n) if n == reply.packet.len() => Ok(()),
+            Ok(n) => Err(io::Error::other(format!(
+                "not all data written, only {n}/{}",
+                reply.packet.len()
+            ))),
+            Err(e) => Err(e),
+        };
+        finish_reply(reply, result);
+    }
+}
+
+fn finish_reply(reply: PendingReply, result: io::Result<()>) {
+    let _ = reply.done.send(result);
+}
+
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "solaris",
+))]
+fn empty_batch_send() -> io::Error {
+    io::Error::other("empty batch send")
+}
+
 async fn recv_packet(
     socket: &UdpSocket,
     listen_addr: SocketAddr,
@@ -547,13 +679,13 @@ mod tests {
             packet: &'a [u8],
             client_addr: SocketAddr,
             server_addr: SocketAddr,
-            responder: &'a UdpResponder,
+            responder: UdpResponder,
             worker_id: Option<usize>,
         ) -> impl Future<Output = ()> + Send + 'a {
             let dest = self.reply_to.lock().unwrap().unwrap_or(client_addr);
             async move {
                 let _ = (packet, server_addr, worker_id);
-                responder.send_to(b"pong", dest).await.unwrap();
+                responder.to(dest).send(b"pong").await.unwrap();
             }
         }
     }
@@ -605,40 +737,29 @@ mod tests {
             .unwrap();
     }
 
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-        target_os = "solaris",
-    ))]
     #[tokio::test]
-    async fn batch_send_names_each_client() {
-        use std::future::poll_fn;
-
+    async fn reply_task_sends_each_queued_client() {
         let socket = TokioUdpSocket::bind("127.0.0.1:0").await.unwrap();
         let from = socket.local_addr().unwrap();
-        let responder = UdpResponder {
-            socket: Arc::new(socket),
-        };
+        let (tx, rx) = mpsc::channel(REPLY_QUEUE);
+        let task = tokio::spawn(run_replies(Arc::new(socket), rx));
+
         let one = TokioUdpSocket::bind("127.0.0.1:0").await.unwrap();
         let two = TokioUdpSocket::bind("127.0.0.1:0").await.unwrap();
-        let first = b"one";
-        let second = b"two";
-        let mut msgs = [
-            SendMsgHdr::new([IoSlice::new(first)], Some(one.local_addr().unwrap())),
-            SendMsgHdr::new([IoSlice::new(second)], Some(two.local_addr().unwrap())),
-        ];
-
-        let mut sent = 0;
-        while sent < msgs.len() {
-            let n = poll_fn(|cx| responder.poll_batch_sendmsg(cx, &mut msgs[sent..]))
-                .await
-                .unwrap();
-            assert!(n > 0);
-            sent += n;
-        }
+        let first = UdpResponder {
+            client_addr: one.local_addr().unwrap(),
+            tx: tx.clone(),
+        };
+        let second = UdpResponder {
+            client_addr: two.local_addr().unwrap(),
+            tx: tx.clone(),
+        };
+        let send_first = tokio::spawn(async move { first.send(b"one").await.unwrap() });
+        let send_second = tokio::spawn(async move { second.send(b"two").await.unwrap() });
+        send_first.await.unwrap();
+        send_second.await.unwrap();
+        drop(tx);
+        task.await.unwrap();
 
         let (body, peer) = recv_from(&one).await;
         assert_eq!(body, b"one");

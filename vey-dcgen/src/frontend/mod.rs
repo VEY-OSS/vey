@@ -78,7 +78,7 @@ impl RespondUdpServer for Frontend {
         packet: &'a [u8],
         client_addr: SocketAddr,
         server_addr: SocketAddr,
-        responder: &'a UdpResponder,
+        responder: UdpResponder,
         worker_id: Option<usize>,
     ) -> impl Future<Output = ()> + Send + 'a {
         async move {
@@ -118,7 +118,7 @@ pub(super) async fn send_response(
     {
         Ok(buf) => {
             stats.add_response_total();
-            match rsp.responder.send_to(buf.as_slice(), rsp.peer).await {
+            match rsp.responder.send(buf.as_slice()).await {
                 Ok(_) => {
                     let duration_nanos = rsp.duration();
                     debug!(
