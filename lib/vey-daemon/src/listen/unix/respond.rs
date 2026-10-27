@@ -17,6 +17,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use log::{debug, info, warn};
+#[cfg(any(target_os = "linux", target_os = "android"))]
 use tokio::io::Interest;
 use tokio::net::UnixDatagram;
 use tokio::net::unix::SocketAddr as UnixSocketAddr;
