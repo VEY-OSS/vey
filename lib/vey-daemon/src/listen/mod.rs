@@ -13,7 +13,8 @@ pub use tcp::{AcceptTcpServer, ListenTcpRuntime};
 mod udp;
 pub use udp::{
     AcceptUdpServer, AcceptedUdpPacketReceiver, AcceptedUdpPacketSender, ListenUdpInPlaceConfig,
-    ListenUdpRuntime, ReceiveUdpRuntime, ReceiveUdpServer,
+    ListenUdpRuntime, ReceiveUdpRuntime, ReceiveUdpServer, RespondUdpRuntime, RespondUdpServer,
+    RespondUdpTask, UdpResponder,
 };
 
 #[cfg_attr(feature = "quic", path = "quic.rs")]
