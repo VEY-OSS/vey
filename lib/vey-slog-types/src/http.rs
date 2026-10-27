@@ -61,9 +61,10 @@ impl fmt::Display for LtHttpUri<'_> {
         if let Some(authority) = self.uri.authority() {
             let s = authority.as_str();
 
-            if let Some(at_pos) = memchr::memchr(b'@', s.as_bytes()) {
-                if let Some(p) = memchr::memchr(b':', &s.as_bytes()[0..at_pos]) {
-                    write!(f, "{}", &s[0..=p])?;
+            // The last '@' separates userinfo from the host.
+            if let Some(at_pos) = memchr::memrchr(b'@', s.as_bytes()) {
+                if let Some(p) = memchr::memchr(b':', &s.as_bytes()[..at_pos]) {
+                    write!(f, "{}", &s[..=p])?;
                     write!(f, "xyz{}", &s[at_pos..])?;
                 } else {
                     write!(f, "{authority}")?;
@@ -144,5 +145,10 @@ mod tests {
         let lt_uri = LtHttpUri::new(&uri, 1024);
         let log1 = format!("{lt_uri}");
         assert_eq!("https://a:xyz@example.com/a?b=c", log1);
+
+        let raw = "http://bob@evil:s3cret@example.com/x";
+        let uri = Uri::from_str(raw).unwrap();
+        let lt_uri = LtHttpUri::new(&uri, 1024);
+        assert_eq!("http://bob@evil:xyz@example.com/x", format!("{lt_uri}"));
     }
 }
