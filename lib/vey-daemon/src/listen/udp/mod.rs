@@ -13,4 +13,4 @@ mod receive;
 pub use receive::{ReceiveUdpRuntime, ReceiveUdpServer};
 
 mod respond;
-pub use respond::{RespondUdpRuntime, RespondUdpServer, RespondUdpTask, UdpResponder};
+pub use respond::{RespondUdpRuntime, RespondUdpServer, UdpResponder};

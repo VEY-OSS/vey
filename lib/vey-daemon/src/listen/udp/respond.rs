@@ -5,16 +5,13 @@
 
 //! One UDP datagram in, one datagram back.
 //!
-//! [`ReceiveUdpRuntime`] only delivers inbound packets. This runtime is for a
-//! protocol whose request and response each fit in a single datagram.
-//! [`UdpResponder`] is that one reply: it already names its client. The socket
-//! task collects those replies and submits them with `sendmmsg`, the same way
-//! `ListenUdpRuntime` batches `SendMsgHdr`s.
+//! This runtime is for a protocol whose request and response each fit in a single datagram.
 
 use std::future::{Future, poll_fn};
 use std::io::{self, IoSlice, IoSliceMut};
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 
 #[cfg(feature = "ebpf")]
 use anyhow::anyhow;
@@ -23,7 +20,6 @@ use smallvec::SmallVec;
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, mpsc};
-use tokio::task::JoinHandle;
 
 use vey_io_ext::UdpSocketExt;
 use vey_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
@@ -35,10 +31,12 @@ use vey_socket::RawSocket;
 use vey_types::net::UdpConnectionTrackConfig;
 use vey_types::net::UdpListenConfig;
 
+use crate::listen::{ListenAliveGuard, ListenStats};
 use crate::server::{BaseServer, ReloadServer, ServerReloadCommand};
 
 const REPLY_QUEUE: usize = 512;
 const REPLY_BATCH: usize = 16;
+const RECV_BATCH: usize = 16;
 
 struct PendingReply {
     client_addr: SocketAddr,
@@ -52,6 +50,7 @@ struct PendingReply {
 #[derive(Clone)]
 pub struct UdpResponder {
     client_addr: SocketAddr,
+    server_addr: SocketAddr,
     tx: mpsc::Sender<PendingReply>,
 }
 
@@ -60,12 +59,8 @@ impl UdpResponder {
         self.client_addr
     }
 
-    /// Same listen socket, different destination.
-    pub fn to(&self, client_addr: SocketAddr) -> Self {
-        UdpResponder {
-            client_addr,
-            tx: self.tx.clone(),
-        }
+    pub fn server_addr(&self) -> SocketAddr {
+        self.server_addr
     }
 
     /// Queue this one packet. The socket task writes it later.
@@ -89,20 +84,100 @@ pub trait RespondUdpServer: BaseServer {
     fn handle_udp_request<'a>(
         &'a self,
         packet: &'a [u8],
-        client_addr: SocketAddr,
-        server_addr: SocketAddr,
         responder: UdpResponder,
         worker_id: Option<usize>,
     ) -> impl Future<Output = ()> + Send + 'a;
 }
 
-/// A running responder task and the address its socket is bound to.
-pub struct RespondUdpTask {
-    pub local_addr: SocketAddr,
-    pub handle: JoinHandle<()>,
+/// Batches replies queued on one listen socket and writes them with `sendmmsg`.
+struct PacketRecvSender {
+    socket: Arc<UdpSocket>,
+    reply_receiver: mpsc::Receiver<PendingReply>,
 }
 
-/// Receives one request datagram at a time and hands the caller a [`UdpResponder`].
+impl PacketRecvSender {
+    fn reply_hdr(reply: &PendingReply) -> SendMsgHdr<'_, 1> {
+        SendMsgHdr::new(
+            [IoSlice::new(reply.packet.as_slice())],
+            Some(reply.client_addr),
+        )
+    }
+
+    async fn run_to_end(mut self) {
+        let mut queued = Vec::with_capacity(REPLY_BATCH);
+        loop {
+            queued.clear();
+            let n = self
+                .reply_receiver
+                .recv_many(&mut queued, REPLY_BATCH)
+                .await;
+            if n == 0 {
+                break;
+            }
+            self.send_packets(&queued).await;
+        }
+    }
+
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    )))]
+    async fn send_packets(&self, queued: &[PendingReply]) {
+        let mut logged = false;
+        for reply in queued {
+            if let Err(e) = poll_fn(|cx| {
+                let hdr = Self::reply_hdr(reply);
+                self.socket.poll_sendmsg(cx, &hdr)
+            })
+            .await
+            {
+                if !logged {
+                    warn!("udp respond send failed: {e}");
+                    logged = true;
+                }
+            }
+        }
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    ))]
+    async fn send_packets(&self, queued: &[PendingReply]) {
+        let mut offset = 0;
+        let mut logged = false;
+        while offset < queued.len() {
+            match poll_fn(|cx| {
+                let mut headers: SmallVec<[SendMsgHdr<1>; REPLY_BATCH]> = SmallVec::new();
+                for reply in &queued[offset..] {
+                    headers.push(Self::reply_hdr(reply));
+                }
+                self.socket.poll_batch_sendmsg(cx, &mut headers)
+            })
+            .await
+            {
+                Ok(n) => offset += n,
+                Err(e) => {
+                    if !logged {
+                        warn!("udp respond send failed: {e}");
+                        logged = true;
+                    }
+                    offset += 1;
+                }
+            }
+        }
+    }
+}
+
+/// Binds one UDP socket per instance and runs a responder task on each.
 ///
 /// On Linux with the `ebpf` feature, `run_all_instances` attaches the reuseport
 /// selector used for a lossless upgrade. The new process steers new clients to
@@ -110,54 +185,186 @@ pub struct RespondUdpTask {
 /// leaves the map, and the kernel then hands the same packet to a live socket.
 pub struct RespondUdpRuntime<S> {
     server: S,
-    server_type: &'static str,
-    server_version: usize,
-    worker_id: Option<usize>,
     listen_config: UdpListenConfig,
-    instance_id: usize,
+    listen_stats: Arc<ListenStats>,
+    packet_max_size: u16,
     #[cfg(feature = "ebpf")]
     socket_selector: Option<UdpSocketSelector>,
-    #[cfg(feature = "ebpf")]
-    _bpf_guard: Option<UdpSocketSelectGuard>,
 }
 
 impl<S> RespondUdpRuntime<S>
 where
     S: RespondUdpServer + ReloadServer + Clone + Send + Sync + 'static,
 {
-    pub fn new(server: S, listen_config: UdpListenConfig) -> Self {
-        let server_type = server.r#type();
-        let server_version = server.version();
+    /// `packet_max_size` is the buffer for one datagram. A larger datagram is truncated.
+    pub fn new(
+        server: S,
+        listen_config: UdpListenConfig,
+        listen_stats: Arc<ListenStats>,
+        packet_max_size: u16,
+    ) -> Self {
         RespondUdpRuntime {
             server,
+            listen_config,
+            listen_stats,
+            packet_max_size,
+            #[cfg(feature = "ebpf")]
+            socket_selector: None,
+        }
+    }
+
+    fn create_instance(
+        &self,
+        id: usize,
+        listen_addr: SocketAddr,
+        listen_in_worker: bool,
+    ) -> RespondUdpRuntimeInstance<S> {
+        let server_type = self.server.r#type();
+        let server_version = self.server.version();
+
+        let n = self.packet_max_size as usize;
+        let mut packets_buf = Vec::with_capacity(RECV_BATCH);
+        for _ in 0..RECV_BATCH {
+            packets_buf.push(vec![0u8; n]);
+        }
+
+        RespondUdpRuntimeInstance {
+            server: self.server.clone(),
             server_type,
             server_version,
             worker_id: None,
-            listen_config,
-            instance_id: 0,
-            #[cfg(feature = "ebpf")]
-            socket_selector: None,
-            #[cfg(feature = "ebpf")]
-            _bpf_guard: None,
-        }
-    }
-
-    fn instance(&self, instance_id: usize) -> Self {
-        RespondUdpRuntime {
-            server: self.server.clone(),
-            server_type: self.server_type,
-            server_version: self.server_version,
-            worker_id: None,
-            listen_config: self.listen_config.clone(),
-            instance_id,
-            #[cfg(feature = "ebpf")]
-            socket_selector: None,
+            listen_addr,
+            listen_in_worker,
+            instance_id: id,
+            packets_buf,
+            listen_stats: Arc::clone(&self.listen_stats),
+            _alive_guard: None,
             #[cfg(feature = "ebpf")]
             _bpf_guard: None,
         }
     }
 
-    fn pre_start(&self) {
+    /// Bind one socket per instance and run a responder task on each.
+    ///
+    /// `listen_in_worker` places one instance on every worker when workers
+    /// exist. Each task has its own socket; reply on the [`UdpResponder`]
+    /// delivered to that task so the response leaves the socket that received
+    /// the request.
+    pub fn run_all_instances(
+        &mut self,
+        listen_in_worker: bool,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand<()>>,
+    ) -> anyhow::Result<()> {
+        let mut instance_count = self.listen_config.instance();
+        if listen_in_worker {
+            let worker_count = crate::runtime::worker::worker_count();
+            if worker_count > 0 {
+                instance_count = worker_count;
+            }
+        }
+
+        #[cfg(feature = "ebpf")]
+        if self
+            .listen_config
+            .use_ebpf(rustix::process::getuid().as_raw())
+        {
+            match UdpSocketSelector::new(
+                rustix::process::getpid().as_raw_pid(),
+                self.server.version() as u16,
+                self.listen_config.address(),
+                UdpConnectionTrackConfig::default().ebpf_conn_track_size(),
+            ) {
+                Ok(selector) => {
+                    self.socket_selector = Some(selector);
+                }
+                Err(e) => {
+                    if self.listen_config.fail_on_ebpf_error() {
+                        return Err(anyhow!(
+                            "UDP {} ebpf reuseport socket selector create failed: {e}",
+                            self.listen_config.address()
+                        ));
+                    }
+                    warn!(
+                        "reuseport ebpf on UDP socket {} disabled due to create error {e}",
+                        self.listen_config.address()
+                    );
+                }
+            }
+        }
+
+        for i in 0..instance_count {
+            let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
+            let listen_addr = socket.local_addr()?;
+
+            #[cfg(feature = "ebpf")]
+            let mut instance = self.create_instance(i, listen_addr, listen_in_worker);
+            #[cfg(not(feature = "ebpf"))]
+            let instance = self.create_instance(i, listen_addr, listen_in_worker);
+            #[cfg(feature = "ebpf")]
+            if let Some(selector) = &mut self.socket_selector {
+                let guard = selector.add_socket(RawSocket::from(&socket));
+                instance._bpf_guard = Some(guard);
+            }
+            instance.into_running(socket, server_reload_sender.subscribe());
+        }
+
+        #[cfg(feature = "ebpf")]
+        if let Some(mut selector) = self.socket_selector.take() {
+            if let Err(e) = selector.load_and_attach() {
+                if self.listen_config.fail_on_ebpf_error() {
+                    return Err(anyhow!(
+                        "UDP {} ebpf reuseport socket selector attach failed: {e}",
+                        self.listen_config.address()
+                    ));
+                }
+                warn!(
+                    "reuseport ebpf on UDP socket {} disabled due to attach error {e}",
+                    self.listen_config.address()
+                );
+            }
+            let mut server_reload_receiver = server_reload_sender.subscribe();
+            tokio::spawn(async move {
+                while let Ok(cmd) = server_reload_receiver.recv().await {
+                    if matches!(cmd, ServerReloadCommand::QuitRuntime) {
+                        break;
+                    }
+                }
+                selector.unregister_proc();
+            });
+        }
+
+        Ok(())
+    }
+}
+
+/// Receives a batch of request datagrams and hands each one to a [`UdpResponder`].
+struct RespondUdpRuntimeInstance<S> {
+    server: S,
+    server_type: &'static str,
+    server_version: usize,
+    worker_id: Option<usize>,
+    listen_addr: SocketAddr,
+    listen_in_worker: bool,
+    instance_id: usize,
+    packets_buf: Vec<Vec<u8>>,
+    listen_stats: Arc<ListenStats>,
+    _alive_guard: Option<ListenAliveGuard>,
+    #[cfg(feature = "ebpf")]
+    _bpf_guard: Option<UdpSocketSelectGuard>,
+}
+
+struct InboundDatagram {
+    index: usize,
+    len: usize,
+    client_addr: SocketAddr,
+    server_addr: SocketAddr,
+}
+
+impl<S> RespondUdpRuntimeInstance<S>
+where
+    S: RespondUdpServer + ReloadServer + Clone + Send + Sync + 'static,
+{
+    fn pre_start(&mut self) {
         info!(
             "started {} SRT[{}_v{}#{}]",
             self.server_type,
@@ -165,6 +372,7 @@ where
             self.server_version,
             self.instance_id,
         );
+        self._alive_guard = Some(self.listen_stats.add_running_runtime());
     }
 
     fn pre_stop(&self) {
@@ -190,7 +398,6 @@ where
     async fn run(
         mut self,
         socket: UdpSocket,
-        listen_addr: SocketAddr,
         mut server_reload_channel: broadcast::Receiver<ServerReloadCommand<()>>,
     ) {
         use broadcast::error::RecvError;
@@ -202,7 +409,6 @@ where
             reply_receiver: reply_rx,
         };
         let reply_task = tokio::spawn(packet_recv_sender.run_to_end());
-        let mut buf = [0u8; u16::MAX as usize];
         loop {
             // Recv and quit are polled together. A busy socket must not hide shutdown.
             tokio::select! {
@@ -233,23 +439,9 @@ where
                     self.pre_stop();
                     break;
                 }
-                r = recv_packet(&socket, listen_addr, &mut buf) => {
+                r = self.recv_packets(&socket) => {
                     match r {
-                        Ok((len, client_addr, server_addr)) => {
-                            let responder = UdpResponder {
-                                client_addr,
-                                tx: reply_tx.clone(),
-                            };
-                            self.server
-                                .handle_udp_request(
-                                    &buf[..len],
-                                    client_addr,
-                                    server_addr,
-                                    responder,
-                                    self.worker_id,
-                                )
-                                .await;
-                        }
+                        Ok(packets) => self.handle_inbound(packets, &reply_tx).await,
                         Err(e) => {
                             warn!("SRT[{}_v{}#{}] error receiving data from socket, error: {e}",
                                 self.server.name(), self.server_version, self.instance_id);
@@ -260,8 +452,7 @@ where
         }
 
         #[cfg(feature = "ebpf")]
-        self.drain_after_reuseport_detach(&socket, &reply_tx, listen_addr, &mut buf)
-            .await;
+        self.drain_after_reuseport_detach(&socket, &reply_tx).await;
 
         drop(reply_tx);
         if let Err(e) = reply_task.await {
@@ -283,8 +474,6 @@ where
         &mut self,
         socket: &UdpSocket,
         reply_tx: &mpsc::Sender<PendingReply>,
-        listen_addr: SocketAddr,
-        buf: &mut [u8],
     ) {
         if self._bpf_guard.is_none() {
             return;
@@ -299,23 +488,9 @@ where
             }
             tokio::select! {
                 _ = tokio::time::sleep(left) => break,
-                r = recv_packet(socket, listen_addr, buf) => {
+                r = self.recv_packets(socket) => {
                     match r {
-                        Ok((len, client_addr, server_addr)) => {
-                            let responder = UdpResponder {
-                                client_addr,
-                                tx: reply_tx.clone(),
-                            };
-                            self.server
-                                .handle_udp_request(
-                                    &buf[..len],
-                                    client_addr,
-                                    server_addr,
-                                    responder,
-                                    self.worker_id,
-                                )
-                                .await;
-                        }
+                        Ok(packets) => self.handle_inbound(packets, reply_tx).await,
                         Err(_) => break,
                     }
                 }
@@ -323,8 +498,117 @@ where
         }
     }
 
-    fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
-        if listen_in_worker && let Some(rt) = crate::runtime::worker::select_listen_handle() {
+    async fn recv_packets(
+        &mut self,
+        socket: &UdpSocket,
+    ) -> io::Result<SmallVec<[InboundDatagram; RECV_BATCH]>> {
+        poll_fn(|cx| self.poll_recv_packets(cx, socket)).await
+    }
+
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    )))]
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        socket: &UdpSocket,
+    ) -> Poll<io::Result<SmallVec<[InboundDatagram; RECV_BATCH]>>> {
+        let mut packets = SmallVec::new();
+        while packets.len() < RECV_BATCH {
+            let index = packets.len();
+            let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut self.packets_buf[index])]);
+            match socket.poll_recvmsg(cx, &mut hdr) {
+                Poll::Ready(Ok(())) => {
+                    let client_addr = hdr
+                        .src_addr()
+                        .ok_or_else(|| io::Error::other("unable to get client address"))?;
+                    let server_addr = hdr.dst_addr(self.listen_addr);
+                    packets.push(InboundDatagram {
+                        index,
+                        len: hdr.n_recv,
+                        client_addr,
+                        server_addr,
+                    });
+                }
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+                Poll::Pending => {
+                    return if packets.is_empty() {
+                        Poll::Pending
+                    } else {
+                        Poll::Ready(Ok(packets))
+                    };
+                }
+            }
+        }
+        Poll::Ready(Ok(packets))
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        socket: &UdpSocket,
+    ) -> Poll<io::Result<SmallVec<[InboundDatagram; RECV_BATCH]>>> {
+        let mut hdr_v = SmallVec::<[RecvMsgHdr<1>; RECV_BATCH]>::new();
+        for buf in &mut self.packets_buf {
+            hdr_v.push(RecvMsgHdr::new([IoSliceMut::new(buf)]));
+        }
+
+        let nr = std::task::ready!(socket.poll_batch_recvmsg(cx, &mut hdr_v))?;
+        let mut packets = SmallVec::new();
+        for (index, hdr) in hdr_v.iter().take(nr).enumerate() {
+            let client_addr = hdr
+                .src_addr()
+                .ok_or_else(|| io::Error::other("unable to get client address"))?;
+            let server_addr = hdr.dst_addr(self.listen_addr);
+            packets.push(InboundDatagram {
+                index,
+                len: hdr.n_recv,
+                client_addr,
+                server_addr,
+            });
+        }
+        Poll::Ready(Ok(packets))
+    }
+
+    async fn handle_inbound(
+        &mut self,
+        packets: SmallVec<[InboundDatagram; RECV_BATCH]>,
+        reply_tx: &mpsc::Sender<PendingReply>,
+    ) {
+        for pkt in packets {
+            let responder = UdpResponder {
+                client_addr: pkt.client_addr,
+                server_addr: pkt.server_addr,
+                tx: reply_tx.clone(),
+            };
+            let worker_id = self.worker_id;
+            let server = &self.server;
+            let packet = &self.packets_buf[pkt.index][..pkt.len];
+            server
+                .handle_udp_request(packet, responder, worker_id)
+                .await;
+        }
+    }
+
+    fn get_rt_handle(&mut self) -> Handle {
+        if self.listen_in_worker
+            && let Some(rt) = crate::runtime::worker::select_listen_handle()
+        {
             self.worker_id = Some(rt.id);
             return rt.handle;
         }
@@ -334,16 +618,15 @@ where
     fn into_running(
         mut self,
         socket: std::net::UdpSocket,
-        listen_addr: SocketAddr,
-        listen_in_worker: bool,
         server_reload_channel: broadcast::Receiver<ServerReloadCommand<()>>,
-    ) -> JoinHandle<()> {
-        let handle = self.get_rt_handle(listen_in_worker);
+    ) {
+        let handle = self.get_rt_handle();
         handle.spawn(async move {
+            // make sure the listen socket associated with the correct reactor
             match UdpSocket::from_std(socket) {
                 Ok(socket) => {
                     self.pre_start();
-                    self.run(socket, listen_addr, server_reload_channel).await;
+                    self.run(socket, server_reload_channel).await;
                 }
                 Err(e) => {
                     warn!(
@@ -354,246 +637,8 @@ where
                     );
                 }
             }
-        })
+        });
     }
-
-    fn instance_count(&self, listen_in_worker: bool) -> usize {
-        let mut instance_count = self.listen_config.instance();
-        if listen_in_worker {
-            let worker_count = crate::runtime::worker::worker_count();
-            if worker_count > 0 {
-                instance_count = worker_count;
-            }
-        }
-        instance_count
-    }
-
-    /// Bind one socket per instance and run a responder task on each.
-    ///
-    /// `listen_in_worker` places one instance on every worker when workers
-    /// exist. Each task has its own socket; reply on the [`UdpResponder`]
-    /// delivered to that task so the response leaves the socket that received
-    /// the request.
-    #[cfg(not(feature = "ebpf"))]
-    pub fn run_all_instances(
-        &mut self,
-        listen_in_worker: bool,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand<()>>,
-    ) -> anyhow::Result<Vec<RespondUdpTask>> {
-        let instance_count = self.instance_count(listen_in_worker);
-        let mut tasks = Vec::with_capacity(instance_count);
-        for i in 0..instance_count {
-            let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
-            let listen_addr = socket.local_addr()?;
-            let runtime = self.instance(i);
-            let handle = runtime.into_running(
-                socket,
-                listen_addr,
-                listen_in_worker,
-                server_reload_sender.subscribe(),
-            );
-            tasks.push(RespondUdpTask {
-                local_addr: listen_addr,
-                handle,
-            });
-        }
-        Ok(tasks)
-    }
-
-    /// Bind one socket per instance and run a responder task on each.
-    ///
-    /// `listen_in_worker` places one instance on every worker when workers
-    /// exist. Each task has its own socket; reply on the [`UdpResponder`]
-    /// delivered to that task so the response leaves the socket that received
-    /// the request.
-    ///
-    /// Every socket joins the reuseport selector before the program is attached.
-    /// A newer process that attaches the same address receives new clients.
-    /// This process leaves the selector on `QuitRuntime`.
-    #[cfg(feature = "ebpf")]
-    pub fn run_all_instances(
-        &mut self,
-        listen_in_worker: bool,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand<()>>,
-    ) -> anyhow::Result<Vec<RespondUdpTask>> {
-        let instance_count = self.instance_count(listen_in_worker);
-
-        if self
-            .listen_config
-            .use_ebpf(rustix::process::getuid().as_raw())
-        {
-            match UdpSocketSelector::new(
-                rustix::process::getpid().as_raw_pid(),
-                self.server.version() as u16,
-                self.listen_config.address(),
-                UdpConnectionTrackConfig::default().ebpf_conn_track_size(),
-            ) {
-                Ok(selector) => {
-                    self.socket_selector = Some(selector);
-                }
-                Err(e) => {
-                    if self.listen_config.fail_on_ebpf_error() {
-                        return Err(anyhow!(
-                            "UDP {} ebpf reuseport socket selector create failed: {e}",
-                            self.listen_config.address()
-                        ));
-                    }
-                    warn!(
-                        "reuseport ebpf on UDP socket {} disabled due to create error {e}",
-                        self.listen_config.address()
-                    );
-                }
-            }
-        }
-
-        let mut tasks = Vec::with_capacity(instance_count);
-        for i in 0..instance_count {
-            let socket = vey_socket::udp::new_std_bind_listen(&self.listen_config)?;
-            let listen_addr = socket.local_addr()?;
-
-            let mut runtime = self.instance(i);
-            if let Some(selector) = &mut self.socket_selector {
-                let guard = selector.add_socket(RawSocket::from(&socket));
-                runtime._bpf_guard = Some(guard);
-            }
-            let handle = runtime.into_running(
-                socket,
-                listen_addr,
-                listen_in_worker,
-                server_reload_sender.subscribe(),
-            );
-            tasks.push(RespondUdpTask {
-                local_addr: listen_addr,
-                handle,
-            });
-        }
-
-        if let Some(mut selector) = self.socket_selector.take() {
-            if let Err(e) = selector.load_and_attach() {
-                if self.listen_config.fail_on_ebpf_error() {
-                    return Err(anyhow!(
-                        "UDP {} ebpf reuseport socket selector attach failed: {e}",
-                        self.listen_config.address()
-                    ));
-                }
-                warn!(
-                    "reuseport ebpf on UDP socket {} disabled due to attach error {e}",
-                    self.listen_config.address()
-                );
-            }
-            let mut server_reload_receiver = server_reload_sender.subscribe();
-            tokio::spawn(async move {
-                while let Ok(cmd) = server_reload_receiver.recv().await {
-                    if matches!(cmd, ServerReloadCommand::QuitRuntime) {
-                        break;
-                    }
-                }
-                selector.unregister_proc();
-            });
-        }
-
-        Ok(tasks)
-    }
-}
-
-/// Batches replies queued on one listen socket and writes them with `sendmmsg`.
-struct PacketRecvSender {
-    socket: Arc<UdpSocket>,
-    reply_receiver: mpsc::Receiver<PendingReply>,
-}
-
-impl PacketRecvSender {
-    fn reply_hdr(reply: &PendingReply) -> SendMsgHdr<'_, 1> {
-        SendMsgHdr::new(
-            [IoSlice::new(reply.packet.as_slice())],
-            Some(reply.client_addr),
-        )
-    }
-
-    async fn run_to_end(mut self) {
-        let mut queued = Vec::with_capacity(REPLY_BATCH);
-        loop {
-            let n = self
-                .reply_receiver
-                .recv_many(&mut queued, REPLY_BATCH)
-                .await;
-            if n == 0 {
-                break;
-            }
-            self.flush_replies(&mut queued).await;
-        }
-    }
-
-    #[cfg(not(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-        target_os = "solaris",
-    )))]
-    async fn flush_replies(&self, queued: &mut Vec<PendingReply>) {
-        for reply in queued.drain(..) {
-            if let Err(e) = poll_fn(|cx| {
-                let hdr = Self::reply_hdr(&reply);
-                self.socket.poll_sendmsg(cx, &hdr)
-            })
-            .await
-            {
-                warn!("udp respond send failed: {e}");
-            }
-        }
-    }
-
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-        target_os = "solaris",
-    ))]
-    async fn flush_replies(&self, queued: &mut Vec<PendingReply>) {
-        while !queued.is_empty() {
-            let consumed = match poll_fn(|cx| {
-                let mut headers: SmallVec<[SendMsgHdr<1>; REPLY_BATCH]> = SmallVec::new();
-                for reply in queued.iter() {
-                    headers.push(Self::reply_hdr(reply));
-                }
-                self.socket.poll_batch_sendmsg(cx, &mut headers)
-            })
-            .await
-            {
-                Ok(n) => n,
-                Err(e) => {
-                    warn!("udp respond send failed: {e}");
-                    if !queued.is_empty() {
-                        queued.remove(0);
-                        continue;
-                    }
-                    break;
-                }
-            };
-            let _ = queued.drain(0..consumed);
-        }
-    }
-}
-
-async fn recv_packet(
-    socket: &UdpSocket,
-    listen_addr: SocketAddr,
-    buf: &mut [u8],
-) -> io::Result<(usize, SocketAddr, SocketAddr)> {
-    let mut hdr = RecvMsgHdr::new([IoSliceMut::new(buf)]);
-
-    poll_fn(|cx| socket.poll_recvmsg(cx, &mut hdr)).await?;
-
-    let client_addr = hdr
-        .src_addr()
-        .ok_or_else(|| io::Error::other("unable to get client address"))?;
-    let server_addr = hdr.dst_addr(listen_addr);
-
-    Ok((hdr.n_recv, client_addr, server_addr))
 }
 
 #[cfg(test)]
@@ -611,7 +656,7 @@ mod tests {
     #[derive(Clone)]
     struct TestServer {
         name: NodeName,
-        reply_to: Arc<Mutex<Option<SocketAddr>>>,
+        seen: Arc<Mutex<Vec<(Vec<u8>, SocketAddr, SocketAddr)>>>,
     }
 
     impl BaseServer for TestServer {
@@ -638,15 +683,17 @@ mod tests {
         fn handle_udp_request<'a>(
             &'a self,
             packet: &'a [u8],
-            client_addr: SocketAddr,
-            server_addr: SocketAddr,
             responder: UdpResponder,
             worker_id: Option<usize>,
         ) -> impl Future<Output = ()> + Send + 'a {
-            let dest = self.reply_to.lock().unwrap().unwrap_or(client_addr);
+            self.seen.lock().unwrap().push((
+                packet.to_vec(),
+                responder.client_addr(),
+                responder.server_addr(),
+            ));
             async move {
-                let _ = (packet, server_addr, worker_id);
-                responder.to(dest).send(b"pong").await.unwrap();
+                let _ = worker_id;
+                responder.send(b"pong").await.unwrap();
             }
         }
     }
@@ -662,37 +709,139 @@ mod tests {
 
     #[tokio::test]
     async fn response_goes_to_the_named_client() {
-        let reply_to = Arc::new(Mutex::new(None));
+        let seen = Arc::new(Mutex::new(Vec::new()));
         let server = TestServer {
             name: NodeName::from_str("respond-udp").unwrap(),
-            reply_to: reply_to.clone(),
+            seen: seen.clone(),
         };
-        let listen = UdpListenConfig::new("127.0.0.1:0".parse().unwrap());
-        let mut runtime = RespondUdpRuntime::new(server, listen);
-        let reload = ServerReloadCommand::new_sender();
-        let mut tasks = runtime.run_all_instances(false, &reload).unwrap();
-        let task = tasks.pop().unwrap();
-        assert!(tasks.is_empty());
+        let listen_std = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        listen_std.set_nonblocking(true).unwrap();
+        let listen_addr = listen_std.local_addr().unwrap();
+
+        let listen_stats = Arc::new(ListenStats::new(Default::default()));
+        let runtime = RespondUdpRuntime::new(
+            server,
+            UdpListenConfig::new(listen_addr),
+            Arc::clone(&listen_stats),
+            4096,
+        );
+        let instance = runtime.create_instance(0, listen_addr, false);
+        let (reload, reload_rx) = broadcast::channel(4);
+        instance.into_running(listen_std, reload_rx);
 
         let sender = TokioUdpSocket::bind("127.0.0.1:0").await.unwrap();
         let other = TokioUdpSocket::bind("127.0.0.1:0").await.unwrap();
-        *reply_to.lock().unwrap() = Some(other.local_addr().unwrap());
 
-        sender.send_to(b"ping", task.local_addr).await.unwrap();
+        sender.send_to(b"ping", listen_addr).await.unwrap();
 
-        let (body, from) = recv_from(&other).await;
+        let (body, from) = recv_from(&sender).await;
         assert_eq!(body, b"pong");
-        assert_eq!(from, task.local_addr);
+        assert_eq!(from, listen_addr);
+
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.len(), 1);
+        assert_eq!(seen[0].0, b"ping");
+        assert_eq!(seen[0].1, sender.local_addr().unwrap());
+        assert_eq!(seen[0].2, listen_addr);
 
         let mut buf = [0u8; 16];
-        let missed = timeout(Duration::from_millis(200), sender.recv_from(&mut buf)).await;
-        assert!(
-            missed.is_err(),
-            "sender should not receive a reply aimed at other"
+        let missed = timeout(Duration::from_millis(200), other.recv_from(&mut buf)).await;
+        assert!(missed.is_err(), "other should not receive the reply");
+        assert!(listen_stats.is_running());
+
+        drop(seen);
+        let _ = reload.send(ServerReloadCommand::QuitRuntime);
+        timeout(Duration::from_secs(2), async {
+            while listen_stats.is_running() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("runtime did not stop");
+    }
+
+    #[tokio::test]
+    async fn recv_packets_returns_each_queued_datagram() {
+        let listen_std = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        listen_std.set_nonblocking(true).unwrap();
+        let listen_addr = listen_std.local_addr().unwrap();
+
+        let sender = TokioUdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let sender_addr = sender.local_addr().unwrap();
+        let payloads: [&[u8]; 4] = [b"a", b"bb", b"ccc", b"dddd"];
+        for payload in payloads {
+            sender.send_to(payload, listen_addr).await.unwrap();
+        }
+
+        let socket = UdpSocket::from_std(listen_std).unwrap();
+        let server = TestServer {
+            name: NodeName::from_str("respond-udp").unwrap(),
+            seen: Arc::new(Mutex::new(Vec::new())),
+        };
+        let runtime = RespondUdpRuntime::new(
+            server,
+            UdpListenConfig::new(listen_addr),
+            Arc::new(ListenStats::new(Default::default())),
+            4096,
         );
+        let mut instance = runtime.create_instance(0, listen_addr, false);
+
+        let packets = timeout(Duration::from_secs(2), instance.recv_packets(&socket))
+            .await
+            .expect("timed out waiting for datagrams")
+            .unwrap();
+        assert_eq!(packets.len(), payloads.len());
+        for (pkt, payload) in packets.iter().zip(payloads) {
+            assert_eq!(pkt.client_addr, sender_addr);
+            assert_eq!(pkt.server_addr, listen_addr);
+            assert_eq!(&instance.packets_buf[pkt.index][..pkt.len], payload);
+        }
+    }
+
+    #[tokio::test]
+    async fn each_queued_datagram_gets_a_reply() {
+        let listen_std = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        listen_std.set_nonblocking(true).unwrap();
+        let listen_addr = listen_std.local_addr().unwrap();
+
+        let sender = TokioUdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let payloads: [&[u8]; 4] = [b"a", b"bb", b"ccc", b"dddd"];
+        for payload in payloads {
+            sender.send_to(payload, listen_addr).await.unwrap();
+        }
+
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let server = TestServer {
+            name: NodeName::from_str("respond-udp").unwrap(),
+            seen: seen.clone(),
+        };
+        let runtime = RespondUdpRuntime::new(
+            server,
+            UdpListenConfig::new(listen_addr),
+            Arc::new(ListenStats::new(Default::default())),
+            4096,
+        );
+        let instance = runtime.create_instance(0, listen_addr, false);
+        let (reload, reload_rx) = broadcast::channel(4);
+        let socket = UdpSocket::from_std(listen_std).unwrap();
+        let task = tokio::spawn(instance.run(socket, reload_rx));
+
+        for _ in payloads {
+            let (body, from) = recv_from(&sender).await;
+            assert_eq!(body, b"pong");
+            assert_eq!(from, listen_addr);
+        }
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.len(), payloads.len());
+        for (seen_pkt, payload) in seen.iter().zip(payloads) {
+            assert_eq!(seen_pkt.0, payload);
+            assert_eq!(seen_pkt.1, sender.local_addr().unwrap());
+            assert_eq!(seen_pkt.2, listen_addr);
+        }
+        drop(seen);
 
         let _ = reload.send(ServerReloadCommand::QuitRuntime);
-        timeout(Duration::from_secs(2), task.handle)
+        timeout(Duration::from_secs(2), task)
             .await
             .expect("runtime did not stop")
             .unwrap();
@@ -713,10 +862,12 @@ mod tests {
         let two = TokioUdpSocket::bind("127.0.0.1:0").await.unwrap();
         let first = UdpResponder {
             client_addr: one.local_addr().unwrap(),
+            server_addr: from,
             tx: tx.clone(),
         };
         let second = UdpResponder {
             client_addr: two.local_addr().unwrap(),
+            server_addr: from,
             tx: tx.clone(),
         };
         let send_first = tokio::spawn(async move { first.send(b"one").await.unwrap() });
