@@ -12,6 +12,7 @@ pub struct TcpStreamHalfConnectionStats {
     bytes: UnsafeCell<u64>,
 }
 
+// One half of a single TCP connection. The caller does not use it concurrently.
 unsafe impl Sync for TcpStreamHalfConnectionStats {}
 
 impl Clone for TcpStreamHalfConnectionStats {
