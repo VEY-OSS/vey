@@ -14,6 +14,7 @@ pub struct UdpConnectHalfConnectionStats {
     packets: UnsafeCell<u64>,
 }
 
+// One half of a single UDP connection. The caller does not use it concurrently.
 unsafe impl Sync for UdpConnectHalfConnectionStats {}
 
 impl UdpConnectHalfConnectionStats {

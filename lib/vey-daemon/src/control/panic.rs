@@ -62,6 +62,9 @@ pub fn set_hook(args: &DaemonArgs) {
 fn do_panic_quit(monitored: bool) {
     use rustix::process::Signal;
 
+    // Monitored mode is supervised by the parent, which integrates this process
+    // into the host service manager and owns the child lifecycle. SIGHUP asks
+    // that parent to restart us, so the child does not force-shutdown itself.
     if monitored && let Some(pid) = rustix::process::getppid() {
         let _ = rustix::process::kill_process(pid, Signal::HUP);
         return;
