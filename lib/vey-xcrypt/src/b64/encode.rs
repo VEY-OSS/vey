@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
-const CRYPT_HASH64: &[u8] = b"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+use super::CRYPT_HASH64;
 
 pub struct B64CryptEncoder {
     buf: Vec<u8>,

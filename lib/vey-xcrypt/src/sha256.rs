@@ -192,9 +192,9 @@ impl Sha256Crypt {
             for i in 0..10 {
                 let ii = i * 4;
                 let oi = i * 3;
-                B64CryptDecoder::decode_buf(&hash[ii..ii + 4], &mut bin[oi..oi + 3]);
+                B64CryptDecoder::decode_buf(&hash[ii..ii + 4], &mut bin[oi..oi + 3])?;
             }
-            let r = B64CryptDecoder::decode(hash[40], hash[41], hash[42], 0);
+            let r = B64CryptDecoder::decode(&hash[40..43])?;
             bin[30] = r.1;
             bin[31] = r.2;
 

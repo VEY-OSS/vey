@@ -1,54 +1,73 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-#[rustfmt::skip]
-const B64_CRYPT_DIGITS: [u8; 256] = [
-//  x0    x1   x2   x3   x4   x5   x6   x7   x8   x9   xA   xB   xC   xD   xE   xF
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, // 0x
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, // 1x
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1, // 2x
-    2,   3,   4,   5,   6,   7,   8,   9,  10,  11,   0,   0,   0,   0,   0,   0, // 3x
-    0,  12,  13,  14,  15,  16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26, // 4x
-   27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37,   0,   0,   0,   0,   0, // 5x
-    0,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,  48,  49,  50,  51,  52, // 6x
-   53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63,   0,   0,   0,   0,   0, // 7x
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, // 8x
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, // 9x
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, // Ax
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, // Bx
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, // Cx
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, // Dx
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, // Ex
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, // Fx
-];
+use super::CRYPT_HASH64;
+use crate::XCryptParseError;
+
+const INVALID_DIGIT: u8 = 0xFF;
+const B64_CRYPT_DIGITS: [u8; 256] = digit_table();
+
+const fn digit_table() -> [u8; 256] {
+    let mut table = [INVALID_DIGIT; 256];
+    let mut i = 0;
+    while i < CRYPT_HASH64.len() {
+        table[CRYPT_HASH64[i] as usize] = i as u8;
+        i += 1;
+    }
+    table
+}
 
 pub(crate) struct B64CryptDecoder {}
 
-const fn b64_char_to_u32(c: u8) -> u32 {
-    B64_CRYPT_DIGITS[c as usize] as u32
+fn char_value(c: u8) -> Result<u32, XCryptParseError> {
+    let value = B64_CRYPT_DIGITS[c as usize];
+    if value == INVALID_DIGIT {
+        Err(XCryptParseError::InvalidHash)
+    } else {
+        Ok(u32::from(value))
+    }
+}
+
+fn accumulate(input: &[u8]) -> Result<u32, XCryptParseError> {
+    let mut value = 0u32;
+    for (i, &c) in input.iter().enumerate() {
+        value |= char_value(c)? << (6 * i);
+    }
+    // A short final group still uses 6-bit characters. The encoder leaves the
+    // unused high bits of that last character at zero.
+    let significant_bits = match input.len() {
+        2 => 8,
+        3 => 16,
+        4 => 24,
+        _ => return Err(XCryptParseError::InvalidHash),
+    };
+    if value >> significant_bits != 0 {
+        Err(XCryptParseError::InvalidHash)
+    } else {
+        Ok(value)
+    }
 }
 
 impl B64CryptDecoder {
-    pub(crate) fn decode_buf(input: &[u8], output: &mut [u8]) {
-        let c = b64_char_to_u32(input[0])
-            | (b64_char_to_u32(input[1]) << 6)
-            | (b64_char_to_u32(input[2]) << 12)
-            | (b64_char_to_u32(input[3]) << 18);
-        output[0] = ((c >> 16) & 0xFF) as u8;
-        output[1] = ((c >> 8) & 0xFF) as u8;
-        output[2] = (c & 0xFF) as u8;
+    pub(crate) fn decode_buf(input: &[u8], output: &mut [u8]) -> Result<(), XCryptParseError> {
+        if input.len() != 4 {
+            return Err(XCryptParseError::InvalidHash);
+        }
+        let value = accumulate(input)?;
+        output[0] = ((value >> 16) & 0xFF) as u8;
+        output[1] = ((value >> 8) & 0xFF) as u8;
+        output[2] = (value & 0xFF) as u8;
+        Ok(())
     }
 
-    pub(crate) fn decode(c1: u8, c2: u8, c3: u8, c4: u8) -> (u8, u8, u8) {
-        let c = b64_char_to_u32(c1)
-            | (b64_char_to_u32(c2) << 6)
-            | (b64_char_to_u32(c3) << 12)
-            | (b64_char_to_u32(c4) << 18);
-        let b2 = (c >> 16) & 0xFF;
-        let b1 = (c >> 8) & 0xFF;
-        let b0 = c & 0xFF;
-        (b2 as u8, b1 as u8, b0 as u8)
+    pub(crate) fn decode(input: &[u8]) -> Result<(u8, u8, u8), XCryptParseError> {
+        let value = accumulate(input)?;
+        let b2 = ((value >> 16) & 0xFF) as u8;
+        let b1 = ((value >> 8) & 0xFF) as u8;
+        let b0 = (value & 0xFF) as u8;
+        Ok((b2, b1, b0))
     }
 }

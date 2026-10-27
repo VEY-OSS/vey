@@ -8,3 +8,6 @@ pub use encode::B64CryptEncoder;
 
 mod decode;
 pub(crate) use decode::B64CryptDecoder;
+
+pub(crate) const CRYPT_HASH64: &[u8; 64] =
+    b"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";

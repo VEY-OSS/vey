@@ -104,4 +104,23 @@ mod tests {
     fn sha256_invalid_rounds_rejected() {
         assert!(XCryptHash::parse("$5$rounds=abc$salt$hash").is_err());
     }
+
+    #[test]
+    fn sha512_rejects_a_character_outside_the_alphabet() {
+        let s = "$6$yeDpErl4xq9E2vKP$\
+            !reNyfNzRJyAJrlh38J1XGx/5QTfBy3IedVNdTqfWqSeZFPAbXzV85uNK9fdmXvGCxizHVcAiIoQ4uXMJWuB6/";
+        assert!(matches!(
+            XCryptHash::parse(s),
+            Err(XCryptParseError::InvalidHash)
+        ));
+    }
+
+    #[test]
+    fn sha256_rejects_unused_high_bits_in_the_last_character() {
+        let s = "$5$W9wFmTCpBILzJn18$X496nPJHVQ895fwotE3WPBLmxgxGD8ivpUhfmoKbtbN";
+        assert!(matches!(
+            XCryptHash::parse(s),
+            Err(XCryptParseError::InvalidHash)
+        ));
+    }
 }
