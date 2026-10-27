@@ -58,6 +58,47 @@ The metric names are:
 
   The number of accept errors.
 
+Datagram listeners also report the counters below. Stream listeners leave them
+at zero, so those metrics are not emitted.
+
+* listen.datagram.recv.total
+
+  **type**: count
+
+  The number of datagrams read from the listen socket.
+
+* listen.datagram.recv.dropped
+
+  **type**: count
+
+  The number of received datagrams discarded before handling. A datagram is
+  dropped when it has no source address, when an ingress ACL forbids it, or
+  when it cannot be queued to its UDP session.
+
+* listen.datagram.recv.ok
+
+  **type**: count
+
+  The number of received datagrams delivered to the server.
+
+* listen.datagram.send.queued
+
+  **type**: count
+
+  The number of datagrams queued for sending on the listen socket.
+
+* listen.datagram.send.failed
+
+  **type**: count
+
+  The number of queued datagrams the listen socket failed to send.
+
+* listen.datagram.send.ok
+
+  **type**: count
+
+  The number of datagrams written to the listen socket.
+
 Request
 =======
 
