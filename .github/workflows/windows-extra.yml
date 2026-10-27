@@ -56,6 +56,8 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
@@ -88,6 +90,8 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy

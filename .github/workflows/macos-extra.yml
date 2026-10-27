@@ -51,6 +51,8 @@ jobs:
       - name: Install dependencies
         run: |
           brew install capnp openssl c-ares
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
@@ -81,6 +83,8 @@ jobs:
       - name: Install dependencies
         run: |
           brew install capnp openssl
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy

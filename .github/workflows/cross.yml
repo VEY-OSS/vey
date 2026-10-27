@@ -96,6 +96,8 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get -y install capnproto ${{ matrix.target.gcc }}
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --target=${{ matrix.target.rustc }} $CROSS_FEATURES
       - name: Cargo clippy

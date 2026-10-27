@@ -89,6 +89,8 @@ jobs:
       - name: Install Go for AWS-LC-FIPS
         if: contains(matrix.feature, 'vendored-aws-lc-fips')
         run: apk add --no-cache go
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo $UNSTABLE_OPTIONS build --no-default-features --features secure-vendored-mimalloc,vendored-ebpf,${{ matrix.feature }},quic,vendored-c-ares
   musl-clang-libcxx:
@@ -123,6 +125,8 @@ jobs:
           # apk add --no-cache elfutils-dev zlib-static zstd-static
           apk add --no-cache autoconf automake argp-standalone musl-fts-dev musl-obstack-dev musl-libintl gettext-tiny flex bison gawk
           apk add --no-cache clang lld capnproto-dev clang-libclang cmake make
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo $UNSTABLE_OPTIONS build --no-default-features --features secure-vendored-mimalloc,vendored-ebpf,${{ matrix.feature }},quic,vendored-c-ares
   msvc-vcpkg:
@@ -141,6 +145,8 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           toolchain: stable
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --no-default-features --features mimalloc,rustls-ring,quic,c-ares
   msvc-vendored:
@@ -167,6 +173,8 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           toolchain: stable
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares
   msys2-vendored:
@@ -193,5 +201,7 @@ jobs:
       - name: Install build tools
         run: |
           pacman -S --noconfirm --needed make mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-rust mingw-w64-ucrt-x86_64-capnproto
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --no-default-features --features secure-vendored-mimalloc,${{ matrix.feature }},quic,vendored-c-ares

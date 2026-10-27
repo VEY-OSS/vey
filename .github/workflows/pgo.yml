@@ -105,6 +105,8 @@ jobs:
           sudo apt-get install pkg-config libssl-dev
       - name: Install binutils
         run: cargo install cargo-binutils@0.3.6
+      - name: Cargo clean
+        run: cargo clean
       - name: Instrumented build
         env:
           CARGO_TARGET_DIR: target/pgo-ci
@@ -123,6 +125,8 @@ jobs:
           set -eu
           cargo profdata -- merge -o /tmp/vey-mkcert.profdata target/pgo-raw/pgo-*.profraw
           test -s /tmp/vey-mkcert.profdata
+      - name: Cargo clean
+        run: cargo clean
       - name: Build with the profile
         env:
           VEY_PGO_PROFILE: /tmp/vey-mkcert.profdata

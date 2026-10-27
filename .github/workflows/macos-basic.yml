@@ -45,6 +45,8 @@ jobs:
       - name: Install dependencies
         run: |
           brew install capnp jemalloc mimalloc openssl c-ares lua
+      - name: Cargo clean
+        run: cargo clean
       - name: Cargo build
         run: cargo build --features jemalloc,lua55
       - name: Cargo clippy
