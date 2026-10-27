@@ -6,8 +6,6 @@
 
 use std::time::Duration;
 
-const NANOS_PER_MILLI: u32 = 1_000_000;
-
 pub trait DurationExt {
     fn as_millis_f64(&self) -> f64;
 
@@ -16,7 +14,7 @@ pub trait DurationExt {
 
 impl DurationExt for Duration {
     fn as_millis_f64(&self) -> f64 {
-        (self.as_secs() * 1000) as f64 + (self.subsec_nanos() as f64 / NANOS_PER_MILLI as f64)
+        self.as_secs_f64() * 1000.0
     }
 
     fn as_nanos_u64(&self) -> u64 {
@@ -38,6 +36,16 @@ mod tests {
         assert!(
             (DurationExt::as_millis_f64(&Duration::from_nanos(1_500_000)) - 1.5).abs()
                 < f64::EPSILON
+        );
+    }
+
+    #[test]
+    fn millis_f64_does_not_overflow() {
+        let secs = u64::MAX / 1000 + 1;
+        let duration = Duration::from_secs(secs);
+        assert_eq!(
+            DurationExt::as_millis_f64(&duration),
+            (secs as f64) * 1000.0
         );
     }
 
