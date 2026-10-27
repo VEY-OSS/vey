@@ -7,6 +7,7 @@
 use std::future::poll_fn;
 use std::io::{self, IoSliceMut};
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use log::{info, warn};
 use tokio::net::UdpSocket;
@@ -17,6 +18,7 @@ use vey_io_ext::UdpSocketExt;
 use vey_io_sys::udp::RecvMsgHdr;
 use vey_types::net::UdpListenConfig;
 
+use crate::listen::ListenStats;
 use crate::server::{BaseServer, ReloadServer, ServerReloadCommand};
 
 pub trait ReceiveUdpServer: BaseServer {
@@ -36,7 +38,7 @@ pub struct ReceiveUdpRuntime<S> {
     server_version: usize,
     worker_id: Option<usize>,
     listen_config: UdpListenConfig,
-    //listen_stats: Arc<ListenStats>,
+    listen_stats: Arc<ListenStats>,
     instance_id: usize,
 }
 
@@ -44,7 +46,7 @@ impl<S> ReceiveUdpRuntime<S>
 where
     S: ReceiveUdpServer + ReloadServer + Clone + Send + Sync + 'static,
 {
-    pub fn new(server: S, listen_config: UdpListenConfig) -> Self {
+    pub fn new(server: S, listen_config: UdpListenConfig, listen_stats: Arc<ListenStats>) -> Self {
         let server_type = server.r#type();
         let server_version = server.version();
         ReceiveUdpRuntime {
@@ -53,6 +55,7 @@ where
             server_version,
             worker_id: None,
             listen_config,
+            listen_stats,
             instance_id: 0,
         }
     }
@@ -65,7 +68,6 @@ where
             self.server_version,
             self.instance_id,
         );
-        //self.listen_stats.add_running_runtime();
     }
 
     fn pre_stop(&self) {
@@ -86,7 +88,6 @@ where
             self.server_version,
             self.instance_id,
         );
-        //self.listen_stats.del_running_runtime();
     }
 
     async fn run(
@@ -97,6 +98,7 @@ where
     ) {
         use broadcast::error::RecvError;
 
+        let _alive_guard = self.listen_stats.add_running_runtime();
         let mut buf = [0u8; u16::MAX as usize];
         loop {
             tokio::select! {
@@ -133,7 +135,7 @@ where
                 r = self.recv_packet(&socket, listen_addr, &mut buf) => {
                     match r {
                         Ok((len, peer_addr, local_addr)) => {
-                            // TODO add stats
+                            self.listen_stats.add_datagram_recv_ok(1);
                             self.server.receive_udp_packet(&buf[..len], peer_addr, local_addr, self.worker_id);
                         }
                         Err(e) => {
@@ -158,9 +160,11 @@ where
 
         poll_fn(|cx| socket.poll_recvmsg(cx, &mut hdr)).await?;
 
-        let peer_addr = hdr
-            .src_addr()
-            .ok_or_else(|| io::Error::other("unable to get peer address"))?;
+        self.listen_stats.add_datagram_recv_total(1);
+        let Some(peer_addr) = hdr.src_addr() else {
+            self.listen_stats.add_datagram_recv_dropped(1);
+            return Err(io::Error::other("unable to get peer address"));
+        };
         let local_addr = hdr.dst_addr(listen_addr);
 
         Ok((hdr.n_recv, peer_addr, local_addr))

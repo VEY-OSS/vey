@@ -16,6 +16,12 @@ pub struct ListenSnapshot {
     pub dropped: u64,
     pub timeout: u64,
     pub failed: u64,
+    pub datagram_recv_total: u64,
+    pub datagram_recv_dropped: u64,
+    pub datagram_recv_ok: u64,
+    pub datagram_send_queued: u64,
+    pub datagram_send_failed: u64,
+    pub datagram_send_ok: u64,
 }
 
 #[derive(Debug)]
@@ -28,6 +34,12 @@ pub struct ListenStats {
     dropped: AtomicU64,
     timeout: AtomicU64,
     failed: AtomicU64,
+    datagram_recv_total: AtomicU64,
+    datagram_recv_dropped: AtomicU64,
+    datagram_recv_ok: AtomicU64,
+    datagram_send_queued: AtomicU64,
+    datagram_send_failed: AtomicU64,
+    datagram_send_ok: AtomicU64,
 }
 
 impl ListenStats {
@@ -40,6 +52,12 @@ impl ListenStats {
             dropped: AtomicU64::new(0),
             timeout: AtomicU64::new(0),
             failed: AtomicU64::new(0),
+            datagram_recv_total: AtomicU64::new(0),
+            datagram_recv_dropped: AtomicU64::new(0),
+            datagram_recv_ok: AtomicU64::new(0),
+            datagram_send_queued: AtomicU64::new(0),
+            datagram_send_failed: AtomicU64::new(0),
+            datagram_send_ok: AtomicU64::new(0),
         }
     }
 
@@ -93,6 +111,54 @@ impl ListenStats {
     }
     pub fn failed(&self) -> u64 {
         self.failed.load(Ordering::Relaxed)
+    }
+
+    pub fn add_datagram_recv_total(&self, n: u64) {
+        self.datagram_recv_total.fetch_add(n, Ordering::Relaxed);
+    }
+
+    pub fn datagram_recv_total(&self) -> u64 {
+        self.datagram_recv_total.load(Ordering::Relaxed)
+    }
+
+    pub fn add_datagram_recv_dropped(&self, n: u64) {
+        self.datagram_recv_dropped.fetch_add(n, Ordering::Relaxed);
+    }
+
+    pub fn datagram_recv_dropped(&self) -> u64 {
+        self.datagram_recv_dropped.load(Ordering::Relaxed)
+    }
+
+    pub fn add_datagram_recv_ok(&self, n: u64) {
+        self.datagram_recv_ok.fetch_add(n, Ordering::Relaxed);
+    }
+
+    pub fn datagram_recv_ok(&self) -> u64 {
+        self.datagram_recv_ok.load(Ordering::Relaxed)
+    }
+
+    pub fn add_datagram_send_queued(&self, n: u64) {
+        self.datagram_send_queued.fetch_add(n, Ordering::Relaxed);
+    }
+
+    pub fn datagram_send_queued(&self) -> u64 {
+        self.datagram_send_queued.load(Ordering::Relaxed)
+    }
+
+    pub fn add_datagram_send_failed(&self, n: u64) {
+        self.datagram_send_failed.fetch_add(n, Ordering::Relaxed);
+    }
+
+    pub fn datagram_send_failed(&self) -> u64 {
+        self.datagram_send_failed.load(Ordering::Relaxed)
+    }
+
+    pub fn add_datagram_send_ok(&self, n: u64) {
+        self.datagram_send_ok.fetch_add(n, Ordering::Relaxed);
+    }
+
+    pub fn datagram_send_ok(&self) -> u64 {
+        self.datagram_send_ok.load(Ordering::Relaxed)
     }
 
     pub fn add_by_proxy_protocol_error(&self, e: ProxyProtocolReadError) {

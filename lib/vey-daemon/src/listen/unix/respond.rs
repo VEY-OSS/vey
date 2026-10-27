@@ -23,12 +23,14 @@ use tokio::net::unix::SocketAddr as UnixSocketAddr;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 
+use crate::listen::ListenStats;
 use crate::server::{BaseServer, ReloadServer, ServerReloadCommand};
 
 /// Sends one response datagram to an explicit Unix client address.
 #[derive(Clone)]
 pub struct UnixDatagramResponder {
     socket: Arc<UnixDatagram>,
+    listen_stats: Arc<ListenStats>,
 }
 
 impl UnixDatagramResponder {
@@ -38,18 +40,29 @@ impl UnixDatagramResponder {
     /// bound client sockets. Abstract-namespace addresses are accepted on
     /// Linux. An unnamed peer has nowhere to send.
     pub async fn send_to(&self, packet: &[u8], client_addr: &UnixSocketAddr) -> io::Result<()> {
-        let n = if let Some(path) = client_addr.as_pathname() {
-            self.socket.send_to(packet, path).await?
+        self.listen_stats.add_datagram_send_queued(1);
+        let sent = if let Some(path) = client_addr.as_pathname() {
+            self.socket.send_to(packet, path).await
         } else {
-            self.send_abstract(packet, client_addr).await?
+            self.send_abstract(packet, client_addr).await
         };
-        if n != packet.len() {
-            return Err(io::Error::other(format!(
-                "not all data written, only {n}/{}",
-                packet.len()
-            )));
+        match sent {
+            Ok(n) if n == packet.len() => {
+                self.listen_stats.add_datagram_send_ok(1);
+                Ok(())
+            }
+            Ok(n) => {
+                self.listen_stats.add_datagram_send_failed(1);
+                Err(io::Error::other(format!(
+                    "not all data written, only {n}/{}",
+                    packet.len()
+                )))
+            }
+            Err(e) => {
+                self.listen_stats.add_datagram_send_failed(1);
+                Err(e)
+            }
         }
-        Ok(())
     }
 
     async fn send_abstract(
@@ -135,13 +148,14 @@ pub struct RespondUnixDatagramRuntime<S> {
     server_version: usize,
     listen_path: PathBuf,
     listen_path_create_time: i64,
+    listen_stats: Arc<ListenStats>,
 }
 
 impl<S> RespondUnixDatagramRuntime<S>
 where
     S: RespondUnixDatagramServer + ReloadServer + Clone + Send + Sync + 'static,
 {
-    pub fn new(server: S, listen_path: PathBuf) -> Self {
+    pub fn new(server: S, listen_path: PathBuf, listen_stats: Arc<ListenStats>) -> Self {
         let server_type = server.r#type();
         let server_version = server.version();
         RespondUnixDatagramRuntime {
@@ -150,6 +164,7 @@ where
             server_version,
             listen_path,
             listen_path_create_time: 0,
+            listen_stats,
         }
     }
 
@@ -187,8 +202,10 @@ where
     ) {
         use broadcast::error::RecvError;
 
+        let _alive_guard = self.listen_stats.add_running_runtime();
         let responder = UnixDatagramResponder {
             socket: Arc::new(socket),
+            listen_stats: Arc::clone(&self.listen_stats),
         };
         let mut buf = [0u8; u16::MAX as usize];
         loop {
@@ -223,6 +240,8 @@ where
                 r = responder.socket.recv_from(&mut buf) => {
                     match r {
                         Ok((len, client_addr)) => {
+                            self.listen_stats.add_datagram_recv_total(1);
+                            self.listen_stats.add_datagram_recv_ok(1);
                             self.server
                                 .handle_unix_request(&buf[..len], &client_addr, &responder)
                                 .await;
@@ -419,7 +438,8 @@ mod tests {
             name: NodeName::from_str("respond-unix").unwrap(),
             reply_to,
         };
-        let runtime = RespondUnixDatagramRuntime::new(server, server_path.clone());
+        let listen_stats = Arc::new(ListenStats::new(server.name()));
+        let runtime = RespondUnixDatagramRuntime::new(server, server_path.clone(), listen_stats);
         let reload = ServerReloadCommand::new_sender();
         let handle = runtime.spawn(&reload).unwrap();
 

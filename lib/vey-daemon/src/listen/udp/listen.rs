@@ -304,6 +304,7 @@ struct PacketRecvSender {
     event_receiver: mpsc::Receiver<Event>,
     global_event_sender: mpsc::Sender<Event>,
     set_src_addr: bool,
+    listen_stats: Arc<ListenStats>,
 }
 
 impl PacketRecvSender {
@@ -343,14 +344,21 @@ impl PacketRecvSender {
     async fn handle_events(&self, events: &mut Vec<Event>) {
         for event in events.drain(..) {
             let global_event = if let Event::Packet(key, data) = event {
+                self.listen_stats.add_datagram_send_queued(1);
                 match poll_fn(|cx| {
                     let hdr = self.reply_hdr(&data, key);
                     self.socket.poll_sendmsg(cx, &hdr)
                 })
                 .await
                 {
-                    Ok(_nw) => continue,
-                    Err(_e) => Event::Drop(key),
+                    Ok(_nw) => {
+                        self.listen_stats.add_datagram_send_ok(1);
+                        continue;
+                    }
+                    Err(_e) => {
+                        self.listen_stats.add_datagram_send_failed(1);
+                        Event::Drop(key)
+                    }
                 }
             } else {
                 event
@@ -381,6 +389,8 @@ impl PacketRecvSender {
                 other_events.push(event);
             }
         }
+        self.listen_stats
+            .add_datagram_send_queued(data_events.len() as u64);
 
         while !data_events.is_empty() {
             let consumed = match poll_fn(|cx| {
@@ -392,8 +402,12 @@ impl PacketRecvSender {
             })
             .await
             {
-                Ok(n) => n,
+                Ok(n) => {
+                    self.listen_stats.add_datagram_send_ok(n as u64);
+                    n
+                }
                 Err(_e) => {
+                    self.listen_stats.add_datagram_send_failed(1);
                     if let Some((key, _data)) = data_events.first() {
                         let _ = self.global_event_sender.send(Event::Drop(*key)).await;
                     } else {
@@ -420,7 +434,12 @@ struct RuntimeState {
 }
 
 impl RuntimeState {
-    fn new(socket: UdpSocket, send_queue_size: usize, set_src_addr: bool) -> Self {
+    fn new(
+        socket: UdpSocket,
+        send_queue_size: usize,
+        set_src_addr: bool,
+        listen_stats: Arc<ListenStats>,
+    ) -> Self {
         let socket = Arc::new(socket);
         let (global_event_sender, global_event_receiver) = mpsc::channel(send_queue_size);
         let (event_sender, event_receiver) = mpsc::channel(send_queue_size);
@@ -429,6 +448,7 @@ impl RuntimeState {
             event_receiver,
             global_event_sender,
             set_src_addr,
+            listen_stats,
         };
         tokio::spawn(packet_recv_sender.run_to_end());
         RuntimeState {
@@ -730,8 +750,12 @@ where
         let mut ct_table =
             LruCache::with_hasher(self.conn_track.max_sessions(), FixedState::with_seed(0));
         let set_src_addr = self.listen_config.reply_src_addr();
-        let mut rt_state =
-            RuntimeState::new(socket, self.conn_track.send_queue_size(), set_src_addr);
+        let mut rt_state = RuntimeState::new(
+            socket,
+            self.conn_track.send_queue_size(),
+            set_src_addr,
+            Arc::clone(&self.listen_stats),
+        );
 
         let mut event_recv_buf: Vec<Event> = Vec::with_capacity(EVENT_RECV_BATCH_SIZE);
 
@@ -932,21 +956,25 @@ where
         cx: &mut Context,
         socket: &UdpSocket,
     ) -> Poll<io::Result<SmallVec<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>>> {
+        let mut nr = 0usize;
         let mut packets = SmallVec::<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>::new();
 
-        while packets.len() < self.conn_track.batch_recv_size() {
+        while nr < self.conn_track.batch_recv_size() {
             let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut self.packet_buf)]);
             match socket.poll_recvmsg(cx, &mut hdr) {
                 Poll::Ready(Ok(_)) => {
-                    let peer_addr = hdr
-                        .src_addr()
-                        .ok_or_else(|| io::Error::other("unable to get peer address"))?;
+                    nr += 1;
+                    self.listen_stats.add_datagram_recv_total(1);
+                    let Some(peer_addr) = hdr.src_addr() else {
+                        self.listen_stats.add_datagram_recv_dropped(1);
+                        continue;
+                    };
                     if let Some(filter) = &self.ingress_net_filter {
                         let (_, action) = filter.check(peer_addr.ip());
                         match action {
                             AclAction::Permit | AclAction::PermitAndLog => {}
                             AclAction::Forbid | AclAction::ForbidAndLog => {
-                                self.listen_stats.add_dropped();
+                                self.listen_stats.add_datagram_recv_dropped(1);
                                 continue;
                             }
                         }
@@ -959,13 +987,17 @@ where
 
                     packets.push((cc_info, data));
                 }
-                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+                Poll::Ready(Err(e)) => {
+                    if nr == 0 {
+                        return Poll::Ready(Err(e));
+                    }
+                    break;
+                }
                 Poll::Pending => {
-                    return if packets.is_empty() {
-                        Poll::Pending
-                    } else {
-                        Poll::Ready(Ok(packets))
-                    };
+                    if nr == 0 {
+                        return Poll::Pending;
+                    }
+                    break;
                 }
             }
         }
@@ -987,6 +1019,7 @@ where
         cx: &mut Context,
         socket: &UdpSocket,
     ) -> Poll<io::Result<SmallVec<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>>> {
+        let listen_stats = &self.listen_stats;
         let mut packets = SmallVec::<[(ClientConnectionInfo, Bytes); EVENT_RECV_BATCH_SIZE]>::new();
 
         let mut hdr_v = SmallVec::<[RecvMsgHdr<1>; EVENT_RECV_BATCH_SIZE]>::new();
@@ -995,16 +1028,18 @@ where
         }
 
         let nr = std::task::ready!(socket.poll_batch_recvmsg(cx, &mut hdr_v))?;
+        listen_stats.add_datagram_recv_total(nr as u64);
         for hdr in hdr_v.iter().take(nr) {
-            let peer_addr = hdr
-                .src_addr()
-                .ok_or_else(|| io::Error::other("unable to get peer address"))?;
+            let Some(peer_addr) = hdr.src_addr() else {
+                listen_stats.add_datagram_recv_dropped(1);
+                continue;
+            };
             if let Some(filter) = &self.ingress_net_filter {
                 let (_, action) = filter.check(peer_addr.ip());
                 match action {
                     AclAction::Permit | AclAction::PermitAndLog => {}
                     AclAction::Forbid | AclAction::ForbidAndLog => {
-                        self.listen_stats.add_dropped();
+                        listen_stats.add_datagram_recv_dropped(1);
                         continue;
                     }
                 }
@@ -1017,7 +1052,6 @@ where
 
             packets.push((cc_info, data));
         }
-
         Poll::Ready(Ok(packets))
     }
 
@@ -1045,12 +1079,14 @@ where
             }
         });
         match dispatcher.sender.try_send(data) {
-            Ok(_) => {}
+            Ok(_) => self.listen_stats.add_datagram_recv_ok(1),
             Err(mpsc::error::TrySendError::Full(_)) => {
                 dispatcher.state.add_recv_dropped();
+                self.listen_stats.add_datagram_recv_dropped(1);
             }
             Err(mpsc::error::TrySendError::Closed(_)) => {
                 dispatcher.state.add_recv_dropped();
+                self.listen_stats.add_datagram_recv_dropped(1);
                 ct_table.pop(&key);
             }
         }

@@ -93,6 +93,7 @@ pub trait RespondUdpServer: BaseServer {
 struct PacketRecvSender {
     socket: Arc<UdpSocket>,
     reply_receiver: mpsc::Receiver<PendingReply>,
+    listen_stats: Arc<ListenStats>,
 }
 
 impl PacketRecvSender {
@@ -114,6 +115,7 @@ impl PacketRecvSender {
             if n == 0 {
                 break;
             }
+            self.listen_stats.add_datagram_send_queued(n as u64);
             self.send_packets(&queued).await;
         }
     }
@@ -135,10 +137,13 @@ impl PacketRecvSender {
             })
             .await
             {
+                self.listen_stats.add_datagram_send_failed(1);
                 if !logged {
                     warn!("udp respond send failed: {e}");
                     logged = true;
                 }
+            } else {
+                self.listen_stats.add_datagram_send_ok(1);
             }
         }
     }
@@ -164,8 +169,12 @@ impl PacketRecvSender {
             })
             .await
             {
-                Ok(n) => offset += n,
+                Ok(n) => {
+                    self.listen_stats.add_datagram_send_ok(n as u64);
+                    offset += n;
+                }
                 Err(e) => {
+                    self.listen_stats.add_datagram_send_failed(1);
                     if !logged {
                         warn!("udp respond send failed: {e}");
                         logged = true;
@@ -407,6 +416,7 @@ where
         let packet_recv_sender = PacketRecvSender {
             socket: Arc::clone(&socket),
             reply_receiver: reply_rx,
+            listen_stats: Arc::clone(&self.listen_stats),
         };
         let reply_task = tokio::spawn(packet_recv_sender.run_to_end());
         loop {
@@ -519,15 +529,19 @@ where
         cx: &mut Context<'_>,
         socket: &UdpSocket,
     ) -> Poll<io::Result<SmallVec<[InboundDatagram; RECV_BATCH]>>> {
+        let mut nr = 0usize;
         let mut packets = SmallVec::new();
-        while packets.len() < RECV_BATCH {
+        while nr < RECV_BATCH {
             let index = packets.len();
             let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut self.packets_buf[index])]);
             match socket.poll_recvmsg(cx, &mut hdr) {
                 Poll::Ready(Ok(())) => {
-                    let client_addr = hdr
-                        .src_addr()
-                        .ok_or_else(|| io::Error::other("unable to get client address"))?;
+                    nr += 1;
+                    self.listen_stats.add_datagram_recv_total(1);
+                    let Some(client_addr) = hdr.src_addr() else {
+                        self.listen_stats.add_datagram_recv_dropped(1);
+                        continue;
+                    };
                     let server_addr = hdr.dst_addr(self.listen_addr);
                     packets.push(InboundDatagram {
                         index,
@@ -536,13 +550,17 @@ where
                         server_addr,
                     });
                 }
-                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+                Poll::Ready(Err(e)) => {
+                    if nr == 0 {
+                        return Poll::Ready(Err(e));
+                    }
+                    break;
+                }
                 Poll::Pending => {
-                    return if packets.is_empty() {
-                        Poll::Pending
-                    } else {
-                        Poll::Ready(Ok(packets))
-                    };
+                    if nr == 0 {
+                        return Poll::Pending;
+                    }
+                    break;
                 }
             }
         }
@@ -563,17 +581,20 @@ where
         cx: &mut Context<'_>,
         socket: &UdpSocket,
     ) -> Poll<io::Result<SmallVec<[InboundDatagram; RECV_BATCH]>>> {
+        let listen_stats = &self.listen_stats;
         let mut hdr_v = SmallVec::<[RecvMsgHdr<1>; RECV_BATCH]>::new();
         for buf in &mut self.packets_buf {
             hdr_v.push(RecvMsgHdr::new([IoSliceMut::new(buf)]));
         }
 
         let nr = std::task::ready!(socket.poll_batch_recvmsg(cx, &mut hdr_v))?;
+        listen_stats.add_datagram_recv_total(nr as u64);
         let mut packets = SmallVec::new();
         for (index, hdr) in hdr_v.iter().take(nr).enumerate() {
-            let client_addr = hdr
-                .src_addr()
-                .ok_or_else(|| io::Error::other("unable to get client address"))?;
+            let Some(client_addr) = hdr.src_addr() else {
+                listen_stats.add_datagram_recv_dropped(1);
+                continue;
+            };
             let server_addr = hdr.dst_addr(self.listen_addr);
             packets.push(InboundDatagram {
                 index,
@@ -599,6 +620,7 @@ where
             let worker_id = self.worker_id;
             let server = &self.server;
             let packet = &self.packets_buf[pkt.index][..pkt.len];
+            self.listen_stats.add_datagram_recv_ok(1);
             server
                 .handle_udp_request(packet, responder, worker_id)
                 .await;
@@ -748,6 +770,12 @@ mod tests {
         let missed = timeout(Duration::from_millis(200), other.recv_from(&mut buf)).await;
         assert!(missed.is_err(), "other should not receive the reply");
         assert!(listen_stats.is_running());
+        assert_eq!(listen_stats.datagram_recv_total(), 1);
+        assert_eq!(listen_stats.datagram_recv_dropped(), 0);
+        assert_eq!(listen_stats.datagram_recv_ok(), 1);
+        assert_eq!(listen_stats.datagram_send_queued(), 1);
+        assert_eq!(listen_stats.datagram_send_failed(), 0);
+        assert_eq!(listen_stats.datagram_send_ok(), 1);
 
         drop(seen);
         let _ = reload.send(ServerReloadCommand::QuitRuntime);
@@ -852,9 +880,11 @@ mod tests {
         let socket = TokioUdpSocket::bind("127.0.0.1:0").await.unwrap();
         let from = socket.local_addr().unwrap();
         let (tx, rx) = mpsc::channel(REPLY_QUEUE);
+        let listen_stats = Arc::new(ListenStats::new(Default::default()));
         let packet_recv_sender = PacketRecvSender {
             socket: Arc::new(socket),
             reply_receiver: rx,
+            listen_stats: Arc::clone(&listen_stats),
         };
         let task = tokio::spawn(packet_recv_sender.run_to_end());
 
@@ -876,6 +906,9 @@ mod tests {
         send_second.await.unwrap();
         drop(tx);
         task.await.unwrap();
+        assert_eq!(listen_stats.datagram_send_queued(), 2);
+        assert_eq!(listen_stats.datagram_send_ok(), 2);
+        assert_eq!(listen_stats.datagram_send_failed(), 0);
 
         let (body, peer) = recv_from(&one).await;
         assert_eq!(body, b"one");

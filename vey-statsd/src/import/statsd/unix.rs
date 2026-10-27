@@ -13,7 +13,9 @@ use log::debug;
 use tokio::net::unix::SocketAddr;
 use tokio::sync::broadcast;
 
-use vey_daemon::listen::{ReceiveUdpServer, ReceiveUnixDatagramRuntime, ReceiveUnixDatagramServer};
+use vey_daemon::listen::{
+    ListenStats, ReceiveUdpServer, ReceiveUnixDatagramRuntime, ReceiveUnixDatagramServer,
+};
 use vey_daemon::server::{BaseServer, ServerReloadCommand};
 use vey_types::metrics::NodeName;
 
@@ -28,13 +30,18 @@ use crate::import::{
 pub(crate) struct StatsdUnixImporter {
     config: StatsdUnixImporterConfig,
     reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
+    listen_stats: Arc<ListenStats>,
 
     collector: ArcSwap<ArcCollector>,
     reload_version: usize,
 }
 
 impl StatsdUnixImporter {
-    fn new(config: StatsdUnixImporterConfig, reload_version: usize) -> Self {
+    fn new(
+        config: StatsdUnixImporterConfig,
+        reload_version: usize,
+        listen_stats: Arc<ListenStats>,
+    ) -> Self {
         let reload_sender = ServerReloadCommand::new_sender();
 
         let collector = Arc::new(crate::collect::get_or_insert_default(config.collector()));
@@ -42,6 +49,7 @@ impl StatsdUnixImporter {
         StatsdUnixImporter {
             config,
             reload_sender,
+            listen_stats,
             collector: ArcSwap::new(collector),
             reload_version,
         }
@@ -50,13 +58,18 @@ impl StatsdUnixImporter {
     pub(crate) fn prepare_initial(
         config: StatsdUnixImporterConfig,
     ) -> anyhow::Result<ArcImporterInternal> {
-        let server = StatsdUnixImporter::new(config, 1);
+        let listen_stats = Arc::new(ListenStats::new(config.name()));
+        let server = StatsdUnixImporter::new(config, 1, listen_stats);
         Ok(Arc::new(server))
     }
 
     fn prepare_reload(&self, config: AnyImporterConfig) -> anyhow::Result<StatsdUnixImporter> {
         if let AnyImporterConfig::StatsDUnix(config) = config {
-            Ok(StatsdUnixImporter::new(config, self.reload_version + 1))
+            Ok(StatsdUnixImporter::new(
+                config,
+                self.reload_version + 1,
+                Arc::clone(&self.listen_stats),
+            ))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
@@ -105,6 +118,7 @@ impl ImporterInternal for StatsdUnixImporter {
         let runtime = ReceiveUnixDatagramRuntime::new(
             WrapArcImporter(importer.clone()),
             self.config.listen.clone(),
+            Arc::clone(&self.listen_stats),
         );
         runtime.spawn(&self.reload_sender)
     }

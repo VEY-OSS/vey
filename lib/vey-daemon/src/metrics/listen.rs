@@ -15,6 +15,12 @@ const METRIC_NAME_LISTEN_ACCEPTED: &str = "listen.accepted";
 const METRIC_NAME_LISTEN_DROPPED: &str = "listen.dropped";
 const METRIC_NAME_LISTEN_TIMEOUT: &str = "listen.timeout";
 const METRIC_NAME_LISTEN_FAILED: &str = "listen.failed";
+const METRIC_NAME_LISTEN_DATAGRAM_RECV_TOTAL: &str = "listen.datagram.recv.total";
+const METRIC_NAME_LISTEN_DATAGRAM_RECV_DROPPED: &str = "listen.datagram.recv.dropped";
+const METRIC_NAME_LISTEN_DATAGRAM_RECV_OK: &str = "listen.datagram.recv.ok";
+const METRIC_NAME_LISTEN_DATAGRAM_SEND_QUEUED: &str = "listen.datagram.send.queued";
+const METRIC_NAME_LISTEN_DATAGRAM_SEND_FAILED: &str = "listen.datagram.send.failed";
+const METRIC_NAME_LISTEN_DATAGRAM_SEND_OK: &str = "listen.datagram.send.ok";
 
 pub fn emit_listen_stats(
     client: &mut StatsdClient,
@@ -49,4 +55,19 @@ pub fn emit_listen_stats(
     emit_field!(dropped, METRIC_NAME_LISTEN_DROPPED);
     emit_field!(timeout, METRIC_NAME_LISTEN_TIMEOUT);
     emit_field!(failed, METRIC_NAME_LISTEN_FAILED);
+    emit_field!(datagram_recv_total, METRIC_NAME_LISTEN_DATAGRAM_RECV_TOTAL);
+    emit_field!(
+        datagram_recv_dropped,
+        METRIC_NAME_LISTEN_DATAGRAM_RECV_DROPPED
+    );
+    emit_field!(datagram_recv_ok, METRIC_NAME_LISTEN_DATAGRAM_RECV_OK);
+    emit_field!(
+        datagram_send_queued,
+        METRIC_NAME_LISTEN_DATAGRAM_SEND_QUEUED
+    );
+    emit_field!(
+        datagram_send_failed,
+        METRIC_NAME_LISTEN_DATAGRAM_SEND_FAILED
+    );
+    emit_field!(datagram_send_ok, METRIC_NAME_LISTEN_DATAGRAM_SEND_OK);
 }

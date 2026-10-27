@@ -17,7 +17,7 @@ use tokio::sync::broadcast;
 
 #[cfg(unix)]
 use vey_daemon::listen::ReceiveUnixDatagramServer;
-use vey_daemon::listen::{ReceiveUdpRuntime, ReceiveUdpServer};
+use vey_daemon::listen::{ListenStats, ReceiveUdpRuntime, ReceiveUdpServer};
 use vey_daemon::server::{BaseServer, ServerReloadCommand};
 use vey_types::acl::{AclAction, AclNetworkRule};
 use vey_types::metrics::NodeName;
@@ -34,13 +34,18 @@ pub(crate) struct StatsdUdpImporter {
     config: StatsdUdpImporterConfig,
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand<()>>,
+    listen_stats: Arc<ListenStats>,
 
     collector: ArcSwap<ArcCollector>,
     reload_version: usize,
 }
 
 impl StatsdUdpImporter {
-    fn new(config: StatsdUdpImporterConfig, reload_version: usize) -> Self {
+    fn new(
+        config: StatsdUdpImporterConfig,
+        reload_version: usize,
+        listen_stats: Arc<ListenStats>,
+    ) -> Self {
         let reload_sender = ServerReloadCommand::new_sender();
 
         let ingress_net_filter = config
@@ -54,6 +59,7 @@ impl StatsdUdpImporter {
             config,
             ingress_net_filter,
             reload_sender,
+            listen_stats,
             collector: ArcSwap::new(collector),
             reload_version,
         }
@@ -62,13 +68,18 @@ impl StatsdUdpImporter {
     pub(crate) fn prepare_initial(
         config: StatsdUdpImporterConfig,
     ) -> anyhow::Result<ArcImporterInternal> {
-        let server = StatsdUdpImporter::new(config, 1);
+        let listen_stats = Arc::new(ListenStats::new(config.name()));
+        let server = StatsdUdpImporter::new(config, 1, listen_stats);
         Ok(Arc::new(server))
     }
 
     fn prepare_reload(&self, config: AnyImporterConfig) -> anyhow::Result<StatsdUdpImporter> {
         if let AnyImporterConfig::StatsDUdp(config) = config {
-            Ok(StatsdUdpImporter::new(config, self.reload_version + 1))
+            Ok(StatsdUdpImporter::new(
+                config,
+                self.reload_version + 1,
+                Arc::clone(&self.listen_stats),
+            ))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
@@ -133,6 +144,7 @@ impl ImporterInternal for StatsdUdpImporter {
         let runtime = ReceiveUdpRuntime::new(
             WrapArcImporter(importer.clone()),
             self.config.listen.clone(),
+            Arc::clone(&self.listen_stats),
         );
         runtime.run_all_instances(self.config.listen_in_worker, &self.reload_sender)
     }
