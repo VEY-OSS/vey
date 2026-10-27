@@ -675,10 +675,13 @@ mod tests {
     use tokio::time::timeout;
     use vey_types::metrics::NodeName;
 
+    type SeenDatagram = (Vec<u8>, SocketAddr, SocketAddr);
+    type SeenDatagrams = Arc<Mutex<Vec<SeenDatagram>>>;
+
     #[derive(Clone)]
     struct TestServer {
         name: NodeName,
-        seen: Arc<Mutex<Vec<(Vec<u8>, SocketAddr, SocketAddr)>>>,
+        seen: SeenDatagrams,
     }
 
     impl BaseServer for TestServer {
@@ -760,11 +763,13 @@ mod tests {
         assert_eq!(body, b"pong");
         assert_eq!(from, listen_addr);
 
-        let seen = seen.lock().unwrap();
-        assert_eq!(seen.len(), 1);
-        assert_eq!(seen[0].0, b"ping");
-        assert_eq!(seen[0].1, sender.local_addr().unwrap());
-        assert_eq!(seen[0].2, listen_addr);
+        {
+            let seen = seen.lock().unwrap();
+            assert_eq!(seen.len(), 1);
+            assert_eq!(seen[0].0, b"ping");
+            assert_eq!(seen[0].1, sender.local_addr().unwrap());
+            assert_eq!(seen[0].2, listen_addr);
+        }
 
         let mut buf = [0u8; 16];
         let missed = timeout(Duration::from_millis(200), other.recv_from(&mut buf)).await;
@@ -777,7 +782,6 @@ mod tests {
         assert_eq!(listen_stats.datagram_send_failed(), 0);
         assert_eq!(listen_stats.datagram_send_ok(), 1);
 
-        drop(seen);
         let _ = reload.send(ServerReloadCommand::QuitRuntime);
         timeout(Duration::from_secs(2), async {
             while listen_stats.is_running() {
@@ -859,14 +863,15 @@ mod tests {
             assert_eq!(body, b"pong");
             assert_eq!(from, listen_addr);
         }
-        let seen = seen.lock().unwrap();
-        assert_eq!(seen.len(), payloads.len());
-        for (seen_pkt, payload) in seen.iter().zip(payloads) {
-            assert_eq!(seen_pkt.0, payload);
-            assert_eq!(seen_pkt.1, sender.local_addr().unwrap());
-            assert_eq!(seen_pkt.2, listen_addr);
+        {
+            let seen = seen.lock().unwrap();
+            assert_eq!(seen.len(), payloads.len());
+            for (seen_pkt, payload) in seen.iter().zip(payloads) {
+                assert_eq!(seen_pkt.0, payload);
+                assert_eq!(seen_pkt.1, sender.local_addr().unwrap());
+                assert_eq!(seen_pkt.2, listen_addr);
+            }
         }
-        drop(seen);
 
         let _ = reload.send(ServerReloadCommand::QuitRuntime);
         timeout(Duration::from_secs(2), task)
