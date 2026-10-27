@@ -66,6 +66,8 @@ impl ResponseEncoder {
     }
 
     pub fn message_blocked(local_ip: IpAddr, reason: String) -> Self {
+        // Reply text is one line. CR and LF in the reason would start another reply.
+        let reason = reason.replace(['\r', '\n'], " ");
         let msg = match local_ip {
             IpAddr::V4(v4) => {
                 format!("421 [{v4}] Service not available, message blocked: {reason}\r\n")
@@ -322,5 +324,37 @@ mod tests {
         let encoder = ResponseEncoder::SYNTAX_ERROR;
         let bytes = encoder.as_bytes();
         assert_eq!(bytes, b"500 Syntax error\r\n");
+    }
+
+    #[test]
+    fn message_blocked_reason_stays_on_one_line() {
+        for (ip, prefix) in [
+            (
+                ipv4_addr(10, 0, 0, 1),
+                &b"421 [10.0.0.1] Service not available, message blocked: "[..],
+            ),
+            (
+                ipv6_addr([0x2001, 0xdb8, 0, 0, 0, 0, 0, 1]),
+                &b"421 Ipv6:2001:db8::1 Service not available, message blocked: "[..],
+            ),
+        ] {
+            let encoder = ResponseEncoder::message_blocked(ip, "policy\r\n250 OK".to_string());
+            let bytes = encoder.as_bytes();
+            let mut lines = bytes.split_inclusive(|&b| b == b'\n');
+            let line = lines.next().unwrap();
+            assert!(
+                lines.next().is_none(),
+                "a CRLF in the reason must not start another reply"
+            );
+            assert!(line.starts_with(prefix));
+            assert!(line.ends_with(b"\r\n"));
+            assert!(!line[..line.len() - 2].contains(&b'\r'));
+            assert!(line.windows(6).any(|w| w == b"policy"));
+
+            let mut parser = crate::response::ResponseParser::default();
+            parser.feed_line(line).unwrap();
+            assert!(parser.finished());
+            assert_eq!(parser.code().as_u16(), 421);
+        }
     }
 }

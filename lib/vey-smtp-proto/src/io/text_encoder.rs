@@ -168,7 +168,8 @@ impl EncodeCopyBuffer {
             // return if write blocked. no need to try flush
             let i = ready!(self.poll_write_line(cx, writer.as_mut()))?;
             nw += i;
-            if self.w_off >= self.line_end {
+            // A short read that ends mid-line is not a new line.
+            if self.w_off >= self.line_end && self.buf[self.line_end - 1] == b'\n' {
                 self.check_line = true;
             }
         }
@@ -450,5 +451,25 @@ mod tests {
         assert!(msg_transfer.finished());
         assert_eq!(len, body_len as u64);
         assert_eq!(&buf, b"Line 1\r\n\r\n..Line 2\r\n.\r\n");
+    }
+
+    #[tokio::test]
+    async fn dot_in_a_continued_line_is_not_stuffed() {
+        let body_len: usize = 16;
+        let content1 = b"hello";
+        let content2 = b".world\r\n";
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut buf = Vec::with_capacity(64);
+        let mut msg_transfer =
+            TextDataEncodeTransfer::new(&mut buf_stream, &mut buf, Default::default());
+
+        let len = (&mut msg_transfer).await.unwrap();
+        assert!(msg_transfer.finished());
+        assert_eq!(len, body_len as u64);
+        assert_eq!(&buf, b"hello.world\r\n.\r\n");
     }
 }
