@@ -19,6 +19,8 @@ pub enum XCryptParseError {
     SaltTooLong,
     #[error("invalid hash size")]
     InvalidHashSize,
+    #[error("invalid hash")]
+    InvalidHash,
 }
 
 pub type XCryptParseResult<T> = Result<T, XCryptParseError>;

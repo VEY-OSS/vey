@@ -130,9 +130,9 @@ impl Md5Crypt {
             for i in 0..5 {
                 let ii = i * 4;
                 let oi = i * 3;
-                B64CryptDecoder::decode_buf(&hash[ii..ii + 4], &mut bin[oi..oi + 3]);
+                B64CryptDecoder::decode_buf(&hash[ii..ii + 4], &mut bin[oi..oi + 3])?;
             }
-            let r = B64CryptDecoder::decode(hash[20], hash[21], 0, 0);
+            let r = B64CryptDecoder::decode(&hash[20..22])?;
             bin[15] = r.2;
 
             let mut hash_bin = [0u8; HASH_BIN_LEN];
