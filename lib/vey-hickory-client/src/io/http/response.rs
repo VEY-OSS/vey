@@ -11,8 +11,8 @@ use hickory_net::NetError;
 use hickory_proto::op::DnsResponse;
 use http::{Response, header};
 
-/// Upper bound from the allocation comment: a response body must not grow past this.
-const MAX_RESPONSE_BODY: usize = 4096;
+/// A DNS message is at most 65535 octets.
+const MAX_RESPONSE_BODY: usize = u16::MAX as usize;
 
 pub struct HttpDnsResponse {
     rsp: Response<()>,
@@ -221,7 +221,7 @@ mod tests {
             http::HeaderValue::from_static("10000000"),
         );
         match HttpDnsResponse::new(dns_response(headers)) {
-            Err(e) => assert!(e.to_string().contains("4096")),
+            Err(e) => assert!(e.to_string().contains("65535")),
             Ok(_) => panic!("expected body cap error"),
         }
     }
@@ -229,9 +229,10 @@ mod tests {
     #[test]
     fn push_body_stops_at_the_cap_without_content_length() {
         let mut rsp = HttpDnsResponse::new(dns_response(http::HeaderMap::new())).unwrap();
-        rsp.push_body(&[0u8; 4096][..]).unwrap();
+        let body = vec![0u8; u16::MAX as usize];
+        rsp.push_body(body.as_slice()).unwrap();
         match rsp.push_body(&b"x"[..]) {
-            Err(e) => assert!(e.to_string().contains("4096")),
+            Err(e) => assert!(e.to_string().contains("65535")),
             Ok(_) => panic!("expected body cap error"),
         }
     }

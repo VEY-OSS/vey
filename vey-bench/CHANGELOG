@@ -1,5 +1,6 @@
 
 v0.9.9:
+ - BUG FIX: DNS-over-HTTPS releases the HTTP/2 receive window, and a DNS-over-HTTPS or DNS-over-HTTP/3 response body stops at 65535 bytes
  - BUG FIX: a buffered stream copy or vectored write stops when the writer returns no bytes
  - BUG FIX: a non-ASCII byte size on the command line is rejected instead of panicking
  - BUG FIX: a rotating histogram still publishes while samples keep arriving, and `0.0` and `-0.0` count as one quantile
