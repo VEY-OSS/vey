@@ -16,19 +16,9 @@ impl UniqueController {
         LocalController::start_unique(program_name, crate::opts::daemon_group())
     }
 
-    pub(super) async fn abort_immediately() {
+    pub(super) async fn abort() {
         debug!("aborting unique controller");
         LocalController::abort_unique().await;
-    }
-
-    pub(super) async fn abort_gracefully() {
-        debug!("stopping all importers");
-        crate::import::stop_all().await;
-        debug!("stopped all importers");
-
-        // TODO flush and stop all exporters
-
-        UniqueController::abort_immediately().await
     }
 }
 
