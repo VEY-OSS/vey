@@ -17,9 +17,10 @@ use crate::ffi::{
 };
 use crate::mem::DmaBuf;
 use crate::padding::{add_pkcs1_sign_padding, add_pss_sign_padding, check_decrypt_padding};
-use crate::runtime::QatRuntime;
+use crate::runtime::{InFlight, QatRuntime};
 
 struct RsaPending {
+    inflight: Option<InFlight>,
     tx: Option<oneshot::Sender<Result<Vec<u8>, Error>>>,
     _p: DmaBuf,
     _q: DmaBuf,
@@ -90,6 +91,7 @@ fn build_pending(rsa: &openssl::rsa::RsaRef<Private>, input: &[u8]) -> Option<Bo
     let out_flat = Box::new(out_buf.flat());
 
     Some(Box::new(RsaPending {
+        inflight: None,
         tx: None,
         _p: p,
         _q: q,
@@ -122,6 +124,7 @@ async fn rsa_private_crt(
 
     let (tx, rx) = oneshot::channel();
     pending.tx = Some(tx);
+    pending.inflight = Some(runtime.track_inflight());
 
     let tag = Box::into_raw(pending);
     let sts = unsafe {

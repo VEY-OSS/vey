@@ -19,11 +19,12 @@ use crate::ffi::{
 };
 use crate::mem::DmaBuf;
 use crate::openssl_ffi;
-use crate::runtime::QatRuntime;
+use crate::runtime::{InFlight, QatRuntime};
 
 type EcdsaRs = (Vec<u8>, Vec<u8>);
 
 struct EcdsaPending {
+    inflight: Option<InFlight>,
     tx: Option<oneshot::Sender<Result<EcdsaRs, Error>>>,
     xg: DmaBuf,
     yg: DmaBuf,
@@ -160,6 +161,7 @@ pub async fn ecdsa_sign_der(
     let s_flat = Box::new(s_buf.flat());
 
     let mut pending = Box::new(EcdsaPending {
+        inflight: None,
         tx: None,
         xg,
         yg,
@@ -192,6 +194,7 @@ pub async fn ecdsa_sign_der(
 
     let (tx, rx) = oneshot::channel();
     pending.tx = Some(tx);
+    pending.inflight = Some(runtime.track_inflight());
     let tag = Box::into_raw(pending);
 
     let sts = unsafe {
