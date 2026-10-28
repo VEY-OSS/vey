@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context;
+use anyhow::{Context, anyhow};
 
 use vey_types::net::{OpensslTicketKey, RollingTicketKey, RollingTicketer};
 
@@ -37,6 +37,9 @@ impl TlsTicketConfig {
     pub fn build_and_spawn_updater(
         &self,
     ) -> anyhow::Result<Arc<RollingTicketer<OpensslTicketKey>>> {
+        if self.check_interval.is_zero() {
+            return Err(anyhow!("tls ticket check interval must be non-zero"));
+        }
         let initial_key = OpensslTicketKey::new_random(self.local_lifetime)
             .context("failed to create initial random key")?;
         let ticketer = Arc::new(RollingTicketer::new(initial_key));
@@ -61,5 +64,14 @@ mod tests {
     fn config_clone_is_equal() {
         let config = TlsTicketConfig::default();
         assert_eq!(config, config.clone());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn zero_check_interval_is_rejected() {
+        let config = TlsTicketConfig {
+            check_interval: Duration::ZERO,
+            ..TlsTicketConfig::default()
+        };
+        assert!(config.build_and_spawn_updater().is_err());
     }
 }

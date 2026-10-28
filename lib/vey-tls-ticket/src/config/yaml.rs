@@ -17,8 +17,12 @@ impl TlsTicketConfig {
             let mut config = TlsTicketConfig::default();
             vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "check_interval" => {
-                    config.check_interval = vey_yaml::humanize::as_duration(v)
+                    let interval = vey_yaml::humanize::as_duration(v)
                         .context(format!("invalid humanize duration value for key {k}"))?;
+                    if interval.is_zero() {
+                        return Err(anyhow!("tls ticket check interval must be non-zero"));
+                    }
+                    config.check_interval = interval;
                     Ok(())
                 }
                 "local_lifetime" => {
@@ -90,6 +94,20 @@ mod tests {
         let yaml = yaml_doc!(
             r#"
                 check_interval: "300x"
+            "#
+        );
+        assert!(TlsTicketConfig::parse_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                check_interval: 0
+            "#
+        );
+        assert!(TlsTicketConfig::parse_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                check_interval: "0s"
             "#
         );
         assert!(TlsTicketConfig::parse_yaml(&yaml, None).is_err());
