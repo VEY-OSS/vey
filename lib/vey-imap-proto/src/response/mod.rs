@@ -128,14 +128,23 @@ impl Response {
             trace!("[IMAP] --< {s}");
         }
 
+        // "+" alone is an empty AUTHENTICATE challenge.
+        if left == b"+" {
+            return Ok(Response::ContinuationRequest);
+        }
+
         let Some(d) = memchr::memchr(b' ', left) else {
             return Err(ResponseLineError::NotTagPrefixed);
         };
+        // A leading space is not a tag. Only the tokens "*" and "+" select the
+        // other response kinds; "*1" and "+1" are tags the command parser accepts.
+        if d == 0 {
+            return Err(ResponseLineError::NotTagPrefixed);
+        }
 
-        match left[0] {
-            b' ' => Err(ResponseLineError::NotTagPrefixed),
-            b'*' => Self::parse_untagged(&left[d + 1..]),
-            b'+' => Ok(Response::ContinuationRequest),
+        match &left[..d] {
+            b"*" => Self::parse_untagged(&left[d + 1..]),
+            b"+" => Ok(Response::ContinuationRequest),
             _ => TaggedResponse::parse(&left[..d], &left[d + 1..]).map(Response::CommandResult),
         }
     }
@@ -152,7 +161,7 @@ impl Response {
                     "PREAUTH" => Ok(Response::ServerStatus(ServerStatus::Authenticated)),
                     "BYE" => Ok(Response::ServerStatus(ServerStatus::Close)),
                     "ENABLED" => {
-                        // rfc5161, rev2
+                        // rfc5161, rev2. Capability names are atoms.
                         Ok(Response::CommandData(UntaggedResponse {
                             command_data: CommandData::Enabled,
                             literal_data: None,
@@ -166,7 +175,7 @@ impl Response {
                         // rfc2971, rev2
                         Ok(Response::CommandData(UntaggedResponse {
                             command_data: CommandData::Id,
-                            literal_data: None,
+                            literal_data: check_literal_size(left)?,
                         }))
                     },
                     "LIST"
@@ -177,11 +186,11 @@ impl Response {
                     | "FLAGS" => {
                         Ok(Response::CommandData(UntaggedResponse {
                             command_data: CommandData::Other,
-                            literal_data: None,
+                            literal_data: check_literal_size(left)?,
                         }))
                     }
                     "SORT" | "THREAD" => {
-                        // rfc5256
+                        // rfc5256. Numbers and parentheses only.
                         Ok(Response::CommandData(UntaggedResponse {
                             command_data: CommandData::Other,
                             literal_data: None,
@@ -191,11 +200,11 @@ impl Response {
                         // rfc5255
                         Ok(Response::CommandData(UntaggedResponse {
                             command_data: CommandData::Other,
-                            literal_data: None,
+                            literal_data: check_literal_size(left)?,
                         }))
                     },
                     "VANISHED" => {
-                        // rfc7162
+                        // rfc7162. A sequence-set, not a string.
                         Ok(Response::CommandData(UntaggedResponse {
                             command_data: CommandData::Other,
                             literal_data: None,
@@ -205,35 +214,35 @@ impl Response {
                         // rfc9208
                         Ok(Response::CommandData(UntaggedResponse {
                             command_data: CommandData::Other,
-                            literal_data: None,
+                            literal_data: check_literal_size(left)?,
                         }))
                     },
                     "ACL" | "LISTRIGHTS" | "MYRIGHTS" => {
                         // rfc4314
                         Ok(Response::CommandData(UntaggedResponse {
                             command_data: CommandData::Other,
-                            literal_data: None,
+                            literal_data: check_literal_size(left)?,
                         }))
                     }
                     "CONVERSION" | "CONVERTED" => {
                         // rfc5259
                         Ok(Response::CommandData(UntaggedResponse {
                             command_data: CommandData::Other,
-                            literal_data: None,
+                            literal_data: check_literal_size(left)?,
                         }))
                     }
                     "METADATA" => {
                         // rfc5464
                         Ok(Response::CommandData(UntaggedResponse {
                             command_data: CommandData::Other,
-                            literal_data: None,
+                            literal_data: check_literal_size(left)?,
                         }))
                     }
                     "GENURLAUTH" | "URLFETCH" => {
                         // rfc4467
                         Ok(Response::CommandData(UntaggedResponse {
                             command_data: CommandData::Other,
-                            literal_data: None,
+                            literal_data: check_literal_size(left)?,
                         }))
                     }
                     _ => {
@@ -621,5 +630,59 @@ mod tests {
             Response::parse_line(b"* CAPABILIT\xff X\r\n"),
             Err(ResponseLineError::InvalidUtf8Response(_))
         ));
+    }
+
+    #[test]
+    fn responses_without_strings_have_no_literal() {
+        for line in [
+            &b"* CAPABILITY IMAP4rev1 {5}\r\n"[..],
+            &b"* ENABLED CONDSTORE {5}\r\n"[..],
+            &b"* SORT 2 {5}\r\n"[..],
+            &b"* THREAD (2) {5}\r\n"[..],
+            &b"* VANISHED 300:399 {5}\r\n"[..],
+            &b"* 23 EXISTS\r\n"[..],
+            &b"* SEARCH\r\n"[..],
+        ] {
+            assert!(command_data(line).literal_data.is_none(), "{line:?}");
+        }
+    }
+
+    #[test]
+    fn non_fetch_keeps_trailing_literal() {
+        let r = command_data(b"* LIST () \"/\" {5}\r\n");
+        assert_eq!(r.command_data, CommandData::Other);
+        assert_eq!(r.literal_data, Some(5));
+
+        let r = command_data(b"* METADATA INBOX (/shared/comment {5}\r\n");
+        assert_eq!(r.command_data, CommandData::Other);
+        assert_eq!(r.literal_data, Some(5));
+
+        let r = command_data(b"* ID (\"name\" {5}\r\n");
+        assert_eq!(r.command_data, CommandData::Id);
+        assert_eq!(r.literal_data, Some(5));
+
+        let r = command_data(b"* LIST () \"/\" {5+}\r\n");
+        assert_eq!(r.literal_data, Some(5));
+
+        assert!(matches!(
+            Response::parse_line(b"* LIST () \"/\" {abc}\r\n"),
+            Err(ResponseLineError::InvalidLiteralSize)
+        ));
+    }
+
+    #[test]
+    fn empty_continuation_has_no_space() {
+        assert!(matches!(parse(b"+\r\n"), Response::ContinuationRequest));
+    }
+
+    #[test]
+    fn tag_that_starts_with_star_or_plus_stays_tagged() {
+        let r = tagged(b"*1 OK done\r\n");
+        assert_eq!(r.tag.as_str(), "*1");
+        assert_eq!(r.result, CommandResult::Success);
+
+        let r = tagged(b"+1 NO done\r\n");
+        assert_eq!(r.tag.as_str(), "+1");
+        assert_eq!(r.result, CommandResult::Fail);
     }
 }
