@@ -8,22 +8,52 @@ use anyhow::{Context, anyhow};
 use jiff::Timestamp;
 use serde_json::Value;
 
-use vey_types::net::OpensslTicketKeyBuilder;
+use vey_types::net::{OpensslTicketKey, OpensslTicketKeyBuilder};
 
 use super::{RemoteDecryptKey, RemoteEncryptKey, RemoteKeys};
+
+fn build_key_material(
+    builder: OpensslTicketKeyBuilder,
+    saw_name: bool,
+    saw_aes: bool,
+    saw_hmac: bool,
+) -> anyhow::Result<OpensslTicketKey> {
+    if !saw_name {
+        return Err(anyhow!("missing ticket key name"));
+    }
+    if !saw_aes {
+        return Err(anyhow!("missing ticket aes key"));
+    }
+    if !saw_hmac {
+        return Err(anyhow!("missing ticket hmac key"));
+    }
+    Ok(builder.build())
+}
 
 impl RemoteEncryptKey {
     pub(super) fn parse_json(value: &Value) -> anyhow::Result<Self> {
         if let Value::Object(map) = value {
             let mut builder = OpensslTicketKeyBuilder::default();
+            let mut saw_name = false;
+            let mut saw_aes = false;
+            let mut saw_hmac = false;
             for (k, v) in map {
                 match vey_json::key::normalize(k).as_str() {
-                    "name" => vey_json::value::as_bytes(v, &mut builder.name)
-                        .context(format!("invalid bytes value for key {k}"))?,
-                    "aes" | "aes_key" => vey_json::value::as_bytes(v, &mut builder.aes_key)
-                        .context(format!("invalid bytes value for key {k}"))?,
-                    "hmac" | "hmac_key" => vey_json::value::as_bytes(v, &mut builder.hmac_key)
-                        .context(format!("invalid bytes value for key {k}"))?,
+                    "name" => {
+                        vey_json::value::as_bytes(v, &mut builder.name)
+                            .context(format!("invalid bytes value for key {k}"))?;
+                        saw_name = true;
+                    }
+                    "aes" | "aes_key" => {
+                        vey_json::value::as_bytes(v, &mut builder.aes_key)
+                            .context(format!("invalid bytes value for key {k}"))?;
+                        saw_aes = true;
+                    }
+                    "hmac" | "hmac_key" => {
+                        vey_json::value::as_bytes(v, &mut builder.hmac_key)
+                            .context(format!("invalid bytes value for key {k}"))?;
+                        saw_hmac = true;
+                    }
                     "lifetime" => {
                         let lifetime = vey_json::value::as_u32(v)
                             .context(format!("invalid u32 value for key {k}"))?;
@@ -33,7 +63,7 @@ impl RemoteEncryptKey {
                 }
             }
             Ok(RemoteEncryptKey {
-                key: builder.build(),
+                key: build_key_material(builder, saw_name, saw_aes, saw_hmac)?,
             })
         } else {
             Err(anyhow!(
@@ -48,14 +78,26 @@ impl RemoteDecryptKey {
         if let Value::Object(map) = value {
             let mut expire: Option<Timestamp> = None;
             let mut builder = OpensslTicketKeyBuilder::default();
+            let mut saw_name = false;
+            let mut saw_aes = false;
+            let mut saw_hmac = false;
             for (k, v) in map {
                 match vey_json::key::normalize(k).as_str() {
-                    "name" => vey_json::value::as_bytes(v, &mut builder.name)
-                        .context(format!("invalid bytes value for key {k}"))?,
-                    "aes" | "aes_key" => vey_json::value::as_bytes(v, &mut builder.aes_key)
-                        .context(format!("invalid bytes value for key {k}"))?,
-                    "hmac" | "hmac_key" => vey_json::value::as_bytes(v, &mut builder.hmac_key)
-                        .context(format!("invalid bytes value for key {k}"))?,
+                    "name" => {
+                        vey_json::value::as_bytes(v, &mut builder.name)
+                            .context(format!("invalid bytes value for key {k}"))?;
+                        saw_name = true;
+                    }
+                    "aes" | "aes_key" => {
+                        vey_json::value::as_bytes(v, &mut builder.aes_key)
+                            .context(format!("invalid bytes value for key {k}"))?;
+                        saw_aes = true;
+                    }
+                    "hmac" | "hmac_key" => {
+                        vey_json::value::as_bytes(v, &mut builder.hmac_key)
+                            .context(format!("invalid bytes value for key {k}"))?;
+                        saw_hmac = true;
+                    }
                     "lifetime" => {}
                     "expire" => {
                         let time = vey_json::value::as_rfc3339_datetime(v)
@@ -65,11 +107,9 @@ impl RemoteDecryptKey {
                     _ => return Err(anyhow!("invalid key {k}")),
                 }
             }
+            let key = build_key_material(builder, saw_name, saw_aes, saw_hmac)?;
             match expire {
-                Some(expire) => Ok(RemoteDecryptKey {
-                    key: builder.build(),
-                    expire,
-                }),
+                Some(expire) => Ok(RemoteDecryptKey { key, expire }),
                 None => Err(anyhow!("no expire datetime set")),
             }
         } else {
@@ -193,6 +233,15 @@ mod tests {
         });
         assert!(RemoteEncryptKey::parse_json(&json_value).is_err());
 
+        // Lifetime alone must not become an all-zero key.
+        let json_value = json!({
+            "lifetime": 3600
+        });
+        assert!(RemoteEncryptKey::parse_json(&json_value).is_err());
+
+        let json_value = json!({});
+        assert!(RemoteEncryptKey::parse_json(&json_value).is_err());
+
         // Invalid key
         let json_value = json!({
             "unknown_field": "value"
@@ -254,6 +303,12 @@ mod tests {
         // Invalid expire format
         let json_value = json!({
             "expire": "invalid-date-format"
+        });
+        assert!(RemoteDecryptKey::parse_json(&json_value).is_err());
+
+        // Expire alone must not become an all-zero key.
+        let json_value = json!({
+            "expire": "2025-12-31T23:59:59Z"
         });
         assert!(RemoteDecryptKey::parse_json(&json_value).is_err());
 

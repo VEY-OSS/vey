@@ -33,6 +33,11 @@ impl RemoteDecryptKey {
     pub(crate) fn expire_duration(&self, now: &Timestamp) -> Option<Duration> {
         Duration::try_from(self.expire.duration_since(*now)).ok()
     }
+
+    #[cfg(test)]
+    pub(crate) fn from_parts(key: OpensslTicketKey, expire: Timestamp) -> Self {
+        RemoteDecryptKey { key, expire }
+    }
 }
 
 pub(crate) struct RemoteKeys {
