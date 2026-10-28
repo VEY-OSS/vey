@@ -15,3 +15,5 @@ mod local;
 pub use local::{DaemonController, UniqueController};
 
 pub mod capnp;
+
+pub(crate) async fn disable_protected_io() {}

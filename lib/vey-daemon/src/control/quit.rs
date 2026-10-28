@@ -56,11 +56,38 @@ pub fn trigger_force_shutdown() {
 }
 
 pub trait QuitAction: Default {
-    fn do_release_controller(&self) -> impl Future<Output = ()> + Send;
-    fn do_resume_controller(&self, program_name: String) -> anyhow::Result<()>;
-    fn do_graceful_shutdown(&self) -> impl Future<Output = ()> + Send;
-    fn do_force_shutdown(&self) -> impl Future<Output = ()> + Send;
+    /// Release the daemon controller so a new process can bind it.
+    ///
+    /// The quit loop calls this before either shutdown path, and skips it when
+    /// the controller is already released. [`resume_controller`](Self::resume_controller)
+    /// undoes it when graceful shutdown is cancelled.
+    fn release_controller(&self) -> impl Future<Output = ()> + Send;
 
+    /// Bind the daemon controller again after graceful shutdown is cancelled.
+    fn resume_controller(&self, program_name: String) -> anyhow::Result<()>;
+
+    /// Stop listeners and other runtime work, without waiting for in-flight tasks.
+    ///
+    /// Called once on both the graceful and force paths, after the daemon
+    /// controller has been released.
+    fn start_shutdown(&self) -> impl Future<Output = ()> + Send;
+
+    /// Wait until in-flight tasks finish.
+    ///
+    /// Used only by graceful shutdown. A quit signal drops this future and
+    /// continues at [`shutdown`](Self::shutdown). The default returns immediately.
+    fn wait_graceful_shutdown(&self) -> impl Future<Output = ()> + Send {
+        std::future::ready(())
+    }
+
+    /// Abort the unique controller so the process can leave its main loop.
+    ///
+    /// Called after [`start_shutdown`](Self::start_shutdown). Graceful shutdown
+    /// reaches it when the wait finishes or a quit signal arrives during the wait.
+    /// Force shutdown reaches it immediately after `start_shutdown`.
+    fn shutdown(&self) -> impl Future<Output = ()> + Send;
+
+    /// Spawn the quit loop on the current runtime.
     fn tokio_spawn_run(program_name: &str)
     where
         Self: Send + Sync + 'static,
@@ -199,27 +226,60 @@ impl<T: QuitAction> QuitLoop<T> {
 
         self.release_controller().await;
         info!("start force shutdown");
-        self.action.do_force_shutdown().await;
+        self.action.start_shutdown().await;
+        self.action.shutdown().await;
         clear_daemon_quit_channel();
     }
 
-    async fn graceful_shutdown(&self) {
+    async fn graceful_shutdown(&mut self) {
         info!("start graceful shutdown now");
-        self.action.do_graceful_shutdown().await;
+        self.action.start_shutdown().await;
+        info!("waiting for graceful shutdown");
+
+        let action = &self.action;
+        let msg_receiver = &mut self.msg_receiver;
+
+        tokio::pin! {
+            let waiting = action.wait_graceful_shutdown();
+        }
+
+        loop {
+            tokio::select! {
+                _ = &mut waiting => break,
+                msg = msg_receiver.recv() => match msg {
+                    // trigger_force_shutdown drops the sender; recv then returns None.
+                    None => {
+                        info!("received quit request, shutdown now");
+                        break;
+                    }
+                    Some(Command::StartGracefulShutdown) => {}
+                    Some(Command::ReleaseController(finish_sender)) => {
+                        let _ = finish_sender.send(true);
+                    }
+                    Some(Command::CancelGracefulShutdown(finish_sender)) => {
+                        info!("received CancelGracefulShutdown request");
+                        let _ = finish_sender.send(false);
+                        info!("graceful shutdown already started and can not be canceled");
+                    }
+                },
+            }
+        }
+
+        action.shutdown().await;
     }
 
     async fn release_controller(&mut self) {
         if self.controller_released {
             return;
         }
-        self.action.do_release_controller().await;
+        self.action.release_controller().await;
         self.controller_released = true;
         info!("daemon controller released");
     }
 
     async fn resume_controller(&mut self) -> bool {
         if self.controller_released {
-            match self.action.do_resume_controller(self.program_name.clone()) {
+            match self.action.resume_controller(self.program_name.clone()) {
                 Ok(_) => {
                     self.controller_released = false;
                     info!("daemon controller resumed");
