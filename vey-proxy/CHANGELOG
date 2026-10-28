@@ -3,7 +3,16 @@ CHANGELOG
 Release notes for `vey-proxy`, ordered from newest to oldest.
 
 v1.15.2:
+ - BUG FIX: IMAP interception reads a trailing literal on responses that carry strings, accepts an empty AUTHENTICATE challenge, and treats a tag that starts with ``*`` or ``+`` as that command's result
+ - BUG FIX: an IMAP BAD reply stays on one line when the tag contains a control character
+ - BUG FIX: SMTP DATA dot-stuffing leaves a ``.`` that continues the same line unchanged
+ - BUG FIX: an SMTP blocked-message reason that contains a line break stays on one reply
+ - BUG FIX: an HTTP log URI redacts the password when the userinfo contains another ``@``
+ - BUG FIX: a crypt password hash is rejected when a character is outside the alphabet or the last character has unused high bits set
  - BUG FIX: DNS-over-HTTPS releases the HTTP/2 receive window, and a DNS-over-HTTPS or DNS-over-HTTP/3 response body stops at 65535 bytes
+ - BUG FIX: a link-local IPv6 peer or local address keeps its scope id
+ - BUG FIX: after graceful shutdown is cancelled, a later SIGTERM still requests shutdown
+ - Feature: UDP stream and transparent UDP listeners emit ``listen.datagram.recv.*`` and ``listen.datagram.send.*``
  - Breaking: the default control socket directory is ``/run/vey-proxy`` for root on Linux and ``/var/run/vey-proxy`` for root on other Unix systems; another Linux user uses an absolute ``XDG_RUNTIME_DIR`` or ``/run/user/<uid>/vey-proxy``
  - BUG FIX: a buffered stream copy or vectored write stops when the writer returns no bytes
  - BUG FIX: a cache lookup returns an error if the query runtime has quit, instead of panicking

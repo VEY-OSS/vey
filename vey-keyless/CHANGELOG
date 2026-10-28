@@ -1,5 +1,7 @@
 
 v0.6.0:
+ - BUG FIX: a link-local IPv6 peer or local address keeps its scope id
+ - BUG FIX: after graceful shutdown is cancelled, a later SIGTERM still requests shutdown
  - Breaking: the default control socket directory is `/run/vey-keyless` for root on Linux and `/var/run/vey-keyless` for root on other Unix systems; another Linux user uses an absolute `XDG_RUNTIME_DIR` or `/run/user/<uid>/vey-keyless`
  - BUG FIX: a buffered stream copy or vectored write stops when the writer returns no bytes
  - BUG FIX: a Fluentd handshake reports a closed connection instead of parsing a short HELO or PONG

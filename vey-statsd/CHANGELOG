@@ -1,5 +1,6 @@
 
 v0.3.1:
+ - BUG FIX: after graceful shutdown is cancelled, a later SIGTERM still requests shutdown
  - Breaking: the default control socket directory is `/run/vey-statsd` for root on Linux and `/var/run/vey-statsd` for root on other Unix systems; another Linux user uses an absolute `XDG_RUNTIME_DIR` or `/run/user/<uid>/vey-statsd`
  - BUG FIX: a buffered stream copy or vectored write stops when the writer returns no bytes
  - BUG FIX: a large Linux journald record can be sealed and sent
