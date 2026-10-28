@@ -7,6 +7,7 @@ v0.4.1:
  - BUG FIX: a non-ASCII size string in worker or statsd config is rejected instead of panicking
  - BUG FIX: a relative pid file is created in the working directory from before daemonizing, and the lock is held until the process exits
  - BUG FIX: a timestamp offset that includes seconds is written in UTC
+ - BUG FIX: after graceful shutdown is cancelled, a later SIGTERM still requests shutdown
  - BUG FIX: an empty daemon group uses `_.sock` as the control socket
  - BUG FIX: an IP location lookup returns an error if the query runtime has quit, instead of panicking
  - BUG FIX: continent and country counts include the last code

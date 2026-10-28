@@ -5,6 +5,7 @@ v0.9.1:
  - BUG FIX: a non-ASCII size string in worker or statsd config is rejected instead of panicking
  - BUG FIX: a relative pid file is created in the working directory from before daemonizing, and the lock is held until the process exits
  - BUG FIX: a rotating histogram still publishes while samples keep arriving, and `0.0` and `-0.0` count as one quantile
+ - BUG FIX: after graceful shutdown is cancelled, a later SIGTERM still requests shutdown
  - BUG FIX: an empty daemon group uses `_.sock` as the control socket
  - BUG FIX: an issued certificate cannot start before its issuer, and its `pathlen` cannot exceed what the issuer allows
  - BUG FIX: certificate times outside 1950-2049 use GeneralizedTime, and a timestamp offset that includes seconds is written in UTC
