@@ -40,7 +40,7 @@ pub fn new_async_logger(
     async_conf: &AsyncLogConfig,
     append_code_position: bool,
     use_stdout: bool,
-) -> AsyncLogger<StdLogValue, StdLogFormatter> {
+) -> io::Result<AsyncLogger<StdLogValue, StdLogFormatter>> {
     let (sender, receiver) = kanal::bounded::<StdLogValue>(async_conf.channel_capacity);
 
     let stats = Arc::new(LogStats::default());
@@ -50,7 +50,7 @@ pub fn new_async_logger(
         stats: Arc::clone(&stats),
     };
 
-    let _detached_thread = std::thread::Builder::new()
+    std::thread::Builder::new()
         .name(async_conf.thread_name.clone())
         .spawn(move || {
             if use_stdout {
@@ -58,9 +58,13 @@ pub fn new_async_logger(
             } else {
                 io_thread.run_with_stderr();
             }
-        });
+        })?;
 
-    AsyncLogger::new(sender, StdLogFormatter::new(append_code_position), stats)
+    Ok(AsyncLogger::new(
+        sender,
+        StdLogFormatter::new(append_code_position),
+        stats,
+    ))
 }
 
 struct AsyncIoThread {

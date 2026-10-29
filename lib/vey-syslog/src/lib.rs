@@ -4,6 +4,8 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::io;
+
 use vey_types::log::AsyncLogConfig;
 
 mod async_streamer;
@@ -86,7 +88,7 @@ impl SyslogBuilder {
         self.append_report_ts = enable;
     }
 
-    pub fn start_async(self, async_conf: &AsyncLogConfig) -> AsyncSyslogStreamer {
+    pub fn start_async(self, async_conf: &AsyncLogConfig) -> io::Result<AsyncSyslogStreamer> {
         let hostname = if self.emit_hostname {
             Some(vey_compat::hostname().to_string_lossy().into_owned())
         } else {

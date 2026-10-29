@@ -39,7 +39,7 @@ impl JournalConfig {
 pub fn new_async_logger(
     async_conf: &AsyncLogConfig,
     journal_conf: JournalConfig,
-) -> AsyncLogger<Vec<u8>, JournalFormatter> {
+) -> std::io::Result<AsyncLogger<Vec<u8>, JournalFormatter>> {
     let (sender, receiver) = kanal::bounded::<Vec<u8>>(async_conf.channel_capacity);
 
     let stats = Arc::new(LogStats::default());
@@ -50,14 +50,18 @@ pub fn new_async_logger(
             stats: Arc::clone(&stats),
         };
 
-        let _detached_thread = std::thread::Builder::new()
+        std::thread::Builder::new()
             .name(format!("{}#{i}", async_conf.thread_name))
             .spawn(move || {
                 io_thread.run_to_end();
-            });
+            })?;
     }
 
-    AsyncLogger::new(sender, JournalFormatter::new(journal_conf), stats)
+    Ok(AsyncLogger::new(
+        sender,
+        JournalFormatter::new(journal_conf),
+        stats,
+    ))
 }
 
 struct AsyncIoThread {
