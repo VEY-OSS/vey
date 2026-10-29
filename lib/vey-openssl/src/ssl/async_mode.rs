@@ -23,6 +23,8 @@ use tokio::io::Interest;
 use tokio::io::unix::AsyncFd;
 
 use crate::ffi;
+use crate::poll_fd::poll_readable;
+use crate::retry::RetryLater;
 
 pub trait SslAsyncModeExt {
     fn is_async(&self) -> bool;
@@ -108,6 +110,7 @@ pub(crate) struct AsyncEnginePoller {
     #[cfg(ossl300)]
     atomic_waker: Arc<AtomicWaker>,
     poll_pending: bool,
+    retry: RetryLater,
 }
 
 impl AsyncEnginePoller {
@@ -117,6 +120,7 @@ impl AsyncEnginePoller {
             Ok(Some(AsyncEnginePoller {
                 tracked_fds: Vec::with_capacity(1),
                 poll_pending: false,
+                retry: RetryLater::default(),
             }))
         } else {
             Ok(None)
@@ -136,6 +140,7 @@ impl AsyncEnginePoller {
             tracked_fds: Vec::with_capacity(1),
             atomic_waker,
             poll_pending: false,
+            retry: RetryLater::default(),
         }))
     }
 
@@ -161,16 +166,17 @@ impl AsyncEnginePoller {
             self.tracked_fds.retain(|v| fd.ne(v.get_ref()));
         }
 
-        for fd in &self.tracked_fds {
-            match fd.poll_read_ready(cx) {
-                Poll::Pending => {}
-                Poll::Ready(Ok(_)) => return Poll::Ready(Ok(())),
-                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            }
+        match poll_readable(&mut self.tracked_fds, cx) {
+            Poll::Ready(result) => return Poll::Ready(result),
+            Poll::Pending => {}
         }
 
         self.poll_pending = true;
         Poll::Pending
+    }
+
+    pub(crate) fn poll_retry_later(&mut self, cx: &mut Context<'_>) -> Poll<()> {
+        self.retry.poll(cx)
     }
 
     #[cfg(not(ossl300))]
@@ -200,12 +206,13 @@ impl AsyncEnginePoller {
                 self.poll_pending = true;
                 Poll::Pending
             }
-            ffi::ASYNC_STATUS_EAGAIN => {
-                // engine busy, resume later
-                cx.waker().wake_by_ref();
-                self.poll_pending = true;
-                Poll::Pending
-            }
+            ffi::ASYNC_STATUS_EAGAIN => match self.poll_retry_later(cx) {
+                Poll::Pending => {
+                    self.poll_pending = true;
+                    Poll::Pending
+                }
+                Poll::Ready(()) => Poll::Ready(Ok(())),
+            },
             r => Poll::Ready(Err(io::Error::other(format!(
                 "SSL_get_async_status returned {r}"
             )))),

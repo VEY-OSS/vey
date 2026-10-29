@@ -24,6 +24,7 @@ use tokio::time::Sleep;
 
 use super::AsyncWaitCtx;
 use crate::ffi;
+use crate::retry::RetryLater;
 
 pub trait SyncOperation {
     type Output;
@@ -72,6 +73,7 @@ struct TaskState<T: AsyncOperation> {
     #[cfg(ossl300)]
     atomic_waker: Arc<AtomicWaker>,
     action: Box<UnsafeCell<Action<T>>>,
+    retry: RetryLater,
 }
 
 /// Future that drives an OpenSSL `ASYNC_JOB` to completion (with an internal timeout).
@@ -121,6 +123,7 @@ impl<T: AsyncOperation> TaskState<T> {
                 operation,
                 result: Err(anyhow!("not run yet")),
             })),
+            retry: RetryLater::default(),
         })
     }
 
@@ -137,6 +140,7 @@ impl<T: AsyncOperation> TaskState<T> {
                 operation,
                 result: Err(anyhow!("not run yet")),
             })),
+            retry: RetryLater::default(),
         })
     }
 
@@ -162,8 +166,8 @@ impl<T: AsyncOperation> TaskState<T> {
             match self.start_job(&mut ret) {
                 ffi::ASYNC_ERR => return Poll::Ready(Err(ErrorStack::get().into())),
                 ffi::ASYNC_NO_JOBS => {
-                    cx.waker().wake_by_ref();
-                    return Poll::Pending;
+                    ready!(self.retry.poll(cx));
+                    continue;
                 }
                 ffi::ASYNC_PAUSE => {
                     let action = unsafe { &mut *self.action.get() };
@@ -200,8 +204,8 @@ impl<T: AsyncOperation> TaskState<T> {
             match self.start_job(&mut ret) {
                 ffi::ASYNC_ERR => return Poll::Ready(Err(ErrorStack::get().into())),
                 ffi::ASYNC_NO_JOBS => {
-                    cx.waker().wake_by_ref();
-                    return Poll::Pending;
+                    ready!(self.retry.poll(cx));
+                    continue;
                 }
                 ffi::ASYNC_PAUSE => {
                     let action = unsafe { &mut *self.action.get() };
@@ -219,8 +223,8 @@ impl<T: AsyncOperation> TaskState<T> {
                         ffi::ASYNC_STATUS_ERR => return Poll::Ready(Err(ErrorStack::get().into())),
                         ffi::ASYNC_STATUS_OK => return Poll::Pending,
                         ffi::ASYNC_STATUS_EAGAIN => {
-                            cx.waker().wake_by_ref();
-                            return Poll::Pending;
+                            ready!(self.retry.poll(cx));
+                            continue;
                         }
                         r => {
                             return Poll::Ready(Err(OpensslAsyncTaskError::Unexpected(format!(

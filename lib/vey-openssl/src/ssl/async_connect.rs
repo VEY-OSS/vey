@@ -53,7 +53,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslConnector<S> {
                         }
                     }
                     ErrorCode::WANT_ASYNC_JOB => {
-                        cx.waker().wake_by_ref();
+                        if let Some(async_engine) = &mut self.async_engine {
+                            ready!(async_engine.poll_retry_later(cx));
+                            continue;
+                        }
                         return Poll::Pending;
                     }
                     _ => {
@@ -68,6 +71,6 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslConnector<S> {
 
     pub async fn connect(mut self) -> io::Result<SslStream<S>> {
         future::poll_fn(|cx| self.poll_connect(cx)).await?;
-        Ok(SslStream::new(self.inner, None))
+        Ok(SslStream::new(self.inner, self.async_engine))
     }
 }
