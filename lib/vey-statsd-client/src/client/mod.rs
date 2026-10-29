@@ -31,7 +31,7 @@ impl StatsdClient {
             sink,
             tags: Default::default(),
             create_instant: Instant::now(),
-            last_error_report: 0,
+            last_error_report: u64::MAX,
         }
     }
 
@@ -52,7 +52,7 @@ impl StatsdClient {
     }
 
     fn handle_emit_error(&mut self, e: io::Error) {
-        let time_slice = self.create_instant.elapsed().as_secs().rotate_right(6); // every 64s
+        let time_slice = self.create_instant.elapsed().as_secs() >> 6; // every 64s
         if self.last_error_report != time_slice {
             warn!("sending metrics error: {e:?}");
             self.last_error_report = time_slice;
