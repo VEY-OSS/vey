@@ -7,6 +7,11 @@
 mod ffi;
 
 #[cfg(feature = "async-job")]
+mod poll_fd;
+#[cfg(feature = "async-job")]
+mod retry;
+
+#[cfg(feature = "async-job")]
 pub mod async_job;
 
 mod ssl;

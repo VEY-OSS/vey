@@ -102,7 +102,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                     ErrorCode::WANT_ASYNC => ready!(self.poll_async_engine(cx))?,
                     #[cfg(feature = "async-job")]
                     ErrorCode::WANT_ASYNC_JOB => {
-                        cx.waker().wake_by_ref();
+                        if let Some(async_engine) = &mut self.async_engine {
+                            ready!(async_engine.poll_retry_later(cx));
+                            continue;
+                        }
                         return Poll::Pending;
                     }
                     _ => {
@@ -143,7 +146,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                     ErrorCode::WANT_ASYNC => ready!(self.poll_async_engine(cx))?,
                     #[cfg(feature = "async-job")]
                     ErrorCode::WANT_ASYNC_JOB => {
-                        cx.waker().wake_by_ref();
+                        if let Some(async_engine) = &mut self.async_engine {
+                            ready!(async_engine.poll_retry_later(cx));
+                            continue;
+                        }
                         return Poll::Pending;
                     }
                     _ => {
@@ -180,7 +186,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                     ErrorCode::WANT_ASYNC => ready!(self.poll_async_engine(cx))?,
                     #[cfg(feature = "async-job")]
                     ErrorCode::WANT_ASYNC_JOB => {
-                        cx.waker().wake_by_ref();
+                        if let Some(async_engine) = &mut self.async_engine {
+                            ready!(async_engine.poll_retry_later(cx));
+                            continue;
+                        }
                         return Poll::Pending;
                     }
                     _ => {
@@ -222,7 +231,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                 ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => return Poll::Pending,
                 ErrorCode::WANT_ASYNC => ready!(self.poll_async_engine(cx))?,
                 ErrorCode::WANT_ASYNC_JOB => {
-                    cx.waker().wake_by_ref();
+                    if let Some(async_engine) = &mut self.async_engine {
+                        ready!(async_engine.poll_retry_later(cx));
+                        continue;
+                    }
                     return Poll::Pending;
                 }
                 _ => {

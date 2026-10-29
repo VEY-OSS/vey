@@ -15,6 +15,7 @@ use tokio::io::unix::AsyncFd;
 use tokio::runtime::{Handle, RuntimeFlavor};
 
 use super::{AsyncOperation, OpensslAsyncTask, SyncOperation};
+use crate::poll_fd::poll_readable;
 
 /// Tokio-backed OpenSSL async operation (FD wait via [`AsyncFd`]).
 ///
@@ -81,13 +82,6 @@ impl<T: SyncOperation> AsyncOperation for TokioAsyncOperation<T> {
     }
 
     fn poll_ready_fds(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        for fd in &self.tracked_fds {
-            match fd.poll_read_ready(cx) {
-                Poll::Pending => {}
-                Poll::Ready(Ok(_)) => return Poll::Ready(Ok(())),
-                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            }
-        }
-        Poll::Pending
+        poll_readable(&mut self.tracked_fds, cx)
     }
 }

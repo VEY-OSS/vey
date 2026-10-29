@@ -118,7 +118,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
                         }
                     }
                     ErrorCode::WANT_ASYNC_JOB => {
-                        cx.waker().wake_by_ref();
+                        if let Some(async_engine) = &mut self.async_engine {
+                            ready!(async_engine.poll_retry_later(cx));
+                            continue;
+                        }
                         return Poll::Pending;
                     }
                     _ => {
