@@ -11,6 +11,9 @@ use tokio::sync::mpsc;
 
 use super::PduHeader;
 
+/// IPv4 UDP payload limit (65535 - 20 - 8). It also fits in an IPv6 datagram.
+const MAX_UDP_PAYLOAD: usize = 65_535 - 20 - 8;
+
 pub struct StreamDumpState<H> {
     header: H,
     sender: mpsc::UnboundedSender<Vec<u8>>,
@@ -25,7 +28,7 @@ impl<H: PduHeader> StreamDumpState<H> {
         sender: mpsc::UnboundedSender<Vec<u8>>,
         mut pkt_size: usize,
     ) -> Self {
-        pkt_size = pkt_size.max(1200);
+        pkt_size = pkt_size.clamp(1200, MAX_UDP_PAYLOAD);
         let buf = header.new_header(pkt_size);
         let hdr_len = buf.len();
         StreamDumpState {
@@ -91,5 +94,40 @@ impl<H: PduHeader> StreamDumpState<H> {
         if self.has_pending_data() {
             self.flush_data();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+    use tokio::sync::mpsc;
+
+    use crate::ExportedPduDissectorHint;
+
+    use super::super::header;
+    use super::*;
+
+    #[test]
+    fn packet_size_above_the_udp_limit_is_split() {
+        let (sender, mut receiver) = mpsc::unbounded_channel();
+        let client = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1234);
+        let remote = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 80);
+        let (_to_c, to_r) = header::new_pair(client, remote, ExportedPduDissectorHint::TcpPort(80));
+        let mut state = StreamDumpState::new(to_r, sender, 70_000);
+        assert_eq!(state.pkt_size, MAX_UDP_PAYLOAD);
+
+        let data = vec![b'a'; 70_000];
+        state.dump_all_buf(&data);
+
+        let mut payloads = Vec::new();
+        let mut count = 0;
+        while let Ok(pkt) = receiver.try_recv() {
+            assert!(pkt.len() <= MAX_UDP_PAYLOAD);
+            payloads.extend_from_slice(&pkt[state.hdr_len..]);
+            count += 1;
+        }
+        assert!(count >= 2);
+        assert_eq!(payloads, data);
     }
 }
