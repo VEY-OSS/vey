@@ -5,16 +5,18 @@
 Name:           vey-iploc
 Version:        0.4.0
 Release:        1%{?dist}
-Summary:        IP Locate Service
+Summary:        IP geolocation lookup service
 
 License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
 Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc, gcc-c++, make, pkgconf, cmake
+BuildRequires:  systemd-rpm-macros
+%{?systemd_ordering}
 
 %description
-IP Locate Service
+Serves IP-to-country and ASN lookups used by vey-proxy GeoIP routing.
 
 
 %prep
@@ -31,12 +33,23 @@ scripts/package/cargo_with_pgo.sh build --frozen --offline --profile %{build_pro
 %install
 rm -rf $RPM_BUILD_ROOT
 install -m 755 -D target/%{build_profile}/vey-iploc %{buildroot}%{_bindir}/vey-iploc
-install -m 644 -D %{name}/debian/vey-iploc@.service %{buildroot}/lib/systemd/system/vey-iploc@.service
+install -m 644 -D %{name}/debian/vey-iploc@.service %{buildroot}%{_unitdir}/vey-iploc@.service
+
+
+%post
+if [ -d /run/systemd/system ]; then
+	systemctl daemon-reload >/dev/null 2>&1 || :
+fi
+
+%postun
+if [ -d /run/systemd/system ]; then
+	systemctl daemon-reload >/dev/null 2>&1 || :
+fi
 
 
 %files
 %{_bindir}/vey-iploc
-/lib/systemd/system/vey-iploc@.service
+%{_unitdir}/vey-iploc@.service
 %license LICENSE
 %license LICENSE-BUNDLED
 %license LICENSE-FOREIGN

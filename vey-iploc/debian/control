@@ -2,11 +2,12 @@ Source: vey-iploc
 Section: net
 Priority: optional
 Maintainer: VEY-OSS Developers <developers@vey.oss>
-Build-Depends: debhelper, cmake, g++
-Standards-Version: 3.9.8
+Build-Depends: debhelper-compat (= 13), cmake, g++
+Standards-Version: 4.6.0
 Homepage: https://github.com/VEY-OSS/vey
 
 Package: vey-iploc
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: IP Locate Service
+Description: IP geolocation lookup service
+ Serves IP-to-country and ASN lookups used by vey-proxy GeoIP routing.

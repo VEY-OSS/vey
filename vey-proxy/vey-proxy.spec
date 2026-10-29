@@ -5,7 +5,7 @@
 Name:           vey-proxy
 Version:        1.15.1
 Release:        1%{?dist}
-Summary:        Generic Proxy Server
+Summary:        Forward, reverse, and transparent proxy server
 
 License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
@@ -14,10 +14,14 @@ Source0:        %{name}-%{version}.tar.xz
 BuildRequires:  gcc, gcc-c++, make, pkgconf, cmake
 BuildRequires:  c-ares-devel, openssl-devel, libbpf-devel
 BuildRequires:  python3-devel, lua-devel
-Requires:       ca-certificates
+BuildRequires:  systemd-rpm-macros
+Recommends:     ca-certificates
+%{?systemd_ordering}
 
 %description
-Generic Proxy Server
+HTTP and SOCKS forward proxy, transparent TCP/UDP proxy, TCP and TLS stream
+proxy, and HTTP/TLS reverse proxy. Also supports TLS interception, ICAP
+inspection, authentication, ACL, and egress routing.
 
 
 %prep
@@ -40,7 +44,18 @@ install -m 755 -D target/%{build_profile}/vey-proxy %{buildroot}%{_bindir}/vey-p
 install -m 755 -D target/%{build_profile}/vey-proxy-ctl %{buildroot}%{_bindir}/vey-proxy-ctl
 install -m 755 -D target/%{build_profile}/vey-proxy-ftp %{buildroot}%{_bindir}/vey-proxy-ftp
 install -m 755 -D target/%{build_profile}/vey-proxy-lua %{buildroot}%{_bindir}/vey-proxy-lua
-install -m 644 -D %{name}/debian/vey-proxy@.service %{buildroot}/lib/systemd/system/vey-proxy@.service
+install -m 644 -D %{name}/debian/vey-proxy@.service %{buildroot}%{_unitdir}/vey-proxy@.service
+
+
+%post
+if [ -d /run/systemd/system ]; then
+	systemctl daemon-reload >/dev/null 2>&1 || :
+fi
+
+%postun
+if [ -d /run/systemd/system ]; then
+	systemctl daemon-reload >/dev/null 2>&1 || :
+fi
 
 
 %files
@@ -48,7 +63,7 @@ install -m 644 -D %{name}/debian/vey-proxy@.service %{buildroot}/lib/systemd/sys
 %{_bindir}/vey-proxy-ctl
 %{_bindir}/vey-proxy-ftp
 %{_bindir}/vey-proxy-lua
-/lib/systemd/system/vey-proxy@.service
+%{_unitdir}/vey-proxy@.service
 %license LICENSE
 %license LICENSE-BUNDLED
 %license LICENSE-FOREIGN

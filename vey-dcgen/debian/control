@@ -2,11 +2,13 @@ Source: vey-dcgen
 Section: net
 Priority: optional
 Maintainer: VEY-OSS Developers <developers@vey.oss>
-Build-Depends: debhelper, pkg-config, cmake, g++, libssl-dev
-Standards-Version: 3.9.8
+Build-Depends: debhelper-compat (= 13), pkg-config, cmake, g++, libssl-dev
+Standards-Version: 4.6.0
 Homepage: https://github.com/VEY-OSS/vey
 
 Package: vey-dcgen
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Dynamic Certificate Generator
+Description: Dynamic certificate generator for TLS interception
+ Issues per-host certificates for vey-proxy TLS interception from a
+ configured certificate authority.

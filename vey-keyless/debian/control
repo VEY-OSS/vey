@@ -2,12 +2,15 @@ Source: vey-keyless
 Section: net
 Priority: optional
 Maintainer: VEY-OSS Developers <developers@vey.oss>
-Build-Depends: debhelper, pkg-config, cmake, g++, libssl-dev
-Standards-Version: 3.9.8
+Build-Depends: debhelper-compat (= 13), pkg-config, cmake, g++, libssl-dev
+Standards-Version: 4.6.0
 Homepage: https://github.com/VEY-OSS/vey
 
 Package: vey-keyless
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: systemd
-Description: Keyless Server
+Description: Cloudflare Keyless SSL server
+ Implements the Cloudflare Keyless SSL protocol so TLS edges can delegate
+ private-key operations to a dedicated backend, including OpenSSL hardware
+ acceleration.

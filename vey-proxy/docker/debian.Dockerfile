@@ -17,7 +17,7 @@ COPY --from=builder /usr/src/vey/target/release-lto/vey-proxy-ctl /usr/bin/vey-p
 COPY --from=builder /usr/src/vey/target/release-lto/vey-proxy-ftp /usr/bin/vey-proxy-ftp
 COPY vey-proxy/docker/config/main.yaml /etc/vey-proxy/main.yaml
 LABEL org.opencontainers.image.title="vey-proxy" \
-      org.opencontainers.image.description="HTTP and SOCKS proxy with transparent, stream, and reverse-proxy servers. The default image listens on 8080 and 1080." \
+      org.opencontainers.image.description="Forward, reverse, and transparent proxy with TLS interception and policy controls. The default image listens on 8080 and 1080." \
       org.opencontainers.image.url="https://github.com/VEY-OSS/vey" \
       org.opencontainers.image.source="https://github.com/VEY-OSS/vey" \
       org.opencontainers.image.documentation="https://github.com/VEY-OSS/vey/blob/main/vey-proxy/docker/README.md" \

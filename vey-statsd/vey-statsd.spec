@@ -5,16 +5,20 @@
 Name:           vey-statsd
 Version:        0.3.0
 Release:        1%{?dist}
-Summary:        StatsD Server
+Summary:        StatsD metrics ingestion and export server
 
 License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
 Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc, gcc-c++, make, pkgconf, cmake
+BuildRequires:  systemd-rpm-macros
+%{?systemd_ordering}
 
 %description
-StatsD Server
+Receives StatsD metrics over UDP or a Unix datagram socket, aggregates them,
+and exports to backends such as Graphite, Prometheus, InfluxDB, and
+VictoriaMetrics.
 
 
 %prep
@@ -32,13 +36,24 @@ scripts/package/cargo_with_pgo.sh build --frozen --offline --profile %{build_pro
 rm -rf $RPM_BUILD_ROOT
 install -m 755 -D target/%{build_profile}/vey-statsd %{buildroot}%{_bindir}/vey-statsd
 install -m 755 -D target/%{build_profile}/vey-statsd-ctl %{buildroot}%{_bindir}/vey-statsd-ctl
-install -m 644 -D %{name}/debian/vey-statsd@.service %{buildroot}/lib/systemd/system/vey-statsd@.service
+install -m 644 -D %{name}/debian/vey-statsd@.service %{buildroot}%{_unitdir}/vey-statsd@.service
+
+
+%post
+if [ -d /run/systemd/system ]; then
+	systemctl daemon-reload >/dev/null 2>&1 || :
+fi
+
+%postun
+if [ -d /run/systemd/system ]; then
+	systemctl daemon-reload >/dev/null 2>&1 || :
+fi
 
 
 %files
 %{_bindir}/vey-statsd
 %{_bindir}/vey-statsd-ctl
-/lib/systemd/system/vey-statsd@.service
+%{_unitdir}/vey-statsd@.service
 %license LICENSE
 %license LICENSE-BUNDLED
 %license LICENSE-FOREIGN

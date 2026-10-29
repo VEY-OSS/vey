@@ -5,7 +5,7 @@
 Name:           vey-dcgen
 Version:        0.9.0
 Release:        1%{?dist}
-Summary:        Dynamic Certificate Generator
+Summary:        Dynamic certificate generator for TLS interception
 
 License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
@@ -13,9 +13,12 @@ Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc, gcc-c++, make, pkgconf, cmake
 BuildRequires:  openssl-devel
+BuildRequires:  systemd-rpm-macros
+%{?systemd_ordering}
 
 %description
-Dynamic Certificate Generator developed by the VEY project
+Issues per-host certificates for vey-proxy TLS interception from a configured
+certificate authority.
 
 
 %prep
@@ -32,12 +35,23 @@ scripts/package/cargo_with_pgo.sh build --frozen --offline --profile %{build_pro
 %install
 rm -rf $RPM_BUILD_ROOT
 install -m 755 -D target/%{build_profile}/vey-dcgen %{buildroot}%{_bindir}/vey-dcgen
-install -m 644 -D %{name}/debian/vey-dcgen@.service %{buildroot}/lib/systemd/system/vey-dcgen@.service
+install -m 644 -D %{name}/debian/vey-dcgen@.service %{buildroot}%{_unitdir}/vey-dcgen@.service
+
+
+%post
+if [ -d /run/systemd/system ]; then
+	systemctl daemon-reload >/dev/null 2>&1 || :
+fi
+
+%postun
+if [ -d /run/systemd/system ]; then
+	systemctl daemon-reload >/dev/null 2>&1 || :
+fi
 
 
 %files
 %{_bindir}/vey-dcgen
-/lib/systemd/system/vey-dcgen@.service
+%{_unitdir}/vey-dcgen@.service
 %license LICENSE
 %license LICENSE-BUNDLED
 %license LICENSE-FOREIGN

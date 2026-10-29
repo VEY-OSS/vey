@@ -2,13 +2,16 @@ Source: vey-gateway
 Section: net
 Priority: optional
 Maintainer: VEY-OSS Developers <developers@vey.oss>
-Build-Depends: debhelper, pkg-config, capnproto, cmake, g++,
+Build-Depends: debhelper-compat (= 13), pkg-config, capnproto, cmake, g++,
  libssl-dev, libbpf-dev
-Standards-Version: 3.9.8
+Standards-Version: 4.6.0
 Homepage: https://github.com/VEY-OSS/vey
 
 Package: vey-gateway
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: ca-certificates, systemd
-Description: Generic Gateway
+Description: Programmable reverse proxy and gateway
+ A reverse-proxy and gateway daemon for multiple frontend and upstream
+ protocols. The current implementation focuses on TLS and keyless traffic
+ handling.

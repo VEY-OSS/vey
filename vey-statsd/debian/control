@@ -2,12 +2,15 @@ Source: vey-statsd
 Section: net
 Priority: optional
 Maintainer: VEY-OSS Developers <developers@vey.oss>
-Build-Depends: debhelper, pkg-config, capnproto, cmake, g++
-Standards-Version: 3.9.8
+Build-Depends: debhelper-compat (= 13), pkg-config, capnproto, cmake, g++
+Standards-Version: 4.6.0
 Homepage: https://github.com/VEY-OSS/vey
 
 Package: vey-statsd
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: systemd
-Description: StatsD Server
+Description: StatsD metrics ingestion and export server
+ Receives StatsD metrics over UDP or a Unix datagram socket, aggregates
+ them, and exports to backends such as Graphite, Prometheus, InfluxDB,
+ and VictoriaMetrics.

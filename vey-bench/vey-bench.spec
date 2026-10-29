@@ -5,7 +5,7 @@
 Name:           vey-bench
 Version:        0.9.8
 Release:        1%{?dist}
-Summary:        Multi-Target Benchmark tool
+Summary:        Multi-protocol client benchmark
 
 License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
@@ -14,10 +14,11 @@ Source0:        %{name}-%{version}.tar.xz
 BuildRequires:  gcc, gcc-c++, make, pkgconf, cmake
 BuildRequires:  openssl-devel
 
-Requires:       ca-certificates
+Recommends:     ca-certificates
 
 %description
-Multi-Target Benchmark tool
+Benchmarks HTTP/1.1, HTTP/2, HTTP/3, WebSocket, TLS handshakes, DNS, Thrift
+RPC, and Cloudflare Keyless.
 
 
 %prep

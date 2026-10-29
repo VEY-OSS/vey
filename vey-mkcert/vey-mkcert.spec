@@ -5,7 +5,7 @@
 Name:           vey-mkcert
 Version:        0.1.0
 Release:        1%{?dist}
-Summary:        Tool to make certificates
+Summary:        TLS and TLCP certificate generator
 
 License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
@@ -15,7 +15,8 @@ BuildRequires:  gcc, make, pkgconf
 BuildRequires:  openssl-devel
 
 %description
-Tool to make certificates
+Generates root CA, intermediate CA, TLS server, TLS client, TLCP server, and
+TLCP client certificates.
 
 
 %prep
