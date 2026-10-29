@@ -216,6 +216,10 @@ impl UdpListenConfig {
     #[inline]
     pub fn set_transparent(&mut self) {
         self.non_reloadable.transparent = true;
+        #[cfg(not(target_os = "openbsd"))]
+        {
+            self.non_reloadable.ipv6only = Some(true);
+        }
     }
 
     pub fn set_instance(&mut self, instance: usize) {
@@ -360,5 +364,24 @@ impl UdpConnectionTrackConfig {
     #[inline]
     pub fn set_offline_quit_time(&mut self, quit_time: Duration) {
         self.offline_quit_time = quit_time;
+    }
+}
+
+#[cfg(all(
+    test,
+    not(target_os = "openbsd"),
+    any(target_os = "linux", target_os = "freebsd")
+))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn transparent_listen_enables_ipv6_only() {
+        let mut config = UdpListenConfig::default();
+        config.set_port(1);
+        config.set_ipv6_only(false);
+        config.set_transparent();
+        config.check().unwrap();
+        assert_eq!(config.is_ipv6only(), Some(true));
     }
 }

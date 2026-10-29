@@ -203,6 +203,10 @@ impl TcpListenConfig {
     #[inline]
     pub fn set_transparent(&mut self) {
         self.transparent = true;
+        #[cfg(not(target_os = "openbsd"))]
+        {
+            self.ipv6only = Some(true);
+        }
     }
 
     #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
@@ -293,5 +297,23 @@ impl TcpListenConfig {
     #[cfg(target_os = "linux")]
     pub fn set_fail_on_ebpf_error(&mut self, fail: bool) {
         self.fail_on_ebpf_error = fail;
+    }
+}
+
+#[cfg(all(
+    test,
+    not(target_os = "openbsd"),
+    any(target_os = "linux", target_os = "freebsd")
+))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn transparent_listen_enables_ipv6_only() {
+        let mut config = TcpListenConfig::default();
+        config.set_port(1);
+        config.set_ipv6_only(false);
+        config.set_transparent();
+        assert_eq!(config.is_ipv6only(), Some(true));
     }
 }
