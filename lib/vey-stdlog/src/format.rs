@@ -157,9 +157,10 @@ impl Serializer for FormatterKv<'_> {
             self.emit_str(key, s)
         } else {
             TL_BUF.with_borrow_mut(|buf| {
-                buf.write_fmt(*value).unwrap();
-
-                let res = self.emit_str(key, buf.as_str());
+                let res = match buf.write_fmt(*value) {
+                    Ok(()) => self.emit_str(key, buf.as_str()),
+                    Err(e) => Err(slog::Error::Fmt(e)),
+                };
                 buf.clear();
                 res
             })
@@ -208,5 +209,35 @@ mod tests {
             .emit_arguments("a-key".into(), &format_args!("a-{v}"))
             .unwrap();
         assert_eq!(vars, [("a-key".to_string(), "a-value".to_string())]);
+    }
+
+    struct FailDisplay;
+
+    impl std::fmt::Display for FailDisplay {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("partial")?;
+            Err(std::fmt::Error)
+        }
+    }
+
+    #[test]
+    fn format_argument_error_returns_and_clears_the_buffer() {
+        let mut vars = Vec::new();
+        {
+            let mut kv_formatter = FormatterKv(&mut vars);
+            let err = kv_formatter
+                .emit_arguments("a-key".into(), &format_args!("{}", FailDisplay))
+                .unwrap_err();
+            assert!(matches!(err, slog::Error::Fmt(_)));
+        }
+        assert!(vars.is_empty());
+
+        {
+            let mut kv_formatter = FormatterKv(&mut vars);
+            kv_formatter
+                .emit_arguments("b-key".into(), &format_args!("ok"))
+                .unwrap();
+        }
+        assert_eq!(vars, [("b-key".to_string(), "ok".to_string())]);
     }
 }

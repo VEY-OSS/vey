@@ -48,7 +48,7 @@ impl AsyncSyslogStreamer {
                 stats: stats.clone(),
                 recv_buf: Vec::with_capacity(MAX_BATCH_SIZE),
                 backend_container: None,
-                backend_failed_instant: Instant::now(),
+                backend_failed_instant: None,
             };
 
             std::thread::Builder::new()
@@ -109,7 +109,7 @@ struct AsyncIoThread {
     stats: Arc<LogStats>,
     recv_buf: Vec<Bytes>,
     backend_container: Option<SyslogBackend>,
-    backend_failed_instant: Instant,
+    backend_failed_instant: Option<Instant>,
 }
 
 impl AsyncIoThread {
@@ -137,7 +137,7 @@ impl AsyncIoThread {
                         self.stats.drop.add_peer_unreachable_n(to_sent.len());
                         self.recv_buf.clear();
                         warn!("sent zero msg to syslog backend, will reconnect later");
-                        self.backend_failed_instant = Instant::now();
+                        self.backend_failed_instant = Some(Instant::now());
                         return;
                     }
                     Ok(n) => {
@@ -151,12 +151,15 @@ impl AsyncIoThread {
                         self.stats.drop.add_peer_unreachable_n(to_sent.len());
                         self.recv_buf.clear();
                         warn!("failed to send msg to syslog backend: {e}, will reconnect later");
-                        self.backend_failed_instant = Instant::now();
+                        self.backend_failed_instant = Some(Instant::now());
                         return;
                     }
                 }
             } else {
-                if self.backend_failed_instant.elapsed() > Duration::from_secs(4) {
+                let backoff_elapsed = self
+                    .backend_failed_instant
+                    .is_none_or(|instant| instant.elapsed() > Duration::from_secs(4));
+                if backoff_elapsed {
                     // hard coded 4s for a minimal reconnect interval
                     match self.backend_builder.build() {
                         Ok(backend) => {
@@ -165,7 +168,7 @@ impl AsyncIoThread {
                         }
                         Err(e) => {
                             warn!("failed to build syslog backend: {e}, will reconnect later");
-                            self.backend_failed_instant = Instant::now();
+                            self.backend_failed_instant = Some(Instant::now());
                         }
                     }
                 }
@@ -175,5 +178,52 @@ impl AsyncIoThread {
             }
         }
         self.recv_buf.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+
+    fn udp_thread(addr: SocketAddr, failed_at: Option<Instant>) -> AsyncIoThread {
+        let (_sender, receiver) = kanal::bounded(1);
+        AsyncIoThread {
+            receiver,
+            backend_builder: SyslogBackendBuilder::Udp(Some(IpAddr::V4(Ipv4Addr::LOCALHOST)), addr),
+            stats: Arc::new(LogStats::default()),
+            recv_buf: Vec::new(),
+            backend_container: None,
+            backend_failed_instant: failed_at,
+        }
+    }
+
+    #[test]
+    fn first_send_connects_without_the_reconnect_backoff() {
+        let server = UdpSocket::bind("127.0.0.1:0").unwrap();
+        server
+            .set_read_timeout(Some(Duration::from_millis(200)))
+            .unwrap();
+        let mut thread = udp_thread(server.local_addr().unwrap(), None);
+        thread.recv_buf.push(Bytes::from_static(b"now"));
+        thread.recv_send_all();
+
+        let mut buf = [0u8; 8];
+        let (n, _) = server.recv_from(&mut buf).unwrap();
+        assert_eq!(&buf[..n], b"now");
+    }
+
+    #[test]
+    fn send_waits_after_a_backend_failure() {
+        let server = UdpSocket::bind("127.0.0.1:0").unwrap();
+        server
+            .set_read_timeout(Some(Duration::from_millis(200)))
+            .unwrap();
+        let mut thread = udp_thread(server.local_addr().unwrap(), Some(Instant::now()));
+        thread.recv_buf.push(Bytes::from_static(b"later"));
+        thread.recv_send_all();
+
+        let mut buf = [0u8; 8];
+        assert!(server.recv_from(&mut buf).is_err());
     }
 }
