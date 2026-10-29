@@ -23,7 +23,8 @@ pub fn setup(args: &DaemonArgs) {
         cfg_if::cfg_if! {
             if #[cfg(target_os = "linux")] {
                 let journal_conf = vey_journal::JournalConfig::with_ident(&args.program_name).append_code_position();
-                let drain = vey_journal::new_async_logger(&async_conf, journal_conf);
+                let drain = vey_journal::new_async_logger(&async_conf, journal_conf)
+                    .expect("failed to spawn process log thread");
                 Logger::root(drain.fuse(), slog::o!())
             } else {
                 unreachable!()
@@ -31,10 +32,13 @@ pub fn setup(args: &DaemonArgs) {
         }
     } else if args.daemon_mode {
         let drain =
-            vey_syslog::SyslogBuilder::with_ident(&args.program_name).start_async(&async_conf);
+            vey_syslog::SyslogBuilder::with_ident(&args.program_name)
+                .start_async(&async_conf)
+                .expect("failed to spawn process log thread");
         Logger::root(drain.fuse(), slog::o!())
     } else {
-        let drain = vey_stdlog::new_async_logger(&async_conf, true, false);
+        let drain = vey_stdlog::new_async_logger(&async_conf, true, false)
+            .expect("failed to spawn process log thread");
         Logger::root(drain.fuse(), slog::o!())
     };
 

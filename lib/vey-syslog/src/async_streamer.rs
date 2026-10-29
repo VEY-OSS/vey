@@ -5,6 +5,7 @@
  */
 
 use std::cell::RefCell;
+use std::io;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -35,7 +36,7 @@ impl AsyncSyslogStreamer {
         header: SyslogHeader,
         formatter: BoxSyslogFormatter,
         backend_builder: &SyslogBackendBuilder,
-    ) -> Self {
+    ) -> io::Result<Self> {
         let (sender, receiver) = kanal::bounded::<Bytes>(config.channel_capacity);
 
         let stats = Arc::new(LogStats::default());
@@ -50,19 +51,19 @@ impl AsyncSyslogStreamer {
                 backend_failed_instant: Instant::now(),
             };
 
-            let _detached_thread = std::thread::Builder::new()
+            std::thread::Builder::new()
                 .name(format!("{}#{i}", config.thread_name))
                 .spawn(move || {
                     io_thread.run_to_end();
-                });
+                })?;
         }
 
-        AsyncSyslogStreamer {
+        Ok(AsyncSyslogStreamer {
             header,
             sender,
             formatter,
             stats,
-        }
+        })
     }
 
     pub fn get_stats(&self) -> Arc<LogStats> {

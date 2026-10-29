@@ -8,6 +8,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
+use log::warn;
 use slog::{Logger, OwnedKV, SendSyncRefUnwindSafeKV};
 use yaml_rust::Yaml;
 
@@ -213,37 +214,56 @@ impl LogConfig {
             LogConfigDriver::Discard => None,
             #[cfg(target_os = "linux")]
             LogConfigDriver::Journal(journal_conf) => {
-                let drain = vey_journal::new_async_logger(&async_conf, journal_conf);
+                let drain = spawned_drain(
+                    &logger_name,
+                    vey_journal::new_async_logger(&async_conf, journal_conf),
+                )?;
                 let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
                 super::registry::add(logger_name.clone(), Arc::new(logger_stats));
                 let drain = ReportLogIoError::new(drain, &logger_name, self.io_err_sampling_mask);
                 Some(Logger::root(drain, common_values))
             }
             LogConfigDriver::Syslog(builder) => {
-                let drain = builder.start_async(&async_conf);
+                let drain = spawned_drain(&logger_name, builder.start_async(&async_conf))?;
                 let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
                 super::registry::add(logger_name.clone(), Arc::new(logger_stats));
                 let drain = ReportLogIoError::new(drain, &logger_name, self.io_err_sampling_mask);
                 Some(Logger::root(drain, common_values))
             }
             LogConfigDriver::Fluentd(fluentd_conf) => {
-                let drain = vey_fluentd::new_async_logger(
-                    &async_conf,
-                    &fluentd_conf,
-                    format!("{}.{log_type}", self.program_name),
-                );
+                let drain = spawned_drain(
+                    &logger_name,
+                    vey_fluentd::new_async_logger(
+                        &async_conf,
+                        &fluentd_conf,
+                        format!("{}.{log_type}", self.program_name),
+                    ),
+                )?;
                 let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
                 super::registry::add(logger_name.clone(), Arc::new(logger_stats));
                 let drain = ReportLogIoError::new(drain, &logger_name, self.io_err_sampling_mask);
                 Some(Logger::root(drain, common_values))
             }
             LogConfigDriver::Stdout => {
-                let drain = vey_stdlog::new_async_logger(&async_conf, false, true);
+                let drain = spawned_drain(
+                    &logger_name,
+                    vey_stdlog::new_async_logger(&async_conf, false, true),
+                )?;
                 let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
                 super::registry::add(logger_name.clone(), Arc::new(logger_stats));
                 let drain = slog::IgnoreResult::new(drain);
                 Some(Logger::root(drain, common_values))
             }
+        }
+    }
+}
+
+fn spawned_drain<T>(logger_name: &str, drain: std::io::Result<T>) -> Option<T> {
+    match drain {
+        Ok(drain) => Some(drain),
+        Err(e) => {
+            warn!("failed to spawn log thread for {logger_name}: {e}");
+            None
         }
     }
 }

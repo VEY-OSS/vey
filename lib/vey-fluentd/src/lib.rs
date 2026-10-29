@@ -5,6 +5,7 @@
  */
 
 use std::collections::VecDeque;
+use std::io;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -31,7 +32,7 @@ pub fn new_async_logger(
     async_conf: &AsyncLogConfig,
     fluent_conf: &Arc<FluentdClientConfig>,
     tag_name: String,
-) -> AsyncLogger<Vec<u8>, FluentdFormatter> {
+) -> io::Result<AsyncLogger<Vec<u8>, FluentdFormatter>> {
     let (sender, receiver) = kanal::bounded::<Vec<u8>>(async_conf.channel_capacity);
 
     let stats = Arc::new(LogStats::default());
@@ -43,19 +44,22 @@ pub fn new_async_logger(
             stats: Arc::clone(&stats),
             retry_queue: VecDeque::with_capacity(fluent_conf.retry_queue_len),
         };
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
 
-        let _detached_thread = std::thread::Builder::new()
+        std::thread::Builder::new()
             .name(format!("{}#{i}", async_conf.thread_name))
             .spawn(move || {
-                let rt = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap();
                 rt.block_on(io_thread.run_to_end());
-            });
+            })?;
     }
 
-    AsyncLogger::new(sender, FluentdFormatter::new(tag_name), stats)
+    Ok(AsyncLogger::new(
+        sender,
+        FluentdFormatter::new(tag_name),
+        stats,
+    ))
 }
 
 enum FluentdConnection {
