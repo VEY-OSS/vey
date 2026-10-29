@@ -51,33 +51,11 @@ impl From<&SocketAddr> for AddressFamily {
     }
 }
 
-pub fn native_socket_addr(orig: SocketAddr) -> SocketAddr {
-    if let SocketAddr::V6(a6) = orig {
-        // convert back ipv4 mapped address to ipv4
-        SocketAddr::new(a6.ip().to_canonical(), a6.port())
-    } else {
-        orig
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::net::{Ipv4Addr, Ipv6Addr};
     use std::str::FromStr;
-
-    #[test]
-    fn convert_socket_addr() {
-        let addr1 = SocketAddr::from_str("[::ffff:192.168.0.1]:80").unwrap();
-        let addr2 = SocketAddr::from_str("192.168.0.1:80").unwrap();
-        assert_eq!(native_socket_addr(addr1), addr2);
-
-        let addr1 = SocketAddr::from_str("[fe80::d118:f3a9:deeb:c033]:80").unwrap();
-        assert_eq!(native_socket_addr(addr1), addr1);
-
-        let addr1 = SocketAddr::from_str("192.168.0.1:80").unwrap();
-        assert_eq!(native_socket_addr(addr1), addr1);
-    }
 
     #[test]
     fn address_family_display_and_from_ip() {
