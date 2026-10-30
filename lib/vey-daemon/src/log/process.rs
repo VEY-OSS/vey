@@ -30,10 +30,9 @@ pub fn setup(args: &DaemonArgs) {
             _ => unreachable!(),
         }
     } else if args.daemon_mode {
-        let drain =
-            vey_syslog::SyslogBuilder::with_ident(&args.program_name)
-                .start_async(&async_conf)
-                .expect("failed to spawn process log thread");
+        let drain = vey_syslog::SyslogBuilder::with_ident(&args.program_name)
+            .start_async(&async_conf)
+            .expect("failed to spawn process log thread");
         Logger::root(drain.fuse(), slog::o!())
     } else {
         let drain = vey_stdlog::new_async_logger(&async_conf, true, false)

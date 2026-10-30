@@ -20,6 +20,7 @@ jobs:
           - vey-proxy
           - vey-gateway
           - vey-keyless
+          - vey-iploc
           - vey-statsd
     steps:
       - uses: actions/checkout@v7

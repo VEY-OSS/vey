@@ -1,11 +1,11 @@
 FROM rust:alpine AS builder
 WORKDIR /usr/src/vey
 COPY . .
-RUN apk add --no-cache musl-dev cmake clang make
+RUN apk add --no-cache musl-dev cmake clang make pkgconfig libbpf-dev
 ENV RUSTFLAGS="-Ctarget-feature=-crt-static"
 ARG VEY_PGO_PROFILE
 ENV VEY_PGO_PROFILE=${VEY_PGO_PROFILE}
-RUN scripts/package/cargo_with_pgo.sh build --profile release-lto --features secure-vendored-mimalloc -p vey-iploc
+RUN scripts/package/cargo_with_pgo.sh build --profile release-lto --features secure-vendored-mimalloc,ebpf -p vey-iploc
 
 FROM alpine:latest
 RUN apk add --no-cache libgcc
@@ -19,7 +19,6 @@ LABEL org.opencontainers.image.title="vey-iploc" \
       org.opencontainers.image.documentation="https://github.com/VEY-OSS/vey/blob/main/vey-iploc/docker/README.md" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.vendor="VEY-OSS"
-ENV UDP_LISTEN_ADDR=0.0.0.0:2888
 EXPOSE 2888/udp
 ENTRYPOINT ["/usr/bin/vey-iploc"]
-CMD ["-c", "/etc/vey-iploc/", "-G", "default", "-v"]
+CMD ["-c", "/etc/vey-iploc/", "-v"]

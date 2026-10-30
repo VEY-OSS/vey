@@ -1,11 +1,21 @@
 [Unit]
-Description=IP Locate Service at %i
+Description=IP Locate Service %i
+After=syslog.target network-online.target
+Wants=network-online.target
 
 [Service]
 Type=exec
+RuntimeDirectory=vey-iploc
+RuntimeDirectoryPreserve=yes
 EnvironmentFile=-/etc/vey-iploc/%i/env
-ExecStart=/usr/bin/vey-iploc -c /etc/vey-iploc/%i/ -s -G %i
-ExecStop=/bin/kill -INT $MAINPID
+ExecStart=/usr/bin/vey-iploc -c /etc/vey-iploc/%i/ --control-dir $RUNTIME_DIRECTORY -s -G %i
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=-/usr/bin/vey-iploc-ctl --control-dir $RUNTIME_DIRECTORY -G %i -p $MAINPID offline
+KillMode=none
+Restart=on-failure
+SuccessExitStatus=SIGQUIT
+RestartPreventExitStatus=255
+TimeoutStartSec=10
 
 [Install]
 WantedBy=multi-user.target

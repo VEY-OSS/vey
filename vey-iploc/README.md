@@ -8,20 +8,38 @@ cluster of vey-proxy instances.
 
 ## How to build
 
+The UDP reuseport selector needs `clang`, `pkg-config`, and `libbpf` 1.5 or newer. If the installed libbpf is older, use the `vendored-libbpf` feature instead of `ebpf`.
+
 To build debug binaries:
 
 ```shell
-cargo build -p vey-iploc
+cargo build --features ebpf -p vey-iploc -p vey-iploc-ctl
 ```
 
 To build release binaries:
 
 ```shell
-cargo build --profile release-lto -p vey-iploc
+cargo build --profile release-lto --features secure-snmalloc,ebpf -p vey-iploc -p vey-iploc-ctl
 ```
 
 See [Build and Package](../doc/build_and_package.md) if you want to build binary packages or docker images.
 How to run the published images is described in [docker/README.md](docker/README.md).
+
+## Documentation
+
+The Sphinx documentation lives under [`sphinx/vey-iploc`](../sphinx/vey-iploc).
+
+- [Configuration Reference](../sphinx/vey-iploc/configuration/index.rst)
+- [Metrics Definition](../sphinx/vey-iploc/metrics/index.rst)
+
+Build the HTML docs with:
+
+```bash
+cd sphinx/vey-iploc
+make html
+```
+
+The generated output is written to `sphinx/vey-iploc/_build/html/`.
 
 ## How to run
 
@@ -29,42 +47,66 @@ How to run the published images is described in [docker/README.md](docker/README
 
 See this [simple basic](examples/basic).
 
-You can run `cargo run --bin vey-iploc -- -c vey-iploc/examples/basic/ -G port2888 -vv` to start it.
+You can run `cargo run --bin vey-iploc -- -c vey-iploc/examples/basic/ -vv` to start it.
 
-### Set UDP listen address
+### Listen addresses
 
-The default UDP listen address is *127.0.0.1:2888*, which is also the same default connect address in vey-proxy.
+Each listen socket is a `server` entry. A `udp` server listens on one UDP address, as a string or the usual listen map. A `unix` server listens on one absolute datagram socket path. At least one server is required.
 
-There are two ways to change the UDP listen port:
+```yaml
+server:
+  - name: local
+    type: udp
+    listen: 127.0.0.1:2888
+  - name: public
+    type: udp
+    listen: "[::]:2888"
+  - name: local_unix
+    type: unix
+    listen: /run/vey-iploc/iploc.sock
+```
 
-- Via command line options
+The main runtime stays single-threaded. UDP queries run on workers: one thread and one reuseport socket per worker for every UDP server. Without a `worker` section, each UDP server binds one socket on the main runtime. Unix servers always run on the main runtime.
 
-  You can set **-G port<port>** or **--group-name port<port>** to change the UDP listen port,
-  the final listen address will be **[::]:<port>**.
+```yaml
+worker:
+  thread_number: 4
+```
 
-  You can set the systemd instance name to *port<port>*, so when you run `systemctl start vey-iploc@port<port>`,
-  it will listen to the correct port automatically.
+`thread_number` is the worker count. Leave `thread_number_per_runtime` at its default of 1 so each worker runtime has one thread.
 
-- Via environment variables
+`-G` / `--group-name` names the instance. Several processes can run at once when each has its own group and its own config directory. systemd passes the instance name: `vey-iploc@local` starts with `-G local` and reads `/etc/vey-iploc/local/`. The group selects the control socket. It does not change listen addresses.
 
-  You can use the environment variable **UDP_LISTEN_ADDR** to change the UDP listen address.
-  You can add this environment variable to `/etc/vey-iploc/<instance name>/env` file to use this with
-  systemd managed vey-iploc service.
+### Reload GeoIP databases
 
-### Hot Restart
+`vey-iploc-ctl` talks to the running process over the control socket. With systemd, or with `-m` / `-d`:
 
-It is not possible to do hot restart gracefully without using two ports.
+```shell
+vey-iploc-ctl -G local reload
+vey-iploc-ctl -G local reload-country
+vey-iploc-ctl -G local reload-asn
+vey-iploc-ctl -G local query 1.1.1.1
+```
 
-If vey-iploc is running at port 3000, and vey-proxy is also using port 3000, the steps are:
+`query` looks up one address in the running databases and prints the network, country, continent, ASN, and ISP fields that are set.
 
-1. start a new vey-iploc service at port 3001 with the new config
-2. reload vey-proxy to use vey-iploc port 3001
-3. stop vey-iploc running at port 3000
+`reload` re-reads `server` and `geoip_db` from the config file. A changed or new server is started, and a removed server is stopped. Country and ASN files are read completely before they replace the databases used by lookups. A database omitted from the reloaded config is left unchanged. `runtime`, `worker`, `stat`, and `controller` stay as they were at startup.
+
+`reload-country` and `reload-asn` each re-read one database from the path already stored in this process. The file is read completely before it replaces the database used by lookups. The other database is left unchanged. These commands do not re-read the config file and do not restart servers.
+
+### Replacing the process
+
+GeoIP data does not need a new process. `reload-country` and `reload-asn` each re-read one configured database file and swap it in. `reload` does that for every database named in the config file, and also applies server config changes.
+
+To replace the binary, start the new process with the same `-G` and with `-s`, `-d`, or `-m` while the old process is still running. The new process binds the same UDP addresses, takes the control socket, and then shuts the old process down. `vey-proxy` keeps its current query address. Listen changes are applied by `reload` and do not need a new process.
+
+On Linux the packaged build includes the eBPF reuseport selector. A root process attaches it unless a UDP `listen` map sets `use_ebpf: false`. New requests go to the new process. Datagrams already queued on an old socket are read before that socket is closed. A non-root process does not attach the selector unless `use_ebpf` is set.
 
 ## GeoIP Database
 
 vey-iploc can only load databases in VEY native CSV format, which can be generated by
-using [geoip-dump](../scripts/geoip-dump) scripts.
+using [geoip-dump](../scripts/geoip-dump) scripts. Deb and rpm packages install those
+scripts in `/usr/share/vey-iploc/`.
 
 The following vendors are supported:
 

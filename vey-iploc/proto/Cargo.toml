@@ -1,0 +1,11 @@
+[package]
+name = "vey-iploc-proto"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+capnp.workspace = true
+
+[build-dependencies]
+capnpc.workspace = true

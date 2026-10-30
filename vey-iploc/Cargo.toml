@@ -1,6 +1,6 @@
 [package]
 name = "vey-iploc"
-version = "0.4.0"
+version = "0.5.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,21 +8,29 @@ description = "IP Locate Service"
 
 [dependencies]
 anyhow.workspace = true
+arc-swap.workspace = true
+async-trait.workspace = true
+foldhash.workspace = true
+capnp.workspace = true
+capnp-rpc.workspace = true
 clap.workspace = true
+ip_network_table.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 tokio = { workspace = true, features = ["net", "io-util", "time", "signal", "macros"] }
 yaml-rust.workspace = true
 snmalloc = { workspace = true, optional = true }
+vey-macros.workspace = true
 vey-yaml.workspace = true
 vey-daemon.workspace = true
 vey-statsd-client.workspace = true
 vey-geoip-types.workspace = true
 vey-geoip-db.workspace = true
 vey-ip-locate.workspace = true
-vey-socket.workspace = true
 vey-types.workspace = true
+vey-reuseport = { workspace = true, optional = true }
 vey-jemalloc = { workspace = true, optional = true }
 vey-mimalloc = { workspace = true, optional = true }
+vey-iploc-proto = { path = "proto" }
 
 [build-dependencies]
 vey-build-env.workspace = true
@@ -35,3 +43,6 @@ vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]
 snmalloc = ["dep:snmalloc", "vey-daemon/snmalloc"]
 secure-snmalloc = ["snmalloc", "snmalloc?/check"]
+ebpf = ["vey-daemon/ebpf"]
+vendored-libbpf = ["ebpf", "vey-reuseport/vendored-libbpf"]
+vendored-ebpf = ["ebpf", "vey-reuseport/vendored"]

@@ -13,6 +13,7 @@ sub-structures in one place.
    - ``vey-gateway``: uses this shared reference from ``0.4.0`` onward
    - ``vey-keyless``: uses this shared reference from ``0.5.0`` onward
    - ``vey-statsd``: uses this shared reference from ``0.2.0`` onward
+   - ``vey-iploc``: uses this shared reference from ``0.5.0`` onward
 
 Each value-family page below includes a page-level availability summary. Where
 an individual shared value is only available in a subset of applications, or

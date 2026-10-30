@@ -33,7 +33,7 @@ export CURL_TEST_H2 CURL_TEST_H3
 DCGEN_PID=$!
 
 # start vey-iploc
-"${BIN_DIR}"/vey-iploc -c "${RUN_DIR}"/vey-iploc.yaml -G port2888 &
+"${BIN_DIR}"/vey-iploc -c "${RUN_DIR}"/vey-iploc.yaml -G local &
 IPLOC_PID=$!
 
 # start vey-statsd

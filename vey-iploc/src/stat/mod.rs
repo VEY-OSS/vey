@@ -4,40 +4,62 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
 use std::time::Instant;
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 
-use vey_statsd_client::StatsdClientConfig;
-
-use super::FrontendStats;
+use vey_statsd_client::{StatsdClient, StatsdClientConfig};
 
 mod metrics;
 
-pub(crate) fn spawn_working_thread(
-    config: StatsdClientConfig,
-    frontend_stats: Arc<FrontendStats>,
-) -> anyhow::Result<JoinHandle<()>> {
-    let mut client = config
+static QUIT_STAT_THREAD: AtomicBool = AtomicBool::new(false);
+
+fn build_statsd_client(config: &StatsdClientConfig) -> anyhow::Result<StatsdClient> {
+    let client = config
         .build()
         .map_err(|e| anyhow!("failed to build statsd client: {e}"))?;
 
+    Ok(client.with_tag(
+        vey_daemon::metrics::TAG_KEY_DAEMON_GROUP,
+        crate::opts::daemon_group(),
+    ))
+}
+
+fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<()>> {
+    let mut client = build_statsd_client(config)?;
+
+    let emit_interval = config.emit_interval;
     let handle = std::thread::Builder::new()
-        .name("stat-main".into())
+        .name("stat".into())
         .spawn(move || {
             loop {
                 let instant_start = Instant::now();
 
-                metrics::frontend::emit_stats(&mut client, &frontend_stats);
+                metrics::emit_stats(&mut client);
                 vey_daemon::runtime::metrics::emit_stats(&mut client);
 
                 client.flush_sink();
 
-                vey_daemon::stat::emit::wait_duration(config.emit_interval, instant_start);
+                if QUIT_STAT_THREAD.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                vey_daemon::stat::emit::wait_duration(emit_interval, instant_start);
             }
         })
         .map_err(|e| anyhow!("failed to spawn thread: {e:?}"))?;
     Ok(handle)
+}
+
+pub fn spawn_working_threads(config: StatsdClientConfig) -> anyhow::Result<Vec<JoinHandle<()>>> {
+    let mut handlers = Vec::with_capacity(2);
+    let main_handle = spawn_main_thread(&config).context("failed to spawn main stats thread")?;
+    handlers.push(main_handle);
+    Ok(handlers)
+}
+
+pub fn stop_working_threads() {
+    QUIT_STAT_THREAD.store(true, Ordering::Relaxed);
 }

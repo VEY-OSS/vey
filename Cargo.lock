@@ -3245,10 +3245,16 @@ dependencies = [
 
 [[package]]
 name = "vey-iploc"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
+ "arc-swap",
+ "async-trait",
+ "capnp",
+ "capnp-rpc",
  "clap",
+ "foldhash",
+ "ip_network_table",
  "log",
  "snmalloc-rs",
  "tokio",
@@ -3257,13 +3263,35 @@ dependencies = [
  "vey-geoip-db",
  "vey-geoip-types",
  "vey-ip-locate",
+ "vey-iploc-proto",
  "vey-jemalloc",
+ "vey-macros",
  "vey-mimalloc",
- "vey-socket",
+ "vey-reuseport",
  "vey-statsd-client",
  "vey-types",
  "vey-yaml",
  "yaml-rust2",
+]
+
+[[package]]
+name = "vey-iploc-ctl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "capnp",
+ "clap",
+ "tokio",
+ "vey-ctl",
+ "vey-iploc-proto",
+]
+
+[[package]]
+name = "vey-iploc-proto"
+version = "0.1.0"
+dependencies = [
+ "capnp",
+ "capnpc",
 ]
 
 [[package]]

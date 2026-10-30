@@ -4,6 +4,7 @@ PACKAGE_NAME := vey-iploc
 BUILD_PROFILE := release-lto
 
 DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
+EBPF_FEATURE ?= $(shell scripts/package/detect_ebpf_feature.sh)
 
 %:
 	dh $@
@@ -18,11 +19,14 @@ override_dh_auto_build:
 	VEY_PACKAGE_VERSION=$(DEB_VERSION) \
 	VEY_PGO_PROFILE='$(VEY_PGO_PROFILE)' \
 	  scripts/package/cargo_with_pgo.sh build --frozen --offline --profile $(BUILD_PROFILE) \
-	    --features secure-snmalloc \
-	    --package vey-iploc
+	    --features secure-snmalloc,$(EBPF_FEATURE) \
+	    --package vey-iploc --package vey-iploc-ctl
 
 override_dh_auto_install:
 	install -m 755 -D target/$(BUILD_PROFILE)/vey-iploc debian/tmp/usr/bin/vey-iploc
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-iploc-ctl debian/tmp/usr/bin/vey-iploc-ctl
+	install -m 755 -D scripts/geoip-dump/geoip_dump_country.py debian/tmp/usr/share/vey-iploc/geoip_dump_country.py
+	install -m 755 -D scripts/geoip-dump/geoip_dump_asn.py debian/tmp/usr/share/vey-iploc/geoip_dump_asn.py
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG

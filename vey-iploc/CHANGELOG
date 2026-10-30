@@ -1,5 +1,10 @@
 
-v0.4.1:
+v0.5.0:
+ - Breaking: listen sockets are `server` entries. UDP uses one reuseport socket per worker when `worker` is set, and one socket on the main runtime otherwise. Unix datagram listen is supported. `UDP_LISTEN_ADDR` and `-G port<port>` no longer select the listen address. `-G` still names the instance and its control socket
+ - Feature: `vey-iploc-ctl reload` re-reads `server` and `geoip_db`, restarts changed listeners, and swaps the running databases
+ - Feature: `vey-iploc-ctl query <ip>` looks up one address in the running databases
+ - Feature: a valid lookup that matches neither database increments `server.lookup_not_found`
+ - Feature: the packaged build includes the eBPF UDP reuseport selector used for a lossless upgrade. Root attaches it unless `use_ebpf` is false
  - BUG FIX: after graceful shutdown is cancelled, a later SIGTERM still requests shutdown
  - Breaking: the default control socket directory is `/run/vey-iploc` for root on Linux and `/var/run/vey-iploc` for root on other Unix systems; another Linux user uses an absolute `XDG_RUNTIME_DIR` or `/run/user/<uid>/vey-iploc`
  - BUG FIX: a `.GZ` ASN database is decompressed, CSV lines are trimmed, and a prefix with host bits set is still loaded

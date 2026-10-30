@@ -1,4 +1,9 @@
 ---
 
+server:
+  - name: local
+    type: udp
+    listen: 127.0.0.1:2888
+
 geoip_db:
   country: simple.csv

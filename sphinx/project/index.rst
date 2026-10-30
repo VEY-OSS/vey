@@ -41,6 +41,10 @@ Follow the links below for the documentation of each application:
 
   A server implementation of the Cloudflare Keyless SSL protocol.
 
+* `vey-iploc`_
+
+  An IP location lookup service used by ``vey-proxy`` GeoIP routing.
+
 Shared Reference
 ================
 
@@ -53,4 +57,5 @@ Those are documented in the common `vey-values`_ reference.
 .. _vey-statsd: /projects/statsd/en/latest/
 .. _vey-gateway: /projects/gateway/en/latest/
 .. _vey-keyless: /projects/keyless/en/latest/
+.. _vey-iploc: /projects/iploc/en/latest/
 .. _vey-values: /projects/values/en/latest/

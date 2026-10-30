@@ -5,9 +5,9 @@
 
 //! One Unix datagram in, one datagram back.
 //!
-//! [`UnixDatagramResponder::send_to`] names the destination client address.
-//! A direct reply uses the address returned with the request. A delayed reply
-//! keeps a clone of the responder and that address until the response exists.
+//! [`UnixDatagramResponder`] carries the client address of the request it
+//! answers. [`UnixDatagramResponder::send`] writes back to that client. A
+//! delayed reply keeps a clone of the responder until the response exists.
 
 use std::future::Future;
 use std::io;
@@ -27,25 +27,30 @@ use tokio::task::JoinHandle;
 use crate::listen::ListenStats;
 use crate::server::{BaseServer, ReloadServer, ServerReloadCommand};
 
-/// Sends one response datagram to an explicit Unix client address.
+/// One response to the client that sent this request.
 #[derive(Clone)]
 pub struct UnixDatagramResponder {
     socket: Arc<UnixDatagram>,
     listen_stats: Arc<ListenStats>,
+    client_addr: UnixSocketAddr,
 }
 
 impl UnixDatagramResponder {
-    /// Send `packet` to `client_addr`.
+    pub fn client_addr(&self) -> &UnixSocketAddr {
+        &self.client_addr
+    }
+
+    /// Send `packet` back to this request's client.
     ///
-    /// `client_addr` is the destination. Pathname addresses are the usual
-    /// bound client sockets. Abstract-namespace addresses are accepted on
-    /// Linux. An unnamed peer has nowhere to send.
-    pub async fn send_to(&self, packet: &[u8], client_addr: &UnixSocketAddr) -> io::Result<()> {
+    /// Pathname addresses are the usual bound client sockets.
+    /// Abstract-namespace addresses are accepted on Linux. An unnamed peer
+    /// has nowhere to send.
+    pub async fn send(&self, packet: &[u8]) -> io::Result<()> {
         self.listen_stats.add_datagram_send_queued(1);
-        let sent = if let Some(path) = client_addr.as_pathname() {
+        let sent = if let Some(path) = self.client_addr.as_pathname() {
             self.socket.send_to(packet, path).await
         } else {
-            self.send_abstract(packet, client_addr).await
+            self.send_abstract(packet, &self.client_addr).await
         };
         match sent {
             Ok(n) if n == packet.len() => {
@@ -129,13 +134,12 @@ fn send_abstract(fd: std::os::unix::io::RawFd, packet: &[u8], name: &[u8]) -> io
 
 /// Handles one request datagram.
 ///
-/// The runtime does not send a response. Call [`UnixDatagramResponder::send_to`]
-/// with the client address that should receive it.
+/// The runtime does not send a response. Call [`UnixDatagramResponder::send`]
+/// to reply to the client carried by `responder`.
 pub trait RespondUnixDatagramServer: BaseServer {
     fn handle_unix_request<'a>(
         &'a self,
         packet: &'a [u8],
-        client_addr: &'a UnixSocketAddr,
         responder: &'a UnixDatagramResponder,
     ) -> impl Future<Output = ()> + Send + 'a;
 }
@@ -204,10 +208,8 @@ where
         use broadcast::error::RecvError;
 
         let _alive_guard = self.listen_stats.add_running_runtime();
-        let responder = UnixDatagramResponder {
-            socket: Arc::new(socket),
-            listen_stats: Arc::clone(&self.listen_stats),
-        };
+        let socket = Arc::new(socket);
+        let listen_stats = Arc::clone(&self.listen_stats);
         let mut buf = [0u8; u16::MAX as usize];
         loop {
             tokio::select! {
@@ -238,13 +240,18 @@ where
                     self.pre_stop();
                     break;
                 }
-                r = responder.socket.recv_from(&mut buf) => {
+                r = socket.recv_from(&mut buf) => {
                     match r {
                         Ok((len, client_addr)) => {
                             self.listen_stats.add_datagram_recv_total(1);
                             self.listen_stats.add_datagram_recv_ok(1);
+                            let responder = UnixDatagramResponder {
+                                socket: Arc::clone(&socket),
+                                listen_stats: Arc::clone(&listen_stats),
+                                client_addr,
+                            };
                             self.server
-                                .handle_unix_request(&buf[..len], &client_addr, &responder)
+                                .handle_unix_request(&buf[..len], &responder)
                                 .await;
                         }
                         Err(e) => {
@@ -351,9 +358,7 @@ impl<S> Drop for RespondUnixDatagramRuntime<S> {
 mod tests {
     use super::*;
 
-    use std::path::Path;
     use std::str::FromStr;
-    use std::sync::Mutex;
     use std::time::Duration;
 
     use tokio::time::timeout;
@@ -362,7 +367,6 @@ mod tests {
     #[derive(Clone)]
     struct TestServer {
         name: NodeName,
-        reply_to: Arc<Mutex<Option<UnixSocketAddr>>>,
     }
 
     impl BaseServer for TestServer {
@@ -386,22 +390,9 @@ mod tests {
     }
 
     impl RespondUnixDatagramServer for TestServer {
-        fn handle_unix_request<'a>(
-            &'a self,
-            packet: &'a [u8],
-            client_addr: &'a UnixSocketAddr,
-            responder: &'a UnixDatagramResponder,
-        ) -> impl Future<Output = ()> + Send + 'a {
-            let dest = self
-                .reply_to
-                .lock()
-                .unwrap()
-                .clone()
-                .unwrap_or_else(|| client_addr.clone());
-            async move {
-                let _ = packet;
-                responder.send_to(b"pong", &dest).await.unwrap();
-            }
+        async fn handle_unix_request(&self, packet: &[u8], responder: &UnixDatagramResponder) {
+            let _ = packet;
+            responder.send(b"pong").await.unwrap();
         }
     }
 
@@ -413,13 +404,8 @@ mod tests {
         }
     }
 
-    fn socket_addr(path: &Path) -> UnixSocketAddr {
-        let addr = std::os::unix::net::SocketAddr::from_pathname(path).unwrap();
-        UnixSocketAddr::from(addr)
-    }
-
     #[tokio::test]
-    async fn response_goes_to_the_named_client() {
+    async fn response_goes_to_the_request_client() {
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -430,14 +416,10 @@ mod tests {
 
         let server_path = dir.join("server");
         let sender_path = dir.join("sender");
-        let other_path = dir.join("other");
         let sender = UnixDatagram::bind(&sender_path).unwrap();
-        let other = UnixDatagram::bind(&other_path).unwrap();
 
-        let reply_to = Arc::new(Mutex::new(Some(socket_addr(&other_path))));
         let server = TestServer {
             name: NodeName::from_str("respond-unix").unwrap(),
-            reply_to,
         };
         let listen_stats = Arc::new(ListenStats::new(server.name()));
         let runtime = RespondUnixDatagramRuntime::new(server, server_path.clone(), listen_stats);
@@ -447,18 +429,12 @@ mod tests {
         sender.send_to(b"ping", &server_path).await.unwrap();
 
         let mut buf = [0u8; 16];
-        let (n, from) = timeout(Duration::from_secs(2), other.recv_from(&mut buf))
+        let (n, from) = timeout(Duration::from_secs(2), sender.recv_from(&mut buf))
             .await
             .expect("timed out waiting for datagram")
             .unwrap();
         assert_eq!(&buf[..n], b"pong");
         assert_eq!(from.as_pathname(), Some(server_path.as_path()));
-
-        let missed = timeout(Duration::from_millis(200), sender.recv_from(&mut buf)).await;
-        assert!(
-            missed.is_err(),
-            "sender should not receive a reply aimed at other"
-        );
 
         let _ = reload.send(ServerReloadCommand::QuitRuntime);
         timeout(Duration::from_secs(2), handle)

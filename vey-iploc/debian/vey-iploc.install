@@ -1,1 +1,4 @@
 usr/bin/vey-iploc
+usr/bin/vey-iploc-ctl
+usr/share/vey-iploc/geoip_dump_country.py
+usr/share/vey-iploc/geoip_dump_asn.py

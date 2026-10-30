@@ -1,5 +1,10 @@
 ---
 
+server:
+  - name: local
+    type: udp
+    listen: "[::]:2888"
+
 stat:
   target:
     udp: 127.0.0.1:8125

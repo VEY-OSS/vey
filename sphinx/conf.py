@@ -22,6 +22,9 @@ multiproject_projects = {
     "keyless": {
         "path": "vey-keyless",
     },
+    "iploc": {
+        "path": "vey-iploc",
+    },
     "values": {
         "path": "vey-values",
     },
