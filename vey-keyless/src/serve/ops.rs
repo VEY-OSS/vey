@@ -13,6 +13,9 @@ use tokio::sync::Mutex;
 
 use vey_types::metrics::NodeName;
 
+use super::cloudflare::CloudflareServer;
+use super::plain_tcp_port::PlainTcpPort;
+use super::plain_tls_port::PlainTlsPort;
 use super::{ArcKeyServer, ArcKeyServerInternal, registry};
 use crate::config::server::{AnyKeyServerConfig, KeyServerConfigDiffAction};
 
@@ -144,9 +147,17 @@ fn delete_existed_unlocked(name: &NodeName) {
     update_dependency_to_server_unlocked(name, "deleted");
 }
 
+fn new_server(config: AnyKeyServerConfig) -> anyhow::Result<ArcKeyServerInternal> {
+    match config {
+        AnyKeyServerConfig::Cloudflare(c) => CloudflareServer::prepare_initial(c),
+        AnyKeyServerConfig::PlainTcpPort(c) => PlainTcpPort::prepare_initial(c),
+        AnyKeyServerConfig::PlainTlsPort(c) => PlainTlsPort::prepare_initial(c),
+    }
+}
+
 fn spawn_new_unlocked(config: AnyKeyServerConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
-    let server = super::new_server(config)?;
+    let server = new_server(config)?;
     registry::add(name.clone(), server)?;
     update_dependency_to_server_unlocked(&name, "spawned");
     Ok(())
@@ -154,7 +165,7 @@ fn spawn_new_unlocked(config: AnyKeyServerConfig) -> anyhow::Result<()> {
 
 fn spawn_new_lazy_unlocked(config: AnyKeyServerConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
-    let server = super::new_server(config)?;
+    let server = new_server(config)?;
     registry::add_lazy(name.clone(), server);
     update_dependency_to_server_unlocked(&name, "spawned");
     Ok(())

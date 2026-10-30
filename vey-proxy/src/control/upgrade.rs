@@ -4,16 +4,15 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use vey_daemon::control::upgrade::UpgradeAction;
-
 use anyhow::anyhow;
 use capnp_rpc::RpcSystem;
 use capnp_rpc::rpc_twoparty_capnp::Side;
 
+use vey_daemon::control::LocalController;
+use vey_daemon::control::upgrade::UpgradeAction;
+
 use vey_proxy_proto::proc_capnp::proc_control;
 use vey_proxy_proto::types_capnp::operation_result;
-
-use vey_daemon::control::LocalController;
 
 pub struct UpgradeActor {
     proc_control: proc_control::Client,

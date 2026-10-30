@@ -43,10 +43,6 @@ mod cloudflare;
 mod plain_tcp_port;
 mod plain_tls_port;
 
-use cloudflare::CloudflareServer;
-use plain_tcp_port::PlainTcpPort;
-use plain_tls_port::PlainTlsPort;
-
 #[derive(Clone)]
 pub(crate) enum ServerReloadCommand {
     QuitRuntime,
@@ -105,11 +101,3 @@ trait KeyServerInternal: KeyServer {
 
 pub(crate) type ArcKeyServer = Arc<dyn KeyServer + Send + Sync>;
 type ArcKeyServerInternal = Arc<dyn KeyServerInternal + Send + Sync>;
-
-fn new_server(config: AnyKeyServerConfig) -> anyhow::Result<ArcKeyServerInternal> {
-    match config {
-        AnyKeyServerConfig::Cloudflare(c) => CloudflareServer::prepare_initial(c),
-        AnyKeyServerConfig::PlainTcpPort(c) => PlainTcpPort::prepare_initial(c),
-        AnyKeyServerConfig::PlainTlsPort(c) => PlainTlsPort::prepare_initial(c),
-    }
-}
