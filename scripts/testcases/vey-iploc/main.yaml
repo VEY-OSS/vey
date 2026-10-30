@@ -1,0 +1,25 @@
+---
+
+runtime:
+  task_wait_delay: 0s
+  task_wait_timeout: 5s
+  task_quit_timeout: 2s
+
+worker:
+  thread_number: 2
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+server:
+  - name: local
+    type: udp
+    listen: 127.0.0.1:2888
+  - name: local_unix
+    type: unix
+    listen: /tmp/vey-iploc-ci.sock
+
+geoip_db:
+  country: country.csv
+  asn: asn.csv
