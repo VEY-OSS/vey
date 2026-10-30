@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use ip_network_table::IpNetworkTable;
+use log::warn;
 use rustc_hash::FxHashMap;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
@@ -55,6 +56,15 @@ impl IpLocationCacheRuntime {
     fn handle_rsp(&mut self, ip: Option<IpAddr>, mut rsp: IpLocationCacheResponse) {
         if let Some(location) = rsp.value.take() {
             let net = location.network_addr();
+            if let Some(queried) = ip.filter(|queried| !net.contains(*queried)) {
+                warn!(
+                    "discarding location for {queried}: response network {net} does not contain it"
+                );
+                // Drop waiters so this IP is not pinned, and do not cache the network.
+                self.doing.remove(&queried);
+                return;
+            }
+
             let location = Arc::new(location);
 
             if let Some(ip) = ip
@@ -65,7 +75,18 @@ impl IpLocationCacheRuntime {
                 }
             }
 
-            // also allow push if no doing ip found
+            // The returned network is this IP's smallest network. Drop each
+            // longer cached prefix that still contains the IP.
+            if let Some(queried) = ip {
+                while let Some(cached) = self
+                    .cache
+                    .longest_match(queried)
+                    .map(|(network, _)| network)
+                    .filter(|cached| cached.netmask() > net.netmask())
+                {
+                    self.cache.remove(cached);
+                }
+            }
             self.cache.insert(
                 net,
                 CacheValue {
@@ -154,6 +175,8 @@ mod tests {
 
     use tokio::sync::oneshot;
 
+    use vey_geoip_types::IsoCountryCode;
+
     use crate::IpLocationCacheResponse;
 
     #[tokio::test]
@@ -202,5 +225,265 @@ mod tests {
         drop(req_sender);
         drop(rsp_sender);
         let _ = runtime_task.await;
+    }
+
+    fn location(network: &str, country: Option<IsoCountryCode>) -> IpLocation {
+        let mut builder = vey_geoip_types::IpLocationBuilder::default();
+        builder.set_network(network.parse().unwrap());
+        if let Some(country) = country {
+            builder.set_country(country);
+        }
+        builder.build().unwrap()
+    }
+
+    struct Harness {
+        req_sender: mpsc::UnboundedSender<CacheQueryRequest>,
+        rsp_sender: mpsc::UnboundedSender<(Option<IpAddr>, IpLocationCacheResponse)>,
+        query_receiver: mpsc::UnboundedReceiver<IpAddr>,
+        runtime_task: tokio::task::JoinHandle<io::Result<()>>,
+    }
+
+    fn harness() -> Harness {
+        let config = IpLocateServiceConfig::default();
+        let (rsp_sender, rsp_receiver) = mpsc::unbounded_channel();
+        let (query_sender, query_receiver) = mpsc::unbounded_channel();
+        let (req_sender, req_receiver) = mpsc::unbounded_channel();
+        let runtime =
+            IpLocationCacheRuntime::new(&config, req_receiver, rsp_receiver, query_sender);
+        Harness {
+            req_sender,
+            rsp_sender,
+            query_receiver,
+            runtime_task: tokio::spawn(runtime),
+        }
+    }
+
+    async fn next_query(query_receiver: &mut mpsc::UnboundedReceiver<IpAddr>) -> IpAddr {
+        tokio::time::timeout(Duration::from_secs(1), query_receiver.recv())
+            .await
+            .expect("timed out waiting for query")
+            .expect("query channel closed")
+    }
+
+    #[tokio::test]
+    async fn response_outside_network_is_discarded() {
+        let Harness {
+            req_sender,
+            rsp_sender,
+            mut query_receiver,
+            runtime_task,
+        } = harness();
+        let ip = IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4));
+        let (notifier, waiter) = oneshot::channel();
+        req_sender.send(CacheQueryRequest { ip, notifier }).unwrap();
+        assert_eq!(next_query(&mut query_receiver).await, ip);
+
+        rsp_sender
+            .send((
+                Some(ip),
+                IpLocationCacheResponse::new(location("10.0.0.0/8", None), 60),
+            ))
+            .unwrap();
+        assert!(
+            waiter.await.is_err(),
+            "a network that does not contain the IP must not satisfy the waiter"
+        );
+
+        let inside = IpAddr::V4(Ipv4Addr::new(10, 1, 1, 1));
+        let (notifier, _waiter) = oneshot::channel();
+        req_sender
+            .send(CacheQueryRequest {
+                ip: inside,
+                notifier,
+            })
+            .unwrap();
+        assert_eq!(next_query(&mut query_receiver).await, inside);
+
+        let (notifier, _waiter) = oneshot::channel();
+        req_sender.send(CacheQueryRequest { ip, notifier }).unwrap();
+        assert_eq!(next_query(&mut query_receiver).await, ip);
+
+        drop(req_sender);
+        drop(rsp_sender);
+        let _ = runtime_task.await;
+    }
+
+    #[tokio::test]
+    async fn response_inside_network_is_cached() {
+        let Harness {
+            req_sender,
+            rsp_sender,
+            mut query_receiver,
+            runtime_task,
+        } = harness();
+        let ip = IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4));
+        let (notifier, waiter) = oneshot::channel();
+        req_sender.send(CacheQueryRequest { ip, notifier }).unwrap();
+        assert_eq!(next_query(&mut query_receiver).await, ip);
+
+        rsp_sender
+            .send((
+                Some(ip),
+                IpLocationCacheResponse::new(location("1.2.3.0/24", None), 60),
+            ))
+            .unwrap();
+        let found = waiter.await.unwrap();
+        assert_eq!(found.network_addr().to_string(), "1.2.3.0/24");
+
+        let other = IpAddr::V4(Ipv4Addr::new(1, 2, 3, 5));
+        let (notifier, waiter) = oneshot::channel();
+        req_sender
+            .send(CacheQueryRequest {
+                ip: other,
+                notifier,
+            })
+            .unwrap();
+        tokio::task::yield_now().await;
+        assert!(
+            query_receiver.try_recv().is_err(),
+            "an address inside the cached network must not be queried again"
+        );
+        let found = waiter.await.unwrap();
+        assert_eq!(found.network_addr().to_string(), "1.2.3.0/24");
+
+        drop(req_sender);
+        drop(rsp_sender);
+        let _ = runtime_task.await;
+    }
+
+    #[tokio::test]
+    async fn expired_entry_stays_until_the_same_network_is_replaced() {
+        let Harness {
+            req_sender,
+            rsp_sender,
+            mut query_receiver,
+            runtime_task,
+        } = harness();
+        let ip = IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4));
+        let (notifier, waiter) = oneshot::channel();
+        req_sender.send(CacheQueryRequest { ip, notifier }).unwrap();
+        assert_eq!(next_query(&mut query_receiver).await, ip);
+
+        rsp_sender
+            .send((
+                Some(ip),
+                IpLocationCacheResponse::new(location("1.2.3.0/24", Some(IsoCountryCode::US)), 1),
+            ))
+            .unwrap();
+        assert_eq!(waiter.await.unwrap().country(), Some(IsoCountryCode::US));
+
+        tokio::time::sleep(Duration::from_millis(1100)).await;
+
+        for _ in 0..2 {
+            let (notifier, waiter) = oneshot::channel();
+            req_sender.send(CacheQueryRequest { ip, notifier }).unwrap();
+            assert_eq!(next_query(&mut query_receiver).await, ip);
+            rsp_sender
+                .send((Some(ip), IpLocationCacheResponse::empty(10)))
+                .unwrap();
+            assert_eq!(
+                waiter.await.unwrap().country(),
+                Some(IsoCountryCode::US),
+                "an empty response must keep the expired entry"
+            );
+        }
+
+        let (notifier, waiter) = oneshot::channel();
+        req_sender.send(CacheQueryRequest { ip, notifier }).unwrap();
+        assert_eq!(next_query(&mut query_receiver).await, ip);
+        rsp_sender
+            .send((
+                Some(ip),
+                IpLocationCacheResponse::new(location("1.2.3.0/24", Some(IsoCountryCode::JP)), 60),
+            ))
+            .unwrap();
+        assert_eq!(waiter.await.unwrap().country(), Some(IsoCountryCode::JP));
+
+        let other = IpAddr::V4(Ipv4Addr::new(1, 2, 3, 5));
+        let (notifier, waiter) = oneshot::channel();
+        req_sender
+            .send(CacheQueryRequest {
+                ip: other,
+                notifier,
+            })
+            .unwrap();
+        tokio::task::yield_now().await;
+        assert!(query_receiver.try_recv().is_err());
+        assert_eq!(waiter.await.unwrap().country(), Some(IsoCountryCode::JP));
+
+        drop(req_sender);
+        drop(rsp_sender);
+        let _ = runtime_task.await;
+    }
+
+    #[test]
+    fn returned_network_drops_more_specific_entries() {
+        let config = IpLocateServiceConfig::default();
+        let (_rsp_sender, rsp_receiver) = mpsc::unbounded_channel();
+        let (query_sender, _query_receiver) = mpsc::unbounded_channel();
+        let (_req_sender, req_receiver) = mpsc::unbounded_channel();
+        let mut runtime =
+            IpLocationCacheRuntime::new(&config, req_receiver, rsp_receiver, query_sender);
+
+        let store = |runtime: &mut IpLocationCacheRuntime, ip: IpAddr, network: &str| {
+            runtime.handle_rsp(
+                Some(ip),
+                IpLocationCacheResponse::new(location(network, None), 60),
+            );
+        };
+        store(
+            &mut runtime,
+            IpAddr::V4(Ipv4Addr::new(1, 2, 9, 1)),
+            "1.2.0.0/16",
+        );
+        store(
+            &mut runtime,
+            IpAddr::V4(Ipv4Addr::new(1, 2, 3, 5)),
+            "1.2.3.0/25",
+        );
+        store(
+            &mut runtime,
+            IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)),
+            "1.2.3.4/32",
+        );
+        store(
+            &mut runtime,
+            IpAddr::V4(Ipv4Addr::new(1, 2, 3, 200)),
+            "1.2.3.200/32",
+        );
+        store(
+            &mut runtime,
+            IpAddr::V4(Ipv4Addr::new(1, 2, 4, 1)),
+            "1.2.4.0/24",
+        );
+        store(
+            &mut runtime,
+            IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)),
+            "1.2.3.0/24",
+        );
+
+        let matched = |runtime: &IpLocationCacheRuntime, ip: IpAddr| {
+            runtime.cache.longest_match(ip).unwrap().0.to_string()
+        };
+        assert_eq!(
+            matched(&runtime, IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4))),
+            "1.2.3.0/24"
+        );
+        assert_eq!(
+            matched(&runtime, IpAddr::V4(Ipv4Addr::new(1, 2, 3, 5))),
+            "1.2.3.0/24"
+        );
+        assert_eq!(
+            matched(&runtime, IpAddr::V4(Ipv4Addr::new(1, 2, 3, 200))),
+            "1.2.3.200/32"
+        );
+        assert_eq!(
+            matched(&runtime, IpAddr::V4(Ipv4Addr::new(1, 2, 4, 1))),
+            "1.2.4.0/24"
+        );
+        assert_eq!(
+            matched(&runtime, IpAddr::V4(Ipv4Addr::new(1, 2, 9, 1))),
+            "1.2.0.0/16"
+        );
     }
 }

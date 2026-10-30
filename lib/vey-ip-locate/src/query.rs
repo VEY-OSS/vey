@@ -95,6 +95,10 @@ impl IpLocationQueryRuntime {
     }
 
     fn poll_loop(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        // A connected UDP socket reports ICMP failures as recv errors. One
+        // such error must not end this task: dropping it closes the response
+        // channel and the cache runtime stops with it.
+        let mut recv_error_streak = 0u8;
         loop {
             // handle rsp
             let mut buf = ReadBuf::new(&mut self.read_buffer);
@@ -102,9 +106,16 @@ impl IpLocationQueryRuntime {
                 Poll::Pending => {}
                 Poll::Ready(Err(e)) => {
                     warn!("socket recv error: {e:?}");
-                    return Poll::Ready(Err(e));
+                    recv_error_streak = recv_error_streak.saturating_add(1);
+                    if recv_error_streak > 1 {
+                        // The error is still pending. Yield instead of spinning.
+                        cx.waker().wake_by_ref();
+                        return Poll::Pending;
+                    }
+                    continue;
                 }
                 Poll::Ready(Ok(_)) => {
+                    recv_error_streak = 0;
                     let len = buf.filled().len();
                     if len > 0 {
                         self.handle_rsp(len);
@@ -153,5 +164,47 @@ impl Future for IpLocationQueryRuntime {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         (*self).poll_loop(cx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::Ipv4Addr;
+
+    use tokio::sync::mpsc;
+
+    #[tokio::test]
+    async fn recv_error_does_not_stop_the_query_runtime() {
+        let mut config = IpLocateServiceConfig::default();
+        config.set_query_wait_timeout(Duration::from_secs(30));
+
+        let closed = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let closed_addr = closed.local_addr().unwrap();
+        drop(closed);
+
+        let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        socket.connect(closed_addr).await.unwrap();
+
+        let (query_sender, query_receiver) = mpsc::unbounded_channel();
+        let (rsp_sender, mut rsp_receiver) = mpsc::unbounded_channel();
+        let query_handle = IpLocationQueryHandle::new(query_receiver, rsp_sender);
+        let task = tokio::spawn(IpLocationQueryRuntime::new(&config, socket, query_handle));
+
+        query_sender
+            .send(IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)))
+            .unwrap();
+
+        // Sending to the closed port produces an ICMP error on the next recv.
+        let closed = tokio::time::timeout(Duration::from_secs(1), rsp_receiver.recv()).await;
+        assert!(closed.is_err(), "recv error closed the response channel");
+        assert!(!task.is_finished());
+
+        drop(query_sender);
+        let finished = tokio::time::timeout(Duration::from_secs(1), task)
+            .await
+            .expect("query runtime did not stop after the request channel closed")
+            .unwrap();
+        assert!(finished.is_ok());
     }
 }
