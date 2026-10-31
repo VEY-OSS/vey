@@ -3,6 +3,7 @@ name = "vey-build-env"
 version = "0.2.0"
 license.workspace = true
 edition.workspace = true
+description = "Build script helpers for VEY crates"
 
 [dependencies]
 rustc_version = "0.4"

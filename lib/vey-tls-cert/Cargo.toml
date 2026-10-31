@@ -4,6 +4,7 @@ version = "0.7.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+description = "Certificate builders for VEY TLS tooling"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

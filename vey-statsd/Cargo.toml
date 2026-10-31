@@ -4,7 +4,7 @@ version = "0.3.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "StatsD Server"
+description = "StatsD metrics ingestion and export server"
 
 [dependencies]
 anyhow.workspace = true

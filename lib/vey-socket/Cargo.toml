@@ -4,6 +4,7 @@ version = "0.6.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+description = "Socket helpers for the VEY network stack"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

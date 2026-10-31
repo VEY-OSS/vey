@@ -4,7 +4,7 @@ version = "1.15.1"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Generic Proxy Server"
+description = "Forward, reverse, and transparent proxy server"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

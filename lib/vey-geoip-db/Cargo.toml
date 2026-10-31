@@ -3,6 +3,7 @@ name = "vey-geoip-db"
 version = "0.3.0"
 license.workspace = true
 edition.workspace = true
+description = "GeoIP database access for VEY location lookups"
 
 [dependencies]
 anyhow.workspace = true

@@ -3,6 +3,7 @@ name = "vey-macros"
 version = "0.1.0"
 license.workspace = true
 edition.workspace = true
+description = "Proc macros for VEY configuration types"
 
 [lib]
 proc-macro = true

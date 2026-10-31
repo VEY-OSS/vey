@@ -4,6 +4,7 @@ version = "0.1.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+description = "mimalloc integration for VEY services"
 
 [dependencies]
 mimalloc-sys = { package = "vey-mimalloc-sys", version = "0.3" }

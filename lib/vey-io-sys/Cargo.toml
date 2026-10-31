@@ -3,6 +3,7 @@ name = "vey-io-sys"
 version = "0.1.0"
 license.workspace = true
 edition.workspace = true
+description = "Low-level socket IO for the VEY network stack"
 
 [dependencies]
 

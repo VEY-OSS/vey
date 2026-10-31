@@ -4,7 +4,7 @@ version = "0.9.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Dynamic certificate generator"
+description = "Dynamic certificate generator for TLS interception"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

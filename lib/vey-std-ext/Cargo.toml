@@ -3,5 +3,6 @@ name = "vey-std-ext"
 version = "0.1.0"
 license.workspace = true
 edition.workspace = true
+description = "Standard library extensions for VEY crates"
 
 [dependencies]

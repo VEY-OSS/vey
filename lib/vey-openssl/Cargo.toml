@@ -3,6 +3,7 @@ name = "vey-openssl"
 version = "0.4.0"
 license.workspace = true
 edition.workspace = true
+description = "OpenSSL integration for the VEY project"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -5,7 +5,7 @@
 Name:           vey-keyless
 Version:        0.5.0
 Release:        1%{?dist}
-Summary:        Cloudflare Keyless SSL server
+Summary:        Dedicated private-key service for TLS deployments
 
 License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
@@ -17,9 +17,8 @@ BuildRequires:  systemd-rpm-macros
 %{?systemd_ordering}
 
 %description
-Implements the Cloudflare Keyless SSL protocol so TLS edges can delegate
-private-key operations to a dedicated backend, including OpenSSL hardware
-acceleration.
+Performs TLS private-key operations for edge processes that should not hold
+the keys. The primary key-operation protocol is Cloudflare Keyless SSL.
 
 
 %prep

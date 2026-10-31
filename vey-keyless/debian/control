@@ -10,7 +10,6 @@ Package: vey-keyless
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: systemd
-Description: Cloudflare Keyless SSL server
- Implements the Cloudflare Keyless SSL protocol so TLS edges can delegate
- private-key operations to a dedicated backend, including OpenSSL hardware
- acceleration.
+Description: Dedicated private-key service for TLS deployments
+ Performs TLS private-key operations for edge processes that should not hold
+ the keys. The primary key-operation protocol is Cloudflare Keyless SSL.

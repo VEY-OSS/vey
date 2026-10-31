@@ -3,6 +3,7 @@ name = "vey-clap"
 version = "0.2.0"
 license.workspace = true
 edition.workspace = true
+description = "Clap value parsers for VEY command-line tools"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -39,7 +39,7 @@ Follow the links below for the documentation of each application:
 
 * `vey-keyless`_
 
-  A server implementation of the Cloudflare Keyless SSL protocol.
+  A dedicated private-key service for TLS deployments.
 
 * `vey-iploc`_
 

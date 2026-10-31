@@ -4,7 +4,7 @@ version = "0.1.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Intel qatlib helpers for asynchronous asymmetric crypto"
+description = "Intel QAT integration for the VEY project"
 
 [dependencies]
 libc.workspace = true

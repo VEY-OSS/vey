@@ -4,7 +4,7 @@ version = "0.5.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "IP Locate Service"
+description = "IP geolocation lookup service"
 
 [dependencies]
 anyhow.workspace = true

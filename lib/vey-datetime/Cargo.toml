@@ -3,6 +3,7 @@ name = "vey-datetime"
 version = "0.2.0"
 license.workspace = true
 edition.workspace = true
+description = "Date-time helpers for VEY configuration and logs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
