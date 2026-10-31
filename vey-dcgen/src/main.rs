@@ -7,6 +7,8 @@
 use anyhow::Context;
 use log::{debug, error, info};
 
+use vey_daemon::control::{QuitAction, UpgradeAction};
+
 use vey_dcgen::opts::ProcArgs;
 
 cfg_select! {
@@ -36,10 +38,18 @@ fn main() -> anyhow::Result<()> {
 
     // set up process logger early, only proc args is used inside
     vey_daemon::log::process::setup(&proc_args.daemon_config);
+    if proc_args.daemon_config.need_daemon_controller() {
+        vey_dcgen::control::UpgradeActor::connect_to_old_daemon(proc_args.program_name());
+    }
 
     vey_daemon::runtime::config::set_default_thread_number(0); // default to use current thread
-    let config_file = vey_dcgen::config::load(&proc_args.daemon_config.program_name)
-        .context(format!("failed to load config, opts: {proc_args:?}"))?;
+    let config_file = match vey_dcgen::config::load(proc_args.program_name()) {
+        Ok(c) => c,
+        Err(e) => {
+            vey_daemon::control::upgrade::cancel_old_shutdown();
+            return Err(e.context(format!("failed to load config, opts: {proc_args:?}")));
+        }
+    };
     debug!("loaded config from {}", config_file.display());
 
     if proc_args.daemon_config.test_config {
@@ -51,9 +61,25 @@ fn main() -> anyhow::Result<()> {
     #[cfg(all(unix, not(target_os = "macos")))]
     vey_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
+    let stat_join = if let Some(stat_config) = vey_daemon::stat::config::get_global_stat_config() {
+        Some(
+            vey_dcgen::stat::spawn_working_threads(stat_config)
+                .context("failed to start stat thread")?,
+        )
+    } else {
+        None
+    };
+
     let _workers_guard =
         vey_daemon::runtime::worker::spawn_workers().context("failed to spawn workers")?;
     let ret = tokio_run(&proc_args);
+
+    if let Some(handlers) = stat_join {
+        vey_dcgen::stat::stop_working_threads();
+        for handle in handlers {
+            let _ = handle.join();
+        }
+    }
 
     match ret {
         Ok(_) => Ok(()),
@@ -71,8 +97,46 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
     rt.block_on(async {
         vey_daemon::runtime::set_main_handle();
 
-        // TODO setup signal handler
+        let ctl_thread_handler = vey_dcgen::control::capnp::spawn_working_thread().await?;
 
-        vey_dcgen::run(args).await
+        let unique_ctl = vey_dcgen::control::UniqueController::start(args.program_name())
+            .context("failed to start unique controller")?;
+        if args.daemon_config.need_daemon_controller() {
+            vey_daemon::control::upgrade::release_old_controller().await;
+            let daemon_ctl =
+                vey_dcgen::control::DaemonController::start(args.program_name().to_owned())
+                    .context("failed to start daemon controller")?;
+            tokio::spawn(async move {
+                daemon_ctl.await;
+            });
+        }
+        vey_dcgen::control::QuitActor::tokio_spawn_run(args.program_name());
+
+        vey_dcgen::signal::register().context("failed to setup signal handler")?;
+        vey_daemon::control::panic::set_hook(&args.daemon_config);
+
+        match load_and_spawn().await {
+            Ok(_) => vey_daemon::control::upgrade::finish(),
+            Err(e) => {
+                vey_daemon::control::upgrade::cancel_old_shutdown();
+                return Err(e);
+            }
+        }
+
+        unique_ctl.await;
+
+        vey_dcgen::control::capnp::stop_working_thread();
+        let _ = ctl_thread_handler.join();
+
+        Ok(())
     })
+}
+
+async fn load_and_spawn() -> anyhow::Result<()> {
+    vey_dcgen::serve::spawn_cert_backends().context("failed to start cert backend")?;
+    vey_dcgen::serve::spawn_offline_clean();
+    vey_dcgen::serve::spawn_all()
+        .await
+        .context("failed to start servers")?;
+    Ok(())
 }

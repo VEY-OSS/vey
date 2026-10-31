@@ -2897,7 +2897,11 @@ name = "vey-dcgen"
 version = "0.9.0"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "capnp",
+ "capnp-rpc",
  "clap",
+ "foldhash",
  "kanal",
  "log",
  "snmalloc-rs",
@@ -2907,16 +2911,38 @@ dependencies = [
  "vey-build-env",
  "vey-cert-agent",
  "vey-daemon",
+ "vey-dcgen-proto",
  "vey-histogram",
  "vey-jemalloc",
+ "vey-macros",
  "vey-mimalloc",
- "vey-socket",
+ "vey-reuseport",
  "vey-statsd-client",
  "vey-std-ext",
  "vey-tls-cert",
  "vey-types",
  "vey-yaml",
  "yaml-rust2",
+]
+
+[[package]]
+name = "vey-dcgen-ctl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "capnp",
+ "clap",
+ "tokio",
+ "vey-ctl",
+ "vey-dcgen-proto",
+]
+
+[[package]]
+name = "vey-dcgen-proto"
+version = "0.1.0"
+dependencies = [
+ "capnp",
+ "capnpc",
 ]
 
 [[package]]

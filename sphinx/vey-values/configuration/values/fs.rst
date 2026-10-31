@@ -12,6 +12,7 @@ Filesystem
    - ``vey-keyless``: available
    - ``vey-statsd``: available
    - ``vey-iploc``: available
+   - ``vey-dcgen``: available
 
 .. _conf_value_hybrid_map:
 

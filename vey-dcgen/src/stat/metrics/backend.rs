@@ -7,7 +7,7 @@ use vey_daemon::metrics::TAG_KEY_QUANTILE;
 use vey_histogram::HistogramStats;
 use vey_statsd_client::StatsdClient;
 
-use crate::BackendStats;
+use crate::backend::BackendStats;
 
 pub(crate) fn emit_stats(client: &mut StatsdClient, s: &BackendStats) {
     macro_rules! emit_count {

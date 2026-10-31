@@ -1,11 +1,21 @@
 [Unit]
 Description=Dynamic Certificate Generator at %i
+After=syslog.target network-online.target
+Wants=network-online.target
 
 [Service]
 Type=exec
+RuntimeDirectory=vey-dcgen
+RuntimeDirectoryPreserve=yes
 EnvironmentFile=-/etc/vey-dcgen/%i/env
-ExecStart=/usr/bin/vey-dcgen -c /etc/vey-dcgen/%i/ -s -G %i
-ExecStop=/bin/kill -INT $MAINPID
+ExecStart=/usr/bin/vey-dcgen -c /etc/vey-dcgen/%i/ --control-dir $RUNTIME_DIRECTORY -s -G %i
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=-/usr/bin/vey-dcgen-ctl --control-dir $RUNTIME_DIRECTORY -G %i -p $MAINPID offline
+KillMode=none
+Restart=on-failure
+SuccessExitStatus=SIGQUIT
+RestartPreventExitStatus=255
+TimeoutStartSec=10
 
 [Install]
 WantedBy=multi-user.target

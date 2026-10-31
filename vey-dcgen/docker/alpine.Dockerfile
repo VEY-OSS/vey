@@ -1,11 +1,11 @@
 FROM rust:alpine AS builder
 WORKDIR /usr/src/vey
 COPY . .
-RUN apk add --no-cache musl-dev openssl-dev cmake clang make
+RUN apk add --no-cache musl-dev openssl-dev cmake clang make capnproto pkgconfig libbpf-dev
 ENV RUSTFLAGS="-Ctarget-feature=-crt-static"
 ARG VEY_PGO_PROFILE
 ENV VEY_PGO_PROFILE=${VEY_PGO_PROFILE}
-RUN scripts/package/cargo_with_pgo.sh build --profile release-lto --features secure-vendored-mimalloc -p vey-dcgen -p vey-mkcert
+RUN scripts/package/cargo_with_pgo.sh build --profile release-lto --features secure-vendored-mimalloc,ebpf -p vey-dcgen -p vey-mkcert
 
 FROM alpine:latest
 RUN apk add --no-cache libgcc libssl3
@@ -21,7 +21,6 @@ LABEL org.opencontainers.image.title="vey-dcgen" \
       org.opencontainers.image.documentation="https://github.com/VEY-OSS/vey/blob/main/vey-dcgen/docker/README.md" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.vendor="VEY-OSS"
-ENV UDP_LISTEN_ADDR=0.0.0.0:2999
 EXPOSE 2999/udp
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["-c", "/etc/vey-dcgen/", "-G", "default", "-v"]

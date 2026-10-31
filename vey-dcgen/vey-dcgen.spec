@@ -11,7 +11,7 @@ License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
 Source0:        %{name}-%{version}.tar.xz
 
-BuildRequires:  gcc, gcc-c++, make, pkgconf, cmake
+BuildRequires:  gcc, gcc-c++, make, pkgconf, cmake, capnproto, clang, libbpf-devel
 BuildRequires:  openssl-devel
 BuildRequires:  systemd-rpm-macros
 %{?systemd_ordering}
@@ -29,12 +29,14 @@ certificate authority.
 VEY_PACKAGE_VERSION="%{version}-%{release}"
 export VEY_PACKAGE_VERSION
 %{?vey_pgo_profile:export VEY_PGO_PROFILE="%{vey_pgo_profile}"}
-scripts/package/cargo_with_pgo.sh build --frozen --offline --profile %{build_profile} --no-default-features --features secure-snmalloc --package vey-dcgen
+EBPF_FEATURE=$(sh scripts/package/detect_ebpf_feature.sh)
+scripts/package/cargo_with_pgo.sh build --frozen --offline --profile %{build_profile} --no-default-features --features secure-snmalloc,$EBPF_FEATURE --package vey-dcgen --package vey-dcgen-ctl
 
 
 %install
 rm -rf $RPM_BUILD_ROOT
 install -m 755 -D target/%{build_profile}/vey-dcgen %{buildroot}%{_bindir}/vey-dcgen
+install -m 755 -D target/%{build_profile}/vey-dcgen-ctl %{buildroot}%{_bindir}/vey-dcgen-ctl
 install -m 644 -D %{name}/debian/vey-dcgen@.service %{buildroot}%{_unitdir}/vey-dcgen@.service
 
 
@@ -51,6 +53,7 @@ fi
 
 %files
 %{_bindir}/vey-dcgen
+%{_bindir}/vey-dcgen-ctl
 %{_unitdir}/vey-dcgen@.service
 %license LICENSE
 %license LICENSE-BUNDLED

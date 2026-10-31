@@ -25,6 +25,9 @@ multiproject_projects = {
     "iploc": {
         "path": "vey-iploc",
     },
+    "dcgen": {
+        "path": "vey-dcgen",
+    },
     "values": {
         "path": "vey-values",
     },

@@ -2,6 +2,8 @@
 members = [
     "vey-bench",
     "vey-dcgen",
+    "vey-dcgen/proto",
+    "vey-dcgen/utils/ctl",
     "vey-iploc",
     "vey-iploc/proto",
     "vey-iploc/utils/ctl",
@@ -75,6 +77,8 @@ members = [
 default-members = [
     "vey-bench",
     "vey-dcgen",
+    "vey-dcgen/proto",
+    "vey-dcgen/utils/ctl",
     "vey-iploc",
     "vey-iploc/proto",
     "vey-iploc/utils/ctl",

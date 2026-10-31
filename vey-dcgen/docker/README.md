@@ -16,7 +16,7 @@ The image starts `vey-dcgen -c /etc/vey-dcgen/ -G default -v` with [`config/main
 
 `vey-dcgen` cannot load without a CA certificate and private key. The example under `examples/simple` points at files that are not in the image. The container config points at `/var/lib/vey-dcgen/ca.crt` and `/var/lib/vey-dcgen/ca.key`. On first start, [`entrypoint.sh`](entrypoint.sh) runs `vey-mkcert --root --ec256` to create a P-256 root CA there when both files are missing. If only one of them exists, the entrypoint exits instead of overwriting it.
 
-`UDP_LISTEN_ADDR` defaults to `0.0.0.0:2999`. The process otherwise listens on `127.0.0.1`, which other containers cannot reach. `-V` and `--help` skip CA generation.
+The shipped config listens on `0.0.0.0:2999`, so other containers can reach it. `-V` and `--help` skip CA generation.
 
 A CA created in the writable container layer disappears when the container is removed. Mount a volume on `/var/lib/vey-dcgen` to keep it.
 
@@ -56,14 +56,7 @@ docker run --rm -d --name vey-dcgen \
   ghcr.io/vey-oss/vey-dcgen:<version>
 ```
 
-To change more than the CA paths, mount a directory that contains `main.yaml` over `/etc/vey-dcgen`.
-
-Change the listen address with the environment variable:
-
-```shell
-docker run --rm -e UDP_LISTEN_ADDR=0.0.0.0:3000 -p 3000:3000/udp \
-  ghcr.io/vey-oss/vey-dcgen:<version>
-```
+To change the listen address or anything else, mount a directory that contains `main.yaml` over `/etc/vey-dcgen`. The `server` entry in that file sets the listen address.
 
 ## Build locally
 

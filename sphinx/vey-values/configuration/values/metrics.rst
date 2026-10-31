@@ -11,6 +11,7 @@ Metrics
    - ``vey-keyless``: available
    - ``vey-statsd``: available
    - ``vey-iploc``: available
+   - ``vey-dcgen``: available
 
 .. _conf_value_metric_value:
 

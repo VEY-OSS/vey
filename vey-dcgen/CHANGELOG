@@ -1,5 +1,6 @@
 
 v0.9.1:
+ - Breaking: listen sockets are server entries. `-G port<port>` and `UDP_LISTEN_ADDR` no longer select the listen address. Configure `server` in YAML. `vey-dcgen-ctl` reloads servers and requests offline shutdown
  - BUG FIX: after graceful shutdown is cancelled, a later SIGTERM still requests shutdown
  - Breaking: the default control socket directory is `/run/vey-dcgen` for root on Linux and `/var/run/vey-dcgen` for root on other Unix systems; another Linux user uses an absolute `XDG_RUNTIME_DIR` or `/run/user/<uid>/vey-dcgen`
  - BUG FIX: a large Linux journald record can be sealed and sent

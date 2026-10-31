@@ -1,0 +1,25 @@
+---
+
+runtime:
+  task_wait_delay: 0s
+  task_wait_timeout: 5s
+  task_quit_timeout: 2s
+
+worker:
+  thread_number: 2
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+server:
+  - name: local
+    type: udp
+    listen: 127.0.0.1:2999
+  - name: local_unix
+    type: unix
+    listen: /tmp/vey-dcgen-ci.sock
+
+backend:
+  ca_certificate: ../../../vey-dcgen/examples/simple/G3-test.crt
+  ca_private_key: ../../../vey-dcgen/examples/simple/G3-test.key

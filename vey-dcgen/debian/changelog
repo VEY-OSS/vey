@@ -1,5 +1,8 @@
 vey-dcgen (0.9.0-1) UNRELEASED; urgency=medium
 
   * New upstream release.
+  * Listen sockets are server entries. UDP reuseport workers and Unix
+    datagrams can be reloaded in place. vey-dcgen-ctl stops and reloads
+    the daemon.
 
  -- VEY-OSS Developers <developers@vey.oss>  Sun, 26 Jul 2026 22:39:16 +0800

@@ -4,23 +4,114 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use anyhow::anyhow;
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use tokio::runtime::Handle;
 
 use vey_cert_agent::Request;
+use vey_histogram::{HistogramRecorder, HistogramStats};
 use vey_tls_cert::builder::{MimicCertBuilder, ServerCertBuilder, TlsServerCertBuilder};
 use vey_tls_cert::ext::X509Ext;
 use vey_types::net::TlsCertUsage;
 
-use super::{BackendRequest, BackendResponse};
 use crate::config::OpensslBackendConfig;
-use crate::frontend::GeneratedData;
+
+static REQUEST_SENDER: OnceLock<kanal::AsyncSender<CertRequest>> = OnceLock::new();
+static DURATION_RECORDER: OnceLock<HistogramRecorder<u64>> = OnceLock::new();
+static DURATION_STATS: OnceLock<Arc<HistogramStats>> = OnceLock::new();
+static BACKEND_STATS: OnceLock<Arc<BackendStats>> = OnceLock::new();
+
+pub(crate) struct GeneratedData {
+    pub(crate) cert: String,
+    pub(crate) key: Vec<u8>,
+    pub(crate) ttl: u32,
+}
+
+pub(crate) struct IssuedCert {
+    pub(crate) user_req: Request,
+    pub(crate) cert: String,
+    pub(crate) key: Vec<u8>,
+    pub(crate) ttl: u32,
+}
+
+pub(crate) enum GenerateError {
+    Queue(anyhow::Error),
+    Failed,
+    Dropped,
+}
+
+struct CertRequest {
+    user_req: Request,
+    reply: tokio::sync::oneshot::Sender<Result<IssuedCert, ()>>,
+}
+
+pub(crate) fn stats() -> Option<Arc<BackendStats>> {
+    BACKEND_STATS.get().cloned()
+}
+
+pub(crate) fn duration_stats() -> Option<Arc<HistogramStats>> {
+    DURATION_STATS.get().cloned()
+}
+
+pub(crate) fn duration_recorder() -> &'static HistogramRecorder<u64> {
+    DURATION_RECORDER
+        .get()
+        .expect("cert backend is not running")
+}
+
+pub(crate) async fn generate(user_req: Request) -> Result<IssuedCert, GenerateError> {
+    let (reply, response) = tokio::sync::oneshot::channel();
+    REQUEST_SENDER
+        .get()
+        .expect("cert backend is not running")
+        .send(CertRequest { user_req, reply })
+        .await
+        .map_err(|e| GenerateError::Queue(anyhow!("failed to send request to backend: {e}")))?;
+    match response.await {
+        Ok(Ok(issued)) => Ok(issued),
+        Ok(Err(())) => Err(GenerateError::Failed),
+        Err(_) => Err(GenerateError::Dropped),
+    }
+}
+
+pub(crate) fn spawn_workers() -> anyhow::Result<()> {
+    let backend_config = crate::config::get_backend_config()
+        .ok_or_else(|| anyhow!("no backend config available"))?;
+    let backend_stats = Arc::new(BackendStats::default());
+    let (duration_recorder, duration_stats) = backend_config.duration_stats.build_spawned(None);
+    let (req_sender, req_receiver) = kanal::bounded_async::<CertRequest>(1024);
+
+    let workers = vey_daemon::runtime::worker::foreach(|h| {
+        let backend = OpensslBackend::new(&backend_config, &backend_stats)
+            .map_err(|e| anyhow!("failed to build backend for worker {}: {e}", h.id))?;
+        backend.spawn(&h.handle, h.id, req_receiver.clone());
+        Ok::<(), anyhow::Error>(())
+    })?;
+    if workers < 1 {
+        let backend = OpensslBackend::new(&backend_config, &backend_stats)
+            .map_err(|e| anyhow!("failed to build backend for main runtime: {e}"))?;
+        backend.spawn(&Handle::current(), 0, req_receiver);
+    }
+
+    REQUEST_SENDER
+        .set(req_sender)
+        .map_err(|_| anyhow!("cert backend is already running"))?;
+    DURATION_RECORDER
+        .set(duration_recorder)
+        .map_err(|_| anyhow!("cert backend is already running"))?;
+    DURATION_STATS
+        .set(duration_stats)
+        .map_err(|_| anyhow!("cert backend is already running"))?;
+    BACKEND_STATS
+        .set(backend_stats)
+        .map_err(|_| anyhow!("cert backend is already running"))?;
+    Ok(())
+}
 
 mod stats;
 pub(crate) use stats::BackendStats;
@@ -129,12 +220,11 @@ impl OpensslBackend {
         Ok(data)
     }
 
-    pub(crate) fn spawn(
+    fn spawn(
         mut self,
         handle: &Handle,
         id: usize,
-        req_receiver: kanal::AsyncReceiver<BackendRequest>,
-        rsp_sender: kanal::AsyncSender<BackendResponse>,
+        req_receiver: kanal::AsyncReceiver<CertRequest>,
     ) {
         handle.spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(300));
@@ -156,18 +246,22 @@ impl OpensslBackend {
 
                         let host = req.user_req.host().clone();
                         debug!("{host} - [#{id}] start cert generation");
-                        match self.generate(&req.user_req) {
+                        let issued = match self.generate(&req.user_req) {
                             Ok(data) => {
                                 debug!("{host} - [#{id}] cert generated");
-                                if let Err(e) = rsp_sender.send(req.into_response(data)).await {
-                                    error!("{host} - [#{id}] failed to send cert to frontend: {e}");
-                                    break;
-                                }
+                                Ok(IssuedCert {
+                                    user_req: req.user_req,
+                                    cert: data.cert,
+                                    key: data.key,
+                                    ttl: data.ttl,
+                                })
                             }
                             Err(e) => {
                                 warn!("{host} - [#{id}] cert generation failed: {e:?}");
+                                Err(())
                             }
-                        }
+                        };
+                        let _ = req.reply.send(issued);
                     }
                 }
             }

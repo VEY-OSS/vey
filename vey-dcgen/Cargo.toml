@@ -10,11 +10,15 @@ description = "Dynamic certificate generator for TLS interception"
 
 [dependencies]
 anyhow.workspace = true
+async-trait.workspace = true
+capnp.workspace = true
+capnp-rpc.workspace = true
 clap.workspace = true
+foldhash.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 openssl.workspace = true
 openssl-sys.workspace = true # for openssl variant detection
-tokio = { workspace = true, features = ["macros", "net", "io-util", "time", "signal"] }
+tokio = { workspace = true, features = ["macros", "net", "io-util", "rt", "sync", "time", "signal"] }
 kanal = { workspace = true, features = ["async"] }
 yaml-rust.workspace = true
 snmalloc = { workspace = true, optional = true }
@@ -22,11 +26,13 @@ vey-std-ext.workspace = true
 vey-types.workspace = true
 vey-yaml = { workspace = true, features = ["histogram", "openssl"] }
 vey-daemon.workspace = true
+vey-macros.workspace = true
 vey-statsd-client.workspace = true
 vey-histogram.workspace = true
 vey-tls-cert.workspace = true
 vey-cert-agent.workspace = true
-vey-socket.workspace = true
+vey-dcgen-proto = { path = "proto" }
+vey-reuseport = { workspace = true, optional = true }
 vey-jemalloc = { workspace = true, optional = true }
 vey-mimalloc = { workspace = true, optional = true }
 
@@ -41,6 +47,9 @@ vendored-mimalloc = ["mimalloc", "vey-mimalloc?/vendored"]
 secure-vendored-mimalloc = ["mimalloc", "vey-mimalloc?/secure"]
 snmalloc = ["dep:snmalloc", "vey-daemon/snmalloc"]
 secure-snmalloc = ["snmalloc", "snmalloc?/check"]
+ebpf = ["vey-daemon/ebpf"]
+vendored-libbpf = ["ebpf", "vey-reuseport/vendored-libbpf"]
+vendored-ebpf = ["ebpf", "vey-reuseport/vendored"]
 vendored-openssl = ["openssl/vendored"]
 vendored-tongsuo = ["openssl/tongsuo", "vey-cert-agent/tongsuo"]
 vendored-boringssl = ["openssl/boringssl"]
