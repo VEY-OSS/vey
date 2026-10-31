@@ -10,4 +10,7 @@ interface ProcControl {
 
   # Re-read server entries from the config file and apply the difference.
   reload @4 () -> (result :Types.OperationResult);
+
+  # Re-read the issuer section and swap the running CA. Listeners stay up.
+  reloadIssuer @5 () -> (result :Types.OperationResult);
 }

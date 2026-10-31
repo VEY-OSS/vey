@@ -19,7 +19,7 @@ process does not attach it unless ``use_ebpf`` is set. If attachment fails and
 ``fail_on_ebpf_error`` is false, the server logs a warning and continues
 without the selector.
 
-.. versionadded:: 0.9.1
+.. versionadded:: 0.10.0
 
 The following common keys are supported:
 

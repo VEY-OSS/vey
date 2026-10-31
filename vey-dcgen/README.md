@@ -45,10 +45,9 @@ A Unix datagram server sets `listen` to an absolute socket path. At least one se
 
 `-G` / `--group-name` sets the instance group and the control socket name. It does not select the listen address.
 
-`vey-dcgen-ctl -G <group> reload` re-reads `server` entries and applies the difference in place.
+`vey-dcgen-ctl -G <group> reload` re-reads `server` and `issuer`. Listeners apply the difference in place. The CA certificate, private key, `keep_serial`, and `max_ttl` are swapped after those files load. A request already being signed keeps the previous CA. `duration_stats` stays as it was at startup.
+`vey-dcgen-ctl -G <group> reload-issuer` re-reads only `issuer` and swaps the running CA. Listeners keep running.
 `vey-dcgen-ctl -G <group> offline` stops listeners and lets in-flight requests finish.
-
-The CA certificate and private key are read only at startup. Replacing them requires a new process.
 
 ## Command line options
 

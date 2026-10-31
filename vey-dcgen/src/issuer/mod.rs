@@ -19,12 +19,12 @@ use vey_tls_cert::builder::{MimicCertBuilder, ServerCertBuilder, TlsServerCertBu
 use vey_tls_cert::ext::X509Ext;
 use vey_types::net::TlsCertUsage;
 
-use crate::config::OpensslBackendConfig;
+use crate::config::OpensslIssuerConfig;
 
 static REQUEST_SENDER: OnceLock<kanal::AsyncSender<CertRequest>> = OnceLock::new();
 static DURATION_RECORDER: OnceLock<HistogramRecorder<u64>> = OnceLock::new();
 static DURATION_STATS: OnceLock<Arc<HistogramStats>> = OnceLock::new();
-static BACKEND_STATS: OnceLock<Arc<BackendStats>> = OnceLock::new();
+static ISSUER_STATS: OnceLock<Arc<IssuerStats>> = OnceLock::new();
 
 pub(crate) struct GeneratedData {
     pub(crate) cert: String,
@@ -50,8 +50,8 @@ struct CertRequest {
     reply: tokio::sync::oneshot::Sender<Result<IssuedCert, ()>>,
 }
 
-pub(crate) fn stats() -> Option<Arc<BackendStats>> {
-    BACKEND_STATS.get().cloned()
+pub(crate) fn stats() -> Option<Arc<IssuerStats>> {
+    ISSUER_STATS.get().cloned()
 }
 
 pub(crate) fn duration_stats() -> Option<Arc<HistogramStats>> {
@@ -59,19 +59,17 @@ pub(crate) fn duration_stats() -> Option<Arc<HistogramStats>> {
 }
 
 pub(crate) fn duration_recorder() -> &'static HistogramRecorder<u64> {
-    DURATION_RECORDER
-        .get()
-        .expect("cert backend is not running")
+    DURATION_RECORDER.get().expect("issuer is not running")
 }
 
 pub(crate) async fn generate(user_req: Request) -> Result<IssuedCert, GenerateError> {
     let (reply, response) = tokio::sync::oneshot::channel();
     REQUEST_SENDER
         .get()
-        .expect("cert backend is not running")
+        .expect("issuer is not running")
         .send(CertRequest { user_req, reply })
         .await
-        .map_err(|e| GenerateError::Queue(anyhow!("failed to send request to backend: {e}")))?;
+        .map_err(|e| GenerateError::Queue(anyhow!("failed to send request to issuer: {e}")))?;
     match response.await {
         Ok(Ok(issued)) => Ok(issued),
         Ok(Err(())) => Err(GenerateError::Failed),
@@ -80,56 +78,51 @@ pub(crate) async fn generate(user_req: Request) -> Result<IssuedCert, GenerateEr
 }
 
 pub(crate) fn spawn_workers() -> anyhow::Result<()> {
-    let backend_config = crate::config::get_backend_config()
-        .ok_or_else(|| anyhow!("no backend config available"))?;
-    let backend_stats = Arc::new(BackendStats::default());
-    let (duration_recorder, duration_stats) = backend_config.duration_stats.build_spawned(None);
+    let issuer_config =
+        crate::config::get_issuer_config().ok_or_else(|| anyhow!("no issuer config available"))?;
+    let issuer_stats = Arc::new(IssuerStats::default());
+    let (duration_recorder, duration_stats) = issuer_config.duration_stats.build_spawned(None);
     let (req_sender, req_receiver) = kanal::bounded_async::<CertRequest>(1024);
 
     let workers = vey_daemon::runtime::worker::foreach(|h| {
-        let backend = OpensslBackend::new(&backend_config, &backend_stats)
-            .map_err(|e| anyhow!("failed to build backend for worker {}: {e}", h.id))?;
-        backend.spawn(&h.handle, h.id, req_receiver.clone());
+        let issuer = OpensslIssuer::new(&issuer_stats)
+            .map_err(|e| anyhow!("failed to build issuer for worker {}: {e}", h.id))?;
+        issuer.spawn(&h.handle, h.id, req_receiver.clone());
         Ok::<(), anyhow::Error>(())
     })?;
     if workers < 1 {
-        let backend = OpensslBackend::new(&backend_config, &backend_stats)
-            .map_err(|e| anyhow!("failed to build backend for main runtime: {e}"))?;
-        backend.spawn(&Handle::current(), 0, req_receiver);
+        let issuer = OpensslIssuer::new(&issuer_stats)
+            .map_err(|e| anyhow!("failed to build issuer for main runtime: {e}"))?;
+        issuer.spawn(&Handle::current(), 0, req_receiver);
     }
 
     REQUEST_SENDER
         .set(req_sender)
-        .map_err(|_| anyhow!("cert backend is already running"))?;
+        .map_err(|_| anyhow!("issuer is already running"))?;
     DURATION_RECORDER
         .set(duration_recorder)
-        .map_err(|_| anyhow!("cert backend is already running"))?;
+        .map_err(|_| anyhow!("issuer is already running"))?;
     DURATION_STATS
         .set(duration_stats)
-        .map_err(|_| anyhow!("cert backend is already running"))?;
-    BACKEND_STATS
-        .set(backend_stats)
-        .map_err(|_| anyhow!("cert backend is already running"))?;
+        .map_err(|_| anyhow!("issuer is already running"))?;
+    ISSUER_STATS
+        .set(issuer_stats)
+        .map_err(|_| anyhow!("issuer is already running"))?;
     Ok(())
 }
 
 mod stats;
-pub(crate) use stats::BackendStats;
+pub(crate) use stats::IssuerStats;
 
-pub(crate) struct OpensslBackend {
-    config: Arc<OpensslBackendConfig>,
+pub(crate) struct OpensslIssuer {
     builder: ServerCertBuilder,
-    stats: Arc<BackendStats>,
+    stats: Arc<IssuerStats>,
 }
 
-impl OpensslBackend {
-    pub(crate) fn new(
-        config: &Arc<OpensslBackendConfig>,
-        stats: &Arc<BackendStats>,
-    ) -> anyhow::Result<Self> {
+impl OpensslIssuer {
+    pub(crate) fn new(stats: &Arc<IssuerStats>) -> anyhow::Result<Self> {
         let builder = TlsServerCertBuilder::new_ec256()?;
-        Ok(OpensslBackend {
-            config: Arc::clone(config),
+        Ok(OpensslIssuer {
             builder,
             stats: Arc::clone(stats),
         })
@@ -144,68 +137,65 @@ impl OpensslBackend {
     }
 
     fn generate(&mut self, req: &Request) -> anyhow::Result<GeneratedData> {
+        let config = crate::config::get_issuer_config()
+            .ok_or_else(|| anyhow!("no issuer config available"))?;
         self.stats.add_request_total();
         if let Some(mimic_cert) = req.cert() {
-            self.generate_mimic(mimic_cert, req.cert_usage())
+            self.generate_mimic(&config, mimic_cert, req.cert_usage())
         } else {
             self.builder.refresh_serial()?;
-            let cert = self.builder.build_fake(
-                req.host(),
-                &self.config.ca_cert,
-                &self.config.ca_key,
-                None,
-            )?;
+            let cert =
+                self.builder
+                    .build_fake(req.host(), &config.ca_cert, &config.ca_key, None)?;
             let ttl = self.builder.valid_seconds()?;
-            self.pack_data(cert, self.builder.pkey(), ttl)
+            self.pack_data(&config, cert, self.builder.pkey(), ttl)
         }
     }
 
     fn generate_mimic(
         &self,
+        config: &OpensslIssuerConfig,
         mimic_cert: &X509,
         cert_usage: TlsCertUsage,
     ) -> anyhow::Result<GeneratedData> {
         let mut mimic_builder = MimicCertBuilder::new(mimic_cert)?;
-        mimic_builder.set_keep_serial(self.config.keep_serial);
+        mimic_builder.set_keep_serial(config.keep_serial);
 
         let cert = match cert_usage {
             TlsCertUsage::TlsServer => {
-                mimic_builder.build_tls_cert(&self.config.ca_cert, &self.config.ca_key, None)?
+                mimic_builder.build_tls_cert(&config.ca_cert, &config.ca_key, None)?
             }
             TlsCertUsage::TLsServerTongsuo => mimic_builder.build_tls_cert_with_new_usage(
-                &self.config.ca_cert,
-                &self.config.ca_key,
+                &config.ca_cert,
+                &config.ca_key,
                 None,
             )?,
-            TlsCertUsage::TlcpServerEncryption => mimic_builder.build_tlcp_enc_cert(
-                &self.config.ca_cert,
-                &self.config.ca_key,
-                None,
-            )?,
-            TlsCertUsage::TlcpServerSignature => mimic_builder.build_tlcp_sign_cert(
-                &self.config.ca_cert,
-                &self.config.ca_key,
-                None,
-            )?,
+            TlsCertUsage::TlcpServerEncryption => {
+                mimic_builder.build_tlcp_enc_cert(&config.ca_cert, &config.ca_key, None)?
+            }
+            TlsCertUsage::TlcpServerSignature => {
+                mimic_builder.build_tlcp_sign_cert(&config.ca_cert, &config.ca_key, None)?
+            }
         };
 
         let ttl = mimic_builder.valid_seconds()?;
 
-        self.pack_data(cert, mimic_builder.pkey(), ttl)
+        self.pack_data(config, cert, mimic_builder.pkey(), ttl)
     }
 
     fn pack_data(
         &self,
+        config: &OpensslIssuerConfig,
         cert: X509,
         pkey: &PKey<Private>,
         ttl: i32,
     ) -> anyhow::Result<GeneratedData> {
-        let ttl = ttl.clamp(0, self.config.max_ttl) as u32;
+        let ttl = ttl.clamp(0, config.max_ttl) as u32;
         let mut cert_pem = cert
             .to_pem()
             .map_err(|e| anyhow!("failed to encode cert to PEM format: {e}"))?;
-        if !self.config.ca_cert_pem.is_empty() {
-            cert_pem.extend_from_slice(&self.config.ca_cert_pem);
+        if !config.ca_cert_pem.is_empty() {
+            cert_pem.extend_from_slice(&config.ca_cert_pem);
         }
         let key = pkey
             .private_key_to_der()
@@ -232,7 +222,7 @@ impl OpensslBackend {
                 tokio::select! {
                     _ = interval.tick() => {
                         if let Err(e) = self.refresh() {
-                            warn!("failed to refresh backend: {e:?}");
+                            warn!("failed to refresh issuer: {e:?}");
                         }
                     }
                     r = req_receiver.recv() => {

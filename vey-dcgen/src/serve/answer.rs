@@ -13,7 +13,7 @@ use vey_cert_agent::Request;
 use vey_std_ext::time::DurationExt;
 
 use super::stats::ServerStats;
-use crate::backend;
+use crate::issuer;
 
 pub(super) async fn answer<F, Fut>(stats: &ServerStats, packet: &[u8], peer: &str, send: F)
 where
@@ -34,14 +34,14 @@ where
     };
     debug!("{} - request received", user_req.host());
 
-    let generated = match backend::generate(user_req).await {
+    let generated = match issuer::generate(user_req).await {
         Ok(generated) => generated,
-        Err(backend::GenerateError::Failed) => return,
-        Err(backend::GenerateError::Dropped) => {
-            warn!("cert backend dropped the request");
+        Err(issuer::GenerateError::Failed) => return,
+        Err(issuer::GenerateError::Dropped) => {
+            warn!("issuer dropped the request");
             return;
         }
-        Err(backend::GenerateError::Queue(e)) => {
+        Err(issuer::GenerateError::Queue(e)) => {
             warn!("{e}");
             return;
         }
@@ -67,7 +67,7 @@ where
                 "{} - duration: {duration_nanos}ns, rsp size: {rsp_len}",
                 generated.user_req.host(),
             );
-            let _ = backend::duration_recorder().record(duration_nanos);
+            let _ = issuer::duration_recorder().record(duration_nanos);
         }
         Err(e) => {
             stats.add_response_fail();

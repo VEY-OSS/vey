@@ -14,7 +14,7 @@ Its top-level keys are listed below.
 At a high level, ``vey-dcgen`` is organized around a few main object types:
 
 * ``server`` accepts certificate-request datagrams on UDP or a Unix datagram socket
-* ``backend`` names the CA certificate and private key used to issue certificates
+* ``issuer`` names the CA certificate and private key used to issue certificates
 
 Process-level settings such as ``runtime``, ``worker``, ``stat``, and
 ``controller`` control how the daemon runs and how it reports operational
@@ -47,12 +47,12 @@ state.
      - Mix [#m]_
      - yes
      - Listen sockets, see :doc:`servers/index`. At least one server is required at startup
-   * - backend
+   * - issuer
      - Map
-     - no
-     - CA certificate and private key used to issue certificates. Required at startup
+     - yes
+     - CA certificate and private key used to issue certificates. Required at startup. ``duration_stats`` is read only at startup
 
-Startup fails when ``server`` is missing or empty, or when ``backend`` does
+Startup fails when ``server`` is missing or empty, or when ``issuer`` does
 not name a CA certificate and private key.
 
 .. _configuration_reload:
@@ -60,14 +60,27 @@ not name a CA certificate and private key.
 Reload
 ======
 
-``runtime``, ``worker``, ``stat``, ``controller``, and ``backend`` are read
-only at startup. Replacing the CA requires a new process.
+``runtime``, ``worker``, ``stat``, and ``controller`` are read only at startup.
+``issuer.duration_stats`` is also read only at startup.
 
-``vey-dcgen-ctl reload`` re-reads ``server`` from the config file. A new or
-changed server is started, and a removed server is stopped. An unchanged
-server keeps running. Changing ``type`` for an existing name replaces that
-server. Changing ``listen`` on the same type restarts the listener and keeps
-its statistics.
+``vey-dcgen-ctl reload`` re-reads ``server`` and ``issuer`` from the config
+file. A new or changed server is started, and a removed server is stopped. An
+unchanged server keeps running. Changing ``type`` for an existing name
+replaces that server. Changing ``listen`` on the same type restarts the
+listener and keeps its statistics.
+
+The reloaded issuer replaces the CA certificate, private key, and the
+``no_append_ca_cert``, ``keep_serial``, and ``max_ttl`` settings. The files
+are read completely before the running CA is replaced. A request already
+being signed keeps the previous CA. Omitting ``issuer`` leaves the running
+CA unchanged. An issuer that fails to load leaves the running CA unchanged
+and aborts the reload.
+
+``vey-dcgen-ctl reload-issuer`` re-reads only ``issuer``. Listeners keep
+running. The same swap rules apply: the files are read completely before the
+running CA is replaced, an in-flight signing keeps the previous CA, an omitted
+``issuer`` leaves the running CA unchanged, and a failed load aborts the
+reload.
 
 .. rubric:: Footnotes
 
@@ -80,5 +93,5 @@ its statistics.
    runtime
    stat
    servers/index
-   backend
+   issuer
    values

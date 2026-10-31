@@ -19,6 +19,7 @@ fn build_cli_args() -> Command {
         .subcommand(proc::commands::version())
         .subcommand(proc::commands::offline())
         .subcommand(proc::commands::reload())
+        .subcommand(proc::commands::reload_issuer())
         .subcommand(proc::commands::cancel_shutdown())
 }
 
@@ -51,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
                 proc::COMMAND_VERSION => proc::version(&proc_control).await,
                 proc::COMMAND_OFFLINE => proc::offline(&proc_control).await,
                 proc::COMMAND_RELOAD => proc::reload(&proc_control).await,
+                proc::COMMAND_RELOAD_ISSUER => proc::reload_issuer(&proc_control).await,
                 proc::COMMAND_CANCEL_SHUTDOWN => proc::cancel_shutdown(&proc_control).await,
                 _ => Err(CommandError::Cli(anyhow!(
                     "unsupported command {subcommand}"

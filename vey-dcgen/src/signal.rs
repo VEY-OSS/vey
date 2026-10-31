@@ -11,6 +11,23 @@ use vey_daemon::signal::AsyncSignalAction;
 
 static RELOAD_MUTEX: Mutex<()> = Mutex::const_new(());
 
+pub(crate) async fn reload_issuer() -> anyhow::Result<()> {
+    let _guard = RELOAD_MUTEX.lock().await;
+    info!("reloading issuer");
+
+    match crate::config::reload_issuer().await {
+        Ok(()) => {
+            info!("issuer reload finished");
+            Ok(())
+        }
+        Err(e) => {
+            warn!("issuer reload error: {e:?}");
+            warn!("issuer reload aborted");
+            Err(e)
+        }
+    }
+}
+
 pub(crate) async fn reload() -> anyhow::Result<()> {
     let _guard = RELOAD_MUTEX.lock().await;
     info!("reloading config");

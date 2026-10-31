@@ -14,6 +14,7 @@ use crate::common::parse_operation_result;
 pub const COMMAND_VERSION: &str = "version";
 pub const COMMAND_OFFLINE: &str = "offline";
 pub const COMMAND_RELOAD: &str = "reload";
+pub const COMMAND_RELOAD_ISSUER: &str = "reload-issuer";
 pub const COMMAND_CANCEL_SHUTDOWN: &str = "cancel-shutdown";
 
 pub mod commands {
@@ -28,7 +29,11 @@ pub mod commands {
     }
 
     pub fn reload() -> Command {
-        Command::new(COMMAND_RELOAD).about("Reload servers from the config file")
+        Command::new(COMMAND_RELOAD).about("Reload servers and the issuer from the config file")
+    }
+
+    pub fn reload_issuer() -> Command {
+        Command::new(COMMAND_RELOAD_ISSUER).about("Reload the issuer from the config file")
     }
 
     pub fn cancel_shutdown() -> Command {
@@ -51,6 +56,12 @@ pub async fn offline(client: &proc_control::Client) -> CommandResult<()> {
 
 pub async fn reload(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.reload_request();
+    let rsp = req.send().promise.await?;
+    parse_operation_result(rsp.get()?.get_result()?)
+}
+
+pub async fn reload_issuer(client: &proc_control::Client) -> CommandResult<()> {
+    let req = client.reload_issuer_request();
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }

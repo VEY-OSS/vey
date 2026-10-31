@@ -111,6 +111,6 @@ impl RespondUnixDatagramServer for WrapArcServer {
     }
 }
 
-pub fn spawn_cert_backends() -> anyhow::Result<()> {
-    crate::backend::spawn_workers()
+pub fn spawn_issuer() -> anyhow::Result<()> {
+    crate::issuer::spawn_workers()
 }

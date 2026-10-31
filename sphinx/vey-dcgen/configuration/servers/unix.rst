@@ -9,7 +9,7 @@ This server answers certificate requests on one Unix datagram socket.
 The listener always runs on the main runtime. It is available only on Unix.
 On other platforms a server of this type is rejected when the config is loaded.
 
-.. versionadded:: 0.9.1
+.. versionadded:: 0.10.0
 
 The following common keys are supported:
 

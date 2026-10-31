@@ -60,4 +60,14 @@ impl proc_control::Server for ProcControlImpl {
         set_operation_result(results.get().init_result(), r);
         Ok(())
     }
+
+    async fn reload_issuer(
+        self: Rc<Self>,
+        _params: proc_control::ReloadIssuerParams,
+        mut results: proc_control::ReloadIssuerResults,
+    ) -> capnp::Result<()> {
+        let r = crate::signal::reload_issuer().await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
+    }
 }

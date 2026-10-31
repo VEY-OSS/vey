@@ -11,10 +11,9 @@ use vey_daemon::metrics::{TAG_KEY_SERVER, emit_listen_stats};
 use vey_statsd_client::{StatsdClient, StatsdTagGroup};
 use vey_types::stats::GlobalStatsMap;
 
-use crate::backend as cert_backend;
 use crate::serve::ServerStats;
 
-mod backend;
+mod issuer;
 
 static SERVER_STATS_MAP: Mutex<GlobalStatsMap<Arc<ServerStats>>> =
     Mutex::new(GlobalStatsMap::new());
@@ -22,11 +21,11 @@ static LISTEN_STATS_MAP: Mutex<GlobalStatsMap<(Arc<ListenStats>, ListenSnapshot)
     Mutex::new(GlobalStatsMap::new());
 
 pub(super) fn emit_stats(client: &mut StatsdClient) {
-    if let Some(stats) = cert_backend::stats() {
-        backend::emit_stats(client, &stats);
+    if let Some(stats) = crate::issuer::stats() {
+        issuer::emit_stats(client, &stats);
     }
-    if let Some(stats) = cert_backend::duration_stats() {
-        backend::emit_duration_stats(client, &stats);
+    if let Some(stats) = crate::issuer::duration_stats() {
+        issuer::emit_duration_stats(client, &stats);
     }
 
     let mut server_stats = Vec::new();

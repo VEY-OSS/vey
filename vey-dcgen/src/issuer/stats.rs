@@ -6,7 +6,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 #[derive(Default)]
-pub(crate) struct BackendStats {
+pub(crate) struct IssuerStats {
     refresh_total: AtomicU64,
     refresh_ok: AtomicU64,
     request_total: AtomicU64,
@@ -25,7 +25,7 @@ macro_rules! impl_for_field {
     };
 }
 
-impl BackendStats {
+impl IssuerStats {
     impl_for_field!(add_refresh_total, take_refresh_total, refresh_total);
     impl_for_field!(add_refresh_ok, take_refresh_ok, refresh_ok);
     impl_for_field!(add_request_total, take_request_total, request_total);

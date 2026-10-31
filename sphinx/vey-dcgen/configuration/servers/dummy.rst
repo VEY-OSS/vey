@@ -7,7 +7,7 @@ dummy
 This server has a name and does not open a listen socket. It does not receive
 requests.
 
-.. versionadded:: 0.9.1
+.. versionadded:: 0.10.0
 
 The following common keys are supported:
 

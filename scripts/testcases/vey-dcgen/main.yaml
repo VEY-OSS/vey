@@ -20,6 +20,6 @@ server:
     type: unix
     listen: /tmp/vey-dcgen-ci.sock
 
-backend:
+issuer:
   ca_certificate: ../../../vey-dcgen/examples/simple/G3-test.crt
   ca_private_key: ../../../vey-dcgen/examples/simple/G3-test.key

@@ -5,7 +5,7 @@ Server Metrics
 ##############
 
 Server metrics describe certificate requests and listen sockets for each
-configured server. Backend metrics describe the certificate generator itself
+configured server. Issuer metrics describe the certificate generator itself
 and are not tagged with a server name.
 
 Request
@@ -52,8 +52,8 @@ The metric names are:
 
   Number of encoded responses that could not be written back to the client.
 
-Backend
-=======
+Issuer
+======
 
 The following tag is present:
 
@@ -61,31 +61,31 @@ The following tag is present:
 
 The metric names are:
 
-* backend.refresh_total
+* issuer.refresh_total
 
   **type**: count
 
   Number of attempts to refresh the certificate builder clock and key.
 
-* backend.refresh_ok
+* issuer.refresh_ok
 
   **type**: count
 
   Number of those refresh attempts that succeeded.
 
-* backend.request_total
+* issuer.request_total
 
   **type**: count
 
   Number of certificate generations started.
 
-* backend.request_ok
+* issuer.request_ok
 
   **type**: count
 
   Number of certificate generations that produced a certificate and key.
 
-* backend.request_duration
+* issuer.request_duration
 
   **type**: gauge
 

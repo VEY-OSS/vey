@@ -6,7 +6,7 @@
 project = 'vey-dcgen'
 copyright = '2025 - %Y, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
-release = '0.9.1'
+release = '0.10.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

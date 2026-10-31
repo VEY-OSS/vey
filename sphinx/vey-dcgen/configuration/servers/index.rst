@@ -4,7 +4,7 @@
 Server
 ******
 
-.. versionadded:: 0.9.1
+.. versionadded:: 0.10.0
 
 Each server definition is a map with two required keys:
 

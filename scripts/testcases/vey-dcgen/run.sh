@@ -96,6 +96,9 @@ expect_datagram_miss query_unix --invalid
 vey_dcgen_ctl reload
 query_udp www.example.com
 
+vey_dcgen_ctl reload-issuer
+query_udp www.example.com
+
 # Let one stats emit interval pass before shutdown.
 sleep 0.5
 

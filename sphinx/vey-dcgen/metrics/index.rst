@@ -28,7 +28,7 @@ Common Tags
   remaining tags can be aggregated.
 
   This tag is present on listen metrics and Tokio runtime metrics. It is not
-  present on server request metrics, backend metrics, or allocator metrics.
+  present on server request metrics, issuer metrics, or allocator metrics.
 
 .. _metrics_tag_server:
 
@@ -47,7 +47,7 @@ Common Tags
 
 * quantile
 
-  Histogram quantile. Present on ``backend.request_duration``.
+  Histogram quantile. Present on ``issuer.request_duration``.
 
 Metric Types
 ============

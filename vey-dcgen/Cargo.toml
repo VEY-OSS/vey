@@ -1,6 +1,6 @@
 [package]
 name = "vey-dcgen"
-version = "0.9.0"
+version = "0.10.0"
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,6 +10,7 @@ description = "Dynamic certificate generator for TLS interception"
 
 [dependencies]
 anyhow.workspace = true
+arc-swap.workspace = true
 async-trait.workspace = true
 capnp.workspace = true
 capnp-rpc.workspace = true

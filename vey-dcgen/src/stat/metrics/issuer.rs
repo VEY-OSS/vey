@@ -7,13 +7,13 @@ use vey_daemon::metrics::TAG_KEY_QUANTILE;
 use vey_histogram::HistogramStats;
 use vey_statsd_client::StatsdClient;
 
-use crate::backend::BackendStats;
+use crate::issuer::IssuerStats;
 
-pub(crate) fn emit_stats(client: &mut StatsdClient, s: &BackendStats) {
+pub(crate) fn emit_stats(client: &mut StatsdClient, s: &IssuerStats) {
     macro_rules! emit_count {
         ($take:ident, $name:literal) => {
             let v = s.$take();
-            client.count(concat!("backend.", $name), v).send();
+            client.count(concat!("issuer.", $name), v).send();
         };
     }
 
@@ -26,7 +26,7 @@ pub(crate) fn emit_stats(client: &mut StatsdClient, s: &BackendStats) {
 pub(crate) fn emit_duration_stats(client: &mut StatsdClient, s: &HistogramStats) {
     s.foreach_stat(|_, qs, v| {
         client
-            .gauge_float("backend.request_duration", v)
+            .gauge_float("issuer.request_duration", v)
             .with_tag(TAG_KEY_QUANTILE, qs)
             .send();
     });

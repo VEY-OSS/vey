@@ -133,7 +133,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 }
 
 async fn load_and_spawn() -> anyhow::Result<()> {
-    vey_dcgen::serve::spawn_cert_backends().context("failed to start cert backend")?;
+    vey_dcgen::serve::spawn_issuer().context("failed to start issuer")?;
     vey_dcgen::serve::spawn_offline_clean();
     vey_dcgen::serve::spawn_all()
         .await

@@ -1,13 +1,15 @@
-.. _configuration_backend:
+.. _configuration_issuer:
 
-*******
-Backend
-*******
+******
+Issuer
+******
 
 **required**, **type**: map
 
-The certificate authority used to issue certificates. This section is read
-only at startup.
+The certificate issuer. The private CA named here signs certificates.
+``reload`` and ``reload-issuer`` re-read this section and swap the CA after
+the files load. ``reload-issuer`` leaves listeners running.
+``duration_stats`` stays as it was at startup.
 
 ca_certificate
 ==============
@@ -57,4 +59,5 @@ duration_stats
 **optional**, **type**: :external+values:ref:`histogram metrics <conf_value_histogram_metrics>`
 
 Histogram of the time from receiving a request datagram to writing the
-response. ``duration_metrics`` is an alias.
+response. ``duration_metrics`` is an alias. This key is applied only at
+startup. A later reload keeps the histogram that is already running.

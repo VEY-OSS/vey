@@ -6,6 +6,6 @@ server:
     type: udp
     listen: 0.0.0.0:2999
 
-backend:
+issuer:
   ca_certificate: /var/lib/vey-dcgen/ca.crt
   ca_private_key: /var/lib/vey-dcgen/ca.key
