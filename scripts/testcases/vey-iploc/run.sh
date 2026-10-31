@@ -14,6 +14,12 @@ cleanup()
 	if command -v clear_profiles >/dev/null 2>&1; then
 		clear_profiles
 	fi
+	if [ -n "${PGO_BIN_DIR:-}" ]; then
+		rm -rf "${PGO_BIN_DIR}"
+	fi
+	if [ -n "${PGO_RAW_DIR:-}" ]; then
+		rm -rf "${PGO_RAW_DIR}"
+	fi
 }
 
 trap cleanup EXIT

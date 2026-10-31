@@ -35,9 +35,10 @@ jobs:
           app="${tag%-v*}"
           version="${tag#"${app}-v"}"
           case "${app}" in
-            vey-proxy|vey-dcgen|vey-iploc) workload=proxy ;;
+            vey-proxy|vey-dcgen) workload=proxy ;;
             vey-statsd) workload=statsd ;;
             vey-keyless) workload=keyless ;;
+            vey-iploc) workload=iploc ;;
             *)
               echo "no PGO workload for ${tag}" >&2
               exit 1
@@ -69,6 +70,9 @@ jobs:
               ;;
             keyless)
               sudo apt-get install capnproto libmimalloc-dev libssl-dev libcrypto-mb-dev libqat-dev libusdm-dev pkg-config
+              ;;
+            iploc)
+              sudo apt-get install capnproto libjemalloc-dev pkg-config clang libbpf-dev
               ;;
           esac
       - name: Install binutils

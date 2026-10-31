@@ -31,7 +31,7 @@ The instrumented build uses the `release-lto` profile and `target/pgo-generate`,
 ./scripts/pgo/vey-iploc.sh
 ```
 
-`vey-dcgen` and `vey-iploc` reuse the proxy scenarios, with that daemon as the instrumented process. `vey-gateway` has no scenarios.
+`vey-dcgen` reuses the proxy scenarios, with that daemon as the instrumented process. `vey-iploc` runs `scripts/testcases/vey-iploc/`. `vey-gateway` has no scenarios.
 
 The proxy and statsd cases need Docker, `jq`, and the Python modules `pycurl` and `requests`. `scripts/coverage/vey-proxy.sh` rebuilds with coverage instrumentation (`-C instrument-coverage`); use `scripts/pgo/vey-proxy.sh` for a profile.
 
