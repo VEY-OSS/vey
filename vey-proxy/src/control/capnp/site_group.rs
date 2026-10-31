@@ -90,4 +90,37 @@ impl site_group_control::Server for SiteGroupControlImpl {
         set_operation_result(results.get().init_result(), r);
         Ok(())
     }
+
+    async fn list_upstream_health(
+        self: Rc<Self>,
+        params: site_group_control::ListUpstreamHealthParams,
+        mut results: site_group_control::ListUpstreamHealthResults,
+    ) -> capnp::Result<()> {
+        let site_id = params.get()?.get_site_id()?.to_str()?;
+        match self
+            .site(site_id)
+            .and_then(|site| site.list_upstream_health_status())
+        {
+            Ok(peers) => {
+                let mut builder = results.get().init_result().init_peers(peers.len() as u32);
+                for (i, peer) in peers.iter().enumerate() {
+                    let mut item = builder.reborrow().get(i as u32);
+                    item.set_addr(peer.addr.to_string().as_str());
+                    item.set_fails(peer.fails);
+                    item.set_unavailable(peer.unavailable);
+                    let recover_in_ms = peer
+                        .recover_in
+                        .map(|d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
+                        .unwrap_or(0);
+                    item.set_recover_in_ms(recover_in_ms);
+                }
+            }
+            Err(e) => {
+                let mut ev = results.get().init_result().init_err();
+                ev.set_code(-1);
+                ev.set_reason(format!("{e:?}").as_str());
+            }
+        }
+        Ok(())
+    }
 }

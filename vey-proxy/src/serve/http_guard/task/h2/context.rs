@@ -426,7 +426,7 @@ impl H2TaskContext {
         let _ = fwd_ctx
             .check_in_final_escaper(task_notes, upstream, site.tls_client().is_some())
             .await;
-        let (connection, reuse_notes) = if let Some(tls_client) = site.tls_client() {
+        let connected = if let Some(tls_client) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf { upstream },
                 tls_config: tls_client,
@@ -435,13 +435,15 @@ impl H2TaskContext {
             };
             fwd_ctx
                 .new_prepared_https_connection(&task_conf, task_notes, task_stats, &mut audit_ctx)
-                .await?
+                .await
         } else {
             let task_conf = TcpConnectTaskConf { upstream };
             fwd_ctx
                 .new_prepared_http_connection(&task_conf, task_notes, task_stats, &mut audit_ctx)
-                .await?
+                .await
         };
+        site.record_peer_connect_result(upstream, connected.is_ok());
+        let (connection, reuse_notes) = connected?;
 
         let mut egress_notes = EgressNotes::default();
         fwd_ctx.fetch_egress_notes(&mut egress_notes);
@@ -470,7 +472,7 @@ impl H2TaskContext {
                     tls_name: site.tls_name_or(req_host),
                     alpn_protocols: Some(ORIGIN_TLS_ALPN_H2_H1),
                 };
-                match self
+                let connected = self
                     .escaper
                     .tls_setup_http_connection(
                         Arc::clone(&self.escaper),
@@ -479,8 +481,9 @@ impl H2TaskContext {
                         task_notes,
                         &mut audit_ctx,
                     )
-                    .await?
-                {
+                    .await;
+                site.record_peer_connect_result(upstream, connected.is_ok());
+                match connected? {
                     TlsHttpConnection::H1(connection, escaper) => {
                         Ok(OriginConnection::H1(OriginH1Sender {
                             connection,
@@ -490,10 +493,16 @@ impl H2TaskContext {
                         }))
                     }
                     TlsHttpConnection::H2(ups_c) => {
-                        let h2_sender = self
+                        match self
                             .finish_h2_origin(ups_c, egress_notes, task_notes, upstream)
-                            .await?;
-                        Ok(OriginConnection::H2(h2_sender))
+                            .await
+                        {
+                            Ok(h2_sender) => Ok(OriginConnection::H2(h2_sender)),
+                            Err(e) => {
+                                site.record_peer_connect_result(upstream, false);
+                                Err(e)
+                            }
+                        }
                     }
                 }
             }
@@ -517,7 +526,7 @@ impl H2TaskContext {
         let mut audit_ctx = AuditContext::new(self.audit_handle.clone());
         let task_stats: ArcTcpConnectionTaskRemoteStats = Arc::new(TcpStreamTaskStats::default());
 
-        let ups_c = if let Some(tls_config) = site.tls_client() {
+        let connected = if let Some(tls_config) = site.tls_client() {
             let task_conf = TlsConnectTaskConf {
                 tcp: TcpConnectTaskConf { upstream },
                 tls_config,
@@ -532,7 +541,7 @@ impl H2TaskContext {
                     task_stats,
                     &mut audit_ctx,
                 )
-                .await?
+                .await
         } else {
             let task_conf = TcpConnectTaskConf { upstream };
             self.escaper
@@ -543,11 +552,20 @@ impl H2TaskContext {
                     task_stats,
                     &mut audit_ctx,
                 )
-                .await?
+                .await
         };
-
-        self.finish_h2_origin(ups_c, egress_notes, task_notes, upstream)
+        site.record_peer_connect_result(upstream, connected.is_ok());
+        let ups_c = connected?;
+        match self
+            .finish_h2_origin(ups_c, egress_notes, task_notes, upstream)
             .await
+        {
+            Ok(origin) => Ok(origin),
+            Err(e) => {
+                site.record_peer_connect_result(upstream, false);
+                Err(e)
+            }
+        }
     }
 
     async fn finish_h2_origin(
