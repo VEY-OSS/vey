@@ -7,11 +7,12 @@ IP Locate
 We need a peer service in escaper :ref:`route_geoip <configuration_escaper_route_geoip>` config. This page describes the
 protocol used to communicate with that peer service.
 
-The peer service should listen on a UDP port over either IPv4 or IPv6.
-``vey-proxy`` sends requests to that port.
+The peer service listens on a datagram socket. That socket may be UDP over
+IPv4 or IPv6, or a UNIX-domain datagram socket. ``vey-proxy`` sends requests
+to that socket.
 
-Each UDP packet sent by ``vey-proxy`` contains exactly one request, and each UDP
-packet returned by the peer service should contain exactly one response.
+Each datagram sent by ``vey-proxy`` contains exactly one request, and each
+datagram returned by the peer service should contain exactly one response.
 
 The peer service may also push location responses to ``vey-proxy`` without a
 prior request.

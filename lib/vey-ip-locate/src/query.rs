@@ -20,8 +20,48 @@ use super::{
     IpLocateServiceConfig, IpLocationCacheResponse, IpLocationQueryHandle, Request, Response,
 };
 
+pub(crate) enum QuerySocket {
+    Udp(UdpSocket),
+    #[cfg(unix)]
+    Unix(vey_socket::unix::ConnectedDatagram),
+}
+
+impl QuerySocket {
+    fn poll_recv(&self, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        match self {
+            QuerySocket::Udp(socket) => socket.poll_recv(cx, buf),
+            #[cfg(unix)]
+            QuerySocket::Unix(socket) => socket.poll_recv(cx, buf),
+        }
+    }
+
+    fn poll_send(&self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        match self {
+            QuerySocket::Udp(socket) => socket.poll_send(cx, buf),
+            #[cfg(unix)]
+            QuerySocket::Unix(socket) => socket.poll_send(cx, buf),
+        }
+    }
+}
+
+pub(crate) enum StdQuerySocket {
+    Udp(std::net::UdpSocket),
+    #[cfg(unix)]
+    Unix(vey_socket::unix::StdConnectedDatagram),
+}
+
+impl StdQuerySocket {
+    pub(crate) fn into_tokio(self) -> io::Result<QuerySocket> {
+        match self {
+            StdQuerySocket::Udp(socket) => Ok(QuerySocket::Udp(UdpSocket::from_std(socket)?)),
+            #[cfg(unix)]
+            StdQuerySocket::Unix(socket) => Ok(QuerySocket::Unix(socket.into_tokio()?)),
+        }
+    }
+}
+
 pub(crate) struct IpLocationQueryRuntime {
-    socket: UdpSocket,
+    socket: QuerySocket,
     query_handle: IpLocationQueryHandle,
     read_buffer: Box<[u8]>,
     write_queue: VecDeque<(IpAddr, Vec<u8>)>,
@@ -33,7 +73,7 @@ pub(crate) struct IpLocationQueryRuntime {
 impl IpLocationQueryRuntime {
     pub(crate) fn new(
         config: &IpLocateServiceConfig,
-        socket: UdpSocket,
+        socket: QuerySocket,
         query_handle: IpLocationQueryHandle,
     ) -> Self {
         IpLocationQueryRuntime {
@@ -95,9 +135,9 @@ impl IpLocationQueryRuntime {
     }
 
     fn poll_loop(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        // A connected UDP socket reports ICMP failures as recv errors. One
-        // such error must not end this task: dropping it closes the response
-        // channel and the cache runtime stops with it.
+        // A connected datagram socket can report a recv error. One such error
+        // must not end this task: dropping it closes the response channel and
+        // the cache runtime stops with it.
         let mut recv_error_streak = 0u8;
         loop {
             // handle rsp
@@ -189,7 +229,11 @@ mod tests {
         let (query_sender, query_receiver) = mpsc::unbounded_channel();
         let (rsp_sender, mut rsp_receiver) = mpsc::unbounded_channel();
         let query_handle = IpLocationQueryHandle::new(query_receiver, rsp_sender);
-        let task = tokio::spawn(IpLocationQueryRuntime::new(&config, socket, query_handle));
+        let task = tokio::spawn(IpLocationQueryRuntime::new(
+            &config,
+            QuerySocket::Udp(socket),
+            query_handle,
+        ));
 
         query_sender
             .send(IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)))

@@ -136,11 +136,59 @@ The supported keys are:
 
   **default**: 127.0.0.1:2888
 
+* query_peer_udp
+
+  **optional**, **type**: mix
+
+  Alternative form for the UDP peer. The value can be a map with the following keys:
+
+  * address
+
+    **optional**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`, **alias**: addr
+
+    Remote socket address.
+
+  If the value type is str, it is the same as *address* above.
+
+  A later peer key replaces this one.
+
+* query_peer_unix
+
+  **optional**, **type**: mix
+
+  Send queries to a UNIX-domain datagram socket. The peer must already be
+  listening on that path.
+
+  The value can be a map with the following keys:
+
+  * path
+
+    **required**, **type**: :ref:`absolute path <conf_value_absolute_path>`
+
+    UNIX-domain socket path.
+
+  If the value type is str, it is the same as *path* above.
+
+  **default**: not set
+
+* query_peer
+
+  **optional**, **type**: map
+
+  Alternative form for the query peer.
+
+  The key *udp* is handled as *query_peer_udp* above.
+
+  The key *unix* is handled as *query_peer_unix* above.
+
+  A later key replaces the peer.
+
 * query_socket_buffer
 
   **optional**, **type**: :ref:`socket buffer config <conf_value_socket_buffer_config>`
 
-  Socket-buffer configuration for the peer socket.
+  Socket-buffer configuration for the peer socket. A UDP peer uses both
+  *recv* and *send*. A UNIX datagram peer uses *send*.
 
   **default**: not set
 
@@ -199,6 +247,14 @@ Example:
      query_wait_timeout: 500ms
      default_expire_ttl: 30
      maximum_expire_ttl: 300
+
+   ip_locate_service:
+     query_peer_unix: /run/vey-iploc/vey-iploc.sock
+
+   ip_locate_service:
+     query_peer:
+       unix:
+         path: /run/vey-iploc/vey-iploc.sock
 
 .. availability::
 
