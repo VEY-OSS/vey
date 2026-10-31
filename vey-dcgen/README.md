@@ -35,37 +35,19 @@ How to run the published images is described in [docker/README.md](docker/README
 
 See this [simple example](examples/simple).
 
-You can run `cargo run --bin vey-dcgen -- -c vey-dcgen/examples/simple/ -G port2999 -vv` to start it.
+You can run `cargo run --bin vey-dcgen -- -c vey-dcgen/examples/simple/ -G example -vv` to start it.
+The example listens on `127.0.0.1:2999`, which is the default connect address in vey-proxy.
 
-### Set UDP listen address
+### Listen sockets
 
-The default UDP listen address is *127.0.0.1:2999*, which is also the same default connect address in vey-proxy.
+Each listen socket is a `server` entry in the config file. A UDP server sets `listen` to an address.
+A Unix datagram server sets `listen` to an absolute socket path. At least one server is required.
 
-There are two ways to change the UDP listen port:
+`-G` / `--group-name` sets the instance group and the control socket name. It does not select the listen address.
 
-- Via command line options
-
-  You can set **-G port<port>** or **--group-name port<port>** to change the UDP listen port,
-  the final listen address will be **[::]:<port>**.
-
-  You can set the systemd instance name to *port<port>*, so when you run `systemctl start vey-dcgen@port<port>`,
-  it will listen to the correct port automatically.
-
-- Via environment variables
-
-  You can use the environment variable **UDP_LISTEN_ADDR** to change the UDP listen address.
-  You can add this environment variable to `/etc/vey-dcgen/<instance name>/env` file to use this with
-  systemd managed vey-dcgen service.
-
-### Hot Restart
-
-It is not possible to do hot restart gracefully without using two ports.
-
-If vey-dcgen is running at port 3000, and vey-proxy is also using port 3000, the steps are:
-
-1. start a new vey-dcgen service at port 3001 with the new config
-2. reload vey-proxy to use vey-dcgen port 3001
-3. stop vey-dcgen running at port 3000
+`vey-dcgen-ctl -G <group> reload` re-reads `server` and `issuer`. Listeners apply the difference in place. The CA certificate, private key, `keep_serial`, and `max_ttl` are swapped after those files load. A request already being signed keeps the previous CA. `duration_stats` stays as it was at startup.
+`vey-dcgen-ctl -G <group> reload-issuer` re-reads only `issuer` and swaps the running CA. Listeners keep running.
+`vey-dcgen-ctl -G <group> offline` stops listeners and lets in-flight requests finish.
 
 ## Command line options
 

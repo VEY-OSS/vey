@@ -4,22 +4,29 @@
  */
 
 use std::sync::Arc;
-use std::sync::OnceLock;
 
 use anyhow::{Context, anyhow};
+use arc_swap::ArcSwapOption;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use yaml_rust::Yaml;
 
 use vey_histogram::HistogramMetricsConfig;
 
-static BACKEND_CONFIG_LOCK: OnceLock<Arc<OpensslBackendConfig>> = OnceLock::new();
+static ISSUER_CONFIG: ArcSwapOption<OpensslIssuerConfig> = ArcSwapOption::const_empty();
 
-pub(crate) fn get_config() -> Option<Arc<OpensslBackendConfig>> {
-    BACKEND_CONFIG_LOCK.get().cloned()
+pub(crate) fn get_config() -> Option<Arc<OpensslIssuerConfig>> {
+    ISSUER_CONFIG.load_full()
 }
 
-pub(crate) struct OpensslBackendConfig {
+pub(crate) fn replace_config(mut config: OpensslIssuerConfig) {
+    if let Some(current) = get_config() {
+        config.duration_stats = current.duration_stats.clone();
+    }
+    ISSUER_CONFIG.store(Some(Arc::new(config)));
+}
+
+pub(crate) struct OpensslIssuerConfig {
     pub(crate) ca_cert: X509,
     pub(crate) ca_key: PKey<Private>,
     pub(crate) ca_cert_pem: Vec<u8>,
@@ -29,6 +36,14 @@ pub(crate) struct OpensslBackendConfig {
 }
 
 pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
+    if get_config().is_some() {
+        return Err(anyhow!("duplicate issuer config"));
+    }
+    replace_config(parse_config(value)?);
+    Ok(())
+}
+
+pub(super) fn parse_config(value: &Yaml) -> anyhow::Result<OpensslIssuerConfig> {
     if let Yaml::Hash(map) = value {
         let mut no_append_ca_cert = false;
         let mut ca_cert_pem = Vec::new();
@@ -95,20 +110,61 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
         if no_append_ca_cert {
             ca_cert_pem.clear();
         }
-        BACKEND_CONFIG_LOCK
-            .set(Arc::new(OpensslBackendConfig {
-                ca_cert,
-                ca_key,
-                ca_cert_pem,
-                keep_serial,
-                max_ttl,
-                duration_stats,
-            }))
-            .map_err(|_| anyhow!("duplicate backend config"))?;
-        Ok(())
+        Ok(OpensslIssuerConfig {
+            ca_cert,
+            ca_key,
+            ca_cert_pem,
+            keep_serial,
+            max_ttl,
+            duration_stats,
+        })
     } else {
         Err(anyhow!(
-            "yam value type for the backend config should be 'map'"
+            "yaml value type for the issuer config should be 'map'"
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use vey_histogram::HistogramMetricsConfig;
+
+    use super::*;
+
+    fn example_config(max_ttl: i32) -> OpensslIssuerConfig {
+        let cert_pem = include_bytes!("../../examples/simple/G3-test.crt");
+        let key_pem = include_bytes!("../../examples/simple/G3-test.key");
+        OpensslIssuerConfig {
+            ca_cert: X509::from_pem(cert_pem).unwrap(),
+            ca_key: PKey::private_key_from_pem(key_pem).unwrap(),
+            ca_cert_pem: cert_pem.to_vec(),
+            keep_serial: false,
+            max_ttl,
+            duration_stats: HistogramMetricsConfig::default(),
+        }
+    }
+
+    #[test]
+    fn parse_rejects_non_map() {
+        match parse_config(&Yaml::Integer(1)) {
+            Err(err) => assert!(err.to_string().contains("map")),
+            Ok(_) => panic!("non-map issuer config was accepted"),
+        }
+    }
+
+    #[test]
+    fn replace_swaps_signing_options_and_keeps_duration_stats() {
+        let mut initial = example_config(400);
+        initial.duration_stats = HistogramMetricsConfig::with_rotate(Duration::from_secs(9));
+        let expected_duration = initial.duration_stats.clone();
+        replace_config(initial);
+        replace_config(example_config(900));
+
+        let current = get_config().unwrap();
+        assert_eq!(current.max_ttl, 900);
+        assert_eq!(current.duration_stats, expected_duration);
+        assert!(!current.ca_cert_pem.is_empty());
     }
 }

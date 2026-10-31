@@ -1,0 +1,16 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
+ */
+
+#![allow(clippy::needless_lifetimes)]
+#![allow(clippy::uninlined_format_args)]
+
+pub mod types_capnp {
+    #![allow(clippy::extra_unused_type_parameters)]
+    include!(concat!(env!("VEY_CAPNP_GENERATE_DIR"), "/types_capnp.rs"));
+}
+
+pub mod proc_capnp {
+    include!(concat!(env!("VEY_CAPNP_GENERATE_DIR"), "/proc_capnp.rs"));
+}

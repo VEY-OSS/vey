@@ -2,7 +2,8 @@ Source: vey-dcgen
 Section: net
 Priority: optional
 Maintainer: VEY-OSS Developers <developers@vey.oss>
-Build-Depends: debhelper-compat (= 13), pkg-config, cmake, g++, libssl-dev
+Build-Depends: debhelper-compat (= 13), pkg-config, capnproto, cmake, g++,
+ libssl-dev, clang, libbpf-dev
 Standards-Version: 4.6.0
 Homepage: https://github.com/VEY-OSS/vey
 

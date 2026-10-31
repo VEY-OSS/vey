@@ -4,6 +4,7 @@ PACKAGE_NAME := vey-dcgen
 BUILD_PROFILE := release-lto
 
 DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
+EBPF_FEATURE ?= $(shell scripts/package/detect_ebpf_feature.sh)
 
 %:
 	dh $@
@@ -18,11 +19,12 @@ override_dh_auto_build:
 	VEY_PACKAGE_VERSION=$(DEB_VERSION) \
 	VEY_PGO_PROFILE='$(VEY_PGO_PROFILE)' \
 	  scripts/package/cargo_with_pgo.sh build --frozen --offline --profile $(BUILD_PROFILE) \
-	    --no-default-features --features secure-snmalloc \
-	    --package vey-dcgen
+	    --no-default-features --features secure-snmalloc,$(EBPF_FEATURE) \
+	    --package vey-dcgen --package vey-dcgen-ctl
 
 override_dh_auto_install:
 	install -m 755 -D target/$(BUILD_PROFILE)/vey-dcgen debian/tmp/usr/bin/vey-dcgen
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-dcgen-ctl debian/tmp/usr/bin/vey-dcgen-ctl
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG

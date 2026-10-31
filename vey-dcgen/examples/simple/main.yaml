@@ -3,6 +3,11 @@
 runtime:
   thread_number: 1
 
-backend:
+server:
+  - name: local
+    type: udp
+    listen: 127.0.0.1:2999
+
+issuer:
   ca_certificate: G3-test.crt
   ca_private_key: G3-test.key

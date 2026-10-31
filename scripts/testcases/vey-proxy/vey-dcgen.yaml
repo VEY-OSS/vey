@@ -3,10 +3,15 @@
 runtime:
   thread_number: 1
 
+server:
+  - name: local
+    type: udp
+    listen: 127.0.0.1:2999
+
 stat:
   target:
     udp: 127.0.0.1:8125
 
-backend:
+issuer:
   ca_certificate: rootCA.pem
   ca_private_key: rootCA-key.pem

@@ -21,6 +21,7 @@ jobs:
           - vey-gateway
           - vey-keyless
           - vey-iploc
+          - vey-dcgen
           - vey-statsd
     steps:
       - uses: actions/checkout@v7

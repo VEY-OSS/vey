@@ -45,6 +45,10 @@ Follow the links below for the documentation of each application:
 
   An IP location lookup service used by ``vey-proxy`` GeoIP routing.
 
+* `vey-dcgen`_
+
+  A dynamic certificate generator for ``vey-proxy`` TLS interception.
+
 Shared Reference
 ================
 
@@ -58,4 +62,5 @@ Those are documented in the common `vey-values`_ reference.
 .. _vey-gateway: /projects/gateway/en/latest/
 .. _vey-keyless: /projects/keyless/en/latest/
 .. _vey-iploc: /projects/iploc/en/latest/
+.. _vey-dcgen: /projects/dcgen/en/latest/
 .. _vey-values: /projects/values/en/latest/

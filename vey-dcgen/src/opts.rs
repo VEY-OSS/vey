@@ -4,45 +4,39 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::env;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::OnceLock;
 
 use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
 
 use vey_daemon::opts::{DaemonArgs, DaemonArgsExt};
-use vey_types::net::{SocketBufferConfig, UdpListenConfig};
 
 const GLOBAL_ARG_VERSION: &str = "version";
 const GLOBAL_ARG_GROUP_NAME: &str = "group-name";
 const GLOBAL_ARG_CONFIG_FILE: &str = "config-file";
-const GLOBAL_ARG_RECV_BUF_SIZE: &str = "recv-buf-size";
-const GLOBAL_ARG_SEND_BUF_SIZE: &str = "send-buf-size";
 
 static DAEMON_GROUP: OnceLock<String> = OnceLock::new();
 
 #[derive(Debug)]
 pub struct ProcArgs {
     pub daemon_config: DaemonArgs,
-    listen: UdpListenConfig,
 }
 
 impl ProcArgs {
     fn new(name: String) -> Self {
         ProcArgs {
             daemon_config: DaemonArgs::new(name),
-            listen: UdpListenConfig::new(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2999)),
         }
+    }
+
+    pub fn program_name(&self) -> &str {
+        &self.daemon_config.program_name
     }
 }
 
-impl ProcArgs {
-    pub(crate) fn listen_config(&self) -> &UdpListenConfig {
-        &self.listen
-    }
+pub(crate) fn daemon_group() -> &'static str {
+    DAEMON_GROUP.get().map(|s| s.as_str()).unwrap_or_default()
 }
 
 fn build_cli_args() -> Command {
@@ -59,7 +53,7 @@ fn build_cli_args() -> Command {
         )
         .arg(
             Arg::new(GLOBAL_ARG_GROUP_NAME)
-                .help("Group name")
+                .help("Instance group name")
                 .num_args(1)
                 .value_name("GROUP NAME")
                 .short('G')
@@ -75,22 +69,6 @@ fn build_cli_args() -> Command {
                 .required_unless_present_any([GLOBAL_ARG_VERSION])
                 .short('c')
                 .long(GLOBAL_ARG_CONFIG_FILE),
-        )
-        .arg(
-            Arg::new(GLOBAL_ARG_RECV_BUF_SIZE)
-                .help("Set receive buffer size for the listen socket")
-                .num_args(1)
-                .value_name("BUF SIZE")
-                .value_parser(value_parser!(usize))
-                .long(GLOBAL_ARG_RECV_BUF_SIZE),
-        )
-        .arg(
-            Arg::new(GLOBAL_ARG_SEND_BUF_SIZE)
-                .help("Set send buffer size for the listen socket")
-                .num_args(1)
-                .value_name("BUF SIZE")
-                .value_parser(value_parser!(usize))
-                .long(GLOBAL_ARG_SEND_BUF_SIZE),
         )
 }
 
@@ -127,30 +105,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         DAEMON_GROUP
             .set(group_name.clone())
             .map_err(|_| anyhow!("daemon group has already been set"))?;
-
-        if let Some(s) = group_name.strip_prefix("port")
-            && let Ok(port) = u16::from_str(s)
-        {
-            proc_args
-                .listen
-                .set_socket_address(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), port));
-        }
     }
-
-    if let Ok(s) = env::var("UDP_LISTEN_ADDR")
-        && let Ok(addr) = SocketAddr::from_str(&s)
-    {
-        proc_args.listen.set_socket_address(addr);
-    }
-
-    let mut socket_buffer_config = SocketBufferConfig::default();
-    if let Some(size) = args.get_one::<usize>(GLOBAL_ARG_RECV_BUF_SIZE) {
-        socket_buffer_config.set_recv_size(*size);
-    }
-    if let Some(size) = args.get_one::<usize>(GLOBAL_ARG_SEND_BUF_SIZE) {
-        socket_buffer_config.set_send_size(*size);
-    }
-    proc_args.listen.set_socket_buffer(socket_buffer_config);
 
     Ok(Some(proc_args))
 }
