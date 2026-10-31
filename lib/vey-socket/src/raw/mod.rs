@@ -30,12 +30,20 @@ impl RawSocket {
         &self.inner
     }
 
+    pub fn set_recv_buffer_size(&self, size: usize) -> io::Result<()> {
+        self.inner.set_recv_buffer_size(size)
+    }
+
+    pub fn set_send_buffer_size(&self, size: usize) -> io::Result<()> {
+        self.inner.set_send_buffer_size(size)
+    }
+
     pub fn set_buf_opts(&self, buf_conf: SocketBufferConfig) -> io::Result<()> {
         if let Some(size) = buf_conf.recv_size() {
-            self.inner.set_recv_buffer_size(size)?;
+            self.set_recv_buffer_size(size)?;
         }
         if let Some(size) = buf_conf.send_size() {
-            self.inner.set_send_buffer_size(size)?;
+            self.set_send_buffer_size(size)?;
         }
         Ok(())
     }

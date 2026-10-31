@@ -12,6 +12,8 @@ mod listen;
 
 pub mod tcp;
 pub mod udp;
+#[cfg(unix)]
+pub mod unix;
 pub mod util;
 
 mod bind;
