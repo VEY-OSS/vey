@@ -44,6 +44,7 @@ pub fn parse_inspect_size_limit(
                 config.set_ldap_request_msg(size);
                 Ok(())
             }
+            // Kept so old configs still load. SMTP reply lines are fixed at 512 bytes.
             "smtp_greeting_msg" | "smtp_server_greeting_msg" => Ok(()),
             _ => Err(anyhow!("invalid key {k}")),
         })

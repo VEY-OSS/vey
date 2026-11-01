@@ -75,7 +75,7 @@ pub fn as_weighted_metric_node_name(value: &Yaml) -> anyhow::Result<WeightedValu
                 weight = Some(f);
                 Ok(())
             }
-            _ => Ok(()),
+            _ => Err(anyhow!("invalid key {k}")),
         })?;
 
         if name.is_empty() {
@@ -295,6 +295,14 @@ mod tests {
             r#"
                 name: node4
                 weight: invalid
+            "#
+        );
+        assert!(as_weighted_metric_node_name(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                name: node
+                weigth: 9
             "#
         );
         assert!(as_weighted_metric_node_name(&yaml).is_err());

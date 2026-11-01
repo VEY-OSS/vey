@@ -70,11 +70,10 @@ pub fn as_http_forward_capability(value: &Yaml) -> anyhow::Result<HttpForwardCap
 
     match value {
         Yaml::Hash(map) => {
-            if let Ok(v) = crate::hash_get_required(map, "forward_ftp") {
-                let enable =
-                    crate::value::as_bool(v).context("invalid bool value for key forward_ftp")?;
-                cap.set_forward_ftp_all(enable);
-            }
+            let mut forward_ftp = None;
+            let mut forward_ftp_get = None;
+            let mut forward_ftp_put = None;
+            let mut forward_ftp_del = None;
 
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "forward_https" => {
@@ -82,22 +81,22 @@ pub fn as_http_forward_capability(value: &Yaml) -> anyhow::Result<HttpForwardCap
                     cap.set_forward_https(enable);
                     Ok(())
                 }
+                "forward_ftp" => {
+                    forward_ftp = Some(crate::value::as_bool(v)?);
+                    Ok(())
+                }
                 "forward_ftp_get" => {
-                    let enable = crate::value::as_bool(v)?;
-                    cap.set_forward_ftp_get(enable);
+                    forward_ftp_get = Some(crate::value::as_bool(v)?);
                     Ok(())
                 }
                 "forward_ftp_put" => {
-                    let enable = crate::value::as_bool(v)?;
-                    cap.set_forward_ftp_put(enable);
+                    forward_ftp_put = Some(crate::value::as_bool(v)?);
                     Ok(())
                 }
                 "forward_ftp_del" => {
-                    let enable = crate::value::as_bool(v)?;
-                    cap.set_forward_ftp_del(enable);
+                    forward_ftp_del = Some(crate::value::as_bool(v)?);
                     Ok(())
                 }
-                "forward_ftp" => Ok(()),
                 "session_based_auth" => {
                     let enable = crate::value::as_bool(v)?;
                     cap.set_session_auth(enable);
@@ -105,6 +104,20 @@ pub fn as_http_forward_capability(value: &Yaml) -> anyhow::Result<HttpForwardCap
                 }
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
+
+            // The all-flag sets every method. Apply it first so a specific method can override it.
+            if let Some(enable) = forward_ftp {
+                cap.set_forward_ftp_all(enable);
+            }
+            if let Some(enable) = forward_ftp_get {
+                cap.set_forward_ftp_get(enable);
+            }
+            if let Some(enable) = forward_ftp_put {
+                cap.set_forward_ftp_put(enable);
+            }
+            if let Some(enable) = forward_ftp_del {
+                cap.set_forward_ftp_del(enable);
+            }
         }
         _ => return Err(anyhow!("invalid yaml value type for HttpForwardCapability")),
     }
@@ -300,6 +313,12 @@ mod tests {
 
         // Valid config with FTP forwarding enabled
         let yaml = yaml_doc!("{ forward_ftp: true }");
+        let cap = as_http_forward_capability(&yaml).unwrap();
+        assert!(cap.forward_ftp(&Method::GET));
+        assert!(cap.forward_ftp(&Method::PUT));
+        assert!(cap.forward_ftp(&Method::DELETE));
+
+        let yaml = yaml_doc!("{ forward-ftp: true }");
         let cap = as_http_forward_capability(&yaml).unwrap();
         assert!(cap.forward_ftp(&Method::GET));
         assert!(cap.forward_ftp(&Method::PUT));
