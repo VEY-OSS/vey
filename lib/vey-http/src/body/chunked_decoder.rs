@@ -173,8 +173,15 @@ impl ChunkedDataDecodeReaderInternal {
 
                     match memchr::memchr(b'\n', r_buf) {
                         Some(p) => {
-                            self.chunk_header.put_slice(&r_buf[0..=p]);
-                            reader.as_mut().consume(p + 1);
+                            let len = p + 1;
+                            if self.chunk_header.len() + len > self.body_line_max_size {
+                                return Poll::Ready(Err(io::Error::other(format!(
+                                    "chunk header line too long (> {})",
+                                    self.body_line_max_size
+                                ))));
+                            }
+                            self.chunk_header.put_slice(&r_buf[..len]);
+                            reader.as_mut().consume(len);
                             break;
                         }
                         None => {
@@ -303,5 +310,50 @@ mod test {
         assert_eq!(len, body_len);
         assert_eq!(&buf[0..len], b"test\nbody");
         assert!(body_deocder.finished());
+    }
+
+    #[tokio::test]
+    async fn chunk_line_in_one_read_respects_max_size() {
+        let content = b"123456789\n0\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut decoder = ChunkedDataDecodeReader::new(&mut buf_stream, 8);
+
+        let mut buf = [0u8; 16];
+        let err = decoder.read(&mut buf).await.unwrap_err();
+        assert!(
+            err.to_string().contains("chunk header line too long"),
+            "{err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn chunk_line_split_across_reads_respects_max_size() {
+        let stream = tokio_test::io::Builder::new()
+            .read(b"1234")
+            .read(b"56789\n0\r\n\r\n")
+            .build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut decoder = ChunkedDataDecodeReader::new(&mut buf_stream, 8);
+
+        let mut buf = [0u8; 16];
+        let err = decoder.read(&mut buf).await.unwrap_err();
+        assert!(
+            err.to_string().contains("chunk header line too long"),
+            "{err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn chunk_line_at_max_size_is_accepted() {
+        let content = b"0\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut decoder = ChunkedDataDecodeReader::new(&mut buf_stream, 3);
+
+        let mut buf = [0u8; 8];
+        let len = decoder.read(&mut buf).await.unwrap();
+        assert_eq!(len, 0);
+        assert!(decoder.finished());
     }
 }
