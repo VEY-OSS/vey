@@ -86,9 +86,7 @@ impl Host {
 }
 
 fn parse_smtp_ipv6_literal(buf: &[u8]) -> Option<Host> {
-    let Some(d) = memchr::memchr(b':', buf) else {
-        return None;
-    };
+    let d = memchr::memchr(b':', buf)?;
     if !buf[..d].eq_ignore_ascii_case(b"IPv6") {
         return None;
     }
