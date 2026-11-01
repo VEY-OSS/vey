@@ -241,11 +241,19 @@ impl UdpListenConfig {
         Ok(())
     }
 
-    pub fn set_fraction_scale(&mut self, numerator: usize, denominator: usize) {
+    pub fn set_fraction_scale(
+        &mut self,
+        numerator: usize,
+        denominator: usize,
+    ) -> anyhow::Result<()> {
+        if denominator == 0 {
+            return Err(anyhow!("scale denominator is 0"));
+        }
         if let Ok(p) = std::thread::available_parallelism() {
             let v = p.get() * numerator / denominator;
             self.non_reloadable.scale = v;
         }
+        Ok(())
     }
 
     #[cfg(target_os = "linux")]

@@ -30,8 +30,7 @@ fn set_tcp_listen_scale(config: &mut TcpListenConfig, v: &Yaml) -> anyhow::Resul
                 let Ok(d) = usize::from_str(d.trim()) else {
                     return Err(anyhow!("invalid fractional value {s}: invalid denominator"))?;
                 };
-                config.set_fraction_scale(n, d);
-                Ok(())
+                config.set_fraction_scale(n, d)
             } else {
                 let Ok(v) = f64::from_str(s) else {
                     return Err(anyhow!("invalid float value: {s}"));
@@ -507,6 +506,10 @@ mod tests {
         assert!(set_tcp_listen_scale(&mut cfg, &yaml_map["scale"]).is_err());
 
         let yaml_map = yaml_doc!("scale: \"3/b\"");
+        let mut cfg = TcpListenConfig::default();
+        assert!(set_tcp_listen_scale(&mut cfg, &yaml_map["scale"]).is_err());
+
+        let yaml_map = yaml_doc!("scale: \"1/0\"");
         let mut cfg = TcpListenConfig::default();
         assert!(set_tcp_listen_scale(&mut cfg, &yaml_map["scale"]).is_err());
 

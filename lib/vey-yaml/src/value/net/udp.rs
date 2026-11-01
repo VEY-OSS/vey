@@ -97,8 +97,7 @@ fn set_udp_listen_scale(config: &mut UdpListenConfig, v: &Yaml) -> anyhow::Resul
                 let Ok(d) = usize::from_str(d.trim()) else {
                     return Err(anyhow!("invalid fractional value {s}: invalid denominator"))?;
                 };
-                config.set_fraction_scale(n, d);
-                Ok(())
+                config.set_fraction_scale(n, d)
             } else {
                 let Ok(v) = f64::from_str(s) else {
                     return Err(anyhow!("invalid float value: {s}"));
@@ -441,7 +440,7 @@ mod tests {
         let parsed_config = as_udp_listen_config(&yaml).unwrap();
         let mut expected_config = UdpListenConfig::default();
         expected_config.set_socket_address("127.0.0.1:1001".parse().unwrap());
-        expected_config.set_fraction_scale(1, 2);
+        expected_config.set_fraction_scale(1, 2).unwrap();
         assert_eq!(parsed_config, expected_config);
 
         // Scale as float
@@ -489,6 +488,9 @@ mod tests {
     fn as_udp_listen_config_err() {
         // Invalid scale
         let yaml = yaml_doc!("addr: 127.0.0.1:1005\nscale: 1/a");
+        assert!(as_udp_listen_config(&yaml).is_err());
+
+        let yaml = yaml_doc!("addr: 127.0.0.1:1005\nscale: 1/0");
         assert!(as_udp_listen_config(&yaml).is_err());
 
         // Invalid key
