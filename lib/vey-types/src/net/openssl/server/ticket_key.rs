@@ -210,17 +210,17 @@ impl OpensslTicketKey {
             return Ok(None);
         };
 
+        let Some(tag_at) = ciphertext.len().checked_sub(SHA256_DIGEST_LENGTH) else {
+            return Ok(None);
+        };
+
         TICKET_CONTEXT.with_borrow_mut(|ctx| {
             ctx.cipher.reset()?;
             ctx.hmac.reset()?;
 
             self.decrypt_init(iv, &mut ctx.cipher, &mut ctx.hmac)?;
 
-            let Some((encrypted, hmac_tag)) =
-                ciphertext.split_at_checked(ciphertext.len() - SHA256_DIGEST_LENGTH)
-            else {
-                return Ok(None);
-            };
+            let (encrypted, hmac_tag) = ciphertext.split_at(tag_at);
 
             ctx.hmac.hmac_update(key_name)?;
             ctx.hmac.hmac_update(iv)?;
@@ -287,5 +287,13 @@ mod test {
         let encrypted = key.encrypt(msg.as_bytes()).unwrap();
         let decrypted = key.decrypt(&encrypted).unwrap().unwrap();
         assert_eq!(msg.as_bytes(), decrypted);
+    }
+
+    #[test]
+    fn decrypt_short_ticket_returns_none() {
+        let key = OpensslTicketKey::new_random(30).unwrap();
+        assert!(key.decrypt(&[]).unwrap().is_none());
+        let short = vec![0u8; TICKET_KEY_NAME_LENGTH + TICKET_AES_IV_LENGTH + 31];
+        assert!(key.decrypt(&short).unwrap().is_none());
     }
 }
