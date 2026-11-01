@@ -56,7 +56,16 @@ mod tests {
         let result = parse_host(b"[192.168.1]").unwrap_err();
         assert!(matches!(result, CommandLineError::InvalidClientHost));
 
-        let result = parse_host(b"IPv6:2001:db8::1").unwrap_err();
-        assert!(matches!(result, CommandLineError::InvalidClientHost));
+        let result = parse_host(b"IPv6:2001:db8::1").unwrap();
+        assert_eq!(
+            result,
+            Host::Ip(IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)))
+        );
+
+        let result = parse_host(b"[IPv6:2001:db8::1]").unwrap();
+        assert_eq!(
+            result,
+            Host::Ip(IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)))
+        );
     }
 }

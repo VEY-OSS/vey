@@ -66,24 +66,16 @@ impl Host {
             if buf[end] != b']' {
                 return None;
             }
-            let Ok(s) = std::str::from_utf8(&buf[1..end]) else {
+            let inner = &buf[1..end];
+            let Ok(s) = std::str::from_utf8(inner) else {
                 return None;
             };
-            Ipv4Addr::from_str(s)
-                .map(|v4| Host::Ip(IpAddr::V4(v4)))
-                .ok()
-        } else if let Some(d) = memchr::memchr(b':', buf) {
-            match &buf[0..d] {
-                b"Ipv6" => {
-                    let Ok(s) = std::str::from_utf8(&buf[d + 1..]) else {
-                        return None;
-                    };
-                    Ipv6Addr::from_str(s)
-                        .map(|v6| Host::Ip(IpAddr::V6(v6)))
-                        .ok()
-                }
-                _ => None,
+            if let Ok(v4) = Ipv4Addr::from_str(s) {
+                return Some(Host::Ip(IpAddr::V4(v4)));
             }
+            parse_smtp_ipv6_literal(inner)
+        } else if memchr::memchr(b':', buf).is_some() {
+            parse_smtp_ipv6_literal(buf)
         } else {
             let Ok(s) = std::str::from_utf8(buf) else {
                 return None;
@@ -91,6 +83,21 @@ impl Host {
             Host::from_domain_str(s).ok()
         }
     }
+}
+
+fn parse_smtp_ipv6_literal(buf: &[u8]) -> Option<Host> {
+    let Some(d) = memchr::memchr(b':', buf) else {
+        return None;
+    };
+    if !buf[..d].eq_ignore_ascii_case(b"IPv6") {
+        return None;
+    }
+    let Ok(s) = std::str::from_utf8(&buf[d + 1..]) else {
+        return None;
+    };
+    Ipv6Addr::from_str(s)
+        .map(|v6| Host::Ip(IpAddr::V6(v6)))
+        .ok()
 }
 
 impl fmt::Display for Host {
@@ -201,5 +208,13 @@ mod tests {
 
         let host = Host::parse_smtp_host_address(b"Ipv6:2001:db8::1").unwrap();
         assert_eq!(host, Host::Ip(IpAddr::from_str("2001:db8::1").unwrap()));
+
+        let host = Host::parse_smtp_host_address(b"[IPv6:2001:db8::1]").unwrap();
+        assert_eq!(host, Host::Ip(IpAddr::from_str("2001:db8::1").unwrap()));
+
+        let host = Host::parse_smtp_host_address(b"[ipv6:2001:db8::1]").unwrap();
+        assert_eq!(host, Host::Ip(IpAddr::from_str("2001:db8::1").unwrap()));
+
+        assert!(Host::parse_smtp_host_address(b"[IPv6:not-an-ip]").is_none());
     }
 }
