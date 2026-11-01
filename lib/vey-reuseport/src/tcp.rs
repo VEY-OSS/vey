@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::os::fd::AsFd;
 use std::path::{Path, PathBuf};
 use std::{fs, ptr};
@@ -40,12 +40,7 @@ impl TcpSocketSelector {
     }
 
     pub fn new(pid: i32, generation: u16, addr: SocketAddr) -> anyhow::Result<Self> {
-        let ip = match addr.ip() {
-            IpAddr::V4(ip) => ip.to_ipv6_compatible(), // IPv4 "." is not allowed in path
-            IpAddr::V6(ip) => ip,
-        };
-        let dir = format!("/sys/fs/bpf/vey-reuseport/tcp/{ip}_{}", addr.port());
-        let pin_dir = PathBuf::from(dir);
+        let pin_dir = super::reuseport_pin_dir("tcp", addr);
 
         fs::create_dir_all(&pin_dir)
             .map_err(|e| anyhow!("failed to create pin directory {}: {e}", pin_dir.display()))?;

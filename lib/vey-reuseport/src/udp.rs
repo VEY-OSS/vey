@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::num::NonZeroU32;
 use std::os::fd::AsFd;
 use std::path::{Path, PathBuf};
@@ -79,12 +79,7 @@ impl UdpSocketSelector {
         addr: SocketAddr,
         conn_track_max_entries: NonZeroU32,
     ) -> anyhow::Result<Self> {
-        let ip = match addr.ip() {
-            IpAddr::V4(ip) => ip.to_ipv6_compatible(), // IPv4 "." is not allowed in path
-            IpAddr::V6(ip) => ip,
-        };
-        let dir = format!("/sys/fs/bpf/vey-reuseport/udp/{ip}_{}", addr.port());
-        let pin_dir = PathBuf::from(dir);
+        let pin_dir = super::reuseport_pin_dir("udp", addr);
         let socket_map_path = pin_dir.join(NAME_SOCKET_MAP);
 
         fs::create_dir_all(&pin_dir)
