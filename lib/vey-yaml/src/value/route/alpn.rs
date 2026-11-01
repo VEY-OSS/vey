@@ -139,6 +139,10 @@ fn add_alpn_matched_backend(obj: &mut AlpnMatch<NodeName>, value: &Yaml) -> anyh
         name = crate::value::as_metric_node_name(value)?;
     }
 
+    if name.is_empty() {
+        return Err(anyhow!("no backend name is set"));
+    }
+
     let mut auto_default = true;
     for protocol in protocol_vs {
         if obj.add_protocol(protocol.clone(), name.clone()).is_some() {
@@ -389,6 +393,13 @@ mod tests {
         let yaml = yaml_doc!(
             r#"
                 backend: 123
+            "#
+        );
+        assert!(as_alpn_matched_backends(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                protocol: h2
             "#
         );
         assert!(as_alpn_matched_backends(&yaml).is_err());
