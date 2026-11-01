@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::os::fd::AsFd;
 use std::path::{Path, PathBuf};
 use std::{fs, ptr};
@@ -93,12 +93,7 @@ impl QuicSocketSelector {
     }
 
     pub fn new(pid: i32, generation: u16, addr: SocketAddr) -> anyhow::Result<Self> {
-        let ip = match addr.ip() {
-            IpAddr::V4(ip) => ip.to_ipv6_compatible(), // IPv4 "." is not allowed in path
-            IpAddr::V6(ip) => ip,
-        };
-        let dir = format!("/sys/fs/bpf/vey-reuseport/quic/{ip}_{}", addr.port());
-        let pin_dir = PathBuf::from(dir);
+        let pin_dir = super::reuseport_pin_dir("quic", addr);
         let quic_conn_track_path = pin_dir.join(NAME_QUIC_CONN_TRACK);
         let socket_map_path = pin_dir.join(NAME_SOCKET_MAP);
 
