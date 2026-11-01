@@ -9,7 +9,7 @@ description = "Redis client for VEY services"
 [dependencies]
 anyhow.workspace = true
 redis = { workspace = true, features = ["aio", "tokio-comp"] }
-tokio = { workspace = true, features = ["net"] }
+tokio = { workspace = true, features = ["macros", "net", "rt", "time"] }
 tokio-rustls.workspace = true
 rustls-pki-types.workspace = true
 yaml-rust = { workspace = true, optional = true }

@@ -12,6 +12,7 @@ use redis::aio::MultiplexedConnection;
 use redis::{AsyncCommands, AsyncConnectionConfig, ProtocolVersion, RedisConnectionInfo};
 use rustls_pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
 
 use vey_types::net::{Host, RustlsClientConfig, RustlsClientConfigBuilder, UpstreamAddr};
@@ -138,21 +139,32 @@ impl RedisClientConfigBuilder {
 }
 
 impl RedisClientConfig {
-    async fn lookup_server(&self) -> anyhow::Result<SocketAddr> {
+    async fn lookup_server(&self) -> anyhow::Result<Vec<SocketAddr>> {
         match self.server.host() {
             Host::Domain(domain) => {
-                let mut ips = tokio::net::lookup_host((domain.as_str(), self.server.port()))
-                    .await
-                    .map_err(|e| anyhow!("failed to resolve domain {domain}: {e}"))?;
-                ips.next()
-                    .ok_or_else(|| anyhow!("no ip address resolved for domain {domain}"))
+                let ips = match tokio::time::timeout(
+                    self.connect_timeout,
+                    tokio::net::lookup_host((domain.as_str(), self.server.port())),
+                )
+                .await
+                {
+                    Ok(Ok(ips)) => ips,
+                    Ok(Err(e)) => {
+                        return Err(anyhow!("failed to resolve domain {domain}: {e}"));
+                    }
+                    Err(_) => return Err(anyhow!("timeout to resolve domain {domain}")),
+                };
+                let addrs: Vec<SocketAddr> = ips.collect();
+                if addrs.is_empty() {
+                    return Err(anyhow!("no ip address resolved for domain {domain}"));
+                }
+                Ok(addrs)
             }
-            Host::Ip(ip) => Ok(SocketAddr::new(*ip, self.server.port())),
+            Host::Ip(ip) => Ok(vec![SocketAddr::new(*ip, self.server.port())]),
         }
     }
 
-    pub async fn connect(&self) -> anyhow::Result<impl AsyncCommands + use<>> {
-        let peer = self.lookup_server().await?;
+    async fn tcp_connect(&self, peer: SocketAddr) -> anyhow::Result<TcpStream> {
         let socket = vey_socket::tcp::new_socket_to(
             peer.ip(),
             &Default::default(),
@@ -162,27 +174,47 @@ impl RedisClientConfig {
         )
         .map_err(|e| anyhow!("failed to create new socket: {e}"))?;
 
-        let stream = match tokio::time::timeout(self.connect_timeout, socket.connect(peer)).await {
-            Ok(Ok(stream)) => stream,
-            Ok(Err(e)) => return Err(anyhow!("failed to connect to {}: {e}", self.server)),
-            Err(_) => return Err(anyhow!("timeout to connect to {}", self.server)),
-        };
-
-        if let Some(tls_client) = &self.tls_client {
-            let tls_connector = TlsConnector::from(tls_client.tls_config.driver.clone());
-            match tokio::time::timeout(
-                tls_client.tls_config.handshake_timeout,
-                tls_connector.connect(tls_client.tls_name.clone(), stream),
-            )
-            .await
-            {
-                Ok(Ok(stream)) => self.redis_handshake(stream).await,
-                Ok(Err(e)) => Err(anyhow!("failed to tls handshake with {}: {e}", self.server)),
-                Err(_) => Err(anyhow!("timeout to tls handshake with {}", self.server)),
-            }
-        } else {
-            self.redis_handshake(stream).await
+        match tokio::time::timeout(self.connect_timeout, socket.connect(peer)).await {
+            Ok(Ok(stream)) => Ok(stream),
+            Ok(Err(e)) => Err(anyhow!("failed to connect to {}: {e}", self.server)),
+            Err(_) => Err(anyhow!("timeout to connect to {}", self.server)),
         }
+    }
+
+    pub async fn connect(&self) -> anyhow::Result<impl AsyncCommands + use<>> {
+        let peers = self.lookup_server().await?;
+        self.connect_peers(peers).await
+    }
+
+    async fn connect_peers(&self, peers: Vec<SocketAddr>) -> anyhow::Result<MultiplexedConnection> {
+        let mut last_err = None;
+        for peer in peers {
+            let stream = match self.tcp_connect(peer).await {
+                Ok(stream) => stream,
+                Err(e) => {
+                    last_err = Some(e);
+                    continue;
+                }
+            };
+
+            return if let Some(tls_client) = &self.tls_client {
+                let tls_connector = TlsConnector::from(tls_client.tls_config.driver.clone());
+                match tokio::time::timeout(
+                    tls_client.tls_config.handshake_timeout,
+                    tls_connector.connect(tls_client.tls_name.clone(), stream),
+                )
+                .await
+                {
+                    Ok(Ok(stream)) => self.redis_handshake(stream).await,
+                    Ok(Err(e)) => Err(anyhow!("failed to tls handshake with {}: {e}", self.server)),
+                    Err(_) => Err(anyhow!("timeout to tls handshake with {}", self.server)),
+                }
+            } else {
+                self.redis_handshake(stream).await
+            };
+        }
+
+        Err(last_err.unwrap_or_else(|| anyhow!("no ip address resolved for {}", self.server)))
     }
 
     async fn redis_handshake<S>(&self, stream: S) -> anyhow::Result<MultiplexedConnection>
@@ -192,10 +224,15 @@ impl RedisClientConfig {
         let async_config =
             AsyncConnectionConfig::new().set_response_timeout(Some(self.response_timeout));
 
-        let (conn, background) =
-            MultiplexedConnection::new_with_config(&self.db_info, stream, async_config)
-                .await
-                .map_err(|e| anyhow!("redis handshake with {} failed: {e}", self.server))?;
+        let handshake = MultiplexedConnection::new_with_config(&self.db_info, stream, async_config);
+        let (conn, background) = match tokio::time::timeout(self.response_timeout, handshake).await
+        {
+            Ok(Ok(conn)) => conn,
+            Ok(Err(e)) => {
+                return Err(anyhow!("redis handshake with {} failed: {e}", self.server));
+            }
+            Err(_) => return Err(anyhow!("timeout to redis handshake with {}", self.server)),
+        };
         tokio::spawn(background);
         Ok(conn)
     }
@@ -281,5 +318,68 @@ mod tests {
         let config = builder.build().unwrap();
         let tls = config.tls_client.as_ref().unwrap();
         assert_eq!(tls.tls_name, ServerName::try_from("10.0.0.5").unwrap());
+    }
+
+    fn silent_peer_config(port: u16) -> RedisClientConfig {
+        let mut builder = RedisClientConfigBuilder::new(UpstreamAddr::new(
+            Host::Ip(IpAddr::from_str("127.0.0.1").unwrap()),
+            port,
+        ));
+        builder.set_connect_timeout(Duration::from_millis(500));
+        builder.set_response_timeout(Duration::from_millis(200));
+        builder.build().unwrap()
+    }
+
+    #[tokio::test]
+    async fn handshake_times_out_when_peer_is_silent() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (sock, _) = listener.accept().await.unwrap();
+            let _hold = sock;
+            std::future::pending::<()>().await;
+        });
+
+        let config = silent_peer_config(addr.port());
+        let started = std::time::Instant::now();
+        let err = match config.connect().await {
+            Ok(_) => panic!("silent peer should not finish handshake"),
+            Err(e) => e,
+        };
+        let elapsed = started.elapsed();
+
+        assert!(
+            err.to_string().contains("timeout to redis handshake"),
+            "{err}"
+        );
+        assert!(elapsed >= Duration::from_millis(150), "{elapsed:?}");
+        assert!(elapsed < Duration::from_millis(1500), "{elapsed:?}");
+    }
+
+    #[tokio::test]
+    async fn connect_tries_next_address_after_refusal() {
+        let closed = {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            drop(listener);
+            addr
+        };
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let open = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (sock, _) = listener.accept().await.unwrap();
+            let _hold = sock;
+            std::future::pending::<()>().await;
+        });
+
+        let config = silent_peer_config(open.port());
+        let err = match config.connect_peers(vec![closed, open]).await {
+            Ok(_) => panic!("closed then silent peer should not finish handshake"),
+            Err(e) => e,
+        };
+        assert!(
+            err.to_string().contains("timeout to redis handshake"),
+            "{err}"
+        );
     }
 }
