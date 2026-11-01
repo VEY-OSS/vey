@@ -103,7 +103,7 @@ itertools = "0.15"
 rand = { version = "0.10", default-features = false, features = ["thread_rng"] }
 fastrand = "2.3"
 memchr = "2.8"
-constant_time_eq = "0.4"
+constant_time_eq = "0.6"
 uuid = "1.21"
 base64 = "0.23"
 regex = "1.11"
@@ -136,7 +136,7 @@ ip_network_table = "0.2"
 radix_trie = "0.3"
 fixedbitset = "0.5"
 bitflags = "2.13"
-lru = { version = "0.18", default-features = false }
+lru = { version = "0.19", default-features = false }
 #
 blake3 = { version = "1.5", default-features = false }
 hex = "0.4.2"
@@ -180,9 +180,9 @@ openssl-probe = "0.2"
 #
 kanal = { version = "0.1.1", default-features = false }
 #
-c-ares = { version = "13.0", default-features = false }
-c-ares-resolver = { version = "12.0", default-features = false }
-c-ares-sys = { version = "12.0", default-features = false }
+c-ares = { version = "13.1", default-features = false }
+c-ares-resolver = { version = "12.1", default-features = false }
+c-ares-sys = { version = "13.0", default-features = false }
 hickory-proto = { version = "0.26.1", default-features = false }
 hickory-net = { version = "0.26.1", default-features = false }
 #
@@ -197,7 +197,7 @@ socket2 = { version = "0.6.4", features = ["all"] }
 snmalloc = { package = "snmalloc-rs", version = "0.7.5" }
 #
 serde = "1.0"
-yaml-rust = { package = "yaml-rust2", version = "0.12" }
+yaml-rust = { package = "yaml-rust2", version = "0.13" }
 serde_json = "1.0"
 rmp-serde = "1"
 rmp = "0.8"
