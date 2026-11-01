@@ -1,34 +1,42 @@
 
 v0.6.0:
- - BUG FIX: a link-local IPv6 peer or local address keeps its scope id
- - BUG FIX: after graceful shutdown is cancelled, a later SIGTERM still requests shutdown
- - Breaking: the default control socket directory is `/run/vey-keyless` for root on Linux and `/var/run/vey-keyless` for root on other Unix systems; another Linux user uses an absolute `XDG_RUNTIME_DIR` or `/run/user/<uid>/vey-keyless`
  - BUG FIX: a buffered stream copy or vectored write stops when the writer returns no bytes
  - BUG FIX: a Fluentd handshake reports a closed connection instead of parsing a short HELO or PONG
  - BUG FIX: a large Linux journald record can be sealed and sent
+ - BUG FIX: a link-local IPv6 peer or local address keeps its scope id
+ - BUG FIX: a log format failure is reported instead of panicking, and syslog is sent before the reconnect wait
  - BUG FIX: a non-ASCII size string in worker or statsd config is rejected instead of panicking
+ - BUG FIX: a QAT instance drains in-flight operations before it stops, and a failed start is not remembered for the rest of the process
+ - BUG FIX: a quit during graceful shutdown closes the unique control listener
  - BUG FIX: a relative pid file is created in the working directory from before daemonizing, and the lock is held until the process exits
  - BUG FIX: a rotating histogram still publishes while samples keep arriving, and `0.0` and `-0.0` count as one quantile
+ - BUG FIX: a statsd export continues after `sendmmsg` writes only part of the batch, and logs the first error in each 64 second slice
+ - BUG FIX: a TCP listen `scale` whose denominator is 0 is rejected instead of panicking
  - BUG FIX: a TLS Fluentd client finishes the forward handshake after TLS, and an unknown HELO option is rejected
+ - BUG FIX: a TLS session ticket that is too short to hold an HMAC tag is ignored instead of panicking
+ - BUG FIX: after graceful shutdown is cancelled, a later SIGTERM still requests shutdown
  - BUG FIX: an empty daemon group uses `_.sock` as the control socket
  - BUG FIX: an incomplete legacy rustls certificate pair fails config load instead of being ignored
  - BUG FIX: an issued certificate cannot start before its issuer, and its `pathlen` cannot exceed what the issuer allows
  - BUG FIX: certificate times outside 1950-2049 use GeneralizedTime, and a timestamp offset that includes seconds is written in UTC
+ - BUG FIX: failure to spawn the async log thread is reported
  - BUG FIX: on Windows, another control client can connect while one connection is still open
  - BUG FIX: OpenSSL async engine file descriptors are registered with the I/O-safe AsyncFd API
  - BUG FIX: the crypto_mb backend reduces an ECDSA digest modulo the curve order, and uses OpenSSL when that value is zero
  - BUG FIX: the crypto_mb backend rejects an RSA-PSS digest that is not the hash length
  - BUG FIX: the register keepalive request is a complete HTTP header
+ - BUG FIX: the TLS ticket key still in use can decrypt tickets after a refresh
  - BUG FIX: the Windows hostname sent to syslog and Fluentd no longer includes a trailing NUL
+ - Feature: dispatch Ed25519 private-key operations to worker backends
+ - Feature: `listen` is now optional in a `cloudflare` server, so it can serve only the connections sent by port servers
+ - Feature: optional `crypto_mb` backend (feature `crypto-mb`, x86_64 only) using Intel crypto_mb for batched RSA-2048/3072/4096, ECDSA P-256/P-384/P-521, and Ed25519; single-request batches fall back to OpenSSL
+ - Feature: port servers support the PROXY Protocol via `proxy_protocol` and `proxy_protocol_read_timeout`
+ - Feature: `server` references are verified when the config is loaded, so a missing or self-referencing next server is rejected at startup
  - Feature: support multiple server types, selected with the `type` key in each server config
      - `cloudflare`: the Cloudflare Keyless server, which is the default type if `type` is omitted
      - `plain_tcp_port`: a plain TCP port that forwards accepted connections to the `server` it points to
      - `plain_tls_port`: a TLS port backed by rustls, which terminates TLS and forwards the stream to the `server` it points to
- - Feature: `listen` is now optional in a `cloudflare` server, so it can serve only the connections sent by port servers
- - Feature: port servers support the PROXY Protocol via `proxy_protocol` and `proxy_protocol_read_timeout`
- - Feature: `server` references are verified when the config is loaded, so a missing or self-referencing next server is rejected at startup
- - Feature: optional `crypto_mb` backend (feature `crypto-mb`, x86_64 only) using Intel crypto_mb for batched RSA-2048/3072/4096, ECDSA P-256/P-384/P-521, and Ed25519; single-request batches fall back to OpenSSL
- - Feature: dispatch Ed25519 private-key operations to worker backends
+ - Breaking: the default control socket directory is `/run/vey-keyless` for root on Linux and `/var/run/vey-keyless` for root on other Unix systems; another Linux user uses an absolute `XDG_RUNTIME_DIR` or `/run/user/<uid>/vey-keyless`
  - Compatibility: bump MSRV to 1.94.0
  - Compatibility: DragonFly worker `sched_affinity` applies to the calling thread
 
