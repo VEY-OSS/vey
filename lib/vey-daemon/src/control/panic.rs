@@ -76,11 +76,13 @@ fn do_panic_quit(monitored: bool) {
     }
 }
 
+#[cfg(any(unix, test))]
 struct PanicQuitPlan {
     signal_parent: bool,
     force_shutdown: bool,
 }
 
+#[cfg(any(unix, test))]
 fn plan_panic_quit(monitored: bool, has_parent: bool) -> PanicQuitPlan {
     PanicQuitPlan {
         signal_parent: monitored && has_parent,
