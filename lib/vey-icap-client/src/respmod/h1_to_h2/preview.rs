@@ -191,6 +191,12 @@ impl<I: IdleCheck> H1ToH2ResponseAdapter<I> {
                         )
                         .await;
                 }
+                if ups_body_reader.left_chunk_size().is_none() {
+                    ups_body_reader
+                        .finish_pending_chunk_end()
+                        .await
+                        .map_err(H1ToH2RespmodAdaptationError::HttpUpstreamReadFailed)?;
+                }
                 left_chunk_size = ups_body_reader.left_chunk_size().ok_or(
                     H1ToH2RespmodAdaptationError::InternalServerError(
                         "broken chunked encoding after preview read",
