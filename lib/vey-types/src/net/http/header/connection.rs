@@ -166,7 +166,9 @@ impl ConnectionValue {
             let token = item.value();
             match token[0] {
                 b'K' | b'k' if token.eq_ignore_ascii_case(b"keep-alive") => {
-                    self.persistence = Some(ConnectionPersistence::KeepAlive);
+                    if self.persistence != Some(ConnectionPersistence::Close) {
+                        self.persistence = Some(ConnectionPersistence::KeepAlive);
+                    }
                     continue;
                 }
                 b'C' | b'c' if token.eq_ignore_ascii_case(b"close") => {
@@ -321,12 +323,17 @@ mod tests {
         assert_eq!(buf, b"Connection: Keep-Alive, TE, upgrade\r\n");
 
         v.parse(b"close, keep-alive, Foo");
-        assert!(v.keep_alive(Version::HTTP_11));
-        assert!(!v.close(Version::HTTP_11));
-        assert_eq!(v.extra_headers(), &[HeaderName::from_static("foo")]);
-        v.parse(b"close");
         assert!(v.close(Version::HTTP_11));
         assert!(!v.keep_alive(Version::HTTP_11));
+        assert_eq!(v.extra_headers(), &[HeaderName::from_static("foo")]);
+        v.parse(b"keep-alive");
+        assert!(v.close(Version::HTTP_11));
+        assert!(!v.keep_alive(Version::HTTP_11));
+
+        let mut ordered = ConnectionValue::default();
+        ordered.parse(b"keep-alive, close");
+        assert!(ordered.close(Version::HTTP_11));
+        assert!(!ordered.keep_alive(Version::HTTP_11));
         let empty = ConnectionValue::default();
         assert!(empty.keep_alive(Version::HTTP_11));
         assert!(!empty.keep_alive(Version::HTTP_10));
