@@ -107,7 +107,9 @@ impl HickoryClient {
                     };
                     let async_client = self.client.clone();
                     tokio::spawn(async move {
-                        let r = client_job.run(async_client, req, None).await;
+                        let r = client_job
+                            .run(async_client, req, None, CnameChase::new())
+                            .await;
                         let _ = rsp_sender.send(r).await;
                     });
                 }
@@ -140,6 +142,35 @@ pub(super) struct HickoryClientJob {
     try_truncated: bool,
 }
 
+/// How many extra queries may follow a CNAME before the chase stops.
+const MAX_CNAME_HOPS: u8 = 8;
+
+struct CnameChase {
+    hops_left: u8,
+    seen: Vec<Name>,
+}
+
+impl CnameChase {
+    fn new() -> Self {
+        CnameChase {
+            hops_left: MAX_CNAME_HOPS,
+            seen: Vec::new(),
+        }
+    }
+
+    /// Record `queried` and allow one more lookup of `next`.
+    ///
+    /// A repeated name or an exhausted hop budget is a loop, not another query.
+    fn follow(&mut self, queried: Name, next: &Name) -> bool {
+        if self.hops_left == 0 || next.eq(&queried) || self.seen.iter().any(|name| name.eq(next)) {
+            return false;
+        }
+        self.seen.push(queried);
+        self.hops_left -= 1;
+        true
+    }
+}
+
 impl HickoryClientJob {
     #[async_recursion]
     async fn run(
@@ -147,6 +178,7 @@ impl HickoryClientJob {
         mut async_client: Client<TokioRuntimeProvider>,
         req: DnsRequest,
         query_name: Option<Name>,
+        mut chase: CnameChase,
     ) -> ResolvedRecord {
         let mut name = match query_name {
             Some(name) => name,
@@ -178,19 +210,26 @@ impl HickoryClientJob {
                 if msg.truncation && self.try_truncated {
                     self.try_truncated = false;
                     if let Ok(client) = self.config.new_dns_over_tcp_client().await {
-                        return self.run(client, req, Some(name)).await;
+                        return self.run(client, req, Some(name), chase).await;
                     }
                 }
 
+                let queried = name.clone();
                 let (ips, ttl, has_cname, name) =
                     collect_answer_addresses(msg.answers, req.rtype, name);
                 if ips.is_empty() {
-                    if has_cname {
-                        self.try_truncated = true;
-                        self.run(async_client, req, Some(name)).await
-                    } else {
-                        ResolvedRecord::empty(req.domain, self.config.negative_ttl)
+                    if !has_cname {
+                        return ResolvedRecord::empty(req.domain, self.config.negative_ttl);
                     }
+                    if !chase.follow(queried, &name) {
+                        return ResolvedRecord::failed(
+                            req.domain,
+                            self.config.negative_ttl,
+                            ResolveError::InvalidRedirectionDomain,
+                        );
+                    }
+                    self.try_truncated = true;
+                    self.run(async_client, req, Some(name), chase).await
                 } else {
                     ResolvedRecord::resolved(
                         req.domain,
@@ -235,7 +274,7 @@ impl HickoryClientJob {
                 if self.try_failed > 0
                     && let Ok(client) = self.config.build_async_client().await
                 {
-                    return self.run(client, req, Some(name)).await;
+                    return self.run(client, req, Some(name), chase).await;
                 }
                 ResolvedRecord::failed(
                     req.domain,
@@ -249,7 +288,7 @@ impl HickoryClientJob {
                 if self.try_failed > 0
                     && let Ok(client) = self.config.build_async_client().await
                 {
-                    return self.run(client, req, Some(name)).await;
+                    return self.run(client, req, Some(name), chase).await;
                 }
                 ResolvedRecord::failed(
                     req.domain,
@@ -263,8 +302,10 @@ impl HickoryClientJob {
 
 /// Collect A/AAAA addresses for `rtype` from the answer section.
 ///
-/// TTL is the **minimum** among those address records only (not CNAME / other
-/// RRtypes that may appear later in the answer section).
+/// An address is kept only when its owner name is the name currently being
+/// resolved. A CNAME with that owner advances the name, so a later address for
+/// the target in the same answer is kept and an address for any other name is
+/// not. TTL is the minimum among the kept address records.
 fn collect_answer_addresses(
     answers: impl IntoIterator<Item = Record>,
     rtype: RecordType,
@@ -275,11 +316,11 @@ fn collect_answer_addresses(
     let mut ttl = None;
     for r in answers {
         match r.data {
-            RData::A(v) if rtype == RecordType::A => {
+            RData::A(v) if rtype == RecordType::A && name.eq(&r.name) => {
                 ips.push(IpAddr::V4(v.0));
                 ttl = Some(ttl.map_or(r.ttl, |t: u32| t.min(r.ttl)));
             }
-            RData::AAAA(v) if rtype == RecordType::AAAA => {
+            RData::AAAA(v) if rtype == RecordType::AAAA && name.eq(&r.name) => {
                 ips.push(IpAddr::V6(v.0));
                 ttl = Some(ttl.map_or(r.ttl, |t: u32| t.min(r.ttl)));
             }
@@ -582,5 +623,64 @@ mod tests {
         assert_eq!(ttl, None);
         assert!(has_cname);
         assert_eq!(next_name, cname);
+    }
+
+    #[test]
+    fn collect_answer_addresses_ignores_other_owner() {
+        let qname = Name::from_str("www.example.com.").unwrap();
+        let other = Name::from_str("other.example.").unwrap();
+        let answers = vec![
+            Record::from_rdata(other.clone(), 60, RData::A(A(Ipv4Addr::new(9, 9, 9, 9)))),
+            Record::from_rdata(other, 60, RData::AAAA(AAAA(Ipv6Addr::LOCALHOST))),
+        ];
+
+        let (ips, ttl, has_cname, next_name) =
+            collect_answer_addresses(answers, RecordType::A, qname.clone());
+        assert!(ips.is_empty());
+        assert_eq!(ttl, None);
+        assert!(!has_cname);
+        assert_eq!(next_name, qname);
+    }
+
+    #[test]
+    fn collect_answer_addresses_keeps_address_of_cname_target() {
+        let qname = Name::from_str("www.example.com.").unwrap();
+        let cname = Name::from_str("cdn.example.net.").unwrap();
+        let other = Name::from_str("other.example.").unwrap();
+        let answers = vec![
+            Record::from_rdata(qname.clone(), 30, RData::CNAME(CNAME(cname.clone()))),
+            Record::from_rdata(other, 10, RData::A(A(Ipv4Addr::new(9, 9, 9, 9)))),
+            Record::from_rdata(cname.clone(), 60, RData::A(A(Ipv4Addr::new(1, 2, 3, 4)))),
+        ];
+
+        let (ips, ttl, has_cname, next_name) =
+            collect_answer_addresses(answers, RecordType::A, qname);
+        assert_eq!(ips, vec![IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4))]);
+        assert_eq!(ttl, Some(60));
+        assert!(has_cname);
+        assert_eq!(next_name, cname);
+    }
+
+    #[test]
+    fn cname_chase_stops_on_a_loop() {
+        let mut chase = CnameChase::new();
+        let a = Name::from_str("a.example.").unwrap();
+        let b = Name::from_str("b.example.").unwrap();
+        assert!(chase.follow(a.clone(), &b));
+        assert!(!chase.follow(b.clone(), &a));
+        assert!(!chase.follow(a.clone(), &a));
+    }
+
+    #[test]
+    fn cname_chase_stops_after_hop_limit() {
+        let mut chase = CnameChase::new();
+        let mut current = Name::from_str("n0.example.").unwrap();
+        for i in 1..=usize::from(MAX_CNAME_HOPS) {
+            let next = Name::from_str(&format!("n{i}.example.")).unwrap();
+            assert!(chase.follow(current, &next));
+            current = next;
+        }
+        let extra = Name::from_str("extra.example.").unwrap();
+        assert!(!chase.follow(current, &extra));
     }
 }
