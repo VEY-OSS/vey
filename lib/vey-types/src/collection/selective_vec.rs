@@ -389,7 +389,8 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             _ => {
                 let mut node = &self.inner[0];
                 if self.weighted {
-                    let mut final_value = 0f64;
+                    // Scores are ln(hash / u64::MAX) / weight, so they are <= 0.
+                    let mut final_value = f64::NEG_INFINITY;
                     for item in &self.inner {
                         let value = Self::rendezvous_weighted_hash(item, key);
                         if final_value < value {
@@ -870,6 +871,39 @@ mod tests {
     fn jump_hash_clamps_large_slot_count() {
         let slot = SelectiveVec::<Node>::jump_hash("key", u32::MAX);
         assert!(slot < (1 << 30));
+    }
+
+    #[test]
+    fn weighted_rendezvous_can_select_lighter_node() {
+        let heavy = Node {
+            name: "heavy".to_string(),
+            weight: 9.0,
+        };
+        let light = Node {
+            name: "light".to_string(),
+            weight: 1.0,
+        };
+
+        let mut builder = SelectiveVecBuilder::with_capacity(2);
+        builder.insert(light.clone());
+        builder.insert(heavy.clone());
+        let vec = builder.build().unwrap();
+
+        let mut saw_light = false;
+        let mut saw_heavy = false;
+        for i in 0..4096u32 {
+            let picked = vec.pick_rendezvous(&i);
+            let top = vec.pick_rendezvous_n(&i, 1);
+            assert!(picked.eq(top[0]));
+            if picked.eq(&light) {
+                saw_light = true;
+            } else {
+                assert!(picked.eq(&heavy));
+                saw_heavy = true;
+            }
+        }
+        assert!(saw_light);
+        assert!(saw_heavy);
     }
 
     #[test]
