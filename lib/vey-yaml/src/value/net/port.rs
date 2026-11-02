@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::num::NonZeroU16;
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
@@ -65,6 +66,10 @@ pub fn as_port_range(value: &Yaml) -> anyhow::Result<PortRange> {
             })
             .context("invalid port range map value")?;
 
+            let start =
+                NonZeroU16::new(start).ok_or_else(|| anyhow!("the start port should not be 0"))?;
+            let end =
+                NonZeroU16::new(end).ok_or_else(|| anyhow!("the end port should not be 0"))?;
             let range = PortRange::new(start, end);
             range.check()?;
             Ok(range)
