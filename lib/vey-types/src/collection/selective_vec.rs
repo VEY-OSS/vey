@@ -279,6 +279,9 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             1 => vec![&self.inner[0]],
             len => {
                 let n = n.min(len);
+                if n == 0 {
+                    return Vec::new();
+                }
                 let mut id = self.rr_id.load(atomic::Ordering::Acquire);
                 loop {
                     let mut end = id + n;
@@ -652,6 +655,7 @@ mod tests {
         assert_eq!(r.len(), 2);
         assert!(r[0].eq(&node1));
         assert!(r[1].eq(&node2));
+        assert!(vec.pick_round_robin_n(0).is_empty());
 
         /*
         let mut see1 = false;
@@ -758,6 +762,8 @@ mod tests {
         assert_eq!(r.len(), 2);
         assert!(r[0].eq(&node1));
         assert!(r[1].eq(&node2));
+
+        assert!(vec.pick_round_robin_n(0).is_empty());
 
         let r = vec.pick_round_robin_n(2);
         assert_eq!(r.len(), 2);
