@@ -34,7 +34,14 @@ impl IcapRespmodResponsePayload {
         }
 
         let res_hdr_offset = match name.to_lowercase().as_str() {
-            "null-body" => return Ok((IcapRespmodResponsePayload::NoPayload, 0)),
+            "null-body" => {
+                if parts.next().is_some() {
+                    return Err(IcapRespmodParseError::UnsupportedBody(
+                        "unexpected encapsulated section after body",
+                    ));
+                }
+                return Ok((IcapRespmodResponsePayload::NoPayload, 0));
+            }
             "res-hdr" => 0,
             "req-hdr" => {
                 let (name, value) = parts.next().and_then(|p| p.split_once('=')).ok_or(
@@ -80,6 +87,11 @@ impl IcapRespmodResponsePayload {
                 ));
             }
         };
+        if parts.next().is_some() {
+            return Err(IcapRespmodParseError::UnsupportedBody(
+                "unexpected encapsulated section after body",
+            ));
+        }
         Ok((payload, res_hdr_offset))
     }
 }
@@ -156,6 +168,18 @@ mod tests {
     fn rejects_non_zero_hdr_offset() {
         assert!(matches!(
             IcapRespmodResponsePayload::parse("res-hdr=8, res-body=16"),
+            Err(IcapRespmodParseError::UnsupportedBody(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_section_after_null_body() {
+        assert!(matches!(
+            IcapRespmodResponsePayload::parse("null-body=0, res-body=20"),
+            Err(IcapRespmodParseError::UnsupportedBody(_))
+        ));
+        assert!(matches!(
+            IcapRespmodResponsePayload::parse("res-hdr=0, null-body=64, res-body=80"),
             Err(IcapRespmodParseError::UnsupportedBody(_))
         ));
     }
