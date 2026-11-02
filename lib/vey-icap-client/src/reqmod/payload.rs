@@ -50,13 +50,21 @@ impl IcapReqmodResponsePayload {
                 let hdr_len = parse_offset(value).filter(|n| *n > 0).ok_or(
                     IcapReqmodParseError::UnsupportedBody("invalid body byte-offsets value"),
                 )?;
-                match name.to_lowercase().as_str() {
-                    "req-body" => Ok(IcapReqmodResponsePayload::HttpRequestWithBody(hdr_len)),
-                    "null-body" => Ok(IcapReqmodResponsePayload::HttpRequestWithoutBody(hdr_len)),
-                    _ => Err(IcapReqmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets name",
-                    )),
+                let payload = match name.to_lowercase().as_str() {
+                    "req-body" => IcapReqmodResponsePayload::HttpRequestWithBody(hdr_len),
+                    "null-body" => IcapReqmodResponsePayload::HttpRequestWithoutBody(hdr_len),
+                    _ => {
+                        return Err(IcapReqmodParseError::UnsupportedBody(
+                            "invalid body byte-offsets name",
+                        ));
+                    }
+                };
+                if parts.next().is_some() {
+                    return Err(IcapReqmodParseError::UnsupportedBody(
+                        "unexpected encapsulated section after body",
+                    ));
                 }
+                Ok(payload)
             }
             "res-hdr" => {
                 let body_part = parts
@@ -74,15 +82,30 @@ impl IcapReqmodResponsePayload {
                 let hdr_len = parse_offset(value).filter(|n| *n > 0).ok_or(
                     IcapReqmodParseError::UnsupportedBody("invalid body byte-offsets value"),
                 )?;
-                match name.to_lowercase().as_str() {
-                    "res-body" => Ok(IcapReqmodResponsePayload::HttpResponseWithBody(hdr_len)),
-                    "null-body" => Ok(IcapReqmodResponsePayload::HttpResponseWithoutBody(hdr_len)),
-                    _ => Err(IcapReqmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets name",
-                    )),
+                let payload = match name.to_lowercase().as_str() {
+                    "res-body" => IcapReqmodResponsePayload::HttpResponseWithBody(hdr_len),
+                    "null-body" => IcapReqmodResponsePayload::HttpResponseWithoutBody(hdr_len),
+                    _ => {
+                        return Err(IcapReqmodParseError::UnsupportedBody(
+                            "invalid body byte-offsets name",
+                        ));
+                    }
+                };
+                if parts.next().is_some() {
+                    return Err(IcapReqmodParseError::UnsupportedBody(
+                        "unexpected encapsulated section after body",
+                    ));
                 }
+                Ok(payload)
             }
-            "null-body" => Ok(IcapReqmodResponsePayload::NoPayload),
+            "null-body" => {
+                if parts.next().is_some() {
+                    return Err(IcapReqmodParseError::UnsupportedBody(
+                        "unexpected encapsulated section after body",
+                    ));
+                }
+                Ok(IcapReqmodResponsePayload::NoPayload)
+            }
             _ => Err(IcapReqmodParseError::UnsupportedBody(
                 "invalid hdr byte-offsets value",
             )),
@@ -138,6 +161,18 @@ mod tests {
     fn rejects_non_zero_hdr_offset() {
         assert!(matches!(
             IcapReqmodResponsePayload::parse("req-hdr=8, req-body=16"),
+            Err(IcapReqmodParseError::UnsupportedBody(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_section_after_null_body() {
+        assert!(matches!(
+            IcapReqmodResponsePayload::parse("null-body=0, req-body=20"),
+            Err(IcapReqmodParseError::UnsupportedBody(_))
+        ));
+        assert!(matches!(
+            IcapReqmodResponsePayload::parse("req-hdr=0, null-body=64, req-body=80"),
             Err(IcapReqmodParseError::UnsupportedBody(_))
         ));
     }
