@@ -41,6 +41,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         let mut http_rsp =
             HttpAdapterErrorResponse::parse(&mut self.icap_connection.reader, http_header_size)
                 .await?;
+        http_rsp.require_header_section_finished()?;
         http_rsp.set_chunked_encoding();
         let recv_body = ReqmodRecvHttpResponseBody {
             icap_client: self.icap_client,
@@ -59,9 +60,11 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             HttpAdapterErrorResponse::parse(&mut self.icap_connection.reader, http_header_size)
                 .await?;
 
-        self.icap_connection.mark_reader_finished();
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection);
+        if http_rsp.header_section_finished() {
+            self.icap_connection.mark_reader_finished();
+            if icap_rsp.keep_alive {
+                self.icap_client.save_connection(self.icap_connection);
+            }
         }
         Ok(http_rsp)
     }

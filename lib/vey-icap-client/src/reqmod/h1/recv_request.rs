@@ -60,9 +60,11 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             self.http_req_add_no_via_header,
         )
         .await?;
-        self.icap_connection.mark_reader_finished();
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection);
+        if http_req.header_section_finished() {
+            self.icap_connection.mark_reader_finished();
+            if icap_rsp.keep_alive {
+                self.icap_client.save_connection(self.icap_connection);
+            }
         }
 
         let final_req = orig_http_request.adapt_without_body(http_req);
@@ -88,9 +90,11 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             self.http_req_add_no_via_header,
         )
         .await?;
-        self.icap_connection.mark_reader_finished();
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection);
+        if http_req.header_section_finished() {
+            self.icap_connection.mark_reader_finished();
+            if icap_rsp.keep_alive {
+                self.icap_client.save_connection(self.icap_connection);
+            }
         }
 
         let final_req = orig_http_request.adapt_without_body(http_req);
@@ -126,6 +130,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             self.http_req_add_no_via_header,
         )
         .await?;
+        http_req.require_header_section_finished()?;
         let body_content_length = http_req.content_length;
 
         let final_req = orig_http_request.adapt_with_body(http_req);

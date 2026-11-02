@@ -122,6 +122,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
             self.http_req_add_no_via_header,
         )
         .await?;
+        http_req.require_header_section_finished()?;
 
         let final_req = orig_http_request.adapt_to(&http_req);
         let (rsp_fut, mut ups_send_stream) = ups_send_req

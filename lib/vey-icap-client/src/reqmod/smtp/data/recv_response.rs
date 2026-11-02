@@ -33,6 +33,7 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         let http_rsp =
             HttpAdapterErrorResponse::parse(&mut self.icap_connection.reader, http_header_size)
                 .await?;
+        http_rsp.require_header_section_finished()?;
         let recv_body = ReqmodRecvHttpResponseBody {
             icap_client: self.icap_client,
             icap_keepalive: icap_rsp.keep_alive,
@@ -49,9 +50,11 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         let http_rsp =
             HttpAdapterErrorResponse::parse(&mut self.icap_connection.reader, http_header_size)
                 .await?;
-        self.icap_connection.mark_reader_finished();
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection);
+        if http_rsp.header_section_finished() {
+            self.icap_connection.mark_reader_finished();
+            if icap_rsp.keep_alive {
+                self.icap_client.save_connection(self.icap_connection);
+            }
         }
         Ok(http_rsp)
     }

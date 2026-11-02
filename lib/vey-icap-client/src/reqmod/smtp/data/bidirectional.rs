@@ -121,8 +121,9 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
         CR: AsyncBufRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        let _http_req =
+        let http_req =
             HttpAdaptedRequest::parse(self.icap_reader, self.http_header_size, true).await?;
+        http_req.require_header_section_finished()?;
         // TODO check request content type?
 
         let mut ups_body_reader = HttpBodyDecodeReader::new_chunked(self.icap_reader, 256);

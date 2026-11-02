@@ -23,6 +23,8 @@ pub struct HttpAdaptedResponse {
     pub headers: HttpHeaderMap,
     pub content_length: Option<u64>,
     connection_options: Vec<HeaderName>,
+    bytes_read: usize,
+    header_limit: usize,
 }
 
 impl HttpAdaptedResponse {
@@ -34,6 +36,22 @@ impl HttpAdaptedResponse {
             headers: HttpHeaderMap::default(),
             content_length: None,
             connection_options: Vec::new(),
+            bytes_read: 0,
+            header_limit: 0,
+        }
+    }
+
+    /// The encapsulated header ended on its blank line at `header_size`.
+    pub fn header_section_finished(&self) -> bool {
+        self.bytes_read >= self.header_limit
+    }
+
+    /// A following body can only be read when the header fills the encapsulated section.
+    pub fn require_header_section_finished(&self) -> Result<(), HttpResponseParseError> {
+        if self.header_section_finished() {
+            Ok(())
+        } else {
+            Err(HttpResponseParseError::HeaderEndedEarly(self.header_limit))
         }
     }
 
@@ -107,6 +125,8 @@ impl HttpAdaptedResponse {
             rsp.parse_header_line(&line_buf)?;
         }
 
+        rsp.bytes_read = read_size;
+        rsp.header_limit = header_size;
         Ok(rsp)
     }
 
@@ -341,5 +361,37 @@ mod tests {
         let rsp = HttpAdaptedResponse::parse(&mut reader, 1024).await.unwrap();
 
         assert!(!rsp.headers.contains_key("transfer-encoding"));
+    }
+
+    #[tokio::test]
+    async fn to_h2_headers_drops_connection_specific_headers() {
+        let data = b"HTTP/1.1 200 OK\r\n\
+            X-A: 1\r\n\
+            Upgrade: websocket\r\n\
+            Proxy-Connection: keep-alive\r\n\
+            TE: gzip\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let rsp = HttpAdaptedResponse::parse(&mut reader, 4096).await.unwrap();
+        let headers = rsp.to_h2_headers();
+        assert_eq!(headers.len(), 1);
+        assert_eq!(headers.get("x-a").unwrap(), "1");
+    }
+
+    #[tokio::test]
+    async fn blank_line_before_section_end_is_unfinished() {
+        let headers = b"HTTP/1.1 200 OK\r\n\r\n";
+        let mut data = headers.to_vec();
+        data.extend_from_slice(b"LEFTOVER");
+        let mut reader = BufReader::new(std::io::Cursor::new(data));
+        let rsp = HttpAdaptedResponse::parse(&mut reader, headers.len() + 8)
+            .await
+            .unwrap();
+        assert!(!rsp.header_section_finished());
+        let err = rsp.require_header_section_finished().unwrap_err();
+        assert!(matches!(err, HttpResponseParseError::HeaderEndedEarly(_)));
+        let buffered = tokio::io::AsyncBufReadExt::fill_buf(&mut reader)
+            .await
+            .unwrap();
+        assert_eq!(buffered, b"LEFTOVER");
     }
 }

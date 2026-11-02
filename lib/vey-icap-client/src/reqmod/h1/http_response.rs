@@ -22,6 +22,8 @@ pub struct HttpAdapterErrorResponse {
     pub reason: String,
     pub headers: HttpHeaderMap,
     connection_options: Vec<HeaderName>,
+    bytes_read: usize,
+    header_limit: usize,
 }
 
 impl HttpAdapterErrorResponse {
@@ -32,6 +34,22 @@ impl HttpAdapterErrorResponse {
             reason,
             headers: HttpHeaderMap::default(),
             connection_options: Vec::new(),
+            bytes_read: 0,
+            header_limit: 0,
+        }
+    }
+
+    /// The encapsulated header ended on its blank line at `header_size`.
+    pub(crate) fn header_section_finished(&self) -> bool {
+        self.bytes_read >= self.header_limit
+    }
+
+    /// A following body can only be read when the header fills the encapsulated section.
+    pub(crate) fn require_header_section_finished(&self) -> Result<(), HttpResponseParseError> {
+        if self.header_section_finished() {
+            Ok(())
+        } else {
+            Err(HttpResponseParseError::HeaderEndedEarly(self.header_limit))
         }
     }
 
@@ -111,6 +129,8 @@ impl HttpAdapterErrorResponse {
             rsp.parse_header_line(&line_buf)?;
         }
 
+        rsp.bytes_read = read_size;
+        rsp.header_limit = header_size;
         Ok(rsp)
     }
 
@@ -189,7 +209,7 @@ impl HttpAdapterErrorResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::io::BufReader;
+    use tokio::io::{AsyncBufReadExt, BufReader};
 
     #[tokio::test]
     async fn to_h2_headers_drops_connection_specific_headers() {
@@ -206,5 +226,37 @@ mod tests {
         let headers = rsp.to_h2_headers();
         assert_eq!(headers.len(), 1);
         assert_eq!(headers.get("x-a").unwrap(), "1");
+    }
+
+    #[tokio::test]
+    async fn parse_stops_at_blank_line_and_leaves_section_padding() {
+        let headers = b"HTTP/1.1 403 Forbidden\r\n\r\n";
+        let mut data = headers.to_vec();
+        data.extend_from_slice(b"LEFTOVER");
+        let mut reader = BufReader::new(std::io::Cursor::new(data));
+        let rsp = HttpAdapterErrorResponse::parse(&mut reader, headers.len() + 8)
+            .await
+            .unwrap();
+        assert!(!rsp.header_section_finished());
+        let buffered = reader.fill_buf().await.unwrap();
+        assert_eq!(buffered, b"LEFTOVER");
+    }
+
+    #[tokio::test]
+    async fn short_header_section_is_an_error_and_is_not_consumed() {
+        let headers = b"HTTP/1.1 403 Forbidden\r\n\r\n";
+        let mut data = headers.to_vec();
+        data.extend_from_slice(b"LEFTOVER");
+        let mut reader = BufReader::new(std::io::Cursor::new(data));
+        let rsp = HttpAdapterErrorResponse::parse(&mut reader, headers.len() + 8)
+            .await
+            .unwrap();
+        let err = rsp.require_header_section_finished().unwrap_err();
+        assert!(matches!(
+            err,
+            HttpResponseParseError::HeaderEndedEarly(_)
+        ));
+        let buffered = reader.fill_buf().await.unwrap();
+        assert_eq!(buffered, b"LEFTOVER");
     }
 }

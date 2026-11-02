@@ -19,6 +19,8 @@ pub enum HttpRequestParseError {
     ClientClosed,
     #[error("too large header, should be less than {0}")]
     TooLargeHeader(usize),
+    #[error("http header ended before declared section length {0}")]
+    HeaderEndedEarly(usize),
     #[error("invalid method line: {0}")]
     InvalidMethodLine(HttpLineParseError),
     #[error("unsupported method: {0}")]

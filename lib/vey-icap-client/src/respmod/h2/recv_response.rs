@@ -165,9 +165,11 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
     {
         let http_rsp =
             HttpAdaptedResponse::parse(&mut self.icap_connection.reader, http_header_size).await?;
-        self.icap_connection.mark_reader_finished();
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection);
+        if http_rsp.header_section_finished() {
+            self.icap_connection.mark_reader_finished();
+            if icap_rsp.keep_alive {
+                self.icap_client.save_connection(self.icap_connection);
+            }
         }
 
         let final_rsp = orig_http_response.adapt_to(&http_rsp);
@@ -194,6 +196,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
     {
         let http_rsp =
             HttpAdaptedResponse::parse(&mut self.icap_connection.reader, http_header_size).await?;
+        http_rsp.require_header_section_finished()?;
 
         let final_rsp = orig_http_response.adapt_to(&http_rsp);
         state.mark_clt_send_start();

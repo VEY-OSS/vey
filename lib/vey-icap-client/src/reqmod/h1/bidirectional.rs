@@ -119,6 +119,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
             self.http_req_add_no_via_header,
         )
         .await?;
+        http_req.require_header_section_finished()?;
         let body_content_length = http_req.content_length;
 
         let final_req = orig_http_request.adapt_with_body(http_req);
