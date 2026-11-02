@@ -37,6 +37,9 @@ impl<'a> StatusLine<'a> {
         if left.len() < len + 1 {
             return Err(IcapLineParseError::NotLongEnough);
         }
+        if left[len] != b' ' {
+            return Err(IcapLineParseError::NoDelimiterFound(' '));
+        }
         let message = std::str::from_utf8(&left[len + 1..])?.trim();
 
         Ok(StatusLine { code, message })
@@ -56,9 +59,21 @@ mod tests {
 
     #[test]
     fn no_reason() {
-        let status = StatusLine::parse(b"ICAP/1.0 200\r\n").unwrap();
+        let status = StatusLine::parse(b"ICAP/1.0 200 \r\n").unwrap();
         assert_eq!(status.code, 200);
         assert_eq!(status.message, "");
+    }
+
+    #[test]
+    fn rejects_missing_space_before_reason() {
+        match StatusLine::parse(b"ICAP/1.0 200OK\r\n") {
+            Err(IcapLineParseError::NoDelimiterFound(' ')) => {}
+            _ => panic!("expected NoDelimiterFound"),
+        }
+        match StatusLine::parse(b"ICAP/1.0 200\r\n") {
+            Err(IcapLineParseError::NoDelimiterFound(' ')) => {}
+            _ => panic!("expected NoDelimiterFound"),
+        }
     }
 
     #[test]
