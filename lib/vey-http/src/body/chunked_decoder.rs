@@ -50,6 +50,96 @@ impl ChunkedDataDecodeReaderInternal {
         self.chunk_header.is_empty() && !self.poll_chunk_end_r && !self.poll_chunk_end_n
     }
 
+    /// Consume a chunk-ending CRLF that was not available when the payload was read.
+    ///
+    /// Stops at the next chunk-size line. Does not read that line.
+    fn poll_finish_chunk_end<R>(
+        &mut self,
+        cx: &mut Context<'_>,
+        mut reader: Pin<&mut R>,
+    ) -> Poll<io::Result<()>>
+    where
+        R: AsyncBufRead + Unpin,
+    {
+        loop {
+            if self.poll_chunk_end {
+                if self.this_chunk_size != 0 {
+                    self.poll_chunk_end = false;
+                    self.poll_chunk_end_n = false;
+                    self.poll_chunk_end_r = false;
+                }
+                return Poll::Ready(Ok(()));
+            } else if self.poll_chunk_end_n {
+                let r_buf = ready!(reader.as_mut().poll_fill_buf(cx))?;
+                if r_buf.is_empty() {
+                    return Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "reader closed while reading chunk line end whitespace",
+                    )));
+                } else if r_buf[0] == b'\n' {
+                    reader.as_mut().consume(1);
+                    self.poll_chunk_end = true;
+                } else {
+                    return Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "no end whitespace found",
+                    )));
+                }
+            } else if self.poll_chunk_end_r {
+                let r_buf = ready!(reader.as_mut().poll_fill_buf(cx))?;
+                match r_buf.len() {
+                    0 => {
+                        return Poll::Ready(Err(io::Error::new(
+                            io::ErrorKind::UnexpectedEof,
+                            "reader closed while reading chunk line end whitespace",
+                        )));
+                    }
+                    1 => match r_buf[0] {
+                        b'\r' => {
+                            reader.as_mut().consume(1);
+                            self.poll_chunk_end_n = true;
+                        }
+                        b'\n' => {
+                            reader.as_mut().consume(1);
+                            self.poll_chunk_end = true;
+                        }
+                        _ => {
+                            return Poll::Ready(Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "no end whitespace found",
+                            )));
+                        }
+                    },
+                    _ => match r_buf[0] {
+                        b'\r' => {
+                            if r_buf[1] != b'\n' {
+                                return Poll::Ready(Err(io::Error::new(
+                                    io::ErrorKind::InvalidData,
+                                    "invalid end whitespace pair",
+                                )));
+                            } else {
+                                reader.as_mut().consume(2);
+                                self.poll_chunk_end = true;
+                            }
+                        }
+                        b'\n' => {
+                            reader.as_mut().consume(1);
+                            self.poll_chunk_end = true;
+                        }
+                        _ => {
+                            return Poll::Ready(Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "no end whitespace found",
+                            )));
+                        }
+                    },
+                }
+            } else {
+                return Poll::Ready(Ok(()));
+            }
+        }
+    }
+
     fn poll_decode<R>(
         &mut self,
         cx: &mut Context<'_>,
@@ -236,6 +326,20 @@ impl<'a, R> ChunkedDataDecodeReader<'a, R> {
         self.internal.left_chunk_size()
     }
 
+    /// Finish a chunk-ending CRLF left pending when the payload read returned early.
+    ///
+    /// After this returns, `left_chunk_size` is `Some` unless the body is already finished.
+    pub async fn finish_pending_chunk_end(&mut self) -> io::Result<()>
+    where
+        R: AsyncBufRead + Unpin,
+    {
+        std::future::poll_fn(|cx| {
+            let ChunkedDataDecodeReader { reader, internal } = &mut *self;
+            internal.poll_finish_chunk_end(cx, Pin::new(&mut **reader))
+        })
+        .await
+    }
+
     /**
      * Check whether it's safe to break from a Poll::Pending state
      *
@@ -342,6 +446,60 @@ mod test {
             err.to_string().contains("chunk header line too long"),
             "{err}"
         );
+    }
+
+    #[tokio::test]
+    async fn finish_chunk_end_split_from_payload() {
+        let stream = tokio_test::io::Builder::new()
+            .read(b"5\r\nhello")
+            .wait(std::time::Duration::from_millis(1))
+            .read(b"\r\n4\r\nbody\r\n0\r\n\r\n")
+            .build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut decoder = ChunkedDataDecodeReader::new(&mut buf_stream, 1024);
+
+        let mut buf = [0u8; 5];
+        let len = decoder.read(&mut buf).await.unwrap();
+        assert_eq!(&buf[..len], b"hello");
+        assert!(!decoder.finished());
+        assert!(decoder.left_chunk_size().is_none());
+
+        decoder.finish_pending_chunk_end().await.unwrap();
+        assert_eq!(decoder.left_chunk_size(), Some(0));
+        assert!(decoder.pending_cancel_safe());
+
+        let mut decoder = ChunkedDataDecodeReader::resume(decoder.into_reader(), 1024, 0);
+        let mut buf = [0u8; 16];
+        let len = decoder.read(&mut buf).await.unwrap();
+        assert_eq!(&buf[..len], b"body");
+        assert!(decoder.finished());
+    }
+
+    #[tokio::test]
+    async fn finish_chunk_end_split_crlf() {
+        let stream = tokio_test::io::Builder::new()
+            .read(b"5\r\nhello")
+            .wait(std::time::Duration::from_millis(1))
+            .read(b"\r")
+            .wait(std::time::Duration::from_millis(1))
+            .read(b"\n0\r\n\r\n")
+            .build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut decoder = ChunkedDataDecodeReader::new(&mut buf_stream, 1024);
+
+        let mut buf = [0u8; 5];
+        let len = decoder.read(&mut buf).await.unwrap();
+        assert_eq!(&buf[..len], b"hello");
+        assert!(decoder.left_chunk_size().is_none());
+
+        decoder.finish_pending_chunk_end().await.unwrap();
+        assert_eq!(decoder.left_chunk_size(), Some(0));
+
+        let mut decoder = ChunkedDataDecodeReader::resume(decoder.into_reader(), 1024, 0);
+        let mut buf = [0u8; 8];
+        let len = decoder.read(&mut buf).await.unwrap();
+        assert_eq!(len, 0);
+        assert!(decoder.finished());
     }
 
     #[tokio::test]

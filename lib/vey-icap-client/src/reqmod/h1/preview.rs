@@ -105,6 +105,12 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                         )
                         .await;
                 }
+                if clt_body_decoder.left_chunk_size().is_none() {
+                    clt_body_decoder
+                        .finish_pending_chunk_end()
+                        .await
+                        .map_err(H1ReqmodAdaptationError::HttpClientReadFailed)?;
+                }
                 left_chunk_size = clt_body_decoder.left_chunk_size().ok_or_else(|| {
                     H1ReqmodAdaptationError::InternalServerError(
                         "broken chunked encoding after preview read",
