@@ -32,6 +32,7 @@ pub struct HttpTransparentRequest {
     extra_connection_headers: Vec<HeaderName>,
     origin_header_size: usize,
     keep_alive: bool,
+    connection_close: bool,
     connection_upgrade: bool,
     pub upgrade: bool,
     content_length: u64,
@@ -55,6 +56,7 @@ impl HttpTransparentRequest {
             extra_connection_headers: Vec::new(),
             origin_header_size: 0,
             keep_alive: false,
+            connection_close: false,
             connection_upgrade: false,
             upgrade: false,
             content_length: 0,
@@ -82,6 +84,7 @@ impl HttpTransparentRequest {
                     extra_connection_headers: self.extra_connection_headers.clone(),
                     origin_header_size: self.origin_header_size,
                     keep_alive: self.keep_alive,
+                    connection_close: self.connection_close,
                     connection_upgrade: self.connection_upgrade,
                     upgrade: self.upgrade,
                     content_length,
@@ -115,6 +118,7 @@ impl HttpTransparentRequest {
                     extra_connection_headers: self.extra_connection_headers.clone(),
                     origin_header_size: self.origin_header_size,
                     keep_alive: self.keep_alive,
+                    connection_close: self.connection_close,
                     connection_upgrade: self.connection_upgrade,
                     upgrade: self.upgrade,
                     content_length: 0,
@@ -142,6 +146,7 @@ impl HttpTransparentRequest {
             extra_connection_headers: self.extra_connection_headers.clone(),
             origin_header_size: self.origin_header_size,
             keep_alive: self.keep_alive,
+            connection_close: self.connection_close,
             connection_upgrade: self.connection_upgrade,
             upgrade: self.upgrade,
             content_length: 0,
@@ -307,10 +312,13 @@ impl HttpTransparentRequest {
 
             match v.trim() {
                 "keep-alive" => {
-                    self.keep_alive = true;
+                    if !self.connection_close {
+                        self.keep_alive = true;
+                    }
                 }
                 "close" => {
                     self.keep_alive = false;
+                    self.connection_close = true;
                 }
                 "upgrade" => {
                     self.connection_upgrade = true;

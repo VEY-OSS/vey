@@ -36,6 +36,7 @@ pub struct HttpProxyClientRequest {
     is_upgrade: bool,
     upgrade_token: Option<HttpUpgradeToken>,
     keep_alive: bool,
+    connection_close: bool,
     content_length: u64,
     chunked_transfer: bool,
     has_transfer_encoding: bool,
@@ -60,6 +61,7 @@ impl HttpProxyClientRequest {
             is_upgrade: false,
             upgrade_token: None,
             keep_alive: false,
+            connection_close: false,
             content_length: 0,
             chunked_transfer: false,
             has_transfer_encoding: false,
@@ -88,6 +90,7 @@ impl HttpProxyClientRequest {
                     is_upgrade: self.is_upgrade,
                     upgrade_token: self.upgrade_token.clone(),
                     keep_alive: self.keep_alive,
+                    connection_close: self.connection_close,
                     content_length,
                     chunked_transfer: false,
                     has_transfer_encoding: false,
@@ -122,6 +125,7 @@ impl HttpProxyClientRequest {
                     is_upgrade: self.is_upgrade,
                     upgrade_token: self.upgrade_token.clone(),
                     keep_alive: self.keep_alive,
+                    connection_close: self.connection_close,
                     content_length: 0,
                     chunked_transfer: true,
                     has_transfer_encoding: true,
@@ -150,6 +154,7 @@ impl HttpProxyClientRequest {
             is_upgrade: self.is_upgrade,
             upgrade_token: self.upgrade_token.clone(),
             keep_alive: self.keep_alive,
+            connection_close: self.connection_close,
             content_length: 0,
             chunked_transfer: false,
             has_transfer_encoding: false,
@@ -429,10 +434,13 @@ impl HttpProxyClientRequest {
 
             match v.trim() {
                 "keep-alive" => {
-                    self.keep_alive = true;
+                    if !self.connection_close {
+                        self.keep_alive = true;
+                    }
                 }
                 "close" => {
                     self.keep_alive = false;
+                    self.connection_close = true;
                 }
                 "upgrade" => {
                     if self.is_upgrade || self.method != Method::GET {
@@ -826,5 +834,36 @@ mod tests {
 
     fn host_header(req: &HttpProxyClientRequest) -> &str {
         req.end_to_end_headers.get(header::HOST).unwrap().to_str()
+    }
+
+    #[tokio::test]
+    async fn connection_close_stays_closed_after_keep_alive() {
+        let req = parse_req(
+            b"GET /x HTTP/1.1\r\nHost: example.com\r\nConnection: close, keep-alive\r\n\r\n",
+        )
+        .await
+        .unwrap();
+        assert!(!req.keep_alive());
+
+        let req = parse_req(
+            b"GET /x HTTP/1.1\r\nHost: example.com\r\nConnection: keep-alive, close\r\n\r\n",
+        )
+        .await
+        .unwrap();
+        assert!(!req.keep_alive());
+
+        let req = parse_req(
+            b"GET /x HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\nConnection: keep-alive\r\n\r\n",
+        )
+        .await
+        .unwrap();
+        assert!(!req.keep_alive());
+
+        let req = parse_req(
+            b"GET /x HTTP/1.0\r\nHost: example.com\r\nConnection: keep-alive\r\n\r\n",
+        )
+        .await
+        .unwrap();
+        assert!(req.keep_alive());
     }
 }
