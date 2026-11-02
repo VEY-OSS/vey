@@ -426,6 +426,9 @@ impl<T: SelectiveItem> SelectiveVec<T> {
                     return r;
                 }
                 let n = n.min(len);
+                if n == 0 {
+                    return Vec::new();
+                }
                 let next_end = |id: usize| {
                     let mut end = id + n;
                     if end >= len {
@@ -902,6 +905,8 @@ mod tests {
         assert_eq!(r.len(), 2);
         assert!(r[0].eq(&node1));
         assert!(r[1].eq(&node2));
+
+        assert!(vec.pick_round_robin_n(0).is_empty());
 
         let r = vec.pick_round_robin_n(2);
         assert_eq!(r.len(), 2);
