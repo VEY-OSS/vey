@@ -21,12 +21,14 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         icap_rsp: ReqmodResponse,
         http_header_size: usize,
     ) -> Result<ReqmodAdaptationEndState, ImapAdaptationError> {
-        let _http_req =
+        let http_req =
             HttpAdaptedRequest::parse(&mut self.icap_connection.reader, http_header_size, true)
                 .await?;
-        self.icap_connection.mark_reader_finished();
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection);
+        if http_req.header_section_finished() {
+            self.icap_connection.mark_reader_finished();
+            if icap_rsp.keep_alive {
+                self.icap_client.save_connection(self.icap_connection);
+            }
         }
         // there should be a message body
         Err(ImapAdaptationError::IcapServerErrorResponse(
@@ -48,6 +50,7 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         let http_req =
             HttpAdaptedRequest::parse(&mut self.icap_connection.reader, http_header_size, true)
                 .await?;
+        http_req.require_header_section_finished()?;
         if let Some(len) = http_req.content_length
             && len != self.literal_size
         {

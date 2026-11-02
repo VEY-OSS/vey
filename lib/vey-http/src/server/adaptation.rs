@@ -22,6 +22,8 @@ pub struct HttpAdaptedRequest {
     pub version: Version,
     pub headers: H1HeaderMap,
     pub content_length: Option<u64>,
+    bytes_read: usize,
+    header_limit: usize,
 }
 
 impl HttpAdaptedRequest {
@@ -32,6 +34,22 @@ impl HttpAdaptedRequest {
             version,
             headers: H1HeaderMap::default(),
             content_length: None,
+            bytes_read: 0,
+            header_limit: 0,
+        }
+    }
+
+    /// The encapsulated header ended on its blank line at `header_size`.
+    pub fn header_section_finished(&self) -> bool {
+        self.bytes_read >= self.header_limit
+    }
+
+    /// A following body can only be read when the header fills the encapsulated section.
+    pub fn require_header_section_finished(&self) -> Result<(), HttpRequestParseError> {
+        if self.header_section_finished() {
+            Ok(())
+        } else {
+            Err(HttpRequestParseError::HeaderEndedEarly(self.header_limit))
         }
     }
 
@@ -93,6 +111,8 @@ impl HttpAdaptedRequest {
             req.parse_header_line(&line_buf, ignore_via)?;
         }
 
+        req.bytes_read = read_size;
+        req.header_limit = header_size;
         Ok(req)
     }
 
@@ -432,5 +452,23 @@ mod tests {
             req.headers.get("x-custom").unwrap().to_str(),
             "value with spaces"
         );
+    }
+
+    #[tokio::test]
+    async fn blank_line_before_section_end_is_unfinished() {
+        let headers = b"GET / HTTP/1.1\r\n\r\n";
+        let mut data = headers.to_vec();
+        data.extend_from_slice(b"LEFTOVER");
+        let mut reader = BufReader::new(std::io::Cursor::new(data));
+        let req = HttpAdaptedRequest::parse(&mut reader, headers.len() + 8, false)
+            .await
+            .unwrap();
+        assert!(!req.header_section_finished());
+        let err = req.require_header_section_finished().unwrap_err();
+        assert!(matches!(err, HttpRequestParseError::HeaderEndedEarly(_)));
+        let buffered = tokio::io::AsyncBufReadExt::fill_buf(&mut reader)
+            .await
+            .unwrap();
+        assert_eq!(buffered, b"LEFTOVER");
     }
 }

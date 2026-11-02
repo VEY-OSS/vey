@@ -141,6 +141,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
         CW: HttpResponseClientWriter<H> + Unpin,
     {
         let http_rsp = HttpAdaptedResponse::parse(icap_reader, self.http_header_size).await?;
+        http_rsp.require_header_section_finished()?;
         let body_content_length = http_rsp.content_length;
 
         let final_rsp = orig_http_response.adapt_with_body(http_rsp);

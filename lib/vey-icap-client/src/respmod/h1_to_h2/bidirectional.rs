@@ -136,6 +136,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
         CW: H2SendResponseToClient,
     {
         let http_rsp = HttpAdaptedResponse::parse(icap_reader, self.http_header_size).await?;
+        http_rsp.require_header_section_finished()?;
         let final_rsp = orig_http_response.adapt_to(&http_rsp);
         state.mark_clt_send_start();
         let mut clt_send_stream = clt_send_response

@@ -19,6 +19,8 @@ pub enum HttpResponseParseError {
     RemoteClosed,
     #[error("too large header, should be less than {0}")]
     TooLargeHeader(usize),
+    #[error("http header ended before declared section length {0}")]
+    HeaderEndedEarly(usize),
     #[error("invalid version {0:?}")]
     InvalidVersion(Version),
     #[error("invalid status line: {0}")]

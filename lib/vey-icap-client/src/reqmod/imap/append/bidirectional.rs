@@ -129,6 +129,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
     {
         let http_req =
             HttpAdaptedRequest::parse(self.icap_reader, self.http_header_size, true).await?;
+        http_req.require_header_section_finished()?;
         if let Some(len) = http_req.content_length
             && len != self.imap_message_size
         {
