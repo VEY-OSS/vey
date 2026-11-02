@@ -222,6 +222,7 @@ fn new_nonblocking_udp_socket(family: AddressFamily) -> io::Result<Socket> {
 mod tests {
     use super::*;
     use std::net::Ipv4Addr;
+    use std::num::NonZeroU16;
     use std::str::FromStr;
 
     #[test]
@@ -261,7 +262,10 @@ mod tests {
     fn bind_in_range() {
         let port_start = 61000;
         let port_end = 65000;
-        let range = PortRange::new(port_start, port_end);
+        let range = PortRange::new(
+            NonZeroU16::new(port_start).unwrap(),
+            NonZeroU16::new(port_end).unwrap(),
+        );
         let ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
         let loop_len = 100usize;
         let mut v = Vec::<UdpSocket>::with_capacity(loop_len);
