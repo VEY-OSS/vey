@@ -258,6 +258,26 @@ impl HttpProxyClientRequest {
         self.host = Some(host.clone());
     }
 
+    pub fn drop_default_port_in_host(&mut self, default_port: u16) {
+        let Some(host) = &self.host else {
+            return;
+        };
+        if host.port() == 0 || host.port() != default_port {
+            return;
+        }
+        let value = match host.host() {
+            Host::Ip(IpAddr::V6(ip)) => format!("[{ip}]"),
+            host => host.to_string(),
+        };
+        let mut new_v = unsafe { HttpHeaderValue::from_string_unchecked(value) };
+        if let Some(old_v) = self.end_to_end_headers.get(header::HOST)
+            && let Some(name) = old_v.original_name()
+        {
+            new_v.set_original_name(name);
+        }
+        self.end_to_end_headers.insert(header::HOST, new_v);
+    }
+
     pub async fn parse_basic<R>(
         reader: &mut R,
         max_header_size: usize,
@@ -715,5 +735,96 @@ mod tests {
                 .map(|v| v.to_str()),
             Some("?1")
         );
+    }
+
+    async fn parse_req(content: &[u8]) -> Result<HttpProxyClientRequest, HttpRequestParseError> {
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut version = Version::HTTP_11;
+        HttpProxyClientRequest::parse(&mut buf_stream, 4096, &mut version, parse_more_header).await
+    }
+
+    #[tokio::test]
+    async fn drop_default_port_hostname() {
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: example.com:80\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "example.com");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHoSt: example.com:80\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "example.com");
+        assert_eq!(
+            req.end_to_end_headers
+                .get(header::HOST)
+                .unwrap()
+                .original_name(),
+            Some("HoSt")
+        );
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: 1.2.3.4:80\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "1.2.3.4");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: example.com:8080\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "example.com:8080");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: example.com\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "example.com");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHoSt: example.com\r\n\r\n")
+            .await
+            .unwrap();
+        req.set_host(&UpstreamAddr::from_str("example.com:80").unwrap());
+        assert_eq!(host_header(&req), "example.com:80");
+        assert_eq!(
+            req.end_to_end_headers
+                .get(header::HOST)
+                .unwrap()
+                .original_name(),
+            Some("HoSt")
+        );
+    }
+
+    #[tokio::test]
+    async fn drop_default_port_ipv6() {
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: [2001:db8::1]:80\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "[2001:db8::1]");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: [2001:db8::1]:443\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(443);
+        assert_eq!(host_header(&req), "[2001:db8::1]");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: [2001:db8::1]:8080\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "[2001:db8::1]:8080");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: [2001:db8::1]\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "[2001:db8::1]");
+    }
+
+    fn host_header(req: &HttpProxyClientRequest) -> &str {
+        req.end_to_end_headers.get(header::HOST).unwrap().to_str()
     }
 }

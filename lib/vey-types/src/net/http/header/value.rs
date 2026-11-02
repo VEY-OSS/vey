@@ -34,7 +34,7 @@ impl HttpHeaderValue {
     ///
     /// # Safety
     ///
-    /// The caller should make sure the buf is valid
+    /// The caller should make sure the buf is valid UTF-8 and a valid header value.
     pub unsafe fn from_buf_unchecked(buf: Vec<u8>) -> Self {
         HttpHeaderValue {
             inner: unsafe { HeaderValue::from_maybe_shared_unchecked(Bytes::from(buf)) },
@@ -57,10 +57,6 @@ impl HttpHeaderValue {
         self.inner = HeaderValue::from_static(value);
     }
 
-    pub fn set_inner(&mut self, inner: HeaderValue) {
-        self.inner = inner;
-    }
-
     #[inline]
     pub fn inner(&self) -> &HeaderValue {
         &self.inner
@@ -80,6 +76,8 @@ impl HttpHeaderValue {
     }
 
     pub fn to_str(&self) -> &str {
+        // Safe constructors store text that `HeaderValue::to_str` accepts.
+        // `from_buf_unchecked` leaves that to the caller.
         unsafe { std::str::from_utf8_unchecked(self.inner.as_bytes()) }
     }
 
@@ -170,9 +168,6 @@ mod tests {
 
         mutable_value.set_static_value("updated");
         assert_eq!(mutable_value.to_str(), "updated");
-
-        mutable_value.set_inner(HeaderValue::from_static("new_inner"));
-        assert_eq!(mutable_value.to_str(), "new_inner");
 
         // accessors
         let accessor_value = HttpHeaderValue::from_static("access_test");

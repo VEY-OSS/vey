@@ -564,14 +564,20 @@ where
     ) -> LoopAction {
         let is_https = match remote_protocol {
             HttpProxySubProtocol::HttpForward => {
-                if self.ctx.server_config.drop_default_port_in_host && req.upstream.port() == 80 {
-                    req.drop_default_port_in_host(80);
+                if self.ctx.server_config.drop_default_port_in_host
+                    && req.upstream.port() == 80
+                    && req.inner.host.as_ref().is_some_and(|host| host.port() != 0)
+                {
+                    req.inner.drop_default_port_in_host(80);
                 }
                 false
             }
             HttpProxySubProtocol::HttpsForward => {
-                if self.ctx.server_config.drop_default_port_in_host && req.upstream.port() == 443 {
-                    req.drop_default_port_in_host(443);
+                if self.ctx.server_config.drop_default_port_in_host
+                    && req.upstream.port() == 443
+                    && req.inner.host.as_ref().is_some_and(|host| host.port() != 0)
+                {
+                    req.inner.drop_default_port_in_host(443);
                 }
                 true
             }
