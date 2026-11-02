@@ -6,6 +6,7 @@
 
 use std::collections::HashSet;
 use std::io::Write;
+use std::net::IpAddr;
 use std::str::FromStr;
 
 use bytes::BufMut;
@@ -32,6 +33,7 @@ pub struct HttpProxyClientRequest {
     pub auth_info: HttpAuth,
     /// the port may be 0
     pub host: Option<UpstreamAddr>,
+    original_host_name: HttpKnownHeaderName<http_names::HOST>,
     original_connection_name: HttpKnownHeaderName<http_names::CONNECTION>,
     connection: ConnectionValue,
     origin_header_size: usize,
@@ -57,6 +59,7 @@ impl HttpProxyClientRequest {
             hop_by_hop_headers: H1HeaderMap::default(),
             auth_info: HttpAuth::None,
             host: None,
+            original_host_name: HttpKnownHeaderName::new(),
             original_connection_name: HttpKnownHeaderName::new(),
             connection: ConnectionValue::default(),
             origin_header_size: 0,
@@ -84,6 +87,7 @@ impl HttpProxyClientRequest {
                 hop_by_hop_headers,
                 auth_info: HttpAuth::None,
                 host: None,
+                original_host_name: HttpKnownHeaderName::new(),
                 original_connection_name: self.original_connection_name,
                 connection: self.connection.clone(),
                 origin_header_size: self.origin_header_size,
@@ -106,6 +110,7 @@ impl HttpProxyClientRequest {
                 hop_by_hop_headers,
                 auth_info: HttpAuth::None,
                 host: None,
+                original_host_name: HttpKnownHeaderName::new(),
                 original_connection_name: self.original_connection_name,
                 connection: self.connection.clone(),
                 origin_header_size: self.origin_header_size,
@@ -135,6 +140,7 @@ impl HttpProxyClientRequest {
             hop_by_hop_headers,
             auth_info: HttpAuth::None,
             host: None,
+            original_host_name: HttpKnownHeaderName::new(),
             original_connection_name: self.original_connection_name,
             connection: self.connection.clone(),
             origin_header_size: self.origin_header_size,
@@ -251,13 +257,31 @@ impl HttpProxyClientRequest {
 
     pub fn set_host(&mut self, host: &UpstreamAddr) {
         let mut new_v = unsafe { H1HeaderValue::from_string_unchecked(host.to_string()) };
-        if let Some(old_v) = self.end_to_end_headers.remove(header::HOST)
-            && let Some(name) = old_v.original_name()
-        {
+        if self.original_host_name.is_received() {
+            let name = unsafe { std::str::from_utf8_unchecked(self.original_host_name.as_bytes()) };
             new_v.set_original_name(name);
         }
         self.end_to_end_headers.insert(header::HOST, new_v);
         self.host = Some(host.clone());
+    }
+
+    pub fn drop_default_port_in_host(&mut self, default_port: u16) {
+        let Some(host) = &self.host else {
+            return;
+        };
+        if host.port() == 0 || host.port() != default_port {
+            return;
+        }
+        let value = match host.host() {
+            Host::Ip(IpAddr::V6(ip)) => format!("[{ip}]"),
+            host => host.to_string(),
+        };
+        let mut new_v = unsafe { H1HeaderValue::from_string_unchecked(value) };
+        if self.original_host_name.is_received() {
+            let name = unsafe { std::str::from_utf8_unchecked(self.original_host_name.as_bytes()) };
+            new_v.set_original_name(name);
+        }
+        self.end_to_end_headers.insert(header::HOST, new_v);
     }
 
     pub async fn parse_basic<R>(
@@ -458,6 +482,7 @@ impl HttpProxyClientRequest {
                 if self.host.is_some() {
                     return Err(HttpRequestParseError::InvalidHost);
                 }
+                self.original_host_name.receive(header.name);
                 if !header.value.is_empty() {
                     let host = UpstreamAddr::from_str(header.value)
                         .map_err(|_| HttpRequestParseError::InvalidHost)?;
@@ -897,5 +922,89 @@ mod tests {
             .unwrap()
             .to_ascii_lowercase();
         assert!(!origin.contains("keep-alive:"));
+    }
+
+    #[tokio::test]
+    async fn drop_default_port_hostname() {
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: example.com:80\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "example.com");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHoSt: example.com:80\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "example.com");
+        assert_eq!(
+            req.end_to_end_headers
+                .get(header::HOST)
+                .unwrap()
+                .original_name(),
+            Some("HoSt")
+        );
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: 1.2.3.4:80\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "1.2.3.4");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: example.com:8080\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "example.com:8080");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: example.com\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "example.com");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHoSt: example.com\r\n\r\n")
+            .await
+            .unwrap();
+        req.set_host(&UpstreamAddr::from_str("example.com:80").unwrap());
+        assert_eq!(host_header(&req), "example.com:80");
+        assert_eq!(
+            req.end_to_end_headers
+                .get(header::HOST)
+                .unwrap()
+                .original_name(),
+            Some("HoSt")
+        );
+    }
+
+    #[tokio::test]
+    async fn drop_default_port_ipv6() {
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: [2001:db8::1]:80\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "[2001:db8::1]");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: [2001:db8::1]:443\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(443);
+        assert_eq!(host_header(&req), "[2001:db8::1]");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: [2001:db8::1]:8080\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "[2001:db8::1]:8080");
+
+        let mut req = parse_req(b"GET /x HTTP/1.1\r\nHost: [2001:db8::1]\r\n\r\n")
+            .await
+            .unwrap();
+        req.drop_default_port_in_host(80);
+        assert_eq!(host_header(&req), "[2001:db8::1]");
+    }
+
+    fn host_header(req: &HttpProxyClientRequest) -> &str {
+        req.end_to_end_headers.get(header::HOST).unwrap().to_str()
     }
 }

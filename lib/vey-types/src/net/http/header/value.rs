@@ -37,7 +37,7 @@ impl H1HeaderValue {
     ///
     /// # Safety
     ///
-    /// The caller should make sure the buf is valid
+    /// The caller should make sure the buf is valid UTF-8 and a valid header value.
     pub unsafe fn from_buf_unchecked(buf: impl Into<Bytes>) -> Self {
         H1HeaderValue {
             inner: unsafe { HeaderValue::from_maybe_shared_unchecked(buf.into()) },
@@ -60,10 +60,6 @@ impl H1HeaderValue {
         self.inner = HeaderValue::from_static(value);
     }
 
-    pub fn set_inner(&mut self, inner: HeaderValue) {
-        self.inner = inner;
-    }
-
     #[inline]
     pub fn inner(&self) -> &HeaderValue {
         &self.inner
@@ -83,6 +79,8 @@ impl H1HeaderValue {
     }
 
     pub fn to_str(&self) -> &str {
+        // Safe constructors store text that `HeaderValue::to_str` accepts.
+        // `from_buf_unchecked` leaves that to the caller.
         unsafe { std::str::from_utf8_unchecked(self.inner.as_bytes()) }
     }
 
@@ -230,9 +228,6 @@ mod tests {
 
         mutable_value.set_static_value("updated");
         assert_eq!(mutable_value.to_str(), "updated");
-
-        mutable_value.set_inner(HeaderValue::from_static("new_inner"));
-        assert_eq!(mutable_value.to_str(), "new_inner");
 
         // accessors
         let accessor_value = H1HeaderValue::from_static("access_test");

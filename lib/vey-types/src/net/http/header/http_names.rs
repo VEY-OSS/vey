@@ -58,6 +58,7 @@ macro_rules! http_name {
 }
 
 http_name!(CONNECTION = "Connection");
+http_name!(HOST = "Host");
 http_name!(KEEP_ALIVE = "Keep-Alive");
 http_name!(TRANSFER_ENCODING = "Transfer-Encoding");
 http_name!(TE = "TE");
