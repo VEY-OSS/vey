@@ -192,7 +192,7 @@ impl IcapServiceOptions {
                     };
                     match name.to_lowercase().as_str() {
                         "null-body" => {
-                            if saw_null_body || saw_opt_body {
+                            if saw_null_body || saw_opt_body || value != "0" {
                                 return Err(IcapOptionsParseError::InvalidHeaderValue(
                                     "Encapsulated",
                                 ));
@@ -326,6 +326,15 @@ mod tests {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
         assert!(matches!(
             options.parse_header_line(b"Encapsulated: opt-body=42\r\n"),
+            Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated"))
+        ));
+    }
+
+    #[test]
+    fn parse_header_encapsulated_rejects_null_body_nonzero_offset() {
+        let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
+        assert!(matches!(
+            options.parse_header_line(b"Encapsulated: null-body=50\r\n"),
             Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated"))
         ));
     }
