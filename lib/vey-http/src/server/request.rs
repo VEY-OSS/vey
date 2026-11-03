@@ -812,7 +812,7 @@ mod tests {
         )
         .await
         .unwrap();
-        assert!(req.keep_alive());
+        assert!(!req.keep_alive());
 
         let req = parse_req(
             b"GET /x HTTP/1.0\r\nHost: example.com\r\nConnection: keep-alive\r\nConnection: upgrade\r\nUpgrade: websocket\r\n\r\n",
