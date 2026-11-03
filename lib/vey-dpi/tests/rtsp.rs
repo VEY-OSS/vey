@@ -34,8 +34,29 @@ fn check_rtsp_client_setup_request_insufficient_data_length() {
 }
 
 #[test]
+fn check_rtsp_client_setup_request_describe() {
+    let data = b"DESCRIBE rtsp://example.com/media.mp4 RTSP/1.0\r\n";
+    let p = check_rtsp_data(data).expect("DESCRIBE should be detected");
+    assert_eq!(p, Protocol::Rtsp);
+}
+
+#[test]
+fn check_rtsp_client_setup_request_options_star() {
+    let data = b"OPTIONS * RTSP/1.0\r\nCSeq: 1\r\n\r\n";
+    let p = check_rtsp_data(data).expect("OPTIONS * should be detected");
+    assert_eq!(p, Protocol::Rtsp);
+}
+
+#[test]
+fn check_rtsp_client_setup_request_options_uri() {
+    let data = b"OPTIONS rtsp://example.com/media.mp4 RTSP/1.0\r\n";
+    let p = check_rtsp_data(data).expect("OPTIONS rtsp URI should be detected");
+    assert_eq!(p, Protocol::Rtsp);
+}
+
+#[test]
 fn check_rtsp_client_setup_request_invalid_first_byte() {
-    // First byte is 'T' instead of required 'S'
+    // Not an RTSP method
     let data = b"TESTUP rtsp://example.com/media.mp4 RTSP/1.0\r\n";
     let p = check_rtsp_data(data).expect("Should return Protocol::Unknown");
     assert_eq!(p, Protocol::Unknown);
