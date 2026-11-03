@@ -12,6 +12,7 @@ v0.3.1:
  - BUG FIX: an empty daemon group uses `_.sock` as the control socket
  - BUG FIX: an HTTP chunk size line longer than the limit is rejected even when the newline arrives in the same read
  - BUG FIX: an HTTP chunked write stops when the writer returns no bytes
+ - BUG FIX: an HTTP exporter stays closed after `Connection: close` when a later `keep-alive` token is seen
  - BUG FIX: failure to spawn the async log thread is reported
  - BUG FIX: on Windows, another control client can connect while one connection is still open
  - BUG FIX: the Windows hostname sent to syslog no longer includes a trailing NUL

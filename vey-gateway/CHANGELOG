@@ -1,6 +1,7 @@
 
 v0.4.1:
  - BUG FIX: a buffered stream copy or vectored write stops when the writer returns no bytes
+ - BUG FIX: a current-thread worker initializes its OpenSSL async job pool on the thread that runs the handshake
  - BUG FIX: a Fluentd handshake reports a closed connection instead of parsing a short HELO or PONG
  - BUG FIX: a large Linux journald record can be sealed and sent
  - BUG FIX: a link-local IPv6 peer or local address keeps its scope id
@@ -27,8 +28,10 @@ v0.4.1:
  - BUG FIX: the TLS ticket key still in use can decrypt tickets after a refresh
  - BUG FIX: the Windows hostname sent to syslog and Fluentd no longer includes a trailing NUL
  - BUG FIX: UDP receive ancillary data is aligned so control messages can be parsed
+ - BUG FIX: worker `openssl_async_job_max_size` sets the pool limit
  - Breaking: the default control socket directory is `/run/vey-gateway` for root on Linux and `/var/run/vey-gateway` for root on other Unix systems; another Linux user uses an absolute `XDG_RUNTIME_DIR` or `/run/user/<uid>/vey-gateway`
  - Compatibility: a reuseport listener does not join eBPF maps pinned by a previous release
+ - Compatibility: a weighted `rendezvous` set follows the highest score, so a lighter node can be chosen
  - Compatibility: bump MSRV to 1.94.0
  - Compatibility: DragonFly worker `sched_affinity` applies to the calling thread
 

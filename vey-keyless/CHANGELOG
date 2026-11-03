@@ -1,6 +1,7 @@
 
 v0.6.0:
  - BUG FIX: a buffered stream copy or vectored write stops when the writer returns no bytes
+ - BUG FIX: a current-thread worker initializes its OpenSSL async job pool on the thread that runs async-job backends
  - BUG FIX: a Fluentd handshake reports a closed connection instead of parsing a short HELO or PONG
  - BUG FIX: a large Linux journald record can be sealed and sent
  - BUG FIX: a link-local IPv6 peer or local address keeps its scope id
@@ -27,6 +28,7 @@ v0.6.0:
  - BUG FIX: the register keepalive request is a complete HTTP header
  - BUG FIX: the TLS ticket key still in use can decrypt tickets after a refresh
  - BUG FIX: the Windows hostname sent to syslog and Fluentd no longer includes a trailing NUL
+ - BUG FIX: worker `openssl_async_job_max_size` sets the pool limit
  - Feature: dispatch Ed25519 private-key operations to worker backends
  - Feature: `listen` is now optional in a `cloudflare` server, so it can serve only the connections sent by port servers
  - Feature: optional `crypto_mb` backend (feature `crypto-mb`, x86_64 only) using Intel crypto_mb for batched RSA-2048/3072/4096, ECDSA P-256/P-384/P-521, and Ed25519; single-request batches fall back to OpenSSL

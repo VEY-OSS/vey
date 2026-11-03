@@ -1,10 +1,13 @@
 
 v0.9.9:
  - BUG FIX: a buffered stream copy or vectored write stops when the writer returns no bytes
+ - BUG FIX: a current-thread worker initializes its OpenSSL async job pool on the thread that runs the jobs, using `--openssl-async-job-init-size` and `--openssl-async-job-max-size`
  - BUG FIX: a non-ASCII byte size on the command line is rejected instead of panicking
  - BUG FIX: a rotating histogram still publishes while samples keep arriving, and `0.0` and `-0.0` count as one quantile
+ - BUG FIX: a SOCKS5 UDP header for an IPv4-mapped QUIC peer is 10 bytes
  - BUG FIX: a statsd export continues after `sendmmsg` writes only part of the batch, and logs the first error in each 64 second slice
  - BUG FIX: a thrift compact varint that overflows a u32 is rejected instead of being truncated
+ - BUG FIX: an h1 response stays closed after `Connection: close` when a later `keep-alive` token is seen
  - BUG FIX: an HTTP chunk size line longer than the limit is rejected even when the newline arrives in the same read
  - BUG FIX: an HTTP chunked write stops when the writer returns no bytes
  - BUG FIX: an issued certificate cannot start before its issuer, and its `pathlen` cannot exceed what the issuer allows
