@@ -250,3 +250,4 @@ workflows:
                 - arm.medium
               image:
                 - opensuse/leap:16.0
+                - opensuse/leap:16.1
