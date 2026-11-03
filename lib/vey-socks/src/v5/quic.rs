@@ -6,7 +6,7 @@
 
 use std::cell::UnsafeCell;
 use std::io::{self, IoSlice, IoSliceMut};
-use std::net::{SocketAddr, UdpSocket};
+use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
@@ -112,24 +112,21 @@ enum SocksHeaderBuffer {
 
 impl SocksHeaderBuffer {
     fn new_filled(addr: SocketAddr) -> Self {
-        match addr {
-            SocketAddr::V4(_) => {
-                let mut buf = [0u8; UDP_HEADER_LEN_IPV4];
-                UdpOutput::generate_header2(&mut buf, addr);
-                SocksHeaderBuffer::V4(buf)
-            }
-            SocketAddr::V6(_) => {
-                let mut buf = [0u8; UDP_HEADER_LEN_IPV6];
-                UdpOutput::generate_header2(&mut buf, addr);
-                SocksHeaderBuffer::V6(buf)
-            }
-        }
+        let mut header = Self::new(addr);
+        UdpOutput::generate_header2(header.as_mut(), addr);
+        header
     }
 
     const fn new(addr: SocketAddr) -> Self {
-        match addr {
-            SocketAddr::V4(_) => SocksHeaderBuffer::V4([0u8; UDP_HEADER_LEN_IPV4]),
-            SocketAddr::V6(_) => SocksHeaderBuffer::V6([0u8; UDP_HEADER_LEN_IPV6]),
+        match addr.ip() {
+            IpAddr::V4(_) => SocksHeaderBuffer::V4([0u8; UDP_HEADER_LEN_IPV4]),
+            IpAddr::V6(ip6) => {
+                if ip6.to_ipv4_mapped().is_some() {
+                    SocksHeaderBuffer::V4([0u8; UDP_HEADER_LEN_IPV4])
+                } else {
+                    SocksHeaderBuffer::V6([0u8; UDP_HEADER_LEN_IPV6])
+                }
+            }
         }
     }
 }
@@ -347,5 +344,22 @@ impl AsyncUdpSocket for Socks5UdpSocket {
 
     fn may_fragment(&self) -> bool {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::Ipv4Addr;
+
+    use super::*;
+
+    #[test]
+    fn mapped_ipv6_uses_ipv4_header() {
+        let addr = SocketAddr::new(IpAddr::V6(Ipv4Addr::new(192, 0, 2, 1).to_ipv6_mapped()), 80);
+        let header = SocksHeaderBuffer::new_filled(addr);
+        assert_eq!(header.as_ref().len(), UDP_HEADER_LEN_IPV4);
+        assert_eq!(header.as_ref()[3], 0x01);
+        assert_eq!(&header.as_ref()[4..8], &[192, 0, 2, 1]);
+        assert_eq!(SocksHeaderBuffer::new(addr).as_ref().len(), UDP_HEADER_LEN_IPV4);
     }
 }
