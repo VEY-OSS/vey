@@ -259,19 +259,17 @@ impl UnaidedRuntimeConfig {
                         builder.max_io_events_per_tick(n);
                     }
 
+                    // ASYNC_init_thread is thread-local. on_thread_start only runs on
+                    // the blocking pool, while tasks run on this block_on thread.
                     #[cfg(feature = "openssl-async-job")]
-                    builder.on_thread_start(move || {
-                        if let Err(e) = vey_openssl::async_job::async_thread_init(
-                            openssl_async_job_max_size,
-                            openssl_async_job_init_size,
-                        ) {
-                            warn!(
-                                "failed to init ({openssl_async_job_max_size}, {openssl_async_job_init_size}) openssl async jobs: {e}",
-                            );
-                        }
-                    });
-                    #[cfg(feature = "openssl-async-job")]
-                    builder.on_thread_stop(vey_openssl::async_job::async_thread_cleanup);
+                    if let Err(e) = vey_openssl::async_job::async_thread_init(
+                        openssl_async_job_max_size,
+                        openssl_async_job_init_size,
+                    ) {
+                        warn!(
+                            "failed to init ({openssl_async_job_max_size}, {openssl_async_job_init_size}) openssl async jobs: {e}",
+                        );
+                    }
 
                     match builder.build() {
                         Ok(rt) => {
@@ -286,6 +284,9 @@ impl UnaidedRuntimeConfig {
                             error!("failed to create tokio runtime on worker thread {i}: {e}");
                         }
                     }
+
+                    #[cfg(feature = "openssl-async-job")]
+                    vey_openssl::async_job::async_thread_cleanup();
                     trace!("stopped worker thread #{i}");
                 })
                 .map_err(|e| anyhow!("failed to spawn worker thread {i}: {e}"))?;
