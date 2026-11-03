@@ -10,14 +10,6 @@ impl ProtocolInspectState {
         &mut self,
         data: &[u8],
     ) -> Result<Option<Protocol>, ProtocolInspectError> {
-        macro_rules! check_method {
-            ($m:literal) => {
-                if data.starts_with($m) {
-                    return self.check_rtsp_after_method(data, $m.len());
-                }
-            };
-        }
-
         // at least SETUP rtsp://<x> RTSP/<N>.0\r\n
         const MINIMUM_DATA_LEN: usize = 25;
 
@@ -32,45 +24,78 @@ impl ProtocolInspectState {
             b'A' => {
                 // 0x41
                 self.rtsp_exclude_by_byte0();
-                check_method!(b"ANNOUNCE ");
+                if data.starts_with(b"ANNOUNCE ") {
+                    self.exclude_other(MaybeProtocol::Http);
+                    return self.check_rtsp_after_method(data, 9);
+                }
             }
             b'D' => {
                 // 0x44
                 self.rtsp_exclude_by_byte0();
-                check_method!(b"DESCRIBE ");
+                if data.starts_with(b"DESCRIBE ") {
+                    self.exclude_other(MaybeProtocol::Http);
+                    return self.check_rtsp_after_method(data, 9);
+                }
             }
             b'G' => {
                 // 0x47
                 self.rtsp_exclude_by_byte0();
-                check_method!(b"GET_PARAMETER ");
+                if data.starts_with(b"GET_PARAMETER ") {
+                    self.exclude_other(MaybeProtocol::Http);
+                    return self.check_rtsp_after_method(data, 14);
+                }
             }
             b'O' => {
                 // 0x4F
                 self.rtsp_exclude_by_byte0();
-                check_method!(b"OPTIONS ");
+                // OPTIONS is also an HTTP method. HTTP stays until the target is RTSP.
+                if data.starts_with(b"OPTIONS ") {
+                    return self.check_rtsp_after_method(data, 8);
+                }
             }
             b'P' => {
                 // 0x50
                 self.rtsp_exclude_by_byte0();
-                check_method!(b"PAUSE ");
-                check_method!(b"PLAY ");
+                if data.starts_with(b"PAUSE ") {
+                    self.exclude_other(MaybeProtocol::Http);
+                    return self.check_rtsp_after_method(data, 6);
+                }
+                if data.starts_with(b"PLAY ") {
+                    self.exclude_other(MaybeProtocol::Http);
+                    return self.check_rtsp_after_method(data, 5);
+                }
             }
             b'R' => {
                 // 0x52
                 self.rtsp_exclude_by_byte0();
-                check_method!(b"RECORD ");
-                check_method!(b"REDIRECT ");
+                if data.starts_with(b"RECORD ") {
+                    self.exclude_other(MaybeProtocol::Http);
+                    return self.check_rtsp_after_method(data, 7);
+                }
+                if data.starts_with(b"REDIRECT ") {
+                    self.exclude_other(MaybeProtocol::Http);
+                    return self.check_rtsp_after_method(data, 9);
+                }
             }
             b'S' => {
                 // 0x53
                 self.rtsp_exclude_by_byte0();
-                check_method!(b"SET_PARAMETER ");
-                check_method!(b"SETUP ");
+                if data.starts_with(b"SET_PARAMETER ") {
+                    self.exclude_other(MaybeProtocol::Http);
+                    return self.check_rtsp_after_method(data, 14);
+                }
+                if data.starts_with(b"SETUP ") {
+                    self.exclude_other(MaybeProtocol::Http);
+                    return self.check_rtsp_after_method(data, 6);
+                }
             }
             b'T' => {
                 // 0x54
                 self.rtsp_exclude_by_byte0();
-                check_method!(b"TEARDOWN ");
+                if data.starts_with(b"TEARDOWN ") {
+                    self.exclude_other(MaybeProtocol::Http);
+                    return self.check_rtsp_after_method(data, 9);
+                }
             }
             _ => {}
         }
