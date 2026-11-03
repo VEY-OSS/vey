@@ -252,10 +252,7 @@ mod tests {
             .await
             .unwrap();
         let err = rsp.require_header_section_finished().unwrap_err();
-        assert!(matches!(
-            err,
-            HttpResponseParseError::HeaderEndedEarly(_)
-        ));
+        assert!(matches!(err, HttpResponseParseError::HeaderEndedEarly(_)));
         let buffered = reader.fill_buf().await.unwrap();
         assert_eq!(buffered, b"LEFTOVER");
     }
