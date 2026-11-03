@@ -205,7 +205,7 @@ socket2 = { version = "0.6.4", features = ["all"] }
 snmalloc = { package = "snmalloc-rs", version = "0.7.5" }
 #
 serde = "1.0"
-yaml-rust = { package = "yaml-rust2", version = "0.13" }
+yaml-rust = { package = "yaml-rust2", version = "0.13", default-features = false }
 serde_json = "1.0"
 rmp-serde = "1"
 rmp = "0.8"
