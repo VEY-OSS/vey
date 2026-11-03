@@ -80,7 +80,7 @@ impl UnaidedRuntimeConfig {
                 #[cfg(feature = "openssl-async-job")]
                 "openssl_async_job_max_size" => {
                     let size = vey_yaml::value::as_usize(v)?;
-                    config.set_openssl_async_job_init_size(size);
+                    config.set_openssl_async_job_max_size(size);
                     Ok(())
                 }
                 _ => Err(anyhow!("invalid key {k}")),
