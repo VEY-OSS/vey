@@ -42,8 +42,9 @@ impl ProtocolInspectState {
             return Err(());
         }
 
-        if hdr[6..DNS_MESSAGE_HEADER_LEN] != [0x00, 0x00, 0x00, 0x00, 0x00, 0x00] {
-            // there should be no any an / ns / ar count
+        // A query has no answer or authority records. Additional records may
+        // hold an EDNS OPT, so ARCOUNT is allowed to be non-zero.
+        if hdr[6..10] != [0x00, 0x00, 0x00, 0x00] {
             return Err(());
         }
 

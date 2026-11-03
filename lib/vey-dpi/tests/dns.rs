@@ -92,6 +92,24 @@ fn check_dns_tcp_request_message_qr_bit_set() {
 }
 
 #[test]
+fn check_dns_tcp_request_message_edns_additional_count() {
+    // QR=0, QDCOUNT=1, ANCOUNT=0, NSCOUNT=0, ARCOUNT=1 (EDNS OPT)
+    let data = vec![
+        0x00, 0x0C, // length = 12
+        0x00, 0x00, // transaction ID
+        0x00, // flags: QR=0
+        0x00, // flags
+        0x00, 0x01, // questions = 1
+        0x00, 0x00, // answer RRs
+        0x00, 0x00, // authority RRs
+        0x00, 0x01, // additional RRs
+        0x00, 0x00, 0x00, 0x00,
+    ];
+    let protocol = check_dns_data(&data).expect("EDNS query should be detected");
+    assert_eq!(protocol, Protocol::Dns);
+}
+
+#[test]
 fn check_dns_tcp_request_message_non_zero_counts() {
     // Invalid: Non-zero count fields (18 bytes total)
     let data = vec![
