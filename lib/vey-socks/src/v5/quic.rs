@@ -360,6 +360,9 @@ mod tests {
         assert_eq!(header.as_ref().len(), UDP_HEADER_LEN_IPV4);
         assert_eq!(header.as_ref()[3], 0x01);
         assert_eq!(&header.as_ref()[4..8], &[192, 0, 2, 1]);
-        assert_eq!(SocksHeaderBuffer::new(addr).as_ref().len(), UDP_HEADER_LEN_IPV4);
+        assert_eq!(
+            SocksHeaderBuffer::new(addr).as_ref().len(),
+            UDP_HEADER_LEN_IPV4
+        );
     }
 }
