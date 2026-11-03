@@ -35,15 +35,19 @@ impl ProtocolInspectState {
             b'A' => {
                 // 0x41
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
                 self.exclude_other(MaybeProtocol::Stomp);
 
-                check_method!(b"ACL ");
+                if data.starts_with(b"ACL ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
+                    return self.check_http1_after_method(data, 4, size_limit);
+                }
             }
             b'B' => {
                 // 0x42
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
+                self.exclude_other(MaybeProtocol::Rtsp);
                 self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"BIND ");
@@ -52,7 +56,8 @@ impl ProtocolInspectState {
             b'C' => {
                 // 0x43
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
+                self.exclude_other(MaybeProtocol::Rtsp);
 
                 if data.starts_with(b"CONNECT ") {
                     self.exclude_other(MaybeProtocol::Stomp);
@@ -74,23 +79,30 @@ impl ProtocolInspectState {
             b'D' => {
                 // 0x44
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
                 self.exclude_other(MaybeProtocol::Stomp);
 
-                check_method!(b"DELETE ");
+                if data.starts_with(b"DELETE ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
+                    return self.check_http1_after_method(data, 7, size_limit);
+                }
             }
             b'G' => {
                 // 0x47
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
                 self.exclude_other(MaybeProtocol::Stomp);
 
-                check_method!(b"GET ");
+                if data.starts_with(b"GET ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
+                    return self.check_http1_after_method(data, 4, size_limit);
+                }
             }
             b'H' => {
                 // 0x48
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
+                self.exclude_other(MaybeProtocol::Rtsp);
                 self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"HEAD ");
@@ -98,7 +110,8 @@ impl ProtocolInspectState {
             b'L' => {
                 // 0x4C
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
+                self.exclude_other(MaybeProtocol::Rtsp);
                 self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"LOCK ");
@@ -108,7 +121,8 @@ impl ProtocolInspectState {
             b'M' => {
                 // 0x4D
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
+                self.exclude_other(MaybeProtocol::Rtsp);
                 self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"MOVE ");
@@ -122,31 +136,52 @@ impl ProtocolInspectState {
             b'O' => {
                 // 0x4F
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
                 self.exclude_other(MaybeProtocol::Stomp);
 
+                // OPTIONS is also an RTSP method. RTSP stays until the version is HTTP.
                 check_method!(b"OPTIONS ");
-                check_method!(b"ORDERPATCH ");
+                if data.starts_with(b"ORDERPATCH ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
+                    return self.check_http1_after_method(data, 11, size_limit);
+                }
             }
             b'P' => {
                 // 0x50
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
                 self.exclude_other(MaybeProtocol::Stomp);
 
-                check_method!(b"POST ");
-                check_method!(b"PUT ");
+                if data.starts_with(b"POST ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
+                    return self.check_http1_after_method(data, 5, size_limit);
+                }
+                if data.starts_with(b"PUT ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
+                    return self.check_http1_after_method(data, 4, size_limit);
+                }
                 if data.starts_with(b"PRI ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
                     return self.check_http2_connection_preface(data);
                 }
-                check_method!(b"PROPFIND ");
-                check_method!(b"PROPPATCH ");
-                check_method!(b"PATCH ");
+                if data.starts_with(b"PROPFIND ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
+                    return self.check_http1_after_method(data, 9, size_limit);
+                }
+                if data.starts_with(b"PROPPATCH ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
+                    return self.check_http1_after_method(data, 10, size_limit);
+                }
+                if data.starts_with(b"PATCH ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
+                    return self.check_http1_after_method(data, 6, size_limit);
+                }
             }
             b'Q' => {
                 // 0x51
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
+                self.exclude_other(MaybeProtocol::Rtsp);
                 self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"QUERY ");
@@ -154,11 +189,17 @@ impl ProtocolInspectState {
             b'R' => {
                 // 0x52
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
                 self.exclude_other(MaybeProtocol::Stomp);
 
-                check_method!(b"REPORT ");
-                check_method!(b"REBIND ");
+                if data.starts_with(b"REPORT ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
+                    return self.check_http1_after_method(data, 7, size_limit);
+                }
+                if data.starts_with(b"REBIND ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
+                    return self.check_http1_after_method(data, 7, size_limit);
+                }
             }
             b'S' => {
                 // 0x53
@@ -181,15 +222,19 @@ impl ProtocolInspectState {
             b'T' => {
                 // 0x54
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
                 self.exclude_other(MaybeProtocol::Stomp);
 
-                check_method!(b"TRACE ");
+                if data.starts_with(b"TRACE ") {
+                    self.exclude_other(MaybeProtocol::Rtsp);
+                    return self.check_http1_after_method(data, 6, size_limit);
+                }
             }
             b'U' => {
                 // 0x55
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
+                self.exclude_other(MaybeProtocol::Rtsp);
                 self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"UNLOCK ");
@@ -202,7 +247,8 @@ impl ProtocolInspectState {
             b'V' => {
                 // 0x56
                 self.http_exclude_by_byte0();
-                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Ssh);
+                self.exclude_other(MaybeProtocol::Rtsp);
                 self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"VERSION-CONTROL ");
@@ -221,11 +267,6 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Rtmp);
         self.exclude_other(MaybeProtocol::BitTorrent);
         self.exclude_other(MaybeProtocol::Ldap);
-    }
-
-    fn http_exclude_by_byte0_s(&mut self) {
-        self.exclude_other(MaybeProtocol::Ssh);
-        self.exclude_other(MaybeProtocol::Rtsp);
     }
 
     fn check_http1_after_method(

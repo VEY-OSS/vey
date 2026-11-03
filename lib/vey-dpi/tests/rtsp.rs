@@ -89,6 +89,99 @@ fn check_rtsp_client_setup_request_exact_min_length_invalid() {
 }
 
 #[test]
+fn describe_survives_when_http_is_checked_first() {
+    let mut inspector = ProtocolInspector::default();
+    inspector.push_protocol(MaybeProtocol::Rtsp);
+    inspector.push_protocol(MaybeProtocol::Http);
+    let config = ProtocolInspectionConfig::default();
+    let data = b"DESCRIBE rtsp://example.com/media.mp4 RTSP/1.0\r\n";
+    let p = inspector
+        .check_client_initial_data(&config, 0, data)
+        .expect("DESCRIBE should be detected");
+    assert_eq!(p, Protocol::Rtsp);
+}
+
+#[test]
+fn get_parameter_survives_when_http_is_checked_first() {
+    let mut inspector = ProtocolInspector::default();
+    inspector.push_protocol(MaybeProtocol::Rtsp);
+    inspector.push_protocol(MaybeProtocol::Http);
+    let config = ProtocolInspectionConfig::default();
+    let data = b"GET_PARAMETER rtsp://example.com/media.mp4 RTSP/1.0\r\n";
+    let p = inspector
+        .check_client_initial_data(&config, 0, data)
+        .expect("GET_PARAMETER should be detected");
+    assert_eq!(p, Protocol::Rtsp);
+}
+
+#[test]
+fn options_star_survives_when_http_is_checked_first() {
+    let mut inspector = ProtocolInspector::default();
+    inspector.push_protocol(MaybeProtocol::Rtsp);
+    inspector.push_protocol(MaybeProtocol::Http);
+    let config = ProtocolInspectionConfig::default();
+    let data = b"OPTIONS * RTSP/1.0\r\nCSeq: 1\r\n\r\n";
+    let p = inspector
+        .check_client_initial_data(&config, 0, data)
+        .expect("OPTIONS * should be detected");
+    assert_eq!(p, Protocol::Rtsp);
+}
+
+#[test]
+fn describe_short_read_on_rtsp_port() {
+    let mut inspector = ProtocolInspector::default();
+    let config = ProtocolInspectionConfig::default();
+    let data = b"DESCRIBE rtsp://example.com/media.mp4 RTSP/1.0\r\n";
+    let err = inspector
+        .check_client_initial_data(&config, 554, &data[..20])
+        .expect_err("short DESCRIBE needs more data");
+    assert!(matches!(err, ProtocolInspectError::NeedMoreData(_)));
+
+    let p = inspector
+        .check_client_initial_data(&config, 554, data)
+        .expect("DESCRIBE should be detected");
+    assert_eq!(p, Protocol::Rtsp);
+}
+
+#[test]
+fn options_star_short_read_on_rtsp_port() {
+    let mut inspector = ProtocolInspector::default();
+    let config = ProtocolInspectionConfig::default();
+    let data = b"OPTIONS * RTSP/1.0\r\nCSeq: 1\r\n\r\n";
+    let err = inspector
+        .check_client_initial_data(&config, 554, &data[..20])
+        .expect_err("short OPTIONS needs more data");
+    assert!(matches!(err, ProtocolInspectError::NeedMoreData(_)));
+
+    let p = inspector
+        .check_client_initial_data(&config, 554, data)
+        .expect("OPTIONS * should be detected");
+    assert_eq!(p, Protocol::Rtsp);
+}
+
+#[test]
+fn http_options_on_rtsp_port_stays_http() {
+    let mut inspector = ProtocolInspector::default();
+    let config = ProtocolInspectionConfig::default();
+    let data = b"OPTIONS / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let p = inspector
+        .check_client_initial_data(&config, 554, data)
+        .expect("HTTP OPTIONS should be detected");
+    assert_eq!(p, Protocol::Http1);
+}
+
+#[test]
+fn http_get_on_rtsp_port_stays_http() {
+    let mut inspector = ProtocolInspector::default();
+    let config = ProtocolInspectionConfig::default();
+    let data = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let p = inspector
+        .check_client_initial_data(&config, 554, data)
+        .expect("HTTP GET should be detected");
+    assert_eq!(p, Protocol::Http1);
+}
+
+#[test]
 fn check_rtsp_client_setup_request_protocol_exclusion_verification() {
     // Create inspector with multiple protocols
     let mut inspector = ProtocolInspector::default();
