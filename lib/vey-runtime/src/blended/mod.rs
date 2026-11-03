@@ -55,7 +55,7 @@ impl BlendedRuntimeConfig {
     }
 
     pub fn set_default_thread_number(&mut self, num: usize) {
-        if self.thread_name.is_none() {
+        if self.thread_number.is_none() {
             self.thread_number = Some(num);
         }
     }
@@ -129,6 +129,20 @@ mod tests {
         assert!(!config.run_in_current_thread());
         config.set_thread_number(0);
         assert!(config.run_in_current_thread());
+    }
+
+    #[test]
+    fn default_thread_number_fills_only_when_unset() {
+        let mut named = BlendedRuntimeConfig::new();
+        named.set_thread_name("main");
+        named.set_default_thread_number(0);
+        assert_eq!(named.thread_number, Some(0));
+        assert_eq!(named.thread_name.as_deref(), Some("main"));
+
+        let mut set = BlendedRuntimeConfig::new();
+        set.set_thread_number(4);
+        set.set_default_thread_number(0);
+        assert_eq!(set.thread_number, Some(4));
     }
 
     #[test]
