@@ -216,6 +216,9 @@ impl OpensslHostConfig {
 
         let mut ssl_builder =
             SslAcceptor::tongsuo_tlcp().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
+        // NTLS 0x0101 compares as <= TLS 1.0, so Tongsuo inserts an empty
+        // fragment unless this is set. TLCP already uses an explicit IV.
+        ssl_builder.set_options(SslOptions::DONT_INSERT_EMPTY_FRAGMENTS);
 
         if self.no_session_cache {
             ssl_builder.set_session_cache_mode(SslSessionCacheMode::OFF);

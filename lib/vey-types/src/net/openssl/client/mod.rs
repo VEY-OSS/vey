@@ -14,6 +14,8 @@ use openssl::ssl::CertCompressionAlgorithm;
 use openssl::ssl::SslCtValidationMode;
 #[cfg(not(any(awslc, boringssl)))]
 use openssl::ssl::StatusType;
+#[cfg(tongsuo)]
+use openssl::ssl::SslOptions;
 use openssl::ssl::{
     Ssl, SslConnector, SslConnectorBuilder, SslContext, SslMethod, SslVerifyMode, SslVersion,
 };
@@ -336,6 +338,9 @@ impl OpensslClientConfigBuilder {
         self.set_verify(&mut ctx_builder);
 
         ctx_builder.enable_ntls();
+        // NTLS 0x0101 compares as <= TLS 1.0, so Tongsuo inserts an empty
+        // fragment unless this is set. TLCP already uses an explicit IV.
+        ctx_builder.set_options(SslOptions::DONT_INSERT_EMPTY_FRAGMENTS);
 
         let mut use_dhe = false;
         if let Some(cert_pair) = &self.client_tlcp_cert_pair {
