@@ -354,6 +354,20 @@ impl ProxyHttpsEscaperConfig {
 
         Ok(())
     }
+
+    pub(crate) fn same_bind(&self, new: &Self) -> bool {
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "illumos",
+            target_os = "solaris"
+        ))]
+        if self.bind_interface != new.bind_interface {
+            return false;
+        }
+        self.bind_v4 == new.bind_v4 && self.bind_v6 == new.bind_v6
+    }
 }
 
 impl EscaperConfig for ProxyHttpsEscaperConfig {

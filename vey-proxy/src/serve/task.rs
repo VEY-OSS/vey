@@ -23,7 +23,7 @@ use crate::auth::{
     TenantContext, User, UserContext, UserRequestAliveGuard, UserRequestStats,
     UserRequestStatsList, UserTrafficStatsList, UserUpstreamTrafficStatsList,
 };
-use crate::config::escaper::EgressUpstream;
+use crate::config::escaper::{EgressUpstream, PeerHealthCheckConfig};
 use crate::escape::EgressPathSelection;
 use crate::site::{SiteContext, SiteRequestPermits};
 use crate::stat::types::RequestAliveKind;
@@ -147,6 +147,18 @@ impl ServerTaskNotes {
     #[inline]
     pub(crate) fn site_ctx(&self) -> Option<&SiteContext> {
         self.site_ctx.as_ref()
+    }
+
+    /// Site context selects that site's check even when the check is off.
+    /// The matched user site is used only when this task has no site context.
+    pub(crate) fn peer_health_check(&self) -> Option<PeerHealthCheckConfig> {
+        if let Some(site_ctx) = &self.site_ctx {
+            return site_ctx.peer_health_check();
+        }
+        self.user_ctx
+            .as_ref()
+            .and_then(|ctx| ctx.user_site())
+            .and_then(|site| site.peer_health_check())
     }
 
     #[inline]

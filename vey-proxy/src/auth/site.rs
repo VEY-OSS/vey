@@ -24,6 +24,7 @@ use vey_types::resolve::ResolveStrategy;
 use super::stats::{UserSiteDurationRecorder, UserSiteStats};
 use super::{UserSiteDurationStats, UserType};
 use crate::config::auth::UserSiteConfig;
+use crate::config::escaper::PeerHealthCheckConfig;
 
 struct DurationValue {
     recorder: Arc<UserSiteDurationRecorder>,
@@ -112,6 +113,11 @@ impl UserSite {
     #[inline]
     pub(crate) fn http_rsp_hdr_recv_timeout(&self) -> Option<Duration> {
         self.config.http_rsp_hdr_recv_timeout
+    }
+
+    #[inline]
+    pub(crate) fn peer_health_check(&self) -> Option<PeerHealthCheckConfig> {
+        self.config.peer_health_check
     }
 
     pub(crate) fn fetch_duration_recorder(

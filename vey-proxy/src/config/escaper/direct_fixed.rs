@@ -349,6 +349,20 @@ impl DirectFixedEscaperConfig {
         }
         Ok(())
     }
+
+    pub(crate) fn same_bind(&self, new: &Self) -> bool {
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "illumos",
+            target_os = "solaris"
+        ))]
+        if self.bind_interface != new.bind_interface {
+            return false;
+        }
+        self.bind4 == new.bind4 && self.bind6 == new.bind6
+    }
 }
 
 impl EscaperConfig for DirectFixedEscaperConfig {

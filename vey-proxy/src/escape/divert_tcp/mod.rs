@@ -23,7 +23,7 @@ use vey_types::net::{
 
 use super::{
     ArcEscaper, ArcEscaperStats, EgressNotes, Escaper, EscaperExt, EscaperInternal,
-    EscaperRegistry, EscaperStats, TlsHttpConnection,
+    EscaperRegistry, EscaperStats, PeerHealthTable, TlsHttpConnection,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStatsList;
@@ -55,6 +55,7 @@ mod tls_connect;
 pub(super) struct DivertTcpEscaper {
     config: Arc<DivertTcpEscaperConfig>,
     stats: Arc<DivertTcpEscaperStats>,
+    peer_health_table: Arc<PeerHealthTable>,
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
     escape_logger: Option<Logger>,
@@ -64,6 +65,7 @@ impl DivertTcpEscaper {
     fn new_obj(
         config: DivertTcpEscaperConfig,
         stats: Arc<DivertTcpEscaperStats>,
+        peer_health_table: Arc<PeerHealthTable>,
     ) -> anyhow::Result<ArcEscaper> {
         let mut nodes_builder = SelectiveVecBuilder::new();
         for node in &config.proxy_nodes {
@@ -87,6 +89,7 @@ impl DivertTcpEscaper {
         let escaper = DivertTcpEscaper {
             config: Arc::new(config),
             stats,
+            peer_health_table,
             proxy_nodes,
             resolver_handle,
             escape_logger,
@@ -97,14 +100,15 @@ impl DivertTcpEscaper {
 
     pub(super) fn prepare_initial(config: DivertTcpEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(DivertTcpEscaperStats::new(config.name()));
-        DivertTcpEscaper::new_obj(config, stats)
+        DivertTcpEscaper::new_obj(config, stats, PeerHealthTable::new())
     }
 
     fn prepare_reload(
         config: DivertTcpEscaperConfig,
         stats: Arc<DivertTcpEscaperStats>,
+        peer_health_table: Arc<PeerHealthTable>,
     ) -> anyhow::Result<ArcEscaper> {
-        DivertTcpEscaper::new_obj(config, stats)
+        DivertTcpEscaper::new_obj(config, stats, peer_health_table)
     }
 
     fn get_next_proxy(&self, task_notes: &ServerTaskNotes, target_host: &Host) -> &UpstreamAddr {
@@ -291,7 +295,10 @@ impl EscaperInternal for DivertTcpEscaper {
             return Err(anyhow!("invalid escaper config type"));
         };
         let stats = Arc::clone(&self.stats);
-        DivertTcpEscaper::prepare_reload(config, stats)
+        let peer_health_table = self
+            .peer_health_table
+            .on_reload(self.config.same_bind(&config));
+        DivertTcpEscaper::prepare_reload(config, stats, peer_health_table)
     }
 
     async fn _nested_tcp_connect(

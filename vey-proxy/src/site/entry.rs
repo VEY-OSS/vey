@@ -23,6 +23,7 @@ use vey_types::net::{
 use super::upstream::{SiteUpstream, UpstreamPeerStatus};
 use super::{SiteHttp1Pool, SiteHttp2Pool, SiteStats};
 use crate::auth::{UserForbiddenStats, UserGroup, UserRequestStats};
+use crate::config::escaper::PeerHealthCheckConfig;
 use crate::config::site::SiteConfig;
 
 pub(crate) struct Site {
@@ -202,6 +203,10 @@ impl Site {
 
     pub(crate) fn list_upstream_peers(&self) -> anyhow::Result<Vec<UpstreamPeerStatus>> {
         self.upstream.list_peers()
+    }
+
+    pub(crate) fn peer_health_check(&self) -> Option<PeerHealthCheckConfig> {
+        self.config.peer_health_check()
     }
 
     pub(crate) fn set_upstream_weight(

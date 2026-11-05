@@ -133,10 +133,22 @@ peer_health_check
 
 **optional**, **type**: map
 
-Passive health check limits for this origin, in the same shape as nginx
+Passive health check for this origin, in the same shape as nginx
 ``max_fails`` / ``fail_timeout``.
 
-If this key is not set, no health check is configured for this site.
+If this key is not set, health checking is off for tasks that resolve this
+site. A matched :ref:`user site <configuration_auth_user_site>` is not
+consulted while a site context is present.
+
+TCP connects that resolve a domain name record failures on the escaper
+that opens the socket. A *direct* escaper records the upstream domain. A
+*proxy* or *divert_tcp* escaper records its own proxy domain. Literal IP
+addresses are not recorded. Unavailable addresses are tried last. Sticky
+selection drops them unless every candidate has failed. Each escaper keeps
+its own records, because a failure through one egress path does not say
+the address is unreachable through another. Reloading the escaper keeps
+those records when its bind addresses stay the same, and drops them when
+the bind changes.
 
 **default**: not set
 

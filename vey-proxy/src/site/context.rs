@@ -127,6 +127,13 @@ impl SiteContext {
     }
 
     #[inline]
+    pub(crate) fn peer_health_check(
+        &self,
+    ) -> Option<crate::config::escaper::PeerHealthCheckConfig> {
+        self.site.peer_health_check()
+    }
+
+    #[inline]
     pub(crate) fn tcp_connect(&self) -> Option<&TcpConnectConfig> {
         self.egress.tcp_connect()
     }
