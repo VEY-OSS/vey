@@ -209,6 +209,18 @@ fn bn_is_zero(bn: &BigNumRef) -> bool {
     unsafe { openssl_ffi::BN_is_zero(bn.as_ptr()) == 1 }
 }
 
+fn priv_rand_range(order: &BigNumRef) -> Option<BigNum> {
+    let eph = BigNum::new().ok()?;
+    for _ in 0..64 {
+        let rc = unsafe { openssl_ffi::BN_priv_rand_range(eph.as_ptr(), order.as_ptr()) };
+        let is_zero = unsafe { openssl_ffi::BN_is_zero(eph.as_ptr()) == 1 };
+        if rc == 1 && !is_zero {
+            return Some(eph);
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use std::cmp::Ordering;
@@ -260,16 +272,4 @@ mod tests {
         ]);
         assert_reduced(&order, &[0xff; 66], &expected);
     }
-}
-
-fn priv_rand_range(order: &BigNumRef) -> Option<BigNum> {
-    let eph = BigNum::new().ok()?;
-    for _ in 0..64 {
-        let rc = unsafe { openssl_ffi::BN_priv_rand_range(eph.as_ptr(), order.as_ptr()) };
-        let is_zero = unsafe { openssl_ffi::BN_is_zero(eph.as_ptr()) == 1 };
-        if rc == 1 && !is_zero {
-            return Some(eph);
-        }
-    }
-    None
 }
