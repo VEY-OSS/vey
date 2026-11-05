@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use vey_types::net::DomainName;
 
@@ -19,15 +19,29 @@ struct Failure {
 }
 
 /// Failures for one domain. Each domain has its own lock.
-pub(super) struct PeerHealth {
+pub(crate) struct PeerHealth {
+    strategy: PeerHealthCheckConfig,
     inner: Mutex<HashMap<SocketAddr, Failure>>,
 }
 
 impl PeerHealth {
-    fn new() -> Arc<Self> {
+    pub(crate) fn new(strategy: PeerHealthCheckConfig) -> Arc<Self> {
         Arc::new(PeerHealth {
+            strategy,
             inner: Mutex::new(HashMap::new()),
         })
+    }
+
+    /// New table with `strategy`, keeping the current failure records.
+    pub(crate) fn rebuild(self: &Arc<Self>, strategy: PeerHealthCheckConfig) -> Arc<Self> {
+        if self.strategy == strategy {
+            Arc::clone(self)
+        } else {
+            Arc::new(PeerHealth {
+                strategy,
+                inner: Mutex::new(self.inner.lock().unwrap().clone()),
+            })
+        }
     }
 
     /// Move addresses this escaper recently failed to connect to where `pop()` tries them last.
@@ -47,6 +61,12 @@ impl PeerHealth {
         partition_unhealthy_first(ips, &unhealthy);
     }
 
+    /// Remove a failure record.
+    /// Returns whether the peer left the unavailable set, so the pick table should be rebuilt.
+    pub(crate) fn clear_failure(&self, peer: SocketAddr) -> bool {
+        self.clear_failure_using(peer, self.strategy)
+    }
+
     fn clear_failure_using(&self, peer: SocketAddr, strategy: PeerHealthCheckConfig) -> bool {
         let max_fails = strategy.max_fails;
         let now = Instant::now();
@@ -54,6 +74,12 @@ impl PeerHealth {
             Some(failure) => failure.until > now && failure.count >= max_fails,
             None => false,
         }
+    }
+
+    /// Record one failed connect.
+    /// Returns whether the peer entered or left the unavailable set.
+    pub(crate) fn record_failure(&self, peer: SocketAddr) -> bool {
+        self.record_failure_using(peer, self.strategy)
     }
 
     fn record_failure_using(&self, peer: SocketAddr, strategy: PeerHealthCheckConfig) -> bool {
@@ -97,6 +123,22 @@ impl PeerHealth {
         if healthy.is_empty() { ips } else { healthy }
     }
 
+    pub(crate) fn unavailable(&self, peer: SocketAddr) -> bool {
+        let max_fails = self.strategy().max_fails;
+        let now = Instant::now();
+        let mut inner = self.inner.lock().unwrap();
+        self.is_unhealthy(&mut inner, peer, now, max_fails)
+    }
+
+    pub(crate) fn strategy(&self) -> PeerHealthCheckConfig {
+        self.strategy
+    }
+
+    /// Drop expired records. Returns whether an unavailable peer was removed.
+    pub(crate) fn sweep_expired(&self) -> bool {
+        self.sweep_expired_using(self.strategy)
+    }
+
     fn sweep_expired_using(&self, strategy: PeerHealthCheckConfig) -> bool {
         let max_fails = strategy.max_fails;
         let now = Instant::now();
@@ -113,6 +155,27 @@ impl PeerHealth {
             }
         });
         removed_unavailable
+    }
+
+    pub(crate) fn failure_status(&self, peer: SocketAddr) -> (u32, bool, Option<Duration>) {
+        let max_fails = self.strategy().max_fails;
+        let now = Instant::now();
+        let mut inner = self.inner.lock().unwrap();
+        match inner
+            .get(&peer)
+            .map(|failure| (failure.count, failure.until))
+        {
+            Some((count, until)) if until > now => {
+                let unavailable = count >= max_fails;
+                let recover_in = unavailable.then(|| until.saturating_duration_since(now));
+                (count, unavailable, recover_in)
+            }
+            Some(_) => {
+                inner.remove(&peer);
+                (0, false, None)
+            }
+            None => (0, false, None),
+        }
     }
 
     fn is_unhealthy(
@@ -230,7 +293,7 @@ impl PeerHealthTable {
         let mut domains = self.domains.lock().unwrap();
         domains
             .entry(domain.clone())
-            .or_insert_with(PeerHealth::new)
+            .or_insert_with(|| PeerHealth::new(PeerHealthCheckConfig::default()))
             .clone()
     }
 
@@ -265,7 +328,6 @@ fn partition_unhealthy_first(ips: &mut Vec<IpAddr>, unhealthy: &[bool]) {
 mod tests {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
-    use std::time::Duration;
 
     use super::*;
 

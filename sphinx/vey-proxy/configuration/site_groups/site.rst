@@ -115,9 +115,9 @@ hash the client IP only. ``jump_hash`` does not use the weight magnitude;
 a weight of ``0`` or less still drops that address. If every weight is ``0``
 or less, selection fails.
 
-``vey-proxy-ctl site-upstream <group> <site-id>`` lists each address with its
-config weight and current weight. ``vey-proxy-ctl set-site-upstream-weight
-<group> <site-id> <ip:port> <weight>`` changes the current weight and rebuilds
+``vey-proxy-ctl site-group <name> list-upstream <site-id>`` lists each address with its
+config weight and current weight. ``vey-proxy-ctl site-group <name> set-upstream-weight
+<site-id> <ip:port> <weight>`` changes the current weight and rebuilds
 the pick table. Existing connections stay on the address they already use.
 The new weight is not written back to the configuration file. A reload keeps
 the current weight for addresses that are still configured. A process restart
@@ -140,17 +140,31 @@ If this key is not set, health checking is off for tasks that resolve this
 site. A matched :ref:`user site <configuration_auth_user_site>` is not
 consulted while a site context is present.
 
-TCP connects that resolve a domain name record failures on the escaper
-that opens the socket. A *direct* escaper records the upstream domain. A
-*proxy* or *divert_tcp* escaper records its own proxy domain. Literal IP
-addresses are not recorded. Unavailable addresses are tried last. Sticky
-selection drops them unless every candidate has failed. Each escaper keeps
-its own records, because a failure through one egress path does not say
-the address is unreachable through another. Reloading the escaper keeps
-those records when its bind addresses stay the same, and drops them when
-the bind changes.
+Two places use the same limits:
 
-**default**: not set
+* A weighted upstream IP list leaves an address out of the next pick after
+  it reaches ``max_fails`` inside one ``fail_timeout`` window. If every
+  positive-weight address is unavailable, the full list is used. A successful
+  new connection to that socket clears its record. Reused keepalive
+  connections are not recorded. These records stay on the site. Removing
+  this key drops them on reload. Changing ``max_fails`` or ``fail_timeout``
+  keeps them and applies the new limits. Runtime weights are left alone.
+* TCP connects that resolve a domain name record failures on the escaper
+  that opens the socket. A *direct* escaper records the upstream domain. A
+  *proxy* or *divert_tcp* escaper records its own proxy domain. Literal IP
+  addresses are not recorded. Unavailable addresses are tried last. Sticky
+  selection drops them unless every candidate has failed. Each escaper keeps
+  its own records, because a failure through one egress path does not say
+  the address is unreachable through another. Reloading the escaper keeps
+  those records when its bind addresses stay the same, and drops them when
+  the bind changes.
+
+``vey-proxy-ctl site-group <name> list-upstream-health <site-id>`` lists each
+weighted address with its failure count, whether it is currently unavailable,
+and the remaining milliseconds until it can be selected again. The last
+column is ``-`` while the address is available. The command applies to the
+site group that is serving the site, and only when this key is set on a
+weighted IP list.
 
 .. versionadded:: 1.15.3
 

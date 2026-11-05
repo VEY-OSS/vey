@@ -15,7 +15,23 @@ struct ListUpstreamResult {
   }
 }
 
+struct UpstreamPeerHealth {
+  addr @0 :Text;
+  fails @1 :UInt32;
+  unavailable @2 :Bool;
+  # Milliseconds until this peer can be selected again. Zero when it is available.
+  recoverInMs @3 :UInt64;
+}
+
+struct ListUpstreamHealthResult {
+  union {
+    peers @0 :List(UpstreamPeerHealth);
+    err @1 :Types.Error;
+  }
+}
+
 interface SiteGroupControl {
   listUpstream @0 (siteId :Text) -> (result :ListUpstreamResult);
   setUpstreamWeight @1 (siteId :Text, addr :Text, weight :Float64) -> (result :Types.OperationResult);
+  listUpstreamHealth @2 (siteId :Text) -> (result :ListUpstreamHealthResult);
 }

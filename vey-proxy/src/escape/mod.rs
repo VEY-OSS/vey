@@ -35,6 +35,7 @@ use registry::EscaperRegistry;
 pub(crate) use registry::{foreach as foreach_escaper, get_names, get_or_insert_default};
 
 mod peer_health;
+pub(crate) use peer_health::PeerHealth;
 use peer_health::PeerHealthTable;
 
 mod stats;
