@@ -44,7 +44,7 @@ pub fn as_socket_buffer_config(value: &Yaml) -> anyhow::Result<SocketBufferConfi
 #[cfg(test)]
 mod tests {
     use super::*;
-    use saphyr::{LoadableYamlNode, Scalar};
+    use saphyr::Scalar;
 
     #[test]
     fn as_sockaddr_buffer_config_ok() {
@@ -108,9 +108,8 @@ mod tests {
             ("recv: 10XYZ", "recv"),
         ];
         for (yaml_str, _key) in cases {
-            let docs = Yaml::load_from_str(yaml_str).unwrap();
             assert!(
-                as_socket_buffer_config(&docs[0]).is_err(),
+                as_socket_buffer_config(&yaml_doc!(yaml_str)).is_err(),
                 "Case failed: {yaml_str}",
             );
         }

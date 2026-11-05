@@ -89,7 +89,6 @@ impl CertAgentConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use saphyr::LoadableYamlNode;
 
     use std::time::Duration;
 
@@ -183,7 +182,7 @@ mod tests {
 
         for (key, value) in test_cases {
             let yaml_str = format!("{key}: {value}");
-            let yaml = &Yaml::load_from_str(&yaml_str).unwrap()[0];
+            let yaml = &yaml_doc!(&yaml_str);
             assert!(CertAgentConfig::parse_yaml(yaml).is_err());
         }
 
