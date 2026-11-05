@@ -6,25 +6,20 @@ v1.15.2:
  - BUG FIX: a buffered stream copy or vectored write stops when the writer returns no bytes
  - BUG FIX: a cache lookup returns an error if the query runtime has quit, instead of panicking
  - BUG FIX: a ClientHello whose handshake header arrives in pieces no longer consumes the next handshake message
- - BUG FIX: a ``Connection`` header that contains ``close`` stays closed when a later ``keep-alive`` token is seen
  - BUG FIX: a country code that is not two letters is rejected instead of panicking
  - BUG FIX: a crypt password hash is rejected when a character is outside the alphabet or the last character has unused high bits set
  - BUG FIX: a Fluentd handshake reports a closed connection instead of parsing a short HELO or PONG
- - BUG FIX: a Hickory lookup keeps an address only when its owner is the name being resolved, stops a CNAME chase after 8 hops or a repeated name, and keeps waiting for another server after an early error
  - BUG FIX: a large Linux journald record can be sealed and sent
  - BUG FIX: a link-local IPv6 peer or local address keeps its scope id
  - BUG FIX: a log format failure is reported instead of panicking, and syslog is sent before the reconnect wait
  - BUG FIX: a non-ASCII size string in YAML or JSON config is rejected instead of panicking
  - BUG FIX: a quit during graceful shutdown closes the unique control listener
  - BUG FIX: a Redis handshake times out, and a later resolved address is tried when an earlier TCP connection fails
- - BUG FIX: a relative pid file is created in the working directory from before daemonizing, and the lock is held until the process exits
  - BUG FIX: a rotating histogram still publishes while samples keep arriving, and ``0.0`` and ``-0.0`` count as one quantile
  - BUG FIX: a statsd export continues after ``sendmmsg`` writes only part of the batch, and logs the first error in each 64 second slice
- - BUG FIX: a successful HTTP CONNECT or ``101`` Upgrade response is rejected when it carries a message body
  - BUG FIX: a TCP or UDP listen ``scale`` whose denominator is 0 is rejected instead of panicking
- - BUG FIX: a TLS Fluentd client finishes the forward handshake after TLS, and an unknown HELO option is rejected
+ - BUG FIX: a TLS Fluentd client finishes the forward handshake after TLS
  - BUG FIX: a TLS session ticket that is too short to hold an HMAC tag is ignored instead of panicking
- - BUG FIX: a transparent IPv6 listener is IPv6-only
  - BUG FIX: a UDP datagram that fills the byte window exactly is allowed through
  - BUG FIX: a UDP dump larger than one datagram is split, and a failed send does not stop later dumps
  - BUG FIX: after graceful shutdown is cancelled, a later SIGTERM still requests shutdown
@@ -33,43 +28,58 @@ v1.15.2:
  - BUG FIX: an HTTP chunk size line longer than the limit is rejected even when the newline arrives in the same read
  - BUG FIX: an HTTP log URI redacts the password when the userinfo contains another ``@``
  - BUG FIX: an HTTP or HTTP/2 chunked transfer stops when a write returns no bytes
- - BUG FIX: an ICAP message is rejected when the status line omits the space before the reason phrase, a section follows the body token, an encapsulated header ends before its offset, or an OPTIONS null-body offset is not zero
+ - BUG FIX: an HTTP or ICAP status code that does not fit in a 16-bit integer is rejected
  - BUG FIX: an ICAP preview continues only after the chunk CRLF has arrived
  - BUG FIX: an IMAP BAD reply stays on one line when the tag contains a control character
- - BUG FIX: an incomplete legacy rustls certificate pair fails config load instead of being ignored
  - BUG FIX: an IP location client keeps querying after a UDP receive error, and a cached prefix is replaced when the answer is a longer match
- - BUG FIX: an issued certificate cannot start before its issuer, and its ``pathlen`` cannot exceed what the issuer allows
  - BUG FIX: an MQTT CONNECT whose remaining length is 128 or larger is recognized
  - BUG FIX: an NNTP greeting that arrives before its newline is still recognized, and an NNSP greeting is reported as NNSP
  - BUG FIX: an OpenSSL async client engine stays registered after the handshake and no longer busy-waits
  - BUG FIX: an SMTP blocked-message reason that contains a line break stays on one reply
- - BUG FIX: an SMTP IPv6 address literal ``[IPv6:...]`` is accepted, and the tag match ignores case
- - BUG FIX: an unknown key in a weighted metric node is rejected
- - BUG FIX: certificate times outside 1950-2049 use GeneralizedTime, and a timestamp offset that includes seconds is written in UTC
+ - BUG FIX: an SMTP IPv6 address literal ``[IPv6:...]`` is accepted
  - BUG FIX: DNS-over-HTTPS releases the HTTP/2 receive window, and a DNS-over-HTTPS or DNS-over-HTTP/3 response body stops at 65535 bytes
  - BUG FIX: failure to spawn the async log thread is reported
- - BUG FIX: ``forward-ftp`` enables FTP GET, PUT, and DELETE forwarding, and an ALPN match without a backend name is rejected
+ - BUG FIX: ``forward-ftp`` enables FTP GET, PUT, and DELETE forwarding
  - BUG FIX: FTP control replies drop only the CR/LF ending, so trailing spaces in the text stay
  - BUG FIX: FTP stops the next passive mode after the control connection fails, rejects a command parameter that contains a line break, and accepts a blank FEAT end line
  - BUG FIX: IMAP interception reads a trailing literal on responses that carry strings, accepts an empty AUTHENTICATE challenge, and treats a tag that starts with ``*`` or ``+`` as that command's result
  - BUG FIX: IPv4 and IPv6 reuseport listeners use separate eBPF maps, so ``0.0.0.0`` and ``::`` no longer share one
  - BUG FIX: on Windows, another control client can connect while one connection is still open
  - BUG FIX: OpenSSL async engine file descriptors are registered with the I/O-safe AsyncFd API
+ - BUG FIX: protocol inspection accepts a DNS query that carries an EDNS additional record
+ - BUG FIX: protocol inspection recognizes an RTSP request that starts with ``DESCRIBE`` or ``OPTIONS``, and leaves HTTP in play until the method cannot be an RTSP request
  - BUG FIX: protocol inspection recognizes the WebDAV method ``UPDATEREDIRECTREF``
- - BUG FIX: reject too large HTTP and ICAP status code
  - BUG FIX: reloading a UDP or QUIC listener keeps the new socket buffer size
  - BUG FIX: SMTP DATA dot-stuffing leaves a ``.`` that continues the same line unchanged
+ - BUG FIX: the pid file lock is held until the process exits
  - BUG FIX: the TLS ticket key still in use can decrypt tickets after a refresh
  - BUG FIX: the Windows hostname sent to syslog and Fluentd no longer includes a trailing NUL
  - BUG FIX: UDP receive ancillary data is aligned so control messages can be parsed
  - Feature: an IP location service can be reached over a Unix datagram socket
  - Feature: UDP stream and transparent UDP listeners emit ``listen.datagram.recv.*`` and ``listen.datagram.send.*``
  - Breaking: the default control socket directory is ``/run/vey-proxy`` for root on Linux and ``/var/run/vey-proxy`` for root on other Unix systems; another Linux user uses an absolute ``XDG_RUNTIME_DIR`` or ``/run/user/<uid>/vey-proxy``
+ - Compatibility: a ``Connection`` header that contains ``close`` stays closed when a later ``keep-alive`` token is seen
+ - Compatibility: a Hickory lookup keeps an address only when its owner is the name being resolved, stops a CNAME chase after 8 hops or a repeated name, and keeps waiting for another server after an early error
+ - Compatibility: a relative pid file is created in the working directory from before daemonizing
  - Compatibility: a reuseport listener does not join eBPF maps pinned by a previous release
+ - Compatibility: a successful HTTP CONNECT or ``101`` Upgrade response is rejected when it carries a message body
+ - Compatibility: a Tongsuo TLCP or NTLS handshake does not insert an empty TLS fragment
+ - Compatibility: a transparent IPv6 listener is IPv6-only, even when ``ipv6_only`` is false
  - Compatibility: a weighted ``rendezvous`` set follows the highest score, so a lighter node can be chosen
+ - Compatibility: an ALPN match without a backend name is rejected
+ - Compatibility: an ICAP message is rejected when the status line omits the space before the reason phrase, a section follows the body token, an encapsulated header ends before its offset, or an OPTIONS null-body offset is not zero
+ - Compatibility: an incomplete legacy rustls certificate pair fails config load instead of being ignored
+ - Compatibility: an issued certificate cannot start before its issuer, and its ``pathlen`` cannot exceed what the issuer allows
+ - Compatibility: an SMTP tag match ignores case
+ - Compatibility: an unknown Fluentd HELO option is rejected
+ - Compatibility: an unknown key in a weighted metric node is rejected
+ - Compatibility: certificate times outside 1950-2049 use GeneralizedTime, and a timestamp offset that includes seconds is written in UTC
  - Compatibility: DragonFly worker ``sched_affinity`` applies to the calling thread
  - Compatibility: ``drop_default_port_in_host`` rebuilds ``Host`` from the parsed host, so the domain is in ASCII form and an IPv4-mapped address is written as IPv4
+ - Compatibility: packages build on openSUSE Leap 16.1
  - Compatibility: published container images set OCI labels so GHCR can describe them
+ - Compatibility: YAML config is parsed with saphyr instead of yaml-rust2
+ - Removed: drop support for Python 3.8
 
 v1.15.1:
  - BUG FIX: a transparent UDP listener forwards to the original destination instead of the listen address

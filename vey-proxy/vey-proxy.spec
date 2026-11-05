@@ -3,7 +3,7 @@
 %define build_profile release-lto
 
 Name:           vey-proxy
-Version:        1.15.1
+Version:        1.15.2
 Release:        1%{?dist}
 Summary:        Forward, reverse, and transparent proxy server
 
@@ -69,5 +69,5 @@ fi
 %license LICENSE-FOREIGN
 
 %changelog
-* Tue Oct 13 2026 VEY-OSS Developers <developers@vey.oss> - 1.15.1-1
+* Thu Nov 05 2026 VEY-OSS Developers <developers@vey.oss> - 1.15.2-1
 - New upstream release
