@@ -12,7 +12,7 @@ use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use log::warn;
 use rustc_hash::FxHashMap;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::auth::{Password, Username};
 use vey_types::collection::SelectivePickPolicy;
@@ -115,7 +115,7 @@ impl ProxySocks5sEscaperConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
@@ -277,7 +277,7 @@ impl ProxySocks5sEscaperConfig {
                 Ok(())
             }
             "transmute_udp_peer_ip" => {
-                if let Yaml::Hash(_) = v {
+                if let Yaml::Mapping(_) = v {
                     let map = vey_yaml::value::as_hashmap(
                         v,
                         vey_yaml::value::as_ipaddr,

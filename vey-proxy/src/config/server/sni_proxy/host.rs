@@ -4,7 +4,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::net::{Host, UpstreamAddr};
 use vey_yaml::{YamlDocPosition, YamlMapCallback};

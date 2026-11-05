@@ -4,7 +4,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::net::SocketBufferConfig;
 
@@ -12,13 +12,13 @@ pub fn as_socket_buffer_config(value: &Yaml) -> anyhow::Result<SocketBufferConfi
     let mut config = SocketBufferConfig::default();
 
     match value {
-        Yaml::Integer(_) | Yaml::String(_) => {
+        Yaml::Value(_) => {
             let size =
                 crate::humanize::as_usize(value).context("invalid single humanize usize value")?;
             config.set_recv_size(size);
             config.set_send_size(size);
         }
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "recv" | "receive" | "read" => {
                     let size = crate::humanize::as_usize(v)
@@ -44,11 +44,11 @@ pub fn as_socket_buffer_config(value: &Yaml) -> anyhow::Result<SocketBufferConfi
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
+    use saphyr::{LoadableYamlNode, Scalar};
 
     #[test]
     fn as_sockaddr_buffer_config_ok() {
-        let yaml = Yaml::Integer(1024);
+        let yaml = Yaml::Value(Scalar::Integer(1024));
         let config = as_socket_buffer_config(&yaml).unwrap();
         assert_eq!(config.recv_size(), Some(1024));
         assert_eq!(config.send_size(), Some(1024));
@@ -96,7 +96,7 @@ mod tests {
         );
         assert!(as_socket_buffer_config(&yaml).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(as_socket_buffer_config(&yaml).is_err());
 
         let yaml = yaml_str!("");
@@ -108,7 +108,7 @@ mod tests {
             ("recv: 10XYZ", "recv"),
         ];
         for (yaml_str, _key) in cases {
-            let docs = YamlLoader::load_from_str(yaml_str).unwrap();
+            let docs = Yaml::load_from_str(yaml_str).unwrap();
             assert!(
                 as_socket_buffer_config(&docs[0]).is_err(),
                 "Case failed: {yaml_str}",

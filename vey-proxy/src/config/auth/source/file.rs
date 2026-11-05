@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
+use saphyr::{LoadableYamlNode, Yaml};
 use url::Url;
-use yaml_rust::{Yaml, yaml};
 
 use vey_types::fs::ConfigFileFormat;
 
@@ -35,7 +35,7 @@ impl UserDynamicFileSource {
         UserDynamicFileSource { path, format }
     }
 
-    pub(super) fn parse_map(map: &yaml::Hash, lookup_dir: &Path) -> anyhow::Result<Self> {
+    pub(super) fn parse_map(map: &saphyr::Mapping, lookup_dir: &Path) -> anyhow::Result<Self> {
         let v = vey_yaml::hash_get_required(map, CONFIG_KEY_SOURCE_PATH)?;
         let path = vey_yaml::value::as_file_path(v, lookup_dir, false).context(format!(
             "invalid path value for key {CONFIG_KEY_SOURCE_PATH}"
@@ -55,7 +55,7 @@ impl UserDynamicFileSource {
         let mut config = UserDynamicFileSource::new(path);
 
         for (k, v) in url.query_pairs() {
-            let yaml_value = Yaml::String(v.as_ref().to_owned());
+            let yaml_value = vey_yaml::yaml_str!(v.as_ref());
             config
                 .set(&k, &yaml_value)
                 .context(format!("failed to parse query param {k}={v}"))?;
@@ -87,7 +87,7 @@ impl UserDynamicFileSource {
         }
         let all_config = match self.format {
             ConfigFileFormat::Yaml => {
-                let docs = yaml_rust::YamlLoader::load_from_str(&contents)
+                let docs = Yaml::load_from_str(&contents)
                     .map_err(|e| anyhow!("invalid yaml file {}: {e}", self.path.display()))?;
                 UserConfig::parse_yaml_many(&docs)?
             }

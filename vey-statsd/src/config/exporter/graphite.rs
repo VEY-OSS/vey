@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::{Scalar, Yaml};
 
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_yaml::YamlDocPosition;
@@ -46,7 +46,7 @@ impl FromStr for GraphiteCounterValue {
 
 impl GraphiteCounterValue {
     pub(crate) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
-        if let Yaml::String(s) = value {
+        if let Yaml::Value(Scalar::String(s)) = value {
             Self::from_str(s)
         } else {
             Err(anyhow!(
@@ -81,7 +81,7 @@ impl GraphiteExporterConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut collector = GraphiteExporterConfig::new(position);
@@ -158,7 +158,7 @@ impl ExporterConfig for GraphiteExporterConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
+    use saphyr::LoadableYamlNode;
 
     #[test]
     fn parse_counter_value() {
@@ -172,15 +172,15 @@ mod tests {
         );
         assert!(GraphiteCounterValue::from_str("rate").is_err());
         assert_eq!(
-            GraphiteCounterValue::parse_yaml(&Yaml::String("diff".into())).unwrap(),
+            GraphiteCounterValue::parse_yaml(&Yaml::Value(Scalar::String("diff".into()))).unwrap(),
             GraphiteCounterValue::Diff
         );
-        assert!(GraphiteCounterValue::parse_yaml(&Yaml::Boolean(true)).is_err());
+        assert!(GraphiteCounterValue::parse_yaml(&Yaml::Value(Scalar::Boolean(true))).is_err());
     }
 
     #[test]
     fn parse_exporter_config() {
-        let docs = YamlLoader::load_from_str(
+        let docs = Yaml::load_from_str(
             r#"
 name: g1
 server: 127.0.0.1
@@ -191,7 +191,7 @@ counter_value: diff
 "#,
         )
         .unwrap();
-        let cfg = GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).unwrap();
+        let cfg = GraphiteExporterConfig::parse(docs[0].as_mapping().unwrap(), None).unwrap();
         assert_eq!(cfg.name().as_str(), "g1");
         assert_eq!(cfg.emit_interval, Duration::from_secs(5));
         assert_eq!(cfg.counter_value, GraphiteCounterValue::Diff);
@@ -203,10 +203,10 @@ counter_value: diff
 
     #[test]
     fn parse_requires_name_and_server() {
-        let docs = YamlLoader::load_from_str("server: 127.0.0.1\n").unwrap();
-        assert!(GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).is_err());
+        let docs = Yaml::load_from_str("server: 127.0.0.1\n").unwrap();
+        assert!(GraphiteExporterConfig::parse(docs[0].as_mapping().unwrap(), None).is_err());
 
-        let docs = YamlLoader::load_from_str("name: g1\n").unwrap();
-        assert!(GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).is_err());
+        let docs = Yaml::load_from_str("name: g1\n").unwrap();
+        assert!(GraphiteExporterConfig::parse(docs[0].as_mapping().unwrap(), None).is_err());
     }
 }

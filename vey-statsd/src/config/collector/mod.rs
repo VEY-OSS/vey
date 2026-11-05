@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_daemon::config::TopoMap;
 use vey_macros::AnyConfig;
@@ -77,7 +77,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyCollectorConfig> {
     let doc = vey_yaml::load_doc(position)?;
-    if let Yaml::Hash(map) = doc {
+    if let Yaml::Mapping(map) = doc {
         let collector = load_collector(&map, Some(position.clone()))?;
         let old_collector = registry::add(collector.clone());
         if let Err(e) = build_topology_map() {
@@ -98,7 +98,7 @@ pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<Any
 }
 
 fn load_collector(
-    map: &yaml::Hash,
+    map: &saphyr::Mapping,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyCollectorConfig> {
     let collector_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_COLLECTOR_TYPE)?;

@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, YamlLoader};
+use saphyr::{LoadableYamlNode, Yaml};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct YamlDocPosition {
@@ -72,11 +72,11 @@ impl fmt::Display for YamlDocPosition {
     }
 }
 
-pub fn load_doc(position: &YamlDocPosition) -> anyhow::Result<Yaml> {
+pub fn load_doc(position: &YamlDocPosition) -> anyhow::Result<Yaml<'static>> {
     let mut conf = String::new();
     File::open(&position.path)?.read_to_string(&mut conf)?;
 
-    let mut yaml_docs = YamlLoader::load_from_str(&conf)?;
+    let mut yaml_docs = Yaml::load_from_str(&conf)?;
     if yaml_docs.get(position.index).is_some() {
         Ok(yaml_docs.remove(position.index))
     } else {
@@ -91,7 +91,7 @@ where
     let mut conf = String::new();
     File::open(path)?.read_to_string(&mut conf)?;
 
-    let yaml_docs = YamlLoader::load_from_str(&conf)?;
+    let yaml_docs = Yaml::load_from_str(&conf)?;
     for (i, doc) in yaml_docs.iter().enumerate() {
         f(i, doc)?;
     }

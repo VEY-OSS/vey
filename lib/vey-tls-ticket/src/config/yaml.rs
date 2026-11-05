@@ -6,14 +6,14 @@
 use std::path::Path;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use super::TlsTicketConfig;
 use crate::source::TicketSourceConfig;
 
 impl TlsTicketConfig {
     pub fn parse_yaml(value: &Yaml, lookup_dir: Option<&Path>) -> anyhow::Result<Self> {
-        if let Yaml::Hash(map) = value {
+        if let Yaml::Mapping(map) = value {
             let mut config = TlsTicketConfig::default();
             vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "check_interval" => {
@@ -50,6 +50,7 @@ impl TlsTicketConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::Scalar;
     use vey_yaml::yaml_doc;
 
     #[test]
@@ -129,19 +130,19 @@ mod tests {
 
     #[test]
     fn parse_invalid_yaml_types() {
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(TlsTicketConfig::parse_yaml(&yaml, None).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(TlsTicketConfig::parse_yaml(&yaml, None).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(TlsTicketConfig::parse_yaml(&yaml, None).is_err());
 
-        let yaml = Yaml::Real("1.23".to_string());
+        let yaml = Yaml::Value(Scalar::FloatingPoint((1.23_f64).into()));
         assert!(TlsTicketConfig::parse_yaml(&yaml, None).is_err());
 
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(TlsTicketConfig::parse_yaml(&yaml, None).is_err());
     }
 }

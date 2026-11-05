@@ -5,7 +5,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use crate::IpLocateServiceConfig;
 
@@ -18,7 +18,7 @@ impl IpLocateServiceConfig {
 
     pub fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut config = IpLocateServiceConfig::default();
 
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -66,7 +66,7 @@ impl IpLocateServiceConfig {
 
                 Ok(config)
             }
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let mut config = IpLocateServiceConfig::default();
                 config
                     .set_query_peer_addr_by_yaml(value)
@@ -188,19 +188,19 @@ mod tests {
 
     #[test]
     fn parse_invalid_yaml_types() {
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(IpLocateServiceConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(IpLocateServiceConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(IpLocateServiceConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Real("1.23".to_string());
+        let yaml = Yaml::Value(Scalar::FloatingPoint((1.23_f64).into()));
         assert!(IpLocateServiceConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(IpLocateServiceConfig::parse_yaml(&yaml).is_err());
     }
 }

@@ -7,7 +7,7 @@
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_dpi::{ProtocolInspectAction, ProtocolInspectPolicyBuilder};
 
@@ -23,11 +23,11 @@ trait InspectRuleYamlParser {
     ) -> anyhow::Result<()>;
 
     fn parse(&mut self, value: &Yaml) -> anyhow::Result<()> {
-        if let Yaml::Hash(map) = value {
+        if let Yaml::Mapping(map) = value {
             crate::foreach_kv(map, |k, v| {
                 let action = ProtocolInspectAction::from_str(k)
                     .map_err(|_| anyhow!("the key {k} is not a valid inspect action"))?;
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         self.add_rule_for_action(action, v)
                             .context(format!("invalid value for {k}#{i}"))?;
@@ -45,7 +45,7 @@ trait InspectRuleYamlParser {
 }
 
 fn as_protocol_inspect_action(value: &Yaml) -> anyhow::Result<ProtocolInspectAction> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         ProtocolInspectAction::from_str(s)
             .map_err(|_| anyhow!("invalid protocol inspect action '{s}'"))
     } else {
@@ -57,7 +57,7 @@ pub fn as_protocol_inspect_policy_builder(
     value: &Yaml,
 ) -> anyhow::Result<ProtocolInspectPolicyBuilder> {
     match value {
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             let mut builder = ProtocolInspectPolicyBuilder::default();
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "default" => {

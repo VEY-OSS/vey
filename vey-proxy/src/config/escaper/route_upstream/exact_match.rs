@@ -11,7 +11,7 @@ use std::str::FromStr;
 use ahash::AHashMap;
 use anyhow::{Context, anyhow};
 use rustc_hash::FxHashMap;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 use vey_types::net::{DomainName, Host};
@@ -40,7 +40,7 @@ impl ExactMatchBuilder {
 
     pub(super) fn set_by_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
         match value {
-            Yaml::Hash(map) => vey_yaml::foreach_kv(map, |k, v| {
+            Yaml::Mapping(map) => vey_yaml::foreach_kv(map, |k, v| {
                 let escaper = NodeName::from_str(k)
                     .map_err(|e| anyhow!("the map key is not valid escaper name: {e}"))?;
                 let mut match_values = ExactMatchValues::default();
@@ -51,9 +51,9 @@ impl ExactMatchBuilder {
                 self.add_rule(escaper, match_values);
                 Ok(())
             }),
-            Yaml::Array(seq) => {
+            Yaml::Sequence(seq) => {
                 for (i, v) in seq.iter().enumerate() {
-                    let Yaml::Hash(map) = v else {
+                    let Yaml::Mapping(map) = v else {
                         return Err(anyhow!("yaml value type for #{i} should be map"));
                     };
 
@@ -126,7 +126,7 @@ struct ExactMatchValues {
 
 impl ExactMatchValues {
     fn set_by_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
-        if let Yaml::Array(seq) = value {
+        if let Yaml::Sequence(seq) = value {
             for (i, v) in seq.iter().enumerate() {
                 self.add_yaml_value(v)
                     .context(format!("invalid exact match value for #{i}"))?;
@@ -169,8 +169,9 @@ impl<T> ExactMatch<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::LoadableYamlNode;
+
     use vey_types::literal_domain;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn yaml_seq() {
@@ -183,7 +184,7 @@ mod tests {
             - 192.168.1.1
         "#;
 
-        let v = YamlLoader::load_from_str(conf).unwrap();
+        let v = Yaml::load_from_str(conf).unwrap();
         let mut builder = ExactMatchBuilder::default();
         builder.set_by_yaml(&v[0]).unwrap();
 
@@ -226,7 +227,7 @@ mod tests {
           - 192.168.1.1
         "#;
 
-        let v = YamlLoader::load_from_str(conf).unwrap();
+        let v = Yaml::load_from_str(conf).unwrap();
         let mut builder = ExactMatchBuilder::default();
         builder.set_by_yaml(&v[0]).unwrap();
 

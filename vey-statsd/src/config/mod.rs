@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 pub(crate) mod collector;
 pub(crate) mod exporter;
@@ -18,7 +18,7 @@ pub fn load() -> anyhow::Result<&'static Path> {
 
     // allow multiple docs, and treat them as the same
     vey_yaml::foreach_doc(config_file, |_, doc| match doc {
-        Yaml::Hash(map) => load_doc(map),
+        Yaml::Mapping(map) => load_doc(map),
         _ => Err(anyhow!("yaml doc root should be hash")),
     })?;
 
@@ -42,14 +42,14 @@ fn reload_blocking() -> anyhow::Result<()> {
     if let Some(conf_file) = vey_daemon::opts::config_file() {
         // allow multiple docs, and treat them as the same
         vey_yaml::foreach_doc(conf_file, |_, doc| match doc {
-            Yaml::Hash(map) => reload_doc(map),
+            Yaml::Mapping(map) => reload_doc(map),
             _ => Err(anyhow!("yaml doc root should be hash")),
         })?;
     }
     Ok(())
 }
 
-fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
+fn reload_doc(map: &saphyr::Mapping) -> anyhow::Result<()> {
     let conf_dir = vey_daemon::opts::config_dir()
         .ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -62,7 +62,7 @@ fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
+fn load_doc(map: &saphyr::Mapping) -> anyhow::Result<()> {
     let conf_dir = vey_daemon::opts::config_dir()
         .ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {

@@ -5,14 +5,12 @@
 
 use std::path::Path;
 
-use yaml_rust::yaml;
-
 use super::RedisSourceConfig;
 use crate::source::CONFIG_KEY_SOURCE_TYPE;
 
 impl RedisSourceConfig {
     pub(crate) fn parse_yaml_map(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         lookup_dir: Option<&Path>,
     ) -> anyhow::Result<Self> {
         let mut config = RedisSourceConfig::default();
@@ -38,6 +36,7 @@ impl RedisSourceConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use vey_yaml::yaml_doc;
 
     #[test]
@@ -51,7 +50,7 @@ mod tests {
                 db: 0
             "#
         );
-        let config = RedisSourceConfig::parse_yaml_map(yaml.as_hash().unwrap(), None).unwrap();
+        let config = RedisSourceConfig::parse_yaml_map(yaml.as_mapping().unwrap(), None).unwrap();
         assert_eq!(config.enc_key_name, "tls_ticket_enc");
         assert_eq!(config.dec_set_name, "tls_ticket_dec");
     }
@@ -66,7 +65,7 @@ mod tests {
                 addr: "127.0.0.1:6379"
             "#
         );
-        assert!(RedisSourceConfig::parse_yaml_map(yaml.as_hash().unwrap(), None).is_err());
+        assert!(RedisSourceConfig::parse_yaml_map(yaml.as_mapping().unwrap(), None).is_err());
 
         // Missing dec_set
         let yaml = yaml_doc!(
@@ -76,7 +75,7 @@ mod tests {
                 addr: "127.0.0.1:6379"
             "#
         );
-        assert!(RedisSourceConfig::parse_yaml_map(yaml.as_hash().unwrap(), None).is_err());
+        assert!(RedisSourceConfig::parse_yaml_map(yaml.as_mapping().unwrap(), None).is_err());
 
         // Empty enc_key
         let yaml = yaml_doc!(
@@ -87,7 +86,7 @@ mod tests {
                 addr: "127.0.0.1:6379"
             "#
         );
-        assert!(RedisSourceConfig::parse_yaml_map(yaml.as_hash().unwrap(), None).is_err());
+        assert!(RedisSourceConfig::parse_yaml_map(yaml.as_mapping().unwrap(), None).is_err());
 
         // Empty dec_set
         let yaml = yaml_doc!(
@@ -98,6 +97,6 @@ mod tests {
                 addr: "127.0.0.1:6379"
             "#
         );
-        assert!(RedisSourceConfig::parse_yaml_map(yaml.as_hash().unwrap(), None).is_err());
+        assert!(RedisSourceConfig::parse_yaml_map(yaml.as_mapping().unwrap(), None).is_err());
     }
 }

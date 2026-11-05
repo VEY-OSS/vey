@@ -6,12 +6,12 @@
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::net::ProxyRequestType;
 
 pub fn as_proxy_request_type(v: &Yaml) -> anyhow::Result<ProxyRequestType> {
-    if let Yaml::String(s) = v {
+    if let Yaml::Value(Scalar::String(s)) = v {
         let t = ProxyRequestType::from_str(s)
             .map_err(|_| anyhow!("invalid ProxyRequestType string"))?;
         Ok(t)
@@ -41,7 +41,7 @@ mod tests {
         assert!(as_proxy_request_type(&v).is_err());
 
         // invalid yaml value type for 'ProxyRequestType' should be'string'
-        let v = Yaml::Integer(123);
+        let v = Yaml::Value(Scalar::Integer(123));
         assert!(as_proxy_request_type(&v).is_err());
     }
 }

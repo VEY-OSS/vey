@@ -8,14 +8,14 @@ use std::str::FromStr;
 use vey_types::net::Interface;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 pub fn as_interface(value: &Yaml) -> anyhow::Result<Interface> {
     match value {
-        Yaml::String(s) => {
+        Yaml::Value(Scalar::String(s)) => {
             Interface::from_str(s).map_err(|e| anyhow!("invalid interface name {s}: {e}"))
         }
-        Yaml::Integer(i) => {
+        Yaml::Value(Scalar::Integer(i)) => {
             let u = u32::try_from(*i).map_err(|_| anyhow!("out of range u32 value {}", *i))?;
             Interface::try_from(u).map_err(|e| anyhow!("invalid interface id {u}: {e}"))
         }
@@ -37,10 +37,10 @@ mod tests {
 
     #[test]
     fn as_interface_ok() {
-        let yaml = Yaml::String(LOOPBACK_INTERFACE.to_string());
+        let yaml = yaml_str!(LOOPBACK_INTERFACE);
         assert_eq!(as_interface(&yaml).unwrap().name(), LOOPBACK_INTERFACE);
 
-        let yaml = Yaml::Integer(1);
+        let yaml = Yaml::Value(Scalar::Integer(1));
         let interface = as_interface(&yaml).unwrap();
         assert_eq!(interface.id().get(), 1);
     }
@@ -50,13 +50,13 @@ mod tests {
         let yaml = yaml_str!("invalid_interface");
         assert!(as_interface(&yaml).is_err());
 
-        let yaml = Yaml::Integer(u32::MAX as i64 + 1);
+        let yaml = Yaml::Value(Scalar::Integer(u32::MAX as i64 + 1));
         assert!(as_interface(&yaml).is_err());
 
-        let yaml = Yaml::Integer(0);
+        let yaml = Yaml::Value(Scalar::Integer(0));
         assert!(as_interface(&yaml).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(as_interface(&yaml).is_err());
     }
 }

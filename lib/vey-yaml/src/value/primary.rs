@@ -11,12 +11,12 @@ use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 pub fn as_u8(v: &Yaml) -> anyhow::Result<u8> {
     match v {
-        Yaml::String(s) => Ok(u8::from_str(s)?),
-        Yaml::Integer(i) => Ok(u8::try_from(*i)?),
+        Yaml::Value(Scalar::String(s)) => Ok(u8::from_str(s)?),
+        Yaml::Value(Scalar::Integer(i)) => Ok(u8::try_from(*i)?),
         _ => Err(anyhow!(
             "yaml value type for 'u8' should be 'string' or 'integer'"
         )),
@@ -25,8 +25,8 @@ pub fn as_u8(v: &Yaml) -> anyhow::Result<u8> {
 
 pub fn as_u16(v: &Yaml) -> anyhow::Result<u16> {
     match v {
-        Yaml::String(s) => Ok(u16::from_str(s)?),
-        Yaml::Integer(i) => Ok(u16::try_from(*i)?),
+        Yaml::Value(Scalar::String(s)) => Ok(u16::from_str(s)?),
+        Yaml::Value(Scalar::Integer(i)) => Ok(u16::try_from(*i)?),
         _ => Err(anyhow!(
             "yaml value type for 'u16' should be 'string' or 'integer'"
         )),
@@ -35,8 +35,8 @@ pub fn as_u16(v: &Yaml) -> anyhow::Result<u16> {
 
 pub fn as_u32(v: &Yaml) -> anyhow::Result<u32> {
     match v {
-        Yaml::String(s) => Ok(u32::from_str(s)?),
-        Yaml::Integer(i) => Ok(u32::try_from(*i)?),
+        Yaml::Value(Scalar::String(s)) => Ok(u32::from_str(s)?),
+        Yaml::Value(Scalar::Integer(i)) => Ok(u32::try_from(*i)?),
         _ => Err(anyhow!(
             "yaml value type for 'u32' should be 'string' or 'integer'"
         )),
@@ -45,8 +45,8 @@ pub fn as_u32(v: &Yaml) -> anyhow::Result<u32> {
 
 pub fn as_nonzero_u32(v: &Yaml) -> anyhow::Result<NonZeroU32> {
     match v {
-        Yaml::String(s) => Ok(NonZeroU32::from_str(s)?),
-        Yaml::Integer(i) => {
+        Yaml::Value(Scalar::String(s)) => Ok(NonZeroU32::from_str(s)?),
+        Yaml::Value(Scalar::Integer(i)) => {
             let u = u32::try_from(*i)?;
             Ok(NonZeroU32::try_from(u)?)
         }
@@ -58,8 +58,8 @@ pub fn as_nonzero_u32(v: &Yaml) -> anyhow::Result<NonZeroU32> {
 
 pub fn as_u64(v: &Yaml) -> anyhow::Result<u64> {
     match v {
-        Yaml::String(s) => Ok(u64::from_str(s)?),
-        Yaml::Integer(i) => Ok(u64::try_from(*i)?),
+        Yaml::Value(Scalar::String(s)) => Ok(u64::from_str(s)?),
+        Yaml::Value(Scalar::Integer(i)) => Ok(u64::try_from(*i)?),
         _ => Err(anyhow!(
             "yaml value type for 'u64' should be 'string' or 'integer'"
         )),
@@ -68,8 +68,8 @@ pub fn as_u64(v: &Yaml) -> anyhow::Result<u64> {
 
 pub fn as_i32(v: &Yaml) -> anyhow::Result<i32> {
     match v {
-        Yaml::String(s) => Ok(i32::from_str(s)?),
-        Yaml::Integer(i) => Ok(i32::try_from(*i)?),
+        Yaml::Value(Scalar::String(s)) => Ok(i32::from_str(s)?),
+        Yaml::Value(Scalar::Integer(i)) => Ok(i32::try_from(*i)?),
         _ => Err(anyhow!(
             "yaml value type for 'i32' should be 'string' or 'integer'"
         )),
@@ -78,8 +78,8 @@ pub fn as_i32(v: &Yaml) -> anyhow::Result<i32> {
 
 pub fn as_nonzero_i32(v: &Yaml) -> anyhow::Result<NonZeroI32> {
     match v {
-        Yaml::String(s) => Ok(NonZeroI32::from_str(s)?),
-        Yaml::Integer(i) => {
+        Yaml::Value(Scalar::String(s)) => Ok(NonZeroI32::from_str(s)?),
+        Yaml::Value(Scalar::Integer(i)) => {
             let u = i32::try_from(*i)?;
             Ok(NonZeroI32::try_from(u)?)
         }
@@ -91,8 +91,8 @@ pub fn as_nonzero_i32(v: &Yaml) -> anyhow::Result<NonZeroI32> {
 
 pub fn as_i64(v: &Yaml) -> anyhow::Result<i64> {
     match v {
-        Yaml::String(s) => Ok(i64::from_str(s)?),
-        Yaml::Integer(i) => Ok(*i),
+        Yaml::Value(Scalar::String(s)) => Ok(i64::from_str(s)?),
+        Yaml::Value(Scalar::Integer(i)) => Ok(*i),
         _ => Err(anyhow!(
             "yaml value type for 'i64' should be 'string' or 'integer'"
         )),
@@ -101,9 +101,9 @@ pub fn as_i64(v: &Yaml) -> anyhow::Result<i64> {
 
 pub fn as_f64(v: &Yaml) -> anyhow::Result<f64> {
     match v {
-        Yaml::String(s) => Ok(f64::from_str(s)?),
-        Yaml::Integer(i) => Ok(*i as f64),
-        Yaml::Real(s) => Ok(f64::from_str(s)?),
+        Yaml::Value(Scalar::String(s)) => Ok(f64::from_str(s)?),
+        Yaml::Value(Scalar::Integer(i)) => Ok(*i as f64),
+        Yaml::Value(Scalar::FloatingPoint(n)) => Ok(**n),
         _ => Err(anyhow!(
             "yaml value type for 'f64' should be 'string', 'integer' or 'real'"
         )),
@@ -112,13 +112,13 @@ pub fn as_f64(v: &Yaml) -> anyhow::Result<f64> {
 
 pub fn as_bool(v: &Yaml) -> anyhow::Result<bool> {
     match v {
-        Yaml::String(s) => match s.to_lowercase().as_str() {
+        Yaml::Value(Scalar::String(s)) => match s.to_lowercase().as_str() {
             "on" | "true" | "yes" | "1" => Ok(true),
             "off" | "false" | "no" | "0" => Ok(false),
             _ => Err(anyhow!("invalid yaml string value for 'bool': {s}")),
         },
-        Yaml::Boolean(value) => Ok(*value),
-        Yaml::Integer(i) => Ok(*i != 0),
+        Yaml::Value(Scalar::Boolean(value)) => Ok(*value),
+        Yaml::Value(Scalar::Integer(i)) => Ok(*i != 0),
         _ => Err(anyhow!(
             "yaml value type for 'bool' should be 'boolean' / 'string' / 'integer'"
         )),
@@ -127,8 +127,8 @@ pub fn as_bool(v: &Yaml) -> anyhow::Result<bool> {
 
 pub fn as_nonzero_isize(v: &Yaml) -> anyhow::Result<NonZeroIsize> {
     match v {
-        Yaml::String(s) => Ok(NonZeroIsize::from_str(s)?),
-        Yaml::Integer(i) => {
+        Yaml::Value(Scalar::String(s)) => Ok(NonZeroIsize::from_str(s)?),
+        Yaml::Value(Scalar::Integer(i)) => {
             let u = isize::try_from(*i)?;
             Ok(NonZeroIsize::try_from(u)?)
         }
@@ -140,8 +140,8 @@ pub fn as_nonzero_isize(v: &Yaml) -> anyhow::Result<NonZeroIsize> {
 
 pub fn as_usize(v: &Yaml) -> anyhow::Result<usize> {
     match v {
-        Yaml::String(s) => Ok(usize::from_str(s)?),
-        Yaml::Integer(i) => Ok(usize::try_from(*i)?),
+        Yaml::Value(Scalar::String(s)) => Ok(usize::from_str(s)?),
+        Yaml::Value(Scalar::Integer(i)) => Ok(usize::try_from(*i)?),
         _ => Err(anyhow!(
             "yaml value type for 'usize' should be 'string' or 'integer'"
         )),
@@ -150,8 +150,8 @@ pub fn as_usize(v: &Yaml) -> anyhow::Result<usize> {
 
 pub fn as_nonzero_usize(v: &Yaml) -> anyhow::Result<NonZeroUsize> {
     match v {
-        Yaml::String(s) => Ok(NonZeroUsize::from_str(s)?),
-        Yaml::Integer(i) => {
+        Yaml::Value(Scalar::String(s)) => Ok(NonZeroUsize::from_str(s)?),
+        Yaml::Value(Scalar::Integer(i)) => {
             let u = usize::try_from(*i)?;
             Ok(NonZeroUsize::try_from(u)?)
         }
@@ -163,8 +163,8 @@ pub fn as_nonzero_usize(v: &Yaml) -> anyhow::Result<NonZeroUsize> {
 
 pub fn as_char(v: &Yaml) -> anyhow::Result<char> {
     match v {
-        Yaml::String(s) => char::from_str(s).map_err(anyhow::Error::from),
-        Yaml::Integer(i) => {
+        Yaml::Value(Scalar::String(s)) => char::from_str(s).map_err(anyhow::Error::from),
+        Yaml::Value(Scalar::Integer(i)) => {
             let n = u32::try_from(*i).map_err(|_| anyhow!("out of range integer value {i}"))?;
             char::from_u32(n).ok_or(anyhow!("out of range integer value {n}"))
         }
@@ -181,9 +181,9 @@ pub fn as_ascii(v: &Yaml) -> anyhow::Result<AsciiString> {
 
 pub fn as_string(v: &Yaml) -> anyhow::Result<String> {
     match v {
-        Yaml::String(s) => Ok(s.clone()),
-        Yaml::Integer(i) => Ok(i.to_string()),
-        Yaml::Real(s) => Ok(s.to_string()),
+        Yaml::Value(Scalar::String(s)) => Ok(s.to_string()),
+        Yaml::Value(Scalar::Integer(i)) => Ok(i.to_string()),
+        Yaml::Value(Scalar::FloatingPoint(n)) => Ok(n.to_string()),
         _ => Err(anyhow!(
             "yaml value type for string should be 'string' / 'integer' / 'real'"
         )),
@@ -196,7 +196,7 @@ where
 {
     let mut vec = Vec::new();
     match v {
-        Yaml::Array(seq) => {
+        Yaml::Sequence(seq) => {
             for (i, v) in seq.iter().enumerate() {
                 let node = convert(v).context(format!("invalid value for list element #{i}"))?;
                 vec.push(node);
@@ -220,7 +220,7 @@ where
     KF: Fn(&Yaml) -> anyhow::Result<K>,
     VF: Fn(&Yaml) -> anyhow::Result<V>,
 {
-    if let Yaml::Hash(map) = v {
+    if let Yaml::Mapping(map) = v {
         let mut table = HashMap::new();
         for (k, v) in map.iter() {
             let key = convert_key(k).context(format!("failed to parse key {k:?}"))?;
@@ -244,26 +244,26 @@ mod tests {
         assert_eq!(as_u8(&v).unwrap(), 100);
 
         // valid integer input
-        let v = Yaml::Integer(200);
+        let v = Yaml::Value(Scalar::Integer(200));
         assert_eq!(as_u8(&v).unwrap(), 200);
 
         // boundary value (max u8)
-        let v = Yaml::Integer(255);
+        let v = Yaml::Value(Scalar::Integer(255));
         assert_eq!(as_u8(&v).unwrap(), 255);
     }
 
     #[test]
     fn as_u8_err() {
         // overflow
-        let v = Yaml::Integer(256);
+        let v = Yaml::Value(Scalar::Integer(256));
         assert!(as_u8(&v).is_err());
 
         // negative number
-        let v = Yaml::Integer(-1);
+        let v = Yaml::Value(Scalar::Integer(-1));
         assert!(as_u8(&v).is_err());
 
         // invalid type
-        let v = Yaml::Boolean(true);
+        let v = Yaml::Value(Scalar::Boolean(true));
         assert!(as_u8(&v).is_err());
 
         // parse error
@@ -278,26 +278,26 @@ mod tests {
         assert_eq!(as_u16(&v).unwrap(), 50000);
 
         // valid integer input
-        let v = Yaml::Integer(60000);
+        let v = Yaml::Value(Scalar::Integer(60000));
         assert_eq!(as_u16(&v).unwrap(), 60000);
 
         // boundary value (max u16)
-        let v = Yaml::Integer(65535);
+        let v = Yaml::Value(Scalar::Integer(65535));
         assert_eq!(as_u16(&v).unwrap(), 65535);
     }
 
     #[test]
     fn as_u16_err() {
         // overflow
-        let v = Yaml::Integer(65536);
+        let v = Yaml::Value(Scalar::Integer(65536));
         assert!(as_u16(&v).is_err());
 
         // negative number
-        let v = Yaml::Integer(-1);
+        let v = Yaml::Value(Scalar::Integer(-1));
         assert!(as_u16(&v).is_err());
 
         // invalid type
-        let v = Yaml::Boolean(false);
+        let v = Yaml::Value(Scalar::Boolean(false));
         assert!(as_u16(&v).is_err());
 
         // parse error
@@ -312,26 +312,26 @@ mod tests {
         assert_eq!(as_u32(&v).unwrap(), 4000000000);
 
         // valid integer input
-        let v = Yaml::Integer(2000000000);
+        let v = Yaml::Value(Scalar::Integer(2000000000));
         assert_eq!(as_u32(&v).unwrap(), 2000000000);
 
         // boundary value (max u32)
-        let v = Yaml::Integer(4294967295);
+        let v = Yaml::Value(Scalar::Integer(4294967295));
         assert_eq!(as_u32(&v).unwrap(), 4294967295);
     }
 
     #[test]
     fn as_u32_err() {
         // overflow
-        let v = Yaml::Integer(4294967296);
+        let v = Yaml::Value(Scalar::Integer(4294967296));
         assert!(as_u32(&v).is_err());
 
         // negative number
-        let v = Yaml::Integer(-1);
+        let v = Yaml::Value(Scalar::Integer(-1));
         assert!(as_u32(&v).is_err());
 
         // invalid type
-        let v = Yaml::Null;
+        let v = Yaml::Value(Scalar::Null);
         assert!(as_u32(&v).is_err());
 
         // parse error
@@ -346,11 +346,11 @@ mod tests {
         assert_eq!(as_nonzero_u32(&v).unwrap(), NonZeroU32::new(1).unwrap());
 
         // valid integer input
-        let v = Yaml::Integer(2);
+        let v = Yaml::Value(Scalar::Integer(2));
         assert_eq!(as_nonzero_u32(&v).unwrap(), NonZeroU32::new(2).unwrap());
 
         // boundary value (max u32)
-        let v = Yaml::Integer(4294967295);
+        let v = Yaml::Value(Scalar::Integer(4294967295));
         assert_eq!(
             as_nonzero_u32(&v).unwrap(),
             NonZeroU32::new(4294967295).unwrap()
@@ -360,7 +360,7 @@ mod tests {
     #[test]
     fn as_nonzero_u32_err() {
         // overflow
-        let v = Yaml::Integer(4294967296);
+        let v = Yaml::Value(Scalar::Integer(4294967296));
         assert!(as_nonzero_u32(&v).is_err());
 
         // zero value
@@ -368,11 +368,11 @@ mod tests {
         assert!(as_nonzero_u32(&v).is_err());
 
         // negative number
-        let v = Yaml::Integer(-1);
+        let v = Yaml::Value(Scalar::Integer(-1));
         assert!(as_nonzero_u32(&v).is_err());
 
         // invalid type
-        let v = Yaml::Array(vec![]);
+        let v = Yaml::Sequence(vec![]);
         assert!(as_nonzero_u32(&v).is_err());
 
         // parse error
@@ -387,7 +387,7 @@ mod tests {
         assert_eq!(as_u64(&v).unwrap(), 18446744073709551615);
 
         // valid integer input
-        let v = Yaml::Integer(8446744073709551615);
+        let v = Yaml::Value(Scalar::Integer(8446744073709551615));
         assert_eq!(as_u64(&v).unwrap(), 8446744073709551615);
     }
 
@@ -398,11 +398,11 @@ mod tests {
         assert!(as_u64(&v).is_err());
 
         // negative number
-        let v = Yaml::Integer(-1);
+        let v = Yaml::Value(Scalar::Integer(-1));
         assert!(as_u64(&v).is_err());
 
         // invalid type
-        let v = Yaml::Boolean(false);
+        let v = Yaml::Value(Scalar::Boolean(false));
         assert!(as_u64(&v).is_err());
 
         // parse error
@@ -420,22 +420,22 @@ mod tests {
         assert_eq!(as_i32(&v).unwrap(), 0);
 
         // valid integer input
-        let v = Yaml::Integer(2147483647);
+        let v = Yaml::Value(Scalar::Integer(2147483647));
         assert_eq!(as_i32(&v).unwrap(), 2147483647);
     }
 
     #[test]
     fn as_i32_err() {
         // overflow
-        let v = Yaml::Integer(2147483648);
+        let v = Yaml::Value(Scalar::Integer(2147483648));
         assert!(as_i32(&v).is_err());
 
         // underflow
-        let v = Yaml::Integer(-2147483649);
+        let v = Yaml::Value(Scalar::Integer(-2147483649));
         assert!(as_i32(&v).is_err());
 
         // invalid type
-        let v = Yaml::Boolean(true);
+        let v = Yaml::Value(Scalar::Boolean(true));
         assert!(as_i32(&v).is_err());
 
         // parse error
@@ -446,20 +446,20 @@ mod tests {
     #[test]
     fn as_nonzero_i32_ok() {
         // valid positive value
-        let v = yaml_str!(1);
+        let v = yaml_str!("1");
         assert_eq!(as_nonzero_i32(&v).unwrap(), NonZeroI32::new(1).unwrap());
 
-        let v = Yaml::Integer(2147483647);
+        let v = Yaml::Value(Scalar::Integer(2147483647));
         assert_eq!(
             as_nonzero_i32(&v).unwrap(),
             NonZeroI32::new(2147483647).unwrap()
         );
 
         // valid negative value
-        let v = yaml_str!(-1);
+        let v = yaml_str!("-1");
         assert_eq!(as_nonzero_i32(&v).unwrap(), NonZeroI32::new(-1).unwrap());
 
-        let v = Yaml::Integer(-2147483648);
+        let v = Yaml::Value(Scalar::Integer(-2147483648));
         assert_eq!(
             as_nonzero_i32(&v).unwrap(),
             NonZeroI32::new(-2147483648).unwrap()
@@ -473,15 +473,15 @@ mod tests {
         assert!(as_nonzero_i32(&v).is_err());
 
         // overflow
-        let v = Yaml::Integer(2147483648);
+        let v = Yaml::Value(Scalar::Integer(2147483648));
         assert!(as_nonzero_i32(&v).is_err());
 
         // underflow
-        let v = Yaml::Integer(-2147483649);
+        let v = Yaml::Value(Scalar::Integer(-2147483649));
         assert!(as_nonzero_i32(&v).is_err());
 
         // invalid type
-        let v = Yaml::Null;
+        let v = Yaml::Value(Scalar::Null);
         assert!(as_nonzero_i32(&v).is_err());
 
         // parse error
@@ -499,7 +499,7 @@ mod tests {
         assert_eq!(as_i64(&v).unwrap(), 0);
 
         // valid integer input
-        let v = Yaml::Integer(9223372036854775807);
+        let v = Yaml::Value(Scalar::Integer(9223372036854775807));
         assert_eq!(as_i64(&v).unwrap(), 9223372036854775807);
     }
 
@@ -514,7 +514,7 @@ mod tests {
         assert!(as_i64(&v).is_err());
 
         // invalid type
-        let v = Yaml::Real("1.234e10".into());
+        let v = Yaml::Value(Scalar::FloatingPoint((12340000000.0_f64).into()));
         assert!(as_i64(&v).is_err());
 
         // parse error
@@ -529,11 +529,11 @@ mod tests {
         assert_eq!(as_f64(&v).unwrap(), std::f64::consts::PI);
 
         // valid integer input
-        let v = Yaml::Integer(42);
+        let v = Yaml::Value(Scalar::Integer(42));
         assert_eq!(as_f64(&v).unwrap(), 42.0);
 
         // valid real input
-        let v = Yaml::Real("1.234e10".into());
+        let v = Yaml::Value(Scalar::FloatingPoint((12340000000.0_f64).into()));
         assert_eq!(as_f64(&v).unwrap(), 1.234e10);
     }
 
@@ -544,7 +544,7 @@ mod tests {
         assert!(as_f64(&v).is_err());
 
         // invalid type
-        let v = Yaml::Boolean(true);
+        let v = Yaml::Value(Scalar::Boolean(true));
         assert!(as_f64(&v).is_err());
     }
 
@@ -563,12 +563,12 @@ mod tests {
         assert!(!as_bool(&yaml_str!("0")).unwrap());
 
         // boolean values
-        assert!(as_bool(&Yaml::Boolean(true)).unwrap());
-        assert!(!as_bool(&Yaml::Boolean(false)).unwrap());
+        assert!(as_bool(&Yaml::Value(Scalar::Boolean(true))).unwrap());
+        assert!(!as_bool(&Yaml::Value(Scalar::Boolean(false))).unwrap());
 
         // integer values
-        assert!(as_bool(&Yaml::Integer(1)).unwrap());
-        assert!(!as_bool(&Yaml::Integer(0)).unwrap());
+        assert!(as_bool(&Yaml::Value(Scalar::Integer(1))).unwrap());
+        assert!(!as_bool(&Yaml::Value(Scalar::Integer(0))).unwrap());
     }
 
     #[test]
@@ -578,21 +578,21 @@ mod tests {
         assert!(as_bool(&v).is_err());
 
         // invalid type
-        let v = Yaml::Real("123.45".into());
+        let v = Yaml::Value(Scalar::FloatingPoint((123.45_f64).into()));
         assert!(as_bool(&v).is_err());
     }
 
     #[test]
     fn as_nonzero_isize_ok() {
         // positive value
-        let v = Yaml::Integer(1);
+        let v = Yaml::Value(Scalar::Integer(1));
         assert_eq!(as_nonzero_isize(&v).unwrap(), NonZeroIsize::new(1).unwrap());
 
         let v = yaml_str!("2");
         assert_eq!(as_nonzero_isize(&v).unwrap(), NonZeroIsize::new(2).unwrap());
 
         // negative value
-        let v = Yaml::Integer(-1);
+        let v = Yaml::Value(Scalar::Integer(-1));
         assert_eq!(
             as_nonzero_isize(&v).unwrap(),
             NonZeroIsize::new(-1).unwrap()
@@ -608,14 +608,14 @@ mod tests {
     #[test]
     fn as_nonzero_isize_err() {
         // zero value
-        let v = Yaml::Integer(0);
+        let v = Yaml::Value(Scalar::Integer(0));
         assert!(as_nonzero_isize(&v).is_err());
 
         let v = yaml_str!("0");
         assert!(as_nonzero_isize(&v).is_err());
 
         // invalid type
-        let v = Yaml::Null;
+        let v = Yaml::Value(Scalar::Null);
         assert!(as_nonzero_isize(&v).is_err());
     }
 
@@ -626,18 +626,18 @@ mod tests {
         assert_eq!(as_usize(&v).unwrap(), 100);
 
         // valid integer input
-        let v = Yaml::Integer(200);
+        let v = Yaml::Value(Scalar::Integer(200));
         assert_eq!(as_usize(&v).unwrap(), 200);
     }
 
     #[test]
     fn as_usize_err() {
         // negative number
-        let v = Yaml::Integer(-1);
+        let v = Yaml::Value(Scalar::Integer(-1));
         assert!(as_usize(&v).is_err());
 
         // invalid type
-        let v = Yaml::Array(vec![]);
+        let v = Yaml::Sequence(vec![]);
         assert!(as_usize(&v).is_err());
     }
 
@@ -648,7 +648,7 @@ mod tests {
         assert_eq!(as_nonzero_usize(&v).unwrap(), NonZeroUsize::new(1).unwrap());
 
         // valid integer input
-        let v = Yaml::Integer(2);
+        let v = Yaml::Value(Scalar::Integer(2));
         assert_eq!(as_nonzero_usize(&v).unwrap(), NonZeroUsize::new(2).unwrap());
     }
 
@@ -659,11 +659,11 @@ mod tests {
         assert!(as_nonzero_usize(&v).is_err());
 
         // negative number
-        let v = Yaml::Integer(-1);
+        let v = Yaml::Value(Scalar::Integer(-1));
         assert!(as_nonzero_usize(&v).is_err());
 
         // invalid type
-        let v = Yaml::Null;
+        let v = Yaml::Value(Scalar::Null);
         assert!(as_nonzero_usize(&v).is_err());
     }
 
@@ -684,7 +684,7 @@ mod tests {
         assert!(as_ascii(&v).is_err());
 
         // invalid type
-        let v = Yaml::Array(vec![]);
+        let v = Yaml::Sequence(vec![]);
         assert!(as_ascii(&v).is_err());
     }
 
@@ -695,33 +695,37 @@ mod tests {
         assert_eq!(as_string(&v).unwrap(), "123.0");
 
         // Valid integer
-        let v = Yaml::Integer(123);
+        let v = Yaml::Value(Scalar::Integer(123));
         assert_eq!(as_string(&v).unwrap(), "123");
 
         // Valid negative integer
-        let v = Yaml::Integer(-123);
+        let v = Yaml::Value(Scalar::Integer(-123));
         assert_eq!(as_string(&v).unwrap(), "-123");
 
         // Valid real number
-        let v = Yaml::Real("123.0".into());
-        assert_eq!(as_string(&v).unwrap(), "123.0");
+        let v = Yaml::Value(Scalar::FloatingPoint((123.0_f64).into()));
+        assert_eq!(as_string(&v).unwrap(), "123");
     }
 
     #[test]
     fn as_string_err() {
         // Invalid type (boolean)
-        let v = Yaml::Boolean(true);
+        let v = Yaml::Value(Scalar::Boolean(true));
         assert!(as_string(&v).is_err());
 
         // Invalid type (null)
-        let v = Yaml::Null;
+        let v = Yaml::Value(Scalar::Null);
         assert!(as_string(&v).is_err());
     }
 
     #[test]
     fn as_list_ok() {
         // array input
-        let v = Yaml::Array(vec![Yaml::Integer(1), Yaml::Integer(2), Yaml::Integer(3)]);
+        let v = Yaml::Sequence(vec![
+            Yaml::Value(Scalar::Integer(1)),
+            Yaml::Value(Scalar::Integer(2)),
+            Yaml::Value(Scalar::Integer(3)),
+        ]);
         assert_eq!(as_list(&v, as_i32).unwrap(), vec![1, 2, 3]);
 
         let v = yaml_doc!("[-1, -2, -3]");
@@ -735,10 +739,10 @@ mod tests {
     #[test]
     fn as_list_err() {
         // conversion error in element
-        let v = Yaml::Array(vec![
-            Yaml::Integer(1),
-            Yaml::Boolean(true),
-            Yaml::Integer(3),
+        let v = Yaml::Sequence(vec![
+            Yaml::Value(Scalar::Integer(1)),
+            Yaml::Value(Scalar::Boolean(true)),
+            Yaml::Value(Scalar::Integer(3)),
         ]);
         assert!(as_list::<i32, _>(&v, as_i32).is_err());
 
@@ -750,7 +754,7 @@ mod tests {
         assert!(as_list::<i32, _>(&v, as_i32).is_err());
 
         // invalid type
-        let v = Yaml::Null;
+        let v = Yaml::Value(Scalar::Null);
         assert!(as_list::<i32, _>(&v, as_i32).is_err());
     }
 
@@ -792,7 +796,7 @@ mod tests {
         assert!(as_hashmap(&v, as_string, as_i32).is_err());
 
         // invalid type
-        let v = Yaml::Null;
+        let v = Yaml::Value(Scalar::Null);
         assert!(as_hashmap(&v, as_string, as_i32).is_err());
     }
 }

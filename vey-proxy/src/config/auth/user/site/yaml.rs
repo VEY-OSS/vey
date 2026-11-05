@@ -5,7 +5,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_yaml::YamlDocPosition;
 
@@ -13,7 +13,7 @@ use super::UserSiteConfig;
 
 impl UserSiteConfig {
     pub(crate) fn parse_yaml(v: &Yaml, position: Option<&YamlDocPosition>) -> anyhow::Result<Self> {
-        if let Yaml::Hash(map) = v {
+        if let Yaml::Mapping(map) = v {
             let mut config = UserSiteConfig::default();
             vey_yaml::foreach_kv(map, |k, v| config.set_yaml(k, v, position))?;
             config.check()?;

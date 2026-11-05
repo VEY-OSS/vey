@@ -6,8 +6,8 @@
 use std::path::Path;
 
 use anyhow::anyhow;
+use saphyr::Yaml;
 use tokio::sync::oneshot;
-use yaml_rust::{Yaml, yaml};
 
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
@@ -55,7 +55,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 }
 
 fn load_store(
-    map: &yaml::Hash,
+    map: &saphyr::Mapping,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyKeyStoreConfig> {
     let store_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_STORE_TYPE)?;

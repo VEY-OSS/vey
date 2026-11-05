@@ -13,7 +13,7 @@ use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use http::HeaderName;
 use log::warn;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_ftp_client::FtpClientConfig;
 use vey_io_ext::{LimitedUdpRelayConfig, StreamCopyConfig};
@@ -157,7 +157,7 @@ impl HttpProxyServerConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = HttpProxyServerConfig::new(position);

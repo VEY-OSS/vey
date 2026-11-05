@@ -5,7 +5,7 @@
  */
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::acl::{AclAction, AclSuffixDomainRuleBuilder};
 
@@ -24,7 +24,7 @@ impl AclRuleYamlParser for AclSuffixDomainRuleBuilder {
 
     fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()> {
         match value {
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let host = crate::value::as_domain(value)?;
                 self.add_node(&host, action);
                 Ok(())

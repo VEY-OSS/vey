@@ -4,7 +4,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_dpi::{ProtocolInspectionConfig, ProtocolInspectionSizeLimit};
 
@@ -12,7 +12,7 @@ pub fn parse_inspect_size_limit(
     config: &mut ProtocolInspectionSizeLimit,
     value: &Yaml,
 ) -> anyhow::Result<()> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "ftp_greeting_msg" | "ftp_server_greeting_msg" => {
                 let size = crate::humanize::as_usize(v)
@@ -56,7 +56,7 @@ pub fn parse_inspect_size_limit(
 }
 
 pub fn as_protocol_inspection_config(value: &Yaml) -> anyhow::Result<ProtocolInspectionConfig> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut config = ProtocolInspectionConfig::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -100,6 +100,7 @@ pub fn as_protocol_inspection_config(value: &Yaml) -> anyhow::Result<ProtocolIns
 #[cfg(feature = "dpi")]
 mod test {
     use super::*;
+    use saphyr::Scalar;
     use std::time::Duration;
 
     #[test]
@@ -145,7 +146,7 @@ mod test {
         assert_eq!(limit, expected);
 
         // default value
-        let yaml = Yaml::Hash(Default::default());
+        let yaml = Yaml::Mapping(Default::default());
         let mut limit = ProtocolInspectionSizeLimit::default();
         parse_inspect_size_limit(&mut limit, &yaml).expect("default value should parse");
         let expected = ProtocolInspectionSizeLimit::default();
@@ -177,7 +178,7 @@ mod test {
         let yaml = yaml_str!("invalid");
         assert!(parse_inspect_size_limit(&mut limit, &yaml).is_err());
 
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(parse_inspect_size_limit(&mut limit, &yaml).is_err());
     }
 
@@ -215,7 +216,7 @@ mod test {
         assert_eq!(config, expected_config);
 
         // default configuration
-        let yaml = Yaml::Hash(Default::default());
+        let yaml = Yaml::Mapping(Default::default());
         let config = as_protocol_inspection_config(&yaml).expect("default value should parse");
         let expected_config = ProtocolInspectionConfig::default();
         assert_eq!(config, expected_config);
@@ -247,7 +248,7 @@ mod test {
         let yaml = yaml_str!("invalid");
         assert!(as_protocol_inspection_config(&yaml).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(as_protocol_inspection_config(&yaml).is_err());
     }
 }

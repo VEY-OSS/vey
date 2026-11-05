@@ -4,13 +4,13 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use super::UnaidedRuntimeConfig;
 
 impl UnaidedRuntimeConfig {
     pub fn parse_yaml(v: &Yaml) -> anyhow::Result<Self> {
-        if let Yaml::Hash(map) = v {
+        if let Yaml::Mapping(map) = v {
             let mut config = UnaidedRuntimeConfig::default();
             #[cfg(any(
                 target_os = "linux",
@@ -48,7 +48,7 @@ impl UnaidedRuntimeConfig {
                     windows,
                 ))]
                 "sched_affinity" => {
-                    if let Yaml::Hash(map) = v {
+                    if let Yaml::Mapping(map) = v {
                         for (ik, iv) in map.iter() {
                             let id = vey_yaml::value::as_usize(ik)
                                 .context(format!("the keys for {k} should be usize value"))?;
@@ -113,8 +113,9 @@ impl UnaidedRuntimeConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::LoadableYamlNode;
+
     use vey_yaml::yaml_doc;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn parse_yaml_ok() {
@@ -211,7 +212,7 @@ mod tests {
     #[test]
     fn parse_yaml_err() {
         // Invalid root type
-        let yaml = YamlLoader::load_from_str("invalid").unwrap();
+        let yaml = Yaml::load_from_str("invalid").unwrap();
         assert!(UnaidedRuntimeConfig::parse_yaml(&yaml[0]).is_err());
 
         // Unknown key

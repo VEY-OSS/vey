@@ -10,7 +10,7 @@ use std::num::NonZeroUsize;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::collection::SelectivePickPolicy;
 use vey_types::metrics::NodeName;
@@ -60,7 +60,7 @@ impl RouteQueryEscaperConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
@@ -83,7 +83,7 @@ impl RouteQueryEscaperConfig {
                 Ok(())
             }
             "query_allowed_next" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         let name = vey_yaml::value::as_metric_node_name(v)
                             .context(format!("invalid metrics name value for {k}#{i}"))?;

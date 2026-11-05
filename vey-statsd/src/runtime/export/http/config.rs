@@ -11,8 +11,8 @@ use anyhow::{Context, anyhow};
 use http::HeaderMap;
 use http::uri::PathAndQuery;
 use log::warn;
+use saphyr::Yaml;
 use tokio::net::TcpStream;
-use yaml_rust::Yaml;
 
 use vey_socket::BindAddr;
 use vey_types::metrics::NodeName;

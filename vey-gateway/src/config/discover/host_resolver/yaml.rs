@@ -4,7 +4,7 @@
  */
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_yaml::YamlDocPosition;
 
@@ -12,7 +12,7 @@ use super::{HostResolverDiscoverConfig, HostResolverDiscoverInput};
 
 impl HostResolverDiscoverConfig {
     pub(crate) fn parse_yaml_conf(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut site = HostResolverDiscoverConfig::new(position);

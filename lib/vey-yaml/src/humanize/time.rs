@@ -8,11 +8,11 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use humanize_rs::ParseError;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 pub fn as_duration(v: &Yaml) -> anyhow::Result<Duration> {
     match v {
-        Yaml::String(value) => match humanize_rs::duration::parse(value) {
+        Yaml::Value(Scalar::String(value)) => match humanize_rs::duration::parse(value) {
             Ok(v) => Ok(v),
             Err(ParseError::MissingUnit) => {
                 if let Ok(u) = u64::from_str(value) {
@@ -25,16 +25,15 @@ pub fn as_duration(v: &Yaml) -> anyhow::Result<Duration> {
             }
             Err(e) => Err(anyhow!("invalid humanize duration string: {e}")),
         },
-        Yaml::Integer(value) => {
+        Yaml::Value(Scalar::Integer(value)) => {
             if let Ok(u) = u64::try_from(*value) {
                 Ok(Duration::from_secs(u))
             } else {
                 Err(anyhow!("unsupported duration string"))
             }
         }
-        Yaml::Real(s) => {
-            let f = f64::from_str(s).map_err(|e| anyhow!("invalid f64 value: {e}"))?;
-            Duration::try_from_secs_f64(f).map_err(anyhow::Error::new)
+        Yaml::Value(Scalar::FloatingPoint(n)) => {
+            Duration::try_from_secs_f64(**n).map_err(anyhow::Error::new)
         }
         _ => Err(anyhow!(
             "yaml value type for humanize duration should be 'string' or 'integer' or 'real'"
@@ -54,10 +53,10 @@ mod tests {
         let v = yaml_str!("1000");
         assert_eq!(as_duration(&v).unwrap(), Duration::from_secs(1000));
 
-        let v = Yaml::Integer(1000);
+        let v = Yaml::Value(Scalar::Integer(1000));
         assert_eq!(as_duration(&v).unwrap(), Duration::from_secs(1000));
 
-        let v = Yaml::Real("1.01".to_string());
+        let v = Yaml::Value(Scalar::FloatingPoint((1.01_f64).into()));
         assert_eq!(
             as_duration(&v).unwrap(),
             Duration::try_from_secs_f64(1.01).unwrap()
@@ -81,10 +80,10 @@ mod tests {
         let v = yaml_str!("abc");
         assert!(as_duration(&v).is_err());
 
-        let v = Yaml::Integer(-1000);
+        let v = Yaml::Value(Scalar::Integer(-1000));
         assert!(as_duration(&v).is_err());
 
-        let v = Yaml::Array(vec![Yaml::Integer(1)]);
+        let v = Yaml::Sequence(vec![Yaml::Value(Scalar::Integer(1))]);
         assert!(as_duration(&v).is_err());
     }
 }

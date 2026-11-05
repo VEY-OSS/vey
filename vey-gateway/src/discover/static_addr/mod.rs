@@ -6,8 +6,8 @@
 use std::sync::Arc;
 
 use anyhow::Context;
+use saphyr::Yaml;
 use tokio::sync::watch;
-use yaml_rust::Yaml;
 
 use vey_types::metrics::NodeName;
 

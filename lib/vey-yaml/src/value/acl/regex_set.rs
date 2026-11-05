@@ -4,7 +4,7 @@
  */
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::acl::{AclAction, AclRegexSetRuleBuilder};
 
@@ -23,7 +23,7 @@ impl AclRuleYamlParser for AclRegexSetRuleBuilder {
 
     fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()> {
         match value {
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let regex = crate::value::as_regex(value)?;
                 self.add_regex(&regex, action);
                 Ok(())

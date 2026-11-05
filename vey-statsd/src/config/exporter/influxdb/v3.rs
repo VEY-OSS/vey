@@ -9,7 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use http::HeaderValue;
 use http::uri::PathAndQuery;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_yaml::YamlDocPosition;
@@ -58,7 +58,7 @@ impl InfluxdbV3ExporterConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut collector = InfluxdbV3ExporterConfig::new(position);

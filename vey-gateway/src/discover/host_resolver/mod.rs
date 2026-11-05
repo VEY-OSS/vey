@@ -7,8 +7,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
+use saphyr::Yaml;
 use tokio::sync::watch;
-use yaml_rust::Yaml;
 
 use vey_types::collection::WeightedValue;
 use vey_types::metrics::NodeName;

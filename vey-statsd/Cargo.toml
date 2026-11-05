@@ -21,7 +21,7 @@ itoa.workspace = true
 zmij.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 jiff.workspace = true
-yaml-rust.workspace = true
+saphyr.workspace = true
 fastrand.workspace = true
 tokio = { workspace = true, features = ["time", "signal", "net", "macros"] }
 capnp.workspace = true

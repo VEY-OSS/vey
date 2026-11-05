@@ -11,14 +11,14 @@ redis = { workspace = true, features = ["aio", "tokio-comp"] }
 tokio = { workspace = true, features = ["macros", "net", "rt", "time"] }
 tokio-rustls.workspace = true
 rustls-pki-types.workspace = true
-yaml-rust = { workspace = true, optional = true }
+saphyr = { workspace = true, optional = true }
 vey-types = { workspace = true, features = ["rustls"] }
 vey-socket.workspace = true
 vey-yaml = { workspace = true, optional = true, features = ["rustls"] }
 
 [features]
 default = []
-yaml = ["dep:vey-yaml", "dep:yaml-rust"]
+yaml = ["dep:vey-yaml", "dep:saphyr"]
 
 [dev-dependencies]
 rustls = { workspace = true, features = ["ring"] }

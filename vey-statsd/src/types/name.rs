@@ -9,7 +9,7 @@ use std::fmt::{self, Write};
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::metrics::{NodeName, ParseError};
 
@@ -48,11 +48,11 @@ impl MetricName {
 
     pub(crate) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
         match value {
-            Yaml::Array(_) => {
+            Yaml::Sequence(_) => {
                 let nodes = vey_yaml::value::as_list(value, vey_yaml::value::as_metric_node_name)?;
                 Ok(MetricName::from(nodes))
             }
-            Yaml::String(s) => {
+            Yaml::Value(Scalar::String(s)) => {
                 MetricName::parse(s).map_err(|e| anyhow!("invalid dotted metric name: {e}"))
             }
             _ => Err(anyhow!("invalid yaml value type for metric name")),
@@ -91,6 +91,7 @@ impl fmt::Display for MetricNameDisplay<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vey_yaml::yaml_str;
 
     #[test]
     fn from_iter() {
@@ -119,16 +120,13 @@ mod tests {
 
     #[test]
     fn parse_yaml_string_and_array() {
-        let name = MetricName::parse_yaml(&Yaml::String("x.y".to_string())).unwrap();
+        let name = MetricName::parse_yaml(&yaml_str!("x.y")).unwrap();
         assert_eq!(name.display('.').to_string(), "x.y");
 
-        let arr = Yaml::Array(vec![
-            Yaml::String("n1".to_string()),
-            Yaml::String("n2".to_string()),
-        ]);
+        let arr = Yaml::Sequence(vec![yaml_str!("n1"), yaml_str!("n2")]);
         let name = MetricName::parse_yaml(&arr).unwrap();
         assert_eq!(name.display('.').to_string(), "n1.n2");
 
-        assert!(MetricName::parse_yaml(&Yaml::Boolean(true)).is_err());
+        assert!(MetricName::parse_yaml(&Yaml::Value(Scalar::Boolean(true))).is_err());
     }
 }

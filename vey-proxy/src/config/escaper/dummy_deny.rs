@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_yaml::YamlDocPosition;
@@ -39,7 +39,7 @@ impl DummyDenyEscaperConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
         custom_type: Option<&str>,
     ) -> anyhow::Result<Self> {

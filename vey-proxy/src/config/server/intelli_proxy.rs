@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::NodeName;
@@ -50,7 +50,7 @@ impl IntelliProxyConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = IntelliProxyConfig::new(position);

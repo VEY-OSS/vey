@@ -6,13 +6,13 @@
 use std::path::Path;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use super::{CONFIG_KEY_SOURCE_TYPE, TicketSourceConfig};
 
 impl TicketSourceConfig {
     pub(crate) fn parse_yaml(value: &Yaml, lookup_dir: Option<&Path>) -> anyhow::Result<Self> {
-        if let Yaml::Hash(map) = value {
+        if let Yaml::Mapping(map) = value {
             let source_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_SOURCE_TYPE)?;
 
             match vey_yaml::key::normalize(source_type).as_str() {
@@ -33,6 +33,7 @@ impl TicketSourceConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::Scalar;
     use vey_yaml::yaml_doc;
 
     #[test]
@@ -69,19 +70,19 @@ mod tests {
         );
         assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
 
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
 
-        let yaml = Yaml::Real("1.23".to_string());
+        let yaml = Yaml::Value(Scalar::FloatingPoint((1.23_f64).into()));
         assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
 
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
     }
 }

@@ -7,23 +7,23 @@ use std::num::NonZeroU32;
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::limit::RateLimitQuota;
 
 pub fn as_rate_limit_quota(v: &Yaml) -> anyhow::Result<RateLimitQuota> {
     match v {
-        Yaml::Integer(_) => {
+        Yaml::Value(Scalar::Integer(_)) => {
             let count = crate::value::as_nonzero_u32(v)?;
             RateLimitQuota::per_second(count)
         }
-        Yaml::String(s) => RateLimitQuota::from_str(s),
-        Yaml::Hash(map) => {
+        Yaml::Value(Scalar::String(s)) => RateLimitQuota::from_str(s),
+        Yaml::Mapping(map) => {
             let mut quota: Option<RateLimitQuota> = None;
             let mut max_burst: Option<NonZeroU32> = None;
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "rate" => {
-                    if matches!(v, Yaml::Integer(_) | Yaml::String(_)) {
+                    if matches!(v, Yaml::Value(_)) {
                         quota = Some(
                             as_rate_limit_quota(v).context(format!("invalid value for key {k}"))?,
                         );
@@ -71,7 +71,7 @@ mod tests {
         let ten = NonZeroU32::new(10).unwrap();
         let exp = RateLimitQuota::per_second(ten).unwrap();
 
-        let v = Yaml::Integer(10);
+        let v = Yaml::Value(Scalar::Integer(10));
         let quota = as_rate_limit_quota(&v).unwrap();
         assert_eq!(quota, exp);
 
@@ -131,7 +131,7 @@ mod tests {
         assert!(as_rate_limit_quota(&yaml).is_err());
 
         // invalid yaml value type
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(as_rate_limit_quota(&yaml).is_err());
     }
 }

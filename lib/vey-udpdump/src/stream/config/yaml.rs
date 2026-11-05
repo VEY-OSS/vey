@@ -4,14 +4,14 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use super::StreamDumpConfig;
 
 impl StreamDumpConfig {
     pub fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut config = StreamDumpConfig::default();
 
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -42,7 +42,7 @@ impl StreamDumpConfig {
 
                 Ok(config)
             }
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let config = StreamDumpConfig {
                     peer: vey_yaml::value::as_env_sockaddr(value)?,
                     ..Default::default()
@@ -59,8 +59,10 @@ impl StreamDumpConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use std::net::SocketAddr;
     use std::str::FromStr;
+
     use vey_yaml::{yaml_doc, yaml_str};
 
     #[test]
@@ -157,19 +159,19 @@ mod tests {
 
     #[test]
     fn parse_invalid_yaml_types() {
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Real("1.23".to_string());
+        let yaml = Yaml::Value(Scalar::FloatingPoint((1.23_f64).into()));
         assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
     }
 }

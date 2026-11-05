@@ -11,7 +11,7 @@ log.workspace = true
 tokio = { workspace = true, features = ["net", "rt", "sync"] }
 openssl.workspace = true
 rmpv.workspace = true
-yaml-rust = { workspace = true, optional = true }
+saphyr = { workspace = true, optional = true }
 vey-types = { workspace = true, features = ["openssl"] }
 vey-msgpack = { workspace = true, features = ["openssl"] }
 vey-socket.workspace = true
@@ -24,4 +24,4 @@ tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "time
 [features]
 default = []
 tongsuo = ["openssl/tongsuo"]
-yaml = ["dep:vey-yaml", "dep:yaml-rust"]
+yaml = ["dep:vey-yaml", "dep:saphyr"]

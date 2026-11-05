@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
-use yaml_rust::{Yaml, yaml};
+use saphyr::{Scalar, Yaml};
 
 use vey_types::metrics::NodeName;
 use vey_types::resolve::ResolveStrategy;
@@ -44,7 +44,7 @@ impl RouteResolvedEscaperConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
@@ -76,9 +76,9 @@ impl RouteResolvedEscaperConfig {
                 Ok(())
             }
             "lpm_match" | "lpm_rules" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, rule) in seq.iter().enumerate() {
-                        if let Yaml::Hash(map) = rule {
+                        if let Yaml::Mapping(map) = rule {
                             self.add_lpm_rule(map)?;
                         } else {
                             return Err(anyhow!("invalid value type for {k}#{i}"));
@@ -114,7 +114,7 @@ impl RouteResolvedEscaperConfig {
         Ok(())
     }
 
-    fn add_lpm_rule(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
+    fn add_lpm_rule(&mut self, map: &saphyr::Mapping) -> anyhow::Result<()> {
         let mut escaper = NodeName::default();
         let mut networks = BTreeSet::<IpNetwork>::new();
         vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -123,9 +123,9 @@ impl RouteResolvedEscaperConfig {
                 Ok(())
             }
             "nets" | "net" | "networks" | "network" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, obj) in seq.iter().enumerate() {
-                        if let Yaml::String(net) = obj {
+                        if let Yaml::Value(Scalar::String(net)) = obj {
                             let net = IpNetwork::from_str(net).map_err(|e| {
                                 anyhow!("invalid network string for {k}#{i}: {e:?}")
                             })?;

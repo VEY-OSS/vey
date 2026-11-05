@@ -10,7 +10,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use log::warn;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::auth::{Password, Username};
 use vey_types::collection::SelectivePickPolicy;
@@ -109,7 +109,7 @@ impl ProxyHttpEscaperConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);

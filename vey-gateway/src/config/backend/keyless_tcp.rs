@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use rustls_pki_types::ServerName;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_histogram::HistogramMetricsConfig;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -61,7 +61,7 @@ impl KeylessTcpBackendConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut site = KeylessTcpBackendConfig::new(position);
@@ -95,7 +95,7 @@ impl KeylessTcpBackendConfig {
                 Ok(())
             }
             "discover_data" => {
-                self.discover_data = DiscoverRegisterData::Yaml(v.clone());
+                self.discover_data = DiscoverRegisterData::from_yaml(v);
                 Ok(())
             }
             "extra_metrics_tags" => {

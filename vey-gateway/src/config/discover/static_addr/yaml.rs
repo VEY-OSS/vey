@@ -4,7 +4,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_yaml::YamlDocPosition;
 
@@ -12,7 +12,7 @@ use super::{StaticAddrDiscoverConfig, StaticAddrDiscoverInput};
 
 impl StaticAddrDiscoverConfig {
     pub(crate) fn parse_yaml_conf(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut site = StaticAddrDiscoverConfig::new(position);
@@ -35,7 +35,7 @@ impl StaticAddrDiscoverConfig {
     pub(crate) fn parse_yaml_data(&self, input: &Yaml) -> anyhow::Result<StaticAddrDiscoverInput> {
         let mut parsed = StaticAddrDiscoverInput::default();
         match input {
-            Yaml::Array(seq) => {
+            Yaml::Sequence(seq) => {
                 for (i, v) in seq.iter().enumerate() {
                     let data = vey_yaml::value::as_weighted_sockaddr(v)
                         .context(format!("invalid weighted socket address value for #{i}"))?;

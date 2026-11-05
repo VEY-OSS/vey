@@ -7,7 +7,7 @@
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::net::Host;
 use vey_types::resolve::{PickStrategy, QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
@@ -16,7 +16,7 @@ const RESOLVE_REDIRECTION_NODE_KEY_TO: &str = "to";
 
 pub fn as_query_strategy(v: &Yaml) -> anyhow::Result<QueryStrategy> {
     match v {
-        Yaml::String(s) => {
+        Yaml::Value(Scalar::String(s)) => {
             QueryStrategy::from_str(s).map_err(|_| anyhow!("invalid query strategy string"))
         }
         _ => Err(anyhow!("invalid yaml value type for query strategy")),
@@ -25,7 +25,7 @@ pub fn as_query_strategy(v: &Yaml) -> anyhow::Result<QueryStrategy> {
 
 pub fn as_pick_strategy(v: &Yaml) -> anyhow::Result<PickStrategy> {
     match v {
-        Yaml::String(s) => {
+        Yaml::Value(Scalar::String(s)) => {
             PickStrategy::from_str(s).map_err(|_| anyhow!("invalid pick strategy string"))
         }
         _ => Err(anyhow!("invalid yaml value type for pick strategy")),
@@ -36,11 +36,11 @@ pub fn as_resolve_strategy(v: &Yaml) -> anyhow::Result<ResolveStrategy> {
     let mut config = ResolveStrategy::default();
 
     match v {
-        Yaml::String(_) => {
+        Yaml::Value(Scalar::String(_)) => {
             config.query = as_query_strategy(v)?;
             Ok(config)
         }
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "query" => {
                     config.query = as_query_strategy(v)?;
@@ -66,7 +66,7 @@ fn add_exact_redirection_record(
     let domain = crate::value::as_domain(k).context("invalid resolve redirection domain")?;
 
     match v {
-        Yaml::String(_) => {
+        Yaml::Value(Scalar::String(_)) => {
             match crate::value::as_host(v).context(format!(
                 "invalid resolve redirect host value for domain {domain}",
             ))? {
@@ -75,7 +75,7 @@ fn add_exact_redirection_record(
             }
             Ok(())
         }
-        Yaml::Array(seq) => {
+        Yaml::Sequence(seq) => {
             let mut ips = Vec::with_capacity(seq.len());
             for (i, v) in seq.iter().enumerate() {
                 let ip = crate::value::as_ipaddr(v)
@@ -99,7 +99,7 @@ fn add_suffix_redirection_record(
     let suffix_domain = crate::value::as_domain(k).context("invalid resolve redirection domain")?;
 
     match v {
-        Yaml::String(_) => {
+        Yaml::Value(Scalar::String(_)) => {
             match crate::value::as_host(v).context(format!(
                 "invalid resolve redirect host value for suffix domain {suffix_domain}",
             ))? {
@@ -108,7 +108,7 @@ fn add_suffix_redirection_record(
             }
             Ok(())
         }
-        Yaml::Array(seq) => {
+        Yaml::Sequence(seq) => {
             let mut ips = Vec::with_capacity(seq.len());
             for (i, v) in seq.iter().enumerate() {
                 let ip = crate::value::as_ipaddr(v).context(format!(
@@ -129,21 +129,21 @@ pub fn as_resolve_redirection_builder(v: &Yaml) -> anyhow::Result<ResolveRedirec
     let mut config = ResolveRedirectionBuilder::default();
 
     match v {
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             for (k, v) in map {
                 add_exact_redirection_record(&mut config, k, v)?;
             }
             Ok(config)
         }
-        Yaml::Array(seq) => {
+        Yaml::Sequence(seq) => {
             for (i, v) in seq.iter().enumerate() {
-                if let Yaml::Hash(map) = v {
+                if let Yaml::Mapping(map) = v {
                     let to_v = crate::hash::get_required(map, RESOLVE_REDIRECTION_NODE_KEY_TO)?;
 
                     crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                         RESOLVE_REDIRECTION_NODE_KEY_TO => Ok(()),
                         "exact" => {
-                            if let Yaml::Array(values) = v {
+                            if let Yaml::Sequence(values) = v {
                                 for (j, v) in values.iter().enumerate() {
                                     add_exact_redirection_record(&mut config, v, to_v).context(
                                         format!("invalid exact domain rule in #{i}/{k}#{j}"),
@@ -156,7 +156,7 @@ pub fn as_resolve_redirection_builder(v: &Yaml) -> anyhow::Result<ResolveRedirec
                             }
                         }
                         "suffix" | "parent" => {
-                            if let Yaml::Array(values) = v {
+                            if let Yaml::Sequence(values) = v {
                                 for (j, v) in values.iter().enumerate() {
                                     add_suffix_redirection_record(&mut config, v, to_v).context(
                                         format!("invalid exact domain rule in #{i}/{k}#{j}"),
@@ -183,7 +183,9 @@ pub fn as_resolve_redirection_builder(v: &Yaml) -> anyhow::Result<ResolveRedirec
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use std::net::IpAddr;
+
     use vey_types::literal_domain;
     use vey_types::resolve::ResolveRedirectionValue;
 
@@ -222,8 +224,8 @@ mod tests {
         assert!(as_query_strategy(&yaml_str!("invalid")).is_err());
 
         // non-string type
-        assert!(as_query_strategy(&Yaml::Integer(42)).is_err());
-        assert!(as_query_strategy(&Yaml::Boolean(true)).is_err());
+        assert!(as_query_strategy(&Yaml::Value(Scalar::Integer(42))).is_err());
+        assert!(as_query_strategy(&Yaml::Value(Scalar::Boolean(true))).is_err());
     }
 
     #[test]
@@ -249,8 +251,8 @@ mod tests {
         assert!(as_pick_strategy(&yaml_str!("invalid")).is_err());
 
         // non-string type
-        assert!(as_pick_strategy(&Yaml::Integer(42)).is_err());
-        assert!(as_pick_strategy(&Yaml::Boolean(true)).is_err());
+        assert!(as_pick_strategy(&Yaml::Value(Scalar::Integer(42))).is_err());
+        assert!(as_pick_strategy(&Yaml::Value(Scalar::Boolean(true))).is_err());
     }
 
     #[test]
@@ -283,7 +285,7 @@ mod tests {
         assert!(as_resolve_strategy(&yaml).is_err());
 
         // invalid value type
-        assert!(as_resolve_strategy(&Yaml::Integer(42)).is_err());
+        assert!(as_resolve_strategy(&Yaml::Value(Scalar::Integer(42))).is_err());
     }
 
     #[test]
@@ -418,7 +420,7 @@ mod tests {
         let yaml = yaml_str!("invalid");
         assert!(as_resolve_redirection_builder(&yaml).is_err());
 
-        let yaml = Yaml::Integer(42);
+        let yaml = Yaml::Value(Scalar::Integer(42));
         assert!(as_resolve_redirection_builder(&yaml).is_err());
 
         // array with non-hash element

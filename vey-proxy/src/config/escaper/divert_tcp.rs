@@ -9,7 +9,7 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use log::warn;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::collection::SelectivePickPolicy;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -90,7 +90,7 @@ impl DivertTcpEscaperConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);

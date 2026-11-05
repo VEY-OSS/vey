@@ -8,7 +8,7 @@ use std::sync::OnceLock;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_runtime::blended::BlendedRuntimeConfig;
 use vey_runtime::unaided::UnaidedRuntimeConfig;
@@ -70,8 +70,8 @@ pub fn get_task_quit_timeout() -> Duration {
 
 pub fn load(v: &Yaml) -> anyhow::Result<()> {
     match v {
-        Yaml::Hash(map) => vey_yaml::foreach_kv(map, set_global_config),
-        Yaml::Null => Ok(()),
+        Yaml::Mapping(map) => vey_yaml::foreach_kv(map, set_global_config),
+        Yaml::Value(Scalar::Null) => Ok(()),
         _ => Err(anyhow!("root value type should be hash")),
     }
 }
@@ -120,6 +120,7 @@ fn set_global_config(k: &str, v: &Yaml) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use vey_yaml::yaml_doc;
 
     #[test]
@@ -139,7 +140,7 @@ mod tests {
 
     #[test]
     fn load_rejects_non_hash_root() {
-        let err = load(&yaml_rust::Yaml::Integer(1)).unwrap_err();
+        let err = load(&Yaml::Value(Scalar::Integer(1))).unwrap_err();
         assert!(err.to_string().contains("root value type should be hash"));
     }
 

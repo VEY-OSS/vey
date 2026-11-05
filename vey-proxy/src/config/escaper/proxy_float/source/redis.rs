@@ -7,8 +7,8 @@
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
+use saphyr::Yaml;
 use url::Url;
-use yaml_rust::{Yaml, yaml};
 
 use vey_redis_client::RedisClientConfigBuilder;
 use vey_types::net::UpstreamAddr;
@@ -29,7 +29,7 @@ impl ProxyFloatRedisSource {
     }
 
     pub(super) fn parse_map(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<&YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = ProxyFloatRedisSource::default();
@@ -66,7 +66,7 @@ impl ProxyFloatRedisSource {
             }
 
             for (k, v) in url.query_pairs() {
-                let yaml_value = Yaml::String(v.as_ref().to_owned());
+                let yaml_value = vey_yaml::yaml_str!(v.as_ref());
                 config
                     .set(&k, &yaml_value, position)
                     .context(format!("failed to parse query param {k}={v}"))?;

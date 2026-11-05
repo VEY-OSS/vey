@@ -3,9 +3,9 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
-use yaml_rust::Yaml;
-
 use anyhow::{Context, anyhow};
+use saphyr::Yaml;
+
 use vey_types::net::ProxyProtocolVersion;
 
 pub fn as_proxy_protocol_version(value: &Yaml) -> anyhow::Result<ProxyProtocolVersion> {
@@ -21,6 +21,7 @@ pub fn as_proxy_protocol_version(value: &Yaml) -> anyhow::Result<ProxyProtocolVe
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::Scalar;
 
     #[test]
     fn as_proxy_protocol_version_ok() {
@@ -30,7 +31,7 @@ mod tests {
             ProxyProtocolVersion::V1
         );
 
-        let yaml = Yaml::Integer(2);
+        let yaml = Yaml::Value(Scalar::Integer(2));
         assert_eq!(
             as_proxy_protocol_version(&yaml).unwrap(),
             ProxyProtocolVersion::V2
@@ -42,16 +43,16 @@ mod tests {
         let yaml = yaml_str!("3"); // Invalid version
         assert!(as_proxy_protocol_version(&yaml).is_err());
 
-        let yaml = Yaml::Integer(256); // Beyond u8 range
+        let yaml = Yaml::Value(Scalar::Integer(256)); // Beyond u8 range
         assert!(as_proxy_protocol_version(&yaml).is_err());
 
-        let yaml = Yaml::Boolean(true); // Invalid type
+        let yaml = Yaml::Value(Scalar::Boolean(true)); // Invalid type
         assert!(as_proxy_protocol_version(&yaml).is_err());
 
-        let yaml = Yaml::Array(vec![]); // Invalid type
+        let yaml = Yaml::Sequence(vec![]); // Invalid type
         assert!(as_proxy_protocol_version(&yaml).is_err());
 
-        let yaml = Yaml::Null; // Invalid type
+        let yaml = Yaml::Value(Scalar::Null); // Invalid type
         assert!(as_proxy_protocol_version(&yaml).is_err())
     }
 }

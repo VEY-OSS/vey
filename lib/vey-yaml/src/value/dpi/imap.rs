@@ -4,12 +4,12 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_dpi::ImapInterceptionConfig;
 
 pub fn as_imap_interception_config(value: &Yaml) -> anyhow::Result<ImapInterceptionConfig> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut config = ImapInterceptionConfig::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -59,6 +59,7 @@ pub fn as_imap_interception_config(value: &Yaml) -> anyhow::Result<ImapIntercept
 #[cfg(feature = "dpi")]
 mod test {
     use super::*;
+
     use std::time::Duration;
 
     #[test]
@@ -85,7 +86,7 @@ mod test {
         assert_eq!(config.transfer_max_idle_count, 3);
 
         // default configuration
-        let yaml = Yaml::Hash(Default::default());
+        let yaml = Yaml::Mapping(Default::default());
         let config = as_imap_interception_config(&yaml).unwrap();
         assert_eq!(config.greeting_timeout, Duration::from_secs(300));
         assert_eq!(config.authenticate_timeout, Duration::from_secs(300));
@@ -166,7 +167,7 @@ mod test {
         let yaml = yaml_str!("invalid");
         assert!(as_imap_interception_config(&yaml).is_err());
 
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(as_imap_interception_config(&yaml).is_err());
     }
 }

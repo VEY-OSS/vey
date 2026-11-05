@@ -4,12 +4,12 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_dpi::SmtpInterceptionConfig;
 
 pub fn as_smtp_interception_config(value: &Yaml) -> anyhow::Result<SmtpInterceptionConfig> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut config = SmtpInterceptionConfig::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -70,6 +70,7 @@ pub fn as_smtp_interception_config(value: &Yaml) -> anyhow::Result<SmtpIntercept
 #[cfg(feature = "dpi")]
 mod test {
     use super::*;
+
     use std::time::Duration;
 
     #[test]
@@ -111,7 +112,7 @@ mod test {
         assert!(config.allow_burl_data);
 
         // default configuation
-        let yaml = Yaml::Hash(Default::default());
+        let yaml = Yaml::Mapping(Default::default());
         let config = as_smtp_interception_config(&yaml).unwrap();
         assert_eq!(config.greeting_timeout, Duration::from_secs(300));
         assert_eq!(config.quit_wait_timeout, Duration::from_secs(60));
@@ -210,7 +211,7 @@ mod test {
         let yaml = yaml_str!("invalid");
         assert!(as_smtp_interception_config(&yaml).is_err());
 
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(as_smtp_interception_config(&yaml).is_err());
     }
 }

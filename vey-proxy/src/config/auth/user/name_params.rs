@@ -6,7 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct UsernameParamsConfig {
@@ -29,7 +29,7 @@ impl UsernameParamsConfig {
 
 impl UsernameParamsConfig {
     pub(crate) fn parse(value: &Yaml) -> anyhow::Result<Self> {
-        if let Yaml::Hash(map) = value {
+        if let Yaml::Mapping(map) = value {
             let mut c = Self::new();
             vey_yaml::foreach_kv(map, |k, v| c.set(k, v))?;
             c.check()?;
@@ -137,6 +137,7 @@ impl UsernameParamsConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use vey_yaml::yaml_doc;
 
     #[test]

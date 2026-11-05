@@ -8,14 +8,14 @@ use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
+use saphyr::{Scalar, Yaml};
 use url::Url;
-use yaml_rust::{Yaml, yaml};
 
 use super::{IcapMethod, IcapServiceConfig};
 
 impl IcapServiceConfig {
     fn parse_yaml(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         method: IcapMethod,
         lookup_dir: Option<&Path>,
     ) -> anyhow::Result<Self> {
@@ -82,7 +82,7 @@ impl IcapServiceConfig {
                 Ok(())
             }
             "respond_shared_names" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         let name = vey_yaml::value::as_http_header_name(v)
                             .context(format!("invalid http header name value for key {k}#{i}"))?;
@@ -111,8 +111,8 @@ impl IcapServiceConfig {
         lookup_dir: Option<&Path>,
     ) -> anyhow::Result<Self> {
         match value {
-            Yaml::Hash(map) => Self::parse_yaml(map, IcapMethod::Reqmod, lookup_dir),
-            Yaml::String(s) => {
+            Yaml::Mapping(map) => Self::parse_yaml(map, IcapMethod::Reqmod, lookup_dir),
+            Yaml::Value(Scalar::String(s)) => {
                 let url = Url::from_str(s).map_err(|e| anyhow!("invalid url string: {e}"))?;
                 IcapServiceConfig::new(IcapMethod::Reqmod, url)
             }
@@ -127,8 +127,8 @@ impl IcapServiceConfig {
         lookup_dir: Option<&Path>,
     ) -> anyhow::Result<Self> {
         match value {
-            Yaml::Hash(map) => Self::parse_yaml(map, IcapMethod::Respmod, lookup_dir),
-            Yaml::String(s) => {
+            Yaml::Mapping(map) => Self::parse_yaml(map, IcapMethod::Respmod, lookup_dir),
+            Yaml::Value(Scalar::String(s)) => {
                 let url = Url::from_str(s).map_err(|e| anyhow!("invalid url string: {e}"))?;
                 IcapServiceConfig::new(IcapMethod::Respmod, url)
             }
@@ -142,6 +142,7 @@ impl IcapServiceConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use vey_yaml::{yaml_doc, yaml_str};
 
     #[test]
@@ -317,16 +318,16 @@ mod tests {
 
     #[test]
     fn parse_yaml_err() {
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).is_err());
 
-        let yaml = Yaml::Real("1.23".to_string());
+        let yaml = Yaml::Value(Scalar::FloatingPoint((1.23_f64).into()));
         assert!(IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).is_err());
 
         let yaml = yaml_doc!(

@@ -4,13 +4,13 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use super::UserAuditConfig;
 
 impl UserAuditConfig {
     pub(crate) fn parse_yaml(&mut self, v: &Yaml) -> anyhow::Result<()> {
-        if let Yaml::Hash(map) = v {
+        if let Yaml::Mapping(map) = v {
             vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "enable_protocol_inspection" => {
                     self.enable_protocol_inspection = vey_yaml::value::as_bool(v)?;

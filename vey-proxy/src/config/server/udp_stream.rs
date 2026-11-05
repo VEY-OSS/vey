@@ -9,7 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use bitflags::bitflags;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_io_ext::LimitedUdpRelayConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
@@ -88,7 +88,7 @@ impl UdpStreamServerConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = Self::new(position);

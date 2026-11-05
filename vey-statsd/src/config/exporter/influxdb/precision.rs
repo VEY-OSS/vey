@@ -7,7 +7,7 @@
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum TimestampPrecision {
@@ -37,7 +37,7 @@ impl TimestampPrecision {
     }
 
     pub(crate) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
-        if let Yaml::String(s) = value {
+        if let Yaml::Value(Scalar::String(s)) = value {
             TimestampPrecision::from_str(s)
         } else {
             Err(anyhow!(
@@ -64,6 +64,7 @@ impl FromStr for TimestampPrecision {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vey_yaml::yaml_str;
 
     #[test]
     fn from_str_aliases() {
@@ -103,9 +104,9 @@ mod tests {
     #[test]
     fn parse_yaml() {
         assert_eq!(
-            TimestampPrecision::parse_yaml(&Yaml::String("us".into())).unwrap(),
+            TimestampPrecision::parse_yaml(&yaml_str!("us")).unwrap(),
             TimestampPrecision::MicroSeconds
         );
-        assert!(TimestampPrecision::parse_yaml(&Yaml::Integer(1)).is_err());
+        assert!(TimestampPrecision::parse_yaml(&Yaml::Value(Scalar::Integer(1))).is_err());
     }
 }

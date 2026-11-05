@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use arcstr::ArcStr;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
@@ -69,7 +69,7 @@ impl BasicUserGroupConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
@@ -94,9 +94,9 @@ impl BasicUserGroupConfig {
                 Ok(())
             }
             "static_users" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, obj) in seq.iter().enumerate() {
-                        if let Yaml::Hash(map) = obj {
+                        if let Yaml::Mapping(map) = obj {
                             let user =
                                 Arc::new(UserConfig::parse_yaml(map, self.position.as_ref())?);
                             let username = user.name().clone();
@@ -135,7 +135,7 @@ impl BasicUserGroupConfig {
                 Ok(())
             }
             "anonymous_user" => {
-                if let Yaml::Hash(map) = v {
+                if let Yaml::Mapping(map) = v {
                     let mut user = UserConfig::parse_yaml(map, self.position.as_ref())?;
                     user.set_no_password();
                     self.anonymous_user = Some(Arc::new(user));

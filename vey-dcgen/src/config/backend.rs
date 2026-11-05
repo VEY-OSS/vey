@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 use anyhow::{Context, anyhow};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_histogram::HistogramMetricsConfig;
 
@@ -29,7 +29,7 @@ pub(crate) struct OpensslBackendConfig {
 }
 
 pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut no_append_ca_cert = false;
         let mut ca_cert_pem = Vec::new();
         let mut ca_cert: Option<X509> = None;

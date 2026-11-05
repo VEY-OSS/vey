@@ -5,10 +5,10 @@
 
 use anyhow::anyhow;
 use regex::Regex;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 pub fn as_regex(value: &Yaml) -> anyhow::Result<Regex> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let regex = Regex::new(s).map_err(|e| anyhow!("invalid regex value: {e}"))?;
         Ok(regex)
     } else {
@@ -39,7 +39,7 @@ mod tests {
         assert!(as_regex(&yaml).is_err());
 
         // non-string type
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(as_regex(&yaml).is_err());
     }
 }

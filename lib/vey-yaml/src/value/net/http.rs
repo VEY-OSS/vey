@@ -9,7 +9,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use http::uri::PathAndQuery;
 use http::{HeaderName, HeaderValue};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::net::{
     HttpForwardCapability, HttpForwardedHeaderType, HttpKeepAliveConfig, HttpServerId,
@@ -19,7 +19,7 @@ pub fn as_http_keepalive_config(v: &Yaml) -> anyhow::Result<HttpKeepAliveConfig>
     let mut config = HttpKeepAliveConfig::default();
 
     match v {
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "enable" => {
                     let enable = crate::value::as_bool(v)?;
@@ -34,7 +34,7 @@ pub fn as_http_keepalive_config(v: &Yaml) -> anyhow::Result<HttpKeepAliveConfig>
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
         }
-        Yaml::Boolean(enable) => {
+        Yaml::Value(Scalar::Boolean(enable)) => {
             config.set_enable(*enable);
         }
         _ => {
@@ -53,7 +53,7 @@ pub fn as_http_forwarded_header_type(value: &Yaml) -> anyhow::Result<HttpForward
         Ok(true) => Ok(HttpForwardedHeaderType::default()),
         Ok(false) => Ok(HttpForwardedHeaderType::Disable),
         Err(_) => {
-            if let Yaml::String(s) = value {
+            if let Yaml::Value(Scalar::String(s)) = value {
                 HttpForwardedHeaderType::from_str(s)
                     .map_err(|_| anyhow!("invalid string value for 'HttpForwardedHeaderType'"))
             } else {
@@ -69,7 +69,7 @@ pub fn as_http_forward_capability(value: &Yaml) -> anyhow::Result<HttpForwardCap
     let mut cap = HttpForwardCapability::default();
 
     match value {
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             let mut forward_ftp = None;
             let mut forward_ftp_get = None;
             let mut forward_ftp_put = None;
@@ -126,7 +126,7 @@ pub fn as_http_forward_capability(value: &Yaml) -> anyhow::Result<HttpForwardCap
 }
 
 pub fn as_http_server_id(value: &Yaml) -> anyhow::Result<HttpServerId> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let id = HttpServerId::from_str(s)?;
         Ok(id)
     } else {
@@ -137,7 +137,7 @@ pub fn as_http_server_id(value: &Yaml) -> anyhow::Result<HttpServerId> {
 }
 
 pub fn as_http_header_name(value: &Yaml) -> anyhow::Result<HeaderName> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         HeaderName::from_str(s).map_err(|e| anyhow!(e))
     } else {
         Err(anyhow!(
@@ -153,7 +153,7 @@ pub fn as_http_header_value_string(value: &Yaml) -> anyhow::Result<String> {
 }
 
 pub fn as_http_path_and_query(value: &Yaml) -> anyhow::Result<PathAndQuery> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         PathAndQuery::from_str(s).map_err(|e| anyhow!(e))
     } else {
         Err(anyhow!(
@@ -166,7 +166,9 @@ pub fn as_http_path_and_query(value: &Yaml) -> anyhow::Result<PathAndQuery> {
 #[cfg(feature = "http")]
 mod tests {
     use super::*;
+
     use http::Method;
+
     use std::time::Duration;
 
     #[test]
@@ -203,7 +205,7 @@ mod tests {
         assert_eq!(config.idle_expire(), Duration::from_secs(30));
 
         // Valid config with boolean value
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         let config = as_http_keepalive_config(&yaml).unwrap();
         assert!(config.is_enabled());
 
@@ -214,7 +216,7 @@ mod tests {
         assert_eq!(config.idle_expire(), Duration::from_secs(30));
 
         // Valid config with integer value
-        let yaml = Yaml::Integer(60);
+        let yaml = Yaml::Value(Scalar::Integer(60));
         let config = as_http_keepalive_config(&yaml).unwrap();
         assert!(config.is_enabled());
         assert_eq!(config.idle_expire(), Duration::from_secs(60));
@@ -247,18 +249,18 @@ mod tests {
         assert!(as_http_keepalive_config(&yaml).is_err());
 
         // Invalid config with unsupported type
-        let yaml = Yaml::Real("not_a_duration".to_string());
+        let yaml = yaml_str!("not_a_duration");
         assert!(as_http_keepalive_config(&yaml).is_err());
     }
 
     #[test]
     fn as_http_forwarded_header_type_ok() {
         // Valid config with boolean value
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         let header_type = as_http_forwarded_header_type(&yaml).unwrap();
         assert_eq!(header_type, HttpForwardedHeaderType::default());
 
-        let yaml = Yaml::Boolean(false);
+        let yaml = Yaml::Value(Scalar::Boolean(false));
         let header_type = as_http_forwarded_header_type(&yaml).unwrap();
         assert_eq!(header_type, HttpForwardedHeaderType::Disable);
 
@@ -268,11 +270,11 @@ mod tests {
         assert_eq!(header_type, HttpForwardedHeaderType::Standard);
 
         // Valid config with integer value
-        let yaml = Yaml::Integer(1);
+        let yaml = Yaml::Value(Scalar::Integer(1));
         let header_type = as_http_forwarded_header_type(&yaml).unwrap();
         assert_eq!(header_type, HttpForwardedHeaderType::default());
 
-        let yaml = Yaml::Integer(0);
+        let yaml = Yaml::Value(Scalar::Integer(0));
         let header_type = as_http_forwarded_header_type(&yaml).unwrap();
         assert_eq!(header_type, HttpForwardedHeaderType::Disable);
     }
@@ -280,7 +282,7 @@ mod tests {
     #[test]
     fn as_http_forwarded_header_type_err() {
         // Invalid config with unsupported type
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(as_http_forwarded_header_type(&yaml).is_err());
 
         // Invalid config with invalid string value
@@ -372,7 +374,7 @@ mod tests {
         assert!(as_http_forward_capability(&yaml).is_err());
 
         // Invalid config with unsupported type
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(as_http_forward_capability(&yaml).is_err());
     }
 
@@ -387,7 +389,7 @@ mod tests {
     #[test]
     fn as_http_server_id_err() {
         // Invalid config with wrong value type
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(as_http_server_id(&yaml).is_err());
     }
 
@@ -406,7 +408,7 @@ mod tests {
         assert!(as_http_header_name(&yaml).is_err());
 
         // Invalid type
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(as_http_header_name(&yaml).is_err());
     }
 
@@ -429,7 +431,7 @@ mod tests {
         assert!(as_http_header_value_string(&yaml).is_err());
 
         // Invalid type
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(as_http_header_value_string(&yaml).is_err());
     }
 
@@ -448,7 +450,7 @@ mod tests {
         assert!(as_http_path_and_query(&yaml).is_err());
 
         // Invalid type
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(as_http_path_and_query(&yaml).is_err());
     }
 }

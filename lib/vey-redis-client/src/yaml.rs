@@ -7,7 +7,7 @@
 use std::path::Path;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use super::RedisClientConfigBuilder;
 
@@ -74,10 +74,13 @@ impl RedisClientConfigBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use rustls_pki_types::ServerName;
+
     use std::net::IpAddr;
     use std::str::FromStr;
     use std::time::Duration;
+
     use vey_types::net::{Host, RustlsClientConfigBuilder, UpstreamAddr};
     use vey_yaml::yaml_doc;
 
@@ -99,7 +102,7 @@ mod tests {
                 response_timeout: "5s"
                 "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             builder
                 .set_by_yaml_kv(k.as_str().unwrap(), v, None)
                 .unwrap();
@@ -129,7 +132,7 @@ mod tests {
     fn set_by_yaml_kv_address_alias() {
         let mut builder = RedisClientConfigBuilder::default();
         let yaml = yaml_doc!(r#"address: "192.168.1.1:6399""#);
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             builder
                 .set_by_yaml_kv(k.as_str().unwrap(), v, None)
                 .unwrap();
@@ -144,7 +147,7 @@ mod tests {
     fn set_by_yaml_kv_read_timeout_alias() {
         let mut builder = RedisClientConfigBuilder::default();
         let yaml = yaml_doc!(r#"read_timeout: "3s""#);
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             builder
                 .set_by_yaml_kv(k.as_str().unwrap(), v, None)
                 .unwrap();
@@ -168,7 +171,7 @@ mod tests {
                 read_timeout: "5xs"
                 "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             assert!(
                 builder
                     .set_by_yaml_kv(k.as_str().unwrap(), v, None)

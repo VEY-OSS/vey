@@ -7,7 +7,7 @@
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_tls_ticket::TlsTicketConfig;
 use vey_types::metrics::NodeName;
@@ -45,7 +45,7 @@ impl PlainTlsPortConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = PlainTlsPortConfig::new(position);

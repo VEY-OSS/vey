@@ -12,7 +12,7 @@ use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use log::warn;
 use rustc_hash::FxHashMap;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_io_ext::{LimitedUdpRelayConfig, StreamCopyConfig};
 use vey_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
@@ -141,7 +141,7 @@ impl SocksProxyServerConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = Self::new(position);
@@ -358,7 +358,7 @@ impl SocksProxyServerConfig {
                 Ok(())
             }
             "transmute_udp_echo_ip" => {
-                if let Yaml::Hash(_) = v {
+                if let Yaml::Mapping(_) = v {
                     let map = vey_yaml::value::as_hashmap(
                         v,
                         vey_yaml::value::as_ipaddr,

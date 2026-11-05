@@ -5,7 +5,7 @@
  */
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
@@ -36,7 +36,7 @@ impl DiscardCollectorConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut collector = DiscardCollectorConfig::new(position);
@@ -91,16 +91,16 @@ impl CollectorConfig for DiscardCollectorConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
+    use saphyr::LoadableYamlNode;
 
     #[test]
     fn parse_ok_and_rejects_missing_name() {
-        let docs = YamlLoader::load_from_str("name: drop\n").unwrap();
-        let cfg = DiscardCollectorConfig::parse(docs[0].as_hash().unwrap(), None).unwrap();
+        let docs = Yaml::load_from_str("name: drop\n").unwrap();
+        let cfg = DiscardCollectorConfig::parse(docs[0].as_mapping().unwrap(), None).unwrap();
         assert_eq!(cfg.name().as_str(), "drop");
         assert_eq!(cfg.collector_type(), "Discard");
 
-        let docs = YamlLoader::load_from_str("type: Discard\n").unwrap();
-        assert!(DiscardCollectorConfig::parse(docs[0].as_hash().unwrap(), None).is_err());
+        let docs = Yaml::load_from_str("type: Discard\n").unwrap();
+        assert!(DiscardCollectorConfig::parse(docs[0].as_mapping().unwrap(), None).is_err());
     }
 }

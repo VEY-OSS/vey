@@ -7,7 +7,7 @@
 use std::path::Path;
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 mod geoip;
 
@@ -17,14 +17,14 @@ pub fn load(program_name: &str) -> anyhow::Result<&'static Path> {
 
     // allow multiple docs, and treat them as the same
     vey_yaml::foreach_doc(config_file, |_, doc| match doc {
-        Yaml::Hash(map) => load_doc(map, program_name),
+        Yaml::Mapping(map) => load_doc(map, program_name),
         _ => Err(anyhow!("yaml doc root should be hash")),
     })?;
 
     Ok(config_file)
 }
 
-fn load_doc(map: &yaml::Hash, program_name: &str) -> anyhow::Result<()> {
+fn load_doc(map: &saphyr::Mapping, program_name: &str) -> anyhow::Result<()> {
     let conf_dir = vey_daemon::opts::config_dir()
         .ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {

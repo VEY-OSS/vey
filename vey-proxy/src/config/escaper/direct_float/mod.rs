@@ -10,7 +10,7 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use log::warn;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::acl::{AclAction, AclNetworkRuleBuilder};
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -74,7 +74,7 @@ impl DirectFloatEscaperConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);

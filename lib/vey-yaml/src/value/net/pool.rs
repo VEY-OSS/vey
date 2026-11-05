@@ -4,12 +4,12 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::net::ConnectionPoolConfig;
 
 pub fn as_connection_pool_config(value: &Yaml) -> anyhow::Result<ConnectionPoolConfig> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut config = ConnectionPoolConfig::default();
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "check_interval" => {

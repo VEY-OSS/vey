@@ -7,10 +7,10 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
-    if let Yaml::Hash(map) = v {
+    if let Yaml::Mapping(map) = v {
         vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
             "country" => {
                 let path = vey_yaml::value::as_file_path(v, conf_dir, false)?;

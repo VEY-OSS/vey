@@ -23,7 +23,7 @@ tokio-rustls.workspace = true
 rustls-pki-types.workspace = true
 http.workspace = true
 h2.workspace = true
-yaml-rust = { workspace = true, optional = true }
+saphyr = { workspace = true, optional = true }
 vey-types = { workspace = true, features = ["rustls"] }
 vey-io-ext = { workspace = true, features = ["rustls"] }
 vey-socket.workspace = true
@@ -34,4 +34,4 @@ vey-yaml = { workspace = true, optional = true, features = ["rustls", "http"] }
 
 [features]
 default = []
-yaml = ["dep:vey-yaml", "dep:yaml-rust"]
+yaml = ["dep:vey-yaml", "dep:saphyr"]

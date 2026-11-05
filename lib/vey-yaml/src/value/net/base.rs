@@ -8,17 +8,16 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use url::Url;
-use yaml_rust::Yaml;
-
 #[cfg(feature = "acl-rule")]
 use ip_network::IpNetwork;
+use saphyr::{Scalar, Yaml};
+use url::Url;
 
 use vey_types::collection::WeightedValue;
 use vey_types::net::{CongestionAlgorithm, DomainName, Host, UpstreamAddr, WeightedUpstreamAddr};
 
 pub fn as_env_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         if let Some(var) = s.strip_prefix('$') {
             let s = std::env::var(var)
                 .map_err(|e| anyhow!("failed to get environment var {var}: {e}"))?;
@@ -48,7 +47,7 @@ pub fn as_env_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
 }
 
 pub fn as_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         SocketAddr::from_str(s).map_err(|e| anyhow!("invalid socket address: {e}"))
     } else {
         Err(anyhow!(
@@ -62,7 +61,7 @@ pub fn as_weighted_sockaddr(value: &Yaml) -> anyhow::Result<WeightedValue<Socket
     const KEY_WEIGHT: &str = "weight";
 
     match value {
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             let v = crate::hash::get_required(map, KEY_ADDR)?;
             let addr = as_sockaddr(v)
                 .context(format!("invalid sockaddr string value for key {KEY_ADDR}"))?;
@@ -83,7 +82,7 @@ pub fn as_weighted_sockaddr(value: &Yaml) -> anyhow::Result<WeightedValue<Socket
 }
 
 pub fn as_ipaddr(value: &Yaml) -> anyhow::Result<IpAddr> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let ip = IpAddr::from_str(s).map_err(|e| anyhow!("invalid ip address: {e}"))?;
         Ok(ip)
     } else {
@@ -92,7 +91,7 @@ pub fn as_ipaddr(value: &Yaml) -> anyhow::Result<IpAddr> {
 }
 
 pub fn as_ipv4addr(value: &Yaml) -> anyhow::Result<Ipv4Addr> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let ip4 = Ipv4Addr::from_str(s).map_err(|e| anyhow!("invalid ipv4 address: {e}"))?;
         Ok(ip4)
     } else {
@@ -101,7 +100,7 @@ pub fn as_ipv4addr(value: &Yaml) -> anyhow::Result<Ipv4Addr> {
 }
 
 pub fn as_ipv6addr(value: &Yaml) -> anyhow::Result<Ipv6Addr> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let ip6 = Ipv6Addr::from_str(s).map_err(|e| anyhow!("invalid ipv6 address: {e}"))?;
         Ok(ip6)
     } else {
@@ -111,7 +110,7 @@ pub fn as_ipv6addr(value: &Yaml) -> anyhow::Result<Ipv6Addr> {
 
 #[cfg(feature = "acl-rule")]
 pub fn as_ip_network(value: &Yaml) -> anyhow::Result<IpNetwork> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let net = match IpNetwork::from_str(s) {
             Ok(net) => net,
             Err(_) => match IpAddr::from_str(s) {
@@ -133,7 +132,7 @@ pub fn as_ip_network(value: &Yaml) -> anyhow::Result<IpNetwork> {
 }
 
 pub fn as_host(value: &Yaml) -> anyhow::Result<Host> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         if let Ok(ip) = IpAddr::from_str(s) {
             Ok(Host::Ip(ip))
         } else {
@@ -145,7 +144,7 @@ pub fn as_host(value: &Yaml) -> anyhow::Result<Host> {
 }
 
 pub fn as_domain(value: &Yaml) -> anyhow::Result<DomainName> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         DomainName::from_str(s).map_err(|e| anyhow!("invalid domain name {s}: {e}"))
     } else {
         Err(anyhow!("yaml value type for 'Domain' should be 'string'"))
@@ -153,7 +152,7 @@ pub fn as_domain(value: &Yaml) -> anyhow::Result<DomainName> {
 }
 
 pub fn as_url(value: &Yaml) -> anyhow::Result<Url> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let url = Url::from_str(s).map_err(|e| anyhow!("invalid url: {e}"))?;
         Ok(url)
     } else {
@@ -162,7 +161,7 @@ pub fn as_url(value: &Yaml) -> anyhow::Result<Url> {
 }
 
 pub fn as_upstream_addr(value: &Yaml, default_port: u16) -> anyhow::Result<UpstreamAddr> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let mut addr = UpstreamAddr::from_str(s).context("invalid upstream addr string")?;
         if addr.port() == 0 {
             if default_port == 0 {
@@ -184,12 +183,12 @@ pub fn as_weighted_upstream_addr(
     default_port: u16,
 ) -> anyhow::Result<WeightedUpstreamAddr> {
     match value {
-        Yaml::String(_) => {
+        Yaml::Value(Scalar::String(_)) => {
             let addr =
                 as_upstream_addr(value, default_port).context("invalid upstream addr string")?;
             Ok(WeightedUpstreamAddr::new(addr))
         }
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             let mut addr = UpstreamAddr::empty();
             let mut weight = WeightedUpstreamAddr::DEFAULT_WEIGHT;
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -216,7 +215,7 @@ pub fn as_weighted_upstream_addr(
 }
 
 pub fn as_congestion_algorithm(value: &Yaml) -> anyhow::Result<CongestionAlgorithm> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let ca = CongestionAlgorithm::from_str(s)
             .map_err(|e| anyhow!("invalid congestion algorithm: {e}"))?;
         Ok(ca)
@@ -230,6 +229,7 @@ pub fn as_congestion_algorithm(value: &Yaml) -> anyhow::Result<CongestionAlgorit
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use std::sync::{Mutex, OnceLock};
 
     // ensure the environment variable is thread-safe
@@ -291,7 +291,7 @@ mod tests {
         let yaml = yaml_str!("invalid");
         assert!(as_env_sockaddr(&yaml).is_err());
 
-        let yaml = Yaml::Integer(12345);
+        let yaml = Yaml::Value(Scalar::Integer(12345));
         assert!(as_env_sockaddr(&yaml).is_err());
     }
 
@@ -310,7 +310,7 @@ mod tests {
         let yaml = yaml_str!("127.0.0.1");
         assert!(as_sockaddr(&yaml).is_err());
 
-        let yaml = Yaml::Integer(12345);
+        let yaml = Yaml::Value(Scalar::Integer(12345));
         assert!(as_sockaddr(&yaml).is_err());
     }
 
@@ -321,25 +321,31 @@ mod tests {
         assert_eq!(*result.inner(), "127.0.0.1:8080".parse().unwrap());
         assert_eq!(result.weight(), 1.0);
 
-        let mut map = yaml_rust::yaml::Hash::new();
+        let mut map = saphyr::Mapping::new();
         map.insert(yaml_str!("addr"), yaml_str!("192.168.1.1:80"));
-        map.insert(yaml_str!("weight"), Yaml::Real("2.5".into()));
-        let yaml = Yaml::Hash(map);
+        map.insert(
+            yaml_str!("weight"),
+            Yaml::Value(Scalar::FloatingPoint((2.5_f64).into())),
+        );
+        let yaml = Yaml::Mapping(map);
         let result = as_weighted_sockaddr(&yaml).unwrap();
         assert_eq!(*result.inner(), "192.168.1.1:80".parse().unwrap());
         assert_eq!(result.weight(), 2.5);
 
-        let mut map = yaml_rust::yaml::Hash::new();
+        let mut map = saphyr::Mapping::new();
         map.insert(yaml_str!("addr"), yaml_str!("10.0.0.1:443"));
-        let yaml = Yaml::Hash(map);
+        let yaml = Yaml::Mapping(map);
         let result = as_weighted_sockaddr(&yaml).unwrap();
         assert_eq!(*result.inner(), "10.0.0.1:443".parse().unwrap());
         assert_eq!(result.weight(), 1.0);
 
-        let mut map = yaml_rust::yaml::Hash::new();
+        let mut map = saphyr::Mapping::new();
         map.insert(yaml_str!("addr"), yaml_str!("0.0.0.0:0"));
-        map.insert(yaml_str!("weight"), Yaml::Real("0.0".into()));
-        let yaml = Yaml::Hash(map);
+        map.insert(
+            yaml_str!("weight"),
+            Yaml::Value(Scalar::FloatingPoint((0.0_f64).into())),
+        );
+        let yaml = Yaml::Mapping(map);
         let result = as_weighted_sockaddr(&yaml).unwrap();
         assert_eq!(*result.inner(), "0.0.0.0:0".parse().unwrap());
         assert_eq!(result.weight(), 0.0);
@@ -350,18 +356,21 @@ mod tests {
         let yaml = yaml_str!("invalid_address");
         assert!(as_weighted_sockaddr(&yaml).is_err());
 
-        let mut map = yaml_rust::yaml::Hash::new();
-        map.insert(yaml_str!("weight"), Yaml::Real("1.0".into()));
-        let yaml = Yaml::Hash(map);
+        let mut map = saphyr::Mapping::new();
+        map.insert(
+            yaml_str!("weight"),
+            Yaml::Value(Scalar::FloatingPoint((1.0_f64).into())),
+        );
+        let yaml = Yaml::Mapping(map);
         assert!(as_weighted_sockaddr(&yaml).is_err());
 
-        let mut map = yaml_rust::yaml::Hash::new();
+        let mut map = saphyr::Mapping::new();
         map.insert(yaml_str!("addr"), yaml_str!("127.0.0.1:80"));
         map.insert(yaml_str!("weight"), yaml_str!("invalid"));
-        let yaml = Yaml::Hash(map);
+        let yaml = Yaml::Mapping(map);
         assert!(as_weighted_sockaddr(&yaml).is_err());
 
-        let yaml = Yaml::Integer(12345);
+        let yaml = Yaml::Value(Scalar::Integer(12345));
         assert!(as_weighted_sockaddr(&yaml).is_err());
     }
 
@@ -384,7 +393,7 @@ mod tests {
         let yaml = yaml_str!("");
         assert!(as_ipaddr(&yaml).is_err());
 
-        let yaml = Yaml::Integer(12345);
+        let yaml = Yaml::Value(Scalar::Integer(12345));
         assert!(as_ipaddr(&yaml).is_err());
     }
 
@@ -403,7 +412,7 @@ mod tests {
         let yaml = yaml_str!("invalid_ip");
         assert!(as_ipaddr(&yaml).is_err());
 
-        let yaml = Yaml::Integer(12345);
+        let yaml = Yaml::Value(Scalar::Integer(12345));
         assert!(as_ipaddr(&yaml).is_err());
     }
 
@@ -422,7 +431,7 @@ mod tests {
         let yaml = yaml_str!("invalid_ip");
         assert!(as_ipv6addr(&yaml).is_err());
 
-        let yaml = Yaml::Integer(12345);
+        let yaml = Yaml::Value(Scalar::Integer(12345));
         assert!(as_ipv6addr(&yaml).is_err());
     }
 
@@ -470,7 +479,7 @@ mod tests {
         let yaml = yaml_str!("invalid_ip_network");
         assert!(as_ip_network(&yaml).is_err());
 
-        let yaml = Yaml::Integer(12345);
+        let yaml = Yaml::Value(Scalar::Integer(12345));
         assert!(as_ip_network(&yaml).is_err());
     }
 
@@ -501,7 +510,7 @@ mod tests {
         let yaml = yaml_str!("invalid\u{e000}host");
         assert!(as_host(&yaml).is_err());
 
-        let yaml = Yaml::Integer(12345);
+        let yaml = Yaml::Value(Scalar::Integer(12345));
         assert!(as_host(&yaml).is_err());
     }
 
@@ -525,7 +534,7 @@ mod tests {
         let yaml = yaml_str!("invalid\u{e000}domain");
         assert!(as_domain(&yaml).is_err());
 
-        let yaml = Yaml::Integer(12345);
+        let yaml = Yaml::Value(Scalar::Integer(12345));
         assert!(as_domain(&yaml).is_err());
     }
 
@@ -541,7 +550,7 @@ mod tests {
         let yaml = yaml_str!("invalid_url");
         assert!(as_url(&yaml).is_err());
 
-        let yaml = Yaml::Integer(12345);
+        let yaml = Yaml::Value(Scalar::Integer(12345));
         assert!(as_url(&yaml).is_err());
     }
 
@@ -564,7 +573,7 @@ mod tests {
         let yaml = yaml_str!("invalid\u{e000}address");
         assert!(as_upstream_addr(&yaml, 80).is_err());
 
-        let yaml = Yaml::Integer(12345);
+        let yaml = Yaml::Value(Scalar::Integer(12345));
         assert!(as_upstream_addr(&yaml, 80).is_err());
     }
 
@@ -586,10 +595,13 @@ mod tests {
         );
         assert_eq!(result.weight(), WeightedUpstreamAddr::DEFAULT_WEIGHT);
 
-        let mut map = yaml_rust::yaml::Hash::new();
+        let mut map = saphyr::Mapping::new();
         map.insert(yaml_str!("addr"), yaml_str!("test.com:443"));
-        map.insert(yaml_str!("weight"), Yaml::Real("2.5".into()));
-        let yaml = Yaml::Hash(map);
+        map.insert(
+            yaml_str!("weight"),
+            Yaml::Value(Scalar::FloatingPoint((2.5_f64).into())),
+        );
+        let yaml = Yaml::Mapping(map);
         let result = as_weighted_upstream_addr(&yaml, 0).unwrap();
         assert_eq!(
             *result.inner(),
@@ -597,9 +609,9 @@ mod tests {
         );
         assert_eq!(result.weight(), 2.5);
 
-        let mut map = yaml_rust::yaml::Hash::new();
+        let mut map = saphyr::Mapping::new();
         map.insert(yaml_str!("addr"), yaml_str!("api.example.com:8080"));
-        let yaml = Yaml::Hash(map);
+        let yaml = Yaml::Mapping(map);
         let result = as_weighted_upstream_addr(&yaml, 0).unwrap();
         assert_eq!(
             *result.inner(),
@@ -607,9 +619,9 @@ mod tests {
         );
         assert_eq!(result.weight(), WeightedUpstreamAddr::DEFAULT_WEIGHT);
 
-        let mut map = yaml_rust::yaml::Hash::new();
+        let mut map = saphyr::Mapping::new();
         map.insert(yaml_str!("address"), yaml_str!("example.com:9090"));
-        let yaml = Yaml::Hash(map);
+        let yaml = Yaml::Mapping(map);
         let result = as_weighted_upstream_addr(&yaml, 0).unwrap();
         assert_eq!(
             *result.inner(),
@@ -620,31 +632,34 @@ mod tests {
 
     #[test]
     fn as_weighted_upstream_addr_err() {
-        let mut map = yaml_rust::yaml::Hash::new();
+        let mut map = saphyr::Mapping::new();
         map.insert(yaml_str!("invalid_key"), yaml_str!("test.com:443"));
-        let yaml = Yaml::Hash(map);
+        let yaml = Yaml::Mapping(map);
         assert!(as_weighted_upstream_addr(&yaml, 0).is_err());
 
         let yaml = yaml_str!("invalid\u{e000}address");
         assert!(as_weighted_upstream_addr(&yaml, 80).is_err());
 
-        let mut map = yaml_rust::yaml::Hash::new();
-        map.insert(yaml_str!("weight"), Yaml::Real("1.0".into()));
-        let yaml = Yaml::Hash(map);
+        let mut map = saphyr::Mapping::new();
+        map.insert(
+            yaml_str!("weight"),
+            Yaml::Value(Scalar::FloatingPoint((1.0_f64).into())),
+        );
+        let yaml = Yaml::Mapping(map);
         assert!(as_weighted_upstream_addr(&yaml, 80).is_err());
 
-        let mut map = yaml_rust::yaml::Hash::new();
+        let mut map = saphyr::Mapping::new();
         map.insert(yaml_str!("addr"), yaml_str!("127.0.0.1:80"));
         map.insert(yaml_str!("weight"), yaml_str!("invalid"));
-        let yaml = Yaml::Hash(map);
+        let yaml = Yaml::Mapping(map);
         assert!(as_weighted_upstream_addr(&yaml, 0).is_err());
 
-        let yaml = Yaml::Integer(12345);
+        let yaml = Yaml::Value(Scalar::Integer(12345));
         assert!(as_weighted_upstream_addr(&yaml, 80).is_err());
 
-        let mut map = yaml_rust::yaml::Hash::new();
+        let mut map = saphyr::Mapping::new();
         map.insert(yaml_str!("addr"), yaml_str!(""));
-        let yaml = Yaml::Hash(map);
+        let yaml = Yaml::Mapping(map);
         assert!(as_weighted_upstream_addr(&yaml, 80).is_err());
     }
 
@@ -658,6 +673,6 @@ mod tests {
     fn as_congestion_algorithm_err() {
         assert!(as_congestion_algorithm(&yaml_str!("")).is_err());
         assert!(as_congestion_algorithm(&yaml_str!("abcdefghijklmnop")).is_err());
-        assert!(as_congestion_algorithm(&Yaml::Integer(1)).is_err());
+        assert!(as_congestion_algorithm(&Yaml::Value(Scalar::Integer(1))).is_err());
     }
 }

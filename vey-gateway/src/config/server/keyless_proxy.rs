@@ -9,7 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use log::warn;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -52,7 +52,7 @@ impl KeylessProxyServerConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = KeylessProxyServerConfig::new(position);

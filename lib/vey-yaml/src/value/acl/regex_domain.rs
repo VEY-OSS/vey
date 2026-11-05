@@ -5,7 +5,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::acl::{AclAction, AclRegexDomainRuleBuilder};
 
@@ -24,7 +24,7 @@ impl AclRuleYamlParser for AclRegexDomainRuleBuilder {
 
     fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()> {
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut regex_list = vec![];
                 let mut suffix_domain = None;
 
@@ -53,7 +53,7 @@ impl AclRuleYamlParser for AclRegexDomainRuleBuilder {
 
                 Ok(())
             }
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let regex = crate::value::as_regex(value)?;
                 self.add_full_regex(&regex, action);
                 Ok(())

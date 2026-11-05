@@ -7,7 +7,7 @@
 use std::sync::OnceLock;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 #[cfg(feature = "openssl-async-job")]
 mod async_job;
@@ -61,7 +61,7 @@ pub(crate) enum BackendDriverConfig {
 pub(super) fn load(value: &Yaml) -> anyhow::Result<()> {
     let mut config = BackendConfig::default();
     match value {
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "dispatch_channel_size" => {
                     config.dispatch_channel_size = vey_yaml::value::as_usize(v)?;
@@ -92,7 +92,7 @@ pub(super) fn load(value: &Yaml) -> anyhow::Result<()> {
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
         }
-        Yaml::String(s) => match vey_yaml::key::normalize(s).as_str() {
+        Yaml::Value(Scalar::String(s)) => match vey_yaml::key::normalize(s).as_str() {
             "simple" => {}
             #[cfg(feature = "openssl-async-job")]
             "async_job" | "openssl_async_job" => {

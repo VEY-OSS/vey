@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_geoip_types::{ContinentCode, IsoCountryCode};
 use vey_ip_locate::IpLocateServiceConfig;
@@ -53,7 +53,7 @@ impl RouteGeoIpEscaperConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
@@ -91,9 +91,9 @@ impl RouteGeoIpEscaperConfig {
                 Ok(())
             }
             "geo_rules" | "geo_match" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, rule) in seq.iter().enumerate() {
-                        if let Yaml::Hash(map) = rule {
+                        if let Yaml::Mapping(map) = rule {
                             self.add_geo_rule(map)?;
                         } else {
                             return Err(anyhow!("invalid value type for {k}#{i}"));
@@ -141,7 +141,7 @@ impl RouteGeoIpEscaperConfig {
         Ok(())
     }
 
-    fn add_geo_rule(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
+    fn add_geo_rule(&mut self, map: &saphyr::Mapping) -> anyhow::Result<()> {
         let mut escaper = NodeName::default();
         let mut networks = BTreeSet::<IpNetwork>::new();
         let mut asn_set = BTreeSet::<u32>::new();

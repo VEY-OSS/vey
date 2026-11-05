@@ -797,15 +797,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 
 [[package]]
-name = "encoding_rs"
-version = "0.8.35"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
-dependencies = [
- "cfg-if",
-]
-
-[[package]]
 name = "endian-type"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1768,6 +1759,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordered-float"
+version = "5.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f59006ce1e204c30956638535b74d317bca99477b9356dfaec54c37f6f600ab"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "papergrid"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2240,6 +2240,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "saphyr"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3aa37a62b2a28868277e83b6f651dc9581751db73d1cb51132c73c0b4ec7f70a"
+dependencies = [
+ "hashlink",
+ "ordered-float",
+ "saphyr-parser",
+ "thiserror",
+]
+
+[[package]]
+name = "saphyr-parser"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48cf5a82d41247a625f040af08e91008fec945bce3b0bffba992c44af092caa2"
+dependencies = [
+ "arraydeque",
+ "thiserror",
 ]
 
 [[package]]
@@ -2838,6 +2860,7 @@ dependencies = [
  "anyhow",
  "log",
  "rmpv",
+ "saphyr",
  "tokio",
  "variant-ssl",
  "vey-io-ext",
@@ -2845,7 +2868,6 @@ dependencies = [
  "vey-socket",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -2931,6 +2953,7 @@ dependencies = [
  "rand",
  "rustc-hash",
  "rustix",
+ "saphyr",
  "serde_json",
  "slog",
  "smallvec",
@@ -2955,7 +2978,6 @@ dependencies = [
  "vey-syslog",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -2974,6 +2996,7 @@ dependencies = [
  "clap",
  "kanal",
  "log",
+ "saphyr",
  "snmalloc-rs",
  "tokio",
  "variant-ssl",
@@ -2990,7 +3013,6 @@ dependencies = [
  "vey-tls-cert",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -3016,6 +3038,7 @@ dependencies = [
  "log",
  "rmp",
  "rmp-serde",
+ "saphyr",
  "serde",
  "slog",
  "tokio",
@@ -3026,7 +3049,6 @@ dependencies = [
  "vey-socket",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -3039,13 +3061,13 @@ dependencies = [
  "log",
  "memchr",
  "mime",
+ "saphyr",
  "thiserror",
  "tokio",
  "vey-datetime",
  "vey-io-ext",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -3075,6 +3097,7 @@ dependencies = [
  "rustc-hash",
  "rustls",
  "rustls-pki-types",
+ "saphyr",
  "serde_json",
  "slog",
  "snmalloc-rs",
@@ -3103,7 +3126,6 @@ dependencies = [
  "vey-tls-ticket",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -3229,6 +3251,7 @@ dependencies = [
  "kanal",
  "memchr",
  "rustls-pki-types",
+ "saphyr",
  "thiserror",
  "tokio",
  "tokio-rustls",
@@ -3240,7 +3263,6 @@ dependencies = [
  "vey-socket",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -3302,6 +3324,7 @@ dependencies = [
  "log",
  "rmpv",
  "rustc-hash",
+ "saphyr",
  "tokio",
  "tokio-util",
  "vey-geoip-types",
@@ -3309,7 +3332,6 @@ dependencies = [
  "vey-socket",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -3320,6 +3342,7 @@ dependencies = [
  "cfg-if",
  "clap",
  "log",
+ "saphyr",
  "snmalloc-rs",
  "tokio",
  "vey-build-env",
@@ -3333,7 +3356,6 @@ dependencies = [
  "vey-statsd-client",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -3409,6 +3431,7 @@ dependencies = [
  "jiff",
  "log",
  "openssl-probe",
+ "saphyr",
  "serde_json",
  "slog",
  "snmalloc-rs",
@@ -3440,7 +3463,6 @@ dependencies = [
  "vey-tls-ticket",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -3590,6 +3612,7 @@ dependencies = [
  "rmpv",
  "rustc-hash",
  "rustls",
+ "saphyr",
  "serde_json",
  "slog",
  "snmalloc-rs",
@@ -3639,7 +3662,6 @@ dependencies = [
  "vey-udpdump",
  "vey-xcrypt",
  "vey-yaml",
- "yaml-rust2",
  "zeroize",
 ]
 
@@ -3712,12 +3734,12 @@ dependencies = [
  "redis",
  "rustls",
  "rustls-pki-types",
+ "saphyr",
  "tokio",
  "tokio-rustls",
  "vey-socket",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -3737,6 +3759,7 @@ dependencies = [
  "log",
  "rustls",
  "rustls-pki-types",
+ "saphyr",
  "thiserror",
  "tokio",
  "tokio-util",
@@ -3744,7 +3767,6 @@ dependencies = [
  "vey-socket",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -3767,11 +3789,11 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "log",
+ "saphyr",
  "tokio",
  "vey-compat",
  "vey-openssl",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -3862,6 +3884,7 @@ dependencies = [
  "jiff",
  "log",
  "memchr",
+ "saphyr",
  "serde_json",
  "snmalloc-rs",
  "thiserror",
@@ -3877,7 +3900,6 @@ dependencies = [
  "vey-statsd-proto",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
  "zmij",
 ]
 
@@ -3888,11 +3910,11 @@ dependencies = [
  "anyhow",
  "itoa",
  "log",
+ "saphyr",
  "smallvec",
  "vey-io-sys",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
  "zmij",
 ]
 
@@ -3943,6 +3965,7 @@ dependencies = [
  "jiff",
  "kanal",
  "log",
+ "saphyr",
  "serde",
  "serde_json",
  "slog",
@@ -3951,7 +3974,6 @@ dependencies = [
  "vey-io-sys",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
  "zmij",
 ]
 
@@ -3978,6 +4000,7 @@ dependencies = [
  "log",
  "redis",
  "rustc-hash",
+ "saphyr",
  "serde_json",
  "tokio",
  "tokio-util",
@@ -3985,7 +4008,6 @@ dependencies = [
  "vey-redis-client",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -4045,6 +4067,7 @@ version = "0.3.0"
 dependencies = [
  "anyhow",
  "log",
+ "saphyr",
  "tokio",
  "vey-dpi",
  "vey-io-ext",
@@ -4052,7 +4075,6 @@ dependencies = [
  "vey-socket",
  "vey-types",
  "vey-yaml",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -4079,6 +4101,7 @@ dependencies = [
  "rand",
  "regex",
  "rustls-pki-types",
+ "saphyr",
  "url",
  "variant-ssl",
  "vey-compat",
@@ -4087,7 +4110,6 @@ dependencies = [
  "vey-geoip-types",
  "vey-histogram",
  "vey-types",
- "yaml-rust2",
 ]
 
 [[package]]
@@ -4302,17 +4324,6 @@ name = "xxhash-rust"
 version = "0.8.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "550a2b930b62486a393c52d5c3b84bff264b28aa437ed64694d31e93b1757af7"
-
-[[package]]
-name = "yaml-rust2"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57e5b818a27a4cd30884ea380857a5e56f7ec3ba24a3990a3cc0b95af3238e18"
-dependencies = [
- "arraydeque",
- "encoding_rs",
- "hashlink",
-]
 
 [[package]]
 name = "yoke"

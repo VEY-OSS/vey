@@ -6,7 +6,7 @@
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::{Scalar, Yaml};
 
 use vey_dpi::{MaybeProtocol, ProtocolPortMap};
 
@@ -14,13 +14,13 @@ fn as_maybe_protocol(value: &Yaml) -> anyhow::Result<Vec<MaybeProtocol>> {
     let mut r = Vec::new();
 
     match value {
-        Yaml::String(s) => {
+        Yaml::Value(Scalar::String(s)) => {
             let p = MaybeProtocol::from_str(s).map_err(|_| anyhow!("unrecognised protocol {s}"))?;
             r.push(p);
         }
-        Yaml::Array(seq) => {
+        Yaml::Sequence(seq) => {
             for (i, v) in seq.iter().enumerate() {
-                if let Yaml::String(s) = v {
+                if let Yaml::Value(Scalar::String(s)) = v {
                     let p = MaybeProtocol::from_str(s)
                         .map_err(|_| anyhow!("#{i}: unrecognised protocol {s}"))?;
                     r.push(p);
@@ -37,7 +37,7 @@ fn as_maybe_protocol(value: &Yaml) -> anyhow::Result<Vec<MaybeProtocol>> {
     Ok(r)
 }
 
-fn update_by_map_value(portmap: &mut ProtocolPortMap, map: &yaml::Hash) -> anyhow::Result<()> {
+fn update_by_map_value(portmap: &mut ProtocolPortMap, map: &saphyr::Mapping) -> anyhow::Result<()> {
     for (port, protocol) in map.iter() {
         let port = crate::value::as_u16(port)
             .context("the root map key should be valid u16 port value")?;
@@ -49,9 +49,12 @@ fn update_by_map_value(portmap: &mut ProtocolPortMap, map: &yaml::Hash) -> anyho
     Ok(())
 }
 
-fn update_by_seq_value(portmap: &mut ProtocolPortMap, seq: &yaml::Array) -> anyhow::Result<()> {
+fn update_by_seq_value(
+    portmap: &mut ProtocolPortMap,
+    seq: &saphyr::Sequence,
+) -> anyhow::Result<()> {
     for (i, v) in seq.iter().enumerate() {
-        if let Yaml::Hash(map) = v {
+        if let Yaml::Mapping(map) = v {
             let port = crate::hash_get_required(map, "port")?;
             let port =
                 crate::value::as_u16(port).context("invalid u16 port value for key 'port'")?;
@@ -69,9 +72,9 @@ fn update_by_seq_value(portmap: &mut ProtocolPortMap, seq: &yaml::Array) -> anyh
 
 pub fn update_protocol_portmap(portmap: &mut ProtocolPortMap, value: &Yaml) -> anyhow::Result<()> {
     match value {
-        Yaml::Hash(map) => update_by_map_value(portmap, map)
+        Yaml::Mapping(map) => update_by_map_value(portmap, map)
             .context("invalid yaml map value for 'protocol portmap'"),
-        Yaml::Array(seq) => update_by_seq_value(portmap, seq)
+        Yaml::Sequence(seq) => update_by_seq_value(portmap, seq)
             .context("invalid yaml seq value for 'protocol portmap'"),
         _ => Err(anyhow!("invalid yaml value type for 'protocol portmap'")),
     }

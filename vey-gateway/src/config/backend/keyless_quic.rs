@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_histogram::HistogramMetricsConfig;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -67,7 +67,7 @@ impl KeylessQuicBackendConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut site = KeylessQuicBackendConfig::new(position);
@@ -104,7 +104,7 @@ impl KeylessQuicBackendConfig {
                 Ok(())
             }
             "discover_data" => {
-                self.discover_data = DiscoverRegisterData::Yaml(v.clone());
+                self.discover_data = DiscoverRegisterData::from_yaml(v);
                 Ok(())
             }
             "extra_metrics_tags" => {

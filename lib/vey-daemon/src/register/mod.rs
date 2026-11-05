@@ -6,7 +6,7 @@
 use std::sync::{Arc, OnceLock};
 
 use log::warn;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 mod config;
 pub use config::RegisterConfig;
@@ -32,6 +32,7 @@ pub fn get_pre_config() -> Option<Arc<RegisterConfig>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::Scalar;
     use vey_yaml::yaml_str;
 
     #[test]
@@ -60,10 +61,10 @@ mod tests {
 
     #[test]
     fn load_pre_config_err() {
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(load_pre_config(&yaml).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(load_pre_config(&yaml).is_err());
     }
 }

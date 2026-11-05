@@ -6,7 +6,7 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AsyncJobBackendConfig {
@@ -23,7 +23,7 @@ impl Default for AsyncJobBackendConfig {
 
 impl AsyncJobBackendConfig {
     pub(super) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
-        if let Yaml::Hash(map) = value {
+        if let Yaml::Mapping(map) = value {
             let mut config = AsyncJobBackendConfig::default();
             vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "async_op_timeout" => {

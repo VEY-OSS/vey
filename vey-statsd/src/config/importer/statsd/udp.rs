@@ -4,7 +4,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::NodeName;
@@ -38,7 +38,7 @@ impl StatsdUdpImporterConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut importer = StatsdUdpImporterConfig::new(position);

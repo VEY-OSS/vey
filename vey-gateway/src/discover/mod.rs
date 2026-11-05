@@ -7,8 +7,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use saphyr::Yaml;
 use tokio::sync::watch;
-use yaml_rust::Yaml;
 
 use vey_types::collection::WeightedValue;
 use vey_types::metrics::NodeName;

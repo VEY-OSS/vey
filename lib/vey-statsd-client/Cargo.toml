@@ -13,11 +13,11 @@ zmij.workspace = true
 smallvec.workspace = true
 log.workspace = true
 anyhow = { workspace = true, optional = true }
-yaml-rust = { workspace = true, optional = true }
+saphyr = { workspace = true, optional = true }
 vey-io-sys.workspace = true
 vey-types.workspace = true
 vey-yaml = { workspace = true, optional = true }
 
 [features]
 default = []
-yaml = ["dep:vey-yaml", "dep:yaml-rust", "dep:anyhow"]
+yaml = ["dep:vey-yaml", "dep:saphyr", "dep:anyhow"]

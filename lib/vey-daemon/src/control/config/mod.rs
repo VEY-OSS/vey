@@ -5,7 +5,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 mod local;
 
@@ -55,14 +55,14 @@ pub(crate) use local::LocalControllerConfig;
 
 pub fn load(v: &Yaml) -> anyhow::Result<()> {
     match v {
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             vey_yaml::foreach_kv(map, |k, v| match k {
                 "local" => LocalControllerConfig::load(v),
                 _ => Err(anyhow!("invalid key '{k}'")),
             })?;
             Ok(())
         }
-        Yaml::Null => Ok(()),
+        Yaml::Value(Scalar::Null) => Ok(()),
         _ => Err(anyhow!("root value type should be hash")),
     }
 }
@@ -70,6 +70,7 @@ pub fn load(v: &Yaml) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use vey_yaml::yaml_str;
 
     #[test]

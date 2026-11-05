@@ -6,13 +6,13 @@
 
 use anyhow::anyhow;
 use jiff::Timestamp;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_datetime::DateTimeParseExt;
 
 pub fn as_rfc3339_datetime(value: &Yaml) -> anyhow::Result<Timestamp> {
     match value {
-        Yaml::String(s) => {
+        Yaml::Value(Scalar::String(s)) => {
             Timestamp::parse_rfc3339(s).map_err(|e| anyhow!("invalid rfc3339 datetime string: {e}"))
         }
         _ => Err(anyhow!(
@@ -69,10 +69,10 @@ mod tests {
         let value = yaml_str!("2024-03-01T25:00:00Z");
         assert!(as_rfc3339_datetime(&value).is_err());
 
-        let value = Yaml::Integer(12345);
+        let value = Yaml::Value(Scalar::Integer(12345));
         assert!(as_rfc3339_datetime(&value).is_err());
 
-        let value = Yaml::Boolean(true);
+        let value = Yaml::Value(Scalar::Boolean(true));
         assert!(as_rfc3339_datetime(&value).is_err());
     }
 }

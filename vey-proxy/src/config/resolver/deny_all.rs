@@ -6,7 +6,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
@@ -23,7 +23,7 @@ pub(crate) struct DenyAllResolverConfig {
 
 impl DenyAllResolverConfig {
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut resolver = DenyAllResolverConfig {

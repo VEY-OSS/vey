@@ -13,7 +13,7 @@ jiff.workspace = true
 tokio = { workspace = true, features = ["rt", "time", "macros"] }
 tokio-util = { workspace = true, features = ["time"] }
 serde_json.workspace = true
-yaml-rust = { workspace = true, optional = true }
+saphyr = { workspace = true, optional = true }
 redis = { workspace = true, features = ["aio", "tokio-comp"] }
 vey-types = { workspace = true, features = ["openssl"] }
 vey-json.workspace = true
@@ -22,4 +22,4 @@ vey-yaml = { workspace = true, optional = true }
 
 [features]
 default = []
-yaml = ["vey-redis-client/yaml", "dep:vey-yaml", "dep:yaml-rust"]
+yaml = ["vey-redis-client/yaml", "dep:vey-yaml", "dep:saphyr"]

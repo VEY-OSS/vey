@@ -10,7 +10,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use log::warn;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_io_ext::StreamCopyConfig;
 use vey_tls_ticket::TlsTicketConfig;
@@ -132,7 +132,7 @@ impl HttpRProxyServerConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = HttpRProxyServerConfig::new(position);

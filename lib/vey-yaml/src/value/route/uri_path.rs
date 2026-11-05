@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::route::UriPathMatch;
 
@@ -21,7 +21,7 @@ fn add_url_path_matched_value<T: YamlMapCallback>(
 ) -> anyhow::Result<()> {
     let type_name = target.type_name();
 
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut prefix_match_vs = vec![];
         let mut set_default = false;
 
@@ -77,7 +77,7 @@ where
 {
     let mut obj = UriPathMatch::<Arc<T>>::default();
 
-    if let Yaml::Array(seq) = value {
+    if let Yaml::Sequence(seq) = value {
         for (i, v) in seq.iter().enumerate() {
             let target = T::default();
             let type_name = target.type_name();

@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
 use rand::distr::Bernoulli;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_cert_agent::CertAgentConfig;
 use vey_dpi::{
@@ -101,7 +101,7 @@ impl AuditorConfig {
         AuditorConfig::with_name(NodeName::default(), position)
     }
 
-    pub(crate) fn parse(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
+    pub(crate) fn parse(&mut self, map: &saphyr::Mapping) -> anyhow::Result<()> {
         vey_yaml::foreach_kv(map, |k, v| self.set(k, v))?;
         self.check()?;
         Ok(())

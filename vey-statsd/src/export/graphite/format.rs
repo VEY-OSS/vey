@@ -124,9 +124,8 @@ impl StreamExport for GraphitePlaintextStreamExport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
-
     use crate::config::exporter::graphite::GraphiteExporterConfig;
+    use saphyr::{LoadableYamlNode, Yaml};
 
     fn export(
         yaml: &str,
@@ -134,8 +133,8 @@ mod tests {
         GraphitePlaintextAggregateExport,
         mpsc::UnboundedReceiver<Vec<u8>>,
     ) {
-        let docs = YamlLoader::load_from_str(yaml).unwrap();
-        let cfg = GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).unwrap();
+        let docs = Yaml::load_from_str(yaml).unwrap();
+        let cfg = GraphiteExporterConfig::parse(docs[0].as_mapping().unwrap(), None).unwrap();
         let (tx, rx) = mpsc::unbounded_channel();
         (GraphitePlaintextAggregateExport::new(&cfg, tx), rx)
     }
