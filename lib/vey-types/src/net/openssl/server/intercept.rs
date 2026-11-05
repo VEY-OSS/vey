@@ -8,6 +8,8 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use openssl::ex_data::Index;
+#[cfg(tongsuo)]
+use openssl::ssl::SslOptions;
 use openssl::ssl::{AlpnError, Ssl, SslAcceptor, SslAcceptorBuilder, SslContext, SslRef};
 
 use super::{DEFAULT_ACCEPT_TIMEOUT, MINIMAL_ACCEPT_TIMEOUT, OpensslTicketKey};
@@ -115,7 +117,12 @@ fn build_tls_context() -> anyhow::Result<SslAcceptorBuilder> {
 
 #[cfg(tongsuo)]
 fn build_tlcp_context() -> anyhow::Result<SslAcceptorBuilder> {
-    SslAcceptor::tongsuo_tlcp().map_err(|e| anyhow!("failed to get tlcp acceptor builder: {e}"))
+    let mut builder = SslAcceptor::tongsuo_tlcp()
+        .map_err(|e| anyhow!("failed to get tlcp acceptor builder: {e}"))?;
+    // NTLS 0x0101 compares as <= TLS 1.0, so Tongsuo inserts an empty
+    // fragment unless this is set. TLCP already uses an explicit IV.
+    builder.set_options(SslOptions::DONT_INSERT_EMPTY_FRAGMENTS);
+    Ok(builder)
 }
 
 fn set_alpn_select_callback(

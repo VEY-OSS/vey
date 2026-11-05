@@ -8,6 +8,8 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use log::warn;
+#[cfg(tongsuo)]
+use openssl::ssl::SslOptions;
 use openssl::ssl::{Ssl, SslConnector, SslContext, SslContextBuilder, SslMethod, SslVerifyMode};
 use openssl::x509::X509;
 use openssl::x509::store::X509StoreBuilder;
@@ -430,6 +432,9 @@ impl OpensslInterceptionClientConfigBuilder {
 
         let mut ctx_builder = SslConnector::builder(SslMethod::ntls_client())
             .map_err(|e| anyhow!("failed to create tlcp context builder: {e}"))?;
+        // NTLS 0x0101 compares as <= TLS 1.0, so Tongsuo inserts an empty
+        // fragment unless this is set. TLCP already uses an explicit IV.
+        ctx_builder.set_options(SslOptions::DONT_INSERT_EMPTY_FRAGMENTS);
 
         self.set_verify(&mut ctx_builder);
 

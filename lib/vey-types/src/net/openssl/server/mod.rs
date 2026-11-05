@@ -170,6 +170,9 @@ impl OpensslServerConfigBuilder {
     ) -> anyhow::Result<SslAcceptorBuilder> {
         let mut ssl_builder =
             SslAcceptor::tongsuo_tlcp().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
+        // NTLS 0x0101 compares as <= TLS 1.0, so Tongsuo inserts an empty
+        // fragment unless this is set. TLCP already uses an explicit IV.
+        ssl_builder.set_options(SslOptions::DONT_INSERT_EMPTY_FRAGMENTS);
 
         for (i, pair) in self.tlcp_cert_pairs.iter().enumerate() {
             pair.add_to_server_ssl_context(&mut ssl_builder, id_ctx)
@@ -194,6 +197,8 @@ impl OpensslServerConfigBuilder {
 
         let mut ssl_builder =
             SslAcceptor::tongsuo_auto().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
+        // The same context can negotiate NTLS. TLS 1.0/1.1 are already disabled.
+        ssl_builder.set_options(SslOptions::DONT_INSERT_EMPTY_FRAGMENTS);
 
         for (i, pair) in self.tlcp_cert_pairs.iter().enumerate() {
             pair.add_to_server_ssl_context(&mut ssl_builder, id_ctx)
