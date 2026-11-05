@@ -259,7 +259,6 @@ pub fn as_udp_conn_track_config(value: &Yaml) -> anyhow::Result<UdpConnectionTra
 #[cfg(test)]
 mod tests {
     use super::*;
-    use saphyr::LoadableYamlNode;
 
     #[test]
     fn as_udp_misc_sock_opts_ok() {
@@ -470,7 +469,7 @@ mod tests {
                 "#,
             );
 
-            let v = &Yaml::load_from_str(&yaml_str).unwrap()[0];
+            let v = &yaml_doc!(&yaml_str);
             let parsed_config = as_udp_listen_config(v).unwrap();
             assert_eq!(
                 parsed_config.interface(),

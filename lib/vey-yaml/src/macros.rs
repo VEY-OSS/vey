@@ -12,7 +12,7 @@ macro_rules! yaml_str {
 
 #[macro_export]
 macro_rules! yaml_doc {
-    ($s:literal) => {{
+    ($s:expr) => {{
         use ::saphyr::LoadableYamlNode as _;
         ::saphyr::Yaml::load_from_str($s).unwrap().remove(0)
     }};
