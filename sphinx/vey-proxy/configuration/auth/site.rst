@@ -97,6 +97,21 @@ Not all escapers support this, see the documentation for each escaper for more i
 
 .. versionadded:: 1.7.10
 
+.. _conf_auth_user_site_peer_health_check:
+
+peer_health_check
+-----------------
+
+**optional**, **type**: map
+
+Passive health check limits for destinations that match this user site. The
+map has the same ``max_fails`` and ``fail_timeout`` fields as
+:ref:`site peer health check <conf_site_peer_health_check>`.
+
+**default**: not set
+
+.. versionadded:: 1.15.3
+
 tls_client
 ----------
 
@@ -128,6 +143,9 @@ Example:
        - 2001:db8::/32
      emit_metrics: true
      resolve_strategy: ipv4_only
+     peer_health_check:
+       max_fails: 2
+       fail_timeout: 15s
      http_rsp_header_recv_timeout: 8s
 
 .. _conf_user_site_http_rsp_header_recv_timeout:

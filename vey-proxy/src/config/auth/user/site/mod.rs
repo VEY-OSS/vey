@@ -16,6 +16,8 @@ use vey_types::metrics::NodeName;
 use vey_types::net::{DomainName, Host, OpensslClientConfigBuilder};
 use vey_types::resolve::ResolveStrategy;
 
+use crate::config::escaper::PeerHealthCheckConfig;
+
 mod json;
 mod yaml;
 
@@ -31,6 +33,7 @@ pub(crate) struct UserSiteConfig {
     pub(crate) duration_stats: HistogramMetricsConfig,
     pub(crate) tls_client: Option<OpensslClientConfigBuilder>,
     pub(crate) http_rsp_hdr_recv_timeout: Option<Duration>,
+    pub(crate) peer_health_check: Option<PeerHealthCheckConfig>,
 }
 
 impl UserSiteConfig {
@@ -46,5 +49,44 @@ impl UserSiteConfig {
             Host::Domain(domain) => self.exact_match_domain.insert(domain),
             Host::Ip(ip) => self.exact_match_ipaddr.insert(ip),
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UserSiteConfig;
+    use saphyr::{LoadableYamlNode, Yaml};
+    use serde_json::json;
+
+    #[test]
+    fn parse_peer_health_check_yaml() {
+        let yaml = Yaml::load_from_str(
+            r#"
+id: office
+exact_match:
+  - www.example.com
+peer_health_check:
+  max_fails: 2
+  fail_timeout: 15s
+"#,
+        )
+        .unwrap();
+        let site = UserSiteConfig::parse_yaml(&yaml[0], None).unwrap();
+        let check = site.peer_health_check.unwrap();
+        assert_eq!(check.max_fails, 2);
+        assert_eq!(check.fail_timeout, std::time::Duration::from_secs(15));
+    }
+
+    #[test]
+    fn parse_peer_health_check_json() {
+        let value = json!({
+            "id": "office",
+            "exact_match": ["www.example.com"],
+            "peer_health_check": { "max_fails": 2, "fail_timeout": "15s" }
+        });
+        let site = UserSiteConfig::parse_json(&value).unwrap();
+        let check = site.peer_health_check.unwrap();
+        assert_eq!(check.max_fails, 2);
+        assert_eq!(check.fail_timeout, std::time::Duration::from_secs(15));
     }
 }

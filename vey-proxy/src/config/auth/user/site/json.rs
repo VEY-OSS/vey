@@ -83,6 +83,14 @@ impl UserSiteConfig {
                 self.http_rsp_hdr_recv_timeout = Some(timeout);
                 Ok(())
             }
+            "peer_health_check" => {
+                let peer_health_check =
+                    crate::config::escaper::PeerHealthCheckConfig::parse_json(v).context(
+                        format!("invalid peer health check config value for key {k}"),
+                    )?;
+                self.peer_health_check = Some(peer_health_check);
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }
