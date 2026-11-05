@@ -4,13 +4,13 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use super::{FtpClientConfig, FtpControlConfig, FtpTransferConfig};
 
 impl FtpControlConfig {
     pub fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
-        if let Yaml::Hash(map) = value {
+        if let Yaml::Mapping(map) = value {
             let mut config = FtpControlConfig::default();
             vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "max_line_len" | "max_line_length" => {
@@ -39,7 +39,7 @@ impl FtpControlConfig {
 
 impl FtpTransferConfig {
     pub fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
-        if let Yaml::Hash(map) = value {
+        if let Yaml::Mapping(map) = value {
             let mut config = FtpTransferConfig::default();
             vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "list_max_line_len" | "list_max_line_length" => {
@@ -74,7 +74,7 @@ impl FtpTransferConfig {
 
 impl FtpClientConfig {
     pub fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
-        if let Yaml::Hash(map) = value {
+        if let Yaml::Mapping(map) = value {
             let mut config = FtpClientConfig::default();
             vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "control" => {
@@ -116,6 +116,7 @@ impl FtpClientConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::Scalar;
     use vey_yaml::{yaml_doc, yaml_str};
 
     #[test]
@@ -334,22 +335,22 @@ mod tests {
 
     #[test]
     fn parse_invalid_yaml_types() {
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(FtpControlConfig::parse_yaml(&yaml).is_err());
         assert!(FtpTransferConfig::parse_yaml(&yaml).is_err());
         assert!(FtpClientConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(FtpControlConfig::parse_yaml(&yaml).is_err());
         assert!(FtpTransferConfig::parse_yaml(&yaml).is_err());
         assert!(FtpClientConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(FtpControlConfig::parse_yaml(&yaml).is_err());
         assert!(FtpTransferConfig::parse_yaml(&yaml).is_err());
         assert!(FtpClientConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(FtpControlConfig::parse_yaml(&yaml).is_err());
         assert!(FtpTransferConfig::parse_yaml(&yaml).is_err());
         assert!(FtpClientConfig::parse_yaml(&yaml).is_err());

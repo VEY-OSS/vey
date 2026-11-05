@@ -7,7 +7,7 @@ use std::num::NonZeroUsize;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct HttpGuardH1Config {
@@ -28,7 +28,7 @@ impl Default for HttpGuardH1Config {
 
 impl HttpGuardH1Config {
     pub(super) fn parse_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
-        let Yaml::Hash(map) = value else {
+        let Yaml::Mapping(map) = value else {
             return Err(anyhow!("yaml value type for 'h1' should be 'map'"));
         };
         vey_yaml::foreach_kv(map, |k, v| self.set(k, v))

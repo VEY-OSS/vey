@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 use vey_types::route::AlpnMatch;
@@ -22,7 +22,7 @@ fn add_alpn_matched_value<T: YamlMapCallback>(
 ) -> anyhow::Result<()> {
     let type_name = target.type_name();
 
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut protocol_vs = vec![];
         let mut set_default = false;
 
@@ -33,7 +33,7 @@ fn add_alpn_matched_value<T: YamlMapCallback>(
                 Ok(())
             }
             "protocol" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         let protocol = crate::value::as_string(v)
                             .context(format!("invalid string value for {k}#{i}"))?;
@@ -86,7 +86,7 @@ where
 {
     let mut obj = AlpnMatch::<Arc<T>>::default();
 
-    if let Yaml::Array(seq) = value {
+    if let Yaml::Sequence(seq) = value {
         for (i, v) in seq.iter().enumerate() {
             let target = T::default();
             let type_name = target.type_name();
@@ -109,7 +109,7 @@ fn add_alpn_matched_backend(obj: &mut AlpnMatch<NodeName>, value: &Yaml) -> anyh
     let mut set_default = false;
     let mut name = NodeName::default();
 
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "set_default" => {
                 set_default =
@@ -117,7 +117,7 @@ fn add_alpn_matched_backend(obj: &mut AlpnMatch<NodeName>, value: &Yaml) -> anyh
                 Ok(())
             }
             "protocol" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         let protocol = crate::value::as_string(v)
                             .context(format!("invalid string value for {k}#{i}"))?;
@@ -160,7 +160,7 @@ fn add_alpn_matched_backend(obj: &mut AlpnMatch<NodeName>, value: &Yaml) -> anyh
 pub fn as_alpn_matched_backends(value: &Yaml) -> anyhow::Result<AlpnMatch<NodeName>> {
     let mut obj = AlpnMatch::<NodeName>::default();
 
-    if let Yaml::Array(seq) = value {
+    if let Yaml::Sequence(seq) = value {
         for (i, v) in seq.iter().enumerate() {
             add_alpn_matched_backend(&mut obj, v)
                 .context(format!("invalid alpn matched name value for element #{i}"))?;

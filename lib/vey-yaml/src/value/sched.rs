@@ -4,16 +4,16 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_compat::CpuAffinity;
 
 fn cpu_affinity_add_value(set: &mut CpuAffinity, v: &Yaml) -> anyhow::Result<()> {
     match v {
-        Yaml::String(s) => set
+        Yaml::Value(Scalar::String(s)) => set
             .parse_add(s)
             .map_err(|e| anyhow!("invalid CPU ID(s) string value {s}: {e}")),
-        Yaml::Integer(i) => {
+        Yaml::Value(Scalar::Integer(i)) => {
             let n = usize::try_from(*i)
                 .map_err(|e| anyhow!("invalid CPU ID integer value {}: {e}", *i))?;
             set.add_id(n)
@@ -26,7 +26,7 @@ fn cpu_affinity_add_value(set: &mut CpuAffinity, v: &Yaml) -> anyhow::Result<()>
 pub fn as_cpu_set(v: &Yaml) -> anyhow::Result<CpuAffinity> {
     let mut set = CpuAffinity::default();
 
-    if let Yaml::Array(seq) = v {
+    if let Yaml::Sequence(seq) = v {
         for (i, v) in seq.iter().enumerate() {
             cpu_affinity_add_value(&mut set, v)
                 .context(format!("invalid CPU ID list value for #{i}"))?;
@@ -58,7 +58,7 @@ mod tests {
         let yaml = yaml_str!("3");
         assert_eq!(as_cpu_set(&yaml).unwrap().cpu_id_list(), &[3]);
 
-        let yaml = Yaml::Integer(5);
+        let yaml = Yaml::Value(Scalar::Integer(5));
         assert_eq!(as_cpu_set(&yaml).unwrap().cpu_id_list(), &[5]);
 
         // valid range of CPU IDs
@@ -78,7 +78,7 @@ mod tests {
         assert!(as_cpu_set(&yaml).is_err());
 
         // invalid integer value
-        let yaml = Yaml::Integer(-1);
+        let yaml = Yaml::Value(Scalar::Integer(-1));
         assert!(as_cpu_set(&yaml).is_err());
 
         // invalid array value
@@ -91,7 +91,7 @@ mod tests {
         assert!(as_cpu_set(&yaml).is_err());
 
         // invalid type
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(as_cpu_set(&yaml).is_err());
     }
 }

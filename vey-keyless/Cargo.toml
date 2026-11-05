@@ -22,7 +22,7 @@ openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 tokio-rustls.workspace = true
 tokio = { workspace = true, features = ["time", "sync", "fs", "rt"] }
-yaml-rust.workspace = true
+saphyr.workspace = true
 jiff.workspace = true
 uuid.workspace = true
 url.workspace = true

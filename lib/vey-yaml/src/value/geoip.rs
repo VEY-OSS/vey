@@ -6,12 +6,12 @@
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_geoip_types::{ContinentCode, IpLocation, IpLocationBuilder, IsoCountryCode};
 
 pub fn as_iso_country_code(value: &Yaml) -> anyhow::Result<IsoCountryCode> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let country =
             IsoCountryCode::from_str(s).map_err(|_| anyhow!("invalid iso country code"))?;
         Ok(country)
@@ -23,7 +23,7 @@ pub fn as_iso_country_code(value: &Yaml) -> anyhow::Result<IsoCountryCode> {
 }
 
 pub fn as_continent_code(value: &Yaml) -> anyhow::Result<ContinentCode> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let country = ContinentCode::from_str(s).map_err(|_| anyhow!("invalid continent code"))?;
         Ok(country)
     } else {
@@ -34,7 +34,7 @@ pub fn as_continent_code(value: &Yaml) -> anyhow::Result<ContinentCode> {
 }
 
 pub fn as_ip_location(value: &Yaml) -> anyhow::Result<IpLocation> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut builder = IpLocationBuilder::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -110,9 +110,9 @@ mod tests {
         assert!(as_iso_country_code(&yaml_str!("INVALID")).is_err());
 
         // non-string types
-        assert!(as_iso_country_code(&Yaml::Integer(123)).is_err());
-        assert!(as_iso_country_code(&Yaml::Boolean(true)).is_err());
-        assert!(as_iso_country_code(&Yaml::Null).is_err());
+        assert!(as_iso_country_code(&Yaml::Value(Scalar::Integer(123))).is_err());
+        assert!(as_iso_country_code(&Yaml::Value(Scalar::Boolean(true))).is_err());
+        assert!(as_iso_country_code(&Yaml::Value(Scalar::Null)).is_err());
     }
 
     #[test]
@@ -138,9 +138,9 @@ mod tests {
         assert!(as_continent_code(&yaml_str!("INVALID")).is_err());
 
         // non-string types
-        assert!(as_continent_code(&Yaml::Integer(123)).is_err());
-        assert!(as_continent_code(&Yaml::Boolean(false)).is_err());
-        assert!(as_continent_code(&Yaml::Null).is_err());
+        assert!(as_continent_code(&Yaml::Value(Scalar::Integer(123))).is_err());
+        assert!(as_continent_code(&Yaml::Value(Scalar::Boolean(false))).is_err());
+        assert!(as_continent_code(&Yaml::Value(Scalar::Null)).is_err());
     }
 
     #[test]

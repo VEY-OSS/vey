@@ -5,7 +5,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use super::CertAgentConfig;
 
@@ -18,7 +18,7 @@ impl CertAgentConfig {
 
     pub fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut config = CertAgentConfig::default();
 
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -72,7 +72,7 @@ impl CertAgentConfig {
 
                 Ok(config)
             }
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let mut config = CertAgentConfig::default();
                 config
                     .set_query_peer_addr_by_yaml(value)
@@ -89,10 +89,12 @@ impl CertAgentConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::LoadableYamlNode;
+
     use std::time::Duration;
+
     use vey_yaml::value::as_socket_buffer_config;
     use vey_yaml::yaml_doc;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn parse_yaml_ok() {
@@ -181,7 +183,7 @@ mod tests {
 
         for (key, value) in test_cases {
             let yaml_str = format!("{key}: {value}");
-            let yaml = &YamlLoader::load_from_str(&yaml_str).unwrap()[0];
+            let yaml = &Yaml::load_from_str(&yaml_str).unwrap()[0];
             assert!(CertAgentConfig::parse_yaml(yaml).is_err());
         }
 
@@ -194,8 +196,8 @@ mod tests {
         assert!(CertAgentConfig::parse_yaml(&yaml).is_err());
 
         // Invalid YAML types
-        assert!(CertAgentConfig::parse_yaml(&yaml_rust::Yaml::Boolean(true)).is_err());
-        assert!(CertAgentConfig::parse_yaml(&yaml_rust::Yaml::Array(vec![])).is_err());
-        assert!(CertAgentConfig::parse_yaml(&yaml_rust::Yaml::Null).is_err());
+        assert!(CertAgentConfig::parse_yaml(&Yaml::Value(Scalar::Boolean(true))).is_err());
+        assert!(CertAgentConfig::parse_yaml(&Yaml::Sequence(vec![])).is_err());
+        assert!(CertAgentConfig::parse_yaml(&Yaml::Value(Scalar::Null)).is_err());
     }
 }

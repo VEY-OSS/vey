@@ -6,12 +6,12 @@
 
 use anyhow::{Context, anyhow};
 use log::warn;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_dpi::{H1InterceptionConfig, H2InterceptionConfig};
 
 pub fn as_h1_interception_config(value: &Yaml) -> anyhow::Result<H1InterceptionConfig> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut config = H1InterceptionConfig::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -65,7 +65,7 @@ pub fn as_h1_interception_config(value: &Yaml) -> anyhow::Result<H1InterceptionC
 }
 
 pub fn as_h2_interception_config(value: &Yaml) -> anyhow::Result<H2InterceptionConfig> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut config = H2InterceptionConfig::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -145,6 +145,7 @@ pub fn as_h2_interception_config(value: &Yaml) -> anyhow::Result<H2InterceptionC
 #[cfg(feature = "dpi")]
 mod tests {
     use super::*;
+
     use std::time::Duration;
 
     #[test]
@@ -173,7 +174,7 @@ mod tests {
         assert!(config.steal_forwarded_for);
 
         // default configuration
-        let yaml = Yaml::Hash(Default::default());
+        let yaml = Yaml::Mapping(Default::default());
         let config = as_h1_interception_config(&yaml).unwrap();
         assert_eq!(config.pipeline_size.get(), 10);
         assert_eq!(config.pipeline_read_idle_timeout, Duration::from_secs(300));
@@ -283,7 +284,7 @@ mod tests {
         assert!(as_h1_interception_config(&yaml).is_err());
 
         // non-map input
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(as_h1_interception_config(&yaml).is_err());
     }
 
@@ -328,7 +329,7 @@ mod tests {
         assert_eq!(config.max_header_list_size, 32000);
 
         // default configuration
-        let yaml = Yaml::Hash(Default::default());
+        let yaml = Yaml::Mapping(Default::default());
         let config = as_h2_interception_config(&yaml).unwrap();
         assert_eq!(config.max_header_list_size, 64 * 1024);
         assert_eq!(config.max_concurrent_streams, 128);
@@ -453,7 +454,7 @@ mod tests {
         assert!(as_h2_interception_config(&yaml).is_err());
 
         // non-map input
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(as_h2_interception_config(&yaml).is_err());
     }
 }

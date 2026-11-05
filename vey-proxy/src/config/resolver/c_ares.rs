@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_resolver::driver::c_ares::CAresDriverConfig;
 use vey_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
@@ -60,7 +60,7 @@ impl CAresResolverConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut resolver = Self::new(position);

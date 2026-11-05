@@ -6,7 +6,7 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 #[derive(Debug, Clone)]
 pub(crate) struct QatBackendConfig {
@@ -26,7 +26,7 @@ impl Default for QatBackendConfig {
 impl QatBackendConfig {
     pub(super) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut config = QatBackendConfig::default();
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "process_name" => {
@@ -41,7 +41,9 @@ impl QatBackendConfig {
                 })?;
                 Ok(config)
             }
-            Yaml::Null | Yaml::Boolean(true) => Ok(QatBackendConfig::default()),
+            Yaml::Value(Scalar::Null) | Yaml::Value(Scalar::Boolean(true)) => {
+                Ok(QatBackendConfig::default())
+            }
             _ => Err(anyhow!("yaml value type for `qat` backend should be `map`")),
         }
     }

@@ -13,7 +13,7 @@ use std::time::Duration;
 use anyhow::Context;
 use anyhow::anyhow;
 #[cfg(feature = "yaml")]
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_socket::BindAddr;
 use vey_types::net::{DnsEncryptionConfigBuilder, TcpMiscSockOpts, UdpMiscSockOpts};
@@ -88,7 +88,7 @@ impl HickoryDriverConfig {
     #[cfg(feature = "yaml")]
     fn parse_server_array(&mut self, addrs: &[Yaml]) -> anyhow::Result<()> {
         for (i, addr) in addrs.iter().enumerate() {
-            if let Yaml::String(addr) = addr {
+            if let Yaml::Value(Scalar::String(addr)) = addr {
                 self.add_server_str(addr)
                     .context(format!("#{i} is not a valid ip address"))?;
             } else {

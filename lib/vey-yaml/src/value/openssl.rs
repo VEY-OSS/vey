@@ -11,7 +11,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::net::{
     OpensslCertificatePair, OpensslClientConfigBuilder, OpensslInterceptionClientConfigBuilder,
@@ -25,7 +25,7 @@ fn as_certificates_from_single_element(
 ) -> anyhow::Result<Vec<X509>> {
     const MAX_FILE_SIZE: usize = 4_000_000; // 4MB
 
-    if let Yaml::String(s) = value
+    if let Yaml::Value(Scalar::String(s)) = value
         && s.trim_start().starts_with("--")
     {
         let certs = X509::stack_from_pem(s.as_bytes())
@@ -58,7 +58,7 @@ pub fn as_openssl_certificates(
     value: &Yaml,
     lookup_dir: Option<&Path>,
 ) -> anyhow::Result<Vec<X509>> {
-    if let Yaml::Array(seq) = value {
+    if let Yaml::Sequence(seq) = value {
         let mut certs = Vec::new();
         for (i, v) in seq.iter().enumerate() {
             let this_certs = as_certificates_from_single_element(v, lookup_dir)
@@ -77,7 +77,7 @@ pub fn as_openssl_private_key(
 ) -> anyhow::Result<PKey<Private>> {
     const MAX_FILE_SIZE: usize = 256_000; // 256KB
 
-    if let Yaml::String(s) = value
+    if let Yaml::Value(Scalar::String(s)) = value
         && s.trim_start().starts_with("--")
     {
         return PKey::private_key_from_pem(s.as_bytes())
@@ -97,7 +97,7 @@ pub fn as_openssl_certificate_pair(
     value: &Yaml,
     lookup_dir: Option<&Path>,
 ) -> anyhow::Result<OpensslCertificatePair> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut pair = OpensslCertificatePair::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -131,7 +131,7 @@ pub fn as_openssl_tlcp_certificate_pair(
     value: &Yaml,
     lookup_dir: Option<&Path>,
 ) -> anyhow::Result<OpensslTlcpCertificatePair> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut pair = OpensslTlcpCertificatePair::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -176,7 +176,7 @@ pub fn as_openssl_tlcp_certificate_pair(
 }
 
 fn as_openssl_protocol(value: &Yaml) -> anyhow::Result<OpensslProtocol> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         OpensslProtocol::from_str(s)
     } else {
         Err(anyhow!(
@@ -188,16 +188,16 @@ fn as_openssl_protocol(value: &Yaml) -> anyhow::Result<OpensslProtocol> {
 fn as_openssl_ciphers(value: &Yaml) -> anyhow::Result<Vec<String>> {
     let mut ciphers = Vec::new();
     match value {
-        Yaml::String(s) => {
+        Yaml::Value(Scalar::String(s)) => {
             for cipher in s.split(':') {
                 ciphers.push(cipher.to_owned());
             }
             Ok(ciphers)
         }
-        Yaml::Array(seq) => {
+        Yaml::Sequence(seq) => {
             for (i, v) in seq.iter().enumerate() {
-                if let Yaml::String(s) = v {
-                    ciphers.push(s.clone());
+                if let Yaml::Value(Scalar::String(s)) = v {
+                    ciphers.push(s.to_string());
                 } else {
                     return Err(anyhow!("invalid cipher string for #{i}"));
                 }
@@ -215,7 +215,7 @@ fn set_openssl_tls_client_config_builder(
     value: &Yaml,
     lookup_dir: Option<&Path>,
 ) -> anyhow::Result<OpensslClientConfigBuilder> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut cert_pair = OpensslCertificatePair::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -395,7 +395,7 @@ pub fn as_tls_interception_client_config_builder(
     value: &Yaml,
     lookup_dir: Option<&Path>,
 ) -> anyhow::Result<OpensslInterceptionClientConfigBuilder> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut builder = OpensslInterceptionClientConfigBuilder::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -499,12 +499,12 @@ pub fn as_openssl_tls_server_config_builder(
     value: &Yaml,
     lookup_dir: Option<&Path>,
 ) -> anyhow::Result<OpensslServerConfigBuilder> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut builder = OpensslServerConfigBuilder::empty();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "cert_pairs" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         let pair = as_openssl_certificate_pair(v, lookup_dir)
                             .context(format!("invalid openssl cert pair value for {k}#{i}"))?;
@@ -522,7 +522,7 @@ pub fn as_openssl_tls_server_config_builder(
                 Ok(())
             }
             "tlcp_cert_pairs" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         let pair = as_openssl_tlcp_certificate_pair(v, lookup_dir)
                             .context(format!("invalid openssl tlcp cert pair value for {k}#{i}"))?;
@@ -588,7 +588,7 @@ pub fn as_openssl_tls_server_config_builder(
 pub fn as_tls_interception_server_config_builder(
     value: &Yaml,
 ) -> anyhow::Result<OpensslInterceptionServerConfigBuilder> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut builder = OpensslInterceptionServerConfigBuilder::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -613,12 +613,14 @@ pub fn as_tls_interception_server_config_builder(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::LoadableYamlNode;
+
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration;
+
     use vey_types::net::TlsVersion;
-    use yaml_rust::YamlLoader;
 
     const TEST_CERT_PEM1: &str = include_str!("./test_data/test_cert1.pem");
     const TEST_CERT_PEM2: &str = include_str!("./test_data/test_cert2.pem");
@@ -659,20 +661,17 @@ mod tests {
         fs::write(&cert_path, TEST_CERT_PEM1).unwrap();
 
         // string value (PEM)
-        let yaml = Yaml::String(TEST_CERT_PEM1.to_string());
+        let yaml = yaml_str!(TEST_CERT_PEM1);
         let certs = as_openssl_certificates(&yaml, None).unwrap();
         assert!(!certs.is_empty());
 
         // file path
-        let yaml = YamlLoader::load_from_str(&format!("|-\n  {}", cert_path.display())).unwrap();
+        let yaml = Yaml::load_from_str(&format!("|-\n  {}", cert_path.display())).unwrap();
         let certs = as_openssl_certificates(&yaml[0], Some(test_dir_path)).unwrap();
         assert!(!certs.is_empty());
 
         // array of strings
-        let yaml = Yaml::Array(vec![
-            Yaml::String(TEST_CERT_PEM1.to_string()),
-            Yaml::String(TEST_CERT_PEM1.to_string()),
-        ]);
+        let yaml = Yaml::Sequence(vec![yaml_str!(TEST_CERT_PEM1), yaml_str!(TEST_CERT_PEM1)]);
         let certs = as_openssl_certificates(&yaml, None).unwrap();
         assert_eq!(certs.len(), 2);
     }
@@ -700,7 +699,7 @@ mod tests {
         let test_dir_path = temp_dir.path();
         let cert_path = test_dir_path.join("empty_cert.pem");
         fs::write(&cert_path, "").unwrap();
-        let yaml = YamlLoader::load_from_str(&format!("|-\n  {}", cert_path.display())).unwrap();
+        let yaml = Yaml::load_from_str(&format!("|-\n  {}", cert_path.display())).unwrap();
         assert!(as_openssl_certificates(&yaml[0], Some(test_dir_path)).is_err());
     }
 
@@ -712,12 +711,12 @@ mod tests {
         fs::write(&key_path, TEST_KEY_PEM1).unwrap();
 
         // string value (PEM)
-        let yaml = Yaml::String(TEST_KEY_PEM1.to_string());
+        let yaml = yaml_str!(TEST_KEY_PEM1);
         let key = as_openssl_private_key(&yaml, None).unwrap();
         assert!(key.private_key_to_pem_pkcs8().is_ok());
 
         // file path
-        let yaml = YamlLoader::load_from_str(&format!("|-\n  {}", key_path.display())).unwrap();
+        let yaml = Yaml::load_from_str(&format!("|-\n  {}", key_path.display())).unwrap();
         let key = as_openssl_private_key(&yaml[0], Some(test_dir_path)).unwrap();
         assert!(key.private_key_to_pem_pkcs8().is_ok());
     }
@@ -742,7 +741,7 @@ mod tests {
         let key_path = test_dir_path.join("test_key.pem");
         fs::write(&key_path, TEST_KEY_PEM1).unwrap();
 
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 certificate: |-
                     {}
@@ -756,7 +755,7 @@ mod tests {
         let pair = as_openssl_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
         assert!(pair.is_set());
 
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 cert: |-
                     {}
@@ -777,7 +776,7 @@ mod tests {
         let yaml = yaml_str!("invalid");
         assert!(as_openssl_certificate_pair(&yaml, None).is_err());
 
-        let yaml = Yaml::Boolean(false);
+        let yaml = Yaml::Value(Scalar::Boolean(false));
         assert!(as_openssl_certificate_pair(&yaml, None).is_err());
 
         // empty map
@@ -815,7 +814,7 @@ mod tests {
         let enc_key_path = test_dir_path.join("enc_key.pem");
         fs::write(&enc_key_path, TEST_KEY_PEM2).unwrap();
 
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 sign_certificate: |-
                     {}
@@ -842,7 +841,7 @@ mod tests {
         let yaml = yaml_str!("invalid");
         assert!(as_openssl_tlcp_certificate_pair(&yaml, None).is_err());
 
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(as_openssl_tlcp_certificate_pair(&yaml, None).is_err());
 
         // empty map
@@ -885,7 +884,7 @@ mod tests {
         fs::write(&sign_key_path, TEST_KEY_PEM1).unwrap();
         let enc_key_path = test_dir_path.join("enc_key.pem");
         fs::write(&enc_key_path, TEST_KEY_PEM2).unwrap();
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 cert: |-
                     {}
@@ -897,7 +896,7 @@ mod tests {
         ))
         .unwrap();
         let cert_pair = as_openssl_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 sign_certificate: |-
                     {}
@@ -917,7 +916,7 @@ mod tests {
         let tlcp_cert_pair =
             as_openssl_tlcp_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
 
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 protocol: "tls12"
                 min_tls_version: "tls1.2"
@@ -1034,7 +1033,7 @@ mod tests {
         fs::write(&cert_path, TEST_CERT_PEM1).unwrap();
         let key_path = test_dir_path.join("test_key.pem");
         fs::write(&key_path, TEST_KEY_PEM1).unwrap();
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
             cert: |-
                 {}
@@ -1073,7 +1072,7 @@ mod tests {
         fs::write(&sign_key_path, TEST_KEY_PEM1).unwrap();
         let enc_key_path = test_dir_path.join("enc_key.pem");
         fs::write(&enc_key_path, TEST_KEY_PEM2).unwrap();
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 cert: |-
                     {}
@@ -1085,7 +1084,7 @@ mod tests {
         ))
         .unwrap();
         let cert_pair = as_openssl_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 sign_certificate: |-
                     {}
@@ -1105,7 +1104,7 @@ mod tests {
         let tlcp_cert_pair =
             as_openssl_tlcp_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
 
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 protocol: "tls12"
                 tls_version_min: "tls1.2"
@@ -1229,7 +1228,7 @@ mod tests {
         let cert_path = test_dir_path.join("test_cert.pem");
         fs::write(&cert_path, TEST_CERT_PEM1).unwrap();
 
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 min_tls_version: "tls1.2"
                 max_tls_version: "tls1.3"
@@ -1271,7 +1270,7 @@ mod tests {
         assert_eq!(builder, expected);
 
         // alias keys
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 tls_version_min: "tls1.2"
                 tls_version_max: "tls1.3"
@@ -1305,7 +1304,7 @@ mod tests {
         let yaml = yaml_str!("invalid");
         assert!(as_tls_interception_client_config_builder(&yaml, None).is_err());
 
-        let yaml = Yaml::Boolean(false);
+        let yaml = Yaml::Value(Scalar::Boolean(false));
         assert!(as_tls_interception_client_config_builder(&yaml, None).is_err());
 
         // invalid min_tls_version
@@ -1341,7 +1340,7 @@ mod tests {
         fs::write(&sign_key_path, TEST_KEY_PEM1).unwrap();
         let enc_key_path = test_dir_path.join("enc_key.pem");
         fs::write(&enc_key_path, TEST_KEY_PEM2).unwrap();
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 cert: |-
                     {}
@@ -1354,7 +1353,7 @@ mod tests {
         .unwrap();
         let cert_pair1 = as_openssl_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
         let cert_pair2 = as_openssl_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 sign_certificate: |-
                     {}
@@ -1376,7 +1375,7 @@ mod tests {
         let tlcp_cert_pair2 =
             as_openssl_tlcp_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
 
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 cert_pairs:
                   certificate: |-
@@ -1425,7 +1424,7 @@ mod tests {
         assert_eq!(builder, expected);
 
         // array yaml type for cert_pairs and tlcp_cert_pairs
-        let yaml = YamlLoader::load_from_str(&format!(
+        let yaml = Yaml::load_from_str(&format!(
             r#"
                 cert_pairs:
                   - certificate: |-
@@ -1463,7 +1462,7 @@ mod tests {
         let yaml = yaml_str!("invalid");
         assert!(as_openssl_tls_server_config_builder(&yaml, None).is_err());
 
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(as_openssl_tls_server_config_builder(&yaml, None).is_err());
 
         // invalid cert_pairs
@@ -1550,7 +1549,7 @@ mod tests {
         let yaml = yaml_str!("invalid");
         assert!(as_tls_interception_server_config_builder(&yaml).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(as_tls_interception_server_config_builder(&yaml).is_err());
 
         // unknown key

@@ -8,7 +8,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use super::QueryPeer;
 use crate::IpLocateServiceConfig;
@@ -16,7 +16,7 @@ use crate::IpLocateServiceConfig;
 impl QueryPeer {
     fn parse_udp_yaml(v: &Yaml) -> anyhow::Result<Self> {
         match v {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut addr = None;
 
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -35,7 +35,7 @@ impl QueryPeer {
                     Err(anyhow!("no target address has been set"))
                 }
             }
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let addr = vey_yaml::value::as_env_sockaddr(v)?;
                 Ok(QueryPeer::Udp(addr))
             }
@@ -46,7 +46,7 @@ impl QueryPeer {
     #[cfg(unix)]
     fn parse_unix_yaml(v: &Yaml) -> anyhow::Result<Self> {
         match v {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut path: Option<PathBuf> = None;
 
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -65,7 +65,7 @@ impl QueryPeer {
                     Err(anyhow!("no path has been set"))
                 }
             }
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let path = vey_yaml::value::as_absolute_path(v)?;
                 Ok(QueryPeer::Unix(path))
             }
@@ -102,7 +102,7 @@ impl IpLocateServiceConfig {
 
     pub fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut config = IpLocateServiceConfig::default();
 
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -137,7 +137,7 @@ impl IpLocateServiceConfig {
                         Ok(())
                     }
                     "query_peer" => {
-                        if let Yaml::Hash(map) = v {
+                        if let Yaml::Mapping(map) = v {
                             vey_yaml::foreach_kv(map, |k, v| {
                                 config.set_query_peer_by_yaml_kv(k, v)
                             })
@@ -174,7 +174,7 @@ impl IpLocateServiceConfig {
 
                 Ok(config)
             }
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let mut config = IpLocateServiceConfig::default();
                 config
                     .set_query_peer_addr_by_yaml(value)
@@ -191,7 +191,9 @@ impl IpLocateServiceConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use std::net::SocketAddr;
+
     use vey_yaml::{yaml_doc, yaml_str};
 
     fn udp(addr: &str) -> QueryPeer {
@@ -301,19 +303,19 @@ mod tests {
 
     #[test]
     fn parse_invalid_yaml_types() {
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(IpLocateServiceConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(IpLocateServiceConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(IpLocateServiceConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Real("1.23".to_string());
+        let yaml = Yaml::Value(Scalar::FloatingPoint((1.23_f64).into()));
         assert!(IpLocateServiceConfig::parse_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(IpLocateServiceConfig::parse_yaml(&yaml).is_err());
     }
 

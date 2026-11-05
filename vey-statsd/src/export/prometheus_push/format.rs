@@ -372,7 +372,7 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use yaml_rust::YamlLoader;
+    use saphyr::{LoadableYamlNode, Yaml};
 
     use vey_types::metrics::{MetricTagName, MetricTagValue};
 
@@ -385,8 +385,8 @@ mod tests {
         PrometheusAggregateExport,
         mpsc::UnboundedReceiver<PrometheusEncodedBatch>,
     ) {
-        let docs = YamlLoader::load_from_str(yaml).unwrap();
-        let cfg = PrometheusPushExporterConfig::parse(docs[0].as_hash().unwrap(), None).unwrap();
+        let docs = Yaml::load_from_str(yaml).unwrap();
+        let cfg = PrometheusPushExporterConfig::parse(docs[0].as_mapping().unwrap(), None).unwrap();
         let (tx, rx) = mpsc::unbounded_channel();
         (PrometheusAggregateExport::new(&cfg, tx), rx)
     }
@@ -668,7 +668,7 @@ max_samples: 1
 
     #[test]
     fn http_body_is_snappy_block() {
-        let docs = YamlLoader::load_from_str(
+        let docs = Yaml::load_from_str(
             r#"
 name: p1
 server: 127.0.0.1
@@ -678,7 +678,7 @@ path: /api/v1/push
 "#,
         )
         .unwrap();
-        let cfg = PrometheusPushExporterConfig::parse(docs[0].as_hash().unwrap(), None).unwrap();
+        let cfg = PrometheusPushExporterConfig::parse(docs[0].as_mapping().unwrap(), None).unwrap();
         let mut http = PrometheusHttpExport::new(&cfg).unwrap();
         assert_eq!(http.api_path().as_str(), "/api/v1/push");
         assert_eq!(

@@ -10,7 +10,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 
@@ -34,16 +34,16 @@ impl SubnetMatchBuilder {
 
     pub(super) fn set_by_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
         match value {
-            Yaml::Hash(map) => vey_yaml::foreach_kv(map, |k, v| {
+            Yaml::Mapping(map) => vey_yaml::foreach_kv(map, |k, v| {
                 let escaper = NodeName::from_str(k)
                     .map_err(|e| anyhow!("the map key is not valid escaper name: {e}"))?;
                 let subnets = vey_yaml::value::as_list(v, vey_yaml::value::as_ip_network)?;
                 self.add_rule(escaper, subnets);
                 Ok(())
             }),
-            Yaml::Array(seq) => {
+            Yaml::Sequence(seq) => {
                 for (i, v) in seq.iter().enumerate() {
-                    let Yaml::Hash(map) = v else {
+                    let Yaml::Mapping(map) = v else {
                         return Err(anyhow!("yaml value type for #{i} should be map"));
                     };
 
@@ -108,7 +108,7 @@ impl<T> SubnetMatch<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
+    use saphyr::LoadableYamlNode;
 
     #[test]
     fn yaml_seq() {
@@ -121,7 +121,7 @@ mod tests {
             - fe80::/64
         "#;
 
-        let v = YamlLoader::load_from_str(conf).unwrap();
+        let v = Yaml::load_from_str(conf).unwrap();
         let mut builder = SubnetMatchBuilder::default();
         builder.set_by_yaml(&v[0]).unwrap();
 
@@ -159,7 +159,7 @@ mod tests {
           - fe80::/64
         "#;
 
-        let v = YamlLoader::load_from_str(conf).unwrap();
+        let v = Yaml::load_from_str(conf).unwrap();
         let mut builder = SubnetMatchBuilder::default();
         builder.set_by_yaml(&v[0]).unwrap();
 

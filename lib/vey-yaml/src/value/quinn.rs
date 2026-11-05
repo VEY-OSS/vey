@@ -5,12 +5,12 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::net::{QuinnEndpointConfig, QuinnTransportConfigBuilder};
 
 pub fn as_quinn_endpoint_config(value: &Yaml) -> anyhow::Result<QuinnEndpointConfig> {
-    let Yaml::Hash(map) = value else {
+    let Yaml::Mapping(map) = value else {
         return Err(anyhow!(
             "yaml value type for quinn endpoint config should be 'map'"
         ));
@@ -35,7 +35,7 @@ pub fn as_quinn_endpoint_config(value: &Yaml) -> anyhow::Result<QuinnEndpointCon
 }
 
 pub fn as_quinn_transport_config(value: &Yaml) -> anyhow::Result<QuinnTransportConfigBuilder> {
-    let Yaml::Hash(map) = value else {
+    let Yaml::Mapping(map) = value else {
         return Err(anyhow!(
             "yaml value type for quinn transport config should be 'map'"
         ));
@@ -82,6 +82,7 @@ pub fn as_quinn_transport_config(value: &Yaml) -> anyhow::Result<QuinnTransportC
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::Scalar;
     use std::time::Duration;
 
     #[test]
@@ -108,7 +109,7 @@ mod tests {
         assert_eq!(config, expected);
 
         // default configuration
-        let yaml = Yaml::Hash(Default::default());
+        let yaml = Yaml::Mapping(Default::default());
         let config = as_quinn_transport_config(&yaml).unwrap();
         let mut expected = QuinnTransportConfigBuilder::default();
         expected
@@ -152,7 +153,7 @@ mod tests {
         );
         assert!(as_quinn_transport_config(&yaml).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(as_quinn_transport_config(&yaml).is_err());
 
         // invalid value type

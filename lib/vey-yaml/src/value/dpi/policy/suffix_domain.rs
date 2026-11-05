@@ -5,7 +5,7 @@
  */
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_dpi::ProtocolInspectAction;
 use vey_types::acl::AclSuffixDomainRuleBuilder;
@@ -19,7 +19,7 @@ impl InspectRuleYamlParser for AclSuffixDomainRuleBuilder<ProtocolInspectAction>
         value: &Yaml,
     ) -> anyhow::Result<()> {
         match value {
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let host = crate::value::as_domain(value)?;
                 self.add_node(&host, action);
                 Ok(())
@@ -41,6 +41,7 @@ pub(super) fn as_suffix_domain_rule_builder(
 #[cfg(feature = "dpi")]
 mod tests {
     use super::*;
+
     use vey_types::literal_domain;
 
     #[test]
@@ -68,7 +69,7 @@ mod tests {
 
         // non-string YAML type
         let mut builder = AclSuffixDomainRuleBuilder::new(ProtocolInspectAction::Intercept);
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(
             builder
                 .add_rule_for_action(ProtocolInspectAction::Block, &yaml)
@@ -108,7 +109,7 @@ mod tests {
         );
         assert!(as_suffix_domain_rule_builder(&yaml).is_err());
 
-        let yaml = Yaml::Integer(42);
+        let yaml = Yaml::Value(Scalar::Integer(42));
         assert!(as_suffix_domain_rule_builder(&yaml).is_err());
     }
 }

@@ -12,7 +12,7 @@ description = "Worker runtimes for VEY services"
 anyhow.workspace = true
 log.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "rt", "sync", "net"] }
-yaml-rust = { workspace = true, optional = true }
+saphyr = { workspace = true, optional = true }
 vey-compat.workspace = true
 vey-openssl = { workspace = true, optional = true }
 vey-yaml = { workspace = true, optional = true, features = ["sched"] }
@@ -20,4 +20,4 @@ vey-yaml = { workspace = true, optional = true, features = ["sched"] }
 [features]
 default = []
 openssl-async-job = ["vey-openssl/async-job"]
-yaml = ["dep:vey-yaml", "dep:yaml-rust"]
+yaml = ["dep:vey-yaml", "dep:saphyr"]

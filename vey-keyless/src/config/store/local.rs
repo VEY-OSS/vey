@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use anyhow::anyhow;
 use log::{debug, warn};
 use openssl::pkey::{PKey, Private};
+use saphyr::Yaml;
 use tokio::sync::oneshot;
-use yaml_rust::{Yaml, yaml};
 
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
@@ -36,7 +36,7 @@ impl LocalKeyStoreConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = LocalKeyStoreConfig::new(position);

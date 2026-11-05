@@ -7,8 +7,10 @@ use std::collections::BTreeSet;
 
 use anyhow::{Context, anyhow};
 use indexmap::IndexSet;
+
 use vey_types::metrics::NodeName;
-use yaml_rust::{Yaml, yaml};
+
+use saphyr::Yaml;
 
 use vey_yaml::YamlDocPosition;
 
@@ -34,7 +36,7 @@ impl RouteMappingEscaperConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
@@ -53,7 +55,7 @@ impl RouteMappingEscaperConfig {
                 Ok(())
             }
             "next" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, escaper) in seq.iter().enumerate() {
                         let name = vey_yaml::value::as_metric_node_name(escaper)
                             .context(format!("invalid metrics name value for {k}#{i}"))?;

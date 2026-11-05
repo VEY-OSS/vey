@@ -4,7 +4,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use super::BlendedRuntimeConfig;
 
@@ -41,28 +41,30 @@ impl BlendedRuntimeConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::Scalar;
+    use vey_yaml::yaml_str;
 
     #[test]
     fn parse_by_yaml_kv_ok() {
         let mut config = BlendedRuntimeConfig::new();
 
-        let yaml = Yaml::Integer(4);
+        let yaml = Yaml::Value(Scalar::Integer(4));
         assert!(config.parse_by_yaml_kv("thread_number", &yaml).is_ok());
         assert_eq!(config.thread_number, Some(4));
 
-        let yaml = Yaml::String("worker_thread".to_string());
+        let yaml = yaml_str!("worker_thread");
         assert!(config.parse_by_yaml_kv("thread_name", &yaml).is_ok());
         assert_eq!(config.thread_name, Some("worker_thread".to_string()));
 
-        let yaml = Yaml::Integer(2048);
+        let yaml = Yaml::Value(Scalar::Integer(2048));
         assert!(config.parse_by_yaml_kv("thread_stack_size", &yaml).is_ok());
         assert_eq!(config.thread_stack_size, Some(2048));
 
-        let yaml = Yaml::String("2K".to_string());
+        let yaml = yaml_str!("2K");
         assert!(config.parse_by_yaml_kv("thread_stack_size", &yaml).is_ok());
         assert_eq!(config.thread_stack_size, Some(2000));
 
-        let yaml = Yaml::Integer(512);
+        let yaml = Yaml::Value(Scalar::Integer(512));
         assert!(
             config
                 .parse_by_yaml_kv("max_io_events_per_tick", &yaml)
@@ -75,19 +77,19 @@ mod tests {
     fn parse_by_yaml_kv_err() {
         let mut config = BlendedRuntimeConfig::new();
 
-        let yaml = Yaml::Integer(4);
+        let yaml = Yaml::Value(Scalar::Integer(4));
         assert!(config.parse_by_yaml_kv("invalid_key", &yaml).is_err());
 
-        let yaml = Yaml::String("four".to_string());
+        let yaml = yaml_str!("four");
         assert!(config.parse_by_yaml_kv("thread_number", &yaml).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(config.parse_by_yaml_kv("thread_name", &yaml).is_err());
 
-        let yaml = Yaml::String("invalid_size".to_string());
+        let yaml = yaml_str!("invalid_size");
         assert!(config.parse_by_yaml_kv("thread_stack_size", &yaml).is_err());
 
-        let yaml = Yaml::String("five".to_string());
+        let yaml = yaml_str!("five");
         assert!(
             config
                 .parse_by_yaml_kv("max_io_events_per_tick", &yaml)

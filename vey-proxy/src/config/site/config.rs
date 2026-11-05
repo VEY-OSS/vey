@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_dpi::MaybeProtocol;
 use vey_types::limit::RateLimitQuota;

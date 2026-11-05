@@ -7,7 +7,7 @@
 use std::sync::OnceLock;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use super::GeneralControllerConfig;
 
@@ -27,14 +27,14 @@ impl LocalControllerConfig {
 
     pub(crate) fn load(v: &Yaml) -> anyhow::Result<()> {
         match v {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut config = LocalControllerConfig::default();
                 vey_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
                 LOCAL_CONTROLLER_CONFIG
                     .set(config)
                     .map_err(|_| anyhow!("local controller config has already been set"))
             }
-            Yaml::Null => Ok(()),
+            Yaml::Value(Scalar::Null) => Ok(()),
             _ => Err(anyhow!("root value type should be hash")),
         }
     }

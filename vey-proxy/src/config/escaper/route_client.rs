@@ -8,8 +8,10 @@ use std::net::IpAddr;
 
 use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
+
 use vey_types::metrics::NodeName;
-use yaml_rust::{Yaml, yaml};
+
+use saphyr::Yaml;
 
 use vey_yaml::YamlDocPosition;
 
@@ -39,11 +41,11 @@ impl RouteClientEscaperConfig {
 
     fn foreach_rule<F>(k: &str, v: &Yaml, mut f: F) -> anyhow::Result<()>
     where
-        F: FnMut(&yaml::Hash) -> anyhow::Result<()>,
+        F: FnMut(&saphyr::Mapping) -> anyhow::Result<()>,
     {
-        if let Yaml::Array(seq) = v {
+        if let Yaml::Sequence(seq) = v {
             for (i, rule) in seq.iter().enumerate() {
-                if let Yaml::Hash(map) = rule {
+                if let Yaml::Mapping(map) = rule {
                     f(map).context(format!("failed to parse rule {k}#{i}"))?;
                 } else {
                     return Err(anyhow!("invalid value type for {k}#{i}"));
@@ -56,7 +58,7 @@ impl RouteClientEscaperConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
@@ -106,7 +108,7 @@ impl RouteClientEscaperConfig {
         Ok(())
     }
 
-    fn add_exact_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
+    fn add_exact_match(&mut self, map: &saphyr::Mapping) -> anyhow::Result<()> {
         let mut escaper = NodeName::default();
         let mut all_ipaddr = BTreeSet::<IpAddr>::new();
         vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -115,7 +117,7 @@ impl RouteClientEscaperConfig {
                 Ok(())
             }
             "ips" | "ip" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         let ip = vey_yaml::value::as_ipaddr(v)
                             .context(format!("invalid host value for {k}:{i}"))?;
@@ -139,7 +141,7 @@ impl RouteClientEscaperConfig {
         Ok(())
     }
 
-    fn add_subnet_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
+    fn add_subnet_match(&mut self, map: &saphyr::Mapping) -> anyhow::Result<()> {
         let mut escaper = NodeName::default();
         let mut all_subnets = BTreeSet::<IpNetwork>::new();
         vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -148,7 +150,7 @@ impl RouteClientEscaperConfig {
                 Ok(())
             }
             "subnets" | "subnet" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         let subnet = vey_yaml::value::as_ip_network(v)
                             .context(format!("invalid subnet value for {k}:{i}"))?;

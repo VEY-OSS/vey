@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_yaml::{HybridParser, YamlDocPosition};
 
@@ -32,7 +32,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AuditorConfig> {
     let doc = vey_yaml::load_doc(position)?;
-    if let Yaml::Hash(map) = doc {
+    if let Yaml::Mapping(map) = doc {
         let auditor = load_auditor(&map, Some(position.clone()))?;
         registry::add(auditor.clone(), true)?;
         Ok(auditor)
@@ -42,7 +42,7 @@ pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<Aud
 }
 
 fn load_auditor(
-    map: &yaml::Hash,
+    map: &saphyr::Mapping,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AuditorConfig> {
     let mut auditor = AuditorConfig::new(position);

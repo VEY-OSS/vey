@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_io_ext::StreamCopyConfig;
 use vey_tls_ticket::TlsTicketConfig;
@@ -75,7 +75,7 @@ impl TlsProxyServerConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = TlsProxyServerConfig::new(position);
@@ -277,11 +277,11 @@ impl ServerConfig for TlsProxyServerConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
+    use saphyr::LoadableYamlNode;
 
     #[test]
     fn parse_site_group() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: tls_in
 type: tls_proxy
@@ -291,7 +291,7 @@ site_group: local
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let server = TlsProxyServerConfig::parse(map, None).unwrap();
@@ -302,7 +302,7 @@ site_group: local
 
     #[test]
     fn reject_user_group() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: tls_in
 type: tls_proxy
@@ -313,7 +313,7 @@ user_group: visitors
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(TlsProxyServerConfig::parse(map, None).is_err());
@@ -321,7 +321,7 @@ user_group: visitors
 
     #[test]
     fn reject_global_tls_server() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: tls_in
 type: tls_proxy
@@ -335,7 +335,7 @@ global_tls_server:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(TlsProxyServerConfig::parse(map, None).is_err());
@@ -343,7 +343,7 @@ global_tls_server:
 
     #[test]
     fn reject_missing_site_group() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: tls_in
 type: tls_proxy
@@ -352,7 +352,7 @@ escaper: default
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(TlsProxyServerConfig::parse(map, None).is_err());

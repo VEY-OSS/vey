@@ -19,7 +19,7 @@ serde_json.workspace = true
 log.workspace = true
 bytes.workspace = true
 anyhow = { workspace = true, optional = true }
-yaml-rust = { workspace = true, optional = true }
+saphyr = { workspace = true, optional = true }
 vey-compat.workspace = true
 vey-datetime.workspace = true
 vey-io-sys.workspace = true
@@ -28,4 +28,4 @@ vey-yaml = { workspace = true, optional = true }
 
 [features]
 default = []
-yaml = ["dep:vey-yaml", "dep:yaml-rust", "dep:anyhow"]
+yaml = ["dep:vey-yaml", "dep:saphyr", "dep:anyhow"]

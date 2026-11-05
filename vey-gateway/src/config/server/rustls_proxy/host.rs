@@ -10,7 +10,7 @@ use anyhow::{Context, anyhow};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig};
 use rustls_pki_types::CertificateDer;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::collection::NamedValue;
 use vey_types::limit::RateLimitQuota;

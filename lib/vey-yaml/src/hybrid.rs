@@ -8,7 +8,7 @@ use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::{Scalar, Yaml};
 
 use super::YamlDocPosition;
 
@@ -27,13 +27,13 @@ impl HybridParser {
 
     pub fn foreach_map<F>(&self, value: &Yaml, f: F) -> anyhow::Result<()>
     where
-        F: Fn(&yaml::Hash, Option<YamlDocPosition>) -> anyhow::Result<()>,
+        F: Fn(&saphyr::Mapping, Option<YamlDocPosition>) -> anyhow::Result<()>,
     {
         match value {
-            Yaml::String(path) => self.load_path(path, &f).context(format!(
+            Yaml::Value(Scalar::String(path)) => self.load_path(path, &f).context(format!(
                 "value is a string {path}, which should be a valid path",
             ))?,
-            Yaml::Array(seq) => self
+            Yaml::Sequence(seq) => self
                 .load_array(seq, &f)
                 .context(format!("value is an array, with {} objects", seq.len()))?,
             _ => return Err(anyhow!("value should be a path or an array")),
@@ -53,14 +53,14 @@ impl HybridParser {
 
     fn load_array<F>(&self, entries: &[Yaml], f: &F) -> anyhow::Result<()>
     where
-        F: Fn(&yaml::Hash, Option<YamlDocPosition>) -> anyhow::Result<()>,
+        F: Fn(&saphyr::Mapping, Option<YamlDocPosition>) -> anyhow::Result<()>,
     {
         for (i, entry) in entries.iter().enumerate() {
             match entry {
-                Yaml::String(path) => self
+                Yaml::Value(Scalar::String(path)) => self
                     .load_path(path, f)
                     .context(format!("#{i}: failed to load path {path}"))?,
-                Yaml::Hash(value) => {
+                Yaml::Mapping(value) => {
                     f(value, None).context(format!("#{i}: failed to load map {value:?}"))?
                 }
                 _ => return Err(anyhow!("#{i}: value should be a path or a map")),
@@ -71,7 +71,7 @@ impl HybridParser {
 
     fn load_path<F>(&self, path: &str, f: &F) -> anyhow::Result<()>
     where
-        F: Fn(&yaml::Hash, Option<YamlDocPosition>) -> anyhow::Result<()>,
+        F: Fn(&saphyr::Mapping, Option<YamlDocPosition>) -> anyhow::Result<()>,
     {
         let path = self.get_final_path(path)?;
         if path.is_dir() {
@@ -95,7 +95,7 @@ impl HybridParser {
 
     fn load_dir<F>(&self, path: &Path, f: &F) -> anyhow::Result<()>
     where
-        F: Fn(&yaml::Hash, Option<YamlDocPosition>) -> anyhow::Result<()>,
+        F: Fn(&saphyr::Mapping, Option<YamlDocPosition>) -> anyhow::Result<()>,
     {
         for d_entry in std::fs::read_dir(path)? {
             let d_entry = d_entry?;
@@ -136,10 +136,10 @@ impl HybridParser {
 
     fn load_file<F>(&self, path: &Path, f: &F) -> anyhow::Result<()>
     where
-        F: Fn(&yaml::Hash, Option<YamlDocPosition>) -> anyhow::Result<()>,
+        F: Fn(&saphyr::Mapping, Option<YamlDocPosition>) -> anyhow::Result<()>,
     {
         super::foreach_doc(path, |i, doc| match doc {
-            Yaml::Hash(value) => {
+            Yaml::Mapping(value) => {
                 let position = YamlDocPosition {
                     path: PathBuf::from(path),
                     index: i,
@@ -158,10 +158,12 @@ impl HybridParser {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use std::fs;
     use std::io::Write;
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use yaml_rust::yaml::Hash;
+
+    use saphyr::Mapping;
 
     static TEST_DIR_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -216,29 +218,23 @@ mod tests {
 
         // String path
         create_test_file(&test_dir, "test.yaml", "key1: value1\nkey2: value2\n");
-        let yaml_path = Yaml::String("test.yaml".to_string());
+        let yaml_path = yaml_str!("test.yaml");
         let result = parser.foreach_map(&yaml_path, |hash, position| {
-            assert!(hash.contains_key(&Yaml::String("key1".to_string())));
+            assert!(hash.contains_key(&yaml_str!("key1")));
             assert!(position.is_some());
             Ok(())
         });
         assert!(result.is_ok());
 
         // Array value
-        let mut direct_hash = Hash::new();
-        direct_hash.insert(
-            Yaml::String("direct".to_string()),
-            Yaml::String("value".to_string()),
-        );
-        let yaml_array = Yaml::Array(vec![
-            Yaml::String("test.yaml".to_string()),
-            Yaml::Hash(direct_hash),
-        ]);
+        let mut direct_hash = Mapping::new();
+        direct_hash.insert(yaml_str!("direct"), yaml_str!("value"));
+        let yaml_array = Yaml::Sequence(vec![yaml_str!("test.yaml"), Yaml::Mapping(direct_hash)]);
         let result = parser.foreach_map(&yaml_array, |_, _| Ok(()));
         assert!(result.is_ok());
 
         // Invalid value type
-        let yaml_int = Yaml::Integer(42);
+        let yaml_int = Yaml::Value(Scalar::Integer(42));
         let result = parser.foreach_map(&yaml_int, |_, _| Ok(()));
         assert!(result.is_err());
     }
@@ -271,20 +267,14 @@ mod tests {
 
         // Mixed content
         create_test_file(&test_dir, "test.yaml", "file_key: file_value");
-        let mut direct_hash = Hash::new();
-        direct_hash.insert(
-            Yaml::String("hash_key".to_string()),
-            Yaml::String("hash_value".to_string()),
-        );
-        let entries = vec![
-            Yaml::String("test.yaml".to_string()),
-            Yaml::Hash(direct_hash),
-        ];
+        let mut direct_hash = Mapping::new();
+        direct_hash.insert(yaml_str!("hash_key"), yaml_str!("hash_value"));
+        let entries = vec![yaml_str!("test.yaml"), Yaml::Mapping(direct_hash)];
         let result = parser.load_array(&entries, &|_, _| Ok(()));
         assert!(result.is_ok());
 
         // Invalid entry
-        let entries = vec![Yaml::Integer(42)];
+        let entries = vec![Yaml::Value(Scalar::Integer(42))];
         let result = parser.load_array(&entries, &|_, _| Ok(()));
         assert!(result.is_err());
     }
@@ -359,17 +349,17 @@ mod tests {
 
         // Path validation error
         create_test_file(&test_dir, "test.yaml", "key: value");
-        let yaml_path = Yaml::String("test.yaml".to_string());
+        let yaml_path = yaml_str!("test.yaml");
         let result = parser.foreach_map(&yaml_path, |_, _| Err(anyhow!("callback error")));
         assert!(result.is_err());
 
         // String path error context
-        let yaml_path = Yaml::String("nonexistent.yaml".to_string());
+        let yaml_path = yaml_str!("nonexistent.yaml");
         let result = parser.foreach_map(&yaml_path, |_, _| Ok(()));
         assert!(result.is_err());
 
         // Array error context
-        let yaml_array = Yaml::Array(vec![Yaml::String("nonexistent.yaml".to_string())]);
+        let yaml_array = Yaml::Sequence(vec![yaml_str!("nonexistent.yaml")]);
         let result = parser.foreach_map(&yaml_array, |_, _| Ok(()));
         assert!(result.is_err());
     }

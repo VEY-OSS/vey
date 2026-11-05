@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
 use log::warn;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::metrics::NodeName;
 
@@ -19,7 +19,7 @@ use super::{StatsdBackend, StatsdClientConfig};
 impl StatsdBackend {
     pub fn parse_udp_yaml(v: &Yaml) -> anyhow::Result<Self> {
         match v {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut addr: Option<SocketAddr> = None;
                 let mut bind: Option<IpAddr> = None;
 
@@ -46,7 +46,7 @@ impl StatsdBackend {
                     Err(anyhow!("no target address has been set"))
                 }
             }
-            Yaml::String(s) => {
+            Yaml::Value(Scalar::String(s)) => {
                 let addr =
                     SocketAddr::from_str(s).map_err(|e| anyhow!("invalid SocketAddr: {e}"))?;
                 Ok(StatsdBackend::Udp(addr, None))
@@ -58,7 +58,7 @@ impl StatsdBackend {
     #[cfg(unix)]
     pub fn parse_unix_yaml(v: &Yaml) -> anyhow::Result<Self> {
         match v {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut path: Option<PathBuf> = None;
 
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -77,7 +77,7 @@ impl StatsdBackend {
                     Err(anyhow!("no path has been set"))
                 }
             }
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let path = vey_yaml::value::as_absolute_path(v)?;
                 Ok(StatsdBackend::Unix(path))
             }
@@ -88,7 +88,7 @@ impl StatsdBackend {
 
 impl StatsdClientConfig {
     pub fn parse_yaml(v: &Yaml, prefix: NodeName) -> anyhow::Result<Self> {
-        if let Yaml::Hash(map) = v {
+        if let Yaml::Mapping(map) = v {
             let mut config = StatsdClientConfig::with_prefix(prefix);
             vey_yaml::foreach_kv(map, |k, v| config.set_by_yaml_kv(k, v))?;
             Ok(config)
@@ -113,7 +113,7 @@ impl StatsdClientConfig {
                 self.set_backend(target);
             }
             "target" | "backend" => {
-                return if let Yaml::Hash(map) = v {
+                return if let Yaml::Mapping(map) = v {
                     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                         "udp" => {
                             let target = StatsdBackend::parse_udp_yaml(v)
@@ -166,8 +166,10 @@ impl StatsdClientConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use std::net::Ipv4Addr;
     use std::time::Duration;
+
     use vey_yaml::yaml_doc;
 
     fn default_node_name() -> NodeName {
@@ -205,10 +207,10 @@ mod tests {
         );
         assert!(StatsdBackend::parse_udp_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(StatsdBackend::parse_udp_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(StatsdBackend::parse_udp_yaml(&yaml).is_err());
     }
 
@@ -236,10 +238,10 @@ mod tests {
         );
         assert!(StatsdBackend::parse_unix_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(StatsdBackend::parse_unix_yaml(&yaml).is_err());
 
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(StatsdBackend::parse_unix_yaml(&yaml).is_err());
     }
 
@@ -450,19 +452,19 @@ mod tests {
         );
         assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
 
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
 
-        let yaml = Yaml::Real("1.23".to_string());
+        let yaml = Yaml::Value(Scalar::FloatingPoint((1.23_f64).into()));
         assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
 
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
     }
 }

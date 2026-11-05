@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use crate::YamlDocPosition;
 

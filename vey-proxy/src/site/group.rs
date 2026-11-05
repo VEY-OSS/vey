@@ -190,13 +190,12 @@ impl SiteGroup {
 mod tests {
     use std::str::FromStr;
 
-    use yaml_rust::YamlLoader;
-
     use super::*;
+    use saphyr::{LoadableYamlNode, Yaml};
 
     fn parse_group(s: &str) -> SiteGroupConfig {
-        let yaml = YamlLoader::load_from_str(s).unwrap();
-        let yaml_rust::Yaml::Hash(map) = &yaml[0] else {
+        let yaml = Yaml::load_from_str(s).unwrap();
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         SiteGroupConfig::parse(map, None).unwrap()

@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2024-2025 ByteDance and/or its affiliates.
  */
 
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_dpi::ProtocolInspectAction;
 use vey_types::acl::AclNetworkRuleBuilder;
@@ -34,6 +34,7 @@ pub(super) fn as_dst_subnet_rule_builder(
 #[cfg(feature = "dpi")]
 mod tests {
     use super::*;
+    use saphyr::Scalar;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     #[test]
@@ -67,7 +68,7 @@ mod tests {
         );
 
         // Non-string YAML input
-        let yaml = Yaml::Integer(42);
+        let yaml = Yaml::Value(Scalar::Integer(42));
         assert!(
             rule.add_rule_for_action(ProtocolInspectAction::Block, &yaml)
                 .is_err()
@@ -129,7 +130,7 @@ mod tests {
         assert!(as_dst_subnet_rule_builder(&yaml).is_err());
 
         // Non-string input
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(as_dst_subnet_rule_builder(&yaml).is_err());
     }
 }

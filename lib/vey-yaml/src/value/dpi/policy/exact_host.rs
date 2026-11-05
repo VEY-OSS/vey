@@ -4,7 +4,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_dpi::ProtocolInspectAction;
 use vey_types::acl::AclExactHostRule;
@@ -35,6 +35,7 @@ pub(super) fn as_exact_host_rule(
 #[cfg(feature = "dpi")]
 mod test {
     use super::*;
+    use saphyr::Scalar;
     use std::net::{IpAddr, Ipv4Addr};
     use vey_types::literal_domain;
 
@@ -69,7 +70,7 @@ mod test {
         );
 
         // non-string YAML input
-        let non_string_yaml = Yaml::Integer(123);
+        let non_string_yaml = Yaml::Value(Scalar::Integer(123));
         assert!(
             rule.add_rule_for_action(ProtocolInspectAction::Bypass, &non_string_yaml)
                 .is_err()
@@ -128,7 +129,7 @@ mod test {
         assert!(as_exact_host_rule(&yaml).is_err());
 
         // non-string input
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(as_exact_host_rule(&yaml).is_err())
     }
 }

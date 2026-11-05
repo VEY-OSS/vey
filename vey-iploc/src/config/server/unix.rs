@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 
@@ -26,7 +26,7 @@ impl UnixServerConfig {
         }
     }
 
-    pub(super) fn parse(map: &yaml::Hash) -> anyhow::Result<Self> {
+    pub(super) fn parse(map: &saphyr::Mapping) -> anyhow::Result<Self> {
         let mut server = UnixServerConfig::new();
         vey_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
         server.check()?;
@@ -81,10 +81,11 @@ impl ServerConfig for UnixServerConfig {
 mod tests {
     use super::super::ServerConfig;
     use super::*;
+    use saphyr::LoadableYamlNode;
 
     fn parse(text: &str) -> anyhow::Result<UnixServerConfig> {
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
-        let Yaml::Hash(map) = &docs[0] else {
+        let docs = Yaml::load_from_str(text).unwrap();
+        let Yaml::Mapping(map) = &docs[0] else {
             panic!("yaml root should be a map");
         };
         UnixServerConfig::parse(map)

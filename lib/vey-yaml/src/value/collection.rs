@@ -6,12 +6,12 @@
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::collection::SelectivePickPolicy;
 
 pub fn as_selective_pick_policy(value: &Yaml) -> anyhow::Result<SelectivePickPolicy> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let pick_policy =
             SelectivePickPolicy::from_str(s).map_err(|_| anyhow!("invalid pick policy"))?;
         Ok(pick_policy)
@@ -76,10 +76,10 @@ mod tests {
         assert!(as_selective_pick_policy(&value).is_err());
 
         // non-string value
-        let value = Yaml::Integer(1);
+        let value = Yaml::Value(Scalar::Integer(1));
         assert!(as_selective_pick_policy(&value).is_err());
 
-        let value = Yaml::Boolean(true);
+        let value = Yaml::Value(Scalar::Boolean(true));
         assert!(as_selective_pick_policy(&value).is_err());
     }
 }

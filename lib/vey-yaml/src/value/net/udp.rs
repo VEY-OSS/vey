@@ -7,14 +7,14 @@
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::net::{UdpConnectionTrackConfig, UdpListenConfig, UdpMiscSockOpts};
 
 pub fn as_udp_misc_sock_opts(v: &Yaml) -> anyhow::Result<UdpMiscSockOpts> {
     let mut config = UdpMiscSockOpts::default();
 
-    if let Yaml::Hash(map) = v {
+    if let Yaml::Mapping(map) = v {
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "time_to_live" | "ttl" => {
                 let ttl =
@@ -82,9 +82,9 @@ pub fn as_udp_misc_sock_opts(v: &Yaml) -> anyhow::Result<UdpMiscSockOpts> {
 
 fn set_udp_listen_scale(config: &mut UdpListenConfig, v: &Yaml) -> anyhow::Result<()> {
     match v {
-        Yaml::String(s) => {
-            if s.ends_with('%') {
-                let Ok(v) = f64::from_str(&s[..s.len() - 1]) else {
+        Yaml::Value(Scalar::String(s)) => {
+            if let Some(percent) = s.strip_suffix('%') {
+                let Ok(v) = f64::from_str(percent) else {
                     return Err(anyhow!("invalid percentage value {s}"));
                 };
                 config
@@ -107,17 +107,12 @@ fn set_udp_listen_scale(config: &mut UdpListenConfig, v: &Yaml) -> anyhow::Resul
                     .context(format!("unsupported float value {s}"))
             }
         }
-        Yaml::Integer(i) => config
+        Yaml::Value(Scalar::Integer(i)) => config
             .set_scale(*i as f64)
             .context(format!("unsupported integer value {i}")),
-        Yaml::Real(s) => {
-            let Ok(v) = f64::from_str(s) else {
-                return Err(anyhow!("invalid float value: {s}"));
-            };
-            config
-                .set_scale(v)
-                .context(format!("unsupported float value {s}"))
-        }
+        Yaml::Value(Scalar::FloatingPoint(n)) => config
+            .set_scale(**n)
+            .context(format!("unsupported float value {n}")),
         _ => Err(anyhow!(
             "yaml value type for udp listen scale value should be 'str' or 'float'"
         )),
@@ -128,16 +123,16 @@ pub fn as_udp_listen_config(value: &Yaml) -> anyhow::Result<UdpListenConfig> {
     let mut config = UdpListenConfig::default();
 
     match value {
-        Yaml::Integer(i) => {
+        Yaml::Value(Scalar::Integer(i)) => {
             let port = u16::try_from(*i).map_err(|e| anyhow!("out of range u16 value: {e}"))?;
             config.set_port(port);
         }
-        Yaml::String(_) => {
+        Yaml::Value(Scalar::String(_)) => {
             let addr = crate::value::as_env_sockaddr(value)
                 .context("invalid udp listen socket address value")?;
             config.set_socket_address(addr);
         }
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "addr" | "address" => {
                     let addr = crate::value::as_env_sockaddr(v).context(format!(
@@ -209,7 +204,7 @@ pub fn as_udp_listen_config(value: &Yaml) -> anyhow::Result<UdpListenConfig> {
 }
 
 pub fn as_udp_conn_track_config(value: &Yaml) -> anyhow::Result<UdpConnectionTrackConfig> {
-    let Yaml::Hash(map) = value else {
+    let Yaml::Mapping(map) = value else {
         return Err(anyhow!(
             "yaml value type for udp connection track config value should be 'map'"
         ));
@@ -264,6 +259,7 @@ pub fn as_udp_conn_track_config(value: &Yaml) -> anyhow::Result<UdpConnectionTra
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::LoadableYamlNode;
 
     #[test]
     fn as_udp_misc_sock_opts_ok() {
@@ -352,14 +348,14 @@ mod tests {
         let yaml = yaml_str!("a string");
         assert!(as_udp_misc_sock_opts(&yaml).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(as_udp_misc_sock_opts(&yaml).is_err());
     }
 
     #[test]
     fn as_udp_listen_config_ok() {
         // Integer port
-        let yaml = Yaml::Integer(3443);
+        let yaml = Yaml::Value(Scalar::Integer(3443));
         let parsed_config = as_udp_listen_config(&yaml).unwrap();
         let mut expected_config = UdpListenConfig::default();
         expected_config.set_port(3443);
@@ -461,7 +457,6 @@ mod tests {
         ))]
         {
             use vey_types::net::Interface;
-            use yaml_rust::YamlLoader;
 
             #[cfg(any(target_os = "linux", target_os = "android"))]
             const LOOPBACK_INTERFACE: &str = "lo";
@@ -475,7 +470,7 @@ mod tests {
                 "#,
             );
 
-            let v = &YamlLoader::load_from_str(&yaml_str).unwrap()[0];
+            let v = &Yaml::load_from_str(&yaml_str).unwrap()[0];
             let parsed_config = as_udp_listen_config(v).unwrap();
             assert_eq!(
                 parsed_config.interface(),
@@ -502,7 +497,7 @@ mod tests {
         assert!(as_udp_listen_config(&yaml).is_err());
 
         // Invalid type (boolean)
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(as_udp_listen_config(&yaml).is_err());
 
         // Empty hash map
@@ -510,7 +505,7 @@ mod tests {
         assert!(as_udp_listen_config(&yaml).is_err());
 
         // Out-of-range port
-        let yaml = Yaml::Integer(65536);
+        let yaml = Yaml::Value(Scalar::Integer(65536));
         assert!(as_udp_listen_config(&yaml).is_err());
 
         // Missing address

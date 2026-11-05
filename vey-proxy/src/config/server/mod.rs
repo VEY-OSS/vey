@@ -11,8 +11,8 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use log::warn;
+use saphyr::Yaml;
 use slog::Logger;
-use yaml_rust::{Yaml, yaml};
 
 use vey_daemon::config::TopoMap;
 use vey_io_ext::StreamCopyConfig;
@@ -193,7 +193,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyServerConfig> {
     let doc = vey_yaml::load_doc(position)?;
-    if let Yaml::Hash(map) = doc {
+    if let Yaml::Mapping(map) = doc {
         let server = load_server(&map, Some(position.clone()))?;
         let old_server = registry::add(server.clone());
         if let Err(e) = build_topology_map() {
@@ -214,7 +214,7 @@ pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<Any
 }
 
 fn load_server(
-    map: &yaml::Hash,
+    map: &saphyr::Mapping,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyServerConfig> {
     let server_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_SERVER_TYPE)?;

@@ -9,14 +9,14 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use super::SyslogBackendBuilder;
 
 impl SyslogBackendBuilder {
     pub(crate) fn parse_udp_yaml(value: &Yaml) -> anyhow::Result<Self> {
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut addr: Option<SocketAddr> = None;
                 let mut bind: Option<IpAddr> = None;
 
@@ -43,7 +43,7 @@ impl SyslogBackendBuilder {
                     Err(anyhow!("no target address has been set"))
                 }
             }
-            Yaml::String(s) => {
+            Yaml::Value(Scalar::String(s)) => {
                 let addr =
                     SocketAddr::from_str(s).map_err(|e| anyhow!("invalid SocketAddr: {e}"))?;
                 Ok(SyslogBackendBuilder::Udp(None, addr))
@@ -55,7 +55,7 @@ impl SyslogBackendBuilder {
     #[cfg(unix)]
     pub(crate) fn parse_unix_yaml(value: &Yaml) -> anyhow::Result<Self> {
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut path: Option<PathBuf> = None;
 
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -74,7 +74,7 @@ impl SyslogBackendBuilder {
                     Err(anyhow!("no path has been set"))
                 }
             }
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let path = vey_yaml::value::as_absolute_path(value)?;
                 Ok(SyslogBackendBuilder::Unix(Some(path)))
             }

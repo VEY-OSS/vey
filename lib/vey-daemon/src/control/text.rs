@@ -9,7 +9,6 @@ use std::str::SplitWhitespace;
 use anyhow::anyhow;
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Duration;
-use yaml_rust::Yaml;
 
 use vey_io_ext::{LimitedBufReadExt, LimitedWriteExt};
 
@@ -140,7 +139,7 @@ where
     fn set(&mut self, mut iter: SplitWhitespace) -> anyhow::Result<String> {
         if let Some(key) = iter.next() {
             if let Some(value) = iter.next() {
-                self.config.set(key, &Yaml::String(value.to_owned()))?;
+                self.config.set(key, &vey_yaml::yaml_str!(value))?;
                 Ok(format!("{key} = {value}"))
             } else {
                 Err(anyhow!("no value for {key} found"))

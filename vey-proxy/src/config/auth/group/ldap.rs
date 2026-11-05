@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use arcstr::ArcStr;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::net::{ConnectionPoolConfig, Host, OpensslClientConfigBuilder, UpstreamAddr};
 use vey_yaml::YamlDocPosition;
@@ -62,7 +62,7 @@ impl LdapUserGroupConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
@@ -136,7 +136,7 @@ impl LdapUserGroupConfig {
                 Ok(())
             }
             "unmanaged_user" => {
-                if let Yaml::Hash(map) = v {
+                if let Yaml::Mapping(map) = v {
                     let mut user = UserConfig::parse_yaml(map, self.basic.position.as_ref())?;
                     user.set_no_password();
                     self.unmanaged_user = Some(Arc::new(user));

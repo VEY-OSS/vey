@@ -4,7 +4,7 @@
  */
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 
@@ -20,7 +20,7 @@ impl DummyServerConfig {
         DummyServerConfig { name: name.clone() }
     }
 
-    pub(super) fn parse(map: &yaml::Hash) -> anyhow::Result<Self> {
+    pub(super) fn parse(map: &saphyr::Mapping) -> anyhow::Result<Self> {
         let mut server = DummyServerConfig {
             name: NodeName::default(),
         };

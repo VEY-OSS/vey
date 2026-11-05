@@ -8,7 +8,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::net::{ConnectionPoolConfig, HttpForwardedHeaderType, HttpKeepAliveConfig};
 
@@ -23,7 +23,7 @@ pub(crate) struct SiteHttpH1Config {
 
 impl SiteHttpH1Config {
     fn parse_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
-        let Yaml::Hash(map) = value else {
+        let Yaml::Mapping(map) = value else {
             return Err(anyhow!(
                 "yaml value type for 'site http h1' should be 'map'"
             ));
@@ -69,7 +69,7 @@ impl Default for SiteHttpH2Config {
 
 impl SiteHttpH2Config {
     fn parse_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
-        let Yaml::Hash(map) = value else {
+        let Yaml::Mapping(map) = value else {
             return Err(anyhow!(
                 "yaml value type for 'site http h2' should be 'map'"
             ));
@@ -114,7 +114,7 @@ pub(crate) struct SiteHttpConfig {
 
 impl SiteHttpConfig {
     pub(crate) fn parse_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
-        let Yaml::Hash(map) = value else {
+        let Yaml::Mapping(map) = value else {
             return Err(anyhow!("yaml value type for 'site http' should be 'map'"));
         };
         vey_yaml::foreach_kv(map, |k, v| self.set(k, v))

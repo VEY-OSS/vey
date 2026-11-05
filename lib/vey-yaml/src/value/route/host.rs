@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::net::Host;
 use vey_types::route::HostMatch;
@@ -27,7 +27,7 @@ where
 {
     let type_name = target.type_name();
 
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut exact_ip_vs = vec![];
         let mut exact_domain_vs = vec![];
         let mut suffix_domain_vs = vec![];
@@ -48,7 +48,7 @@ where
                 Ok(())
             }
             "exact_match" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         add_exact_host_match_value(v)
                             .context(format!("invalid host string value for {k}#{i}"))?;
@@ -60,7 +60,7 @@ where
                 Ok(())
             }
             "suffix_match" | "child_match" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         let domain = crate::value::as_domain(v)
                             .context(format!("invalid domain string value for {k}#{i}"))?;
@@ -157,7 +157,7 @@ where
 {
     let mut obj = HostMatch::<Arc<T>>::default();
 
-    if let Yaml::Array(seq) = value {
+    if let Yaml::Sequence(seq) = value {
         for (i, v) in seq.iter().enumerate() {
             let target = T::default();
             let type_name = target.type_name();
@@ -178,8 +178,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use std::net::IpAddr;
     use std::str::FromStr;
+
     use vey_types::literal_domain;
 
     // Define a test struct implementing YamlMapCallback
@@ -206,7 +208,7 @@ mod tests {
                     Ok(())
                 }
                 "value" => {
-                    self.value = value.as_i64().ok_or(anyhow!("invalid integer"))? as i32;
+                    self.value = value.as_integer().ok_or(anyhow!("invalid integer"))? as i32;
                     Ok(())
                 }
                 _ => Err(anyhow!("unknown key: {}", key)),

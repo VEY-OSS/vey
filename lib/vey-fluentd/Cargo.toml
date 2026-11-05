@@ -21,7 +21,7 @@ openssl.workspace = true
 constant_time_eq.workspace = true
 hex.workspace = true
 log.workspace = true
-yaml-rust = { workspace = true, optional = true }
+saphyr = { workspace = true, optional = true }
 vey-compat.workspace = true
 vey-io-ext.workspace = true
 vey-socket.workspace = true
@@ -31,4 +31,4 @@ vey-yaml = { workspace = true, optional = true, features = ["openssl"] }
 
 [features]
 default = []
-yaml = ["dep:vey-yaml", "dep:yaml-rust"]
+yaml = ["dep:vey-yaml", "dep:saphyr"]

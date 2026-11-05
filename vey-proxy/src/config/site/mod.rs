@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_daemon::config::TopoMap;
 use vey_yaml::{HybridParser, YamlDocPosition};
@@ -46,7 +46,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<SiteGroupConfig> {
     let doc = vey_yaml::load_doc(position)?;
-    if let Yaml::Hash(map) = doc {
+    if let Yaml::Mapping(map) = doc {
         let group = SiteGroupConfig::parse(&map, Some(position.clone()))?;
         let old_group = registry::add(group.clone());
         if let Err(e) = build_topology_map() {

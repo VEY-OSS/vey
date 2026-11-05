@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_daemon::log::LogConfig;
 
@@ -18,11 +18,11 @@ static TASK_DEFAULT_LOG_CONFIG_CONTAINER: OnceLock<LogConfig> = OnceLock::new();
 pub(crate) fn load(v: &Yaml, conf_dir: &Path, program_name: &str) -> anyhow::Result<()> {
     let mut default_log_config: Option<LogConfig> = None;
     match v {
-        Yaml::String(s) => {
+        Yaml::Value(Scalar::String(s)) => {
             let config = LogConfig::with_driver_name(s, program_name)?;
             default_log_config = Some(config);
         }
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                 "default" => {
                     let config = LogConfig::parse_yaml(v, conf_dir, program_name)
@@ -59,7 +59,7 @@ pub(crate) fn load(v: &Yaml, conf_dir: &Path, program_name: &str) -> anyhow::Res
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
         }
-        Yaml::Null => return Ok(()),
+        Yaml::Value(Scalar::Null) => return Ok(()),
         _ => return Err(anyhow!("invalid value type")),
     }
     if let Some(config) = default_log_config {

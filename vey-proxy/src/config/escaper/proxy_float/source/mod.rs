@@ -4,8 +4,8 @@
  */
 
 use anyhow::anyhow;
+use saphyr::{Scalar, Yaml};
 use url::Url;
-use yaml_rust::Yaml;
 
 use vey_yaml::YamlDocPosition;
 
@@ -29,7 +29,7 @@ impl ProxyFloatSource {
 
     pub(super) fn parse(v: &Yaml, position: Option<&YamlDocPosition>) -> anyhow::Result<Self> {
         match v {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let source_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_SOURCE_TYPE)?;
 
                 match vey_yaml::key::normalize(source_type).as_str() {
@@ -41,7 +41,7 @@ impl ProxyFloatSource {
                     _ => Err(anyhow!("unsupported source type {source_type}")),
                 }
             }
-            Yaml::String(url) => {
+            Yaml::Value(Scalar::String(url)) => {
                 let url = Url::parse(url)
                     .map_err(|e| anyhow!("the string value is not a valid url: {e}"))?;
                 let scheme = url.scheme();
@@ -53,7 +53,7 @@ impl ProxyFloatSource {
                     _ => Err(anyhow!("unsupported url scheme: {scheme}")),
                 }
             }
-            Yaml::Null => Ok(ProxyFloatSource::Passive),
+            Yaml::Value(Scalar::Null) => Ok(ProxyFloatSource::Passive),
             _ => Err(anyhow!("invalid value type for source")),
         }
     }

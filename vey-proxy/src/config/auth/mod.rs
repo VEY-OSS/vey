@@ -7,7 +7,7 @@
 use std::path::Path;
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_yaml::{HybridParser, YamlDocPosition};
 
@@ -42,7 +42,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyUserGroupConfig> {
     let doc = vey_yaml::load_doc(position)?;
-    if let Yaml::Hash(map) = doc {
+    if let Yaml::Mapping(map) = doc {
         let group = load_user_group(&map, Some(position.clone()))?;
         registry::add(group.clone(), true)?;
         Ok(group)
@@ -52,7 +52,7 @@ pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<Any
 }
 
 fn load_user_group(
-    map: &yaml::Hash,
+    map: &saphyr::Mapping,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyUserGroupConfig> {
     let group_type =

@@ -7,7 +7,7 @@
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::net::{
     HappyEyeballsConfig, TcpConnectConfig, TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts,
@@ -15,9 +15,9 @@ use vey_types::net::{
 
 fn set_tcp_listen_scale(config: &mut TcpListenConfig, v: &Yaml) -> anyhow::Result<()> {
     match v {
-        Yaml::String(s) => {
-            if s.ends_with('%') {
-                let Ok(v) = f64::from_str(&s[..s.len() - 1]) else {
+        Yaml::Value(Scalar::String(s)) => {
+            if let Some(percent) = s.strip_suffix('%') {
+                let Ok(v) = f64::from_str(percent) else {
                     return Err(anyhow!("invalid percentage value {s}"));
                 };
                 config
@@ -40,17 +40,12 @@ fn set_tcp_listen_scale(config: &mut TcpListenConfig, v: &Yaml) -> anyhow::Resul
                     .context(format!("unsupported float value {s}"))
             }
         }
-        Yaml::Integer(i) => config
+        Yaml::Value(Scalar::Integer(i)) => config
             .set_scale(*i as f64)
             .context(format!("unsupported integer value {i}")),
-        Yaml::Real(s) => {
-            let Ok(v) = f64::from_str(s) else {
-                return Err(anyhow!("invalid float value: {s}"));
-            };
-            config
-                .set_scale(v)
-                .context(format!("unsupported float value {s}"))
-        }
+        Yaml::Value(Scalar::FloatingPoint(n)) => config
+            .set_scale(**n)
+            .context(format!("unsupported float value {n}")),
         _ => Err(anyhow!(
             "yaml value type for tcp listen scale value should be 'str' or 'float'"
         )),
@@ -61,16 +56,16 @@ pub fn as_tcp_listen_config(value: &Yaml) -> anyhow::Result<TcpListenConfig> {
     let mut config = TcpListenConfig::default();
 
     match value {
-        Yaml::Integer(i) => {
+        Yaml::Value(Scalar::Integer(i)) => {
             let port = u16::try_from(*i).map_err(|e| anyhow!("out of range u16 value: {e}"))?;
             config.set_port(port);
         }
-        Yaml::String(_) => {
+        Yaml::Value(Scalar::String(_)) => {
             let addr = crate::value::as_env_sockaddr(value)
                 .context("invalid tcp listen socket address value")?;
             config.set_socket_address(addr);
         }
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "addr" | "address" => {
                     let addr = crate::value::as_env_sockaddr(v).context(format!(
@@ -174,7 +169,7 @@ pub fn as_tcp_listen_config(value: &Yaml) -> anyhow::Result<TcpListenConfig> {
 }
 
 pub fn as_tcp_connect_config(v: &Yaml) -> anyhow::Result<TcpConnectConfig> {
-    if let Yaml::Hash(map) = v {
+    if let Yaml::Mapping(map) = v {
         let mut config = TcpConnectConfig::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -200,7 +195,7 @@ pub fn as_tcp_connect_config(v: &Yaml) -> anyhow::Result<TcpConnectConfig> {
 }
 
 pub fn as_happy_eyeballs_config(v: &Yaml) -> anyhow::Result<HappyEyeballsConfig> {
-    if let Yaml::Hash(map) = v {
+    if let Yaml::Mapping(map) = v {
         let mut config = HappyEyeballsConfig::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -239,7 +234,7 @@ pub fn as_tcp_keepalive_config(v: &Yaml) -> anyhow::Result<TcpKeepAliveConfig> {
     let mut config = TcpKeepAliveConfig::default();
 
     match v {
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "enable" => {
                     let enable = crate::value::as_bool(v)?;
@@ -264,7 +259,7 @@ pub fn as_tcp_keepalive_config(v: &Yaml) -> anyhow::Result<TcpKeepAliveConfig> {
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
         }
-        Yaml::Boolean(enable) => {
+        Yaml::Value(Scalar::Boolean(enable)) => {
             config.set_enable(*enable);
         }
         _ => {
@@ -281,7 +276,7 @@ pub fn as_tcp_keepalive_config(v: &Yaml) -> anyhow::Result<TcpKeepAliveConfig> {
 pub fn as_tcp_misc_sock_opts(v: &Yaml) -> anyhow::Result<TcpMiscSockOpts> {
     let mut config = TcpMiscSockOpts::default();
 
-    if let Yaml::Hash(map) = v {
+    if let Yaml::Mapping(map) = v {
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "no_delay" => {
                 let no_delay =
@@ -373,9 +368,9 @@ pub fn as_tcp_misc_sock_opts(v: &Yaml) -> anyhow::Result<TcpMiscSockOpts> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use std::net::{IpAddr, Ipv6Addr, SocketAddr};
     use std::time::Duration;
-    use yaml_rust::Yaml;
 
     use vey_types::net::{
         HappyEyeballsConfig, TcpConnectConfig, TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts,
@@ -444,7 +439,7 @@ mod tests {
         let mut cfg = TcpListenConfig::default();
         assert!(set_tcp_listen_scale(&mut cfg, &yaml_map["scale"]).is_ok());
 
-        let yaml_value = Yaml::Real("2.5".to_string());
+        let yaml_value = Yaml::Value(Scalar::FloatingPoint((2.5_f64).into()));
         let mut cfg = TcpListenConfig::default();
         assert!(set_tcp_listen_scale(&mut cfg, &yaml_value).is_ok());
 

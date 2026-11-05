@@ -6,7 +6,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 
@@ -26,7 +26,7 @@ impl SiteGroupImportConfig {
     }
 
     pub(super) fn parse(v: &Yaml) -> anyhow::Result<Self> {
-        let Yaml::Hash(map) = v else {
+        let Yaml::Mapping(map) = v else {
             return Err(anyhow!("site group import value should be a map"));
         };
 

@@ -7,14 +7,14 @@
 use std::path::Path;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use super::FluentdClientConfig;
 
 impl FluentdClientConfig {
     pub fn parse_yaml(value: &Yaml, lookup_dir: Option<&Path>) -> anyhow::Result<Self> {
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut config = FluentdClientConfig::default();
 
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
@@ -108,12 +108,12 @@ impl FluentdClientConfig {
 
                 Ok(config)
             }
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let addr = vey_yaml::value::as_env_sockaddr(value)?;
                 let config = FluentdClientConfig::new(addr);
                 Ok(config)
             }
-            Yaml::Null => {
+            Yaml::Value(Scalar::Null) => {
                 let config = FluentdClientConfig::default();
                 Ok(config)
             }
@@ -127,6 +127,7 @@ impl FluentdClientConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use vey_yaml::{yaml_doc, yaml_str};
 
     #[test]
@@ -251,7 +252,7 @@ mod tests {
 
     #[test]
     fn parse_null() {
-        let config = FluentdClientConfig::parse_yaml(&Yaml::Null, None).unwrap();
+        let config = FluentdClientConfig::parse_yaml(&Yaml::Value(Scalar::Null), None).unwrap();
         assert_eq!(config.server_addr.port(), 24224);
         assert!(config.shared_key.is_empty());
         assert!(config.username.is_empty());
@@ -261,19 +262,19 @@ mod tests {
     #[test]
     fn parse_invalid_yaml_types() {
         // Array
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
 
         // Integer
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
 
         // Boolean
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
 
         // Float
-        let yaml = Yaml::Real("1.23".to_string());
+        let yaml = Yaml::Value(Scalar::FloatingPoint((1.23_f64).into()));
         assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
     }
 }

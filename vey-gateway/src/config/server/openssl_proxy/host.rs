@@ -15,20 +15,19 @@ use openssl::ssl::{
 use openssl::stack::Stack;
 use openssl::x509::X509;
 use openssl::x509::store::X509StoreBuilder;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::collection::NamedValue;
 use vey_types::limit::RateLimitQuota;
 use vey_types::metrics::NodeName;
+#[cfg(tongsuo)]
+use vey_types::net::OpensslTlcpCertificatePair;
 use vey_types::net::{
     OpensslCertificatePair, OpensslServerSessionCache, OpensslSessionIdContext, OpensslTicketKey,
     RollingTicketer, TcpSockSpeedLimitConfig,
 };
 use vey_types::route::AlpnMatch;
 use vey_yaml::{YamlDocPosition, YamlMapCallback};
-
-#[cfg(tongsuo)]
-use vey_types::net::OpensslTlcpCertificatePair;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct OpensslHostConfig {

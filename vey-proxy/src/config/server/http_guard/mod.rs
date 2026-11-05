@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_io_ext::StreamCopyConfig;
 use vey_tls_ticket::TlsTicketConfig;
@@ -122,7 +122,7 @@ impl HttpGuardServerConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = HttpGuardServerConfig::new(position);
@@ -376,11 +376,11 @@ impl ServerConfig for HttpGuardServerConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
+    use saphyr::LoadableYamlNode;
 
     #[test]
     fn reject_hosts_with_site_group() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local_in
 type: http_guard
@@ -393,7 +393,7 @@ hosts:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(HttpGuardServerConfig::parse(map, None).is_err());
@@ -401,7 +401,7 @@ hosts:
 
     #[test]
     fn parse_site_group_and_auditor() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: http_in
 type: http_guard
@@ -412,7 +412,7 @@ auditor: icap_waf
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let server = HttpGuardServerConfig::parse(map, None).unwrap();
@@ -423,7 +423,7 @@ auditor: icap_waf
 
     #[test]
     fn reject_user_group() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: http_in
 type: http_guard
@@ -434,7 +434,7 @@ user_group: visitors
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(HttpGuardServerConfig::parse(map, None).is_err());
@@ -442,7 +442,7 @@ user_group: visitors
 
     #[test]
     fn parse_http_h1_h2() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: http_in
 type: http_guard
@@ -457,7 +457,7 @@ h2:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let server = HttpGuardServerConfig::parse(map, None).unwrap();
@@ -468,7 +468,7 @@ h2:
 
     #[test]
     fn reject_legacy_top_level_http_keys() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: http_in
 type: http_guard
@@ -479,7 +479,7 @@ pipeline_size: 4
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(HttpGuardServerConfig::parse(map, None).is_err());
@@ -487,7 +487,7 @@ pipeline_size: 4
 
     #[test]
     fn reject_nested_http_map() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: http_in
 type: http_guard
@@ -499,7 +499,7 @@ http:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(HttpGuardServerConfig::parse(map, None).is_err());

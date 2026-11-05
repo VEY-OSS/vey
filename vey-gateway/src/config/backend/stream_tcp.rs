@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_histogram::HistogramMetricsConfig;
 use vey_types::collection::SelectivePickPolicy;
@@ -43,7 +43,7 @@ impl StreamTcpBackendConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut connector = StreamTcpBackendConfig::new(position);
@@ -77,7 +77,7 @@ impl StreamTcpBackendConfig {
                 Ok(())
             }
             "discover_data" => {
-                self.discover_data = DiscoverRegisterData::Yaml(v.clone());
+                self.discover_data = DiscoverRegisterData::from_yaml(v);
                 Ok(())
             }
             "peer_pick_policy" => {

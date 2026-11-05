@@ -5,7 +5,7 @@
  */
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use super::CAresDriverConfig;
 
@@ -13,8 +13,8 @@ impl CAresDriverConfig {
     pub fn set_by_yaml_kv(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match vey_yaml::key::normalize(k).as_str() {
             "server" => match v {
-                Yaml::String(addrs) => self.parse_server_str(addrs),
-                Yaml::Array(seq) => self.parse_server_array(seq),
+                Yaml::Value(Scalar::String(addrs)) => self.parse_server_str(addrs),
+                Yaml::Sequence(seq) => self.parse_server_array(seq),
                 _ => Err(anyhow!("invalid yaml value type, expect string / array")),
             },
             "each_timeout" => {
@@ -77,9 +77,11 @@ impl CAresDriverConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use std::net::{Ipv4Addr, Ipv6Addr};
     use std::str::FromStr;
     use std::time::Duration;
+
     use vey_yaml::yaml_doc;
 
     #[test]
@@ -102,7 +104,7 @@ mod tests {
                 positive_max_ttl: 3600
             "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             config.set_by_yaml_kv(k.as_str().unwrap(), v).unwrap();
         }
 
@@ -139,7 +141,7 @@ mod tests {
                 round_robin: false
             "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             config.set_by_yaml_kv(k.as_str().unwrap(), v).unwrap();
         }
 
@@ -160,7 +162,7 @@ mod tests {
                 protective_cache_ttl: 180
             "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             config.set_by_yaml_kv(k.as_str().unwrap(), v).unwrap();
         }
 
@@ -189,7 +191,7 @@ mod tests {
                 invalid_key: "value"
             "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             assert!(config.set_by_yaml_kv(k.as_str().unwrap(), v).is_err());
         }
 
@@ -199,7 +201,7 @@ mod tests {
                 server: [456, "valid.server.com"]
             "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             assert!(config.set_by_yaml_kv(k.as_str().unwrap(), v).is_err());
         }
 
@@ -209,7 +211,7 @@ mod tests {
                 server: "0.0.0.0 invalid-server 255.255.255.255"
             "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             assert!(config.set_by_yaml_kv(k.as_str().unwrap(), v).is_err());
         }
     }
@@ -223,7 +225,7 @@ mod tests {
                 positive_max_ttl: 300
             "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             config.set_by_yaml_kv(k.as_str().unwrap(), v).unwrap();
         }
         assert!(config.check().is_ok());

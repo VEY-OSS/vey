@@ -11,7 +11,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use c_ares_resolver::FutureResolver;
 use indexmap::IndexSet;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use super::CAresResolver;
 use crate::BoxResolverDriver;
@@ -82,7 +82,7 @@ impl CAresDriverConfig {
 
     fn parse_server_array(&mut self, addrs: &[Yaml]) -> anyhow::Result<()> {
         for (i, addr) in addrs.iter().enumerate() {
-            if let Yaml::String(addr) = addr {
+            if let Yaml::Value(Scalar::String(addr)) = addr {
                 self.add_server(addr)
                     .context(format!("#{i} is not a valid server"))?;
             } else {

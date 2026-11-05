@@ -4,7 +4,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
@@ -62,7 +62,7 @@ pub(crate) fn load_all(v: &Yaml) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn load_server(map: &yaml::Hash) -> anyhow::Result<AnyServerConfig> {
+fn load_server(map: &saphyr::Mapping) -> anyhow::Result<AnyServerConfig> {
     let server_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_SERVER_TYPE)?;
     match vey_yaml::key::normalize(server_type).as_str() {
         "dummy" => {

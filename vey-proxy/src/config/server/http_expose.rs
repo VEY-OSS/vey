@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_io_ext::StreamCopyConfig;
 use vey_tls_ticket::TlsTicketConfig;
@@ -126,7 +126,7 @@ impl HttpExposeServerConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = HttpExposeServerConfig::new(position);
@@ -413,11 +413,11 @@ impl ServerConfig for HttpExposeServerConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
+    use saphyr::LoadableYamlNode;
 
     #[test]
     fn reject_hosts_with_site_group() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local_in
 type: http_expose
@@ -430,7 +430,7 @@ hosts:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(HttpExposeServerConfig::parse(map, None).is_err());
@@ -438,7 +438,7 @@ hosts:
 
     #[test]
     fn parse_site_group_only() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local_in
 type: http_expose
@@ -449,7 +449,7 @@ user_group: local_visitors
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let server = HttpExposeServerConfig::parse(map, None).unwrap();

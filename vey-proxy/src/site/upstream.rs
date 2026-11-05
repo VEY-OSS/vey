@@ -175,12 +175,11 @@ mod tests {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
-    use yaml_rust::YamlLoader;
-
     use super::*;
+    use saphyr::{LoadableYamlNode, Yaml};
 
     fn parse(yaml: &str) -> SiteUpstreamConfig {
-        let docs = YamlLoader::load_from_str(yaml).unwrap();
+        let docs = Yaml::load_from_str(yaml).unwrap();
         SiteUpstreamConfig::parse(&docs[0]).unwrap()
     }
 

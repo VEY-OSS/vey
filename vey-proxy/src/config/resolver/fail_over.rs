@@ -6,7 +6,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_resolver::ResolverRuntimeConfig;
 use vey_resolver::driver::fail_over::FailOverDriverStaticConfig;
@@ -40,7 +40,7 @@ impl FailOverResolverConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut resolver = Self::new(position);

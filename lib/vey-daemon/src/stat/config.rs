@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 
 use anyhow::anyhow;
 use log::warn;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_statsd_client::StatsdClientConfig;
 use vey_types::metrics::NodeName;
@@ -37,6 +37,7 @@ pub fn load(v: &Yaml, prefix: &str) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use vey_yaml::yaml_doc;
 
     #[test]

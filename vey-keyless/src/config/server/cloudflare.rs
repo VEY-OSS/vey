@@ -9,8 +9,8 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
+use saphyr::Yaml;
 use slog::Logger;
-use yaml_rust::{Yaml, yaml};
 
 use vey_histogram::HistogramMetricsConfig;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -56,7 +56,7 @@ impl CloudflareServerConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = CloudflareServerConfig::new(position);

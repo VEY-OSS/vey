@@ -5,7 +5,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::net::ConnectionPoolConfig;
 
@@ -13,7 +13,7 @@ pub fn update_connection_pool_config(
     config: &mut ConnectionPoolConfig,
     value: &Yaml,
 ) -> anyhow::Result<()> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "check_interval" => {
                 let interval = crate::humanize::as_duration(v)

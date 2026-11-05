@@ -4,7 +4,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::limit::{GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig};
 use vey_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
@@ -12,13 +12,13 @@ use vey_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
 pub fn as_tcp_sock_speed_limit(v: &Yaml) -> anyhow::Result<TcpSockSpeedLimitConfig> {
     let mut config = TcpSockSpeedLimitConfig::default();
     match v {
-        Yaml::String(_) | Yaml::Integer(_) => {
+        Yaml::Value(_) => {
             let limit = crate::humanize::as_usize(v).context("invalid humanize usize value")?;
             config.shift_millis = vey_types::net::RATE_LIMIT_SHIFT_MILLIS_DEFAULT;
             config.max_north = limit;
             config.max_south = limit;
         }
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "shift" | "shift_millis" => {
                     config.shift_millis =
@@ -47,13 +47,13 @@ pub fn as_tcp_sock_speed_limit(v: &Yaml) -> anyhow::Result<TcpSockSpeedLimitConf
 pub fn as_udp_sock_speed_limit(v: &Yaml) -> anyhow::Result<UdpSockSpeedLimitConfig> {
     let mut config = UdpSockSpeedLimitConfig::default();
     match v {
-        Yaml::String(_) | Yaml::Integer(_) => {
+        Yaml::Value(_) => {
             let limit = crate::humanize::as_usize(v).context("invalid humanize usize value")?;
             config.shift_millis = vey_types::net::RATE_LIMIT_SHIFT_MILLIS_DEFAULT;
             config.max_north_bytes = limit;
             config.max_south_bytes = limit;
         }
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "shift" | "shift_millis" => {
                     config.shift_millis =
@@ -91,11 +91,11 @@ pub fn as_udp_sock_speed_limit(v: &Yaml) -> anyhow::Result<UdpSockSpeedLimitConf
 
 pub fn as_global_stream_speed_limit(v: &Yaml) -> anyhow::Result<GlobalStreamSpeedLimitConfig> {
     match v {
-        Yaml::String(_) | Yaml::Integer(_) => {
+        Yaml::Value(_) => {
             let limit = crate::humanize::as_u64(v).context("invalid humanize u64 value")?;
             Ok(GlobalStreamSpeedLimitConfig::per_second(limit))
         }
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             let mut config = GlobalStreamSpeedLimitConfig::default();
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "replenish_interval" => {
@@ -127,11 +127,11 @@ pub fn as_global_stream_speed_limit(v: &Yaml) -> anyhow::Result<GlobalStreamSpee
 
 pub fn as_global_datagram_speed_limit(v: &Yaml) -> anyhow::Result<GlobalDatagramSpeedLimitConfig> {
     match v {
-        Yaml::String(_) | Yaml::Integer(_) => {
+        Yaml::Value(_) => {
             let limit = crate::humanize::as_u64(v).context("invalid humanize u64 value")?;
             Ok(GlobalDatagramSpeedLimitConfig::per_second(limit))
         }
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             let mut config = GlobalDatagramSpeedLimitConfig::default();
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "replenish_interval" => {
@@ -176,6 +176,7 @@ pub fn as_global_datagram_speed_limit(v: &Yaml) -> anyhow::Result<GlobalDatagram
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::Scalar;
 
     #[test]
     fn as_tcp_sock_speed_limit_ok() {
@@ -190,7 +191,7 @@ mod tests {
         );
 
         // integer input
-        let yaml = Yaml::Integer(102400);
+        let yaml = Yaml::Value(Scalar::Integer(102400));
         let config = as_tcp_sock_speed_limit(&yaml).unwrap();
         assert_eq!(config.max_north, 102400);
         assert_eq!(config.max_south, 102400);
@@ -250,7 +251,7 @@ mod tests {
     #[test]
     fn as_tcp_sock_speed_limit_err() {
         // invalid type
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(as_tcp_sock_speed_limit(&yaml).is_err());
 
         // invalid key
@@ -318,7 +319,7 @@ mod tests {
         );
 
         // integer input
-        let yaml = Yaml::Integer(51200);
+        let yaml = Yaml::Value(Scalar::Integer(51200));
         let config = as_udp_sock_speed_limit(&yaml).unwrap();
         assert_eq!(config.max_north_bytes, 51200);
         assert_eq!(config.max_south_bytes, 51200);
@@ -364,7 +365,7 @@ mod tests {
     #[test]
     fn as_udp_sock_speed_limit_err() {
         // invalid type
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(as_udp_sock_speed_limit(&yaml).is_err());
 
         // invalid key
@@ -422,7 +423,7 @@ mod tests {
         );
 
         // integer input
-        let yaml = Yaml::Integer(102400000);
+        let yaml = Yaml::Value(Scalar::Integer(102400000));
         let config = as_global_stream_speed_limit(&yaml).unwrap();
         assert_eq!(config.replenish_bytes(), 102400000);
         assert_eq!(
@@ -450,7 +451,7 @@ mod tests {
     #[test]
     fn as_global_stream_speed_limit_err() {
         // invalid type
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(as_global_stream_speed_limit(&yaml).is_err());
 
         // no replenish_bytes set
@@ -504,7 +505,7 @@ mod tests {
         assert_eq!(config.replenish_packets(), 0);
 
         // integer input
-        let yaml = Yaml::Integer(51200);
+        let yaml = Yaml::Value(Scalar::Integer(51200));
         let config = as_global_datagram_speed_limit(&yaml).unwrap();
         assert_eq!(config.replenish_bytes(), 51200);
         assert_eq!(config.replenish_packets(), 0);
@@ -533,7 +534,7 @@ mod tests {
     #[test]
     fn as_global_datagram_speed_limit_err() {
         // invalid type
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(as_global_datagram_speed_limit(&yaml).is_err());
 
         // invalid key

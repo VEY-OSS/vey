@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
@@ -102,7 +102,7 @@ fn describe_position(config: &AnyKeyServerConfig) -> String {
 }
 
 fn load_server(
-    map: &yaml::Hash,
+    map: &saphyr::Mapping,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyKeyServerConfig> {
     // the server type is optional, and defaults to the cloudflare keyless server

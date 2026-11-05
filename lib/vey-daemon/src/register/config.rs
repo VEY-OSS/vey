@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use http::uri::PathAndQuery;
-use yaml_rust::{Yaml, yaml};
+use saphyr::{Scalar, Yaml};
 
 use vey_types::metrics::MetricTagMap;
 use vey_types::net::UpstreamAddr;
@@ -62,8 +62,8 @@ impl RegisterConfig {
 
     pub(crate) fn parse(&mut self, v: &Yaml) -> anyhow::Result<()> {
         match v {
-            Yaml::Hash(map) => self.parse_map(map),
-            Yaml::String(_) => {
+            Yaml::Mapping(map) => self.parse_map(map),
+            Yaml::Value(Scalar::String(_)) => {
                 self.upstream = vey_yaml::value::as_upstream_addr(v, 0)
                     .context("invalid upstream address string value")?;
                 Ok(())
@@ -72,7 +72,7 @@ impl RegisterConfig {
         }
     }
 
-    fn parse_map(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
+    fn parse_map(&mut self, map: &saphyr::Mapping) -> anyhow::Result<()> {
         vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
             "upstream" => {
                 self.upstream = vey_yaml::value::as_upstream_addr(v, 0)
@@ -116,6 +116,7 @@ impl RegisterConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use vey_yaml::{yaml_doc, yaml_str};
 
     #[test]
@@ -149,13 +150,13 @@ mod tests {
     fn parse_invalid_yaml_type() {
         let mut config = RegisterConfig::default();
 
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(config.parse(&yaml).is_err());
 
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(config.parse(&yaml).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(config.parse(&yaml).is_err());
     }
 

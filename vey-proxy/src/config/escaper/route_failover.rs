@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
@@ -37,7 +37,7 @@ impl RouteFailoverEscaperConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);

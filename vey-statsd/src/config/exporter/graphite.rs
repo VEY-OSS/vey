@@ -7,7 +7,7 @@
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_yaml::YamlDocPosition;
@@ -41,7 +41,7 @@ impl GraphiteExporterConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut collector = GraphiteExporterConfig::new(position);
@@ -113,11 +113,11 @@ impl ExporterConfig for GraphiteExporterConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
+    use saphyr::LoadableYamlNode;
 
     #[test]
     fn parse_exporter_config() {
-        let docs = YamlLoader::load_from_str(
+        let docs = Yaml::load_from_str(
             r#"
 name: g1
 server: 127.0.0.1
@@ -127,7 +127,7 @@ prefix: app.metrics
 "#,
         )
         .unwrap();
-        let cfg = GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).unwrap();
+        let cfg = GraphiteExporterConfig::parse(docs[0].as_mapping().unwrap(), None).unwrap();
         assert_eq!(cfg.name().as_str(), "g1");
         assert_eq!(cfg.emit_interval, Duration::from_secs(5));
         assert_eq!(
@@ -138,10 +138,10 @@ prefix: app.metrics
 
     #[test]
     fn parse_requires_name_and_server() {
-        let docs = YamlLoader::load_from_str("server: 127.0.0.1\n").unwrap();
-        assert!(GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).is_err());
+        let docs = Yaml::load_from_str("server: 127.0.0.1\n").unwrap();
+        assert!(GraphiteExporterConfig::parse(docs[0].as_mapping().unwrap(), None).is_err());
 
-        let docs = YamlLoader::load_from_str("name: g1\n").unwrap();
-        assert!(GraphiteExporterConfig::parse(docs[0].as_hash().unwrap(), None).is_err());
+        let docs = Yaml::load_from_str("name: g1\n").unwrap();
+        assert!(GraphiteExporterConfig::parse(docs[0].as_mapping().unwrap(), None).is_err());
     }
 }

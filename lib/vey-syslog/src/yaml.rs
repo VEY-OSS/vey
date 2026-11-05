@@ -5,14 +5,14 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use super::{Facility, SyslogBackendBuilder, SyslogBuilder, SyslogFormatterKind};
 
 impl SyslogBuilder {
     pub fn parse_yaml(value: &Yaml, ident: &str) -> anyhow::Result<Self> {
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut builder = SyslogBuilder::with_ident(ident);
                 let mut use_cee_log_syntax = false;
                 let mut cee_event_flag: Option<String> = None;
@@ -32,7 +32,7 @@ impl SyslogBuilder {
                         Ok(())
                     }
                     "target" | "backend" => {
-                        if let Yaml::Hash(map) = v {
+                        if let Yaml::Mapping(map) = v {
                             vey_yaml::foreach_kv(map, |k, v| {
                                 match vey_yaml::key::normalize(k).as_str() {
                                     "udp" => {
@@ -92,7 +92,7 @@ impl SyslogBuilder {
                 }
                 Ok(builder)
             }
-            Yaml::Null => {
+            Yaml::Value(Scalar::Null) => {
                 let mut builder = SyslogBuilder::with_ident(ident);
                 builder.set_facility(Facility::Daemon);
                 Ok(builder)
@@ -107,22 +107,29 @@ impl SyslogBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use vey_yaml::yaml_doc;
 
     #[test]
     fn parse_yaml_null() {
-        let builder = SyslogBuilder::parse_yaml(&Yaml::Null, "test").unwrap();
+        let builder = SyslogBuilder::parse_yaml(&Yaml::Value(Scalar::Null), "test").unwrap();
         assert_eq!(builder.ident, "test");
         assert!(matches!(builder.facility, Facility::Daemon));
     }
 
     #[test]
     fn parse_yaml_invalid_types() {
-        assert!(SyslogBuilder::parse_yaml(&Yaml::Array(vec![]), "test").is_err());
+        assert!(SyslogBuilder::parse_yaml(&Yaml::Sequence(vec![]), "test").is_err());
 
-        assert!(SyslogBuilder::parse_yaml(&Yaml::Integer(123), "test").is_err());
+        assert!(SyslogBuilder::parse_yaml(&Yaml::Value(Scalar::Integer(123)), "test").is_err());
 
-        assert!(SyslogBuilder::parse_yaml(&Yaml::Real("1.23".to_string()), "test").is_err());
+        assert!(
+            SyslogBuilder::parse_yaml(
+                &Yaml::Value(Scalar::FloatingPoint((1.23_f64).into())),
+                "test"
+            )
+            .is_err()
+        );
     }
 
     #[allow(irrefutable_let_patterns)]

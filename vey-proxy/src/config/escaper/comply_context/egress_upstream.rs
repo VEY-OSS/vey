@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 use vey_types::net::{DomainName, Host, UpstreamAddr};
@@ -36,7 +36,7 @@ pub(crate) struct EgressUpstreamConfig {
 
 impl EgressUpstreamConfig {
     pub(super) fn parse(value: &Yaml) -> anyhow::Result<Self> {
-        let Yaml::Hash(map) = value else {
+        let Yaml::Mapping(map) = value else {
             return Err(anyhow!("egress upstream config should be a hash value"));
         };
 
@@ -132,6 +132,7 @@ impl EgressUpstreamConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use vey_yaml::yaml_doc;
 
     #[test]

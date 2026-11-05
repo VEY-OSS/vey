@@ -6,7 +6,7 @@
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
@@ -36,7 +36,7 @@ impl InternalCollectorConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut collector = InternalCollectorConfig::new(position);

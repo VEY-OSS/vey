@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
@@ -70,7 +70,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyImporterConfig> {
     let doc = vey_yaml::load_doc(position)?;
-    if let Yaml::Hash(map) = doc {
+    if let Yaml::Mapping(map) = doc {
         let importer = load_importer(&map, Some(position.clone()))?;
         registry::add(importer.clone());
         Ok(importer)
@@ -80,7 +80,7 @@ pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<Any
 }
 
 fn load_importer(
-    map: &yaml::Hash,
+    map: &saphyr::Mapping,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyImporterConfig> {
     let importer_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_IMPORTER_TYPE)?;

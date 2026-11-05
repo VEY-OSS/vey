@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
 use rand::distr::Bernoulli;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_cert_agent::CertAgentConfig;
 use vey_dpi::{
@@ -106,7 +106,7 @@ impl AuditorConfig {
         AuditorConfig::with_name(NodeName::default(), position)
     }
 
-    pub(crate) fn parse(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
+    pub(crate) fn parse(&mut self, map: &saphyr::Mapping) -> anyhow::Result<()> {
         vey_yaml::foreach_kv(map, |k, v| self.set(k, v))?;
         self.check()?;
         Ok(())
@@ -278,12 +278,12 @@ impl AuditorConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
+    use saphyr::LoadableYamlNode;
 
     #[test]
     fn parse_server_id() {
-        let docs = YamlLoader::load_from_str("name: audit1\nserver_id: intercept-edge\n").unwrap();
-        let Yaml::Hash(map) = &docs[0] else {
+        let docs = Yaml::load_from_str("name: audit1\nserver_id: intercept-edge\n").unwrap();
+        let Yaml::Mapping(map) = &docs[0] else {
             panic!("expected map");
         };
         let mut cfg = AuditorConfig::new(None);
@@ -294,8 +294,8 @@ mod tests {
 
     #[test]
     fn parse_no_proxy_status() {
-        let docs = YamlLoader::load_from_str("name: audit1\nno_proxy_status: true\n").unwrap();
-        let Yaml::Hash(map) = &docs[0] else {
+        let docs = Yaml::load_from_str("name: audit1\nno_proxy_status: true\n").unwrap();
+        let Yaml::Mapping(map) = &docs[0] else {
             panic!("expected map");
         };
         let mut cfg = AuditorConfig::new(None);

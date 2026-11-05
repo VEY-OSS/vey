@@ -10,7 +10,7 @@ description = "YAML configuration helpers for the VEY project"
 
 [dependencies]
 anyhow.workspace = true
-yaml-rust.workspace = true
+saphyr.workspace = true
 humanize-rs.workspace = true
 ascii.workspace = true
 jiff.workspace = true

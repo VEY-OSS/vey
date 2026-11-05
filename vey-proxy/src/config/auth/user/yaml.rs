@@ -7,7 +7,7 @@ use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
 use log::warn;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_yaml::YamlDocPosition;
 
@@ -15,7 +15,7 @@ use super::{PasswordToken, UserConfig, UserSiteConfig};
 
 impl UserConfig {
     pub(crate) fn parse_yaml(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<&YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = UserConfig::default();
@@ -240,7 +240,7 @@ impl UserConfig {
                 Ok(())
             }
             "explicit_sites" => {
-                if let Yaml::Array(seq) = v {
+                if let Yaml::Sequence(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         let site_group = UserSiteConfig::parse_yaml(v, position)
                             .context(format!("invalid user site group value for {k}#{i}"))?;
@@ -292,15 +292,15 @@ impl UserConfig {
         let mut users = Vec::new();
         for (di, doc) in docs.iter().enumerate() {
             match doc {
-                Yaml::Hash(map) => {
+                Yaml::Mapping(map) => {
                     let user = UserConfig::parse_yaml(map, None)
                         .context(format!("invalid user config value for doc #{di}"))?;
                     users.push(user);
                 }
-                Yaml::Array(seq) => {
+                Yaml::Sequence(seq) => {
                     for (i, v) in seq.iter().enumerate() {
                         match v {
-                            Yaml::Hash(map) => {
+                            Yaml::Mapping(map) => {
                                 let user = UserConfig::parse_yaml(map, None).context(format!(
                                     "invalid user config value for doc #{di} record #{i}"
                                 ))?;

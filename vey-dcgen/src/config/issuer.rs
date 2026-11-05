@@ -10,7 +10,7 @@ use anyhow::{Context, anyhow};
 use arc_swap::ArcSwapOption;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_histogram::HistogramMetricsConfig;
 
@@ -45,7 +45,7 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
 }
 
 pub(super) fn parse_config(value: &Yaml) -> anyhow::Result<OpensslIssuerConfig> {
-    if let Yaml::Hash(map) = value {
+    if let Yaml::Mapping(map) = value {
         let mut no_append_ca_cert = false;
         let mut ca_cert_pem = Vec::new();
         let mut ca_cert: Option<X509> = None;
@@ -130,6 +130,8 @@ pub(super) fn parse_config(value: &Yaml) -> anyhow::Result<OpensslIssuerConfig> 
 mod tests {
     use std::time::Duration;
 
+    use saphyr::Scalar;
+
     use vey_histogram::HistogramMetricsConfig;
 
     use super::*;
@@ -149,7 +151,7 @@ mod tests {
 
     #[test]
     fn parse_rejects_non_map() {
-        match parse_config(&Yaml::Integer(1)) {
+        match parse_config(&Yaml::Value(Scalar::Integer(1))) {
             Err(err) => assert!(err.to_string().contains("map")),
             Ok(_) => panic!("non-map issuer config was accepted"),
         }

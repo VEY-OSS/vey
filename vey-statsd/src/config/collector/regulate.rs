@@ -6,7 +6,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::{MetricTagName, NodeName};
 use vey_yaml::YamlDocPosition;
@@ -39,7 +39,7 @@ impl RegulateCollectorConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut collector = RegulateCollectorConfig::new(position);

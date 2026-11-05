@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use http::uri::PathAndQuery;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_yaml::YamlDocPosition;
@@ -59,7 +59,7 @@ impl OpentsdbExporterConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut collector = OpentsdbExporterConfig::new(position);

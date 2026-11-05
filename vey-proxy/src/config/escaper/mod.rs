@@ -8,8 +8,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use saphyr::Yaml;
 use slog::Logger;
-use yaml_rust::{Yaml, yaml};
 
 use vey_daemon::config::TopoMap;
 use vey_macros::AnyConfig;
@@ -133,7 +133,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyEscaperConfig> {
     let doc = vey_yaml::load_doc(position)?;
-    if let Yaml::Hash(map) = doc {
+    if let Yaml::Mapping(map) = doc {
         let escaper = load_escaper(&map, Some(position.clone()))?;
         let old_escaper = registry::add(escaper.clone());
         if let Err(e) = build_topology_map() {
@@ -154,7 +154,7 @@ pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<Any
 }
 
 fn load_escaper(
-    map: &yaml::Hash,
+    map: &saphyr::Mapping,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyEscaperConfig> {
     let escaper_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_ESCAPER_TYPE)?;

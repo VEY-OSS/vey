@@ -7,7 +7,7 @@
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::acl::AclAction;
 
@@ -32,7 +32,7 @@ pub use regex_set::as_regex_set_rule_builder;
 pub use user_agent::as_user_agent_rule;
 
 fn as_action(value: &Yaml) -> anyhow::Result<AclAction> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         let action =
             AclAction::from_str(s).map_err(|_| anyhow!("invalid AclAction string value"))?;
         Ok(action)
@@ -50,7 +50,7 @@ trait AclRuleYamlParser {
 
     fn parse(&mut self, value: &Yaml) -> anyhow::Result<()> {
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                     "default" => {
                         let action = as_action(v).context(format!("invalid value for key {k}"))?;
@@ -60,7 +60,7 @@ trait AclRuleYamlParser {
                     _ => {
                         let action = AclAction::from_str(k)
                             .map_err(|_| anyhow!("the key {k} is not a valid AclAction"))?;
-                        if let Yaml::Array(seq) = v {
+                        if let Yaml::Sequence(seq) = v {
                             for (i, v) in seq.iter().enumerate() {
                                 self.add_rule_for_action(action, v)
                                     .context(format!("invalid value for {k}#{i}"))?;
@@ -73,7 +73,7 @@ trait AclRuleYamlParser {
                     }
                 })?;
             }
-            Yaml::Array(seq) => {
+            Yaml::Sequence(seq) => {
                 for (i, v) in seq.iter().enumerate() {
                     self.add_rule_for_action(self.get_default_found_action(), v)
                         .context(format!("invalid value for element #{i}"))?;

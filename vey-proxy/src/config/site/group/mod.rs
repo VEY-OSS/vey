@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 use vey_types::route::HostMatch;
@@ -76,7 +76,7 @@ impl SiteGroupConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut group = SiteGroupConfig::new(position);
@@ -148,13 +148,14 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
+    use saphyr::LoadableYamlNode;
+
     use vey_types::metrics::NodeName;
     use vey_types::net::Host;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn parse_static_sites() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 tenant_user_group: customers
@@ -169,7 +170,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -189,7 +190,7 @@ static_sites:
 
     #[test]
     fn parse_multi_ip_upstream() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -203,7 +204,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -228,8 +229,8 @@ static_sites:
     upstream:
       - example.com:80
 "#;
-        let yaml = YamlLoader::load_from_str(domain).unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let yaml = Yaml::load_from_str(domain).unwrap();
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(SiteGroupConfig::parse(map, None).is_err());
@@ -243,8 +244,8 @@ static_sites:
       - 10.0.0.1:8080
       - 10.0.0.1:8080
 "#;
-        let yaml = YamlLoader::load_from_str(duplicate).unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let yaml = Yaml::load_from_str(duplicate).unwrap();
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let err = SiteGroupConfig::parse(map, None).unwrap_err();
@@ -253,7 +254,7 @@ static_sites:
 
     #[test]
     fn parse_site_tags() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -266,7 +267,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -292,7 +293,7 @@ static_sites:
 
     #[test]
     fn parse_import() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: edge
 import:
@@ -309,7 +310,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -335,7 +336,7 @@ static_sites:
 
     #[test]
     fn reject_self_import() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 import:
@@ -344,7 +345,7 @@ import:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(SiteGroupConfig::parse(map, None).is_err());
@@ -352,7 +353,7 @@ import:
 
     #[test]
     fn reject_duplicate_static_site_id() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -365,7 +366,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let err = SiteGroupConfig::parse(map, None).unwrap_err();
@@ -377,7 +378,7 @@ static_sites:
 
     #[test]
     fn reject_duplicate_import() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 import:
@@ -388,7 +389,7 @@ import:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(SiteGroupConfig::parse(map, None).is_err());
@@ -396,7 +397,7 @@ import:
 
     #[test]
     fn reject_import_without_tags() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 import:
@@ -404,7 +405,7 @@ import:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(SiteGroupConfig::parse(map, None).is_err());
@@ -412,7 +413,7 @@ import:
 
     #[test]
     fn site_covers_host_from_own_match_rules() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -425,7 +426,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -450,7 +451,7 @@ static_sites:
 
     #[test]
     fn parse_tls_inner_protocol() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -461,7 +462,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -472,7 +473,7 @@ static_sites:
 
     #[test]
     fn parse_site_limits() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -499,7 +500,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -524,7 +525,7 @@ static_sites:
 
     #[test]
     fn parse_site_http() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -536,7 +537,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -565,7 +566,7 @@ static_sites:
 
     #[test]
     fn parse_site_http_forwarded_header_type() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -577,7 +578,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -591,7 +592,7 @@ static_sites:
 
     #[test]
     fn parse_site_http_forwarded_trusted_from() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -605,7 +606,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -622,7 +623,7 @@ static_sites:
 
     #[test]
     fn parse_site_http_h1_connection_pool_empty() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -635,7 +636,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -649,7 +650,7 @@ static_sites:
 
     #[test]
     fn parse_site_http_h1_connection_pool_map() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -664,7 +665,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -677,7 +678,7 @@ static_sites:
 
     #[test]
     fn parse_site_http_h1_upstream_keepalive() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -692,7 +693,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -707,7 +708,7 @@ static_sites:
 
     #[test]
     fn parse_site_http_h1_nested_connection_pool() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -725,7 +726,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -742,7 +743,7 @@ static_sites:
 
     #[test]
     fn parse_site_http_h2_connection_pool_empty() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -755,7 +756,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -770,7 +771,7 @@ static_sites:
 
     #[test]
     fn parse_site_http_h2_connection_pool_map() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -785,7 +786,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -798,7 +799,7 @@ static_sites:
 
     #[test]
     fn reject_invalid_site_http_h2_connection_pool() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -811,7 +812,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(SiteGroupConfig::parse(map, None).is_err());
@@ -819,7 +820,7 @@ static_sites:
 
     #[test]
     fn parse_site_http_h2_force_upstream() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -832,7 +833,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -843,7 +844,7 @@ static_sites:
 
     #[test]
     fn reject_unknown_site_http_h2_field() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -856,7 +857,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(SiteGroupConfig::parse(map, None).is_err());
@@ -864,7 +865,7 @@ static_sites:
 
     #[test]
     fn reject_invalid_site_http_h1_connection_pool() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -877,7 +878,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(SiteGroupConfig::parse(map, None).is_err());
@@ -885,7 +886,7 @@ static_sites:
 
     #[test]
     fn reject_legacy_site_http_h1_connection_pool_key() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -897,7 +898,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(SiteGroupConfig::parse(map, None).is_err());
@@ -905,7 +906,7 @@ static_sites:
 
     #[test]
     fn parse_empty_site_http() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -916,7 +917,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -927,7 +928,7 @@ static_sites:
 
     #[test]
     fn omit_site_http_uses_default() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -937,7 +938,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         let group = SiteGroupConfig::parse(map, None).unwrap();
@@ -948,7 +949,7 @@ static_sites:
 
     #[test]
     fn reject_unknown_site_http_field() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -960,7 +961,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(SiteGroupConfig::parse(map, None).is_err());
@@ -968,7 +969,7 @@ static_sites:
 
     #[test]
     fn reject_unknown_site_field() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -979,7 +980,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(SiteGroupConfig::parse(map, None).is_err());
@@ -987,7 +988,7 @@ static_sites:
 
     #[test]
     fn reject_missing_site_id() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml = Yaml::load_from_str(
             r#"
 name: local
 static_sites:
@@ -996,7 +997,7 @@ static_sites:
 "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &yaml[0] else {
+        let Yaml::Mapping(map) = &yaml[0] else {
             panic!("expected map");
         };
         assert!(SiteGroupConfig::parse(map, None).is_err());

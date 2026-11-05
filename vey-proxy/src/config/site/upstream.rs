@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 use std::net::SocketAddr;
 
 use anyhow::anyhow;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::collection::{SelectivePickPolicy, WeightedValue};
 use vey_types::net::UpstreamAddr;
@@ -57,7 +57,7 @@ impl SiteUpstreamConfig {
 
     pub(crate) fn parse(value: &Yaml) -> anyhow::Result<Self> {
         match value {
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let addr = vey_yaml::value::as_upstream_addr(value, 80)?;
                 Ok(SiteUpstreamConfig {
                     single: Some(addr),
@@ -65,7 +65,7 @@ impl SiteUpstreamConfig {
                     pick_policy: SelectivePickPolicy::RoundRobin,
                 })
             }
-            Yaml::Array(_) => {
+            Yaml::Sequence(_) => {
                 let peers = vey_yaml::value::as_list(value, vey_yaml::value::as_weighted_sockaddr)?;
                 if peers.is_empty() {
                     return Err(anyhow!("upstream peer address list is empty"));

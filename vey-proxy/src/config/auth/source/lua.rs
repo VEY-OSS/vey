@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::fs::ConfigFileFormat;
 
@@ -33,7 +33,7 @@ impl Default for UserDynamicLuaSource {
 }
 
 impl UserDynamicLuaSource {
-    pub(super) fn parse_map(map: &yaml::Hash, lookup_dir: &Path) -> anyhow::Result<Self> {
+    pub(super) fn parse_map(map: &saphyr::Mapping, lookup_dir: &Path) -> anyhow::Result<Self> {
         let mut config = UserDynamicLuaSource::default();
 
         vey_yaml::foreach_kv(map, |k, v| config.set(k, v, lookup_dir))?;

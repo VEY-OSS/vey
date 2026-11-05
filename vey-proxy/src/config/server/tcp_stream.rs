@@ -9,7 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use log::warn;
-use yaml_rust::{Yaml, yaml};
+use saphyr::{Scalar, Yaml};
 
 use vey_io_ext::StreamCopyConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
@@ -88,7 +88,7 @@ impl TcpStreamServerConfig {
     }
 
     pub(crate) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = TcpStreamServerConfig::new(position);
@@ -144,7 +144,7 @@ impl TcpStreamServerConfig {
                 Ok(())
             }
             "tls_client" => {
-                if let Yaml::Boolean(enable) = v {
+                if let Yaml::Value(Scalar::Boolean(enable)) = v {
                     if *enable {
                         self.client_tls_config =
                             Some(OpensslClientConfigBuilder::with_cache_for_one_site());

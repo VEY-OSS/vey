@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use anyhow::anyhow;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 mod issuer;
 pub(crate) use issuer::{OpensslIssuerConfig, get_config as get_issuer_config};
@@ -23,7 +23,7 @@ pub fn load(program_name: &str) -> anyhow::Result<&'static Path> {
 
     // allow multiple docs, and treat them as the same
     vey_yaml::foreach_doc(config_file, |_, doc| match doc {
-        Yaml::Hash(map) => load_doc(map, program_name),
+        Yaml::Mapping(map) => load_doc(map, program_name),
         _ => Err(anyhow!("yaml doc root should be hash")),
     })?;
 
@@ -54,7 +54,7 @@ fn reload_blocking() -> anyhow::Result<()> {
     RELOAD_ISSUER.lock().unwrap().take();
     if let Some(config_file) = vey_daemon::opts::config_file() {
         vey_yaml::foreach_doc(config_file, |_, doc| match doc {
-            Yaml::Hash(map) => reload_doc(map),
+            Yaml::Mapping(map) => reload_doc(map),
             _ => Err(anyhow!("yaml doc root should be hash")),
         })?;
     }
@@ -68,7 +68,7 @@ fn reload_issuer_blocking() -> anyhow::Result<()> {
     RELOAD_ISSUER.lock().unwrap().take();
     if let Some(config_file) = vey_daemon::opts::config_file() {
         vey_yaml::foreach_doc(config_file, |_, doc| match doc {
-            Yaml::Hash(map) => reload_issuer_doc(map),
+            Yaml::Mapping(map) => reload_issuer_doc(map),
             _ => Err(anyhow!("yaml doc root should be hash")),
         })?;
     }
@@ -87,7 +87,7 @@ fn stash_issuer(value: &Yaml) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn reload_issuer_doc(map: &yaml::Hash) -> anyhow::Result<()> {
+fn reload_issuer_doc(map: &saphyr::Mapping) -> anyhow::Result<()> {
     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
         "issuer" => stash_issuer(v),
         _ => Ok(()),
@@ -95,7 +95,7 @@ fn reload_issuer_doc(map: &yaml::Hash) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
+fn reload_doc(map: &saphyr::Mapping) -> anyhow::Result<()> {
     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
         "runtime" | "worker" | "stat" | "controller" => Ok(()),
         "issuer" => stash_issuer(v),
@@ -105,7 +105,7 @@ fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn load_doc(map: &yaml::Hash, program_name: &str) -> anyhow::Result<()> {
+fn load_doc(map: &saphyr::Mapping, program_name: &str) -> anyhow::Result<()> {
     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
         "runtime" => vey_daemon::runtime::config::load(v),
         "worker" => vey_daemon::runtime::config::load_worker(v),

@@ -12,7 +12,7 @@ description = "Capture dump writers for the VEY project"
 log.workspace = true
 tokio = { workspace = true, features = ["rt", "net", "sync"] }
 anyhow = { workspace = true, optional = true }
-yaml-rust = { workspace = true, optional = true }
+saphyr = { workspace = true, optional = true }
 vey-types.workspace = true
 vey-socket.workspace = true
 vey-io-ext.workspace = true
@@ -25,4 +25,4 @@ tokio = { workspace = true, features = ["macros", "rt", "io-util"] }
 
 [features]
 default = []
-yaml = ["dep:vey-yaml", "dep:yaml-rust", "dep:anyhow"]
+yaml = ["dep:vey-yaml", "dep:saphyr", "dep:anyhow"]

@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
 use radix_trie::{Trie, TrieCommon};
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
 use vey_types::net::DomainName;
@@ -34,16 +34,16 @@ impl SuffixMatchBuilder {
 
     pub(super) fn set_by_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
         match value {
-            Yaml::Hash(map) => vey_yaml::foreach_kv(map, |k, v| {
+            Yaml::Mapping(map) => vey_yaml::foreach_kv(map, |k, v| {
                 let escaper = NodeName::from_str(k)
                     .map_err(|e| anyhow!("the map key is not valid escaper name: {e}"))?;
                 let domains = vey_yaml::value::as_list(v, vey_yaml::value::as_domain)?;
                 self.add_rule(escaper, domains);
                 Ok(())
             }),
-            Yaml::Array(seq) => {
+            Yaml::Sequence(seq) => {
                 for (i, v) in seq.iter().enumerate() {
-                    let Yaml::Hash(map) = v else {
+                    let Yaml::Mapping(map) = v else {
                         return Err(anyhow!("yaml value type for #{i} should be map"));
                     };
 
@@ -114,8 +114,9 @@ impl<T> SuffixMatch<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::LoadableYamlNode;
+
     use vey_types::literal_domain;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn yaml_seq() {
@@ -128,7 +129,7 @@ mod tests {
             - example.org
         "#;
 
-        let v = YamlLoader::load_from_str(conf).unwrap();
+        let v = Yaml::load_from_str(conf).unwrap();
         let mut builder = SuffixMatchBuilder::default();
         builder.set_by_yaml(&v[0]).unwrap();
 
@@ -167,7 +168,7 @@ mod tests {
           - example.org
         "#;
 
-        let v = YamlLoader::load_from_str(conf).unwrap();
+        let v = Yaml::load_from_str(conf).unwrap();
         let mut builder = SuffixMatchBuilder::default();
         builder.set_by_yaml(&v[0]).unwrap();
 

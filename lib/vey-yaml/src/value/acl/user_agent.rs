@@ -4,7 +4,7 @@
  */
 
 use anyhow::Context;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_types::acl::{AclAction, AclUserAgentRule};
 

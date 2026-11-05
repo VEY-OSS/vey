@@ -9,8 +9,8 @@ use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
 use log::warn;
+use saphyr::{Scalar, Yaml};
 use slog::{Logger, OwnedKV, SendSyncRefUnwindSafeKV};
-use yaml_rust::Yaml;
 
 use vey_fluentd::FluentdClientConfig;
 #[cfg(target_os = "linux")]
@@ -98,7 +98,7 @@ impl LogConfig {
 
     pub fn parse_yaml(v: &Yaml, conf_dir: &Path, program_name: &str) -> anyhow::Result<LogConfig> {
         match v {
-            Yaml::String(s) => match s.as_str() {
+            Yaml::Value(Scalar::String(s)) => match s.as_ref() {
                 "discard" => Ok(LogConfig::new_discard()),
                 #[cfg(target_os = "linux")]
                 "journal" => Ok(LogConfig::new_journal(program_name)),
@@ -107,7 +107,7 @@ impl LogConfig {
                 "stdout" => Ok(LogConfig::new_stdout(program_name)),
                 _ => Err(anyhow!("invalid log config")),
             },
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 let mut config = LogConfig::new_discard();
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     #[cfg(target_os = "linux")]

@@ -10,7 +10,7 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use log::warn;
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_types::acl::{AclAction, AclNetworkRuleBuilder};
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -134,7 +134,7 @@ impl DirectFixedEscaperConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut config = Self::new(position);
@@ -395,7 +395,7 @@ pub(crate) fn encode_foreign_port_hint(prefix: u16, port: u16) -> u32 {
 #[cfg(all(test, any(target_os = "linux", target_os = "freebsd")))]
 mod tests {
     use super::*;
-    use yaml_rust::YamlLoader;
+    use saphyr::LoadableYamlNode;
 
     #[test]
     fn encode_foreign_port_hint_layout() {
@@ -405,8 +405,8 @@ mod tests {
     }
 
     fn parse_direct_fixed(yaml: &str) -> anyhow::Result<DirectFixedEscaperConfig> {
-        let docs = YamlLoader::load_from_str(yaml).unwrap();
-        let Yaml::Hash(map) = &docs[0] else {
+        let docs = Yaml::load_from_str(yaml).unwrap();
+        let Yaml::Mapping(map) = &docs[0] else {
             panic!("expected map");
         };
         DirectFixedEscaperConfig::parse(map, None)
@@ -471,11 +471,11 @@ mod tests {
 #[cfg(all(test, target_os = "openbsd"))]
 mod openbsd_tests {
     use super::*;
-    use yaml_rust::YamlLoader;
+    use saphyr::LoadableYamlNode;
 
     #[test]
     fn foreign_port_hint_prefix_rejected() {
-        let docs = YamlLoader::load_from_str(
+        let docs = Yaml::load_from_str(
             r#"
                 name: direct
                 type: DirectFixed
@@ -485,7 +485,7 @@ mod openbsd_tests {
             "#,
         )
         .unwrap();
-        let Yaml::Hash(map) = &docs[0] else {
+        let Yaml::Mapping(map) = &docs[0] else {
             panic!("expected map");
         };
         let Err(err) = DirectFixedEscaperConfig::parse(map, None) else {

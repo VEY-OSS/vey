@@ -24,7 +24,7 @@ tokio-rustls.workspace = true
 rustls-pki-types.workspace = true
 http.workspace = true
 h2.workspace = true
-yaml-rust = { workspace = true, optional = true }
+saphyr = { workspace = true, optional = true }
 futures-util.workspace = true
 arc-swap.workspace = true
 log.workspace = true
@@ -41,4 +41,4 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [features]
 default = []
-yaml = ["dep:vey-yaml", "dep:yaml-rust"]
+yaml = ["dep:vey-yaml", "dep:saphyr"]

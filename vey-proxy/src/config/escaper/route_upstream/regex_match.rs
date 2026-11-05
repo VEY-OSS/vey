@@ -11,7 +11,7 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use radix_trie::{Trie, TrieCommon};
 use regex::RegexSet;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use crate::config::escaper::verify::EscaperConfigVerifier;
 
@@ -36,7 +36,7 @@ impl RegexMatchBuilder {
 
     pub(super) fn set_by_yaml(&mut self, value: &Yaml) -> anyhow::Result<()> {
         match value {
-            Yaml::Hash(map) => vey_yaml::foreach_kv(map, |k, v| {
+            Yaml::Mapping(map) => vey_yaml::foreach_kv(map, |k, v| {
                 let escaper = NodeName::from_str(k)
                     .map_err(|e| anyhow!("the map key is not valid escaper name: {e}"))?;
                 let regexes = vey_yaml::value::as_list(v, RegexMatchValue::parse_yaml)
@@ -44,9 +44,9 @@ impl RegexMatchBuilder {
                 self.add_rule(escaper, regexes);
                 Ok(())
             }),
-            Yaml::Array(seq) => {
+            Yaml::Sequence(seq) => {
                 for (i, v) in seq.iter().enumerate() {
-                    let Yaml::Hash(map) = v else {
+                    let Yaml::Mapping(map) = v else {
                         return Err(anyhow!("yaml value type for #{i} should be map"));
                     };
 
@@ -161,7 +161,7 @@ impl RegexMatchValue {
     fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
         let mut match_value = RegexMatchValue::default();
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "suffix" | "parent" => {
                         let domain = vey_yaml::value::as_domain(v)?;
@@ -176,7 +176,7 @@ impl RegexMatchValue {
                     _ => Err(anyhow!("invalid key {k}")),
                 })?
             }
-            Yaml::String(_) => {
+            Yaml::Value(Scalar::String(_)) => {
                 let regex = vey_yaml::value::as_regex(value)?;
                 match_value.sub_domain_regex = regex.to_string();
             }
@@ -221,8 +221,9 @@ impl<T> RegexMatch<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saphyr::LoadableYamlNode;
+
     use vey_types::literal_domain;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn yaml_seq() {
@@ -238,7 +239,7 @@ mod tests {
             - .*[.]example[.]org
         "#;
 
-        let v = YamlLoader::load_from_str(conf).unwrap();
+        let v = Yaml::load_from_str(conf).unwrap();
         let mut builder = RegexMatchBuilder::default();
         builder.set_by_yaml(&v[0]).unwrap();
 
@@ -288,7 +289,7 @@ mod tests {
           - .*[.]example[.]org
         "#;
 
-        let v = YamlLoader::load_from_str(conf).unwrap();
+        let v = Yaml::load_from_str(conf).unwrap();
         let mut builder = RegexMatchBuilder::default();
         builder.set_by_yaml(&v[0]).unwrap();
 

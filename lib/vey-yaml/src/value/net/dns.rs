@@ -8,12 +8,12 @@ use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::net::{DnsEncryptionConfigBuilder, DnsEncryptionProtocol};
 
 fn as_dns_encryption_protocol(value: &Yaml) -> anyhow::Result<DnsEncryptionProtocol> {
-    if let Yaml::String(s) = value {
+    if let Yaml::Value(Scalar::String(s)) = value {
         DnsEncryptionProtocol::from_str(s).context("invalid dns encryption protocol value")
     } else {
         Err(anyhow!(
@@ -29,7 +29,7 @@ pub fn as_dns_encryption_protocol_builder(
     const KEY_TLS_NAME: &str = "tls_name";
 
     match value {
-        Yaml::Hash(map) => {
+        Yaml::Mapping(map) => {
             let name_v = crate::hash_get_required(map, KEY_TLS_NAME)?;
             let name = crate::value::as_rustls_server_name(name_v).context(format!(
                 "invalid tls server name value for key {KEY_TLS_NAME}",
@@ -55,7 +55,7 @@ pub fn as_dns_encryption_protocol_builder(
 
             Ok(config)
         }
-        Yaml::String(_) => {
+        Yaml::Value(Scalar::String(_)) => {
             let name = crate::value::as_rustls_server_name(value)
                 .context("the string type value should be valid tls server name")?;
             Ok(DnsEncryptionConfigBuilder::new(name))
@@ -67,6 +67,7 @@ pub fn as_dns_encryption_protocol_builder(
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -143,7 +144,7 @@ mod tests {
         let yaml = yaml_str!("invalid");
         assert!(as_dns_encryption_protocol(&yaml).is_err());
 
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert!(as_dns_encryption_protocol(&yaml).is_err());
 
         let yaml = yaml_doc!(
@@ -169,10 +170,10 @@ mod tests {
         );
         assert!(as_dns_encryption_protocol_builder(&yaml, None).is_err());
 
-        let yaml = Yaml::Boolean(false);
+        let yaml = Yaml::Value(Scalar::Boolean(false));
         assert!(as_dns_encryption_protocol_builder(&yaml, None).is_err());
 
-        let yaml = Yaml::Integer(42);
+        let yaml = Yaml::Value(Scalar::Integer(42));
         assert!(as_dns_encryption_protocol_builder(&yaml, None).is_err());
 
         // Invalid string values
@@ -183,7 +184,7 @@ mod tests {
         assert!(as_dns_encryption_protocol_builder(&yaml, None).is_err());
 
         // Invalid value type
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(as_dns_encryption_protocol_builder(&yaml, None).is_err());
 
         let temp_dir = TempDir::new("vey_yaml_err");

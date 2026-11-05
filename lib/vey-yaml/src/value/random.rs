@@ -7,20 +7,19 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use rand::distr::Bernoulli;
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 pub fn as_random_ratio(value: &Yaml) -> anyhow::Result<Bernoulli> {
     match value {
-        Yaml::Real(s) => {
-            let f = f64::from_str(s).map_err(|e| anyhow!("invalid f64 ratio value: {e}"))?;
-            Bernoulli::new(f).map_err(|e| anyhow!("out of range f64 ratio: {e}"))
+        Yaml::Value(Scalar::FloatingPoint(n)) => {
+            Bernoulli::new(**n).map_err(|e| anyhow!("out of range f64 ratio: {e}"))
         }
-        Yaml::Integer(i) => match i {
+        Yaml::Value(Scalar::Integer(i)) => match i {
             0 => Ok(Bernoulli::new(0.0).unwrap()),
             1 => Ok(Bernoulli::new(1.0).unwrap()),
             _ => Err(anyhow!("out of range integer value, only 0 & 1 is allowed")),
         },
-        Yaml::String(s) => {
+        Yaml::Value(Scalar::String(s)) => {
             if let Some(p) = s.find('/') {
                 let n1 = u32::from_str(s[0..p].trim())
                     .map_err(|e| anyhow!("first part is not valid u32: {e}"))?;
@@ -38,8 +37,8 @@ pub fn as_random_ratio(value: &Yaml) -> anyhow::Result<Bernoulli> {
                 Bernoulli::new(f).map_err(|e| anyhow!("out of range f64 ratio: {e}"))
             }
         }
-        Yaml::Boolean(true) => Ok(Bernoulli::new(1.0).unwrap()),
-        Yaml::Boolean(false) => Ok(Bernoulli::new(0.0).unwrap()),
+        Yaml::Value(Scalar::Boolean(true)) => Ok(Bernoulli::new(1.0).unwrap()),
+        Yaml::Value(Scalar::Boolean(false)) => Ok(Bernoulli::new(0.0).unwrap()),
         _ => Err(anyhow!(
             "yaml value type for 'random ratio' should be 'f64' or 'string'"
         )),
@@ -53,17 +52,17 @@ mod tests {
     #[test]
     fn as_random_ratio_ok() {
         // valid Real values
-        let yaml = Yaml::Real("0.5".into());
+        let yaml = Yaml::Value(Scalar::FloatingPoint((0.5_f64).into()));
         assert_eq!(as_random_ratio(&yaml).unwrap().p(), 0.5);
 
-        let yaml = Yaml::Real("1.0".into());
+        let yaml = Yaml::Value(Scalar::FloatingPoint((1.0_f64).into()));
         assert_eq!(as_random_ratio(&yaml).unwrap().p(), 1.0);
 
         // valid Integer values (0 and 1 only)
-        let yaml = Yaml::Integer(0);
+        let yaml = Yaml::Value(Scalar::Integer(0));
         assert_eq!(as_random_ratio(&yaml).unwrap().p(), 0.0);
 
-        let yaml = Yaml::Integer(1);
+        let yaml = Yaml::Value(Scalar::Integer(1));
         assert_eq!(as_random_ratio(&yaml).unwrap().p(), 1.0);
 
         // valid String formats
@@ -80,27 +79,27 @@ mod tests {
         assert_eq!(as_random_ratio(&yaml).unwrap().p(), 0.7);
 
         // valid Boolean values
-        let yaml = Yaml::Boolean(true);
+        let yaml = Yaml::Value(Scalar::Boolean(true));
         assert_eq!(as_random_ratio(&yaml).unwrap().p(), 1.0);
 
-        let yaml = Yaml::Boolean(false);
+        let yaml = Yaml::Value(Scalar::Boolean(false));
         assert_eq!(as_random_ratio(&yaml).unwrap().p(), 0.0);
     }
 
     #[test]
     fn as_random_ratio_err() {
         // invalid Real values
-        let yaml = Yaml::Real("abc".into());
+        let yaml = yaml_str!("abc");
         assert!(as_random_ratio(&yaml).is_err());
 
-        let yaml = Yaml::Real("-1.0".into());
+        let yaml = Yaml::Value(Scalar::FloatingPoint((-1.0_f64).into()));
         assert!(as_random_ratio(&yaml).is_err());
 
-        let yaml = Yaml::Real("2.5".into());
+        let yaml = Yaml::Value(Scalar::FloatingPoint((2.5_f64).into()));
         assert!(as_random_ratio(&yaml).is_err());
 
         // invalid Integer values (not 0 or 1)
-        let yaml = Yaml::Integer(2);
+        let yaml = Yaml::Value(Scalar::Integer(2));
         assert!(as_random_ratio(&yaml).is_err());
 
         // invalid String formats
@@ -129,10 +128,10 @@ mod tests {
         assert!(as_random_ratio(&yaml).is_err());
 
         // unsupported types
-        let yaml = Yaml::Array(vec![]);
+        let yaml = Yaml::Sequence(vec![]);
         assert!(as_random_ratio(&yaml).is_err());
 
-        let yaml = Yaml::Null;
+        let yaml = Yaml::Value(Scalar::Null);
         assert!(as_random_ratio(&yaml).is_err());
     }
 }

@@ -9,7 +9,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_types::net::{
     ConnectionPoolConfig, QuinnTransportConfigBuilder, RustlsClientConfigBuilder,
@@ -55,7 +55,7 @@ impl AuditStreamDetourConfig {
         let mut config = AuditStreamDetourConfig::default();
 
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "peer" | "peer_addr" => {
                         config.peer_addr =
@@ -108,14 +108,14 @@ impl AuditStreamDetourConfig {
                     _ => Err(anyhow!("invalid key {k}")),
                 })?;
             }
-            Yaml::String(s) => {
+            Yaml::Value(Scalar::String(s)) => {
                 config.peer_addr =
                     UpstreamAddr::from_str(s).context("invalid upstream address string value")?;
                 if config.peer_addr.port() == 0 {
                     config.peer_addr.set_port(DEFAULT_DETOUR_PORT);
                 }
             }
-            Yaml::Integer(i) => {
+            Yaml::Value(Scalar::Integer(i)) => {
                 let port =
                     u16::try_from(*i).map_err(|e| anyhow!("out of range u16 port value: {e}"))?;
                 config.peer_addr.set_port(port);

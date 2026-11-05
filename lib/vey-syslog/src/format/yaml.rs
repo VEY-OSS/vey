@@ -5,7 +5,7 @@
  */
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use super::SyslogFormatterKind;
 
@@ -15,7 +15,7 @@ impl SyslogFormatterKind {
         let mut message_id: Option<String> = None;
 
         match value {
-            Yaml::Hash(map) => {
+            Yaml::Mapping(map) => {
                 vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
                     "enterprise_id" => {
                         enterprise_id = vey_yaml::value::as_i32(v)
@@ -33,13 +33,13 @@ impl SyslogFormatterKind {
                 })?;
                 Ok(SyslogFormatterKind::Rfc5424(enterprise_id, message_id))
             }
-            Yaml::Integer(i) => {
+            Yaml::Value(Scalar::Integer(i)) => {
                 enterprise_id =
                     i32::try_from(*i).map_err(|e| anyhow!("invalid enterprise_id: {e}"))?;
                 Ok(SyslogFormatterKind::Rfc5424(enterprise_id, message_id))
             }
-            Yaml::String(s) => {
-                message_id = Some(s.clone());
+            Yaml::Value(Scalar::String(s)) => {
+                message_id = Some(s.to_string());
                 Ok(SyslogFormatterKind::Rfc5424(enterprise_id, message_id))
             }
             _ => Err(anyhow!("invalid yaml value for rfc5424 syslog format")),

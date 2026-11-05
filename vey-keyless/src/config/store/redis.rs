@@ -4,8 +4,8 @@
  */
 
 use anyhow::anyhow;
+use saphyr::Yaml;
 use url::Url;
-use yaml_rust::{Yaml, yaml};
 
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
@@ -29,7 +29,7 @@ impl RedisKeyStoreConfig {
     }
 
     pub(super) fn parse(
-        map: &yaml::Hash,
+        map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = RedisKeyStoreConfig::new(position);

@@ -7,7 +7,7 @@
 use std::path::Path;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::{Yaml, yaml};
+use saphyr::Yaml;
 
 use vey_macros::AnyConfig;
 use vey_types::metrics::NodeName;
@@ -75,7 +75,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 
 pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyExporterConfig> {
     let doc = vey_yaml::load_doc(position)?;
-    if let Yaml::Hash(map) = doc {
+    if let Yaml::Mapping(map) = doc {
         let exporter = load_exporter(&map, Some(position.clone()))?;
         registry::add(exporter.clone());
         Ok(exporter)
@@ -85,7 +85,7 @@ pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<Any
 }
 
 fn load_exporter(
-    map: &yaml::Hash,
+    map: &saphyr::Mapping,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<AnyExporterConfig> {
     let exporter_type = vey_yaml::hash_get_required_str(map, CONFIG_KEY_EXPORTER_TYPE)?;

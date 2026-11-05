@@ -14,7 +14,7 @@ tokio = { workspace = true, features = ["sync", "net", "rt"] }
 tokio-util = { workspace = true, features = ["time"] }
 rustc-hash.workspace = true
 rmpv.workspace = true
-yaml-rust = { workspace = true, optional = true }
+saphyr = { workspace = true, optional = true }
 vey-types.workspace = true
 vey-geoip-types.workspace = true
 vey-msgpack = { workspace = true, features = ["geoip"] }
@@ -26,4 +26,4 @@ tokio = { workspace = true, features = ["macros", "rt", "time", "sync"] }
 
 [features]
 default = []
-yaml = ["dep:vey-yaml", "dep:yaml-rust"]
+yaml = ["dep:vey-yaml", "dep:saphyr"]

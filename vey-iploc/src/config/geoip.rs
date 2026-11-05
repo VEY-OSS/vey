@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::anyhow;
 use ip_network_table::IpNetworkTable;
-use yaml_rust::Yaml;
+use saphyr::Yaml;
 
 use vey_geoip_db::{GeoIpAsnRecord, GeoIpCountryRecord};
 
@@ -30,7 +30,7 @@ static COUNTRY: Mutex<Option<CountrySource>> = Mutex::new(None);
 static ASN: Mutex<Option<AsnSource>> = Mutex::new(None);
 
 pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
-    let Yaml::Hash(map) = v else {
+    let Yaml::Mapping(map) = v else {
         return Err(anyhow!("invalid value type"));
     };
 

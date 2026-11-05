@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use anyhow::{Context, anyhow};
-use yaml_rust::Yaml;
+use saphyr::{Scalar, Yaml};
 
 use vey_socket::BindAddr;
 
@@ -21,8 +21,8 @@ impl HickoryDriverConfig {
     ) -> anyhow::Result<()> {
         match vey_yaml::key::normalize(k).as_str() {
             "server" => match v {
-                Yaml::String(addrs) => self.parse_server_str(addrs),
-                Yaml::Array(seq) => self.parse_server_array(seq),
+                Yaml::Value(Scalar::String(addrs)) => self.parse_server_str(addrs),
+                Yaml::Sequence(seq) => self.parse_server_array(seq),
                 _ => Err(anyhow!("invalid yaml value type, expect string / array")),
             },
             "server_port" => {
@@ -104,9 +104,11 @@ impl HickoryDriverConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use std::net::IpAddr;
     use std::str::FromStr;
     use std::time::Duration;
+
     use vey_types::net::DnsEncryptionProtocol;
     use vey_yaml::yaml_doc;
 
@@ -136,7 +138,7 @@ mod tests {
                 negative_max_ttl: 1200
             "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             config.set_by_yaml_kv(k.as_str().unwrap(), v, None).unwrap();
         }
 
@@ -171,7 +173,7 @@ mod tests {
                 server_port: 5353
             "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             config.set_by_yaml_kv(k.as_str().unwrap(), v, None).unwrap();
         }
 
@@ -204,7 +206,7 @@ mod tests {
                 invalid_key: value
             "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             assert!(config.set_by_yaml_kv(k.as_str().unwrap(), v, None).is_err());
         }
 
@@ -214,7 +216,7 @@ mod tests {
                 server: [456, "valid.server.com"]
             "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             assert!(config.set_by_yaml_kv(k.as_str().unwrap(), v, None).is_err());
         }
 
@@ -224,7 +226,7 @@ mod tests {
                 server: "0.0.0.0 invalid-server 255.255.255.255"
             "#
         );
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             assert!(config.set_by_yaml_kv(k.as_str().unwrap(), v, None).is_err());
         }
     }
@@ -247,7 +249,7 @@ mod tests {
         #[cfg(not(any(target_os = "linux", target_os = "android")))]
         let interface_name = "lo0";
 
-        let yaml = Yaml::String(interface_name.to_string());
+        let yaml = yaml_str!(interface_name);
 
         config
             .set_by_yaml_kv("bind_interface", &yaml, None)
@@ -256,7 +258,7 @@ mod tests {
         assert_eq!(config.bind_addr, BindAddr::Interface(interface));
 
         // invalid
-        let yaml = Yaml::Integer(123);
+        let yaml = Yaml::Value(Scalar::Integer(123));
         assert!(
             config
                 .set_by_yaml_kv("bind_interface", &yaml, None)
@@ -283,7 +285,7 @@ mod tests {
                 positive_max_ttl: 300
             "#
         };
-        for (k, v) in yaml.as_hash().unwrap().iter() {
+        for (k, v) in yaml.as_mapping().unwrap().iter() {
             config.set_by_yaml_kv(k.as_str().unwrap(), v, None).unwrap();
         }
         assert!(config.check().is_ok());
