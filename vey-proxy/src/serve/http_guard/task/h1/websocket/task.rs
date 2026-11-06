@@ -362,14 +362,16 @@ impl HttpGuardWebsocketTask {
             Ok(ups_c) => {
                 self.site_ctx
                     .site()
-                    .record_peer_connect_result(&self.upstream, true);
+                    .record_tcp_connect_result(&self.upstream, Ok(()), None);
                 self.task_notes.stage = ServerTaskStage::Connected;
                 Ok(ups_c)
             }
             Err(e) => {
-                self.site_ctx
-                    .site()
-                    .record_peer_connect_result(&self.upstream, false);
+                self.site_ctx.site().record_tcp_connect_result(
+                    &self.upstream,
+                    Err(&e),
+                    self.egress_notes.tcp.peer,
+                );
                 self.reply_connect_err(&e, clt_w).await;
                 Err(e.into())
             }

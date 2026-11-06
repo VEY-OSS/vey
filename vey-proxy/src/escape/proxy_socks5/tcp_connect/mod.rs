@@ -166,7 +166,9 @@ impl ProxySocks5Escaper {
                 Ok(stream)
             }
             Err(e) => {
-                if let Some(peer_health) = &peer_health {
+                if let Some(peer_health) = &peer_health
+                    && e.is_remote_connect_failure()
+                {
                     peer_health.record_failure(peer);
                 }
                 Err(e)
@@ -292,7 +294,9 @@ impl ProxySocks5Escaper {
                                             }
                                             .log(logger, &e);
                                         }
-                                        if let Some(peer_health) = &peer_health {
+                                        if let Some(peer_health) = &peer_health
+                                            && e.is_remote_connect_failure()
+                                        {
                                             peer_health.record_failure(peer_addr);
                                         }
                                         returned_err = e;

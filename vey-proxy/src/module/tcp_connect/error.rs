@@ -50,6 +50,15 @@ pub(crate) enum UnderlyingTcpConnectError {
 }
 
 impl UnderlyingTcpConnectError {
+    /// The dialed address failed to accept a TCP connection.
+    pub(crate) fn is_remote_connect_failure(&self) -> bool {
+        match self {
+            UnderlyingTcpConnectError::TimeoutByRule => true,
+            UnderlyingTcpConnectError::ConnectFailed(e) => e.is_remote_connect_failure(),
+            _ => false,
+        }
+    }
+
     pub(crate) fn brief(&self) -> &'static str {
         match self {
             UnderlyingTcpConnectError::ResolveFailed(_) => "ResolveFailed",
@@ -116,6 +125,18 @@ pub(crate) enum TcpConnectError {
     UpstreamTlsHandshakeTimeout,
     #[error("upstream tls handshake failed: {0:?}")]
     UpstreamTlsHandshakeFailed(anyhow::Error),
+}
+
+impl TcpConnectError {
+    /// The dialed address failed to accept a TCP connection.
+    /// DNS, ACL, local socket, proxy negotiation, and TLS errors are not included.
+    pub(crate) fn is_remote_connect_failure(&self) -> bool {
+        match self {
+            TcpConnectError::TimeoutByRule => true,
+            TcpConnectError::ConnectFailed(e) => e.is_remote_connect_failure(),
+            _ => false,
+        }
+    }
 }
 
 impl From<TcpConnectError> for ServerTaskError {
@@ -301,5 +322,40 @@ impl From<HttpUpgradeError> for TcpConnectError {
             }
             HttpUpgradeError::PeerTimeout(_) => TcpConnectError::NegotiationPeerTimeout,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TcpConnectError, UnderlyingTcpConnectError};
+    use vey_types::net::ConnectError;
+
+    #[test]
+    fn only_remote_tcp_failures_count() {
+        assert!(TcpConnectError::TimeoutByRule.is_remote_connect_failure());
+        assert!(
+            TcpConnectError::ConnectFailed(ConnectError::ConnectionRefused)
+                .is_remote_connect_failure()
+        );
+        assert!(
+            !TcpConnectError::ConnectFailed(ConnectError::NetworkUnreachable)
+                .is_remote_connect_failure()
+        );
+        assert!(
+            !TcpConnectError::ResolveFailed(vey_resolver::ResolveError::EmptyDomain)
+                .is_remote_connect_failure()
+        );
+        assert!(
+            !TcpConnectError::UpstreamTlsHandshakeFailed(anyhow::anyhow!("cert"))
+                .is_remote_connect_failure()
+        );
+        assert!(UnderlyingTcpConnectError::TimeoutByRule.is_remote_connect_failure());
+        assert!(
+            !UnderlyingTcpConnectError::SetupSocketFailed(std::io::Error::new(
+                std::io::ErrorKind::AddrNotAvailable,
+                "ports",
+            ))
+            .is_remote_connect_failure()
+        );
     }
 }

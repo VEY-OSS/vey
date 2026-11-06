@@ -23,6 +23,20 @@ pub enum ConnectError {
     UnspecifiedError(io::Error),
 }
 
+impl ConnectError {
+    /// The remote host or its network answered by refusing, resetting, timing
+    /// out, or being unreachable. Local faults such as a full port range stay out.
+    pub fn is_remote_connect_failure(&self) -> bool {
+        matches!(
+            self,
+            ConnectError::ConnectionRefused
+                | ConnectError::ConnectionReset
+                | ConnectError::HostUnreachable
+                | ConnectError::TimedOut
+        )
+    }
+}
+
 impl From<io::Error> for ConnectError {
     fn from(e: io::Error) -> Self {
         match e.kind() {
@@ -121,5 +135,18 @@ mod tests {
             ConnectError::from(io_err),
             ConnectError::UnspecifiedError(_)
         ));
+    }
+
+    #[test]
+    fn remote_connect_failure_excludes_local_errors() {
+        assert!(ConnectError::ConnectionRefused.is_remote_connect_failure());
+        assert!(ConnectError::ConnectionReset.is_remote_connect_failure());
+        assert!(ConnectError::HostUnreachable.is_remote_connect_failure());
+        assert!(ConnectError::TimedOut.is_remote_connect_failure());
+        assert!(!ConnectError::NetworkUnreachable.is_remote_connect_failure());
+        assert!(
+            !ConnectError::UnspecifiedError(io::Error::from_raw_os_error(libc::EMFILE))
+                .is_remote_connect_failure()
+        );
     }
 }

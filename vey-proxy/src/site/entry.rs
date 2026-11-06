@@ -25,6 +25,7 @@ use super::{SiteHttp1Pool, SiteHttp2Pool, SiteStats};
 use crate::auth::{UserForbiddenStats, UserGroup, UserRequestStats};
 use crate::config::escaper::PeerHealthCheckConfig;
 use crate::config::site::SiteConfig;
+use crate::module::tcp_connect::TcpConnectError;
 
 pub(crate) struct Site {
     config: Arc<SiteConfig>,
@@ -225,7 +226,22 @@ impl Site {
         self.config.peer_health_check()
     }
 
-    pub(crate) fn record_peer_connect_result(&self, upstream: &UpstreamAddr, connected: bool) {
+    /// Record a new TCP connection to a weighted upstream.
+    ///
+    /// A failure counts only when `attempted` is this upstream socket and the
+    /// error is a remote connect failure. Other errors leave the record unchanged.
+    /// Success clears it.
+    pub(crate) fn record_tcp_connect_result(
+        &self,
+        upstream: &UpstreamAddr,
+        result: Result<(), &TcpConnectError>,
+        attempted: Option<std::net::SocketAddr>,
+    ) {
+        let connected = match result {
+            Ok(()) => true,
+            Err(e) if e.is_remote_connect_failure() && attempted == upstream.socket_addr() => false,
+            Err(_) => return,
+        };
         self.upstream
             .record_peer_connect_result(upstream, connected);
     }

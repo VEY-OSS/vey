@@ -684,7 +684,8 @@ impl<'a> HttpExposeForwardTask<'a> {
 
         match self.make_new_connection(fwd_ctx).await {
             Ok((mut connection, reuse_notes)) => {
-                self.site().record_peer_connect_result(&self.upstream, true);
+                self.site()
+                    .record_tcp_connect_result(&self.upstream, Ok(()), None);
                 self.alive_reuse_notes = Some(reuse_notes);
                 self.task_notes.stage = ServerTaskStage::Connected;
                 fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
@@ -700,9 +701,12 @@ impl<'a> HttpExposeForwardTask<'a> {
                 Ok(connection)
             }
             Err(e) => {
-                self.site()
-                    .record_peer_connect_result(&self.upstream, false);
                 fwd_ctx.fetch_egress_notes(&mut self.egress_notes);
+                self.site().record_tcp_connect_result(
+                    &self.upstream,
+                    Err(&e),
+                    self.egress_notes.tcp.peer,
+                );
                 self.should_close = true;
                 self.reply_connect_err(&e, clt_w).await;
                 Err(e.into())

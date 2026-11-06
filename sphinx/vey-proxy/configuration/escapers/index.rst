@@ -249,7 +249,9 @@ setting. ``direct_fixed`` and ``direct_float`` have no key of their own and
 use the site setting instead.
 
 The check applies to TCP connects that resolve this escaper's proxy domain.
-Literal IP addresses are not recorded. Unavailable addresses are tried last.
+Literal IP addresses are not recorded. Only a connection timeout, refusal,
+reset, or host unreachable is recorded. Local errors, such as running out of
+ports, are not. Unavailable addresses are tried last.
 Sticky selection drops them unless every candidate has failed. Records stay
 on this escaper. Reloading keeps them when the bind addresses stay the same,
 and drops them when the bind changes.

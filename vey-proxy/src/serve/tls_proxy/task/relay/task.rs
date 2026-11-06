@@ -233,9 +233,11 @@ impl TlsRelayTask {
                 )
                 .await
         };
-        self.host
-            .site()
-            .record_peer_connect_result(&self.upstream, connected.is_ok());
+        self.host.site().record_tcp_connect_result(
+            &self.upstream,
+            connected.as_ref().map(|_| ()),
+            self.egress_notes.tcp.peer,
+        );
         let (ups_r, ups_w) = connected?;
 
         self.task_notes.stage = ServerTaskStage::Connected;

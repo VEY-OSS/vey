@@ -442,11 +442,15 @@ impl H2TaskContext {
                 .new_prepared_http_connection(&task_conf, task_notes, task_stats, &mut audit_ctx)
                 .await
         };
-        site.record_peer_connect_result(upstream, connected.is_ok());
-        let (connection, reuse_notes) = connected?;
-
         let mut egress_notes = EgressNotes::default();
         fwd_ctx.fetch_egress_notes(&mut egress_notes);
+        site.record_tcp_connect_result(
+            upstream,
+            connected.as_ref().map(|_| ()),
+            egress_notes.tcp.peer,
+        );
+        let (connection, reuse_notes) = connected?;
+
         Ok(OriginH1Sender {
             connection,
             reused: false,
@@ -482,7 +486,11 @@ impl H2TaskContext {
                         &mut audit_ctx,
                     )
                     .await;
-                site.record_peer_connect_result(upstream, connected.is_ok());
+                site.record_tcp_connect_result(
+                    upstream,
+                    connected.as_ref().map(|_| ()),
+                    egress_notes.tcp.peer,
+                );
                 match connected? {
                     TlsHttpConnection::H1(connection, escaper) => {
                         Ok(OriginConnection::H1(OriginH1Sender {
@@ -492,18 +500,10 @@ impl H2TaskContext {
                             egress_notes,
                         }))
                     }
-                    TlsHttpConnection::H2(ups_c) => {
-                        match self
-                            .finish_h2_origin(ups_c, egress_notes, task_notes, upstream)
-                            .await
-                        {
-                            Ok(h2_sender) => Ok(OriginConnection::H2(h2_sender)),
-                            Err(e) => {
-                                site.record_peer_connect_result(upstream, false);
-                                Err(e)
-                            }
-                        }
-                    }
+                    TlsHttpConnection::H2(ups_c) => self
+                        .finish_h2_origin(ups_c, egress_notes, task_notes, upstream)
+                        .await
+                        .map(OriginConnection::H2),
                 }
             }
             None => {
@@ -554,18 +554,14 @@ impl H2TaskContext {
                 )
                 .await
         };
-        site.record_peer_connect_result(upstream, connected.is_ok());
+        site.record_tcp_connect_result(
+            upstream,
+            connected.as_ref().map(|_| ()),
+            egress_notes.tcp.peer,
+        );
         let ups_c = connected?;
-        match self
-            .finish_h2_origin(ups_c, egress_notes, task_notes, upstream)
+        self.finish_h2_origin(ups_c, egress_notes, task_notes, upstream)
             .await
-        {
-            Ok(origin) => Ok(origin),
-            Err(e) => {
-                site.record_peer_connect_result(upstream, false);
-                Err(e)
-            }
-        }
     }
 
     async fn finish_h2_origin(

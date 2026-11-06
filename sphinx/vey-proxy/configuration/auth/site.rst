@@ -119,7 +119,8 @@ The check applies to TCP connects that resolve a domain name. Failure records
 are kept on the direct escaper that opens the socket, not on this user site.
 Expired domains are dropped on their own. The table keeps at most the
 escaper's ``peer_health_max_domains`` (default 4096). Literal IP addresses
-are not recorded. Unavailable addresses are tried last.
+are not recorded. Only a connection timeout, refusal, reset, or host
+unreachable is recorded. Unavailable addresses are tried last.
 
 **default**: not set, health checking is off for this user site
 

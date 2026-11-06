@@ -146,13 +146,19 @@ Two places use the same limits:
 * A weighted upstream IP list leaves an address out of the next pick after
   it reaches ``max_fails`` inside one ``fail_timeout`` window. If every
   positive-weight address is unavailable, the full list is used. A successful
-  new connection to that socket clears its record. Reused keepalive
-  connections are not recorded. These records stay on the site. Removing
+  new connection to that socket clears its record. A failure is recorded
+  only when the dialed socket is that address and the error is a connection
+  timeout, refusal, reset, or host unreachable. DNS failures, ACL rejects,
+  local socket errors, TLS handshake failures, HTTP/2 handshake failures, and
+  failures while connecting to an upstream proxy are not recorded. Reused
+  keepalive connections are not recorded. These records stay on the site. Removing
   this key drops them on reload. Changing ``max_fails`` or ``fail_timeout``
   keeps them and applies the new limits. Runtime weights are left alone.
 * ``direct_fixed`` and ``direct_float`` record TCP connect failures for the
   upstream domain on the escaper that opens the socket. Literal IP addresses
-  are not recorded. Unavailable addresses are tried last. Sticky selection
+  are not recorded. Only a connection timeout, refusal, reset, or host
+  unreachable is recorded. Local errors, such as running out of ports, are
+  not. Unavailable addresses are tried last. Sticky selection
   drops them unless every candidate has failed. Each direct escaper keeps its
   own records, because a failure through one egress path does not say the
   address is unreachable through another. Reloading the escaper keeps those
