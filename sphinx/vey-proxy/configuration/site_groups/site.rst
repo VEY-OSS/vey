@@ -158,8 +158,7 @@ Two places use the same limits:
   upstream domain on the escaper that opens the socket. Literal IP addresses
   are not recorded. Only a connection timeout, refusal, reset, or host
   unreachable is recorded. Local errors, such as running out of ports, are
-  not. Unavailable addresses are tried last. Sticky selection
-  drops them unless every candidate has failed. Each direct escaper keeps its
+  not. Unavailable addresses are tried last. Each direct escaper keeps its
   own records, because a failure through one egress path does not say the
   address is unreachable through another. Reloading the escaper keeps those
   records when its bind addresses stay the same, and drops them when the bind

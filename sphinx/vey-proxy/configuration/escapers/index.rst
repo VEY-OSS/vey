@@ -252,7 +252,8 @@ The check applies to TCP connects that resolve this escaper's proxy domain.
 Literal IP addresses are not recorded. Only a connection timeout, refusal,
 reset, or host unreachable is recorded. Local errors, such as running out of
 ports, are not. Unavailable addresses are tried last.
-Sticky selection drops them unless every candidate has failed. Records stay
+``proxy`` escapers with a sticky resolve key drop them unless every candidate
+has failed. ``divert_tcp`` has no sticky selection. Records stay
 on this escaper. Reloading keeps them when the bind addresses stay the same,
 and drops them when the bind changes.
 

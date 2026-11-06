@@ -233,9 +233,7 @@ impl ScopedPeerHealth {
     }
 
     pub(super) fn record_failure(&self, peer: SocketAddr) -> bool {
-        self.table
-            .ensure(&self.domain)
-            .record_failure_using(peer, self.strategy)
+        self.table.record_failure(&self.domain, peer, self.strategy)
     }
 
     pub(super) fn clear_failure(&self, peer: SocketAddr) -> bool {
@@ -353,26 +351,39 @@ impl PeerHealthTable {
         Some(Arc::clone(&slot.health))
     }
 
-    fn ensure(&self, domain: &DomainName) -> Arc<PeerHealth> {
+    /// Insert `domain` if needed and store the failure before releasing the map.
+    ///
+    /// The map lock is held across the write. Otherwise a concurrent
+    /// `drop_if_empty` can remove the still-empty table and the record is lost.
+    fn record_failure(
+        &self,
+        domain: &DomainName,
+        peer: SocketAddr,
+        strategy: PeerHealthCheckConfig,
+    ) -> bool {
         let mut domains = self.domains.lock().unwrap();
-        if let Some(slot) = domains.get_mut(domain) {
+        let health = if let Some(slot) = domains.get_mut(domain) {
             slot.touched = Instant::now();
-            return Arc::clone(&slot.health);
-        }
-        let max_domains = self.max_domains.load(Ordering::Relaxed);
-        if max_domains != usize::MAX {
-            retain_live(&mut domains, Instant::now());
-            while domains.len() >= max_domains && pop_oldest(&mut domains) {}
-        }
-        let health = PeerHealth::new(PeerHealthCheckConfig::default());
-        domains.insert(
-            domain.clone(),
-            DomainSlot {
-                health: Arc::clone(&health),
-                touched: Instant::now(),
-            },
-        );
-        health
+            Arc::clone(&slot.health)
+        } else {
+            let max_domains = self.max_domains.load(Ordering::Relaxed);
+            if max_domains != usize::MAX {
+                retain_live(&mut domains, Instant::now());
+                while domains.len() >= max_domains && pop_oldest(&mut domains) {}
+            }
+            let health = PeerHealth::new(PeerHealthCheckConfig::default());
+            domains.insert(
+                domain.clone(),
+                DomainSlot {
+                    health: Arc::clone(&health),
+                    touched: Instant::now(),
+                },
+            );
+            health
+        };
+        let recorded = health.record_failure_using(peer, strategy);
+        drop(domains);
+        recorded
     }
 
     /// Drop `domain` when `health` is still the mapped table and has no records.
