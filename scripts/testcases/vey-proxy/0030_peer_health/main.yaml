@@ -1,0 +1,63 @@
+---
+
+log: stdout
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    resolve_redirection:
+      httpbin.local: 127.0.0.1
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.0/8
+
+site_group:
+  - name: health
+    static_sites:
+      - id: app
+        exact_match: app.local
+        upstream_pick_policy: serial
+        peer_health_check:
+          max_fails: 1
+          fail_timeout: 30s
+        upstream:
+          - addr: 127.0.0.1:18092
+            weight: 2
+          - addr: 127.0.0.1:18093
+            weight: 1
+      - id: plain
+        exact_match: plain.local
+        upstream:
+          - 127.0.0.1:18092
+          - 127.0.0.1:18093
+      - id: single
+        exact_match: single.local
+        upstream: 127.0.0.1:80
+      - id: origin
+        exact_match: httpbin.local
+        upstream: httpbin.local:18094
+        peer_health_check:
+          max_fails: 1
+          fail_timeout: 30s
+      - id: closed
+        exact_match: closed.local
+        upstream: httpbin.local:18099
+        peer_health_check:
+          max_fails: 1
+          fail_timeout: 30s
+
+server:
+  - name: http
+    type: http_expose
+    listen: 127.0.0.1:8080
+    escaper: default
+    site_group: health
