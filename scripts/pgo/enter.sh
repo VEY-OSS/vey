@@ -2,8 +2,10 @@
 
 # Sourced by scripts/pgo/<component>.sh.
 # Expects COMPONENT and RUN_SH.
-# Optional: FEATURES (cargo --features), HELPERS (package names to build
-# without instrumentation, into target/debug).
+# Optional: FEATURES (cargo --features for the instrumented COMPONENT).
+# Optional: HELPERS (debug packages with no extra features).
+# Optional: FEATURED_HELPERS built with HELPER_FEATURES. A feature such as
+# lua54 exists only on vey-proxy, so it cannot be passed to every helper.
 #
 # Builds an instrumented COMPONENT, runs the shared testcases run.sh, and
 # writes one .profdata file. Does not source scripts/coverage/enter.sh.
@@ -53,17 +55,32 @@ base_rustflags=$(strip_pgo_rustflags)
 
 cd "${PROJECT_DIR}"
 
-if [ -n "${HELPERS:-}" ]; then
-	echo "building helpers: ${HELPERS}"
+build_debug_packages() {
+	features=$1
+	shift
+	[ "$#" -gt 0 ] || return 0
+	echo "building debug packages: $*"
+	pkg_args=
+	for pkg in "$@"; do
+		pkg_args="${pkg_args} -p ${pkg}"
+	done
+	if [ -n "${features}" ]; then
+		# package names have no spaces
+		# shellcheck disable=SC2086
+		cargo build --features "${features}" ${pkg_args}
+	else
+		# shellcheck disable=SC2086
+		cargo build ${pkg_args}
+	fi
+}
+
+if [ -n "${HELPERS:-}${FEATURED_HELPERS:-}" ]; then
 	unset CARGO_TARGET_DIR
 	export RUSTFLAGS="${base_rustflags}"
-	helper_args=
-	for pkg in ${HELPERS}; do
-		helper_args="${helper_args} -p ${pkg}"
-	done
-	# package names have no spaces
 	# shellcheck disable=SC2086
-	cargo build ${helper_args}
+	build_debug_packages "" ${HELPERS:-}
+	# shellcheck disable=SC2086
+	build_debug_packages "${HELPER_FEATURES:-}" ${FEATURED_HELPERS:-}
 fi
 
 PGO_RAW_DIR=$(mktemp -d)
