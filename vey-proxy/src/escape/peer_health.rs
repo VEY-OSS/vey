@@ -120,6 +120,13 @@ impl PeerHealth {
         self.strategy
     }
 
+    #[cfg(test)]
+    pub(crate) fn expire_peer_for_test(&self, peer: SocketAddr) {
+        if let Some(failure) = self.inner.lock().unwrap().get_mut(&peer) {
+            failure.until = Instant::now() - Duration::from_secs(1);
+        }
+    }
+
     /// Drop expired records. Returns whether an unavailable peer was removed.
     pub(crate) fn sweep_expired(&self) -> bool {
         self.sweep_expired_using(self.strategy)

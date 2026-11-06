@@ -131,6 +131,9 @@ impl SiteUpstream {
         if let Some(addr) = self.config.single() {
             return Ok(addr.clone());
         }
+        // An expired peer stays out of the pick table until something rebuilds it.
+        // Selection is that point, so recovery does not wait for the next connect result.
+        self.recover_expired();
         let Some(nodes) = self.pick.load_full() else {
             return Err(anyhow!("no upstream address with a positive weight"));
         };
@@ -172,9 +175,7 @@ impl SiteUpstream {
         let Some(health) = &self.health else {
             return Err(anyhow!("peer health check is not enabled"));
         };
-        if health.sweep_expired() {
-            self.rebuild();
-        }
+        self.recover_expired();
         Ok(self
             .config
             .peers()
@@ -206,6 +207,15 @@ impl SiteUpstream {
         self.runtime_weight.lock().unwrap().insert(addr, weight);
         self.rebuild_locked();
         Ok(())
+    }
+
+    fn recover_expired(&self) {
+        let Some(health) = &self.health else {
+            return;
+        };
+        if health.sweep_expired() {
+            self.rebuild();
+        }
     }
 
     pub(super) fn record_peer_connect_result(&self, addr: &UpstreamAddr, connected: bool) {
@@ -411,6 +421,18 @@ mod tests {
         assert_eq!(upstream.select(ip).unwrap().to_string(), "10.0.0.1:8080");
         upstream.record_peer_connect_result(&bad, false);
         assert_eq!(upstream.select(ip).unwrap().to_string(), "10.0.0.2:8080");
+    }
+
+    #[test]
+    fn expired_peer_returns_on_the_next_selection() {
+        let upstream = SiteUpstream::new(&serial_peers(), Some(health_strategy(1)));
+        let ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        let bad = SocketAddr::from_str("10.0.0.1:8080").unwrap();
+        upstream.record_peer_connect_result(&UpstreamAddr::from(bad), false);
+        assert_eq!(upstream.select(ip).unwrap().to_string(), "10.0.0.2:8080");
+
+        upstream.health.as_ref().unwrap().expire_peer_for_test(bad);
+        assert_eq!(upstream.select(ip).unwrap().to_string(), "10.0.0.1:8080");
     }
 
     #[test]

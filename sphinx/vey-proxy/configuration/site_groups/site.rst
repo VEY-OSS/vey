@@ -146,7 +146,9 @@ Two places use the same limits:
 * A weighted upstream IP list leaves an address out of the next pick after
   it reaches ``max_fails`` inside one ``fail_timeout`` window. If every
   positive-weight address is unavailable, the full list is used. A successful
-  new connection to that socket clears its record. A failure is recorded
+  new connection to that socket clears its record. After ``fail_timeout`` the
+  address is included in the next selection, without waiting for another
+  connection result. A failure is recorded
   only when the dialed socket is that address and the error is a connection
   timeout, refusal, reset, or host unreachable. DNS failures, ACL rejects,
   local socket errors, TLS handshake failures, HTTP/2 handshake failures, and
