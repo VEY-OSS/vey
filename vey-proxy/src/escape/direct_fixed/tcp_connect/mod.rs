@@ -221,8 +221,16 @@ impl DirectFixedEscaper {
         }
     }
 
-    fn merge_ip_list(&self, tried: usize, ips: &mut Vec<IpAddr>, new: Vec<IpAddr>) {
-        self.config.happy_eyeballs.merge_list(tried, ips, new);
+    fn merge_ip_list(
+        &self,
+        tried: usize,
+        ips: &mut Vec<IpAddr>,
+        new: Vec<IpAddr>,
+        defer: &impl Fn(&IpAddr) -> bool,
+    ) {
+        self.config
+            .happy_eyeballs
+            .merge_list(tried, ips, new, defer);
     }
 
     async fn happy_try_connect(
@@ -372,7 +380,7 @@ impl DirectFixedEscaper {
                     {
                         resolver_r2_done = true;
                         if let Ok(ips2) = r {
-                            self.merge_ip_list(egress_notes.tries, &mut ips, ips2);
+                            self.merge_ip_list(egress_notes.tries, &mut ips, ips2, &defer_peer);
                         }
                     }
                 }
@@ -388,7 +396,7 @@ impl DirectFixedEscaper {
                 {
                     Ok(Ok(ips2)) => {
                         resolver_r2_done = true;
-                        self.merge_ip_list(egress_notes.tries, &mut ips, ips2);
+                        self.merge_ip_list(egress_notes.tries, &mut ips, ips2, &defer_peer);
                         spawn_new_connection = true;
                     }
                     Ok(Err(_e)) => {

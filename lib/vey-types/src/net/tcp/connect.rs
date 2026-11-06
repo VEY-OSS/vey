@@ -107,7 +107,14 @@ impl HappyEyeballsConfig {
             delay.clamp(Duration::from_millis(100), Duration::from_secs(2))
     }
 
-    pub fn merge_list<T>(&self, tried: usize, ips: &mut Vec<T>, new: Vec<T>) {
+    /// Interleave `new` into `ips`, then move items for which `defer` is true to the front.
+    ///
+    /// `pop()` tries the tail first, so deferred items are attempted last. Relative
+    /// order inside each group stays, including the family interleave.
+    pub fn merge_list<T, F>(&self, tried: usize, ips: &mut Vec<T>, new: Vec<T>, defer: F)
+    where
+        F: Fn(&T) -> bool,
+    {
         let mut id = self.first_address_family_count.saturating_sub(tried);
         for ip in new {
             if id < ips.len() {
@@ -118,6 +125,20 @@ impl HappyEyeballsConfig {
                 id += 1;
             }
         }
+        if ips.len() < 2 {
+            return;
+        }
+        let mut deferred = Vec::new();
+        let mut ready = Vec::new();
+        for ip in std::mem::take(ips) {
+            if defer(&ip) {
+                deferred.push(ip);
+            } else {
+                ready.push(ip);
+            }
+        }
+        ips.extend(deferred);
+        ips.extend(ready);
     }
 }
 
@@ -155,5 +176,12 @@ mod tests {
         // Simulate a zero timeout that should not clamp us down to immediate failure.
         config.limit_to(&other);
         assert_eq!(config.each_timeout(), Duration::from_secs(10));
+    }
+
+    #[test]
+    fn merge_list_tries_deferred_addresses_last() {
+        let mut ips = vec![1, 2];
+        HappyEyeballsConfig::default().merge_list(0, &mut ips, vec![3, 4], |n| *n == 3);
+        assert_eq!(ips, vec![3, 1, 2, 4]);
     }
 }
