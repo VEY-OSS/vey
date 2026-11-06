@@ -18,6 +18,7 @@
     + [透明代理](#透明代理)
     + [线路绑定](#线路绑定)
     + [代理串联](#代理串联)
+    + [被动健康检查](#被动健康检查)
     + [连接限速](#连接限速)
     + [进程全局限速](#进程全局限速)
     + [域名解析](#域名解析)
@@ -368,6 +369,67 @@ escaper:
 `http://my_name-host-proxy1-session_id-1234:password@xxx`
 
 实际下一跳代理地址为`proxy1.example.net`，并且启用使用值`1234`启用粘性解析。
+
+### 被动健康检查
+
+vey-proxy 可以记住最近的 TCP 连接失败，并在一段时间内避开这些地址。它不会主动探测。只有真实连接超时、被拒绝、被重置，或主机不可达时才记一次失败。DNS 失败、ACL 拒绝、本机端口耗尽这类本地错误、TLS 握手失败和 HTTP/2 握手失败都不记。
+
+检查的形态与 nginx 的 `max_fails` / `fail_timeout` 相同。写了这个键但省略字段时，`max_fails` 默认为 1，`fail_timeout` 默认为 10s。不写这个键时检查关闭。
+
+**站点的加权上游。** 反向代理站点可以在上游列表旁设置 `peer_health_check`：
+
+```yaml
+site_group:
+  - name: local
+    static_sites:
+      - id: app
+        exact_match: app.internal
+        peer_health_check:
+          max_fails: 2
+          fail_timeout: 10s
+        upstream:
+          - addr: 10.0.0.1:8080
+            weight: 2
+          - 10.0.0.2:8080
+```
+
+一个 `fail_timeout` 窗口内失败达到 `max_fails` 后，这个套接字会从下一次选择中去掉。如果所有正权重地址都不可用，则使用完整列表。对新连接成功一次会清掉该记录。复用的 keepalive 连接不记录。超过 `fail_timeout` 后，下一次选择就会把这个地址加回来，不必再等一次连接结果。只有实际拨号的套接字就是这个上游地址时才记失败，所以上游代理自己故障时，不会把所有源站都标成不可用。
+
+```shell
+vey-proxy-ctl -G <daemon_group> -p <pid> site-group <group> list-upstream-health <site-id>
+```
+
+命令会列出每个地址、失败次数、当前是否不可用，以及还要多少毫秒才能再次被选中。地址可用时，最后一列是 `-`。
+
+**出口上解析出来的地址。** `direct_fixed` 和 `direct_float` 使用站点上的这项检查。任务没有站点上下文时，改用匹配到的用户站点上的 `peer_health_check`。记录留在打开套接字的那个出口上。字面 IP 地址不记录。不可用地址最后才试。每个 direct 出口各自保留记录，因为从一条出口路径失败，并不说明从另一条路径也不可达。`peer_health_max_domains`（默认 4096）限制表的大小。过期域名即使之后没有人再访问也会被清掉。重载时，bind 地址不变则保留记录，bind 变了则丢掉。
+
+`proxy` 和 `divert_tcp` 出口使用自己的 `peer_health_check`，不读站点或用户站点的设置。检查针对解析出来的代理地址。带粘性解析键的 `proxy` 出口会跳过不可用地址，除非每个候选都失败了。`divert_tcp` 没有粘性选择。
+
+```yaml
+escaper:
+  - name: next_proxy
+    type: proxy_https
+    resolver: default
+    proxy_addr:
+      - proxy-a.example.net:8443
+      - proxy-b.example.net:8443
+    peer_health_check:
+      max_fails: 1
+      fail_timeout: 10s
+```
+
+用户站点也可以为 direct 出口设置同一个键：
+
+```yaml
+explicit_sites:
+  - id: example-net
+    suffix_match: example.net
+    peer_health_check:
+      max_fails: 2
+      fail_timeout: 15s
+```
+
+重载站点时，修改 `max_fails` 或 `fail_timeout` 会保留记录；去掉这个键则丢掉记录。
 
 ### 连接限速
 

@@ -115,6 +115,7 @@ module model fits together in real YAML rather than reading option-by-option ref
 - Hot-reload-oriented deployment model with systemd-friendly service management
 - Fine-grained routing based on client address, target host, resolved IP, GeoIP attributes, or external route queries
 - Support for direct egress, static proxy chaining, and dynamic proxy discovery
+- Passive peer health for weighted site upstreams and for resolved escaper addresses
 - User, user-site, and reverse-proxy site policy controls for ACLs, quotas, rate limits, speed limits, and expiration
 - Structured logs and StatsD-compatible metrics, including reverse-proxy site metrics, for downstream observability pipelines
 - Multiple TLS stacks and optional TLCP support for deployments that need them
@@ -192,6 +193,7 @@ Shared site capabilities:
 - Exact host match and suffix match. `http_expose` can also use a group default site
 - Import sites from another group by tag
 - Upstream selection: round-robin, serial, rendezvous, ketama, or jump hash
+- Passive peer health for a weighted upstream list (`peer_health_check`)
 - Origin TLS / mTLS, including TLCP
 - Per-site speed, request rate, concurrency, and idle limits
 - Tenant identity from `site.owner`, with tenant limits and egress overrides constrained by the site
@@ -278,6 +280,7 @@ Common capabilities include:
 - Socket speed limits
 - Extensive TCP and UDP socket configuration
 - Source IP binding
+- Passive peer health for resolved TCP peer addresses
 
 #### Direct Connect Escapers
 
@@ -286,6 +289,8 @@ Common capabilities include:
     - Egress network filtering
     - DNS rewrite support
     - Index-based egress path selection
+    - Passive peer health for resolved destinations, using the site or user-site check
+    - `peer_health_max_domains` caps the stored domains
 
 - DirectFloat
     - TCP CONNECT / TLS CONNECT / HTTP(S) forward / UDP ASSOCIATE
@@ -293,6 +298,8 @@ Common capabilities include:
     - DNS rewrite support
     - Dynamic source IP binding
     - JSON-based egress path selection
+    - Passive peer health for resolved destinations, using the site or user-site check
+    - `peer_health_max_domains` caps the stored domains
 
 #### Proxy Chaining Escapers
 
@@ -301,6 +308,7 @@ Common capabilities include:
     - PROXY Protocol
     - Load balancing: RR / Random / Rendezvous / Jump Hash
     - Basic user authentication
+    - Passive peer health for the resolved proxy address
 
 - HTTPS Proxy
     - TCP CONNECT / TLS CONNECT / HTTP(S) forward
@@ -308,11 +316,13 @@ Common capabilities include:
     - Load balancing: RR / Random / Rendezvous / Jump Hash
     - Basic user authentication
     - mTLS
+    - Passive peer health for the resolved proxy address
 
 - SOCKS5(S) Proxy
     - TCP CONNECT / TLS CONNECT / HTTP(S) forward / UDP ASSOCIATE
     - Load balancing: RR / Random / Rendezvous / Jump Hash
     - Basic user authentication
+    - Passive peer health for the resolved proxy address
 
 - ProxyFloat
     - Dynamic proxy selection across HTTP Proxy / HTTPS Proxy / SOCKS5(S) Proxy
@@ -406,6 +416,7 @@ You can also define site-specific settings for each user:
 - Request metrics, client traffic metrics, and remote traffic metrics
 - Task duration histogram metrics
 - Custom TLS client configuration
+- Passive peer health for destinations resolved by `direct_fixed` or `direct_float` when the task has no site context
 
 ### Auditing
 

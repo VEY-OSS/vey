@@ -12,10 +12,10 @@ use log::warn;
 use openssl::ssl::CertCompressionAlgorithm;
 #[cfg(not(any(awslc, boringssl, libressl)))]
 use openssl::ssl::SslCtValidationMode;
-#[cfg(not(any(awslc, boringssl)))]
-use openssl::ssl::StatusType;
 #[cfg(tongsuo)]
 use openssl::ssl::SslOptions;
+#[cfg(not(any(awslc, boringssl)))]
+use openssl::ssl::StatusType;
 use openssl::ssl::{
     Ssl, SslConnector, SslConnectorBuilder, SslContext, SslMethod, SslVerifyMode, SslVersion,
 };

@@ -19,6 +19,7 @@
     + [Transparent Proxy](#transparent-proxy)
     + [Route Binding](#route-binding)
     + [Proxy Chaining](#proxy-chaining)
+    + [Passive Peer Health](#passive-peer-health)
     + [Connection Rate Limits](#connection-rate-limits)
     + [Process-Wide Rate Limits](#process-wide-rate-limits)
     + [DNS Resolution](#dns-resolution)
@@ -385,6 +386,83 @@ The client can then connect with:
 `http://my_name-host-proxy1-session_id-1234:password@xxx`
 
 The actual next-hop proxy becomes `proxy1.example.net`, and sticky resolution uses `1234` as its sticky key.
+
+### Passive Peer Health
+
+vey-proxy can remember recent TCP connect failures and avoid those addresses for a while. It does not probe addresses
+on its own. A failure is counted only when a real connection times out, is refused, is reset, or the host is
+unreachable. DNS errors, ACL rejects, local socket errors such as running out of ports, TLS handshake failures, and
+HTTP/2 handshake failures are not counted.
+
+The check has the same shape as nginx `max_fails` / `fail_timeout`. When the key is present and a field is omitted,
+`max_fails` defaults to 1 and `fail_timeout` defaults to 10s. Omitting the key turns the check off.
+
+**Weighted site upstreams.** A reverse-proxy site can set `peer_health_check` beside its upstream list:
+
+```yaml
+site_group:
+  - name: local
+    static_sites:
+      - id: app
+        exact_match: app.internal
+        peer_health_check:
+          max_fails: 2
+          fail_timeout: 10s
+        upstream:
+          - addr: 10.0.0.1:8080
+            weight: 2
+          - 10.0.0.2:8080
+```
+
+After `max_fails` failures inside one `fail_timeout` window, that socket is left out of the next pick. If every
+positive-weight address is unavailable, the full list is used. A successful new connection to that socket clears its
+record. Reused keepalive connections are not recorded. After `fail_timeout`, the address is included in the next
+selection without waiting for another connection result. The failure counts only when the dialed socket is that
+upstream address, so a broken upstream proxy does not mark every origin down.
+
+```shell
+vey-proxy-ctl -G <daemon_group> -p <pid> site-group <group> list-upstream-health <site-id>
+```
+
+The command prints each address, its failure count, whether it is unavailable, and the remaining milliseconds until it
+can be selected again. The last column is `-` while the address is available.
+
+**Resolved addresses on an escaper.** `direct_fixed` and `direct_float` use the site check above. When the task has no
+site context, they use the matched user site's `peer_health_check` instead. Records stay on the escaper that opens the
+socket. Literal IP addresses are not recorded. Unavailable addresses are tried last. Each direct escaper keeps its own
+records, because a failure through one egress path does not mean the address is unreachable through another.
+`peer_health_max_domains` (default 4096) caps the table. Expired domains are dropped even when nobody asks for them
+again. A reload keeps the records when the bind addresses stay the same, and drops them when the bind changes.
+
+`proxy` and `divert_tcp` escapers set their own `peer_health_check` and do not read the site or user-site setting. The
+check applies to the resolved proxy address. A `proxy` escaper with a sticky resolve key drops unavailable addresses
+unless every candidate has failed. `divert_tcp` has no sticky selection.
+
+```yaml
+escaper:
+  - name: next_proxy
+    type: proxy_https
+    resolver: default
+    proxy_addr:
+      - proxy-a.example.net:8443
+      - proxy-b.example.net:8443
+    peer_health_check:
+      max_fails: 1
+      fail_timeout: 10s
+```
+
+A user site can set the same key for direct escapers:
+
+```yaml
+explicit_sites:
+  - id: example-net
+    suffix_match: example.net
+    peer_health_check:
+      max_fails: 2
+      fail_timeout: 15s
+```
+
+Reloading a site keeps its records when `max_fails` or `fail_timeout` changes, and drops them when the key is removed.
 
 ### Connection Rate Limits
 
