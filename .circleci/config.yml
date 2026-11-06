@@ -127,7 +127,7 @@ jobs:
           version: stable
       - run:
           name: Install package tools
-          command: dnf install -y git jq rpmdevtools rpm-build
+          command: dnf install -y git jq rpmdevtools rpm-build systemd-rpm-macros
       - run:
           name: Install dev tools and libs
           command: |
@@ -181,7 +181,7 @@ jobs:
           version: stable
       - run:
           name: Install package tools
-          command: zypper install -y git jq rpmdevtools rpm-build
+          command: zypper install -y git jq rpmdevtools rpm-build systemd-rpm-macros
       - run:
           name: Install dev tools and libs
           command: |
