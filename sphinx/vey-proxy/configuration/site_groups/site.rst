@@ -136,9 +136,10 @@ peer_health_check
 Passive health check for this origin, in the same shape as nginx
 ``max_fails`` / ``fail_timeout``.
 
-If this key is not set, health checking is off for tasks that resolve this
-site. A matched :ref:`user site <configuration_auth_user_site>` is not
-consulted while a site context is present.
+If this key is not set, health checking is off for this site's weighted
+upstream list and for direct escapers that resolve this site. A matched
+:ref:`user site <configuration_auth_user_site>` is not consulted while a site
+context is present. ``proxy`` and ``divert_tcp`` escapers do not use this key.
 
 Two places use the same limits:
 
@@ -149,15 +150,14 @@ Two places use the same limits:
   connections are not recorded. These records stay on the site. Removing
   this key drops them on reload. Changing ``max_fails`` or ``fail_timeout``
   keeps them and applies the new limits. Runtime weights are left alone.
-* TCP connects that resolve a domain name record failures on the escaper
-  that opens the socket. A *direct* escaper records the upstream domain. A
-  *proxy* or *divert_tcp* escaper records its own proxy domain. Literal IP
-  addresses are not recorded. Unavailable addresses are tried last. Sticky
-  selection drops them unless every candidate has failed. Each escaper keeps
-  its own records, because a failure through one egress path does not say
-  the address is unreachable through another. Reloading the escaper keeps
-  those records when its bind addresses stay the same, and drops them when
-  the bind changes.
+* ``direct_fixed`` and ``direct_float`` record TCP connect failures for the
+  upstream domain on the escaper that opens the socket. Literal IP addresses
+  are not recorded. Unavailable addresses are tried last. Sticky selection
+  drops them unless every candidate has failed. Each direct escaper keeps its
+  own records, because a failure through one egress path does not say the
+  address is unreachable through another. Reloading the escaper keeps those
+  records when its bind addresses stay the same, and drops them when the bind
+  changes. ``direct_float`` keeps them across reload.
 
 ``vey-proxy-ctl site-group <name> list-upstream-health <site-id>`` lists each
 weighted address with its failure count, whether it is currently unavailable,

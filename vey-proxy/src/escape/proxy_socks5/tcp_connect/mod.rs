@@ -151,8 +151,9 @@ impl ProxySocks5Escaper {
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
-        let peer_health = task_notes
-            .peer_health_check()
+        let peer_health = self
+            .config
+            .peer_health_check
             .map(|check| self.peer_health_table.scope(domain, check));
         match self
             .fixed_try_connect(peer, task_conf, egress_notes, task_notes)
@@ -192,8 +193,9 @@ impl ProxySocks5Escaper {
                 max_tries_each_family,
             )
             .await?;
-        let peer_health = task_notes
-            .peer_health_check()
+        let peer_health = self
+            .config
+            .peer_health_check
             .map(|check| self.peer_health_table.scope(resolver_job.domain(), check));
         if let Some(peer_health) = &peer_health {
             peer_health.reorder(peer_port, &mut ips);
@@ -371,12 +373,7 @@ impl ProxySocks5Escaper {
                     && let Host::Domain(domain) = &addr.host()
                 {
                     let (ip, resolved_domain) = self
-                        .resolve_consistent(
-                            domain.clone(),
-                            addr.port(),
-                            &ups.resolve_sticky_key,
-                            task_notes,
-                        )
+                        .resolve_consistent(domain.clone(), addr.port(), &ups.resolve_sticky_key)
                         .await?;
                     return self
                         .fixed_try_connect_with_health(

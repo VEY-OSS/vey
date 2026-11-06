@@ -49,6 +49,7 @@ The following common keys are supported:
 * :ref:`tcp_connect <conf_escaper_common_tcp_connect>`
 * :ref:`happy eyeballs <conf_escaper_common_happy_eyeballs>`
 * :ref:`tcp_misc_opts <conf_escaper_common_tcp_misc_opts>`
+* :ref:`peer_health_check <conf_escaper_common_peer_health_check>`
 * :ref:`extra_metrics_tags <conf_escaper_common_extra_metrics_tags>`
 
 proxy_addr

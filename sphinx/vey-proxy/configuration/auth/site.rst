@@ -108,15 +108,16 @@ Passive health check for destinations that match this user site. The map has
 the same ``max_fails`` and ``fail_timeout`` fields as
 :ref:`site peer health check <conf_site_peer_health_check>`.
 
-This key is used only when the task has no site context. A task that already
-resolved a tenant site follows that site's setting, whether or not the check
-is enabled there.
+This key is used only when the task has no site context and the escaper is
+``direct_fixed`` or ``direct_float``. A task that already resolved a tenant
+site follows that site's setting, whether or not the check is enabled there.
+``proxy`` and ``divert_tcp`` escapers use their own
+:ref:`peer health check <conf_escaper_common_peer_health_check>` and ignore
+this key.
 
 The check applies to TCP connects that resolve a domain name. Failure records
-are kept on the escaper that opens the socket, not on this user site. A
-*direct* escaper records the upstream domain. A *proxy* or *divert_tcp*
-escaper records its own proxy domain. Literal IP addresses are not recorded.
-Unavailable addresses are tried last.
+are kept on the direct escaper that opens the socket, not on this user site.
+Literal IP addresses are not recorded. Unavailable addresses are tried last.
 
 **default**: not set, health checking is off for this user site
 

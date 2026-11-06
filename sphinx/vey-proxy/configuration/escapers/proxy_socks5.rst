@@ -35,6 +35,7 @@ The following common keys are supported:
 * :ref:`happy eyeballs <conf_escaper_common_happy_eyeballs>`
 * :ref:`tcp_misc_opts <conf_escaper_common_tcp_misc_opts>`
 * :ref:`udp_misc_opts <conf_escaper_common_udp_misc_opts>`
+* :ref:`peer_health_check <conf_escaper_common_peer_health_check>`
 * :ref:`peer negotiation timeout <conf_escaper_common_peer_negotiation_timeout>`
 * :ref:`extra_metrics_tags <conf_escaper_common_extra_metrics_tags>`
 

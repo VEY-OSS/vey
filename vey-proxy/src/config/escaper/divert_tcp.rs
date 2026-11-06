@@ -56,6 +56,7 @@ pub(crate) struct DivertTcpEscaperConfig {
     pub(crate) happy_eyeballs: HappyEyeballsConfig,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
+    pub(crate) peer_health_check: Option<super::PeerHealthCheckConfig>,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
@@ -85,6 +86,7 @@ impl DivertTcpEscaperConfig {
             happy_eyeballs: Default::default(),
             tcp_keepalive: Default::default(),
             tcp_misc_opts: Default::default(),
+            peer_health_check: None,
             extra_metrics_tags: None,
         }
     }
@@ -198,6 +200,12 @@ impl DivertTcpEscaperConfig {
             "happy_eyeballs" => {
                 self.happy_eyeballs = vey_yaml::value::as_happy_eyeballs_config(v)
                     .context(format!("invalid happy eyeballs config value for key {k}"))?;
+                Ok(())
+            }
+            "peer_health_check" => {
+                self.peer_health_check = Some(super::PeerHealthCheckConfig::parse(v).context(
+                    format!("invalid peer health check config value for key {k}"),
+                )?);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

@@ -162,8 +162,9 @@ impl DivertTcpEscaper {
                 max_tries_each_family,
             )
             .await?;
-        let peer_health = task_notes
-            .peer_health_check()
+        let peer_health = self
+            .config
+            .peer_health_check
             .map(|check| self.peer_health_table.scope(resolver_job.domain(), check));
         if let Some(peer_health) = &peer_health {
             peer_health.reorder(peer_port, &mut ips);

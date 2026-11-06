@@ -142,13 +142,12 @@ impl ProxyHttpsEscaper {
         domain: DomainName,
         port: u16,
         key: &str,
-        task_notes: &ServerTaskNotes,
     ) -> Result<(IpAddr, DomainName), ResolveError> {
         let mut happy_job = self.resolve_happy(domain)?;
         let addrs = happy_job
             .get_r1_or_first_done(self.config.happy_eyeballs.resolution_delay())
             .await?;
-        let addrs = match task_notes.peer_health_check() {
+        let addrs = match self.config.peer_health_check {
             Some(check) => self
                 .peer_health_table
                 .scope(happy_job.domain(), check)

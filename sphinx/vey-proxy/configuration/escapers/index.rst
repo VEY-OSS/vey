@@ -235,6 +235,29 @@ Happy Eyeballs configuration.
 
 **default**: default HappyEyeballs config
 
+.. _conf_escaper_common_peer_health_check:
+
+peer_health_check
+-----------------
+
+**optional**, **type**: map
+
+Passive health check for this escaper's own proxy address, in the same shape
+as :ref:`site peer health check <conf_site_peer_health_check>`. ``proxy`` and
+``divert_tcp`` escapers use this key. They do not read the site or user site
+setting. ``direct_fixed`` and ``direct_float`` have no key of their own and
+use the site setting instead.
+
+The check applies to TCP connects that resolve this escaper's proxy domain.
+Literal IP addresses are not recorded. Unavailable addresses are tried last.
+Sticky selection drops them unless every candidate has failed. Records stay
+on this escaper. Reloading keeps them when the bind addresses stay the same,
+and drops them when the bind changes.
+
+**default**: not set
+
+.. versionadded:: 1.15.3
+
 .. _conf_escaper_common_tcp_misc_opts:
 
 tcp_misc_opts

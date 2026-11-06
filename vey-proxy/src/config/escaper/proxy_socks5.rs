@@ -69,6 +69,7 @@ pub(crate) struct ProxySocks5EscaperConfig {
     pub(crate) peer_negotiation_timeout: Duration,
     transmute_udp_peer_ip: Option<FxHashMap<IpAddr, IpAddr>>,
     pub(crate) end_on_control_closed: bool,
+    pub(crate) peer_health_check: Option<super::PeerHealthCheckConfig>,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
@@ -106,6 +107,7 @@ impl ProxySocks5EscaperConfig {
             peer_negotiation_timeout: Duration::from_secs(10),
             transmute_udp_peer_ip: None,
             end_on_control_closed: false,
+            peer_health_check: None,
             extra_metrics_tags: None,
         }
     }
@@ -274,6 +276,12 @@ impl ProxySocks5EscaperConfig {
             }
             "end_on_control_closed" => {
                 self.end_on_control_closed = vey_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "peer_health_check" => {
+                self.peer_health_check = Some(super::PeerHealthCheckConfig::parse(v).context(
+                    format!("invalid peer health check config value for key {k}"),
+                )?);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

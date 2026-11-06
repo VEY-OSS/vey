@@ -69,6 +69,7 @@ pub(crate) struct ProxyHttpsEscaperConfig {
     pub(crate) pass_proxy_userid: bool,
     pub(crate) use_proxy_protocol: Option<ProxyProtocolVersion>,
     pub(crate) peer_negotiation_timeout: Duration,
+    pub(crate) peer_health_check: Option<super::PeerHealthCheckConfig>,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
@@ -108,6 +109,7 @@ impl ProxyHttpsEscaperConfig {
             pass_proxy_userid: false,
             use_proxy_protocol: None,
             peer_negotiation_timeout: Duration::from_secs(10),
+            peer_health_check: None,
             extra_metrics_tags: None,
         }
     }
@@ -274,6 +276,12 @@ impl ProxyHttpsEscaperConfig {
             "peer_negotiation_timeout" => {
                 self.peer_negotiation_timeout = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "peer_health_check" => {
+                self.peer_health_check = Some(super::PeerHealthCheckConfig::parse(v).context(
+                    format!("invalid peer health check config value for key {k}"),
+                )?);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

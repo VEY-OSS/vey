@@ -73,6 +73,11 @@ The following common keys are supported:
 
 * :ref:`extra_metrics_tags <conf_escaper_common_extra_metrics_tags>`
 
+TCP connects to a resolved upstream domain use the
+:ref:`site <conf_site_peer_health_check>` or
+:ref:`user site <conf_auth_user_site_peer_health_check>` peer health check.
+This escaper has no ``peer_health_check`` key of its own.
+
 cache_ipv4
 ----------
 
