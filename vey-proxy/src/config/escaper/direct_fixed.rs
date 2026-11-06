@@ -80,6 +80,7 @@ pub(crate) struct DirectFixedEscaperConfig {
     pub(crate) udp_socket_buffer: SocketBufferConfig,
     pub(crate) enable_path_selection: bool,
     pub(crate) use_proxy_protocol: Option<ProxyProtocolVersion>,
+    pub(crate) peer_health_max_domains: usize,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
@@ -129,6 +130,7 @@ impl DirectFixedEscaperConfig {
             udp_socket_buffer: SocketBufferConfig::default(),
             enable_path_selection: false,
             use_proxy_protocol: None,
+            peer_health_max_domains: super::DEFAULT_PEER_HEALTH_MAX_DOMAINS,
             extra_metrics_tags: None,
         }
     }
@@ -297,6 +299,11 @@ impl DirectFixedEscaperConfig {
                 let version = vey_yaml::value::as_proxy_protocol_version(v)
                     .context(format!("invalid ProxyProtocolVersion value for key {k}"))?;
                 self.use_proxy_protocol = Some(version);
+                Ok(())
+            }
+            "peer_health_max_domains" => {
+                self.peer_health_max_domains = super::peer_health::parse_max_domains(v)
+                    .context(format!("invalid peer health max domains value for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -508,6 +515,55 @@ mod openbsd_tests {
         assert!(
             err.to_string()
                 .contains("foreign_port_hint_prefix is not supported on this platform")
+        );
+    }
+}
+
+#[cfg(test)]
+mod peer_health_tests {
+    use super::DirectFixedEscaperConfig;
+    use saphyr::{LoadableYamlNode, Yaml};
+
+    fn parse(yaml: &str) -> anyhow::Result<DirectFixedEscaperConfig> {
+        let docs = Yaml::load_from_str(yaml).unwrap();
+        let Yaml::Mapping(map) = &docs[0] else {
+            panic!("expected map");
+        };
+        DirectFixedEscaperConfig::parse(map, None)
+    }
+
+    #[test]
+    fn peer_health_max_domains_defaults_and_parses() {
+        let config = parse(
+            r#"
+name: direct
+type: direct_fixed
+resolver: default
+"#,
+        )
+        .unwrap();
+        assert_eq!(config.peer_health_max_domains, 4096);
+
+        let config = parse(
+            r#"
+name: direct
+type: direct_fixed
+resolver: default
+peer_health_max_domains: 128
+"#,
+        )
+        .unwrap();
+        assert_eq!(config.peer_health_max_domains, 128);
+        assert!(
+            parse(
+                r#"
+name: direct
+type: direct_fixed
+resolver: default
+peer_health_max_domains: 0
+"#,
+            )
+            .is_err()
         );
     }
 }

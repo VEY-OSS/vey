@@ -129,13 +129,14 @@ impl DirectFloatEscaper {
             });
 
         let stats = Arc::new(DirectFixedEscaperStats::new(config.name()));
+        let peer_health_table = PeerHealthTable::new_direct(config.peer_health_max_domains);
 
         DirectFloatEscaper::new_obj(
             config,
             stats,
             ArcSwap::from_pointee(bind_set_v4),
             ArcSwap::from_pointee(bind_set_v6),
-            PeerHealthTable::new(),
+            peer_health_table,
         )
     }
 
@@ -473,6 +474,7 @@ impl EscaperInternal for DirectFloatEscaper {
         let bind_v6 = self.bind_v6.load_full();
         // Bind sets move with the escaper, so the recorded path stays valid.
         let peer_health_table = self.peer_health_table.on_reload(true);
+        peer_health_table.set_max_domains(config.peer_health_max_domains);
 
         DirectFloatEscaper::prepare_reload(config, stats, bind_v4, bind_v6, peer_health_table)
     }

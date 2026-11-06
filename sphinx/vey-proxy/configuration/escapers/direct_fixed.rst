@@ -47,6 +47,23 @@ TCP connects to a resolved upstream domain use the
 :ref:`user site <conf_auth_user_site_peer_health_check>` peer health check.
 This escaper has no ``peer_health_check`` key of its own.
 
+.. _conf_escaper_direct_fixed_peer_health_max_domains:
+
+peer_health_max_domains
+-----------------------
+
+**optional**, **type**: usize
+
+Maximum number of domains that keep peer health records on this escaper.
+Expired records are dropped even when that domain is not queried again.
+When the table is full, the least recently used domain is dropped.
+A reload applies the new limit and keeps existing records when the bind
+addresses stay the same.
+
+**default**: 4096, **min**: 1
+
+.. versionadded:: 1.15.3
+
 bind_ip
 -------
 

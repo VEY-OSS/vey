@@ -157,7 +157,10 @@ Two places use the same limits:
   own records, because a failure through one egress path does not say the
   address is unreachable through another. Reloading the escaper keeps those
   records when its bind addresses stay the same, and drops them when the bind
-  changes. ``direct_float`` keeps them across reload.
+  changes. ``direct_float`` keeps them across reload. Expired records are
+  dropped even when that domain is not queried again. The table keeps at most
+  the escaper's ``peer_health_max_domains`` (default 4096) and drops the least
+  recently used domain when it is full.
 
 ``vey-proxy-ctl site-group <name> list-upstream-health <site-id>`` lists each
 weighted address with its failure count, whether it is currently unavailable,

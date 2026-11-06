@@ -41,7 +41,7 @@ pub(crate) mod trick_float;
 pub(crate) use comply_context::EgressUpstream;
 
 mod peer_health;
-pub(crate) use peer_health::PeerHealthCheckConfig;
+pub(crate) use peer_health::{DEFAULT_PEER_HEALTH_MAX_DOMAINS, PeerHealthCheckConfig};
 
 mod registry;
 pub(crate) use registry::clear;

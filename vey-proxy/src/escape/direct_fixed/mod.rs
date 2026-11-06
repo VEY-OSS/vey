@@ -101,7 +101,8 @@ impl DirectFixedEscaper {
 
     pub(super) fn prepare_initial(config: DirectFixedEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(DirectFixedEscaperStats::new(config.name()));
-        DirectFixedEscaper::new_obj(config, stats, PeerHealthTable::new())
+        let peer_health_table = PeerHealthTable::new_direct(config.peer_health_max_domains);
+        DirectFixedEscaper::new_obj(config, stats, peer_health_table)
     }
 
     fn prepare_reload(
@@ -429,6 +430,7 @@ impl EscaperInternal for DirectFixedEscaper {
         let peer_health_table = self
             .peer_health_table
             .on_reload(self.config.same_bind(&config));
+        peer_health_table.set_max_domains(config.peer_health_max_domains);
         DirectFixedEscaper::prepare_reload(config, stats, peer_health_table)
     }
 

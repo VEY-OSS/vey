@@ -46,6 +46,7 @@ pub(crate) struct DirectFloatEscaperConfig {
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) udp_socket_buffer: SocketBufferConfig,
+    pub(crate) peer_health_max_domains: usize,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
@@ -69,6 +70,7 @@ impl DirectFloatEscaperConfig {
             tcp_misc_opts: Default::default(),
             udp_misc_opts: Default::default(),
             udp_socket_buffer: SocketBufferConfig::default(),
+            peer_health_max_domains: super::DEFAULT_PEER_HEALTH_MAX_DOMAINS,
             extra_metrics_tags: None,
         }
     }
@@ -192,6 +194,11 @@ impl DirectFloatEscaperConfig {
                     .context(format!("invalid socket buffer config value for key {k}"))?;
                 Ok(())
             }
+            "peer_health_max_domains" => {
+                self.peer_health_max_domains = super::peer_health::parse_max_domains(v)
+                    .context(format!("invalid peer health max domains value for key {k}"))?;
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }
@@ -266,5 +273,43 @@ impl EscaperConfig for DirectFloatEscaperConfig {
 
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
+    }
+}
+
+#[cfg(test)]
+mod peer_health_tests {
+    use super::DirectFloatEscaperConfig;
+    use saphyr::{LoadableYamlNode, Yaml};
+
+    fn parse(yaml: &str) -> anyhow::Result<DirectFloatEscaperConfig> {
+        let docs = Yaml::load_from_str(yaml).unwrap();
+        let Yaml::Mapping(map) = &docs[0] else {
+            panic!("expected map");
+        };
+        DirectFloatEscaperConfig::parse(map, None)
+    }
+
+    #[test]
+    fn peer_health_max_domains_defaults_and_parses() {
+        let config = parse(
+            r#"
+name: direct
+type: direct_float
+resolver: default
+"#,
+        )
+        .unwrap();
+        assert_eq!(config.peer_health_max_domains, 4096);
+
+        let config = parse(
+            r#"
+name: direct
+type: direct_float
+resolver: default
+peer_health_max_domains: 128
+"#,
+        )
+        .unwrap();
+        assert_eq!(config.peer_health_max_domains, 128);
     }
 }

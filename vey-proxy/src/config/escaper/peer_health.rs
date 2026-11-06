@@ -9,6 +9,17 @@ use anyhow::anyhow;
 use saphyr::Yaml;
 use serde_json::Value;
 
+/// Default cap for domain records on a `direct_fixed` or `direct_float` escaper.
+pub(crate) const DEFAULT_PEER_HEALTH_MAX_DOMAINS: usize = 4096;
+
+pub(crate) fn parse_max_domains(v: &Yaml) -> anyhow::Result<usize> {
+    let max_domains = vey_yaml::value::as_usize(v)?;
+    if max_domains == 0 {
+        return Err(anyhow!("peer_health_max_domains must be greater than 0"));
+    }
+    Ok(max_domains)
+}
+
 /// Passive peer health check, in the same shape as nginx `max_fails` / `fail_timeout`.
 ///
 /// A peer is treated as unavailable after `max_fails` connect failures inside one

@@ -5,12 +5,15 @@
 
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use vey_types::net::DomainName;
 
 use crate::config::escaper::PeerHealthCheckConfig;
+
+const DIRECT_SWEEP_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
 struct Failure {
@@ -184,6 +187,13 @@ impl PeerHealth {
     fn is_empty(&self) -> bool {
         self.inner.lock().unwrap().is_empty()
     }
+
+    fn drop_expired(&self, now: Instant) {
+        self.inner
+            .lock()
+            .unwrap()
+            .retain(|_, failure| failure.until > now);
+    }
 }
 
 /// One domain in [`PeerHealthTable`]. Looking a domain up does not insert it.
@@ -238,19 +248,75 @@ impl ScopedPeerHealth {
     }
 }
 
+struct DomainSlot {
+    health: Arc<PeerHealth>,
+    touched: Instant,
+}
+
 /// Failure records for addresses reached through one escaper.
 /// Limits come from the site on each use, because sites sharing an escaper
 /// still leave through the same path.
 pub(super) struct PeerHealthTable {
     /// Outer lock only covers finding or creating a domain table.
-    domains: Mutex<HashMap<DomainName, Arc<PeerHealth>>>,
+    domains: Mutex<HashMap<DomainName, DomainSlot>>,
+    /// `usize::MAX` does not evict. Direct escapers set this from config.
+    max_domains: AtomicUsize,
 }
 
 impl PeerHealthTable {
     pub(super) fn new() -> Arc<Self> {
+        Self::with_limit(usize::MAX)
+    }
+
+    /// Bounded table for `direct_fixed` and `direct_float`.
+    /// Expired domains are dropped on a timer, including names nobody asks
+    /// for again. A full table drops the least recently used domain.
+    pub(super) fn new_direct(max_domains: usize) -> Arc<Self> {
+        let table = Self::with_limit(max_domains);
+        table.spawn_sweeper();
+        table
+    }
+
+    fn with_limit(max_domains: usize) -> Arc<Self> {
         Arc::new(PeerHealthTable {
             domains: Mutex::new(HashMap::new()),
+            max_domains: AtomicUsize::new(max_domains),
         })
+    }
+
+    /// Apply a new cap. A smaller cap drops the least recently used domains now.
+    pub(super) fn set_max_domains(&self, max_domains: usize) {
+        self.max_domains.store(max_domains, Ordering::Relaxed);
+        if max_domains == usize::MAX {
+            return;
+        }
+        let mut domains = self.domains.lock().unwrap();
+        retain_live(&mut domains, Instant::now());
+        while domains.len() > max_domains && pop_oldest(&mut domains) {}
+    }
+
+    fn spawn_sweeper(self: &Arc<Self>) {
+        let Ok(handle) = tokio::runtime::Handle::try_current() else {
+            return;
+        };
+        let weak = Arc::downgrade(self);
+        drop(handle.spawn(async move {
+            let mut interval = tokio::time::interval(DIRECT_SWEEP_INTERVAL);
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            interval.tick().await;
+            loop {
+                interval.tick().await;
+                let Some(table) = weak.upgrade() else {
+                    break;
+                };
+                table.sweep_expired_domains();
+            }
+        }));
+    }
+
+    fn sweep_expired_domains(&self) {
+        let mut domains = self.domains.lock().unwrap();
+        retain_live(&mut domains, Instant::now());
     }
 
     /// Keep recorded failures when the bind addresses stay the same.
@@ -258,8 +324,12 @@ impl PeerHealthTable {
     pub(super) fn on_reload(self: &Arc<Self>, same_bind: bool) -> Arc<Self> {
         if same_bind {
             Arc::clone(self)
-        } else {
+        } else if self.max_domains.load(Ordering::Relaxed) == usize::MAX {
             Self::new()
+        } else {
+            let table = Self::with_limit(self.max_domains.load(Ordering::Relaxed));
+            table.spawn_sweeper();
+            table
         }
     }
 
@@ -277,15 +347,32 @@ impl PeerHealthTable {
     }
 
     fn lookup(&self, domain: &DomainName) -> Option<Arc<PeerHealth>> {
-        self.domains.lock().unwrap().get(domain).cloned()
+        let mut domains = self.domains.lock().unwrap();
+        let slot = domains.get_mut(domain)?;
+        slot.touched = Instant::now();
+        Some(Arc::clone(&slot.health))
     }
 
     fn ensure(&self, domain: &DomainName) -> Arc<PeerHealth> {
         let mut domains = self.domains.lock().unwrap();
-        domains
-            .entry(domain.clone())
-            .or_insert_with(|| PeerHealth::new(PeerHealthCheckConfig::default()))
-            .clone()
+        if let Some(slot) = domains.get_mut(domain) {
+            slot.touched = Instant::now();
+            return Arc::clone(&slot.health);
+        }
+        let max_domains = self.max_domains.load(Ordering::Relaxed);
+        if max_domains != usize::MAX {
+            retain_live(&mut domains, Instant::now());
+            while domains.len() >= max_domains && pop_oldest(&mut domains) {}
+        }
+        let health = PeerHealth::new(PeerHealthCheckConfig::default());
+        domains.insert(
+            domain.clone(),
+            DomainSlot {
+                health: Arc::clone(&health),
+                touched: Instant::now(),
+            },
+        );
+        health
     }
 
     /// Drop `domain` when `health` is still the mapped table and has no records.
@@ -294,10 +381,31 @@ impl PeerHealthTable {
         let Some(current) = domains.get(domain) else {
             return;
         };
-        if !Arc::ptr_eq(current, health) || !health.is_empty() {
+        if !Arc::ptr_eq(&current.health, health) || !health.is_empty() {
             return;
         }
         domains.remove(domain);
+    }
+}
+
+fn retain_live(domains: &mut HashMap<DomainName, DomainSlot>, now: Instant) {
+    domains.retain(|_, slot| {
+        slot.health.drop_expired(now);
+        !slot.health.is_empty()
+    });
+}
+
+fn pop_oldest(domains: &mut HashMap<DomainName, DomainSlot>) -> bool {
+    let oldest = domains
+        .iter()
+        .min_by_key(|(_, slot)| slot.touched)
+        .map(|(name, _)| name.clone());
+    match oldest {
+        Some(oldest) => {
+            domains.remove(&oldest);
+            true
+        }
+        None => false,
     }
 }
 
@@ -492,5 +600,93 @@ mod tests {
         );
         assert!(!scoped.should_defer(SocketAddr::new(ip(4), 443)));
         assert!(!scoped.should_defer(SocketAddr::new(ip(1), 80)));
+    }
+
+    fn expire(table: &PeerHealthTable, name: &str, peer: SocketAddr) {
+        let view = table.lookup(&domain(name)).unwrap();
+        view.inner.lock().unwrap().get_mut(&peer).unwrap().until =
+            Instant::now() - Duration::from_secs(1);
+    }
+
+    #[test]
+    fn sweep_drops_expired_domains_nobody_queries_again() {
+        let health = PeerHealthTable::with_limit(8);
+        let peer = SocketAddr::new(ip(1), 443);
+        upstream(&health, "a.example").record_failure(peer);
+        upstream(&health, "b.example").record_failure(peer);
+        expire(&health, "a.example", peer);
+
+        health.sweep_expired_domains();
+
+        assert!(health.lookup(&domain("a.example")).is_none());
+        assert!(health.lookup(&domain("b.example")).is_some());
+    }
+
+    #[test]
+    fn full_direct_table_drops_the_least_recently_used_domain() {
+        let health = PeerHealthTable::with_limit(2);
+        let peer = SocketAddr::new(ip(1), 443);
+        upstream(&health, "a.example").record_failure(peer);
+        upstream(&health, "b.example").record_failure(peer);
+        let now = Instant::now();
+        {
+            let mut domains = health.domains.lock().unwrap();
+            domains.get_mut(&domain("a.example")).unwrap().touched = now;
+            domains.get_mut(&domain("b.example")).unwrap().touched = now + Duration::from_secs(1);
+        }
+
+        upstream(&health, "c.example").record_failure(peer);
+
+        assert!(health.lookup(&domain("a.example")).is_none());
+        assert!(health.lookup(&domain("b.example")).is_some());
+        assert!(health.lookup(&domain("c.example")).is_some());
+    }
+
+    #[test]
+    fn expired_domain_does_not_take_a_slot_from_the_cap() {
+        let health = PeerHealthTable::with_limit(1);
+        let peer = SocketAddr::new(ip(1), 443);
+        upstream(&health, "a.example").record_failure(peer);
+        expire(&health, "a.example", peer);
+
+        upstream(&health, "b.example").record_failure(peer);
+
+        assert!(health.lookup(&domain("a.example")).is_none());
+        assert!(health.lookup(&domain("b.example")).is_some());
+        assert_eq!(health.domains.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn reload_of_a_bounded_table_keeps_the_limit() {
+        let health = PeerHealthTable::with_limit(2);
+        let fresh = health.on_reload(false);
+        assert_eq!(fresh.max_domains.load(Ordering::Relaxed), 2);
+        assert!(!Arc::ptr_eq(&health, &fresh));
+
+        let kept = health.on_reload(true);
+        assert!(Arc::ptr_eq(&health, &kept));
+    }
+
+    #[test]
+    fn lowering_the_cap_drops_the_least_recently_used_domain() {
+        let health = PeerHealthTable::with_limit(3);
+        let peer = SocketAddr::new(ip(1), 443);
+        upstream(&health, "a.example").record_failure(peer);
+        upstream(&health, "b.example").record_failure(peer);
+        upstream(&health, "c.example").record_failure(peer);
+        let now = Instant::now();
+        {
+            let mut domains = health.domains.lock().unwrap();
+            domains.get_mut(&domain("a.example")).unwrap().touched = now;
+            domains.get_mut(&domain("b.example")).unwrap().touched = now + Duration::from_secs(1);
+            domains.get_mut(&domain("c.example")).unwrap().touched = now + Duration::from_secs(2);
+        }
+
+        health.set_max_domains(1);
+
+        assert!(health.lookup(&domain("a.example")).is_none());
+        assert!(health.lookup(&domain("b.example")).is_none());
+        assert!(health.lookup(&domain("c.example")).is_some());
+        assert_eq!(health.max_domains.load(Ordering::Relaxed), 1);
     }
 }
