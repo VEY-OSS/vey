@@ -327,33 +327,50 @@ impl HappyEyeballsResolveJob {
         resolution_delay: Duration,
         max_count: usize,
     ) -> Result<Vec<IpAddr>, ResolveError> {
-        let all = self.get_r1_or_first_done(resolution_delay).await?;
-        Ok(self.strategy.pick_many(all, max_count))
+        self.get_r1_or_first_many_deferring(resolution_delay, max_count, |_| false)
+            .await
     }
 
-    pub(crate) async fn get_r2_or_never(
+    /// Like [`Self::get_r1_or_first_many`], but addresses for which `defer`
+    /// returns true stay out of the limited result until preferred addresses
+    /// run out.
+    pub(crate) async fn get_r1_or_first_many_deferring(
+        &mut self,
+        resolution_delay: Duration,
+        max_count: usize,
+        defer: impl Fn(&IpAddr) -> bool,
+    ) -> Result<Vec<IpAddr>, ResolveError> {
+        let all = self.get_r1_or_first_done(resolution_delay).await?;
+        Ok(self.strategy.pick_many_deferring(all, max_count, defer))
+    }
+
+    /// Resolve the second address family and keep at most `max_count` addresses.
+    /// Addresses for which `defer` returns true stay out of that limited result
+    /// until preferred addresses run out.
+    pub(crate) async fn get_r2_or_never_deferring(
         &mut self,
         max_count: usize,
+        defer: impl Fn(&IpAddr) -> bool,
     ) -> Result<Vec<IpAddr>, ResolveError> {
         if self.r2_block {
-            // make sure call get_r2_or_never again will block
+            // make sure another call blocks instead of resolving again
             return poll_fn(|cx| NeverResolveJob {}.poll_query(cx)).await;
         }
 
         if let Some(r2) = self.r2.take() {
             self.r2_block = true;
-            return Ok(self.strategy.pick_many(r2, max_count));
+            return Ok(self.strategy.pick_many_deferring(r2, max_count, defer));
         }
 
         // there must be at most 1 query at r2 stage
         let r = if !self.h2_done {
             poll_fn(|cx| self.h2.poll_query(cx))
                 .await
-                .map(|r2| self.strategy.pick_many(r2, max_count))
+                .map(|r2| self.strategy.pick_many_deferring(r2, max_count, &defer))
         } else if !self.h1_done {
             poll_fn(|cx| self.h1.poll_query(cx))
                 .await
-                .map(|r1| self.strategy.pick_many(r1, max_count))
+                .map(|r1| self.strategy.pick_many_deferring(r1, max_count, &defer))
         } else {
             // if all done, return empty record to make caller know it
             Ok(Vec::new())

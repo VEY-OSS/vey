@@ -24,6 +24,10 @@ pub(crate) struct SiteUpstream {
     config: SiteUpstreamConfig,
     /// Runtime weight for each configured peer. Missing entries use the config weight.
     runtime_weight: Mutex<HashMap<SocketAddr, f64>>,
+    /// Held across a whole pick-table rebuild, including the weight and health
+    /// reads. A rebuild that observed an older snapshot cannot store after one
+    /// that observed a newer snapshot.
+    rebuild_lock: Mutex<()>,
     pick: ArcSwapOption<SelectiveVec<WeightedValue<SocketAddr>>>,
     health: Option<Arc<PeerHealth>>,
 }
@@ -46,6 +50,7 @@ impl SiteUpstream {
         let upstream = SiteUpstream {
             config: config.clone(),
             runtime_weight: Mutex::new(HashMap::new()),
+            rebuild_lock: Mutex::new(()),
             pick: ArcSwapOption::empty(),
             health: health.map(PeerHealth::new),
         };
@@ -197,8 +202,9 @@ impl SiteUpstream {
         if !self.config.peers().iter().any(|peer| *peer.inner() == addr) {
             return Err(anyhow!("upstream address {addr} is not configured"));
         }
+        let _guard = self.rebuild_lock.lock().unwrap();
         self.runtime_weight.lock().unwrap().insert(addr, weight);
-        self.rebuild();
+        self.rebuild_locked();
         Ok(())
     }
 
@@ -224,6 +230,12 @@ impl SiteUpstream {
     }
 
     fn rebuild(&self) {
+        let _guard = self.rebuild_lock.lock().unwrap();
+        self.rebuild_locked();
+    }
+
+    /// Caller holds `rebuild_lock`.
+    fn rebuild_locked(&self) {
         if self.config.peers().is_empty() {
             self.pick.store(None);
             return;

@@ -169,6 +169,43 @@ impl ResolveStrategy {
         all
     }
 
+    /// Select up to `count` addresses, using addresses where `defer` is false
+    /// before using the rest.
+    ///
+    /// Order inside each group follows [`Self::pick_many`]. Deferred addresses
+    /// stay at the front and are left out when enough preferred addresses
+    /// exist. When every address is deferred, this is [`Self::pick_many`].
+    /// Callers that take candidates with `pop()` try preferred addresses first,
+    /// and a short list still contains them.
+    pub fn pick_many_deferring<T, F>(&self, all: Vec<T>, count: usize, defer: F) -> Vec<T>
+    where
+        T: Copy,
+        F: Fn(&T) -> bool,
+    {
+        if all.len() <= 1 {
+            return self.pick_many(all, count);
+        }
+        let mut preferred = Vec::new();
+        let mut deferred = Vec::new();
+        for item in all {
+            if defer(&item) {
+                deferred.push(item);
+            } else {
+                preferred.push(item);
+            }
+        }
+        if preferred.is_empty() {
+            return self.pick_many(deferred, count);
+        }
+        let mut preferred = self.pick_many(preferred, count);
+        if preferred.len() >= count {
+            return preferred;
+        }
+        let mut deferred = self.pick_many(deferred, count - preferred.len());
+        deferred.append(&mut preferred);
+        deferred
+    }
+
     pub fn pick_best<T: Copy>(&self, mut all: Vec<T>) -> Option<T> {
         if all.len() > 1 {
             match self.pick {
@@ -252,5 +289,37 @@ mod tests {
         };
         assert_eq!(s.pick_best(vec![1, 2]), Some(1));
         assert_eq!(s.pick_many(vec![1, 2, 3], 2), vec![1, 2]);
+    }
+
+    #[test]
+    fn pick_many_deferring_keeps_preferred_addresses_inside_the_limit() {
+        let serial = ResolveStrategy {
+            pick: PickStrategy::Serial,
+            ..ResolveStrategy::default()
+        };
+        let defer = |n: &i32| *n < 0;
+        // Truncating first would keep only the deferred prefix.
+        assert_eq!(
+            serial.pick_many_deferring(vec![-1, -2, -3, 4, 5, 6], 2, defer),
+            vec![4, 5]
+        );
+        // Preferred addresses stay at the tail, where pop() takes them first.
+        assert_eq!(
+            serial.pick_many_deferring(vec![-1, -2, 4], 3, defer),
+            vec![-1, -2, 4]
+        );
+        assert_eq!(
+            serial.pick_many_deferring(vec![-1, -2, -3], 2, defer),
+            vec![-1, -2]
+        );
+        assert_eq!(serial.pick_many_deferring(vec![4], 1, defer), vec![4]);
+
+        let random = ResolveStrategy::default();
+        let preferred = [1, 2, 3, 4];
+        for _ in 0..20 {
+            let picked = random.pick_many_deferring(vec![-1, 1, -2, 2, 3, 4], 2, defer);
+            assert_eq!(picked.len(), 2);
+            assert!(picked.iter().all(|n| preferred.contains(n)));
+        }
     }
 }

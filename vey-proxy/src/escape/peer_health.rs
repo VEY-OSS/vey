@@ -44,23 +44,6 @@ impl PeerHealth {
         }
     }
 
-    /// Move addresses this escaper recently failed to connect to where `pop()` tries them last.
-    /// Relative order inside each group stays as the resolver returned it.
-    fn reorder_using(&self, port: u16, ips: &mut Vec<IpAddr>, strategy: PeerHealthCheckConfig) {
-        if ips.len() < 2 {
-            return;
-        }
-        let max_fails = strategy.max_fails;
-        let now = Instant::now();
-        let mut inner = self.inner.lock().unwrap();
-        let unhealthy: Vec<bool> = ips
-            .iter()
-            .map(|ip| self.is_unhealthy(&mut inner, SocketAddr::new(*ip, port), now, max_fails))
-            .collect();
-        drop(inner);
-        partition_unhealthy_first(ips, &unhealthy);
-    }
-
     /// Remove a failure record.
     /// Returns whether the peer left the unavailable set, so the pick table should be rebuilt.
     pub(crate) fn clear_failure(&self, peer: SocketAddr) -> bool {
@@ -212,13 +195,21 @@ pub(super) struct ScopedPeerHealth {
 }
 
 impl ScopedPeerHealth {
-    pub(super) fn reorder(&self, port: u16, ips: &mut Vec<IpAddr>) {
+    /// Whether `peer` should be left out of a limited candidate list.
+    /// Expired records are dropped as part of the check.
+    pub(super) fn should_defer(&self, peer: SocketAddr) -> bool {
         let Some(health) = self.table.lookup(&self.domain) else {
-            return;
+            return false;
         };
         health.sweep_expired_using(self.strategy);
-        health.reorder_using(port, ips, self.strategy);
+        let max_fails = self.strategy.max_fails;
+        let now = Instant::now();
+        let unavailable = {
+            let mut inner = health.inner.lock().unwrap();
+            health.is_unhealthy(&mut inner, peer, now, max_fails)
+        };
         self.table.drop_if_empty(&self.domain, &health);
+        unavailable
     }
 
     pub(super) fn skip_recent_failures(&self, port: u16, ips: Vec<IpAddr>) -> Vec<IpAddr> {
@@ -310,20 +301,6 @@ impl PeerHealthTable {
     }
 }
 
-fn partition_unhealthy_first(ips: &mut Vec<IpAddr>, unhealthy: &[bool]) {
-    let mut bad = Vec::new();
-    let mut good = Vec::new();
-    for (ip, is_bad) in std::mem::take(ips).into_iter().zip(unhealthy.iter()) {
-        if *is_bad {
-            bad.push(ip);
-        } else {
-            good.push(ip);
-        }
-    }
-    ips.extend(bad);
-    ips.extend(good);
-}
-
 #[cfg(test)]
 mod tests {
     use std::net::Ipv4Addr;
@@ -355,19 +332,18 @@ mod tests {
     }
 
     #[test]
-    fn unhealthy_address_is_tried_after_the_others() {
+    fn recorded_failure_is_deferred_until_cleared() {
         let health = new_table();
         let bad = SocketAddr::new(ip(2), 443);
-        upstream(&health, "proxy.example").record_failure(bad);
+        let scoped = upstream(&health, "proxy.example");
+        scoped.record_failure(bad);
 
-        let mut ips = vec![ip(1), ip(2), ip(3)];
-        upstream(&health, "proxy.example").reorder(443, &mut ips);
-        assert_eq!(ips, vec![ip(2), ip(1), ip(3)]);
+        assert!(scoped.should_defer(bad));
+        assert!(!scoped.should_defer(SocketAddr::new(ip(1), 443)));
+        assert!(!scoped.should_defer(SocketAddr::new(ip(3), 443)));
 
-        upstream(&health, "proxy.example").clear_failure(bad);
-        let mut ips = vec![ip(1), ip(2), ip(3)];
-        upstream(&health, "proxy.example").reorder(443, &mut ips);
-        assert_eq!(ips, vec![ip(1), ip(2), ip(3)]);
+        scoped.clear_failure(bad);
+        assert!(!scoped.should_defer(bad));
     }
 
     #[test]
@@ -391,18 +367,10 @@ mod tests {
         let scoped = upstream(&health, "origin.example");
         scoped.record_failure(SocketAddr::new(ip(2), 443));
 
-        let mut ips = vec![ip(1), ip(2)];
-        scoped.reorder(80, &mut ips);
-        assert_eq!(ips, vec![ip(1), ip(2)]);
-
+        assert!(!scoped.should_defer(SocketAddr::new(ip(2), 80)));
         let other = upstream(&health, "other.example");
-        let mut ips = vec![ip(1), ip(2)];
-        other.reorder(443, &mut ips);
-        assert_eq!(ips, vec![ip(1), ip(2)]);
-
-        let mut ips = vec![ip(1), ip(2)];
-        scoped.reorder(443, &mut ips);
-        assert_eq!(ips, vec![ip(2), ip(1)]);
+        assert!(!other.should_defer(SocketAddr::new(ip(2), 443)));
+        assert!(scoped.should_defer(SocketAddr::new(ip(2), 443)));
     }
 
     #[test]
@@ -415,9 +383,7 @@ mod tests {
             let mut inner = view.inner.lock().unwrap();
             inner.get_mut(&peer).unwrap().until = Instant::now() - Duration::from_secs(1);
         }
-        let mut ips = vec![ip(1), ip(2)];
-        upstream(&health, "proxy.example").reorder(443, &mut ips);
-        assert_eq!(ips, vec![ip(1), ip(2)]);
+        assert!(!upstream(&health, "proxy.example").should_defer(peer));
         assert!(health.lookup(&domain("proxy.example")).is_none());
     }
 
@@ -428,15 +394,12 @@ mod tests {
 
         let kept = health.on_reload(true);
         assert!(Arc::ptr_eq(&health, &kept));
-        let mut ips = vec![ip(2), ip(1)];
-        upstream(&kept, "proxy.example").reorder(443, &mut ips);
-        assert_eq!(ips, vec![ip(1), ip(2)]);
+        let peer = SocketAddr::new(ip(1), 443);
+        assert!(upstream(&kept, "proxy.example").should_defer(peer));
 
         let fresh = health.on_reload(false);
         assert!(!Arc::ptr_eq(&health, &fresh));
-        let mut ips = vec![ip(2), ip(1)];
-        upstream(&fresh, "proxy.example").reorder(443, &mut ips);
-        assert_eq!(ips, vec![ip(2), ip(1)]);
+        assert!(!upstream(&fresh, "proxy.example").should_defer(peer));
 
         let loose = health.scope(
             &domain("proxy.example"),
@@ -445,9 +408,7 @@ mod tests {
                 fail_timeout: Duration::from_secs(30),
             },
         );
-        let mut ips = vec![ip(2), ip(1)];
-        loose.reorder(443, &mut ips);
-        assert_eq!(ips, vec![ip(2), ip(1)]);
+        assert!(!loose.should_defer(peer));
     }
 
     #[test]
@@ -463,31 +424,22 @@ mod tests {
         let peer = SocketAddr::new(ip(2), 443);
         assert!(!peer_health.record_failure(peer));
         assert!(!peer_health.record_failure(peer));
-
-        let mut ips = vec![ip(1), ip(2)];
-        peer_health.reorder(443, &mut ips);
-        assert_eq!(ips, vec![ip(1), ip(2)]);
+        assert!(!peer_health.should_defer(peer));
 
         assert!(peer_health.record_failure(peer));
-        let mut ips = vec![ip(1), ip(2)];
-        peer_health.reorder(443, &mut ips);
-        assert_eq!(ips, vec![ip(2), ip(1)]);
+        assert!(peer_health.should_defer(peer));
 
         assert!(!peer_health.record_failure(peer));
         assert!(peer_health.clear_failure(peer));
         assert!(!peer_health.clear_failure(peer));
-        let mut ips = vec![ip(1), ip(2)];
-        peer_health.reorder(443, &mut ips);
-        assert_eq!(ips, vec![ip(1), ip(2)]);
+        assert!(!peer_health.should_defer(peer));
     }
 
     #[test]
     fn domains_without_failures_are_not_stored() {
         let health = new_table();
         let scoped = upstream(&health, "origin.example");
-        let mut ips = vec![ip(1), ip(2)];
-        scoped.reorder(443, &mut ips);
-        assert_eq!(ips, vec![ip(1), ip(2)]);
+        assert!(!scoped.should_defer(SocketAddr::new(ip(1), 443)));
         scoped.skip_recent_failures(443, vec![ip(1), ip(2)]);
         assert!(!scoped.clear_failure(SocketAddr::new(ip(1), 443)));
         assert!(health.domains.lock().unwrap().is_empty());
@@ -511,8 +463,34 @@ mod tests {
             view.inner.lock().unwrap().get_mut(&peer).unwrap().until =
                 Instant::now() - Duration::from_secs(1);
         }
-        let mut ips = vec![ip(1)];
-        scoped.reorder(80, &mut ips);
+        assert!(!scoped.should_defer(SocketAddr::new(ip(1), 80)));
         assert!(health.lookup(&name).is_none());
+    }
+
+    #[test]
+    fn limited_pick_keeps_healthy_addresses_past_the_failed_prefix() {
+        use vey_types::resolve::{PickStrategy, ResolveStrategy};
+
+        let health = new_table();
+        let scoped = upstream(&health, "proxy.example");
+        for last in 1..=3 {
+            scoped.record_failure(SocketAddr::new(ip(last), 443));
+        }
+        let strategy = ResolveStrategy {
+            pick: PickStrategy::Serial,
+            ..ResolveStrategy::default()
+        };
+        let defer = |addr: &IpAddr| scoped.should_defer(SocketAddr::new(*addr, 443));
+        let all = vec![ip(1), ip(2), ip(3), ip(4), ip(5)];
+        assert_eq!(
+            strategy.pick_many_deferring(all.clone(), 2, defer),
+            vec![ip(4), ip(5)]
+        );
+        assert_eq!(
+            strategy.pick_many_deferring(all, 4, defer),
+            vec![ip(1), ip(2), ip(4), ip(5)]
+        );
+        assert!(!scoped.should_defer(SocketAddr::new(ip(4), 443)));
+        assert!(!scoped.should_defer(SocketAddr::new(ip(1), 80)));
     }
 }

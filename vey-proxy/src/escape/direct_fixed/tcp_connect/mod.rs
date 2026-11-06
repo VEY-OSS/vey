@@ -234,19 +234,22 @@ impl DirectFixedEscaper {
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, UnderlyingTcpConnectError> {
         let max_tries_each_family = config.connect.max_tries();
-        let mut ips = resolver_job
-            .get_r1_or_first_many(
-                self.config.happy_eyeballs.resolution_delay(),
-                max_tries_each_family,
-            )
-            .await?;
         let port = task_conf.upstream.port();
         let peer_health = task_notes
             .peer_health_check()
             .map(|check| self.peer_health_table.scope(resolver_job.domain(), check));
-        if let Some(peer_health) = &peer_health {
-            peer_health.reorder(port, &mut ips);
-        }
+        let defer_peer = |ip: &IpAddr| {
+            peer_health
+                .as_ref()
+                .is_some_and(|health| health.should_defer(SocketAddr::new(*ip, port)))
+        };
+        let mut ips = resolver_job
+            .get_r1_or_first_many_deferring(
+                self.config.happy_eyeballs.resolution_delay(),
+                max_tries_each_family,
+                &defer_peer,
+            )
+            .await?;
 
         let mut c_set = JoinSet::new();
 
@@ -362,12 +365,11 @@ impl DirectFixedEscaper {
                             spawn_new_connection = true;
                         }
                     }
-                    r = resolver_job.get_r2_or_never(max_tries_each_family) => {
+                    r = resolver_job
+                        .get_r2_or_never_deferring(max_tries_each_family, &defer_peer) =>
+                    {
                         resolver_r2_done = true;
-                        if let Ok(mut ips2) = r {
-                            if let Some(peer_health) = &peer_health {
-                                peer_health.reorder(port, &mut ips2);
-                            }
+                        if let Ok(ips2) = r {
                             self.merge_ip_list(egress_notes.tries, &mut ips, ips2);
                         }
                     }
@@ -378,7 +380,7 @@ impl DirectFixedEscaper {
             } else {
                 match tokio::time::timeout(
                     self.config.happy_eyeballs.second_resolution_timeout(),
-                    resolver_job.get_r2_or_never(max_tries_each_family),
+                    resolver_job.get_r2_or_never_deferring(max_tries_each_family, &defer_peer),
                 )
                 .await
                 {
