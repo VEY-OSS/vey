@@ -214,7 +214,9 @@ impl ConnectionValue {
         let ka_name = self.keep_alive_name.as_bytes();
         buf.put_slice(name);
         buf.put_slice(b": ");
-        if keep_alive {
+        if self.upgrade {
+            buf.put_slice(b"upgrade");
+        } else if keep_alive {
             buf.put_slice(ka_name);
         } else {
             buf.put_slice(b"Close");
@@ -223,15 +225,12 @@ impl ConnectionValue {
             buf.put_slice(b", ");
             buf.put_slice(te);
         }
-        if self.upgrade {
-            buf.put_slice(b", upgrade");
-        }
         for h in &self.extra {
             buf.put_slice(b", ");
             buf.put_slice(h.as_str().as_bytes());
         }
         buf.put_slice(b"\r\n");
-        if keep_alive {
+        if keep_alive && !self.upgrade {
             self.keepalive.write(ka_name, buf);
         }
     }
@@ -316,11 +315,11 @@ mod tests {
 
         let mut buf = Vec::new();
         v.write_for_rsp(&http_names::CONNECTION, true, &mut buf);
-        assert_eq!(buf, b"Connection: Keep-Alive, upgrade\r\n");
+        assert_eq!(buf, b"Connection: upgrade\r\n");
 
         buf.clear();
         v.write_for_req(&http_names::CONNECTION, true, Some(b"TE"), &mut buf);
-        assert_eq!(buf, b"Connection: Keep-Alive, TE, upgrade\r\n");
+        assert_eq!(buf, b"Connection: upgrade, TE\r\n");
 
         v.parse(b"close, keep-alive, Foo");
         assert!(v.close(Version::HTTP_11));
@@ -339,7 +338,21 @@ mod tests {
         assert!(!empty.keep_alive(Version::HTTP_10));
         buf.clear();
         v.write_for_req(b"connection", false, Some(b"te"), &mut buf);
-        assert_eq!(buf, b"connection: Close, te, upgrade, foo\r\n");
+        assert_eq!(buf, b"connection: upgrade, te, foo\r\n");
+    }
+
+    #[test]
+    fn an_upgrade_keeps_other_hop_by_hop_headers() {
+        let mut v = ConnectionValue::default();
+        v.parse(b"Keep-Alive, Upgrade, Foo");
+        v.parse_keep_alive(&http_names::KEEP_ALIVE, b"timeout=5");
+        let mut buf = Vec::new();
+        v.write_for_rsp(&http_names::CONNECTION, true, &mut buf);
+        assert_eq!(buf, b"Connection: upgrade, foo\r\n");
+
+        buf.clear();
+        v.write_for_rsp(&http_names::CONNECTION, false, &mut buf);
+        assert_eq!(buf, b"Connection: upgrade, foo\r\n");
     }
 
     #[test]

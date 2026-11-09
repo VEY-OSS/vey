@@ -596,7 +596,6 @@ impl HttpGuardWebsocketTask {
     where
         CDW: AsyncWrite + Unpin,
     {
-        rsp_header.set_no_keep_alive();
         self.ws_notes.rsp_status = rsp_header.code;
         self.ws_notes.origin_status = rsp_header.code;
         match rsp_header.code {
@@ -609,6 +608,7 @@ impl HttpGuardWebsocketTask {
                 "unexpected informational response",
             )),
             _ => {
+                rsp_header.set_no_keep_alive();
                 self.send_response_without_adaptation(req, clt_w, &mut ups_r, &rsp_header)
                     .await?;
                 let _ = ups_w.shutdown().await;
