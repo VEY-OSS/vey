@@ -281,30 +281,19 @@ impl ServerConfig for UdpStreamServerConfig {
         if self.conn_track != new.conn_track {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
-
-        let mut flags = UdpStreamServerUpdateFlags::empty();
         match (&self.listen, &new.listen) {
             (Some(old), Some(new)) => {
                 if old.need_respawn(new) {
                     return ServerConfigDiffAction::ReloadAndRespawn;
-                }
-                if old.need_reloadable_change(new) {
-                    flags.set(UdpStreamServerUpdateFlags::LISTEN_CONFIG, true);
                 }
             }
             (None, None) => {}
             _ => return ServerConfigDiffAction::ReloadAndRespawn,
         }
 
-        if self.ingress_net_filter != new.ingress_net_filter {
-            flags.set(UdpStreamServerUpdateFlags::INGRESS_FILTER, true);
-        }
-
-        if flags.is_empty() {
-            ServerConfigDiffAction::ReloadNoRespawn
-        } else {
-            ServerConfigDiffAction::UpdateInPlace(flags.bits())
-        }
+        // Replace the server object without rebinding the socket. The reload
+        // notification pushes the new listen options and ingress filter.
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 
     fn shared_logger(&self) -> Option<&str> {

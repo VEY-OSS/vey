@@ -270,28 +270,13 @@ impl ServerConfig for UdpTProxyServerConfig {
             return ServerConfigDiffAction::NoAction;
         }
 
-        if self.conn_track != new.conn_track {
+        if self.conn_track != new.conn_track || self.listen.need_respawn(&new.listen) {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        let mut flags = UdpTProxyServerUpdateFlags::empty();
-
-        if self.listen.need_respawn(&new.listen) {
-            return ServerConfigDiffAction::ReloadAndRespawn;
-        }
-        if self.listen.need_reloadable_change(&new.listen) {
-            flags.set(UdpTProxyServerUpdateFlags::LISTEN_CONFIG, true);
-        }
-
-        if self.ingress_net_filter != new.ingress_net_filter {
-            flags.set(UdpTProxyServerUpdateFlags::INGRESS_FILTER, true);
-        }
-
-        if flags.is_empty() {
-            ServerConfigDiffAction::ReloadNoRespawn
-        } else {
-            ServerConfigDiffAction::UpdateInPlace(flags.bits())
-        }
+        // Replace the server object without rebinding the socket. The reload
+        // notification pushes the new listen options and ingress filter.
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 
     fn shared_logger(&self) -> Option<&str> {
