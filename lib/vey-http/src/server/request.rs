@@ -6,6 +6,7 @@
 
 use std::collections::HashSet;
 use std::io::Write;
+use std::net::IpAddr;
 use std::str::FromStr;
 
 use bytes::BufMut;
