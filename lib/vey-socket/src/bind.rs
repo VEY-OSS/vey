@@ -72,6 +72,12 @@ impl BindAddr {
             BindAddr::Foreign(addr) => Some(addr.ip()),
         }
     }
+
+    /// An IP bind conflicts when its family differs from `peer_ip`. A bind with no IP does not.
+    pub fn family_conflicts(&self, peer_ip: IpAddr) -> bool {
+        self.ip()
+            .is_some_and(|ip| AddressFamily::from(&ip) != AddressFamily::from(&peer_ip))
+    }
 }
 
 impl BindAddr {

@@ -109,36 +109,46 @@ impl HappyEyeballsConfig {
 
     /// Interleave `new` into `ips`, then move items for which `defer` is true to the front.
     ///
-    /// `pop()` tries the tail first, so deferred items are attempted last. Relative
-    /// order inside each group stays, including the family interleave.
+    /// `pop()` tries the tail first. The next `first_address_family_count - tried`
+    /// addresses of `ips` stay next, then addresses from `new` alternate with what
+    /// remains. Deferred addresses are attempted last. Relative order inside each
+    /// group stays. A deferred address does not change which healthy address is next.
     pub fn merge_list<T, F>(&self, tried: usize, ips: &mut Vec<T>, new: Vec<T>, defer: F)
     where
         F: Fn(&T) -> bool,
     {
-        let mut id = self.first_address_family_count.saturating_sub(tried);
+        // After reversing, index 0 is the next address `pop()` would return.
+        ips.reverse();
+        let gap = self
+            .first_address_family_count
+            .saturating_sub(tried)
+            .min(ips.len());
+        ips.reserve(new.len());
+        let mut insert_at = gap;
         for ip in new {
-            if id < ips.len() {
-                ips.insert(id, ip);
-                id += 2;
+            if insert_at < ips.len() {
+                ips.insert(insert_at, ip);
+                insert_at += 2;
             } else {
                 ips.push(ip);
-                id += 1;
+                insert_at += 1;
             }
         }
-        if ips.len() < 2 {
-            return;
-        }
-        let mut deferred = Vec::new();
-        let mut ready = Vec::new();
-        for ip in std::mem::take(ips) {
-            if defer(&ip) {
-                deferred.push(ip);
-            } else {
-                ready.push(ip);
+        if ips.len() >= 2 {
+            // Move deferred addresses to the end, keeping the order inside each group.
+            let mut index = 0;
+            let mut remaining = ips.len();
+            while index < remaining {
+                if defer(&ips[index]) {
+                    let ip = ips.remove(index);
+                    ips.push(ip);
+                    remaining -= 1;
+                } else {
+                    index += 1;
+                }
             }
         }
-        ips.extend(deferred);
-        ips.extend(ready);
+        ips.reverse();
     }
 }
 
@@ -182,6 +192,28 @@ mod tests {
     fn merge_list_tries_deferred_addresses_last() {
         let mut ips = vec![1, 2];
         HappyEyeballsConfig::default().merge_list(0, &mut ips, vec![3, 4], |n| *n == 3);
-        assert_eq!(ips, vec![3, 1, 2, 4]);
+        // pop order was 2, 1. After one address of the first family, alternate 3 then 1 then 4.
+        // 3 is deferred, so the attempt order is 2, 1, 4, 3.
+        assert_eq!(ips, vec![3, 4, 1, 2]);
+    }
+
+    #[test]
+    fn merge_list_interleaves_the_other_family_at_the_pop_end() {
+        let mut ips = vec![2, 1];
+        HappyEyeballsConfig::default().merge_list(0, &mut ips, vec![3, 4], |_| false);
+        assert_eq!(ips, vec![4, 2, 3, 1]);
+        assert_eq!(ips.pop(), Some(1));
+        assert_eq!(ips.pop(), Some(3));
+        assert_eq!(ips.pop(), Some(2));
+        assert_eq!(ips.pop(), Some(4));
+    }
+
+    #[test]
+    fn merge_list_deferred_address_does_not_change_the_next_healthy_one() {
+        let mut ips = vec![1];
+        HappyEyeballsConfig::default().merge_list(1, &mut ips, vec![2, 3], |n| *n == 3);
+        assert_eq!(ips.pop(), Some(2));
+        assert_eq!(ips.pop(), Some(1));
+        assert_eq!(ips.pop(), Some(3));
     }
 }

@@ -82,6 +82,9 @@ impl DirectFloatEscaper {
         let (_, action) = self.egress_net_filter.check(peer_ip);
         self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
+        if egress_notes.bind.family_conflicts(peer_ip) {
+            egress_notes.bind = BindAddr::None;
+        }
         let bind = if let Some(ip) = egress_notes.bind.ip() {
             self.select_bind_again(ip, task_notes)
                 .map_err(UnderlyingTcpConnectError::EscaperNotUsable)?

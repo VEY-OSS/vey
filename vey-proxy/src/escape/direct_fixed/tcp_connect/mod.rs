@@ -96,6 +96,10 @@ impl DirectFixedEscaper {
         #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
         let misc_opts = *connect_config.misc_opts.as_ref();
 
+        if egress_notes.bind.family_conflicts(peer_ip) {
+            egress_notes.bind = BindAddr::None;
+        }
+
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         if let Some(prefix) = self.config.foreign_port_hint_prefix {
             if egress_notes.bind.is_none() {
