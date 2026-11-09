@@ -8,7 +8,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use log::warn;
-use tokio::sync::mpsc;
+use tokio::sync::{Mutex, mpsc};
 
 use super::PeerSet;
 use crate::config::escaper::proxy_float::{ProxyFloatEscaperConfig, ProxyFloatSource};
@@ -49,8 +49,10 @@ async fn parse_and_save_peers(
 pub(super) async fn publish_peers(
     config: &ProxyFloatEscaperConfig,
     peers_container: &Arc<ArcSwap<PeerSet>>,
+    update_lock: &Mutex<()>,
     data: &str,
 ) -> anyhow::Result<()> {
+    let _guard = update_lock.lock().await;
     let obj = serde_json::from_str(data)
         .map_err(|e| anyhow!("the publish data is not valid json: {e:?}"))?;
     let records = match obj {
@@ -65,6 +67,7 @@ pub(super) async fn publish_peers(
 pub(super) fn new_job(
     config: Arc<ProxyFloatEscaperConfig>,
     peers_container: Arc<ArcSwap<PeerSet>>,
+    update_lock: Arc<Mutex<()>>,
 ) -> anyhow::Result<Option<mpsc::Sender<()>>> {
     let (quit_sender, quit_receiver) = mpsc::channel(1);
 
@@ -72,7 +75,13 @@ pub(super) fn new_job(
         ProxyFloatSource::Passive => return Ok(None),
         ProxyFloatSource::Redis(redis) => {
             let redis_job = redis::RedisFetchJob::new(redis)?;
-            spawn_job(config, peers_container, redis_job, quit_receiver);
+            spawn_job(
+                config,
+                peers_container,
+                update_lock,
+                redis_job,
+                quit_receiver,
+            );
         }
     };
 
@@ -82,6 +91,7 @@ pub(super) fn new_job(
 fn spawn_job<T>(
     config: Arc<ProxyFloatEscaperConfig>,
     peers_container: Arc<ArcSwap<PeerSet>>,
+    update_lock: Arc<Mutex<()>>,
     fetch_job: T,
     mut quit_receiver: mpsc::Receiver<()>,
 ) where
@@ -93,6 +103,7 @@ fn spawn_job<T>(
         let mut interval = tokio::time::interval(config.refresh_interval);
         interval.tick().await; // will tick immediately
         loop {
+            let _guard = update_lock.lock().await;
             let result = fetch_job.fetch_records().await;
             match result {
                 Ok(records) => {
@@ -108,6 +119,7 @@ fn spawn_job<T>(
                 }
                 Err(e) => warn!("failed to fetch peers for escaper {}: {e:?}", config.name),
             }
+            drop(_guard);
 
             interval.tick().await;
         }

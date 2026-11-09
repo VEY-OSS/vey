@@ -11,7 +11,7 @@ use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use log::warn;
 use slog::Logger;
-use tokio::sync::mpsc;
+use tokio::sync::{Mutex, mpsc};
 
 use vey_daemon::stat::remote::{ArcTcpConnectionTaskRemoteStats, ArcUdpConnectTaskRemoteStats};
 use vey_types::metrics::NodeName;
@@ -57,6 +57,9 @@ pub(super) struct ProxyFloatEscaper {
     stats: Arc<ProxyFloatEscaperStats>,
     quit_job_sender: Option<mpsc::Sender<()>>,
     peers: Arc<ArcSwap<PeerSet>>,
+    /// Held from the start of a peer refresh until memory and the cache file are updated.
+    /// Publish uses the same lock, so an in-flight refresh cannot overwrite a newer publish.
+    update_lock: Arc<Mutex<()>>,
     tls_config: Arc<OpensslClientConfig>,
     escape_logger: Option<Logger>,
 }
@@ -76,7 +79,12 @@ impl ProxyFloatEscaper {
 
         let config = Arc::new(config);
         let peers = Arc::new(peers);
-        let quit_job_sender = source::new_job(Arc::clone(&config), Arc::clone(&peers))?;
+        let update_lock = Arc::new(Mutex::new(()));
+        let quit_job_sender = source::new_job(
+            Arc::clone(&config),
+            Arc::clone(&peers),
+            Arc::clone(&update_lock),
+        )?;
 
         stats.set_extra_tags(config.extra_metrics_tags.clone());
 
@@ -85,6 +93,7 @@ impl ProxyFloatEscaper {
             stats,
             quit_job_sender,
             peers,
+            update_lock,
             tls_config: Arc::new(tls_config),
             escape_logger,
         };
@@ -165,7 +174,7 @@ impl Escaper for ProxyFloatEscaper {
     }
 
     async fn publish(&self, data: &str) -> anyhow::Result<()> {
-        source::publish_peers(&self.config, &self.peers, data).await
+        source::publish_peers(&self.config, &self.peers, &self.update_lock, data).await
     }
 
     async fn tcp_setup_connection(

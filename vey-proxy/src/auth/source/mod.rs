@@ -12,7 +12,7 @@ use arc_swap::ArcSwap;
 use arcstr::ArcStr;
 use jiff::Timestamp;
 use log::warn;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{Mutex, mpsc, oneshot};
 use uuid::Uuid;
 
 use super::User;
@@ -58,7 +58,11 @@ pub(super) async fn load_initial_users(
     Ok(dynamic_users)
 }
 
-pub(super) fn new_fetch_job<T>(group_config: Arc<T>, dynamic_key: Uuid) -> mpsc::Sender<()>
+pub(super) fn new_fetch_job<T>(
+    group_config: Arc<T>,
+    dynamic_key: Uuid,
+    update_lock: Arc<Mutex<()>>,
+) -> mpsc::Sender<()>
 where
     T: UserGroupConfig + Send + Sync + 'static,
 {
@@ -81,6 +85,7 @@ where
                 break;
             };
 
+            let _guard = update_lock.lock().await;
             let r = match source {
                 UserDynamicSource::File(config) => config.fetch_records().await,
                 #[cfg(feature = "lua")]
@@ -108,6 +113,7 @@ where
                     );
                 }
             }
+            drop(_guard);
 
             interval.tick().await;
         }

@@ -13,7 +13,7 @@ use arc_swap::{ArcSwap, ArcSwapOption};
 use arcstr::ArcStr;
 use jiff::Timestamp;
 use log::{info, warn};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{Mutex, mpsc, oneshot};
 use uuid::Uuid;
 
 use vey_types::auth::{Password, UserAuthError};
@@ -310,6 +310,9 @@ struct BaseUserGroup<T: UserGroupConfig> {
     static_users: Arc<AHashMap<ArcStr, Arc<User>>>,
     dynamic_key: Uuid,
     dynamic_users: Arc<ArcSwap<AHashMap<ArcStr, Arc<User>>>>,
+    /// Held from the start of a dynamic fetch until memory and the cache file are updated.
+    /// Publish uses the same lock, so an in-flight fetch cannot overwrite a newer publish.
+    dynamic_update_lock: Arc<Mutex<()>>,
     /// the job for dynamic fetch
     fetch_quit_sender: Option<mpsc::Sender<()>>,
     // the job for user expire check
@@ -343,6 +346,7 @@ where
             static_users: Arc::new(AHashMap::new()),
             dynamic_key: Uuid::new_v4(),
             dynamic_users: Arc::new(ArcSwap::from_pointee(AHashMap::new())),
+            dynamic_update_lock: Arc::new(Mutex::new(())),
             fetch_quit_sender: None,
             check_quit_sender: None,
             anonymous_user: None,
@@ -395,6 +399,7 @@ where
         group.fetch_quit_sender = Some(source::new_fetch_job(
             group.config.clone(),
             group.dynamic_key,
+            Arc::clone(&group.dynamic_update_lock),
         ));
         group.check_quit_sender = Some(source::new_check_job(
             basic_config.refresh_interval,
@@ -455,6 +460,7 @@ where
         group.fetch_quit_sender = Some(source::new_fetch_job(
             group.config.clone(),
             group.dynamic_key,
+            Arc::clone(&group.dynamic_update_lock),
         ));
         group.check_quit_sender = Some(source::new_check_job(
             basic_config.refresh_interval,
@@ -466,6 +472,7 @@ where
     }
 
     async fn publish_dynamic_users(&self, contents: &str) -> anyhow::Result<()> {
+        let _guard = self.dynamic_update_lock.lock().await;
         let doc = serde_json::Value::from_str(contents)
             .map_err(|e| anyhow!("the published contents is not valid json: {e}"))?;
         let users = UserConfig::parse_json_many(&doc)?;
