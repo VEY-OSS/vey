@@ -41,7 +41,8 @@ pub(super) fn do_parse_peer(
         let mut peer_id = String::new();
         let peer_mut = Arc::get_mut(&mut peer).unwrap();
         for (k, v) in map {
-            match vey_json::key::normalize(k).as_str() {
+            let key = vey_json::key::normalize(k);
+            match key.as_str() {
                 CONFIG_KEY_PEER_TYPE | CONFIG_KEY_PEER_ADDR => {}
                 CONFIG_KEY_PEER_ID => {
                     peer_id = vey_json::value::as_string(v)?;
@@ -90,7 +91,7 @@ pub(super) fn do_parse_peer(
                     peer_mut.set_tcp_sock_speed_limit(limit);
                 }
                 _ => peer_mut
-                    .set_kv(k, v)
+                    .set_kv(&key, v)
                     .context(format!("failed to parse key {k}"))?,
             }
         }
