@@ -283,14 +283,15 @@ impl UdpStreamTask {
                     }
                 }
                 n = idle_interval.tick() => {
+                    if let Some(user_ctx) = self.task_notes.user_ctx()
+                        && user_ctx.user().is_blocked()
+                    {
+                        clt_w.inner_mut().close().await;
+                        return Err(ServerTaskError::CanceledAsUserBlocked);
+                    }
+
                     if c_to_r.is_idle() && r_to_c.is_idle() {
                         idle_count += n;
-
-                        if let Some(user_ctx) = self.task_notes.user_ctx()
-                            && user_ctx.user().is_blocked() {
-                            clt_w.inner_mut().close().await;
-                            return Err(ServerTaskError::CanceledAsUserBlocked);
-                        }
 
                         if idle_count >= self.max_idle_count {
                             clt_w.inner_mut().close().await;
@@ -303,6 +304,7 @@ impl UdpStreamTask {
                     }
 
                     if self.ctx.server_quit_policy.force_quit() {
+                        clt_w.inner_mut().close().await;
                         return Err(ServerTaskError::CanceledAsServerQuit);
                     }
                 }
