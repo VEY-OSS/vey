@@ -25,21 +25,31 @@ pub(super) fn mark_force_quit() {
     GLOBAL_STATE.mark_force_quit();
 }
 
-pub(super) fn init_global_state(requests: Option<usize>, log_error_count: usize) {
+pub(super) fn mark_time_up() {
+    GLOBAL_STATE.time_up.store(true, Ordering::Relaxed);
+}
+
+/// Reset the per run state. A force quit is kept, so later runs end immediately.
+pub(super) fn reset_global_state(requests: Option<usize>, log_error_count: usize) {
     GLOBAL_STATE
         .check_total
         .store(requests.is_some(), Ordering::Relaxed);
+    GLOBAL_STATE.time_up.store(false, Ordering::Relaxed);
     GLOBAL_STATE
         .total_left
         .store(requests.unwrap_or_default(), Ordering::Relaxed);
+    GLOBAL_STATE.total_passed.store(0, Ordering::Relaxed);
+    GLOBAL_STATE.total_failed.store(0, Ordering::Relaxed);
     GLOBAL_STATE
         .log_error_left
         .store(log_error_count, Ordering::Relaxed);
+    GLOBAL_STATE.request_id.store(0, Ordering::Relaxed);
 }
 
 pub(super) struct GlobalState {
     check_total: AtomicBool,
     force_quit: AtomicBool,
+    time_up: AtomicBool,
     total_left: AtomicUsize,
     total_passed: AtomicUsize,
     total_failed: AtomicUsize,
@@ -62,6 +72,7 @@ impl GlobalState {
         GlobalState {
             check_total: AtomicBool::new(requests.is_some()),
             force_quit: AtomicBool::new(false),
+            time_up: AtomicBool::new(false),
             total_left,
             total_passed: AtomicUsize::new(0),
             total_failed: AtomicUsize::new(0),
@@ -75,7 +86,7 @@ impl GlobalState {
     }
 
     pub(super) fn fetch_request(&self) -> Option<usize> {
-        if self.force_quit.load(Ordering::Relaxed) {
+        if self.force_quit.load(Ordering::Relaxed) || self.time_up.load(Ordering::Relaxed) {
             return None;
         }
 
@@ -83,7 +94,7 @@ impl GlobalState {
             && self
                 .total_left
                 .try_update(Ordering::AcqRel, Ordering::Acquire, |curr| {
-                    (curr > 0).then_some(curr - 1)
+                    curr.checked_sub(1)
                 })
                 .is_err()
         {
@@ -96,7 +107,7 @@ impl GlobalState {
     pub(super) fn check_log_error(&self) -> bool {
         self.log_error_left
             .try_update(Ordering::AcqRel, Ordering::Acquire, |curr| {
-                (curr > 0).then_some(curr - 1)
+                curr.checked_sub(1)
             })
             .is_ok()
     }
