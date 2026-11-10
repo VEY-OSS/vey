@@ -40,6 +40,11 @@ pub(crate) struct RouteQueryEscaperConfig {
 }
 
 impl RouteQueryEscaperConfig {
+    #[cfg(test)]
+    pub(crate) fn for_test() -> Self {
+        Self::new(None)
+    }
+
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteQueryEscaperConfig {
             name: NodeName::default(),
