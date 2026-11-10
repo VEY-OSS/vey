@@ -10,7 +10,9 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use clap::{Arg, ArgGroup, Command};
+#[cfg(unix)]
+use clap::ArgGroup;
+use clap::{Arg, Command};
 use tokio::net::UdpSocket;
 #[cfg(unix)]
 use tokio::net::UnixDatagram;
@@ -19,6 +21,7 @@ use vey_cert_agent::{CertificateReply, Request};
 use vey_types::net::Host;
 
 const ARG_UDP: &str = "udp";
+#[cfg(unix)]
 const ARG_UNIX: &str = "unix";
 const ARG_TIMEOUT: &str = "timeout";
 const ARG_HOST: &str = "host";
@@ -38,7 +41,7 @@ async fn main() -> std::process::ExitCode {
 }
 
 async fn run() -> anyhow::Result<bool> {
-    let mut command = Command::new(env!("CARGO_PKG_NAME"))
+    let command = Command::new(env!("CARGO_PKG_NAME"))
         .about("Request one certificate from a vey-dcgen UDP or Unix datagram server")
         .arg(
             Arg::new(ARG_UDP)
@@ -62,21 +65,19 @@ async fn run() -> anyhow::Result<bool> {
                 .help("Hostname to issue a certificate for"),
         );
     #[cfg(unix)]
-    {
-        command = command
-            .arg(
-                Arg::new(ARG_UNIX)
-                    .short('U')
-                    .long("unix")
-                    .value_name("PATH")
-                    .help("Unix datagram socket path"),
-            )
-            .group(
-                ArgGroup::new("server")
-                    .args([ARG_UDP, ARG_UNIX])
-                    .multiple(false),
-            );
-    }
+    let command = command
+        .arg(
+            Arg::new(ARG_UNIX)
+                .short('U')
+                .long("unix")
+                .value_name("PATH")
+                .help("Unix datagram socket path"),
+        )
+        .group(
+            ArgGroup::new("server")
+                .args([ARG_UDP, ARG_UNIX])
+                .multiple(false),
+        );
     let args = command.get_matches();
 
     let timeout =

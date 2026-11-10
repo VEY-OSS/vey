@@ -280,6 +280,14 @@ impl QueryRuntime {
     }
 }
 
+impl Future for QueryRuntime {
+    type Output = io::Result<()>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        (*self).poll_loop(cx)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -358,13 +366,5 @@ mod tests {
         rt.handle_rsp(len);
         assert!(rt.id_key_map.contains_key(&id));
         assert_eq!(rt.key_id_map.len(), 1);
-    }
-}
-
-impl Future for QueryRuntime {
-    type Output = io::Result<()>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        (*self).poll_loop(cx)
     }
 }
