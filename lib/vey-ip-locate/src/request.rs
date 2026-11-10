@@ -27,7 +27,7 @@ impl Request {
                     request_key::IP => self
                         .set_ip_value(v)
                         .context(format!("invalid ip address value for key {key}")),
-                    _ => Err(anyhow!("invalid key {key}")),
+                    _ => Ok(()), // ignore unknown keys
                 }
             }
             ValueRef::Integer(i) => {
@@ -36,7 +36,7 @@ impl Request {
                     request_key_id::IP => self
                         .set_ip_value(v)
                         .context(format!("invalid ip address value for key id {key_id}")),
-                    _ => Err(anyhow!("invalid key id {key_id}")),
+                    _ => Ok(()), // ignore unknown keys
                 }
             }
             _ => Err(anyhow!("unsupported key type: {k}")),
@@ -124,13 +124,26 @@ mod tests {
     }
 
     #[test]
-    fn parse_invalid_key_rejected() {
-        let map = rmpv::ValueRef::Map(vec![(
-            rmpv::ValueRef::String("unknown".into()),
-            rmpv::ValueRef::String("1.2.3.4".into()),
-        )]);
+    fn parse_unknown_key_is_ignored() {
+        let ip = IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4));
+        let ip_str = ip.to_string();
+        let map = rmpv::ValueRef::Map(vec![
+            (
+                rmpv::ValueRef::String("future_field".into()),
+                rmpv::ValueRef::String("x".into()),
+            ),
+            (
+                rmpv::ValueRef::Integer(99.into()),
+                rmpv::ValueRef::String("y".into()),
+            ),
+            (
+                rmpv::ValueRef::String("ip".into()),
+                rmpv::ValueRef::String(ip_str.as_str().into()),
+            ),
+        ]);
         let mut buf = Vec::new();
         rmpv::encode::write_value_ref(&mut buf, &map).unwrap();
-        assert!(Request::parse_req(&buf).is_err());
+        let parsed = Request::parse_req(&buf).unwrap();
+        assert_eq!(parsed.ip(), Some(ip));
     }
 }

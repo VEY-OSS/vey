@@ -79,7 +79,7 @@ impl Request {
                         self.cert = Some(cert);
                         Ok(())
                     }
-                    _ => Err(anyhow!("invalid key {key}")),
+                    _ => Ok(()), // ignore unknown keys
                 }
             }
             ValueRef::Integer(i) => {
@@ -105,7 +105,7 @@ impl Request {
                         self.cert = Some(cert);
                         Ok(())
                     }
-                    _ => Err(anyhow!("invalid key id {key_id}")),
+                    _ => Ok(()), // ignore unknown keys
                 }
             }
             _ => Err(anyhow!("unsupported key type: {k}")),
@@ -257,12 +257,26 @@ mod tests {
         )]);
         assert!(Request::parse_req(&buf).is_err());
         assert!(Request::parse_req(b"not-msgpack").is_err());
+    }
 
-        let buf = encode_map(vec![(
-            ValueRef::String("unknown_key".into()),
-            ValueRef::String("x".into()),
-        )]);
-        assert!(Request::parse_req(&buf).is_err());
+    #[test]
+    fn parse_req_ignores_unknown_keys() {
+        let buf = encode_map(vec![
+            (
+                ValueRef::String("unknown_key".into()),
+                ValueRef::String("x".into()),
+            ),
+            (
+                ValueRef::Integer(99.into()),
+                ValueRef::String("y".into()),
+            ),
+            (
+                ValueRef::String(request_key::HOST.into()),
+                ValueRef::String("kept.example".into()),
+            ),
+        ]);
+        let req = Request::parse_req(&buf).unwrap();
+        assert_eq!(req.host(), &Host::from_str("kept.example").unwrap());
     }
 
     #[test]

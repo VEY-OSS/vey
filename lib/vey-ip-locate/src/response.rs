@@ -236,6 +236,14 @@ mod tests {
                 rmpv::ValueRef::Integer(response_key_id::ISP_DOMAIN.into()),
                 rmpv::ValueRef::String("example.net".into()),
             ),
+            (
+                rmpv::ValueRef::String("future_field".into()),
+                rmpv::ValueRef::String("x".into()),
+            ),
+            (
+                rmpv::ValueRef::Integer(99.into()),
+                rmpv::ValueRef::String("y".into()),
+            ),
         ]);
         let parsed = Response::parse(map).unwrap();
         parsed.into_parts().1.unwrap()

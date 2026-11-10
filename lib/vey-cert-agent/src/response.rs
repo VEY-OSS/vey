@@ -186,6 +186,10 @@ mod tests {
                 ValueRef::String("ignored".into()),
                 ValueRef::String("x".into()),
             ),
+            (
+                ValueRef::Integer(99.into()),
+                ValueRef::String("y".into()),
+            ),
         ]);
         let mut data = buf.as_slice();
         let v = rmpv::decode::read_value_ref(&mut data).unwrap();
