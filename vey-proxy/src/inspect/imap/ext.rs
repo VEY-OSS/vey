@@ -58,3 +58,28 @@ impl ResponseLineReceiveExt for LineRecvVec {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use vey_io_ext::LineRecvVec;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn a_closed_client_command_is_closed_by_client() {
+        let mut buf = LineRecvVec::with_capacity(64);
+        let (clt_in, mut clt_r) = tokio::io::duplex(64);
+        drop(clt_in);
+        let status = buf.recv_cmd_line(&mut clt_r).await;
+        assert!(matches!(status, Err(ServerTaskError::ClosedByClient)));
+    }
+
+    #[tokio::test]
+    async fn a_closed_upstream_response_is_closed_by_upstream() {
+        let mut buf = LineRecvVec::with_capacity(64);
+        let (ups_in, mut ups_r) = tokio::io::duplex(64);
+        drop(ups_in);
+        let status = buf.recv_rsp_line(&mut ups_r).await;
+        assert!(matches!(status, Err(ServerTaskError::ClosedByUpstream)));
+    }
+}

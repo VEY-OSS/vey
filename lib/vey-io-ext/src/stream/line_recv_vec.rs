@@ -107,6 +107,20 @@ impl LineRecvVec {
         Some(&self.buf[self.line_start..self.line_end])
     }
 
+    /// Take up to `max_size` bytes already buffered after the current line.
+    ///
+    /// Those bytes stay ahead of [`consume_line`](Self::consume_line), so the command line is
+    /// dropped with them on the next call. Bytes past `max_size` stay after the line.
+    pub fn consume_after_line(&mut self, max_size: usize) -> &[u8] {
+        if self.line_end >= self.length || max_size == 0 {
+            return &[];
+        }
+        let n = max_size.min(self.length - self.line_end);
+        let start = self.line_end;
+        self.line_end += n;
+        &self.buf[start..self.line_end]
+    }
+
     pub fn consume_line(&mut self) {
         self.line_start = self.line_end;
         if self.get_line().is_some() {
@@ -164,6 +178,19 @@ mod tests {
 
         let r = b.read_line(&mut reader).await;
         assert!(matches!(r, Err(RecvLineError::IoClosed)));
+    }
+
+    #[tokio::test]
+    async fn consume_after_line_leaves_the_command_and_the_rest() {
+        let data = b"A001 APPEND {4+}\r\nABCDA002 LOGOUT\r\n";
+        let mut reader = tokio_test::io::Builder::new().read(data).build();
+        let mut b = LineRecvVec::with_capacity(512);
+        let line = b.read_line(&mut reader).await.unwrap();
+        assert_eq!(line, b"A001 APPEND {4+}\r\n");
+        assert_eq!(b.consume_after_line(4), b"ABCD");
+        b.consume_line();
+        let next = b.read_line(&mut reader).await.unwrap();
+        assert_eq!(next, b"A002 LOGOUT\r\n");
     }
 
     #[tokio::test]

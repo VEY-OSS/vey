@@ -959,4 +959,128 @@ mod tests {
         assert!(matches!(status.unwrap(), InitiationStatus::StartTls));
         assert!(!obj.authenticated);
     }
+
+    #[tokio::test]
+    async fn rejected_nonsync_literal_is_dropped_before_the_next_command() {
+        let mut obj = test_object();
+        let mut relay_buf = test_relay_buf();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(4096);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(4096);
+        let (_ups_in, mut ups_r) = tokio::io::duplex(4096);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(4096);
+
+        clt_in
+            .write_all(b"A001 APPEND INBOX {4+}\r\nABCDA002 LOGOUT\r\n")
+            .await
+            .unwrap();
+
+        let intercept = obj.do_relay_not_authenticated(
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+            &mut relay_buf,
+        );
+        let drive = async {
+            let mut buf = [0u8; 64];
+            let n = ups_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"A002 LOGOUT\r\n");
+        };
+        let (status, _) = tokio::join!(intercept, drive);
+        assert!(matches!(status.unwrap(), InitiationStatus::ClientClose));
+        drop(clt_w);
+        let mut to_client = Vec::new();
+        clt_out.read_to_end(&mut to_client).await.unwrap();
+        assert_eq!(to_client, b"A001 BAD invalid command\r\n");
+    }
+
+    #[tokio::test]
+    async fn rejected_sync_literal_does_not_consume_the_next_command() {
+        let mut obj = test_object();
+        let mut relay_buf = test_relay_buf();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(4096);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(4096);
+        let (_ups_in, mut ups_r) = tokio::io::duplex(4096);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(4096);
+
+        clt_in
+            .write_all(b"A001 APPEND INBOX {4}\r\nA002 LOGOUT\r\n")
+            .await
+            .unwrap();
+
+        let intercept = obj.do_relay_not_authenticated(
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+            &mut relay_buf,
+        );
+        let drive = async {
+            let mut buf = [0u8; 64];
+            let n = ups_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"A002 LOGOUT\r\n");
+        };
+        let (status, _) = tokio::join!(intercept, drive);
+        assert!(matches!(status.unwrap(), InitiationStatus::ClientClose));
+        drop(clt_w);
+        let mut to_client = Vec::new();
+        clt_out.read_to_end(&mut to_client).await.unwrap();
+        assert_eq!(to_client, b"A001 BAD invalid command\r\n");
+    }
+
+    #[tokio::test]
+    async fn authenticated_rejected_nonsync_literal_keeps_the_next_command() {
+        let mut obj = test_object();
+        obj.authenticated = true;
+        let mut relay_buf = test_relay_buf();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(4096);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(4096);
+        let (_ups_in, mut ups_r) = tokio::io::duplex(4096);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(4096);
+
+        clt_in
+            .write_all(b"A001 FETCH 1 BODY[] {4+}\r\nABCDA002 LOGOUT\r\n")
+            .await
+            .unwrap();
+
+        let intercept = obj.relay_authenticated(
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+            &mut relay_buf,
+        );
+        let drive = async {
+            let mut buf = [0u8; 64];
+            let n = ups_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"A002 LOGOUT\r\n");
+        };
+        let (status, _) = tokio::join!(intercept, drive);
+        assert!(matches!(status.unwrap(), CloseReason::Client));
+        drop(clt_w);
+        let mut to_client = Vec::new();
+        clt_out.read_to_end(&mut to_client).await.unwrap();
+        assert_eq!(to_client, b"A001 BAD invalid command\r\n");
+    }
+
+    #[tokio::test]
+    async fn client_logout_finishes_on_the_tagged_result() {
+        let mut obj = test_object();
+        let _ = na_cmd(&mut obj, b"A001 LOGOUT\r\n").await;
+        let mut rsp_buf = LineRecvVec::with_capacity(4096);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(1024);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(1024);
+        ups_in
+            .write_all(b"* BYE logging out\r\nA001 OK done\r\n")
+            .await
+            .unwrap();
+        obj.handle_client_logout(&mut clt_w, &mut ups_r, &mut rsp_buf)
+            .await
+            .unwrap();
+        drop(clt_w);
+        let mut out = Vec::new();
+        clt_out.read_to_end(&mut out).await.unwrap();
+        assert_eq!(out, b"* BYE logging out\r\nA001 OK done\r\n");
+        assert!(obj.client_logout);
+    }
 }

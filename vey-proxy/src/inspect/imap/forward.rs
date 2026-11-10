@@ -177,6 +177,67 @@ where
             .map_err(ServerTaskError::UpstreamWriteFailed)
     }
 
+    pub(super) async fn discard_client_literal<CR>(
+        &mut self,
+        literal_size: u64,
+        clt_r: &mut CR,
+        relay_buf: &mut ImapRelayBuf,
+    ) -> ServerTaskResult<()>
+    where
+        CR: AsyncRead + Unpin,
+    {
+        let cached = relay_buf
+            .cmd_recv_buf
+            .consume_after_line(literal_size.min(usize::MAX as u64) as usize)
+            .len() as u64;
+        if cached >= literal_size {
+            return Ok(());
+        }
+
+        let mut reader = clt_r.take(literal_size - cached);
+        let mut sink = tokio::io::sink();
+        let mut clt_to_ups = StreamCopy::new(&mut reader, &mut sink, &Default::default());
+        let mut idle_interval = self.ctx.idle_wheel.register();
+        let mut idle_count = 0;
+        let max_idle_count = self.ctx.imap_interception().transfer_max_idle_count;
+
+        loop {
+            tokio::select! {
+                biased;
+
+                r = &mut clt_to_ups => {
+                    return match r {
+                        Ok(_) => Ok(()),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(_)) => Err(ServerTaskError::InternalServerError(
+                            "discarding an IMAP literal should not fail to write",
+                        )),
+                    };
+                }
+                n = idle_interval.tick() => {
+                    if clt_to_ups.is_idle() {
+                        idle_count += n;
+                        if idle_count >= max_idle_count {
+                            return Err(ServerTaskError::ClientAppTimeout(
+                                "idle while discarding literal data",
+                            ));
+                        }
+                    } else {
+                        idle_count = 0;
+                        clt_to_ups.reset_active();
+                    }
+
+                    if self.ctx.belongs_to_blocked_user() {
+                        return Err(ServerTaskError::CanceledAsUserBlocked);
+                    }
+                    if self.ctx.server_force_quit() {
+                        return Err(ServerTaskError::CanceledAsServerQuit);
+                    }
+                }
+            }
+        }
+    }
+
     pub(super) async fn relay_append_literal_with_adaptation<CR, CW, UW>(
         &mut self,
         literal_size: u64,

@@ -292,4 +292,30 @@ mod tests {
         assert!(!g.pre_authenticated());
         assert_eq!(out, b"* OK [CAPABILITY IMAP4rev1] ready\r\n");
     }
+
+    #[tokio::test]
+    async fn a_tagged_greeting_is_rejected() {
+        let mut greeting = Greeting::default();
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(256);
+        let (mut clt_w, _clt_out) = tokio::io::duplex(256);
+        let mut buf = LineRecvVec::with_capacity(256);
+        ups_in.write_all(b"A001 OK ready\r\n").await.unwrap();
+        let status = greeting
+            .relay(&mut ups_r, &mut clt_w, &mut buf, Duration::from_secs(1))
+            .await;
+        assert!(matches!(status, Err(GreetingError::InvalidResponseType)));
+    }
+
+    #[tokio::test]
+    async fn reply_no_service_writes_bye_when_nothing_was_forwarded() {
+        let greeting = Greeting::default();
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(256);
+        greeting
+            .reply_no_service(&GreetingError::UpstreamClosed, &mut clt_w)
+            .await;
+        drop(clt_w);
+        let mut out = Vec::new();
+        clt_out.read_to_end(&mut out).await.unwrap();
+        assert!(out.starts_with(b"* BYE "));
+    }
 }

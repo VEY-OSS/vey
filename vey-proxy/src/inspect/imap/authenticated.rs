@@ -23,6 +23,14 @@ pub(super) enum ClientAction {
     Logout,
     Idle,
     SendLiteral(u64),
+    DiscardLiteral(u64),
+}
+
+fn reject_action(cmd: &Command) -> ClientAction {
+    match cmd.literal_arg {
+        Some(literal) if !literal.wait_continuation => ClientAction::DiscardLiteral(literal.size),
+        _ => ClientAction::Loop,
+    }
 }
 
 pub(super) enum CloseReason {
@@ -92,6 +100,9 @@ where
                             }
                             ClientAction::SendLiteral(size) => {
                                 self.relay_client_literal(size, clt_r, clt_w, ups_w, relay_buf).await?;
+                            }
+                            ClientAction::DiscardLiteral(size) => {
+                                self.discard_client_literal(size, clt_r, relay_buf).await?;
                             }
                             ClientAction::Loop => {}
                         }
@@ -169,7 +180,7 @@ where
                         BadResponse::reply_invalid_command(clt_w, cmd.tag.as_str())
                             .await
                             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                        return Ok(action);
+                        return Ok(reject_action(&cmd));
                     }
                     ParsedCommand::Enable => {
                         self.handle_enable_command(line, cmd, clt_w, ups_w).await?;
@@ -235,7 +246,7 @@ where
                             BadResponse::reply_invalid_command(clt_w, cmd.tag.as_str())
                                 .await
                                 .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                            return Ok(action);
+                            return Ok(reject_action(&cmd));
                         }
                         if let Some(literal) = cmd.literal_arg {
                             if !literal.wait_continuation {
@@ -250,7 +261,7 @@ where
                         BadResponse::reply_invalid_command(clt_w, cmd.tag.as_str())
                             .await
                             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                        return Ok(action);
+                        return Ok(reject_action(&cmd));
                     }
                 }
 
