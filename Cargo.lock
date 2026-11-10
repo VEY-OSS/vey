@@ -3306,6 +3306,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "vey-iploc-get"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "tokio",
+ "vey-geoip-types",
+ "vey-ip-locate",
+]
+
+[[package]]
 name = "vey-iploc-proto"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,17 @@
+[package]
+name = "vey-iploc-get"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "vey-iploc-get"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+tokio = { workspace = true, features = ["macros", "net", "rt", "time"] }
+vey-geoip-types.workspace = true
+vey-ip-locate.workspace = true

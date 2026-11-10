@@ -13,13 +13,13 @@ The UDP reuseport selector needs `clang`, `pkg-config`, and `libbpf` 1.5 or newe
 To build debug binaries:
 
 ```shell
-cargo build --features ebpf -p vey-iploc -p vey-iploc-ctl
+cargo build --features ebpf -p vey-iploc -p vey-iploc-ctl -p vey-iploc-get
 ```
 
 To build release binaries:
 
 ```shell
-cargo build --profile release-lto --features secure-snmalloc,ebpf -p vey-iploc -p vey-iploc-ctl
+cargo build --profile release-lto --features secure-snmalloc,ebpf -p vey-iploc -p vey-iploc-ctl -p vey-iploc-get
 ```
 
 See [Build and Package](../doc/build_and_package.md) if you want to build binary packages or docker images.
@@ -89,6 +89,14 @@ vey-iploc-ctl -G local query 1.1.1.1
 ```
 
 `query` looks up one address in the running databases and prints the network, country, continent, ASN, and ISP fields that are set.
+
+`vey-iploc-get` queries a UDP or Unix datagram listen socket. Pass several addresses to query them as one batch. Each address is one datagram. Replies are matched by the IP in the response. An address with no reply is printed as `not found`.
+
+```shell
+vey-iploc-get 1.1.1.1 8.8.8.8
+vey-iploc-get --udp 127.0.0.1:2888 1.1.1.1
+vey-iploc-get --unix /run/vey-iploc/iploc.sock 1.1.1.1 8.8.8.8
+```
 
 `reload` re-reads `server` and `geoip_db` from the config file. A changed or new server is started, and a removed server is stopped. Country and ASN files are read completely before they replace the databases used by lookups. A database omitted from the reloaded config is left unchanged. `runtime`, `worker`, `stat`, and `controller` stay as they were at startup.
 

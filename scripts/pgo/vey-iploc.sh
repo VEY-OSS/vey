@@ -2,7 +2,7 @@
 set -e
 
 COMPONENT=vey-iploc
-HELPERS="vey-iploc-ctl"
+HELPERS="vey-iploc-ctl vey-iploc-get"
 FEATURES="jemalloc"
 if command -v clang >/dev/null 2>&1 && pkg-config --exists libbpf; then
 	FEATURES="${FEATURES},ebpf"

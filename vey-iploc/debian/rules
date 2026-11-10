@@ -20,11 +20,12 @@ override_dh_auto_build:
 	VEY_PGO_PROFILE='$(VEY_PGO_PROFILE)' \
 	  scripts/package/cargo_with_pgo.sh build --frozen --offline --profile $(BUILD_PROFILE) \
 	    --features secure-snmalloc,$(EBPF_FEATURE) \
-	    --package vey-iploc --package vey-iploc-ctl
+	    --package vey-iploc --package vey-iploc-ctl --package vey-iploc-get
 
 override_dh_auto_install:
 	install -m 755 -D target/$(BUILD_PROFILE)/vey-iploc debian/tmp/usr/bin/vey-iploc
 	install -m 755 -D target/$(BUILD_PROFILE)/vey-iploc-ctl debian/tmp/usr/bin/vey-iploc-ctl
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-iploc-get debian/tmp/usr/bin/vey-iploc-get
 	install -m 755 -D scripts/geoip-dump/geoip_dump_country.py debian/tmp/usr/share/vey-iploc/geoip_dump_country.py
 	install -m 755 -D scripts/geoip-dump/geoip_dump_asn.py debian/tmp/usr/share/vey-iploc/geoip_dump_asn.py
 

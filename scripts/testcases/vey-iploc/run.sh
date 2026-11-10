@@ -1,5 +1,5 @@
 # Binaries default to a coverage build. PGO points BIN_DIR at a directory
-# that contains the instrumented daemon and the control client.
+# that contains the instrumented daemon, vey-iploc-ctl, and vey-iploc-get.
 BIN_DIR=${BIN_DIR:-${PROJECT_DIR}/target/debug}
 
 UNIX_SOCK=/tmp/vey-iploc-ci.sock
@@ -27,6 +27,60 @@ trap cleanup EXIT
 vey_iploc_ctl()
 {
 	"${BIN_DIR}"/vey-iploc-ctl -G ${TEST_NAME} -p $IPLOC_PID "$@"
+}
+
+vey_iploc_get()
+{
+	"${BIN_DIR}"/vey-iploc-get "$@"
+}
+
+expect_get_hit()
+{
+	network=$1
+	asn=$2
+	shift 2
+	out=$(vey_iploc_get "$@")
+	printf '%s\n' "$out" | grep -q "network: ${network}"
+	printf '%s\n' "$out" | grep -q "country: US"
+	printf '%s\n' "$out" | grep -q "continent: NA"
+	printf '%s\n' "$out" | grep -q "asn: ${asn}"
+	printf '%s\n' "$out" | grep -q "ttl: 300"
+}
+
+expect_get_mixed()
+{
+	if out=$(vey_iploc_get "$@" 1.1.1.1 1.1.1.1 2001:db8::1 203.0.113.1); then
+		echo "expected a missing address from vey-iploc-get $*" >&2
+		exit 1
+	fi
+	printf '%s\n' "$out" | awk '
+		function need(text) {
+			if (index(rec, text) == 0) {
+				printf "missing \"%s\" in record %d:\n%s\n", text, n, rec > "/dev/stderr"
+				exit 1
+			}
+		}
+		function hit(ip, network, asn) {
+			need("ip: " ip)
+			need("network: " network)
+			need("country: US")
+			need("continent: NA")
+			need("asn: " asn)
+			need("ttl: 300")
+		}
+		BEGIN { RS = "" }
+		{
+			n++
+			rec = $0
+			if (n == 1 || n == 2) hit("1.1.1.1", "1.1.1.0/24", "13335")
+			else if (n == 3) hit("2001:db8::1", "2001:db8::/32", "64500")
+			else if (n == 4) {
+				need("ip: 203.0.113.1")
+				need("not found")
+			} else exit 1
+		}
+		END { if (n != 4) exit 1 }
+	'
 }
 
 query_udp()
@@ -111,6 +165,11 @@ query_udp 1.1.1.1
 query_unix 2001:db8::1
 expect_datagram_miss query_udp 203.0.113.1
 expect_datagram_miss query_unix --invalid
+
+expect_get_hit 1.1.1.0/24 13335 1.1.1.1
+expect_get_hit 2001:db8::/32 64500 --unix "${UNIX_SOCK}" 2001:db8::1
+expect_get_mixed --udp 127.0.0.1:2888
+expect_get_mixed --timeout 500ms --unix "${UNIX_SOCK}"
 
 vey_iploc_ctl reload
 vey_iploc_ctl reload-country

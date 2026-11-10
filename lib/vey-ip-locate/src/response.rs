@@ -140,6 +140,14 @@ impl Response {
         (self.ip, location, self.ttl)
     }
 
+    pub fn decode(
+        mut data: &[u8],
+    ) -> anyhow::Result<(Option<IpAddr>, Option<IpLocation>, Option<u32>)> {
+        let value = rmpv::decode::read_value_ref(&mut data)
+            .map_err(|e| anyhow!("invalid rsp data: {e}"))?;
+        Self::parse(value).map(Self::into_parts)
+    }
+
     pub fn encode_new(ip: IpAddr, location: IpLocation, ttl: u32) -> anyhow::Result<Vec<u8>> {
         let ip = ip.to_string();
         let network = location.network_addr().to_string();
@@ -240,10 +248,7 @@ mod tests {
         let ttl = 300u32;
 
         let encoded = Response::encode_new(ip, location, ttl).unwrap();
-        let mut data = encoded.as_slice();
-        let value = rmpv::decode::read_value_ref(&mut data).unwrap();
-        let parsed = Response::parse(value).unwrap();
-        let (parsed_ip, parsed_location, parsed_ttl) = parsed.into_parts();
+        let (parsed_ip, parsed_location, parsed_ttl) = Response::decode(&encoded).unwrap();
 
         assert_eq!(parsed_ip, Some(ip));
         assert_eq!(parsed_ttl, Some(ttl));
