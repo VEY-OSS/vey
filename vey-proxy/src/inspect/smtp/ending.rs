@@ -195,7 +195,10 @@ mod tests {
             let mut buf = [0u8; 16];
             let n = ups_out.read(&mut buf).await.unwrap();
             assert_eq!(&buf[..n], b"QUIT\r\n");
-            ups_in.write_all(b"221-closing\r\n221 Bye\r\n").await.unwrap();
+            ups_in
+                .write_all(b"221-closing\r\n221 Bye\r\n")
+                .await
+                .unwrap();
         };
         let (status, _) = tokio::join!(run, drive);
         status.unwrap();
@@ -225,7 +228,10 @@ mod tests {
             let _ = ups_out.read(&mut buf).await.unwrap();
         };
         let (status, _) = tokio::join!(run, drive);
-        assert!(matches!(status, Err(ServerTaskError::UpstreamAppTimeout(_))));
+        assert!(matches!(
+            status,
+            Err(ServerTaskError::UpstreamAppTimeout(_))
+        ));
     }
 
     #[tokio::test]
@@ -256,9 +262,7 @@ mod tests {
         let (clt_w, mut clt_out) = tokio::io::duplex(1024);
         clt_in.write_all(b"BDAT abc\r\n").await.unwrap();
         drop(clt_in);
-        let status = end
-            .run_to_end(clt_r, clt_w, Duration::from_secs(1))
-            .await;
+        let status = end.run_to_end(clt_r, clt_w, Duration::from_secs(1)).await;
         assert!(matches!(status, Err(ServerTaskError::ClientAppError(_))));
         let mut out = Vec::new();
         clt_out.read_to_end(&mut out).await.unwrap();

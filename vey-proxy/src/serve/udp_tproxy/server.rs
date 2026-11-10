@@ -233,10 +233,7 @@ impl ServerInternal for UdpTProxyServer {
     }
 
     fn _reload_config_notify_runtime(&self) {
-        let ingress_net_filter = self
-            .ingress_net_filter
-            .as_ref()
-            .map(Arc::clone);
+        let ingress_net_filter = self.ingress_net_filter.as_ref().map(Arc::clone);
         let _ = self.reload_sender.send(ServerReloadCommand::UpdateInPlace(
             ListenUdpInPlaceConfig::ListenConfig(self.config.listen.clone()),
         ));

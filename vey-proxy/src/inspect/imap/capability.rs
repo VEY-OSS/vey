@@ -152,10 +152,19 @@ mod tests {
     fn unknown_and_parameterized_caps() {
         let mut cap = Capability::default();
         assert_eq!(cap.check_supported("X-UNKNOWN", false), None);
-        assert_eq!(cap.check_supported("QUOTA=RES-STORAGE", false), Some("QUOTA=RES-STORAGE"));
-        assert_eq!(cap.check_supported("STATUS=SIZE", false), Some("STATUS=SIZE"));
+        assert_eq!(
+            cap.check_supported("QUOTA=RES-STORAGE", false),
+            Some("QUOTA=RES-STORAGE")
+        );
+        assert_eq!(
+            cap.check_supported("STATUS=SIZE", false),
+            Some("STATUS=SIZE")
+        );
         assert!(!cap.login_disabled);
-        assert_eq!(cap.check_supported("LOGINDISABLED", false), Some("LOGINDISABLED"));
+        assert_eq!(
+            cap.check_supported("LOGINDISABLED", false),
+            Some("LOGINDISABLED")
+        );
         assert!(cap.login_disabled);
     }
 }

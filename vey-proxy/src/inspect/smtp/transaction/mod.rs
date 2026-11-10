@@ -736,8 +736,13 @@ mod tests {
         let (mut ups_w, mut ups_out) = tokio::io::duplex(4096);
 
         clt_in.write_all(b"RCPT TO:<a@b>\r\n").await.unwrap();
-        let intercept =
-            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let intercept = transaction.relay(
+            &mut relay_buf,
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+        );
         let drive = async {
             let got = read_at_least(&mut ups_out, b"RCPT TO:<a@b>\r\n".len()).await;
             assert_eq!(got, b"RCPT TO:<a@b>\r\n");
@@ -746,10 +751,7 @@ mod tests {
             clt_in.write_all(b"DATA\r\n").await.unwrap();
             let got = read_at_least(&mut ups_out, b"DATA\r\n".len()).await;
             assert_eq!(got, b"DATA\r\n");
-            ups_in
-                .write_all(b"354 Start mail input\r\n")
-                .await
-                .unwrap();
+            ups_in.write_all(b"354 Start mail input\r\n").await.unwrap();
 
             clt_in.write_all(b"hello\r\n.\r\n").await.unwrap();
             let mut body = Vec::new();
@@ -791,8 +793,13 @@ mod tests {
         let (mut ups_w, mut ups_out) = tokio::io::duplex(4096);
 
         clt_in.write_all(b"DATA\r\nQUIT\r\n").await.unwrap();
-        let intercept =
-            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let intercept = transaction.relay(
+            &mut relay_buf,
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+        );
         let drive = async {
             let data = read_at_least(&mut ups_out, b"DATA\r\n".len()).await;
             assert_eq!(data, b"DATA\r\n");
@@ -826,8 +833,13 @@ mod tests {
         let (mut ups_in, mut ups_r) = tokio::io::duplex(1024);
         let (mut ups_w, mut ups_out) = tokio::io::duplex(1024);
         clt_in.write_all(b"RSET\r\n").await.unwrap();
-        let intercept =
-            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let intercept = transaction.relay(
+            &mut relay_buf,
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+        );
         let drive = async {
             let got = read_at_least(&mut ups_out, b"RSET\r\n".len()).await;
             assert_eq!(got, b"RSET\r\n");
@@ -859,8 +871,13 @@ mod tests {
         let (mut ups_in, mut ups_r) = tokio::io::duplex(1024);
         let (mut ups_w, mut ups_out) = tokio::io::duplex(1024);
         clt_in.write_all(b"NOOP\r\n").await.unwrap();
-        let intercept =
-            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let intercept = transaction.relay(
+            &mut relay_buf,
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+        );
         let drive = async {
             let got = read_at_least(&mut ups_out, b"NOOP\r\n".len()).await;
             assert_eq!(got, b"NOOP\r\n");
@@ -886,12 +903,14 @@ mod tests {
         let (mut clt_w, mut clt_out) = tokio::io::duplex(1024);
         let (mut ups_in, mut ups_r) = tokio::io::duplex(1024);
         let (mut ups_w, mut ups_out) = tokio::io::duplex(1024);
-        clt_in
-            .write_all(b"MAIL FROM:<>\r\nQUIT\r\n")
-            .await
-            .unwrap();
-        let intercept =
-            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        clt_in.write_all(b"MAIL FROM:<>\r\nQUIT\r\n").await.unwrap();
+        let intercept = transaction.relay(
+            &mut relay_buf,
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+        );
         let drive = async {
             let got = read_at_least(&mut ups_out, b"QUIT\r\n".len()).await;
             assert_eq!(got, b"QUIT\r\n");
@@ -902,10 +921,7 @@ mod tests {
         drop(clt_w);
         let mut to_client = Vec::new();
         clt_out.read_to_end(&mut to_client).await.unwrap();
-        assert_eq!(
-            to_client,
-            b"503 Bad sequence of commands\r\n221 Bye\r\n"
-        );
+        assert_eq!(to_client, b"503 Bad sequence of commands\r\n221 Bye\r\n");
     }
 
     #[tokio::test]
@@ -926,8 +942,13 @@ mod tests {
         let (mut ups_w, mut ups_out) = tokio::io::duplex(1024);
         let sent = b"BDAT 4 LAST\r\nABCD";
         clt_in.write_all(sent).await.unwrap();
-        let intercept =
-            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let intercept = transaction.relay(
+            &mut relay_buf,
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+        );
         let drive = async {
             let got = read_at_least(&mut ups_out, sent.len()).await;
             assert_eq!(got, sent);
@@ -962,8 +983,13 @@ mod tests {
             .write_all(b"BURL imap://user@imap.example.com/INBOX;UID=1\r\nQUIT\r\n")
             .await
             .unwrap();
-        let intercept =
-            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let intercept = transaction.relay(
+            &mut relay_buf,
+            &mut clt_r,
+            &mut clt_w,
+            &mut ups_r,
+            &mut ups_w,
+        );
         let drive = async {
             let got = read_at_least(&mut ups_out, b"QUIT\r\n".len()).await;
             assert_eq!(got, b"QUIT\r\n");

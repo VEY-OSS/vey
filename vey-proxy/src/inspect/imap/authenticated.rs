@@ -26,10 +26,16 @@ pub(super) enum ClientAction {
     DiscardLiteral(u64),
 }
 
-fn reject_action(cmd: &Command) -> ClientAction {
-    match cmd.literal_arg {
-        Some(literal) if !literal.wait_continuation => ClientAction::DiscardLiteral(literal.size),
-        _ => ClientAction::Loop,
+impl ClientAction {
+    /// A local BAD does not ask for a synchronizing literal. A non-synchronizing one is already
+    /// on the stream and has to be dropped before the next command.
+    fn after_local_reject(cmd: &Command) -> Self {
+        match cmd.literal_arg {
+            Some(literal) if !literal.wait_continuation => {
+                ClientAction::DiscardLiteral(literal.size)
+            }
+            _ => ClientAction::Loop,
+        }
     }
 }
 
@@ -180,7 +186,7 @@ where
                         BadResponse::reply_invalid_command(clt_w, cmd.tag.as_str())
                             .await
                             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                        return Ok(reject_action(&cmd));
+                        return Ok(ClientAction::after_local_reject(&cmd));
                     }
                     ParsedCommand::Enable => {
                         self.handle_enable_command(line, cmd, clt_w, ups_w).await?;
@@ -246,7 +252,7 @@ where
                             BadResponse::reply_invalid_command(clt_w, cmd.tag.as_str())
                                 .await
                                 .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                            return Ok(reject_action(&cmd));
+                            return Ok(ClientAction::after_local_reject(&cmd));
                         }
                         if let Some(literal) = cmd.literal_arg {
                             if !literal.wait_continuation {
@@ -261,7 +267,7 @@ where
                         BadResponse::reply_invalid_command(clt_w, cmd.tag.as_str())
                             .await
                             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                        return Ok(reject_action(&cmd));
+                        return Ok(ClientAction::after_local_reject(&cmd));
                     }
                 }
 
