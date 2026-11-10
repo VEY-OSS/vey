@@ -15,13 +15,13 @@ It is designed to run with vey-proxy on the same host. You can also write you ow
 To build debug binaries:
 
 ```shell
-cargo build -p vey-dcgen
+cargo build -p vey-dcgen -p vey-dcgen-ctl -p vey-dcgen-get
 ```
 
 To build release binaries:
 
 ```shell
-cargo build --profile release-lto -p vey-dcgen
+cargo build --profile release-lto -p vey-dcgen -p vey-dcgen-ctl -p vey-dcgen-get
 ```
 
 To support SM2 certificates, you need to use *Tongsuo* by adding `--features vendored-tongsuo`.
@@ -48,6 +48,14 @@ A Unix datagram server sets `listen` to an absolute socket path. At least one se
 `vey-dcgen-ctl -G <group> reload` re-reads `server` and `issuer`. Listeners apply the difference in place. The CA certificate, private key, `keep_serial`, and `max_ttl` are swapped after those files load. A request already being signed keeps the previous CA. `duration_stats` stays as it was at startup.
 `vey-dcgen-ctl -G <group> reload-issuer` re-reads only `issuer` and swaps the running CA. Listeners keep running.
 `vey-dcgen-ctl -G <group> offline` stops listeners and lets in-flight requests finish.
+
+`vey-dcgen-get` asks a UDP or Unix datagram listener for one host. The reply prints the TTL, certificate chain, and private key. A host with no reply is printed as `not found`.
+
+```shell
+vey-dcgen-get www.example.com
+vey-dcgen-get --udp 127.0.0.1:2999 www.example.com
+vey-dcgen-get --unix /run/vey-dcgen/dcgen.sock www.example.com
+```
 
 ## Command line options
 

@@ -2931,6 +2931,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "vey-dcgen-get"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "tokio",
+ "vey-cert-agent",
+ "vey-types",
+]
+
+[[package]]
 name = "vey-dcgen-proto"
 version = "0.1.0"
 dependencies = [

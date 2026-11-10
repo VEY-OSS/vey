@@ -13,6 +13,55 @@ use vey_types::net::{Host, TlsCertUsage, TlsServiceType};
 
 use super::{CacheQueryKey, FakeCertPair, response_key, response_key_id};
 
+pub struct CertificateReply {
+    pub certificates: String,
+    pub private_key: String,
+    pub ttl: u32,
+}
+
+impl CertificateReply {
+    pub fn decode(mut data: &[u8]) -> anyhow::Result<Self> {
+        let value = rmpv::decode::read_value_ref(&mut data)
+            .map_err(|e| anyhow!("invalid rsp data: {e}"))?;
+        let response = Response::parse(value, 0)?;
+        if response.certs.is_empty() {
+            return Err(anyhow!("no cert chain set"));
+        }
+        let key = response
+            .key
+            .as_ref()
+            .ok_or_else(|| anyhow!("no private key set"))?;
+        Ok(CertificateReply {
+            certificates: encode_certs(&response.certs)?,
+            private_key: encode_key(key)?,
+            ttl: response.ttl,
+        })
+    }
+}
+
+fn encode_certs(certs: &[X509]) -> anyhow::Result<String> {
+    let mut pem = String::new();
+    for cert in certs {
+        let bytes = cert
+            .to_pem()
+            .map_err(|e| anyhow!("failed to encode certificate: {e}"))?;
+        pem.push_str(
+            std::str::from_utf8(&bytes)
+                .map_err(|e| anyhow!("certificate pem is not utf-8: {e}"))?,
+        );
+    }
+    Ok(pem)
+}
+
+fn encode_key(key: &PKey<Private>) -> anyhow::Result<String> {
+    let bytes = key
+        .private_key_to_pem_pkcs8()
+        .map_err(|e| anyhow!("failed to encode private key: {e}"))?;
+    let pem =
+        std::str::from_utf8(&bytes).map_err(|e| anyhow!("private key pem is not utf-8: {e}"))?;
+    Ok(pem.to_owned())
+}
+
 pub(super) struct Response {
     host: Host,
     service: TlsServiceType,
@@ -186,10 +235,7 @@ mod tests {
                 ValueRef::String("ignored".into()),
                 ValueRef::String("x".into()),
             ),
-            (
-                ValueRef::Integer(99.into()),
-                ValueRef::String("y".into()),
-            ),
+            (ValueRef::Integer(99.into()), ValueRef::String("y".into())),
         ]);
         let mut data = buf.as_slice();
         let v = rmpv::decode::read_value_ref(&mut data).unwrap();

@@ -16,6 +16,7 @@ v0.10.0:
  - BUG FIX: IPv4 and IPv6 reuseport listeners use separate eBPF maps, so `0.0.0.0` and `::` no longer share one
  - BUG FIX: on Windows, another control client can connect while one connection is still open
  - BUG FIX: the Windows hostname sent to syslog no longer includes a trailing NUL
+ - Feature: `vey-dcgen-get <host>` requests one certificate over a UDP or Unix datagram socket
  - Feature: `vey-dcgen-ctl reload-issuer` re-reads `issuer` and swaps the running CA without restarting listeners
  - Breaking: certificate generator metrics use the `issuer` prefix. `backend.refresh_total`, `backend.refresh_ok`, `backend.request_total`, `backend.request_ok`, and `backend.request_duration` are now `issuer.refresh_total`, `issuer.refresh_ok`, `issuer.request_total`, `issuer.request_ok`, and `issuer.request_duration`
  - Breaking: listen sockets are server entries. `-G port<port>` and `UDP_LISTEN_ADDR` no longer select the listen address. Configure `server` in YAML. `vey-dcgen-ctl` reloads servers and the issuer, and requests offline shutdown

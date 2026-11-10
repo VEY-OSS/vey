@@ -136,6 +136,18 @@ impl Request {
         Ok(request)
     }
 
+    pub fn encode_host(host: &Host) -> anyhow::Result<Vec<u8>> {
+        if host.is_empty() {
+            return Err(anyhow!("no host value set"));
+        }
+        let host = host.to_string();
+        let value = ValueRef::String(host.as_str().into());
+        let mut buf = Vec::with_capacity(320);
+        rmpv::encode::write_value_ref(&mut buf, &value)
+            .map_err(|e| anyhow!("msgpack encode failed: {e}"))?;
+        Ok(buf)
+    }
+
     pub fn encode_rsp(&self, pem_cert: &str, der_key: &[u8], ttl: u32) -> anyhow::Result<Vec<u8>> {
         let host_str = self.host().to_string();
         let map = vec![
@@ -266,10 +278,7 @@ mod tests {
                 ValueRef::String("unknown_key".into()),
                 ValueRef::String("x".into()),
             ),
-            (
-                ValueRef::Integer(99.into()),
-                ValueRef::String("y".into()),
-            ),
+            (ValueRef::Integer(99.into()), ValueRef::String("y".into())),
             (
                 ValueRef::String(request_key::HOST.into()),
                 ValueRef::String("kept.example".into()),
@@ -299,5 +308,19 @@ mod tests {
         assert_eq!(ttl, 120);
         assert_eq!(key.index.host, Host::from_str("rsp.example").unwrap());
         assert_eq!(pair.certs.len(), 1);
+
+        let decoded = crate::CertificateReply::decode(&buf).unwrap();
+        assert_eq!(decoded.ttl, 120);
+        assert!(decoded.certificates.contains("BEGIN CERTIFICATE"));
+        assert!(decoded.private_key.contains("BEGIN PRIVATE KEY"));
+    }
+
+    #[test]
+    fn encode_host_roundtrips() {
+        let host = Host::from_str("only.example").unwrap();
+        let buf = Request::encode_host(&host).unwrap();
+        let req = Request::parse_req(&buf).unwrap();
+        assert_eq!(req.host(), &host);
+        assert!(Request::encode_host(&Host::empty()).is_err());
     }
 }

@@ -20,11 +20,12 @@ override_dh_auto_build:
 	VEY_PGO_PROFILE='$(VEY_PGO_PROFILE)' \
 	  scripts/package/cargo_with_pgo.sh build --frozen --offline --profile $(BUILD_PROFILE) \
 	    --no-default-features --features secure-snmalloc,$(EBPF_FEATURE) \
-	    --package vey-dcgen --package vey-dcgen-ctl
+	    --package vey-dcgen --package vey-dcgen-ctl --package vey-dcgen-get
 
 override_dh_auto_install:
 	install -m 755 -D target/$(BUILD_PROFILE)/vey-dcgen debian/tmp/usr/bin/vey-dcgen
 	install -m 755 -D target/$(BUILD_PROFILE)/vey-dcgen-ctl debian/tmp/usr/bin/vey-dcgen-ctl
+	install -m 755 -D target/$(BUILD_PROFILE)/vey-dcgen-get debian/tmp/usr/bin/vey-dcgen-get
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG

@@ -1,0 +1,17 @@
+[package]
+name = "vey-dcgen-get"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "vey-dcgen-get"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+tokio = { workspace = true, features = ["macros", "net", "rt", "time"] }
+vey-cert-agent.workspace = true
+vey-types.workspace = true

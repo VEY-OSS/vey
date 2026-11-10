@@ -1,5 +1,5 @@
 # Binaries default to a coverage build. PGO points BIN_DIR at a directory
-# that contains the instrumented daemon and the control client.
+# that contains the instrumented daemon, vey-dcgen-ctl, and vey-dcgen-get.
 BIN_DIR=${BIN_DIR:-${PROJECT_DIR}/target/debug}
 
 UNIX_SOCK=/tmp/vey-dcgen-ci.sock
@@ -27,6 +27,21 @@ trap cleanup EXIT
 vey_dcgen_ctl()
 {
 	"${BIN_DIR}"/vey-dcgen-ctl -G ${TEST_NAME} -p $DCGEN_PID "$@"
+}
+
+vey_dcgen_get()
+{
+	"${BIN_DIR}"/vey-dcgen-get "$@"
+}
+
+expect_get_cert()
+{
+	host=$1
+	shift
+	out=$(vey_dcgen_get "$@" "$host")
+	printf '%s\n' "$out" | grep -q "^ttl: "
+	printf '%s\n' "$out" | grep -q "BEGIN CERTIFICATE"
+	printf '%s\n' "$out" | grep -q "BEGIN PRIVATE KEY"
 }
 
 query_udp()
@@ -92,6 +107,9 @@ query_udp www.example.com
 query_unix www.example.com
 expect_datagram_miss query_udp --invalid
 expect_datagram_miss query_unix --invalid
+
+expect_get_cert www.example.com
+expect_get_cert www.example.com --unix "${UNIX_SOCK}"
 
 vey_dcgen_ctl reload
 query_udp www.example.com

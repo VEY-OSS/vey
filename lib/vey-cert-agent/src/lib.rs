@@ -17,6 +17,7 @@ mod protocol;
 pub use protocol::*;
 
 mod response;
+pub use response::CertificateReply;
 use response::Response;
 
 mod request;

@@ -14,7 +14,7 @@ FEATURES="jemalloc"
 if command -v clang >/dev/null 2>&1 && pkg-config --exists libbpf; then
 	FEATURES="${FEATURES},ebpf"
 fi
-cargo build --features "${FEATURES}" -p vey-dcgen -p vey-dcgen-ctl
+cargo build --features "${FEATURES}" -p vey-dcgen -p vey-dcgen-ctl -p vey-dcgen-get
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
