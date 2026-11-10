@@ -162,3 +162,106 @@ impl EndWaitClient {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn quit_server_accepts_a_closing_reply() {
+        let (mut ups_in, ups_r) = tokio::io::duplex(1024);
+        let (ups_w, mut ups_out) = tokio::io::duplex(1024);
+        let run = EndQuitServer::run_to_end(ups_r, ups_w, Duration::from_secs(1));
+        let drive = async {
+            let mut buf = [0u8; 16];
+            let n = ups_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"QUIT\r\n");
+            ups_in.write_all(b"221 Bye\r\n").await.unwrap();
+        };
+        let (status, _) = tokio::join!(run, drive);
+        status.unwrap();
+    }
+
+    #[tokio::test]
+    async fn quit_server_accepts_a_multiline_closing_reply() {
+        let (mut ups_in, ups_r) = tokio::io::duplex(1024);
+        let (ups_w, mut ups_out) = tokio::io::duplex(1024);
+        let run = EndQuitServer::run_to_end(ups_r, ups_w, Duration::from_secs(1));
+        let drive = async {
+            let mut buf = [0u8; 16];
+            let n = ups_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"QUIT\r\n");
+            ups_in.write_all(b"221-closing\r\n221 Bye\r\n").await.unwrap();
+        };
+        let (status, _) = tokio::join!(run, drive);
+        status.unwrap();
+    }
+
+    #[tokio::test]
+    async fn quit_server_rejects_a_non_closing_reply() {
+        let (mut ups_in, ups_r) = tokio::io::duplex(1024);
+        let (ups_w, mut ups_out) = tokio::io::duplex(1024);
+        let run = EndQuitServer::run_to_end(ups_r, ups_w, Duration::from_secs(1));
+        let drive = async {
+            let mut buf = [0u8; 16];
+            let _ = ups_out.read(&mut buf).await.unwrap();
+            ups_in.write_all(b"250 OK\r\n").await.unwrap();
+        };
+        let (status, _) = tokio::join!(run, drive);
+        assert!(matches!(status, Err(ServerTaskError::UpstreamAppError(_))));
+    }
+
+    #[tokio::test]
+    async fn quit_server_times_out_without_a_reply() {
+        let (_ups_in, ups_r) = tokio::io::duplex(1024);
+        let (ups_w, mut ups_out) = tokio::io::duplex(1024);
+        let run = EndQuitServer::run_to_end(ups_r, ups_w, Duration::from_millis(20));
+        let drive = async {
+            let mut buf = [0u8; 16];
+            let _ = ups_out.read(&mut buf).await.unwrap();
+        };
+        let (status, _) = tokio::join!(run, drive);
+        assert!(matches!(status, Err(ServerTaskError::UpstreamAppTimeout(_))));
+    }
+
+    #[tokio::test]
+    async fn wait_client_rejects_other_commands_until_quit() {
+        let end = EndWaitClient::new("127.0.0.1".parse().unwrap());
+        let (mut clt_in, clt_r) = tokio::io::duplex(1024);
+        let (clt_w, mut clt_out) = tokio::io::duplex(1024);
+        clt_in.write_all(b"NOOP\r\nQUIT\r\n").await.unwrap();
+        end.run_to_end(clt_r, clt_w, Duration::from_secs(1))
+            .await
+            .unwrap();
+        let mut out = Vec::new();
+        clt_out.read_to_end(&mut out).await.unwrap();
+        assert_eq!(
+            out,
+            concat!(
+                "503 Bad sequence of commands\r\n",
+                "221 [127.0.0.1] Service closing transmission channel\r\n",
+            )
+            .as_bytes()
+        );
+    }
+
+    #[tokio::test]
+    async fn wait_client_rejects_an_invalid_command_line() {
+        let end = EndWaitClient::new("127.0.0.1".parse().unwrap());
+        let (mut clt_in, clt_r) = tokio::io::duplex(1024);
+        let (clt_w, mut clt_out) = tokio::io::duplex(1024);
+        clt_in.write_all(b"BDAT abc\r\n").await.unwrap();
+        drop(clt_in);
+        let status = end
+            .run_to_end(clt_r, clt_w, Duration::from_secs(1))
+            .await;
+        assert!(matches!(status, Err(ServerTaskError::ClientAppError(_))));
+        let mut out = Vec::new();
+        clt_out.read_to_end(&mut out).await.unwrap();
+        assert!(out.starts_with(b"500 "));
+    }
+}

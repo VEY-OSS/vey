@@ -162,6 +162,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                     if !self.allow_chunking {
                         self.send_error_to_client(clt_w, ResponseEncoder::COMMAND_NOT_IMPLEMENTED)
                             .await?;
+                        self.discard_bin_data(buf, clt_r, size).await?;
                         continue;
                     }
                     self.send_bdat_cmd(ups_w, clt_w, cmd_line, size).await?;
@@ -175,6 +176,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                     if !self.allow_chunking {
                         self.send_error_to_client(clt_w, ResponseEncoder::COMMAND_NOT_IMPLEMENTED)
                             .await?;
+                        self.discard_bin_data(buf, clt_r, size).await?;
                         continue;
                     }
                     self.send_bdat_cmd(ups_w, clt_w, cmd_line, size).await?;
@@ -379,6 +381,24 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         }
     }
 
+    async fn discard_bin_data<CR>(
+        &self,
+        buf: &mut SmtpRelayBuf,
+        clt_r: &mut CR,
+        size: usize,
+    ) -> ServerTaskResult<()>
+    where
+        CR: AsyncRead + Unpin,
+    {
+        let cached = buf.cmd_recv_buf.consume_after_line(size).len();
+        if cached >= size {
+            return Ok(());
+        }
+        let mut reader = clt_r.take((size - cached) as u64);
+        self.transfer_data(&mut reader, &mut tokio::io::sink())
+            .await
+    }
+
     async fn send_bin_data<CR, UW>(
         &self,
         buf: &mut SmtpRelayBuf,
@@ -391,7 +411,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         UW: AsyncWrite + Unpin,
     {
         let mut copy_size = size;
-        let cache = buf.cmd_recv_buf.consume_left(size);
+        let cache = buf.cmd_recv_buf.consume_after_line(size);
         if !cache.is_empty() {
             ups_w
                 .write_all(cache)
@@ -543,5 +563,417 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
             .write(clt_w)
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use arc_swap::ArcSwapOption;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use vey_daemon::server::{ClientConnectionInfo, ServerQuitPolicy};
+    use vey_io_ext::IdleWheel;
+    use vey_smtp_proto::command::MailParam;
+    use vey_types::metrics::{MetricTagMap, NodeName};
+    use vey_types::stats::StatId;
+
+    use super::*;
+    use crate::config::server::dummy_close::DummyCloseServerConfig;
+    use crate::escape::{EgressNotes, EgressSocketType};
+    use crate::inspect::StreamInspectContext;
+    use crate::serve::{
+        ServerForbiddenSnapshot, ServerForbiddenStats, ServerStats, ServerTaskNotes,
+    };
+
+    struct DummyServerStats {
+        name: NodeName,
+        id: StatId,
+        extra: Arc<ArcSwapOption<MetricTagMap>>,
+        forbidden: ServerForbiddenStats,
+    }
+
+    impl DummyServerStats {
+        fn new() -> Self {
+            DummyServerStats {
+                name: NodeName::default(),
+                id: StatId::new_unique(),
+                extra: Arc::new(ArcSwapOption::new(None)),
+                forbidden: ServerForbiddenStats::default(),
+            }
+        }
+    }
+
+    impl ServerStats for DummyServerStats {
+        fn name(&self) -> &NodeName {
+            &self.name
+        }
+
+        fn stat_id(&self) -> StatId {
+            self.id
+        }
+
+        fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
+            None
+        }
+
+        fn share_extra_tags(&self) -> &Arc<ArcSwapOption<MetricTagMap>> {
+            &self.extra
+        }
+
+        fn is_online(&self) -> bool {
+            true
+        }
+
+        fn get_conn_total(&self) -> u64 {
+            0
+        }
+
+        fn get_task_total(&self) -> u64 {
+            0
+        }
+
+        fn get_alive_count(&self) -> i32 {
+            0
+        }
+
+        fn forbidden_stats(&self) -> ServerForbiddenSnapshot {
+            self.forbidden.snapshot()
+        }
+    }
+
+    fn test_context() -> StreamInspectContext<DummyCloseServerConfig> {
+        let auditor = crate::audit::get_or_insert_default(&NodeName::default());
+        let handle = auditor.build_handle().unwrap();
+        let cc_info = ClientConnectionInfo::new(
+            "127.0.0.1:12345".parse().unwrap(),
+            "127.0.0.1:25".parse().unwrap(),
+        );
+        let task_notes = ServerTaskNotes::new(cc_info, None, Duration::ZERO);
+        let mut egress_notes = EgressNotes {
+            socket_type: Some(EgressSocketType::Direct),
+            ..Default::default()
+        };
+        egress_notes.tcp.local = Some("127.0.0.1:12345".parse().unwrap());
+        egress_notes.tcp.peer = Some("127.0.0.1:25".parse().unwrap());
+        StreamInspectContext::new(
+            handle,
+            Arc::new(DummyCloseServerConfig::new(&NodeName::default(), None)),
+            Arc::new(DummyServerStats::new()),
+            Arc::new(ServerQuitPolicy::default()),
+            IdleWheel::spawn(Duration::from_secs(60)),
+            &task_notes,
+            &egress_notes,
+        )
+    }
+
+    #[tokio::test]
+    async fn rejected_bdat_drops_a_buffered_chunk_and_forwards_the_next_command() {
+        let ctx = test_context();
+        let mut transaction = Transaction::new(
+            &ctx,
+            1,
+            "127.0.0.1".parse().unwrap(),
+            false,
+            false,
+            MailParam::default(),
+        );
+        let mut buf = SmtpRelayBuf::default();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(4096);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(4096);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(4096);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(4096);
+
+        // 4-byte chunk contains a newline, then QUIT is already buffered behind it.
+        clt_in.write_all(b"BDAT 4\r\nAB\nCQUIT\r\n").await.unwrap();
+
+        let intercept = transaction.relay(&mut buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let drive = async {
+            let mut read_buf = vec![0u8; 1024];
+            let n = ups_out.read(&mut read_buf).await.unwrap();
+            let forwarded = read_buf[..n].to_vec();
+            ups_in.write_all(b"221 Bye\r\n").await.unwrap();
+            forwarded
+        };
+        let (status, forwarded) = tokio::join!(intercept, drive);
+        status.unwrap();
+        assert!(transaction.quit());
+        assert_eq!(forwarded, b"QUIT\r\n");
+
+        drop(clt_w);
+        let mut to_client = Vec::new();
+        clt_out.read_to_end(&mut to_client).await.unwrap();
+        assert_eq!(to_client, b"502 Command not implemented\r\n221 Bye\r\n");
+    }
+
+    async fn read_at_least(reader: &mut tokio::io::DuplexStream, n: usize) -> Vec<u8> {
+        let mut got = Vec::new();
+        let mut buf = [0u8; 256];
+        while got.len() < n {
+            let nr = reader.read(&mut buf).await.unwrap();
+            assert!(nr > 0);
+            got.extend_from_slice(&buf[..nr]);
+        }
+        got
+    }
+
+    #[tokio::test]
+    async fn rcpt_and_data_are_forwarded_after_the_server_accepts_data() {
+        let ctx = test_context();
+        let mut transaction = Transaction::new(
+            &ctx,
+            1,
+            "127.0.0.1".parse().unwrap(),
+            false,
+            false,
+            MailParam::default(),
+        );
+        let mut relay_buf = SmtpRelayBuf::default();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(4096);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(4096);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(4096);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(4096);
+
+        clt_in.write_all(b"RCPT TO:<a@b>\r\n").await.unwrap();
+        let intercept =
+            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let drive = async {
+            let got = read_at_least(&mut ups_out, b"RCPT TO:<a@b>\r\n".len()).await;
+            assert_eq!(got, b"RCPT TO:<a@b>\r\n");
+            ups_in.write_all(b"250 OK\r\n").await.unwrap();
+
+            clt_in.write_all(b"DATA\r\n").await.unwrap();
+            let got = read_at_least(&mut ups_out, b"DATA\r\n".len()).await;
+            assert_eq!(got, b"DATA\r\n");
+            ups_in
+                .write_all(b"354 Start mail input\r\n")
+                .await
+                .unwrap();
+
+            clt_in.write_all(b"hello\r\n.\r\n").await.unwrap();
+            let mut body = Vec::new();
+            let mut buf = [0u8; 64];
+            while !body.windows(5).any(|w| w == b"\r\n.\r\n") && !body.ends_with(b"\r\n.\r\n") {
+                let n = ups_out.read(&mut buf).await.unwrap();
+                body.extend_from_slice(&buf[..n]);
+            }
+            assert!(body.windows(7).any(|w| w == b"hello\r\n") || body.starts_with(b"hello\r\n"));
+            ups_in.write_all(b"250 queued\r\n").await.unwrap();
+        };
+        let (status, _) = tokio::join!(intercept, drive);
+        status.unwrap();
+        assert!(!transaction.quit());
+        drop(clt_w);
+        let mut to_client = Vec::new();
+        clt_out.read_to_end(&mut to_client).await.unwrap();
+        assert_eq!(
+            to_client,
+            b"250 OK\r\n354 Start mail input\r\n250 queued\r\n"
+        );
+    }
+
+    #[tokio::test]
+    async fn data_without_start_mail_input_does_not_read_a_body() {
+        let ctx = test_context();
+        let mut transaction = Transaction::new(
+            &ctx,
+            1,
+            "127.0.0.1".parse().unwrap(),
+            false,
+            false,
+            MailParam::default(),
+        );
+        let mut relay_buf = SmtpRelayBuf::default();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(4096);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(4096);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(4096);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(4096);
+
+        clt_in.write_all(b"DATA\r\nQUIT\r\n").await.unwrap();
+        let intercept =
+            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let drive = async {
+            let data = read_at_least(&mut ups_out, b"DATA\r\n".len()).await;
+            assert_eq!(data, b"DATA\r\n");
+            ups_in.write_all(b"554 no\r\n").await.unwrap();
+            let quit = read_at_least(&mut ups_out, b"QUIT\r\n".len()).await;
+            assert_eq!(quit, b"QUIT\r\n");
+            ups_in.write_all(b"221 Bye\r\n").await.unwrap();
+        };
+        let (status, _) = tokio::join!(intercept, drive);
+        status.unwrap();
+        drop(clt_w);
+        let mut to_client = Vec::new();
+        clt_out.read_to_end(&mut to_client).await.unwrap();
+        assert_eq!(to_client, b"554 no\r\n221 Bye\r\n");
+    }
+
+    #[tokio::test]
+    async fn reset_ends_the_transaction_when_upstream_accepts() {
+        let ctx = test_context();
+        let mut transaction = Transaction::new(
+            &ctx,
+            1,
+            "127.0.0.1".parse().unwrap(),
+            false,
+            false,
+            MailParam::default(),
+        );
+        let mut relay_buf = SmtpRelayBuf::default();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(1024);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(1024);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(1024);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(1024);
+        clt_in.write_all(b"RSET\r\n").await.unwrap();
+        let intercept =
+            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let drive = async {
+            let got = read_at_least(&mut ups_out, b"RSET\r\n".len()).await;
+            assert_eq!(got, b"RSET\r\n");
+            ups_in.write_all(b"250 OK\r\n").await.unwrap();
+        };
+        let (status, _) = tokio::join!(intercept, drive);
+        status.unwrap();
+        assert!(!transaction.quit());
+        drop(clt_w);
+        let mut to_client = Vec::new();
+        clt_out.read_to_end(&mut to_client).await.unwrap();
+        assert_eq!(to_client, b"250 OK\r\n");
+    }
+
+    #[tokio::test]
+    async fn an_unexpected_noop_reply_fails_the_transaction() {
+        let ctx = test_context();
+        let mut transaction = Transaction::new(
+            &ctx,
+            1,
+            "127.0.0.1".parse().unwrap(),
+            false,
+            false,
+            MailParam::default(),
+        );
+        let mut relay_buf = SmtpRelayBuf::default();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(1024);
+        let (mut clt_w, _clt_out) = tokio::io::duplex(1024);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(1024);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(1024);
+        clt_in.write_all(b"NOOP\r\n").await.unwrap();
+        let intercept =
+            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let drive = async {
+            let got = read_at_least(&mut ups_out, b"NOOP\r\n".len()).await;
+            assert_eq!(got, b"NOOP\r\n");
+            ups_in.write_all(b"550 no\r\n").await.unwrap();
+        };
+        let (status, _) = tokio::join!(intercept, drive);
+        assert!(matches!(status, Err(ServerTaskError::UpstreamAppError(_))));
+    }
+
+    #[tokio::test]
+    async fn mail_during_a_transaction_is_rejected_locally() {
+        let ctx = test_context();
+        let mut transaction = Transaction::new(
+            &ctx,
+            1,
+            "127.0.0.1".parse().unwrap(),
+            false,
+            false,
+            MailParam::default(),
+        );
+        let mut relay_buf = SmtpRelayBuf::default();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(1024);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(1024);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(1024);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(1024);
+        clt_in
+            .write_all(b"MAIL FROM:<>\r\nQUIT\r\n")
+            .await
+            .unwrap();
+        let intercept =
+            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let drive = async {
+            let got = read_at_least(&mut ups_out, b"QUIT\r\n".len()).await;
+            assert_eq!(got, b"QUIT\r\n");
+            ups_in.write_all(b"221 Bye\r\n").await.unwrap();
+        };
+        let (status, _) = tokio::join!(intercept, drive);
+        status.unwrap();
+        drop(clt_w);
+        let mut to_client = Vec::new();
+        clt_out.read_to_end(&mut to_client).await.unwrap();
+        assert_eq!(
+            to_client,
+            b"503 Bad sequence of commands\r\n221 Bye\r\n"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_accepted_last_bdat_forwards_the_buffered_chunk() {
+        let ctx = test_context();
+        let mut transaction = Transaction::new(
+            &ctx,
+            1,
+            "127.0.0.1".parse().unwrap(),
+            true,
+            false,
+            MailParam::default(),
+        );
+        let mut relay_buf = SmtpRelayBuf::default();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(1024);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(1024);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(1024);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(1024);
+        let sent = b"BDAT 4 LAST\r\nABCD";
+        clt_in.write_all(sent).await.unwrap();
+        let intercept =
+            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let drive = async {
+            let got = read_at_least(&mut ups_out, sent.len()).await;
+            assert_eq!(got, sent);
+            ups_in.write_all(b"250 queued\r\n").await.unwrap();
+        };
+        let (status, _) = tokio::join!(intercept, drive);
+        status.unwrap();
+        assert!(!transaction.quit());
+        drop(clt_w);
+        let mut to_client = Vec::new();
+        clt_out.read_to_end(&mut to_client).await.unwrap();
+        assert_eq!(to_client, b"250 queued\r\n");
+    }
+
+    #[tokio::test]
+    async fn burl_is_rejected_when_it_is_not_allowed() {
+        let ctx = test_context();
+        let mut transaction = Transaction::new(
+            &ctx,
+            1,
+            "127.0.0.1".parse().unwrap(),
+            false,
+            false,
+            MailParam::default(),
+        );
+        let mut relay_buf = SmtpRelayBuf::default();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(1024);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(1024);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(1024);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(1024);
+        clt_in
+            .write_all(b"BURL imap://user@imap.example.com/INBOX;UID=1\r\nQUIT\r\n")
+            .await
+            .unwrap();
+        let intercept =
+            transaction.relay(&mut relay_buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let drive = async {
+            let got = read_at_least(&mut ups_out, b"QUIT\r\n".len()).await;
+            assert_eq!(got, b"QUIT\r\n");
+            ups_in.write_all(b"221 Bye\r\n").await.unwrap();
+        };
+        let (status, _) = tokio::join!(intercept, drive);
+        status.unwrap();
+        drop(clt_w);
+        let mut to_client = Vec::new();
+        clt_out.read_to_end(&mut to_client).await.unwrap();
+        assert_eq!(to_client, b"502 Command not implemented\r\n221 Bye\r\n");
     }
 }

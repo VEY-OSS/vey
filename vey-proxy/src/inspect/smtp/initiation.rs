@@ -477,6 +477,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn burl_is_advertised_only_when_allowed() {
+        let hidden = SmtpInterceptionConfig::default();
+        let cmd = b"EHLO client.example\r\n";
+        let rsp = concat!("250-mail.example.com Hello\r\n", "250 BURL\r\n");
+        let (_, ext, to_client, _) = ehlo_relay(&hidden, false, cmd, rsp.as_bytes()).await;
+        assert!(!ext.allow_burl(&hidden));
+        assert_eq!(to_client, b"250-mail.example.com Hello\r\n");
+
+        let allowed = SmtpInterceptionConfig {
+            allow_burl_data: true,
+            ..SmtpInterceptionConfig::default()
+        };
+        let (_, ext, to_client, _) = ehlo_relay(&allowed, false, cmd, rsp.as_bytes()).await;
+        assert!(ext.allow_burl(&allowed));
+        assert_eq!(to_client, rsp.as_bytes());
+    }
+
+    #[tokio::test]
     async fn mail_before_ehlo_is_rejected_locally() {
         let config = SmtpInterceptionConfig::default();
         let mut initiation = Initiation::new(&config, local_ip(), false);

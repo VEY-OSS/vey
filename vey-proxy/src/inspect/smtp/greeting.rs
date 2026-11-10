@@ -307,4 +307,20 @@ mod tests {
         assert_eq!(host.to_string(), "mail.example.com");
         assert_eq!(out, b"220 mail.example.com ready\r\n");
     }
+
+    #[tokio::test]
+    async fn reply_no_service_writes_the_upstream_reason() {
+        let greeting = Greeting::new("127.0.0.1".parse().unwrap());
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(256);
+        greeting
+            .reply_no_service(&GreetingError::UpstreamClosed, &mut clt_w)
+            .await;
+        drop(clt_w);
+        let mut out = Vec::new();
+        clt_out.read_to_end(&mut out).await.unwrap();
+        assert_eq!(
+            out,
+            b"554 [127.0.0.1] Upstream service not ready - connection closed\r\n"
+        );
+    }
 }

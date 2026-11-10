@@ -168,3 +168,66 @@ impl<const MAX_LINE_SIZE: usize> CommandLineRecvExt for LineRecvBuf<MAX_LINE_SIZ
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use vey_io_ext::LineRecvBuf;
+    use vey_smtp_proto::command::Command;
+    use vey_smtp_proto::response::ResponseParser;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn an_invalid_command_line_is_reported_to_the_client() {
+        let mut buf = LineRecvBuf::<{ Command::MAX_LINE_SIZE }>::default();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(256);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(256);
+        clt_in.write_all(b"BDAT abc\r\n").await.unwrap();
+        let status = buf
+            .recv_cmd(Duration::from_secs(1), &mut clt_r, &mut clt_w)
+            .await;
+        assert!(matches!(status, Err(ServerTaskError::ClientAppError(_))));
+        drop(clt_w);
+        let mut out = Vec::new();
+        clt_out.read_to_end(&mut out).await.unwrap();
+        assert!(out.starts_with(b"500 "));
+    }
+
+    #[tokio::test]
+    async fn a_closed_upstream_response_is_reported_to_the_client() {
+        let mut buf = LineRecvBuf::<{ ResponseParser::MAX_LINE_SIZE }>::default();
+        let (ups_in, mut ups_r) = tokio::io::duplex(256);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(256);
+        drop(ups_in);
+        let status = buf
+            .read_rsp_line_with_feedback(
+                Duration::from_secs(1),
+                &mut ups_r,
+                &mut clt_w,
+                "127.0.0.1".parse().unwrap(),
+            )
+            .await;
+        assert!(matches!(status, Err(ServerTaskError::ClosedByUpstream)));
+        drop(clt_w);
+        let mut out = Vec::new();
+        clt_out.read_to_end(&mut out).await.unwrap();
+        assert!(out.windows(3).any(|w| w == b"554"));
+    }
+
+    #[tokio::test]
+    async fn an_invalid_response_line_is_reported_to_the_client() {
+        let mut parser = ResponseParser::default();
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(256);
+        let status = parser
+            .feed_line_with_feedback(b"not a reply\r\n", &mut clt_w, "127.0.0.1".parse().unwrap())
+            .await;
+        assert!(matches!(status, Err(ServerTaskError::UpstreamAppError(_))));
+        drop(clt_w);
+        let mut out = Vec::new();
+        clt_out.read_to_end(&mut out).await.unwrap();
+        assert!(out.windows(3).any(|w| w == b"554"));
+    }
+}

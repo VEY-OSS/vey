@@ -344,6 +344,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn noop_is_forwarded() {
+        let config = SmtpInterceptionConfig::default();
+        let mut forward = new_forward(&config, false, false);
+        let mut buf = SmtpRelayBuf::default();
+        let (mut clt_in, mut clt_r) = tokio::io::duplex(1024);
+        let (mut clt_w, mut clt_out) = tokio::io::duplex(1024);
+        let (mut ups_in, mut ups_r) = tokio::io::duplex(1024);
+        let (mut ups_w, mut ups_out) = tokio::io::duplex(1024);
+        clt_in.write_all(b"NOOP\r\nQUIT\r\n").await.unwrap();
+        let intercept = forward.relay(&mut buf, &mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w);
+        let drive = async {
+            let mut buf = [0u8; 32];
+            let n = ups_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"NOOP\r\n");
+            ups_in.write_all(b"250 OK\r\n").await.unwrap();
+            let n = ups_out.read(&mut buf).await.unwrap();
+            assert_eq!(&buf[..n], b"QUIT\r\n");
+            ups_in.write_all(b"221 Bye\r\n").await.unwrap();
+        };
+        let (status, _) = tokio::join!(intercept, drive);
+        assert!(matches!(status.unwrap(), ForwardNextAction::Quit));
+        drop(clt_w);
+        let mut to_client = Vec::new();
+        clt_out.read_to_end(&mut to_client).await.unwrap();
+        assert_eq!(to_client, b"250 OK\r\n221 Bye\r\n");
+    }
+
+    #[tokio::test]
     async fn starttls_ready_returns_starttls_action() {
         let config = SmtpInterceptionConfig::default();
         let mut forward = new_forward(&config, false, true);
