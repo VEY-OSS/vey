@@ -15,6 +15,7 @@ At a high level, ``vey-dcgen`` is organized around a few main object types:
 
 * ``server`` accepts certificate-request datagrams on UDP or a Unix datagram socket
 * ``issuer`` names the CA certificate and private key used to issue certificates
+* ``site`` holds predefined certificates selected by site id
 
 Process-level settings such as ``runtime``, ``worker``, ``stat``, and
 ``controller`` control how the daemon runs and how it reports operational
@@ -50,7 +51,11 @@ state.
    * - issuer
      - Map
      - yes
-     - CA certificate and private key used to issue certificates. Required at startup. ``duration_stats`` is read only at startup
+     - CA certificate and private key used to issue certificates. Required at startup. ``duration_stats`` configures the issue-duration histogram
+   * - site
+     - Mix [#m]_
+     - yes
+     - Predefined site certificates. Each map sets ``id``. Optional. ``sites`` is an alias. See :doc:`site`
 
 Startup fails when ``server`` is missing or empty, or when ``issuer`` does
 not name a CA certificate and private key.
@@ -61,13 +66,12 @@ Reload
 ======
 
 ``runtime``, ``worker``, ``stat``, and ``controller`` are read only at startup.
-``issuer.duration_stats`` is also read only at startup.
 
-``vey-dcgen-ctl reload`` re-reads ``server`` and ``issuer`` from the config
-file. A new or changed server is started, and a removed server is stopped. An
-unchanged server keeps running. Changing ``type`` for an existing name
-replaces that server. Changing ``listen`` on the same type restarts the
-listener and keeps its statistics.
+``vey-dcgen-ctl reload`` re-reads ``server``, ``issuer``, and ``site`` from the
+config file. A new or changed
+server is started, and a removed server is stopped. An unchanged server keeps
+running. Changing ``type`` for an existing name replaces that server. Changing
+``listen`` on the same type restarts the listener and keeps its statistics.
 
 The reloaded issuer replaces the CA certificate, private key, and the
 ``no_append_ca_cert``, ``keep_serial``, and ``max_ttl`` settings. The files
@@ -76,11 +80,19 @@ being signed keeps the previous CA. Omitting ``issuer`` leaves the running
 CA unchanged. An issuer that fails to load leaves the running CA unchanged
 and aborts the reload.
 
-``vey-dcgen-ctl reload-issuer`` re-reads only ``issuer``. Listeners keep
-running. The same swap rules apply: the files are read completely before the
-running CA is replaced, an in-flight signing keeps the previous CA, an omitted
-``issuer`` leaves the running CA unchanged, and a failed load aborts the
-reload.
+``site`` is read from the main config. Every map is parsed before the running
+set is replaced. A map that fails to load aborts the reload and leaves the
+running set unchanged. A site omitted from the new config is dropped.
+Omitting ``site`` clears the running set.
+
+``vey-dcgen-ctl reload-site <SITE-ID>`` re-reads the file recorded for that
+site. The new map is applied only when its ``id`` is ``SITE-ID``. A site with
+no recorded file cannot be reloaded this way. An unknown id is an error and
+leaves the running set unchanged.
+
+``vey-dcgen-ctl reload-issuer`` re-reads ``issuer`` from the main config.
+Listeners keep running. The same issuer swap rules apply. Site certificates
+are left as they are.
 
 .. rubric:: Footnotes
 
@@ -94,4 +106,5 @@ reload.
    stat
    servers/index
    issuer
+   site
    values

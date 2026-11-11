@@ -103,6 +103,7 @@ where
                 CERT_USAGE,
                 cert_host,
                 upstream_cert,
+                self.ctx.cert_query_site(),
             )
             .await
             .ok_or_else(|| {

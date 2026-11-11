@@ -32,6 +32,22 @@ host
 The hostname of the target TLS server. It may be either a domain name or an IP
 address.
 
+site
+----
+
+**optional**, **id**: 5, **type**: string
+
+The site id when the task belongs to a site. ``vey-dcgen`` uses this value to
+select a predefined certificate configured for that id. Forward-proxy requests
+omit this field, and those clients share one cached certificate for the host.
+
+When present, the same value should be echoed back in the response so the
+proxy can match the generated certificate to this site.
+
+**default**: empty
+
+.. versionadded:: 1.15.3
+
 service
 -------
 
@@ -74,6 +90,18 @@ host
 
 The hostname provided in the request.
 
+site
+----
+
+**optional**, **id**: 7, **type**: string
+
+The site id provided in the request. It should be the same value that was
+sent in the request.
+
+**default**: empty
+
+.. versionadded:: 1.15.3
+
 service
 -------
 
@@ -107,9 +135,9 @@ The generated interception certificate chain in PEM format.
 key
 ---
 
-**required**, **id**: 4, **type**: pem string or der binary
+**required**, **id**: 4, **type**: der binary
 
-The generated private key, in either PEM string format or DER binary format.
+The generated private key in DER format.
 
 ttl
 ---

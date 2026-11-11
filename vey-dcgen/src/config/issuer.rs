@@ -4,29 +4,26 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::{Context, anyhow};
-use arc_swap::ArcSwapOption;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use saphyr::Yaml;
 
 use vey_histogram::HistogramMetricsConfig;
 
-static ISSUER_CONFIG: ArcSwapOption<OpensslIssuerConfig> = ArcSwapOption::const_empty();
+static CONFIG: Mutex<Option<OpensslIssuerConfig>> = Mutex::new(None);
 
-pub(crate) fn get_config() -> Option<Arc<OpensslIssuerConfig>> {
-    ISSUER_CONFIG.load_full()
+pub(super) fn clear() {
+    *CONFIG.lock().unwrap() = None;
 }
 
-pub(crate) fn replace_config(mut config: OpensslIssuerConfig) {
-    if let Some(current) = get_config() {
-        config.duration_stats = current.duration_stats.clone();
-    }
-    ISSUER_CONFIG.store(Some(Arc::new(config)));
+pub(crate) fn get_config() -> Option<OpensslIssuerConfig> {
+    CONFIG.lock().unwrap().clone()
 }
 
+#[derive(Clone)]
 pub(crate) struct OpensslIssuerConfig {
     pub(crate) ca_cert: X509,
     pub(crate) ca_key: PKey<Private>,
@@ -37,10 +34,12 @@ pub(crate) struct OpensslIssuerConfig {
 }
 
 pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
-    if get_config().is_some() {
+    let config = parse_config(value)?;
+    let mut loaded = CONFIG.lock().unwrap();
+    if loaded.is_some() {
         return Err(anyhow!("duplicate issuer config"));
     }
-    replace_config(parse_config(value)?);
+    *loaded = Some(config);
     Ok(())
 }
 
@@ -128,26 +127,9 @@ pub(super) fn parse_config(value: &Yaml) -> anyhow::Result<OpensslIssuerConfig> 
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use saphyr::Scalar;
 
-    use vey_histogram::HistogramMetricsConfig;
-
     use super::*;
-
-    fn example_config(max_ttl: i32) -> OpensslIssuerConfig {
-        let cert_pem = include_bytes!("../../examples/simple/G3-test.crt");
-        let key_pem = include_bytes!("../../examples/simple/G3-test.key");
-        OpensslIssuerConfig {
-            ca_cert: X509::from_pem(cert_pem).unwrap(),
-            ca_key: PKey::private_key_from_pem(key_pem).unwrap(),
-            ca_cert_pem: cert_pem.to_vec(),
-            keep_serial: false,
-            max_ttl,
-            duration_stats: HistogramMetricsConfig::default(),
-        }
-    }
 
     #[test]
     fn parse_rejects_non_map() {
@@ -155,19 +137,5 @@ mod tests {
             Err(err) => assert!(err.to_string().contains("map")),
             Ok(_) => panic!("non-map issuer config was accepted"),
         }
-    }
-
-    #[test]
-    fn replace_swaps_signing_options_and_keeps_duration_stats() {
-        let mut initial = example_config(400);
-        initial.duration_stats = HistogramMetricsConfig::with_rotate(Duration::from_secs(9));
-        let expected_duration = initial.duration_stats.clone();
-        replace_config(initial);
-        replace_config(example_config(900));
-
-        let current = get_config().unwrap();
-        assert_eq!(current.max_ttl, 900);
-        assert_eq!(current.duration_stats, expected_duration);
-        assert!(!current.ca_cert_pem.is_empty());
     }
 }

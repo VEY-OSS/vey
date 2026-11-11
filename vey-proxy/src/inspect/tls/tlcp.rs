@@ -79,7 +79,9 @@ where
         let cert_host = sni_hostname
             .map(Host::from)
             .unwrap_or_else(|| self.upstream.host().clone());
+        let cert_site = self.ctx.cert_query_site();
         let cert_host2 = cert_host.clone();
+        let sign_pre_fetch_site = cert_site.clone();
         let cert_agent = self.tls_interception.cert_agent.clone();
         let sign_pre_fetch_handle = tokio::spawn(async move {
             cert_agent
@@ -87,10 +89,12 @@ where
                     TlsServiceType::Http,
                     TlsCertUsage::TlcpServerSignature,
                     cert_host2,
+                    sign_pre_fetch_site,
                 )
                 .await
         });
         let cert_host2 = cert_host.clone();
+        let enc_pre_fetch_site = cert_site.clone();
         let cert_agent = self.tls_interception.cert_agent.clone();
         let enc_pre_fetch_handle = tokio::spawn(async move {
             cert_agent
@@ -98,6 +102,7 @@ where
                     TlsServiceType::Http,
                     TlsCertUsage::TlcpServerEncryption,
                     cert_host2,
+                    enc_pre_fetch_site,
                 )
                 .await
         });
@@ -172,6 +177,7 @@ where
                     TlsCertUsage::TlcpServerSignature,
                     cert_host.clone(),
                     upstream_sign_cert,
+                    cert_site.clone(),
                 )
                 .await
                 .ok_or_else(|| {
@@ -196,6 +202,7 @@ where
                     TlsCertUsage::TlcpServerEncryption,
                     cert_host,
                     upstream_enc_cert,
+                    cert_site,
                 )
                 .await
                 .ok_or_else(|| {

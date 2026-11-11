@@ -34,29 +34,55 @@ where
     };
     debug!("{} - request received", user_req.host());
 
-    let generated = match issuer::generate(user_req).await {
-        Ok(generated) => generated,
-        Err(issuer::GenerateError::Failed) => return,
-        Err(issuer::GenerateError::Dropped) => {
-            warn!("issuer dropped the request");
-            return;
-        }
-        Err(issuer::GenerateError::Queue(e)) => {
-            warn!("{e}");
-            return;
-        }
-    };
-
-    let buf = match generated
-        .user_req
-        .encode_rsp(&generated.cert, &generated.key, generated.ttl)
-    {
-        Ok(buf) => buf,
-        Err(e) => {
-            warn!("response encode error: {e:?}");
-            return;
-        }
-    };
+    let (user_req, buf) =
+        if let Some(pair) = crate::site::get(user_req.site(), user_req.cert_usage()) {
+            let ttl = match pair.ttl() {
+                Ok(ttl) => ttl,
+                Err(e) => {
+                    warn!(
+                        "{} - predefined certificate for site {}: {e}",
+                        user_req.host(),
+                        user_req.site()
+                    );
+                    return;
+                }
+            };
+            debug!(
+                "{} - use predefined certificate for site {}",
+                user_req.host(),
+                user_req.site()
+            );
+            let buf = match user_req.encode_rsp(pair.certificate(), pair.private_key(), ttl) {
+                Ok(buf) => buf,
+                Err(e) => {
+                    warn!("response encode error: {e:?}");
+                    return;
+                }
+            };
+            (user_req, buf)
+        } else {
+            let generated = match issuer::generate(user_req).await {
+                Ok(generated) => generated,
+                Err(issuer::GenerateError::Failed) => return,
+                Err(issuer::GenerateError::Dropped) => {
+                    warn!("issuer dropped the request");
+                    return;
+                }
+                Err(issuer::GenerateError::Queue(e)) => {
+                    warn!("{e}");
+                    return;
+                }
+            };
+            let user_req = generated.user_req;
+            let buf = match user_req.encode_rsp(&generated.cert, &generated.key, generated.ttl) {
+                Ok(buf) => buf,
+                Err(e) => {
+                    warn!("response encode error: {e:?}");
+                    return;
+                }
+            };
+            (user_req, buf)
+        };
 
     stats.add_response_total();
     let rsp_len = buf.len();
@@ -65,9 +91,11 @@ where
             let duration_nanos = recv_time.elapsed().as_nanos_u64();
             debug!(
                 "{} - duration: {duration_nanos}ns, rsp size: {rsp_len}",
-                generated.user_req.host(),
+                user_req.host(),
             );
-            let _ = issuer::duration_recorder().record(duration_nanos);
+            if let Some(recorder) = issuer::duration_recorder() {
+                let _ = recorder.record(duration_nanos);
+            }
         }
         Err(e) => {
             stats.add_response_fail();

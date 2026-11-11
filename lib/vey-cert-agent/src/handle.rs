@@ -35,8 +35,9 @@ impl CertAgentHandle {
         service: TlsServiceType,
         usage: TlsCertUsage,
         host: Host,
+        site: String,
     ) -> Option<FakeCertPair> {
-        let query_key = CacheQueryKey::new(service, usage, host);
+        let query_key = CacheQueryKey::new(service, usage, host, site);
         self.inner
             .fetch_cache_only(Arc::new(query_key), self.request_timeout)
             .await
@@ -49,8 +50,9 @@ impl CertAgentHandle {
         usage: TlsCertUsage,
         host: Host,
         mimic_cert: X509,
+        site: String,
     ) -> Option<FakeCertPair> {
-        let mut query_key = CacheQueryKey::new(service, usage, host);
+        let mut query_key = CacheQueryKey::new(service, usage, host, site);
         query_key.set_mimic_cert(mimic_cert);
         self.inner
             .fetch(Arc::new(query_key), self.request_timeout)
@@ -83,6 +85,7 @@ mod tests {
             let (n, from) = peer.recv_from(&mut buf).await.unwrap();
             let req = Request::parse_req(&buf[..n]).unwrap();
             assert_eq!(req.host(), &Host::from_str("fetch.example").unwrap());
+            assert_eq!(req.site(), "tenant");
             assert!(req.cert().is_some());
             let rsp = req.encode_rsp(&pem, &der_key, 90).unwrap();
             peer.send_to(&rsp, from).await.unwrap();
@@ -100,6 +103,7 @@ mod tests {
                 TlsCertUsage::TlsServer,
                 Host::from_str("fetch.example").unwrap(),
                 mimic_cert,
+                "tenant".to_owned(),
             )
             .await;
         assert!(pair.is_some());
@@ -111,6 +115,7 @@ mod tests {
                 TlsServiceType::Http,
                 TlsCertUsage::TlsServer,
                 Host::from_str("fetch.example").unwrap(),
+                "tenant".to_owned(),
             )
             .await;
         assert!(cached.is_some());

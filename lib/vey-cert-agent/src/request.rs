@@ -14,6 +14,7 @@ use super::{request_key, request_key_id, response_key_id};
 
 pub struct Request {
     pub(crate) host: Host,
+    site: String,
     service: TlsServiceType,
     usage: TlsCertUsage,
     pub(crate) cert: Option<X509>,
@@ -23,6 +24,7 @@ impl Default for Request {
     fn default() -> Self {
         Request {
             host: Host::empty(),
+            site: String::new(),
             service: TlsServiceType::Http,
             usage: TlsCertUsage::TlsServer,
             cert: None,
@@ -34,6 +36,11 @@ impl Request {
     #[inline]
     pub fn host(&self) -> &Host {
         &self.host
+    }
+
+    #[inline]
+    pub fn site(&self) -> &str {
+        &self.site
     }
 
     #[inline]
@@ -73,6 +80,9 @@ impl Request {
                             .context(format!("invalid tls cert usage value for key {key}"))?;
                         Ok(())
                     }
+                    request_key::SITE => self
+                        .set_site_value(v)
+                        .context(format!("invalid string value for key {key}")),
                     request_key::CERT => {
                         let cert = vey_msgpack::value::as_openssl_certificate(&v)
                             .context(format!("invalid mimic cert value for key {key}"))?;
@@ -99,6 +109,9 @@ impl Request {
                             .context(format!("invalid tls cert usage value for key id {key_id}"))?;
                         Ok(())
                     }
+                    request_key_id::SITE => self
+                        .set_site_value(v)
+                        .context(format!("invalid string value for key id {key_id}")),
                     request_key_id::CERT => {
                         let cert = vey_msgpack::value::as_openssl_certificate(&v)
                             .context(format!("invalid mimic cert value for key id {key_id}"))?;
@@ -114,6 +127,11 @@ impl Request {
 
     fn set_host_value(&mut self, v: ValueRef) -> anyhow::Result<()> {
         self.host = vey_msgpack::value::as_host(&v)?;
+        Ok(())
+    }
+
+    fn set_site_value(&mut self, v: ValueRef) -> anyhow::Result<()> {
+        self.site = vey_msgpack::value::as_string(&v)?;
         Ok(())
     }
 
@@ -150,7 +168,7 @@ impl Request {
 
     pub fn encode_rsp(&self, pem_cert: &str, der_key: &[u8], ttl: u32) -> anyhow::Result<Vec<u8>> {
         let host_str = self.host().to_string();
-        let map = vec![
+        let mut map = vec![
             (
                 ValueRef::Integer(response_key_id::HOST.into()),
                 ValueRef::String(host_str.as_str().into()),
@@ -163,6 +181,14 @@ impl Request {
                 ValueRef::Integer(response_key_id::USAGE.into()),
                 ValueRef::Integer((self.usage as u8).into()),
             ),
+        ];
+        if !self.site.is_empty() {
+            map.push((
+                ValueRef::Integer(response_key_id::SITE.into()),
+                ValueRef::String(self.site.as_str().into()),
+            ));
+        }
+        map.extend([
             (
                 ValueRef::Integer(response_key_id::CERT_CHAIN.into()),
                 ValueRef::String(pem_cert.into()),
@@ -175,7 +201,7 @@ impl Request {
                 ValueRef::Integer(response_key_id::TTL.into()),
                 ValueRef::Integer(ttl.into()),
             ),
-        ];
+        ]);
         let mut buf = Vec::with_capacity(4096);
         let v = ValueRef::Map(map);
         rmpv::encode::write_value_ref(&mut buf, &v)
@@ -208,6 +234,7 @@ mod tests {
         rmpv::encode::write_value_ref(&mut buf, &ValueRef::String("only.example".into())).unwrap();
         let req = Request::parse_req(&buf).unwrap();
         assert_eq!(req.host(), &Host::from_str("only.example").unwrap());
+        assert_eq!(req.site(), "");
         assert_eq!(req.cert_usage(), TlsCertUsage::TlsServer);
         assert!(req.cert().is_none());
     }
@@ -230,12 +257,17 @@ mod tests {
                 ValueRef::Integer((TlsCertUsage::TLsServerTongsuo as u8).into()),
             ),
             (
+                ValueRef::String(request_key::SITE.into()),
+                ValueRef::String("visitor".into()),
+            ),
+            (
                 ValueRef::String(request_key::CERT.into()),
                 ValueRef::Binary(&der),
             ),
         ]);
         let req = Request::parse_req(&buf).unwrap();
         assert_eq!(req.host(), &Host::from_str("str.example").unwrap());
+        assert_eq!(req.site(), "visitor");
         assert_eq!(req.cert_usage(), TlsCertUsage::TLsServerTongsuo);
         assert!(req.cert().is_some());
     }
@@ -294,6 +326,7 @@ mod tests {
 
         let req = Request {
             host: Host::from_str("rsp.example").unwrap(),
+            site: "tenant".to_owned(),
             service: TlsServiceType::Http,
             usage: TlsCertUsage::TlsServer,
             cert: None,
@@ -307,6 +340,7 @@ mod tests {
         let (key, pair, ttl) = rsp.into_parts().unwrap();
         assert_eq!(ttl, 120);
         assert_eq!(key.index.host, Host::from_str("rsp.example").unwrap());
+        assert_eq!(key.index.site, "tenant");
         assert_eq!(pair.certs.len(), 1);
 
         let decoded = crate::CertificateReply::decode(&buf).unwrap();

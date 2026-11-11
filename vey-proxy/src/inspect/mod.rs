@@ -19,6 +19,7 @@ use vey_dpi::{
     ProtocolInspectAction, ProtocolInspector, SmtpInterceptionConfig,
 };
 use vey_io_ext::IdleWheel;
+use vey_types::metrics::NodeName;
 use vey_types::net::{Host, OpensslClientConfig};
 
 use crate::audit::AuditHandle;
@@ -77,6 +78,7 @@ impl StreamInspectUserContext {
 /// Reverse-proxy site snapshot. Tenant is the site owner; there is no `user_site`.
 #[derive(Clone)]
 pub(super) struct StreamInspectSiteContext {
+    site_id: NodeName,
     tenant: Option<TenantContext>,
     rsp_hdr_recv_timeout: Option<Duration>,
 }
@@ -84,6 +86,7 @@ pub(super) struct StreamInspectSiteContext {
 impl StreamInspectSiteContext {
     fn from_site_context(ctx: &SiteContext) -> Self {
         StreamInspectSiteContext {
+            site_id: ctx.site().id().clone(),
             tenant: ctx.tenant_ctx().cloned(),
             rsp_hdr_recv_timeout: ctx.rsp_hdr_recv_timeout(),
         }
@@ -256,6 +259,16 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     #[inline]
     fn tenant_user_name(&self) -> Option<&ArcStr> {
         self.task_notes.tenant_username()
+    }
+
+    /// Site id on a certificate-generator request. Visitors send no username.
+    fn cert_query_site(&self) -> String {
+        self.task_notes
+            .site_ctx
+            .as_ref()
+            .map(|site| site.site_id.as_str().to_owned())
+            .filter(|id| !id.is_empty())
+            .unwrap_or_default()
     }
 
     /// DPI flags: site context uses tenant only; otherwise visitor user.

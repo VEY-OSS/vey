@@ -64,6 +64,7 @@ fn encode_key(key: &PKey<Private>) -> anyhow::Result<String> {
 
 pub(super) struct Response {
     host: Host,
+    site: String,
     service: TlsServiceType,
     usage: TlsCertUsage,
     certs: Vec<X509>,
@@ -75,6 +76,7 @@ impl Response {
     fn new(protective_ttl: u32) -> Self {
         Response {
             host: Host::empty(),
+            site: String::new(),
             service: TlsServiceType::Http,
             usage: TlsCertUsage::TlsServer,
             certs: Vec::new(),
@@ -101,6 +103,10 @@ impl Response {
                     response_key::USAGE => {
                         self.usage = vey_msgpack::value::as_tls_cert_usage(&v)
                             .context(format!("invalid tls cert usage value for key {key}"))?;
+                    }
+                    response_key::SITE => {
+                        self.site = vey_msgpack::value::as_string(&v)
+                            .context(format!("invalid string value for key {key}"))?;
                     }
                     response_key::CERT_CHAIN => {
                         self.certs = vey_msgpack::value::as_openssl_certificates(&v)
@@ -133,6 +139,10 @@ impl Response {
                     response_key_id::USAGE => {
                         self.usage = vey_msgpack::value::as_tls_cert_usage(&v)
                             .context(format!("invalid tls cert usage value for key id {key_id}"))?;
+                    }
+                    response_key_id::SITE => {
+                        self.site = vey_msgpack::value::as_string(&v)
+                            .context(format!("invalid string value for key id {key_id}"))?;
                     }
                     response_key_id::CERT_CHAIN => {
                         self.certs = vey_msgpack::value::as_openssl_certificates(&v).context(
@@ -175,7 +185,7 @@ impl Response {
         }
         let key = self.key.ok_or_else(|| anyhow!("no private key set"))?;
         Ok((
-            CacheQueryKey::new(self.service, self.usage, self.host),
+            CacheQueryKey::new(self.service, self.usage, self.host, self.site),
             FakeCertPair {
                 certs: self.certs,
                 key,

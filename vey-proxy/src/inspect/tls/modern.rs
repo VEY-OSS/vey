@@ -85,10 +85,12 @@ where
             .map(Host::from)
             .unwrap_or_else(|| self.upstream.host().clone());
         let cert_host2 = cert_host.clone();
+        let cert_site = self.ctx.cert_query_site();
+        let pre_fetch_site = cert_site.clone();
         let cert_agent = self.tls_interception.cert_agent.clone();
         let pre_fetch_handle = tokio::spawn(async move {
             cert_agent
-                .pre_fetch(TlsServiceType::Http, CERT_USAGE, cert_host2)
+                .pre_fetch(TlsServiceType::Http, CERT_USAGE, cert_host2, pre_fetch_site)
                 .await
         });
 
@@ -125,7 +127,13 @@ where
                 })?;
                 self.tls_interception
                     .cert_agent
-                    .fetch(TlsServiceType::Http, CERT_USAGE, cert_host, upstream_cert)
+                    .fetch(
+                        TlsServiceType::Http,
+                        CERT_USAGE,
+                        cert_host,
+                        upstream_cert,
+                        cert_site,
+                    )
                     .await
                     .ok_or_else(|| {
                         TlsInterceptionError::NoFakeCertGenerated(anyhow!(

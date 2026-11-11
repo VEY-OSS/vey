@@ -5,17 +5,15 @@
  */
 
 use std::path::Path;
-use std::sync::Mutex;
 
 use anyhow::anyhow;
 use saphyr::Yaml;
 
-mod issuer;
-pub(crate) use issuer::{OpensslIssuerConfig, get_config as get_issuer_config};
+pub(crate) mod issuer;
+
+pub(crate) mod site;
 
 pub(crate) mod server;
-
-static RELOAD_ISSUER: Mutex<Option<OpensslIssuerConfig>> = Mutex::new(None);
 
 pub fn load(program_name: &str) -> anyhow::Result<&'static Path> {
     let config_file =
@@ -30,7 +28,7 @@ pub fn load(program_name: &str) -> anyhow::Result<&'static Path> {
     if server::is_empty() {
         return Err(anyhow!("no server configured"));
     }
-    if get_issuer_config().is_none() {
+    if issuer::get_config().is_none() {
         return Err(anyhow!("no issuer config available"));
     }
 
@@ -49,47 +47,40 @@ pub(crate) async fn reload_issuer() -> anyhow::Result<()> {
         .map_err(|e| anyhow!("failed to join issuer reload task: {e}"))?
 }
 
+pub(crate) async fn reload_site(name: &str) -> anyhow::Result<site::SiteConfig> {
+    let name = name.to_owned();
+    tokio::task::spawn_blocking(move || site::load_one(&name))
+        .await
+        .map_err(|e| anyhow!("failed to join site reload task: {e}"))?
+}
+
 fn reload_blocking() -> anyhow::Result<()> {
     server::clear();
-    RELOAD_ISSUER.lock().unwrap().take();
+    site::clear();
+    issuer::clear();
     if let Some(config_file) = vey_daemon::opts::config_file() {
         vey_yaml::foreach_doc(config_file, |_, doc| match doc {
             Yaml::Mapping(map) => reload_doc(map),
             _ => Err(anyhow!("yaml doc root should be hash")),
         })?;
     }
-    if let Some(config) = RELOAD_ISSUER.lock().unwrap().take() {
-        issuer::replace_config(config);
-    }
     Ok(())
 }
 
 fn reload_issuer_blocking() -> anyhow::Result<()> {
-    RELOAD_ISSUER.lock().unwrap().take();
-    if let Some(config_file) = vey_daemon::opts::config_file() {
-        vey_yaml::foreach_doc(config_file, |_, doc| match doc {
-            Yaml::Mapping(map) => reload_issuer_doc(map),
-            _ => Err(anyhow!("yaml doc root should be hash")),
-        })?;
-    }
-    if let Some(config) = RELOAD_ISSUER.lock().unwrap().take() {
-        issuer::replace_config(config);
-    }
-    Ok(())
-}
-
-fn stash_issuer(value: &Yaml) -> anyhow::Result<()> {
-    let mut pending = RELOAD_ISSUER.lock().unwrap();
-    if pending.is_some() {
-        return Err(anyhow!("duplicate issuer config"));
-    }
-    *pending = Some(issuer::parse_config(value)?);
-    Ok(())
+    let Some(config_file) = vey_daemon::opts::config_file() else {
+        return Ok(());
+    };
+    issuer::clear();
+    vey_yaml::foreach_doc(config_file, |_, doc| match doc {
+        Yaml::Mapping(map) => reload_issuer_doc(map),
+        _ => Err(anyhow!("yaml doc root should be hash")),
+    })
 }
 
 fn reload_issuer_doc(map: &saphyr::Mapping) -> anyhow::Result<()> {
     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
-        "issuer" => stash_issuer(v),
+        "issuer" => issuer::load_config(v),
         _ => Ok(()),
     })?;
     Ok(())
@@ -98,7 +89,8 @@ fn reload_issuer_doc(map: &saphyr::Mapping) -> anyhow::Result<()> {
 fn reload_doc(map: &saphyr::Mapping) -> anyhow::Result<()> {
     vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
         "runtime" | "worker" | "stat" | "controller" => Ok(()),
-        "issuer" => stash_issuer(v),
+        "issuer" => issuer::load_config(v),
+        "site" | "sites" => site::load_all(v),
         "server" => server::load_all(v),
         _ => Ok(()),
     })?;
@@ -112,6 +104,7 @@ fn load_doc(map: &saphyr::Mapping, program_name: &str) -> anyhow::Result<()> {
         "stat" => vey_daemon::stat::config::load(v, program_name),
         "controller" => vey_daemon::control::config::load(v),
         "issuer" => issuer::load_config(v),
+        "site" | "sites" => site::load_all(v),
         "server" => server::load_all(v),
         _ => Err(anyhow!("invalid key {k} in main conf")),
     })?;

@@ -40,6 +40,7 @@ struct CacheIndexKey {
     service: TlsServiceType,
     usage: TlsCertUsage,
     host: Host,
+    site: String,
 }
 
 #[derive(Clone, Debug)]
@@ -49,12 +50,13 @@ struct CacheQueryKey {
 }
 
 impl CacheQueryKey {
-    fn new(service: TlsServiceType, usage: TlsCertUsage, host: Host) -> Self {
+    fn new(service: TlsServiceType, usage: TlsCertUsage, host: Host, site: String) -> Self {
         CacheQueryKey {
             index: CacheIndexKey {
                 service,
                 usage,
                 host,
+                site,
             },
             mimic_cert: None,
         }
@@ -67,7 +69,7 @@ impl CacheQueryKey {
     fn encode(&self) -> Result<Vec<u8>, rmpv::encode::Error> {
         use rmpv::ValueRef;
 
-        let mut map = Vec::with_capacity(4);
+        let mut map = Vec::with_capacity(5);
         let host = self.index.host.to_string();
         map.push((
             ValueRef::Integer(request_key_id::HOST.into()),
@@ -81,6 +83,12 @@ impl CacheQueryKey {
             ValueRef::Integer(request_key_id::USAGE.into()),
             ValueRef::Integer((self.index.usage as u8).into()),
         ));
+        if !self.index.site.is_empty() {
+            map.push((
+                ValueRef::Integer(request_key_id::SITE.into()),
+                ValueRef::String(self.index.site.as_str().into()),
+            ));
+        }
         if let Some(cert) = &self.mimic_cert
             && let Ok(der) = cert.to_der()
         {
@@ -222,6 +230,7 @@ mod tests {
     use std::str::FromStr;
 
     use openssl::ssl::{Ssl, SslContext, SslMethod};
+    use rmpv::ValueRef;
 
     use vey_types::net::{Host, TlsCertUsage, TlsServiceType};
 
@@ -236,10 +245,28 @@ mod tests {
     #[test]
     fn cache_query_key_eq_and_hash_ignore_mimic_cert() {
         let host = Host::from_str("a.example").unwrap();
-        let mut a = CacheQueryKey::new(TlsServiceType::Http, TlsCertUsage::TlsServer, host.clone());
-        let b = CacheQueryKey::new(TlsServiceType::Http, TlsCertUsage::TlsServer, host);
+        let mut a = CacheQueryKey::new(
+            TlsServiceType::Http,
+            TlsCertUsage::TlsServer,
+            host.clone(),
+            "tenant".to_owned(),
+        );
+        let b = CacheQueryKey::new(
+            TlsServiceType::Http,
+            TlsCertUsage::TlsServer,
+            host,
+            "tenant".to_owned(),
+        );
         assert_eq!(a, b);
         assert_eq!(hash_of(&a), hash_of(&b));
+
+        let other_user = CacheQueryKey::new(
+            TlsServiceType::Http,
+            TlsCertUsage::TlsServer,
+            b.index.host.clone(),
+            "visitor".to_owned(),
+        );
+        assert_ne!(a, other_user);
 
         let (cert, _, _, _) = test_util::self_signed_cert_key();
         a.set_mimic_cert(cert);
@@ -250,12 +277,42 @@ mod tests {
     #[test]
     fn cache_query_key_encode_with_and_without_mimic() {
         let host = Host::from_str("encode.example").unwrap();
-        let key = CacheQueryKey::new(TlsServiceType::Http, TlsCertUsage::TlsServer, host.clone());
+        let key = CacheQueryKey::new(
+            TlsServiceType::Http,
+            TlsCertUsage::TlsServer,
+            host.clone(),
+            "tenant".to_owned(),
+        );
         let buf = key.encode().unwrap();
-        assert!(!buf.is_empty());
+        let req = crate::Request::parse_req(&buf).unwrap();
+        assert_eq!(req.host(), &host);
+        assert_eq!(req.site(), "tenant");
 
-        let mut with_mimic =
-            CacheQueryKey::new(TlsServiceType::Http, TlsCertUsage::TlsServer, host);
+        let anonymous = CacheQueryKey::new(
+            TlsServiceType::Http,
+            TlsCertUsage::TlsServer,
+            host.clone(),
+            String::new(),
+        );
+        let anonymous_buf = anonymous.encode().unwrap();
+        assert_eq!(
+            crate::Request::parse_req(&anonymous_buf).unwrap().site(),
+            ""
+        );
+        let mut data = anonymous_buf.as_slice();
+        let ValueRef::Map(entries) = rmpv::decode::read_value_ref(&mut data).unwrap() else {
+            panic!("request should be a map");
+        };
+        assert!(entries.iter().all(|(key, _)| {
+            !matches!(key, ValueRef::Integer(i) if i.as_u64() == Some(crate::request_key_id::SITE))
+        }));
+
+        let mut with_mimic = CacheQueryKey::new(
+            TlsServiceType::Http,
+            TlsCertUsage::TlsServer,
+            host,
+            "tenant".to_owned(),
+        );
         let (cert, _, _, _) = test_util::self_signed_cert_key();
         with_mimic.set_mimic_cert(cert);
         let buf_mimic = with_mimic.encode().unwrap();

@@ -92,6 +92,7 @@ where
             .unwrap_or_else(|| self.upstream.host().clone());
 
         let tls_service_type = TlsServiceType::from(self.protocol);
+        let cert_site = self.ctx.cert_query_site();
         let sign_cert_pair = self
             .tls_interception
             .cert_agent
@@ -100,6 +101,7 @@ where
                 TlsCertUsage::TlcpServerSignature,
                 cert_host.clone(),
                 upstream_cert.clone(),
+                cert_site.clone(),
             )
             .await
             .ok_or_else(|| {
@@ -115,6 +117,7 @@ where
                 TlsCertUsage::TlcpServerEncryption,
                 cert_host.clone(),
                 upstream_cert,
+                cert_site,
             )
             .await
             .ok_or_else(|| {

@@ -70,4 +70,15 @@ impl proc_control::Server for ProcControlImpl {
         set_operation_result(results.get().init_result(), r);
         Ok(())
     }
+
+    async fn reload_site(
+        self: Rc<Self>,
+        params: proc_control::ReloadSiteParams,
+        mut results: proc_control::ReloadSiteResults,
+    ) -> capnp::Result<()> {
+        let name = params.get()?.get_name()?.to_str()?;
+        let r = crate::signal::reload_site(name).await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
+    }
 }

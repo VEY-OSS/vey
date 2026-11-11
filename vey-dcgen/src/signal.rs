@@ -11,12 +11,31 @@ use vey_daemon::signal::AsyncSignalAction;
 
 static RELOAD_MUTEX: Mutex<()> = Mutex::const_new(());
 
+pub(crate) async fn reload_site(name: &str) -> anyhow::Result<()> {
+    let _guard = RELOAD_MUTEX.lock().await;
+    info!("reloading site {name}");
+
+    match crate::config::reload_site(name).await {
+        Ok(config) => {
+            crate::site::load_one(&config);
+            info!("site {name} reload finished");
+            Ok(())
+        }
+        Err(e) => {
+            warn!("site {name} reload error: {e:?}");
+            warn!("site {name} reload aborted");
+            Err(e)
+        }
+    }
+}
+
 pub(crate) async fn reload_issuer() -> anyhow::Result<()> {
     let _guard = RELOAD_MUTEX.lock().await;
     info!("reloading issuer");
 
     match crate::config::reload_issuer().await {
         Ok(()) => {
+            crate::issuer::load();
             info!("issuer reload finished");
             Ok(())
         }
@@ -49,6 +68,8 @@ async fn reload_locked() -> anyhow::Result<()> {
     crate::config::reload()
         .await
         .context("failed to reload config")?;
+    crate::issuer::load();
+    crate::site::load_all();
     crate::serve::spawn_all()
         .await
         .context("failed to reload all servers")?;

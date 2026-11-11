@@ -20,6 +20,7 @@ fn build_cli_args() -> Command {
         .subcommand(proc::commands::offline())
         .subcommand(proc::commands::reload())
         .subcommand(proc::commands::reload_issuer())
+        .subcommand(proc::commands::reload_site())
         .subcommand(proc::commands::cancel_shutdown())
 }
 
@@ -47,12 +48,13 @@ async fn main() -> anyhow::Result<()> {
                     .map_err(|e| eprintln!("rpc system error: {e:?}"))
             });
 
-            let (subcommand, _sub_args) = args.subcommand().unwrap();
+            let (subcommand, sub_args) = args.subcommand().unwrap();
             match subcommand {
                 proc::COMMAND_VERSION => proc::version(&proc_control).await,
                 proc::COMMAND_OFFLINE => proc::offline(&proc_control).await,
                 proc::COMMAND_RELOAD => proc::reload(&proc_control).await,
                 proc::COMMAND_RELOAD_ISSUER => proc::reload_issuer(&proc_control).await,
+                proc::COMMAND_RELOAD_SITE => proc::reload_site(&proc_control, sub_args).await,
                 proc::COMMAND_CANCEL_SHUTDOWN => proc::cancel_shutdown(&proc_control).await,
                 _ => Err(CommandError::Cli(anyhow!(
                     "unsupported command {subcommand}"

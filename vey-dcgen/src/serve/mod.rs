@@ -112,5 +112,6 @@ impl RespondUnixDatagramServer for WrapArcServer {
 }
 
 pub fn spawn_issuer() -> anyhow::Result<()> {
+    crate::issuer::load();
     crate::issuer::spawn_workers()
 }
