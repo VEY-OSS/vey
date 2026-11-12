@@ -69,21 +69,25 @@ done
 for dir in $(find "${RUN_DIR}/" -type d | sort)
 do
 	[ -f "${dir}/main.yaml" ] || continue
+	[ -f "${dir}/testcases.sh" ] || continue
 
 	echo "=== ${dir}"
 
-	"${BIN_DIR}"/vey-statsd -c "${dir}/main.yaml" -G ${TEST_NAME} &
+	STATSD_LOG=$(mktemp)
+	export STATSD_LOG
+	"${BIN_DIR}"/vey-statsd -c "${dir}/main.yaml" -G ${TEST_NAME} >"${STATSD_LOG}" 2>&1 &
 	STATSD_PID=$!
 
 	sleep 2
 
-	[ -f "${dir}/testcases.sh" ] || continue
 	TESTCASE_DIR=${dir}
 	query_failed=
 	. "${dir}/testcases.sh" || query_failed=1
 
-	vey_statsd_ctl offline
-	wait $STATSD_PID
+	vey_statsd_ctl offline || query_failed=1
+	wait $STATSD_PID || query_failed=1
+	cat "${STATSD_LOG}"
+	rm -f "${STATSD_LOG}"
 	[ -z "$query_failed" ] || exit 1
 done
 

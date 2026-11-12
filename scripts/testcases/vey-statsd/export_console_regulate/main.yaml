@@ -1,0 +1,23 @@
+runtime:
+  thread_number: 2
+
+worker:
+  thread_number: 2
+
+importer:
+  - name: statsd
+    type: statsd
+    collector: regulate
+    listen: 127.0.0.1:8125
+
+collector:
+  - name: regulate
+    type: regulate
+    prefix: vey
+    drop_tags:
+      - stat_id
+    exporter: console
+
+exporter:
+  - name: console
+    type: console
