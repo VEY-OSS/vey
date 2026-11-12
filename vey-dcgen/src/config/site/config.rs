@@ -122,6 +122,12 @@ impl SiteConfig {
         self.position.as_ref()
     }
 
+    #[cfg(test)]
+    pub(super) fn without_position(mut self) -> Self {
+        self.position = None;
+        self
+    }
+
     pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<Self> {
         let doc = vey_yaml::load_doc(position)
             .with_context(|| format!("failed to load site config at {position}"))?;
@@ -259,7 +265,103 @@ impl SiteConfig {
 mod tests {
     use std::fs;
 
+    use saphyr::LoadableYamlNode;
+
     use super::*;
+
+    fn pem_body(pem: &str) -> String {
+        pem.lines().map(|line| format!("  {line}\n")).collect()
+    }
+
+    fn cert_and_key() -> (&'static str, &'static str) {
+        (
+            include_str!("../../../examples/simple/G3-test.crt"),
+            include_str!("../../../examples/simple/G3-test.key"),
+        )
+    }
+
+    fn yaml_map(text: &str) -> saphyr::Mapping<'_> {
+        let mut docs = Yaml::load_from_str(text).unwrap();
+        let Yaml::Mapping(map) = docs.remove(0) else {
+            panic!("site yaml should be a map");
+        };
+        map
+    }
+
+    fn parse_text(text: &str) -> anyhow::Result<SiteConfig> {
+        let dir = std::env::temp_dir();
+        let position = YamlDocPosition {
+            path: dir.join("site.yaml"),
+            index: 0,
+        };
+        SiteConfig::parse(&yaml_map(text), Some(position))
+    }
+
+    fn assert_err_contains(result: anyhow::Result<SiteConfig>, needle: &str) {
+        match result {
+            Err(err) => {
+                let message = format!("{err:#}");
+                assert!(
+                    message.contains(needle),
+                    "error `{message}` should contain {needle}"
+                );
+            }
+            Ok(_) => panic!("expected error containing {needle}"),
+        }
+    }
+
+    #[test]
+    fn parse_rejects_incomplete_site_maps() {
+        assert_err_contains(parse_text("ttl: 10\n"), "id is not set");
+        let (cert, key) = cert_and_key();
+        assert_err_contains(
+            parse_text(&format!("id: shop\ncertificate: |\n{}", pem_body(cert))),
+            "tls certificate and private key must both be set",
+        );
+        assert_err_contains(
+            parse_text(&format!("id: shop\nprivate_key: |\n{}", pem_body(key))),
+            "tls certificate and private key must both be set",
+        );
+        assert_err_contains(parse_text("id: shop\n"), "has no tls");
+        assert_err_contains(
+            parse_text(&format!(
+                "id: shop\nname: extra\ncertificate: |\n{}private_key: |\n{}",
+                pem_body(cert),
+                pem_body(key)
+            )),
+            "key name",
+        );
+        assert_err_contains(
+            parse_text(&format!(
+                "id: shop\nttl: 5000000000\ncertificate: |\n{}private_key: |\n{}",
+                pem_body(cert),
+                pem_body(key)
+            )),
+            "too large",
+        );
+    }
+
+    #[test]
+    fn parse_accepts_each_certificate_usage() {
+        let (cert, key) = cert_and_key();
+        let config = parse_text(&format!(
+            "id: shop\ncert: |\n{}key: |\n{}sign_cert: |\n{}sign_key: |\n{}enc_cert: |\n{}enc_key: |\n{}",
+            pem_body(cert),
+            pem_body(key),
+            pem_body(cert),
+            pem_body(key),
+            pem_body(cert),
+            pem_body(key)
+        ))
+        .unwrap();
+        assert!(config.tls.as_ref().unwrap().ttl().unwrap() > 0);
+        assert!(
+            openssl::pkey::PKey::private_key_from_der(config.tls.as_ref().unwrap().private_key())
+                .is_ok()
+        );
+        assert!(config.tlcp_sign.is_some());
+        assert!(config.tlcp_enc.is_some());
+    }
 
     #[test]
     fn load_at_position_records_id_and_position() {

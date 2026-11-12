@@ -13,11 +13,12 @@ TEST_NAME="vey-statsd-ci"
 cargo build --features jemalloc -p vey-statsd -p vey-statsd-ctl
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
-all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
 # run vey-statsd tests
 
 cargo test -p vey-statsd -p vey-statsd-ctl
+
+all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
 RUN_DIR="${PROJECT_DIR}/scripts/testcases/vey-statsd"
 . "${RUN_DIR}/run.sh"

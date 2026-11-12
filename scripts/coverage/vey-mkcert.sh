@@ -18,11 +18,12 @@ TEST_NAME="mkcert-ci"
 cargo build -p vey-mkcert
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
-all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
 # run vey-mkcert tests
 
 cargo test -p vey-mkcert
+
+all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
 cd "${PROJECT_DIR}/scripts/testcases/vey-mkcert"
 . ./run.sh

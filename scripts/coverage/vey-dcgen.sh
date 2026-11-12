@@ -17,11 +17,12 @@ fi
 cargo build --features "${FEATURES}" -p vey-dcgen -p vey-dcgen-ctl -p vey-dcgen-get
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
-all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
 # run vey-dcgen tests
 
 cargo test --features "${FEATURES}" -p vey-dcgen -p vey-dcgen-ctl
+
+all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
 RUN_DIR="${PROJECT_DIR}/scripts/testcases/vey-dcgen"
 . "${RUN_DIR}/run.sh"

@@ -13,11 +13,12 @@ TEST_NAME="bench-ci"
 cargo build --features mimalloc -p vey-bench -p vey-mkcert -p vey-proxy -p vey-proxy-ctl -p vey-statsd -p vey-keyless -p vey-keyless-ctl
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
-all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
 # run vey-bench tests
 
 cargo test -p vey-bench
+
+all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
 RUN_DIR="${PROJECT_DIR}/scripts/testcases/vey-bench"
 . "${RUN_DIR}/run.sh"

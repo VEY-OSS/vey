@@ -13,11 +13,12 @@ TEST_NAME="vey-proxy-ci"
 cargo build --features jemalloc,lua54 -p vey-proxy -p vey-proxy-ctl -p vey-proxy-ftp -p vey-mkcert -p vey-dcgen -p vey-iploc -p vey-statsd
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
-all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
 # run vey-proxy tests
 
 cargo test -p vey-proxy -p vey-proxy-ctl -p vey-proxy-ftp
+
+all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
 RUN_DIR="${PROJECT_DIR}/scripts/testcases/vey-proxy"
 . "${RUN_DIR}/run.sh"
