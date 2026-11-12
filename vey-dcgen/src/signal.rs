@@ -17,7 +17,7 @@ pub(crate) async fn reload_site(name: &str) -> anyhow::Result<()> {
 
     match crate::config::reload_site(name).await {
         Ok(config) => {
-            crate::site::load_one(&config);
+            crate::site::load_one(&config)?;
             info!("site {name} reload finished");
             Ok(())
         }
@@ -69,7 +69,7 @@ async fn reload_locked() -> anyhow::Result<()> {
         .await
         .context("failed to reload config")?;
     crate::issuer::load();
-    crate::site::load_all();
+    crate::site::load_all().context("failed to load sites")?;
     crate::serve::spawn_all()
         .await
         .context("failed to reload all servers")?;

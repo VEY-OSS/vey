@@ -21,9 +21,9 @@ does not read these maps.
 
 .. versionadded:: 0.10.0
 
-Each map must set ``id``. At least one of the TLS, TLCP signature, and TLCP
-encryption pairs must be set. A pair is used only when both its certificate
-and private key are set.
+Each map must set ``id``. At least one of ``tls_server``, ``tlcp_server_sign``,
+and ``tlcp_server_enc`` must be set. Each value is a certificate pair, so both
+its certificate and private key are required.
 
 id
 ==
@@ -40,52 +40,28 @@ ttl
 TTL reported with a predefined certificate from this site. A number is a count
 of seconds.
 
-An already expired certificate is not returned. When this value is longer than
-the time left before the leaf expires, the reported TTL is the remaining time.
-
 **default**: 86400
 
-certificate
-===========
+tls_server
+==========
 
-**optional**, **type**: :external+values:ref:`tls certificates <conf_value_tls_certificates>`, **alias**: cert
+**optional**, **type**: :external+values:ref:`tls cert pair <conf_value_tls_cert_pair>`
 
-TLS certificate chain in PEM. The first certificate is the leaf. Used for
-``tls_server`` and ``tls_server_tongsuo`` requests.
+TLS certificate and private key. Used for ``tls_server`` and
+``tls_server_tongsuo`` requests.
 
-private_key
-===========
-
-**optional**, **type**: :external+values:ref:`tls private_key <conf_value_tls_private_key>`, **alias**: key
-
-Private key of the TLS leaf certificate.
-
-sign_certificate
+tlcp_server_sign
 ================
 
-**optional**, **type**: :external+values:ref:`tls certificates <conf_value_tls_certificates>`, **alias**: sign_cert
+**optional**, **type**: :external+values:ref:`tls cert pair <conf_value_tls_cert_pair>`
 
-TLCP signature certificate chain in PEM. Used for ``tlcp_server_signature``
-requests.
+TLCP signature certificate and private key. Used for
+``tlcp_server_signature`` requests.
 
-sign_private_key
-================
-
-**optional**, **type**: :external+values:ref:`tls private_key <conf_value_tls_private_key>`, **alias**: sign_key
-
-Private key of the TLCP signature certificate.
-
-enc_certificate
+tlcp_server_enc
 ===============
 
-**optional**, **type**: :external+values:ref:`tls certificates <conf_value_tls_certificates>`, **alias**: enc_cert
+**optional**, **type**: :external+values:ref:`tls cert pair <conf_value_tls_cert_pair>`
 
-TLCP encryption certificate chain in PEM. Used for ``tlcp_server_encryption``
-requests.
-
-enc_private_key
-===============
-
-**optional**, **type**: :external+values:ref:`tls private_key <conf_value_tls_private_key>`, **alias**: enc_key
-
-Private key of the TLCP encryption certificate.
+TLCP encryption certificate and private key. Used for
+``tlcp_server_encryption`` requests.

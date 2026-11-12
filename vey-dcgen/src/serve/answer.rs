@@ -36,17 +36,7 @@ where
 
     let (user_req, buf) =
         if let Some(pair) = crate::site::get(user_req.site(), user_req.cert_usage()) {
-            let ttl = match pair.ttl() {
-                Ok(ttl) => ttl,
-                Err(e) => {
-                    warn!(
-                        "{} - predefined certificate for site {}: {e}",
-                        user_req.host(),
-                        user_req.site()
-                    );
-                    return;
-                }
-            };
+            let ttl = pair.ttl();
             debug!(
                 "{} - use predefined certificate for site {}",
                 user_req.host(),

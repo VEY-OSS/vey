@@ -3,16 +3,11 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use anyhow::{Context, anyhow};
-use openssl::asn1::{Asn1Time, Asn1TimeRef};
-use openssl::pkey::{PKey, Private};
-use openssl::x509::X509;
 use saphyr::Yaml;
 
 use vey_types::metrics::NodeName;
+use vey_types::net::OpensslCertificatePair;
 use vey_yaml::YamlDocPosition;
 
 /// Parsed site. `position` is set when the map was loaded from a file.
@@ -20,106 +15,48 @@ use vey_yaml::YamlDocPosition;
 pub(crate) struct SiteConfig {
     id: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) tls: Option<Arc<SiteKeyCert>>,
-    pub(crate) tlcp_sign: Option<Arc<SiteKeyCert>>,
-    pub(crate) tlcp_enc: Option<Arc<SiteKeyCert>>,
-}
-
-/// One certificate pair returned by the protocol. The chain is PEM and the
-/// private key is DER.
-pub(crate) struct SiteKeyCert {
-    pub(crate) certificate: String,
-    pub(crate) private_key: Vec<u8>,
-    not_after_unix: i64,
     ttl: u32,
-}
-
-impl SiteKeyCert {
-    pub(crate) fn certificate(&self) -> &str {
-        &self.certificate
-    }
-
-    pub(crate) fn private_key(&self) -> &[u8] {
-        &self.private_key
-    }
-
-    pub(crate) fn ttl(&self) -> anyhow::Result<u32> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64;
-        if self.not_after_unix <= now {
-            return Err(anyhow!("the predefined certificate is already expired"));
-        }
-        let seconds = self.not_after_unix - now;
-        let seconds = u32::try_from(seconds).unwrap_or(u32::MAX);
-        Ok(self.ttl.min(seconds))
-    }
-
-    fn new(
-        certs: Option<Vec<X509>>,
-        key: Option<PKey<Private>>,
-        ttl: u32,
-        label: &str,
-    ) -> anyhow::Result<Option<Self>> {
-        match (certs, key) {
-            (None, None) => Ok(None),
-            (Some(certs), Some(key)) => Ok(Some(Self::from_validated(certs, key, ttl)?)),
-            _ => Err(anyhow!(
-                "{label} certificate and private key must both be set"
-            )),
-        }
-    }
-
-    fn from_validated(certs: Vec<X509>, key: PKey<Private>, ttl: u32) -> anyhow::Result<Self> {
-        let mut certs = certs.into_iter();
-        let leaf = certs.next().ok_or_else(|| anyhow!("no certificate set"))?;
-        let not_after_unix = Self::not_after_unix(leaf.not_after())?;
-        let mut certificate = leaf
-            .to_pem()
-            .map_err(|e| anyhow!("failed to encode certificate: {e}"))?;
-        for (i, cert) in certs.enumerate() {
-            let bytes = cert
-                .to_pem()
-                .map_err(|e| anyhow!("failed to encode chain certificate #{i}: {e}"))?;
-            certificate.extend(bytes);
-        }
-        let private_key = key
-            .private_key_to_der()
-            .map_err(|e| anyhow!("failed to encode private key: {e}"))?;
-        Ok(SiteKeyCert {
-            certificate: String::from_utf8(certificate)
-                .map_err(|e| anyhow!("certificate pem is not utf-8: {e}"))?,
-            private_key,
-            not_after_unix,
-            ttl,
-        })
-    }
-
-    fn not_after_unix(not_after: &Asn1TimeRef) -> anyhow::Result<i64> {
-        let now =
-            Asn1Time::days_from_now(0).map_err(|e| anyhow!("failed to get now datatime: {e}"))?;
-        let diff = now
-            .diff(not_after)
-            .map_err(|e| anyhow!("failed to get time diff: {e}"))?;
-        if diff.days < 0 {
-            return Err(anyhow!("the predefined certificate is already expired"));
-        }
-        let now_unix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64;
-        Ok(now_unix + diff.days as i64 * 86400 + diff.secs as i64)
-    }
+    tls_server: Option<OpensslCertificatePair>,
+    tlcp_server_sign: Option<OpensslCertificatePair>,
+    tlcp_server_enc: Option<OpensslCertificatePair>,
 }
 
 impl SiteConfig {
+    const DEFAULT_TTL: u32 = 24 * 3600;
+
+    fn new(position: Option<YamlDocPosition>) -> Self {
+        SiteConfig {
+            id: NodeName::default(),
+            position,
+            ttl: Self::DEFAULT_TTL,
+            tls_server: None,
+            tlcp_server_sign: None,
+            tlcp_server_enc: None,
+        }
+    }
+
     pub(crate) fn id(&self) -> &NodeName {
         &self.id
     }
 
     pub(crate) fn position(&self) -> Option<&YamlDocPosition> {
         self.position.as_ref()
+    }
+
+    pub(crate) fn ttl(&self) -> u32 {
+        self.ttl
+    }
+
+    pub(crate) fn tls_server(&self) -> Option<&OpensslCertificatePair> {
+        self.tls_server.as_ref()
+    }
+
+    pub(crate) fn tlcp_server_sign(&self) -> Option<&OpensslCertificatePair> {
+        self.tlcp_server_sign.as_ref()
+    }
+
+    pub(crate) fn tlcp_server_enc(&self) -> Option<&OpensslCertificatePair> {
+        self.tlcp_server_enc.as_ref()
     }
 
     #[cfg(test)]
@@ -141,123 +78,76 @@ impl SiteConfig {
         map: &saphyr::Mapping,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let mut id = None;
-        let config_dir;
-        let lookup_dir = match &position {
-            Some(position) => position.path.parent(),
-            None => {
-                config_dir = vey_daemon::config::get_lookup_dir(None)?;
-                Some(config_dir)
-            }
-        };
-        let mut tls_certs = None;
-        let mut tls_key = None;
-        let mut sign_certs = None;
-        let mut sign_key = None;
-        let mut enc_certs = None;
-        let mut enc_key = None;
-        let mut ttl = None;
-        vey_yaml::foreach_kv(map, |k, v| match vey_yaml::key::normalize(k).as_str() {
+        let mut site = Self::new(position);
+        vey_yaml::foreach_kv(map, |k, v| site.set(k, v))?;
+        site.check()?;
+        Ok(site)
+    }
+
+    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
+        match vey_yaml::key::normalize(k).as_str() {
             "id" => {
-                if id.is_some() {
+                if !self.id.is_empty() {
                     return Err(anyhow!("duplicate key {k}"));
                 }
-                id = Some(vey_yaml::value::as_metric_node_name(v)?);
+                self.id = vey_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "ttl" => {
-                if ttl.is_some() {
-                    return Err(anyhow!("duplicate key {k}"));
-                }
                 let duration = vey_yaml::humanize::as_duration(v)
                     .context(format!("invalid duration value for key {k}"))?;
-                let seconds = u32::try_from(duration.as_secs())
+                self.ttl = u32::try_from(duration.as_secs())
                     .map_err(|_| anyhow!("ttl for key {k} is too large"))?;
-                ttl = Some(seconds);
                 Ok(())
             }
-            "certificate" | "cert" => {
-                if tls_certs.is_some() {
+            "tls_server" => {
+                if self.tls_server.is_some() {
                     return Err(anyhow!("duplicate key {k}"));
                 }
-                tls_certs = Some(
-                    vey_yaml::value::as_openssl_certificates(v, lookup_dir)
-                        .context(format!("invalid certificates value for key {k}"))?,
-                );
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let tls = vey_yaml::value::as_openssl_certificate_pair(v, Some(lookup_dir))
+                    .context(format!("invalid certificate pair value for key {k}"))?;
+                self.tls_server = Some(tls);
                 Ok(())
             }
-            "private_key" | "key" => {
-                if tls_key.is_some() {
+            "tlcp_server_sign" => {
+                if self.tlcp_server_sign.is_some() {
                     return Err(anyhow!("duplicate key {k}"));
                 }
-                tls_key = Some(
-                    vey_yaml::value::as_openssl_private_key(v, lookup_dir)
-                        .context(format!("invalid private key value for key {k}"))?,
-                );
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let sign = vey_yaml::value::as_openssl_certificate_pair(v, Some(lookup_dir))
+                    .context(format!("invalid certificate pair value for key {k}"))?;
+                self.tlcp_server_sign = Some(sign);
                 Ok(())
             }
-            "sign_certificate" | "sign_cert" => {
-                if sign_certs.is_some() {
+            "tlcp_server_enc" => {
+                if self.tlcp_server_enc.is_some() {
                     return Err(anyhow!("duplicate key {k}"));
                 }
-                sign_certs = Some(
-                    vey_yaml::value::as_openssl_certificates(v, lookup_dir)
-                        .context(format!("invalid certificates value for key {k}"))?,
-                );
-                Ok(())
-            }
-            "sign_private_key" | "sign_key" => {
-                if sign_key.is_some() {
-                    return Err(anyhow!("duplicate key {k}"));
-                }
-                sign_key = Some(
-                    vey_yaml::value::as_openssl_private_key(v, lookup_dir)
-                        .context(format!("invalid private key value for key {k}"))?,
-                );
-                Ok(())
-            }
-            "enc_certificate" | "enc_cert" => {
-                if enc_certs.is_some() {
-                    return Err(anyhow!("duplicate key {k}"));
-                }
-                enc_certs = Some(
-                    vey_yaml::value::as_openssl_certificates(v, lookup_dir)
-                        .context(format!("invalid certificates value for key {k}"))?,
-                );
-                Ok(())
-            }
-            "enc_private_key" | "enc_key" => {
-                if enc_key.is_some() {
-                    return Err(anyhow!("duplicate key {k}"));
-                }
-                enc_key = Some(
-                    vey_yaml::value::as_openssl_private_key(v, lookup_dir)
-                        .context(format!("invalid private key value for key {k}"))?,
-                );
+                let lookup_dir = vey_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let enc = vey_yaml::value::as_openssl_certificate_pair(v, Some(lookup_dir))
+                    .context(format!("invalid certificate pair value for key {k}"))?;
+                self.tlcp_server_enc = Some(enc);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
-        })?;
-        let Some(id) = id else {
+        }
+    }
+
+    fn check(&self) -> anyhow::Result<()> {
+        if self.id.is_empty() {
             return Err(anyhow!("id is not set"));
-        };
-        let ttl = ttl.unwrap_or(24 * 3600);
-        let tls = SiteKeyCert::new(tls_certs, tls_key, ttl, "tls")?.map(Arc::new);
-        let tlcp_sign = SiteKeyCert::new(sign_certs, sign_key, ttl, "tlcp sign")?.map(Arc::new);
-        let tlcp_enc = SiteKeyCert::new(enc_certs, enc_key, ttl, "tlcp enc")?.map(Arc::new);
-        if tls.is_none() && tlcp_sign.is_none() && tlcp_enc.is_none() {
+        }
+        if self.tls_server.is_none()
+            && self.tlcp_server_sign.is_none()
+            && self.tlcp_server_enc.is_none()
+        {
             return Err(anyhow!(
-                "site {} has no tls, tlcp sign, or tlcp enc certificate",
-                id.as_str()
+                "site {} has no tls_server, tlcp_server_sign, or tlcp_server_enc certificate",
+                self.id
             ));
         }
-        Ok(SiteConfig {
-            id,
-            position,
-            tls,
-            tlcp_sign,
-            tlcp_enc,
-        })
+        Ok(())
     }
 }
 
@@ -269,8 +159,17 @@ mod tests {
 
     use super::*;
 
-    fn pem_body(pem: &str) -> String {
-        pem.lines().map(|line| format!("  {line}\n")).collect()
+    fn pem_at(pem: &str, spaces: usize) -> String {
+        let pad = " ".repeat(spaces);
+        pem.lines().map(|line| format!("{pad}{line}\n")).collect()
+    }
+
+    fn pair_block(name: &str, cert: &str, key: &str) -> String {
+        format!(
+            "{name}:\n  certificate: |\n{}  private_key: |\n{}",
+            pem_at(cert, 4),
+            pem_at(key, 4)
+        )
     }
 
     fn cert_and_key() -> (&'static str, &'static str) {
@@ -315,27 +214,31 @@ mod tests {
         assert_err_contains(parse_text("ttl: 10\n"), "id is not set");
         let (cert, key) = cert_and_key();
         assert_err_contains(
-            parse_text(&format!("id: shop\ncertificate: |\n{}", pem_body(cert))),
-            "tls certificate and private key must both be set",
+            parse_text(&format!(
+                "id: shop\ntls_server:\n  certificate: |\n{}",
+                pem_at(cert, 4)
+            )),
+            "no private key set",
         );
-        assert_err_contains(
-            parse_text(&format!("id: shop\nprivate_key: |\n{}", pem_body(key))),
-            "tls certificate and private key must both be set",
-        );
-        assert_err_contains(parse_text("id: shop\n"), "has no tls");
         assert_err_contains(
             parse_text(&format!(
-                "id: shop\nname: extra\ncertificate: |\n{}private_key: |\n{}",
-                pem_body(cert),
-                pem_body(key)
+                "id: shop\ntls_server:\n  private_key: |\n{}",
+                pem_at(key, 4)
+            )),
+            "no certificate set",
+        );
+        assert_err_contains(parse_text("id: shop\n"), "tls_server");
+        assert_err_contains(
+            parse_text(&format!(
+                "id: shop\nname: extra\n{}",
+                pair_block("tls_server", cert, key)
             )),
             "key name",
         );
         assert_err_contains(
             parse_text(&format!(
-                "id: shop\nttl: 5000000000\ncertificate: |\n{}private_key: |\n{}",
-                pem_body(cert),
-                pem_body(key)
+                "id: shop\nttl: 5000000000\n{}",
+                pair_block("tls_server", cert, key)
             )),
             "too large",
         );
@@ -345,22 +248,19 @@ mod tests {
     fn parse_accepts_each_certificate_usage() {
         let (cert, key) = cert_and_key();
         let config = parse_text(&format!(
-            "id: shop\ncert: |\n{}key: |\n{}sign_cert: |\n{}sign_key: |\n{}enc_cert: |\n{}enc_key: |\n{}",
-            pem_body(cert),
-            pem_body(key),
-            pem_body(cert),
-            pem_body(key),
-            pem_body(cert),
-            pem_body(key)
+            "id: shop\n{}\n{}\n{}",
+            pair_block("tls_server", cert, key),
+            pair_block("tlcp_server_sign", cert, key),
+            pair_block("tlcp_server_enc", cert, key)
         ))
         .unwrap();
-        assert!(config.tls.as_ref().unwrap().ttl().unwrap() > 0);
+        assert_eq!(config.ttl(), SiteConfig::DEFAULT_TTL);
         assert!(
-            openssl::pkey::PKey::private_key_from_der(config.tls.as_ref().unwrap().private_key())
+            openssl::pkey::PKey::private_key_from_der(config.tls_server().unwrap().private_key())
                 .is_ok()
         );
-        assert!(config.tlcp_sign.is_some());
-        assert!(config.tlcp_enc.is_some());
+        assert!(config.tlcp_server_sign().is_some());
+        assert!(config.tlcp_server_enc().is_some());
     }
 
     #[test]
@@ -377,13 +277,8 @@ mod tests {
         let cert = include_str!("../../../examples/simple/G3-test.crt");
         let key = include_str!("../../../examples/simple/G3-test.key");
         let body = format!(
-            "id: shop\nttl: 120\ncertificate: |\n{}private_key: |\n{}",
-            cert.lines()
-                .map(|line| format!("  {line}\n"))
-                .collect::<String>(),
-            key.lines()
-                .map(|line| format!("  {line}\n"))
-                .collect::<String>()
+            "id: shop\nttl: 120\n{}",
+            pair_block("tls_server", cert, key)
         );
         let path = dir.join("any-name.yaml");
         fs::write(&path, body).unwrap();
@@ -396,8 +291,9 @@ mod tests {
         let position = config.position().unwrap();
         assert!(position.path.is_absolute());
         assert_eq!(position.index, 0);
-        assert_eq!(config.tls.unwrap().ttl().unwrap(), 120);
-        assert!(config.tlcp_sign.is_none());
-        assert!(config.tlcp_enc.is_none());
+        assert_eq!(config.ttl(), 120);
+        assert!(config.tls_server().is_some());
+        assert!(config.tlcp_server_sign().is_none());
+        assert!(config.tlcp_server_enc().is_none());
     }
 }

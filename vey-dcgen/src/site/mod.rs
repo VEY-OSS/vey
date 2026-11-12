@@ -8,25 +8,27 @@ use std::sync::Arc;
 use vey_types::metrics::NodeName;
 use vey_types::net::TlsCertUsage;
 
-use crate::config::site::{SiteConfig, SiteKeyCert};
+use crate::config::site::SiteConfig;
 
 mod registry;
 
 mod entry;
-pub(crate) use entry::Site;
+pub(crate) use entry::{Site, SiteKeyCert};
 
-pub fn load_all() {
+pub fn load_all() -> anyhow::Result<()> {
     let sites = crate::config::site::get_all()
         .iter()
-        .map(|config| (config.id().clone(), Arc::new(Site::from_config(config))))
-        .collect();
+        .map(|config| Site::from_config(config).map(|site| (config.id().clone(), Arc::new(site))))
+        .collect::<anyhow::Result<_>>()?;
     registry::replace(sites);
+    Ok(())
 }
 
-pub(crate) fn load_one(config: &SiteConfig) {
+pub(crate) fn load_one(config: &SiteConfig) -> anyhow::Result<()> {
     let id = config.id().clone();
-    let site = Arc::new(Site::from_config(config));
+    let site = Arc::new(Site::from_config(config)?);
     registry::insert(id, site);
+    Ok(())
 }
 
 pub(crate) fn get(id: &str, usage: TlsCertUsage) -> Option<Arc<SiteKeyCert>> {
@@ -45,8 +47,16 @@ mod tests {
 
     use super::*;
 
-    fn pem_body(pem: &str) -> String {
-        pem.lines().map(|line| format!("  {line}\n")).collect()
+    fn pair_block(name: &str, pem: &str, key: &str) -> String {
+        let cert = pem
+            .lines()
+            .map(|line| format!("    {line}\n"))
+            .collect::<String>();
+        let key = key
+            .lines()
+            .map(|line| format!("    {line}\n"))
+            .collect::<String>();
+        format!("{name}:\n  certificate: |\n{cert}  private_key: |\n{key}")
     }
 
     #[test]
@@ -67,22 +77,20 @@ mod tests {
         fs::write(
             &path,
             format!(
-                "id: {id}\nttl: 30\ncertificate: |\n{}private_key: |\n{}sign_certificate: |\n{}sign_private_key: |\n{}",
-                pem_body(cert),
-                pem_body(key),
-                pem_body(cert),
-                pem_body(key)
+                "id: {id}\nttl: 30\n{}\n{}",
+                pair_block("tls_server", cert, key),
+                pair_block("tlcp_server_sign", cert, key)
             ),
         )
         .unwrap();
         let config = SiteConfig::load_at_position(&YamlDocPosition { path, index: 0 }).unwrap();
-        load_one(&config);
+        load_one(&config).unwrap();
         let _ = fs::remove_dir_all(&dir);
 
         let tls = get(&id, TlsCertUsage::TlsServer).unwrap();
         assert!(tls.certificate().contains("BEGIN CERTIFICATE"));
         assert!(openssl::pkey::PKey::private_key_from_der(tls.private_key()).is_ok());
-        assert_eq!(tls.ttl().unwrap(), 30);
+        assert_eq!(tls.ttl(), 30);
         assert!(get(&id, TlsCertUsage::TLsServerTongsuo).is_some());
         assert!(get(&id, TlsCertUsage::TlcpServerSignature).is_some());
         assert!(get(&id, TlsCertUsage::TlcpServerEncryption).is_none());

@@ -10,7 +10,7 @@ use vey_types::metrics::NodeName;
 use vey_yaml::HybridParser;
 
 mod config;
-pub(crate) use config::{SiteConfig, SiteKeyCert};
+pub(crate) use config::SiteConfig;
 
 mod registry;
 pub(crate) use registry::{clear, get_all};
@@ -22,12 +22,12 @@ pub(super) fn load_one(name: &str) -> anyhow::Result<SiteConfig> {
     let Some(old) = registry::get(&id) else {
         return Err(anyhow!("no site {id}"));
     };
-    let Some(position) = old.position().cloned() else {
+    let Some(position) = old.position() else {
         return Err(anyhow!(
             "no config position for site {id}, reload is not supported"
         ));
     };
-    let config = SiteConfig::load_at_position(&position)?;
+    let config = SiteConfig::load_at_position(position)?;
     if config.id() != &id {
         return Err(anyhow!(
             "site at position {position} has id {}, while we expect {id}",
@@ -58,23 +58,25 @@ mod tests {
 
     use super::*;
 
-    fn pem_body(pem: &str) -> String {
-        pem.lines().map(|line| format!("  {line}\n")).collect()
+    fn site_yaml(id: &str, ttl: u32) -> String {
+        let cert = include_str!("../../../examples/simple/G3-test.crt");
+        let key = include_str!("../../../examples/simple/G3-test.key");
+        let cert = cert
+            .lines()
+            .map(|line| format!("    {line}\n"))
+            .collect::<String>();
+        let key = key
+            .lines()
+            .map(|line| format!("    {line}\n"))
+            .collect::<String>();
+        format!(
+            "id: {id}\nttl: {ttl}\ntls_server:\n  certificate: |\n{cert}  private_key: |\n{key}"
+        )
     }
 
     fn write_site(dir: &std::path::Path, id: &str, ttl: u32) -> SiteConfig {
-        let cert = include_str!("../../../examples/simple/G3-test.crt");
-        let key = include_str!("../../../examples/simple/G3-test.key");
         let path = dir.join(format!("{id}.yaml"));
-        fs::write(
-            &path,
-            format!(
-                "id: {id}\nttl: {ttl}\ncertificate: |\n{}private_key: |\n{}",
-                pem_body(cert),
-                pem_body(key)
-            ),
-        )
-        .unwrap();
+        fs::write(&path, site_yaml(id, ttl)).unwrap();
         SiteConfig::load_at_position(&vey_yaml::YamlDocPosition { path, index: 0 }).unwrap()
     }
 
@@ -112,28 +114,13 @@ mod tests {
         let config = write_site(&dir, &id, 40);
         let position = config.position().unwrap().clone();
         let _ = registry::add(config);
-        fs::write(
-            &position.path,
-            format!(
-                "id: other\nttl: 10\ncertificate: |\n{}private_key: |\n{}",
-                pem_body(include_str!("../../../examples/simple/G3-test.crt")),
-                pem_body(include_str!("../../../examples/simple/G3-test.key"))
-            ),
-        )
-        .unwrap();
+        fs::write(&position.path, site_yaml("other", 10)).unwrap();
         expect_err(load_one(&id), "while we expect");
 
-        fs::write(
-            &position.path,
-            format!(
-                "id: {id}\nttl: 15\ncertificate: |\n{}private_key: |\n{}",
-                pem_body(include_str!("../../../examples/simple/G3-test.crt")),
-                pem_body(include_str!("../../../examples/simple/G3-test.key"))
-            ),
-        )
-        .unwrap();
+        fs::write(&position.path, site_yaml(&id, 15)).unwrap();
         let loaded = load_one(&id).unwrap();
-        assert_eq!(loaded.tls.unwrap().ttl().unwrap(), 15);
+        assert_eq!(loaded.ttl(), 15);
+        assert!(loaded.tls_server().is_some());
         let _ = fs::remove_dir_all(&dir);
     }
 }

@@ -28,6 +28,18 @@ impl OpensslCertificatePair {
         Ok(())
     }
 
+    pub fn leaf_cert(&self) -> &[u8] {
+        &self.leaf_cert
+    }
+
+    pub fn chain_certs(&self) -> &[Vec<u8>] {
+        &self.chain_certs
+    }
+
+    pub fn private_key(&self) -> &[u8] {
+        &self.key
+    }
+
     pub fn is_set(&self) -> bool {
         !self.leaf_cert.is_empty()
     }

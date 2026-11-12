@@ -87,10 +87,12 @@ write_site_yaml()
 	cat > "${SITE_YAML}" <<EOF
 id: $1
 ttl: $2
-certificate: shop.crt
-private_key: shop.key
-sign_certificate: sign.crt
-sign_private_key: sign.key
+tls_server:
+  certificate: shop.crt
+  private_key: shop.key
+tlcp_server_sign:
+  certificate: sign.crt
+  private_key: sign.key
 EOF
 }
 

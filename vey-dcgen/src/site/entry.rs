@@ -5,31 +5,83 @@
 
 use std::sync::Arc;
 
-use vey_types::net::TlsCertUsage;
+use anyhow::anyhow;
+use openssl::x509::X509;
 
-use crate::config::site::{SiteConfig, SiteKeyCert};
+use vey_types::net::{OpensslCertificatePair, TlsCertUsage};
+
+use crate::config::site::SiteConfig;
+
+/// One certificate pair returned by the protocol. The chain is PEM and the
+/// private key is DER.
+pub(crate) struct SiteKeyCert {
+    certificate: String,
+    private_key: Vec<u8>,
+    ttl: u32,
+}
+
+impl SiteKeyCert {
+    pub(crate) fn certificate(&self) -> &str {
+        &self.certificate
+    }
+
+    pub(crate) fn private_key(&self) -> &[u8] {
+        &self.private_key
+    }
+
+    pub(crate) fn ttl(&self) -> u32 {
+        self.ttl
+    }
+
+    fn from_pair(pair: &OpensslCertificatePair, ttl: u32) -> anyhow::Result<Self> {
+        let leaf = X509::from_der(pair.leaf_cert())
+            .map_err(|e| anyhow!("failed to decode certificate: {e}"))?;
+        let mut certificate = leaf
+            .to_pem()
+            .map_err(|e| anyhow!("failed to encode certificate: {e}"))?;
+        for (i, der) in pair.chain_certs().iter().enumerate() {
+            let cert = X509::from_der(der)
+                .map_err(|e| anyhow!("failed to decode chain certificate #{i}: {e}"))?;
+            let bytes = cert
+                .to_pem()
+                .map_err(|e| anyhow!("failed to encode chain certificate #{i}: {e}"))?;
+            certificate.extend(bytes);
+        }
+        Ok(SiteKeyCert {
+            certificate: String::from_utf8(certificate)
+                .map_err(|e| anyhow!("certificate pem is not utf-8: {e}"))?,
+            private_key: pair.private_key().to_vec(),
+            ttl,
+        })
+    }
+}
 
 /// Runtime site. The certificate chain is PEM and the private key is DER.
 pub(crate) struct Site {
-    tls: Option<Arc<SiteKeyCert>>,
-    tlcp_sign: Option<Arc<SiteKeyCert>>,
-    tlcp_enc: Option<Arc<SiteKeyCert>>,
+    tls_server: Option<Arc<SiteKeyCert>>,
+    tlcp_server_sign: Option<Arc<SiteKeyCert>>,
+    tlcp_server_enc: Option<Arc<SiteKeyCert>>,
 }
 
 impl Site {
-    pub(super) fn from_config(config: &SiteConfig) -> Self {
-        Site {
-            tls: config.tls.clone(),
-            tlcp_sign: config.tlcp_sign.clone(),
-            tlcp_enc: config.tlcp_enc.clone(),
-        }
+    pub(super) fn from_config(config: &SiteConfig) -> anyhow::Result<Self> {
+        let ttl = config.ttl();
+        let cert = |pair: Option<&OpensslCertificatePair>| {
+            pair.map(|pair| SiteKeyCert::from_pair(pair, ttl).map(Arc::new))
+                .transpose()
+        };
+        Ok(Site {
+            tls_server: cert(config.tls_server())?,
+            tlcp_server_sign: cert(config.tlcp_server_sign())?,
+            tlcp_server_enc: cert(config.tlcp_server_enc())?,
+        })
     }
 
     pub(super) fn cert(&self, usage: TlsCertUsage) -> Option<Arc<SiteKeyCert>> {
         match usage {
-            TlsCertUsage::TlsServer | TlsCertUsage::TLsServerTongsuo => self.tls.clone(),
-            TlsCertUsage::TlcpServerSignature => self.tlcp_sign.clone(),
-            TlsCertUsage::TlcpServerEncryption => self.tlcp_enc.clone(),
+            TlsCertUsage::TlsServer | TlsCertUsage::TLsServerTongsuo => self.tls_server.clone(),
+            TlsCertUsage::TlcpServerSignature => self.tlcp_server_sign.clone(),
+            TlsCertUsage::TlcpServerEncryption => self.tlcp_server_enc.clone(),
         }
     }
 }
@@ -43,8 +95,16 @@ mod tests {
 
     use super::*;
 
-    fn indent_pem(pem: &str) -> String {
-        pem.lines().map(|line| format!("  {line}\n")).collect()
+    fn pair_block(name: &str, pem: &str, key: &str) -> String {
+        let cert = pem
+            .lines()
+            .map(|line| format!("    {line}\n"))
+            .collect::<String>();
+        let key = key
+            .lines()
+            .map(|line| format!("    {line}\n"))
+            .collect::<String>();
+        format!("{name}:\n  certificate: |\n{cert}  private_key: |\n{key}")
     }
 
     #[test]
@@ -64,13 +124,10 @@ mod tests {
         fs::write(
             &path,
             format!(
-                "id: shop\ncertificate: |\n{}private_key: |\n{}sign_certificate: |\n{}sign_private_key: |\n{}enc_certificate: |\n{}enc_private_key: |\n{}",
-                indent_pem(cert),
-                indent_pem(key),
-                indent_pem(cert),
-                indent_pem(key),
-                indent_pem(cert),
-                indent_pem(key)
+                "id: shop\n{}\n{}\n{}",
+                pair_block("tls_server", cert, key),
+                pair_block("tlcp_server_sign", cert, key),
+                pair_block("tlcp_server_enc", cert, key)
             ),
         )
         .unwrap();
@@ -79,13 +136,13 @@ mod tests {
             index: 0,
         };
         let config = SiteConfig::load_at_position(&position).unwrap();
-        let site = Site::from_config(&config);
+        let site = Site::from_config(&config).unwrap();
         let _ = fs::remove_dir_all(&dir);
 
         let tls = site.cert(TlsCertUsage::TlsServer).unwrap();
         assert!(tls.certificate().contains("BEGIN CERTIFICATE"));
         assert!(openssl::pkey::PKey::private_key_from_der(tls.private_key()).is_ok());
-        assert!(tls.ttl().unwrap() > 0);
+        assert_eq!(tls.ttl(), 24 * 3600);
         assert!(site.cert(TlsCertUsage::TlcpServerSignature).is_some());
         assert!(site.cert(TlsCertUsage::TlcpServerEncryption).is_some());
     }
