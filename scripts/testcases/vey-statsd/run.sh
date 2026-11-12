@@ -18,11 +18,13 @@ wait4x -t 3m http http://127.0.0.1:8181
 export INFLUXDB3_AUTH_TOKEN
 export INFLUX_TOKEN="${INFLUXDB3_AUTH_TOKEN}"
 
-wait4x -t 3m tcp 127.0.0.1:2003
 wait4x -t 3m http http://127.0.0.1:9090/-/ready --expect-status-code 200
 wait4x -t 3m http http://127.0.0.1:8428/health --expect-status-code 200
 wait4x -t 3m tcp 127.0.0.1:4242
-wait4x -t 3m tcp 127.0.0.1:20031
+
+# Docker's published port accepts a TCP handshake before carbon is listening.
+python3 "${RUN_DIR}/wait_carbon.py" 127.0.0.1:2003
+python3 "${RUN_DIR}/wait_carbon.py" 127.0.0.1:20031
 
 create_influx_db()
 {
