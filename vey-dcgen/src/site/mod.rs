@@ -12,8 +12,8 @@ use crate::config::site::{SiteConfig, SiteKeyCert};
 
 mod registry;
 
-mod site;
-pub(crate) use site::Site;
+mod entry;
+pub(crate) use entry::Site;
 
 pub fn load_all() {
     let sites = crate::config::site::get_all()
