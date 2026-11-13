@@ -16,9 +16,7 @@ all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "
 
 # run vey-proxy tests
 
-cargo test -p vey-proxy -p vey-proxy-ctl -p vey-proxy-ftp
-
-all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
+coverage_test_objects cargo test -p vey-proxy -p vey-proxy-ctl -p vey-proxy-ftp
 
 RUN_DIR="${PROJECT_DIR}/scripts/testcases/vey-proxy"
 . "${RUN_DIR}/run.sh"

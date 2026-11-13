@@ -14,3 +14,5 @@ clear_profiles
 trap clear_profiles EXIT
 
 export RUSTFLAGS LLVM_PROFILE_FILE
+
+. "${PROJECT_DIR}/scripts/coverage/objects.sh"

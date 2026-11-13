@@ -15,10 +15,7 @@ cargo build --lib
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 
 # run the tests
-cargo test --all
-
-all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
-
+coverage_test_objects cargo test --all
 
 # get all profraw files generated in each test
 profraw_files=$(find . -type f -regex ".*/${TEST_NAME}.*\.profraw")

@@ -19,7 +19,8 @@ sudo --preserve-env=LLVM_PROFILE_FILE "${PROJECT_DIR}"/target/debug/udp-reusepor
 sudo --preserve-env=LLVM_PROFILE_FILE "${PROJECT_DIR}"/target/debug/tcp-reuseport-test
 sudo --preserve-env=LLVM_PROFILE_FILE "${PROJECT_DIR}"/target/debug/quic-reuseport-test
 
-all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
+# These binaries are the final artifacts in target/debug, already in all_binaries.
+all_objects=
 
 
 # get all profraw files generated in each test

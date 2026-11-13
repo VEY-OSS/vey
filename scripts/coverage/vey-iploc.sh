@@ -20,9 +20,7 @@ all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "
 
 # run vey-iploc tests
 
-cargo test --features "${FEATURES}" -p vey-iploc -p vey-iploc-ctl
-
-all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
+coverage_test_objects cargo test --features "${FEATURES}" -p vey-iploc -p vey-iploc-ctl
 
 RUN_DIR="${PROJECT_DIR}/scripts/testcases/vey-iploc"
 . "${RUN_DIR}/run.sh"
