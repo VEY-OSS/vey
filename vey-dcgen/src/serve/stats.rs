@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 
 use vey_types::metrics::NodeName;
@@ -39,9 +40,9 @@ impl ServerStats {
         self.id
     }
 
-    pub(super) fn enter_alive(&self) -> AliveGuard<'_> {
+    pub(super) fn enter_alive(self: &Arc<Self>) -> AliveGuard {
         self.alive.fetch_add(1, Ordering::Relaxed);
-        AliveGuard(self)
+        AliveGuard(Arc::clone(self))
     }
 
     pub(crate) fn alive_count(&self) -> i32 {
@@ -81,9 +82,15 @@ impl ServerStats {
     }
 }
 
-pub(super) struct AliveGuard<'a>(&'a ServerStats);
+pub(super) struct AliveGuard(Arc<ServerStats>);
 
-impl Drop for AliveGuard<'_> {
+impl AliveGuard {
+    pub(super) fn stats(&self) -> &ServerStats {
+        &self.0
+    }
+}
+
+impl Drop for AliveGuard {
     fn drop(&mut self) {
         self.0.alive.fetch_sub(1, Ordering::Relaxed);
     }

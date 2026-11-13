@@ -8,7 +8,7 @@ pub mod config;
 
 mod build;
 
-mod issuer;
+pub mod issuer;
 
 pub mod control;
 

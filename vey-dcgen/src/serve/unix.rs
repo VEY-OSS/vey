@@ -135,10 +135,18 @@ impl Server for UnixServer {
     async fn handle_unix_request(&self, packet: &[u8], responder: &UnixDatagramResponder) {
         let peer = format!("{:?}", responder.client_addr());
         let responder = responder.clone();
-        answer::answer(&self.server_stats, packet, &peer, move |buf| {
+        let stats = Arc::clone(&self.server_stats);
+        let send = move |buf: Vec<u8>| {
             let responder = responder.clone();
             async move { responder.send(&buf).await }
-        })
-        .await;
+        };
+        if let Some(worker) = vey_daemon::runtime::worker::select_handle() {
+            let packet = packet.to_vec();
+            worker.handle.spawn(async move {
+                answer::answer(&stats, &packet, &peer, send).await;
+            });
+        } else {
+            answer::answer(&stats, packet, &peer, send).await;
+        }
     }
 }

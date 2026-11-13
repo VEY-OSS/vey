@@ -2895,7 +2895,6 @@ dependencies = [
  "capnp-rpc",
  "clap",
  "foldhash",
- "kanal",
  "log",
  "saphyr",
  "snmalloc-rs",

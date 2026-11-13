@@ -134,7 +134,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
 async fn load_and_spawn() -> anyhow::Result<()> {
     vey_dcgen::site::load_all().context("failed to load sites")?;
-    vey_dcgen::serve::spawn_issuer().context("failed to start issuer")?;
+    vey_dcgen::issuer::load().context("failed to load issuer")?;
     vey_dcgen::serve::spawn_offline_clean();
     vey_dcgen::serve::spawn_all()
         .await

@@ -35,7 +35,7 @@ pub(crate) async fn reload_issuer() -> anyhow::Result<()> {
 
     match crate::config::reload_issuer().await {
         Ok(()) => {
-            crate::issuer::load();
+            crate::issuer::load().context("failed to load issuer")?;
             info!("issuer reload finished");
             Ok(())
         }
@@ -68,7 +68,7 @@ async fn reload_locked() -> anyhow::Result<()> {
     crate::config::reload()
         .await
         .context("failed to reload config")?;
-    crate::issuer::load();
+    crate::issuer::load().context("failed to load issuer")?;
     crate::site::load_all().context("failed to load sites")?;
     crate::serve::spawn_all()
         .await

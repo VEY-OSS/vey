@@ -19,14 +19,15 @@ pub(crate) fn get_config() -> Option<Arc<OpensslIssuerConfig>> {
     RUNTIME_CONFIG.load_full()
 }
 
-pub(crate) fn load() {
+pub(super) fn publish() -> bool {
     let Some(config) = crate::config::issuer::get_config() else {
-        return;
+        return false;
     };
     let (recorder, stats) = config.duration_stats.build_spawned(None);
     DURATION_RECORDER.store(Some(Arc::new(recorder)));
     DURATION_STATS.store(Some(stats));
     RUNTIME_CONFIG.store(Some(Arc::new(config)));
+    true
 }
 
 pub(crate) fn duration_stats() -> Option<Arc<HistogramStats>> {

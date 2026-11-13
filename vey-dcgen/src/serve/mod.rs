@@ -110,8 +110,3 @@ impl RespondUnixDatagramServer for WrapArcServer {
         self.0.handle_unix_request(packet, responder).await
     }
 }
-
-pub fn spawn_issuer() -> anyhow::Result<()> {
-    crate::issuer::load();
-    crate::issuer::spawn_workers()
-}

@@ -4,13 +4,12 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::anyhow;
 use log::{debug, info, warn};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
-use tokio::runtime::Handle;
 
 use vey_cert_agent::Request;
 use vey_tls_cert::builder::{MimicCertBuilder, ServerCertBuilder, TlsServerCertBuilder};
@@ -19,12 +18,15 @@ use vey_types::net::TlsCertUsage;
 
 use crate::config::issuer::OpensslIssuerConfig;
 
+use super::GeneratedData;
 use super::stats::IssuerStats;
-use super::{CertRequest, GeneratedData, IssuedCert};
+
+const REFRESH_INTERVAL: Duration = Duration::from_secs(300);
 
 pub(super) struct OpensslIssuer {
     builder: ServerCertBuilder,
     stats: Arc<IssuerStats>,
+    refreshed_at: Instant,
 }
 
 impl OpensslIssuer {
@@ -33,7 +35,41 @@ impl OpensslIssuer {
         Ok(OpensslIssuer {
             builder,
             stats: Arc::clone(stats),
+            refreshed_at: Instant::now(),
         })
+    }
+
+    pub(super) fn sign(&mut self, req: &Request) -> anyhow::Result<GeneratedData> {
+        self.maybe_refresh();
+        if let Some(cert) = req.cert() {
+            info!("{}", cert.dump());
+        }
+        debug!(
+            "{} - start cert generation for site {}",
+            req.host(),
+            req.site()
+        );
+        match self.generate(req) {
+            Ok(data) => {
+                debug!("{} - cert generated", req.host());
+                Ok(data)
+            }
+            Err(e) => {
+                warn!("{} - cert generation failed: {e:?}", req.host());
+                Err(e)
+            }
+        }
+    }
+
+    fn maybe_refresh(&mut self) {
+        if self.refreshed_at.elapsed() < REFRESH_INTERVAL {
+            return;
+        }
+        if let Err(e) = self.refresh() {
+            warn!("failed to refresh issuer: {e:?}");
+            return;
+        }
+        self.refreshed_at = Instant::now();
     }
 
     fn refresh(&mut self) -> anyhow::Result<()> {
@@ -115,56 +151,5 @@ impl OpensslIssuer {
         };
         self.stats.add_request_ok();
         Ok(data)
-    }
-
-    pub(super) fn spawn(
-        mut self,
-        handle: &Handle,
-        id: usize,
-        req_receiver: kanal::AsyncReceiver<CertRequest>,
-    ) {
-        handle.spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(300));
-            loop {
-                tokio::select! {
-                    _ = interval.tick() => {
-                        if let Err(e) = self.refresh() {
-                            warn!("failed to refresh issuer: {e:?}");
-                        }
-                    }
-                    r = req_receiver.recv() => {
-                        let Ok(req) = r else {
-                            break
-                        };
-
-                        if let Some(cert) = req.user_req.cert() {
-                            info!("{}", cert.dump());
-                        }
-
-                        let host = req.user_req.host().clone();
-                        debug!(
-                            "{host} - [#{id}] start cert generation for site {}",
-                            req.user_req.site()
-                        );
-                        let issued = match self.generate(&req.user_req) {
-                            Ok(data) => {
-                                debug!("{host} - [#{id}] cert generated");
-                                Ok(IssuedCert {
-                                    user_req: req.user_req,
-                                    cert: data.cert,
-                                    key: data.key,
-                                    ttl: data.ttl,
-                                })
-                            }
-                            Err(e) => {
-                                warn!("{host} - [#{id}] cert generation failed: {e:?}");
-                                Err(())
-                            }
-                        };
-                        let _ = req.reply.send(issued);
-                    }
-                }
-            }
-        });
     }
 }
