@@ -14,31 +14,33 @@ Request
 The following tags are present:
 
 * :ref:`daemon_group <metrics_tag_daemon_group>`
+* :ref:`stat_id <metrics_tag_stat_id>`
 * :ref:`server <metrics_tag_server>`
+* :ref:`online <metrics_tag_online>`
 
 The metric names are:
 
-* server.request_total
+* server.request.total
 
   **type**: count
 
   Number of datagrams delivered to this server. This includes invalid requests.
 
-* server.request_invalid
+* server.request.invalid
 
   **type**: count
 
   Number of datagrams that were not a valid certificate request. No response
   is sent.
 
-* server.request_alive
+* server.request.alive
 
   **type**: gauge
 
   Number of requests currently being handled by this server, including time
   spent waiting for certificate generation.
 
-* server.response_total
+* server.response.total
 
   **type**: count
 
@@ -46,7 +48,7 @@ The metric names are:
   logged and is not counted here. A failed certificate generation is logged
   and is not counted here.
 
-* server.response_fail
+* server.response.fail
 
   **type**: count
 
@@ -61,31 +63,31 @@ The following tag is present:
 
 The metric names are:
 
-* issuer.refresh_total
+* issuer.refresh.total
 
   **type**: count
 
   Number of attempts to refresh the certificate builder clock and key.
 
-* issuer.refresh_ok
+* issuer.refresh.ok
 
   **type**: count
 
   Number of those refresh attempts that succeeded.
 
-* issuer.request_total
+* issuer.request.total
 
   **type**: count
 
   Number of certificate generations started.
 
-* issuer.request_ok
+* issuer.request.ok
 
   **type**: count
 
   Number of certificate generations that produced a certificate and key.
 
-* issuer.request_duration
+* issuer.request.duration
 
   **type**: gauge
 

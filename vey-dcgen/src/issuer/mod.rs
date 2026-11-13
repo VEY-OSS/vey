@@ -17,9 +17,7 @@ mod openssl;
 use openssl::OpensslIssuer;
 
 mod stats;
-pub(crate) use stats::{
-    IssuerStats, issuer_duration_recorder, issuer_duration_stats, issuer_stats,
-};
+pub(crate) use stats::{issuer_duration_recorder, issuer_stats};
 
 thread_local! {
     static LOCAL_ISSUER: RefCell<Option<OpensslIssuer>> = const { RefCell::new(None) };

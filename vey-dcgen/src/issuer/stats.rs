@@ -9,21 +9,16 @@ use std::sync::{Arc, LazyLock};
 
 use arc_swap::ArcSwapOption;
 
-use vey_histogram::{HistogramRecorder, HistogramStats};
+use vey_histogram::HistogramRecorder;
 
 use crate::config::issuer::OpensslIssuerConfig;
 
 static DURATION_RECORDER: ArcSwapOption<HistogramRecorder<u64>> = ArcSwapOption::const_empty();
-static DURATION_STATS: ArcSwapOption<HistogramStats> = ArcSwapOption::const_empty();
 
 pub(super) fn load_duration_stats(config: &OpensslIssuerConfig) {
     let (recorder, stats) = config.duration_stats.build_spawned(None);
     DURATION_RECORDER.store(Some(Arc::new(recorder)));
-    DURATION_STATS.store(Some(stats));
-}
-
-pub(crate) fn issuer_duration_stats() -> Option<Arc<HistogramStats>> {
-    DURATION_STATS.load_full()
+    crate::stat::metrics::issuer::push_duration_stats(stats);
 }
 
 pub(crate) fn issuer_duration_recorder() -> Option<HistogramRecorder<u64>> {
@@ -41,22 +36,22 @@ pub(crate) struct IssuerStats {
 }
 
 macro_rules! impl_for_field {
-    ($add:ident, $take:ident, $field:ident) => {
+    ($add:ident, $get:ident, $field:ident) => {
         pub(super) fn $add(&self) {
             self.$field.fetch_add(1, Ordering::Relaxed);
         }
 
-        pub(crate) fn $take(&self) -> u64 {
-            self.$field.swap(0, Ordering::Relaxed)
+        pub(crate) fn $get(&self) -> u64 {
+            self.$field.load(Ordering::Relaxed)
         }
     };
 }
 
 impl IssuerStats {
-    impl_for_field!(add_refresh_total, take_refresh_total, refresh_total);
-    impl_for_field!(add_refresh_ok, take_refresh_ok, refresh_ok);
-    impl_for_field!(add_request_total, take_request_total, request_total);
-    impl_for_field!(add_request_ok, take_request_ok, request_ok);
+    impl_for_field!(add_refresh_total, refresh_total, refresh_total);
+    impl_for_field!(add_refresh_ok, refresh_ok, refresh_ok);
+    impl_for_field!(add_request_total, request_total, request_total);
+    impl_for_field!(add_request_ok, request_ok, request_ok);
 }
 
 static ISSUER_STATS: LazyLock<IssuerStats> = LazyLock::new(IssuerStats::default);

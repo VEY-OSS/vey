@@ -12,7 +12,7 @@ use anyhow::{Context, anyhow};
 
 use vey_statsd_client::{StatsdClient, StatsdClientConfig};
 
-mod metrics;
+pub(crate) mod metrics;
 
 static QUIT_STAT_THREAD: AtomicBool = AtomicBool::new(false);
 
@@ -37,7 +37,10 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
             loop {
                 let instant_start = Instant::now();
 
-                metrics::emit_stats(&mut client);
+                metrics::server::sync_stats();
+
+                metrics::issuer::emit_stats(&mut client);
+                metrics::server::emit_stats(&mut client);
                 vey_daemon::runtime::metrics::emit_stats(&mut client);
 
                 client.flush_sink();

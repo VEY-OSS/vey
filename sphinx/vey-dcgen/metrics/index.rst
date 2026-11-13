@@ -27,8 +27,8 @@ Common Tags
   **dropped** by the StatsD aggregation pipeline so that metrics with the same
   remaining tags can be aggregated.
 
-  This tag is present on listen metrics and Tokio runtime metrics. It is not
-  present on server request metrics, issuer metrics, or allocator metrics.
+  This tag is present on server request metrics, listen metrics, and Tokio
+  runtime metrics. It is not present on issuer metrics or allocator metrics.
 
 .. _metrics_tag_server:
 
@@ -41,13 +41,13 @@ Common Tags
 * online
 
   Whether the server is online. The value is either ``y`` or ``n``. Present on
-  listen metrics.
+  server request metrics and listen metrics.
 
 .. _metrics_tag_quantile:
 
 * quantile
 
-  Histogram quantile. Present on ``issuer.request_duration``.
+  Histogram quantile. Present on ``issuer.request.duration``.
 
 Metric Types
 ============

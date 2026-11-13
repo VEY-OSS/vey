@@ -20,14 +20,13 @@ value type.
 ``thread_number_per_runtime`` at its default of 1 so each worker runtime has
 one thread.
 
-The issuer for a thread is stored in that thread. ``load`` installs one on the
-main runtime when no worker is running, and installs one on each worker thread
-otherwise. UDP servers place one reuseport socket on each worker when at least
-one worker is running, and that worker signs on its own thread. Without
-workers, each UDP server binds its sockets on the main runtime, and certificate
-generation also runs there. Unix servers always run on the main runtime. With
-workers, signing is sent to a worker thread. Without workers, it signs on the
-main runtime thread.
+Each thread keeps its own issuer. ``load`` installs one on the main runtime
+when no worker is running, and one on each worker thread otherwise. UDP
+servers place one reuseport socket on each worker when at least one worker is
+running, and that worker signs on its own thread. Without workers, each UDP
+server binds its sockets on the main runtime and signs there. Unix servers
+always accept on the main runtime. With workers, each Unix request is signed
+on a worker thread. Without workers, it is signed on the main runtime thread.
 
 See :external+values:doc:`configuration/values/runtime` for the full runtime
 reference, including worker-thread settings, CPU-affinity-related value types,
