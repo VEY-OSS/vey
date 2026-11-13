@@ -13,6 +13,7 @@ use saphyr::Yaml;
 use slog::Logger;
 
 use vey_histogram::HistogramMetricsConfig;
+use vey_macros::DiffAction;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{OpensslServerConfigBuilder, TcpListenConfig};
 use vey_yaml::YamlDocPosition;
@@ -21,7 +22,14 @@ use super::{AnyKeyServerConfig, KeyServerConfig, KeyServerConfigDiffAction};
 
 pub(crate) const SERVER_CONFIG_TYPE: &str = "Cloudflare";
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyKeyServerConfig,
+    variant = Cloudflare,
+    mismatch = KeyServerConfigDiffAction::SpawnNew,
+    unchanged = KeyServerConfigDiffAction::NoAction,
+    changed = KeyServerConfigDiffAction::ReloadAndRespawn,
+)]
 pub(crate) struct CloudflareServerConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -165,13 +173,36 @@ impl KeyServerConfig for CloudflareServerConfig {
     fn r#type(&self) -> &'static str {
         SERVER_CONFIG_TYPE
     }
+}
 
-    fn diff_action(&self, new: &AnyKeyServerConfig) -> KeyServerConfigDiffAction {
-        let AnyKeyServerConfig::Cloudflare(_) = new else {
-            return KeyServerConfigDiffAction::SpawnNew;
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::CloudflareServerConfig;
+    use crate::config::server::{AnyKeyServerConfig, KeyServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> CloudflareServerConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
+        CloudflareServerConfig::parse(map, None).unwrap()
+    }
 
-        // the openssl based tls config can not be compared, always respawn
-        KeyServerConfigDiffAction::ReloadAndRespawn
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyKeyServerConfig::Cloudflare(new)),
+            KeyServerConfigDiffAction::NoAction
+        ));
     }
 }

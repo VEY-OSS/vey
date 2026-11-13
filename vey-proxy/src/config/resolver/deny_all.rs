@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 use anyhow::anyhow;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
 
@@ -16,7 +17,13 @@ use super::{AnyResolverConfig, ResolverConfig, ResolverConfigDiffAction};
 
 const RESOLVER_CONFIG_TYPE: &str = "deny-all";
 
-#[derive(Clone)]
+#[derive(Clone, DiffAction)]
+#[diff_action(
+    new = AnyResolverConfig,
+    variant = DenyAll,
+    mismatch = ResolverConfigDiffAction::SpawnNew,
+    unchanged = ResolverConfigDiffAction::NoAction,
+)]
 pub(crate) struct DenyAllResolverConfig {
     position: Option<YamlDocPosition>,
     name: NodeName,
@@ -71,15 +78,39 @@ impl ResolverConfig for DenyAllResolverConfig {
         RESOLVER_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction {
-        let AnyResolverConfig::DenyAll(_new) = new else {
-            return ResolverConfigDiffAction::SpawnNew;
-        };
-
-        ResolverConfigDiffAction::NoAction
-    }
-
     fn dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         None
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::DenyAllResolverConfig;
+    use crate::config::resolver::{AnyResolverConfig, ResolverConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> DenyAllResolverConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        DenyAllResolverConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyResolverConfig::DenyAll(new)),
+            ResolverConfigDiffAction::NoAction
+        ));
     }
 }

@@ -10,6 +10,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::{MetricTagName, NodeName};
 use vey_yaml::YamlDocPosition;
 
@@ -17,7 +18,14 @@ use super::{AnyCollectorConfig, CollectorConfig, CollectorConfigDiffAction};
 
 const COLLECTOR_CONFIG_TYPE: &str = "Aggregate";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyCollectorConfig,
+    variant = Aggregate,
+    mismatch = CollectorConfigDiffAction::SpawnNew,
+    unchanged = CollectorConfigDiffAction::NoAction,
+    changed = CollectorConfigDiffAction::Update,
+)]
 pub(crate) struct AggregateCollectorConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -104,22 +112,42 @@ impl CollectorConfig for AggregateCollectorConfig {
         COLLECTOR_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyCollectorConfig) -> CollectorConfigDiffAction {
-        let AnyCollectorConfig::Aggregate(new) = new else {
-            return CollectorConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return CollectorConfigDiffAction::NoAction;
-        }
-
-        CollectorConfigDiffAction::Update
-    }
-
     fn dependent_collector(&self) -> Option<BTreeSet<NodeName>> {
         let next = self.next.as_ref()?;
         let mut set = BTreeSet::new();
         set.insert(next.clone());
         Some(set)
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::AggregateCollectorConfig;
+    use crate::config::collector::{AnyCollectorConfig, CollectorConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> AggregateCollectorConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        AggregateCollectorConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyCollectorConfig::Aggregate(new)),
+            CollectorConfigDiffAction::NoAction
+        ));
     }
 }

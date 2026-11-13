@@ -12,6 +12,7 @@ use ascii::AsciiString;
 use log::warn;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::acl::{AclAction, AclNetworkRuleBuilder};
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{
@@ -27,7 +28,14 @@ pub(crate) use bind::{BindSet, DirectFloatBindIp};
 
 const ESCAPER_CONFIG_TYPE: &str = "DirectFloat";
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyEscaperConfig,
+    variant = DirectFloat,
+    mismatch = EscaperConfigDiffAction::SpawnNew,
+    unchanged = EscaperConfigDiffAction::NoAction,
+    changed = EscaperConfigDiffAction::Reload,
+)]
 pub(crate) struct DirectFloatEscaperConfig {
     pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
@@ -259,18 +267,6 @@ impl EscaperConfig for DirectFloatEscaperConfig {
         &self.resolver
     }
 
-    fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let AnyEscaperConfig::DirectFloat(new) = new else {
-            return EscaperConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return EscaperConfigDiffAction::NoAction;
-        }
-
-        EscaperConfigDiffAction::Reload
-    }
-
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
@@ -311,5 +307,38 @@ peer_health_max_domains: 128
         )
         .unwrap();
         assert_eq!(config.peer_health_max_domains, 128);
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::DirectFloatEscaperConfig;
+    use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> DirectFloatEscaperConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        DirectFloatEscaperConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            resolver: main
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyEscaperConfig::DirectFloat(new)),
+            EscaperConfigDiffAction::NoAction
+        ));
     }
 }

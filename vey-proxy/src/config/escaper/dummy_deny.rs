@@ -9,6 +9,7 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_yaml::YamlDocPosition;
 
@@ -17,7 +18,13 @@ use crate::config::escaper::AnyEscaperConfig;
 
 const ESCAPER_CONFIG_DEFAULT_TYPE: &str = "DummyDeny";
 
-#[derive(Clone)]
+#[derive(Clone, DiffAction)]
+#[diff_action(
+    new = AnyEscaperConfig,
+    variant = DummyDeny,
+    mismatch = EscaperConfigDiffAction::SpawnNew,
+    unchanged = EscaperConfigDiffAction::NoAction,
+)]
 pub(crate) struct DummyDenyEscaperConfig {
     pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
@@ -90,12 +97,36 @@ impl EscaperConfig for DummyDenyEscaperConfig {
     fn resolver(&self) -> &NodeName {
         Default::default()
     }
+}
 
-    fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let AnyEscaperConfig::DummyDeny(_new) = new else {
-            return EscaperConfigDiffAction::SpawnNew;
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::DummyDenyEscaperConfig;
+    use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> DummyDenyEscaperConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
+        DummyDenyEscaperConfig::parse(map, None, None).unwrap()
+    }
 
-        EscaperConfigDiffAction::NoAction
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyEscaperConfig::DummyDeny(new)),
+            EscaperConfigDiffAction::NoAction
+        ));
     }
 }

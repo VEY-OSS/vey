@@ -12,6 +12,7 @@ use ascii::AsciiString;
 use log::warn;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_yaml::YamlDocPosition;
@@ -24,7 +25,14 @@ use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 
 const SERVER_CONFIG_TYPE: &str = "KeylessProxy";
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyServerConfig,
+    variant = KeylessProxy,
+    mismatch = ServerConfigDiffAction::SpawnNew,
+    unchanged = ServerConfigDiffAction::NoAction,
+    changed = ServerConfigDiffAction::ReloadNoRespawn,
+)]
 pub(crate) struct KeylessProxyServerConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -141,17 +149,37 @@ impl ServerConfig for KeylessProxyServerConfig {
     fn r#type(&self) -> &'static str {
         SERVER_CONFIG_TYPE
     }
+}
 
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let new = match new {
-            AnyServerConfig::KeylessProxy(config) => config,
-            _ => return ServerConfigDiffAction::SpawnNew,
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::KeylessProxyServerConfig;
+    use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> KeylessProxyServerConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
+        KeylessProxyServerConfig::parse(map, None).unwrap()
+    }
 
-        if self.eq(new) {
-            return ServerConfigDiffAction::NoAction;
-        }
-
-        ServerConfigDiffAction::ReloadNoRespawn
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            backend: be
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::KeylessProxy(new)),
+            ServerConfigDiffAction::NoAction
+        ));
     }
 }

@@ -14,6 +14,7 @@ use log::warn;
 use rustc_hash::FxHashMap;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::auth::{Password, Username};
 use vey_types::collection::SelectivePickPolicy;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -36,7 +37,14 @@ use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEsc
 
 const ESCAPER_CONFIG_TYPE: &str = "ProxySocks5s";
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyEscaperConfig,
+    variant = ProxySocks5s,
+    mismatch = EscaperConfigDiffAction::SpawnNew,
+    unchanged = EscaperConfigDiffAction::NoAction,
+    changed = EscaperConfigDiffAction::Reload,
+)]
 pub(crate) struct ProxySocks5sEscaperConfig {
     pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
@@ -422,19 +430,41 @@ impl EscaperConfig for ProxySocks5sEscaperConfig {
         &self.resolver
     }
 
-    fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let AnyEscaperConfig::ProxySocks5s(new) = new else {
-            return EscaperConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return EscaperConfigDiffAction::NoAction;
-        }
-
-        EscaperConfigDiffAction::Reload
-    }
-
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::ProxySocks5sEscaperConfig;
+    use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> ProxySocks5sEscaperConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        ProxySocks5sEscaperConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            proxy_addr: 127.0.0.1:8080
+            resolver: main
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyEscaperConfig::ProxySocks5s(new)),
+            EscaperConfigDiffAction::NoAction
+        ));
     }
 }

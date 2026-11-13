@@ -97,6 +97,23 @@ impl RustlsServerConfigBuilder {
         self.accept_timeout
     }
 
+    /// Compare every field except [`accept_timeout`](Self::accept_timeout).
+    ///
+    /// Reload decisions use this together with [`accept_timeout_ne`](Self::accept_timeout_ne)
+    /// so the timeout is not compared a second time inside a full `PartialEq`.
+    pub fn ne_except_accept_timeout(&self, other: &Self) -> bool {
+        self.cert_pairs != other.cert_pairs
+            || self.client_auth != other.client_auth
+            || self.client_auth_certs != other.client_auth_certs
+            || self.use_session_ticket != other.use_session_ticket
+            || self.no_session_cache != other.no_session_cache
+    }
+
+    #[inline]
+    pub fn accept_timeout_ne(&self, other: &Self) -> bool {
+        self.accept_timeout != other.accept_timeout
+    }
+
     fn build_server_config<T>(
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
@@ -221,5 +238,41 @@ impl RustlsServerConfigBuilder {
     #[cfg(feature = "quinn")]
     pub fn build_quic(&self) -> anyhow::Result<RustlsQuicServerConfig> {
         self.build_quic_with_alpn_protocols::<RustlsNoSessionTicketer>(None, None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parts_match_eq(left: &RustlsServerConfigBuilder, right: &RustlsServerConfigBuilder) {
+        let rest = left.ne_except_accept_timeout(right);
+        let timeout = left.accept_timeout_ne(right);
+        assert_eq!(left != right, rest || timeout);
+        assert_eq!(timeout, left.accept_timeout() != right.accept_timeout());
+    }
+
+    #[test]
+    fn diff_parts_cover_partial_eq() {
+        let base = RustlsServerConfigBuilder::empty();
+        parts_match_eq(&base, &base);
+
+        let mut timeout = base.clone();
+        timeout.set_accept_timeout(Duration::from_secs(3));
+        parts_match_eq(&base, &timeout);
+        assert!(base.accept_timeout_ne(&timeout));
+        assert!(!base.ne_except_accept_timeout(&timeout));
+
+        let mut cache = base.clone();
+        cache.set_disable_session_cache(true);
+        parts_match_eq(&base, &cache);
+        assert!(base.ne_except_accept_timeout(&cache));
+        assert!(!base.accept_timeout_ne(&cache));
+
+        let mut both = timeout.clone();
+        both.set_use_session_ticket(false);
+        parts_match_eq(&base, &both);
+        assert!(base.ne_except_accept_timeout(&both));
+        assert!(base.accept_timeout_ne(&both));
     }
 }

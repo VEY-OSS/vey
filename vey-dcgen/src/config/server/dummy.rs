@@ -6,11 +6,19 @@
 use anyhow::anyhow;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 
 use super::{AnyServerConfig, ServerConfig, ServerConfigDiffAction};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyServerConfig,
+    variant = Dummy,
+    mismatch = ServerConfigDiffAction::SpawnNew,
+    unchanged = ServerConfigDiffAction::NoAction,
+    changed = ServerConfigDiffAction::ReloadAndRespawn,
+)]
 pub(crate) struct DummyServerConfig {
     name: NodeName,
 }
@@ -52,15 +60,36 @@ impl ServerConfig for DummyServerConfig {
     fn name(&self) -> &NodeName {
         &self.name
     }
+}
 
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let AnyServerConfig::Dummy(new) = new else {
-            return ServerConfigDiffAction::SpawnNew;
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::DummyServerConfig;
+    use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> DummyServerConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
-        if self == new {
+        DummyServerConfig::parse(map).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::Dummy(new)),
             ServerConfigDiffAction::NoAction
-        } else {
-            ServerConfigDiffAction::ReloadAndRespawn
-        }
+        ));
     }
 }

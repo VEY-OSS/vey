@@ -77,8 +77,6 @@ pub(crate) trait DiscoverConfig {
     fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
     fn r#type(&self) -> &'static str;
-
-    fn diff_action(&self, new: &AnyDiscoverConfig) -> DiscoverConfigDiffAction;
 }
 
 #[derive(Clone, AnyConfig)]

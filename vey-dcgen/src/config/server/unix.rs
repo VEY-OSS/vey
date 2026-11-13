@@ -8,11 +8,19 @@ use std::path::PathBuf;
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 
 use super::{AnyServerConfig, ServerConfig, ServerConfigDiffAction};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyServerConfig,
+    variant = Unix,
+    mismatch = ServerConfigDiffAction::SpawnNew,
+    unchanged = ServerConfigDiffAction::NoAction,
+    changed = ServerConfigDiffAction::ReloadAndRespawn,
+)]
 pub(crate) struct UnixServerConfig {
     name: NodeName,
     pub(crate) listen: PathBuf,
@@ -64,17 +72,6 @@ impl ServerConfig for UnixServerConfig {
     fn name(&self) -> &NodeName {
         &self.name
     }
-
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let AnyServerConfig::Unix(new) = new else {
-            return ServerConfigDiffAction::SpawnNew;
-        };
-        if self == new {
-            ServerConfigDiffAction::NoAction
-        } else {
-            ServerConfigDiffAction::ReloadAndRespawn
-        }
-    }
 }
 
 #[cfg(test)]
@@ -107,5 +104,38 @@ mod tests {
             message.contains("absolute path"),
             "unexpected error: {message}"
         );
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::UnixServerConfig;
+    use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> UnixServerConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        UnixServerConfig::parse(map).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            listen: /tmp/diff-a.sock
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::Unix(new)),
+            ServerConfigDiffAction::NoAction
+        ));
     }
 }

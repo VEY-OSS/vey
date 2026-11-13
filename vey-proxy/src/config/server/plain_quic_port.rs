@@ -10,6 +10,7 @@ use anyhow::{Context, anyhow};
 use bitflags::bitflags;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::NodeName;
@@ -31,16 +32,36 @@ bitflags! {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyServerConfig,
+    variant = PlainQuicPort,
+    mismatch = ServerConfigDiffAction::SpawnNew,
+    unchanged = ServerConfigDiffAction::NoAction,
+    changed = ServerConfigDiffAction::UpdateInPlace,
+    flags = PlainQuicPortUpdateFlags,
+)]
 pub(crate) struct PlainQuicPortConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
+    #[diff(cmp = need_respawn, changed = ServerConfigDiffAction::ReloadAndRespawn)]
+    #[diff(cmp = need_reloadable_change, flag = PlainQuicPortUpdateFlags::LISTEN_CONFIG)]
     pub(crate) listen: UdpListenConfig,
+    #[diff(changed = ServerConfigDiffAction::ReloadAndRespawn)]
     pub(crate) listen_in_worker: bool,
+    #[diff(cmp = ne_except_accept_timeout, flag = PlainQuicPortUpdateFlags::QUINN_CONFIG)]
+    #[diff(
+        cmp = accept_timeout_ne,
+        flag = PlainQuicPortUpdateFlags::QUINN_CONFIG | PlainQuicPortUpdateFlags::ACCEPT_TIMEOUT
+    )]
     pub(crate) tls_server: RustlsServerConfigBuilder,
+    #[diff(flag = PlainQuicPortUpdateFlags::QUINN_CONFIG)]
     pub(crate) tls_ticketer: Option<TlsTicketConfig>,
+    #[diff(changed = ServerConfigDiffAction::ReloadAndRespawn)]
     pub(crate) quic_endpoint: QuinnEndpointConfig,
+    #[diff(flag = PlainQuicPortUpdateFlags::INGRESS_FILTER)]
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
+    #[diff(flag = PlainQuicPortUpdateFlags::NEXT_SERVER)]
     pub(crate) server: NodeName,
     pub(crate) udp_payload_max_size: Option<u16>,
 }
@@ -162,48 +183,326 @@ impl ServerConfig for PlainQuicPortConfig {
         Default::default()
     }
 
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let AnyServerConfig::PlainQuicPort(new) = new else {
-            return ServerConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return ServerConfigDiffAction::NoAction;
-        }
-
-        if self.listen_in_worker != new.listen_in_worker
-            || self.listen.need_respawn(&new.listen)
-            || self.quic_endpoint != new.quic_endpoint
-        {
-            return ServerConfigDiffAction::ReloadAndRespawn;
-        }
-
-        let mut flags = PlainQuicPortUpdateFlags::empty();
-        if self.listen.need_reloadable_change(&new.listen) {
-            flags.set(PlainQuicPortUpdateFlags::LISTEN_CONFIG, true);
-        }
-        if self.ingress_net_filter != new.ingress_net_filter {
-            flags.set(PlainQuicPortUpdateFlags::INGRESS_FILTER, true);
-        }
-        if self.tls_server != new.tls_server {
-            if self.tls_server.accept_timeout() != new.tls_server.accept_timeout() {
-                flags.set(PlainQuicPortUpdateFlags::ACCEPT_TIMEOUT, true);
-            }
-            flags.set(PlainQuicPortUpdateFlags::QUINN_CONFIG, true);
-        }
-        if self.tls_ticketer != new.tls_ticketer {
-            flags.set(PlainQuicPortUpdateFlags::QUINN_CONFIG, true);
-        }
-        if self.server != new.server {
-            flags.set(PlainQuicPortUpdateFlags::NEXT_SERVER, true);
-        }
-
-        ServerConfigDiffAction::UpdateInPlace(flags.bits())
-    }
-
     fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.server.clone());
         Some(set)
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::PlainQuicPortConfig;
+    use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> PlainQuicPortConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        PlainQuicPortConfig::parse(
+            map,
+            Some(vey_yaml::YamlDocPosition {
+                path: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"),
+                index: 0,
+            }),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::PlainQuicPort(new)),
+            ServerConfigDiffAction::NoAction
+        ));
+    }
+    #[test]
+    fn changed_listen() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18081
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::PlainQuicPort(new)),
+            ServerConfigDiffAction::ReloadAndRespawn
+        ));
+    }
+    #[test]
+    fn changed_listen_socket_buffer() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+              socket_buffer:
+                receive: 4096
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::PlainQuicPort(new)),
+            ServerConfigDiffAction::UpdateInPlace(bits) if bits == (super::PlainQuicPortUpdateFlags::LISTEN_CONFIG).bits()
+        ));
+    }
+    #[test]
+    fn changed_listen_in_worker() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            listen_in_worker: true
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::PlainQuicPort(new)),
+            ServerConfigDiffAction::ReloadAndRespawn
+        ));
+    }
+    #[test]
+    fn changed_tls_material() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              no_session_cache: true
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::PlainQuicPort(new)),
+            ServerConfigDiffAction::UpdateInPlace(bits) if bits == (super::PlainQuicPortUpdateFlags::QUINN_CONFIG).bits()
+        ));
+    }
+    #[test]
+    fn changed_accept_timeout() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              accept_timeout: 3s
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::PlainQuicPort(new)),
+            ServerConfigDiffAction::UpdateInPlace(bits) if bits == (super::PlainQuicPortUpdateFlags::QUINN_CONFIG | super::PlainQuicPortUpdateFlags::ACCEPT_TIMEOUT).bits()
+        ));
+    }
+    #[test]
+    fn changed_tls_ticketer() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            tls_ticketer:
+              check_interval: 10s
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::PlainQuicPort(new)),
+            ServerConfigDiffAction::UpdateInPlace(bits) if bits == (super::PlainQuicPortUpdateFlags::QUINN_CONFIG).bits()
+        ));
+    }
+    #[test]
+    fn changed_quic_endpoint() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            quic_endpoint:
+              udp_payload_size: 1400
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::PlainQuicPort(new)),
+            ServerConfigDiffAction::ReloadAndRespawn
+        ));
+    }
+    #[test]
+    fn changed_ingress_filter() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            ingress_net_filter:
+              default: permit
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::PlainQuicPort(new)),
+            ServerConfigDiffAction::UpdateInPlace(bits) if bits == (super::PlainQuicPortUpdateFlags::INGRESS_FILTER).bits()
+        ));
+    }
+    #[test]
+    fn changed_next_server() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: other
+            listen:
+              address: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::PlainQuicPort(new)),
+            ServerConfigDiffAction::UpdateInPlace(bits) if bits == (super::PlainQuicPortUpdateFlags::NEXT_SERVER).bits()
+        ));
     }
 }

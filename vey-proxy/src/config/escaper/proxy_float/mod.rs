@@ -15,6 +15,7 @@ use ascii::AsciiString;
 use log::warn;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::{MetricTagMap, NodeName};
 #[cfg(any(
     target_os = "linux",
@@ -37,7 +38,14 @@ pub(crate) use source::ProxyFloatSource;
 
 const ESCAPER_CONFIG_TYPE: &str = "ProxyFloat";
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyEscaperConfig,
+    variant = ProxyFloat,
+    mismatch = EscaperConfigDiffAction::SpawnNew,
+    unchanged = EscaperConfigDiffAction::NoAction,
+    changed = EscaperConfigDiffAction::Reload,
+)]
 pub(crate) struct ProxyFloatEscaperConfig {
     pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
@@ -256,19 +264,39 @@ impl EscaperConfig for ProxyFloatEscaperConfig {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
 
-    fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let AnyEscaperConfig::ProxyFloat(new) = new else {
-            return EscaperConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return EscaperConfigDiffAction::NoAction;
-        }
-
-        EscaperConfigDiffAction::Reload
-    }
-
     fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         None
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::ProxyFloatEscaperConfig;
+    use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> ProxyFloatEscaperConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        ProxyFloatEscaperConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyEscaperConfig::ProxyFloat(new)),
+            EscaperConfigDiffAction::NoAction
+        ));
     }
 }

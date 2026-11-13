@@ -7,6 +7,7 @@
 use anyhow::anyhow;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
 
@@ -14,7 +15,13 @@ use super::{AnyCollectorConfig, CollectorConfig, CollectorConfigDiffAction};
 
 const COLLECTOR_CONFIG_TYPE: &str = "Discard";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyCollectorConfig,
+    variant = Discard,
+    mismatch = CollectorConfigDiffAction::SpawnNew,
+    unchanged = CollectorConfigDiffAction::NoAction,
+)]
 pub(crate) struct DiscardCollectorConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -78,14 +85,6 @@ impl CollectorConfig for DiscardCollectorConfig {
     fn collector_type(&self) -> &'static str {
         COLLECTOR_CONFIG_TYPE
     }
-
-    fn diff_action(&self, new: &AnyCollectorConfig) -> CollectorConfigDiffAction {
-        let AnyCollectorConfig::Discard(_new) = new else {
-            return CollectorConfigDiffAction::SpawnNew;
-        };
-
-        CollectorConfigDiffAction::NoAction
-    }
 }
 
 #[cfg(test)]
@@ -102,5 +101,37 @@ mod tests {
 
         let docs = Yaml::load_from_str("type: Discard\n").unwrap();
         assert!(DiscardCollectorConfig::parse(docs[0].as_mapping().unwrap(), None).is_err());
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::DiscardCollectorConfig;
+    use crate::config::collector::{AnyCollectorConfig, CollectorConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> DiscardCollectorConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        DiscardCollectorConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyCollectorConfig::Discard(new)),
+            CollectorConfigDiffAction::NoAction
+        ));
     }
 }

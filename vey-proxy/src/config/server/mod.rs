@@ -83,8 +83,6 @@ pub(crate) trait ServerConfig {
     fn user_group(&self) -> &NodeName;
     fn auditor(&self) -> &NodeName;
 
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction;
-
     fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {
         None
     }

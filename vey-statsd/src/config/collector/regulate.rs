@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::{MetricTagName, NodeName};
 use vey_yaml::YamlDocPosition;
 
@@ -17,7 +18,14 @@ use crate::types::MetricName;
 
 const COLLECTOR_CONFIG_TYPE: &str = "Regulate";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyCollectorConfig,
+    variant = Regulate,
+    mismatch = CollectorConfigDiffAction::SpawnNew,
+    unchanged = CollectorConfigDiffAction::NoAction,
+    changed = CollectorConfigDiffAction::Reload,
+)]
 pub(crate) struct RegulateCollectorConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -105,22 +113,42 @@ impl CollectorConfig for RegulateCollectorConfig {
         COLLECTOR_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyCollectorConfig) -> CollectorConfigDiffAction {
-        let AnyCollectorConfig::Regulate(new) = new else {
-            return CollectorConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return CollectorConfigDiffAction::NoAction;
-        }
-
-        CollectorConfigDiffAction::Reload
-    }
-
     fn dependent_collector(&self) -> Option<BTreeSet<NodeName>> {
         let next = self.next.as_ref()?;
         let mut set = BTreeSet::new();
         set.insert(next.clone());
         Some(set)
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::RegulateCollectorConfig;
+    use crate::config::collector::{AnyCollectorConfig, CollectorConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> RegulateCollectorConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        RegulateCollectorConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyCollectorConfig::Regulate(new)),
+            CollectorConfigDiffAction::NoAction
+        ));
     }
 }

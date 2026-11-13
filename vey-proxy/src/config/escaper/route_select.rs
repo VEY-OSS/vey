@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::collection::{SelectivePickPolicy, WeightedValue};
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
@@ -17,7 +18,14 @@ use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
 
 const ESCAPER_CONFIG_TYPE: &str = "RouteSelect";
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyEscaperConfig,
+    variant = RouteSelect,
+    mismatch = EscaperConfigDiffAction::SpawnNew,
+    unchanged = EscaperConfigDiffAction::NoAction,
+    changed = EscaperConfigDiffAction::Reload,
+)]
 pub(crate) struct RouteSelectEscaperConfig {
     pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
@@ -101,23 +109,44 @@ impl EscaperConfig for RouteSelectEscaperConfig {
         Default::default()
     }
 
-    fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let AnyEscaperConfig::RouteSelect(new) = new else {
-            return EscaperConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return EscaperConfigDiffAction::NoAction;
-        }
-
-        EscaperConfigDiffAction::Reload
-    }
-
     fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         for v in &self.next_nodes {
             set.insert(v.inner().clone());
         }
         Some(set)
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::RouteSelectEscaperConfig;
+    use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> RouteSelectEscaperConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        RouteSelectEscaperConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            next_nodes: next
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyEscaperConfig::RouteSelect(new)),
+            EscaperConfigDiffAction::NoAction
+        ));
     }
 }

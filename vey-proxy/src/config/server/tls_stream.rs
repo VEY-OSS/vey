@@ -13,6 +13,7 @@ use log::warn;
 use saphyr::{Scalar, Yaml};
 
 use vey_io_ext::StreamCopyConfig;
+use vey_macros::DiffAction;
 use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::auth::FactsMatchType;
@@ -31,7 +32,14 @@ use super::{
 
 const SERVER_CONFIG_TYPE: &str = "TlsStream";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyServerConfig,
+    variant = TlsStream,
+    mismatch = ServerConfigDiffAction::SpawnNew,
+    unchanged = ServerConfigDiffAction::NoAction,
+    changed = ServerConfigDiffAction::ReloadNoRespawn,
+)]
 pub(crate) struct TlsStreamServerConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -41,6 +49,7 @@ pub(crate) struct TlsStreamServerConfig {
     auth_by_client_ip: bool,
     pub(crate) auth_match: Option<FactsMatchType>,
     pub(crate) shared_logger: Option<AsciiString>,
+    #[diff(changed = ServerConfigDiffAction::ReloadAndRespawn)]
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
     pub(crate) server_tls_config: RustlsServerConfigBuilder,
@@ -327,22 +336,6 @@ impl ServerConfig for TlsStreamServerConfig {
         &self.auditor
     }
 
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let AnyServerConfig::TlsStream(new) = new else {
-            return ServerConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return ServerConfigDiffAction::NoAction;
-        }
-
-        if self.listen != new.listen {
-            return ServerConfigDiffAction::ReloadAndRespawn;
-        }
-
-        ServerConfigDiffAction::ReloadNoRespawn
-    }
-
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
@@ -359,5 +352,79 @@ impl ServerConfig for TlsStreamServerConfig {
     #[inline]
     fn task_max_idle_count(&self) -> usize {
         self.task_idle_max_count
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::TlsStreamServerConfig;
+    use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> TlsStreamServerConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        TlsStreamServerConfig::parse(
+            map,
+            Some(vey_yaml::YamlDocPosition {
+                path: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"),
+                index: 0,
+            }),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            upstream: 127.0.0.1:80
+            listen: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::TlsStream(new)),
+            ServerConfigDiffAction::NoAction
+        ));
+    }
+    #[test]
+    fn changed_listen() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            upstream: 127.0.0.1:80
+            listen: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            upstream: 127.0.0.1:80
+            listen: 127.0.0.1:18081
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::TlsStream(new)),
+            ServerConfigDiffAction::ReloadAndRespawn
+        ));
     }
 }

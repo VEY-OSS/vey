@@ -9,6 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_tls_ticket::TlsTicketConfig;
 use vey_types::metrics::NodeName;
 use vey_types::net::{ProxyProtocolVersion, RustlsServerConfigBuilder, TcpListenConfig};
@@ -18,7 +19,14 @@ use super::{AnyKeyServerConfig, KeyServerConfig, KeyServerConfigDiffAction};
 
 pub(crate) const SERVER_CONFIG_TYPE: &str = "PlainTlsPort";
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyKeyServerConfig,
+    variant = PlainTlsPort,
+    mismatch = KeyServerConfigDiffAction::SpawnNew,
+    unchanged = KeyServerConfigDiffAction::NoAction,
+    changed = KeyServerConfigDiffAction::ReloadAndRespawn,
+)]
 pub(crate) struct PlainTlsPortConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -133,19 +141,51 @@ impl KeyServerConfig for PlainTlsPortConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyKeyServerConfig) -> KeyServerConfigDiffAction {
-        let AnyKeyServerConfig::PlainTlsPort(new) = new else {
-            return KeyServerConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return KeyServerConfigDiffAction::NoAction;
-        }
-
-        KeyServerConfigDiffAction::ReloadAndRespawn
-    }
-
     fn dependent_server(&self) -> Option<NodeName> {
         Some(self.server.clone())
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::PlainTlsPortConfig;
+    use crate::config::server::{AnyKeyServerConfig, KeyServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> PlainTlsPortConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        PlainTlsPortConfig::parse(
+            map,
+            Some(vey_yaml::YamlDocPosition {
+                path: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"),
+                index: 0,
+            }),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen: 127.0.0.1:18080
+            tls_server:
+              certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+              private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyKeyServerConfig::PlainTlsPort(new)),
+            KeyServerConfigDiffAction::NoAction
+        ));
     }
 }

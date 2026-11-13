@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 use anyhow::{Context, anyhow};
 use indexmap::IndexSet;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 
 use saphyr::Yaml;
@@ -19,7 +20,14 @@ use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
 
 const ESCAPER_CONFIG_TYPE: &str = "RouteMapping";
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyEscaperConfig,
+    variant = RouteMapping,
+    mismatch = EscaperConfigDiffAction::SpawnNew,
+    unchanged = EscaperConfigDiffAction::NoAction,
+    changed = EscaperConfigDiffAction::Reload,
+)]
 pub(crate) struct RouteMappingEscaperConfig {
     pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
@@ -103,23 +111,45 @@ impl EscaperConfig for RouteMappingEscaperConfig {
         Default::default()
     }
 
-    fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let AnyEscaperConfig::RouteMapping(new) = new else {
-            return EscaperConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return EscaperConfigDiffAction::NoAction;
-        }
-
-        EscaperConfigDiffAction::Reload
-    }
-
     fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         for name in &self.next_nodes {
             set.insert(name.clone());
         }
         Some(set)
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::RouteMappingEscaperConfig;
+    use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> RouteMappingEscaperConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        RouteMappingEscaperConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            next:
+              - next
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyEscaperConfig::RouteMapping(new)),
+            EscaperConfigDiffAction::NoAction
+        ));
     }
 }

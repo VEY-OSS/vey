@@ -7,6 +7,7 @@
 use anyhow::anyhow;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
 
@@ -14,7 +15,13 @@ use super::{AnyImporterConfig, ImporterConfig, ImporterConfigDiffAction};
 
 const IMPORTER_CONFIG_TYPE: &str = "Dummy";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyImporterConfig,
+    variant = Dummy,
+    mismatch = ImporterConfigDiffAction::SpawnNew,
+    unchanged = ImporterConfigDiffAction::NoAction,
+)]
 pub(crate) struct DummyImporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -79,15 +86,39 @@ impl ImporterConfig for DummyImporterConfig {
         IMPORTER_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyImporterConfig) -> ImporterConfigDiffAction {
-        let AnyImporterConfig::Dummy(_new) = new else {
-            return ImporterConfigDiffAction::SpawnNew;
-        };
-
-        ImporterConfigDiffAction::NoAction
-    }
-
     fn collector(&self) -> &NodeName {
         Default::default()
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::DummyImporterConfig;
+    use crate::config::importer::{AnyImporterConfig, ImporterConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> DummyImporterConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        DummyImporterConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyImporterConfig::Dummy(new)),
+            ImporterConfigDiffAction::NoAction
+        ));
     }
 }

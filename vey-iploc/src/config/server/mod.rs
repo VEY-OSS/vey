@@ -34,7 +34,6 @@ pub(crate) enum ServerConfigDiffAction {
 
 pub(crate) trait ServerConfig {
     fn name(&self) -> &NodeName;
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, AnyConfig)]

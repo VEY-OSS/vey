@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
 
@@ -16,11 +17,19 @@ use super::{AnyImporterConfig, ImporterConfig, ImporterConfigDiffAction};
 
 const IMPORTER_CONFIG_TYPE: &str = "StatsD_UNIX";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyImporterConfig,
+    variant = StatsDUnix,
+    mismatch = ImporterConfigDiffAction::SpawnNew,
+    unchanged = ImporterConfigDiffAction::NoAction,
+    changed = ImporterConfigDiffAction::ReloadNoRespawn,
+)]
 pub(crate) struct StatsdUnixImporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) collector: NodeName,
+    #[diff(changed = ImporterConfigDiffAction::ReloadAndRespawn)]
     pub(crate) listen: PathBuf,
 }
 
@@ -94,23 +103,62 @@ impl ImporterConfig for StatsdUnixImporterConfig {
         IMPORTER_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyImporterConfig) -> ImporterConfigDiffAction {
-        let AnyImporterConfig::StatsDUnix(new) = new else {
-            return ImporterConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return ImporterConfigDiffAction::NoAction;
-        }
-
-        if self.listen != new.listen {
-            return ImporterConfigDiffAction::ReloadAndRespawn;
-        }
-
-        ImporterConfigDiffAction::ReloadNoRespawn
-    }
-
     fn collector(&self) -> &NodeName {
         &self.collector
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::StatsdUnixImporterConfig;
+    use crate::config::importer::{AnyImporterConfig, ImporterConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> StatsdUnixImporterConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        StatsdUnixImporterConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            collector: col
+            listen: /tmp/diff-a.sock
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyImporterConfig::StatsDUnix(new)),
+            ImporterConfigDiffAction::NoAction
+        ));
+    }
+    #[test]
+    fn changed_listen() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            collector: col
+            listen: /tmp/diff-a.sock
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            collector: col
+            listen: /tmp/diff-b.sock
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyImporterConfig::StatsDUnix(new)),
+            ImporterConfigDiffAction::ReloadAndRespawn
+        ));
     }
 }

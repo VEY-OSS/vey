@@ -7,6 +7,7 @@
 use anyhow::anyhow;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
 
@@ -14,7 +15,13 @@ use super::{AnyBackendConfig, BackendConfig, BackendConfigDiffAction};
 
 const BACKEND_CONFIG_TYPE: &str = "DummyClose";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyBackendConfig,
+    variant = DummyClose,
+    mismatch = BackendConfigDiffAction::SpawnNew,
+    unchanged = BackendConfigDiffAction::NoAction,
+)]
 pub(crate) struct DummyCloseBackendConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -72,12 +79,36 @@ impl BackendConfig for DummyCloseBackendConfig {
     fn r#type(&self) -> &'static str {
         BACKEND_CONFIG_TYPE
     }
+}
 
-    fn diff_action(&self, new: &AnyBackendConfig) -> BackendConfigDiffAction {
-        let AnyBackendConfig::DummyClose(_new) = new else {
-            return BackendConfigDiffAction::SpawnNew;
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::DummyCloseBackendConfig;
+    use crate::config::backend::{AnyBackendConfig, BackendConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> DummyCloseBackendConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
+        DummyCloseBackendConfig::parse(map, None).unwrap()
+    }
 
-        BackendConfigDiffAction::NoAction
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyBackendConfig::DummyClose(new)),
+            BackendConfigDiffAction::NoAction
+        ));
     }
 }

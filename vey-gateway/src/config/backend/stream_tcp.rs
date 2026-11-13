@@ -10,6 +10,7 @@ use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
 use vey_histogram::HistogramMetricsConfig;
+use vey_macros::DiffAction;
 use vey_types::collection::SelectivePickPolicy;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_yaml::YamlDocPosition;
@@ -19,7 +20,14 @@ use crate::config::discover::DiscoverRegisterData;
 
 const BACKEND_CONFIG_TYPE: &str = "StreamTcp";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyBackendConfig,
+    variant = StreamTcp,
+    mismatch = BackendConfigDiffAction::SpawnNew,
+    unchanged = BackendConfigDiffAction::NoAction,
+    changed = BackendConfigDiffAction::Reload,
+)]
 pub(crate) struct StreamTcpBackendConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -114,16 +122,38 @@ impl BackendConfig for StreamTcpBackendConfig {
     fn r#type(&self) -> &'static str {
         BACKEND_CONFIG_TYPE
     }
+}
 
-    fn diff_action(&self, new: &AnyBackendConfig) -> BackendConfigDiffAction {
-        let AnyBackendConfig::StreamTcp(new) = new else {
-            return BackendConfigDiffAction::SpawnNew;
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::StreamTcpBackendConfig;
+    use crate::config::backend::{AnyBackendConfig, BackendConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> StreamTcpBackendConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
+        StreamTcpBackendConfig::parse(map, None).unwrap()
+    }
 
-        if self.eq(new) {
-            return BackendConfigDiffAction::NoAction;
-        }
-
-        BackendConfigDiffAction::Reload
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            discover: disc
+            discover_data: {}
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyBackendConfig::StreamTcp(new)),
+            BackendConfigDiffAction::NoAction
+        ));
     }
 }

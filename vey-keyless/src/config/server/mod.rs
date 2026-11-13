@@ -35,8 +35,6 @@ pub(crate) trait KeyServerConfig {
     fn position(&self) -> Option<YamlDocPosition>;
     fn r#type(&self) -> &'static str;
 
-    fn diff_action(&self, new: &AnyKeyServerConfig) -> KeyServerConfigDiffAction;
-
     /// The names of the servers this one will send accepted connections to.
     fn dependent_server(&self) -> Option<NodeName> {
         None

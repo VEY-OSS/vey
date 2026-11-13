@@ -12,6 +12,7 @@ use http::HeaderValue;
 use http::uri::PathAndQuery;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_yaml::YamlDocPosition;
 
@@ -26,7 +27,14 @@ const EXPORTER_CONFIG_TYPE: &str = "InfluxDB_V3";
 
 const AUTH_TOKEN_ENV_VAR: &str = "INFLUXDB3_AUTH_TOKEN";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyExporterConfig,
+    variant = InfluxdbV3,
+    mismatch = ExporterConfigDiffAction::SpawnNew,
+    unchanged = ExporterConfigDiffAction::NoAction,
+    changed = ExporterConfigDiffAction::Reload,
+)]
 pub(crate) struct InfluxdbV3ExporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -148,14 +156,6 @@ impl ExporterConfig for InfluxdbV3ExporterConfig {
     fn exporter_type(&self) -> &'static str {
         EXPORTER_CONFIG_TYPE
     }
-
-    fn diff_action(&self, new: &AnyExporterConfig) -> ExporterConfigDiffAction {
-        let AnyExporterConfig::InfluxdbV3(_new) = new else {
-            return ExporterConfigDiffAction::SpawnNew;
-        };
-
-        ExporterConfigDiffAction::Reload
-    }
 }
 
 impl InfluxdbExporterConfig for InfluxdbV3ExporterConfig {
@@ -202,5 +202,41 @@ impl InfluxdbExporterConfig for InfluxdbV3ExporterConfig {
         }
         let s = format!("Bearer {}", self.token);
         HeaderValue::from_str(&s).ok()
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::InfluxdbV3ExporterConfig;
+    use crate::config::exporter::{AnyExporterConfig, ExporterConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> InfluxdbV3ExporterConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        InfluxdbV3ExporterConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            server: 127.0.0.1
+            port: 4242
+            database: db
+            token: tok
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyExporterConfig::InfluxdbV3(new)),
+            ExporterConfigDiffAction::NoAction
+        ));
     }
 }

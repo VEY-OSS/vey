@@ -9,6 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_yaml::YamlDocPosition;
 
@@ -18,7 +19,14 @@ use crate::types::MetricName;
 
 const EXPORTER_CONFIG_TYPE: &str = "Graphite";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyExporterConfig,
+    variant = Graphite,
+    mismatch = ExporterConfigDiffAction::SpawnNew,
+    unchanged = ExporterConfigDiffAction::NoAction,
+    changed = ExporterConfigDiffAction::Reload,
+)]
 pub(crate) struct GraphiteExporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -100,14 +108,6 @@ impl ExporterConfig for GraphiteExporterConfig {
     fn exporter_type(&self) -> &'static str {
         EXPORTER_CONFIG_TYPE
     }
-
-    fn diff_action(&self, new: &AnyExporterConfig) -> ExporterConfigDiffAction {
-        let AnyExporterConfig::Graphite(_new) = new else {
-            return ExporterConfigDiffAction::SpawnNew;
-        };
-
-        ExporterConfigDiffAction::Reload
-    }
 }
 
 #[cfg(test)]
@@ -143,5 +143,39 @@ prefix: app.metrics
 
         let docs = Yaml::load_from_str("name: g1\n").unwrap();
         assert!(GraphiteExporterConfig::parse(docs[0].as_mapping().unwrap(), None).is_err());
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::GraphiteExporterConfig;
+    use crate::config::exporter::{AnyExporterConfig, ExporterConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> GraphiteExporterConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        GraphiteExporterConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            server: 127.0.0.1
+            port: 2003
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyExporterConfig::Graphite(new)),
+            ExporterConfigDiffAction::NoAction
+        ));
     }
 }

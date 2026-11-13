@@ -15,6 +15,7 @@ use rustc_hash::FxHashMap;
 use saphyr::Yaml;
 
 use vey_io_ext::{LimitedUdpRelayConfig, StreamCopyConfig};
+use vey_macros::DiffAction;
 use vey_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use vey_types::acl_set::AclDstHostRuleSetBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -51,7 +52,14 @@ impl Default for SocksProxyServerTimeoutConfig {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyServerConfig,
+    variant = SocksProxy,
+    mismatch = ServerConfigDiffAction::SpawnNew,
+    unchanged = ServerConfigDiffAction::NoAction,
+    changed = ServerConfigDiffAction::ReloadNoRespawn,
+)]
 pub(crate) struct SocksProxyServerConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -59,6 +67,7 @@ pub(crate) struct SocksProxyServerConfig {
     pub(crate) auditor: NodeName,
     pub(crate) user_group: NodeName,
     pub(crate) shared_logger: Option<AsciiString>,
+    #[diff(changed = ServerConfigDiffAction::ReloadAndRespawn)]
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
     pub(crate) use_udp_associate: bool,
@@ -436,22 +445,6 @@ impl ServerConfig for SocksProxyServerConfig {
         &self.auditor
     }
 
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let AnyServerConfig::SocksProxy(new) = new else {
-            return ServerConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return ServerConfigDiffAction::NoAction;
-        }
-
-        if self.listen != new.listen {
-            return ServerConfigDiffAction::ReloadAndRespawn;
-        }
-
-        ServerConfigDiffAction::ReloadNoRespawn
-    }
-
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
@@ -468,5 +461,60 @@ impl ServerConfig for SocksProxyServerConfig {
     #[inline]
     fn task_max_idle_count(&self) -> usize {
         self.task_idle_max_count
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::SocksProxyServerConfig;
+    use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> SocksProxyServerConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        SocksProxyServerConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen: 127.0.0.1:18080
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::SocksProxy(new)),
+            ServerConfigDiffAction::NoAction
+        ));
+    }
+    #[test]
+    fn changed_listen() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen: 127.0.0.1:18080
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen: 127.0.0.1:18081
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::SocksProxy(new)),
+            ServerConfigDiffAction::ReloadAndRespawn
+        ));
     }
 }

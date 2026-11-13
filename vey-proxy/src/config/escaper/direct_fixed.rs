@@ -12,6 +12,7 @@ use ascii::AsciiString;
 use log::warn;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::acl::{AclAction, AclNetworkRuleBuilder};
 use vey_types::metrics::{MetricTagMap, NodeName};
 #[cfg(any(
@@ -33,7 +34,14 @@ use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, GeneralEsc
 
 const ESCAPER_CONFIG_TYPE: &str = "DirectFixed";
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyEscaperConfig,
+    variant = DirectFixed,
+    mismatch = EscaperConfigDiffAction::SpawnNew,
+    unchanged = EscaperConfigDiffAction::NoAction,
+    changed = EscaperConfigDiffAction::Reload,
+)]
 pub(crate) struct DirectFixedEscaperConfig {
     pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
@@ -389,18 +397,6 @@ impl EscaperConfig for DirectFixedEscaperConfig {
         &self.resolver
     }
 
-    fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let AnyEscaperConfig::DirectFixed(new) = new else {
-            return EscaperConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return EscaperConfigDiffAction::NoAction;
-        }
-
-        EscaperConfigDiffAction::Reload
-    }
-
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
@@ -565,5 +561,38 @@ peer_health_max_domains: 0
             )
             .is_err()
         );
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::DirectFixedEscaperConfig;
+    use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> DirectFixedEscaperConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        DirectFixedEscaperConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            resolver: main
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyEscaperConfig::DirectFixed(new)),
+            EscaperConfigDiffAction::NoAction
+        ));
     }
 }

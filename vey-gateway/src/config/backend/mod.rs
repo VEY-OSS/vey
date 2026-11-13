@@ -37,8 +37,6 @@ pub(crate) trait BackendConfig {
     fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
     fn r#type(&self) -> &'static str;
-
-    fn diff_action(&self, new: &AnyBackendConfig) -> BackendConfigDiffAction;
 }
 
 #[derive(Clone, AnyConfig)]

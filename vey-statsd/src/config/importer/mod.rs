@@ -34,8 +34,6 @@ pub(crate) trait ImporterConfig {
     fn position(&self) -> Option<YamlDocPosition>;
     fn importer_type(&self) -> &'static str;
 
-    fn diff_action(&self, new: &AnyImporterConfig) -> ImporterConfigDiffAction;
-
     fn collector(&self) -> &NodeName;
 }
 

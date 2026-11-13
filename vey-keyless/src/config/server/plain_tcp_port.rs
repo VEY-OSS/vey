@@ -9,6 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 use vey_types::net::{ProxyProtocolVersion, TcpListenConfig};
 use vey_yaml::YamlDocPosition;
@@ -17,7 +18,14 @@ use super::{AnyKeyServerConfig, KeyServerConfig, KeyServerConfigDiffAction};
 
 pub(crate) const SERVER_CONFIG_TYPE: &str = "PlainTcpPort";
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyKeyServerConfig,
+    variant = PlainTcpPort,
+    mismatch = KeyServerConfigDiffAction::SpawnNew,
+    unchanged = KeyServerConfigDiffAction::NoAction,
+    changed = KeyServerConfigDiffAction::ReloadAndRespawn,
+)]
 pub(crate) struct PlainTcpPortConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -111,19 +119,41 @@ impl KeyServerConfig for PlainTcpPortConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyKeyServerConfig) -> KeyServerConfigDiffAction {
-        let AnyKeyServerConfig::PlainTcpPort(new) = new else {
-            return KeyServerConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return KeyServerConfigDiffAction::NoAction;
-        }
-
-        KeyServerConfigDiffAction::ReloadAndRespawn
-    }
-
     fn dependent_server(&self) -> Option<NodeName> {
         Some(self.server.clone())
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::PlainTcpPortConfig;
+    use crate::config::server::{AnyKeyServerConfig, KeyServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> PlainTcpPortConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        PlainTcpPortConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen: 127.0.0.1:18080
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyKeyServerConfig::PlainTcpPort(new)),
+            KeyServerConfigDiffAction::NoAction
+        ));
     }
 }

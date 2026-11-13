@@ -7,6 +7,7 @@ use std::net::SocketAddr;
 
 use anyhow::anyhow;
 
+use vey_macros::DiffAction;
 use vey_types::collection::WeightedValue;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
@@ -25,7 +26,13 @@ pub(crate) struct StaticAddrDiscoverInput {
     pub(crate) inner: Vec<WeightedValue<SocketAddr>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, DiffAction)]
+#[diff_action(
+    new = AnyDiscoverConfig,
+    variant = StaticAddr,
+    mismatch = DiscoverConfigDiffAction::SpawnNew,
+    unchanged = DiscoverConfigDiffAction::NoAction,
+)]
 pub(crate) struct StaticAddrDiscoverConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -62,12 +69,36 @@ impl DiscoverConfig for StaticAddrDiscoverConfig {
     fn r#type(&self) -> &'static str {
         DISCOVER_CONFIG_TYPE
     }
+}
 
-    fn diff_action(&self, new: &AnyDiscoverConfig) -> DiscoverConfigDiffAction {
-        let AnyDiscoverConfig::StaticAddr(_new) = new else {
-            return DiscoverConfigDiffAction::SpawnNew;
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::StaticAddrDiscoverConfig;
+    use crate::config::discover::{AnyDiscoverConfig, DiscoverConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> StaticAddrDiscoverConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
+        StaticAddrDiscoverConfig::parse_yaml_conf(map, None).unwrap()
+    }
 
-        DiscoverConfigDiffAction::NoAction
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyDiscoverConfig::StaticAddr(new)),
+            DiscoverConfigDiffAction::NoAction
+        ));
     }
 }

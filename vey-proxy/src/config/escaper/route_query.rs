@@ -12,6 +12,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::collection::SelectivePickPolicy;
 use vey_types::metrics::NodeName;
 use vey_types::net::SocketBufferConfig;
@@ -21,7 +22,14 @@ use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
 
 const ESCAPER_CONFIG_TYPE: &str = "RouteQuery";
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyEscaperConfig,
+    variant = RouteQuery,
+    mismatch = EscaperConfigDiffAction::SpawnNew,
+    unchanged = EscaperConfigDiffAction::NoAction,
+    changed = EscaperConfigDiffAction::Reload,
+)]
 pub(crate) struct RouteQueryEscaperConfig {
     pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
@@ -187,18 +195,6 @@ impl EscaperConfig for RouteQueryEscaperConfig {
         Default::default()
     }
 
-    fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let AnyEscaperConfig::RouteQuery(new) = new else {
-            return EscaperConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return EscaperConfigDiffAction::NoAction;
-        }
-
-        EscaperConfigDiffAction::Reload
-    }
-
     fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         for name in &self.query_allowed_nodes {
@@ -206,5 +202,40 @@ impl EscaperConfig for RouteQueryEscaperConfig {
         }
         set.insert(self.fallback_node.clone());
         Some(set)
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::RouteQueryEscaperConfig;
+    use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> RouteQueryEscaperConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        RouteQueryEscaperConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            query_allowed_next:
+              - next
+            fallback_node: fb
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyEscaperConfig::RouteQuery(new)),
+            EscaperConfigDiffAction::NoAction
+        ));
     }
 }

@@ -12,6 +12,7 @@ use bitflags::bitflags;
 use saphyr::Yaml;
 
 use vey_io_ext::LimitedUdpRelayConfig;
+use vey_macros::DiffAction;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::auth::FactsMatchType;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -32,7 +33,16 @@ bitflags! {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+// ReloadNoRespawn replaces the server without rebinding the socket.
+// The reload notification pushes the new listen options and ingress filter.
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyServerConfig,
+    variant = UdpTProxy,
+    mismatch = ServerConfigDiffAction::SpawnNew,
+    unchanged = ServerConfigDiffAction::NoAction,
+    changed = ServerConfigDiffAction::ReloadNoRespawn,
+)]
 pub(crate) struct UdpTProxyServerConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -42,8 +52,11 @@ pub(crate) struct UdpTProxyServerConfig {
     auth_by_server_ip: bool,
     pub(crate) auth_match: Option<FactsMatchType>,
     pub(crate) shared_logger: Option<AsciiString>,
+    #[diff(cmp = need_respawn, changed = ServerConfigDiffAction::ReloadAndRespawn)]
+    #[diff(cmp = need_reloadable_change)]
     pub(crate) listen: UdpListenConfig,
     pub(crate) listen_in_worker: bool,
+    #[diff(changed = ServerConfigDiffAction::ReloadAndRespawn)]
     pub(crate) conn_track: UdpConnectionTrackConfig,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) udp_sock_speed_limit: UdpSockSpeedLimitConfig,
@@ -261,24 +274,6 @@ impl ServerConfig for UdpTProxyServerConfig {
         Default::default()
     }
 
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let AnyServerConfig::UdpTProxy(new) = new else {
-            return ServerConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return ServerConfigDiffAction::NoAction;
-        }
-
-        if self.conn_track != new.conn_track || self.listen.need_respawn(&new.listen) {
-            return ServerConfigDiffAction::ReloadAndRespawn;
-        }
-
-        // Replace the server object without rebinding the socket. The reload
-        // notification pushes the new listen options and ingress filter.
-        ServerConfigDiffAction::ReloadNoRespawn
-    }
-
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
@@ -289,5 +284,113 @@ impl ServerConfig for UdpTProxyServerConfig {
 
     fn task_max_idle_count(&self) -> usize {
         self.task_idle_max_count
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::UdpTProxyServerConfig;
+    use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> UdpTProxyServerConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        UdpTProxyServerConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen:
+              address: 127.0.0.1:18080
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::UdpTProxy(new)),
+            ServerConfigDiffAction::NoAction
+        ));
+    }
+    #[test]
+    fn changed_listen() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen:
+              address: 127.0.0.1:18080
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen:
+              address: 127.0.0.1:18081
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::UdpTProxy(new)),
+            ServerConfigDiffAction::ReloadAndRespawn
+        ));
+    }
+    #[test]
+    fn changed_listen_socket_buffer() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen:
+              address: 127.0.0.1:18080
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen:
+              address: 127.0.0.1:18080
+              socket_buffer:
+                receive: 4096
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::UdpTProxy(new)),
+            ServerConfigDiffAction::ReloadNoRespawn
+        ));
+    }
+    #[test]
+    fn changed_conn_track() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen:
+              address: 127.0.0.1:18080
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen:
+              address: 127.0.0.1:18080
+            conn_track:
+              max_sessions: 8
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::UdpTProxy(new)),
+            ServerConfigDiffAction::ReloadAndRespawn
+        ));
     }
 }

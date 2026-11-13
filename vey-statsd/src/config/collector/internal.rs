@@ -9,6 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
 
@@ -16,7 +17,14 @@ use super::{AnyCollectorConfig, CollectorConfig, CollectorConfigDiffAction};
 
 const COLLECTOR_CONFIG_TYPE: &str = "Internal";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyCollectorConfig,
+    variant = Internal,
+    mismatch = CollectorConfigDiffAction::SpawnNew,
+    unchanged = CollectorConfigDiffAction::NoAction,
+    changed = CollectorConfigDiffAction::Update,
+)]
 pub(crate) struct InternalCollectorConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -94,12 +102,36 @@ impl CollectorConfig for InternalCollectorConfig {
     fn collector_type(&self) -> &'static str {
         COLLECTOR_CONFIG_TYPE
     }
+}
 
-    fn diff_action(&self, new: &AnyCollectorConfig) -> CollectorConfigDiffAction {
-        let AnyCollectorConfig::Internal(_new) = new else {
-            return CollectorConfigDiffAction::SpawnNew;
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::InternalCollectorConfig;
+    use crate::config::collector::{AnyCollectorConfig, CollectorConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> InternalCollectorConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
+        InternalCollectorConfig::parse(map, None).unwrap()
+    }
 
-        CollectorConfigDiffAction::Update
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyCollectorConfig::Internal(new)),
+            CollectorConfigDiffAction::NoAction
+        ));
     }
 }

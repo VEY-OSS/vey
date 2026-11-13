@@ -39,8 +39,6 @@ pub(crate) trait CollectorConfig {
     fn position(&self) -> Option<YamlDocPosition>;
     fn collector_type(&self) -> &'static str;
 
-    fn diff_action(&self, new: &AnyCollectorConfig) -> CollectorConfigDiffAction;
-
     fn dependent_collector(&self) -> Option<BTreeSet<NodeName>> {
         None
     }

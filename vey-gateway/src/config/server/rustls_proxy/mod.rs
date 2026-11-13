@@ -13,6 +13,7 @@ use log::warn;
 use saphyr::Yaml;
 
 use vey_io_ext::StreamCopyConfig;
+use vey_macros::DiffAction;
 use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -31,11 +32,19 @@ pub(crate) use host::RustlsHostConfig;
 
 const SERVER_CONFIG_TYPE: &str = "RustlsProxy";
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyServerConfig,
+    variant = RustlsProxy,
+    mismatch = ServerConfigDiffAction::SpawnNew,
+    unchanged = ServerConfigDiffAction::NoAction,
+    changed = ServerConfigDiffAction::ReloadNoRespawn,
+)]
 pub(crate) struct RustlsProxyServerConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
+    #[diff(changed = ServerConfigDiffAction::ReloadAndRespawn)]
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
@@ -226,20 +235,84 @@ impl ServerConfig for RustlsProxyServerConfig {
     fn r#type(&self) -> &'static str {
         SERVER_CONFIG_TYPE
     }
+}
 
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let AnyServerConfig::RustlsProxy(new) = new else {
-            return ServerConfigDiffAction::SpawnNew;
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::RustlsProxyServerConfig;
+    use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> RustlsProxyServerConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
+        RustlsProxyServerConfig::parse(
+            map,
+            Some(vey_yaml::YamlDocPosition {
+                path: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"),
+                index: 0,
+            }),
+        )
+        .unwrap()
+    }
 
-        if self.eq(new) {
-            return ServerConfigDiffAction::NoAction;
-        }
-
-        if self.listen != new.listen {
-            return ServerConfigDiffAction::ReloadAndRespawn;
-        }
-
-        ServerConfigDiffAction::ReloadNoRespawn
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            listen: 127.0.0.1:18080
+            virtual_hosts:
+              name: host
+              cert_pairs:
+                certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+                private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+              backends:
+                - backend
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::RustlsProxy(new)),
+            ServerConfigDiffAction::NoAction
+        ));
+    }
+    #[test]
+    fn changed_listen() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            listen: 127.0.0.1:18080
+            virtual_hosts:
+              name: host
+              cert_pairs:
+                certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+                private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+              backends:
+                - backend
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            listen: 127.0.0.1:18081
+            virtual_hosts:
+              name: host
+              cert_pairs:
+                certificate: ../lib/vey-yaml/src/value/test_data/test_cert1.pem
+                private_key: ../lib/vey-yaml/src/value/test_data/test_key1.pem
+              backends:
+                - backend
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::RustlsProxy(new)),
+            ServerConfigDiffAction::ReloadAndRespawn
+        ));
     }
 }

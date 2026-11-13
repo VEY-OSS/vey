@@ -37,8 +37,6 @@ pub(crate) trait ExporterConfig {
     fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
     fn exporter_type(&self) -> &'static str;
-
-    fn diff_action(&self, new: &AnyExporterConfig) -> ExporterConfigDiffAction;
 }
 
 #[derive(Clone, Debug, AnyConfig)]

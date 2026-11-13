@@ -12,6 +12,7 @@ use rustls_pki_types::ServerName;
 use saphyr::Yaml;
 
 use vey_histogram::HistogramMetricsConfig;
+use vey_macros::DiffAction;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_types::net::{ConnectionPoolConfig, RustlsClientConfigBuilder, TcpKeepAliveConfig};
 use vey_yaml::YamlDocPosition;
@@ -22,7 +23,14 @@ use crate::module::keyless::MultiplexedUpstreamConnectionConfig;
 
 const BACKEND_CONFIG_TYPE: &str = "KeylessTcp";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyBackendConfig,
+    variant = KeylessTcp,
+    mismatch = BackendConfigDiffAction::SpawnNew,
+    unchanged = BackendConfigDiffAction::NoAction,
+    changed = BackendConfigDiffAction::Reload,
+)]
 pub(crate) struct KeylessTcpBackendConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -176,16 +184,38 @@ impl BackendConfig for KeylessTcpBackendConfig {
     fn r#type(&self) -> &'static str {
         BACKEND_CONFIG_TYPE
     }
+}
 
-    fn diff_action(&self, new: &AnyBackendConfig) -> BackendConfigDiffAction {
-        let AnyBackendConfig::KeylessTcp(config) = new else {
-            return BackendConfigDiffAction::SpawnNew;
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::KeylessTcpBackendConfig;
+    use crate::config::backend::{AnyBackendConfig, BackendConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> KeylessTcpBackendConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
+        KeylessTcpBackendConfig::parse(map, None).unwrap()
+    }
 
-        if self.eq(config) {
-            return BackendConfigDiffAction::NoAction;
-        }
-
-        BackendConfigDiffAction::Reload
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            discover: disc
+            discover_data: {}
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyBackendConfig::KeylessTcp(new)),
+            BackendConfigDiffAction::NoAction
+        ));
     }
 }

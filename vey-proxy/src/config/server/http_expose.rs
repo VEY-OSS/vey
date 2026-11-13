@@ -13,6 +13,7 @@ use ascii::AsciiString;
 use saphyr::Yaml;
 
 use vey_io_ext::StreamCopyConfig;
+use vey_macros::DiffAction;
 use vey_tls_ticket::TlsTicketConfig;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -47,7 +48,14 @@ impl Default for HttpExposeServerTimeoutConfig {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyServerConfig,
+    variant = HttpExpose,
+    mismatch = ServerConfigDiffAction::SpawnNew,
+    unchanged = ServerConfigDiffAction::NoAction,
+    changed = ServerConfigDiffAction::ReloadNoRespawn,
+)]
 pub(crate) struct HttpExposeServerConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -55,6 +63,7 @@ pub(crate) struct HttpExposeServerConfig {
     pub(crate) user_group: NodeName,
     pub(crate) site_group: NodeName,
     pub(crate) shared_logger: Option<AsciiString>,
+    #[diff(changed = ServerConfigDiffAction::ReloadAndRespawn)]
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
@@ -375,22 +384,6 @@ impl ServerConfig for HttpExposeServerConfig {
         Default::default()
     }
 
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let AnyServerConfig::HttpExpose(new) = new else {
-            return ServerConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return ServerConfigDiffAction::NoAction;
-        }
-
-        if self.listen != new.listen {
-            return ServerConfigDiffAction::ReloadAndRespawn;
-        }
-
-        ServerConfigDiffAction::ReloadNoRespawn
-    }
-
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
@@ -454,5 +447,63 @@ user_group: local_visitors
         };
         let server = HttpExposeServerConfig::parse(map, None).unwrap();
         assert_eq!(server.site_group.as_str(), "local");
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::HttpExposeServerConfig;
+    use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> HttpExposeServerConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        HttpExposeServerConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            site_group: site
+            listen: 127.0.0.1:18080
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::HttpExpose(new)),
+            ServerConfigDiffAction::NoAction
+        ));
+    }
+    #[test]
+    fn changed_listen() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            site_group: site
+            listen: 127.0.0.1:18080
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            site_group: site
+            listen: 127.0.0.1:18081
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::HttpExpose(new)),
+            ServerConfigDiffAction::ReloadAndRespawn
+        ));
     }
 }

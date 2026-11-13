@@ -52,8 +52,6 @@ pub(crate) trait ServerConfig {
     fn position(&self) -> Option<YamlDocPosition>;
     fn r#type(&self) -> &'static str;
 
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction;
-
     fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {
         None
     }

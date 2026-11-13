@@ -13,6 +13,7 @@ use log::warn;
 use saphyr::Yaml;
 
 use vey_io_ext::StreamCopyConfig;
+use vey_macros::DiffAction;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::auth::FactsMatchType;
 use vey_types::metrics::{MetricTagMap, NodeName};
@@ -26,7 +27,14 @@ use super::{
 
 const SERVER_CONFIG_TYPE: &str = "TcpTProxy";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyServerConfig,
+    variant = TcpTProxy,
+    mismatch = ServerConfigDiffAction::SpawnNew,
+    unchanged = ServerConfigDiffAction::NoAction,
+    changed = ServerConfigDiffAction::ReloadNoRespawn,
+)]
 pub(crate) struct TcpTProxyServerConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -37,6 +45,7 @@ pub(crate) struct TcpTProxyServerConfig {
     auth_by_server_ip: bool,
     pub(crate) auth_match: Option<FactsMatchType>,
     pub(crate) shared_logger: Option<AsciiString>,
+    #[diff(changed = ServerConfigDiffAction::ReloadAndRespawn)]
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
@@ -261,22 +270,6 @@ impl ServerConfig for TcpTProxyServerConfig {
         &self.auditor
     }
 
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let AnyServerConfig::TcpTProxy(new) = new else {
-            return ServerConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return ServerConfigDiffAction::NoAction;
-        }
-
-        if self.listen != new.listen {
-            return ServerConfigDiffAction::ReloadAndRespawn;
-        }
-
-        ServerConfigDiffAction::ReloadNoRespawn
-    }
-
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
@@ -293,5 +286,60 @@ impl ServerConfig for TcpTProxyServerConfig {
     #[inline]
     fn task_max_idle_count(&self) -> usize {
         self.task_idle_max_count
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::TcpTProxyServerConfig;
+    use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> TcpTProxyServerConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        TcpTProxyServerConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen: 127.0.0.1:18080
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::TcpTProxy(new)),
+            ServerConfigDiffAction::NoAction
+        ));
+    }
+    #[test]
+    fn changed_listen() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen: 127.0.0.1:18080
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            escaper: esc
+            listen: 127.0.0.1:18081
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::TcpTProxy(new)),
+            ServerConfigDiffAction::ReloadAndRespawn
+        ));
     }
 }

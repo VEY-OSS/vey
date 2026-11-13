@@ -7,6 +7,7 @@
 use anyhow::anyhow;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
 
@@ -15,7 +16,14 @@ use crate::config::escaper::AnyEscaperConfig;
 
 const ESCAPER_CONFIG_TYPE: &str = "ComplyAudit";
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, DiffAction)]
+#[diff_action(
+    new = AnyEscaperConfig,
+    variant = ComplyAudit,
+    mismatch = EscaperConfigDiffAction::SpawnNew,
+    unchanged = EscaperConfigDiffAction::NoAction,
+    changed = EscaperConfigDiffAction::Reload,
+)]
 pub(crate) struct ComplyAuditEscaperConfig {
     pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
@@ -92,16 +100,38 @@ impl EscaperConfig for ComplyAuditEscaperConfig {
     fn resolver(&self) -> &NodeName {
         Default::default()
     }
+}
 
-    fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let AnyEscaperConfig::ComplyAudit(new) = new else {
-            return EscaperConfigDiffAction::SpawnNew;
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::ComplyAuditEscaperConfig;
+    use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> ComplyAuditEscaperConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
+        ComplyAuditEscaperConfig::parse(map, None).unwrap()
+    }
 
-        if self.eq(new) {
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            next: next
+            auditor: audit
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyEscaperConfig::ComplyAudit(new)),
             EscaperConfigDiffAction::NoAction
-        } else {
-            EscaperConfigDiffAction::Reload
-        }
+        ));
     }
 }

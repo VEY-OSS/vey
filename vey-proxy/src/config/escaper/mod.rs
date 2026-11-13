@@ -65,8 +65,6 @@ pub(crate) trait EscaperConfig {
     fn r#type(&self) -> &str;
     fn resolver(&self) -> &NodeName;
 
-    fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction;
-
     fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         None
     }

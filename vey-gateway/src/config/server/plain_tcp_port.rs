@@ -10,6 +10,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::NodeName;
 use vey_types::net::{ProxyProtocolVersion, TcpListenConfig};
@@ -20,10 +21,18 @@ use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 
 const SERVER_CONFIG_TYPE: &str = "PlainTcpPort";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyServerConfig,
+    variant = PlainTcpPort,
+    mismatch = ServerConfigDiffAction::SpawnNew,
+    unchanged = ServerConfigDiffAction::NoAction,
+    changed = ServerConfigDiffAction::UpdateInPlace(0),
+)]
 pub(crate) struct PlainTcpPortConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
+    #[diff(changed = ServerConfigDiffAction::ReloadAndRespawn)]
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
@@ -128,25 +137,64 @@ impl ServerConfig for PlainTcpPortConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let AnyServerConfig::PlainTcpPort(new) = new else {
-            return ServerConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return ServerConfigDiffAction::NoAction;
-        }
-
-        if self.listen != new.listen {
-            return ServerConfigDiffAction::ReloadAndRespawn;
-        }
-
-        ServerConfigDiffAction::UpdateInPlace(0)
-    }
-
     fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.server.clone());
         Some(set)
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::PlainTcpPortConfig;
+    use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> PlainTcpPortConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        PlainTcpPortConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen: 127.0.0.1:18080
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::PlainTcpPort(new)),
+            ServerConfigDiffAction::NoAction
+        ));
+    }
+    #[test]
+    fn changed_listen() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen: 127.0.0.1:18080
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            server: next
+            listen: 127.0.0.1:18081
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyServerConfig::PlainTcpPort(new)),
+            ServerConfigDiffAction::ReloadAndRespawn
+        ));
     }
 }

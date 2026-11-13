@@ -40,7 +40,6 @@ pub(crate) trait ResolverConfig {
     fn position(&self) -> Option<YamlDocPosition>;
     fn r#type(&self) -> &'static str;
 
-    fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction;
     fn dependent_resolver(&self) -> Option<BTreeSet<NodeName>>;
 }
 

@@ -10,6 +10,7 @@ use std::net::IpAddr;
 use anyhow::anyhow;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_resolver::driver::hickory::HickoryDriverConfig;
 use vey_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
 use vey_socket::BindAddr;
@@ -20,7 +21,14 @@ use super::{AnyResolverConfig, ResolverConfigDiffAction};
 
 const RESOLVER_CONFIG_TYPE: &str = "hickory";
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyResolverConfig,
+    variant = Hickory,
+    mismatch = ResolverConfigDiffAction::SpawnNew,
+    unchanged = ResolverConfigDiffAction::NoAction,
+    changed = ResolverConfigDiffAction::Update,
+)]
 pub(crate) struct HickoryResolverConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -122,19 +130,47 @@ impl super::ResolverConfig for HickoryResolverConfig {
         RESOLVER_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction {
-        let AnyResolverConfig::Hickory(new) = new else {
-            return ResolverConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return ResolverConfigDiffAction::NoAction;
-        }
-
-        ResolverConfigDiffAction::Update
-    }
-
     fn dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         None
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::HickoryResolverConfig;
+    use crate::config::resolver::{AnyResolverConfig, ResolverConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> HickoryResolverConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        HickoryResolverConfig::parse(
+            map,
+            Some(vey_yaml::YamlDocPosition {
+                path: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"),
+                index: 0,
+            }),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            server: 1.1.1.1
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyResolverConfig::Hickory(Box::new(new))),
+            ResolverConfigDiffAction::NoAction
+        ));
     }
 }

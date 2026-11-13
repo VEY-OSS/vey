@@ -9,6 +9,7 @@ use std::num::NonZeroUsize;
 use anyhow::anyhow;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 use vey_yaml::YamlDocPosition;
 
@@ -16,7 +17,14 @@ use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
 
 const EXPORTER_CONFIG_TYPE: &str = "Memory";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyExporterConfig,
+    variant = Memory,
+    mismatch = ExporterConfigDiffAction::SpawnNew,
+    unchanged = ExporterConfigDiffAction::NoAction,
+    changed = ExporterConfigDiffAction::Reload,
+)]
 pub(crate) struct MemoryExporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -79,12 +87,36 @@ impl ExporterConfig for MemoryExporterConfig {
     fn exporter_type(&self) -> &'static str {
         EXPORTER_CONFIG_TYPE
     }
+}
 
-    fn diff_action(&self, new: &AnyExporterConfig) -> ExporterConfigDiffAction {
-        let AnyExporterConfig::Memory(_new) = new else {
-            return ExporterConfigDiffAction::SpawnNew;
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::MemoryExporterConfig;
+    use crate::config::exporter::{AnyExporterConfig, ExporterConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> MemoryExporterConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
+        MemoryExporterConfig::parse(map, None).unwrap()
+    }
 
-        ExporterConfigDiffAction::Reload
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyExporterConfig::Memory(new)),
+            ExporterConfigDiffAction::NoAction
+        ));
     }
 }

@@ -10,6 +10,7 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use anyhow::anyhow;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_resolver::driver::c_ares::CAresDriverConfig;
 use vey_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
 use vey_types::metrics::NodeName;
@@ -19,7 +20,14 @@ use super::{AnyResolverConfig, ResolverConfigDiffAction};
 
 const RESOLVER_CONFIG_TYPE: &str = "c-ares";
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyResolverConfig,
+    variant = CAres,
+    mismatch = ResolverConfigDiffAction::SpawnNew,
+    unchanged = ResolverConfigDiffAction::NoAction,
+    changed = ResolverConfigDiffAction::Update,
+)]
 pub(crate) struct CAresResolverConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -111,19 +119,39 @@ impl super::ResolverConfig for CAresResolverConfig {
         RESOLVER_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction {
-        let AnyResolverConfig::CAres(new) = new else {
-            return ResolverConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return ResolverConfigDiffAction::NoAction;
-        }
-
-        ResolverConfigDiffAction::Update
-    }
-
     fn dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         None
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::CAresResolverConfig;
+    use crate::config::resolver::{AnyResolverConfig, ResolverConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> CAresResolverConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        CAresResolverConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyResolverConfig::CAres(new)),
+            ResolverConfigDiffAction::NoAction
+        ));
     }
 }

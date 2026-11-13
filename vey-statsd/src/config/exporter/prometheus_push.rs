@@ -10,6 +10,7 @@ use anyhow::{Context, anyhow};
 use http::uri::PathAndQuery;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::{MetricTagMap, NodeName};
 use vey_yaml::YamlDocPosition;
 
@@ -19,7 +20,14 @@ use crate::types::MetricName;
 
 const EXPORTER_CONFIG_TYPE: &str = "PrometheusPush";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyExporterConfig,
+    variant = Prometheus,
+    mismatch = ExporterConfigDiffAction::SpawnNew,
+    unchanged = ExporterConfigDiffAction::NoAction,
+    changed = ExporterConfigDiffAction::Reload,
+)]
 pub(crate) struct PrometheusPushExporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -139,14 +147,6 @@ impl ExporterConfig for PrometheusPushExporterConfig {
     fn exporter_type(&self) -> &'static str {
         EXPORTER_CONFIG_TYPE
     }
-
-    fn diff_action(&self, new: &AnyExporterConfig) -> ExporterConfigDiffAction {
-        let AnyExporterConfig::Prometheus(_new) = new else {
-            return ExporterConfigDiffAction::SpawnNew;
-        };
-
-        ExporterConfigDiffAction::Reload
-    }
 }
 
 #[cfg(test)]
@@ -209,5 +209,41 @@ idle_timeout: 30s
         .unwrap();
         let cfg = PrometheusPushExporterConfig::parse(docs[0].as_mapping().unwrap(), None).unwrap();
         assert_eq!(cfg.http_export.idle_timeout, Duration::from_secs(30));
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::PrometheusPushExporterConfig;
+    use crate::config::exporter::{AnyExporterConfig, ExporterConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> PrometheusPushExporterConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        PrometheusPushExporterConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            server: 127.0.0.1
+            port: 4242
+            path: /write
+            max_samples: 10
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyExporterConfig::Prometheus(new)),
+            ExporterConfigDiffAction::NoAction
+        ));
     }
 }

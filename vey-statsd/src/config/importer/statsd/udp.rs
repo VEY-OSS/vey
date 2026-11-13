@@ -7,6 +7,7 @@
 use anyhow::{Context, anyhow};
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_types::acl::AclNetworkRuleBuilder;
 use vey_types::metrics::NodeName;
 use vey_types::net::UdpListenConfig;
@@ -16,11 +17,19 @@ use super::{AnyImporterConfig, ImporterConfig, ImporterConfigDiffAction};
 
 const IMPORTER_CONFIG_TYPE: &str = "StatsD_UDP";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyImporterConfig,
+    variant = StatsDUdp,
+    mismatch = ImporterConfigDiffAction::SpawnNew,
+    unchanged = ImporterConfigDiffAction::NoAction,
+    changed = ImporterConfigDiffAction::ReloadNoRespawn,
+)]
 pub(crate) struct StatsdUdpImporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) collector: NodeName,
+    #[diff(changed = ImporterConfigDiffAction::ReloadAndRespawn)]
     pub(crate) listen: UdpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
@@ -108,23 +117,62 @@ impl ImporterConfig for StatsdUdpImporterConfig {
         IMPORTER_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyImporterConfig) -> ImporterConfigDiffAction {
-        let AnyImporterConfig::StatsDUdp(new) = new else {
-            return ImporterConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return ImporterConfigDiffAction::NoAction;
-        }
-
-        if self.listen != new.listen {
-            return ImporterConfigDiffAction::ReloadAndRespawn;
-        }
-
-        ImporterConfigDiffAction::ReloadNoRespawn
-    }
-
     fn collector(&self) -> &NodeName {
         &self.collector
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::StatsdUdpImporterConfig;
+    use crate::config::importer::{AnyImporterConfig, ImporterConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> StatsdUdpImporterConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        StatsdUdpImporterConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            collector: col
+            listen: 127.0.0.1:8125
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyImporterConfig::StatsDUdp(new)),
+            ImporterConfigDiffAction::NoAction
+        ));
+    }
+    #[test]
+    fn changed_listen() {
+        let old = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            collector: col
+            listen: 127.0.0.1:8125
+            "#
+        ));
+        let new = parse(&yaml_doc!(
+            r#"
+            name: diff-a
+            collector: col
+            listen: 127.0.0.1:8126
+            "#
+        ));
+        assert!(matches!(
+            old.diff_action(&AnyImporterConfig::StatsDUdp(new)),
+            ImporterConfigDiffAction::ReloadAndRespawn
+        ));
     }
 }

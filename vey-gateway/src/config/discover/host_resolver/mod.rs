@@ -5,6 +5,7 @@
 
 use anyhow::anyhow;
 
+use vey_macros::DiffAction;
 use vey_types::metrics::NodeName;
 use vey_types::net::UpstreamAddr;
 use vey_yaml::YamlDocPosition;
@@ -22,7 +23,13 @@ pub(crate) struct HostResolverDiscoverInput {
     pub(crate) addr: UpstreamAddr,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, DiffAction)]
+#[diff_action(
+    new = AnyDiscoverConfig,
+    variant = HostResolver,
+    mismatch = DiscoverConfigDiffAction::SpawnNew,
+    unchanged = DiscoverConfigDiffAction::NoAction,
+)]
 pub(crate) struct HostResolverDiscoverConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
@@ -59,12 +66,36 @@ impl DiscoverConfig for HostResolverDiscoverConfig {
     fn r#type(&self) -> &'static str {
         DISCOVER_CONFIG_TYPE
     }
+}
 
-    fn diff_action(&self, new: &AnyDiscoverConfig) -> DiscoverConfigDiffAction {
-        let AnyDiscoverConfig::HostResolver(_new) = new else {
-            return DiscoverConfigDiffAction::SpawnNew;
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::HostResolverDiscoverConfig;
+    use crate::config::discover::{AnyDiscoverConfig, DiscoverConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> HostResolverDiscoverConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
         };
+        HostResolverDiscoverConfig::parse_yaml_conf(map, None).unwrap()
+    }
 
-        DiscoverConfigDiffAction::NoAction
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyDiscoverConfig::HostResolver(new)),
+            DiscoverConfigDiffAction::NoAction
+        ));
     }
 }

@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 use anyhow::anyhow;
 use saphyr::Yaml;
 
+use vey_macros::DiffAction;
 use vey_resolver::ResolverRuntimeConfig;
 use vey_resolver::driver::fail_over::FailOverDriverStaticConfig;
 use vey_types::metrics::NodeName;
@@ -18,7 +19,14 @@ use super::{AnyResolverConfig, ResolverConfig, ResolverConfigDiffAction};
 
 const RESOLVER_CONFIG_TYPE: &str = "fail-over";
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, DiffAction)]
+#[diff_action(
+    new = AnyResolverConfig,
+    variant = FailOver,
+    mismatch = ResolverConfigDiffAction::SpawnNew,
+    unchanged = ResolverConfigDiffAction::NoAction,
+    changed = ResolverConfigDiffAction::Update,
+)]
 pub(crate) struct FailOverResolverConfig {
     position: Option<YamlDocPosition>,
     name: NodeName,
@@ -127,22 +135,44 @@ impl ResolverConfig for FailOverResolverConfig {
         RESOLVER_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction {
-        let AnyResolverConfig::FailOver(new) = new else {
-            return ResolverConfigDiffAction::SpawnNew;
-        };
-
-        if self.eq(new) {
-            return ResolverConfigDiffAction::NoAction;
-        }
-
-        ResolverConfigDiffAction::Update
-    }
-
     fn dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.primary.clone());
         set.insert(self.standby.clone());
         Some(set)
+    }
+}
+
+#[cfg(test)]
+mod diff_action_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::FailOverResolverConfig;
+    use crate::config::resolver::{AnyResolverConfig, ResolverConfigDiffAction};
+
+    fn parse(doc: &Yaml) -> FailOverResolverConfig {
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        FailOverResolverConfig::parse(map, None).unwrap()
+    }
+
+    #[test]
+    fn same_yaml() {
+        let doc = yaml_doc!(
+            r#"
+            name: diff-a
+            primary: pri
+            standby: sec
+            "#
+        );
+        let old = parse(&doc);
+        let new = parse(&doc);
+        assert!(matches!(
+            old.diff_action(&AnyResolverConfig::FailOver(new)),
+            ResolverConfigDiffAction::NoAction
+        ));
     }
 }
