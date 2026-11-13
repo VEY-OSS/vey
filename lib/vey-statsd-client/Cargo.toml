@@ -22,3 +22,6 @@ vey-yaml = { workspace = true, optional = true }
 [features]
 default = []
 yaml = ["dep:vey-yaml", "dep:saphyr", "dep:anyhow"]
+
+[lints.cargo]
+unused_dependencies = "allow"

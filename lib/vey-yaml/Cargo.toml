@@ -44,3 +44,6 @@ route = ["vey-types/route"]
 sched = ["dep:vey-compat"]
 dpi = ["dep:vey-dpi", "acl-rule"]
 geoip = ["dep:vey-geoip-types"]
+
+[lints.cargo]
+unused_dependencies = "allow"
