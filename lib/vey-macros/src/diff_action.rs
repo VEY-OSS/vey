@@ -87,13 +87,14 @@ fn derive_impl(input: &DeriveInput) -> syn::Result<TokenStream> {
             "`flags` requires both `unchanged` and `changed`",
         ));
     }
-    if let Some(changed) = &args.changed {
-        if args.flags.is_some() && !matches!(changed, Expr::Path(_)) {
-            return Err(syn::Error::new_spanned(
-                changed,
-                "when `flags` is set, `changed` must be the variant constructor path",
-            ));
-        }
+    if let Some(changed) = &args.changed
+        && args.flags.is_some()
+        && !matches!(changed, Expr::Path(_))
+    {
+        return Err(syn::Error::new_spanned(
+            changed,
+            "when `flags` is set, `changed` must be the variant constructor path",
+        ));
     }
 
     let new_ty = &args.new_ty;
@@ -161,7 +162,7 @@ fn compare_body(
                     "field `flag` requires `flags` on diff_action",
                 ));
             }
-            let cond = condition(&field.ident, &rule);
+            let cond = condition(&field.ident, rule);
             let cfgs = &field.cfgs;
             if let Some(action) = &rule.changed {
                 escalates.push(quote! {
