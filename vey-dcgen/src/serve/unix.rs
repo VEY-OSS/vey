@@ -134,12 +134,11 @@ impl Server for UnixServer {
     ) {
     }
 
-    async fn handle_unix_request(&self, packet: &[u8], responder: &UnixDatagramResponder) {
+    async fn handle_unix_request(&self, packet: &[u8], responder: UnixDatagramResponder) {
         let peer = format!("{:?}", responder.client_addr());
-        let responder = responder.clone();
         let stats = Arc::clone(&self.server_stats);
         let send = move |buf: Vec<u8>| {
-            let responder = responder.clone();
+            let responder = responder;
             async move { responder.send(&buf).await }
         };
         if let Some(worker) = vey_daemon::runtime::worker::select_handle() {

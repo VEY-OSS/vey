@@ -51,7 +51,7 @@ pub(crate) trait Server: BaseServer {
     );
 
     #[cfg(unix)]
-    async fn handle_unix_request(&self, packet: &[u8], responder: &UnixDatagramResponder);
+    async fn handle_unix_request(&self, packet: &[u8], responder: UnixDatagramResponder);
 }
 
 trait ServerInternal: Server {
@@ -107,7 +107,7 @@ impl RespondUdpServer for WrapArcServer {
 
 #[cfg(unix)]
 impl RespondUnixDatagramServer for WrapArcServer {
-    async fn handle_unix_request(&self, packet: &[u8], responder: &UnixDatagramResponder) {
+    async fn handle_unix_request(&self, packet: &[u8], responder: UnixDatagramResponder) {
         self.0.handle_unix_request(packet, responder).await
     }
 }

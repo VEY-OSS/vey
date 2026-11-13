@@ -133,7 +133,7 @@ impl Server for DummyServer {
     async fn handle_unix_request(
         &self,
         _packet: &[u8],
-        _responder: &vey_daemon::listen::UnixDatagramResponder,
+        _responder: vey_daemon::listen::UnixDatagramResponder,
     ) {
     }
 }

@@ -6,8 +6,8 @@
 //! One Unix datagram in, one datagram back.
 //!
 //! [`UnixDatagramResponder`] carries the client address of the request it
-//! answers. [`UnixDatagramResponder::send`] writes back to that client. A
-//! delayed reply keeps a clone of the responder until the response exists.
+//! answers. [`UnixDatagramResponder::send`] writes back to that client. The
+//! handler owns the responder for the lifetime of the reply.
 
 use std::future::Future;
 use std::io;
@@ -140,7 +140,7 @@ pub trait RespondUnixDatagramServer: BaseServer {
     fn handle_unix_request<'a>(
         &'a self,
         packet: &'a [u8],
-        responder: &'a UnixDatagramResponder,
+        responder: UnixDatagramResponder,
     ) -> impl Future<Output = ()> + Send + 'a;
 }
 
@@ -251,7 +251,7 @@ where
                                 client_addr,
                             };
                             self.server
-                                .handle_unix_request(&buf[..len], &responder)
+                                .handle_unix_request(&buf[..len], responder)
                                 .await;
                         }
                         Err(e) => {
@@ -390,7 +390,7 @@ mod tests {
     }
 
     impl RespondUnixDatagramServer for TestServer {
-        async fn handle_unix_request(&self, packet: &[u8], responder: &UnixDatagramResponder) {
+        async fn handle_unix_request(&self, packet: &[u8], responder: UnixDatagramResponder) {
             let _ = packet;
             responder.send(b"pong").await.unwrap();
         }

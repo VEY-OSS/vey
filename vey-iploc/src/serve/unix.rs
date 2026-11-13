@@ -134,7 +134,7 @@ impl Server for UnixServer {
     ) {
     }
 
-    async fn handle_unix_request(&self, packet: &[u8], responder: &UnixDatagramResponder) {
+    async fn handle_unix_request(&self, packet: &[u8], responder: UnixDatagramResponder) {
         let _alive = self.server_stats.enter_alive();
         let Some(buf) = query::build_response(packet, &self.server_stats) else {
             return;

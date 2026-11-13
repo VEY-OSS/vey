@@ -134,7 +134,7 @@ impl Server for UdpServer {
     ) {
         let peer = responder.client_addr().to_string();
         answer::answer(&self.server_stats, packet, &peer, move |buf| {
-            let responder = responder.clone();
+            let responder = responder;
             async move { responder.send(&buf).await }
         })
         .await;
@@ -144,7 +144,7 @@ impl Server for UdpServer {
     async fn handle_unix_request(
         &self,
         _packet: &[u8],
-        _responder: &vey_daemon::listen::UnixDatagramResponder,
+        _responder: vey_daemon::listen::UnixDatagramResponder,
     ) {
     }
 }
