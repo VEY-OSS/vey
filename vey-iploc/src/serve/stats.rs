@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicI32, AtomicIsize, AtomicU64, Ordering};
 
 use vey_types::metrics::NodeName;
 use vey_types::stats::StatId;
@@ -11,6 +11,7 @@ use vey_types::stats::StatId;
 pub(crate) struct ServerStats {
     name: NodeName,
     id: StatId,
+    online: AtomicIsize,
     alive: AtomicI32,
     request_total: AtomicU64,
     request_invalid: AtomicU64,
@@ -24,6 +25,7 @@ impl ServerStats {
         ServerStats {
             name: name.clone(),
             id: StatId::new_unique(),
+            online: AtomicIsize::new(0),
             alive: AtomicI32::new(0),
             request_total: AtomicU64::new(0),
             request_invalid: AtomicU64::new(0),
@@ -41,6 +43,18 @@ impl ServerStats {
         self.id
     }
 
+    pub(crate) fn set_online(&self) {
+        self.online.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn set_offline(&self) {
+        self.online.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn is_online(&self) -> bool {
+        self.online.load(Ordering::Relaxed) > 0
+    }
+
     pub(super) fn enter_alive(&self) -> AliveGuard<'_> {
         self.alive.fetch_add(1, Ordering::Relaxed);
         AliveGuard(self)
@@ -54,40 +68,40 @@ impl ServerStats {
         self.request_total.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn take_request_total(&self) -> u64 {
-        self.request_total.swap(0, Ordering::Relaxed)
+    pub(crate) fn request_total(&self) -> u64 {
+        self.request_total.load(Ordering::Relaxed)
     }
 
     pub(crate) fn add_request_invalid(&self) {
         self.request_invalid.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn take_request_invalid(&self) -> u64 {
-        self.request_invalid.swap(0, Ordering::Relaxed)
+    pub(crate) fn request_invalid(&self) -> u64 {
+        self.request_invalid.load(Ordering::Relaxed)
     }
 
     pub(crate) fn add_lookup_not_found(&self) {
         self.lookup_not_found.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn take_lookup_not_found(&self) -> u64 {
-        self.lookup_not_found.swap(0, Ordering::Relaxed)
+    pub(crate) fn lookup_not_found(&self) -> u64 {
+        self.lookup_not_found.load(Ordering::Relaxed)
     }
 
     pub(crate) fn add_response_total(&self) {
         self.response_total.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn take_response_total(&self) -> u64 {
-        self.response_total.swap(0, Ordering::Relaxed)
+    pub(crate) fn response_total(&self) -> u64 {
+        self.response_total.load(Ordering::Relaxed)
     }
 
     pub(crate) fn add_response_fail(&self) {
         self.response_fail.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn take_response_fail(&self) -> u64 {
-        self.response_fail.swap(0, Ordering::Relaxed)
+    pub(crate) fn response_fail(&self) -> u64 {
+        self.response_fail.load(Ordering::Relaxed)
     }
 }
 

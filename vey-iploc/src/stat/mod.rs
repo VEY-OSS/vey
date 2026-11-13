@@ -37,7 +37,8 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
             loop {
                 let instant_start = Instant::now();
 
-                metrics::emit_stats(&mut client);
+                metrics::server::sync_stats();
+                metrics::server::emit_stats(&mut client);
                 vey_daemon::runtime::metrics::emit_stats(&mut client);
 
                 client.flush_sink();

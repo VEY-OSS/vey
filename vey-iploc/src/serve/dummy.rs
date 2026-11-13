@@ -87,11 +87,13 @@ impl ServerInternal for DummyServer {
     }
 
     fn _start_runtime(&self, _server: ArcServer) -> anyhow::Result<()> {
+        self.server_stats.set_online();
         Ok(())
     }
 
     fn _abort_runtime(&self) {
         let _ = self.reload_sender.send(ServerReloadCommand::QuitRuntime);
+        self.server_stats.set_offline();
     }
 }
 

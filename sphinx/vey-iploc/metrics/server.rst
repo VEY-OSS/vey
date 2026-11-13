@@ -13,46 +13,48 @@ Request
 The following tags are present:
 
 * :ref:`daemon_group <metrics_tag_daemon_group>`
+* :ref:`stat_id <metrics_tag_stat_id>`
 * :ref:`server <metrics_tag_server>`
+* :ref:`online <metrics_tag_online>`
 
 The metric names are:
 
-* server.request_total
+* server.request.total
 
   **type**: count
 
   Number of datagrams delivered to this server. This includes invalid requests
   and lookups that match no database record.
 
-* server.request_invalid
+* server.request.invalid
 
   **type**: count
 
   Number of datagrams that were not a valid locate request, or that did not
   contain an IP address.
 
-* server.lookup_not_found
+* server.lookup.not_found
 
   **type**: count
 
   Number of valid lookups that matched neither the country table nor the ASN
   table. No response is sent. A match in either table is not counted here.
 
-* server.request_alive
+* server.request.alive
 
   **type**: gauge
 
   Number of lookups currently being handled by this server.
 
-* server.response_total
+* server.response.total
 
   **type**: count
 
   Number of response datagrams encoded for a client. A lookup counted by
-  ``server.lookup_not_found`` produces no response and is not counted here.
+  ``server.lookup.not_found`` produces no response and is not counted here.
   An encoding error is logged and is not counted here.
 
-* server.response_fail
+* server.response.fail
 
   **type**: count
 
