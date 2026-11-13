@@ -98,12 +98,6 @@ impl ServerStats {
 
 pub(super) struct AliveGuard(Arc<ServerStats>);
 
-impl AliveGuard {
-    pub(super) fn stats(&self) -> &ServerStats {
-        &self.0
-    }
-}
-
 impl Drop for AliveGuard {
     fn drop(&mut self) {
         self.0.alive.fetch_sub(1, Ordering::Relaxed);

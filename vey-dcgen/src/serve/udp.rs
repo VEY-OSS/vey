@@ -7,7 +7,11 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use log::{debug, warn};
 use tokio::sync::broadcast;
+use tokio::time::Instant;
+
+use vey_std_ext::time::DurationExt;
 
 use vey_daemon::listen::{ListenStats, RespondUdpRuntime, UdpResponder};
 use vey_daemon::server::{BaseServer, ServerReloadCommand};
@@ -133,11 +137,25 @@ impl Server for UdpServer {
         _worker_id: Option<usize>,
     ) {
         let peer = responder.client_addr().to_string();
-        answer::answer(&self.server_stats, packet, &peer, move |buf| {
-            let responder = responder;
-            async move { responder.send(&buf).await }
-        })
-        .await;
+        let _alive = self.server_stats.enter_alive();
+        let recv_time = Instant::now();
+        let Some(buf) = answer::answer(&self.server_stats, packet, &peer) else {
+            return;
+        };
+        let rsp_len = buf.len();
+        match responder.send(&buf).await {
+            Ok(()) => {
+                let duration_nanos = recv_time.elapsed().as_nanos_u64();
+                debug!("{peer} - duration: {duration_nanos}ns, rsp size: {rsp_len}");
+                if let Some(recorder) = crate::issuer::issuer_duration_recorder() {
+                    let _ = recorder.record(duration_nanos);
+                }
+            }
+            Err(e) => {
+                self.server_stats.add_response_fail();
+                warn!("write response back error: {e:?}");
+            }
+        }
     }
 
     #[cfg(unix)]

@@ -7,7 +7,11 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use log::{debug, warn};
 use tokio::sync::broadcast;
+use tokio::time::Instant;
+
+use vey_std_ext::time::DurationExt;
 
 use vey_daemon::listen::{
     ListenStats, RespondUnixDatagramRuntime, UdpResponder, UnixDatagramResponder,
@@ -137,17 +141,41 @@ impl Server for UnixServer {
     async fn handle_unix_request(&self, packet: &[u8], responder: UnixDatagramResponder) {
         let peer = format!("{:?}", responder.client_addr());
         let stats = Arc::clone(&self.server_stats);
-        let send = move |buf: Vec<u8>| {
-            let responder = responder;
-            async move { responder.send(&buf).await }
-        };
+        let recv_time = Instant::now();
         if let Some(worker) = vey_daemon::runtime::worker::select_handle() {
             let packet = packet.to_vec();
             worker.handle.spawn(async move {
-                answer::answer(&stats, &packet, &peer, send).await;
+                reply(stats, &packet, peer, responder, recv_time).await;
             });
         } else {
-            answer::answer(&stats, packet, &peer, send).await;
+            reply(stats, packet, peer, responder, recv_time).await;
+        }
+    }
+}
+
+async fn reply(
+    stats: Arc<ServerStats>,
+    packet: &[u8],
+    peer: String,
+    responder: UnixDatagramResponder,
+    recv_time: Instant,
+) {
+    let _alive = stats.enter_alive();
+    let Some(buf) = answer::answer(&stats, packet, &peer) else {
+        return;
+    };
+    let rsp_len = buf.len();
+    match responder.send(&buf).await {
+        Ok(()) => {
+            let duration_nanos = recv_time.elapsed().as_nanos_u64();
+            debug!("{peer} - duration: {duration_nanos}ns, rsp size: {rsp_len}");
+            if let Some(recorder) = crate::issuer::issuer_duration_recorder() {
+                let _ = recorder.record(duration_nanos);
+            }
+        }
+        Err(e) => {
+            stats.add_response_fail();
+            warn!("write response back error: {e:?}");
         }
     }
 }
