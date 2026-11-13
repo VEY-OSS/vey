@@ -69,13 +69,14 @@ mod tests {
         let packet = Request::encode_new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 1))).unwrap();
 
         assert!(build_response(&packet, &stats).is_none());
-        assert_eq!(stats.take_request_total(), 1);
-        assert_eq!(stats.take_lookup_not_found(), 1);
-        assert_eq!(stats.take_request_invalid(), 0);
-        assert_eq!(stats.take_response_total(), 0);
+        assert_eq!(stats.request_total(), 1);
+        assert_eq!(stats.lookup_not_found(), 1);
+        assert_eq!(stats.request_invalid(), 0);
+        assert_eq!(stats.response_total(), 0);
 
         assert!(build_response(b"not a request", &stats).is_none());
-        assert_eq!(stats.take_lookup_not_found(), 0);
-        assert_eq!(stats.take_request_invalid(), 1);
+        assert_eq!(stats.request_total(), 2);
+        assert_eq!(stats.lookup_not_found(), 1);
+        assert_eq!(stats.request_invalid(), 1);
     }
 }
