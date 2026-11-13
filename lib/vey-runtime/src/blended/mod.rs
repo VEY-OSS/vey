@@ -46,6 +46,10 @@ impl BlendedRuntimeConfig {
             .max(1)
     }
 
+    pub fn thread_number(&self) -> Option<usize> {
+        self.thread_number
+    }
+
     pub fn run_in_current_thread(&self) -> bool {
         self.thread_number == Some(0)
     }

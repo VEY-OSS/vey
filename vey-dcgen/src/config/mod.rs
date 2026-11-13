@@ -32,6 +32,8 @@ pub fn load(program_name: &str) -> anyhow::Result<&'static Path> {
         return Err(anyhow!("no issuer config available"));
     }
 
+    vey_daemon::runtime::config::force_current_thread();
+
     Ok(config_file)
 }
 

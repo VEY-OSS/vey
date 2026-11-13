@@ -8,9 +8,10 @@ The optional ``runtime`` section in ``vey-dcgen`` uses the shared
 :external+values:ref:`daemon runtime config <conf_value_daemon_runtime_config>`
 value type.
 
-The main runtime stays single-threaded. ``vey-dcgen`` sets the default
-``thread_number`` to ``0``, which selects a current-thread runtime, unless the
-config sets another value.
+The main runtime is a current-thread runtime. ``thread_number`` is fixed at
+``0``. The ``runtime`` section still accepts the other daemon runtime keys,
+including graceful-shutdown timers. A ``thread_number`` other than ``0`` is
+ignored, and a warning is logged.
 
 If the optional ``worker`` section is present, it uses the shared
 :external+values:ref:`unaided runtime config <conf_value_unaided_runtime_config>`

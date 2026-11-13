@@ -87,6 +87,19 @@ pub fn set_default_thread_number(num: usize) {
     RUNTIME_CONFIG.with_mut(|config| config.set_default_thread_number(num));
 }
 
+pub fn force_current_thread() {
+    RUNTIME_CONFIG.with_mut(|config| {
+        if let Some(thread_number) = config.thread_number()
+            && thread_number != 0
+        {
+            log::warn!(
+                "main runtime thread_number is fixed at 0, ignoring configured value {thread_number}"
+            );
+        }
+        config.set_thread_number(0);
+    });
+}
+
 fn set_global_config(k: &str, v: &Yaml) -> anyhow::Result<()> {
     match vey_yaml::key::normalize(k).as_str() {
         "server_offline_delay" => {
