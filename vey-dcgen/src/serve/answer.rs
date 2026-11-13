@@ -98,7 +98,7 @@ async fn deliver<F, Fut>(
                 "{} - duration: {duration_nanos}ns, rsp size: {rsp_len}",
                 user_req.host(),
             );
-            if let Some(recorder) = issuer::duration_recorder() {
+            if let Some(recorder) = issuer::issuer_duration_recorder() {
                 let _ = recorder.record(duration_nanos);
             }
         }

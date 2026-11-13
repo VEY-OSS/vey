@@ -3,7 +3,6 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::anyhow;
@@ -19,22 +18,21 @@ use vey_types::net::TlsCertUsage;
 use crate::config::issuer::OpensslIssuerConfig;
 
 use super::GeneratedData;
-use super::stats::IssuerStats;
 
 const REFRESH_INTERVAL: Duration = Duration::from_secs(300);
 
 pub(super) struct OpensslIssuer {
     builder: ServerCertBuilder,
-    stats: Arc<IssuerStats>,
+    config: OpensslIssuerConfig,
     refreshed_at: Instant,
 }
 
 impl OpensslIssuer {
-    pub(super) fn new(stats: &Arc<IssuerStats>) -> anyhow::Result<Self> {
+    pub(super) fn new(config: OpensslIssuerConfig) -> anyhow::Result<Self> {
         let builder = TlsServerCertBuilder::new_ec256()?;
         Ok(OpensslIssuer {
             builder,
-            stats: Arc::clone(stats),
+            config,
             refreshed_at: Instant::now(),
         })
     }
@@ -73,35 +71,37 @@ impl OpensslIssuer {
     }
 
     fn refresh(&mut self) -> anyhow::Result<()> {
-        self.stats.add_refresh_total();
+        super::issuer_stats().add_refresh_total();
         self.builder.refresh_datetime()?;
         self.builder.refresh_ec256()?;
-        self.stats.add_refresh_ok();
+        super::issuer_stats().add_refresh_ok();
         Ok(())
     }
 
     fn generate(&mut self, req: &Request) -> anyhow::Result<GeneratedData> {
-        let config = super::get_config().ok_or_else(|| anyhow!("no issuer config available"))?;
-        self.stats.add_request_total();
+        super::issuer_stats().add_request_total();
         if let Some(mimic_cert) = req.cert() {
-            self.generate_mimic(&config, mimic_cert, req.cert_usage())
+            self.generate_mimic(mimic_cert, req.cert_usage())
         } else {
             self.builder.refresh_serial()?;
-            let cert =
-                self.builder
-                    .build_fake(req.host(), &config.ca_cert, &config.ca_key, None)?;
+            let cert = self.builder.build_fake(
+                req.host(),
+                &self.config.ca_cert,
+                &self.config.ca_key,
+                None,
+            )?;
             let ttl = self.builder.valid_seconds()?;
-            self.pack_data(&config, cert, self.builder.pkey(), ttl)
+            Self::pack_data(&self.config, cert, self.builder.pkey(), ttl)
         }
     }
 
     fn generate_mimic(
         &self,
-        config: &OpensslIssuerConfig,
         mimic_cert: &X509,
         cert_usage: TlsCertUsage,
     ) -> anyhow::Result<GeneratedData> {
         let mut mimic_builder = MimicCertBuilder::new(mimic_cert)?;
+        let config = &self.config;
         mimic_builder.set_keep_serial(config.keep_serial);
 
         let cert = match cert_usage {
@@ -123,11 +123,10 @@ impl OpensslIssuer {
 
         let ttl = mimic_builder.valid_seconds()?;
 
-        self.pack_data(config, cert, mimic_builder.pkey(), ttl)
+        Self::pack_data(config, cert, mimic_builder.pkey(), ttl)
     }
 
     fn pack_data(
-        &self,
         config: &OpensslIssuerConfig,
         cert: X509,
         pkey: &PKey<Private>,
@@ -149,7 +148,7 @@ impl OpensslIssuer {
             key,
             ttl,
         };
-        self.stats.add_request_ok();
+        super::issuer_stats().add_request_ok();
         Ok(data)
     }
 }

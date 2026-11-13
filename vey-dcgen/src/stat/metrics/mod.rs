@@ -21,10 +21,8 @@ static LISTEN_STATS_MAP: Mutex<GlobalStatsMap<(Arc<ListenStats>, ListenSnapshot)
     Mutex::new(GlobalStatsMap::new());
 
 pub(super) fn emit_stats(client: &mut StatsdClient) {
-    if let Some(stats) = crate::issuer::stats() {
-        issuer::emit_stats(client, &stats);
-    }
-    if let Some(stats) = crate::issuer::duration_stats() {
+    issuer::emit_stats(client, crate::issuer::issuer_stats());
+    if let Some(stats) = crate::issuer::issuer_duration_stats() {
         issuer::emit_duration_stats(client, &stats);
     }
 
