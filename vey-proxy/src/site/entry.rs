@@ -82,16 +82,16 @@ impl Site {
             tenant_user_group_name.clone(),
         ));
 
-        let is_tls = config.tls_client_builder.is_some();
+        let tls_client = config.tls_client_builder.as_ref();
         let h1_pool = config
             .http
             .h1
             .connection_pool
-            .map(|cfg| Arc::new(SiteHttp1Pool::new(cfg, config.upstream(), is_tls)));
+            .map(|cfg| Arc::new(SiteHttp1Pool::new(cfg, config.upstream(), tls_client)));
         let h2_pool = Arc::new(SiteHttp2Pool::new(
             config.http.h2.connection_pool,
             config.upstream(),
-            is_tls,
+            tls_client,
         ));
         let upstream = SiteUpstream::new(config.upstream(), config.peer_health_check());
 
@@ -115,18 +115,20 @@ impl Site {
         tenant_user_group_name: &NodeName,
         tenant_user_group: Arc<ArcSwapOption<UserGroup>>,
     ) -> anyhow::Result<Self> {
-        let is_tls = config.tls_client_builder.is_some();
+        let tls_client = config.tls_client_builder.as_ref();
         let h1_pool = config
             .http
             .h1
             .connection_pool
             .map(|cfg| match &self.h1_pool {
-                Some(pool) => pool.new_or_reload(cfg, config.upstream(), is_tls),
-                None => Arc::new(SiteHttp1Pool::new(cfg, config.upstream(), is_tls)),
+                Some(pool) => pool.new_or_reload(cfg, config.upstream(), tls_client),
+                None => Arc::new(SiteHttp1Pool::new(cfg, config.upstream(), tls_client)),
             });
-        let h2_pool =
-            self.h2_pool
-                .new_or_reload(config.http.h2.connection_pool, config.upstream(), is_tls);
+        let h2_pool = self.h2_pool.new_or_reload(
+            config.http.h2.connection_pool,
+            config.upstream(),
+            tls_client,
+        );
         let upstream = self
             .upstream
             .reload(config.upstream(), config.peer_health_check());

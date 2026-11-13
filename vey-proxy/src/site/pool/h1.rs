@@ -12,7 +12,7 @@ use ahash::AHashMap;
 use tokio::time::{Instant, MissedTickBehavior};
 
 use vey_types::metrics::NodeName;
-use vey_types::net::{ConnectionPoolConfig, UpstreamAddr};
+use vey_types::net::{ConnectionPoolConfig, OpensslClientConfigBuilder, UpstreamAddr};
 
 use super::{IsolationKey, lane_index};
 use crate::config::site::SiteUpstreamConfig;
@@ -30,7 +30,7 @@ use crate::module::http_forward::{
 pub(crate) struct SiteHttp1Pool {
     config: ConnectionPoolConfig,
     upstream: Option<UpstreamAddr>,
-    is_tls: bool,
+    tls_client: Option<OpensslClientConfigBuilder>,
     lane_max_idle: usize,
     lanes: Box<[H1Lane]>,
 }
@@ -55,14 +55,14 @@ impl SiteHttp1Pool {
     pub(crate) fn new(
         config: ConnectionPoolConfig,
         upstream: &SiteUpstreamConfig,
-        is_tls: bool,
+        tls_client: Option<&OpensslClientConfigBuilder>,
     ) -> Self {
         let lane_count = vey_daemon::runtime::worker::worker_count().max(1);
         let lane_max_idle = config.max_idle_count().div_ceil(lane_count).max(1);
         SiteHttp1Pool {
             config,
             upstream: upstream.single().cloned(),
-            is_tls,
+            tls_client: tls_client.cloned(),
             lane_max_idle,
             lanes: (0..lane_count).map(|_| H1Lane::default()).collect(),
         }
@@ -72,15 +72,15 @@ impl SiteHttp1Pool {
         self: &Arc<Self>,
         config: ConnectionPoolConfig,
         upstream: &SiteUpstreamConfig,
-        is_tls: bool,
+        tls_client: Option<&OpensslClientConfigBuilder>,
     ) -> Arc<Self> {
         if self.config == config
             && self.upstream.as_ref() == upstream.single()
-            && self.is_tls == is_tls
+            && self.tls_client.as_ref() == tls_client
         {
             return self.clone();
         }
-        Arc::new(Self::new(config, upstream, is_tls))
+        Arc::new(Self::new(config, upstream, tls_client))
     }
 
     pub(crate) async fn get(
@@ -236,10 +236,47 @@ fn prune_idle(idle: &mut VecDeque<PooledHttp1Connection>, idle_timeout: Duration
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use vey_types::net::{ConnectionPoolConfig, OpensslClientConfigBuilder};
+
+    use super::super::SiteHttp2Pool;
+    use super::SiteHttp1Pool;
+    use crate::config::site::SiteUpstreamConfig;
+
     #[test]
     fn lane_max_idle_splits_site_cap() {
         assert_eq!(16usize.div_ceil(8).max(1), 2);
         assert_eq!(16usize.div_ceil(32).max(1), 1);
         assert_eq!(1usize.div_ceil(8).max(1), 1);
+    }
+
+    #[test]
+    fn tls_client_builder_change_replaces_the_pool() {
+        let upstream = SiteUpstreamConfig::default();
+        let config = ConnectionPoolConfig::default();
+        let plain = OpensslClientConfigBuilder::default();
+        let mut insecure = plain.clone();
+        insecure.set_insecure(true);
+
+        let h1 = Arc::new(SiteHttp1Pool::new(config, &upstream, Some(&plain)));
+        assert!(Arc::ptr_eq(
+            &h1,
+            &h1.new_or_reload(config, &upstream, Some(&plain))
+        ));
+        assert!(!Arc::ptr_eq(
+            &h1,
+            &h1.new_or_reload(config, &upstream, Some(&insecure))
+        ));
+
+        let h2 = Arc::new(SiteHttp2Pool::new(config, &upstream, Some(&plain)));
+        assert!(Arc::ptr_eq(
+            &h2,
+            &h2.new_or_reload(config, &upstream, Some(&plain))
+        ));
+        assert!(!Arc::ptr_eq(
+            &h2,
+            &h2.new_or_reload(config, &upstream, None)
+        ));
     }
 }

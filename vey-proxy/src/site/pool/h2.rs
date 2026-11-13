@@ -15,7 +15,7 @@ use h2::client::SendRequest;
 use tokio::time::{Instant, MissedTickBehavior};
 
 use vey_types::metrics::NodeName;
-use vey_types::net::{ConnectionPoolConfig, UpstreamAddr};
+use vey_types::net::{ConnectionPoolConfig, OpensslClientConfigBuilder, UpstreamAddr};
 
 use super::{IsolationKey, lane_index};
 use crate::config::site::SiteUpstreamConfig;
@@ -48,7 +48,7 @@ impl H2ConnectionState {
 pub(crate) struct SiteHttp2Pool {
     config: ConnectionPoolConfig,
     upstream: Option<UpstreamAddr>,
-    is_tls: bool,
+    tls_client: Option<OpensslClientConfigBuilder>,
     lane_max_idle: usize,
     lanes: Box<[H2Lane]>,
 }
@@ -73,14 +73,14 @@ impl SiteHttp2Pool {
     pub(crate) fn new(
         config: ConnectionPoolConfig,
         upstream: &SiteUpstreamConfig,
-        is_tls: bool,
+        tls_client: Option<&OpensslClientConfigBuilder>,
     ) -> Self {
         let lane_count = vey_daemon::runtime::worker::worker_count().max(1);
         let lane_max_idle = config.max_idle_count().div_ceil(lane_count).max(1);
         SiteHttp2Pool {
             config,
             upstream: upstream.single().cloned(),
-            is_tls,
+            tls_client: tls_client.cloned(),
             lane_max_idle,
             lanes: (0..lane_count).map(|_| H2Lane::default()).collect(),
         }
@@ -90,15 +90,15 @@ impl SiteHttp2Pool {
         self: &Arc<Self>,
         config: ConnectionPoolConfig,
         upstream: &SiteUpstreamConfig,
-        is_tls: bool,
+        tls_client: Option<&OpensslClientConfigBuilder>,
     ) -> Arc<Self> {
         if self.config == config
             && self.upstream.as_ref() == upstream.single()
-            && self.is_tls == is_tls
+            && self.tls_client.as_ref() == tls_client
         {
             return self.clone();
         }
-        Arc::new(Self::new(config, upstream, is_tls))
+        Arc::new(Self::new(config, upstream, tls_client))
     }
 
     fn get_inner_pool(
