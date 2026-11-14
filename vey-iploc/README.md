@@ -1,3 +1,5 @@
+[![docs](https://readthedocs.org/projects/vey-iploc/badge)](https://vey.readthedocs.io/projects/iploc/)
+
 # VEY IPLoc
 
 vey-iploc is an IP address location lookup service to be used with vey-proxy to enable GeoIP support.
@@ -8,7 +10,8 @@ cluster of vey-proxy instances.
 
 ## How to build
 
-The UDP reuseport selector needs `clang`, `pkg-config`, and `libbpf` 1.5 or newer. If the installed libbpf is older, use the `vendored-libbpf` feature instead of `ebpf`.
+The UDP reuseport selector needs `clang`, `pkg-config`, and `libbpf` 1.5 or newer. If the installed libbpf is older, use
+the `vendored-libbpf` feature instead of `ebpf`.
 
 To build debug binaries:
 
@@ -51,7 +54,8 @@ You can run `cargo run --bin vey-iploc -- -c vey-iploc/examples/basic/ -vv` to s
 
 ### Listen addresses
 
-Each listen socket is a `server` entry. A `udp` server listens on one UDP address, as a string or the usual listen map. A `unix` server listens on one absolute datagram socket path. At least one server is required.
+Each listen socket is a `server` entry. A `udp` server listens on one UDP address, as a string or the usual listen map.
+A `unix` server listens on one absolute datagram socket path. At least one server is required.
 
 ```yaml
 server:
@@ -66,16 +70,21 @@ server:
     listen: /run/vey-iploc/iploc.sock
 ```
 
-The main runtime stays single-threaded. UDP queries run on workers: one thread and one reuseport socket per worker for every UDP server. Without a `worker` section, each UDP server binds one socket on the main runtime. Unix servers always run on the main runtime.
+The main runtime stays single-threaded. UDP queries run on workers: one thread and one reuseport socket per worker for
+every UDP server. Without a `worker` section, each UDP server binds one socket on the main runtime. Unix servers always
+run on the main runtime.
 
 ```yaml
 worker:
   thread_number: 4
 ```
 
-`thread_number` is the worker count. Leave `thread_number_per_runtime` at its default of 1 so each worker runtime has one thread.
+`thread_number` is the worker count. Leave `thread_number_per_runtime` at its default of 1 so each worker runtime has
+one thread.
 
-`-G` / `--group-name` names the instance. Several processes can run at once when each has its own group and its own config directory. systemd passes the instance name: `vey-iploc@local` starts with `-G local` and reads `/etc/vey-iploc/local/`. The group selects the control socket. It does not change listen addresses.
+`-G` / `--group-name` names the instance. Several processes can run at once when each has its own group and its own
+config directory. systemd passes the instance name: `vey-iploc@local` starts with `-G local` and reads
+`/etc/vey-iploc/local/`. The group selects the control socket. It does not change listen addresses.
 
 ### Reload GeoIP databases
 
@@ -88,9 +97,12 @@ vey-iploc-ctl -G local reload-asn
 vey-iploc-ctl -G local query 1.1.1.1
 ```
 
-`query` looks up one address in the running databases and prints the network, country, continent, ASN, and ISP fields that are set.
+`query` looks up one address in the running databases and prints the network, country, continent, ASN, and ISP fields
+that are set.
 
-`vey-iploc-get` queries a UDP or Unix datagram listen socket. Pass several addresses to query them as one batch. Each address is one datagram. Replies are matched by the IP in the response. An address with no reply is printed as `not found`.
+`vey-iploc-get` queries a UDP or Unix datagram listen socket. Pass several addresses to query them as one batch. Each
+address is one datagram. Replies are matched by the IP in the response. An address with no reply is printed as
+`not found`.
 
 ```shell
 vey-iploc-get 1.1.1.1 8.8.8.8
@@ -98,17 +110,27 @@ vey-iploc-get --udp 127.0.0.1:2888 1.1.1.1
 vey-iploc-get --unix /run/vey-iploc/iploc.sock 1.1.1.1 8.8.8.8
 ```
 
-`reload` re-reads `server` and `geoip_db` from the config file. A changed or new server is started, and a removed server is stopped. Country and ASN files are read completely before they replace the databases used by lookups. A database omitted from the reloaded config is left unchanged. `runtime`, `worker`, `stat`, and `controller` stay as they were at startup.
+`reload` re-reads `server` and `geoip_db` from the config file. A changed or new server is started, and a removed server
+is stopped. Country and ASN files are read completely before they replace the databases used by lookups. A database
+omitted from the reloaded config is left unchanged. `runtime`, `worker`, `stat`, and `controller` stay as they were at
+startup.
 
-`reload-country` and `reload-asn` each re-read one database from the path already stored in this process. The file is read completely before it replaces the database used by lookups. The other database is left unchanged. These commands do not re-read the config file and do not restart servers.
+`reload-country` and `reload-asn` each re-read one database from the path already stored in this process. The file is
+read completely before it replaces the database used by lookups. The other database is left unchanged. These commands do
+not re-read the config file and do not restart servers.
 
 ### Replacing the process
 
-GeoIP data does not need a new process. `reload-country` and `reload-asn` each re-read one configured database file and swap it in. `reload` does that for every database named in the config file, and also applies server config changes.
+GeoIP data does not need a new process. `reload-country` and `reload-asn` each re-read one configured database file and
+swap it in. `reload` does that for every database named in the config file, and also applies server config changes.
 
-To replace the binary, start the new process with the same `-G` and with `-s`, `-d`, or `-m` while the old process is still running. The new process binds the same UDP addresses, takes the control socket, and then shuts the old process down. `vey-proxy` keeps its current query address. Listen changes are applied by `reload` and do not need a new process.
+To replace the binary, start the new process with the same `-G` and with `-s`, `-d`, or `-m` while the old process is
+still running. The new process binds the same UDP addresses, takes the control socket, and then shuts the old process
+down. `vey-proxy` keeps its current query address. Listen changes are applied by `reload` and do not need a new process.
 
-On Linux the packaged build includes the eBPF reuseport selector. A root process attaches it unless a UDP `listen` map sets `use_ebpf: false`. New requests go to the new process. Datagrams already queued on an old socket are read before that socket is closed. A non-root process does not attach the selector unless `use_ebpf` is set.
+On Linux the packaged build includes the eBPF reuseport selector. A root process attaches it unless a UDP `listen` map
+sets `use_ebpf: false`. New requests go to the new process. Datagrams already queued on an old socket are read before
+that socket is closed. A non-root process does not attach the selector unless `use_ebpf` is set.
 
 ## GeoIP Database
 
