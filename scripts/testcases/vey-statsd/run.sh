@@ -20,6 +20,7 @@ export INFLUX_TOKEN="${INFLUXDB3_AUTH_TOKEN}"
 
 wait4x -t 3m http http://127.0.0.1:9090/-/ready --expect-status-code 200
 wait4x -t 3m http http://127.0.0.1:8428/health --expect-status-code 200
+wait4x -t 3m http 'http://127.0.0.1:8088/render?format=json' --expect-status-code 200
 wait4x -t 3m tcp 127.0.0.1:4242
 
 # Docker's published port accepts a TCP handshake before carbon is listening.

@@ -14,6 +14,8 @@ collector:
   - name: aggregate_1s
     type: aggregate
     emit_interval: 200ms
+    join_tags:
+      - host
     exporter: graphite
 
 exporter:

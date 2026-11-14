@@ -16,16 +16,13 @@ PREFIX = "vey.example"
 def fetch(_names=None):
     pairs = [("from", "-5min"), ("format", "json")]
     for name in phase.METRICS:
-        pairs.append(("target", f"{PREFIX}.{name};host={phase.HOST}"))
+        pairs.append(("target", f"{PREFIX}.{name}"))
     raw = phase.http_get(
         "http://127.0.0.1:8088/render?" + urllib.parse.urlencode(pairs)
     )
     found = {name: [] for name in phase.METRICS}
     for series in json.loads(raw):
-        target = series.get("target", "")
-        if "host=web" not in target:
-            continue
-        path = target.split(";", 1)[0]
+        path = series.get("target", "").split(";", 1)[0]
         prefix = f"{PREFIX}."
         if not path.startswith(prefix):
             continue
