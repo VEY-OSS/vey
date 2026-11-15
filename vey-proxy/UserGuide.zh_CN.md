@@ -52,8 +52,8 @@
 
 ## 如何安装
 
-目前只支持Linux系统，并对Debian、RHEL等发行版提供了打包安装支持， 参考[发行&打包步骤](/doc/build_and_package.md)
-完成打包后直接在目标系统上安装即可。
+主要支持 Linux 系统，并对 Debian、RHEL 等发行版提供了打包安装支持（其他目标平台请参阅
+[目标平台](/doc/target_platforms.md)）。参考[发行&打包步骤](/doc/build_and_package.md)完成打包后直接在目标系统上安装即可。
 
 ## 基础概念
 

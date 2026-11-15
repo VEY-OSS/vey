@@ -53,9 +53,9 @@
 
 ## Installation
 
-vey-proxy currently supports Linux only. Packaging is supported for distributions such as Debian and RHEL. After
-building a package by following the [Release and Packaging Steps](/doc/build_and_package.md), install it directly on the
-target system.
+Linux is the primary supported platform, with native packaging for Debian and RHEL derivatives (see
+[Target Platforms](/doc/target_platforms.md) for other target systems). After building a package by following the
+[Release and Packaging Steps](/doc/build_and_package.md), install it directly on the target system.
 
 ## Basic Concepts
 

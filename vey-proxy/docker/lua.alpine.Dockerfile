@@ -32,7 +32,7 @@ COPY --from=builder /usr/src/vey/target/release-lto/vey-proxy-ctl /usr/bin/
 COPY --from=builder /usr/src/vey/target/release-lto/vey-proxy-lua /usr/bin/
 COPY vey-proxy/docker/config/main.yaml /etc/vey-proxy/main.yaml
 LABEL org.opencontainers.image.title="vey-proxy" \
-      org.opencontainers.image.description="Forward, reverse, and transparent proxy with TLS interception and policy controls. The default image listens on 8080 and 1080." \
+      org.opencontainers.image.description="Modular Rust proxy daemon for HTTP/SOCKS forward proxying, HTTP/TLS reverse proxying, TPROXY/SNI transparent proxying, dynamic routing, and TLS/ICAP inspection. Listens on 8080 and 1080 by default." \
       org.opencontainers.image.url="https://github.com/VEY-OSS/vey" \
       org.opencontainers.image.source="https://github.com/VEY-OSS/vey" \
       org.opencontainers.image.documentation="https://github.com/VEY-OSS/vey/blob/main/vey-proxy/docker/README.md" \

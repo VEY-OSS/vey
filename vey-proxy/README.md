@@ -2,18 +2,18 @@
 
 # VEY Proxy
 
-`vey-proxy` is a programmable general-purpose proxy server. It supports controlled outbound access,
-protocol-aware traffic handling, transparent proxy deployments, stream proxying, HTTP and TLS reverse
-proxying, and proxy chaining. It combines multiple ingress server types, flexible egress routing, pluggable
-authentication, DNS control, auditing, structured logging, and metrics export in one service.
+`vey-proxy` is a modular proxy daemon written in async Rust. It unifies HTTP(S) and SOCKS4/5 forward
+proxying, HTTP and TLS reverse proxying, SNI and TPROXY transparent proxying, and TCP/UDP/TLS stream
+proxying in a single hot-reloadable service—combining flexible egress routing, pluggable authentication,
+DNS control, TLS/ICAP inspection, structured logging, and StatsD metrics.
 
 It can be used as:
 
-- a forward proxy for HTTP(S), SOCKS, and mixed client environments
-- a transparent proxy for policy enforcement and selective interception
-- a stream proxy for TCP and TLS services
-- a reverse proxy for HTTP services and TLS streams, with a per-site origin
-- an egress gateway that chooses upstream routes dynamically
+- a forward proxy for HTTP(S), SOCKS4/5, and mixed client environments
+- a reverse proxy for HTTP/1, HTTP/2 over TLS, WebSocket, and TLS services via site groups
+- a transparent proxy (Linux TPROXY, FreeBSD `ipfw`, OpenBSD `pf`, SNI) for policy enforcement and selective interception
+- a stream proxy for TCP, UDP, and TLS services with PROXY Protocol support
+- a programmable egress gateway that chains upstream proxies and routes traffic dynamically by client, host, GeoIP, or external agents
 
 The project is designed around composable modules. Servers accept client traffic, escapers decide how outbound
 connections are made, resolvers control DNS behavior, auth modules define identity and policy, and auditors add
@@ -383,7 +383,7 @@ Routing escapers choose the actual upstream escaper based on routing rules.
 #### Authentication Methods
 
 - Fact-based
-- Basic username/password, check by checked with
+- Basic username/password, verified against
     - Local password records written in user config
     - LDAP simple bind to a remote LDAP server
     - A Python script that can be customized to support all other methods

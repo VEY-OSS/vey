@@ -12,7 +12,9 @@ Package: vey-proxy
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: ca-certificates, systemd
-Description: Forward, reverse, and transparent proxy server
- HTTP and SOCKS forward proxy, transparent TCP/UDP proxy, TCP and TLS
- stream proxy, and HTTP/TLS reverse proxy. Also supports TLS interception,
- ICAP inspection, authentication, ACL, and egress routing.
+Description: Modular Rust proxy server for forward, reverse, transparent, and stream proxying
+ Modular async Rust proxy daemon supporting HTTP(S) and SOCKS4/5 forward
+ proxying, TCP/UDP TPROXY and SNI transparent proxying, TCP/UDP/TLS stream
+ proxying, and HTTP/TLS reverse proxying through site groups. Includes dynamic
+ egress routing, proxy chaining, TLS/TLCP interception, ICAP inspection,
+ authentication, ACLs, and hot reloads.

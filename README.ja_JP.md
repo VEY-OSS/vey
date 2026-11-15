@@ -30,23 +30,24 @@ VEY プロジェクトは複数のアプリケーションで構成されてお�
 
 ### vey-proxy
 
-高機能な汎用プロキシデーモンです。主軸はフォワードプロキシですが、トランスペアレントプロキシ、
-TCP / TLS ストリームプロキシ、HTTP / TLS リバースプロキシ、通信検査、ポリシーベースのリクエスト制御にも
-対応しています。
+非同期 Rust で構築されたモジュラーな汎用プロキシデーモンです。HTTP(S)・SOCKS4/5 フォワードプロキシ、
+HTTP/TLS リバースプロキシ、SNI・TPROXY トランスペアレントプロキシ、TCP/UDP/TLS ストリームプロキシを
+グレースフルリロード対応の単一バイナリに統合し、プログラマブルな出口ルーティング、ユーザー・サイト単位のポリシー制御、
+TLS/TLCP インターセプト、ICAP 検査、StatsD による可観測性を備えています。
 
 #### 主な機能
 
-- 非同期 Rust による高性能実装
-- HTTP/1・SOCKS5 フォワードプロキシ、SNI Proxy、TCP/UDP TPROXY
-- プロキシチェーンと多彩な出口ルート選択方式、カスタム選択エージェントにも対応
-- TCP/UDP/TLS ストリームプロキシ
-- サイトグループに基づく HTTP / TLS リバースプロキシ：HTTP/1、TLS 上の HTTP/2、WebSocket、サイト単位のオリジンと制限
-- OpenSSL / BoringSSL / AWS-LC / AWS-LC-FIPS / Tongsuo / rustls に対応した TLS
-- TLS インターセプト、復号トラフィックの出力、HTTP/1・HTTP/2・IMAP・SMTP の検査
-- 一般的なアプリケーション層検査ワークフロー向けの ICAP 連携
-- 認証、ACL、レート制御、ユーザー単位ポリシーを柔軟に構成可能
-- 入口 / 出口 / ユーザー / ユーザーサイト / リバースプロキシのサイト単位の詳細なメトリクスとログ
-- グレースフルリロードと柔軟なロードバランシング / フェイルオーバー
+- 非同期 Rust による実装とグレースフルリロード・マルチワーカー構成への対応
+- HTTP(S) および SOCKS4/5 フォワードプロキシ（HTTP CONNECT-UDP、SOCKS5 UDP ASSOCIATE を含む）
+- SNI プロキシおよび Linux TPROXY / FreeBSD `ipfw` / OpenBSD `pf` による TCP/UDP トランスペアレントプロキシ
+- プロキシチェーンおよびクライアント IP・宛先ホスト・名前解決 IP・GeoIP・外部ルート選択エージェントによる動的出口ルーティング
+- PROXY Protocol 対応の TCP/UDP/TLS ストリームプロキシ
+- サイトグループに基づく HTTP / TLS リバースプロキシ：HTTP/1、TLS 上の HTTP/2、WebSocket、パッシブヘルスチェック、サイト単位のオリジンとテナント制限
+- OpenSSL / BoringSSL / AWS-LC / AWS-LC-FIPS / Tongsuo（TLCP 対応）/ rustls に対応したマルチスタック TLS
+- TLS/TLCP インターセプト、復号トラフィックの出力、HTTP/1・HTTP/2・IMAP・SMTP の検査
+- アプリケーション層アダプテーション向けの ICAP（`REQMOD` / `RESPMOD`）連携
+- 柔軟な認証（ローカル、LDAP、Lua、Python）、ACL、クォータ、レート・帯域制限、ユーザー単位のサイトポリシー
+- 構造化ログ（journald、syslog、fluentd）および入口・出口・ユーザー・ユーザーサイト・リバースプロキシサイト単位の StatsD メトリクス
 
 [README](vey-proxy/README.md) | [ユーザーガイド](vey-proxy/UserGuide.en_US.md) |
 [リファレンスドキュメント](https://vey.readthedocs.io/projects/proxy/en/latest/)

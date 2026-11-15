@@ -1,12 +1,12 @@
 vey-proxy Documentation
 =======================
 
-``vey-proxy`` is a programmable proxy server that combines multiple server
-entry points, flexible egress routing, pluggable authentication, and detailed
-observability. It supports direct forwarding, upstream proxy chaining,
-transparent proxy deployments, HTTP and TLS reverse proxying through site
-groups, protocol-aware helper services, and a large set of runtime metrics
-and structured logs.
+``vey-proxy`` is a modular async Rust proxy daemon that unifies HTTP(S) and
+SOCKS4/5 forward proxying, HTTP and TLS reverse proxying through site groups,
+SNI and TPROXY transparent proxying, and TCP/UDP/TLS stream proxying in a
+single hot-reloadable service. It combines flexible egress routing, pluggable
+authentication, DNS control, TLS/ICAP inspection, structured logs, and StatsD
+metrics.
 
 This documentation is organized by operational concern so you can move quickly
 from high-level understanding to concrete configuration details:

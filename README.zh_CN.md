@@ -28,22 +28,23 @@ VEY 项目由多个应用组成，每个应用都有独立的子目录，用于�
 
 ### vey-proxy
 
-高功能的通用代理守护进程。它以正向代理为核心，同时支持透明代理、TCP/TLS 流代理、HTTP/TLS 反向代理、
-流量检测以及基于策略的请求处理。
+基于 Async Rust 构建的模块化通用代理守护进程。它将 HTTP(S)/SOCKS4/5 正向代理、HTTP/TLS 反向代理、SNI 与
+TPROXY 透明代理以及 TCP/UDP/TLS 流代理统一在一个支持热重载的二进制中，同时提供可编程出口路由、按用户与按站点精细化策略、TLS/TLCP
+拦截审计、ICAP 适配以及面向 StatsD 的可观测性能力。
 
 #### 主要特性
 
-- 基于 Async Rust 的高性能实现
-- 支持 HTTP/1、SOCKS5 正向代理，以及 SNI Proxy 与 TCP/UDP TPROXY
-- 支持代理串联与多种出口选路方式，也可接入自定义选路 Agent
-- 支持 TCP/UDP/TLS 流代理
-- 支持基于站点组的 HTTP / TLS 反向代理：HTTP/1、TLS 上的 HTTP/2、WebSocket，以及按站点配置源站与限额
-- TLS 支持 OpenSSL、BoringSSL、AWS-LC、AWS-LC-FIPS、Tongsuo 与 rustls
-- 支持 TLS 拦截、解密流量导出，以及 HTTP/1、HTTP/2、IMAP、SMTP 检测
-- 支持面向常见应用层检测流程的 ICAP 集成
-- 提供灵活的认证、ACL、限速限流与按用户细化的策略控制
-- 提供覆盖入口、出口、用户、用户站点、反向代理站点等维度的详细指标与日志
-- 支持优雅重载，以及灵活的负载均衡与故障切换策略
+- 基于 Async Rust 实现，支持优雅热重载与多 Worker 扩展
+- 支持 HTTP(S) 与 SOCKS4/5 正向代理，包含 HTTP CONNECT-UDP 与 SOCKS5 UDP ASSOCIATE
+- 支持 SNI 透明代理，以及基于 Linux TPROXY、FreeBSD `ipfw` 和 OpenBSD `pf` 的 TCP/UDP 透明代理
+- 支持代理串联，以及按客户端 IP、目标主机、解析 IP、GeoIP 或外部选路 Agent 的动态出口路由
+- 支持 TCP/UDP/TLS 流代理与 PROXY Protocol
+- 支持基于站点组的 HTTP / TLS 反向代理：HTTP/1、TLS 上的 HTTP/2、WebSocket、被动健康检查以及按站点配置的源站与租户限额
+- TLS 支持 OpenSSL、BoringSSL、AWS-LC、AWS-LC-FIPS、Tongsuo（含国密 TLCP）与 rustls
+- 支持 TLS/TLCP 拦截、解密流量导出，以及 HTTP/1、HTTP/2、IMAP、SMTP 协议检测
+- 支持面向应用层内容适配的 ICAP（`REQMOD` / `RESPMOD`）集成
+- 支持灵活认证（本地、LDAP、Lua、Python）、ACL、配额、限速限流及按用户细化的站点策略
+- 支持结构化日志（journald、syslog、fluentd）与覆盖入口、出口、用户、用户站点及反向代理站点维度的 StatsD 指标
 
 [详细介绍](vey-proxy/README.md) | [用户指南](vey-proxy/UserGuide.zh_CN.md) |
 [参考文档](https://vey.readthedocs.io/projects/proxy/en/latest/)

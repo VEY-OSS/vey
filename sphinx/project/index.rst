@@ -23,8 +23,9 @@ Follow the links below for the documentation of each application:
 
 * `vey-proxy`_
 
-  A feature-rich general-purpose proxy daemon with forward proxy, transparent
-  proxy, stream proxy, HTTP and TLS reverse proxy, inspection, and
+  A modular async Rust proxy daemon unifying HTTP/SOCKS forward proxying,
+  HTTP and TLS reverse proxying, TPROXY/SNI transparent proxying, TCP/UDP/TLS
+  stream proxying, dynamic egress routing, TLS/ICAP inspection, and
   policy-control capabilities.
 
 * `vey-statsd`_

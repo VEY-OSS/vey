@@ -30,24 +30,25 @@ In addition to the application directories, the repository also includes several
 
 ### vey-proxy
 
-A feature-rich general-purpose proxy daemon. It centers on forward-proxy
-workloads, while also supporting transparent proxying, TCP and TLS stream
-proxying, HTTP and TLS reverse proxying, traffic inspection, and
-policy-driven request handling.
+A modular proxy daemon written in async Rust. It unifies HTTP(S) and SOCKS4/5
+forward proxying, HTTP and TLS reverse proxying, SNI and TPROXY transparent
+proxying, and TCP/UDP/TLS stream proxying in a single hot-reloadable binary—with
+programmable egress routing, per-user and per-site policies, TLS/TLCP
+interception, ICAP inspection, and StatsD observability.
 
 #### Feature highlights
 
-- High-performance async Rust implementation
-- HTTP/1 and SOCKS5 forward proxy support, plus SNI proxy and TCP/UDP TPROXY
-- Proxy chaining and multiple egress-route selection methods, including custom selection agents
-- TCP/UDP/TLS stream proxying
-- HTTP and TLS reverse proxying through site groups: HTTP/1, HTTP/2 over TLS, WebSocket, and per-site origins and limits
-- TLS based on OpenSSL, BoringSSL, AWS-LC, AWS-LC-FIPS, Tongsuo, or rustls
-- TLS interception, decrypted-traffic export, and HTTP/1, HTTP/2, IMAP, and SMTP inspection
-- ICAP integration for common application-layer inspection workflows
-- Rich authentication, ACL, rate-limit, and per-user policy controls
-- Detailed metrics and logging for ingress, egress, user, user-site, and reverse-proxy site dimensions
-- Graceful reload plus flexible load-balancing and failover behavior
+- Async Rust implementation with graceful hot reload and multi-worker scaling
+- HTTP(S) and SOCKS4/5 forward proxy support, including HTTP CONNECT-UDP and SOCKS5 UDP ASSOCIATE
+- SNI transparent proxy and TCP/UDP transparent proxying via Linux TPROXY, FreeBSD `ipfw`, and OpenBSD `pf`
+- Proxy chaining and dynamic egress routing by client IP, target host, resolved IP, GeoIP, or external route-query agents
+- TCP/UDP/TLS stream proxying with PROXY Protocol support
+- HTTP and TLS reverse proxying via site groups: HTTP/1, HTTP/2 over TLS, WebSocket, passive peer health checks, and per-site origins and tenant limits
+- Multi-stack TLS based on OpenSSL, BoringSSL, AWS-LC, AWS-LC-FIPS, Tongsuo (with TLCP), or rustls
+- TLS/TLCP interception, decrypted-traffic export, and HTTP/1, HTTP/2, IMAP, and SMTP inspection
+- ICAP (`REQMOD` / `RESPMOD`) integration for application-layer adaptation
+- Pluggable authentication (local, LDAP, Lua, Python), ACLs, quotas, rate/bandwidth limits, and per-user site policies
+- Structured logging (journald, syslog, fluentd) and StatsD metrics across ingress, egress, user, user-site, and reverse-proxy site dimensions
 
 [README](vey-proxy/README.md) | [User Guide](vey-proxy/UserGuide.en_US.md) |
 [Reference Doc](https://vey.readthedocs.io/projects/proxy/en/latest/)
