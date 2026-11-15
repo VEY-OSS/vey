@@ -31,10 +31,14 @@ pub(crate) struct StreamExportConfig {
 
 impl StreamExportConfig {
     pub(crate) fn new(default_port: u16) -> Self {
+        StreamExportConfig::with_server(Host::empty(), default_port)
+    }
+
+    pub(crate) fn with_server(server: Host, port: u16) -> Self {
         StreamExportConfig {
             exporter: NodeName::default(),
-            server: Host::empty(),
-            port: default_port,
+            server,
+            port,
             resolve_retry_wait: Duration::from_secs(30),
             connect_retry_wait: Duration::from_secs(10),
             peer_s: String::new(),

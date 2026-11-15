@@ -24,7 +24,7 @@ wait4x -t 3m http 'http://127.0.0.1:8088/render?format=json' --expect-status-cod
 wait4x -t 3m tcp 127.0.0.1:4242
 
 # Docker's published port accepts a TCP handshake before carbon is listening.
-python3 "${RUN_DIR}/wait_carbon.py" 127.0.0.1:2003
+python3 "${RUN_DIR}/wait_carbon.py" 127.0.0.1:2003 --render-url http://127.0.0.1:8088/render
 python3 "${RUN_DIR}/wait_carbon.py" 127.0.0.1:20031
 
 create_influx_db()

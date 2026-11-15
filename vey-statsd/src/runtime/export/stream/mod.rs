@@ -56,6 +56,17 @@ where
 
     pub(crate) async fn into_running(mut self) {
         loop {
+            if self.recv_handled >= self.recv_buf.len() {
+                self.recv_buf.clear();
+                self.recv_handled = 0;
+                let n = self
+                    .receiver
+                    .recv_many(&mut self.recv_buf, BATCH_SIZE)
+                    .await;
+                if n == 0 {
+                    break;
+                }
+            }
             match self.config.connect().await {
                 Ok(stream) => self.run_with_stream(stream).await,
                 Err(wait) => self.drop_wait(wait).await,
@@ -142,10 +153,95 @@ where
             );
             // TODO add drop metrics
             self.recv_handled += 1;
-        } else {
-            self.recv_handled += handled;
+            return Ok(());
         }
 
-        writer.write_all_flush(&self.write_buf).await
+        writer.write_all_flush(&self.write_buf).await?;
+        self.recv_handled += handled;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::Ipv4Addr;
+
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use tokio::sync::mpsc;
+
+    use vey_types::metrics::NodeName;
+    use vey_types::net::Host;
+
+    use super::*;
+
+    struct LineExport;
+
+    impl StreamExport for LineExport {
+        type Piece = &'static str;
+
+        fn serialize(&self, pieces: &[&'static str], buf: &mut Vec<u8>) -> usize {
+            for piece in pieces {
+                buf.extend_from_slice(piece.as_bytes());
+            }
+            pieces.len()
+        }
+    }
+
+    #[tokio::test]
+    async fn connects_when_a_batch_is_ready() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (tx, rx) = mpsc::unbounded_channel();
+        let mut config = StreamExportConfig::with_server(Host::localhost_v4(), port);
+        config.check(NodeName::default()).unwrap();
+        let rt = StreamExportRuntime::new(config, LineExport, rx);
+        let run = tokio::spawn(async move { rt.into_running().await });
+
+        let early = tokio::time::timeout(Duration::from_millis(200), listener.accept()).await;
+        assert!(early.is_err(), "connected before a batch was ready");
+
+        tx.send("metric 1 100\n").unwrap();
+        let (mut sock, _) = tokio::time::timeout(Duration::from_secs(2), listener.accept())
+            .await
+            .expect("accept")
+            .unwrap();
+        let mut buf = [0u8; 128];
+        let n = tokio::time::timeout(Duration::from_secs(2), sock.read(&mut buf))
+            .await
+            .expect("write")
+            .unwrap();
+        assert_eq!(&buf[..n], b"metric 1 100\n");
+
+        drop(tx);
+        sock.shutdown().await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), run)
+            .await
+            .expect("runtime exit")
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn retries_unsent_batch_after_write_error() {
+        let mut rt = StreamExportRuntime::new(
+            StreamExportConfig::new(2003),
+            LineExport,
+            mpsc::unbounded_channel().1,
+        );
+        rt.recv_buf.push("metric 1 100\n");
+
+        let (client, server) = tokio::io::duplex(64);
+        drop(server);
+        let mut broken = client;
+        assert!(rt.send_records(&mut broken).await.is_err());
+        assert_eq!(rt.recv_handled, 0);
+
+        let (mut client2, mut server2) = tokio::io::duplex(64);
+        rt.send_records(&mut client2).await.unwrap();
+        assert_eq!(rt.recv_handled, 1);
+
+        let mut buf = [0u8; 64];
+        let n = server2.read(&mut buf).await.unwrap();
+        assert_eq!(&buf[..n], b"metric 1 100\n");
     }
 }

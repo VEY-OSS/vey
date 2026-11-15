@@ -13,9 +13,9 @@ import phase
 PREFIX = "vey.example"
 
 
-def fetch(_names=None):
-    pairs = [("from", "-5min"), ("format", "json")]
-    for name in phase.METRICS:
+def fetch(names=None):
+    pairs = [("from", "-5min"), ("format", "json"), ("noCache", "1")]
+    for name in names or phase.METRICS:
         pairs.append(("target", f"{PREFIX}.{name}"))
     raw = phase.http_get(
         "http://127.0.0.1:8088/render?" + urllib.parse.urlencode(pairs)
