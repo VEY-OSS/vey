@@ -82,14 +82,18 @@ do
 	sleep 2
 
 	TESTCASE_DIR=${dir}
+	export TESTCASE_DIR
 	query_failed=
-	. "${dir}/testcases.sh" || query_failed=1
+	sh -ex "${dir}/testcases.sh" || query_failed=1
 
 	vey_statsd_ctl offline || query_failed=1
 	wait $STATSD_PID || query_failed=1
 	cat "${STATSD_LOG}"
 	rm -f "${STATSD_LOG}"
-	[ -z "$query_failed" ] || exit 1
+	if [ -n "$query_failed" ]; then
+		docker compose -f "${PROJECT_DIR}"/scripts/testcases/vey-statsd/docker-compose.yml logs --tail=100 || true
+		exit 1
+	fi
 done
 
 set +x
