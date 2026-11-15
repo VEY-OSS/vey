@@ -18,8 +18,8 @@ pub trait ServerMetricExt {
 
 impl ServerMetricExt for StatsdTagGroup {
     fn add_server_tags(&mut self, server: &NodeName, online: bool, stat_id: StatId) {
-        let mut buffer = itoa::Buffer::new();
-        let stat_id = buffer.format(stat_id.as_u64());
+        let mut buffer = std::fmt::NumBuffer::new();
+        let stat_id = stat_id.as_u64().format_into(&mut buffer);
 
         self.add_tag(TAG_KEY_SERVER, server);
 

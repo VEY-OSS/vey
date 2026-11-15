@@ -65,41 +65,41 @@ mod tests {
 
         // Invalid UTF-8 sequences
         let result = RecipientParam::parse(b"TO:\xff\xfe<user@example.com>").unwrap_err();
-        assert!(matches!(result, CommandLineError::InvalidUtf8Command(_)));
+        std::assert_matches!(result, CommandLineError::InvalidUtf8Command(_));
 
         let result = RecipientParam::parse(b"TO:<\xff\xfe>").unwrap_err();
-        assert!(matches!(result, CommandLineError::InvalidUtf8Command(_)));
+        std::assert_matches!(result, CommandLineError::InvalidUtf8Command(_));
 
         // No forward path present
         let result = RecipientParam::parse(b"").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             result,
             CommandLineError::InvalidCommandParam("RCPT", "no forward path present")
-        ));
+        );
 
         // Invalid forward path prefix
         let result = RecipientParam::parse(b"<user@example.com>").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             result,
             CommandLineError::InvalidCommandParam("RCPT", "invalid forward path prefix")
-        ));
+        );
 
         let result = RecipientParam::parse(b"FROM:<user@example.com>").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             result,
             CommandLineError::InvalidCommandParam("RCPT", "invalid forward path prefix")
-        ));
+        );
 
         let result = RecipientParam::parse(b"TO:user@example.com>").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             result,
             CommandLineError::InvalidCommandParam("RCPT", "invalid forward path prefix")
-        ));
+        );
 
         let result = RecipientParam::parse(b"TO:<user@example.com").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             result,
             CommandLineError::InvalidCommandParam("RCPT", "invalid forward path prefix")
-        ));
+        );
     }
 }

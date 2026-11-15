@@ -87,7 +87,7 @@ mod test {
         let rule = as_exact_host_rule(&yaml).unwrap();
         let result = rule.check_domain(&literal_domain!("trusted.example.com"));
         assert!(result.0);
-        assert!(matches!(result.1, ProtocolInspectAction::Block));
+        std::assert_matches!(result.1, ProtocolInspectAction::Block);
 
         let yaml = yaml_doc!(
             r#"
@@ -97,7 +97,7 @@ mod test {
         let rule = as_exact_host_rule(&yaml).unwrap();
         let result = rule.check_ip(&IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)));
         assert!(result.0);
-        assert!(matches!(result.1, ProtocolInspectAction::Intercept));
+        std::assert_matches!(result.1, ProtocolInspectAction::Intercept);
 
         let yaml = yaml_doc!(
             r#"
@@ -107,7 +107,7 @@ mod test {
         let rule = as_exact_host_rule(&yaml).unwrap();
         let result = rule.check_ip(&IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)));
         assert!(result.0);
-        assert!(matches!(result.1, ProtocolInspectAction::Bypass))
+        std::assert_matches!(result.1, ProtocolInspectAction::Bypass)
     }
 
     #[test]

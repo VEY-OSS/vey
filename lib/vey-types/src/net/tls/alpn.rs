@@ -357,32 +357,32 @@ mod tests {
     #[test]
     fn parse_error_cases() {
         // NotEnoughData
-        assert!(matches!(
+        std::assert_matches!(
             TlsAlpn::from_extension_value(b""),
             Err(TlsAlpnError::NotEnoughData(0))
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             TlsAlpn::from_extension_value(b"\x00"),
             Err(TlsAlpnError::NotEnoughData(1))
-        ));
+        );
 
         // InvalidListLength
-        assert!(matches!(
+        std::assert_matches!(
             TlsAlpn::from_extension_value(b"\x00\x03ab"),
             Err(TlsAlpnError::InvalidListLength(3))
-        )); // Actual length=2
+        ); // Actual length=2
 
         // EmptyProtocolName
-        assert!(matches!(
+        std::assert_matches!(
             TlsAlpn::from_extension_value(b"\x00\x01\x00"),
             Err(TlsAlpnError::EmptyProtocolName)
-        ));
+        );
 
         // TruncatedProtocolName
-        assert!(matches!(
+        std::assert_matches!(
             TlsAlpn::from_extension_value(b"\x00\x02\x02h"),
             Err(TlsAlpnError::TruncatedProtocolName)
-        ));
+        );
     }
 
     #[test]

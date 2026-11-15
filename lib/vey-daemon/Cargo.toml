@@ -19,7 +19,6 @@ slog = { workspace = true, features = ["max_level_trace", "release_max_level_inf
 async-trait.workspace = true
 saphyr.workspace = true
 foldhash.workspace = true
-itoa.workspace = true
 capnp.workspace = true
 capnp-rpc.workspace = true
 rand.workspace = true

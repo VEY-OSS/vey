@@ -49,8 +49,8 @@ trait ResolverMetricExt {
 
 impl ResolverMetricExt for StatsdTagGroup {
     fn add_resolver_tags(&mut self, resolver: &NodeName, stat_id: StatId) {
-        let mut buffer = itoa::Buffer::new();
-        let stat_id = buffer.format(stat_id.as_u64());
+        let mut buffer = std::fmt::NumBuffer::new();
+        let stat_id = stat_id.as_u64().format_into(&mut buffer);
         self.add_tag(TAG_KEY_RESOLVER, resolver);
         self.add_tag(TAG_KEY_STAT_ID, stat_id);
     }

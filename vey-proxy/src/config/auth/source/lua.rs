@@ -72,7 +72,7 @@ impl UserDynamicLuaSource {
     }
 
     fn check(&self) -> anyhow::Result<()> {
-        if self.fetch_script.as_os_str().is_empty() {
+        if self.fetch_script.is_empty() {
             return Err(anyhow!("no fetch script is set"));
         }
 

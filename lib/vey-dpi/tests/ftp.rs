@@ -49,7 +49,7 @@ fn port21_200_invalid_response() {
 fn port21_220_missing_newline() {
     const DATA: &[u8] = b"220 Server ready";
     let result = check_ftp_greeting(DATA, 21);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn port21_220_invalid_suffix() {
 fn insufficient_data_less_than_min() {
     const DATA: &[u8] = b"123";
     let result = check_ftp_greeting(DATA, 21);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(3))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(3)));
 }
 
 // Test protocol exclusion through behavior

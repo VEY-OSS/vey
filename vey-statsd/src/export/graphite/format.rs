@@ -4,12 +4,12 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::fmt::NumBuffer;
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::AHashMap;
-use itoa::Buffer;
 use jiff::Timestamp;
 use tokio::sync::mpsc;
 
@@ -61,8 +61,8 @@ impl GraphitePlaintextAggregateExport {
             let _ = write!(self.buf, ";{}", tags.display_graphite());
         }
         let _ = write!(self.buf, " {value}");
-        let mut ts_buffer = Buffer::new();
-        let ts = ts_buffer.format(time.as_second());
+        let mut ts_buffer = NumBuffer::new();
+        let ts = time.as_second().format_into(&mut ts_buffer);
         self.buf.push(b' ');
         self.buf.extend_from_slice(ts.as_bytes());
         self.buf.push(b'\n');

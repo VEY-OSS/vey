@@ -161,16 +161,13 @@ mod tests {
         let uri = Uri::from_static("ws://example.com/path");
         let result = uri.get_upstream_and_protocol().unwrap_err();
 
-        assert!(matches!(result, HttpRequestParseError::UnsupportedScheme));
+        std::assert_matches!(result, HttpRequestParseError::UnsupportedScheme);
 
         // Invalid request target
         let uri = Uri::from_static("/path");
         let result = uri.get_upstream_and_protocol().unwrap_err();
 
-        assert!(matches!(
-            result,
-            HttpRequestParseError::InvalidRequestTarget
-        ));
+        std::assert_matches!(result, HttpRequestParseError::InvalidRequestTarget);
     }
 
     #[test]
@@ -223,10 +220,7 @@ mod tests {
         let uri = Uri::from_static("/path");
         let result = uri.get_upstream_with_default_port(80).unwrap_err();
 
-        assert!(matches!(
-            result,
-            HttpRequestParseError::InvalidRequestTarget
-        ));
+        std::assert_matches!(result, HttpRequestParseError::InvalidRequestTarget);
     }
 
     #[test]
@@ -282,16 +276,16 @@ mod tests {
         assert!(uri.get_optional_http_https_upstream().unwrap().is_none());
 
         let uri = Uri::from_static("ftp://example.com/path");
-        assert!(matches!(
+        std::assert_matches!(
             uri.get_optional_http_https_upstream().unwrap_err(),
             HttpRequestParseError::UnsupportedScheme
-        ));
+        );
 
         let uri = Uri::from_static("ws://example.com/path");
-        assert!(matches!(
+        std::assert_matches!(
             uri.get_optional_http_https_upstream().unwrap_err(),
             HttpRequestParseError::UnsupportedScheme
-        ));
+        );
     }
 
     #[test]
@@ -326,33 +320,21 @@ mod tests {
         let uri = Uri::from_static("http://example.com/other-path/udp/192.168.1.1/53");
         let result = uri.get_connect_udp_upstream().unwrap_err();
 
-        assert!(matches!(
-            result,
-            HttpRequestParseError::InvalidRequestTarget
-        ));
+        std::assert_matches!(result, HttpRequestParseError::InvalidRequestTarget);
 
         let uri = Uri::from_static("http://example.com/.well-known/masque/udp//53");
         let result = uri.get_connect_udp_upstream().unwrap_err();
 
-        assert!(matches!(
-            result,
-            HttpRequestParseError::InvalidRequestTarget
-        ));
+        std::assert_matches!(result, HttpRequestParseError::InvalidRequestTarget);
 
         let uri = Uri::from_static("http://example.com/.well-known/masque/udp/192.168.1.1/");
         let result = uri.get_connect_udp_upstream().unwrap_err();
 
-        assert!(matches!(
-            result,
-            HttpRequestParseError::InvalidRequestTarget
-        ));
+        std::assert_matches!(result, HttpRequestParseError::InvalidRequestTarget);
 
         let uri = Uri::from_static("http://example.com/.well-known/masque/udp/192.168.1.1/invalid");
         let result = uri.get_connect_udp_upstream().unwrap_err();
 
-        assert!(matches!(
-            result,
-            HttpRequestParseError::InvalidRequestTarget
-        ));
+        std::assert_matches!(result, HttpRequestParseError::InvalidRequestTarget);
     }
 }

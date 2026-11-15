@@ -57,7 +57,7 @@ mod tests {
         rt.block_on(async {
             let mut retry = RetryLater::default();
             poll_fn(|cx| {
-                assert!(matches!(retry.poll(cx), Poll::Pending));
+                std::assert_matches!(retry.poll(cx), Poll::Pending);
                 Poll::Ready(())
             })
             .await;

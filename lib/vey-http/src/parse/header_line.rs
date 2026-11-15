@@ -52,11 +52,11 @@ mod tests {
         // Invalid UTF-8 sequence
         let invalid_utf8 = b"name\xff: value";
         let err = HttpHeaderLine::parse(invalid_utf8).unwrap_err();
-        assert!(matches!(err, HttpLineParseError::InvalidUtf8Encoding(_)));
+        std::assert_matches!(err, HttpLineParseError::InvalidUtf8Encoding(_));
 
         // Missing colon delimiter
         let no_colon = b"name value";
         let err = HttpHeaderLine::parse(no_colon).unwrap_err();
-        assert!(matches!(err, HttpLineParseError::NoDelimiterFound(':')));
+        std::assert_matches!(err, HttpLineParseError::NoDelimiterFound(':'));
     }
 }

@@ -105,8 +105,7 @@ impl LdapUserGroupConfig {
                 let host = Host::try_from(host).context("invalid ldap url host")?;
                 let port = url.port().unwrap_or(default_port);
                 self.server = UpstreamAddr::new(host, port);
-                let path = url.path();
-                let encoded_dn = path.strip_prefix("/").unwrap_or(path);
+                let encoded_dn = url.path().trim_prefix('/');
                 let base_dn = percent_encoding::percent_decode_str(encoded_dn)
                     .decode_utf8()
                     .map_err(|e| anyhow!("the base dn is not valid utf-8 string: {e}"))?;

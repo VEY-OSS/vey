@@ -61,7 +61,7 @@ fn insufficient_data() {
     const DATA: &[u8] = b"GET / HTTP/1.1\r\nH";
 
     let result = inspector.check_client_initial_data(&config, 80, DATA);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 }
 
 #[test]

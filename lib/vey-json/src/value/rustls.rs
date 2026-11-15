@@ -336,7 +336,7 @@ mod tests {
         // Valid private key
         let value = json!(TEST_KEY1_PEM);
         let key = as_rustls_private_key(&value).unwrap();
-        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
+        std::assert_matches!(key, PrivateKeyDer::Pkcs8(_));
     }
 
     #[test]

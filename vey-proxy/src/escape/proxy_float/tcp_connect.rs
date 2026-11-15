@@ -67,8 +67,7 @@ impl ProxyFloatEscaper {
         let bind = bind_ip.map(BindAddr::Ip).unwrap_or_else(|| {
             self.config
                 .bind_interface
-                .map(BindAddr::Interface)
-                .unwrap_or_default()
+                .map_or_default(BindAddr::Interface)
         });
         #[cfg(not(any(
             target_os = "linux",
@@ -77,7 +76,7 @@ impl ProxyFloatEscaper {
             target_os = "illumos",
             target_os = "solaris"
         )))]
-        let bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
+        let bind = bind_ip.map_or_default(BindAddr::Ip);
         egress_notes.bind = bind;
         egress_notes.set_expire(peer.expire_datetime(), peer.expire_instant());
         egress_notes.egress = Some(peer.egress_info());

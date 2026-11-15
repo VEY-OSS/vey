@@ -489,7 +489,7 @@ mod tests {
         for code in timeout_codes {
             let response = HttpConnectResponse::new(code, "Timeout".to_string());
             let err = response.detect_error().unwrap_err();
-            assert!(matches!(err, HttpConnectError::PeerTimeout(_)));
+            std::assert_matches!(err, HttpConnectError::PeerTimeout(_));
         }
 
         // Other error status codes
@@ -497,7 +497,7 @@ mod tests {
         for code in error_codes {
             let response = HttpConnectResponse::new(code, "Error".to_string());
             let err = response.detect_error().unwrap_err();
-            assert!(matches!(err, HttpConnectError::UnexpectedStatusCode(_, _)));
+            std::assert_matches!(err, HttpConnectError::UnexpectedStatusCode(_, _));
         }
     }
 
@@ -541,7 +541,7 @@ mod tests {
         let err = HttpConnectResponse::parse(&mut reader, 1024)
             .await
             .unwrap_err();
-        assert!(matches!(err, HttpConnectError::RemoteClosed));
+        std::assert_matches!(err, HttpConnectError::RemoteClosed);
     }
 
     #[tokio::test]
@@ -555,7 +555,7 @@ mod tests {
         let err = HttpConnectResponse::parse(&mut reader, 100)
             .await
             .unwrap_err();
-        assert!(matches!(err, HttpConnectError::InvalidResponse(_)));
+        std::assert_matches!(err, HttpConnectError::InvalidResponse(_));
     }
 
     #[tokio::test]
@@ -567,7 +567,7 @@ mod tests {
         let err = HttpConnectResponse::parse(&mut reader, 1024)
             .await
             .unwrap_err();
-        assert!(matches!(err, HttpConnectError::InvalidResponse(_)));
+        std::assert_matches!(err, HttpConnectError::InvalidResponse(_));
     }
 
     #[tokio::test]
@@ -579,7 +579,7 @@ mod tests {
         let err = HttpConnectResponse::parse(&mut reader, 1024)
             .await
             .unwrap_err();
-        assert!(matches!(err, HttpConnectError::InvalidResponse(_)));
+        std::assert_matches!(err, HttpConnectError::InvalidResponse(_));
     }
 
     #[tokio::test]
@@ -603,10 +603,7 @@ mod tests {
         let err = HttpConnectResponse::recv(&mut reader, 1024)
             .await
             .unwrap_err();
-        assert!(matches!(
-            err,
-            HttpConnectError::UnexpectedStatusCode(404, _)
-        ));
+        std::assert_matches!(err, HttpConnectError::UnexpectedStatusCode(404, _));
     }
 
     #[tokio::test]
@@ -618,7 +615,7 @@ mod tests {
         let err = HttpConnectResponse::recv(&mut reader, 1024)
             .await
             .unwrap_err();
-        assert!(matches!(err, HttpConnectError::PeerTimeout(504)));
+        std::assert_matches!(err, HttpConnectError::PeerTimeout(504));
     }
 
     #[tokio::test]
@@ -645,9 +642,9 @@ mod tests {
         let err = HttpConnectResponse::recv(&mut reader, 1024)
             .await
             .unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             err,
             HttpConnectError::InvalidResponse(HttpConnectResponseError::InvalidContentLength)
-        ));
+        );
     }
 }

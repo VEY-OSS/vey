@@ -132,7 +132,7 @@ mod tests {
 
         let other = File::open(&path).unwrap();
         let err = other.try_lock().unwrap_err();
-        assert!(matches!(err, TryLockError::WouldBlock));
+        std::assert_matches!(err, TryLockError::WouldBlock);
     }
 
     struct PidFileCleanup<'a>(&'a Path);

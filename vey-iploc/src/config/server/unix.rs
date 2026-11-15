@@ -61,7 +61,7 @@ impl UnixServerConfig {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
         }
-        if self.listen.as_os_str().is_empty() {
+        if self.listen.is_empty() {
             return Err(anyhow!("listen path is not set"));
         }
         Ok(())

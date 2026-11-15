@@ -1,7 +1,7 @@
 FROM gcr.io/oss-fuzz-base/base-builder-rust
 
 # base-builder-rust pins RUSTUP_TOOLCHAIN=nightly-2025-09-05 (rustc 1.91.0-nightly).
-# Cargo rejects that compiler because these crates set rust-version = "1.95.0".
+# Cargo rejects that compiler because these crates set rust-version = "1.100.0".
 # Follow the nightly channel instead, and make it the default so the OSS-Fuzz
 # compile script copies libstd sources from the same toolchain.
 ENV RUSTUP_TOOLCHAIN=nightly

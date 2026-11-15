@@ -102,11 +102,7 @@ mod ossl3 {
                     Arc::as_ptr(waker).cast::<c_void>().cast_mut(),
                 )
             };
-            if r != 1 {
-                Err(ErrorStack::get())
-            } else {
-                Ok(())
-            }
+            (r == 1).ok_or_else(ErrorStack::get)
         }
 
         pub fn get_callback_status(&self) -> c_int {

@@ -232,7 +232,7 @@ fn parse_duration(text: &str) -> anyhow::Result<Duration> {
             .with_context(|| format!("invalid millisecond duration {text}"))?;
         return Ok(Duration::from_millis(n));
     }
-    let seconds = text.strip_suffix('s').unwrap_or(text);
+    let seconds = text.trim_suffix('s');
     let n: f64 = seconds
         .parse()
         .with_context(|| format!("invalid duration {text}"))?;

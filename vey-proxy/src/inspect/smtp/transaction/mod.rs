@@ -884,7 +884,7 @@ mod tests {
             ups_in.write_all(b"550 no\r\n").await.unwrap();
         };
         let (status, _) = tokio::join!(intercept, drive);
-        assert!(matches!(status, Err(ServerTaskError::UpstreamAppError(_))));
+        std::assert_matches!(status, Err(ServerTaskError::UpstreamAppError(_)));
     }
 
     #[tokio::test]

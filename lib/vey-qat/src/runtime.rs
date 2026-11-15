@@ -419,10 +419,10 @@ mod tests {
 
         let waker = Waker::noop();
         let mut cx = Context::from_waker(waker);
-        assert!(matches!(
+        std::assert_matches!(
             std::pin::pin!(shared.shutdown.notified()).poll(&mut cx),
             Poll::Ready(())
-        ));
+        );
         assert!(shared.should_exit());
     }
 }

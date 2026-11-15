@@ -271,9 +271,6 @@ impl UdpStreamTask {
                             clt_w.inner_mut().close().await;
                             Err(e.into())
                         }
-                        Err(UdpMoveError::SendError(())) => {
-                            Err(ServerTaskError::InternalServerError("the client side packet sender shouldn't return any error"))
-                        }
                         Err(UdpMoveError::SendZero) => Err(ServerTaskError::ClosedByClient),
                     };
                 }

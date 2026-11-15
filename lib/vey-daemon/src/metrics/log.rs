@@ -23,8 +23,8 @@ pub(crate) trait LoggerMetricExt {
 
 impl LoggerMetricExt for StatsdTagGroup {
     fn add_logger_tags(&mut self, logger: &str, stat_id: StatId) {
-        let mut buffer = itoa::Buffer::new();
-        let stat_id = buffer.format(stat_id.as_u64());
+        let mut buffer = std::fmt::NumBuffer::new();
+        let stat_id = stat_id.as_u64().format_into(&mut buffer);
 
         self.add_tag(TAG_KEY_LOGGER, logger);
         self.add_tag(TAG_KEY_STAT_ID, stat_id);

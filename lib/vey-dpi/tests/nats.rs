@@ -38,7 +38,7 @@ fn insufficient_data() {
     // Data length < MINIMUM_DATA_LEN(10)
     const DATA: &[u8] = b"INFO {";
     let result = check_nats_data(DATA, 4222, None);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(4))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(4)));
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn missing_newline() {
     // No newline at end (within size limit)
     const DATA: &[u8] = b"INFO {\"test\":1}";
     let result = check_nats_data(DATA, 4222, None);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 }
 
 #[test]

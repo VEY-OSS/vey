@@ -513,7 +513,7 @@ mod tests {
             buf[..n].to_vec()
         };
         let (status, to_client) = tokio::join!(intercept, drive);
-        assert!(matches!(status, Err(ServerTaskError::ClosedByClient)));
+        std::assert_matches!(status, Err(ServerTaskError::ClosedByClient));
         assert_eq!(to_client, b"503 Bad sequence of commands\r\n");
         drop(ups_w);
         let mut forwarded = Vec::new();

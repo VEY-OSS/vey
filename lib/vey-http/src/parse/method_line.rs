@@ -80,38 +80,38 @@ mod tests {
     fn invalid_utf8() {
         let data = b"GET /\xFF HTTP/1.1";
         let err = HttpMethodLine::parse(data).unwrap_err();
-        assert!(matches!(err, HttpLineParseError::InvalidUtf8Encoding(_)));
+        std::assert_matches!(err, HttpLineParseError::InvalidUtf8Encoding(_));
     }
 
     #[test]
     fn missing_first_space() {
         let data = b"GET/index.html HTTP/1.1";
         let err = HttpMethodLine::parse(data).unwrap_err();
-        assert!(matches!(err, HttpLineParseError::NoDelimiterFound(' ')));
+        std::assert_matches!(err, HttpLineParseError::NoDelimiterFound(' '));
     }
 
     #[test]
     fn missing_second_space() {
         let data = b"GET /index.htmlHTTP/1.1";
         let err = HttpMethodLine::parse(data).unwrap_err();
-        assert!(matches!(err, HttpLineParseError::NoDelimiterFound(' ')));
+        std::assert_matches!(err, HttpLineParseError::NoDelimiterFound(' '));
     }
 
     #[test]
     fn invalid_version() {
         let data = b"GET / HTP/1.1";
         let err = HttpMethodLine::parse(data).unwrap_err();
-        assert!(matches!(err, HttpLineParseError::InvalidVersion));
+        std::assert_matches!(err, HttpLineParseError::InvalidVersion);
 
         let data = b"GET / HTTP/3.0";
         let err = HttpMethodLine::parse(data).unwrap_err();
-        assert!(matches!(err, HttpLineParseError::InvalidVersion));
+        std::assert_matches!(err, HttpLineParseError::InvalidVersion);
     }
 
     #[test]
     fn empty_input() {
         let data = b"";
         let err = HttpMethodLine::parse(data).unwrap_err();
-        assert!(matches!(err, HttpLineParseError::NoDelimiterFound(' ')));
+        std::assert_matches!(err, HttpLineParseError::NoDelimiterFound(' '));
     }
 }

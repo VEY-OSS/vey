@@ -50,7 +50,6 @@ memchr.workspace = true
 arc-swap.workspace = true
 capnp-rpc.workspace = true
 capnp.workspace = true
-itoa.workspace = true
 redis = { workspace = true, features = ["aio", "tokio-comp"] }
 ascii.workspace = true
 ahash.workspace = true

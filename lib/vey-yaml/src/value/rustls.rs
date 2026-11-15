@@ -446,12 +446,12 @@ mod tests {
         // single PEM string
         let yaml = yaml_str!(TEST_KEY_PEM);
         let key = as_rustls_private_key(&yaml, None).unwrap();
-        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
+        std::assert_matches!(key, PrivateKeyDer::Pkcs8(_));
 
         // file path
         let yaml = Yaml::load_from_str(&format!("|-\n  {}", key_path.display())).unwrap();
         let key = as_rustls_private_key(&yaml[0], Some(temp_dir.path())).unwrap();
-        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
+        std::assert_matches!(key, PrivateKeyDer::Pkcs8(_));
     }
 
     #[test]

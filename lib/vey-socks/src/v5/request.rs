@@ -156,9 +156,6 @@ mod tests {
             upstream,
         };
         let result = request.udp_peer_addr().unwrap_err();
-        assert!(matches!(
-            result,
-            SocksRequestParseError::InvalidUdpPeerAddress
-        ));
+        std::assert_matches!(result, SocksRequestParseError::InvalidUdpPeerAddress);
     }
 }

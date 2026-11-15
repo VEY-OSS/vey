@@ -50,8 +50,7 @@ impl ProxyFloatRedisSource {
             let upstream = UpstreamAddr::from_host_str_and_port(host, port)?;
             let mut config = ProxyFloatRedisSource::new(upstream);
 
-            let path = url.path();
-            let db_str = path.strip_prefix('/').unwrap_or(path);
+            let db_str = url.path().trim_prefix('/');
             if !db_str.is_empty() {
                 let db = i64::from_str(db_str)
                     .map_err(|_| anyhow!("the path should be a valid redis db number"))?;

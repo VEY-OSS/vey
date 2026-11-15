@@ -65,19 +65,19 @@ mod tests {
         #[test]
         fn invalid_host() {
             let err = HttpMasque::new_udp("::invalid::", "8080").unwrap_err();
-            assert!(matches!(err, UriParseError::NotValidHost("target_host")));
+            std::assert_matches!(err, UriParseError::NotValidHost("target_host"));
         }
 
         #[test]
         fn invalid_port_non_number() {
             let err = HttpMasque::new_udp("example.com", "not_a_port").unwrap_err();
-            assert!(matches!(err, UriParseError::NotValidPort("target_port")));
+            std::assert_matches!(err, UriParseError::NotValidPort("target_port"));
         }
 
         #[test]
         fn invalid_port_out_of_range() {
             let err = HttpMasque::new_udp("example.com", "65536").unwrap_err();
-            assert!(matches!(err, UriParseError::NotValidPort("target_port")));
+            std::assert_matches!(err, UriParseError::NotValidPort("target_port"));
         }
     }
 
@@ -87,25 +87,25 @@ mod tests {
         #[test]
         fn wildcard_host_and_proto() {
             let result = HttpMasque::new_ip("*", "*").unwrap();
-            assert!(matches!(result, HttpMasque::Ip(None, None)));
+            std::assert_matches!(result, HttpMasque::Ip(None, None));
         }
 
         #[test]
         fn valid_host_and_proto() {
             let result = HttpMasque::new_ip("example.com", "6").unwrap();
-            assert!(matches!(result, HttpMasque::Ip(Some(_), Some(6))));
+            std::assert_matches!(result, HttpMasque::Ip(Some(_), Some(6)));
         }
 
         #[test]
         fn invalid_host_non_wildcard() {
             let result = HttpMasque::new_ip("::invalid::", "*").unwrap_err();
-            assert!(matches!(result, UriParseError::NotValidHost("target")));
+            std::assert_matches!(result, UriParseError::NotValidHost("target"));
         }
 
         #[test]
         fn invalid_proto_non_wildcard() {
             let result = HttpMasque::new_ip("*", "not_a_number").unwrap_err();
-            assert!(matches!(result, UriParseError::NotValidProtocol("ipproto")));
+            std::assert_matches!(result, UriParseError::NotValidProtocol("ipproto"));
         }
     }
 }

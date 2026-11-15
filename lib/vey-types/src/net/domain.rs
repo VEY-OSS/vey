@@ -177,7 +177,7 @@ mod tests {
     #[test]
     fn parse_err() {
         let e = DomainName::from_str("").unwrap_err();
-        assert!(matches!(e, DomainNameParseError::Empty));
+        std::assert_matches!(e, DomainNameParseError::Empty);
     }
 
     #[test]

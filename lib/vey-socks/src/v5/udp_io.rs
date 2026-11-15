@@ -279,39 +279,39 @@ mod tests {
 
     #[test]
     fn parse_header_rejects_malformed_packets() {
-        assert!(matches!(
+        std::assert_matches!(
             UdpInput::parse_header(&[0; 8]),
             Err(SocksUdpPacketError::TooSmallPacket)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             UdpInput::parse_header(&[1, 0, 0, 1, 127, 0, 0, 1, 0, 80]),
             Err(SocksUdpPacketError::ReservedNotZeroed)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             UdpInput::parse_header(&[0, 0, 1, 1, 127, 0, 0, 1, 0, 80]),
             Err(SocksUdpPacketError::FragmentNotSupported)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             UdpInput::parse_header(&[0, 0, 0, 0xff, 127, 0, 0, 1, 0, 80]),
             Err(SocksUdpPacketError::InvalidAddrType)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             UdpInput::parse_header(&[0, 0, 0, 3, 4, b't', b'e', b's']),
             Err(SocksUdpPacketError::TooSmallPacket)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             UdpInput::parse_header(&[0, 0, 0, 3, 1, 0xff, 0, 0, 80]),
             Err(SocksUdpPacketError::InvalidDomainString)
-        ));
+        );
         // Truncated IPv4 / domain headers must be rejected when parsed against the
         // received length (not the full socket buffer capacity).
-        assert!(matches!(
+        std::assert_matches!(
             UdpInput::parse_header(&[0, 0, 0, 1, 0xaa, 0xbb, 0xcc, 0xdd, 0xee]),
             Err(SocksUdpPacketError::TooSmallPacket)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             UdpInput::parse_header(&[0, 0, 0, 3, 0x40]),
             Err(SocksUdpPacketError::TooSmallPacket)
-        ));
+        );
     }
 }

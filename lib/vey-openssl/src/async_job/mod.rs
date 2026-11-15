@@ -27,11 +27,7 @@ pub fn async_is_capable() -> bool {
 
 pub fn async_thread_init(max_size: usize, init_size: usize) -> Result<(), ErrorStack> {
     let r = unsafe { ffi::ASYNC_init_thread(max_size, init_size) };
-    if r == 1 {
-        Ok(())
-    } else {
-        Err(ErrorStack::get())
-    }
+    (r == 1).ok_or_else(ErrorStack::get)
 }
 
 pub fn async_thread_cleanup() {

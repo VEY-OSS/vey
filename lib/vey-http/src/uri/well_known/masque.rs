@@ -62,40 +62,31 @@ mod tests {
     #[test]
     fn missing_segment() {
         let err = setup_parser("/.well-known/masque/").unwrap_err();
-        assert!(matches!(
-            err,
-            UriParseError::RequiredFieldNotFound("segment")
-        ));
+        std::assert_matches!(err, UriParseError::RequiredFieldNotFound("segment"));
     }
 
     #[test]
     fn udp_missing_host() {
         let err = setup_parser("/.well-known/masque/udp/").unwrap_err();
-        assert!(matches!(
-            err,
-            UriParseError::RequiredFieldNotFound("target_host")
-        ));
+        std::assert_matches!(err, UriParseError::RequiredFieldNotFound("target_host"));
     }
 
     #[test]
     fn udp_invalid_host() {
         let err = setup_parser("/.well-known/masque/udp/::invalid::/443/").unwrap_err();
-        assert!(matches!(err, UriParseError::NotValidHost("target_host")));
+        std::assert_matches!(err, UriParseError::NotValidHost("target_host"));
     }
 
     #[test]
     fn udp_missing_port() {
         let err = setup_parser("/.well-known/masque/udp/example.com/").unwrap_err();
-        assert!(matches!(
-            err,
-            UriParseError::RequiredFieldNotFound("target_port")
-        ));
+        std::assert_matches!(err, UriParseError::RequiredFieldNotFound("target_port"));
     }
 
     #[test]
     fn udp_invalid_port() {
         let err = setup_parser("/.well-known/masque/udp/example.com/not_number/").unwrap_err();
-        assert!(matches!(err, UriParseError::NotValidPort("target_port")));
+        std::assert_matches!(err, UriParseError::NotValidPort("target_port"));
     }
 
     #[test]
@@ -121,31 +112,25 @@ mod tests {
     #[test]
     fn ip_missing_target() {
         let err = setup_parser("/.well-known/masque/ip/").unwrap_err();
-        assert!(matches!(
-            err,
-            UriParseError::RequiredFieldNotFound("target")
-        ));
+        std::assert_matches!(err, UriParseError::RequiredFieldNotFound("target"));
     }
 
     #[test]
     fn ip_invalid_target() {
         let err = setup_parser("/.well-known/masque/ip/::invalid::/17/").unwrap_err();
-        assert!(matches!(err, UriParseError::NotValidHost("target")));
+        std::assert_matches!(err, UriParseError::NotValidHost("target"));
     }
 
     #[test]
     fn ip_missing_proto() {
         let err = setup_parser("/.well-known/masque/ip/example.com/").unwrap_err();
-        assert!(matches!(
-            err,
-            UriParseError::RequiredFieldNotFound("ipproto")
-        ));
+        std::assert_matches!(err, UriParseError::RequiredFieldNotFound("ipproto"));
     }
 
     #[test]
     fn ip_invalid_proto() {
         let err = setup_parser("/.well-known/masque/ip/example.com/not_number/").unwrap_err();
-        assert!(matches!(err, UriParseError::NotValidProtocol("ipproto")));
+        std::assert_matches!(err, UriParseError::NotValidProtocol("ipproto"));
     }
 
     #[test]

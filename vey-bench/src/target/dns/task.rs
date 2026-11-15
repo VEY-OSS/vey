@@ -28,13 +28,12 @@ unsafe impl Sync for LocalRequestPicker {}
 
 impl LocalRequestPicker {
     fn set_id(&self, v: usize) {
-        let p = unsafe { &mut *self.id.get() };
+        let p = unsafe { self.id.as_mut_unchecked() };
         *p = v;
     }
 
     fn get_id(&self) -> usize {
-        let p = unsafe { &*self.id.get() };
-        *p
+        unsafe { *self.id.as_ref_unchecked() }
     }
 }
 

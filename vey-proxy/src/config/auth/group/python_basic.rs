@@ -51,7 +51,7 @@ impl PythonBasicUserGroupConfig {
     }
 
     fn check(&self) -> anyhow::Result<()> {
-        if self.script_file.as_os_str().is_empty() {
+        if self.script_file.is_empty() {
             return Err(anyhow!("no script is set"));
         }
 

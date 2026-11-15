@@ -31,8 +31,7 @@ where
 {
     let path = args
         .get_one::<String>(COMMAND_ARG_PATH)
-        .map(|s| s.as_str())
-        .unwrap_or_default();
+        .map_or_default(|s| s.as_str());
 
     client.remove_dir(path).await?;
 

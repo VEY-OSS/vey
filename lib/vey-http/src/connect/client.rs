@@ -100,7 +100,7 @@ mod tests {
         let err = http_connect_to(&mut stream, &auth, &addr)
             .await
             .unwrap_err();
-        assert!(matches!(err, HttpConnectError::WriteFailed(_)));
+        std::assert_matches!(err, HttpConnectError::WriteFailed(_));
     }
 
     #[tokio::test]
@@ -122,7 +122,7 @@ mod tests {
         let err = http_connect_to(&mut stream, &auth, &addr)
             .await
             .unwrap_err();
-        assert!(matches!(err, HttpConnectError::ReadFailed(_)));
+        std::assert_matches!(err, HttpConnectError::ReadFailed(_));
     }
 
     #[tokio::test]
@@ -141,9 +141,6 @@ mod tests {
         let err = http_connect_to(&mut stream, &auth, &addr)
             .await
             .unwrap_err();
-        assert!(matches!(
-            err,
-            HttpConnectError::UnexpectedStatusCode(404, _)
-        ));
+        std::assert_matches!(err, HttpConnectError::UnexpectedStatusCode(404, _));
     }
 }

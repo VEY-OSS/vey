@@ -53,8 +53,7 @@ impl ProxySocks5Escaper {
             egress_notes.bind = bind_ip.map(BindAddr::Ip).unwrap_or_else(|| {
                 self.config
                     .bind_interface
-                    .map(BindAddr::Interface)
-                    .unwrap_or_default()
+                    .map_or_default(BindAddr::Interface)
             });
         }
         #[cfg(not(any(
@@ -65,7 +64,7 @@ impl ProxySocks5Escaper {
             target_os = "solaris"
         )))]
         {
-            egress_notes.bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
+            egress_notes.bind = bind_ip.map_or_default(BindAddr::Ip);
         }
         vey_socket::tcp::new_socket_to(
             peer_ip,

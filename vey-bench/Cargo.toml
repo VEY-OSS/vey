@@ -37,7 +37,6 @@ ahash.workspace = true
 rustc-hash.workspace = true
 concurrent-queue = "2.5"
 hex.workspace = true
-itoa.workspace = true
 fastrand.workspace = true
 base64.workspace = true
 hickory-net.workspace = true

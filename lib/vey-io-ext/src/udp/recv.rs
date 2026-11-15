@@ -538,10 +538,7 @@ mod tests {
         let mut cx = Context::from_waker(Waker::noop());
         let mut buf = [0u8; 16];
         let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut buf)]);
-        assert!(matches!(
-            recv.poll_recvmsg(&mut cx, &mut hdr),
-            Poll::Ready(Ok(()))
-        ));
+        std::assert_matches!(recv.poll_recvmsg(&mut cx, &mut hdr), Poll::Ready(Ok(())));
         assert_eq!(hdr.n_recv, 4);
         assert_eq!(stats.packets(), 1);
         assert_eq!(stats.bytes(), 4);
@@ -571,10 +568,7 @@ mod tests {
 
         let mut cx = Context::from_waker(Waker::noop());
         let mut buf = [0u8; 16];
-        assert!(matches!(
-            recv.poll_recv(&mut cx, &mut buf),
-            Poll::Ready(Ok(5))
-        ));
+        std::assert_matches!(recv.poll_recv(&mut cx, &mut buf), Poll::Ready(Ok(5)));
         // the second packet is over the per-window quota, so the inner socket is not touched
         assert!(recv.poll_recv(&mut cx, &mut buf).is_pending());
         assert_eq!(recv.inner().calls, 1);
@@ -595,10 +589,7 @@ mod tests {
 
         let mut cx = Context::from_waker(Waker::noop());
         let mut buf = [0u8; 16];
-        assert!(matches!(
-            recv.poll_recv(&mut cx, &mut buf),
-            Poll::Ready(Ok(10))
-        ));
+        std::assert_matches!(recv.poll_recv(&mut cx, &mut buf), Poll::Ready(Ok(10)));
         assert!(recv.poll_recv(&mut cx, &mut buf).is_pending());
         assert_eq!(recv.inner().calls, 1);
         assert_eq!(stats.bytes(), 10);
@@ -618,10 +609,7 @@ mod tests {
         let mut cx = Context::from_waker(Waker::noop());
         // buf.len() is what the limiter reserves, so a 16 byte buffer drains the budget
         let mut buf = [0u8; 16];
-        assert!(matches!(
-            recv.poll_recv(&mut cx, &mut buf),
-            Poll::Ready(Ok(4))
-        ));
+        std::assert_matches!(recv.poll_recv(&mut cx, &mut buf), Poll::Ready(Ok(4)));
         assert!(recv.poll_recv(&mut cx, &mut buf).is_pending());
         assert_eq!(recv.inner().calls, 1);
         assert_eq!(stats.packets(), 1);

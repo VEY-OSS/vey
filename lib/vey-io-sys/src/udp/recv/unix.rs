@@ -16,7 +16,7 @@ impl<const C: usize> RecvMsgHdr<'_, C> {
     pub unsafe fn to_msghdr(&self, control_buf: &mut RecvAncillaryBuffer) -> libc::msghdr {
         let control_buf = control_buf.as_bytes();
         unsafe {
-            let c_addr = &mut *self.c_addr.get();
+            let c_addr = self.c_addr.as_mut_unchecked();
             let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
 
             let mut h = mem::zeroed::<libc::msghdr>();
@@ -58,7 +58,7 @@ impl<const C: usize> RecvMsgHdr<'_, C> {
     ) -> crate::ffi::msghdr_x {
         let control_buf = control_buf.as_bytes();
         unsafe {
-            let c_addr = &mut *self.c_addr.get();
+            let c_addr = self.c_addr.as_mut_unchecked();
             let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
 
             let mut h = mem::zeroed::<crate::ffi::msghdr_x>();

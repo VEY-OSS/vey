@@ -373,10 +373,7 @@ mod tests {
             LimitedUdpCopyClientSend::unlimited(MockSend::new([Step::Accept]), stats.clone());
 
         let mut cx = Context::from_waker(Waker::noop());
-        assert!(matches!(
-            send.poll_send_buf(&mut cx, b"hello"),
-            Poll::Ready(Ok(5))
-        ));
+        std::assert_matches!(send.poll_send_buf(&mut cx, b"hello"), Poll::Ready(Ok(5)));
         assert_eq!(stats.packets(), 1);
         assert_eq!(stats.bytes(), 5);
     }
@@ -388,10 +385,7 @@ mod tests {
             LimitedUdpCopyClientSend::unlimited(MockSend::new([Step::Blocked]), stats.clone());
 
         let mut cx = Context::from_waker(Waker::noop());
-        assert!(matches!(
-            send.poll_send_buf(&mut cx, b"hello"),
-            Poll::Ready(Ok(0))
-        ));
+        std::assert_matches!(send.poll_send_buf(&mut cx, b"hello"), Poll::Ready(Ok(0)));
         assert_eq!(stats.packets(), 0);
         assert_eq!(stats.bytes(), 0);
     }
@@ -408,16 +402,10 @@ mod tests {
         );
 
         let mut cx = Context::from_waker(Waker::noop());
-        assert!(matches!(
-            send.poll_send_buf(&mut cx, b"hello"),
-            Poll::Ready(Ok(0))
-        ));
+        std::assert_matches!(send.poll_send_buf(&mut cx, b"hello"), Poll::Ready(Ok(0)));
         assert_eq!(stats.packets(), 0);
         // the rejected packet did not consume the quota
-        assert!(matches!(
-            send.poll_send_buf(&mut cx, b"hello"),
-            Poll::Ready(Ok(5))
-        ));
+        std::assert_matches!(send.poll_send_buf(&mut cx, b"hello"), Poll::Ready(Ok(5)));
         assert_eq!(stats.packets(), 1);
     }
 

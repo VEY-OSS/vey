@@ -52,8 +52,8 @@ pub fn emit_stats(client: &mut StatsdClient) {
 
 fn emit_tokio_stats(client: &mut StatsdClient, v: &mut TokioStatsValue) {
     let mut common_tags = StatsdTagGroup::default();
-    let mut buffer = itoa::Buffer::new();
-    let stat_id = buffer.format(v.stat_id.as_u64());
+    let mut buffer = std::fmt::NumBuffer::new();
+    let stat_id = v.stat_id.as_u64().format_into(&mut buffer);
     common_tags.add_tag(TAG_KEY_STAT_ID, stat_id);
     common_tags.add_tag(TAG_KEY_RUNTIME_ID, &v.runtime_id);
 

@@ -70,34 +70,34 @@ mod tests {
     #[test]
     fn empty_input() {
         let err = HttpChunkedLine::parse(b"").unwrap_err();
-        assert!(matches!(err, HttpLineParseError::InvalidChunkSize));
+        std::assert_matches!(err, HttpLineParseError::InvalidChunkSize);
     }
 
     #[test]
     fn no_suffix() {
         let err = HttpChunkedLine::parse(b"1").unwrap_err();
-        assert!(matches!(err, HttpLineParseError::NotLongEnough));
+        std::assert_matches!(err, HttpLineParseError::NotLongEnough);
     }
 
     #[test]
     fn invalid_suffix() {
         let err = HttpChunkedLine::parse(b"1X").unwrap_err();
-        assert!(matches!(err, HttpLineParseError::InvalidChunkSize));
+        std::assert_matches!(err, HttpLineParseError::InvalidChunkSize);
     }
 
     #[test]
     fn non_utf8_extension() {
         let err = HttpChunkedLine::parse(b"1;\xFF").unwrap_err();
-        assert!(matches!(err, HttpLineParseError::InvalidUtf8Encoding(_)));
+        std::assert_matches!(err, HttpLineParseError::InvalidUtf8Encoding(_));
     }
 
     #[test]
     fn reject_overflowing_chunk_size() {
         // 2^64 in hex — must not wrap to 0
         let err = HttpChunkedLine::parse(b"10000000000000000\r\n").unwrap_err();
-        assert!(matches!(err, HttpLineParseError::InvalidChunkSize));
+        std::assert_matches!(err, HttpLineParseError::InvalidChunkSize);
 
         let err = HttpChunkedLine::parse(b"1000000000000000f\r\n").unwrap_err();
-        assert!(matches!(err, HttpLineParseError::InvalidChunkSize));
+        std::assert_matches!(err, HttpLineParseError::InvalidChunkSize);
     }
 }

@@ -20,8 +20,7 @@ impl<T> GlobalInit<T> {
 
     pub fn set(&self, value: T) {
         unsafe {
-            let inner_mut = &mut *self.inner.get();
-            *inner_mut = value;
+            *self.inner.as_mut_unchecked() = value;
         }
     }
 
@@ -29,12 +28,12 @@ impl<T> GlobalInit<T> {
     where
         F: FnOnce(&mut T) -> R,
     {
-        handle(unsafe { &mut *self.inner.get() })
+        handle(unsafe { self.inner.as_mut_unchecked() })
     }
 }
 
 impl<T> AsRef<T> for GlobalInit<T> {
     fn as_ref(&self) -> &T {
-        unsafe { &*self.inner.get() }
+        unsafe { self.inner.as_ref_unchecked() }
     }
 }

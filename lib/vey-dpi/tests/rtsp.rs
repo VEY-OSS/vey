@@ -136,7 +136,7 @@ fn describe_short_read_on_rtsp_port() {
     let err = inspector
         .check_client_initial_data(&config, 554, &data[..20])
         .expect_err("short DESCRIBE needs more data");
-    assert!(matches!(err, ProtocolInspectError::NeedMoreData(_)));
+    std::assert_matches!(err, ProtocolInspectError::NeedMoreData(_));
 
     let p = inspector
         .check_client_initial_data(&config, 554, data)
@@ -152,7 +152,7 @@ fn options_star_short_read_on_rtsp_port() {
     let err = inspector
         .check_client_initial_data(&config, 554, &data[..20])
         .expect_err("short OPTIONS needs more data");
-    assert!(matches!(err, ProtocolInspectError::NeedMoreData(_)));
+    std::assert_matches!(err, ProtocolInspectError::NeedMoreData(_));
 
     let p = inspector
         .check_client_initial_data(&config, 554, data)

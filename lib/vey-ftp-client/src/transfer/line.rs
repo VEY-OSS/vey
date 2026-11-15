@@ -136,7 +136,7 @@ mod tests {
             abort_after: None,
         };
         let err = transfer.read_to_end(&mut receiver).await.unwrap_err();
-        assert!(matches!(err, FtpLineDataReadError::TooManyLines));
+        std::assert_matches!(err, FtpLineDataReadError::TooManyLines);
         assert_eq!(receiver.lines.len(), 2);
     }
 
@@ -149,7 +149,7 @@ mod tests {
             abort_after: None,
         };
         let err = transfer.read_to_end(&mut receiver).await.unwrap_err();
-        assert!(matches!(err, FtpLineDataReadError::LineTooLong(1)));
+        std::assert_matches!(err, FtpLineDataReadError::LineTooLong(1));
     }
 
     #[tokio::test]
@@ -161,7 +161,7 @@ mod tests {
             abort_after: Some(1),
         };
         let err = transfer.read_to_end(&mut receiver).await.unwrap_err();
-        assert!(matches!(err, FtpLineDataReadError::AbortedByCallback));
+        std::assert_matches!(err, FtpLineDataReadError::AbortedByCallback);
         assert_eq!(receiver.lines, ["keep\n"]);
     }
 
@@ -174,6 +174,6 @@ mod tests {
             abort_after: None,
         };
         let err = transfer.read_to_end(&mut receiver).await.unwrap_err();
-        assert!(matches!(err, FtpLineDataReadError::UnsupportedEncoding));
+        std::assert_matches!(err, FtpLineDataReadError::UnsupportedEncoding);
     }
 }

@@ -87,11 +87,7 @@ impl ConnectionIdGenerator for QuinnReuseportIdGenerator {
         let expected_hash = hasher.finish();
         let expected_hash_bytes = expected_hash.to_be_bytes();
 
-        if constant_time_eq::constant_time_eq(&expected_hash_bytes, given_hash_bytes) {
-            Ok(())
-        } else {
-            Err(InvalidCid)
-        }
+        constant_time_eq::constant_time_eq(&expected_hash_bytes, given_hash_bytes).ok_or(InvalidCid)
     }
 
     fn cid_len(&self) -> usize {

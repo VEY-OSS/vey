@@ -375,7 +375,7 @@ mod tests {
         let mut buffer = HttpConnectUdpRecvBuffer::new(8, 128);
 
         let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
-        assert!(matches!(err, HttpConnectUdpRecvError::InvalidContextId(1)));
+        std::assert_matches!(err, HttpConnectUdpRecvError::InvalidContextId(1));
     }
 
     #[tokio::test]
@@ -385,10 +385,7 @@ mod tests {
         let mut buffer = HttpConnectUdpRecvBuffer::new(8, 128);
 
         let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
-        assert!(matches!(
-            err,
-            HttpConnectUdpRecvError::InvalidCapsuleType(1)
-        ));
+        std::assert_matches!(err, HttpConnectUdpRecvError::InvalidCapsuleType(1));
     }
 
     #[tokio::test]
@@ -398,7 +395,7 @@ mod tests {
         let mut buffer = HttpConnectUdpRecvBuffer::new(8, 4);
 
         let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
-        assert!(matches!(err, HttpConnectUdpRecvError::InvalidPacketSize(9)));
+        std::assert_matches!(err, HttpConnectUdpRecvError::InvalidPacketSize(9));
     }
 
     #[tokio::test]
@@ -411,8 +408,6 @@ mod tests {
         let mut buffer = HttpConnectUdpRecvBuffer::new(8, 128);
 
         let err = next_datagram(&mut buffer, &mut reader).await.unwrap_err();
-        assert!(
-            matches!(err, HttpConnectUdpRecvError::IoFailed(e) if e.kind() == io::ErrorKind::UnexpectedEof)
-        );
+        std::assert_matches!(err, HttpConnectUdpRecvError::IoFailed(e) if e.kind() == io::ErrorKind::UnexpectedEof);
     }
 }

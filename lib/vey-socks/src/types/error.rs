@@ -106,27 +106,27 @@ mod tests {
 
     #[test]
     fn socks_request_parse_error_from_io_error() {
-        assert!(matches!(
+        std::assert_matches!(
             SocksRequestParseError::from(io::Error::new(io::ErrorKind::UnexpectedEof, "")),
             SocksRequestParseError::ClientClosed
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             SocksRequestParseError::from(io::Error::other("")),
             SocksRequestParseError::ReadFailed(_)
-        ));
+        );
     }
 
     #[test]
     fn socks_connect_error_from_socks_reply_parse_error() {
-        assert!(matches!(
+        std::assert_matches!(
             SocksConnectError::from(SocksReplyParseError::ReadFailed(io::Error::other(""))),
             SocksConnectError::ReadFailed(_)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             SocksConnectError::from(SocksReplyParseError::InvalidProtocol(
                 SocksNegotiationError::InvalidVersion
             )),
             SocksConnectError::InvalidProtocol(_)
-        ));
+        );
     }
 }

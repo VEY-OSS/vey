@@ -19,7 +19,7 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
         unsafe {
             let (name, namelen) = match &self.c_addr {
                 Some(v) => {
-                    let c = &mut *v.get();
+                    let c = v.as_mut_unchecked();
                     c.get_ptr_and_size()
                 }
                 None => (ptr::null_mut(), 0),

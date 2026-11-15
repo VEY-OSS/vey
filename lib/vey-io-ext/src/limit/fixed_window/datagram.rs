@@ -138,24 +138,24 @@ mod tests {
         let cur_millis = 1000;
 
         // Packet 1: should pass
-        assert!(matches!(
+        std::assert_matches!(
             limiter.check_packet(cur_millis, 100),
             DatagramLimitAction::Advance(1)
-        ));
+        );
         limiter.set_advance(1, 100);
 
         // Packet 2: should pass
-        assert!(matches!(
+        std::assert_matches!(
             limiter.check_packet(cur_millis, 100),
             DatagramLimitAction::Advance(1)
-        ));
+        );
         limiter.set_advance(1, 100);
 
         // Packet 3: max_packets reached (2), should be delayed
-        assert!(matches!(
+        std::assert_matches!(
             limiter.check_packet(cur_millis, 100),
             DatagramLimitAction::DelayFor(_)
-        ));
+        );
     }
 
     #[test]
@@ -164,23 +164,23 @@ mod tests {
         let cur_millis = 1000;
 
         // Check 2 packets together
-        assert!(matches!(
+        std::assert_matches!(
             limiter.check_packets(cur_millis, &[100, 200]),
             DatagramLimitAction::Advance(2)
-        ));
+        );
         limiter.set_advance(2, 300);
 
         // Third packet checked alone should delay
-        assert!(matches!(
+        std::assert_matches!(
             limiter.check_packet(cur_millis, 100),
             DatagramLimitAction::DelayFor(_)
-        ));
+        );
 
         // Third packet checked in batch should delay
-        assert!(matches!(
+        std::assert_matches!(
             limiter.check_packets(cur_millis, &[100]),
             DatagramLimitAction::DelayFor(_)
-        ));
+        );
     }
 
     #[test]
@@ -189,17 +189,17 @@ mod tests {
         limiter.reset(10, 0, 1000, 1000);
         limiter.set_advance(1, 400);
 
-        assert!(matches!(
+        std::assert_matches!(
             limiter.check_packet(1000, 600),
             DatagramLimitAction::Advance(1)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             limiter.check_packets(1000, &[600]),
             DatagramLimitAction::Advance(1)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             limiter.check_packet(1000, 601),
             DatagramLimitAction::DelayFor(_)
-        ));
+        );
     }
 }

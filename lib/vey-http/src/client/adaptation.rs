@@ -48,11 +48,8 @@ impl HttpAdaptedResponse {
 
     /// A following body can only be read when the header fills the encapsulated section.
     pub fn require_header_section_finished(&self) -> Result<(), HttpResponseParseError> {
-        if self.header_section_finished() {
-            Ok(())
-        } else {
-            Err(HttpResponseParseError::HeaderEndedEarly(self.header_limit))
-        }
+        self.header_section_finished()
+            .ok_or(HttpResponseParseError::HeaderEndedEarly(self.header_limit))
     }
 
     /// Convert this adapted H1 response into an H2 response head.
@@ -250,10 +247,10 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(
+        std::assert_matches!(
             err,
             HttpResponseParseError::InvalidStatusLine(HttpLineParseError::InvalidVersion)
-        ));
+        );
     }
 
     #[tokio::test]
@@ -274,10 +271,10 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(
+        std::assert_matches!(
             err,
             HttpResponseParseError::InvalidStatusLine(HttpLineParseError::InvalidStatusCode)
-        ));
+        );
     }
 
     #[tokio::test]
@@ -288,10 +285,10 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(
+        std::assert_matches!(
             err,
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderName)
-        ));
+        );
     }
 
     #[tokio::test]
@@ -302,10 +299,10 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(
+        std::assert_matches!(
             err,
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
-        ));
+        );
     }
 
     #[tokio::test]
@@ -325,7 +322,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(err, HttpResponseParseError::InvalidContentLength));
+        std::assert_matches!(err, HttpResponseParseError::InvalidContentLength);
     }
 
     #[tokio::test]
@@ -336,7 +333,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(err, HttpResponseParseError::RemoteClosed));
+        std::assert_matches!(err, HttpResponseParseError::RemoteClosed);
 
         let data = b"HTTP/1.1 200 OK\r\n";
         let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
@@ -344,7 +341,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(err, HttpResponseParseError::RemoteClosed));
+        std::assert_matches!(err, HttpResponseParseError::RemoteClosed);
     }
 
     #[tokio::test]
@@ -359,7 +356,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(err, HttpResponseParseError::TooLargeHeader(1024)));
+        std::assert_matches!(err, HttpResponseParseError::TooLargeHeader(1024));
     }
 
     #[tokio::test]
@@ -426,7 +423,7 @@ mod tests {
             .unwrap();
         assert!(!rsp.header_section_finished());
         let err = rsp.require_header_section_finished().unwrap_err();
-        assert!(matches!(err, HttpResponseParseError::HeaderEndedEarly(_)));
+        std::assert_matches!(err, HttpResponseParseError::HeaderEndedEarly(_));
         let buffered = tokio::io::AsyncBufReadExt::fill_buf(&mut reader)
             .await
             .unwrap();

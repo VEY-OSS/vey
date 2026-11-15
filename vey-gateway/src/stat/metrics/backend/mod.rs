@@ -19,8 +19,8 @@ trait BackendMetricExt {
 
 impl BackendMetricExt for StatsdTagGroup {
     fn add_backend_tags(&mut self, backend: &NodeName, stat_id: StatId) {
-        let mut buffer = itoa::Buffer::new();
-        let stat_id = buffer.format(stat_id.as_u64());
+        let mut buffer = std::fmt::NumBuffer::new();
+        let stat_id = stat_id.as_u64().format_into(&mut buffer);
         self.add_tag(TAG_KEY_BACKEND, backend);
         self.add_tag(TAG_KEY_STAT_ID, stat_id);
     }

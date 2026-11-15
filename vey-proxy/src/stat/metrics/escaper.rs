@@ -53,8 +53,8 @@ trait EscaperMetricExt {
 
 impl EscaperMetricExt for StatsdTagGroup {
     fn add_escaper_tags(&mut self, escaper: &NodeName, stat_id: StatId) {
-        let mut buffer = itoa::Buffer::new();
-        let stat_id = buffer.format(stat_id.as_u64());
+        let mut buffer = std::fmt::NumBuffer::new();
+        let stat_id = stat_id.as_u64().format_into(&mut buffer);
         self.add_tag(TAG_KEY_ESCAPER, escaper);
         self.add_tag(TAG_KEY_STAT_ID, stat_id);
     }

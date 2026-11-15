@@ -142,81 +142,81 @@ mod tests {
 
     #[test]
     fn rejects_req_hdr_without_res_hdr() {
-        assert!(matches!(
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("req-hdr=0, req-body=16"),
             Err(IcapRespmodParseError::UnsupportedBody(_))
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("req-hdr=0, null-body=16"),
             Err(IcapRespmodParseError::UnsupportedBody(_))
-        ));
+        );
     }
 
     #[test]
     fn rejects_body_offset_not_after_res_hdr() {
-        assert!(matches!(
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("req-hdr=0, res-hdr=100, res-body=100"),
             Err(IcapRespmodParseError::UnsupportedBody(_))
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("req-hdr=0, res-hdr=100, res-body=50"),
             Err(IcapRespmodParseError::UnsupportedBody(_))
-        ));
+        );
     }
 
     #[test]
     fn rejects_non_zero_hdr_offset() {
-        assert!(matches!(
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("res-hdr=8, res-body=16"),
             Err(IcapRespmodParseError::UnsupportedBody(_))
-        ));
+        );
     }
 
     #[test]
     fn rejects_section_after_null_body() {
-        assert!(matches!(
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("null-body=0, res-body=20"),
             Err(IcapRespmodParseError::UnsupportedBody(_))
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("res-hdr=0, null-body=64, res-body=80"),
             Err(IcapRespmodParseError::UnsupportedBody(_))
-        ));
+        );
     }
 
     #[test]
     fn rejects_missing_equals() {
-        assert!(matches!(
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("null-body"),
             Err(IcapRespmodParseError::InvalidHeaderValue("Encapsulated"))
-        ));
+        );
     }
 
     #[test]
     fn rejects_missing_body_part() {
-        assert!(matches!(
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("res-hdr=0"),
             Err(IcapRespmodParseError::UnsupportedBody(_))
-        ));
+        );
     }
 
     #[test]
     fn rejects_invalid_body_offset() {
-        assert!(matches!(
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("res-hdr=0, res-body=1x"),
             Err(IcapRespmodParseError::UnsupportedBody(_))
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("res-hdr=0, res-body="),
             Err(IcapRespmodParseError::UnsupportedBody(_))
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("res-hdr=0, res-body=0"),
             Err(IcapRespmodParseError::UnsupportedBody(_))
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             IcapRespmodResponsePayload::parse("res-hdr=0, res-body=99999999999999999999999"),
             Err(IcapRespmodParseError::UnsupportedBody(_))
-        ));
+        );
     }
 }

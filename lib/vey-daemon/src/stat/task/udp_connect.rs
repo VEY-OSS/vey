@@ -19,17 +19,15 @@ unsafe impl Sync for UdpConnectHalfConnectionStats {}
 
 impl UdpConnectHalfConnectionStats {
     pub fn get_bytes(&self) -> u64 {
-        let r = unsafe { &*self.bytes.get() };
-        *r
+        unsafe { *self.bytes.as_ref_unchecked() }
     }
 
     pub fn get_packets(&self) -> u64 {
-        let r = unsafe { &*self.packets.get() };
-        *r
+        unsafe { *self.packets.as_ref_unchecked() }
     }
 
     pub fn add_bytes(&self, size: u64) {
-        let r = unsafe { &mut *self.bytes.get() };
+        let r = unsafe { self.bytes.as_mut_unchecked() };
         *r += size;
     }
 
@@ -38,7 +36,7 @@ impl UdpConnectHalfConnectionStats {
     }
 
     pub fn add_packets(&self, n: usize) {
-        let r = unsafe { &mut *self.packets.get() };
+        let r = unsafe { self.packets.as_mut_unchecked() };
         *r += n as u64;
     }
 }

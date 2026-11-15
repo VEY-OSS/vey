@@ -412,7 +412,7 @@ mod tests {
             Poll::Ready(Err(e)) => e,
             other => panic!("expected forbidden target, got {other:?}"),
         };
-        assert!(matches!(err, UdpRelayClientError::ForbiddenTargetAddress));
+        std::assert_matches!(err, UdpRelayClientError::ForbiddenTargetAddress);
         assert!(packets[0].upstream().is_empty());
         assert!(packets[1].upstream().is_empty());
     }

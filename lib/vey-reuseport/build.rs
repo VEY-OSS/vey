@@ -89,7 +89,7 @@ fn compile_single(name: &str) {
 
     let output = cmd.output().unwrap();
     if !output.stderr.is_empty() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr = String::from_utf8_lossy_owned(output.stderr);
         for line in stderr.split("\n") {
             if !line.trim().is_empty() {
                 println!("cargo:warning=STDERR:{}", line);

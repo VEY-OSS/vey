@@ -435,10 +435,10 @@ mod tests {
 
         let mut cx = Context::from_waker(Waker::noop());
         let mut packet = UdpCopyPacket::new(recv.max_hdr_len(), 512);
-        assert!(matches!(
+        std::assert_matches!(
             recv.poll_recv_packet(&mut cx, &mut packet),
             Poll::Ready(Ok(()))
-        ));
+        );
         assert_eq!(packet.payload(), b"hello");
         assert_eq!(stats.packets(), 1);
         assert_eq!(stats.bytes(), 5);
@@ -452,10 +452,10 @@ mod tests {
 
         let mut cx = Context::from_waker(Waker::noop());
         let mut packet = UdpCopyPacket::new(4, 512);
-        assert!(matches!(
+        std::assert_matches!(
             recv.poll_recv_packet(&mut cx, &mut packet),
             Poll::Ready(Ok(()))
-        ));
+        );
         assert!(packet.payload().is_empty());
         assert_eq!(stats.packets(), 0);
         assert_eq!(stats.bytes(), 0);

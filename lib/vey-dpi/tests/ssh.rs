@@ -49,7 +49,7 @@ mod client {
     fn insufficient_data() {
         const DATA: &[u8] = b"SSH-2.";
         let result = check_client(DATA);
-        assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(5))));
+        std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(5)));
     }
 
     #[test]
@@ -94,7 +94,7 @@ mod client {
     fn missing_crlf() {
         let data = b"SSH-2.0-OpenSSH_8.9p1";
         let result = check_client(data);
-        assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+        std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 
         let data = b"SSH-2.0-OpenSSH_8.9p1\n";
         let protocol = check_client(data).unwrap();
@@ -153,7 +153,7 @@ mod server {
     fn insufficient_data() {
         const DATA: &[u8] = b"SSH-2.";
         let result = check_server(DATA);
-        assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(4))));
+        std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(4)));
     }
 
     #[test]
@@ -191,7 +191,7 @@ mod server {
     fn missing_lfcr() {
         let data = b"SSH-2.0-OpenSSH_7.9p1 Debian-10+deb10u2";
         let result = check_server(data);
-        assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+        std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 
         let data = b"SSH-2.0-OpenSSH_7.9p1 Debian-10+deb10u2\n";
         let protocol = check_server(data).unwrap();

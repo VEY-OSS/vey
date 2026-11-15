@@ -264,10 +264,10 @@ mod tests {
         // ~10 byte tokens left; first datagram needs 500. Must DelayUntil (not panic /
         // Advance(0)), and refund the deducted tokens so a later fitting packet works.
         let total_len_v = [500, 800];
-        assert!(matches!(
+        std::assert_matches!(
             limiter.check_packets(&total_len_v),
             DatagramLimitAction::DelayUntil(_)
-        ));
+        );
         assert_eq!(limiter.check_packet(10), DatagramLimitAction::Advance(1));
     }
 }

@@ -83,8 +83,7 @@ impl server_control::Server for ServerControlImpl {
         let addr = self
             .server
             .listen_addr()
-            .map(|addr| addr.to_string())
-            .unwrap_or_default();
+            .map_or_default(|addr| addr.to_string());
         results.get().set_addr(addr.as_str());
         Ok(())
     }

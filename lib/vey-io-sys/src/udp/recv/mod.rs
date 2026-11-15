@@ -81,7 +81,7 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
     }
 
     pub fn src_addr(&self) -> Option<SocketAddr> {
-        let c_addr = unsafe { &*self.c_addr.get() };
+        let c_addr = unsafe { self.c_addr.as_ref_unchecked() };
         c_addr.to_std()
     }
 

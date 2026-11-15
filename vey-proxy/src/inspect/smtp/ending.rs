@@ -216,7 +216,7 @@ mod tests {
             ups_in.write_all(b"250 OK\r\n").await.unwrap();
         };
         let (status, _) = tokio::join!(run, drive);
-        assert!(matches!(status, Err(ServerTaskError::UpstreamAppError(_))));
+        std::assert_matches!(status, Err(ServerTaskError::UpstreamAppError(_)));
     }
 
     #[tokio::test]
@@ -229,10 +229,7 @@ mod tests {
             let _ = ups_out.read(&mut buf).await.unwrap();
         };
         let (status, _) = tokio::join!(run, drive);
-        assert!(matches!(
-            status,
-            Err(ServerTaskError::UpstreamAppTimeout(_))
-        ));
+        std::assert_matches!(status, Err(ServerTaskError::UpstreamAppTimeout(_)));
     }
 
     #[tokio::test]
@@ -264,7 +261,7 @@ mod tests {
         clt_in.write_all(b"BDAT abc\r\n").await.unwrap();
         drop(clt_in);
         let status = end.run_to_end(clt_r, clt_w, Duration::from_secs(1)).await;
-        assert!(matches!(status, Err(ServerTaskError::ClientAppError(_))));
+        std::assert_matches!(status, Err(ServerTaskError::ClientAppError(_)));
         let mut out = Vec::new();
         clt_out.read_to_end(&mut out).await.unwrap();
         assert!(out.starts_with(b"500 "));

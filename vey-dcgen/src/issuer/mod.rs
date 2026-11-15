@@ -50,8 +50,9 @@ fn install_on_workers(config: OpensslIssuerConfig) -> anyhow::Result<()> {
             let result = install_local(config);
             let _ = tx.send(result);
         });
-        Ok::<(), anyhow::Error>(())
-    })?;
+        Ok::<(), !>(())
+    })
+    .unwrap();
     drop(tx);
     for _ in 0..workers {
         rx.recv()

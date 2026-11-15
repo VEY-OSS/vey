@@ -64,11 +64,9 @@ impl Quantile {
 }
 
 fn quantile_in_range(v: f64) -> Result<(), InvalidQuantile> {
-    if (0.0_f64..=1.0_f64).contains(&v) {
-        Ok(())
-    } else {
-        Err(InvalidQuantile::OutOfRange(v))
-    }
+    (0.0_f64..=1.0_f64)
+        .contains(&v)
+        .ok_or(InvalidQuantile::OutOfRange(v))
 }
 
 impl TryFrom<f64> for Quantile {

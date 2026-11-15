@@ -46,11 +46,8 @@ impl HttpAdaptedRequest {
 
     /// A following body can only be read when the header fills the encapsulated section.
     pub fn require_header_section_finished(&self) -> Result<(), HttpRequestParseError> {
-        if self.header_section_finished() {
-            Ok(())
-        } else {
-            Err(HttpRequestParseError::HeaderEndedEarly(self.header_limit))
-        }
+        self.header_section_finished()
+            .ok_or(HttpRequestParseError::HeaderEndedEarly(self.header_limit))
     }
 
     pub async fn parse<R>(
@@ -241,10 +238,10 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(
+        std::assert_matches!(
             err,
             HttpRequestParseError::InvalidMethodLine(HttpLineParseError::NoDelimiterFound(' '))
-        ));
+        );
     }
 
     #[tokio::test]
@@ -256,7 +253,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(err, HttpRequestParseError::UnsupportedMethod(_)));
+        std::assert_matches!(err, HttpRequestParseError::UnsupportedMethod(_));
     }
 
     #[tokio::test]
@@ -268,7 +265,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(err, HttpRequestParseError::InvalidRequestTarget));
+        std::assert_matches!(err, HttpRequestParseError::InvalidRequestTarget);
     }
 
     #[tokio::test]
@@ -280,7 +277,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(err, HttpRequestParseError::ClientClosed));
+        std::assert_matches!(err, HttpRequestParseError::ClientClosed);
 
         // Client closed during header reading
         let data = b"GET / HTTP/1.1\r\n";
@@ -289,7 +286,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(err, HttpRequestParseError::ClientClosed));
+        std::assert_matches!(err, HttpRequestParseError::ClientClosed);
     }
 
     #[tokio::test]
@@ -305,7 +302,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(err, HttpRequestParseError::TooLargeHeader(1024)));
+        std::assert_matches!(err, HttpRequestParseError::TooLargeHeader(1024));
     }
 
     #[tokio::test]
@@ -317,10 +314,10 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(
+        std::assert_matches!(
             err,
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderName)
-        ));
+        );
     }
 
     #[tokio::test]
@@ -332,10 +329,10 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(
+        std::assert_matches!(
             err,
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
-        ));
+        );
     }
 
     #[tokio::test]
@@ -359,7 +356,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(matches!(err, HttpRequestParseError::InvalidContentLength));
+        std::assert_matches!(err, HttpRequestParseError::InvalidContentLength);
     }
 
     #[tokio::test]
@@ -465,7 +462,7 @@ mod tests {
             .unwrap();
         assert!(!req.header_section_finished());
         let err = req.require_header_section_finished().unwrap_err();
-        assert!(matches!(err, HttpRequestParseError::HeaderEndedEarly(_)));
+        std::assert_matches!(err, HttpRequestParseError::HeaderEndedEarly(_));
         let buffered = tokio::io::AsyncBufReadExt::fill_buf(&mut reader)
             .await
             .unwrap();

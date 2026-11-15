@@ -62,11 +62,7 @@ impl Host {
             return None;
         }
         if buf[0] == b'[' {
-            let end = buf.len() - 1;
-            if buf[end] != b']' {
-                return None;
-            }
-            let inner = &buf[1..end];
+            let inner = buf.strip_circumfix(b"[", b"]")?;
             let Ok(s) = std::str::from_utf8(inner) else {
                 return None;
             };
@@ -131,9 +127,8 @@ impl FromStr for Host {
         }
         match s.as_bytes()[0] {
             b'[' => {
-                let pos_last = s.len() - 1;
-                if s.as_bytes()[pos_last] == b']'
-                    && let Ok(ip6) = Ipv6Addr::from_str(&s[1..pos_last])
+                if let Some(inner) = s.strip_circumfix('[', ']')
+                    && let Ok(ip6) = Ipv6Addr::from_str(inner)
                 {
                     return Ok(Host::from_maybe_mapped_ip6(ip6));
                 }

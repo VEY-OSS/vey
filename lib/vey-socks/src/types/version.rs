@@ -64,10 +64,10 @@ mod tests {
         }
 
         for code in [0x00, 0x03, 0x07, 0xFF] {
-            assert!(matches!(
+            std::assert_matches!(
                 SocksVersion::try_from(code).unwrap_err(),
                 SocksNegotiationError::InvalidVersion
-            ));
+            );
         }
     }
 }

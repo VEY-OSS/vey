@@ -174,34 +174,13 @@ mod tests {
 
     #[test]
     fn continent_from_continent_code() {
-        assert!(matches!(
-            Continent::from(ContinentCode::AF),
-            Continent::Africa
-        ));
-        assert!(matches!(
-            Continent::from(ContinentCode::AN),
-            Continent::Antarctica
-        ));
-        assert!(matches!(
-            Continent::from(ContinentCode::AS),
-            Continent::Asia
-        ));
-        assert!(matches!(
-            Continent::from(ContinentCode::EU),
-            Continent::Europe
-        ));
-        assert!(matches!(
-            Continent::from(ContinentCode::NA),
-            Continent::NorthAmerica
-        ));
-        assert!(matches!(
-            Continent::from(ContinentCode::OC),
-            Continent::Oceania
-        ));
-        assert!(matches!(
-            Continent::from(ContinentCode::SA),
-            Continent::SouthAmerica
-        ));
+        std::assert_matches!(Continent::from(ContinentCode::AF), Continent::Africa);
+        std::assert_matches!(Continent::from(ContinentCode::AN), Continent::Antarctica);
+        std::assert_matches!(Continent::from(ContinentCode::AS), Continent::Asia);
+        std::assert_matches!(Continent::from(ContinentCode::EU), Continent::Europe);
+        std::assert_matches!(Continent::from(ContinentCode::NA), Continent::NorthAmerica);
+        std::assert_matches!(Continent::from(ContinentCode::OC), Continent::Oceania);
+        std::assert_matches!(Continent::from(ContinentCode::SA), Continent::SouthAmerica);
     }
 
     #[test]

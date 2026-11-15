@@ -114,7 +114,7 @@ mod tests {
     fn parse_yaml_null() {
         let builder = SyslogBuilder::parse_yaml(&Yaml::Value(Scalar::Null), "test").unwrap();
         assert_eq!(builder.ident, "test");
-        assert!(matches!(builder.facility, Facility::Daemon));
+        std::assert_matches!(builder.facility, Facility::Daemon);
     }
 
     #[test]

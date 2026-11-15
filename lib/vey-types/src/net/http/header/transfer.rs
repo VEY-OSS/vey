@@ -484,42 +484,42 @@ mod tests {
 
     #[test]
     fn suffix_lookalikes_are_invalid() {
-        assert!(matches!(
+        std::assert_matches!(
             parse("notchunked"),
             Err(InvalidTransferEncodingValue::InvalidCodingType)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             parse("foochunked"),
             Err(InvalidTransferEncodingValue::InvalidCodingType)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             parse("br"),
             Err(InvalidTransferEncodingValue::InvalidCodingType)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             parse("gzip;q=1.0, chunked"),
             Err(InvalidTransferEncodingValue::UnexpectedParameter)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             parse("chunked;foo=bar"),
             Err(InvalidTransferEncodingValue::UnexpectedParameter)
-        ));
+        );
     }
 
     #[test]
     fn chunked_must_be_last() {
-        assert!(matches!(
+        std::assert_matches!(
             parse("chunked, gzip"),
             Err(InvalidTransferEncodingValue::InvalidChunkedPosition)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             parse("gzip, chunked, deflate"),
             Err(InvalidTransferEncodingValue::InvalidChunkedPosition)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             parse("chunked, chunked"),
             Err(InvalidTransferEncodingValue::InvalidChunkedPosition)
-        ));
+        );
     }
 
     #[test]
@@ -542,10 +542,10 @@ mod tests {
 
         let mut v = TransferEncodingValue::default();
         v.parse(b"chunked").unwrap();
-        assert!(matches!(
+        std::assert_matches!(
             v.parse(b"gzip"),
             Err(InvalidTransferEncodingValue::InvalidChunkedPosition)
-        ));
+        );
     }
 
     #[test]
@@ -599,32 +599,32 @@ mod tests {
 
     #[test]
     fn te_rejects_invalid() {
-        assert!(matches!(
+        std::assert_matches!(
             parse_te("nottrailers"),
             Err(InvalidAcceptTransferEncodingValue::InvalidCodingType)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             parse_te("chunked"),
             Err(InvalidAcceptTransferEncodingValue::InvalidCodingType)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             parse_te("gzip, gzip"),
             Err(InvalidAcceptTransferEncodingValue::CompressKindAlreadySet(
                 TransferCompressKind::Gzip
             ))
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             parse_te("gzip;q=1.1"),
             Err(InvalidAcceptTransferEncodingValue::InvalidQValue)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             parse_te("gzip;foo=1"),
             Err(InvalidAcceptTransferEncodingValue::InvalidQValue)
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             parse_te("gzip;q=0.5000"),
             Err(InvalidAcceptTransferEncodingValue::InvalidQValue)
-        ));
+        );
     }
 
     #[test]

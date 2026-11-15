@@ -700,8 +700,9 @@ mod tests {
                 Err(e) => e,
                 Ok(_) => panic!("{te}: expected invalid transfer-encoding"),
             };
-            assert!(
-                matches!(err, HttpRequestParseError::InvalidTransferEncoding(_)),
+            std::assert_matches!(
+                err,
+                HttpRequestParseError::InvalidTransferEncoding(_),
                 "{te}: {err:?}"
             );
         }

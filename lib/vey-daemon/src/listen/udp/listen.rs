@@ -188,8 +188,7 @@ impl AcceptedUdpPacketSender {
 }
 
 impl UdpMoveSend for AcceptedUdpPacketSender {
-    // TODO use never type for this
-    type SendError = ();
+    type SendError = !;
 
     fn poll_send_packet(
         &mut self,
@@ -248,13 +247,6 @@ impl UdpMoveSend for AcceptedUdpPacketSender {
         let mut to_send = Some(first);
         match self.poll_send_packet(cx, &mut to_send) {
             Poll::Ready(Ok(_)) => {}
-            Poll::Ready(Err(e)) => {
-                if let Some(packet) = to_send {
-                    packets.push(packet);
-                }
-                packets.extend(self.batch_queue.drain(..));
-                return Poll::Ready(Err(e));
-            }
             Poll::Pending => {
                 if let Some(packet) = to_send {
                     packets.push(packet);

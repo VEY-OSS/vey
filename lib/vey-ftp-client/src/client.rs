@@ -823,12 +823,12 @@ mod tests {
     async fn send_failure_does_not_try_the_next_passive_mode() {
         let (err, writes, data_attempts) =
             probe_passive_fallback(&[], true, Duration::from_secs(2), true).await;
-        assert!(matches!(
+        std::assert_matches!(
             err,
             FtpFileRetrieveStartError::TransferSetupFailed(FtpTransferSetupError::RawCommandError(
                 FtpCommandError::SendFailed(_)
             ))
-        ));
+        );
         assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
         assert_eq!(data_attempts, 0);
     }
@@ -837,14 +837,14 @@ mod tests {
     async fn reply_timeout_does_not_try_the_next_passive_mode() {
         let (err, writes, data_attempts) =
             probe_passive_fallback(&[], false, Duration::from_millis(50), true).await;
-        assert!(matches!(
+        std::assert_matches!(
             err,
             FtpFileRetrieveStartError::TransferSetupFailed(FtpTransferSetupError::RawCommandError(
                 FtpCommandError::RecvFailed(
                     crate::error::FtpRawResponseError::ReadResponseTimedOut(_)
                 )
             ))
-        ));
+        );
         assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
         assert_eq!(data_attempts, 0);
     }
@@ -858,12 +858,12 @@ mod tests {
             true,
         )
         .await;
-        assert!(matches!(
+        std::assert_matches!(
             err,
             FtpFileRetrieveStartError::TransferSetupFailed(FtpTransferSetupError::RawCommandError(
                 FtpCommandError::NotLoggedIn
             ))
-        ));
+        );
         assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
         assert_eq!(data_attempts, 0);
     }
@@ -877,12 +877,12 @@ mod tests {
             true,
         )
         .await;
-        assert!(matches!(
+        std::assert_matches!(
             err,
             FtpFileRetrieveStartError::TransferSetupFailed(FtpTransferSetupError::RawCommandError(
                 FtpCommandError::BadCommandSequence(_)
             ))
-        ));
+        );
         assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
         assert_eq!(data_attempts, 0);
     }
@@ -896,10 +896,7 @@ mod tests {
             true,
         )
         .await;
-        assert!(matches!(
-            err,
-            FtpFileRetrieveStartError::ServiceNotAvailable
-        ));
+        std::assert_matches!(err, FtpFileRetrieveStartError::ServiceNotAvailable);
         assert_eq!(writes, [b"EPSV\r\n".to_vec()]);
         assert_eq!(data_attempts, 0);
     }
@@ -916,12 +913,12 @@ mod tests {
             false,
         )
         .await;
-        assert!(matches!(
+        std::assert_matches!(
             err,
             FtpFileRetrieveStartError::TransferSetupFailed(
                 FtpTransferSetupError::NeedActiveDataTransfer
             )
-        ));
+        );
         assert_eq!(writes, [b"EPSV\r\n".to_vec(), b"PASV\r\n".to_vec()]);
         assert_eq!(data_attempts, 1);
     }

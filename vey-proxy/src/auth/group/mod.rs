@@ -493,7 +493,7 @@ where
 
         let basic_config = self.config.basic_config();
         // we should avoid corrupt write at process exit
-        if !basic_config.dynamic_cache.as_os_str().is_empty()
+        if !basic_config.dynamic_cache.is_empty()
             && let Some(Err(e)) = crate::control::run_protected_io(tokio::fs::write(
                 &basic_config.dynamic_cache,
                 contents,

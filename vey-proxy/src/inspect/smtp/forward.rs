@@ -338,7 +338,7 @@ mod tests {
         let cmd = b"QUIT\r\n";
         let (action, to_client, forwarded) =
             relay_until_next(&mut forward, cmd, b"221 Bye\r\n").await;
-        assert!(matches!(action, ForwardNextAction::Quit));
+        std::assert_matches!(action, ForwardNextAction::Quit);
         assert_eq!(forwarded, cmd);
         assert_eq!(to_client, b"221 Bye\r\n");
     }
@@ -364,7 +364,7 @@ mod tests {
             ups_in.write_all(b"221 Bye\r\n").await.unwrap();
         };
         let (status, _) = tokio::join!(intercept, drive);
-        assert!(matches!(status.unwrap(), ForwardNextAction::Quit));
+        std::assert_matches!(status.unwrap(), ForwardNextAction::Quit);
         drop(clt_w);
         let mut to_client = Vec::new();
         clt_out.read_to_end(&mut to_client).await.unwrap();
@@ -378,7 +378,7 @@ mod tests {
         let cmd = b"STARTTLS\r\n";
         let (action, to_client, forwarded) =
             relay_until_next(&mut forward, cmd, b"220 Ready to start TLS\r\n").await;
-        assert!(matches!(action, ForwardNextAction::StartTls));
+        std::assert_matches!(action, ForwardNextAction::StartTls);
         assert_eq!(forwarded, cmd);
         assert_eq!(to_client, b"220 Ready to start TLS\r\n");
     }
@@ -403,7 +403,7 @@ mod tests {
             read_buf[..n].to_vec()
         };
         let (status, to_client) = tokio::join!(intercept, drive);
-        assert!(matches!(status, Err(ServerTaskError::ClosedByClient)));
+        std::assert_matches!(status, Err(ServerTaskError::ClosedByClient));
         assert_eq!(to_client, b"502 Command not implemented\r\n");
         drop(ups_w);
         let mut forwarded = Vec::new();
@@ -457,7 +457,7 @@ mod tests {
             ups_in.write_all(b"221 Bye\r\n").await.unwrap();
         };
         let (status, _) = tokio::join!(intercept, drive);
-        assert!(matches!(status.unwrap(), ForwardNextAction::Quit));
+        std::assert_matches!(status.unwrap(), ForwardNextAction::Quit);
         drop(clt_w);
         let mut to_client = Vec::new();
         clt_out.read_to_end(&mut to_client).await.unwrap();
@@ -504,7 +504,7 @@ mod tests {
             ups_in.write_all(b"221 Bye\r\n").await.unwrap();
         };
         let (status, _) = tokio::join!(intercept, drive);
-        assert!(matches!(status.unwrap(), ForwardNextAction::Quit));
+        std::assert_matches!(status.unwrap(), ForwardNextAction::Quit);
         drop(clt_w);
         let mut to_client = Vec::new();
         clt_out.read_to_end(&mut to_client).await.unwrap();
@@ -539,7 +539,7 @@ mod tests {
             read_buf[..n].to_vec()
         };
         let (status, to_client) = tokio::join!(intercept, drive);
-        assert!(matches!(status, Err(ServerTaskError::ClosedByClient)));
+        std::assert_matches!(status, Err(ServerTaskError::ClosedByClient));
         assert_eq!(to_client, b"530 Authentication required\r\n");
         drop(ups_w);
         let mut forwarded = Vec::new();

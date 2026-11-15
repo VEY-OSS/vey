@@ -33,7 +33,7 @@ impl fmt::Display for DumpX509Cert<'_> {
         } else {
             None
         };
-        let serial: &str = serial.as_ref().map(|s| s.as_ref()).unwrap_or_default();
+        let serial: &str = serial.as_ref().map_or_default(|s| s.as_ref());
 
         let (pubkey_type, pubkey_bits) = match self.crt.public_key() {
             Ok(pkey) => (pkey.id(), pkey.bits()),
@@ -43,8 +43,7 @@ impl fmt::Display for DumpX509Cert<'_> {
         let san = self
             .crt
             .subject_alt_names()
-            .map(|san_stack| san_stack.iter().map(|gn| format!("{:?}", gn)).join(", "))
-            .unwrap_or_default();
+            .map_or_default(|san_stack| san_stack.iter().map(|gn| format!("{:?}", gn)).join(", "));
 
         let key_usage = self.crt.key_usage();
 

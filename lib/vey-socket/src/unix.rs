@@ -77,7 +77,7 @@ impl Drop for ConnectedDatagram {
 }
 
 fn unlink_client_path(path: &Path) {
-    if !path.as_os_str().is_empty() {
+    if !path.is_empty() {
         let _ = std::fs::remove_file(path);
     }
 }

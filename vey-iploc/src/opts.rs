@@ -36,7 +36,7 @@ impl ProcArgs {
 }
 
 pub(crate) fn daemon_group() -> &'static str {
-    DAEMON_GROUP.get().map(|s| s.as_str()).unwrap_or_default()
+    DAEMON_GROUP.get().map_or_default(|s| s.as_str())
 }
 
 fn build_cli_args() -> Command {

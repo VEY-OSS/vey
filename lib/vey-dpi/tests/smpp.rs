@@ -98,7 +98,7 @@ fn valid_outbind_max_body() {
 fn insufficient_data() {
     let data = vec![0x00; SMPP_SESSION_REQUEST_HEADER_LEN - 1];
     let err = check_smpp_data(&data).expect_err("Should require more data");
-    assert!(matches!(err, ProtocolInspectError::NeedMoreData(1)));
+    std::assert_matches!(err, ProtocolInspectError::NeedMoreData(1));
 }
 
 #[test]

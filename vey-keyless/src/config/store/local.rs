@@ -51,7 +51,7 @@ impl LocalKeyStoreConfig {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
         }
-        if self.dir_path.as_os_str().is_empty() {
+        if self.dir_path.is_empty() {
             return Err(anyhow!("dir path is not set"));
         }
         Ok(())

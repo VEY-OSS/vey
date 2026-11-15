@@ -98,7 +98,7 @@ mod tests {
         assert!(limit.is_set());
         assert_eq!(limit.check(0, 100), StreamLimitAction::AdvanceBy(100));
         limit.set_advance(100);
-        assert!(matches!(limit.check(1, 1), StreamLimitAction::DelayFor(_)));
+        std::assert_matches!(limit.check(1, 1), StreamLimitAction::DelayFor(_));
 
         limit.reset(10, 50, 2048);
         assert_eq!(limit.check(2048, 40), StreamLimitAction::AdvanceBy(40));

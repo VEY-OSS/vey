@@ -189,9 +189,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn default_backend_is_unix() {
-        assert!(matches!(
+        std::assert_matches!(
             SyslogBackendBuilder::default(),
             SyslogBackendBuilder::Unix(None)
-        ));
+        );
     }
 }

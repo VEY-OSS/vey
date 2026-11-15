@@ -157,8 +157,8 @@ where
             // capacity beyond `cap` stays unused.
             let vec = unsafe {
                 let capacity = self.buf.len();
-                let ptr = Box::into_raw(self.buf) as *mut u8;
-                Vec::from_raw_parts(ptr, self.cap, capacity)
+                let ptr = Box::into_non_null(self.buf).cast::<u8>();
+                Vec::from_parts(ptr, self.cap, capacity)
             };
             let mut bytes = Bytes::from(vec);
             bytes.advance(self.pos);

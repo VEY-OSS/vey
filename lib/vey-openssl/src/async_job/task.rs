@@ -170,7 +170,7 @@ impl<T: AsyncOperation> TaskState<T> {
                     continue;
                 }
                 ffi::ASYNC_PAUSE => {
-                    let action = unsafe { &mut *self.action.get() };
+                    let action = unsafe { self.action.as_mut_unchecked() };
                     let (add, del) = self.wait_ctx.get_changed_fds()?;
                     for fd in add {
                         action.operation.track_raw_fd(fd)?;
@@ -181,7 +181,7 @@ impl<T: AsyncOperation> TaskState<T> {
                     ready!(action.operation.poll_ready_fds(cx))?;
                 }
                 ffi::ASYNC_FINISH => {
-                    let action = unsafe { &mut *self.action.get() };
+                    let action = unsafe { self.action.as_mut_unchecked() };
                     let r = mem::replace(&mut action.result, Err(anyhow!("")));
                     return Poll::Ready(r.map_err(OpensslAsyncTaskError::Operation));
                 }
@@ -208,7 +208,7 @@ impl<T: AsyncOperation> TaskState<T> {
                     continue;
                 }
                 ffi::ASYNC_PAUSE => {
-                    let action = unsafe { &mut *self.action.get() };
+                    let action = unsafe { self.action.as_mut_unchecked() };
                     match self.wait_ctx.get_callback_status() {
                         ffi::ASYNC_STATUS_UNSUPPORTED => {
                             let (add, del) = self.wait_ctx.get_changed_fds()?;
@@ -234,7 +234,7 @@ impl<T: AsyncOperation> TaskState<T> {
                     }
                 }
                 ffi::ASYNC_FINISH => {
-                    let action = unsafe { &mut *self.action.get() };
+                    let action = unsafe { self.action.as_mut_unchecked() };
                     let r = mem::replace(&mut action.result, Err(anyhow!("")));
                     return Poll::Ready(r.map_err(OpensslAsyncTaskError::Operation));
                 }

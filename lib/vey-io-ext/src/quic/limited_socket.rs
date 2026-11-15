@@ -345,7 +345,7 @@ impl AsyncUdpSocket for LimitedUdpSocket {
     ) -> Poll<io::Result<usize>> {
         // SAFETY: poll_recv is only driven by Quinn's single EndpointDriver
         // (see type-level docs); no concurrent &mut to recv_state.
-        let l = unsafe { &mut *self.recv_state.get() };
+        let l = unsafe { self.recv_state.as_mut_unchecked() };
         if l.limit.is_set() {
             let dur_millis = l.started.elapsed().as_millis() as u64;
             let mut total_size_v = SmallVec::<[usize; 32]>::with_capacity(meta.len());

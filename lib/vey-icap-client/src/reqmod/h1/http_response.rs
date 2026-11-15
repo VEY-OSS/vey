@@ -46,11 +46,8 @@ impl HttpAdapterErrorResponse {
 
     /// A following body can only be read when the header fills the encapsulated section.
     pub(crate) fn require_header_section_finished(&self) -> Result<(), HttpResponseParseError> {
-        if self.header_section_finished() {
-            Ok(())
-        } else {
-            Err(HttpResponseParseError::HeaderEndedEarly(self.header_limit))
-        }
+        self.header_section_finished()
+            .ok_or(HttpResponseParseError::HeaderEndedEarly(self.header_limit))
     }
 
     /// Get the headers for an H2 response.
@@ -249,7 +246,7 @@ mod tests {
             .await
             .unwrap();
         let err = rsp.require_header_section_finished().unwrap_err();
-        assert!(matches!(err, HttpResponseParseError::HeaderEndedEarly(_)));
+        std::assert_matches!(err, HttpResponseParseError::HeaderEndedEarly(_));
         let buffered = reader.fill_buf().await.unwrap();
         assert_eq!(buffered, b"LEFTOVER");
     }

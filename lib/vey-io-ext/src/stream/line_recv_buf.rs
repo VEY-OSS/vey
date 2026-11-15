@@ -176,7 +176,7 @@ mod tests {
         assert!(b.is_empty());
 
         let r = b.read_line(&mut reader).await;
-        assert!(matches!(r, Err(RecvLineError::IoClosed)));
+        std::assert_matches!(r, Err(RecvLineError::IoClosed));
     }
 
     #[tokio::test]
@@ -197,7 +197,7 @@ mod tests {
         assert!(!b.is_empty());
 
         let r = b.read_line(&mut reader).await;
-        assert!(matches!(r, Err(RecvLineError::IoClosed)));
+        std::assert_matches!(r, Err(RecvLineError::IoClosed));
     }
 
     #[tokio::test]
@@ -224,7 +224,7 @@ mod tests {
         assert!(!b.is_empty());
 
         let r = b.read_line(&mut reader).await;
-        assert!(matches!(r, Err(RecvLineError::IoClosed)));
+        std::assert_matches!(r, Err(RecvLineError::IoClosed));
     }
 
     #[tokio::test]
@@ -250,7 +250,7 @@ mod tests {
 
         let mut b: LineRecvBuf<12> = LineRecvBuf::default();
         let r = b.read_line(&mut reader).await;
-        assert!(matches!(r, Err(RecvLineError::LineTooLong)));
+        std::assert_matches!(r, Err(RecvLineError::LineTooLong));
         // not all data read, so drop(reader) should panic
     }
 }

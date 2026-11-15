@@ -26,17 +26,16 @@ impl Clone for TcpStreamHalfConnectionStats {
 
 impl TcpStreamHalfConnectionStats {
     pub fn get_bytes(&self) -> u64 {
-        let r = unsafe { &*self.bytes.get() };
-        *r
+        unsafe { *self.bytes.as_ref_unchecked() }
     }
 
     pub fn add_bytes(&self, size: u64) {
-        let r = unsafe { &mut *self.bytes.get() };
+        let r = unsafe { self.bytes.as_mut_unchecked() };
         *r += size;
     }
 
     pub fn reset(&self) {
-        let r = unsafe { &mut *self.bytes.get() };
+        let r = unsafe { self.bytes.as_mut_unchecked() };
         *r = 0;
     }
 }

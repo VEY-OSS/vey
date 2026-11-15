@@ -45,7 +45,7 @@ fn insufficient_data_length() {
     // Test data shorter than minimum required length (5 bytes)
     const DATA: &[u8] = b"+OK";
     let result = check_pop3_greeting(DATA, 110);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(2))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(2)));
 }
 
 #[test]
@@ -85,7 +85,7 @@ fn invalid_line_ending_missing_lf() {
     // Test response with CR but no LF
     const DATA: &[u8] = b"+OK POP3 server ready\r";
     let result = check_pop3_greeting(DATA, 110);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 }
 
 #[test]

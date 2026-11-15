@@ -86,36 +86,36 @@ mod tests {
     #[test]
     fn not_long_enough() {
         let e = HttpStatusLine::parse(b"HTTP/1.1").unwrap_err();
-        assert!(matches!(e, HttpLineParseError::NotLongEnough));
+        std::assert_matches!(e, HttpLineParseError::NotLongEnough);
     }
 
     #[test]
     fn no_delimiter_found() {
         let e = HttpStatusLine::parse(b"HTTP/1.1200OK\r\n").unwrap_err();
-        assert!(matches!(e, HttpLineParseError::NoDelimiterFound(' ')));
+        std::assert_matches!(e, HttpLineParseError::NoDelimiterFound(' '));
     }
 
     #[test]
     fn invalid_version() {
         let e = HttpStatusLine::parse(b"HTTP/3.0 200 OK\r\n").unwrap_err();
-        assert!(matches!(e, HttpLineParseError::InvalidVersion));
+        std::assert_matches!(e, HttpLineParseError::InvalidVersion);
     }
 
     #[test]
     fn invalid_status_code() {
         let e = HttpStatusLine::parse(b"HTTP/1.1 20 OK\r\n").unwrap_err();
-        assert!(matches!(e, HttpLineParseError::InvalidStatusCode));
+        std::assert_matches!(e, HttpLineParseError::InvalidStatusCode);
     }
 
     #[test]
     fn not_long_enough_after_code() {
         let e = HttpStatusLine::parse(b"HTTP/1.1 200").unwrap_err();
-        assert!(matches!(e, HttpLineParseError::NotLongEnough));
+        std::assert_matches!(e, HttpLineParseError::NotLongEnough);
     }
 
     #[test]
     fn invalid_utf8_encoding() {
         let e = HttpStatusLine::parse(b"HTTP/1.1 200 OK\xFF\xFF\r\n").unwrap_err();
-        assert!(matches!(e, HttpLineParseError::InvalidUtf8Encoding(_)));
+        std::assert_matches!(e, HttpLineParseError::InvalidUtf8Encoding(_));
     }
 }

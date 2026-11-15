@@ -77,8 +77,8 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         header.extend_from_slice(b"PUT / HTTP/1.1\r\n");
         header.extend_from_slice(b"Content-Type: message/rfc822\r\n");
 
-        let mut len_buf = itoa::Buffer::new();
-        let len_s = len_buf.format(self.literal_size);
+        let mut len_buf = std::fmt::NumBuffer::new();
+        let len_s = self.literal_size.format_into(&mut len_buf);
 
         header.extend_from_slice(b"Content-Length: ");
         header.extend_from_slice(len_s.as_bytes());

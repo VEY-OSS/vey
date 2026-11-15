@@ -264,7 +264,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
 
         // SAFETY: poll_recv is only driven by Quinn's single EndpointDriver
         // (see type-level docs); no concurrent &mut to ctl_close_receiver.
-        let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
+        let ctl_close_receiver = unsafe { self.ctl_close_receiver.as_mut_unchecked() };
         match Pin::new(ctl_close_receiver).poll(cx) {
             Poll::Pending => {}
             Poll::Ready(Ok(Some(e))) => {
@@ -309,7 +309,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         // logics from quinn-udp::fallback.rs
         // SAFETY: poll_recv is only driven by Quinn's single EndpointDriver
         // (see type-level docs); no concurrent &mut to ctl_close_receiver.
-        let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
+        let ctl_close_receiver = unsafe { self.ctl_close_receiver.as_mut_unchecked() };
         match Pin::new(ctl_close_receiver).poll(cx) {
             Poll::Pending => {}
             Poll::Ready(Ok(Some(e))) => {

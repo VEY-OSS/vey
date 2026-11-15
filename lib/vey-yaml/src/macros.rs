@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn yaml_str() {
         let v = yaml_str!("1234");
-        assert!(matches!(v, Yaml::Value(Scalar::String(_))));
+        std::assert_matches!(v, Yaml::Value(Scalar::String(_)));
 
         let path = "absolute_path";
         let v = yaml_str!(path);
@@ -40,7 +40,7 @@ mod tests {
                 key1: v1
             "#
         );
-        assert!(matches!(v, Yaml::Mapping(_)));
+        std::assert_matches!(v, Yaml::Mapping(_));
 
         let v = yaml_doc!(
             r#"
@@ -48,15 +48,15 @@ mod tests {
                 - v2
             "#
         );
-        assert!(matches!(v, Yaml::Sequence(_)));
+        std::assert_matches!(v, Yaml::Sequence(_));
 
         let v = yaml_doc!("1234");
-        assert!(matches!(v, Yaml::Value(Scalar::Integer(1234))));
+        std::assert_matches!(v, Yaml::Value(Scalar::Integer(1234)));
 
         let v = yaml_doc!("1.0");
-        assert!(matches!(v, Yaml::Value(Scalar::FloatingPoint(_))));
+        std::assert_matches!(v, Yaml::Value(Scalar::FloatingPoint(_)));
 
         let v = yaml_doc!(r#""1234""#);
-        assert!(matches!(v, Yaml::Value(Scalar::String(_))));
+        std::assert_matches!(v, Yaml::Value(Scalar::String(_)));
     }
 }

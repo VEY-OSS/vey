@@ -89,15 +89,15 @@ mod tests {
 
         let result = rule.check(&literal_domain!("example.com"));
         assert!(result.0);
-        assert!(matches!(result.1, ProtocolInspectAction::Intercept));
+        std::assert_matches!(result.1, ProtocolInspectAction::Intercept);
 
         let result = rule.check(&literal_domain!("sub.example.com"));
         assert!(result.0);
-        assert!(matches!(result.1, ProtocolInspectAction::Intercept));
+        std::assert_matches!(result.1, ProtocolInspectAction::Intercept);
 
         let result = rule.check(&literal_domain!("other.com"));
         assert!(!result.0);
-        assert!(matches!(result.1, ProtocolInspectAction::Intercept));
+        std::assert_matches!(result.1, ProtocolInspectAction::Intercept);
     }
 
     #[test]

@@ -77,41 +77,32 @@ mod tests {
     #[test]
     fn missing_scheme() {
         let err = setup_parser("/.well-known/easy-proxy/").unwrap_err();
-        assert!(matches!(
-            err,
-            UriParseError::RequiredFieldNotFound("scheme")
-        ));
+        std::assert_matches!(err, UriParseError::RequiredFieldNotFound("scheme"));
     }
 
     #[test]
     fn invalid_scheme() {
         let err = setup_parser("/.well-known/easy-proxy/invalid_scheme/host/80/path").unwrap_err();
-        assert!(matches!(err, UriParseError::NotValidScheme("scheme")));
+        std::assert_matches!(err, UriParseError::NotValidScheme("scheme"));
     }
 
     #[test]
     fn missing_host() {
         let err = setup_parser("/.well-known/easy-proxy/http/").unwrap_err();
-        assert!(matches!(
-            err,
-            UriParseError::RequiredFieldNotFound("target_host")
-        ));
+        std::assert_matches!(err, UriParseError::RequiredFieldNotFound("target_host"));
     }
 
     #[test]
     fn missing_port() {
         let err = setup_parser("/.well-known/easy-proxy/http/example.com/").unwrap_err();
-        assert!(matches!(
-            err,
-            UriParseError::RequiredFieldNotFound("target_port")
-        ));
+        std::assert_matches!(err, UriParseError::RequiredFieldNotFound("target_port"));
     }
 
     #[test]
     fn invalid_port() {
         let err =
             setup_parser("/.well-known/easy-proxy/http/example.com/not_number/path").unwrap_err();
-        assert!(matches!(err, UriParseError::NotValidPort("target_port")));
+        std::assert_matches!(err, UriParseError::NotValidPort("target_port"));
     }
 
     #[test]

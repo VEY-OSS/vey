@@ -265,10 +265,10 @@ mod tests {
         let err = options
             .parse_header_line(b"Options-TTL: 18446744073709551615\r\n")
             .unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             err,
             IcapOptionsParseError::InvalidHeaderValue("Options-TTL")
-        ));
+        );
     }
 
     #[test]
@@ -297,10 +297,10 @@ mod tests {
     #[test]
     fn parse_header_methods_must_match() {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
-        assert!(matches!(
+        std::assert_matches!(
             options.parse_header_line(b"Methods: RESPMOD\r\n"),
             Err(IcapOptionsParseError::MethodNotMatch)
-        ));
+        );
     }
 
     #[test]
@@ -324,37 +324,34 @@ mod tests {
     #[test]
     fn parse_header_encapsulated_rejects_opt_body_nonzero_offset() {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
-        assert!(matches!(
+        std::assert_matches!(
             options.parse_header_line(b"Encapsulated: opt-body=42\r\n"),
             Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated"))
-        ));
+        );
     }
 
     #[test]
     fn parse_header_encapsulated_rejects_null_body_nonzero_offset() {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
-        assert!(matches!(
+        std::assert_matches!(
             options.parse_header_line(b"Encapsulated: null-body=50\r\n"),
             Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated"))
-        ));
+        );
     }
 
     #[test]
     fn parse_header_encapsulated_rejects_null_and_opt_body() {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
-        assert!(matches!(
+        std::assert_matches!(
             options.parse_header_line(b"Encapsulated: null-body=0, opt-body=0\r\n"),
             Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated"))
-        ));
+        );
     }
 
     #[test]
     fn check_requires_istag() {
         let options = IcapServiceOptions::new(IcapMethod::Reqmod);
-        assert!(matches!(
-            options.check(),
-            Err(IcapOptionsParseError::NoServiceTagSet)
-        ));
+        std::assert_matches!(options.check(), Err(IcapOptionsParseError::NoServiceTagSet));
     }
 
     #[test]
@@ -390,28 +387,28 @@ mod tests {
     #[test]
     fn parse_header_preview_rejects_invalid_value() {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
-        assert!(matches!(
+        std::assert_matches!(
             options.parse_header_line(b"Preview: not-a-number\r\n"),
             Err(IcapOptionsParseError::InvalidHeaderValue("Preview"))
-        ));
+        );
     }
 
     #[test]
     fn parse_header_max_connections_rejects_invalid_value() {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
-        assert!(matches!(
+        std::assert_matches!(
             options.parse_header_line(b"Max-Connections: abc\r\n"),
             Err(IcapOptionsParseError::InvalidHeaderValue("Max-Connections"))
-        ));
+        );
     }
 
     #[test]
     fn parse_header_encapsulated_rejects_unknown_part() {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
-        assert!(matches!(
+        std::assert_matches!(
             options.parse_header_line(b"Encapsulated: req-hdr=0\r\n"),
             Err(IcapOptionsParseError::InvalidHeaderValue("Encapsulated"))
-        ));
+        );
     }
 
     #[test]
@@ -425,10 +422,10 @@ mod tests {
     #[test]
     fn parse_status_line_rejects_non_2xx() {
         let mut options = IcapServiceOptions::new(IcapMethod::Reqmod);
-        assert!(matches!(
+        std::assert_matches!(
             options.parse_status_line(b"ICAP/1.0 500 Internal Error\r\n"),
             Err(IcapOptionsParseError::RequestFailed(500, _))
-        ));
+        );
     }
 
     #[test]

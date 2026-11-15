@@ -68,14 +68,14 @@ fn valid_multi_line_response() {
 fn insufficient_min_length() {
     const DATA: &[u8] = b"* O";
     let result = check_imap_greeting(DATA, None);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(3))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(3)));
 }
 
 #[test]
 fn insufficient_preauth_length() {
     const DATA: &[u8] = b"* PREA";
     let result = check_imap_greeting(DATA, None);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(5))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(5)));
 }
 
 // Tests for invalid protocol markers
@@ -123,7 +123,7 @@ fn incomplete_bye() {
 fn missing_lf_ending() {
     const DATA: &[u8] = b"* OK No LF";
     let result = check_imap_greeting(DATA, None);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 }
 
 #[test]
@@ -137,7 +137,7 @@ fn invalid_ending_missing_cr() {
 fn invalid_ending_missing_lf() {
     const DATA: &[u8] = b"* OK Missing LF\r";
     let result = check_imap_greeting(DATA, None);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 }
 
 // Tests for size limits

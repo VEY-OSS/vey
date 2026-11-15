@@ -156,8 +156,8 @@ impl UserMetricExt for StatsdTagGroup {
         server: &NodeName,
         stat_id: StatId,
     ) {
-        let mut buffer = itoa::Buffer::new();
-        let stat_id = buffer.format(stat_id.as_u64());
+        let mut buffer = std::fmt::NumBuffer::new();
+        let stat_id = stat_id.as_u64().format_into(&mut buffer);
         self.add_tag(TAG_KEY_USER_GROUP, user_group);
         self.add_tag(TAG_KEY_USER, user);
         self.add_tag(TAG_KEY_USER_TYPE, user_type);
@@ -173,8 +173,8 @@ impl UserMetricExt for StatsdTagGroup {
         escaper: &NodeName,
         stat_id: StatId,
     ) {
-        let mut buffer = itoa::Buffer::new();
-        let stat_id = buffer.format(stat_id.as_u64());
+        let mut buffer = std::fmt::NumBuffer::new();
+        let stat_id = stat_id.as_u64().format_into(&mut buffer);
         self.add_tag(TAG_KEY_USER_GROUP, user_group);
         self.add_tag(TAG_KEY_USER, user);
         self.add_tag(TAG_KEY_USER_TYPE, user_type);

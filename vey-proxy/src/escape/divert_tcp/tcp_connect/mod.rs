@@ -55,8 +55,7 @@ impl DivertTcpEscaper {
         let bind = bind_ip.map(BindAddr::Ip).unwrap_or_else(|| {
             self.config
                 .bind_interface
-                .map(BindAddr::Interface)
-                .unwrap_or_default()
+                .map_or_default(BindAddr::Interface)
         });
         #[cfg(not(any(
             target_os = "linux",
@@ -65,7 +64,7 @@ impl DivertTcpEscaper {
             target_os = "illumos",
             target_os = "solaris"
         )))]
-        let bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
+        let bind = bind_ip.map_or_default(BindAddr::Ip);
         let sock = vey_socket::tcp::new_socket_to(
             peer_ip,
             &bind,

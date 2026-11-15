@@ -461,10 +461,10 @@ mod tests {
 
         let mut cx = Context::from_waker(Waker::noop());
         let mut packet = Some(Bytes::from_static(b"hello"));
-        assert!(matches!(
+        std::assert_matches!(
             sender.poll_send_packet(&mut cx, &mut packet),
             Poll::Ready(Ok(5))
-        ));
+        );
         assert!(packet.is_none());
         assert_eq!(sender.inner().sent, vec![b"hello".to_vec()]);
     }
@@ -475,10 +475,10 @@ mod tests {
 
         let mut cx = Context::from_waker(Waker::noop());
         let mut packet = Some(Bytes::from_static(b"hello"));
-        assert!(matches!(
+        std::assert_matches!(
             sender.poll_send_packet(&mut cx, &mut packet),
             Poll::Ready(Ok(0))
-        ));
+        );
         assert_eq!(packet.as_deref(), Some(&b"hello"[..]));
     }
 
@@ -488,10 +488,10 @@ mod tests {
 
         let mut cx = Context::from_waker(Waker::noop());
         let mut packet = None;
-        assert!(matches!(
+        std::assert_matches!(
             sender.poll_send_packet(&mut cx, &mut packet),
             Poll::Ready(Ok(0))
-        ));
+        );
     }
 
     #[tokio::test]
@@ -531,10 +531,10 @@ mod tests {
 
         // a packet the socket refused is not counted
         let mut packet = Some(Bytes::from_static(b"more"));
-        assert!(matches!(
+        std::assert_matches!(
             sender.poll_send_packet(&mut cx, &mut packet),
             Poll::Ready(Ok(0))
-        ));
+        );
         assert_eq!(stats.packets(), 1);
         assert!(packet.is_some());
     }
@@ -563,10 +563,10 @@ mod tests {
 
         let mut cx = Context::from_waker(Waker::noop());
         let mut packet = None;
-        assert!(matches!(
+        std::assert_matches!(
             sender.poll_send_packet(&mut cx, &mut packet),
             Poll::Ready(Ok(0))
-        ));
+        );
         assert_eq!(stats.packets(), 0);
         assert!(sender.inner_mut().inner().steps.is_empty());
     }

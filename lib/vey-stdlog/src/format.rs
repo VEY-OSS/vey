@@ -228,7 +228,7 @@ mod tests {
             let err = kv_formatter
                 .emit_arguments("a-key".into(), &format_args!("{}", FailDisplay))
                 .unwrap_err();
-            assert!(matches!(err, slog::Error::Fmt(_)));
+            std::assert_matches!(err, slog::Error::Fmt(_));
         }
         assert!(vars.is_empty());
 

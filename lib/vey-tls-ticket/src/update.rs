@@ -285,7 +285,7 @@ mod tests {
 
         assert!(!update.expire_set.contains_key(&current_name));
         assert!(update.expire_set.contains_key(&initial_name));
-        assert!(matches!(poll_expired(&mut update), Poll::Pending));
+        std::assert_matches!(poll_expired(&mut update), Poll::Pending);
         assert_eq!(ticketer.encrypt_key().name(), current_name);
         assert!(ticketer.get_decrypt_key(current_name.as_ref()).is_some());
 
@@ -337,7 +337,7 @@ mod tests {
             .expire_queue
             .deadline(&update.expire_set.get(&name).unwrap().queue_key);
         assert!(extended_deadline > first_deadline + Duration::from_secs(60));
-        assert!(matches!(poll_expired(&mut update), Poll::Pending));
+        std::assert_matches!(poll_expired(&mut update), Poll::Pending);
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -363,7 +363,7 @@ mod tests {
         assert!(ticketer.get_decrypt_key(kept.as_ref()).is_some());
         assert!(!update.expire_set.contains_key(&gone));
         assert!(update.expire_set.contains_key(&kept));
-        assert!(matches!(poll_expired(&mut update), Poll::Pending));
+        std::assert_matches!(poll_expired(&mut update), Poll::Pending);
     }
 
     #[tokio::test(flavor = "current_thread")]

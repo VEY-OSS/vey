@@ -31,7 +31,7 @@ fn port119_valid_response() {
 fn insufficient_data_less_than_min() {
     const DATA: &[u8] = b"1234"; // 4 bytes < min 5
     let result = check_nntp_greeting(DATA, 119);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn missing_line_feed() {
     // Ends with '\r' but no '\n'
     const DATA: &[u8] = b"200 Server ready\r";
     let result = check_nntp_greeting(DATA, 119);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn prefix_without_line_feed_still_matches_when_the_line_arrives() {
 
     let partial = b"200 Server ready\r";
     let result = inspector.check_server_initial_data(&config, 119, partial);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 
     let protocol = inspector
         .check_server_initial_data(&config, 119, b"200 Server ready\r\n")
@@ -109,7 +109,7 @@ fn nnsp_prefix_without_line_feed_still_matches_when_the_line_arrives() {
 
     let partial = b"200 Server ready\r";
     let result = inspector.check_server_initial_data(&config, 433, partial);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 
     let protocol = inspector
         .check_server_initial_data(&config, 433, b"200 Server ready\r\n")

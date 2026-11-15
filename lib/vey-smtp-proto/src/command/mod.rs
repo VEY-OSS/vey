@@ -285,48 +285,48 @@ mod test {
     fn parse_line_err() {
         // no trailing sequence
         let err = Command::parse_line(b"HELO example.com").unwrap_err();
-        assert!(matches!(err, CommandLineError::NoTrailingSequence));
+        std::assert_matches!(err, CommandLineError::NoTrailingSequence);
 
         let err = Command::parse_line(b"QUIT\n").unwrap_err();
-        assert!(matches!(err, CommandLineError::NoTrailingSequence));
+        std::assert_matches!(err, CommandLineError::NoTrailingSequence);
 
         let err = Command::parse_line(b"ATRN\r").unwrap_err();
-        assert!(matches!(err, CommandLineError::NoTrailingSequence));
+        std::assert_matches!(err, CommandLineError::NoTrailingSequence);
 
         // invalid utf-8 command
         let err = Command::parse_line(b"EH\xffLO mail.example.com\r\n").unwrap_err();
-        assert!(matches!(err, CommandLineError::InvalidUtf8Command(_)));
+        std::assert_matches!(err, CommandLineError::InvalidUtf8Command(_));
 
         let err = Command::parse_line(b"\xff\xfe\r\n").unwrap_err();
-        assert!(matches!(err, CommandLineError::InvalidUtf8Command(_)));
+        std::assert_matches!(err, CommandLineError::InvalidUtf8Command(_));
 
         // invalid client host
         let err = Command::parse_line(b"EHLO \r\n").unwrap_err();
-        assert!(matches!(err, CommandLineError::InvalidClientHost));
+        std::assert_matches!(err, CommandLineError::InvalidClientHost);
 
         // invalid command parameters
         let err = Command::parse_line(b"BDAT 1000 FIRST\r\n").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             err,
             CommandLineError::InvalidCommandParam("BDAT", "invalid end marker")
-        ));
+        );
 
         let err = Command::parse_line(b"BDAT abc LAST\r\n").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             err,
             CommandLineError::InvalidCommandParam("BDAT", "invalid chunk size")
-        ));
+        );
 
         let err = Command::parse_line(b"BDAT true\r\n").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             err,
             CommandLineError::InvalidCommandParam("BDAT", "invalid chunk size")
-        ));
+        );
 
         let err = Command::parse_line(b"BURL http://example.com/message SECOND\r\n").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             err,
             CommandLineError::InvalidCommandParam("BURL", "invalid end marker")
-        ));
+        );
     }
 }

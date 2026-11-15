@@ -129,8 +129,7 @@ impl DirectFixedEscaper {
             0 => self
                 .config
                 .bind_interface
-                .map(BindAddr::Interface)
-                .unwrap_or_default(),
+                .map_or_default(BindAddr::Interface),
             #[cfg(not(any(
                 target_os = "linux",
                 target_os = "android",

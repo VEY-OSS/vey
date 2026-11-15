@@ -23,7 +23,7 @@ impl<const C: usize> RecvMsgHdr<'_, C> {
     pub unsafe fn to_msghdr(&self, control_buf: &mut RecvAncillaryBuffer) -> WinSock::WSAMSG {
         let control_buf = control_buf.as_bytes();
         unsafe {
-            let c_addr = &mut *self.c_addr.get();
+            let c_addr = self.c_addr.as_mut_unchecked();
             let (name, namelen) = c_addr.get_ptr_and_size();
 
             WinSock::WSAMSG {

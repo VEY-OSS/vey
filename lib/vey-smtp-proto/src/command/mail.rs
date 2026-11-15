@@ -65,41 +65,41 @@ mod tests {
 
         // Invalid UTF-8 sequences
         let result = MailParam::parse(b"FROM:\xff\xfe<user@example.com>").unwrap_err();
-        assert!(matches!(result, CommandLineError::InvalidUtf8Command(_)));
+        std::assert_matches!(result, CommandLineError::InvalidUtf8Command(_));
 
         let result = MailParam::parse(b"FROM:<\xff\xfe>").unwrap_err();
-        assert!(matches!(result, CommandLineError::InvalidUtf8Command(_)));
+        std::assert_matches!(result, CommandLineError::InvalidUtf8Command(_));
 
         // No reverse path present
         let result = MailParam::parse(b"   ").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             result,
             CommandLineError::InvalidCommandParam("MAIL", "no reverse path present")
-        ));
+        );
 
         // Invalid reverse path prefix
         let result = MailParam::parse(b"<user@example.com>").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             result,
             CommandLineError::InvalidCommandParam("MAIL", "invalid reverse path prefix")
-        ));
+        );
 
         let result = MailParam::parse(b"TO:<user@example.com>").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             result,
             CommandLineError::InvalidCommandParam("MAIL", "invalid reverse path prefix")
-        ));
+        );
 
         let result = MailParam::parse(b"FROM:user@example.com>").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             result,
             CommandLineError::InvalidCommandParam("MAIL", "invalid reverse path prefix")
-        ));
+        );
 
         let result = MailParam::parse(b"FROM:<user@example.com").unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             result,
             CommandLineError::InvalidCommandParam("MAIL", "invalid reverse path prefix")
-        ));
+        );
     }
 }

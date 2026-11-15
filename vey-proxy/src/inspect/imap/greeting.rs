@@ -303,7 +303,7 @@ mod tests {
         let status = greeting
             .relay(&mut ups_r, &mut clt_w, &mut buf, Duration::from_secs(1))
             .await;
-        assert!(matches!(status, Err(GreetingError::InvalidResponseType)));
+        std::assert_matches!(status, Err(GreetingError::InvalidResponseType));
     }
 
     #[tokio::test]

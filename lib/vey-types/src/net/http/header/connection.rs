@@ -92,11 +92,11 @@ impl KeepAliveValue {
         }
         buf.put_slice(name);
         buf.put_slice(b": ");
-        let mut itoa_buf = itoa::Buffer::new();
+        let mut num_buf = std::fmt::NumBuffer::new();
         let mut first = true;
         if let Some(timeout) = self.timeout {
             buf.put_slice(b"timeout=");
-            buf.put_slice(itoa_buf.format(timeout).as_bytes());
+            buf.put_slice(timeout.format_into(&mut num_buf).as_bytes());
             first = false;
         }
         if let Some(max) = self.max {
@@ -104,7 +104,7 @@ impl KeepAliveValue {
                 buf.put_slice(b", ");
             }
             buf.put_slice(b"max=");
-            buf.put_slice(itoa_buf.format(max).as_bytes());
+            buf.put_slice(max.format_into(&mut num_buf).as_bytes());
         }
         buf.put_slice(b"\r\n");
     }

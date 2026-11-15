@@ -48,7 +48,7 @@ mod tests {
             "#
         );
         let config = TicketSourceConfig::parse_yaml(&yaml, None).unwrap();
-        assert!(matches!(config, TicketSourceConfig::Redis(_)));
+        std::assert_matches!(config, TicketSourceConfig::Redis(_));
 
         let TicketSourceConfig::Redis(redis_config) = config;
         assert!(redis_config.build().is_ok());

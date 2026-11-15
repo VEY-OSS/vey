@@ -79,8 +79,8 @@ impl FromStr for MetricValue {
 impl fmt::Display for MetricValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MetricValue::Unsigned(u) => itoa::Buffer::new().format(*u).fmt(f),
-            MetricValue::Signed(i) => itoa::Buffer::new().format(*i).fmt(f),
+            MetricValue::Unsigned(u) => f.write_str(u.format_into(&mut fmt::NumBuffer::new())),
+            MetricValue::Signed(i) => f.write_str(i.format_into(&mut fmt::NumBuffer::new())),
             MetricValue::Double(v) => zmij::Buffer::new().format(*v).fmt(f),
         }
     }
@@ -132,11 +132,11 @@ impl fmt::Display for DisplayInfluxdbValue<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
             MetricValue::Unsigned(u) => {
-                itoa::Buffer::new().format(*u).fmt(f)?;
+                f.write_str(u.format_into(&mut fmt::NumBuffer::new()))?;
                 f.write_char('u')
             }
             MetricValue::Signed(i) => {
-                itoa::Buffer::new().format(*i).fmt(f)?;
+                f.write_str(i.format_into(&mut fmt::NumBuffer::new()))?;
                 f.write_char('i')
             }
             MetricValue::Double(v) => zmij::Buffer::new().format(*v).fmt(f),

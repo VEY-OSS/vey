@@ -27,11 +27,7 @@ impl<T: HasPrivate> RsaExt for Rsa<T> {
                 &mut len,
                 self.as_ptr(),
             );
-            if r != 1 {
-                Err(ErrorStack::get())
-            } else {
-                Ok(())
-            }
+            (r == 1).ok_or_else(ErrorStack::get)
         }
     }
 }

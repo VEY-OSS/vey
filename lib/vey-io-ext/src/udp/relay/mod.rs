@@ -979,7 +979,7 @@ mod batch_tests {
         let e = UdpRelayClientToRemote::new(&mut client, &mut remote, test_config(2))
             .await
             .unwrap_err();
-        assert!(matches!(e, UdpRelayError::ClientError(_)));
+        std::assert_matches!(e, UdpRelayError::ClientError(_));
         assert!(e.to_string().starts_with("client: recv failed"));
     }
 
@@ -991,7 +991,7 @@ mod batch_tests {
         let e = UdpRelayClientToRemote::new(&mut client, &mut remote, test_config(2))
             .await
             .unwrap_err();
-        assert!(matches!(e, UdpRelayError::RemoteError(_, _)));
+        std::assert_matches!(e, UdpRelayError::RemoteError(_, _));
         assert_eq!(e.to_string(), "remote: address not supported");
     }
 
@@ -1072,6 +1072,6 @@ mod batch_tests {
             Poll::Ready(r) => r.unwrap_err(),
             Poll::Pending => panic!("unexpected pending"),
         };
-        assert!(matches!(e, UdpRelayError::ClientError(_)));
+        std::assert_matches!(e, UdpRelayError::ClientError(_));
     }
 }

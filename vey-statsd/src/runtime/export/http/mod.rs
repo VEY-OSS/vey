@@ -4,13 +4,13 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::fmt::NumBuffer;
 use std::io::{self, IoSlice};
 use std::time::Duration;
 
 use anyhow::anyhow;
 use http::uri::PathAndQuery;
 use http::{HeaderMap, Method};
-use itoa::Buffer;
 use log::{debug, warn};
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
@@ -211,8 +211,8 @@ impl<T: HttpExport> HttpExportRuntime<T> {
 
         // set content-length
         self.header_buf.extend_from_slice(b"Content-Length: ");
-        let mut usize_buf = Buffer::new();
-        let content_length = usize_buf.format(self.req_body_buf.len());
+        let mut usize_buf = NumBuffer::new();
+        let content_length = self.req_body_buf.len().format_into(&mut usize_buf);
         self.header_buf.extend_from_slice(content_length.as_bytes());
         self.header_buf.extend_from_slice(b"\r\n\r\n");
 

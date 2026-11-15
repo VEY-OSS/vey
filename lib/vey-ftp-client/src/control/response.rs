@@ -298,18 +298,18 @@ mod tests {
 
     #[test]
     fn parse_code_bytes_rejects_out_of_range() {
-        assert!(matches!(
+        std::assert_matches!(
             FtpRawResponse::parse_code_bytes(b'0', b'0', b'0'),
             Err(FtpRawResponseError::InvalidReplyCode(0))
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             FtpRawResponse::parse_code_bytes(b'6', b'0', b'0'),
             Err(FtpRawResponseError::InvalidReplyCode(600))
-        ));
-        assert!(matches!(
+        );
+        std::assert_matches!(
             FtpRawResponse::parse_code_bytes(b'a', b'2', b'0'),
             Err(FtpRawResponseError::InvalidLineFormat)
-        ));
+        );
         assert_eq!(
             FtpRawResponse::parse_code_bytes(b'1', b'0', b'0').unwrap(),
             100

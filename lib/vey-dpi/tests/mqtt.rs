@@ -39,7 +39,7 @@ fn check_mqtt_client_connect_request_insufficient_data() {
     // Only 11 bytes (needs 12)
     let data = b"\x10\x0A\x00\x04MQTT\x04\x00\x00";
     let e = check_mqtt_data(data).expect_err("Should return NeedMoreData error");
-    assert!(matches!(e, ProtocolInspectError::NeedMoreData(1)));
+    std::assert_matches!(e, ProtocolInspectError::NeedMoreData(1));
 }
 
 #[test]

@@ -8,6 +8,7 @@ use std::io;
 use std::io::IoSlice;
 use std::mem::MaybeUninit;
 use std::pin::Pin;
+use std::ptr::NonNull;
 use std::task::{Context, Poll, ready};
 
 use bytes::{Buf, Bytes, BytesMut};
@@ -59,13 +60,13 @@ impl<R> FlexBufReader<R> {
         let len = len.min(buffer.len());
         let mut buffer = buffer;
         buffer.truncate(len);
-        let (ptr, init_len, capacity) = buffer.into_raw_parts();
+        let (ptr, init_len, capacity) = buffer.into_parts();
         debug_assert_eq!(init_len, len);
-        // SAFETY: `into_raw_parts` yields `init_len` initialized bytes and spare
+        // SAFETY: `into_parts` yields `init_len` initialized bytes and spare
         // capacity that we expose as `MaybeUninit`. Ownership moves into `Box`.
         let buf = unsafe {
-            Box::from_raw(std::ptr::slice_from_raw_parts_mut(
-                ptr as *mut MaybeUninit<u8>,
+            Box::from_non_null(NonNull::slice_from_raw_parts(
+                ptr.cast::<MaybeUninit<u8>>(),
                 capacity,
             ))
         };
@@ -108,8 +109,8 @@ impl<R> FlexBufReader<R> {
             // `ReadBuf::uninit` fills; spare capacity beyond `cap` stays unused.
             let vec = unsafe {
                 let capacity = self.buf.len();
-                let ptr = Box::into_raw(self.buf) as *mut u8;
-                Vec::from_raw_parts(ptr, self.cap, capacity)
+                let ptr = Box::into_non_null(self.buf).cast::<u8>();
+                Vec::from_parts(ptr, self.cap, capacity)
             };
             let mut bytes = Bytes::from(vec);
             bytes.advance(self.pos);

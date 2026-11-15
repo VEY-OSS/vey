@@ -190,7 +190,7 @@ mod tests {
         let status = buf
             .recv_cmd(Duration::from_secs(1), &mut clt_r, &mut clt_w)
             .await;
-        assert!(matches!(status, Err(ServerTaskError::ClientAppError(_))));
+        std::assert_matches!(status, Err(ServerTaskError::ClientAppError(_)));
         drop(clt_w);
         let mut out = Vec::new();
         clt_out.read_to_end(&mut out).await.unwrap();
@@ -211,7 +211,7 @@ mod tests {
                 "127.0.0.1".parse().unwrap(),
             )
             .await;
-        assert!(matches!(status, Err(ServerTaskError::ClosedByUpstream)));
+        std::assert_matches!(status, Err(ServerTaskError::ClosedByUpstream));
         drop(clt_w);
         let mut out = Vec::new();
         clt_out.read_to_end(&mut out).await.unwrap();
@@ -225,7 +225,7 @@ mod tests {
         let status = parser
             .feed_line_with_feedback(b"not a reply\r\n", &mut clt_w, "127.0.0.1".parse().unwrap())
             .await;
-        assert!(matches!(status, Err(ServerTaskError::UpstreamAppError(_))));
+        std::assert_matches!(status, Err(ServerTaskError::UpstreamAppError(_)));
         drop(clt_w);
         let mut out = Vec::new();
         clt_out.read_to_end(&mut out).await.unwrap();

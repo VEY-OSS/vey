@@ -72,7 +72,7 @@ mod tests {
         let (clt_in, mut clt_r) = tokio::io::duplex(64);
         drop(clt_in);
         let status = buf.recv_cmd_line(&mut clt_r).await;
-        assert!(matches!(status, Err(ServerTaskError::ClosedByClient)));
+        std::assert_matches!(status, Err(ServerTaskError::ClosedByClient));
     }
 
     #[tokio::test]
@@ -81,6 +81,6 @@ mod tests {
         let (ups_in, mut ups_r) = tokio::io::duplex(64);
         drop(ups_in);
         let status = buf.recv_rsp_line(&mut ups_r).await;
-        assert!(matches!(status, Err(ServerTaskError::ClosedByUpstream)));
+        std::assert_matches!(status, Err(ServerTaskError::ClosedByUpstream));
     }
 }

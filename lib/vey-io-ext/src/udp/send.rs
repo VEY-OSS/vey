@@ -670,14 +670,11 @@ mod tests {
         );
 
         let mut cx = Context::from_waker(Waker::noop());
-        assert!(matches!(
+        std::assert_matches!(
             send.poll_send_to(&mut cx, b"hello", peer()),
             Poll::Ready(Ok(5))
-        ));
-        assert!(matches!(
-            send.poll_send(&mut cx, b"bye"),
-            Poll::Ready(Ok(3))
-        ));
+        );
+        std::assert_matches!(send.poll_send(&mut cx, b"bye"), Poll::Ready(Ok(3)));
         assert_eq!(sent.packets(), vec![b"hello".to_vec(), b"bye".to_vec()]);
         assert_eq!(stats.packets(), 2);
         assert_eq!(stats.bytes(), 8);
@@ -708,10 +705,7 @@ mod tests {
 
         let mut cx = Context::from_waker(Waker::noop());
         let hdr = SendMsgHdr::new([IoSlice::new(b"ab"), IoSlice::new(b"cde")], Some(peer()));
-        assert!(matches!(
-            send.poll_sendmsg(&mut cx, &hdr),
-            Poll::Ready(Ok(5))
-        ));
+        std::assert_matches!(send.poll_sendmsg(&mut cx, &hdr), Poll::Ready(Ok(5)));
         assert_eq!(sent.packets(), vec![b"abcde".to_vec()]);
         assert_eq!(stats.packets(), 1);
         assert_eq!(stats.bytes(), 5);
@@ -729,10 +723,7 @@ mod tests {
         );
 
         let mut cx = Context::from_waker(Waker::noop());
-        assert!(matches!(
-            send.poll_send(&mut cx, b"first"),
-            Poll::Ready(Ok(5))
-        ));
+        std::assert_matches!(send.poll_send(&mut cx, b"first"), Poll::Ready(Ok(5)));
         assert!(send.poll_send(&mut cx, b"second").is_pending());
         assert_eq!(stats.packets(), 1);
         assert_eq!(stats.bytes(), 5);
@@ -748,10 +739,7 @@ mod tests {
         )));
 
         let mut cx = Context::from_waker(Waker::noop());
-        assert!(matches!(
-            send.poll_send(&mut cx, b"12345678"),
-            Poll::Ready(Ok(8))
-        ));
+        std::assert_matches!(send.poll_send(&mut cx, b"12345678"), Poll::Ready(Ok(8)));
         assert!(send.poll_send(&mut cx, b"12345678").is_pending());
         assert_eq!(stats.packets(), 1);
     }
@@ -820,10 +808,10 @@ mod tests {
 
         let mut cx = Context::from_waker(Waker::noop());
         let mut msgs = [SendMsgHdr::new([IoSlice::new(b"aa")], Some(peer()))];
-        assert!(matches!(
+        std::assert_matches!(
             send.poll_batch_sendmsg(&mut cx, &mut msgs),
             Poll::Ready(Ok(0))
-        ));
+        );
         assert_eq!(stats.packets(), 0);
         assert_eq!(stats.bytes(), 0);
     }

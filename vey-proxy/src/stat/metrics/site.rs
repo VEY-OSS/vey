@@ -121,8 +121,8 @@ impl SiteMetricTags {
     }
 
     fn add_to(&self, tags: &mut StatsdTagGroup, stat_id: StatId) {
-        let mut buffer = itoa::Buffer::new();
-        let stat_id = buffer.format(stat_id.as_u64());
+        let mut buffer = std::fmt::NumBuffer::new();
+        let stat_id = stat_id.as_u64().format_into(&mut buffer);
         tags.add_tag(TAG_KEY_SITE_GROUP, &self.group);
         tags.add_tag(TAG_KEY_SITE, &self.id);
         if self.tenant_user.is_empty() {

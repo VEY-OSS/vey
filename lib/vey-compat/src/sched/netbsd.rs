@@ -69,11 +69,7 @@ impl CpuAffinityImpl {
                 self.cpu_set,
             )
         };
-        if r != 0 {
-            Err(io::Error::last_os_error())
-        } else {
-            Ok(())
-        }
+        (r == 0).ok_or_else(io::Error::last_os_error)
     }
 }
 

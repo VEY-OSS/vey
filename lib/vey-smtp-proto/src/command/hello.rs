@@ -48,13 +48,13 @@ mod tests {
         );
 
         let result = parse_host(b" ").unwrap_err();
-        assert!(matches!(result, CommandLineError::InvalidClientHost));
+        std::assert_matches!(result, CommandLineError::InvalidClientHost);
 
         let result = parse_host(b"[256.256.256.256]").unwrap_err();
-        assert!(matches!(result, CommandLineError::InvalidClientHost));
+        std::assert_matches!(result, CommandLineError::InvalidClientHost);
 
         let result = parse_host(b"[192.168.1]").unwrap_err();
-        assert!(matches!(result, CommandLineError::InvalidClientHost));
+        std::assert_matches!(result, CommandLineError::InvalidClientHost);
 
         let result = parse_host(b"IPv6:2001:db8::1").unwrap();
         assert_eq!(

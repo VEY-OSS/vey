@@ -25,7 +25,7 @@ fn for_each_line(mut data: &[u8], mut feed: impl FnMut(&[u8]) -> bool) {
             Some(i) => (&data[..i], &data[i + 1..], false),
             None => (data, &[][..], true),
         };
-        let chunk = chunk.strip_suffix(b"\r").unwrap_or(chunk);
+        let chunk = chunk.trim_suffix(b"\r");
         let mut line = Vec::with_capacity(chunk.len() + 2);
         line.extend_from_slice(chunk);
         line.extend_from_slice(b"\r\n");

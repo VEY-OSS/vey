@@ -125,11 +125,7 @@ where
         .read_u8()
         .await
         .map_err(SocksConnectError::ReadFailed)?;
-    if status != 0x00 {
-        Err(SocksConnectError::AuthFailed)
-    } else {
-        Ok(())
-    }
+    (status == 0x00).ok_or(SocksConnectError::AuthFailed)
 }
 
 pub async fn recv_user_from_client<R>(

@@ -91,7 +91,7 @@ fn valid_ipv4_host() {
 fn line_too_short() {
     const DATA: &[u8] = b"554\r\n";
     let result = check_smtp_server_greeting(DATA, 25);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 }
 
 #[test]
@@ -106,5 +106,5 @@ fn line_too_long() {
 fn need_more_data() {
     const DATA: &[u8] = b"220 incomplete";
     let result = check_smtp_server_greeting(DATA, 25);
-    assert!(matches!(result, Err(ProtocolInspectError::NeedMoreData(1))));
+    std::assert_matches!(result, Err(ProtocolInspectError::NeedMoreData(1)));
 }

@@ -227,10 +227,7 @@ mod tests {
         let uri = Uri::from_static("/.well-known/easy-proxy/");
         let err = WellKnownUri::parse(&uri).unwrap_err();
 
-        assert!(matches!(
-            err,
-            UriParseError::RequiredFieldNotFound("scheme")
-        ));
+        std::assert_matches!(err, UriParseError::RequiredFieldNotFound("scheme"));
     }
 
     #[test]
@@ -238,9 +235,6 @@ mod tests {
         let uri = Uri::from_static("/.well-known/masque/");
         let err = WellKnownUri::parse(&uri).unwrap_err();
 
-        assert!(matches!(
-            err,
-            UriParseError::RequiredFieldNotFound("segment")
-        ));
+        std::assert_matches!(err, UriParseError::RequiredFieldNotFound("segment"));
     }
 }

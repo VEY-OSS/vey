@@ -266,10 +266,7 @@ mod tests {
         let record = resolver
             .run(domain.clone(), DnsRequest::query_ipv4(domain))
             .await;
-        assert!(matches!(
-            record.result,
-            Err(ResolveError::NoResolverRunning)
-        ));
+        std::assert_matches!(record.result, Err(ResolveError::NoResolverRunning));
     }
 
     #[tokio::test]

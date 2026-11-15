@@ -41,7 +41,7 @@ fn check_stomp_client_connect_request_valid_stomp() {
 fn check_stomp_client_connect_request_invalid_method_initial() {
     let data = b"IN\n\n\0";
     let e = check_stomp_data(data).expect_err("Should be invalid STOMP protocol");
-    assert!(matches!(e, ProtocolInspectError::NeedMoreData(5)));
+    std::assert_matches!(e, ProtocolInspectError::NeedMoreData(5));
 }
 
 #[test]
@@ -88,7 +88,7 @@ fn check_stomp_connect_method_valid_crlf() {
     let data = b"CONNECT\r\n\0"; // 10 bytes. This will be NeedMoreData(1)
     let e = check_stomp_data(data)
         .expect_err("Protocol check with insufficient data should return NeedMoreData");
-    assert!(matches!(e, ProtocolInspectError::NeedMoreData(1)));
+    std::assert_matches!(e, ProtocolInspectError::NeedMoreData(1));
 
     let data_long_enough = b"CONNECT\r\n\0\0"; // 11 bytes
     let p = check_stomp_data(data_long_enough).expect("Should be valid STOMP protocol");
@@ -100,7 +100,7 @@ fn check_stomp_connect_method_invalid_command_suffix() {
     let data = b"CONNECX\n\n\0"; // 10 bytes, Invalid STOMP command
     let e = check_stomp_data(data)
         .expect_err("Protocol with invalid command should return Protocol::Unknown");
-    assert!(matches!(e, ProtocolInspectError::NeedMoreData(8)));
+    std::assert_matches!(e, ProtocolInspectError::NeedMoreData(8));
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn check_stomp_connect_method_invalid_line_ending_after_command() {
     let data = b"CONNECTX\n\n\0"; // 11 bytes
     let e = check_stomp_data(data)
         .expect_err("Protocol with invalid line ending should return Protocol::Unknown");
-    assert!(matches!(e, ProtocolInspectError::NeedMoreData(7)));
+    std::assert_matches!(e, ProtocolInspectError::NeedMoreData(7));
 }
 
 #[test]
@@ -126,12 +126,12 @@ fn check_stomp_connect_method_need_more_data_for_initial_check_lf_style() {
     let data = b"CONNECT\n"; // 8 bytes
     let e = check_stomp_data(data)
         .expect_err("Protocol check with insufficient data should return NeedMoreData");
-    assert!(matches!(e, ProtocolInspectError::NeedMoreData(2)));
+    std::assert_matches!(e, ProtocolInspectError::NeedMoreData(2));
 
     let data2 = b"CONNECT\nX"; // 9 bytes
     let e2 = check_stomp_data(data2)
         .expect_err("Protocol check with insufficient data should return NeedMoreData");
-    assert!(matches!(e2, ProtocolInspectError::NeedMoreData(1)));
+    std::assert_matches!(e2, ProtocolInspectError::NeedMoreData(1));
 }
 
 #[test]
@@ -140,7 +140,7 @@ fn check_stomp_connect_method_need_more_data_after_method_crlf() {
     let data = b"CONNECT\r\nA"; // 10 bytes
     let e = check_stomp_data(data)
         .expect_err("Protocol check with insufficient data should return NeedMoreData");
-    assert!(matches!(e, ProtocolInspectError::NeedMoreData(1)));
+    std::assert_matches!(e, ProtocolInspectError::NeedMoreData(1));
 }
 
 #[test]
@@ -188,7 +188,7 @@ fn check_stomp_stomp_method_need_more_data_after_method_lf() {
     assert!(data_vec.len() >= MIN_STOMP_CLIENT_HANDSHAKE_LEN);
 
     let e = check_stomp_data(&data_vec).expect_err("Expected NeedMoreData, got Ok");
-    assert!(matches!(e, ProtocolInspectError::NeedMoreData(1)));
+    std::assert_matches!(e, ProtocolInspectError::NeedMoreData(1));
 }
 
 #[test]
@@ -201,14 +201,14 @@ fn check_stomp_stomp_method_need_more_data_after_method_crlf() {
     assert!(data_vec.len() >= MIN_STOMP_CLIENT_HANDSHAKE_LEN);
 
     let e = check_stomp_data(&data_vec).expect_err("Expected NeedMoreData, got Ok");
-    assert!(matches!(e, ProtocolInspectError::NeedMoreData(1)));
+    std::assert_matches!(e, ProtocolInspectError::NeedMoreData(1));
 }
 
 #[test]
 fn check_stomp_client_connect_request_empty_data() {
     let data = b"";
     let e = check_stomp_data(data).expect_err("Expected NeedMoreData, got Ok");
-    assert!(matches!(e, ProtocolInspectError::NeedMoreData(_)));
+    std::assert_matches!(e, ProtocolInspectError::NeedMoreData(_));
 }
 
 #[test]

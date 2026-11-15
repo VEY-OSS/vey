@@ -46,10 +46,6 @@ impl CpuAffinityImpl {
                 &self.cpu_set,
             )
         };
-        if errno != 0 {
-            Err(io::Error::last_os_error())
-        } else {
-            Ok(())
-        }
+        (errno == 0).ok_or_else(io::Error::last_os_error)
     }
 }

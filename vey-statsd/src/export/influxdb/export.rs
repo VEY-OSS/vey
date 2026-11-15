@@ -4,6 +4,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::fmt::NumBuffer;
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Duration;
@@ -12,7 +13,6 @@ use ahash::AHashMap;
 use anyhow::anyhow;
 use http::uri::PathAndQuery;
 use http::{HeaderMap, HeaderValue, header};
-use itoa::Buffer;
 use jiff::Timestamp;
 use tokio::sync::mpsc;
 
@@ -75,26 +75,26 @@ impl InfluxdbAggregateExport {
     }
 
     fn serialize_timestamp(&mut self, time: &Timestamp) {
-        let mut ts_buffer = Buffer::new();
+        self.buf.push(b' ');
         match self.precision {
             TimestampPrecision::Seconds => {
-                let ts = ts_buffer.format(time.as_second());
-                self.buf.push(b' ');
+                let mut ts_buffer = NumBuffer::new();
+                let ts = time.as_second().format_into(&mut ts_buffer);
                 self.buf.extend_from_slice(ts.as_bytes());
             }
             TimestampPrecision::MilliSeconds => {
-                let ts = ts_buffer.format(time.as_millisecond());
-                self.buf.push(b' ');
+                let mut ts_buffer = NumBuffer::new();
+                let ts = time.as_millisecond().format_into(&mut ts_buffer);
                 self.buf.extend_from_slice(ts.as_bytes());
             }
             TimestampPrecision::MicroSeconds => {
-                let ts = ts_buffer.format(time.as_microsecond());
-                self.buf.push(b' ');
+                let mut ts_buffer = NumBuffer::new();
+                let ts = time.as_microsecond().format_into(&mut ts_buffer);
                 self.buf.extend_from_slice(ts.as_bytes());
             }
             TimestampPrecision::NanoSeconds => {
-                let ts = ts_buffer.format(time.as_nanosecond());
-                self.buf.push(b' ');
+                let mut ts_buffer = NumBuffer::new();
+                let ts = time.as_nanosecond().format_into(&mut ts_buffer);
                 self.buf.extend_from_slice(ts.as_bytes());
             }
         };

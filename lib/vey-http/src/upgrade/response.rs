@@ -338,9 +338,9 @@ mod tests {
         let err = HttpUpgradeResponse::recv_for_connect_udp(&mut reader, 1024)
             .await
             .unwrap_err();
-        assert!(matches!(
+        std::assert_matches!(
             err,
             HttpUpgradeError::InvalidResponse(HttpUpgradeResponseError::InvalidContentLength)
-        ));
+        );
     }
 }

@@ -87,7 +87,7 @@ mod tests {
         let rule = builder.build();
         let result = rule.check(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 0)));
         assert!(result.0);
-        assert!(matches!(result.1, ProtocolInspectAction::Intercept));
+        std::assert_matches!(result.1, ProtocolInspectAction::Intercept);
 
         let yaml = yaml_doc!(
             r#"
@@ -98,7 +98,7 @@ mod tests {
         let rule = builder.build();
         let result = rule.check(IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)));
         assert!(result.0);
-        assert!(matches!(result.1, ProtocolInspectAction::Bypass));
+        std::assert_matches!(result.1, ProtocolInspectAction::Bypass);
 
         let yaml = yaml_doc!(
             r#"
@@ -109,7 +109,7 @@ mod tests {
         let rule = builder.build();
         let result = rule.check(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)));
         assert!(result.0);
-        assert!(matches!(result.1, ProtocolInspectAction::Block));
+        std::assert_matches!(result.1, ProtocolInspectAction::Block);
     }
 
     #[test]

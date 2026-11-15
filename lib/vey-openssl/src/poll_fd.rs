@@ -73,7 +73,7 @@ mod tests {
             );
 
             let polled = poll_fn(|cx| Poll::Ready(poll_readable(&mut tracked, cx))).await;
-            assert!(matches!(polled, Poll::Pending));
+            std::assert_matches!(polled, Poll::Pending);
 
             drop(tracked);
             unsafe {

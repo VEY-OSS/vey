@@ -900,7 +900,6 @@ dependencies = [
  "foldhash",
  "http",
  "idna",
- "itoa",
  "libc",
  "log",
  "memchr",

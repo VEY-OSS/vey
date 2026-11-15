@@ -4,10 +4,7 @@
  */
 
 pub(super) fn is_valid(s: &str) -> bool {
-    let Some(s) = s.strip_prefix('<') else {
-        return false;
-    };
-    let Some(s) = s.strip_suffix('>') else {
+    let Some(s) = s.strip_circumfix('<', '>') else {
         return false;
     };
 
