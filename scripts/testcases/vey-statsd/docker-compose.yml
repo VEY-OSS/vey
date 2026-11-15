@@ -16,24 +16,14 @@ services:
       COLLECTD_DISABLED: "1"
       STATSD_DISABLED: "1"
       REDIS_DISABLED: "1"
-      CARBON_DISABLE_TAGS: "1"
+      CARBON_AGGREGATOR_DISABLED: "1"
       GRAPHITE_STATSD_HOST: ""
       GRAPHITE_DEFAULT_CACHE_DURATION: "0"
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        if [ -f /opt/graphite/conf/carbon.conf ]; then
-          sed -i \
-            -e 's/^MAX_CREATES_PER_MINUTE = .*/MAX_CREATES_PER_MINUTE = inf/' \
-            -e 's/^CARBON_METRIC_INTERVAL = .*/CARBON_METRIC_INTERVAL = 0/' \
-            /opt/graphite/conf/carbon.conf
-        fi
-        exec /entrypoint
     ports:
       - "127.0.0.1:2003:2003"
       - "127.0.0.1:8088:80"
     volumes:
+      - ./graphite/carbon.conf:/opt/graphite/conf/carbon.conf:ro
       - ./graphite/storage-schemas.conf:/opt/graphite/conf/storage-schemas.conf:ro
       - ./graphite/storage-aggregation.conf:/opt/graphite/conf/storage-aggregation.conf:ro
     restart: always
