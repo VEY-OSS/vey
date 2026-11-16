@@ -130,6 +130,7 @@ impl BindAddr {
                     set_bind_address_no_port(socket, true)?;
                 } else {
                     socket.set_reuse_address(true)?;
+                    socket.set_reuse_port(true)?;
                 }
                 crate::sockopt::set_transparent(socket, peer_family)?;
                 let addr: SockAddr = (*addr).into();
@@ -184,6 +185,9 @@ impl BindAddr {
                 if addr.port() == 0 {
                     #[cfg(target_os = "linux")]
                     set_bind_address_no_port(socket, true)?;
+                } else {
+                    socket.set_reuse_address(true)?;
+                    socket.set_reuse_port(true)?;
                 }
                 crate::sockopt::set_transparent(socket, peer_family)?;
                 let addr: SockAddr = (*addr).into();
