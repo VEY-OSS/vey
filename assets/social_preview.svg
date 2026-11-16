@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
   <defs>
+    <!-- Brand Gradients -->
     <linearGradient id="left-wing" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#00C6FF" />
       <stop offset="100%" stop-color="#0072FF" />
@@ -12,26 +13,44 @@
       <stop offset="0%" stop-color="#FFD200" />
       <stop offset="100%" stop-color="#F7971E" />
     </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.4"/>
+    <linearGradient id="top-bar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00C6FF" />
+      <stop offset="50%" stop-color="#38EF7D" />
+      <stop offset="100%" stop-color="#FFD200" />
+    </linearGradient>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B1121" />
+      <stop offset="55%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#09131F" />
+    </linearGradient>
+    <radialGradient id="glow-blue" cx="16%" cy="24%" r="42%">
+      <stop offset="0%" stop-color="#0072FF" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#0072FF" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="glow-green" cx="85%" cy="75%" r="45%">
+      <stop offset="0%" stop-color="#11998E" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#11998E" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Subtle Background Grid -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#94A3B8" stroke-width="0.7" stroke-opacity="0.08" />
+    </pattern>
+
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.45" />
     </filter>
-    <style>
-      .text-title { fill: #0F172A; }
-      .text-subtitle { fill: #334155; }
-      .bg-rect { fill: #F8FAFC; }
-      @media (prefers-color-scheme: dark) {
-        .text-title { fill: #FFFFFF; }
-        .text-subtitle { fill: #94A3B8; }
-        .bg-rect { fill: #0B1121; }
-      }
-    </style>
   </defs>
 
-  <!-- Background -->
-  <rect class="bg-rect" width="1280" height="640" />
+  <!-- Background Layers -->
+  <rect width="1280" height="640" fill="url(#bg-grad)" />
+  <rect width="1280" height="640" fill="url(#grid)" />
+  <rect width="1280" height="640" fill="url(#glow-blue)" />
+  <rect width="1280" height="640" fill="url(#glow-green)" />
+  <rect x="0" y="0" width="1280" height="4" fill="url(#top-bar)" />
 
-  <!-- Logo Graphic -->
-  <g transform="translate(420, 225) scale(1.2)" filter="url(#shadow)">
+  <!-- Header: Logo + Wordmark + Tagline -->
+  <g transform="translate(154, 114) scale(0.56)" filter="url(#shadow)">
     <!-- Left Wing (Incoming Traffic) -->
     <path d="M -145 -100 L -65 -100 L -5 20 L -45 100 Z" fill="url(#left-wing)" />
     <!-- Right Wing (Outgoing Traffic) -->
@@ -40,7 +59,76 @@
     <polygon points="0,35 40,115 0,195 -40,115" fill="url(#core)" />
   </g>
 
-  <!-- Text -->
-  <text class="text-title" x="630" y="345" font-family="system-ui, -apple-system, sans-serif" font-size="180" font-weight="900" text-anchor="start" letter-spacing="16">VEY</text>
-  <text class="text-subtitle" x="640" y="525" font-family="system-ui, -apple-system, sans-serif" font-size="48" font-weight="600" text-anchor="middle" letter-spacing="4">A Versatile Proxy and Gateway Platform</text>
+  <text x="274" y="140" font-family="'IBM Plex Sans', 'DejaVu Sans', system-ui, -apple-system, sans-serif" font-size="76" font-weight="800" fill="#FFFFFF" letter-spacing="8">VEY</text>
+
+  <!-- Rust + License Pill -->
+  <rect x="468" y="96" width="244" height="34" rx="17" fill="#0F172A" fill-opacity="0.92" stroke="#38BDF8" stroke-opacity="0.48" stroke-width="1.2" />
+  <text x="590" y="118" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="14" font-weight="600" fill="#38BDF8" text-anchor="middle" letter-spacing="1.2">ASYNC RUST · APACHE-2.0</text>
+
+  <!-- Subtitle & One-liner -->
+  <text x="276" y="184" font-family="'IBM Plex Sans', 'DejaVu Sans', system-ui, -apple-system, sans-serif" font-size="27" font-weight="600" fill="#F1F5F9">Modular Proxy &amp; Gateway Suite in Rust</text>
+  <text x="276" y="218" font-family="'IBM Plex Sans', 'DejaVu Sans', system-ui, -apple-system, sans-serif" font-size="18" font-weight="400" fill="#A3B4C9">Unifying forward, reverse, transparent &amp; stream proxying in a hot-reloadable daemon</text>
+
+  <!-- Capability Grid (2 x 2) -->
+  <!-- Card 1: Forward & Stream -->
+  <g transform="translate(76, 258)">
+    <rect width="552" height="106" rx="14" fill="#111C33" fill-opacity="0.82" stroke="#1E293B" stroke-width="1.5" />
+    <rect x="0" y="18" width="5" height="70" rx="2.5" fill="url(#left-wing)" />
+    <text x="26" y="42" font-family="'IBM Plex Sans', 'DejaVu Sans', system-ui, -apple-system, sans-serif" font-size="21" font-weight="700" fill="#F8FAFC">Forward &amp; Stream Proxying</text>
+    <text x="26" y="75" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="14.5" font-weight="500" fill="#93C5FD">HTTP(S) · SOCKS4/5 · TCP/UDP/TLS · PROXY Protocol</text>
+  </g>
+
+  <!-- Card 2: Reverse Proxy -->
+  <g transform="translate(652, 258)">
+    <rect width="552" height="106" rx="14" fill="#111C33" fill-opacity="0.82" stroke="#1E293B" stroke-width="1.5" />
+    <rect x="0" y="18" width="5" height="70" rx="2.5" fill="url(#right-wing)" />
+    <text x="26" y="42" font-family="'IBM Plex Sans', 'DejaVu Sans', system-ui, -apple-system, sans-serif" font-size="21" font-weight="700" fill="#F8FAFC">HTTP &amp; TLS Reverse Proxy</text>
+    <text x="26" y="75" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="14.5" font-weight="500" fill="#6EE7B7">Site Groups · HTTP/1 &amp; H2 · WebSocket · Health Check</text>
+  </g>
+
+  <!-- Card 3: Transparent & Dynamic Routing -->
+  <g transform="translate(76, 384)">
+    <rect width="552" height="106" rx="14" fill="#111C33" fill-opacity="0.82" stroke="#1E293B" stroke-width="1.5" />
+    <rect x="0" y="18" width="5" height="70" rx="2.5" fill="url(#core)" />
+    <text x="26" y="42" font-family="'IBM Plex Sans', 'DejaVu Sans', system-ui, -apple-system, sans-serif" font-size="21" font-weight="700" fill="#F8FAFC">Transparent &amp; Dynamic Routing</text>
+    <text x="26" y="75" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="14.5" font-weight="500" fill="#FDE68A">SNI · TPROXY / pf / ipfw · GeoIP · Proxy Chaining</text>
+  </g>
+
+  <!-- Card 4: Security & Observability -->
+  <g transform="translate(652, 384)">
+    <rect width="552" height="106" rx="14" fill="#111C33" fill-opacity="0.82" stroke="#1E293B" stroke-width="1.5" />
+    <rect x="0" y="18" width="5" height="70" rx="2.5" fill="#22D3EE" />
+    <text x="26" y="42" font-family="'IBM Plex Sans', 'DejaVu Sans', system-ui, -apple-system, sans-serif" font-size="21" font-weight="700" fill="#F8FAFC">Inspection, Auth &amp; Observability</text>
+    <text x="26" y="75" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="14.5" font-weight="500" fill="#67E8F9">TLS/TLCP MITM · ICAP · LDAP/Lua/Py · Metrics &amp; Logs</text>
+  </g>
+
+  <!-- Bottom Divider -->
+  <line x1="76" y1="524" x2="1204" y2="524" stroke="#334155" stroke-opacity="0.6" stroke-width="1" />
+
+  <!-- Bottom Suite Pills -->
+  <g transform="translate(76, 544)">
+    <rect x="0" y="0" width="114" height="32" rx="8" fill="#0F2744" stroke="#00C6FF" stroke-opacity="0.6" stroke-width="1.2" />
+    <text x="57" y="21" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="14" font-weight="700" fill="#38BDF8" text-anchor="middle">vey-proxy</text>
+
+    <rect x="126" y="0" width="110" height="32" rx="8" fill="#111C33" stroke="#334155" stroke-width="1" />
+    <text x="181" y="21" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="13.5" font-weight="500" fill="#CBD5E1" text-anchor="middle">vey-dcgen</text>
+
+    <rect x="248" y="0" width="110" height="32" rx="8" fill="#111C33" stroke="#334155" stroke-width="1" />
+    <text x="303" y="21" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="13.5" font-weight="500" fill="#CBD5E1" text-anchor="middle">vey-iploc</text>
+
+    <rect x="370" y="0" width="124" height="32" rx="8" fill="#111C33" stroke="#334155" stroke-width="1" />
+    <text x="432" y="21" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="13.5" font-weight="500" fill="#CBD5E1" text-anchor="middle">vey-keyless</text>
+
+    <rect x="506" y="0" width="110" height="32" rx="8" fill="#111C33" stroke="#334155" stroke-width="1" />
+    <text x="561" y="21" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="13.5" font-weight="500" fill="#CBD5E1" text-anchor="middle">vey-bench</text>
+
+    <rect x="628" y="0" width="118" height="32" rx="8" fill="#111C33" stroke="#334155" stroke-width="1" />
+    <text x="687" y="21" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="13.5" font-weight="500" fill="#CBD5E1" text-anchor="middle">vey-mkcert</text>
+
+    <rect x="758" y="0" width="118" height="32" rx="8" fill="#111C33" stroke="#334155" stroke-width="1" />
+    <text x="817" y="21" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="13.5" font-weight="500" fill="#CBD5E1" text-anchor="middle">vey-statsd</text>
+  </g>
+
+  <!-- Repo URL -->
+  <text x="1204" y="566" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="16" font-weight="600" fill="#94A3B8" text-anchor="end">github.com/VEY-OSS/vey</text>
 </svg>

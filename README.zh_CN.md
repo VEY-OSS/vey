@@ -9,8 +9,8 @@
 
 ## 关于
 
-VEY（Versatile Edge Way）是一个面向企业场景的通用代理解决方案项目，可用于构建正向代理、HTTP/TLS 反向代理、
-负载均衡（待定）、NAT 穿透（开发中）等能力。
+VEY（Versatile Edge Way）是一套基于 Rust 构建的模块化代理与网关应用套件。项目以正向、反向、透明与流代理为核心，并配套提供压测、证书与密钥管理、GeoIP
+查询及指标转发等辅助工具，同时规划支持负载均衡（待定）与 NAT 穿透（开发中）等能力。
 
 本项目由 [G3 项目](https://github.com/bytedance/g3) 原作者 fork 并发起。
 
@@ -119,14 +119,15 @@ Cloudflare Keyless SSL 协议的服务端实现。它可以让 TLS 边缘服务�
 
 预编译包可在 [cloudsmith](https://cloudsmith.io/~vey-oss/repos/) 获取。
 
-linux/amd64 与 linux/arm64 的容器镜像发布在 GHCR。`<version>` 是该应用的发布版本，例如 `1.15.1`。默认标签是 Debian。`:<version>-debian` 与 `:<version>-alpine` 用来选择基础镜像。
+linux/amd64 与 linux/arm64 的容器镜像发布在 GHCR。`<version>` 是该应用的发布版本，例如 `1.15.1`。默认标签是 Debian。
+`:<version>-debian` 与 `:<version>-alpine` 用来选择基础镜像。
 
-| 应用 | 镜像 | GitHub Packages |
-| --- | --- | --- |
-| [vey-proxy](vey-proxy/docker/README.md) | `ghcr.io/vey-oss/vey-proxy:<version>` | [vey-proxy](https://github.com/VEY-OSS/vey/pkgs/container/vey-proxy) |
+| 应用                                      | 镜像                                   | GitHub Packages                                                        |
+|-------------------------------------------|----------------------------------------|------------------------------------------------------------------------|
+| [vey-proxy](vey-proxy/docker/README.md)   | `ghcr.io/vey-oss/vey-proxy:<version>`  | [vey-proxy](https://github.com/VEY-OSS/vey/pkgs/container/vey-proxy)   |
 | [vey-statsd](vey-statsd/docker/README.md) | `ghcr.io/vey-oss/vey-statsd:<version>` | [vey-statsd](https://github.com/VEY-OSS/vey/pkgs/container/vey-statsd) |
-| [vey-dcgen](vey-dcgen/docker/README.md) | `ghcr.io/vey-oss/vey-dcgen:<version>` | [vey-dcgen](https://github.com/VEY-OSS/vey/pkgs/container/vey-dcgen) |
-| [vey-iploc](vey-iploc/docker/README.md) | `ghcr.io/vey-oss/vey-iploc:<version>` | [vey-iploc](https://github.com/VEY-OSS/vey/pkgs/container/vey-iploc) |
+| [vey-dcgen](vey-dcgen/docker/README.md)   | `ghcr.io/vey-oss/vey-dcgen:<version>`  | [vey-dcgen](https://github.com/VEY-OSS/vey/pkgs/container/vey-dcgen)   |
+| [vey-iploc](vey-iploc/docker/README.md)   | `ghcr.io/vey-oss/vey-iploc:<version>`  | [vey-iploc](https://github.com/VEY-OSS/vey/pkgs/container/vey-iploc)   |
 
 但仍推荐自行编译并打包，具体方法请参考 [Build and Package](doc/build_and_package.md)。
 
@@ -136,7 +137,8 @@ linux/amd64 与 linux/arm64 的容器镜像发布在 GHCR。`<version>` 是该�
 
 ## 社区交流
 
-欢迎通过[此链接](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=a7an15cf-4851-41ee-9741-b3a223ab9998)或扫描下方二维码加入飞书 (Larksuite) 用户交流群：
+欢迎通过[此链接](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=a7an15cf-4851-41ee-9741-b3a223ab9998)
+或扫描下方二维码加入飞书 (Larksuite) 用户交流群：
 
 <a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=a7an15cf-4851-41ee-9741-b3a223ab9998"><img src="assets/lark_group.svg" alt="飞书交流群" width="200"/></a>
 

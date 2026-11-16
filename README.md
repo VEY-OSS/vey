@@ -9,8 +9,9 @@
 
 ## About
 
-The VEY project is designed for building enterprise-oriented general-purpose proxy solutions, including but not limited
-to forward proxies, HTTP and TLS reverse proxies, load balancers (TBD), and NAT traversal services (WIP).
+VEY (Versatile Edge Way) is a modular suite of proxy and gateway applications written in Rust. It centers on forward,
+reverse, transparent, and stream proxying, complemented by supporting tools for benchmarking, TLS/certificate handling,
+GeoIP lookup, and metrics forwarding, with load-balancing (TBD) and NAT traversal (WIP) planned.
 
 This project is a fork of [the G3 project](https://github.com/bytedance/g3) by its creator.
 
@@ -41,14 +42,17 @@ interception, ICAP inspection, and StatsD observability.
 - Async Rust implementation with graceful hot reload and multi-worker scaling
 - HTTP(S) and SOCKS4/5 forward proxy support, including HTTP CONNECT-UDP and SOCKS5 UDP ASSOCIATE
 - SNI transparent proxy and TCP/UDP transparent proxying via Linux TPROXY, FreeBSD `ipfw`, and OpenBSD `pf`
-- Proxy chaining and dynamic egress routing by client IP, target host, resolved IP, GeoIP, or external route-query agents
+- Proxy chaining and dynamic egress routing by client IP, target host, resolved IP, GeoIP, or external route-query
+  agents
 - TCP/UDP/TLS stream proxying with PROXY Protocol support
-- HTTP and TLS reverse proxying via site groups: HTTP/1, HTTP/2 over TLS, WebSocket, passive peer health checks, and per-site origins and tenant limits
+- HTTP and TLS reverse proxying via site groups: HTTP/1, HTTP/2 over TLS, WebSocket, passive peer health checks, and
+  per-site origins and tenant limits
 - Multi-stack TLS based on OpenSSL, BoringSSL, AWS-LC, AWS-LC-FIPS, Tongsuo (with TLCP), or rustls
 - TLS/TLCP interception, decrypted-traffic export, and HTTP/1, HTTP/2, IMAP, and SMTP inspection
 - ICAP (`REQMOD` / `RESPMOD`) integration for application-layer adaptation
 - Pluggable authentication (local, LDAP, Lua, Python), ACLs, quotas, rate/bandwidth limits, and per-user site policies
-- Structured logging (journald, syslog, fluentd) and StatsD metrics across ingress, egress, user, user-site, and reverse-proxy site dimensions
+- Structured logging (journald, syslog, fluentd) and StatsD metrics across ingress, egress, user, user-site, and
+  reverse-proxy site dimensions
 
 [README](vey-proxy/README.md) | [User Guide](vey-proxy/UserGuide.en_US.md) |
 [Reference Doc](https://vey.readthedocs.io/projects/proxy/en/latest/)
@@ -130,14 +134,15 @@ See [Standards](doc/standards.md).
 
 Prebuilt packages are available on [cloudsmith](https://cloudsmith.io/~vey-oss/repos/).
 
-Container images for linux/amd64 and linux/arm64 are published to GHCR. `<version>` is the application release version, such as `1.15.1`. Debian is the default tag. `:<version>-debian` and `:<version>-alpine` select the base image.
+Container images for linux/amd64 and linux/arm64 are published to GHCR. `<version>` is the application release version,
+such as `1.15.1`. Debian is the default tag. `:<version>-debian` and `:<version>-alpine` select the base image.
 
-| Application | Image | GitHub Packages |
-| --- | --- | --- |
-| [vey-proxy](vey-proxy/docker/README.md) | `ghcr.io/vey-oss/vey-proxy:<version>` | [vey-proxy](https://github.com/VEY-OSS/vey/pkgs/container/vey-proxy) |
+| Application                               | Image                                  | GitHub Packages                                                        |
+|-------------------------------------------|----------------------------------------|------------------------------------------------------------------------|
+| [vey-proxy](vey-proxy/docker/README.md)   | `ghcr.io/vey-oss/vey-proxy:<version>`  | [vey-proxy](https://github.com/VEY-OSS/vey/pkgs/container/vey-proxy)   |
 | [vey-statsd](vey-statsd/docker/README.md) | `ghcr.io/vey-oss/vey-statsd:<version>` | [vey-statsd](https://github.com/VEY-OSS/vey/pkgs/container/vey-statsd) |
-| [vey-dcgen](vey-dcgen/docker/README.md) | `ghcr.io/vey-oss/vey-dcgen:<version>` | [vey-dcgen](https://github.com/VEY-OSS/vey/pkgs/container/vey-dcgen) |
-| [vey-iploc](vey-iploc/docker/README.md) | `ghcr.io/vey-oss/vey-iploc:<version>` | [vey-iploc](https://github.com/VEY-OSS/vey/pkgs/container/vey-iploc) |
+| [vey-dcgen](vey-dcgen/docker/README.md)   | `ghcr.io/vey-oss/vey-dcgen:<version>`  | [vey-dcgen](https://github.com/VEY-OSS/vey/pkgs/container/vey-dcgen)   |
+| [vey-iploc](vey-iploc/docker/README.md)   | `ghcr.io/vey-oss/vey-iploc:<version>`  | [vey-iploc](https://github.com/VEY-OSS/vey/pkgs/container/vey-iploc)   |
 
 That said, building packages yourself is still recommended. See [Build and Package](doc/build_and_package.md) for
 details.
@@ -148,7 +153,9 @@ See [Long-Term Support](doc/long-term_support.md).
 
 ## Community
 
-Join the Larksuite (飞书) user group via this [link](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=a7an15cf-4851-41ee-9741-b3a223ab9998) or by scanning the QR code below:
+Join the Larksuite (飞书) user group via
+this [link](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=a7an15cf-4851-41ee-9741-b3a223ab9998)
+or by scanning the QR code below:
 
 <a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=a7an15cf-4851-41ee-9741-b3a223ab9998"><img src="assets/lark_group.svg" alt="Lark Group" width="200"/></a>
 

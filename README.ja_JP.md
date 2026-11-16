@@ -9,8 +9,9 @@
 
 ## 概要
 
-VEY は、エンタープライズ向けの汎用プロキシソリューションを構築するためのプロジェクトです。フォワードプロキシ /
-HTTP・TLS リバースプロキシ / ロードバランサー (TBD) / NAT トラバーサル (WIP) など、幅広い用途に利用できます。
+VEY（Versatile Edge Way）は、Rust で構築されたモジュラーなプロキシ・ゲートウェイアプリケーションスイートです。
+フォワード、リバース、トランスペアレント、ストリームの各プロキシを中心とし、ベンチマーク、証明書・鍵管理、GeoIP
+ルックアップ、メトリクス転送などの補助ツールを備えており、ロードバランサー (TBD) や NAT トラバーサル (WIP) の拡張も予定しています。
 
 このプロジェクトは、[G3 プロジェクト](https://github.com/bytedance/g3) の作者によるフォークです。
 
@@ -47,7 +48,8 @@ TLS/TLCP インターセプト、ICAP 検査、StatsD による可観測性を�
 - TLS/TLCP インターセプト、復号トラフィックの出力、HTTP/1・HTTP/2・IMAP・SMTP の検査
 - アプリケーション層アダプテーション向けの ICAP（`REQMOD` / `RESPMOD`）連携
 - 柔軟な認証（ローカル、LDAP、Lua、Python）、ACL、クォータ、レート・帯域制限、ユーザー単位のサイトポリシー
-- 構造化ログ（journald、syslog、fluentd）および入口・出口・ユーザー・ユーザーサイト・リバースプロキシサイト単位の StatsD メトリクス
+- 構造化ログ（journald、syslog、fluentd）および入口・出口・ユーザー・ユーザーサイト・リバースプロキシサイト単位の StatsD
+  メトリクス
 
 [README](vey-proxy/README.md) | [ユーザーガイド](vey-proxy/UserGuide.en_US.md) |
 [リファレンスドキュメント](https://vey.readthedocs.io/projects/proxy/en/latest/)
@@ -55,7 +57,8 @@ TLS/TLCP インターセプト、ICAP 検査、StatsD による可観測性を�
 ### vey-statsd
 
 StatsD 互換のメトリクス受信・集約・転送サービスです。アプリケーションから送られたメトリクスを取り込み、
-パイプライン上で正規化や集約を行い、Graphite、OpenTSDB、Prometheus、InfluxDB、VictoriaMetrics、QuestDB、OpenGemini などの下流システムへ出力できます。
+パイプライン上で正規化や集約を行い、Graphite、OpenTSDB、Prometheus、InfluxDB、VictoriaMetrics、QuestDB、OpenGemini
+などの下流システムへ出力できます。
 
 [README](vey-statsd/README.md) | [リファレンスドキュメント](https://vey.readthedocs.io/projects/statsd/en/latest/)
 
@@ -123,14 +126,16 @@ Cloudflare Keyless SSL プロトコルのサーバー実装です。TLS エッ�
 
 ビルド済みパッケージは [cloudsmith](https://cloudsmith.io/~vey-oss/repos/) から入手できます。
 
-linux/amd64 と linux/arm64 のコンテナイメージは GHCR で公開しています。`<version>` はそのアプリケーションのリリースバージョンです（例: `1.15.1`）。デフォルトタグは Debian です。`:<version>-debian` と `:<version>-alpine` でベースイメージを選べます。
+linux/amd64 と linux/arm64 のコンテナイメージは GHCR で公開しています。`<version>`
+はそのアプリケーションのリリースバージョンです（例: `1.15.1`）。デフォルトタグは Debian です。`:<version>-debian` と
+`:<version>-alpine` でベースイメージを選べます。
 
-| アプリケーション | イメージ | GitHub Packages |
-| --- | --- | --- |
-| [vey-proxy](vey-proxy/docker/README.md) | `ghcr.io/vey-oss/vey-proxy:<version>` | [vey-proxy](https://github.com/VEY-OSS/vey/pkgs/container/vey-proxy) |
+| アプリケーション                          | イメージ                               | GitHub Packages                                                        |
+|-------------------------------------------|----------------------------------------|------------------------------------------------------------------------|
+| [vey-proxy](vey-proxy/docker/README.md)   | `ghcr.io/vey-oss/vey-proxy:<version>`  | [vey-proxy](https://github.com/VEY-OSS/vey/pkgs/container/vey-proxy)   |
 | [vey-statsd](vey-statsd/docker/README.md) | `ghcr.io/vey-oss/vey-statsd:<version>` | [vey-statsd](https://github.com/VEY-OSS/vey/pkgs/container/vey-statsd) |
-| [vey-dcgen](vey-dcgen/docker/README.md) | `ghcr.io/vey-oss/vey-dcgen:<version>` | [vey-dcgen](https://github.com/VEY-OSS/vey/pkgs/container/vey-dcgen) |
-| [vey-iploc](vey-iploc/docker/README.md) | `ghcr.io/vey-oss/vey-iploc:<version>` | [vey-iploc](https://github.com/VEY-OSS/vey/pkgs/container/vey-iploc) |
+| [vey-dcgen](vey-dcgen/docker/README.md)   | `ghcr.io/vey-oss/vey-dcgen:<version>`  | [vey-dcgen](https://github.com/VEY-OSS/vey/pkgs/container/vey-dcgen)   |
+| [vey-iploc](vey-iploc/docker/README.md)   | `ghcr.io/vey-oss/vey-iploc:<version>`  | [vey-iploc](https://github.com/VEY-OSS/vey/pkgs/container/vey-iploc)   |
 
 ただし、可能であればパッケージは自前でビルドすることを推奨します。詳細は
 [Build and Package](doc/build_and_package.md) を参照してください。
@@ -141,7 +146,9 @@ linux/amd64 と linux/arm64 のコンテナイメージは GHCR で公開して�
 
 ## コミュニティ
 
-Larksuite (飛書) のユーザーグループに参加するには、こちらの[リンク](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=a7an15cf-4851-41ee-9741-b3a223ab9998)をクリックするか、以下のQRコードをスキャンしてください：
+Larksuite (飛書)
+のユーザーグループに参加するには、こちらの[リンク](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=a7an15cf-4851-41ee-9741-b3a223ab9998)
+をクリックするか、以下のQRコードをスキャンしてください：
 
 <a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=a7an15cf-4851-41ee-9741-b3a223ab9998"><img src="assets/lark_group.svg" alt="Lark Group" width="200"/></a>
 

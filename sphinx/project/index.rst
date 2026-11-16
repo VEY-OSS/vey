@@ -2,7 +2,7 @@
 VEY Documentation
 #################
 
-VEY is an open source project for building enterprise-oriented proxy, gateway,
+VEY (Versatile Edge Way) is an open source suite for modular proxy, gateway,
 and supporting network services in Rust.
 
 The project includes several standalone daemons and tools that share common

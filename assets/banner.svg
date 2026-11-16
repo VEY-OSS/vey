@@ -41,6 +41,6 @@
   </g>
 
   <!-- Text -->
-  <text class="text-title" x="400" y="170" font-family="system-ui, -apple-system, sans-serif" font-size="120" font-weight="900" text-anchor="start" letter-spacing="16">VEY</text>
-  <text class="text-subtitle" x="405" y="230" font-family="system-ui, -apple-system, sans-serif" font-size="32" font-weight="600" text-anchor="start" letter-spacing="4">A Versatile Proxy and Gateway Platform</text>
+  <text class="text-title" x="400" y="168" font-family="'IBM Plex Sans', 'DejaVu Sans', system-ui, -apple-system, sans-serif" font-size="116" font-weight="900" text-anchor="start" letter-spacing="14">VEY</text>
+  <text class="text-subtitle" x="405" y="228" font-family="'IBM Plex Sans', 'DejaVu Sans', system-ui, -apple-system, sans-serif" font-size="30" font-weight="600" text-anchor="start" letter-spacing="2">Modular Proxy &amp; Gateway Suite in Rust</text>
 </svg>
