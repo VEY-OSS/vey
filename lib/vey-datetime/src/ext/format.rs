@@ -7,7 +7,7 @@ use std::fmt;
 
 use jiff::fmt::strtime;
 use jiff::tz::{Offset, TimeZone};
-use jiff::{Timestamp, Zoned};
+use jiff::{Timestamp, ZonedDateTime};
 
 /// Formatting helpers for common datetime string shapes used across Vey.
 pub trait DateTimeFormatExt {
@@ -66,7 +66,7 @@ impl DateTimeFormatExt for Timestamp {
     }
 
     fn format_rfc5280_auto(&self) -> impl fmt::Display + '_ {
-        let year = self.to_zoned(TimeZone::UTC).year();
+        let year = self.to_zoned_datetime(TimeZone::UTC).year();
         if (1950..=2049).contains(&year) {
             self.strftime("%y%m%d%H%M%SZ")
         } else {
@@ -80,7 +80,7 @@ impl DateTimeFormatExt for Timestamp {
     }
 }
 
-impl DateTimeFormatExt for Zoned {
+impl DateTimeFormatExt for ZonedDateTime {
     #[inline]
     fn format_rfc3339_fixed_microsecond(&self) -> impl fmt::Display + '_ {
         let offset = self.offset();
@@ -118,7 +118,7 @@ impl DateTimeFormatExt for Zoned {
     }
 
     fn format_rfc5280_auto(&self) -> impl fmt::Display + '_ {
-        let year = self.timestamp().to_zoned(TimeZone::UTC).year();
+        let year = self.timestamp().to_zoned_datetime(TimeZone::UTC).year();
         if (1950..=2049).contains(&year) {
             UtcDisplay {
                 timestamp: self.timestamp(),
@@ -179,8 +179,8 @@ mod tests {
         s.parse().unwrap()
     }
 
-    fn zoned(instant: &str, offset_seconds: i32) -> Zoned {
-        ts(instant).to_zoned(TimeZone::fixed(
+    fn zoned(instant: &str, offset_seconds: i32) -> ZonedDateTime {
+        ts(instant).to_zoned_datetime(TimeZone::fixed(
             Offset::from_seconds(offset_seconds).unwrap(),
         ))
     }

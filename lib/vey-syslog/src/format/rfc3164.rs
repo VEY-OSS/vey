@@ -9,7 +9,7 @@ use std::fmt::{Arguments, Write};
 use std::io;
 
 use itoa::Integer;
-use jiff::Zoned;
+use jiff::ZonedDateTime;
 use slog::{KV, Level, OwnedKVList, Record, Serializer};
 use zmij::Float;
 
@@ -47,7 +47,7 @@ impl SyslogFormatter for FormatterRfc3164 {
         record: &Record,
         logger_values: &OwnedKVList,
     ) -> Result<(), slog::Error> {
-        let datetime_now = Zoned::now();
+        let datetime_now = ZonedDateTime::now();
 
         format_rfc3164_header(w, header, record.level(), &datetime_now)?;
 
@@ -64,7 +64,7 @@ pub(super) fn format_rfc3164_header(
     w: &mut Vec<u8>,
     header: &SyslogHeader,
     level: Level,
-    datetime_now: &Zoned,
+    datetime_now: &ZonedDateTime,
 ) -> io::Result<()> {
     use std::io::Write;
 
@@ -284,7 +284,7 @@ mod tests {
         let mut buffer: Vec<u8> = Vec::new();
         let dt = date(2021, 12, 1)
             .at(10, 20, 30, 0)
-            .to_zoned(TimeZone::fixed(Offset::constant(8)))
+            .to_zoned_datetime(TimeZone::fixed(Offset::constant(8)))
             .unwrap();
         format_rfc3164_header(&mut buffer, &lh, Level::Info, &dt).unwrap();
 
@@ -359,7 +359,7 @@ mod tests {
         let mut buffer: Vec<u8> = Vec::new();
         let dt = date(2021, 1, 2)
             .at(3, 4, 5, 0)
-            .to_zoned(TimeZone::fixed(Offset::UTC))
+            .to_zoned_datetime(TimeZone::fixed(Offset::UTC))
             .unwrap();
         format_rfc3164_header(&mut buffer, &lh, Level::Error, &dt).unwrap();
 

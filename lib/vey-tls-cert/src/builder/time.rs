@@ -6,7 +6,7 @@
 
 use anyhow::anyhow;
 use jiff::tz::TimeZone;
-use jiff::{Span, Timestamp};
+use jiff::{Span, Timestamp, ZonedDateTime};
 use openssl::asn1::Asn1Time;
 
 use vey_datetime::DateTimeFormatExt;
@@ -16,18 +16,18 @@ pub(super) fn asn1_time_from_timestamp(datetime: &Timestamp) -> anyhow::Result<A
     Asn1Time::from_str(&text).map_err(|e| anyhow!("failed to get asn1 time: {e}"))
 }
 
-pub(super) fn timestamp_now_utc_zoned() -> jiff::Zoned {
-    Timestamp::now().to_zoned(TimeZone::UTC)
+pub(super) fn timestamp_now_utc_zoned() -> ZonedDateTime {
+    Timestamp::now().to_zoned_datetime(TimeZone::UTC)
 }
 
-pub(super) fn checked_sub_days(zoned: &jiff::Zoned, days: i64) -> anyhow::Result<Timestamp> {
+pub(super) fn checked_sub_days(zoned: &ZonedDateTime, days: i64) -> anyhow::Result<Timestamp> {
     zoned
         .checked_sub(Span::new().days(days))
         .map(|z| z.timestamp())
         .map_err(|e| anyhow!("unable to get time before date: {e}"))
 }
 
-pub(super) fn checked_add_days(zoned: &jiff::Zoned, days: i64) -> anyhow::Result<Timestamp> {
+pub(super) fn checked_add_days(zoned: &ZonedDateTime, days: i64) -> anyhow::Result<Timestamp> {
     zoned
         .checked_add(Span::new().days(days))
         .map(|z| z.timestamp())

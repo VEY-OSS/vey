@@ -6,7 +6,7 @@
 
 use std::io;
 
-use jiff::{Timestamp, Zoned};
+use jiff::{Timestamp, ZonedDateTime};
 use slog::{KV, OwnedKVList, Record, Serializer};
 
 use super::rfc3164::format_rfc3164_header;
@@ -42,7 +42,7 @@ impl SyslogFormatter for FormatterRfc3164Cee {
         record: &Record,
         logger_values: &OwnedKVList,
     ) -> Result<(), slog::Error> {
-        let datetime_now = Zoned::now();
+        let datetime_now = ZonedDateTime::now();
 
         format_rfc3164_header(w, header, record.level(), &datetime_now)?;
 

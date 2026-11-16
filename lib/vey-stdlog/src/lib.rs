@@ -7,7 +7,7 @@
 use std::io::{self, IsTerminal, Write};
 use std::sync::Arc;
 
-use jiff::Zoned;
+use jiff::ZonedDateTime;
 use slog::Level;
 
 use vey_datetime::DateTimeFormatExt;
@@ -74,7 +74,7 @@ struct AsyncIoThread {
 
 impl AsyncIoThread {
     fn write_time<IO: Write>(&self, io: &mut IO) -> io::Result<()> {
-        let datetime = Zoned::now();
+        let datetime = ZonedDateTime::now();
         let fmt = datetime.format_stdio();
         write!(io, "{fmt}")?;
         Ok(())

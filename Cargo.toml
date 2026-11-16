@@ -125,7 +125,7 @@ humanize-rs = "0.1"
 zeroize = "1.8"
 zerocopy = { version = "0.8", default-features = false, features = ["derive"] }
 #
-jiff = { version = "0.2", default-features = false, features = ["std"] }
+jiff = { version = "1.0", default-features = false, features = ["std"] }
 #
 portable-atomic = "1.9"
 itoa = "1.0"
@@ -198,9 +198,9 @@ c-ares-sys = { version = "13.0", default-features = false }
 hickory-proto = { version = "0.26.1", default-features = false }
 hickory-net = { version = "0.26.1", default-features = false }
 #
-capnp-rpc = "0.27"
-capnp = "0.27"
-capnpc = "0.27"
+capnp-rpc = "0.28"
+capnp = "0.28"
+capnpc = "0.28"
 #
 libc = "0.2.182"
 rustix = { version = "1.1", default-features = false }
