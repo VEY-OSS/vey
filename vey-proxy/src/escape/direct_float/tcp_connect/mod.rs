@@ -5,7 +5,6 @@
  */
 
 use std::borrow::Cow;
-use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
@@ -18,7 +17,7 @@ use vey_io_ext::{LimitedReader, LimitedWriter};
 use vey_socket::BindAddr;
 use vey_socket::util::AddressFamily;
 use vey_types::acl::AclAction;
-use vey_types::net::{ConnectError, Host, TcpKeepAliveConfig, UpstreamAddr};
+use vey_types::net::{ConnectError, Host};
 
 use super::{DirectFloatBindIp, DirectFloatEscaper};
 use crate::escape::direct_fixed::tcp_connect::DirectTcpConnectConfig;
@@ -107,7 +106,7 @@ impl DirectFloatEscaper {
         Ok((sock, bind))
     }
 
-    async fn fixed_try_connect(
+    pub(super) async fn fixed_try_connect(
         &self,
         peer_ip: IpAddr,
         config: DirectTcpConnectConfig<'_>,
@@ -410,96 +409,6 @@ impl DirectFloatEscaper {
 
                 self.happy_try_connect(resolver_job, config, task_conf, egress_notes, task_notes)
                     .await
-            }
-        }
-    }
-
-    pub(super) async fn tcp_connect_to_again(
-        &self,
-        task_conf: &TcpConnectTaskConf<'_>,
-        old_upstream: &UpstreamAddr,
-        new_egress_notes: &mut EgressNotes,
-        old_egress_notes: &EgressNotes,
-        task_notes: &ServerTaskNotes,
-    ) -> Result<(TcpStream, DirectFloatBindIp), UnderlyingTcpConnectError> {
-        new_egress_notes.socket_type = Some(EgressSocketType::Direct);
-        new_egress_notes.bind = old_egress_notes.bind;
-
-        let mut config = DirectTcpConnectConfig {
-            connect: self.config.general.tcp_connect,
-            // tcp keepalive is not needed for ftp transfer connection as it shouldn't be idle
-            keepalive: TcpKeepAliveConfig::default(),
-            misc_opts: Cow::Borrowed(&self.config.tcp_misc_opts),
-        };
-
-        if let Some(site_ctx) = task_notes.site_ctx() {
-            if let Some(limit) = site_ctx.tcp_connect() {
-                config.connect.limit_to(limit);
-            }
-            config.misc_opts = site_ctx.tcp_remote_misc_opts(&self.config.tcp_misc_opts);
-        } else if let Some(user_ctx) = task_notes.user_ctx() {
-            if let Some(user_config) = &user_ctx.user_config().tcp_connect {
-                config.connect.limit_to(user_config);
-            }
-
-            config.misc_opts = user_ctx
-                .user_config()
-                .tcp_remote_misc_opts(&self.config.tcp_misc_opts);
-        }
-
-        if task_conf.upstream.host_eq(old_upstream) {
-            // This escaper only set tcp.peer for TCP connections
-            let control_addr = old_egress_notes.tcp.peer.ok_or_else(|| {
-                UnderlyingTcpConnectError::SetupSocketFailed(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "no peer address for referenced connection found",
-                ))
-            })?;
-
-            self.fixed_try_connect(
-                control_addr.ip(),
-                config,
-                task_conf,
-                new_egress_notes,
-                task_notes,
-            )
-            .await
-        } else {
-            match task_conf.upstream.host() {
-                Host::Ip(ip) => {
-                    self.fixed_try_connect(*ip, config, task_conf, new_egress_notes, task_notes)
-                        .await
-                }
-                Host::Domain(domain) => {
-                    let mut resolve_strategy = self.get_resolve_strategy(task_notes);
-                    match new_egress_notes.bind {
-                        BindAddr::Ip(IpAddr::V4(_)) => resolve_strategy.query_v4only(),
-                        BindAddr::Ip(IpAddr::V6(_)) => resolve_strategy.query_v6only(),
-                        #[cfg(any(
-                            target_os = "linux",
-                            target_os = "freebsd",
-                            target_os = "openbsd",
-                            target_os = "netbsd"
-                        ))]
-                        BindAddr::Foreign(_) => {
-                            return Err(UnderlyingTcpConnectError::InternalServerError(
-                                "foreign ip address binding is not supported",
-                            ));
-                        }
-                        _ => {}
-                    }
-
-                    let resolver_job =
-                        self.resolve_happy(domain.clone(), resolve_strategy, task_notes)?;
-                    self.happy_try_connect(
-                        resolver_job,
-                        config,
-                        task_conf,
-                        new_egress_notes,
-                        task_notes,
-                    )
-                    .await
-                }
             }
         }
     }
