@@ -9,7 +9,7 @@
 
 ## About
 
-VEY (Versatile Edge Way) is a modular suite of proxy and gateway applications written in Rust. It centers on forward,
+VEY is a modular suite of proxy and gateway applications written in Rust. It centers on forward,
 reverse, transparent, and stream proxying, complemented by supporting tools for benchmarking, TLS/certificate handling,
 GeoIP lookup, and metrics forwarding, with load-balancing (TBD) and NAT traversal (WIP) planned.
 
