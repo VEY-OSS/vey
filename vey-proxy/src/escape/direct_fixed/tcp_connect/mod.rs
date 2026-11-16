@@ -102,9 +102,6 @@ impl DirectFixedEscaper {
 
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         if let Some(prefix) = self.config.foreign_port_hint_prefix {
-            if egress_notes.bind.is_none() {
-                egress_notes.bind = BindAddr::Foreign(SocketAddr::new(task_notes.client_ip(), 0));
-            }
             let encoded = encode_foreign_port_hint(prefix, task_notes.client_addr().port());
             #[cfg(target_os = "linux")]
             {
@@ -114,20 +111,14 @@ impl DirectFixedEscaper {
             {
                 misc_opts.user_cookie = Some(encoded);
             }
-        } else if egress_notes.bind.is_none() {
-            if self.config.bind_foreign {
-                if self.config.bind_foreign_port {
-                    egress_notes.bind = BindAddr::Foreign(task_notes.client_addr());
-                } else {
-                    egress_notes.bind =
-                        BindAddr::Foreign(SocketAddr::new(task_notes.client_ip(), 0));
-                }
-            } else {
-                egress_notes.bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
-            }
         }
 
-        #[cfg(any(target_os = "openbsd", target_os = "netbsd"))]
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd"
+        ))]
         if egress_notes.bind.is_none() {
             if self.config.bind_foreign {
                 if self.config.bind_foreign_port {
@@ -481,9 +472,10 @@ impl DirectFixedEscaper {
             target_os = "openbsd",
             target_os = "netbsd"
         ))]
-        if let BindAddr::Foreign(addr) = new_egress_notes.bind {
-            // we have to select a new port as it may not usable with a new connection
-            new_egress_notes.bind = BindAddr::Foreign(SocketAddr::new(addr.ip(), 0));
+        if self.config.bind_foreign || matches!(new_egress_notes.bind, BindAddr::Foreign(_)) {
+            return Err(UnderlyingTcpConnectError::InternalServerError(
+                "foreign ip address binding is not supported",
+            ));
         }
 
         let mut config = DirectTcpConnectConfig {
@@ -536,20 +528,6 @@ impl DirectFixedEscaper {
                     match new_egress_notes.bind {
                         BindAddr::Ip(IpAddr::V4(_)) => resolve_strategy.query_v4only(),
                         BindAddr::Ip(IpAddr::V6(_)) => resolve_strategy.query_v6only(),
-                        #[cfg(any(
-                            target_os = "linux",
-                            target_os = "freebsd",
-                            target_os = "openbsd",
-                            target_os = "netbsd"
-                        ))]
-                        BindAddr::Foreign(SocketAddr::V4(_)) => resolve_strategy.query_v4only(),
-                        #[cfg(any(
-                            target_os = "linux",
-                            target_os = "freebsd",
-                            target_os = "openbsd",
-                            target_os = "netbsd"
-                        ))]
-                        BindAddr::Foreign(SocketAddr::V6(_)) => resolve_strategy.query_v6only(),
                         _ => {}
                     }
 

@@ -341,17 +341,10 @@ impl DirectFixedEscaperConfig {
         }
 
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        if self.foreign_port_hint_prefix.is_some() {
-            if !self.bind_foreign {
-                return Err(anyhow!(
-                    "foreign_port_hint_prefix requires bind_foreign to be enabled"
-                ));
-            }
-            if self.bind_foreign_port {
-                return Err(anyhow!(
-                    "foreign_port_hint_prefix conflicts with bind_foreign_port"
-                ));
-            }
+        if self.foreign_port_hint_prefix.is_some() && !self.bind_foreign {
+            return Err(anyhow!(
+                "foreign_port_hint_prefix requires bind_foreign to be enabled"
+            ));
         }
 
         Ok(())
@@ -461,26 +454,6 @@ mod tests {
         assert!(
             err.to_string()
                 .contains("foreign_port_hint_prefix requires bind_foreign")
-        );
-    }
-
-    #[test]
-    fn foreign_port_hint_prefix_conflicts_with_bind_foreign_port() {
-        let Err(err) = parse_direct_fixed(
-            r#"
-                name: direct
-                type: DirectFixed
-                resolver: default
-                bind_foreign: true
-                bind_foreign_port: true
-                foreign_port_hint_prefix: 1
-            "#,
-        ) else {
-            panic!("expected error");
-        };
-        assert!(
-            err.to_string()
-                .contains("foreign_port_hint_prefix conflicts with bind_foreign_port")
         );
     }
 }

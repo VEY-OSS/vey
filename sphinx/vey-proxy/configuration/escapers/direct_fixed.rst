@@ -111,11 +111,14 @@ foreign_port_hint_prefix
 
 **optional**, **type**: u16
 
-Available on Linux and FreeBSD. When set together with ``bind_foreign``, the
-outgoing socket binds ``client_ip:0`` (ephemeral local port) and encodes the
-original client port into the socket mark / user cookie as:
+Available on Linux and FreeBSD. When set together with ``bind_foreign``, it
+encodes the original client port into the socket mark / user cookie as:
 
 ``(foreign_port_hint_prefix << 16) | client_port``
+
+The outgoing socket still follows ``bind_foreign_port``: it binds
+``client_ip:0`` (ephemeral local port) when ``bind_foreign_port`` is false, or
+``client_ip:client_port`` when ``bind_foreign_port`` is true.
 
 - Linux: written to ``SO_MARK`` (overrides any ``tcp_misc_opts.netfilter_mark``
   for that connect). Pair with a tc/XDP program that restores the source port
@@ -124,8 +127,7 @@ original client port into the socket mark / user cookie as:
   The value is visible to ipfw via ``sockarg``; port rewrite is left to external
   tooling.
 
-This option conflicts with ``bind_foreign_port`` and is not supported on OpenBSD
-or NetBSD (no suitable mark / cookie / rtable encoding for the client port).
+This option is not supported on OpenBSD and NetBSD (no suitable mark / cookie / rtable encoding for the client port).
 
 .. versionadded:: 1.13.10
 
