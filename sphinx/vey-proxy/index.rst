@@ -4,9 +4,10 @@ vey-proxy Documentation
 ``vey-proxy`` is a modular async Rust proxy daemon that unifies HTTP(S) and
 SOCKS4/5 forward proxying, HTTP and TLS reverse proxying through site groups,
 SNI and TPROXY transparent proxying, and TCP/UDP/TLS stream proxying in a
-single hot-reloadable service. It combines flexible egress routing, pluggable
-authentication, DNS control, TLS/ICAP inspection, structured logs, and StatsD
-metrics.
+single hot-reloadable service. It combines built-in security auditing (TLS/TLCP
+interception, DPI, ICAP adaptation, stream detours, and decrypted-traffic
+export), flexible egress routing, pluggable authentication, DNS control,
+structured logs, and StatsD metrics.
 
 This documentation is organized by operational concern so you can move quickly
 from high-level understanding to concrete configuration details:

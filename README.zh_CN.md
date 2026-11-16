@@ -9,8 +9,9 @@
 
 ## 关于
 
-VEY 是一套基于 Rust 构建的模块化代理与网关应用套件。项目以正向、反向、透明与流代理为核心，并配套提供压测、证书与密钥管理、GeoIP
-查询及指标转发等辅助工具，同时规划支持负载均衡（待定）与 NAT 穿透（开发中）等能力。
+VEY 是一套基于 Rust 构建的模块化网络守护进程与命令行工具套件。通用应用涵盖支持内建安全审计的通用代理（`vey-proxy`）、TLS 与
+Keyless SSL 网关及私钥服务（`vey-gateway`、`vey-keyless`）、StatsD 指标接入聚合与转发服务（`vey-statsd`）以及多协议基准压测工具（`vey-bench`），并配套提供辅助服务（`vey-dcgen`、`vey-iploc`）与证书生成辅助工具（`vey-mkcert`），同时规划支持负载均衡（待定）与
+NAT 穿透（开发中）等能力。
 
 本项目由 [G3 项目](https://github.com/bytedance/g3) 原作者 fork 并发起。
 
@@ -29,32 +30,25 @@ VEY 项目由多个应用组成，每个应用都有独立的子目录，用于�
 ### vey-proxy
 
 基于 Async Rust 构建的模块化通用代理守护进程。它将 HTTP(S)/SOCKS4/5 正向代理、HTTP/TLS 反向代理、SNI 与
-TPROXY 透明代理以及 TCP/UDP/TLS 流代理统一在一个支持热重载的二进制中，同时提供可编程出口路由、按用户与按站点精细化策略、TLS/TLCP
-拦截审计、ICAP 适配以及面向 StatsD 的可观测性能力。
+TPROXY 透明代理以及 TCP/UDP/TLS 流代理统一在一个支持热重载的二进制中，并内建安全审计（TLS/TLCP 拦截、DPI 协议识别、ICAP
+适配、流分流与解密流量导出）、可编程出口路由、按用户与按站点精细化策略以及可观测性能力。
 
 #### 主要特性
 
 - 基于 Async Rust 实现，支持优雅热重载与多 Worker 扩展
 - 支持 HTTP(S) 与 SOCKS4/5 正向代理，包含 HTTP CONNECT-UDP 与 SOCKS5 UDP ASSOCIATE
 - 支持 SNI 透明代理，以及基于 Linux TPROXY、FreeBSD `ipfw` 和 OpenBSD `pf` 的 TCP/UDP 透明代理
-- 支持代理串联，以及按客户端 IP、目标主机、解析 IP、GeoIP 或外部选路 Agent 的动态出口路由
-- 支持 TCP/UDP/TLS 流代理与 PROXY Protocol
 - 支持基于站点组的 HTTP / TLS 反向代理：HTTP/1、TLS 上的 HTTP/2、WebSocket、被动健康检查以及按站点配置的源站与租户限额
+- 支持 TCP/UDP/TLS 流代理与 PROXY Protocol
+- 内建安全审计引擎：支持任务采样、TLS/TLCP 拦截（配合 `vey-dcgen` 动态签发证书）、解密流量导出、流分流，以及 HTTP/1、HTTP/2、WebSocket、IMAP、SMTP 的 DPI 协议识别
+- 支持 ICAP（`REQMOD` / `RESPMOD`）集成，可用于内容审计、DLP 与应用层流量适配
+- 支持代理串联，以及按客户端 IP、目标主机、解析 IP、GeoIP 或外部选路 Agent 的动态出口路由
 - TLS 支持 OpenSSL、BoringSSL、AWS-LC、AWS-LC-FIPS、Tongsuo（含国密 TLCP）与 rustls
-- 支持 TLS/TLCP 拦截、解密流量导出，以及 HTTP/1、HTTP/2、IMAP、SMTP 协议检测
-- 支持面向应用层内容适配的 ICAP（`REQMOD` / `RESPMOD`）集成
 - 支持灵活认证（本地、LDAP、Lua、Python）、ACL、配额、限速限流及按用户细化的站点策略
-- 支持结构化日志（journald、syslog、fluentd）与覆盖入口、出口、用户、用户站点及反向代理站点维度的 StatsD 指标
+- 支持结构化任务/检测/拦截审计日志（journald、syslog、fluentd）与覆盖入口、出口、用户、用户站点及反向代理站点维度的 StatsD 指标
 
 [详细介绍](vey-proxy/README.md) | [用户指南](vey-proxy/UserGuide.zh_CN.md) |
 [参考文档](https://vey.readthedocs.io/projects/proxy/en/latest/)
-
-### vey-statsd
-
-兼容 StatsD 的指标接入、聚合与转发服务。它可以接收应用发来的指标数据，在模块化流水线中完成规范化或聚合，再输出到
-Graphite、OpenTSDB、Prometheus、InfluxDB、VictoriaMetrics、QuestDB、OpenGemini 等下游系统。
-
-[详细介绍](vey-statsd/README.md) | [参考文档](https://vey.readthedocs.io/projects/statsd/en/latest/)
 
 ### vey-gateway
 
@@ -64,9 +58,25 @@ TLS 与 keyless 相关的流量处理能力。
 [详细介绍](vey-gateway/README.md) |
 [参考文档](https://vey.readthedocs.io/projects/gateway/en/latest/)
 
+### vey-keyless
+
+Cloudflare Keyless SSL 协议的服务端实现。它可以让 TLS 边缘服务把私钥运算委托给独立后端，从而更容易实现密钥集中管理，
+并集成基于 OpenSSL 的硬件加速能力。
+
+[详细介绍](vey-keyless/README.md) |
+[参考文档](https://vey.readthedocs.io/projects/keyless/en/latest/)
+
+### vey-statsd
+
+兼容 StatsD 的指标接入、聚合与转发服务。它可以接收应用发来的指标数据，在模块化流水线中完成规范化或聚合，再输出到
+Graphite、OpenTSDB、Prometheus、InfluxDB、VictoriaMetrics、QuestDB、OpenGemini 等下游系统。
+
+[详细介绍](vey-statsd/README.md) |
+[参考文档](https://vey.readthedocs.io/projects/statsd/en/latest/)
+
 ### vey-bench
 
-压测工具，支持：
+多协议基准压测工具，支持：
 
 - HTTP: HTTP/1.1, HTTP/2, HTTP/3
 - WebSocket
@@ -77,31 +87,27 @@ TLS 与 keyless 相关的流量处理能力。
 
 [详细介绍](vey-bench/README.md)
 
-### vey-mkcert
-
-用于生成根 CA / 中间 CA / TLS 服务端 / TLS 客户端 / 国密服务端 / 国密客户端证书的工具。
-
-[详细介绍](vey-mkcert/README.md)
+## 辅助服务与工具
 
 ### vey-dcgen
 
-适用于 vey-proxy TLS 劫持功能的动态证书生成服务。
+适用于 `vey-proxy` TLS 劫持功能的动态证书生成辅助服务。
 
-[详细介绍](vey-dcgen/README.md)
+[详细介绍](vey-dcgen/README.md) |
+[参考文档](https://vey.readthedocs.io/projects/dcgen/en/latest/)
 
 ### vey-iploc
 
-适用于 vey-proxy GeoIP 功能的 IP 地理位置查询服务。
+适用于 `vey-proxy` GeoIP 功能的 IP 地理位置查询辅助服务。
 
-[详细介绍](vey-iploc/README.md)
+[详细介绍](vey-iploc/README.md) |
+[参考文档](https://vey.readthedocs.io/projects/iploc/en/latest/)
 
-### vey-keyless
+### vey-mkcert
 
-Cloudflare Keyless SSL 协议的服务端实现。它可以让 TLS 边缘服务把私钥运算委托给独立后端，从而更容易实现密钥集中管理，
-并集成基于 OpenSSL 的硬件加速能力。
+用于生成根 CA、中间 CA、TLS 服务端/客户端及国密 TLCP 服务端/客户端证书的辅助命令行工具。
 
-[详细介绍](vey-keyless/README.md) |
-[参考文档](https://vey.readthedocs.io/projects/keyless/en/latest/)
+[详细介绍](vey-mkcert/README.md)
 
 ## 支持平台
 

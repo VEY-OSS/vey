@@ -25,12 +25,9 @@ Follow the links below for the documentation of each application:
 
   A modular async Rust proxy daemon unifying HTTP/SOCKS forward proxying,
   HTTP and TLS reverse proxying, TPROXY/SNI transparent proxying, TCP/UDP/TLS
-  stream proxying, dynamic egress routing, TLS/ICAP inspection, and
+  stream proxying, dynamic egress routing, security auditing (TLS/TLCP
+  interception, DPI, ICAP adaptation, and decrypted-traffic export), and
   policy-control capabilities.
-
-* `vey-statsd`_
-
-  A StatsD-compatible metrics ingestion, aggregation, and forwarding service.
 
 * `vey-gateway`_
 
@@ -40,15 +37,24 @@ Follow the links below for the documentation of each application:
 
 * `vey-keyless`_
 
-  A dedicated private-key service for TLS deployments.
+  A dedicated private-key service for TLS deployments implementing the
+  Cloudflare Keyless SSL protocol.
 
-* `vey-iploc`_
+* `vey-statsd`_
 
-  An IP location lookup service used by ``vey-proxy`` GeoIP routing.
+  A StatsD-compatible metrics ingestion, aggregation, and forwarding service.
+
+Companion Services
+==================
 
 * `vey-dcgen`_
 
-  A dynamic certificate generator for ``vey-proxy`` TLS interception.
+  A dynamic certificate generator companion service for ``vey-proxy`` TLS
+  interception.
+
+* `vey-iploc`_
+
+  An IP location lookup companion service used by ``vey-proxy`` GeoIP routing.
 
 Shared Reference
 ================

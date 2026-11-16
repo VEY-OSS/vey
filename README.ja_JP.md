@@ -9,9 +9,7 @@
 
 ## 概要
 
-VEY は、Rust で構築されたモジュラーなプロキシ・ゲートウェイアプリケーションスイートです。
-フォワード、リバース、トランスペアレント、ストリームの各プロキシを中心とし、ベンチマーク、証明書・鍵管理、GeoIP
-ルックアップ、メトリクス転送などの補助ツールを備えており、ロードバランサー (TBD) や NAT トラバーサル (WIP) の拡張も予定しています。
+VEY は、Rust で構築されたモジュラーなネットワークデーモン・CLI ツールスイートです。セキュリティ監査機能を備えた統合プロキシ（`vey-proxy`）、TLS・Keyless SSL ゲートウェイ／秘密鍵サービス（`vey-gateway`、`vey-keyless`）、StatsD メトリクス受信・集約・転送サービス（`vey-statsd`）、マルチプロトコルベンチマークツール（`vey-bench`）を汎用アプリケーションとし、補助サービス（`vey-dcgen`、`vey-iploc`）および証明書生成ユーティリティ（`vey-mkcert`）を備えており、ロードバランサー (TBD) や NAT トラバーサル (WIP) の拡張も予定しています。
 
 このプロジェクトは、[G3 プロジェクト](https://github.com/bytedance/g3) の作者によるフォークです。
 
@@ -33,34 +31,27 @@ VEY プロジェクトは複数のアプリケーションで構成されてお�
 
 非同期 Rust で構築されたモジュラーな汎用プロキシデーモンです。HTTP(S)・SOCKS4/5 フォワードプロキシ、
 HTTP/TLS リバースプロキシ、SNI・TPROXY トランスペアレントプロキシ、TCP/UDP/TLS ストリームプロキシを
-グレースフルリロード対応の単一バイナリに統合し、プログラマブルな出口ルーティング、ユーザー・サイト単位のポリシー制御、
-TLS/TLCP インターセプト、ICAP 検査、StatsD による可観測性を備えています。
+グレースフルリロード対応の単一バイナリに統合し、組み込みのセキュリティ監査（TLS/TLCP インターセプト、DPI、
+ICAP アダプテーション、ストリームデツアー、復号トラフィック出力）、プログラマブルな出口ルーティング、
+ユーザー・サイト単位のポリシー制御、StatsD による可観測性を備えています。
 
 #### 主な機能
 
 - 非同期 Rust による実装とグレースフルリロード・マルチワーカー構成への対応
 - HTTP(S) および SOCKS4/5 フォワードプロキシ（HTTP CONNECT-UDP、SOCKS5 UDP ASSOCIATE を含む）
 - SNI プロキシおよび Linux TPROXY / FreeBSD `ipfw` / OpenBSD `pf` による TCP/UDP トランスペアレントプロキシ
-- プロキシチェーンおよびクライアント IP・宛先ホスト・名前解決 IP・GeoIP・外部ルート選択エージェントによる動的出口ルーティング
-- PROXY Protocol 対応の TCP/UDP/TLS ストリームプロキシ
 - サイトグループに基づく HTTP / TLS リバースプロキシ：HTTP/1、TLS 上の HTTP/2、WebSocket、パッシブヘルスチェック、サイト単位のオリジンとテナント制限
+- PROXY Protocol 対応の TCP/UDP/TLS ストリームプロキシ
+- 組み込みのセキュリティ監査：タスク単位サンプリング、TLS/TLCP インターセプト（`vey-dcgen` による動的証明書発行）、復号トラフィック出力、ストリームデツアー、HTTP/1・HTTP/2・WebSocket・IMAP・SMTP の DPI
+- コンテンツ検査や DLP 向けの ICAP（`REQMOD` / `RESPMOD`）連携
+- プロキシチェーンおよびクライアント IP・宛先ホスト・名前解決 IP・GeoIP・外部ルート選択エージェントによる動的出口ルーティング
 - OpenSSL / BoringSSL / AWS-LC / AWS-LC-FIPS / Tongsuo（TLCP 対応）/ rustls に対応したマルチスタック TLS
-- TLS/TLCP インターセプト、復号トラフィックの出力、HTTP/1・HTTP/2・IMAP・SMTP の検査
-- アプリケーション層アダプテーション向けの ICAP（`REQMOD` / `RESPMOD`）連携
 - 柔軟な認証（ローカル、LDAP、Lua、Python）、ACL、クォータ、レート・帯域制限、ユーザー単位のサイトポリシー
-- 構造化ログ（journald、syslog、fluentd）および入口・出口・ユーザー・ユーザーサイト・リバースプロキシサイト単位の StatsD
+- 構造化監査・タスクログ（journald、syslog、fluentd）および入口・出口・ユーザー・ユーザーサイト・リバースプロキシサイト単位の StatsD
   メトリクス
 
 [README](vey-proxy/README.md) | [ユーザーガイド](vey-proxy/UserGuide.en_US.md) |
 [リファレンスドキュメント](https://vey.readthedocs.io/projects/proxy/en/latest/)
-
-### vey-statsd
-
-StatsD 互換のメトリクス受信・集約・転送サービスです。アプリケーションから送られたメトリクスを取り込み、
-パイプライン上で正規化や集約を行い、Graphite、OpenTSDB、Prometheus、InfluxDB、VictoriaMetrics、QuestDB、OpenGemini
-などの下流システムへ出力できます。
-
-[README](vey-statsd/README.md) | [リファレンスドキュメント](https://vey.readthedocs.io/projects/statsd/en/latest/)
 
 ### vey-gateway
 
@@ -71,9 +62,26 @@ StatsD 互換のメトリクス受信・集約・転送サービスです。ア�
 [README](vey-gateway/README.md) |
 [リファレンスドキュメント](https://vey.readthedocs.io/projects/gateway/en/latest/)
 
+### vey-keyless
+
+Cloudflare Keyless SSL プロトコルのサーバー実装です。TLS エッジサービスから秘密鍵演算を専用バックエンドへ
+委譲できるため、秘密鍵の集中管理や OpenSSL ベースのハードウェアアクセラレーションとの統合に適しています。
+
+[README](vey-keyless/README.md) |
+[リファレンスドキュメント](https://vey.readthedocs.io/projects/keyless/en/latest/)
+
+### vey-statsd
+
+StatsD 互換のメトリクス受信・集約・転送サービスです。アプリケーションから送られたメトリクスを取り込み、
+パイプライン上で正規化や集約を行い、Graphite、OpenTSDB、Prometheus、InfluxDB、VictoriaMetrics、QuestDB、OpenGemini
+などの下流システムへ出力できます。
+
+[README](vey-statsd/README.md) |
+[リファレンスドキュメント](https://vey.readthedocs.io/projects/statsd/en/latest/)
+
 ### vey-bench
 
-以下をサポートするベンチマークツールです。
+以下をサポートするマルチプロトコルベンチマークツールです。
 
 - HTTP: HTTP/1.1, HTTP/2, HTTP/3
 - WebSocket
@@ -84,31 +92,28 @@ StatsD 互換のメトリクス受信・集約・転送サービスです。ア�
 
 [README](vey-bench/README.md)
 
-### vey-mkcert
-
-Root CA / Intermediate CA / TLS サーバー / TLS クライアント / TLCP サーバー / TLCP クライアント証明書を生成するためのツールです。
-
-[README](vey-mkcert/README.md)
+## 補助サービス・ユーティリティ
 
 ### vey-dcgen
 
-vey-proxy 向けの動的証明書ジェネレーターです。
+`vey-proxy` の TLS インターセプト向け動的証明書生成補助サービスです。
 
-[README](vey-dcgen/README.md)
+[README](vey-dcgen/README.md) |
+[リファレンスドキュメント](https://vey.readthedocs.io/projects/dcgen/en/latest/)
 
 ### vey-iploc
 
-vey-proxy の GeoIP サポート向け IP ジオロケーション検索サービスです。
+`vey-proxy` の GeoIP サポート向け IP ジオロケーション検索補助サービスです。
 
-[README](vey-iploc/README.md)
+[README](vey-iploc/README.md) |
+[リファレンスドキュメント](https://vey.readthedocs.io/projects/iploc/en/latest/)
 
-### vey-keyless
+### vey-mkcert
 
-Cloudflare Keyless SSL プロトコルのサーバー実装です。TLS エッジサービスから秘密鍵演算を専用バックエンドへ
-委譲できるため、秘密鍵の集中管理や OpenSSL ベースのハードウェアアクセラレーションとの統合に適しています。
+Root CA / Intermediate CA / TLS サーバー・クライアント / TLCP サーバー・クライアント証明書を生成するための
+補助 CLI ツールです。
 
-[README](vey-keyless/README.md) |
-[リファレンスドキュメント](https://vey.readthedocs.io/projects/keyless/en/latest/)
+[README](vey-mkcert/README.md)
 
 ## 対応プラットフォーム
 

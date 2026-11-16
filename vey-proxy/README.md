@@ -4,14 +4,16 @@
 
 `vey-proxy` is a modular proxy daemon written in async Rust. It unifies HTTP(S) and SOCKS4/5 forward
 proxying, HTTP and TLS reverse proxying, SNI and TPROXY transparent proxying, and TCP/UDP/TLS stream
-proxying in a single hot-reloadable service—combining flexible egress routing, pluggable authentication,
-DNS control, TLS/ICAP inspection, structured logging, and StatsD metrics.
+proxying in a single hot-reloadable service—with built-in security auditing (TLS/TLCP interception,
+DPI protocol inspection, ICAP adaptation, stream detours, and decrypted-traffic export), flexible egress
+routing, pluggable authentication, DNS control, structured audit/task logging, and StatsD metrics.
 
 It can be used as:
 
 - a forward proxy for HTTP(S), SOCKS4/5, and mixed client environments
 - a reverse proxy for HTTP/1, HTTP/2 over TLS, WebSocket, and TLS services via site groups
 - a transparent proxy (Linux TPROXY, FreeBSD `ipfw`, OpenBSD `pf`, SNI) for policy enforcement and selective interception
+- a security-auditing gateway with TLS/TLCP MITM, protocol inspection, ICAP adaptation, stream detours, and decrypted-traffic export
 - a stream proxy for TCP, UDP, and TLS services with PROXY Protocol support
 - a programmable egress gateway that chains upstream proxies and routes traffic dynamically by client, host, GeoIP, or external agents
 
@@ -420,15 +422,14 @@ You can also define site-specific settings for each user:
 
 ### Auditing
 
-- TCP protocol inspection
-- Task-level sampling
-- TLS/TLCP interception
-- External certificate generator integration
+- Task-level audit sampling
+- Deep protocol inspection (DPI) for TCP streams, HTTP/1, HTTP/2, WebSocket, IMAP, and SMTP
+- TLS/TLCP MITM interception with dynamic certificate generation (`vey-dcgen`)
 - TLS/TLCP decrypted stream export
 - Stream detours for connection-oriented protocols
-- HTTP/1 and HTTP/2 interception
-- IMAP and SMTP interception
-- ICAP adaptation for HTTP/1 / HTTP/2 / IMAP / SMTP
+- HTTP/1, HTTP/2, IMAP, and SMTP interception
+- ICAP (`REQMOD` / `RESPMOD`) adaptation for HTTP/1, HTTP/2, IMAP, and SMTP
+- Dedicated inspect and intercept audit logs
 
 ### Logging
 

@@ -5,7 +5,7 @@
 Name:           vey-proxy
 Version:        1.15.2
 Release:        1%{?dist}
-Summary:        Modular Rust proxy server for forward, reverse, transparent, and stream proxying
+Summary:        Modular Rust proxy server with built-in security auditing
 
 License:        Apache-2.0
 URL:            https://github.com/VEY-OSS/vey
@@ -21,9 +21,10 @@ Recommends:     ca-certificates
 %description
 Modular async Rust proxy daemon supporting HTTP(S) and SOCKS4/5 forward
 proxying, TCP/UDP TPROXY and SNI transparent proxying, TCP/UDP/TLS stream
-proxying, and HTTP/TLS reverse proxying through site groups. Includes dynamic
-egress routing, proxy chaining, TLS/TLCP interception, ICAP inspection,
-authentication, ACLs, and hot reloads.
+proxying, and HTTP/TLS reverse proxying through site groups. Includes built-in
+security auditing (TLS/TLCP interception, DPI, ICAP adaptation, and decrypted
+traffic export), dynamic egress routing, proxy chaining, authentication, ACLs,
+and hot reloads.
 
 
 %prep

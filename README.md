@@ -9,9 +9,11 @@
 
 ## About
 
-VEY is a modular suite of proxy and gateway applications written in Rust. It centers on forward,
-reverse, transparent, and stream proxying, complemented by supporting tools for benchmarking, TLS/certificate handling,
-GeoIP lookup, and metrics forwarding, with load-balancing (TBD) and NAT traversal (WIP) planned.
+VEY is a modular suite of networking daemons and CLI tools written in Rust. Its general-purpose applications cover
+unified forward/reverse/transparent/stream proxying with built-in security auditing (`vey-proxy`), TLS and Keyless SSL
+gateway/private-key services (`vey-gateway`, `vey-keyless`), StatsD metrics aggregation and forwarding (`vey-statsd`),
+and multi-protocol benchmarking (`vey-bench`), complemented by companion services (`vey-dcgen`, `vey-iploc`) and a
+certificate utility (`vey-mkcert`), with load-balancing (TBD) and NAT traversal (WIP) planned.
 
 This project is a fork of [the G3 project](https://github.com/bytedance/g3) by its creator.
 
@@ -34,38 +36,30 @@ In addition to the application directories, the repository also includes several
 A modular proxy daemon written in async Rust. It unifies HTTP(S) and SOCKS4/5
 forward proxying, HTTP and TLS reverse proxying, SNI and TPROXY transparent
 proxying, and TCP/UDP/TLS stream proxying in a single hot-reloadable binary—with
-programmable egress routing, per-user and per-site policies, TLS/TLCP
-interception, ICAP inspection, and StatsD observability.
+built-in security auditing (TLS/TLCP interception, DPI, ICAP adaptation, stream
+detours, and decrypted-traffic export), programmable egress routing, per-user and
+per-site policies, and StatsD observability.
 
 #### Feature highlights
 
 - Async Rust implementation with graceful hot reload and multi-worker scaling
 - HTTP(S) and SOCKS4/5 forward proxy support, including HTTP CONNECT-UDP and SOCKS5 UDP ASSOCIATE
 - SNI transparent proxy and TCP/UDP transparent proxying via Linux TPROXY, FreeBSD `ipfw`, and OpenBSD `pf`
-- Proxy chaining and dynamic egress routing by client IP, target host, resolved IP, GeoIP, or external route-query
-  agents
-- TCP/UDP/TLS stream proxying with PROXY Protocol support
 - HTTP and TLS reverse proxying via site groups: HTTP/1, HTTP/2 over TLS, WebSocket, passive peer health checks, and
   per-site origins and tenant limits
+- TCP/UDP/TLS stream proxying with PROXY Protocol support
+- Built-in security auditing: task-level sampling, TLS/TLCP interception (with dynamic cert generation via `vey-dcgen`),
+  decrypted-traffic export, stream detours, and DPI for HTTP/1, HTTP/2, WebSocket, IMAP, and SMTP
+- ICAP (`REQMOD` / `RESPMOD`) integration for content inspection, DLP, and application-layer adaptation
+- Proxy chaining and dynamic egress routing by client IP, target host, resolved IP, GeoIP, or external route-query
+  agents
 - Multi-stack TLS based on OpenSSL, BoringSSL, AWS-LC, AWS-LC-FIPS, Tongsuo (with TLCP), or rustls
-- TLS/TLCP interception, decrypted-traffic export, and HTTP/1, HTTP/2, IMAP, and SMTP inspection
-- ICAP (`REQMOD` / `RESPMOD`) integration for application-layer adaptation
 - Pluggable authentication (local, LDAP, Lua, Python), ACLs, quotas, rate/bandwidth limits, and per-user site policies
-- Structured logging (journald, syslog, fluentd) and StatsD metrics across ingress, egress, user, user-site, and
-  reverse-proxy site dimensions
+- Structured task, inspect, and intercept audit logs (`journald`, `syslog`, `fluentd`) plus StatsD metrics across
+  ingress, egress, user, user-site, and reverse-proxy site dimensions
 
 [README](vey-proxy/README.md) | [User Guide](vey-proxy/UserGuide.en_US.md) |
 [Reference Doc](https://vey.readthedocs.io/projects/proxy/en/latest/)
-
-### vey-statsd
-
-A StatsD-compatible metrics ingestion, aggregation, and forwarding service. It
-can receive metrics from application daemons, normalize or aggregate them
-through a modular pipeline, and export the results to downstream systems such
-as Graphite, OpenTSDB, Prometheus, InfluxDB, VictoriaMetrics, QuestDB, or
-OpenGemini.
-
-[README](vey-statsd/README.md) | [Reference Doc](https://vey.readthedocs.io/projects/statsd/en/latest/)
 
 ### vey-gateway
 
@@ -77,9 +71,30 @@ keyless-related traffic handling.
 [README](vey-gateway/README.md) |
 [Reference Doc](https://vey.readthedocs.io/projects/gateway/en/latest/)
 
+### vey-keyless
+
+A server implementation of the Cloudflare Keyless SSL protocol. It allows TLS
+edge services to delegate private-key operations to a dedicated backend
+service, making it easier to centralize key handling and integrate with
+OpenSSL-based hardware acceleration.
+
+[README](vey-keyless/README.md) |
+[Reference Doc](https://vey.readthedocs.io/projects/keyless/en/latest/)
+
+### vey-statsd
+
+A StatsD-compatible metrics ingestion, aggregation, and forwarding service. It
+can receive metrics from application daemons, normalize or aggregate them
+through a modular pipeline, and export the results to downstream systems such
+as Graphite, OpenTSDB, Prometheus, InfluxDB, VictoriaMetrics, QuestDB, or
+OpenGemini.
+
+[README](vey-statsd/README.md) |
+[Reference Doc](https://vey.readthedocs.io/projects/statsd/en/latest/)
+
 ### vey-bench
 
-A benchmark tool that supports:
+A multi-protocol benchmark tool that supports:
 
 - HTTP: HTTP/1.1, HTTP/2, HTTP/3
 - WebSocket
@@ -90,33 +105,28 @@ A benchmark tool that supports:
 
 [README](vey-bench/README.md)
 
-### vey-mkcert
-
-A tool for generating root CA, intermediate CA, TLS server, TLS client, TLCP server, and TLCP client certificates.
-
-[README](vey-mkcert/README.md)
+## Companion Services and Utilities
 
 ### vey-dcgen
 
-A dynamic certificate generator for vey-proxy.
+A dynamic certificate generator companion service for `vey-proxy` TLS interception.
 
-[README](vey-dcgen/README.md)
+[README](vey-dcgen/README.md) |
+[Reference Doc](https://vey.readthedocs.io/projects/dcgen/en/latest/)
 
 ### vey-iploc
 
-An IP geolocation lookup service for vey-proxy GeoIP support.
+An IP geolocation lookup companion service for `vey-proxy` GeoIP routing.
 
-[README](vey-iploc/README.md)
+[README](vey-iploc/README.md) |
+[Reference Doc](https://vey.readthedocs.io/projects/iploc/en/latest/)
 
-### vey-keyless
+### vey-mkcert
 
-A server implementation of the Cloudflare Keyless SSL protocol. It allows TLS
-edge services to delegate private-key operations to a dedicated backend
-service, making it easier to centralize key handling and integrate with
-OpenSSL-based hardware acceleration.
+A CLI utility for generating root CA, intermediate CA, TLS server, TLS client,
+TLCP server, and TLCP client certificates.
 
-[README](vey-keyless/README.md) |
-[Reference Doc](https://vey.readthedocs.io/projects/keyless/en/latest/)
+[README](vey-mkcert/README.md)
 
 ## Target Platforms
 
