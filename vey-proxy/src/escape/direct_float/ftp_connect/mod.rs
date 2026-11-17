@@ -11,6 +11,12 @@ use std::sync::Arc;
 use tokio::net::TcpStream;
 
 use vey_io_ext::LimitedStream;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd"
+))]
 use vey_socket::BindAddr;
 use vey_types::net::{Host, TcpKeepAliveConfig, UpstreamAddr};
 
