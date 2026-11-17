@@ -13,12 +13,17 @@ use jiff::Timestamp;
 use serde_json::Value;
 use tokio::time::Instant;
 
-use super::{
-    ArcNextProxyPeer, CONFIG_KEY_PEER_ADDR, CONFIG_KEY_PEER_AREA, CONFIG_KEY_PEER_EIP,
-    CONFIG_KEY_PEER_EXPIRE, CONFIG_KEY_PEER_ID, CONFIG_KEY_PEER_ISP,
-    CONFIG_KEY_PEER_TCP_SOCK_SPEED_LIMIT, CONFIG_KEY_PEER_TYPE,
-};
+use super::ArcNextProxyPeer;
 use crate::config::escaper::proxy_float::ProxyFloatEscaperConfig;
+
+const CONFIG_KEY_PEER_TYPE: &str = "type";
+const CONFIG_KEY_PEER_ID: &str = "id";
+const CONFIG_KEY_PEER_ADDR: &str = "addr";
+const CONFIG_KEY_PEER_EXPIRE: &str = "expire";
+const CONFIG_KEY_PEER_ISP: &str = "isp";
+const CONFIG_KEY_PEER_EIP: &str = "eip";
+const CONFIG_KEY_PEER_AREA: &str = "area";
+const CONFIG_KEY_PEER_TCP_SOCK_SPEED_LIMIT: &str = "tcp_sock_speed_limit";
 
 pub(super) fn do_parse_peer(
     value: &Value,

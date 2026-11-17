@@ -35,15 +35,6 @@ mod https;
 mod socks5;
 mod socks5s;
 
-const CONFIG_KEY_PEER_TYPE: &str = "type";
-const CONFIG_KEY_PEER_ID: &str = "id";
-const CONFIG_KEY_PEER_ADDR: &str = "addr";
-const CONFIG_KEY_PEER_EXPIRE: &str = "expire";
-const CONFIG_KEY_PEER_ISP: &str = "isp";
-const CONFIG_KEY_PEER_EIP: &str = "eip";
-const CONFIG_KEY_PEER_AREA: &str = "area";
-const CONFIG_KEY_PEER_TCP_SOCK_SPEED_LIMIT: &str = "tcp_sock_speed_limit";
-
 pub(super) trait NextProxyPeerInternal {
     fn egress_info_mut(&mut self) -> &mut EgressInfo;
     fn set_expire(&mut self, expire_datetime: Timestamp, expire_instant: Instant);

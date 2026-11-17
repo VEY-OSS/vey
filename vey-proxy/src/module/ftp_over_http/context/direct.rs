@@ -12,8 +12,7 @@ use super::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection,
     FtpConnectContext,
 };
-use crate::escape::ArcEscaper;
-use crate::escape::EgressNotes;
+use crate::escape::{ArcEscaper, EgressNotes};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
