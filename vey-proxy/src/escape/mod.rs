@@ -24,7 +24,8 @@ use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
 };
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnection, TlsConnectTaskConf,
+    NestedTcpConnectResult, TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnection,
+    TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
@@ -120,8 +121,7 @@ pub(crate) trait EscaperInternal {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-        audit_ctx: &mut AuditContext,
-    ) -> TcpConnectResult;
+    ) -> NestedTcpConnectResult;
 
     #[allow(unused)]
     async fn _nested_udp_connect(

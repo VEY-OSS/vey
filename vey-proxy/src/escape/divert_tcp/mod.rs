@@ -17,8 +17,8 @@ use vey_resolver::ResolveError;
 use vey_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use vey_types::metrics::NodeName;
 use vey_types::net::{
-    DomainName, Host, ProxyProtocolEncodeError, ProxyProtocolV2Encoder, UpstreamAddr,
-    WeightedUpstreamAddr,
+    DomainName, Host, ProxyProtocolEncodeError, ProxyProtocolV2Encoder, ProxyProtocolWriteError,
+    UpstreamAddr, WeightedUpstreamAddr,
 };
 
 use super::{
@@ -38,7 +38,8 @@ use crate::module::http_forward::{
     DirectHttpForwardContext,
 };
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
+    NestedTcpConnectResult, TcpConnectError, TcpConnectResult, TcpConnectTaskConf,
+    TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectError, UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
@@ -160,7 +161,7 @@ impl DivertTcpEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         tls_name: Option<&Host>,
-    ) -> Result<usize, TcpConnectError>
+    ) -> Result<usize, ProxyProtocolWriteError>
     where
         W: AsyncWrite + Unpin,
     {
@@ -169,10 +170,7 @@ impl DivertTcpEscaper {
         self.encode_pp2_tlv(&mut pp2_encoder, task_conf, task_notes, tls_name)?;
 
         let pp2_data = pp2_encoder.finalize();
-        writer
-            .write_all_flush(pp2_data)
-            .await
-            .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
+        writer.write_all_flush(pp2_data).await?;
         Ok(pp2_data.len())
     }
 }
@@ -306,8 +304,7 @@ impl EscaperInternal for DivertTcpEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-        _audit_ctx: &mut AuditContext,
-    ) -> TcpConnectResult {
+    ) -> NestedTcpConnectResult {
         egress_notes.escaper.clone_from(&self.config.name);
         self.nested_tcp_connect(task_conf, egress_notes, task_notes)
             .await

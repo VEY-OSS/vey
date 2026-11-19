@@ -13,7 +13,10 @@ use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use super::RouteFailoverEscaper;
 use crate::audit::AuditContext;
 use crate::escape::{ArcEscaper, EgressNotes};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskConf};
+use crate::module::tcp_connect::{
+    NestedTcpConnectError, NestedTcpConnectResult, TcpConnectError, TcpConnectResult,
+    TcpConnectTaskConf,
+};
 use crate::serve::ServerTaskNotes;
 
 pub struct TcpConnectFailoverContext {
@@ -51,20 +54,31 @@ impl TcpConnectFailoverContext {
             .await;
         self
     }
+}
 
-    async fn run_nested(
+pub struct NestedTcpConnectFailoverContext {
+    egress_notes: EgressNotes,
+    connect_result: NestedTcpConnectResult,
+}
+
+impl NestedTcpConnectFailoverContext {
+    fn new() -> Self {
+        NestedTcpConnectFailoverContext {
+            egress_notes: EgressNotes::default(),
+            connect_result: Err(NestedTcpConnectError::EscaperNotUsable(anyhow!(
+                "tcp setup connection not called yet"
+            ))),
+        }
+    }
+
+    async fn run(
         mut self,
         escaper: &ArcEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
     ) -> Self {
         self.connect_result = escaper
-            ._nested_tcp_connect(
-                task_conf,
-                &mut self.egress_notes,
-                task_notes,
-                &mut self.audit_ctx,
-            )
+            ._nested_tcp_connect(task_conf, &mut self.egress_notes, task_notes)
             .await;
         self
     }
@@ -159,24 +173,21 @@ impl RouteFailoverEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-        audit_ctx: &mut AuditContext,
-    ) -> TcpConnectResult {
-        let primary_context = TcpConnectFailoverContext::new(audit_ctx);
-        let mut primary_task =
-            pin!(primary_context.run_nested(&self.primary_node, task_conf, task_notes));
+    ) -> NestedTcpConnectResult {
+        let primary_context = NestedTcpConnectFailoverContext::new();
+        let mut primary_task = pin!(primary_context.run(&self.primary_node, task_conf, task_notes));
 
         if let Ok(ctx) = tokio::time::timeout(self.config.fallback_delay, &mut primary_task).await {
             return match ctx.connect_result {
                 Ok(c) => {
                     self.stats.add_request_passed();
-                    *audit_ctx = ctx.audit_ctx;
                     *egress_notes = ctx.egress_notes;
                     Ok(c)
                 }
                 Err(_e) => {
                     match self
                         .standby_node
-                        ._nested_tcp_connect(task_conf, egress_notes, task_notes, audit_ctx)
+                        ._nested_tcp_connect(task_conf, egress_notes, task_notes)
                         .await
                     {
                         Ok(c) => {
@@ -192,9 +203,8 @@ impl RouteFailoverEscaper {
             };
         }
 
-        let standby_context = TcpConnectFailoverContext::new(audit_ctx);
-        let standby_task =
-            pin!(standby_context.run_nested(&self.standby_node, task_conf, task_notes));
+        let standby_context = NestedTcpConnectFailoverContext::new();
+        let standby_task = pin!(standby_context.run(&self.standby_node, task_conf, task_notes));
 
         let (ctx, left) = futures_util::future::select(primary_task, standby_task)
             .await
@@ -202,7 +212,6 @@ impl RouteFailoverEscaper {
         match ctx.connect_result {
             Ok(c) => {
                 self.stats.add_request_passed();
-                *audit_ctx = ctx.audit_ctx;
                 *egress_notes = ctx.egress_notes;
                 Ok(c)
             }
@@ -211,13 +220,11 @@ impl RouteFailoverEscaper {
                 match ctx.connect_result {
                     Ok(c) => {
                         self.stats.add_request_passed();
-                        *audit_ctx = ctx.audit_ctx;
                         *egress_notes = ctx.egress_notes;
                         Ok(c)
                     }
                     Err(e) => {
                         self.stats.add_request_failed();
-                        *audit_ctx = ctx.audit_ctx;
                         *egress_notes = ctx.egress_notes;
                         Err(e)
                     }

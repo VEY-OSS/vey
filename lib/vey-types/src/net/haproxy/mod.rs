@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::io;
 use std::net::SocketAddr;
 use std::num::TryFromIntError;
 use std::str::FromStr;
@@ -44,6 +45,14 @@ pub enum ProxyProtocolEncodeError {
     TotalLengthOverflow,
     #[error("too long value ({1}) for tag {0}")]
     TooLongTagValue(u8, usize),
+}
+
+#[derive(Debug, Error)]
+pub enum ProxyProtocolWriteError {
+    #[error("encode failed: {0}")]
+    Encode(#[from] ProxyProtocolEncodeError),
+    #[error("io failed: {0}")]
+    Io(#[from] io::Error),
 }
 
 #[allow(clippy::large_enum_variant)]

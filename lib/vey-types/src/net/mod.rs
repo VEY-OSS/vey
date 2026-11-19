@@ -25,6 +25,7 @@ pub use error::ConnectError;
 mod haproxy;
 pub use haproxy::{
     ProxyProtocolEncodeError, ProxyProtocolEncoder, ProxyProtocolV2Encoder, ProxyProtocolVersion,
+    ProxyProtocolWriteError,
 };
 
 mod host;

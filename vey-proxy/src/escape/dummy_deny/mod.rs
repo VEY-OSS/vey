@@ -29,7 +29,8 @@ use crate::module::http_forward::{
     DirectHttpForwardContext,
 };
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
+    NestedTcpConnectError, NestedTcpConnectResult, TcpConnectError, TcpConnectResult,
+    TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectError, UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
@@ -189,10 +190,9 @@ impl EscaperInternal for DummyDenyEscaper {
         _task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         _task_notes: &ServerTaskNotes,
-        _audit_ctx: &mut AuditContext,
-    ) -> TcpConnectResult {
+    ) -> NestedTcpConnectResult {
         egress_notes.escaper.clone_from(&self.config.name);
-        Err(TcpConnectError::MethodUnavailable)
+        Err(NestedTcpConnectError::MethodUnavailable)
     }
 
     async fn _nested_udp_connect(

@@ -24,7 +24,8 @@ use super::ProxySocks5sEscaper;
 use crate::escape::{EgressNotes, EgressSocketType};
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
+    NestedTcpConnectError, NestedTcpConnectResult, TcpConnectError, TcpConnectResult,
+    TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::UdpConnectError;
 use crate::serve::ServerTaskNotes;
@@ -35,7 +36,7 @@ impl ProxySocks5sEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, NestedTcpConnectError> {
         let mut stream = self
             .tls_handshake_to_remote(task_conf, egress_notes, task_notes)
             .await?;
@@ -54,13 +55,13 @@ impl ProxySocks5sEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, NestedTcpConnectError> {
         tokio::time::timeout(
             self.config.peer_negotiation_timeout,
             self.socks5_connect_tcp_connect_to(task_conf, egress_notes, task_notes),
         )
         .await
-        .map_err(|_| TcpConnectError::NegotiationPeerTimeout)?
+        .map_err(|_| NestedTcpConnectError::NegotiationPeerTimeout)?
     }
 
     /// setup udp associate with remote proxy
@@ -154,7 +155,7 @@ impl ProxySocks5sEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> TcpConnectResult {
+    ) -> NestedTcpConnectResult {
         let ups_s = self
             .timed_socks5_connect_tcp_connect_to(task_conf, egress_notes, task_notes)
             .await?;

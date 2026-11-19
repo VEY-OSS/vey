@@ -10,7 +10,7 @@ mod error;
 mod stats;
 mod task;
 
-pub(crate) use error::{TcpConnectError, UnderlyingTcpConnectError};
+pub(crate) use error::{NestedTcpConnectError, TcpConnectError, UnderlyingTcpConnectError};
 pub(crate) use stats::TcpConnectRemoteWrapperStats;
 pub(crate) use task::{TcpConnectTaskConf, TlsConnectTaskConf};
 
@@ -19,3 +19,4 @@ pub(crate) type TcpConnection = (
     Box<dyn AsyncWrite + Unpin + Send + Sync>,
 );
 pub(crate) type TcpConnectResult = Result<TcpConnection, TcpConnectError>;
+pub(crate) type NestedTcpConnectResult = Result<TcpConnection, NestedTcpConnectError>;

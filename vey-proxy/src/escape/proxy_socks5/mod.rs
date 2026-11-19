@@ -35,7 +35,8 @@ use crate::module::http_forward::{
     DirectHttpForwardContext,
 };
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
+    NestedTcpConnectResult, TcpConnectError, TcpConnectResult, TcpConnectTaskConf,
+    TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
@@ -295,8 +296,7 @@ impl EscaperInternal for ProxySocks5Escaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-        _audit_ctx: &mut AuditContext,
-    ) -> TcpConnectResult {
+    ) -> NestedTcpConnectResult {
         egress_notes.escaper.clone_from(&self.config.name);
         self.socks5_nested_tcp_connect(task_conf, egress_notes, task_notes)
             .await

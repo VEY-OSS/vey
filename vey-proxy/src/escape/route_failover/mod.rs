@@ -29,7 +29,8 @@ use crate::module::http_forward::{
     FailoverHttpForwardContext,
 };
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
+    NestedTcpConnectResult, TcpConnectError, TcpConnectResult, TcpConnectTaskConf,
+    TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
@@ -237,10 +238,9 @@ impl EscaperInternal for RouteFailoverEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-        audit_ctx: &mut AuditContext,
-    ) -> TcpConnectResult {
+    ) -> NestedTcpConnectResult {
         egress_notes.escaper.clone_from(&self.config.name);
-        self.nested_tcp_connect_with_failover(task_conf, egress_notes, task_notes, audit_ctx)
+        self.nested_tcp_connect_with_failover(task_conf, egress_notes, task_notes)
             .await
     }
 

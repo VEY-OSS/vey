@@ -10,7 +10,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 
 use vey_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use vey_http::connect::{HttpConnectRequest, HttpConnectResponse};
+use vey_http::connect::{HttpConnectError, HttpConnectRequest, HttpConnectResponse};
 use vey_io_ext::{AsyncStream, FlexBufReader, LimitedStream, OnceBufReader};
 use vey_openssl::SslStream;
 
@@ -18,8 +18,8 @@ use super::{ProxyFloatEscaper, ProxyFloatHttpPeer};
 use crate::escape::{EgressNotes, EgressSocketType};
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf,
-    TlsConnectTaskConf,
+    NestedTcpConnectError, NestedTcpConnectResult, TcpConnectError, TcpConnectRemoteWrapperStats,
+    TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -30,7 +30,7 @@ impl ProxyFloatHttpPeer {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, TcpConnectError> {
+    ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, NestedTcpConnectError> {
         let mut stream = escaper
             .tcp_new_connection(self, task_conf, egress_notes, task_notes)
             .await?;
@@ -39,7 +39,7 @@ impl ProxyFloatHttpPeer {
         let req = HttpConnectRequest::new(&self.shared_config.append_http_headers);
         req.send(task_conf.upstream, &mut stream)
             .await
-            .map_err(TcpConnectError::NegotiationWriteFailed)?;
+            .map_err(HttpConnectError::WriteFailed)?;
 
         let mut buf_stream = FlexBufReader::new(stream);
         let _ =
@@ -57,13 +57,13 @@ impl ProxyFloatHttpPeer {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, TcpConnectError> {
+    ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, NestedTcpConnectError> {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
             self.http_connect_tcp_connect_to(escaper, task_conf, egress_notes, task_notes),
         )
         .await
-        .map_err(|_| TcpConnectError::NegotiationPeerTimeout)?
+        .map_err(|_| NestedTcpConnectError::NegotiationPeerTimeout)?
     }
 
     pub(super) async fn http_connect_new_tcp_connection(
@@ -104,7 +104,7 @@ impl ProxyFloatHttpPeer {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> TcpConnectResult {
+    ) -> NestedTcpConnectResult {
         let buf_stream = self
             .timed_http_connect_tcp_connect_to(escaper, task_conf, egress_notes, task_notes)
             .await?;

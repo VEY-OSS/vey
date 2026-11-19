@@ -12,7 +12,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use vey_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
-use vey_http::connect::{HttpConnectRequest, HttpConnectResponse};
+use vey_http::connect::{HttpConnectError, HttpConnectRequest, HttpConnectResponse};
 use vey_io_ext::{AsyncStream, FlexBufReader, LimitedReader, LimitedWriter, OnceBufReader};
 use vey_openssl::{SslConnector, SslStream};
 
@@ -20,7 +20,8 @@ use super::ProxyHttpsEscaper;
 use crate::escape::{EgressNotes, EgressSocketType};
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
+    NestedTcpConnectError, NestedTcpConnectResult, TcpConnectError, TcpConnectResult,
+    TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -30,7 +31,7 @@ impl ProxyHttpsEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, TcpConnectError>
+    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, NestedTcpConnectError>
     {
         let (_peer, mut stream) = self
             .tls_handshake_to_remote(task_conf, egress_notes, task_notes)
@@ -48,7 +49,7 @@ impl ProxyHttpsEscaper {
 
         req.send(task_conf.upstream, &mut stream)
             .await
-            .map_err(TcpConnectError::NegotiationWriteFailed)?;
+            .map_err(HttpConnectError::WriteFailed)?;
 
         let mut buf_stream = FlexBufReader::new(stream);
         let _ =
@@ -65,14 +66,14 @@ impl ProxyHttpsEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, TcpConnectError>
+    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, NestedTcpConnectError>
     {
         tokio::time::timeout(
             self.config.peer_negotiation_timeout,
             self.http_connect_tcp_connect_to(task_conf, egress_notes, task_notes),
         )
         .await
-        .map_err(|_| TcpConnectError::NegotiationPeerTimeout)?
+        .map_err(|_| NestedTcpConnectError::NegotiationPeerTimeout)?
     }
 
     pub(super) async fn http_connect_new_tcp_connection(
@@ -111,7 +112,7 @@ impl ProxyHttpsEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> TcpConnectResult {
+    ) -> NestedTcpConnectResult {
         let buf_stream = self
             .timed_http_connect_tcp_connect_to(task_conf, egress_notes, task_notes)
             .await?;

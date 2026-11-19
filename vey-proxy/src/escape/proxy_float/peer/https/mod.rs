@@ -22,7 +22,8 @@ use super::{ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEs
 use crate::escape::{ArcEscaper, EgressNotes, TlsHttpConnection};
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
+    NestedTcpConnectResult, TcpConnectError, TcpConnectResult, TcpConnectTaskConf,
+    TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectError, UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
@@ -177,7 +178,7 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> TcpConnectResult {
+    ) -> NestedTcpConnectResult {
         self.http_connect_nested_tcp_connect(escaper, task_conf, egress_notes, task_notes)
             .await
     }

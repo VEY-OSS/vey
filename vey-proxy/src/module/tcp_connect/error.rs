@@ -13,7 +13,7 @@ use vey_http::upgrade::HttpUpgradeError;
 use vey_resolver::ResolveError;
 use vey_socks::SocksConnectError;
 use vey_socks::v5::Socks5Reply;
-use vey_types::net::{ConnectError, ProxyProtocolEncodeError};
+use vey_types::net::{ConnectError, ProxyProtocolEncodeError, ProxyProtocolWriteError};
 
 use crate::serve::{ServerTaskError, ServerTaskForbiddenError};
 
@@ -77,6 +77,26 @@ impl UnderlyingTcpConnectError {
             UnderlyingTcpConnectError::PeerTlsHandshakeFailed(_) => "PeerTLSHandshakeFailed",
         }
     }
+}
+
+#[derive(Error, Debug)]
+pub(crate) enum NestedTcpConnectError {
+    #[error("method is not available")]
+    MethodUnavailable,
+    #[error("escaper not usable: {0:?}")]
+    EscaperNotUsable(anyhow::Error),
+    #[error("resolve failed: {0}")]
+    ResolveFailed(#[from] ResolveError),
+    #[error("underlying error: {0}")]
+    Underlying(#[from] UnderlyingTcpConnectError),
+    #[error("proxy protocol write error: {0}")]
+    ProxyProtocolWriteError(#[from] ProxyProtocolWriteError),
+    #[error("http connect error: {0}")]
+    HttpConnectError(#[from] HttpConnectError),
+    #[error("socks connect error: {0}")]
+    SocksConnectError(#[from] SocksConnectError),
+    #[error("negotiation timeout")]
+    NegotiationPeerTimeout,
 }
 
 #[derive(Error, Debug)]
@@ -224,6 +244,32 @@ impl From<UnderlyingTcpConnectError> for TcpConnectError {
             UnderlyingTcpConnectError::PeerTlsHandshakeFailed(e) => {
                 TcpConnectError::PeerTlsHandshakeFailed(e)
             }
+        }
+    }
+}
+
+impl From<NestedTcpConnectError> for TcpConnectError {
+    fn from(value: NestedTcpConnectError) -> Self {
+        match value {
+            NestedTcpConnectError::Underlying(e) => e.into(),
+            NestedTcpConnectError::MethodUnavailable => TcpConnectError::MethodUnavailable,
+            NestedTcpConnectError::EscaperNotUsable(e) => TcpConnectError::EscaperNotUsable(e),
+            NestedTcpConnectError::ResolveFailed(e) => TcpConnectError::ResolveFailed(e),
+            NestedTcpConnectError::ProxyProtocolWriteError(e) => e.into(),
+            NestedTcpConnectError::HttpConnectError(e) => e.into(),
+            NestedTcpConnectError::SocksConnectError(e) => e.into(),
+            NestedTcpConnectError::NegotiationPeerTimeout => {
+                TcpConnectError::NegotiationPeerTimeout
+            }
+        }
+    }
+}
+
+impl From<ProxyProtocolWriteError> for TcpConnectError {
+    fn from(value: ProxyProtocolWriteError) -> Self {
+        match value {
+            ProxyProtocolWriteError::Encode(e) => TcpConnectError::ProxyProtocolEncodeError(e),
+            ProxyProtocolWriteError::Io(e) => TcpConnectError::ProxyProtocolWriteFailed(e),
         }
     }
 }

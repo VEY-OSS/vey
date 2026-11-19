@@ -20,7 +20,7 @@ use vey_types::acl::AclNetworkRule;
 use vey_types::metrics::NodeName;
 use vey_types::net::{
     DomainName, Host, HttpForwardCapability, ProxyProtocolEncoder, ProxyProtocolVersion,
-    UpstreamAddr,
+    ProxyProtocolWriteError, UpstreamAddr,
 };
 use vey_types::resolve::{ResolveRedirection, ResolveStrategy};
 
@@ -41,7 +41,8 @@ use crate::module::http_forward::{
     DirectHttpForwardContext,
 };
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
+    NestedTcpConnectResult, TcpConnectError, TcpConnectResult, TcpConnectTaskConf,
+    TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
@@ -277,24 +278,18 @@ impl DirectFixedEscaper {
         writer: &mut W,
         task_notes: &ServerTaskNotes,
         do_flush: bool,
-    ) -> Result<(), TcpConnectError>
+    ) -> Result<(), ProxyProtocolWriteError>
     where
         W: AsyncWrite + Unpin,
     {
         let mut encoder = ProxyProtocolEncoder::new(version);
-        let bytes = encoder
-            .encode_tcp(task_notes.client_addr(), task_notes.server_addr())
-            .map_err(TcpConnectError::ProxyProtocolEncodeError)?;
+        let bytes = encoder.encode_tcp(task_notes.client_addr(), task_notes.server_addr())?;
         writer
             .write_all(bytes) // no need to flush data
-            .await
-            .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
+            .await?;
         self.stats.tcp.io.add_out_bytes(bytes.len() as u64);
         if do_flush {
-            writer
-                .flush()
-                .await
-                .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
+            writer.flush().await?;
         }
         Ok(())
     }
@@ -444,8 +439,7 @@ impl EscaperInternal for DirectFixedEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-        _audit_ctx: &mut AuditContext,
-    ) -> TcpConnectResult {
+    ) -> NestedTcpConnectResult {
         egress_notes.escaper.clone_from(&self.config.name);
         self.nested_tcp_connect(task_conf, egress_notes, task_notes)
             .await

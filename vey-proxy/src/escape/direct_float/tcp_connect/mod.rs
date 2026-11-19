@@ -24,7 +24,8 @@ use crate::escape::direct_fixed::tcp_connect::DirectTcpConnectConfig;
 use crate::escape::{EgressNotes, EgressSocketType};
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
 use crate::module::tcp_connect::{
-    TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf, UnderlyingTcpConnectError,
+    NestedTcpConnectResult, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf,
+    UnderlyingTcpConnectError,
 };
 use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
@@ -451,7 +452,7 @@ impl DirectFloatEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-    ) -> TcpConnectResult {
+    ) -> NestedTcpConnectResult {
         let (stream, _) = self
             .tcp_connect_to(task_conf, egress_notes, task_notes)
             .await?;

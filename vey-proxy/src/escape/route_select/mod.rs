@@ -32,7 +32,8 @@ use crate::module::http_forward::{
     RouteHttpForwardContext,
 };
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
+    NestedTcpConnectError, NestedTcpConnectResult, TcpConnectError, TcpConnectResult,
+    TcpConnectTaskConf, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectError, UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
@@ -351,19 +352,18 @@ impl EscaperInternal for RouteSelectEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-        audit_ctx: &mut AuditContext,
-    ) -> TcpConnectResult {
+    ) -> NestedTcpConnectResult {
         egress_notes.escaper.clone_from(&self.config.name);
         match self.select_next(task_notes, task_conf.upstream) {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    ._nested_tcp_connect(task_conf, egress_notes, task_notes, audit_ctx)
+                    ._nested_tcp_connect(task_conf, egress_notes, task_notes)
                     .await
             }
             Err(e) => {
                 self.stats.add_request_failed();
-                Err(TcpConnectError::EscaperNotUsable(e))
+                Err(NestedTcpConnectError::EscaperNotUsable(e))
             }
         }
     }

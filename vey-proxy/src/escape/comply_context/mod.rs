@@ -29,7 +29,8 @@ use crate::module::http_forward::{
     RouteHttpForwardContext,
 };
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TlsConnectTaskConf,
+    NestedTcpConnectResult, TcpConnectError, TcpConnectResult, TcpConnectTaskConf,
+    TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{UdpConnectResult, UdpConnectTaskConf};
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf};
@@ -265,13 +266,12 @@ impl EscaperInternal for ComplyContextEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         egress_notes: &mut EgressNotes,
         task_notes: &ServerTaskNotes,
-        audit_ctx: &mut AuditContext,
-    ) -> TcpConnectResult {
+    ) -> NestedTcpConnectResult {
         egress_notes.escaper.clone_from(&self.config.name);
         self._update_egress_path(task_notes);
         self.stats.add_request_passed();
         self.next
-            ._nested_tcp_connect(task_conf, egress_notes, task_notes, audit_ctx)
+            ._nested_tcp_connect(task_conf, egress_notes, task_notes)
             .await
     }
 
