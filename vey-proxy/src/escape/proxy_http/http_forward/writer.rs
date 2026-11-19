@@ -18,7 +18,7 @@ use vey_http::server::HttpProxyClientRequest;
 use vey_io_ext::LimitedWriter;
 use vey_types::net::UpstreamAddr;
 
-use super::{ProxyHttpEscaperConfig, ProxyHttpEscaperStats};
+use super::ProxyHttpEscaperStats;
 use crate::auth::UserUpstreamTrafficStatsList;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats,
@@ -28,8 +28,8 @@ use crate::module::http_forward::{
 use crate::serve::ServerTaskNotes;
 
 pin_project! {
-    pub(super) struct ProxyHttpHttpForwardWriter<W: AsyncWrite> {
-        config: Arc<ProxyHttpEscaperConfig>,
+    pub(crate) struct ProxyHttpHttpForwardWriter<W: AsyncWrite> {
+        append_http_headers: Arc<[String]>,
         #[pin]
         inner: W,
         escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
@@ -42,14 +42,14 @@ impl<W> ProxyHttpHttpForwardWriter<W>
 where
     W: AsyncWrite,
 {
-    pub(super) fn new(
+    pub(crate) fn new(
         ups_w: W,
         escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
-        config: &Arc<ProxyHttpEscaperConfig>,
+        append_http_headers: Arc<[String]>,
         upstream: UpstreamAddr,
     ) -> Self {
         ProxyHttpHttpForwardWriter {
-            config: Arc::clone(config),
+            append_http_headers,
             inner: ups_w,
             escaper_stats,
             upstream,
@@ -120,7 +120,7 @@ where
             req,
             body,
             &self.upstream,
-            &self.config.append_http_headers,
+            &self.append_http_headers,
             userid,
         )
         .await
@@ -128,8 +128,8 @@ where
 }
 
 pin_project! {
-    pub(super) struct ProxyHttpHttpRequestWriter<W: AsyncWrite> {
-        config: Arc<ProxyHttpEscaperConfig>,
+    pub(crate) struct ProxyHttpHttpRequestWriter<W: AsyncWrite> {
+        append_http_headers: Arc<[String]>,
         #[pin]
         inner: W,
         escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
@@ -140,13 +140,13 @@ impl<W> ProxyHttpHttpRequestWriter<W>
 where
     W: AsyncWrite,
 {
-    pub(super) fn new(
+    pub(crate) fn new(
         ups_w: W,
         escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
-        config: &Arc<ProxyHttpEscaperConfig>,
+        append_http_headers: Arc<[String]>,
     ) -> Self {
         ProxyHttpHttpRequestWriter {
-            config: Arc::clone(config),
+            append_http_headers,
             inner: ups_w,
             escaper_stats,
         }

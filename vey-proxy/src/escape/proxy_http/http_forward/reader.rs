@@ -24,7 +24,7 @@ use crate::module::http_forward::{
 };
 
 pin_project! {
-    pub(super) struct ProxyHttpHttpForwardReader<R: AsyncRead> {
+    pub(crate) struct ProxyHttpHttpForwardReader<R: AsyncRead> {
         #[pin]
         inner: LimitedBufReader<R>,
     }
@@ -34,7 +34,7 @@ impl<R> ProxyHttpHttpForwardReader<R>
 where
     R: AsyncRead + Unpin,
 {
-    pub(super) fn new(ups_r: LimitedBufReader<R>) -> Self {
+    pub(crate) fn new(ups_r: LimitedBufReader<R>) -> Self {
         ProxyHttpHttpForwardReader { inner: ups_r }
     }
 

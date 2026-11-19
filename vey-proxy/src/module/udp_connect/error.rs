@@ -8,12 +8,13 @@ use std::io;
 
 use thiserror::Error;
 
+use vey_http::connect::HttpConnectError;
 use vey_http::upgrade::HttpUpgradeError;
 use vey_resolver::ResolveError;
 use vey_socks::SocksConnectError;
-use vey_types::net::{ConnectError, ProxyProtocolEncodeError};
+use vey_types::net::{ConnectError, ProxyProtocolEncodeError, ProxyProtocolWriteError};
 
-use crate::module::tcp_connect::UnderlyingTcpConnectError;
+use crate::module::tcp_connect::{NestedTcpConnectError, UnderlyingTcpConnectError};
 use crate::serve::{ServerTaskError, ServerTaskForbiddenError};
 
 #[derive(Error, Debug)]
@@ -103,6 +104,32 @@ impl From<UnderlyingTcpConnectError> for UdpConnectError {
     }
 }
 
+impl From<NestedTcpConnectError> for UdpConnectError {
+    fn from(value: NestedTcpConnectError) -> Self {
+        match value {
+            NestedTcpConnectError::Underlying(e) => e.into(),
+            NestedTcpConnectError::MethodUnavailable => UdpConnectError::MethodUnavailable,
+            NestedTcpConnectError::EscaperNotUsable(e) => UdpConnectError::EscaperNotUsable(e),
+            NestedTcpConnectError::ResolveFailed(e) => UdpConnectError::ResolveFailed(e),
+            NestedTcpConnectError::ProxyProtocolWriteError(e) => e.into(),
+            NestedTcpConnectError::HttpConnectError(e) => e.into(),
+            NestedTcpConnectError::SocksConnectError(e) => e.into(),
+            NestedTcpConnectError::NegotiationPeerTimeout => {
+                UdpConnectError::NegotiationPeerTimeout
+            }
+        }
+    }
+}
+
+impl From<ProxyProtocolWriteError> for UdpConnectError {
+    fn from(value: ProxyProtocolWriteError) -> Self {
+        match value {
+            ProxyProtocolWriteError::Encode(e) => UdpConnectError::ProxyProtocolEncodeError(e),
+            ProxyProtocolWriteError::Io(e) => UdpConnectError::ProxyProtocolWriteFailed(e),
+        }
+    }
+}
+
 impl From<SocksConnectError> for UdpConnectError {
     fn from(e: SocksConnectError) -> Self {
         match e {
@@ -120,6 +147,25 @@ impl From<SocksConnectError> for UdpConnectError {
             SocksConnectError::InvalidProtocol(_) => UdpConnectError::NegotiationProtocolErr,
             SocksConnectError::PeerTimeout => UdpConnectError::NegotiationPeerTimeout,
             SocksConnectError::RequestFailed(s) => UdpConnectError::NegotiationRejected(s),
+        }
+    }
+}
+
+impl From<HttpConnectError> for UdpConnectError {
+    fn from(value: HttpConnectError) -> Self {
+        match value {
+            HttpConnectError::RemoteClosed => UdpConnectError::NegotiationReadFailed(
+                io::Error::new(io::ErrorKind::UnexpectedEof, "early eof"),
+            ),
+            HttpConnectError::ReadFailed(e) => UdpConnectError::NegotiationReadFailed(e),
+            HttpConnectError::WriteFailed(e) => UdpConnectError::NegotiationWriteFailed(e),
+            HttpConnectError::InvalidResponse(_) => UdpConnectError::NegotiationProtocolErr,
+            HttpConnectError::UnexpectedStatusCode(code, reason) => {
+                UdpConnectError::NegotiationRejected(format!(
+                    "rejected by remote proxy with response {code} {reason}"
+                ))
+            }
+            HttpConnectError::PeerTimeout(_) => UdpConnectError::NegotiationPeerTimeout,
         }
     }
 }

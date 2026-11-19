@@ -10,7 +10,7 @@ use vey_daemon::stat::remote::TcpConnectionTaskRemoteStatsWrapper;
 use vey_io_ext::{AsyncStream, LimitedBufReader, LimitedReader, LimitedWriter, NilLimitedStats};
 use vey_types::net::AlpnProtocol;
 
-use super::{ProxyHttpEscaper, ProxyHttpEscaperConfig, ProxyHttpEscaperStats};
+use super::{ProxyHttpEscaper, ProxyHttpEscaperStats};
 use crate::escape::{ArcEscaper, EgressNotes, TlsHttpConnection};
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
@@ -23,8 +23,8 @@ use crate::serve::ServerTaskNotes;
 mod reader;
 mod writer;
 
-use reader::ProxyHttpHttpForwardReader;
-use writer::{ProxyHttpHttpForwardWriter, ProxyHttpHttpRequestWriter};
+pub(crate) use reader::ProxyHttpHttpForwardReader;
+pub(crate) use writer::{ProxyHttpHttpForwardWriter, ProxyHttpHttpRequestWriter};
 
 impl ProxyHttpEscaper {
     pub(super) async fn http_forward_new_connection(
@@ -53,7 +53,7 @@ impl ProxyHttpEscaper {
         let writer = ProxyHttpHttpForwardWriter::new(
             ups_w,
             Some(Arc::clone(&self.stats)),
-            &self.config,
+            self.config.append_http_headers.clone(),
             task_conf.upstream.clone(),
         );
         let reader = ProxyHttpHttpForwardReader::new(ups_r);
@@ -90,7 +90,8 @@ impl ProxyHttpEscaper {
         );
         let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
-        let writer = ProxyHttpHttpRequestWriter::new(ups_w, None, &self.config);
+        let writer =
+            ProxyHttpHttpRequestWriter::new(ups_w, None, self.config.append_http_headers.clone());
         let reader = ProxyHttpHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
@@ -132,7 +133,11 @@ impl ProxyHttpEscaper {
             let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
             Ok(TlsHttpConnection::H1(
                 (
-                    Box::new(ProxyHttpHttpRequestWriter::new(ups_w, None, &self.config)),
+                    Box::new(ProxyHttpHttpRequestWriter::new(
+                        ups_w,
+                        None,
+                        self.config.append_http_headers.clone(),
+                    )),
                     Box::new(ProxyHttpHttpForwardReader::new(ups_r)),
                 ),
                 escaper,
