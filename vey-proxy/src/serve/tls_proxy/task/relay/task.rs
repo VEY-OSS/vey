@@ -324,8 +324,6 @@ impl TlsRelayTask {
     )
     where
         S: AsyncStream + 'static,
-        S::R: AsyncRead,
-        S::W: AsyncWrite,
     {
         let (clt_r, clt_w) = clt_stream.into_split();
 

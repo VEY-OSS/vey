@@ -6,9 +6,9 @@
 use tokio::io::{AsyncRead, AsyncWrite, Join};
 use tokio::net::{TcpStream, tcp};
 
-pub trait AsyncStream {
-    type R;
-    type W;
+pub trait AsyncStream: AsyncRead + AsyncWrite {
+    type R: AsyncRead;
+    type W: AsyncWrite;
 
     fn into_split(self) -> (Self::R, Self::W);
 }

@@ -44,7 +44,7 @@ pub enum MaybeTlsStreamReadHalf<S: AsyncStream> {
 
 impl<S> AsyncRead for MaybeTlsStreamReadHalf<S>
 where
-    S: AsyncStream + AsyncRead + AsyncWrite + Unpin,
+    S: AsyncStream + Unpin,
     S::R: AsyncRead + Unpin,
 {
     fn poll_read(
@@ -66,7 +66,7 @@ pub enum MaybeTlsStreamWriteHalf<S: AsyncStream> {
 
 impl<S> AsyncWrite for MaybeTlsStreamWriteHalf<S>
 where
-    S: AsyncStream + AsyncRead + AsyncWrite + Unpin,
+    S: AsyncStream + Unpin,
     S::W: AsyncWrite + Unpin,
 {
     fn poll_write(
@@ -123,9 +123,75 @@ pub enum MaybeTlsStream<S> {
     Tls(client::TlsStream<S>),
 }
 
+impl<S> AsyncRead for MaybeTlsStream<S>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        match self.get_mut() {
+            MaybeTlsStream::Tls(s) => Pin::new(s).poll_read(cx, buf),
+            MaybeTlsStream::Plain(s) => Pin::new(s).poll_read(cx, buf),
+        }
+    }
+}
+
+impl<S> AsyncWrite for MaybeTlsStream<S>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        match self.get_mut() {
+            MaybeTlsStream::Tls(s) => Pin::new(s).poll_write(cx, buf),
+            MaybeTlsStream::Plain(s) => Pin::new(s).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match self.get_mut() {
+            MaybeTlsStream::Tls(s) => Pin::new(s).poll_flush(cx),
+            MaybeTlsStream::Plain(s) => Pin::new(s).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match self.get_mut() {
+            MaybeTlsStream::Tls(s) => Pin::new(s).poll_shutdown(cx),
+            MaybeTlsStream::Plain(s) => Pin::new(s).poll_shutdown(cx),
+        }
+    }
+
+    fn poll_write_vectored(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
+        match self.get_mut() {
+            MaybeTlsStream::Tls(s) => Pin::new(s).poll_write_vectored(cx, bufs),
+            MaybeTlsStream::Plain(s) => Pin::new(s).poll_write_vectored(cx, bufs),
+        }
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        match self {
+            MaybeTlsStream::Tls(s) => s.is_write_vectored(),
+            MaybeTlsStream::Plain(s) => s.is_write_vectored(),
+        }
+    }
+}
+
 impl<S> AsyncStream for MaybeTlsStream<S>
 where
-    S: AsyncStream + AsyncRead + AsyncWrite + Unpin,
+    S: AsyncStream + Unpin,
+    S::R: AsyncRead + Unpin,
+    S::W: AsyncWrite + Unpin,
 {
     type R = MaybeTlsStreamReadHalf<S>;
     type W = MaybeTlsStreamWriteHalf<S>;

@@ -309,7 +309,7 @@ impl HttpGuardServer {
         alpn: Option<AlpnProtocol>,
         pinned_host: Option<Arc<HttpGuardHost>>,
     ) where
-        T: AsyncStream + AsyncRead + AsyncWrite + Unpin + Send + 'static,
+        T: AsyncStream + Unpin + Send + 'static,
         T::R: AsyncRead + Send + Sync + Unpin + 'static,
         T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
