@@ -97,6 +97,10 @@ pub(crate) enum NestedTcpConnectError {
     SocksConnectError(#[from] SocksConnectError),
     #[error("negotiation timeout")]
     NegotiationPeerTimeout,
+    #[error("peer tls handshake timeout")]
+    PeerTlsHandshakeTimeout,
+    #[error("peer tls handshake failed: {0:?}")]
+    PeerTlsHandshakeFailed(anyhow::Error),
 }
 
 #[derive(Error, Debug)]
@@ -260,6 +264,12 @@ impl From<NestedTcpConnectError> for TcpConnectError {
             NestedTcpConnectError::SocksConnectError(e) => e.into(),
             NestedTcpConnectError::NegotiationPeerTimeout => {
                 TcpConnectError::NegotiationPeerTimeout
+            }
+            NestedTcpConnectError::PeerTlsHandshakeFailed(e) => {
+                TcpConnectError::PeerTlsHandshakeFailed(e)
+            }
+            NestedTcpConnectError::PeerTlsHandshakeTimeout => {
+                TcpConnectError::PeerTlsHandshakeTimeout
             }
         }
     }

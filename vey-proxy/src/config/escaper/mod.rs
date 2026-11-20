@@ -38,6 +38,7 @@ pub(crate) mod route_resolved;
 pub(crate) mod route_select;
 pub(crate) mod route_upstream;
 pub(crate) mod stack_http;
+pub(crate) mod stack_https;
 pub(crate) mod trick_float;
 
 pub(crate) use comply_context::EgressUpstream;
@@ -115,6 +116,7 @@ pub(crate) enum AnyEscaperConfig {
     RouteUpstream(route_upstream::RouteUpstreamEscaperConfig),
     RouteClient(route_client::RouteClientEscaperConfig),
     StackHttp(stack_http::StackHttpEscaperConfig),
+    StackHttps(stack_https::StackHttpsEscaperConfig),
     TrickFloat(trick_float::TrickFloatEscaperConfig),
 }
 
@@ -242,6 +244,10 @@ fn load_escaper(
         "stack_http" | "stackhttp" => {
             let config = stack_http::StackHttpEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::StackHttp(config))
+        }
+        "stack_https" | "stackhttps" => {
+            let config = stack_https::StackHttpsEscaperConfig::parse(map, position)?;
+            Ok(AnyEscaperConfig::StackHttps(config))
         }
         "trick_float" | "trickfloat" => {
             let config = trick_float::TrickFloatEscaperConfig::parse(map, position)?;

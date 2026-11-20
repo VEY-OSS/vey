@@ -53,7 +53,7 @@ mod tcp_connect;
 
 pub(crate) use http_connect_udp::{ProxyHttpConnectUdpRecv, ProxyHttpConnectUdpSend};
 pub(crate) use http_forward::{
-    ProxyHttpHttpForwardReader, ProxyHttpHttpForwardWriter, ProxyHttpHttpRequestWriter,
+    ProxyHttpHttpForwardWriter, ProxyHttpHttpRequestWriter, ProxyHttpHttpResponseReader,
 };
 
 pub(super) struct ProxyHttpEscaper {

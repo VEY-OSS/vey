@@ -10,8 +10,8 @@ use vey_daemon::stat::remote::TcpConnectionTaskRemoteStatsWrapper;
 use vey_io_ext::{AsyncStream, LimitedBufReader, LimitedReader, LimitedWriter, NilLimitedStats};
 use vey_types::net::AlpnProtocol;
 
-use super::{ProxyHttpsEscaper, ProxyHttpsEscaperConfig};
-use crate::escape::proxy_http::ProxyHttpHttpForwardReader;
+use super::ProxyHttpsEscaper;
+use crate::escape::proxy_http::{ProxyHttpHttpRequestWriter, ProxyHttpHttpResponseReader};
 use crate::escape::{ArcEscaper, EgressNotes, TlsHttpConnection};
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
@@ -21,7 +21,7 @@ use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TlsConnect
 use crate::serve::ServerTaskNotes;
 
 mod writer;
-use writer::{ProxyHttpsHttpForwardWriter, ProxyHttpsHttpRequestWriter};
+pub(crate) use writer::ProxyHttpsHttpForwardWriter;
 
 impl ProxyHttpsEscaper {
     pub(super) async fn http_forward_new_connection(
@@ -48,9 +48,12 @@ impl ProxyHttpsEscaper {
         );
         let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
-        let writer =
-            ProxyHttpsHttpForwardWriter::new(ups_w, &self.config, task_conf.upstream.clone());
-        let reader = ProxyHttpHttpForwardReader::new(ups_r);
+        let writer = ProxyHttpsHttpForwardWriter::new(
+            ups_w,
+            self.config.append_http_headers.clone(),
+            task_conf.upstream.clone(),
+        );
+        let reader = ProxyHttpHttpResponseReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 
@@ -84,8 +87,8 @@ impl ProxyHttpsEscaper {
         );
         let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
-        let writer = ProxyHttpsHttpRequestWriter::new(ups_w, &self.config);
-        let reader = ProxyHttpHttpForwardReader::new(ups_r);
+        let writer = ProxyHttpHttpRequestWriter::new(ups_w);
+        let reader = ProxyHttpHttpResponseReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 
@@ -126,8 +129,8 @@ impl ProxyHttpsEscaper {
             let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
             Ok(TlsHttpConnection::H1(
                 (
-                    Box::new(ProxyHttpsHttpRequestWriter::new(ups_w, &self.config)),
-                    Box::new(ProxyHttpHttpForwardReader::new(ups_r)),
+                    Box::new(ProxyHttpHttpRequestWriter::new(ups_w)),
+                    Box::new(ProxyHttpHttpResponseReader::new(ups_r)),
                 ),
                 escaper,
             ))

@@ -18,17 +18,16 @@ use vey_http::server::HttpProxyClientRequest;
 use vey_io_ext::LimitedWriter;
 use vey_types::net::UpstreamAddr;
 
-use super::ProxyHttpsEscaperConfig;
 use crate::auth::UserUpstreamTrafficStatsList;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
-    send_req_header_to_origin, send_req_header_via_proxy,
+    send_req_header_via_proxy,
 };
 use crate::serve::ServerTaskNotes;
 
 pin_project! {
-    pub(super) struct ProxyHttpsHttpForwardWriter<W: AsyncWrite> {
-        config: Arc<ProxyHttpsEscaperConfig>,
+    pub(crate) struct ProxyHttpsHttpForwardWriter<W: AsyncWrite> {
+        append_http_headers: Arc<[String]>,
         #[pin]
         inner: W,
         upstream: UpstreamAddr,
@@ -40,13 +39,13 @@ impl<W> ProxyHttpsHttpForwardWriter<W>
 where
     W: AsyncWrite,
 {
-    pub(super) fn new(
+    pub(crate) fn new(
         ups_w: W,
-        config: &Arc<ProxyHttpsEscaperConfig>,
+        append_http_headers: Arc<[String]>,
         upstream: UpstreamAddr,
     ) -> Self {
         ProxyHttpsHttpForwardWriter {
-            config: Arc::clone(config),
+            append_http_headers,
             inner: ups_w,
             upstream,
             pass_userid: None,
@@ -109,79 +108,9 @@ where
             req,
             body,
             &self.upstream,
-            &self.config.append_http_headers,
+            &self.append_http_headers,
             userid,
         )
         .await
-    }
-}
-
-pin_project! {
-    pub(super) struct ProxyHttpsHttpRequestWriter<W: AsyncWrite> {
-        config: Arc<ProxyHttpsEscaperConfig>,
-        #[pin]
-        inner: W,
-    }
-}
-
-impl<W> ProxyHttpsHttpRequestWriter<W>
-where
-    W: AsyncWrite,
-{
-    pub(super) fn new(ups_w: W, config: &Arc<ProxyHttpsEscaperConfig>) -> Self {
-        ProxyHttpsHttpRequestWriter {
-            config: Arc::clone(config),
-            inner: ups_w,
-        }
-    }
-}
-
-impl<W> AsyncWrite for ProxyHttpsHttpRequestWriter<W>
-where
-    W: AsyncWrite,
-{
-    fn poll_write(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
-        let this = self.project();
-        this.inner.poll_write(cx, buf)
-    }
-
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let this = self.project();
-        this.inner.poll_flush(cx)
-    }
-
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let this = self.project();
-        this.inner.poll_shutdown(cx)
-    }
-}
-
-#[async_trait]
-impl<W> HttpForwardWrite for ProxyHttpsHttpRequestWriter<LimitedWriter<W>>
-where
-    W: AsyncWrite + Send + Unpin,
-{
-    fn prepare_new(&mut self, _task_notes: &ServerTaskNotes, _upstream: &UpstreamAddr) {}
-
-    fn update_stats(
-        &mut self,
-        task_stats: &ArcHttpForwardTaskRemoteStats,
-        user_stats: UserUpstreamTrafficStatsList,
-    ) {
-        let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
-        wrapper_stats.push_user_io_stats(user_stats);
-        self.inner.reset_stats(Arc::new(wrapper_stats));
-    }
-
-    async fn send_request_header(
-        &mut self,
-        req: &HttpProxyClientRequest,
-        body: Option<&[u8]>,
-    ) -> io::Result<()> {
-        send_req_header_to_origin(&mut self.inner, req, body).await
     }
 }

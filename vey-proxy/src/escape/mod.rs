@@ -72,6 +72,7 @@ mod route_resolved;
 mod route_select;
 mod route_upstream;
 mod stack_http;
+mod stack_https;
 mod trick_float;
 
 mod ops;

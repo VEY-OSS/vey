@@ -32,7 +32,7 @@ pin_project! {
         append_http_headers: Arc<[String]>,
         #[pin]
         inner: W,
-        escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
+        escaper_stats: Arc<ProxyHttpEscaperStats>,
         upstream: UpstreamAddr,
         pass_userid: Option<ArcStr>,
     }
@@ -44,7 +44,7 @@ where
 {
     pub(crate) fn new(
         ups_w: W,
-        escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
+        escaper_stats: Arc<ProxyHttpEscaperStats>,
         append_http_headers: Arc<[String]>,
         upstream: UpstreamAddr,
     ) -> Self {
@@ -97,16 +97,10 @@ where
         task_stats: &ArcHttpForwardTaskRemoteStats,
         user_stats: UserUpstreamTrafficStatsList,
     ) {
-        if let Some(escaper_stats) = &self.escaper_stats {
-            let mut wrapper_stats =
-                HttpForwardRemoteWrapperStats::new(escaper_stats.clone(), task_stats);
-            wrapper_stats.push_user_io_stats(user_stats);
-            self.inner.reset_stats(Arc::new(wrapper_stats));
-        } else {
-            let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
-            wrapper_stats.push_user_io_stats(user_stats);
-            self.inner.reset_stats(Arc::new(wrapper_stats));
-        }
+        let mut wrapper_stats =
+            HttpForwardRemoteWrapperStats::new(self.escaper_stats.clone(), task_stats);
+        wrapper_stats.push_user_io_stats(user_stats);
+        self.inner.reset_stats(Arc::new(wrapper_stats));
     }
 
     async fn send_request_header(
@@ -129,10 +123,8 @@ where
 
 pin_project! {
     pub(crate) struct ProxyHttpHttpRequestWriter<W: AsyncWrite> {
-        append_http_headers: Arc<[String]>,
         #[pin]
         inner: W,
-        escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
     }
 }
 
@@ -140,16 +132,8 @@ impl<W> ProxyHttpHttpRequestWriter<W>
 where
     W: AsyncWrite,
 {
-    pub(crate) fn new(
-        ups_w: W,
-        escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
-        append_http_headers: Arc<[String]>,
-    ) -> Self {
-        ProxyHttpHttpRequestWriter {
-            append_http_headers,
-            inner: ups_w,
-            escaper_stats,
-        }
+    pub(crate) fn new(ups_w: W) -> Self {
+        ProxyHttpHttpRequestWriter { inner: ups_w }
     }
 }
 
@@ -189,16 +173,9 @@ where
         task_stats: &ArcHttpForwardTaskRemoteStats,
         user_stats: UserUpstreamTrafficStatsList,
     ) {
-        if let Some(escaper_stats) = &self.escaper_stats {
-            let mut wrapper_stats =
-                HttpForwardRemoteWrapperStats::new(escaper_stats.clone(), task_stats);
-            wrapper_stats.push_user_io_stats(user_stats);
-            self.inner.reset_stats(Arc::new(wrapper_stats));
-        } else {
-            let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
-            wrapper_stats.push_user_io_stats(user_stats);
-            self.inner.reset_stats(Arc::new(wrapper_stats));
-        }
+        let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
+        wrapper_stats.push_user_io_stats(user_stats);
+        self.inner.reset_stats(Arc::new(wrapper_stats));
     }
 
     async fn send_request_header(

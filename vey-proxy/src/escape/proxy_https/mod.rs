@@ -47,13 +47,15 @@ use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
 
 mod stats;
-use stats::ProxyHttpsEscaperStats;
+pub(crate) use stats::ProxyHttpsEscaperStats;
 
 mod http_connect;
 mod http_connect_udp;
 mod http_forward;
 mod tcp_connect;
 mod tls_handshake;
+
+pub(crate) use http_forward::ProxyHttpsHttpForwardWriter;
 
 pub(super) struct ProxyHttpsEscaper {
     config: Arc<ProxyHttpsEscaperConfig>,

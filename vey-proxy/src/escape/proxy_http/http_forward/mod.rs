@@ -23,7 +23,7 @@ use crate::serve::ServerTaskNotes;
 mod reader;
 mod writer;
 
-pub(crate) use reader::ProxyHttpHttpForwardReader;
+pub(crate) use reader::ProxyHttpHttpResponseReader;
 pub(crate) use writer::{ProxyHttpHttpForwardWriter, ProxyHttpHttpRequestWriter};
 
 impl ProxyHttpEscaper {
@@ -52,11 +52,11 @@ impl ProxyHttpEscaper {
 
         let writer = ProxyHttpHttpForwardWriter::new(
             ups_w,
-            Some(Arc::clone(&self.stats)),
+            self.stats.clone(),
             self.config.append_http_headers.clone(),
             task_conf.upstream.clone(),
         );
-        let reader = ProxyHttpHttpForwardReader::new(ups_r);
+        let reader = ProxyHttpHttpResponseReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 
@@ -90,9 +90,8 @@ impl ProxyHttpEscaper {
         );
         let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
-        let writer =
-            ProxyHttpHttpRequestWriter::new(ups_w, None, self.config.append_http_headers.clone());
-        let reader = ProxyHttpHttpForwardReader::new(ups_r);
+        let writer = ProxyHttpHttpRequestWriter::new(ups_w);
+        let reader = ProxyHttpHttpResponseReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 
@@ -133,12 +132,8 @@ impl ProxyHttpEscaper {
             let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
             Ok(TlsHttpConnection::H1(
                 (
-                    Box::new(ProxyHttpHttpRequestWriter::new(
-                        ups_w,
-                        None,
-                        self.config.append_http_headers.clone(),
-                    )),
-                    Box::new(ProxyHttpHttpForwardReader::new(ups_r)),
+                    Box::new(ProxyHttpHttpRequestWriter::new(ups_w)),
+                    Box::new(ProxyHttpHttpResponseReader::new(ups_r)),
                 ),
                 escaper,
             ))

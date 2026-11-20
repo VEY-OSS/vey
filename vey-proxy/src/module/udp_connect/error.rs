@@ -117,6 +117,12 @@ impl From<NestedTcpConnectError> for UdpConnectError {
             NestedTcpConnectError::NegotiationPeerTimeout => {
                 UdpConnectError::NegotiationPeerTimeout
             }
+            NestedTcpConnectError::PeerTlsHandshakeFailed(e) => {
+                UdpConnectError::PeerTlsHandshakeFailed(e)
+            }
+            NestedTcpConnectError::PeerTlsHandshakeTimeout => {
+                UdpConnectError::PeerTlsHandshakeTimeout
+            }
         }
     }
 }

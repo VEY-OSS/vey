@@ -1,0 +1,204 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
+ */
+
+use std::sync::Arc;
+
+use anyhow::anyhow;
+use tokio::io::{AsyncRead, AsyncWrite};
+
+use vey_daemon::stat::remote::{
+    ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
+};
+use vey_http::connect::{HttpConnectError, HttpConnectRequest, HttpConnectResponse};
+use vey_io_ext::{AsyncStream, FlexBufReader, LimitedReader, LimitedWriter, OnceBufReader};
+use vey_openssl::{SslConnector, SslStream};
+
+use super::StackHttpsEscaper;
+use crate::escape::{EgressNotes, EgressSocketType};
+use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
+use crate::module::tcp_connect::{
+    NestedTcpConnectError, NestedTcpConnectResult, TcpConnectError, TcpConnectResult,
+    TcpConnectTaskConf, TlsConnectTaskConf,
+};
+use crate::serve::ServerTaskNotes;
+
+impl StackHttpsEscaper {
+    async fn http_connect_tcp_connect_to(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, NestedTcpConnectError>
+    {
+        let (_peer, mut stream) = self
+            .tls_handshake_to_remote(task_conf, egress_notes, task_notes)
+            .await?;
+
+        egress_notes.socket_type = Some(EgressSocketType::Http);
+        let mut req = HttpConnectRequest::new(&self.config.append_http_headers);
+
+        if self.config.pass_proxy_userid
+            && let Some(name) = task_notes.raw_user_name()
+        {
+            let line = crate::module::http_header::proxy_authorization_basic_pass(name);
+            req.append_dyn_header(line);
+        }
+
+        req.send(task_conf.upstream, &mut stream)
+            .await
+            .map_err(HttpConnectError::WriteFailed)?;
+
+        let mut buf_stream = FlexBufReader::new(stream);
+        let _ =
+            HttpConnectResponse::recv(&mut buf_stream, self.config.http_connect_rsp_hdr_max_size)
+                .await?;
+
+        // TODO detect and set outgoing_addr and target_addr for supported remote proxies
+
+        Ok(buf_stream)
+    }
+
+    async fn timed_http_connect_tcp_connect_to(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, NestedTcpConnectError>
+    {
+        tokio::time::timeout(
+            self.config.peer_negotiation_timeout,
+            self.http_connect_tcp_connect_to(task_conf, egress_notes, task_notes),
+        )
+        .await
+        .map_err(|_| NestedTcpConnectError::NegotiationPeerTimeout)?
+    }
+
+    pub(super) async fn http_connect_new_tcp_connection(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcTcpConnectionTaskRemoteStats,
+    ) -> TcpConnectResult {
+        let buf_stream = self
+            .timed_http_connect_tcp_connect_to(task_conf, egress_notes, task_notes)
+            .await?;
+
+        // add task and user stats
+        // add in read buffered data
+        let r_buffer_size = buf_stream.buffer().len() as u64;
+        task_stats.add_read_bytes(r_buffer_size);
+        let mut wrapper_stats = TcpConnectionTaskRemoteStatsWrapper::new(task_stats);
+        let user_stats = self.fetch_user_upstream_io_stats(task_notes);
+        for s in &user_stats {
+            s.io.tcp.add_in_bytes(r_buffer_size);
+        }
+        wrapper_stats.push_other_stats(user_stats);
+        let wrapper_stats = Arc::new(wrapper_stats);
+
+        let (r, w) = buf_stream.into_split();
+        let r = OnceBufReader::from(r);
+        let r = LimitedReader::new(r, wrapper_stats.clone());
+        let w = LimitedWriter::new(w, wrapper_stats);
+
+        Ok((Box::new(r), Box::new(w)))
+    }
+
+    pub(super) async fn http_connect_nested_tcp_connect(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> NestedTcpConnectResult {
+        let buf_stream = self
+            .timed_http_connect_tcp_connect_to(task_conf, egress_notes, task_notes)
+            .await?;
+
+        let (r, w) = buf_stream.into_split();
+        let r = OnceBufReader::from(r);
+        Ok((Box::new(r), Box::new(w)))
+    }
+
+    pub(super) async fn http_connect_tls_connect_to(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        tls_application: TlsApplication,
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
+        let buf_stream = self
+            .timed_http_connect_tcp_connect_to(&task_conf.tcp, egress_notes, task_notes)
+            .await?;
+
+        let ssl = task_conf.build_ssl()?;
+        let connector = SslConnector::new(ssl, buf_stream.into_inner())
+            .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
+
+        match tokio::time::timeout(task_conf.handshake_timeout(), connector.connect()).await {
+            Ok(Ok(stream)) => Ok(stream),
+            Ok(Err(e)) => {
+                let e = anyhow::Error::new(e);
+                if let Some(logger) = &self.escape_logger {
+                    EscapeLogForTlsHandshake {
+                        upstream: task_conf.tcp.upstream,
+                        egress_notes,
+                        task_id: &task_notes.id,
+                        tls_name: task_conf.tls_name,
+                        tls_peer: task_conf.tcp.upstream,
+                        tls_application,
+                    }
+                    .log(logger, &e);
+                }
+                Err(TcpConnectError::UpstreamTlsHandshakeFailed(e))
+            }
+            Err(_) => {
+                let e = anyhow!("upstream tls handshake timed out");
+                if let Some(logger) = &self.escape_logger {
+                    EscapeLogForTlsHandshake {
+                        upstream: task_conf.tcp.upstream,
+                        egress_notes,
+                        task_id: &task_notes.id,
+                        tls_name: task_conf.tls_name,
+                        tls_peer: task_conf.tcp.upstream,
+                        tls_application,
+                    }
+                    .log(logger, &e);
+                }
+                Err(TcpConnectError::UpstreamTlsHandshakeTimeout)
+            }
+        }
+    }
+
+    pub(super) async fn http_connect_new_tls_connection(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        egress_notes: &mut EgressNotes,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcTcpConnectionTaskRemoteStats,
+    ) -> TcpConnectResult {
+        let tls_stream = self
+            .http_connect_tls_connect_to(
+                task_conf,
+                egress_notes,
+                task_notes,
+                TlsApplication::TcpStream,
+            )
+            .await?;
+
+        egress_notes.record_selected_alpn(tls_stream.ssl());
+        let (ups_r, ups_w) = tls_stream.into_split();
+
+        // add task and user stats
+        let mut wrapper_stats = TcpConnectionTaskRemoteStatsWrapper::new(task_stats);
+        wrapper_stats.push_other_stats(self.fetch_user_upstream_io_stats(task_notes));
+        let wrapper_stats = Arc::new(wrapper_stats);
+
+        let ups_r = LimitedReader::new(ups_r, wrapper_stats.clone());
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
+
+        Ok((Box::new(ups_r), Box::new(ups_w)))
+    }
+}

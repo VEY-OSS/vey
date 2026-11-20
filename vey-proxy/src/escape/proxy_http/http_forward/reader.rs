@@ -24,18 +24,18 @@ use crate::module::http_forward::{
 };
 
 pin_project! {
-    pub(crate) struct ProxyHttpHttpForwardReader<R: AsyncRead> {
+    pub(crate) struct ProxyHttpHttpResponseReader<R: AsyncRead> {
         #[pin]
         inner: LimitedBufReader<R>,
     }
 }
 
-impl<R> ProxyHttpHttpForwardReader<R>
+impl<R> ProxyHttpHttpResponseReader<R>
 where
     R: AsyncRead + Unpin,
 {
     pub(crate) fn new(ups_r: LimitedBufReader<R>) -> Self {
-        ProxyHttpHttpForwardReader { inner: ups_r }
+        ProxyHttpHttpResponseReader { inner: ups_r }
     }
 
     async fn get_rsp_header(
@@ -55,7 +55,7 @@ where
     }
 }
 
-impl<R> AsyncRead for ProxyHttpHttpForwardReader<R>
+impl<R> AsyncRead for ProxyHttpHttpResponseReader<R>
 where
     R: AsyncRead,
 {
@@ -69,7 +69,7 @@ where
     }
 }
 
-impl<R> AsyncBufRead for ProxyHttpHttpForwardReader<R>
+impl<R> AsyncBufRead for ProxyHttpHttpResponseReader<R>
 where
     R: AsyncRead,
 {
@@ -85,7 +85,7 @@ where
 }
 
 #[async_trait]
-impl<R> HttpForwardRead for ProxyHttpHttpForwardReader<R>
+impl<R> HttpForwardRead for ProxyHttpHttpResponseReader<R>
 where
     R: AsyncRead + Send + Unpin,
 {
