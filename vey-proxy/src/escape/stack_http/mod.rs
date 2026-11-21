@@ -51,6 +51,7 @@ pub(super) struct StackHttpEscaper {
     next: ArcEscaper,
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     escape_logger: Option<Logger>,
+    proxy_http_headers: Arc<[String]>,
 }
 
 impl StackHttpEscaper {
@@ -75,12 +76,15 @@ impl StackHttpEscaper {
 
         stats.set_extra_tags(config.extra_metrics_tags.clone());
 
+        let proxy_http_headers = Arc::from(config.proxy_http_headers());
+
         let escaper = StackHttpEscaper {
             config: Arc::new(config),
             stats,
             next,
             proxy_nodes,
             escape_logger,
+            proxy_http_headers,
         };
 
         Ok(Arc::new(escaper))

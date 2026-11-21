@@ -53,7 +53,7 @@ impl ProxyHttpEscaper {
         let writer = ProxyHttpHttpForwardWriter::new(
             ups_w,
             self.stats.clone(),
-            self.config.append_http_headers.clone(),
+            self.proxy_http_headers.clone(),
             task_conf.upstream.clone(),
         );
         let reader = ProxyHttpHttpResponseReader::new(ups_r);

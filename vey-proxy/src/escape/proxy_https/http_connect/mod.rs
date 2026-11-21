@@ -38,7 +38,7 @@ impl ProxyHttpsEscaper {
             .await?;
 
         egress_notes.socket_type = Some(EgressSocketType::Http);
-        let mut req = HttpConnectRequest::new(&self.config.append_http_headers);
+        let mut req = HttpConnectRequest::new(&self.proxy_http_headers);
 
         if self.config.pass_proxy_userid
             && let Some(name) = task_notes.raw_user_name()

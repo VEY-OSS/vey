@@ -63,6 +63,7 @@ pub(super) struct ProxyHttpEscaper {
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
     escape_logger: Option<Logger>,
+    proxy_http_headers: Arc<[String]>,
 }
 
 impl ProxyHttpEscaper {
@@ -90,6 +91,8 @@ impl ProxyHttpEscaper {
 
         stats.set_extra_tags(config.extra_metrics_tags.clone());
 
+        let proxy_http_headers = Arc::from(config.proxy_http_headers());
+
         let escaper = ProxyHttpEscaper {
             config: Arc::new(config),
             stats,
@@ -97,6 +100,7 @@ impl ProxyHttpEscaper {
             proxy_nodes,
             resolver_handle,
             escape_logger,
+            proxy_http_headers,
         };
 
         Ok(Arc::new(escaper))

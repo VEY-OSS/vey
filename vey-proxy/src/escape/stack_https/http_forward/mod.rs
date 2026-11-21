@@ -48,7 +48,7 @@ impl StackHttpsEscaper {
 
         let writer = ProxyHttpsHttpForwardWriter::new(
             ups_w,
-            self.config.append_http_headers.clone(),
+            self.proxy_http_headers.clone(),
             task_conf.upstream.clone(),
         );
         let reader = ProxyHttpHttpResponseReader::new(ups_r);

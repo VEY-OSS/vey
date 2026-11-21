@@ -50,7 +50,6 @@ pub(crate) struct StackHttpsEscaperConfig {
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) http_connect_rsp_hdr_max_size: usize,
-    pub(crate) append_http_headers: Arc<[String]>,
     pub(crate) pass_proxy_userid: bool,
     pub(crate) use_proxy_protocol: Option<ProxyProtocolVersion>,
     pub(crate) peer_negotiation_timeout: Duration,
@@ -75,7 +74,6 @@ impl StackHttpsEscaperConfig {
             tcp_keepalive: Default::default(),
             tcp_misc_opts: Default::default(),
             http_connect_rsp_hdr_max_size: 4096,
-            append_http_headers: Arc::new([]),
             pass_proxy_userid: false,
             use_proxy_protocol: None,
             peer_negotiation_timeout: Duration::from_secs(10),
@@ -229,16 +227,21 @@ impl StackHttpsEscaperConfig {
                     "auth is needed for next proxy, we can not pass userid to it"
                 ));
             }
-
-            let mut append_http_headers = Vec::new();
-            append_http_headers.push(vey_http::header::proxy_authorization_basic(
-                &self.proxy_username,
-                &self.proxy_password,
-            ));
-            self.append_http_headers = Arc::from(append_http_headers.into_boxed_slice());
         }
 
         Ok(())
+    }
+
+    pub(crate) fn proxy_http_headers(&self) -> Vec<String> {
+        let mut headers = Vec::new();
+        if !self.proxy_username.is_empty() {
+            let auth = vey_http::header::proxy_authorization_basic(
+                &self.proxy_username,
+                &self.proxy_password,
+            );
+            headers.push(auth);
+        }
+        headers
     }
 }
 

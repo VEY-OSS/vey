@@ -65,6 +65,7 @@ pub(super) struct ProxyHttpsEscaper {
     tls_config: OpensslClientConfig,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
     escape_logger: Option<Logger>,
+    proxy_http_headers: Arc<[String]>,
 }
 
 impl ProxyHttpsEscaper {
@@ -97,6 +98,8 @@ impl ProxyHttpsEscaper {
 
         stats.set_extra_tags(config.extra_metrics_tags.clone());
 
+        let proxy_http_headers = Arc::from(config.proxy_http_headers());
+
         let escaper = ProxyHttpsEscaper {
             config: Arc::new(config),
             stats,
@@ -105,6 +108,7 @@ impl ProxyHttpsEscaper {
             tls_config,
             resolver_handle,
             escape_logger,
+            proxy_http_headers,
         };
         Ok(Arc::new(escaper))
     }
