@@ -332,12 +332,10 @@ impl ProxyHttpEscaperConfig {
             }
         }
 
-        if !self.proxy_username.is_empty() {
-            if self.pass_proxy_userid {
-                return Err(anyhow!(
-                    "auth is needed for next proxy, we can not pass userid to it"
-                ));
-            }
+        if !self.proxy_username.is_empty() && self.pass_proxy_userid {
+            return Err(anyhow!(
+                "auth is needed for next proxy, we can not pass userid to it"
+            ));
         }
 
         Ok(())
