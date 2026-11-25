@@ -4,6 +4,7 @@
  * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
+use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -234,40 +235,284 @@ impl EscaperConfig for StackHttpEscaperConfig {
         Default::default()
     }
 
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
+        let mut set = BTreeSet::new();
+        set.insert(self.next.clone());
+        Some(set)
+    }
+
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
 }
 
 #[cfg(test)]
-mod diff_action_tests {
+mod tests {
+    use std::str::FromStr;
+    use std::time::Duration;
+
+    use http::Method;
     use saphyr::Yaml;
 
+    use vey_types::collection::SelectivePickPolicy;
+    use vey_types::metrics::MetricTagName;
+    use vey_types::net::ProxyProtocolVersion;
     use vey_yaml::yaml_doc;
 
     use super::StackHttpEscaperConfig;
-    use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
+    use crate::config::escaper::dummy_deny::DummyDenyEscaperConfig;
+    use crate::config::escaper::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
 
-    fn parse(doc: &Yaml) -> StackHttpEscaperConfig {
+    fn parse(yaml: &str) -> anyhow::Result<StackHttpEscaperConfig> {
+        let doc = yaml_doc!(yaml);
         let Yaml::Mapping(map) = doc else {
             panic!("yaml root should be a map");
         };
-        StackHttpEscaperConfig::parse(map, None).unwrap()
+        StackHttpEscaperConfig::parse(&map, None)
+    }
+
+    fn parse_ok(yaml: &str) -> StackHttpEscaperConfig {
+        parse(yaml).unwrap()
+    }
+
+    fn parse_err(yaml: &str) -> String {
+        match parse(yaml) {
+            Ok(_) => panic!("expected parse error"),
+            Err(err) => format!("{err:#}"),
+        }
     }
 
     #[test]
-    fn same_yaml() {
-        let doc = yaml_doc!(
+    fn minimal_yaml() {
+        let config = parse_ok(
             r#"
-            name: diff-a
+            name: stack-a
+            next: direct
+            proxy_addr: 127.0.0.1
+            "#,
+        );
+        assert_eq!(config.name().as_str(), "stack-a");
+        assert_eq!(config.r#type(), "StackHttp");
+        assert!(config.resolver().is_empty());
+        assert!(config.position().is_none());
+        assert!(config.shared_logger().is_none());
+        let next = config.dependent_escaper().unwrap();
+        assert_eq!(next.len(), 1);
+        assert_eq!(next.iter().next().unwrap().as_str(), "direct");
+        assert_eq!(config.proxy_nodes.len(), 1);
+        assert_eq!(config.proxy_nodes[0].inner().port(), 3128);
+        assert_eq!(config.proxy_pick_policy, SelectivePickPolicy::Random);
+        assert!(config.proxy_http_headers().is_empty());
+        assert!(!config.pass_proxy_userid);
+        assert!(config.use_proxy_protocol.is_none());
+        assert_eq!(config.http_connect_rsp_hdr_max_size, 4096);
+        assert_eq!(config.peer_negotiation_timeout, Duration::from_secs(10));
+        assert!(!config.http_forward_capability.forward_https());
+    }
+
+    #[test]
+    fn full_yaml_covers_keys_and_aliases() {
+        let config = parse_ok(
+            r#"
+            type: stack_http
+            name: stack-a
+            next: direct
+            shared_logger: escape
+            extra_metrics_tags:
+              pool: edge
+            proxy_addr:
+              - 127.0.0.1:1001
+              - 127.0.0.1:1002
+            proxy_addr_pick_policy: ketama
+            proxy_user: user
+            proxy_passwd: pass
+            conn_limit: 10MB
+            http_forward_capability:
+              forward_https: true
+              forward_ftp: true
+            tcp_keepalive:
+              enable: true
+              idle_time: 30s
+            tcp_misc_opts:
+              no_delay: true
+            http_connect_rsp_header_max_size: 8192
+            use_proxy_protocol: 2
+            peer_negotiation_timeout: 3s
+            "#,
+        );
+        assert_eq!(config.shared_logger(), Some("escape"));
+        assert_eq!(config.extra_metrics_tags.as_ref().unwrap().len(), 1);
+        assert_eq!(
+            config
+                .extra_metrics_tags
+                .as_ref()
+                .unwrap()
+                .get(&MetricTagName::from_str("pool").unwrap())
+                .unwrap()
+                .as_str(),
+            "edge"
+        );
+        assert_eq!(config.proxy_nodes[0].inner().port(), 1002);
+        assert_eq!(config.proxy_nodes[1].inner().port(), 1001);
+        assert_eq!(config.proxy_pick_policy, SelectivePickPolicy::Ketama);
+        assert_eq!(
+            config.proxy_http_headers(),
+            vec!["Proxy-Authorization: Basic dXNlcjpwYXNz\r\n".to_string()]
+        );
+        assert_eq!(config.general.tcp_sock_speed_limit.max_north, 10_000_000);
+        assert_eq!(config.general.tcp_sock_speed_limit.max_south, 10_000_000);
+        assert!(config.http_forward_capability.forward_https());
+        assert!(config.http_forward_capability.forward_ftp(&Method::GET));
+        assert!(config.tcp_keepalive.is_enabled());
+        assert_eq!(config.tcp_keepalive.idle_time(), Duration::from_secs(30));
+        assert_eq!(config.tcp_misc_opts.no_delay, Some(true));
+        assert_eq!(config.http_connect_rsp_hdr_max_size, 8192);
+        assert_eq!(config.use_proxy_protocol, Some(ProxyProtocolVersion::V2));
+        assert_eq!(config.peer_negotiation_timeout, Duration::from_secs(3));
+
+        let via_speed_limit = parse_ok(
+            r#"
+            name: stack-a
+            next: direct
+            proxy_addr: 127.0.0.1:8080
+            tcp_conn_speed_limit: 1MB
+            "#,
+        );
+        assert_eq!(
+            via_speed_limit.general.tcp_sock_speed_limit.max_north,
+            1_000_000
+        );
+        let via_conn_limit = parse_ok(
+            r#"
+            name: stack-a
+            next: direct
+            proxy_addr: 127.0.0.1:8080
+            tcp_conn_limit: 2MB
+            "#,
+        );
+        assert_eq!(
+            via_conn_limit.general.tcp_sock_speed_limit.max_north,
+            2_000_000
+        );
+
+        let pass_user = parse_ok(
+            r#"
+            name: stack-a
+            next: direct
+            proxy_addr: 127.0.0.1:8080
+            pass_proxy_userid: true
+            "#,
+        );
+        assert!(pass_user.pass_proxy_userid);
+        assert!(pass_user.proxy_http_headers().is_empty());
+    }
+
+    #[test]
+    fn reject_incomplete_or_conflicting_yaml() {
+        assert!(
+            parse_err(
+                r#"
+            next: direct
             proxy_addr: 127.0.0.1:8080
             "#
+            )
+            .contains("name is not set")
         );
-        let old = parse(&doc);
-        let new = parse(&doc);
+        assert!(
+            parse_err(
+                r#"
+            name: stack-a
+            proxy_addr: 127.0.0.1:8080
+            "#
+            )
+            .contains("next escaper is not set")
+        );
+        assert!(
+            parse_err(
+                r#"
+            name: stack-a
+            next: direct
+            "#
+            )
+            .contains("proxy addr is not set")
+        );
+        assert!(
+            parse_err(
+                r#"
+            name: stack-a
+            next: direct
+            proxy_addr: 127.0.0.1:8080
+            proxy_username: user
+            proxy_password: pass
+            pass_proxy_userid: true
+            "#
+            )
+            .contains("can not pass userid")
+        );
+        assert!(
+            parse_err(
+                r#"
+            name: stack-a
+            next: direct
+            proxy_addr: 127.0.0.1:8080
+            resolver: main
+            "#
+            )
+            .contains("invalid key")
+        );
+
+        assert!(
+            parse_err(
+                r#"
+            name: stack-a
+            next: direct
+            proxy_addr: 12345
+            "#
+            )
+            .contains("upstream")
+        );
+
+        let bad_bool = parse(
+            r#"
+            name: stack-a
+            next: direct
+            proxy_addr: 127.0.0.1:8080
+            pass_proxy_userid: nope
+            "#,
+        );
+        assert!(bad_bool.is_err());
+    }
+
+    #[test]
+    fn diff_action() {
+        let yaml = r#"
+            name: stack-a
+            next: direct
+            proxy_addr: 127.0.0.1:8080
+        "#;
+        let old = parse_ok(yaml);
+        let same = parse_ok(yaml);
         assert!(matches!(
-            old.diff_action(&AnyEscaperConfig::StackHttp(new)),
+            old.diff_action(&AnyEscaperConfig::StackHttp(same)),
             EscaperConfigDiffAction::NoAction
+        ));
+
+        let changed = parse_ok(
+            r#"
+            name: stack-a
+            next: other
+            proxy_addr: 127.0.0.1:8080
+            "#,
+        );
+        assert!(matches!(
+            old.diff_action(&AnyEscaperConfig::StackHttp(changed)),
+            EscaperConfigDiffAction::Reload
+        ));
+
+        let other = DummyDenyEscaperConfig::new(None, None);
+        assert!(matches!(
+            old.diff_action(&AnyEscaperConfig::DummyDeny(other)),
+            EscaperConfigDiffAction::SpawnNew
         ));
     }
 }

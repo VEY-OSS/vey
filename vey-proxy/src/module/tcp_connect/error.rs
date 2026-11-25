@@ -414,4 +414,75 @@ mod tests {
             .is_remote_connect_failure()
         );
     }
+
+    #[test]
+    fn nested_tls_and_proxy_errors_map_to_tcp() {
+        use std::io;
+
+        use vey_http::connect::{HttpConnectError, HttpConnectResponseError};
+        use vey_types::net::{ProxyProtocolEncodeError, ProxyProtocolWriteError};
+
+        use super::NestedTcpConnectError;
+
+        let timeout: TcpConnectError = NestedTcpConnectError::PeerTlsHandshakeTimeout.into();
+        assert!(matches!(timeout, TcpConnectError::PeerTlsHandshakeTimeout));
+
+        let failed: TcpConnectError =
+            NestedTcpConnectError::PeerTlsHandshakeFailed(anyhow::anyhow!("handshake")).into();
+        assert!(matches!(failed, TcpConnectError::PeerTlsHandshakeFailed(_)));
+
+        let underlying: TcpConnectError =
+            NestedTcpConnectError::Underlying(UnderlyingTcpConnectError::PeerTlsHandshakeTimeout)
+                .into();
+        assert!(matches!(
+            underlying,
+            TcpConnectError::PeerTlsHandshakeTimeout
+        ));
+
+        let encode: TcpConnectError = NestedTcpConnectError::ProxyProtocolWriteError(
+            ProxyProtocolWriteError::Encode(ProxyProtocolEncodeError::AddressFamilyNotMatch),
+        )
+        .into();
+        assert!(matches!(
+            encode,
+            TcpConnectError::ProxyProtocolEncodeError(_)
+        ));
+
+        let write: TcpConnectError = NestedTcpConnectError::ProxyProtocolWriteError(
+            ProxyProtocolWriteError::Io(io::Error::other("write")),
+        )
+        .into();
+        assert!(matches!(
+            write,
+            TcpConnectError::ProxyProtocolWriteFailed(_)
+        ));
+
+        let closed: TcpConnectError =
+            NestedTcpConnectError::HttpConnectError(HttpConnectError::RemoteClosed).into();
+        assert!(matches!(closed, TcpConnectError::NegotiationReadFailed(_)));
+
+        let rejected: TcpConnectError = NestedTcpConnectError::HttpConnectError(
+            HttpConnectError::UnexpectedStatusCode(403, "denied".to_string()),
+        )
+        .into();
+        match rejected {
+            TcpConnectError::NegotiationRejected(reason) => {
+                assert!(reason.contains("403"));
+            }
+            other => panic!("unexpected error: {other}"),
+        }
+
+        let protocol: TcpConnectError = NestedTcpConnectError::HttpConnectError(
+            HttpConnectError::InvalidResponse(HttpConnectResponseError::UnexpectedTransferEncoding),
+        )
+        .into();
+        assert!(matches!(protocol, TcpConnectError::NegotiationProtocolErr));
+
+        let peer_timeout: TcpConnectError =
+            NestedTcpConnectError::HttpConnectError(HttpConnectError::PeerTimeout(504)).into();
+        assert!(matches!(
+            peer_timeout,
+            TcpConnectError::NegotiationPeerTimeout
+        ));
+    }
 }

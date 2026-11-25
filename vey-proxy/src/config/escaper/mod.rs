@@ -282,3 +282,100 @@ pub(crate) fn get_all_sorted() -> anyhow::Result<Vec<Arc<AnyEscaperConfig>>> {
     }
     Ok(sorted_conf)
 }
+
+#[cfg(test)]
+mod stack_escaper_tests {
+    use saphyr::Yaml;
+
+    use vey_yaml::yaml_doc;
+
+    use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, load_escaper};
+
+    fn load(yaml: &str) -> AnyEscaperConfig {
+        let doc = yaml_doc!(yaml);
+        let Yaml::Mapping(map) = doc else {
+            panic!("yaml root should be a map");
+        };
+        load_escaper(&map, None).unwrap()
+    }
+
+    fn type_name(config: &AnyEscaperConfig) -> &str {
+        match config {
+            AnyEscaperConfig::StackHttp(config) => config.r#type(),
+            AnyEscaperConfig::StackHttps(config) => config.r#type(),
+            _ => panic!("unexpected escaper config"),
+        }
+    }
+
+    #[test]
+    fn stack_type_aliases_dispatch_and_diff() {
+        let http = load(
+            r#"
+            type: stackhttp
+            name: stack-http
+            next: direct
+            proxy_addr: 127.0.0.1:8080
+            "#,
+        );
+        assert_eq!(type_name(&http), "StackHttp");
+        assert_eq!(http.name().as_str(), "stack-http");
+        assert!(http.resolver().is_empty());
+        let next = http.dependent_escaper().unwrap();
+        assert_eq!(next.iter().next().unwrap().as_str(), "direct");
+
+        let same = load(
+            r#"
+            type: stack_http
+            name: stack-http
+            next: direct
+            proxy_addr: 127.0.0.1:8080
+            "#,
+        );
+        assert!(matches!(
+            http.diff_action(&same),
+            EscaperConfigDiffAction::NoAction
+        ));
+
+        let changed = load(
+            r#"
+            type: stack_http
+            name: stack-http
+            next: other
+            proxy_addr: 127.0.0.1:8080
+            "#,
+        );
+        assert!(matches!(
+            http.diff_action(&changed),
+            EscaperConfigDiffAction::Reload
+        ));
+
+        let https = load(
+            r#"
+            type: stack_https
+            name: stack-http
+            next: direct
+            proxy_addr: 127.0.0.1:8443
+            tls_name: proxy.local
+            "#,
+        );
+        assert_eq!(type_name(&https), "StackHttps");
+        assert!(matches!(
+            http.diff_action(&https),
+            EscaperConfigDiffAction::SpawnNew
+        ));
+
+        let https_alias = load(
+            r#"
+            type: stackhttps
+            name: stack-http
+            next: direct
+            proxy_addr: 127.0.0.1:8443
+            tls_name: proxy.local
+            "#,
+        );
+        assert!(matches!(
+            https.diff_action(&https_alias),
+            EscaperConfigDiffAction::NoAction
+        ));
+    }
+}

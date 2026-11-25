@@ -222,6 +222,109 @@ impl From<UdpConnectError> for ServerTaskError {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use std::io;
+
+    use vey_http::connect::{HttpConnectError, HttpConnectResponseError};
+    use vey_resolver::ResolveError;
+    use vey_socks::SocksConnectError;
+    use vey_types::net::{ProxyProtocolEncodeError, ProxyProtocolWriteError};
+
+    use super::{NestedTcpConnectError, UdpConnectError, UnderlyingTcpConnectError};
+
+    #[test]
+    fn nested_and_http_connect_errors_map_to_udp() {
+        let unavailable: UdpConnectError = NestedTcpConnectError::MethodUnavailable.into();
+        assert!(matches!(unavailable, UdpConnectError::MethodUnavailable));
+
+        let unusable: UdpConnectError =
+            NestedTcpConnectError::EscaperNotUsable(anyhow::anyhow!("down")).into();
+        assert!(matches!(unusable, UdpConnectError::EscaperNotUsable(_)));
+
+        let resolve: UdpConnectError =
+            NestedTcpConnectError::ResolveFailed(ResolveError::EmptyDomain).into();
+        assert!(matches!(resolve, UdpConnectError::ResolveFailed(_)));
+
+        let underlying: UdpConnectError = NestedTcpConnectError::Underlying(
+            UnderlyingTcpConnectError::PeerTlsHandshakeFailed(anyhow::anyhow!("tls")),
+        )
+        .into();
+        assert!(matches!(
+            underlying,
+            UdpConnectError::PeerTlsHandshakeFailed(_)
+        ));
+
+        let timeout: UdpConnectError = NestedTcpConnectError::PeerTlsHandshakeTimeout.into();
+        assert!(matches!(timeout, UdpConnectError::PeerTlsHandshakeTimeout));
+
+        let failed: UdpConnectError =
+            NestedTcpConnectError::PeerTlsHandshakeFailed(anyhow::anyhow!("handshake")).into();
+        assert!(matches!(failed, UdpConnectError::PeerTlsHandshakeFailed(_)));
+
+        let negotiation: UdpConnectError = NestedTcpConnectError::NegotiationPeerTimeout.into();
+        assert!(matches!(
+            negotiation,
+            UdpConnectError::NegotiationPeerTimeout
+        ));
+
+        let encode: UdpConnectError = NestedTcpConnectError::ProxyProtocolWriteError(
+            ProxyProtocolWriteError::Encode(ProxyProtocolEncodeError::TotalLengthOverflow),
+        )
+        .into();
+        assert!(matches!(
+            encode,
+            UdpConnectError::ProxyProtocolEncodeError(_)
+        ));
+
+        let write: UdpConnectError = ProxyProtocolWriteError::Io(io::Error::other("write")).into();
+        assert!(matches!(
+            write,
+            UdpConnectError::ProxyProtocolWriteFailed(_)
+        ));
+
+        let socks: UdpConnectError =
+            NestedTcpConnectError::SocksConnectError(SocksConnectError::AuthFailed).into();
+        match socks {
+            UdpConnectError::NegotiationRejected(reason) => {
+                assert!(reason.contains("auth failed"));
+            }
+            other => panic!("unexpected error: {other}"),
+        }
+
+        let closed: UdpConnectError = HttpConnectError::RemoteClosed.into();
+        assert!(matches!(closed, UdpConnectError::NegotiationReadFailed(_)));
+
+        let read: UdpConnectError = HttpConnectError::ReadFailed(io::Error::other("read")).into();
+        assert!(matches!(read, UdpConnectError::NegotiationReadFailed(_)));
+
+        let wrote: UdpConnectError =
+            HttpConnectError::WriteFailed(io::Error::other("write")).into();
+        assert!(matches!(wrote, UdpConnectError::NegotiationWriteFailed(_)));
+
+        let protocol: UdpConnectError =
+            HttpConnectError::InvalidResponse(HttpConnectResponseError::UnexpectedTransferEncoding)
+                .into();
+        assert!(matches!(protocol, UdpConnectError::NegotiationProtocolErr));
+
+        let rejected: UdpConnectError =
+            HttpConnectError::UnexpectedStatusCode(502, "bad gateway".to_string()).into();
+        match rejected {
+            UdpConnectError::NegotiationRejected(reason) => {
+                assert!(reason.contains("502"));
+                assert!(reason.contains("bad gateway"));
+            }
+            other => panic!("unexpected error: {other}"),
+        }
+
+        let peer_timeout: UdpConnectError = HttpConnectError::PeerTimeout(408).into();
+        assert!(matches!(
+            peer_timeout,
+            UdpConnectError::NegotiationPeerTimeout
+        ));
+    }
+}
+
 impl From<HttpUpgradeError> for UdpConnectError {
     fn from(e: HttpUpgradeError) -> Self {
         match e {
