@@ -320,6 +320,21 @@ Common capabilities include:
     - mTLS
     - Passive peer health for the resolved proxy address
 
+- Stack HTTP
+    - Reach an upstream HTTP proxy through another escaper
+    - TCP CONNECT / TLS CONNECT / HTTP(S) forward
+    - PROXY Protocol
+    - Load balancing: RR / Random / Rendezvous / Jump Hash
+    - Basic user authentication
+
+- Stack HTTPS
+    - Reach an upstream HTTPS proxy through another escaper
+    - TCP CONNECT / TLS CONNECT / HTTP(S) forward
+    - PROXY Protocol
+    - Load balancing: RR / Random / Rendezvous / Jump Hash
+    - Basic user authentication
+    - mTLS
+
 - SOCKS5(S) Proxy
     - TCP CONNECT / TLS CONNECT / HTTP(S) forward / UDP ASSOCIATE
     - Load balancing: RR / Random / Rendezvous / Jump Hash

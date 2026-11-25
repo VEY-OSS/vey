@@ -30,6 +30,8 @@ Escapers
    proxy_float
    proxy_http
    proxy_https
+   stack_http
+   stack_https
    proxy_socks5
    proxy_socks5s
    route_mapping
