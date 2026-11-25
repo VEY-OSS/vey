@@ -222,6 +222,25 @@ impl From<UdpConnectError> for ServerTaskError {
     }
 }
 
+impl From<HttpUpgradeError> for UdpConnectError {
+    fn from(e: HttpUpgradeError) -> Self {
+        match e {
+            HttpUpgradeError::RemoteClosed => UdpConnectError::NegotiationReadFailed(
+                io::Error::new(io::ErrorKind::UnexpectedEof, "early eof"),
+            ),
+            HttpUpgradeError::ReadFailed(e) => UdpConnectError::NegotiationReadFailed(e),
+            HttpUpgradeError::WriteFailed(e) => UdpConnectError::NegotiationWriteFailed(e),
+            HttpUpgradeError::InvalidResponse(_) => UdpConnectError::NegotiationProtocolErr,
+            HttpUpgradeError::UnexpectedStatusCode(code, reason) => {
+                UdpConnectError::NegotiationRejected(format!(
+                    "rejected by remote proxy with response {code} {reason}"
+                ))
+            }
+            HttpUpgradeError::PeerTimeout(_) => UdpConnectError::NegotiationPeerTimeout,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io;
@@ -322,24 +341,5 @@ mod tests {
             peer_timeout,
             UdpConnectError::NegotiationPeerTimeout
         ));
-    }
-}
-
-impl From<HttpUpgradeError> for UdpConnectError {
-    fn from(e: HttpUpgradeError) -> Self {
-        match e {
-            HttpUpgradeError::RemoteClosed => UdpConnectError::NegotiationReadFailed(
-                io::Error::new(io::ErrorKind::UnexpectedEof, "early eof"),
-            ),
-            HttpUpgradeError::ReadFailed(e) => UdpConnectError::NegotiationReadFailed(e),
-            HttpUpgradeError::WriteFailed(e) => UdpConnectError::NegotiationWriteFailed(e),
-            HttpUpgradeError::InvalidResponse(_) => UdpConnectError::NegotiationProtocolErr,
-            HttpUpgradeError::UnexpectedStatusCode(code, reason) => {
-                UdpConnectError::NegotiationRejected(format!(
-                    "rejected by remote proxy with response {code} {reason}"
-                ))
-            }
-            HttpUpgradeError::PeerTimeout(_) => UdpConnectError::NegotiationPeerTimeout,
-        }
     }
 }
